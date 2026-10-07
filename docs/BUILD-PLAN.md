@@ -472,7 +472,7 @@ The server and the web mock both build issues with `toApiIssues`, and the web cl
   A form result with `awaiting_email_confirmation` sets `awaitingConfirmationSince` and writes `awaiting_confirmation` from the recipe's `email_confirmation` step or `FormResult.confirmationFrom`.
   Either sender is kept only when it is the same organizational domain as the target or is in the target's curated `replyDomains`, and never a shared host.
   A sender that merely belongs to some other target in the dataset does not count, because a company platform that relays user content would then vouch for mail it does not control.
-  Broker `replyDomains` live in `packages/brokers/data/reply-domains.yaml` with a note each, and `pnpm data:build` fails when a bundled recipe's `email_confirmation` `fromDomain` is neither its broker's own site nor one of those domains.
+  Broker `replyDomains` live in `packages/brokers/data/reply-domains.yaml` with a note each, and `pnpm data:build` fails when a bundled recipe's `email_confirmation` `fromDomain` is neither in its broker's own organizational domain nor one of those domains.
   The task timeline events are written by `core/task-audit.ts`; handlers do not write them.
   A person's result from `POST /tasks/:id/mark-done` reaches handlers as the task result, null when they gave none.
 - Scans routes and the review routes in 4.4, including deciding matches (`mine` calls `requests.open` for a form request with the record URL and the body's `rights`), classifying messages by hand, `GET /messages/:id`, `POST /tasks/:id/hand-off` (`dispatch.handToAgent`), and `POST /tasks/:id/retry` (dispatch the task's request again, or its scan).

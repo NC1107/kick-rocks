@@ -1,7 +1,7 @@
 # Sister domains that a broker's confirmation emails come from, curated by hand.
 # A confirmation sender counts only when it is the broker's own organization or listed here, so
-# every bundled recipe whose email_confirmation fromDomain is not the broker's own site needs an
-# entry. `pnpm data:build` fails when one is missing.
+# every bundled recipe whose email_confirmation fromDomain is not in the broker's own
+# organizational domain needs an entry. `pnpm data:build` fails when one is missing.
 reply_domains:
   - broker: intelius
     domains: [peopleconnect.us]

@@ -33,7 +33,7 @@ export function unpairedRecipeSenders(
       const trusted = isTrustedConfirmationDomain(from, broker.domain, broker.replyDomains ?? []);
       if (!trusted) {
         problems.push(
-          `${recipe.id} waits for mail from ${from}, which is neither ${broker.domain} nor a curated reply domain of ${brokerId}; add it to data/reply-domains.yaml`,
+          `${recipe.id} waits for mail from ${from}, which is neither in the organizational domain of ${broker.domain} nor a curated reply domain of ${brokerId}; add it to data/reply-domains.yaml`,
         );
       }
     }
