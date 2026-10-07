@@ -11,7 +11,10 @@ import type { AppError } from "./errors.js";
 import {
   DEFAULT_LAPSED_HOLDER_GRACE_MS,
   DEFAULT_MAX_ATTEMPTS,
-  retryDelayMs, TASK_PRIORITY, type TaskQueue } from "./task-queue.js";
+  retryDelayMs,
+  TASK_PRIORITY,
+  type TaskQueue,
+} from "./task-queue.js";
 import type { TaskEvent } from "./task-types.js";
 
 let ctx: TestContext;
@@ -659,9 +662,7 @@ describe("reapExpiredLeases", () => {
       status: "queued",
       leaseOwner: "worker-1",
       lastError: "The lease expired",
-      runAfter: new Date(
-        ctx.clock.now().getTime() + DEFAULT_LAPSED_HOLDER_GRACE_MS,
-      ).toISOString(),
+      runAfter: new Date(ctx.clock.now().getTime() + DEFAULT_LAPSED_HOLDER_GRACE_MS).toISOString(),
     });
   });
 
@@ -1135,7 +1136,11 @@ describe("a report after the lease was reaped", () => {
     const other = queue.claim({ workerId: "worker-2", kinds: ["email_send"], leaseMs: MINUTE });
     if (other) submissions.push("worker-2");
     ctx.clock.advance(2 * MINUTE);
-    const stillOther = queue.claim({ workerId: "worker-2", kinds: ["email_send"], leaseMs: MINUTE });
+    const stillOther = queue.claim({
+      workerId: "worker-2",
+      kinds: ["email_send"],
+      leaseMs: MINUTE,
+    });
     if (stillOther) submissions.push("worker-2");
 
     expect(queue.complete(task.id, { ...worker, result: {}, actor: "worker" }).status).toBe("done");

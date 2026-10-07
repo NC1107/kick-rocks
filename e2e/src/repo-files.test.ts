@@ -180,7 +180,7 @@ describe("install.sh", () => {
   });
 
   it("strips double and single quotes around a value, as compose does", () => {
-    expect(urlFor('KICKROCKS_BIND_ADDRESS="192.168.1.20"\nKICKROCKS_HOST_PORT=\'9000\'\n')).toBe(
+    expect(urlFor("KICKROCKS_BIND_ADDRESS=\"192.168.1.20\"\nKICKROCKS_HOST_PORT='9000'\n")).toBe(
       "http://192.168.1.20:9000",
     );
     expect(urlFor("KICKROCKS_PUBLIC_URL='https://kickrocks.example.org/'\n")).toBe(

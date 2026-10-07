@@ -199,12 +199,7 @@ export interface TaskQueue {
    * than `waitingUntil`. A task that waits out a recovered lease keeps its grace. Returns how
    * many it moved.
    */
-  pullForward(input: {
-    kind: TaskKind;
-    profileId: string;
-    waitingUntil: Date;
-    to: Date;
-  }): number;
+  pullForward(input: { kind: TaskKind; profileId: string; waitingUntil: Date; to: Date }): number;
   /** Puts a blocked task back in the queue with a fresh attempt budget. */
   resume(id: string, actor?: RequestActor): Task;
   /** A person did the work by hand: closes a blocked task as done. */

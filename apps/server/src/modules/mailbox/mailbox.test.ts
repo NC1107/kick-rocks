@@ -616,9 +616,7 @@ describe("the send pause", () => {
       runAfter: until,
     });
     await ctx.call(API_ROUTES.mailboxTest, { params: { id: profile.id }, body: TEST_BODY });
-    expect(ctx.services.taskQueue.getOrThrow(task.id).runAfter).toBe(
-      ctx.clock.now().toISOString(),
-    );
+    expect(ctx.services.taskQueue.getOrThrow(task.id).runAfter).toBe(ctx.clock.now().toISOString());
   });
 
   it("is kept by a connection test that fails", async () => {
