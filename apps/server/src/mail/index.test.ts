@@ -1,33 +1,70 @@
-import { NotImplementedError } from "@kickrocks/shared";
 import { describe, expect, it } from "vitest";
 import { loadConfig } from "../config.js";
 import { createMailServices } from "./index.js";
 
-const mail = createMailServices(loadConfig({}), {} as never);
 const connection = {
   address: "jordan@example.com",
   username: "jordan@example.com",
   password: "app-password",
-  smtpHost: "smtp.example.com",
+  smtpHost: "smtp.example.test",
   smtpPort: 587,
   smtpSecure: false,
-  imapHost: "imap.example.com",
+  imapHost: "imap.example.test",
   imapPort: 993,
 };
 
-describe("createMailServices stub", () => {
-  it("rejects every call with NotImplementedError", async () => {
-    await expect(mail.transport(connection).verify()).rejects.toThrow(NotImplementedError);
-    await expect(mail.transport(connection).send({} as never)).rejects.toThrow(NotImplementedError);
-    await expect(mail.inbox(connection).listFolders()).rejects.toThrow(NotImplementedError);
-    await expect(
-      mail.inbox(connection).fetchSince("INBOX", null, null, { since: null, limit: 10 }),
-    ).rejects.toThrow(/InboxSource.fetchSince is not implemented yet/);
-    await expect(mail.classifier.classify({} as never, { requests: [] })).rejects.toThrow(
-      NotImplementedError,
+describe("createMailServices", () => {
+  it("builds a transport and an inbox for each connection", () => {
+    const mail = createMailServices(loadConfig({}), { get: () => null } as never);
+    expect(Object.keys(mail.transport(connection)).sort()).toEqual(["send", "verify"]);
+    expect(Object.keys(mail.inbox(connection)).sort()).toEqual(["fetchSince", "listFolders"]);
+  });
+
+  it("gives the link follower the configured private hosts", async () => {
+    const mail = createMailServices(
+      loadConfig({ KICKROCKS_ALLOW_PRIVATE_LINK_HOSTS: "broker.test" }),
+      { get: () => null } as never,
+      {
+        resolve: async () => [{ address: "10.0.0.9", family: 4 }],
+      },
     );
-    await expect(mail.linkFollower.follow("https://example.com", [])).rejects.toThrow(
-      NotImplementedError,
+    // Allowed to resolve privately, so the failure is the connection, not the address check.
+    const allowed = await mail.linkFollower.follow("http://broker.test:1/x", ["broker.test"]);
+    expect(allowed.reason).not.toMatch(/private/);
+
+    const refused = await mail.linkFollower.follow("http://other.test/x", ["other.test"]);
+    expect(refused.reason).toMatch(/private or local/);
+  });
+
+  it("reads the language model setting when each message is classified", async () => {
+    let reads = 0;
+    const mail = createMailServices(loadConfig({}), {
+      get: () => {
+        reads += 1;
+        return null;
+      },
+    } as never);
+    const message = {
+      uid: 1,
+      messageId: null,
+      inReplyTo: null,
+      references: [],
+      from: { name: null, address: "x@else.test" },
+      to: [],
+      subject: "Hello",
+      date: null,
+      text: "Hmm",
+      html: null,
+      isBounce: false,
+      autoSubmitted: false,
+      headers: {},
+    };
+    await mail.classifier.classify(message, { requests: [] });
+    expect(reads).toBe(0);
+    await mail.classifier.classify(
+      { ...message, text: "Your data has been deleted." },
+      { requests: [] },
     );
+    expect(reads).toBe(1);
   });
 });
