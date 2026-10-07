@@ -1,9 +1,11 @@
+import { matches, scans } from "@kickrocks/db";
 import {
   API_ROUTES,
   type ClaimedTask,
   SCREENSHOT_BODY_LIMIT_BYTES,
   WORKER_DEFAULT_KINDS,
 } from "@kickrocks/shared";
+import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   createTestContext,
@@ -478,5 +480,94 @@ describe("decodeScreenshot", () => {
     expect(() =>
       decodeScreenshot({ mime: "image/jpeg", dataBase64: PNG.toString("base64") }),
     ).toThrow(/image\/jpeg/);
+  });
+});
+
+describe("a lapsed holder reporting on a scan after its last lease expired", () => {
+  const LEASE_MS = 60_000;
+  const GRACE_MS = 10 * 60 * 1000;
+
+  /** Claims and abandons the task until its attempts are spent and the expiry failure is recorded. */
+  async function letEveryLeaseExpire(kinds: string[]) {
+    let claimed: ClaimedTask | null = null;
+    for (let attempt = 1; attempt <= 3; attempt += 1) {
+      ctx.clock.advance(GRACE_MS);
+      claimed = (await claim({ kinds, leaseMs: LEASE_MS })) as ClaimedTask;
+      expect(claimed).not.toBeNull();
+      ctx.clock.advance(LEASE_MS + 1);
+      ctx.services.taskQueue.reapExpiredLeases();
+    }
+    return claimed as ClaimedTask;
+  }
+
+  const scanOfTask = (taskId: string) =>
+    ctx.services.db.select().from(scans).where(eq(scans.taskId, taskId)).get();
+  const allMatches = () => ctx.services.db.select().from(matches).all();
+
+  function candidatesOn(domain: string) {
+    return [{ recordUrl: `https://${domain}/p/jordan`, name: "Jordan Example", locations: [] }];
+  }
+
+  it("lets a late scan result replace the expiry failure and create matches", async () => {
+    const target = queueScan();
+    const task = await letEveryLeaseExpire(["scan"]);
+    expect(scanOfTask(task.id)).toMatchObject({ error: "The lease expired" });
+    expect(allMatches()).toHaveLength(0);
+
+    const late = await ctx.call(API_ROUTES.workerTaskComplete, {
+      params: { id: task.id },
+      body: { workerId: "worker-1", result: { candidates: candidatesOn(target.domain) } },
+    });
+    expect(late.ok).toBe(true);
+    expect(scanOfTask(task.id)).toMatchObject({ error: null, finishedAt: expect.any(String) });
+    expect(allMatches()).toHaveLength(1);
+  });
+
+  it("lets a late agent scan result replace the expiry failure and create matches", async () => {
+    const target = seedTarget(ctx, { category: "people-search" });
+    ctx.services.dispatch.enqueueScan(profileId, target.id);
+    const task = await letEveryLeaseExpire(["agent"]);
+    expect(scanOfTask(task.id)).toMatchObject({ error: "The lease expired" });
+
+    const late = await ctx.call(API_ROUTES.workerTaskComplete, {
+      params: { id: task.id },
+      body: {
+        workerId: "worker-1",
+        result: { purpose: "scan", scan: { candidates: candidatesOn(target.domain) } },
+      },
+    });
+    expect(late.ok).toBe(true);
+    expect(scanOfTask(task.id)).toMatchObject({ error: null, finishedAt: expect.any(String) });
+    expect(allMatches()).toHaveLength(1);
+  });
+
+  it("hands a late recipe failure to an agent whose result lands", async () => {
+    const target = queueScan();
+    const task = await letEveryLeaseExpire(["scan"]);
+
+    const failed = await ctx.call(API_ROUTES.workerTaskFail, {
+      params: { id: task.id },
+      body: { workerId: "worker-1", error: "selector gone", retryable: false, kind: "recipe" },
+    });
+    expect(failed.ok).toBe(true);
+    const handedOver = ctx.services.db.select().from(scans).get();
+    expect(handedOver).toMatchObject({ error: null, finishedAt: null });
+    expect(ctx.services.taskQueue.getOrThrow(handedOver?.taskId as string)).toMatchObject({
+      kind: "agent",
+      status: "queued",
+    });
+
+    ctx.clock.advance(GRACE_MS);
+    const agent = (await claim({ workerId: "agent-1", kinds: ["agent"] })) as ClaimedTask;
+    const done = await ctx.call(API_ROUTES.workerTaskComplete, {
+      params: { id: agent.id },
+      body: {
+        workerId: "agent-1",
+        result: { purpose: "scan", scan: { candidates: candidatesOn(target.domain) } },
+      },
+    });
+    expect(done.ok).toBe(true);
+    expect(scanOfTask(agent.id)).toMatchObject({ error: null, finishedAt: expect.any(String) });
+    expect(allMatches()).toHaveLength(1);
   });
 });

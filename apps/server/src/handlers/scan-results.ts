@@ -134,6 +134,12 @@ function recordMatches(
   }
 }
 
+/**
+ * A scan that ended in failure is not final while its task can still report: a holder whose lease
+ * ran out on the last attempt may yet deliver the real result, which beats the expiry failure.
+ */
+const endedInFailure = (scan: ScanRow) => scan.finishedAt !== null && scan.error !== null;
+
 function finishScan(
   services: AppServices,
   tx: DbHandle,
@@ -141,7 +147,7 @@ function finishScan(
   candidates: readonly Candidate[],
 ): void {
   const scan = scanOf(tx, taskId);
-  if (!scan || scan.finishedAt !== null) return;
+  if (!scan || (scan.finishedAt !== null && !endedInFailure(scan))) return;
   tx.update(scans)
     .set({
       finishedAt: services.clock.now().toISOString(),
@@ -153,9 +159,16 @@ function finishScan(
   recordMatches(services, tx, scan, candidates);
 }
 
+/** Puts a scan that was marked failed back to running, for the agent that takes the work over. */
+function reopenScan(tx: DbHandle, taskId: string): void {
+  const scan = scanOf(tx, taskId);
+  if (!scan || !endedInFailure(scan)) return;
+  tx.update(scans).set({ finishedAt: null, error: null }).where(eq(scans.id, scan.id)).run();
+}
+
 function failScan(services: AppServices, tx: DbHandle, task: ScanTask): void {
   const scan = scanOf(tx, task.id);
-  if (!scan || scan.finishedAt !== null) return;
+  if (!scan || (scan.finishedAt !== null && !endedInFailure(scan))) return;
   tx.update(scans)
     .set({
       finishedAt: services.clock.now().toISOString(),
@@ -183,6 +196,7 @@ export function registerScanHandlers(services: AppServices): void {
   taskHandlers.on("scan", "failed", ({ task }, tx) => {
     if (task.failureKind === "recipe") {
       recordRecipeRun(services, tx, task.payload.recipeId, false);
+      reopenScan(tx, task.id);
       if (handToAgentAfterRecipeFailure(services, task)) return;
     }
     failScan(services, tx, task);
