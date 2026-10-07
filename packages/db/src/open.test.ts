@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -36,6 +36,14 @@ describe("loadOrCreateKey", () => {
     writeFileSync(keyPath, "not-a-key\n");
     expect(() => loadOrCreateKey(keyPath)).toThrow(/not a 32-byte hex key/);
   });
+
+  it("takes access away from other users when it loads a key they could read", () => {
+    const keyPath = join(dir, "db.key");
+    loadOrCreateKey(keyPath);
+    chmodSync(keyPath, 0o644);
+    loadOrCreateKey(keyPath);
+    expect(statSync(keyPath).mode & 0o777).toBe(0o600);
+  });
 });
 
 describe("openDatabase", () => {
@@ -60,9 +68,31 @@ describe("openDatabase", () => {
     const dbPath = join(dir, "kickrocks.db");
     const opened = openDatabase({ dbPath, keyPath: join(dir, "a.key") });
     opened.close();
+    loadOrCreateKey(join(dir, "b.key"));
     expect(() => openDatabase({ dbPath, keyPath: join(dir, "b.key") })).toThrow(
       /wrong key or corrupt file/,
     );
+  });
+
+  it("does not invent a new key for a database whose key file is gone", () => {
+    const dbPath = join(dir, "kickrocks.db");
+    const keyPath = join(dir, "db.key");
+    openDatabase({ dbPath, keyPath }).close();
+    rmSync(keyPath);
+    expect(() => openDatabase({ dbPath, keyPath })).toThrow(
+      /Key file missing for an existing database/,
+    );
+    expect(() => statSync(keyPath)).toThrow();
+  });
+
+  it("keeps temporary tables and sort spills in memory, where they are never written to disk", () => {
+    const opened = openDatabase({
+      dbPath: join(dir, "kickrocks.db"),
+      keyPath: join(dir, "db.key"),
+    });
+    // 2 is MEMORY; the bundled build would otherwise use temp files, which are not encrypted.
+    expect(opened.db.$client.pragma("temp_store", { simple: true })).toBe(2);
+    opened.close();
   });
 
   it("stores no plaintext on disk", () => {

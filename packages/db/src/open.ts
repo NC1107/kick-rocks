@@ -1,5 +1,5 @@
 import { randomBytes } from "node:crypto";
-import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import Database from "better-sqlite3";
@@ -35,6 +35,7 @@ export function loadOrCreateKey(keyPath: string): string {
     if (!/^[0-9a-f]{64}$/i.test(hex)) {
       throw new Error(`Key file ${keyPath} is not a 32-byte hex key`);
     }
+    restrictToOwner(keyPath);
     return hex.toLowerCase();
   }
   mkdirSync(dirname(keyPath), { recursive: true });
@@ -44,7 +45,33 @@ export function loadOrCreateKey(keyPath: string): string {
   return hex;
 }
 
+/**
+ * The key file is the only thing standing between a stolen database and its contents, so a mode
+ * that lets other users read it is repaired rather than trusted.
+ */
+function restrictToOwner(keyPath: string): void {
+  if ((statSync(keyPath).mode & 0o077) === 0) return;
+  try {
+    chmodSync(keyPath, 0o600);
+  } catch (error) {
+    throw new Error(`Key file ${keyPath} can be read by other users and its mode cannot be fixed`, {
+      cause: error,
+    });
+  }
+}
+
+/** A database with a missing key can never be opened again, so a fresh key would only hide that. */
+function assertKeyPresentForExistingDatabase(options: OpenDatabaseOptions): void {
+  const hasData = existsSync(options.dbPath) && statSync(options.dbPath).size > 0;
+  if (hasData && !existsSync(options.keyPath)) {
+    throw new Error(
+      `Key file missing for an existing database: ${options.dbPath} is encrypted and ${options.keyPath} does not exist. Restore the key file that was backed up with the database.`,
+    );
+  }
+}
+
 export function openDatabase(options: OpenDatabaseOptions): OpenedDatabase {
+  assertKeyPresentForExistingDatabase(options);
   const keyHex = loadOrCreateKey(options.keyPath);
   mkdirSync(dirname(options.dbPath), { recursive: true });
   const sqlite = new Database(options.dbPath);
@@ -59,6 +86,8 @@ export function openDatabase(options: OpenDatabaseOptions): OpenedDatabase {
       cause: error,
     });
   }
+  // Sort spills and temporary tables would otherwise land in temp files, which are not encrypted.
+  sqlite.pragma("temp_store = MEMORY");
   sqlite.pragma("journal_mode = WAL");
   sqlite.pragma("foreign_keys = ON");
   const db = drizzle(sqlite, { schema });
