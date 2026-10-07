@@ -250,7 +250,7 @@ Tables and the columns that matter:
 
 ### 4.3 Server structure (`apps/server`)
 
-- `config.ts` adds `KICKROCKS_WORKER_TOKEN` (worker API disabled when unset), `KICKROCKS_EXTRA_TARGETS` (path to a JSON file of extra targets, for fixtures and power users), `KICKROCKS_EXTRA_RECIPES` (directory of extra recipe files), `KICKROCKS_SCHEDULER` (`on | off`, default on, tests use off), `KICKROCKS_PUBLIC_URL` for links shown in the UI, `KICKROCKS_TRUST_PROXY` (`on | off`, default off, for running behind a reverse proxy; read as `config.trustProxy` and passed to Fastify), and `KICKROCKS_ALLOW_PRIVATE_LINK_HOSTS`, a comma separated list of hostnames the link follower may reach even on a private or loopback address (empty by default; the end-to-end suite lists its fixture broker site), exposed as `config.linkFollower.allowedPrivateHosts`.
+- `config.ts` adds `KICKROCKS_WORKER_TOKEN` (worker API disabled when unset), `KICKROCKS_EXTRA_TARGETS` (path to a JSON file of extra targets, for fixtures and power users), `KICKROCKS_EXTRA_RECIPES` (directory of extra recipe files), `KICKROCKS_SCHEDULER` (`on | off`, default on, tests use off), `KICKROCKS_PUBLIC_URL` for links shown in the UI, `KICKROCKS_TRUST_PROXY` (`on | off`, default off, for running behind a reverse proxy; read as `config.trustProxy` and passed to Fastify), and `KICKROCKS_ALLOW_PRIVATE_LINK_HOSTS`, a comma separated list of hostnames the link follower may reach even on a private or loopback address (empty by default; the end-to-end suite lists its fixture broker site), exposed as `config.linkFollower.allowedPrivateHosts`, `KICKROCKS_PLAINTEXT_MAIL_HOSTS`, a comma separated list of hostnames the mailbox may reach without TLS besides this machine (empty by default; the development stack lists GreenMail), and `KICKROCKS_SEND_GAP_MS`, the pause between sends as `<ms>` or `<min>-<max>` (default 20 to 60 seconds; the development stack sets 0).
 - `services.ts` builds one `AppServices` object: config, db, clock, logger, `taskQueue`, `requests`, `targets`, `dispatch`, `composer`, `mailQuota`, `startup`, `secrets`, `taskHandlers`, `recipeHealth`, `settings`, `mail` (from `createMailServices`), `legal` (the `@kickrocks/legal` exports), `auth`.
   Feature code receives services as an argument and never builds its own.
 - Every module in `src/modules/<name>/index.ts` exports a Fastify plugin `(app, services) => void` registered under `/api`.
@@ -545,3 +545,10 @@ Target browser and detail, the campaign builder with one-click presets and an em
 After the feature branches merge, the full flow must work through the real UI against a local stack: server, worker, GreenMail, and a fixture broker site with test-only targets and recipes loaded through `KICKROCKS_EXTRA_TARGETS` and `KICKROCKS_EXTRA_RECIPES`.
 The flow: set the password, create a profile, connect the GreenMail mailbox, run a one-click campaign, see requests sent, inject broker replies (completed, confirmation link, bounce, verification needed), poll, watch statuses change, run a scan against the fixture site, confirm a match, watch the worker remove it, hit a CAPTCHA fixture, resolve it from the review queue, and claim and complete an agent task over MCP.
 The end-to-end suite lives in `e2e/` and runs with `pnpm e2e`.
+
+### Development stack and suite
+
+`docker-compose.dev.yml` runs the server, the worker, GreenMail, a fixture broker site, and an `edge` forwarder.
+Every container but `edge` is on an internal network with no route out, so the stack cannot reach a real mail server or a real broker site.
+`e2e/` holds the suite (`pnpm e2e`), the fixture site (`e2e/fixtures/site`), and the test-only targets and recipes (`e2e/fixtures/targets.json`, `e2e/fixtures/recipes`).
+The suite checks that no container can open a connection to the internet.
