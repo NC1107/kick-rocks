@@ -353,6 +353,23 @@ describe("a remove recipe that reaches the record the person confirmed", () => {
       expect(withSteps([recordRemove.steps[0], click, onlyNegative]).join()).toMatch(message);
     });
 
+    it("lets a recipe that can only end blocked stop before its submit completes", () => {
+      const onlyBlocked = {
+        kind: "outcome_when",
+        when: [{ text: "phone", outcome: "blocked", reason: "phone_verification" }],
+      };
+      expect(withSteps([recordRemove.steps[0], click, onlyBlocked])).toEqual([]);
+    });
+
+    it("does not let a blocked outcome_when in the middle excuse a missing proof", () => {
+      const onlyBlocked = {
+        kind: "outcome_when",
+        when: [{ text: "phone", outcome: "blocked", reason: "phone_verification" }],
+      };
+      const steps = [recordRemove.steps[0], click, onlyBlocked, recordRemove.steps[0]];
+      expect(withSteps(steps).join()).toMatch(message);
+    });
+
     it("does not ask a scan recipe for proof", () => {
       expect(failure(scanRecipe)).toEqual([]);
     });

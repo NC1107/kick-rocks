@@ -1,14 +1,9 @@
+import { readFileSync } from "node:fs";
 import type { Browser, Page } from "playwright";
 import { afterAll, afterEach, beforeAll, beforeEach, expect, it } from "vitest";
-import { runRecipe } from "../src/index.js";
+import { BUNDLED_RECIPES_DIR, loadRecipesFromDir, runRecipe } from "../src/index.js";
 import { type FixtureServer, startFixtureServer } from "./fixture-server.js";
-import {
-  describeBrowser,
-  FAST,
-  launchTestBrowser,
-  makeRecipe,
-  type RecipeSpec,
-} from "./support.js";
+import { describeBrowser, FAST, launchTestBrowser } from "./support.js";
 
 let server: FixtureServer;
 let browser: Browser;
@@ -32,63 +27,82 @@ afterEach(async () => {
   await page.context().close();
 });
 
-const button = (name: string) => ({ role: "button", label: name });
+const recipe = (() => {
+  const found = loadRecipesFromDir(BUNDLED_RECIPES_DIR, "bundled").recipes.find(
+    (loaded) => loaded.recipe.id === "whitepages.remove.v2",
+  );
+  if (!found) throw new Error("whitepages.remove.v2 is not bundled");
+  return found.recipe;
+})();
 
-/** The shape of the Whitepages recipe: a wizard that ends on a code a person reads out on a call. */
-const wizardSteps: RecipeSpec["steps"] = [
-  { kind: "fill", target: { css: "#listing-url" }, field: "record_url" },
-  { kind: "click", target: button("Next") },
-  {
-    kind: "outcome_when",
-    when: [{ text: "not able to locate the listing", outcome: "not_found" }],
-  },
-  { kind: "wait_for", target: { text: "Is this the person you want to remove?" } },
-  { kind: "click", target: button("Remove Me") },
-  { kind: "wait_for", target: { text: "Please tell us why" } },
-  {
-    kind: "select",
-    target: { css: "select.select" },
-    value: "I just want to keep my information private",
-  },
-  { kind: "click", target: button("Next") },
-  { kind: "wait_for", target: { text: "Verify your identity with a phone call" } },
-  { kind: "fill", target: { css: '[data-qa-selector="phone-number"]' }, field: "phone" },
-  { kind: "check", target: { css: 'input.checkbox[type="checkbox"]' } },
-  { kind: "click", target: button("Call now to verify") },
-  {
-    kind: "outcome_when",
-    when: [
-      { text: "Your request to opt out has been accepted", outcome: "submitted" },
-      { text: "Your verification code", outcome: "blocked", reason: "phone_verification" },
-    ],
-  },
-];
+const WIZARD_HTML = readFileSync(new URL("./fixtures/wizard/index.html", import.meta.url), "utf8");
+
+interface Site {
+  /** How long the lookup of a listing that does not exist takes to fail. */
+  notFoundDelayMs: number;
+  phoneCalls: number;
+}
+
+/** Serves the fixture as the Whitepages suppression page, so the bundled recipe is what runs. */
+async function serveWhitepages(site: Site) {
+  await page.route("https://www.whitepages.com/**", async (route) => {
+    const url = new URL(route.request().url());
+    if (url.pathname === "/suppression-requests") {
+      return route.fulfill({ contentType: "text/html", body: WIZARD_HTML });
+    }
+    if (url.pathname === "/api/person/details") {
+      if ((url.searchParams.get("url") ?? "").includes("/name/")) {
+        return route.fulfill({ contentType: "application/json", body: "{}" });
+      }
+      await new Promise((resolve) => setTimeout(resolve, site.notFoundDelayMs));
+      return route.fulfill({ status: 404, body: "" });
+    }
+    if (url.pathname === "/api/suppression-requests/submit-phone") {
+      site.phoneCalls += 1;
+      return route.fulfill({ contentType: "application/json", body: "{}" });
+    }
+    return route.fulfill({ status: 404, body: "" });
+  });
+}
 
 function runWizard(recordUrl: string) {
   return runRecipe({
     page,
-    recipe: makeRecipe({
-      origin: server.origin,
-      entry: "/wizard/index",
-      fields: ["record_url", "phone"],
-      steps: wizardSteps,
-    }),
-    fields: { record_url: recordUrl, phone: "555-0100" },
-    targetDomain: "127.0.0.1",
+    recipe,
+    fields: { record_url: recordUrl },
+    targetDomain: "www.whitepages.com",
     ...FAST,
   });
 }
 
-describeBrowser("a five step opt-out wizard", () => {
-  it("walks every step and hands the verification call to a person", async () => {
-    const outcome = await runWizard("https://www.example.com/name/Jordan-Example/Austin-TX/P1");
+describeBrowser("the bundled Whitepages removal", () => {
+  it("stops at the phone step before any number is typed or call is placed", async () => {
+    const site: Site = { notFoundDelayMs: 0, phoneCalls: 0 };
+    await serveWhitepages(site);
+    const outcome = await runWizard("https://www.whitepages.com/name/Jordan-Example/Austin-TX/P1");
     expect(outcome).toMatchObject({ status: "blocked", reason: "phone_verification" });
-    expect(await page.textContent("#code")).toBe("4821");
+    expect(await page.locator("#step4").isVisible()).toBe(true);
+    expect(
+      await page.locator('[data-qa-selector="suppression-requests-phone-number"]').inputValue(),
+    ).toBe("");
+    expect(await page.locator("#affirm").isChecked()).toBe(false);
+    expect(site.phoneCalls).toBe(0);
+  });
+
+  it("does not ask for the phone number", () => {
+    expect(recipe.fields).toEqual(["record_url"]);
   });
 
   it("ends as not found when the site cannot match the listing URL", async () => {
-    const outcome = await runWizard("https://www.example.com/somewhere-else");
+    await serveWhitepages({ notFoundDelayMs: 0, phoneCalls: 0 });
+    const outcome = await runWizard("https://www.whitepages.com/somewhere-else");
     expect(outcome).toEqual({ status: "completed", result: { outcome: "not_found" } });
     expect(await page.locator("#step2").isHidden()).toBe(true);
+  });
+
+  it("still ends as not found when the failed lookup is slower than the settle time", async () => {
+    await serveWhitepages({ notFoundDelayMs: 1200, phoneCalls: 0 });
+    const outcome = await runWizard("https://www.whitepages.com/somewhere-else");
+    expect(outcome).toEqual({ status: "completed", result: { outcome: "not_found" } });
   });
 });
