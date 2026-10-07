@@ -236,16 +236,20 @@ Consequences: a stolen database file is useless without the key file; the key fi
 
 ### ADR-008: Dataset licensing
 
-Context: the best public lists have incompatible licenses.
-Decision: bundle only permissively licensed data (Eraser's MIT broker list, the public California registry) and entries we author ourselves.
-The Big Ass Data Broker Opt-Out List (CC BY-NC-SA) and Simple Opt Out (no license) are references for which targets to cover, never sources of copied text.
-Consequences: more curation work and a clear provenance field on every record.
+Context: the best public lists carry different licenses.
+Eraser's broker list is MIT, the California registry is a public record, and the Big Ass Data Broker Opt-Out List (BADBOOL) is CC BY-NC-SA 4.0.
+Simple Opt Out has no license at all.
+Decision: bundle Eraser, the California registry, and BADBOOL, and keep a source and license on every record.
+BADBOOL is the most current curated source for people-search sites, and its noncommercial terms match this project's license.
+Because of the ShareAlike clause, the generated dataset file is distributed under CC BY-NC-SA 4.0 with attribution to Yael Grauer, separately from the code.
+Simple Opt Out stays a checklist of company names only; company contacts are taken from each company's own privacy pages.
+Consequences: a NOTICE file and an in-app data sources page carry the attribution, and the dataset license differs from the code license.
 
 ### ADR-009: PolyForm Noncommercial 1.0.0
 
 Context: Nick's standard license; the project may be used freely but not sold.
 Decision: PolyForm Noncommercial 1.0.0 for the code and authored data.
-Consequences: bundled third-party data must be under permissive licenses, which ADR-008 guarantees.
+Consequences: bundled third-party data must allow noncommercial redistribution, and the dataset file carries its own license per ADR-008.
 
 ### ADR-010: Playwright, with Stagehand evaluated for the agent fallback
 
