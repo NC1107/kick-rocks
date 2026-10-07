@@ -26,7 +26,8 @@ Three rules are held back or narrowed on purpose.
 The email says an opt-out of sale does not have to be authenticated only where the enacted text or regulation says so, and it cites the provision (`optOutAuthRule` in `src/statutes.ts`).
 The statements are narrower than "no proof of identity".
 California says a business "shall not require a verifiable consumer request" for an opt-out and may still ask for what it needs to identify the consumer (11 CCR 7026(d)).
-Connecticut, Delaware, Maryland, Minnesota, Montana, New Hampshire, New Jersey, and Rhode Island say a controller is not required to authenticate an opt-out request, but may deny one it documents as fraudulent.
+Connecticut, Delaware, Minnesota, Montana, New Hampshire, New Jersey, and Rhode Island say a controller is not required to authenticate an opt-out request, but may deny one it documents as fraudulent.
+Maryland (14-4605(e)(6)) says only that a controller may not be required to authenticate an opt-out request.
 Oregon says to comply "without requiring authentication", and the controller may ask for information needed to identify the consumer.
 The email therefore adds that the business should say which detail it needs to find the record.
 Colorado is left out: its statute has no such rule, and Rule 4.08 (4 CCR 904-3) requires authentication of every consumer data right request, with the exemption (Rule 5.08) limited to a universal opt-out signal.
@@ -48,7 +49,8 @@ A request the broker cannot verify is processed as an opt-out of sale or sharing
 
 `recommendDrop` tells the caller when to point the person to DROP instead of, or next to, an email.
 It recommends DROP when the person lives in California, the target is a broker registered with California, a deletion is asked for (alone or with an opt-out), and the date is on or after 2026-08-01.
-It does not recommend DROP for an opt-out alone, for a broker outside the California registry, for a company, or before the processing date.
+It does not recommend DROP for an opt-out alone, because DROP is a deletion request the person did not ask for, even though DROP also stops future sale or sharing (Civ. Code 1798.99.86(d)).
+It does not recommend it for a broker outside the California registry, for a company, or before the processing date.
 A deletion-only request to a registered broker is still emailed under the Delete Act basis, and a two-right request keeps the CCPA opt-out email while the deletion goes through DROP.
 A deletion request to a company stays a CCPA request for the data the person provided.
 

@@ -327,7 +327,7 @@ describe("recommendDrop", () => {
     });
   });
 
-  it("does not recommend it for an opt-out alone, which DROP does not carry", () => {
+  it("does not recommend it for an opt-out alone, because DROP is a deletion request the person did not ask for", () => {
     expect(recommendDrop({ ...base, rights: ["opt_out"] }).reason).toBe("no_deletion_asked");
   });
 
