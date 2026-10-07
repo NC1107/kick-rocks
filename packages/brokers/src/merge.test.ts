@@ -10,9 +10,12 @@ function broker(overrides: Partial<Broker> & Pick<Broker, "id" | "domain">): Bro
     privacyEmail: null,
     optOutUrl: null,
     privacyRightsUrl: null,
+    searchUrl: null,
     contactMethod: "unknown",
     region: "us",
     requiresId: false,
+    requirements: [],
+    priority: "normal",
     regulatedBy: [],
     collectsMinors: null,
     collectsGeolocation: null,
@@ -56,6 +59,27 @@ describe("mergeBrokers", () => {
       regulatedBy: ["fcra"],
     });
     expect(merged[0]?.sources.map((s) => s.source)).toEqual(["eraser", "ca-registry-2025"]);
+  });
+
+  it("keeps the search url, unions requirements, and takes the higher priority", () => {
+    const curated = broker({
+      id: "spokeo",
+      domain: "spokeo.com",
+      searchUrl: "https://www.spokeo.com/search",
+      requirements: ["record_url", "captcha"],
+      priority: "high",
+    });
+    const registry = broker({
+      id: "spokeo-inc",
+      domain: "spokeo.com",
+      requirements: ["captcha", "email_confirmation"],
+      priority: "crucial",
+    });
+    expect(mergeBrokers([curated], [registry])[0]).toMatchObject({
+      searchUrl: "https://www.spokeo.com/search",
+      requirements: ["record_url", "captcha", "email_confirmation"],
+      priority: "crucial",
+    });
   });
 
   it("lets a registry-only record keep its category", () => {

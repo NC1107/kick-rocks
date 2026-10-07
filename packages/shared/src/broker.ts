@@ -14,15 +14,38 @@ export type BrokerCategory = z.infer<typeof BrokerCategory>;
 export const ContactMethod = z.enum(["email", "form", "both", "unknown"]);
 export type ContactMethod = z.infer<typeof ContactMethod>;
 
-export const DataSourceId = z.enum(["eraser", "ca-registry-2025", "kickrocks"]);
+export const DataSourceId = z.enum([
+  "eraser",
+  "ca-registry-2025",
+  "badbool",
+  "kickrocks",
+  "kickrocks-companies",
+]);
 export type DataSourceId = z.infer<typeof DataSourceId>;
 
 export const DataSource = z.object({
   source: DataSourceId,
-  license: z.enum(["MIT", "public-record", "PolyForm-Noncommercial-1.0.0"]),
+  license: z.enum(["MIT", "public-record", "CC-BY-NC-SA-4.0", "PolyForm-Noncommercial-1.0.0"]),
   upstreamId: z.string().optional(),
 });
 export type DataSource = z.infer<typeof DataSource>;
+
+/** What a broker makes a person do beyond sending a request. */
+export const Requirement = z.enum([
+  "email_confirmation",
+  "phone_call",
+  "id_upload",
+  "captcha",
+  "account",
+  "paid",
+  "record_url",
+  "postal_mail",
+  "fax",
+]);
+export type Requirement = z.infer<typeof Requirement>;
+
+export const TargetPriority = z.enum(["crucial", "high", "normal"]);
+export type TargetPriority = z.infer<typeof TargetPriority>;
 
 export const RegulatoryRegime = z.enum(["fcra", "glba", "iippa", "cmia", "hipaa"]);
 export type RegulatoryRegime = z.infer<typeof RegulatoryRegime>;
@@ -49,9 +72,13 @@ export const Broker = z.object({
   privacyEmail: z.email().nullable(),
   optOutUrl: z.url().nullable(),
   privacyRightsUrl: z.url().nullable(),
+  /** Where a person finds their own record, for sites that need a record URL to remove it. */
+  searchUrl: z.url().nullable(),
   contactMethod: ContactMethod,
   region: z.enum(["us", "eu", "global"]),
   requiresId: z.boolean(),
+  requirements: z.array(Requirement),
+  priority: TargetPriority,
   regulatedBy: z.array(RegulatoryRegime),
   collectsMinors: z.boolean().nullable(),
   collectsGeolocation: z.boolean().nullable(),

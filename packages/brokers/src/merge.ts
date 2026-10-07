@@ -1,4 +1,10 @@
-import { type Broker, contactMethodFor } from "@kickrocks/shared";
+import { type Broker, contactMethodFor, type TargetPriority } from "@kickrocks/shared";
+
+const PRIORITY_RANK: Record<TargetPriority, number> = { crucial: 2, high: 1, normal: 0 };
+
+function higherPriority(a: TargetPriority, b: TargetPriority): TargetPriority {
+  return PRIORITY_RANK[a] >= PRIORITY_RANK[b] ? a : b;
+}
 
 /**
  * Eraser classifies brokers by what they do; the registry only knows they registered.
@@ -17,8 +23,11 @@ function mergePair(primary: Broker, secondary: Broker): Broker {
     privacyEmail,
     optOutUrl,
     privacyRightsUrl,
+    searchUrl: primary.searchUrl ?? secondary.searchUrl,
     contactMethod: contactMethodFor(privacyEmail, optOutUrl ?? privacyRightsUrl),
     requiresId: primary.requiresId || secondary.requiresId,
+    requirements: Array.from(new Set([...primary.requirements, ...secondary.requirements])),
+    priority: higherPriority(primary.priority, secondary.priority),
     regulatedBy: Array.from(new Set([...primary.regulatedBy, ...secondary.regulatedBy])),
     collectsMinors: primary.collectsMinors ?? secondary.collectsMinors,
     collectsGeolocation: primary.collectsGeolocation ?? secondary.collectsGeolocation,
