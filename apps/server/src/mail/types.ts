@@ -148,6 +148,12 @@ export interface ClassifierRequest {
    */
   replyDomains: string[];
   /**
+   * Only the sister domains the dataset curates for the target. A confirmation sender stored with a
+   * form wait is trusted by this list and the target's own organization, never by `replyDomains`,
+   * which also holds the host of the target's contact mailbox.
+   */
+  curatedReplyDomains: string[];
+  /**
    * Exact sender addresses to trust when the target's privacy mailbox is on a public mail
    * provider, where the domain proves nothing. A signature from that provider's domain then vouches
    * only for a message sent from one of these addresses.

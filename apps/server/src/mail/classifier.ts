@@ -81,7 +81,7 @@ function linkDomainsOf(request: ClassifierRequest): string[] {
 /** Senders a waiting form named that the target would accept. Whatever was stored is checked again. */
 function expectedSendersOf(request: ClassifierRequest): string[] {
   return (request.awaitingConfirmation?.fromDomains ?? []).filter((domain) =>
-    isTrustedConfirmationDomain(domain, request.targetDomain, request.replyDomains),
+    isTrustedConfirmationDomain(domain, request.targetDomain, request.curatedReplyDomains),
   );
 }
 

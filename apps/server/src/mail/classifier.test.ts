@@ -6,7 +6,12 @@ import {
   type ReplyClassification,
 } from "@kickrocks/shared";
 import { describe, expect, it } from "vitest";
-import { replyAddressesOfRow, replyDomainsOfRow, targetValues } from "../core/targets.js";
+import {
+  curatedReplyDomainsOfRow,
+  replyAddressesOfRow,
+  replyDomainsOfRow,
+  targetValues,
+} from "../core/targets.js";
 import { makeCompany } from "../test-utils/builders.js";
 import { noDkim, signedAs } from "../test-utils/dkim.js";
 import { createReplyClassifier } from "./classifier.js";
@@ -25,6 +30,7 @@ function request(overrides: Partial<ClassifierRequest> = {}): ClassifierRequest 
     targetName: "Acme Data",
     targetDomain: "acme.test",
     replyDomains: ["acme.test"],
+    curatedReplyDomains: [],
     replyAddresses: [],
     recordUrl: null,
     awaitingConfirmation: null,
@@ -47,6 +53,7 @@ function requestForTarget(
     targetId: row.id,
     targetDomain: row.domain,
     replyDomains: replyDomainsOfRow(row),
+    curatedReplyDomains: curatedReplyDomainsOfRow(row),
     replyAddresses: replyAddressesOfRow(row),
     ...overrides,
   });
@@ -588,6 +595,7 @@ describe("a confirmation email after a form submission", () => {
       channel: "form",
       targetDomain: "intelius.test",
       replyDomains: ["intelius.test", "peopleconnect.test"],
+      curatedReplyDomains: ["peopleconnect.test"],
       replyAddresses: [],
       awaitingConfirmation: {
         fromDomains: ["peopleconnect.test"],
@@ -788,6 +796,32 @@ describe("a confirmation email after a form submission", () => {
       [waitingForStored],
     );
     expect(result.requestId).toBeNull();
+    expect(result.links).toEqual([]);
+  });
+
+  it("ignores a stored sender that is only the host of the target's privacy mailbox", async () => {
+    const vendorTarget = requestForTarget(
+      { id: "acme", domain: "acme.test", privacyEmail: "privacy@vendorhost.test" },
+      {
+        channel: "form",
+        awaitingConfirmation: {
+          fromDomains: ["vendorhost.test"],
+          linkTextPattern: null,
+          since: "2026-10-01T10:00:00.000Z",
+        },
+      },
+    );
+    expect(vendorTarget.replyDomains).toContain("vendorhost.test");
+    const result = await classify(
+      "",
+      confirmation({
+        messageId: "<c1@vendorhost.test>",
+        from: { name: null, address: "no-reply@vendorhost.test" },
+        html: '<p>Click the link below to confirm your opt-out.</p><a href="https://vendorhost.test/confirm?id=9">Confirm</a>',
+        verifyDkim: signedAs("vendorhost.test"),
+      }),
+      [vendorTarget],
+    );
     expect(result.links).toEqual([]);
   });
 
