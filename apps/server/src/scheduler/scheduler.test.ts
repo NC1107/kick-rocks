@@ -1,4 +1,5 @@
 import { mailboxes, requests, targets } from "@kickrocks/db";
+import type { Broker } from "@kickrocks/shared";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createRunners, runnersOf } from "../runners/index.js";
@@ -345,7 +346,7 @@ describe("inbox polls", () => {
 });
 
 describe("re-scans", () => {
-  function scannedTarget(overrides: Parameters<typeof seedTarget>[1] = {}) {
+  function scannedTarget(overrides: Partial<Broker> = {}) {
     const target = seedTarget(ctx, { category: "people-search", ...overrides });
     seedScan(ctx, { profileId, targetId: target.id, finishedAt: ctx.clock.now().toISOString() });
     return target;

@@ -479,6 +479,33 @@ describe("a request changed while its mail was on the way", () => {
   });
 });
 
+describe("a request moved without its task being cancelled while mail was on the way", () => {
+  it("finishes the task so its lease cannot expire and send the mail twice", async () => {
+    const { request } = openRequest();
+    const transport = ctx.mail.services.transport;
+    ctx.mail.services.transport = (connection) => ({
+      ...transport(connection),
+      send: async (mail) => {
+        ctx.services.db
+          .update(requests)
+          .set({ status: "awaiting_reply" })
+          .where(eq(requests.id, request.id))
+          .run();
+        return { messageId: mail.messageId, accepted: [mail.to], rejected: [] };
+      },
+    });
+    await runners.email.runDue();
+    ctx.mail.services.transport = transport;
+
+    expect(taskFor(request.id)?.status).toBe("done");
+    ctx.clock.advance(HOUR);
+    ctx.services.taskQueue.reapExpiredLeases();
+    await runners.email.runDue();
+    expect(ctx.services.mailQuota.sentLastDay(mailboxId)).toBe(1);
+    expect(taskFor(request.id)?.attempts).toBe(1);
+  });
+});
+
 describe("seeded requests", () => {
   it("sends nothing for a request that is only a draft", async () => {
     const target = seedTarget(ctx);

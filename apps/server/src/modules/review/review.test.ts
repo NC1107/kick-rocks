@@ -4,6 +4,7 @@ import {
   availableActions,
   type BlockedReason,
   type RouteBodyInput,
+  type RouteDef,
 } from "@kickrocks/shared";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -394,8 +395,7 @@ describe("task actions", () => {
     });
     return { request, task };
   };
-  const call = (route: typeof API_ROUTES.taskResume, id: string) =>
-    ctx.call(route, { params: { id } });
+  const call = <R extends RouteDef>(route: R, id: string) => ctx.call(route, { params: { id } });
 
   describe("resume", () => {
     it("puts a blocked task back in the queue and records it on the request", async () => {

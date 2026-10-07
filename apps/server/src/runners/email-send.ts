@@ -182,6 +182,14 @@ export class EmailRunner {
       if (current.status !== "queued" || live.status !== "leased") {
         // The person changed the request while the mail was on its way, so only the fact is kept.
         requests.addEvent(requestId, { ...sentEvent, actor: "system" });
+        // A task still leased to us must be finished, or its lease would expire and send the mail again.
+        if (live.status === "leased" && live.leaseOwner === EMAIL_WORKER_ID) {
+          taskQueue.complete(task.id, {
+            workerId: EMAIL_WORKER_ID,
+            actor: "system",
+            result: { messageId, kind },
+          });
+        }
         return;
       }
 

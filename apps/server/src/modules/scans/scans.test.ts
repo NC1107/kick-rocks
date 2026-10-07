@@ -1,5 +1,5 @@
 import { targets } from "@kickrocks/db";
-import { API_ROUTES, type RouteBodyInput } from "@kickrocks/shared";
+import { API_ROUTES, type Broker, type RouteBodyInput } from "@kickrocks/shared";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
@@ -25,7 +25,7 @@ afterEach(async () => {
   await ctx.close();
 });
 
-const peopleSearch = (overrides: Parameters<typeof seedTarget>[1] = {}) =>
+const peopleSearch = (overrides: Partial<Broker> = {}) =>
   seedTarget(ctx, { category: "people-search", contactMethod: "form", ...overrides });
 
 const start = (body: RouteBodyInput<typeof API_ROUTES.scansStart>, id = profileId) =>
