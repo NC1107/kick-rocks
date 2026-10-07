@@ -219,6 +219,118 @@ Proposals wait on the Agents tab instead, and `list` on the recipes API takes `s
 Once a person approves a recipe, the built-in worker uses it, and a weekly canary check watches it.
 A canary that cannot find a selector marks the recipe broken, and work for that broker goes back to agents until it is fixed.
 
+## Running a model as the agent
+
+Claude Code over MCP is one way to take agent tasks.
+The agent worker is another: a small program that claims the same tasks itself, drives its own Chrome, and asks a model what to do next.
+The model can be a local one through Ollama or any OpenAI-compatible endpoint, or the Anthropic API.
+It lives in `apps/agent-worker` and talks to the server through the worker API, so it needs `KICKROCKS_WORKER_TOKEN` and not an MCP token.
+
+It claims only `agent` tasks, and it says it is a model when it claims, so Kick Rocks counts its runs apart from recipe runs and from MCP clients.
+It can run next to the built-in worker and next to Claude Code, because the server hands each task to one claimer.
+It uses its own Chrome profile, since two browsers cannot share one.
+
+### Start it
+
+With Docker, set the model in `.env` and start the `agent` profile.
+The settings are listed in `.env.example`.
+
+```sh
+# a local model on the same machine
+KICKROCKS_AGENT_MODEL=<an Ollama model that supports tools>
+KICKROCKS_AGENT_BASE_URL=http://host.docker.internal:11434/v1
+
+docker compose --profile agent up -d --build
+```
+
+From a checkout, build once, then run it with the same variables exported.
+
+```sh
+pnpm build
+KICKROCKS_WORKER_TOKEN=<token> KICKROCKS_AGENT_MODEL=<model> pnpm --filter @kickrocks/agent-worker start
+```
+
+For the Anthropic API, set `KICKROCKS_AGENT_PROVIDER=anthropic` and `ANTHROPIC_API_KEY`.
+The model defaults to `claude-sonnet-4-6`.
+
+| Variable | Meaning |
+|---|---|
+| `KICKROCKS_AGENT_PROVIDER` | `openai` for Ollama or any OpenAI-compatible endpoint (the default), or `anthropic`. |
+| `KICKROCKS_AGENT_MODEL` | The model name. Required for `openai`, and it must support tool calling. |
+| `KICKROCKS_AGENT_BASE_URL` | The endpoint. Defaults to `http://localhost:11434/v1` for `openai` and `https://api.anthropic.com` for `anthropic`. |
+| `KICKROCKS_AGENT_API_KEY` | A key for the endpoint. Ollama needs none. For `anthropic` it falls back to `ANTHROPIC_API_KEY`. |
+| `KICKROCKS_AGENT_MAX_STEPS` | Tool calls one task may use. Default 40. |
+| `KICKROCKS_AGENT_MAX_MINUTES` | Wall time one task may use. Default 10. |
+| `KICKROCKS_AGENT_MAX_TOTAL_TOKENS` | Optional token budget for one task. |
+| `KICKROCKS_AGENT_INPUT_USD_PER_MTOK`, `KICKROCKS_AGENT_OUTPUT_USD_PER_MTOK` | Prices per million tokens. A cost is reported only when both are set. |
+| `KICKROCKS_AGENT_MAX_OUTPUT_TOKENS` | The most the model may write in one turn. Default 2048. |
+
+The browser settings are the same as the built-in worker's: `KICKROCKS_WORKER_HEADLESS`, `KICKROCKS_WORKER_PACE`, `KICKROCKS_CHROME_EXECUTABLE`, and the rest of `apps/worker/README.md`.
+Inside a container, `localhost` is the container, so Ollama on the host is `host.docker.internal`, which the compose file maps for you.
+
+### What the model can do
+
+The model never gets a general browser tool.
+It gets eight, and each one is checked in code before it touches the page.
+
+| Tool | What it does |
+|---|---|
+| `navigate` | Opens a page on one of the target's domains. |
+| `snapshot` | Reads the page again as a short list of headings, text, and controls with refs. |
+| `click` | Clicks a control by ref. |
+| `type` | Types one of the task's fields into a text control. The model names the field and the program supplies the value. |
+| `select` | Picks a dropdown option, either the one that matches a task field or one the snapshot shows. |
+| `check` | Ticks or unticks a checkbox or radio button. |
+| `wait` | Waits up to ten seconds and reads the page. |
+| `report` | Finishes with `complete`, `blocked`, `failed`, or `release`. |
+
+The model gets the task's `instructions` as its system prompt, with a short preface that maps `complete_task`, `block_task`, `fail_task`, and `release_task` onto `report`.
+
+### Rules the code enforces
+
+The prompt asks for the rules above.
+The worker does not rely on the model to follow them.
+
+- The page may only go to the target's domains and their subdomains, over https.
+  That holds for a link, a script, and every hop of a redirect, and the model is told what was blocked.
+  A new tab a link opens is closed.
+- `type` takes the name of a field in the task, and nothing else.
+  A literal value in the call is ignored, and a field the task lacks is refused.
+  Password, payment, read-only, and file controls cannot be used.
+- Controls that a person could not see are left out of the snapshot, so a honeypot field is never offered, and the person's details are never typed into one.
+- The model does not see the person's values.
+  The system prompt lists field names, and a value in the page, in a link, or in a field the program typed is replaced by `{{field_name}}` before the model reads it.
+- A visible CAPTCHA or a whole-page bot check ends the run at once.
+  The task is blocked with the reason, the page address, and a screenshot, and the model is not asked again.
+  A bot check page that clears by itself gets a few seconds first.
+- A `complete` result must match the shared schema for the task's own purpose.
+  A scan candidate must be on the target's domains, and a removal reported as `submitted` or `awaiting_email_confirmation` needs at least one click.
+  A result that fails these goes back to the model as an error.
+  Text the model copies from the page into `confirmationText`, `notes`, or a failure message has the person's values masked.
+- A task has a step budget, a time budget, and optionally a token budget.
+  One that runs out is failed as `internal` and is not retried.
+- A model that answers three times in a row without using a tool is failed.
+
+What happens when the model cannot be used is not the task's fault.
+An endpoint that is down or busy releases the task for a minute.
+A wrong key, model name, or a model without tool support releases it for ten minutes, and the log says why.
+Neither costs the task an attempt.
+
+### What it reports
+
+`complete`, `block_task`, and `fail_task` carry `usage` with input tokens, output tokens, and wall time, and a cost when prices are set.
+The number of steps goes to the worker log, because the usage contract has no field for it.
+
+### Limits
+
+- It reads the page's own document only.
+  A form inside an iframe, such as a third-party form vendor, shows up as an embedded frame it cannot use, and the model should block the task.
+- A small model may misread a page.
+  Recipes remain the primary path, and an agent run is worth checking the first few times.
+- Page text reaches the model.
+  A hosted model sees the pages it visits, though not the person's values.
+  Use a local model when that matters.
+
 ## Running the built-in worker and an agent together
 
 The built-in worker and an MCP client share one queue, and the server keeps their work apart.
