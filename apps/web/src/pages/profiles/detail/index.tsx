@@ -1,6 +1,6 @@
 import { API_ROUTES, type ProfileDetail, type StateCode } from "@kickrocks/shared";
 import { UserX } from "lucide-react";
-import { type FormEvent, useMemo, useState } from "react";
+import { type FormEvent, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router";
 import { ApiRequestError, errorMessage, useApiMutation, useApiQuery } from "../../../api/index.js";
 import {
@@ -32,7 +32,7 @@ import {
   toInputs,
   validateDrafts,
 } from "../identity-drafts.js";
-import { useUnsavedWarning } from "../use-unsaved-warning.js";
+import { UnsavedChangesDialog, useUnsavedWarning } from "../use-unsaved-warning.js";
 
 const SAVED_ROUTES = [API_ROUTES.profilesList, API_ROUTES.profilesGet] as const;
 
@@ -98,10 +98,15 @@ function ProfileEditor({ profile }: { profile: ProfileDetail }) {
   const navigate = useNavigate();
   const toast = useToast();
   const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [dirtyParts, setDirtyParts] = useState({ details: false, identities: false });
+  const unsaved = useUnsavedWarning(dirtyParts.details || dirtyParts.identities);
+  const markDirty = (part: "details" | "identities") => (dirty: boolean) =>
+    setDirtyParts((current) => (current[part] === dirty ? current : { ...current, [part]: dirty }));
 
   const remove = useApiMutation(API_ROUTES.profilesDelete, {
     invalidates: [API_ROUTES.profilesList],
     onSuccess: () => {
+      unsaved.allowLeaving();
       toast.success("Deleted", `${profile.displayName} and its requests were removed.`);
       navigate("/profiles");
     },
@@ -115,8 +120,8 @@ function ProfileEditor({ profile }: { profile: ProfileDetail }) {
         back={{ to: "/profiles", label: "Profiles" }}
       />
       <div className="flex max-w-4xl flex-col gap-6">
-        <DetailsCard profile={profile} />
-        <IdentitiesCard profile={profile} />
+        <DetailsCard profile={profile} onDirtyChange={markDirty("details")} />
+        <IdentitiesCard profile={profile} onDirtyChange={markDirty("identities")} />
         <MailboxCard profile={profile} />
         <Card>
           <CardHeader
@@ -128,6 +133,7 @@ function ProfileEditor({ profile }: { profile: ProfileDetail }) {
           </Button>
         </Card>
       </div>
+      <UnsavedChangesDialog blocker={unsaved.blocker} />
       <ConfirmDialog
         open={confirmingDelete}
         onClose={() => setConfirmingDelete(false)}
@@ -148,7 +154,13 @@ function ProfileEditor({ profile }: { profile: ProfileDetail }) {
   );
 }
 
-function DetailsCard({ profile }: { profile: ProfileDetail }) {
+function DetailsCard({
+  profile,
+  onDirtyChange,
+}: {
+  profile: ProfileDetail;
+  onDirtyChange: (dirty: boolean) => void;
+}) {
   const toast = useToast();
   const [saved, setSaved] = useState({ displayName: profile.displayName, state: profile.state });
   const [value, setValue] = useState<{ displayName: string; state: string }>(saved);
@@ -167,7 +179,7 @@ function DetailsCard({ profile }: { profile: ProfileDetail }) {
   });
 
   const dirty = value.displayName !== saved.displayName || value.state !== saved.state;
-  useUnsavedWarning(dirty);
+  useEffect(() => onDirtyChange(dirty), [dirty, onDirtyChange]);
 
   const submit = (event: FormEvent) => {
     event.preventDefault();
@@ -218,7 +230,13 @@ function DetailsCard({ profile }: { profile: ProfileDetail }) {
   );
 }
 
-function IdentitiesCard({ profile }: { profile: ProfileDetail }) {
+function IdentitiesCard({
+  profile,
+  onDirtyChange,
+}: {
+  profile: ProfileDetail;
+  onDirtyChange: (dirty: boolean) => void;
+}) {
   const toast = useToast();
   const today = useMemo(() => localToday(), []);
   const [baseline, setBaseline] = useState<IdentityDraft[]>(() => toDrafts(profile.identities));
@@ -238,7 +256,7 @@ function IdentitiesCard({ profile }: { profile: ProfileDetail }) {
   });
 
   const dirty = snapshot(drafts) !== snapshot(baseline);
-  useUnsavedWarning(dirty);
+  useEffect(() => onDirtyChange(dirty), [dirty, onDirtyChange]);
 
   const save = (event: FormEvent) => {
     event.preventDefault();

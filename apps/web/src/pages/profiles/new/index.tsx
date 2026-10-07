@@ -1,5 +1,5 @@
 import { API_ROUTES, type StateCode } from "@kickrocks/shared";
-import { type FormEvent, useMemo, useState } from "react";
+import { type FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import {
   ApiRequestError,
@@ -30,7 +30,7 @@ import {
   toInputs,
   validateDrafts,
 } from "../identity-drafts.js";
-import { useUnsavedWarning } from "../use-unsaved-warning.js";
+import { UnsavedChangesDialog, useUnsavedWarning } from "../use-unsaved-warning.js";
 
 export function Component() {
   const navigate = useNavigate();
@@ -42,11 +42,14 @@ export function Component() {
   const [detailErrors, setDetailErrors] = useState<DetailsErrors>({});
   const [draftErrors, setDraftErrors] = useState<DraftErrors>(NO_ERRORS);
   const [created, setCreated] = useState(false);
+  const [attempts, setAttempts] = useState(0);
+  const form = useRef<HTMLFormElement>(null);
 
   const create = useApiMutation(API_ROUTES.profilesCreate, {
     invalidates: [API_ROUTES.profilesList],
     onSuccess: (profile) => {
       setCreated(true);
+      unsaved.allowLeaving();
       setProfileId(profile.id);
       toast.success("Created", `${profile.displayName} is ready. Connect a mailbox next.`);
       navigate(`/profiles/${profile.id}/mailbox`);
@@ -65,16 +68,33 @@ export function Component() {
     (details.displayName !== "" ||
       details.state !== "" ||
       drafts.some((draft) => draft.first || draft.last || draft.address || draft.street));
-  useUnsavedWarning(dirty);
+  const unsaved = useUnsavedWarning(dirty);
+
+  // Once a submit has shown problems, each one clears as soon as the edit fixes it.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: only an edit after a failed submit revalidates
+  useEffect(() => {
+    if (attempts === 0) return;
+    const displayName = details.displayName.trim() || defaultDisplayName(drafts);
+    setDetailErrors(validateDetails({ ...details, displayName }, { requireName: false }));
+    setDraftErrors(validateDrafts(drafts, today));
+  }, [details, drafts]);
+
+  useEffect(() => {
+    if (attempts === 0) return;
+    form.current?.querySelector<HTMLElement>('[aria-invalid="true"]')?.focus();
+  }, [attempts]);
 
   const submit = (event: FormEvent) => {
     event.preventDefault();
     const displayName = details.displayName.trim() || defaultDisplayName(drafts);
-    const nextDetails = validateDetails({ ...details, displayName }, { requireName: true });
+    const nextDetails = validateDetails({ ...details, displayName }, { requireName: false });
     const nextDrafts = validateDrafts(drafts, today);
     setDetailErrors(nextDetails);
     setDraftErrors(nextDrafts);
-    if (Object.keys(nextDetails).length > 0 || hasErrors(nextDrafts)) return;
+    if (Object.keys(nextDetails).length > 0 || hasErrors(nextDrafts)) {
+      setAttempts((count) => count + 1);
+      return;
+    }
     create.mutate({
       body: { displayName, state: details.state as StateCode, identities: toInputs(drafts) },
     });
@@ -90,7 +110,8 @@ export function Component() {
         description="Add a person and the details brokers know them by."
         back={{ to: "/profiles", label: "Profiles" }}
       />
-      <form onSubmit={submit} noValidate className="flex max-w-4xl flex-col gap-6">
+      <UnsavedChangesDialog blocker={unsaved.blocker} />
+      <form ref={form} onSubmit={submit} noValidate className="flex max-w-4xl flex-col gap-6">
         <Card>
           <CardHeader title="Profile" />
           <DetailsFields
