@@ -122,6 +122,23 @@ describe("a genuine signed reply that was not written for this mailbox", () => {
     expect(result.confidence).toBeLessThan(0.6);
   });
 
+  it.each([
+    ["a UTF-8 lookalike domain", "jordan@exa\u016Dple.com"],
+    ["a punycode lookalike domain", "jordan@xn--exaple-rmb.com"],
+  ])("is not authenticated and goes to review when addressed to %s", async (_label, to) => {
+    const raw = await signed(unsigned().replace("jordan@example.com", to));
+    expect(await authenticated(raw)).toBe(false);
+    const result = await classifyRaw(raw);
+    expect(result.confidence).toBeLessThan(0.6);
+  });
+
+  it("is authenticated when the signed To is the same UTF-8 address as the mailbox", async () => {
+    const mailbox = "jordan@exa\u016Dple.com";
+    const raw = await signed(unsigned().replace("jordan@example.com", mailbox));
+    const message = await receive(raw);
+    expect(await senderIsAuthenticated(message, TARGET, mailbox)).toBe(true);
+  });
+
   it("goes to review when it names another request's reference", async () => {
     const raw = unsigned().replace(
       "Subject: Your privacy request",

@@ -1,5 +1,6 @@
 import { Resolver } from "node:dns/promises";
 import { readFileSync } from "node:fs";
+import { domainToASCII } from "node:url";
 import { dkimVerify } from "mailauth";
 import { simpleParser } from "mailparser";
 import { z } from "zod";
@@ -169,14 +170,24 @@ function reduceToRelevantSignatures(
   };
 }
 
+const lowerAscii = (text: string) => text.replace(/[A-Z]+/g, (letters) => letters.toLowerCase());
+
+/** The address with its domain as A-labels and its local part untouched, so only ASCII case folds. */
+function comparableAddress(address: string): string {
+  const at = address.lastIndexOf("@");
+  if (at < 1) return "";
+  const domain = domainToASCII(address.slice(at + 1).trim());
+  return domain === "" ? "" : `${lowerAscii(address.slice(0, at))}@${domain}`;
+}
+
 async function addressesOfHeader(line: string): Promise<string[]> {
-  const parsed = await simpleParser(Buffer.from(`${line.replace(/\s+$/, "")}\r\n\r\n`, "latin1"));
+  const parsed = await simpleParser(Buffer.from(`${line.replace(/\s+$/, "")}\r\n\r\n`, "utf8"));
   const field =
     line.slice(0, line.indexOf(":")).trim().toLowerCase() === "cc" ? parsed.cc : parsed.to;
   const objects = field === undefined ? [] : Array.isArray(field) ? field : [field];
   return objects
     .flatMap((object) => object.value)
-    .flatMap((entry) => (entry.address ? [entry.address.toLowerCase()] : []));
+    .flatMap((entry) => (entry.address ? [comparableAddress(entry.address)] : []));
 }
 
 /**
@@ -195,7 +206,7 @@ async function signedForRecipient(
   const to = first("to");
   const cc = first("cc");
   if (to === undefined || (hasCc && cc === undefined)) return false;
-  const wanted = recipient.trim().toLowerCase();
+  const wanted = comparableAddress(recipient.trim());
   const signed = (
     await Promise.all([to, ...(cc === undefined ? [] : [cc])].map(addressesOfHeader))
   ).flat();

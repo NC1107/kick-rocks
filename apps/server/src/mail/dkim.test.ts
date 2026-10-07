@@ -162,6 +162,40 @@ describe("verifiedDomains", () => {
     expect(await verify(`To: jordan@example.com\r\n${message}`)).toEqual([]);
   });
 
+  describe("with non-ASCII recipients", () => {
+    const withTo = (to: string) => unsigned().replace("To: jordan@example.com", `To: ${to}`);
+    const verifyFor = (message: string, recipient: string) =>
+      createDkimVerifier({ resolver: servingKeysFor("acme.test"), timeoutMs: 500 }).verifiedDomains(
+        Buffer.from(message, "utf8"),
+        { ...SCOPE, recipient },
+      );
+
+    it("names nothing when the signed To is a UTF-8 lookalike of the mailbox", async () => {
+      const message = await signed(withTo("jordan@exa\u016Dple.com"));
+      expect(await verifyFor(message, "jordan@example.com")).toEqual([]);
+    });
+
+    it("names nothing when the signed To is the punycode form of a lookalike", async () => {
+      const message = await signed(withTo("jordan@xn--exaple-rmb.com"));
+      expect(await verifyFor(message, "jordan@example.com")).toEqual([]);
+    });
+
+    it("names nothing when only the local part differs by a non-ASCII letter", async () => {
+      const message = await signed(withTo("j\u00D6rdan@example.com"));
+      expect(await verifyFor(message, "j\u00F6rdan@example.com")).toEqual([]);
+    });
+
+    it("accepts a UTF-8 address that equals the mailbox", async () => {
+      const message = await signed(withTo("jordan@exa\u016Dple.com"));
+      expect(await verifyFor(message, "jordan@exa\u016Dple.com")).toEqual(["acme.test"]);
+    });
+
+    it("accepts the punycode form of the mailbox domain", async () => {
+      const message = await signed(withTo("jordan@xn--exaple-rmb.com"));
+      expect(await verifyFor(message, "jordan@exa\u016Dple.com")).toEqual(["acme.test"]);
+    });
+  });
+
   describe("with signatures nobody here asked about", () => {
     function counting(...domains: string[]) {
       const asked: string[] = [];
