@@ -139,6 +139,9 @@ A scan task reports the records it found, and a removal task reports how the for
 ```
 
 The form outcomes are `submitted`, `awaiting_email_confirmation`, `not_found`, and `already_removed`.
+`confirmationFrom` is accepted only when it is the target's own organization (the target's domain or a subdomain of it) or a sister domain the dataset curates for that target in `replyDomains`.
+Any other value is dropped, including another broker's domain and platforms such as paypal.com, and a shared mail host is never accepted.
+A dropped sender means no confirmation email will be matched to the request, so name the sender only when the page names it.
 A scan never removes anything.
 It only finds candidates, and a person confirms which are theirs before any removal starts.
 

@@ -8,6 +8,7 @@ import {
   replyDomainsOf,
   type TargetKind,
   type TargetSummary,
+  withoutSharedHosts,
 } from "@kickrocks/shared";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
@@ -96,6 +97,12 @@ export function toTargetSummary(row: TargetRow): TargetSummary {
 export function replyDomainsOfRow(row: TargetRow): string[] {
   const listed = "replyDomains" in row.data ? row.data.replyDomains : undefined;
   return replyDomainsOf({ ...row, replyDomains: listed });
+}
+
+/** Only the sister domains the dataset curates for a stored target, without its own contact hosts. */
+export function curatedReplyDomainsOfRow(row: TargetRow): string[] {
+  const listed = "replyDomains" in row.data ? row.data.replyDomains : undefined;
+  return withoutSharedHosts(listed ?? []);
 }
 
 /** The exact sender addresses trusted for a stored target whose mailbox is on a shared host. */

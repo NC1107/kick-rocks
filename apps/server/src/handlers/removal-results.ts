@@ -1,14 +1,15 @@
-import { type DbHandle, recipes, targets } from "@kickrocks/db";
+import { type DbHandle, recipes, type TargetRow } from "@kickrocks/db";
 import {
   FORM_OUTCOMES,
   type FormResult,
   isOnDomain,
   isSharedMailHost,
   type RequestActor,
-  withoutSharedHosts,
 } from "@kickrocks/shared";
 import { eq } from "drizzle-orm";
+import { curatedReplyDomainsOfRow } from "../core/targets.js";
 import type { Task } from "../core/task-types.js";
+import { alignsWithAny } from "../mail/sender-auth.js";
 import { responseWindow } from "../runners/deadlines.js";
 import type { AppServices } from "../services.js";
 import { handToAgentAfterRecipeFailure, recordRecipeRun } from "./recipe-runs.js";
@@ -19,18 +20,17 @@ interface ConfirmationExpectation {
 }
 
 /**
- * A sender the page named, which an agent can be talked into writing, counts only when it belongs
- * to a broker in the dataset and is not a shared host. Otherwise "com", a webmail domain, or a
- * platform that hosts a broker target such as google.com would make every mail from that domain
- * look like the broker's confirmation, and its links would be followed.
+ * A confirmation sender, whether the page named it or a recipe step did, counts only when it is
+ * the target's own organization or a sister domain the dataset curates for it, and never a shared
+ * host. Anything looser lets an agent be talked into naming a platform that relays user content,
+ * such as paypal.com, whose mail and links would then be followed as the broker's confirmation.
  */
-function isKnownBrokerDomain(tx: DbHandle, domain: string): boolean {
+function isTrustedConfirmationSender(target: TargetRow, domain: string): boolean {
   if (isSharedMailHost(domain)) return false;
-  return tx
-    .select({ domain: targets.domain })
-    .from(targets)
-    .all()
-    .some((target) => isOnDomain(`https://${domain}/`, target.domain));
+  return (
+    alignsWithAny(domain, [target.domain]) ||
+    curatedReplyDomainsOfRow(target).some((listed) => isOnDomain(`https://${domain}/`, listed))
+  );
 }
 
 /**
@@ -39,6 +39,7 @@ function isKnownBrokerDomain(tx: DbHandle, domain: string): boolean {
  */
 function expectedConfirmation(
   tx: DbHandle,
+  target: TargetRow,
   recipeId: string | null,
   result: FormResult,
 ): ConfirmationExpectation {
@@ -51,12 +52,11 @@ function expectedConfirmation(
     : undefined;
   const step = definition?.steps.find((candidate) => candidate.kind === "email_confirmation");
   const reported = result.confirmationFrom?.toLowerCase();
-  const domains = [
-    step?.fromDomain,
-    reported && isKnownBrokerDomain(tx, reported) ? reported : undefined,
-  ].filter((domain): domain is string => Boolean(domain));
+  const domains = [step?.fromDomain?.toLowerCase(), reported]
+    .filter((domain): domain is string => Boolean(domain))
+    .filter((domain) => isTrustedConfirmationSender(target, domain));
   return {
-    fromDomains: [...new Set(withoutSharedHosts(domains))],
+    fromDomains: [...new Set(domains)],
     linkTextPattern: step?.linkTextPattern ?? null,
   };
 }
@@ -107,7 +107,12 @@ function applyRemoval(
     services.requests.addEvent(request.id, {
       type: "awaiting_confirmation",
       actor,
-      payload: expectedConfirmation(tx, recipeId, result),
+      payload: expectedConfirmation(
+        tx,
+        services.targets.getOrThrow(request.targetId),
+        recipeId,
+        result,
+      ),
     });
   }
 }

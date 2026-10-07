@@ -206,6 +206,7 @@ Result schemas, posted by whoever completes the task:
 - `ScanResult`: `{ candidates: Candidate[] }` where `Candidate` is `{ recordUrl, name, age?, locations: string[], relatives?: string[], phones?: string[], emails?: string[] }`
 - `FormResult`: `{ outcome: "submitted" | "not_found" | "already_removed" | "awaiting_email_confirmation", confirmationText?, confirmationFrom?, notes? }`.
   `confirmationFrom` is the domain the confirmation email will come from, when the page says so.
+  It is kept only when it is the same organizational domain as the target (relaxed alignment over the public suffix list) or is listed in the target's curated `replyDomains`, and never when it is a shared host.
 - `ConfirmResult`: `{ confirmed: boolean, finalUrl, notes? }`
 - `CanaryResult`: `{ healthy: boolean, missingSelectors: string[] }`
 - `AgentResult`: `{ purpose: "scan", scan: ScanResult } | { purpose: "remove", form: FormResult }`
@@ -469,6 +470,9 @@ The server and the web mock both build issues with `toApiIssues`, and the web cl
   `completed` confirms, `no_record` and `rejected` close, `verification_required` moves to `needs_verification` and stores the message's `requestedFields` for the review queue, `confirmation_link` follows the link or enqueues a `confirm` task when a browser is needed, `bounce` switches to the form channel when the target has one, `needs_form` switches channel (both through `requests.requeue` with a `channel_switched` event), `auto_ack` only adds an event, and low-confidence mail waits for review.
 - Task handlers, synchronous and inside the transaction of the task change (see `core/task-handlers.ts`): scan results become matches (deduplicated against earlier decisions by `normalizeRecordUrl`), form and agent results move a `queued` request along with `FORM_OUTCOMES` (and a request that has moved on is left alone), and a `recipe` failure calls `dispatch.fallbackToAgent` and `recipeHealth.recordRun` (only `recipe` failures count toward health).
   A form result with `awaiting_email_confirmation` sets `awaitingConfirmationSince` and writes `awaiting_confirmation` from the recipe's `email_confirmation` step or `FormResult.confirmationFrom`.
+  Either sender is kept only when it is the same organizational domain as the target or is in the target's curated `replyDomains`, and never a shared host.
+  A sender that merely belongs to some other target in the dataset does not count, because a company platform that relays user content would then vouch for mail it does not control.
+  Broker `replyDomains` live in `packages/brokers/data/reply-domains.yaml` with a note each, and `pnpm data:build` fails when a bundled recipe's `email_confirmation` `fromDomain` is neither its broker's own site nor one of those domains.
   The task timeline events are written by `core/task-audit.ts`; handlers do not write them.
   A person's result from `POST /tasks/:id/mark-done` reaches handlers as the task result, null when they gave none.
 - Scans routes and the review routes in 4.4, including deciding matches (`mine` calls `requests.open` for a form request with the record URL and the body's `rights`), classifying messages by hand, `GET /messages/:id`, `POST /tasks/:id/hand-off` (`dispatch.handToAgent`), and `POST /tasks/:id/retry` (dispatch the task's request again, or its scan).
