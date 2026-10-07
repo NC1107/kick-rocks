@@ -11,7 +11,9 @@ import {
   CompanyDataset as CompanyDatasetSchema,
 } from "@kickrocks/shared";
 
+export { type BadboolReport, parseBadbool, parseBadboolReport } from "./import/badbool.js";
 export { parseCaRegistry } from "./import/ca-registry.js";
+export { parseCuratedBrokers } from "./import/curated.js";
 export { parseEraserBrokers } from "./import/eraser.js";
 export { type MergeOptions, mergeBrokers } from "./merge.js";
 
