@@ -13,14 +13,12 @@ export function TextLink({ className, ...rest }: LinkProps) {
 /** A link to another site: opens in a new tab and says so, because leaving the app is a surprise. */
 export function ExternalLinkText({ className, children, ...rest }: ComponentProps<"a">) {
   return (
-    <a
-      target="_blank"
-      rel="noopener noreferrer"
-      className={cn(LINK_CLASS, "inline-flex items-baseline gap-1", className)}
-      {...rest}
-    >
+    <a target="_blank" rel="noopener noreferrer" className={cn(LINK_CLASS, className)} {...rest}>
       {children}
-      <ExternalLink aria-hidden="true" className="size-3 self-center" />
+      <ExternalLink
+        aria-hidden="true"
+        className="ml-1 inline-block size-3 shrink-0 align-[-0.1em]"
+      />
       <span className="sr-only">(opens in a new tab)</span>
     </a>
   );

@@ -1,9 +1,11 @@
 import { API_ROUTES, type ScanSummary } from "@kickrocks/shared";
 import { ScanSearch } from "lucide-react";
+import { useState } from "react";
 import { errorMessage, useApiMutation, useApiQuery } from "../../api/index.js";
 import {
   Alert,
   Button,
+  Dialog,
   EmptyState,
   Table,
   TableBody,
@@ -36,9 +38,11 @@ export function ScansPanel({ profileId }: { profileId: string }) {
     params: { id: profileId },
     query: { pageSize: 50 },
   });
+  const [confirming, setConfirming] = useState(false);
   const start = useApiMutation(API_ROUTES.scansStart, {
     invalidates: [...REVIEW_INVALIDATES],
     onSuccess: (result) => {
+      setConfirming(false);
       const started = result.items.filter((item) => item.outcome === "scan_started").length;
       const skipped = result.items.length - started;
       toast.success(
@@ -47,7 +51,10 @@ export function ScansPanel({ profileId }: { profileId: string }) {
           : `Started ${pluralize(started, "scan")}${skipped > 0 ? `, ${skipped} already running` : ""}`,
       );
     },
-    onError: (error) => toast.error("That did not work", errorMessage(error)),
+    onError: (error) => {
+      setConfirming(false);
+      toast.error("That did not work", errorMessage(error));
+    },
   });
 
   return (
@@ -57,16 +64,34 @@ export function ScansPanel({ profileId }: { profileId: string }) {
           A scan searches a people-search site for records that look like you. Each one waits under
           Records to confirm.
         </p>
-        <Button
-          variant="primary"
-          loading={start.isPending}
-          onClick={() =>
-            start.mutate({ params: { id: profileId }, body: { preset: "people_search" } })
-          }
-        >
+        <Button variant="primary" onClick={() => setConfirming(true)}>
           Scan people-search sites
         </Button>
       </div>
+
+      <Dialog
+        open={confirming}
+        onClose={() => setConfirming(false)}
+        title="Scan every people-search site?"
+        description="Kick Rocks opens each site in the worker's browser, one after another, and searches for this person. Nothing is removed until you confirm a record."
+        dismissible={!start.isPending}
+        footer={
+          <>
+            <Button onClick={() => setConfirming(false)} disabled={start.isPending}>
+              Cancel
+            </Button>
+            <Button
+              variant="primary"
+              loading={start.isPending}
+              onClick={() =>
+                start.mutate({ params: { id: profileId }, body: { preset: "people_search" } })
+              }
+            >
+              Start scans
+            </Button>
+          </>
+        }
+      />
 
       {scans.isError ? (
         <Alert
@@ -114,7 +139,7 @@ export function ScansPanel({ profileId }: { profileId: string }) {
                       {scan.error ?? matchSummary(scan)}
                     </span>
                   </TableCell>
-                  <TableCell className="align-top">
+                  <TableCell className="align-top md:align-middle">
                     {scan.taskStatus ? <TaskStatusPill status={scan.taskStatus} /> : null}
                   </TableCell>
                   <TableCell wrap className="hidden min-w-56 md:table-cell">

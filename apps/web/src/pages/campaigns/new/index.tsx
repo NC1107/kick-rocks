@@ -276,11 +276,10 @@ function Builder({ profile }: { profile: ProfileSummary }) {
           <div className="flex flex-wrap items-center justify-between gap-3">
             <p className="min-w-0 text-base text-ink-muted" aria-live="polite">
               {canSend
-                ? `Ready to send ${pluralize(result?.counts.request_created ?? 0, "request")}${
-                    (result?.counts.scan_started ?? 0) > 0
-                      ? ` and start ${pluralize(result?.counts.scan_started ?? 0, "scan")}`
-                      : ""
-                  }.`
+                ? readyMessage(
+                    result?.counts.request_created ?? 0,
+                    result?.counts.scan_started ?? 0,
+                  )
                 : body === null
                   ? "Pick a group and at least one right to see a preview."
                   : "Nothing to send yet."}
@@ -320,4 +319,12 @@ function Builder({ profile }: { profile: ProfileSummary }) {
       </ConfirmDialog>
     </>
   );
+}
+
+function readyMessage(requests: number, scans: number): string {
+  const parts = [
+    requests > 0 ? `send ${pluralize(requests, "request")}` : null,
+    scans > 0 ? `start ${pluralize(scans, "scan")}` : null,
+  ].filter(Boolean);
+  return `Ready to ${parts.join(" and ")}.`;
 }

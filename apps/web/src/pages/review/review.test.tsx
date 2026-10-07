@@ -209,6 +209,8 @@ describe("the review queue", () => {
     expect(await screen.findByRole("region", { name: "Scans" })).toBeVisible();
     const before = mock.store.scans.length;
     await user.click(screen.getByRole("button", { name: "Scan people-search sites" }));
+    expect(mock.store.scans.length).toBe(before);
+    await user.click(await screen.findByRole("button", { name: "Start scans" }));
     await waitFor(() => expect(mock.store.scans.length).toBeGreaterThan(before));
   });
 

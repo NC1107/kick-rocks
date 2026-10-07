@@ -11,6 +11,7 @@ import { useNavigate, useParams } from "react-router";
 import { ApiRequestError, errorMessage, useApiMutation, useApiQuery } from "../../api/index.js";
 import {
   Alert,
+  Badge,
   Button,
   Card,
   CardFooter,
@@ -169,7 +170,13 @@ function ConnectedMailbox({ profile, onEdit }: { profile: ProfileDetail; onEdit:
       <Card>
         <CardHeader
           title={mailbox.address}
-          description="Connected"
+          description={
+            mailbox.lastError ? (
+              <Badge tone="amber">Last check failed</Badge>
+            ) : (
+              <Badge tone="green">Connected</Badge>
+            )
+          }
           actions={
             <Button
               loading={poll.isPending}

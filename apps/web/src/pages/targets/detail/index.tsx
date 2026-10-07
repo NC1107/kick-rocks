@@ -246,7 +246,13 @@ export function Component() {
             </ul>
           )}
           {target.notes ? (
-            <p className="mt-4 border-t border-line pt-4 text-base text-ink">{target.notes}</p>
+            <div className="mt-4 flex flex-col gap-2 border-t border-line pt-4 text-base text-ink">
+              {target.notes.split(" | ").map((part) => (
+                <p key={part} className="break-words">
+                  {part}
+                </p>
+              ))}
+            </div>
           ) : null}
         </Card>
 

@@ -235,7 +235,7 @@ function Requests({ profileId }: { profileId: string }) {
                         {CHANNEL_LABELS[item.channel]}
                       </span>
                     </TableCell>
-                    <TableCell className="align-top">
+                    <TableCell>
                       <StatusPill status={item.status} />
                     </TableCell>
                     <TableCell wrap className="hidden min-w-40 md:table-cell">
