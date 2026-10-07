@@ -69,7 +69,7 @@
       }
     ]
   },
-  "notes": "Verified live 2026-10-07 in headed Chrome: the name search (/search?q= redirects to the results page for the name and place) and the results list. Each row of #name-search-results-list holds an h3 link whose text is \"Name, Age N\" and whose href is the record. The age field reads the same link, so the runner must take the first integer. Spokeo returned 403 to headless Chrome, so run this headed. A real Chrome on a residential connection was used for every check, no challenge was solved, and nothing was submitted.",
+  "notes": "Verified live 2026-10-07 in headed Chrome: the name search (/search?q= redirects to the results page for the name and place) and the results list. Each row of #name-search-results-list holds an h3 link whose text is \"Name, Age N\" and whose href is the record. The age field reads the same link, so the runner must take the first integer. Spokeo returned 403 to headless Chrome, so run this headed. A real Chrome on a residential connection was used for every check, no challenge was solved, and nothing was submitted. Re-run end to end on 2026-10-07 with the runner in headed Chrome from a residential connection: the John Smith, Houston, TX search returned 29 candidates and the canary passed. A browser that arrived through a referral (the ThatsThem search sends visitors to Spokeo with a tracking id) was shown a \"Where does John live?\" funnel in place of the list, so a profile that was reached that way has no #name-search-results-list.",
   "verifiedAt": "2026-10-07",
   "liveStatus": "verified"
 }

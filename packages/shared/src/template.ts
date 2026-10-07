@@ -23,7 +23,15 @@ const FILTERS: Record<string, Filter> = {
 
 export const TEMPLATE_FILTERS = Object.keys(FILTERS);
 
-const PLACEHOLDER = /\{\{\s*([a-z][a-z0-9_]*)\s*(?:\|\s*([a-z_]+)\s*)?\}\}/g;
+const PLACEHOLDER = /\{\{\s*([a-z][a-z0-9_]*)\s*((?:\|\s*[a-z_]+\s*)*)\}\}/g;
+
+/** The filter names of a placeholder's `|a|b` tail, in the order they apply. */
+function filterNames(tail: string): string[] {
+  return tail
+    .split("|")
+    .map((name) => name.trim())
+    .filter((name) => name !== "");
+}
 
 /**
  * What is wrong with a template that can be known without any field values: a malformed
@@ -35,8 +43,9 @@ export function templateProblem(template: string): string | null {
     return `Malformed placeholder in "${template}"`;
   }
   for (const match of template.matchAll(PLACEHOLDER)) {
-    const filter = match[2];
-    if (filter !== undefined && !(filter in FILTERS)) return `Unknown template filter "${filter}"`;
+    for (const filter of filterNames(match[2] as string)) {
+      if (!(filter in FILTERS)) return `Unknown template filter "${filter}"`;
+    }
   }
   return null;
 }
@@ -49,8 +58,8 @@ export function templateFields(template: string): string[] {
 }
 
 /**
- * Fills `{{field}}` placeholders, optionally through one filter (`slug`, `lower`, `urlencode`,
- * `state_name`).
+ * Fills `{{field}}` placeholders, optionally through filters (`slug`, `lower`, `urlencode`,
+ * `state_name`) that apply left to right, so `{{state|state_name|slug}}` gives "new-york".
  * Anything that cannot be rendered throws, because a half-filled URL or form value sent to a
  * real site is worse than a failed run.
  */
@@ -62,12 +71,13 @@ export function renderTemplate(
   if (leftover.includes("{{") || leftover.includes("}}")) {
     throw new TemplateError(`Malformed placeholder in template "${template}"`);
   }
-  return template.replace(PLACEHOLDER, (_whole, name: string, filterName?: string) => {
+  return template.replace(PLACEHOLDER, (_whole, name: string, tail: string) => {
     const value = fields[name];
     if (value === undefined) throw new TemplateError(`Unknown template field "${name}"`);
-    if (filterName === undefined) return value;
-    const filter = FILTERS[filterName];
-    if (!filter) throw new TemplateError(`Unknown template filter "${filterName}"`);
-    return filter(value);
+    return filterNames(tail).reduce((current, filterName) => {
+      const filter = FILTERS[filterName];
+      if (!filter) throw new TemplateError(`Unknown template filter "${filterName}"`);
+      return filter(current);
+    }, value);
   });
 }

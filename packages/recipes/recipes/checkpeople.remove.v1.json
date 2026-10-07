@@ -82,7 +82,7 @@
       }
     ]
   },
-  "notes": "Verified live 2026-10-07 in headed Chrome: the \"Suppression Center\" page takes one email address and says it will send a verification link before anything else. The acknowledgement checkbox #acknowledge exists but is reported hidden (it is probably a styled control), so the check step is optional. Later steps, behind the emailed link, were not opened. Headless Chrome got a Cloudflare challenge. Nothing was submitted. The wording the site shows after Submit was never observed, so the outcome_when texts that prove the request went through are guesses, and the recipe stays unverified until a real submission has been seen.",
+  "notes": "Verified live 2026-10-07 in headed Chrome: the \"Suppression Center\" page takes one email address and says it will send a verification link before anything else. The acknowledgement checkbox #acknowledge exists but is reported hidden (it is probably a styled control), so the check step is optional. Later steps, behind the emailed link, were not opened. Headless Chrome got a Cloudflare challenge. Nothing was submitted. The wording the site shows after Submit was never observed, so the outcome_when texts that prove the request went through are guesses, and the recipe stays unverified until a real submission has been seen. Re-checked 2026-10-07 in a plain headed Chrome: the email input and the submit button are still there (canary healthy).",
   "verifiedAt": "2026-10-07",
   "liveStatus": "unverified"
 }

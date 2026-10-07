@@ -73,7 +73,7 @@
       }
     ]
   },
-  "notes": "Verified live 2026-10-07 in headed Chrome. A name and city page lists people in .people-list > .card, each with an h3.card-title link (the record, the name in .larger, and \"Age N • City, ST\" in .grey) and a block with past addresses, relatives and aliases as the first, second and third div. The age field reads the .grey line, so the runner must take the first integer. The first load returned the full list; after a dozen more automated page loads in the same hour the site answered 403 to this connection, so the selectors were checked against the captured markup and not re-run through a browser. Nothing was submitted.",
+  "notes": "Verified live 2026-10-07 in headed Chrome. A name and city page lists people in .people-list > .card, each with an h3.card-title link (the record, the name in .larger, and \"Age N \u2022 City, ST\" in .grey) and a block with past addresses, relatives and aliases as the first, second and third div. The age field reads the .grey line, so the runner must take the first integer. The first load returned the full list; after a dozen more automated page loads in the same hour the site answered 403 to this connection, so the selectors were checked against the captured markup and not re-run through a browser. Nothing was submitted. Re-run end to end on 2026-10-07 with the runner from a residential connection: the John Smith, Houston, TX search returned 9 candidates (names, ages, locations and relatives) and the canary passed in a plain Chrome. A Playwright launched Chrome was stopped by the Cloudflare check on this site after a few page loads, so a worker run may end as bot_detection.",
   "verifiedAt": "2026-10-07",
   "liveStatus": "verified"
 }

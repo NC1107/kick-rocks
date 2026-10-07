@@ -65,7 +65,7 @@ describe("renderTemplate", () => {
     expect(() => renderTemplate("{{city", fields)).toThrow(/Malformed/);
     expect(() => renderTemplate("city}}", fields)).toThrow(/Malformed/);
     expect(() => renderTemplate("{{CITY}}", fields)).toThrow(/Malformed/);
-    expect(() => renderTemplate("{{city|slug|lower}}", fields)).toThrow(/Malformed/);
+    expect(() => renderTemplate("{{city|slug|}}", fields)).toThrow(/Malformed/);
   });
 });
 
@@ -86,6 +86,46 @@ describe("state_name", () => {
     expect(() => renderTemplate("{{state|state_name}}", { state: "Texas" })).toThrow(
       /not a state code/,
     );
+  });
+});
+
+describe("chained filters", () => {
+  it("applies filters left to right", () => {
+    expect(renderTemplate("{{state|state_name|slug}}", { state: "NY" })).toBe("new-york");
+    expect(renderTemplate("{{state|state_name|slug}}", { state: "tx" })).toBe("texas");
+    expect(renderTemplate("{{state|state_name|slug}}", { state: "DC" })).toBe(
+      "district-of-columbia",
+    );
+  });
+
+  it("makes the order matter", () => {
+    expect(renderTemplate("{{city|lower|urlencode}}", { city: "ST LOUIS" })).toBe("st%20louis");
+    expect(renderTemplate("{{city|urlencode|lower}}", { city: "ST LOUIS" })).toBe("st%20louis");
+    expect(renderTemplate("{{city|urlencode|slug}}", { city: "ST LOUIS" })).toBe("st-20louis");
+  });
+
+  it("tolerates whitespace around each filter", () => {
+    expect(renderTemplate("{{ state | state_name | slug }}", { state: "NM" })).toBe("new-mexico");
+  });
+
+  it("fails when any filter in the chain is unknown or fails", () => {
+    expect(() => renderTemplate("{{state|state_name|shout}}", { state: "TX" })).toThrow(
+      /Unknown template filter "shout"/,
+    );
+    expect(() => renderTemplate("{{state|state_name|state_name}}", { state: "TX" })).toThrow(
+      /not a state code/,
+    );
+  });
+
+  it("reports an unknown filter anywhere in a chain without values", () => {
+    expect(templateProblem("{{state|state_name|shout}}")).toMatch(
+      /Unknown template filter "shout"/,
+    );
+    expect(templateProblem("{{state|state_name|slug}}")).toBeNull();
+  });
+
+  it("lists the field once for a chain", () => {
+    expect(templateFields("{{state|state_name|slug}}")).toEqual(["state"]);
   });
 });
 

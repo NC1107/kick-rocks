@@ -461,11 +461,17 @@ async function outcomeWhen(
           continue;
         return { condition };
       }
+      if (step.continueWhen && (await existsNow(ctx.page, step.continueWhen, true))) {
+        return { condition: null };
+      }
       return null;
     },
-    { timeoutMs: ctx.timeouts.outcomeSettleMs, signal: ctx.signal },
+    {
+      timeoutMs: step.continueWhen ? ctx.timeouts.stepMs : ctx.timeouts.outcomeSettleMs,
+      signal: ctx.signal,
+    },
   );
-  if (matched === null) return null;
+  if (matched === null || matched.condition === null) return null;
   const { condition } = matched;
   if (condition.outcome === "blocked") {
     const reason = condition.reason ?? "unknown";

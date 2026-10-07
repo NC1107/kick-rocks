@@ -200,7 +200,15 @@ const OutcomeCondition = z
  * reaches the end without a match is a recipe failure unless an `expect_text` or `expect_url` after
  * its last submit held, so a form the site rejected is never reported as sent.
  */
-const OutcomeWhen = step("outcome_when", { when: z.array(OutcomeCondition).min(1).max(10) });
+const OutcomeWhen = step("outcome_when", {
+  when: z.array(OutcomeCondition).min(1).max(10),
+  /**
+   * For a page that shows either one of these outcomes or the next step, where the outcome can
+   * come late. The check then waits as long as a wait_for would, and carries on as soon as this
+   * shows, instead of giving up on the outcomes after the short settle time.
+   */
+  continueWhen: Selector.optional(),
+});
 const CaptchaCheckpoint = step("captcha_checkpoint", {});
 const EmailConfirmation = step("email_confirmation", {
   fromDomain: z.string().min(1),
@@ -297,6 +305,15 @@ function proves(step: RecipeStep): boolean {
         (c) => c.outcome === "submitted" || c.outcome === "awaiting_email_confirmation",
       ))
   );
+}
+
+/**
+ * A recipe whose last step can only end the run as blocked never reports the request as sent: a
+ * page that matches none of its conditions fails the run. It is how a flow stops before a step
+ * that must not run unattended, so it needs no proof of acceptance.
+ */
+function endsBlocked(step: RecipeStep | undefined): boolean {
+  return step?.kind === "outcome_when" && step.when.every((c) => c.outcome === "blocked");
 }
 
 /** A template in the host would let a value decide which site receives the person's details. */
@@ -403,7 +420,11 @@ export const Recipe = z
         });
       }
       const lastSubmit = recipe.steps.findLastIndex(submits);
-      if (!recipe.steps.some((step, index) => index > lastSubmit && proves(step))) {
+      const last = recipe.steps[recipe.steps.length - 1];
+      if (
+        !endsBlocked(last) &&
+        !recipe.steps.some((step, index) => index > lastSubmit && proves(step))
+      ) {
         ctx.addIssue({
           code: "custom",
           path: ["steps"],

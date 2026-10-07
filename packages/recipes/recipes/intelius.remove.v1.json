@@ -86,7 +86,7 @@
     ],
     "steps": []
   },
-  "notes": "Verified live 2026-10-07 in headless Chrome. Intelius removes public records through the PeopleConnect suppression center: the privacy center's \"Manage My Suppression Rules\" link opens https://suppression.peopleconnect.us/?brand=Intelius in a new tab, so the recipe goes there directly. That page asks for an email address and a consent box and then emails a verification link, which the confirm task follows. The user-data tools on the privacy center (copy of data, delete user data) are a different right and are not used. Nothing was submitted. The wording the site shows after Submit was never observed, so the outcome_when texts that prove the request went through are guesses, and the recipe stays unverified until a real submission has been seen.",
+  "notes": "Verified live 2026-10-07 in headless Chrome. Intelius removes public records through the PeopleConnect suppression center: the privacy center's \"Manage My Suppression Rules\" link opens https://suppression.peopleconnect.us/?brand=Intelius in a new tab, so the recipe goes there directly. That page asks for an email address and a consent box and then emails a verification link, which the confirm task follows. The user-data tools on the privacy center (copy of data, delete user data) are a different right and are not used. Nothing was submitted. The wording the site shows after Submit was never observed, so the outcome_when texts that prove the request went through are guesses, and the recipe stays unverified until a real submission has been seen. Re-checked 2026-10-07 in a plain headed Chrome: the suppression center form is unchanged (canary healthy).",
   "verifiedAt": "2026-10-07",
   "liveStatus": "unverified"
 }

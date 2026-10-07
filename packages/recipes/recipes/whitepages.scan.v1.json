@@ -77,7 +77,7 @@
       }
     ]
   },
-  "notes": "Partly verified 2026-10-07. The home page search form (#search-name, #search-location, the #wp-search button) was read in headed Chrome. Every name results URL (/name/First-Last/City-ST), reached by URL or by submitting that form, answered 403 or an empty page from bot management, so the results markup was never seen and the extract_candidates selectors are an unverified guess. Expect this scan to block on bot detection and fall back to a human or agent.",
+  "notes": "Re-checked 2026-10-07 in headed Chrome from a residential connection. The home page search form (#search-name, #search-location and the #wp-search button) is there and typing a name and city with human pacing submits it to /name/John-Smith/Houston-TX, but the results page is a DataDome challenge (a captcha-delivery iframe and an otherwise empty page), in a plain Chrome and in a Playwright launched one, and no challenge was solved. The results markup was never seen, so the extract_candidates selectors are an unverified guess and the scan is expected to end as blocked for a person. The Whitepages opt-out flow does not need a scan result, only the listing URL.",
   "verifiedAt": "2026-10-07",
   "liveStatus": "blocked_by_bot_protection"
 }

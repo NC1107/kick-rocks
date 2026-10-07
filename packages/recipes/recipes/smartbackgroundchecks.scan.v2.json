@@ -1,0 +1,68 @@
+{
+  "id": "smartbackgroundchecks.scan.v2",
+  "brokerId": "smartbackgroundchecks",
+  "version": 2,
+  "purpose": "scan",
+  "entryUrl": "https://www.smartbackgroundchecks.com/",
+  "fields": ["first_name", "last_name", "city", "state"],
+  "steps": [
+    {
+      "kind": "goto",
+      "url": "https://www.smartbackgroundchecks.com/people/{{first_name|slug}}-{{last_name|slug}}/{{city|slug}}/{{state|lower}}"
+    },
+    {
+      "kind": "captcha_checkpoint"
+    },
+    {
+      "kind": "wait_for",
+      "target": {
+        "css": "a.name-list-title"
+      },
+      "optional": true
+    },
+    {
+      "kind": "extract_candidates",
+      "item": {
+        "css": ".card-block"
+      },
+      "fields": {
+        "recordUrl": {
+          "css": "a.name-list-title",
+          "attr": "href"
+        },
+        "name": {
+          "css": "a.name-list-title"
+        },
+        "age": {
+          "css": "h2 span.h2SubTitle"
+        },
+        "locations": {
+          "css": "h2 span.h2SubTitle, div.h2SubTitle:first-of-type",
+          "all": true
+        },
+        "relatives": {
+          "css": "a.link-underline",
+          "all": true
+        }
+      }
+    }
+  ],
+  "canary": {
+    "url": "https://www.smartbackgroundchecks.com/people/john-smith/houston/tx",
+    "selectors": [
+      {
+        "css": ".card-block"
+      },
+      {
+        "css": ".card-block a.name-list-title"
+      },
+      {
+        "css": ".card-block h2 span.h2SubTitle"
+      }
+    ],
+    "steps": []
+  },
+  "notes": "Verified live 2026-10-07 in headed Chrome from a residential connection, read only. The home page form (#inputFirstName, #inputLastName, #inputCityState, submitted with Enter) only redirects to /people/john-smith/houston/tx, so the recipe builds that URL directly and the canary opens it, which keeps the form out of the scan. That page lists 4 people with .card-block cards: a.name-list-title (the name and the record link, a /people/<name>/<token> URL), an h2 span.h2SubTitle with \"Age 62 - City, ST\", a div.h2SubTitle with the previous locations, and the relatives as a.link-underline links that point at other people. The page also has .card-block elements that are ads, which have no name link and are skipped. The bare name page /people/john-smith lists 248 people nationwide in the same markup. Cloudflare answers a Playwright launched Chrome with its \"Just a moment\" check and let a plain Chrome through, so a worker run may end as bot_detection. The opt-out page was not re-read. The old version read selectors that matched nothing and returned no candidates.",
+  "verifiedAt": "2026-10-07",
+  "liveStatus": "verified"
+}

@@ -51,7 +51,7 @@
       }
     ]
   },
-  "notes": "Not verified. clustrmaps.com resolved to 127.0.0.1 from this machine's DNS on 2026-10-07 and refused connections, so the resolver is blocking or redirecting it and no page was loaded. The URL and selectors are guesses. Re-check from a network that resolves the site.",
+  "notes": "Not verified. clustrmaps.com resolved to 127.0.0.1 from this machine's DNS on 2026-10-07 and refused connections, so the resolver is blocking or redirecting it and no page was loaded. The URL and selectors are guesses. Re-check from a network that resolves the site. Re-checked 2026-10-07: clustrmaps.com does not load from this connection. Its public DNS record points at 127.0.0.1 (the same answer from 1.1.1.1 and 8.8.8.8), so the browser gets connection refused and the site may be offline. Nothing about the page could be checked.",
   "verifiedAt": "2026-10-07",
   "liveStatus": "unverified"
 }

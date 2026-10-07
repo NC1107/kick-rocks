@@ -11,6 +11,7 @@ import {
   sleepFor,
 } from "../src/index.js";
 import { toFailure } from "../src/runner/errors.js";
+import { ageFrom } from "../src/runner/extract.js";
 import { keyDelay, typesByKey } from "../src/runner/pacing.js";
 
 const quiet = { title: "Privacy", text: "Opt out here", textLength: 12, widgets: [], markers: [] };
@@ -175,5 +176,26 @@ describe("defaults", () => {
   it("leave room for a slow site but bound a run", () => {
     expect(DEFAULT_TIMEOUTS.optionalMs).toBeLessThan(DEFAULT_TIMEOUTS.stepMs);
     expect(DEFAULT_TIMEOUTS.runMs).toBeLessThan(5 * 60_000);
+  });
+});
+
+describe("ageFrom", () => {
+  it("takes the first whole number in the text", () => {
+    expect(ageFrom(["Age - 77"])).toBe(77);
+    expect(ageFrom(["John Smith, 45 (born 1980)"])).toBe(45);
+    expect(ageFrom(["Age 5, lived at 1234 Main St"])).toBe(5);
+    expect(ageFrom(["102"])).toBe(102);
+  });
+
+  it("is undefined without a number or with an impossible one", () => {
+    expect(ageFrom(undefined)).toBeUndefined();
+    expect(ageFrom([])).toBeUndefined();
+    expect(ageFrom(["Age unknown"])).toBeUndefined();
+    expect(ageFrom(["Since 1980"])).toBeUndefined();
+    expect(ageFrom(["131"])).toBeUndefined();
+  });
+
+  it("reads only the first value", () => {
+    expect(ageFrom(["no age", "44"])).toBeUndefined();
   });
 });

@@ -1,0 +1,108 @@
+{
+  "id": "whitepages.remove.v2",
+  "brokerId": "whitepages",
+  "version": 2,
+  "purpose": "remove",
+  "entryUrl": "https://www.whitepages.com/suppression-requests",
+  "fields": ["record_url"],
+  "steps": [
+    {
+      "kind": "goto",
+      "url": "https://www.whitepages.com/suppression-requests"
+    },
+    {
+      "kind": "fill",
+      "target": {
+        "css": "#suppression-requests-person-url"
+      },
+      "field": "record_url"
+    },
+    {
+      "kind": "captcha_checkpoint"
+    },
+    {
+      "kind": "click",
+      "target": {
+        "role": "button",
+        "label": "Next"
+      }
+    },
+    {
+      "kind": "outcome_when",
+      "when": [
+        {
+          "text": "not able to locate the listing",
+          "outcome": "not_found"
+        }
+      ],
+      "continueWhen": {
+        "text": "Is this the person you want to remove?"
+      }
+    },
+    {
+      "kind": "wait_for",
+      "target": {
+        "text": "Is this the person you want to remove?"
+      }
+    },
+    {
+      "kind": "click",
+      "target": {
+        "role": "button",
+        "label": "Remove Me"
+      }
+    },
+    {
+      "kind": "wait_for",
+      "target": {
+        "text": "Please tell us why"
+      }
+    },
+    {
+      "kind": "select",
+      "target": {
+        "css": "select.select"
+      },
+      "value": "I just want to keep my information private"
+    },
+    {
+      "kind": "click",
+      "target": {
+        "role": "button",
+        "label": "Next"
+      }
+    },
+    {
+      "kind": "wait_for",
+      "target": {
+        "text": "Verify your identity with a phone call"
+      }
+    },
+    {
+      "kind": "outcome_when",
+      "when": [
+        {
+          "text": "Verify your identity with a phone call",
+          "outcome": "blocked",
+          "reason": "phone_verification"
+        }
+      ]
+    }
+  ],
+  "canary": {
+    "url": "https://www.whitepages.com/suppression-requests",
+    "selectors": [
+      {
+        "css": "#suppression-requests-person-url"
+      },
+      {
+        "role": "button",
+        "label": "Next"
+      }
+    ],
+    "steps": []
+  },
+  "notes": "Step 1 was seen live on 2026-10-07 in a plain headed Chrome from a residential connection: a profile URL input (#suppression-requests-person-url) and a Next button under \"Step 1 of 5\". Steps 2 to 5 are written from the page's own shipped Vue component (the /_nuxt chunk that renders /suppression-requests), not from a browser, because Next needs a real listing URL and the name pages that list one sit behind a DataDome challenge. The flow in that component is: Next loads the listing (a read only lookup) and shows \"Is this the person you want to remove?\" with a Remove Me button (step 2); Remove Me creates the suppression request, and step 3 asks for a reason in a plain select (select.select, with four fixed reasons) and an optional comment, with Next disabled until a reason is chosen; step 4 asks for a phone number and an affirmation checkbox, and its Call now to verify button places a Whitepages robot call right away (a POST to /api/suppression-requests/submit-phone); step 5 shows a verification code that the robot asks for on that call, and the page shows \"Your request to opt out has been accepted\" only after polling for the call result. The run therefore stops at step 4, before anything is typed or a call is placed: nobody is there to answer an unattended call, the code lives only in the page state which the worker closes, and a resume would open a new suppression request and another call against the per phone yearly limit. The person finishes steps 4 and 5 by hand and uses mark-done. A URL it cannot match shows \"Sorry, we're not able to locate the listing associated with the URL provided\", which ends the run as not found. The page can also show an opt-out maintenance notice. Texts and selectors after step 1 are unverified in a browser, so the recipe stays unverified. The old version guessed a confirmation text and a phone wall after the first click. The listing lookup (/api/person/details) can be slow, and the not found alert only appears after that request fails, so step 1 waits for either the alert or the step 2 heading.",
+  "verifiedAt": "2026-10-07",
+  "liveStatus": "unverified"
+}
