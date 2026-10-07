@@ -86,6 +86,7 @@ It uses ports 8520 (web and API), 3525 (SMTP), 3643 (IMAP), and 8530 (fixture si
 The stack has the real server and worker, a GreenMail mail server, and a fixture site that imitates a people-search site, with test-only targets and recipes from `e2e/fixtures`.
 Nothing in it can reach the internet or a real mail server: its containers sit on an internal docker network, and mail to any address, including real broker addresses, stays inside GreenMail.
 The suite drives the HTTP API and an MCP client the way the web app and an agent do.
+One step also opens every screen in Chrome, at desktop and phone width in light and dark, and fails on sideways scrolling, console errors, or failed requests, so it needs Chrome or a Playwright Chromium on the machine.
 It covers setup and login, a profile, the mailbox, a campaign with sends, a broker reply of every class, polling by hand and by the scheduler, a verification reply, a scan and a confirmed match, a removal by the worker with an emailed confirmation, a CAPTCHA that blocks and is resumed from the review queue, and an agent task claimed and completed over MCP.
 
 `KICKROCKS_E2E_KEEP=1 pnpm e2e` leaves the stack running afterwards, so you can open http://127.0.0.1:8520 and look around, with the password `correct horse battery staple`.
