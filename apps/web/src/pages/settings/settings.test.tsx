@@ -53,6 +53,19 @@ describe("general settings", () => {
     expect(within(agent).getByText("Not responding")).toBeVisible();
   });
 
+  it("lets the person allow the agent worker onto unreviewed sites, and take it back", async () => {
+    const { user, mock } = general();
+    const box = await screen.findByRole("checkbox", {
+      name: /Let the agent worker take unreviewed sites/,
+    });
+    expect(box).not.toBeChecked();
+    await user.click(box);
+    await waitFor(() => expect(mock.store.settings.agent.takeUnreviewed).toBe(true));
+    await waitFor(() => expect(box).toBeChecked());
+    await user.click(box);
+    await waitFor(() => expect(mock.store.settings.agent.takeUnreviewed).toBe(false));
+  });
+
   it("saves only a changed schedule and confirms it", async () => {
     const { user, mock } = general();
     const poll = await field(/Check the inbox every/);

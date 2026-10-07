@@ -27,6 +27,7 @@ function viewOf({ settings, config }: AppServices): SettingsView {
       tokenSet: settings.get("mcp.tokenHash") !== null,
       url: `${config.publicUrl}/mcp`,
     },
+    agent: { takeUnreviewed: settings.get("agent.takeUnreviewed") },
     worker: {
       enabled: config.workerToken !== null,
       builtin: settings.get("worker.status.builtin"),
@@ -77,6 +78,7 @@ function applyPatch({ settings }: AppServices, patch: SettingsPatch): void {
     settings.set("llm", { baseUrl, model, apiKey: kept });
   }
   if (patch.mcp) settings.set("mcp.enabled", patch.mcp.enabled);
+  if (patch.agent) settings.set("agent.takeUnreviewed", patch.agent.takeUnreviewed);
 }
 
 /** How many live targets list each source, counting a target once however it lists it. */

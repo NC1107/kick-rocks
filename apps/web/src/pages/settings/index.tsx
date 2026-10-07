@@ -17,7 +17,7 @@ export function Component() {
 
   return (
     <>
-      <SettingsHeader description="Schedule, language model, worker, privacy laws, retention, and the password." />
+      <SettingsHeader description="Schedule, workers, language model, privacy laws, retention, and the password." />
       {settings.isPending ? (
         <div aria-busy="true" className="flex flex-col gap-5">
           <span className="sr-only">Loading settings</span>
@@ -42,7 +42,11 @@ export function Component() {
       ) : (
         <div className="flex flex-col gap-5">
           <ScheduleCard schedule={settings.data.schedule} />
-          <WorkerCard worker={settings.data.worker} now={settings.dataUpdatedAt} />
+          <WorkerCard
+            worker={settings.data.worker}
+            agent={settings.data.agent}
+            now={settings.dataUpdatedAt}
+          />
           <LlmCard llm={settings.data.llm} />
           <JurisdictionsCard />
           <RetentionCard retention={settings.data.retention} />

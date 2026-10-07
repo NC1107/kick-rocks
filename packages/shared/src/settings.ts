@@ -80,6 +80,8 @@ export const SETTING_SCHEMAS = {
   schedule: ScheduleSettings.default(ScheduleSettings.parse({})),
   llm: LlmSettings.nullable().default(null),
   retention: RetentionSettings.default(RetentionSettings.parse({})),
+  /** Whether the agent worker may take sites whose bundled recipe is still waiting for the person's review. */
+  "agent.takeUnreviewed": z.boolean().default(false),
   "worker.status.builtin": WorkerStatus.nullable().default(null),
   "worker.status.model": WorkerStatus.nullable().default(null),
   notifications: NotificationSettings.default(NotificationSettings.parse({})),
@@ -99,6 +101,10 @@ export const SettingsView = z.object({
     tokenSet: z.boolean(),
     /** Where an MCP client connects, built from KICKROCKS_PUBLIC_URL. */
     url: WebUrl,
+  }),
+  agent: z.object({
+    /** Lets the agent worker take a site whose bundled recipe has not been approved yet. */
+    takeUnreviewed: z.boolean(),
   }),
   worker: z.object({
     /** False when KICKROCKS_WORKER_TOKEN is unset and the worker API is switched off. */
@@ -124,6 +130,7 @@ export const SettingsPatch = z.object({
     .nullable()
     .optional(),
   mcp: z.object({ enabled: z.boolean() }).optional(),
+  agent: z.object({ takeUnreviewed: z.boolean() }).optional(),
 });
 export type SettingsPatch = z.infer<typeof SettingsPatch>;
 

@@ -1,5 +1,15 @@
-import type { SettingsView, WorkerStatus } from "@kickrocks/shared";
-import { Alert, Badge, Card, CardHeader, DescriptionList } from "../../components/ui/index.js";
+import { API_ROUTES, type SettingsView, type WorkerStatus } from "@kickrocks/shared";
+import type { ReactNode } from "react";
+import { errorMessage, useApiMutation } from "../../api/index.js";
+import {
+  Alert,
+  Badge,
+  Card,
+  CardHeader,
+  Checkbox,
+  DescriptionList,
+  useToast,
+} from "../../components/ui/index.js";
 import { formatDateTime, formatRelative } from "../../lib/format.js";
 import type { Tone } from "../../lib/tone.js";
 import { type WorkerState, workerState } from "./model.js";
@@ -36,18 +46,48 @@ const KINDS: WorkerKind[] = [
   },
 ];
 
+function UnreviewedSites({ agent }: { agent: SettingsView["agent"] }) {
+  const toast = useToast();
+  const save = useApiMutation(API_ROUTES.settingsPatch, {
+    invalidates: [API_ROUTES.settingsGet],
+    onSuccess: (view) =>
+      toast.success(
+        view.agent.takeUnreviewed
+          ? "The agent worker will take unreviewed sites"
+          : "The agent worker will leave unreviewed sites to you",
+      ),
+    onError: (error) => toast.error("That did not work", errorMessage(error)),
+  });
+  return (
+    <Checkbox
+      label="Let the agent worker take unreviewed sites"
+      description="Sites whose bundled recipe you have not approved yet. When off, those tasks wait for you or a connected agent. A site whose recipe you rejected always waits for you."
+      checked={agent.takeUnreviewed}
+      disabled={save.isPending}
+      onChange={(event) =>
+        save.mutate({ body: { agent: { takeUnreviewed: event.target.checked } } })
+      }
+    />
+  );
+}
+
 function WorkerRow({
   kind,
   status,
   now,
+  children,
 }: {
   kind: WorkerKind;
   status: WorkerStatus | null;
   now: number;
+  children?: ReactNode;
 }) {
   const state = workerState(status?.lastSeenAt ?? null, now);
   return (
-    <section aria-label={kind.title} className="flex flex-col gap-3">
+    <section
+      aria-label={kind.title}
+      className="flex flex-col gap-3 not-first:border-t not-first:border-line not-first:pt-6"
+    >
       <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
         <div>
           <h3 className="text-base font-medium text-ink">{kind.title}</h3>
@@ -74,11 +114,20 @@ function WorkerRow({
       ) : null}
       {state === "never" ? <p className="text-base text-ink-muted">{kind.never}</p> : null}
       {state === "offline" ? <p className="text-base text-ink-muted">{kind.offline}</p> : null}
+      {children ? <div className="mt-1">{children}</div> : null}
     </section>
   );
 }
 
-export function WorkerCard({ worker, now }: { worker: SettingsView["worker"]; now: number }) {
+export function WorkerCard({
+  worker,
+  agent,
+  now,
+}: {
+  worker: SettingsView["worker"];
+  agent: SettingsView["agent"];
+  now: number;
+}) {
   return (
     <Card>
       <CardHeader title="Workers" description="The browsers that fill in forms for you." />
@@ -90,7 +139,9 @@ export function WorkerCard({ worker, now }: { worker: SettingsView["worker"]; no
       ) : (
         <div className="flex flex-col gap-6">
           {KINDS.map((kind) => (
-            <WorkerRow key={kind.key} kind={kind} status={worker[kind.key]} now={now} />
+            <WorkerRow key={kind.key} kind={kind} status={worker[kind.key]} now={now}>
+              {kind.key === "model" ? <UnreviewedSites agent={agent} /> : null}
+            </WorkerRow>
           ))}
         </div>
       )}

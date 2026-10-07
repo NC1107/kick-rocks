@@ -19,6 +19,7 @@ import {
 } from "@kickrocks/shared";
 import { and, eq } from "drizzle-orm";
 import type { AppServices } from "../services.js";
+import { modelStance, tasksForModelToSkip } from "./agent-policy.js";
 import { nowIso } from "./clock.js";
 import { AppError, conflict, notFound } from "./errors.js";
 import { loadIdentities } from "./identities.js";
@@ -26,7 +27,7 @@ import type { Task } from "./task-types.js";
 
 type ClaimServices = Pick<
   AppServices,
-  "db" | "clock" | "targets" | "taskQueue" | "requests" | "legal" | "dispatch"
+  "db" | "clock" | "targets" | "taskQueue" | "requests" | "legal" | "dispatch" | "settings"
 >;
 
 export interface ClaimOptions {
@@ -443,6 +444,10 @@ export function buildClaimedTask(
 /** How many obsolete tasks one claim will cancel before it gives up looking for a live one. */
 const MAX_OBSOLETE_PER_CLAIM = 25;
 
+function isRejected(services: ClaimServices, task: Task<"agent">): boolean {
+  return modelStance(services, task) === "rejected";
+}
+
 function prepare(
   services: ClaimServices,
   task: Task,
@@ -451,6 +456,16 @@ function prepare(
 ): ClaimedTask | null {
   if (!isBrowserTask(task)) {
     throw new AppError(500, "not_a_browser_task", `Task ${task.id} is ${task.kind}`);
+  }
+  if (claimerKind === "model" && task.kind === "agent" && isRejected(services, task)) {
+    services.taskQueue.block(task.id, {
+      workerId,
+      reason: "unknown",
+      detail:
+        "You rejected the recipe for this site, so the agent worker did not take it. Finish it by hand, or hand it to an agent yourself.",
+      actor: "system",
+    });
+    return null;
   }
   try {
     return buildClaimedTask(services, task, claimerKind);
@@ -501,7 +516,13 @@ export function claimTask(
   }
 
   for (let skipped = 0; skipped <= MAX_OBSOLETE_PER_CLAIM; skipped++) {
-    const task = services.taskQueue.claim({ workerId, kinds, leaseMs, claimerKind });
+    const task = services.taskQueue.claim({
+      workerId,
+      kinds,
+      leaseMs,
+      claimerKind,
+      ...(claimerKind === "model" ? { excludeTaskIds: tasksForModelToSkip(services) } : {}),
+    });
     if (task === null) return null;
     const claimed = prepare(services, task, workerId, claimerKind);
     if (claimed) return claimed;

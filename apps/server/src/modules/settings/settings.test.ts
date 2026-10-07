@@ -29,6 +29,27 @@ const DEFAULT_SCHEDULE = {
 const patch = (body: Record<string, unknown>) =>
   ctx.call(API_ROUTES.settingsPatch, { body: body as never });
 
+describe("the agent worker's reach", () => {
+  it("keeps unreviewed sites from the agent worker until the person allows them", async () => {
+    const before = await ctx.call(API_ROUTES.settingsGet);
+    expect(before.ok && before.body.agent).toEqual({ takeUnreviewed: false });
+
+    const on = await patch({ agent: { takeUnreviewed: true } });
+    expect(on.ok && on.body.agent).toEqual({ takeUnreviewed: true });
+    expect(ctx.services.settings.get("agent.takeUnreviewed")).toBe(true);
+
+    const off = await patch({ agent: { takeUnreviewed: false } });
+    expect(off.ok && off.body.agent).toEqual({ takeUnreviewed: false });
+  });
+
+  it("rejects a value that is not a boolean, and leaves other settings alone when it changes", async () => {
+    expect((await patch({ agent: { takeUnreviewed: "yes" } })).status).toBe(400);
+    await patch({ agent: { takeUnreviewed: true } });
+    const view = await ctx.call(API_ROUTES.settingsGet);
+    expect(view.ok && view.body.schedule.pollMinutes).toBe(15);
+  });
+});
+
 describe("access", () => {
   it("turns away an anonymous caller from every route", async () => {
     ctx.auth.deny();

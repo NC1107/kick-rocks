@@ -348,6 +348,7 @@ export default defineMockDomain({
           };
         }
         if (body.mcp) current.mcp = { ...current.mcp, enabled: body.mcp.enabled };
+        if (body.agent) current.agent = { takeUnreviewed: body.agent.takeUnreviewed };
         return current;
       }),
 
@@ -357,6 +358,7 @@ export default defineMockDomain({
           ...store.settings,
           schedule: { ...DEFAULT_SCHEDULE },
           llm: null,
+          agent: { takeUnreviewed: false },
           retention: { messageDays: null, screenshotDays: 30 },
           mcp: { ...store.settings.mcp, enabled: false, tokenSet: false },
         };

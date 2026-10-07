@@ -64,6 +64,7 @@ describe("SETTING_SCHEMAS", () => {
         "mcp.tokenHash",
         "retention",
         "schedule",
+        "agent.takeUnreviewed",
         "worker.status.builtin",
         "worker.status.model",
         "notifications",

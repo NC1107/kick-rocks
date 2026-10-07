@@ -1044,3 +1044,111 @@ describe("what a removal agent is told about the rights requested", () => {
     expect(again.task.payload).toMatchObject({ rights: ["delete"] });
   });
 });
+
+describe("which sites a model worker may take on its own", () => {
+  function agentScanFor(targetId: string) {
+    return ctx.services.taskQueue.enqueue({
+      kind: "agent",
+      payload: {
+        purpose: "scan",
+        profileId,
+        targetId,
+        requestId: null,
+        recordUrl: null,
+        variant: null,
+        rights: [],
+        reason: "no_recipe",
+        previousError: null,
+        blockedReason: null,
+      },
+      profileId,
+      targetId,
+      dedupeKey: `scan:${profileId}:${targetId}`,
+    }).task;
+  }
+
+  const site = (recipeStatus?: "pending_review" | "rejected" | "active", health?: "broken") => {
+    const target = seedTarget(ctx, { category: "people-search" });
+    if (recipeStatus) {
+      seedRecipe(ctx, target.id, {
+        purpose: "scan",
+        status: recipeStatus,
+        ...(health ? { health } : {}),
+      });
+    }
+    return target;
+  };
+
+  const claimAs = (claimerKind: "model" | "mcp") =>
+    claim(["agent"], { claimerKind, workerId: `${claimerKind}-1` });
+
+  it("takes a site that has no recipe at all", () => {
+    const target = site();
+    agentScanFor(target.id);
+    expect(claimAs("model")?.target.id).toBe(target.id);
+  });
+
+  it("takes a site whose approved recipe is broken, as the fallback it was made for", () => {
+    const target = site("active", "broken");
+    agentScanFor(target.id);
+    expect(claimAs("model")?.target.id).toBe(target.id);
+  });
+
+  it("leaves a site with an unreviewed recipe queued, and takes the ones behind it", () => {
+    const unreviewed = site("pending_review");
+    const task = agentScanFor(unreviewed.id);
+    const open = site();
+    agentScanFor(open.id);
+    expect(claimAs("model")?.target.id).toBe(open.id);
+    expect(claimAs("model")).toBeNull();
+    expect(ctx.services.taskQueue.getOrThrow(task.id)).toMatchObject({
+      status: "queued",
+      attempts: 0,
+    });
+  });
+
+  it("takes the unreviewed site once the person allows it", () => {
+    const target = site("pending_review");
+    agentScanFor(target.id);
+    ctx.services.settings.set("agent.takeUnreviewed", true);
+    expect(claimAs("model")?.target.id).toBe(target.id);
+  });
+
+  it("blocks a site whose recipe was rejected for a person, even when unreviewed sites are allowed", () => {
+    const rejected = site("rejected");
+    const task = agentScanFor(rejected.id);
+    const open = site();
+    agentScanFor(open.id);
+    ctx.services.settings.set("agent.takeUnreviewed", true);
+    expect(claimAs("model")?.target.id).toBe(open.id);
+    expect(ctx.services.taskQueue.getOrThrow(task.id)).toMatchObject({
+      status: "blocked",
+      blockedReason: "unknown",
+      blockedDetail: expect.stringContaining("rejected the recipe"),
+    });
+    expect(claimAs("model")).toBeNull();
+  });
+
+  it("does not hold back an MCP client, which the person connected on purpose", () => {
+    const pending = site("pending_review");
+    agentScanFor(pending.id);
+    const rejected = site("rejected");
+    agentScanFor(rejected.id);
+    const seen = [claimAs("mcp")?.target.id, claimAs("mcp")?.target.id].sort();
+    expect(seen).toEqual([pending.id, rejected.id].sort());
+  });
+
+  it("judges a removal by the removal recipe, not the scan recipe", () => {
+    const target = site("rejected");
+    seedMailbox(ctx, profileId);
+    const request = seedRequest(ctx, {
+      profileId,
+      targetId: target.id,
+      status: "queued",
+      channel: "form",
+      recordUrl: `https://${target.domain}/p/1`,
+    });
+    ctx.services.dispatch.dispatchRequest(request.id);
+    expect(claimAs("model")?.target.id).toBe(target.id);
+  });
+});

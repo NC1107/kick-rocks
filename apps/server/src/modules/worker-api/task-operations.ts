@@ -68,7 +68,7 @@ export interface TaskOperations {
 
 type OperationServices = Pick<
   AppServices,
-  "db" | "clock" | "targets" | "taskQueue" | "requests" | "legal" | "dispatch"
+  "db" | "clock" | "targets" | "taskQueue" | "requests" | "legal" | "dispatch" | "settings"
 >;
 
 /**

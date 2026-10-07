@@ -92,6 +92,8 @@ export interface ClaimInput {
   profileId?: string | undefined;
   /** Skip tasks of these profiles, so a capped mailbox does not hold up one that has room. */
   excludeProfileIds?: readonly string[] | undefined;
+  /** Skip these tasks, which the claimer is not allowed to take, so they do not hold up the ones behind them. */
+  excludeTaskIds?: readonly string[] | undefined;
   /** Who is claiming, which the route that took the call decides. Null for work the server does itself. */
   claimerKind?: ClaimerKind | undefined;
 }
@@ -540,7 +542,16 @@ export function createTaskQueue({
       });
     },
 
-    claim({ workerId, kinds, leaseMs, taskId, profileId, excludeProfileIds, claimerKind }) {
+    claim({
+      workerId,
+      kinds,
+      leaseMs,
+      taskId,
+      profileId,
+      excludeProfileIds,
+      excludeTaskIds,
+      claimerKind,
+    }) {
       if (kinds.length === 0) return null;
       const now = nowIso(clock);
       return db.transaction(
@@ -555,6 +566,9 @@ export function createTaskQueue({
                 inArray(tasks.kind, [...kinds]),
                 or(isNull(tasks.runAfter), lte(tasks.runAfter, now)),
                 taskId ? eq(tasks.id, taskId) : undefined,
+                excludeTaskIds && excludeTaskIds.length > 0
+                  ? notInArray(tasks.id, [...excludeTaskIds])
+                  : undefined,
                 profileId ? eq(tasks.profileId, profileId) : undefined,
                 excludeProfileIds && excludeProfileIds.length > 0
                   ? or(isNull(tasks.profileId), notInArray(tasks.profileId, [...excludeProfileIds]))
