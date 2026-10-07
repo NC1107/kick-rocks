@@ -1,29 +1,390 @@
 @import "tailwindcss";
 
+/*
+ * Design tokens.
+ *
+ * Raw values live in --kr-* variables so one place decides light and dark. Tailwind's theme
+ * (below) maps them to utilities such as bg-surface and text-ink-muted, and drops its own color
+ * palette, so a page cannot reach for a color that has no meaning here.
+ *
+ * Neutrals carry a faint cool tint (hue 255). Color is reserved for meaning: the accent marks
+ * what you can act on, and the tones below mark state. Nothing is decorative.
+ */
+
 :root {
-  --kr-bg: #f6f5f2;
-  --kr-fg: #1b1b1a;
-  --kr-muted: #6b6a66;
-  --kr-accent: #c2410c;
-  --kr-card: #ffffff;
-  --kr-border: #e4e2dd;
+  color-scheme: light;
+
+  /* Surfaces, from the page down to things that sit on it */
+  --kr-canvas: oklch(0.975 0.004 255);
+  --kr-surface: oklch(1 0 0);
+  --kr-raised: oklch(1 0 0);
+  --kr-sunken: oklch(0.955 0.005 255);
+  --kr-sidebar: oklch(0.962 0.005 255);
+  --kr-field: oklch(1 0 0);
+  --kr-scrim: oklch(0.2 0.02 255 / 0.45);
+
+  /* Lines. line-strong is the edge of a control and meets 3:1 against its surface. */
+  --kr-line: oklch(0.915 0.006 255);
+  --kr-line-strong: oklch(0.62 0.012 255);
+
+  /* Text */
+  --kr-ink: oklch(0.21 0.015 255);
+  --kr-ink-muted: oklch(0.45 0.014 255);
+  --kr-ink-faint: oklch(0.53 0.012 255);
+
+  /* Accent: links, primary actions, the selected nav item, the focus ring */
+  --kr-accent: oklch(0.5 0.17 258);
+  --kr-accent-hover: oklch(0.44 0.17 258);
+  --kr-accent-ink: oklch(1 0 0);
+  --kr-accent-soft: oklch(0.95 0.025 258);
+  --kr-accent-soft-ink: oklch(0.4 0.14 258);
+  --kr-focus: oklch(0.58 0.19 258);
+
+  /* Destructive actions */
+  --kr-danger: oklch(0.5 0.18 25);
+  --kr-danger-hover: oklch(0.44 0.18 25);
+  --kr-danger-ink: oklch(1 0 0);
+
+  /* Tones: every badge, pill, and alert is built from one hue plus these lightness steps */
+  --kr-tone-bg-l: 0.955;
+  --kr-tone-bg-c: 0.03;
+  --kr-tone-ink-l: 0.4;
+  --kr-tone-ink-c: 0.11;
+  --kr-tone-dot-l: 0.58;
+  --kr-tone-dot-c: 0.16;
+  --kr-tone-line-l: 0.88;
+  --kr-tone-line-c: 0.05;
+
+  /* Elevation: only things that float get a shadow */
+  --kr-shadow-pop: 0 1px 2px oklch(0.2 0.02 255 / 0.08), 0 6px 16px oklch(0.2 0.02 255 / 0.12);
+  --kr-shadow-dialog: 0 2px 4px oklch(0.2 0.02 255 / 0.08), 0 20px 48px oklch(0.2 0.02 255 / 0.22);
+
+  /* Rhythm */
+  --kr-gutter: 1.5rem;
+  --kr-control-h: 2.25rem;
 }
 
 @media (prefers-color-scheme: dark) {
-  :root {
-    --kr-bg: #151514;
-    --kr-fg: #ecebe7;
-    --kr-muted: #9b9994;
-    --kr-accent: #fb923c;
-    --kr-card: #1f1f1d;
-    --kr-border: #2e2e2b;
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --kr-canvas: oklch(0.175 0.008 255);
+    --kr-surface: oklch(0.215 0.009 255);
+    --kr-raised: oklch(0.26 0.01 255);
+    --kr-sunken: oklch(0.245 0.009 255);
+    --kr-sidebar: oklch(0.155 0.008 255);
+    --kr-field: oklch(0.19 0.009 255);
+    --kr-scrim: oklch(0.08 0.01 255 / 0.62);
+
+    --kr-line: oklch(0.31 0.01 255);
+    --kr-line-strong: oklch(0.55 0.012 255);
+
+    --kr-ink: oklch(0.95 0.005 255);
+    --kr-ink-muted: oklch(0.74 0.01 255);
+    --kr-ink-faint: oklch(0.66 0.01 255);
+
+    --kr-accent: oklch(0.74 0.12 255);
+    --kr-accent-hover: oklch(0.8 0.11 255);
+    --kr-accent-ink: oklch(0.17 0.03 255);
+    --kr-accent-soft: oklch(0.3 0.05 258);
+    --kr-accent-soft-ink: oklch(0.86 0.08 255);
+    --kr-focus: oklch(0.74 0.14 255);
+
+    --kr-danger: oklch(0.7 0.16 25);
+    --kr-danger-hover: oklch(0.76 0.15 25);
+    --kr-danger-ink: oklch(0.17 0.03 25);
+
+    --kr-tone-bg-l: 0.27;
+    --kr-tone-bg-c: 0.045;
+    --kr-tone-ink-l: 0.86;
+    --kr-tone-ink-c: 0.08;
+    --kr-tone-dot-l: 0.72;
+    --kr-tone-dot-c: 0.15;
+    --kr-tone-line-l: 0.36;
+    --kr-tone-line-c: 0.06;
+
+    --kr-shadow-pop: 0 1px 2px oklch(0 0 0 / 0.4), 0 8px 20px oklch(0 0 0 / 0.45);
+    --kr-shadow-dialog: 0 2px 4px oklch(0 0 0 / 0.4), 0 24px 56px oklch(0 0 0 / 0.6);
   }
 }
 
-html,
-body {
-  margin: 0;
-  background: var(--kr-bg);
-  color: var(--kr-fg);
-  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --kr-canvas: oklch(0.175 0.008 255);
+  --kr-surface: oklch(0.215 0.009 255);
+  --kr-raised: oklch(0.26 0.01 255);
+  --kr-sunken: oklch(0.245 0.009 255);
+  --kr-sidebar: oklch(0.155 0.008 255);
+  --kr-field: oklch(0.19 0.009 255);
+  --kr-scrim: oklch(0.08 0.01 255 / 0.62);
+
+  --kr-line: oklch(0.31 0.01 255);
+  --kr-line-strong: oklch(0.55 0.012 255);
+
+  --kr-ink: oklch(0.95 0.005 255);
+  --kr-ink-muted: oklch(0.74 0.01 255);
+  --kr-ink-faint: oklch(0.66 0.01 255);
+
+  --kr-accent: oklch(0.74 0.12 255);
+  --kr-accent-hover: oklch(0.8 0.11 255);
+  --kr-accent-ink: oklch(0.17 0.03 255);
+  --kr-accent-soft: oklch(0.3 0.05 258);
+  --kr-accent-soft-ink: oklch(0.86 0.08 255);
+  --kr-focus: oklch(0.74 0.14 255);
+
+  --kr-danger: oklch(0.7 0.16 25);
+  --kr-danger-hover: oklch(0.76 0.15 25);
+  --kr-danger-ink: oklch(0.17 0.03 25);
+
+  --kr-tone-bg-l: 0.27;
+  --kr-tone-bg-c: 0.045;
+  --kr-tone-ink-l: 0.86;
+  --kr-tone-ink-c: 0.08;
+  --kr-tone-dot-l: 0.72;
+  --kr-tone-dot-c: 0.15;
+  --kr-tone-line-l: 0.36;
+  --kr-tone-line-c: 0.06;
+
+  --kr-shadow-pop: 0 1px 2px oklch(0 0 0 / 0.4), 0 8px 20px oklch(0 0 0 / 0.45);
+  --kr-shadow-dialog: 0 2px 4px oklch(0 0 0 / 0.4), 0 24px 56px oklch(0 0 0 / 0.6);
+}
+
+/* Phone: larger touch targets and a tighter gutter */
+@media (max-width: 40rem) {
+  :root {
+    --kr-gutter: 1rem;
+    --kr-control-h: 2.75rem;
+  }
+}
+
+/*
+ * A tone is a hue and a chroma multiplier. Badge, StatusPill, Alert, and Toast set data-tone and
+ * read --color-tone-*, so a new status never needs a new color definition.
+ */
+[data-tone] {
+  --tone-bg: oklch(var(--kr-tone-bg-l) calc(var(--kr-tone-bg-c) * var(--tone-k, 1)) var(--tone-h));
+  --tone-ink: oklch(
+    var(--kr-tone-ink-l) calc(var(--kr-tone-ink-c) * var(--tone-k, 1)) var(--tone-h)
+  );
+  --tone-dot: oklch(
+    var(--kr-tone-dot-l) calc(var(--kr-tone-dot-c) * var(--tone-k, 1)) var(--tone-h)
+  );
+  --tone-line: oklch(
+    var(--kr-tone-line-l) calc(var(--kr-tone-line-c) * var(--tone-k, 1)) var(--tone-h)
+  );
+}
+[data-tone="neutral"] {
+  --tone-h: 255;
+  --tone-k: 0.25;
+}
+[data-tone="slate"] {
+  --tone-h: 245;
+  --tone-k: 0.55;
+}
+[data-tone="blue"] {
+  --tone-h: 245;
+}
+[data-tone="indigo"] {
+  --tone-h: 278;
+}
+[data-tone="violet"] {
+  --tone-h: 312;
+}
+[data-tone="teal"] {
+  --tone-h: 192;
+}
+[data-tone="green"] {
+  --tone-h: 152;
+}
+[data-tone="amber"] {
+  --tone-h: 85;
+}
+[data-tone="orange"] {
+  --tone-h: 52;
+}
+[data-tone="red"] {
+  --tone-h: 25;
+}
+[data-tone="sand"] {
+  --tone-h: 70;
+  --tone-k: 0.5;
+}
+
+@theme {
+  /* Only our own colors exist: a page cannot use a palette color that has no meaning here. */
+  --color-*: initial;
+  --color-transparent: transparent;
+  --color-current: currentColor;
+
+  --font-sans:
+    ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono:
+    ui-monospace, "SF Mono", "Cascadia Mono", "Roboto Mono", Menlo, Consolas, "Liberation Mono",
+    monospace;
+
+  /* Dense and legible: 14px body, 4px grid */
+  --text-xs: 0.75rem;
+  --text-xs--line-height: 1rem;
+  --text-sm: 0.8125rem;
+  --text-sm--line-height: 1.25rem;
+  --text-base: 0.875rem;
+  --text-base--line-height: 1.375rem;
+  --text-lg: 1rem;
+  --text-lg--line-height: 1.5rem;
+  --text-xl: 1.125rem;
+  --text-xl--line-height: 1.625rem;
+  --text-2xl: 1.375rem;
+  --text-2xl--line-height: 1.75rem;
+  --text-3xl: 1.75rem;
+  --text-3xl--line-height: 2.125rem;
+
+  /* Radius follows role: small marks, controls, surfaces, floating layers */
+  --radius-xs: 0.1875rem;
+  --radius-sm: 0.25rem;
+  --radius-md: 0.375rem;
+  --radius-lg: 0.625rem;
+  --radius-xl: 0.875rem;
+
+  --shadow-*: initial;
+  --shadow-pop: var(--kr-shadow-pop);
+  --shadow-dialog: var(--kr-shadow-dialog);
+
+  --animate-settle: kr-settle 140ms ease-out;
+  --animate-fade: kr-fade 120ms ease-out;
+
+  --breakpoint-sm: 40rem;
+  --breakpoint-md: 48rem;
+  --breakpoint-lg: 64rem;
+}
+
+/* Variables that change with the theme map inline so utilities resolve them at use time. */
+@theme inline {
+  --color-canvas: var(--kr-canvas);
+  --color-surface: var(--kr-surface);
+  --color-raised: var(--kr-raised);
+  --color-sunken: var(--kr-sunken);
+  --color-sidebar: var(--kr-sidebar);
+  --color-field: var(--kr-field);
+  --color-scrim: var(--kr-scrim);
+
+  --color-line: var(--kr-line);
+  --color-line-strong: var(--kr-line-strong);
+
+  --color-ink: var(--kr-ink);
+  --color-ink-muted: var(--kr-ink-muted);
+  --color-ink-faint: var(--kr-ink-faint);
+
+  --color-accent: var(--kr-accent);
+  --color-accent-hover: var(--kr-accent-hover);
+  --color-accent-ink: var(--kr-accent-ink);
+  --color-accent-soft: var(--kr-accent-soft);
+  --color-accent-soft-ink: var(--kr-accent-soft-ink);
+  --color-focus: var(--kr-focus);
+
+  --color-danger: var(--kr-danger);
+  --color-danger-hover: var(--kr-danger-hover);
+  --color-danger-ink: var(--kr-danger-ink);
+
+  --color-tone-bg: var(--tone-bg);
+  --color-tone-ink: var(--tone-ink);
+  --color-tone-dot: var(--tone-dot);
+  --color-tone-line: var(--tone-line);
+}
+
+@utility px-gutter {
+  padding-inline: var(--kr-gutter);
+}
+
+@utility h-control {
+  height: var(--kr-control-h);
+}
+
+@utility h-control-sm {
+  height: calc(var(--kr-control-h) - 0.5rem);
+}
+
+@utility min-h-control {
+  min-height: var(--kr-control-h);
+}
+
+@layer base {
+  html {
+    font-family: var(--font-sans);
+    background: var(--kr-canvas);
+    color: var(--kr-ink);
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+
+  body {
+    margin: 0;
+    min-height: 100dvh;
+    background: var(--kr-canvas);
+    font-size: var(--text-base);
+    line-height: var(--text-base--line-height);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  ::selection {
+    background: var(--kr-accent-soft);
+    color: var(--kr-accent-soft-ink);
+  }
+
+  :where(a, button, summary, [role="tab"], [role="menuitem"], [role="menuitemradio"]):focus-visible,
+  :where([tabindex]:not([tabindex="-1"])):focus-visible {
+    outline: 2px solid var(--kr-focus);
+    outline-offset: 2px;
+  }
+
+  :where(input, select, textarea):focus-visible {
+    outline: 2px solid var(--kr-focus);
+    outline-offset: 0;
+  }
+
+  /* A modal dialog does not stop the page behind it from scrolling, so stop it here. */
+  :root:has(dialog[open]) {
+    overflow: hidden;
+  }
+
+  :where(h1, h2, h3, h4) {
+    margin: 0;
+    text-wrap: balance;
+  }
+
+  :where(p) {
+    margin: 0;
+  }
+
+  /* Inputs stay at 16px on phones; smaller text makes iOS zoom the page on focus. */
+  @media (max-width: 40rem) {
+    :where(input, select, textarea) {
+      font-size: 1rem;
+    }
+  }
+}
+
+/* The one deliberate bit of motion: a dialog settles in, so it reads as a layer above the page. */
+@keyframes kr-settle {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.985);
+  }
+}
+
+@keyframes kr-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+/* Unlayered, so it beats every utility without !important. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.01ms;
+    animation-iteration-count: 1;
+    transition-duration: 0.01ms;
+    scroll-behavior: auto;
+  }
 }
