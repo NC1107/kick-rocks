@@ -438,7 +438,11 @@ describe("a removal that may have been submitted", () => {
     const { controller, context } = setup();
     const { client } = fakeClient([formTask()]);
     let flagged = 0;
-    client.taskHeartbeat.mockImplementation((async (_id: string, _lease: number, flag?: boolean) => {
+    client.taskHeartbeat.mockImplementation((async (
+      _id: string,
+      _lease: number,
+      flag?: boolean,
+    ) => {
       if (!flag) return { leaseExpiresAt: "2026-10-07T00:05:00.000Z" };
       if (++flagged === 1) {
         await delay(80);

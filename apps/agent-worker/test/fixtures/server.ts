@@ -63,6 +63,7 @@ const PAGES: Record<string, string> = {
   "/sw-register": "sw-register.html",
   "/sw-form": "sw-form.html",
   "/sw-evade": "sw-evade.html",
+  "/sw-popup-form": "sw-popup-form.html",
   "/return-link": "return-link.html",
   "/onchange": "onchange.html",
 };

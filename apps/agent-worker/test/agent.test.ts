@@ -5,6 +5,7 @@ import { INSTANT_PACE } from "@kickrocks/recipes";
 import { MAX_SCREENSHOT_BYTES, resultSchemaFor, TaskBlockReport } from "@kickrocks/shared";
 import {
   BROWSER_CONTEXT_OPTIONS,
+  clearServiceWorkers,
   findInstalledChrome,
   launchPersistentChrome,
 } from "@kickrocks/worker/dist/browser.js";
@@ -555,6 +556,43 @@ describeBrowser("the rules the code enforces", () => {
       });
       await registering.close();
       await postsNothingToTheOtherSite();
+    });
+
+    it("keeps a worker from answering a form that posts into a new tab", async () => {
+      await context.close();
+      context = await launchPersistentChrome(settings());
+      const registering = await context.newPage();
+      await registering.goto(`${OFFSITE}/sw-evade`);
+      await registering.waitForFunction("document.title === 'Worker ready'", undefined, {
+        timeout: 10_000,
+      });
+      await registering.close();
+      await run([
+        navigate("/sw-popup-form"),
+        (v) => ({ calls: [["type", { ref: v.ref("First name"), field: "first_name" }]] }),
+        (v) => ({ calls: [["click", { ref: v.ref("Submit request") }]] }),
+        { calls: [["report", { status: "release" }]] },
+      ]);
+      const { submissions } = await fixtureState();
+      expect(submissions.filter((entry) => entry.host === "localhost")).toEqual([]);
+    });
+
+    it("unregisters the workers a task met when the browser is reused for the next one", async () => {
+      await context.close();
+      context = await launchPersistentChrome(settings());
+      const registering = await context.newPage();
+      await registering.goto(`${OFFSITE}/sw-evade`);
+      await registering.waitForFunction("document.title === 'Worker ready'", undefined, {
+        timeout: 10_000,
+      });
+      await registering.close();
+      await clearServiceWorkers(context);
+      const probe = await context.newPage();
+      await probe.goto(`${OFFSITE}/offsite`);
+      const registrations = await probe.evaluate(
+        "navigator.serviceWorker.getRegistrations().then((all) => all.length)",
+      );
+      expect(registrations).toBe(0);
     });
 
     it("deletes the profile's service worker storage on launch", async () => {
@@ -1672,7 +1710,14 @@ describeBrowser("telling the worker that a removal may have been submitted", () 
       [
         navigate("/optout"),
         (v) => ({ calls: [["type", { ref: v.ref("First name"), field: "first_name" }]] }),
-        { calls: [["report", { status: "complete", result: { purpose: "remove", form: { outcome: "submitted" } } }]] },
+        {
+          calls: [
+            [
+              "report",
+              { status: "complete", result: { purpose: "remove", form: { outcome: "submitted" } } },
+            ],
+          ],
+        },
       ],
       { onMayHaveSubmitted: async () => undefined },
     );

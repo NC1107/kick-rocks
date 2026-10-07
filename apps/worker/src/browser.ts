@@ -4,6 +4,11 @@ import { hostname } from "node:os";
 import { join } from "node:path";
 import { type BrowserContext, chromium, type Page } from "playwright";
 import { describeError, type Logger } from "./logger.js";
+import {
+  bypassServiceWorkersBeforeTabsRun,
+  forgetDevToolsEndpoint,
+  type TabGuard,
+} from "./tab-guard.js";
 
 /** Where Chrome installs itself, in the order to prefer them. */
 export function installedChromePaths(
@@ -116,7 +121,8 @@ export async function bypassServiceWorkers(page: Page): Promise<void> {
 
 /**
  * A page made through `newPage` is bypassed before it is handed out, so its first navigation is
- * already clear of workers. Pages a site opens are bypassed as soon as they appear.
+ * already clear of workers. A page a site opens is bypassed as soon as it appears, but that is
+ * after it started, so the tab guard also holds it at its start.
  */
 function bypassOnEveryPage(context: BrowserContext): void {
   const bypass = (page: Page): void => {
@@ -132,18 +138,37 @@ function bypassOnEveryPage(context: BrowserContext): void {
   };
 }
 
+const tabGuards = new WeakMap<BrowserContext, TabGuard>();
+
+/**
+ * The browser stays up across tasks, so a worker that one task's site registered would still be
+ * there for the next. Call it between tasks.
+ */
+export async function clearServiceWorkers(context: BrowserContext): Promise<void> {
+  await tabGuards.get(context)?.clearServiceWorkers();
+}
+
 export const launchPersistentChrome: BrowserLauncher = async (settings) => {
   clearStaleProfileLock(settings.profileDir);
   clearServiceWorkerStorage(settings.profileDir);
+  forgetDevToolsEndpoint(settings.profileDir);
   const executablePath = settings.executablePath ?? findInstalledChrome();
   try {
     const context = await chromium.launchPersistentContext(settings.profileDir, {
       headless: settings.headless,
       ...(executablePath ? { executablePath } : {}),
-      ...(settings.noSandbox ? { args: ["--no-sandbox"] } : {}),
+      args: ["--remote-debugging-port=0", ...(settings.noSandbox ? ["--no-sandbox"] : [])],
       ...BROWSER_CONTEXT_OPTIONS,
     });
     bypassOnEveryPage(context);
+    try {
+      const guard = await bypassServiceWorkersBeforeTabsRun(settings.profileDir);
+      tabGuards.set(context, guard);
+      context.on("close", () => guard.close());
+    } catch (error) {
+      await context.close().catch(() => undefined);
+      throw error;
+    }
     return context;
   } catch (error) {
     const message = describeError(error);
@@ -198,6 +223,11 @@ export function createBrowserSession(
     async newPage() {
       const current = await ensure();
       try {
+        await clearServiceWorkers(current).catch((error: unknown) => {
+          logger.warn("could not remove service workers between tasks", {
+            error: describeError(error),
+          });
+        });
         return await current.newPage();
       } catch (error) {
         logger.warn("the browser stopped responding, restarting it", {
