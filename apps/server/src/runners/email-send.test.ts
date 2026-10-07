@@ -448,6 +448,28 @@ describe("follow-ups and verification replies", () => {
     expect(requestOf(request.id)).toMatchObject({ status: "awaiting_reply", followUps: 0 });
   });
 
+  it("puts a verification reply that cannot be composed back where the person can answer it", async () => {
+    const { request } = await sentRequest();
+    ctx.services.db
+      .update(requests)
+      .set({ status: "needs_verification" })
+      .where(eq(requests.id, request.id))
+      .run();
+    ctx.services.requests.requeue(request.id, {
+      actor: "user",
+      reason: "verification_reply",
+      kind: "verification_reply",
+      fields: ["phone"],
+      inReplyTo: "<broker-1@broker.test>",
+    });
+    ctx.services.db.update(targets).set({ privacyEmail: null }).run();
+
+    await runners.email.runDue();
+
+    expect(requestOf(request.id).status).toBe("needs_verification");
+    expect(taskFor(request.id)?.status).toBe("failed");
+  });
+
   it("starts the follow-up count over when the request is sent again from scratch", async () => {
     const { request } = await sentRequest();
     ctx.services.db.update(requests).set({ followUps: 2 }).where(eq(requests.id, request.id)).run();
