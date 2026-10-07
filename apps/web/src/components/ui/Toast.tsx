@@ -56,6 +56,10 @@ const ICONS = {
  */
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<ToastItem[]>([]);
+  const [announcement, setAnnouncement] = useState<{ polite: string; assertive: string }>({
+    polite: "",
+    assertive: "",
+  });
   const nextId = useRef(1);
 
   const dismiss = useCallback((id: number) => {
@@ -73,6 +77,10 @@ export function ToastProvider({ children }: { children: ReactNode }) {
         durationMs: options.durationMs ?? DEFAULT_MS[intent],
       };
       setItems((current) => [...current, item].slice(-MAX_VISIBLE));
+      const text = options.description ? `${options.title}. ${options.description}` : options.title;
+      setAnnouncement(
+        intent === "danger" ? { polite: "", assertive: text } : { polite: text, assertive: "" },
+      );
     };
     return {
       toast,
@@ -85,6 +93,13 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   return (
     <ToastContext value={api}>
       {children}
+      {/* Live regions announce only text that changes after they are mounted, so these two stay mounted. */}
+      <div aria-live="polite" className="sr-only">
+        {announcement.polite}
+      </div>
+      <div aria-live="assertive" className="sr-only">
+        {announcement.assertive}
+      </div>
       <section
         aria-label="Notifications"
         className="pointer-events-none fixed inset-x-0 bottom-0 z-50 flex flex-col items-stretch gap-2 p-4 sm:inset-x-auto sm:right-0 sm:w-96"
@@ -110,7 +125,6 @@ function ToastCard({ item, onDismiss }: { item: ToastItem; onDismiss: (id: numbe
   return (
     // biome-ignore lint/a11y/noStaticElementInteractions: hover and focus only pause the timer
     <div
-      role={item.intent === "danger" ? "alert" : "status"}
       data-tone={INTENT_TONE[item.intent]}
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}

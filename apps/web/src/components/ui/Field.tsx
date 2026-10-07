@@ -73,7 +73,7 @@ export function Field({
         </label>
         {children}
         {hasError ? (
-          <p id={errorId} className="flex items-start gap-1.5 text-sm text-danger">
+          <p id={errorId} role="alert" className="flex items-start gap-1.5 text-sm text-danger">
             <CircleAlert aria-hidden="true" className="mt-0.5 size-3.5 shrink-0" />
             <span>{error}</span>
           </p>

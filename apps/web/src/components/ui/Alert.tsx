@@ -27,7 +27,7 @@ export function Alert({ intent = "info", title, children, action, className }: A
       role={intent === "danger" || intent === "warning" ? "alert" : "status"}
       data-tone={INTENT_TONE[intent]}
       className={cn(
-        "flex items-start gap-3 rounded-lg border border-tone-line bg-tone-bg p-3.5 text-tone-ink",
+        "grid grid-cols-[auto_1fr] items-start gap-x-3 gap-y-2 rounded-lg sm:grid-cols-[auto_1fr_auto] border border-tone-line bg-tone-bg p-3.5 text-tone-ink",
         className,
       )}
     >
@@ -36,7 +36,7 @@ export function Alert({ intent = "info", title, children, action, className }: A
         {title ? <p className="font-semibold">{title}</p> : null}
         {children ? <div className={cn(title && "mt-0.5")}>{children}</div> : null}
       </div>
-      {action ? <div className="shrink-0">{action}</div> : null}
+      {action ? <div className="col-start-2 sm:col-start-auto">{action}</div> : null}
     </div>
   );
 }

@@ -27,7 +27,7 @@ export function ThemeToggle({ className }: { className?: string }) {
             title={label}
             onClick={() => setPreference(value)}
             className={cn(
-              "inline-flex size-7 items-center justify-center rounded-sm transition-colors duration-100 max-sm:size-10",
+              "inline-flex size-7 items-center justify-center rounded-sm transition-colors duration-100 max-sm:size-11",
               selected
                 ? "bg-accent-soft text-accent-soft-ink"
                 : "text-ink-muted hover:bg-sunken hover:text-ink",

@@ -1,5 +1,5 @@
 import { ArrowDown, ArrowUp, ChevronsUpDown } from "lucide-react";
-import type { ComponentProps, ReactNode } from "react";
+import { type ComponentProps, type ReactNode, useEffect, useRef, useState } from "react";
 import { cn } from "../../lib/cn.js";
 import { Skeleton } from "./Skeleton.js";
 
@@ -10,20 +10,62 @@ export interface TableProps extends ComponentProps<"table"> {
 
 /**
  * A table that scrolls sideways inside its own frame on a narrow screen, so the page itself never
- * does. Put the identifying column first and keep it short.
+ * does. Put the identifying column first and keep it short. An edge shade shows which side still
+ * has columns, and the frame takes focus only while there is something to scroll.
  */
 export function Table({ label, className, children, ...rest }: TableProps) {
+  const frame = useRef<HTMLElement>(null);
+  const [overflow, setOverflow] = useState({ start: false, end: false });
+
+  useEffect(() => {
+    const element = frame.current;
+    if (!element) return;
+    const measure = () => {
+      const max = element.scrollWidth - element.clientWidth;
+      const next = { start: element.scrollLeft > 1, end: element.scrollLeft < max - 1 };
+      setOverflow((current) =>
+        current.start === next.start && current.end === next.end ? current : next,
+      );
+    };
+    measure();
+    element.addEventListener("scroll", measure, { passive: true });
+    const observer = new ResizeObserver(measure);
+    observer.observe(element);
+    if (element.firstElementChild) observer.observe(element.firstElementChild);
+    return () => {
+      element.removeEventListener("scroll", measure);
+      observer.disconnect();
+    };
+  }, []);
+
+  const scrollable = overflow.start || overflow.end;
   return (
-    <section
-      aria-label={label}
-      // biome-ignore lint/a11y/noNoninteractiveTabindex: a scroll container must take focus so a keyboard can scroll it
-      tabIndex={0}
-      className="overflow-x-auto rounded-lg border border-line bg-surface"
-    >
-      <table className={cn("w-full border-collapse text-left text-base", className)} {...rest}>
-        {children}
-      </table>
-    </section>
+    <div className="relative overflow-hidden rounded-lg border border-line bg-surface">
+      <section
+        ref={frame}
+        aria-label={label}
+        tabIndex={scrollable ? 0 : undefined}
+        className="overflow-x-auto"
+      >
+        <table className={cn("w-full border-collapse text-left text-base", className)} {...rest}>
+          {children}
+        </table>
+      </section>
+      <span
+        aria-hidden="true"
+        className={cn(
+          "pointer-events-none absolute inset-y-0 left-0 w-6 bg-linear-to-r from-(--kr-shade) to-transparent transition-opacity",
+          overflow.start ? "opacity-100" : "opacity-0",
+        )}
+      />
+      <span
+        aria-hidden="true"
+        className={cn(
+          "pointer-events-none absolute inset-y-0 right-0 w-6 bg-linear-to-l from-(--kr-shade) to-transparent transition-opacity",
+          overflow.end ? "opacity-100" : "opacity-0",
+        )}
+      />
+    </div>
   );
 }
 

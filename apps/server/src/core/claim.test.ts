@@ -379,12 +379,12 @@ describe("confirm and canary tasks", () => {
 
   it.each([
     "https://evil.example/confirm",
-    "https://evil-${domain}/confirm",
-    "https://${domain}.evil.example/confirm",
+    "https://evil-@@DOMAIN@@/confirm",
+    "https://@@DOMAIN@@.evil.example/confirm",
   ])("never opens %s, whatever link extraction decided", (template) => {
     const target = seedTarget(ctx);
     const request = seedRequest(ctx, { profileId, targetId: target.id, status: "awaiting_reply" });
-    const url = template.replaceAll("${domain}", target.domain);
+    const url = template.replaceAll("@@DOMAIN@@", target.domain);
     const task = ctx.services.dispatch.enqueueConfirm(request.id, url).task;
     expect(() => claim(["confirm"])).toThrow(
       expect.objectContaining({ code: "confirm_url_off_domain" }),

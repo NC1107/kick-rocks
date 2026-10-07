@@ -40,7 +40,10 @@ export function AppLayout() {
       </header>
 
       <Drawer open={drawerOpen} onClose={() => setDrawerOpen(false)} label="Menu">
-        <SidebarContent onNavigate={() => setDrawerOpen(false)} />
+        <SidebarContent
+          onNavigate={() => setDrawerOpen(false)}
+          onClose={() => setDrawerOpen(false)}
+        />
       </Drawer>
 
       <main id="main" className="min-w-0 md:pl-60">

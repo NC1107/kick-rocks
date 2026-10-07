@@ -1,4 +1,4 @@
-import { LogOut } from "lucide-react";
+import { LogOut, X } from "lucide-react";
 import { NavLink } from "react-router";
 import { useCurrentProfile, useLogout, useReviewCount } from "../../api/index.js";
 import { cn } from "../../lib/cn.js";
@@ -55,15 +55,27 @@ function NavRow({
 }
 
 /** The navigation, profile switcher, and account controls. Shared by the desktop rail and the phone drawer. */
-export function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
+export function SidebarContent({
+  onNavigate,
+  onClose,
+}: {
+  onNavigate?: () => void;
+  /** Given in the phone drawer, which needs an explicit way out. */
+  onClose?: () => void;
+}) {
   const { profile } = useCurrentProfile();
   const reviewCount = useReviewCount(profile?.id ?? null);
   const logout = useLogout();
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-4 px-3 py-4">
-      <div className="px-1.5 pt-0.5">
+      <div className="flex items-center justify-between gap-2 px-1.5 pt-0.5">
         <Logo />
+        {onClose ? (
+          <IconButton label="Close menu" onClick={onClose} className="-mr-1.5">
+            <X />
+          </IconButton>
+        ) : null}
       </div>
       <ProfileSwitcher />
       <nav

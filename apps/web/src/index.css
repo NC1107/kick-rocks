@@ -12,144 +12,68 @@
  */
 
 :root {
-  color-scheme: light;
+  /* Both schemes, resolved by light-dark(); data-theme below pins one of them. */
+  color-scheme: light dark;
 
   /* Surfaces, from the page down to things that sit on it */
-  --kr-canvas: oklch(0.975 0.004 255);
-  --kr-surface: oklch(1 0 0);
-  --kr-raised: oklch(1 0 0);
-  --kr-sunken: oklch(0.955 0.005 255);
-  --kr-sidebar: oklch(0.962 0.005 255);
-  --kr-field: oklch(1 0 0);
-  --kr-scrim: oklch(0.2 0.02 255 / 0.45);
+  --kr-canvas: light-dark(oklch(0.975 0.004 255), oklch(0.175 0.008 255));
+  --kr-surface: light-dark(oklch(1 0 0), oklch(0.215 0.009 255));
+  --kr-raised: light-dark(oklch(1 0 0), oklch(0.26 0.01 255));
+  --kr-sunken: light-dark(oklch(0.955 0.005 255), oklch(0.245 0.009 255));
+  --kr-sidebar: light-dark(oklch(0.962 0.005 255), oklch(0.155 0.008 255));
+  --kr-field: light-dark(oklch(1 0 0), oklch(0.19 0.009 255));
+  --kr-scrim: light-dark(oklch(0.2 0.02 255 / 0.45), oklch(0.08 0.01 255 / 0.62));
+  /* The edge shade that tells a scrolling table there is more beyond it */
+  --kr-shade: light-dark(oklch(0.2 0.02 255 / 0.14), oklch(0 0 0 / 0.4));
 
   /* Lines. line-strong is the edge of a control and meets 3:1 against its surface. */
-  --kr-line: oklch(0.915 0.006 255);
-  --kr-line-strong: oklch(0.62 0.012 255);
+  --kr-line: light-dark(oklch(0.915 0.006 255), oklch(0.31 0.01 255));
+  --kr-line-strong: light-dark(oklch(0.62 0.012 255), oklch(0.55 0.012 255));
 
   /* Text */
-  --kr-ink: oklch(0.21 0.015 255);
-  --kr-ink-muted: oklch(0.45 0.014 255);
-  --kr-ink-faint: oklch(0.53 0.012 255);
+  --kr-ink: light-dark(oklch(0.21 0.015 255), oklch(0.95 0.005 255));
+  --kr-ink-muted: light-dark(oklch(0.45 0.014 255), oklch(0.74 0.01 255));
+  --kr-ink-faint: light-dark(oklch(0.53 0.012 255), oklch(0.66 0.01 255));
 
   /* Accent: links, primary actions, the selected nav item, the focus ring */
-  --kr-accent: oklch(0.5 0.17 258);
-  --kr-accent-hover: oklch(0.44 0.17 258);
-  --kr-accent-ink: oklch(1 0 0);
-  --kr-accent-soft: oklch(0.95 0.025 258);
-  --kr-accent-soft-ink: oklch(0.4 0.14 258);
-  --kr-focus: oklch(0.58 0.19 258);
+  --kr-accent: light-dark(oklch(0.5 0.17 258), oklch(0.74 0.12 255));
+  --kr-accent-hover: light-dark(oklch(0.44 0.17 258), oklch(0.8 0.11 255));
+  --kr-accent-ink: light-dark(oklch(1 0 0), oklch(0.17 0.03 255));
+  --kr-accent-soft: light-dark(oklch(0.95 0.025 258), oklch(0.3 0.05 258));
+  --kr-accent-soft-ink: light-dark(oklch(0.4 0.14 258), oklch(0.86 0.08 255));
+  --kr-focus: light-dark(oklch(0.58 0.19 258), oklch(0.74 0.14 255));
 
   /* Destructive actions */
-  --kr-danger: oklch(0.5 0.18 25);
-  --kr-danger-hover: oklch(0.44 0.18 25);
-  --kr-danger-ink: oklch(1 0 0);
+  --kr-danger: light-dark(oklch(0.5 0.18 25), oklch(0.7 0.16 25));
+  --kr-danger-hover: light-dark(oklch(0.44 0.18 25), oklch(0.76 0.15 25));
+  --kr-danger-ink: light-dark(oklch(1 0 0), oklch(0.17 0.03 25));
 
-  /* Tones: every badge, pill, and alert is built from one hue plus these lightness steps */
-  --kr-tone-bg-l: 0.955;
-  --kr-tone-bg-c: 0.03;
-  --kr-tone-ink-l: 0.4;
-  --kr-tone-ink-c: 0.11;
-  --kr-tone-dot-l: 0.58;
-  --kr-tone-dot-c: 0.16;
-  --kr-tone-line-l: 0.88;
-  --kr-tone-line-c: 0.05;
-
-  /* Elevation: only things that float get a shadow */
-  --kr-shadow-pop: 0 1px 2px oklch(0.2 0.02 255 / 0.08), 0 6px 16px oklch(0.2 0.02 255 / 0.12);
-  --kr-shadow-dialog: 0 2px 4px oklch(0.2 0.02 255 / 0.08), 0 20px 48px oklch(0.2 0.02 255 / 0.22);
+  /*
+   * Elevation: only things that float get a shadow. The geometry is the same in both schemes and
+   * only the color changes, since light-dark() chooses colors, not lengths.
+   */
+  --kr-shadow-pop:
+    0 1px 2px light-dark(oklch(0.2 0.02 255 / 0.08), oklch(0 0 0 / 0.4)),
+    0 6px 16px light-dark(oklch(0.2 0.02 255 / 0.12), oklch(0 0 0 / 0.45));
+  --kr-shadow-dialog:
+    0 2px 4px light-dark(oklch(0.2 0.02 255 / 0.08), oklch(0 0 0 / 0.4)),
+    0 20px 48px light-dark(oklch(0.2 0.02 255 / 0.22), oklch(0 0 0 / 0.6));
 
   /* Rhythm */
   --kr-gutter: 1.5rem;
   --kr-control-h: 2.25rem;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    color-scheme: dark;
-    --kr-canvas: oklch(0.175 0.008 255);
-    --kr-surface: oklch(0.215 0.009 255);
-    --kr-raised: oklch(0.26 0.01 255);
-    --kr-sunken: oklch(0.245 0.009 255);
-    --kr-sidebar: oklch(0.155 0.008 255);
-    --kr-field: oklch(0.19 0.009 255);
-    --kr-scrim: oklch(0.08 0.01 255 / 0.62);
-
-    --kr-line: oklch(0.31 0.01 255);
-    --kr-line-strong: oklch(0.55 0.012 255);
-
-    --kr-ink: oklch(0.95 0.005 255);
-    --kr-ink-muted: oklch(0.74 0.01 255);
-    --kr-ink-faint: oklch(0.66 0.01 255);
-
-    --kr-accent: oklch(0.74 0.12 255);
-    --kr-accent-hover: oklch(0.8 0.11 255);
-    --kr-accent-ink: oklch(0.17 0.03 255);
-    --kr-accent-soft: oklch(0.3 0.05 258);
-    --kr-accent-soft-ink: oklch(0.86 0.08 255);
-    --kr-focus: oklch(0.74 0.14 255);
-
-    --kr-danger: oklch(0.7 0.16 25);
-    --kr-danger-hover: oklch(0.76 0.15 25);
-    --kr-danger-ink: oklch(0.17 0.03 25);
-
-    --kr-tone-bg-l: 0.27;
-    --kr-tone-bg-c: 0.045;
-    --kr-tone-ink-l: 0.86;
-    --kr-tone-ink-c: 0.08;
-    --kr-tone-dot-l: 0.72;
-    --kr-tone-dot-c: 0.15;
-    --kr-tone-line-l: 0.36;
-    --kr-tone-line-c: 0.06;
-
-    --kr-shadow-pop: 0 1px 2px oklch(0 0 0 / 0.4), 0 8px 20px oklch(0 0 0 / 0.45);
-    --kr-shadow-dialog: 0 2px 4px oklch(0 0 0 / 0.4), 0 24px 56px oklch(0 0 0 / 0.6);
-  }
+:root[data-theme="light"] {
+  color-scheme: light;
 }
 
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --kr-canvas: oklch(0.175 0.008 255);
-  --kr-surface: oklch(0.215 0.009 255);
-  --kr-raised: oklch(0.26 0.01 255);
-  --kr-sunken: oklch(0.245 0.009 255);
-  --kr-sidebar: oklch(0.155 0.008 255);
-  --kr-field: oklch(0.19 0.009 255);
-  --kr-scrim: oklch(0.08 0.01 255 / 0.62);
-
-  --kr-line: oklch(0.31 0.01 255);
-  --kr-line-strong: oklch(0.55 0.012 255);
-
-  --kr-ink: oklch(0.95 0.005 255);
-  --kr-ink-muted: oklch(0.74 0.01 255);
-  --kr-ink-faint: oklch(0.66 0.01 255);
-
-  --kr-accent: oklch(0.74 0.12 255);
-  --kr-accent-hover: oklch(0.8 0.11 255);
-  --kr-accent-ink: oklch(0.17 0.03 255);
-  --kr-accent-soft: oklch(0.3 0.05 258);
-  --kr-accent-soft-ink: oklch(0.86 0.08 255);
-  --kr-focus: oklch(0.74 0.14 255);
-
-  --kr-danger: oklch(0.7 0.16 25);
-  --kr-danger-hover: oklch(0.76 0.15 25);
-  --kr-danger-ink: oklch(0.17 0.03 25);
-
-  --kr-tone-bg-l: 0.27;
-  --kr-tone-bg-c: 0.045;
-  --kr-tone-ink-l: 0.86;
-  --kr-tone-ink-c: 0.08;
-  --kr-tone-dot-l: 0.72;
-  --kr-tone-dot-c: 0.15;
-  --kr-tone-line-l: 0.36;
-  --kr-tone-line-c: 0.06;
-
-  --kr-shadow-pop: 0 1px 2px oklch(0 0 0 / 0.4), 0 8px 20px oklch(0 0 0 / 0.45);
-  --kr-shadow-dialog: 0 2px 4px oklch(0 0 0 / 0.4), 0 24px 56px oklch(0 0 0 / 0.6);
 }
 
-/* Phone: larger touch targets and a tighter gutter */
-@media (max-width: 40rem) {
+/* Phone: larger touch targets and a tighter gutter. Flips at the same width as Tailwind's max-sm. */
+@media (width < 40rem) {
   :root {
     --kr-gutter: 1rem;
     --kr-control-h: 2.75rem;
@@ -161,15 +85,21 @@
  * read --color-tone-*, so a new status never needs a new color definition.
  */
 [data-tone] {
-  --tone-bg: oklch(var(--kr-tone-bg-l) calc(var(--kr-tone-bg-c) * var(--tone-k, 1)) var(--tone-h));
-  --tone-ink: oklch(
-    var(--kr-tone-ink-l) calc(var(--kr-tone-ink-c) * var(--tone-k, 1)) var(--tone-h)
+  --tone-bg: light-dark(
+    oklch(0.955 calc(0.03 * var(--tone-k, 1)) var(--tone-h)),
+    oklch(0.27 calc(0.045 * var(--tone-k, 1)) var(--tone-h))
   );
-  --tone-dot: oklch(
-    var(--kr-tone-dot-l) calc(var(--kr-tone-dot-c) * var(--tone-k, 1)) var(--tone-h)
+  --tone-ink: light-dark(
+    oklch(0.4 calc(0.11 * var(--tone-k, 1)) var(--tone-h)),
+    oklch(0.86 calc(0.08 * var(--tone-k, 1)) var(--tone-h))
   );
-  --tone-line: oklch(
-    var(--kr-tone-line-l) calc(var(--kr-tone-line-c) * var(--tone-k, 1)) var(--tone-h)
+  --tone-dot: light-dark(
+    oklch(0.58 calc(0.16 * var(--tone-k, 1)) var(--tone-h)),
+    oklch(0.72 calc(0.15 * var(--tone-k, 1)) var(--tone-h))
+  );
+  --tone-line: light-dark(
+    oklch(0.88 calc(0.05 * var(--tone-k, 1)) var(--tone-h)),
+    oklch(0.36 calc(0.06 * var(--tone-k, 1)) var(--tone-h))
   );
 }
 [data-tone="neutral"] {
@@ -265,6 +195,7 @@
   --color-sidebar: var(--kr-sidebar);
   --color-field: var(--kr-field);
   --color-scrim: var(--kr-scrim);
+  --color-shade: var(--kr-shade);
 
   --color-line: var(--kr-line);
   --color-line-strong: var(--kr-line-strong);
@@ -356,7 +287,7 @@
   }
 
   /* Inputs stay at 16px on phones; smaller text makes iOS zoom the page on focus. */
-  @media (max-width: 40rem) {
+  @media (width < 40rem) {
     :where(input, select, textarea) {
       font-size: 1rem;
     }
