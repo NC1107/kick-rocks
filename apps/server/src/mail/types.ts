@@ -65,11 +65,26 @@ export interface InboxMessage {
   /** Header names are lower case. */
   headers: Record<string, string>;
   /**
-   * The signing domains of the DKIM signatures this server verified over the message's whole body.
-   * Empty when none verified or when verification could not finish.
+   * Verifies the message's DKIM signatures when asked, because doing so costs DNS lookups that
+   * most messages never need.
    */
-  dkimDomains: string[];
+  verifyDkim: DkimCheck;
 }
+
+/** Which signatures are worth checking for one message. */
+export interface DkimScope {
+  /** Only signatures whose d= could align with one of these are verified. */
+  domains: readonly string[];
+  /** The mailbox's own address, which a verified signature must show in its signed To or Cc. */
+  recipient: string;
+}
+
+/**
+ * The signing domains of the signatures that verified over the whole body, aligned with one of
+ * `scope.domains`, and addressed to `scope.recipient`. Empty when none qualified or when
+ * verification could not finish.
+ */
+export type DkimCheck = (scope: DkimScope) => Promise<string[]>;
 
 export interface FetchOptions {
   /**
@@ -149,6 +164,8 @@ export interface ClassifierRequest {
 
 export interface ClassifyContext {
   requests: ClassifierRequest[];
+  /** The address of the mailbox the message arrived in. */
+  mailboxAddress: string;
 }
 
 export interface ClassificationResult {

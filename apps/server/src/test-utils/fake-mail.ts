@@ -14,6 +14,7 @@ import type {
   ReplyClassifier,
   VerifyResult,
 } from "../mail/types.js";
+import { noDkim } from "./dkim.js";
 
 export interface SentMail {
   connection: MailConnection;
@@ -188,7 +189,7 @@ class ScriptedMailbox implements FakeMailbox {
       isBounce: false,
       autoSubmitted: false,
       headers: {},
-      dkimDomains: [],
+      verifyDkim: noDkim,
       ...overrides,
     };
     this.byFolder.set(folder, [...(this.byFolder.get(folder) ?? []), message]);

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { loadConfig } from "../config.js";
+import { noDkim } from "../test-utils/dkim.js";
 import { createMailServices } from "./index.js";
 
 const connection = {
@@ -58,13 +59,13 @@ describe("createMailServices", () => {
       isBounce: false,
       autoSubmitted: false,
       headers: {},
-      dkimDomains: [],
+      verifyDkim: noDkim,
     };
-    await mail.classifier.classify(message, { requests: [] });
+    await mail.classifier.classify(message, { requests: [], mailboxAddress: "jordan@example.com" });
     expect(reads).toBe(0);
     await mail.classifier.classify(
       { ...message, text: "Your data has been deleted." },
-      { requests: [] },
+      { requests: [], mailboxAddress: "jordan@example.com" },
     );
     expect(reads).toBe(1);
   });

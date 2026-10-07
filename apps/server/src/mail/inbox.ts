@@ -89,6 +89,7 @@ export function createInboxSource(
   connection: MailConnection,
   { plaintextHosts = [], dkim }: InboxSourceOptions = {},
 ): InboxSource {
+  const runDkim = dkim?.forRun();
   return {
     listFolders() {
       return withClient(connection, plaintextHosts, async (client) => {
@@ -111,7 +112,7 @@ export function createInboxSource(
 
     fetchSince(folder, afterUid, uidValidity, options) {
       return withClient(connection, plaintextHosts, (client) =>
-        fetchFolder(client, folder, afterUid, uidValidity, options, dkim),
+        fetchFolder(client, folder, afterUid, uidValidity, options, runDkim),
       );
     },
   };

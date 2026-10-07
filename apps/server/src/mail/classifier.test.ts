@@ -1,7 +1,10 @@
 import { outgoingMessageId, type ProfileField, type ReplyClassification } from "@kickrocks/shared";
 import { describe, expect, it } from "vitest";
+import { noDkim, verifiedBy } from "../test-utils/dkim.js";
 import { createReplyClassifier } from "./classifier.js";
 import type { ClassifierRequest, InboxMessage } from "./types.js";
+
+const MAILBOX = "jordan@example.com";
 
 const classifier = createReplyClassifier({ settings: { get: () => null as never } });
 
@@ -36,7 +39,7 @@ function message(overrides: Partial<InboxMessage> = {}): InboxMessage {
     isBounce: false,
     autoSubmitted: false,
     headers: {},
-    dkimDomains: [],
+    verifyDkim: noDkim,
     ...overrides,
   };
 }
@@ -52,7 +55,10 @@ async function classify(
   overrides: Partial<InboxMessage> = {},
   requests: ClassifierRequest[] = [request()],
 ) {
-  return classifier.classify(message({ text, ...overrides }), { requests });
+  return classifier.classify(message({ text, ...overrides }), {
+    requests,
+    mailboxAddress: MAILBOX,
+  });
 }
 
 describe("correlation", () => {
@@ -133,7 +139,7 @@ describe("correlation", () => {
       inReplyTo: null,
       subject: "Your privacy request",
       from: { name: null, address: "ticket@help.acme.test" },
-      dkimDomains: ["help.acme.test"],
+      verifyDkim: verifiedBy("help.acme.test"),
     });
     expect(result).toMatchObject({
       requestId: "req-1",
@@ -164,7 +170,7 @@ describe("correlation", () => {
       inReplyTo: null,
       subject: "Your privacy request",
       from: { name: null, address: "privacy@acme.test" },
-      dkimDomains,
+      verifyDkim: verifiedBy(...dkimDomains),
     });
     expect(result.confidence).toBeLessThan(0.6);
   });
@@ -177,7 +183,7 @@ describe("correlation", () => {
       inReplyTo: null,
       subject: "Your privacy request",
       from: { name: null, address: "privacy@acme.test" },
-      dkimDomains: [signer],
+      verifyDkim: verifiedBy(signer),
     });
     expect(result.confidence).toBeGreaterThanOrEqual(0.6);
   });
@@ -557,7 +563,7 @@ describe("a confirmation email after a form submission", () => {
     from: { name: null, address: "no-reply@peopleconnect.test" },
     html: '<p>Click the link below to confirm your opt-out.</p><a href="https://suppression.peopleconnect.test/confirm?id=9">Confirm</a>',
     text: "Click the link below to confirm your opt-out.",
-    dkimDomains: ["peopleconnect.test"],
+    verifyDkim: verifiedBy("peopleconnect.test"),
     ...overrides,
   });
 
@@ -573,7 +579,7 @@ describe("a confirmation email after a form submission", () => {
   });
 
   it("sends the confirmation itself to review when no signature of the sender verified", async () => {
-    const result = await classify("", confirmation({ dkimDomains: [] }), [waiting()]);
+    const result = await classify("", confirmation({ verifyDkim: noDkim }), [waiting()]);
     expect(result).toMatchObject({ requestId: "form-1", classification: "confirmation_link" });
     expect(result.confidence).toBeLessThan(0.6);
   });
@@ -585,7 +591,7 @@ describe("a confirmation email after a form submission", () => {
         subject: "Your removal is complete",
         text: "Your record has been removed from our site and your data has been deleted. Click the link below to confirm your opt-out.",
         html: '<p>Your record has been removed from our site and your data has been deleted.</p><p>Click the link below to confirm your opt-out.</p><a href="https://suppression.peopleconnect.test/confirm?id=9">Confirm</a>',
-        dkimDomains: [],
+        verifyDkim: noDkim,
       }),
       [waiting()],
     );
@@ -715,7 +721,7 @@ describe("a confirmation email after a form submission", () => {
         inReplyTo: null,
         subject: "Your request",
         from: { name: null, address: "privacy@intelius.test" },
-        dkimDomains: ["intelius.test"],
+        verifyDkim: verifiedBy("intelius.test"),
       },
       [waiting()],
     );
@@ -747,7 +753,7 @@ describe("hostile input", () => {
   it("does not throw on a message with nothing in it", async () => {
     const result = await classifier.classify(
       message({ subject: "", text: "", from: { name: null, address: "" } }),
-      { requests: [request()] },
+      { requests: [request()], mailboxAddress: MAILBOX },
     );
     expect(result.classification).toBeDefined();
   });

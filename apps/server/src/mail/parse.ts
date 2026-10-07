@@ -1,5 +1,5 @@
 import { type AddressObject, type ParsedMail, simpleParser } from "mailparser";
-import type { DkimVerifier } from "./dkim.js";
+import { type DkimVerifier, hasDkimSignature } from "./dkim.js";
 import type { InboxMessage } from "./types.js";
 
 /** Mail text is cut here so one enormous message cannot exhaust memory before storage trims it. */
@@ -62,7 +62,7 @@ export interface ParseInput {
   source: Buffer;
   /** The server's arrival time, used when the message has no usable Date header. */
   internalDate?: Date | string | undefined;
-  /** Without one, no signature is checked and no sender counts as authenticated. */
+  /** Without one, no signature is checked and no sender counts as authenticated. A poll run passes the verifier of its own budget. */
   dkim?: DkimVerifier | undefined;
 }
 
@@ -95,7 +95,7 @@ export async function parseInboxMessage({
       isBounce: false,
       autoSubmitted: false,
       headers: {},
-      dkimDomains: [],
+      verifyDkim: async () => [],
     };
   }
 
@@ -124,6 +124,9 @@ export async function parseInboxMessage({
     isBounce: detectBounce(parsed, headers),
     autoSubmitted: detectAutoSubmitted(headers),
     headers,
-    dkimDomains: dkim ? await dkim.verifiedDomains(source) : [],
+    verifyDkim:
+      dkim && hasDkimSignature(source)
+        ? (scope) => dkim.verifiedDomains(source, scope)
+        : async () => [],
   };
 }

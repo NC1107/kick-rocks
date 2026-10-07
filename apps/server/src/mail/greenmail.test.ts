@@ -285,7 +285,11 @@ describeIntegration("greenmail", "mail over a real SMTP and IMAP server", () => 
       messages = result.messages;
       if (messages.length < 2) await new Promise((resolve) => setTimeout(resolve, 150));
     }
-    expect(messages.map((message) => message.dkimDomains)).toEqual([["broker.test"], []]);
+    const scope = { domains: ["broker.test"], recipient: "jordan@example.com" };
+    expect(await Promise.all(messages.map((message) => message.verifyDkim(scope)))).toEqual([
+      ["broker.test"],
+      [],
+    ]);
   });
 
   it("reports a missing folder in plain words", async () => {

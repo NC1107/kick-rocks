@@ -1,6 +1,7 @@
 import { generateKeyPairSync } from "node:crypto";
 import { dkimSign } from "mailauth";
 import type { DnsResolver } from "../mail/dkim.js";
+import type { DkimCheck } from "../mail/types.js";
 
 /** A throwaway key pair and the helpers to sign mail with it and serve its public key as DNS. */
 const { publicKey, privateKey } = generateKeyPairSync("rsa", { modulusLength: 2048 });
@@ -26,6 +27,8 @@ export function unsigned(body = BODY, from = "privacy@acme.test"): string {
 export interface SignOptions {
   domain?: string;
   maxBodyLength?: number;
+  /** The header names the signature covers; the signer's default list when omitted. */
+  headerList?: string[];
 }
 
 export async function signed(message: string, options: SignOptions = {}): Promise<string> {
@@ -38,6 +41,7 @@ export async function signed(message: string, options: SignOptions = {}): Promis
   // The package signs from `signatureData`, but its typings only describe the single-signature form.
   const { signatures, errors } = await dkimSign(message, {
     ...entry,
+    ...(options.headerList === undefined ? {} : { headerList: options.headerList }),
     signatureData: [entry],
   });
   if (errors.length > 0) throw new Error(`signing failed: ${JSON.stringify(errors)}`);
@@ -51,3 +55,10 @@ export function servingKeysFor(...domains: string[]): DnsResolver {
     throw Object.assign(new Error(`no ${rrtype} record for ${name}`), { code: "ENOTFOUND" });
   };
 }
+
+/** A DKIM check that reports these signers whatever it is asked, for tests that are not about verification. */
+export function verifiedBy(...domains: string[]): DkimCheck {
+  return async () => domains;
+}
+
+export const noDkim: DkimCheck = verifiedBy();

@@ -1,7 +1,10 @@
 import { Resolver } from "node:dns/promises";
 import { readFileSync } from "node:fs";
 import { dkimVerify } from "mailauth";
+import { simpleParser } from "mailparser";
 import { z } from "zod";
+import { alignsWithAny } from "./sender-auth.js";
+import type { DkimScope } from "./types.js";
 
 export type DnsResolver = (domain: string, rrtype: string) => Promise<string[][] | string[]>;
 
@@ -12,15 +15,20 @@ export interface DkimVerifierOptions {
   testKeys?: Readonly<Record<string, string>>;
   /** The longest one message may take to verify, DNS included. */
   timeoutMs?: number;
+  /** The most verification time one poll run may spend across all of its messages. */
+  runBudgetMs?: number;
 }
 
 /** Checks the DKIM signatures of a raw message. */
 export interface DkimVerifier {
   /**
-   * The signing domains of every signature that verified over the whole body. Empty when nothing
-   * verified or when verification could not finish, so a failure never vouches for anyone.
+   * The signing domains of the signatures that verified over the whole body, belong to one of
+   * `scope.domains`, and cover a To or Cc naming `scope.recipient`. Empty when nothing qualified
+   * or when verification could not finish, so a failure never vouches for anyone.
    */
-  verifiedDomains(source: Buffer): Promise<string[]>;
+  verifiedDomains(source: Buffer, scope: DkimScope): Promise<string[]>;
+  /** A verifier sharing this one's key cache that stops spending time once one poll run's budget is gone. */
+  forRun(): DkimVerifier;
 }
 
 const DNS_TIMEOUT_MS = 3_000;
@@ -83,40 +91,206 @@ function withTestKeys(
   };
 }
 
+const MAX_SIGNATURES = 5;
+const RUN_BUDGET_MS = 30_000;
+const IGNORED_HEADERS = /^(arc-seal|arc-message-signature|arc-authentication-results)$/;
+
+interface HeaderField {
+  name: string;
+  raw: string;
+}
+
+function splitHeaders(source: Buffer): { fields: HeaderField[]; bodyStart: number } {
+  const crlf = source.indexOf("\r\n\r\n");
+  const lf = source.indexOf("\n\n");
+  const bodyStart =
+    crlf === -1 && lf === -1
+      ? source.length
+      : Math.min(crlf === -1 ? Infinity : crlf + 4, lf === -1 ? Infinity : lf + 2);
+  const fields = source
+    .subarray(0, bodyStart)
+    .toString("latin1")
+    .split(/(?<=\n)(?![ \t])/)
+    .map((raw) => ({
+      raw,
+      name: raw
+        .slice(0, Math.max(raw.indexOf(":"), 0))
+        .trim()
+        .toLowerCase(),
+    }));
+  return { fields, bodyStart };
+}
+
+function signingDomainTag(field: HeaderField): string {
+  const value = field.raw.slice(field.raw.indexOf(":") + 1).replace(/\r?\n[ \t]/g, "");
+  for (const tag of value.split(";")) {
+    const at = tag.indexOf("=");
+    if (at > 0 && tag.slice(0, at).trim().toLowerCase() === "d") {
+      return tag
+        .slice(at + 1)
+        .trim()
+        .toLowerCase();
+    }
+  }
+  return "";
+}
+
+/** True when the message carries any DKIM signature, so one that carries none is never kept for later. */
+export function hasDkimSignature(source: Buffer): boolean {
+  return splitHeaders(source).fields.some((field) => field.name === "dkim-signature");
+}
+
+/**
+ * The message cut down to the signatures worth checking: those whose d= could align with one of
+ * the domains, at most `MAX_SIGNATURES` of them. Every other signature and every ARC header is
+ * dropped so the verifier never hashes for them or looks up their keys.
+ */
+function reduceToRelevantSignatures(
+  source: Buffer,
+  domains: readonly string[],
+): { source: Buffer; hasCc: boolean } | null {
+  const { fields, bodyStart } = splitHeaders(source);
+  let kept = 0;
+  const headers = fields.filter((field) => {
+    if (IGNORED_HEADERS.test(field.name)) return false;
+    if (field.name !== "dkim-signature") return true;
+    const domain = signingDomainTag(field);
+    if (domain === "" || kept >= MAX_SIGNATURES || !alignsWithAny(domain, domains)) return false;
+    kept += 1;
+    return true;
+  });
+  if (kept === 0) return null;
+  return {
+    source: Buffer.concat([
+      Buffer.from(headers.map((field) => field.raw).join(""), "latin1"),
+      source.subarray(bodyStart),
+    ]),
+    hasCc: fields.some((field) => field.name === "cc"),
+  };
+}
+
+async function addressesOfHeader(line: string): Promise<string[]> {
+  const parsed = await simpleParser(Buffer.from(`${line.replace(/\s+$/, "")}\r\n\r\n`, "latin1"));
+  const field =
+    line.slice(0, line.indexOf(":")).trim().toLowerCase() === "cc" ? parsed.cc : parsed.to;
+  const objects = field === undefined ? [] : Array.isArray(field) ? field : [field];
+  return objects
+    .flatMap((object) => object.value)
+    .flatMap((entry) => (entry.address ? [entry.address.toLowerCase()] : []));
+}
+
+/**
+ * Whether the signature itself covers the recipients and names this mailbox among them. A genuine
+ * reply to someone else verifies just as well, so only a signed To or Cc that holds the mailbox
+ * address ties the signature to this mail. The headers read are the instances the signature
+ * hashed, which are the bottom-most of each name.
+ */
+async function signedForRecipient(
+  signedHeaders: readonly string[],
+  recipient: string,
+  hasCc: boolean,
+): Promise<boolean> {
+  const first = (name: string) =>
+    signedHeaders.find((line) => line.slice(0, line.indexOf(":")).trim().toLowerCase() === name);
+  const to = first("to");
+  const cc = first("cc");
+  if (to === undefined || (hasCc && cc === undefined)) return false;
+  const wanted = recipient.trim().toLowerCase();
+  const signed = (
+    await Promise.all([to, ...(cc === undefined ? [] : [cc])].map(addressesOfHeader))
+  ).flat();
+  return wanted !== "" && signed.includes(wanted);
+}
+
+function timeoutError(): Error {
+  return Object.assign(new Error("DNS lookup ran out of time"), { code: "ETIMEOUT" });
+}
+
+/** Answers every lookup from the underlying resolver until the deadline, and refuses every one after it. */
+function withDeadline(resolve: DnsResolver, deadline: number, now: () => number): DnsResolver {
+  return (domain, rrtype) => {
+    const left = deadline - now();
+    if (left <= 0) return Promise.reject(timeoutError());
+    return new Promise((done, fail) => {
+      const timer = setTimeout(() => fail(timeoutError()), left);
+      resolve(domain, rrtype).then(
+        (records) => {
+          clearTimeout(timer);
+          done(records);
+        },
+        (error: unknown) => {
+          clearTimeout(timer);
+          fail(error);
+        },
+      );
+    });
+  };
+}
+
 export function createDkimVerifier({
   resolver = systemResolver(),
   testKeys = {},
   timeoutMs = VERIFY_TIMEOUT_MS,
+  runBudgetMs = RUN_BUDGET_MS,
 }: DkimVerifierOptions = {}): DkimVerifier {
   const resolve = cachingResolver(withTestKeys(resolver, testKeys), Date.now);
 
-  async function verify(source: Buffer): Promise<string[]> {
-    const { results } = await dkimVerify(source, { resolver: resolve });
-    const domains = results
-      .filter(
-        (result) =>
-          result.status.result === "pass" &&
-          // An l= tag lets anyone append text the signature never saw.
-          !result.status.underSized &&
-          result.signingDomain,
-      )
-      .map((result) => (result.signingDomain ?? "").toLowerCase());
+  async function verify(source: Buffer, scope: DkimScope, deadline: number): Promise<string[]> {
+    const relevant = reduceToRelevantSignatures(source, scope.domains);
+    if (!relevant) return [];
+    const { results } = await dkimVerify(relevant.source, {
+      resolver: withDeadline(resolve, deadline, Date.now),
+      rejectRsaSha1: true,
+    });
+    const domains: string[] = [];
+    for (const result of results) {
+      if (
+        result.status.result === "pass" &&
+        // An l= tag lets anyone append text the signature never saw.
+        !result.status.underSized &&
+        result.signingDomain &&
+        alignsWithAny(result.signingDomain, scope.domains) &&
+        (await signedForRecipient(
+          result.signingHeaders?.headers ?? [],
+          scope.recipient,
+          relevant.hasCc,
+        ))
+      ) {
+        domains.push(result.signingDomain.toLowerCase());
+      }
+    }
     return [...new Set(domains)];
   }
 
-  return {
-    async verifiedDomains(source) {
-      let timer: NodeJS.Timeout | undefined;
-      const giveUp = new Promise<string[]>((done) => {
-        timer = setTimeout(() => done([]), timeoutMs);
-      });
-      try {
-        return await Promise.race([verify(source).catch(() => []), giveUp]);
-      } finally {
-        clearTimeout(timer);
-      }
-    },
-  };
+  function verifier(budget: { left: number } | null): DkimVerifier {
+    return {
+      async verifiedDomains(source, scope) {
+        const allowed = Math.min(timeoutMs, budget?.left ?? timeoutMs);
+        if (allowed <= 0) return [];
+        const started = Date.now();
+        let timer: NodeJS.Timeout | undefined;
+        let gaveUp = false;
+        const giveUp = new Promise<string[]>((done) => {
+          timer = setTimeout(() => {
+            gaveUp = true;
+            done([]);
+          }, allowed);
+        });
+        try {
+          return await Promise.race([
+            verify(source, scope, started + allowed).catch(() => []),
+            giveUp,
+          ]);
+        } finally {
+          clearTimeout(timer);
+          if (budget) budget.left -= gaveUp ? allowed : Date.now() - started;
+        }
+      },
+      forRun: () => verifier({ left: runBudgetMs }),
+    };
+  }
+
+  return verifier(null);
 }
 
 const TestKeys = z.record(z.string().min(1), z.string().min(1));

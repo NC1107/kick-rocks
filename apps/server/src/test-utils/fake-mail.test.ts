@@ -191,7 +191,10 @@ describe("programmable classifier", () => {
 
   it("answers unknown with zero confidence until programmed", async () => {
     const { fake } = setup();
-    const result = await fake.classifier.classify(message("hello"), { requests: [] });
+    const result = await fake.classifier.classify(message("hello"), {
+      requests: [],
+      mailboxAddress: "jordan@example.com",
+    });
     expect(result).toMatchObject({
       requestId: null,
       classification: "unknown",
@@ -210,12 +213,23 @@ describe("programmable classifier", () => {
     });
     fake.classifier.when(/bounce/i, { classification: "bounce", confidence: 0.99 });
     expect(
-      await fake.classifier.classify(message("Re: KR-AAAAAA"), { requests: [] }),
+      await fake.classifier.classify(message("Re: KR-AAAAAA"), {
+        requests: [],
+        mailboxAddress: "jordan@example.com",
+      }),
     ).toMatchObject({ requestId: "r1", classification: "completed", confidence: 0.95 });
     expect(
-      await fake.classifier.classify(message("Undeliverable: BOUNCE"), { requests: [] }),
+      await fake.classifier.classify(message("Undeliverable: BOUNCE"), {
+        requests: [],
+        mailboxAddress: "jordan@example.com",
+      }),
     ).toMatchObject({ classification: "bounce" });
-    expect(await fake.classifier.classify(message("other"), { requests: [] })).toMatchObject({
+    expect(
+      await fake.classifier.classify(message("other"), {
+        requests: [],
+        mailboxAddress: "jordan@example.com",
+      }),
+    ).toMatchObject({
       classification: "unknown",
     });
     expect(fake.classifier.calls).toHaveLength(3);
@@ -228,10 +242,20 @@ describe("programmable classifier", () => {
       m.subject === "special" ? { classification: "needs_form", confidence: 1 } : null,
     );
     expect(
-      (await fake.classifier.classify(message("special"), { requests: [] })).classification,
+      (
+        await fake.classifier.classify(message("special"), {
+          requests: [],
+          mailboxAddress: "jordan@example.com",
+        })
+      ).classification,
     ).toBe("needs_form");
     expect(
-      (await fake.classifier.classify(message("plain"), { requests: [] })).classification,
+      (
+        await fake.classifier.classify(message("plain"), {
+          requests: [],
+          mailboxAddress: "jordan@example.com",
+        })
+      ).classification,
     ).toBe("rejected");
   });
 
@@ -254,12 +278,22 @@ describe("programmable classifier", () => {
       recordUrl: null,
       awaitingConfirmation: null,
     };
-    expect((await fake.classifier.classify(message("x"), { requests: [request] })).requestId).toBe(
-      "r9",
-    );
+    expect(
+      (
+        await fake.classifier.classify(message("x"), {
+          requests: [request],
+          mailboxAddress: "jordan@example.com",
+        })
+      ).requestId,
+    ).toBe("r9");
     fake.classifier.reset();
     expect(
-      (await fake.classifier.classify(message("x"), { requests: [request] })).classification,
+      (
+        await fake.classifier.classify(message("x"), {
+          requests: [request],
+          mailboxAddress: "jordan@example.com",
+        })
+      ).classification,
     ).toBe("unknown");
     expect(fake.classifier.calls).toHaveLength(1);
   });

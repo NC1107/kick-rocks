@@ -23,9 +23,12 @@ import type {
 export const CONFIDENCE_THRESHOLD = 0.6;
 /** What a reply can reach when nothing ties it to a request, so it always waits for a person. */
 const UNMATCHED_CAP = 0.55;
-/** What a reply can reach when only its sender's domain ties it to a request and the provider vouched for that domain. */
+/** What a reply can reach when only its sender's domain ties it to a request and a DKIM signature this server verified vouches for that domain and this mailbox. */
 const SENDER_DOMAIN_CAP = 0.8;
-/** The same match without a DKIM or DMARC pass rests on a forgeable From address, so it waits for a person. */
+/**
+ * The same match without such a signature rests on a forgeable From address, and so does one that
+ * names another request's reference, which a replayed genuine reply would carry, so it waits for a person.
+ */
 const UNAUTHENTICATED_SENDER_CAP = 0.55;
 /** The floor the contract gives a confirmation email that matches a waiting form submission. */
 const AWAITING_CONFIRMATION_FLOOR = 0.8;
@@ -227,17 +230,45 @@ function describeCorrelation(via: Correlation | null): string {
 }
 
 /** What a classification may reach given how firmly the reply is tied to a request. */
-function capFor(
+async function capFor(
   classification: ReplyClassification,
   via: Correlation | null,
   confidence: number,
-  senderVouched: boolean,
-): number {
+  senderVouched: () => Promise<boolean>,
+): Promise<number> {
   if (via === null)
     return classification === "unrelated" ? confidence : Math.min(confidence, UNMATCHED_CAP);
-  if (via === "sender_domain")
-    return Math.min(confidence, senderVouched ? SENDER_DOMAIN_CAP : UNAUTHENTICATED_SENDER_CAP);
+  if (via === "sender_domain") {
+    // Verifying costs DNS lookups, so it is skipped when the unauthenticated cap already decides.
+    if (confidence <= UNAUTHENTICATED_SENDER_CAP) return confidence;
+    return Math.min(
+      confidence,
+      (await senderVouched()) ? SENDER_DOMAIN_CAP : UNAUTHENTICATED_SENDER_CAP,
+    );
+  }
   return confidence;
+}
+
+/** A reply that names a different request's Message-ID or reference than the one its sender matched. */
+function namesAnotherRequest(message: InboxMessage, request: ClassifierRequest): boolean {
+  const ids = [message.inReplyTo, ...message.references].filter((id): id is string => Boolean(id));
+  const foreignId = ids.some((id) => {
+    const parsed = parseOutgoingMessageId(id);
+    return parsed !== null && parsed.requestId !== request.id;
+  });
+  const foreignReference = parseReferences(`${message.subject}\n${message.text}`).some(
+    (reference) => reference !== request.reference,
+  );
+  return foreignId || foreignReference;
+}
+
+/** Remembers the answer, because the check may be wanted by both the rules and the model fallback. */
+function once(work: () => Promise<boolean>): () => Promise<boolean> {
+  let answer: Promise<boolean> | undefined;
+  return () => {
+    answer ??= work();
+    return answer;
+  };
 }
 
 function round(value: number): number {
@@ -300,8 +331,12 @@ export function createReplyClassifier(deps: ReplyClassifierDeps): ReplyClassifie
 
       const links = match ? usableLinks(allLinks, match.request).map((link) => link.url) : [];
       const via = match?.via ?? null;
-      const authenticated =
-        match !== null && senderIsAuthenticated(message, domainsOf(match.request));
+      const matched = match;
+      const authenticated = once(async () =>
+        matched === null || namesAnotherRequest(message, matched.request)
+          ? false
+          : senderIsAuthenticated(message, domainsOf(matched.request), context.mailboxAddress),
+      );
       const requestId = match?.request.id ?? null;
 
       signals.sort(
@@ -333,7 +368,7 @@ export function createReplyClassifier(deps: ReplyClassifierDeps): ReplyClassifie
           requestId,
           correlation: via,
           classification: top.classification,
-          confidence: round(capFor(top.classification, via, floored, authenticated)),
+          confidence: round(await capFor(top.classification, via, floored, authenticated)),
           rationale: `${top.rationale}${rival ? ", though other wording points elsewhere" : ""}; ${describeCorrelation(via)}`,
           links,
           requestedFields:
@@ -373,7 +408,7 @@ async function refineWithLlm(
   body: string,
   current: ClassificationResult,
   via: Correlation | null,
-  authenticated: boolean,
+  authenticated: () => Promise<boolean>,
 ): Promise<ClassificationResult> {
   const llm = configuredLlm(deps.settings);
   if (!llm) return current;
@@ -394,7 +429,7 @@ async function refineWithLlm(
   const unsupported = answer.classification === "confirmation_link" && current.links.length === 0;
   const classification: ReplyClassification = unsupported ? "unknown" : answer.classification;
   const confidence = round(
-    capFor(
+    await capFor(
       classification,
       via,
       unsupported ? 0.3 : Math.min(answer.confidence, 0.9),
