@@ -1,7 +1,6 @@
 import type {
   AgentReason,
   BlockedReason,
-  ClaimerKind,
   ContactMethod,
   EmailKind,
   FailureKind,
@@ -232,10 +231,4 @@ export const AGENT_REASON_LABELS: Record<AgentReason, string> = {
   no_recipe: "No saved steps for this site",
   recipe_failed: "The saved steps stopped working",
   blocked: "Handed over after a human check",
-};
-
-export const CLAIMER_KIND_LABELS: Record<ClaimerKind, string> = {
-  builtin: "Built-in worker",
-  mcp: "Agent over MCP",
-  model: "Model worker",
 };

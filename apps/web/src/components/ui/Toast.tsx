@@ -54,7 +54,8 @@ const ITEM_TONE = { info: "neutral", success: "positive" } as const;
  * belongs on the thing that failed, so there is no error or warning intent.
  * Toasts sit bottom-left of the content on wide screens, on the content gutter. On phones they
  * cover the top bar, because the back link below it and the decision footer pinned to the bottom
- * edge must stay reachable for the whole life of a toast.
+ * edge must stay reachable for the whole life of a toast. That is why a phone toast shows its
+ * title on one line and leaves the description to the live region.
  */
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<ToastItem[]>([]);
@@ -122,16 +123,16 @@ function ToastCard({ item, onDismiss }: { item: ToastItem; onDismiss: (id: numbe
       onMouseLeave={() => setPaused(false)}
       onFocus={() => setPaused(true)}
       onBlur={() => setPaused(false)}
-      className="pointer-events-auto flex animate-rise items-start gap-3 rounded-lg border border-tone-line bg-popover py-2 pr-2 pl-3 shadow-pop"
+      className="pointer-events-auto flex animate-rise items-start gap-3 rounded-lg border border-tone-line bg-popover py-2 max-sm:py-0.5 pr-2 pl-3 shadow-pop"
     >
       {/* The icon, the first line of text, and the dismiss button share one center line, on a phone too. */}
       <span className="flex h-(--kr-control-sm) shrink-0 items-center">
         <Icon aria-hidden="true" className="size-4 text-tone-dot" />
       </span>
       <div className="min-w-0 flex-1 pt-[calc((var(--kr-control-sm)-1.25rem)/2)] pb-1.5">
-        <p className="text-ui font-medium text-ink">{item.title}</p>
+        <p className="text-ui font-medium text-ink max-sm:truncate">{item.title}</p>
         {item.description ? (
-          <p className="mt-0.5 text-meta text-ink-2">{item.description}</p>
+          <p className="mt-0.5 text-meta text-ink-2 max-sm:hidden">{item.description}</p>
         ) : null}
       </div>
       <IconButton label="Dismiss" size="sm" onClick={() => onDismiss(item.id)}>

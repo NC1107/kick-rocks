@@ -42,15 +42,17 @@ describe("general settings", () => {
   });
 
   it("shows each worker's own state, so a down agent worker is not hidden by a live recipe worker", async () => {
-    const { mock } = general();
+    const mock = createMockApp();
     mock.store.settings.worker.model = {
       ...(mock.store.settings.worker.model as NonNullable<typeof mock.store.settings.worker.model>),
       lastSeenAt: new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString(),
     };
+    general(mock);
     const recipe = await screen.findByRole("region", { name: "Recipe worker" });
     const agent = screen.getByRole("region", { name: "Agent worker" });
     expect(within(recipe).getByText("Worker online")).toBeVisible();
     expect(within(agent).getByText("Worker offline")).toBeVisible();
+    expect(within(agent).queryByText("Doing")).toBeNull();
   });
 
   it("lets the person allow the agent worker onto unreviewed sites, and take it back", async () => {

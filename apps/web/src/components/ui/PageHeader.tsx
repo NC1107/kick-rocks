@@ -21,7 +21,7 @@ export function PageHeader({ title, description, actions, back }: PageHeaderProp
       {back ? (
         <Link
           to={back.to}
-          className="-ml-1 mb-1.5 inline-flex items-center gap-0.5 rounded-xs pr-1 text-meta text-ink-3 transition-colors duration-100 hover:text-ink-2"
+          className="-ml-1 mb-1.5 inline-flex items-center gap-0.5 rounded-xs pr-1 text-meta max-sm:-mt-3 max-sm:-mb-2 max-sm:min-h-11 text-ink-3 transition-colors duration-100 hover:text-ink-2"
         >
           <ChevronLeft aria-hidden="true" className="size-4" />
           {back.label}

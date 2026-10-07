@@ -6,6 +6,7 @@ import {
   useCallback,
   useEffect,
   useId,
+  useLayoutEffect,
   useRef,
   useState,
 } from "react";
@@ -68,6 +69,21 @@ export function Menu({
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const id = useId();
+  const [flipped, setFlipped] = useState(false);
+
+  // A panel that would leave the screen swaps sides before it paints, so a right-aligned menu
+  // on a trigger near the left edge stays readable.
+  useLayoutEffect(() => {
+    if (!open) {
+      setFlipped(false);
+      return;
+    }
+    const rect = panelRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const gutter = 16;
+    const spills = align === "end" ? rect.left < gutter : rect.right > window.innerWidth - gutter;
+    setFlipped(spills);
+  }, [open, align]);
 
   const close = useCallback((returnFocus: boolean) => {
     setOpen(false);
@@ -167,7 +183,7 @@ export function Menu({
           onKeyDown={onPanelKeyDown}
           className={cn(
             "absolute z-30 mt-1 min-w-full max-w-[calc(100vw-2rem)] rounded-lg border border-line-popover bg-popover p-1 shadow-pop",
-            align === "end" ? "right-0" : "left-0",
+            (align === "end") !== flipped ? "right-0" : "left-0",
             panelClassName,
           )}
         >
