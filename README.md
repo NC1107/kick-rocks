@@ -64,6 +64,23 @@ Set a password first, then pick one of these.
 - To listen on your LAN, set `KICKROCKS_BIND_ADDRESS` in `.env` to the host's LAN address (or `0.0.0.0`) and run `docker compose --profile worker up -d`.
   Set `KICKROCKS_PUBLIC_URL` to the address you use, so the links in the UI and the MCP setup show it.
   Only do this on a network you trust, or behind your own VPN.
+- The server answers only to loopback names, IP addresses, and the host of `KICKROCKS_PUBLIC_URL`.
+  Reach it by an IP address and it works as is.
+  Reach it by a name such as `kickrocks.lan` or `nas.local` and it replies `421 Misdirected Request`, which stops a web page on another site from reaching it by DNS rebinding.
+  Put every other name you use, comma separated, in `KICKROCKS_ALLOWED_HOSTS` in `.env`, or set `KICKROCKS_PUBLIC_URL` to that name.
+
+Behind a reverse proxy such as Caddy, nginx, or Traefik, keep the published port on loopback and let the proxy forward to it.
+Three settings in `.env` make that work.
+
+- `KICKROCKS_PUBLIC_URL` is the address in the browser, such as `https://kickrocks.example.org`.
+  Its host is accepted in the Host and Origin headers, and the sign-in cookie is marked Secure when it is `https`.
+- `KICKROCKS_ALLOWED_HOSTS` lists any further names the proxy serves, since a name that is neither in it nor the public URL gets the `421` above.
+- `KICKROCKS_TRUST_PROXY` is the number of proxies in front of the server, such as `1`, or a comma separated list of their addresses.
+  With it unset the server ignores `X-Forwarded-For` and `X-Forwarded-Proto`, so every client looks like the proxy and shares one sign-in throttle.
+  Set it only when a proxy you control is the sole way in, because a client could otherwise write those headers itself.
+  A bare `on` is refused.
+
+The proxy must pass the original `Host` header through, which most do by default, and keep the connection to the server on a network only it can reach.
 
 ## Backup, restore, and the data volume
 

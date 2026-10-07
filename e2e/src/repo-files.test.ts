@@ -1,5 +1,7 @@
-import { readFileSync } from "node:fs";
-import { dirname, resolve } from "node:path";
+import { execFileSync } from "node:child_process";
+import { copyFileSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
@@ -146,5 +148,53 @@ describe("docs/DESIGN.md", () => {
 
   it("does not promise a passphrase mode as built", () => {
     expect(design).toContain("is not built");
+  });
+});
+
+describe("install.sh", () => {
+  const urlFor = (env: string): string => {
+    const dir = mkdtempSync(join(tmpdir(), "kickrocks-install-"));
+    try {
+      copyFileSync(resolve(ROOT, "install.sh"), join(dir, "install.sh"));
+      writeFileSync(join(dir, ".env"), env);
+      return execFileSync("bash", [join(dir, "install.sh"), "--url"], { encoding: "utf8" }).trim();
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  };
+
+  it("prints the address compose publishes by default", () => {
+    expect(urlFor("KICKROCKS_WORKER_TOKEN=\n")).toBe("http://127.0.0.1:8420");
+  });
+
+  it("prints the configured port and bind address", () => {
+    expect(urlFor("KICKROCKS_BIND_ADDRESS=192.168.1.20\nKICKROCKS_HOST_PORT=9000\n")).toBe(
+      "http://192.168.1.20:9000",
+    );
+  });
+
+  it("prints loopback when the server listens on every interface", () => {
+    expect(urlFor("KICKROCKS_BIND_ADDRESS=0.0.0.0\nKICKROCKS_HOST_PORT=9000\n")).toBe(
+      "http://127.0.0.1:9000",
+    );
+  });
+
+  it("prefers the public URL, without a trailing slash", () => {
+    expect(
+      urlFor("KICKROCKS_PUBLIC_URL=https://kickrocks.example.org/\nKICKROCKS_HOST_PORT=9000\n"),
+    ).toBe("https://kickrocks.example.org");
+  });
+});
+
+describe("the reverse proxy and LAN docs", () => {
+  it("name the 421 refusal and the settings that fix it", () => {
+    for (const text of [
+      "421",
+      "KICKROCKS_ALLOWED_HOSTS",
+      "KICKROCKS_TRUST_PROXY",
+      "KICKROCKS_PUBLIC_URL",
+    ]) {
+      expect(readme, text).toContain(text);
+    }
   });
 });
