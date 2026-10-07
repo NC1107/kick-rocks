@@ -217,12 +217,71 @@ describeBrowser("a removal run", () => {
     expect(typed?.content).toContain("not visible to a person");
   });
 
-  it("uses the start page the task names in its opening message", async () => {
+  const RECORD = `${ORIGIN}/people/jordan-example`;
+  const withRecord = () =>
+    agentTask({
+      fields: { ...PERSON, record_url: RECORD },
+      instructions: `Task: Remove this person (record: ${RECORD}). Start at ${RECORD}.`,
+      payload: { recordUrl: RECORD },
+    });
+
+  it("names the start page in the opening message without the person's name in it", async () => {
     const { provider } = await run([{ calls: [["report", { status: "release" }]] }], {
-      task: agentTask({ payload: { recordUrl: `${ORIGIN}/people/jordan-example` } }),
+      task: withRecord(),
     });
     const opening = provider.requests[0]?.messages[0];
-    expect(opening?.role === "user" && opening.text).toContain(`${ORIGIN}/people/jordan-example`);
+    const text = opening?.role === "user" ? opening.text : "";
+    expect(text).toContain("{{record_url}}");
+    expect(text).not.toMatch(/jordan|example/i);
+  });
+
+  it("hides the record address in the instructions of the system prompt", async () => {
+    const { provider } = await run([{ calls: [["report", { status: "release" }]] }], {
+      task: withRecord(),
+    });
+    const system = provider.requests[0]?.system ?? "";
+    expect(system).toContain("(record: {{record_url}}). Start at {{record_url}}.");
+    expect(system).not.toMatch(/jordan-example/i);
+  });
+
+  it("opens the real record page when the model navigates to the record placeholder", async () => {
+    const { provider } = await run(
+      [
+        { calls: [["navigate", { url: "{{record_url}}" }]] },
+        { calls: [["report", { status: "release" }]] },
+      ],
+      { task: withRecord() },
+    );
+    const landed = provider.requests[1]?.messages.at(-1);
+    const answer = landed?.role === "tool" ? landed.results[0] : undefined;
+    expect(answer?.isError).toBe(false);
+    expect(answer?.content).toContain("Remove this record");
+    expect(answer?.content).not.toMatch(/jordan-example/i);
+    expect((await fixtureState()).hits.map((hit) => hit.path)).toEqual(["/people/jordan-example"]);
+  });
+
+  it("opens the real page behind a masked link that a snapshot showed", async () => {
+    const task = agentTask({ payload: { purpose: "scan" } });
+    const { provider } = await run(
+      [
+        navigate("/search"),
+        (v) => {
+          const line = v.snapshot.split("\n").find((l) => l.includes("View record")) ?? "";
+          const masked = line.match(/-> (\S+\{\{\w+\}\}\S*)/)?.[1] ?? "";
+          return { calls: [["navigate", { url: masked }]] };
+        },
+        { calls: [["report", { status: "release" }]] },
+      ],
+      { task },
+    );
+    const landed = provider.requests[2]?.messages.at(-1);
+    const answer = landed?.role === "tool" ? landed.results[0] : undefined;
+    expect(answer?.isError).toBe(false);
+    expect(answer?.content).toContain("Remove this record");
+    expect((await fixtureState()).hits.map((hit) => hit.path)).toEqual([
+      "/search",
+      "/people/jordan-example",
+    ]);
   });
 
   it("shows a name the page echoes back as the field it came from", async () => {

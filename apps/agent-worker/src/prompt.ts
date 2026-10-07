@@ -23,6 +23,7 @@ export function buildSystemPrompt({ task, sites, fieldNames, maxSteps }: PromptC
     "How this differs from the instructions at the end:",
     "- They were written for a client with MCP tools. You have none. Where they say complete_task, block_task, fail_task or release_task, call the report tool with status complete, blocked, failed or release. Heartbeats are done for you. Ignore get_target, get_recipe and propose_recipe.",
     `- You never see the person's details and never write them. To enter one, call type with the name of the field, and the program fills in the value. The fields for this task are: ${fieldNames.length > 0 ? fieldNames.join(", ") : "none"}.`,
+    "- A record address in the instructions or your first message reads {{record_url}}. Pass it to navigate exactly like that and the program opens the real page.",
     "- Where the page shows one of the person's details, you see a placeholder such as {{first_name}} instead. When you report a scan candidate, copy its text and its record link exactly as the snapshot shows them, placeholders included, and the program puts the real values back.",
     "",
     "Rules the program enforces. Breaking one does not work, it only wastes steps:",

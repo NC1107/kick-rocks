@@ -391,12 +391,27 @@ export class Toolbox {
     ].join("\n");
   }
 
+  /**
+   * The model only ever sees masked addresses, so what it passes to navigate is mapped back: a
+   * link a snapshot showed becomes the page's real address, and the record placeholder becomes the
+   * task's record address. No other placeholder is filled, so a person's value never gets into an
+   * address the model composed.
+   */
+  private realAddress(requested: string): string {
+    const shown = this.links.get(requested);
+    if (shown !== undefined && shown !== null) return shown;
+    const recordUrl = this.options.fields.record_url;
+    if (recordUrl === undefined || recordUrl === "") return requested;
+    return requested.replaceAll("{{record_url}}", recordUrl);
+  }
+
   private async navigate(args: unknown): Promise<ToolOutcome> {
     const parsed = NavigateArgs.safeParse(args);
     if (!parsed.success) return failure("navigate needs a url");
-    const reason = refuseNavigation(parsed.data.url, this.policy);
+    const address = this.realAddress(parsed.data.url);
+    const reason = refuseNavigation(address, this.policy);
     if (reason !== null) return failure(`Refused: ${reason}.`);
-    const response = await this.options.page.goto(parsed.data.url, {
+    const response = await this.options.page.goto(address, {
       waitUntil: "domcontentloaded",
       timeout: NAVIGATION_TIMEOUT_MS,
     });

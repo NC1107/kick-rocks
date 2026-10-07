@@ -156,12 +156,15 @@ class AgentRun {
   async run(): Promise<TaskReport> {
     const { task, signal, provider, logger } = this.options;
     const system = buildSystemPrompt({
-      task,
+      task: { ...task, instructions: this.mask(task.instructions) },
       sites: this.sites,
       fieldNames: this.fieldNames,
       maxSteps: this.options.limits.maxSteps,
     });
-    this.messages.push({ role: "user", text: buildOpeningMessage(startUrlFor(task)) });
+    this.messages.push({
+      role: "user",
+      text: this.mask(buildOpeningMessage(startUrlFor(task))),
+    });
     await this.toolbox.install();
     try {
       let textOnlyTurns = 0;
