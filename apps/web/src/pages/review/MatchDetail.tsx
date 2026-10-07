@@ -95,7 +95,7 @@ export function MatchDetail({ match }: { match: Match }) {
         open={open}
         onClose={() => setOpen(false)}
         title="Remove this record"
-        description={`Kick Rocks asks ${match.targetName} to take this listing down. Only confirm a record that is yours.`}
+        description={`Kick Rocks asks ${match.targetName} to take this record down. Only confirm a record that is yours.`}
         dismissible={!decide.isPending}
         footer={
           <>

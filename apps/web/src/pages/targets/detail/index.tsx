@@ -2,6 +2,7 @@ import { API_ROUTES, type DataSource, type Requirement } from "@kickrocks/shared
 import { skipToken } from "@tanstack/react-query";
 import { useParams } from "react-router";
 import { errorMessage, useApiQuery } from "../../../api/index.js";
+import { useBreadcrumbTail } from "../../../components/layout/breadcrumb-context.js";
 import {
   Alert,
   Button,
@@ -41,7 +42,7 @@ const REQUIREMENT_HELP: Record<Requirement, string> = {
   captcha: "A CAPTCHA stands in the way. The task waits in Review for you to solve it.",
   account: "You have to create an account before it lets you remove a record.",
   paid: "It charges for removal. Nothing pays on your behalf.",
-  record_url: "It removes one listing at a time, so it first scans for your record.",
+  record_url: "It removes one record at a time, so it first scans for your record.",
   postal_mail: "It accepts requests by post. Nothing sends mail for you.",
   fax: "It accepts requests by fax. Nothing sends faxes for you.",
 };
@@ -82,6 +83,7 @@ function Loading() {
 export function Component() {
   const { id } = useParams();
   const query = useApiQuery(API_ROUTES.targetsGet, id ? { params: { id } } : skipToken);
+  useBreadcrumbTail(query.data?.name);
 
   if (query.isPending) return <Loading />;
 

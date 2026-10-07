@@ -1,6 +1,6 @@
 import { API_ROUTES, type ReviewQueue } from "@kickrocks/shared";
 import { ChevronLeft } from "lucide-react";
-import { useEffect, useMemo, useRef, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useMemo, useRef, useSyncExternalStore } from "react";
 import { useSearchParams } from "react-router";
 import { errorMessage, useApiQuery } from "../../api/index.js";
 import { RequireProfile } from "../../components/layout/RequireProfile.js";
@@ -183,6 +183,35 @@ function Queue({ queue, profileId }: { queue: ReviewQueue; profileId: string }) 
   useEffect(() => {
     document.querySelector(`[data-entry="${selectedKey}"]`)?.scrollIntoView?.({ block: "nearest" });
   }, [selectedKey]);
+
+  // Deciding an item removes the control that had focus, and the queue advances behind it. The new
+  // row takes focus, once any confirm dialog has closed, so a keyboard user carries on from there.
+  const owedFocus = useRef(false);
+  const selectedRef = useRef(selectedKey);
+  selectedRef.current = selectedKey;
+  const previousKey = useRef(selectedKey);
+
+  const settleFocus = useCallback(() => {
+    if (!owedFocus.current || document.querySelector("dialog[open]")) return;
+    owedFocus.current = false;
+    const active = document.activeElement;
+    if (!active || active === document.body) focusEntry(selectedRef.current);
+  }, []);
+
+  useEffect(() => {
+    const removed =
+      previousKey.current !== SCANS_KEY &&
+      !entries.some((entry) => entry.key === previousKey.current);
+    previousKey.current = selectedKey;
+    if (removed) owedFocus.current = true;
+    settleFocus();
+  }, [entries, selectedKey, settleFocus]);
+
+  useEffect(() => {
+    const onClose = () => setTimeout(settleFocus, 0);
+    document.addEventListener("close", onClose, true);
+    return () => document.removeEventListener("close", onClose, true);
+  }, [settleFocus]);
 
   const drilled = itemParam !== null;
   return (

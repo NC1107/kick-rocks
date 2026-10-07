@@ -70,8 +70,8 @@ export function TelegramCard({ telegram }: { telegram: NotificationsView["telegr
               />
             </FieldRow>
             <FieldRow
-              label="Chat id"
-              help="The id of your chat with the bot."
+              label="Chat ID"
+              help="The ID of your chat with the bot."
               error={(submitted ? errors.chatId : undefined) ?? serverErrors["telegram.chatId"]}
             >
               <Input

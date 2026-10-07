@@ -10,6 +10,7 @@ import {
   ExternalLinkText,
   Field,
   Hatch,
+  RelativeTime,
   Row,
   RowGroup,
   Section,
@@ -21,7 +22,6 @@ import {
   useToast,
 } from "../../components/ui/index.js";
 import { describeFailure } from "../../lib/failures.js";
-import { formatRelative } from "../../lib/format.js";
 import { BLOCKED_REASON_LABELS, PROFILE_FIELD_LABELS, TASK_KIND_LABELS } from "../../lib/labels.js";
 import { DetailFrame } from "./DetailFrame.js";
 import { FailedGroupActions } from "./FailedGroupActions.js";
@@ -80,7 +80,7 @@ function ValuesToEnter({ profileId }: { profileId: string }) {
         {rows.map(({ field, value }) => (
           <Row
             key={field}
-            title={value as string}
+            title={field === "email" ? <span className="font-mono">{value}</span> : value}
             description={PROFILE_FIELD_LABELS[field]}
             trailing={<CopyButton value={value as string} label="Copy" variant="ghost" />}
           />
@@ -189,7 +189,7 @@ export function BlockedTaskDetail({
         </>
       ) : null}
       {", updated "}
-      <time dateTime={task.updatedAt}>{formatRelative(task.updatedAt)}</time>
+      <RelativeTime iso={task.updatedAt} />
     </>
   );
 

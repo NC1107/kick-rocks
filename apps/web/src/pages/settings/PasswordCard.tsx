@@ -22,6 +22,7 @@ export function PasswordCard() {
     },
   });
 
+  const filled = Object.values(draft).every((value) => value !== "");
   const errors = checkPassword(draft);
   const serverErrors = change.error?.fieldErrors ?? {};
   const set = (key: keyof Draft) => (event: { target: { value: string } }) =>
@@ -73,7 +74,7 @@ export function PasswordCard() {
             />
           </FieldRow>
           <GroupFooter>
-            <Button type="submit" variant="primary" loading={change.isPending}>
+            <Button type="submit" variant="primary" loading={change.isPending} disabled={!filled}>
               Change password
             </Button>
           </GroupFooter>

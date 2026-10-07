@@ -11,6 +11,7 @@ import {
   IconButton,
   LinkButton,
   PageHeader,
+  RelativeTime,
   RowGroup,
   Section,
   Skeleton,
@@ -19,7 +20,6 @@ import {
   Tooltip,
   useToast,
 } from "../../components/ui/index.js";
-import { formatRelative } from "../../lib/format.js";
 
 const ROW =
   "marked group relative flex min-h-row flex-wrap items-center gap-x-4 gap-y-1 px-3.5 py-2 transition-colors duration-100 hover:bg-hover data-[selected=true]:bg-accent-soft";
@@ -79,7 +79,7 @@ function ProfileRow({
         )}
       </div>
       <span className="w-20 shrink-0 text-right font-mono text-caption tabular-nums text-ink-3 max-sm:hidden">
-        {formatRelative(profile.updatedAt)}
+        <RelativeTime iso={profile.updatedAt} />
       </span>
       <div className="relative flex items-center justify-end gap-1 opacity-0 transition-opacity duration-100 group-focus-within:opacity-100 group-hover:opacity-100 pointer-coarse:opacity-100 max-sm:opacity-100 sm:w-36">
         {current ? null : (

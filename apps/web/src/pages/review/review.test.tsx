@@ -178,6 +178,16 @@ describe("the review queue", () => {
     );
   });
 
+  it("hands focus to the next row once a decision removes the one it was on", async () => {
+    const { user } = open("blocked");
+    const task = await card(/FindRecord, Submit form/);
+    await user.click(task.getByRole("button", { name: "Mark done" }));
+    const dialog = await screen.findByRole("dialog");
+    await user.click(within(dialog).getByRole("button", { name: "Mark done" }));
+    const list = within(screen.getByRole("navigation", { name: "Review queue" }));
+    await waitFor(() => expect(list.getByRole("button", { current: true })).toHaveFocus());
+  });
+
   it("resumes a task", async () => {
     const { user, mock } = open("blocked");
     const task = await openItem(user, /HomeRecords\s*The site/, /HomeRecords, Submit form/);

@@ -8,6 +8,7 @@ import {
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router";
 import { ApiRequestError, errorMessage, useApiMutation, useApiQuery } from "../../api/index.js";
+import { useBreadcrumbTail } from "../../components/layout/breadcrumb-context.js";
 import {
   Button,
   Callout,
@@ -44,6 +45,7 @@ export function Component() {
   const { id = "" } = useParams();
   const profile = useApiQuery(API_ROUTES.profilesGet, { params: { id } });
   const providers = useApiQuery(API_ROUTES.mailProviders, { staleTime: 5 * 60_000 });
+  useBreadcrumbTail(profile.data?.displayName);
 
   const back = { to: "/profiles", label: "Profiles" };
 

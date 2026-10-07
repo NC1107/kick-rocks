@@ -264,6 +264,17 @@ describe("general settings", () => {
     expect(dialog).toHaveAttribute("open");
   });
 
+  it("keeps Change password disabled until all three fields are filled", async () => {
+    const { user } = general();
+    const button = await screen.findByRole("button", { name: "Change password" });
+    expect(button).toBeDisabled();
+    await user.type(await field("Current password"), "kickrocks-mock");
+    await user.type(screen.getByLabelText("New password"), "a-long-enough-password");
+    expect(button).toBeDisabled();
+    await user.type(screen.getByLabelText("Repeat the new password"), "a-long-enough-password");
+    expect(button).toBeEnabled();
+  });
+
   it("catches a password mismatch before asking the server", async () => {
     const { user } = general();
     await user.type(await field("Current password"), "kickrocks-mock");

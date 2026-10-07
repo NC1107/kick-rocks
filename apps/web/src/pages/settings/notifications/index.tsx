@@ -1,7 +1,13 @@
 import { API_ROUTES } from "@kickrocks/shared";
 import { errorMessage, useApiQuery } from "../../../api/index.js";
-import { Button, Callout, RowGroup, Section, SkeletonText } from "../../../components/ui/index.js";
-import { formatRelative } from "../../../lib/format.js";
+import {
+  Button,
+  Callout,
+  RelativeTime,
+  RowGroup,
+  Section,
+  SkeletonText,
+} from "../../../components/ui/index.js";
 import { BodyRow, SETTINGS_WIDTH } from "../rows.js";
 import { SettingsHeader } from "../SettingsHeader.js";
 import { DigestCard } from "./DigestCard.js";
@@ -53,11 +59,7 @@ export function Component() {
               </Callout>
             ) : settings.data.status.lastSentAt ? (
               <p className="text-meta text-ink-3">
-                Last push sent{" "}
-                <time dateTime={settings.data.status.lastSentAt}>
-                  {formatRelative(settings.data.status.lastSentAt)}
-                </time>
-                .
+                Last push sent <RelativeTime iso={settings.data.status.lastSentAt} />.
               </p>
             ) : null}
             <NtfyCard ntfy={settings.data.ntfy} />

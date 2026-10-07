@@ -2,6 +2,11 @@ import { screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { createMockApp, type MockApp } from "../../../../mock/app.js";
 import { buildRequest } from "../../../../mock/requests.js";
+import {
+  BreadcrumbTailProvider,
+  useBreadcrumbTailValue,
+} from "../../../components/layout/breadcrumb-context.js";
+import { tellEvents } from "../../../lib/fold.js";
 import { renderPage } from "../../../test/render.js";
 import { Component as RequestDetailPage } from "./index.js";
 import { groupEvents, newestFirst, retryableFailure } from "./Timeline.js";
@@ -228,5 +233,40 @@ describe("a failed request", () => {
     const error = mock.store.requests.find((r) => r.targetId === "pixelforge")?.lastError ?? "";
     expect(error).not.toBe("");
     expect(await screen.findAllByText(new RegExp(error))).toHaveLength(1);
+  });
+});
+
+describe("the request page chrome", () => {
+  it("counts the timeline rows it shows, not the status changes folded away", async () => {
+    const mock = failing(/never/);
+    const request = mock.store.requests.find(
+      (candidate) => tellEvents(candidate.events).length < candidate.events.length,
+    );
+    if (!request) throw new Error("fixture");
+    renderPage(<RequestDetailPage />, {
+      path: "/requests/:id",
+      route: `/requests/${request.id}`,
+      mock,
+    });
+    const shown = tellEvents(request.events).length;
+    expect(await screen.findByText(new RegExp(`Timeline · ${shown}$`))).toBeVisible();
+  });
+
+  it("names the page by its target in the header trail", async () => {
+    const mock = failing(/never/);
+    const request = mock.store.requests[0];
+    if (!request) throw new Error("fixture");
+    function Trail() {
+      const tail = useBreadcrumbTailValue();
+      return <p data-testid="trail">{tail?.label ?? "none"}</p>;
+    }
+    renderPage(
+      <BreadcrumbTailProvider>
+        <Trail />
+        <RequestDetailPage />
+      </BreadcrumbTailProvider>,
+      { path: "/requests/:id", route: `/requests/${request.id}`, mock },
+    );
+    await waitFor(() => expect(screen.getByTestId("trail")).toHaveTextContent(request.target.name));
   });
 });

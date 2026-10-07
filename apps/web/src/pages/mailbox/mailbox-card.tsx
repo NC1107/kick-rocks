@@ -1,7 +1,13 @@
 import { API_ROUTES, type Mailbox, type ProfileSummary } from "@kickrocks/shared";
 import { useApiQuery } from "../../api/index.js";
-import { Callout, EmptyState, LinkButton, RowGroup, Section } from "../../components/ui/index.js";
-import { formatRelative } from "../../lib/format.js";
+import {
+  Callout,
+  EmptyState,
+  LinkButton,
+  RelativeTime,
+  RowGroup,
+  Section,
+} from "../../components/ui/index.js";
 import { FactRow } from "../settings/rows.js";
 
 /** Why requests are waiting, shown while the server holds sending back after a mail server failure. */
@@ -10,8 +16,8 @@ export function SendPauseAlert({ mailbox }: { mailbox: Mailbox }) {
   return (
     <Callout intent="warning" title="Sending is paused" className="mb-3">
       The mail server could not be used, so requests wait and go out{" "}
-      {formatRelative(mailbox.sendPausedUntil)}. Saving the connection or testing it successfully
-      starts sending again at once.
+      <RelativeTime iso={mailbox.sendPausedUntil} />. Saving the connection or testing it
+      successfully starts sending again at once.
     </Callout>
   );
 }
@@ -38,7 +44,7 @@ export function MailboxFacts({
       <FactRow label="Reply folder">{mailbox.replyFolder}</FactRow>
       <FactRow label="Daily limit">{`${mailbox.dailyCap} requests a day`}</FactRow>
       <FactRow label="Last checked" mono={Boolean(mailbox.lastPolledAt)}>
-        {mailbox.lastPolledAt ? formatRelative(mailbox.lastPolledAt) : "Not checked yet"}
+        {mailbox.lastPolledAt ? <RelativeTime iso={mailbox.lastPolledAt} /> : "Not checked yet"}
       </FactRow>
     </RowGroup>
   );

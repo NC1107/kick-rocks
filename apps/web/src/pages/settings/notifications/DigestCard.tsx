@@ -4,13 +4,12 @@ import { errorMessage, useApiMutation } from "../../../api/index.js";
 import {
   Button,
   Callout,
+  RelativeTime,
   RowGroup,
   Section,
   Select,
-  Tooltip,
   useToast,
 } from "../../../components/ui/index.js";
-import { formatDateTime, formatRelative } from "../../../lib/format.js";
 import { FieldRow, GroupFooter, GroupNote } from "../rows.js";
 import { formatHourUtc, HOURS, WEEKDAYS } from "./model.js";
 
@@ -138,13 +137,7 @@ export function DigestCard({
         </GroupNote>
         {status.digestLastSentAt ? (
           <GroupNote>
-            Last digest covered up to{" "}
-            <Tooltip content={formatDateTime(status.digestLastSentAt)}>
-              <time dateTime={status.digestLastSentAt}>
-                {formatRelative(status.digestLastSentAt)}
-              </time>
-            </Tooltip>
-            .
+            Last digest covered up to <RelativeTime iso={status.digestLastSentAt} />.
           </GroupNote>
         ) : null}
         {status.digestLastError ? (

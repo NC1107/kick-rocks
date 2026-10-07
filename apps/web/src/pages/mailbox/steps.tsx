@@ -63,7 +63,7 @@ export function ProviderStep({ providers, form, onChoose, error }: ProviderStepP
                 <div key={preset.id} className="px-3.5 py-2.5">
                   <p className="text-ui font-medium text-ink">{preset.label}</p>
                   <p className="text-meta text-ink-3">
-                    {preset.unsupportedReason ?? "Kick Rocks cannot connect to this provider."}
+                    {preset.unsupportedReason ?? "This provider is not supported."}
                   </p>
                 </div>
               ))}

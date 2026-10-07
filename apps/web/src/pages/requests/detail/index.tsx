@@ -11,6 +11,7 @@ import { MoreHorizontal } from "lucide-react";
 import { type ReactNode, useState } from "react";
 import { Link, useParams } from "react-router";
 import { errorMessage, useApiMutation, useApiQuery } from "../../../api/index.js";
+import { useBreadcrumbTail } from "../../../components/layout/breadcrumb-context.js";
 import {
   Alert,
   Button,
@@ -22,6 +23,7 @@ import {
   Menu,
   type MenuItem,
   PageHeader,
+  RelativeTime,
   RowGroup,
   Section,
   Skeleton,
@@ -31,6 +33,7 @@ import {
   useToast,
 } from "../../../components/ui/index.js";
 import { cn } from "../../../lib/cn.js";
+import { tellEvents } from "../../../lib/fold.js";
 import { formatDate, formatDateTime } from "../../../lib/format.js";
 import {
   BLOCKED_REASON_LABELS,
@@ -41,7 +44,6 @@ import {
   TASK_KIND_LABELS,
 } from "../../../lib/labels.js";
 import { MessageBody } from "../../review/MessageBody.js";
-import { shortRelative } from "../format.js";
 import { detailRefreshInterval } from "../polling.js";
 import { Timeline } from "./Timeline.js";
 
@@ -132,12 +134,12 @@ function TaskRow({ task }: { task: TaskSummary }) {
       <div className="min-w-0">
         <p className="text-ui font-medium text-ink">{TASK_KIND_LABELS[task.kind]}</p>
         <p className="text-meta text-ink-3">
-          Updated <time dateTime={task.updatedAt}>{shortRelative(task.updatedAt)}</time>
+          Updated <RelativeTime iso={task.updatedAt} />
           {task.attempts > 1 ? `, attempt ${task.attempts} of ${task.maxAttempts}` : ""}
         </p>
         {task.status === "blocked" && task.blockedReason ? (
           <p className="text-meta text-ink-3">
-            Stopped for you: {BLOCKED_REASON_LABELS[task.blockedReason].toLowerCase()}
+            Stopped for you: {BLOCKED_REASON_LABELS[task.blockedReason]}
           </p>
         ) : null}
       </div>
@@ -157,6 +159,7 @@ export function Component() {
         }
       : skipToken,
   );
+  useBreadcrumbTail(query.data?.target.name);
 
   if (query.isPending) return <Loading />;
 
@@ -328,14 +331,14 @@ function Detail({ request }: { request: RequestDetail }) {
             }
           >
             {blocked.blockedReason
-              ? `It stopped at: ${BLOCKED_REASON_LABELS[blocked.blockedReason].toLowerCase()}.`
+              ? `It stopped for you: ${BLOCKED_REASON_LABELS[blocked.blockedReason]}.`
               : "It stopped and needs a person."}
           </Alert>
         ) : null}
         {request.awaitingConfirmationSince ? (
           <Alert intent="info" title="Waiting for a confirmation email">
-            The form was submitted {shortRelative(request.awaitingConfirmationSince)}. The link is
-            followed when the email arrives.
+            The form was submitted <RelativeTime iso={request.awaitingConfirmationSince} />. The
+            link is followed when the email arrives.
           </Alert>
         ) : null}
 
@@ -405,7 +408,7 @@ function Detail({ request }: { request: RequestDetail }) {
           />
         </Section>
 
-        <Section label="Timeline" count={request.events.length}>
+        <Section label="Timeline" count={tellEvents(request.events).length}>
           <Timeline
             events={request.events}
             tasks={request.tasks}

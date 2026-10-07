@@ -140,7 +140,7 @@ const PROVIDERS: ProviderPreset[] = [
     notes: "",
     defaultDailyCap: 50,
     supported: false,
-    unsupportedReason: "Outlook.com needs OAuth sign-in, which Kick Rocks does not support yet.",
+    unsupportedReason: "Needs OAuth sign-in, which is not supported yet.",
   },
 ];
 

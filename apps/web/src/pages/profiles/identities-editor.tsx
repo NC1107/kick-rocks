@@ -50,13 +50,13 @@ const SECTIONS: readonly SectionSpec[] = [
   {
     kind: "email",
     title: "Email addresses",
-    note: "Add every address you have used. Brokers often know an old one.",
+    note: "Add every address you have used. Targets often know an old one.",
     addLabel: "Add email",
   },
   {
     kind: "phone",
     title: "Phone numbers",
-    note: "Used only when a broker or form asks for one.",
+    note: "Used only when a target or form asks for one.",
     addLabel: "Add phone",
   },
   {
@@ -68,7 +68,7 @@ const SECTIONS: readonly SectionSpec[] = [
   {
     kind: "dob",
     title: "Date of birth",
-    note: "Disclosed only when a broker requires it and you approve it.",
+    note: "Disclosed only when a target requires it and you approve it.",
     addLabel: "Add date of birth",
     max: 1,
   },

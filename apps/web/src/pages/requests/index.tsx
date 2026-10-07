@@ -14,6 +14,7 @@ import {
   LinkButton,
   PageHeader,
   Pagination,
+  RelativeTime,
   Select,
   StatusMark,
   Table,
@@ -26,9 +27,8 @@ import {
   TableSkeletonRows,
   TableToolbar,
   Tag,
-  Tooltip,
 } from "../../components/ui/index.js";
-import { formatDateTime, pluralize } from "../../lib/format.js";
+import { pluralize } from "../../lib/format.js";
 import { CHANNEL_LABELS } from "../../lib/labels.js";
 import { REQUEST_STATUS_META } from "../../lib/status.js";
 import {
@@ -37,7 +37,7 @@ import {
   readRequestFilters,
   toRequestQuery,
 } from "./filters.js";
-import { RIGHT_TOKENS, shortRelative } from "./format.js";
+import { RIGHT_TOKENS } from "./format.js";
 import { listRefreshInterval } from "./polling.js";
 
 const SEARCH_DELAY_MS = 250;
@@ -256,13 +256,7 @@ function Requests({ profileId }: { profileId: string }) {
 function TimeCell({ iso }: { iso: string | null }) {
   return (
     <TableCell mono align="right" className="text-ink-2">
-      {iso ? (
-        <Tooltip content={formatDateTime(iso)}>
-          <time dateTime={iso}>{shortRelative(iso)}</time>
-        </Tooltip>
-      ) : (
-        <span className="text-ink-3">-</span>
-      )}
+      {iso ? <RelativeTime iso={iso} /> : <span className="text-ink-3">-</span>}
     </TableCell>
   );
 }

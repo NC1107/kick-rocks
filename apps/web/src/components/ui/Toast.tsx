@@ -61,6 +61,9 @@ const ITEM_TONE = { info: "neutral", success: "positive", danger: "danger" } as 
  * Wrap the app once. A toast confirms something the person just did, so name the result with the
  * same verb as the button that caused it: "Delete" produces "Deleted", never "Success". A failure
  * belongs on the thing that failed, so there is no error or warning intent.
+ * Toasts sit bottom-left of the content on wide screens and under the top bar on phones, because
+ * the decision footers and page actions that pin to the bottom-right and bottom edge must stay
+ * reachable for the whole life of a toast.
  */
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<ToastItem[]>([]);
@@ -109,7 +112,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       </div>
       <section
         aria-label="Notifications"
-        className="pointer-events-none fixed inset-x-0 bottom-0 z-50 flex flex-col items-stretch gap-2 p-4 sm:inset-x-auto sm:right-0 sm:w-96"
+        className="pointer-events-none fixed inset-x-0 top-(--kr-bar-h) z-50 flex flex-col items-stretch gap-2 p-4 sm:inset-x-auto sm:top-auto sm:bottom-0 sm:left-54 sm:w-96"
       >
         {items.map((item) => (
           <ToastCard key={item.id} item={item} onDismiss={dismiss} />

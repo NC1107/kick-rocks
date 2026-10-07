@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { gutterTime, shortRelative } from "./format.js";
+import { shortRelative } from "../../lib/format.js";
+import { gutterTime } from "./format.js";
 
 const NOW = Date.parse("2026-10-07T12:00:00Z");
 const MINUTE = 60_000;

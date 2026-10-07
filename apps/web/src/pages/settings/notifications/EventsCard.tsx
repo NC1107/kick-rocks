@@ -20,6 +20,13 @@ import { checkMaxPerHour } from "./model.js";
 
 const CATEGORIES = Object.keys(NOTIFICATION_CATEGORY_LABELS) as NotificationCategory[];
 
+// The shared labels still say broker and listing; the app says target and record.
+const CATEGORY_LABELS: Record<NotificationCategory, string> = {
+  ...NOTIFICATION_CATEGORY_LABELS,
+  verification: "A target asks for identifiers you must approve",
+  match: "A record needs your decision",
+};
+
 export function EventsCard({
   categories,
   maxPerHour,
@@ -69,7 +76,7 @@ export function EventsCard({
             {CATEGORIES.map((category) => (
               <BodyRow key={category}>
                 <Checkbox
-                  label={NOTIFICATION_CATEGORY_LABELS[category]}
+                  label={CATEGORY_LABELS[category]}
                   checked={chosen.includes(category)}
                   onChange={(event) =>
                     setChosen((current) =>

@@ -2,6 +2,7 @@ import { API_ROUTES, type ProfileDetail, type StateCode } from "@kickrocks/share
 import { type FormEvent, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router";
 import { ApiRequestError, errorMessage, useApiMutation, useApiQuery } from "../../../api/index.js";
+import { useBreadcrumbTail } from "../../../components/layout/breadcrumb-context.js";
 import {
   Button,
   Callout,
@@ -39,6 +40,7 @@ const SAVED_ROUTES = [API_ROUTES.profilesList, API_ROUTES.profilesGet] as const;
 export function Component() {
   const { id = "" } = useParams();
   const query = useApiQuery(API_ROUTES.profilesGet, { params: { id } });
+  useBreadcrumbTail(query.data?.displayName);
 
   if (query.isPending) return <DetailSkeleton />;
 

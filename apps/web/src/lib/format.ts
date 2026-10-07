@@ -41,13 +41,29 @@ export function formatRelative(
   return "just now";
 }
 
-/** "now", "7m ago", "2h ago", "3d ago": the short form for a chip, where room is tight. */
-export function formatShortAgo(iso: string, now = Date.now()): string {
-  const elapsed = Math.max(0, now - new Date(iso).getTime());
-  if (elapsed < MINUTE) return "now";
-  if (elapsed < HOUR) return `${Math.floor(elapsed / MINUTE)}m ago`;
-  if (elapsed < DAY) return `${Math.floor(elapsed / HOUR)}h ago`;
-  return `${Math.floor(elapsed / DAY)}d ago`;
+/**
+ * "7m ago", "2h ago", "yesterday", "in 12d", "next month": short enough for a ledger column,
+ * with the exact time left to a tooltip.
+ */
+export function shortRelative(iso: string, now = Date.now()): string {
+  const diff = Date.parse(iso) - now;
+  const abs = Math.abs(diff);
+  if (abs < MINUTE) return "now";
+  const future = diff > 0;
+  const wrap = (amount: string) => (future ? `in ${amount}` : `${amount} ago`);
+
+  if (abs < HOUR) return wrap(`${Math.round(abs / MINUTE)}m`);
+  if (abs < DAY) return wrap(`${Math.round(abs / HOUR)}h`);
+  const days = Math.round(abs / DAY);
+  if (days === 1) return future ? "tomorrow" : "yesterday";
+  if (days < 14) return wrap(`${days}d`);
+  if (days < 60) {
+    if (future && days >= 30) return "next month";
+    return wrap(`${Math.round(days / 7)}w`);
+  }
+  const months = Math.round(days / 30);
+  if (months < 12) return wrap(`${months}mo`);
+  return wrap(`${Math.round(days / 365)}y`);
 }
 
 export function formatCount(value: number, { locale }: FormatOptions = {}): string {

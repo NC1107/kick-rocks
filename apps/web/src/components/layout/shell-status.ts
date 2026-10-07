@@ -47,7 +47,7 @@ export function sendsChip(sending: Dashboard["sending"]): StatusChip | null {
     id: "sends",
     tone: used >= NEAR_LIMIT ? "attention" : "neutral",
     label: "Sent",
-    value: `${sending.sent}/${sending.cap} today`,
+    value: `${sending.sent} of ${sending.cap} today`,
   };
 }
 

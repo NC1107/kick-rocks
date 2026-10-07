@@ -204,7 +204,7 @@ export function TableRow({
         if (select && roving && event.target === event.currentTarget) roving.setActiveId(rowId);
       }}
       className={cn(
-        "group marked-row transition-colors duration-100",
+        "group marked-row relative transition-colors duration-100",
         // The table frame clips an outside ring, so a focused row draws it inside its own edge.
         select && "cursor-pointer focus-visible:-outline-offset-2",
         selected ? "bg-accent-soft" : "hover:bg-hover",
@@ -251,10 +251,11 @@ export function TableIdentity({
     <div className={cn("flex min-w-0 flex-col py-1", className)}>
       <span className="flex min-w-0 items-center gap-2 text-ui font-medium text-ink">
         {to ? (
-          // The link truncates itself so its focus ring is not clipped by a truncating parent.
+          // The link truncates itself so its focus ring is not clipped by a truncating parent, and its
+          // ::after stretches over the row so the whole row opens the record.
           <Link
             to={to}
-            className="min-w-0 max-w-full truncate rounded-xs hover:underline focus-visible:underline"
+            className="min-w-0 max-w-full truncate rounded-xs after:absolute after:inset-0 hover:underline focus-visible:underline"
           >
             {title}
           </Link>

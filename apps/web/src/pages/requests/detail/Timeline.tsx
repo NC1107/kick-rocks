@@ -1,7 +1,8 @@
 import type { RequestEvent, TaskSummary } from "@kickrocks/shared";
-import { Button, Tooltip } from "../../../components/ui/index.js";
+import { Button, MonoEmails, Tooltip } from "../../../components/ui/index.js";
 import { cn } from "../../../lib/cn.js";
 import { describeEvent } from "../../../lib/events.js";
+import { tellEvents } from "../../../lib/fold.js";
 import { formatDateTime } from "../../../lib/format.js";
 import { EventRow } from "../EventRow.js";
 import { eventShape, eventWeight } from "../event-shape.js";
@@ -25,12 +26,11 @@ export interface EventGroup {
 
 /**
  * Events within a minute of the newest one in a group share a single time. A status change that
- * happened beside the event that caused it is folded into that event's sentence, so it is dropped
- * there; one that stands alone, such as a deadline passing, stays.
+ * happened beside the event that caused it is folded into that event's sentence and left out.
  */
 export function groupEvents(events: readonly RequestEvent[]): EventGroup[] {
   const groups: EventGroup[] = [];
-  for (const event of newestFirst(events)) {
+  for (const event of newestFirst(tellEvents(events))) {
     const group = groups.at(-1);
     if (group && Date.parse(group.at) - Date.parse(event.createdAt) <= GROUP_WINDOW_MS) {
       group.events.push(event);
@@ -38,11 +38,7 @@ export function groupEvents(events: readonly RequestEvent[]): EventGroup[] {
       groups.push({ at: event.createdAt, events: [event] });
     }
   }
-  return groups.map((group) =>
-    group.events.some((event) => event.type !== "status_changed")
-      ? { ...group, events: group.events.filter((event) => event.type !== "status_changed") }
-      : group,
-  );
+  return groups;
 }
 
 /**
@@ -130,7 +126,7 @@ export function Timeline({
             >
               <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
                 <p className={cn("min-w-0 break-words text-ui", WEIGHT_TEXT[weight])}>
-                  {sentence}
+                  <MonoEmails text={sentence} />
                   {event.actor === "user" && !sentence.startsWith("You") ? (
                     <span className="ml-2 text-caption text-ink-3">you</span>
                   ) : null}

@@ -4,19 +4,18 @@ import {
   Button,
   Callout,
   EmptyState,
+  RelativeTime,
   RowGroup,
   Section,
   SkeletonText,
 } from "../../../components/ui/index.js";
-import { formatRelative } from "../../../lib/format.js";
 import { RecipeCard, type RecipeCardCopy } from "../RecipeCard.js";
 import { BodyRow } from "../rows.js";
 
 const COPY: RecipeCardCopy = {
   origin: (purpose, recipe) => (
     <>
-      Proposed {purpose} steps, version {recipe.version},{" "}
-      <time dateTime={recipe.createdAt}>{formatRelative(recipe.createdAt)}</time>
+      Proposed {purpose} steps, version {recipe.version}, <RelativeTime iso={recipe.createdAt} />
     </>
   ),
   rejectDescription: "It is discarded and the agent has to propose it again.",

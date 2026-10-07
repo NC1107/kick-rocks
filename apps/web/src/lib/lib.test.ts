@@ -1,7 +1,7 @@
 import { RequestStatus, TaskStatus } from "@kickrocks/shared";
 import { describe, expect, it } from "vitest";
 import themeInit from "../../public/theme-init.js?raw";
-import { formatRelative, formatShortAgo, pluralize } from "./format.js";
+import { formatRelative, pluralize } from "./format.js";
 import * as labels from "./labels.js";
 import { REQUEST_STATUS_META, TASK_STATUS_META } from "./status.js";
 import { STORAGE_KEYS } from "./storage.js";
@@ -12,19 +12,6 @@ const FAMILY_SHAPE = {
   failed: "square",
   closed: "dash",
 } as const;
-
-describe("formatShortAgo", () => {
-  const now = Date.parse("2026-10-07T12:00:00Z");
-  it.each([
-    ["2026-10-07T11:59:40Z", "now"],
-    ["2026-10-07T11:53:00Z", "7m ago"],
-    ["2026-10-07T10:00:00Z", "2h ago"],
-    ["2026-10-04T12:00:00Z", "3d ago"],
-    ["2026-10-07T12:05:00Z", "now"],
-  ])("reads %s as %s", (iso, expected) => {
-    expect(formatShortAgo(iso, now)).toBe(expected);
-  });
-});
 
 describe("status metadata", () => {
   it("gives every request status words, a family, and a shape", () => {

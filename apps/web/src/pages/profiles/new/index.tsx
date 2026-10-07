@@ -108,7 +108,7 @@ export function Component() {
     <>
       <PageHeader
         title="New profile"
-        description="A person and the details brokers know them by"
+        description="A person and the details targets know them by"
         back={{ to: "/profiles", label: "Profiles" }}
       />
       <UnsavedChangesDialog blocker={unsaved.blocker} />

@@ -17,15 +17,6 @@ import { buildReviewQueue } from "../review/queue.js";
 // the others out and there is no global row cap to make counts wrong.
 const RECENT_REQUESTS = 20;
 
-// A status change recorded beside the event that caused it is told by that event, as the request
-// timeline does, so it never stands in for the request on the dashboard.
-const FOLDED_STATUS_CHANGE = sql`(${requestEvents.type} = 'status_changed' and exists (
-  select 1 from request_events as cause
-  where cause.request_id = ${requestEvents.requestId}
-    and cause.type <> 'status_changed'
-    and abs(julianday(cause.created_at) - julianday(${requestEvents.createdAt})) <= 60.0 / 86400
-))`;
-
 export function buildDashboard(services: AppServices, profileId: string): Dashboard {
   const { db, mailQuota } = services;
   const profile = db
@@ -59,7 +50,7 @@ export function buildDashboard(services: AppServices, profileId: string): Dashbo
     .select({
       eventId: requestEvents.id,
       position:
-        sql<number>`row_number() over (partition by ${requestEvents.requestId} order by ${FOLDED_STATUS_CHANGE} asc, ${requestEvents.createdAt} desc, ${requestEvents}.rowid desc)`.as(
+        sql<number>`row_number() over (partition by ${requestEvents.requestId} order by ${requestEvents.createdAt} desc, ${requestEvents}.rowid desc)`.as(
           "position",
         ),
       eventCount: sql<number>`count(*) over (partition by ${requestEvents.requestId})`.as(

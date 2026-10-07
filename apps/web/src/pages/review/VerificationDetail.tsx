@@ -11,12 +11,12 @@ import {
   Button,
   Checkbox,
   ConfirmDialog,
+  RelativeTime,
   RowGroup,
   Section,
   TextLink,
   useToast,
 } from "../../components/ui/index.js";
-import { formatRelative } from "../../lib/format.js";
 import { PROFILE_FIELD_LABELS } from "../../lib/labels.js";
 import { DetailFrame } from "./DetailFrame.js";
 import { REVIEW_INVALIDATES } from "./model.js";
@@ -94,8 +94,7 @@ export function VerificationDetail({ item }: { item: VerificationItem }) {
             <TextLink to={`/requests/${encodeURIComponent(request.id)}`} className="font-mono">
               {request.reference}
             </TextLink>
-            , they replied{" "}
-            <time dateTime={message.receivedAt}>{formatRelative(message.receivedAt)}</time>
+            , they replied <RelativeTime iso={message.receivedAt} />
           </>
         }
         footer={footer}

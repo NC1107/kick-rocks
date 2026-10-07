@@ -275,14 +275,20 @@ export function Component() {
           <Table label="Targets" aria-busy={list.isPlaceholderData || undefined}>
             <TableHead>
               <tr>
-                <TableHeaderCell className="w-10 pr-0">
-                  <Checkbox
-                    aria-label="Select all targets on this page"
-                    checked={allSelected}
-                    indeterminate={someSelected && !allSelected}
-                    disabled={selectable.length === 0}
-                    onChange={(event) => togglePage(event.target.checked)}
-                  />
+                <TableHeaderCell className="w-10 pr-0 max-sm:p-0">
+                  <label
+                    htmlFor="select-page"
+                    className="flex cursor-pointer items-center justify-center max-sm:min-w-11"
+                  >
+                    <Checkbox
+                      id="select-page"
+                      aria-label="Select all targets on this page"
+                      checked={allSelected}
+                      indeterminate={someSelected && !allSelected}
+                      disabled={selectable.length === 0}
+                      onChange={(event) => togglePage(event.target.checked)}
+                    />
+                  </label>
                 </TableHeaderCell>
                 <TableHeaderCell>Target</TableHeaderCell>
                 <TableHeaderCell className="hidden xl:table-cell">Category</TableHeaderCell>
@@ -310,13 +316,19 @@ export function Component() {
               ) : (
                 items.map((item) => (
                   <TableRow key={item.id} selected={selected.has(item.id)}>
-                    <TableCell className="w-10 pr-0">
-                      <Checkbox
-                        aria-label={`Select ${item.name}`}
-                        checked={selected.has(item.id)}
-                        disabled={item.retired}
-                        onChange={(event) => toggle(item.id, event.target.checked)}
-                      />
+                    <TableCell className="w-10 pr-0 max-sm:p-0">
+                      <label
+                        htmlFor={`select-${item.id}`}
+                        className="relative flex cursor-pointer items-center justify-center max-sm:min-h-11 max-sm:min-w-11"
+                      >
+                        <Checkbox
+                          id={`select-${item.id}`}
+                          aria-label={`Select ${item.name}`}
+                          checked={selected.has(item.id)}
+                          disabled={item.retired}
+                          onChange={(event) => toggle(item.id, event.target.checked)}
+                        />
+                      </label>
                     </TableCell>
                     <TableCell className="max-w-64 min-w-40">
                       <TableIdentity

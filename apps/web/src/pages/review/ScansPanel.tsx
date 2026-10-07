@@ -6,6 +6,7 @@ import {
   Button,
   Dialog,
   EmptyState,
+  RelativeTime,
   Table,
   TableBody,
   TableCell,
@@ -18,7 +19,7 @@ import {
   useToast,
 } from "../../components/ui/index.js";
 import { describeFailure } from "../../lib/failures.js";
-import { formatRelative, pluralize } from "../../lib/format.js";
+import { pluralize } from "../../lib/format.js";
 import { DetailFrame } from "./DetailFrame.js";
 import { REVIEW_INVALIDATES } from "./model.js";
 
@@ -124,8 +125,7 @@ export function ScansPanel({ profileId }: { profileId: string }) {
                         title={scan.targetName}
                         meta={
                           <>
-                            Started{" "}
-                            <time dateTime={scan.startedAt}>{formatRelative(scan.startedAt)}</time>
+                            Started <RelativeTime iso={scan.startedAt} />
                           </>
                         }
                       />

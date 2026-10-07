@@ -5,19 +5,19 @@ import {
   EmptyState,
   LinkButton,
   Meter,
+  MonoEmails,
+  RelativeTime,
   Row,
   RowGroup,
   Section,
   StatusMark,
   TextLink,
-  Tooltip,
 } from "../../components/ui/index.js";
 import { cn } from "../../lib/cn.js";
 import { describeEvent } from "../../lib/events.js";
-import { formatCount, formatDateTime } from "../../lib/format.js";
+import { formatCount } from "../../lib/format.js";
 import { EventRow } from "../requests/EventRow.js";
 import { eventShape } from "../requests/event-shape.js";
-import { shortRelative } from "../requests/format.js";
 
 /** The three questions a person has about their requests, each answered by some statuses. */
 export const STATUS_GROUPS: readonly {
@@ -225,9 +225,13 @@ export function SendingSection({ dashboard }: { dashboard: Dashboard }) {
           <span className="font-mono tabular-nums">{formatCount(sending.remaining)} left</span>
           <span className="break-all font-mono">{mailbox.address}</span>
           <span>
-            {mailbox.lastPolledAt
-              ? `Inbox checked ${shortRelative(mailbox.lastPolledAt)}`
-              : "Inbox not checked yet"}
+            {mailbox.lastPolledAt ? (
+              <>
+                Inbox checked <RelativeTime iso={mailbox.lastPolledAt} />
+              </>
+            ) : (
+              "Inbox not checked yet"
+            )}
           </span>
         </p>
         {full ? (
@@ -325,13 +329,11 @@ export function ActivitySection({ events }: { events: readonly DashboardEvent[] 
             <EventRow
               key={event.id}
               shape={eventShape(event)}
-              time={
-                <Tooltip content={formatDateTime(event.createdAt)}>
-                  <time dateTime={event.createdAt}>{shortRelative(event.createdAt)}</time>
-                </Tooltip>
-              }
+              time={<RelativeTime iso={event.createdAt} />}
             >
-              <p className="text-ui text-ink">{describeEvent(event)}</p>
+              <p className="text-ui text-ink">
+                <MonoEmails text={describeEvent(event)} />
+              </p>
               <p className="flex flex-wrap items-center gap-x-3 text-meta text-ink-3">
                 <Link
                   to={`/requests/${event.requestId}`}

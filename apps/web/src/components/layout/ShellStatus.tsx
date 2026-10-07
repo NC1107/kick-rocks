@@ -1,8 +1,9 @@
 import { API_ROUTES } from "@kickrocks/shared";
 import { skipToken } from "@tanstack/react-query";
 import { useApiQuery, useCurrentProfile } from "../../api/index.js";
-import { formatShortAgo } from "../../lib/format.js";
+import { shortRelative } from "../../lib/format.js";
 import { TONE_SHAPE } from "../../lib/status.js";
+import { useNow } from "../../lib/use-now.js";
 import { StatusShapeGlyph, Tooltip } from "../ui/index.js";
 import { inboxChip, mostUrgent, type StatusChip, sendsChip, workerChip } from "./shell-status.js";
 
@@ -16,11 +17,11 @@ export function useShellStatus(): StatusChip[] {
     API_ROUTES.dashboardGet,
     profile ? { params: { id: profile.id }, refetchInterval: REFRESH_MS } : skipToken,
   );
-  const now = Date.now();
+  const now = useNow();
   const chips: StatusChip[] = [];
   if (settings.data) chips.push(workerChip(settings.data.worker, now));
   if (dashboard.data) {
-    chips.push(inboxChip(dashboard.data.mailbox, (iso) => formatShortAgo(iso, now)));
+    chips.push(inboxChip(dashboard.data.mailbox, (iso) => shortRelative(iso, now)));
     const sends = sendsChip(dashboard.data.sending);
     if (sends) chips.push(sends);
   }

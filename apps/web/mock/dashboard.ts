@@ -5,6 +5,7 @@ import {
   RequestStatus,
   reviewAttention,
 } from "@kickrocks/shared";
+import { tellEvents } from "../src/lib/fold.js";
 import { defineMockDomain, handle, notFound } from "./core.js";
 import { buildMockQueue } from "./review.js";
 
@@ -34,15 +35,7 @@ export default defineMockDomain({
 
       const recentEvents: DashboardEvent[] = requests
         .flatMap((request) => {
-          const told = request.events.filter(
-            (event) =>
-              event.type !== "status_changed" ||
-              !request.events.some(
-                (cause) =>
-                  cause.type !== "status_changed" &&
-                  Math.abs(Date.parse(cause.createdAt) - Date.parse(event.createdAt)) <= 60_000,
-              ),
-          );
+          const told = tellEvents(request.events);
           const latest = told.reduce<(typeof request.events)[number] | undefined>(
             (best, event) => (!best || event.createdAt > best.createdAt ? event : best),
             undefined,
@@ -51,7 +44,7 @@ export default defineMockDomain({
             ? [
                 {
                   ...latest,
-                  eventCount: request.events.length,
+                  eventCount: told.length,
                   requestReference: request.reference,
                   targetName: request.target.name,
                 },

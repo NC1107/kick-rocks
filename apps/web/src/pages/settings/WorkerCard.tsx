@@ -4,14 +4,13 @@ import { errorMessage, useApiMutation } from "../../api/index.js";
 import {
   Callout,
   Checkbox,
+  RelativeTime,
   Row,
   RowGroup,
   Section,
   StatusShapeGlyph,
-  Tooltip,
   useToast,
 } from "../../components/ui/index.js";
-import { formatDateTime, formatRelative } from "../../lib/format.js";
 import type { StatusShape } from "../../lib/status.js";
 import { type WorkerState, workerState } from "./model.js";
 import { BodyRow, Value } from "./rows.js";
@@ -102,11 +101,7 @@ function WorkerRow({
                 title="Last seen"
                 trailing={
                   <Value>
-                    <Tooltip content={formatDateTime(status.lastSeenAt)}>
-                      <time dateTime={status.lastSeenAt}>
-                        {formatRelative(status.lastSeenAt, { now })}
-                      </time>
-                    </Tooltip>
+                    <RelativeTime iso={status.lastSeenAt} />
                   </Value>
                 }
               />
