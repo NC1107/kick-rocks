@@ -1,6 +1,6 @@
 import type { AuthResult, AuthService } from "../../core/auth.js";
 import type { AppServices } from "../../services.js";
-import { createSessionStore, sessionTokenOf } from "./sessions.js";
+import { createSessionStore, sessionTokenOf, setSessionCookie } from "./sessions.js";
 
 export type AuthDeps = Pick<
   AppServices,
@@ -22,8 +22,11 @@ const UNAUTHENTICATED: AuthResult = {
 export function createAuthService(deps: AuthDeps): AuthService {
   const sessions = createSessionStore(deps);
   return {
-    authenticate(request) {
-      return sessions.touch(sessionTokenOf(request)) ? { ok: true } : UNAUTHENTICATED;
+    authenticate(request, reply) {
+      const token = sessionTokenOf(request);
+      if (!token || !sessions.touch(token)) return UNAUTHENTICATED;
+      setSessionCookie(reply, request, token, { publicUrl: deps.config.publicUrl });
+      return { ok: true };
     },
   };
 }

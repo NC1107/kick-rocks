@@ -342,6 +342,15 @@ describe("expiry and logout", () => {
     expect(cookieOf(state)?.maxAge).toBe(30 * 24 * 60 * 60);
   });
 
+  it("re-issues the cookie on any signed-in call so its lifetime slides without a reload", async () => {
+    const token = await setUp();
+    const response = await ctx.inject({ url: "/api/profiles", headers: withSession(token) });
+    expect(cookieOf(response)?.value).toBe(token);
+    expect(cookieOf(response)?.maxAge).toBe(30 * 24 * 60 * 60);
+    const anonymous = await ctx.inject({ url: "/api/profiles" });
+    expect(cookieOf(anonymous)).toBeUndefined();
+  });
+
   it("ends a session left idle for 30 days and removes its row", async () => {
     const token = await setUp();
     ctx.clock.advance(30 * DAY + MINUTE);

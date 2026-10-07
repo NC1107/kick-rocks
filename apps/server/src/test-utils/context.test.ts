@@ -224,7 +224,7 @@ describe("auth modes", () => {
     expect(() => real.auth.deny()).toThrow(/auth is real/);
     expect(() => real.auth.allow()).toThrow(/auth is real/);
     // The guard still asks the real service, whatever it answers.
-    expect(await real.services.auth.authenticate({} as never)).toBeDefined();
+    expect(await real.services.auth.authenticate({} as never, {} as never)).toBeDefined();
     expect((await real.inject({ url: "/api/health" })).statusCode).toBe(200);
   });
 });

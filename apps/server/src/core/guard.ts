@@ -136,7 +136,7 @@ export function registerGuards(app: FastifyInstance, { auth, secrets }: GuardSer
         return;
       }
       case "session": {
-        const result = await auth.authenticate(request);
+        const result = await auth.authenticate(request, reply);
         if (!result.ok) {
           return reply.code(result.status).send({
             error: result.error,
