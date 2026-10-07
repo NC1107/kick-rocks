@@ -232,7 +232,8 @@ It uses its own Chrome profile, since two browsers cannot share one.
 
 ### Start it
 
-With Docker, set the model in `.env` and start the `agent` profile.
+With Docker, set the model in `.env` and add `agent` to `COMPOSE_PROFILES` there, next to `worker`.
+A `--profile` flag on the command line replaces `COMPOSE_PROFILES`, so use the variable and not the flag, and later `docker compose up -d --build` updates keep the agent worker.
 The settings are listed in `.env.example`.
 
 ```sh
@@ -240,7 +241,7 @@ The settings are listed in `.env.example`.
 KICKROCKS_AGENT_MODEL=<an Ollama model that supports tools>
 KICKROCKS_AGENT_BASE_URL=http://host.docker.internal:11434/v1
 
-docker compose --profile agent up -d --build
+docker compose up -d --build
 ```
 
 From a checkout, build once, then run it with the same variables exported.

@@ -15,7 +15,7 @@ export function SiteChecksCard({ siteChecks }: { siteChecks: SettingsView["siteC
     <Card>
       <CardHeader
         title="Site checks"
-        description="Once a week the worker can open the entry page of each recipe you approved, to notice a broker's form changing before a real removal fails on it."
+        description="Once a week the worker can open the page of each recipe you approved, to notice a broker's form changing before a real removal fails on it."
       />
       <div className="flex flex-col gap-4">
         <Checkbox
@@ -33,12 +33,13 @@ export function SiteChecksCard({ siteChecks }: { siteChecks: SettingsView["siteC
             sees an ordinary visit from your home address.
           </li>
           <li>
-            It only looks for the form fields the recipe expects. It types nothing, submits nothing,
-            and sends none of your details.
+            It loads the recipe's page and may search a generic name such as John Smith to reach the
+            results page. It never uses your details and never submits a removal.
           </li>
           <li>
-            The result shows as the Scan and Removal badges on Targets. Turn this off and no site is
-            visited on its own; scans and removals you start still run.
+            The result shows as the Scan and Removal badges on Targets. Turning this off stops only
+            site checks: people-search sites you have scanned are scanned again on the schedule in
+            Settings.
           </li>
         </ul>
       </div>

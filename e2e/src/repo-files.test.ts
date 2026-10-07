@@ -1,5 +1,15 @@
 import { execFileSync } from "node:child_process";
-import { copyFileSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+  chmodSync,
+  copyFileSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -263,6 +273,90 @@ describe("install.sh", () => {
     expect(
       urlFor("KICKROCKS_PUBLIC_URL=https://kickrocks.example.org/\nKICKROCKS_HOST_PORT=9000\n"),
     ).toBe("https://kickrocks.example.org");
+  });
+
+  describe("with a stand-in docker", () => {
+    const FAKE_DOCKER = `#!/usr/bin/env bash
+echo "$*" >> "$FAKE_LOG"
+case "$*" in
+  "compose version") ;;
+  "volume inspect "*) ;;
+  *"config") echo "name: kr" ;;
+  *"ps --services --status running") printf '%s' "$FAKE_RUNNING" ;;
+  "run "*) echo data ;;
+esac
+`;
+
+    const run = (args: string[], options: { running?: string; cwd?: "caller" | "repo" } = {}) => {
+      const dir = mkdtempSync(join(tmpdir(), "kickrocks-install-"));
+      try {
+        const repo = join(dir, "repo");
+        const caller = join(dir, "caller");
+        const bin = join(dir, "bin");
+        for (const path of [repo, caller, bin]) mkdirSync(path);
+        copyFileSync(resolve(ROOT, "install.sh"), join(repo, "install.sh"));
+        writeFileSync(join(bin, "docker"), FAKE_DOCKER);
+        chmodSync(join(bin, "docker"), 0o755);
+        const log = join(dir, "log");
+        writeFileSync(log, "");
+        let failed = false;
+        try {
+          execFileSync("bash", [join(repo, "install.sh"), ...args], {
+            cwd: options.cwd === "repo" ? repo : caller,
+            encoding: "utf8",
+            stdio: "pipe",
+            env: {
+              ...process.env,
+              PATH: `${bin}:${process.env.PATH}`,
+              FAKE_LOG: log,
+              FAKE_RUNNING: options.running ?? "",
+            },
+          });
+        } catch {
+          failed = true;
+        }
+        return {
+          failed,
+          calls: readFileSync(log, "utf8").trim().split("\n"),
+          env: existsSync(join(repo, ".env")) ? readFileSync(join(repo, ".env"), "utf8") : "",
+          callerFiles: readdirSync(caller),
+          repoFiles: readdirSync(repo),
+        };
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    };
+
+    it("--start adds the worker profile for an install from before it existed", () => {
+      const result = run(["--start"]);
+      expect(result.env).toContain("COMPOSE_PROFILES=worker");
+      expect(result.calls).toContain("compose up -d --wait");
+    });
+
+    it("--backup writes a relative file next to where it was run, not inside the repository", () => {
+      const result = run(["--backup", "mine.tgz"]);
+      expect(result.failed).toBe(false);
+      expect(result.callerFiles).toContain("mine.tgz");
+      expect(result.repoFiles).not.toContain("mine.tgz");
+    });
+
+    it("--backup refuses a relative file when run from inside the repository", () => {
+      const result = run(["--backup", "mine.tgz"], { cwd: "repo" });
+      expect(result.failed).toBe(true);
+      expect(result.repoFiles).not.toContain("mine.tgz");
+    });
+
+    it("--backup starts again only what was running, in every profile", () => {
+      const result = run(["--backup", "b.tgz"], { running: "server\nagent-worker\n" });
+      expect(result.calls.at(-1)).toBe(
+        "compose --profile worker --profile agent start server agent-worker",
+      );
+    });
+
+    it("--backup starts nothing when everything was stopped", () => {
+      const result = run(["--backup", "b.tgz"], { running: "" });
+      expect(result.calls.some((call) => / start( |$)/.test(call))).toBe(false);
+    });
   });
 });
 

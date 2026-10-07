@@ -63,10 +63,15 @@ It leaves the folder and `.env` alone, so delete the folder when you are done.
 Nothing visits a broker site until you say so.
 On a fresh install the worker only waits for tasks, and no browser task runs before you have set a password.
 Even then, Settings has a Site checks switch that is off by default.
-Turned on, it lets the worker open the entry page of each recipe you approved once a week, on your connection, to see whether the broker's form changed.
-A site check looks for the form fields the recipe expects, types nothing, submits nothing, and sends none of your details, but the broker does see a visit from your home address.
+Turned on, it lets the worker load the page of each recipe you approved once a week, on your connection, to see whether the broker's form changed.
+A site check loads the recipe's page and may search a generic name such as John Smith to reach the results page, never uses your details, and never submits a removal, but the broker does see a visit from your home address.
 The Scan and Removal badges on Targets show the result: None (no approved recipe), Not checked, Healthy, or Broken.
 Scans and removals you start yourself run whether or not site checks are on.
+
+Once you have run a first scan or campaign, a few things do run on a schedule, and the site checks switch does not gate them.
+People-search sites you have scanned are scanned again with your details every 60 days by default, and the interval is in Settings.
+Email requests get follow-ups when a broker has not answered, and failed sends are tried again.
+Before your first scan or campaign, none of these start.
 
 To start only the server, without the browser worker, run `docker compose up -d server`.
 Email requests work without the worker, but scans and web forms need it.
@@ -201,12 +206,12 @@ Requests that were already sent cannot be recalled, and nothing here reaches int
 
 ## Updating and logs
 
-To update, pull and rebuild the images.
-`COMPOSE_PROFILES` in `.env` makes compose rebuild the worker, and the agent worker if you listed it, next to the server:
+To update, pull and run the installer again.
+It is safe to repeat, rebuilds the images, and adds the worker to `COMPOSE_PROFILES` in `.env` if an older install left it out.
+`COMPOSE_PROFILES` makes compose rebuild the worker, and the agent worker if you listed it, next to the server:
 
 ```sh
-git pull
-docker compose up -d --build
+git pull && ./install.sh
 ```
 
 `docker compose logs -f server` and `docker compose logs -f worker` show what each container is doing, and `docker compose logs -f agent-worker` shows the agent worker.

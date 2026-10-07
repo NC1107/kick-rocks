@@ -37,11 +37,11 @@ Datacenter IPs trip bot management on people-search sites, so the browser runs o
 
 ### Nice to Have
 
-- API-key and local-model workers that consume the same task queue the MCP server exposes.
+- API-key and local-model workers that consume the same task queue the MCP server exposes (shipped as the agent worker, see ADR-012).
 - Push notifications over ntfy or Telegram when a task blocks.
 - Outlook.com support through OAuth.
 - GDPR templates and EU broker data.
-- A daily or weekly email digest of status changes, sent from the person's own mailbox to itself, and push notifications through ntfy or Telegram.
+- A daily or weekly email digest of status changes, sent from the person's own mailbox to itself.
 
 ### Out of Scope
 
@@ -246,6 +246,7 @@ Consequences: bundled third-party data must allow noncommercial redistribution, 
 Context: the deterministic path needs a stable driver; the agent path needs act, extract, and observe primitives.
 Decision: Playwright drives recipes.
 Stagehand is evaluated for the agent fallback behind the task queue once real tasks exist to test against.
+Superseded for the agent fallback by ADR-012.
 Consequences: no premature dependency on an agent framework, and the agent surface can be swapped per worker.
 
 ### ADR-011: The person controls the data Kick Rocks holds

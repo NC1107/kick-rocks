@@ -165,4 +165,5 @@ The tests also pin the opt-out authentication rule per state, check that the cla
 - The California regulations 11 CCR 7026(d) and (f) and the Montana and New Hampshire sections were confirmed from secondary hosts of the official text, not the agency or legislature copy.
 - New Jersey's implementing rules under the Data Privacy Act were not reviewed.
 - Nevada's NRS 603A.345 took effect two years before the entry's date, which is the broker date.
-- Kick Rocks never files at DROP for the person, because DROP needs the person's own identity verification. It only points to it.
+- Kick Rocks never files at DROP for the person, because DROP needs the person's own identity verification.
+It only points to it.

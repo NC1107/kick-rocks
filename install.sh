@@ -11,6 +11,7 @@
 # Safe to run again; it never overwrites a token.
 set -euo pipefail
 
+caller_dir="$PWD"
 cd "$(dirname "$0")"
 
 # The value of KEY in .env, or nothing when it is unset or empty.
@@ -82,12 +83,21 @@ backup() {
   local file="${1:-$HOME/kickrocks-backup-$(date +%Y%m%d-%H%M%S).tgz}" volume
   volume="$(data_volume)"
   docker volume inspect "$volume" >/dev/null 2>&1 || { echo "No data volume named $volume yet." >&2; exit 1; }
+  case "$file" in
+    /*) ;;
+    *) file="$caller_dir/$file" ;;
+  esac
   case "$(cd "$(dirname "$file")" && pwd)/" in
     "$PWD"/*) echo "Refusing to write the backup inside the repository: it holds the database key." >&2; exit 1 ;;
   esac
   # A copy of a running database can be inconsistent, so everything stops for the copy.
+  # Only what was running comes back, so a service stopped on purpose stays stopped.
+  was_running=()
+  mapfile -t was_running < <(docker compose "${ALL_PROFILES[@]}" ps --services --status running)
   docker compose "${ALL_PROFILES[@]}" stop
-  trap 'docker compose start >/dev/null' EXIT
+  if [ "${#was_running[@]}" -gt 0 ]; then
+    trap 'docker compose "${ALL_PROFILES[@]}" start "${was_running[@]}" >/dev/null' EXIT
+  fi
   # tar runs as root inside the container because it must read the key, but the archive is written
   # by this shell, so it belongs to the invoking user and no one else can read it.
   (umask 077 && docker run --rm -v "$volume":/data:ro alpine tar czf - -C /data . >"$file")
@@ -103,6 +113,22 @@ uninstall() {
   echo "Removed. The folder $PWD and its .env are still here; delete the folder when you are done."
 }
 
+# With the worker in COMPOSE_PROFILES, plain `docker compose up`, `stop` and `down` reach it too.
+# An install from before the worker was a profile gets it added here.
+ensure_worker_profile() {
+  local profiles
+  touch .env
+  profiles="$(env_value COMPOSE_PROFILES)"
+  case ",$profiles," in
+    *,worker,*) ;;
+    *)
+      sed -i.bak '/^COMPOSE_PROFILES=/d' .env && rm -f .env.bak
+      printf 'COMPOSE_PROFILES=%s\n' "${profiles:+$profiles,}worker" >> .env
+      echo "Set COMPOSE_PROFILES=${profiles:+$profiles,}worker in .env"
+      ;;
+  esac
+}
+
 case "${1:-}" in
   --stop)
     docker compose "${ALL_PROFILES[@]}" stop
@@ -110,6 +136,7 @@ case "${1:-}" in
     exit 0
     ;;
   --start)
+    ensure_worker_profile
     docker compose up -d --wait
     echo "Kick Rocks is running at $(app_url)"
     exit 0
@@ -135,16 +162,7 @@ if ! grep -q '^KICKROCKS_WORKER_TOKEN=.\{16,\}' .env; then
   printf 'KICKROCKS_WORKER_TOKEN=%s\n' "$(random_token)" >> .env
   echo "Wrote a random KICKROCKS_WORKER_TOKEN to .env"
 fi
-# With the worker in COMPOSE_PROFILES, a plain `docker compose stop` or `down` reaches it too.
-profiles="$(env_value COMPOSE_PROFILES)"
-case ",$profiles," in
-  *,worker,*) ;;
-  *)
-    sed -i.bak '/^COMPOSE_PROFILES=/d' .env && rm -f .env.bak
-    printf 'COMPOSE_PROFILES=%s\n' "${profiles:+$profiles,}worker" >> .env
-    echo "Set COMPOSE_PROFILES=${profiles:+$profiles,}worker in .env"
-    ;;
-esac
+ensure_worker_profile
 chmod 600 .env
 
 docker compose up -d --build --wait --wait-timeout 180 || {
