@@ -9,6 +9,9 @@ import {
 import { beforeEach, describe, expect, it } from "vitest";
 import { createMockApp, type MockApp, type MockRequest } from "./app.js";
 
+// Written by code point so this file does not contain the character it forbids.
+const EM_DASH = String.fromCodePoint(0x2014);
+
 let app: MockApp;
 
 beforeEach(() => {
@@ -136,7 +139,7 @@ describe("fixtures", () => {
       const host = (match[1] as string).toLowerCase().split(":")[0] as string;
       expect(host, `url host ${host}`).toMatch(/(^|\.)(example\.(com|org|net)|example|localhost)$/);
     }
-    expect(text).not.toContain("—");
+    expect(text).not.toContain(EM_DASH);
   });
 
   it("are the same every time, so screenshots do not drift", () => {

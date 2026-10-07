@@ -35,6 +35,9 @@ describe("status metadata", () => {
   });
 });
 
+// Written by code point so this file does not contain the character it forbids.
+const EM_DASH = String.fromCodePoint(0x2014);
+
 describe("copy rules", () => {
   it("has no em dash, exclamation mark, or empty text in any label table", () => {
     const strings: string[] = [];
@@ -50,7 +53,8 @@ describe("copy rules", () => {
     expect(strings.length).toBeGreaterThan(50);
     for (const text of strings) {
       expect(text).not.toBe("");
-      expect(text).not.toMatch(/[—!]/);
+      expect(text).not.toContain(EM_DASH);
+      expect(text).not.toContain("!");
     }
   });
 });
