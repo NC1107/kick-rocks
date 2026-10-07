@@ -1,0 +1,77 @@
+{
+  "id": "familytreenow.remove.v1",
+  "brokerId": "familytreenow",
+  "version": 1,
+  "purpose": "remove",
+  "entryUrl": "https://www.familytreenow.com/optout",
+  "fields": ["first_name", "last_name", "record_url"],
+  "steps": [
+    {
+      "kind": "goto",
+      "url": "https://www.familytreenow.com/optout"
+    },
+    {
+      "kind": "captcha_checkpoint"
+    },
+    {
+      "kind": "fill",
+      "target": {
+        "label": "First Name"
+      },
+      "field": "first_name"
+    },
+    {
+      "kind": "fill",
+      "target": {
+        "label": "Last Name"
+      },
+      "field": "last_name"
+    },
+    {
+      "kind": "click",
+      "target": {
+        "role": "button",
+        "label": "Search"
+      }
+    },
+    {
+      "kind": "captcha_checkpoint"
+    },
+    {
+      "kind": "select_record",
+      "item": {
+        "css": "a[href*='/record/'], a[href*='/people/']"
+      },
+      "link": {
+        "css": ":scope",
+        "attr": "href"
+      },
+      "action": "click"
+    },
+    {
+      "kind": "captcha_checkpoint"
+    },
+    {
+      "kind": "click",
+      "target": {
+        "role": "button",
+        "label": "Opt Out"
+      },
+      "optional": true
+    }
+  ],
+  "canary": {
+    "url": "https://www.familytreenow.com/optout",
+    "selectors": [
+      {
+        "label": "First Name"
+      },
+      {
+        "label": "Last Name"
+      }
+    ]
+  },
+  "notes": "Not verified. The opt-out page answered with a Cloudflare Turnstile interstitial on 2026-10-07 in headless and headed Chrome, and no challenge was solved, so no form was seen. The flow (search for the record, choose it, confirm the opt-out) is from the site's published instructions and the selectors are unverified guesses. Expect a bot_detection block.",
+  "verifiedAt": "2026-10-07",
+  "liveStatus": "blocked_by_bot_protection"
+}

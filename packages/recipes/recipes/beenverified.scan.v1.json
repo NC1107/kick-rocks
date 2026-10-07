@@ -1,0 +1,60 @@
+{
+  "id": "beenverified.scan.v1",
+  "brokerId": "beenverified",
+  "version": 1,
+  "purpose": "scan",
+  "entryUrl": "https://www.beenverified.com/",
+  "fields": ["first_name", "last_name"],
+  "steps": [
+    {
+      "kind": "goto",
+      "url": "https://www.beenverified.com/people/{{first_name|slug}}-{{last_name|slug}}/"
+    },
+    {
+      "kind": "captcha_checkpoint"
+    },
+    {
+      "kind": "wait_for",
+      "target": {
+        "css": "a[href*=\"/people/\"]"
+      },
+      "optional": true
+    },
+    {
+      "kind": "extract_candidates",
+      "item": {
+        "css": "[class*='result'], article, li"
+      },
+      "fields": {
+        "recordUrl": {
+          "css": "a[href*=\"/people/\"]",
+          "attr": "href"
+        },
+        "name": {
+          "css": "h2, h3, a"
+        },
+        "age": {
+          "css": "[class*='age']"
+        },
+        "locations": {
+          "css": "[class*='location'], [class*='address']",
+          "all": true
+        }
+      }
+    }
+  ],
+  "canary": {
+    "url": "https://www.beenverified.com/",
+    "selectors": [
+      {
+        "css": "input[name='fn']"
+      },
+      {
+        "css": "input[name='ln']"
+      }
+    ]
+  },
+  "notes": "Not verified. BeenVerified answered every page (entry, opt-out, search) with a Cloudflare Turnstile \"Performing security verification\" interstitial in headless and headed Chrome on 2026-10-07, and no challenge was solved. The selectors are a guess from the site's public URL shape, not from its DOM. The runner should block on the interstitial and hand the task to a human or agent.",
+  "verifiedAt": "2026-10-07",
+  "liveStatus": "blocked_by_bot_protection"
+}
