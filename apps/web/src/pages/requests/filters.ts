@@ -1,6 +1,6 @@
 import { RequestChannel, RequestStatus } from "@kickrocks/shared";
 
-export const REQUESTS_PAGE_SIZE = 25;
+export const REQUESTS_PAGE_SIZE = 50;
 
 export interface RequestFilters {
   q: string;

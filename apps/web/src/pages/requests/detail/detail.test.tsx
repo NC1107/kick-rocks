@@ -1,9 +1,10 @@
 import { screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { createMockApp, type MockApp } from "../../../../mock/app.js";
+import { buildRequest } from "../../../../mock/requests.js";
 import { renderPage } from "../../../test/render.js";
 import { Component as RequestDetailPage } from "./index.js";
-import { newestFirst } from "./Timeline.js";
+import { groupEvents, newestFirst, retryableFailure } from "./Timeline.js";
 
 /** Routes matching `pattern` answer 403, a client error, so the query client does not retry and wait. */
 function failing(pattern: RegExp): MockApp {
@@ -40,6 +41,7 @@ describe("the request page", () => {
     ).toBeVisible();
     expect(screen.getByText("Awaiting reply")).toBeVisible();
     expect(screen.getByText("Sent the email.")).toBeVisible();
+    expect(screen.queryByText(/by Kick Rocks/)).not.toBeInTheDocument();
   });
 
   it("joins several rights into one sentence with only the first capitalised", async () => {
@@ -79,7 +81,7 @@ describe("the request page", () => {
   it("offers only the actions the server allows", async () => {
     open(byTarget("audiencegrid"));
     await screen.findByRole("heading", { name: "AudienceGrid", level: 1 });
-    expect(screen.getByText("Confirmed")).toBeVisible();
+    expect(screen.getAllByText("Confirmed").length).toBeGreaterThan(0);
     expect(screen.queryByRole("button", { name: "Send again" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "More actions" })).not.toBeInTheDocument();
   });
@@ -130,19 +132,101 @@ describe("the request page", () => {
 
   it("lists replies and tasks", async () => {
     open(byTarget("clearcheck"));
-    await screen.findByRole("heading", { name: "Replies" });
+    await screen.findByRole("heading", { name: /^Replies/ });
     expect(screen.getByText("Verification required")).toBeVisible();
-    expect(screen.getByRole("heading", { name: "Tasks" })).toBeVisible();
+    expect(screen.getByRole("heading", { name: /^Tasks/ })).toBeVisible();
   });
 
   it("says when the request does not exist", async () => {
     open(() => "req_9999");
-    expect(await screen.findByText("Request not found")).toBeVisible();
+    expect(await screen.findByText("Request not found.")).toBeVisible();
   });
 
   it("offers another try when the server will not answer", async () => {
     const mock = failing(/\/api\/requests\/req_/);
     renderPage(<RequestDetailPage />, { path: "/requests/:id", route: "/requests/req_0001", mock });
     expect(await screen.findByText("Could not load this request")).toBeVisible();
+  });
+});
+
+describe("the timeline", () => {
+  const at = (minutes: number) => new Date(Date.UTC(2026, 0, 1, 12, minutes)).toISOString();
+  const event = (id: string, type: string, minutes: number, payload: object = {}) =>
+    ({ id, type, createdAt: at(minutes), actor: "system", payload }) as never;
+
+  it("groups events within a minute under one time", () => {
+    const groups = groupEvents([
+      event("a", "sent", 0),
+      event("b", "reply_received", 5),
+      event("c", "classified", 5),
+    ]);
+    expect(groups.map((group) => group.events.map((e) => e.id))).toEqual([["c", "b"], ["a"]]);
+  });
+
+  it("folds a status change into the event beside it, and keeps one that stands alone", () => {
+    const grouped = groupEvents([
+      event("a", "sent", 0),
+      event("b", "status_changed", 0),
+      event("c", "status_changed", 45),
+    ]);
+    expect(grouped.map((group) => group.events.map((e) => e.id))).toEqual([["c"], ["a"]]);
+  });
+
+  it("offers a retry only on the newest failure that nothing has re-queued", () => {
+    const failed = event("f", "task_failed", 5, { taskId: "tsk_1" });
+    const task = { id: "tsk_1", status: "failed" } as never;
+    expect(retryableFailure([failed], [task])?.id).toBe("f");
+    expect(retryableFailure([failed, event("q", "task_enqueued", 6)], [task])).toBeUndefined();
+    expect(
+      retryableFailure([failed], [{ id: "tsk_1", status: "queued" } as never]),
+    ).toBeUndefined();
+  });
+});
+
+describe("a failed request", () => {
+  function openFailed() {
+    const mock = failing(/never/);
+    const request = buildRequest(mock.store, {
+      profileId: mock.store.profiles[0]?.id ?? "",
+      targetId: "quillnote",
+      channel: "form",
+      rights: ["opt_out"],
+      status: "sent",
+      createdDaysAgo: 0,
+      failed: { error: "The submit button was not on the page after three tries" },
+    });
+    return {
+      id: request.id,
+      ...renderPage(<RequestDetailPage />, {
+        path: "/requests/:id",
+        route: `/requests/${request.id}`,
+        mock,
+      }),
+    };
+  }
+
+  it("shows the error once, on the failed event, with a retry beside it", async () => {
+    openFailed();
+    await screen.findByRole("heading", { level: 1 });
+    expect(await screen.findAllByText(/three tries/)).toHaveLength(1);
+    expect(screen.getByRole("button", { name: "Retry" })).toBeVisible();
+  });
+
+  it("queues the task again when Retry is pressed", async () => {
+    const { user, mock, id } = openFailed();
+    await user.click(await screen.findByRole("button", { name: "Retry" }));
+    await waitFor(() =>
+      expect(
+        mock.store.tasks.filter((task) => task.requestId === id && task.status === "queued"),
+      ).toHaveLength(1),
+    );
+    await waitFor(() => expect(screen.queryByRole("button", { name: "Retry" })).toBeNull());
+  });
+
+  it("shows a request's last error once when the failure was an email", async () => {
+    const { mock } = open(byTarget("pixelforge"));
+    const error = mock.store.requests.find((r) => r.targetId === "pixelforge")?.lastError ?? "";
+    expect(error).not.toBe("");
+    expect(await screen.findAllByText(new RegExp(error))).toHaveLength(1);
   });
 });
