@@ -1,17 +1,20 @@
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
+import { kickRocksMock } from "./mock/plugin.js";
 
-export default defineConfig({
-  plugins: [react(), tailwindcss()],
-  server: {
-    port: 5173,
-    proxy: {
-      "/api": "http://127.0.0.1:8420",
+// `vite --mode mock` (pnpm dev:mock) answers /api/* from apps/web/mock instead of the server.
+export default defineConfig(({ mode }) => {
+  const mocked = mode === "mock";
+  return {
+    plugins: [react(), tailwindcss(), ...(mocked ? [kickRocksMock()] : [])],
+    server: {
+      port: 5173,
+      ...(mocked ? {} : { proxy: { "/api": "http://127.0.0.1:8420" } }),
     },
-  },
-  build: {
-    outDir: "dist",
-    emptyOutDir: true,
-  },
+    build: {
+      outDir: "dist",
+      emptyOutDir: true,
+    },
+  };
 });

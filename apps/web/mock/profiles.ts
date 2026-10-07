@@ -1,0 +1,172 @@
+import {
+  API_ROUTES,
+  type Identity,
+  type IdentityInput,
+  type ProfileDetail,
+  type ProfileSummary,
+} from "@kickrocks/shared";
+import { defineMockDomain, handle, notFound } from "./core.js";
+import type { MockStore } from "./store.js";
+
+/** Fake people only: every name, address, and number here is invented, on reserved example domains. */
+export function summarize(profile: ProfileDetail): ProfileSummary {
+  const { identities: _identities, mailbox: _mailbox, ...summary } = profile;
+  return summary;
+}
+
+function primaryEmail(identities: readonly Identity[]): string | null {
+  const emails = identities.filter((identity) => identity.kind === "email");
+  const email = emails.find((identity) => identity.isPrimary) ?? emails[0];
+  return email?.kind === "email" ? email.value.address : null;
+}
+
+function withIds(store: MockStore, inputs: readonly IdentityInput[]): Identity[] {
+  return inputs.map((input) => ({ ...input, id: store.nextId("idn") }) as Identity);
+}
+
+function find(store: MockStore, id: string): ProfileDetail {
+  const profile = store.profiles.find((candidate) => candidate.id === id);
+  if (!profile) throw notFound("That profile");
+  return profile;
+}
+
+function seedProfile(
+  store: MockStore,
+  display: { displayName: string; state: ProfileDetail["state"]; created: { days: number } },
+  inputs: IdentityInput[],
+): void {
+  const identities = withIds(store, inputs);
+  store.profiles.push({
+    id: store.nextId("prf"),
+    displayName: display.displayName,
+    state: display.state,
+    primaryEmail: primaryEmail(identities),
+    mailboxConnected: false,
+    createdAt: store.ago(display.created),
+    updatedAt: store.ago({ days: 1 }),
+    identities,
+    mailbox: null,
+  });
+}
+
+const NO_DATES = { validFrom: null, validTo: null } as const;
+
+export default defineMockDomain({
+  name: "profiles",
+
+  seed(store) {
+    seedProfile(store, { displayName: "Jordan Example", state: "CA", created: { days: 96 } }, [
+      {
+        kind: "name",
+        value: { first: "Jordan", middle: "Q", last: "Example" },
+        isPrimary: true,
+        ...NO_DATES,
+      },
+      { kind: "alias", value: { first: "Jordie", last: "Example" }, isPrimary: false, ...NO_DATES },
+      { kind: "email", value: { address: "jordan@example.com" }, isPrimary: true, ...NO_DATES },
+      { kind: "email", value: { address: "j.example@example.org" }, isPrimary: false, ...NO_DATES },
+      { kind: "phone", value: { number: "+15555550123" }, isPrimary: true, ...NO_DATES },
+      {
+        kind: "address",
+        value: {
+          street: "100 Example Street",
+          unit: "Apt 4",
+          city: "Sampleton",
+          state: "CA",
+          zip: "90000",
+        },
+        isPrimary: true,
+        validFrom: "2022-03-01",
+        validTo: null,
+      },
+      {
+        kind: "address",
+        value: { street: "22 Placeholder Lane", city: "Testville", state: "CA", zip: "90001" },
+        isPrimary: false,
+        validFrom: "2017-06-01",
+        validTo: "2022-02-28",
+      },
+      { kind: "dob", value: { date: "1990-04-12" }, isPrimary: true, ...NO_DATES },
+    ]);
+
+    seedProfile(store, { displayName: "Riley Sample", state: "NY", created: { days: 41 } }, [
+      { kind: "name", value: { first: "Riley", last: "Sample" }, isPrimary: true, ...NO_DATES },
+      { kind: "email", value: { address: "riley@example.net" }, isPrimary: true, ...NO_DATES },
+      {
+        kind: "address",
+        value: { street: "7 Sample Avenue", city: "Examplebury", state: "NY", zip: "10001" },
+        isPrimary: true,
+        ...NO_DATES,
+      },
+    ]);
+
+    seedProfile(
+      store,
+      {
+        displayName: "Alexandria Montgomery-Fitzgerald Example the Third",
+        state: "WA",
+        created: { days: 9 },
+      },
+      [
+        {
+          kind: "name",
+          value: { first: "Alexandria", middle: "Montgomery", last: "Fitzgerald-Example" },
+          isPrimary: true,
+          ...NO_DATES,
+        },
+        {
+          kind: "email",
+          value: { address: "alexandria.montgomery-fitzgerald.example@subdomain.example.com" },
+          isPrimary: true,
+          ...NO_DATES,
+        },
+      ],
+    );
+  },
+
+  routes: (store) => [
+    handle(API_ROUTES.profilesList, () => ({ profiles: store.profiles.map(summarize) })),
+
+    handle(API_ROUTES.profilesGet, ({ params }) => find(store, params.id)),
+
+    handle(API_ROUTES.profilesCreate, ({ body }) => {
+      const identities = withIds(store, body.identities);
+      const profile: ProfileDetail = {
+        id: store.nextId("prf"),
+        displayName: body.displayName,
+        state: body.state,
+        primaryEmail: primaryEmail(identities),
+        mailboxConnected: false,
+        createdAt: store.clock.now().toISOString(),
+        updatedAt: store.clock.now().toISOString(),
+        identities,
+        mailbox: null,
+      };
+      store.profiles.push(profile);
+      return profile;
+    }),
+
+    handle(API_ROUTES.profilesUpdate, ({ params, body }) => {
+      const profile = find(store, params.id);
+      if (body.displayName !== undefined) profile.displayName = body.displayName;
+      if (body.state !== undefined) profile.state = body.state;
+      profile.updatedAt = store.clock.now().toISOString();
+      return profile;
+    }),
+
+    handle(API_ROUTES.profilesReplaceIdentities, ({ params, body }) => {
+      const profile = find(store, params.id);
+      profile.identities = withIds(store, body.identities);
+      profile.primaryEmail = primaryEmail(profile.identities);
+      profile.updatedAt = store.clock.now().toISOString();
+      return profile;
+    }),
+
+    handle(API_ROUTES.profilesDelete, ({ params }) => {
+      const profile = find(store, params.id);
+      store.profiles = store.profiles.filter((candidate) => candidate.id !== profile.id);
+      store.requests = store.requests.filter((request) => request.profileId !== profile.id);
+      return { ok: true as const };
+    }),
+  ],
+});
