@@ -8,7 +8,7 @@ cd "$(dirname "$0")"
 # The value of KEY in .env, or nothing when it is unset or empty.
 env_value() {
   [ -f .env ] || return 0
-  sed -n "s/^$1=//p" .env | tail -n 1
+  sed -n "s/^$1=//p" .env | tail -n 1 | sed -e "s/^\"\(.*\)\"\$/\1/" -e "s/^'\(.*\)'\$/\1/"
 }
 
 # Where the UI is reached: the public URL when one is set, else the address compose publishes.
@@ -22,7 +22,12 @@ app_url() {
   bind="$(env_value KICKROCKS_BIND_ADDRESS)"
   port="$(env_value KICKROCKS_HOST_PORT)"
   case "${bind:-127.0.0.1}" in 0.0.0.0|"::") bind=127.0.0.1 ;; esac
-  printf 'http://%s:%s\n' "${bind:-127.0.0.1}" "${port:-8420}"
+  bind="${bind:-127.0.0.1}"
+  case "$bind" in
+    \[*) ;;
+    *:*) bind="[$bind]" ;;
+  esac
+  printf 'http://%s:%s\n' "$bind" "${port:-8420}"
 }
 
 if [ "${1:-}" = "--url" ]; then

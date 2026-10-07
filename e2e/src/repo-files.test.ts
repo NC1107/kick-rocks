@@ -179,6 +179,23 @@ describe("install.sh", () => {
     );
   });
 
+  it("strips double and single quotes around a value, as compose does", () => {
+    expect(urlFor('KICKROCKS_BIND_ADDRESS="192.168.1.20"\nKICKROCKS_HOST_PORT=\'9000\'\n')).toBe(
+      "http://192.168.1.20:9000",
+    );
+    expect(urlFor("KICKROCKS_PUBLIC_URL='https://kickrocks.example.org/'\n")).toBe(
+      "https://kickrocks.example.org",
+    );
+  });
+
+  it("brackets an IPv6 bind address", () => {
+    expect(urlFor("KICKROCKS_BIND_ADDRESS=::1\nKICKROCKS_HOST_PORT=9000\n")).toBe(
+      "http://[::1]:9000",
+    );
+    expect(urlFor('KICKROCKS_BIND_ADDRESS="fd00::20"\n')).toBe("http://[fd00::20]:8420");
+    expect(urlFor("KICKROCKS_BIND_ADDRESS=[::1]\n")).toBe("http://[::1]:8420");
+  });
+
   it("prefers the public URL, without a trailing slash", () => {
     expect(
       urlFor("KICKROCKS_PUBLIC_URL=https://kickrocks.example.org/\nKICKROCKS_HOST_PORT=9000\n"),
