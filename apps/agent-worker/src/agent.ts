@@ -2,8 +2,8 @@ import type { Pace } from "@kickrocks/recipes";
 import {
   type ClaimedTask,
   FormResult,
-  isOnDomain,
   resultSchemaFor,
+  ScanResult,
   type TaskUsage,
 } from "@kickrocks/shared";
 import type { TaskReport } from "@kickrocks/worker/dist/executor.js";
@@ -11,8 +11,8 @@ import { describeError, type Logger } from "@kickrocks/worker/dist/logger.js";
 import type { Page } from "playwright";
 import type { z } from "zod";
 import type { AgentLimits, Pricing } from "./config.js";
-import { allowedDomainsFor } from "./domains.js";
-import { createMask } from "./mask.js";
+import { type AllowedSites, allowedSitesFor, describeSites, withinSites } from "./domains.js";
+import { createMask, restoreFields } from "./mask.js";
 import { buildOpeningMessage, buildSystemPrompt, startUrlFor } from "./prompt.js";
 import {
   type Message,
@@ -45,6 +45,8 @@ export interface AgentRunOptions {
 const MODEL_UNAVAILABLE_RETRY_MS = 60_000;
 /** A wrong key or model name stays wrong, so the task waits longer before another try. */
 const MODEL_MISCONFIGURED_RETRY_MS = 10 * 60_000;
+/** A model that hands tasks back is no better placed an hour later, so a person gets time to look first. */
+const MODEL_RELEASE_RETRY_MS = 60 * 60_000;
 const MAX_TEXT_ONLY_TURNS = 3;
 const OMITTED_SNAPSHOT = "(An earlier page snapshot was left out. Use the latest one.)";
 const NEEDS_A_CLICK = new Set(["submitted", "awaiting_email_confirmation"]);
@@ -63,7 +65,7 @@ function describeIssues(error: z.ZodError): string {
 class AgentRun {
   private readonly started: number;
   private readonly now: () => number;
-  private readonly domains: string[];
+  private readonly sites: AllowedSites;
   private readonly fieldNames: string[];
   private readonly mask: (text: string) => string;
   private readonly toolbox: Toolbox;
@@ -71,13 +73,14 @@ class AgentRun {
   private inputTokens = 0;
   private outputTokens = 0;
   private steps = 0;
+  private modelAnswers = 0;
   private lastSnapshot: ToolResult | null = null;
 
   constructor(private readonly options: AgentRunOptions) {
     this.now = options.now ?? Date.now;
     this.started = this.now();
     const { task } = options;
-    this.domains = allowedDomainsFor(task.target, [task.payload.recordUrl]);
+    this.sites = allowedSitesFor(task.target, [task.payload.recordUrl]);
     this.fieldNames = Object.entries(task.fields)
       .filter(([, value]) => value !== undefined && value !== "")
       .map(([name]) => name);
@@ -85,7 +88,8 @@ class AgentRun {
     this.toolbox = new Toolbox({
       page: options.page,
       fields: task.fields,
-      policy: { domains: this.domains, allowHttp: options.allowHttp },
+      policy: { ...this.sites, allowHttp: options.allowHttp },
+      startUrls: [startUrlFor(task)],
       pace: options.pace,
       mask: this.mask,
       signal: options.signal,
@@ -153,7 +157,7 @@ class AgentRun {
     const { task, signal, provider, logger } = this.options;
     const system = buildSystemPrompt({
       task,
-      domains: this.domains,
+      sites: this.sites,
       fieldNames: this.fieldNames,
       maxSteps: this.options.limits.maxSteps,
     });
@@ -189,6 +193,7 @@ class AgentRun {
             return this.fail("The agent ran out of time waiting for the model");
           return this.providerFailure(error);
         }
+        this.modelAnswers += 1;
         this.inputTokens += response.usage.inputTokens;
         this.outputTokens += response.usage.outputTokens;
         this.messages.push({
@@ -236,6 +241,12 @@ class AgentRun {
         return this.release(error.message, MODEL_UNAVAILABLE_RETRY_MS);
       }
       if (error.kind === "config") {
+        return this.release(error.message, MODEL_MISCONFIGURED_RETRY_MS);
+      }
+      // A refusal before the model has answered once is the setup, such as a parameter this model
+      // does not take, and it would repeat for every task. Only a conversation that grew too long
+      // is this task's own problem.
+      if (this.modelAnswers === 0 || !error.contextTooLong) {
         return this.release(error.message, MODEL_MISCONFIGURED_RETRY_MS);
       }
       return this.fail(error.message);
@@ -345,7 +356,10 @@ class AgentRun {
           },
         };
       case "release":
-        return this.release(report.reason || "the agent handed the task back");
+        return this.release(
+          report.reason || "the agent handed the task back",
+          MODEL_RELEASE_RETRY_MS,
+        );
     }
   }
 
@@ -359,19 +373,10 @@ class AgentRun {
       };
     }
     const result = parsed.data as
-      | { purpose: "scan"; scan: { candidates: { recordUrl: string }[] } }
+      | { purpose: "scan"; scan: ScanResult }
       | { purpose: "remove"; form: FormResult };
 
-    if (result.purpose === "scan") {
-      const stray = result.scan.candidates.find(
-        (candidate) => !this.domains.some((domain) => isOnDomain(candidate.recordUrl, domain)),
-      );
-      return stray
-        ? {
-            error: `A candidate is not on the target's domains (${this.domains.join(", ")}), so it was not accepted`,
-          }
-        : { result };
-    }
+    if (result.purpose === "scan") return this.checkScan(result.scan);
     if (NEEDS_A_CLICK.has(result.form.outcome) && this.toolbox.clicks === 0) {
       return {
         error: `The outcome ${result.form.outcome} needs the form to have been submitted, and nothing has been clicked. Do the work, or report failed.`,
@@ -386,6 +391,43 @@ class AgentRun {
       ...(result.form.notes === undefined ? {} : { notes: this.mask(result.form.notes) }),
     });
     return { result: { purpose: "remove", form } };
+  }
+
+  /**
+   * The model reads the page with the person's values hidden, so what it reports is in that hidden
+   * form. The addresses are matched back to links the page really showed, and the placeholders in
+   * the text are filled in, so the server stores what the page held and not the model's copy.
+   */
+  private checkScan(scan: ScanResult): { result: unknown } | { error: string } {
+    const candidates: ScanResult["candidates"] = [];
+    for (const candidate of scan.candidates) {
+      if (!withinSites(candidate.recordUrl, this.sites)) {
+        return {
+          error: `A candidate is not on the target's domains (${describeSites(this.sites)}), so it was not accepted`,
+        };
+      }
+      const recordUrl = this.toolbox.realLink(candidate.recordUrl);
+      if (recordUrl === null || !withinSites(recordUrl, this.sites)) {
+        return {
+          error: `The address ${candidate.recordUrl} is not a link the pages you read showed. Copy each record link exactly as the snapshot shows it.`,
+        };
+      }
+      const restore = (text: string) => restoreFields(text, this.options.task.fields);
+      candidates.push({
+        ...candidate,
+        recordUrl,
+        name: restore(candidate.name),
+        locations: candidate.locations.map(restore),
+        ...(candidate.relatives ? { relatives: candidate.relatives.map(restore) } : {}),
+        ...(candidate.phones ? { phones: candidate.phones.map(restore) } : {}),
+        ...(candidate.emails ? { emails: candidate.emails.map(restore) } : {}),
+      });
+    }
+    const restored = ScanResult.safeParse({ candidates });
+    if (!restored.success) {
+      return { error: `A candidate was not valid: ${describeIssues(restored.error)}` };
+    }
+    return { result: { purpose: "scan", scan: restored.data } };
   }
 }
 

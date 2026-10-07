@@ -1,13 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { agentTask, TARGET } from "../test/support.js";
-import { allowedDomainsFor } from "./domains.js";
+import { allowedSitesFor } from "./domains.js";
 import { buildOpeningMessage, buildSystemPrompt, startUrlFor } from "./prompt.js";
 
 describe("buildSystemPrompt", () => {
   const task = agentTask({ instructions: "Task: do the thing at the place." });
   const prompt = buildSystemPrompt({
     task,
-    domains: allowedDomainsFor(TARGET),
+    sites: allowedSitesFor(TARGET),
     fieldNames: ["first_name", "email"],
     maxSteps: 25,
   });
@@ -34,7 +34,12 @@ describe("buildSystemPrompt", () => {
   });
 
   it("says none when the task carries no fields", () => {
-    const bare = buildSystemPrompt({ task, domains: ["a.test"], fieldNames: [], maxSteps: 5 });
+    const bare = buildSystemPrompt({
+      task,
+      sites: { domains: ["a.test"], pages: [] },
+      fieldNames: [],
+      maxSteps: 5,
+    });
     expect(bare).toContain("The fields for this task are: none.");
   });
 

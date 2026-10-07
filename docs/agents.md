@@ -264,8 +264,11 @@ The model defaults to `claude-sonnet-4-6`.
 | `KICKROCKS_AGENT_MAX_TOTAL_TOKENS` | Optional token budget for one task. |
 | `KICKROCKS_AGENT_INPUT_USD_PER_MTOK`, `KICKROCKS_AGENT_OUTPUT_USD_PER_MTOK` | Prices per million tokens. A cost is reported only when both are set. |
 | `KICKROCKS_AGENT_MAX_OUTPUT_TOKENS` | The most the model may write in one turn. Default 2048. |
+| `KICKROCKS_AGENT_TOKEN_PARAM` | What an OpenAI-compatible endpoint calls that limit: `max_tokens` (the default) or `max_completion_tokens`. OpenAI's reasoning models need the second. With the default, a model that refuses `max_tokens` or a temperature of 0 gets one retry with `max_completion_tokens` and no temperature. |
 
 The browser settings are the same as the built-in worker's: `KICKROCKS_WORKER_HEADLESS`, `KICKROCKS_WORKER_PACE`, `KICKROCKS_CHROME_EXECUTABLE`, and the rest of `apps/worker/README.md`.
+In the compose service only `KICKROCKS_WORKER_PACE` can be changed from `.env`.
+The image fixes the others: it runs a headed Chrome on Xvfb with the sandbox off, because Docker's default seccomp profile blocks Chrome's sandbox.
 Inside a container, `localhost` is the container, so Ollama on the host is `host.docker.internal`, which the compose file maps for you.
 
 ### What the model can do
@@ -297,8 +300,17 @@ The worker does not rely on the model to follow them.
 - `type` takes the name of a field in the task, and nothing else.
   A literal value in the call is ignored, and a field the task lacks is refused.
   Password, payment, read-only, and file controls cannot be used.
-- Controls that a person could not see are left out of the snapshot, so a honeypot field is never offered, and the person's details are never typed into one.
-- The model does not see the person's values.
+- A text field, textarea or dropdown is offered only if a person could use it: at least 4 by 4 pixels, not clipped away by a wrapper or a clip rule, within the page's width, and on top at its centre once scrolled into view.
+  The same check runs again right before the program types or selects, so a control that is hidden after the snapshot is left alone.
+  This catches the usual honeypot patterns.
+  A field covered by a pop-up or cookie banner is left out for the same reason, and shows up again once the banner is gone.
+- Every answer the model reads is masked once, at the last step, so no path skips it.
+  That covers the snapshot, dropdown options, dialog text and error messages.
+  The model sees `{{first_name}}` where the page shows the person's first name, for each field of the task.
+  Phone numbers and dates of birth are also masked in the common US formats that an input mask produces.
+  A value written in a way the program does not know, such as a nickname the page derived from the name, is not masked.
+- For a scan, the model reports each candidate with the masked text and link it read.
+  The program matches each link to one the page really showed and fills the real values back into the text before the server stores it, and it rejects an address that no page showed.
   The system prompt lists field names, and a value in the page, in a link, or in a field the program typed is replaced by `{{field_name}}` before the model reads it.
 - A visible CAPTCHA or a whole-page bot check ends the run at once.
   The task is blocked with the reason, the page address, and a screenshot, and the model is not asked again.

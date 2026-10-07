@@ -57,7 +57,8 @@ To let Claude Code or another agent take over tasks the worker cannot do, turn o
 You can also let a model take those tasks without Claude Code.
 The optional agent worker drives its own Chrome and asks a local model (Ollama or any OpenAI-compatible endpoint) or the Anthropic API what to do next.
 Set `KICKROCKS_AGENT_MODEL` in `.env`, then run `docker compose --profile agent up -d --build`.
-The model never sees your details: it names a profile field and the program types the value, only on the broker's own domains, and a CAPTCHA stops the task for you.
+The model does not see your details: it names a profile field and the program types the value, and what the model reads is masked so a field's value shows as a placeholder such as `{{first_name}}`.
+The program types only on the broker's own domains and pages, and a CAPTCHA stops the task for you.
 See "Running a model as the agent" in `docs/agents.md`.
 
 ## Reaching it from another device

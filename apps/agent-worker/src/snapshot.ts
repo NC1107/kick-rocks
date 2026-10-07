@@ -34,6 +34,38 @@ export interface RawSnapshot {
 export const REF_ATTRIBUTE = "data-kr-ref";
 
 /**
+ * Whether a person could really see and use a control: big enough, not clipped away by a wrapper
+ * or a clip rule, within the page's width, and on top at its centre once scrolled into view. The
+ * sizes and offsets that honeypot fields use to stay out of sight each fail one of these.
+ */
+export const REACHABLE = `(el) => {
+  const rect = el.getBoundingClientRect();
+  if (rect.width < 4 || rect.height < 4) return false;
+  const left = rect.left + window.scrollX;
+  const pageWidth = Math.max(window.innerWidth, document.documentElement.clientWidth);
+  if (left + rect.width <= 0 || left >= pageWidth) return false;
+  for (let walker = el; walker && walker !== document.documentElement; walker = walker.parentElement) {
+    const style = getComputedStyle(walker);
+    if (style.clipPath !== "none" || (style.clip !== "auto" && style.clip !== "")) return false;
+    if (walker === el) continue;
+    const clipsX = style.overflowX === "hidden" || style.overflowX === "clip";
+    const clipsY = style.overflowY === "hidden" || style.overflowY === "clip";
+    if (!clipsX && !clipsY) continue;
+    const box = walker.getBoundingClientRect();
+    const width = Math.min(rect.right, box.right) - Math.max(rect.left, box.left);
+    const height = Math.min(rect.bottom, box.bottom) - Math.max(rect.top, box.top);
+    if ((clipsX && width < 4) || (clipsY && height < 4)) return false;
+  }
+  if (el.scrollIntoViewIfNeeded) el.scrollIntoViewIfNeeded(true);
+  else el.scrollIntoView({ block: "nearest", inline: "nearest" });
+  const now = el.getBoundingClientRect();
+  const hit = document.elementFromPoint(now.left + now.width / 2, now.top + now.height / 2);
+  if (!hit) return false;
+  if (hit === el || el.contains(hit)) return true;
+  return Boolean(el.labels && Array.from(el.labels).some((label) => label.contains(hit)));
+}`;
+
+/**
  * Marks every control the model may use with `data-kr-ref` and describes the page. A control that a
  * person could not see is left out and unmarked: a field hidden from people is a honeypot, and the
  * person's details must never be typed into one.
@@ -43,6 +75,14 @@ export const READ_SNAPSHOT = `(() => {
   const MAX_OPTIONS = 80;
   const MAX_ITEMS = 600;
   for (const el of document.querySelectorAll("[data-kr-ref]")) el.removeAttribute("data-kr-ref");
+  const startX = window.scrollX;
+  const startY = window.scrollY;
+  const reachable = ${REACHABLE};
+  const NOT_TYPED = new Set(["checkbox", "radio", "file", "button", "submit", "reset", "image", "hidden"]);
+  const needsReach = (el) => {
+    if (el.tagName === "TEXTAREA" || el.tagName === "SELECT") return true;
+    return el.tagName === "INPUT" && !NOT_TYPED.has((el.type || "text").toLowerCase());
+  };
 
   const SKIP = new Set(["SCRIPT", "STYLE", "NOSCRIPT", "TEMPLATE", "SVG", "CANVAS", "HEAD"]);
   const TEXT_INPUTS = new Set(["text", "email", "tel", "search", "url", "number", "password", "date", "datetime-local", "month", "week", "time"]);
@@ -64,7 +104,8 @@ export const READ_SNAPSHOT = `(() => {
   };
   const controlVisible = (el) => {
     if (!shown(el) || !rectOk(el)) return false;
-    return Number(getComputedStyle(el).opacity) > 0.01;
+    if (Number(getComputedStyle(el).opacity) <= 0.01) return false;
+    return !needsReach(el) || reachable(el);
   };
 
   const nameOf = (el) => {
@@ -201,12 +242,13 @@ export const READ_SNAPSHOT = `(() => {
 
   walk(document.body || document.documentElement);
   flush();
+  window.scrollTo(startX, startY);
   return { title: document.title, url: location.href, items };
 })()`;
 
 export interface SnapshotOptions {
-  /** Hides a value the person owns from text the model reads. */
-  mask: (text: string) => string;
+  /** Hides a value the person owns from the text. Left out, the text is shown as the page has it. */
+  mask?: (text: string) => string;
   maxChars?: number;
 }
 
@@ -236,21 +278,24 @@ function line(item: SnapshotItem, mask: (text: string) => string): string {
           item.inputType === "password" ? "value=(hidden)" : `value=${quote(mask(item.value))}`,
         );
       }
-      if (item.options) parts.push(`options: ${item.options.map((o) => quote(o)).join(" | ")}`);
+      if (item.options) {
+        parts.push(`options: ${item.options.map((o) => quote(mask(o))).join(" | ")}`);
+      }
       return parts.join(" ");
     }
   }
 }
 
 /** The text the model reads, cut at a budget so a long page cannot fill its context. */
-export function formatSnapshot(raw: RawSnapshot, options: SnapshotOptions): string {
+export function formatSnapshot(raw: RawSnapshot, options: SnapshotOptions = {}): string {
   const budget = options.maxChars ?? DEFAULT_SNAPSHOT_CHARS;
-  const header = [`url: ${options.mask(raw.url)}`, `title: ${quote(options.mask(raw.title))}`];
+  const mask = options.mask ?? ((text: string) => text);
+  const header = [`url: ${mask(raw.url)}`, `title: ${quote(mask(raw.title))}`];
   const lines: string[] = [];
   let used = header.join("\n").length;
   let omitted = 0;
   for (const item of raw.items) {
-    const text = line(item, options.mask);
+    const text = line(item, mask);
     if (used + text.length + 1 > budget) {
       omitted += 1;
       continue;

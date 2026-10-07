@@ -17,6 +17,7 @@ import {
   type Step,
   scripted,
   silentLogger,
+  TARGET,
 } from "./support.js";
 
 const LIMITS: AgentLimits = { maxSteps: 30, maxMs: 60_000, maxTotalTokens: null };
@@ -132,6 +133,9 @@ describeBrowser("a removal run", () => {
       state: "TX",
       website: "",
       company: "",
+      email2: "",
+      email_confirm: "",
+      homepage: "",
       fax: "",
       agree: "yes",
     });
@@ -195,9 +199,22 @@ describeBrowser("a removal run", () => {
       .flatMap((m) => (m.role === "tool" ? m.results.map((r) => r.content) : []))
       .join("\n");
     expect(snapshot).toContain("First name");
-    expect(snapshot).not.toContain("Website");
-    expect(snapshot).not.toContain("Company");
-    expect(snapshot).not.toContain("Fax");
+    for (const trap of ["Website", "Company", "Fax", "Email again", "Email confirm", "Homepage"]) {
+      expect(snapshot).not.toContain(trap);
+    }
+  });
+
+  it("refuses to type into a control that was hidden after the snapshot", async () => {
+    const { provider } = await run([
+      navigate("/late"),
+      (v) => ({ calls: [["check", { ref: v.ref("Collapse the form") }]] }),
+      (v) => ({ calls: [["type", { ref: v.ref("Email address"), field: "email" }]] }),
+      { calls: [["report", { status: "release" }]] },
+    ]);
+    const answer = provider.requests[3]?.messages.at(-1);
+    const typed = answer?.role === "tool" ? answer.results[0] : undefined;
+    expect(typed?.isError).toBe(true);
+    expect(typed?.content).toContain("not visible to a person");
   });
 
   it("uses the start page the task names in its opening message", async () => {
@@ -367,8 +384,23 @@ describeBrowser("the rules the code enforces", () => {
     const answer = provider.requests[2]?.messages.at(-1);
     const content = answer?.role === "tool" ? answer.results[0]?.content : "";
     expect(content).toMatch(/Blocked a navigation|blocked/);
+    expect(content).toContain("Remove your listing");
+    expect(content).toContain(`url: ${ORIGIN}/optout`);
+    expect(content).toContain("[e");
     const { hits } = await fixtureState();
     expect(hits.filter((hit) => hit.host === "localhost")).toEqual([]);
+  });
+
+  it("keeps what was typed when a link that leaves the domain is blocked", async () => {
+    const { provider } = await run([
+      navigate("/optout"),
+      (v) => ({ calls: [["type", { ref: v.ref("First name"), field: "first_name" }]] }),
+      (v) => ({ calls: [["click", { ref: v.ref("Partner site") }]] }),
+      { calls: [["report", { status: "release" }]] },
+    ]);
+    const answer = provider.requests[3]?.messages.at(-1);
+    const content = answer?.role === "tool" ? answer.results[0]?.content : "";
+    expect(content).toContain('value="{{first_name}}"');
   });
 
   it("blocks a redirect that leaves the domain", async () => {
@@ -380,6 +412,21 @@ describeBrowser("the rules the code enforces", () => {
     const { hits } = await fixtureState();
     expect(hits.filter((hit) => hit.host === "localhost")).toEqual([]);
     expect(provider.requests).toHaveLength(3);
+    const answer = provider.requests[2]?.messages.at(-1);
+    const content = answer?.role === "tool" ? answer.results[0]?.content : "";
+    expect(content).toContain("Remove your listing");
+  });
+
+  it("reports a navigate call that a redirect leaves the domain from as blocked", async () => {
+    const { provider } = await run([
+      navigate("/redirect"),
+      { calls: [["report", { status: "release" }]] },
+    ]);
+    const answer = provider.requests[1]?.messages.at(-1);
+    const result = answer?.role === "tool" ? answer.results[0] : undefined;
+    expect(result?.isError).toBe(true);
+    expect(result?.content).toContain("that was blocked");
+    expect(result?.content).toContain("Blocked a navigation");
   });
 
   it("closes a new tab a link opens, and the model can follow the link in the same tab", async () => {
@@ -565,26 +612,87 @@ describeBrowser("the final report", () => {
     expect(JSON.stringify(outcome.report.result)).toContain("{{email}}");
   });
 
-  it("reports scan candidates that are on the target's domain", async () => {
+  /** Builds a candidate the way a model does, from the masked text of the snapshot it was given. */
+  function candidateFromSnapshot(view: { snapshot: string }, index: number) {
+    const links = view.snapshot.split("\n").filter((line) => line.includes('link "View record"'));
+    const headings = view.snapshot.split("\n").filter((line) => line.startsWith("heading(3)"));
+    const recordUrl = links[index]?.match(/-> (\S+)/)?.[1] ?? "";
+    const name = headings[index]?.match(/"(.*)"/)?.[1] ?? "";
+    return { recordUrl, name, age: 35, locations: ["Austin, TX"] };
+  }
+
+  it("rebuilds scan candidates from what the page really showed, not from the masked text the model copied", async () => {
     const task = agentTask({ payload: { purpose: "scan" } });
-    const result = {
+    const { outcome, provider } = await run(
+      [
+        navigate("/search"),
+        (v) => ({
+          calls: [
+            [
+              "report",
+              {
+                status: "complete",
+                result: {
+                  purpose: "scan",
+                  scan: { candidates: [candidateFromSnapshot(v, 0), candidateFromSnapshot(v, 1)] },
+                },
+              },
+            ],
+          ],
+        }),
+      ],
+      { task },
+    );
+    const seen = provider.requests[1]?.messages.at(-1);
+    const snapshot = seen?.role === "tool" ? (seen.results[0]?.content ?? "") : "";
+    expect(snapshot).toContain("{{first_name}} {{last_name}}");
+    expect(snapshot).not.toContain("Jordan Example");
+    expect(outcome.report).toMatchObject({
+      kind: "complete",
+      result: {
+        purpose: "scan",
+        scan: {
+          candidates: [
+            {
+              recordUrl: `${ORIGIN}/people/jordan-example`,
+              name: "Jordan Example",
+              locations: ["Austin, TX"],
+            },
+            { recordUrl: `${ORIGIN}/people/jordan-exemplar`, name: "Jordan Exemplar" },
+          ],
+        },
+      },
+    });
+  });
+
+  it("rejects a scan candidate whose address no page showed, even on the target's domain", async () => {
+    const task = agentTask({ payload: { purpose: "scan" } });
+    const invented = {
       purpose: "scan",
       scan: {
         candidates: [
-          {
-            recordUrl: `${ORIGIN}/people/jordan-example`,
-            name: "Jordan Example",
-            age: 35,
-            locations: ["Austin, TX"],
-          },
+          { recordUrl: `${ORIGIN}/people/{{first_name}}-{{last_name}}`, name: "X", locations: [] },
         ],
       },
     };
-    const { outcome } = await run(
-      [navigate("/search"), { calls: [["report", { status: "complete", result }]] }],
+    const { outcome, provider } = await run(
+      [
+        { calls: [["report", { status: "complete", result: invented }]] },
+        (v) => ({
+          calls: [
+            [
+              "report",
+              { status: "complete", result: { purpose: "scan", scan: { candidates: [] } } },
+            ],
+          ],
+          text: v.transcript ? "" : "",
+        }),
+      ],
       { task },
     );
-    expect(outcome.report).toMatchObject({ kind: "complete", result });
+    const first = provider.requests[1]?.messages.at(-1);
+    expect(first?.role === "tool" && first.results[0]?.content).toContain("not a link");
+    expect(outcome.report.kind).toBe("complete");
   });
 
   it("rejects a scan candidate on another domain", async () => {
@@ -657,7 +765,7 @@ describeBrowser("the final report", () => {
     const { outcome } = await run([
       { calls: [["report", { status: "release", reason: "unsure" }]] },
     ]);
-    expect(outcome.report).toEqual({ kind: "release", reason: "unsure" });
+    expect(outcome.report).toEqual({ kind: "release", reason: "unsure", retryAfterMs: 3_600_000 });
   });
 });
 
@@ -816,14 +924,48 @@ describeBrowser("a model that cannot be reached", () => {
     expect(outcome.report).toMatchObject({ kind: "release", retryAfterMs: 600_000 });
   });
 
-  it("fails the task, without retry, when the endpoint refuses the conversation", async () => {
+  it("releases the task when the very first request is refused, because that is the setup", async () => {
     const { outcome } = await run([], {
-      provider: failing(new ProviderError("context length exceeded", "rejected", 400)),
+      provider: failing(
+        new ProviderError("Unsupported parameter: max_tokens", "rejected", 400, false),
+      ),
+    });
+    expect(outcome.report).toMatchObject({ kind: "release", retryAfterMs: 600_000 });
+  });
+
+  /** Answers the first turn from the script, then refuses every later request. */
+  function refusingAfterOneTurn(error: ProviderError): ScriptedProvider {
+    const first = scripted([navigate("/optout")]);
+    let answered = false;
+    return {
+      ...first,
+      async complete(request) {
+        if (!answered) {
+          answered = true;
+          return first.complete(request);
+        }
+        throw error;
+      },
+    };
+  }
+
+  it("fails the task, without retry, when the conversation grew too long for the model", async () => {
+    const { outcome } = await run([], {
+      provider: refusingAfterOneTurn(
+        new ProviderError("context length exceeded", "rejected", 400, true),
+      ),
     });
     expect(outcome.report).toMatchObject({
       kind: "fail",
       report: { kind: "internal", retryable: false },
     });
+  });
+
+  it("releases the task when a later request is refused for any other reason", async () => {
+    const { outcome } = await run([], {
+      provider: refusingAfterOneTurn(new ProviderError("invalid tool schema", "rejected", 400)),
+    });
+    expect(outcome.report).toMatchObject({ kind: "release", retryAfterMs: 600_000 });
   });
 
   it("fails the task, with retry, on an error nobody expected", async () => {
@@ -859,5 +1001,115 @@ describeBrowser("a model that cannot be reached", () => {
     const { outcome } = await run([], { provider });
     expect(outcome.report.kind).toBe("fail");
     expect(outcome.report.kind === "fail" && outcome.report.report.retryable).toBe(true);
+  });
+});
+
+describeBrowser("what the model is never shown of the person's values", () => {
+  it("masks a dialog that echoes the person's email", async () => {
+    const { provider } = await run([
+      navigate("/alert"),
+      (v) => ({ calls: [["click", { ref: v.ref("Show notice") }]] }),
+      { calls: [["report", { status: "release" }]] },
+    ]);
+    const answer = provider.requests[2]?.messages.at(-1);
+    const content = answer?.role === "tool" ? answer.results[0]?.content : "";
+    expect(content).toContain("We will email {{email}}");
+    expect(JSON.stringify(provider.requests.at(-1)?.messages)).not.toContain("jordan.example");
+  });
+
+  it("masks dropdown options, and the select answers, when an option is the email", async () => {
+    const { provider } = await run([
+      navigate("/choose"),
+      (v) => ({
+        calls: [["select", { ref: v.ref("Contact address"), field: "email" }]],
+      }),
+      (v) => ({ calls: [["select", { ref: v.ref("Contact address"), option: "nothing" }]] }),
+      { calls: [["report", { status: "release" }]] },
+    ]);
+    const answers = provider.requests.flatMap((request) =>
+      request.messages.flatMap((m) => (m.role === "tool" ? m.results.map((r) => r.content) : [])),
+    );
+    expect(answers.some((a) => a.includes('options: "Choose" | "{{email}}"'))).toBe(true);
+    expect(answers.some((a) => a.includes('Selected "{{email}}"'))).toBe(true);
+    expect(answers.some((a) => a.includes('has no option "nothing". Options: "Choose"'))).toBe(
+      true,
+    );
+    expect(JSON.stringify(provider.requests.at(-1)?.messages)).not.toContain("jordan.example");
+  });
+
+  it("masks a phone number that the page's input mask reformats", async () => {
+    const task = agentTask({ fields: { ...PERSON, phone: "+15125550100" } });
+    const { provider } = await run(
+      [
+        navigate("/phone"),
+        (v) => ({ calls: [["type", { ref: v.ref("Phone number"), field: "phone" }]] }),
+        { calls: [["snapshot"]] },
+        { calls: [["report", { status: "release" }]] },
+      ],
+      { task },
+    );
+    const snapshot = provider.requests[3]?.messages
+      .flatMap((m) => (m.role === "tool" ? m.results.map((r) => r.content) : []))
+      .at(-1);
+    expect(snapshot).toContain('value="{{phone}}"');
+    expect(JSON.stringify(provider.requests.at(-1)?.messages)).not.toContain("555-0100");
+  });
+});
+
+describeBrowser("a target whose pages live on a shared host", () => {
+  const SHARED = {
+    ...TARGET,
+    domain: "broker.example.test",
+    website: null,
+    searchUrl: null,
+  };
+
+  it("allows the form's own pages and blocks a link to another path on the same host", async () => {
+    const task = agentTask({ target: { ...SHARED, optOutUrl: `${ORIGIN}/forms/a/start` } });
+    const { provider } = await run(
+      [
+        navigate("/forms/a/start"),
+        (v) => ({ calls: [["click", { ref: v.ref("Other form") }]] }),
+        (v) => ({
+          calls: [
+            ["navigate", { url: `${ORIGIN}/forms/b/start` }],
+            ["navigate", { url: `${ORIGIN}/optout` }],
+          ],
+          text: v.snapshot ? "" : "",
+        }),
+        { calls: [["report", { status: "release" }]] },
+      ],
+      { task },
+    );
+    const afterClick = provider.requests[2]?.messages.at(-1);
+    const clicked = afterClick?.role === "tool" ? (afterClick.results[0]?.content ?? "") : "";
+    expect(clicked).toContain("Form A");
+    expect(clicked).toContain("Blocked a navigation");
+    const refused = provider.requests[3]?.messages.at(-1);
+    const answers = refused?.role === "tool" ? refused.results : [];
+    expect(answers.every((a) => a.isError && a.content.startsWith("Refused"))).toBe(true);
+    const { hits } = await fixtureState();
+    expect(hits.map((hit) => hit.path)).toEqual(["/forms/a/start"]);
+  });
+
+  it("trusts where a start link redirects to, and only that form", async () => {
+    const task = agentTask({ target: { ...SHARED, optOutUrl: `${OFFSITE}/go` } });
+    const { provider } = await run(
+      [
+        { calls: [["navigate", { url: `${OFFSITE}/go` }]] },
+        (v) => ({ calls: [["click", { ref: v.ref("Other form") }]] }),
+        { calls: [["report", { status: "release" }]] },
+      ],
+      { task },
+    );
+    const landed = provider.requests[1]?.messages.at(-1);
+    const page = landed?.role === "tool" ? (landed.results[0]?.content ?? "") : "";
+    expect(page).toContain("Form A");
+    const clicked = provider.requests[2]?.messages.at(-1);
+    const after = clicked?.role === "tool" ? (clicked.results[0]?.content ?? "") : "";
+    expect(after).toContain("Form A");
+    expect(after).toContain("Blocked a navigation");
+    const { hits } = await fixtureState();
+    expect(hits.map((hit) => hit.path)).toEqual(["/go", "/forms/a/start"]);
   });
 });

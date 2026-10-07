@@ -1,6 +1,6 @@
 import type { TargetSummary } from "@kickrocks/shared";
 import { describe, expect, it } from "vitest";
-import { allowedDomainsFor, refuseNavigation } from "./domains.js";
+import { allowedSitesFor, refuseNavigation, withinSites } from "./domains.js";
 
 const target = (overrides: Partial<TargetSummary> = {}): TargetSummary => ({
   id: "x",
@@ -21,27 +21,75 @@ const target = (overrides: Partial<TargetSummary> = {}): TargetSummary => ({
   ...overrides,
 });
 
-describe("allowedDomainsFor", () => {
-  it("lists the target's own hosts once, without www", () => {
-    expect(allowedDomainsFor(target())).toEqual([
-      "example-broker.test",
-      "privacy.example-broker.test",
-    ]);
-  });
-
-  it("adds the hosts of the other pages the task names, and ignores nulls and junk", () => {
+describe("allowedSitesFor", () => {
+  it("trusts the target's domain once, without www, and its subdomains need no entry", () => {
+    expect(allowedSitesFor(target())).toEqual({ domains: ["example-broker.test"], pages: [] });
     expect(
-      allowedDomainsFor(target({ optOutUrl: null }), [
+      allowedSitesFor(target({ optOutUrl: null }), [
         "https://records.example-broker.test/p/1",
         null,
         "not a url",
       ]),
-    ).toEqual(["example-broker.test", "records.example-broker.test"]);
+    ).toEqual({ domains: ["example-broker.test"], pages: [] });
+  });
+
+  it("trusts the website host as a whole when it differs from the domain", () => {
+    expect(
+      allowedSitesFor(target({ domain: "brand.test", website: "https://www.parent.test/" }))
+        .domains,
+    ).toEqual(["brand.test", "parent.test"]);
+  });
+
+  it("limits a start page on another host to its own folder", () => {
+    const sites = allowedSitesFor(
+      target({
+        optOutUrl: "https://docs.google.com/forms/d/e/ABC123/viewform?usp=sf_link",
+        searchUrl: "https://privacyportal.onetrust.com/webform/tenant-1/form-9",
+      }),
+      ["https://other.test/people/jordan-1"],
+    );
+    expect(sites.domains).toEqual(["example-broker.test"]);
+    expect(sites.pages).toEqual([
+      { host: "docs.google.com", path: "/forms/d/e/ABC123/" },
+      { host: "privacyportal.onetrust.com", path: "/webform/tenant-1/" },
+      { host: "other.test", path: "/people/" },
+    ]);
+  });
+
+  it("limits a one-segment start page to that page and what is under it", () => {
+    const { pages } = allowedSitesFor(target({ optOutUrl: "https://forms.gle/S7vW6zXPwgtnZ9ZF9" }));
+    expect(pages).toEqual([{ host: "forms.gle", path: "/S7vW6zXPwgtnZ9ZF9" }]);
+  });
+});
+
+describe("withinSites", () => {
+  const sites = {
+    domains: ["example-broker.test"],
+    pages: [
+      { host: "docs.google.com", path: "/forms/d/e/ABC123/" },
+      { host: "forms.gle", path: "/S7vW" },
+    ],
+  };
+
+  it("allows the form's own pages and nothing else on a shared host", () => {
+    expect(withinSites("https://docs.google.com/forms/d/e/ABC123/viewform", sites)).toBe(true);
+    expect(withinSites("https://docs.google.com/forms/d/e/ABC123/formResponse", sites)).toBe(true);
+    expect(withinSites("https://docs.google.com/forms/d/e/OTHER/viewform", sites)).toBe(false);
+    expect(withinSites("https://docs.google.com/forms/d/e/ABC1234/viewform", sites)).toBe(false);
+    expect(withinSites("https://docs.google.com/forms/d/e/ABC123/../OTHER/viewform", sites)).toBe(
+      false,
+    );
+    expect(
+      withinSites("https://docs.google.com/forms/d/e/ABC123/%2e%2e/OTHER/viewform", sites),
+    ).toBe(false);
+    expect(withinSites("https://accounts.docs.google.com/forms/d/e/ABC123/x", sites)).toBe(false);
+    expect(withinSites("https://forms.gle/S7vW", sites)).toBe(true);
+    expect(withinSites("https://forms.gle/S7vWother", sites)).toBe(false);
   });
 });
 
 describe("refuseNavigation", () => {
-  const policy = { domains: ["example-broker.test"], allowHttp: false };
+  const policy = { domains: ["example-broker.test"], pages: [], allowHttp: false };
 
   it.each([
     "https://example-broker.test/optout",
@@ -67,7 +115,7 @@ describe("refuseNavigation", () => {
   });
 
   it("allows plain http only when the worker is set to, for a fixture on this machine", () => {
-    const local = { domains: ["127.0.0.1"], allowHttp: true };
+    const local = { domains: ["127.0.0.1"], pages: [], allowHttp: true };
     expect(refuseNavigation("http://127.0.0.1:8631/optout", local)).toBeNull();
     expect(refuseNavigation("http://localhost:8631/optout", local)).toContain("not one of");
   });

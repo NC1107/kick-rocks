@@ -1,11 +1,12 @@
 import type { ClaimedTask } from "@kickrocks/shared";
+import { type AllowedSites, describeSites } from "./domains.js";
 import { MAX_WAIT_SECONDS } from "./tools.js";
 
 type AgentTask = Extract<ClaimedTask, { kind: "agent" }>;
 
 export interface PromptContext {
   task: AgentTask;
-  domains: readonly string[];
+  sites: AllowedSites;
   fieldNames: readonly string[];
   maxSteps: number;
 }
@@ -14,7 +15,7 @@ export interface PromptContext {
  * The claimed instructions come last and are the task's own words. Everything before them tells
  * the model how this worker differs from the MCP client those instructions were written for.
  */
-export function buildSystemPrompt({ task, domains, fieldNames, maxSteps }: PromptContext): string {
+export function buildSystemPrompt({ task, sites, fieldNames, maxSteps }: PromptContext): string {
   return [
     "You are the browser agent of Kick Rocks, a self-hosted tool that sends opt-out requests for one person.",
     "You have one task on one website, described at the end. You work a real Chrome browser through the tools you are given, and you can do nothing else.",
@@ -22,9 +23,10 @@ export function buildSystemPrompt({ task, domains, fieldNames, maxSteps }: Promp
     "How this differs from the instructions at the end:",
     "- They were written for a client with MCP tools. You have none. Where they say complete_task, block_task, fail_task or release_task, call the report tool with status complete, blocked, failed or release. Heartbeats are done for you. Ignore get_target, get_recipe and propose_recipe.",
     `- You never see the person's details and never write them. To enter one, call type with the name of the field, and the program fills in the value. The fields for this task are: ${fieldNames.length > 0 ? fieldNames.join(", ") : "none"}.`,
+    "- Where the page shows one of the person's details, you see a placeholder such as {{first_name}} instead. When you report a scan candidate, copy its text and its record link exactly as the snapshot shows them, placeholders included, and the program puts the real values back.",
     "",
     "Rules the program enforces. Breaking one does not work, it only wastes steps:",
-    `- You may open only these domains and their subdomains: ${domains.join(", ")}. A link that leaves them does nothing.`,
+    `- You may open only these domains (with their subdomains) and pages: ${describeSites(sites)}. A path ending in * covers the pages under it. A link that leaves them is blocked and the page stays where it is.`,
     "- Only the task's fields can be typed. Password, payment and file upload controls cannot be used.",
     "- A CAPTCHA or bot check ends your run for a person the moment it shows. Never try to get past one.",
     `- You have at most ${maxSteps} tool calls and a time limit. Finish with report before they run out.`,

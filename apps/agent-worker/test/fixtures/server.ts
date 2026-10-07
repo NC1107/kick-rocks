@@ -41,6 +41,10 @@ const PAGES: Record<string, string> = {
   "/offsite": "offsite.html",
   "/popup": "popup.html",
   "/privacy": "privacy.html",
+  "/alert": "alert.html",
+  "/choose": "choose.html",
+  "/phone": "phone.html",
+  "/late": "late.html",
 };
 
 function escapeHtml(text: string): string {
@@ -102,6 +106,12 @@ export function startFixtureServer(port: number = FIXTURE_PORT): Promise<{
       response.writeHead(302, { location: `${OFFSITE}/offsite` });
       return response.end();
     }
+    if (path === "/go") {
+      response.writeHead(302, { location: `${ORIGIN}/forms/a/start` });
+      return response.end();
+    }
+    if (path.startsWith("/forms/a/")) return send(response, 200, page("form-a.html"));
+    if (path.startsWith("/forms/b/")) return send(response, 200, page("form-b.html"));
     if (path === "/long") return send(response, 200, longPage());
     if (path === "/echo") {
       const name = url.searchParams.get("name");
