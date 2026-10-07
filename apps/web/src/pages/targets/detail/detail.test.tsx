@@ -51,6 +51,15 @@ describe("the target page", () => {
     expect(screen.getByText("CC BY-NC-SA 4.0")).toBeVisible();
   });
 
+  it("drops the version and source columns on a phone, so the health column fits", async () => {
+    open("findrecord");
+    await screen.findByRole("heading", { name: "Automation" });
+    for (const name of ["Version", "Source"]) {
+      expect(screen.getByRole("columnheader", { name })).toHaveClass("hidden", "sm:table-cell");
+    }
+    expect(screen.getByRole("columnheader", { name: "Health" })).not.toHaveClass("hidden");
+  });
+
   it("says plainly when a company has no saved steps", async () => {
     open("larkspur-bank");
     expect(await screen.findByText("No saved steps for this site")).toBeVisible();

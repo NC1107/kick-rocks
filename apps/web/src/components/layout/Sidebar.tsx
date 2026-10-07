@@ -77,7 +77,7 @@ export function SidebarContent({
           </IconButton>
         ) : null}
       </div>
-      <ProfileSwitcher />
+      <ProfileSwitcher onSwitch={onNavigate} />
       <nav
         aria-label="Main"
         className="-mx-1.5 flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-1.5 py-1"
