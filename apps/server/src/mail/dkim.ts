@@ -192,15 +192,20 @@ export function withDeadline(
   resolve: DnsResolver,
   deadline: number,
   now: () => number,
+  onExpire: () => void = () => {},
 ): DnsResolver {
   // A timer can fire a millisecond before the clock reaches the deadline, so the timer itself marks it passed.
   let expired = false;
   return (domain, rrtype) => {
     const left = deadline - now();
-    if (expired || left <= 0) return Promise.reject(timeoutError());
+    if (expired || left <= 0) {
+      onExpire();
+      return Promise.reject(timeoutError());
+    }
     return new Promise((done, fail) => {
       const timer = setTimeout(() => {
         expired = true;
+        onExpire();
         fail(timeoutError());
       }, left);
       resolve(domain, rrtype).then(
@@ -229,11 +234,12 @@ export function createDkimVerifier({
     source: Buffer,
     domains: readonly string[],
     deadline: number,
+    onExpire: () => void,
   ): Promise<VerifiedSignature[]> {
     const relevant = reduceToRelevantSignatures(source, domains);
     if (!relevant) return [];
     const { results } = await dkimVerify(relevant, {
-      resolver: withDeadline(resolve, deadline, Date.now),
+      resolver: withDeadline(resolve, deadline, Date.now, onExpire),
       rejectRsaSha1: true,
     });
     const verified: VerifiedSignature[] = [];
@@ -265,6 +271,7 @@ export function createDkimVerifier({
         const started = Date.now();
         let timer: NodeJS.Timeout | undefined;
         let gaveUp = false;
+        let lookupExpired = false;
         const giveUp = new Promise<VerifiedSignature[]>((done) => {
           timer = setTimeout(() => {
             gaveUp = true;
@@ -273,12 +280,15 @@ export function createDkimVerifier({
         });
         try {
           return await Promise.race([
-            verify(source, domains, started + allowed).catch(() => []),
+            verify(source, domains, started + allowed, () => {
+              lookupExpired = true;
+            }).catch(() => []),
             giveUp,
           ]);
         } finally {
           clearTimeout(timer);
-          if (budget) budget.left -= gaveUp ? allowed : Date.now() - started;
+          // A lookup timer can fire a millisecond early, and charging the elapsed time then would leave a sliver of budget for another lookup.
+          if (budget) budget.left -= gaveUp || lookupExpired ? allowed : Date.now() - started;
         }
       },
       forRun: () => verifier({ left: runBudgetMs }),
