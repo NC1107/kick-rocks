@@ -6,10 +6,22 @@
     "types": ["node"]
   },
   "include": ["src"],
-  "exclude": ["src/**/*.test.ts"],
+  "exclude": ["src/**/*.test.ts", "src/test-utils/**"],
   "references": [
-    { "path": "../../packages/shared" },
-    { "path": "../../packages/db" },
-    { "path": "../../packages/brokers" }
+    {
+      "path": "../../packages/shared"
+    },
+    {
+      "path": "../../packages/db"
+    },
+    {
+      "path": "../../packages/brokers"
+    },
+    {
+      "path": "../../packages/legal"
+    },
+    {
+      "path": "../../packages/recipes"
+    }
   ]
 }

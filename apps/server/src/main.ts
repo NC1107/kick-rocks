@@ -3,6 +3,7 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { buildApp, openAppDatabase } from "./app.js";
 import { loadConfig } from "./config.js";
+import { createServices } from "./services.js";
 
 function packageVersion(): string {
   const file = resolve(dirname(fileURLToPath(import.meta.url)), "..", "package.json");
@@ -12,7 +13,12 @@ function packageVersion(): string {
 async function main() {
   const config = loadConfig();
   const database = openAppDatabase(config);
-  const app = await buildApp({ config, database, version: packageVersion() });
+  const services = createServices(config, database.db);
+  const app = await buildApp({ services, database, version: packageVersion() });
+
+  if (config.workerToken === null) {
+    app.server.log.info("KICKROCKS_WORKER_TOKEN is not set; the worker API is off");
+  }
 
   const shutdown = async (signal: string) => {
     app.server.log.info({ signal }, "shutting down");

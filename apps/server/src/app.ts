@@ -1,13 +1,18 @@
 import { existsSync } from "node:fs";
+import fastifyCookie from "@fastify/cookie";
 import fastifyStatic from "@fastify/static";
-import { hasGeneratedDataset, loadBrokerDataset } from "@kickrocks/brokers";
-import { type OpenedDatabase, openDatabase, profiles } from "@kickrocks/db";
-import { count } from "drizzle-orm";
+import { type OpenedDatabase, openDatabase } from "@kickrocks/db";
 import Fastify, { type FastifyInstance } from "fastify";
 import type { Config } from "./config.js";
+import { registerGuards } from "./core/guard.js";
+import { registerHealth } from "./core/health.js";
+import { installErrorHandling } from "./core/http.js";
+import { registerModules } from "./modules/index.js";
+import { registerScheduler } from "./scheduler/index.js";
+import type { AppServices } from "./services.js";
 
 export interface AppContext {
-  config: Config;
+  services: AppServices;
   database: OpenedDatabase;
   version: string;
 }
@@ -17,52 +22,43 @@ export interface App {
   close(): Promise<void>;
 }
 
-function brokerSummary() {
-  if (!hasGeneratedDataset()) return { available: false as const, total: 0 };
-  const dataset = loadBrokerDataset();
-  return {
-    available: true as const,
-    total: dataset.brokers.length,
-    generatedAt: dataset.generatedAt,
-  };
-}
+/** Large enough for a full page screenshot posted as base64 when a task blocks. */
+const BODY_LIMIT_BYTES = 16 * 1024 * 1024;
 
-export async function buildApp(context: AppContext): Promise<App> {
-  const server = Fastify({
-    logger: {
-      level: context.config.logLevel,
-      redact: ["req.headers.authorization", "req.headers.cookie"],
-    },
+const isApiPath = (url: string) =>
+  url === "/api" || url.startsWith("/api/") || url === "/mcp" || url.startsWith("/mcp/");
+
+export async function buildApp({ services, database, version }: AppContext): Promise<App> {
+  const { config } = services;
+  const server = Fastify({ loggerInstance: services.logger, bodyLimit: BODY_LIMIT_BYTES });
+
+  installErrorHandling(server);
+  await server.register(fastifyCookie);
+  registerGuards(server, services);
+
+  await server.register(async (scope) => registerHealth(scope, services, version), {
+    prefix: "/api",
   });
+  await registerModules(server, services);
 
-  server.get("/api/health", async () => {
-    const [row] = context.database.db.select({ profiles: count() }).from(profiles).all();
-    return {
-      ok: true,
-      version: context.version,
-      profiles: row?.profiles ?? 0,
-      brokers: brokerSummary(),
-    };
-  });
-
-  if (context.config.webDist && existsSync(context.config.webDist)) {
-    await server.register(fastifyStatic, {
-      root: context.config.webDist,
-      wildcard: false,
-    });
-    server.setNotFoundHandler((request, reply) => {
-      if (request.url.startsWith("/api/")) {
-        return reply.code(404).send({ error: "not_found" });
-      }
-      return reply.sendFile("index.html");
-    });
+  if (config.webDist && existsSync(config.webDist)) {
+    await server.register(fastifyStatic, { root: config.webDist, wildcard: false });
   }
+  server.setNotFoundHandler((request, reply) => {
+    if (isApiPath(request.url) || !config.webDist || !existsSync(config.webDist)) {
+      return reply.code(404).send({ error: "not_found" });
+    }
+    return reply.sendFile("index.html");
+  });
+
+  services.targets.sync();
+  registerScheduler(server, services);
 
   return {
     server,
     close: async () => {
       await server.close();
-      context.database.close();
+      database.close();
     },
   };
 }
