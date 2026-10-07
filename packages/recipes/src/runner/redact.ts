@@ -12,8 +12,10 @@ const ENTITIES: Record<string, string[]> = {
   ">": ["&gt;", "&#62;", "&#x3e;"],
 };
 
-/** Every way one character can appear in a URL or in markup, so a value can be spelled by mixing them. */
-function characterSpellings(character: string): string[] {
+/** How many times a return address may wrap another one, such as /login?next=%2Fsearch%3Femail%3D. */
+const MAX_NESTED_ENCODINGS = 3;
+
+function singleSpellings(character: string): string[] {
   if (character === " ") return [" ", "+", "%20", "&nbsp;", "&#32;"];
   const spellings = new Set<string>([character, ...(ENTITIES[character] ?? [])]);
   spellings.add(encodeURIComponent(character));
@@ -23,6 +25,21 @@ function characterSpellings(character: string): string[] {
     spellings.add(`%${byte.toString(16).padStart(2, "0")}`);
   }
   return [...spellings];
+}
+
+/**
+ * Every way one character can appear in a URL or in markup, including after the address that holds
+ * it was itself percent-encoded into a parameter of another address, so a value can be spelled by
+ * mixing them.
+ */
+function characterSpellings(character: string): string[] {
+  const all = new Set(singleSpellings(character));
+  let wrapped = [...all];
+  for (let level = 0; level < MAX_NESTED_ENCODINGS; level++) {
+    wrapped = wrapped.map((spelling) => encodeURIComponent(spelling));
+    for (const spelling of wrapped) all.add(spelling);
+  }
+  return [...all];
 }
 
 /**

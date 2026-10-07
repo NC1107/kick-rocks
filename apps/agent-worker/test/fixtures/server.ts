@@ -63,6 +63,7 @@ const PAGES: Record<string, string> = {
   "/sw-register": "sw-register.html",
   "/sw-form": "sw-form.html",
   "/sw-evade": "sw-evade.html",
+  "/return-link": "return-link.html",
 };
 
 function escapeHtml(text: string): string {

@@ -42,6 +42,21 @@ describe("createRedactor", () => {
     }
   });
 
+  it("hides a value that was percent-encoded again inside a return address", () => {
+    const hide = createRedactor({
+      email: "pk1977@mail.test",
+      street: "742 Evergreen Terrace",
+      last_name: "O'Neil",
+    });
+    const hidden = hide(
+      "/login?next=%2Fsearch%3Femail%3Dpk1977%2540mail.test%26addr%3D742%2BEvergreen%2BTerrace%26n%3DO%2527Neil&x=123%2520Main",
+    );
+    expect(hidden).not.toMatch(/pk1977|Evergreen|Neil/i);
+    expect(hidden).toContain("{{email}}");
+    expect(hidden).toContain("{{street}}");
+    expect(hidden).toContain("{{last_name}}");
+  });
+
   it("prefers the longest value, so an address is not cut in two", () => {
     expect(redact("sent to jordan@example.com")).toBe("sent to {{email}}");
   });

@@ -780,6 +780,22 @@ describeBrowser("the final report", () => {
     expect(JSON.stringify(outcome.report.result)).toContain("{{email}}");
   });
 
+  it("hides values that a return address carries percent-encoded twice from the model", async () => {
+    const task = agentTask({
+      fields: {
+        ...PERSON,
+        email: "pk1977@mail.test",
+        street: "742 Evergreen Terrace",
+        last_name: "O'Neil",
+      },
+    });
+    const { provider } = await run([navigate("/return-link"), { calls: [["snapshot"]] }], { task });
+    const seen = provider.requests[1]?.messages.at(-1);
+    const snapshot = seen?.role === "tool" ? (seen.results[0]?.content ?? "") : "";
+    expect(snapshot).toContain("login?next=");
+    expect(snapshot).not.toMatch(/pk1977|Evergreen|Neil/i);
+  });
+
   /** Builds a candidate the way a model does, from the masked text of the snapshot it was given. */
   function candidateFromSnapshot(view: { snapshot: string }, index: number) {
     const links = view.snapshot.split("\n").filter((line) => line.includes('link "View record"'));
