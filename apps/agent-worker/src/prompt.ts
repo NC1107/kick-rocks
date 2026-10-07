@@ -53,11 +53,17 @@ export function buildOpeningMessage(startUrl: string): string {
   return `Begin the task. Start by opening ${startUrl} with navigate, then work through the instructions. Finish with report.`;
 }
 
-/** Where the run starts: the page the task names, most specific first. */
+/**
+ * Where the run starts: the page the task names, most specific first. A deletion starts at the
+ * company's privacy rights page, because its opt-out page is usually a do-not-sell form.
+ */
 export function startUrlFor(task: AgentTask): string {
-  const { recordUrl } = task.payload;
-  const { optOutUrl, searchUrl, website, domain } = task.target;
+  const { recordUrl, purpose, rights } = task.payload;
+  const { optOutUrl, privacyRightsUrl, searchUrl, website, domain } = task.target;
+  const deletes = purpose === "remove" && rights.includes("delete");
   const named =
-    task.payload.purpose === "scan" ? [searchUrl, optOutUrl] : [recordUrl, optOutUrl, searchUrl];
+    purpose === "scan"
+      ? [searchUrl, optOutUrl]
+      : [recordUrl, deletes ? privacyRightsUrl : null, optOutUrl, searchUrl];
   return named.find((url) => url !== null && url !== undefined) ?? website ?? `https://${domain}/`;
 }

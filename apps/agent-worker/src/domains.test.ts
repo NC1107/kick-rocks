@@ -10,6 +10,7 @@ const target = (overrides: Partial<TargetSummary> = {}): TargetSummary => ({
   domain: "www.example-broker.test",
   website: "https://www.example-broker.test/",
   optOutUrl: "https://privacy.example-broker.test/optout",
+  privacyRightsUrl: null,
   searchUrl: null,
   contactMethod: "form",
   requiresId: false,
@@ -31,6 +32,15 @@ describe("allowedSitesFor", () => {
         "not a url",
       ]),
     ).toEqual({ domains: ["example-broker.test"], pages: [] });
+  });
+
+  it("limits the privacy rights page on another host to its own page, as it does the opt-out page", () => {
+    const sites = allowedSitesFor(
+      target({ privacyRightsUrl: "https://app.privacyportal.test/shop/requests" }),
+    );
+    expect(sites.pages).toContainEqual({ host: "app.privacyportal.test", path: "/shop/requests" });
+    expect(withinSites("https://app.privacyportal.test/shop/requests/new", sites)).toBe(true);
+    expect(withinSites("https://app.privacyportal.test/other-shop/requests", sites)).toBe(false);
   });
 
   it("trusts the website host as a whole when it differs from the domain", () => {

@@ -12,6 +12,7 @@ const target = (optOutUrl: string): TargetSummary => ({
   domain: "broker.test",
   website: "https://broker.test/",
   optOutUrl,
+  privacyRightsUrl: null,
   searchUrl: null,
   contactMethod: "form",
   requiresId: false,
@@ -150,6 +151,7 @@ interface DatasetBroker {
   domain: string;
   website: string | null;
   optOutUrl: string | null;
+  privacyRightsUrl: string | null;
   searchUrl: string | null;
 }
 
@@ -162,8 +164,8 @@ describe("the generated broker dataset", () => {
     expect(existsSync(datasetFile), "run pnpm data:build first").toBe(true);
     const brokers = (JSON.parse(readFileSync(datasetFile, "utf8")) as { brokers: DatasetBroker[] })
       .brokers;
-    const urlsOf = (broker: DatasetBroker) =>
-      [broker.optOutUrl, broker.searchUrl].filter((url): url is string => url !== null);
+    const present = (urls: (string | null)[]) => urls.filter((url): url is string => url !== null);
+    const urlsOf = (broker: DatasetBroker) => present([broker.optOutUrl, broker.searchUrl]);
     const everyUrl = brokers.flatMap((broker) => urlsOf(broker).map((url) => ({ broker, url })));
     const leaks: string[] = [];
     let withPages = 0;
@@ -171,7 +173,9 @@ describe("the generated broker dataset", () => {
       const sites = allowedSitesFor(broker as unknown as TargetSummary);
       if (sites.pages.length === 0) continue;
       withPages += 1;
-      const own = new Set(urlsOf(broker).map((url) => new URL(url).href));
+      const own = new Set(
+        present([...urlsOf(broker), broker.privacyRightsUrl]).map((url) => new URL(url).href),
+      );
       for (const other of everyUrl) {
         if (other.broker === broker || own.has(new URL(other.url).href)) continue;
         if (withinSites(other.url, { domains: sites.domains, pages: [] })) continue;

@@ -11,6 +11,7 @@ export function makeTarget(overrides: Partial<TargetSummary> = {}): TargetSummar
     domain: "acme-marketing.example.com",
     website: "https://acme-marketing.example.com",
     optOutUrl: null,
+    privacyRightsUrl: null,
     searchUrl: null,
     contactMethod: "email",
     requiresId: false,

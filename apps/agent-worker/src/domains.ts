@@ -157,7 +157,7 @@ export function allowedSitesFor(
     ...new Set(trusted.filter((host): host is string => host !== null && host !== "")),
   ];
   const pages: PageScope[] = [];
-  for (const url of [target.optOutUrl, target.searchUrl, ...extraUrls]) {
+  for (const url of [target.optOutUrl, target.privacyRightsUrl, target.searchUrl, ...extraUrls]) {
     if (url === null || url === undefined || domains.some((host) => isOnDomain(url, host))) {
       continue;
     }

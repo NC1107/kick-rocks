@@ -16,6 +16,7 @@ const target = {
   domain: "t.test",
   website: null,
   optOutUrl: null,
+  privacyRightsUrl: null,
   searchUrl: null,
   contactMethod: "email" as const,
   requiresId: false,

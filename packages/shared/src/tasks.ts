@@ -3,6 +3,7 @@ import { ProfileField } from "./identities.js";
 import { EmailKind } from "./mail.js";
 import { BlockedReason, FailureKind, FormOutcome } from "./outcomes.js";
 import { Recipe } from "./recipe.js";
+import { RequestRight } from "./rights.js";
 import { TargetSummary } from "./targets.js";
 import { WebUrl } from "./url.js";
 
@@ -106,6 +107,8 @@ export const AgentPayload = z.object({
   requestId: z.string().nullable(),
   recordUrl: WebUrl.nullable(),
   variant: ScanVariant.nullable(),
+  /** What a removal asks for, so the agent knows whether this is an opt-out or a deletion. Empty for a scan. */
+  rights: z.array(RequestRight).default(() => []),
   reason: AgentReason,
   previousError: z.string().nullable(),
   /** For reason `blocked`, the human check that stopped the earlier run. */

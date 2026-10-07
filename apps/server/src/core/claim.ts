@@ -12,6 +12,7 @@ import {
   type ProfileFields,
   Recipe,
   type RequestRecord,
+  type RequestRight,
   resolveProfileFields,
   type ScanVariant,
 } from "@kickrocks/shared";
@@ -67,6 +68,19 @@ function activeRecipe(services: ClaimServices, recipeId: string | null): Recipe 
   return row ? Recipe.parse(row.definition) : null;
 }
 
+const RIGHT_PHRASES: Record<RequestRight, string> = {
+  opt_out: "stop selling or sharing their personal data (opt out)",
+  delete: "delete their personal data",
+};
+
+/** What a removal asks for, in words a person filling in the site's form would recognise. */
+function describeRights(rights: readonly RequestRight[]): string {
+  const phrases = rights.map((right) => RIGHT_PHRASES[right]);
+  return phrases.length > 0
+    ? `Ask the site to ${phrases.join(" and to ")}. Choose the option or request type on the site that matches. If it offers only one of them, say so in the notes.`
+    : "";
+}
+
 const BLOCKED_PHRASES: Record<BlockedReason, string> = {
   captcha: "a CAPTCHA",
   phone_verification: "a phone verification",
@@ -82,16 +96,22 @@ function agentInstructions(
   target: {
     name: string;
     optOutUrl: string | null;
+    privacyRightsUrl: string | null;
     searchUrl: string | null;
     website: string | null;
   },
   fieldNames: string[],
 ): string {
-  const { purpose, recordUrl, previousError, reason, blockedReason, variant } = task.payload;
+  const { purpose, recordUrl, previousError, reason, blockedReason, variant, rights } =
+    task.payload;
+  const deletes = purpose === "remove" && rights.includes("delete");
   const start =
     purpose === "scan"
       ? (target.searchUrl ?? target.website)
-      : (recordUrl ?? target.optOutUrl ?? target.website);
+      : (recordUrl ??
+        (deletes ? target.privacyRightsUrl : null) ??
+        target.optOutUrl ??
+        target.website);
   const goal =
     purpose === "scan"
       ? `Find ${target.name}'s own listing of this person. Search the site with the identifiers in "fields", open each plausible result, and report every record that could be them. Do not submit any opt-out or removal form.`
@@ -110,6 +130,7 @@ function agentInstructions(
   return [
     `Task: ${goal}`,
     why,
+    ...(purpose === "remove" && rights.length > 0 ? [describeRights(rights)] : []),
     ...(start ? [`Start at ${start}.`] : []),
     'The page addresses are in "target" (optOutUrl, searchUrl, website). Call get_target for the target\'s contacts, requirements, and recipes.',
     "",

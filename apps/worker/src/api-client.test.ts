@@ -130,6 +130,7 @@ describe("WorkerApiClient", () => {
         domain: "spokeo.com",
         website: null,
         optOutUrl: null,
+        privacyRightsUrl: null,
         searchUrl: null,
         contactMethod: "form",
         requiresId: false,

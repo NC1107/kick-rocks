@@ -300,6 +300,7 @@ describe("tasks it cannot run", () => {
         requestId: "r1",
         recordUrl: null,
         variant: null,
+        rights: ["opt_out"],
         reason: "no_recipe",
         previousError: null,
         blockedReason: null,

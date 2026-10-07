@@ -461,6 +461,7 @@ describe("agent tasks", () => {
         requestId: request?.id ?? null,
         recordUrl: request?.recordUrl ?? null,
         variant: null,
+        rights: [],
         reason: why.reason ?? (why.previousError ? "recipe_failed" : "no_recipe"),
         previousError: why.previousError ?? null,
         blockedReason: why.blockedReason ?? null,
@@ -529,6 +530,7 @@ describe("agent tasks", () => {
         requestId: request.id,
         recordUrl: null,
         variant: null,
+        rights: ["opt_out"],
         reason: "no_recipe",
         previousError: null,
         blockedReason: null,
@@ -639,6 +641,7 @@ describe("claimTask", () => {
         requestId: null,
         recordUrl: null,
         variant: null,
+        rights: [],
         reason: "no_recipe",
         previousError: null,
         blockedReason: null,
@@ -832,6 +835,7 @@ describe("tasks that name a record on another site", () => {
           purpose: "remove",
           recordUrl: offSite,
           variant: null,
+          rights: ["opt_out"],
           reason: "no_recipe",
           previousError: null,
           blockedReason: null,
@@ -889,5 +893,89 @@ describe("agent scans for a past name or address", () => {
       state: "TX",
     });
     expect(task?.instructions).toContain("past name or address");
+  });
+});
+
+describe("what a removal agent is told about the rights requested", () => {
+  function company(rights: ("opt_out" | "delete")[], recordUrl: string | null = null) {
+    ensureMailbox(profileId);
+    const target = seedTarget(ctx, {
+      kind: "company",
+      category: "retail",
+      domain: "shop.example.com",
+      optOutUrl: "https://shop.example.com/do-not-sell",
+      privacyRightsUrl: "https://privacy.shop.example.com/requests",
+      contactMethod: "form",
+      privacyEmail: null,
+    });
+    const request = seedRequest(ctx, {
+      profileId,
+      targetId: target.id,
+      status: "queued",
+      channel: "form",
+      rights,
+      recordUrl,
+    });
+    const { task } = ctx.services.dispatch.dispatchRequest(request.id);
+    return { task, claimed: claim(["agent"]) };
+  }
+
+  it("starts a deletion at the privacy rights page and says it is a deletion", () => {
+    const { task, claimed } = company(["delete"]);
+    expect(task.kind).toBe("agent");
+    expect(claimed).toMatchObject({
+      payload: { rights: ["delete"] },
+      target: { privacyRightsUrl: "https://privacy.shop.example.com/requests" },
+    });
+    expect(claimed?.instructions).toContain("Start at https://privacy.shop.example.com/requests.");
+    expect(claimed?.instructions).toContain("delete their personal data");
+    expect(claimed?.instructions).not.toContain("opt out");
+  });
+
+  it("starts an opt-out at the opt-out page and says it is an opt-out", () => {
+    const { claimed } = company(["opt_out"]);
+    expect(claimed?.instructions).toContain("Start at https://shop.example.com/do-not-sell.");
+    expect(claimed?.instructions).toContain(
+      "stop selling or sharing their personal data (opt out)",
+    );
+    expect(claimed?.instructions).not.toContain("delete their personal data");
+  });
+
+  it("names both rights when both are requested", () => {
+    const { claimed } = company(["opt_out", "delete"]);
+    expect(claimed?.instructions).toContain("opt out) and to delete their personal data");
+  });
+
+  it("falls back to the opt-out page for a deletion when the company has no rights page", () => {
+    ensureMailbox(profileId);
+    const target = seedTarget(ctx, {
+      kind: "company",
+      category: "retail",
+      domain: "bare.example.com",
+      optOutUrl: "https://bare.example.com/privacy",
+      privacyRightsUrl: null,
+      contactMethod: "form",
+      privacyEmail: null,
+    });
+    const request = seedRequest(ctx, {
+      profileId,
+      targetId: target.id,
+      status: "queued",
+      channel: "form",
+      rights: ["delete"],
+    });
+    ctx.services.dispatch.dispatchRequest(request.id);
+    expect(claim(["agent"])?.instructions).toContain("Start at https://bare.example.com/privacy.");
+  });
+
+  it("keeps the rights when a blocked task is handed to an agent again", () => {
+    const { task } = company(["delete"]);
+    ctx.services.taskQueue.block(task.id, {
+      workerId: "worker-1",
+      reason: "captcha",
+      actor: "worker",
+    });
+    const again = ctx.services.dispatch.handToAgent(task.id, "user");
+    expect(again.task.payload).toMatchObject({ rights: ["delete"] });
   });
 });

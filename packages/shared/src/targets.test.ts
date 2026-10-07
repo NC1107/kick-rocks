@@ -71,6 +71,7 @@ describe("TargetSummary", () => {
       domain: "spokeo.com",
       website: "https://www.spokeo.com/",
       optOutUrl: "https://www.spokeo.com/optout",
+      privacyRightsUrl: null,
       searchUrl: null,
       contactMethod: "form",
       requiresId: false,

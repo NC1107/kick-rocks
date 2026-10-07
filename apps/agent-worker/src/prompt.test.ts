@@ -55,6 +55,31 @@ describe("startUrlFor", () => {
     expect(startUrlFor(agentTask())).toBe(TARGET.optOutUrl);
   });
 
+  it("starts a deletion at the privacy rights page, and an opt-out at the opt-out page", () => {
+    const target = { ...TARGET, privacyRightsUrl: "https://privacy.example.org/requests" as const };
+    expect(startUrlFor(agentTask({ target, payload: { rights: ["delete"] } }))).toBe(
+      target.privacyRightsUrl,
+    );
+    expect(startUrlFor(agentTask({ target, payload: { rights: ["opt_out", "delete"] } }))).toBe(
+      target.privacyRightsUrl,
+    );
+    expect(startUrlFor(agentTask({ target, payload: { rights: ["opt_out"] } }))).toBe(
+      TARGET.optOutUrl,
+    );
+  });
+
+  it("starts a deletion at the opt-out page when the company has no rights page", () => {
+    expect(startUrlFor(agentTask({ payload: { rights: ["delete"] } }))).toBe(TARGET.optOutUrl);
+  });
+
+  it("starts a deletion at the record when it names one", () => {
+    const target = { ...TARGET, privacyRightsUrl: "https://privacy.example.org/requests" as const };
+    const recordUrl = "http://127.0.0.1:8631/people/x";
+    expect(startUrlFor(agentTask({ target, payload: { rights: ["delete"], recordUrl } }))).toBe(
+      recordUrl,
+    );
+  });
+
   it("starts a scan at the search page", () => {
     expect(startUrlFor(agentTask({ payload: { purpose: "scan" } }))).toBe(TARGET.searchUrl);
   });
