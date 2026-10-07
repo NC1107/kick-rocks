@@ -184,14 +184,24 @@ class Loop {
 
     let flagRequested = false;
     let recorded = false;
+    const flaggedInFlight = new Set<Promise<unknown>>();
     // Any acknowledged heartbeat that carried the flag is the record, whoever sent it.
     const sendHeartbeat = async (): Promise<void> => {
       if (!flagRequested) {
         await client.taskHeartbeat(task.id, config.leaseMs);
         return;
       }
-      await client.taskHeartbeat(task.id, config.leaseMs, true);
-      recorded = true;
+      const flagged = client.taskHeartbeat(task.id, config.leaseMs, true).then(() => {
+        recorded = true;
+      });
+      const tracked = flagged.catch(() => undefined).finally(() => flaggedInFlight.delete(tracked));
+      flaggedInFlight.add(tracked);
+      await flagged;
+    };
+    // A flagged heartbeat that is still in flight when this one gives up may yet record the flag.
+    const recordedByAnother = async (): Promise<boolean> => {
+      await Promise.all([...flaggedInFlight]);
+      return recorded;
     };
     const handleLeaseError = (error: unknown): void => {
       if (leaseTaken(error)) {
@@ -228,6 +238,7 @@ class Loop {
             await sendHeartbeat();
             return;
           } catch (error) {
+            if (await recordedByAnother()) return;
             if (
               !leaseTaken(error) &&
               !leaseLapsed(error) &&
