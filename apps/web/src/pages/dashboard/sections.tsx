@@ -121,6 +121,12 @@ export function attentionItems(attention: Dashboard["attention"]): AttentionItem
       detail: "Mail Kick Rocks could not classify on its own.",
     },
     {
+      count: attention.agentTasks,
+      title:
+        attention.agentTasks === 1 ? "Task waiting for an agent" : "Tasks waiting for an agent",
+      detail: "Connect an agent, or finish them by hand.",
+    },
+    {
       count: attention.failedTasks,
       title: attention.failedTasks === 1 ? "Failed task" : "Failed tasks",
       detail: "Retry them, or finish them by hand.",

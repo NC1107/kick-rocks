@@ -1,4 +1,4 @@
-import { API_ROUTES, RequestStatus } from "@kickrocks/shared";
+import { API_ROUTES, RequestStatus, reviewAttention } from "@kickrocks/shared";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   createTestContext,
@@ -54,6 +54,7 @@ describe("GET /profiles/:id/dashboard", () => {
         unreviewedMessages: 0,
         needsVerification: 0,
         failedTasks: 0,
+        agentTasks: 0,
       },
       sending: null,
       mailbox: null,
@@ -79,7 +80,41 @@ describe("GET /profiles/:id/dashboard", () => {
       needs_verification: 1,
       sent: 0,
     });
-    expect(result.attention.needsVerification).toBe(1);
+    expect(result.attention.needsVerification).toBe(0);
+  });
+
+  it("counts exactly what the review queue lists, including tasks waiting for an agent", async () => {
+    const profile = seedProfile(ctx);
+    seedTarget(ctx, { id: "b" });
+    const request = seedRequest(ctx, {
+      profileId: profile.id,
+      targetId: "b",
+      status: "needs_verification",
+    });
+    seedTask(ctx, {
+      kind: "agent",
+      payload: {
+        purpose: "remove",
+        profileId: profile.id,
+        targetId: "b",
+        requestId: request.id,
+        recordUrl: "https://b.test/1",
+        variant: null,
+        reason: "no_recipe",
+        previousError: null,
+        blockedReason: null,
+      },
+      profileId: profile.id,
+      targetId: "b",
+      requestId: request.id,
+    });
+
+    const attention = (await dashboard(profile.id)).attention;
+    const queue = await ctx.call(API_ROUTES.reviewQueue, { query: { profileId: profile.id } });
+    if (!queue.ok) throw new Error("queue failed");
+
+    expect(attention.agentTasks).toBe(1);
+    expect(attention).toEqual(reviewAttention(queue.body));
   });
 
   it("counts what waits for the person, for this profile only", async () => {
@@ -127,6 +162,7 @@ describe("GET /profiles/:id/dashboard", () => {
       unreviewedMessages: 2,
       needsVerification: 0,
       failedTasks: 0,
+      agentTasks: 0,
     });
   });
 

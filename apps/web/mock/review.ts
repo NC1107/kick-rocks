@@ -9,6 +9,7 @@ import {
   type MessageSummary,
   manualResultSchemaFor,
   type ReviewMessage,
+  type ReviewQueue,
   type ScanSummary,
   type TargetOutcome,
   type TaskSummary,
@@ -135,6 +136,80 @@ function seedMatch(
     requestId: null,
   });
   recountScan(store, scan.id);
+}
+
+/** What waits on the person, built the way the server builds it, so the dashboard counts the same list. */
+export function buildMockQueue(store: MockStore, profileId: string | undefined): ReviewQueue {
+  const requestOf = (task: TaskSummary) =>
+    store.requests.find((candidate) => candidate.id === task.requestId);
+  const inScope = <T extends { profileId: string | null }>(item: T) =>
+    profileId ? item.profileId === profileId : true;
+  const toItem = (task: TaskSummary): BlockedTaskItem => {
+    const request = requestOf(task);
+    const info = store.blockedInfo.get(task.id);
+    const target = store.targets.find((candidate) => candidate.id === task.targetId);
+    return {
+      task,
+      requestReference: request?.reference ?? null,
+      url: info?.url ?? task.blockedUrl ?? request?.recordUrl ?? target?.optOutUrl ?? null,
+      manualInstructions:
+        info?.manualInstructions ??
+        (task.status === "failed"
+          ? FAILED_INSTRUCTIONS
+          : task.status === "queued"
+            ? AGENT_INSTRUCTIONS
+            : MANUAL_INSTRUCTIONS.unknown),
+    };
+  };
+  const cutoff = store.ago({ days: FAILED_WINDOW_DAYS });
+  const requestProfile = (message: ReviewMessage) =>
+    store.requests.find((request) => request.id === message.requestId)?.profileId ??
+    store.profiles.find((profile) => profile.mailbox?.id === message.mailboxId)?.id ??
+    null;
+  const verifications: VerificationItem[] = store.requests
+    .filter((request) => request.status === "needs_verification")
+    .filter(inScope)
+    .flatMap((request) => {
+      const message = store.messages
+        .filter(
+          (candidate) =>
+            candidate.requestId === request.id &&
+            candidate.classification === "verification_required",
+        )
+        .at(-1);
+      if (!message) return [];
+      const { events: _events, ...item } = request;
+      return [
+        {
+          request: item,
+          message: toSummary(message),
+          requestedFields: message.requestedFields,
+        },
+      ];
+    });
+  return {
+    blockedTasks: store.tasks
+      .filter((task) => task.status === "blocked")
+      .filter(inScope)
+      .map(toItem),
+    matches: store.matches.filter(inScope).filter((match) => match.decision === "pending"),
+    verifications,
+    failedTasks: store.tasks
+      .filter((task) => task.status === "failed" && task.updatedAt >= cutoff)
+      .filter(inScope)
+      .filter((task) => {
+        const request = requestOf(task);
+        return request ? isActiveStatus(request.status) : true;
+      })
+      .map(toItem),
+    agentTasks: store.tasks
+      .filter((task) => task.kind === "agent" && task.status === "queued")
+      .filter(inScope)
+      .map(toItem),
+    messages: store.messages
+      .filter((message) => !message.reviewed)
+      .filter((message) => (profileId ? requestProfile(message) === profileId : true)),
+  };
 }
 
 export default defineMockDomain({
@@ -281,78 +356,7 @@ export default defineMockDomain({
     const ref = (task: TaskSummary) => ({ taskId: task.id, kind: task.kind });
 
     return [
-      handle(API_ROUTES.reviewQueue, ({ query }) => {
-        const inScope = <T extends { profileId: string | null }>(item: T) =>
-          query.profileId ? item.profileId === query.profileId : true;
-        const toItem = (task: TaskSummary): BlockedTaskItem => {
-          const request = requestOf(task);
-          const info = store.blockedInfo.get(task.id);
-          const target = store.targets.find((candidate) => candidate.id === task.targetId);
-          return {
-            task,
-            requestReference: request?.reference ?? null,
-            url: info?.url ?? task.blockedUrl ?? request?.recordUrl ?? target?.optOutUrl ?? null,
-            manualInstructions:
-              info?.manualInstructions ??
-              (task.status === "failed"
-                ? FAILED_INSTRUCTIONS
-                : task.status === "queued"
-                  ? AGENT_INSTRUCTIONS
-                  : MANUAL_INSTRUCTIONS.unknown),
-          };
-        };
-        const cutoff = store.ago({ days: FAILED_WINDOW_DAYS });
-        const requestProfile = (message: ReviewMessage) =>
-          store.requests.find((request) => request.id === message.requestId)?.profileId ??
-          store.profiles.find((profile) => profile.mailbox?.id === message.mailboxId)?.id ??
-          null;
-        const verifications: VerificationItem[] = store.requests
-          .filter((request) => request.status === "needs_verification")
-          .filter(inScope)
-          .flatMap((request) => {
-            const message = store.messages
-              .filter(
-                (candidate) =>
-                  candidate.requestId === request.id &&
-                  candidate.classification === "verification_required",
-              )
-              .at(-1);
-            if (!message) return [];
-            const { events: _events, ...item } = request;
-            return [
-              {
-                request: item,
-                message: toSummary(message),
-                requestedFields: message.requestedFields,
-              },
-            ];
-          });
-        return {
-          blockedTasks: store.tasks
-            .filter((task) => task.status === "blocked")
-            .filter(inScope)
-            .map(toItem),
-          matches: store.matches.filter(inScope).filter((match) => match.decision === "pending"),
-          verifications,
-          failedTasks: store.tasks
-            .filter((task) => task.status === "failed" && task.updatedAt >= cutoff)
-            .filter(inScope)
-            .filter((task) => {
-              const request = requestOf(task);
-              return request ? isActiveStatus(request.status) : true;
-            })
-            .map(toItem),
-          agentTasks: store.tasks
-            .filter((task) => task.kind === "agent" && task.status === "queued")
-            .filter(inScope)
-            .map(toItem),
-          messages: store.messages
-            .filter((message) => !message.reviewed)
-            .filter((message) =>
-              query.profileId ? requestProfile(message) === query.profileId : true,
-            ),
-        };
-      }),
+      handle(API_ROUTES.reviewQueue, ({ query }) => buildMockQueue(store, query.profileId)),
 
       handle(API_ROUTES.taskResume, ({ params }) => {
         const task = taskOf(params.id);

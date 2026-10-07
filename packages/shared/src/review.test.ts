@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { SkipReason, TargetOutcome } from "./campaigns.js";
-import { MatchDecisionBody, ReviewQueue } from "./review.js";
+import { MatchDecisionBody, ReviewQueue, reviewAttention } from "./review.js";
 
 describe("MatchDecisionBody", () => {
   it("asks for both rights unless the person chose", () => {
@@ -64,5 +64,26 @@ describe("campaign outcomes", () => {
     };
     expect(TargetOutcome.parse(outcome)).toEqual(outcome);
     expect(TargetOutcome.safeParse({ ...outcome, detail: undefined }).success).toBe(false);
+  });
+});
+
+describe("reviewAttention", () => {
+  it("counts every list the queue shows, tasks waiting for an agent included", () => {
+    const queue = {
+      blockedTasks: [{}],
+      matches: [{ decision: "pending" }, { decision: "mine" }],
+      verifications: [{}, {}],
+      failedTasks: [],
+      agentTasks: [{}, {}, {}],
+      messages: [{}],
+    } as unknown as ReviewQueue;
+    expect(reviewAttention(queue)).toEqual({
+      blockedTasks: 1,
+      pendingMatches: 1,
+      needsVerification: 2,
+      failedTasks: 0,
+      agentTasks: 3,
+      unreviewedMessages: 1,
+    });
   });
 });

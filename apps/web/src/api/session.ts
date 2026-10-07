@@ -1,4 +1,4 @@
-import { API_ROUTES, type AuthState, type ReviewQueue } from "@kickrocks/shared";
+import { API_ROUTES, type AuthState, type ReviewQueue, reviewAttention } from "@kickrocks/shared";
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
 import { onUnauthorized } from "./client.js";
@@ -57,12 +57,5 @@ export function reviewCount(
     "blockedTasks" | "matches" | "verifications" | "failedTasks" | "agentTasks" | "messages"
   >,
 ) {
-  return (
-    queue.blockedTasks.length +
-    queue.matches.filter((match) => match.decision === "pending").length +
-    queue.verifications.length +
-    queue.failedTasks.length +
-    queue.agentTasks.length +
-    queue.messages.length
-  );
+  return Object.values(reviewAttention(queue)).reduce((sum, n) => sum + n, 0);
 }

@@ -190,7 +190,22 @@ describe("dashboard helpers", () => {
       unreviewedMessages: 2,
       needsVerification: 0,
       failedTasks: 0,
+      agentTasks: 0,
     });
     expect(items.map((item) => item.title)).toEqual(["Blocked task", "Replies to sort"]);
+  });
+
+  it("lists tasks waiting for an agent", () => {
+    const items = attentionItems({
+      blockedTasks: 0,
+      pendingMatches: 0,
+      unreviewedMessages: 0,
+      needsVerification: 0,
+      failedTasks: 0,
+      agentTasks: 3,
+    });
+    expect(items.map((item) => [item.count, item.title])).toEqual([
+      [3, "Tasks waiting for an agent"],
+    ]);
   });
 });

@@ -1,4 +1,4 @@
-import { RequestStatus } from "@kickrocks/shared";
+import { RequestStatus, reviewAttention } from "@kickrocks/shared";
 import { describe, expect, it } from "vitest";
 import { app, call, freshMockAppEachTest, jordan } from "./test-helpers.js";
 
@@ -74,9 +74,10 @@ describe("dashboard handlers", () => {
   });
 
   it("counts what needs attention from tasks, matches, messages, and requests", async () => {
-    const { attention, counts } = await dashboardOf(jordan().id);
-    expect(attention.needsVerification).toBe(counts.needs_verification);
-    for (const value of Object.values(attention)) expect(value).toBeGreaterThanOrEqual(0);
+    const id = jordan().id;
+    const { attention } = await dashboardOf(id);
+    const queue = (await call({ path: `/review?profileId=${id}` })).json;
+    expect(attention).toEqual(reviewAttention(queue));
   });
 
   it("answers 404 for a profile that does not exist", async () => {

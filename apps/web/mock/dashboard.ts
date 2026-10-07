@@ -1,5 +1,12 @@
-import { API_ROUTES, type Dashboard, type DashboardEvent, RequestStatus } from "@kickrocks/shared";
+import {
+  API_ROUTES,
+  type Dashboard,
+  type DashboardEvent,
+  RequestStatus,
+  reviewAttention,
+} from "@kickrocks/shared";
 import { defineMockDomain, handle, notFound } from "./core.js";
+import { buildMockQueue } from "./review.js";
 
 const DAY = 86_400_000;
 
@@ -40,24 +47,7 @@ export default defineMockDomain({
         profileId: profile.id,
         total: requests.length,
         counts,
-        attention: {
-          blockedTasks: store.tasks.filter(
-            (task) => task.profileId === profile.id && task.status === "blocked",
-          ).length,
-          pendingMatches: store.matches.filter(
-            (match) => match.profileId === profile.id && match.decision === "pending",
-          ).length,
-          unreviewedMessages: store.messages.filter(
-            (message) => !message.reviewed && message.mailboxId === profile.mailbox?.id,
-          ).length,
-          needsVerification: counts.needs_verification,
-          failedTasks: store.tasks.filter(
-            (task) =>
-              task.profileId === profile.id &&
-              task.status === "failed" &&
-              task.updatedAt >= store.ago({ days: 30 }),
-          ).length,
-        },
+        attention: reviewAttention(buildMockQueue(store, profile.id)),
         sending: profile.mailbox
           ? {
               sent,

@@ -22,6 +22,8 @@ export const Dashboard = z.object({
     needsVerification: Count,
     /** Tasks that failed for good in the last 30 days on a request that is still open. */
     failedTasks: Count,
+    /** Agent tasks no MCP client has claimed yet, listed under "Waiting for an agent". */
+    agentTasks: Count,
   }),
   /** Mail sent in the last 24 hours against the mailbox cap; null without a mailbox. */
   sending: z

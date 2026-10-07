@@ -1,5 +1,11 @@
 import { mailboxes, profiles, requestEvents, requests, targets } from "@kickrocks/db";
-import { API_ROUTES, type Dashboard, DashboardEvent, RequestStatus } from "@kickrocks/shared";
+import {
+  API_ROUTES,
+  type Dashboard,
+  DashboardEvent,
+  RequestStatus,
+  reviewAttention,
+} from "@kickrocks/shared";
 import { count, desc, eq, sql } from "drizzle-orm";
 import { notFound } from "../../core/errors.js";
 import { registerRoute } from "../../core/http.js";
@@ -62,13 +68,7 @@ export function buildDashboard(services: AppServices, profileId: string): Dashbo
     profileId,
     total,
     counts,
-    attention: {
-      blockedTasks: queue.blockedTasks.length,
-      pendingMatches: queue.matches.length,
-      unreviewedMessages: queue.messages.length,
-      needsVerification: counts.needs_verification,
-      failedTasks: queue.failedTasks.length,
-    },
+    attention: reviewAttention(queue),
     sending: mailbox
       ? {
           sent: mailQuota.sentLastDay(mailbox.id),

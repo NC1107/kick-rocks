@@ -53,6 +53,26 @@ export const ReviewQueue = z.object({
 });
 export type ReviewQueue = z.infer<typeof ReviewQueue>;
 
+/**
+ * How many things of each kind wait on the person. The dashboard's "Needs you" card and the Review
+ * badge both read these, so neither can say nothing is waiting while the queue lists something.
+ */
+export function reviewAttention(
+  queue: Pick<
+    ReviewQueue,
+    "blockedTasks" | "matches" | "verifications" | "failedTasks" | "agentTasks" | "messages"
+  >,
+) {
+  return {
+    blockedTasks: queue.blockedTasks.length,
+    pendingMatches: queue.matches.filter((match) => match.decision === "pending").length,
+    needsVerification: queue.verifications.length,
+    failedTasks: queue.failedTasks.length,
+    agentTasks: queue.agentTasks.length,
+    unreviewedMessages: queue.messages.length,
+  };
+}
+
 export const MatchDecisionBody = z.object({
   decision: z.enum(["mine", "not_mine"]),
   /** The rights the removal request exercises when the decision is "mine". */
