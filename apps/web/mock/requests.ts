@@ -55,6 +55,11 @@ export interface NewRequest {
 
 const MS_DAY = 86_400_000;
 
+/** Due dates may be in the future, so they move without the clamp below. */
+function addDays(iso: string, days: number): string {
+  return new Date(Date.parse(iso) + days * MS_DAY).toISOString();
+}
+
 /** Moves a time forward, but never past a minute ago: a fixture's history is all in the past. */
 function shift(iso: string, days: number, hours = 0): string {
   const moved = Date.parse(iso) + days * MS_DAY + hours * 3_600_000;
@@ -135,8 +140,8 @@ export function buildRequest(store: MockStore, input: NewRequest): StoredRequest
     recordUrl: input.recordUrl ?? null,
     followUps: input.followUps ?? 0,
     sentAt,
-    dueAt: sentAt ? shift(sentAt, 45) : null,
-    followUpAt: input.status === "follow_up_due" ? shift(createdAt, 46) : null,
+    dueAt: sentAt ? addDays(sentAt, 45) : null,
+    followUpAt: input.status === "follow_up_due" ? addDays(createdAt, 46) : null,
     lastError: input.lastError ?? null,
     createdAt,
     updatedAt: createdAt,
