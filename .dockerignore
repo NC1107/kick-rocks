@@ -8,3 +8,12 @@ docs
 *.md
 !packages/**/*.md
 **/*.tsbuildinfo
+# A checkout that has run `pnpm dev` holds a database, its key, and a Chrome profile with session
+# cookies in each app's own directory. `pnpm deploy` would copy them into the image.
+apps/*/data
+**/.chrome-profile
+**/*.db
+**/*.db-*
+**/*.key
+.env
+.env.*

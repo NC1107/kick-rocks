@@ -8,7 +8,7 @@ The whole flow runs end to end against a local test stack (see "End-to-end tests
 
 ## How it works
 
-So the basic idea is you run one docker container on a machine at home, you connect your own email account with an app password, and you fill in a profile.
+So the basic idea is you run Kick Rocks in docker on a machine at home, a server container and a browser worker container, you connect your own email account with an app password, and you fill in a profile.
 From there you pick which brokers and companies to hit and click send.
 Requests go out from your address, so they carry full weight as the data subject and nobody's shared domain gets banned.
 Replies land back in your mailbox, the tool reads them over imap, figures out what each broker said, and moves the request along.
@@ -35,27 +35,65 @@ The first start builds a Chrome image for the worker, so it takes a few minutes.
 
 To start only the server, without the browser worker, run `docker compose up -d`.
 Email requests work without the worker, but scans and web forms need it.
-`.env.example` lists every setting.
+`.env.example` lists the settings compose passes on, and the server settings for `pnpm dev` that it does not.
 
 First steps in the app:
 
 1. Create a profile with your name, email, and address.
 2. Open the profile's mailbox page, pick your provider, and paste an app password.
    The page links to where each provider creates one.
-3. Open Campaigns, pick a preset, read the preview email, and send.
+3. Click New campaign on the dashboard, pick a preset, read the preview email, and send.
 4. Watch replies arrive under Requests, and clear anything that needs you under Review.
 
 To let Claude Code or another agent take over tasks the worker cannot do, turn on MCP in Settings.
 `docs/agents.md` explains how to connect.
 
-The database and its key live in a docker volume called `kickrocks-data`.
-The key gets generated on first start and the database is useless without it, so back up the volume as a unit, something like:
+## Reaching it from another device
+
+The UI is published on `127.0.0.1` only, so a headless home server, NAS, or Pi is not reachable from your laptop by default.
+That is on purpose: the first-run setup page is open to anyone who can reach it until a password is set.
+Set a password first, then pick one of these.
+
+- An SSH tunnel keeps it on loopback: `ssh -L 8420:127.0.0.1:8420 user@host`, then open http://127.0.0.1:8420 on your laptop.
+- To listen on your LAN, set `KICKROCKS_BIND_ADDRESS` in `.env` to the host's LAN address (or `0.0.0.0`) and run `docker compose --profile worker up -d`.
+  Set `KICKROCKS_PUBLIC_URL` to the address you use, so the links in the UI and the MCP setup show it.
+  Only do this on a network you trust, or behind your own VPN.
+
+## Backup, restore, and the data volume
+
+The database and its key live in a docker volume named `kickrocks-data`, which compose prefixes with the project name `kick-rocks`, so on disk it is `kick-rocks_kickrocks-data`.
+The key gets generated on first start and the database is useless without it, so back up the volume as a unit.
+Stop the server first, because a copy of a running database can be inconsistent:
 
 ```sh
+docker compose stop server
 docker run --rm -v kick-rocks_kickrocks-data:/data -v "$PWD":/backup alpine tar czf /backup/kickrocks-backup.tgz -C /data .
+docker compose start server
 ```
 
+To restore, stop the server, put the archive back, and start it again:
+
+```sh
+docker compose stop server
+docker run --rm -v kick-rocks_kickrocks-data:/data -v "$PWD":/backup alpine sh -c "rm -rf /data/* /data/.[!.]* && tar xzf /backup/kickrocks-backup.tgz -C /data"
+docker compose start server
+```
+
+`docker compose down -v` deletes the volumes, and with them the database and its key, so never add `-v` unless you mean to start over.
+
 If you'd rather have a plain folder on disk, swap the volume for a bind mount in `docker-compose.yml` and chown that folder to uid 1000 first, the container runs as an unprivileged user.
+
+## Updating and logs
+
+To update, pull and rebuild both images, and keep the profile flag so the worker is rebuilt next to the server:
+
+```sh
+git pull
+docker compose --profile worker up -d --build
+```
+
+`docker compose logs -f server` and `docker compose logs -f worker` show what each container is doing.
+The lines are JSON, one object per line.
 
 ## Developing
 
@@ -64,11 +102,16 @@ Node 22 and pnpm 10.
 ```sh
 pnpm install
 pnpm data:build      # builds packages/brokers/data/generated/brokers.json from the upstream lists
+pnpm build           # every package exports its built output, so the server needs this first
 pnpm dev             # server on 8420, web on 5173 with a proxy to the api
 pnpm test
 pnpm lint
 pnpm e2e             # the full flow against a local docker stack, see below
 ```
+
+`pnpm dev` does not start the worker, and it does not rebuild `packages/*` when you edit them, so run `pnpm build` again after a change there.
+To run the worker by hand, set `KICKROCKS_WORKER_TOKEN` (the server needs the same value) and run `pnpm dev:worker`, which opens a headed Chrome.
+The server reads its settings from the environment, not from `.env`.
 
 The repo is a pnpm workspace.
 `apps/server` is the fastify api, scheduler, mail handling, task queue, and mcp server.

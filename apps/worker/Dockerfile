@@ -24,6 +24,7 @@ ENV NODE_ENV=production \
     PLAYWRIGHT_BROWSERS_PATH=/ms-playwright \
     DISPLAY=:99 \
     KICKROCKS_CHROME_PROFILE=/profile \
+    # Docker's default seccomp profile blocks the user namespaces Chrome's sandbox needs.
     KICKROCKS_WORKER_NO_SANDBOX=true \
     KICKROCKS_WORKER_HEADLESS=false
 WORKDIR /app
