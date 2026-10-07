@@ -3,6 +3,7 @@ import { type FormEvent, useEffect, useRef, useState } from "react";
 import { ApiRequestError, errorMessage, useSetup } from "../../api/index.js";
 import { Alert, Button, Card, CardHeader, Field, Input } from "../../components/ui/index.js";
 import { usePageTitle } from "../../lib/use-page-title.js";
+import { PasswordInput } from "../login/password-input.js";
 
 export function Component() {
   usePageTitle("Set a password");
@@ -54,9 +55,8 @@ export function Component() {
           help={`At least ${MIN_PASSWORD_LENGTH} characters.`}
           error={problem.password ?? fieldIssue}
         >
-          <Input
+          <PasswordInput
             ref={input}
-            type="password"
             autoComplete="new-password"
             value={password}
             onChange={(event) => setPassword(event.target.value)}

@@ -1,7 +1,8 @@
 import { type FormEvent, useEffect, useRef, useState } from "react";
 import { ApiRequestError, errorMessage, useLogin } from "../../api/index.js";
-import { Alert, Button, Card, CardHeader, Field, Input } from "../../components/ui/index.js";
+import { Alert, Button, Card, CardHeader, Field } from "../../components/ui/index.js";
 import { usePageTitle } from "../../lib/use-page-title.js";
+import { PasswordInput } from "./password-input.js";
 
 export function Component() {
   usePageTitle("Sign in");
@@ -34,9 +35,8 @@ export function Component() {
           readOnly
         />
         <Field label="Password" error={wrongPassword ? failure.message : undefined}>
-          <Input
+          <PasswordInput
             ref={input}
-            type="password"
             autoComplete="current-password"
             value={password}
             onChange={(event) => setPassword(event.target.value)}
