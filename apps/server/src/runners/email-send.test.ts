@@ -195,6 +195,18 @@ describe("pacing", () => {
     expect(requestOf(second.id).status).toBe("awaiting_reply");
   });
 
+  it("uses the gap the configuration sets, so a development stack can send without waiting", async () => {
+    await ctx.close();
+    ctx = await createTestContext({ env: { KICKROCKS_SEND_GAP_MS: "0" } });
+    profileId = seedProfile(ctx).id;
+    mailboxId = seedMailbox(ctx, profileId, { dailyCap: 30 }).id;
+    useRandom(0);
+    openRequest();
+    openRequest();
+
+    expect(await runners.email.runDue()).toBe(2);
+  });
+
   it("keeps the gap it drew for a send, whatever the randomness does afterwards", async () => {
     let value = 0;
     runners = createRunners(ctx.services, { random: () => value });

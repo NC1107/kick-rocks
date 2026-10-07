@@ -43,7 +43,7 @@ export class EmailRunner {
     private readonly services: AppServices,
     random: () => number,
   ) {
-    this.pacer = new MailPacer(services, random);
+    this.pacer = new MailPacer(services, random, services.config.sendGapMs);
   }
 
   /** Sends every task that is due and returns how many went out. */

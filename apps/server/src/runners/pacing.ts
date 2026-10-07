@@ -1,10 +1,16 @@
 import { type MailboxRow, mailboxes, outgoingMail } from "@kickrocks/db";
 import { and, asc, eq, gt } from "drizzle-orm";
+import { DEFAULT_SEND_GAP_MS } from "../config.js";
 import { QUOTA_WINDOW_MS } from "../core/mail-quota.js";
 import type { AppServices } from "../services.js";
 
-export const MIN_GAP_MS = 20_000;
-export const MAX_GAP_MS = 60_000;
+export interface GapRange {
+  min: number;
+  max: number;
+}
+
+export const MIN_GAP_MS = DEFAULT_SEND_GAP_MS.min;
+export const MAX_GAP_MS = DEFAULT_SEND_GAP_MS.max;
 
 /**
  * Decides when a mailbox may send next: not before the gap since its last send, and not while it
@@ -18,6 +24,7 @@ export class MailPacer {
   constructor(
     private readonly services: Pick<AppServices, "db" | "clock" | "mailQuota">,
     private readonly random: () => number,
+    private readonly gap: GapRange = { min: MIN_GAP_MS, max: MAX_GAP_MS },
   ) {}
 
   /** When the mailbox may send again; null when it may send now. */
@@ -48,8 +55,8 @@ export class MailPacer {
       known && known.lastSentMs === last.getTime()
         ? known.gapMs
         : Math.min(
-            MAX_GAP_MS,
-            MIN_GAP_MS + Math.floor(this.random() * (MAX_GAP_MS - MIN_GAP_MS + 1)),
+            this.gap.max,
+            this.gap.min + Math.floor(this.random() * (this.gap.max - this.gap.min + 1)),
           );
     this.gaps.set(mailboxId, { lastSentMs: last.getTime(), gapMs });
     return new Date(last.getTime() + gapMs);

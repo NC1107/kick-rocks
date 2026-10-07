@@ -14,6 +14,8 @@ describe("loadConfig", () => {
       extraTargetsPath: null,
       extraRecipesDir: null,
       schedulerEnabled: true,
+      sendGapMs: { min: 20_000, max: 60_000 },
+      mail: { plaintextHosts: [] },
       linkFollower: { allowedPrivateHosts: [] },
       logLevel: "info",
       env: "development",
@@ -83,5 +85,22 @@ describe("loadConfig", () => {
     expect(() => loadConfig({ KICKROCKS_WORKER_TOKEN: "short" })).toThrow(/at least 16/);
     expect(() => loadConfig({ KICKROCKS_SCHEDULER: "maybe" })).toThrow();
     expect(() => loadConfig({ KICKROCKS_PUBLIC_URL: "nope" })).toThrow();
+  });
+
+  it("reads the pause between sends as one value or a range", () => {
+    expect(loadConfig({ KICKROCKS_SEND_GAP_MS: "0" }).sendGapMs).toEqual({ min: 0, max: 0 });
+    expect(loadConfig({ KICKROCKS_SEND_GAP_MS: "100-400" }).sendGapMs).toEqual({
+      min: 100,
+      max: 400,
+    });
+    expect(() => loadConfig({ KICKROCKS_SEND_GAP_MS: "400-100" })).toThrow(/minimum above/);
+    expect(() => loadConfig({ KICKROCKS_SEND_GAP_MS: "soon" })).toThrow(/KICKROCKS_SEND_GAP_MS/);
+  });
+
+  it("reads the hosts that may be reached without TLS as a lower case list", () => {
+    expect(
+      loadConfig({ KICKROCKS_PLAINTEXT_MAIL_HOSTS: "GreenMail, mail.dev.test," }).mail
+        .plaintextHosts,
+    ).toEqual(["greenmail", "mail.dev.test"]);
   });
 });
