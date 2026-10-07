@@ -12,7 +12,7 @@ import type { Page } from "playwright";
 import type { z } from "zod";
 import type { AgentLimits, Pricing } from "./config.js";
 import { type AllowedSites, allowedSitesFor, describeSites, withinSites } from "./domains.js";
-import { createMask, restoreFields } from "./mask.js";
+import { createMask, namedHiddenValues, restoreFields } from "./mask.js";
 import { buildOpeningMessage, buildSystemPrompt, startUrlFor } from "./prompt.js";
 import {
   type Message,
@@ -71,6 +71,8 @@ class AgentRun {
   private readonly sites: AllowedSites;
   private readonly fieldNames: string[];
   private readonly mask: (text: string) => string;
+  /** What every placeholder the model may have copied stands for. */
+  private readonly known: Record<string, string | undefined>;
   private readonly toolbox: Toolbox;
   private readonly messages: Message[] = [];
   private inputTokens = 0;
@@ -87,7 +89,8 @@ class AgentRun {
     this.fieldNames = Object.entries(task.fields)
       .filter(([, value]) => value !== undefined && value !== "")
       .map(([name]) => name);
-    this.mask = createMask(task.fields);
+    this.mask = createMask(task.fields, task.maskValues);
+    this.known = { ...task.fields, ...namedHiddenValues(task.fields, task.maskValues ?? []) };
     this.toolbox = new Toolbox({
       page: options.page,
       fields: task.fields,
@@ -458,7 +461,7 @@ class AgentRun {
           error: `The address ${candidate.recordUrl} is not a link the pages you read showed. Copy each record link exactly as the snapshot shows it.`,
         };
       }
-      const restore = (text: string) => restoreFields(text, this.options.task.fields);
+      const restore = (text: string) => restoreFields(text, this.known);
       candidates.push({
         ...candidate,
         recordUrl,

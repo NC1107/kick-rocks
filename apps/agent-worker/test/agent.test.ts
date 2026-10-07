@@ -1521,3 +1521,93 @@ describeBrowser("telling the worker that a removal may have been submitted", () 
     expect(onMayHaveSubmitted).not.toHaveBeenCalled();
   });
 });
+
+describeBrowser("everything the profile holds, not only what the task uses", () => {
+  const HELD = [
+    "Jo Sample",
+    "+15125550100",
+    "old.address@example.org",
+    "12 Old Mill Road",
+    "Houston",
+    "1990",
+  ];
+
+  function detailsTask() {
+    return agentTask({ payload: { purpose: "scan" }, maskValues: HELD });
+  }
+
+  function snapshotOf(provider: ScriptedProvider): string {
+    const seen = provider.requests[1]?.messages.at(-1);
+    return seen?.role === "tool" ? (seen.results[0]?.content ?? "") : "";
+  }
+
+  it("hides the other names, phones, emails, addresses and birth year a page shows", async () => {
+    const { provider } = await run(
+      [navigate("/details"), { calls: [["report", { status: "release" }]] }],
+      { task: detailsTask() },
+    );
+    const snapshot = snapshotOf(provider);
+    for (const held of ["Sample", "555-0100", "old.address", "Old Mill", "Houston", "1990"]) {
+      expect(snapshot).not.toContain(held);
+    }
+    expect(snapshot).toMatch(/Phones: \{\{other_\d+\}\}, \(512\) 555-0199/);
+    expect(
+      provider.requests.map((request) => JSON.stringify(request.messages)).join(),
+    ).not.toContain("Houston");
+  });
+
+  it("shows what the profile does not hold, which is the page's own knowledge", async () => {
+    const { provider } = await run(
+      [navigate("/details"), { calls: [["report", { status: "release" }]] }],
+      { task: detailsTask() },
+    );
+    const snapshot = snapshotOf(provider);
+    expect(snapshot).toContain("555-0199");
+    expect(snapshot).toContain("someone.else@");
+    expect(snapshot).toContain("Riley Other");
+    expect(snapshot).toContain("Age 35");
+  });
+
+  it("puts the hidden values back in a scan candidate the model copied from what it saw", async () => {
+    const { outcome } = await run(
+      [
+        navigate("/details"),
+        (v) => {
+          const phone = v.snapshot.match(/Phones: (\{\{other_\d+\}\})/)?.[1] ?? "";
+          const link = v.snapshot.match(/-> (\S+)/)?.[1] ?? "";
+          return {
+            calls: [
+              [
+                "report",
+                {
+                  status: "complete",
+                  result: {
+                    purpose: "scan",
+                    scan: {
+                      candidates: [
+                        { recordUrl: link, name: "x", locations: ["Austin, TX"], phones: [phone] },
+                      ],
+                    },
+                  },
+                },
+              ],
+            ],
+          };
+        },
+      ],
+      { task: detailsTask() },
+    );
+    expect(outcome.report).toMatchObject({
+      kind: "complete",
+      result: { scan: { candidates: [{ phones: ["+15125550100"] }] } },
+    });
+  });
+
+  it("hides nothing extra from a task that was given no list", async () => {
+    const { provider } = await run(
+      [navigate("/details"), { calls: [["report", { status: "release" }]] }],
+      { task: agentTask({ payload: { purpose: "scan" } }) },
+    );
+    expect(snapshotOf(provider)).toContain("Houston");
+  });
+});

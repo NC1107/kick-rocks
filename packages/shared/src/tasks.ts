@@ -246,6 +246,12 @@ const claimedBase = {
   recipe: Recipe.nullable(),
   /** Only what the recipe declares, or for agent tasks what the legal package allows. */
   fields: z.partialRecord(ProfileField, z.string()),
+  /**
+   * Every other value the profile holds, for a worker that shows pages to a language model and
+   * must hide them from it. Given only to such a worker, never to an MCP client, because it goes
+   * beyond what the legal package allows the task to use.
+   */
+  maskValues: z.array(z.string()).optional(),
   instructions: z.string(),
 };
 

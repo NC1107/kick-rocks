@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createMask, restoreFields } from "./mask.js";
+import { createMask, namedHiddenValues, restoreFields } from "./mask.js";
 
 describe("createMask", () => {
   const mask = createMask({
@@ -54,6 +54,50 @@ describe("createMask", () => {
         last_name: "Example",
       }),
     ).toBe("Jordan Example {{zip}} {{nope}}");
+  });
+
+  describe("with the rest of the profile", () => {
+    const fields = { first_name: "Jordan", last_name: "Example" };
+    const hidden = [
+      "Jordan",
+      "Jamie Sample",
+      "+15125550100",
+      "old.address@example.org",
+      "12 Old Mill Road",
+      "78701",
+      "1990-04-05",
+      "1990",
+    ];
+    const mask = createMask(fields, hidden);
+    const named = namedHiddenValues(fields, hidden);
+    const nameOf = (value: string) => Object.entries(named).find(([, v]) => v === value)?.[0];
+
+    it("hides each of them under a name of its own, and keeps a task field's name for a repeat", () => {
+      expect(mask("Jordan")).toBe("{{first_name}}");
+      expect(mask("aka Jamie Sample")).toBe(`aka {{${nameOf("Jamie Sample")}}}`);
+      expect(mask("Call (512) 555-0100")).toBe(`Call {{${nameOf("+15125550100")}}}`);
+      expect(mask("12 Old Mill Road, TX 78701")).toBe(
+        `{{${nameOf("12 Old Mill Road")}}}, TX {{${nameOf("78701")}}}`,
+      );
+      expect(mask("born 04/05/1990 in 1990")).toBe(
+        `born {{${nameOf("1990-04-05")}}} in {{${nameOf("1990")}}}`,
+      );
+      expect(Object.keys(named)).not.toContain("first_name");
+    });
+
+    it("lets the program restore what it hid, and only that", () => {
+      const known = { ...fields, ...named };
+      expect(restoreFields(mask("Jamie Sample, old.address@example.org"), known)).toBe(
+        "Jamie Sample, old.address@example.org",
+      );
+      expect(restoreFields("{{other_99}}", known)).toBe("{{other_99}}");
+    });
+
+    it("ignores blank entries and does not name a value twice", () => {
+      expect(namedHiddenValues({}, ["a value", " ", "A VALUE", ""])).toEqual({
+        other_1: "a value",
+      });
+    });
   });
 
   it("changes nothing when there is nothing to hide", () => {

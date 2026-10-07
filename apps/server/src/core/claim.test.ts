@@ -427,6 +427,7 @@ describe("agent tasks", () => {
       previousError?: string | null;
       blockedReason?: "captcha" | null;
     } = {},
+    claimerKind: "builtin" | "mcp" | "model" = "builtin",
   ) {
     ensureMailbox(profileId);
     const target =
@@ -470,8 +471,72 @@ describe("agent tasks", () => {
       targetId: target.id,
       requestId: request?.id ?? null,
     });
-    return claim(["agent"]);
+    return claim(["agent"], { claimerKind });
   }
+
+  it("gives a model worker every value the profile holds to hide, and nobody else", () => {
+    seedIdentities(ctx, profileId, [
+      ...jordanIdentities(),
+      {
+        kind: "alias",
+        value: { first: "Jo", last: "Sample" },
+        isPrimary: false,
+        validFrom: null,
+        validTo: null,
+      },
+      {
+        kind: "email",
+        value: { address: "old.address@example.org" },
+        isPrimary: false,
+        validFrom: null,
+        validTo: null,
+      },
+      {
+        kind: "address",
+        value: {
+          street: "12 Old Mill Road",
+          unit: "4B",
+          city: "Houston",
+          state: "TX",
+          zip: "77001",
+        },
+        isPrimary: false,
+        validFrom: "2010-01-01",
+        validTo: "2015-01-01",
+      },
+    ]);
+    const forModel = agentClaim("scan", {}, "model");
+    expect(forModel?.maskValues).toEqual(
+      expect.arrayContaining([
+        "Jordan",
+        "Q",
+        "Example",
+        "Jordan Q Example",
+        "Jordan Example",
+        "Jo",
+        "Sample",
+        "Jo Sample",
+        "jordan@example.com",
+        "old.address@example.org",
+        "+15555550123",
+        "100 Example Way",
+        "Austin",
+        "78701",
+        "12 Old Mill Road",
+        "12 Old Mill Road 4B",
+        "Houston",
+        "77001",
+        "1990-04-05",
+        "1990",
+      ]),
+    );
+    expect(Object.keys(forModel?.fields ?? {})).not.toContain("street");
+  });
+
+  it("keeps that list from a client that is not a model worker, which may use fewer values", () => {
+    expect(agentClaim("scan", {}, "builtin")).not.toHaveProperty("maskValues");
+    expect(agentClaim("scan", {}, "mcp")).not.toHaveProperty("maskValues");
+  });
 
   it("takes its fields from the legal package for a scan", () => {
     const task = agentClaim("scan");

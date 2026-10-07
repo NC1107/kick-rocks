@@ -5,6 +5,7 @@ import {
   type BrowserTaskKind,
   type ClaimedTask,
   type ClaimerKind,
+  formatFullName,
   type Identity,
   isActiveStatus,
   isOnDomain,
@@ -248,11 +249,57 @@ function queuedRequest(services: ClaimServices, requestId: string): RequestRecor
   return request;
 }
 
+/** Every value a profile holds, in the spellings a page would print them, for a worker to hide. */
+export function identityValues(identities: readonly Identity[]): string[] {
+  const values = new Set<string>();
+  const add = (value: string | undefined) => {
+    if (value !== undefined && value.trim() !== "") values.add(value.trim());
+  };
+  for (const identity of identities) {
+    switch (identity.kind) {
+      case "name":
+      case "alias": {
+        const { first, middle, last } = identity.value;
+        add(first);
+        add(middle);
+        add(last);
+        add(formatFullName(identity.value));
+        add(`${first} ${last}`);
+        break;
+      }
+      case "email":
+        add(identity.value.address);
+        break;
+      case "phone":
+        add(identity.value.number);
+        break;
+      case "address": {
+        const { street, unit, city, zip } = identity.value;
+        add(street);
+        add([street, unit].filter(Boolean).join(" "));
+        add(city);
+        add(zip);
+        add(zip.slice(0, 5));
+        break;
+      }
+      case "dob":
+        add(identity.value.date);
+        add(identity.value.date.slice(0, 4));
+        break;
+    }
+  }
+  return [...values];
+}
+
 /**
  * Builds what a claimer receives. Personal data is resolved here, at claim time, from the
  * profile's identities, so it never sits in a task payload or a log of one.
  */
-export function buildClaimedTask(services: ClaimServices, task: BrowserTask): ClaimedTask {
+export function buildClaimedTask(
+  services: ClaimServices,
+  task: BrowserTask,
+  claimerKind?: ClaimerKind,
+): ClaimedTask {
   if (task.targetId === null)
     throw new AppError(500, "task_without_target", `Task ${task.id} has no target`);
   if (task.leaseExpiresAt === null)
@@ -386,6 +433,7 @@ export function buildClaimedTask(services: ClaimServices, task: BrowserTask): Cl
         payload: task.payload,
         recipe: null,
         fields,
+        ...(claimerKind === "model" ? { maskValues: identityValues(identities) } : {}),
         instructions: agentInstructions(task, target, Object.keys(fields)),
       };
     }
@@ -395,12 +443,17 @@ export function buildClaimedTask(services: ClaimServices, task: BrowserTask): Cl
 /** How many obsolete tasks one claim will cancel before it gives up looking for a live one. */
 const MAX_OBSOLETE_PER_CLAIM = 25;
 
-function prepare(services: ClaimServices, task: Task, workerId: string): ClaimedTask | null {
+function prepare(
+  services: ClaimServices,
+  task: Task,
+  workerId: string,
+  claimerKind: ClaimerKind,
+): ClaimedTask | null {
   if (!isBrowserTask(task)) {
     throw new AppError(500, "not_a_browser_task", `Task ${task.id} is ${task.kind}`);
   }
   try {
-    return buildClaimedTask(services, task);
+    return buildClaimedTask(services, task, claimerKind);
   } catch (error) {
     if (error instanceof TaskObsoleteError) {
       services.taskQueue.cancel(task.id, "system");
@@ -444,13 +497,13 @@ export function claimTask(
         claimerKind,
       });
     });
-    return leased === null ? null : prepare(services, leased, workerId);
+    return leased === null ? null : prepare(services, leased, workerId, claimerKind);
   }
 
   for (let skipped = 0; skipped <= MAX_OBSOLETE_PER_CLAIM; skipped++) {
     const task = services.taskQueue.claim({ workerId, kinds, leaseMs, claimerKind });
     if (task === null) return null;
-    const claimed = prepare(services, task, workerId);
+    const claimed = prepare(services, task, workerId, claimerKind);
     if (claimed) return claimed;
   }
   return null;
