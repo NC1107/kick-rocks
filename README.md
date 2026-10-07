@@ -116,6 +116,23 @@ Your profiles, requests, and mailbox setup stay as they were.
 
 If you'd rather have a plain folder on disk, swap the volume for a bind mount in `docker-compose.yml` and chown that folder to uid 1000 first, the container runs as an unprivileged user.
 
+## Your data
+
+Kick Rocks only keeps what it needs, and you can take it out or remove it from the web UI.
+
+- **Export.** The profile page has "Export profile data", which saves one JSON file with the identities, requests and their timelines, reply details, scans, and matches.
+  It leaves out the mailbox password and the text of replies.
+- **Delete a profile.** The profile page removes the profile and everything about it: identities, mailbox connection, requests, replies, scans, matches, and screenshots.
+  Running tasks are cancelled first, so a worker that still holds one finds nothing to report against.
+  The database file is then compacted with `VACUUM`, so the freed pages do not keep the old bytes.
+- **Retention.** Settings has one window for screenshots (30 days by default) and one for the text of replies you have dealt with (kept by default).
+  The sender, subject, and outcome of a reply always stay, so a request keeps its history.
+  Saving a shorter window applies it at once, and the scheduler applies it every hour after that.
+- **Delete all data.** Settings can wipe every profile and the instance settings after you type a confirmation phrase.
+  It keeps your sign-in password, the broker list, and the recipes.
+
+Requests that were already sent cannot be recalled, and nothing here reaches into your mailbox: delete the replies there yourself if you want them gone.
+
 ## Updating and logs
 
 To update, pull and rebuild both images, and keep the profile flag so the worker is rebuilt next to the server:
