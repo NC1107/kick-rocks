@@ -894,6 +894,7 @@ describe("the whole run", () => {
       unreviewedMessages: 0,
       needsVerification: 0,
       failedTasks: 0,
+      agentTasks: 0,
     });
     expect(dashboard.recentEvents.length).toBeGreaterThan(5);
     expect((await api.call(API_ROUTES.reviewQueue)).blockedTasks).toEqual([]);
