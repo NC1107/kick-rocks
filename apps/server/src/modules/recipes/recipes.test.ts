@@ -480,6 +480,20 @@ describe("canary results and recipe health", () => {
     });
   });
 
+  it("does not park a canary behind a human check, because there is nothing for a person to do", async () => {
+    const { c, recipe, task } = await canaryFor("healthy");
+    const blocked = await c.call(API_ROUTES.workerTaskBlock, {
+      params: { id: task.id },
+      body: { workerId: "w", reason: "captcha", detail: "reCAPTCHA is on the page" },
+    });
+    expect(blocked.ok).toBe(true);
+
+    expect(c.services.taskQueue.getOrThrow(task.id).status).toBe("cancelled");
+    expect(c.services.taskQueue.list({ status: "blocked" })).toEqual([]);
+    expect(row(c, recipe.id)).toMatchObject({ health: "healthy", failureCount: 0 });
+    expect(c.services.dispatch.enqueueCanary(recipe.id).created).toBe(true);
+  });
+
   it("still completes a canary whose recipe has since been removed", async () => {
     const { c, recipe, task } = await canaryFor();
     c.services.db.delete(recipes).where(eq(recipes.id, recipe.id)).run();

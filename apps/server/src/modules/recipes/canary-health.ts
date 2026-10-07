@@ -9,8 +9,9 @@ import type { AppServices } from "../../services.js";
  */
 export function registerCanaryHealth({
   taskHandlers,
+  taskQueue,
   recipeHealth,
-}: Pick<AppServices, "taskHandlers" | "recipeHealth">): void {
+}: Pick<AppServices, "taskHandlers" | "taskQueue" | "recipeHealth">): void {
   function record(recipeId: string, healthy: boolean, tx: DbHandle): void {
     // The recipe may have been removed since the check was queued; a late result is dropped.
     const exists = tx
@@ -31,5 +32,12 @@ export function registerCanaryHealth({
   // selector. A site that is down or a dropped connection says nothing about the recipe.
   taskHandlers.on("canary", "failed", ({ task }, tx) => {
     if (task.failureKind === "recipe") record(task.payload.recipeId, false, tx);
+  });
+
+  // A canary has no request and nothing a person could finish by hand, so parking it for a human
+  // check would leave it blocked forever, hidden from every profile's queue, and its dedupe key
+  // would keep the recipe from ever being checked again. The check is simply inconclusive.
+  taskHandlers.on("canary", "blocked", ({ task }) => {
+    taskQueue.cancel(task.id, "system");
   });
 }
