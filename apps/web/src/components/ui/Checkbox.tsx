@@ -37,7 +37,7 @@ export function Checkbox({
         type="checkbox"
         className={cn(
           BOX_CLASS,
-          "rounded-xs checked:border-accent checked:bg-accent indeterminate:border-accent indeterminate:bg-accent",
+          "rounded-xs checked:border-accent checked:bg-accent indeterminate:border-accent indeterminate:bg-accent disabled:checked:border-ink-faint disabled:checked:bg-ink-faint",
         )}
         {...rest}
       />

@@ -1,5 +1,6 @@
 import { Check } from "lucide-react";
 import {
+  Fragment,
   type KeyboardEvent,
   type ReactNode,
   useCallback,
@@ -15,10 +16,15 @@ export interface MenuItem {
   label: ReactNode;
   description?: ReactNode;
   icon?: ReactNode;
-  /** Shows a check and uses the radio role: for choosing one of several, such as a profile. */
+  /**
+   * Set on items that choose one of several, such as a profile: true or false shows a check and
+   * announces which is current. Leave it out on plain actions.
+   */
   selected?: boolean;
   disabled?: boolean;
   destructive?: boolean;
+  /** Draws a hairline above this item, to group it apart from the ones before. */
+  separatorBefore?: boolean;
   onSelect: () => void;
 }
 
@@ -37,12 +43,10 @@ export interface MenuProps {
   trigger: (props: MenuTriggerProps, open: boolean) => ReactNode;
   /** Which edge of the trigger the list lines up with. */
   align?: "start" | "end";
-  /** Set when the items choose one of several, so assistive tech announces which is current. */
-  choice?: boolean;
   /** Heading shown above the items. */
   heading?: string;
-  className?: string;
-  panelClassName?: string;
+  className?: string | undefined;
+  panelClassName?: string | undefined;
 }
 
 /**
@@ -53,7 +57,6 @@ export function Menu({
   items,
   trigger,
   align = "start",
-  choice = false,
   heading,
   className,
   panelClassName,
@@ -168,35 +171,36 @@ export function Menu({
         >
           {heading ? <p className="px-2.5 pt-1.5 pb-1 text-xs text-ink-muted">{heading}</p> : null}
           {items.map((item) => (
-            <button
-              key={item.id}
-              type="button"
-              {...(choice
-                ? { role: "menuitemradio", "aria-checked": Boolean(item.selected) }
-                : { role: "menuitem" })}
-              disabled={item.disabled}
-              tabIndex={-1}
-              onClick={() => {
-                close(true);
-                item.onSelect();
-              }}
-              className={cn(
-                "flex min-h-control w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-left text-base hover:bg-sunken focus-visible:bg-sunken focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50 [&_svg]:size-4",
-                item.destructive ? "text-danger" : "text-ink",
-              )}
-            >
-              {item.icon ? <span className="text-ink-muted">{item.icon}</span> : null}
-              <span className="flex min-w-0 flex-1 flex-col">
-                <span className="truncate">{item.label}</span>
-                {item.description ? (
-                  <span className="truncate text-sm text-ink-muted">{item.description}</span>
-                ) : null}
-              </span>
-              {choice && item.selected ? (
-                <Check aria-hidden="true" className="text-accent" />
-              ) : null}
-            </button>
-          ))}
+            <Fragment key={item.id}>
+              {item.separatorBefore ? <hr className="mx-1 my-1 border-line" /> : null}
+              <button
+                type="button"
+                {...(item.selected === undefined
+                  ? { role: "menuitem" }
+                  : { role: "menuitemradio", "aria-checked": item.selected })}
+                disabled={item.disabled}
+                tabIndex={-1}
+                title={typeof item.label === "string" ? item.label : undefined}
+                onClick={() => {
+                  close(true);
+                  item.onSelect();
+                }}
+                className={cn(
+                  "flex min-h-control w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-left text-base hover:bg-sunken focus-visible:bg-sunken focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50 [&_svg]:size-4",
+                  item.destructive ? "text-danger" : "text-ink",
+                )}
+              >
+                {item.icon ? <span className="text-ink-muted">{item.icon}</span> : null}
+                <span className="flex min-w-0 flex-1 flex-col">
+                  <span className="truncate">{item.label}</span>
+                  {item.description ? (
+                    <span className="truncate text-sm text-ink-muted">{item.description}</span>
+                  ) : null}
+                </span>
+                {item.selected ? <Check aria-hidden="true" className="text-accent" /> : null}
+              </button>
+            </Fragment>
+          ))}{" "}
         </div>
       ) : null}
     </div>

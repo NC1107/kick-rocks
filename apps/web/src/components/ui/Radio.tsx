@@ -65,7 +65,10 @@ export function RadioGroup<V extends string>({
                 checked={value === option.value}
                 disabled={option.disabled}
                 onChange={() => onValueChange(option.value)}
-                className={cn(BOX_CLASS, "rounded-full checked:border-accent checked:bg-accent")}
+                className={cn(
+                  BOX_CLASS,
+                  "rounded-full checked:border-accent checked:bg-accent disabled:checked:border-ink-faint disabled:checked:bg-ink-faint",
+                )}
               />
               <span
                 aria-hidden="true"

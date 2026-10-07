@@ -9,7 +9,6 @@ import {
   useRef,
   useState,
 } from "react";
-import { cn } from "../../lib/cn.js";
 import { INTENT_TONE, type Intent } from "../../lib/tone.js";
 import { IconButton } from "./IconButton.js";
 
@@ -117,23 +116,19 @@ function ToastCard({ item, onDismiss }: { item: ToastItem; onDismiss: (id: numbe
       onMouseLeave={() => setPaused(false)}
       onFocus={() => setPaused(true)}
       onBlur={() => setPaused(false)}
-      className={cn(
-        "pointer-events-auto flex animate-settle items-start gap-3 rounded-lg border border-tone-line bg-raised p-3 shadow-pop",
-      )}
+      className="pointer-events-auto flex animate-settle items-start gap-3 rounded-lg border border-tone-line bg-raised py-2 pr-2 pl-3 shadow-pop"
     >
-      <Icon aria-hidden="true" className="mt-0.5 size-4.5 shrink-0 text-tone-dot" />
-      <div className="min-w-0 flex-1">
+      {/* The icon, the first line of text, and the dismiss button share one center line, on a phone too. */}
+      <span className="flex h-[calc(var(--kr-control-h)-0.5rem)] shrink-0 items-center">
+        <Icon aria-hidden="true" className="size-4.5 text-tone-dot" />
+      </span>
+      <div className="min-w-0 flex-1 pt-[calc((var(--kr-control-h)-0.5rem-1.375rem)/2)] pb-1.5">
         <p className="text-base font-medium text-ink">{item.title}</p>
         {item.description ? (
           <p className="mt-0.5 text-sm text-ink-muted">{item.description}</p>
         ) : null}
       </div>
-      <IconButton
-        label="Dismiss"
-        size="sm"
-        onClick={() => onDismiss(item.id)}
-        className="-mt-1 -mr-1"
-      >
+      <IconButton label="Dismiss" size="sm" onClick={() => onDismiss(item.id)}>
         <X />
       </IconButton>
     </div>
