@@ -1,10 +1,19 @@
 import { NotImplementedError } from "@kickrocks/shared";
 import type { LegalApi } from "./types.js";
 
-export type { EmailKind, LegalApi, RenderRequestEmailInput } from "./types.js";
+export type {
+  EmailKind,
+  LegalApi,
+  RenderRequestEmailInput,
+  ResolveLegalBasisInput,
+} from "./types.js";
 
 export const resolveLegalBasis: LegalApi["resolveLegalBasis"] = () => {
   throw new NotImplementedError("resolveLegalBasis");
+};
+
+export const getLegalBasis: LegalApi["getLegalBasis"] = () => {
+  throw new NotImplementedError("getLegalBasis");
 };
 
 export const listJurisdictions: LegalApi["listJurisdictions"] = () => {

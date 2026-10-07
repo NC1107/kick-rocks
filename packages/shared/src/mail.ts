@@ -1,5 +1,13 @@
 import { z } from "zod";
+import { ProfileField } from "./identities.js";
 import { WebUrl } from "./url.js";
+
+/**
+ * What a message sent for a request is for. A follow-up is a reminder after the first one went
+ * unanswered, and a verification reply sends identifiers a broker asked for and the person approved.
+ */
+export const EmailKind = z.enum(["initial", "follow_up", "verification_reply"]);
+export type EmailKind = z.infer<typeof EmailKind>;
 
 export const ReplyClassification = z.enum([
   "bounce",
@@ -130,6 +138,15 @@ export const MailboxConnection = z.object({
 export type MailboxConnection = z.infer<typeof MailboxConnection>;
 
 /**
+ * Testing a mailbox. The password may be left out to test the one already stored, so a person who
+ * edits the host does not have to type it again.
+ */
+export const MailboxTestBody = MailboxConnection.extend({
+  password: MailboxConnection.shape.password.optional(),
+});
+export type MailboxTestBody = z.infer<typeof MailboxTestBody>;
+
+/**
  * Saving a mailbox. When one already exists the password may be left out to keep the stored one.
  */
 export const MailboxInput = MailboxConnection.extend({
@@ -180,7 +197,16 @@ export const MessageSummary = z.object({
   confidence: z.number().min(0).max(1),
   rationale: z.string().nullable(),
   links: z.array(WebUrl),
+  /** For a verification request: the identifiers the broker asked for. Field names, not values. */
+  requestedFields: z.array(ProfileField),
   snippet: z.string().nullable(),
   reviewed: z.boolean(),
 });
 export type MessageSummary = z.infer<typeof MessageSummary>;
+
+/** The most message text kept, so one huge mail cannot fill the database. */
+export const MESSAGE_TEXT_MAX_CHARS = 20_000;
+
+/** A message with its whole text, for a person classifying mail the rules could not. */
+export const MessageDetail = MessageSummary.extend({ text: z.string().nullable() });
+export type MessageDetail = z.infer<typeof MessageDetail>;

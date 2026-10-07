@@ -86,11 +86,17 @@ export const TargetSummary = z.object({
   category: TargetCategory,
   domain: z.string(),
   website: WebUrl.nullable(),
+  /** Where to opt out, so an agent does not need a second call to find the page. */
+  optOutUrl: WebUrl.nullable(),
+  /** Where a person finds their own record, for sites that remove a specific record. */
+  searchUrl: WebUrl.nullable(),
   contactMethod: ContactMethod,
   requiresId: z.boolean(),
   requirements: z.array(Requirement),
   priority: TargetPriority,
   needsRecord: z.boolean(),
+  /** The dataset no longer lists it. Nothing new is sent to it, but its history stays. */
+  retired: z.boolean(),
 });
 export type TargetSummary = z.infer<typeof TargetSummary>;
 
@@ -105,11 +111,20 @@ export const TargetRecipe = z.object({
 });
 export type TargetRecipe = z.infer<typeof TargetRecipe>;
 
+/** What automation exists for a target: the health of its newest active recipe, or null when it has none. */
+export const TargetAutomation = z.object({
+  scan: RecipeHealth.nullable(),
+  remove: RecipeHealth.nullable(),
+});
+export type TargetAutomation = z.infer<typeof TargetAutomation>;
+
+/** A row of the targets list, which shows which targets are automated without a call per row. */
+export const TargetListItem = TargetSummary.extend({ automation: TargetAutomation });
+export type TargetListItem = z.infer<typeof TargetListItem>;
+
 export const TargetDetail = TargetSummary.extend({
   privacyEmail: z.email().nullable(),
-  optOutUrl: WebUrl.nullable(),
   privacyRightsUrl: WebUrl.nullable(),
-  searchUrl: WebUrl.nullable(),
   region: z.enum(["us", "eu", "global"]),
   notes: z.string().nullable(),
   sources: z.array(DataSource),

@@ -2,16 +2,21 @@ import {
   API_ROUTES,
   type BlockedReason,
   type BlockedTaskItem,
+  canTransition,
+  FORM_OUTCOMES,
+  isActiveStatus,
   type Match,
   type MessageSummary,
+  manualResultSchemaFor,
   type ReviewMessage,
   type ScanSummary,
   type TargetOutcome,
   type TaskSummary,
+  type VerificationItem,
 } from "@kickrocks/shared";
-import { conflict, defineMockDomain, handle, notFound } from "./core.js";
+import { conflict, defineMockDomain, handle, invalid, notFound } from "./core.js";
 import { fakeScreenshotPng } from "./png.js";
-import { addEvent, buildRequest } from "./requests.js";
+import { addEvent, buildRequest, makeTask } from "./requests.js";
 import type { MockStore } from "./store.js";
 
 const MANUAL_INSTRUCTIONS: Record<BlockedReason, string> = {
@@ -27,9 +32,14 @@ const MANUAL_INSTRUCTIONS: Record<BlockedReason, string> = {
     "The site wants you to sign in first. Create or use an account, finish the removal, then mark the task done.",
   bot_detection:
     "The site blocked the automated browser. Open the page in your own browser and finish the removal.",
-
   unknown: "Open the page and finish the removal by hand, then mark the task done.",
 };
+
+const FAILED_INSTRUCTIONS =
+  "This task failed and nothing will try it again by itself. Retry it, or finish the job by hand and mark it done.";
+
+/** The days a failed task stays in the review queue. */
+const FAILED_WINDOW_DAYS = 30;
 
 function toSummary(message: ReviewMessage): MessageSummary {
   const { requestReference: _reference, targetName: _name, ...rest } = message;
@@ -70,10 +80,17 @@ export function createScan(
     requestId: null,
     blockedReason: null,
     blockedDetail: null,
+    blockedUrl: null,
     attempts: 1,
     maxAttempts: 3,
     lastError: fields.error ?? null,
+    failureKind: fields.taskStatus === "failed" ? ("site" as const) : null,
+    failureStep: null,
     hasScreenshot: false,
+    finishedBy:
+      fields.taskStatus === "queued" || fields.taskStatus === "leased" ? null : "home-worker",
+    claimerKind: fields.taskStatus === "queued" ? null : ("builtin" as const),
+    usage: null,
     createdAt: store.ago(fields.startedAgo),
     updatedAt: store.ago({ hours: 0, minutes: 5 }),
   } satisfies TaskSummary;
@@ -129,7 +146,7 @@ export default defineMockDomain({
         const request = store.requests.find((candidate) => candidate.id === task.requestId);
         const target = store.targets.find((candidate) => candidate.id === task.targetId);
         store.blockedInfo.set(task.id, {
-          url: request?.recordUrl ?? target?.optOutUrl ?? null,
+          url: task.blockedUrl ?? request?.recordUrl ?? target?.optOutUrl ?? null,
           manualInstructions: MANUAL_INSTRUCTIONS[task.blockedReason],
         });
       }
@@ -203,6 +220,7 @@ export default defineMockDomain({
         confidence: 0.31,
         rationale: "No reference number and no clear request wording.",
         links: [],
+        requestedFields: [],
         snippet:
           "Thanks for reaching out. A member of our team will look into this and get back to you when we can.",
         reviewed: false,
@@ -218,6 +236,7 @@ export default defineMockDomain({
         confidence: 0.44,
         rationale: "Mentions a confirmation step but no link was found.",
         links: ["https://www.cardinalinsights.example/privacy/confirm?token=mock"],
+        requestedFields: [],
         snippet:
           "Before we can process your request we need you to confirm the address on file. Use the link below.",
         reviewed: false,
@@ -254,42 +273,68 @@ export default defineMockDomain({
       }
       return task;
     };
-    const noteOnRequest = (
-      task: TaskSummary,
-      type: "task_completed" | "user_action",
-      payload: Record<string, unknown>,
-    ) => {
-      const request = store.requests.find((candidate) => candidate.id === task.requestId);
-      if (request) {
-        addEvent(store, request, type, "user", task.updatedAt, payload);
-        request.updatedAt = task.updatedAt;
-      }
-    };
+    const requestOf = (task: TaskSummary) =>
+      store.requests.find((candidate) => candidate.id === task.requestId);
+    const ref = (task: TaskSummary) => ({ taskId: task.id, kind: task.kind });
 
     return [
       handle(API_ROUTES.reviewQueue, ({ query }) => {
         const inScope = <T extends { profileId: string | null }>(item: T) =>
           query.profileId ? item.profileId === query.profileId : true;
-        const blockedTasks: BlockedTaskItem[] = store.tasks
-          .filter((task) => task.status === "blocked")
-          .filter(inScope)
-          .map((task) => {
-            const request = store.requests.find((candidate) => candidate.id === task.requestId);
-            const info = store.blockedInfo.get(task.id);
-            return {
-              task,
-              requestReference: request?.reference ?? null,
-              url: info?.url ?? null,
-              manualInstructions: info?.manualInstructions ?? MANUAL_INSTRUCTIONS.unknown,
-            };
-          });
+        const toItem = (task: TaskSummary): BlockedTaskItem => {
+          const request = requestOf(task);
+          const info = store.blockedInfo.get(task.id);
+          const target = store.targets.find((candidate) => candidate.id === task.targetId);
+          return {
+            task,
+            requestReference: request?.reference ?? null,
+            url: info?.url ?? task.blockedUrl ?? request?.recordUrl ?? target?.optOutUrl ?? null,
+            manualInstructions:
+              info?.manualInstructions ??
+              (task.status === "failed" ? FAILED_INSTRUCTIONS : MANUAL_INSTRUCTIONS.unknown),
+          };
+        };
+        const cutoff = store.ago({ days: FAILED_WINDOW_DAYS });
         const requestProfile = (message: ReviewMessage) =>
           store.requests.find((request) => request.id === message.requestId)?.profileId ??
           store.profiles.find((profile) => profile.mailbox?.id === message.mailboxId)?.id ??
           null;
+        const verifications: VerificationItem[] = store.requests
+          .filter((request) => request.status === "needs_verification")
+          .filter(inScope)
+          .flatMap((request) => {
+            const message = store.messages
+              .filter(
+                (candidate) =>
+                  candidate.requestId === request.id &&
+                  candidate.classification === "verification_required",
+              )
+              .at(-1);
+            if (!message) return [];
+            const { events: _events, ...item } = request;
+            return [
+              {
+                request: item,
+                message: toSummary(message),
+                requestedFields: message.requestedFields,
+              },
+            ];
+          });
         return {
-          blockedTasks,
+          blockedTasks: store.tasks
+            .filter((task) => task.status === "blocked")
+            .filter(inScope)
+            .map(toItem),
           matches: store.matches.filter(inScope).filter((match) => match.decision === "pending"),
+          verifications,
+          failedTasks: store.tasks
+            .filter((task) => task.status === "failed" && task.updatedAt >= cutoff)
+            .filter(inScope)
+            .filter((task) => {
+              const request = requestOf(task);
+              return request ? isActiveStatus(request.status) : true;
+            })
+            .map(toItem),
           messages: store.messages
             .filter((message) => !message.reviewed)
             .filter((message) =>
@@ -302,24 +347,118 @@ export default defineMockDomain({
         const task = taskOf(params.id);
         if (task.status !== "blocked") throw conflict("Only a blocked task can be resumed.");
         touch(task, "queued");
+        const request = requestOf(task);
+        if (request) addEvent(store, request, "task_resumed", "user", task.updatedAt, ref(task));
         return { task };
       }),
 
       handle(API_ROUTES.taskCancel, ({ params }) => {
         const task = taskOf(params.id);
-        if (task.status === "done" || task.status === "cancelled")
+        if (task.status === "done" || task.status === "cancelled" || task.status === "failed")
           throw conflict("That task is already closed.");
         touch(task, "cancelled");
-        noteOnRequest(task, "user_action", { action: "cancel_task", taskId: task.id });
+        const request = requestOf(task);
+        if (request) addEvent(store, request, "task_cancelled", "user", task.updatedAt, ref(task));
         return { task };
       }),
 
-      handle(API_ROUTES.taskMarkDone, ({ params }) => {
+      handle(API_ROUTES.taskMarkDone, ({ params, body }) => {
         const task = taskOf(params.id);
         if (task.status !== "blocked") throw conflict("Only a blocked task can be marked done.");
+        let outcome: string | null = null;
+        if (body.result !== undefined) {
+          const parsed = manualResultSchemaFor({
+            kind: task.kind,
+            payload: { purpose: task.kind === "agent" && !task.requestId ? "scan" : "remove" },
+          }).safeParse(body.result);
+          if (!parsed.success)
+            throw invalid("That result is not valid for this task.", ["body", "result"]);
+          outcome =
+            typeof parsed.data === "object" && parsed.data !== null && "outcome" in parsed.data
+              ? String(parsed.data.outcome)
+              : null;
+        }
         touch(task, "done");
-        noteOnRequest(task, "task_completed", { markedBy: "user", taskId: task.id });
+        const request = requestOf(task);
+        if (request) {
+          addEvent(store, request, "task_completed", "system", task.updatedAt, {
+            ...ref(task),
+            outcome,
+            note: body.note ?? null,
+          });
+          const to = outcome ? FORM_OUTCOMES[outcome as keyof typeof FORM_OUTCOMES] : undefined;
+          if (to && canTransition(request.status, to, { actor: "user" })) {
+            addEvent(store, request, "status_changed", "user", task.updatedAt, {
+              from: request.status,
+              to,
+            });
+            request.status = to;
+          }
+          request.updatedAt = task.updatedAt;
+        }
         return { task };
+      }),
+
+      handle(API_ROUTES.taskHandOff, ({ params }) => {
+        const task = taskOf(params.id);
+        if (task.status !== "blocked")
+          throw conflict("Only a blocked task can be handed to an agent.");
+        if (task.kind !== "scan" && task.kind !== "form" && task.kind !== "agent") {
+          throw conflict("An agent cannot take that kind of task.");
+        }
+        touch(task, "cancelled");
+        const request = requestOf(task);
+        if (request) addEvent(store, request, "task_cancelled", "user", task.updatedAt, ref(task));
+        const handed = makeTask(
+          store,
+          {
+            kind: "agent",
+            status: "queued",
+            profileId: task.profileId,
+            targetId: task.targetId,
+            targetName: task.targetName,
+            requestId: task.requestId,
+          },
+          { minutes: 0 },
+        );
+        if (request)
+          addEvent(store, request, "task_enqueued", "system", handed.updatedAt, ref(handed));
+        const scan = store.scans.find((candidate) => candidate.taskId === task.id);
+        if (scan) {
+          scan.taskId = handed.id;
+          scan.taskStatus = handed.status;
+        }
+        return { task: handed };
+      }),
+
+      handle(API_ROUTES.taskRetry, ({ params }) => {
+        const task = taskOf(params.id);
+        if (task.status !== "failed") throw conflict("Only a task that failed can be retried.");
+        const request = requestOf(task);
+        if (request && !isActiveStatus(request.status)) {
+          throw conflict("That request is closed, so there is nothing to retry.");
+        }
+        const retried = makeTask(
+          store,
+          {
+            kind: task.kind,
+            status: "queued",
+            profileId: task.profileId,
+            targetId: task.targetId,
+            targetName: task.targetName,
+            requestId: task.requestId,
+          },
+          { minutes: 0 },
+        );
+        if (request) {
+          request.lastError = null;
+          addEvent(store, request, "user_action", "user", retried.updatedAt, {
+            action: "retry_task",
+            note: null,
+          });
+          addEvent(store, request, "task_enqueued", "system", retried.updatedAt, ref(retried));
+        }
+        return { task: retried };
       }),
 
       handle(API_ROUTES.taskScreenshot, ({ params }) => {
@@ -339,7 +478,7 @@ export default defineMockDomain({
             profileId: match.profileId,
             targetId: match.targetId,
             channel: "form",
-            rights: ["delete"],
+            rights: body.rights,
             status: "queued",
             createdDaysAgo: 0,
             recordUrl: match.recordUrl,
@@ -348,6 +487,16 @@ export default defineMockDomain({
         }
         recountScan(store, match.scanId);
         return match;
+      }),
+
+      handle(API_ROUTES.messageGet, ({ params }) => {
+        const message = store.messages.find((candidate) => candidate.id === params.id);
+        if (!message) throw notFound("That message");
+        const summary = toSummary(message);
+        return {
+          ...summary,
+          text: `${message.snippet ?? ""}\n\nThis is the whole message. It is longer than the snippet shown in lists, so a person can read what the broker actually wrote before they classify it.`,
+        };
       }),
 
       handle(API_ROUTES.messageClassify, ({ params, body }) => {
@@ -391,6 +540,7 @@ export default defineMockDomain({
               requestId: null,
               scanId: null,
               reason: "scan_in_progress",
+              detail: null,
             };
           }
           const scan = createScan(store, profile.id, target.id, {
@@ -405,6 +555,7 @@ export default defineMockDomain({
             requestId: null,
             scanId: scan?.id ?? null,
             reason: null,
+            detail: null,
           };
         });
         return { items };

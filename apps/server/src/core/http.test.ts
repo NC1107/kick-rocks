@@ -1,4 +1,4 @@
-import { API_ROUTES } from "@kickrocks/shared";
+import { API_ROUTES, toApiIssues } from "@kickrocks/shared";
 import Fastify, { type FastifyInstance } from "fastify";
 import { afterEach, describe, expect, it } from "vitest";
 import { AppError, conflict, invalidRequest, notFound } from "./errors.js";
@@ -52,6 +52,25 @@ describe("registerRoute validation", () => {
     });
     const paths = body.issues.map((issue: { path: string[] }) => issue.path.join("."));
     expect(paths).toEqual(expect.arrayContaining(["body.displayName", "body.state"]));
+  });
+
+  it("builds issue paths with the shared helper, so the mock API cannot spell them differently", async () => {
+    await build((a) => registerRoute(a, API_ROUTES.profilesCreate, () => ({}) as never));
+    const payload = {
+      displayName: "Jordan",
+      state: "TX",
+      identities: [
+        { kind: "name", value: { first: "A", last: "B" }, isPrimary: true },
+        { kind: "email", value: { address: "a@example.com" } },
+        { kind: "address", value: { street: "1 Main", city: "Austin", state: "ZZ", zip: "78701" } },
+      ],
+    };
+    const response = await app.inject({ method: "POST", url: "/profiles", payload });
+    const parsed = API_ROUTES.profilesCreate.body.safeParse(payload);
+    if (parsed.success) throw new Error("the payload was meant to be invalid");
+    expect(response.json().issues).toEqual(toApiIssues(parsed.error, "body"));
+    // The same literal path is asserted in the web mock's test, which is how the two stay equal.
+    expect(response.json().issues[0].path).toEqual(["body", "identities", 2, "value", "state"]);
   });
 
   it("answers 400 for a bad query value", async () => {

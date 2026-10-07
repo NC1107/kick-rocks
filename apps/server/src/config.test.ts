@@ -14,6 +14,7 @@ describe("loadConfig", () => {
       extraTargetsPath: null,
       extraRecipesDir: null,
       schedulerEnabled: true,
+      linkFollower: { allowedPrivateHosts: [] },
       logLevel: "info",
       env: "development",
     });
@@ -40,6 +41,17 @@ describe("loadConfig", () => {
       extraRecipesDir: "/tmp/recipes",
       schedulerEnabled: false,
     });
+  });
+
+  it("reads the hosts the link follower may reach on a private address", () => {
+    expect(
+      loadConfig({
+        KICKROCKS_ALLOW_PRIVATE_LINK_HOSTS: " Broker.test, optout.broker.test ,,127.0.0.1 ",
+      }).linkFollower.allowedPrivateHosts,
+    ).toEqual(["broker.test", "optout.broker.test", "127.0.0.1"]);
+    expect(
+      loadConfig({ KICKROCKS_ALLOW_PRIVATE_LINK_HOSTS: "" }).linkFollower.allowedPrivateHosts,
+    ).toEqual([]);
   });
 
   it("derives the public url from the port when none is given", () => {

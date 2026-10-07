@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "ed5accbb-529e-4ea7-ab62-f7eb296132ed",
+  "id": "970e4c88-5c75-420e-b02d-eeb000f1666f",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "campaigns": {
@@ -530,8 +530,23 @@
           "notNull": true,
           "autoincrement": false
         },
+        "requested_fields": {
+          "name": "requested_fields",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'[]'"
+        },
         "snippet": {
           "name": "snippet",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "text": {
+          "name": "text",
           "type": "text",
           "primaryKey": false,
           "notNull": false,
@@ -587,6 +602,88 @@
           "columnsFrom": ["request_id"],
           "columnsTo": ["id"],
           "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "outgoing_mail": {
+      "name": "outgoing_mail",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "mailbox_id": {
+          "name": "mailbox_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "request_id": {
+          "name": "request_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "kind": {
+          "name": "kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "message_id": {
+          "name": "message_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "sent_at": {
+          "name": "sent_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "outgoing_mail_mailbox_sent_idx": {
+          "name": "outgoing_mail_mailbox_sent_idx",
+          "columns": ["mailbox_id", "sent_at"],
+          "isUnique": false
+        },
+        "outgoing_mail_request_idx": {
+          "name": "outgoing_mail_request_idx",
+          "columns": ["request_id"],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "outgoing_mail_mailbox_id_mailboxes_id_fk": {
+          "name": "outgoing_mail_mailbox_id_mailboxes_id_fk",
+          "tableFrom": "outgoing_mail",
+          "tableTo": "mailboxes",
+          "columnsFrom": ["mailbox_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "outgoing_mail_request_id_requests_id_fk": {
+          "name": "outgoing_mail_request_id_requests_id_fk",
+          "tableFrom": "outgoing_mail",
+          "tableTo": "requests",
+          "columnsFrom": ["request_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
           "onUpdate": "no action"
         }
       },
@@ -791,7 +888,7 @@
           "name": "payload",
           "type": "text",
           "primaryKey": false,
-          "notNull": false,
+          "notNull": true,
           "autoincrement": false
         },
         "created_at": {
@@ -935,6 +1032,13 @@
         },
         "follow_up_at": {
           "name": "follow_up_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "awaiting_confirmation_since": {
+          "name": "awaiting_confirmation_since",
           "type": "text",
           "primaryKey": false,
           "notNull": false,
@@ -1515,6 +1619,13 @@
           "notNull": false,
           "autoincrement": false
         },
+        "blocked_url": {
+          "name": "blocked_url",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
         "lease_owner": {
           "name": "lease_owner",
           "type": "text",
@@ -1560,6 +1671,41 @@
         },
         "last_error": {
           "name": "last_error",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "failure_kind": {
+          "name": "failure_kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "failure_step": {
+          "name": "failure_step",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "finished_by": {
+          "name": "finished_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "claimer_kind": {
+          "name": "claimer_kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "usage": {
+          "name": "usage",
           "type": "text",
           "primaryKey": false,
           "notNull": false,

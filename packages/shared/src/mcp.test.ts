@@ -11,6 +11,7 @@ describe("MCP_TOOLS", () => {
         "complete_task",
         "block_task",
         "fail_task",
+        "release_task",
         "get_target",
         "get_recipe",
         "propose_recipe",
@@ -57,5 +58,41 @@ describe("MCP_TOOLS", () => {
 
   it("validates a proposed recipe", () => {
     expect(MCP_TOOLS.propose_recipe.input.safeParse({ recipe: { id: "bad" } }).success).toBe(false);
+  });
+
+  it("claims agent tasks unless told otherwise, and any browser kind when asked", () => {
+    expect(MCP_TOOLS.claim_task.input.parse({ workerId: "w" }).kinds).toEqual(["agent"]);
+    expect(
+      MCP_TOOLS.claim_task.input.parse({ workerId: "w", kinds: ["scan", "form"] }).kinds,
+    ).toEqual(["scan", "form"]);
+  });
+
+  it("hands each parse its own default list, so one caller cannot change another's", () => {
+    const first = MCP_TOOLS.claim_task.input.parse({ workerId: "w" }).kinds;
+    first.push("scan");
+    expect(MCP_TOOLS.claim_task.input.parse({ workerId: "w" }).kinds).toEqual(["agent"]);
+  });
+
+  it("lets an agent report usage and hand a task back", () => {
+    expect(
+      MCP_TOOLS.complete_task.input.safeParse({
+        workerId: "w",
+        taskId: "t",
+        result: {},
+        usage: { inputTokens: 10 },
+      }).success,
+    ).toBe(true);
+    expect(
+      MCP_TOOLS.release_task.input.safeParse({ workerId: "w", taskId: "t", retryAfterMs: 1000 })
+        .success,
+    ).toBe(true);
+    expect(MCP_TOOLS.release_task.input.safeParse({ workerId: "w" }).success).toBe(false);
+  });
+
+  it("defaults the failure kind so an agent need not know the vocabulary", () => {
+    expect(
+      MCP_TOOLS.fail_task.input.parse({ workerId: "w", taskId: "t", error: "x", retryable: false })
+        .kind,
+    ).toBe("internal");
   });
 });

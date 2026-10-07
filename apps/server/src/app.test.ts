@@ -12,13 +12,28 @@ afterEach(async () => {
 });
 
 describe("GET /api/health", () => {
-  it("reports status, version, and counts without a session", async () => {
+  it("says only that the server is up, to anyone", async () => {
     ctx.auth.deny();
     const response = await ctx.app.inject({ method: "GET", url: "/api/health" });
     expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({ ok: true, version: "test" });
+  });
+
+  it("does not reveal how many profiles or targets the instance has", async () => {
+    seedTarget(ctx, { id: "a" });
+    const body = (await ctx.app.inject({ method: "GET", url: "/api/health" })).json();
+    expect(Object.keys(body).sort()).toEqual(["ok", "version"]);
+  });
+});
+
+describe("GET /api/status", () => {
+  it("reports what the instance holds, to a signed-in caller only", async () => {
+    ctx.auth.deny();
+    expect((await ctx.inject({ url: "/api/status" })).statusCode).toBe(401);
+    ctx.auth.allow();
+    const response = await ctx.inject({ url: "/api/status" });
+    expect(response.statusCode).toBe(200);
     expect(response.json()).toEqual({
-      ok: true,
-      version: "test",
       profiles: 0,
       brokers: { available: false, total: 0 },
       targets: { brokers: 0, companies: 0 },
@@ -28,9 +43,32 @@ describe("GET /api/health", () => {
   it("counts targets that are not retired", async () => {
     seedTarget(ctx, { id: "a" });
     seedTarget(ctx, { kind: "company", id: "b" });
-    const body = (await ctx.app.inject({ method: "GET", url: "/api/health" })).json();
+    const body = (await ctx.inject({ url: "/api/status" })).json();
     expect(body.brokers).toEqual({ available: true, total: 1 });
     expect(body.targets).toEqual({ brokers: 1, companies: 1 });
+  });
+});
+
+describe("security headers", () => {
+  it("go on every response, the JSON API and a 404 alike", async () => {
+    for (const response of [
+      await ctx.app.inject({ url: "/api/health" }),
+      await ctx.inject({ url: "/api/nope" }),
+      await ctx.app.inject({ url: "/anything" }),
+    ]) {
+      expect(response.headers["x-content-type-options"]).toBe("nosniff");
+      expect(response.headers["referrer-policy"]).toBe("no-referrer");
+      expect(response.headers["x-frame-options"]).toBe("DENY");
+      const csp = String(response.headers["content-security-policy"]);
+      expect(csp).toContain("default-src 'self'");
+      expect(csp).toContain("frame-ancestors 'none'");
+    }
+  });
+
+  it("go on an error answered before any route runs", async () => {
+    const response = await ctx.app.inject({ method: "POST", url: "/api/profiles", payload: {} });
+    expect(response.statusCode).toBe(403);
+    expect(response.headers["x-content-type-options"]).toBe("nosniff");
   });
 });
 

@@ -282,6 +282,69 @@ describe("resolveProfileFields", () => {
   });
 });
 
+describe("resolveProfileFields for a past name or address", () => {
+  const context = { asOf: "2026-10-07" };
+  const withOldAddress: Identity[] = [
+    ...jordan,
+    identity({
+      id: "a-old",
+      kind: "address",
+      validTo: "2020-12-31",
+      value: { street: "9 Old Rd", city: "Dallas", state: "TX", zip: "75001" },
+    }),
+  ];
+
+  it("uses the alias a scan asks for instead of the primary name", () => {
+    expect(
+      resolveProfileFields(jordan, ["first_name", "full_name"], { ...context, nameId: "n2" }),
+    ).toEqual({ first_name: "Jo", full_name: "Jo Example" });
+  });
+
+  it("uses an address that is no longer current when asked for it by id", () => {
+    expect(
+      resolveProfileFields(withOldAddress, ["city", "zip"], { ...context, addressId: "a-old" }),
+    ).toEqual({ city: "Dallas", zip: "75001" });
+    expect(resolveProfileFields(withOldAddress, ["city"], context)).toEqual({ city: "Austin" });
+  });
+
+  it("leaves the field out when the identity asked for is not there, instead of using another", () => {
+    expect(resolveProfileFields(jordan, ["first_name"], { ...context, nameId: "gone" })).toEqual(
+      {},
+    );
+    expect(resolveProfileFields(jordan, ["city"], { ...context, addressId: "gone" })).toEqual({});
+    expect(resolveProfileFields(jordan, ["first_name"], { ...context, nameId: "e1" })).toEqual({});
+  });
+
+  it("takes an alias only for the name and never for another kind", () => {
+    expect(resolveProfileFields(jordan, ["city"], { ...context, addressId: "n2" })).toEqual({});
+  });
+});
+
+describe("the date of birth upper bound", () => {
+  const input = [
+    { kind: "name", value: { first: "A", last: "B" }, isPrimary: true },
+    { kind: "email", value: { address: "a@example.com" } },
+    { kind: "dob", value: { date: "2999-01-01" } },
+  ];
+
+  it("is left to the caller that knows today, so the schema never reads the wall clock", () => {
+    expect(IdentityInputList.safeParse(input).success).toBe(true);
+    const parsed = IdentityInputList.parse(input);
+    expect(validateIdentities(parsed, "2026-10-07").map((issue) => issue.message)).toEqual([
+      "Date of birth is not plausible",
+    ]);
+  });
+
+  it("still refuses a date before 1900 without knowing today", () => {
+    expect(
+      IdentityInputList.safeParse([
+        ...input.slice(0, 2),
+        { kind: "dob", value: { date: "1850-01-01" } },
+      ]).success,
+    ).toBe(false);
+  });
+});
+
 describe("formatFullName", () => {
   it("skips a missing middle name", () => {
     expect(formatFullName({ first: "Jordan", last: "Example" })).toBe("Jordan Example");

@@ -70,6 +70,7 @@ describe("URL fields that are rendered or opened", () => {
       confidence: 0,
       rationale: null,
       links: ["https://example.com/confirm"],
+      requestedFields: [],
       snippet: null,
       reviewed: false,
     };

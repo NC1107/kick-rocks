@@ -4,6 +4,7 @@ import {
   type BrowserTaskKind,
   buildRoutePath,
   type ClaimedTask,
+  type FailureKind,
   type RouteBodyInput,
   type RouteDef,
   type RouteResponse,
@@ -11,6 +12,7 @@ import {
   type TaskFailureReport,
   type TaskHeartbeatResponse,
   type TaskSummary,
+  type TaskUsage,
   type WorkerHeartbeatBody,
   type WorkerHeartbeatResponse,
 } from "@kickrocks/shared";
@@ -57,6 +59,7 @@ export class WorkerApiClient {
     });
   }
 
+  /** Without `kinds` the server gives a worker the kinds a recipe can run, and never `agent`. */
   async claim(kinds?: readonly BrowserTaskKind[], leaseMs?: number): Promise<ClaimedTask | null> {
     const response = await this.call(API_ROUTES.workerClaim, {
       body: {
@@ -75,10 +78,22 @@ export class WorkerApiClient {
     });
   }
 
-  async complete(taskId: string, result: unknown): Promise<TaskSummary> {
+  async complete(taskId: string, result: unknown, usage?: TaskUsage): Promise<TaskSummary> {
     const response = await this.call(API_ROUTES.workerTaskComplete, {
       params: { id: taskId },
-      body: { workerId: this.options.workerId, result },
+      body: { workerId: this.options.workerId, result, ...(usage ? { usage } : {}) },
+    });
+    return response.task;
+  }
+
+  /** Hands a task back unfinished, such as at shutdown, without costing it an attempt. */
+  async release(taskId: string, retryAfterMs?: number): Promise<TaskSummary> {
+    const response = await this.call(API_ROUTES.workerTaskRelease, {
+      params: { id: taskId },
+      body: {
+        workerId: this.options.workerId,
+        ...(retryAfterMs === undefined ? {} : { retryAfterMs }),
+      },
     });
     return response.task;
   }
@@ -91,7 +106,11 @@ export class WorkerApiClient {
     return response.task;
   }
 
-  async fail(taskId: string, report: TaskFailureReport): Promise<TaskSummary> {
+  /** A `recipe` failure is never retried by the server, whatever `retryable` says. */
+  async fail(
+    taskId: string,
+    report: Omit<TaskFailureReport, "kind"> & { kind?: FailureKind },
+  ): Promise<TaskSummary> {
     const response = await this.call(API_ROUTES.workerTaskFail, {
       params: { id: taskId },
       body: { workerId: this.options.workerId, ...report },

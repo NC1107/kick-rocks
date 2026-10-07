@@ -6,10 +6,11 @@ import { Dashboard } from "./dashboard.js";
 import { Jurisdiction } from "./legal.js";
 import {
   Mailbox,
-  MailboxConnection,
   MailboxInput,
+  MailboxTestBody,
   MailboxTestResult,
   MailFolder,
+  MessageDetail,
   MessageSummary,
   ProviderPreset,
 } from "./mail.js";
@@ -27,18 +28,25 @@ import {
   RequestDetail,
   RequestListItem,
   RequestStatus,
+  VerificationReplyBody,
 } from "./requests.js";
 import { MatchDecisionBody, MessageClassificationBody, ReviewQueue } from "./review.js";
 import { Match, ScanStartBody, ScanStartResult, ScanSummary } from "./scans.js";
 import { DataSourceInfo, SettingsPatch, SettingsView } from "./settings.js";
-import { CompanyCategory, TargetDetail, TargetKind, TargetSummary } from "./targets.js";
-import { SCREENSHOT_BODY_LIMIT_BYTES, SCREENSHOT_MIME_TYPES, TaskSummary } from "./tasks.js";
+import { CompanyCategory, TargetDetail, TargetKind, TargetListItem } from "./targets.js";
+import {
+  SCREENSHOT_BODY_LIMIT_BYTES,
+  SCREENSHOT_MIME_TYPES,
+  TaskMarkDoneBody,
+  TaskSummary,
+} from "./tasks.js";
 import {
   TaskBlockBody,
   TaskCompleteBody,
   TaskFailBody,
   TaskHeartbeatBody,
   TaskHeartbeatResponse,
+  TaskReleaseBody,
   TaskTransitionResponse,
   WorkerClaimBody,
   WorkerClaimResponse,
@@ -58,11 +66,27 @@ export const API_ERROR_CODES = [
   "internal_error",
 ] as const;
 
+/**
+ * One validation problem. `path` starts with where the value was read from, `body`, `query`, or
+ * `params`, followed by the path inside it, such as `["body", "identities", 0, "value", "address"]`.
+ * The server and the mock API both build it with {@link toApiIssues}, and the web client's
+ * `fieldErrors` drops a leading `body` so a form can key errors by its own field names.
+ */
 export const ApiIssue = z.object({
   path: z.array(z.union([z.string(), z.number()])),
   message: z.string(),
 });
 export type ApiIssue = z.infer<typeof ApiIssue>;
+
+export type IssueLocation = "body" | "query" | "params";
+
+/** The one way a schema failure becomes the issues of an error response. */
+export function toApiIssues(error: z.ZodError, location: IssueLocation): ApiIssue[] {
+  return error.issues.map((issue) => ({
+    path: [location, ...issue.path.filter((p): p is string | number => typeof p !== "symbol")],
+    message: issue.message,
+  }));
+}
 
 /** The body of every non-2xx response under /api. */
 export const ApiError = z.object({
@@ -158,9 +182,17 @@ export type RouteResponse<R extends RouteDef> = Output<R["response"]>;
 export type RouteQueryInput<R extends RouteDef> = Input<R["query"]>;
 export type RouteBodyInput<R extends RouteDef> = Input<R["body"]>;
 
-/** Whether a route must carry the {@link CSRF_HEADER} header, which a cross-site form cannot send. */
-export function requiresCsrfHeader(route: Pick<RouteDef, "method" | "auth">): boolean {
-  return route.method !== "GET" && route.auth !== "worker";
+const SAFE_METHODS: ReadonlySet<string> = new Set(["GET", "HEAD", "OPTIONS"]);
+
+/**
+ * Whether a request must carry the {@link CSRF_HEADER} header, which a cross-site form cannot
+ * send. Every method that changes state needs it, the auth routes included; a worker call
+ * authenticates with a bearer token a browser never attaches by itself, so it does not.
+ */
+export function requiresCsrfHeader(route: { method: string; auth: RouteAuth | "mcp" }): boolean {
+  return (
+    !SAFE_METHODS.has(route.method.toUpperCase()) && route.auth !== "worker" && route.auth !== "mcp"
+  );
 }
 
 /** Fills `:name` parameters, encoding each value. Throws when one is missing. */
@@ -211,14 +243,21 @@ export const ReviewQuery = z.object({ profileId: z.string().min(1).optional() })
 export const RecipesQuery = z.object({ status: RecipeStatus.optional() });
 
 export const API_ROUTES = {
+  /** Open to anyone, so it says only that the server is up. */
   health: defineRoute({
     method: "GET",
     path: "/health",
     module: "core",
     auth: "none",
+    response: z.object({ ok: z.literal(true), version: z.string() }),
+  }),
+  /** What the instance holds, behind the session because it reveals who uses it. */
+  status: defineRoute({
+    method: "GET",
+    path: "/status",
+    module: "core",
+    auth: "session",
     response: z.object({
-      ok: z.literal(true),
-      version: z.string(),
       profiles: Count,
       brokers: z.object({
         available: z.boolean(),
@@ -332,7 +371,7 @@ export const API_ROUTES = {
     module: "mailbox",
     auth: "session",
     params: IdParam,
-    body: MailboxConnection,
+    body: MailboxTestBody,
     response: MailboxTestResult,
   }),
   mailboxSave: defineRoute({
@@ -375,7 +414,7 @@ export const API_ROUTES = {
     module: "targets",
     auth: "session",
     query: TargetsQuery,
-    response: pageOf(TargetSummary),
+    response: pageOf(TargetListItem),
   }),
   targetsFacets: defineRoute({
     method: "GET",
@@ -440,6 +479,16 @@ export const API_ROUTES = {
     response: RequestDetail,
   }),
 
+  requestsVerification: defineRoute({
+    method: "POST",
+    path: "/requests/:id/verification",
+    module: "requests",
+    auth: "session",
+    params: IdParam,
+    body: VerificationReplyBody,
+    response: RequestDetail,
+  }),
+
   dashboardGet: defineRoute({
     method: "GET",
     path: "/profiles/:id/dashboard",
@@ -499,7 +548,26 @@ export const API_ROUTES = {
     module: "review",
     auth: "session",
     params: IdParam,
+    body: TaskMarkDoneBody,
     response: z.object({ task: TaskSummary }),
+  }),
+  /** Takes a blocked scan, form, or agent task away from the built-in worker and gives it to an agent. */
+  taskHandOff: defineRoute({
+    method: "POST",
+    path: "/tasks/:id/hand-off",
+    module: "review",
+    auth: "session",
+    params: IdParam,
+    response: z.object({ task: TaskSummary }),
+  }),
+  /** Dispatches the request of a task that failed for good again, which the queue never does itself. */
+  taskRetry: defineRoute({
+    method: "POST",
+    path: "/tasks/:id/retry",
+    module: "review",
+    auth: "session",
+    params: IdParam,
+    response: z.object({ task: TaskSummary.nullable() }),
   }),
   taskScreenshot: defineRoute({
     method: "GET",
@@ -517,6 +585,14 @@ export const API_ROUTES = {
     params: IdParam,
     body: MatchDecisionBody,
     response: Match,
+  }),
+  messageGet: defineRoute({
+    method: "GET",
+    path: "/messages/:id",
+    module: "review",
+    auth: "session",
+    params: IdParam,
+    response: MessageDetail,
   }),
   messageClassify: defineRoute({
     method: "POST",
@@ -633,6 +709,15 @@ export const API_ROUTES = {
     bodyLimit: SCREENSHOT_BODY_LIMIT_BYTES,
     params: IdParam,
     body: TaskBlockBody,
+    response: TaskTransitionResponse,
+  }),
+  workerTaskRelease: defineRoute({
+    method: "POST",
+    path: "/worker/tasks/:id/release",
+    module: "worker-api",
+    auth: "worker",
+    params: IdParam,
+    body: TaskReleaseBody,
     response: TaskTransitionResponse,
   }),
   workerTaskFail: defineRoute({

@@ -5,9 +5,11 @@ export type AuthResult =
   | { ok: false; status: 401 | 403; error: string; message?: string };
 
 /**
- * Decides whether a request to the cookie-authenticated API may proceed. The guard calls it for
- * every /api route except /api/health, /api/auth/*, and /api/worker/*. A 403 is for a request that
- * is signed in but missing the CSRF header; a 401 is for a missing or expired session.
+ * Decides whether a request to the cookie-authenticated API has a valid session. The guard calls
+ * it for every route whose entry in the shared route table says `session`, `/api/auth/password`
+ * included, and for any /api path no route declares. It does not check the CSRF header: the guard
+ * does that for every state-changing route, so no module has to remember to. Answer 401 for a
+ * missing or expired session.
  */
 export interface AuthService {
   authenticate(request: FastifyRequest): AuthResult | Promise<AuthResult>;

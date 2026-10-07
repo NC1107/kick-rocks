@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { z } from "zod";
 import {
   API_ROUTES,
   ApiError,
@@ -9,6 +10,7 @@ import {
   requiresCsrfHeader,
   routesOfModule,
   TargetsQuery,
+  toApiIssues,
 } from "./api.js";
 import { CampaignBody } from "./campaigns.js";
 import { ScanStartBody } from "./scans.js";
@@ -16,6 +18,7 @@ import { ScanStartBody } from "./scans.js";
 /** Every route listed in BUILD-PLAN section 4.4, plus the existing health check. */
 const PLANNED = [
   "GET /health",
+  "GET /status",
   "GET /auth/state",
   "POST /auth/setup",
   "POST /auth/login",
@@ -41,6 +44,7 @@ const PLANNED = [
   "GET /profiles/:id/requests",
   "GET /requests/:id",
   "POST /requests/:id/actions",
+  "POST /requests/:id/verification",
   "GET /profiles/:id/dashboard",
   "POST /profiles/:id/scans",
   "GET /profiles/:id/scans",
@@ -48,8 +52,11 @@ const PLANNED = [
   "POST /tasks/:id/resume",
   "POST /tasks/:id/cancel",
   "POST /tasks/:id/mark-done",
+  "POST /tasks/:id/hand-off",
+  "POST /tasks/:id/retry",
   "GET /tasks/:id/screenshot",
   "POST /matches/:id/decision",
+  "GET /messages/:id",
   "POST /messages/:id/classification",
   "GET /recipes",
   "POST /recipes/:id/approve",
@@ -63,6 +70,7 @@ const PLANNED = [
   "POST /worker/claim",
   "POST /worker/tasks/:id/heartbeat",
   "POST /worker/tasks/:id/complete",
+  "POST /worker/tasks/:id/release",
   "POST /worker/tasks/:id/block",
   "POST /worker/tasks/:id/fail",
 ];
@@ -120,7 +128,7 @@ describe("API_ROUTES", () => {
         "worker-api",
       ]),
     );
-    expect(routesOfModule("worker-api")).toHaveLength(6);
+    expect(routesOfModule("worker-api")).toHaveLength(7);
   });
 
   it("lets the server mount routes in any order without shadowing", () => {
@@ -145,6 +153,60 @@ describe("requiresCsrfHeader", () => {
     expect(requiresCsrfHeader(API_ROUTES.settingsPatch)).toBe(true);
     expect(requiresCsrfHeader(API_ROUTES.profilesGet)).toBe(false);
     expect(requiresCsrfHeader(API_ROUTES.workerClaim)).toBe(false);
+  });
+
+  it("applies to the auth routes too, which no cookie protects before sign in", () => {
+    expect(requiresCsrfHeader(API_ROUTES.authLogin)).toBe(true);
+    expect(requiresCsrfHeader(API_ROUTES.authSetup)).toBe(true);
+    expect(requiresCsrfHeader(API_ROUTES.authLogout)).toBe(true);
+    expect(requiresCsrfHeader(API_ROUTES.authState)).toBe(false);
+  });
+
+  it("treats a method by what it does, whatever the case", () => {
+    expect(requiresCsrfHeader({ method: "head", auth: "session" })).toBe(false);
+    expect(requiresCsrfHeader({ method: "OPTIONS", auth: "session" })).toBe(false);
+    expect(requiresCsrfHeader({ method: "post", auth: "session" })).toBe(true);
+    expect(requiresCsrfHeader({ method: "POST", auth: "mcp" })).toBe(false);
+  });
+});
+
+describe("routes that take a task or a message", () => {
+  it("lets a person finish a blocked task with a result", () => {
+    expect(API_ROUTES.taskMarkDone.body.safeParse({}).success).toBe(true);
+    expect(
+      API_ROUTES.taskMarkDone.body.safeParse({ result: { outcome: "not_found" }, note: "n" })
+        .success,
+    ).toBe(true);
+  });
+
+  it("asks for the message and the approved fields to answer a broker", () => {
+    expect(
+      API_ROUTES.requestsVerification.body.safeParse({ messageId: "m", fields: ["date_of_birth"] })
+        .success,
+    ).toBe(true);
+    expect(
+      API_ROUTES.requestsVerification.body.safeParse({ messageId: "m", fields: [] }).success,
+    ).toBe(false);
+    expect(API_ROUTES.requestsVerification.body.safeParse({ fields: ["street"] }).success).toBe(
+      false,
+    );
+  });
+
+  it("tests a saved mailbox without the password", () => {
+    const connection = {
+      provider: "other",
+      address: "a@example.com",
+      username: "a@example.com",
+      smtpHost: "smtp.example.test",
+      smtpPort: 587,
+      smtpSecure: false,
+      imapHost: "imap.example.test",
+      imapPort: 993,
+    };
+    expect(API_ROUTES.mailboxTest.body.safeParse(connection).success).toBe(true);
+    expect(API_ROUTES.mailboxTest.body.safeParse({ ...connection, password: "x" }).success).toBe(
+      true,
+    );
   });
 });
 
@@ -237,6 +299,40 @@ describe("campaign and scan selections", () => {
     expect(ScanStartBody.safeParse({ preset: "people_search" }).success).toBe(true);
     expect(ScanStartBody.safeParse({ preset: "companies" }).success).toBe(false);
     expect(ScanStartBody.safeParse({ targetIds: ["spokeo"] }).success).toBe(true);
+  });
+});
+
+describe("toApiIssues", () => {
+  it("starts every path with where the value was read from", () => {
+    const parsed = CampaignBody.safeParse({ selection: { targetIds: [] }, rights: [] });
+    if (parsed.success) throw new Error("expected a failure");
+    const issues = toApiIssues(parsed.error, "body");
+    expect(issues.length).toBeGreaterThan(0);
+    expect(issues.every((issue) => issue.path[0] === "body")).toBe(true);
+    expect(issues.map((issue) => issue.path.join("."))).toContain("body.rights");
+    expect(toApiIssues(parsed.error, "query")[0]?.path[0]).toBe("query");
+  });
+
+  it("keeps array indexes as numbers", () => {
+    const parsed = z.object({ ids: z.array(z.string()) }).safeParse({ ids: ["a", 3] });
+    if (parsed.success) throw new Error("expected a failure");
+    expect(toApiIssues(parsed.error, "body")[0]?.path).toEqual(["body", "ids", 1]);
+  });
+});
+
+describe("the health and status routes", () => {
+  it("tell an anonymous caller only that the server is up", () => {
+    expect(API_ROUTES.health.auth).toBe("none");
+    expect(Object.keys(API_ROUTES.health.response.shape).sort()).toEqual(["ok", "version"]);
+  });
+
+  it("keep the counts behind the session", () => {
+    expect(API_ROUTES.status.auth).toBe("session");
+    expect(Object.keys(API_ROUTES.status.response.shape).sort()).toEqual([
+      "brokers",
+      "profiles",
+      "targets",
+    ]);
   });
 });
 

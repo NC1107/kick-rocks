@@ -454,7 +454,8 @@ describe("review", () => {
       (await call({ method: "POST", path: `/tasks/${first?.id}/resume` })).json.task.status,
     ).toBe("queued");
     expect(
-      (await call({ method: "POST", path: `/tasks/${second?.id}/mark-done` })).json.task.status,
+      (await call({ method: "POST", path: `/tasks/${second?.id}/mark-done`, body: {} })).json.task
+        .status,
     ).toBe("done");
     expect(
       (await call({ method: "POST", path: `/tasks/${third?.id}/cancel` })).json.task.status,

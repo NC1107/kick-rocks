@@ -11,13 +11,18 @@ import type { BrokerDataset, CompanyDataset } from "@kickrocks/shared";
 import type { Config } from "./config.js";
 import type { AuthService } from "./core/auth.js";
 import { type Clock, systemClock } from "./core/clock.js";
+import { type Composer, createComposer } from "./core/composer.js";
 import { createDispatch, type Dispatch } from "./core/dispatch.js";
 import { createLogger, type Logger } from "./core/logger.js";
+import { createMailQuota, type MailQuota } from "./core/mail-quota.js";
 import { createRecipeHealth, type RecipeHealthService } from "./core/recipe-health.js";
-import { createRequestsService, type RequestsService } from "./core/requests.js";
+import { createRequestFlow, type Requests } from "./core/request-flow.js";
+import { createRequestsService } from "./core/requests.js";
 import { createSecrets, type Secrets } from "./core/secrets.js";
 import { createSettingsStore, type SettingsStore } from "./core/settings.js";
+import { createStartup, type Startup } from "./core/startup.js";
 import { createTargetsService, type TargetSources, type TargetsService } from "./core/targets.js";
+import { registerTaskAudit } from "./core/task-audit.js";
 import { createTaskHandlers, type TaskHandlers } from "./core/task-handlers.js";
 import { createTaskQueue, type TaskQueue } from "./core/task-queue.js";
 import { registerHandlers } from "./handlers/index.js";
@@ -38,10 +43,17 @@ export interface AppServices {
   settings: SettingsStore;
   taskQueue: TaskQueue;
   taskHandlers: TaskHandlers;
-  requests: RequestsService;
+  /** Requests and their events, plus `open` and `requeue`, the two ways a request goes out. */
+  requests: Requests;
   recipeHealth: RecipeHealthService;
   targets: TargetsService;
   dispatch: Dispatch;
+  /** How a request becomes an email, shared by the campaign preview and the email runner. */
+  composer: Composer;
+  /** What each mailbox has sent, shared by the daily cap, the pacing, and the dashboard. */
+  mailQuota: MailQuota;
+  /** Steps that run once after the targets are synced, in `buildApp`. */
+  startup: Startup;
   secrets: Secrets;
   mail: MailServices;
   legal: LegalApi;
@@ -98,9 +110,9 @@ export function createServices(
   const logger = overrides.logger ?? createLogger(config);
   const settings = createSettingsStore(db, clock);
   const secrets = createSecrets(config, settings);
-  const taskHandlers = createTaskHandlers(logger);
+  const taskHandlers = createTaskHandlers();
   const taskQueue = createTaskQueue({ db, clock, handlers: taskHandlers });
-  const requests = createRequestsService({ db, clock });
+  const requestStore = createRequestsService({ db, clock, taskQueue });
   const targets = createTargetsService({
     db,
     clock,
@@ -108,7 +120,19 @@ export function createServices(
     sources: overrides.targetSources ?? datasetSources(),
     extraTargetsPath: config.extraTargetsPath,
   });
-  const dispatch = createDispatch({ db, clock, taskQueue, requests, targets });
+  const dispatch = createDispatch({ db, clock, taskQueue, requests: requestStore, targets });
+  const legal: LegalApi = overrides.legal ?? {
+    resolveLegalBasis: legalExports.resolveLegalBasis,
+    getLegalBasis: legalExports.getLegalBasis,
+    listJurisdictions: legalExports.listJurisdictions,
+    identifiersFor: legalExports.identifiersFor,
+    renderRequestEmail: legalExports.renderRequestEmail,
+  };
+  const requests: Requests = {
+    ...requestStore,
+    ...createRequestFlow({ db, clock, legal, requests: requestStore, targets, dispatch }),
+  };
+  registerTaskAudit(taskHandlers, requests);
 
   const services: AppServices = {
     config,
@@ -122,14 +146,12 @@ export function createServices(
     recipeHealth: createRecipeHealth(db, clock),
     targets,
     dispatch,
+    composer: createComposer({ db, clock, legal, targets }),
+    mailQuota: createMailQuota(db, clock),
+    startup: createStartup(),
     secrets,
     mail: overrides.mail ?? createMailServices(config, settings),
-    legal: overrides.legal ?? {
-      resolveLegalBasis: legalExports.resolveLegalBasis,
-      listJurisdictions: legalExports.listJurisdictions,
-      identifiersFor: legalExports.identifiersFor,
-      renderRequestEmail: legalExports.renderRequestEmail,
-    },
+    legal,
     auth: overrides.auth ?? createAuthService({ config, db, clock, logger, settings, secrets }),
   };
 

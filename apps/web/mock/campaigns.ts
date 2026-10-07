@@ -6,10 +6,12 @@ import {
   isActiveStatus,
   type RenderedEmail,
   type RequestRight,
+  type Requirement,
+  type SkipReason,
   type TargetDetail,
   type TargetOutcome,
 } from "@kickrocks/shared";
-import { defineMockDomain, handle, MockHttpError, notFound } from "./core.js";
+import { defineMockDomain, handle, notFound } from "./core.js";
 import { buildRequest } from "./requests.js";
 import { createScan } from "./review.js";
 import type { MockStore } from "./store.js";
@@ -40,26 +42,61 @@ function targetsFor(store: MockStore, selection: CampaignSelection): TargetDetai
   }
 }
 
+/** Channels a person has to use by post, fax, phone, or card, which Kick Rocks does not drive. */
+const MANUAL_ONLY: readonly Requirement[] = ["postal_mail", "fax", "phone_call", "paid"];
+
 function outcomeFor(store: MockStore, profileId: string, target: TargetDetail): TargetOutcome {
-  const base = { targetId: target.id, targetName: target.name, requestId: null, scanId: null };
-  const active = store.requests.some(
-    (request) =>
-      request.profileId === profileId &&
-      request.targetId === target.id &&
-      isActiveStatus(request.status),
+  const base = {
+    targetId: target.id,
+    targetName: target.name,
+    requestId: null,
+    scanId: null,
+    detail: null,
+  };
+  const skipped = (reason: SkipReason, detail: string | null = null): TargetOutcome => ({
+    ...base,
+    outcome: "skipped",
+    reason,
+    detail,
+  });
+  const profile = store.profiles.find((candidate) => candidate.id === profileId);
+  const own = store.requests.filter(
+    (request) => request.profileId === profileId && request.targetId === target.id,
   );
-  if (active) return { ...base, outcome: "skipped", reason: "already_active" };
+  if (own.some((request) => isActiveStatus(request.status))) return skipped("already_active");
+  if (own.some((request) => request.status === "confirmed")) {
+    return skipped(
+      "already_confirmed",
+      "It confirmed a removal. Nothing is sent again unless a re-scan finds you listed again.",
+    );
+  }
+  if (profile?.state === "CA" && target.category === "registered-broker") {
+    return skipped(
+      "covered_by_platform",
+      "California's DROP platform handles registered brokers for California residents.",
+    );
+  }
+  const emailCapable = target.contactMethod === "email" || target.contactMethod === "both";
+  const manual = target.requirements.filter((requirement) => MANUAL_ONLY.includes(requirement));
+  if (!emailCapable && manual.length > 0) {
+    return skipped(
+      "unsupported_channel",
+      `It only takes requests by ${manual.map((r) => r.replace("_", " ")).join(" or ")}.`,
+    );
+  }
   if (target.needsRecord) {
     const scanning = store.scans.some(
       (scan) =>
         scan.profileId === profileId && scan.targetId === target.id && scan.finishedAt === null,
     );
     return scanning
-      ? { ...base, outcome: "skipped", reason: "scan_in_progress" }
+      ? skipped("scan_in_progress")
       : { ...base, outcome: "scan_started", reason: null };
   }
-  if (target.contactMethod === "unknown")
-    return { ...base, outcome: "skipped", reason: "no_contact_method" };
+  if (target.contactMethod === "unknown") return skipped("no_contact_method");
+  if (emailCapable && !profile?.mailbox) {
+    return skipped("no_mailbox", "This profile has no mailbox connected to send from.");
+  }
   return { ...base, outcome: "request_created", reason: null };
 }
 
@@ -107,16 +144,6 @@ export default defineMockDomain({
       if (!profile) throw notFound("That profile");
       return profile;
     };
-    const needMailbox = (profileId: string, hasEmail: boolean) => {
-      if (hasEmail && !profileOf(profileId).mailbox) {
-        throw new MockHttpError(
-          409,
-          "conflict",
-          "Connect a mailbox before sending email requests.",
-        );
-      }
-    };
-
     return [
       handle(API_ROUTES.campaignsPreview, ({ params, body }): CampaignPreview => {
         const profile = profileOf(params.id);
@@ -139,10 +166,6 @@ export default defineMockDomain({
         const profile = profileOf(params.id);
         const targets = targetsFor(store, body.selection);
         const planned = targets.map((target) => outcomeFor(store, profile.id, target));
-        needMailbox(
-          profile.id,
-          planned.some((item) => item.outcome === "request_created"),
-        );
 
         const campaignId = store.nextId("cmp");
         const items = planned.map((item): TargetOutcome => {

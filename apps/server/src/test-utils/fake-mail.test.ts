@@ -59,6 +59,9 @@ describe("fake transport", () => {
   });
 });
 
+/** Every message, however old: what a test that is not about paging wants. */
+const ALL = { since: null, limit: 1000 };
+
 describe("fake inbox", () => {
   it("serves delivered messages with defaults filled in", async () => {
     const { fake, clock } = setup();
@@ -74,8 +77,14 @@ describe("fake inbox", () => {
       autoSubmitted: false,
       date: clock.now(),
     });
-    const result = await fake.services.inbox(connection).fetchSince("INBOX", null, null);
-    expect(result).toEqual({ uidValidity: 1, reset: false, messages: [delivered] });
+    const result = await fake.services.inbox(connection).fetchSince("INBOX", null, null, ALL);
+    expect(result).toEqual({
+      uidValidity: 1,
+      reset: false,
+      messages: [delivered],
+      hasMore: false,
+      highestUid: 1,
+    });
   });
 
   it("numbers messages per folder and returns only those after a uid", async () => {
@@ -85,18 +94,61 @@ describe("fake inbox", () => {
     const second = box.deliver();
     box.deliver({ folder: "Junk" });
     const inbox = fake.services.inbox(connection);
-    expect((await inbox.fetchSince("INBOX", null, 1)).messages.map((m) => m.uid)).toEqual([1, 2]);
-    expect((await inbox.fetchSince("INBOX", first.uid, 1)).messages).toEqual([second]);
-    expect((await inbox.fetchSince("INBOX", second.uid, 1)).messages).toEqual([]);
-    expect((await inbox.fetchSince("Junk", null, 1)).messages.map((m) => m.uid)).toEqual([1]);
-    expect((await inbox.fetchSince("Missing", null, 1)).messages).toEqual([]);
+    expect((await inbox.fetchSince("INBOX", null, 1, ALL)).messages.map((m) => m.uid)).toEqual([
+      1, 2,
+    ]);
+    expect((await inbox.fetchSince("INBOX", first.uid, 1, ALL)).messages).toEqual([second]);
+    expect((await inbox.fetchSince("INBOX", second.uid, 1, ALL)).messages).toEqual([]);
+    expect((await inbox.fetchSince("Junk", null, 1, ALL)).messages.map((m) => m.uid)).toEqual([1]);
+    expect((await inbox.fetchSince("Missing", null, 1, ALL)).messages).toEqual([]);
+  });
+
+  it("returns the oldest messages first, up to the limit, and says when more wait", async () => {
+    const { fake } = setup();
+    const box = fake.mailbox(connection.address);
+    for (let i = 0; i < 5; i++) box.deliver();
+    const inbox = fake.services.inbox(connection);
+    const page = await inbox.fetchSince("INBOX", null, 1, { since: null, limit: 2 });
+    expect(page.messages.map((m) => m.uid)).toEqual([1, 2]);
+    expect(page).toMatchObject({ hasMore: true, highestUid: 5 });
+    const last = await inbox.fetchSince("INBOX", 4, 1, { since: null, limit: 2 });
+    expect(last.messages.map((m) => m.uid)).toEqual([5]);
+    expect(last.hasMore).toBe(false);
+  });
+
+  it("skips mail older than the since date but still reports the highest uid", async () => {
+    const { fake, clock } = setup();
+    const box = fake.mailbox(connection.address);
+    box.deliver({ date: new Date(clock.now().getTime() - 400 * 24 * 60 * 60 * 1000) });
+    box.deliver({ date: new Date(clock.now().getTime() - 3 * 24 * 60 * 60 * 1000) });
+    const since = new Date(clock.now().getTime() - 7 * 24 * 60 * 60 * 1000);
+    const result = await fake.services
+      .inbox(connection)
+      .fetchSince("INBOX", null, null, { since, limit: 100 });
+    expect(result.messages.map((m) => m.uid)).toEqual([2]);
+    expect(result.highestUid).toBe(2);
+    const old = await fake.services.inbox(connection).fetchSince("INBOX", null, null, {
+      since: new Date(clock.now().getTime() + 1000),
+      limit: 100,
+    });
+    expect(old.messages).toEqual([]);
+    expect(old.highestUid).toBe(2);
+  });
+
+  it("reports no highest uid for an empty folder", async () => {
+    const { fake } = setup();
+    expect(
+      (await fake.services.inbox(connection).fetchSince("INBOX", null, null, ALL)).highestUid,
+    ).toBeNull();
   });
 
   it("keeps mailboxes apart by address", async () => {
     const { fake } = setup();
     fake.mailbox("a@example.com").deliver();
     const other = { ...connection, address: "b@example.com" };
-    expect((await fake.services.inbox(other).fetchSince("INBOX", null, null)).messages).toEqual([]);
+    expect(
+      (await fake.services.inbox(other).fetchSince("INBOX", null, null, ALL)).messages,
+    ).toEqual([]);
   });
 
   it("reports a UIDVALIDITY change as a reset and returns everything", async () => {
@@ -107,7 +159,7 @@ describe("fake inbox", () => {
     const inbox = fake.services.inbox(connection);
     box.resetUidValidity(9);
     box.deliver();
-    const result = await inbox.fetchSince("INBOX", 2, 1);
+    const result = await inbox.fetchSince("INBOX", 2, 1, ALL);
     expect(result).toMatchObject({ uidValidity: 9, reset: true });
     expect(result.messages.map((m) => m.uid)).toEqual([1]);
   });
@@ -190,9 +242,12 @@ describe("programmable classifier", () => {
       reference: "KR-ZZZZZZ",
       outgoingMessageId: null,
       status: "awaiting_reply" as const,
+      channel: "email" as const,
       targetId: "t",
       targetName: "T",
       targetDomain: "t.test",
+      recordUrl: null,
+      awaitingConfirmation: null,
     };
     expect((await fake.classifier.classify(message("x"), { requests: [request] })).requestId).toBe(
       "r9",

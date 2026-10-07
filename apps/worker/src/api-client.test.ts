@@ -66,6 +66,12 @@ const summary: TaskSummary = {
   requestId: "r1",
   blockedReason: null,
   blockedDetail: null,
+  blockedUrl: null,
+  failureKind: null,
+  failureStep: null,
+  finishedBy: "worker-1",
+  claimerKind: "builtin",
+  usage: null,
   attempts: 1,
   maxAttempts: 3,
   lastError: null,
@@ -111,11 +117,14 @@ describe("WorkerApiClient", () => {
         category: "people-search",
         domain: "spokeo.com",
         website: null,
+        optOutUrl: null,
+        searchUrl: null,
         contactMethod: "form",
         requiresId: false,
         requirements: [],
         priority: "normal",
         needsRecord: false,
+        retired: false,
       },
       recipe: null,
       fields: {},
@@ -160,6 +169,29 @@ describe("WorkerApiClient", () => {
       error: "selector missing",
       retryable: true,
     });
+  });
+
+  it("reports what a run cost and what broke, and hands a task back", async () => {
+    reply.body = { task: summary };
+    await client().complete("t1", { outcome: "submitted" }, { durationMs: 1200 });
+    await client().fail("t1", {
+      error: "expect_text did not hold",
+      retryable: false,
+      kind: "recipe",
+      step: 4,
+    });
+    await client().release("t1", 60_000);
+    await client().release("t1");
+    expect(seen.map((s) => s.url)).toEqual([
+      "/api/worker/tasks/t1/complete",
+      "/api/worker/tasks/t1/fail",
+      "/api/worker/tasks/t1/release",
+      "/api/worker/tasks/t1/release",
+    ]);
+    expect(seen[0]?.body).toMatchObject({ usage: { durationMs: 1200 } });
+    expect(seen[1]?.body).toMatchObject({ kind: "recipe", step: 4, retryable: false });
+    expect(seen[2]?.body).toEqual({ workerId: "worker-1", retryAfterMs: 60_000 });
+    expect(seen[3]?.body).toEqual({ workerId: "worker-1" });
   });
 
   it("turns an error body into a typed error", async () => {

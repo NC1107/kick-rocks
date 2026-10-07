@@ -77,7 +77,7 @@ function addTask(
       id,
       kind: "email_send",
       status,
-      payload: { requestId: "r1", followUp: false },
+      payload: { requestId: "r1", kind: "initial", fields: [], inReplyTo: null },
       maxAttempts: 3,
       dedupeKey,
       createdAt: NOW,
@@ -204,7 +204,7 @@ describe("constraints", () => {
         requestId: "r1",
         type: "created",
         actor: "system",
-        payload: null,
+        payload: { channel: "email", rights: ["opt_out"], reference: "KR-AAAAAA" },
         createdAt: NOW,
       })
       .run();
@@ -360,5 +360,196 @@ describe("json columns", () => {
       .run();
     const [row] = opened.db.select().from(schema.taskArtifacts).all();
     expect(Buffer.compare(row?.data ?? Buffer.alloc(0), bytes)).toBe(0);
+  });
+});
+
+describe("columns that record what happened to a request and a task", () => {
+  function addMailbox(id = "m1") {
+    opened.db
+      .insert(schema.mailboxes)
+      .values({
+        id,
+        profileId: "p1",
+        provider: "other",
+        address: "a@example.com",
+        username: "a@example.com",
+        secret: "s",
+        smtpHost: "h",
+        smtpPort: 587,
+        smtpSecure: false,
+        imapHost: "h",
+        imapPort: 993,
+        dailyCap: 30,
+        createdAt: NOW,
+      })
+      .run();
+  }
+
+  it("keeps a task's failure kind, who finished it, what it cost, and where it got stuck", () => {
+    addProfile();
+    opened.db
+      .insert(schema.tasks)
+      .values({
+        id: "k1",
+        kind: "form",
+        status: "failed",
+        payload: {},
+        maxAttempts: 3,
+        blockedUrl: "https://x.test/optout",
+        failureKind: "recipe",
+        failureStep: 4,
+        finishedBy: "home-worker",
+        claimerKind: "builtin",
+        usage: { inputTokens: 10, durationMs: 900 },
+        createdAt: NOW,
+        updatedAt: NOW,
+      })
+      .run();
+    expect(opened.db.select().from(schema.tasks).get()).toMatchObject({
+      blockedUrl: "https://x.test/optout",
+      failureKind: "recipe",
+      failureStep: 4,
+      finishedBy: "home-worker",
+      claimerKind: "builtin",
+      usage: { inputTokens: 10, durationMs: 900 },
+    });
+  });
+
+  it("starts a task with none of that filled in", () => {
+    addProfile();
+    opened.db
+      .insert(schema.tasks)
+      .values({
+        id: "k1",
+        kind: "form",
+        payload: {},
+        maxAttempts: 3,
+        createdAt: NOW,
+        updatedAt: NOW,
+      })
+      .run();
+    expect(opened.db.select().from(schema.tasks).get()).toMatchObject({
+      blockedUrl: null,
+      failureKind: null,
+      failureStep: null,
+      finishedBy: null,
+      claimerKind: null,
+      usage: null,
+    });
+  });
+
+  it("gives a message an empty list of requested fields and no text until it has some", () => {
+    addProfile();
+    addMailbox();
+    opened.db.$client
+      .prepare(
+        "insert into messages (id, mailbox_id, imap_uid, uid_validity, from_address, subject, received_at, classification, confidence, links, reviewed, created_at) values ('g1', 'm1', 1, 1, 'a@b.test', 's', ?, 'unknown', 0, '[]', 0, ?)",
+      )
+      .run(NOW, NOW);
+    expect(opened.db.select().from(schema.messages).get()).toMatchObject({
+      requestedFields: [],
+      text: null,
+    });
+  });
+
+  it("stores the fields a broker asked for, and the text of the message", () => {
+    addProfile();
+    addMailbox();
+    opened.db
+      .insert(schema.messages)
+      .values({
+        id: "g1",
+        mailboxId: "m1",
+        imapUid: 1,
+        uidValidity: 1,
+        fromAddress: "a@b.test",
+        subject: "s",
+        receivedAt: NOW,
+        classification: "verification_required",
+        confidence: 0.9,
+        links: [],
+        requestedFields: ["date_of_birth", "street"],
+        text: "Please send your date of birth and street address.",
+        createdAt: NOW,
+      })
+      .run();
+    expect(opened.db.select().from(schema.messages).get()).toMatchObject({
+      requestedFields: ["date_of_birth", "street"],
+      text: "Please send your date of birth and street address.",
+    });
+  });
+
+  it("marks a request as waiting for a confirmation email, and starts with none", () => {
+    addProfile();
+    addTarget();
+    addRequest();
+    expect(opened.db.select().from(schema.requests).get()?.awaitingConfirmationSince).toBeNull();
+    opened.db
+      .update(schema.requests)
+      .set({ awaitingConfirmationSince: NOW })
+      .where(eq(schema.requests.id, "r1"))
+      .run();
+    expect(opened.db.select().from(schema.requests).get()?.awaitingConfirmationSince).toBe(NOW);
+  });
+
+  describe("outgoing_mail", () => {
+    function send(id: string, sentAt = NOW) {
+      opened.db
+        .insert(schema.outgoingMail)
+        .values({
+          id,
+          mailboxId: "m1",
+          requestId: "r1",
+          kind: "initial",
+          messageId: `<${id}@x.test>`,
+          sentAt,
+        })
+        .run();
+    }
+
+    it("records every send with its kind, message id, and time", () => {
+      addProfile();
+      addTarget();
+      addRequest();
+      addMailbox();
+      send("o1");
+      expect(opened.db.select().from(schema.outgoingMail).get()).toEqual({
+        id: "o1",
+        mailboxId: "m1",
+        requestId: "r1",
+        kind: "initial",
+        messageId: "<o1@x.test>",
+        sentAt: NOW,
+      });
+    });
+
+    it("goes when its mailbox goes, and when its request goes", () => {
+      addProfile();
+      addTarget();
+      addRequest();
+      addMailbox();
+      send("o1");
+      opened.db.delete(schema.mailboxes).where(eq(schema.mailboxes.id, "m1")).run();
+      expect(opened.db.select().from(schema.outgoingMail).all()).toEqual([]);
+      addMailbox("m2");
+      opened.db
+        .insert(schema.outgoingMail)
+        .values({
+          id: "o2",
+          mailboxId: "m2",
+          requestId: "r1",
+          kind: "follow_up",
+          messageId: "<o2@x>",
+          sentAt: NOW,
+        })
+        .run();
+      opened.db.delete(schema.requests).where(eq(schema.requests.id, "r1")).run();
+      expect(opened.db.select().from(schema.outgoingMail).all()).toEqual([]);
+    });
+
+    it("refuses a send for a request or a mailbox that does not exist", () => {
+      addProfile();
+      expect(() => send("o1")).toThrow(/FOREIGN KEY/);
+    });
   });
 });

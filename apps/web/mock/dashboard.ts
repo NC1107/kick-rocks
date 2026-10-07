@@ -51,6 +51,12 @@ export default defineMockDomain({
             (message) => !message.reviewed && message.mailboxId === profile.mailbox?.id,
           ).length,
           needsVerification: counts.needs_verification,
+          failedTasks: store.tasks.filter(
+            (task) =>
+              task.profileId === profile.id &&
+              task.status === "failed" &&
+              task.updatedAt >= store.ago({ days: 30 }),
+          ).length,
         },
         sending: profile.mailbox
           ? {

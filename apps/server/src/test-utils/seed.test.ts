@@ -3,13 +3,18 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { jordanIdentities } from "./builders.js";
 import { createTestContext, type TestContext } from "./context.js";
 import {
+  leaseAs,
   seedCampaign,
   seedIdentities,
   seedMailbox,
+  seedMatch,
+  seedMessage,
   seedProfile,
   seedRecipe,
   seedRequest,
+  seedScan,
   seedTarget,
+  seedTask,
 } from "./seed.js";
 
 let ctx: TestContext;
@@ -218,5 +223,151 @@ describe("seedRequest", () => {
       seedRequest(ctx, { profileId: profile.id, targetId: target.id, campaignId: campaign.id })
         .campaignId,
     ).toBe(campaign.id);
+  });
+});
+
+describe("seedMessage", () => {
+  it("is an unreviewed, unclassified message waiting in the review queue", () => {
+    const profile = seedProfile(ctx);
+    const mailbox = seedMailbox(ctx, profile.id);
+    const message = seedMessage(ctx, { mailboxId: mailbox.id });
+    expect(message).toMatchObject({
+      mailboxId: mailbox.id,
+      requestId: null,
+      classification: "unknown",
+      confidence: 0,
+      links: [],
+      requestedFields: [],
+      text: null,
+      reviewed: false,
+      receivedAt: ctx.clock.now().toISOString(),
+    });
+  });
+
+  it("takes what a test cares about and gives every message its own uid", () => {
+    const profile = seedProfile(ctx);
+    const mailbox = seedMailbox(ctx, profile.id);
+    const a = seedMessage(ctx, {
+      mailboxId: mailbox.id,
+      classification: "verification_required",
+      confidence: 0.9,
+      requestedFields: ["date_of_birth"],
+      links: ["https://broker.test/verify"],
+      text: "Please send your date of birth.",
+    });
+    const b = seedMessage(ctx, { mailboxId: mailbox.id });
+    expect(a).toMatchObject({
+      classification: "verification_required",
+      requestedFields: ["date_of_birth"],
+      text: "Please send your date of birth.",
+    });
+    expect(a.imapUid).not.toBe(b.imapUid);
+  });
+});
+
+describe("seedScan and seedMatch", () => {
+  it("makes a running scan with a pending match to decide", () => {
+    const profile = seedProfile(ctx);
+    const target = seedTarget(ctx, { category: "people-search" });
+    const scan = seedScan(ctx, { profileId: profile.id, targetId: target.id });
+    expect(scan).toMatchObject({ finishedAt: null, candidates: null, error: null, taskId: null });
+    const match = seedMatch(ctx, { scanId: scan.id, profileId: profile.id, targetId: target.id });
+    expect(match).toMatchObject({ decision: "pending", decidedAt: null, requestId: null });
+    expect(match.recordUrl).toMatch(/^https:\/\/records\.test\/p\/\d+$/);
+  });
+
+  it("stamps a decision it is given", () => {
+    const profile = seedProfile(ctx);
+    const target = seedTarget(ctx);
+    const scan = seedScan(ctx, { profileId: profile.id, targetId: target.id });
+    const match = seedMatch(ctx, {
+      scanId: scan.id,
+      profileId: profile.id,
+      targetId: target.id,
+      decision: "mine",
+    });
+    expect(match.decidedAt).toBe(ctx.clock.now().toISOString());
+  });
+});
+
+describe("seedTask and leaseAs", () => {
+  const payload = { requestId: "r", url: "https://x.test/c" };
+
+  it("makes a queued task by default, validated like the queue would", () => {
+    const task = seedTask(ctx, { kind: "confirm", payload });
+    expect(task).toMatchObject({
+      kind: "confirm",
+      status: "queued",
+      attempts: 0,
+      leaseOwner: null,
+    });
+    expect(() =>
+      seedTask(ctx, { kind: "confirm", payload: { requestId: "r" } as never }),
+    ).toThrow();
+  });
+
+  it("makes a leased task held by a worker until a time from the fake clock", () => {
+    const task = seedTask(ctx, { kind: "confirm", payload, status: "leased" });
+    expect(task).toMatchObject({
+      status: "leased",
+      leaseOwner: "seed-worker",
+      attempts: 1,
+      leaseExpiresAt: new Date(ctx.clock.now().getTime() + 300_000).toISOString(),
+    });
+  });
+
+  it("makes a blocked task with a reason, a page, and a screenshot", () => {
+    const task = seedTask(ctx, {
+      kind: "confirm",
+      payload,
+      status: "blocked",
+      blockedReason: "phone_verification",
+      blockedDetail: "The site texts a code",
+      blockedUrl: "https://x.test/verify",
+      screenshot: true,
+    });
+    expect(task).toMatchObject({
+      status: "blocked",
+      blockedReason: "phone_verification",
+      blockedUrl: "https://x.test/verify",
+    });
+    expect(ctx.services.taskQueue.screenshot(task.id)?.mime).toBe("image/png");
+    expect(ctx.services.taskQueue.summarize([task])[0]?.hasScreenshot).toBe(true);
+  });
+
+  it("makes failed and done tasks with what a test needs to read", () => {
+    const failed = seedTask(ctx, {
+      kind: "confirm",
+      payload,
+      status: "failed",
+      lastError: "boom",
+      failureKind: "recipe",
+    });
+    expect(failed).toMatchObject({ status: "failed", lastError: "boom", failureKind: "recipe" });
+    const done = seedTask(ctx, {
+      kind: "confirm",
+      payload,
+      status: "done",
+      result: { confirmed: true, finalUrl: "https://x.test/ok" },
+    });
+    expect(done.result).toEqual({ confirmed: true, finalUrl: "https://x.test/ok" });
+  });
+
+  it("writes no event and runs no handler, so a test starts from exactly the state it asked for", () => {
+    const profile = seedProfile(ctx);
+    const target = seedTarget(ctx);
+    const request = seedRequest(ctx, { profileId: profile.id, targetId: target.id });
+    let seen = 0;
+    ctx.services.taskHandlers.on("confirm", ["blocked", "completed", "failed"], () => void seen++);
+    seedTask(ctx, { kind: "confirm", payload, status: "blocked", requestId: request.id });
+    expect(seen).toBe(0);
+    expect(ctx.services.requests.events(request.id).map((e) => e.type)).toEqual(["created"]);
+  });
+
+  it("leases a queued task to a worker through the real queue", () => {
+    const task = seedTask(ctx, { kind: "confirm", payload });
+    const leased = leaseAs(ctx, task.id, "worker-9");
+    expect(leased).toMatchObject({ status: "leased", leaseOwner: "worker-9", attempts: 1 });
+    expect(() => leaseAs(ctx, task.id, "worker-10")).toThrow(/cannot be leased/);
   });
 });

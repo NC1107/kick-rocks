@@ -1,6 +1,7 @@
 import { existsSync } from "node:fs";
 import { API_ROUTES, Broker, Company, Recipe } from "@kickrocks/shared";
 import { afterEach, describe, expect, it } from "vitest";
+import { notFound } from "../core/errors.js";
 import { DAY, FakeClock } from "./clock.js";
 import {
   createTestContext,
@@ -124,9 +125,39 @@ describe("call", () => {
   });
 
   it("returns the error body for a failure", async () => {
-    ctx = await createTestContext();
-    const result = await ctx.call(API_ROUTES.profilesGet, { params: { id: "x" } });
-    expect(result).toMatchObject({ ok: false, status: 501, body: { error: "not_implemented" } });
+    ctx = await createTestContext({
+      beforeReady: (app) => {
+        app.get("/api/__missing/:id", async () => {
+          throw notFound("There is no such thing", "thing_not_found");
+        });
+      },
+    });
+    const result = await ctx.call(
+      { ...API_ROUTES.profilesGet, path: "/__missing/:id" },
+      { params: { id: "x" } },
+    );
+    expect(result).toMatchObject({
+      ok: false,
+      status: 404,
+      body: { error: "thing_not_found", message: "There is no such thing" },
+    });
+  });
+
+  it("fails the test when a route answers with a status other than the one the table promises", async () => {
+    ctx = await createTestContext({
+      beforeReady: (app) => {
+        app.post("/api/__create", async () => ({ id: "p", displayName: "x" }));
+      },
+    });
+    // The table says a create answers 201, so a handler that forgets reply.code(201) is a bug.
+    await expect(
+      ctx.call(
+        { ...API_ROUTES.profilesCreate, path: "/__create", response: undefined as never },
+        {
+          body: {} as never,
+        },
+      ),
+    ).rejects.toThrow(/answered 200, but the route table says 201/);
   });
 
   it("builds the url from params and query and uses the worker token for worker routes", async () => {
@@ -173,5 +204,57 @@ describe("builders", () => {
     ).toBe(true);
     expect(makeRecipe({ brokerId: "x" }).id).toBe("x.remove.v1");
     expect(makeBroker({ id: "spokeo" }).domain).toBe("spokeo.test");
+  });
+});
+
+describe("auth modes", () => {
+  it("lets a test allow or deny every session request with the fake, which is the default", async () => {
+    ctx = await createTestContext();
+    expect(ctx.services.auth).toBe(ctx.auth);
+    ctx.auth.deny();
+    expect((await ctx.inject({ url: "/api/status" })).statusCode).toBe(401);
+    ctx.auth.allow();
+    expect((await ctx.inject({ url: "/api/status" })).statusCode).toBe(200);
+  });
+
+  it("runs the server's own auth service when asked, and refuses to be steered", async () => {
+    const real = await createTestContext({ auth: "real" });
+    ctx = real;
+    expect(real.services.auth).not.toBe(real.auth);
+    expect(() => real.auth.deny()).toThrow(/auth is real/);
+    expect(() => real.auth.allow()).toThrow(/auth is real/);
+    // The guard still asks the real service, whatever it answers.
+    expect(await real.services.auth.authenticate({} as never)).toBeDefined();
+    expect((await real.inject({ url: "/api/health" })).statusCode).toBe(200);
+  });
+});
+
+describe("csrf option", () => {
+  it("sends the X-Kick-Rocks header by default and leaves it out on request", async () => {
+    const seen: Array<unknown> = [];
+    ctx = await createTestContext({
+      beforeReady: (app) => {
+        app.addHook(
+          "onRequest",
+          async (request) => void seen.push(request.headers["x-kick-rocks"]),
+        );
+        app.get("/echo", async () => ({}));
+      },
+    });
+    await ctx.inject({ url: "/echo" });
+    await ctx.inject({ url: "/echo", csrf: false });
+    await ctx.injectWorker({ url: "/echo" });
+    expect(seen).toEqual(["1", undefined, undefined]);
+  });
+
+  it("lets a test see the server turn away a state-changing call that lacks it", async () => {
+    ctx = await createTestContext();
+    const response = await ctx.inject({
+      method: "POST",
+      url: "/api/profiles",
+      payload: {},
+      csrf: false,
+    });
+    expect(response.statusCode).toBe(403);
   });
 });

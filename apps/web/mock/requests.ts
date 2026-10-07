@@ -1,7 +1,7 @@
 import {
   API_ROUTES,
+  availableActions,
   type BlockedReason,
-  canTransition,
   generateReference,
   type MessageSummary,
   outgoingMessageId,
@@ -9,25 +9,28 @@ import {
   type RequestChannel,
   type RequestDetail,
   type RequestEvent,
+  type RequestEventPayloads,
   type RequestEventType,
   type RequestRight,
   type RequestStatus,
   type ReviewMessage,
+  resendEmailKind,
   type TaskSummary,
 } from "@kickrocks/shared";
-import { conflict, defineMockDomain, handle, notFound } from "./core.js";
+import { conflict, defineMockDomain, handle, invalid, notFound } from "./core.js";
 import type { MockStore, StoredRequest } from "./store.js";
 import { summaryOf } from "./targets.js";
 
 type Actor = RequestEvent["actor"];
 
-export function addEvent(
+/** Adds a timeline event. The payload is checked against the type by the compiler, as the server does at runtime. */
+export function addEvent<T extends RequestEventType>(
   store: MockStore,
   request: StoredRequest,
-  type: RequestEventType,
+  type: T,
   actor: Actor,
   createdAt: string,
-  payload: Record<string, unknown> | null = null,
+  payload: RequestEventPayloads[T],
 ): void {
   request.events.push({
     id: store.nextId("evt"),
@@ -36,7 +39,7 @@ export function addEvent(
     actor,
     payload,
     createdAt,
-  });
+  } as RequestEvent);
 }
 
 export interface NewRequest {
@@ -51,6 +54,8 @@ export interface NewRequest {
   followUps?: number;
   recordUrl?: string | null;
   lastError?: string | null;
+  /** A form request whose task is parked for a person. */
+  blocked?: { reason: BlockedReason; detail: string; screenshot?: boolean };
 }
 
 const MS_DAY = 86_400_000;
@@ -142,6 +147,7 @@ export function buildRequest(store: MockStore, input: NewRequest): StoredRequest
     sentAt,
     dueAt: sentAt ? addDays(sentAt, 45) : null,
     followUpAt: input.status === "follow_up_due" ? addDays(createdAt, 46) : null,
+    awaitingConfirmationSince: null,
     lastError: input.lastError ?? null,
     createdAt,
     updatedAt: createdAt,
@@ -152,15 +158,23 @@ export function buildRequest(store: MockStore, input: NewRequest): StoredRequest
   addEvent(store, request, "created", "system", createdAt, {
     rights: input.rights,
     channel: input.channel,
+    reference,
   });
   if (input.status === "draft") return finish(store, request);
 
-  addEvent(store, request, "queued", "system", shift(createdAt, 0, 0.1));
+  addEvent(store, request, "status_changed", "system", shift(createdAt, 0, 0.1), {
+    from: "draft",
+    to: "queued",
+  });
+  addEvent(store, request, "queued", "system", shift(createdAt, 0, 0.1), {
+    channel: input.channel,
+    reason: "new",
+  });
   if (input.status === "queued") return finish(store, request);
 
   if (input.status === "cancelled") {
     const at = shift(createdAt, 0, 6);
-    addEvent(store, request, "user_action", "user", at, { action: "cancel" });
+    addEvent(store, request, "user_action", "user", at, { action: "cancel", note: null });
     addEvent(store, request, "status_changed", "user", at, { from: "queued", to: "cancelled" });
     return finish(store, request);
   }
@@ -168,14 +182,55 @@ export function buildRequest(store: MockStore, input: NewRequest): StoredRequest
   const sendAt = sentAt as string;
   if (input.channel === "email") {
     addEvent(store, request, "sent", "system", sendAt, {
-      to: target.privacyEmail,
-      subject: `Opt-out request ${reference}`,
+      channel: "email",
+      kind: "initial",
+      messageId: request.outgoingMessageId,
+      mailboxId: request.mailboxId,
     });
   } else {
-    addEvent(store, request, "task_enqueued", "system", sendAt, { kind: "form" });
-    addEvent(store, request, "task_completed", "worker", shift(sendAt, 0, 0.2), {
-      outcome: "submitted",
-    });
+    const task = makeTask(
+      store,
+      {
+        kind: "form",
+        status: input.status === "sent" ? "queued" : input.blocked ? "blocked" : "done",
+        profileId: input.profileId,
+        targetId: input.targetId,
+        targetName: target.name,
+        requestId: id,
+        ...(input.blocked
+          ? {
+              blockedReason: input.blocked.reason,
+              blockedDetail: input.blocked.detail,
+              hasScreenshot: input.blocked.screenshot ?? false,
+            }
+          : {}),
+      },
+      input.blocked
+        ? { hours: 3 + Math.floor(store.random() * 40) }
+        : { days: input.createdDaysAgo },
+    );
+    addEvent(store, request, "task_enqueued", "system", sendAt, { taskId: task.id, kind: "form" });
+    if (input.blocked) {
+      addEvent(store, request, "task_blocked", "system", task.updatedAt, {
+        taskId: task.id,
+        kind: "form",
+        reason: input.blocked.reason,
+        detail: input.blocked.detail,
+      });
+    } else if (input.status !== "sent") {
+      addEvent(store, request, "task_completed", "system", shift(sendAt, 0, 0.2), {
+        taskId: task.id,
+        kind: "form",
+        outcome: "submitted",
+        note: null,
+      });
+      addEvent(store, request, "sent", "worker", shift(sendAt, 0, 0.2), {
+        channel: "form",
+        kind: "initial",
+        messageId: null,
+        mailboxId: null,
+      });
+    }
   }
   if (input.status === "sent") return finish(store, request);
 
@@ -205,6 +260,7 @@ export function buildRequest(store: MockStore, input: NewRequest): StoredRequest
       confidence: 0.93,
       rationale: "Matched the reference in the subject and the reply wording.",
       links: [],
+      requestedFields: reply.classification === "verification_required" ? ["date_of_birth"] : [],
       snippet: reply.text,
       reviewed: true,
       requestReference: reference,
@@ -214,10 +270,13 @@ export function buildRequest(store: MockStore, input: NewRequest): StoredRequest
     addEvent(store, request, "reply_received", "system", receivedAt, {
       messageId: message.id,
       from: message.fromAddress,
+      subject: message.subject,
     });
     addEvent(store, request, "classified", "system", shift(receivedAt, 0, 0.01), {
+      messageId: message.id,
       classification: reply.classification,
       confidence: 0.93,
+      correlation: "reference",
     });
     addEvent(store, request, "status_changed", "system", shift(receivedAt, 0, 0.02), {
       from: "awaiting_reply",
@@ -254,7 +313,14 @@ export function makeTask(
     Partial<
       Pick<
         TaskSummary,
-        "blockedReason" | "blockedDetail" | "hasScreenshot" | "lastError" | "attempts"
+        | "blockedReason"
+        | "blockedDetail"
+        | "blockedUrl"
+        | "hasScreenshot"
+        | "lastError"
+        | "attempts"
+        | "failureKind"
+        | "failureStep"
       >
     >,
   updatedAgo: { days?: number; hours?: number; minutes?: number },
@@ -264,10 +330,16 @@ export function makeTask(
     priority: 0,
     blockedReason: null,
     blockedDetail: null,
+    blockedUrl: null,
     attempts: 1,
     maxAttempts: 3,
     lastError: null,
+    failureKind: null,
+    failureStep: null,
     hasScreenshot: false,
+    finishedBy: fields.status === "done" || fields.status === "blocked" ? "home-worker" : null,
+    claimerKind: fields.status === "queued" ? null : "builtin",
+    usage: null,
     createdAt: store.ago({ ...updatedAgo, hours: (updatedAgo.hours ?? 0) + 1 }),
     updatedAt: store.ago(updatedAgo),
     ...fields,
@@ -284,8 +356,7 @@ interface Seed {
   rights?: RequestRight[];
   followUps?: number;
   recordUrl?: string;
-  /** A form request whose task is parked for a person. */
-  blocked?: { reason: BlockedReason; detail: string; screenshot?: boolean };
+  blocked?: NewRequest["blocked"];
 }
 
 const BOTH: RequestRight[] = ["opt_out", "delete"];
@@ -381,7 +452,7 @@ function seedRequests(store: MockStore, profileIndex: number, seeds: Seed[]): vo
   if (!profile) return;
   for (const seed of seeds) {
     if (!store.targets.some((target) => target.id === seed.target)) continue;
-    const request = buildRequest(store, {
+    buildRequest(store, {
       profileId: profile.id,
       targetId: seed.target,
       channel: seed.channel ?? "email",
@@ -390,56 +461,25 @@ function seedRequests(store: MockStore, profileIndex: number, seeds: Seed[]): vo
       createdDaysAgo: seed.daysAgo,
       followUps: seed.followUps ?? 0,
       recordUrl: seed.recordUrl ?? null,
+      ...(seed.blocked ? { blocked: seed.blocked } : {}),
     });
-    if (seed.channel === "form" && !seed.blocked) {
-      makeTask(
-        store,
-        {
-          kind: "form",
-          status: seed.status === "sent" ? "queued" : "done",
-          profileId: profile.id,
-          targetId: request.targetId,
-          targetName: request.target.name,
-          requestId: request.id,
-        },
-        { days: seed.daysAgo },
-      );
-    }
-    if (seed.blocked) {
-      const task = makeTask(
-        store,
-        {
-          kind: "form",
-          status: "blocked",
-          profileId: profile.id,
-          targetId: request.targetId,
-          targetName: request.target.name,
-          requestId: request.id,
-          blockedReason: seed.blocked.reason,
-          blockedDetail: seed.blocked.detail,
-          hasScreenshot: seed.blocked.screenshot ?? false,
-        },
-        { hours: 3 + Math.floor(store.random() * 40) },
-      );
-      addEvent(store, request, "task_blocked", "worker", task.updatedAt, {
-        reason: seed.blocked.reason,
-        detail: seed.blocked.detail,
-      });
-      request.updatedAt = task.updatedAt;
-    }
   }
 }
+
+const LIVE_TASK = new Set(["queued", "leased", "blocked"]);
 
 export function detailOf(store: MockStore, request: StoredRequest): RequestDetail {
   const { events, ...listItem } = request;
   const messages: MessageSummary[] = store.messages
     .filter((message) => message.requestId === request.id)
     .map(({ requestReference: _reference, targetName: _name, ...message }) => message);
+  const tasks = store.tasks.filter((task) => task.requestId === request.id);
   return {
     ...listItem,
     events: [...events].sort((a, b) => a.createdAt.localeCompare(b.createdAt)),
     messages,
-    tasks: store.tasks.filter((task) => task.requestId === request.id),
+    tasks,
+    actions: availableActions(request, { hasLiveTask: tasks.some((t) => LIVE_TASK.has(t.status)) }),
   };
 }
 
@@ -494,19 +534,58 @@ export default defineMockDomain({
     handle(API_ROUTES.requestsAct, ({ params, body }) => {
       const request = store.requests.find((candidate) => candidate.id === params.id);
       if (!request) throw notFound("That request");
-      const to: RequestStatus = ACTION_TARGET[body.action];
-      if (!canTransition(request.status, to, { actor: "user" })) {
+      const hasLiveTask = store.tasks.some(
+        (task) => task.requestId === request.id && LIVE_TASK.has(task.status),
+      );
+      if (!availableActions(request, { hasLiveTask }).includes(body.action)) {
         throw conflict(`A ${request.status.replace("_", " ")} request cannot be changed that way.`);
       }
+      const to: RequestStatus = ACTION_TARGET[body.action];
       const at = store.clock.now().toISOString();
       const from = request.status;
-      addEvent(store, request, "user_action", "user", at, { action: body.action });
+      addEvent(store, request, "user_action", "user", at, { action: body.action, note: null });
       if (body.action === "resend") {
-        addEvent(store, request, "queued", "user", at);
-        request.followUps += 1;
+        const kind = resendEmailKind(from);
+        addEvent(store, request, "queued", "user", at, {
+          channel: request.channel,
+          reason: kind === "follow_up" ? "follow_up" : "resend",
+        });
+        request.followUps += kind === "follow_up" ? 1 : 0;
       }
-      addEvent(store, request, "status_changed", "user", at, { from, to });
+      if (from !== to) addEvent(store, request, "status_changed", "user", at, { from, to });
       request.status = to;
+      request.updatedAt = at;
+      return detailOf(store, request);
+    }),
+
+    handle(API_ROUTES.requestsVerification, ({ params, body }) => {
+      const request = store.requests.find((candidate) => candidate.id === params.id);
+      if (!request) throw notFound("That request");
+      if (request.status !== "needs_verification") {
+        throw conflict("Only a request that is waiting for verification can be answered that way.");
+      }
+      const message = store.messages.find(
+        (candidate) => candidate.id === body.messageId && candidate.requestId === request.id,
+      );
+      if (!message) throw notFound("That message");
+      const notAsked = body.fields.filter((field) => !message.requestedFields.includes(field));
+      if (notAsked.length > 0) {
+        throw invalid(`The broker did not ask for ${notAsked.join(", ")}.`, ["body", "fields"]);
+      }
+      const at = store.clock.now().toISOString();
+      addEvent(store, request, "user_action", "user", at, {
+        action: "verification_reply",
+        note: null,
+      });
+      addEvent(store, request, "queued", "user", at, {
+        channel: request.channel,
+        reason: "verification_reply",
+      });
+      addEvent(store, request, "status_changed", "user", at, {
+        from: "needs_verification",
+        to: "queued",
+      });
+      request.status = "queued";
       request.updatedAt = at;
       return detailOf(store, request);
     }),

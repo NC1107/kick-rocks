@@ -14,7 +14,9 @@ If this plan and the design disagree, this plan wins and the disagreement should
 - If you need a contract change, do not make it.
   Work around it inside your own paths and list the change under `contractRequests` in your final report, with the exact proposed diff.
 - Do not add dependencies unless there is no reasonable alternative.
-  If you must, add them to your own package's `package.json` only and list them in your report.
+  A module that lives in `apps/server` (A, B, D1, D2, E) does not edit `apps/server/package.json` or the lockfile, because five modules share them and parallel edits would conflict; list what it needs under `contractRequests` and the foundation adds it.
+  The foundation already added `htmlparser2` for extracting links from mail.
+  A module with its own package adds dependencies to that package's `package.json` only and lists them in the report.
 
 ### Tooling
 
@@ -23,6 +25,7 @@ If this plan and the design disagree, this plan wins and the disagreement should
   Workspace packages are consumed through their `dist` output, so a package you depend on must be built before your tests can import it.
 - Before every commit run `pnpm lint`, `pnpm typecheck`, `pnpm test`, and `pnpm build`.
   All must pass.
+  A test that needs GreenMail or Chromium skips itself when the service is missing and fails in CI, which sets `KICKROCKS_REQUIRE_INTEGRATION=1`; see `apps/server/src/test-utils/README.md`.
   If something outside your paths fails, report it; do not edit it.
 - Use the ports and browser session name your prompt assigns, so parallel agents do not collide.
   For `chrome-devtools-axi` set `CHROME_DEVTOOLS_AXI_SESSION=<your session>`.
@@ -137,42 +140,86 @@ An `Identity` is `{ id, kind, value, isPrimary, validFrom: date | null, validTo:
 
 **Requests.** `RequestRight` is `opt_out | delete`.
 A request carries `rights: RequestRight[]` (one email can exercise both).
-`RequestStatus` keeps its states, with these transition changes:
+`RequestStatus` keeps its states.
+`canTransition(from, to, { actor })` takes the actor (`system | user | worker | agent`), and a user may force any non-terminal status to `confirmed`, `no_record`, `rejected`, or `cancelled`.
+The table is built around the rule that a reply or a form result is applied to whatever status the request is in when it arrives:
 
-- `awaiting_reply -> queued` is allowed, for a channel switch such as a broker answering "use our web form".
-- Users may force any non-terminal status to `confirmed`, `no_record`, `rejected`, or `cancelled`; `canTransition(from, to, { actor })` takes the actor (`system | user | worker | agent`) and permits those overrides only for `user`.
+- `queued` can go straight to `awaiting_reply`, `confirmed`, `no_record`, `rejected`, or `needs_verification`, so a form that finds nothing never writes a `sent` event that did not happen.
+  The email runner moves `queued -> sent -> awaiting_reply` in one call.
+- `sent` is a resting state only for a moment, but a reply can arrive in it, so it can end in any outcome and can go back to `queued`.
+- `needs_verification` goes to `queued`, not to `sent`: an approved verification reply is dispatched through the queue like every send.
+  It can also close (`confirmed`, `rejected`, `no_record`), bounce, or lapse to `no_response`.
+- `no_response` and `follow_up_due` accept a late reply: `awaiting_reply`, `confirmed`, `rejected`, `needs_verification`, `no_record`, `bounced`, and `queued`.
+- `rejected` can be appealed (`queued`) or overturned (`confirmed`, `no_record`).
+- `awaiting_reply -> queued` is a channel switch, such as a broker answering "use our web form".
 
-`RequestEventType`: `created`, `queued`, `sent`, `send_failed`, `reply_received`, `classified`, `link_followed`, `status_changed`, `follow_up_sent`, `channel_switched`, `task_enqueued`, `task_blocked`, `task_completed`, `task_failed`, `user_action`, `relisted`, `note`.
+`REPLY_OUTCOMES` says which status each `ReplyClassification` moves a request to, and `FORM_OUTCOMES` does the same for each form outcome (`submitted` and `awaiting_email_confirmation` to `awaiting_reply`; `not_found` and `already_removed` to `no_record`).
+The inbox runner applies a reply when `canTransition` allows the move and records it without changing the status when it does not.
+A table test in `requests.test.ts` applies every classification and every form outcome to every status a reply can arrive in.
+
+`availableActions(request, { hasLiveTask })` is the one rule for which `RequestAction`s apply, and `RequestDetail.actions` carries its answer so the page never offers a button the server refuses.
+`resend` re-queues the request on its current channel.
+It is allowed from `rejected`, `bounced`, `no_response`, `follow_up_due`, `awaiting_reply`, and from `queued` when no task is live.
+`resendEmailKind(status)` says whether it sends a follow-up (from `awaiting_reply`, `no_response`, `follow_up_due`) or a fresh request (from `rejected`, `bounced`, `queued`).
+A verification reply is never a resend: it has its own route, because it needs the fields the person approved.
+
+`RequestRecord.awaitingConfirmationSince` is set while a submitted form waits for the broker's confirmation email and is cleared by every status change, so it is only ever set in `awaiting_reply`.
+
+`RequestEventType`: `created`, `queued`, `sent`, `send_failed`, `reply_received`, `classified`, `link_followed`, `status_changed`, `follow_up_sent`, `channel_switched`, `awaiting_confirmation`, `task_enqueued`, `task_blocked`, `task_completed`, `task_failed`, `task_cancelled`, `task_resumed`, `task_retrying`, `user_action`, `relisted`, `note`.
+`REQUEST_EVENT_PAYLOADS` has one schema per type, `RequestEvent` is a union on `type`, and `requests.addEvent` and `requests.transition` validate every payload before it is stored.
+For example `status_changed` is `{ from, to }`, `sent` is `{ channel, kind, messageId, mailboxId }`, `classified` is `{ messageId, classification, confidence, correlation }`, and `task_failed` is `{ taskId, kind, error, failureKind }`.
+`describeEvent(event)` in `apps/web/src/lib/events.ts` turns any of them into a sentence, for the request timeline and the dashboard.
 
 Every request has a reference `KR-XXXXXX`, six Crockford base32 characters, generated and parsed by helpers in `shared/mail.ts`.
 
 **Mail.** `ReplyClassification`: `bounce`, `auto_ack`, `confirmation_link`, `verification_required`, `completed`, `no_record`, `rejected`, `needs_form`, `unrelated`, `unknown`.
+`EmailKind` is `initial | follow_up | verification_reply`.
 `ProviderPreset`: id, label, smtpHost, smtpPort, smtpSecure, imapHost, imapPort, appPasswordUrl, notes, defaultDailyCap.
+`MessageSummary.requestedFields` lists the profile fields a broker asked for in a verification reply (names, never values), and `MessageDetail` adds the stored message text (cut to 20,000 characters).
+`MailboxTestBody` is a connection whose password is optional, so a saved mailbox can be tested without typing it again.
 Helpers: `formatReference`, `parseReferences(text)`, `outgoingMessageId(requestId, domain)`, `parseOutgoingMessageId(id)`.
 
 **Tasks.** `TaskKind`: `email_send`, `inbox_poll`, `scan`, `form`, `confirm`, `canary`, `agent` (`human_review` is removed; a blocked task is the human queue).
 In-process kinds are `email_send` and `inbox_poll`; browser kinds are `scan`, `form`, `confirm`, `canary`, `agent`.
 Payload schemas, stored in the database, hold ids only:
 
-- `email_send`: `{ requestId, followUp: boolean }`
+- `email_send`: `{ requestId, kind: EmailKind, fields: ProfileField[], inReplyTo: string | null }`.
+  `fields` is the approved identifiers of a verification reply, as names; it is non-empty exactly when the kind is `verification_reply`.
+  Whoever queues the send sets the kind, and dispatch never infers it.
 - `inbox_poll`: `{ mailboxId }`
-- `scan`: `{ profileId, targetId, recipeId: string | null }`
+- `scan`: `{ profileId, targetId, recipeId: string | null, variant: { nameId, addressId } | null }`.
+  A variant searches under a past name, alias, or address, since listings are keyed by old ones.
 - `form`: `{ requestId, targetId, recipeId: string | null, recordUrl: string | null }`
 - `confirm`: `{ requestId, url }`
 - `canary`: `{ recipeId }`
-- `agent`: `{ purpose: "scan" | "remove", profileId, targetId, requestId: string | null, recordUrl: string | null, reason: "no_recipe" | "recipe_failed", previousError: string | null }`
+- `agent`: `{ purpose: "scan" | "remove", profileId, targetId, requestId: string | null, recordUrl: string | null, variant, reason: "no_recipe" | "recipe_failed" | "blocked", previousError: string | null, blockedReason: BlockedReason | null }`
 
 Result schemas, posted by whoever completes the task:
 
 - `ScanResult`: `{ candidates: Candidate[] }` where `Candidate` is `{ recordUrl, name, age?, locations: string[], relatives?: string[], phones?: string[], emails?: string[] }`
-- `FormResult`: `{ outcome: "submitted" | "not_found" | "already_removed" | "awaiting_email_confirmation", confirmationText?, notes? }`
+- `FormResult`: `{ outcome: "submitted" | "not_found" | "already_removed" | "awaiting_email_confirmation", confirmationText?, confirmationFrom?, notes? }`.
+  `confirmationFrom` is the domain the confirmation email will come from, when the page says so.
 - `ConfirmResult`: `{ confirmed: boolean, finalUrl, notes? }`
 - `CanaryResult`: `{ healthy: boolean, missingSelectors: string[] }`
 - `AgentResult`: `{ purpose: "scan", scan: ScanResult } | { purpose: "remove", form: FormResult }`
 
-`BlockedReason` keeps its values.
+`resultSchemaFor(task)` is the schema a task's result must match, and for an agent task it follows the payload's purpose, so a scan task cannot be completed with a removal outcome.
+
+`BlockedReason` is `captcha`, `phone_verification`, `id_upload`, `email_verification`, `login_required`, `bot_detection`, `unknown`.
+A broken recipe is not a block: it is a failure of kind `recipe`.
+`FailureKind` is `recipe | site | network | internal`, carried by `TaskFailureReport` (default `internal`, plus an optional `step`) and by a failed recipe run.
+A `recipe` failure is always final, whatever `retryable` says, because the same script would fail the same way.
+The server counts only `recipe` failures against a recipe's health and hands that task to an agent.
+`TaskUsage` is `{ inputTokens?, outputTokens?, costUsd?, durationMs? }`, reported with a complete, a failure, or a block, and summed over every attempt.
+`TaskSummary` also carries `blockedUrl`, `failureKind`, `failureStep`, `finishedBy` (the worker that last ended its lease), `claimerKind` (`builtin | mcp | model`, set by the route that claimed it), and `usage`.
+
+`WORKER_DEFAULT_KINDS` (`scan`, `form`, `confirm`, `canary`) is what `POST /worker/claim` takes when it is not told, and `AGENT_DEFAULT_KINDS` (`agent`) is what the MCP `claim_task` takes, so neither claimer leases work meant for the other.
+Claiming a task by id ignores the kinds.
+
 `ClaimedTask` is what a claimer receives: `{ id, kind, attempt, leaseExpiresAt, payload, target: TargetSummary, recipe: Recipe | null, fields: Partial<Record<ProfileField, string>>, instructions: string }`.
 `fields` holds only what the recipe declares, or for agent tasks what `identifiersFor` allows, resolved at claim time so personal data never sits in task payloads.
+The `email` field of a form or agent removal is always the address of the request's mailbox, never another address on the profile, because the confirmation email lands in the mailbox Kick Rocks polls.
+`TargetSummary` carries `optOutUrl`, `searchUrl`, and `retired`, so an agent does not need a second call to find where to go.
 
 **API.** `shared/api.ts` defines request and response schemas for every route in 4.4, so the web app and the server agree by construction.
 
@@ -187,12 +234,14 @@ Tables and the columns that matter:
 - `targets`: id, kind, name, category, domain, website, privacyEmail, optOutUrl, privacyRightsUrl, searchUrl, contactMethod, region, requiresId, requirements (json), priority, data (json, the full record), datasetVersion, retired; unique on (kind, domain).
 - `recipes`: id, targetId, purpose (`scan | remove`), version, definition (json), source (`bundled | proposed | user`), status (`active | pending_review | rejected | retired`), health (`unknown | healthy | broken`), failureCount, lastCheckedAt, notes, createdAt.
 - `campaigns`: id, profileId, rights (json), selection (json), createdCount, skipped (json), createdAt.
-- `requests`: id, profileId, targetId, campaignId, mailboxId, rights (json), legalBasis, channel, status, reference (unique), outgoingMessageId, recordUrl, followUps, sentAt, dueAt, followUpAt, lastError, createdAt, updatedAt.
-- `request_events`: id, requestId, type, actor, payload (json), createdAt.
-- `messages`: id, mailboxId, imapUid, uidValidity, requestId, messageIdHeader, inReplyTo, fromAddress, subject, receivedAt, classification, confidence, rationale, links (json), snippet, reviewed, createdAt; unique on (mailboxId, uidValidity, imapUid).
+- `requests`: id, profileId, targetId, campaignId, mailboxId, rights (json), legalBasis, channel, status, reference (unique), outgoingMessageId, recordUrl, followUps, sentAt, dueAt, followUpAt, awaitingConfirmationSince, lastError, createdAt, updatedAt.
+- `request_events`: id, requestId, type, actor, payload (json, validated against `REQUEST_EVENT_PAYLOADS`), createdAt.
+- `outgoing_mail`: id, mailboxId, requestId, kind, messageId, sentAt.
+  The email runner writes a row for every send, and the daily cap, the pacing, and the dashboard's "sent today" all read it through `mailQuota`.
+- `messages`: id, mailboxId, imapUid, uidValidity, requestId, messageIdHeader, inReplyTo, fromAddress, subject, receivedAt, classification, confidence, rationale, links (json), requestedFields (json), snippet, text (cut to 20,000 characters), reviewed, createdAt; unique on (mailboxId, uidValidity, imapUid).
 - `scans`: id, profileId, targetId, taskId, startedAt, finishedAt, candidates (json), error.
 - `matches`: id, scanId, profileId, targetId, recordUrl, fields (json), decision (`pending | mine | not_mine`), decidedAt, requestId.
-- `tasks`: id, kind, status, priority, profileId, targetId, requestId, payload, result, blockedReason, blockedDetail, leaseOwner, leaseExpiresAt, attempts, maxAttempts, runAfter, dedupeKey, lastError, createdAt, updatedAt; partial unique index on dedupeKey where status is `queued`, `leased`, or `blocked`.
+- `tasks`: id, kind, status, priority, profileId, targetId, requestId, payload, result, blockedReason, blockedDetail, blockedUrl, leaseOwner, leaseExpiresAt, attempts, maxAttempts, runAfter, dedupeKey, lastError, failureKind, failureStep, finishedBy, claimerKind, usage (json), createdAt, updatedAt; partial unique index on dedupeKey where status is `queued`, `leased`, or `blocked`.
 - `task_artifacts`: id, taskId, kind (`screenshot`), mime, data (blob), createdAt.
   Screenshots live in the database so they are encrypted at rest.
 - `sessions`: id (sha256 of the cookie token), createdAt, lastSeenAt, expiresAt, userAgent.
@@ -201,54 +250,122 @@ Tables and the columns that matter:
 
 ### 4.3 Server structure (`apps/server`)
 
-- `config.ts` adds `KICKROCKS_WORKER_TOKEN` (worker API disabled when unset), `KICKROCKS_EXTRA_TARGETS` (path to a JSON file of extra targets, for fixtures and power users), `KICKROCKS_EXTRA_RECIPES` (directory of extra recipe files), `KICKROCKS_SCHEDULER` (`on | off`, default on, tests use off), and `KICKROCKS_PUBLIC_URL` for links shown in the UI.
-- `services.ts` builds one `AppServices` object: config, db, clock, logger, `taskQueue`, `requests`, `targets`, `dispatch`, `secrets`, `taskHandlers`, `mail` (from `createMailServices`), `legal` (the `@kickrocks/legal` exports), `auth`.
+- `config.ts` adds `KICKROCKS_WORKER_TOKEN` (worker API disabled when unset), `KICKROCKS_EXTRA_TARGETS` (path to a JSON file of extra targets, for fixtures and power users), `KICKROCKS_EXTRA_RECIPES` (directory of extra recipe files), `KICKROCKS_SCHEDULER` (`on | off`, default on, tests use off), `KICKROCKS_PUBLIC_URL` for links shown in the UI, and `KICKROCKS_ALLOW_PRIVATE_LINK_HOSTS`, a comma separated list of hostnames the link follower may reach even on a private or loopback address (empty by default; the end-to-end suite lists its fixture broker site), exposed as `config.linkFollower.allowedPrivateHosts`.
+- `services.ts` builds one `AppServices` object: config, db, clock, logger, `taskQueue`, `requests`, `targets`, `dispatch`, `composer`, `mailQuota`, `startup`, `secrets`, `taskHandlers`, `recipeHealth`, `settings`, `mail` (from `createMailServices`), `legal` (the `@kickrocks/legal` exports), `auth`.
   Feature code receives services as an argument and never builds its own.
 - Every module in `src/modules/<name>/index.ts` exports a Fastify plugin `(app, services) => void` registered under `/api`.
   The foundation registers all of them with routes that return `501 { error: "not_implemented" }`, so feature agents only fill in their own files.
-- An `onRequest` hook requires `services.auth.authenticate(request)` for `/api/*` except `/api/health`, `/api/auth/*`, and `/api/worker/*`.
+  Register routes with `registerRoute` from `core/http.ts`, which takes the route from `API_ROUTES`, validates params, query, and body, and tells the guard who may call it.
+- **Startup order** in `buildApp`: sync the datasets into `targets`, register every module, run the steps modules added with `services.startup.onReady(name, step)` in order, then start the scheduler.
+  A module that stores rows pointing at targets (module E's recipe sync) does it in a startup step and never when its plugin registers.
+  A step that throws stops the server from starting, naming itself.
+- **The guard** (`core/guard.ts`) is the single place that decides who may call what, from the route table: `auth: "session"` runs `services.auth.authenticate(request)`, `auth: "worker"` checks the worker bearer token, `auth: "none"` is open, and `/mcp` checks the MCP bearer token.
+  `/api/auth/password` is a session route, like every route the table marks `session`; an `/api` route nobody declared needs a session too.
+  It also enforces the CSRF header: every method that changes state under `/api` needs `X-Kick-Rocks: 1`, the `/api/auth/*` routes included, and a request without it gets 403 before its body is parsed.
+  Bearer-token calls are exempt.
+  `AuthService.authenticate` therefore only decides whether there is a session, and module A does not check the header.
   The foundation stub allows everything; module A replaces it.
+- The server sets `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer`, `X-Frame-Options: DENY`, and a Content-Security-Policy of `default-src 'self'` with `frame-ancestors 'none'` on every response.
+- `GET /api/health` answers `{ ok, version }` to anyone; the counts are `GET /api/status`, behind the session.
 - `/api/worker/*` uses the worker bearer token and `/mcp` uses the MCP bearer token, both checked with constant-time comparison in `core/secrets.ts`.
 
 Core services the foundation implements fully, with tests:
 
-- **`core/task-queue.ts`.** `enqueue`, `claim({ workerId, kinds, leaseMs })` (atomic, highest priority then oldest, skipping future `runAfter`), `heartbeat`, `complete`, `block` (optionally storing a screenshot artifact), `fail({ retryable, retryAfterMs })` with exponential backoff until `maxAttempts`, `resume`, `markDone`, `cancel`, `reapExpiredLeases`, `get`, `list`.
-  Lease-owning calls reject a caller that does not hold the lease.
-  `dedupeKey` prevents duplicate live tasks.
-  The clock is injected.
-- **`core/task-handlers.ts`.** A registry: `on(kind, "completed" | "blocked" | "failed", handler)`, invoked by the queue after the state change commits.
-  Feature modules register handlers at startup.
-- **`core/requests.ts`.** `create`, `transition(id, to, { actor, eventType, payload, patch })` enforcing the state machine and writing a `status_changed` event plus any extra event, `addEvent`, `get`.
+- **`core/task-queue.ts`.** `enqueue`, `claim`, `heartbeat`, `complete`, `block`, `fail`, `release`, `resume`, `markDone`, `cancel`, `cancelForRequest`, `reapExpiredLeases`, `get`, `list`, `hasLiveTask`, `summarize`, `screenshot`, `purgeArtifacts`.
+  Everything is synchronous and runs in one transaction with the handlers it triggers.
+  - `claim({ workerId, kinds, leaseMs, taskId?, profileId?, excludeProfileIds?, claimerKind? })` is atomic and takes the highest priority, then the oldest, skipping future `runAfter`.
+    It first recovers expired leases, so it always sees the current queue even with the scheduler off.
+    `excludeProfileIds` is how the email runner skips a mailbox that is at its cap.
+  - `block` stores the reason, the detail, the page where the run got stuck (`url`), and optionally a screenshot artifact.
+  - `fail({ retryable, retryAfterMs, kind, step })` retries with an exponential backoff until `maxAttempts`, except that a `recipe` failure is never retried.
+  - `release(id, { workerId, runAfter? })` hands a leased task back as if it had never been claimed: no event and no attempt counted.
+    It is what a worker uses when it shuts down mid-task and what the email runner uses when the daily cap defers a send.
+  - Lease-owning calls reject a caller that does not hold the lease.
+    `heartbeat` refuses an expired lease with `lease_expired`, so a late worker finds out.
+    `complete`, `block`, and `fail` are still accepted from the worker that holds an expired lease until someone else claims the task, because finished work is better kept than redone.
+  - `complete` validates the result against `resultSchemaFor(task)`, which follows the agent payload's purpose.
+    `markDone(id, { actor, result?, note? })` validates a person's result the same way and stores it, so a handler can tell "I submitted it by hand" from "already removed".
+  - `enqueue` takes `dedupeKey`, which prevents duplicate live tasks, and `sameWork`, the other kinds that count as the same work: the key names the work, not the kind, so an agent task holding `form:<requestId>` is returned when a recipe is approved and the request is dispatched again.
+  - Every finished task records `finishedBy`, `claimerKind`, `failureKind`, `failureStep`, and the summed `usage`.
+  - The clock is injected.
+- **`core/task-handlers.ts`.** A registry: `on(kinds, names, (event, tx) => void)`, where an event is `completed`, `blocked`, `failed` (final), `retrying`, `cancelled`, or `resumed`.
+  Handlers are synchronous and run inside the transaction that changed the task, so the task change and everything a handler writes commit or roll back together.
+  Run after the commit, a crash between the two would lose the consequence for good (a scan's candidates never becoming matches, a form result never advancing its request) and nothing would show it was missing.
+  Core services called from a handler join its transaction, because the database is one connection and a nested transaction becomes a savepoint.
+  A handler must tolerate a world that has moved on, such as a request the person has since cancelled, by doing nothing; it throws only for a bug, which rolls the change back and gives the worker a 500 while it still holds its lease.
+  A handler that returns a promise is rejected.
+  Work that cannot be undone, such as sending mail, is queued as a task from a handler and done by a runner.
+- **`core/task-audit.ts`.** Registered first, so it runs before module handlers: it puts what happens to a task on its request's timeline (`task_completed`, `task_blocked`, `task_failed`, `task_retrying`, `task_cancelled`, `task_resumed`) and sets `requests.lastError` on a final failure.
+  Modules do not write those events themselves; they apply consequences, such as moving a request along.
+  A final failure leaves the request with no live task, which is why `ReviewQueue.failedTasks` lists it and `POST /tasks/:id/retry` is the way back.
+- **`core/requests.ts`.** `create` (404 for a missing profile or target, 409 `target_retired` for a retired one), `transition(id, to, { actor, event?, patch? })` enforcing the state machine and writing `status_changed` plus any extra event, `update`, `addEvent`, `events`, `get`.
+  Moving to `confirmed`, `no_record`, `cancelled`, or `rejected` cancels the request's live tasks in the same transaction, so nothing keeps acting for a settled request.
+- **`core/request-flow.ts`.** `requests.open({ profileId, targetId, rights, channel, recordUrl?, campaignId?, actor })` resolves the legal basis, picks the profile's mailbox, creates the request, moves it from draft to queued, and dispatches it, all or nothing.
+  `requests.requeue(id, { actor, reason, kind, channel?, fields?, inReplyTo?, patch?, events? })` moves a request back to `queued` and dispatches it again, for a resend, a follow-up, a verification reply, and a channel switch.
+  D1 campaigns, D2 match decisions, relisting, and the follow-up scheduler all call these and do not rewrite the steps.
+- **`core/composer.ts`.** `composer.requestEmail(request, kind, { requestedFields? })` returns the rendered email, the exact `RenderRequestEmailInput` it came from, the recipient, and the mailbox.
+  It cites the legal basis stored on the request (`legal.getLegalBasis`), so a follow-up cites the statute the first request cited, and it works for a request that does not exist yet.
+  The campaign preview and the email runner both call it, so the preview is the mail that goes out.
+- **`core/mail-quota.ts`.** `mailQuota.sentSince(mailboxId, since)`, `sentLastDay`, `remaining(mailboxId)` (the cap less what went out in the last 24 hours), `lastSentAt`, and `record`, backed by `outgoing_mail`.
+  The email runner records every send, and the daily cap, the 20 to 60 second pacing, and `Dashboard.sending` all read it.
 - **`core/targets.ts`.** On startup, upserts the broker and company datasets (and `KICKROCKS_EXTRA_TARGETS`) into `targets`, sets `datasetVersion`, and marks vanished records `retired` instead of deleting them.
-- **`core/dispatch.ts`.** `dispatchRequest(request)` enqueues `email_send` for email requests, and for form requests enqueues `form` with the active remove recipe or `agent` (purpose remove, reason `no_recipe`) when none exists.
-  `enqueueScan(profileId, targetId)` enqueues `scan` with the active scan recipe or an `agent` scan task.
-  `needsRecord(target)` is the shared rule above.
+  A dataset that is unavailable, including a missing company file, keeps its existing targets instead of retiring them.
+- **`core/dispatch.ts`.** Every task a module needs has one helper with one dedupe key, so no two modules disagree.
+  - `dispatchRequest(requestId, { kind?, fields?, inReplyTo? })` reads the request from the database and requires `queued`.
+    For email it enqueues `email_send` of the kind it is given (default `initial`), after checking that there is a mailbox and the target has an address.
+    For a form request it enqueues `form` with the newest active remove recipe that is not marked broken, or an `agent` task (purpose remove, reason `no_recipe`, or `recipe_failed` when every recipe is broken) when there is none.
+    A form request needs a mailbox when the recipe types an `email` or the target lists `email_confirmation`, because the form is filled in with the mailbox address.
+    It writes a `task_enqueued` event when a task is created.
+  - `enqueueScan(profileId, targetId, variant?)` enqueues `scan` with the active scan recipe or an `agent` scan task, creates the `scans` row, and includes the variant in the dedupe key.
+  - `fallbackToAgent(task, { reason, error })` replaces a scan or form task with an agent task under the same dedupe key and repoints `scans.taskId`, in one transaction.
+  - `handToAgent(taskId, actor)` does the same for a blocked task, with reason `blocked` and the `blockedReason`, so an agent knows which human check stopped the worker.
+  - `enqueueConfirm(requestId, url)` uses key `confirm:<requestId>:<sha256(url)>`, `enqueueCanary(recipeId)` uses `canary:<recipeId>`, and `enqueueInboxPoll(mailboxId)` uses `inbox_poll:<mailboxId>`; each sets `targetId` and `profileId` so the claim can be built.
+  - Dispatch and scan refuse a retired target (`target_retired`) and answer 404 for a missing profile or target.
+  - `needsRecord(target)` is the shared rule above.
 - **`core/secrets.ts`.** Token generation, sha256 hashing, constant-time comparison, worker and MCP token checks.
-- **`core/claim.ts`.** Builds a `ClaimedTask`: loads the target and recipe, resolves `fields` from the profile's identities, and writes `instructions` for agent tasks (what to do, what never to do, and the exact result shape to report).
+- **`core/claim.ts`.** `claimTask(services, { workerId, kinds, leaseMs, taskId?, claimerKind })` leases the next browser task and builds a `ClaimedTask`: loads the target and recipe, resolves `fields` from the profile's identities (the scan's variant picks a past name or address), and writes `instructions` for agent tasks (what to do, where to start, what never to do, and the exact result shape to report).
+  - A form or agent removal for a request that is no longer `queued`, and a confirmation for a request that is no longer active, is cancelled instead of claimed, and the claim moves on to the next task.
+  - A confirmation URL that is not on the target's domain is never handed out; the task fails.
+  - With `taskId`, a queued task is leased as it is, and a blocked task is first handed to an agent and the new task leased in the same call, which is how an MCP client picks up a blocked task.
+  - A task that cannot be prepared is failed on the spot with kind `internal`.
+- **`core/recipe-catalog.ts`.** `recipeTargetProblems(recipe, targets)` reports a recipe whose broker is not in the dataset or whose pages are on another site.
+  Module E's startup sync calls it, and `core/bundled-recipes.test.ts` runs it over every bundled recipe.
 
 Interfaces the foundation defines and stubs, implemented by feature modules:
 
-- `src/mail/types.ts` (module B): `MailTransport { verify, send }`, `InboxSource { listFolders, fetchSince }` returning `InboxMessage` objects with uid, messageId, inReplyTo, references, from, to, subject, date, text, html, isBounce, autoSubmitted, and headers, plus `ReplyClassifier { classify(message, context) }` returning classification, confidence, rationale, and extracted links, plus `LinkFollower { follow(url, allowedDomains) }` returning `{ ok, finalUrl, status, needsBrowser, reason }`.
+- `src/mail/types.ts` (module B): `MailTransport { verify, send }`, `InboxSource { listFolders, fetchSince }` returning `InboxMessage` objects with uid, messageId, inReplyTo, references, from, to, subject, date, text, html, isBounce, autoSubmitted, and headers, plus `ReplyClassifier { classify(message, context) }` returning classification, confidence, rationale, extracted links, and `requestedFields`, plus `LinkFollower { follow(url, allowedDomains) }` returning `{ ok, finalUrl, status, needsBrowser, reason }`.
+  `fetchSince(folder, afterUid, uidValidity, { since, limit })` maps `since` to IMAP SINCE and returns at most `limit` messages, oldest first, with `hasMore` and the folder's `highestUid`: the caller stores `highestUid` as its cursor when nothing is left, so a first poll never downloads years of mail and a UIDVALIDITY reset does not either.
+  A `ClassifierRequest` carries `channel`, `recordUrl`, and `awaitingConfirmation`, which says that a submitted form waits for a confirmation email, from which domains, and with what link text.
+  A confirmation email carries no reference of ours, so the matching rule is documented there: a `confirmation_link` from one of the expected domains belongs to the oldest request waiting for that profile and target (or the one for the record the message names), with confidence at least 0.8, and the link follower is given those domains as well as the target's.
   `createMailServices(config, settings)` lives in `src/mail/index.ts`.
-- `@kickrocks/legal` (module C): `resolveLegalBasis(state, asOf)`, `listJurisdictions()`, `identifiersFor(target, identities, purpose, requestedFields?)`, `renderRequestEmail(input)`, as described in 5.C.
+- `@kickrocks/legal` (module C): `resolveLegalBasis({ state, target, rights, asOf })`, `getLegalBasis(id, state)`, `listJurisdictions()`, `identifiersFor(target, identities, purpose, requestedFields?, asOf?)`, `renderRequestEmail(input)`, as described in 5.C.
+  The target and rights matter because the data broker statutes cover only data brokers and some statutes give no right to deletion, and `getLegalBasis` returns a stored basis as it was, so a follow-up can cite the original after a newer law takes effect.
 
 ### 4.4 REST API
 
 All routes are JSON under `/api`, authenticated by the `kr_session` cookie unless noted.
 State-changing routes also require the header `X-Kick-Rocks: 1`, which a cross-site form cannot send.
+The guard enforces it for every route, so a module does not check it.
+A validation failure answers 400 with `issues`, each with a `path` that starts with where the value was read from (`body`, `query`, or `params`), such as `["body", "identities", 0, "value", "address"]`.
+The server and the web mock both build issues with `toApiIssues`, and the web client's `fieldErrors` drops a leading `body`.
 
-- Auth: `GET /auth/state`, `POST /auth/setup`, `POST /auth/login`, `POST /auth/logout`, `POST /auth/password`.
+- Core: `GET /health` (open, `{ ok, version }`), `GET /status` (profile and target counts).
+- Auth: `GET /auth/state`, `POST /auth/setup`, `POST /auth/login`, `POST /auth/logout`, `POST /auth/password` (needs a session).
 - Profiles: `GET /profiles`, `POST /profiles`, `GET /profiles/:id`, `PATCH /profiles/:id`, `DELETE /profiles/:id`, `PUT /profiles/:id/identities`.
-- Mailbox: `GET /mail/providers`, `POST /profiles/:id/mailbox/test`, `PUT /profiles/:id/mailbox`, `DELETE /profiles/:id/mailbox`, `POST /profiles/:id/mailbox/poll`, `GET /profiles/:id/mailbox/folders`.
-- Targets: `GET /targets` (kind, category, contactMethod, requirement, priority, q, page, pageSize), `GET /targets/facets`, `GET /targets/:id`.
+- Mailbox: `GET /mail/providers`, `POST /profiles/:id/mailbox/test` (the password may be left out to test the stored one), `PUT /profiles/:id/mailbox`, `DELETE /profiles/:id/mailbox`, `POST /profiles/:id/mailbox/poll`, `GET /profiles/:id/mailbox/folders`.
+- Targets: `GET /targets` (kind, category, contactMethod, requirement, priority, q, page, pageSize; each item says which of its scan and remove recipes are automated and how healthy), `GET /targets/facets`, `GET /targets/:id`.
 - Campaigns: `POST /profiles/:id/campaigns/preview` and `POST /profiles/:id/campaigns`, both taking `{ selection, rights }` where selection is `{ targetIds }` or `{ preset: "companies" | "email_brokers" | "people_search" | "everything" }`.
-- Requests: `GET /profiles/:id/requests`, `GET /requests/:id`, `POST /requests/:id/actions` with `{ action: "cancel" | "resend" | "mark_confirmed" | "mark_rejected" | "mark_no_record" }`.
-- Dashboard: `GET /profiles/:id/dashboard`.
+  An outcome can be skipped for `already_active`, `no_contact_method`, `scan_in_progress`, `no_mailbox`, `already_confirmed`, `unsupported_channel`, or `covered_by_platform`, with a `detail` sentence.
+- Requests: `GET /profiles/:id/requests`, `GET /requests/:id` (with `actions`), `POST /requests/:id/actions` with `{ action: "cancel" | "resend" | "mark_confirmed" | "mark_rejected" | "mark_no_record" }`, `POST /requests/:id/verification` with `{ messageId, fields }`.
+  The verification route answers a broker that asked for more identifiers: `fields` is the person's approved subset of the message's `requestedFields`, and the request goes `needs_verification -> queued` and sends a `verification_reply` email.
+- Dashboard: `GET /profiles/:id/dashboard` (`attention` counts blocked tasks, pending matches, unreviewed messages, requests needing verification, and failed tasks).
 - Scans: `POST /profiles/:id/scans` with `{ targetIds }` or `{ preset: "people_search" }`, `GET /profiles/:id/scans`.
-- Review: `GET /review?profileId=`, `POST /tasks/:id/resume`, `POST /tasks/:id/cancel`, `POST /tasks/:id/mark-done`, `GET /tasks/:id/screenshot`, `POST /matches/:id/decision`, `POST /messages/:id/classification`.
+- Review: `GET /review?profileId=` (blocked tasks, matches, verifications, failed tasks, and unclassified messages), `POST /tasks/:id/resume`, `POST /tasks/:id/cancel`, `POST /tasks/:id/mark-done` with `{ result?, note? }`, `POST /tasks/:id/hand-off`, `POST /tasks/:id/retry`, `GET /tasks/:id/screenshot`, `POST /matches/:id/decision` with `{ decision, rights }`, `GET /messages/:id` (the whole message), `POST /messages/:id/classification`.
+  `hand-off` takes a blocked scan, form, or agent task away from the built-in worker and gives it to an agent.
+  `retry` dispatches the request of a task that failed for good again.
 - Recipes: `GET /recipes?status=`, `POST /recipes/:id/approve`, `POST /recipes/:id/reject`.
 - Settings: `GET /settings`, `PATCH /settings`, `POST /settings/mcp-token`, `GET /settings/jurisdictions`, `GET /settings/data-sources`.
-- Worker (bearer worker token): `POST /worker/heartbeat`, `POST /worker/claim`, `POST /worker/tasks/:id/heartbeat`, `POST /worker/tasks/:id/complete`, `POST /worker/tasks/:id/block`, `POST /worker/tasks/:id/fail`.
+- Worker (bearer worker token): `POST /worker/heartbeat`, `POST /worker/claim`, `POST /worker/tasks/:id/heartbeat`, `POST /worker/tasks/:id/complete`, `POST /worker/tasks/:id/block`, `POST /worker/tasks/:id/fail`, `POST /worker/tasks/:id/release`.
 - MCP (bearer MCP token) at `/mcp`, streamable HTTP, tools in 5.E.
 
 ### 4.5 Web shell (`apps/web`)
@@ -268,8 +385,10 @@ State-changing routes also require the header `X-Kick-Rocks: 1`, which a cross-s
 - First run: `POST /auth/setup` sets the instance password (argon2id) only while none exists.
 - Sessions: random 32-byte token in an HttpOnly, SameSite=Strict cookie, stored hashed, sliding 30-day expiry, `Secure` when served over HTTPS.
 - Login throttling per IP with backoff; constant-time responses.
-- Replace the foundation auth stub; enforce `X-Kick-Rocks` on state-changing routes.
+- Replace the foundation auth stub.
+  The guard already enforces `X-Kick-Rocks` on every state-changing route and routes `/api/auth/password` through `authenticate` like any session route, so `authenticate` only decides whether there is a session.
 - Profiles CRUD and identities replacement with validation (exactly one primary name, at least one email, dates sane).
+  The shared schema checks everything that does not depend on today's date; the one rule that does, that a date of birth is not in the future, is `validateIdentities(inputs, today)` with `today` taken from `services.clock`, and a failure is answered as a 400 with `body`-prefixed issue paths.
 - Settings: schedule (`pollMinutes` default 15, `peopleSearchRescanDays` 60, `brokerRescanDays` 90, `noResponseDays` 45, `maxFollowUps` 2), LLM (`baseUrl`, `model`, `apiKey` for any OpenAI-compatible endpoint such as Ollama), MCP enable and token rotation (token returned once, stored hashed), jurisdictions and data sources passthrough, worker status.
 
 ### B. mail
@@ -278,19 +397,27 @@ State-changing routes also require the header `X-Kick-Rocks: 1`, which a cross-s
   Outlook.com is listed as unsupported with the reason.
 - `MailTransport` on nodemailer: verify, and send plain-text mail with our Message-ID, the reference in the subject, and no tracking.
 - `InboxSource` on imapflow: list folders, fetch since the last UID in the reply folder, handle UIDVALIDITY resets, parse with mailparser.
+  `fetchSince` honors `since` (IMAP SINCE) and `limit`, and reports `hasMore` and `highestUid`, as described in 4.3.
+  Parse links out of the HTML body with `htmlparser2`, which the foundation added to `apps/server`, rather than with regular expressions.
 - `ReplyClassifier`: correlate by In-Reply-To or References matching our Message-ID, then by the `KR-` reference in subject or body, then by sender domain against awaiting requests (lower confidence).
   Detect bounces from DSN reports and mailer-daemon senders, auto-replies from `Auto-Submitted` and common patterns, and the other classes from keyword rules.
-  Extract links and keep only those on the target's domain or its known subdomains.
+  Extract links and keep only those on the target's domain, its known subdomains, or an expected sender in `awaitingConfirmation.fromDomains`.
+  For `verification_required`, return the identifiers the broker asked for as `requestedFields` (profile field names only).
+  A broker's confirmation email after a form submission has no `KR-` reference and no In-Reply-To, so apply the matching rule documented on `ClassifierRequest.awaitingConfirmation`, with confidence of at least 0.8.
+  Store each message with its text cut to 20,000 characters, for `GET /messages/:id`.
   When confidence is below 0.6 and an LLM is configured, ask it for a classification with a strict JSON schema; otherwise leave the message for review.
-- `LinkFollower`: GET with redirects re-validated hop by hop against the allowed domains, refusing private and loopback addresses, with a size and time limit; report `needsBrowser` when the page needs JavaScript or a button press.
+- `LinkFollower`: GET with redirects re-validated hop by hop against the allowed domains, refusing private and loopback addresses unless the host is in `config.linkFollower.allowedPrivateHosts`, with a size and time limit; report `needsBrowser` when the page needs JavaScript or a button press.
 - Mailbox routes in 4.4, with the password never returned to the client.
+  `POST /profiles/:id/mailbox/test` falls back to the stored secret when no password is sent.
 - Integration tests against GreenMail in Docker; CI provides it as a service.
 
 ### C. legal
 
 - Research and encode every US state comprehensive privacy law in effect or enacted as of today: statute name, citation, effective date, rights to opt out of sale and to delete, response deadline and extension, data broker specifics, and a primary-source URL.
   Include California's Delete Act and DROP, and note where DROP should be preferred.
-- `resolveLegalBasis(state, asOf)` returns the statute basis when the law is in effect at `asOf`, otherwise a policy-based request that asks the business to honor its own published privacy commitments.
+- `resolveLegalBasis({ state, target, rights, asOf })` returns the statute basis when a law is in effect at `asOf` and covers this target and these rights, otherwise a policy-based request that asks the business to honor its own published privacy commitments.
+  The data broker statutes (California's Delete Act, and the Vermont, Texas, and Oregon broker laws) apply only to data brokers, some statutes give a right to opt out of sale but not to deletion, and DROP is preferred only for a broker registered with California.
+  `getLegalBasis(id, state)` returns the basis a stored id names, as it was, so a follow-up can cite the statute the first request cited even after a newer law takes effect; it is null for an id the package does not know.
 - `identifiersFor` implements data minimization: blind email to marketing or registered brokers discloses name and email only; people-search and background-check requests add city and state; forms disclose only what the recipe declares; date of birth and full street address are disclosed only when a recipe or a broker's verification reply explicitly requires it.
 - `renderRequestEmail` covers initial, follow-up, and verification-reply emails for opt-out, delete, or both, citing the statute when one applies.
   The tone is firm, plain, and short.
@@ -305,24 +432,34 @@ State-changing routes also require the header `X-Kick-Rocks: 1`, which a cross-s
   Email-capable targets get an email request.
   Targets that need a record URL start a scan instead of a request, reported as `scan_started`.
   Other form targets get a form request.
-  Already active requests for the same target are skipped with a reason.
-- Requests list with filters and detail with timeline, messages, and tasks; user actions per 4.4.
-- Dashboard counts by status, needs-attention counts, today's sends against the daily cap, and recent events.
+  A target that is left out is reported with a `SkipReason` and a `detail` sentence: `already_active`, `no_contact_method`, `scan_in_progress`, `no_mailbox` (an email request and no mailbox), `already_confirmed` (nothing is re-sent after a confirmed removal unless a re-scan finds the person again), `unsupported_channel` (only postal mail, fax, a phone call, or payment), and `covered_by_platform` (California's DROP covers a registered broker).
+  Create requests with `services.requests.open`, and build the preview's `sampleEmail` with `services.composer.requestEmail`, so the preview is the mail that goes out.
+- Requests list with filters and detail with timeline, messages, tasks, and `actions` from `availableActions`; user actions per 4.4, with `resend` implemented by `services.requests.requeue` (kind from `resendEmailKind`).
+- `POST /requests/:id/verification`: check that the message belongs to the request and that `fields` is a subset of its `requestedFields`, then `requests.requeue` with kind `verification_reply`, the fields, and `inReplyTo` set to the message's Message-ID, writing a `user_action` event.
+- Dashboard counts by status, needs-attention counts (including failed tasks), today's sends against the daily cap from `services.mailQuota`, and recent events.
 
 ### D2. automation
 
 - Scheduler loop, off when `KICKROCKS_SCHEDULER=off`: reap leases, enqueue inbox polls per mailbox on the poll interval, run in-process tasks, move overdue `awaiting_reply` requests to `no_response` then `follow_up_due` and send follow-ups up to `maxFollowUps`, re-scan people-search targets every `peopleSearchRescanDays`, re-send unconfirmed broker requests every `brokerRescanDays`, enqueue weekly canary checks, and delete artifacts of tasks finished more than 30 days ago.
-- `email_send` runner: render with `@kickrocks/legal`, send with `MailTransport`, respect the mailbox daily cap over a rolling 24 hours and a jittered gap between sends (20 to 60 seconds), and set `sentAt` and `dueAt` from the legal basis.
-- `inbox_poll` runner: fetch, store, classify, and apply.
-  `completed` confirms, `no_record` and `rejected` close, `verification_required` moves to `needs_verification`, `confirmation_link` follows the link or enqueues a `confirm` task when a browser is needed, `bounce` switches to the form channel when the target has one, `needs_form` switches channel, `auto_ack` only adds an event, and low-confidence mail waits for review.
-- Task handlers: scan results become matches (deduplicated by record URL against earlier decisions), form and agent results move requests forward, blocks add `task_blocked` events, and recipe failures convert the task to an `agent` task and count toward recipe health.
-- Scans routes and the review routes in 4.4, including deciding matches (`mine` creates a form request with the record URL and dispatches it) and classifying messages by hand.
+- `email_send` runner: compose with `services.composer.requestEmail` (the payload's kind, fields, and inReplyTo), send with `MailTransport`, record the send with `mailQuota.record`, and set `sentAt` and `dueAt` from the legal basis.
+  Respect the mailbox daily cap and a jittered gap between sends (20 to 60 seconds) using `mailQuota.remaining` and `mailQuota.lastSentAt`: claim with `excludeProfileIds` for mailboxes that are capped, and `release` a task that has to wait, with `runAfter`, instead of failing it.
+- `inbox_poll` runner: fetch (from the mailbox's creation time or its oldest outstanding send, never the whole folder), store, classify, and apply, using `REPLY_OUTCOMES` and `canTransition`; a reply the machine will not apply is only recorded.
+  `completed` confirms, `no_record` and `rejected` close, `verification_required` moves to `needs_verification` and stores the message's `requestedFields` for the review queue, `confirmation_link` follows the link or enqueues a `confirm` task when a browser is needed, `bounce` switches to the form channel when the target has one, `needs_form` switches channel (both through `requests.requeue` with a `channel_switched` event), `auto_ack` only adds an event, and low-confidence mail waits for review.
+- Task handlers, synchronous and inside the transaction of the task change (see `core/task-handlers.ts`): scan results become matches (deduplicated against earlier decisions by `normalizeRecordUrl`), form and agent results move a `queued` request along with `FORM_OUTCOMES` (and a request that has moved on is left alone), and a `recipe` failure calls `dispatch.fallbackToAgent` and `recipeHealth.recordRun` (only `recipe` failures count toward health).
+  A form result with `awaiting_email_confirmation` sets `awaitingConfirmationSince` and writes `awaiting_confirmation` from the recipe's `email_confirmation` step or `FormResult.confirmationFrom`.
+  The task timeline events are written by `core/task-audit.ts`; handlers do not write them.
+  A person's result from `POST /tasks/:id/mark-done` reaches handlers as the task result, null when they gave none.
+- Scans routes and the review routes in 4.4, including deciding matches (`mine` calls `requests.open` for a form request with the record URL and the body's `rights`), classifying messages by hand, `GET /messages/:id`, `POST /tasks/:id/hand-off` (`dispatch.handToAgent`), and `POST /tasks/:id/retry` (dispatch the task's request again, or its scan).
+  `ReviewQueue.verifications` lists requests in `needs_verification` with the message and its `requestedFields`, and `failedTasks` lists final failures from the last 30 days whose request, if any, is still open.
+- The scheduler enqueues work through the `dispatch` helpers (`enqueueInboxPoll`, `enqueueCanary`, `enqueueScan`) and sends follow-ups through `requests.requeue` with kind `follow_up`.
 
 ### E. agent-api
 
-- Worker API in 4.4 with the worker token, claiming only browser kinds and returning `ClaimedTask`.
-- MCP server at `/mcp` using `@modelcontextprotocol/sdk` streamable HTTP, with tools `list_tasks`, `claim_task`, `heartbeat_task`, `complete_task`, `block_task`, `fail_task`, `get_target`, `get_recipe`, and `propose_recipe`.
-  Tool inputs and outputs are the shared schemas; `claim_task` returns the `ClaimedTask` with instructions.
+- Worker API in 4.4 with the worker token, claiming only browser kinds (default `WORKER_DEFAULT_KINDS`, claimer kind `builtin`, or `model` when the worker says so) and returning `ClaimedTask`, through `claimTask`.
+  `POST /worker/tasks/:id/release` hands a task back without costing an attempt, and complete, block, and fail take `usage`.
+- MCP server at `/mcp` using `@modelcontextprotocol/sdk` streamable HTTP, with tools `list_tasks`, `claim_task`, `heartbeat_task`, `complete_task`, `block_task`, `fail_task`, `release_task`, `get_target`, `get_recipe`, and `propose_recipe`.
+  Tool inputs and outputs are the shared schemas; `claim_task` returns the `ClaimedTask` with instructions, takes `AGENT_DEFAULT_KINDS` unless told otherwise, and records claimer kind `mcp`.
+  `claim_task({ taskId })` calls `claimTask` with the id, so a queued task is leased as it is and a blocked one is handed to an agent and leased in the same call; this is how an MCP client picks up a blocked task, as the Milestone 3 deliverable says.
 - Recipes module: sync bundled recipes from `packages/recipes` and `KICKROCKS_EXTRA_RECIPES` at startup, list proposed recipes, approve or reject them, and update health from canary results.
   The sync runs from the startup seam in 4.3 after targets are synced, and reports a recipe that `recipeTargetProblems` (`core/recipe-catalog.ts`) flags, such as an unknown `brokerId` or a page on another site, instead of skipping it silently.
 - `docs/agents.md`: how to connect Claude Code (`claude mcp add --transport http ...`) or any MCP client, what an agent task looks like, and the rules agents must follow.

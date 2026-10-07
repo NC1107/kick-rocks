@@ -6,6 +6,7 @@ import {
   POLICY_RESPONSE_DAYS,
   type ProfileField,
   resolveProfileFields,
+  type StateCode,
   type Statute,
 } from "@kickrocks/shared";
 
@@ -33,25 +34,39 @@ const BASE_FIELDS = {
 } as const satisfies Record<string, readonly ProfileField[]>;
 
 /** A deterministic stand-in for @kickrocks/legal: California gets a statute, everyone else a policy. */
+function policyBasis(state: StateCode): LegalBasis {
+  return {
+    id: POLICY_BASIS_ID,
+    kind: "policy",
+    state,
+    statute: null,
+    responseDays: POLICY_RESPONSE_DAYS,
+  };
+}
+
+function statuteBasis(state: StateCode): LegalBasis {
+  return {
+    id: FAKE_STATUTE.id,
+    kind: "statute",
+    state,
+    statute: FAKE_STATUTE,
+    responseDays: FAKE_STATUTE.responseDays,
+  };
+}
+
 export function createFakeLegal(): LegalApi {
   return {
-    resolveLegalBasis(state, asOf): LegalBasis {
-      if (state === "CA" && asOf >= new Date(FAKE_STATUTE.effectiveDate)) {
-        return {
-          id: FAKE_STATUTE.id,
-          kind: "statute",
-          state,
-          statute: FAKE_STATUTE,
-          responseDays: FAKE_STATUTE.responseDays,
-        };
+    resolveLegalBasis({ state, rights, asOf }): LegalBasis {
+      const covered = rights.every((right) => FAKE_STATUTE.rights.includes(right));
+      if (state === "CA" && covered && asOf >= new Date(FAKE_STATUTE.effectiveDate)) {
+        return statuteBasis(state);
       }
-      return {
-        id: POLICY_BASIS_ID,
-        kind: "policy",
-        state,
-        statute: null,
-        responseDays: POLICY_RESPONSE_DAYS,
-      };
+      return policyBasis(state);
+    },
+
+    getLegalBasis(id, state): LegalBasis | null {
+      if (id === POLICY_BASIS_ID) return policyBasis(state);
+      return id === FAKE_STATUTE.id && state === FAKE_STATUTE.state ? statuteBasis(state) : null;
     },
 
     listJurisdictions(): Jurisdiction[] {

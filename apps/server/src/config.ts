@@ -15,6 +15,7 @@ const Env = z.object({
   KICKROCKS_EXTRA_TARGETS: z.string().optional(),
   KICKROCKS_EXTRA_RECIPES: z.string().optional(),
   KICKROCKS_SCHEDULER: z.enum(["on", "off"]).default("on"),
+  KICKROCKS_ALLOW_PRIVATE_LINK_HOSTS: z.string().optional(),
   LOG_LEVEL: z.enum(["trace", "debug", "info", "warn", "error", "fatal", "silent"]).default("info"),
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
 });
@@ -35,6 +36,13 @@ export interface Config {
   /** A directory of extra recipe files. */
   extraRecipesDir: string | null;
   schedulerEnabled: boolean;
+  linkFollower: {
+    /**
+     * Hostnames the link follower may reach even though they resolve to a private or loopback
+     * address. Empty by default; the end-to-end suite lists its fixture broker site here.
+     */
+    allowedPrivateHosts: string[];
+  };
   logLevel: z.infer<typeof Env>["LOG_LEVEL"];
   env: z.infer<typeof Env>["NODE_ENV"];
 }
@@ -46,6 +54,14 @@ function withoutEmpty(env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
 
 function pathOrNull(value: string | undefined): string | null {
   return value ? resolve(value) : null;
+}
+
+/** A comma separated list of hostnames, lower cased, with blanks dropped. */
+function hostList(value: string | undefined): string[] {
+  return (value ?? "")
+    .split(",")
+    .map((host) => host.trim().toLowerCase())
+    .filter(Boolean);
 }
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
@@ -66,6 +82,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     extraTargetsPath: pathOrNull(parsed.KICKROCKS_EXTRA_TARGETS),
     extraRecipesDir: pathOrNull(parsed.KICKROCKS_EXTRA_RECIPES),
     schedulerEnabled: parsed.KICKROCKS_SCHEDULER === "on",
+    linkFollower: { allowedPrivateHosts: hostList(parsed.KICKROCKS_ALLOW_PRIVATE_LINK_HOSTS) },
     logLevel: parsed.LOG_LEVEL,
     env: parsed.NODE_ENV,
   };

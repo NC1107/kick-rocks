@@ -1,4 +1,6 @@
+import { requests as requestsTable, targets as targetsTable } from "@kickrocks/db";
 import { Reference } from "@kickrocks/shared";
+import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { SECOND } from "../test-utils/clock.js";
 import {
@@ -77,6 +79,7 @@ describe("create", () => {
     const service = createRequestsService({
       db: ctx.services.db,
       clock: ctx.clock,
+      taskQueue: ctx.services.taskQueue,
       generateReference: () => sequence[Math.min(call++, sequence.length - 1)] as never,
     });
     expect(
@@ -103,6 +106,7 @@ describe("create", () => {
     const service = createRequestsService({
       db: ctx.services.db,
       clock: ctx.clock,
+      taskQueue: ctx.services.taskQueue,
       generateReference: () => "KR-AAAAAA",
     });
     service.create({
@@ -129,9 +133,26 @@ describe("create", () => {
     expect(requests.events(request.id)[0]?.actor).toBe("user");
   });
 
-  it("rejects a profile or target that does not exist", () => {
-    expect(() => create({ profileId: "missing" })).toThrow(/FOREIGN KEY/);
-    expect(() => create({ targetId: "missing" })).toThrow(/FOREIGN KEY/);
+  it("answers a missing profile or target with a 404, not a database error", () => {
+    expect(() => create({ profileId: "missing" })).toThrow(
+      expect.objectContaining({ status: 404, code: "profile_not_found" }),
+    );
+    expect(() => create({ targetId: "missing" })).toThrow(
+      expect.objectContaining({ status: 404, code: "target_not_found" }),
+    );
+    expect(ctx.services.db.select().from(requestsTable).all()).toEqual([]);
+  });
+
+  it("refuses a target that has left the dataset", () => {
+    const retired = seedTarget(ctx, { id: "gone-broker" });
+    ctx.services.db
+      .update(targetsTable)
+      .set({ retired: true })
+      .where(eq(targetsTable.id, retired.id))
+      .run();
+    expect(() => create({ targetId: retired.id })).toThrow(
+      expect.objectContaining({ status: 409, code: "target_retired" }),
+    );
   });
 });
 
@@ -168,8 +189,15 @@ describe("transition", () => {
     const sentAt = ctx.clock.now().toISOString();
     const sent = requests.transition(request.id, "sent", {
       actor: "system",
-      eventType: "sent",
-      payload: { messageId: "<m@example.com>" },
+      event: {
+        type: "sent",
+        payload: {
+          channel: "email",
+          kind: "initial",
+          messageId: "<m@example.com>",
+          mailboxId: "m1",
+        },
+      },
       patch: { sentAt, outgoingMessageId: "<m@example.com>", followUps: 0 },
     });
     expect(sent).toMatchObject({ status: "sent", sentAt, outgoingMessageId: "<m@example.com>" });
@@ -179,7 +207,12 @@ describe("transition", () => {
         .slice(-2)
         .map((e) => e.type),
     ).toEqual(["status_changed", "sent"]);
-    expect(requests.events(request.id).at(-1)?.payload).toEqual({ messageId: "<m@example.com>" });
+    expect(requests.events(request.id).at(-1)?.payload).toEqual({
+      channel: "email",
+      kind: "initial",
+      messageId: "<m@example.com>",
+      mailboxId: "m1",
+    });
   });
 
   it("switches channel from awaiting_reply back to queued", () => {
@@ -189,8 +222,10 @@ describe("transition", () => {
     }
     const switched = requests.transition(request.id, "queued", {
       actor: "system",
-      eventType: "channel_switched",
-      payload: { from: "email", to: "form" },
+      event: {
+        type: "channel_switched",
+        payload: { from: "email", to: "form", reason: "needs_form" },
+      },
       patch: { channel: "form" },
     });
     expect(switched).toMatchObject({ status: "queued", channel: "form" });
@@ -210,8 +245,7 @@ describe("transition", () => {
     expect(() => requests.transition(request.id, "confirmed", { actor: "agent" })).toThrow();
     const forced = requests.transition(request.id, "confirmed", {
       actor: "user",
-      eventType: "user_action",
-      payload: { action: "mark_confirmed" },
+      event: { type: "user_action", payload: { action: "mark_confirmed", note: null } },
     });
     expect(forced.status).toBe("confirmed");
     expect(requests.events(request.id).at(-2)?.actor).toBe("user");
@@ -262,8 +296,21 @@ describe("update and events", () => {
 
   it("adds events and lists them oldest first even within one instant", () => {
     const request = create();
-    requests.addEvent(request.id, { type: "reply_received", actor: "system", payload: { n: 1 } });
-    requests.addEvent(request.id, { type: "classified", actor: "system" });
+    requests.addEvent(request.id, {
+      type: "reply_received",
+      actor: "system",
+      payload: { messageId: "m1", from: "privacy@broker.test", subject: "Re: x" },
+    });
+    requests.addEvent(request.id, {
+      type: "classified",
+      actor: "system",
+      payload: {
+        messageId: "m1",
+        classification: "completed",
+        confidence: 0.9,
+        correlation: "reference",
+      },
+    });
     requests.addEvent(request.id, {
       type: "note",
       actor: "user",
@@ -271,9 +318,134 @@ describe("update and events", () => {
     });
     const events = requests.events(request.id);
     expect(events.map((e) => e.type)).toEqual(["created", "reply_received", "classified", "note"]);
-    expect(events[2]?.payload).toBeNull();
-    expect(() => requests.addEvent("missing", { type: "note", actor: "user" })).toThrow(
-      /not found/,
-    );
+    expect(events[3]?.payload).toEqual({ text: "called them" });
+    expect(() =>
+      requests.addEvent("missing", { type: "note", actor: "user", payload: { text: "x" } }),
+    ).toThrow(/not found/);
+  });
+});
+
+describe("event payloads", () => {
+  it("refuses a payload that is not what the event type carries, and writes nothing", () => {
+    const request = create();
+    expect(() =>
+      requests.addEvent(request.id, {
+        type: "note",
+        actor: "user",
+        payload: { body: "x" } as never,
+      }),
+    ).toThrow();
+    expect(() =>
+      requests.transition(request.id, "queued", {
+        actor: "system",
+        event: { type: "task_enqueued", payload: { taskId: "t" } as never },
+      }),
+    ).toThrow();
+    expect(requests.getOrThrow(request.id).status).toBe("draft");
+    expect(requests.events(request.id)).toHaveLength(1);
+  });
+
+  it("reads back what it wrote, typed by the event", () => {
+    const request = create();
+    requests.transition(request.id, "queued", { actor: "system" });
+    const event = requests.events(request.id).at(-1);
+    expect(event).toMatchObject({
+      type: "status_changed",
+      payload: { from: "draft", to: "queued" },
+    });
+  });
+});
+
+describe("waiting for a confirmation email", () => {
+  function awaitingReply() {
+    const request = create();
+    for (const status of ["queued", "sent", "awaiting_reply"] as const) {
+      requests.transition(request.id, status, { actor: "system" });
+    }
+    return request;
+  }
+
+  it("is set with the move to awaiting_reply and cleared by the next status change", () => {
+    const request = create({ channel: "form" });
+    requests.transition(request.id, "queued", { actor: "system" });
+    const since = ctx.clock.now().toISOString();
+    const waiting = requests.transition(request.id, "awaiting_reply", {
+      actor: "worker",
+      patch: { awaitingConfirmationSince: since },
+      event: {
+        type: "awaiting_confirmation",
+        payload: { fromDomains: ["broker.test"], linkTextPattern: null },
+      },
+    });
+    expect(waiting.awaitingConfirmationSince).toBe(since);
+    const confirmed = requests.transition(request.id, "confirmed", { actor: "system" });
+    expect(confirmed.awaitingConfirmationSince).toBeNull();
+  });
+
+  it("does not survive an unrelated status change", () => {
+    const request = awaitingReply();
+    requests.update(request.id, { awaitingConfirmationSince: ctx.clock.now().toISOString() });
+    expect(
+      requests.transition(request.id, "no_response", { actor: "system" }).awaitingConfirmationSince,
+    ).toBeNull();
+  });
+
+  it("can only be set while the request is awaiting a reply", () => {
+    const request = create();
+    expect(() =>
+      requests.update(request.id, { awaitingConfirmationSince: ctx.clock.now().toISOString() }),
+    ).toThrow(expect.objectContaining({ code: "invalid_request_state" }));
+    const waiting = awaitingReply();
+    expect(
+      requests.update(waiting.id, { awaitingConfirmationSince: ctx.clock.now().toISOString() })
+        .awaitingConfirmationSince,
+    ).not.toBeNull();
+  });
+});
+
+describe("settling a request stops its tasks", () => {
+  function queueSend(requestId: string) {
+    return ctx.services.taskQueue.enqueue({
+      kind: "email_send",
+      payload: { requestId, kind: "initial", fields: [], inReplyTo: null },
+      profileId,
+      targetId,
+      requestId,
+    }).task;
+  }
+
+  it.each(["cancelled", "confirmed", "no_record", "rejected"] as const)(
+    "cancels the live tasks when the request becomes %s",
+    (status) => {
+      const request = create();
+      requests.transition(request.id, "queued", { actor: "system" });
+      const task = queueSend(request.id);
+      requests.transition(request.id, status, { actor: "user" });
+      expect(ctx.services.taskQueue.getOrThrow(task.id).status).toBe("cancelled");
+      expect(requests.events(request.id).map((e) => e.type)).toContain("task_cancelled");
+    },
+  );
+
+  it("leaves the tasks of a request that is only moving along", () => {
+    const request = create();
+    requests.transition(request.id, "queued", { actor: "system" });
+    const task = queueSend(request.id);
+    requests.transition(request.id, "sent", { actor: "system" });
+    expect(ctx.services.taskQueue.getOrThrow(task.id).status).toBe("queued");
+  });
+
+  it("does not touch the tasks of another request", () => {
+    const request = create();
+    const other = create();
+    const task = queueSend(other.id);
+    requests.transition(request.id, "cancelled", { actor: "user" });
+    expect(ctx.services.taskQueue.getOrThrow(task.id).status).toBe("queued");
+  });
+
+  it("takes the task and the status change back together if the move is refused", () => {
+    const request = create();
+    const task = queueSend(request.id);
+    expect(() => requests.transition(request.id, "confirmed", { actor: "agent" })).toThrow();
+    expect(ctx.services.taskQueue.getOrThrow(task.id).status).toBe("queued");
   });
 });

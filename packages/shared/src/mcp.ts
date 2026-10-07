@@ -11,8 +11,14 @@ import {
   TaskKind,
   TaskStatus,
   TaskSummary,
+  TaskUsage,
 } from "./tasks.js";
-import { TaskHeartbeatResponse, TaskTransitionResponse } from "./worker.js";
+import {
+  AGENT_DEFAULT_KINDS,
+  TaskHeartbeatResponse,
+  TaskReleaseBody,
+  TaskTransitionResponse,
+} from "./worker.js";
 
 const WorkerName = z.string().min(1).max(100);
 const TaskId = z.string().min(1);
@@ -34,10 +40,13 @@ export const MCP_TOOLS = {
   },
   claim_task: {
     description:
-      "Lease the next queued browser task, or a specific one by id. Returns the full task, including the identifiers it may use and step-by-step instructions, or null when nothing is waiting.",
+      "Lease the next queued task meant for an agent, or a specific task by id. Returns the full task, including the identifiers it may use and step-by-step instructions, or null when nothing is waiting. Without kinds it takes agent tasks only. With taskId, kinds is ignored: a queued task is leased as it is, and a task a person parked as blocked is handed to you as a new agent task, which names the human check that stopped the earlier run.",
     input: z.object({
       workerId: WorkerName,
-      kinds: z.array(BrowserTaskKind).min(1).optional(),
+      kinds: z
+        .array(BrowserTaskKind)
+        .min(1)
+        .default(() => [...AGENT_DEFAULT_KINDS]),
       taskId: TaskId.optional(),
       leaseMs: LeaseMs.default(LEASE_MS.default),
     }),
@@ -54,8 +63,13 @@ export const MCP_TOOLS = {
   },
   complete_task: {
     description:
-      "Report the result of a task you hold. The result must match the shape the task's instructions describe.",
-    input: z.object({ workerId: WorkerName, taskId: TaskId, result: z.unknown() }),
+      "Report the result of a task you hold. The result must match the shape the task's instructions describe. Include usage with the tokens and cost your run took, so it can be measured.",
+    input: z.object({
+      workerId: WorkerName,
+      taskId: TaskId,
+      result: z.unknown(),
+      usage: TaskUsage.optional(),
+    }),
     output: TaskTransitionResponse,
   },
   block_task: {
@@ -65,8 +79,15 @@ export const MCP_TOOLS = {
     output: TaskTransitionResponse,
   },
   fail_task: {
-    description: "Report that a task failed. Set retryable when trying again later could work.",
+    description:
+      "Report that a task failed. Set retryable when trying again later could work, and kind to site (the broker's page is broken or down), network, or internal (you gave up). Never use recipe.",
     input: TaskFailureReport.extend({ workerId: WorkerName, taskId: TaskId }),
+    output: TaskTransitionResponse,
+  },
+  release_task: {
+    description:
+      "Hand back a task you hold without finishing it, for example when you are shutting down. It goes back in the queue and the attempt is not counted.",
+    input: TaskReleaseBody.extend({ taskId: TaskId }),
     output: TaskTransitionResponse,
   },
   get_target: {

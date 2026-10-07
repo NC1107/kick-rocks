@@ -30,6 +30,12 @@ export interface TestContextOptions {
   now?: Date | string;
   /** Extra environment for the server config, such as KICKROCKS_EXTRA_TARGETS. */
   env?: Record<string, string>;
+  /**
+   * `fake` (the default) lets `ctx.auth` allow or deny every session request, so a test of a
+   * module does not depend on the login flow. `real` builds the server with its own auth service,
+   * sessions, cookies, and throttling included, which is what the auth module tests.
+   */
+  auth?: "fake" | "real";
   /** Datasets for the startup sync. Empty by default so tests start with no targets. */
   targetSources?: TargetSources;
   /** Runs before the app is made ready, the only time a route or hook can still be added. */
@@ -42,6 +48,12 @@ export interface RequestOptions {
   url: string;
   payload?: unknown;
   headers?: Record<string, string>;
+  /**
+   * Send the `X-Kick-Rocks` header, as the web app does on every state-changing call. On by
+   * default for `inject`; pass `false` to see what the server does without it. Bearer-token calls
+   * never send it.
+   */
+  csrf?: boolean;
 }
 
 export type ApiResult<R extends RouteDef> =
@@ -67,11 +79,14 @@ export interface TestContext {
   clock: FakeClock;
   mail: FakeMail;
   legal: LegalApi;
-  /** Starts allowing everything; use `auth.deny()` to test an anonymous caller. */
+  /**
+   * Starts allowing everything; use `auth.deny()` to test an anonymous caller. With `auth: "real"`
+   * the real service is in charge and calling `allow` or `deny` throws.
+   */
   auth: FakeAuth;
   workerToken: string;
   mcpToken: string;
-  /** A request as a signed-in browser would make it: the CSRF header is added. */
+  /** A request as a signed-in browser would make it: the CSRF header is added unless `csrf: false`. */
   inject(options: RequestOptions): Promise<LightMyRequestResponse>;
   /** A request carrying the worker bearer token. */
   injectWorker(options: RequestOptions): Promise<LightMyRequestResponse>;
@@ -83,6 +98,17 @@ export interface TestContext {
    */
   call<R extends RouteDef>(route: R, input?: CallInput<R>): Promise<ApiResult<R>>;
   close(): Promise<void>;
+}
+
+/** Stands in for FakeAuth when the real service runs, so a test cannot steer an auth it does not own. */
+class RealAuthPlaceholder extends FakeAuth {
+  override allow(): never {
+    throw new Error("auth is real in this context; sign in through the auth routes instead");
+  }
+
+  override deny(): never {
+    throw new Error("auth is real in this context; sign out through the auth routes instead");
+  }
 }
 
 function toInject(options: RequestOptions, extraHeaders: Record<string, string>): InjectOptions {
@@ -115,13 +141,14 @@ export async function createTestContext(options: TestContextOptions = {}): Promi
   const clock = new FakeClock(options.now ?? DEFAULT_TEST_NOW);
   const mail = createFakeMail(clock);
   const legal = createFakeLegal();
-  const auth = new FakeAuth();
+  const realAuth = options.auth === "real";
+  const auth = realAuth ? new RealAuthPlaceholder() : new FakeAuth();
   const database = openAppDatabase(config);
   const services = createServices(config, database.db, {
     clock,
     mail: mail.services,
     legal,
-    auth,
+    ...(realAuth ? {} : { auth }),
     targetSources: options.targetSources ?? {
       brokers: () => ({ version: "test", records: [] }),
       companies: () => ({ version: "test", records: [] }),
@@ -146,7 +173,7 @@ export async function createTestContext(options: TestContextOptions = {}): Promi
     auth,
     workerToken: TEST_WORKER_TOKEN,
     mcpToken: TEST_MCP_TOKEN,
-    inject: (request) => built.server.inject(toInject(request, csrf)),
+    inject: (request) => built.server.inject(toInject(request, request.csrf === false ? {} : csrf)),
     injectWorker: (request) => built.server.inject(toInject(request, bearer(TEST_WORKER_TOKEN))),
     injectMcp: (request) => built.server.inject(toInject(request, bearer(TEST_MCP_TOKEN))),
 
@@ -171,6 +198,12 @@ export async function createTestContext(options: TestContextOptions = {}): Promi
           body: response.json() as ApiError,
           response,
         };
+      }
+      const expected = route.status ?? 200;
+      if (response.statusCode !== expected) {
+        throw new Error(
+          `${route.method} ${route.path} answered ${response.statusCode}, but the route table says ${expected}`,
+        );
       }
       const body = route.binary ? response.rawPayload : route.response?.parse(response.json());
       return { ok: true, status: response.statusCode, body, response } as ApiResult<typeof route>;

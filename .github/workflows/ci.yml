@@ -25,6 +25,9 @@ jobs:
       GREENMAIL_HOST: localhost
       GREENMAIL_SMTP_PORT: "3025"
       GREENMAIL_IMAP_PORT: "3143"
+      # An integration test skips itself when its service is missing, which is right on a laptop
+      # and wrong here: this makes every such skip a failure.
+      KICKROCKS_REQUIRE_INTEGRATION: "1"
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4

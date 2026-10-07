@@ -73,11 +73,14 @@ export function toTargetSummary(row: TargetRow): TargetSummary {
     category: row.category,
     domain: row.domain,
     website: row.website,
+    optOutUrl: row.optOutUrl,
+    searchUrl: row.searchUrl,
     contactMethod: row.contactMethod,
     requiresId: row.requiresId,
     requirements: row.requirements,
     priority: row.priority,
     needsRecord: needsRecord({ id: row.id, category: row.category }),
+    retired: row.retired,
   };
 }
 

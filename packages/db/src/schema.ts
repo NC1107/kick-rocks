@@ -3,13 +3,17 @@ import {
   type Broker,
   type CampaignSelection,
   type Candidate,
+  ClaimerKind,
   type Company,
   ContactMethod,
+  EmailKind,
+  FailureKind,
   type Identity,
   IdentityKind,
   LIVE_TASK_STATUSES,
   MatchDecision,
   type MatchFields,
+  type ProfileField,
   type Recipe,
   RecipeHealth,
   RecipePurpose,
@@ -18,6 +22,7 @@ import {
   ReplyClassification,
   RequestActor,
   RequestChannel,
+  type RequestEventPayloads,
   RequestEventType,
   type RequestRight,
   RequestStatus,
@@ -30,6 +35,7 @@ import {
   TargetPriority,
   TaskKind,
   TaskStatus,
+  type TaskUsage,
 } from "@kickrocks/shared";
 import { sql } from "drizzle-orm";
 import {
@@ -198,6 +204,8 @@ export const requests = sqliteTable(
     sentAt: timestamp("sent_at"),
     dueAt: timestamp("due_at"),
     followUpAt: timestamp("follow_up_at"),
+    /** Set while a submitted form waits for the broker's confirmation email; only valid in awaiting_reply. */
+    awaitingConfirmationSince: timestamp("awaiting_confirmation_since"),
     lastError: text("last_error"),
     createdAt: timestamp("created_at").notNull(),
     updatedAt: timestamp("updated_at").notNull(),
@@ -219,10 +227,37 @@ export const requestEvents = sqliteTable(
       .references(() => requests.id, { onDelete: "cascade" }),
     type: text("type", { enum: values(RequestEventType.options) }).notNull(),
     actor: text("actor", { enum: values(RequestActor.options) }).notNull(),
-    payload: text("payload", { mode: "json" }).$type<Record<string, unknown>>(),
+    /** Validated against the schema for `type` before it is written, and again when it is read. */
+    payload: text("payload", { mode: "json" })
+      .$type<RequestEventPayloads[RequestEventType]>()
+      .notNull(),
     createdAt: timestamp("created_at").notNull(),
   },
   (t) => [index("request_events_request_idx").on(t.requestId, t.createdAt)],
+);
+
+/**
+ * Every message the email runner sent. It is the one source for "how many in the last 24 hours" and
+ * "when was the last one", so the daily cap, the pacing, and the dashboard cannot count differently.
+ */
+export const outgoingMail = sqliteTable(
+  "outgoing_mail",
+  {
+    id: id(),
+    mailboxId: text("mailbox_id")
+      .notNull()
+      .references(() => mailboxes.id, { onDelete: "cascade" }),
+    requestId: text("request_id")
+      .notNull()
+      .references(() => requests.id, { onDelete: "cascade" }),
+    kind: text("kind", { enum: values(EmailKind.options) }).notNull(),
+    messageId: text("message_id").notNull(),
+    sentAt: timestamp("sent_at").notNull(),
+  },
+  (t) => [
+    index("outgoing_mail_mailbox_sent_idx").on(t.mailboxId, t.sentAt),
+    index("outgoing_mail_request_idx").on(t.requestId),
+  ],
 );
 
 export const messages = sqliteTable(
@@ -244,7 +279,14 @@ export const messages = sqliteTable(
     confidence: real("confidence").notNull(),
     rationale: text("rationale"),
     links: text("links", { mode: "json" }).$type<string[]>().notNull(),
+    /** For a verification request, the identifiers the broker asked for. Field names only. */
+    requestedFields: text("requested_fields", { mode: "json" })
+      .$type<ProfileField[]>()
+      .notNull()
+      .default(sql`'[]'`),
     snippet: text("snippet"),
+    /** The message text, cut to MESSAGE_TEXT_MAX_CHARS, for a person classifying it by hand. */
+    text: text("text"),
     /** A person looked at it, or it needed no look. Unreviewed low-confidence mail fills the review queue. */
     reviewed: integer("reviewed", { mode: "boolean" }).notNull().default(false),
     createdAt: timestamp("created_at").notNull(),
@@ -274,6 +316,8 @@ export const tasks = sqliteTable(
     result: text("result", { mode: "json" }).$type<unknown>(),
     blockedReason: text("blocked_reason", { enum: values(BlockedReason.options) }),
     blockedDetail: text("blocked_detail"),
+    /** The page where the worker got stuck, shown to the person who finishes the job by hand. */
+    blockedUrl: text("blocked_url"),
     leaseOwner: text("lease_owner"),
     leaseExpiresAt: timestamp("lease_expires_at"),
     attempts: integer("attempts").notNull().default(0),
@@ -281,6 +325,14 @@ export const tasks = sqliteTable(
     runAfter: timestamp("run_after"),
     dedupeKey: text("dedupe_key"),
     lastError: text("last_error"),
+    failureKind: text("failure_kind", { enum: values(FailureKind.options) }),
+    failureStep: integer("failure_step"),
+    /** The worker that last ended its lease on the task. */
+    finishedBy: text("finished_by"),
+    /** Who claimed it: the built-in worker, an MCP client, or a model. Set by the claiming route. */
+    claimerKind: text("claimer_kind", { enum: values(ClaimerKind.options) }),
+    /** What the attempts cost, summed. */
+    usage: text("usage", { mode: "json" }).$type<TaskUsage>(),
     createdAt: timestamp("created_at").notNull(),
     updatedAt: timestamp("updated_at").notNull(),
   },
@@ -385,6 +437,7 @@ export type RecipeRow = typeof recipes.$inferSelect;
 export type CampaignRow = typeof campaigns.$inferSelect;
 export type RequestRow = typeof requests.$inferSelect;
 export type RequestEventRow = typeof requestEvents.$inferSelect;
+export type OutgoingMailRow = typeof outgoingMail.$inferSelect;
 export type MessageRow = typeof messages.$inferSelect;
 export type TaskRow = typeof tasks.$inferSelect;
 export type TaskArtifactRow = typeof taskArtifacts.$inferSelect;

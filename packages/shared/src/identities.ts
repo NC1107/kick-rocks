@@ -76,7 +76,7 @@ export function validateIdentities(
     IdentityInput,
     "kind" | "value" | "isPrimary" | "validFrom" | "validTo"
   >[],
-  today: string,
+  today: string | null,
 ): IdentityIssue[] {
   const issues: IdentityIssue[] = [];
   const primaryByKind = new Map<IdentityKind, number>();
@@ -90,7 +90,7 @@ export function validateIdentities(
     }
     if (identity.kind === "dob") {
       const date = (identity.value as DobValue).date;
-      if (date < EARLIEST_DOB || date > today) {
+      if (date < EARLIEST_DOB || (today !== null && date > today)) {
         issues.push({ path: [index, "value", "date"], message: "Date of birth is not plausible" });
       }
     }
@@ -108,13 +108,19 @@ export function validateIdentities(
   return issues;
 }
 
-/** The full set of identities for a profile, replaced as a unit. */
+/**
+ * The full set of identities for a profile, replaced as a unit.
+ *
+ * The schema checks only what does not depend on the date, because it is built once and a server
+ * test runs on a fake clock. The one rule that needs "today", that a date of birth is not in the
+ * future, is `validateIdentities(inputs, today)`, which the profiles module calls with
+ * `services.clock` and the web app calls with its own date.
+ */
 export const IdentityInputList = z
   .array(IdentityInput)
   .max(60)
   .superRefine((identities, ctx) => {
-    const today = new Date().toISOString().slice(0, 10);
-    for (const issue of validateIdentities(identities, today)) {
+    for (const issue of validateIdentities(identities, null)) {
       ctx.addIssue({ code: "custom", path: issue.path, message: issue.message });
     }
   });
@@ -165,6 +171,25 @@ export interface ResolveFieldsContext {
   /** Date the values must be valid on, as YYYY-MM-DD. */
   asOf: string;
   recordUrl?: string | null;
+  /**
+   * Use this name or alias instead of the current primary name. A people-search listing is often
+   * keyed by an old name or address, so a scan can ask for a specific one.
+   */
+  nameId?: string | null;
+  /** Use this address, even one that is no longer current, instead of the current primary address. */
+  addressId?: string | null;
+}
+
+function chosen<K extends IdentityKind>(
+  identities: readonly Identity[],
+  id: string | null | undefined,
+  kinds: readonly K[],
+): IdentityOfKind<K> | null {
+  if (!id) return null;
+  const found = identities.find(
+    (i) => i.id === id && (kinds as readonly string[]).includes(i.kind),
+  );
+  return (found as IdentityOfKind<K> | undefined) ?? null;
 }
 
 /**
@@ -177,10 +202,20 @@ export function resolveProfileFields(
   fields: readonly ProfileField[],
   context: ResolveFieldsContext,
 ): ProfileFields {
-  const name = currentIdentity(identities, "name", context.asOf)?.value;
+  // A requested identity that does not exist leaves its fields out; falling back to the current one
+  // would search under a different name than the caller asked for.
+  const name = (
+    context.nameId
+      ? chosen(identities, context.nameId, ["name", "alias"])
+      : currentIdentity(identities, "name", context.asOf)
+  )?.value;
   const email = currentIdentity(identities, "email", context.asOf)?.value;
   const phone = currentIdentity(identities, "phone", context.asOf)?.value;
-  const address = currentIdentity(identities, "address", context.asOf)?.value;
+  const address = (
+    context.addressId
+      ? chosen(identities, context.addressId, ["address"])
+      : currentIdentity(identities, "address", context.asOf)
+  )?.value;
   const dob = currentIdentity(identities, "dob", context.asOf)?.value;
 
   const candidates: Record<ProfileField, string | undefined> = {

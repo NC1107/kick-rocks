@@ -1,19 +1,25 @@
 import { type KickRocksDb, type TaskRow, targets, taskArtifacts, tasks } from "@kickrocks/db";
 import {
   type BlockedReason,
+  type ClaimerKind,
+  type FailureKind,
   LIVE_TASK_STATUSES,
   MAX_SCREENSHOT_BYTES,
+  manualResultSchemaFor,
   parseTaskPayload,
   parseTaskResult,
   type RequestActor,
+  resultSchemaFor,
   SCREENSHOT_MIME_TYPES,
-  TASK_RESULT_SCHEMAS,
   type TaskKind,
   type TaskPayloadMap,
   type TaskStatus,
   type TaskSummary,
+  type TaskUsage,
+  toTaskResult,
 } from "@kickrocks/shared";
-import { and, asc, desc, eq, inArray, isNull, lte, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull, lte, notInArray, or, sql } from "drizzle-orm";
+import type { z } from "zod";
 import { type Clock, nowIso } from "./clock.js";
 import { AppError, conflict, notFound } from "./errors.js";
 import { newId } from "./ids.js";
@@ -44,7 +50,7 @@ export function retryDelayMs(attempts: number): number {
   return Math.min(RETRY_BASE_MS * 2 ** Math.max(attempts - 1, 0), RETRY_MAX_MS);
 }
 
-export interface EnqueueInput<K extends TaskKind> {
+export interface EnqueueInput<K extends TaskKind, S extends TaskKind = K> {
   kind: K;
   payload: TaskPayloadMap[K];
   priority?: number | undefined;
@@ -53,6 +59,13 @@ export interface EnqueueInput<K extends TaskKind> {
   requestId?: string | null | undefined;
   /** While a task with this key is queued, leased, or blocked, enqueuing it again returns that task. */
   dedupeKey?: string | null | undefined;
+  /**
+   * Other kinds that are the same work as `kind`. A live task of one of them holding the key is
+   * returned instead of an error, because the key names the work and not the kind: a removal that
+   * an agent holds is still the removal, even after a recipe has been approved. A task of any
+   * other kind holding the key is a bug and still throws.
+   */
+  sameWork?: readonly S[] | undefined;
   runAfter?: Date | null | undefined;
   maxAttempts?: number | undefined;
 }
@@ -69,6 +82,12 @@ export interface ClaimInput {
   leaseMs: number;
   /** Claim this task only, if it is queued and one of `kinds`. */
   taskId?: string | undefined;
+  /** Claim only a task of this profile. */
+  profileId?: string | undefined;
+  /** Skip tasks of these profiles, so a capped mailbox does not hold up one that has room. */
+  excludeProfileIds?: readonly string[] | undefined;
+  /** Who is claiming, which the route that took the call decides. Null for work the server does itself. */
+  claimerKind?: ClaimerKind | undefined;
 }
 
 export interface HeartbeatInput {
@@ -80,14 +99,18 @@ export interface CompleteInput {
   workerId: string;
   result: unknown;
   actor: RequestActor;
+  usage?: TaskUsage | undefined;
 }
 
 export interface BlockInput {
   workerId: string;
   reason: BlockedReason;
   detail?: string | undefined;
+  /** The page where the run got stuck. */
+  url?: string | undefined;
   screenshot?: { mime: (typeof SCREENSHOT_MIME_TYPES)[number]; data: Buffer } | undefined;
   actor: RequestActor;
+  usage?: TaskUsage | undefined;
 }
 
 export interface FailInput {
@@ -95,8 +118,25 @@ export interface FailInput {
   error: string;
   /** When true and attempts remain, the task is queued again after a backoff. */
   retryable: boolean;
+  /** A `recipe` failure is never retried, whatever `retryable` says. */
+  kind?: FailureKind | undefined;
+  step?: number | undefined;
   retryAfterMs?: number | undefined;
   actor: RequestActor;
+  usage?: TaskUsage | undefined;
+}
+
+export interface ReleaseInput {
+  workerId: string;
+  /** Do not offer the task again before this time. */
+  runAfter?: Date | undefined;
+}
+
+export interface MarkDoneInput {
+  actor: RequestActor;
+  /** How it ended, validated like a worker's result. For an agent task, the plain scan or form result. */
+  result?: unknown;
+  note?: string | undefined;
 }
 
 export interface TaskFilter {
@@ -117,26 +157,49 @@ export interface TaskScreenshotData {
 /**
  * The work queue that every process shares. Methods that change who owns a task check that the
  * caller holds the lease, so a worker that was too slow cannot overwrite the one that took over.
- * Methods that end a task are async because they wait for the registered handlers.
+ *
+ * Every change runs in one transaction together with the handlers it triggers (see
+ * {@link TaskHandlers}), so the consequence of a task can never be lost to a crash. That makes all
+ * of it synchronous, and a method called from inside a handler joins the handler's transaction.
+ *
+ * A lease that has expired is recovered by the next claim and by the scheduler's reaper. Until
+ * then the worker that holds it may still report: finished work is better kept than redone, since
+ * a form submitted twice is worse than a late answer. Only `heartbeat` refuses an expired lease,
+ * so a worker finds out it is late.
  */
 export interface TaskQueue {
-  enqueue<K extends TaskKind>(input: EnqueueInput<K>): EnqueueResult<K>;
-  /** Atomically leases the highest priority, oldest task that is due; null when none is. */
+  enqueue<K extends TaskKind, S extends TaskKind = K>(
+    input: EnqueueInput<K, S>,
+  ): EnqueueResult<K | S>;
+  /**
+   * Atomically leases the highest priority, oldest task that is due; null when none is. It first
+   * recovers expired leases, so a claim always sees the current queue.
+   */
   claim(input: ClaimInput): Task | null;
+  /** Extends a lease. Refuses with `lease_expired` once it has run out. */
   heartbeat(id: string, input: HeartbeatInput): Task;
-  complete(id: string, input: CompleteInput): Promise<Task>;
-  block(id: string, input: BlockInput): Promise<Task>;
-  fail(id: string, input: FailInput): Promise<Task>;
+  complete(id: string, input: CompleteInput): Task;
+  block(id: string, input: BlockInput): Task;
+  fail(id: string, input: FailInput): Task;
+  /**
+   * Returns a leased task to the queue as if it had not been claimed: no event, and the attempt
+   * is not counted. For a worker that is shutting down, or an email deferred by a send cap.
+   */
+  release(id: string, input: ReleaseInput): Task;
   /** Puts a blocked task back in the queue with a fresh attempt budget. */
-  resume(id: string): Task;
-  /** A person did the work by hand: closes a blocked task as done with no result. */
-  markDone(id: string, actor: RequestActor): Promise<Task>;
+  resume(id: string, actor?: RequestActor): Task;
+  /** A person did the work by hand: closes a blocked task as done. */
+  markDone(id: string, input: MarkDoneInput): Task;
   /** Idempotent. Cancels a task that is queued, leased, or blocked. */
-  cancel(id: string): Task;
+  cancel(id: string, actor?: RequestActor): Task;
+  /** Cancels every live task of a request. Returns the tasks it cancelled. */
+  cancelForRequest(requestId: string, actor?: RequestActor): Task[];
   /** Returns expired leases to the queue, or fails the task when it has no attempts left. */
-  reapExpiredLeases(): Promise<Task[]>;
+  reapExpiredLeases(): Task[];
   get(id: string): Task | null;
   getOrThrow(id: string): Task;
+  /** Whether a task of the request is queued, leased, or blocked. */
+  hasLiveTask(requestId: string): boolean;
   /** Newest first. */
   list(filter?: TaskFilter): Task[];
   summarize(tasks: readonly Task[]): TaskSummary[];
@@ -164,6 +227,7 @@ function toTask(row: TaskRow): Task {
     result: row.result === null ? null : parseTaskResult(row.kind, row.result),
     blockedReason: row.blockedReason,
     blockedDetail: row.blockedDetail,
+    blockedUrl: row.blockedUrl,
     leaseOwner: row.leaseOwner,
     leaseExpiresAt: row.leaseExpiresAt,
     attempts: row.attempts,
@@ -171,6 +235,11 @@ function toTask(row: TaskRow): Task {
     runAfter: row.runAfter,
     dedupeKey: row.dedupeKey,
     lastError: row.lastError,
+    failureKind: row.failureKind,
+    failureStep: row.failureStep,
+    finishedBy: row.finishedBy,
+    claimerKind: row.claimerKind,
+    usage: row.usage,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   } as Task;
@@ -180,6 +249,29 @@ function toTask(row: TaskRow): Task {
 const asKind = <K extends TaskKind>(task: Task): Task<K> => task as Task<K>;
 
 const addMs = (iso: string, ms: number) => new Date(Date.parse(iso) + ms).toISOString();
+
+/** Adds up what each attempt cost, so a task that took three tries reports all three. */
+function addUsage(current: TaskUsage | null, extra: TaskUsage | undefined): TaskUsage | null {
+  if (!extra) return current;
+  const total: TaskUsage = { ...(current ?? {}) };
+  for (const key of ["inputTokens", "outputTokens", "costUsd", "durationMs"] as const) {
+    const add = extra[key];
+    if (add !== undefined) total[key] = (total[key] ?? 0) + add;
+  }
+  return total;
+}
+
+function invalidResult(kind: TaskKind, error: z.ZodError): AppError {
+  return new AppError(
+    400,
+    "invalid_result",
+    `The result does not match what a ${kind} task reports`,
+    error.issues.map((issue) => ({
+      path: issue.path.filter((p): p is string | number => typeof p !== "symbol"),
+      message: issue.message,
+    })),
+  );
+}
 
 export function createTaskQueue({ db, clock, handlers }: TaskQueueDeps): TaskQueue {
   type Tx = Parameters<Parameters<KickRocksDb["transaction"]>[0]>[0];
@@ -198,37 +290,103 @@ export function createTaskQueue({ db, clock, handlers }: TaskQueueDeps): TaskQue
     return row;
   }
 
-  function emit(name: TaskEvent["name"], task: Task, actor: RequestActor): Promise<void> {
-    return handlers.emit({ name, task, actor });
+  function emit(
+    tx: Tx,
+    name: TaskEvent["name"],
+    task: Task,
+    actor: RequestActor,
+    extra: Pick<TaskEvent, "note"> = {},
+  ): void {
+    handlers.emit({ name, task, actor, ...extra }, tx);
   }
 
-  /** Re-queues with a backoff while attempts remain, otherwise fails for good. */
+  /**
+   * Re-queues with a backoff while attempts remain, otherwise fails for good, and tells the
+   * handlers which of the two happened.
+   */
   function retryOrFail(
     tx: Tx,
     row: TaskRow,
-    error: string,
-    retryable: boolean,
-    delayMs: number,
+    failure: {
+      error: string;
+      retryable: boolean;
+      delayMs: number;
+      kind: FailureKind;
+      step: number | null;
+      finishedBy: string | null;
+      usage: TaskUsage | undefined;
+    },
+    actor: RequestActor,
     now: string,
-  ): TaskRow {
-    const requeue = retryable && row.attempts < row.maxAttempts;
-    return tx
+  ): Task {
+    const requeue = failure.retryable && row.attempts < row.maxAttempts;
+    const updated = tx
       .update(tasks)
       .set({
         status: requeue ? "queued" : "failed",
         leaseOwner: null,
         leaseExpiresAt: null,
-        runAfter: requeue ? addMs(now, delayMs) : row.runAfter,
-        lastError: error,
+        runAfter: requeue ? addMs(now, failure.delayMs) : row.runAfter,
+        lastError: failure.error,
+        failureKind: failure.kind,
+        failureStep: failure.step,
+        finishedBy: failure.finishedBy ?? row.finishedBy,
+        usage: addUsage(row.usage, failure.usage),
         updatedAt: now,
       })
       .where(eq(tasks.id, row.id))
       .returning()
       .get();
+    const task = toTask(updated);
+    emit(tx, requeue ? "retrying" : "failed", task, actor);
+    return task;
   }
 
+  function expireLease(tx: Tx, row: TaskRow, now: string): Task {
+    return retryOrFail(
+      tx,
+      row,
+      {
+        error: "The lease expired",
+        retryable: true,
+        delayMs: retryDelayMs(row.attempts),
+        kind: "internal",
+        step: null,
+        finishedBy: null,
+        usage: undefined,
+      },
+      "system",
+      now,
+    );
+  }
+
+  function expiredLeases(tx: Pick<Tx, "select">, now: string): TaskRow[] {
+    return tx
+      .select()
+      .from(tasks)
+      .where(and(eq(tasks.status, "leased"), lte(tasks.leaseExpiresAt, now)))
+      .orderBy(asc(sql`rowid`))
+      .all();
+  }
+
+  function cancelRow(tx: Tx, row: TaskRow, actor: RequestActor, now: string): Task {
+    const task = toTask(
+      tx
+        .update(tasks)
+        .set({ status: "cancelled", leaseOwner: null, leaseExpiresAt: null, updatedAt: now })
+        .where(eq(tasks.id, row.id))
+        .returning()
+        .get(),
+    );
+    emit(tx, "cancelled", task, actor);
+    return task;
+  }
+
+  const isLive = (status: TaskStatus) =>
+    (LIVE_TASK_STATUSES as readonly TaskStatus[]).includes(status);
+
   return {
-    enqueue<K extends TaskKind>(input: EnqueueInput<K>) {
+    enqueue<K extends TaskKind, S extends TaskKind = K>(input: EnqueueInput<K, S>) {
       const payload = parseTaskPayload(input.kind, input.payload);
       const now = nowIso(clock);
       return db.transaction((tx) => {
@@ -244,13 +402,16 @@ export function createTaskQueue({ db, clock, handlers }: TaskQueueDeps): TaskQue
             )
             .get();
           if (existing) {
-            if (existing.kind !== input.kind) {
+            const sameWork =
+              existing.kind === input.kind ||
+              (input.sameWork as readonly TaskKind[] | undefined)?.includes(existing.kind);
+            if (!sameWork) {
               throw conflict(
                 "dedupe_key_conflict",
                 `Dedupe key ${input.dedupeKey} is held by a ${existing.kind} task`,
               );
             }
-            return { task: asKind<K>(toTask(existing)), created: false };
+            return { task: asKind<K | S>(toTask(existing)), created: false };
           }
         }
         const row = tx
@@ -272,15 +433,16 @@ export function createTaskQueue({ db, clock, handlers }: TaskQueueDeps): TaskQue
           })
           .returning()
           .get();
-        return { task: asKind<K>(toTask(row)), created: true };
+        return { task: asKind<K | S>(toTask(row)), created: true };
       });
     },
 
-    claim({ workerId, kinds, leaseMs, taskId }) {
+    claim({ workerId, kinds, leaseMs, taskId, profileId, excludeProfileIds, claimerKind }) {
       if (kinds.length === 0) return null;
       const now = nowIso(clock);
       return db.transaction(
         (tx) => {
+          for (const expired of expiredLeases(tx, now)) expireLease(tx, expired, now);
           const candidate = tx
             .select()
             .from(tasks)
@@ -290,6 +452,10 @@ export function createTaskQueue({ db, clock, handlers }: TaskQueueDeps): TaskQue
                 inArray(tasks.kind, [...kinds]),
                 or(isNull(tasks.runAfter), lte(tasks.runAfter, now)),
                 taskId ? eq(tasks.id, taskId) : undefined,
+                profileId ? eq(tasks.profileId, profileId) : undefined,
+                excludeProfileIds && excludeProfileIds.length > 0
+                  ? or(isNull(tasks.profileId), notInArray(tasks.profileId, [...excludeProfileIds]))
+                  : undefined,
               ),
             )
             .orderBy(desc(tasks.priority), asc(tasks.createdAt), asc(sql`rowid`))
@@ -303,6 +469,7 @@ export function createTaskQueue({ db, clock, handlers }: TaskQueueDeps): TaskQue
               leaseOwner: workerId,
               leaseExpiresAt: addMs(now, leaseMs),
               attempts: candidate.attempts + 1,
+              claimerKind: claimerKind ?? null,
               updatedAt: now,
             })
             .where(eq(tasks.id, candidate.id))
@@ -317,7 +484,13 @@ export function createTaskQueue({ db, clock, handlers }: TaskQueueDeps): TaskQue
     heartbeat(id, { workerId, leaseMs }) {
       const now = nowIso(clock);
       return db.transaction((tx) => {
-        leasedRow(tx, id, workerId);
+        const current = leasedRow(tx, id, workerId);
+        if (current.leaseExpiresAt !== null && current.leaseExpiresAt <= now) {
+          throw conflict(
+            "lease_expired",
+            `The lease on task ${id} ran out at ${current.leaseExpiresAt}`,
+          );
+        }
         const row = tx
           .update(tasks)
           .set({ leaseExpiresAt: addMs(now, leaseMs), updatedAt: now })
@@ -328,23 +501,13 @@ export function createTaskQueue({ db, clock, handlers }: TaskQueueDeps): TaskQue
       });
     },
 
-    async complete(id, { workerId, result, actor }) {
+    complete(id, { workerId, result, actor, usage }) {
       const now = nowIso(clock);
-      const task = db.transaction((tx) => {
+      return db.transaction((tx) => {
         const row = leasedRow(tx, id, workerId);
-        const parsed = TASK_RESULT_SCHEMAS[row.kind].safeParse(result);
-        if (!parsed.success) {
-          throw new AppError(
-            400,
-            "invalid_result",
-            `The result does not match what a ${row.kind} task reports`,
-            parsed.error.issues.map((issue) => ({
-              path: issue.path.filter((p): p is string | number => typeof p !== "symbol"),
-              message: issue.message,
-            })),
-          );
-        }
-        return toTask(
+        const parsed = resultSchemaFor(row).safeParse(result);
+        if (!parsed.success) throw invalidResult(row.kind, parsed.error);
+        const task = toTask(
           tx
             .update(tasks)
             .set({
@@ -353,18 +516,20 @@ export function createTaskQueue({ db, clock, handlers }: TaskQueueDeps): TaskQue
               leaseOwner: null,
               leaseExpiresAt: null,
               lastError: null,
+              finishedBy: workerId,
+              usage: addUsage(row.usage, usage),
               updatedAt: now,
             })
             .where(eq(tasks.id, id))
             .returning()
             .get(),
         );
+        emit(tx, "completed", task, actor);
+        return task;
       });
-      await emit("completed", task, actor);
-      return task;
     },
 
-    async block(id, { workerId, reason, detail, screenshot, actor }) {
+    block(id, { workerId, reason, detail, url, screenshot, actor, usage }) {
       const now = nowIso(clock);
       if (screenshot) {
         if (screenshot.data.byteLength > MAX_SCREENSHOT_BYTES) {
@@ -374,8 +539,8 @@ export function createTaskQueue({ db, clock, handlers }: TaskQueueDeps): TaskQue
           throw new AppError(400, "invalid_screenshot", "The screenshot must be a PNG or JPEG");
         }
       }
-      const task = db.transaction((tx) => {
-        leasedRow(tx, id, workerId);
+      return db.transaction((tx) => {
+        const row = leasedRow(tx, id, workerId);
         if (screenshot) {
           tx.insert(taskArtifacts)
             .values({
@@ -388,15 +553,65 @@ export function createTaskQueue({ db, clock, handlers }: TaskQueueDeps): TaskQue
             })
             .run();
         }
-        return toTask(
+        const task = toTask(
           tx
             .update(tasks)
             .set({
               status: "blocked",
               blockedReason: reason,
               blockedDetail: detail ?? null,
+              blockedUrl: url ?? null,
               leaseOwner: null,
               leaseExpiresAt: null,
+              finishedBy: workerId,
+              usage: addUsage(row.usage, usage),
+              updatedAt: now,
+            })
+            .where(eq(tasks.id, id))
+            .returning()
+            .get(),
+        );
+        emit(tx, "blocked", task, actor);
+        return task;
+      });
+    },
+
+    fail(id, { workerId, error, retryable, kind = "internal", step, retryAfterMs, actor, usage }) {
+      const now = nowIso(clock);
+      return db.transaction((tx) => {
+        const row = leasedRow(tx, id, workerId);
+        return retryOrFail(
+          tx,
+          row,
+          {
+            error,
+            // The same script would break the same way, so a recipe failure goes to an agent now.
+            retryable: retryable && kind !== "recipe",
+            delayMs: retryAfterMs ?? retryDelayMs(row.attempts),
+            kind,
+            step: step ?? null,
+            finishedBy: workerId,
+            usage,
+          },
+          actor,
+          now,
+        );
+      });
+    },
+
+    release(id, { workerId, runAfter }) {
+      const now = nowIso(clock);
+      return db.transaction((tx) => {
+        const row = leasedRow(tx, id, workerId);
+        return toTask(
+          tx
+            .update(tasks)
+            .set({
+              status: "queued",
+              leaseOwner: null,
+              leaseExpiresAt: null,
+              attempts: Math.max(row.attempts - 1, 0),
+              runAfter: runAfter ? runAfter.toISOString() : null,
               updatedAt: now,
             })
             .where(eq(tasks.id, id))
@@ -404,36 +619,23 @@ export function createTaskQueue({ db, clock, handlers }: TaskQueueDeps): TaskQue
             .get(),
         );
       });
-      await emit("blocked", task, actor);
-      return task;
     },
 
-    async fail(id, { workerId, error, retryable, retryAfterMs, actor }) {
-      const now = nowIso(clock);
-      const task = db.transaction((tx) => {
-        const row = leasedRow(tx, id, workerId);
-        return toTask(
-          retryOrFail(tx, row, error, retryable, retryAfterMs ?? retryDelayMs(row.attempts), now),
-        );
-      });
-      if (task.status === "failed") await emit("failed", task, actor);
-      return task;
-    },
-
-    resume(id) {
+    resume(id, actor = "user") {
       const now = nowIso(clock);
       return db.transaction((tx) => {
         const row = loadRow(tx, id);
         if (row.status !== "blocked") {
           throw conflict("invalid_task_state", `Task ${id} is ${row.status}, not blocked`);
         }
-        return toTask(
+        const task = toTask(
           tx
             .update(tasks)
             .set({
               status: "queued",
               blockedReason: null,
               blockedDetail: null,
+              blockedUrl: null,
               attempts: 0,
               runAfter: null,
               updatedAt: now,
@@ -442,65 +644,69 @@ export function createTaskQueue({ db, clock, handlers }: TaskQueueDeps): TaskQue
             .returning()
             .get(),
         );
+        emit(tx, "resumed", task, actor);
+        return task;
       });
     },
 
-    async markDone(id, actor) {
+    markDone(id, { actor, result, note }) {
       const now = nowIso(clock);
-      const task = db.transaction((tx) => {
+      return db.transaction((tx) => {
         const row = loadRow(tx, id);
         if (row.status !== "blocked") {
           throw conflict("invalid_task_state", `Task ${id} is ${row.status}, not blocked`);
         }
-        return toTask(
+        let stored: unknown = null;
+        if (result !== undefined) {
+          const parsed = manualResultSchemaFor(row).safeParse(result);
+          if (!parsed.success) throw invalidResult(row.kind, parsed.error);
+          stored = toTaskResult(row, parsed.data);
+        }
+        const task = toTask(
           tx
             .update(tasks)
-            .set({ status: "done", lastError: null, updatedAt: now })
+            .set({ status: "done", result: stored, lastError: null, updatedAt: now })
             .where(eq(tasks.id, id))
             .returning()
             .get(),
         );
+        emit(tx, "completed", task, actor, note === undefined ? {} : { note });
+        return task;
       });
-      await emit("completed", task, actor);
-      return task;
     },
 
-    cancel(id) {
+    cancel(id, actor = "system") {
       const now = nowIso(clock);
       return db.transaction((tx) => {
         const row = loadRow(tx, id);
         if (row.status === "cancelled") return toTask(row);
-        if (!(LIVE_TASK_STATUSES as readonly TaskStatus[]).includes(row.status)) {
+        if (!isLive(row.status)) {
           throw conflict("invalid_task_state", `Task ${id} is already ${row.status}`);
         }
-        return toTask(
-          tx
-            .update(tasks)
-            .set({ status: "cancelled", leaseOwner: null, leaseExpiresAt: null, updatedAt: now })
-            .where(eq(tasks.id, id))
-            .returning()
-            .get(),
-        );
+        return cancelRow(tx, row, actor, now);
       });
     },
 
-    async reapExpiredLeases() {
+    cancelForRequest(requestId, actor = "system") {
       const now = nowIso(clock);
-      const reaped = db.transaction((tx) =>
+      return db.transaction((tx) =>
         tx
           .select()
           .from(tasks)
-          .where(and(eq(tasks.status, "leased"), lte(tasks.leaseExpiresAt, now)))
+          .where(
+            and(eq(tasks.requestId, requestId), inArray(tasks.status, [...LIVE_TASK_STATUSES])),
+          )
           .orderBy(asc(sql`rowid`))
           .all()
-          .map((row) =>
-            toTask(
-              retryOrFail(tx, row, "The lease expired", true, retryDelayMs(row.attempts), now),
-            ),
-          ),
+          .map((row) => cancelRow(tx, row, actor, now)),
       );
-      for (const task of reaped) if (task.status === "failed") await emit("failed", task, "system");
-      return reaped;
+    },
+
+    reapExpiredLeases() {
+      const now = nowIso(clock);
+      const expired = expiredLeases(db, now);
+      // One transaction each, so a handler that throws for one task leaves the others recovered.
+      return expired.map((row) => db.transaction((tx) => expireLease(tx, row, now)));
     },
 
     get(id) {
@@ -510,6 +716,19 @@ export function createTaskQueue({ db, clock, handlers }: TaskQueueDeps): TaskQue
 
     getOrThrow(id) {
       return toTask(loadRow(db, id));
+    },
+
+    hasLiveTask(requestId) {
+      return (
+        db
+          .select({ id: tasks.id })
+          .from(tasks)
+          .where(
+            and(eq(tasks.requestId, requestId), inArray(tasks.status, [...LIVE_TASK_STATUSES])),
+          )
+          .limit(1)
+          .get() !== undefined
+      );
     },
 
     list(filter = {}) {
@@ -576,10 +795,16 @@ export function createTaskQueue({ db, clock, handlers }: TaskQueueDeps): TaskQue
         requestId: task.requestId,
         blockedReason: task.blockedReason,
         blockedDetail: task.blockedDetail,
+        blockedUrl: task.blockedUrl,
         attempts: task.attempts,
         maxAttempts: task.maxAttempts,
         lastError: task.lastError,
+        failureKind: task.failureKind,
+        failureStep: task.failureStep,
         hasScreenshot: withScreenshot.has(task.id),
+        finishedBy: task.finishedBy,
+        claimerKind: task.claimerKind,
+        usage: task.usage,
         createdAt: task.createdAt,
         updatedAt: task.updatedAt,
       }));

@@ -78,7 +78,9 @@ CREATE TABLE `messages` (
 	`confidence` real NOT NULL,
 	`rationale` text,
 	`links` text NOT NULL,
+	`requested_fields` text DEFAULT '[]' NOT NULL,
 	`snippet` text,
+	`text` text,
 	`reviewed` integer DEFAULT false NOT NULL,
 	`created_at` text NOT NULL,
 	FOREIGN KEY (`mailbox_id`) REFERENCES `mailboxes`(`id`) ON UPDATE no action ON DELETE cascade,
@@ -88,6 +90,19 @@ CREATE TABLE `messages` (
 CREATE UNIQUE INDEX `messages_mailbox_uid_idx` ON `messages` (`mailbox_id`,`uid_validity`,`imap_uid`);--> statement-breakpoint
 CREATE INDEX `messages_request_idx` ON `messages` (`request_id`);--> statement-breakpoint
 CREATE INDEX `messages_review_idx` ON `messages` (`reviewed`,`classification`);--> statement-breakpoint
+CREATE TABLE `outgoing_mail` (
+	`id` text PRIMARY KEY NOT NULL,
+	`mailbox_id` text NOT NULL,
+	`request_id` text NOT NULL,
+	`kind` text NOT NULL,
+	`message_id` text NOT NULL,
+	`sent_at` text NOT NULL,
+	FOREIGN KEY (`mailbox_id`) REFERENCES `mailboxes`(`id`) ON UPDATE no action ON DELETE cascade,
+	FOREIGN KEY (`request_id`) REFERENCES `requests`(`id`) ON UPDATE no action ON DELETE cascade
+);
+--> statement-breakpoint
+CREATE INDEX `outgoing_mail_mailbox_sent_idx` ON `outgoing_mail` (`mailbox_id`,`sent_at`);--> statement-breakpoint
+CREATE INDEX `outgoing_mail_request_idx` ON `outgoing_mail` (`request_id`);--> statement-breakpoint
 CREATE TABLE `profiles` (
 	`id` text PRIMARY KEY NOT NULL,
 	`display_name` text NOT NULL,
@@ -119,7 +134,7 @@ CREATE TABLE `request_events` (
 	`request_id` text NOT NULL,
 	`type` text NOT NULL,
 	`actor` text NOT NULL,
-	`payload` text,
+	`payload` text NOT NULL,
 	`created_at` text NOT NULL,
 	FOREIGN KEY (`request_id`) REFERENCES `requests`(`id`) ON UPDATE no action ON DELETE cascade
 );
@@ -142,6 +157,7 @@ CREATE TABLE `requests` (
 	`sent_at` text,
 	`due_at` text,
 	`follow_up_at` text,
+	`awaiting_confirmation_since` text,
 	`last_error` text,
 	`created_at` text NOT NULL,
 	`updated_at` text NOT NULL,
@@ -232,6 +248,7 @@ CREATE TABLE `tasks` (
 	`result` text,
 	`blocked_reason` text,
 	`blocked_detail` text,
+	`blocked_url` text,
 	`lease_owner` text,
 	`lease_expires_at` text,
 	`attempts` integer DEFAULT 0 NOT NULL,
@@ -239,6 +256,11 @@ CREATE TABLE `tasks` (
 	`run_after` text,
 	`dedupe_key` text,
 	`last_error` text,
+	`failure_kind` text,
+	`failure_step` integer,
+	`finished_by` text,
+	`claimer_kind` text,
+	`usage` text,
 	`created_at` text NOT NULL,
 	`updated_at` text NOT NULL,
 	FOREIGN KEY (`profile_id`) REFERENCES `profiles`(`id`) ON UPDATE no action ON DELETE cascade,

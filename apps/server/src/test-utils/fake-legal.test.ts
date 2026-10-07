@@ -15,19 +15,25 @@ const target = {
   category: "marketing" as const,
   domain: "t.test",
   website: null,
+  optOutUrl: null,
+  searchUrl: null,
   contactMethod: "email" as const,
   requiresId: false,
   requirements: [],
   priority: "normal" as const,
   needsRecord: false,
+  retired: false,
 };
+
+const resolve = (state: "CA" | "TX", asOf: Date, rights: ("opt_out" | "delete")[] = ["opt_out"]) =>
+  legal.resolveLegalBasis({ state, target, rights, asOf });
 
 describe("fake legal", () => {
   it("gives California a statute and everyone else a policy", () => {
-    const ca = legal.resolveLegalBasis("CA", new Date("2026-10-07"));
+    const ca = resolve("CA", new Date("2026-10-07"));
     expect(LegalBasis.safeParse(ca).success).toBe(true);
     expect(ca).toMatchObject({ id: FAKE_STATUTE.id, kind: "statute", responseDays: 45 });
-    expect(legal.resolveLegalBasis("TX", new Date("2026-10-07"))).toMatchObject({
+    expect(resolve("TX", new Date("2026-10-07"))).toMatchObject({
       id: "policy",
       kind: "policy",
       statute: null,
@@ -36,7 +42,14 @@ describe("fake legal", () => {
   });
 
   it("falls back to policy before the statute takes effect", () => {
-    expect(legal.resolveLegalBasis("CA", new Date("2019-12-31")).kind).toBe("policy");
+    expect(resolve("CA", new Date("2019-12-31")).kind).toBe("policy");
+  });
+
+  it("looks a stored basis up by id, in the state it belongs to", () => {
+    expect(legal.getLegalBasis(FAKE_STATUTE.id, "CA")).toMatchObject({ kind: "statute" });
+    expect(legal.getLegalBasis("policy", "TX")).toMatchObject({ kind: "policy", state: "TX" });
+    expect(legal.getLegalBasis(FAKE_STATUTE.id, "TX")).toBeNull();
+    expect(legal.getLegalBasis("no-such-law", "CA")).toBeNull();
   });
 
   it("lists valid jurisdictions", () => {
@@ -72,7 +85,7 @@ describe("fake legal", () => {
       kind: "initial",
       rights: ["opt_out", "delete"],
       reference: "KR-ABCDEF",
-      basis: legal.resolveLegalBasis("TX", new Date()),
+      basis: resolve("TX", new Date()),
       target,
       sender: { name: "Jordan Example", address: "jordan@example.com" },
       identifiers: { email: "jordan@example.com" },
@@ -85,7 +98,7 @@ describe("fake legal", () => {
           kind: "follow_up" as const,
           rights: ["opt_out" as const],
           reference: "KR-ABCDEF" as const,
-          basis: legal.resolveLegalBasis("TX", new Date()),
+          basis: resolve("TX", new Date()),
           target,
           sender: { name: "J", address: "j@example.com" },
           identifiers: {},

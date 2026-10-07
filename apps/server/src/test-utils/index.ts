@@ -4,4 +4,5 @@ export * from "./context.js";
 export * from "./fake-auth.js";
 export * from "./fake-legal.js";
 export * from "./fake-mail.js";
+export * from "./integration.js";
 export * from "./seed.js";

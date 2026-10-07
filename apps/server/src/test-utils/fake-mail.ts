@@ -3,6 +3,7 @@ import type { Clock } from "../core/clock.js";
 import type {
   ClassificationResult,
   ClassifyContext,
+  FetchOptions,
   FetchResult,
   FollowResult,
   InboxMessage,
@@ -76,6 +77,7 @@ const UNMATCHED: ClassificationResult = {
   confidence: 0,
   rationale: "No fake classifier handler matched",
   links: [],
+  requestedFields: [],
 };
 
 function createClassifier(): ProgrammableClassifier {
@@ -185,13 +187,29 @@ class ScriptedMailbox implements FakeMailbox {
     return message;
   }
 
-  fetchSince(folder: string, afterUid: number | null, uidValidity: number | null): FetchResult {
+  fetchSince(
+    folder: string,
+    afterUid: number | null,
+    uidValidity: number | null,
+    { since, limit }: FetchOptions = { since: null, limit: Number.POSITIVE_INFINITY },
+  ): FetchResult {
     const reset = uidValidity !== null && uidValidity !== this.uidValidity;
     const floor = reset ? 0 : (afterUid ?? 0);
-    const messages = (this.byFolder.get(folder) ?? [])
-      .filter((message) => message.uid > floor)
-      .sort((a, b) => a.uid - b.uid);
-    return { uidValidity: this.uidValidity, reset, messages };
+    const inFolder = (this.byFolder.get(folder) ?? []).sort((a, b) => a.uid - b.uid);
+    const matching = inFolder.filter(
+      (message) =>
+        message.uid > floor &&
+        (since === null || message.date === null || message.date.getTime() >= since.getTime()),
+    );
+    const messages = matching.slice(0, limit);
+    return {
+      uidValidity: this.uidValidity,
+      reset,
+      messages,
+      hasMore: matching.length > messages.length,
+      highestUid:
+        inFolder.length === 0 ? null : (inFolder[inFolder.length - 1] as InboxMessage).uid,
+    };
   }
 }
 
@@ -237,8 +255,8 @@ export function createFakeMail(clock: Clock): FakeMail {
         const mailbox = mailboxFor(connection.address);
         return {
           listFolders: async () => mailbox.folders,
-          fetchSince: async (folder, afterUid, uidValidity) =>
-            mailbox.fetchSince(folder, afterUid, uidValidity),
+          fetchSince: async (folder, afterUid, uidValidity, options) =>
+            mailbox.fetchSince(folder, afterUid, uidValidity, options),
         };
       },
       classifier,

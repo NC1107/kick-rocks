@@ -1,8 +1,8 @@
 import { z } from "zod";
 import { Reference } from "./mail.js";
-import { RequestEvent, RequestStatus } from "./requests.js";
+import { RequestStatus, requestEventSchema } from "./requests.js";
 
-export const DashboardEvent = RequestEvent.extend({
+export const DashboardEvent = requestEventSchema({
   requestReference: Reference,
   targetName: z.string(),
 });
@@ -20,6 +20,8 @@ export const Dashboard = z.object({
     pendingMatches: Count,
     unreviewedMessages: Count,
     needsVerification: Count,
+    /** Tasks that failed for good in the last 30 days on a request that is still open. */
+    failedTasks: Count,
   }),
   /** Mail sent in the last 24 hours against the mailbox cap; null without a mailbox. */
   sending: z

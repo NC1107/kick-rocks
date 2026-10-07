@@ -1,6 +1,7 @@
 import { NotImplementedError } from "@kickrocks/shared";
 import { describe, expect, it } from "vitest";
 import {
+  getLegalBasis,
   identifiersFor,
   listJurisdictions,
   renderRequestEmail,
@@ -9,7 +10,8 @@ import {
 
 describe("legal skeleton", () => {
   it("fails loudly until the module is filled in", () => {
-    expect(() => resolveLegalBasis("TX", new Date())).toThrow(NotImplementedError);
+    expect(() => resolveLegalBasis({} as never)).toThrow(NotImplementedError);
+    expect(() => getLegalBasis("policy", "TX")).toThrow(NotImplementedError);
     expect(() => listJurisdictions()).toThrow(NotImplementedError);
     expect(() => identifiersFor({} as never, [], "email")).toThrow(NotImplementedError);
     expect(() => renderRequestEmail({} as never)).toThrow(NotImplementedError);

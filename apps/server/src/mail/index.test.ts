@@ -20,9 +20,9 @@ describe("createMailServices stub", () => {
     await expect(mail.transport(connection).verify()).rejects.toThrow(NotImplementedError);
     await expect(mail.transport(connection).send({} as never)).rejects.toThrow(NotImplementedError);
     await expect(mail.inbox(connection).listFolders()).rejects.toThrow(NotImplementedError);
-    await expect(mail.inbox(connection).fetchSince("INBOX", null, null)).rejects.toThrow(
-      /InboxSource.fetchSince is not implemented yet/,
-    );
+    await expect(
+      mail.inbox(connection).fetchSince("INBOX", null, null, { since: null, limit: 10 }),
+    ).rejects.toThrow(/InboxSource.fetchSince is not implemented yet/);
     await expect(mail.classifier.classify({} as never, { requests: [] })).rejects.toThrow(
       NotImplementedError,
     );

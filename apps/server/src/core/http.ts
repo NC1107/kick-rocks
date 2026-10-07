@@ -1,16 +1,28 @@
 import {
-  type ApiIssue,
   type ApiModule,
+  type IssueLocation,
+  type RouteAuth,
   type RouteBody,
   type RouteDef,
   type RouteParams,
   type RouteQuery,
   type RouteResponse,
   routesOfModule,
+  toApiIssues,
 } from "@kickrocks/shared";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import type { z } from "zod";
 import { AppError, invalidRequest } from "./errors.js";
+
+declare module "fastify" {
+  interface FastifyContextConfig {
+    /**
+     * Who may call the route, set from the shared route table by `registerRoute` and
+     * `registerNotImplemented`. The guard reads it, so the table is the one place that decides.
+     */
+    auth?: RouteAuth;
+  }
+}
 
 export interface BinaryReply {
   contentType: string;
@@ -33,18 +45,15 @@ export type RouteHandler<R extends RouteDef> = (
   context: RouteContext<R>,
 ) => RouteResult<R> | Promise<RouteResult<R>>;
 
-function toIssues(error: z.ZodError, location: string): ApiIssue[] {
-  return error.issues.map((issue) => ({
-    path: [location, ...issue.path.filter((p): p is string | number => typeof p !== "symbol")],
-    message: issue.message,
-  }));
-}
-
-function parseInput(schema: z.ZodType | undefined, value: unknown, location: string): unknown {
+function parseInput(
+  schema: z.ZodType | undefined,
+  value: unknown,
+  location: IssueLocation,
+): unknown {
   if (!schema) return undefined;
   const parsed = schema.safeParse(value);
   if (!parsed.success) {
-    throw invalidRequest(`The request ${location} is invalid`, toIssues(parsed.error, location));
+    throw invalidRequest(`The request ${location} is invalid`, toApiIssues(parsed.error, location));
   }
   return parsed.data;
 }
@@ -62,6 +71,7 @@ export function registerRoute<R extends RouteDef>(
   app.route({
     method: route.method,
     url: route.path,
+    config: { auth: route.auth },
     ...(route.bodyLimit === undefined ? {} : { bodyLimit: route.bodyLimit }),
     handler: async (request, reply) => {
       const result = await handler({
@@ -81,6 +91,16 @@ export function registerRoute<R extends RouteDef>(
   });
 }
 
+/** Key of a route in {@link stubbedRoutes}: its method and its path under /api. */
+export const routeKey = (route: Pick<RouteDef, "method" | "path">) =>
+  `${route.method} ${route.path}`;
+
+/**
+ * The routes that are still answered with 501, so a test of a module can tell a route that has
+ * been built from one that has not, and does not break when another module lands.
+ */
+export const stubbedRoutes = new Set<string>();
+
 /**
  * Answers every route of a module with 501 until the module's own routes replace it. A module
  * that has built some of its routes passes them as `implemented` so they are not registered twice.
@@ -92,9 +112,11 @@ export function registerNotImplemented(
 ): void {
   for (const route of routesOfModule(module)) {
     if (implemented.includes(route)) continue;
+    stubbedRoutes.add(routeKey(route));
     app.route({
       method: route.method,
       url: route.path,
+      config: { auth: route.auth },
       handler: (_request, reply) =>
         reply.code(501).send({
           error: "not_implemented",

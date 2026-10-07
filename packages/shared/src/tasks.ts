@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { ProfileField } from "./identities.js";
-import { BlockedReason, FormOutcome } from "./outcomes.js";
+import { EmailKind } from "./mail.js";
+import { BlockedReason, FailureKind, FormOutcome } from "./outcomes.js";
 import { Recipe } from "./recipe.js";
 import { TargetSummary } from "./targets.js";
 import { WebUrl } from "./url.js";
@@ -53,12 +54,37 @@ export type TaskLease = z.infer<typeof TaskLease>;
 const id = z.string().min(1);
 
 /** Payloads hold ids only. Personal data is resolved from the profile when a task is claimed. */
-export const EmailSendPayload = z.object({ requestId: id, followUp: z.boolean() });
+export const EmailSendPayload = z
+  .object({
+    requestId: id,
+    /** Initial, a follow-up, or a verification reply. Set by whoever queues the send, never guessed. */
+    kind: EmailKind,
+    /**
+     * For a verification reply, the identifiers the person approved, as field names. Names are not
+     * personal data; the values are resolved when the mail is composed.
+     */
+    fields: z.array(ProfileField).default([]),
+    /** The Message-ID of the broker's message a verification reply answers. */
+    inReplyTo: z.string().nullable(),
+  })
+  .refine((payload) => (payload.kind === "verification_reply") === payload.fields.length > 0, {
+    message: "A verification reply names the approved fields, and no other email does",
+    path: ["fields"],
+  });
 export const InboxPollPayload = z.object({ mailboxId: id });
+
+/**
+ * A scan can search under a past name or address, since listings are keyed by old names and
+ * cities. Null means the current primary identity, and the ids point at identities of the profile.
+ */
+export const ScanVariant = z.object({ nameId: id.nullable(), addressId: id.nullable() });
+export type ScanVariant = z.infer<typeof ScanVariant>;
+
 export const ScanPayload = z.object({
   profileId: id,
   targetId: id,
   recipeId: z.string().nullable(),
+  variant: ScanVariant.nullable(),
 });
 export const FormPayload = z.object({
   requestId: id,
@@ -68,14 +94,22 @@ export const FormPayload = z.object({
 });
 export const ConfirmPayload = z.object({ requestId: id, url: WebUrl });
 export const CanaryPayload = z.object({ recipeId: id });
+
+/** Why work went to an agent: no recipe exists, the recipe broke, or a human check stopped the worker. */
+export const AgentReason = z.enum(["no_recipe", "recipe_failed", "blocked"]);
+export type AgentReason = z.infer<typeof AgentReason>;
+
 export const AgentPayload = z.object({
   purpose: z.enum(["scan", "remove"]),
   profileId: id,
   targetId: id,
   requestId: z.string().nullable(),
   recordUrl: WebUrl.nullable(),
-  reason: z.enum(["no_recipe", "recipe_failed"]),
+  variant: ScanVariant.nullable(),
+  reason: AgentReason,
   previousError: z.string().nullable(),
+  /** For reason `blocked`, the human check that stopped the earlier run. */
+  blockedReason: BlockedReason.nullable(),
 });
 
 export const TASK_PAYLOAD_SCHEMAS = {
@@ -108,9 +142,18 @@ export type Candidate = z.infer<typeof Candidate>;
 export const ScanResult = z.object({ candidates: z.array(Candidate) });
 export type ScanResult = z.infer<typeof ScanResult>;
 
+/** A host name, never an address, so it can be compared with the sender of a confirmation email. */
+const SenderDomain = z.string().regex(/^[a-z0-9]([a-z0-9.-]*[a-z0-9])?$/i);
+
 export const FormResult = z.object({
   outcome: FormOutcome,
   confirmationText: z.string().optional(),
+  /**
+   * For `awaiting_email_confirmation`, the domain the confirmation email will come from, when the
+   * page says so. A broker's confirmation often comes from a sister site, such as PeopleConnect
+   * sending for Intelius, and carries no reference of ours.
+   */
+  confirmationFrom: SenderDomain.optional(),
   notes: z.string().optional(),
 });
 export type FormResult = z.infer<typeof FormResult>;
@@ -128,10 +171,10 @@ export const CanaryResult = z.object({
 });
 export type CanaryResult = z.infer<typeof CanaryResult>;
 
-export const AgentResult = z.discriminatedUnion("purpose", [
-  z.object({ purpose: z.literal("scan"), scan: ScanResult }),
-  z.object({ purpose: z.literal("remove"), form: FormResult }),
-]);
+const AgentScanResult = z.object({ purpose: z.literal("scan"), scan: ScanResult });
+const AgentRemoveResult = z.object({ purpose: z.literal("remove"), form: FormResult });
+
+export const AgentResult = z.discriminatedUnion("purpose", [AgentScanResult, AgentRemoveResult]);
 export type AgentResult = z.infer<typeof AgentResult>;
 
 /** In-process runners report whatever is useful for the audit trail; nothing reads it back. */
@@ -152,6 +195,42 @@ export type TaskResultMap = { [K in TaskKind]: z.infer<(typeof TASK_RESULT_SCHEM
 
 export function parseTaskResult<K extends TaskKind>(kind: K, raw: unknown): TaskResultMap[K] {
   return TASK_RESULT_SCHEMAS[kind].parse(raw) as TaskResultMap[K];
+}
+
+/**
+ * The schema a task's result must match, which depends on the task and not on what the caller
+ * says it is. An agent task reports the result of its own purpose, so a scan task cannot be
+ * completed with a removal outcome that a handler would then apply to a request it does not have.
+ */
+export function resultSchemaFor(task: { kind: TaskKind; payload: unknown }): z.ZodType {
+  if (task.kind === "agent") {
+    return agentPurpose(task.payload) === "scan" ? AgentScanResult : AgentRemoveResult;
+  }
+  return TASK_RESULT_SCHEMAS[task.kind];
+}
+
+/** Reads only the purpose of an agent payload, which is all a result depends on. */
+function agentPurpose(payload: unknown): AgentPayloadPurpose {
+  return AgentPayload.shape.purpose.parse((payload as { purpose?: unknown } | null)?.purpose);
+}
+type AgentPayloadPurpose = z.infer<typeof AgentPayload>["purpose"];
+
+/**
+ * The result a person supplies when they finish a blocked task by hand. For an agent task they
+ * give the plain scan or form result, and `toTaskResult` wraps it the way an agent would have.
+ */
+export function manualResultSchemaFor(task: { kind: TaskKind; payload: unknown }): z.ZodType {
+  if (task.kind === "agent") {
+    return agentPurpose(task.payload) === "scan" ? ScanResult : FormResult;
+  }
+  return TASK_RESULT_SCHEMAS[task.kind];
+}
+
+export function toTaskResult(task: { kind: TaskKind; payload: unknown }, manual: unknown): unknown {
+  if (task.kind !== "agent") return manual;
+  return agentPurpose(task.payload) === "scan"
+    ? { purpose: "scan", scan: manual }
+    : { purpose: "remove", form: manual };
 }
 
 const claimedBase = {
@@ -179,6 +258,22 @@ export const ClaimedTask = z.discriminatedUnion("kind", [
 ]);
 export type ClaimedTask = z.infer<typeof ClaimedTask>;
 
+/**
+ * Who took a task: the built-in worker, an MCP client, or a model-backed worker. Set by the route
+ * that claimed it, so a client cannot choose how it is counted.
+ */
+export const ClaimerKind = z.enum(["builtin", "mcp", "model"]);
+export type ClaimerKind = z.infer<typeof ClaimerKind>;
+
+/** What a run cost, reported by whoever did it, so success and cost can be measured per worker type. */
+export const TaskUsage = z.object({
+  inputTokens: z.number().int().nonnegative().optional(),
+  outputTokens: z.number().int().nonnegative().optional(),
+  costUsd: z.number().nonnegative().optional(),
+  durationMs: z.number().int().nonnegative().optional(),
+});
+export type TaskUsage = z.infer<typeof TaskUsage>;
+
 /** A task without its payload or result, safe to list and to show to an agent. */
 export const TaskSummary = z.object({
   id: z.string(),
@@ -191,10 +286,20 @@ export const TaskSummary = z.object({
   requestId: z.string().nullable(),
   blockedReason: BlockedReason.nullable(),
   blockedDetail: z.string().nullable(),
+  /** The page where the worker got stuck, when it said. */
+  blockedUrl: WebUrl.nullable(),
   attempts: z.number().int().nonnegative(),
   maxAttempts: z.number().int().positive(),
   lastError: z.string().nullable(),
+  /** What broke in the last failure, so a broken recipe can be told from a broker outage. */
+  failureKind: FailureKind.nullable(),
+  failureStep: z.number().int().nonnegative().nullable(),
   hasScreenshot: z.boolean(),
+  /** The worker that last ended its lease on the task, and the kind of claimer it was. */
+  finishedBy: z.string().nullable(),
+  claimerKind: ClaimerKind.nullable(),
+  /** Summed over every attempt. */
+  usage: TaskUsage.nullable(),
   createdAt: z.iso.datetime(),
   updatedAt: z.iso.datetime(),
 });
@@ -221,21 +326,44 @@ export type TaskScreenshot = z.infer<typeof TaskScreenshot>;
 export const TaskBlockReport = z.object({
   reason: BlockedReason,
   detail: z.string().max(2000).optional(),
+  /** The page the person should open to finish by hand, which is where the run got stuck. */
+  url: WebUrl.optional(),
   screenshot: TaskScreenshot.optional(),
+  usage: TaskUsage.optional(),
 });
 export type TaskBlockReport = z.infer<typeof TaskBlockReport>;
 
+/**
+ * "This task failed". A `recipe` failure is never retried, whatever `retryable` says, because the
+ * same script would fail the same way; the server hands it to an agent and counts it against the
+ * recipe. Other kinds are retried with a backoff while attempts remain, when `retryable` is set.
+ */
 export const TaskFailureReport = z.object({
   error: z.string().min(1).max(2000),
   retryable: z.boolean(),
+  kind: FailureKind.default("internal"),
+  /** The index of the recipe step that failed, for a `recipe` failure. */
+  step: z.number().int().nonnegative().optional(),
   retryAfterMs: z
     .number()
     .int()
     .nonnegative()
     .max(24 * 60 * 60 * 1000)
     .optional(),
+  usage: TaskUsage.optional(),
 });
 export type TaskFailureReport = z.infer<typeof TaskFailureReport>;
+
+/**
+ * A person finishing a blocked task by hand. The result says how it ended and is validated like
+ * the one a worker would have sent: a form outcome for a removal, candidates for a scan, and for
+ * an agent task the result of its own purpose. Leave it out when the outcome does not matter.
+ */
+export const TaskMarkDoneBody = z.object({
+  result: z.unknown().optional(),
+  note: z.string().max(2000).optional(),
+});
+export type TaskMarkDoneBody = z.infer<typeof TaskMarkDoneBody>;
 
 export const LEASE_MS = { min: 10_000, max: 60 * 60 * 1000, default: 5 * 60 * 1000 } as const;
 export const LeaseMs = z.number().int().min(LEASE_MS.min).max(LEASE_MS.max);

@@ -1,13 +1,23 @@
 import type {
+  AgentReason,
   BlockedReason,
+  ClaimerKind,
   ContactMethod,
+  EmailKind,
+  FailureKind,
+  FormOutcome,
+  IdentityKind,
+  MatchDecision,
+  ProfileField,
   RecipeHealth,
   RecipeStatus,
   ReplyClassification,
+  RequestAction,
   RequestChannel,
   RequestEventType,
   RequestRight,
   Requirement,
+  SkipReason,
   TargetCategory,
   TargetKind,
   TargetPriority,
@@ -93,7 +103,6 @@ export const BLOCKED_REASON_LABELS: Record<BlockedReason, string> = {
   email_verification: "Email verification",
   login_required: "Login required",
   bot_detection: "Bot detection",
-
   unknown: "Unknown",
 };
 
@@ -123,7 +132,7 @@ export const TASK_KIND_LABELS: Record<TaskKind, string> = {
 export const REQUEST_EVENT_LABELS: Record<RequestEventType, string> = {
   created: "Request created",
   queued: "Queued to send",
-  sent: "Email sent",
+  sent: "Sent",
   send_failed: "Send failed",
   reply_received: "Reply received",
   classified: "Reply classified",
@@ -131,10 +140,14 @@ export const REQUEST_EVENT_LABELS: Record<RequestEventType, string> = {
   status_changed: "Status changed",
   follow_up_sent: "Follow-up sent",
   channel_switched: "Switched channel",
+  awaiting_confirmation: "Waiting for confirmation email",
   task_enqueued: "Task queued",
   task_blocked: "Task blocked",
   task_completed: "Task completed",
   task_failed: "Task failed",
+  task_cancelled: "Task cancelled",
+  task_resumed: "Task resumed",
+  task_retrying: "Task retrying",
   user_action: "Action by you",
   relisted: "Record relisted",
   note: "Note",
@@ -157,4 +170,84 @@ export const RECIPE_STATUS_LABELS: Record<RecipeStatus, string> = {
   pending_review: "Pending review",
   rejected: "Rejected",
   retired: "Retired",
+};
+
+export const IDENTITY_KIND_LABELS: Record<IdentityKind, string> = {
+  name: "Name",
+  alias: "Alias",
+  email: "Email",
+  phone: "Phone",
+  address: "Address",
+  dob: "Date of birth",
+};
+
+export const PROFILE_FIELD_LABELS: Record<ProfileField, string> = {
+  first_name: "First name",
+  last_name: "Last name",
+  full_name: "Full name",
+  email: "Email address",
+  phone: "Phone number",
+  city: "City",
+  state: "State",
+  zip: "ZIP code",
+  street: "Street address",
+  birth_year: "Year of birth",
+  date_of_birth: "Date of birth",
+  record_url: "Record link",
+};
+
+export const SKIP_REASON_LABELS: Record<SkipReason, string> = {
+  already_active: "Already in progress",
+  no_contact_method: "No way to contact them",
+  scan_in_progress: "Scan already running",
+  no_mailbox: "No mailbox connected",
+  already_confirmed: "Already removed",
+  unsupported_channel: "Needs mail, fax, or a call",
+  covered_by_platform: "Covered by a state platform",
+};
+
+export const REQUEST_ACTION_LABELS: Record<RequestAction, string> = {
+  cancel: "Cancel request",
+  resend: "Send again",
+  mark_confirmed: "Mark as confirmed",
+  mark_rejected: "Mark as rejected",
+  mark_no_record: "Mark as no record",
+};
+
+export const MATCH_DECISION_LABELS: Record<MatchDecision, string> = {
+  pending: "Waiting for you",
+  mine: "This is me",
+  not_mine: "Not me",
+};
+
+export const EMAIL_KIND_LABELS: Record<EmailKind, string> = {
+  initial: "Request",
+  follow_up: "Follow-up",
+  verification_reply: "Verification reply",
+};
+
+export const FORM_OUTCOME_LABELS: Record<FormOutcome, string> = {
+  submitted: "Submitted the form",
+  not_found: "No record found",
+  already_removed: "Already removed",
+  awaiting_email_confirmation: "Waiting for a confirmation email",
+};
+
+export const FAILURE_KIND_LABELS: Record<FailureKind, string> = {
+  recipe: "The saved steps no longer match the page",
+  site: "The site had a problem",
+  network: "The connection dropped",
+  internal: "Something went wrong here",
+};
+
+export const AGENT_REASON_LABELS: Record<AgentReason, string> = {
+  no_recipe: "No saved steps for this site",
+  recipe_failed: "The saved steps stopped working",
+  blocked: "Handed over after a human check",
+};
+
+export const CLAIMER_KIND_LABELS: Record<ClaimerKind, string> = {
+  builtin: "Built-in worker",
+  mcp: "Agent over MCP",
+  model: "Model worker",
 };

@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { RenderedEmail } from "./legal.js";
-import { RequestRight } from "./requests.js";
+import { RequestRights } from "./requests.js";
 
 export const CampaignPreset = z.enum(["companies", "email_brokers", "people_search", "everything"]);
 export type CampaignPreset = z.infer<typeof CampaignPreset>;
@@ -13,19 +13,32 @@ export type CampaignSelection = z.infer<typeof CampaignSelection>;
 
 export const CampaignBody = z.object({
   selection: CampaignSelection,
-  rights: z
-    .array(RequestRight)
-    .min(1)
-    .refine((rights) => new Set(rights).size === rights.length, {
-      message: "Rights must be unique",
-    }),
+  rights: RequestRights,
 });
 export type CampaignBody = z.infer<typeof CampaignBody>;
 
 export const TargetOutcomeKind = z.enum(["request_created", "scan_started", "skipped"]);
 export type TargetOutcomeKind = z.infer<typeof TargetOutcomeKind>;
 
-export const SkipReason = z.enum(["already_active", "no_contact_method", "scan_in_progress"]);
+/**
+ * Why a target was left out of a campaign.
+ * - `already_active`: a request for it is already in motion.
+ * - `no_contact_method`: no email address and no form to send it through.
+ * - `scan_in_progress`: a scan for it is already running.
+ * - `no_mailbox`: it needs an email and the profile has no mailbox connected.
+ * - `already_confirmed`: it confirmed a removal, and nothing is re-sent unless a re-scan finds the person again.
+ * - `unsupported_channel`: it only takes postal mail, fax, a phone call, or payment.
+ * - `covered_by_platform`: a state platform such as California's DROP already handles this registered broker.
+ */
+export const SkipReason = z.enum([
+  "already_active",
+  "no_contact_method",
+  "scan_in_progress",
+  "no_mailbox",
+  "already_confirmed",
+  "unsupported_channel",
+  "covered_by_platform",
+]);
 export type SkipReason = z.infer<typeof SkipReason>;
 
 /** What happened, or for a preview what would happen, to one target. */
@@ -36,6 +49,8 @@ export const TargetOutcome = z.object({
   requestId: z.string().nullable(),
   scanId: z.string().nullable(),
   reason: SkipReason.nullable(),
+  /** A sentence for a person to read when the reason alone is not enough, such as which platform covers it. */
+  detail: z.string().nullable(),
 });
 export type TargetOutcome = z.infer<typeof TargetOutcome>;
 

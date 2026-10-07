@@ -10,7 +10,9 @@ export function registerHealth(
   { db }: Pick<AppServices, "db">,
   version: string,
 ): void {
-  registerRoute(app, API_ROUTES.health, () => {
+  registerRoute(app, API_ROUTES.health, () => ({ ok: true as const, version }));
+
+  registerRoute(app, API_ROUTES.status, () => {
     const profileCount = db.select({ n: count() }).from(profiles).get()?.n ?? 0;
     const countKind = (kind: "broker" | "company") =>
       db
@@ -20,8 +22,6 @@ export function registerHealth(
         .get()?.n ?? 0;
     const brokers = countKind("broker");
     return {
-      ok: true as const,
-      version,
       profiles: profileCount,
       brokers: { available: brokers > 0, total: brokers },
       targets: { brokers, companies: countKind("company") },

@@ -25,18 +25,46 @@ export interface App {
 const isApiPath = (url: string) =>
   url === "/api" || url.startsWith("/api/") || url === "/mcp" || url.startsWith("/mcp/");
 
+/**
+ * Content-Security-Policy for the SPA and the API. Everything is served from this origin, nothing
+ * may frame it, and screenshots arrive as images from the same origin or as blob and data URLs.
+ */
+const CONTENT_SECURITY_POLICY = [
+  "default-src 'self'",
+  "img-src 'self' data: blob:",
+  "base-uri 'none'",
+  "form-action 'self'",
+  "frame-ancestors 'none'",
+  "object-src 'none'",
+].join("; ");
+
+function registerSecurityHeaders(server: FastifyInstance): void {
+  server.addHook("onSend", async (_request, reply) => {
+    reply
+      .header("x-content-type-options", "nosniff")
+      .header("referrer-policy", "no-referrer")
+      .header("x-frame-options", "DENY")
+      .header("content-security-policy", CONTENT_SECURITY_POLICY);
+  });
+}
+
 export async function buildApp({ services, database, version }: AppContext): Promise<App> {
   const { config } = services;
   const server = Fastify({ loggerInstance: services.logger });
 
   installErrorHandling(server);
+  registerSecurityHeaders(server);
   await server.register(fastifyCookie);
   registerGuards(server, services);
+
+  // Modules may register startup steps that store rows pointing at targets, so the targets come first.
+  services.targets.sync();
 
   await server.register(async (scope) => registerHealth(scope, services, version), {
     prefix: "/api",
   });
   await registerModules(server, services);
+  await services.startup.run();
 
   if (config.webDist && existsSync(config.webDist)) {
     await server.register(fastifyStatic, { root: config.webDist, wildcard: false });
@@ -48,7 +76,6 @@ export async function buildApp({ services, database, version }: AppContext): Pro
     return reply.sendFile("index.html");
   });
 
-  services.targets.sync();
   registerScheduler(server, services);
 
   return {

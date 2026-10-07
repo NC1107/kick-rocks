@@ -8,6 +8,7 @@ import {
   slugify,
   type TargetDetail,
   type TargetFacets,
+  type TargetListItem,
   type TargetPriority,
   type TargetRecipe,
   type TargetSummary,
@@ -324,11 +325,29 @@ export function summaryOf(target: TargetDetail): TargetSummary {
     category: target.category,
     domain: target.domain,
     website: target.website,
+    optOutUrl: target.optOutUrl,
+    searchUrl: target.searchUrl,
     contactMethod: target.contactMethod,
     requiresId: target.requiresId,
     requirements: target.requirements,
     priority: target.priority,
     needsRecord: target.needsRecord,
+    retired: target.retired,
+  };
+}
+
+/** The health of the newest active recipe for a purpose, or null when the target has none. */
+function automationOf(target: TargetDetail, purpose: "scan" | "remove") {
+  const active = target.recipes
+    .filter((recipe) => recipe.purpose === purpose && recipe.status === "active")
+    .sort((a, b) => b.version - a.version);
+  return active[0]?.health ?? null;
+}
+
+export function listItemOf(target: TargetDetail): TargetListItem {
+  return {
+    ...summaryOf(target),
+    automation: { scan: automationOf(target, "scan"), remove: automationOf(target, "remove") },
   };
 }
 
@@ -363,6 +382,7 @@ export default defineMockDomain({
         requirements,
         priority: seed.priority,
         needsRecord: needsRecord({ id, category }),
+        retired: false,
         ...contactFields(domain, seed.contact),
         searchUrl:
           category === "people-search" || category === "background-check"
@@ -397,6 +417,7 @@ export default defineMockDomain({
         requirements: [],
         priority: "normal",
         needsRecord: false,
+        retired: false,
         ...contactFields(domain, seed.contact),
         searchUrl: null,
         region: "us",
@@ -431,7 +452,7 @@ export default defineMockDomain({
         );
       const start = (query.page - 1) * query.pageSize;
       return {
-        items: matches.slice(start, start + query.pageSize).map(summaryOf),
+        items: matches.slice(start, start + query.pageSize).map(listItemOf),
         total: matches.length,
         page: query.page,
         pageSize: query.pageSize,

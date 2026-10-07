@@ -70,11 +70,14 @@ describe("TargetSummary", () => {
       category: "people-search",
       domain: "spokeo.com",
       website: "https://www.spokeo.com/",
+      optOutUrl: "https://www.spokeo.com/optout",
+      searchUrl: null,
       contactMethod: "form",
       requiresId: false,
       requirements: ["record_url"],
       priority: "crucial",
       needsRecord: true,
+      retired: false,
     };
     expect(TargetSummary.parse(summary)).toEqual(summary);
   });

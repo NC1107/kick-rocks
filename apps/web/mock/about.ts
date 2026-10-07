@@ -6,9 +6,9 @@ export default defineMockDomain({
   name: "about",
 
   routes: (store) => [
-    handle(API_ROUTES.health, () => ({
-      ok: true as const,
-      version: "0.1.0-mock",
+    handle(API_ROUTES.health, () => ({ ok: true as const, version: "0.1.0-mock" })),
+
+    handle(API_ROUTES.status, () => ({
       profiles: store.profiles.length,
       brokers: {
         available: true,

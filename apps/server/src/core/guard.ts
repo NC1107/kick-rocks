@@ -1,3 +1,4 @@
+import { CSRF_HEADER, CSRF_HEADER_VALUE, requiresCsrfHeader } from "@kickrocks/shared";
 import type { FastifyInstance, FastifyReply } from "fastify";
 import type { AuthService } from "./auth.js";
 import type { Secrets, TokenCheck } from "./secrets.js";
@@ -25,9 +26,11 @@ function normalizePath(rawUrl: string): string {
 }
 
 /**
- * Which credential a path needs. The path is read as sent and percent-decoded, with duplicate
- * slashes collapsed and dot segments resolved, so no spelling of a path can pick a weaker rule
- * than the router would give the route it reaches.
+ * Which credential a path needs, read from the path alone. A matched route says so itself, through
+ * the shared route table (see `registerRoute`), and this is what applies to the rest: a path that
+ * matches no route, so a 404 gives nothing away, and a route a module registered without declaring
+ * one. The path is read as sent and percent-decoded, with duplicate slashes collapsed and dot
+ * segments resolved, so no spelling of a path can pick a weaker rule than the router would give.
  */
 export function guardFor(rawUrl: string): GuardKind {
   const pathname = normalizePath(rawUrl);
@@ -40,6 +43,18 @@ export function guardFor(rawUrl: string): GuardKind {
   return [classify(pathname), classify(decoded)].reduce((a, b) =>
     STRICTNESS[b] > STRICTNESS[a] ? b : a,
   );
+}
+
+/** Whether a path, however it is spelled, is under /api. */
+export function isApiPath(rawUrl: string): boolean {
+  const pathname = normalizePath(rawUrl);
+  let decoded = pathname;
+  try {
+    decoded = normalizePath(decodeURIComponent(pathname));
+  } catch {
+    // A malformed escape is not a path any route has, so the raw reading stands.
+  }
+  return [pathname, decoded].some((path) => path === "/api" || path.startsWith("/api/"));
 }
 
 interface DisabledReply {
@@ -75,15 +90,40 @@ export interface GuardServices {
   secrets: Secrets;
 }
 
+function rejectCsrf(reply: FastifyReply) {
+  return reply.code(403).send({
+    error: "forbidden",
+    message: `State-changing requests need the ${CSRF_HEADER} header`,
+  });
+}
+
 /**
- * The single place that decides who may call what: the session for the web API, the worker
- * token for /api/worker/*, and the MCP token for /mcp. Nothing else under /api is reachable
- * without passing here.
+ * The single place that decides who may call what, and the one that enforces the CSRF header. A
+ * route says what it needs in the shared route table: the session for the web API, the worker
+ * token for /api/worker/*, the MCP token for /mcp. A request that matches no declared route is
+ * judged by its path, and under /api that means a session. Nothing under /api is reachable without
+ * passing here.
+ *
+ * The header (`X-Kick-Rocks`) is required on every method that changes state under /api, the auth
+ * routes included, because a cross-site form can send neither a custom header nor, with SameSite,
+ * the cookie. Bearer-token calls are exempt, since a browser never attaches those by itself. The
+ * check runs before the body is parsed, so a body that Fastify would accept as text/plain never
+ * reaches a handler from another site.
  */
 export function registerGuards(app: FastifyInstance, { auth, secrets }: GuardServices): void {
   app.addHook("onRequest", async (request, reply) => {
-    switch (guardFor(request.url)) {
+    const declared = request.routeOptions.config?.auth;
+    const kind: GuardKind = declared ?? guardFor(request.url);
+    const csrfApplies =
+      (declared !== undefined || isApiPath(request.url)) && kind !== "worker" && kind !== "mcp";
+    const csrfMissing =
+      csrfApplies &&
+      requiresCsrfHeader({ method: request.method, auth: kind }) &&
+      request.headers[CSRF_HEADER] !== CSRF_HEADER_VALUE;
+
+    switch (kind) {
       case "none":
+        if (csrfMissing) return rejectCsrf(reply);
         return;
       case "worker": {
         const check = secrets.checkWorkerToken(request.headers.authorization);
@@ -103,6 +143,7 @@ export function registerGuards(app: FastifyInstance, { auth, secrets }: GuardSer
             ...(result.message ? { message: result.message } : {}),
           });
         }
+        if (csrfMissing) return rejectCsrf(reply);
         return;
       }
     }
