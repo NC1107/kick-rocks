@@ -1,0 +1,14 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Opt out on change</title></head>
+<body>
+<h1>Remove your listing</h1>
+<form method="post" action="/form/submit">
+  <label for="first">First name</label>
+  <input id="first" name="first_name" onchange="this.form.submit()">
+  <label for="last">Last name</label>
+  <input id="last" name="last_name">
+  <button type="submit">Send</button>
+</form>
+</body>
+</html>

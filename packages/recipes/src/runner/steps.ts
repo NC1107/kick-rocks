@@ -508,8 +508,10 @@ export function formResult(ctx: RunContext, outcome: FormResult["outcome"]): For
   return result;
 }
 
+/** A fill counts too: moving focus off an edited field fires its change event, and a page may submit on that. */
 function sendsToSite(step: RecipeStep): boolean {
   return (
+    step.kind === "fill" ||
     step.kind === "click" ||
     step.kind === "press" ||
     step.kind === "select" ||

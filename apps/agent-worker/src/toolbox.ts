@@ -573,9 +573,22 @@ export class Toolbox {
    * again by a retry.
    */
   private async beforeSending(): Promise<void> {
+    await this.beforeAction();
+    this.clickCount += 1;
+  }
+
+  /**
+   * Typing is not a click, but a page may submit on a field's change event, which fires when focus
+   * moves on. It is recorded like a send without being counted as one, because typing alone must
+   * not let a run report a submission.
+   */
+  private async beforeEditing(): Promise<void> {
+    await this.beforeAction();
+  }
+
+  private async beforeAction(): Promise<void> {
     await this.options.onClick?.();
     if (this.options.signal.aborted) throw new Error("The run was stopped before the action");
-    this.clickCount += 1;
   }
 
   private async click(args: unknown): Promise<ToolOutcome> {
@@ -635,6 +648,7 @@ export class Toolbox {
       return failure(`${ref} is not visible to a person on the page now, so nothing was typed.`);
     }
 
+    await this.beforeEditing();
     const { pace } = this.options;
     if (pace.typeDelayMs[1] > 0) {
       await target.locator.click({ timeout: this.actionTimeoutMs });

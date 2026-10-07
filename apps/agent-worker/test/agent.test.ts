@@ -1625,7 +1625,7 @@ describeBrowser("telling the worker that a removal may have been submitted", () 
         seen.push((await fixtureState()).submissions.length);
       },
     });
-    expect(seen).toEqual([0, 0, 0]);
+    expect(seen).toEqual([0, 0, 0, 0, 0, 0]);
     expect((await fixtureState()).submissions).toHaveLength(1);
   });
 
@@ -1641,6 +1641,42 @@ describeBrowser("telling the worker that a removal may have been submitted", () 
       { onMayHaveSubmitted },
     );
     expect(onMayHaveSubmitted).toHaveBeenCalledTimes(2);
+  });
+
+  it("records typing into a field whose change event submits the form, before the page can send it", async () => {
+    const seen: number[] = [];
+    await run(
+      [
+        navigate("/onchange"),
+        (v) => ({
+          calls: [
+            ["type", { ref: v.ref("First name"), field: "first_name" }],
+            ["type", { ref: v.ref("Last name"), field: "last_name" }],
+          ],
+        }),
+        { calls: [["report", { status: "release" }]] },
+      ],
+      {
+        onMayHaveSubmitted: async () => {
+          seen.push((await fixtureState()).submissions.length);
+        },
+      },
+    );
+    expect(seen.length).toBeGreaterThan(0);
+    expect(seen[0]).toBe(0);
+    expect((await fixtureState()).submissions.length).toBeGreaterThan(0);
+  });
+
+  it("does not report a submission after typing alone", async () => {
+    const { outcome } = await run(
+      [
+        navigate("/optout"),
+        (v) => ({ calls: [["type", { ref: v.ref("First name"), field: "first_name" }]] }),
+        { calls: [["report", { status: "complete", result: { purpose: "remove", form: { outcome: "submitted" } } }]] },
+      ],
+      { onMayHaveSubmitted: async () => undefined },
+    );
+    expect(outcome.report.kind).not.toBe("complete");
   });
 
   it("does not select or tick when the server could not record the submission", async () => {

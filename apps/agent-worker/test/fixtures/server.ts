@@ -64,6 +64,7 @@ const PAGES: Record<string, string> = {
   "/sw-form": "sw-form.html",
   "/sw-evade": "sw-evade.html",
   "/return-link": "return-link.html",
+  "/onchange": "onchange.html",
 };
 
 function escapeHtml(text: string): string {
