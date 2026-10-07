@@ -70,13 +70,29 @@ export const NotificationSettings = z.object({
 export type NotificationSettings = z.infer<typeof NotificationSettings>;
 
 /** What the server remembers between passes. It reaches the client only as `status`. */
+export const PushChannel = z.enum(["ntfy", "telegram"]);
+export type PushChannel = z.infer<typeof PushChannel>;
+
 export const NotificationState = z.object({
-  /** Keys of the items already announced and still open, so each is announced once. */
-  announced: z.array(z.string()).default([]),
+  /** Per channel, keys of the items it accepted and that are still open, so each is announced once. */
+  announced: z
+    .object({
+      ntfy: z.array(z.string()).default([]),
+      telegram: z.array(z.string()).default([]),
+    })
+    .default({ ntfy: [], telegram: [] }),
+  /** When an announced item stopped being open, so one that flaps is not announced again at once. */
+  resolvedAt: z.record(z.string(), z.iso.datetime()).default({}),
   sentAt: z.array(z.iso.datetime()).default([]),
   lastSentAt: z.iso.datetime().nullable().default(null),
   lastError: z.string().nullable().default(null),
-  retryAfter: z.iso.datetime().nullable().default(null),
+  /** Per channel, so one that is down does not hold back the other. */
+  retryAfter: z
+    .object({
+      ntfy: z.iso.datetime().nullable().default(null),
+      telegram: z.iso.datetime().nullable().default(null),
+    })
+    .default({ ntfy: null, telegram: null }),
   digestLastSentAt: z.iso.datetime().nullable().default(null),
   digestLastError: z.string().nullable().default(null),
   digestRetryAfter: z.iso.datetime().nullable().default(null),

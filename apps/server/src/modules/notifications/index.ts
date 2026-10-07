@@ -108,6 +108,18 @@ function applyPatch(services: AppServices, patch: NotificationsPatch): void {
 
   services.settings.set("notifications", next);
 
+  // A channel the person just fixed or removed should not keep showing the old failure or wait out
+  // the pause that failure earned.
+  if (patch.ntfy !== undefined || patch.telegram !== undefined) {
+    updateState(services, (state) => ({
+      lastError: null,
+      retryAfter: {
+        ntfy: patch.ntfy !== undefined ? null : state.retryAfter.ntfy,
+        telegram: patch.telegram !== undefined ? null : state.retryAfter.telegram,
+      },
+    }));
+  }
+
   // Turning the digest on starts its first period now, so it does not send a backlog at once.
   if (stored.digest.frequency === "off" && next.digest.frequency !== "off") {
     const now = services.clock.now().toISOString();
@@ -139,6 +151,10 @@ async function sendTest(
     } else if (settings.telegram) {
       await services.notificationChannels.telegram(settings.telegram, message);
     }
+    updateState(services, (state) => ({
+      lastError: null,
+      retryAfter: { ...state.retryAfter, [channel]: null },
+    }));
     return { ok: true, error: null };
   } catch (error) {
     return { ok: false, error: error instanceof ChannelError ? error.message : "Could not send" };

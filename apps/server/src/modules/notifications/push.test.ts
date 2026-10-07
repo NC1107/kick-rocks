@@ -74,7 +74,7 @@ describe("when nothing is configured", () => {
     blockTask();
     expect(await pushNewAttention(ctx.services)).toBe("unconfigured");
     expect(ntfy.requests).toHaveLength(0);
-    expect(readState(ctx.services).announced).toEqual([]);
+    expect(readState(ctx.services).announced).toEqual({ ntfy: [], telegram: [] });
   });
 });
 
@@ -185,10 +185,10 @@ describe("announcing once", () => {
 
     ctx.services.db.update(mailboxes).set({ lastError: null }).run();
     expect(await pushNewAttention(ctx.services)).toBe("idle");
-    expect(readState(ctx.services).announced).toEqual([]);
+    expect(readState(ctx.services).announced).toEqual({ ntfy: [], telegram: [] });
 
     ctx.services.db.update(mailboxes).set({ lastError: "Login failed again" }).run();
-    ctx.clock.advance(MINUTE);
+    ctx.clock.advance(2 * HOUR);
     expect(await pushNewAttention(ctx.services)).toBe("sent");
     expect(ntfy.requests).toHaveLength(2);
   });
@@ -198,7 +198,7 @@ describe("announcing once", () => {
     await pushNewAttention(ctx.services);
     ctx.services.db.update(tasks).set({ status: "cancelled" }).where(eq(tasks.id, task.id)).run();
     await pushNewAttention(ctx.services);
-    expect(readState(ctx.services).announced).toEqual([]);
+    expect(readState(ctx.services).announced).toEqual({ ntfy: [], telegram: [] });
   });
 
   it("does not announce a listing again after the person decided it", async () => {
@@ -292,7 +292,7 @@ describe("delivery failures", () => {
 
     expect(await pushNewAttention(ctx.services)).toBe("failed");
     expect(readState(ctx.services)).toMatchObject({
-      announced: [],
+      announced: { ntfy: [], telegram: [] },
       lastSentAt: null,
       lastError: "ntfy answered 500",
     });
@@ -304,7 +304,10 @@ describe("delivery failures", () => {
     ntfy.respondWith(200);
     ctx.clock.advance(5 * MINUTE);
     expect(await pushNewAttention(ctx.services)).toBe("sent");
-    expect(readState(ctx.services)).toMatchObject({ lastError: null, retryAfter: null });
+    expect(readState(ctx.services)).toMatchObject({
+      lastError: null,
+      retryAfter: { ntfy: null, telegram: null },
+    });
   });
 
   it("counts a failed attempt as no push, so an outage does not use up the hour", async () => {
@@ -322,9 +325,34 @@ describe("delivery failures", () => {
 
     expect(await pushNewAttention(ctx.services)).toBe("sent");
     const state = readState(ctx.services);
-    expect(state.announced).toHaveLength(1);
+    expect(state.announced.ntfy).toHaveLength(1);
+    expect(state.announced.telegram).toEqual([]);
     expect(state.lastError).toBe("Telegram answered 401: Unauthorized");
     expect(state.lastError).not.toContain(BOT_TOKEN);
+  });
+
+  it("keeps a channel's refused items for it and sends them there alone once it recovers", async () => {
+    configure({ telegram: { botToken: BOT_TOKEN, chatId: "42" } });
+    telegram.respondWith(500);
+    blockTask();
+
+    expect(await pushNewAttention(ctx.services)).toBe("sent");
+    expect(ntfy.requests).toHaveLength(1);
+    expect(telegram.requests).toHaveLength(1);
+
+    telegram.respondWith(200);
+    ctx.clock.advance(MINUTE);
+    expect(await pushNewAttention(ctx.services)).toBe("waiting");
+    expect(telegram.requests).toHaveLength(1);
+
+    ctx.clock.advance(5 * MINUTE);
+    expect(await pushNewAttention(ctx.services)).toBe("sent");
+    expect(ntfy.requests).toHaveLength(1);
+    expect(telegram.requests).toHaveLength(2);
+    expect(readState(ctx.services)).toMatchObject({ lastError: null });
+
+    ctx.clock.advance(5 * MINUTE);
+    expect(await pushNewAttention(ctx.services)).toBe("idle");
   });
 
   it("never writes the bot token or the ntfy token to the log", async () => {
@@ -351,6 +379,41 @@ describe("delivery failures", () => {
   });
 });
 
+describe("an error that flaps", () => {
+  const setMailboxError = (id: string, lastError: string | null) =>
+    ctx.services.db.update(mailboxes).set({ lastError }).where(eq(mailboxes.id, id)).run();
+
+  it("is announced once, not again each time it clears and comes back within the cooldown", async () => {
+    configure();
+    const mailbox = seedMailbox(ctx, profileId, { lastError: null });
+
+    const outcomes: string[] = [];
+    for (let poll = 0; poll < 4; poll += 1) {
+      setMailboxError(mailbox.id, "Login failed");
+      outcomes.push(await pushNewAttention(ctx.services));
+      ctx.clock.advance(5 * MINUTE);
+      setMailboxError(mailbox.id, null);
+      outcomes.push(await pushNewAttention(ctx.services));
+      ctx.clock.advance(5 * MINUTE);
+    }
+    expect(outcomes.filter((outcome) => outcome === "sent")).toHaveLength(1);
+    expect(ntfy.requests).toHaveLength(1);
+  });
+
+  it("is announced again once the cooldown has passed", async () => {
+    configure();
+    const mailbox = seedMailbox(ctx, profileId, { lastError: "Login failed" });
+    await pushNewAttention(ctx.services);
+    setMailboxError(mailbox.id, null);
+    await pushNewAttention(ctx.services);
+
+    ctx.clock.advance(2 * HOUR);
+    setMailboxError(mailbox.id, "Login failed");
+    expect(await pushNewAttention(ctx.services)).toBe("sent");
+    expect(ntfy.requests).toHaveLength(2);
+  });
+});
+
 describe("a deleted recipe row", () => {
   it("is simply not open any more", async () => {
     configure();
@@ -358,6 +421,6 @@ describe("a deleted recipe row", () => {
     await pushNewAttention(ctx.services);
     ctx.services.db.delete(recipes).where(eq(recipes.id, recipe.id)).run();
     await pushNewAttention(ctx.services);
-    expect(readState(ctx.services).announced).toEqual([]);
+    expect(readState(ctx.services).announced).toEqual({ ntfy: [], telegram: [] });
   });
 });

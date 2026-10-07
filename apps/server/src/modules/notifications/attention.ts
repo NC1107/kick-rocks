@@ -14,7 +14,8 @@ export interface AttentionItem {
 /**
  * Everything that waits on the person right now, one item per thing. Reading current state and
  * comparing it with what was announced means no code path that blocks a task has to remember to
- * notify, and an item that is resolved and later happens again is announced again.
+ * notify, and an item that is resolved and later happens again is announced again once the push
+ * cooldown has passed.
  */
 export function collectAttention(services: AppServices): AttentionItem[] {
   const { db, taskQueue } = services;

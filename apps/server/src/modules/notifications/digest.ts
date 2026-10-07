@@ -16,6 +16,7 @@ import {
 import { and, asc, eq, gt, lte, sql } from "drizzle-orm";
 import { newId } from "../../core/ids.js";
 import { connectionOf, describeError } from "../../runners/connection.js";
+import { isMailboxProblem } from "../../runners/email-send.js";
 import type { AppServices } from "../../services.js";
 import { buildReviewQueue } from "../review/queue.js";
 import { readState, updateState } from "./state.js";
@@ -179,13 +180,14 @@ async function sendOne(
   mailbox: MailboxRow,
   content: DigestContent,
 ): Promise<void> {
-  await services.mail.transport(connectionOf(mailbox)).send({
+  const result = await services.mail.transport(connectionOf(mailbox)).send({
     from: { name: "Kick Rocks", address: mailbox.address },
     to: mailbox.address,
     subject: content.subject,
     text: content.text,
     messageId: messageIdFor(mailbox.address),
   });
+  if (result.accepted.length === 0) throw new Error("The mail server rejected the address");
 }
 
 /**
@@ -208,16 +210,28 @@ export async function sendDigest(services: AppServices): Promise<DigestSendResul
     .all();
 
   let sent = 0;
+  let heldUntilMs = 0;
   const failures: string[] = [];
+  const holdAt = (until: Date) => {
+    heldUntilMs = Math.max(heldUntilMs, until.getTime());
+  };
   for (const { mailbox, profile } of rows) {
+    const held = services.mailHolds.until(mailbox.id);
+    if (held) {
+      holdAt(held);
+      failures.push(`Sending is paused until ${held.toISOString()}`);
+      continue;
+    }
     const content = buildDigest(services, profile, since, now);
     if (!content) continue;
     try {
       await sendOne(services, mailbox, content);
+      services.mailHolds.clear(mailbox.id);
       sent += 1;
     } catch (error) {
       services.logger.warn({ mailboxId: mailbox.id, err: describeError(error) }, "digest failed");
       failures.push(describeError(error));
+      if (isMailboxProblem(error)) holdAt(services.mailHolds.hold(mailbox.id));
     }
   }
 
@@ -225,11 +239,12 @@ export async function sendDigest(services: AppServices): Promise<DigestSendResul
   const noMailbox = rows.length === 0;
   const failed = noMailbox || (failures.length > 0 && sent === 0);
   const noMailboxError = "Connect a mailbox to receive the digest";
+  const retryAt = heldUntilMs > 0 ? heldUntilMs : now.getTime() + RETRY_AFTER_FAILURE_MS;
   updateState(services, () =>
     failed
       ? {
           digestLastError: noMailbox ? noMailboxError : error,
-          digestRetryAfter: new Date(now.getTime() + RETRY_AFTER_FAILURE_MS).toISOString(),
+          digestRetryAfter: new Date(retryAt).toISOString(),
         }
       : {
           digestLastSentAt: now.toISOString(),

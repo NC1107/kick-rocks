@@ -225,6 +225,86 @@ describe("the digest mail", () => {
   });
 });
 
+describe("a mailbox that refuses the login", () => {
+  let mailboxId: string;
+
+  beforeEach(() => {
+    mailboxId = seedMailbox(ctx, profileId, { address: "jordan@example.com" }).id;
+    updateState(ctx.services, () => ({ digestLastSentAt: "2026-10-06T08:00:00.000Z" }));
+    seedMessage(ctx, { mailboxId });
+  });
+
+  const refuseLogin = () =>
+    ctx.mail.failNextSend(Object.assign(new Error("Invalid login"), { code: "EAUTH" }));
+
+  it("holds the mailbox, does not try it again until the hold ends, and retries when it does", async () => {
+    refuseLogin();
+    await sendDigest(ctx.services);
+    expect(ctx.mail.sent).toHaveLength(0);
+    expect(ctx.services.mailHolds.until(mailboxId)?.toISOString()).toBe("2026-10-07T12:05:00.000Z");
+    expect(readState(ctx.services).digestRetryAfter).toBe("2026-10-07T12:05:00.000Z");
+
+    ctx.clock.advance(2 * MINUTE);
+    const held = await sendDigest(ctx.services);
+    expect(ctx.mail.sent).toHaveLength(0);
+    expect(held).toMatchObject({ outcome: "failed", sent: 0 });
+    expect(readState(ctx.services).digestRetryAfter).toBe("2026-10-07T12:05:00.000Z");
+
+    ctx.clock.advance(4 * MINUTE);
+    refuseLogin();
+    await sendDigest(ctx.services);
+    expect(ctx.services.mailHolds.until(mailboxId)?.toISOString()).toBe("2026-10-07T12:16:00.000Z");
+    expect(readState(ctx.services).digestRetryAfter).toBe("2026-10-07T12:16:00.000Z");
+
+    ctx.clock.advance(11 * MINUTE);
+    expect(await sendDigest(ctx.services)).toMatchObject({ outcome: "sent", sent: 1 });
+    expect(ctx.services.mailHolds.until(mailboxId)).toBeNull();
+  });
+
+  it("is not due again before the hold ends", async () => {
+    configureDigest();
+    refuseLogin();
+    await sendDigest(ctx.services);
+    ctx.clock.advance(4 * MINUTE);
+    expect(digestIsDue(ctx.services)).toBe(false);
+    ctx.clock.advance(2 * MINUTE);
+    expect(digestIsDue(ctx.services)).toBe(true);
+  });
+
+  it("does not send through a mailbox that sending has already stopped for", async () => {
+    ctx.services.mailHolds.hold(mailboxId);
+    const result = await sendDigest(ctx.services);
+    expect(ctx.mail.sent).toHaveLength(0);
+    expect(result).toMatchObject({ outcome: "failed", sent: 0 });
+  });
+});
+
+describe("a send that reaches no recipient", () => {
+  it("is a failure, so the period stays open", async () => {
+    const mailboxId = seedMailbox(ctx, profileId, { address: "jordan@example.com" }).id;
+    updateState(ctx.services, () => ({ digestLastSentAt: "2026-10-06T08:00:00.000Z" }));
+    seedMessage(ctx, { mailboxId });
+    const { mail } = ctx.services;
+    const transport = mail.transport;
+    mail.transport = (connection) => ({
+      ...transport(connection),
+      send: async (outgoing) => ({
+        messageId: outgoing.messageId,
+        accepted: [],
+        rejected: [outgoing.to],
+      }),
+    });
+
+    const result = await sendDigest(ctx.services);
+
+    expect(result).toMatchObject({ outcome: "failed", sent: 0 });
+    expect(readState(ctx.services)).toMatchObject({
+      digestLastSentAt: "2026-10-06T08:00:00.000Z",
+      digestRetryAfter: "2026-10-07T12:15:00.000Z",
+    });
+  });
+});
+
 describe("without a mailbox", () => {
   it("says so and tries again later", async () => {
     const result = await sendDigest(ctx.services);

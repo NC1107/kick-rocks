@@ -15,6 +15,7 @@ import {
 } from "../../test-utils/index.js";
 import { createNotificationChannels } from "./channels.js";
 import { type FakePushServer, startFakePushServer } from "./fake-push-server.js";
+import { pushNewAttention } from "./push.js";
 import { readState } from "./state.js";
 
 const BOT_TOKEN = "123456789:AAExampleTokenValue_abcdefghijklmnop";
@@ -177,6 +178,52 @@ describe("PATCH /notifications", () => {
     ctx.clock.advance(HOUR);
     await patch({ digest: { hourUtc: 9 } });
     expect(readState(ctx.services).digestLastSentAt).not.toBe(ctx.clock.now().toISOString());
+  });
+});
+
+describe("after a push failed", () => {
+  async function failOnce(): Promise<void> {
+    const profileId = seedProfile(ctx).id;
+    const targetId = seedTarget(ctx).id;
+    await patch({ ntfy: { serverUrl: server.url, topic: "kr_alerts" } });
+    server.respondWith(500);
+    seedTask(ctx, {
+      kind: "scan",
+      payload: { profileId, targetId, recipeId: null, variant: null },
+      status: "blocked",
+      profileId,
+      targetId,
+      blockedReason: "captcha",
+    });
+    await pushNewAttention(ctx.services);
+    const view = await get();
+    expect(view.ok && view.body.status.lastError).not.toBeNull();
+  }
+
+  it("clears the error and the pause when the channel is saved again", async () => {
+    await failOnce();
+    server.respondWith(200);
+    await patch({ ntfy: { serverUrl: server.url, topic: "other_topic" } });
+
+    const view = await get();
+    expect(view.ok && view.body.status.lastError).toBeNull();
+    expect(await pushNewAttention(ctx.services)).toBe("sent");
+  });
+
+  it("clears the error when the last channel is removed", async () => {
+    await failOnce();
+    await patch({ ntfy: null });
+    const view = await get();
+    expect(view.ok && view.body.status.lastError).toBeNull();
+  });
+
+  it("clears the error when a test message gets through", async () => {
+    await failOnce();
+    server.respondWith(200);
+    await ctx.call(API_ROUTES.notificationsTest, { body: { channel: "ntfy" } });
+    const view = await get();
+    expect(view.ok && view.body.status.lastError).toBeNull();
+    expect(readState(ctx.services).retryAfter.ntfy).toBeNull();
   });
 });
 

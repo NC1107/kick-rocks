@@ -1,11 +1,13 @@
-import type { NotificationCategory, NotificationSettings } from "@kickrocks/shared";
+import type { NotificationCategory, NotificationSettings, PushChannel } from "@kickrocks/shared";
 import type { AppServices } from "../../services.js";
 import { type AttentionItem, collectAttention } from "./attention.js";
 import type { PushMessage } from "./channels.js";
 import { readState, updateState } from "./state.js";
 
 const HOUR_MS = 60 * 60 * 1000;
-/** After every channel refused a message, the next try waits this long so a dead server is not hammered. */
+/** An item resolved this recently is not announced again, so a flapping error is one push. */
+const RESOLVED_COOLDOWN_MS = HOUR_MS;
+/** After a channel refused a message, the next try waits this long so a dead server is not hammered. */
 const RETRY_AFTER_FAILURE_MS = 5 * 60 * 1000;
 
 export type PushOutcome = "unconfigured" | "idle" | "waiting" | "limited" | "sent" | "failed";
@@ -57,77 +59,121 @@ export function describeAttention(items: readonly AttentionItem[], appUrl: strin
   };
 }
 
-/** Sends one message to every configured channel. Returns the failures, empty when all accepted it. */
-export async function deliver(
+const CHANNELS: readonly PushChannel[] = ["ntfy", "telegram"];
+
+/** Sends one message through one channel. Returns the failure text, null when it accepted it. */
+async function deliver(
   services: AppServices,
   settings: NotificationSettings,
+  channel: PushChannel,
   message: PushMessage,
-): Promise<{ delivered: number; failures: string[] }> {
+): Promise<string | null> {
   const { notificationChannels: channels } = services;
-  const sends: Promise<void>[] = [];
-  if (settings.ntfy) sends.push(channels.ntfy(settings.ntfy, message));
-  if (settings.telegram) sends.push(channels.telegram(settings.telegram, message));
-  const results = await Promise.allSettled(sends);
-  const failures = results.flatMap((result) =>
-    result.status === "rejected"
-      ? [result.reason instanceof Error ? result.reason.message : "Could not send"]
-      : [],
-  );
-  return { delivered: results.length - failures.length, failures };
+  try {
+    if (channel === "ntfy" && settings.ntfy) await channels.ntfy(settings.ntfy, message);
+    else if (channel === "telegram" && settings.telegram) {
+      await channels.telegram(settings.telegram, message);
+    }
+    return null;
+  } catch (error) {
+    return error instanceof Error ? error.message : "Could not send";
+  }
 }
 
 /**
- * Announces what became open since the last pass. Items are announced once while they stay open,
- * grouped into one message, and at most `maxPerHour` messages go out per hour; what the limit holds
- * back goes out in the next message that is allowed. A message no channel accepted is not counted
- * as announced, so it is tried again.
+ * Announces what became open since the last pass. Each channel keeps its own record, so one that
+ * refused a message gets it again later without the other hearing it twice. Items are announced
+ * once while they stay open, grouped into one message per channel, and at most `maxPerHour` passes
+ * send per hour; what the limit holds back goes out in the next pass that is allowed. An item that
+ * was resolved is not announced again within the cooldown, so a flapping error is one push.
  */
 export async function pushNewAttention(services: AppServices): Promise<PushOutcome> {
   const settings = services.settings.get("notifications");
   if (!hasChannel(settings)) return "unconfigured";
 
+  const now = services.clock.now();
   const enabled = new Set(settings.categories);
   const open = collectAttention(services).filter((item) => enabled.has(item.category));
   const openKeys = new Set(open.map((item) => item.key));
   const state = readState(services);
-  const stillOpen = state.announced.filter((key) => openKeys.has(key));
-  const announced = new Set(stillOpen);
-  const fresh = open.filter((item) => !announced.has(item.key));
 
-  if (fresh.length === 0) {
-    if (stillOpen.length !== state.announced.length) {
-      updateState(services, () => ({ announced: stillOpen }));
+  const stillOpen = {
+    ntfy: state.announced.ntfy.filter((key) => openKeys.has(key)),
+    telegram: state.announced.telegram.filter((key) => openKeys.has(key)),
+  };
+  const resolvedAt: Record<string, string> = {};
+  for (const [key, at] of Object.entries(state.resolvedAt)) {
+    if (Date.parse(at) > now.getTime() - RESOLVED_COOLDOWN_MS) {
+      resolvedAt[key] = at;
     }
+  }
+  for (const key of new Set([...state.announced.ntfy, ...state.announced.telegram])) {
+    if (!openKeys.has(key)) resolvedAt[key] = state.resolvedAt[key] ?? now.toISOString();
+  }
+  const bookkeeping = { announced: stillOpen, resolvedAt };
+  const bookkeepingChanged =
+    stillOpen.ntfy.length !== state.announced.ntfy.length ||
+    stillOpen.telegram.length !== state.announced.telegram.length ||
+    Object.keys(resolvedAt).length !== Object.keys(state.resolvedAt).length;
+
+  const configured = CHANNELS.filter((channel) => settings[channel] !== null);
+  const fresh = new Map<PushChannel, AttentionItem[]>();
+  for (const channel of configured) {
+    const seen = new Set(stillOpen[channel]);
+    const items = open.filter((item) => !seen.has(item.key) && !(item.key in resolvedAt));
+    if (items.length > 0) fresh.set(channel, items);
+  }
+
+  if (fresh.size === 0) {
+    if (bookkeepingChanged) updateState(services, () => bookkeeping);
     return "idle";
   }
 
-  const now = services.clock.now();
-  if (state.retryAfter && Date.parse(state.retryAfter) > now.getTime()) return "waiting";
+  const ready = [...fresh.keys()].filter((channel) => {
+    const retryAfter = state.retryAfter[channel];
+    return !retryAfter || Date.parse(retryAfter) <= now.getTime();
+  });
+  if (ready.length === 0) {
+    if (bookkeepingChanged) updateState(services, () => bookkeeping);
+    return "waiting";
+  }
   const recent = state.sentAt.filter((at) => Date.parse(at) > now.getTime() - HOUR_MS);
   if (recent.length >= settings.maxPerHour) {
-    updateState(services, () => ({ announced: stillOpen, sentAt: recent }));
+    updateState(services, () => ({ ...bookkeeping, sentAt: recent }));
     return "limited";
   }
 
-  const message = describeAttention(fresh, services.config.publicUrl);
-  const { delivered, failures } = await deliver(services, settings, message);
-  const error = failures.length > 0 ? failures.join("; ") : null;
-  if (delivered === 0) {
-    services.logger.warn({ failures }, "could not send a notification");
-    updateState(services, () => ({
-      announced: stillOpen,
-      sentAt: recent,
-      lastError: error,
-      retryAfter: new Date(now.getTime() + RETRY_AFTER_FAILURE_MS).toISOString(),
-    }));
-    return "failed";
+  const outcomes = await Promise.all(
+    ready.map(async (channel) => {
+      const items = fresh.get(channel) as AttentionItem[];
+      const message = describeAttention(items, services.config.publicUrl);
+      return { channel, items, failure: await deliver(services, settings, channel, message) };
+    }),
+  );
+
+  const announced = { ...stillOpen };
+  const retryAfter = { ...state.retryAfter };
+  const failures: string[] = [];
+  for (const { channel, items, failure } of outcomes) {
+    if (failure === null) {
+      announced[channel] = [...stillOpen[channel], ...items.map((item) => item.key)];
+      retryAfter[channel] = null;
+    } else {
+      failures.push(failure);
+      retryAfter[channel] = new Date(now.getTime() + RETRY_AFTER_FAILURE_MS).toISOString();
+    }
   }
+  const error = failures.length > 0 ? failures.join("; ") : null;
+  const delivered = outcomes.length - failures.length;
+  if (delivered === 0) services.logger.warn({ failures }, "could not send a notification");
+
   updateState(services, () => ({
-    announced: [...stillOpen, ...fresh.map((item) => item.key)],
-    sentAt: [...recent, now.toISOString()],
-    lastSentAt: now.toISOString(),
+    ...bookkeeping,
+    announced,
+    retryAfter,
+    sentAt: delivered > 0 ? [...recent, now.toISOString()] : recent,
+    lastSentAt: delivered > 0 ? now.toISOString() : state.lastSentAt,
     lastError: error,
-    retryAfter: null,
   }));
-  return "sent";
+  return delivered > 0 ? "sent" : "failed";
 }
