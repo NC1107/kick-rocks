@@ -1,0 +1,11 @@
+services:
+  server:
+    build: .
+    image: kickrocks/server:dev
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8420:8420"
+    volumes:
+      - ./data:/data
+    environment:
+      LOG_LEVEL: info
