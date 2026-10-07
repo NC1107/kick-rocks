@@ -4,7 +4,13 @@ import { createMockApp } from "../../../mock/app.js";
 import { renderPage } from "../../test/render.js";
 import { instrument } from "../profiles/test-support.js";
 import { Component as DashboardPage } from "./index.js";
-import { attentionItems, groupActivity, groupTotal, STATUS_GROUPS } from "./sections.js";
+import {
+  AttentionCard,
+  attentionItems,
+  groupActivity,
+  groupTotal,
+  STATUS_GROUPS,
+} from "./sections.js";
 
 describe("the dashboard", () => {
   it("shows a skeleton shaped like the page while it loads", async () => {
@@ -210,7 +216,45 @@ describe("dashboard helpers", () => {
   });
 });
 
+describe("attention detail wording", () => {
+  const none = {
+    blockedTasks: 0,
+    pendingMatches: 0,
+    unreviewedMessages: 0,
+    needsVerification: 0,
+    failedTasks: 0,
+    agentTasks: 0,
+  };
+
+  it("speaks of one failed task as it", () => {
+    renderPage(<AttentionCard attention={{ ...none, failedTasks: 1 }} />);
+    expect(screen.getByText("Failed task")).toBeInTheDocument();
+    expect(screen.getByText("Retry it, or finish it by hand.")).toBeInTheDocument();
+  });
+
+  it("speaks of several failed tasks as them", () => {
+    renderPage(<AttentionCard attention={{ ...none, failedTasks: 2 }} />);
+    expect(screen.getByText("Retry them, or finish them by hand.")).toBeInTheDocument();
+  });
+
+  it("speaks of one task waiting for an agent as it", () => {
+    renderPage(<AttentionCard attention={{ ...none, agentTasks: 1 }} />);
+    expect(screen.getByText("Connect an agent, or finish it by hand.")).toBeInTheDocument();
+  });
+});
+
 describe("groupActivity", () => {
+  it("takes the count from the server when an event carries one", () => {
+    const groups = groupActivity([
+      { id: "e1", requestId: "r1", createdAt: "2026-10-07T10:00:00Z", eventCount: 300 } as never,
+      { id: "e2", requestId: "r2", createdAt: "2026-10-07T09:00:00Z", eventCount: 2 } as never,
+    ]);
+    expect(groups.map((g) => [g.latest.id, g.count])).toEqual([
+      ["e1", 300],
+      ["e2", 2],
+    ]);
+  });
+
   const event = (id: string, requestId: string, createdAt: string) =>
     ({ id, requestId, createdAt }) as never;
 

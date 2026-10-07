@@ -1,4 +1,6 @@
+import { requestEvents } from "@kickrocks/db";
 import { API_ROUTES, RequestStatus, reviewAttention } from "@kickrocks/shared";
+import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   createTestContext,
@@ -29,6 +31,14 @@ async function dashboard(profileId: string) {
   const result = await ctx.call(API_ROUTES.dashboardGet, { params: { id: profileId } });
   if (!result.ok) throw new Error(`dashboard failed: ${JSON.stringify(result.body)}`);
   return result.body;
+}
+
+function eventCount(requestId: string): number {
+  return ctx.services.db
+    .select()
+    .from(requestEvents)
+    .where(eq(requestEvents.requestId, requestId))
+    .all().length;
 }
 
 const emailPayload = (requestId: string) => ({
@@ -310,28 +320,24 @@ describe("GET /profiles/:id/dashboard", () => {
 
       const { recentEvents } = await dashboard(profile.id);
 
-      expect(recentEvents.map((event) => event.type)).toEqual([
-        "task_enqueued",
-        "queued",
-        "status_changed",
-        "created",
-      ]);
-      for (const event of recentEvents) {
-        expect(event).toMatchObject({
-          requestId: request.id,
-          requestReference: request.reference,
-          targetName: "Example Broker",
-        });
-      }
+      expect(recentEvents).toHaveLength(1);
+      expect(recentEvents[0]).toMatchObject({
+        type: "task_enqueued",
+        eventCount: 4,
+        requestId: request.id,
+        requestReference: request.reference,
+        targetName: "Example Broker",
+      });
     });
 
-    it("keeps every request visible when one request is noisy", async () => {
+    it("keeps every request visible and counted when one request has 300 events", async () => {
       const profile = seedProfile(ctx);
       seedTarget(ctx, { id: "b" });
       const quiet = seedRequest(ctx, { profileId: profile.id, targetId: "b" });
       ctx.clock.advance(MINUTE);
       const noisy = seedRequest(ctx, { profileId: profile.id, targetId: "b" });
-      for (let i = 0; i < 30; i += 1) {
+      const baseline = eventCount(noisy.id);
+      for (let i = 0; i < 300; i += 1) {
         ctx.clock.advance(MINUTE);
         ctx.services.requests.addEvent(noisy.id, {
           type: "note",
@@ -342,12 +348,9 @@ describe("GET /profiles/:id/dashboard", () => {
 
       const { recentEvents } = await dashboard(profile.id);
 
-      expect(new Set(recentEvents.map((event) => event.requestId))).toEqual(
-        new Set([quiet.id, noisy.id]),
-      );
-      expect(recentEvents.filter((event) => event.requestId === noisy.id).length).toBeGreaterThan(
-        30,
-      );
+      expect(recentEvents.map((event) => event.requestId)).toEqual([noisy.id, quiet.id]);
+      expect(recentEvents[0]).toMatchObject({ type: "note", eventCount: baseline + 300 });
+      expect(recentEvents[1]?.eventCount).toBe(eventCount(quiet.id));
     });
 
     it("orders by time across requests and covers the latest twenty requests", async () => {
@@ -369,12 +372,25 @@ describe("GET /profiles/:id/dashboard", () => {
 
       const { recentEvents } = await dashboard(profile.id);
 
-      expect(new Set(recentEvents.map((event) => event.requestId)).size).toBe(12);
-      expect(recentEvents.slice(0, 12).map((event) => event.requestId)).toEqual(
+      expect(recentEvents).toHaveLength(12);
+      expect(recentEvents.map((event) => event.requestId)).toEqual(
         [...requests].reverse().map((request) => request.id),
       );
       const times = recentEvents.map((event) => event.createdAt);
       expect(times).toEqual([...times].sort().reverse());
+    });
+
+    it("covers only the twenty most recently active requests", async () => {
+      const profile = seedProfile(ctx);
+      seedTarget(ctx, { id: "b" });
+      for (let i = 0; i < 25; i += 1) {
+        seedRequest(ctx, { profileId: profile.id, targetId: "b" });
+        ctx.clock.advance(MINUTE);
+      }
+
+      const { recentEvents } = await dashboard(profile.id);
+
+      expect(recentEvents).toHaveLength(20);
     });
 
     it("leaves out other profiles' events", async () => {

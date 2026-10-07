@@ -103,22 +103,37 @@ export function Component() {
                     <span className="text-sm text-ink-muted">
                       Changed {formatRelative(profile.updatedAt)}
                     </span>
+                    {profile.id === current?.id ? (
+                      <IconButton
+                        label={`Delete ${profile.displayName}`}
+                        size="sm"
+                        className="-my-1 ml-auto"
+                        onClick={() => setPending(profile)}
+                      >
+                        <Trash2 />
+                      </IconButton>
+                    ) : null}
                   </div>
-                  <div className="mt-3 flex items-center gap-1 border-t border-line pt-3">
-                    {profile.id === current?.id ? null : (
-                      <Button size="sm" variant="ghost" onClick={() => setProfileId(profile.id)}>
+                  {profile.id === current?.id ? null : (
+                    <div className="mt-3 flex items-center gap-1 border-t border-line pt-3">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="-ml-2.5"
+                        onClick={() => setProfileId(profile.id)}
+                      >
                         Make current
                       </Button>
-                    )}
-                    <IconButton
-                      label={`Delete ${profile.displayName}`}
-                      size="sm"
-                      className="ml-auto"
-                      onClick={() => setPending(profile)}
-                    >
-                      <Trash2 />
-                    </IconButton>
-                  </div>
+                      <IconButton
+                        label={`Delete ${profile.displayName}`}
+                        size="sm"
+                        className="ml-auto"
+                        onClick={() => setPending(profile)}
+                      >
+                        <Trash2 />
+                      </IconButton>
+                    </div>
+                  )}
                 </li>
               ))}
             </ul>

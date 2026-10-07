@@ -5,6 +5,8 @@ import { RequestStatus, requestEventSchema } from "./requests.js";
 export const DashboardEvent = requestEventSchema({
   requestReference: Reference,
   targetName: z.string(),
+  /** How many events the request has in all, set when the event stands for its whole request. */
+  eventCount: z.number().int().positive().optional(),
 });
 export type DashboardEvent = z.infer<typeof DashboardEvent>;
 

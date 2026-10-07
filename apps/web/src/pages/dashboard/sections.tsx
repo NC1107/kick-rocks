@@ -124,12 +124,18 @@ export function attentionItems(attention: Dashboard["attention"]): AttentionItem
       count: attention.agentTasks,
       title:
         attention.agentTasks === 1 ? "Task waiting for an agent" : "Tasks waiting for an agent",
-      detail: "Connect an agent, or finish them by hand.",
+      detail:
+        attention.agentTasks === 1
+          ? "Connect an agent, or finish it by hand."
+          : "Connect an agent, or finish them by hand.",
     },
     {
       count: attention.failedTasks,
       title: attention.failedTasks === 1 ? "Failed task" : "Failed tasks",
-      detail: "Retry them, or finish them by hand.",
+      detail:
+        attention.failedTasks === 1
+          ? "Retry it, or finish it by hand."
+          : "Retry them, or finish them by hand.",
     },
   ].filter((item) => item.count > 0);
 }
@@ -283,11 +289,14 @@ export function groupActivity(
   for (const event of events) {
     const group = byRequest.get(event.requestId);
     if (!group) {
-      byRequest.set(event.requestId, { latest: event, count: 1 });
+      byRequest.set(event.requestId, { latest: event, count: event.eventCount ?? 1 });
       continue;
     }
-    group.count += 1;
-    if (Date.parse(event.createdAt) > Date.parse(group.latest.createdAt)) group.latest = event;
+    if (event.eventCount === undefined) group.count += 1;
+    if (Date.parse(event.createdAt) > Date.parse(group.latest.createdAt)) {
+      group.latest = event;
+      if (event.eventCount !== undefined) group.count = event.eventCount;
+    }
   }
   return [...byRequest.values()]
     .sort((a, b) => Date.parse(b.latest.createdAt) - Date.parse(a.latest.createdAt))
