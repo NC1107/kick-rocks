@@ -19,6 +19,14 @@ const Env = z.object({
     .default(LEASE_MS.default),
   KICKROCKS_CHROME_PROFILE: z.string().default("./.chrome-profile"),
   KICKROCKS_WORKER_HEADLESS: z.enum(["true", "false"]).default("false"),
+  /** Chrome refuses to start its sandbox as root inside a container, where the container is the sandbox. */
+  KICKROCKS_WORKER_NO_SANDBOX: z.enum(["true", "false"]).default("false"),
+  /** Lets a record or confirmation link on plain http through, for a fixture site on this machine. */
+  KICKROCKS_WORKER_ALLOW_HTTP: z.enum(["true", "false"]).default("false"),
+  /** `instant` skips the human typing rhythm, for tests against a fixture site. */
+  KICKROCKS_WORKER_PACE: z.enum(["human", "instant"]).default("human"),
+  /** A specific Chrome or Chromium binary, instead of the installed Chrome or Playwright's Chromium. */
+  KICKROCKS_CHROME_EXECUTABLE: z.string().optional(),
   LOG_LEVEL: z.enum(["debug", "info", "warn", "error"]).default("info"),
 });
 
@@ -30,6 +38,10 @@ export interface WorkerConfig {
   leaseMs: number;
   chromeProfileDir: string;
   headless: boolean;
+  noSandbox: boolean;
+  allowHttp: boolean;
+  pace: "human" | "instant";
+  chromeExecutable: string | null;
   logLevel: z.infer<typeof Env>["LOG_LEVEL"];
 }
 
@@ -48,6 +60,12 @@ export function loadWorkerConfig(env: NodeJS.ProcessEnv = process.env): WorkerCo
     leaseMs: parsed.KICKROCKS_WORKER_LEASE_MS,
     chromeProfileDir: resolve(parsed.KICKROCKS_CHROME_PROFILE),
     headless: parsed.KICKROCKS_WORKER_HEADLESS === "true",
+    noSandbox: parsed.KICKROCKS_WORKER_NO_SANDBOX === "true",
+    allowHttp: parsed.KICKROCKS_WORKER_ALLOW_HTTP === "true",
+    pace: parsed.KICKROCKS_WORKER_PACE,
+    chromeExecutable: parsed.KICKROCKS_CHROME_EXECUTABLE
+      ? resolve(parsed.KICKROCKS_CHROME_EXECUTABLE)
+      : null,
     logLevel: parsed.LOG_LEVEL,
   };
 }

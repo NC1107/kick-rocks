@@ -13,6 +13,10 @@ describe("loadWorkerConfig", () => {
       pollMs: 5000,
       leaseMs: 300_000,
       headless: false,
+      noSandbox: false,
+      allowHttp: false,
+      pace: "human",
+      chromeExecutable: null,
       logLevel: "info",
     });
     expect(config.workerId.length).toBeGreaterThan(0);
@@ -28,6 +32,10 @@ describe("loadWorkerConfig", () => {
       KICKROCKS_WORKER_LEASE_MS: "60000",
       KICKROCKS_CHROME_PROFILE: "/data/chrome",
       KICKROCKS_WORKER_HEADLESS: "true",
+      KICKROCKS_WORKER_NO_SANDBOX: "true",
+      KICKROCKS_WORKER_ALLOW_HTTP: "true",
+      KICKROCKS_WORKER_PACE: "instant",
+      KICKROCKS_CHROME_EXECUTABLE: "/usr/local/bin/chrome",
       LOG_LEVEL: "debug",
     });
     expect(config).toEqual({
@@ -38,6 +46,10 @@ describe("loadWorkerConfig", () => {
       leaseMs: 60000,
       chromeProfileDir: "/data/chrome",
       headless: true,
+      noSandbox: true,
+      allowHttp: true,
+      pace: "instant",
+      chromeExecutable: "/usr/local/bin/chrome",
       logLevel: "debug",
     });
   });
@@ -67,5 +79,7 @@ describe("loadWorkerConfig", () => {
       loadWorkerConfig({ ...base, KICKROCKS_WORKER_LEASE_MS: String(LEASE_MS.max + 1) }),
     ).toThrow();
     expect(() => loadWorkerConfig({ ...base, KICKROCKS_WORKER_HEADLESS: "maybe" })).toThrow();
+    expect(() => loadWorkerConfig({ ...base, KICKROCKS_WORKER_PACE: "fast" })).toThrow();
+    expect(() => loadWorkerConfig({ ...base, KICKROCKS_WORKER_ALLOW_HTTP: "1" })).toThrow();
   });
 });
