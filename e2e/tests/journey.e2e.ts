@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 import { API_ROUTES, type RequestListItem } from "@kickrocks/shared";
 import { describe, expect, it } from "vitest";
 import { Api } from "../src/api.js";
+import { inspectScreens, launchBrowser, statusPillOffsets } from "../src/browser.js";
 import { inServerContainer } from "../src/docker.js";
 import { fixtureState, resetFixture, solveFixtureCaptcha } from "../src/fixture-site.js";
 import { bounceMessage, deliver, readInbox, type SeenMail } from "../src/mail.js";
@@ -537,6 +538,74 @@ describe("broker replies", () => {
     await waitForStatus("fx-unrelated", ["confirmed"]);
     const after = await api.call(API_ROUTES.reviewQueue, { query: { profileId: world.profileId } });
     expect(after.messages.find((item) => item.id === message.id)).toBeUndefined();
+  });
+});
+
+describe("the screens a person sees, with a review queue that has things in it", () => {
+  it("fit the window, load without errors, and agree with the queue in every size and theme", async () => {
+    const [request] = world.requestIds.values();
+    const routes = [
+      "/",
+      "/targets",
+      "/targets/fx-people",
+      "/requests",
+      `/requests/${request}`,
+      ...["blocked", "matches", "verifications", "mail", "failed", "scans"].map(
+        (tab) => `/review?tab=${tab}`,
+      ),
+      "/profiles",
+      `/profiles/${world.profileId}`,
+      `/profiles/${world.profileId}/mailbox`,
+      "/campaigns/new",
+      "/settings",
+      "/settings/agents",
+      "/about",
+      "/no-such-page",
+    ];
+    const browser = await launchBrowser();
+    try {
+      const reports = await inspectScreens(browser, routes, PASSWORD);
+      const wrong = reports.flatMap((report) => [
+        ...(report.overflow > 0
+          ? [`${report.route} scrolls sideways by ${report.overflow}px at ${report.viewport}`]
+          : []),
+        ...report.problems
+          .filter((problem) => !(report.route === "/no-such-page" && problem.includes("404")))
+          .map((problem) => `${report.route} (${report.viewport}, ${report.scheme}): ${problem}`),
+      ]);
+      expect(wrong).toEqual([]);
+    } finally {
+      await browser.close();
+    }
+  });
+
+  it("counts everything waiting on a person in the Review badge, and lines the status pills up", async () => {
+    const queue = await api.call(API_ROUTES.reviewQueue, { query: { profileId: world.profileId } });
+    const waiting =
+      queue.blockedTasks.length +
+      queue.matches.filter((match) => match.decision === "pending").length +
+      queue.verifications.length +
+      queue.failedTasks.length +
+      queue.messages.length;
+    expect(waiting).toBeGreaterThan(0);
+
+    const browser = await launchBrowser();
+    try {
+      const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+      await page.goto(`${STACK.serverUrl}/login`);
+      await page.getByLabel("Password", { exact: true }).fill(PASSWORD);
+      await page.getByRole("button", { name: "Sign in" }).click();
+      await page.getByRole("link", { name: /^Review/ }).waitFor();
+      await expect
+        .poll(() => page.getByRole("link", { name: /^Review/ }).innerText())
+        .toContain(String(waiting));
+
+      await page.goto(`${STACK.serverUrl}/requests`);
+      await page.getByRole("region", { name: "Requests" }).waitFor();
+      for (const offset of await statusPillOffsets(page)) expect(offset).toBeLessThan(2);
+    } finally {
+      await browser.close();
+    }
   });
 });
 
