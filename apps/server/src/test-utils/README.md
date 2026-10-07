@@ -101,12 +101,10 @@ A task handler registered on `ctx.services.taskHandlers` is synchronous and runs
 A test that wants to know a handler ran reads what it wrote after the queue call returns, and a test of a handler that throws checks that the task change was rolled back.
 `ctx.services.taskQueue` is synchronous too, so there is nothing to `await`.
 
-## Tests of a skeleton must outlive the module
+## Probing the guard
 
-A foundation test that checks a stub (a route answering 501, a service throwing `NotImplementedError`) fails the day the module lands, and the module's author may not edit it.
-So a test of foundation code never asserts stub behavior.
-To check that a route exists, use `ctx.app.hasRoute({ method, url })`; to check a stub answers 501, loop over `stubbedRoutes` from `core/http.ts`, which lists only the routes still stubbed.
-To test the guard, register a probe route with `beforeReady` (for example `app.get("/api/__probe", ...)`) and assert only that the guard let the request through or turned it away (401, 403, or 503), never what a module answers.
+To test the guard, register a probe route with `beforeReady` (for example `app.get("/api/__probe", ...)`) and assert only that the guard let the request through or turned it away (401, 403, 421, or 503), never what a module answers.
+To check that a route exists, use `ctx.app.hasRoute({ method, url })`.
 
 ## Integration tests
 

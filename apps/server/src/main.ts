@@ -1,18 +1,26 @@
-import { readFileSync } from "node:fs";
-import { dirname, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
 import { buildApp, openAppDatabase } from "./app.js";
 import { loadConfig } from "./config.js";
+import { systemClock } from "./core/clock.js";
+import { packageVersion } from "./core/version.js";
+import { resetPassword } from "./reset-password.js";
 import { createServices } from "./services.js";
-
-function packageVersion(): string {
-  const file = resolve(dirname(fileURLToPath(import.meta.url)), "..", "package.json");
-  return (JSON.parse(readFileSync(file, "utf8")) as { version: string }).version;
-}
 
 async function main() {
   const config = loadConfig();
   const database = openAppDatabase(config);
+
+  const [command] = process.argv.slice(2);
+  if (command === "reset-password") {
+    resetPassword(database.db, systemClock);
+    database.close();
+    console.log("The password and all sessions are cleared. Open the app to set a new password.");
+    return;
+  }
+  if (command !== undefined) {
+    database.close();
+    throw new Error(`Unknown command "${command}". The only command is reset-password.`);
+  }
+
   const services = createServices(config, database.db);
   const app = await buildApp({ services, database, version: packageVersion() });
 

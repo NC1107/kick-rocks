@@ -1,6 +1,5 @@
-import { API_ROUTES, type RouteDef } from "@kickrocks/shared";
+import { API_ROUTES } from "@kickrocks/shared";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { routeKey, stubbedRoutes } from "../core/http.js";
 import { createTestContext, type TestContext } from "../test-utils/index.js";
 import { MODULES } from "./index.js";
 
@@ -14,13 +13,8 @@ afterEach(async () => {
   await ctx.close();
 });
 
-const concretePath = (route: RouteDef) => `/api${route.path.replace(/:\w+/g, "x")}`;
-
-/**
- * These tests hold whether a module is still a skeleton or has been built, so a module landing
- * never makes one of them fail. What a built module does is tested in the module itself.
- */
-describe("module skeletons", () => {
+/** What each module does is tested in the module itself; this checks only that all of them are mounted. */
+describe("modules", () => {
   it("registers every module the ownership map names", () => {
     expect(MODULES.map((m) => m.name).sort()).toEqual(
       [
@@ -45,28 +39,8 @@ describe("module skeletons", () => {
 
   const routes = Object.entries(API_ROUTES);
 
-  it.each(routes)("%s is registered, whether its module is built or not", (_name, route) => {
+  it.each(routes)("%s is registered", (_name, route) => {
     expect(ctx.app.hasRoute({ method: route.method, url: `/api${route.path}` })).toBe(true);
-  });
-
-  it("only answers 501 for the routes still marked as stubs, and every stub is in the table", async () => {
-    const byKey = new Map(routes.map(([, route]) => [routeKey(route), route]));
-    for (const key of stubbedRoutes) expect(byKey.has(key), key).toBe(true);
-    for (const key of stubbedRoutes) {
-      const route = byKey.get(key) as RouteDef;
-      const request = {
-        method: route.method,
-        url: concretePath(route),
-        payload: route.method === "GET" ? undefined : {},
-      };
-      const response =
-        route.auth === "worker" ? await ctx.injectWorker(request) : await ctx.inject(request);
-      expect(response.statusCode, key).toBe(501);
-      expect(response.json(), key).toEqual({
-        error: "not_implemented",
-        message: `${route.method} ${route.path} is not implemented yet`,
-      });
-    }
   });
 
   it("serves health from the foundation", async () => {

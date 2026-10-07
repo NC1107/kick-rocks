@@ -2,7 +2,6 @@ import {
   type IdentityRow,
   identities,
   type KickRocksDb,
-  type MailboxRow,
   mailboxes,
   type ProfileRow,
   profiles,
@@ -10,7 +9,6 @@ import {
 import type {
   Identity,
   IdentityInput,
-  Mailbox,
   ProfileDetail,
   ProfilePatch,
   ProfileSummary,
@@ -21,6 +19,7 @@ import { type Clock, nowIso } from "../../core/clock.js";
 import { notFound } from "../../core/errors.js";
 import { loadIdentities } from "../../core/identities.js";
 import { newId } from "../../core/ids.js";
+import { toMailbox } from "../mailbox/service.js";
 
 export interface ProfileStore {
   list(): ProfileSummary[];
@@ -39,27 +38,6 @@ function primaryEmailOf(identityList: readonly Identity[]): string | null {
   const emails = identityList.filter((identity) => identity.kind === "email");
   const email = emails.find((identity) => identity.isPrimary) ?? emails[0];
   return email?.kind === "email" ? email.value.address : null;
-}
-
-/** The mailbox as the client sees it: never the app password, never the polling cursor. */
-export function toMailbox(row: MailboxRow): Mailbox {
-  return {
-    id: row.id,
-    profileId: row.profileId,
-    provider: row.provider,
-    address: row.address,
-    username: row.username,
-    smtpHost: row.smtpHost,
-    smtpPort: row.smtpPort,
-    smtpSecure: row.smtpSecure,
-    imapHost: row.imapHost,
-    imapPort: row.imapPort,
-    replyFolder: row.replyFolder,
-    dailyCap: row.dailyCap,
-    lastPolledAt: row.lastPolledAt,
-    lastError: row.lastError,
-    createdAt: row.createdAt,
-  };
 }
 
 function summarize(

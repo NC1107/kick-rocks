@@ -2,14 +2,14 @@ import { API_ROUTES, type MailboxTestResult } from "@kickrocks/shared";
 import { AppError } from "../../core/errors.js";
 import { registerRoute } from "../../core/http.js";
 import type { ModulePlugin } from "../../core/module.js";
+import { requireProfile } from "../../core/require-profile.js";
 import { PROVIDER_PRESETS } from "../../mail/presets.js";
+import { connectionOf } from "../../runners/connection.js";
 import {
   connectionForTest,
-  connectionOf,
   deleteMailbox,
   findMailbox,
   requireMailbox,
-  requireProfile,
   saveMailbox,
   toMailbox,
 } from "./service.js";
@@ -22,7 +22,7 @@ export const mailboxModule: ModulePlugin = (app, services) => {
   registerRoute(app, API_ROUTES.mailProviders, () => ({ providers: [...PROVIDER_PRESETS] }));
 
   registerRoute(app, API_ROUTES.mailboxTest, async ({ params, body }) => {
-    requireProfile(services, params.id);
+    requireProfile(services.db, params.id);
     const connection = connectionForTest(body, findMailbox(services, params.id));
 
     // Each side is tested on its own, so a working SMTP login is still reported when IMAP fails.
@@ -39,7 +39,7 @@ export const mailboxModule: ModulePlugin = (app, services) => {
   });
 
   registerRoute(app, API_ROUTES.mailboxSave, ({ params, body }) => {
-    requireProfile(services, params.id);
+    requireProfile(services.db, params.id);
     return toMailbox(saveMailbox(services, params.id, body));
   });
 

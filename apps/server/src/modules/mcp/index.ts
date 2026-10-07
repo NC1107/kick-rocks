@@ -1,26 +1,15 @@
-import { readFileSync } from "node:fs";
-import { dirname, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
 import { SCREENSHOT_BODY_LIMIT_BYTES } from "@kickrocks/shared";
 import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
 import type { FastifyReply, FastifyRequest } from "fastify";
 import { createHostPolicy, type HostPolicy } from "../../core/hosts.js";
 import type { ModulePlugin } from "../../core/module.js";
+import { packageVersion } from "../../core/version.js";
 import { createMcpServer } from "./server.js";
 
 /** The one place a body that is not JSON can be told apart from one that is. */
 const NOT_JSON = Symbol("not-json");
 
 const FORWARDED_HEADERS = ["accept", "content-type", "mcp-protocol-version", "mcp-session-id"];
-
-function packageVersion(): string {
-  try {
-    const file = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..", "..", "package.json");
-    return (JSON.parse(readFileSync(file, "utf8")) as { version: string }).version;
-  } catch {
-    return "0.0.0";
-  }
-}
 
 function jsonRpcError(code: number, message: string) {
   return { jsonrpc: "2.0", error: { code, message }, id: null };

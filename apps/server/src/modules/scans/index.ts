@@ -1,9 +1,10 @@
-import { matches, profiles, scans, targets, tasks } from "@kickrocks/db";
+import { matches, scans, targets, tasks } from "@kickrocks/db";
 import { API_ROUTES, needsRecord, type ScanSummary, type TargetOutcome } from "@kickrocks/shared";
 import { count, desc, eq, inArray, sql } from "drizzle-orm";
 import { notFound } from "../../core/errors.js";
 import { registerRoute } from "../../core/http.js";
 import type { ModulePlugin } from "../../core/module.js";
+import { requireProfile } from "../../core/require-profile.js";
 import type { AppServices } from "../../services.js";
 
 const skipped = (
@@ -20,15 +21,6 @@ const skipped = (
   reason,
   detail,
 });
-
-function requireProfile(services: AppServices, profileId: string): void {
-  const found = services.db
-    .select({ id: profiles.id })
-    .from(profiles)
-    .where(eq(profiles.id, profileId))
-    .get();
-  if (!found) throw notFound(`Profile ${profileId} not found`, "profile_not_found");
-}
 
 /** The targets a scan request names, checked up front so one unknown id fails the whole request. */
 function targetsToScan(
@@ -84,12 +76,12 @@ function startScans(
 
 export const scansModule: ModulePlugin = (app, services) => {
   registerRoute(app, API_ROUTES.scansStart, ({ params, body }) => {
-    requireProfile(services, params.id);
+    requireProfile(services.db, params.id);
     return { items: startScans(services, params.id, body) };
   });
 
   registerRoute(app, API_ROUTES.scansList, ({ params, query }) => {
-    requireProfile(services, params.id);
+    requireProfile(services.db, params.id);
     const where = eq(scans.profileId, params.id);
     const total = services.db.select({ n: count() }).from(scans).where(where).get()?.n ?? 0;
     const rows = services.db

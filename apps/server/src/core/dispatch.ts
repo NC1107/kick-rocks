@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { type KickRocksDb, mailboxes, profiles, recipes, scans } from "@kickrocks/db";
+import { type KickRocksDb, mailboxes, recipes, scans } from "@kickrocks/db";
 import {
   type AgentReason,
   type BlockedReason,
@@ -16,6 +16,7 @@ import { conflict, notFound } from "./errors.js";
 import { loadIdentities } from "./identities.js";
 import { newId } from "./ids.js";
 import type { RequestsService } from "./requests.js";
+import { requireProfile } from "./require-profile.js";
 import type { TargetsService } from "./targets.js";
 import type { EnqueueResult, TaskQueue } from "./task-queue.js";
 import type { Task } from "./task-types.js";
@@ -160,15 +161,6 @@ export function createDispatch({
 
   function mailboxOf(profileId: string) {
     return db.select().from(mailboxes).where(eq(mailboxes.profileId, profileId)).get() ?? null;
-  }
-
-  function requireProfile(profileId: string): void {
-    const found = db
-      .select({ id: profiles.id })
-      .from(profiles)
-      .where(eq(profiles.id, profileId))
-      .get();
-    if (!found) throw notFound(`Profile ${profileId} not found`, "profile_not_found");
   }
 
   function requireIdentities(profileId: string, variant: ScanVariant | null): void {
@@ -377,7 +369,7 @@ export function createDispatch({
     },
 
     enqueueScan(profileId, targetId, variant = null) {
-      requireProfile(profileId);
+      requireProfile(db, profileId);
       liveTarget(targetId);
       requireIdentities(profileId, variant);
       return db.transaction((tx) => {

@@ -1,23 +1,15 @@
-import { type MailboxRow, mailboxes, profiles } from "@kickrocks/db";
+import { type MailboxRow, mailboxes } from "@kickrocks/db";
 import type { ApiIssue, Mailbox, MailboxInput, MailboxTestBody } from "@kickrocks/shared";
 import { eq } from "drizzle-orm";
 import { nowIso } from "../../core/clock.js";
 import { conflict, invalidRequest, notFound } from "../../core/errors.js";
 import { newId } from "../../core/ids.js";
+import { requireProfile } from "../../core/require-profile.js";
 import { findProviderPreset } from "../../mail/presets.js";
 import type { MailConnection } from "../../mail/types.js";
 import type { AppServices } from "../../services.js";
 
 type MailboxServices = Pick<AppServices, "db" | "clock" | "taskQueue">;
-
-export function requireProfile(services: MailboxServices, profileId: string): void {
-  const profile = services.db
-    .select({ id: profiles.id })
-    .from(profiles)
-    .where(eq(profiles.id, profileId))
-    .get();
-  if (!profile) throw notFound(`Profile ${profileId} not found`, "profile_not_found");
-}
 
 export function findMailbox(services: MailboxServices, profileId: string): MailboxRow | null {
   return (
@@ -26,7 +18,7 @@ export function findMailbox(services: MailboxServices, profileId: string): Mailb
 }
 
 export function requireMailbox(services: MailboxServices, profileId: string): MailboxRow {
-  requireProfile(services, profileId);
+  requireProfile(services.db, profileId);
   const mailbox = findMailbox(services, profileId);
   if (!mailbox) throw conflict("mailbox_required", "Connect a mailbox first");
   return mailbox;
@@ -50,19 +42,6 @@ export function toMailbox(row: MailboxRow): Mailbox {
     lastPolledAt: row.lastPolledAt,
     lastError: row.lastError,
     createdAt: row.createdAt,
-  };
-}
-
-export function connectionOf(row: MailboxRow): MailConnection {
-  return {
-    address: row.address,
-    username: row.username,
-    password: row.secret,
-    smtpHost: row.smtpHost,
-    smtpPort: row.smtpPort,
-    smtpSecure: row.smtpSecure,
-    imapHost: row.imapHost,
-    imapPort: row.imapPort,
   };
 }
 
@@ -168,7 +147,7 @@ export function saveMailbox(
 
 /** Removes the mailbox and stops the polls that were waiting for it. */
 export function deleteMailbox(services: MailboxServices, profileId: string): void {
-  requireProfile(services, profileId);
+  requireProfile(services.db, profileId);
   const existing = findMailbox(services, profileId);
   if (!existing) throw notFound("This profile has no mailbox", "mailbox_not_found");
   services.db.transaction(() => {

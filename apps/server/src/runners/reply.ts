@@ -1,6 +1,7 @@
 import { requestEvents, targets } from "@kickrocks/db";
 import {
   canTransition,
+  isOnDomain,
   REPLY_OUTCOMES,
   type ReplyClassification,
   type RequestActor,
@@ -140,22 +141,32 @@ export function applyReply(services: AppServices, input: ApplyReplyInput): Appli
     case "completed":
     case "no_record":
     case "rejected": {
-      moveTo(services, input);
+      const placed = moveTo(services, input);
       return {
         needsReview:
-          classification === "verification_required" && input.requestedFields.length === 0,
+          !placed ||
+          (classification === "verification_required" && input.requestedFields.length === 0),
       };
     }
   }
 }
 
-/** Applies the status the classification stands for, when the state machine allows the move. */
-function moveTo(services: AppServices, { request, actor, classification }: ApplyReplyInput): void {
+/**
+ * Applies the status the classification stands for, when the state machine allows the move.
+ * Says whether the request ends up in that status, so a reply that changed nothing can be shown to
+ * a person instead of being filed as handled.
+ */
+function moveTo(
+  services: AppServices,
+  { request, actor, classification }: ApplyReplyInput,
+): boolean {
   const to = REPLY_OUTCOMES[classification];
-  if (!to) return;
+  if (!to) return true;
   const current = services.requests.getOrThrow(request.id);
-  if (!canTransition(current.status, to, { actor })) return;
+  if (current.status === to) return true;
+  if (!canTransition(current.status, to, { actor })) return false;
   services.requests.transition(request.id, to, { actor });
+  return true;
 }
 
 /** A target with a form can be reached there when the mail channel is dead or was refused. */
@@ -174,7 +185,7 @@ function moveAndSwitch(
   reason: "bounce" | "needs_form",
 ): AppliedReply {
   const { request, actor } = input;
-  if (reason === "bounce") moveTo(services, input);
+  const bounced = reason === "bounce" ? moveTo(services, input) : true;
 
   const current = services.requests.getOrThrow(request.id);
   const canSwitch =
@@ -182,8 +193,9 @@ function moveAndSwitch(
     hasFormChannel(services, current.targetId) &&
     canTransition(current.status, "queued", { actor });
   if (!canSwitch) {
-    // A bounce with nowhere else to go is settled as bounced; a request for a form we cannot reach is not.
-    return { needsReview: reason === "needs_form" };
+    // A bounce with nowhere else to go is settled as bounced, unless the request could not be
+    // moved there; a request for a form we cannot reach is never settled.
+    return { needsReview: reason === "needs_form" || !bounced };
   }
   try {
     services.requests.requeue(request.id, {
@@ -213,6 +225,11 @@ function applyLink(services: AppServices, input: ApplyReplyInput): AppliedReply 
   const { request, link, actor } = input;
   if (!link) return { needsReview: true };
   if (link.kind === "browser") {
+    // The browser task only opens the broker's own site, so a sister site's link would fail the
+    // task for good with nobody told. A person gets the message instead.
+    if (!isOnDomain(link.url, services.targets.getOrThrow(request.targetId).domain)) {
+      return { needsReview: true };
+    }
     services.dispatch.enqueueConfirm(request.id, link.url);
     return { needsReview: false };
   }
