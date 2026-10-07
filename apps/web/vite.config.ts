@@ -15,6 +15,8 @@ export default defineConfig(({ mode }) => {
     build: {
       outDir: "dist",
       emptyOutDir: true,
+      // React, the router, react-query, and the shared zod schemas make up the core chunk; pages load lazily.
+      chunkSizeWarningLimit: 600,
     },
   };
 });
