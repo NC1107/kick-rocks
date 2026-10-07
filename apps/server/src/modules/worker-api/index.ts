@@ -1,6 +1,54 @@
-import { registerNotImplemented } from "../../core/http.js";
+import { API_ROUTES } from "@kickrocks/shared";
+import { nowIso } from "../../core/clock.js";
+import { registerRoute } from "../../core/http.js";
 import type { ModulePlugin } from "../../core/module.js";
+import { createTaskOperations, WORKER_CALLER } from "./task-operations.js";
 
-export const workerApiModule: ModulePlugin = (app) => {
-  registerNotImplemented(app, "worker-api");
+/**
+ * The HTTP interface of the built-in worker. Everything it does is in `task-operations`, which the
+ * MCP server shares, so a task behaves the same whoever works on it.
+ */
+export const workerApiModule: ModulePlugin = (app, services) => {
+  const operations = createTaskOperations(services, WORKER_CALLER);
+
+  registerRoute(app, API_ROUTES.workerHeartbeat, ({ body }) => {
+    const now = nowIso(services.clock);
+    services.settings.set("worker.status", {
+      workerId: body.workerId,
+      version: body.version ?? null,
+      lastSeenAt: now,
+      busy: body.busy,
+      currentTaskId: body.currentTaskId ?? null,
+    });
+    return { ok: true as const, serverTime: now };
+  });
+
+  registerRoute(app, API_ROUTES.workerClaim, ({ body }) => ({
+    task: operations.claim({
+      workerId: body.workerId,
+      kinds: body.kinds,
+      leaseMs: body.leaseMs,
+      claimerKind: body.claimer,
+    }),
+  }));
+
+  registerRoute(app, API_ROUTES.workerTaskHeartbeat, ({ params, body }) =>
+    operations.heartbeat(params.id, body),
+  );
+
+  registerRoute(app, API_ROUTES.workerTaskComplete, ({ params, body }) => ({
+    task: operations.complete(params.id, body),
+  }));
+
+  registerRoute(app, API_ROUTES.workerTaskBlock, ({ params, body }) => ({
+    task: operations.block(params.id, body),
+  }));
+
+  registerRoute(app, API_ROUTES.workerTaskFail, ({ params, body }) => ({
+    task: operations.fail(params.id, body),
+  }));
+
+  registerRoute(app, API_ROUTES.workerTaskRelease, ({ params, body }) => ({
+    task: operations.release(params.id, body),
+  }));
 };
