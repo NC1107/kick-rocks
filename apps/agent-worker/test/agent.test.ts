@@ -1,7 +1,7 @@
 import { INSTANT_PACE } from "@kickrocks/recipes";
 import { MAX_SCREENSHOT_BYTES, resultSchemaFor, TaskBlockReport } from "@kickrocks/shared";
 import type { Browser, BrowserContext } from "playwright";
-import { afterAll, beforeAll, beforeEach, expect, it } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { type AgentOutcome, runAgentTask } from "../src/agent.js";
 import type { AgentLimits } from "../src/config.js";
 import { ProviderError } from "../src/provider.js";
@@ -1368,5 +1368,88 @@ describeBrowser("documents that do not load in the main frame", () => {
     expect(state.submissions).toEqual([
       expect.objectContaining({ host: "127.0.0.1", path: "/collect" }),
     ]);
+  });
+});
+
+describeBrowser("redirects that start in a tab or a frame", () => {
+  const strangers = (state: FixtureState) => ({
+    hits: state.hits.filter((hit) => hit.host === "other.test"),
+    submissions: state.submissions.filter((submission) => submission.host === "other.test"),
+  });
+
+  async function typeAndClick(path: string, label: string, button: string, task = agentTask()) {
+    await run(
+      [
+        navigate(path),
+        (v) => ({ calls: [["type", { ref: v.ref(label), field: "first_name" }]] }),
+        (v) => ({ calls: [["click", { ref: v.ref(button) }]] }),
+        { calls: [["wait", { seconds: 2 }]] },
+        { calls: [["report", { status: "release" }]] },
+      ],
+      { task },
+    );
+    return strangers(await fixtureState());
+  }
+
+  it("does not follow a 307 that a form in a new tab is posted through", async () => {
+    const seen = await typeAndClick("/hops", "Name for a posted tab", "Post in new tab");
+    expect(seen).toEqual({ hits: [], submissions: [] });
+  });
+
+  it("does not follow a 302 from a window the page opens by script", async () => {
+    const seen = await typeAndClick("/hops", "Name for a window", "Open redirecting window");
+    expect(seen).toEqual({ hits: [], submissions: [] });
+  });
+
+  it("does not follow a 302 from a window opened without an opener", async () => {
+    const seen = await typeAndClick(
+      "/hops",
+      "Name for a window",
+      "Open redirecting window without opener",
+    );
+    expect(seen).toEqual({ hits: [], submissions: [] });
+  });
+
+  describe("on a target that owns two hosts", () => {
+    const task = () => agentTask({ target: { ...TARGET, website: OFFSITE } });
+
+    it("does not follow a 307 that a form aimed at a frame of the second host is posted through", async () => {
+      const seen = await typeAndClick(
+        "/oopif",
+        "Name for the friend frame",
+        "Send into friend frame",
+        task(),
+      );
+      expect(seen).toEqual({ hits: [], submissions: [] });
+    });
+
+    it("does not let a frame of the second host send itself to a third", async () => {
+      await run(
+        [
+          navigate("/oopif"),
+          { calls: [["wait", { seconds: 3 }]] },
+          { calls: [["report", { status: "release" }]] },
+        ],
+        { task: task() },
+      );
+      expect(strangers(await fixtureState())).toEqual({ hits: [], submissions: [] });
+    });
+
+    it("still delivers a form aimed at a frame of the second host to that host", async () => {
+      await run(
+        [
+          navigate("/oopif"),
+          (v) => ({
+            calls: [["type", { ref: v.ref("Name for the friend frame"), field: "first_name" }]],
+          }),
+          (v) => ({ calls: [["click", { ref: v.ref("Send into friend frame") }]] }),
+          { calls: [["wait", { seconds: 1 }]] },
+          { calls: [["report", { status: "release" }]] },
+        ],
+        { task: task() },
+      );
+      const { hits } = await fixtureState();
+      expect(hits.some((hit) => hit.host === "localhost" && hit.path === "/hop307")).toBe(true);
+    });
   });
 });

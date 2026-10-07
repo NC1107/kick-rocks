@@ -8,6 +8,7 @@ import {
 import { describeError } from "@kickrocks/worker/dist/logger.js";
 import type { CDPSession, Dialog, Locator, Page, Request, Route } from "playwright";
 import { type NavigationPolicy, type PageScope, refuseNavigation, scopeOf } from "./domains.js";
+import { type CdpChannel, guardFrameTargets } from "./frame-guard.js";
 import {
   formatSnapshot,
   fromSource,
@@ -42,6 +43,15 @@ export interface ToolboxOptions {
   actionTimeoutMs?: number;
   /** How long a whole-page bot check gets to clear by itself before it stops the run. */
   challengeGraceMs?: number;
+}
+
+interface PausedRequest {
+  requestId: string;
+  resourceType: string;
+  frameId?: string;
+  responseStatusCode?: number;
+  responseHeaders?: { name: string; value: string }[];
+  request: { url: string; urlFragment?: string };
 }
 
 interface ElementInfo {
@@ -181,7 +191,9 @@ export class Toolbox {
    * redirect. This goes through the browser's request interception for documents only, because
    * `page.route` never sees the later hops of a redirect, and a redirect is the usual way a page
    * sends a visitor elsewhere. A new tab or window is another page of the same context, so its
-   * first document goes through a context route, and the tab is closed as soon as it opens.
+   * documents are all refused through a context route, and the tab is closed as soon as it opens.
+   * A frame of another site runs in its own process with its own request interception, so each
+   * one is held at its start and given the same guard as the page before it can load anything.
    */
   private async guardNavigations(): Promise<void> {
     const { page } = this.options;
@@ -190,10 +202,29 @@ export class Toolbox {
     const cdp = await context.newCDPSession(page);
     this.cdp = cdp;
     const { frameTree } = await cdp.send("Page.getFrameTree");
-    const mainFrameId = frameTree.frame.id;
-    cdp.on("Fetch.requestPaused", (event) => {
+    const channel: CdpChannel = {
+      send: (method, params) => cdp.send(method as never, params as never),
+      on: (event, handler) => cdp.on(event as never, handler as never),
+    };
+    await this.guardSession(channel, frameTree.frame.id);
+    await guardFrameTargets(
+      channel,
+      (frame) => this.guardSession(frame, ""),
+      (error) => {
+        this.refusedNavigations.push(
+          `A frame could not be checked and was held back: ${describeError(error)}`,
+        );
+      },
+    );
+  }
+
+  /** Decides every document request of one DevTools session: the page's own, or a frame's. */
+  private async guardSession(session: CdpChannel, mainFrameId: string): Promise<void> {
+    session.on("Fetch.requestPaused", (event: PausedRequest) => {
       if (event.resourceType !== "Document") {
-        cdp.send("Fetch.continueRequest", { requestId: event.requestId }).catch(() => undefined);
+        session
+          .send("Fetch.continueRequest", { requestId: event.requestId })
+          .catch(() => undefined);
         return;
       }
       if (event.responseStatusCode !== undefined && event.frameId === mainFrameId) {
@@ -208,17 +239,19 @@ export class Toolbox {
           ? refuseNavigation(`${event.request.url}${event.request.urlFragment ?? ""}`, this.policy)
           : null;
       if (reason === null) {
-        cdp.send("Fetch.continueRequest", { requestId: event.requestId }).catch(() => undefined);
+        session
+          .send("Fetch.continueRequest", { requestId: event.requestId })
+          .catch(() => undefined);
         return;
       }
       this.refusedNavigations.push(reason);
       // Aborted keeps the page where it is. A failure the browser reports as blocked would
       // replace the page with an error page and lose what was typed into it.
-      cdp
+      session
         .send("Fetch.failRequest", { requestId: event.requestId, errorReason: "Aborted" })
         .catch(() => undefined);
     });
-    await cdp.send("Fetch.enable", {
+    await session.send("Fetch.enable", {
       patterns: [
         { urlPattern: "*", resourceType: "Document", requestStage: "Request" },
         { urlPattern: "*", resourceType: "Document", requestStage: "Response" },
@@ -314,12 +347,26 @@ export class Toolbox {
     }
   }
 
+  /**
+   * A new tab is closed the moment it opens, so none of its documents is wanted, and a route
+   * only sees the first request of a tab, never the redirects after it. Refusing all of them
+   * leaves a redirect nothing to carry a typed value through.
+   */
   private readonly routeOtherPage = (route: Route): void => {
     const request = route.request();
+    if (request.resourceType() !== "document") {
+      route.fallback().catch(() => undefined);
+      return;
+    }
+    if (!this.isOurs(request)) {
+      this.refusedNavigations.push("A new tab or window cannot be opened");
+      route.abort("aborted").catch(() => undefined);
+      return;
+    }
     const reason =
-      request.resourceType() === "document" && !this.isOurs(request)
-        ? refuseNavigation(request.url(), this.policy)
-        : null;
+      request.frame() === this.options.page.mainFrame()
+        ? null
+        : refuseNavigation(request.url(), this.policy);
     if (reason === null) {
       route.fallback().catch(() => undefined);
       return;

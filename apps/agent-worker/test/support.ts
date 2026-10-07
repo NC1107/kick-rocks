@@ -32,7 +32,11 @@ export const describeBrowser = describe.skipIf(
 
 export function launchTestBrowser(): Promise<Browser> {
   const executablePath = process.env.KICKROCKS_CHROME_EXECUTABLE ?? findInstalledChrome();
-  return chromium.launch({ headless: true, ...(executablePath ? { executablePath } : {}) });
+  return chromium.launch({
+    headless: true,
+    args: [`--host-resolver-rules=MAP other.test 127.0.0.1`],
+    ...(executablePath ? { executablePath } : {}),
+  });
 }
 
 export const TARGET: TargetSummary = {
