@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { loadAgentWorkerConfig } from "../src/config.js";
+import { AGENT_ENV_KEYS, loadAgentWorkerConfig } from "../src/config.js";
 import { loopTiming } from "../src/loop.js";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
@@ -55,6 +55,46 @@ describe("the agent worker's compose service", () => {
       .filter((key) => key.includes("AGENT") || key === "ANTHROPIC_API_KEY");
     expect(keys.length).toBeGreaterThan(5);
     for (const key of keys) expect(agent, key).toContain(`\${${key}`);
+  });
+
+  /** Settings the container deliberately does not let .env change, and why. */
+  const FIXED_BY_THE_IMAGE: Record<string, string> = {
+    KICKROCKS_SERVER_URL: "compose points it at the server service",
+    KICKROCKS_CHROME_PROFILE: "compose mounts the profile volume at /profile",
+    KICKROCKS_WORKER_HEADLESS:
+      "the image runs a headed Chrome on Xvfb, which bot checks trust more",
+    KICKROCKS_WORKER_NO_SANDBOX:
+      "the image sets it, because Docker's seccomp profile blocks Chrome's sandbox",
+    KICKROCKS_WORKER_ALLOW_HTTP: "plain http pages stay refused outside a test machine",
+    KICKROCKS_CHROME_EXECUTABLE: "the image installs the one browser it uses",
+    KICKROCKS_WORKER_POLL_MS: "the default suits a container",
+    KICKROCKS_WORKER_LEASE_MS: "the default suits a container",
+  };
+
+  it("passes on every setting the config reads, unless the image fixes it on purpose", () => {
+    for (const key of AGENT_ENV_KEYS) {
+      if (key in FIXED_BY_THE_IMAGE) {
+        expect(agent, `${key} is fixed, so compose must not offer it`).not.toMatch(
+          new RegExp(`\\$\\{${key}[:}]`),
+        );
+      } else {
+        expect(agent, `${key} is read by the worker but compose does not pass it`).toMatch(
+          new RegExp(`^\\s+${key}: `, "m"),
+        );
+      }
+    }
+  });
+
+  it("lists in .env.example every setting compose takes from it", () => {
+    const listed = new Set(
+      read(".env.example")
+        .split("\n")
+        .map((line) => /^#?\s*([A-Z_]+)=/.exec(line)?.[1])
+        .filter((key): key is string => key !== undefined),
+    );
+    for (const match of agent.matchAll(/\$\{([A-Z_]+)[:}]/g)) {
+      expect(listed.has(match[1] as string), `${match[1]} is not in .env.example`).toBe(true);
+    }
   });
 
   it("starts the config from the empty values compose passes for settings left blank", () => {

@@ -284,6 +284,7 @@ describe("the Anthropic provider", () => {
         baseUrl: "https://api.anthropic.com",
         apiKey: "k",
         maxOutputTokens: 1,
+        tokenParam: "max_tokens",
       }).name,
     ).toBe("anthropic");
     const openai = createProvider({
@@ -292,6 +293,7 @@ describe("the Anthropic provider", () => {
       baseUrl: "http://localhost:11434/v1",
       apiKey: null,
       maxOutputTokens: 1,
+      tokenParam: "max_tokens",
     });
     expect(openai).toMatchObject({ name: "openai", model: "llama" });
   });
@@ -349,6 +351,98 @@ describe("how failures are classified and retried", () => {
       message: expect.stringContaining("context too long"),
     });
     expect(calls).toHaveLength(1);
+  });
+
+  it("flags a conversation that is too long, and no other 400", async () => {
+    const tooLong = make([
+      {
+        status: 400,
+        body: {
+          error: { code: "context_length_exceeded", message: "maximum context length is 8192" },
+        },
+      },
+    ]);
+    await expect(tooLong.provider.complete(request())).rejects.toMatchObject({
+      kind: "rejected",
+      contextTooLong: true,
+    });
+    const anthropic = make([
+      { status: 400, body: { error: { message: "prompt is too long: 250000 tokens > 200000" } } },
+    ]);
+    await expect(anthropic.provider.complete(request())).rejects.toMatchObject({
+      contextTooLong: true,
+    });
+    const tooBig = make([{ status: 413, body: "payload too large" }]);
+    await expect(tooBig.provider.complete(request())).rejects.toMatchObject({
+      contextTooLong: true,
+    });
+    const other = make([{ status: 400, body: { error: { message: "invalid tool schema" } } }]);
+    await expect(other.provider.complete(request())).rejects.toMatchObject({
+      kind: "rejected",
+      contextTooLong: false,
+    });
+  });
+
+  it("retries once with max_completion_tokens and no temperature when a reasoning model refuses max_tokens", async () => {
+    const { provider, calls } = make([
+      {
+        status: 400,
+        body: {
+          error: {
+            message:
+              "Unsupported parameter: 'max_tokens' is not supported with this model. Use 'max_completion_tokens' instead.",
+          },
+        },
+      },
+      ok,
+      ok,
+    ]);
+    await provider.complete(request());
+    expect(calls).toHaveLength(2);
+    expect(calls[0]?.body).toMatchObject({ max_tokens: 512, temperature: 0 });
+    expect(calls[1]?.body).toMatchObject({ max_completion_tokens: 512 });
+    expect(calls[1]?.body).not.toHaveProperty("max_tokens");
+    expect(calls[1]?.body).not.toHaveProperty("temperature");
+    await provider.complete(request());
+    expect(calls[2]?.body).toMatchObject({ max_completion_tokens: 512 });
+    expect(calls[2]?.body).not.toHaveProperty("temperature");
+  });
+
+  it("retries once when a model refuses a temperature of 0", async () => {
+    const { provider, calls } = make([
+      {
+        status: 400,
+        body: {
+          error: {
+            message: "Unsupported value: 'temperature' does not support 0 with this model.",
+          },
+        },
+      },
+      ok,
+    ]);
+    await provider.complete(request());
+    expect(calls[1]?.body).not.toHaveProperty("temperature");
+  });
+
+  it("does not retry a 400 that names neither parameter", async () => {
+    const { provider, calls } = make([{ status: 400, body: { error: { message: "bad tools" } } }]);
+    await expect(provider.complete(request())).rejects.toMatchObject({ kind: "rejected" });
+    expect(calls).toHaveLength(1);
+  });
+
+  it("sends the configured output limit parameter, without a temperature", async () => {
+    const { fetch, calls } = fakeFetch([ok]);
+    const provider = createOpenAiProvider({
+      baseUrl: "http://h/v1",
+      model: "o-series",
+      apiKey: null,
+      tokenParam: "max_completion_tokens",
+      fetch,
+    });
+    await provider.complete(request());
+    expect(calls[0]?.body).toMatchObject({ max_completion_tokens: 512 });
+    expect(calls[0]?.body).not.toHaveProperty("max_tokens");
+    expect(calls[0]?.body).not.toHaveProperty("temperature");
   });
 
   it("retries a busy endpoint with a growing pause, then succeeds", async () => {

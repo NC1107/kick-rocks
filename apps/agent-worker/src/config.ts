@@ -31,6 +31,10 @@ const Env = z.object({
   KICKROCKS_AGENT_API_KEY: z.string().min(1).optional(),
   ANTHROPIC_API_KEY: z.string().min(1).optional(),
   KICKROCKS_AGENT_MAX_OUTPUT_TOKENS: z.coerce.number().int().min(256).max(32_000).default(2048),
+  /** What an OpenAI-compatible endpoint calls the output limit. OpenAI's reasoning models need max_completion_tokens. */
+  KICKROCKS_AGENT_TOKEN_PARAM: z
+    .enum(["max_tokens", "max_completion_tokens"])
+    .default("max_tokens"),
   /** Prices per million tokens. Cost is only reported when both are set, because a guess would be wrong. */
   KICKROCKS_AGENT_INPUT_USD_PER_MTOK: Price.optional(),
   KICKROCKS_AGENT_OUTPUT_USD_PER_MTOK: Price.optional(),
@@ -48,12 +52,17 @@ const Env = z.object({
   LOG_LEVEL: z.enum(["debug", "info", "warn", "error"]).default("info"),
 });
 
+/** Every variable the worker reads, so a packaging test can tell which ones compose must pass on. */
+export const AGENT_ENV_KEYS: string[] = Object.keys(Env.shape);
+
 export interface ProviderConfig {
   kind: "openai" | "anthropic";
   model: string;
   baseUrl: string;
   apiKey: string | null;
   maxOutputTokens: number;
+  /** Only the openai provider reads this. */
+  tokenParam: "max_tokens" | "max_completion_tokens";
 }
 
 export interface Pricing {
@@ -110,6 +119,7 @@ function providerFrom(parsed: z.infer<typeof Env>): ProviderConfig {
       baseUrl: (parsed.KICKROCKS_AGENT_BASE_URL ?? ANTHROPIC_BASE_URL).replace(/\/+$/, ""),
       apiKey,
       maxOutputTokens,
+      tokenParam: parsed.KICKROCKS_AGENT_TOKEN_PARAM,
     };
   }
   if (!parsed.KICKROCKS_AGENT_MODEL) {
@@ -129,6 +139,7 @@ function providerFrom(parsed: z.infer<typeof Env>): ProviderConfig {
     baseUrl: (parsed.KICKROCKS_AGENT_BASE_URL ?? OLLAMA_BASE_URL).replace(/\/+$/, ""),
     apiKey: parsed.KICKROCKS_AGENT_API_KEY ?? null,
     maxOutputTokens,
+    tokenParam: parsed.KICKROCKS_AGENT_TOKEN_PARAM,
   };
 }
 

@@ -57,7 +57,9 @@ export interface ModelProvider {
  * Why a model call failed, in terms of what the worker should do about the task:
  * - `unavailable`: the endpoint did not answer, or is overloaded. Nothing is wrong with the task.
  * - `config`: the key, the model name, or the model's tool support is wrong. Nothing is wrong with the task.
- * - `rejected`: the endpoint refused this conversation, such as a context that is too long.
+ * - `rejected`: the endpoint refused the request. Whether that is the conversation (a context that is
+ *   too long) or the setup (a parameter the model does not accept) is for the caller to tell, by
+ *   `contextTooLong` and by whether the first request of a run was already refused.
  */
 export type ProviderErrorKind = "unavailable" | "config" | "rejected";
 
@@ -68,6 +70,8 @@ export class ProviderError extends Error {
     message: string,
     readonly kind: ProviderErrorKind,
     readonly status?: number,
+    /** The conversation itself is too long for the model, which no retry of it can fix. */
+    readonly contextTooLong = false,
   ) {
     super(message);
   }
@@ -83,6 +87,13 @@ export interface HttpOptions {
 
 const DEFAULT_REQUEST_TIMEOUT_MS = 180_000;
 const DEFAULT_RETRIES = 2;
+
+const CONTEXT_TOO_LONG =
+  /context_length_exceeded|context[ _]length|context too long|context window|prompt is too long|too many tokens|maximum context|reduce the length/i;
+
+function isContextTooLong(status: number, body: string): boolean {
+  return status === 413 || CONTEXT_TOO_LONG.test(body);
+}
 
 function classify(status: number, body: string): ProviderErrorKind {
   if (status === 401 || status === 403 || status === 404) return "config";
@@ -150,6 +161,7 @@ export async function postJson(
         `The model endpoint answered ${response.status}: ${messageFromErrorBody(text).slice(0, 300)}`,
         classify(response.status, text),
         response.status,
+        isContextTooLong(response.status, text),
       );
       wait = retryAfterMs(response) ?? pause;
     } catch (error) {

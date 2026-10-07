@@ -13,6 +13,7 @@ describe("loadAgentWorkerConfig", () => {
       baseUrl: "http://localhost:11434/v1",
       apiKey: null,
       maxOutputTokens: 2048,
+      tokenParam: "max_tokens",
     });
     expect(config.serverUrl).toBe("http://127.0.0.1:8420");
     expect(config.workerId).toMatch(/-agent$/);
@@ -29,6 +30,22 @@ describe("loadAgentWorkerConfig", () => {
       baseUrl: "https://llm.example.com/v1",
       apiKey: "secret",
     });
+  });
+
+  it("takes the name of the output limit parameter from KICKROCKS_AGENT_TOKEN_PARAM", () => {
+    const config = loadAgentWorkerConfig({
+      ...BASE,
+      KICKROCKS_AGENT_MODEL: "o4-mini",
+      KICKROCKS_AGENT_TOKEN_PARAM: "max_completion_tokens",
+    });
+    expect(config.provider).toMatchObject({ tokenParam: "max_completion_tokens" });
+    expect(() =>
+      loadAgentWorkerConfig({
+        ...BASE,
+        KICKROCKS_AGENT_MODEL: "x",
+        KICKROCKS_AGENT_TOKEN_PARAM: "n",
+      }),
+    ).toThrow();
   });
 
   it("defaults Anthropic to claude-sonnet-4-6 and needs a key", () => {

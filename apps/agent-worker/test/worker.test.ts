@@ -104,6 +104,7 @@ function config(): AgentWorkerConfig {
       baseUrl: "http://localhost:11434/v1",
       apiKey: null,
       maxOutputTokens: 1024,
+      tokenParam: "max_tokens",
     },
     pricing: { inputUsdPerMtok: 1, outputUsdPerMtok: 2 },
     limits: { maxSteps: 30, maxMs: 60_000, maxTotalTokens: null },

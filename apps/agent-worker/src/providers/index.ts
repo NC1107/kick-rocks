@@ -20,5 +20,6 @@ export function createProvider(
     baseUrl: config.baseUrl,
     model: config.model,
     apiKey: config.apiKey,
+    tokenParam: config.tokenParam,
   });
 }

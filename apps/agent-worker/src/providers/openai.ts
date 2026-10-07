@@ -6,15 +6,23 @@ import {
   type ModelRequest,
   type ModelResponse,
   malformed,
+  ProviderError,
   postJson,
   type ToolCall,
 } from "../provider.js";
+
+export type TokenParam = "max_tokens" | "max_completion_tokens";
 
 export interface OpenAiProviderOptions extends Partial<HttpOptions> {
   baseUrl: string;
   model: string;
   apiKey: string | null;
+  /** The name this endpoint gives the output limit. OpenAI's reasoning models want max_completion_tokens. */
+  tokenParam?: TokenParam;
 }
+
+/** What a reasoning model says when it is sent max_tokens or a fixed temperature. */
+const SAMPLING_PARAMETER_REFUSED = /max_tokens|max_completion_tokens|temperature/i;
 
 const Completion = z.object({
   choices: z
@@ -91,32 +99,51 @@ function parseArguments(raw: string | Record<string, unknown> | null | undefined
 /** Any OpenAI-compatible chat completions endpoint, which includes Ollama at /v1. */
 export function createOpenAiProvider(options: OpenAiProviderOptions): ModelProvider {
   const http: HttpOptions = { ...options, fetch: options.fetch ?? fetch };
+  let tokenParam: TokenParam = options.tokenParam ?? "max_tokens";
+  let sendTemperature = tokenParam === "max_tokens";
   return {
     name: "openai",
     model: options.model,
     async complete(request: ModelRequest): Promise<ModelResponse> {
-      const answer = await postJson(
-        `${options.baseUrl}/chat/completions`,
-        options.apiKey ? { authorization: `Bearer ${options.apiKey}` } : {},
-        {
-          model: options.model,
-          messages: toWire(request.system, request.messages),
-          tools: request.tools.map((tool) => ({
-            type: "function",
-            function: {
-              name: tool.name,
-              description: tool.description,
-              parameters: tool.parameters,
-            },
-          })),
-          tool_choice: "auto",
-          temperature: 0,
-          max_tokens: request.maxOutputTokens,
-          stream: false,
-        },
-        request.signal,
-        http,
-      );
+      const send = () =>
+        postJson(
+          `${options.baseUrl}/chat/completions`,
+          options.apiKey ? { authorization: `Bearer ${options.apiKey}` } : {},
+          {
+            model: options.model,
+            messages: toWire(request.system, request.messages),
+            tools: request.tools.map((tool) => ({
+              type: "function",
+              function: {
+                name: tool.name,
+                description: tool.description,
+                parameters: tool.parameters,
+              },
+            })),
+            tool_choice: "auto",
+            ...(sendTemperature ? { temperature: 0 } : {}),
+            [tokenParam]: request.maxOutputTokens,
+            stream: false,
+          },
+          request.signal,
+          http,
+        );
+      let answer: unknown;
+      try {
+        answer = await send();
+      } catch (error) {
+        const refusedSampling =
+          error instanceof ProviderError &&
+          error.status === 400 &&
+          !error.contextTooLong &&
+          SAMPLING_PARAMETER_REFUSED.test(error.message) &&
+          (tokenParam === "max_tokens" || sendTemperature);
+        if (!refusedSampling) throw error;
+        // A reasoning model takes max_completion_tokens and only its default temperature.
+        tokenParam = "max_completion_tokens";
+        sendTemperature = false;
+        answer = await send();
+      }
       const parsed = Completion.safeParse(answer);
       const message = parsed.success ? parsed.data.choices[0]?.message : undefined;
       if (!parsed.success || !message) throw malformed("a message");
