@@ -3,6 +3,7 @@ export * from "./auth.js";
 export * from "./broker.js";
 export * from "./campaigns.js";
 export * from "./dashboard.js";
+export * from "./errors.js";
 export * from "./geography.js";
 export * from "./identities.js";
 export * from "./legal.js";

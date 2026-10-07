@@ -23,6 +23,7 @@
   },
   "pnpm": {
     "onlyBuiltDependencies": [
+      "argon2",
       "better-sqlite3-multiple-ciphers",
       "esbuild"
     ]
