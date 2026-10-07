@@ -8,9 +8,12 @@ import {
   BrokerDataset as BrokerDatasetSchema,
 } from "@kickrocks/shared";
 import { z } from "zod";
+import { parseBadboolReport } from "./import/badbool.js";
 import { parseCaRegistry } from "./import/ca-registry.js";
+import { parseCuratedBrokers } from "./import/curated.js";
 import { parseEraserBrokers } from "./import/eraser.js";
 import { mergeBrokers } from "./merge.js";
+import { readPinnedUpstream } from "./upstream.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const dataDir = resolve(here, "..", "data");
@@ -28,9 +31,14 @@ export function loadPinnedIds(file = IDS_FILE): Record<string, string> {
 export function buildDataset(
   pinnedIds: Readonly<Record<string, string>> = loadPinnedIds(),
 ): BrokerDataset {
+  readPinnedUpstream("BADBOOL-LICENSE.md");
+  const badbool = parseBadboolReport(readPinnedUpstream("BADBOOL-README.md")).brokers;
+  const curated = parseCuratedBrokers(
+    readFileSync(resolve(dataDir, "curated-brokers.yaml"), "utf8"),
+  );
   const eraser = parseEraserBrokers(readFileSync(resolve(upstream, "eraser-brokers.yaml"), "utf8"));
   const registry = parseCaRegistry(readFileSync(resolve(upstream, "ca-registry-2025.csv"), "utf8"));
-  const brokers = mergeBrokers([eraser, registry], { pinnedIds });
+  const brokers = mergeBrokers([badbool, eraser, registry, curated], { pinnedIds });
   return BrokerDatasetSchema.parse({
     generatedAt: new Date().toISOString(),
     license: BROKER_DATASET_LICENSE,

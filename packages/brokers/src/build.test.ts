@@ -1,6 +1,7 @@
 import { needsRecord, normalizeDomain, RECORD_NOT_NEEDED } from "@kickrocks/shared";
 import { describe, expect, it } from "vitest";
 import { buildDataset, loadPinnedIds, pinNewIds } from "./build.js";
+import { readPinnedUpstream } from "./upstream.js";
 
 const HOSTNAME = /^(?=.{1,253}$)([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/;
 
@@ -56,10 +57,40 @@ describe("the generated broker dataset", () => {
     }
   });
 
-  it("reserves the ids of sites whose records the dataset does not have yet", () => {
+  it("keeps the reserved ids and fills them with records", () => {
+    const byId = new Map(dataset.brokers.map((broker) => [broker.id, broker]));
     expect(pinned["radaris.com"]).toBe("radaris");
-    expect(pinned["clustrmaps.com"]).toBe("clustrmaps");
-    expect(pinned["smartbackgroundchecks.com"]).toBe("smartbackgroundchecks");
+    expect(byId.get("clustrmaps")?.domain).toBe("clustrmaps.com");
+    expect(byId.get("smartbackgroundchecks")?.domain).toBe("smartbackgroundchecks.com");
+  });
+
+  it("leaves Radaris out because the BADBOOL list dropped it when its domains were transferred", () => {
+    expect(dataset.brokers.some((broker) => broker.domain === "radaris.com")).toBe(false);
+  });
+
+  it("lets BADBOOL win over Eraser and the registry for a site all three list", () => {
+    const whitepages = dataset.brokers.find((broker) => broker.domain === "whitepages.com");
+    expect(whitepages?.sources.map((source) => source.source)).toEqual([
+      "badbool",
+      "eraser",
+      "ca-registry-2025",
+    ]);
+    expect(whitepages?.optOutUrl).toBe("https://www.whitepages.com/suppression_requests");
+    expect(whitepages?.priority).toBe("crucial");
+  });
+
+  it("fills a field BADBOOL lacks from Eraser", () => {
+    const intelius = dataset.brokers.find((broker) => broker.domain === "intelius.com");
+    expect(intelius?.privacyEmail).not.toBeNull();
+  });
+
+  it("puts curated records after every import", () => {
+    const clustrmaps = dataset.brokers.find((broker) => broker.id === "clustrmaps");
+    expect(clustrmaps?.sources.map((source) => source.source)).toEqual(["kickrocks"]);
+  });
+
+  it("refuses to build from a README that no longer matches its pin", () => {
+    expect(() => readPinnedUpstream("BADBOOL-README.md", { source: "missing.json" })).toThrow();
   });
 });
 

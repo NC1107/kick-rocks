@@ -1,0 +1,12 @@
+brokers:
+  - id: clustrmaps
+    name: ClustrMaps
+    domain: clustrmaps.com
+    category: people-search
+    website: https://clustrmaps.com
+    search_url: https://clustrmaps.com
+    opt_out_url: https://clustrmaps.com/bl/opt-out
+    requirements:
+      - record_url
+    priority: normal
+    notes: 'Not listed by BADBOOL, Eraser, or the California registry. The opt-out address comes from the site itself and was not re-read when this record was written, because the host did not answer from the build machine.'
