@@ -564,3 +564,61 @@ describeIntegration("greenmail", "the mailbox routes against a real mail server"
     if (result.ok) expect(JSON.stringify(result.response.body)).not.toContain("very-secret-pw");
   });
 });
+
+describe("the send pause", () => {
+  function pausedMailbox() {
+    const profile = seedProfile(ctx);
+    const mailbox = seedMailbox(ctx, profile.id, SAME_SERVERS);
+    ctx.services.mailHolds.hold(mailbox.id);
+    return { profile, mailbox };
+  }
+
+  const view = async (profileId: string) => {
+    const result = await ctx.call(API_ROUTES.profilesGet, { params: { id: profileId } });
+    return result.ok ? result.body.mailbox : null;
+  };
+
+  it("shows on the mailbox while it applies", async () => {
+    const { profile, mailbox } = pausedMailbox();
+    const until = ctx.services.mailHolds.until(mailbox.id);
+    expect((await view(profile.id))?.sendPausedUntil).toBe(until?.toISOString());
+  });
+
+  it("stops showing once it ends", async () => {
+    const { profile } = pausedMailbox();
+    ctx.clock.advance(2 * 60 * 60 * 1000);
+    expect((await view(profile.id))?.sendPausedUntil).toBeNull();
+  });
+
+  it("is cleared when a fixed mailbox is saved", async () => {
+    const { profile, mailbox } = pausedMailbox();
+    const saved = await ctx.call(API_ROUTES.mailboxSave, {
+      params: { id: profile.id },
+      body: { ...NEW_MAILBOX, password: "fixed-password" },
+    });
+    expect(saved).toMatchObject({ ok: true, body: { sendPausedUntil: null } });
+    expect(ctx.services.mailHolds.until(mailbox.id)).toBeNull();
+  });
+
+  it("is cleared by a connection test that passes for the saved servers", async () => {
+    const { profile, mailbox } = pausedMailbox();
+    await ctx.call(API_ROUTES.mailboxTest, { params: { id: profile.id }, body: TEST_BODY });
+    expect(ctx.services.mailHolds.until(mailbox.id)).toBeNull();
+  });
+
+  it("is kept by a connection test that fails", async () => {
+    const { profile, mailbox } = pausedMailbox();
+    ctx.mail.verifyResult = { ok: false, error: "The server rejected the app password." };
+    await ctx.call(API_ROUTES.mailboxTest, { params: { id: profile.id }, body: TEST_BODY });
+    expect(ctx.services.mailHolds.until(mailbox.id)).not.toBeNull();
+  });
+
+  it("is kept by a passing test of other servers, which says nothing about the saved ones", async () => {
+    const { profile, mailbox } = pausedMailbox();
+    await ctx.call(API_ROUTES.mailboxTest, {
+      params: { id: profile.id },
+      body: { ...TEST_BODY, smtpHost: "smtp.elsewhere.test", password: "typed-password" },
+    });
+    expect(ctx.services.mailHolds.until(mailbox.id)).not.toBeNull();
+  });
+});

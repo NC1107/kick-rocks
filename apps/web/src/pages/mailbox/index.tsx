@@ -37,7 +37,7 @@ import {
   validateConnection,
   validateSettings,
 } from "./connection.js";
-import { MailboxFacts, useProviderLabel } from "./mailbox-card.js";
+import { MailboxFacts, SendPauseAlert, useProviderLabel } from "./mailbox-card.js";
 import { AccountStep, ProviderStep, SettingsStep, TestStep } from "./steps.js";
 
 const STEPS = ["Provider", "Account", "Test", "Settings"] as const;
@@ -191,6 +191,7 @@ function ConnectedMailbox({ profile, onEdit }: { profile: ProfileDetail; onEdit:
             {mailbox.lastError}
           </Alert>
         ) : null}
+        <SendPauseAlert mailbox={mailbox} />
         {poll.error ? (
           <Alert intent="danger" className="mb-4">
             {errorMessage(poll.error)}

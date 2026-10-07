@@ -10,6 +10,7 @@ import {
   deleteMailbox,
   findMailbox,
   requireMailbox,
+  sameDestination,
   saveMailbox,
   toMailbox,
 } from "./service.js";
@@ -23,7 +24,8 @@ export const mailboxModule: ModulePlugin = (app, services) => {
 
   registerRoute(app, API_ROUTES.mailboxTest, async ({ params, body }) => {
     requireProfile(services.db, params.id);
-    const connection = connectionForTest(body, findMailbox(services, params.id));
+    const stored = findMailbox(services, params.id);
+    const connection = connectionForTest(body, stored);
 
     // Each side is tested on its own, so a working SMTP login is still reported when IMAP fails.
     const [smtp, imap] = await Promise.all([
@@ -35,12 +37,17 @@ export const mailboxModule: ModulePlugin = (app, services) => {
         .catch((error: unknown) => ({ ok: false, error: failureText(error), folders: [] })),
     ]);
     const result: MailboxTestResult = { smtp, imap };
+    // Both sides answering for the saved servers is the proof the pause was waiting for.
+    if (stored && smtp.ok && imap.ok && sameDestination(stored, body)) {
+      services.mailHolds.clear(stored.id);
+    }
     return result;
   });
 
   registerRoute(app, API_ROUTES.mailboxSave, ({ params, body }) => {
     requireProfile(services.db, params.id);
-    return toMailbox(saveMailbox(services, params.id, body));
+    const saved = saveMailbox(services, params.id, body);
+    return toMailbox(saved, services.mailHolds.until(saved.id));
   });
 
   registerRoute(app, API_ROUTES.mailboxDelete, ({ params }) => {

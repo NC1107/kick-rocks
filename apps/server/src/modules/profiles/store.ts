@@ -19,6 +19,7 @@ import { type Clock, nowIso } from "../../core/clock.js";
 import { notFound } from "../../core/errors.js";
 import { loadIdentities } from "../../core/identities.js";
 import { newId } from "../../core/ids.js";
+import type { MailHolds } from "../../core/mail-holds.js";
 import { toMailbox } from "../mailbox/service.js";
 
 export interface ProfileStore {
@@ -85,8 +86,12 @@ function identityValues(profileId: string, id: string, input: IdentityInput) {
   };
 }
 
-export function createProfileStore(deps: { db: KickRocksDb; clock: Clock }): ProfileStore {
-  const { db, clock } = deps;
+export function createProfileStore(deps: {
+  db: KickRocksDb;
+  clock: Clock;
+  mailHolds: MailHolds;
+}): ProfileStore {
+  const { db, clock, mailHolds } = deps;
 
   const requireRow = (id: string): ProfileRow => {
     const row = db.select().from(profiles).where(eq(profiles.id, id)).get();
@@ -100,7 +105,7 @@ export function createProfileStore(deps: { db: KickRocksDb; clock: Clock }): Pro
     return {
       ...summarize(row, identityList, mailbox !== undefined),
       identities: identityList,
-      mailbox: mailbox ? toMailbox(mailbox) : null,
+      mailbox: mailbox ? toMailbox(mailbox, mailHolds.until(mailbox.id)) : null,
     };
   };
 

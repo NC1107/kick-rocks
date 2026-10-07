@@ -11,8 +11,6 @@ export interface GapRange {
 
 export const MIN_GAP_MS = DEFAULT_SEND_GAP_MS.min;
 export const MAX_GAP_MS = DEFAULT_SEND_GAP_MS.max;
-const MAILBOX_HOLD_BASE_MS = 5 * 60 * 1000;
-const MAILBOX_HOLD_MAX_MS = 60 * 60 * 1000;
 
 /**
  * Decides when a mailbox may send next: not before the gap since its last send, and not while it
@@ -22,10 +20,9 @@ const MAILBOX_HOLD_MAX_MS = 60 * 60 * 1000;
  */
 export class MailPacer {
   private readonly gaps = new Map<string, { lastSentMs: number; gapMs: number }>();
-  private readonly holds = new Map<string, { until: number; failures: number }>();
 
   constructor(
-    private readonly services: Pick<AppServices, "db" | "clock" | "mailQuota">,
+    private readonly services: Pick<AppServices, "db" | "clock" | "mailQuota" | "mailHolds">,
     private readonly random: () => number,
     private readonly gap: GapRange = { min: MIN_GAP_MS, max: MAX_GAP_MS },
   ) {}
@@ -33,34 +30,15 @@ export class MailPacer {
   /** When the mailbox may send again; null when it may send now. */
   waitUntil(mailbox: Pick<MailboxRow, "id" | "dailyCap">): Date | null {
     const now = this.services.clock.now().getTime();
-    const candidates = [this.gapEnd(mailbox.id), this.capLifts(mailbox), this.holdEnd(mailbox.id)]
+    const candidates = [
+      this.gapEnd(mailbox.id),
+      this.capLifts(mailbox),
+      this.services.mailHolds.until(mailbox.id),
+    ]
       .filter((at): at is Date => at !== null)
       .filter((at) => at.getTime() > now);
     if (candidates.length === 0) return null;
     return new Date(Math.max(...candidates.map((at) => at.getTime())));
-  }
-
-  /**
-   * Stops a mailbox that cannot reach its server or log in, for longer after each failure in a row.
-   * Every send waiting behind it would fail the same way, and a short outage would otherwise use
-   * up the attempts of the whole queue.
-   */
-  hold(mailboxId: string): Date {
-    const failures = (this.holds.get(mailboxId)?.failures ?? 0) + 1;
-    const delay = Math.min(MAILBOX_HOLD_MAX_MS, MAILBOX_HOLD_BASE_MS * 2 ** (failures - 1));
-    const until = this.services.clock.now().getTime() + delay;
-    this.holds.set(mailboxId, { until, failures });
-    return new Date(until);
-  }
-
-  /** The mailbox worked, so the next failure starts from the shortest hold again. */
-  clearHold(mailboxId: string): void {
-    this.holds.delete(mailboxId);
-  }
-
-  private holdEnd(mailboxId: string): Date | null {
-    const hold = this.holds.get(mailboxId);
-    return hold ? new Date(hold.until) : null;
   }
 
   /** Profiles whose mailbox has to wait, so a claim does not lease a send that cannot go yet. */

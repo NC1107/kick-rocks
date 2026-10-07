@@ -152,7 +152,7 @@ export class EmailRunner {
       return false;
     }
 
-    this.pacer.clearHold(mailbox.id);
+    this.services.mailHolds.clear(mailbox.id);
     this.services.db
       .update(mailboxes)
       .set({ lastError: null })
@@ -165,7 +165,7 @@ export class EmailRunner {
   /** Hands the task back without spending an attempt and shows the person why the mailbox is idle. */
   private holdMailbox(task: EmailTask, mailboxId: string, error: unknown): void {
     const { db, taskQueue } = this.services;
-    const until = this.pacer.hold(mailboxId);
+    const until = this.services.mailHolds.hold(mailboxId);
     db.transaction(() => {
       db.update(mailboxes)
         .set({ lastError: `Sending is paused: ${describeError(error)}` })

@@ -189,6 +189,7 @@ export default defineMockDomain({
       dailyCap: 150,
       lastPolledAt: store.ago({ minutes: 6 }),
       lastError: null,
+      sendPausedUntil: null,
       createdAt: store.ago({ days: 90 }),
     };
     jordan.mailbox = mailbox;
@@ -253,6 +254,7 @@ export default defineMockDomain({
         ...fields,
         lastPolledAt: profile.mailbox?.lastPolledAt ?? null,
         lastError: null,
+        sendPausedUntil: null,
         createdAt: profile.mailbox?.createdAt ?? store.clock.now().toISOString(),
       };
       profile.mailbox = mailbox;

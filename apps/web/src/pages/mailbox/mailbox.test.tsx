@@ -304,6 +304,24 @@ describe("a connected mailbox", () => {
     expect(screen.getByText("Login failed: invalid credentials.")).toBeInTheDocument();
   });
 
+  it("says sending is paused, and until when, while the pause applies", async () => {
+    const mock = createMockApp();
+    const mailbox = mock.store.profiles[0]?.mailbox;
+    if (mailbox) mailbox.sendPausedUntil = new Date(Date.now() + 25 * 60_000).toISOString();
+    open("jordan", mock);
+    expect(await screen.findByText("Sending is paused")).toBeInTheDocument();
+    expect(screen.getByText(/go out in 25 minutes/)).toBeInTheDocument();
+  });
+
+  it("says nothing about a pause that has ended or never was", async () => {
+    const mock = createMockApp();
+    const mailbox = mock.store.profiles[0]?.mailbox;
+    if (mailbox) mailbox.sendPausedUntil = new Date(Date.now() - 60_000).toISOString();
+    open("jordan", mock);
+    await screen.findByRole("heading", { name: "jordan@example.com" });
+    expect(screen.queryByText("Sending is paused")).toBeNull();
+  });
+
   it("checks the inbox on request", async () => {
     const mock = createMockApp();
     const seen = instrument(mock);

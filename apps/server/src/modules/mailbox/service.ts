@@ -9,7 +9,7 @@ import { findProviderPreset } from "../../mail/presets.js";
 import type { MailConnection } from "../../mail/types.js";
 import type { AppServices } from "../../services.js";
 
-type MailboxServices = Pick<AppServices, "db" | "clock" | "taskQueue">;
+type MailboxServices = Pick<AppServices, "db" | "clock" | "taskQueue" | "mailHolds">;
 
 export function findMailbox(services: MailboxServices, profileId: string): MailboxRow | null {
   return (
@@ -25,7 +25,7 @@ export function requireMailbox(services: MailboxServices, profileId: string): Ma
 }
 
 /** The mailbox as the client may see it: everything except the app password. */
-export function toMailbox(row: MailboxRow): Mailbox {
+export function toMailbox(row: MailboxRow, sendPausedUntil: Date | null): Mailbox {
   return {
     id: row.id,
     profileId: row.profileId,
@@ -41,6 +41,7 @@ export function toMailbox(row: MailboxRow): Mailbox {
     dailyCap: row.dailyCap,
     lastPolledAt: row.lastPolledAt,
     lastError: row.lastError,
+    sendPausedUntil: sendPausedUntil?.toISOString() ?? null,
     createdAt: row.createdAt,
   };
 }
@@ -70,7 +71,7 @@ type Connecting = Pick<
 >;
 
 /** A saved password was issued for one account on one pair of servers, and goes nowhere else. */
-function sameDestination(stored: MailboxRow, body: Connecting): boolean {
+export function sameDestination(stored: MailboxRow, body: Connecting): boolean {
   return (
     stored.username === body.username &&
     stored.smtpHost === body.smtpHost &&
@@ -149,6 +150,8 @@ export function saveMailbox(
     dailyCap: body.dailyCap,
   };
 
+  // A fixed mailbox gets to try again at once instead of waiting out a pause its old settings earned.
+  if (existing) services.mailHolds.clear(existing.id);
   if (!existing) {
     return services.db
       .insert(mailboxes)

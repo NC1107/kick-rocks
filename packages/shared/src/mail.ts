@@ -177,6 +177,8 @@ export const Mailbox = z.object({
   dailyCap: z.number().int().positive(),
   lastPolledAt: z.iso.datetime().nullable(),
   lastError: z.string().nullable(),
+  /** While set and in the future, sending is paused because the mail server could not be used. */
+  sendPausedUntil: z.iso.datetime().nullable(),
   createdAt: z.iso.datetime(),
 });
 export type Mailbox = z.infer<typeof Mailbox>;

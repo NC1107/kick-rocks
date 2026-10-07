@@ -14,6 +14,7 @@ import { type Clock, systemClock } from "./core/clock.js";
 import { type Composer, createComposer } from "./core/composer.js";
 import { createDispatch, type Dispatch } from "./core/dispatch.js";
 import { createLogger, type Logger } from "./core/logger.js";
+import { createMailHolds, type MailHolds } from "./core/mail-holds.js";
 import { createMailQuota, type MailQuota } from "./core/mail-quota.js";
 import { createRecipeHealth, type RecipeHealthService } from "./core/recipe-health.js";
 import { createRequestFlow, type Requests } from "./core/request-flow.js";
@@ -52,6 +53,8 @@ export interface AppServices {
   composer: Composer;
   /** What each mailbox has sent, shared by the daily cap, the pacing, and the dashboard. */
   mailQuota: MailQuota;
+  /** Mailboxes sending is paused for, shared by the email runner and the mailbox settings. */
+  mailHolds: MailHolds;
   /** Steps that run once after the targets are synced, in `buildApp`. */
   startup: Startup;
   secrets: Secrets;
@@ -148,6 +151,7 @@ export function createServices(
     dispatch,
     composer: createComposer({ db, clock, legal, targets }),
     mailQuota: createMailQuota(db, clock),
+    mailHolds: createMailHolds(clock),
     startup: createStartup(),
     secrets,
     mail: overrides.mail ?? createMailServices(config, settings),

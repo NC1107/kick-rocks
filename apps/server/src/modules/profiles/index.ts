@@ -36,8 +36,8 @@ function requireValid(inputs: readonly IdentityInput[], clock: Clock): void {
   if (issues.length > 0) throw invalidRequest("The identities are not valid", issues);
 }
 
-export const profilesModule: ModulePlugin = (app, { db, clock }) => {
-  const store = createProfileStore({ db, clock });
+export const profilesModule: ModulePlugin = (app, { db, clock, mailHolds }) => {
+  const store = createProfileStore({ db, clock, mailHolds });
 
   registerRoute(app, API_ROUTES.profilesList, () => ({ profiles: store.list() }));
 

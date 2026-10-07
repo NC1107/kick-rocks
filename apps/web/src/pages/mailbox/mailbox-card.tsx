@@ -3,6 +3,18 @@ import { useApiQuery } from "../../api/index.js";
 import { Alert, Card, CardHeader, DescriptionList, LinkButton } from "../../components/ui/index.js";
 import { formatRelative } from "../../lib/format.js";
 
+/** Why requests are waiting, shown while the server holds sending back after a mail server failure. */
+export function SendPauseAlert({ mailbox }: { mailbox: Mailbox }) {
+  if (!mailbox.sendPausedUntil || Date.parse(mailbox.sendPausedUntil) <= Date.now()) return null;
+  return (
+    <Alert intent="warning" title="Sending is paused" className="mb-4">
+      The mail server could not be used, so requests wait and go out{" "}
+      {formatRelative(mailbox.sendPausedUntil)}. Saving the connection or testing it successfully
+      starts sending again at once.
+    </Alert>
+  );
+}
+
 /** The facts of a saved mailbox. The password is never among them: the server does not send it. */
 export function MailboxFacts({
   mailbox,
@@ -85,6 +97,7 @@ export function MailboxCard({
           {mailbox.lastError}
         </Alert>
       ) : null}
+      <SendPauseAlert mailbox={mailbox} />
       <MailboxFacts mailbox={mailbox} providerLabel={label} />
     </Card>
   );
