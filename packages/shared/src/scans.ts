@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { TargetOutcome } from "./campaigns.js";
 import { Candidate, TaskStatus } from "./tasks.js";
+import { WebUrl } from "./url.js";
 
 export const MatchDecision = z.enum(["pending", "mine", "not_mine"]);
 export type MatchDecision = z.infer<typeof MatchDecision>;
@@ -15,7 +16,7 @@ export const Match = z.object({
   profileId: z.string(),
   targetId: z.string(),
   targetName: z.string(),
-  recordUrl: z.url(),
+  recordUrl: WebUrl,
   fields: MatchFields,
   decision: MatchDecision,
   decidedAt: z.iso.datetime().nullable(),

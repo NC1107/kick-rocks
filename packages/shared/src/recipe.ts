@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { ProfileField } from "./identities.js";
 import { templateFields } from "./template.js";
+import { WebUrl } from "./url.js";
 
 export const RecipePurpose = z.enum(["scan", "remove"]);
 export type RecipePurpose = z.infer<typeof RecipePurpose>;
@@ -19,7 +20,6 @@ export const RecipeLiveStatus = z.enum(["verified", "blocked_by_bot_protection",
 export type RecipeLiveStatus = z.infer<typeof RecipeLiveStatus>;
 
 /** Scripts only ever navigate to web pages; a recipe is data and must not smuggle in other schemes. */
-const HttpUrl = z.url({ protocol: /^https?$/ });
 const HttpUrlTemplate = z.string().regex(/^https?:\/\//, "Must start with http:// or https://");
 
 /** Locators in order of preference: role and label, test id, CSS, then visible text. */
@@ -165,11 +165,11 @@ export const Recipe = z
     brokerId: z.string().min(1),
     version: z.number().int().positive(),
     purpose: RecipePurpose,
-    entryUrl: HttpUrl,
+    entryUrl: WebUrl,
     fields: z.array(ProfileField),
     steps: z.array(RecipeStep).min(1).max(100),
     canary: z.object({
-      url: HttpUrl,
+      url: WebUrl,
       selectors: z.array(Selector).min(1),
     }),
     notes: z.string().nullable().default(null),

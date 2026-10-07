@@ -5,6 +5,7 @@ import {
   type Broker,
   type BrokerDataset,
   BrokerDataset as BrokerDatasetSchema,
+  COMPANY_DATASET_LICENSE,
   type Company,
   type CompanyDataset,
   CompanyDataset as CompanyDatasetSchema,
@@ -12,7 +13,7 @@ import {
 
 export { parseCaRegistry } from "./import/ca-registry.js";
 export { parseEraserBrokers } from "./import/eraser.js";
-export { mergeBrokers } from "./merge.js";
+export { type MergeOptions, mergeBrokers } from "./merge.js";
 
 const generatedFile = resolve(
   dirname(fileURLToPath(import.meta.url)),
@@ -49,10 +50,22 @@ const companiesFile = resolve(
   "companies.json",
 );
 
+/**
+ * Whether the company file is present. A caller that syncs targets must treat its absence as
+ * "unavailable", because an empty list would retire every company the instance already knows.
+ */
+export function hasCompanyDataset(): boolean {
+  return existsSync(companiesFile);
+}
+
 /** The hand-curated company list. Missing means there is none yet, not that something broke. */
 export function loadCompanyDataset(): CompanyDataset {
-  if (!existsSync(companiesFile)) {
-    return { generatedAt: new Date(0).toISOString(), companies: [] };
+  if (!hasCompanyDataset()) {
+    return {
+      generatedAt: new Date(0).toISOString(),
+      license: COMPANY_DATASET_LICENSE,
+      companies: [],
+    };
   }
   return CompanyDatasetSchema.parse(JSON.parse(readFileSync(companiesFile, "utf8")));
 }

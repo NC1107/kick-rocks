@@ -1,7 +1,13 @@
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { type BrokerDataset, BrokerDataset as BrokerDatasetSchema } from "@kickrocks/shared";
+import {
+  BROKER_DATASET_ATTRIBUTION,
+  BROKER_DATASET_LICENSE,
+  type BrokerDataset,
+  BrokerDataset as BrokerDatasetSchema,
+} from "@kickrocks/shared";
+import { z } from "zod";
 import { parseCaRegistry } from "./import/ca-registry.js";
 import { parseEraserBrokers } from "./import/eraser.js";
 import { mergeBrokers } from "./merge.js";
@@ -10,12 +16,37 @@ const here = dirname(fileURLToPath(import.meta.url));
 const dataDir = resolve(here, "..", "data");
 const upstream = resolve(dataDir, "upstream");
 const outFile = resolve(dataDir, "generated", "brokers.json");
+export const IDS_FILE = resolve(dataDir, "ids.json");
 
-export function buildDataset(): BrokerDataset {
+const PinnedIds = z.record(z.string(), z.string().regex(/^[a-z0-9][a-z0-9-]*$/));
+
+/** The committed domain to id map. See {@link mergeBrokers} for why ids are pinned. */
+export function loadPinnedIds(file = IDS_FILE): Record<string, string> {
+  return existsSync(file) ? PinnedIds.parse(JSON.parse(readFileSync(file, "utf8"))) : {};
+}
+
+export function buildDataset(
+  pinnedIds: Readonly<Record<string, string>> = loadPinnedIds(),
+): BrokerDataset {
   const eraser = parseEraserBrokers(readFileSync(resolve(upstream, "eraser-brokers.yaml"), "utf8"));
   const registry = parseCaRegistry(readFileSync(resolve(upstream, "ca-registry-2025.csv"), "utf8"));
-  const brokers = mergeBrokers(eraser, registry);
-  return BrokerDatasetSchema.parse({ generatedAt: new Date().toISOString(), brokers });
+  const brokers = mergeBrokers([eraser, registry], { pinnedIds });
+  return BrokerDatasetSchema.parse({
+    generatedAt: new Date().toISOString(),
+    license: BROKER_DATASET_LICENSE,
+    attribution: BROKER_DATASET_ATTRIBUTION,
+    brokers,
+  });
+}
+
+/** Pins the id of every domain the dataset has that the map does not, keeping the map sorted. */
+export function pinNewIds(
+  pinnedIds: Readonly<Record<string, string>>,
+  dataset: BrokerDataset,
+): Record<string, string> {
+  const next = { ...pinnedIds };
+  for (const broker of dataset.brokers) next[broker.domain] ??= broker.id;
+  return Object.fromEntries(Object.entries(next).sort(([a], [b]) => a.localeCompare(b)));
 }
 
 function summarize(dataset: BrokerDataset): string {
@@ -34,9 +65,17 @@ function summarize(dataset: BrokerDataset): string {
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  const dataset = buildDataset();
+  const pinned = loadPinnedIds();
+  const dataset = buildDataset(pinned);
   mkdirSync(dirname(outFile), { recursive: true });
   writeFileSync(outFile, `${JSON.stringify(dataset, null, 2)}\n`);
   console.log(summarize(dataset));
   console.log(`wrote ${outFile}`);
+
+  const pinnedNow = pinNewIds(pinned, dataset);
+  const added = Object.keys(pinnedNow).length - Object.keys(pinned).length;
+  if (added > 0) {
+    writeFileSync(IDS_FILE, `${JSON.stringify(pinnedNow, null, 2)}\n`);
+    console.log(`pinned ${added} new broker ids in ${IDS_FILE}; commit it so they never change`);
+  }
 }

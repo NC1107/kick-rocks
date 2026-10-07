@@ -2,6 +2,7 @@ import { z } from "zod";
 import { ProfileField } from "./identities.js";
 import { Recipe } from "./recipe.js";
 import { TargetSummary } from "./targets.js";
+import { WebUrl } from "./url.js";
 
 export const TaskKind = z.enum([
   "email_send",
@@ -61,7 +62,6 @@ export const TaskLease = z.object({
 export type TaskLease = z.infer<typeof TaskLease>;
 
 const id = z.string().min(1);
-const WebUrl = z.url({ protocol: /^https?$/ });
 
 /** Payloads hold ids only. Personal data is resolved from the profile when a task is claimed. */
 export const EmailSendPayload = z.object({ requestId: id, followUp: z.boolean() });

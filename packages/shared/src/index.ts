@@ -18,4 +18,5 @@ export * from "./settings.js";
 export * from "./targets.js";
 export * from "./tasks.js";
 export * from "./template.js";
+export * from "./url.js";
 export * from "./worker.js";

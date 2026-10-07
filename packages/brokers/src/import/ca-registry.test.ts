@@ -36,13 +36,21 @@ const bareDomain = row({
 
 const nameless = row({ 2: "https://ignored.example" });
 
-const csv = [header1, header2, explorium, bareDomain, nameless].join("\n");
+// The registry puts every site a broker runs in one cell, separated by semicolons and line breaks.
+const manySites = row({
+  0: "Many Sites LLC",
+  2: "https://www.first.example;\nhttps://second.example",
+  3: "privacy@first.example",
+  14: "https://www.first.example/privacy;\nhttps://second.example/privacy",
+});
+
+const csv = [header1, header2, explorium, bareDomain, nameless, manySites].join("\n");
 
 describe("parseCaRegistry", () => {
   const brokers = parseCaRegistry(csv);
 
   it("skips both header rows and nameless rows", () => {
-    expect(brokers.map((b) => b.id)).toEqual(["explorium-inc", "bare-domain-co"]);
+    expect(brokers.map((b) => b.id)).toEqual(["explorium-inc", "bare-domain-co", "many-sites-llc"]);
   });
 
   it("extracts contact, flags, regimes and metrics", () => {
@@ -73,5 +81,15 @@ describe("parseCaRegistry", () => {
     const bare = brokers[1];
     expect(bare?.website).toBe("https://baredomain.example");
     expect(bare?.privacyEmail).toBe("privacy@baredomain.example");
+  });
+
+  it("reads the first site of a multi-site cell as the broker's own and keeps the rest as a note", () => {
+    const many = brokers[2];
+    expect(many).toMatchObject({
+      domain: "first.example",
+      website: "https://www.first.example",
+      privacyRightsUrl: "https://www.first.example/privacy",
+      notes: "Other sites: https://second.example",
+    });
   });
 });

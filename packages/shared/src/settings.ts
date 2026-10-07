@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { DataSourceId } from "./broker.js";
+import { WebUrl } from "./url.js";
 
 const pollMinutes = z.number().int().min(1).max(1440);
 const rescanDays = z.number().int().min(1).max(365);
@@ -28,7 +29,7 @@ export type SchedulePatch = z.infer<typeof SchedulePatch>;
 
 /** Any OpenAI-compatible endpoint, such as Ollama, used to classify mail the rules cannot. */
 export const LlmSettings = z.object({
-  baseUrl: z.url(),
+  baseUrl: WebUrl,
   model: z.string().min(1),
   apiKey: z.string().nullable(),
 });
@@ -36,7 +37,7 @@ export type LlmSettings = z.infer<typeof LlmSettings>;
 
 /** The LLM settings as shown to the client, which never receives the key. */
 export const LlmSettingsView = z.object({
-  baseUrl: z.url(),
+  baseUrl: WebUrl,
   model: z.string(),
   apiKeySet: z.boolean(),
 });
@@ -72,7 +73,7 @@ export const SettingsView = z.object({
     enabled: z.boolean(),
     tokenSet: z.boolean(),
     /** Where an MCP client connects, built from KICKROCKS_PUBLIC_URL. */
-    url: z.url(),
+    url: WebUrl,
   }),
   worker: z.object({
     /** False when KICKROCKS_WORKER_TOKEN is unset and the worker API is switched off. */
@@ -87,7 +88,7 @@ export const SettingsPatch = z.object({
   /** Null removes the LLM; an omitted apiKey keeps the stored one. */
   llm: z
     .object({
-      baseUrl: z.url(),
+      baseUrl: WebUrl,
       model: z.string().min(1),
       apiKey: z.string().min(1).nullable().optional(),
     })
@@ -100,7 +101,7 @@ export type SettingsPatch = z.infer<typeof SettingsPatch>;
 export const DataSourceInfo = z.object({
   id: DataSourceId,
   name: z.string(),
-  url: z.url(),
+  url: WebUrl,
   license: z.string(),
   attribution: z.string().nullable(),
   /** Targets currently carrying this source. */

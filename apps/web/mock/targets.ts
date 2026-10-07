@@ -362,7 +362,7 @@ export default defineMockDomain({
         requiresId: requirements.includes("id_upload") || category === "requires-id",
         requirements,
         priority: seed.priority,
-        needsRecord: needsRecord({ category, requirements }),
+        needsRecord: needsRecord({ id, category }),
         ...contactFields(domain, seed.contact),
         searchUrl:
           category === "people-search" || category === "background-check"

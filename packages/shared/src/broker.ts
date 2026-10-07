@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { WebUrl } from "./url.js";
 
 export const BrokerCategory = z.enum([
   "people-search",
@@ -67,13 +68,13 @@ export const Broker = z.object({
   id: z.string().regex(/^[a-z0-9][a-z0-9-]*$/),
   name: z.string().min(1),
   category: BrokerCategory,
-  website: z.url().nullable(),
+  website: WebUrl.nullable(),
   domain: z.string().min(1),
   privacyEmail: z.email().nullable(),
-  optOutUrl: z.url().nullable(),
-  privacyRightsUrl: z.url().nullable(),
+  optOutUrl: WebUrl.nullable(),
+  privacyRightsUrl: WebUrl.nullable(),
   /** Where a person finds their own record, for sites that need a record URL to remove it. */
-  searchUrl: z.url().nullable(),
+  searchUrl: WebUrl.nullable(),
   contactMethod: ContactMethod,
   region: z.enum(["us", "eu", "global"]),
   requiresId: z.boolean(),
@@ -89,8 +90,17 @@ export const Broker = z.object({
 });
 export type Broker = z.infer<typeof Broker>;
 
+/** The license the generated broker file is distributed under, because BADBOOL's ShareAlike clause covers the whole file. */
+export const BROKER_DATASET_LICENSE = "CC-BY-NC-SA-4.0";
+
+/** Credit that has to travel with the generated file wherever it goes. */
+export const BROKER_DATASET_ATTRIBUTION =
+  "Contains data from the Big Ass Data Broker Opt-Out List by Yael Grauer (CC BY-NC-SA 4.0), the Eraser broker list (MIT), and the California Data Broker Registry (public record).";
+
 export const BrokerDataset = z.object({
   generatedAt: z.iso.datetime(),
+  license: z.literal(BROKER_DATASET_LICENSE),
+  attribution: z.string().min(1),
   brokers: z.array(Broker),
 });
 export type BrokerDataset = z.infer<typeof BrokerDataset>;

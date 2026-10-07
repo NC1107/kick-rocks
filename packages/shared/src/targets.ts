@@ -7,6 +7,7 @@ import {
   TargetPriority,
 } from "./broker.js";
 import { RecipeHealth, RecipePurpose, RecipeSource, RecipeStatus } from "./recipe.js";
+import { WebUrl } from "./url.js";
 
 export const TargetKind = z.enum(["broker", "company"]);
 export type TargetKind = z.infer<typeof TargetKind>;
@@ -35,8 +36,8 @@ export const Company = z.object({
   domain: z.string().min(1),
   category: CompanyCategory,
   privacyEmail: z.email().nullable(),
-  optOutUrl: z.url().nullable(),
-  privacyRightsUrl: z.url().nullable(),
+  optOutUrl: WebUrl.nullable(),
+  privacyRightsUrl: WebUrl.nullable(),
   contactMethod: ContactMethod,
   notes: z.string().nullable(),
   sources: z.array(DataSource).min(1),
@@ -45,8 +46,12 @@ export const Company = z.object({
 });
 export type Company = z.infer<typeof Company>;
 
+/** The company list is written by hand for this project, so it carries the project's own license. */
+export const COMPANY_DATASET_LICENSE = "PolyForm-Noncommercial-1.0.0";
+
 export const CompanyDataset = z.object({
   generatedAt: z.iso.datetime(),
+  license: z.literal(COMPANY_DATASET_LICENSE),
   companies: z.array(Company),
 });
 export type CompanyDataset = z.infer<typeof CompanyDataset>;
@@ -57,14 +62,20 @@ const PEOPLE_SEARCH_LIKE: ReadonlySet<TargetCategory> = new Set([
 ]);
 
 /**
+ * Targets in a people-search category that remove a person from identifiers alone, so no record
+ * URL is needed. Add an id only after reading its opt-out page; the default is that a listing has
+ * to be found first.
+ */
+export const RECORD_NOT_NEEDED: ReadonlySet<string> = new Set();
+
+/**
  * People-search and background-check sites cannot remove a record they cannot locate, so a
  * removal there starts from a scan that finds the record URL instead of a blind request.
+ * The category decides, not a requirement flag in the dataset, because a flag that one import
+ * forgets to set would quietly turn every one of these sites into a blind form request.
  */
-export function needsRecord(target: {
-  category: TargetCategory;
-  requirements: readonly Requirement[];
-}): boolean {
-  return PEOPLE_SEARCH_LIKE.has(target.category) && target.requirements.includes("record_url");
+export function needsRecord(target: { id: string; category: TargetCategory }): boolean {
+  return PEOPLE_SEARCH_LIKE.has(target.category) && !RECORD_NOT_NEEDED.has(target.id);
 }
 
 /** What lists, claims, and agents need to know about a target. Contains no personal data. */
@@ -74,7 +85,7 @@ export const TargetSummary = z.object({
   name: z.string(),
   category: TargetCategory,
   domain: z.string(),
-  website: z.url().nullable(),
+  website: WebUrl.nullable(),
   contactMethod: ContactMethod,
   requiresId: z.boolean(),
   requirements: z.array(Requirement),
@@ -96,9 +107,9 @@ export type TargetRecipe = z.infer<typeof TargetRecipe>;
 
 export const TargetDetail = TargetSummary.extend({
   privacyEmail: z.email().nullable(),
-  optOutUrl: z.url().nullable(),
-  privacyRightsUrl: z.url().nullable(),
-  searchUrl: z.url().nullable(),
+  optOutUrl: WebUrl.nullable(),
+  privacyRightsUrl: WebUrl.nullable(),
+  searchUrl: WebUrl.nullable(),
   region: z.enum(["us", "eu", "global"]),
   notes: z.string().nullable(),
   sources: z.array(DataSource),

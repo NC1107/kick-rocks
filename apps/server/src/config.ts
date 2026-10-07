@@ -1,4 +1,5 @@
 import { resolve } from "node:path";
+import { WebUrl } from "@kickrocks/shared";
 import { z } from "zod";
 
 const Env = z.object({
@@ -6,7 +7,7 @@ const Env = z.object({
   KICKROCKS_HOST: z.string().default("127.0.0.1"),
   KICKROCKS_PORT: z.coerce.number().int().positive().default(8420),
   KICKROCKS_WEB_DIST: z.string().optional(),
-  KICKROCKS_PUBLIC_URL: z.url().optional(),
+  KICKROCKS_PUBLIC_URL: WebUrl.optional(),
   KICKROCKS_WORKER_TOKEN: z
     .string()
     .min(16, "KICKROCKS_WORKER_TOKEN must be at least 16 characters")

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { WebUrl } from "./url.js";
 
 export const ReplyClassification = z.enum([
   "bounce",
@@ -95,7 +96,7 @@ export const ProviderPreset = z.object({
   smtpSecure: z.boolean(),
   imapHost: z.string(),
   imapPort: z.number().int().min(1).max(65535),
-  appPasswordUrl: z.url().nullable(),
+  appPasswordUrl: WebUrl.nullable(),
   notes: z.string(),
   defaultDailyCap: z.number().int().positive(),
   supported: z.boolean(),
@@ -178,7 +179,7 @@ export const MessageSummary = z.object({
   classification: ReplyClassification,
   confidence: z.number().min(0).max(1),
   rationale: z.string().nullable(),
-  links: z.array(z.url()),
+  links: z.array(WebUrl),
   snippet: z.string().nullable(),
   reviewed: z.boolean(),
 });

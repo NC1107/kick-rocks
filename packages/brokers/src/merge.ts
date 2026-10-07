@@ -39,10 +39,26 @@ function mergePair(primary: Broker, secondary: Broker): Broker {
   };
 }
 
-/** Merges broker lists by domain. Earlier lists win ties, so pass the most curated list first. */
-export function mergeBrokers(...lists: readonly Broker[][]): Broker[] {
+export interface MergeOptions {
+  /**
+   * Domain to id, committed in `data/ids.json`. Recipes and requests refer to a broker by id, so an
+   * id that has been published never changes, whichever list a record comes from or wins with.
+   */
+  pinnedIds?: Readonly<Record<string, string>>;
+}
+
+/**
+ * Merges broker lists by domain. Earlier lists win ties, so pass the most curated list first.
+ * A domain with a pinned id keeps it; every other record keeps its own id unless that id belongs to
+ * someone else, in which case the domain is added to make it unique.
+ */
+export function mergeBrokers(
+  lists: readonly (readonly Broker[])[],
+  { pinnedIds = {} }: MergeOptions = {},
+): Broker[] {
   const byDomain = new Map<string, Broker>();
   const usedIds = new Set<string>();
+  const reservedIds = new Set(Object.values(pinnedIds));
   for (const list of lists) {
     for (const broker of list) {
       const existing = byDomain.get(broker.domain);
@@ -50,8 +66,11 @@ export function mergeBrokers(...lists: readonly Broker[][]): Broker[] {
         byDomain.set(broker.domain, mergePair(existing, broker));
         continue;
       }
-      let id = broker.id;
-      if (usedIds.has(id)) id = `${id}-${broker.domain.replace(/[^a-z0-9]+/g, "-")}`;
+      const pinned = pinnedIds[broker.domain];
+      let id = pinned ?? broker.id;
+      if (pinned === undefined && (usedIds.has(id) || reservedIds.has(id))) {
+        id = `${id}-${broker.domain.replace(/[^a-z0-9]+/g, "-")}`;
+      }
       usedIds.add(id);
       byDomain.set(broker.domain, { ...broker, id });
     }

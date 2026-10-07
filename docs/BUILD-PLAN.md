@@ -113,6 +113,12 @@ Every type below is a zod schema plus its inferred type.
 - `requirements: Requirement[]`, from `email_confirmation`, `phone_call`, `id_upload`, `captcha`, `account`, `paid`, `record_url`, `postal_mail`, `fax`.
 - `priority: "crucial" | "high" | "normal"`.
 - `DataSourceId` adds `badbool` and `kickrocks-companies`; license adds `CC-BY-NC-SA-4.0`.
+- `BrokerDataset` carries `license: "CC-BY-NC-SA-4.0"` and an `attribution` string, and `CompanyDataset` carries `license: "PolyForm-Noncommercial-1.0.0"`, because parsing drops any field the schema does not name.
+- Every URL field uses `WebUrl` (http or https only), never `z.url()`, which accepts `javascript:` and `data:`.
+  `isOnDomain(url, domain)` says whether a URL is on a domain or its subdomains, and `normalizeRecordUrl(url)` gives one spelling to every URL that names the same record.
+  Scans, match decisions, and the recipe step that clicks a record all compare record URLs through it.
+- `needsRecord({ id, category })` is true for every `people-search` and `background-check` target, except ids listed in `RECORD_NOT_NEEDED`, which starts empty.
+  The category decides, not a `record_url` requirement flag, so an import that forgets the flag cannot turn these sites into blind form requests.
 
 `Company` is a target of kind company: id, name, domain, category (`retail`, `finance`, `telecom`, `tech`, `media`, `travel`, `auto`, `health`, `other`), privacyEmail, optOutUrl, privacyRightsUrl, contactMethod, notes, sources, `verifiedAt` date.
 `CompanyDataset` mirrors `BrokerDataset`.
@@ -216,7 +222,7 @@ Core services the foundation implements fully, with tests:
 - **`core/targets.ts`.** On startup, upserts the broker and company datasets (and `KICKROCKS_EXTRA_TARGETS`) into `targets`, sets `datasetVersion`, and marks vanished records `retired` instead of deleting them.
 - **`core/dispatch.ts`.** `dispatchRequest(request)` enqueues `email_send` for email requests, and for form requests enqueues `form` with the active remove recipe or `agent` (purpose remove, reason `no_recipe`) when none exists.
   `enqueueScan(profileId, targetId)` enqueues `scan` with the active scan recipe or an `agent` scan task.
-  `needsRecord(target)` is true for people-search and background-check targets whose form needs a record URL.
+  `needsRecord(target)` is the shared rule above.
 - **`core/secrets.ts`.** Token generation, sha256 hashing, constant-time comparison, worker and MCP token checks.
 - **`core/claim.ts`.** Builds a `ClaimedTask`: loads the target and recipe, resolves `fields` from the profile's identities, and writes `instructions` for agent tasks (what to do, what never to do, and the exact result shape to report).
 
@@ -335,13 +341,46 @@ State-changing routes also require the header `X-Kick-Rocks: 1`, which a cross-s
 ### G. recipes
 
 - Author `scan` and `remove` recipes, each with a canary, for the highest-priority people-search sites: Spokeo, Whitepages, BeenVerified, Intelius and the PeopleConnect suppression center, MyLife, Nuwber, SmartBackgroundChecks and PeopleFinders, That's Them, FastPeopleSearch, TruePeopleSearch, USPhonebook, FamilyTreeNow, Radaris, CheckPeople, and ClustrMaps.
+- Use these broker ids, which are pinned in `packages/brokers/data/ids.json`.
+  A recipe's file name and `brokerId` embed the id, and `apps/server/src/core/bundled-recipes.test.ts` fails when a bundled recipe names a broker that is not in the generated dataset or whose `entryUrl` is off that broker's domain.
+  The three marked reserved have no record in the dataset until H lands the BADBOOL import, so write those recipes last and expect that test to fail for them until then.
+
+  | Site | Broker id |
+  |---|---|
+  | Spokeo | `spokeo` |
+  | Whitepages | `whitepages` |
+  | BeenVerified | `beenverified` |
+  | Intelius | `intelius` |
+  | PeopleConnect suppression center | `peopleconnect` |
+  | MyLife | `mylife` |
+  | Nuwber | `nuwber` |
+  | SmartBackgroundChecks | `smartbackgroundchecks` (reserved) |
+  | PeopleFinders | `peoplefinders` |
+  | That's Them | `thatsthem` |
+  | FastPeopleSearch | `fastpeoplesearch` |
+  | TruePeopleSearch | `truepeoplesearch` |
+  | USPhonebook | `usphonebook` |
+  | FamilyTreeNow | `familytreenow` |
+  | Radaris | `radaris` (reserved) |
+  | CheckPeople | `checkpeople` |
+  | ClustrMaps | `clustrmaps` (reserved) |
+
 - Inspect each live page read-only to choose selectors; never submit.
 - Record in each recipe's notes what was verified live, what was blocked by bot protection, and when.
 
 ### H. datasets
 
 - BADBOOL importer from a pinned copy of its README with its license file, mapping crucial and high-priority markers to `priority`, phone, ID, and paid markers to `requirements`, the search and opt-out links to `searchUrl` and `optOutUrl`, and its notes to `notes`.
+  Set `record_url` in `requirements` whenever the BADBOOL entry has a search link or its opt-out asks for a listing URL.
+  The request flow does not depend on it (`needsRecord` reads the category), but the target list shows it.
 - Merge order: BADBOOL, then Eraser, then the California registry, so the freshest curated people-search data wins.
+- Broker ids are permanent.
+  `packages/brokers/data/ids.json` maps every domain to its id and is committed.
+  The merge keeps the id pinned for a domain whichever source wins, and `pnpm data:build` appends the id of any new domain, so commit the file whenever it changes.
+  A test fails when a generated broker has no pinned id.
+  The map already reserves the ids of the sites in 5.G whose records are not in the dataset yet, so the BADBOOL import must produce `radaris.com`, `clustrmaps.com`, and `smartbackgroundchecks.com` records and the merge assigns them those ids.
+- Registry website cells list several sites; the importer takes the first as the broker's own and records the rest in `notes`.
+  A test asserts every generated domain is a valid hostname.
 - A hand-curated company dataset of at least 75 major US consumer companies with first-party privacy contacts, each checked against the company's own privacy page with a `verifiedAt` date.
 - Other state data broker registries (Vermont, Texas, Oregon) when a structured download exists; otherwise document why not.
 - `packages/brokers/data/NOTICE.md` with per-source licenses and the BADBOOL attribution; the generated dataset carries a license field.

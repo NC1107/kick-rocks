@@ -1,7 +1,13 @@
-import { hasGeneratedDataset, loadBrokerDataset, loadCompanyDataset } from "@kickrocks/brokers";
+import {
+  hasCompanyDataset,
+  hasGeneratedDataset,
+  loadBrokerDataset,
+  loadCompanyDataset,
+} from "@kickrocks/brokers";
 import type { KickRocksDb } from "@kickrocks/db";
 import type { LegalApi } from "@kickrocks/legal";
 import * as legalExports from "@kickrocks/legal";
+import type { BrokerDataset, CompanyDataset } from "@kickrocks/shared";
 import type { Config } from "./config.js";
 import type { AuthService } from "./core/auth.js";
 import { type Clock, systemClock } from "./core/clock.js";
@@ -52,15 +58,32 @@ export interface ServiceOverrides {
   targetSources?: TargetSources;
 }
 
-export function datasetSources(): TargetSources {
+/** Where the dataset files are read from, so a test can say what is and is not on disk. */
+export interface DatasetFiles {
+  hasBrokers(): boolean;
+  loadBrokers(): BrokerDataset;
+  hasCompanies(): boolean;
+  loadCompanies(): CompanyDataset;
+}
+
+const diskDatasets: DatasetFiles = {
+  hasBrokers: hasGeneratedDataset,
+  loadBrokers: loadBrokerDataset,
+  hasCompanies: hasCompanyDataset,
+  loadCompanies: loadCompanyDataset,
+};
+
+export function datasetSources(files: DatasetFiles = diskDatasets): TargetSources {
   return {
     brokers() {
-      if (!hasGeneratedDataset()) return null;
-      const dataset = loadBrokerDataset();
+      if (!files.hasBrokers()) return null;
+      const dataset = files.loadBrokers();
       return { version: dataset.generatedAt, records: dataset.brokers };
     },
     companies() {
-      const dataset = loadCompanyDataset();
+      // An absent file must read as unavailable, or a sync would retire every company.
+      if (!files.hasCompanies()) return null;
+      const dataset = files.loadCompanies();
       return { version: dataset.generatedAt, records: dataset.companies };
     },
   };

@@ -47,7 +47,7 @@ describe("mergeBrokers", () => {
         { source: "ca-registry-2025", license: "public-record", upstreamId: "Spokeo, Inc." },
       ],
     });
-    const merged = mergeBrokers([eraser], [registry]);
+    const merged = mergeBrokers([[eraser], [registry]]);
     expect(merged).toHaveLength(1);
     expect(merged[0]).toMatchObject({
       id: "spokeo",
@@ -75,7 +75,7 @@ describe("mergeBrokers", () => {
       requirements: ["captcha", "email_confirmation"],
       priority: "crucial",
     });
-    expect(mergeBrokers([curated], [registry])[0]).toMatchObject({
+    expect(mergeBrokers([[curated], [registry]])[0]).toMatchObject({
       searchUrl: "https://www.spokeo.com/search",
       requirements: ["record_url", "captcha", "email_confirmation"],
       priority: "crucial",
@@ -84,14 +84,38 @@ describe("mergeBrokers", () => {
 
   it("lets a registry-only record keep its category", () => {
     const registry = broker({ id: "acme", domain: "acme.example", category: "registered-broker" });
-    expect(mergeBrokers([], [registry])[0]?.category).toBe("registered-broker");
+    expect(mergeBrokers([[], [registry]])[0]?.category).toBe("registered-broker");
   });
 
   it("disambiguates colliding ids across different domains", () => {
     const a = broker({ id: "same", domain: "a.example" });
     const b = broker({ id: "same", domain: "b.example" });
-    const ids = mergeBrokers([a, b]).map((x) => x.id);
+    const ids = mergeBrokers([[a, b]]).map((x) => x.id);
     expect(new Set(ids).size).toBe(2);
     expect(ids).toContain("same");
+  });
+
+  describe("pinned ids", () => {
+    const pinnedIds = { "spokeo.com": "spokeo" };
+
+    it("keeps the pinned id whichever list a record comes from first", () => {
+      const curated = broker({ id: "spokeo-com-curated", domain: "spokeo.com" });
+      const eraser = broker({ id: "spokeo", domain: "spokeo.com" });
+      expect(mergeBrokers([[curated], [eraser]], { pinnedIds })[0]?.id).toBe("spokeo");
+      expect(mergeBrokers([[eraser], [curated]], { pinnedIds })[0]?.id).toBe("spokeo");
+    });
+
+    it("does not let another domain take an id that is pinned to a different one", () => {
+      const squatter = broker({ id: "spokeo", domain: "spokeo.example" });
+      const real = broker({ id: "other", domain: "spokeo.com" });
+      const merged = mergeBrokers([[squatter, real]], { pinnedIds });
+      expect(merged.find((b) => b.domain === "spokeo.com")?.id).toBe("spokeo");
+      expect(merged.find((b) => b.domain === "spokeo.example")?.id).toBe("spokeo-spokeo-example");
+    });
+
+    it("leaves records without a pin on their own id", () => {
+      const fresh = broker({ id: "fresh", domain: "fresh.example" });
+      expect(mergeBrokers([[fresh]], { pinnedIds })[0]?.id).toBe("fresh");
+    });
   });
 });

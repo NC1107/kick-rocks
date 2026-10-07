@@ -2,12 +2,13 @@ import { z } from "zod";
 import { MessageSummary, Reference, ReplyClassification } from "./mail.js";
 import { Match } from "./scans.js";
 import { TaskSummary } from "./tasks.js";
+import { WebUrl } from "./url.js";
 
 export const BlockedTaskItem = z.object({
   task: TaskSummary,
   requestReference: Reference.nullable(),
   /** The page the person should open to finish the job by hand. */
-  url: z.url().nullable(),
+  url: WebUrl.nullable(),
   manualInstructions: z.string(),
 });
 export type BlockedTaskItem = z.infer<typeof BlockedTaskItem>;

@@ -1,10 +1,10 @@
 import { hostname } from "node:os";
 import { resolve } from "node:path";
-import { LEASE_MS } from "@kickrocks/shared";
+import { LEASE_MS, WebUrl } from "@kickrocks/shared";
 import { z } from "zod";
 
 const Env = z.object({
-  KICKROCKS_SERVER_URL: z.url().default("http://127.0.0.1:8420"),
+  KICKROCKS_SERVER_URL: WebUrl.default("http://127.0.0.1:8420"),
   KICKROCKS_WORKER_TOKEN: z
     .string()
     .min(16, "KICKROCKS_WORKER_TOKEN must be at least 16 characters"),

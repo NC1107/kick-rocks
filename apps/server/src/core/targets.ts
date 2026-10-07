@@ -77,7 +77,7 @@ export function toTargetSummary(row: TargetRow): TargetSummary {
     requiresId: row.requiresId,
     requirements: row.requirements,
     priority: row.priority,
-    needsRecord: needsRecord(row),
+    needsRecord: needsRecord({ id: row.id, category: row.category }),
   };
 }
 

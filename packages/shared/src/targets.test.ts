@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { Company, needsRecord, TargetCategory, TargetSummary } from "./targets.js";
+import {
+  Company,
+  needsRecord,
+  RECORD_NOT_NEEDED,
+  TargetCategory,
+  TargetSummary,
+} from "./targets.js";
 
 const company = {
   id: "example-co",
@@ -39,20 +45,19 @@ describe("TargetCategory", () => {
 });
 
 describe("needsRecord", () => {
-  it("is true for people-search and background-check sites that need a record url", () => {
-    expect(needsRecord({ category: "people-search", requirements: ["record_url"] })).toBe(true);
-    expect(
-      needsRecord({ category: "background-check", requirements: ["captcha", "record_url"] }),
-    ).toBe(true);
+  it("is true for people-search and background-check sites whatever the dataset lists", () => {
+    expect(needsRecord({ id: "spokeo", category: "people-search" })).toBe(true);
+    expect(needsRecord({ id: "checkr", category: "background-check" })).toBe(true);
   });
 
-  it("is false when the form does not need a record url", () => {
-    expect(needsRecord({ category: "people-search", requirements: ["captcha"] })).toBe(false);
+  it("is false for every other category", () => {
+    expect(needsRecord({ id: "acme", category: "marketing" })).toBe(false);
+    expect(needsRecord({ id: "shop", category: "retail" })).toBe(false);
+    expect(needsRecord({ id: "bureau", category: "registered-broker" })).toBe(false);
   });
 
-  it("is false for other categories even if they list a record url", () => {
-    expect(needsRecord({ category: "marketing", requirements: ["record_url"] })).toBe(false);
-    expect(needsRecord({ category: "retail", requirements: [] })).toBe(false);
+  it("honors an explicit exception, which is empty until someone has read the opt-out page", () => {
+    expect(RECORD_NOT_NEEDED.size).toBe(0);
   });
 });
 

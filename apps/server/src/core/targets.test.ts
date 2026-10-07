@@ -185,6 +185,36 @@ describe("sync", () => {
     expect(rows().every((r) => !r.retired)).toBe(true);
   });
 
+  it("keeps every company when the company file is missing from a build", () => {
+    service({
+      brokers: brokers([makeBroker({ id: "b1" })]),
+      companies: companies([makeCompany({ id: "c1" })]),
+    }).sync();
+    const missingFile = datasetSources({
+      hasBrokers: () => true,
+      loadBrokers: () => ({
+        generatedAt: "2026-10-07T00:00:00.000Z",
+        license: "CC-BY-NC-SA-4.0",
+        attribution: "test",
+        brokers: [makeBroker({ id: "b1" })],
+      }),
+      hasCompanies: () => false,
+      loadCompanies: () => {
+        throw new Error("The company file does not exist");
+      },
+    });
+    expect(missingFile.companies()).toBeNull();
+    const result = createTargetsService({
+      db: ctx.services.db,
+      clock: ctx.clock,
+      logger: ctx.services.logger,
+      sources: missingFile,
+      extraTargetsPath: null,
+    }).sync();
+    expect(result.retired).toBe(0);
+    expect(rows().find((r) => r.id === "c1")?.retired).toBe(false);
+  });
+
   it("lets a record that changed id take over the old record's domain", () => {
     service({
       brokers: brokers([makeBroker({ id: "old-id", domain: "same.test" })]),
@@ -309,11 +339,12 @@ describe("extra targets", () => {
 });
 
 describe("lookups", () => {
-  it("returns summaries with needsRecord derived from category and requirements", () => {
+  it("returns summaries with needsRecord derived from the category", () => {
     const real = service({
       brokers: brokers([
         makeBroker({ id: "ps", category: "people-search", requirements: ["record_url"] }),
-        makeBroker({ id: "ps-blind", category: "people-search", requirements: [] }),
+        makeBroker({ id: "ps-unflagged", category: "people-search", requirements: [] }),
+        makeBroker({ id: "bg", category: "background-check", requirements: [] }),
         makeBroker({ id: "mk", category: "marketing", requirements: ["record_url"] }),
       ]),
       companies: null,
@@ -326,7 +357,8 @@ describe("lookups", () => {
       needsRecord: true,
       requirements: ["record_url"],
     });
-    expect(real.summary("ps-blind").needsRecord).toBe(false);
+    expect(real.summary("ps-unflagged").needsRecord).toBe(true);
+    expect(real.summary("bg").needsRecord).toBe(true);
     expect(real.summary("mk").needsRecord).toBe(false);
     expect(real.get("missing")).toBeNull();
     expect(() => real.getOrThrow("missing")).toThrow(/Target missing not found/);

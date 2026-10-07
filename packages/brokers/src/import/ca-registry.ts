@@ -4,6 +4,7 @@ import {
   normalizeDomain,
   type RegulatoryRegime,
   slugify,
+  WebUrl,
 } from "@kickrocks/shared";
 import { parse } from "csv-parse/sync";
 import { z } from "zod";
@@ -62,10 +63,25 @@ function intOrNull(value: string): number | null {
   return n === null ? null : Math.trunc(n);
 }
 
-function urlOrNull(value: string): string | null {
-  if (!value) return null;
+function asWebUrl(value: string): string | null {
   const candidate = /^[a-z][a-z0-9+.-]*:\/\//i.test(value) ? value : `https://${value}`;
-  return z.url().safeParse(candidate).success ? candidate : null;
+  return WebUrl.safeParse(candidate).success ? candidate : null;
+}
+
+/**
+ * Brokers list several sites in one cell, separated by semicolons and line breaks, so the cell is
+ * split before anything reads a domain from it. The first usable address is the broker's own.
+ */
+function webUrls(value: string): string[] {
+  return value
+    .split(/[;\s]+/)
+    .filter(Boolean)
+    .map(asWebUrl)
+    .filter((url): url is string => url !== null);
+}
+
+function urlOrNull(value: string): string | null {
+  return webUrls(value)[0] ?? null;
 }
 
 function emailOrNull(value: string): string | null {
@@ -84,6 +100,14 @@ function regimes(row: readonly string[]): RegulatoryRegime[] {
   return out;
 }
 
+function noteFor(dba: string, otherSites: readonly string[]): string | null {
+  const parts = [
+    dba ? `DBA: ${dba}` : null,
+    otherSites.length > 0 ? `Other sites: ${otherSites.join(", ")}` : null,
+  ].filter((part): part is string => part !== null);
+  return parts.length > 0 ? parts.join(" | ") : null;
+}
+
 export function parseCaRegistry(csvText: string): Broker[] {
   const rows = parse(csvText, {
     bom: true,
@@ -95,7 +119,8 @@ export function parseCaRegistry(csvText: string): Broker[] {
   for (const row of rows.slice(HEADER_ROWS)) {
     const name = cell(row, COL.name);
     if (!name) continue;
-    const website = urlOrNull(cell(row, COL.website));
+    const websites = webUrls(cell(row, COL.website));
+    const website = websites[0] ?? null;
     const privacyRightsUrl = urlOrNull(cell(row, COL.privacyRightsUrl));
     const privacyEmail = emailOrNull(cell(row, COL.email));
     const domain =
@@ -137,7 +162,7 @@ export function parseCaRegistry(csvText: string): Broker[] {
         optOutDenied: intOrNull(cell(row, COL.optOutDenied)),
         optOutMedianDays: numberOrNull(cell(row, COL.optOutMedianDays)),
       },
-      notes: cell(row, COL.dba) ? `DBA: ${cell(row, COL.dba)}` : null,
+      notes: noteFor(cell(row, COL.dba), websites.slice(1)),
       sources: [{ source: "ca-registry-2025", license: "public-record", upstreamId: name }],
     });
   }

@@ -265,9 +265,8 @@ describe("enqueueScan", () => {
 describe("needsRecord", () => {
   it("is the shared rule for people-search and background-check sites", () => {
     const { needsRecord } = ctx.services.dispatch;
-    expect(needsRecord({ category: "people-search", requirements: ["record_url"] })).toBe(true);
-    expect(needsRecord({ category: "background-check", requirements: ["record_url"] })).toBe(true);
-    expect(needsRecord({ category: "marketing", requirements: ["record_url"] })).toBe(false);
-    expect(needsRecord({ category: "people-search", requirements: [] })).toBe(false);
+    expect(needsRecord({ id: "a", category: "people-search" })).toBe(true);
+    expect(needsRecord({ id: "b", category: "background-check" })).toBe(true);
+    expect(needsRecord({ id: "c", category: "marketing" })).toBe(false);
   });
 });

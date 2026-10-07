@@ -2,6 +2,7 @@ import { z } from "zod";
 import { MessageSummary, Reference } from "./mail.js";
 import { TargetSummary } from "./targets.js";
 import { TaskSummary } from "./tasks.js";
+import { WebUrl } from "./url.js";
 
 export const RequestStatus = z.enum([
   "draft",
@@ -127,7 +128,7 @@ export const RequestRecord = z.object({
   status: RequestStatus,
   reference: Reference,
   outgoingMessageId: z.string().nullable(),
-  recordUrl: z.url().nullable(),
+  recordUrl: WebUrl.nullable(),
   followUps: z.number().int().nonnegative(),
   sentAt: z.iso.datetime().nullable(),
   dueAt: z.iso.datetime().nullable(),

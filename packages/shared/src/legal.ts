@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { StateCode } from "./geography.js";
 import { RequestRight } from "./requests.js";
+import { WebUrl } from "./url.js";
 
 export const StatuteKind = z.enum(["comprehensive", "data_broker"]);
 export type StatuteKind = z.infer<typeof StatuteKind>;
@@ -20,8 +21,8 @@ export const Statute = z.object({
   /** What the law says specifically about data brokers, when it does. */
   brokerNotes: z.string().nullable(),
   /** A state-run platform that handles requests centrally, such as California's DROP. */
-  platform: z.object({ name: z.string(), url: z.url(), note: z.string() }).nullable(),
-  sourceUrl: z.url(),
+  platform: z.object({ name: z.string(), url: WebUrl, note: z.string() }).nullable(),
+  sourceUrl: WebUrl,
   notes: z.string().nullable(),
 });
 export type Statute = z.infer<typeof Statute>;

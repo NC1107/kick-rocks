@@ -1,4 +1,4 @@
-import { type Broker, contactMethodFor, normalizeDomain } from "@kickrocks/shared";
+import { type Broker, contactMethodFor, normalizeDomain, WebUrl } from "@kickrocks/shared";
 import { parse } from "yaml";
 import { z } from "zod";
 
@@ -38,12 +38,7 @@ function emptyToNull(value: string): string | null {
 function validUrlOrNull(value: string): string | null {
   const trimmed = emptyToNull(value);
   if (!trimmed) return null;
-  try {
-    new URL(trimmed);
-    return trimmed;
-  } catch {
-    return null;
-  }
+  return WebUrl.safeParse(trimmed).success ? trimmed : null;
 }
 
 function validEmailOrNull(value: string): string | null {
