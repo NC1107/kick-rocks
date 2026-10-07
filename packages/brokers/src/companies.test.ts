@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import {
   COMPANY_DATASET_LICENSE,
+  type Company,
   CompanyDataset,
   contactMethodFor,
   normalizeDomain,
@@ -26,17 +27,77 @@ describe("loadCompanyDataset", () => {
   });
 });
 
+/**
+ * Companies whose privacy page lives on a parent or processor site rather than the consumer
+ * domain. Each page was read there, so the hostname is listed by hand.
+ */
+const FIRST_PARTY_HOST_EXCEPTIONS: Record<string, string[]> = {
+  "23andme": ["www.23andme.org"],
+  albertsons: ["www.albertsonscompanies.com"],
+  cnn: ["www.wbdprivacy.com"],
+  enterprise: ["www.enterprisemobility.com"],
+  fandango: ["www.versantprivacy.com"],
+  frontier: ["www.verizon.com"],
+  gap: ["www.gapinc.com"],
+  glassdoor: ["hrtechprivacy.com"],
+  hulu: ["privacy.thewaltdisneycompany.com"],
+  indeed: ["hrtechprivacy.com"],
+  nbcuniversal: ["www.nbcuniversalprivacy.com"],
+  paramount: ["www.viacomcbsprivacy.com"],
+  peacock: ["www.nbcuniversalprivacy.com"],
+  tripadvisor: ["tripadvisor.mediaroom.com"],
+  twitch: ["legal.twitch.com"],
+  warnerbrosdiscovery: ["www.wbdprivacy.com"],
+  wsj: ["www.dowjones.com"],
+  zoom: ["www.zoom.com"],
+};
+
+function citedHost(company: Company): string {
+  const cited = company.notes?.match(/^Contacts read from (https?:\/\/\S+) on /)?.[1];
+  return new URL(cited ?? "https://invalid.invalid/").hostname;
+}
+
+function isOwnSite(company: Company): boolean {
+  const host = citedHost(company);
+  const family = company.domain.split(".").slice(-2).join(".");
+  return host === family || host.endsWith(`.${family}`);
+}
+
+function isListedException(company: Company): boolean {
+  return FIRST_PARTY_HOST_EXCEPTIONS[company.id]?.includes(citedHost(company)) ?? false;
+}
+
 describe("the company dataset", () => {
   const companies = loadCompanies();
 
-  it("covers at least 75 major consumer companies", () => {
-    expect(companies.length).toBeGreaterThanOrEqual(75);
+  it("covers at least 150 major consumer companies", () => {
+    expect(companies.length).toBeGreaterThanOrEqual(150);
   });
 
-  it("spreads across the consumer categories", () => {
-    const categories = new Set(companies.map((company) => company.category));
-    for (const category of ["retail", "finance", "telecom", "tech", "media", "travel", "health"]) {
-      expect(categories.has(category as never), category).toBe(true);
+  it("covers every consumer category with a real spread, not one token entry each", () => {
+    const counts = new Map<string, number>();
+    for (const company of companies) {
+      counts.set(company.category, (counts.get(company.category) ?? 0) + 1);
+    }
+    const minimums = {
+      retail: 20,
+      finance: 15,
+      telecom: 8,
+      tech: 20,
+      media: 10,
+      travel: 10,
+      auto: 8,
+      health: 8,
+    };
+    for (const [category, minimum] of Object.entries(minimums)) {
+      expect(counts.get(category) ?? 0, category).toBeGreaterThanOrEqual(minimum);
+    }
+  });
+
+  it("names the carriers, banks, and retailers a person is most likely to be tracked by", () => {
+    const ids = new Set(companies.map((company) => company.id));
+    for (const id of ["amazon", "wellsfargo", "bankofamerica", "lowes", "macys", "kohls"]) {
+      expect(ids.has(id), id).toBe(true);
     }
   });
 
@@ -83,6 +144,42 @@ describe("the company dataset", () => {
       expect(company.notes, company.id).toMatch(
         /^Contacts read from https:\/\/\S+ on \d{4}-\d{2}-\d{2}\.$/,
       );
+    }
+  });
+
+  it("reads each company's contacts from a page on its own site", () => {
+    const offsite = companies
+      .filter((company) => !isOwnSite(company) && !isListedException(company))
+      .map((company) => `${company.id} cites ${citedHost(company)}`);
+    expect(offsite).toEqual([]);
+  });
+
+  it("keeps the hand-listed off-domain hosts honest, with no entry the data no longer needs", () => {
+    const byId = new Map(companies.map((company) => [company.id, company]));
+    const stale = Object.entries(FIRST_PARTY_HOST_EXCEPTIONS).flatMap(([id, hosts]) => {
+      const company = byId.get(id);
+      if (!company) return [`${id} is not a company`];
+      if (isOwnSite(company)) return [`${id} is on its own site`];
+      return hosts.includes(citedHost(company)) ? [] : [`${id} cites another host`];
+    });
+    expect(stale).toEqual([]);
+  });
+
+  it("never lists a privacy contact on a free mail provider", () => {
+    const free = /@(gmail|yahoo|hotmail|outlook|aol|proton|protonmail|icloud)\./;
+    for (const company of companies) {
+      expect(company.privacyEmail ?? "", company.id).not.toMatch(free);
+    }
+  });
+
+  it("keeps links free of credentials and tracking parameters", () => {
+    for (const company of companies) {
+      for (const link of [company.optOutUrl, company.privacyRightsUrl]) {
+        if (!link) continue;
+        const url = new URL(link);
+        expect(url.username + url.password, company.id).toBe("");
+        expect(url.search, company.id).not.toMatch(/utm_|gclid|fbclid/i);
+      }
     }
   });
 
