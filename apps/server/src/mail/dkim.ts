@@ -101,7 +101,10 @@ interface HeaderField {
   raw: string;
 }
 
-function splitHeaders(source: Buffer): { fields: HeaderField[]; bodyStart: number } {
+function splitHeaders(source: Buffer): {
+  fields: HeaderField[];
+  bodyStart: number;
+} {
   const crlf = source.indexOf("\r\n\r\n");
   const lf = source.indexOf("\n\n");
   const bodyStart =
@@ -170,13 +173,27 @@ function reduceToRelevantSignatures(
   };
 }
 
+const DOMAIN_CHARACTERS = /^[\p{L}\p{M}\p{N}.\-\u3002\uFF0E\uFF61]+$/u;
+const IDNA_DOTS = /[.\u3002\uFF0E\uFF61]/;
+
+/** Whether the text is a plain run of dot-separated labels, with nothing a URL host parser would act on. */
+function isPlainDomain(domain: string): boolean {
+  return (
+    DOMAIN_CHARACTERS.test(domain) &&
+    domain
+      .split(IDNA_DOTS)
+      .every((label) => label !== "" && !label.startsWith("-") && !label.endsWith("-"))
+  );
+}
+
 const lowerAscii = (text: string) => text.replace(/[A-Z]+/g, (letters) => letters.toLowerCase());
 
 /** The address with its domain as A-labels and its local part untouched, so only ASCII case folds. */
 function comparableAddress(address: string): string {
   const at = address.lastIndexOf("@");
   if (at < 1) return "";
-  const domain = domainToASCII(address.slice(at + 1).trim());
+  const rawDomain = address.slice(at + 1).trim();
+  const domain = isPlainDomain(rawDomain) ? domainToASCII(rawDomain) : "";
   return domain === "" ? "" : `${lowerAscii(address.slice(0, at))}@${domain}`;
 }
 
@@ -214,7 +231,9 @@ async function signedForRecipient(
 }
 
 function timeoutError(): Error {
-  return Object.assign(new Error("DNS lookup ran out of time"), { code: "ETIMEOUT" });
+  return Object.assign(new Error("DNS lookup ran out of time"), {
+    code: "ETIMEOUT",
+  });
 }
 
 /** Answers every lookup from the underlying resolver until the deadline, and refuses every one after it. */

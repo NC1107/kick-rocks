@@ -9,7 +9,9 @@ import type { ClassifierRequest, InboxMessage } from "./types.js";
 
 const TARGET = ["acme.test"];
 const MAILBOX = "jordan@example.com";
-const classifier = createReplyClassifier({ settings: { get: () => null as never } });
+const classifier = createReplyClassifier({
+  settings: { get: () => null as never },
+});
 
 const outstanding: ClassifierRequest = {
   id: "req-1",
@@ -118,13 +120,22 @@ describe("a genuine signed reply that was not written for this mailbox", () => {
 
   it("goes to review when it was addressed to another person", async () => {
     const result = await classifyRaw(await signed(otherPerson()));
-    expect(result).toMatchObject({ requestId: "req-1", correlation: "sender_domain" });
+    expect(result).toMatchObject({
+      requestId: "req-1",
+      correlation: "sender_domain",
+    });
     expect(result.confidence).toBeLessThan(0.6);
   });
 
   it.each([
     ["a UTF-8 lookalike domain", "jordan@exa\u016Dple.com"],
     ["a punycode lookalike domain", "jordan@xn--exaple-rmb.com"],
+    ["a path after the domain", "jordan@example.com/x.evil.org"],
+    ["a backslash after the domain", "jordan@example.com\\x.evil.org"],
+    ["a query after the domain", "jordan@example.com?evil.test"],
+    ["a fragment after the domain", "jordan@example.com#evil.test"],
+    ["a percent-encoded domain", "jordan@ex%61mple.com"],
+    ["an encoded-word domain", "jordan@=?utf-8?Q?example.com=2F?=.evil.org"],
   ])("is not authenticated and goes to review when addressed to %s", async (_label, to) => {
     const raw = await signed(unsigned().replace("jordan@example.com", to));
     expect(await authenticated(raw)).toBe(false);
@@ -170,7 +181,10 @@ describe("a genuine signed reply that was not written for this mailbox", () => {
 
   it("is trusted when it is addressed to this mailbox and names no request", async () => {
     const result = await classifyRaw(await signed(unsigned()));
-    expect(result).toMatchObject({ requestId: "req-1", correlation: "sender_domain" });
+    expect(result).toMatchObject({
+      requestId: "req-1",
+      correlation: "sender_domain",
+    });
     expect(result.confidence).toBeGreaterThanOrEqual(0.6);
   });
 });
@@ -242,7 +256,9 @@ describe("a reply that carries the Authentication-Results its provider would hav
   });
 
   it("is not vouched for when the same forgery sits beside a signature from another domain", async () => {
-    const raw = await signed(withHeader(FORGERIES[0]?.[1] ?? ""), { domain: "evil.test" });
+    const raw = await signed(withHeader(FORGERIES[0]?.[1] ?? ""), {
+      domain: "evil.test",
+    });
     expect(await authenticated(raw)).toBe(false);
   });
 

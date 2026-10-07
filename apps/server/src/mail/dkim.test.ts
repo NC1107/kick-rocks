@@ -4,7 +4,10 @@ import { BODY, KEY_RECORD, servingKeysFor, signed, unsigned } from "../test-util
 import { createDkimVerifier, type DnsResolver } from "./dkim.js";
 import type { DkimScope } from "./types.js";
 
-const SCOPE: DkimScope = { domains: ["acme.test", "evil.test"], recipient: "jordan@example.com" };
+const SCOPE: DkimScope = {
+  domains: ["acme.test", "evil.test"],
+  recipient: "jordan@example.com",
+};
 
 const verify = (
   message: string,
@@ -17,7 +20,9 @@ describe("verifiedDomains", () => {
   });
 
   it("names every domain whose signature verifies", async () => {
-    const twice = await signed(await signed(unsigned()), { domain: "evil.test" });
+    const twice = await signed(await signed(unsigned()), {
+      domain: "evil.test",
+    });
     expect((await verify(twice)).sort()).toEqual(["acme.test", "evil.test"]);
   });
 
@@ -127,7 +132,9 @@ describe("verifiedDomains", () => {
   });
 
   it("names nothing when the signature does not cover the recipients", async () => {
-    const message = await signed(unsigned(), { headerList: ["from", "subject", "date"] });
+    const message = await signed(unsigned(), {
+      headerList: ["from", "subject", "date"],
+    });
     expect(await verify(message)).toEqual([]);
   });
 
@@ -165,10 +172,10 @@ describe("verifiedDomains", () => {
   describe("with non-ASCII recipients", () => {
     const withTo = (to: string) => unsigned().replace("To: jordan@example.com", `To: ${to}`);
     const verifyFor = (message: string, recipient: string) =>
-      createDkimVerifier({ resolver: servingKeysFor("acme.test"), timeoutMs: 500 }).verifiedDomains(
-        Buffer.from(message, "utf8"),
-        { ...SCOPE, recipient },
-      );
+      createDkimVerifier({
+        resolver: servingKeysFor("acme.test"),
+        timeoutMs: 500,
+      }).verifiedDomains(Buffer.from(message, "utf8"), { ...SCOPE, recipient });
 
     it("names nothing when the signed To is a UTF-8 lookalike of the mailbox", async () => {
       const message = await signed(withTo("jordan@exa\u016Dple.com"));
@@ -183,6 +190,22 @@ describe("verifiedDomains", () => {
     it("names nothing when only the local part differs by a non-ASCII letter", async () => {
       const message = await signed(withTo("j\u00D6rdan@example.com"));
       expect(await verifyFor(message, "j\u00F6rdan@example.com")).toEqual([]);
+    });
+
+    it.each([
+      ["a path after the domain", "jordan@example.com/x.evil.org"],
+      ["a backslash after the domain", "jordan@example.com\\x.evil.org"],
+      ["a query after the domain", "jordan@example.com?evil.test"],
+      ["a fragment after the domain", "jordan@example.com#evil.test"],
+      ["a percent-encoded letter in the domain", "jordan@ex%61mple.com"],
+      ["an encoded-word domain", "jordan@=?utf-8?Q?example.com=2F?=.evil.org"],
+      ["a trailing dot", "jordan@example.com."],
+      ["an empty label", "jordan@example..com"],
+      ["a leading hyphen in a label", "jordan@-example.com"],
+      ["a trailing hyphen in a label", "jordan@example-.com"],
+    ])("names nothing when the signed To has %s", async (_label, to) => {
+      const message = await signed(withTo(to));
+      expect(await verifyFor(message, "jordan@example.com")).toEqual([]);
     });
 
     it("accepts a UTF-8 address that equals the mailbox", async () => {
@@ -256,7 +279,9 @@ describe("verifiedDomains", () => {
         );
       };
       const verifier = createDkimVerifier({ resolver: slow, timeoutMs: 40 });
-      const message = await signed(await signed(unsigned()), { domain: "evil.test" });
+      const message = await signed(await signed(unsigned()), {
+        domain: "evil.test",
+      });
       expect(await verifier.verifiedDomains(Buffer.from(message), SCOPE)).toEqual([]);
       await new Promise((resolve) => setTimeout(resolve, 300));
       expect(lookups).toBe(1);
