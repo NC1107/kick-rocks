@@ -233,12 +233,21 @@ function timeoutError(): Error {
 }
 
 /** Answers every lookup from the underlying resolver until the deadline, and refuses every one after it. */
-function withDeadline(resolve: DnsResolver, deadline: number, now: () => number): DnsResolver {
+export function withDeadline(
+  resolve: DnsResolver,
+  deadline: number,
+  now: () => number,
+): DnsResolver {
+  // A timer can fire a millisecond before the clock reaches the deadline, so the timer itself marks it passed.
+  let expired = false;
   return (domain, rrtype) => {
     const left = deadline - now();
-    if (left <= 0) return Promise.reject(timeoutError());
+    if (expired || left <= 0) return Promise.reject(timeoutError());
     return new Promise((done, fail) => {
-      const timer = setTimeout(() => fail(timeoutError()), left);
+      const timer = setTimeout(() => {
+        expired = true;
+        fail(timeoutError());
+      }, left);
       resolve(domain, rrtype).then(
         (records) => {
           clearTimeout(timer);

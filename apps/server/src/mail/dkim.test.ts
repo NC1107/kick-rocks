@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import { BODY, KEY_RECORD, servingKeysFor, signed, unsigned } from "../test-utils/dkim.js";
-import { createDkimVerifier, type DnsResolver } from "./dkim.js";
+import { createDkimVerifier, type DnsResolver, withDeadline } from "./dkim.js";
 import type { DkimScope } from "./types.js";
 
 const SCOPE: DkimScope = {
@@ -295,6 +295,22 @@ describe("verifiedDomains", () => {
       });
       expect(await verifier.verifiedDomains(Buffer.from(message), SCOPE)).toEqual([]);
       await new Promise((resolve) => setTimeout(resolve, 300));
+      expect(lookups).toBe(1);
+    });
+
+    it("refuses a lookup once the timer has fired, even when the clock still reads before the deadline", async () => {
+      let lookups = 0;
+      const hanging: DnsResolver = () => {
+        lookups += 1;
+        return new Promise(() => {});
+      };
+      const lagging = withDeadline(hanging, 1_000, () => 999);
+      await expect(lagging("a._domainkey.acme.test", "TXT")).rejects.toMatchObject({
+        code: "ETIMEOUT",
+      });
+      await expect(lagging("b._domainkey.acme.test", "TXT")).rejects.toMatchObject({
+        code: "ETIMEOUT",
+      });
       expect(lookups).toBe(1);
     });
 
