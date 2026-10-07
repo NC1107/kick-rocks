@@ -657,3 +657,21 @@ describe("a confirmation email after a form submission", () => {
     expect(result).toMatchObject({ requestId: "req-1", correlation: "reference" });
   });
 });
+
+describe("hostile input", () => {
+  it("classifies a huge message with pathological wording quickly", async () => {
+    const text = `${"we have not been able to verify the ".repeat(6000)}please provide ${"your ".repeat(20000)}`;
+    const started = Date.now();
+    await classify(text);
+    await classify("a ".repeat(100_000));
+    expect(Date.now() - started).toBeLessThan(3000);
+  });
+
+  it("does not throw on a message with nothing in it", async () => {
+    const result = await classifier.classify(
+      message({ subject: "", text: "", from: { name: null, address: "" } }),
+      { requests: [request()] },
+    );
+    expect(result.classification).toBeDefined();
+  });
+});

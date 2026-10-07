@@ -28,6 +28,8 @@ const SENDER_DOMAIN_CAP = 0.8;
 const AWAITING_CONFIRMATION_FLOOR = 0.8;
 const AMBIGUITY_PENALTY = 0.15;
 const MAX_LINKS = 10;
+/** Longer replies are read only this far, so a hostile message cannot make the rules slow. */
+const MAX_BODY_CHARS = 50_000;
 const MAX_PATTERN_LENGTH = 200;
 
 type Correlation = NonNullable<ClassificationResult["correlation"]>;
@@ -254,7 +256,7 @@ function configuredLlm(settings: Pick<SettingsStore, "get">): LlmSettings | null
 export function createReplyClassifier(deps: ReplyClassifierDeps): ReplyClassifier {
   return {
     async classify(message: InboxMessage, context: ClassifyContext): Promise<ClassificationResult> {
-      const body = stripQuoted(message.text);
+      const body = stripQuoted(message.text).slice(0, MAX_BODY_CHARS);
       const text = `${message.subject}\n${body}`;
       const allLinks = extractLinks(message.html, message.text);
       const requests = context.requests;
