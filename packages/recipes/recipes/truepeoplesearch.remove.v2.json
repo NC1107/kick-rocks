@@ -48,10 +48,6 @@
       "kind": "captcha_checkpoint"
     },
     {
-      "kind": "email_confirmation",
-      "fromDomain": "truepeoplesearch.com"
-    },
-    {
       "kind": "click",
       "target": {
         "css": "form[action=\"/removal/beginremovalidv\"] button[type=\"submit\"]"
@@ -62,35 +58,43 @@
       "when": [
         {
           "text": "has been sent",
-          "outcome": "awaiting_email_confirmation"
+          "outcome": "blocked",
+          "reason": "email_verification"
         },
         {
           "text": "we have sent",
-          "outcome": "awaiting_email_confirmation"
+          "outcome": "blocked",
+          "reason": "email_verification"
         },
         {
           "text": "we've sent",
-          "outcome": "awaiting_email_confirmation"
+          "outcome": "blocked",
+          "reason": "email_verification"
         },
         {
           "text": "we sent",
-          "outcome": "awaiting_email_confirmation"
+          "outcome": "blocked",
+          "reason": "email_verification"
         },
         {
           "text": "sent you an email",
-          "outcome": "awaiting_email_confirmation"
+          "outcome": "blocked",
+          "reason": "email_verification"
         },
         {
           "text": "sent an email",
-          "outcome": "awaiting_email_confirmation"
+          "outcome": "blocked",
+          "reason": "email_verification"
         },
         {
           "text": "check your inbox",
-          "outcome": "awaiting_email_confirmation"
+          "outcome": "blocked",
+          "reason": "email_verification"
         },
         {
           "text": "check your email",
-          "outcome": "awaiting_email_confirmation"
+          "outcome": "blocked",
+          "reason": "email_verification"
         }
       ]
     }
@@ -119,7 +123,7 @@
     ],
     "steps": []
   },
-  "notes": "Seen live 2026-10-07 in a plain headed Chrome from a residential connection, nothing submitted. /removal is a start form that posts to /removal/beginremovalidv: a requester select (the subject of the request or an authorized agent), first, optional middle and last name, an email address, an authorization checkbox, an hCaptcha widget and a Send Request button. The page says the site then emails a link to the real opt-out form (valid for 24 hours), which asks for the details on the record and ends on a confirmation page and a confirmation email, with removal taking up to 3 days. That second form sits behind the email link and was not seen, so the recipe covers the start form only and a person or agent finishes the form behind the link. The old version opened a record URL and clicked buttons that this page does not have. A Playwright launched Chrome stays on a Cloudflare \"Just a moment\" page here, so a worker run may end as bot_detection. The wording the site shows after Send Request was never observed, so the outcome_when texts that prove the request went through are guesses, and the recipe stays unverified until a real submission has been seen.",
+  "notes": "Seen live 2026-10-07 in a plain headed Chrome from a residential connection, nothing submitted. /removal is a start form that posts to /removal/beginremovalidv: a requester select (the subject of the request or an authorized agent), first, optional middle and last name, an email address, an authorization checkbox, an hCaptcha widget and a Send Request button. The page says the site then emails a link to the real opt-out form (valid for 24 hours), which asks for the details on the record and ends on a confirmation page and a confirmation email, with removal taking up to 3 days. That second form sits behind the email link and was not seen, so the recipe covers the start form only. It ends as blocked for email verification, not as an email confirmation, because the one click link follower would press a button on a data entry form and report a confirmation although no opt-out was filed; a person opens the email and fills in the second form until that form has been seen and given its own recipe. The old version opened a record URL and clicked buttons that this page does not have. A Playwright launched Chrome stays on a Cloudflare \"Just a moment\" page here, so a worker run may end as bot_detection. The wording the site shows after Send Request was never observed, so the outcome_when texts that prove the request went through are guesses, and the recipe stays unverified until a real submission has been seen.",
   "verifiedAt": "2026-10-07",
   "liveStatus": "unverified"
 }

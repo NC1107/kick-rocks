@@ -89,3 +89,35 @@ describe("the Intelius scan", () => {
     expect(scan.fields).toContain("state");
   });
 });
+
+describe("the recipes reviewed after the live check", () => {
+  const ids = recipes.map(({ recipe }) => recipe.id);
+
+  it("sends no broker through the one click confirmation when its link opens a form", () => {
+    const tps = recipeNamed("truepeoplesearch.remove.v2");
+    expect(tps.steps.some((step) => step.kind === "email_confirmation")).toBe(false);
+  });
+
+  it("leaves a scan that cannot read a person to an agent task", () => {
+    expect(ids).not.toContain("beenverified.scan.v2");
+    expect(ids).not.toContain("thatsthem.scan.v2");
+  });
+
+  it("builds the SmartBackgroundChecks results URL without the home page form", () => {
+    const scan = recipeNamed("smartbackgroundchecks.scan.v2");
+    expect(scan.steps.map((step) => step.kind)).not.toContain("fill");
+    const goto = scan.steps[0];
+    if (goto?.kind !== "goto") throw new Error("The first step is not a goto");
+    const url = renderTemplate(goto.url, {
+      first_name: "John",
+      last_name: "Smith",
+      city: "Saint Louis",
+      state: "MO",
+    });
+    expect(url).toBe("https://www.smartbackgroundchecks.com/people/john-smith/saint-louis/mo");
+  });
+
+  it("keeps the FamilyTreeNow scan unverified while its record link is a 404", () => {
+    expect(recipeNamed("familytreenow.scan.v2").liveStatus).toBe("unverified");
+  });
+});
