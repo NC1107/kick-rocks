@@ -87,6 +87,34 @@ const PROVIDERS: ProviderPreset[] = [
     ...SUPPORTED,
   },
   {
+    id: "mailbox-org",
+    label: "mailbox.org",
+    smtpHost: "smtp.mailbox.org",
+    smtpPort: 465,
+    smtpSecure: true,
+    imapHost: "imap.mailbox.org",
+    imapPort: 993,
+    appPasswordUrl: "https://login.mailbox.org/",
+    notes:
+      "Turn on two-factor sign-in, then create an app password with access to mail in your account settings.",
+    defaultDailyCap: 100,
+    ...SUPPORTED,
+  },
+  {
+    id: "zoho",
+    label: "Zoho Mail",
+    smtpHost: "smtp.zoho.com",
+    smtpPort: 465,
+    smtpSecure: true,
+    imapHost: "imap.zoho.com",
+    imapPort: 993,
+    appPasswordUrl: "https://accounts.zoho.com/home#security/app_password",
+    notes:
+      "Enable IMAP access in the mail settings first. Accounts outside the US use a regional host such as zoho.eu.",
+    defaultDailyCap: 50,
+    ...SUPPORTED,
+  },
+  {
     id: "other",
     label: "Other provider",
     smtpHost: "",
@@ -160,19 +188,39 @@ export default defineMockDomain({
   routes: (store) => [
     handle(API_ROUTES.mailProviders, () => ({ providers: PROVIDERS })),
 
-    // A password of "wrong" fails SMTP and "no-imap" fails IMAP, so each failure state can be seen.
+    // Each password below fails a different way, so every failure state can be seen:
+    // "wrong" fails both, "no-imap" only IMAP, "no-smtp" only SMTP, "refused" and "slow" fail both
+    // with a network error, and "boom" answers 500.
     handle(API_ROUTES.mailboxTest, ({ params, body }) => {
       profileOf(store, params.id);
-      const smtpFails = body.password === "wrong";
-      const imapFails = body.password === "wrong" || body.password === "no-imap";
+      if (body.password === "boom") {
+        throw new MockHttpError(
+          500,
+          "internal",
+          "The server hit a problem. Try again in a moment.",
+        );
+      }
+      const refused = body.password === "refused";
+      const network = refused || body.password === "slow";
+      const reason = refused ? "ECONNREFUSED" : "ETIMEDOUT";
+      const smtpFails = body.password === "wrong" || body.password === "no-smtp" || network;
+      const imapFails = body.password === "wrong" || body.password === "no-imap" || network;
       return {
         smtp: {
           ok: !smtpFails,
-          error: smtpFails ? "535 5.7.8 Username and password not accepted." : null,
+          error: network
+            ? `connect ${reason} ${body.smtpHost}:${body.smtpPort}`
+            : smtpFails
+              ? "535 5.7.8 Username and password not accepted."
+              : null,
         },
         imap: {
           ok: !imapFails,
-          error: imapFails ? "Login failed: invalid credentials." : null,
+          error: network
+            ? `connect ${reason} ${body.imapHost}:${body.imapPort}`
+            : imapFails
+              ? "Login failed: invalid credentials."
+              : null,
           folders: imapFails ? [] : FOLDERS,
         },
       };

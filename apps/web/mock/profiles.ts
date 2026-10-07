@@ -4,8 +4,9 @@ import {
   type IdentityInput,
   type ProfileDetail,
   type ProfileSummary,
+  validateIdentities,
 } from "@kickrocks/shared";
-import { defineMockDomain, handle, notFound } from "./core.js";
+import { defineMockDomain, handle, MockHttpError, notFound } from "./core.js";
 import type { MockStore } from "./store.js";
 
 /** Fake people only: every name, address, and number here is invented, on reserved example domains. */
@@ -22,6 +23,18 @@ function primaryEmail(identities: readonly Identity[]): string | null {
 
 function withIds(store: MockStore, inputs: readonly IdentityInput[]): Identity[] {
   return inputs.map((input) => ({ ...input, id: store.nextId("idn") }) as Identity);
+}
+
+/** The server's one date-dependent rule, with the same body-prefixed paths it answers with. */
+function checkIdentities(store: MockStore, inputs: readonly IdentityInput[]): void {
+  const today = store.clock.now().toISOString().slice(0, 10);
+  const issues = validateIdentities(inputs, today).map((issue) => ({
+    path: ["body", "identities", ...issue.path],
+    message: issue.message,
+  }));
+  if (issues.length > 0) {
+    throw new MockHttpError(400, "invalid_request", "Some details are not valid.", issues);
+  }
 }
 
 function find(store: MockStore, id: string): ProfileDetail {
@@ -130,6 +143,7 @@ export default defineMockDomain({
     handle(API_ROUTES.profilesGet, ({ params }) => find(store, params.id)),
 
     handle(API_ROUTES.profilesCreate, ({ body }) => {
+      checkIdentities(store, body.identities);
       const identities = withIds(store, body.identities);
       const profile: ProfileDetail = {
         id: store.nextId("prf"),
@@ -156,6 +170,7 @@ export default defineMockDomain({
 
     handle(API_ROUTES.profilesReplaceIdentities, ({ params, body }) => {
       const profile = find(store, params.id);
+      checkIdentities(store, body.identities);
       profile.identities = withIds(store, body.identities);
       profile.primaryEmail = primaryEmail(profile.identities);
       profile.updatedAt = store.clock.now().toISOString();
