@@ -38,8 +38,8 @@ const MANUAL_INSTRUCTIONS: Record<BlockedReason, string> = {
   unknown: "Open the page and finish the removal by hand, then mark the task done.",
 };
 
-const UNATTENDED_AGENT_INSTRUCTIONS =
-  "No agent has picked this up. Connect one in Settings, or open the page, finish the job by hand, and mark it done. Cancel it if you do not want it done.";
+const AGENT_INSTRUCTIONS =
+  "No agent has taken this yet, and the built-in worker will not run it. Connect an agent in Settings, or open the page and finish the job yourself, then mark it done.";
 
 const FAILED_INSTRUCTIONS =
   "This task failed and nothing will try it again by itself. Retry it, open the page and finish the job yourself, or dismiss it.";
@@ -63,7 +63,7 @@ function toItem(services: AppServices, task: Task, summary: TaskSummary): Blocke
           ? FAILED_SCAN_INSTRUCTIONS
           : FAILED_INSTRUCTIONS
         : task.status === "queued"
-          ? UNATTENDED_AGENT_INSTRUCTIONS
+          ? AGENT_INSTRUCTIONS
           : MANUAL_INSTRUCTIONS[task.blockedReason ?? "unknown"],
   };
 }

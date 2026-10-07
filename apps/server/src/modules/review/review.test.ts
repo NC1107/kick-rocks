@@ -245,7 +245,7 @@ describe("GET /review", () => {
     });
   });
 
-  describe("agent tasks nobody picked up", () => {
+  describe("agent tasks finished by hand", () => {
     const queuedAgentRemoval = () => {
       const request = formRequest();
       const task = seedTask(ctx, {
@@ -269,21 +269,6 @@ describe("GET /review", () => {
       return { request, task };
     };
 
-    it("lists them at once when no agent is connected, so they are not stuck out of sight", async () => {
-      ctx.services.settings.set("mcp.enabled", false);
-      const { task } = queuedAgentRemoval();
-      const [item] = (await queue()).blockedTasks;
-      expect(item?.task.id).toBe(task.id);
-      expect(item?.manualInstructions).toContain("Connect one in Settings");
-    });
-
-    it("gives a connected agent a day before asking the person", async () => {
-      const { task } = queuedAgentRemoval();
-      expect((await queue()).blockedTasks).toHaveLength(0);
-      ctx.clock.advance(25 * 60 * 60 * 1000);
-      expect((await queue()).blockedTasks.map((item) => item.task.id)).toEqual([task.id]);
-    });
-
     it("lets the person finish one by hand, which settles the request", async () => {
       ctx.services.settings.set("mcp.enabled", false);
       const { request, task } = queuedAgentRemoval();
@@ -293,7 +278,7 @@ describe("GET /review", () => {
       });
       expect(result.ok && result.body.task.status).toBe("done");
       expect(ctx.services.requests.getOrThrow(request.id).status).toBe("awaiting_reply");
-      expect((await queue()).blockedTasks).toHaveLength(0);
+      expect((await queue()).agentTasks).toHaveLength(0);
     });
   });
 
