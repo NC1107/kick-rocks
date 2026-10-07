@@ -1,5 +1,17 @@
 import { ArrowDown, ArrowUp, ChevronsUpDown } from "lucide-react";
-import { type ComponentProps, type ReactNode, useEffect, useRef, useState } from "react";
+import {
+  type ComponentProps,
+  createContext,
+  type KeyboardEvent,
+  type MouseEvent,
+  type ReactNode,
+  useContext,
+  useEffect,
+  useId,
+  useRef,
+  useState,
+} from "react";
+import { Link } from "react-router";
 import { cn } from "../../lib/cn.js";
 import { Skeleton } from "./Skeleton.js";
 
@@ -14,6 +26,14 @@ export interface TableProps extends ComponentProps<"table"> {
   maxHeight?: string;
 }
 
+interface RovingValue {
+  activeId: string | null;
+  setActiveId: (id: string) => void;
+}
+
+// Only rows that can be selected take part; a plain table has no context and no tab stops.
+const RovingContext = createContext<RovingValue | null>(null);
+
 /**
  * A table that scrolls sideways inside its own frame on a narrow screen, so the page itself never
  * does. Put the identifying column first and keep it short. An edge shade shows which side still
@@ -21,6 +41,7 @@ export interface TableProps extends ComponentProps<"table"> {
  */
 export function Table({ label, maxHeight, className, children, ...rest }: TableProps) {
   const frame = useRef<HTMLElement>(null);
+  const [activeId, setActiveId] = useState<string | null>(null);
   const [overflow, setOverflow] = useState({ start: false, end: false });
 
   useEffect(() => {
@@ -44,35 +65,45 @@ export function Table({ label, maxHeight, className, children, ...rest }: TableP
     };
   }, []);
 
+  // One selectable row is the table's single tab stop: the selected row, else the first.
+  useEffect(() => {
+    const rows = Array.from(frame.current?.querySelectorAll<HTMLElement>("tr[data-row-id]") ?? []);
+    if (rows.some((row) => row.dataset.rowId === activeId)) return;
+    const fallback = rows.find((row) => row.getAttribute("aria-selected") === "true") ?? rows[0];
+    setActiveId(fallback?.dataset.rowId ?? null);
+  });
+
   const scrollable = overflow.start || overflow.end;
   return (
-    <div className="relative overflow-hidden rounded-md border border-line bg-surface">
-      <section
-        ref={frame}
-        aria-label={label}
-        tabIndex={scrollable ? 0 : undefined}
-        style={maxHeight ? { maxHeight } : undefined}
-        className={maxHeight ? "overflow-auto" : "overflow-x-auto"}
-      >
-        <table className={cn("w-full border-collapse text-left text-ui", className)} {...rest}>
-          {children}
-        </table>
-      </section>
-      <span
-        aria-hidden="true"
-        className={cn(
-          "pointer-events-none absolute inset-y-0 left-0 w-6 bg-linear-to-r from-(--kr-shade) to-transparent transition-opacity",
-          overflow.start ? "opacity-100" : "opacity-0",
-        )}
-      />
-      <span
-        aria-hidden="true"
-        className={cn(
-          "pointer-events-none absolute inset-y-0 right-0 w-6 bg-linear-to-l from-(--kr-shade) to-transparent transition-opacity",
-          overflow.end ? "opacity-100" : "opacity-0",
-        )}
-      />
-    </div>
+    <RovingContext value={{ activeId, setActiveId }}>
+      <div className="relative overflow-hidden rounded-md border border-line bg-surface">
+        <section
+          ref={frame}
+          aria-label={label}
+          tabIndex={scrollable ? 0 : undefined}
+          style={maxHeight ? { maxHeight } : undefined}
+          className={maxHeight ? "overflow-auto" : "overflow-x-auto"}
+        >
+          <table className={cn("w-full border-collapse text-left text-ui", className)} {...rest}>
+            {children}
+          </table>
+        </section>
+        <span
+          aria-hidden="true"
+          className={cn(
+            "pointer-events-none absolute inset-y-0 left-0 w-6 bg-linear-to-r from-(--kr-shade) to-transparent transition-opacity",
+            overflow.start ? "opacity-100" : "opacity-0",
+          )}
+        />
+        <span
+          aria-hidden="true"
+          className={cn(
+            "pointer-events-none absolute inset-y-0 right-0 w-6 bg-linear-to-l from-(--kr-shade) to-transparent transition-opacity",
+            overflow.end ? "opacity-100" : "opacity-0",
+          )}
+        />
+      </div>
+    </RovingContext>
   );
 }
 
@@ -87,14 +118,80 @@ export function TableBody({ className, ...rest }: ComponentProps<"tbody">) {
 export interface TableRowProps extends ComponentProps<"tr"> {
   /** A selected row gets the accent wash and the left marker, never a focus-like outline. */
   selected?: boolean;
+  /**
+   * Makes the row selectable by pointer and keyboard: arrows move focus between rows, Enter or
+   * Space selects. The table needs role="grid" for aria-selected to be valid on its rows.
+   */
+  onPick?: () => void;
 }
 
-export function TableRow({ selected, className, ...rest }: TableRowProps) {
+const NESTED_CONTROL = "a, button, input, select, textarea, [role='menuitem']";
+
+export function TableRow({
+  selected,
+  onPick,
+  onClick,
+  onKeyDown,
+  onFocus,
+  className,
+  ...rest
+}: TableRowProps) {
+  const roving = useContext(RovingContext);
+  const rowId = useId();
+  const select = roving !== null ? onPick : undefined;
+
+  const handleClick = (event: MouseEvent<HTMLTableRowElement>) => {
+    onClick?.(event);
+    if (select && !(event.target as HTMLElement).closest(NESTED_CONTROL)) select();
+  };
+
+  const handleKeyDown = (event: KeyboardEvent<HTMLTableRowElement>) => {
+    onKeyDown?.(event);
+    if (!select || event.target !== event.currentTarget) return;
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      select();
+      return;
+    }
+    const rows = Array.from(
+      event.currentTarget.parentElement?.querySelectorAll<HTMLElement>("tr[data-row-id]") ?? [],
+    );
+    const at = rows.indexOf(event.currentTarget);
+    const target =
+      event.key === "ArrowDown"
+        ? rows[at + 1]
+        : event.key === "ArrowUp"
+          ? rows[at - 1]
+          : event.key === "Home"
+            ? rows[0]
+            : event.key === "End"
+              ? rows[rows.length - 1]
+              : undefined;
+    if (!target) return;
+    event.preventDefault();
+    target.focus();
+  };
+
   return (
     <tr
       data-selected={selected ? "true" : undefined}
+      {...(select && roving
+        ? {
+            "data-row-id": rowId,
+            "aria-selected": selected === true,
+            tabIndex: roving.activeId === rowId ? 0 : -1,
+          }
+        : {})}
+      onClick={handleClick}
+      onKeyDown={handleKeyDown}
+      onFocus={(event) => {
+        onFocus?.(event);
+        if (select && roving && event.target === event.currentTarget) roving.setActiveId(rowId);
+      }}
       className={cn(
         "group marked-row transition-colors duration-100",
+        // The table frame clips an outside ring, so a focused row draws it inside its own edge.
+        select && "cursor-pointer focus-visible:-outline-offset-2",
         selected ? "bg-accent-soft" : "hover:bg-hover",
         className,
       )}
@@ -123,15 +220,26 @@ export function TableRowActions({ className, ...rest }: ComponentProps<"div">) {
 export function TableIdentity({
   title,
   meta,
+  to,
   className,
 }: {
   title: ReactNode;
   meta?: ReactNode;
+  /** Makes the name a link. It stays ink and is underlined only on hover or focus. */
+  to?: string;
   className?: string;
 }) {
   return (
     <div className={cn("flex min-w-0 flex-col py-1", className)}>
-      <span className="truncate text-ui font-medium text-ink">{title}</span>
+      <span className="truncate text-ui font-medium text-ink">
+        {to ? (
+          <Link to={to} className="hover:underline focus-visible:underline">
+            {title}
+          </Link>
+        ) : (
+          title
+        )}
+      </span>
       {meta ? <span className="truncate font-mono text-caption text-ink-3">{meta}</span> : null}
     </div>
   );
@@ -216,17 +324,20 @@ export interface TableCellProps extends Omit<ComponentProps<"td">, "align"> {
   align?: "left" | "right";
   /** Lets a long value such as an address wrap instead of stretching the table. */
   wrap?: boolean;
-  /** Mono, for references, domains, dates, and counts. Right-align numbers with align. */
+  /** Mono, for references and domains. Dates and numbers should use kind, which also aligns them. */
   mono?: boolean;
+  /** A date or a number: mono, tabular, and right-aligned, so columns of them line up. */
+  kind?: "numeric" | "date";
 }
 
-export function TableCell({ align = "left", wrap, mono, className, ...rest }: TableCellProps) {
+export function TableCell({ align, wrap, mono, kind, className, ...rest }: TableCellProps) {
+  const right = (align ?? (kind ? "right" : "left")) === "right";
   return (
     <td
       className={cn(
         "h-row px-3 py-0 align-middle tabular-nums first:pl-4 last:pr-4",
-        mono && "font-mono text-meta",
-        align === "right" && "text-right",
+        (mono || kind) && "font-mono text-meta",
+        right && "text-right",
         !wrap && "whitespace-nowrap",
         className,
       )}

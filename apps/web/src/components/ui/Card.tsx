@@ -94,7 +94,7 @@ export function Section({
   return (
     <section className={cn("min-w-0", className)}>
       <div className="mt-2.5 mb-1.5 flex min-h-5 items-center justify-between gap-3">
-        <Heading className="text-eyebrow text-ink-3">
+        <Heading className="text-eyebrow font-semibold! text-ink-3">
           {label}
           {count === undefined ? null : ` · ${count}`}
         </Heading>
@@ -138,7 +138,7 @@ export type RowProps = RowBase &
   );
 
 const ROW_CLASS =
-  "marked flex min-h-row w-full items-center gap-3 px-3.5 py-2 text-left transition-colors duration-100";
+  "marked flex min-h-row w-full items-center gap-3 px-3.5 py-2 text-left transition-colors duration-100 focus-visible:-outline-offset-2";
 
 /** A row in a RowGroup: optional icon tile, a title, a description, and a trailing value. */
 export function Row({

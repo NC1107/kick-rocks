@@ -39,11 +39,7 @@ export function Controls() {
           <Button variant="primary">Send requests</Button>
           <Button>Cancel</Button>
           <Button variant="ghost">Skip</Button>
-          <Button variant="danger">
-            <Trash2 aria-hidden="true" />
-            Delete profile
-          </Button>
-          <Button variant="danger-solid">Delete all data</Button>
+          <Button variant="danger">Delete profile</Button>
         </Specimen>
         <Specimen label="Sizes: 28, 34, 40 (44 on a phone)">
           <Button size="sm">Small</Button>

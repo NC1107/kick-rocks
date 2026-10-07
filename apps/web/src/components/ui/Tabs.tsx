@@ -114,7 +114,7 @@ export function TabList({ className, style, onScroll, ...rest }: ComponentProps<
       style={
         hidden.start || hidden.end ? { maskImage: fade, WebkitMaskImage: fade, ...style } : style
       }
-      className={cn("relative flex gap-1 overflow-x-auto border-b border-line", className)}
+      className={cn(STRIP_CLASS, className)}
       {...rest}
     />
   );
@@ -130,9 +130,15 @@ function TabCount({ count }: { count: number }) {
   return <span className="font-mono text-meta tabular-nums">{count}</span>;
 }
 
+// The hairline is a background inside the scroll box, not a border: a border sits outside the
+// padding box, so the strip's overflow clipped the pixel row where the 2px underline overlaps it
+// and the active mark rendered 1px.
+const STRIP_CLASS =
+  "relative flex gap-1 overflow-x-auto bg-[linear-gradient(var(--kr-line),var(--kr-line))] bg-size-[100%_1px] bg-bottom bg-no-repeat";
+
 const TAB_CLASS =
   // The focus ring sits inside the tab, because the tab strip scrolls and would clip a ring outside it.
-  "-mb-px inline-flex h-control shrink-0 items-center gap-1.5 whitespace-nowrap border-b-2 px-3 text-ui font-medium transition-colors duration-100 focus-visible:-outline-offset-2 disabled:cursor-not-allowed disabled:text-ink-3";
+  "inline-flex h-control shrink-0 items-center gap-1.5 whitespace-nowrap border-b-2 px-3 text-ui font-medium transition-colors duration-100 focus-visible:-outline-offset-2 disabled:cursor-not-allowed disabled:text-ink-3";
 
 export function Tab({ value, count, className, children, ...rest }: TabProps) {
   const { value: selected, select, baseId } = useTabs();
@@ -198,7 +204,7 @@ export interface LinkTab {
  */
 export function LinkTabs({ items, label }: { items: readonly LinkTab[]; label: string }) {
   return (
-    <nav aria-label={label} className="relative flex gap-1 overflow-x-auto border-b border-line">
+    <nav aria-label={label} className={STRIP_CLASS}>
       {items.map((item) => (
         <NavLink
           key={item.to}

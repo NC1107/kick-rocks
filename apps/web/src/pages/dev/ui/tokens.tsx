@@ -1,5 +1,6 @@
 import { Logo, LogoMark } from "../../../components/layout/Logo.js";
-import { Tag } from "../../../components/ui/index.js";
+import { StatusShapeGlyph, Tag } from "../../../components/ui/index.js";
+import { TONE_SHAPE } from "../../../lib/status.js";
 import { TONES } from "../../../lib/tone.js";
 import { Panel, Specimen } from "./parts.js";
 
@@ -89,7 +90,6 @@ export function Tokens() {
       >
         <Specimen label="Name and mark">
           <LogoMark className="size-16" />
-          <LogoMark className="size-7" />
           <Logo />
         </Specimen>
         <Specimen label="Surfaces">
@@ -142,11 +142,7 @@ export function Tokens() {
               className="flex w-44 flex-col gap-2 rounded-md border border-line bg-surface p-3"
             >
               <span className="flex items-center gap-2 text-ui text-tone-ink">
-                <span
-                  aria-hidden="true"
-                  className="size-1.5 rounded-full bg-tone-dot"
-                  style={{ boxShadow: "0 0 0 3px rgb(var(--tone-rgb) / 0.2)" }}
-                />
+                <StatusShapeGlyph shape={TONE_SHAPE[tone]} />
                 {tone}
               </span>
               <span className="rounded-xs bg-tone-bg px-2 py-1 font-mono text-caption text-tone-ink">

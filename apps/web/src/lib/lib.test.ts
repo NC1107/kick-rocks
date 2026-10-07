@@ -40,7 +40,8 @@ describe("status metadata", () => {
 
   it("draws a waiting request as a ring, and only a running task as a moving one", () => {
     for (const meta of Object.values(REQUEST_STATUS_META)) {
-      if (meta.family === "progress") expect(["ring", "dashed-ring"]).toContain(meta.shape);
+      if (meta.family === "progress")
+        expect(["ring", "ring-dot", "dashed-ring"]).toContain(meta.shape);
     }
     expect(TASK_STATUS_META.leased.shape).toBe("running");
   });

@@ -19,8 +19,6 @@ const WORD: Record<StatusFamily, string> = {
 
 export interface ShapeProps {
   shape: StatusShape;
-  /** Draws a ring in the accent, for a request that is out and being waited on. */
-  accent?: boolean | undefined;
   className?: string;
 }
 
@@ -28,8 +26,7 @@ export interface ShapeProps {
  * The 10px mark that carries a state without its color: a ring, disc, dash, triangle, or square.
  * A running task is a ring with a gap that turns, and holds still under reduced motion.
  */
-export function StatusShapeGlyph({ shape, accent, className }: ShapeProps) {
-  const ring = accent ? "stroke-accent-text" : "stroke-ink-3";
+export function StatusShapeGlyph({ shape, className }: ShapeProps) {
   return (
     <svg
       viewBox="0 0 10 10"
@@ -39,7 +36,13 @@ export function StatusShapeGlyph({ shape, accent, className }: ShapeProps) {
       className={cn("shrink-0", className)}
     >
       {shape === "ring" ? (
-        <circle cx="5" cy="5" r="3.9" fill="none" strokeWidth="1.3" className={ring} />
+        <circle cx="5" cy="5" r="3.9" fill="none" strokeWidth="1.3" className="stroke-ink-3" />
+      ) : null}
+      {shape === "ring-dot" ? (
+        <>
+          <circle cx="5" cy="5" r="3.9" fill="none" strokeWidth="1.3" className="stroke-ink-2" />
+          <circle cx="5" cy="5" r="1.4" className="fill-ink-2" />
+        </>
       ) : null}
       {shape === "dashed-ring" ? (
         <circle
@@ -49,7 +52,7 @@ export function StatusShapeGlyph({ shape, accent, className }: ShapeProps) {
           fill="none"
           strokeWidth="1.3"
           strokeDasharray="2.1 1.6"
-          className={ring}
+          className="stroke-ink-3"
         />
       ) : null}
       {shape === "running" ? (
@@ -89,7 +92,7 @@ function Mark({ meta, className }: { meta: StatusMeta; className?: string | unde
   return (
     <Tooltip content={meta.description} className={className}>
       <span className="inline-flex shrink-0 items-center gap-2 whitespace-nowrap text-meta">
-        <StatusShapeGlyph shape={meta.shape} accent={meta.accent} />
+        <StatusShapeGlyph shape={meta.shape} />
         <span
           className={cn(
             WORD[meta.family],

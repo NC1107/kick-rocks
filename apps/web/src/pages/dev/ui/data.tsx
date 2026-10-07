@@ -30,7 +30,6 @@ import {
   TableToolbar,
   Tag,
   TaskStatusMark,
-  TextLink,
   Tooltip,
 } from "../../../components/ui/index.js";
 import { formatRelative } from "../../../lib/format.js";
@@ -48,7 +47,8 @@ const ALL_TASK_STATUSES = Object.keys(TASK_STATUS_META) as (keyof typeof TASK_ST
 
 const LEGEND: readonly { family: StatusFamily; shape: StatusShape; label: string; note: string }[] =
   [
-    { family: "progress", shape: "ring", label: "Waiting", note: "ring; accent when sent" },
+    { family: "progress", shape: "ring", label: "Queued", note: "ring" },
+    { family: "progress", shape: "ring-dot", label: "Sent", note: "ring with a centre dot" },
     { family: "progress", shape: "dashed-ring", label: "Draft", note: "dashed ring" },
     { family: "progress", shape: "running", label: "Running", note: "turning ring" },
     { family: "resolved", shape: "disc", label: "Resolved", note: "filled disc" },
@@ -111,7 +111,7 @@ function LedgerSpecimen() {
       <TableToolbar count="932 targets">
         <span className="font-mono text-meta text-ink-3">Type: all</span>
       </TableToolbar>
-      <Table label="Sample requests" maxHeight="18rem">
+      <Table label="Sample requests" role="grid" maxHeight="18rem">
         <TableHead>
           <tr>
             <TableHeaderCell>Target</TableHeaderCell>
@@ -129,8 +129,7 @@ function LedgerSpecimen() {
             <TableRow
               key={row.id}
               selected={selected === row.id}
-              onClick={() => setSelected(row.id)}
-              className="cursor-pointer"
+              onPick={() => setSelected(row.id)}
             >
               <TableCell className="max-w-72">
                 <TableIdentity title={row.name} meta={row.domain} />
@@ -141,10 +140,10 @@ function LedgerSpecimen() {
               <TableCell mono className="text-ink-2">
                 {row.asked}
               </TableCell>
-              <TableCell mono align="right" className="text-ink-2">
+              <TableCell kind="date" className="text-ink-2">
                 {row.sent}
               </TableCell>
-              <TableCell mono align="right" className="text-ink-2">
+              <TableCell kind="date" className="text-ink-2">
                 {row.due}
               </TableCell>
               <TableCell>
@@ -232,11 +231,8 @@ function LiveTable() {
               <TableRow key={request.id}>
                 <TableCell>
                   <TableIdentity
-                    title={
-                      <TextLink to={`/requests/${request.id}`} className="no-underline">
-                        {request.target.name}
-                      </TextLink>
-                    }
+                    title={request.target.name}
+                    to={`/requests/${request.id}`}
                     meta={request.reference}
                   />
                 </TableCell>
@@ -244,10 +240,10 @@ function LiveTable() {
                   <StatusMark status={request.status} />
                 </TableCell>
                 <TableCell className="text-ink-2">{CHANNEL_LABELS[request.channel]}</TableCell>
-                <TableCell mono align="right" className="text-ink-2">
+                <TableCell kind="date" className="text-ink-2">
                   {request.sentAt ? formatRelative(request.sentAt) : "-"}
                 </TableCell>
-                <TableCell mono align="right" className="text-ink-2">
+                <TableCell kind="date" className="text-ink-2">
                   {request.dueAt ? formatRelative(request.dueAt) : "-"}
                 </TableCell>
               </TableRow>
@@ -281,7 +277,7 @@ export function DataDisplay() {
               key={item.label}
               className="flex w-44 items-center gap-2.5 rounded-sm border border-line bg-surface px-3 py-2"
             >
-              <StatusShapeGlyph shape={item.shape} accent={item.label === "Waiting"} />
+              <StatusShapeGlyph shape={item.shape} />
               <span className="flex flex-col">
                 <span className="text-meta text-ink">{item.label}</span>
                 <span className="text-caption text-ink-3">{item.note}</span>
@@ -393,9 +389,52 @@ export function DataDisplay() {
 
       <Panel
         title="Ledger table"
-        description="36px rows, 52px with a second line, a 32px sticky mono header, hover actions, accent wash plus marker on the selected row. Click a row to select it."
+        description="36px rows, 45px with a second line, a 32px sticky mono header, hover actions, accent wash plus marker on the selected row. Click a row, or Tab to the table and use the arrow keys with Enter."
       >
         <LedgerSpecimen />
+        <Specimen label="Focus on a selected row: ring inside the edge, marker on the left">
+          <div className="grid w-full gap-4 md:grid-cols-2">
+            <RowGroup>
+              <Row
+                onClick={() => undefined}
+                title="ClearCheck"
+                description="Asked for a copy of ID"
+              />
+              <Row
+                selected
+                onClick={() => undefined}
+                title="PeopleFindr"
+                description="Selected and focused"
+                className="outline-2 -outline-offset-2 outline-focus"
+              />
+              <Row onClick={() => undefined} title="AudienceGrid" description="Neither" />
+            </RowGroup>
+            <Table label="Focused and selected row" role="grid">
+              <TableBody>
+                <TableRow
+                  selected
+                  onPick={() => undefined}
+                  className="outline-2 outline-focus -outline-offset-2"
+                >
+                  <TableCell>
+                    <TableIdentity title="PeopleFindr" meta="peoplefindr.example" />
+                  </TableCell>
+                  <TableCell>
+                    <StatusMark status="rejected" />
+                  </TableCell>
+                </TableRow>
+                <TableRow onPick={() => undefined}>
+                  <TableCell>
+                    <TableIdentity title="ClearCheck" meta="clearcheck.example" />
+                  </TableCell>
+                  <TableCell>
+                    <StatusMark status="awaiting_reply" />
+                  </TableCell>
+                </TableRow>
+              </TableBody>
+            </Table>
+          </div>
+        </Specimen>
         <Specimen label="Loading">
           <div className="w-full">
             <Table label="Loading placeholder">
