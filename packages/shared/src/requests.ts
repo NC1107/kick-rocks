@@ -105,9 +105,11 @@ const TRANSITIONS: Record<RequestStatus, readonly RequestStatus[]> = {
   draft: ["queued", "cancelled"],
   // The email runner moves queued -> sent -> awaiting_reply in one call, and a form run moves
   // queued straight to its outcome, so a form that finds nothing never writes a `sent` event.
+  // A bounce can arrive while a follow-up or resend waits to go out, and then nothing is left to send.
   queued: [
     "sent",
     "awaiting_reply",
+    "bounced",
     "confirmed",
     "no_record",
     "rejected",

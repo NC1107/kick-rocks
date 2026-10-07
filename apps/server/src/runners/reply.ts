@@ -10,6 +10,7 @@ import {
 } from "@kickrocks/shared";
 import { and, eq } from "drizzle-orm";
 import { AppError } from "../core/errors.js";
+import type { Task } from "../core/task-types.js";
 import type { AppServices } from "../services.js";
 import { describeError } from "./connection.js";
 
@@ -144,6 +145,9 @@ export function applyReply(services: AppServices, input: ApplyReplyInput): Appli
     case "no_record":
     case "rejected": {
       const placed = moveTo(services, input);
+      if (placed && classification === "verification_required") {
+        cancelTasks(services, pendingSends(services, request.id), actor);
+      }
       return {
         needsReview:
           !placed ||
@@ -171,6 +175,38 @@ function moveTo(
   return true;
 }
 
+/**
+ * A follow-up or resend still waiting on the daily cap or the gap between sends has nothing left
+ * to say once the broker bounced the mail or asked for details first. Only a send that has not
+ * started is cancelled, because one already leased is on its way out.
+ */
+function pendingSends(services: AppServices, requestId: string): Task[] {
+  return services.taskQueue.list({ kinds: ["email_send"], status: "queued", requestId });
+}
+
+function cancelTasks(
+  services: AppServices,
+  tasks: readonly Task[],
+  actor: Extract<RequestActor, "system" | "user">,
+): void {
+  for (const task of tasks) services.taskQueue.cancel(task.id, actor);
+}
+
+/**
+ * A bounce settles a request that is waiting on mail, including one whose follow-up or resend has
+ * not gone out yet, which is cancelled because it would bounce the same way. A request that is
+ * queued for anything else, such as a form run, is not waiting on that mail, so the bounce is only recorded.
+ */
+function applyBounce(services: AppServices, input: ApplyReplyInput): boolean {
+  const { request, actor } = input;
+  const current = services.requests.getOrThrow(request.id);
+  const pending = pendingSends(services, request.id);
+  if (current.status === "queued" && pending.length === 0) return false;
+  const placed = moveTo(services, input);
+  if (placed) cancelTasks(services, pending, actor);
+  return placed;
+}
+
 /** A target with a form can be reached there when the mail channel is dead or was refused. */
 function hasFormChannel(services: AppServices, targetId: string): boolean {
   const target = services.targets.getOrThrow(targetId);
@@ -187,7 +223,7 @@ function moveAndSwitch(
   reason: "bounce" | "needs_form",
 ): AppliedReply {
   const { request, actor } = input;
-  const bounced = reason === "bounce" ? moveTo(services, input) : true;
+  const bounced = reason === "bounce" ? applyBounce(services, input) : true;
 
   const current = services.requests.getOrThrow(request.id);
   const canSwitch =

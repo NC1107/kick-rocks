@@ -44,6 +44,7 @@ describe("createServices with no overrides", () => {
           "legal",
           "logger",
           "mail",
+          "mailHolds",
           "mailQuota",
           "recipeHealth",
           "requests",

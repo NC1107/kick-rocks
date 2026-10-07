@@ -130,13 +130,14 @@ describe("storing and applying replies", () => {
     expect(stored()[0]?.reviewed).toBe(true);
   });
 
-  it("leaves a bounce for a request that is queued again for a person, instead of filing it as handled", async () => {
+  it("leaves a bounce for a request queued for something other than mail for a person, instead of filing it as handled", async () => {
     const { request } = await sentRequest();
     ctx.services.requests.requeue(request.id, {
       actor: "system",
       reason: "resend",
       kind: "initial",
     });
+    ctx.services.taskQueue.cancelForRequest(request.id);
     answer("Re: request", request.id, "bounce");
     deliver("Re: request");
 
@@ -144,6 +145,52 @@ describe("storing and applying replies", () => {
 
     expect(requestOf(request.id).status).toBe("queued");
     expect(stored()[0]?.reviewed).toBe(false);
+  });
+
+  describe("a follow-up or resend still waiting on the cap or the gap", () => {
+    const pendingSends = (requestId: string) =>
+      ctx.services.taskQueue.list({ kinds: ["email_send"], status: "queued", requestId });
+
+    async function withPendingFollowUp() {
+      const sent = await sentRequest({ contactMethod: "email", optOutUrl: null });
+      ctx.services.requests.requeue(sent.request.id, {
+        actor: "system",
+        reason: "follow_up",
+        kind: "follow_up",
+      });
+      expect(pendingSends(sent.request.id)).toHaveLength(1);
+      return sent.request;
+    }
+
+    it("is cancelled when a bounce arrives, and the request is settled as bounced", async () => {
+      const request = await withPendingFollowUp();
+      answer("Undeliverable", request.id, "bounce");
+      deliver("Undeliverable");
+      await poll();
+      expect(pendingSends(request.id)).toHaveLength(0);
+      expect(requestOf(request.id).status).toBe("bounced");
+      await runners.email.runDue();
+      expect(ctx.mail.sent).toHaveLength(1);
+    });
+
+    it("is cancelled when the broker asks for details first", async () => {
+      const request = await withPendingFollowUp();
+      answer("Please verify", request.id, "verification_required", { requestedFields: ["street"] });
+      deliver("Please verify");
+      await poll();
+      expect(pendingSends(request.id)).toHaveLength(0);
+      expect(requestOf(request.id).status).toBe("needs_verification");
+      await runners.email.runDue();
+      expect(ctx.mail.sent).toHaveLength(1);
+    });
+
+    it("stays when a reply changes nothing about whether to send", async () => {
+      const request = await withPendingFollowUp();
+      answer("Received", request.id, "auto_ack");
+      deliver("Received");
+      await poll();
+      expect(pendingSends(request.id)).toHaveLength(1);
+    });
   });
 
   it("leaves a verification request for a request already confirmed for a person", async () => {

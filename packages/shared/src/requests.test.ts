@@ -197,10 +197,10 @@ describe("applying a classified reply", () => {
         recordedOnly.push(`${status} <- ${classification}`);
       }
     }
-    // A bounce for mail that is not the latest, and a verification demand on a rejected request,
-    // are recorded on the timeline and leave the status alone.
+    // A bounce or a verification demand on a rejected request is recorded on the timeline and
+    // leaves the status alone.
     expect(recordedOnly.sort()).toEqual(
-      ["queued <- bounce", "rejected <- bounce", "rejected <- verification_required"].sort(),
+      ["rejected <- bounce", "rejected <- verification_required"].sort(),
     );
   });
 
