@@ -6,7 +6,7 @@ import {
   ScanResult,
   type TaskUsage,
 } from "@kickrocks/shared";
-import type { TaskReport } from "@kickrocks/worker/dist/executor.js";
+import { SubmitNotRecorded, type TaskReport } from "@kickrocks/worker/dist/executor.js";
 import { describeError, type Logger } from "@kickrocks/worker/dist/logger.js";
 import type { Page } from "playwright";
 import type { z } from "zod";
@@ -50,6 +50,7 @@ const MODEL_UNAVAILABLE_RETRY_MS = 60_000;
 const MODEL_MISCONFIGURED_RETRY_MS = 10 * 60_000;
 /** A model that hands tasks back is no better placed an hour later, so a person gets time to look first. */
 const MODEL_RELEASE_RETRY_MS = 60 * 60_000;
+const SUBMIT_NOT_RECORDED_RETRY_MS = 60_000;
 const MAX_TEXT_ONLY_TURNS = 3;
 const OMITTED_SNAPSHOT = "(An earlier page snapshot was left out. Use the latest one.)";
 const NEEDS_A_CLICK = new Set(["submitted", "awaiting_email_confirmation"]);
@@ -269,6 +270,13 @@ class AgentRun {
       }
     } catch (error) {
       if (signal.aborted) return this.release("the worker is shutting down");
+      if (error instanceof SubmitNotRecorded) {
+        logger.warn("the server could not record a possible submission, so nothing was clicked", {
+          taskId: task.id,
+          error: describeError(error),
+        });
+        return this.release(error.message, SUBMIT_NOT_RECORDED_RETRY_MS);
+      }
       logger.error("the agent run threw", { taskId: task.id, error: describeError(error) });
       return this.fail(describeError(error) || "The agent run failed", true);
     } finally {

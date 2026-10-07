@@ -345,7 +345,8 @@ The worker does not rely on the model to follow them.
   A result that fails these goes back to the model as an error.
   Text the model copies from the page into `confirmationText`, `notes`, or a failure message has the person's values masked.
 - A removal run that has clicked, including a click that timed out, may already have submitted the form.
-  Before the click, the worker tells the server through the task heartbeat that the form may be submitted, and waits for the answer.
+  Before the click, the worker tells the server through the task heartbeat that the form may be submitted, retries a failed beat a few times, and clicks only once the server has acknowledged it.
+  When it cannot be acknowledged, nothing is clicked and the run is handed back.
   From then on a release or a failure that could be retried becomes a block for a person with reason `unknown`, the page address, and a screenshot, so the form is never submitted twice.
   If the worker is stopped while the page is stuck, the block is still what is reported.
   If it loses its connection or its lease instead, the server blocks the task when the lease runs out and does not queue it again.

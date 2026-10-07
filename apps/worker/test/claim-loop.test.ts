@@ -2,7 +2,7 @@ import { type ClaimedTask, WORKER_DEFAULT_KINDS } from "@kickrocks/shared";
 import { describe, expect, it, vi } from "vitest";
 import { WorkerApiError } from "../src/api-client.js";
 import { type ClaimLoopContext, runClaimLoop, type WorkerApi } from "../src/claim-loop.js";
-import type { TaskReport } from "../src/executor.js";
+import { SubmitNotRecorded, type TaskReport } from "../src/executor.js";
 import { config, silentLogger, summary, task } from "./support.js";
 
 const formTask = () =>
@@ -432,6 +432,76 @@ describe("a removal that may have been submitted", () => {
     const running = runClaimLoop(context({ client, executor }));
     await until(() => client.complete.mock.calls.length > 0, controller);
     await running;
+  });
+
+  describe.each([
+    ["a 503", () => new WorkerApiError(503, "unavailable", "down")],
+    ["a network error", () => new TypeError("fetch failed")],
+    ["a lease that is no longer ours", () => new WorkerApiError(409, "lease_not_held", "taken")],
+    ["a lease that lapsed", () => new WorkerApiError(409, "lease_expired", "lapsed")],
+  ])("when the flagged heartbeat meets %s", (_name, makeError) => {
+    it("does not let the run click", async () => {
+      const { controller, context } = setup();
+      const { client } = fakeClient([formTask()]);
+      client.taskHeartbeat.mockImplementation((async (
+        _id: string,
+        _lease: number,
+        flag?: boolean,
+      ) => {
+        if (flag) throw makeError();
+        return { leaseExpiresAt: "2026-10-07T00:05:00.000Z" };
+      }) as never);
+      let clicked = false;
+      let refusal: unknown;
+      let ran = false;
+      const executor = async (
+        _task: ClaimedTask,
+        _signal: AbortSignal,
+        progress?: { mayHaveSubmitted(): Promise<void> },
+      ): Promise<TaskReport> => {
+        try {
+          await progress?.mayHaveSubmitted();
+          clicked = true;
+        } catch (error) {
+          refusal = error;
+        }
+        ran = true;
+        return { kind: "release", reason: "not recorded" };
+      };
+      const running = runClaimLoop(context({ client, executor }));
+      await until(() => ran, controller);
+      await running;
+      expect(clicked).toBe(false);
+      expect(refusal).toBeInstanceOf(SubmitNotRecorded);
+    });
+  });
+
+  it("retries a flagged heartbeat that failed in passing, and lets the click through once it is acknowledged", async () => {
+    const { controller, context } = setup();
+    const { client } = fakeClient([formTask()]);
+    let failures = 1;
+    client.taskHeartbeat.mockImplementation((async (
+      _id: string,
+      _lease: number,
+      flag?: boolean,
+    ) => {
+      if (flag && failures-- > 0) throw new WorkerApiError(503, "unavailable", "down");
+      return { leaseExpiresAt: "2026-10-07T00:05:00.000Z" };
+    }) as never);
+    let clicked = false;
+    const executor = async (
+      _task: ClaimedTask,
+      _signal: AbortSignal,
+      progress?: { mayHaveSubmitted(): Promise<void> },
+    ): Promise<TaskReport> => {
+      await progress?.mayHaveSubmitted();
+      clicked = true;
+      return { kind: "complete", result: {}, usage: {} };
+    };
+    const running = runClaimLoop(context({ client, executor }));
+    await until(() => client.complete.mock.calls.length > 0, controller);
+    await running;
+    expect(clicked).toBe(true);
   });
 
   it("keeps a result that finishes after the browser was closed under the run", async () => {

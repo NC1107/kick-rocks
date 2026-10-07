@@ -5,6 +5,7 @@ import {
   type TaskScreenshot,
   WebUrl,
 } from "@kickrocks/shared";
+import { SubmitNotRecorded } from "@kickrocks/worker/dist/executor.js";
 import { describeError } from "@kickrocks/worker/dist/logger.js";
 import type { CDPSession, Dialog, Locator, Page, Request, Route } from "playwright";
 import {
@@ -309,7 +310,7 @@ export class Toolbox {
     try {
       outcome = await this.run(name, args);
     } catch (error) {
-      if (this.options.signal.aborted) throw error;
+      if (this.options.signal.aborted || error instanceof SubmitNotRecorded) throw error;
       outcome = failure(this.withNotes(this.explain(error)));
     }
     return outcome.kind === "result"
@@ -558,10 +559,11 @@ export class Toolbox {
         "File upload controls cannot be used. If the site needs a document, report blocked with id_upload.",
       );
     }
+    await this.options.onClick?.();
+    if (this.options.signal.aborted) throw new Error("The run was stopped before the click");
     // Counted before the click is made: one that times out may still have been delivered, and a
     // form that was already submitted must never be submitted again by a retry.
     this.clickCount += 1;
-    await this.options.onClick?.();
     try {
       await target.locator.click({ timeout: this.actionTimeoutMs });
     } catch (error) {

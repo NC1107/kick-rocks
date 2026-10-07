@@ -111,6 +111,20 @@ describeBrowser("a record URL removal form", () => {
     expect(server.submissions).toHaveLength(1);
   });
 
+  it("does not click when the caller could not record the submission, and fails retryably", async () => {
+    const outcome = await run(
+      spec,
+      { ...JORDAN, record_url: `${server.origin}/rec/jordan-example-1` },
+      {
+        onSubmit: async () => {
+          throw new Error("the server could not be told");
+        },
+      },
+    );
+    expect(outcome).toMatchObject({ status: "failed", retryable: true });
+    expect(server.submissions).toEqual([]);
+  });
+
   it("ends as not_found, without submitting, when the record page says it is gone", async () => {
     const outcome = await run(spec, { ...JORDAN, record_url: `${server.origin}/rec/gone` });
     expect(outcome).toEqual({ status: "completed", result: { outcome: "not_found" } });

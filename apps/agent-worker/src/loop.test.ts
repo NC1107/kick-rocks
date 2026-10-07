@@ -1,6 +1,6 @@
 import type { ClaimedTask } from "@kickrocks/shared";
 import { WorkerApiError } from "@kickrocks/worker/dist/api-client.js";
-import type { TaskReport } from "@kickrocks/worker/dist/executor.js";
+import { SubmitNotRecorded, type TaskReport } from "@kickrocks/worker/dist/executor.js";
 import { describe, expect, it, vi } from "vitest";
 import { agentTask, silentLogger, summary } from "../test/support.js";
 import { type AgentApi, type AgentExecutor, type LoopTiming, runLoop } from "./loop.js";
@@ -294,6 +294,52 @@ describe("the agent claim loop", () => {
     };
     await drive(api, executor, () => api.complete.mock.calls.length > 0);
     expect(api.complete).toHaveBeenCalled();
+  });
+
+  it.each([
+    ["a 503", () => new WorkerApiError(503, "unavailable", "down")],
+    ["a network error", () => new TypeError("fetch failed")],
+    ["a lease that is no longer ours", () => new WorkerApiError(409, "lease_not_held", "taken")],
+    ["a lease that lapsed", () => new WorkerApiError(409, "lease_expired", "lapsed")],
+  ])("does not let the run click when the flagged heartbeat meets %s", async (_name, makeError) => {
+    const api = fakeApi([agentTask()]);
+    api.taskHeartbeat.mockImplementation((async (_id: string, _lease: number, flag?: boolean) => {
+      if (flag) throw makeError();
+      return { leaseExpiresAt: "2026-10-07T00:10:00.000Z" };
+    }) as never);
+    let clicked = false;
+    let refusal: unknown;
+    let ran = false;
+    const executor: AgentExecutor = async (_task, _signal, progress) => {
+      try {
+        await progress?.mayHaveSubmitted();
+        clicked = true;
+      } catch (error) {
+        refusal = error;
+      }
+      ran = true;
+      return { kind: "release", reason: "not recorded" };
+    };
+    await drive(api, executor, () => ran);
+    expect(clicked).toBe(false);
+    expect(refusal).toBeInstanceOf(SubmitNotRecorded);
+  });
+
+  it("retries a flagged heartbeat that failed in passing, and lets the click through once it is acknowledged", async () => {
+    const api = fakeApi([agentTask()]);
+    let failures = 1;
+    api.taskHeartbeat.mockImplementation((async (_id: string, _lease: number, flag?: boolean) => {
+      if (flag && failures-- > 0) throw new WorkerApiError(503, "unavailable", "down");
+      return { leaseExpiresAt: "2026-10-07T00:10:00.000Z" };
+    }) as never);
+    let clicked = false;
+    const executor: AgentExecutor = async (_task, _signal, progress) => {
+      await progress?.mayHaveSubmitted();
+      clicked = true;
+      return { kind: "complete", result: {}, usage: {} };
+    };
+    await drive(api, executor, () => api.complete.mock.calls.length > 0);
+    expect(clicked).toBe(true);
   });
 
   it("tells the browser which profiles still exist while idle, and never deletes on a silent server", async () => {

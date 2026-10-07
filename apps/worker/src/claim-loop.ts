@@ -2,7 +2,12 @@ import { sleepFor } from "@kickrocks/recipes";
 import { type ClaimedTask, WORKER_DEFAULT_KINDS } from "@kickrocks/shared";
 import { type WorkerApiClient, WorkerApiError } from "./api-client.js";
 import type { WorkerConfig } from "./config.js";
-import type { RunProgress, TaskExecutor, TaskReport } from "./executor.js";
+import {
+  type RunProgress,
+  SubmitNotRecorded,
+  type TaskExecutor,
+  type TaskReport,
+} from "./executor.js";
 import { describeError, type Logger, silentLogger } from "./logger.js";
 
 /** The calls the loop makes, so a test can stand in for the server. */
@@ -177,34 +182,65 @@ class Loop {
     if (signal.aborted) onShutdown();
     else signal.addEventListener("abort", onShutdown, { once: true });
 
-    let submitted = false;
-    const extendLease = (): Promise<void> =>
-      (submitted
+    let flagRequested = false;
+    let recorded = false;
+    const sendHeartbeat = (): Promise<unknown> =>
+      flagRequested
         ? client.taskHeartbeat(task.id, config.leaseMs, true)
-        : client.taskHeartbeat(task.id, config.leaseMs)
-      )
-        .then(() => undefined)
-        .catch((error: unknown) => {
-          if (leaseTaken(error)) {
-            lost = true;
-            this.logger.warn("the lease on the task is gone, stopping the run", log);
-            run.abort();
-          } else if (leaseLapsed(error)) {
-            // Stopping now would drop a result, and the task would be run, and its form sent, again.
-            this.logger.warn("the lease on the task ran out, finishing the run to report it", log);
-            clearInterval(lease);
-          } else {
-            this.logger.warn("lease heartbeat failed", { ...log, error: describeError(error) });
-          }
-        });
+        : client.taskHeartbeat(task.id, config.leaseMs);
+    const handleLeaseError = (error: unknown): void => {
+      if (leaseTaken(error)) {
+        lost = true;
+        this.logger.warn("the lease on the task is gone, stopping the run", log);
+        run.abort();
+      } else if (leaseLapsed(error)) {
+        // Stopping now would drop a result that the server still takes from its holder.
+        this.logger.warn("the lease on the task ran out, finishing the run to report it", log);
+        clearInterval(lease);
+      } else {
+        this.logger.warn("lease heartbeat failed", { ...log, error: describeError(error) });
+      }
+    };
+    const extendLease = (): Promise<void> =>
+      sendHeartbeat().then(
+        () => undefined,
+        (error: unknown) => handleLeaseError(error),
+      );
     const lease = setInterval(() => {
       extendLease().then(() => this.beat(true, task.id, true));
     }, this.timing.leaseHeartbeatMs);
     const progress: RunProgress = {
+      // Resolves only once the server acknowledged a heartbeat carrying the flag, because a click
+      // made without that record could be submitted a second time if the lease then lapses.
       mayHaveSubmitted: async () => {
-        if (submitted) return;
-        submitted = true;
-        await extendLease();
+        if (recorded) return;
+        flagRequested = true;
+        let pause = this.timing.reportRetryMs;
+        for (let tries = 1; ; tries++) {
+          if (run.signal.aborted) throw new SubmitNotRecorded("the run was stopped");
+          try {
+            await sendHeartbeat();
+            recorded = true;
+            return;
+          } catch (error) {
+            if (
+              !leaseTaken(error) &&
+              !leaseLapsed(error) &&
+              transient(error) &&
+              tries < this.timing.reportAttempts
+            ) {
+              this.logger.warn("lease heartbeat failed, trying again", {
+                ...log,
+                error: describeError(error),
+              });
+              await sleepFor(pause, run.signal);
+              pause *= 2;
+              continue;
+            }
+            handleLeaseError(error);
+            throw new SubmitNotRecorded(describeError(error));
+          }
+        }
       },
     };
 

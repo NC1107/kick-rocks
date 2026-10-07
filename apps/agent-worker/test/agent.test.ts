@@ -1,5 +1,6 @@
 import { INSTANT_PACE } from "@kickrocks/recipes";
 import { MAX_SCREENSHOT_BYTES, resultSchemaFor, TaskBlockReport } from "@kickrocks/shared";
+import { SubmitNotRecorded } from "@kickrocks/worker/dist/executor.js";
 import type { Browser, BrowserContext } from "playwright";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { type AgentOutcome, runAgentTask } from "../src/agent.js";
@@ -1506,6 +1507,16 @@ describeBrowser("telling the worker that a removal may have been submitted", () 
     });
     expect(seen).toEqual([0]);
     expect((await fixtureState()).submissions).toHaveLength(1);
+  });
+
+  it("does not click, and gives the task back, when the server could not record the submission", async () => {
+    const { outcome } = await run(fillForm, {
+      onMayHaveSubmitted: async () => {
+        throw new SubmitNotRecorded("503");
+      },
+    });
+    expect(outcome.report.kind).toBe("release");
+    expect((await fixtureState()).submissions).toEqual([]);
   });
 
   it("stays quiet for a scan, which submits nothing", async () => {

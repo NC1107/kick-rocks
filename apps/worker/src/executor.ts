@@ -36,10 +36,20 @@ export type TaskReport =
 /** What a run tells the loop that carries it, beyond the report it ends with. */
 export interface RunProgress {
   /**
-   * Called before the run does something that may submit a form, and resolved once the server has
-   * been told, so a lease that is lost afterwards holds the task for a person and does not retry it.
+   * Called before the run does something that may submit a form. Resolves once the server has
+   * acknowledged it, so a lease that is lost afterwards holds the task for a person and does not
+   * retry it. Rejects with `SubmitNotRecorded` when it could not, and then the run must not click.
    */
   mayHaveSubmitted(): Promise<void>;
+}
+
+/** The server did not acknowledge that a run may submit a form, so the run must not click. */
+export class SubmitNotRecorded extends Error {
+  override name = "SubmitNotRecorded";
+
+  constructor(reason: string) {
+    super(`The server could not be told a form may be submitted: ${reason}`);
+  }
 }
 
 export type TaskExecutor = (

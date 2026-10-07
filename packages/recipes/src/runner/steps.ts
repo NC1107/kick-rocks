@@ -519,7 +519,10 @@ function sendsToSite(step: RecipeStep): boolean {
 /** Runs one step. A step ends the run by returning an outcome, and otherwise returns null. */
 export async function runStep(ctx: RunContext, step: RecipeStep, index: number): Promise<Ended> {
   checkLive(ctx);
-  if (sendsToSite(step)) await ctx.onSubmit?.();
+  if (sendsToSite(step)) {
+    await ctx.onSubmit?.();
+    checkLive(ctx);
+  }
   try {
     switch (step.kind) {
       case "goto":
