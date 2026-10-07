@@ -9,7 +9,7 @@ import type {
   TargetsQuery,
 } from "@kickrocks/shared";
 import { and, asc, desc, eq, inArray, type SQL, sql } from "drizzle-orm";
-import { notFound } from "../../core/errors.js";
+import { targetDetail } from "../../core/target-detail.js";
 import type { TargetsService } from "../../core/targets.js";
 
 const PRIORITY_RANK = sql`case ${targets.priority} when 'crucial' then 0 when 'high' then 1 else 2 end`;
@@ -129,32 +129,7 @@ export function createTargetCatalog(
     },
 
     detail(id) {
-      const row = targetsService.get(id);
-      if (!row) throw notFound(`Target ${id} not found`, "target_not_found");
-      const recipeRows = db
-        .select()
-        .from(recipes)
-        .where(eq(recipes.targetId, id))
-        .orderBy(asc(recipes.purpose), desc(recipes.version))
-        .all();
-      const record = row.data;
-      return {
-        ...targetsService.toSummary(row),
-        privacyEmail: row.privacyEmail,
-        privacyRightsUrl: row.privacyRightsUrl,
-        region: row.region,
-        notes: record.notes,
-        sources: record.sources,
-        verifiedAt: "verifiedAt" in record ? record.verifiedAt : null,
-        recipes: recipeRows.map((recipe) => ({
-          id: recipe.id,
-          purpose: recipe.purpose,
-          version: recipe.version,
-          source: recipe.source,
-          status: recipe.status,
-          health: recipe.health,
-        })),
-      };
+      return targetDetail({ db, targets: targetsService }, id);
     },
   };
 }

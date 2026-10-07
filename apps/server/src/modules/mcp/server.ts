@@ -9,10 +9,10 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import type { z } from "zod";
 import { AppError } from "../../core/errors.js";
+import { targetDetail } from "../../core/target-detail.js";
 import type { AppServices } from "../../services.js";
 import { createRecipeStore } from "../recipes/store.js";
 import { createTaskOperations, MCP_CALLER } from "../worker-api/task-operations.js";
-import { targetDetail } from "./target-detail.js";
 
 type Input<N extends McpToolName> = z.output<(typeof MCP_TOOLS)[N]["input"]>;
 type Output<N extends McpToolName> = z.output<(typeof MCP_TOOLS)[N]["output"]>;

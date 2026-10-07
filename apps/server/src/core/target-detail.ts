@@ -1,11 +1,12 @@
+import type { KickRocksDb } from "@kickrocks/db";
 import { recipes } from "@kickrocks/db";
 import type { TargetDetail } from "@kickrocks/shared";
 import { desc, eq } from "drizzle-orm";
-import type { AppServices } from "../../services.js";
+import type { TargetsService } from "./targets.js";
 
 /** A target with its contacts, where it came from, and the recipes that exist for it. */
 export function targetDetail(
-  { db, targets }: Pick<AppServices, "db" | "targets">,
+  { db, targets }: { db: KickRocksDb; targets: TargetsService },
   targetId: string,
 ): TargetDetail {
   const row = targets.getOrThrow(targetId);
