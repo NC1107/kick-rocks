@@ -1,0 +1,19 @@
+{
+  "name": "Big Ass Data Broker Opt-Out List (BADBOOL)",
+  "author": "Yael Grauer",
+  "repository": "https://github.com/yaelwrites/Big-Ass-Data-Broker-Opt-Out-List",
+  "branch": "master",
+  "commit": "79f63fdc8a9791246af5e10865865aff584d809b",
+  "committedAt": "2026-09-28T03:39:22Z",
+  "license": "CC-BY-NC-SA-4.0",
+  "files": {
+    "BADBOOL-README.md": {
+      "path": "README.md",
+      "sha256": "7d1095eaa3607d4423472bc111809ec8980f9564a456681448bf99d647db85ee"
+    },
+    "BADBOOL-LICENSE.md": {
+      "path": "LICENSE.md",
+      "sha256": "051131b5ef3596dad9bf0cffee19c248ff9751596a86b25c70f0cd82d6f6d713"
+    }
+  }
+}
