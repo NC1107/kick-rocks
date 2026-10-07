@@ -1,5 +1,5 @@
-import { type DbHandle, recipes } from "@kickrocks/db";
-import { FORM_OUTCOMES, type FormResult, type RequestActor } from "@kickrocks/shared";
+import { type DbHandle, recipes, targets } from "@kickrocks/db";
+import { FORM_OUTCOMES, type FormResult, isOnDomain, type RequestActor } from "@kickrocks/shared";
 import { eq } from "drizzle-orm";
 import type { Task } from "../core/task-types.js";
 import { responseWindow } from "../runners/deadlines.js";
@@ -9,6 +9,19 @@ import { handToAgentAfterRecipeFailure, recordRecipeRun } from "./recipe-runs.js
 interface ConfirmationExpectation {
   fromDomains: string[];
   linkTextPattern: string | null;
+}
+
+/**
+ * A sender the page named, which an agent can be talked into writing, counts only when it belongs
+ * to a broker in the dataset. Otherwise "com" or a webmail domain would make every mail from that
+ * domain look like the broker's confirmation, and its links would be followed.
+ */
+function isKnownBrokerDomain(tx: DbHandle, domain: string): boolean {
+  return tx
+    .select({ domain: targets.domain })
+    .from(targets)
+    .all()
+    .some((target) => isOnDomain(`https://${domain}/`, target.domain));
 }
 
 /**
@@ -28,9 +41,11 @@ function expectedConfirmation(
         .get()?.definition
     : undefined;
   const step = definition?.steps.find((candidate) => candidate.kind === "email_confirmation");
-  const domains = [step?.fromDomain, result.confirmationFrom]
-    .filter((domain): domain is string => Boolean(domain))
-    .map((domain) => domain.toLowerCase());
+  const reported = result.confirmationFrom?.toLowerCase();
+  const domains = [
+    step?.fromDomain.toLowerCase(),
+    reported && isKnownBrokerDomain(tx, reported) ? reported : undefined,
+  ].filter((domain): domain is string => Boolean(domain));
   return {
     fromDomains: [...new Set(domains)],
     linkTextPattern: step?.linkTextPattern ?? null,

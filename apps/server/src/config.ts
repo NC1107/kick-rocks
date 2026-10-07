@@ -17,7 +17,8 @@ const Env = z.object({
     .optional(),
   KICKROCKS_EXTRA_TARGETS: z.string().optional(),
   KICKROCKS_EXTRA_RECIPES: z.string().optional(),
-  KICKROCKS_TRUST_PROXY: z.enum(["on", "off"]).default("off"),
+  KICKROCKS_ALLOWED_HOSTS: z.string().optional(),
+  KICKROCKS_TRUST_PROXY: z.string().default("off"),
   KICKROCKS_SCHEDULER: z.enum(["on", "off"]).default("on"),
   KICKROCKS_ALLOW_PRIVATE_LINK_HOSTS: z.string().optional(),
   KICKROCKS_PLAINTEXT_MAIL_HOSTS: z.string().optional(),
@@ -45,10 +46,16 @@ export interface Config {
   /** A directory of extra recipe files. */
   extraRecipesDir: string | null;
   /**
-   * Whether to believe X-Forwarded-* headers. Off by default because a client could forge them to
-   * dodge the login throttle; turn it on behind a reverse proxy so every client is not one address.
+   * Hostnames besides loopback, IP addresses, and the public URL that the server accepts in a
+   * request's Host header, for a name that reaches it through a proxy or the local network.
    */
-  trustProxy: boolean;
+  allowedHosts: string[];
+  /**
+   * Which proxies to believe X-Forwarded-* headers from: `false`, a count of proxy hops, or a list
+   * of proxy addresses. Believing every hop would let a client choose its own address with a forged
+   * header and dodge the login throttle, so a bare "on" is refused.
+   */
+  trustProxy: false | number | string[];
   schedulerEnabled: boolean;
   /**
    * The random pause between two sends from one mailbox. The default of 20 to 60 seconds keeps a
@@ -90,6 +97,27 @@ function hostList(value: string | undefined): string[] {
     .filter(Boolean);
 }
 
+const PROXY_ADDRESS = /^[0-9a-f:.]+(\/\d{1,3})?$/i;
+
+function proxyTrust(value: string): Config["trustProxy"] {
+  const text = value.trim().toLowerCase();
+  if (text === "off") return false;
+  if (/^\d+$/.test(text)) {
+    const hops = Number(text);
+    return hops === 0 ? false : hops;
+  }
+  const addresses = text
+    .split(",")
+    .map((address) => address.trim())
+    .filter(Boolean);
+  if (addresses.length > 0 && addresses.every((address) => PROXY_ADDRESS.test(address))) {
+    return addresses;
+  }
+  throw new Error(
+    "KICKROCKS_TRUST_PROXY must be off, the number of proxies in front of the server, or a comma separated list of proxy addresses",
+  );
+}
+
 function gapRange(value: string | undefined): { min: number; max: number } {
   if (value === undefined) return { ...DEFAULT_SEND_GAP_MS };
   const [min = 0, max = min] = value.split("-").map(Number);
@@ -114,7 +142,8 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     workerToken: parsed.KICKROCKS_WORKER_TOKEN ?? null,
     extraTargetsPath: pathOrNull(parsed.KICKROCKS_EXTRA_TARGETS),
     extraRecipesDir: pathOrNull(parsed.KICKROCKS_EXTRA_RECIPES),
-    trustProxy: parsed.KICKROCKS_TRUST_PROXY === "on",
+    allowedHosts: hostList(parsed.KICKROCKS_ALLOWED_HOSTS),
+    trustProxy: proxyTrust(parsed.KICKROCKS_TRUST_PROXY),
     schedulerEnabled: parsed.KICKROCKS_SCHEDULER === "on",
     sendGapMs: gapRange(parsed.KICKROCKS_SEND_GAP_MS),
     mail: { plaintextHosts: hostList(parsed.KICKROCKS_PLAINTEXT_MAIL_HOSTS) },

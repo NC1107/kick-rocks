@@ -15,6 +15,7 @@ import {
 } from "@kickrocks/shared";
 import { and, asc, desc, eq, inArray, type SQL, sql } from "drizzle-orm";
 import { conflict, invalidRequest, notFound } from "../../core/errors.js";
+import { likePattern } from "../../core/like.js";
 import type { AppServices } from "../../services.js";
 
 const ACTION_OUTCOMES = {
@@ -23,11 +24,6 @@ const ACTION_OUTCOMES = {
   mark_rejected: "rejected",
   mark_no_record: "no_record",
 } as const satisfies Partial<Record<RequestAction, RequestStatus>>;
-
-/** Escapes LIKE wildcards so a search for "100%" finds that text and not everything. */
-function likePattern(text: string): string {
-  return `%${text.replace(/[\\%_]/g, (char) => `\\${char}`)}%`;
-}
 
 export interface RequestsApi {
   list(profileId: string, query: RequestsQuery): Paged<RequestListItem>;

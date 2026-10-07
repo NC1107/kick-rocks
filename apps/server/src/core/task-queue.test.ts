@@ -654,7 +654,7 @@ describe("reapExpiredLeases", () => {
     expect(reaped).toMatchObject({
       id: task.id,
       status: "queued",
-      leaseOwner: null,
+      leaseOwner: "worker-1",
       lastError: "The lease expired",
       runAfter: new Date(ctx.clock.now().getTime() + retryDelayMs(1)).toISOString(),
     });
@@ -1060,9 +1060,51 @@ describe("expired leases", () => {
     queue.enqueue({ kind: "email_send", payload: emailPayload() });
     const task = claimOne();
     ctx.clock.advance(2 * 60 * MINUTE);
+    queue.reapExpiredLeases();
+    expect(queue.getOrThrow(task.id).status).toBe("queued");
     expect(
       queue.complete(task.id, { ...worker, result: { late: true }, actor: "worker" }).status,
     ).toBe("done");
+  });
+});
+
+describe("a report after the lease was reaped", () => {
+  it("keeps a late failure and a late block from the last holder too", () => {
+    queue.enqueue({ kind: "email_send", payload: emailPayload("a") });
+    queue.enqueue({ kind: "email_send", payload: emailPayload("b") });
+    const first = claimOne();
+    const second = claimOne();
+    ctx.clock.advance(DAY);
+    queue.reapExpiredLeases();
+
+    expect(
+      queue.fail(first.id, {
+        ...worker,
+        error: "late",
+        retryable: false,
+        kind: "site",
+        actor: "worker",
+      }).status,
+    ).toBe("failed");
+    expect(queue.getOrThrow(second.id).status).toBe("queued");
+  });
+
+  it("refuses a report from a worker that never held the task", () => {
+    queue.enqueue({ kind: "email_send", payload: emailPayload() });
+    const task = claimOne();
+    ctx.clock.advance(DAY);
+    queue.reapExpiredLeases();
+    expect(
+      codeOf(() => queue.complete(task.id, { workerId: "other", result: {}, actor: "worker" })),
+    ).toBe("lease_not_held");
+  });
+
+  it("does not let the last holder revive the lease with a heartbeat", () => {
+    queue.enqueue({ kind: "email_send", payload: emailPayload() });
+    const task = claimOne();
+    ctx.clock.advance(DAY);
+    queue.reapExpiredLeases();
+    expect(codeOf(() => queue.heartbeat(task.id, { ...worker }))).toBe("lease_not_held");
   });
 });
 

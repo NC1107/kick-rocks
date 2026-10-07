@@ -1,4 +1,4 @@
-import { mailboxes, recipes, requests } from "@kickrocks/db";
+import { mailboxes, recipes, requests, targets } from "@kickrocks/db";
 import { ClaimedTask } from "@kickrocks/shared";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -184,7 +184,7 @@ describe("scan tasks", () => {
 
 describe("form tasks", () => {
   function formTask(recordUrl: string | null = "https://spokeo.test/p/9") {
-    const target = seedTarget(ctx, { contactMethod: "form" });
+    const target = seedTarget(ctx, { contactMethod: "form", domain: "spokeo.test" });
     seedRecipe(ctx, target.id, { purpose: "remove" });
     const request = seedRequest(ctx, {
       profileId,
@@ -428,12 +428,19 @@ describe("agent tasks", () => {
     } = {},
   ) {
     ensureMailbox(profileId);
-    const target = seedTarget(ctx, {
-      name: "Example Broker",
-      category: "people-search",
-      searchUrl: "https://search.example-broker.test/",
-      optOutUrl: "https://example-broker.test/optout",
-    });
+    const target =
+      ctx.services.db
+        .select()
+        .from(targets)
+        .where(eq(targets.domain, "example-broker.test"))
+        .get() ??
+      seedTarget(ctx, {
+        name: "Example Broker",
+        domain: "example-broker.test",
+        category: "people-search",
+        searchUrl: "https://search.example-broker.test/",
+        optOutUrl: "https://example-broker.test/optout",
+      });
     const request =
       purpose === "remove"
         ? seedRequest(ctx, {
@@ -477,7 +484,24 @@ describe("agent tasks", () => {
 
   it("takes its fields from the legal package for a removal, with the mailbox as its email", () => {
     const task = agentClaim("remove");
-    expect(task?.fields).toEqual({ full_name: "Jordan Q Example", email: "jordan@example.com" });
+    expect(task?.fields).toMatchObject({
+      full_name: "Jordan Q Example",
+      email: "jordan@example.com",
+    });
+  });
+
+  it("gives a removal the record URL as a value it may paste", () => {
+    expect(agentClaim("remove")?.fields.record_url).toBe("https://example-broker.test/p/1");
+  });
+
+  it("tells the agent what to do when a form asks for something it was not given", () => {
+    expect(agentClaim("remove")?.instructions).toContain("block_task with reason unknown");
+  });
+
+  it("states when the lease runs out and what happens after", () => {
+    const task = agentClaim("remove");
+    expect(task?.instructions).toContain(task?.leaseExpiresAt);
+    expect(task?.instructions).toContain("refused");
   });
 
   it("gives an agent the mailbox address even when the primary identity is another one", () => {
@@ -777,5 +801,87 @@ describe("buildClaimedTask", () => {
       leaseMs: 60_000,
     });
     expect(() => buildClaimedTask(ctx.services, task as never)).toThrow(/has no target/);
+  });
+});
+
+describe("tasks that name a record on another site", () => {
+  const offSite = "https://collector.example/p/1";
+
+  function removalFor(kind: "agent" | "form") {
+    ensureMailbox(profileId);
+    const target = seedTarget(ctx, { category: "people-search", domain: "records.test" });
+    const request = seedRequest(ctx, {
+      profileId,
+      targetId: target.id,
+      status: "queued",
+      channel: "form",
+      recordUrl: offSite,
+    });
+    const common = { profileId, targetId: target.id, requestId: request.id };
+    if (kind === "agent") {
+      ctx.services.taskQueue.enqueue({
+        kind: "agent",
+        payload: {
+          ...common,
+          purpose: "remove",
+          recordUrl: offSite,
+          variant: null,
+          reason: "no_recipe",
+          previousError: null,
+          blockedReason: null,
+        },
+        ...common,
+      });
+    } else {
+      const recipe = seedRecipe(ctx, target.id, { purpose: "remove" });
+      ctx.services.taskQueue.enqueue({
+        kind: "form",
+        payload: { ...common, recipeId: recipe.id, recordUrl: offSite },
+        ...common,
+      });
+    }
+    return claim([kind]);
+  }
+
+  it.each(["agent", "form"] as const)("refuses to hand a %s task the person's details", (kind) => {
+    expect(() => removalFor(kind)).toThrow(/not on records\.test/);
+    const [task] = ctx.services.taskQueue.list({ kinds: [kind] });
+    expect(task).toMatchObject({ status: "failed", failureKind: "internal" });
+  });
+});
+
+describe("agent scans for a past name or address", () => {
+  it("searches under the variant instead of the current identity", () => {
+    const target = seedTarget(ctx, { category: "people-search" });
+    const all = seedIdentities(ctx, profileId, [
+      ...jordanIdentities(),
+      {
+        kind: "alias",
+        value: { first: "Jordy", last: "Oldname" },
+        isPrimary: false,
+        validFrom: null,
+        validTo: null,
+      },
+      {
+        kind: "address",
+        value: { street: "1 Old Road", city: "Dallas", state: "TX", zip: "75001" },
+        isPrimary: false,
+        validFrom: null,
+        validTo: "2020-01-01",
+      },
+    ]);
+    const nameId = all.find((i) => i.kind === "alias")?.id ?? "";
+    const addressId = all.find((i) => i.kind === "address" && i.validTo)?.id ?? "";
+    ctx.services.dispatch.enqueueScan(profileId, target.id, { nameId, addressId });
+
+    const task = claim(["agent"]);
+
+    expect(task?.fields).toEqual({
+      first_name: "Jordy",
+      last_name: "Oldname",
+      city: "Dallas",
+      state: "TX",
+    });
+    expect(task?.instructions).toContain("past name or address");
   });
 });

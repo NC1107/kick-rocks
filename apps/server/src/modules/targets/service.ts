@@ -9,15 +9,11 @@ import type {
   TargetsQuery,
 } from "@kickrocks/shared";
 import { and, asc, desc, eq, inArray, type SQL, sql } from "drizzle-orm";
+import { likePattern } from "../../core/like.js";
 import { targetDetail } from "../../core/target-detail.js";
 import type { TargetsService } from "../../core/targets.js";
 
 const PRIORITY_RANK = sql`case ${targets.priority} when 'crucial' then 0 when 'high' then 1 else 2 end`;
-
-/** Escapes LIKE wildcards so a search for "100%" finds that text and not everything. */
-function likePattern(text: string): string {
-  return `%${text.replace(/[\\%_]/g, (char) => `\\${char}`)}%`;
-}
 
 function filtersOf(query: Partial<TargetsQuery>): SQL[] {
   const conditions: SQL[] = [];

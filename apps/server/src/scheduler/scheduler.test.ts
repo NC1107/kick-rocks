@@ -195,6 +195,7 @@ describe("an unanswered email request over time", () => {
 describe("an unanswered form request", () => {
   async function submittedForm() {
     const target = seedTarget(ctx, {
+      domain: "records.test",
       category: "people-search",
       contactMethod: "form",
       requirements: ["record_url"],
@@ -483,7 +484,7 @@ describe("housekeeping", () => {
     await scheduler.tick();
     expect(ctx.services.taskQueue.getOrThrow(task.id)).toMatchObject({
       status: "queued",
-      leaseOwner: null,
+      leaseExpiresAt: null,
     });
   });
 

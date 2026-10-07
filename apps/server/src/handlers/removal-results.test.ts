@@ -21,6 +21,7 @@ beforeEach(async () => {
   profileId = seedProfile(ctx).id;
   seedMailbox(ctx, profileId);
   targetId = seedTarget(ctx, {
+    domain: "records.test",
     category: "people-search",
     contactMethod: "form",
     requirements: ["record_url"],
@@ -98,6 +99,7 @@ describe("a form run that finished", () => {
   );
 
   it("waits for the broker's email and remembers who it will come from", () => {
+    seedTarget(ctx, { domain: "other.test" });
     ctx.services.db.delete(recipes).run();
     seedRecipe(ctx, targetId, {
       purpose: "remove",
@@ -122,7 +124,19 @@ describe("a form run that finished", () => {
     });
   });
 
+  it.each(["com", "co.uk", "gmail.com"])(
+    "ignores a sender of %s that the page named, since it is not a broker",
+    (confirmationFrom) => {
+      const { request } = openRemoval();
+      finishForm({ outcome: "awaiting_email_confirmation", confirmationFrom });
+      expect(
+        eventsOf(request.id).find((event) => event.type === "awaiting_confirmation"),
+      ).toMatchObject({ payload: { fromDomains: [] } });
+    },
+  );
+
   it("uses what the page said when the recipe names no sender", () => {
+    seedTarget(ctx, { domain: "other.test" });
     const { request } = openRemoval();
     finishForm({ outcome: "awaiting_email_confirmation", confirmationFrom: "mail.other.test" });
     expect(

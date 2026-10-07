@@ -1,5 +1,4 @@
 import {
-  type ApiModule,
   type IssueLocation,
   type RouteAuth,
   type RouteBody,
@@ -7,7 +6,6 @@ import {
   type RouteParams,
   type RouteQuery,
   type RouteResponse,
-  routesOfModule,
   toApiIssues,
 } from "@kickrocks/shared";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
@@ -89,41 +87,6 @@ export function registerRoute<R extends RouteDef>(
       return reply.code(route.status ?? 200).send(route.response?.parse(result));
     },
   });
-}
-
-/** Key of a route in {@link stubbedRoutes}: its method and its path under /api. */
-export const routeKey = (route: Pick<RouteDef, "method" | "path">) =>
-  `${route.method} ${route.path}`;
-
-/**
- * The routes that are still answered with 501, so a test of a module can tell a route that has
- * been built from one that has not, and does not break when another module lands.
- */
-export const stubbedRoutes = new Set<string>();
-
-/**
- * Answers every route of a module with 501 until the module's own routes replace it. A module
- * that has built some of its routes passes them as `implemented` so they are not registered twice.
- */
-export function registerNotImplemented(
-  app: FastifyInstance,
-  module: ApiModule,
-  implemented: readonly RouteDef[] = [],
-): void {
-  for (const route of routesOfModule(module)) {
-    if (implemented.includes(route)) continue;
-    stubbedRoutes.add(routeKey(route));
-    app.route({
-      method: route.method,
-      url: route.path,
-      config: { auth: route.auth },
-      handler: (_request, reply) =>
-        reply.code(501).send({
-          error: "not_implemented",
-          message: `${route.method} ${route.path} is not implemented yet`,
-        }),
-    });
-  }
 }
 
 const CODE_BY_STATUS: Record<number, string> = {

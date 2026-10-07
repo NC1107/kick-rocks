@@ -98,6 +98,28 @@ describe("dispatchRequest for email", () => {
     });
   });
 
+  it("replaces a follow-up still waiting to go out with the verification reply the person approved", () => {
+    const request = queuedRequest(seedTarget(ctx).id, { sentAt: ctx.clock.now().toISOString() });
+    const followUp = dispatch().dispatchRequest(request.id, { kind: "follow_up" });
+
+    const reply = dispatch().dispatchRequest(request.id, {
+      kind: "verification_reply",
+      fields: ["street"],
+      inReplyTo: "<ask@broker.test>",
+    });
+
+    expect(reply.created).toBe(true);
+    expect(reply.task.payload).toMatchObject({ kind: "verification_reply" });
+    expect(ctx.services.taskQueue.get(followUp.task.id)?.status).toBe("cancelled");
+  });
+
+  it("does not queue a second send when the same one is dispatched twice", () => {
+    const request = queuedRequest(seedTarget(ctx).id);
+    const first = dispatch().dispatchRequest(request.id);
+    const again = dispatch().dispatchRequest(request.id);
+    expect(again).toMatchObject({ created: false, task: { id: first.task.id } });
+  });
+
   it("refuses a verification reply with no fields and fields on any other kind", () => {
     const a = queuedRequest(seedTarget(ctx).id);
     expect(() => dispatch().dispatchRequest(a.id, { kind: "verification_reply" })).toThrow(

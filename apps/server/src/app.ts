@@ -6,6 +6,7 @@ import Fastify, { type FastifyInstance } from "fastify";
 import type { Config } from "./config.js";
 import { registerGuards } from "./core/guard.js";
 import { registerHealth } from "./core/health.js";
+import { createHostPolicy } from "./core/hosts.js";
 import { installErrorHandling } from "./core/http.js";
 import { registerModules } from "./modules/index.js";
 import { registerScheduler } from "./scheduler/index.js";
@@ -50,12 +51,16 @@ function registerSecurityHeaders(server: FastifyInstance): void {
 
 export async function buildApp({ services, database, version }: AppContext): Promise<App> {
   const { config } = services;
-  const server = Fastify({ loggerInstance: services.logger, trustProxy: config.trustProxy });
+  const { trustProxy } = config;
+  const server = Fastify({
+    loggerInstance: services.logger,
+    trustProxy: typeof trustProxy === "number" ? (_address, hop) => hop < trustProxy : trustProxy,
+  });
 
   installErrorHandling(server);
   registerSecurityHeaders(server);
   await server.register(fastifyCookie);
-  registerGuards(server, services);
+  registerGuards(server, services, createHostPolicy(config));
 
   // Modules may register startup steps that store rows pointing at targets, so the targets come first.
   services.targets.sync();

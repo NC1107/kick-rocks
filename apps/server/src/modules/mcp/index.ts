@@ -1,10 +1,9 @@
-import { readFileSync } from "node:fs";
-import { dirname, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
 import { SCREENSHOT_BODY_LIMIT_BYTES } from "@kickrocks/shared";
 import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
 import type { FastifyReply, FastifyRequest } from "fastify";
+import { createHostPolicy, type HostPolicy } from "../../core/hosts.js";
 import type { ModulePlugin } from "../../core/module.js";
+import { packageVersion } from "../../core/version.js";
 import { createMcpServer } from "./server.js";
 
 /** The one place a body that is not JSON can be told apart from one that is. */
@@ -12,34 +11,24 @@ const NOT_JSON = Symbol("not-json");
 
 const FORWARDED_HEADERS = ["accept", "content-type", "mcp-protocol-version", "mcp-session-id"];
 
-function packageVersion(): string {
-  try {
-    const file = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..", "..", "package.json");
-    return (JSON.parse(readFileSync(file, "utf8")) as { version: string }).version;
-  } catch {
-    return "0.0.0";
-  }
-}
-
 function jsonRpcError(code: number, message: string) {
   return { jsonrpc: "2.0", error: { code, message }, id: null };
 }
 
 /**
- * A browser page can be pointed at this server by DNS rebinding, so a request that names an origin
- * must name this server's own. A client that is not a browser sends no Origin and is not affected.
- * The bearer token is the real gate; this is the second one the MCP transport spec asks for.
+ * A browser page can be pointed at this server by DNS rebinding, and then names the attacker's own
+ * domain as both Host and Origin, so an Origin is judged against the names this server answers to
+ * and never against the Host header. A client that is not a browser sends no Origin and is not
+ * affected. The bearer token is the real gate; this is the second one the MCP transport spec asks for.
  */
-function originAllowed(request: FastifyRequest, publicUrl: string): boolean {
+function originAllowed(request: FastifyRequest, hostAllowed: HostPolicy): boolean {
   const origin = request.headers.origin;
   if (origin === undefined) return true;
-  let originHost: string;
   try {
-    originHost = new URL(origin).host;
+    return hostAllowed(new URL(origin).host);
   } catch {
     return false;
   }
-  return originHost === request.headers.host || originHost === new URL(publicUrl).host;
 }
 
 function toWebRequest(request: FastifyRequest): Request {
@@ -68,6 +57,7 @@ async function relay(reply: FastifyReply, response: Response): Promise<FastifyRe
  */
 export const mcpModule: ModulePlugin = (app, services) => {
   const version = packageVersion();
+  const hostAllowed = createHostPolicy(services.config);
 
   // The default parser answers a malformed body with a REST error, which an MCP client cannot
   // read. This one hands the route a marker, so the route can answer in JSON-RPC.
@@ -81,7 +71,7 @@ export const mcpModule: ModulePlugin = (app, services) => {
   });
 
   app.post("/", { bodyLimit: SCREENSHOT_BODY_LIMIT_BYTES }, async (request, reply) => {
-    if (!originAllowed(request, services.config.publicUrl)) {
+    if (!originAllowed(request, hostAllowed)) {
       return reply.code(403).send(jsonRpcError(-32000, "Origin not allowed"));
     }
     if (request.body === NOT_JSON) {

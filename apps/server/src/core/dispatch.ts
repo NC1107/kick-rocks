@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { type KickRocksDb, mailboxes, profiles, recipes, scans } from "@kickrocks/db";
+import { type KickRocksDb, mailboxes, recipes, scans } from "@kickrocks/db";
 import {
   type AgentReason,
   type BlockedReason,
@@ -16,6 +16,7 @@ import { conflict, notFound } from "./errors.js";
 import { loadIdentities } from "./identities.js";
 import { newId } from "./ids.js";
 import type { RequestsService } from "./requests.js";
+import { requireProfile } from "./require-profile.js";
 import type { TargetsService } from "./targets.js";
 import type { EnqueueResult, TaskQueue } from "./task-queue.js";
 import type { Task } from "./task-types.js";
@@ -95,6 +96,17 @@ const BROKEN_RECIPE_ERROR = "The recipe is marked broken after repeated failures
 
 const sha256 = (value: string) => createHash("sha256").update(value).digest("hex");
 
+function sameSend(
+  a: { kind: string; fields: readonly string[]; inReplyTo: string | null },
+  b: { kind: string; fields: readonly string[]; inReplyTo: string | null },
+): boolean {
+  return (
+    a.kind === b.kind &&
+    a.inReplyTo === b.inReplyTo &&
+    [...a.fields].sort().join(",") === [...b.fields].sort().join(",")
+  );
+}
+
 export function createDispatch({
   db,
   clock,
@@ -149,15 +161,6 @@ export function createDispatch({
 
   function mailboxOf(profileId: string) {
     return db.select().from(mailboxes).where(eq(mailboxes.profileId, profileId)).get() ?? null;
-  }
-
-  function requireProfile(profileId: string): void {
-    const found = db
-      .select({ id: profiles.id })
-      .from(profiles)
-      .where(eq(profiles.id, profileId))
-      .get();
-    if (!found) throw notFound(`Profile ${profileId} not found`, "profile_not_found");
   }
 
   function requireIdentities(profileId: string, variant: ScanVariant | null): void {
@@ -281,9 +284,26 @@ export function createDispatch({
           if (!targetRow.privacyEmail) {
             throw conflict("no_email_address", `${target.name} has no email address to send to`);
           }
+          const payload = {
+            requestId: request.id,
+            kind,
+            fields,
+            inReplyTo: options.inReplyTo ?? null,
+          };
+          // A send still waiting on the cap or the gap shares this request's dedupe key, so
+          // without this the person's approved reply would be swallowed by an older, different mail.
+          for (const waiting of taskQueue.list({
+            requestId: request.id,
+            kinds: ["email_send"],
+            status: "queued",
+          })) {
+            if (!sameSend(waiting.payload as typeof payload, payload)) {
+              taskQueue.cancel(waiting.id, "system");
+            }
+          }
           const result = taskQueue.enqueue({
             kind: "email_send",
-            payload: { requestId: request.id, kind, fields, inReplyTo: options.inReplyTo ?? null },
+            payload,
             dedupeKey: `email_send:${request.id}`,
             ...common,
           });
@@ -349,7 +369,7 @@ export function createDispatch({
     },
 
     enqueueScan(profileId, targetId, variant = null) {
-      requireProfile(profileId);
+      requireProfile(db, profileId);
       liveTarget(targetId);
       requireIdentities(profileId, variant);
       return db.transaction((tx) => {

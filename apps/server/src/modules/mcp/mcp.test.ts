@@ -220,6 +220,22 @@ describe("list_tasks", () => {
     expect(tasks[0]).toMatchObject({ kind: "agent", status: "queued", targetId: target.id });
   });
 
+  it("keeps the person's name and city out of the address a blocked task reports", async () => {
+    seedTask(ctx, {
+      kind: "agent",
+      status: "blocked",
+      payload: agentPayload(),
+      blockedUrl: "https://people.test/results?name=Jordan%20Example&city=Austin",
+    });
+    const { tasks } = await call<{ tasks: { blockedUrl: string | null }[] }>(
+      await connect(),
+      "list_tasks",
+      {},
+    );
+    expect(tasks[0]?.blockedUrl).toBe("https://people.test");
+    expect(JSON.stringify(tasks)).not.toMatch(/Jordan|Austin/);
+  });
+
   it("filters by status and kind, and never lists in-process kinds", async () => {
     agentScanTask();
     seedTask(ctx, { kind: "agent", status: "done", payload: agentPayload() });

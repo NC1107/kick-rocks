@@ -340,11 +340,65 @@ describe("when sending fails", () => {
     ).toMatchObject({ payload: { willRetry: false } });
   });
 
-  it("does not retry a rejected login", async () => {
-    const { request } = openRequest();
-    ctx.mail.failNextSend(Object.assign(new Error("Invalid login"), { code: "EAUTH" }));
-    await runners.email.runDue();
-    expect(taskFor(request.id)?.status).toBe("failed");
+  describe("when the mailbox cannot reach its server or log in", () => {
+    function breakTransport(code: string) {
+      const transport = ctx.mail.services.transport;
+      ctx.mail.services.transport = (connection) => ({
+        ...transport(connection),
+        send: async () => {
+          throw Object.assign(new Error(`${code} from the server`), { code });
+        },
+      });
+      return () => {
+        ctx.mail.services.transport = transport;
+      };
+    }
+
+    it.each(["ECONNECTION", "ETIMEDOUT", "EAUTH"])(
+      "pauses the whole mailbox on %s and spends no attempts",
+      async (code) => {
+        const requestsOpen = [openRequest().request, openRequest().request, openRequest().request];
+        const repair = breakTransport(code);
+
+        for (let tick = 0; tick < 10; tick += 1) {
+          await runners.email.runDue();
+          ctx.clock.advance(5 * SECOND);
+        }
+
+        for (const request of requestsOpen) {
+          expect(taskFor(request.id)).toMatchObject({ status: "queued", attempts: 0 });
+        }
+        expect(
+          ctx.services.db.select().from(mailboxes).where(eq(mailboxes.id, mailboxId)).get()
+            ?.lastError,
+        ).toContain("Sending is paused");
+
+        repair();
+        ctx.clock.advance(HOUR);
+        for (let round = 0; round < 3; round += 1) {
+          await runners.email.runDue();
+          ctx.clock.advance(MAX_GAP_MS);
+        }
+        expect(ctx.mail.sent).toHaveLength(3);
+        expect(
+          ctx.services.db.select().from(mailboxes).where(eq(mailboxes.id, mailboxId)).get()
+            ?.lastError,
+        ).toBeNull();
+      },
+    );
+
+    it("waits longer after each failure in a row", async () => {
+      openRequest();
+      breakTransport("ECONNECTION");
+      await runners.email.runDue();
+      const first = runners.email.pacer.waitUntil({ id: mailboxId, dailyCap: 30 });
+      ctx.clock.advance(10 * MINUTE);
+      await runners.email.runDue();
+      const second = runners.email.pacer.waitUntil({ id: mailboxId, dailyCap: 30 });
+      expect((second?.getTime() ?? 0) - ctx.clock.now().getTime()).toBeGreaterThan(
+        (first?.getTime() ?? 0) - (ctx.clock.now().getTime() - 10 * MINUTE),
+      );
+    });
   });
 
   it("fails when the server accepts nobody", async () => {

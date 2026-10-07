@@ -130,6 +130,36 @@ describe("storing and applying replies", () => {
     expect(stored()[0]?.reviewed).toBe(true);
   });
 
+  it("leaves a bounce for a request that is queued again for a person, instead of filing it as handled", async () => {
+    const { request } = await sentRequest();
+    ctx.services.requests.requeue(request.id, {
+      actor: "system",
+      reason: "resend",
+      kind: "initial",
+    });
+    answer("Re: request", request.id, "bounce");
+    deliver("Re: request");
+
+    await poll();
+
+    expect(requestOf(request.id).status).toBe("queued");
+    expect(stored()[0]?.reviewed).toBe(false);
+  });
+
+  it("leaves a verification request for a request already confirmed for a person", async () => {
+    const { request } = await sentRequest();
+    answer("All done", request.id, "completed");
+    deliver("All done");
+    await poll();
+    answer("Please verify", request.id, "verification_required", { requestedFields: ["street"] });
+    deliver("Please verify");
+
+    await poll();
+
+    expect(requestOf(request.id).status).toBe("confirmed");
+    expect(stored().find((message) => message.subject === "Please verify")?.reviewed).toBe(false);
+  });
+
   it("leaves a verification request with nothing to approve for a person to look at", async () => {
     const { request } = await sentRequest();
     answer("Please verify", request.id, "verification_required");
@@ -253,6 +283,28 @@ describe("confirmation links", () => {
     ).toMatchObject({ payload: { url: link, finalUrl: link, ok: true } });
     expect(requestOf(request.id).awaitingConfirmationSince).toBeNull();
     expect(stored()[0]?.reviewed).toBe(true);
+  });
+
+  it("leaves a sister site's link that needs a browser for a person, since the browser only opens the broker's own site", async () => {
+    const { request } = await sentRequest();
+    ctx.services.requests.addEvent(request.id, {
+      type: "awaiting_confirmation",
+      actor: "worker",
+      payload: { fromDomains: ["sister.test"], linkTextPattern: null },
+    });
+    const link = "https://suppression.sister.test/verify?t=abc";
+    ctx.mail.linkFollower.program(() => ({ needsBrowser: true }));
+    answer("Confirm", request.id, "confirmation_link", { links: [link] });
+    deliver("Confirm");
+
+    await poll();
+
+    expect(
+      ctx.services.taskQueue
+        .list({ requestId: request.id })
+        .some((task) => task.kind === "confirm"),
+    ).toBe(false);
+    expect(stored()[0]?.reviewed).toBe(false);
   });
 
   it("asks the browser to finish a link that needs a button press", async () => {
@@ -440,6 +492,45 @@ describe("what a poll reads", () => {
     expect(
       ctx.services.db.select().from(mailboxes).where(eq(mailboxes.id, mailboxId)).get(),
     ).toMatchObject({ uidValidity: 2 });
+  });
+
+  it("does not apply a message again when the server renumbers a folder that still holds it", async () => {
+    const { request } = await sentRequest();
+    answer("All done", request.id, "completed");
+    deliver("All done");
+    await poll();
+    const eventsBefore = ctx.services.requests.events(request.id).length;
+
+    ctx.mail.mailbox(MAILBOX_ADDRESS).resetUidValidity();
+    await poll();
+
+    expect(stored()).toHaveLength(1);
+    expect(ctx.services.requests.events(request.id)).toHaveLength(eventsBefore);
+  });
+
+  it("still matches a reply to a request that was created long ago and kept alive", async () => {
+    const { request } = await sentRequest();
+    ctx.services.db
+      .update(requests)
+      .set({ createdAt: new Date(ctx.clock.now().getTime() - 200 * DAY).toISOString() })
+      .where(eq(requests.id, request.id))
+      .run();
+    ctx.mail.classifier.program((_message, context) =>
+      context.requests.some((candidate) => candidate.id === request.id)
+        ? {
+            requestId: request.id,
+            correlation: "message_id",
+            classification: "completed",
+            confidence: 0.9,
+            rationale: "test",
+          }
+        : null,
+    );
+    deliver("We removed you");
+
+    await poll();
+
+    expect(requestOf(request.id).status).toBe("confirmed");
   });
 
   it("never reads mail from before the oldest request still waiting", async () => {

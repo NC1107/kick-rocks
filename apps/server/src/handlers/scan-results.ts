@@ -2,6 +2,7 @@ import { type DbHandle, type MatchRow, matches, type ScanRow, scans } from "@kic
 import {
   type Candidate,
   isActiveStatus,
+  isOnDomain,
   normalizeRecordUrl,
   type RequestRecord,
 } from "@kickrocks/shared";
@@ -94,10 +95,20 @@ function recordMatches(
     .all();
   const seen = new Set<string>();
   const now = services.clock.now().toISOString();
+  const domain = services.targets.getOrThrow(scan.targetId).domain;
 
   for (const candidate of candidates) {
     const key = normalizeRecordUrl(candidate.recordUrl);
     if (key === null || seen.has(key)) continue;
+    // A scan page is untrusted, so a partner or ad link it lists must never become a place the
+    // person's details are sent to.
+    if (!isOnDomain(candidate.recordUrl, domain)) {
+      services.logger.warn(
+        { scanId: scan.id, host: new URL(candidate.recordUrl).hostname },
+        "dropped a scan candidate that is not on the broker's site",
+      );
+      continue;
+    }
     seen.add(key);
 
     const earlier = history.filter((match) => normalizeRecordUrl(match.recordUrl) === key);

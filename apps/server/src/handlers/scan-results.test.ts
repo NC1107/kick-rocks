@@ -24,6 +24,7 @@ beforeEach(async () => {
   targetId = seedTarget(ctx, {
     category: "people-search",
     contactMethod: "form",
+    domain: "records.test",
     searchUrl: "https://records.test/search",
     requirements: ["record_url"],
   }).id;
@@ -86,6 +87,15 @@ describe("scan results", () => {
       fields: { name: "Jordan Example", age: 35, relatives: ["Casey Example"] },
     });
     expect(rows[0]?.fields).not.toHaveProperty("recordUrl");
+  });
+
+  it("drops a candidate whose record is on another site", () => {
+    scanWith([
+      candidate("1"),
+      { ...candidate("2"), recordUrl: "https://collector.example/p/2" },
+      { ...candidate("3"), recordUrl: "https://records.test.evil.example/p/3" },
+    ]);
+    expect(allMatches().map((match) => match.recordUrl)).toEqual(["https://records.test/p/1"]);
   });
 
   it("finishes a scan that found nobody", () => {

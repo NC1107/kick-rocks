@@ -1,14 +1,15 @@
 import { type KickRocksDb, mailboxes, profiles } from "@kickrocks/db";
 import type { LegalApi } from "@kickrocks/legal";
-import type {
-  EmailKind,
-  ProfileField,
-  RequestActor,
-  RequestChannel,
-  RequestEventDraft,
-  RequestEventPayloads,
-  RequestRecord,
-  RequestRight,
+import {
+  type EmailKind,
+  isOnDomain,
+  type ProfileField,
+  type RequestActor,
+  type RequestChannel,
+  type RequestEventDraft,
+  type RequestEventPayloads,
+  type RequestRecord,
+  type RequestRight,
 } from "@kickrocks/shared";
 import { eq } from "drizzle-orm";
 import type { Clock } from "./clock.js";
@@ -98,6 +99,12 @@ export function createRequestFlow({
           throw conflict(
             "target_retired",
             `${row.name} is no longer in the dataset, so nothing new can be sent to it`,
+          );
+        }
+        if (input.recordUrl && !isOnDomain(input.recordUrl, row.domain)) {
+          throw conflict(
+            "record_url_off_domain",
+            `The record is not on ${row.domain}, so no removal will be sent for it`,
           );
         }
         const mailbox = db

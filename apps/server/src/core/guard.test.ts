@@ -75,7 +75,7 @@ describe("registerGuards on a bare app", () => {
     const auth = new FakeAuth();
     auth.deny();
     const app = Fastify();
-    registerGuards(app, { auth, secrets });
+    registerGuards(app, { auth, secrets }, () => true);
     app.get("/api/profiles", async () => ({ secret: true }));
     app.get("/api/health", async () => ({ ok: true }));
     for (const url of [

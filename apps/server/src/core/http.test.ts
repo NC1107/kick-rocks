@@ -2,7 +2,7 @@ import { API_ROUTES, toApiIssues } from "@kickrocks/shared";
 import Fastify, { type FastifyInstance } from "fastify";
 import { afterEach, describe, expect, it } from "vitest";
 import { AppError, conflict, invalidRequest, notFound } from "./errors.js";
-import { installErrorHandling, registerNotImplemented, registerRoute } from "./http.js";
+import { installErrorHandling, registerRoute } from "./http.js";
 
 let app: FastifyInstance;
 
@@ -257,37 +257,5 @@ describe("error handling", () => {
     expect(response.statusCode).toBe(500);
     expect(response.json()).toEqual({ error: "internal_error" });
     expect(response.body).not.toContain("hunter2");
-  });
-});
-
-describe("registerNotImplemented", () => {
-  it("answers 501 on every route of the module and no others", async () => {
-    await build((a) => registerNotImplemented(a, "worker-api"));
-    const response = await app.inject({ method: "POST", url: "/worker/claim", payload: {} });
-    expect(response.statusCode).toBe(501);
-    expect(response.json()).toEqual({
-      error: "not_implemented",
-      message: "POST /worker/claim is not implemented yet",
-    });
-    expect((await app.inject({ method: "GET", url: "/profiles" })).statusCode).toBe(404);
-  });
-
-  it("skips routes a module has already built", async () => {
-    await build((a) => {
-      registerRoute(a, API_ROUTES.workerHeartbeat, () => ({
-        ok: true as const,
-        serverTime: "2026-10-07T00:00:00.000Z",
-      }));
-      registerNotImplemented(a, "worker-api", [API_ROUTES.workerHeartbeat]);
-    });
-    const built = await app.inject({
-      method: "POST",
-      url: "/worker/heartbeat",
-      payload: { workerId: "w", busy: false },
-    });
-    expect(built.statusCode).toBe(200);
-    expect(
-      (await app.inject({ method: "POST", url: "/worker/claim", payload: {} })).statusCode,
-    ).toBe(501);
   });
 });

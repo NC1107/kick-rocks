@@ -55,6 +55,16 @@ The key gets generated on first start and the database is useless without it, so
 docker run --rm -v kick-rocks_kickrocks-data:/data -v "$PWD":/backup alpine tar czf /backup/kickrocks-backup.tgz -C /data .
 ```
 
+If you forget the password, there is no email reset, because nothing here talks to an outside service.
+Run this on the machine that hosts it:
+
+```sh
+docker compose exec server node /app/server/dist/main.js reset-password
+```
+
+It clears the password and every signed-in session, and the next visit to the app asks for a new password.
+Your profiles, requests, and mailbox setup stay as they were.
+
 If you'd rather have a plain folder on disk, swap the volume for a bind mount in `docker-compose.yml` and chown that folder to uid 1000 first, the container runs as an unprivileged user.
 
 ## Developing

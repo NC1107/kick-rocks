@@ -79,8 +79,24 @@ describe("requests.open", () => {
     expect(request.legalBasis).toBe(FAKE_STATUTE.id);
   });
 
+  it("refuses a record on another site and leaves nothing behind", () => {
+    const { profile, target } = setup();
+    expect(() =>
+      requests().open({
+        profileId: profile.id,
+        targetId: target.id,
+        rights: ["opt_out"],
+        channel: "form",
+        recordUrl: "https://collector.example/p/1",
+        actor: "user",
+      }),
+    ).toThrow(/not on/);
+    expect(ctx.services.db.select().from(requestsTable).all()).toHaveLength(0);
+  });
+
   it("carries the campaign and the record a person confirmed", () => {
-    const { profile, mailbox, target } = setup();
+    const { profile, mailbox } = setup();
+    const target = seedTarget(ctx, { domain: "broker.test" });
     seedRecipe(ctx, target.id, { purpose: "remove" });
     const { request, dispatch } = requests().open({
       profileId: profile.id,

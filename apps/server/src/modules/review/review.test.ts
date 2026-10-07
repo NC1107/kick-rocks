@@ -33,6 +33,7 @@ beforeEach(async () => {
   profileId = seedProfile(ctx).id;
   mailboxId = seedMailbox(ctx, profileId).id;
   targetId = seedTarget(ctx, {
+    domain: "records.test",
     category: "people-search",
     contactMethod: "form",
     optOutUrl: "https://records.test/optout",
@@ -182,6 +183,58 @@ describe("GET /review", () => {
       expect((await queue(profileId)).blockedTasks).toHaveLength(0);
       expect((await queue(other.id)).blockedTasks).toHaveLength(1);
       expect((await queue()).blockedTasks).toHaveLength(1);
+    });
+  });
+
+  describe("agent tasks nobody picked up", () => {
+    const queuedAgentRemoval = () => {
+      const request = formRequest();
+      const task = seedTask(ctx, {
+        kind: "agent",
+        payload: {
+          purpose: "remove",
+          profileId,
+          targetId,
+          requestId: request.id,
+          recordUrl: RECORD,
+          variant: null,
+          reason: "no_recipe",
+          previousError: null,
+          blockedReason: null,
+        },
+        status: "queued",
+        profileId,
+        targetId,
+        requestId: request.id,
+      });
+      return { request, task };
+    };
+
+    it("lists them at once when no agent is connected, so they are not stuck out of sight", async () => {
+      ctx.services.settings.set("mcp.enabled", false);
+      const { task } = queuedAgentRemoval();
+      const [item] = (await queue()).blockedTasks;
+      expect(item?.task.id).toBe(task.id);
+      expect(item?.manualInstructions).toContain("Connect one in Settings");
+    });
+
+    it("gives a connected agent a day before asking the person", async () => {
+      const { task } = queuedAgentRemoval();
+      expect((await queue()).blockedTasks).toHaveLength(0);
+      ctx.clock.advance(25 * 60 * 60 * 1000);
+      expect((await queue()).blockedTasks.map((item) => item.task.id)).toEqual([task.id]);
+    });
+
+    it("lets the person finish one by hand, which settles the request", async () => {
+      ctx.services.settings.set("mcp.enabled", false);
+      const { request, task } = queuedAgentRemoval();
+      const result = await ctx.call(API_ROUTES.taskMarkDone, {
+        params: { id: task.id },
+        body: { note: "Did it myself" },
+      });
+      expect(result.ok && result.body.task.status).toBe("done");
+      expect(ctx.services.requests.getOrThrow(request.id).status).toBe("awaiting_reply");
+      expect((await queue()).blockedTasks).toHaveLength(0);
     });
   });
 

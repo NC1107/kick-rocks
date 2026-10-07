@@ -26,7 +26,7 @@ export interface FakeMailbox {
   /** The folders `listFolders` reports. Replace the array to change them. */
   folders: MailFolder[];
   uidValidity: number;
-  /** Simulates the server renumbering the folder. */
+  /** Simulates the server renumbering the folder: every message stays, under a new uid. */
   resetUidValidity(next?: number): void;
   /** Puts a message in a folder, filling in anything the test does not care about. */
   deliver(message?: DeliverableMessage): InboxMessage;
@@ -144,6 +144,8 @@ function createLinkFollower(): ProgrammableLinkFollower {
   return follower;
 }
 
+const RENUMBER_OFFSET = 1000;
+
 class ScriptedMailbox implements FakeMailbox {
   folders: MailFolder[] = [
     { path: "INBOX", name: "INBOX", specialUse: "\\Inbox" },
@@ -160,8 +162,13 @@ class ScriptedMailbox implements FakeMailbox {
 
   resetUidValidity(next = this.uidValidity + 1): void {
     this.uidValidity = next;
-    this.byFolder.clear();
-    this.nextUid.clear();
+    for (const [folder, held] of this.byFolder) {
+      this.byFolder.set(
+        folder,
+        held.map((message) => ({ ...message, uid: message.uid + RENUMBER_OFFSET })),
+      );
+      this.nextUid.set(folder, (this.nextUid.get(folder) ?? 1) + RENUMBER_OFFSET);
+    }
   }
 
   deliver({ folder = "INBOX", ...overrides }: DeliverableMessage = {}): InboxMessage {
