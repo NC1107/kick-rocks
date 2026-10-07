@@ -10,6 +10,13 @@ function open() {
 }
 
 describe("the setup page", () => {
+  it("says the password only signs in, and that the key file needs a backup", () => {
+    open();
+    expect(screen.queryByText(/protects everything/)).not.toBeInTheDocument();
+    expect(screen.getByText(/This password signs you in/)).toBeVisible();
+    expect(screen.getByText(/Back up the whole data folder, key file included/)).toBeVisible();
+  });
+
   it("rejects a short password and says how long it must be", async () => {
     const { user, mock } = open();
     await user.type(screen.getByLabelText("Password"), "too short");

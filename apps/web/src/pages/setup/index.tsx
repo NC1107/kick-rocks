@@ -37,7 +37,7 @@ export function Component() {
     <Card>
       <CardHeader
         title="Set a password"
-        description="This password protects everything Kick Rocks stores about you. You will use it each time you sign in."
+        description="This password signs you in. You will use it each time you open Kick Rocks."
       />
       <form onSubmit={submit} noValidate className="flex flex-col gap-4">
         {/* Gives password managers an account name to save the password under. */}
@@ -70,6 +70,11 @@ export function Component() {
             onChange={(event) => setConfirm(event.target.value)}
           />
         </Field>
+        <Alert intent="info" title="Back up the data folder">
+          Your data is encrypted with a key file stored next to the database, not with this
+          password. Back up the whole data folder, key file included. Without the key file the data
+          cannot be opened.
+        </Alert>
         {failure && !fieldIssue ? <Alert intent="danger">{errorMessage(failure)}</Alert> : null}
         <Button type="submit" variant="primary" loading={setup.isPending} className="w-full">
           Set password
