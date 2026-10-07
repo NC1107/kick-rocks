@@ -121,6 +121,8 @@ export function RowGroup({ className, ...rest }: ComponentProps<"div">) {
 interface RowBase {
   /** A 16px glyph in a 32px tile at the leading edge. */
   icon?: LucideIcon;
+  /** A small mark in place of the icon tile, such as a status shape. */
+  leading?: ReactNode;
   title: ReactNode;
   /** One line, 13px. Longer text belongs in a tooltip or a detail view. */
   description?: ReactNode;
@@ -138,11 +140,12 @@ export type RowProps = RowBase &
   );
 
 const ROW_CLASS =
-  "marked flex min-h-row w-full items-center gap-3 px-3.5 py-2 text-left transition-colors duration-100";
+  "marked flex min-h-row w-full items-center gap-3 px-3.5 py-2 text-left transition-colors duration-100 focus-visible:-outline-offset-2";
 
 /** A row in a RowGroup: optional icon tile, a title, a description, and a trailing value. */
 export function Row({
   icon,
+  leading,
   title,
   description,
   trailing,
@@ -159,6 +162,7 @@ export function Row({
   );
   const content = (
     <>
+      {leading ?? null}
       {icon ? (
         <span className="flex size-8 shrink-0 items-center justify-center rounded-sm bg-active">
           <Icon icon={icon} className="text-ink-2" />
@@ -171,7 +175,10 @@ export function Row({
       {trailing ? <span className="flex shrink-0 items-center gap-2">{trailing}</span> : null}
     </>
   );
-  const state = { "data-selected": selected ? "true" : undefined } as const;
+  const state = {
+    "data-selected": selected ? "true" : undefined,
+    "aria-current": selected ? ("true" as const) : undefined,
+  };
   if (to !== undefined) {
     return (
       <Link to={to} className={classes} {...state}>
