@@ -5,8 +5,8 @@ import {
   type TaskScreenshot,
   WebUrl,
 } from "@kickrocks/shared";
-import { SubmitNotRecorded } from "@kickrocks/worker/dist/executor.js";
 import { bypassServiceWorkers } from "@kickrocks/worker/dist/browser.js";
+import { SubmitNotRecorded } from "@kickrocks/worker/dist/executor.js";
 import { describeError } from "@kickrocks/worker/dist/logger.js";
 import type { CDPSession, Dialog, Locator, Page, Request, Route } from "playwright";
 import {
@@ -566,6 +566,18 @@ export class Toolbox {
     return locator.evaluate(fromSource<(el: unknown) => boolean>(REACHABLE));
   }
 
+  /**
+   * Runs before anything that can send the form: a click, and also a choice or a tick, because a
+   * page may submit on change. It is counted before the action is made: one that times out may
+   * still have been delivered, and a form that was already submitted must never be submitted
+   * again by a retry.
+   */
+  private async beforeSending(): Promise<void> {
+    await this.options.onClick?.();
+    if (this.options.signal.aborted) throw new Error("The run was stopped before the action");
+    this.clickCount += 1;
+  }
+
   private async click(args: unknown): Promise<ToolOutcome> {
     const parsed = ClickArgs.safeParse(args);
     if (!parsed.success) return failure("click needs a ref such as e12");
@@ -576,11 +588,7 @@ export class Toolbox {
         "File upload controls cannot be used. If the site needs a document, report blocked with id_upload.",
       );
     }
-    await this.options.onClick?.();
-    if (this.options.signal.aborted) throw new Error("The run was stopped before the click");
-    // Counted before the click is made: one that times out may still have been delivered, and a
-    // form that was already submitted must never be submitted again by a retry.
-    this.clickCount += 1;
+    await this.beforeSending();
     try {
       await target.locator.click({ timeout: this.actionTimeoutMs });
     } catch (error) {
@@ -683,6 +691,7 @@ export class Toolbox {
           : `No option of ${ref} matches the ${field} value. Options: ${shown}. Choose one with option if it is the right one.`,
       );
     }
+    await this.beforeSending();
     await target.locator.selectOption({ value: match.value }, { timeout: this.actionTimeoutMs });
     return done(this.withNotes(`Selected ${JSON.stringify(match.label)} in ${ref}.`));
   }
@@ -695,6 +704,7 @@ export class Toolbox {
     if (target.info.type !== "checkbox" && target.info.type !== "radio") {
       return failure(`${parsed.data.ref} is not a checkbox or radio button. Use click.`);
     }
+    await this.beforeSending();
     await target.locator.setChecked(parsed.data.checked, { timeout: this.actionTimeoutMs });
     return done(
       this.withNotes(`${parsed.data.checked ? "Checked" : "Unchecked"} ${parsed.data.ref}.`),

@@ -512,7 +512,9 @@ function sendsToSite(step: RecipeStep): boolean {
   return (
     step.kind === "click" ||
     step.kind === "press" ||
-    (step.kind === "select_record" && step.action === "click")
+    step.kind === "select" ||
+    step.kind === "check" ||
+    step.kind === "select_record"
   );
 }
 

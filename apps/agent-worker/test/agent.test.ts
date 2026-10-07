@@ -1,3 +1,6 @@
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { INSTANT_PACE } from "@kickrocks/recipes";
 import { MAX_SCREENSHOT_BYTES, resultSchemaFor, TaskBlockReport } from "@kickrocks/shared";
 import {
@@ -6,9 +9,6 @@ import {
   launchPersistentChrome,
 } from "@kickrocks/worker/dist/browser.js";
 import { SubmitNotRecorded } from "@kickrocks/worker/dist/executor.js";
-import { mkdtemp, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
 import { type Browser, type BrowserContext, chromium } from "playwright";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { type AgentOutcome, runAgentTask } from "../src/agent.js";
@@ -1609,8 +1609,39 @@ describeBrowser("telling the worker that a removal may have been submitted", () 
         seen.push((await fixtureState()).submissions.length);
       },
     });
-    expect(seen).toEqual([0]);
+    expect(seen).toEqual([0, 0, 0]);
     expect((await fixtureState()).submissions).toHaveLength(1);
+  });
+
+  it("records a choice or a tick before it is made, because a page may submit on change", async () => {
+    const onMayHaveSubmitted = vi.fn(async () => undefined);
+    await run(
+      [
+        navigate("/optout"),
+        (v) => ({ calls: [["select", { ref: v.ref("State"), field: "state" }]] }),
+        (v) => ({ calls: [["check", { ref: v.ref("I agree") }]] }),
+        { calls: [["report", { status: "release" }]] },
+      ],
+      { onMayHaveSubmitted },
+    );
+    expect(onMayHaveSubmitted).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not select or tick when the server could not record the submission", async () => {
+    const { outcome } = await run(
+      [
+        navigate("/optout"),
+        (v) => ({ calls: [["check", { ref: v.ref("I agree") }]] }),
+        { calls: [["report", { status: "release" }]] },
+      ],
+      {
+        onMayHaveSubmitted: async () => {
+          throw new SubmitNotRecorded("503");
+        },
+      },
+    );
+    expect(outcome.report.kind).toBe("release");
+    expect((await fixtureState()).submissions).toEqual([]);
   });
 
   it("does not click, and gives the task back, when the server could not record the submission", async () => {

@@ -107,8 +107,30 @@ describeBrowser("a record URL removal form", () => {
       },
     );
     expect(outcome.status).toBe("completed");
-    expect(submissionsSeen).toEqual([0]);
+    expect(submissionsSeen).toEqual([0, 0]);
     expect(server.submissions).toHaveLength(1);
+  });
+
+  it("tells the caller before it ticks a box, because a page may submit on change", async () => {
+    let told = 0;
+    const outcome = await run(
+      {
+        ...spec,
+        steps: [
+          { kind: "goto", url: "{{record_url}}" },
+          { kind: "check", target: { label: "I agree to the terms" } },
+        ],
+      },
+      { ...JORDAN, record_url: `${server.origin}/rec/jordan-example-1` },
+      {
+        onSubmit: async () => {
+          told += 1;
+          throw new Error("the server could not be told");
+        },
+      },
+    );
+    expect(told).toBe(1);
+    expect(outcome).toMatchObject({ status: "failed", retryable: true });
   });
 
   it("does not click when the caller could not record the submission, and fails retryably", async () => {

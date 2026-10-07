@@ -114,12 +114,22 @@ export async function bypassServiceWorkers(page: Page): Promise<void> {
   await session.send("Network.setBypassServiceWorker", { bypass: true });
 }
 
+/**
+ * A page made through `newPage` is bypassed before it is handed out, so its first navigation is
+ * already clear of workers. Pages a site opens are bypassed as soon as they appear.
+ */
 function bypassOnEveryPage(context: BrowserContext): void {
   const bypass = (page: Page): void => {
     bypassServiceWorkers(page).catch(() => undefined);
   };
   for (const page of context.pages()) bypass(page);
   context.on("page", bypass);
+  const newPage = context.newPage.bind(context);
+  context.newPage = async () => {
+    const page = await newPage();
+    await bypassServiceWorkers(page);
+    return page;
+  };
 }
 
 export const launchPersistentChrome: BrowserLauncher = async (settings) => {
@@ -188,18 +198,14 @@ export function createBrowserSession(
     async newPage() {
       const current = await ensure();
       try {
-        const page = await current.newPage();
-        await bypassServiceWorkers(page);
-        return page;
+        return await current.newPage();
       } catch (error) {
         logger.warn("the browser stopped responding, restarting it", {
           error: describeError(error),
         });
         if (context === current) context = null;
         await current.close().catch(() => undefined);
-        const page = await (await ensure()).newPage();
-        await bypassServiceWorkers(page);
-        return page;
+        return (await ensure()).newPage();
       }
     },
     async close() {
