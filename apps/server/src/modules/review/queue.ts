@@ -38,6 +38,12 @@ const MANUAL_INSTRUCTIONS: Record<BlockedReason, string> = {
   unknown: "Open the page and finish the removal by hand, then mark the task done.",
 };
 
+const UNATTENDED_AGENT_INSTRUCTIONS =
+  "No agent has picked this up. Connect one in Settings, or open the page, finish the job by hand, and mark it done. Cancel it if you do not want it done.";
+
+/** How long a task may wait for a connected agent before a person is asked to step in. */
+const AGENT_PATIENCE_MS = 24 * 60 * 60 * 1000;
+
 const FAILED_INSTRUCTIONS =
   "This task failed and nothing will try it again by itself. Retry it, or finish the job by hand and mark it done.";
 
@@ -54,7 +60,9 @@ function toItem(services: AppServices, task: Task, summary: TaskSummary): Blocke
     manualInstructions:
       task.status === "failed"
         ? FAILED_INSTRUCTIONS
-        : MANUAL_INSTRUCTIONS[task.blockedReason ?? "unknown"],
+        : task.status === "queued"
+          ? UNATTENDED_AGENT_INSTRUCTIONS
+          : MANUAL_INSTRUCTIONS[task.blockedReason ?? "unknown"],
   };
 }
 
@@ -184,16 +192,30 @@ function unreviewedMessages(services: AppServices, profileId: string | undefined
   }));
 }
 
+/**
+ * Work handed to an agent that nothing is going to pick up: the built-in worker never claims agent
+ * tasks, so without a connected agent they would sit queued with no sign of it anywhere. With MCP
+ * on, an agent may simply not have come by yet, so only a task that has waited a day is listed.
+ */
+function unattendedAgentTasks(services: AppServices, profileId: string | undefined): Task[] {
+  const agentConnected = services.settings.get("mcp.enabled");
+  const cutoff = new Date(services.clock.now().getTime() - AGENT_PATIENCE_MS).toISOString();
+  return services.taskQueue
+    .list({ status: "queued", kinds: ["agent"], profileId })
+    .filter((task) => !agentConnected || task.createdAt <= cutoff)
+    .reverse();
+}
+
 /** Everything waiting on a person, optionally for one profile. */
 export function buildReviewQueue(
   services: AppServices,
   profileId: string | undefined,
 ): ReviewQueue {
   return {
-    blockedTasks: items(
-      services,
-      services.taskQueue.list({ status: "blocked", profileId }).reverse(),
-    ),
+    blockedTasks: items(services, [
+      ...services.taskQueue.list({ status: "blocked", profileId }).reverse(),
+      ...unattendedAgentTasks(services, profileId),
+    ]),
     matches: pendingMatches(services, profileId),
     verifications: verifications(services, profileId),
     failedTasks: failedTasks(services, profileId),

@@ -81,9 +81,11 @@ A canary loads a page and checks that selectors still exist.
 A scan recipe's canary may also have `steps` to reach selectors that only appear after a search: `goto` a literal URL, `fill` a literal generic value such as `John Smith`, `click`, and `wait_for`.
 Canary steps never use profile fields, so a health check discloses nobody, and a remove recipe may not have them, because a click there could submit a removal.
 
-## Several brokers, one recipe
+## Sister sites
 
-`alsoFor` lists the ids of other brokers that the same recipe serves, for a suppression center that covers sister sites.
+`alsoFor` lists the ids of other brokers whose domains the recipe's pages may be on, for a suppression center that covers sister sites.
+It only widens which pages the recipe may visit.
+The recipe still runs for `brokerId` alone, so a sister broker is handled automatically only if it has a recipe of its own.
 Every id must be a broker in the dataset, as must `brokerId`.
 
 ## Failures

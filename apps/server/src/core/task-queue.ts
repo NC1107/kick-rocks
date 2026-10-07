@@ -653,7 +653,10 @@ export function createTaskQueue({ db, clock, handlers }: TaskQueueDeps): TaskQue
       const now = nowIso(clock);
       return db.transaction((tx) => {
         const row = loadRow(tx, id);
-        if (row.status !== "blocked") {
+        // An agent task nobody has picked up can be finished by hand: with no agent connected,
+        // the person is the only one who will ever do it.
+        const unclaimedAgentTask = row.status === "queued" && row.kind === "agent";
+        if (row.status !== "blocked" && !unclaimedAgentTask) {
           throw conflict("invalid_task_state", `Task ${id} is ${row.status}, not blocked`);
         }
         let stored: unknown = null;

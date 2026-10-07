@@ -15,11 +15,29 @@ const LEASE_MS = 5 * 60 * 1000;
 
 type EmailTask = Task<"email_send">;
 
-/** SMTP says a 5xx answer will not change by asking again, and an address or login problem is the same. */
+const MAILBOX_ERROR_CODES = new Set([
+  "ECONNECTION",
+  "ECONNREFUSED",
+  "ECONNRESET",
+  "EDNS",
+  "ENOTFOUND",
+  "ESOCKET",
+  "ETIMEDOUT",
+  "ETLS",
+  "EAUTH",
+]);
+
+/** The server could not be reached or would not let the mailbox in, which says nothing about the request. */
+function isMailboxProblem(error: unknown): boolean {
+  const { responseCode, code } = error as { responseCode?: unknown; code?: unknown };
+  return responseCode === 421 || (typeof code === "string" && MAILBOX_ERROR_CODES.has(code));
+}
+
+/** SMTP says a 5xx answer will not change by asking again, and a bad address is the same. */
 function isPermanentSendError(error: unknown): boolean {
   const { responseCode, code } = error as { responseCode?: unknown; code?: unknown };
   if (typeof responseCode === "number" && responseCode >= 500 && responseCode < 600) return true;
-  return code === "EENVELOPE" || code === "EAUTH";
+  return code === "EENVELOPE";
 }
 
 function domainOf(address: string): string {
@@ -117,6 +135,10 @@ export class EmailRunner {
       }
     } catch (error) {
       logger.warn({ requestId: request.id, err: describeError(error) }, "email send failed");
+      if (isMailboxProblem(error)) {
+        this.holdMailbox(task, mailbox.id, error);
+        return false;
+      }
       const permanent = isPermanentSendError(error);
       this.fail(task, request, error, {
         retryable: !permanent,
@@ -125,8 +147,27 @@ export class EmailRunner {
       return false;
     }
 
+    this.pacer.clearHold(mailbox.id);
+    this.services.db
+      .update(mailboxes)
+      .set({ lastError: null })
+      .where(eq(mailboxes.id, mailbox.id))
+      .run();
     this.recordSend(task, request.id, composed.mailboxId, outgoing.messageId);
     return true;
+  }
+
+  /** Hands the task back without spending an attempt and shows the person why the mailbox is idle. */
+  private holdMailbox(task: EmailTask, mailboxId: string, error: unknown): void {
+    const { db, taskQueue } = this.services;
+    const until = this.pacer.hold(mailboxId);
+    db.transaction(() => {
+      db.update(mailboxes)
+        .set({ lastError: `Sending is paused: ${describeError(error)}` })
+        .where(eq(mailboxes.id, mailboxId))
+        .run();
+      taskQueue.release(task.id, { workerId: EMAIL_WORKER_ID, runAfter: until });
+    });
   }
 
   private buildMail(
