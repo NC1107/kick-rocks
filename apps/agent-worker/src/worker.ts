@@ -65,7 +65,7 @@ export async function runAgentWorker(options: AgentWorkerOptions): Promise<void>
   );
   const pace: Pace = config.pace === "instant" ? INSTANT_PACE : HUMAN_PACE;
 
-  const executor: AgentExecutor = async (task, runSignal) => {
+  const executor: AgentExecutor = async (task, runSignal, progress) => {
     let page: Page;
     try {
       page = await browsers.newPage(task.profileId ?? null);
@@ -89,6 +89,7 @@ export async function runAgentWorker(options: AgentWorkerOptions): Promise<void>
         maxOutputTokens: config.provider.maxOutputTokens,
         signal: runSignal,
         logger,
+        ...(progress ? { onMayHaveSubmitted: progress.mayHaveSubmitted } : {}),
         ...(options.challengeGraceMs === undefined
           ? {}
           : { challengeGraceMs: options.challengeGraceMs }),

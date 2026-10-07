@@ -5,6 +5,7 @@ import {
   TaskBlockBody,
   TaskCompleteBody,
   TaskFailBody,
+  TaskHeartbeatBody,
   TaskReleaseBody,
   WorkerClaimBody,
 } from "@kickrocks/shared";
@@ -30,6 +31,8 @@ interface Seen {
   path: string;
   authorization: string | null;
   body: unknown;
+  /** How many forms the fixture site had taken when this request reached the server. */
+  submissionsSoFar: number;
 }
 
 function fakeServer(task: ReturnType<typeof agentTask> | null) {
@@ -49,6 +52,7 @@ function fakeServer(task: ReturnType<typeof agentTask> | null) {
       path: url.pathname,
       authorization: headers.authorization ?? null,
       body: init?.body ? JSON.parse(String(init.body)) : null,
+      submissionsSoFar: (await fixtureState()).submissions.length,
     });
     if (url.pathname === "/api/worker/heartbeat") {
       return json({ ok: true, serverTime: "2026-10-07T00:00:00.000Z" });
@@ -221,6 +225,14 @@ describeBrowser("the agent worker end to end", () => {
     expect(body.usage).toMatchObject({ inputTokens: 400, outputTokens: 80 });
     expect(body.usage?.durationMs).toBeGreaterThan(0);
     expect(body.usage?.costUsd).toBeCloseTo((400 * 1 + 80 * 2) / 1_000_000, 10);
+
+    const flagged = server.seen.find(
+      (entry) =>
+        entry.path === `/api/worker/tasks/${task.id}/heartbeat` &&
+        (entry.body as { mayHaveSubmitted?: boolean }).mayHaveSubmitted === true,
+    );
+    expect(TaskHeartbeatBody.parse(flagged?.body).mayHaveSubmitted).toBe(true);
+    expect(flagged?.submissionsSoFar).toBe(0);
 
     const { submissions } = await fixtureState();
     expect(submissions).toHaveLength(1);

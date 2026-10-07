@@ -52,7 +52,7 @@ export interface TaskOperations {
   claim(request: ClaimRequest): ClaimedTask | null;
   heartbeat(
     taskId: string,
-    request: { workerId: string; leaseMs: number },
+    request: { workerId: string; leaseMs: number; mayHaveSubmitted?: boolean | undefined },
   ): { leaseExpiresAt: string };
   complete(
     taskId: string,
@@ -110,9 +110,9 @@ export function createTaskOperations(services: OperationServices, caller: Caller
       throw lastError;
     },
 
-    heartbeat(taskId, { workerId, leaseMs }) {
+    heartbeat(taskId, { workerId, leaseMs, mayHaveSubmitted }) {
       authorize(taskId);
-      const task = taskQueue.heartbeat(taskId, { workerId, leaseMs });
+      const task = taskQueue.heartbeat(taskId, { workerId, leaseMs, mayHaveSubmitted });
       if (task.leaseExpiresAt === null) {
         throw new AppError(500, "internal_error", "A leased task has no lease expiry");
       }

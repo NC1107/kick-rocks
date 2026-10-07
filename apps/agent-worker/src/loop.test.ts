@@ -274,4 +274,25 @@ describe("the agent claim loop", () => {
     expect(executor).not.toHaveBeenCalled();
     expect(api.release).toHaveBeenCalledWith(wrong.id, 60_000);
   });
+
+  it("tells the server a removal may have been submitted before the run goes on, and with every later beat", async () => {
+    const api = fakeApi([agentTask()]);
+    const executor: AgentExecutor = async (_task, _signal, progress) => {
+      expect(api.taskHeartbeat).not.toHaveBeenCalledWith(expect.any(String), 60_000, true);
+      await progress?.mayHaveSubmitted();
+      await progress?.mayHaveSubmitted();
+      const calls = api.taskHeartbeat.mock.calls as unknown[][];
+      expect(calls.filter((call) => call[2] === true)).toHaveLength(1);
+      const before = calls.length;
+      await vi.waitUntil(() => api.taskHeartbeat.mock.calls.length > before + 1, {
+        timeout: 2000,
+        interval: 5,
+      });
+      for (const call of calls.slice(before))
+        expect(call).toEqual([expect.any(String), 60_000, true]);
+      return { kind: "complete", result: {}, usage: {} };
+    };
+    await drive(api, executor, () => api.complete.mock.calls.length > 0);
+    expect(api.complete).toHaveBeenCalled();
+  });
 });

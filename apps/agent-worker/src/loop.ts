@@ -2,7 +2,7 @@ import { sleepFor } from "@kickrocks/recipes";
 import type { ClaimedTask } from "@kickrocks/shared";
 import { AGENT_DEFAULT_KINDS } from "@kickrocks/shared";
 import { type WorkerApiClient, WorkerApiError } from "@kickrocks/worker/dist/api-client.js";
-import type { TaskReport } from "@kickrocks/worker/dist/executor.js";
+import type { RunProgress, TaskReport } from "@kickrocks/worker/dist/executor.js";
 import { describeError, type Logger } from "@kickrocks/worker/dist/logger.js";
 
 export type AgentTask = Extract<ClaimedTask, { kind: "agent" }>;
@@ -13,7 +13,11 @@ export type AgentApi = Pick<
   "heartbeat" | "claim" | "taskHeartbeat" | "complete" | "block" | "fail" | "release"
 >;
 
-export type AgentExecutor = (task: AgentTask, signal: AbortSignal) => Promise<TaskReport>;
+export type AgentExecutor = (
+  task: AgentTask,
+  signal: AbortSignal,
+  progress?: RunProgress,
+) => Promise<TaskReport>;
 
 export interface LoopTiming {
   leaseHeartbeatMs: number;
@@ -170,10 +174,13 @@ class Loop {
     if (signal.aborted) onShutdown();
     else signal.addEventListener("abort", onShutdown, { once: true });
 
-    const lease = setInterval(() => {
-      api
-        .taskHeartbeat(task.id, this.ctx.leaseMs)
-        .then(() => this.beat(true, task.id, true))
+    let submitted = false;
+    const extendLease = (): Promise<void> =>
+      (submitted
+        ? api.taskHeartbeat(task.id, this.ctx.leaseMs, true)
+        : api.taskHeartbeat(task.id, this.ctx.leaseMs)
+      )
+        .then(() => undefined)
         .catch((error: unknown) => {
           if (leaseTaken(error)) {
             lost = true;
@@ -187,11 +194,20 @@ class Loop {
             logger.warn("lease heartbeat failed", { ...log, error: describeError(error) });
           }
         });
+    const lease = setInterval(() => {
+      extendLease().then(() => this.beat(true, task.id, true));
     }, this.timing.leaseHeartbeatMs);
+    const progress: RunProgress = {
+      mayHaveSubmitted: async () => {
+        if (submitted) return;
+        submitted = true;
+        await extendLease();
+      },
+    };
 
     let report: TaskReport;
     try {
-      report = await this.ctx.executor(task, run.signal);
+      report = await this.ctx.executor(task, run.signal, progress);
     } catch (error) {
       logger.error("the executor threw", { ...log, error: describeError(error) });
       report = {

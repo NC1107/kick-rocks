@@ -1,7 +1,7 @@
 import { INSTANT_PACE } from "@kickrocks/recipes";
 import { MAX_SCREENSHOT_BYTES, resultSchemaFor, TaskBlockReport } from "@kickrocks/shared";
 import type { Browser, BrowserContext } from "playwright";
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { type AgentOutcome, runAgentTask } from "../src/agent.js";
 import type { AgentLimits } from "../src/config.js";
 import { ProviderError } from "../src/provider.js";
@@ -56,6 +56,7 @@ async function run(
     graceMs?: number;
     pace?: typeof INSTANT_PACE;
     actionTimeoutMs?: number;
+    onMayHaveSubmitted?: () => Promise<void>;
   } = {},
 ): Promise<Run> {
   const provider = options.provider ?? scripted(steps);
@@ -73,6 +74,7 @@ async function run(
     logger: silentLogger,
     challengeGraceMs: options.graceMs ?? 200,
     ...(options.actionTimeoutMs === undefined ? {} : { actionTimeoutMs: options.actionTimeoutMs }),
+    ...(options.onMayHaveSubmitted ? { onMayHaveSubmitted: options.onMayHaveSubmitted } : {}),
     ...(options.now ? { now: options.now } : {}),
   });
   await page.close();
@@ -1490,5 +1492,32 @@ describeBrowser("a single-page portal on a shared host", () => {
     const result = answer?.role === "tool" ? answer.results[0] : undefined;
     expect(result?.isError).toBe(true);
     expect(result?.content).toContain("Refused");
+  });
+});
+
+describeBrowser("telling the worker that a removal may have been submitted", () => {
+  it("waits for the worker before a click of a removal reaches the page", async () => {
+    const seen: number[] = [];
+    await run([...fillForm, { calls: [["report", { status: "release" }]] }], {
+      onMayHaveSubmitted: async () => {
+        await new Promise((resolve) => setTimeout(resolve, 20));
+        seen.push((await fixtureState()).submissions.length);
+      },
+    });
+    expect(seen).toEqual([0]);
+    expect((await fixtureState()).submissions).toHaveLength(1);
+  });
+
+  it("stays quiet for a scan, which submits nothing", async () => {
+    const onMayHaveSubmitted = vi.fn(async () => undefined);
+    await run(
+      [
+        navigate("/optout"),
+        (v) => ({ calls: [["click", { ref: v.ref("Privacy policy") }]] }),
+        { calls: [["report", { status: "release" }]] },
+      ],
+      { task: agentTask({ payload: { purpose: "scan" } }), onMayHaveSubmitted },
+    );
+    expect(onMayHaveSubmitted).not.toHaveBeenCalled();
   });
 });

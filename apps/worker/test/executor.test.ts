@@ -68,6 +68,23 @@ describe("which browser a task runs in", () => {
   });
 });
 
+describe("telling the loop that a removal may have submitted", () => {
+  it("lets the recipe runner call the loop before it clicks, and only for a form", async () => {
+    const mayHaveSubmitted = vi.fn(async () => undefined);
+    const { executor, runners } = harness({
+      status: "completed",
+      result: { outcome: "submitted" },
+    });
+    await executor(formTask(), live, { mayHaveSubmitted });
+    const input = runners.runRecipe.mock.calls[0]?.[0] as { onSubmit?: () => Promise<void> };
+    await input.onSubmit?.();
+    expect(mayHaveSubmitted).toHaveBeenCalledTimes(1);
+
+    await executor(scanTask(), live, { mayHaveSubmitted });
+    expect(runners.runRecipe.mock.calls[1]?.[0]).not.toHaveProperty("onSubmit");
+  });
+});
+
 describe("running a form task", () => {
   it("runs the recipe with the claimed fields and the target's domain, and completes", async () => {
     const { executor, runners, page } = harness({

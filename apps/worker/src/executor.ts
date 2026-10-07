@@ -33,7 +33,20 @@ export type TaskReport =
   /** Hand the task back without costing it an attempt. */
   | { kind: "release"; reason: string; retryAfterMs?: number };
 
-export type TaskExecutor = (task: ClaimedTask, signal: AbortSignal) => Promise<TaskReport>;
+/** What a run tells the loop that carries it, beyond the report it ends with. */
+export interface RunProgress {
+  /**
+   * Called before the run does something that may submit a form, and resolved once the server has
+   * been told, so a lease that is lost afterwards holds the task for a person and does not retry it.
+   */
+  mayHaveSubmitted(): Promise<void>;
+}
+
+export type TaskExecutor = (
+  task: ClaimedTask,
+  signal: AbortSignal,
+  progress?: RunProgress,
+) => Promise<TaskReport>;
 
 export interface Runners {
   runRecipe: typeof runRecipe;
@@ -142,7 +155,7 @@ export function createExecutor(options: ExecutorOptions): TaskExecutor {
   const now = options.now ?? Date.now;
   const pace: Pace = options.pace === "instant" ? INSTANT_PACE : HUMAN_PACE;
 
-  return async (task, signal) => {
+  return async (task, signal, progress) => {
     if (task.kind === "agent") {
       return {
         kind: "release",
@@ -195,6 +208,7 @@ export function createExecutor(options: ExecutorOptions): TaskExecutor {
         case "form": {
           const outcome = await runners.runRecipe({
             ...shared,
+            ...(progress ? { onSubmit: progress.mayHaveSubmitted } : {}),
             recipe: recipe as Recipe & { purpose: "remove" },
             fields: fieldsFor(task, recipe as Recipe),
           });

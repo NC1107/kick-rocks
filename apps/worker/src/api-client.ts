@@ -71,10 +71,19 @@ export class WorkerApiClient {
     return response.task;
   }
 
-  taskHeartbeat(taskId: string, leaseMs?: number): Promise<TaskHeartbeatResponse> {
+  /** `mayHaveSubmitted` tells the server a removal has clicked, so it is held for a person if the lease is lost. */
+  taskHeartbeat(
+    taskId: string,
+    leaseMs?: number,
+    mayHaveSubmitted?: boolean,
+  ): Promise<TaskHeartbeatResponse> {
     return this.call(API_ROUTES.workerTaskHeartbeat, {
       params: { id: taskId },
-      body: { workerId: this.options.workerId, ...(leaseMs ? { leaseMs } : {}) },
+      body: {
+        workerId: this.options.workerId,
+        ...(leaseMs ? { leaseMs } : {}),
+        ...(mayHaveSubmitted ? { mayHaveSubmitted } : {}),
+      },
     });
   }
 

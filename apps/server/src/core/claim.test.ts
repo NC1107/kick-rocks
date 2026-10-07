@@ -499,6 +499,11 @@ describe("agent tasks", () => {
     expect(agentClaim("remove")?.instructions).toContain("block_task with reason unknown");
   });
 
+  it("asks a removal to say when it has clicked, and a scan not to", () => {
+    expect(agentClaim("remove")?.instructions).toContain("mayHaveSubmitted true");
+    expect(agentClaim("scan")?.instructions).not.toContain("mayHaveSubmitted");
+  });
+
   it("states when the lease runs out and what happens after", () => {
     const task = agentClaim("remove");
     expect(task?.instructions).toContain(task?.leaseExpiresAt);

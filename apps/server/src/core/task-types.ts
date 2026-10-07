@@ -24,6 +24,8 @@ interface TaskBase {
   blockedUrl: string | null;
   leaseOwner: string | null;
   leaseExpiresAt: string | null;
+  /** A removal run said it has clicked, so its form may be submitted and the task is never retried. */
+  mayHaveSubmitted: boolean;
   /** How many times the task has been claimed, less the times it was handed back unstarted. */
   attempts: number;
   maxAttempts: number;

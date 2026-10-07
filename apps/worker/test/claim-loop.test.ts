@@ -248,7 +248,7 @@ describe("the claim loop", () => {
     const executor = async (): Promise<TaskReport> => {
       setTimeout(() => controller.abort(), 10);
       await stuck;
-      return { kind: "complete", result: { late: true }, usage: {} };
+      return { kind: "fail", report: { error: "browser closed", retryable: true } };
     };
     await runClaimLoop(context({ client, executor, forceStop }));
     expect(forceStop).toHaveBeenCalledTimes(1);
@@ -382,5 +382,67 @@ describe("the claim loop", () => {
         usage: { durationMs: 5 },
       });
     });
+  });
+});
+
+describe("a removal that may have been submitted", () => {
+  it("tells the server before the run goes on, and with every later lease heartbeat", async () => {
+    const { controller, context } = setup();
+    const { client } = fakeClient([formTask()]);
+    const executor = async (
+      _task: ClaimedTask,
+      _signal: AbortSignal,
+      progress?: { mayHaveSubmitted(): Promise<void> },
+    ): Promise<TaskReport> => {
+      expect(client.taskHeartbeat).not.toHaveBeenCalledWith(expect.any(String), 60_000, true);
+      await progress?.mayHaveSubmitted();
+      expect(client.taskHeartbeat).toHaveBeenCalledWith(expect.any(String), 60_000, true);
+      const before = client.taskHeartbeat.mock.calls.length;
+      await delay(60);
+      expect(client.taskHeartbeat.mock.calls.length).toBeGreaterThan(before);
+      for (const call of client.taskHeartbeat.mock.calls.slice(before)) {
+        expect(call).toEqual([expect.any(String), 60_000, true]);
+      }
+      return { kind: "complete", result: {}, usage: {} };
+    };
+    const running = runClaimLoop(context({ client, executor }));
+    await until(() => client.complete.mock.calls.length > 0, controller);
+    await running;
+    expect(client.complete).toHaveBeenCalled();
+  });
+
+  it("sends the flag once, however often the run reports it", async () => {
+    const { controller, context } = setup();
+    const { client } = fakeClient([formTask()]);
+    const executor = async (
+      _task: ClaimedTask,
+      _signal: AbortSignal,
+      progress?: { mayHaveSubmitted(): Promise<void> },
+    ): Promise<TaskReport> => {
+      await progress?.mayHaveSubmitted();
+      await progress?.mayHaveSubmitted();
+      const calls = client.taskHeartbeat.mock.calls as unknown[][];
+      const flagged = calls.filter((call) => call[2] === true);
+      expect(flagged).toHaveLength(1);
+      return { kind: "complete", result: {}, usage: {} };
+    };
+    const running = runClaimLoop(context({ client, executor }));
+    await until(() => client.complete.mock.calls.length > 0, controller);
+    await running;
+  });
+
+  it("keeps a result that finishes after the browser was closed under the run", async () => {
+    const { controller, context } = setup();
+    const { client } = fakeClient([formTask()]);
+    let unblock: () => void = () => undefined;
+    const executor = (): Promise<TaskReport> =>
+      new Promise((resolve) => {
+        controller.abort();
+        unblock = () => resolve({ kind: "complete", result: { outcome: "submitted" }, usage: {} });
+      });
+    const running = runClaimLoop(context({ client, executor, forceStop: async () => unblock() }));
+    await running;
+    expect(client.complete).toHaveBeenCalled();
+    expect(client.release).not.toHaveBeenCalled();
   });
 });

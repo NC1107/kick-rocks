@@ -2,7 +2,7 @@ import { sleepFor } from "@kickrocks/recipes";
 import { type ClaimedTask, WORKER_DEFAULT_KINDS } from "@kickrocks/shared";
 import { type WorkerApiClient, WorkerApiError } from "./api-client.js";
 import type { WorkerConfig } from "./config.js";
-import type { TaskExecutor, TaskReport } from "./executor.js";
+import type { RunProgress, TaskExecutor, TaskReport } from "./executor.js";
 import { describeError, type Logger, silentLogger } from "./logger.js";
 
 /** The calls the loop makes, so a test can stand in for the server. */
@@ -73,6 +73,11 @@ function leaseLost(error: unknown): boolean {
 /** A report that can be sent again: the server or the network failed, not the report. */
 function transient(error: unknown): boolean {
   return !(error instanceof WorkerApiError) || error.status >= 500;
+}
+
+/** A result, a block or a failure that will not be retried says what happened, however the run was stopped. */
+function isFinal(report: TaskReport): boolean {
+  return report.kind !== "release" && !(report.kind === "fail" && report.report.retryable);
 }
 
 class Loop {
@@ -159,10 +164,13 @@ class Loop {
     if (signal.aborted) onShutdown();
     else signal.addEventListener("abort", onShutdown, { once: true });
 
-    const lease = setInterval(() => {
-      client
-        .taskHeartbeat(task.id, config.leaseMs)
-        .then(() => this.beat(true, task.id, true))
+    let submitted = false;
+    const extendLease = (): Promise<void> =>
+      (submitted
+        ? client.taskHeartbeat(task.id, config.leaseMs, true)
+        : client.taskHeartbeat(task.id, config.leaseMs)
+      )
+        .then(() => undefined)
         .catch((error: unknown) => {
           if (leaseTaken(error)) {
             lost = true;
@@ -176,11 +184,20 @@ class Loop {
             this.logger.warn("lease heartbeat failed", { ...log, error: describeError(error) });
           }
         });
+    const lease = setInterval(() => {
+      extendLease().then(() => this.beat(true, task.id, true));
     }, this.timing.leaseHeartbeatMs);
+    const progress: RunProgress = {
+      mayHaveSubmitted: async () => {
+        if (submitted) return;
+        submitted = true;
+        await extendLease();
+      },
+    };
 
     let report: TaskReport;
     try {
-      report = await this.ctx.executor(task, run.signal);
+      report = await this.ctx.executor(task, run.signal, progress);
     } catch (error) {
       this.logger.error("the executor threw", { ...log, error: describeError(error) });
       report = {
@@ -201,7 +218,8 @@ class Loop {
       this.logger.info("dropping the result of a task that is no longer ours", log);
       return;
     }
-    if (forced) report = { kind: "release", reason: "the worker is shutting down" };
+    if (forced && !isFinal(report))
+      report = { kind: "release", reason: "the worker is shutting down" };
     await this.send(task, report, log);
     await this.beat(false, null, true);
   }

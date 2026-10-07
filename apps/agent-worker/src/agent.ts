@@ -40,6 +40,8 @@ export interface AgentRunOptions {
   now?: () => number;
   challengeGraceMs?: number;
   actionTimeoutMs?: number;
+  /** Awaited before each click of a removal run, so the server knows the form may be submitted. */
+  onMayHaveSubmitted?: () => Promise<void>;
 }
 
 /** A model that is down is not the task's fault, so the task goes back unchanged, later. */
@@ -94,6 +96,9 @@ class AgentRun {
       pace: options.pace,
       mask: this.mask,
       signal: options.signal,
+      ...(task.payload.purpose === "remove" && options.onMayHaveSubmitted
+        ? { onClick: options.onMayHaveSubmitted }
+        : {}),
       ...(options.actionTimeoutMs === undefined
         ? {}
         : { actionTimeoutMs: options.actionTimeoutMs }),

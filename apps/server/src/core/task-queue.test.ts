@@ -1399,3 +1399,129 @@ describe("cancelForRequest", () => {
     expect(queue.hasLiveTask(r2)).toBe(true);
   });
 });
+
+describe("a removal that may have been submitted", () => {
+  const removal = (overrides = {}) => ({
+    ...agentScanPayload(),
+    purpose: "remove" as const,
+    requestId: "r1",
+    ...overrides,
+  });
+  const formPayload = {
+    requestId: "r1",
+    targetId: "t1",
+    recipeId: "t1.remove.v1",
+    recordUrl: null,
+  };
+
+  function claimFlagged(kind: "agent" | "form", payload: object = removal()) {
+    queue.enqueue({ kind, payload: payload as never });
+    const task = queue.claim({ ...worker, kinds: [kind] });
+    if (!task) throw new Error("expected a task to claim");
+    queue.heartbeat(task.id, { ...worker, mayHaveSubmitted: true });
+    return task;
+  }
+
+  it("is recorded by the heartbeat, stays recorded, and starts clear on every claim", () => {
+    const task = claimFlagged("agent");
+    expect(queue.getOrThrow(task.id).mayHaveSubmitted).toBe(true);
+    queue.heartbeat(task.id, { ...worker });
+    expect(queue.getOrThrow(task.id).mayHaveSubmitted).toBe(true);
+    queue.heartbeat(task.id, { ...worker, mayHaveSubmitted: false });
+    expect(queue.getOrThrow(task.id).mayHaveSubmitted).toBe(true);
+  });
+
+  it.each([
+    ["agent", removal()],
+    ["form", formPayload],
+  ] as const)(
+    "holds a %s task for a person when its lease expires, and does not queue it again",
+    (kind, payload) => {
+      const seen: string[] = [];
+      ctx.services.taskHandlers.on(kind, "blocked", ({ actor }) => void seen.push(actor));
+      const task = claimFlagged(kind, payload);
+      ctx.clock.advance(5 * MINUTE);
+      const [held] = queue.reapExpiredLeases();
+      expect(held).toMatchObject({
+        id: task.id,
+        status: "blocked",
+        blockedReason: "unknown",
+        blockedDetail: expect.stringContaining("may already have been submitted"),
+        leaseExpiresAt: null,
+        finishedBy: "worker-1",
+      });
+      expect(seen).toEqual(["system"]);
+      ctx.clock.advance(DAY);
+      expect(queue.claim({ workerId: "worker-2", kinds: [kind], leaseMs: MINUTE })).toBeNull();
+    },
+  );
+
+  it("holds it when the next claim recovers the lease, even with no attempt left", () => {
+    queue.enqueue({ kind: "agent", payload: removal(), maxAttempts: 1 });
+    const task = queue.claim({ ...worker, kinds: ["agent"] });
+    queue.heartbeat(task?.id ?? "", { ...worker, mayHaveSubmitted: true });
+    ctx.clock.advance(5 * MINUTE);
+    expect(queue.claim({ workerId: "worker-2", kinds: ["agent"], leaseMs: MINUTE })).toBeNull();
+    expect(queue.getOrThrow(task?.id ?? "").status).toBe("blocked");
+  });
+
+  it("still lets the worker that lost the lease report what really happened", () => {
+    const task = claimFlagged("agent");
+    ctx.clock.advance(5 * MINUTE);
+    queue.reapExpiredLeases();
+    expect(codeOf(() => queue.heartbeat(task.id, { ...worker }))).toBe("lease_expired");
+    expect(
+      codeOf(() => queue.complete(task.id, { workerId: "intruder", result: {}, actor: "agent" })),
+    ).toBe("lease_not_held");
+    const done = queue.complete(task.id, {
+      ...worker,
+      result: { purpose: "remove", form: { outcome: "submitted" } },
+      actor: "agent",
+    });
+    expect(done).toMatchObject({ status: "done", leaseOwner: null });
+  });
+
+  it("holds a retryable failure and a release instead of queuing the form again", () => {
+    const failed = claimFlagged("agent");
+    const heldByFailure = queue.fail(failed.id, {
+      ...worker,
+      error: "The site was down",
+      retryable: true,
+      actor: "agent",
+    });
+    expect(heldByFailure).toMatchObject({ status: "blocked", lastError: "The site was down" });
+
+    const released = claimFlagged("form", formPayload);
+    const heldByRelease = queue.release(released.id, { ...worker });
+    expect(heldByRelease).toMatchObject({ status: "blocked", blockedReason: "unknown" });
+  });
+
+  it("lets a failure that is not retried stand", () => {
+    const task = claimFlagged("agent");
+    expect(
+      queue.fail(task.id, { ...worker, error: "Gone", retryable: false, actor: "agent" }),
+    ).toMatchObject({ status: "failed" });
+  });
+
+  it("does not hold a scan, which submits nothing", () => {
+    queue.enqueue({ kind: "agent", payload: agentScanPayload() });
+    const task = queue.claim({ ...worker, kinds: ["agent"] });
+    queue.heartbeat(task?.id ?? "", { ...worker, mayHaveSubmitted: true });
+    ctx.clock.advance(5 * MINUTE);
+    expect(queue.reapExpiredLeases()[0]).toMatchObject({ status: "queued" });
+  });
+
+  it("is cleared when a person puts the task back in the queue", () => {
+    const task = claimFlagged("agent");
+    ctx.clock.advance(5 * MINUTE);
+    queue.reapExpiredLeases();
+    expect(queue.resume(task.id)).toMatchObject({
+      status: "queued",
+      mayHaveSubmitted: false,
+      leaseOwner: null,
+    });
+    expect(queue.claim({ workerId: "worker-2", kinds: ["agent"], leaseMs: MINUTE })).toMatchObject({
+      id: task.id,
+    });
+  });
+});

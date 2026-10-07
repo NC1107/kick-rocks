@@ -45,6 +45,8 @@ export interface ToolboxOptions {
    */
   startUrls?: readonly string[];
   signal: AbortSignal;
+  /** Awaited just before every click, which may be the one that submits a form. */
+  onClick?: () => Promise<void>;
   /** How long a click, a fill or a choice may take before it counts as timed out. */
   actionTimeoutMs?: number;
   /** How long a whole-page bot check gets to clear by itself before it stops the run. */
@@ -559,6 +561,7 @@ export class Toolbox {
     // Counted before the click is made: one that times out may still have been delivered, and a
     // form that was already submitted must never be submitted again by a retry.
     this.clickCount += 1;
+    await this.options.onClick?.();
     try {
       await target.locator.click({ timeout: this.actionTimeoutMs });
     } catch (error) {

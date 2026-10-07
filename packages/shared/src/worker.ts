@@ -67,6 +67,12 @@ export type WorkerClaimResponse = z.infer<typeof WorkerClaimResponse>;
 export const TaskHeartbeatBody = z.object({
   workerId: WorkerId,
   leaseMs: LeaseMs.default(LEASE_MS.default),
+  /**
+   * Set once a removal run has clicked, so its form may already be submitted. The server then
+   * holds the task for a person instead of retrying it if the lease is lost or the run ends
+   * without an answer, because a retry would submit the form again.
+   */
+  mayHaveSubmitted: z.boolean().optional(),
 });
 export type TaskHeartbeatBody = z.infer<typeof TaskHeartbeatBody>;
 

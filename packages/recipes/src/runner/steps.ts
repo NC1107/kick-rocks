@@ -508,9 +508,18 @@ export function formResult(ctx: RunContext, outcome: FormResult["outcome"]): For
   return result;
 }
 
+function sendsToSite(step: RecipeStep): boolean {
+  return (
+    step.kind === "click" ||
+    step.kind === "press" ||
+    (step.kind === "select_record" && step.action === "click")
+  );
+}
+
 /** Runs one step. A step ends the run by returning an outcome, and otherwise returns null. */
 export async function runStep(ctx: RunContext, step: RecipeStep, index: number): Promise<Ended> {
   checkLive(ctx);
+  if (sendsToSite(step)) await ctx.onSubmit?.();
   try {
     switch (step.kind) {
       case "goto":

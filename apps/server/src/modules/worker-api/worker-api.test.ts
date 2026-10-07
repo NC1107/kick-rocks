@@ -591,3 +591,51 @@ describe("a lapsed holder reporting on a scan after its last lease expired", () 
     expect(allMatches()).toHaveLength(1);
   });
 });
+
+describe("a removal the worker says it clicked", () => {
+  async function claimRemoval() {
+    seedMailbox(ctx, profileId);
+    const target = seedTarget(ctx, { contactMethod: "form", category: "marketing" });
+    const request = seedRequest(ctx, {
+      profileId,
+      targetId: target.id,
+      status: "queued",
+      channel: "form",
+    });
+    ctx.services.dispatch.dispatchRequest(request.id);
+    const task = (await claim({
+      workerId: "agent-1",
+      kinds: ["agent"],
+      claimer: "model",
+    })) as ClaimedTask;
+    expect(task.kind).toBe("agent");
+    return { task, request };
+  }
+
+  it("is held for a person when the lease runs out, and the request is not sent again", async () => {
+    const { task, request } = await claimRemoval();
+    const beat = await ctx.call(API_ROUTES.workerTaskHeartbeat, {
+      params: { id: task.id },
+      body: { workerId: "agent-1", mayHaveSubmitted: true },
+    });
+    expect(beat.ok).toBe(true);
+
+    ctx.clock.advance(60 * 60 * 1000);
+    ctx.services.taskQueue.reapExpiredLeases();
+    expect(ctx.services.taskQueue.getOrThrow(task.id)).toMatchObject({
+      status: "blocked",
+      blockedReason: "unknown",
+      mayHaveSubmitted: true,
+    });
+    ctx.clock.advance(60 * 60 * 1000);
+    expect(await claim({ workerId: "agent-2", kinds: ["agent"], claimer: "model" })).toBeNull();
+    expect(ctx.services.requests.getOrThrow(request.id).status).not.toBe("sent");
+  });
+
+  it("is queued again, as before, when the worker never said it clicked", async () => {
+    const { task } = await claimRemoval();
+    ctx.clock.advance(60 * 60 * 1000);
+    ctx.services.taskQueue.reapExpiredLeases();
+    expect(ctx.services.taskQueue.getOrThrow(task.id).status).toBe("queued");
+  });
+});

@@ -94,6 +94,23 @@ describeBrowser("a record URL removal form", () => {
     ]);
   });
 
+  it("tells the caller before it clicks, so the click has not reached the site yet", async () => {
+    const submissionsSeen: number[] = [];
+    const outcome = await run(
+      spec,
+      { ...JORDAN, record_url: `${server.origin}/rec/jordan-example-1` },
+      {
+        onSubmit: async () => {
+          await new Promise((resolve) => setTimeout(resolve, 20));
+          submissionsSeen.push(server.submissions.length);
+        },
+      },
+    );
+    expect(outcome.status).toBe("completed");
+    expect(submissionsSeen).toEqual([0]);
+    expect(server.submissions).toHaveLength(1);
+  });
+
   it("ends as not_found, without submitting, when the record page says it is gone", async () => {
     const outcome = await run(spec, { ...JORDAN, record_url: `${server.origin}/rec/gone` });
     expect(outcome).toEqual({ status: "completed", result: { outcome: "not_found" } });
