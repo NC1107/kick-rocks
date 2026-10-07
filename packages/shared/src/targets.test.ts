@@ -122,6 +122,13 @@ describe("replyDomainsOf", () => {
     },
   );
 
+  it("drops a shared host listed explicitly", () => {
+    expect(replyDomainsOf({ ...base, replyDomains: ["gmail.com", "Sister.test"] })).toEqual([
+      "acme.test",
+      "sister.test",
+    ]);
+  });
+
   it("adds the dataset's explicit list without duplicates", () => {
     expect(
       replyDomainsOf({
@@ -145,6 +152,13 @@ describe("replyAddressesOf", () => {
 });
 
 describe("Company replyDomains", () => {
+  it.each(["gmail.com", "mail.yahoo.co.uk", "google.com", "hubspotemail.net"])(
+    "rejects the shared host %s",
+    (host) => {
+      expect(Company.safeParse({ ...company, replyDomains: [host] }).success).toBe(false);
+    },
+  );
+
   it("accepts a list of hostnames and rejects anything else", () => {
     expect(Company.safeParse({ ...company, replyDomains: ["mail.vendor.test"] }).success).toBe(
       true,

@@ -66,6 +66,14 @@ describe("Recipe", () => {
     expect(parsed).toMatchObject({ notes: null, verifiedAt: null, liveStatus: "unverified" });
   });
 
+  it("rejects a confirmation sender on a shared host", () => {
+    const recipe = {
+      ...removeRecipe,
+      steps: [{ kind: "email_confirmation", fromDomain: "accounts.google.com" }],
+    };
+    expect(failure(recipe)).toContain("a shared mail host cannot vouch for a confirmation");
+  });
+
   it("accepts a remove recipe with every new step kind and keeps its metadata", () => {
     const parsed = Recipe.parse(removeRecipe);
     expect(parsed.verifiedAt).toBe("2026-10-01");

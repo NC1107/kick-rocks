@@ -5,6 +5,7 @@ import {
   type Company,
   CompanyDataset,
   contactMethodFor,
+  isSharedMailHost,
   normalizeDomain,
 } from "@kickrocks/shared";
 import { describe, expect, it } from "vitest";
@@ -24,6 +25,19 @@ describe("loadCompanyDataset", () => {
 
   it("parses the raw file with the shared schema", () => {
     expect(() => CompanyDataset.parse(JSON.parse(readFileSync(file, "utf8")))).not.toThrow();
+  });
+});
+
+describe("shared hosts in the committed list", () => {
+  it("lists none as a reply domain", () => {
+    const listed = loadCompanies().flatMap((company) => company.replyDomains ?? []);
+    expect(listed.filter(isSharedMailHost)).toEqual([]);
+  });
+
+  it("is rejected by the shared schema when one slips in", () => {
+    const raw = JSON.parse(readFileSync(file, "utf8"));
+    raw.companies[0].replyDomains = ["gmx.de"];
+    expect(() => CompanyDataset.parse(raw)).toThrow();
   });
 });
 

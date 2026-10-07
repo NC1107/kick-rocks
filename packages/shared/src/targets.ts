@@ -6,6 +6,7 @@ import {
   Requirement,
   TargetPriority,
 } from "./broker.js";
+import { isSharedMailHost, withoutSharedHosts } from "./mail-hosts.js";
 import { RecipeHealth, RecipePurpose, RecipeSource, RecipeStatus } from "./recipe.js";
 import { WebUrl } from "./url.js";
 
@@ -45,7 +46,14 @@ export const Company = z.object({
    * Extra domains the company's replies may come from, for senders that none of the contact
    * fields reveal. The contact fields' own hosts are trusted without being listed here.
    */
-  replyDomains: z.array(z.string().regex(HOSTNAME)).optional(),
+  replyDomains: z
+    .array(
+      z
+        .string()
+        .regex(HOSTNAME)
+        .refine((host) => !isSharedMailHost(host), "a shared mail host cannot vouch for a company"),
+    )
+    .optional(),
   notes: z.string().nullable(),
   sources: z.array(DataSource).min(1),
   /** The day someone checked these contacts against the company's own privacy page. */
@@ -142,66 +150,6 @@ export const TargetDetail = TargetSummary.extend({
 });
 export type TargetDetail = z.infer<typeof TargetDetail>;
 
-/**
- * Hosts that many unrelated parties send from or publish forms on: public mailbox providers and
- * multi-tenant privacy or form platforms. A signature from one of them proves only that some
- * customer of the host sent the mail, so none of them may stand in for a target's own domain.
- */
-export const SHARED_MAIL_HOSTS: readonly string[] = [
-  "gmail.com",
-  "googlemail.com",
-  "yahoo.com",
-  "ymail.com",
-  "outlook.com",
-  "hotmail.com",
-  "live.com",
-  "msn.com",
-  "aol.com",
-  "icloud.com",
-  "me.com",
-  "mac.com",
-  "proton.me",
-  "protonmail.com",
-  "pm.me",
-  "gmx.com",
-  "gmx.net",
-  "mail.com",
-  "zoho.com",
-  "yandex.com",
-  "fastmail.com",
-  "hey.com",
-  "google.com",
-  "forms.gle",
-  "hubspot.com",
-  "onetrust.com",
-  "trustarc.com",
-  "termly.io",
-  "jotform.com",
-  "typeform.com",
-  "salesforce.com",
-  "zendesk.com",
-  "freshdesk.com",
-  "surveymonkey.com",
-  "wufoo.com",
-  "airtable.com",
-  "smartsheet.com",
-  "office.com",
-  "microsoft.com",
-  "sharepoint.com",
-  "mailchimp.com",
-  "sendgrid.net",
-  "amazonses.com",
-  "wixsite.com",
-  "squarespace.com",
-  "notion.site",
-];
-
-/** True when `host` is a shared host or a subdomain of one. */
-export function isSharedMailHost(host: string): boolean {
-  const lower = host.toLowerCase();
-  return SHARED_MAIL_HOSTS.some((shared) => lower === shared || lower.endsWith(`.${shared}`));
-}
-
 function emailHostOf(email: string | null): string | null {
   return email?.split("@").pop()?.toLowerCase() || null;
 }
@@ -222,7 +170,7 @@ export function replyDomainsOf(target: {
   const all = [
     target.domain.toLowerCase(),
     emailHost !== null && !isSharedMailHost(emailHost) ? emailHost : null,
-    ...(target.replyDomains ?? []).map((domain) => domain.toLowerCase()),
+    ...withoutSharedHosts(target.replyDomains ?? []),
   ];
   return [...new Set(all.filter((domain): domain is string => !!domain))];
 }

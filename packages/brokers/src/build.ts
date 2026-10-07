@@ -12,6 +12,7 @@ import { parseBadboolReport } from "./import/badbool.js";
 import { parseCaRegistry } from "./import/ca-registry.js";
 import { parseCuratedBrokers } from "./import/curated.js";
 import { parseEraserBrokers } from "./import/eraser.js";
+import { loadCompanyDataset } from "./index.js";
 import { mergeBrokers } from "./merge.js";
 import { readPinnedUpstream } from "./upstream.js";
 
@@ -73,11 +74,13 @@ function summarize(dataset: BrokerDataset): string {
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  const companyCount = loadCompanyDataset().companies.length;
   const pinned = loadPinnedIds();
   const dataset = buildDataset(pinned);
   mkdirSync(dirname(outFile), { recursive: true });
   writeFileSync(outFile, `${JSON.stringify(dataset, null, 2)}\n`);
   console.log(summarize(dataset));
+  console.log(`${companyCount} companies validated`);
   console.log(`wrote ${outFile}`);
 
   const pinnedNow = pinNewIds(pinned, dataset);
