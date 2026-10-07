@@ -128,6 +128,7 @@ export async function runAgentWorker(options: AgentWorkerOptions): Promise<void>
       leaseMs: config.leaseMs,
       version: `agent-${readAgentWorkerVersion()}`,
       forceStop: () => browsers.close(),
+      keepProfiles: (profileIds) => browsers.keepOnly(profileIds),
       ...(options.timing ? { timing: options.timing } : {}),
     });
   } finally {

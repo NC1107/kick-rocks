@@ -50,6 +50,7 @@ export async function runWorker(options: WorkerOptions): Promise<void> {
       logger,
       version: readWorkerVersion(),
       forceStop: () => browser.close(),
+      keepProfiles: (profileIds) => browser.keepOnly(profileIds),
       ...(options.timing ? { timing: options.timing } : {}),
     });
   } finally {

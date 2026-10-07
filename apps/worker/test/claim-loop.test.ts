@@ -11,7 +11,10 @@ const formTask = () =>
 function fakeClient(queue: (ClaimedTask | null)[] = []) {
   const calls: string[] = [];
   const client = {
-    heartbeat: vi.fn(async () => ({ ok: true as const, serverTime: "2026-10-07T00:00:00.000Z" })),
+    heartbeat: vi.fn<WorkerApi["heartbeat"]>(async () => ({
+      ok: true as const,
+      serverTime: "2026-10-07T00:00:00.000Z",
+    })),
     claim: vi.fn(async () => queue.shift() ?? null),
     taskHeartbeat: vi.fn(async () => ({ leaseExpiresAt: "2026-10-07T00:05:00.000Z" })),
     complete: vi.fn(async (id: string) => summary(id)),
@@ -444,5 +447,59 @@ describe("a removal that may have been submitted", () => {
     await running;
     expect(client.complete).toHaveBeenCalled();
     expect(client.release).not.toHaveBeenCalled();
+  });
+});
+
+describe("forgetting deleted profiles", () => {
+  const answer = (profileIds?: string[]) => ({
+    ok: true as const,
+    serverTime: "2026-10-07T00:00:00.000Z",
+    ...(profileIds ? { profileIds } : {}),
+  });
+
+  it("passes the server's list on while idle, and not while a task is running", async () => {
+    const { controller, context } = setup();
+    const { client } = fakeClient([formTask()]);
+    let busy = false;
+    client.heartbeat.mockImplementation(async (status: { busy: boolean }) => {
+      busy = status.busy;
+      return answer(["p1", "p2"]);
+    });
+    const busyWhenCalled: boolean[] = [];
+    const keepProfiles = vi.fn(async () => void busyWhenCalled.push(busy));
+    const executor = async (): Promise<TaskReport> => {
+      await delay(60);
+      return { kind: "complete", result: {}, usage: {} };
+    };
+    const running = runClaimLoop(context({ client, executor, keepProfiles }));
+    await until(() => client.complete.mock.calls.length > 0, controller);
+    await running;
+    expect(keepProfiles).toHaveBeenCalledWith(["p1", "p2"]);
+    expect(busyWhenCalled.length).toBeGreaterThan(0);
+    expect(busyWhenCalled).not.toContain(true);
+  });
+
+  it("deletes nothing when the server does not say which profiles exist", async () => {
+    const { controller, context } = setup();
+    const { client } = fakeClient();
+    client.heartbeat.mockImplementation(async () => answer());
+    const keepProfiles = vi.fn(async () => undefined);
+    const running = runClaimLoop(context({ client, keepProfiles }));
+    await until(() => client.claim.mock.calls.length >= 2, controller);
+    await running;
+    expect(keepProfiles).not.toHaveBeenCalled();
+  });
+
+  it("carries on when removing the data fails", async () => {
+    const { controller, context } = setup();
+    const { client } = fakeClient([formTask()]);
+    client.heartbeat.mockImplementation(async () => answer([]));
+    const keepProfiles = vi.fn(async () => {
+      throw new Error("EBUSY");
+    });
+    const running = runClaimLoop(context({ client, keepProfiles }));
+    await until(() => client.complete.mock.calls.length > 0, controller);
+    await running;
+    expect(client.complete).toHaveBeenCalled();
   });
 });

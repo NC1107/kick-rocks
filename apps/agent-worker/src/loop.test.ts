@@ -295,4 +295,49 @@ describe("the agent claim loop", () => {
     await drive(api, executor, () => api.complete.mock.calls.length > 0);
     expect(api.complete).toHaveBeenCalled();
   });
+
+  it("tells the browser which profiles still exist while idle, and never deletes on a silent server", async () => {
+    const keepProfiles = vi.fn(async () => undefined);
+    const withList = fakeApi([null, null]);
+    withList.heartbeat.mockImplementation(async () => ({
+      ok: true as const,
+      serverTime: "2026-10-07T00:00:00.000Z",
+      profileIds: ["p1"],
+    }));
+    const controller = new AbortController();
+    const finished = runLoop({
+      api: withList,
+      executor: async () => ({ kind: "release", reason: "x" }),
+      signal: controller.signal,
+      logger: silentLogger,
+      workerId: "test-agent",
+      pollMs: 5,
+      leaseMs: 60_000,
+      timing: FAST,
+      keepProfiles,
+    });
+    await vi.waitUntil(() => withList.claim.mock.calls.length >= 2, { timeout: 2000, interval: 5 });
+    controller.abort();
+    await finished;
+    expect(keepProfiles).toHaveBeenCalledWith(["p1"]);
+
+    const silent = fakeApi([null, null]);
+    const quiet = vi.fn(async () => undefined);
+    const other = new AbortController();
+    const done = runLoop({
+      api: silent,
+      executor: async () => ({ kind: "release", reason: "x" }),
+      signal: other.signal,
+      logger: silentLogger,
+      workerId: "test-agent",
+      pollMs: 5,
+      leaseMs: 60_000,
+      timing: FAST,
+      keepProfiles: quiet,
+    });
+    await vi.waitUntil(() => silent.claim.mock.calls.length >= 2, { timeout: 2000, interval: 5 });
+    other.abort();
+    await done;
+    expect(quiet).not.toHaveBeenCalled();
+  });
 });

@@ -17,6 +17,7 @@ import {
   seedTask,
   type TestContext,
 } from "../../test-utils/index.js";
+import { eraseInstance, eraseProfile } from "../data-rights/erase.js";
 import { decodeScreenshot } from "./screenshot.js";
 
 const PNG = Buffer.concat([
@@ -100,6 +101,7 @@ describe("heartbeat", () => {
     expect(result.ok && result.body).toEqual({
       ok: true,
       serverTime: ctx.clock.now().toISOString(),
+      profileIds: [profileId],
     });
     expect(ctx.services.settings.get("worker.status")).toEqual({
       workerId: "worker-1",
@@ -121,6 +123,21 @@ describe("heartbeat", () => {
       currentTaskId: null,
       lastSeenAt: ctx.clock.now().toISOString(),
     });
+  });
+
+  it("lists the profiles that still exist, so a worker can forget the others", async () => {
+    const other = seedProfile(ctx).id;
+    const beat = async () => {
+      const result = await ctx.call(API_ROUTES.workerHeartbeat, {
+        body: { workerId: "worker-1", busy: false },
+      });
+      return result.ok ? [...(result.body.profileIds ?? [])].sort() : null;
+    };
+    expect(await beat()).toEqual([profileId, other].sort());
+    eraseProfile(ctx.services, other);
+    expect(await beat()).toEqual([profileId]);
+    eraseInstance(ctx.services);
+    expect(await beat()).toEqual([]);
   });
 
   it("validates the body", async () => {

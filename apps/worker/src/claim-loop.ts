@@ -20,6 +20,8 @@ export interface ClaimLoopContext {
   version?: string;
   /** Closes the browser when a run will not stop in time, which makes it fail fast. */
   forceStop?: () => Promise<void>;
+  /** Told, between tasks, which profiles the server still has, so the browser data of others can go. */
+  keepProfiles?: (profileIds: string[]) => Promise<void>;
   timing?: Partial<LoopTiming>;
 }
 
@@ -132,13 +134,24 @@ class Loop {
     if (!force && at - this.lastBeat < this.timing.idleHeartbeatMs) return;
     this.lastBeat = at;
     try {
-      await this.ctx.client.heartbeat({
+      const answer = await this.ctx.client.heartbeat({
         busy,
         currentTaskId: taskId,
         ...(this.ctx.version ? { version: this.ctx.version } : {}),
       });
+      if (!busy && answer.profileIds) await this.forgetOtherProfiles(answer.profileIds);
     } catch (error) {
       this.logger.warn("worker heartbeat failed", { error: describeError(error) });
+    }
+  }
+
+  private async forgetOtherProfiles(profileIds: string[]): Promise<void> {
+    try {
+      await this.ctx.keepProfiles?.(profileIds);
+    } catch (error) {
+      this.logger.warn("could not remove the browser data of deleted profiles", {
+        error: describeError(error),
+      });
     }
   }
 

@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { existsSync, lstatSync, mkdirSync, readlinkSync, rmSync } from "node:fs";
+import { existsSync, lstatSync, mkdirSync, readdirSync, readlinkSync, rmSync } from "node:fs";
 import { hostname } from "node:os";
 import { join } from "node:path";
 import { type BrowserContext, chromium, type Page } from "playwright";
@@ -185,6 +185,12 @@ function scopeName(profileId: string | null): string {
  */
 export interface ProfileBrowsers {
   newPage(profileId: string | null): Promise<Page>;
+  /**
+   * Forgets every profile that is not in the list: closes its browser and deletes its cookies,
+   * history and cached pages. A profile that was deleted must not leave a record of its visits
+   * behind. Call it only between tasks, because it closes browsers that may be in use.
+   */
+  keepOnly(profileIds: readonly string[]): Promise<void>;
   close(): Promise<void>;
 }
 
@@ -209,6 +215,20 @@ export function createProfileBrowsers(
 
   return {
     newPage: (profileId) => sessionFor(profileId).newPage(),
+    async keepOnly(profileIds) {
+      const kept = new Set([SHARED_SCOPE, ...profileIds.map(scopeName)]);
+      for (const [scope, session] of [...sessions]) {
+        if (kept.has(scope)) continue;
+        sessions.delete(scope);
+        await session.close();
+      }
+      const root = join(settings.profileDir, "kickrocks");
+      const onDisk = existsSync(root) ? readdirSync(root) : [];
+      for (const scope of onDisk.filter((name) => !kept.has(name))) {
+        rmSync(join(root, scope), { recursive: true, force: true });
+        logger.info("removed the browser data of a profile that no longer exists", { scope });
+      }
+    },
     async close() {
       const open = [...sessions.values()];
       sessions.clear();

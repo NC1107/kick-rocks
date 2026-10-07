@@ -45,6 +45,13 @@ export type WorkerHeartbeatBody = z.infer<typeof WorkerHeartbeatBody>;
 export const WorkerHeartbeatResponse = z.object({
   ok: z.literal(true),
   serverTime: z.iso.datetime(),
+  /**
+   * Every profile the instance still has. A worker keeps one Chrome profile per Kick Rocks
+   * profile and deletes the browser data of any other, so deleting a profile or resetting the
+   * instance also removes the cookies and history its visits left. A server that omits the list
+   * says nothing about profiles, and a worker must then delete nothing.
+   */
+  profileIds: z.array(z.string()).optional(),
 });
 export type WorkerHeartbeatResponse = z.infer<typeof WorkerHeartbeatResponse>;
 

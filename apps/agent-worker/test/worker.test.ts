@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -35,7 +35,7 @@ interface Seen {
   submissionsSoFar: number;
 }
 
-function fakeServer(task: ReturnType<typeof agentTask> | null) {
+function fakeServer(task: ReturnType<typeof agentTask> | null, profileIds?: string[]) {
   const seen: Seen[] = [];
   let given = false;
   const json = (body: unknown) =>
@@ -55,7 +55,7 @@ function fakeServer(task: ReturnType<typeof agentTask> | null) {
       submissionsSoFar: (await fixtureState()).submissions.length,
     });
     if (url.pathname === "/api/worker/heartbeat") {
-      return json({ ok: true, serverTime: "2026-10-07T00:00:00.000Z" });
+      return json({ ok: true, serverTime: "2026-10-07T00:00:00.000Z", profileIds });
     }
     if (url.pathname === "/api/worker/claim") {
       const next = !given ? task : null;
@@ -326,5 +326,20 @@ describeBrowser("the agent worker end to end", () => {
       detail: expect.stringContaining("may already have been submitted"),
     });
     expect((await fixtureState()).submissions).toHaveLength(1);
+  });
+
+  it("deletes the browser data of a profile the server no longer has, between tasks", async () => {
+    const server = fakeServer(null, ["profile-1"]);
+    const kept = join(profileDir, "kickrocks", "profile-1");
+    const gone = join(profileDir, "kickrocks", "profile-deleted");
+    mkdirSync(kept, { recursive: true });
+    mkdirSync(gone, { recursive: true });
+    writeFileSync(join(gone, "Cookies"), "cookie data");
+
+    const { finished, controller } = startWorker(server, []);
+    await vi.waitUntil(() => !existsSync(gone), { timeout: 5_000, interval: 20 });
+    controller.abort();
+    await finished;
+    expect(existsSync(kept)).toBe(true);
   });
 });
