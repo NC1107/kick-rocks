@@ -41,7 +41,8 @@ const ACTION_PHRASES: Record<UserAction, string> = {
 
 const status = (value: keyof typeof REQUEST_STATUS_META) => REQUEST_STATUS_META[value].label;
 const lower = (text: string) => text.toLowerCase();
-const task = (kind: keyof typeof TASK_KIND_LABELS) => lower(TASK_KIND_LABELS[kind]);
+const task = (kind: keyof typeof TASK_KIND_LABELS) =>
+  lower(TASK_KIND_LABELS[kind]).replace(/ task$/, "");
 
 /**
  * One sentence for a timeline event, the same on the request page and the dashboard. It reads the

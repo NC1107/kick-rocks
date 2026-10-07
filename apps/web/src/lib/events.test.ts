@@ -107,6 +107,11 @@ describe("describeEvent", () => {
     );
     expect(
       describeEvent(
+        event("task_completed", { taskId: "t1", kind: "agent", outcome: "not_found", note: null }),
+      ),
+    ).toBe("The agent task finished (not found).");
+    expect(
+      describeEvent(
         event("task_completed", {
           taskId: "t",
           kind: "form",
