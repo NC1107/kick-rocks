@@ -107,4 +107,15 @@ describe("retention and reset handlers", () => {
     expect(settings.schedule.pollMinutes).toBe(15);
     expect(settings.retention).toEqual({ messageDays: null, screenshotDays: 30 });
   });
+
+  it("forgets the notification settings", async () => {
+    await call({
+      method: "PATCH",
+      path: "/notifications",
+      body: { ntfy: { serverUrl: "https://ntfy.example.test", topic: "topic", token: "secret" } },
+    });
+    expect((await call({ path: "/notifications" })).json.ntfy).not.toBeNull();
+    await call({ method: "POST", path: "/settings/reset", body: { confirm: "delete everything" } });
+    expect((await call({ path: "/notifications" })).json.ntfy).toBeNull();
+  });
 });

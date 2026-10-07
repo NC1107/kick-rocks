@@ -1,22 +1,9 @@
-import {
-  API_ROUTES,
-  type NotificationSettings,
-  type NotificationsView,
-  WebUrl,
-} from "@kickrocks/shared";
+import { API_ROUTES, type NotificationsView, WebUrl } from "@kickrocks/shared";
 import { conflict, handle, invalid, type MockRoute } from "./core.js";
 import type { MockStore } from "./store.js";
 
 /** A topic with this name makes the mock server refuse the test, so the failure state can be seen. */
 export const MOCK_REFUSED_TOPIC = "refused";
-
-interface MockNotifications {
-  settings: NotificationSettings;
-  lastSentAt: string | null;
-  lastError: string | null;
-  digestLastSentAt: string | null;
-  digestLastError: string | null;
-}
 
 function sameOrigin(a: string, b: string): boolean {
   try {
@@ -27,26 +14,12 @@ function sameOrigin(a: string, b: string): boolean {
 }
 
 /**
- * The notification routes. The saved tokens stay in this closure and never reach a response, as on
+ * The notification routes. The saved tokens stay in the store and never reach a response, as on
  * the real server.
  */
 export function notificationRoutes(store: MockStore): MockRoute[] {
-  const state: MockNotifications = {
-    settings: {
-      ntfy: null,
-      telegram: null,
-      categories: ["blocked_task", "verification", "match", "mailbox", "recipe"],
-      maxPerHour: 6,
-      digest: { frequency: "off", hourUtc: 8, weekday: 1 },
-    },
-    lastSentAt: null,
-    lastError: null,
-    digestLastSentAt: null,
-    digestLastError: null,
-  };
-
   const view = (): NotificationsView => {
-    const { ntfy, telegram, categories, maxPerHour, digest } = state.settings;
+    const { ntfy, telegram, categories, maxPerHour, digest } = store.notifications.settings;
     return {
       ntfy: ntfy
         ? { serverUrl: ntfy.serverUrl, topic: ntfy.topic, tokenSet: ntfy.token !== null }
@@ -58,10 +31,10 @@ export function notificationRoutes(store: MockStore): MockRoute[] {
       appUrl: WebUrl.parse(new URL(store.settings.mcp.url).origin),
       mailboxReady: store.profiles.length > 0,
       status: {
-        lastSentAt: state.lastSentAt,
-        lastError: state.lastError,
-        digestLastSentAt: state.digestLastSentAt,
-        digestLastError: state.digestLastError,
+        lastSentAt: store.notifications.lastSentAt,
+        lastError: store.notifications.lastError,
+        digestLastSentAt: store.notifications.digestLastSentAt,
+        digestLastError: store.notifications.digestLastError,
       },
     };
   };
@@ -70,7 +43,7 @@ export function notificationRoutes(store: MockStore): MockRoute[] {
     handle(API_ROUTES.notificationsGet, view),
 
     handle(API_ROUTES.notificationsPatch, ({ body }) => {
-      const current = state.settings;
+      const current = store.notifications.settings;
       if (body.ntfy === null) current.ntfy = null;
       else if (body.ntfy) {
         const kept = current.ntfy?.token ?? null;
@@ -104,25 +77,28 @@ export function notificationRoutes(store: MockStore): MockRoute[] {
           weekday: body.digest.weekday ?? current.digest.weekday,
         };
         if (wasOff && current.digest.frequency !== "off") {
-          state.digestLastSentAt = store.clock.now().toISOString();
+          store.notifications.digestLastSentAt = store.clock.now().toISOString();
         }
       }
       return view();
     }),
 
     handle(API_ROUTES.notificationsTest, ({ body }) => {
-      const channel = state.settings[body.channel];
+      const channel = store.notifications.settings[body.channel];
       if (!channel) throw conflict("Save this channel before sending a test.");
-      if (body.channel === "ntfy" && state.settings.ntfy?.topic === MOCK_REFUSED_TOPIC) {
+      if (
+        body.channel === "ntfy" &&
+        store.notifications.settings.ntfy?.topic === MOCK_REFUSED_TOPIC
+      ) {
         return { ok: false, error: "ntfy answered 403: forbidden" };
       }
-      state.lastSentAt = store.clock.now().toISOString();
+      store.notifications.lastSentAt = store.clock.now().toISOString();
       return { ok: true, error: null };
     }),
 
     handle(API_ROUTES.notificationsDigestSend, () => {
-      state.digestLastSentAt = store.clock.now().toISOString();
-      state.digestLastError = null;
+      store.notifications.digestLastSentAt = store.clock.now().toISOString();
+      store.notifications.digestLastError = null;
       return { outcome: "sent" as const, sent: 1, error: null };
     }),
   ];

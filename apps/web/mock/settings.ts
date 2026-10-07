@@ -12,7 +12,7 @@ import {
 } from "@kickrocks/shared";
 import { conflict, defineMockDomain, handle, notFound } from "./core.js";
 import { notificationRoutes } from "./notifications.js";
-import type { MockStore } from "./store.js";
+import { freshMockNotifications, type MockStore } from "./store.js";
 
 function hex(store: MockStore, length: number): string {
   return Array.from({ length }, () => Math.floor(store.random() * 16).toString(16)).join("");
@@ -354,6 +354,7 @@ export default defineMockDomain({
           mcp: { ...store.settings.mcp, enabled: false, tokenSet: false },
         };
         store.mcpToken = null;
+        store.notifications = freshMockNotifications();
         return { ok: true as const };
       }),
 

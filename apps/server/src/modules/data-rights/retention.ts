@@ -1,5 +1,5 @@
-import { type KickRocksDb, messages } from "@kickrocks/db";
-import { and, isNotNull, lt, or, sql } from "drizzle-orm";
+import { type KickRocksDb, messages, requests } from "@kickrocks/db";
+import { and, eq, isNotNull, isNull, lt, notInArray, or, sql } from "drizzle-orm";
 import type { Clock } from "../../core/clock.js";
 import type { SettingsStore } from "../../core/settings.js";
 import type { TaskQueue } from "../../core/task-queue.js";
@@ -25,7 +25,8 @@ const cutoff = (clock: Clock, days: number): Date =>
 /**
  * Blanks the text of mail that has been dealt with. Rows stay, because the unique index on the
  * mailbox UID is what stops the next poll from importing the same message again, and the sender,
- * subject, and outcome are the history of the request.
+ * subject, and outcome are the history of the request. A message whose request still waits on the
+ * person keeps its text, because the verification card shows the broker's explanation from it.
  */
 function scrubMessageText(db: KickRocksDb, before: Date): number {
   return db
@@ -35,6 +36,16 @@ function scrubMessageText(db: KickRocksDb, before: Date): number {
       and(
         sql`${messages.reviewed} = 1`,
         lt(messages.receivedAt, before.toISOString()),
+        or(
+          isNull(messages.requestId),
+          notInArray(
+            messages.requestId,
+            db
+              .select({ id: requests.id })
+              .from(requests)
+              .where(eq(requests.status, "needs_verification")),
+          ),
+        ),
         or(
           isNotNull(messages.text),
           isNotNull(messages.snippet),
