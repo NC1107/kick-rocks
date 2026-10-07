@@ -155,6 +155,26 @@ describe("GET /profiles/:id/dashboard", () => {
       expect((await dashboard(profile.id)).attention.failedTasks).toBe(2);
     });
 
+    it("counts only what the review page lists, so a failed canary and a replaced failure do not add up", async () => {
+      const profile = seedProfile(ctx);
+      seedTarget(ctx, { id: "b" });
+      failedFor(profile.id, null);
+      seedTask(ctx, {
+        kind: "canary",
+        status: "failed",
+        lastError: "boom",
+        payload: { recipeId: "b.remove.v1" },
+        profileId: profile.id,
+        targetId: "b",
+      });
+
+      const queue = await ctx.call(API_ROUTES.reviewQueue, { query: { profileId: profile.id } });
+      if (!queue.ok) throw new Error("review queue failed");
+      expect((await dashboard(profile.id)).attention.failedTasks).toBe(
+        queue.body.failedTasks.length,
+      );
+    });
+
     it("leaves out failures whose request is closed, including a rejected one", async () => {
       const profile = seedProfile(ctx);
       seedTarget(ctx, { id: "b" });

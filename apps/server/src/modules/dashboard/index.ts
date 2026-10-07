@@ -1,33 +1,16 @@
-import {
-  mailboxes,
-  matches,
-  messages,
-  profiles,
-  requestEvents,
-  requests,
-  targets,
-  tasks,
-} from "@kickrocks/db";
-import {
-  API_ROUTES,
-  type Dashboard,
-  DashboardEvent,
-  isActiveStatus,
-  RequestStatus,
-} from "@kickrocks/shared";
-import { and, count, desc, eq, gte, inArray, isNull, or, sql } from "drizzle-orm";
+import { mailboxes, profiles, requestEvents, requests, targets } from "@kickrocks/db";
+import { API_ROUTES, type Dashboard, DashboardEvent, RequestStatus } from "@kickrocks/shared";
+import { count, desc, eq, sql } from "drizzle-orm";
 import { notFound } from "../../core/errors.js";
 import { registerRoute } from "../../core/http.js";
 import type { ModulePlugin } from "../../core/module.js";
 import type { AppServices } from "../../services.js";
+import { buildReviewQueue } from "../review/queue.js";
 
 const RECENT_EVENTS = 20;
-const FAILED_TASK_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
-
-const ACTIVE_STATUSES = RequestStatus.options.filter(isActiveStatus);
 
 export function buildDashboard(services: AppServices, profileId: string): Dashboard {
-  const { db, clock, mailQuota } = services;
+  const { db, mailQuota } = services;
   const profile = db
     .select({ id: profiles.id })
     .from(profiles)
@@ -52,42 +35,8 @@ export function buildDashboard(services: AppServices, profileId: string): Dashbo
   const mailbox =
     db.select().from(mailboxes).where(eq(mailboxes.profileId, profileId)).get() ?? null;
 
-  const blockedTasks =
-    db
-      .select({ n: count() })
-      .from(tasks)
-      .where(and(eq(tasks.profileId, profileId), eq(tasks.status, "blocked")))
-      .get()?.n ?? 0;
-  const pendingMatches =
-    db
-      .select({ n: count() })
-      .from(matches)
-      .where(and(eq(matches.profileId, profileId), eq(matches.decision, "pending")))
-      .get()?.n ?? 0;
-  const unreviewedMessages = mailbox
-    ? (db
-        .select({ n: count() })
-        .from(messages)
-        .where(and(eq(messages.mailboxId, mailbox.id), eq(messages.reviewed, false)))
-        .get()?.n ?? 0)
-    : 0;
-
-  // A final failure on a request that is still open, or on work with no request such as a scan.
-  const since = new Date(clock.now().getTime() - FAILED_TASK_WINDOW_MS).toISOString();
-  const failedTasks =
-    db
-      .select({ n: count() })
-      .from(tasks)
-      .leftJoin(requests, eq(requests.id, tasks.requestId))
-      .where(
-        and(
-          eq(tasks.profileId, profileId),
-          eq(tasks.status, "failed"),
-          gte(tasks.updatedAt, since),
-          or(isNull(tasks.requestId), inArray(requests.status, ACTIVE_STATUSES)),
-        ),
-      )
-      .get()?.n ?? 0;
+  // The review page is where these totals lead, so they come from the same queue it lists.
+  const queue = buildReviewQueue(services, profileId);
 
   const recentEvents = db
     .select({
@@ -114,11 +63,11 @@ export function buildDashboard(services: AppServices, profileId: string): Dashbo
     total,
     counts,
     attention: {
-      blockedTasks,
-      pendingMatches,
-      unreviewedMessages,
+      blockedTasks: queue.blockedTasks.length,
+      pendingMatches: queue.matches.length,
+      unreviewedMessages: queue.messages.length,
       needsVerification: counts.needs_verification,
-      failedTasks,
+      failedTasks: queue.failedTasks.length,
     },
     sending: mailbox
       ? {
