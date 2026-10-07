@@ -132,6 +132,7 @@ describe("correlation", () => {
       inReplyTo: null,
       subject: "Your privacy request",
       from: { name: null, address: "ticket@help.acme.test" },
+      headers: { "authentication-results": "mx.example.com; dkim=pass header.d=help.acme.test" },
     });
     expect(result).toMatchObject({
       requestId: "req-1",
@@ -139,6 +140,42 @@ describe("correlation", () => {
       classification: "completed",
     });
     expect(result.confidence).toBeLessThanOrEqual(0.8);
+    expect(result.confidence).toBeGreaterThanOrEqual(0.6);
+  });
+
+  it("keeps a sender-domain match with no authentication for a person to review", async () => {
+    const result = await classify("We have completed your request.", {
+      inReplyTo: null,
+      messageId: "<attacker@evil.test>",
+      subject: "Your privacy request",
+      from: { name: null, address: "privacy@acme.test" },
+    });
+    expect(result).toMatchObject({ requestId: "req-1", correlation: "sender_domain" });
+    expect(result.confidence).toBeLessThan(0.6);
+  });
+
+  it.each([
+    ["a DKIM pass for another domain", "mx.example.com; dkim=pass header.d=evil.test"],
+    ["a DKIM failure", "mx.example.com; dkim=fail header.d=acme.test"],
+    ["a DMARC pass for another domain", "mx.example.com; dmarc=pass header.from=evil.test"],
+    ["a lookalike domain", "mx.example.com; dkim=pass header.d=notacme.test"],
+  ])("does not trust %s", async (_name, header) => {
+    const result = await classify("We have completed your request.", {
+      inReplyTo: null,
+      subject: "Your privacy request",
+      from: { name: null, address: "privacy@acme.test" },
+      headers: { "authentication-results": header },
+    });
+    expect(result.confidence).toBeLessThan(0.6);
+  });
+
+  it("trusts a DMARC pass aligned to the target domain", async () => {
+    const result = await classify("We have completed your request.", {
+      inReplyTo: null,
+      subject: "Your privacy request",
+      from: { name: null, address: "privacy@acme.test" },
+      headers: { "authentication-results": "mx.example.com; dmarc=pass header.from=acme.test" },
+    });
     expect(result.confidence).toBeGreaterThanOrEqual(0.6);
   });
 
@@ -639,6 +676,9 @@ describe("a confirmation email after a form submission", () => {
         inReplyTo: null,
         subject: "Your request",
         from: { name: null, address: "privacy@intelius.test" },
+        headers: {
+          "authentication-results": "mx.example.com; dmarc=pass header.from=intelius.test",
+        },
       },
       [waiting()],
     );
