@@ -266,13 +266,39 @@ export function MailboxNotices({
   );
 }
 
+export const ACTIVITY_REQUEST_LIMIT = 6;
+
+export type ActivityGroup = {
+  /** The newest event of the run, which is the one described. */
+  latest: DashboardEvent;
+  count: number;
+};
+
+/** Runs of consecutive events from one request become one entry, so retries do not bury other requests. */
+export function groupActivity(
+  events: readonly DashboardEvent[],
+  limit = ACTIVITY_REQUEST_LIMIT,
+): ActivityGroup[] {
+  const groups: ActivityGroup[] = [];
+  for (const event of events) {
+    const last = groups.at(-1);
+    if (last && last.latest.requestId === event.requestId) {
+      last.count += 1;
+      if (Date.parse(event.createdAt) > Date.parse(last.latest.createdAt)) last.latest = event;
+    } else {
+      groups.push({ latest: event, count: 1 });
+    }
+  }
+  return groups.slice(0, limit);
+}
+
 export function ActivityList({ events }: { events: readonly DashboardEvent[] }) {
   if (events.length === 0) {
     return <p className="text-base text-ink-muted">Nothing has happened yet.</p>;
   }
   return (
     <ul className="m-0 -mt-1 list-none divide-y divide-line p-0">
-      {events.map((event) => (
+      {groupActivity(events).map(({ latest: event, count }) => (
         <li
           key={event.id}
           className={cn(
@@ -282,14 +308,15 @@ export function ActivityList({ events }: { events: readonly DashboardEvent[] }) 
         >
           <div className="min-w-0">
             <p className="text-base text-ink">{describeEvent(event)}</p>
-            <p className="mt-0.5 flex flex-wrap items-center gap-x-2 text-sm text-ink-muted">
+            <p className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-ink-muted">
               <Link
                 to={`/requests/${event.requestId}`}
-                className="rounded-xs font-medium text-ink underline decoration-line-strong underline-offset-2 hover:decoration-ink"
+                className="min-w-0 break-words rounded-xs font-medium text-ink underline decoration-line-strong underline-offset-2 hover:decoration-ink"
               >
                 {event.targetName}
               </Link>
               <Badge variant="outline">{event.requestReference}</Badge>
+              {count > 1 ? <span>{count} events</span> : null}
             </p>
           </div>
           <time

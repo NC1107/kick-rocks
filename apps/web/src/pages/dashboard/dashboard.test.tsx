@@ -4,7 +4,7 @@ import { createMockApp } from "../../../mock/app.js";
 import { renderPage } from "../../test/render.js";
 import { instrument } from "../profiles/test-support.js";
 import { Component as DashboardPage } from "./index.js";
-import { attentionItems, groupTotal, STATUS_GROUPS } from "./sections.js";
+import { attentionItems, groupActivity, groupTotal, STATUS_GROUPS } from "./sections.js";
 
 describe("the dashboard", () => {
   it("shows a skeleton shaped like the page while it loads", async () => {
@@ -207,5 +207,49 @@ describe("dashboard helpers", () => {
     expect(items.map((item) => [item.count, item.title])).toEqual([
       [3, "Tasks waiting for an agent"],
     ]);
+  });
+});
+
+describe("groupActivity", () => {
+  const event = (id: string, requestId: string, createdAt: string) =>
+    ({ id, requestId, createdAt }) as never;
+
+  it("folds consecutive events of one request into a count and keeps the latest", () => {
+    const groups = groupActivity([
+      event("e1", "r1", "2026-10-07T10:00:00Z"),
+      event("e2", "r1", "2026-10-07T09:00:00Z"),
+      event("e3", "r1", "2026-10-07T08:00:00Z"),
+      event("e4", "r2", "2026-10-07T07:00:00Z"),
+      event("e5", "r1", "2026-10-07T06:00:00Z"),
+    ]);
+    expect(groups.map((g) => [g.latest.id, g.count])).toEqual([
+      ["e1", 3],
+      ["e4", 1],
+      ["e5", 1],
+    ]);
+  });
+
+  it("keeps only the newest few requests", () => {
+    const events = Array.from({ length: 10 }, (_, i) =>
+      event(`e${i}`, `r${i}`, "2026-10-07T10:00:00Z"),
+    );
+    expect(groupActivity(events)).toHaveLength(6);
+    expect(groupActivity(events, 3)).toHaveLength(3);
+  });
+});
+
+describe("recent activity on the page", () => {
+  it("shows a count when a request repeats", async () => {
+    const mock = createMockApp();
+    const base = mock.store.requests[0];
+    if (!base) throw new Error("fixture");
+    renderPage(<DashboardPage />, { mock });
+    const activity = (await screen.findByRole("heading", { name: "Recent activity" })).closest(
+      "section",
+    ) as HTMLElement;
+    const requestIds = within(activity)
+      .getAllByRole("link")
+      .map((link) => link.getAttribute("href"));
+    expect(new Set(requestIds).size).toBeGreaterThan(1);
   });
 });
