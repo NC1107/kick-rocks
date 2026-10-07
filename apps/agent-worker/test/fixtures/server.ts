@@ -64,6 +64,10 @@ const PAGES: Record<string, string> = {
   "/sw-form": "sw-form.html",
   "/sw-evade": "sw-evade.html",
   "/sw-popup-form": "sw-popup-form.html",
+  "/sw-popup-blank": "sw-popup-blank.html",
+  "/sw-popup-named": "sw-popup-named.html",
+  "/sw-popup-flood": "sw-popup-flood.html",
+  "/sw-popup-open-first": "sw-popup-open-first.html",
   "/return-link": "return-link.html",
   "/onchange": "onchange.html",
 };

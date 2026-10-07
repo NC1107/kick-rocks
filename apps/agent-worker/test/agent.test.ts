@@ -546,46 +546,53 @@ describeBrowser("the rules the code enforces", () => {
       await postsNothingToTheOtherSite();
     });
 
-    it("keeps a worker a page registers by the prototype from answering requests", async () => {
-      await context.close();
-      context = await launchPersistentChrome(settings());
-      const registering = await context.newPage();
-      await registering.goto(`${OFFSITE}/sw-evade`);
-      await registering.waitForFunction("document.title === 'Worker ready'", undefined, {
-        timeout: 10_000,
-      });
-      await registering.close();
+    it("keeps a worker a page registers by the prototype from installing or answering", async () => {
+      await relaunchWithAWorkerRegistered();
       await postsNothingToTheOtherSite();
     });
 
-    it("keeps a worker from answering a form that posts into a new tab", async () => {
+    async function relaunchWithAWorkerRegistered(
+      guardOptions?: Parameters<typeof launchPersistentChrome>[1],
+    ): Promise<void> {
       await context.close();
-      context = await launchPersistentChrome(settings());
+      context = await launchPersistentChrome(settings(), guardOptions);
       const registering = await context.newPage();
       await registering.goto(`${OFFSITE}/sw-evade`);
-      await registering.waitForFunction("document.title === 'Worker ready'", undefined, {
-        timeout: 10_000,
-      });
+      await registering
+        .waitForFunction("document.title === 'Worker ready'", undefined, { timeout: 3_000 })
+        .catch(() => undefined);
       await registering.close();
+    }
+
+    async function submitsFrom(path: string): Promise<void> {
       await run([
-        navigate("/sw-popup-form"),
+        navigate(path),
         (v) => ({ calls: [["type", { ref: v.ref("First name"), field: "first_name" }]] }),
         (v) => ({ calls: [["click", { ref: v.ref("Submit request") }]] }),
         { calls: [["report", { status: "release" }]] },
       ]);
       const { submissions } = await fixtureState();
-      expect(submissions.filter((entry) => entry.host === "localhost")).toEqual([]);
+      expect(submissions.filter((entry) => entry.path === "/leak")).toEqual([]);
+    }
+
+    it.each([
+      "/sw-popup-form",
+      "/sw-popup-blank",
+      "/sw-popup-named",
+      "/sw-popup-open-first",
+      "/sw-popup-flood",
+    ])("keeps a worker from answering a form that posts into a new tab (%s)", async (path) => {
+      await relaunchWithAWorkerRegistered();
+      await submitsFrom(path);
     });
 
-    it("unregisters the workers a task met when the browser is reused for the next one", async () => {
-      await context.close();
-      context = await launchPersistentChrome(settings());
-      const registering = await context.newPage();
-      await registering.goto(`${OFFSITE}/sw-evade`);
-      await registering.waitForFunction("document.title === 'Worker ready'", undefined, {
-        timeout: 10_000,
-      });
-      await registering.close();
+    it("does not depend on how fast the guard reaches a new tab", async () => {
+      await relaunchWithAWorkerRegistered({ holdDelayMs: 1_500 });
+      await submitsFrom("/sw-popup-blank");
+    });
+
+    it("leaves no worker registered when the browser is reused for the next task", async () => {
+      await relaunchWithAWorkerRegistered();
       await clearServiceWorkers(context);
       const probe = await context.newPage();
       await probe.goto(`${OFFSITE}/offsite`);

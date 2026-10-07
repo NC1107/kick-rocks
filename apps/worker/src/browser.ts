@@ -8,6 +8,7 @@ import {
   bypassServiceWorkersBeforeTabsRun,
   forgetDevToolsEndpoint,
   type TabGuard,
+  type TabGuardOptions,
 } from "./tab-guard.js";
 
 /** Where Chrome installs itself, in the order to prefer them. */
@@ -122,7 +123,7 @@ export async function bypassServiceWorkers(page: Page): Promise<void> {
 /**
  * A page made through `newPage` is bypassed before it is handed out, so its first navigation is
  * already clear of workers. A page a site opens is bypassed as soon as it appears, but that is
- * after it started, so the tab guard also holds it at its start.
+ * after it started, so the tab guard also refuses to let any service worker install.
  */
 function bypassOnEveryPage(context: BrowserContext): void {
   const bypass = (page: Page): void => {
@@ -148,7 +149,10 @@ export async function clearServiceWorkers(context: BrowserContext): Promise<void
   await tabGuards.get(context)?.clearServiceWorkers();
 }
 
-export const launchPersistentChrome: BrowserLauncher = async (settings) => {
+export const launchPersistentChrome = async (
+  settings: BrowserSettings,
+  guardOptions: TabGuardOptions = {},
+): Promise<BrowserContext> => {
   clearStaleProfileLock(settings.profileDir);
   clearServiceWorkerStorage(settings.profileDir);
   forgetDevToolsEndpoint(settings.profileDir);
@@ -162,7 +166,7 @@ export const launchPersistentChrome: BrowserLauncher = async (settings) => {
     });
     bypassOnEveryPage(context);
     try {
-      const guard = await bypassServiceWorkersBeforeTabsRun(settings.profileDir);
+      const guard = await bypassServiceWorkersBeforeTabsRun(settings.profileDir, guardOptions);
       tabGuards.set(context, guard);
       context.on("close", () => guard.close());
     } catch (error) {

@@ -16,6 +16,11 @@ interface AttachedEvent {
   waitingForDebugger: boolean;
 }
 
+interface PausedRequest {
+  requestId: string;
+  request: { headers: Record<string, string> };
+}
+
 interface Registration {
   scopeURL: string;
 }
@@ -31,6 +36,13 @@ interface Message {
 
 /** What Chrome calls the target of a tab, and of a frame that runs in a process of its own. */
 const GUARDED_TARGETS = [{ type: "page" }, { type: "iframe" }, { exclude: true }];
+
+/** Chrome marks the request for a worker's script, which is how a worker is kept from installing. */
+function isServiceWorkerScript(paused: PausedRequest): boolean {
+  return Object.entries(paused.request.headers).some(
+    ([name, value]) => name.toLowerCase() === "service-worker" && value === "script",
+  );
+}
 
 /** Chrome writes its debugging address into the profile, so a stale one must go before a launch. */
 export function forgetDevToolsEndpoint(profileDir: string): void {
@@ -65,6 +77,7 @@ class FlatConnection {
   constructor(
     private readonly socket: WebSocket,
     private readonly onAttached: (event: AttachedEvent) => void,
+    private readonly onRequest: (event: PausedRequest) => void,
   ) {
     socket.addEventListener("message", (event) =>
       this.receive(JSON.parse(String(event.data)) as Message),
@@ -111,6 +124,10 @@ class FlatConnection {
       else waiting?.resolve(message.result);
       return;
     }
+    if (message.method === "Fetch.requestPaused" && message.sessionId === undefined) {
+      this.onRequest(message.params as PausedRequest);
+      return;
+    }
     if (message.method === "Target.attachedToTarget") {
       this.onAttached(message.params as AttachedEvent);
     }
@@ -128,12 +145,21 @@ export interface TabGuard {
 
 const REGISTRATIONS_WAIT_MS = 500;
 
+export interface TabGuardOptions {
+  /** Stalls the guard before it acts on a new tab, so a test can show the result is not a race. */
+  holdDelayMs?: number;
+}
+
 /**
- * Holds every new tab, and every frame in its own process, until service workers are bypassed for
- * it, then lets it run. A tab or frame that cannot be bypassed is never let go, because a tab a
- * worker can answer is the hole. Needs Chrome started with a debugging port.
+ * Refuses every service worker script, so no worker installs and nothing depends on how fast a
+ * tab is reached. Chrome also pauses tabs that have no opener, and every frame in its own
+ * process, until service workers are bypassed for them. A popup that has an opener is not
+ * paused, so the refusal is what protects it. Needs Chrome started with a debugging port.
  */
-export async function bypassServiceWorkersBeforeTabsRun(profileDir: string): Promise<TabGuard> {
+export async function bypassServiceWorkersBeforeTabsRun(
+  profileDir: string,
+  options: TabGuardOptions = {},
+): Promise<TabGuard> {
   const endpoint = await readEndpoint(profileDir);
   const socket = new WebSocket(endpoint);
   await new Promise<void>((resolve, reject) => {
@@ -153,6 +179,7 @@ export async function bypassServiceWorkersBeforeTabsRun(profileDir: string): Pro
   const hold = async (event: AttachedEvent): Promise<void> => {
     const { sessionId } = event;
     try {
+      if (options.holdDelayMs) await sleep(options.holdDelayMs);
       await connection.send("Network.enable", {}, sessionId);
       await connection.send("Network.setBypassServiceWorker", { bypass: true }, sessionId);
       await attach(sessionId);
@@ -166,8 +193,25 @@ export async function bypassServiceWorkersBeforeTabsRun(profileDir: string): Pro
     }
   };
 
-  const connection: FlatConnection = new FlatConnection(socket, (event) => {
-    hold(event).catch(() => undefined);
+  const connection: FlatConnection = new FlatConnection(
+    socket,
+    (event) => {
+      hold(event).catch(() => undefined);
+    },
+    (paused) => {
+      const refused = isServiceWorkerScript(paused);
+      connection
+        .send(
+          refused ? "Fetch.failRequest" : "Fetch.continueRequest",
+          refused
+            ? { requestId: paused.requestId, errorReason: "BlockedByClient" }
+            : { requestId: paused.requestId },
+        )
+        .catch(() => undefined);
+    },
+  );
+  await connection.send("Fetch.enable", {
+    patterns: [{ urlPattern: "*", requestStage: "Request" }],
   });
   await attach();
 
