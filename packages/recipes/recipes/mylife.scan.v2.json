@@ -1,0 +1,80 @@
+{
+  "id": "mylife.scan.v2",
+  "brokerId": "mylife",
+  "version": 2,
+  "purpose": "scan",
+  "entryUrl": "https://www.mylife.com/",
+  "fields": [
+    "first_name",
+    "last_name",
+    "city",
+    "state"
+  ],
+  "steps": [
+    {
+      "kind": "goto",
+      "url": "https://www.mylife.com/pub-multisearch.pubview?search={{first_name|urlencode}}+{{last_name|urlencode}}&searchFirstName={{first_name|urlencode}}&searchLastName={{last_name|urlencode}}&searchLocation={{city|urlencode}}%2C+{{state}}&whyReg=peoplesearch&whySub=Member+Profile+Sub&pageType=ps"
+    },
+    {
+      "kind": "captcha_checkpoint"
+    },
+    {
+      "kind": "wait_for",
+      "target": {
+        "css": "li.ais-InfiniteHits-item"
+      },
+      "optional": true
+    },
+    {
+      "kind": "extract_candidates",
+      "item": {
+        "css": "li.ais-InfiniteHits-item"
+      },
+      "fields": {
+        "recordUrl": {
+          "css": "a.hit-name",
+          "attr": "href"
+        },
+        "name": {
+          "css": "a.hit-name"
+        },
+        "age": {
+          "css": "a.hit-name"
+        },
+        "locations": {
+          "css": ".hit-location, .hit-pastAddresses .hit-values",
+          "all": true
+        }
+      }
+    }
+  ],
+  "canary": {
+    "url": "https://www.mylife.com/",
+    "selectors": [
+      {
+        "css": "li.ais-InfiniteHits-item"
+      },
+      {
+        "css": "li.ais-InfiniteHits-item a.hit-name"
+      },
+      {
+        "css": "li.ais-InfiniteHits-item .hit-location"
+      }
+    ],
+    "steps": [
+      {
+        "kind": "goto",
+        "url": "https://www.mylife.com/pub-multisearch.pubview?search=John+Smith&searchFirstName=John&searchLastName=Smith&searchLocation=Houston%2C+TX&whyReg=peoplesearch&whySub=Member+Profile+Sub&pageType=ps"
+      },
+      {
+        "kind": "wait_for",
+        "target": {
+          "css": "li.ais-InfiniteHits-item"
+        }
+      }
+    ]
+  },
+  "notes": "Verified live 2026-10-07 in a plain headed Chrome from a residential connection, read only. The home page search box only takes one string and sends it as a first name, so the recipe builds the results URL /pub-multisearch.pubview?searchFirstName=&searchLastName=&searchLocation= directly. John Smith in Houston, TX lists 100 results as li.ais-InfiniteHits-item cards: a.hit-name (\"john r smith, 77\", linking to /site/ob/init/ps-bgc.pubview?epid=<id>, which is the stable record link), .hit-location, and Places Lived values. The two buttons on a card go to the same epid. A search with nothing found shows \"We didn't find\" and no cards. The results answer with a Cloudflare check first (403 on the first hop) that cleared by itself in a plain Chrome, but a Playwright launched Chrome stayed on \"Just a moment\" and a run there ends as bot_detection. The privacy request page shows a reCAPTCHA, so the remove recipe cannot be completed without a person. The old version guessed a /first-last/ URL and generic selectors.",
+  "verifiedAt": "2026-10-07",
+  "liveStatus": "verified"
+}

@@ -1,0 +1,75 @@
+{
+  "id": "thatsthem.scan.v2",
+  "brokerId": "thatsthem",
+  "version": 2,
+  "purpose": "scan",
+  "entryUrl": "https://thatsthem.com/",
+  "fields": [
+    "first_name",
+    "last_name",
+    "city",
+    "state"
+  ],
+  "steps": [
+    {
+      "kind": "goto",
+      "url": "https://thatsthem.com/name/{{first_name|slug}}-{{last_name|slug}}/{{city|slug}}-{{state}}"
+    },
+    {
+      "kind": "captcha_checkpoint"
+    },
+    {
+      "kind": "wait_for",
+      "target": {
+        "css": ".record"
+      },
+      "optional": true
+    },
+    {
+      "kind": "outcome_when",
+      "when": [
+        {
+          "selector": {
+            "css": ".record"
+          },
+          "outcome": "blocked",
+          "reason": "unknown"
+        }
+      ]
+    },
+    {
+      "kind": "extract_candidates",
+      "item": {
+        "css": ".record"
+      },
+      "fields": {
+        "recordUrl": {
+          "css": "a.record-link",
+          "attr": "href"
+        },
+        "name": {
+          "css": "h2 span[x-href]"
+        },
+        "locations": {
+          "css": "p",
+          "all": true
+        }
+      }
+    }
+  ],
+  "canary": {
+    "url": "https://thatsthem.com/name/john-smith/houston-TX",
+    "selectors": [
+      {
+        "css": ".record"
+      },
+      {
+        "css": ".record h2 span[x-href]"
+      }
+    ],
+    "steps": []
+  },
+  "notes": "Read live 2026-10-07 in headed Chrome from a residential connection, nothing submitted. The name page /name/John-Smith/Houston-TX (the form on the home page sends the visitor to a Spokeo search instead, and the comma form of the city answers a 403 hop before it redirects here) lists 7 .record cards with the name, Lives in, Born (age) and redacted phone numbers. Every link on a card is a span with a base64 x-href attribute that a script turns into a click, so no card has an href and no per person URL can be read; the only target they reach is the shared /name/John-Smith page. A scan therefore cannot produce confirmable candidates, and the recipe ends as blocked for a person or agent whenever the page lists records. The a.record-link selector after that matches nothing, so a name with no results (the site answers 404 with \"No Results Found\") ends with an empty list. The Cloudflare check passed in a plain Chrome and blocked a Playwright launched one with a 403, so a worker run may end as bot_detection first. The opt-out page loads and has a form (#name, #street, #city, #state, #zip, #email, #phone) with a Turnstile widget.",
+  "verifiedAt": "2026-10-07",
+  "liveStatus": "unverified"
+}

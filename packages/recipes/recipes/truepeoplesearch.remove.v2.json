@@ -1,0 +1,129 @@
+{
+  "id": "truepeoplesearch.remove.v2",
+  "brokerId": "truepeoplesearch",
+  "version": 2,
+  "purpose": "remove",
+  "entryUrl": "https://www.truepeoplesearch.com/removal",
+  "fields": [
+    "first_name",
+    "last_name",
+    "email"
+  ],
+  "steps": [
+    {
+      "kind": "goto",
+      "url": "https://www.truepeoplesearch.com/removal"
+    },
+    {
+      "kind": "select",
+      "target": {
+        "css": "form[action=\"/removal/beginremovalidv\"] #RightsExerciseType"
+      },
+      "value": "The subject of the request"
+    },
+    {
+      "kind": "fill",
+      "target": {
+        "css": "form[action=\"/removal/beginremovalidv\"] #FirstName"
+      },
+      "field": "first_name"
+    },
+    {
+      "kind": "fill",
+      "target": {
+        "css": "form[action=\"/removal/beginremovalidv\"] #LastName"
+      },
+      "field": "last_name"
+    },
+    {
+      "kind": "fill",
+      "target": {
+        "css": "form[action=\"/removal/beginremovalidv\"] #Email"
+      },
+      "field": "email"
+    },
+    {
+      "kind": "check",
+      "target": {
+        "css": "form[action=\"/removal/beginremovalidv\"] #AuthorizeContact"
+      }
+    },
+    {
+      "kind": "captcha_checkpoint"
+    },
+    {
+      "kind": "email_confirmation",
+      "fromDomain": "truepeoplesearch.com"
+    },
+    {
+      "kind": "click",
+      "target": {
+        "css": "form[action=\"/removal/beginremovalidv\"] button[type=\"submit\"]"
+      }
+    },
+    {
+      "kind": "outcome_when",
+      "when": [
+        {
+          "text": "has been sent",
+          "outcome": "awaiting_email_confirmation"
+        },
+        {
+          "text": "we have sent",
+          "outcome": "awaiting_email_confirmation"
+        },
+        {
+          "text": "we've sent",
+          "outcome": "awaiting_email_confirmation"
+        },
+        {
+          "text": "we sent",
+          "outcome": "awaiting_email_confirmation"
+        },
+        {
+          "text": "sent you an email",
+          "outcome": "awaiting_email_confirmation"
+        },
+        {
+          "text": "sent an email",
+          "outcome": "awaiting_email_confirmation"
+        },
+        {
+          "text": "check your inbox",
+          "outcome": "awaiting_email_confirmation"
+        },
+        {
+          "text": "check your email",
+          "outcome": "awaiting_email_confirmation"
+        }
+      ]
+    }
+  ],
+  "canary": {
+    "url": "https://www.truepeoplesearch.com/removal",
+    "selectors": [
+      {
+        "css": "form[action=\"/removal/beginremovalidv\"] #RightsExerciseType"
+      },
+      {
+        "css": "form[action=\"/removal/beginremovalidv\"] #FirstName"
+      },
+      {
+        "css": "form[action=\"/removal/beginremovalidv\"] #LastName"
+      },
+      {
+        "css": "form[action=\"/removal/beginremovalidv\"] #Email"
+      },
+      {
+        "css": "form[action=\"/removal/beginremovalidv\"] #AuthorizeContact"
+      },
+      {
+        "css": "form[action=\"/removal/beginremovalidv\"] button[type=\"submit\"]"
+      }
+    ],
+    "steps": []
+  },
+  "notes": "Seen live 2026-10-07 in a plain headed Chrome from a residential connection, nothing submitted. /removal is a start form that posts to /removal/beginremovalidv: a requester select (the subject of the request or an authorized agent), first, optional middle and last name, an email address, an authorization checkbox, an hCaptcha widget and a Send Request button. The page says the site then emails a link to the real opt-out form (valid for 24 hours), which asks for the details on the record and ends on a confirmation page and a confirmation email, with removal taking up to 3 days. That second form sits behind the email link and was not seen, so the recipe covers the start form only and a person or agent finishes the form behind the link. The old version opened a record URL and clicked buttons that this page does not have. A Playwright launched Chrome stays on a Cloudflare \"Just a moment\" page here, so a worker run may end as bot_detection. The wording the site shows after Send Request was never observed, so the outcome_when texts that prove the request went through are guesses, and the recipe stays unverified until a real submission has been seen.",
+  "verifiedAt": "2026-10-07",
+  "liveStatus": "unverified"
+}

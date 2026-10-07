@@ -1,0 +1,86 @@
+{
+  "id": "intelius.scan.v2",
+  "brokerId": "intelius",
+  "version": 2,
+  "purpose": "scan",
+  "entryUrl": "https://www.intelius.com/people-search/",
+  "fields": [
+    "first_name",
+    "last_name",
+    "state"
+  ],
+  "steps": [
+    {
+      "kind": "goto",
+      "url": "https://www.intelius.com/people-search/{{first_name|slug}}-{{last_name|slug}}/{{state|state_name|slug}}/"
+    },
+    {
+      "kind": "captcha_checkpoint"
+    },
+    {
+      "kind": "wait_for",
+      "target": {
+        "css": "#container-persons .person"
+      },
+      "optional": true
+    },
+    {
+      "kind": "extract_candidates",
+      "item": {
+        "css": "#container-persons > .person"
+      },
+      "fields": {
+        "recordUrl": {
+          "css": "a.view",
+          "attr": "href"
+        },
+        "name": {
+          "css": "h2"
+        },
+        "age": {
+          "css": "h2 .age"
+        },
+        "locations": {
+          "css": "h2 > span:first-of-type"
+        },
+        "relatives": {
+          "css": ".details p.value a[href^=\"/people-search/\"]",
+          "all": true
+        },
+        "phones": {
+          "css": ".details a[href^=\"/phone/\"]",
+          "all": true
+        }
+      }
+    }
+  ],
+  "canary": {
+    "url": "https://www.intelius.com/people-search/",
+    "selectors": [
+      {
+        "css": "#container-persons .person"
+      },
+      {
+        "css": "#container-persons .person a.view"
+      },
+      {
+        "css": "#container-persons .person h2"
+      }
+    ],
+    "steps": [
+      {
+        "kind": "goto",
+        "url": "https://www.intelius.com/people-search/john-smith/texas/"
+      },
+      {
+        "kind": "wait_for",
+        "target": {
+          "css": "#container-persons .person"
+        }
+      }
+    ]
+  },
+  "notes": "Verified live 2026-10-07 in headed Chrome from a residential connection, read only. The state scoped name page /people-search/john-smith/texas/ lists 20 people per page with #container-persons .person cards, so the recipe builds it with {{state|state_name|slug}} (\"NY\" becomes new-york) and the scan no longer returns people from every state. A card has an h2 (\"name in City, State | Age - N\", so the name field carries that extra text because the name is a bare text node), a .details block of phones, address, relatives and previous locations, and a \"View Full Report\" link a.view that goes to a /search/ funnel URL built from the first name, last name, city and state. Two people in the same city share that URL, so only the first of them is listed; this is why a nationwide scan showed 15 candidates from 20 cards. Emails are blurred and left out. A name with no match in the state answers 404, which reads as no candidates. Known gap: the District of Columbia has no state page (every spelling tried answers 404), so a scan for a DC profile reports no candidates even though people exist there. The Cloudflare check on this site passed in a plain Chrome and blocked a Playwright launched Chrome after a few quick page loads, so a run may end as bot_detection. A common name has more matches than the first page shows.",
+  "verifiedAt": "2026-10-07",
+  "liveStatus": "verified"
+}
