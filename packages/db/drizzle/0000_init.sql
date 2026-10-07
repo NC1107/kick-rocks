@@ -208,7 +208,7 @@ CREATE TABLE `targets` (
 	`created_at` text NOT NULL
 );
 --> statement-breakpoint
-CREATE UNIQUE INDEX `targets_kind_domain_idx` ON `targets` (`kind`,`domain`);--> statement-breakpoint
+CREATE UNIQUE INDEX `targets_kind_domain_idx` ON `targets` (`kind`,`domain`) WHERE "targets"."retired" = 0;--> statement-breakpoint
 CREATE TABLE `task_artifacts` (
 	`id` text PRIMARY KEY NOT NULL,
 	`task_id` text NOT NULL,

@@ -140,9 +140,15 @@ describe("constraints", () => {
     expect(() => addRequest("r2", "KR-AAAAAA")).toThrow(/UNIQUE/);
   });
 
-  it("keeps one target per kind and domain", () => {
+  it("keeps one live target per kind and domain", () => {
     addTarget("a", "example.com");
     expect(() => addTarget("b", "example.com")).toThrow(/UNIQUE/);
+  });
+
+  it("frees a domain once its target is retired", () => {
+    addTarget("a", "example.com");
+    opened.db.update(schema.targets).set({ retired: true }).where(eq(schema.targets.id, "a")).run();
+    expect(() => addTarget("b", "example.com")).not.toThrow();
   });
 
   it("allows one mailbox per profile", () => {

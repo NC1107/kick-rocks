@@ -129,7 +129,10 @@ export const targets = sqliteTable(
     retired: integer("retired", { mode: "boolean" }).notNull().default(false),
     createdAt: timestamp("created_at").notNull(),
   },
-  (t) => [uniqueIndex("targets_kind_domain_idx").on(t.kind, t.domain)],
+  (t) => [
+    // A target that left the dataset is retired, and its domain may then belong to a new id.
+    uniqueIndex("targets_kind_domain_idx").on(t.kind, t.domain).where(sql`${t.retired} = 0`),
+  ],
 );
 
 export const recipes = sqliteTable(

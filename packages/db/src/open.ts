@@ -12,6 +12,9 @@ const migrationsFolder = resolve(dirname(fileURLToPath(import.meta.url)), "..", 
 
 export type KickRocksDb = ReturnType<typeof drizzle<typeof schema>>;
 
+/** What a query needs, so a helper accepts the database and a transaction alike. */
+export type DbHandle = Pick<KickRocksDb, "select" | "insert" | "update" | "delete">;
+
 export interface OpenDatabaseOptions {
   dbPath: string;
   keyPath: string;

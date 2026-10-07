@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "08a5cfaf-659a-49e2-8de6-d28cc24efc59",
+  "id": "ed5accbb-529e-4ea7-ab62-f7eb296132ed",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "campaigns": {
@@ -1356,7 +1356,8 @@
         "targets_kind_domain_idx": {
           "name": "targets_kind_domain_idx",
           "columns": ["kind", "domain"],
-          "isUnique": true
+          "isUnique": true,
+          "where": "\"targets\".\"retired\" = 0"
         }
       },
       "foreignKeys": {},
