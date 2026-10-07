@@ -8,8 +8,8 @@ import { TargetKind } from "./targets.js";
 import { Candidate } from "./tasks.js";
 import { WebUrl } from "./url.js";
 
-export const PROFILE_EXPORT_FORMAT = "kickrocks-profile-export";
-export const PROFILE_EXPORT_VERSION = 1;
+export const PROFILE_EXPORT_FORMAT = "kickrocks-profile-export" as const;
+export const PROFILE_EXPORT_VERSION = 1 as const;
 
 const iso = z.iso.datetime();
 
@@ -102,6 +102,17 @@ export const ProfileExport = z.object({
   matches: z.array(ExportedMatch),
 });
 export type ProfileExport = z.infer<typeof ProfileExport>;
+
+/** The name a browser saves an export under: `kickrocks-<name>-<date>.json`. */
+export function profileExportFileName(displayName: string, exportedAt: string): string {
+  const slug = displayName
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 40)
+    .replace(/-+$/g, "");
+  return `kickrocks-${slug || "profile"}-${exportedAt.slice(0, 10)}.json`;
+}
 
 /** What a person types to confirm wiping the instance. */
 export const RESET_CONFIRMATION = "delete everything";
