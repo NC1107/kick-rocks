@@ -36,17 +36,17 @@ export function invalidateRoutes(
   );
 }
 
-export interface QueryExtras {
+export interface QueryExtras<Data = unknown> {
   enabled?: boolean;
   /** Milliseconds before a cached answer counts as stale. */
   staleTime?: number;
-  /** Poll while the page is open. */
-  refetchInterval?: number | false;
+  /** Poll while the page is open. A function decides from the latest answer, so polling can stop when nothing is moving. */
+  refetchInterval?: number | false | ((data: Data | undefined) => number | false);
   /** Keep showing the previous page of a list while the next one loads. */
   keepPrevious?: boolean;
 }
 
-export type QueryOptionsFor<R extends Anyroute> = RouteArgs<R> & QueryExtras;
+export type QueryOptionsFor<R extends Anyroute> = RouteArgs<R> & QueryExtras<RouteResponse<R>>;
 
 /**
  * Reads one GET route into the react-query cache. Pass the route and its params and query; pass
@@ -64,7 +64,7 @@ export function useApiQuery<R extends Anyroute>(
   const skip = options === skipToken;
   const { enabled, staleTime, refetchInterval, keepPrevious, ...args } = (
     skip ? {} : (options ?? {})
-  ) as QueryExtras & RouteArgs<R>;
+  ) as QueryExtras<RouteResponse<R>> & RouteArgs<R>;
   const callArgs = args as { params?: unknown; query?: unknown };
   return useQuery<RouteResponse<R>, ApiRequestError>({
     queryKey: routeKey(route, callArgs),
@@ -73,7 +73,15 @@ export function useApiQuery<R extends Anyroute>(
       : ({ signal }) => callRoute(route, ...([{ ...args, signal }] as unknown as ArgsTuple<R>)),
     ...(enabled !== undefined ? { enabled } : {}),
     ...(staleTime !== undefined ? { staleTime } : {}),
-    ...(refetchInterval !== undefined ? { refetchInterval } : {}),
+    ...(refetchInterval !== undefined
+      ? {
+          refetchInterval:
+            typeof refetchInterval === "function"
+              ? (query: { state: { data: RouteResponse<R> | undefined } }) =>
+                  refetchInterval(query.state.data)
+              : refetchInterval,
+        }
+      : {}),
     ...(keepPrevious ? { placeholderData: keepPreviousData } : {}),
   });
 }

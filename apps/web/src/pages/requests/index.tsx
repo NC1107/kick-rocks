@@ -34,6 +34,7 @@ import {
   readRequestFilters,
   toRequestQuery,
 } from "./filters.js";
+import { listRefreshInterval } from "./polling.js";
 
 const SEARCH_DELAY_MS = 250;
 
@@ -50,6 +51,7 @@ function Requests({ profileId }: { profileId: string }) {
     params: { id: profileId },
     query: toRequestQuery(filters),
     keepPrevious: true,
+    refetchInterval: listRefreshInterval,
   });
   const target = useApiQuery(
     API_ROUTES.targetsGet,
