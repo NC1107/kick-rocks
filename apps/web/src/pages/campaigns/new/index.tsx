@@ -302,7 +302,7 @@ function Builder({ profile }: { profile: ProfileSummary }) {
           </section>
         )}
 
-        <Card className="sticky bottom-3 z-10 shadow-pop">
+        <Card>
           <div className="flex flex-wrap items-center justify-between gap-3">
             <p className="min-w-0 text-base text-ink-muted" aria-live="polite">
               {canSend
