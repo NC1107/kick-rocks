@@ -1,0 +1,83 @@
+{
+  "id": "whitepages.scan.v1",
+  "brokerId": "whitepages",
+  "version": 1,
+  "purpose": "scan",
+  "entryUrl": "https://www.whitepages.com/",
+  "fields": ["full_name", "city", "state"],
+  "steps": [
+    {
+      "kind": "goto",
+      "url": "https://www.whitepages.com/"
+    },
+    {
+      "kind": "fill",
+      "target": {
+        "css": "#search-name"
+      },
+      "field": "full_name"
+    },
+    {
+      "kind": "fill",
+      "target": {
+        "css": "#search-location"
+      },
+      "value": "{{city}}, {{state}}"
+    },
+    {
+      "kind": "click",
+      "target": {
+        "css": "#wp-search"
+      }
+    },
+    {
+      "kind": "captcha_checkpoint"
+    },
+    {
+      "kind": "wait_for",
+      "target": {
+        "css": "a[href^=\"/name/\"]"
+      },
+      "optional": true
+    },
+    {
+      "kind": "extract_candidates",
+      "item": {
+        "css": "[data-qa-selector=\"serp-card\"], .serp-card"
+      },
+      "fields": {
+        "recordUrl": {
+          "css": "a[href^=\"/name/\"]",
+          "attr": "href"
+        },
+        "name": {
+          "css": "h2, h3"
+        },
+        "age": {
+          "css": "h2, h3"
+        },
+        "locations": {
+          "css": "a[href*='/address/'], [class*='location']",
+          "all": true
+        }
+      }
+    }
+  ],
+  "canary": {
+    "url": "https://www.whitepages.com/",
+    "selectors": [
+      {
+        "css": "#search-name"
+      },
+      {
+        "css": "#search-location"
+      },
+      {
+        "css": "#wp-search"
+      }
+    ]
+  },
+  "notes": "Partly verified 2026-10-07. The home page search form (#search-name, #search-location, the #wp-search button) was read in headed Chrome. Every name results URL (/name/First-Last/City-ST), reached by URL or by submitting that form, answered 403 or an empty page from bot management, so the results markup was never seen and the extract_candidates selectors are an unverified guess. Expect this scan to block on bot detection and fall back to a human or agent.",
+  "verifiedAt": "2026-10-07",
+  "liveStatus": "blocked_by_bot_protection"
+}

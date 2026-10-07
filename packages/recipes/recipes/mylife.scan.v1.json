@@ -1,0 +1,57 @@
+{
+  "id": "mylife.scan.v1",
+  "brokerId": "mylife",
+  "version": 1,
+  "purpose": "scan",
+  "entryUrl": "https://www.mylife.com/",
+  "fields": ["first_name", "last_name"],
+  "steps": [
+    {
+      "kind": "goto",
+      "url": "https://www.mylife.com/{{first_name|slug}}-{{last_name|slug}}/"
+    },
+    {
+      "kind": "captcha_checkpoint"
+    },
+    {
+      "kind": "wait_for",
+      "target": {
+        "css": "a[href*=\"/pub/\"], a[href*=\"/people/\"]"
+      },
+      "optional": true
+    },
+    {
+      "kind": "extract_candidates",
+      "item": {
+        "css": "[class*='result'], article, li"
+      },
+      "fields": {
+        "recordUrl": {
+          "css": "a[href*=\"/pub/\"], a[href*=\"/people/\"]",
+          "attr": "href"
+        },
+        "name": {
+          "css": "h2, h3, a"
+        },
+        "age": {
+          "css": "[class*='age']"
+        },
+        "locations": {
+          "css": "[class*='location']",
+          "all": true
+        }
+      }
+    }
+  ],
+  "canary": {
+    "url": "https://www.mylife.com/privacyrequest",
+    "selectors": [
+      {
+        "css": "iframe[src*=\"mylife.jotform.com\"]"
+      }
+    ]
+  },
+  "notes": "Not verified. Name pages on mylife.com answered with a Cloudflare \"Just a moment\" challenge on 2026-10-07, in headless and headed Chrome, and no challenge was solved. The URL and the result selectors are guesses. The canary checks only the opt-out page, which does load. Expect a bot_detection block.",
+  "verifiedAt": "2026-10-07",
+  "liveStatus": "blocked_by_bot_protection"
+}
