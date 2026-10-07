@@ -22,7 +22,7 @@ export function CodeBlock({ code, title, wrap = false, className }: CodeBlockPro
         // biome-ignore lint/a11y/noNoninteractiveTabindex: a scroll container must take focus so a keyboard can scroll it
         tabIndex={0}
         className={cn(
-          "m-0 px-3 py-2.5 font-mono text-sm leading-6 text-ink",
+          "m-0 px-3 py-2.5 font-mono text-sm leading-6 text-ink focus-visible:-outline-offset-2",
           wrap ? "whitespace-pre-wrap break-words" : "overflow-x-auto",
         )}
       >

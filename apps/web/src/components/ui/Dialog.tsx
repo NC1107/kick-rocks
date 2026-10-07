@@ -73,7 +73,9 @@ export function Dialog({
       )}
     >
       <div className="flex max-h-[calc(100dvh-2rem)] flex-col">
-        <div className="flex items-start justify-between gap-4 px-5 pt-5">
+        <div
+          className={cn("flex items-start justify-between gap-4 px-5 pt-5", !children && "pb-4")}
+        >
           <div className="min-w-0">
             <h2 id={titleId} className="text-xl font-semibold text-ink">
               {title}

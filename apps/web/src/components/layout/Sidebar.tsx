@@ -66,7 +66,10 @@ export function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
         <Logo />
       </div>
       <ProfileSwitcher />
-      <nav aria-label="Main" className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto">
+      <nav
+        aria-label="Main"
+        className="-mx-1.5 flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-1.5 py-1"
+      >
         {NAV_GROUPS.map((group, index) => (
           <ul
             key={group.map((item) => item.to).join()}

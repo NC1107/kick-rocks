@@ -91,7 +91,8 @@ export interface TabProps extends Omit<ComponentProps<"button">, "value"> {
 }
 
 const TAB_CLASS =
-  "-mb-px inline-flex h-control shrink-0 items-center gap-2 whitespace-nowrap border-b-2 px-3 text-base font-medium transition-colors duration-100 disabled:cursor-not-allowed disabled:opacity-50";
+  // The focus ring sits inside the tab, because the tab strip scrolls and would clip a ring outside it.
+  "-mb-px inline-flex h-control shrink-0 items-center gap-2 whitespace-nowrap border-b-2 px-3 text-base font-medium transition-colors duration-100 focus-visible:-outline-offset-2 disabled:cursor-not-allowed disabled:opacity-50";
 
 export function Tab({ value, className, children, ...rest }: TabProps) {
   const { value: selected, select, baseId } = useTabs();
