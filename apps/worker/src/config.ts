@@ -19,7 +19,7 @@ const Env = z.object({
     .default(LEASE_MS.default),
   KICKROCKS_CHROME_PROFILE: z.string().default("./.chrome-profile"),
   KICKROCKS_WORKER_HEADLESS: z.enum(["true", "false"]).default("false"),
-  /** Chrome refuses to start its sandbox as root inside a container, where the container is the sandbox. */
+  /** Docker's default seccomp profile denies the user namespaces Chrome's sandbox needs, so the image turns it off and relies on the container, an unprivileged user, and dropped capabilities. */
   KICKROCKS_WORKER_NO_SANDBOX: z.enum(["true", "false"]).default("false"),
   /** Lets a record or confirmation link on plain http through, for a fixture site on this machine. */
   KICKROCKS_WORKER_ALLOW_HTTP: z.enum(["true", "false"]).default("false"),

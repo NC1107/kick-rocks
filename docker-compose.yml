@@ -1,16 +1,19 @@
+name: kick-rocks
+
 services:
   server:
     build: .
     image: kickrocks/server:dev
     restart: unless-stopped
     ports:
-      - "127.0.0.1:8420:8420"
+      # Loopback by default, because the first-run setup page is open until a password is set.
+      - "${KICKROCKS_BIND_ADDRESS:-127.0.0.1}:${KICKROCKS_HOST_PORT:-8420}:8420"
     volumes:
       # A named volume so the container's unprivileged user owns it from the start.
       # A bind mount works too if you chown the host directory to uid 1000 first.
       - kickrocks-data:/data
     environment:
-      LOG_LEVEL: info
+      LOG_LEVEL: ${LOG_LEVEL:-info}
       # Empty values count as unset. A worker token turns the worker API on.
       KICKROCKS_WORKER_TOKEN: ${KICKROCKS_WORKER_TOKEN:-}
       KICKROCKS_PUBLIC_URL: ${KICKROCKS_PUBLIC_URL:-}
@@ -38,6 +41,15 @@ services:
       - kickrocks-chrome:/profile
     # Chrome crashes on the 64 MB default shared memory of a container.
     shm_size: 1gb
+    # The worker waits up to 20 seconds on shutdown before it closes Chrome and releases its task,
+    # so Docker must not send SIGKILL at its default 10 seconds.
+    stop_grace_period: 30s
+    # The browser opens pages from broker sites and links from inbound email, so it keeps no
+    # capability and cannot gain one.
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
     profiles:
       - worker
 

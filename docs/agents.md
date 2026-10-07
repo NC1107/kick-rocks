@@ -8,6 +8,19 @@ Claude Code, a local model behind an MCP client, or any other MCP client can do 
 
 This page covers how to connect, what an agent task looks like, and the rules an agent follows.
 
+## What the agent needs
+
+The MCP server only hands out tasks and takes results.
+The agent does the browsing itself, so it needs three more things.
+
+- A browser automation tool that can open pages, fill fields, click, and read the page.
+  Claude Code's own `WebFetch` cannot fill or submit a form, so it is not enough.
+  For example, add Playwright's MCP server with `claude mcp add playwright -- npx @playwright/mcp@latest`, or use any other browser tool you trust.
+- The browser must run on the same machine and home connection as Kick Rocks, because broker sites block datacenter addresses (see ADR-002 in `docs/DESIGN.md`).
+  Run it headed, with a visible window, because bot checks treat headless browsers worse.
+- A lease is short, so keep it alive.
+  Call `heartbeat_task` every few minutes while the browser works, and release the task if the browser tool fails.
+
 ## Connect Claude Code
 
 1. Open Settings, then Agents, and turn on the MCP endpoint.
@@ -135,7 +148,7 @@ Kick Rocks sums them across attempts so the cost and success of agents can be me
 ## The loop
 
 1. `claim_task` with a stable `workerId`.
-2. Read `instructions`, then open the page they name in your own browser.
+2. Read `instructions`, then open the page they name with your browser automation tool.
 3. While you work, call `heartbeat_task` before the lease runs out.
    The lease is `leaseExpiresAt`, and a long task needs a heartbeat every few minutes.
    The default lease is five minutes, and `claim_task` takes a `leaseMs` of up to an hour, so ask for about 30 minutes when the site is slow.
@@ -158,7 +171,8 @@ An agent must:
 - Report what actually happened.
   If the page says the record is not there, report `not_found`, and if you could not tell, fail or block the task instead of guessing.
 - Block the task and stop when it needs a human: a CAPTCHA, a phone call or text code, an ID upload, a login the person has to make, or a bot check.
-  Give the reason, the page you stopped on, and a screenshot of what a person will see.
+  Give the reason and the page you stopped on.
+  Add a screenshot only if your browser tool gives you the image as base64, because `block_task` takes inline base64 and accepts a block without one.
 - Keep the lease alive, and release or fail the task instead of leaving it.
 - Report usage when it is known.
 

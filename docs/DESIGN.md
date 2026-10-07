@@ -1,6 +1,6 @@
 # Design: Kick Rocks
 
-## Status: Draft
+## Status: Accepted, in development
 
 ## Problem Statement
 
@@ -128,24 +128,13 @@ draft -> queued -> sent -> awaiting_reply -> confirmed
 
 ### API Design
 
-REST under `/api` for the web UI, JSON in and out, cookie session after passphrase login.
+REST under `/api` for the web UI, JSON in and out, cookie session after password login.
+The routes, with their request and response schemas, are defined in `packages/shared/src/api.ts`, which is the source of truth.
+They cover profiles and their mailbox, the targets list (`/targets`, brokers and companies together, with filters), campaigns, requests (`/requests/:id`), matches, the review queue (`/review`), and settings.
 
-- `POST /api/profiles`, `GET /api/profiles/:id`, `PATCH /api/profiles/:id`.
-- `POST /api/profiles/:id/mailbox/test` validates SMTP and IMAP credentials before saving.
-- `GET /api/brokers`, `GET /api/companies`, with filters by category, contact method, and jurisdiction coverage.
-- `POST /api/profiles/:id/campaigns` creates requests for a selected set of targets and queues the send.
-- `GET /api/profiles/:id/requests` and `GET /api/requests/:id/events`.
-- `GET /api/profiles/:id/matches?pending=true`, `POST /api/matches/:id/decision`.
-- `GET /api/tasks?status=blocked`, `POST /api/tasks/:id/resume`, `POST /api/tasks/:id/cancel`.
-
-MCP server at `/mcp` with these tools.
-
-- `tasks.list`: open and blocked tasks with kind, broker, and a redacted summary.
-- `tasks.claim`: lease a task; returns the full payload the worker needs, including the identifiers the recipe allows for that broker.
-- `tasks.heartbeat`: extend a lease.
-- `tasks.complete`: post the result and evidence.
-- `tasks.block`: park the task with a reason and optional screenshot.
-- `recipes.get` and `recipes.propose`: read the current recipe for a broker and submit an improved one for review.
+MCP server at `/mcp`.
+The tools are `list_tasks`, `claim_task`, `heartbeat_task`, `complete_task`, `block_task`, `fail_task`, `release_task`, `get_target`, `get_recipe`, and `propose_recipe`.
+Their schemas are in `packages/shared/src/mcp.ts` and `docs/agents.md` explains how an agent uses them.
 
 Task payloads carry only the identifiers the target needs.
 A blind email task to a marketing broker carries name and email.
@@ -200,7 +189,7 @@ Consequences: deliverability inherits the provider's reputation, requests are un
 
 Context: people-search sites use bot management that fingerprints TLS and scores IP reputation; headless Playwright from a datacenter is blocked.
 Decision: the worker runs real Chrome on the host, with a persistent profile, and the whole stack ships in one Compose file for a home machine.
-Consequences: removals work far more often, the UI is reachable on the LAN or over the user's own VPN, and cloud-only deployment is unsupported.
+Consequences: removals work far more often, the UI is reachable from other devices over an SSH tunnel, the user's own VPN, or a LAN binding the user opts into (it listens on loopback only by default, because the first-run setup page is open until a password is set), and cloud-only deployment is unsupported.
 
 ### ADR-003: Server-owned task queue with leases, exposed over MCP
 
@@ -231,7 +220,7 @@ Consequences: lower match rates at some brokers in exchange for less data handed
 Context: the database holds names, addresses, dates of birth, and mail credentials, and the host is a home machine.
 Decision: SQLite is encrypted with SQLCipher through `better-sqlite3-multiple-ciphers`.
 The key is derived once at install and stored in a key file in the data volume with owner-only permissions so the scheduler can run unattended.
-An optional passphrase mode wraps that key and requires unlocking after a restart.
+A passphrase mode that wraps that key and requires unlocking after a restart is a possible future option and is not built.
 Consequences: a stolen database file is useless without the key file; the key file and the database must be backed up together.
 
 ### ADR-008: Dataset licensing
@@ -293,7 +282,7 @@ The task queue is needed before any browser work, so it lands early in Milestone
 | Risk | Mitigation |
 |---|---|
 | Provider flags bulk sending from an app password | Jittered pacing, daily cap below provider limits, plain-text mail, request ID instead of tracking links |
-| Broker forms change and recipes break | Canary health checks, recipe versioning, agent fallback, `recipes.propose` over MCP |
+| Broker forms change and recipes break | Canary health checks, recipe versioning, agent fallback, `propose_recipe` over MCP |
 | Bot management blocks even a real browser | Persistent Chrome profile, human-paced actions, residential IP, blocked-task queue as the backstop |
 | Logs or screenshots leak personal data | Redaction in logs, screenshots stored in the encrypted volume, retention limits |
 | Users misstate residency | Templates derive legal basis from the profile state only; no residency toggle |

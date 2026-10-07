@@ -45,3 +45,11 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm test
       - run: pnpm build
+
+  # A Dockerfile that misses a package or a broken `pnpm deploy` would otherwise merge green and
+  # break ./install.sh for every new user.
+  images:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker compose --profile worker build

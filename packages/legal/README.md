@@ -7,7 +7,7 @@ Everything is a pure function of its inputs and the data in `src/statutes.ts` an
 
 ## How a basis is chosen
 
-1. California, a broker the California registry lists (category `registered-broker`), and a request for deletion only: the California Delete Act, from 2026-08-01.
+1. California, a broker whose record comes from the California registry (`californiaRegistered` in the code), and a request for deletion only: the California Delete Act, from 2026-08-01.
    The statute carries the DROP platform, which is the better route for that broker.
 2. Otherwise the first statute of the person's state that is in effect on `asOf`, is citable, and covers at least one right asked for.
    The email cites the statute for the rights it covers and asks for the rest under the business's own policy.
@@ -31,7 +31,7 @@ The person's right under it is exercised through DROP, so the email asks the bro
 
 The law only says "to the extent it applies to you" because every statute has size thresholds the tool cannot check for a given business.
 
-The data broker registration laws of Vermont, Texas, and Oregon are in `src/broker-laws.ts`.
+The data broker registration laws of Vermont, Texas, Oregon, and New Jersey are in `src/broker-laws.ts`.
 They make a broker register and publish how a consumer can opt out, and give the consumer no right to demand anything, so they are never the basis of a request.
 
 `getLegalBasis` returns a stored id as it was, so a follow-up cites the statute the first request cited.
@@ -87,6 +87,7 @@ Data broker registration laws, which give consumers no request right:
 | VT | 9 V.S.A. 2430, 2446, 2447, amended by Act 138 of 2026 | 2019-01-01 | https://legislature.vermont.gov/statutes/section/09/062/02446 |
 | TX | Tex. Bus. & Com. Code ch. 509 | 2023-09-01 | https://statutes.capitol.texas.gov/Docs/BC/htm/BC.509.htm |
 | OR | Or. Rev. Stat. 646A.593 | 2024-01-01 | https://www.oregonlegislature.gov/bills_laws/ors/ors646A.html |
+| NJ | N.J. A5328 (2026), signed 2026-06-30 | 2026-06-30 | https://www.njleg.state.nj.us/bill-search/2026/A5328 |
 
 What was read directly and what was not:
 

@@ -130,7 +130,12 @@ describe("statute data", () => {
 
 describe("broker registration laws", () => {
   it("are valid, sourced, and give no request right", () => {
-    expect(BROKER_REGISTRATION_LAWS.map((law) => law.state).sort()).toEqual(["OR", "TX", "VT"]);
+    expect(BROKER_REGISTRATION_LAWS.map((law) => law.state).sort()).toEqual([
+      "NJ",
+      "OR",
+      "TX",
+      "VT",
+    ]);
     for (const law of BROKER_REGISTRATION_LAWS) {
       expect(BrokerRegistrationLaw.safeParse(law).success, law.id).toBe(true);
       expect(law.sourceUrl).toMatch(/^https:\/\//);

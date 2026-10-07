@@ -10,7 +10,8 @@
   },
   "scripts": {
     "build": "pnpm -r --filter './packages/**' --filter './apps/**' build",
-    "dev": "pnpm -r --parallel --filter './apps/**' dev",
+    "dev": "pnpm -r --parallel --filter @kickrocks/server --filter @kickrocks/web dev",
+    "dev:worker": "pnpm --filter @kickrocks/worker dev",
     "lint": "biome check .",
     "lint:fix": "biome check --write .",
     "typecheck": "pnpm -r typecheck",
