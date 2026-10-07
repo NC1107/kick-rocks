@@ -1,5 +1,4 @@
 import { API_ROUTES, type ScanSummary } from "@kickrocks/shared";
-import { ScanSearch } from "lucide-react";
 import { useState } from "react";
 import { errorMessage, useApiMutation, useApiQuery } from "../../api/index.js";
 import {
@@ -12,13 +11,15 @@ import {
   TableCell,
   TableHead,
   TableHeaderCell,
+  TableIdentity,
   TableRow,
-  TaskStatusPill,
+  TableSkeletonRows,
+  TaskStatusMark,
   useToast,
 } from "../../components/ui/index.js";
 import { describeFailure } from "../../lib/failures.js";
 import { formatRelative, pluralize } from "../../lib/format.js";
-import { LoadingRows } from "../targets/LoadingRows.js";
+import { DetailFrame } from "./DetailFrame.js";
 import { REVIEW_INVALIDATES } from "./model.js";
 
 /** A failed scan stops mattering once a later scan of the same site worked. */
@@ -78,16 +79,77 @@ export function ScansPanel({ profileId }: { profileId: string }) {
   });
 
   return (
-    <div className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="max-w-xl text-base text-ink-muted">
-          A scan searches a people-search site for records that look like you. Each one waits under
-          Records to confirm.
-        </p>
-        <Button variant="primary" onClick={() => setConfirming(true)}>
-          Scan people-search sites
-        </Button>
-      </div>
+    <>
+      <DetailFrame
+        label="Scans"
+        title="Scans"
+        meta="Search people-search sites for records that look like you."
+        footer={
+          <Button variant="primary" onClick={() => setConfirming(true)}>
+            Scan people-search sites
+          </Button>
+        }
+      >
+        {scans.isError ? (
+          <Alert
+            intent="danger"
+            title="Could not load scans"
+            action={
+              <Button size="sm" onClick={() => scans.refetch()}>
+                Try again
+              </Button>
+            }
+          >
+            {errorMessage(scans.error)}
+          </Alert>
+        ) : scans.data && items.length === 0 ? (
+          <EmptyState title="No scans yet." />
+        ) : (
+          <Table label="Scans table">
+            <TableHead>
+              <tr>
+                <TableHeaderCell>Site</TableHeaderCell>
+                <TableHeaderCell>Status</TableHeaderCell>
+                <TableHeaderCell className="hidden md:table-cell">Result</TableHeaderCell>
+              </tr>
+            </TableHead>
+            <TableBody>
+              {scans.isPending ? (
+                <TableSkeletonRows columns={3} rows={4} />
+              ) : (
+                items.map((scan) => (
+                  <TableRow key={scan.id}>
+                    <TableCell wrap className="w-full min-w-0 py-1">
+                      <TableIdentity
+                        title={scan.targetName}
+                        meta={
+                          <>
+                            Started{" "}
+                            <time dateTime={scan.startedAt}>{formatRelative(scan.startedAt)}</time>
+                          </>
+                        }
+                      />
+                      <span className="block pb-1 text-meta text-ink-3 md:hidden">
+                        {errorText(scan) ?? matchSummary(scan)}
+                      </span>
+                    </TableCell>
+                    <TableCell className="align-top md:align-middle">
+                      {scan.taskStatus ? <TaskStatusMark status={scan.taskStatus} /> : null}
+                    </TableCell>
+                    <TableCell wrap className="hidden min-w-56 text-meta md:table-cell">
+                      {scan.error ? (
+                        <span className="text-danger-text">{errorText(scan)}</span>
+                      ) : (
+                        <span className="text-ink-2">{matchSummary(scan)}</span>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        )}
+      </DetailFrame>
 
       <Dialog
         open={confirming}
@@ -112,69 +174,6 @@ export function ScansPanel({ profileId }: { profileId: string }) {
           </>
         }
       />
-
-      {scans.isError ? (
-        <Alert
-          intent="danger"
-          title="Could not load scans"
-          action={
-            <Button size="sm" onClick={() => scans.refetch()}>
-              Try again
-            </Button>
-          }
-        >
-          {errorMessage(scans.error)}
-        </Alert>
-      ) : scans.data && items.length === 0 ? (
-        <EmptyState
-          icon={ScanSearch}
-          title="No scans yet"
-          description="Scan people-search sites to find records to remove."
-        />
-      ) : (
-        <Table label="Scans">
-          <TableHead>
-            <tr>
-              <TableHeaderCell>Site</TableHeaderCell>
-              <TableHeaderCell>Status</TableHeaderCell>
-              <TableHeaderCell className="hidden md:table-cell">Result</TableHeaderCell>
-            </tr>
-          </TableHead>
-          <TableBody>
-            {scans.isPending ? (
-              <LoadingRows
-                rows={4}
-                columns={[{ bar: "w-40" }, {}, { className: "hidden md:table-cell", bar: "w-40" }]}
-              />
-            ) : (
-              items.map((scan) => (
-                <TableRow key={scan.id}>
-                  <TableCell wrap className="w-full min-w-0">
-                    <span className="block font-medium text-ink">{scan.targetName}</span>
-                    <span className="block text-sm text-ink-muted">
-                      Started{" "}
-                      <time dateTime={scan.startedAt}>{formatRelative(scan.startedAt)}</time>
-                    </span>
-                    <span className="block text-sm text-ink-muted md:hidden">
-                      {errorText(scan) ?? matchSummary(scan)}
-                    </span>
-                  </TableCell>
-                  <TableCell className="align-top md:align-middle">
-                    {scan.taskStatus ? <TaskStatusPill status={scan.taskStatus} /> : null}
-                  </TableCell>
-                  <TableCell wrap className="hidden min-w-56 md:table-cell">
-                    {scan.error ? (
-                      <span className="text-danger-text">{errorText(scan)}</span>
-                    ) : (
-                      matchSummary(scan)
-                    )}
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      )}
-    </div>
+    </>
   );
 }

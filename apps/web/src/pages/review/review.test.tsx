@@ -1,5 +1,6 @@
 import { screen, waitFor, within } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import type { UserEvent } from "@testing-library/user-event";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createMockApp, type MockApp } from "../../../mock/app.js";
 import { makeTask } from "../../../mock/requests.js";
 import { renderPage } from "../../test/render.js";
@@ -30,14 +31,104 @@ const open = (tab?: string, mock = failing(/never/)) => ({
 
 const card = async (name: RegExp | string) => within(await screen.findByRole("region", { name }));
 
+/** Opens an item by its row in the list, the way a person does, then returns its pane. */
+const openItem = async (user: UserEvent, row: RegExp, pane: RegExp | string) => {
+  const list = within(await screen.findByRole("navigation", { name: "Review queue" }));
+  await user.click(await list.findByRole("button", { name: row }));
+  return card(pane);
+};
+
+const realMatchMedia = window.matchMedia;
+
+/** jsdom has no layout, so a test says whether the list and item sit side by side. */
+function setWide(wide: boolean) {
+  window.matchMedia = (query: string) =>
+    ({
+      matches: wide && query.includes("min-width"),
+      media: query,
+      addEventListener: () => {},
+      removeEventListener: () => {},
+    }) as unknown as MediaQueryList;
+}
+
+beforeEach(() => setWide(true));
+afterEach(() => {
+  window.matchMedia = realMatchMedia;
+});
+
+describe("the review queue on a phone", () => {
+  it("shows the list first and drills into an item, with a way back", async () => {
+    setWide(false);
+    const { user } = open();
+    const list = within(await screen.findByRole("navigation", { name: "Review queue" }));
+    expect(list.getAllByRole("button").some((row) => row.hasAttribute("aria-current"))).toBe(false);
+    await user.click(list.getByRole("button", { name: /ClearCheck\s*The removal/ }));
+    expect(await card(/ClearCheck, Submit form/)).toBeTruthy();
+    expect(list.getByRole("button", { name: /ClearCheck\s*The removal/ })).toHaveAttribute(
+      "aria-current",
+      "true",
+    );
+    await user.click(screen.getByRole("button", { name: "Review" }));
+    expect(list.getAllByRole("button").some((row) => row.hasAttribute("aria-current"))).toBe(false);
+  });
+});
+
 describe("the review queue", () => {
-  it("opens on the first tab with something waiting and counts every tab", async () => {
+  it("lists everything waiting under a labelled group and opens the first item", async () => {
     open();
-    expect(await screen.findByRole("tab", { name: /Blocked/, selected: true })).toBeVisible();
-    expect(screen.getByRole("tab", { name: /Records to confirm/ })).toHaveTextContent("3");
-    expect(screen.getByRole("tab", { name: /More details asked/ })).toHaveTextContent("2");
-    expect(screen.getByRole("tab", { name: /Unclassified mail/ })).toHaveTextContent("2");
-    expect(screen.getByRole("tab", { name: /Failed/ })).toHaveTextContent("1");
+    expect(await screen.findByRole("heading", { name: "Blocked · 3" })).toBeVisible();
+    expect(screen.getByRole("heading", { name: "Records · 3" })).toBeVisible();
+    expect(screen.getByRole("heading", { name: "Details asked · 2" })).toBeVisible();
+    expect(screen.getByRole("heading", { name: "Unsorted mail · 2" })).toBeVisible();
+    expect(screen.getByRole("heading", { name: "Failed · 1" })).toBeVisible();
+    const list = within(screen.getByRole("navigation", { name: "Review queue" }));
+    expect(list.getByRole("button", { name: /FindRecord/ })).toHaveAttribute(
+      "aria-current",
+      "true",
+    );
+    expect(await card(/FindRecord, Submit form/)).toBeTruthy();
+  });
+
+  it("opens the group a link names", async () => {
+    open("mail");
+    expect(await card("Your recent message")).toBeTruthy();
+    const list = within(screen.getByRole("navigation", { name: "Review queue" }));
+    expect(list.getByRole("button", { name: /Your recent message/ })).toHaveAttribute(
+      "aria-current",
+      "true",
+    );
+  });
+
+  it("opens an item from the list when it is clicked", async () => {
+    const { user } = open();
+    await card(/FindRecord, Submit form/);
+    const list = within(screen.getByRole("navigation", { name: "Review queue" }));
+    await user.click(list.getByRole("button", { name: /ClearCheck\s*The removal/ }));
+    expect(await card(/ClearCheck, Submit form/)).toBeTruthy();
+    expect(
+      screen.queryByRole("region", { name: /FindRecord, Submit form/ }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("moves through the queue with j and k", async () => {
+    const { user } = open();
+    await card(/FindRecord, Submit form/);
+    await user.keyboard("j");
+    expect(await card(/ClearCheck, Submit form/)).toBeTruthy();
+    await user.keyboard("k");
+    expect(await card(/FindRecord, Submit form/)).toBeTruthy();
+    await user.keyboard("k");
+    expect(await card(/FindRecord, Submit form/)).toBeTruthy();
+  });
+
+  it("selects the next item once the open one is dealt with", async () => {
+    const { user } = open("blocked");
+    const task = await card(/FindRecord, Submit form/);
+    await user.click(task.getByRole("button", { name: "Resume" }));
+    expect(await card(/ClearCheck, Submit form/)).toBeTruthy();
+    expect(
+      screen.queryByRole("region", { name: /FindRecord, Submit form/ }),
+    ).not.toBeInTheDocument();
   });
 
   it("shows a blocked task with its screenshot, reason, and numbered steps", async () => {
@@ -75,7 +166,7 @@ describe("the review queue", () => {
 
   it("resumes a task", async () => {
     const { user, mock } = open("blocked");
-    const task = await card(/HomeRecords, Submit form/);
+    const task = await openItem(user, /HomeRecords\s*The site/, /HomeRecords, Submit form/);
     await user.click(task.getByRole("button", { name: "Resume" }));
     await waitFor(() =>
       expect(
@@ -88,7 +179,7 @@ describe("the review queue", () => {
     const mock = failing(/never/);
     mock.store.settings.mcp = { ...mock.store.settings.mcp, enabled: true };
     const { user } = open("blocked", mock);
-    const task = await card(/ClearCheck, Submit form/);
+    const task = await openItem(user, /ClearCheck\s*The removal/, /ClearCheck, Submit form/);
     await waitFor(() =>
       expect(task.getByRole("button", { name: "Hand to an agent" })).toBeEnabled(),
     );
@@ -107,15 +198,15 @@ describe("the review queue", () => {
   });
 
   it("will not hand a task to an agent while agent access is off", async () => {
-    open("blocked");
-    const task = await card(/ClearCheck, Submit form/);
+    const { user } = open("blocked");
+    const task = await openItem(user, /ClearCheck\s*The removal/, /ClearCheck, Submit form/);
     expect(await task.findByText(/Agent access is off/)).toBeVisible();
     expect(task.getByRole("button", { name: "Hand to an agent" })).toBeDisabled();
   });
 
   it("cancels a task only after a confirmation", async () => {
     const { user, mock } = open("blocked");
-    const task = await card(/ClearCheck, Submit form/);
+    const task = await openItem(user, /ClearCheck\s*The removal/, /ClearCheck, Submit form/);
     await user.click(task.getByRole("button", { name: "Cancel task" }));
     const dialog = await screen.findByRole("dialog");
     await user.click(within(dialog).getByRole("button", { name: "Keep it" }));
@@ -135,8 +226,8 @@ describe("the review queue", () => {
 
   it("tells a person to confirm a record is theirs before anything is removed", async () => {
     const { user, mock } = open("matches");
-    const match = await card(/Jordan Example on NameLookup/);
-    expect(match.getByText("Age 62")).toBeVisible();
+    const match = await openItem(user, /^Jordan Example\s*Found/, /Jordan Example on NameLookup/);
+    expect(match.getByText(/age 62/)).toBeVisible();
     await user.click(match.getByRole("button", { name: "This is me" }));
     const dialog = await screen.findByRole("dialog");
     await user.click(within(dialog).getByRole("checkbox", { name: "Delete my data" }));
@@ -151,7 +242,7 @@ describe("the review queue", () => {
 
   it("marks a record as not the person", async () => {
     const { user, mock } = open("matches");
-    const match = await card(/Jordan Example on NameLookup/);
+    const match = await openItem(user, /^Jordan Example\s*Found/, /Jordan Example on NameLookup/);
     await user.click(match.getByRole("button", { name: "Not me" }));
     await waitFor(() =>
       expect(
@@ -208,10 +299,9 @@ describe("the review queue", () => {
     );
   });
 
-  it("classifies unclassified mail and can read the whole message first", async () => {
+  it("classifies unclassified mail after showing the whole message", async () => {
     const { user, mock } = open("mail");
     const message = await card("Your recent message");
-    await user.click(message.getByRole("button", { name: "Read the whole message" }));
     expect(await message.findByText(/This is the whole message/)).toBeVisible();
     const classify = message.getByRole("button", { name: "Classify" });
     expect(classify).toBeDisabled();
@@ -249,6 +339,29 @@ describe("the review queue", () => {
           ?.requestId,
       ).toBe(request?.id),
     );
+  });
+
+  it("picks a classification with the number keys and the keycap buttons", async () => {
+    const { user } = open("mail");
+    const message = await card("Your recent message");
+    const select = message.getByLabelText("What is this message");
+    await user.keyboard("2");
+    expect(select).toHaveValue("completed");
+    await user.click(message.getByRole("button", { name: /Automatic reply/ }));
+    expect(select).toHaveValue("auto_ack");
+    expect(message.getByRole("button", { name: /Automatic reply/ })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+  });
+
+  it("ignores shortcut keys while a field has focus", async () => {
+    const { user } = open("mail");
+    const message = await card("Your recent message");
+    const select = message.getByLabelText("What is this message");
+    await user.click(select);
+    await user.keyboard("2");
+    expect(select).toHaveValue("");
   });
 
   it("does not offer Unknown as an answer for unclassified mail", async () => {
@@ -307,11 +420,17 @@ describe("the review queue", () => {
     await waitFor(() => expect(mock.store.scans.length).toBeGreaterThan(before));
   });
 
-  it("shows a calm empty state when nothing is waiting", async () => {
+  it("says so in one line when nothing is waiting, and shows the scans", async () => {
     const mock = failing(/never/);
-    mock.store.tasks = mock.store.tasks.filter((task) => task.status !== "blocked");
-    open("blocked", mock);
-    expect(await screen.findByText("Nothing is blocked")).toBeVisible();
+    mock.store.tasks = [];
+    mock.store.matches = [];
+    mock.store.messages = [];
+    mock.store.requests = mock.store.requests.filter(
+      (request) => request.status !== "needs_verification",
+    );
+    open(undefined, mock);
+    expect(await screen.findByText("Nothing needs you.")).toBeVisible();
+    expect(await screen.findByRole("region", { name: "Scans" })).toBeVisible();
   });
 
   it("says when the queue cannot load", async () => {

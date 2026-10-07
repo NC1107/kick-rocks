@@ -3,30 +3,39 @@ import { useState } from "react";
 import { errorMessage, useApiMutation } from "../../api/index.js";
 import {
   Button,
-  Card,
   Checkbox,
+  type DescriptionItem,
+  DescriptionList,
   Dialog,
   ExternalLinkText,
   useToast,
 } from "../../components/ui/index.js";
 import { RIGHT_LABELS } from "../../lib/labels.js";
+import { DetailFrame } from "./DetailFrame.js";
 import { REVIEW_INVALIDATES } from "./model.js";
 
 const RIGHT_ORDER: readonly RequestRight[] = ["opt_out", "delete"];
 
-function Fact({ label, values }: { label: string; values: readonly string[] | undefined }) {
-  if (!values || values.length === 0) return null;
-  return (
-    <>
-      <dt className="text-sm text-ink-muted">{label}</dt>
-      <dd className="m-0 min-w-0 break-words text-base text-ink">
-        {values.join(label === "Locations" ? "; " : ", ")}
-      </dd>
-    </>
-  );
+function facts(fields: Match["fields"], recordUrl: string): DescriptionItem[] {
+  const list = (term: string, values: readonly string[] | undefined, separator = ", ") =>
+    values && values.length > 0 ? [{ term, description: values.join(separator) }] : [];
+  return [
+    ...list("Locations", fields.locations, "; "),
+    ...list("Relatives", fields.relatives),
+    ...list("Phones", fields.phones),
+    ...list("Emails", fields.emails),
+    {
+      term: "Record",
+      description: (
+        <ExternalLinkText href={recordUrl} className="break-all font-mono text-meta">
+          {recordUrl}
+        </ExternalLinkText>
+      ),
+    },
+  ];
 }
 
-export function MatchCard({ match }: { match: Match }) {
+export function MatchDetail({ match }: { match: Match }) {
   const toast = useToast();
   const [open, setOpen] = useState(false);
   const [rights, setRights] = useState<readonly RequestRight[]>(["opt_out", "delete"]);
@@ -49,47 +58,38 @@ export function MatchCard({ match }: { match: Match }) {
     );
 
   return (
-    <Card aria-label={`${fields.name} on ${match.targetName}`}>
-      <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-1">
-        <div className="min-w-0">
-          <h2 className="break-words text-lg font-semibold text-ink">{fields.name}</h2>
-          <p className="text-sm text-ink-muted">Found on {match.targetName}</p>
-        </div>
-        {fields.age !== undefined ? (
-          <p className="text-base text-ink-muted">Age {fields.age}</p>
-        ) : null}
-      </div>
-
-      <dl className="m-0 mt-3 grid grid-cols-[6rem_1fr] gap-x-3 gap-y-1.5 sm:grid-cols-[7rem_1fr]">
-        <Fact label="Locations" values={fields.locations} />
-        <Fact label="Relatives" values={fields.relatives} />
-        <Fact label="Phones" values={fields.phones} />
-        <Fact label="Emails" values={fields.emails} />
-        <dt className="text-sm text-ink-muted">Record</dt>
-        <dd className="m-0 min-w-0 text-base">
-          <ExternalLinkText href={match.recordUrl} className="break-all">
-            {match.recordUrl}
-          </ExternalLinkText>
-        </dd>
-      </dl>
-
-      <div className="mt-4 flex flex-wrap items-center gap-2">
-        <Button variant="primary" onClick={() => setOpen(true)} disabled={decide.isPending}>
-          This is me
-        </Button>
-        <Button
-          loading={decide.isPending && decide.variables?.body.decision === "not_mine"}
-          disabled={decide.isPending}
-          onClick={() =>
-            decide.mutate({
-              params: { id: match.id },
-              body: { decision: "not_mine", rights: ["opt_out", "delete"] },
-            })
-          }
-        >
-          Not me
-        </Button>
-      </div>
+    <>
+      <DetailFrame
+        label={`${fields.name} on ${match.targetName}`}
+        title={fields.name}
+        meta={
+          <>
+            Found on {match.targetName}
+            {fields.age !== undefined ? `, age ${fields.age}` : ""}
+          </>
+        }
+        footer={
+          <>
+            <Button variant="primary" onClick={() => setOpen(true)} disabled={decide.isPending}>
+              This is me
+            </Button>
+            <Button
+              loading={decide.isPending && decide.variables?.body.decision === "not_mine"}
+              disabled={decide.isPending}
+              onClick={() =>
+                decide.mutate({
+                  params: { id: match.id },
+                  body: { decision: "not_mine", rights: ["opt_out", "delete"] },
+                })
+              }
+            >
+              Not me
+            </Button>
+          </>
+        }
+      >
+        <DescriptionList items={facts(fields, match.recordUrl)} />
+      </DetailFrame>
 
       <Dialog
         open={open}
@@ -119,7 +119,7 @@ export function MatchCard({ match }: { match: Match }) {
         }
       >
         <fieldset className="m-0 min-w-0 border-0 p-0">
-          <legend className="mb-2 p-0 text-sm font-medium text-ink">Ask them to</legend>
+          <legend className="mb-2 p-0 text-caption font-medium text-ink-2">Ask them to</legend>
           <div className="flex flex-col gap-2.5">
             {RIGHT_ORDER.map((right) => (
               <Checkbox
@@ -131,12 +131,12 @@ export function MatchCard({ match }: { match: Match }) {
             ))}
           </div>
           {rights.length === 0 ? (
-            <p role="alert" className="mt-2 text-sm text-danger-text">
+            <p role="alert" className="mt-2 text-caption text-danger-text">
               Choose at least one.
             </p>
           ) : null}
         </fieldset>
       </Dialog>
-    </Card>
+    </>
   );
 }
