@@ -25,6 +25,9 @@ import { createFakeMail, type FakeMail } from "./fake-mail.js";
 export const TEST_WORKER_TOKEN = "test-worker-token-0123456789";
 export const TEST_MCP_TOKEN = "test-mcp-token-0123456789abcdef";
 
+/** The smallest argon2id settings the library accepts, so signing in a hundred times is not a load test. */
+const CHEAP_PASSWORD_COST = { timeCost: 1, memoryCost: 1024, parallelism: 1 };
+
 export interface TestContextOptions {
   /** The fake clock's starting time. */
   now?: Date | string;
@@ -148,6 +151,7 @@ export async function createTestContext(options: TestContextOptions = {}): Promi
     clock,
     mail: mail.services,
     legal,
+    passwordCost: CHEAP_PASSWORD_COST,
     ...(realAuth ? {} : { auth }),
     targetSources: options.targetSources ?? {
       brokers: () => ({ version: "test", records: [] }),

@@ -4,7 +4,6 @@ import { AppError, conflict, invalidRequest } from "../../core/errors.js";
 import { registerRoute } from "../../core/http.js";
 import type { ModulePlugin } from "../../core/module.js";
 import type { AppServices } from "../../services.js";
-import { hashPassword, needsRehash, verifyAgainstDummy, verifyPassword } from "./passwords.js";
 import {
   clearSessionCookie,
   createSessionStore,
@@ -31,7 +30,7 @@ function formatWait(seconds: number): string {
 }
 
 export const authModule: ModulePlugin = (app, services: AppServices) => {
-  const { settings, clock, config, db } = services;
+  const { settings, clock, config, db, passwords } = services;
   const sessions = createSessionStore({ db, clock });
   const loginThrottle = new LoginThrottle(clock);
   const passwordThrottle = new LoginThrottle(clock);
@@ -56,7 +55,7 @@ export const authModule: ModulePlugin = (app, services: AppServices) => {
     if (settings.get("auth.passwordHash") !== null) {
       throw conflict("setup_already_done", "This instance already has a password.");
     }
-    const hash = await hashPassword(body.password);
+    const hash = await passwords.hash(body.password);
     // Hashing is async, so two setups can both pass the check above; the transaction is atomic.
     db.transaction(() => {
       if (settings.get("auth.passwordHash") !== null) {
@@ -75,13 +74,13 @@ export const authModule: ModulePlugin = (app, services: AppServices) => {
 
     const stored = settings.get("auth.passwordHash");
     let valid = false;
-    if (stored === null) await verifyAgainstDummy(body.password);
-    else valid = await verifyPassword(stored, body.password);
+    if (stored === null) await passwords.verifyAgainstDummy(body.password);
+    else valid = await passwords.verify(stored, body.password);
     if (!valid) throw new AppError(401, "unauthorized", "That password is not right.");
 
     loginThrottle.succeed(request.ip);
-    if (stored !== null && needsRehash(stored)) {
-      settings.set("auth.passwordHash", await hashPassword(body.password));
+    if (stored !== null && passwords.needsRehash(stored)) {
+      settings.set("auth.passwordHash", await passwords.hash(body.password));
     }
     startSession(request, reply);
     return { ok: true as const };
@@ -102,7 +101,7 @@ export const authModule: ModulePlugin = (app, services: AppServices) => {
     const stored = settings.get("auth.passwordHash");
     if (stored === null) throw conflict("setup_required", "This instance has no password yet.");
     // 403 rather than 401, because the web client treats 401 as "signed out" and leaves the page.
-    if (!(await verifyPassword(stored, body.currentPassword))) {
+    if (!(await passwords.verify(stored, body.currentPassword))) {
       throw new AppError(403, "forbidden", "The current password is not right.");
     }
     if (body.newPassword === body.currentPassword) {
@@ -112,7 +111,7 @@ export const authModule: ModulePlugin = (app, services: AppServices) => {
     }
     passwordThrottle.succeed(request.ip);
 
-    const hash = await hashPassword(body.newPassword);
+    const hash = await passwords.hash(body.newPassword);
     db.transaction(() => {
       settings.set("auth.passwordHash", hash);
       sessions.destroyAllExcept(null);

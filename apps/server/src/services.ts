@@ -29,6 +29,11 @@ import { createTaskQueue, type TaskQueue } from "./core/task-queue.js";
 import { registerHandlers } from "./handlers/index.js";
 import { createMailServices } from "./mail/index.js";
 import type { MailServices } from "./mail/types.js";
+import {
+  createPasswordHasher,
+  type PasswordCost,
+  type PasswordHasher,
+} from "./modules/auth/passwords.js";
 import { createAuthService } from "./modules/auth/service.js";
 import { registerRunners } from "./runners/index.js";
 
@@ -61,6 +66,7 @@ export interface AppServices {
   mail: MailServices;
   legal: LegalApi;
   auth: AuthService;
+  passwords: PasswordHasher;
 }
 
 /** Replacements for the pieces tests and tools need to control. */
@@ -71,6 +77,8 @@ export interface ServiceOverrides {
   legal?: LegalApi;
   auth?: AuthService;
   targetSources?: TargetSources;
+  /** Cheaper argon2 settings so a test that signs in many times stays fast. Never set outside tests. */
+  passwordCost?: PasswordCost;
 }
 
 /** Where the dataset files are read from, so a test can say what is and is not on disk. */
@@ -156,6 +164,7 @@ export function createServices(
     secrets,
     mail: overrides.mail ?? createMailServices(config, settings),
     legal,
+    passwords: createPasswordHasher(overrides.passwordCost),
     auth: overrides.auth ?? createAuthService({ config, db, clock, logger, settings, secrets }),
   };
 
