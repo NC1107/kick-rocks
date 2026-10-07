@@ -72,7 +72,7 @@ describe("statute data", () => {
     expect(() => traitsOf("zz-unknown")).toThrow();
   });
 
-  it("covers all 24 comprehensive laws enacted by 2026-10-07 and the Delete Act", () => {
+  it("covers all 24 comprehensive laws enacted by 2026-10-07, the Delete Act, and Nevada", () => {
     const comprehensive = STATUTES.filter((statute) => statute.kind === "comprehensive");
     expect(comprehensive.map((statute) => statute.state).sort()).toEqual([
       "AL",
@@ -100,7 +100,9 @@ describe("statute data", () => {
       "VA",
       "VT",
     ]);
-    expect(STATUTES.filter((statute) => statute.kind === "data_broker")).toHaveLength(1);
+    expect(
+      STATUTES.filter((statute) => statute.kind === "data_broker").map((statute) => statute.id),
+    ).toEqual(["ca-delete-act", "nv-nrs-603a"]);
   });
 
   it("gives the Delete Act the DROP platform and no other statute a platform", () => {

@@ -212,7 +212,7 @@ export function createCampaignPlanner({
       if (platform && row.kind === "broker" && summary.californiaRegistered) {
         return skip(
           "covered_by_platform",
-          `${platform.name} already handles requests to registered data brokers for ${profile.state} residents. ${platform.note}`.trim(),
+          `File one request at ${platform.name} (${platform.url}) to cover ${row.name} and the other registered data brokers. Kick Rocks does not file it for you. ${platform.note}`.trim(),
         );
       }
 

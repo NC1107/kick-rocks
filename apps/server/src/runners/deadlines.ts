@@ -19,7 +19,7 @@ export interface ResponseWindow {
  */
 export function responseWindow(
   services: Pick<AppServices, "db" | "legal" | "settings">,
-  request: Pick<RequestRecord, "profileId" | "legalBasis">,
+  request: Pick<RequestRecord, "profileId" | "legalBasis" | "rights">,
   sentAt: Date,
 ): ResponseWindow {
   const profile = services.db
@@ -28,8 +28,10 @@ export function responseWindow(
     .where(eq(profiles.id, request.profileId))
     .get();
   const responseDays =
-    (profile ? services.legal.getLegalBasis(request.legalBasis, profile.state) : null)
-      ?.responseDays ?? POLICY_RESPONSE_DAYS;
+    (profile
+      ? services.legal.getLegalBasis(request.legalBasis, profile.state, request.rights)
+      : null
+    )?.responseDays ?? POLICY_RESPONSE_DAYS;
   const waitDays = Math.max(responseDays, services.settings.get("schedule").noResponseDays);
   return {
     dueAt: new Date(sentAt.getTime() + responseDays * DAY_MS).toISOString(),

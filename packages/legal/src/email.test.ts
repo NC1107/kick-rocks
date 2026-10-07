@@ -152,13 +152,25 @@ describe("renderRequestEmail properties", () => {
     }
   });
 
-  it("states the no-verification ask only for an opt-out", () => {
+  it("asks not to be asked for ID only for an opt-out", () => {
     for (const [label, input] of allInputs) {
       if (input.kind !== "initial") continue;
       const { text } = renderRequestEmail(input);
-      expect(text.includes("does not need proof of my identity"), label).toBe(
-        input.rights.includes("opt_out"),
-      );
+      expect(text.includes("do not ask for ID"), label).toBe(input.rights.includes("opt_out"));
+    }
+  });
+
+  it("claims the opt-out needs no proof of identity only under a law that says so", () => {
+    const claim = "needs no proof of my identity";
+    const texts = (state: Parameters<typeof build>[0]) =>
+      renderRequestEmail(build(state, "initial", ["opt_out"])).text;
+    for (const state of ["CA", "CT", "NJ", "CO"] as const) {
+      expect(texts(state), state).toContain(claim);
+    }
+    for (const state of ["VA", "TX", "NV", "WY", "UT"] as const) {
+      const text = texts(state);
+      expect(text, state).not.toContain(claim);
+      expect(text, state).toContain("Please do not ask for ID, an account, or a fee");
     }
   });
 
@@ -179,8 +191,12 @@ describe("renderRequestEmail properties", () => {
   it("asks for a written answer inside the basis's response period", () => {
     const initial = allInputs.filter(([, input]) => input.kind === "initial");
     for (const [label, input] of initial) {
+      const optsOutUnderCcpa =
+        input.basis.id === "ca-ccpa" && input.rights.every((right) => right === "opt_out");
       expect(renderRequestEmail(input).text, label).toContain(
-        `within ${input.basis.responseDays} days of receiving this email`,
+        optsOutUnderCcpa
+          ? "no later than 15 business days after you receive this email"
+          : `within ${input.basis.responseDays} days of receiving this email`,
       );
     }
     const iowa = build("IA", "initial", ["opt_out"], { asOf: LATE });
@@ -252,11 +268,66 @@ describe("renderRequestEmail robustness", () => {
     const input = build("CA", "initial", ["delete"], { target: CA_REGISTERED });
     const widened = { ...input, rights: ["opt_out", "delete"] as RequestRight[] };
     const text = renderRequestEmail(widened).text;
-    expect(text).toContain("have my personal information deleted");
     expect(text).not.toContain("opt out of the sale of my personal information");
     expect(text).toContain(
       "for the rest I ask you to honor it under your own published privacy commitments",
     );
+  });
+
+  it("does not say the person has a right to email deletion under the Delete Act", () => {
+    const text = renderRequestEmail(
+      build("CA", "initial", ["delete"], { target: CA_REGISTERED }),
+    ).text;
+    expect(text).toContain("California Delete Act");
+    expect(text).not.toContain("I have the right");
+    expect(text).toContain("a data broker registered with the state must process");
+  });
+
+  it("cites the statute for the opt-out and policy for deletion in a two-right broker email", () => {
+    for (const [state, name] of [
+      ["UT", "Utah Consumer Privacy Act"],
+      ["IA", "Iowa Consumer Data Protection Act"],
+      ["CA", "California Consumer Privacy Act"],
+    ] as const) {
+      const text = renderRequestEmail(build(state, "initial", ["opt_out", "delete"])).text;
+      expect(text, state).toContain(`Under the ${name}`);
+      expect(text, state).toContain(
+        "I have the right to opt out of the sale of my personal information.",
+      );
+      expect(text, state).not.toContain("have my personal information deleted");
+      expect(text, state).toContain(
+        "That law does not cover everything I ask, so for the rest I ask you to honor it under your own published privacy commitments.",
+      );
+    }
+  });
+
+  it("limits a Utah or Iowa deletion right to the data the person provided, for a company", () => {
+    for (const state of ["UT", "IA"] as const) {
+      const text = renderRequestEmail(
+        build(state, "initial", ["delete"], { target: COMPANY }),
+      ).text;
+      expect(text, state).toContain("have the personal information I provided to you deleted");
+      expect(text, state).not.toContain("have my personal information deleted");
+    }
+  });
+
+  it("asks a statute-basis recipient to name another channel if its privacy notice requires one", () => {
+    const channel = "If your privacy notice requires another way to submit this, tell me which.";
+    expect(renderRequestEmail(build("OR", "initial", ["opt_out"])).text).toContain(channel);
+    expect(renderRequestEmail(build("OR", "follow_up", ["opt_out"])).text).not.toContain(channel);
+  });
+
+  it("gives Nevada residents the NRS 603A opt-out, with the 60 day window and no deletion claim", () => {
+    const text = renderRequestEmail(build("NV", "initial", ["opt_out", "delete"])).text;
+    expect(text).toContain("Nevada Revised Statutes chapter 603A");
+    expect(text).toContain("within 60 days of receiving this email");
+    expect(text).not.toContain("have my personal information deleted");
+  });
+
+  it("leaves out the extension sentence for a California opt-out, which has none", () => {
+    const text = renderRequestEmail(build("CA", "initial", ["opt_out"])).text;
+    expect(text).toContain("no later than 15 business days");
+    expect(text).not.toContain("extra time");
   });
 
   it("collapses line breaks in names so a value cannot add lines or headers", () => {
