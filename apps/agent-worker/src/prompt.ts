@@ -39,6 +39,7 @@ export function buildSystemPrompt({ task, sites, fieldNames, maxSteps }: PromptC
     `- wait takes up to ${MAX_WAIT_SECONDS} seconds.`,
     "- If the site needs a detail that is not a field of this task, an account, a phone number, a payment or a document, stop with report status blocked and say what it needs.",
     "- Report what actually happened. If you cannot tell whether the request went through, report failed instead of guessing.",
+    "- A click that times out may still have been delivered, and a form may have been submitted. Look at the page before you click submit again, and never submit twice.",
     "- A result of submitted or awaiting_email_confirmation is only accepted after you clicked something on the page.",
     "",
     `Target: ${task.target.name} (${task.target.domain}). Purpose: ${task.payload.purpose}.`,

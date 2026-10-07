@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Frames - Fixture Broker</title></head>
+<body>
+<h1>Frames</h1>
+<form method="post" action="{{OFFSITE}}/collect" target="_blank">
+  <label for="tab">Name for a new tab</label>
+  <input id="tab" name="first_name">
+  <button type="submit">Send in new tab</button>
+</form>
+<form method="post" action="{{OFFSITE}}/collect" target="offsite-frame">
+  <label for="frame">Name for a frame</label>
+  <input id="frame" name="first_name">
+  <button type="submit">Send into frame</button>
+</form>
+<form method="post" action="/collect" target="onsite-frame">
+  <label for="home">Name for our own frame</label>
+  <input id="home" name="first_name">
+  <button type="submit">Send into own frame</button>
+</form>
+<iframe name="offsite-frame" title="Offsite frame" src="about:blank" style="width:200px;height:40px"></iframe>
+<iframe name="onsite-frame" title="Own frame" src="about:blank" style="width:200px;height:40px"></iframe>
+<iframe name="embedded" title="Embedded page" src="{{OFFSITE}}/offsite" style="width:200px;height:40px"></iframe>
+<button type="button" onclick="window.open('{{OFFSITE}}/collect?name=' + encodeURIComponent(document.getElementById('tab').value))">Open window</button>
+<button type="button" onclick="window.open('/privacy')">Open own window</button>
+</body>
+</html>

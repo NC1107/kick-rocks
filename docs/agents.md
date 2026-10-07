@@ -296,7 +296,8 @@ The worker does not rely on the model to follow them.
 
 - The page may only go to the target's domains and their subdomains, over https.
   That holds for a link, a script, and every hop of a redirect, and the model is told what was blocked.
-  A new tab a link opens is closed.
+  That also holds for a frame inside the page, a form aimed at a frame, and a new tab or window: its first request is refused when it is off the allowed domains, and the tab is closed.
+  A page on a shared form platform (Termly, TrustArc, OneTrust, Google Forms and the like) is allowed for its own path and what is under it, plus the query parameters or fragment that name the tenant, and never for the whole folder.
 - `type` takes the name of a field in the task, and nothing else.
   A literal value in the call is ignored, and a field the task lacks is refused.
   Password, payment, read-only, and file controls cannot be used.
@@ -311,6 +312,9 @@ The worker does not rely on the model to follow them.
   A value written in a way the program does not know, such as a nickname the page derived from the name, is not masked.
 - For a scan, the model reports each candidate with the masked text and link it read.
   The program matches each link to one the page really showed and fills the real values back into the text before the server stores it, and it rejects an address that no page showed.
+  The task's instructions and the first message are masked the same way, so the model reads `{{record_url}}` where the server wrote the record address.
+  `navigate` accepts `{{record_url}}` and a masked link from a snapshot, and opens the real address after checking it against the allowed domains.
+  The MCP claim keeps the real record address in the instructions, because an MCP client has no masking step and must be able to open the page.
   The system prompt lists field names, and a value in the page, in a link, or in a field the program typed is replaced by `{{field_name}}` before the model reads it.
 - A visible CAPTCHA or a whole-page bot check ends the run at once.
   The task is blocked with the reason, the page address, and a screenshot, and the model is not asked again.
@@ -319,6 +323,8 @@ The worker does not rely on the model to follow them.
   A scan candidate must be on the target's domains, and a removal reported as `submitted` or `awaiting_email_confirmation` needs at least one click.
   A result that fails these goes back to the model as an error.
   Text the model copies from the page into `confirmationText`, `notes`, or a failure message has the person's values masked.
+- A removal run that has clicked, including a click that timed out, may already have submitted the form.
+  From then on a release or a failure that could be retried becomes a block for a person with reason `unknown`, the page address, and a screenshot, so the form is never submitted twice.
 - A task has a step budget, a time budget, and optionally a token budget.
   One that runs out is failed as `internal` and is not retried.
 - A model that answers three times in a row without using a tool is failed.

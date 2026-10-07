@@ -8,6 +8,9 @@ export const FIXTURE_PORT = 8631;
 export const ORIGIN = `http://127.0.0.1:${FIXTURE_PORT}`;
 export const OFFSITE = `http://localhost:${FIXTURE_PORT}`;
 
+/** How long the slow form's endpoint keeps a visitor waiting after it has taken the submission. */
+const SLOW_RESPONSE_MS = 3_000;
+
 export interface Submission {
   path: string;
   host: string;
@@ -45,6 +48,8 @@ const PAGES: Record<string, string> = {
   "/choose": "choose.html",
   "/phone": "phone.html",
   "/late": "late.html",
+  "/frames": "frames.html",
+  "/slow-form": "slow.html",
 };
 
 function escapeHtml(text: string): string {
@@ -100,6 +105,7 @@ export function startFixtureServer(port: number = FIXTURE_PORT): Promise<{
 
     if (request.method === "POST") {
       state.submissions.push({ path, host, fields: await readForm(request) });
+      if (path === "/slow") await new Promise((done) => setTimeout(done, SLOW_RESPONSE_MS));
       return send(response, 200, page("confirmation.html"));
     }
     if (path === "/redirect") {

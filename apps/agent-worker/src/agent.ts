@@ -39,6 +39,7 @@ export interface AgentRunOptions {
   logger: Logger;
   now?: () => number;
   challengeGraceMs?: number;
+  actionTimeoutMs?: number;
 }
 
 /** A model that is down is not the task's fault, so the task goes back unchanged, later. */
@@ -93,6 +94,9 @@ class AgentRun {
       pace: options.pace,
       mask: this.mask,
       signal: options.signal,
+      ...(options.actionTimeoutMs === undefined
+        ? {}
+        : { actionTimeoutMs: options.actionTimeoutMs }),
       ...(options.challengeGraceMs === undefined
         ? {}
         : { challengeGraceMs: options.challengeGraceMs }),
@@ -154,6 +158,40 @@ class AgentRun {
   }
 
   async run(): Promise<TaskReport> {
+    return this.holdForPerson(await this.drive());
+  }
+
+  /**
+   * A removal run that has clicked may already have submitted the form. Handing the task back or
+   * retrying it would submit again, so it goes to a person, who can see the page and the screenshot.
+   */
+  private async holdForPerson(report: TaskReport): Promise<TaskReport> {
+    const { task, logger } = this.options;
+    const wouldRetry =
+      report.kind === "release" || (report.kind === "fail" && report.report.retryable);
+    if (!wouldRetry || task.payload.purpose !== "remove" || this.toolbox.clicks === 0) {
+      return report;
+    }
+    const cause = report.kind === "release" ? report.reason : report.report.error;
+    logger.info("a removal run ended after a click, so a person decides", { taskId: task.id });
+    const screenshot = await this.toolbox.screenshot();
+    const url = this.toolbox.blockedUrl();
+    return {
+      kind: "block",
+      report: {
+        reason: "unknown",
+        detail: clip(
+          `The form may already have been submitted, so it was not retried. The run ended with: ${this.mask(cause)}`,
+          2000,
+        ),
+        ...(url ? { url } : {}),
+        ...(screenshot ? { screenshot } : {}),
+        usage: this.usage(),
+      },
+    };
+  }
+
+  private async drive(): Promise<TaskReport> {
     const { task, signal, provider, logger } = this.options;
     const system = buildSystemPrompt({
       task: { ...task, instructions: this.mask(task.instructions) },
