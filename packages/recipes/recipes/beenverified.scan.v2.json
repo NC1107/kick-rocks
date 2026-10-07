@@ -1,0 +1,79 @@
+{
+  "id": "beenverified.scan.v2",
+  "brokerId": "beenverified",
+  "version": 2,
+  "purpose": "scan",
+  "entryUrl": "https://www.beenverified.com/",
+  "fields": [
+    "first_name",
+    "last_name"
+  ],
+  "steps": [
+    {
+      "kind": "goto",
+      "url": "https://www.beenverified.com/people/{{first_name|slug}}-{{last_name|slug}}/"
+    },
+    {
+      "kind": "captcha_checkpoint"
+    },
+    {
+      "kind": "wait_for",
+      "target": {
+        "css": "#list-container > li.search-result"
+      },
+      "optional": true
+    },
+    {
+      "kind": "outcome_when",
+      "when": [
+        {
+          "selector": {
+            "css": "#list-container > li.search-result"
+          },
+          "outcome": "blocked",
+          "reason": "unknown"
+        }
+      ]
+    },
+    {
+      "kind": "extract_candidates",
+      "item": {
+        "css": "#list-container > li.search-result"
+      },
+      "fields": {
+        "recordUrl": {
+          "css": "a.search-result__report",
+          "attr": "href"
+        },
+        "name": {
+          "css": ".search-result__title b"
+        },
+        "age": {
+          "css": ".search-result__age"
+        },
+        "locations": {
+          "css": ".search-result__title .city",
+          "all": true
+        }
+      }
+    }
+  ],
+  "canary": {
+    "url": "https://www.beenverified.com/people/john-smith/",
+    "selectors": [
+      {
+        "css": "#list-container > li.search-result"
+      },
+      {
+        "css": "#list-container .search-result__title b"
+      },
+      {
+        "css": "#list-container .search-result__age"
+      }
+    ],
+    "steps": []
+  },
+  "notes": "Read live 2026-10-07 in headed Chrome from a residential connection, no form submitted. The name directory /people/john-smith/ loads with 30 result cards in #list-container (li.search-result: a title with the name, city and a .search-result__age, then phones, addresses, relatives and previous locations) and 14,007 records in the heading. The cards are blurred teasers with no link of their own: the only per person URL (/people/john-smith-<id>/) sits in a JSON-LD script, which the extract rules cannot read, and the report link behind a card is a paid funnel. The relatives links inside a card point at other people, so they must never be read as the record. A scan therefore cannot produce confirmable candidates, and the recipe ends as blocked for a person or agent whenever the page lists results, instead of the old version returning state filter links and relatives as records. The a.search-result__report selector after that is a placeholder that matches nothing, so a page with no results ends with an empty list. State pages exist only for states that have results and answer 404 otherwise. The opt-out page at /app/optout/search redirects to /svc/optout/search/ and answered with a Cloudflare Turnstile interstitial, so the remove recipe stays unverified.",
+  "verifiedAt": "2026-10-07",
+  "liveStatus": "unverified"
+}

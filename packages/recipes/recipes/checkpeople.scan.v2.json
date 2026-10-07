@@ -1,0 +1,110 @@
+{
+  "id": "checkpeople.scan.v2",
+  "brokerId": "checkpeople",
+  "version": 2,
+  "purpose": "scan",
+  "entryUrl": "https://www.checkpeople.com/",
+  "fields": [
+    "first_name",
+    "last_name",
+    "city",
+    "state"
+  ],
+  "steps": [
+    {
+      "kind": "goto",
+      "url": "https://www.checkpeople.com/"
+    },
+    {
+      "kind": "fill",
+      "target": {
+        "css": "#heroFirstName"
+      },
+      "field": "first_name"
+    },
+    {
+      "kind": "fill",
+      "target": {
+        "css": "#heroLastName"
+      },
+      "field": "last_name"
+    },
+    {
+      "kind": "fill",
+      "target": {
+        "css": "#heroCity"
+      },
+      "field": "city"
+    },
+    {
+      "kind": "select",
+      "target": {
+        "css": "#heroState"
+      },
+      "field": "state",
+      "by": "value"
+    },
+    {
+      "kind": "click",
+      "target": {
+        "css": "#heroTabPeople button.btn-success"
+      }
+    },
+    {
+      "kind": "captcha_checkpoint"
+    },
+    {
+      "kind": "wait_for",
+      "target": {
+        "css": ".people-results-table-body .results-list-item, #modifySearchModal.in"
+      },
+      "timeoutMs": 100000
+    },
+    {
+      "kind": "extract_candidates",
+      "item": {
+        "css": ".people-results-table-body > li.results-list-item"
+      },
+      "fields": {
+        "recordUrl": {
+          "css": "a.found-name",
+          "attr": "href"
+        },
+        "name": {
+          "css": "a.found-name"
+        },
+        "age": {
+          "css": ".age .years"
+        },
+        "locations": {
+          "css": ".cities li",
+          "all": true
+        }
+      }
+    }
+  ],
+  "canary": {
+    "url": "https://www.checkpeople.com/",
+    "selectors": [
+      {
+        "css": "#heroFirstName"
+      },
+      {
+        "css": "#heroLastName"
+      },
+      {
+        "css": "#heroCity"
+      },
+      {
+        "css": "#heroState"
+      },
+      {
+        "css": "#heroTabPeople button.btn-success"
+      }
+    ],
+    "steps": []
+  },
+  "notes": "Verified live 2026-10-07 in headed Chrome from a residential connection, nothing submitted beyond the free search form. The home page form (#heroTabPeople) posts to a funnel page (/landing/people/<variant>/searching) that shows a loading animation for about a minute and then lands on /results, so the results wait is 100 seconds. Results are li.results-list-item cards in .people-results-table-body with the name, an age (.years), recent locations and an Open Report link. That link goes into the paid report funnel and carries the provider id of the person, so it is the record URL a person confirms rather than a page to open. A search with no matches shows an open modal titled \"No results found\" and an empty list, which ends the wait with no candidates. The variant segment in the URL (tl0alt) can change with the site's tests, which is why the recipe starts from the home form. The name pages (/name/...) answer with a Cloudflare interstitial from this machine and are not used. The old version clicked a button that does not exist and read generic page containers.",
+  "verifiedAt": "2026-10-07",
+  "liveStatus": "verified"
+}
