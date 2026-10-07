@@ -2,7 +2,7 @@ import { Resolver } from "node:dns/promises";
 import { readFileSync } from "node:fs";
 import { domainToASCII } from "node:url";
 import { dkimVerify } from "mailauth";
-import { simpleParser } from "mailparser";
+import addressparser from "nodemailer/lib/addressparser/index.js";
 import { z } from "zod";
 import { alignsWithAny } from "./sender-auth.js";
 import type { DkimScope } from "./types.js";
@@ -197,14 +197,12 @@ function comparableAddress(address: string): string {
   return domain === "" ? "" : `${lowerAscii(address.slice(0, at))}@${domain}`;
 }
 
-async function addressesOfHeader(line: string): Promise<string[]> {
-  const parsed = await simpleParser(Buffer.from(`${line.replace(/\s+$/, "")}\r\n\r\n`, "utf8"));
-  const field =
-    line.slice(0, line.indexOf(":")).trim().toLowerCase() === "cc" ? parsed.cc : parsed.to;
-  const objects = field === undefined ? [] : Array.isArray(field) ? field : [field];
-  return objects
-    .flatMap((object) => object.value)
-    .flatMap((entry) => (entry.address ? [comparableAddress(entry.address)] : []));
+/** Read without decoding RFC 2047 encoded-words, which are not allowed inside an addr-spec. */
+function addressesOfHeader(line: string): string[] {
+  const value = line.slice(line.indexOf(":") + 1).replace(/\r?\n(?=[ \t])/g, "");
+  return addressparser(value, { flatten: true }).flatMap((entry) =>
+    entry.address ? [comparableAddress(entry.address)] : [],
+  );
 }
 
 /**
@@ -213,20 +211,18 @@ async function addressesOfHeader(line: string): Promise<string[]> {
  * address ties the signature to this mail. The headers read are the instances the signature
  * hashed, which are the bottom-most of each name.
  */
-async function signedForRecipient(
+function signedForRecipient(
   signedHeaders: readonly string[],
   recipient: string,
   hasCc: boolean,
-): Promise<boolean> {
+): boolean {
   const first = (name: string) =>
     signedHeaders.find((line) => line.slice(0, line.indexOf(":")).trim().toLowerCase() === name);
   const to = first("to");
   const cc = first("cc");
   if (to === undefined || (hasCc && cc === undefined)) return false;
   const wanted = comparableAddress(recipient.trim());
-  const signed = (
-    await Promise.all([to, ...(cc === undefined ? [] : [cc])].map(addressesOfHeader))
-  ).flat();
+  const signed = [to, ...(cc === undefined ? [] : [cc])].flatMap(addressesOfHeader);
   return wanted !== "" && signed.includes(wanted);
 }
 
@@ -280,11 +276,7 @@ export function createDkimVerifier({
         !result.status.underSized &&
         result.signingDomain &&
         alignsWithAny(result.signingDomain, scope.domains) &&
-        (await signedForRecipient(
-          result.signingHeaders?.headers ?? [],
-          scope.recipient,
-          relevant.hasCc,
-        ))
+        signedForRecipient(result.signingHeaders?.headers ?? [], scope.recipient, relevant.hasCc)
       ) {
         domains.push(result.signingDomain.toLowerCase());
       }

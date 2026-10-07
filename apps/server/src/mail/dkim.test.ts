@@ -208,6 +208,17 @@ describe("verifiedDomains", () => {
       expect(await verifyFor(message, "jordan@example.com")).toEqual([]);
     });
 
+    it.each([
+      [
+        "an encoded-word display name wrapping the address",
+        "Attacker <=?utf-8?Q?jordan=40example.com?=>",
+      ],
+      ["an encoded-word local part", "=?utf-8?Q?jordan?=@example.com"],
+    ])("names nothing when the signed To has %s", async (_label, to) => {
+      const message = await signed(withTo(to));
+      expect(await verifyFor(message, "jordan@example.com")).toEqual([]);
+    });
+
     it("accepts a UTF-8 address that equals the mailbox", async () => {
       const message = await signed(withTo("jordan@exa\u016Dple.com"));
       expect(await verifyFor(message, "jordan@exa\u016Dple.com")).toEqual(["acme.test"]);
