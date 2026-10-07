@@ -1,6 +1,7 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { type Broker, isOnDomain, isSharedMailHost, Recipe } from "@kickrocks/shared";
+import { type Broker, Recipe } from "@kickrocks/shared";
+import { isTrustedConfirmationDomain } from "./confirmation-sender.js";
 
 /** The bundled recipes, read straight from their directory so this package needs no recipes dependency. */
 export function readBundledRecipes(dir: string): Recipe[] {
@@ -11,7 +12,7 @@ export function readBundledRecipes(dir: string): Recipe[] {
 
 /**
  * The recipe steps whose confirmation sender the broker would not accept at run time: not the
- * broker's own site or a subdomain of it, and not one of its curated reply domains.
+ * broker's own organizational domain, and not one of its curated reply domains.
  */
 export function unpairedRecipeSenders(
   brokers: readonly Broker[],
@@ -29,10 +30,7 @@ export function unpairedRecipeSenders(
         problems.push(`${recipe.id} serves ${brokerId}, which is not in the broker dataset`);
         continue;
       }
-      const accepted = [broker.domain, ...(broker.replyDomains ?? [])];
-      const trusted =
-        !isSharedMailHost(from) &&
-        accepted.some((domain) => isOnDomain(`https://${from}/`, domain));
+      const trusted = isTrustedConfirmationDomain(from, broker.domain, broker.replyDomains ?? []);
       if (!trusted) {
         problems.push(
           `${recipe.id} waits for mail from ${from}, which is neither ${broker.domain} nor a curated reply domain of ${brokerId}; add it to data/reply-domains.yaml`,

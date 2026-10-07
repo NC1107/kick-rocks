@@ -49,9 +49,15 @@ function recipe(brokerId: string, fromDomain: string, alsoFor: string[] = []): R
 }
 
 describe("unpairedRecipeSenders", () => {
-  it("accepts the broker's own site and its subdomains", () => {
+  it("accepts the broker's own organization, subdomains included", () => {
     const brokers = [broker("acme", "acme.test")];
     expect(unpairedRecipeSenders(brokers, [recipe("acme", "mail.acme.test")])).toEqual([]);
+  });
+
+  it("accepts the organizational domain of a broker that lives on a subdomain", () => {
+    const brokers = [broker("risk", "risk.acme.test")];
+    expect(unpairedRecipeSenders(brokers, [recipe("risk", "acme.test")])).toEqual([]);
+    expect(unpairedRecipeSenders(brokers, [recipe("risk", "mail.acme.test")])).toEqual([]);
   });
 
   it("accepts a sister domain the broker curates", () => {
