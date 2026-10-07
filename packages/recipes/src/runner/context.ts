@@ -21,6 +21,8 @@ export interface RunState {
   extractedRecordUrl: string | undefined;
   awaitingEmailFrom: string | undefined;
   lastStatus: number | null;
+  /** The page showed that the site took the last submission; any later submit clears it. */
+  proved: boolean;
 }
 
 export interface RunContext {
@@ -71,6 +73,7 @@ export function createContext(
       extractedRecordUrl: undefined,
       awaitingEmailFrom: undefined,
       lastStatus: null,
+      proved: false,
     },
   };
 }

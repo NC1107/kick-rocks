@@ -38,6 +38,26 @@
           "text": "Verify",
           "outcome": "blocked",
           "reason": "phone_verification"
+        },
+        {
+          "text": "has been submitted",
+          "outcome": "submitted"
+        },
+        {
+          "text": "has been received",
+          "outcome": "submitted"
+        },
+        {
+          "text": "successfully submitted",
+          "outcome": "submitted"
+        },
+        {
+          "text": "we have received your request",
+          "outcome": "submitted"
+        },
+        {
+          "text": "we received your request",
+          "outcome": "submitted"
         }
       ]
     },
@@ -56,7 +76,7 @@
       }
     ]
   },
-  "notes": "Verified live 2026-10-07 in headed Chrome for step 1 of 5 only: a profile URL input (#suppression-requests-person-url) and a Next button. The first load in headless Chrome was a Cloudflare \"Just a moment\" page. Steps 2 to 5 sit behind Next and were not opened, because Next submits the first step. Whitepages is known to ask for a phone verification, which this recipe reports as a block for a human. The outcome_when texts after the click are unverified guesses.",
+  "notes": "Seen live 2026-10-07 in headed Chrome for step 1 of 5 only: a profile URL input (#suppression-requests-person-url) and a Next button. The first load in headless Chrome was a Cloudflare \"Just a moment\" page. Steps 2 to 5 sit behind Next and were not opened, because Next submits the first step. Whitepages is known to ask for a phone verification, which this recipe reports as a block for a human. The outcome_when texts after the click are unverified guesses. The wording the site shows after Submit was never observed, so the outcome_when texts that prove the request went through are guesses, and the recipe stays unverified until a real submission has been seen.",
   "verifiedAt": "2026-10-07",
-  "liveStatus": "verified"
+  "liveStatus": "unverified"
 }

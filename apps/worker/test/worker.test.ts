@@ -187,7 +187,10 @@ describeBrowser("the worker against a fake server and a fixture site", () => {
       { requestId: "r1", targetId: "fixture", recipeId: "fixture.remove.v1", recordUrl: null },
       {
         recipe: recipeFor(siteOrigin, "remove", {
-          steps: [{ kind: "click", target: { role: "button", label: "Delete everything" } }],
+          steps: [
+            { kind: "click", target: { role: "button", label: "Delete everything" } },
+            { kind: "expect_text", text: "Request received" },
+          ],
         }),
         fields: { email: "jordan@example.com" },
       },

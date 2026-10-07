@@ -165,6 +165,7 @@ function plainText(body: string): string {
     .replace(LINK, (_, text: string, url: string) => (text.trim() ? text : url))
     .replace(ANGLE_LINK, (_, target: string) => target.replace(/^mailto:/, ""))
     .replace(/\*\*|__|(?<![\w])_(?=\S)|(?<=\S)_(?![\w])/g, "")
+    .replace(/\s*\u2014\s*/g, " - ")
     .replace(/\s+/g, " ")
     .trim();
 }

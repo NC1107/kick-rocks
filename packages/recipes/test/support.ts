@@ -80,6 +80,27 @@ export interface RecipeSpec {
   canary?: { url?: string; selectors?: unknown[]; steps?: unknown[] };
 }
 
+/**
+ * A remove recipe must end with proof that the site took the request. Most tests are about some
+ * other step, so one that has no proof of its own gets a page-loaded check that always holds,
+ * which keeps the outcome the test expects. A test of the proof itself writes its own.
+ */
+function withPageLoadedProof(spec: RecipeSpec): unknown[] {
+  const email = spec.steps.some(
+    (step) => (step as { kind?: string }).kind === "email_confirmation",
+  );
+  const proof = {
+    kind: "outcome_when",
+    when: [
+      {
+        selector: { css: "html" },
+        outcome: email ? "awaiting_email_confirmation" : "submitted",
+      },
+    ],
+  };
+  return [...spec.steps, proof];
+}
+
 /** A valid recipe for the fixture site, written the way an author would write it. */
 export function makeRecipe(spec: RecipeSpec): Recipe {
   const purpose = spec.purpose ?? "remove";
@@ -97,6 +118,11 @@ export function makeRecipe(spec: RecipeSpec): Recipe {
       steps: (spec.canary?.steps ?? []) as never,
     },
   };
+  const parsed = Recipe.safeParse(input);
+  if (parsed.success) return parsed.data;
+  if (purpose === "remove") {
+    return Recipe.parse({ ...input, steps: withPageLoadedProof(spec) as RecipeInput["steps"] });
+  }
   return Recipe.parse(input);
 }
 

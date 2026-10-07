@@ -28,14 +28,47 @@
       "kind": "captcha_checkpoint"
     },
     {
+      "kind": "email_confirmation",
+      "fromDomain": "peopleconnect.us"
+    },
+    {
       "kind": "click",
       "target": {
         "css": "form button[type=\"submit\"]"
       }
     },
     {
-      "kind": "email_confirmation",
-      "fromDomain": "peopleconnect.us"
+      "kind": "outcome_when",
+      "when": [
+        {
+          "text": "has been sent",
+          "outcome": "awaiting_email_confirmation"
+        },
+        {
+          "text": "we have sent",
+          "outcome": "awaiting_email_confirmation"
+        },
+        {
+          "text": "we've sent",
+          "outcome": "awaiting_email_confirmation"
+        },
+        {
+          "text": "we sent",
+          "outcome": "awaiting_email_confirmation"
+        },
+        {
+          "text": "sent you an email",
+          "outcome": "awaiting_email_confirmation"
+        },
+        {
+          "text": "sent an email",
+          "outcome": "awaiting_email_confirmation"
+        },
+        {
+          "text": "check your inbox",
+          "outcome": "awaiting_email_confirmation"
+        }
+      ]
     }
   ],
   "canary": {
@@ -52,7 +85,7 @@
       }
     ]
   },
-  "notes": "Verified live 2026-10-07 in headless and headed Chrome: step 1 of the suppression center asks for an email address and a consent checkbox, then sends a verification link. The page says the tool covers all people search sites in the PeopleConnect family and names TruthFinder and Intelius; Instant Checkmate is listed in alsoFor from the same family but the page excerpt that names it was not captured, so confirm it on the next review. The input ids are generated per load, so the recipe uses the stable name attributes. The steps after the emailed link (choosing which records to suppress) belong to the confirm task and were not opened. This is a removal-only recipe because the suppression center has no search of its own; the people-search scans live on each brand's site.",
+  "notes": "Verified live 2026-10-07 in headless and headed Chrome: step 1 of the suppression center asks for an email address and a consent checkbox, then sends a verification link. The page says the tool covers all people search sites in the PeopleConnect family and names TruthFinder and Intelius; Instant Checkmate is listed in alsoFor from the same family but the page excerpt that names it was not captured, so confirm it on the next review. The input ids are generated per load, so the recipe uses the stable name attributes. The steps after the emailed link (choosing which records to suppress) belong to the confirm task and were not opened. This is a removal-only recipe because the suppression center has no search of its own; the people-search scans live on each brand's site. The wording the site shows after Submit was never observed, so the outcome_when texts that prove the request went through are guesses, and the recipe stays unverified until a real submission has been seen.",
   "verifiedAt": "2026-10-07",
-  "liveStatus": "verified"
+  "liveStatus": "unverified"
 }

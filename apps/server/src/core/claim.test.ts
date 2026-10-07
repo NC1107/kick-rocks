@@ -255,6 +255,7 @@ describe("form tasks", () => {
           steps: [
             { kind: "goto", url: "https://x.test/optout" },
             { kind: "fill", target: { label: "Name" }, field: "first_name" },
+            { kind: "expect_text", text: "request received" },
           ],
         },
       });

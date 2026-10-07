@@ -75,14 +75,75 @@ describe("recipe sync at startup", () => {
     });
   });
 
-  it("stores recipes from the bundled directory as bundled", async () => {
-    const recipe = makeRecipe({ brokerId: "alpha", purpose: "scan" });
+  it("stores a verified recipe from the bundled directory as active", async () => {
+    const recipe = makeRecipe({
+      brokerId: "alpha",
+      purpose: "scan",
+      definition: { liveStatus: "verified" },
+    });
     const bundled = join(dir, "bundled");
     writeRecipe(bundled, recipe);
     const c = await start(null);
     const report = syncRecipes(c.services, { bundledDir: bundled });
     expect(report.added).toEqual([recipe.id]);
     expect(row(c, recipe.id)).toMatchObject({ source: "bundled", status: "active" });
+  });
+
+  describe("a bundled recipe whose flow was not seen through", () => {
+    const bundled = () => join(dir, "bundled");
+
+    it.each(["unverified", "blocked_by_bot_protection"] as const)(
+      "waits for review when it is %s, so it is never dispatched on its own",
+      async (liveStatus) => {
+        const recipe = makeRecipe({ brokerId: "alpha", definition: { liveStatus } });
+        writeRecipe(bundled(), recipe);
+        const c = await start(null);
+        syncRecipes(c.services, { bundledDir: bundled() });
+        expect(row(c, recipe.id)).toMatchObject({ source: "bundled", status: "pending_review" });
+        const profile = seedProfile(c);
+        const { task } = c.services.dispatch.enqueueScan(profile.id, "alpha");
+        expect(task.kind).toBe("agent");
+      },
+    );
+
+    it("stays active once a person approved it, until its script changes", async () => {
+      const recipe = makeRecipe({ brokerId: "alpha" });
+      writeRecipe(bundled(), recipe);
+      const c = await start(null);
+      syncRecipes(c.services, { bundledDir: bundled() });
+      createRecipeStore(c.services).approve(recipe.id);
+      expect(syncRecipes(c.services, { bundledDir: bundled() })).toMatchObject({ unchanged: 1 });
+      expect(row(c, recipe.id)?.status).toBe("active");
+
+      writeRecipe(
+        bundled(),
+        makeRecipe({ brokerId: "alpha", definition: { entryUrl: "https://alpha.test/new" } }),
+      );
+      syncRecipes(c.services, { bundledDir: bundled() });
+      expect(row(c, recipe.id)?.status).toBe("pending_review");
+    });
+
+    it("moves an already active copy back to review when the shipped file says it is unverified", async () => {
+      const recipe = makeRecipe({ brokerId: "alpha", definition: { liveStatus: "verified" } });
+      writeRecipe(bundled(), recipe);
+      const c = await start(null);
+      syncRecipes(c.services, { bundledDir: bundled() });
+      expect(row(c, recipe.id)?.status).toBe("active");
+
+      writeRecipe(
+        bundled(),
+        makeRecipe({ brokerId: "alpha", definition: { liveStatus: "unverified" } }),
+      );
+      syncRecipes(c.services, { bundledDir: bundled() });
+      expect(row(c, recipe.id)?.status).toBe("pending_review");
+    });
+
+    it("does not apply to an extra recipe the person installed themselves", async () => {
+      const recipe = makeRecipe({ brokerId: "alpha", definition: { liveStatus: "unverified" } });
+      writeRecipe(dir, recipe);
+      const c = await start();
+      expect(row(c, recipe.id)?.status).toBe("active");
+    });
   });
 
   it("is idempotent and keeps what was learned about a recipe that did not change", async () => {
@@ -149,6 +210,7 @@ describe("recipe sync at startup", () => {
         steps: [
           { kind: "goto", url: "https://collector.example.org/optout" },
           { kind: "click", target: { css: "button" } },
+          { kind: "expect_text", text: "request received" },
         ],
       },
     });
@@ -223,7 +285,11 @@ describe("recipe sync at startup", () => {
 
     const shipped = makeRecipe({
       brokerId: "alpha",
-      definition: { notes: "Shipped", entryUrl: "https://alpha.test/shipped" },
+      definition: {
+        notes: "Shipped",
+        entryUrl: "https://alpha.test/shipped",
+        liveStatus: "verified",
+      },
     });
     const bundled = join(dir, "bundled");
     writeRecipe(bundled, shipped);
@@ -253,6 +319,7 @@ describe("recipe sync at startup", () => {
         steps: [
           { kind: "goto", url: "https://beta.test/optout" },
           { kind: "click", target: { css: "button" } },
+          { kind: "expect_text", text: "request received" },
         ],
       },
     });
@@ -366,11 +433,24 @@ describe("approving and rejecting a proposal", () => {
     }
   });
 
-  it("does not review a recipe that shipped or that the person installed", async () => {
+  it("reviews a shipped recipe that was never verified, as it would a proposal", async () => {
+    const c = await start(null);
+    const target = seedTarget(c);
+    const shipped = seedRecipe(c, target.id, { status: "pending_review" });
+    const approved = await c.call(API_ROUTES.recipesApprove, { params: { id: shipped.id } });
+    expect(approved.ok && approved.body.status).toBe("active");
+    expect(row(c, shipped.id)?.status).toBe("active");
+  });
+
+  it("does not review a recipe that shipped verified or that the person installed", async () => {
     const c = await start(null);
     const target = seedTarget(c);
     for (const source of ["bundled", "user"] as const) {
-      const shipped = seedRecipe(c, target.id, { source, version: source === "bundled" ? 1 : 2 });
+      const shipped = seedRecipe(c, target.id, {
+        source,
+        version: source === "bundled" ? 1 : 2,
+        definition: { liveStatus: "verified" },
+      });
       const result = await c.call(API_ROUTES.recipesReject, { params: { id: shipped.id } });
       expect(result.ok || result.body.error, source).toBe("recipe_not_proposed");
       expect(result.status).toBe(409);

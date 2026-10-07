@@ -32,10 +32,8 @@
       }
     },
     {
-      "kind": "wait_for",
-      "target": {
-        "text": "Check your email"
-      }
+      "kind": "expect_text",
+      "text": "Check your email"
     },
     {
       "kind": "email_confirmation",

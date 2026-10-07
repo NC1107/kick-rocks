@@ -52,6 +52,22 @@ const scanTask = () =>
     { recipe: recipeFor(ORIGIN, "scan"), fields: { first_name: "Jordan" } },
   );
 
+describe("which browser a task runs in", () => {
+  const done = { status: "completed", result: { outcome: "submitted" } } as const;
+
+  it("opens the page in the browser of the person the task is for", async () => {
+    const { executor, openPage } = harness(done);
+    await executor(formTask({ profileId: "p-jordan" }), live);
+    expect(openPage).toHaveBeenCalledWith("p-jordan");
+  });
+
+  it("uses the shared browser for a task that belongs to nobody", async () => {
+    const { executor, openPage } = harness(done);
+    await executor(formTask(), live);
+    expect(openPage).toHaveBeenCalledWith(null);
+  });
+});
+
 describe("running a form task", () => {
   it("runs the recipe with the claimed fields and the target's domain, and completes", async () => {
     const { executor, runners, page } = harness({
@@ -85,6 +101,7 @@ describe("running a form task", () => {
       steps: [
         { kind: "goto", url: "{{record_url}}" },
         { kind: "click", target: { css: "button" } },
+        { kind: "expect_text", text: "Request received" },
       ],
     });
     await executor(
@@ -112,7 +129,10 @@ describe("running a form task", () => {
     });
     const recipe = recipeFor(ORIGIN, "remove", {
       fields: ["record_url"],
-      steps: [{ kind: "goto", url: "{{record_url}}" }],
+      steps: [
+        { kind: "goto", url: "{{record_url}}" },
+        { kind: "expect_text", text: "Request received" },
+      ],
     });
     await executor(
       task(

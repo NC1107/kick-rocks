@@ -234,7 +234,13 @@ export function buildClaimedTask(services: ClaimServices, task: BrowserTask): Cl
   const target = services.targets.summary(task.targetId);
   const asOf = nowIso(services.clock).slice(0, 10);
 
-  const base = { id: task.id, attempt: task.attempts, leaseExpiresAt: task.leaseExpiresAt, target };
+  const base = {
+    id: task.id,
+    attempt: task.attempts,
+    leaseExpiresAt: task.leaseExpiresAt,
+    target,
+    profileId: task.profileId,
+  };
 
   switch (task.kind) {
     case "scan": {

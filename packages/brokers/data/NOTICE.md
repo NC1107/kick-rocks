@@ -26,7 +26,7 @@ License: Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International
 The full license text is `upstream/BADBOOL-LICENSE.md`.
 
 Changes made: the README is parsed into structured records.
-Priority and requirement markers become `priority` and `requirements`, the links become `searchUrl` and `optOutUrl`, the entry text becomes `notes`, and a few entries are given a different category than the README section implies (see `src/import/badbool.ts`).
+Priority and requirement markers become `priority` and `requirements`, the links become `searchUrl` and `optOutUrl`, the entry text becomes `notes` with any em dash written as a plain dash, and a few entries are given a different category than the README section implies (see `src/import/badbool.ts`).
 Records are then merged with the sources below, which can fill fields BADBOOL lacks.
 
 The pinned copy is checked against the hashes in `upstream/badbool.source.json` on every build.

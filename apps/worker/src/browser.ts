@@ -1,4 +1,5 @@
-import { existsSync, lstatSync, readlinkSync, rmSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { existsSync, lstatSync, mkdirSync, readlinkSync, rmSync } from "node:fs";
 import { hostname } from "node:os";
 import { join } from "node:path";
 import { type BrowserContext, chromium, type Page } from "playwright";
@@ -162,6 +163,56 @@ export function createBrowserSession(
       const current = context ?? (await starting?.catch(() => null)) ?? null;
       context = null;
       await current?.close().catch(() => undefined);
+    },
+  };
+}
+
+/** Where canaries run, with no person's cookies or logins in it. */
+const SHARED_SCOPE = "shared";
+const SAFE_SCOPE = /^[A-Za-z0-9_-]{1,64}$/;
+
+/** A folder name for a profile id, hashed when the id is not already safe to use as one. */
+function scopeName(profileId: string | null): string {
+  if (profileId === null) return SHARED_SCOPE;
+  return SAFE_SCOPE.test(profileId)
+    ? profileId
+    : `h-${createHash("sha256").update(profileId).digest("hex").slice(0, 32)}`;
+}
+
+/**
+ * One persistent Chrome per Kick Rocks profile. Cookies and storage are what let a broker tie two
+ * visits together, so the people on one instance must never share them. Browsers start on first use.
+ */
+export interface ProfileBrowsers {
+  newPage(profileId: string | null): Promise<Page>;
+  close(): Promise<void>;
+}
+
+export function createProfileBrowsers(
+  settings: BrowserSettings,
+  logger: Logger,
+  launch: BrowserLauncher = launchPersistentChrome,
+): ProfileBrowsers {
+  const sessions = new Map<string, BrowserSession>();
+
+  function sessionFor(profileId: string | null): BrowserSession {
+    const scope = scopeName(profileId);
+    let session = sessions.get(scope);
+    if (!session) {
+      const profileDir = join(settings.profileDir, "kickrocks", scope);
+      mkdirSync(profileDir, { recursive: true });
+      session = createBrowserSession({ ...settings, profileDir }, logger, launch);
+      sessions.set(scope, session);
+    }
+    return session;
+  }
+
+  return {
+    newPage: (profileId) => sessionFor(profileId).newPage(),
+    async close() {
+      const open = [...sessions.values()];
+      sessions.clear();
+      await Promise.all(open.map((session) => session.close()));
     },
   };
 }

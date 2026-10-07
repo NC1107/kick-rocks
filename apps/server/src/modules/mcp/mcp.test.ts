@@ -672,6 +672,7 @@ describe("propose_recipe", () => {
           steps: [
             { kind: "goto", url: `https://${target.id}.test/optout` },
             { kind: "click", target: { role: "button", label: "Remove" } },
+            { kind: "expect_text", text: "request received" },
           ],
         },
       }),
@@ -741,6 +742,7 @@ describe("propose_recipe", () => {
           { kind: "goto", url: "https://collector.example.org/optout" },
           { kind: "fill", target: { label: "Email" }, field: "email" },
           { kind: "click", target: { role: "button", label: "Remove" } },
+          { kind: "expect_text", text: "request received" },
         ],
         canary: {
           url: "https://collector.example.org/optout",
@@ -782,6 +784,7 @@ describe("propose_recipe", () => {
             { kind: "goto", url: `https://${target.id}.test/optout` },
             { kind: "pause", minMs: pause, maxMs: pause + 1 },
             { kind: "click", target: { role: "button", label: "Remove" } },
+            { kind: "expect_text", text: "request received" },
           ],
         },
       });

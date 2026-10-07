@@ -48,14 +48,47 @@
       "kind": "captcha_checkpoint"
     },
     {
+      "kind": "email_confirmation",
+      "fromDomain": "fastpeoplesearch.com"
+    },
+    {
       "kind": "click",
       "target": {
         "css": "form#optout-start button[type=\"submit\"]"
       }
     },
     {
-      "kind": "email_confirmation",
-      "fromDomain": "fastpeoplesearch.com"
+      "kind": "outcome_when",
+      "when": [
+        {
+          "text": "has been sent",
+          "outcome": "awaiting_email_confirmation"
+        },
+        {
+          "text": "we have sent",
+          "outcome": "awaiting_email_confirmation"
+        },
+        {
+          "text": "we've sent",
+          "outcome": "awaiting_email_confirmation"
+        },
+        {
+          "text": "we sent",
+          "outcome": "awaiting_email_confirmation"
+        },
+        {
+          "text": "sent you an email",
+          "outcome": "awaiting_email_confirmation"
+        },
+        {
+          "text": "sent an email",
+          "outcome": "awaiting_email_confirmation"
+        },
+        {
+          "text": "check your inbox",
+          "outcome": "awaiting_email_confirmation"
+        }
+      ]
     }
   ],
   "canary": {
@@ -81,7 +114,7 @@
       }
     ]
   },
-  "notes": "Verified live 2026-10-07 in headed Chrome. /removal redirects to /optout, which has form#optout-start: a requester select (the subject of the request, or an authorized agent), first, last and email, a legal-statement checkbox, a Cloudflare Turnstile widget, and Submit. Only the subject path is used, since requests are always made by the data subject. The site then emails a link for the next step, so the run ends as awaiting_email_confirmation. Nothing was submitted.",
+  "notes": "Verified live 2026-10-07 in headed Chrome. /removal redirects to /optout, which has form#optout-start: a requester select (the subject of the request, or an authorized agent), first, last and email, a legal-statement checkbox, a Cloudflare Turnstile widget, and Submit. Only the subject path is used, since requests are always made by the data subject. The site then emails a link for the next step, so the run ends as awaiting_email_confirmation. Nothing was submitted. The wording the site shows after Submit was never observed, so the outcome_when texts that prove the request went through are guesses, and the recipe stays unverified until a real submission has been seen.",
   "verifiedAt": "2026-10-07",
-  "liveStatus": "verified"
+  "liveStatus": "unverified"
 }

@@ -105,7 +105,7 @@ describe("the company dataset", () => {
   });
 
   it("has no em dash anywhere", () => {
-    expect(readFileSync(file, "utf8")).not.toContain("—");
+    expect(readFileSync(file, "utf8")).not.toContain("\u2014");
   });
 
   it("is sorted by id so reviews of changes stay small", () => {

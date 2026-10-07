@@ -238,6 +238,8 @@ const claimedBase = {
   attempt: z.number().int().positive(),
   leaseExpiresAt: z.iso.datetime(),
   target: TargetSummary,
+  /** Whose task it is, so a worker keeps each person's browser sessions apart. Null for a canary. */
+  profileId: z.string().nullable().optional(),
   recipe: Recipe.nullable(),
   /** Only what the recipe declares, or for agent tasks what the legal package allows. */
   fields: z.partialRecord(ProfileField, z.string()),

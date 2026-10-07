@@ -464,6 +464,7 @@ describe("POST /requests/:id/actions", () => {
             { kind: "goto", url: "https://form-site.test/optout" },
             { kind: "fill", target: { label: "Profile URL" }, field: "record_url" },
             { kind: "click", target: { role: "button", label: "Remove" } },
+            { kind: "expect_text", text: "request received" },
           ],
         },
       });

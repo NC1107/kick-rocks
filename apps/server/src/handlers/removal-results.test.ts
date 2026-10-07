@@ -107,6 +107,7 @@ describe("a form run that finished", () => {
         steps: [
           { kind: "goto", url: "https://records.test/optout" },
           { kind: "email_confirmation", fromDomain: "Sister.test", linkTextPattern: "Confirm" },
+          { kind: "expect_text", text: "request received" },
         ],
       },
     });

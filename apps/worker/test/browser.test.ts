@@ -3,11 +3,12 @@ import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   type BrowserSession,
   clearStaleProfileLock,
   createBrowserSession,
+  createProfileBrowsers,
   findInstalledChrome,
   installedChromePaths,
 } from "../src/browser.js";
@@ -174,5 +175,92 @@ describeBrowser("the persistent Chrome profile", () => {
 
   it("closing a session that never started is harmless", async () => {
     await open().close();
+  });
+});
+
+describe("one browser per Kick Rocks profile", () => {
+  function fakeLauncher() {
+    const dirs: string[] = [];
+    const launch = vi.fn(async (settings: { profileDir: string }) => {
+      dirs.push(settings.profileDir);
+      const page = {};
+      return {
+        on: vi.fn(),
+        pages: () => [page],
+        newPage: async () => page,
+        close: async () => undefined,
+      } as never;
+    });
+    return { dirs, launch };
+  }
+  const settings = () => ({
+    profileDir: dir,
+    headless: true,
+    noSandbox: false,
+    executablePath: null,
+  });
+
+  it("gives each profile its own user data folder, started once", async () => {
+    const { dirs, launch } = fakeLauncher();
+    const browsers = createProfileBrowsers(settings(), silentLogger, launch);
+    await browsers.newPage("p-one");
+    await browsers.newPage("p-two");
+    await browsers.newPage("p-one");
+    expect(dirs).toEqual([join(dir, "kickrocks", "p-one"), join(dir, "kickrocks", "p-two")]);
+  });
+
+  it("keeps canaries and other tasks without a person in a folder of their own", async () => {
+    const { dirs, launch } = fakeLauncher();
+    await createProfileBrowsers(settings(), silentLogger, launch).newPage(null);
+    expect(dirs).toEqual([join(dir, "kickrocks", "shared")]);
+  });
+
+  it("never lets a profile id climb out of the folder", async () => {
+    const { dirs, launch } = fakeLauncher();
+    await createProfileBrowsers(settings(), silentLogger, launch).newPage("../../etc");
+    expect(dirs[0]?.startsWith(join(dir, "kickrocks", "h-"))).toBe(true);
+  });
+});
+
+describeBrowser("browsers of different profiles", () => {
+  let site: Server;
+  let origin: string;
+
+  beforeAll(async () => {
+    site = createServer((request, response) => {
+      response.writeHead(200, { "content-type": "text/html" });
+      response.end(
+        `<!doctype html><title>Fixture</title><p>${request.headers.cookie ?? "no cookie"}</p>`,
+      );
+    });
+    await new Promise<void>((resolve) => site.listen(0, "127.0.0.1", resolve));
+    origin = `http://127.0.0.1:${(site.address() as AddressInfo).port}`;
+  });
+
+  afterAll(async () => {
+    site.closeAllConnections();
+    await new Promise<void>((resolve) => site.close(() => resolve()));
+  });
+
+  it("do not share cookies, while each keeps its own", async () => {
+    const browsers = createProfileBrowsers(
+      { profileDir: dir, headless: true, noSandbox: false, executablePath: null },
+      silentLogger,
+    );
+    try {
+      const jordan = await browsers.newPage("p-jordan");
+      await jordan.goto(origin);
+      await jordan.context().addCookies([{ name: "who", value: "jordan", url: origin }]);
+
+      const sam = await browsers.newPage("p-sam");
+      await sam.goto(origin);
+      expect(await sam.textContent("p")).toBe("no cookie");
+
+      const again = await browsers.newPage("p-jordan");
+      await again.goto(origin);
+      expect(await again.textContent("p")).toBe("who=jordan");
+    } finally {
+      await browsers.close();
+    }
   });
 });
