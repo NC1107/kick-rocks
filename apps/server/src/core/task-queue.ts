@@ -190,7 +190,7 @@ export interface TaskQueue {
   resume(id: string, actor?: RequestActor): Task;
   /** A person did the work by hand: closes a blocked task as done. */
   markDone(id: string, input: MarkDoneInput): Task;
-  /** Idempotent. Cancels a task that is queued, leased, or blocked. */
+  /** Idempotent. Cancels a task that is queued, leased, or blocked, or dismisses one that failed. */
   cancel(id: string, actor?: RequestActor): Task;
   /** Cancels every live task of a request. Returns the tasks it cancelled. */
   cancelForRequest(requestId: string, actor?: RequestActor): Task[];
@@ -653,7 +653,9 @@ export function createTaskQueue({ db, clock, handlers }: TaskQueueDeps): TaskQue
       const now = nowIso(clock);
       return db.transaction((tx) => {
         const row = loadRow(tx, id);
-        if (row.status !== "blocked") {
+        // An agent task nobody has claimed can be finished by the person it is waiting on.
+        const unclaimedAgent = row.status === "queued" && row.kind === "agent";
+        if (row.status !== "blocked" && !unclaimedAgent) {
           throw conflict("invalid_task_state", `Task ${id} is ${row.status}, not blocked`);
         }
         let stored: unknown = null;
@@ -680,7 +682,8 @@ export function createTaskQueue({ db, clock, handlers }: TaskQueueDeps): TaskQue
       return db.transaction((tx) => {
         const row = loadRow(tx, id);
         if (row.status === "cancelled") return toTask(row);
-        if (!isLive(row.status)) {
+        // Cancelling a failed task is how a person dismisses it from the review queue.
+        if (!isLive(row.status) && row.status !== "failed") {
           throw conflict("invalid_task_state", `Task ${id} is already ${row.status}`);
         }
         return cancelRow(tx, row, actor, now);

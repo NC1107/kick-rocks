@@ -38,8 +38,14 @@ const MANUAL_INSTRUCTIONS: Record<BlockedReason, string> = {
   unknown: "Open the page and finish the removal by hand, then mark the task done.",
 };
 
+const AGENT_INSTRUCTIONS =
+  "No agent has taken this yet, and the built-in worker will not run it. Connect an agent in Settings, or open the page and finish the job yourself, then mark it done.";
+
 const FAILED_INSTRUCTIONS =
-  "This task failed and nothing will try it again by itself. Retry it, or finish the job by hand and mark it done.";
+  "This task failed and nothing will try it again by itself. Retry it, open the page and finish the job yourself, or dismiss it.";
+
+const FAILED_SCAN_INSTRUCTIONS =
+  "This scan failed and nothing will try it again by itself. Retry it, or dismiss it to stop counting it here.";
 
 const firstWebUrl = (candidates: readonly (string | null | undefined)[]): string | null =>
   candidates.find((url): url is string => !!url && WebUrl.safeParse(url).success) ?? null;
@@ -53,8 +59,12 @@ function toItem(services: AppServices, task: Task, summary: TaskSummary): Blocke
     url: firstWebUrl([task.blockedUrl, request?.recordUrl, target?.optOutUrl, target?.searchUrl]),
     manualInstructions:
       task.status === "failed"
-        ? FAILED_INSTRUCTIONS
-        : MANUAL_INSTRUCTIONS[task.blockedReason ?? "unknown"],
+        ? task.kind === "scan" || (task.kind === "agent" && task.payload.purpose === "scan")
+          ? FAILED_SCAN_INSTRUCTIONS
+          : FAILED_INSTRUCTIONS
+        : task.status === "queued"
+          ? AGENT_INSTRUCTIONS
+          : MANUAL_INSTRUCTIONS[task.blockedReason ?? "unknown"],
   };
 }
 
@@ -197,6 +207,10 @@ export function buildReviewQueue(
     matches: pendingMatches(services, profileId),
     verifications: verifications(services, profileId),
     failedTasks: failedTasks(services, profileId),
+    agentTasks: items(
+      services,
+      services.taskQueue.list({ status: "queued", kinds: ["agent"], profileId }).reverse(),
+    ),
     messages: unreviewedMessages(services, profileId),
   };
 }

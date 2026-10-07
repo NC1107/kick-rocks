@@ -9,9 +9,10 @@ describe("reviewCount", () => {
       matches: [{ decision: "pending" }, { decision: "mine" }, { decision: "pending" }],
       verifications: [{}],
       failedTasks: [{}, {}, {}],
+      agentTasks: [{}, {}],
       messages: [{}],
     } as unknown as ReviewQueue;
-    expect(reviewCount(queue)).toBe(2 + 2 + 1 + 3 + 1);
+    expect(reviewCount(queue)).toBe(2 + 2 + 1 + 3 + 2 + 1);
   });
 
   it("is zero for an empty queue", () => {
@@ -21,6 +22,7 @@ describe("reviewCount", () => {
         matches: [],
         verifications: [],
         failedTasks: [],
+        agentTasks: [],
         messages: [],
       }),
     ).toBe(0);

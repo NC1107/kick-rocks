@@ -54,7 +54,7 @@ export function useLogout() {
 export function reviewCount(
   queue: Pick<
     ReviewQueue,
-    "blockedTasks" | "matches" | "verifications" | "failedTasks" | "messages"
+    "blockedTasks" | "matches" | "verifications" | "failedTasks" | "agentTasks" | "messages"
   >,
 ) {
   return (
@@ -62,6 +62,7 @@ export function reviewCount(
     queue.matches.filter((match) => match.decision === "pending").length +
     queue.verifications.length +
     queue.failedTasks.length +
+    queue.agentTasks.length +
     queue.messages.length
   );
 }

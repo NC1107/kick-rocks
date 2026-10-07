@@ -336,6 +336,9 @@ function Builder({ profile }: { profile: ProfileSummary }) {
           <ul className="m-0 list-disc pl-5 text-base text-ink">
             {counts.email > 0 ? <li>{pluralize(counts.email, "email")}</li> : null}
             {counts.form > 0 ? <li>{pluralize(counts.form, "web form")}</li> : null}
+            {counts.manual > 0 ? (
+              <li>{pluralize(counts.manual, "web form")} left to an agent or to you</li>
+            ) : null}
             {counts.scan > 0 ? (
               <li>{pluralize(counts.scan, "scan")} to find your records</li>
             ) : null}

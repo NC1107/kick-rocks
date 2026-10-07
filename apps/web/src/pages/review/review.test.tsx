@@ -1,6 +1,7 @@
 import { screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { createMockApp, type MockApp } from "../../../mock/app.js";
+import { makeTask } from "../../../mock/requests.js";
 import { renderPage } from "../../test/render.js";
 import { Component as ReviewPage } from "./index.js";
 
@@ -83,10 +84,19 @@ describe("the review queue", () => {
     );
   });
 
-  it("hands a task to an agent", async () => {
-    const { user, mock } = open("blocked");
+  it("hands a task to an agent only after a confirmation that says what an agent is", async () => {
+    const mock = failing(/never/);
+    mock.store.settings.mcp = { ...mock.store.settings.mcp, enabled: true };
+    const { user } = open("blocked", mock);
     const task = await card(/ClearCheck, Submit form/);
+    await waitFor(() =>
+      expect(task.getByRole("button", { name: "Hand to an agent" })).toBeEnabled(),
+    );
     await user.click(task.getByRole("button", { name: "Hand to an agent" }));
+    const dialog = within(await screen.findByRole("dialog"));
+    expect(dialog.getByText(/AI assistant you connected/)).toBeVisible();
+    expect(mock.store.tasks.some((candidate) => candidate.kind === "agent")).toBe(false);
+    await user.click(dialog.getByRole("button", { name: "Hand to an agent" }));
     await waitFor(() =>
       expect(
         mock.store.tasks.some(
@@ -94,6 +104,13 @@ describe("the review queue", () => {
         ),
       ).toBe(true),
     );
+  });
+
+  it("will not hand a task to an agent while agent access is off", async () => {
+    open("blocked");
+    const task = await card(/ClearCheck, Submit form/);
+    expect(await task.findByText(/Agent access is off/)).toBeVisible();
+    expect(task.getByRole("button", { name: "Hand to an agent" })).toBeDisabled();
   });
 
   it("cancels a task only after a confirmation", async () => {
@@ -218,12 +235,55 @@ describe("the review queue", () => {
       request?.id ?? "",
     );
     await user.selectOptions(message.getByLabelText("What is this message"), "rejected");
+    expect(message.getAllByText(/The request is marked rejected/).length).toBeGreaterThan(0);
     await user.click(message.getByRole("button", { name: "Classify" }));
+    const dialog = within(await screen.findByRole("dialog"));
+    expect(
+      mock.store.messages.find((candidate) => candidate.subject === "Your recent message")
+        ?.requestId,
+    ).not.toBe(request?.id);
+    await user.click(dialog.getByRole("button", { name: "Classify" }));
     await waitFor(() =>
       expect(
         mock.store.messages.find((candidate) => candidate.subject === "Your recent message")
           ?.requestId,
       ).toBe(request?.id),
+    );
+  });
+
+  it("does not offer Unknown as an answer for unclassified mail", async () => {
+    open("mail");
+    const message = await card("Your recent message");
+    expect(
+      within(message.getByLabelText("What is this message")).queryByRole("option", {
+        name: "Unknown",
+      }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("lists a task nobody has taken and lets a person finish it themselves", async () => {
+    const mock = failing(/never/);
+    const profileId = mock.store.profiles[0]?.id ?? "";
+    const queued = makeTask(
+      mock.store,
+      {
+        kind: "agent",
+        status: "queued",
+        profileId,
+        targetId: "audiencegrid",
+        targetName: "AudienceGrid",
+        requestId: null,
+      },
+      { minutes: 5 },
+    );
+    const { user } = open("agents", mock);
+    const task = await card(/AudienceGrid, Agent/);
+    expect(task.getByText(/No agent has taken this yet/)).toBeVisible();
+    await user.click(task.getByRole("button", { name: "I did it myself" }));
+    const dialog = within(await screen.findByRole("dialog"));
+    await user.click(dialog.getByRole("button", { name: "Mark done" }));
+    await waitFor(() =>
+      expect(mock.store.tasks.find((candidate) => candidate.id === queued.id)?.status).toBe("done"),
     );
   });
 

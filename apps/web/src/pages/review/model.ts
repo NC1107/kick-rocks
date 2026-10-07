@@ -11,6 +11,7 @@ export const REVIEW_TABS = [
   "verifications",
   "mail",
   "failed",
+  "agents",
   "scans",
 ] as const;
 export type ReviewTab = (typeof REVIEW_TABS)[number];
@@ -26,6 +27,7 @@ const WORTH_OPENING: readonly Exclude<ReviewTab, "scans">[] = [
   "verifications",
   "mail",
   "failed",
+  "agents",
 ];
 
 export function tabCounts(queue: ReviewQueue): Record<Exclude<ReviewTab, "scans">, number> {
@@ -35,6 +37,7 @@ export function tabCounts(queue: ReviewQueue): Record<Exclude<ReviewTab, "scans"
     verifications: queue.verifications.length,
     mail: queue.messages.length,
     failed: queue.failedTasks.length,
+    agents: queue.agentTasks.length,
   };
 }
 

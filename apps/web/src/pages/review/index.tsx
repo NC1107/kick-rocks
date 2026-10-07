@@ -1,5 +1,5 @@
 import { API_ROUTES, type ReviewQueue } from "@kickrocks/shared";
-import { CircleCheck, Mail, PauseCircle, ShieldQuestion, UserSearch } from "lucide-react";
+import { Bot, CircleCheck, Mail, PauseCircle, ShieldQuestion, UserSearch } from "lucide-react";
 import type { ReactNode } from "react";
 import { useSearchParams } from "react-router";
 import { errorMessage, useApiQuery } from "../../api/index.js";
@@ -19,6 +19,7 @@ import {
   Tabs,
 } from "../../components/ui/index.js";
 import { BlockedTaskCard } from "./BlockedTaskCard.js";
+import { FailedTasks } from "./FailedTasks.js";
 import { MatchCard } from "./MatchCard.js";
 import { MessageCard } from "./MessageCard.js";
 import { firstBusyTab, parseTab, REVIEW_TABS, type ReviewTab, tabCounts } from "./model.js";
@@ -31,6 +32,7 @@ const TAB_LABELS: Record<ReviewTab, string> = {
   verifications: "More details asked",
   mail: "Unclassified mail",
   failed: "Failed",
+  agents: "Waiting for an agent",
   scans: "Scans",
 };
 
@@ -144,7 +146,12 @@ function Queue({
         ) : (
           <Cards>
             {queue.blockedTasks.map((item) => (
-              <BlockedTaskCard key={item.task.id} item={item} variant="blocked" />
+              <BlockedTaskCard
+                key={item.task.id}
+                item={item}
+                variant="blocked"
+                profileId={profileId}
+              />
             ))}
           </Cards>
         )}
@@ -206,12 +213,30 @@ function Queue({
             description="A task that gave up for good in the last 30 days is listed here so you can retry it."
           />
         ) : (
+          <FailedTasks items={queue.failedTasks} profileId={profileId} />
+        )}
+      </TabPanel>
+
+      <TabPanel value="agents">
+        {queue.agentTasks.length === 0 ? (
+          <EmptyState
+            icon={Bot}
+            title="Nothing is waiting for an agent"
+            description="Work handed to an agent, or a site with no saved steps, waits here until an agent takes it."
+          />
+        ) : (
           <Cards>
-            <Alert intent="warning" title="These tasks gave up">
-              Nothing retries them on its own. Retry one, or open the page and finish it by hand.
+            <Alert intent="info" title="No agent has taken these yet">
+              An agent is an AI assistant connected to Kick Rocks over MCP. Connect one in Settings,
+              or open each page and finish it yourself.
             </Alert>
-            {queue.failedTasks.map((item) => (
-              <BlockedTaskCard key={item.task.id} item={item} variant="failed" />
+            {queue.agentTasks.map((item) => (
+              <BlockedTaskCard
+                key={item.task.id}
+                item={item}
+                variant="agent"
+                profileId={profileId}
+              />
             ))}
           </Cards>
         )}

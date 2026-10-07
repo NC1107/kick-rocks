@@ -65,7 +65,7 @@ export function VerificationCard({ item }: { item: VerificationItem }) {
 
   return (
     <Card aria-label={`${request.target.name} asked for more details`}>
-      <h3 className="break-words text-lg font-semibold text-ink">{request.target.name}</h3>
+      <h2 className="break-words text-lg font-semibold text-ink">{request.target.name}</h2>
       <p className="text-sm text-ink-muted">
         Request{" "}
         <Link

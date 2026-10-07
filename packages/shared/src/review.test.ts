@@ -22,6 +22,7 @@ describe("MatchDecisionBody", () => {
 describe("ReviewQueue", () => {
   it("lists what waits on a person, including brokers that asked for more and tasks that failed", () => {
     expect(Object.keys(ReviewQueue.shape).sort()).toEqual([
+      "agentTasks",
       "blockedTasks",
       "failedTasks",
       "matches",
@@ -34,6 +35,7 @@ describe("ReviewQueue", () => {
         matches: [],
         verifications: [],
         failedTasks: [],
+        agentTasks: [],
         messages: [],
       }).verifications,
     ).toEqual([]);

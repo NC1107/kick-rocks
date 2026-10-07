@@ -16,9 +16,28 @@ import {
   TaskStatusPill,
   useToast,
 } from "../../components/ui/index.js";
+import { describeFailure } from "../../lib/failures.js";
 import { formatRelative, pluralize } from "../../lib/format.js";
 import { LoadingRows } from "../targets/LoadingRows.js";
 import { REVIEW_INVALIDATES } from "./model.js";
+
+/** A failed scan stops mattering once a later scan of the same site worked. */
+export function withoutSupersededFailures(scans: readonly ScanSummary[]): ScanSummary[] {
+  return scans.filter(
+    (scan) =>
+      scan.error === null ||
+      !scans.some(
+        (other) =>
+          other.targetId === scan.targetId &&
+          other.error === null &&
+          other.finishedAt !== null &&
+          other.startedAt > scan.startedAt,
+      ),
+  );
+}
+
+const errorText = (scan: ScanSummary): string | null =>
+  scan.error === null ? null : describeFailure({ lastError: scan.error, failureKind: null }).detail;
 
 function matchSummary(scan: ScanSummary): string {
   if (scan.finishedAt === null && scan.taskStatus !== "failed") return "Waiting for results";
@@ -39,6 +58,7 @@ export function ScansPanel({ profileId }: { profileId: string }) {
     query: { pageSize: 50 },
   });
   const [confirming, setConfirming] = useState(false);
+  const items = withoutSupersededFailures(scans.data?.items ?? []);
   const start = useApiMutation(API_ROUTES.scansStart, {
     invalidates: [...REVIEW_INVALIDATES],
     onSuccess: (result) => {
@@ -105,7 +125,7 @@ export function ScansPanel({ profileId }: { profileId: string }) {
         >
           {errorMessage(scans.error)}
         </Alert>
-      ) : scans.data && scans.data.items.length === 0 ? (
+      ) : scans.data && items.length === 0 ? (
         <EmptyState
           icon={ScanSearch}
           title="No scans yet"
@@ -127,7 +147,7 @@ export function ScansPanel({ profileId }: { profileId: string }) {
                 columns={[{ bar: "w-40" }, {}, { className: "hidden md:table-cell", bar: "w-40" }]}
               />
             ) : (
-              scans.data?.items.map((scan) => (
+              items.map((scan) => (
                 <TableRow key={scan.id}>
                   <TableCell wrap className="w-full min-w-0">
                     <span className="block font-medium text-ink">{scan.targetName}</span>
@@ -136,7 +156,7 @@ export function ScansPanel({ profileId }: { profileId: string }) {
                       <time dateTime={scan.startedAt}>{formatRelative(scan.startedAt)}</time>
                     </span>
                     <span className="block text-sm text-ink-muted md:hidden">
-                      {scan.error ?? matchSummary(scan)}
+                      {errorText(scan) ?? matchSummary(scan)}
                     </span>
                   </TableCell>
                   <TableCell className="align-top md:align-middle">
@@ -144,7 +164,7 @@ export function ScansPanel({ profileId }: { profileId: string }) {
                   </TableCell>
                   <TableCell wrap className="hidden min-w-56 md:table-cell">
                     {scan.error ? (
-                      <span className="text-danger">{scan.error}</span>
+                      <span className="text-danger">{errorText(scan)}</span>
                     ) : (
                       matchSummary(scan)
                     )}

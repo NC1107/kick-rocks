@@ -45,7 +45,45 @@ describe("countByChannel", () => {
       ],
       targets,
     );
-    expect(counts).toEqual({ email: 1, form: 1, scan: 1, skipped: 1 });
+    expect(counts).toEqual({ email: 1, form: 1, manual: 0, scan: 1, skipped: 1 });
+  });
+
+  it("splits web forms into those a recipe fills in and those left to an agent or the person", () => {
+    const withAutomation = new Map([
+      [
+        "worker",
+        {
+          needsRecord: false,
+          contactMethod: "form" as const,
+          automation: { scan: null, remove: "healthy" as const },
+        },
+      ],
+      [
+        "none",
+        {
+          needsRecord: false,
+          contactMethod: "form" as const,
+          automation: { scan: null, remove: null },
+        },
+      ],
+      [
+        "broken",
+        {
+          needsRecord: false,
+          contactMethod: "form" as const,
+          automation: { scan: null, remove: "broken" as const },
+        },
+      ],
+    ]);
+    const counts = countByChannel(
+      [
+        outcome("worker", "request_created"),
+        outcome("none", "request_created"),
+        outcome("broken", "request_created"),
+      ],
+      withAutomation,
+    );
+    expect(counts).toMatchObject({ form: 1, manual: 2 });
   });
 
   it("counts a created request for an unknown target as a form, so the total still adds up", () => {
