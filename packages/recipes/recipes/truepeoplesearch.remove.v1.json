@@ -1,0 +1,53 @@
+{
+  "id": "truepeoplesearch.remove.v1",
+  "brokerId": "truepeoplesearch",
+  "version": 1,
+  "purpose": "remove",
+  "entryUrl": "https://www.truepeoplesearch.com/removal",
+  "fields": ["record_url"],
+  "steps": [
+    {
+      "kind": "goto",
+      "url": "https://www.truepeoplesearch.com/removal"
+    },
+    {
+      "kind": "captcha_checkpoint"
+    },
+    {
+      "kind": "click",
+      "target": {
+        "role": "button",
+        "label": "Begin Removal Process"
+      },
+      "optional": true
+    },
+    {
+      "kind": "goto",
+      "url": "{{record_url}}"
+    },
+    {
+      "kind": "captcha_checkpoint"
+    },
+    {
+      "kind": "click",
+      "target": {
+        "text": "Remove This Record"
+      }
+    },
+    {
+      "kind": "captcha_checkpoint"
+    }
+  ],
+  "canary": {
+    "url": "https://www.truepeoplesearch.com/removal",
+    "selectors": [
+      {
+        "role": "button",
+        "label": "Begin Removal Process"
+      }
+    ]
+  },
+  "notes": "Not verified. /removal answered with a Cloudflare \"Just a moment\" challenge on 2026-10-07 in headless and headed Chrome, and no challenge was solved, so no removal markup was seen. The flow (open the record, choose to remove it, pass a captcha) and the button names are reconstructed from the site's published instructions and are unverified guesses. Expect a bot_detection block.",
+  "verifiedAt": "2026-10-07",
+  "liveStatus": "blocked_by_bot_protection"
+}
