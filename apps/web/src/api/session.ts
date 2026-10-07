@@ -51,10 +51,17 @@ export function useLogout() {
 }
 
 /** The number on the Review badge: everything waiting on a person. */
-export function reviewCount(queue: Pick<ReviewQueue, "blockedTasks" | "matches" | "messages">) {
+export function reviewCount(
+  queue: Pick<
+    ReviewQueue,
+    "blockedTasks" | "matches" | "verifications" | "failedTasks" | "messages"
+  >,
+) {
   return (
     queue.blockedTasks.length +
     queue.matches.filter((match) => match.decision === "pending").length +
+    queue.verifications.length +
+    queue.failedTasks.length +
     queue.messages.length
   );
 }
