@@ -359,13 +359,21 @@ export function createTaskQueue({
   function holdForPerson(
     tx: Tx,
     row: TaskRow,
-    cause: { text: string; finishedBy: string | null; usage: TaskUsage | undefined },
+    cause: {
+      text: string;
+      finishedBy: string | null;
+      usage: TaskUsage | undefined;
+      failure?: { kind: FailureKind; step: number | null };
+    },
     actor: RequestActor,
     now: string,
   ): Task {
     const updated = tx
       .update(tasks)
       .set({
+        ...(cause.failure
+          ? { failureKind: cause.failure.kind, failureStep: cause.failure.step }
+          : {}),
         status: "blocked",
         blockedReason: "unknown",
         blockedDetail: `The form may already have been submitted, so it was not retried. The run ended with: ${cause.text}`,
@@ -388,7 +396,8 @@ export function createTaskQueue({
   /**
    * Re-queues with a backoff while attempts remain, otherwise fails for good, and tells the
    * handlers which of the two happened. A removal that may have been submitted is held for a
-   * person instead of being queued again.
+   * person instead of being queued again. A form is held even when its failure is final, because
+   * a failed form is handed to an agent, which would submit it again.
    */
   function retryOrFail(
     tx: Tx,
@@ -406,11 +415,16 @@ export function createTaskQueue({
     now: string,
   ): Task {
     const requeue = failure.retryable && row.attempts < row.maxAttempts;
-    if (requeue && mayResubmit(row)) {
+    if (mayResubmit(row) && (requeue || row.kind === "form")) {
       return holdForPerson(
         tx,
         row,
-        { text: failure.error, finishedBy: failure.finishedBy, usage: failure.usage },
+        {
+          text: failure.error,
+          finishedBy: failure.finishedBy,
+          usage: failure.usage,
+          failure: { kind: failure.kind, step: failure.step },
+        },
         actor,
         now,
       );
@@ -790,6 +804,8 @@ export function createTaskQueue({
               blockedUrl: null,
               leaseOwner: null,
               mayHaveSubmitted: false,
+              failureKind: null,
+              failureStep: null,
               attempts: 0,
               runAfter: null,
               updatedAt: now,

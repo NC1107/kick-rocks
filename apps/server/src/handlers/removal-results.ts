@@ -118,6 +118,13 @@ export function registerRemovalHandlers(services: AppServices): void {
     applyRemoval(services, tx, task, result, actor);
   });
 
+  // A form that may already have been submitted is held for a person instead of failed, and no
+  // agent may take it, but the broken recipe still counts against its health.
+  taskHandlers.on("form", "blocked", ({ task }, tx) => {
+    if (task.failureKind !== "recipe") return;
+    recordRecipeRun(services, tx, task.payload.recipeId, false);
+  });
+
   taskHandlers.on("form", "failed", ({ task }, tx) => {
     if (task.failureKind !== "recipe") return;
     recordRecipeRun(services, tx, task.payload.recipeId, false);

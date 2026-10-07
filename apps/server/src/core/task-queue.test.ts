@@ -1504,6 +1504,19 @@ describe("a removal that may have been submitted", () => {
     ).toMatchObject({ status: "failed" });
   });
 
+  it("holds a form for a person when it fails for good, so nothing hands it on to be submitted again", () => {
+    const task = claimFlagged("form", formPayload);
+    expect(
+      queue.fail(task.id, {
+        ...worker,
+        error: "expect_text failed",
+        retryable: false,
+        kind: "recipe",
+        actor: "worker",
+      }),
+    ).toMatchObject({ status: "blocked", blockedReason: "unknown", failureKind: "recipe" });
+  });
+
   it("does not hold a scan, which submits nothing", () => {
     queue.enqueue({ kind: "agent", payload: agentScanPayload() });
     const task = queue.claim({ ...worker, kinds: ["agent"] });
