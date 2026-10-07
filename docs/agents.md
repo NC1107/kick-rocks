@@ -138,7 +138,10 @@ Kick Rocks sums them across attempts so the cost and success of agents can be me
 2. Read `instructions`, then open the page they name in your own browser.
 3. While you work, call `heartbeat_task` before the lease runs out.
    The lease is `leaseExpiresAt`, and a long task needs a heartbeat every few minutes.
-   A heartbeat after the lease expired answers `lease_expired`: stop, because someone else may now hold the task.
+   The default lease is five minutes, and `claim_task` takes a `leaseMs` of up to an hour, so ask for about 30 minutes when the site is slow.
+   A heartbeat after the lease expired answers `lease_expired`, or `lease_not_held` once the task was put back in the queue.
+   Either way the lease cannot be revived.
+   If you already finished the work, still call `complete_task`, `block_task`, or `fail_task`: it is accepted until someone else claims the task, and refused after that.
 4. Finish with exactly one of `complete_task`, `block_task`, `fail_task`, or `release_task`.
 
 If you stop for any reason without finishing, release the task.
@@ -209,7 +212,7 @@ The worker API uses `KICKROCKS_WORKER_TOKEN` and the MCP endpoint uses its own t
 | 503 `mcp_disabled` | The endpoint is off. Turn it on in Settings. |
 | 403 | The request carried an `Origin` that is not this server's. |
 | 405 | A `GET` or `DELETE`. The server is stateless and only answers `POST`. |
-| `lease_not_held` | You did not claim this task, or someone else holds it now. |
-| `lease_expired` | The lease ran out before the heartbeat. Stop working on the task. |
+| `lease_not_held` | You did not claim this task, someone else holds it now, or, for a heartbeat only, the lease ran out and the task is back in the queue. |
+| `lease_expired` | The lease ran out before the heartbeat. Report what you finished, or stop working on the task. |
 | `invalid_result` | The result does not match the task. The `issues` say which part. |
 | `invalid_screenshot` | The screenshot is not valid base64 of a PNG or JPEG of at most 8 MB. |

@@ -1,6 +1,7 @@
 import { CSRF_HEADER, CSRF_HEADER_VALUE, requiresCsrfHeader } from "@kickrocks/shared";
 import type { FastifyInstance, FastifyReply } from "fastify";
 import type { AuthService } from "./auth.js";
+import type { HostPolicy } from "./hosts.js";
 import type { Secrets, TokenCheck } from "./secrets.js";
 
 export type GuardKind = "none" | "session" | "worker" | "mcp";
@@ -110,7 +111,11 @@ function rejectCsrf(reply: FastifyReply) {
  * check runs before the body is parsed, so a body that Fastify would accept as text/plain never
  * reaches a handler from another site.
  */
-export function registerGuards(app: FastifyInstance, { auth, secrets }: GuardServices): void {
+export function registerGuards(
+  app: FastifyInstance,
+  { auth, secrets }: GuardServices,
+  hostAllowed: HostPolicy,
+): void {
   app.addHook("onRequest", async (request, reply) => {
     const declared = request.routeOptions.config?.auth;
     const kind: GuardKind = declared ?? guardFor(request.url);
@@ -120,6 +125,15 @@ export function registerGuards(app: FastifyInstance, { auth, secrets }: GuardSer
       csrfApplies &&
       requiresCsrfHeader({ method: request.method, auth: kind }) &&
       request.headers[CSRF_HEADER] !== CSRF_HEADER_VALUE;
+
+    // Bearer clients are not browsers, so they may use any name, such as a docker service name.
+    if ((kind === "none" || kind === "session") && !hostAllowed(request.headers.host)) {
+      return reply.code(421).send({
+        error: "misdirected_request",
+        message:
+          "This server does not answer to that name. Set KICKROCKS_PUBLIC_URL or KICKROCKS_ALLOWED_HOSTS to the one you use.",
+      });
+    }
 
     switch (kind) {
       case "none":

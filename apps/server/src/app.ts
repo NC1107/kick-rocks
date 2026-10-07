@@ -6,6 +6,7 @@ import Fastify, { type FastifyInstance } from "fastify";
 import type { Config } from "./config.js";
 import { registerGuards } from "./core/guard.js";
 import { registerHealth } from "./core/health.js";
+import { createHostPolicy } from "./core/hosts.js";
 import { installErrorHandling } from "./core/http.js";
 import { registerModules } from "./modules/index.js";
 import { registerScheduler } from "./scheduler/index.js";
@@ -59,7 +60,7 @@ export async function buildApp({ services, database, version }: AppContext): Pro
   installErrorHandling(server);
   registerSecurityHeaders(server);
   await server.register(fastifyCookie);
-  registerGuards(server, services);
+  registerGuards(server, services, createHostPolicy(config));
 
   // Modules may register startup steps that store rows pointing at targets, so the targets come first.
   services.targets.sync();

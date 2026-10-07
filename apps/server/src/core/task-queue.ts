@@ -162,10 +162,11 @@ export interface TaskScreenshotData {
  * {@link TaskHandlers}), so the consequence of a task can never be lost to a crash. That makes all
  * of it synchronous, and a method called from inside a handler joins the handler's transaction.
  *
- * A lease that has expired is recovered by the next claim and by the scheduler's reaper. Until
- * then the worker that holds it may still report: finished work is better kept than redone, since
- * a form submitted twice is worse than a late answer. Only `heartbeat` refuses an expired lease,
- * so a worker finds out it is late.
+ * A lease that has expired is recovered by the next claim and by the scheduler's reaper, which
+ * puts the task back in the queue and remembers who held it. That holder may still report
+ * finished, blocked, or failed work until another claimer takes the task: a form submitted twice
+ * is worse than a late answer. Only `heartbeat` refuses an expired lease, so a worker finds out
+ * it is late.
  */
 export interface TaskQueue {
   enqueue<K extends TaskKind, S extends TaskKind = K>(
@@ -290,6 +291,18 @@ export function createTaskQueue({ db, clock, handlers }: TaskQueueDeps): TaskQue
     return row;
   }
 
+  /**
+   * The row a finished, blocked, or failed report is about. After a lease runs out the task goes
+   * back in the queue but remembers its last holder, who may still report until someone else
+   * claims it, because an opt-out form that was submitted is better kept than submitted again.
+   */
+  function reportingRow(handle: Pick<Tx, "select">, id: string, workerId: string): TaskRow {
+    const row = loadRow(handle, id);
+    const lapsedHolder = row.status === "queued" && row.leaseOwner === workerId;
+    if (!lapsedHolder) return leasedRow(handle, id, workerId);
+    return row;
+  }
+
   function emit(
     tx: Tx,
     name: TaskEvent["name"],
@@ -343,7 +356,7 @@ export function createTaskQueue({ db, clock, handlers }: TaskQueueDeps): TaskQue
   }
 
   function expireLease(tx: Tx, row: TaskRow, now: string): Task {
-    return retryOrFail(
+    const task = retryOrFail(
       tx,
       row,
       {
@@ -358,6 +371,9 @@ export function createTaskQueue({ db, clock, handlers }: TaskQueueDeps): TaskQue
       "system",
       now,
     );
+    if (task.status !== "queued") return task;
+    tx.update(tasks).set({ leaseOwner: row.leaseOwner }).where(eq(tasks.id, row.id)).run();
+    return { ...task, leaseOwner: row.leaseOwner };
   }
 
   function expiredLeases(tx: Pick<Tx, "select">, now: string): TaskRow[] {
@@ -504,7 +520,7 @@ export function createTaskQueue({ db, clock, handlers }: TaskQueueDeps): TaskQue
     complete(id, { workerId, result, actor, usage }) {
       const now = nowIso(clock);
       return db.transaction((tx) => {
-        const row = leasedRow(tx, id, workerId);
+        const row = reportingRow(tx, id, workerId);
         const parsed = resultSchemaFor(row).safeParse(result);
         if (!parsed.success) throw invalidResult(row.kind, parsed.error);
         const task = toTask(
@@ -540,7 +556,7 @@ export function createTaskQueue({ db, clock, handlers }: TaskQueueDeps): TaskQue
         }
       }
       return db.transaction((tx) => {
-        const row = leasedRow(tx, id, workerId);
+        const row = reportingRow(tx, id, workerId);
         if (screenshot) {
           tx.insert(taskArtifacts)
             .values({
@@ -579,7 +595,7 @@ export function createTaskQueue({ db, clock, handlers }: TaskQueueDeps): TaskQue
     fail(id, { workerId, error, retryable, kind = "internal", step, retryAfterMs, actor, usage }) {
       const now = nowIso(clock);
       return db.transaction((tx) => {
-        const row = leasedRow(tx, id, workerId);
+        const row = reportingRow(tx, id, workerId);
         return retryOrFail(
           tx,
           row,

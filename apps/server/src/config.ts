@@ -17,6 +17,7 @@ const Env = z.object({
     .optional(),
   KICKROCKS_EXTRA_TARGETS: z.string().optional(),
   KICKROCKS_EXTRA_RECIPES: z.string().optional(),
+  KICKROCKS_ALLOWED_HOSTS: z.string().optional(),
   KICKROCKS_TRUST_PROXY: z.string().default("off"),
   KICKROCKS_SCHEDULER: z.enum(["on", "off"]).default("on"),
   KICKROCKS_ALLOW_PRIVATE_LINK_HOSTS: z.string().optional(),
@@ -44,6 +45,11 @@ export interface Config {
   extraTargetsPath: string | null;
   /** A directory of extra recipe files. */
   extraRecipesDir: string | null;
+  /**
+   * Hostnames besides loopback, IP addresses, and the public URL that the server accepts in a
+   * request's Host header, for a name that reaches it through a proxy or the local network.
+   */
+  allowedHosts: string[];
   /**
    * Which proxies to believe X-Forwarded-* headers from: `false`, a count of proxy hops, or a list
    * of proxy addresses. Believing every hop would let a client choose its own address with a forged
@@ -136,6 +142,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     workerToken: parsed.KICKROCKS_WORKER_TOKEN ?? null,
     extraTargetsPath: pathOrNull(parsed.KICKROCKS_EXTRA_TARGETS),
     extraRecipesDir: pathOrNull(parsed.KICKROCKS_EXTRA_RECIPES),
+    allowedHosts: hostList(parsed.KICKROCKS_ALLOWED_HOSTS),
     trustProxy: proxyTrust(parsed.KICKROCKS_TRUST_PROXY),
     schedulerEnabled: parsed.KICKROCKS_SCHEDULER === "on",
     sendGapMs: gapRange(parsed.KICKROCKS_SEND_GAP_MS),

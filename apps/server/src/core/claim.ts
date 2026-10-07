@@ -127,7 +127,7 @@ function agentInstructions(
     "- Stay on this site and its own domains. Do not email anyone or visit unrelated sites.",
     "- Never submit a form more than once. Do not guess at details you were not given.",
     '- If the site needs a detail that is not in "fields", do not guess it. Call block_task with reason unknown and a detail that names the field, so a person can decide.',
-    `- Your lease runs out at ${task.leaseExpiresAt}. Call heartbeat_task before then, because a task whose lease ran out goes to someone else and your result is refused. Claim with a leaseMs of about 30 minutes for slow sites.`,
+    `- Your lease runs out at ${task.leaseExpiresAt}. Call heartbeat_task before then, because once the lease runs out the task can be given to someone else, and your result is then refused. Claim with a leaseMs of about 30 minutes for slow sites.`,
     "",
     `When finished, call complete_task with exactly this result shape: ${result}`,
     "If something breaks that is not a human check, call fail_task with a short error, a kind (site, network, or internal), and whether trying again could help.",

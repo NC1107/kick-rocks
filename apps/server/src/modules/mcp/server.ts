@@ -4,6 +4,7 @@ import {
   type McpToolName,
   type TaskKind,
   type TaskStatus,
+  type TaskSummary,
 } from "@kickrocks/shared";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
@@ -24,6 +25,14 @@ const OPEN_STATUSES: readonly TaskStatus[] = ["queued", "leased", "blocked"];
 
 const isBrowserKind = (kind: TaskKind) => (BROWSER_TASK_KINDS as readonly string[]).includes(kind);
 
+/**
+ * A scan or record page a worker got stuck on carries the person's name and city in its address, and
+ * list_tasks promises to hold no personal data, so only the site is kept.
+ */
+function withoutPersonalUrl(summary: TaskSummary): TaskSummary {
+  return { ...summary, blockedUrl: summary.blockedUrl ? new URL(summary.blockedUrl).origin : null };
+}
+
 function toolHandlers(services: AppServices): ToolHandlers {
   const operations = createTaskOperations(services, MCP_CALLER);
   const recipes = createRecipeStore(services);
@@ -38,7 +47,7 @@ function toolHandlers(services: AppServices): ToolHandlers {
         kinds: kind ? [kind] : BROWSER_TASK_KINDS,
         limit,
       });
-      return { tasks: taskQueue.summarize(tasks) };
+      return { tasks: taskQueue.summarize(tasks).map(withoutPersonalUrl) };
     },
 
     claim_task: ({ workerId, kinds, taskId, leaseMs }) => ({
