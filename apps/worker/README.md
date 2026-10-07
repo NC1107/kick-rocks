@@ -40,6 +40,7 @@ An empty value counts as unset.
 | `KICKROCKS_CHROME_PROFILE` | `./.chrome-profile` | Persistent Chrome profile, so cookies and logins survive restarts. |
 | `KICKROCKS_CHROME_EXECUTABLE` | unset | A specific Chrome or Chromium binary. |
 | `KICKROCKS_WORKER_HEADLESS` | `false` | Run without a window. Real runs are headed, under Xvfb in the container. |
+| `KICKROCKS_WORKER_PROXY` | none | An http proxy URL that all of Chrome's traffic goes through, so a filtering proxy can keep the browser off private networks. The worker's own calls to the server do not use it. |
 | `KICKROCKS_WORKER_NO_SANDBOX` | `false` | Pass `--no-sandbox`. The image sets it, because the container is the sandbox. |
 | `KICKROCKS_WORKER_PACE` | `human` | `instant` skips the human typing rhythm, for a fixture site. |
 | `KICKROCKS_WORKER_ALLOW_HTTP` | `false` | Allow record and confirmation links on plain http, for a fixture site on this machine. |

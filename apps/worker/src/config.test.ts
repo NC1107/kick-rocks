@@ -17,6 +17,7 @@ describe("loadWorkerConfig", () => {
       allowHttp: false,
       pace: "human",
       chromeExecutable: null,
+      proxyServer: null,
       logLevel: "info",
     });
     expect(config.workerId.length).toBeGreaterThan(0);
@@ -36,6 +37,7 @@ describe("loadWorkerConfig", () => {
       KICKROCKS_WORKER_ALLOW_HTTP: "true",
       KICKROCKS_WORKER_PACE: "instant",
       KICKROCKS_CHROME_EXECUTABLE: "/usr/local/bin/chrome",
+      KICKROCKS_WORKER_PROXY: "http://egress:3128",
       LOG_LEVEL: "debug",
     });
     expect(config).toEqual({
@@ -50,6 +52,7 @@ describe("loadWorkerConfig", () => {
       allowHttp: true,
       pace: "instant",
       chromeExecutable: "/usr/local/bin/chrome",
+      proxyServer: "http://egress:3128",
       logLevel: "debug",
     });
   });

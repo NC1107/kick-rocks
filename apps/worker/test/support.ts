@@ -59,6 +59,7 @@ export function config(overrides: Partial<WorkerConfig> = {}): WorkerConfig {
     allowHttp: true,
     pace: "instant",
     chromeExecutable: null,
+    proxyServer: null,
     logLevel: "error",
     ...overrides,
   };

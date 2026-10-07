@@ -25,6 +25,8 @@ const Env = z.object({
   KICKROCKS_WORKER_ALLOW_HTTP: z.enum(["true", "false"]).default("false"),
   /** `instant` skips the human typing rhythm, for tests against a fixture site. */
   KICKROCKS_WORKER_PACE: z.enum(["human", "instant"]).default("human"),
+  /** An http proxy that all of the browser's traffic goes through, such as the egress filter in the production stack. */
+  KICKROCKS_WORKER_PROXY: WebUrl.optional(),
   /** A specific Chrome or Chromium binary, instead of the installed Chrome or Playwright's Chromium. */
   KICKROCKS_CHROME_EXECUTABLE: z.string().optional(),
   LOG_LEVEL: z.enum(["debug", "info", "warn", "error"]).default("info"),
@@ -42,6 +44,7 @@ export interface WorkerConfig {
   allowHttp: boolean;
   pace: "human" | "instant";
   chromeExecutable: string | null;
+  proxyServer: string | null;
   logLevel: z.infer<typeof Env>["LOG_LEVEL"];
 }
 
@@ -66,6 +69,7 @@ export function loadWorkerConfig(env: NodeJS.ProcessEnv = process.env): WorkerCo
     chromeExecutable: parsed.KICKROCKS_CHROME_EXECUTABLE
       ? resolve(parsed.KICKROCKS_CHROME_EXECUTABLE)
       : null,
+    proxyServer: parsed.KICKROCKS_WORKER_PROXY ?? null,
     logLevel: parsed.LOG_LEVEL,
   };
 }

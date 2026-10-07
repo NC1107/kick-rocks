@@ -84,6 +84,8 @@ export interface BrowserSettings {
   profileDir: string;
   headless: boolean;
   noSandbox: boolean;
+  /** An http proxy for all of the browser's traffic; null connects directly. */
+  proxyServer?: string | null;
   /** A specific binary; otherwise the installed Chrome, otherwise Playwright's Chromium. */
   executablePath: string | null;
 }
@@ -162,6 +164,7 @@ export const launchPersistentChrome = async (
       headless: settings.headless,
       ...(executablePath ? { executablePath } : {}),
       args: ["--remote-debugging-port=0", ...(settings.noSandbox ? ["--no-sandbox"] : [])],
+      ...(settings.proxyServer ? { proxy: { server: settings.proxyServer } } : {}),
       ...BROWSER_CONTEXT_OPTIONS,
     });
     bypassOnEveryPage(context);
