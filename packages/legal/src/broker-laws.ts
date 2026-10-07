@@ -48,4 +48,14 @@ export const BROKER_REGISTRATION_LAWS: readonly BrokerRegistrationLaw[] = [
       "Brokers register with the Department of Consumer and Business Services and must say whether and how a resident can opt out. The section gives consumers no request right.",
     sourceUrl: "https://www.oregonlegislature.gov/bills_laws/ors/ors646A.html",
   },
+  {
+    id: "nj-data-broker-registration",
+    state: "NJ",
+    name: "New Jersey data broker and data collector registration",
+    citation: "N.J. A5328 (2026)",
+    effectiveDate: "2026-06-30",
+    summary:
+      "Brokers and data collectors, meaning businesses with a direct consumer relationship that sell or license personal data to a broker, register each year and may not sell or license sensitive data. Most provisions took effect on signing, the first registration period runs from 2027-04-01 to 2027-06-30, and the public registry follows. It is a registration and conduct law, so it gives consumers no request right.",
+    sourceUrl: "https://www.njleg.state.nj.us/bill-search/2026/A5328",
+  },
 ];
