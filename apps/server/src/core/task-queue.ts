@@ -194,6 +194,17 @@ export interface TaskQueue {
    * is not counted. For a worker that is shutting down, or an email deferred by a send cap.
    */
   release(id: string, input: ReleaseInput): Task;
+  /**
+   * Makes queued tasks of one kind and profile due at `to` when they were waiting for no later
+   * than `waitingUntil`. A task that waits out a recovered lease keeps its grace. Returns how
+   * many it moved.
+   */
+  pullForward(input: {
+    kind: TaskKind;
+    profileId: string;
+    waitingUntil: Date;
+    to: Date;
+  }): number;
   /** Puts a blocked task back in the queue with a fresh attempt budget. */
   resume(id: string, actor?: RequestActor): Task;
   /** A person did the work by hand: closes a blocked task as done. */
@@ -652,6 +663,23 @@ export function createTaskQueue({
             .get(),
         );
       });
+    },
+
+    pullForward({ kind, profileId, waitingUntil, to }) {
+      return db
+        .update(tasks)
+        .set({ runAfter: to.toISOString(), updatedAt: nowIso(clock) })
+        .where(
+          and(
+            eq(tasks.status, "queued"),
+            eq(tasks.kind, kind),
+            eq(tasks.profileId, profileId),
+            isNull(tasks.leaseOwner),
+            lte(tasks.runAfter, waitingUntil.toISOString()),
+            sql`${tasks.runAfter} > ${to.toISOString()}`,
+          ),
+        )
+        .run().changes;
     },
 
     resume(id, actor = "user") {

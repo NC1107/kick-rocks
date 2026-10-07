@@ -1,5 +1,5 @@
 import { mailboxes, outgoingMail, requests, targets, tasks } from "@kickrocks/db";
-import { POLICY_RESPONSE_DAYS, parseOutgoingMessageId } from "@kickrocks/shared";
+import { API_ROUTES, POLICY_RESPONSE_DAYS, parseOutgoingMessageId } from "@kickrocks/shared";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
@@ -386,6 +386,37 @@ describe("when sending fails", () => {
         ).toBeNull();
       },
     );
+
+    it("sends right after the mailbox is saved, without waiting out the pause", async () => {
+      const { request } = openRequest();
+      const repair = breakTransport("EAUTH");
+      await runners.email.runDue();
+      expect(taskFor(request.id)?.runAfter).toBe(
+        ctx.services.mailHolds.until(mailboxId)?.toISOString(),
+      );
+      repair();
+
+      const saved = await ctx.call(API_ROUTES.mailboxSave, {
+        params: { id: profileId },
+        body: {
+          provider: "fastmail",
+          address: "jordan@example.com",
+          username: "jordan@example.com",
+          password: "fixed-app-password",
+          smtpHost: "smtp.example.test",
+          smtpPort: 465,
+          smtpSecure: true,
+          imapHost: "imap.example.test",
+          imapPort: 993,
+          replyFolder: "INBOX",
+          dailyCap: 30,
+        },
+      });
+      expect(saved.ok).toBe(true);
+
+      expect(await runners.email.runDue()).toBe(1);
+      expect(ctx.mail.sent).toHaveLength(1);
+    });
 
     it("waits longer after each failure in a row", async () => {
       openRequest();

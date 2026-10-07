@@ -128,6 +128,22 @@ function cursorStillValid(existing: MailboxRow, body: MailboxInput): boolean {
   );
 }
 
+/**
+ * Ends a send pause and makes the sends it was holding back due now. They would otherwise sit out
+ * the rest of a pause that no longer applies, and the pacer spaces them by the send gap anyway.
+ */
+export function clearSendHold(services: MailboxServices, mailbox: MailboxRow): void {
+  const until = services.mailHolds.until(mailbox.id);
+  services.mailHolds.clear(mailbox.id);
+  if (!until) return;
+  services.taskQueue.pullForward({
+    kind: "email_send",
+    profileId: mailbox.profileId,
+    waitingUntil: until,
+    to: services.clock.now(),
+  });
+}
+
 export function saveMailbox(
   services: MailboxServices,
   profileId: string,
@@ -151,7 +167,7 @@ export function saveMailbox(
   };
 
   // A fixed mailbox gets to try again at once instead of waiting out a pause its old settings earned.
-  if (existing) services.mailHolds.clear(existing.id);
+  if (existing) clearSendHold(services, existing);
   if (!existing) {
     return services.db
       .insert(mailboxes)

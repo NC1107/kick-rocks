@@ -606,6 +606,21 @@ describe("the send pause", () => {
     expect(ctx.services.mailHolds.until(mailbox.id)).toBeNull();
   });
 
+  it("makes the sends it held due again when a passing connection test clears it", async () => {
+    const { profile, mailbox } = pausedMailbox();
+    const until = ctx.services.mailHolds.until(mailbox.id) ?? new Date();
+    const { task } = ctx.services.taskQueue.enqueue({
+      kind: "email_send",
+      profileId: profile.id,
+      payload: { requestId: "r1", kind: "initial", fields: [], inReplyTo: null },
+      runAfter: until,
+    });
+    await ctx.call(API_ROUTES.mailboxTest, { params: { id: profile.id }, body: TEST_BODY });
+    expect(ctx.services.taskQueue.getOrThrow(task.id).runAfter).toBe(
+      ctx.clock.now().toISOString(),
+    );
+  });
+
   it("is kept by a connection test that fails", async () => {
     const { profile, mailbox } = pausedMailbox();
     ctx.mail.verifyResult = { ok: false, error: "The server rejected the app password." };

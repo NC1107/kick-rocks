@@ -6,6 +6,7 @@ import { requireProfile } from "../../core/require-profile.js";
 import { PROVIDER_PRESETS } from "../../mail/presets.js";
 import { connectionOf } from "../../runners/connection.js";
 import {
+  clearSendHold,
   connectionForTest,
   deleteMailbox,
   findMailbox,
@@ -39,7 +40,7 @@ export const mailboxModule: ModulePlugin = (app, services) => {
     const result: MailboxTestResult = { smtp, imap };
     // Both sides answering for the saved servers is the proof the pause was waiting for.
     if (stored && smtp.ok && imap.ok && sameDestination(stored, body)) {
-      services.mailHolds.clear(stored.id);
+      clearSendHold(services, stored);
     }
     return result;
   });
