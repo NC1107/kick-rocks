@@ -1,0 +1,55 @@
+{
+  "id": "clustrmaps.remove.v1",
+  "brokerId": "clustrmaps",
+  "version": 1,
+  "purpose": "remove",
+  "entryUrl": "https://clustrmaps.com/bl/opt-out",
+  "fields": ["record_url", "email"],
+  "steps": [
+    {
+      "kind": "goto",
+      "url": "https://clustrmaps.com/bl/opt-out"
+    },
+    {
+      "kind": "fill",
+      "target": {
+        "css": "input[type='url'], input[name*='url' i]"
+      },
+      "field": "record_url"
+    },
+    {
+      "kind": "fill",
+      "target": {
+        "css": "input[type='email']"
+      },
+      "field": "email"
+    },
+    {
+      "kind": "captcha_checkpoint"
+    },
+    {
+      "kind": "click",
+      "target": {
+        "css": "form button[type='submit']"
+      }
+    },
+    {
+      "kind": "email_confirmation",
+      "fromDomain": "clustrmaps.com"
+    }
+  ],
+  "canary": {
+    "url": "https://clustrmaps.com/bl/opt-out",
+    "selectors": [
+      {
+        "css": "input[type='email']"
+      },
+      {
+        "css": "form button[type='submit']"
+      }
+    ]
+  },
+  "notes": "Not verified. clustrmaps.com resolved to 127.0.0.1 from this machine's DNS on 2026-10-07 and refused connections, so the opt-out page was never loaded. The steps follow the site's published flow (profile link, email, confirm by email) with generic selectors that are guesses. Re-check from a network that resolves the site.",
+  "verifiedAt": "2026-10-07",
+  "liveStatus": "unverified"
+}

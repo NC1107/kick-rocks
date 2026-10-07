@@ -1,0 +1,84 @@
+{
+  "id": "smartbackgroundchecks.remove.v1",
+  "brokerId": "smartbackgroundchecks",
+  "version": 1,
+  "purpose": "remove",
+  "entryUrl": "https://www.smartbackgroundchecks.com/optout",
+  "fields": ["first_name", "last_name", "email"],
+  "steps": [
+    {
+      "kind": "goto",
+      "url": "https://www.smartbackgroundchecks.com/optout"
+    },
+    {
+      "kind": "select",
+      "target": {
+        "css": "form[action=\"/remove\"] select#requester_type"
+      },
+      "value": "The subject of the request"
+    },
+    {
+      "kind": "fill",
+      "target": {
+        "css": "form[action=\"/remove\"] #subject_fn"
+      },
+      "field": "first_name"
+    },
+    {
+      "kind": "fill",
+      "target": {
+        "css": "form[action=\"/remove\"] #subject_ln"
+      },
+      "field": "last_name"
+    },
+    {
+      "kind": "fill",
+      "target": {
+        "css": "form[action=\"/remove\"] #subject_email"
+      },
+      "field": "email"
+    },
+    {
+      "kind": "check",
+      "target": {
+        "css": "form[action=\"/remove\"] #confirm_authorize"
+      }
+    },
+    {
+      "kind": "captcha_checkpoint"
+    },
+    {
+      "kind": "click",
+      "target": {
+        "css": "form[action=\"/remove\"] button[type=\"submit\"].btn-primary"
+      }
+    },
+    {
+      "kind": "email_confirmation",
+      "fromDomain": "smartbackgroundchecks.com"
+    }
+  ],
+  "canary": {
+    "url": "https://www.smartbackgroundchecks.com/optout",
+    "selectors": [
+      {
+        "css": "form[action=\"/remove\"] select#requester_type"
+      },
+      {
+        "css": "form[action=\"/remove\"] #subject_fn"
+      },
+      {
+        "css": "form[action=\"/remove\"] #subject_ln"
+      },
+      {
+        "css": "form[action=\"/remove\"] #subject_email"
+      },
+      {
+        "css": "form[action=\"/remove\"] #confirm_authorize"
+      }
+    ]
+  },
+  "notes": "Verified live 2026-10-07 in headed and headless Chrome. /optout redirects to /remove, which has a requester select, subject first, middle and last name and email, a confirm-authorize checkbox, a reCAPTCHA, and Submit. Only the subject path is used. The page does not say what follows a submit, so the recipe assumes an emailed confirmation link; if that is wrong the run still ends cleanly, and the first real run should correct the note. Nothing was submitted.",
+  "verifiedAt": "2026-10-07",
+  "liveStatus": "verified"
+}
