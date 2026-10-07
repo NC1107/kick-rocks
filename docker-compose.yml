@@ -6,6 +6,11 @@ services:
     ports:
       - "127.0.0.1:8420:8420"
     volumes:
-      - ./data:/data
+      # A named volume so the container's unprivileged user owns it from the start.
+      # A bind mount works too if you chown the host directory to uid 1000 first.
+      - kickrocks-data:/data
     environment:
       LOG_LEVEL: info
+
+volumes:
+  kickrocks-data:

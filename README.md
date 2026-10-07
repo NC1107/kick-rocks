@@ -29,7 +29,14 @@ docker compose up -d
 ```
 
 Then open http://127.0.0.1:8420.
-The database is encrypted with a key that gets generated into `./data/db.key` on first start, so back up that folder as a unit.
+The database and its key live in a docker volume called `kickrocks-data`.
+The key gets generated on first start and the database is useless without it, so back up the volume as a unit, something like:
+
+```sh
+docker run --rm -v kick-rocks_kickrocks-data:/data -v "$PWD":/backup alpine tar czf /backup/kickrocks-backup.tgz -C /data .
+```
+
+If you'd rather have a plain folder on disk, swap the volume for a bind mount in `docker-compose.yml` and chown that folder to uid 1000 first, the container runs as an unprivileged user.
 
 ## Developing
 

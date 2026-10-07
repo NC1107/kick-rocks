@@ -27,6 +27,8 @@ COPY --from=build /out/server /app/server
 COPY --from=build /app/apps/web/dist /app/web
 COPY --from=build /app/packages/brokers/data/generated /app/server/node_modules/@kickrocks/brokers/data/generated
 COPY --from=build /app/packages/db/drizzle /app/server/node_modules/@kickrocks/db/drizzle
+# Owned by the unprivileged user so a fresh named volume inherits writable permissions.
+RUN mkdir -p /data && chown node:node /data
 VOLUME ["/data"]
 EXPOSE 8420
 USER node
