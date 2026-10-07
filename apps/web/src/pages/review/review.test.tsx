@@ -290,7 +290,8 @@ describe("the review queue", () => {
   it("offers a retry for a task that failed for good", async () => {
     const { user, mock } = open("failed");
     const task = await card(/KinSearch, Scan for records/);
-    expect(task.getByText("The site had a problem")).toBeVisible();
+    expect(task.getByText("Failed")).toBeVisible();
+    expect(task.queryByText("The site had a problem")).toBeNull();
     const before = mock.store.tasks.length;
     await user.click(task.getByRole("button", { name: "Retry" }));
     await waitFor(() => expect(mock.store.tasks.length).toBe(before + 1));

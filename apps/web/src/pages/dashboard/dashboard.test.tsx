@@ -4,7 +4,13 @@ import { createMockApp } from "../../../mock/app.js";
 import { renderPage } from "../../test/render.js";
 import { instrument } from "../profiles/test-support.js";
 import { Component as DashboardPage } from "./index.js";
-import { attentionItems, groupTotal, STATUS_GROUPS } from "./sections.js";
+import {
+  AttentionCard,
+  attentionItems,
+  groupActivity,
+  groupTotal,
+  STATUS_GROUPS,
+} from "./sections.js";
 
 describe("the dashboard", () => {
   it("shows a skeleton shaped like the page while it loads", async () => {
@@ -207,5 +213,86 @@ describe("dashboard helpers", () => {
     expect(items.map((item) => [item.count, item.title])).toEqual([
       [3, "Tasks waiting for an agent"],
     ]);
+  });
+});
+
+describe("attention detail wording", () => {
+  const none = {
+    blockedTasks: 0,
+    pendingMatches: 0,
+    unreviewedMessages: 0,
+    needsVerification: 0,
+    failedTasks: 0,
+    agentTasks: 0,
+  };
+
+  it("speaks of one failed task as it", () => {
+    renderPage(<AttentionCard attention={{ ...none, failedTasks: 1 }} />);
+    expect(screen.getByText("Failed task")).toBeInTheDocument();
+    expect(screen.getByText("Retry it, or finish it by hand.")).toBeInTheDocument();
+  });
+
+  it("speaks of several failed tasks as them", () => {
+    renderPage(<AttentionCard attention={{ ...none, failedTasks: 2 }} />);
+    expect(screen.getByText("Retry them, or finish them by hand.")).toBeInTheDocument();
+  });
+
+  it("speaks of one task waiting for an agent as it", () => {
+    renderPage(<AttentionCard attention={{ ...none, agentTasks: 1 }} />);
+    expect(screen.getByText("Connect an agent, or finish it by hand.")).toBeInTheDocument();
+  });
+});
+
+describe("groupActivity", () => {
+  it("takes the count from the server when an event carries one", () => {
+    const groups = groupActivity([
+      { id: "e1", requestId: "r1", createdAt: "2026-10-07T10:00:00Z", eventCount: 300 } as never,
+      { id: "e2", requestId: "r2", createdAt: "2026-10-07T09:00:00Z", eventCount: 2 } as never,
+    ]);
+    expect(groups.map((g) => [g.latest.id, g.count])).toEqual([
+      ["e1", 300],
+      ["e2", 2],
+    ]);
+  });
+
+  const event = (id: string, requestId: string, createdAt: string) =>
+    ({ id, requestId, createdAt }) as never;
+
+  it("folds all events of one request into a count, even when not adjacent", () => {
+    const groups = groupActivity([
+      event("e1", "r1", "2026-10-07T10:00:00Z"),
+      event("e2", "r1", "2026-10-07T09:00:00Z"),
+      event("e3", "r1", "2026-10-07T08:00:00Z"),
+      event("e4", "r2", "2026-10-07T07:00:00Z"),
+      event("e5", "r1", "2026-10-07T06:00:00Z"),
+    ]);
+    expect(groups.map((g) => [g.latest.id, g.count])).toEqual([
+      ["e1", 4],
+      ["e4", 1],
+    ]);
+  });
+
+  it("keeps only the newest few requests", () => {
+    const events = Array.from({ length: 10 }, (_, i) =>
+      event(`e${i}`, `r${i}`, "2026-10-07T10:00:00Z"),
+    );
+    expect(groupActivity(events)).toHaveLength(6);
+    expect(groupActivity(events, 3)).toHaveLength(3);
+  });
+});
+
+describe("recent activity on the page", () => {
+  it("shows a count when a request repeats", async () => {
+    const mock = createMockApp();
+    const base = mock.store.requests[0];
+    if (!base) throw new Error("fixture");
+    renderPage(<DashboardPage />, { mock });
+    const activity = (await screen.findByRole("heading", { name: "Recent activity" })).closest(
+      "section",
+    ) as HTMLElement;
+    const requestIds = within(activity)
+      .getAllByRole("link")
+      .map((link) => link.getAttribute("href"));
+    expect(new Set(requestIds).size).toBeGreaterThan(1);
   });
 });

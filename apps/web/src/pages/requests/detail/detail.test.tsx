@@ -42,6 +42,21 @@ describe("the request page", () => {
     expect(screen.getByText("Sent the email.")).toBeVisible();
   });
 
+  it("joins several rights into one sentence with only the first capitalised", async () => {
+    const mock = failing(/never/);
+    const request = mock.store.requests.find(
+      (candidate) => candidate.targetId === "cardinal-insights",
+    );
+    if (!request) throw new Error("fixture");
+    request.rights = ["opt_out", "delete"];
+    renderPage(<RequestDetailPage />, {
+      path: "/requests/:id",
+      route: `/requests/${request.id}`,
+      mock,
+    });
+    expect(await screen.findByText("Opt out of sale and delete my data")).toBeVisible();
+  });
+
   it("orders events with the newest first", () => {
     const events = [
       { id: "a", createdAt: "2026-01-01T00:00:00.000Z" },

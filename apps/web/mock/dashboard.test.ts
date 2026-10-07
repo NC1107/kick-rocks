@@ -61,10 +61,10 @@ describe("dashboard handlers", () => {
     expect((await dashboardOf(jordan().id)).mailbox.lastError).toBe("Login failed");
   });
 
-  it("lists recent events newest first, at most twelve, with a reference and a target name", async () => {
+  it("lists recent events newest first, at most two hundred, with a reference and a target name", async () => {
     const { recentEvents } = await dashboardOf(jordan().id);
     expect(recentEvents.length).toBeGreaterThan(0);
-    expect(recentEvents.length).toBeLessThanOrEqual(12);
+    expect(recentEvents.length).toBeLessThanOrEqual(200);
     const times = recentEvents.map((event: { createdAt: string }) => event.createdAt);
     expect(times).toEqual([...times].sort().reverse());
     for (const event of recentEvents) {

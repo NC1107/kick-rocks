@@ -33,15 +33,24 @@ export default defineMockDomain({
         : 0;
 
       const recentEvents: DashboardEvent[] = requests
-        .flatMap((request) =>
-          request.events.map((event) => ({
-            ...event,
-            requestReference: request.reference,
-            targetName: request.target.name,
-          })),
-        )
+        .flatMap((request) => {
+          const latest = request.events.reduce<(typeof request.events)[number] | undefined>(
+            (best, event) => (!best || event.createdAt > best.createdAt ? event : best),
+            undefined,
+          );
+          return latest
+            ? [
+                {
+                  ...latest,
+                  eventCount: request.events.length,
+                  requestReference: request.reference,
+                  targetName: request.target.name,
+                },
+              ]
+            : [];
+        })
         .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
-        .slice(0, 12);
+        .slice(0, 20);
 
       return {
         profileId: profile.id,

@@ -322,7 +322,13 @@ function Detail({ request }: { request: RequestDetail }) {
               { term: "Channel", description: CHANNEL_LABELS[request.channel] },
               {
                 term: "Asked for",
-                description: request.rights.map((right) => RIGHT_LABELS[right]).join(" and "),
+                description: request.rights
+                  .map((right, index) =>
+                    index === 0
+                      ? RIGHT_LABELS[right]
+                      : RIGHT_LABELS[right].replace(/^./, (first) => first.toLowerCase()),
+                  )
+                  .join(" and "),
               },
               {
                 term: "Legal basis",
@@ -398,13 +404,15 @@ function Detail({ request }: { request: RequestDetail }) {
           <CardHeader
             title="Tasks"
             description={
-              live.length > 0
-                ? "Work queued, running, or waiting for you."
-                : "Nothing is running for this request."
+              request.tasks.length === 0
+                ? undefined
+                : live.length > 0
+                  ? "Work queued, running, or waiting for you."
+                  : "Nothing is running for this request."
             }
           />
           {request.tasks.length === 0 ? (
-            <p className="text-base text-ink-muted">No tasks yet.</p>
+            <p className="text-base text-ink-muted">No tasks for this request yet.</p>
           ) : (
             <ul className="m-0 list-none divide-y divide-line p-0">
               {request.tasks.map((task) => (

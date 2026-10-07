@@ -124,12 +124,18 @@ export function attentionItems(attention: Dashboard["attention"]): AttentionItem
       count: attention.agentTasks,
       title:
         attention.agentTasks === 1 ? "Task waiting for an agent" : "Tasks waiting for an agent",
-      detail: "Connect an agent, or finish them by hand.",
+      detail:
+        attention.agentTasks === 1
+          ? "Connect an agent, or finish it by hand."
+          : "Connect an agent, or finish them by hand.",
     },
     {
       count: attention.failedTasks,
       title: attention.failedTasks === 1 ? "Failed task" : "Failed tasks",
-      detail: "Retry them, or finish them by hand.",
+      detail:
+        attention.failedTasks === 1
+          ? "Retry it, or finish it by hand."
+          : "Retry them, or finish them by hand.",
     },
   ].filter((item) => item.count > 0);
 }
@@ -266,13 +272,44 @@ export function MailboxNotices({
   );
 }
 
+export const ACTIVITY_REQUEST_LIMIT = 6;
+
+export type ActivityGroup = {
+  /** The newest event of the request, which is the one described. */
+  latest: DashboardEvent;
+  count: number;
+};
+
+/** One entry per request over the whole list, so a busy request cannot repeat or hide the others. */
+export function groupActivity(
+  events: readonly DashboardEvent[],
+  limit = ACTIVITY_REQUEST_LIMIT,
+): ActivityGroup[] {
+  const byRequest = new Map<string, ActivityGroup>();
+  for (const event of events) {
+    const group = byRequest.get(event.requestId);
+    if (!group) {
+      byRequest.set(event.requestId, { latest: event, count: event.eventCount ?? 1 });
+      continue;
+    }
+    if (event.eventCount === undefined) group.count += 1;
+    if (Date.parse(event.createdAt) > Date.parse(group.latest.createdAt)) {
+      group.latest = event;
+      if (event.eventCount !== undefined) group.count = event.eventCount;
+    }
+  }
+  return [...byRequest.values()]
+    .sort((a, b) => Date.parse(b.latest.createdAt) - Date.parse(a.latest.createdAt))
+    .slice(0, limit);
+}
+
 export function ActivityList({ events }: { events: readonly DashboardEvent[] }) {
   if (events.length === 0) {
     return <p className="text-base text-ink-muted">Nothing has happened yet.</p>;
   }
   return (
     <ul className="m-0 -mt-1 list-none divide-y divide-line p-0">
-      {events.map((event) => (
+      {groupActivity(events).map(({ latest: event, count }) => (
         <li
           key={event.id}
           className={cn(
@@ -282,14 +319,15 @@ export function ActivityList({ events }: { events: readonly DashboardEvent[] }) 
         >
           <div className="min-w-0">
             <p className="text-base text-ink">{describeEvent(event)}</p>
-            <p className="mt-0.5 flex flex-wrap items-center gap-x-2 text-sm text-ink-muted">
+            <p className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-ink-muted">
               <Link
                 to={`/requests/${event.requestId}`}
-                className="rounded-xs font-medium text-ink underline decoration-line-strong underline-offset-2 hover:decoration-ink"
+                className="min-w-0 break-words rounded-xs font-medium text-ink underline decoration-line-strong underline-offset-2 hover:decoration-ink"
               >
                 {event.targetName}
               </Link>
               <Badge variant="outline">{event.requestReference}</Badge>
+              {count > 1 ? <span>{count} events</span> : null}
             </p>
           </div>
           <time

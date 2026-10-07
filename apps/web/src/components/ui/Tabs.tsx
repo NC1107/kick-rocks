@@ -134,7 +134,7 @@ export function Tab({ value, className, children, ...rest }: TabProps) {
   const ref = useRef<HTMLButtonElement>(null);
   // The strip scrolls on a narrow screen, so a tab chosen from the address must be brought into view.
   useEffect(() => {
-    if (active) ref.current?.scrollIntoView?.({ block: "nearest", inline: "nearest" });
+    if (active) ref.current?.scrollIntoView?.({ block: "nearest", inline: "center" });
   }, [active]);
   return (
     <button

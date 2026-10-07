@@ -36,6 +36,22 @@ describe("campaign handlers", () => {
     expect(again.json.counts.request_created).toBe(0);
   });
 
+  it("names the first emailed target in the sample, even in a mixed group", async () => {
+    const preview = await call({
+      method: "POST",
+      path: `/profiles/${jordan().id}/campaigns/preview`,
+      body: { selection: { preset: "everything" }, rights: ["opt_out"] },
+    });
+    const emailed = preview.json.items.find((item: { outcome: string; targetId: string }) => {
+      const target = app.store.targets.find((candidate) => candidate.id === item.targetId);
+      return (
+        item.outcome === "request_created" &&
+        (target?.contactMethod === "email" || target?.contactMethod === "both")
+      );
+    });
+    expect(preview.json.sampleEmail.subject).toContain(emailed.targetName);
+  });
+
   it("starts a scan for a people-search target instead of sending a request", async () => {
     const riley = app.store.profiles[1] as NonNullable<(typeof app.store.profiles)[number]>;
     const body = { selection: { targetIds: ["peopletrace"] }, rights: ["delete"] };

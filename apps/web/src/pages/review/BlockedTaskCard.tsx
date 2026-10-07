@@ -51,9 +51,15 @@ function Screenshot({ taskId }: { taskId: string }) {
         alt="The page where the task stopped"
         loading="lazy"
         onError={() => setFailed(true)}
-        className="mx-auto h-auto w-[44rem] max-w-none sm:w-full sm:max-w-full sm:object-contain"
+        className="mx-auto h-auto w-full max-w-full object-contain"
       />
       <span className="sr-only">(opens the full screenshot in a new tab)</span>
+      <span
+        aria-hidden="true"
+        className="block border-t border-line px-3 py-1.5 text-xs text-ink-muted sm:hidden"
+      >
+        Tap to open full size
+      </span>
     </a>
   );
 }
@@ -76,12 +82,14 @@ function ValuesToEnter({ profileId }: { profileId: string }) {
       <p className="mb-1.5 text-sm font-semibold text-ink">Details to type into the form</p>
       <ul className="m-0 flex list-none flex-col gap-1.5 p-0">
         {rows.map(({ field, value }) => (
-          <li key={field} className="flex flex-wrap items-center justify-between gap-2">
-            <span className="min-w-0 break-words text-base text-ink">
-              <span className="text-ink-muted">{PROFILE_FIELD_LABELS[field]}: </span>
-              {value}
+          <li key={field} className="flex items-center justify-between gap-3">
+            <span className="min-w-0 text-base text-ink">
+              <span className="block text-sm text-ink-muted">{PROFILE_FIELD_LABELS[field]}</span>
+              <span className="break-words">{value}</span>
             </span>
-            <CopyButton value={value as string} label="Copy" />
+            <span className="shrink-0">
+              <CopyButton value={value as string} label="Copy" />
+            </span>
           </li>
         ))}
       </ul>
@@ -179,7 +187,7 @@ export function BlockedTaskCard({
         <Badge tone="amber">{BLOCKED_REASON_LABELS[task.blockedReason]}</Badge>
       ) : null}
       {variant === "agent" ? <Badge tone="amber">Waiting for an agent</Badge> : null}
-      {failure ? <Badge tone="red">{failure.label}</Badge> : null}
+      {failure && !nested ? <Badge tone="red">{failure.label}</Badge> : null}
     </span>
   );
 

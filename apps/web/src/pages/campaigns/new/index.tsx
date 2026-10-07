@@ -178,7 +178,7 @@ function Builder({ profile }: { profile: ProfileSummary }) {
         back={{ to: "/requests", label: "Requests" }}
       />
 
-      <div className="flex flex-col gap-5">
+      <div className="flex flex-col gap-5 pb-3">
         {noMailbox ? (
           <Alert
             intent="warning"
@@ -302,7 +302,7 @@ function Builder({ profile }: { profile: ProfileSummary }) {
           </section>
         )}
 
-        <Card className="sticky bottom-3 z-10 shadow-pop">
+        <Card className="sticky bottom-3 z-10 shadow-pop" data-testid="send-bar">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <p className="min-w-0 text-base text-ink-muted" aria-live="polite">
               {canSend
