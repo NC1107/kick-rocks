@@ -237,19 +237,16 @@ export function Component() {
           {target.requirements.length === 0 ? (
             <p className="text-ui text-ink-2">Nothing beyond sending the request.</p>
           ) : (
-            <RowGroup>
+            <RowGroup className="sm:grid sm:grid-cols-[max-content_minmax(0,1fr)]">
               {target.requirements.map((requirement) => (
                 <div
                   key={requirement}
-                  className="flex flex-wrap items-baseline gap-x-3 gap-y-1 px-3.5 py-2.5"
+                  className="flex flex-col items-start gap-1 px-3.5 py-2.5 sm:col-span-2 sm:grid sm:grid-cols-subgrid sm:items-baseline sm:gap-x-3"
                 >
-                  <Tag
-                    tone={HUMAN_STEPS.has(requirement) ? "attention" : "neutral"}
-                    className="w-36 justify-center"
-                  >
+                  <Tag tone={HUMAN_STEPS.has(requirement) ? "attention" : "neutral"}>
                     {REQUIREMENT_LABELS[requirement]}
                   </Tag>
-                  <span className="min-w-0 flex-1 text-meta text-ink-2">
+                  <span className="min-w-0 text-meta text-ink-2">
                     {REQUIREMENT_HELP[requirement]}
                   </span>
                 </div>

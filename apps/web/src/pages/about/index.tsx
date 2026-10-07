@@ -145,6 +145,7 @@ function SourceRow({ source }: { source: DataSourceInfo }) {
           : `Used by ${pluralize(source.targetCount, "entry", "entries")}.`
       }`}
       trailing={<Tag>{source.license}</Tag>}
+      trailingBelowOnPhone
     />
   );
 }

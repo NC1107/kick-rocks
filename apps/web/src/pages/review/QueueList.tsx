@@ -13,7 +13,7 @@ import type { StatusShape } from "../../lib/status.js";
 import { ageLabel, KIND_LABELS, type QueueEntry, type ReviewKind, SCANS_KEY } from "./model.js";
 
 interface RowView {
-  title: string;
+  title: ReactNode;
   reason: string;
   at: string | null;
   shape: StatusShape;
@@ -81,7 +81,9 @@ function describe(entry: QueueEntry): RowView {
     }
     case "mail":
       return {
-        title: entry.message.targetName ?? entry.message.fromAddress,
+        title: entry.message.targetName ?? (
+          <span className="font-mono text-meta">{entry.message.fromAddress}</span>
+        ),
         reason: entry.message.subject,
         at: entry.message.receivedAt,
         shape,
@@ -112,6 +114,7 @@ function Entry({
       <Row
         selected={selected}
         onClick={() => onSelect(entry.key)}
+        tabIndex={selected ? 0 : -1}
         leading={<StatusShapeGlyph shape={view.shape} />}
         title={view.title}
         description={view.reason}
@@ -163,6 +166,7 @@ export function QueueList({ entries, selectedKey, onSelect }: QueueListProps) {
             <Row
               selected={selectedKey === SCANS_KEY}
               onClick={() => onSelect(SCANS_KEY)}
+              tabIndex={selectedKey === SCANS_KEY ? 0 : -1}
               title="People-search scans"
               description="Start one, or see recent runs"
             />

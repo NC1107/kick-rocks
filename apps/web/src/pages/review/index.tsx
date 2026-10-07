@@ -32,6 +32,11 @@ function useWide(): boolean {
   );
 }
 
+/** Selection and focus travel together, so Enter or Space acts on the row that looks selected. */
+function focusEntry(key: string) {
+  document.querySelector<HTMLElement>(`[data-entry="${key}"] > :is(a, button)`)?.focus();
+}
+
 export function Component() {
   return <RequireProfile>{(profile) => <Review profileId={profile.id} />}</RequireProfile>;
 }
@@ -157,15 +162,18 @@ function Queue({ queue, profileId }: { queue: ReviewQueue; profileId: string }) 
   const move = (step: 1 | -1) => {
     const keys = [...entries.map((entry) => entry.key), SCANS_KEY];
     const next = keys[Math.min(Math.max(keys.indexOf(selectedKey) + step, 0), keys.length - 1)];
-    if (next && next !== selectedKey) select(next, { replace: true });
+    if (!next || next === selectedKey) return;
+    select(next, { replace: true });
+    if (!pane.current?.contains(document.activeElement)) focusEntry(next);
   };
 
   // The handler reads the latest selection, so it is re-bound whenever that changes.
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (!shortcutAllowed(event)) return;
-      if (event.key === "j") move(1);
-      else if (event.key === "k") move(-1);
+      const inList = event.target instanceof Element && event.target.closest("[data-entry]");
+      if (event.key === "j" || (inList && event.key === "ArrowDown")) move(1);
+      else if (event.key === "k" || (inList && event.key === "ArrowUp")) move(-1);
       else if (event.key === "Enter" && event.target === document.body) pane.current?.focus();
     };
     document.addEventListener("keydown", onKey);

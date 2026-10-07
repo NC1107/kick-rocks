@@ -103,7 +103,7 @@ export function RequestsSection({ dashboard }: { dashboard: Dashboard }) {
                   <li key={status}>
                     <Link
                       to={`/requests?status=${status}`}
-                      className="-mx-2 flex h-8 items-center justify-between gap-3 rounded-sm px-2 transition-colors duration-100 hover:bg-hover"
+                      className="-mx-2 flex h-8 items-center justify-between gap-3 rounded-sm px-2 transition-colors duration-100 hover:bg-hover max-sm:h-auto max-sm:min-h-11"
                     >
                       <StatusMark status={status} />
                       <span className="font-mono text-meta text-ink-2 tabular-nums">
@@ -113,7 +113,7 @@ export function RequestsSection({ dashboard }: { dashboard: Dashboard }) {
                   </li>
                 ))}
                 {present.length === 0 ? (
-                  <li className="flex h-8 items-center text-ink-3">-</li>
+                  <li className="flex h-8 items-center text-ink-3 max-sm:min-h-11">-</li>
                 ) : null}
               </ul>
             </section>

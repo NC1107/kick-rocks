@@ -141,6 +141,8 @@ function SkeletonRows({ rows }: { rows: number }) {
   );
 }
 
+const SKELETON_GROUP_ROWS = [3, 4, 3];
+
 function DashboardSkeleton() {
   return (
     <div aria-busy="true" className="flex flex-col gap-5">
@@ -153,9 +155,24 @@ function DashboardSkeleton() {
         <SkeletonLabel width="w-24" />
         <Skeleton className="h-1.5 w-full rounded-full" />
         <div className="mt-4 grid gap-x-8 gap-y-5 sm:grid-cols-3">
-          <Skeleton className="h-32 w-full" />
-          <Skeleton className="h-32 w-full" />
-          <Skeleton className="h-32 w-full" />
+          {SKELETON_GROUP_ROWS.map((rows, group) => (
+            // biome-ignore lint/suspicious/noArrayIndexKey: placeholder groups have no identity
+            <div key={group}>
+              <div className="flex items-baseline justify-between gap-3">
+                <Skeleton className="h-2.5 w-16" />
+                <Skeleton className="h-4 w-6" />
+              </div>
+              <div className="mt-2 flex flex-col divide-y divide-line border-t border-line">
+                {Array.from({ length: rows }, (_, row) => (
+                  // biome-ignore lint/suspicious/noArrayIndexKey: placeholder rows have no identity
+                  <div key={row} className="flex h-8 items-center justify-between gap-3">
+                    <Skeleton className="h-3 w-24" />
+                    <Skeleton className="h-3 w-4" />
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
         </div>
       </div>
     </div>

@@ -47,11 +47,7 @@ export function DetailsFields({
 }: DetailsFieldsProps) {
   return (
     <>
-      <FieldRow
-        label="Profile name"
-        error={errors.displayName}
-        help="Defaults to the primary name."
-      >
+      <FieldRow label="Profile name" error={errors.displayName}>
         <Input
           value={value.displayName}
           disabled={disabled}

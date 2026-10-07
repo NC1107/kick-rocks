@@ -66,7 +66,7 @@ function resendWarning(request: RequestDetail, address: string | null): string {
 }
 
 const ACTION_WARNING: Partial<Record<RequestAction, string>> = {
-  cancel: "Kick Rocks stops working on this request. Nothing already sent is recalled.",
+  cancel: "Work on this request stops. Nothing already sent is recalled.",
   mark_confirmed: "Use this when the target confirmed by some other route. It closes the request.",
   mark_rejected: "This records that the target refused the request.",
   mark_no_record: "This closes the request, because the target holds nothing about you.",
@@ -468,6 +468,7 @@ function Detail({ request }: { request: RequestDetail }) {
               : undefined
         }
         confirmLabel={confirming ? REQUEST_ACTION_LABELS[confirming] : "Confirm"}
+        cancelLabel={confirming === "cancel" ? "Keep request" : "Cancel"}
         destructive={confirming === "cancel"}
         loading={act.isPending}
         onConfirm={() => confirming && run(confirming)}

@@ -135,7 +135,7 @@ export function RecipeCard({
             </Button>
           )}
           <Button
-            variant="primary"
+            variant="secondary"
             loading={approve.isPending}
             disabled={reject.isPending}
             onClick={() => approve.mutate({ params: { id: recipe.id } })}

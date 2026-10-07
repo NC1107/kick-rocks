@@ -116,7 +116,7 @@ describe("the request page", () => {
     await user.click(await screen.findByRole("button", { name: "More actions" }));
     await user.click(await screen.findByRole("menuitem", { name: "Cancel request" }));
     const dialog = await screen.findByRole("dialog");
-    await user.click(within(dialog).getByRole("button", { name: "Cancel" }));
+    await user.click(within(dialog).getByRole("button", { name: "Keep request" }));
     expect(mock.store.requests.find((request) => request.id === id)?.status).toBe("awaiting_reply");
   });
 

@@ -277,7 +277,7 @@ function IdentitiesCard({
     <form onSubmit={save} noValidate>
       <Section label="Identities" as="h2">
         <GroupNote className="mt-0 mb-2">
-          Everything a broker might have on file. Each request sends only what that target needs.
+          Everything a target might have on file. Each request sends only what that target needs.
         </GroupNote>
         <IdentitiesEditor
           drafts={drafts}

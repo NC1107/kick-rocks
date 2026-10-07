@@ -244,6 +244,7 @@ function RowFields({ draft, index, errors, disabled, today, onChange }: RowField
         <Field label="Email address" error={error("value.address")}>
           <Input
             type="email"
+            mono
             inputMode="email"
             autoComplete="off"
             value={draft.address}
@@ -257,6 +258,7 @@ function RowFields({ draft, index, errors, disabled, today, onChange }: RowField
         <Field label="Phone number" error={error("value.number")} help="For example (555) 555-0123">
           <Input
             type="tel"
+            mono
             inputMode="tel"
             autoComplete="off"
             value={draft.number}

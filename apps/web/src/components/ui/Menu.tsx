@@ -15,6 +15,8 @@ export interface MenuItem {
   id: string;
   label: ReactNode;
   description?: ReactNode;
+  /** Sets the description in mono, for an email address or other identifier. */
+  descriptionMono?: boolean;
   icon?: ReactNode;
   /**
    * Set on items that choose one of several, such as a profile: true or false shows a check and
@@ -193,7 +195,14 @@ export function Menu({
                 <span className="flex min-w-0 flex-1 flex-col">
                   <span className="truncate">{item.label}</span>
                   {item.description ? (
-                    <span className="truncate text-meta text-ink-3">{item.description}</span>
+                    <span
+                      className={cn(
+                        "truncate text-meta text-ink-3",
+                        item.descriptionMono && "font-mono text-caption",
+                      )}
+                    >
+                      {item.description}
+                    </span>
                   ) : null}
                 </span>
                 {item.selected ? <Check aria-hidden="true" className="text-accent-text" /> : null}

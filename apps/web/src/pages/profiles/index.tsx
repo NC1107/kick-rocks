@@ -55,7 +55,7 @@ function ProfileRow({
           <span>{profile.state}</span>
           <span aria-hidden="true">·</span>
           {profile.primaryEmail ? (
-            <Tooltip content={profile.primaryEmail}>
+            <Tooltip content={profile.primaryEmail} className="min-w-0">
               <span className="min-w-0 truncate">{profile.primaryEmail}</span>
             </Tooltip>
           ) : (

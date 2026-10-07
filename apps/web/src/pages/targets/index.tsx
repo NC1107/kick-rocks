@@ -1,7 +1,7 @@
 import { API_ROUTES, type TargetFacets } from "@kickrocks/shared";
 import { Search } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { Link, useSearchParams } from "react-router";
+import { useSearchParams } from "react-router";
 import { errorMessage, useApiQuery } from "../../api/index.js";
 import {
   Alert,
@@ -320,17 +320,9 @@ export function Component() {
                     </TableCell>
                     <TableCell className="max-w-64 min-w-40">
                       <TableIdentity
-                        title={
-                          <span className="flex items-center gap-2">
-                            <Link
-                              to={`/targets/${encodeURIComponent(item.id)}`}
-                              className="truncate rounded-xs hover:text-accent-text hover:underline"
-                            >
-                              {item.name}
-                            </Link>
-                            {item.retired ? <Tag>Retired</Tag> : null}
-                          </span>
-                        }
+                        title={item.name}
+                        to={`/targets/${encodeURIComponent(item.id)}`}
+                        badge={item.retired ? <Tag>Retired</Tag> : null}
                         meta={item.domain}
                       />
                     </TableCell>

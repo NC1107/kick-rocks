@@ -121,6 +121,20 @@ describe("the review queue", () => {
     expect(await card(/FindRecord, Submit form/)).toBeTruthy();
   });
 
+  it("keeps focus and selection on the same row as j and the arrows move", async () => {
+    const { user } = open();
+    await card(/FindRecord, Submit form/);
+    const list = within(screen.getByRole("navigation", { name: "Review queue" }));
+    list.getByRole("button", { name: /ClearCheck\s*The removal/ }).focus();
+    await user.keyboard("j");
+    await user.keyboard("{ArrowDown}");
+    const current = list.getAllByRole("button").filter((row) => row.getAttribute("aria-current"));
+    expect(current).toHaveLength(1);
+    expect(current[0]).toHaveFocus();
+    const stops = list.getAllByRole("button").filter((row) => row.tabIndex === 0);
+    expect(stops).toEqual(current);
+  });
+
   it("selects the next item once the open one is dealt with", async () => {
     const { user } = open("blocked");
     const task = await card(/FindRecord, Submit form/);

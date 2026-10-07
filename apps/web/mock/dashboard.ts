@@ -34,7 +34,16 @@ export default defineMockDomain({
 
       const recentEvents: DashboardEvent[] = requests
         .flatMap((request) => {
-          const latest = request.events.reduce<(typeof request.events)[number] | undefined>(
+          const told = request.events.filter(
+            (event) =>
+              event.type !== "status_changed" ||
+              !request.events.some(
+                (cause) =>
+                  cause.type !== "status_changed" &&
+                  Math.abs(Date.parse(cause.createdAt) - Date.parse(event.createdAt)) <= 60_000,
+              ),
+          );
+          const latest = told.reduce<(typeof request.events)[number] | undefined>(
             (best, event) => (!best || event.createdAt > best.createdAt ? event : best),
             undefined,
           );

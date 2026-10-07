@@ -115,7 +115,7 @@ const BROKERS: BrokerSeed[] = [
     contact: "form",
     priority: "crucial",
     requirements: ["record_url", "id_upload"],
-    notes: "Wants a photo of ID. Kick Rocks parks this one for you.",
+    notes: "Lists records by city, so a person with several addresses can match more than once.",
   },
   {
     name: "VerifyFirst",

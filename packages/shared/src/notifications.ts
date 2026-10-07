@@ -13,8 +13,8 @@ export type NotificationCategory = z.infer<typeof NotificationCategory>;
 
 export const NOTIFICATION_CATEGORY_LABELS: Record<NotificationCategory, string> = {
   blocked_task: "A task is blocked and needs you",
-  verification: "A broker asks for identifiers you must approve",
-  match: "A listing needs your decision",
+  verification: "A target asks for identifiers you must approve",
+  match: "A record needs your decision",
   mailbox: "Your mailbox fails",
   recipe: "A recipe breaks",
 };

@@ -2,7 +2,7 @@ import { API_ROUTES, RequestStatus } from "@kickrocks/shared";
 import { skipToken } from "@tanstack/react-query";
 import { Search } from "lucide-react";
 import { useEffect, useState } from "react";
-import { Link, useSearchParams } from "react-router";
+import { useSearchParams } from "react-router";
 import { errorMessage, useApiQuery } from "../../api/index.js";
 import { RequireProfile } from "../../components/layout/RequireProfile.js";
 import {
@@ -219,14 +219,8 @@ function Requests({ profileId }: { profileId: string }) {
                   <TableRow key={item.id}>
                     <TableCell className="h-auto max-w-72 min-w-52">
                       <TableIdentity
-                        title={
-                          <Link
-                            to={`/requests/${encodeURIComponent(item.id)}`}
-                            className="rounded-xs hover:text-accent-text hover:underline"
-                          >
-                            {item.target.name}
-                          </Link>
-                        }
+                        title={item.target.name}
+                        to={`/requests/${encodeURIComponent(item.id)}`}
                         meta={item.reference}
                       />
                     </TableCell>

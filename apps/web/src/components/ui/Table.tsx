@@ -1,6 +1,7 @@
 import { ArrowDown, ArrowUp, ChevronsUpDown } from "lucide-react";
 import {
   type ComponentProps,
+  type CSSProperties,
   createContext,
   type KeyboardEvent,
   type MouseEvent,
@@ -19,9 +20,10 @@ export interface TableProps extends ComponentProps<"table"> {
   /** Names the scrollable region, so keyboard and screen reader users can find and scroll it. */
   label: string;
   /**
-   * A CSS max-height, such as "28rem". The frame then scrolls vertically too, which is what lets
-   * the header stay put: a sticky header sticks to its nearest scrolling ancestor, and without a
-   * height limit that ancestor is the horizontal frame, which never scrolls down.
+   * A CSS max-height, such as "28rem". The frame then scrolls vertically too and the header sticks
+   * inside it. Without one, the frame clips instead of scrolling while every column fits, so the
+   * header sticks to the page; once columns overflow, the frame scrolls sideways and the header
+   * stays with the table.
    */
   maxHeight?: string;
 }
@@ -76,13 +78,21 @@ export function Table({ label, maxHeight, className, children, ...rest }: TableP
   const scrollable = overflow.start || overflow.end;
   return (
     <RovingContext value={{ activeId, setActiveId }}>
-      <div className="relative overflow-hidden rounded-md border border-line bg-surface">
+      <div className="relative overflow-clip rounded-md border border-line bg-surface">
         <section
           ref={frame}
           aria-label={label}
           tabIndex={scrollable ? 0 : undefined}
-          style={maxHeight ? { maxHeight } : undefined}
-          className={maxHeight ? "overflow-auto" : "overflow-x-auto"}
+          style={
+            {
+              maxHeight,
+              // Heading labels pin under the page's own bar unless the frame is itself the scroller.
+              "--kr-th-top": maxHeight || scrollable ? "0px" : "var(--kr-bar-h)",
+            } as CSSProperties
+          }
+          className={
+            maxHeight ? "overflow-auto" : scrollable ? "overflow-x-auto" : "overflow-x-clip"
+          }
         >
           <table className={cn("w-full border-collapse text-left text-ui", className)} {...rest}>
             {children}
@@ -108,7 +118,12 @@ export function Table({ label, maxHeight, className, children, ...rest }: TableP
 }
 
 export function TableHead({ className, ...rest }: ComponentProps<"thead">) {
-  return <thead className={cn("[&_th]:border-b [&_th]:border-line", className)} {...rest} />;
+  return (
+    <thead
+      className={cn("[&_th]:shadow-[inset_0_-1px_0_var(--color-line)]", className)}
+      {...rest}
+    />
+  );
 }
 
 export function TableBody({ className, ...rest }: ComponentProps<"tbody">) {
@@ -221,24 +236,32 @@ export function TableIdentity({
   title,
   meta,
   to,
+  badge,
   className,
 }: {
   title: ReactNode;
   meta?: ReactNode;
   /** Makes the name a link. It stays ink and is underlined only on hover or focus. */
   to?: string;
+  /** A tag after the name, such as Retired. */
+  badge?: ReactNode;
   className?: string;
 }) {
   return (
     <div className={cn("flex min-w-0 flex-col py-1", className)}>
-      <span className="truncate text-ui font-medium text-ink">
+      <span className="flex min-w-0 items-center gap-2 text-ui font-medium text-ink">
         {to ? (
-          <Link to={to} className="hover:underline focus-visible:underline">
+          // The link truncates itself so its focus ring is not clipped by a truncating parent.
+          <Link
+            to={to}
+            className="min-w-0 max-w-full truncate rounded-xs hover:underline focus-visible:underline"
+          >
             {title}
           </Link>
         ) : (
-          title
+          <span className="min-w-0 truncate">{title}</span>
         )}
+        {badge}
       </span>
       {meta ? <span className="truncate font-mono text-caption text-ink-3">{meta}</span> : null}
     </div>
@@ -292,7 +315,7 @@ export function TableHeaderCell({
         sortDirection === "asc" ? "ascending" : sortDirection === "desc" ? "descending" : undefined
       }
       className={cn(
-        "sticky top-0 z-10 h-8 whitespace-nowrap bg-surface px-3 text-eyebrow text-ink-3 first:pl-4 last:pr-4",
+        "sticky top-(--kr-th-top) z-10 h-8 whitespace-nowrap bg-surface px-3 text-eyebrow text-ink-3 first:pl-4 last:pr-4",
         align === "right" && "text-right",
         className,
       )}

@@ -2,7 +2,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useState } from "react";
 import { describe, expect, it } from "vitest";
-import { Table, TableBody, TableCell, TableRow } from "./Table.js";
+import { Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow } from "./Table.js";
 
 function SelectableTable() {
   const [selected, setSelected] = useState<string | null>("b");
@@ -45,6 +45,42 @@ describe("a selectable table", () => {
     await user.keyboard("{ArrowUp}{Enter}");
     expect(rows[0]).toHaveAttribute("aria-selected", "true");
     expect(rows.map((row) => row.tabIndex)).toEqual([0, -1, -1]);
+  });
+
+  it("sticks the heading to the page while every column fits", () => {
+    render(
+      <Table label="Plain">
+        <TableHead>
+          <tr>
+            <TableHeaderCell>Name</TableHeaderCell>
+          </tr>
+        </TableHead>
+        <TableBody>
+          <TableRow>
+            <TableCell>x</TableCell>
+          </TableRow>
+        </TableBody>
+      </Table>,
+    );
+    const frame = screen.getByRole("region", { name: "Plain" });
+    expect(frame.className).toContain("overflow-x-clip");
+    expect(frame.style.getPropertyValue("--kr-th-top")).toBe("var(--kr-bar-h)");
+    expect(screen.getByRole("columnheader").className).toContain("sticky");
+  });
+
+  it("sticks the heading inside the frame when the frame has a height", () => {
+    render(
+      <Table label="Tall" maxHeight="20rem">
+        <TableHead>
+          <tr>
+            <TableHeaderCell>Name</TableHeaderCell>
+          </tr>
+        </TableHead>
+      </Table>,
+    );
+    const frame = screen.getByRole("region", { name: "Tall" });
+    expect(frame.className).toContain("overflow-auto");
+    expect(frame.style.getPropertyValue("--kr-th-top")).toBe("0px");
   });
 
   it("leaves a plain row out of the tab order", () => {

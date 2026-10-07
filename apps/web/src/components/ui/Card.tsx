@@ -128,7 +128,11 @@ interface RowBase {
   description?: ReactNode;
   /** A value or control at the trailing edge. */
   trailing?: ReactNode;
+  /** On a phone, drops the trailing value under the text so a wide one cannot squeeze the title. */
+  trailingBelowOnPhone?: boolean;
   selected?: boolean;
+  /** Lets a list of rows act as one tab stop: only the selected row stays at 0. */
+  tabIndex?: number;
   className?: string;
 }
 
@@ -149,15 +153,18 @@ export function Row({
   title,
   description,
   trailing,
+  trailingBelowOnPhone,
   selected,
   to,
   onClick,
+  tabIndex,
   className,
 }: RowProps) {
   const interactive = to !== undefined || onClick !== undefined;
   const classes = cn(
     ROW_CLASS,
     selected ? "bg-accent-soft" : interactive && "hover:bg-hover",
+    trailingBelowOnPhone && "max-sm:flex-wrap",
     className,
   );
   const content = (
@@ -172,7 +179,16 @@ export function Row({
         <span className="truncate text-ui font-medium text-ink">{title}</span>
         {description ? <span className="truncate text-meta text-ink-3">{description}</span> : null}
       </span>
-      {trailing ? <span className="flex shrink-0 items-center gap-2">{trailing}</span> : null}
+      {trailing ? (
+        <span
+          className={cn(
+            "flex shrink-0 items-center gap-2",
+            trailingBelowOnPhone && "max-sm:basis-full",
+          )}
+        >
+          {trailing}
+        </span>
+      ) : null}
     </>
   );
   const state = {
@@ -181,14 +197,14 @@ export function Row({
   };
   if (to !== undefined) {
     return (
-      <Link to={to} className={classes} {...state}>
+      <Link to={to} tabIndex={tabIndex} className={classes} {...state}>
         {content}
       </Link>
     );
   }
   if (onClick !== undefined) {
     return (
-      <button type="button" onClick={onClick} className={classes} {...state}>
+      <button type="button" onClick={onClick} tabIndex={tabIndex} className={classes} {...state}>
         {content}
       </button>
     );

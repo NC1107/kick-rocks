@@ -5,11 +5,15 @@ import { cn } from "../../lib/cn.js";
 import { Menu, type MenuItem } from "../ui/index.js";
 import { Skeleton } from "../ui/Skeleton.js";
 
+const NAME_FILLER = new Set(["the", "of", "de", "van", "von", "jr", "sr", "ii", "iii", "iv"]);
+
+/** The first two name parts, so a long or suffixed name still gives two stable letters. */
 export function initialsOf(name: string): string {
-  const words = name.split(/\s+/).filter(Boolean);
-  const first = words[0]?.[0] ?? "?";
-  const last = words.length > 1 ? (words[words.length - 1]?.[0] ?? "") : "";
-  return `${first}${last}`.toUpperCase();
+  const words = name
+    .split(/\s+/)
+    .filter((word) => word.length > 0 && !NAME_FILLER.has(word.toLowerCase().replace(/\.$/, "")));
+  const second = words.slice(1).find((word) => word.length > 1) ?? words[1];
+  return `${words[0]?.[0] ?? "?"}${second?.[0] ?? ""}`.toUpperCase();
 }
 
 /**
@@ -34,6 +38,7 @@ export function ProfileSwitcher({
       id: candidate.id,
       label: candidate.displayName,
       description: candidate.primaryEmail ?? "No email",
+      descriptionMono: candidate.primaryEmail !== null,
       selected: candidate.id === profile?.id,
       onSelect: () => {
         setProfileId(candidate.id);

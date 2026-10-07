@@ -354,6 +354,36 @@ describe("GET /profiles/:id/dashboard", () => {
       expect(recentEvents[1]?.eventCount).toBe(eventCount(quiet.id));
     });
 
+    it("tells a request by its cause, not by the status change beside it", async () => {
+      const profile = seedProfile(ctx);
+      seedTarget(ctx, { id: "b" });
+      const request = seedRequest(ctx, { profileId: profile.id, targetId: "b" });
+      ctx.clock.advance(MINUTE);
+      ctx.services.requests.addEvent(request.id, {
+        type: "note",
+        actor: "user",
+        payload: { text: "cause" },
+      });
+      ctx.services.requests.addEvent(request.id, {
+        type: "status_changed",
+        actor: "system",
+        payload: { from: "draft", to: "queued" },
+      });
+
+      const folded = await dashboard(profile.id);
+      expect(folded.recentEvents[0]).toMatchObject({ type: "note" });
+      expect(folded.recentEvents[0]?.eventCount).toBe(eventCount(request.id));
+
+      ctx.clock.advance(DAY);
+      ctx.services.requests.addEvent(request.id, {
+        type: "status_changed",
+        actor: "system",
+        payload: { from: "queued", to: "no_response" },
+      });
+      const standalone = await dashboard(profile.id);
+      expect(standalone.recentEvents[0]).toMatchObject({ type: "status_changed" });
+    });
+
     it("orders by time across requests and covers the latest twenty requests", async () => {
       const profile = seedProfile(ctx);
       seedTarget(ctx, { id: "b" });
