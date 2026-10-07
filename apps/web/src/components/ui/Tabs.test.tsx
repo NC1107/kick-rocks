@@ -52,4 +52,25 @@ describe("Tabs", () => {
     await user.keyboard("{Home}");
     expect(screen.getByRole("tab", { name: "One" })).toHaveAttribute("aria-selected", "true");
   });
+
+  it("brings the selected tab into view, so one chosen from the address is not hidden", () => {
+    const scrolled: string[] = [];
+    const original = Element.prototype.scrollIntoView;
+    Element.prototype.scrollIntoView = function scrollIntoView(this: Element) {
+      scrolled.push(this.textContent ?? "");
+    };
+    try {
+      render(
+        <Tabs value="four">
+          <TabList>
+            <Tab value="one">One</Tab>
+            <Tab value="four">Four</Tab>
+          </TabList>
+        </Tabs>,
+      );
+      expect(scrolled).toEqual(["Four"]);
+    } finally {
+      Element.prototype.scrollIntoView = original;
+    }
+  });
 });
