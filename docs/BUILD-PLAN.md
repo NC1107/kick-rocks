@@ -405,15 +405,20 @@ The server and the web mock both build issues with `toApiIssues`, and the web cl
 - `InboxSource` on imapflow: list folders, fetch since the last UID in the reply folder, handle UIDVALIDITY resets, parse with mailparser.
   `fetchSince` honors `since` (IMAP SINCE) and `limit`, and reports `hasMore` and `highestUid`, as described in 4.3.
   Parse links out of the HTML body with `htmlparser2`, which the foundation added to `apps/server`, rather than with regular expressions.
-  Verify DKIM on the raw source of each fetched message (`mail/dkim.ts`, on `mailauth`) and put the signing domains that verified over the whole body on `InboxMessage.dkimDomains`.
+  Verify DKIM on the raw source of each fetched message (`mail/dkim.ts`, on `mailauth`) and expose a lazy check on `InboxMessage.verifyDkim` that returns the signatures that verified over the whole body and align with the given domains, each with the In-Reply-To, References, and Subject values it covers.
   The resolver has a short timeout and a small cache, and a DNS failure or timeout means no domain is verified, so the message goes to review and the poll goes on.
   Authentication-Results headers are never read, because a provider can echo sender-controlled text into them.
 - `ReplyClassifier`: correlate by In-Reply-To or References matching our Message-ID, then by the `KR-` reference in subject or body, then by sender domain against awaiting requests (lower confidence).
-  A reply matched only by sender domain is acted on only when a verified DKIM signing domain shares an organizational domain (public suffix list) with the target's domain or one of its known sender domains; otherwise it is held for review.
+  The recipient address is never a trust input.
+  A reply changes a request (completed, no_record, rejected, verification_required, needs_form, or a bounce that switches channel) only when at least one DKIM signature verifies over the whole body with a d= that shares an organizational domain (public suffix list) with the target's domain or one of its known sender domains, and that same signature binds the message to this request.
+  A signature binds when its h= covers In-Reply-To or References and those signed headers hold this request's outgoing Message-ID (any sequence variant), or its h= covers Subject and the signed Subject holds this request's `KR-` reference, or the body it fully covers holds the reference.
+  Signed headers are read raw from the instance the signature hashed (the bottom-most per RFC 6376), with only folding removed.
+  A reply that fails either test is capped below 0.6 so it goes to review, and its rationale says "not signed by the broker" or "does not quote this request".
+  A `confirmation_link` needs only the first test, keeping the link-domain restriction and the company-deletion rule.
   Detect bounces from DSN reports and mailer-daemon senders, auto-replies from `Auto-Submitted` and common patterns, and the other classes from keyword rules.
   Extract links and keep only those on the target's domain, its known subdomains, or an expected sender in `awaitingConfirmation.fromDomains`.
   For `verification_required`, return the identifiers the broker asked for as `requestedFields` (profile field names only).
-  A broker's confirmation email after a form submission has no `KR-` reference and no In-Reply-To, so apply the matching rule documented on `ClassifierRequest.awaitingConfirmation`, with confidence of at least 0.8 when a DKIM signature of the sender verified.
+  A broker's confirmation email after a form submission has no `KR-` reference and no In-Reply-To, so apply the matching rule documented on `ClassifierRequest.awaitingConfirmation`, with confidence of at least 0.8, because following a link on the sender's own domain needs only that a DKIM signature of the sender verified.
   Store each message with its text cut to 20,000 characters, for `GET /messages/:id`.
   When confidence is below 0.6 and an LLM is configured, ask it for a classification with a strict JSON schema; otherwise leave the message for review.
 - `LinkFollower`: GET with redirects re-validated hop by hop against the allowed domains, refusing private and loopback addresses unless the host is in `config.linkFollower.allowedPrivateHosts`, with a size and time limit; report `needsBrowser` when the page needs JavaScript or a button press.

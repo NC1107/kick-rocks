@@ -172,8 +172,13 @@ The stack has no internet, so `pnpm e2e` writes a throwaway DKIM key pair to `e2
 Starting the stack by hand with `docker compose -f docker-compose.dev.yml up` needs that folder to exist, so run `pnpm e2e` once first.
 
 The server checks DKIM signatures itself when it reads mail and ignores every `Authentication-Results` header, because a provider can echo text a sender wrote into that header.
-A reply counts as coming from the broker only when a DKIM signature that covers the whole body verifies and its domain shares an organizational domain with the broker's own domains.
-Anything else from a sender who is only matched by address goes to review.
+A reply changes a request by itself only when two things hold.
+First, a DKIM signature that covers the whole body verifies and its domain shares an organizational domain with the broker's own domains.
+Second, that same signature ties the reply to this request: it signs an In-Reply-To or References header that holds the request's outgoing Message-ID, or a Subject that holds its `KR-` reference, or the body it covers holds the reference.
+Headers are read from the instance the signature covers, so a copy added above it counts for nothing.
+The address the reply was sent to is never used as proof.
+A reply that fails either test goes to review with the reason "not signed by the broker" or "does not quote this request".
+A confirmation link needs only the first test, because following a genuine link on the broker's own domain can only confirm a removal.
 If DNS cannot be reached when a message is read, the message goes to review and the poll carries on.
 
 See `docs/DESIGN.md` for the architecture, the decisions behind it, and the milestone plan.
