@@ -6,6 +6,7 @@ import { campaignsModule } from "./campaigns/index.js";
 import { dashboardModule } from "./dashboard/index.js";
 import { mailboxModule } from "./mailbox/index.js";
 import { mcpModule } from "./mcp/index.js";
+import { notificationsModule } from "./notifications/index.js";
 import { profilesModule } from "./profiles/index.js";
 import { recipesModule } from "./recipes/index.js";
 import { requestsModule } from "./requests/index.js";
@@ -25,6 +26,7 @@ export const MODULES: readonly ModuleRegistration[] = [
   { name: "auth", plugin: authModule, prefix: "/api" },
   { name: "profiles", plugin: profilesModule, prefix: "/api" },
   { name: "settings", plugin: settingsModule, prefix: "/api" },
+  { name: "notifications", plugin: notificationsModule, prefix: "/api" },
   { name: "mailbox", plugin: mailboxModule, prefix: "/api" },
   { name: "targets", plugin: targetsModule, prefix: "/api" },
   { name: "campaigns", plugin: campaignsModule, prefix: "/api" },

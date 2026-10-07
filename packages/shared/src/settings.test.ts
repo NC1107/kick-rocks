@@ -42,6 +42,8 @@ describe("SETTING_SCHEMAS", () => {
         "mcp.tokenHash",
         "schedule",
         "worker.status",
+        "notifications",
+        "notifications.state",
       ].sort(),
     );
   });

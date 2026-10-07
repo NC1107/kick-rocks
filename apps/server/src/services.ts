@@ -30,6 +30,10 @@ import { registerHandlers } from "./handlers/index.js";
 import { createMailServices } from "./mail/index.js";
 import type { MailServices } from "./mail/types.js";
 import { createAuthService } from "./modules/auth/service.js";
+import {
+  createNotificationChannels,
+  type NotificationChannels,
+} from "./modules/notifications/channels.js";
 import { registerRunners } from "./runners/index.js";
 
 /**
@@ -61,6 +65,8 @@ export interface AppServices {
   mail: MailServices;
   legal: LegalApi;
   auth: AuthService;
+  /** How a push reaches ntfy or Telegram, replaced in tests with a local server. */
+  notificationChannels: NotificationChannels;
 }
 
 /** Replacements for the pieces tests and tools need to control. */
@@ -70,6 +76,7 @@ export interface ServiceOverrides {
   mail?: MailServices;
   legal?: LegalApi;
   auth?: AuthService;
+  notificationChannels?: NotificationChannels;
   targetSources?: TargetSources;
 }
 
@@ -157,6 +164,7 @@ export function createServices(
     mail: overrides.mail ?? createMailServices(config, settings),
     legal,
     auth: overrides.auth ?? createAuthService({ config, db, clock, logger, settings, secrets }),
+    notificationChannels: overrides.notificationChannels ?? createNotificationChannels(),
   };
 
   registerHandlers(services);

@@ -23,6 +23,7 @@ describe("modules", () => {
         "dashboard",
         "mailbox",
         "mcp",
+        "notifications",
         "profiles",
         "recipes",
         "requests",

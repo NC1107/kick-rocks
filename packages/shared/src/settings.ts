@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { DataSourceId } from "./broker.js";
+import { NotificationSettings, NotificationState } from "./notifications.js";
 import { WebUrl } from "./url.js";
 
 const pollMinutes = z.number().int().min(1).max(1440);
@@ -60,6 +61,8 @@ export const SETTING_SCHEMAS = {
   schedule: ScheduleSettings.default(ScheduleSettings.parse({})),
   llm: LlmSettings.nullable().default(null),
   "worker.status": WorkerStatus.nullable().default(null),
+  notifications: NotificationSettings.default(NotificationSettings.parse({})),
+  "notifications.state": NotificationState.default(NotificationState.parse({})),
 } as const;
 
 export type SettingKey = keyof typeof SETTING_SCHEMAS;

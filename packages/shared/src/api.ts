@@ -15,6 +15,13 @@ import {
   ProviderPreset,
 } from "./mail.js";
 import {
+  DigestSendResult,
+  NotificationsPatch,
+  NotificationsView,
+  NotificationTestBody,
+  NotificationTestResult,
+} from "./notifications.js";
+import {
   ProfileCreate,
   ProfileDetail,
   ProfilePatch,
@@ -136,6 +143,7 @@ export type ApiModule =
   | "auth"
   | "profiles"
   | "settings"
+  | "notifications"
   | "mailbox"
   | "targets"
   | "campaigns"
@@ -648,6 +656,39 @@ export const API_ROUTES = {
     body: SettingsPatch,
     response: SettingsView,
   }),
+  notificationsGet: defineRoute({
+    method: "GET",
+    path: "/notifications",
+    module: "notifications",
+    auth: "session",
+    response: NotificationsView,
+  }),
+  notificationsPatch: defineRoute({
+    method: "PATCH",
+    path: "/notifications",
+    module: "notifications",
+    auth: "session",
+    body: NotificationsPatch,
+    response: NotificationsView,
+  }),
+  /** Sends one test message through a saved channel. */
+  notificationsTest: defineRoute({
+    method: "POST",
+    path: "/notifications/test",
+    module: "notifications",
+    auth: "session",
+    body: NotificationTestBody,
+    response: NotificationTestResult,
+  }),
+  /** Sends the digest now, covering the time since the last one. */
+  notificationsDigestSend: defineRoute({
+    method: "POST",
+    path: "/notifications/digest/send",
+    module: "notifications",
+    auth: "session",
+    response: DigestSendResult,
+  }),
+
   settingsMcpToken: defineRoute({
     method: "POST",
     path: "/settings/mcp-token",

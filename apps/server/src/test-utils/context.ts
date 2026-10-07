@@ -16,7 +16,7 @@ import type { FastifyInstance, InjectOptions, LightMyRequestResponse } from "fas
 import { buildApp, openAppDatabase } from "../app.js";
 import { loadConfig } from "../config.js";
 import type { TargetSources } from "../core/targets.js";
-import { type AppServices, createServices } from "../services.js";
+import { type AppServices, createServices, type ServiceOverrides } from "../services.js";
 import { DEFAULT_TEST_NOW, FakeClock } from "./clock.js";
 import { FakeAuth } from "./fake-auth.js";
 import { createFakeLegal } from "./fake-legal.js";
@@ -38,6 +38,8 @@ export interface TestContextOptions {
   auth?: "fake" | "real";
   /** Datasets for the startup sync. Empty by default so tests start with no targets. */
   targetSources?: TargetSources;
+  /** Replacements for services the test needs to point at a local stand-in, such as ntfy. */
+  overrides?: Pick<ServiceOverrides, "notificationChannels">;
   /** Runs before the app is made ready, the only time a route or hook can still be added. */
   beforeReady?: (app: FastifyInstance) => void | Promise<void>;
 }
@@ -148,6 +150,7 @@ export async function createTestContext(options: TestContextOptions = {}): Promi
     clock,
     mail: mail.services,
     legal,
+    ...options.overrides,
     ...(realAuth ? {} : { auth }),
     targetSources: options.targetSources ?? {
       brokers: () => ({ version: "test", records: [] }),
