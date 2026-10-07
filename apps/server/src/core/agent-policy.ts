@@ -31,13 +31,21 @@ export function modelStance({ db }: Pick<PolicyServices, "db">, task: Task<"agen
   return "allowed";
 }
 
-/** The queued agent tasks a model worker must leave alone, which others and the person can still take. */
+/**
+ * The queued agent tasks a model worker must leave alone, which others and the person can still
+ * take. A task a person handed over from a site whose recipe they rejected is one: the built-in
+ * worker would only block it again, undoing the hand-off, so it waits for a connected client.
+ */
 export function tasksForModelToSkip(
   services: PolicyServices & Pick<AppServices, "taskQueue">,
 ): string[] {
-  if (services.settings.get("agent.takeUnreviewed")) return [];
+  const takeUnreviewed = services.settings.get("agent.takeUnreviewed");
   return services.taskQueue
     .list({ kinds: ["agent"], status: "queued" })
-    .filter((task) => modelStance(services, task as Task<"agent">) === "unreviewed")
+    .filter((task) => {
+      const stance = modelStance(services, task as Task<"agent">);
+      if (stance === "unreviewed") return !takeUnreviewed;
+      return stance === "rejected" && (task as Task<"agent">).payload.reason === "blocked";
+    })
     .map((task) => task.id);
 }

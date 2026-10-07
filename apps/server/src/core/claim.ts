@@ -462,7 +462,7 @@ function prepare(
       workerId,
       reason: "unknown",
       detail:
-        "You rejected the recipe for this site, so the agent worker did not take it. Finish it by hand, or hand it to an agent yourself.",
+        "You rejected the recipe for this site, so the agent worker did not take it. Finish it by hand, or hand it to an agent yourself, which a connected MCP client can then take.",
       actor: "system",
     });
     return null;

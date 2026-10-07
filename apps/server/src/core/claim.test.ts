@@ -1129,6 +1129,22 @@ describe("which sites a model worker may take on its own", () => {
     expect(claimAs("model")).toBeNull();
   });
 
+  it("leaves a task that a person handed over from a rejected site for an MCP client", () => {
+    const rejected = site("rejected");
+    const task = agentScanFor(rejected.id);
+    expect(claimAs("model")).toBeNull();
+    const blockedTask = ctx.services.taskQueue.getOrThrow(task.id);
+    expect(blockedTask.status).toBe("blocked");
+
+    const handed = ctx.services.dispatch.handToAgent(task.id, "user").task;
+    expect(claimAs("model")).toBeNull();
+    expect(ctx.services.taskQueue.getOrThrow(handed.id)).toMatchObject({
+      status: "queued",
+      attempts: 0,
+    });
+    expect(claimAs("mcp")?.target.id).toBe(rejected.id);
+  });
+
   it("does not hold back an MCP client, which the person connected on purpose", () => {
     const pending = site("pending_review");
     agentScanFor(pending.id);
