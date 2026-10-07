@@ -11,10 +11,11 @@ export interface StatuteTraits {
   deleteScope: "all" | "provided";
   citable: boolean;
   /**
-   * True only where the text or its regulations say an opt-out of sale needs no authentication.
-   * Elsewhere the controller may ask to verify, so the email asks politely instead of claiming it.
+   * The provision, read from its enacted text, that says an opt-out of sale need not be
+   * authenticated. Null where none was found, and then the email claims nothing about proof of
+   * identity and only asks politely not to be asked for ID, an account, or a fee.
    */
-  optOutAuthExempt: boolean;
+  optOutAuthRule: string | null;
   /**
    * A shorter deadline, in business days, for a request that only opts out, where the opt-out has
    * its own clock separate from the 45 days that apply to requests to know and delete.
@@ -25,7 +26,7 @@ export interface StatuteTraits {
 const ALL: StatuteTraits = {
   deleteScope: "all",
   citable: true,
-  optOutAuthExempt: false,
+  optOutAuthRule: null,
   optOutBusinessDays: null,
 };
 const PROVIDED: StatuteTraits = { ...ALL, deleteScope: "provided" };
@@ -78,7 +79,7 @@ export const STATUTE_ENTRIES: readonly StatuteEntry[] = [
       sourceUrl:
         "https://leginfo.legislature.ca.gov/faces/codes_displayText.xhtml?lawCode=CIV&division=3.&title=1.81.5.&part=4.&chapter=&article=",
       notes:
-        "Amended by the California Privacy Rights Act from 2023-01-01. The opt-out covers sale and sharing of personal information. The deletion right reaches only personal information collected from the consumer (1798.105(a)), so it does not reach a broker that collected the data elsewhere. A request that only opts out is owed action within 15 business days under 11 CCR 7026(f).",
+        "Amended by the California Privacy Rights Act from 2023-01-01. The opt-out covers sale and sharing of personal information. The deletion right reaches only personal information the business has collected from the consumer (1798.105(a)), so it does not reach a broker that collected the data elsewhere. A request that only opts out does not need to be a verifiable consumer request (11 CCR 7026(d)). A request that only opts out is owed action within 15 business days under 11 CCR 7026(f).",
     },
     PROVIDED,
   ),
@@ -102,7 +103,7 @@ export const STATUTE_ENTRIES: readonly StatuteEntry[] = [
       },
       sourceUrl: "https://privacy.ca.gov/drop-for-data-brokers/",
       notes:
-        "Enacted as SB 362 in 2023. DROP opened to consumers on 2026-01-01 and brokers must process requests from 2026-08-01, which is the date used here.",
+        "Enacted as SB 362 (Stats. 2023, ch. 709). Under Civ. Code 1798.99.86 a consumer makes one verifiable request through DROP for deletion of all personal information related to them held by every registered broker, not only data collected from the consumer, which is the gap in CCPA 1798.105(a). From 2026-08-01 a broker must check DROP at least every 45 days, delete within 45 days, and keep deleting every 45 days after. A request the broker cannot verify is processed as an opt-out of sale or sharing. Deletion is not owed where 1798.105(d), 1798.145, or 1798.146 allow retention. DROP opened to consumers on 2026-01-01.",
     },
     traits: ALL,
   },
@@ -403,11 +404,11 @@ export const STATUTE_ENTRIES: readonly StatuteEntry[] = [
       responseDays: 60,
       extensionDays: 30,
       brokerNotes:
-        "A data broker must keep a designated address for verified requests not to sell covered information, and must answer within 60 days. SB 260 of 2021 added the broker duty.",
+        "A data broker, meaning a person whose primary business is buying covered information about Nevada residents from operators or other brokers and selling it, must keep a designated request address for verified requests not to sell covered information it has purchased or will purchase, and must answer within 60 days (NRS 603A.323, 603A.346).",
       platform: null,
       sourceUrl: "https://www.leg.state.nv.us/NRS/NRS-603A.html",
       notes:
-        "Nevada is not a comprehensive privacy law and gives no deletion right. The request must be verified and 'sale' is defined narrowly, so the email does not claim the request needs no proof of identity.",
+        "Nevada is not a comprehensive privacy law and gives no deletion right. NRS 603A.345 binds operators of websites and online services (SB 220, 2019, from 2019-10-01) and NRS 603A.346 binds data brokers (SB 260, 2021, from 2021-10-01), which is the date used here because it is the later of the two. The request must be a verified request that the business can verify with commercially reasonable means (NRS 603A.337), so the email never says the opt-out needs no authentication. A sale is an exchange of covered information for monetary consideration (NRS 603A.333), and covered information is limited to what an operator collected through its website or online service (NRS 603A.320). Consumer reporting agencies, regulated financial institutions, and publicly available information are excluded (NRS 603A.338).",
     },
     traits: ALL,
   },
@@ -415,15 +416,29 @@ export const STATUTE_ENTRIES: readonly StatuteEntry[] = [
 
 export const STATUTES: readonly Statute[] = STATUTE_ENTRIES.map((entry) => entry.statute);
 
-const OPT_OUT_AUTH_EXEMPT = new Set([
-  "ca-ccpa",
-  "co-cpa",
-  "ct-ctdpa",
-  "nj-njdpa",
-  "or-ocpa",
-  "mn-mcdpa",
-  "md-modpa",
-  "de-dpdpa",
+/**
+ * Each entry quotes the rule it rests on. California says a business "shall not require a
+ * verifiable consumer request" for an opt-out of sale or sharing. Connecticut, Delaware, Minnesota,
+ * Montana, New Hampshire, New Jersey, Rhode Island, and Maryland say a controller is not required
+ * to authenticate an opt-out request. Oregon says to comply "without requiring authentication".
+ * All of them still let the controller ask for what it needs to identify the consumer, so the
+ * email never says no identifying detail may be asked for.
+ * Colorado is left out on purpose. Its statute has no such rule and its Rule 4.08 requires
+ * authentication of every consumer data right request. Only a universal opt-out signal (Rule 5.08)
+ * is exempt there. Texas, Utah, Virginia, Iowa, Nebraska, Tennessee, Kentucky, Indiana, and
+ * Oklahoma have no such rule in their text.
+ */
+const OPT_OUT_AUTH_RULES = new Map([
+  ["ca-ccpa", "11 CCR 7026(d)"],
+  ["ct-ctdpa", "Conn. Gen. Stat. 42-518(c)(4)"],
+  ["de-dpdpa", "6 Del. C. 12D-104(c)(4)"],
+  ["md-modpa", "Md. Code, Com. Law 14-4605(e)(6)"],
+  ["mn-mcdpa", "Minn. Stat. 325M.14, subd. 4(h)"],
+  ["mt-mcdpa", "Mont. Code Ann. 30-14-2808(4)(d)"],
+  ["nh-nhpa", "N.H. Rev. Stat. Ann. 507-H:4, III(d)"],
+  ["nj-njdpa", "N.J.S.A. 56:8-166.7(e)"],
+  ["or-ocpa", "Or. Rev. Stat. 646A.576(5)(e)"],
+  ["ri-dtppa", "R.I. Gen. Laws 6-48.1-6(b)(4)"],
 ]);
 
 /** CCPA regulation 11 CCR 7026(f) gives 15 business days to stop selling or sharing. */
@@ -434,7 +449,7 @@ const TRAITS = new Map(
     statute.id,
     {
       ...traits,
-      optOutAuthExempt: OPT_OUT_AUTH_EXEMPT.has(statute.id),
+      optOutAuthRule: OPT_OUT_AUTH_RULES.get(statute.id) ?? null,
       optOutBusinessDays: OPT_OUT_BUSINESS_DAYS.get(statute.id) ?? null,
     },
   ]),

@@ -1,4 +1,5 @@
 import {
+  POLICY_BASIS_ID,
   type ProfileField,
   parseReferences,
   type RequestRight,
@@ -15,6 +16,7 @@ import {
   SENDER,
 } from "./fixtures.js";
 import {
+  getLegalBasis,
   identifiersFor,
   LegalInputError,
   type RenderRequestEmailInput,
@@ -138,7 +140,7 @@ describe("renderRequestEmail properties", () => {
   it("stays short enough to read in a minute", () => {
     for (const [label, input] of allInputs) {
       const words = renderRequestEmail(input).text.split(/\s+/).length;
-      expect(words, label).toBeLessThan(230);
+      expect(words, label).toBeLessThan(250);
     }
   });
 
@@ -160,18 +162,61 @@ describe("renderRequestEmail properties", () => {
     }
   });
 
-  it("claims the opt-out needs no proof of identity only under a law that says so", () => {
-    const claim = "needs no proof of my identity";
+  it("says an opt-out need not be authenticated only under a rule it can cite", () => {
+    const claim = "does not have to be authenticated";
     const texts = (state: Parameters<typeof build>[0]) =>
       renderRequestEmail(build(state, "initial", ["opt_out"])).text;
-    for (const state of ["CA", "CT", "NJ", "CO"] as const) {
-      expect(texts(state), state).toContain(claim);
+    const rules = {
+      CA: "11 CCR 7026(d)",
+      CT: "Conn. Gen. Stat. 42-518(c)(4)",
+      DE: "6 Del. C. 12D-104(c)(4)",
+      MD: "Md. Code, Com. Law 14-4605(e)(6)",
+      MN: "Minn. Stat. 325M.14, subd. 4(h)",
+      MT: "Mont. Code Ann. 30-14-2808(4)(d)",
+      NH: "N.H. Rev. Stat. Ann. 507-H:4, III(d)",
+      NJ: "N.J.S.A. 56:8-166.7(e)",
+      OR: "Or. Rev. Stat. 646A.576(5)(e)",
+      RI: "R.I. Gen. Laws 6-48.1-6(b)(4)",
+    } as const;
+    for (const [state, rule] of Object.entries(rules)) {
+      const text = texts(state as keyof typeof rules);
+      expect(text, state).toContain(`Under ${rule}, an opt-out of sale ${claim}.`);
+      expect(text, state).toContain("If you need a detail to find my record, tell me which one.");
     }
-    for (const state of ["VA", "TX", "NV", "WY", "UT"] as const) {
+    for (const state of [
+      "CO",
+      "VA",
+      "TX",
+      "NV",
+      "WY",
+      "UT",
+      "IA",
+      "NE",
+      "TN",
+      "KY",
+      "IN",
+    ] as const) {
       const text = texts(state);
       expect(text, state).not.toContain(claim);
+      expect(text, state).not.toContain("no proof of my identity");
       expect(text, state).toContain("Please do not ask for ID, an account, or a fee");
     }
+  });
+
+  it("does not make the authentication claim for the part of a request the statute does not cover", () => {
+    const claim = "does not have to be authenticated";
+    const deleteOnly = renderRequestEmail(build("CA", "initial", ["delete"])).text;
+    expect(deleteOnly).not.toContain(claim);
+    expect(deleteOnly).not.toContain("do not ask for ID");
+    const policy = getLegalBasis(POLICY_BASIS_ID, "CA");
+    if (!policy) throw new Error("the policy basis must resolve");
+    const policyOptOut = renderRequestEmail({
+      ...build("CA", "initial", ["opt_out"]),
+      basis: policy,
+    });
+    expect(policyOptOut.text).not.toContain(claim);
+    const bothToBroker = renderRequestEmail(build("CA", "initial", ["opt_out", "delete"])).text;
+    expect(bothToBroker).toContain("Under 11 CCR 7026(d), an opt-out of sale");
   });
 
   it("cites the statute named by the basis, with its citation, and never one it was not given", () => {

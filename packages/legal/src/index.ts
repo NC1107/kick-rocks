@@ -1,4 +1,11 @@
-export { getLegalBasis, listJurisdictions, resolveLegalBasis } from "./basis.js";
+export {
+  type DropRecommendation,
+  type DropRecommendationReason,
+  getLegalBasis,
+  listJurisdictions,
+  recommendDrop,
+  resolveLegalBasis,
+} from "./basis.js";
 export {
   BROKER_REGISTRATION_LAWS,
   BrokerRegistrationLaw,

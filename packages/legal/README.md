@@ -19,15 +19,38 @@ Three rules are held back or narrowed on purpose.
   A two-right request to a broker cites the statute for the opt-out and asks for deletion under policy.
   A deletion request to a company still cites the statute, worded as the data the person provided.
 - Florida's consumer rights bind only controllers with more than 1 billion dollars in revenue, which this tool cannot know for a target, so it is never cited.
-- Nevada has no comprehensive law, but NRS 603A.345 and 603A.346 (SB 260 of 2021) let a resident direct an operator or a data broker not to sell covered information, with 60 days to answer and 30 more on request.
-  It gives no deletion right, and it needs a verified request, so the email never says the opt-out needs no proof of identity there.
+- Nevada has no comprehensive law, but NRS 603A.345 (operators, SB 220 of 2019) and NRS 603A.346 (data brokers, SB 260 of 2021) let a resident direct an operator or a data broker not to sell covered information, with 60 days to answer and 30 more on request.
+  It gives no deletion right, and it needs a verified request (NRS 603A.337), so the email never says the opt-out needs no authentication there.
+  "Sale" means an exchange for monetary consideration, covered information is limited to what an operator collected through its website or online service, and consumer reporting agencies, regulated financial institutions, and publicly available information are excluded, so the email asks only "to the extent it applies to you".
 
-The email says an opt-out needs no proof of identity only for statutes that say so (`optOutAuthExempt` in `src/statutes.ts`).
-Everywhere else it asks politely not to be asked for ID, an account, or a fee.
+The email says an opt-out of sale does not have to be authenticated only where the enacted text or regulation says so, and it cites the provision (`optOutAuthRule` in `src/statutes.ts`).
+The statements are narrower than "no proof of identity".
+California says a business "shall not require a verifiable consumer request" for an opt-out and may still ask for what it needs to identify the consumer (11 CCR 7026(d)).
+Connecticut, Delaware, Maryland, Minnesota, Montana, New Hampshire, New Jersey, and Rhode Island say a controller is not required to authenticate an opt-out request, but may deny one it documents as fraudulent.
+Oregon says to comply "without requiring authentication", and the controller may ask for information needed to identify the consumer.
+The email therefore adds that the business should say which detail it needs to find the record.
+Colorado is left out: its statute has no such rule, and Rule 4.08 (4 CCR 904-3) requires authentication of every consumer data right request, with the exemption (Rule 5.08) limited to a universal opt-out signal.
+Texas, Utah, Virginia, Iowa, Nebraska, Tennessee, Kentucky, Indiana, and Oklahoma were read and have no such rule.
+Florida, Alabama, Louisiana, and Vermont (S.71) are not claimed, because the Florida law is not cited and the enrolled text of the other three was not readable.
+Everywhere else the email asks politely not to be asked for ID, an account, or a fee.
 A California request that only opts out is owed action within 15 business days (11 CCR 7026(f)), recorded as 21 calendar days, and has no extension.
 
 The Delete Act is routing information.
 The person's right under it is exercised through DROP, so the email asks the broker to honor the request without claiming a right to demand it by email.
+
+### California deletion and DROP
+
+CCPA Civ. Code 1798.105(a) gives a right to have deleted "any personal information about the consumer which the business has collected from the consumer".
+A data broker by definition has no direct relationship with the consumer, so the CCPA deletion right does not reach what it holds.
+DROP under Civ. Code 1798.99.86 deletes "all personal information related to that consumer" held by every registered broker, whatever its source.
+From 2026-08-01 a registered broker must check DROP at least every 45 days, delete within 45 days of a request, and keep deleting every 45 days.
+A request the broker cannot verify is processed as an opt-out of sale or sharing, and deletion is not owed where 1798.105(d), 1798.145, or 1798.146 allow retention.
+
+`recommendDrop` tells the caller when to point the person to DROP instead of, or next to, an email.
+It recommends DROP when the person lives in California, the target is a broker registered with California, a deletion is asked for (alone or with an opt-out), and the date is on or after 2026-08-01.
+It does not recommend DROP for an opt-out alone, for a broker outside the California registry, for a company, or before the processing date.
+A deletion-only request to a registered broker is still emailed under the Delete Act basis, and a two-right request keeps the CCPA opt-out email while the deletion goes through DROP.
+A deletion request to a company stays a CCPA request for the data the person provided.
 
 The law only says "to the extent it applies to you" because every statute has size thresholds the tool cannot check for a given business.
 
@@ -87,11 +110,36 @@ Data broker registration laws, which give consumers no request right:
 | VT | 9 V.S.A. 2430, 2446, 2447, amended by Act 138 of 2026 | 2019-01-01 | https://legislature.vermont.gov/statutes/section/09/062/02446 |
 | TX | Tex. Bus. & Com. Code ch. 509 | 2023-09-01 | https://statutes.capitol.texas.gov/Docs/BC/htm/BC.509.htm |
 | OR | Or. Rev. Stat. 646A.593 | 2024-01-01 | https://www.oregonlegislature.gov/bills_laws/ors/ors646A.html |
-| NJ | N.J. A5328 (2026), signed 2026-06-30 | 2026-06-30 | https://www.njleg.state.nj.us/bill-search/2026/A5328 |
+| NJ | P.L. 2026, c. 25 (A5328), N.J.S.A. 56:8-166.20 to 56:8-166.24, approved 2026-06-30 | 2026-06-30 | https://pub.njleg.state.nj.us/Bills/2026/PL26/25_.PDF |
+
+### Legal accuracy pass, checked 2026-10-07
+
+New Jersey.
+The consumer rights law is P.L. 2023, c. 266, codified at N.J.S.A. 56:8-166.4 to 56:8-166.19, and its authentication clause is section 4 (C.56:8-166.7(e)).
+A5328 is not the consumer rights law.
+It is the data broker and data collector act, enacted as P.L. 2026, c. 25 and codified at N.J.S.A. 56:8-166.20 to 56:8-166.24.
+It was read from the enrolled chapter text.
+It took effect on 2026-06-30, the public registry is inoperative for 270 days (2027-03-27), and it also amends 56:8-166.12 to bar the sale of sensitive data.
+The earlier note of a registration period from 2027-04-01 to 2027-06-30 is not in the enrolled text and was removed.
+
+Nevada.
+The statute was already in `src/statutes.ts`, and its text was read from https://www.leg.state.nv.us/NRS/NRS-603A.html (Rev. 4/15/2026, 2025 session).
+Sections read: 603A.320, 603A.323, 603A.333, 603A.337, 603A.338, 603A.345, 603A.346, and 603A.360.
+Effective dates (2019-10-01 for operators, 2021-10-01 for brokers) come from the session law citations in the NRS and law firm summaries of SB 220 and SB 260.
+
+Opt-out authentication.
+Read from the enrolled or codified text: Connecticut 42-518(c)(4), Delaware 12D-104(c)(4), Maryland 14-4605(e)(6), Minnesota 325M.14 subd. 4(h), New Jersey 56:8-166.7(e), Oregon 646A.576(5)(e), Rhode Island 6-48.1-6(b)(4), and Colorado C.R.S. 6-1-1306(2)(d) with Rules 4.08 and 5.08.
+California 11 CCR 7026(d) and (f) were read from the Cornell LII copy of the regulations, and Montana 30-14-2808(4)(d) and New Hampshire 507-H:4, III(d) from the legislature pages.
+
+California deletion.
+Civ. Code 1798.105 was read from the CPPA's posted statute (effective 2025-01-01), and 1798.99.86 from the codified text on california.public.law, which mirrors the Legislative Counsel text.
+SB 362 is Stats. 2023, ch. 709.
+The privacy.ca.gov DROP page confirms the 2026-08-01 date and the 45 day cycle.
+leginfo.legislature.ca.gov served only a script challenge, so the primary URL in the table is the page the data cites and not the page that was parsed.
 
 What was read directly and what was not:
 
-- Read from the enrolled or codified text: Virginia, Connecticut, Iowa, Delaware, Minnesota, Maryland, Tennessee, Kentucky, Nebraska, New Jersey, Colorado, Oregon, Rhode Island, Oklahoma, and the Vermont broker section and Oregon broker section.
+- Read from the enrolled or codified text: Virginia, Connecticut, Iowa, Delaware, Minnesota, Maryland, Tennessee, Kentucky, Nebraska, New Jersey (both acts), Colorado, Oregon, Rhode Island, Oklahoma, Nevada, and the Vermont broker section and Oregon broker section.
 - California, Utah, Texas, Montana, New Hampshire, Indiana, and Florida pages block scripts or render with JavaScript, so their rights, deadlines, and dates were confirmed from the statute sections as quoted by other sources and from the Texas, Utah, and California agency pages.
 - Alabama, Louisiana, and Vermont (S.71) were enacted in 2026 and their enrolled text was not readable.
   Their dates and signing came from the legislature's bill pages, and their 45 day deadlines and rights from law firm summaries.
@@ -106,3 +154,12 @@ A direct request to a broker stays valid next to DROP.
 
 `pnpm --filter @kickrocks/legal test` runs the data checks (every statute has a primary source URL and a valid effective date), the basis rules, the identifier rules, and a snapshot of every email for all 51 jurisdictions, three kinds, and three right sets, plus the 2026 laws once they take effect and the target variants.
 Review `src/__snapshots__/email.test.ts.snap` whenever a template or statute changes.
+The tests also pin the opt-out authentication rule per state, check that the claim is absent for Colorado and every state without a sourced rule, and cover `recommendDrop`.
+
+## Known gaps
+
+- The authentication rules of Alabama, Louisiana, and Vermont (S.71) were not readable, and Texas, Utah, Virginia, Iowa, Nebraska, Tennessee, Kentucky, Indiana, and Oklahoma have none, so the email makes no claim there.
+- The California regulations 11 CCR 7026(d) and (f) and the Montana and New Hampshire sections were confirmed from secondary hosts of the official text, not the agency or legislature copy.
+- New Jersey's implementing rules under the Data Privacy Act were not reviewed.
+- Nevada's NRS 603A.345 took effect two years before the entry's date, which is the broker date.
+- Nothing in the server calls `recommendDrop` yet, because the server files are owned by another change.
