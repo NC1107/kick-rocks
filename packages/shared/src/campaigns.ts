@@ -28,6 +28,7 @@ export type TargetOutcomeKind = z.infer<typeof TargetOutcomeKind>;
  * - `no_mailbox`: it needs an email and the profile has no mailbox connected.
  * - `already_confirmed`: it confirmed a removal, and nothing is re-sent unless a re-scan finds the person again.
  * - `unsupported_channel`: it only takes postal mail, fax, a phone call, or payment.
+ * - `missing_profile_details`: a scan needs a name or address detail the profile does not have yet.
  * - `covered_by_platform`: a state platform such as California's DROP already handles this registered broker.
  */
 export const SkipReason = z.enum([
@@ -37,6 +38,7 @@ export const SkipReason = z.enum([
   "no_mailbox",
   "already_confirmed",
   "unsupported_channel",
+  "missing_profile_details",
   "covered_by_platform",
 ]);
 export type SkipReason = z.infer<typeof SkipReason>;

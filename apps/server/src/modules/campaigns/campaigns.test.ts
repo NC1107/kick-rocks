@@ -217,6 +217,60 @@ describe("presets", () => {
     expect(result.counts.scan_started).toBe(2);
   });
 
+  describe("a scan the profile cannot run", () => {
+    const nameOnly = () =>
+      seedProfile(ctx, {
+        identities: [
+          {
+            kind: "name",
+            value: { first: "Jordan", last: "Example" },
+            isPrimary: true,
+            validFrom: null,
+            validTo: null,
+          },
+        ],
+      });
+
+    it("is skipped with the details to add, not shown as ready", async () => {
+      const profile = nameOnly();
+      seedTarget(ctx, { id: "people", name: "People Site", category: "people-search" });
+      const result = await previewOk(profile.id, {
+        selection: { targetIds: ["people"] },
+        rights: ["opt_out"],
+      });
+      expect(result.counts).toEqual({ request_created: 0, scan_started: 0, skipped: 1 });
+      expect(result.items[0]).toMatchObject({
+        reason: "missing_profile_details",
+        detail: "Add a current address with state to this profile to scan People Site.",
+      });
+    });
+
+    it("starts nothing when the campaign is created", async () => {
+      const profile = nameOnly();
+      seedTarget(ctx, { id: "people", category: "people-search" });
+      const created = await create(profile.id, {
+        selection: { preset: "people_search" },
+        rights: ["opt_out"],
+      });
+      expect(created.ok && created.body.counts.skipped).toBe(1);
+      expect(ctx.services.taskQueue.list({ profileId: profile.id })).toEqual([]);
+    });
+
+    it("asks only for what the site's own recipe types", async () => {
+      const profile = nameOnly();
+      seedTarget(ctx, { id: "people", category: "people-search" });
+      seedRecipe(ctx, "people", {
+        purpose: "scan",
+        definition: { fields: ["first_name", "last_name"] },
+      });
+      const result = await previewOk(profile.id, {
+        selection: { targetIds: ["people"] },
+        rights: ["opt_out"],
+      });
+      expect(result.counts.scan_started).toBe(1);
+    });
+  });
+
   it("everything selects all targets, most important first", async () => {
     const { profile } = setup();
     seedMix();

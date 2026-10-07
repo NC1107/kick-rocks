@@ -46,4 +46,18 @@ describe("campaign handlers", () => {
     });
     expect(preview.json.items[0].outcome).toBe("scan_started");
   });
+
+  it("skips a scan the profile has no address to run", async () => {
+    const riley = app.store.profiles[1] as NonNullable<(typeof app.store.profiles)[number]>;
+    riley.identities = riley.identities.filter((identity) => identity.kind !== "address");
+    const preview = await call({
+      method: "POST",
+      path: `/profiles/${riley.id}/campaigns/preview`,
+      body: { selection: { targetIds: ["peopletrace"] }, rights: ["delete"] },
+    });
+    expect(preview.json.items[0]).toMatchObject({
+      outcome: "skipped",
+      reason: "missing_profile_details",
+    });
+  });
 });

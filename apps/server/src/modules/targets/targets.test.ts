@@ -134,6 +134,24 @@ describe("GET /targets", () => {
 });
 
 describe("GET /targets/facets", () => {
+  it("keeps what a site demands out of the categories and in the requirements", async () => {
+    seedTarget(ctx, { id: "a", category: "marketing" });
+    seedTarget(ctx, { id: "b", category: "requires-id", requiresId: true });
+    seedTarget(ctx, { id: "c", category: "people-search", requirements: ["id_upload"] });
+
+    const facets = await ctx.call(API_ROUTES.targetsFacets);
+    expect(facets.ok && facets.body.category.map((entry) => entry.value).sort()).toEqual([
+      "marketing",
+      "people-search",
+    ]);
+    expect(facets.ok && facets.body.requirement).toEqual([{ value: "id_upload", count: 2 }]);
+
+    const list = await ctx.call(API_ROUTES.targetsList, {
+      query: { requirement: "id_upload", page: 1, pageSize: 25 },
+    });
+    expect(list.ok && list.body.items.map((item) => item.id).sort()).toEqual(["b", "c"]);
+  });
+
   it("counts every facet, most common first, with requirements counted once per target", async () => {
     seedTarget(ctx, { id: "a", category: "marketing", contactMethod: "email" });
     seedTarget(ctx, { id: "b", category: "marketing", contactMethod: "both", priority: "high" });

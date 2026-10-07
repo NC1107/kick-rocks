@@ -85,6 +85,13 @@ function outcomeFor(store: MockStore, profileId: string, target: TargetDetail): 
     );
   }
   if (target.needsRecord) {
+    const hasAddress = (profile?.identities ?? []).some((identity) => identity.kind === "address");
+    if (!hasAddress) {
+      return skipped(
+        "missing_profile_details",
+        `Add a current address with city and state to this profile to scan ${target.name}.`,
+      );
+    }
     const scanning = store.scans.some(
       (scan) =>
         scan.profileId === profileId && scan.targetId === target.id && scan.finishedAt === null,

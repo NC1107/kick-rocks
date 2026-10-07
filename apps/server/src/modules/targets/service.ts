@@ -3,15 +3,21 @@ import type {
   Paged,
   RecipeHealth,
   RecipePurpose,
+  TargetCategory,
   TargetDetail,
   TargetFacets,
   TargetListItem,
   TargetsQuery,
 } from "@kickrocks/shared";
-import { and, asc, desc, eq, inArray, type SQL, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, notInArray, type SQL, sql } from "drizzle-orm";
 import { likePattern } from "../../core/like.js";
 import { targetDetail } from "../../core/target-detail.js";
 import type { TargetsService } from "../../core/targets.js";
+
+const ID_REQUIREMENT = "id_upload";
+
+/** Categories that say what a site demands, which the Requirement filter already covers. */
+const REQUIREMENT_CATEGORIES: TargetCategory[] = ["requires-id"];
 
 const PRIORITY_RANK = sql`case ${targets.priority} when 'crucial' then 0 when 'high' then 1 else 2 end`;
 
@@ -22,8 +28,10 @@ function filtersOf(query: Partial<TargetsQuery>): SQL[] {
   if (query.contactMethod) conditions.push(eq(targets.contactMethod, query.contactMethod));
   if (query.priority) conditions.push(eq(targets.priority, query.priority));
   if (query.requirement) {
+    const listed = sql`exists (select 1 from json_each(${targets.requirements}) where json_each.value = ${query.requirement})`;
+    // A site that wants ID is recorded in its category and flag, not always in its requirements.
     conditions.push(
-      sql`exists (select 1 from json_each(${targets.requirements}) where json_each.value = ${query.requirement})`,
+      query.requirement === ID_REQUIREMENT ? sql`(${listed} or ${targets.requiresId} = 1)` : listed,
     );
   }
   if (query.q) {
@@ -108,19 +116,31 @@ export function createTargetCatalog(
 
     facets() {
       const live = eq(targets.retired, false);
+      const listedRequirements = db
+        .select({ value: sql<string>`json_each.value`, count: sql<number>`count(*)` })
+        .from(targets)
+        .innerJoin(sql`json_each(${targets.requirements})`, sql`1 = 1`)
+        .where(and(live, sql`json_each.value <> ${ID_REQUIREMENT}`))
+        .groupBy(sql`json_each.value`)
+        .all();
+      const asksForId =
+        db
+          .select({ count: sql<number>`count(*)` })
+          .from(targets)
+          .where(and(live, ...filtersOf({ requirement: ID_REQUIREMENT })))
+          .get()?.count ?? 0;
       return {
         kind: countBy(sql`${targets.kind}`, live),
-        category: countBy(sql`${targets.category}`, live),
+        category: countBy(
+          sql`${targets.category}`,
+          and(live, notInArray(targets.category, REQUIREMENT_CATEGORIES)),
+        ),
         contactMethod: countBy(sql`${targets.contactMethod}`, live),
         priority: countBy(sql`${targets.priority}`, live),
-        requirement: db
-          .select({ value: sql<string>`json_each.value`, count: sql<number>`count(*)` })
-          .from(targets)
-          .innerJoin(sql`json_each(${targets.requirements})`, sql`1 = 1`)
-          .where(live)
-          .groupBy(sql`json_each.value`)
-          .orderBy(desc(sql`count(*)`), asc(sql`json_each.value`))
-          .all(),
+        requirement: [
+          ...listedRequirements,
+          ...(asksForId > 0 ? [{ value: ID_REQUIREMENT, count: asksForId }] : []),
+        ].sort((a, b) => b.count - a.count || a.value.localeCompare(b.value)),
       };
     },
 

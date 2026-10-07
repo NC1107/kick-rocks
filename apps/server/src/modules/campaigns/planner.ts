@@ -21,6 +21,7 @@ import {
 import { and, desc, eq, inArray } from "drizzle-orm";
 import type { Clock } from "../../core/clock.js";
 import { conflict, notFound } from "../../core/errors.js";
+import { describeMissingScanFields, missingScanFields } from "../../core/scan-readiness.js";
 import type { TargetsService } from "../../core/targets.js";
 import type { TaskQueue } from "../../core/task-queue.js";
 
@@ -253,7 +254,16 @@ export function createCampaignPlanner({
         );
       }
 
-      if (summary.needsRecord) return { kind: "scan", target: row };
+      if (summary.needsRecord) {
+        const missing = missingScanFields({ db, clock }, profileId, row.id);
+        if (missing.length > 0) {
+          return skip(
+            "missing_profile_details",
+            `Add ${describeMissingScanFields(missing)} to this profile to scan ${row.name}.`,
+          );
+        }
+        return { kind: "scan", target: row };
+      }
 
       const channel: RequestChannel = hasEmail ? "email" : "form";
       if (!mailbox && (channel === "email" || formUsesMailbox(row))) {

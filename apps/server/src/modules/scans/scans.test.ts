@@ -56,6 +56,39 @@ describe("POST /profiles/:id/scans", () => {
     expect(result.body.items[0]?.scanId).toBeTruthy();
   });
 
+  it("skips a target the profile has too few details to search", async () => {
+    const nameOnly = seedProfile(ctx, {
+      identities: [
+        {
+          kind: "name",
+          value: { first: "Jordan", last: "Example" },
+          isPrimary: true,
+          validFrom: null,
+          validTo: null,
+        },
+      ],
+    });
+    const site = peopleSearch();
+    const result = await start({ targetIds: [site.id] }, nameOnly.id);
+    expect(result.ok && result.body.items[0]).toMatchObject({
+      outcome: "skipped",
+      reason: "missing_profile_details",
+    });
+    expect(ctx.services.taskQueue.list({ profileId: nameOnly.id })).toEqual([]);
+  });
+
+  it("leaves a company out of the people-search preset even when its category looks like one", async () => {
+    const company = seedTarget(ctx, { kind: "company", category: "other" });
+    ctx.services.db
+      .update(targets)
+      .set({ category: "people-search" })
+      .where(eq(targets.id, company.id))
+      .run();
+    const site = peopleSearch();
+    const result = await start({ preset: "people_search" });
+    expect(result.ok && result.body.items.map((item) => item.targetId)).toEqual([site.id]);
+  });
+
   it("scans every people-search target for the preset and nothing else", async () => {
     const found = peopleSearch();
     const background = seedTarget(ctx, { category: "background-check" });

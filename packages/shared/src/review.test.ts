@@ -51,6 +51,7 @@ describe("campaign outcomes", () => {
       "no_mailbox",
       "already_confirmed",
       "unsupported_channel",
+      "missing_profile_details",
       "covered_by_platform",
     ]);
     const outcome = {

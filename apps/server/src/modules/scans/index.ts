@@ -5,6 +5,7 @@ import { notFound } from "../../core/errors.js";
 import { registerRoute } from "../../core/http.js";
 import type { ModulePlugin } from "../../core/module.js";
 import { requireProfile } from "../../core/require-profile.js";
+import { describeMissingScanFields, missingScanFields } from "../../core/scan-readiness.js";
 import type { AppServices } from "../../services.js";
 
 const skipped = (
@@ -32,7 +33,7 @@ function targetsToScan(
       .select()
       .from(targets)
       .all()
-      .filter((row) => !row.retired && needsRecord(row));
+      .filter((row) => !row.retired && row.kind === "broker" && needsRecord(row));
   }
   const ids = [...new Set(selection.targetIds)];
   const rows = services.db.select().from(targets).where(inArray(targets.id, ids)).all();
@@ -56,6 +57,14 @@ function startScans(
         row,
         "unsupported_channel",
         `${row.name} does not list people, so there is nothing to scan. Send it a request instead.`,
+      );
+    }
+    const missing = missingScanFields(services, profileId, row.id);
+    if (missing.length > 0) {
+      return skipped(
+        row,
+        "missing_profile_details",
+        `Add ${describeMissingScanFields(missing)} to this profile to scan ${row.name}.`,
       );
     }
     const result = services.dispatch.enqueueScan(profileId, row.id);
