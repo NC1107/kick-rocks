@@ -111,7 +111,7 @@
       }
     ]
   },
-  "notes": "Verified live 2026-10-07 in headed and headless Chrome. /optout redirects to /remove, which has a requester select, subject first, middle and last name and email, a confirm-authorize checkbox, a reCAPTCHA, and Submit. Only the subject path is used. The page does not say what follows a submit, so the recipe assumes an emailed confirmation link; if that is wrong the run still ends cleanly, and the first real run should correct the note. Nothing was submitted. The wording the site shows after Submit was never observed, so the outcome_when texts that prove the request went through are guesses, and the recipe stays unverified until a real submission has been seen.",
+  "notes": "Verified live 2026-10-07 in headed and headless Chrome. /optout redirects to /remove, which has a requester select, subject first, middle and last name and email, a confirm-authorize checkbox, a reCAPTCHA, and Submit. Only the subject path is used. The page does not say what follows a submit, so the recipe assumes an emailed confirmation link; if that is wrong the run still ends cleanly, and the first real run should correct the note. Nothing was submitted. The wording the site shows after Submit was never observed, so the outcome_when texts that prove the request went through are guesses, and the recipe stays unverified until a real submission has been seen. Re-checked 2026-10-07 in a plain headed Chrome: /optout redirects to /remove and every selector is still present.",
   "verifiedAt": "2026-10-07",
   "liveStatus": "unverified"
 }

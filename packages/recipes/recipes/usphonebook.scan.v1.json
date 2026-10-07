@@ -100,7 +100,7 @@
       }
     ]
   },
-  "notes": "Verified live 2026-10-07 in headed Chrome by running the name, city and state form end to end. Results are .success-wrapper-padding cards with the name in an itemprop=name span inside the h3, the age in the h3 text, itemprop=address spans for places, itemprop=relatedTo links for relatives, and a \"VIEW FULL ADDRESS & PHONE\" link a.ls_contacts-btn to the record. The state URL path needs a slug of the state name, which the template filters cannot chain, so the recipe drives the form on /removal, whose header search form is the same one the home page uses. The state select lists full names.",
+  "notes": "Verified live 2026-10-07 in headed Chrome by running the name, city and state form end to end. Results are .success-wrapper-padding cards with the name in an itemprop=name span inside the h3, the age in the h3 text, itemprop=address spans for places, itemprop=relatedTo links for relatives, and a \"VIEW FULL ADDRESS & PHONE\" link a.ls_contacts-btn to the record. The state URL path needs a slug of the state name, which the template filters cannot chain, so the recipe drives the form on /removal, whose header search form is the same one the home page uses. The state select lists full names. Re-run end to end on 2026-10-07 with the runner in headed Chrome from a residential connection: the John Smith, Houston, TX search returned 9 candidates and the canary passed.",
   "verifiedAt": "2026-10-07",
   "liveStatus": "verified"
 }

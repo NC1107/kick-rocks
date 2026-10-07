@@ -70,7 +70,7 @@
       }
     ]
   },
-  "notes": "Verified live 2026-10-07 in headed Chrome. The results page for a name, state and city renders each person as an a.record link with the name in .record__title, age in the first narrow column, locations and relatives in the next columns. The record link points at a /products/name checkout funnel with the person's id, not at a public record page, so it identifies the row but is not a page to read. The row is the link itself, so recordUrl reads the item's own href with \":scope\". \"More locations...\" and \"More relatives...\" filler spans are included in the lists as they are, and the person sees them when confirming a match. Nothing was submitted.",
+  "notes": "Verified live 2026-10-07 in headed Chrome. The results page for a name, state and city renders each person as an a.record link with the name in .record__title, age in the first narrow column, locations and relatives in the next columns. The record link points at a /products/name checkout funnel with the person's id, not at a public record page, so it identifies the row but is not a page to read. The row is the link itself, so recordUrl reads the item's own href with \":scope\". \"More locations...\" and \"More relatives...\" filler spans are included in the lists as they are, and the person sees them when confirming a match. Nothing was submitted. Re-run end to end on 2026-10-07 with the runner in headed Chrome from a residential connection: the John Smith, Houston, TX search returned 9 candidates and the canary passed. Some cards have no age.",
   "verifiedAt": "2026-10-07",
   "liveStatus": "verified"
 }

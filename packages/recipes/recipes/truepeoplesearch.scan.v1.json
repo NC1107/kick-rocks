@@ -68,7 +68,7 @@
       }
     ]
   },
-  "notes": "Verified live 2026-10-07 in headed Chrome. The results URL (name and citystatezip query) lists .card-summary cards with the name in .content-header, \"Age N • City, ST\" in the line after it, a \"Used to live in\" and \"Related to\" line, and a View Details link a.detail-link to /find/person/<id>. The relatives line is truncated on the card, so it is left out. Headless Chrome and the /removal page both answered with a Cloudflare challenge, so run this headed.",
+  "notes": "Verified live 2026-10-07 in headed Chrome. The results URL (name and citystatezip query) lists .card-summary cards with the name in .content-header, \"Age N \u2022 City, ST\" in the line after it, a \"Used to live in\" and \"Related to\" line, and a View Details link a.detail-link to /find/person/<id>. The relatives line is truncated on the card, so it is left out. Headless Chrome and the /removal page both answered with a Cloudflare challenge, so run this headed. Re-run end to end on 2026-10-07 with the runner in headed Chrome from a residential connection: the John Smith, Houston, TX search returned 8 candidates and the canary passed. The removal page no longer takes a record URL, so the scan result is for the person to confirm, not an input to the removal.",
   "verifiedAt": "2026-10-07",
   "liveStatus": "verified"
 }

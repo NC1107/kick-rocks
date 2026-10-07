@@ -51,7 +51,7 @@
       }
     ]
   },
-  "notes": "Not verified. nuwber.com did not resolve in DNS from this machine on 2026-10-07 (ERR_NAME_NOT_RESOLVED for nuwber.com and www.nuwber.com, and an empty answer from 1.1.1.1), so no page was loaded. The URL shape and selectors are guesses. Check whether the site is still operating before relying on this recipe.",
+  "notes": "Not verified. nuwber.com did not resolve in DNS from this machine on 2026-10-07 (ERR_NAME_NOT_RESOLVED for nuwber.com and www.nuwber.com, and an empty answer from 1.1.1.1), so no page was loaded. The URL shape and selectors are guesses. Check whether the site is still operating before relying on this recipe. Re-checked 2026-10-07: nuwber.com does not resolve (no address record from 1.1.1.1 or 8.8.8.8 for the bare or www name), so the site may be offline. Nothing about the page could be checked.",
   "verifiedAt": "2026-10-07",
   "liveStatus": "unverified"
 }
