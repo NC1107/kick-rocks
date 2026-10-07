@@ -34,9 +34,9 @@ const field = (label: RegExp | string) => screen.findByLabelText(label);
 describe("general settings", () => {
   it("shows the saved schedule and the worker's state", async () => {
     general();
-    expect(await field(/Check the inbox every/)).toHaveValue(15);
-    expect(screen.getByLabelText(/Follow up at most/)).toHaveValue(2);
-    expect(await screen.findByText("Workers")).toBeVisible();
+    expect(await field(/Check inbox every/)).toHaveValue(15);
+    expect(screen.getByLabelText(/Follow-ups/)).toHaveValue(2);
+    expect(await screen.findByText("Recipe worker")).toBeVisible();
     expect(screen.getByText("worker-home")).toBeVisible();
     expect(screen.getByText("agent-home")).toBeVisible();
   });
@@ -56,7 +56,7 @@ describe("general settings", () => {
   it("lets the person allow the agent worker onto unreviewed sites, and take it back", async () => {
     const { user, mock } = general();
     const box = await screen.findByRole("checkbox", {
-      name: /Let the agent worker take unreviewed sites/,
+      name: /Let the agent worker take unreviewed targets/,
     });
     expect(box).not.toBeChecked();
     await user.click(box);
@@ -68,7 +68,7 @@ describe("general settings", () => {
 
   it("saves only a changed schedule and confirms it", async () => {
     const { user, mock } = general();
-    const poll = await field(/Check the inbox every/);
+    const poll = await field(/Check inbox every/);
     const save = screen.getByRole("button", { name: "Save schedule" });
     expect(save).toBeDisabled();
     await user.clear(poll);
@@ -81,7 +81,7 @@ describe("general settings", () => {
 
   it("explains a value that is out of range and does not send it", async () => {
     const { user, mock } = general();
-    const poll = await field(/Check the inbox every/);
+    const poll = await field(/Check inbox every/);
     await user.clear(poll);
     await user.type(poll, "5000");
     await user.click(screen.getByRole("button", { name: "Save schedule" }));
@@ -91,7 +91,7 @@ describe("general settings", () => {
 
   it("resets the form to what is saved", async () => {
     const { user } = general();
-    const poll = await field(/Check the inbox every/);
+    const poll = await field(/Check inbox every/);
     await user.clear(poll);
     await user.type(poll, "99");
     const schedule = poll.closest("form") as HTMLFormElement;
@@ -154,9 +154,7 @@ describe("general settings", () => {
     await screen.findByText("California");
     expect(screen.queryByText("Alaska")).not.toBeInTheDocument();
     expect(screen.queryByText("0 laws")).not.toBeInTheDocument();
-    expect(
-      screen.getByText(/the other states, requests cite the company's own privacy policy/),
-    ).toBeVisible();
+    expect(screen.getByText(/have no law on file/)).toBeVisible();
   });
 
   it("shows the retention windows and saves only the one that changed", async () => {
@@ -380,7 +378,7 @@ describe("bundled recipes to check", () => {
 
   it("lists shipped recipes that were not seen through, with what was and was not checked", async () => {
     bundled();
-    expect(await screen.findByRole("heading", { name: "Bundled recipes to check" })).toBeVisible();
+    expect(await screen.findByRole("heading", { name: /^Bundled recipes to check/ })).toBeVisible();
     const cardinal = await screen.findByRole("region", {
       name: /Cardinal Insights removal recipe/,
     });
@@ -424,7 +422,7 @@ describe("bundled recipes to check", () => {
     expect(statusOf(mock, "brightlist")).toBe("pending_review");
     await user.click(within(dialog).getByRole("button", { name: "Reject" }));
     await waitFor(() => expect(statusOf(mock, "brightlist")).toBe("rejected"));
-    const rejected = await screen.findByRole("heading", { name: "Rejected bundled recipes" });
+    const rejected = await screen.findByRole("heading", { name: /^Rejected bundled recipes/ });
     expect(rejected).toBeVisible();
     await user.click(await screen.findByRole("button", { name: "Approve anyway" }));
     await waitFor(() => expect(statusOf(mock, "brightlist")).toBe("active"));

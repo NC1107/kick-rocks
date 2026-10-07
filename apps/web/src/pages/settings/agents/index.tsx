@@ -1,6 +1,7 @@
 import { API_ROUTES } from "@kickrocks/shared";
 import { errorMessage, useApiQuery } from "../../../api/index.js";
-import { Alert, Button, Card, SkeletonText } from "../../../components/ui/index.js";
+import { Button, Callout, RowGroup, Section, SkeletonText } from "../../../components/ui/index.js";
+import { BodyRow, SETTINGS_WIDTH } from "../rows.js";
 import { SettingsHeader } from "../SettingsHeader.js";
 import { McpCard } from "./McpCard.js";
 import { ProposedRecipes } from "./ProposedRecipes.js";
@@ -10,15 +11,19 @@ export function Component() {
 
   return (
     <>
-      <SettingsHeader description="Connect Claude Code or another MCP client, and review recipes agents propose." />
-      <div className="flex flex-col gap-6">
+      <SettingsHeader description="Connect an MCP client and review its recipes" />
+      <div className={`${SETTINGS_WIDTH} flex flex-col gap-4`}>
         {settings.isPending ? (
-          <Card aria-busy="true">
-            <span className="sr-only">Loading agent settings</span>
-            <SkeletonText lines={5} />
-          </Card>
+          <Section label="Agent access">
+            <RowGroup aria-busy="true">
+              <BodyRow>
+                <span className="sr-only">Loading agent settings</span>
+                <SkeletonText lines={4} />
+              </BodyRow>
+            </RowGroup>
+          </Section>
         ) : settings.isError ? (
-          <Alert
+          <Callout
             intent="danger"
             title="Could not load agent settings"
             action={
@@ -28,7 +33,7 @@ export function Component() {
             }
           >
             {errorMessage(settings.error)}
-          </Alert>
+          </Callout>
         ) : (
           <McpCard mcp={settings.data.mcp} />
         )}

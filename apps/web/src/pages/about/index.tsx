@@ -1,18 +1,19 @@
 import { API_ROUTES, type DataSourceInfo } from "@kickrocks/shared";
 import { errorMessage, useApiQuery } from "../../api/index.js";
 import {
-  Alert,
-  Badge,
   Button,
-  Card,
-  CardHeader,
-  DescriptionList,
+  Callout,
   ExternalLinkText,
   PageHeader,
+  Row,
+  RowGroup,
+  Section,
   Skeleton,
   SkeletonText,
+  Tag,
 } from "../../components/ui/index.js";
 import { formatCount, formatDate, pluralize } from "../../lib/format.js";
+import { BodyRow, FactRow, SETTINGS_WIDTH } from "../settings/rows.js";
 
 const POLYFORM_URL = "https://polyformproject.org/licenses/noncommercial/1.0.0/";
 const CC_BY_NC_SA_URL = "https://creativecommons.org/licenses/by-nc-sa/4.0/";
@@ -21,38 +22,35 @@ const BADBOOL_URL = "https://github.com/yaelwrites/Big-Ass-Data-Broker-Opt-Out-L
 export function Component() {
   return (
     <>
-      <PageHeader
-        title="About"
-        description="Where the data comes from, and the licenses that apply to it."
-      />
-      <div className="flex max-w-3xl flex-col gap-6">
-        <InstanceCard />
-        <SourcesCard />
-        <AttributionCard />
+      <PageHeader title="About" description="Version, data sources, and licenses" />
+      <div className={`${SETTINGS_WIDTH} flex flex-col gap-4`}>
+        <InstanceSection />
+        <SourcesSection />
+        <AttributionSection />
       </div>
     </>
   );
 }
 
-function InstanceCard() {
+function InstanceSection() {
   const health = useApiQuery(API_ROUTES.health);
   const status = useApiQuery(API_ROUTES.status);
 
   return (
-    <Card>
-      <CardHeader
-        title="Kick Rocks"
-        description="Sends data broker and company opt-out requests from your own mailbox, and tracks every reply."
-      />
+    <Section label="Kick Rocks">
       {health.isPending || status.isPending ? (
-        <SkeletonText lines={4} />
+        <RowGroup>
+          <BodyRow>
+            <SkeletonText lines={4} />
+          </BodyRow>
+        </RowGroup>
       ) : (
         <>
           {health.error || status.error ? (
-            <Alert
+            <Callout
               intent="danger"
               title="Could not load this instance's details"
-              className="mb-4"
+              className="mb-3"
               action={
                 <Button
                   size="sm"
@@ -66,65 +64,54 @@ function InstanceCard() {
               }
             >
               {errorMessage(health.error ?? status.error)}
-            </Alert>
+            </Callout>
           ) : null}
-          <DescriptionList
-            items={[
-              ...(health.data ? [{ term: "Version", description: health.data.version }] : []),
-              ...(status.data
-                ? [
-                    {
-                      term: "Broker list",
-                      description: status.data.brokers.available
-                        ? `${pluralize(status.data.targets.brokers, "broker")}${
-                            status.data.brokers.generatedAt
-                              ? `, built ${formatDate(status.data.brokers.generatedAt)}`
-                              : ""
-                          }`
-                        : "Not built yet. Run pnpm data:build, then restart the server.",
-                    },
-                    {
-                      term: "Company list",
-                      description: pluralize(status.data.targets.companies, "company", "companies"),
-                    },
-                    { term: "Profiles", description: formatCount(status.data.profiles) },
-                  ]
-                : []),
-              {
-                term: "License",
-                description: (
-                  <>
-                    <ExternalLinkText href={POLYFORM_URL}>
-                      PolyForm Noncommercial 1.0.0
-                    </ExternalLinkText>
-                    . Free to use and change for yourself, not to sell. Copyright NC1107.
-                  </>
-                ),
-              },
-            ]}
-          />
+          <RowGroup>
+            {health.data ? <FactRow label="Version">{health.data.version}</FactRow> : null}
+            {status.data ? (
+              <>
+                <FactRow label="Broker list" mono={status.data.brokers.available}>
+                  {status.data.brokers.available
+                    ? `${pluralize(status.data.targets.brokers, "broker")}${
+                        status.data.brokers.generatedAt
+                          ? `, built ${formatDate(status.data.brokers.generatedAt)}`
+                          : ""
+                      }`
+                    : "Not built yet. Run pnpm data:build, then restart the server."}
+                </FactRow>
+                <FactRow label="Company list">
+                  {pluralize(status.data.targets.companies, "company", "companies")}
+                </FactRow>
+                <FactRow label="Profiles">{formatCount(status.data.profiles)}</FactRow>
+              </>
+            ) : null}
+            <FactRow label="License" mono={false}>
+              <ExternalLinkText href={POLYFORM_URL}>PolyForm Noncommercial 1.0.0</ExternalLinkText>
+              <span className="block text-ink-3">
+                Free to use and change for yourself, not to sell. Copyright NC1107.
+              </span>
+            </FactRow>
+          </RowGroup>
         </>
       )}
-    </Card>
+    </Section>
   );
 }
 
-function SourcesCard() {
+function SourcesSection() {
   const query = useApiQuery(API_ROUTES.settingsDataSources, { staleTime: 5 * 60_000 });
   return (
-    <Card>
-      <CardHeader
-        title="Data sources"
-        description="Every broker and company in the lists keeps a record of where it came from."
-      />
+    <Section label="Data sources" {...(query.data ? { count: query.data.sources.length } : {})}>
       {query.isPending ? (
-        <div aria-busy="true" className="flex flex-col gap-4">
-          <Skeleton className="h-14 w-full" />
-          <Skeleton className="h-14 w-full" />
-          <Skeleton className="h-14 w-full" />
-        </div>
+        <RowGroup aria-busy="true">
+          {[0, 1, 2].map((key) => (
+            <div key={key} className="px-3.5 py-3">
+              <Skeleton className="h-8 w-full" />
+            </div>
+          ))}
+        </RowGroup>
       ) : query.error ? (
-        <Alert
+        <Callout
           intent="danger"
           title="Could not load the data sources"
           action={
@@ -134,44 +121,38 @@ function SourcesCard() {
           }
         >
           {errorMessage(query.error)}
-        </Alert>
+        </Callout>
       ) : (
-        <ul className="m-0 list-none divide-y divide-line p-0">
+        <RowGroup role="list" className="list-none">
           {query.data.sources.map((source) => (
-            <SourceRow key={source.id} source={source} />
+            <li key={source.id}>
+              <SourceRow source={source} />
+            </li>
           ))}
-        </ul>
+        </RowGroup>
       )}
-    </Card>
+    </Section>
   );
 }
 
 function SourceRow({ source }: { source: DataSourceInfo }) {
   return (
-    <li className="flex flex-col gap-1 py-3 first:pt-0 last:pb-0 sm:flex-row sm:items-start sm:justify-between sm:gap-6">
-      <div className="min-w-0">
-        <p className="text-base font-medium text-ink">
-          <ExternalLinkText href={source.url}>{source.name}</ExternalLinkText>
-        </p>
-        <p className="mt-0.5 text-sm text-ink-muted">
-          {source.attribution ? `By ${source.attribution}. ` : ""}
-          {source.targetCount === 0
-            ? "No entries use it right now."
-            : `Used by ${pluralize(source.targetCount, "entry", "entries")}.`}
-        </p>
-      </div>
-      <Badge variant="outline" className="self-start">
-        {source.license}
-      </Badge>
-    </li>
+    <Row
+      title={<ExternalLinkText href={source.url}>{source.name}</ExternalLinkText>}
+      description={`${source.attribution ? `By ${source.attribution}. ` : ""}${
+        source.targetCount === 0
+          ? "No entries use it right now."
+          : `Used by ${pluralize(source.targetCount, "entry", "entries")}.`
+      }`}
+      trailing={<Tag>{source.license}</Tag>}
+    />
   );
 }
 
-function AttributionCard() {
+function AttributionSection() {
   return (
-    <Card>
-      <CardHeader title="Attribution" />
-      <div className="flex max-w-prose flex-col gap-3 text-base text-ink">
+    <Section label="Attribution">
+      <div className="flex max-w-prose flex-col gap-3 text-body text-ink">
         <p>
           The broker list includes entries from the{" "}
           <ExternalLinkText href={BADBOOL_URL}>Big Ass Data Broker Opt-Out List</ExternalLinkText>{" "}
@@ -183,10 +164,10 @@ function AttributionCard() {
           resulting broker list is shared under the same license, separately from the application
           code.
         </p>
-        <p className="text-ink-muted">
+        <p className="text-ink-2">
           Contacts in the company list were checked against each company's own privacy page.
         </p>
       </div>
-    </Card>
+    </Section>
   );
 }

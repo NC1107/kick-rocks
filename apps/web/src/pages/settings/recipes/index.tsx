@@ -1,9 +1,15 @@
 import { API_ROUTES, type RecipeStatus } from "@kickrocks/shared";
-import { FileCheck } from "lucide-react";
 import { errorMessage, useApiQuery } from "../../../api/index.js";
-import { Alert, Button, Card, EmptyState, SkeletonText } from "../../../components/ui/index.js";
-import { pluralize } from "../../../lib/format.js";
+import {
+  Button,
+  Callout,
+  EmptyState,
+  RowGroup,
+  Section,
+  SkeletonText,
+} from "../../../components/ui/index.js";
 import { RecipeCard, type RecipeCardCopy } from "../RecipeCard.js";
+import { BodyRow, GroupNote, SETTINGS_WIDTH } from "../rows.js";
 import { SettingsHeader } from "../SettingsHeader.js";
 
 const COPY: RecipeCardCopy = {
@@ -28,66 +34,68 @@ export function Component() {
 
   return (
     <>
-      <SettingsHeader description="Check the steps that ship with Kick Rocks but were not seen through on the real site." />
-      <section aria-labelledby="bundled-heading">
-        <h2 id="bundled-heading" className="text-lg font-semibold text-ink">
-          Bundled recipes to check
-        </h2>
-        <p className="mt-0.5 mb-3 max-w-prose text-sm text-ink-muted">
-          Each recipe is a script for one site. The author did not see these through to a real
-          request on the live site, so they do not run on your details until you approve them. Read
-          what was checked, then approve or reject each one. Until then the site is handled by an
-          agent or by you.
-        </p>
-        {pending.isPending ? (
-          <Card aria-busy="true">
-            <span className="sr-only">Loading bundled recipes</span>
-            <SkeletonText lines={3} />
-          </Card>
-        ) : pending.isError ? (
-          <Alert
-            intent="danger"
-            title="Could not load bundled recipes"
-            action={
-              <Button size="sm" onClick={() => pending.refetch()}>
-                Try again
-              </Button>
-            }
-          >
-            {errorMessage(pending.error)}
-          </Alert>
-        ) : pending.data.recipes.length === 0 ? (
-          <EmptyState
-            icon={FileCheck}
-            title="Nothing to check"
-            description="Every bundled recipe has been decided."
-            className="py-8"
-          />
-        ) : (
-          <div className="flex flex-col gap-4">
-            {pending.data.recipes.map((recipe) => (
-              <RecipeCard key={recipe.id} recipe={recipe} copy={COPY} />
-            ))}
-          </div>
-        )}
-      </section>
+      <SettingsHeader description="Check bundled steps before they run on your details" />
+      <div className={SETTINGS_WIDTH}>
+        <Section
+          label="Bundled recipes to check"
+          {...(pending.data ? { count: pending.data.recipes.length } : {})}
+        >
+          {pending.isPending ? (
+            <RowGroup aria-busy="true">
+              <BodyRow>
+                <span className="sr-only">Loading bundled recipes</span>
+                <SkeletonText lines={3} />
+              </BodyRow>
+            </RowGroup>
+          ) : pending.isError ? (
+            <Callout
+              intent="danger"
+              title="Could not load bundled recipes"
+              action={
+                <Button size="sm" onClick={() => pending.refetch()}>
+                  Try again
+                </Button>
+              }
+            >
+              {errorMessage(pending.error)}
+            </Callout>
+          ) : pending.data.recipes.length === 0 ? (
+            <EmptyState
+              title="Nothing to check"
+              description="Every bundled recipe has been decided."
+            />
+          ) : (
+            <>
+              <GroupNote className="mt-0 mb-3 max-w-prose">
+                The author did not see these through to a real request on the live site. They do not
+                run on your details until you approve them.
+              </GroupNote>
+              <div className="flex flex-col gap-3">
+                {pending.data.recipes.map((recipe) => (
+                  <RecipeCard key={recipe.id} recipe={recipe} copy={COPY} />
+                ))}
+              </div>
+            </>
+          )}
+        </Section>
 
-      {rejected.data && rejected.data.recipes.length > 0 ? (
-        <section aria-labelledby="rejected-heading" className="mt-8">
-          <h2 id="rejected-heading" className="text-lg font-semibold text-ink">
-            Rejected bundled recipes
-          </h2>
-          <p className="mt-0.5 mb-3 text-sm text-ink-muted">
-            {pluralize(rejected.data.recipes.length, "recipe")} you rejected. They stay rejected
-            until a newer version ships, and you can still approve one.
-          </p>
-          <div className="flex flex-col gap-4">
-            {rejected.data.recipes.map((recipe) => (
-              <RecipeCard key={recipe.id} recipe={recipe} copy={COPY} rejected />
-            ))}
-          </div>
-        </section>
-      ) : null}
+        {rejected.data && rejected.data.recipes.length > 0 ? (
+          <Section
+            label="Rejected bundled recipes"
+            count={rejected.data.recipes.length}
+            className="mt-6"
+          >
+            <GroupNote className="mt-0 mb-3">
+              They stay rejected until a newer version ships. You can still approve one.
+            </GroupNote>
+            <div className="flex flex-col gap-3">
+              {rejected.data.recipes.map((recipe) => (
+                <RecipeCard key={recipe.id} recipe={recipe} copy={COPY} rejected />
+              ))}
+            </div>
+          </Section>
+        ) : null}
+      </div>
     </>
   );
 }

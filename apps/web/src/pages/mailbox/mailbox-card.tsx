@@ -1,17 +1,18 @@
 import { API_ROUTES, type Mailbox, type ProfileSummary } from "@kickrocks/shared";
 import { useApiQuery } from "../../api/index.js";
-import { Alert, Card, CardHeader, DescriptionList, LinkButton } from "../../components/ui/index.js";
+import { Callout, EmptyState, LinkButton, RowGroup, Section } from "../../components/ui/index.js";
 import { formatRelative } from "../../lib/format.js";
+import { FactRow } from "../settings/rows.js";
 
 /** Why requests are waiting, shown while the server holds sending back after a mail server failure. */
 export function SendPauseAlert({ mailbox }: { mailbox: Mailbox }) {
   if (!mailbox.sendPausedUntil || Date.parse(mailbox.sendPausedUntil) <= Date.now()) return null;
   return (
-    <Alert intent="warning" title="Sending is paused" className="mb-4">
+    <Callout intent="warning" title="Sending is paused" className="mb-3">
       The mail server could not be used, so requests wait and go out{" "}
       {formatRelative(mailbox.sendPausedUntil)}. Saving the connection or testing it successfully
       starts sending again at once.
-    </Alert>
+    </Callout>
   );
 }
 
@@ -27,35 +28,19 @@ export function MailboxFacts({
   hideAddress?: boolean;
 }) {
   return (
-    <DescriptionList
-      items={[
-        ...(hideAddress
-          ? []
-          : [
-              {
-                term: "Address",
-                description: <span className="break-all">{mailbox.address}</span>,
-              },
-            ]),
-        { term: "Provider", description: providerLabel },
-        {
-          term: "Sending server",
-          description: `${mailbox.smtpHost}:${mailbox.smtpPort}`,
-        },
-        {
-          term: "Receiving server",
-          description: `${mailbox.imapHost}:${mailbox.imapPort}`,
-        },
-        { term: "Reply folder", description: mailbox.replyFolder },
-        { term: "Daily limit", description: `${mailbox.dailyCap} requests a day` },
-        {
-          term: "Last checked",
-          description: mailbox.lastPolledAt
-            ? formatRelative(mailbox.lastPolledAt)
-            : "Not checked yet",
-        },
-      ]}
-    />
+    <RowGroup>
+      {hideAddress ? null : <FactRow label="Address">{mailbox.address}</FactRow>}
+      <FactRow label="Provider" mono={false}>
+        {providerLabel}
+      </FactRow>
+      <FactRow label="Sending server">{`${mailbox.smtpHost}:${mailbox.smtpPort}`}</FactRow>
+      <FactRow label="Receiving server">{`${mailbox.imapHost}:${mailbox.imapPort}`}</FactRow>
+      <FactRow label="Reply folder">{mailbox.replyFolder}</FactRow>
+      <FactRow label="Daily limit">{`${mailbox.dailyCap} requests a day`}</FactRow>
+      <FactRow label="Last checked" mono={Boolean(mailbox.lastPolledAt)}>
+        {mailbox.lastPolledAt ? formatRelative(mailbox.lastPolledAt) : "Not checked yet"}
+      </FactRow>
+    </RowGroup>
   );
 }
 
@@ -77,28 +62,36 @@ export function MailboxCard({
 
   if (!mailbox) {
     return (
-      <Card>
-        <CardHeader
-          title="Mailbox"
-          description="Requests are sent from this person's own email account, and replies are read from it."
+      <Section label="Mailbox">
+        <EmptyState
+          title="No mailbox connected."
+          description="Requests go out from this person's own email account, and replies are read from it."
+          actions={
+            <LinkButton to={manage} variant="primary">
+              Connect a mailbox
+            </LinkButton>
+          }
         />
-        <LinkButton to={manage} variant="primary">
-          Connect a mailbox
-        </LinkButton>
-      </Card>
+      </Section>
     );
   }
 
   return (
-    <Card>
-      <CardHeader title="Mailbox" actions={<LinkButton to={manage}>Manage mailbox</LinkButton>} />
+    <Section
+      label="Mailbox"
+      actions={
+        <LinkButton to={manage} size="sm">
+          Manage mailbox
+        </LinkButton>
+      }
+    >
       {mailbox.lastError ? (
-        <Alert intent="warning" title="The last check failed" className="mb-4">
+        <Callout intent="warning" title="The last check failed" className="mb-3">
           {mailbox.lastError}
-        </Alert>
+        </Callout>
       ) : null}
       <SendPauseAlert mailbox={mailbox} />
       <MailboxFacts mailbox={mailbox} providerLabel={label} />
-    </Card>
+    </Section>
   );
 }

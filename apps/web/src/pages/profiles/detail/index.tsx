@@ -1,23 +1,22 @@
 import { API_ROUTES, type ProfileDetail, type StateCode } from "@kickrocks/shared";
-import { UserX } from "lucide-react";
 import { type FormEvent, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router";
 import { ApiRequestError, errorMessage, useApiMutation, useApiQuery } from "../../../api/index.js";
 import {
-  Alert,
   Button,
-  Card,
-  CardFooter,
-  CardHeader,
+  Callout,
   ConfirmDialog,
   EmptyState,
   LinkButton,
   PageHeader,
+  RowGroup,
+  Section,
   Skeleton,
   useToast,
 } from "../../../components/ui/index.js";
 import { formatDate, formatRelative } from "../../../lib/format.js";
 import { MailboxCard } from "../../mailbox/mailbox-card.js";
+import { ActionRow, GroupFooter, GroupNote } from "../../settings/rows.js";
 import { type DetailsErrors, DetailsFields, validateDetails } from "../details-fields.js";
 import { IdentitiesEditor } from "../identities-editor.js";
 import {
@@ -49,9 +48,8 @@ export function Component() {
         <>
           <PageHeader title="Profile" back={{ to: "/profiles", label: "Profiles" }} />
           <EmptyState
-            icon={UserX}
             title="That profile does not exist"
-            description="It may have been deleted. Pick another one from the list."
+            description="It may have been deleted."
             actions={
               <LinkButton to="/profiles" variant="primary">
                 Back to profiles
@@ -64,7 +62,7 @@ export function Component() {
     return (
       <>
         <PageHeader title="Profile" back={{ to: "/profiles", label: "Profiles" }} />
-        <Alert
+        <Callout
           intent="danger"
           title="Could not load this profile"
           action={
@@ -74,7 +72,7 @@ export function Component() {
           }
         >
           {errorMessage(query.error)}
-        </Alert>
+        </Callout>
       </>
     );
   }
@@ -84,13 +82,13 @@ export function Component() {
 
 function DetailSkeleton() {
   return (
-    <div aria-busy="true" className="flex max-w-4xl flex-col gap-6">
+    <div aria-busy="true" className="flex max-w-3xl flex-col gap-4">
       <div>
         <Skeleton className="mb-2 h-4 w-20" />
         <Skeleton className="h-7 w-64" />
       </div>
-      <Skeleton className="h-40 w-full rounded-lg" />
-      <Skeleton className="h-96 w-full rounded-lg" />
+      <Skeleton className="h-28 w-full rounded-md" />
+      <Skeleton className="h-80 w-full rounded-md" />
     </div>
   );
 }
@@ -117,23 +115,26 @@ function ProfileEditor({ profile }: { profile: ProfileDetail }) {
     <>
       <PageHeader
         title={profile.displayName}
-        description={`Added ${formatDate(profile.createdAt)}. Last changed ${formatRelative(profile.updatedAt)}.`}
+        description={`Added ${formatDate(profile.createdAt)}, changed ${formatRelative(profile.updatedAt)}`}
         back={{ to: "/profiles", label: "Profiles" }}
       />
-      <div className="flex max-w-4xl flex-col gap-6">
+      <div className="flex max-w-3xl flex-col gap-4">
         <DetailsCard profile={profile} onDirtyChange={markDirty("details")} />
         <IdentitiesCard profile={profile} onDirtyChange={markDirty("identities")} />
         <MailboxCard profile={profile} />
         <DataCard profile={profile} />
-        <Card>
-          <CardHeader
-            title="Delete this profile"
-            description="Stops its running tasks, then removes the profile, its identities, mailbox connection, scans, matches, screenshots, and every request and reply recorded for it. Requests already sent cannot be recalled. Export first if you want a copy."
-          />
-          <Button variant="danger" onClick={() => setConfirmingDelete(true)}>
-            Delete profile
-          </Button>
-        </Card>
+        <Section label="Danger zone">
+          <RowGroup>
+            <ActionRow
+              title="Delete this profile"
+              description="Removes its identities, mailbox, requests, and replies. Requests already sent cannot be recalled."
+            >
+              <Button variant="danger" onClick={() => setConfirmingDelete(true)}>
+                Delete profile
+              </Button>
+            </ActionRow>
+          </RowGroup>
+        </Section>
       </div>
       <UnsavedChangesDialog blocker={unsaved.blocker} />
       <ConfirmDialog
@@ -147,9 +148,9 @@ function ProfileEditor({ profile }: { profile: ProfileDetail }) {
         onConfirm={() => remove.mutate({ params: { id: profile.id } })}
       >
         {remove.error ? (
-          <Alert intent="danger" className="mt-1">
+          <Callout intent="danger" className="mt-1">
             {errorMessage(remove.error)}
-          </Alert>
+          </Callout>
         ) : null}
       </ConfirmDialog>
     </>
@@ -198,37 +199,38 @@ function DetailsCard({
   const explained = failure instanceof ApiRequestError && failure.issues.length > 0;
 
   return (
-    <Card>
-      <CardHeader title="Profile" />
-      <form onSubmit={submit} noValidate>
-        <DetailsFields
-          value={value}
-          onChange={setValue}
-          errors={errors}
-          disabled={update.isPending}
-        />
+    <form onSubmit={submit} noValidate>
+      <Section label="Profile">
+        <RowGroup>
+          <DetailsFields
+            value={value}
+            onChange={setValue}
+            errors={errors}
+            disabled={update.isPending}
+          />
+          <GroupFooter>
+            <Button
+              variant="ghost"
+              disabled={!dirty || update.isPending}
+              onClick={() => {
+                setValue(saved);
+                setErrors({});
+              }}
+            >
+              Discard changes
+            </Button>
+            <Button type="submit" variant="primary" disabled={!dirty} loading={update.isPending}>
+              Save profile
+            </Button>
+          </GroupFooter>
+        </RowGroup>
         {failure && !explained ? (
-          <Alert intent="danger" className="mt-4">
+          <Callout intent="danger" className="mt-3">
             {errorMessage(failure)}
-          </Alert>
+          </Callout>
         ) : null}
-        <CardFooter>
-          <Button
-            variant="ghost"
-            disabled={!dirty || update.isPending}
-            onClick={() => {
-              setValue(saved);
-              setErrors({});
-            }}
-          >
-            Discard changes
-          </Button>
-          <Button type="submit" variant="primary" disabled={!dirty} loading={update.isPending}>
-            Save profile
-          </Button>
-        </CardFooter>
-      </form>
-    </Card>
+      </Section>
+    </form>
   );
 }
 
@@ -272,12 +274,11 @@ function IdentitiesCard({
   const explained = failure instanceof ApiRequestError && failure.issues.length > 0;
 
   return (
-    <Card>
-      <CardHeader
-        title="Identities"
-        description="Everything a broker might have on file. Each request still sends only what that broker needs."
-      />
-      <form onSubmit={save} noValidate>
+    <form onSubmit={save} noValidate>
+      <Section label="Identities" as="h2">
+        <GroupNote className="mt-0 mb-2">
+          Everything a broker might have on file. Each request sends only what that target needs.
+        </GroupNote>
         <IdentitiesEditor
           drafts={drafts}
           onChange={setDrafts}
@@ -286,11 +287,11 @@ function IdentitiesCard({
           today={today}
         />
         {failure ? (
-          <Alert intent="danger" title="Could not save identities" className="mt-5">
+          <Callout intent="danger" title="Could not save identities" className="mt-4">
             {explained ? "Fix the marked fields and try again." : errorMessage(failure)}
-          </Alert>
+          </Callout>
         ) : null}
-        <CardFooter>
+        <div className="mt-4 flex flex-wrap items-center justify-end gap-2">
           <Button
             variant="ghost"
             disabled={!dirty || replace.isPending}
@@ -305,8 +306,8 @@ function IdentitiesCard({
           <Button type="submit" variant="primary" disabled={!dirty} loading={replace.isPending}>
             Save identities
           </Button>
-        </CardFooter>
-      </form>
-    </Card>
+        </div>
+      </Section>
+    </form>
   );
 }

@@ -1,7 +1,7 @@
 import { MIN_PASSWORD_LENGTH, Password } from "@kickrocks/shared";
 import { type FormEvent, useEffect, useRef, useState } from "react";
 import { ApiRequestError, errorMessage, useSetup } from "../../api/index.js";
-import { Alert, Button, Card, CardHeader, Field, Input } from "../../components/ui/index.js";
+import { Button, Callout, Card, Field, Input } from "../../components/ui/index.js";
 import { usePageTitle } from "../../lib/use-page-title.js";
 import { PasswordInput } from "../login/password-input.js";
 
@@ -34,11 +34,9 @@ export function Component() {
   const fieldIssue = failure instanceof ApiRequestError ? failure.fieldErrors.password : undefined;
 
   return (
-    <Card>
-      <CardHeader
-        title="Set a password"
-        description="This password signs you in. You will use it each time you open Kick Rocks."
-      />
+    <Card className="mx-auto w-full max-w-[22.5rem] rounded-lg">
+      <h1 className="text-heading font-semibold text-ink">Set a password</h1>
+      <p className="mt-0.5 mb-4 text-meta text-ink-3">This password signs you in.</p>
       <form onSubmit={submit} noValidate className="flex flex-col gap-4">
         {/* Gives password managers an account name to save the password under. */}
         <input
@@ -70,12 +68,12 @@ export function Component() {
             onChange={(event) => setConfirm(event.target.value)}
           />
         </Field>
-        <Alert intent="info" title="Back up the data folder">
-          Your data is encrypted with a key file stored next to the database, not with this
-          password. Back up the whole data folder, key file included. Without the key file the data
-          cannot be opened.
-        </Alert>
-        {failure && !fieldIssue ? <Alert intent="danger">{errorMessage(failure)}</Alert> : null}
+        <Callout intent="info" title="Back up the data folder">
+          Your data is encrypted with a key file next to the database, not with this password. Back
+          up the whole data folder, key file included. Without the key file the data cannot be
+          opened.
+        </Callout>
+        {failure && !fieldIssue ? <Callout intent="danger">{errorMessage(failure)}</Callout> : null}
         <Button type="submit" variant="primary" loading={setup.isPending} className="w-full">
           Set password
         </Button>

@@ -1,7 +1,7 @@
 import { API_ROUTES, type NotificationChannel } from "@kickrocks/shared";
 import { useState } from "react";
 import { errorMessage, useApiMutation } from "../../../api/index.js";
-import { Alert, Button, useToast } from "../../../components/ui/index.js";
+import { Button, Callout, useToast } from "../../../components/ui/index.js";
 
 const NAMES: Record<NotificationChannel, string> = { ntfy: "ntfy", telegram: "Telegram" };
 
@@ -36,9 +36,9 @@ export function useChannelTest(channel: NotificationChannel, disabled: boolean) 
       </Button>
     ),
     result: failure ? (
-      <Alert intent="danger" title={`${NAMES[channel]} did not take the test`}>
+      <Callout intent="danger" title={`${NAMES[channel]} did not take the test`}>
         {failure}
-      </Alert>
+      </Callout>
     ) : null,
   };
 }

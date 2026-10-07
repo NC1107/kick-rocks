@@ -1,16 +1,7 @@
 import { API_ROUTES, type RetentionSettings } from "@kickrocks/shared";
 import { useEffect, useState } from "react";
 import { errorMessage, useApiMutation } from "../../api/index.js";
-import {
-  Alert,
-  Button,
-  Card,
-  CardFooter,
-  CardHeader,
-  Field,
-  Select,
-  useToast,
-} from "../../components/ui/index.js";
+import { Alert, Button, RowGroup, Section, Select, useToast } from "../../components/ui/index.js";
 import {
   clearsData,
   describeDays,
@@ -21,6 +12,7 @@ import {
   retentionDraftOf,
   retentionPatchOf,
 } from "./model.js";
+import { FieldRow, GroupFooter, GroupNote } from "./rows.js";
 
 export function RetentionCard({ retention }: { retention: RetentionSettings }) {
   const toast = useToast();
@@ -43,21 +35,21 @@ export function RetentionCard({ retention }: { retention: RetentionSettings }) {
   const dirty = Object.keys(patch).length > 0;
 
   return (
-    <Card>
-      <form
-        noValidate
-        onSubmit={(event) => {
-          event.preventDefault();
-          if (dirty) save.mutate({ body: { retention: patch } });
-        }}
-      >
-        <CardHeader
-          title="Retention"
-          description="How long Kick Rocks keeps the bulky and sensitive parts of what it stores. Saving a shorter window deletes what is already older than it, and the database file is compacted so the space is not left holding it."
-        />
-        <div className="grid gap-x-6 gap-y-4 sm:grid-cols-2">
+    <form
+      noValidate
+      onSubmit={(event) => {
+        event.preventDefault();
+        if (dirty) save.mutate({ body: { retention: patch } });
+      }}
+    >
+      <Section label="Retention">
+        <RowGroup>
           {RETENTION_FIELDS.map((field) => (
-            <Field key={field.key} label={field.label} help={field.help}>
+            <FieldRow
+              key={field.key}
+              label={field.label}
+              {...(field.help ? { help: field.help } : {})}
+            >
               <Select
                 value={draft[field.key]}
                 onChange={(event) =>
@@ -71,28 +63,27 @@ export function RetentionCard({ retention }: { retention: RetentionSettings }) {
                 ))}
                 <option value={KEEP_FOREVER}>Until I delete them</option>
               </Select>
-            </Field>
+            </FieldRow>
           ))}
-        </div>
+          <GroupFooter>
+            <Button
+              disabled={!dirty || save.isPending}
+              onClick={() => setDraft(retentionDraftOf(retention))}
+            >
+              Reset
+            </Button>
+            <Button type="submit" variant="primary" loading={save.isPending} disabled={!dirty}>
+              Save retention
+            </Button>
+          </GroupFooter>
+        </RowGroup>
+        <GroupNote>A shorter window deletes older data when you save.</GroupNote>
         {save.isError ? (
-          <div className="mt-4">
-            <Alert intent="danger" title="Could not save retention">
-              {errorMessage(save.error)}
-            </Alert>
-          </div>
+          <Alert intent="danger" title="Could not save retention" className="mt-3">
+            {errorMessage(save.error)}
+          </Alert>
         ) : null}
-        <CardFooter>
-          <Button
-            disabled={!dirty || save.isPending}
-            onClick={() => setDraft(retentionDraftOf(retention))}
-          >
-            Reset
-          </Button>
-          <Button type="submit" variant="primary" loading={save.isPending} disabled={!dirty}>
-            Save retention
-          </Button>
-        </CardFooter>
-      </form>
-    </Card>
+      </Section>
+    </form>
   );
 }

@@ -2,17 +2,16 @@ import { API_ROUTES, type NotificationsView } from "@kickrocks/shared";
 import { useEffect, useState } from "react";
 import { errorMessage, useApiMutation } from "../../../api/index.js";
 import {
-  Alert,
   Button,
-  Card,
-  CardFooter,
-  CardHeader,
+  Callout,
   Checkbox,
   ConfirmDialog,
-  Field,
   Input,
+  RowGroup,
+  Section,
   useToast,
 } from "../../../components/ui/index.js";
+import { BodyRow, FieldRow, GroupFooter } from "../rows.js";
 import { checkNtfy, type NtfyDraft, ntfyDirty, ntfyDraftOf } from "./model.js";
 import { useChannelTest } from "./useChannelTest.js";
 
@@ -40,7 +39,7 @@ export function NtfyCard({ ntfy }: { ntfy: NotificationsView["ntfy"] }) {
   const test = useChannelTest("ntfy", ntfy === null || dirty);
 
   return (
-    <Card>
+    <>
       <form
         noValidate
         onSubmit={(event) => {
@@ -50,94 +49,94 @@ export function NtfyCard({ ntfy }: { ntfy: NotificationsView["ntfy"] }) {
           save.mutate({ body: { ntfy: patch } });
         }}
       >
-        <CardHeader
-          title="ntfy"
-          description="Push to your phone through ntfy.sh or your own ntfy server. Pick a topic name nobody can guess."
-        />
-        <div className="grid gap-x-6 gap-y-4 sm:grid-cols-2">
-          <Field
-            label="Server"
-            className="sm:col-span-2"
-            error={(submitted ? errors.serverUrl : undefined) ?? serverErrors["ntfy.serverUrl"]}
-          >
-            <Input
-              type="url"
-              inputMode="url"
-              autoComplete="off"
-              value={draft.serverUrl}
-              onChange={(event) =>
-                setDraft((current) => ({ ...current, serverUrl: event.target.value }))
-              }
-            />
-          </Field>
-          <Field
-            label="Topic"
-            error={(submitted ? errors.topic : undefined) ?? serverErrors["ntfy.topic"]}
-          >
-            <Input
-              autoComplete="off"
-              placeholder="kickrocks-7f3a9c"
-              value={draft.topic}
-              onChange={(event) =>
-                setDraft((current) => ({ ...current, topic: event.target.value }))
-              }
-            />
-          </Field>
-          <Field
-            label="Access token"
-            optional
-            help={
-              ntfy?.tokenSet
-                ? "A token is saved. Leave this blank to keep it."
-                : "Only for a topic that needs a login."
-            }
-            error={serverErrors["ntfy.token"]}
-          >
-            <Input
-              type="password"
-              autoComplete="new-password"
-              disabled={draft.clearToken}
-              value={draft.token}
-              onChange={(event) =>
-                setDraft((current) => ({ ...current, token: event.target.value }))
-              }
-            />
-          </Field>
-          {ntfy?.tokenSet ? (
-            <Checkbox
-              className="sm:col-span-2"
-              label="Remove the saved token"
-              checked={draft.clearToken}
-              onChange={(event) =>
-                setDraft((current) => ({ ...current, clearToken: event.target.checked, token: "" }))
-              }
-            />
-          ) : null}
-        </div>
-        {save.isError && Object.keys(serverErrors).length === 0 ? (
-          <div className="mt-4">
-            <Alert intent="danger" title="Could not save ntfy">
+        <Section label="ntfy">
+          <RowGroup>
+            <FieldRow
+              label="Server"
+              error={(submitted ? errors.serverUrl : undefined) ?? serverErrors["ntfy.serverUrl"]}
+            >
+              <Input
+                mono
+                type="url"
+                inputMode="url"
+                autoComplete="off"
+                value={draft.serverUrl}
+                onChange={(event) =>
+                  setDraft((current) => ({ ...current, serverUrl: event.target.value }))
+                }
+              />
+            </FieldRow>
+            <FieldRow
+              label="Topic"
+              help="Pick a name nobody can guess."
+              error={(submitted ? errors.topic : undefined) ?? serverErrors["ntfy.topic"]}
+            >
+              <Input
+                mono
+                autoComplete="off"
+                placeholder="kickrocks-7f3a9c"
+                value={draft.topic}
+                onChange={(event) =>
+                  setDraft((current) => ({ ...current, topic: event.target.value }))
+                }
+              />
+            </FieldRow>
+            <FieldRow
+              label="Access token"
+              optional
+              help={ntfy?.tokenSet ? "A token is saved. Leave this blank to keep it." : undefined}
+              error={serverErrors["ntfy.token"]}
+            >
+              <Input
+                mono
+                type="password"
+                autoComplete="new-password"
+                disabled={draft.clearToken}
+                value={draft.token}
+                onChange={(event) =>
+                  setDraft((current) => ({ ...current, token: event.target.value }))
+                }
+              />
+            </FieldRow>
+            {ntfy?.tokenSet ? (
+              <BodyRow>
+                <Checkbox
+                  label="Remove the saved token"
+                  checked={draft.clearToken}
+                  onChange={(event) =>
+                    setDraft((current) => ({
+                      ...current,
+                      clearToken: event.target.checked,
+                      token: "",
+                    }))
+                  }
+                />
+              </BodyRow>
+            ) : null}
+            <GroupFooter>
+              {ntfy ? (
+                <Button variant="danger" onClick={() => setRemoving(true)} className="mr-auto">
+                  Remove
+                </Button>
+              ) : null}
+              {test.button}
+              <Button
+                type="submit"
+                variant="primary"
+                loading={save.isPending && !removing}
+                disabled={!dirty}
+              >
+                Save ntfy
+              </Button>
+            </GroupFooter>
+          </RowGroup>
+          {save.isError && Object.keys(serverErrors).length === 0 ? (
+            <Callout intent="danger" title="Could not save ntfy" className="mt-3">
               {errorMessage(save.error)}
-            </Alert>
-          </div>
-        ) : null}
-        {test.result ? <div className="mt-4">{test.result}</div> : null}
-        <CardFooter>
-          {ntfy ? (
-            <Button variant="ghost" onClick={() => setRemoving(true)} className="mr-auto">
-              Remove
-            </Button>
+            </Callout>
           ) : null}
-          {test.button}
-          <Button
-            type="submit"
-            variant="primary"
-            loading={save.isPending && !removing}
-            disabled={!dirty}
-          >
-            Save ntfy
-          </Button>
-        </CardFooter>
+          {test.result ? <div className="mt-3">{test.result}</div> : null}
+        </Section>
       </form>
 
       <ConfirmDialog
@@ -150,6 +149,6 @@ export function NtfyCard({ ntfy }: { ntfy: NotificationsView["ntfy"] }) {
         loading={save.isPending}
         onConfirm={() => save.mutate({ body: { ntfy: null } })}
       />
-    </Card>
+    </>
   );
 }
