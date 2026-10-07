@@ -6,6 +6,7 @@ import {
   WebUrl,
 } from "@kickrocks/shared";
 import { SubmitNotRecorded } from "@kickrocks/worker/dist/executor.js";
+import { bypassServiceWorkers } from "@kickrocks/worker/dist/browser.js";
 import { describeError } from "@kickrocks/worker/dist/logger.js";
 import type { CDPSession, Dialog, Locator, Page, Request, Route } from "playwright";
 import {
@@ -192,6 +193,7 @@ export class Toolbox {
       .context()
       .unroute(documentsOfOtherPages, this.routeOtherPage)
       .catch(() => undefined);
+    page.context().off("page", this.bypassServiceWorkers);
     await this.cdp?.detach().catch(() => undefined);
     this.cdp = null;
   }
@@ -210,6 +212,7 @@ export class Toolbox {
     const { page } = this.options;
     const context = page.context();
     await context.route(documentsOfOtherPages, this.routeOtherPage);
+    context.on("page", this.bypassServiceWorkers);
     const cdp = await context.newCDPSession(page);
     this.cdp = cdp;
     const { frameTree } = await cdp.send("Page.getFrameTree");
@@ -229,8 +232,22 @@ export class Toolbox {
     );
   }
 
-  /** Decides every document request of one DevTools session: the page's own, or a frame's. */
+  private readonly bypassServiceWorkers = (page: Page): void => {
+    bypassServiceWorkers(page).catch((error: unknown) => {
+      this.refusedNavigations.push(
+        `A tab could not be kept from service workers: ${describeError(error)}`,
+      );
+    });
+  };
+
+  /**
+   * Decides every document request of one DevTools session: the page's own, or a frame's. A
+   * service worker would answer a request before this interception saw it, so each session also
+   * bypasses service workers, and a frame in its own process has a session of its own.
+   */
   private async guardSession(session: CdpChannel, mainFrameId: string): Promise<void> {
+    await session.send("Network.enable");
+    await session.send("Network.setBypassServiceWorker", { bypass: true });
     session.on("Fetch.requestPaused", (event: PausedRequest) => {
       if (event.resourceType !== "Document") {
         session

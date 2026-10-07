@@ -1,0 +1,14 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Registers a worker the sneaky way</title></head>
+<body>
+<h1>Registers a worker the sneaky way</h1>
+<script>
+  ServiceWorkerContainer.prototype.register
+    .call(navigator.serviceWorker, "/sw.js")
+    .then(() => navigator.serviceWorker.ready)
+    .then(() => { document.title = "Worker ready"; })
+    .catch(() => { document.title = "Worker refused"; });
+</script>
+</body>
+</html>

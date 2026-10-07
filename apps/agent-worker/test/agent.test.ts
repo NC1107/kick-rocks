@@ -1,8 +1,15 @@
 import { INSTANT_PACE } from "@kickrocks/recipes";
 import { MAX_SCREENSHOT_BYTES, resultSchemaFor, TaskBlockReport } from "@kickrocks/shared";
-import { BROWSER_CONTEXT_OPTIONS } from "@kickrocks/worker/dist/browser.js";
+import {
+  BROWSER_CONTEXT_OPTIONS,
+  findInstalledChrome,
+  launchPersistentChrome,
+} from "@kickrocks/worker/dist/browser.js";
 import { SubmitNotRecorded } from "@kickrocks/worker/dist/executor.js";
-import type { Browser, BrowserContext } from "playwright";
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { type Browser, type BrowserContext, chromium } from "playwright";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { type AgentOutcome, runAgentTask } from "../src/agent.js";
 import type { AgentLimits } from "../src/config.js";
@@ -486,6 +493,82 @@ describeBrowser("the rules the code enforces", () => {
 
     const { submissions } = await fixtureState();
     expect(submissions.filter((entry) => entry.host === "localhost")).toEqual([]);
+  });
+
+  describe("with a service worker an earlier visit left in the profile", () => {
+    let profileDir: string;
+    const executablePath = process.env.KICKROCKS_CHROME_EXECUTABLE ?? findInstalledChrome();
+    const settings = () => ({
+      profileDir,
+      headless: true,
+      noSandbox: false,
+      executablePath: executablePath ?? null,
+    });
+
+    beforeEach(async () => {
+      profileDir = await mkdtemp(join(tmpdir(), "kickrocks-sw-"));
+    });
+
+    afterAll(async () => {
+      await context?.close().catch(() => undefined);
+    });
+
+    async function registerWithoutTheBlock(path: string): Promise<void> {
+      const earlier = await chromium.launchPersistentContext(profileDir, {
+        headless: true,
+        serviceWorkers: "allow",
+        ...(executablePath ? { executablePath } : {}),
+      });
+      const page = await earlier.newPage();
+      await page.goto(`${OFFSITE}${path}`);
+      await page.waitForFunction("document.title === 'Worker ready'", undefined, {
+        timeout: 10_000,
+      });
+      await earlier.close();
+    }
+
+    async function postsNothingToTheOtherSite(): Promise<void> {
+      await run([
+        navigate("/sw-form"),
+        (v) => ({ calls: [["type", { ref: v.ref("First name"), field: "first_name" }]] }),
+        (v) => ({ calls: [["click", { ref: v.ref("Submit request") }]] }),
+        { calls: [["report", { status: "release" }]] },
+      ]);
+      const { submissions } = await fixtureState();
+      expect(submissions.filter((entry) => entry.host === "localhost")).toEqual([]);
+    }
+
+    it("forgets the worker when the real launcher starts the profile again", async () => {
+      await registerWithoutTheBlock("/sw-register");
+      await context.close();
+      context = await launchPersistentChrome(settings());
+      await postsNothingToTheOtherSite();
+    });
+
+    it("keeps a worker a page registers by the prototype from answering requests", async () => {
+      await context.close();
+      context = await launchPersistentChrome(settings());
+      const registering = await context.newPage();
+      await registering.goto(`${OFFSITE}/sw-evade`);
+      await registering.waitForFunction("document.title === 'Worker ready'", undefined, {
+        timeout: 10_000,
+      });
+      await registering.close();
+      await postsNothingToTheOtherSite();
+    });
+
+    it("deletes the profile's service worker storage on launch", async () => {
+      await registerWithoutTheBlock("/sw-register");
+      await context.close();
+      context = await launchPersistentChrome(settings());
+      const probe = await context.newPage();
+      await probe.goto(`${OFFSITE}/offsite`);
+      const registrations = await probe.evaluate(
+        "navigator.serviceWorker.getRegistrations().then((all) => all.length)",
+      );
+      expect(registrations).toBe(0);
+      await rm(profileDir, { recursive: true, force: true });
+    });
   });
 
   it("blocks a redirect that leaves the domain", async () => {

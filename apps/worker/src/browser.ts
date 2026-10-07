@@ -85,8 +85,11 @@ export interface BrowserSettings {
 export type BrowserLauncher = (settings: BrowserSettings) => Promise<BrowserContext>;
 
 /**
- * Service workers are blocked because a worker that an earlier visit registered on another site
- * would answer a navigation before the navigation guard ever saw it, and could forward a form.
+ * Playwright's own block only replaces `navigator.serviceWorker.register`, so a page can still reach
+ * the real one, and it does nothing for a worker an earlier visit left in the profile. A worker
+ * that another site registered would answer a navigation before the navigation guard ever saw it,
+ * and could forward a form. The launcher therefore also deletes the profile's worker storage, and
+ * every page is told to bypass service workers.
  */
 export const BROWSER_CONTEXT_OPTIONS = {
   viewport: { width: 1366, height: 850 },
@@ -95,16 +98,43 @@ export const BROWSER_CONTEXT_OPTIONS = {
   serviceWorkers: "block",
 } as const;
 
+const SERVICE_WORKER_STORAGE = [join("Default", "Service Worker"), "Service Worker"];
+
+/** Deletes every service worker a profile remembers, so none can answer a request in this run. */
+export function clearServiceWorkerStorage(profileDir: string): void {
+  for (const path of SERVICE_WORKER_STORAGE) {
+    rmSync(join(profileDir, path), { recursive: true, force: true });
+  }
+}
+
+/** Keeps a page, and so every request it makes, away from service workers. */
+export async function bypassServiceWorkers(page: Page): Promise<void> {
+  const session = await page.context().newCDPSession(page);
+  await session.send("Network.enable");
+  await session.send("Network.setBypassServiceWorker", { bypass: true });
+}
+
+function bypassOnEveryPage(context: BrowserContext): void {
+  const bypass = (page: Page): void => {
+    bypassServiceWorkers(page).catch(() => undefined);
+  };
+  for (const page of context.pages()) bypass(page);
+  context.on("page", bypass);
+}
+
 export const launchPersistentChrome: BrowserLauncher = async (settings) => {
   clearStaleProfileLock(settings.profileDir);
+  clearServiceWorkerStorage(settings.profileDir);
   const executablePath = settings.executablePath ?? findInstalledChrome();
   try {
-    return await chromium.launchPersistentContext(settings.profileDir, {
+    const context = await chromium.launchPersistentContext(settings.profileDir, {
       headless: settings.headless,
       ...(executablePath ? { executablePath } : {}),
       ...(settings.noSandbox ? { args: ["--no-sandbox"] } : {}),
       ...BROWSER_CONTEXT_OPTIONS,
     });
+    bypassOnEveryPage(context);
+    return context;
   } catch (error) {
     const message = describeError(error);
     if (/already in use|ProcessSingleton|profile.*in use/i.test(message)) {
@@ -158,14 +188,18 @@ export function createBrowserSession(
     async newPage() {
       const current = await ensure();
       try {
-        return await current.newPage();
+        const page = await current.newPage();
+        await bypassServiceWorkers(page);
+        return page;
       } catch (error) {
         logger.warn("the browser stopped responding, restarting it", {
           error: describeError(error),
         });
         if (context === current) context = null;
         await current.close().catch(() => undefined);
-        return (await ensure()).newPage();
+        const page = await (await ensure()).newPage();
+        await bypassServiceWorkers(page);
+        return page;
       }
     },
     async close() {
