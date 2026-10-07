@@ -156,10 +156,12 @@ export default defineMockDomain({
         const profile = profileOf(params.id);
         const targets = targetsFor(store, body.selection);
         const items = targets.map((target) => outcomeFor(store, profile.id, target));
-        const first = items.find((item) => item.outcome === "request_created");
-        const firstTarget = first
-          ? targets.find((target) => target.id === first.targetId)
-          : undefined;
+        const takesEmail = (target: TargetDetail | undefined) =>
+          target?.contactMethod === "email" || target?.contactMethod === "both";
+        const firstTarget = items
+          .filter((item) => item.outcome === "request_created")
+          .map((item) => targets.find((target) => target.id === item.targetId))
+          .find(takesEmail);
         return {
           items,
           counts: countOutcomes(items),
