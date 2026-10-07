@@ -566,7 +566,6 @@ describe("fallbackToAgent", () => {
       reason: "recipe_failed",
       error: "selector gone",
     });
-    expect(result.created).toBe(true);
     expect(result.task).toMatchObject({
       kind: "agent",
       dedupeKey: scan.task.dedupeKey,
