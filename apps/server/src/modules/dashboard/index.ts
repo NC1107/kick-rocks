@@ -6,14 +6,17 @@ import {
   RequestStatus,
   reviewAttention,
 } from "@kickrocks/shared";
-import { count, desc, eq, sql } from "drizzle-orm";
+import { count, desc, eq, inArray, max, sql } from "drizzle-orm";
 import { notFound } from "../../core/errors.js";
 import { registerRoute } from "../../core/http.js";
 import type { ModulePlugin } from "../../core/module.js";
 import type { AppServices } from "../../services.js";
 import { buildReviewQueue } from "../review/queue.js";
 
-const RECENT_EVENTS = 20;
+// Events are limited by request, not by row, so one noisy request cannot push the others out.
+// The client folds each request into its newest event and a count.
+const RECENT_REQUESTS = 20;
+const MAX_EVENT_ROWS = 200;
 
 export function buildDashboard(services: AppServices, profileId: string): Dashboard {
   const { db, mailQuota } = services;
@@ -44,6 +47,17 @@ export function buildDashboard(services: AppServices, profileId: string): Dashbo
   // The review page is where these totals lead, so they come from the same queue it lists.
   const queue = buildReviewQueue(services, profileId);
 
+  const activeRequestIds = db
+    .select({ id: requestEvents.requestId })
+    .from(requestEvents)
+    .innerJoin(requests, eq(requests.id, requestEvents.requestId))
+    .where(eq(requests.profileId, profileId))
+    .groupBy(requestEvents.requestId)
+    .orderBy(desc(max(requestEvents.createdAt)), desc(max(sql`${requestEvents}.rowid`)))
+    .limit(RECENT_REQUESTS)
+    .all()
+    .map((row) => row.id);
+
   const recentEvents = db
     .select({
       id: requestEvents.id,
@@ -58,9 +72,9 @@ export function buildDashboard(services: AppServices, profileId: string): Dashbo
     .from(requestEvents)
     .innerJoin(requests, eq(requests.id, requestEvents.requestId))
     .innerJoin(targets, eq(targets.id, requests.targetId))
-    .where(eq(requests.profileId, profileId))
+    .where(inArray(requestEvents.requestId, activeRequestIds))
     .orderBy(desc(requestEvents.createdAt), desc(sql`${requestEvents}.rowid`))
-    .limit(RECENT_EVENTS)
+    .limit(MAX_EVENT_ROWS)
     .all()
     .map((row) => DashboardEvent.parse(row));
 

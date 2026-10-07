@@ -41,7 +41,7 @@ export default defineMockDomain({
           })),
         )
         .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
-        .slice(0, 12);
+        .slice(0, 200);
 
       return {
         profileId: profile.id,

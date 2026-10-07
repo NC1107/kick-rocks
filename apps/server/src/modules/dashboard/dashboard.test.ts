@@ -325,7 +325,32 @@ describe("GET /profiles/:id/dashboard", () => {
       }
     });
 
-    it("orders by time across requests and keeps only the latest twenty", async () => {
+    it("keeps every request visible when one request is noisy", async () => {
+      const profile = seedProfile(ctx);
+      seedTarget(ctx, { id: "b" });
+      const quiet = seedRequest(ctx, { profileId: profile.id, targetId: "b" });
+      ctx.clock.advance(MINUTE);
+      const noisy = seedRequest(ctx, { profileId: profile.id, targetId: "b" });
+      for (let i = 0; i < 30; i += 1) {
+        ctx.clock.advance(MINUTE);
+        ctx.services.requests.addEvent(noisy.id, {
+          type: "note",
+          actor: "user",
+          payload: { text: `n${i}` },
+        });
+      }
+
+      const { recentEvents } = await dashboard(profile.id);
+
+      expect(new Set(recentEvents.map((event) => event.requestId))).toEqual(
+        new Set([quiet.id, noisy.id]),
+      );
+      expect(recentEvents.filter((event) => event.requestId === noisy.id).length).toBeGreaterThan(
+        30,
+      );
+    });
+
+    it("orders by time across requests and covers the latest twenty requests", async () => {
       const profile = seedProfile(ctx);
       seedTarget(ctx, { id: "b" });
       const requests = Array.from({ length: 12 }, () => {
@@ -344,7 +369,7 @@ describe("GET /profiles/:id/dashboard", () => {
 
       const { recentEvents } = await dashboard(profile.id);
 
-      expect(recentEvents).toHaveLength(20);
+      expect(new Set(recentEvents.map((event) => event.requestId)).size).toBe(12);
       expect(recentEvents.slice(0, 12).map((event) => event.requestId)).toEqual(
         [...requests].reverse().map((request) => request.id),
       );

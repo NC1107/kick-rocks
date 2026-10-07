@@ -269,27 +269,29 @@ export function MailboxNotices({
 export const ACTIVITY_REQUEST_LIMIT = 6;
 
 export type ActivityGroup = {
-  /** The newest event of the run, which is the one described. */
+  /** The newest event of the request, which is the one described. */
   latest: DashboardEvent;
   count: number;
 };
 
-/** Runs of consecutive events from one request become one entry, so retries do not bury other requests. */
+/** One entry per request over the whole list, so a busy request cannot repeat or hide the others. */
 export function groupActivity(
   events: readonly DashboardEvent[],
   limit = ACTIVITY_REQUEST_LIMIT,
 ): ActivityGroup[] {
-  const groups: ActivityGroup[] = [];
+  const byRequest = new Map<string, ActivityGroup>();
   for (const event of events) {
-    const last = groups.at(-1);
-    if (last && last.latest.requestId === event.requestId) {
-      last.count += 1;
-      if (Date.parse(event.createdAt) > Date.parse(last.latest.createdAt)) last.latest = event;
-    } else {
-      groups.push({ latest: event, count: 1 });
+    const group = byRequest.get(event.requestId);
+    if (!group) {
+      byRequest.set(event.requestId, { latest: event, count: 1 });
+      continue;
     }
+    group.count += 1;
+    if (Date.parse(event.createdAt) > Date.parse(group.latest.createdAt)) group.latest = event;
   }
-  return groups.slice(0, limit);
+  return [...byRequest.values()]
+    .sort((a, b) => Date.parse(b.latest.createdAt) - Date.parse(a.latest.createdAt))
+    .slice(0, limit);
 }
 
 export function ActivityList({ events }: { events: readonly DashboardEvent[] }) {

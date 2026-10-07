@@ -214,7 +214,7 @@ describe("groupActivity", () => {
   const event = (id: string, requestId: string, createdAt: string) =>
     ({ id, requestId, createdAt }) as never;
 
-  it("folds consecutive events of one request into a count and keeps the latest", () => {
+  it("folds all events of one request into a count, even when not adjacent", () => {
     const groups = groupActivity([
       event("e1", "r1", "2026-10-07T10:00:00Z"),
       event("e2", "r1", "2026-10-07T09:00:00Z"),
@@ -223,9 +223,8 @@ describe("groupActivity", () => {
       event("e5", "r1", "2026-10-07T06:00:00Z"),
     ]);
     expect(groups.map((g) => [g.latest.id, g.count])).toEqual([
-      ["e1", 3],
+      ["e1", 4],
       ["e4", 1],
-      ["e5", 1],
     ]);
   });
 
