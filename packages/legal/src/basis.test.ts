@@ -120,6 +120,16 @@ describe("resolveLegalBasis", () => {
     expect(basis.statute?.platform?.name).toContain("DROP");
   });
 
+  it("recognises a California registered broker whose category is more specific", () => {
+    const basis = resolveLegalBasis({
+      state: "CA",
+      target: { ...PEOPLE_SEARCH, californiaRegistered: true },
+      rights: ["delete"],
+      asOf: NOW,
+    });
+    expect(basis.id).toBe("ca-delete-act");
+  });
+
   it("uses the CCPA when the Delete Act is not the right route", () => {
     const base = { state: "CA" as const, asOf: NOW };
     expect(resolveLegalBasis({ ...base, target: BROKER, rights: ["delete"] }).id).toBe("ca-ccpa");
@@ -135,7 +145,7 @@ describe("resolveLegalBasis", () => {
     expect(
       resolveLegalBasis({
         ...base,
-        target: { ...COMPANY, category: "registered-broker" },
+        target: { ...COMPANY, californiaRegistered: true },
         rights: ["delete"],
       }).id,
     ).toBe("ca-ccpa");

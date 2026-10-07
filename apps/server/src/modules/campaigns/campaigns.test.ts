@@ -662,6 +662,8 @@ describe("skip reasons", () => {
     expect(result.items[0]?.outcome).toBe("scan_started");
   });
 
+  const CA_REGISTRY = [{ source: "ca-registry-2025" as const, license: "public-record" as const }];
+
   describe("covered_by_platform", () => {
     function withPlatform() {
       const resolve = ctx.legal.resolveLegalBasis.bind(ctx.legal);
@@ -686,7 +688,7 @@ describe("skip reasons", () => {
     it("skips a broker registered with California when a statute with a platform applies", async () => {
       const { profile } = setup("CA");
       withPlatform();
-      seedTarget(ctx, { id: "regd", category: "registered-broker" });
+      seedTarget(ctx, { id: "regd", category: "registered-broker", sources: CA_REGISTRY });
       seedTarget(ctx, {
         id: "listed",
         category: "marketing",
@@ -712,7 +714,7 @@ describe("skip reasons", () => {
       withPlatform();
       seedTarget(ctx, { id: "plain", category: "marketing" });
       seedTarget(ctx, { id: "shop", kind: "company", category: "retail" });
-      seedTarget(ctx, { id: "regd", category: "registered-broker" });
+      seedTarget(ctx, { id: "regd", category: "registered-broker", sources: CA_REGISTRY });
 
       const inCalifornia = await previewOk(ca.id, body(["plain", "shop"]));
       expect(inCalifornia.counts.request_created).toBe(2);
@@ -738,7 +740,7 @@ describe("skip reasons", () => {
             }
           : { ...basis, kind: "policy", id: "policy", statute: null };
       };
-      seedTarget(ctx, { id: "regd", category: "registered-broker" });
+      seedTarget(ctx, { id: "regd", category: "registered-broker", sources: CA_REGISTRY });
 
       const optOutOnly = await previewOk(profile.id, body(["regd"], ["opt_out"]));
       const deleting = await previewOk(profile.id, body(["regd"], ["delete"]));

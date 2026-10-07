@@ -77,6 +77,7 @@ describe("TargetSummary", () => {
       requirements: ["record_url"],
       priority: "crucial",
       needsRecord: true,
+      californiaRegistered: false,
       retired: false,
     };
     expect(TargetSummary.parse(summary)).toEqual(summary);

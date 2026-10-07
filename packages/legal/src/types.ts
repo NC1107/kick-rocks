@@ -24,7 +24,10 @@ export type { EmailKind };
 export interface ResolveLegalBasisInput {
   /** The state of the person, never anything they say about residency. */
   state: StateCode;
-  target: Pick<TargetSummary, "id" | "kind" | "category" | "domain" | "name">;
+  target: Pick<
+    TargetSummary,
+    "id" | "kind" | "category" | "domain" | "name" | "californiaRegistered"
+  >;
   rights: readonly RequestRight[];
   asOf: Date;
 }

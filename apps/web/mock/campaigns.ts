@@ -70,7 +70,7 @@ function outcomeFor(store: MockStore, profileId: string, target: TargetDetail): 
       "It confirmed a removal. Nothing is sent again unless a re-scan finds you listed again.",
     );
   }
-  if (profile?.state === "CA" && target.category === "registered-broker") {
+  if (profile?.state === "CA" && target.californiaRegistered) {
     return skipped(
       "covered_by_platform",
       "California's DROP platform handles registered brokers for California residents.",

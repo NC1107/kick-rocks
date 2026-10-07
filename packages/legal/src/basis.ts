@@ -71,7 +71,7 @@ function isDropRequest(input: ResolveLegalBasisInput): boolean {
   return (
     input.state === "CA" &&
     input.target.kind === "broker" &&
-    input.target.category === "registered-broker" &&
+    input.target.californiaRegistered &&
     input.rights.every((right) => right === "delete")
   );
 }

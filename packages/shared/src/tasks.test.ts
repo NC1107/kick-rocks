@@ -264,6 +264,7 @@ describe("ClaimedTask", () => {
     requirements: ["record_url"],
     priority: "crucial",
     needsRecord: true,
+    californiaRegistered: false,
     retired: false,
   };
   const base = {

@@ -41,6 +41,7 @@ export const TARGET: TargetSummary = {
   requirements: [],
   priority: "normal",
   needsRecord: false,
+  californiaRegistered: false,
   retired: false,
 };
 

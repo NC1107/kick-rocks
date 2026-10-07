@@ -95,6 +95,8 @@ export const TargetSummary = z.object({
   requirements: z.array(Requirement),
   priority: TargetPriority,
   needsRecord: z.boolean(),
+  /** Listed in California's data broker registry, which decides whether the Delete Act covers a request. */
+  californiaRegistered: z.boolean(),
   /** The dataset no longer lists it. Nothing new is sent to it, but its history stays. */
   retired: z.boolean(),
 });

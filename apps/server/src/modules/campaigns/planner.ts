@@ -209,10 +209,7 @@ export function createCampaignPlanner({
         asOf,
       });
       const platform = basis.statute?.platform ?? null;
-      const registeredInCalifornia =
-        row.category === "registered-broker" ||
-        row.data.sources.some((source) => source.source === "ca-registry-2025");
-      if (platform && row.kind === "broker" && registeredInCalifornia) {
+      if (platform && row.kind === "broker" && summary.californiaRegistered) {
         return skip(
           "covered_by_platform",
           `${platform.name} already handles requests to registered data brokers for ${profile.state} residents. ${platform.note}`.trim(),

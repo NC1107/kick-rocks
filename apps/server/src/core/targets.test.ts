@@ -364,4 +364,21 @@ describe("lookups", () => {
     expect(() => real.getOrThrow("missing")).toThrow(/Target missing not found/);
     expect(() => real.summary("missing")).toThrow(/not found/);
   });
+
+  it("marks a broker California registered by its source, whatever its category", () => {
+    const real = service({
+      brokers: brokers([
+        makeBroker({
+          id: "ca-listed",
+          category: "people-search",
+          sources: [{ source: "ca-registry-2025", license: "public-record" }],
+        }),
+        makeBroker({ id: "unlisted", category: "registered-broker" }),
+      ]),
+      companies: null,
+    });
+    real.sync();
+    expect(real.summary("ca-listed").californiaRegistered).toBe(true);
+    expect(real.summary("unlisted").californiaRegistered).toBe(false);
+  });
 });

@@ -22,6 +22,7 @@ const target = {
   requirements: [],
   priority: "normal" as const,
   needsRecord: false,
+  californiaRegistered: false,
   retired: false,
 };
 

@@ -332,6 +332,7 @@ export function summaryOf(target: TargetDetail): TargetSummary {
     requirements: target.requirements,
     priority: target.priority,
     needsRecord: target.needsRecord,
+    californiaRegistered: target.californiaRegistered,
     retired: target.retired,
   };
 }
@@ -382,6 +383,7 @@ export default defineMockDomain({
         requirements,
         priority: seed.priority,
         needsRecord: needsRecord({ id, category }),
+        californiaRegistered: category === "registered-broker",
         retired: false,
         ...contactFields(domain, seed.contact),
         searchUrl:
@@ -417,6 +419,7 @@ export default defineMockDomain({
         requirements: [],
         priority: "normal",
         needsRecord: false,
+        californiaRegistered: false,
         retired: false,
         ...contactFields(domain, seed.contact),
         searchUrl: null,

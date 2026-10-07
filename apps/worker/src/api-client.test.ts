@@ -124,6 +124,7 @@ describe("WorkerApiClient", () => {
         requirements: [],
         priority: "normal",
         needsRecord: false,
+        californiaRegistered: false,
         retired: false,
       },
       recipe: null,
