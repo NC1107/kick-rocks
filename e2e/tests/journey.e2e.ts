@@ -265,6 +265,22 @@ describe("targets", () => {
   });
 });
 
+describe("bundled recipes that were not seen through", () => {
+  it("wait for the person's decision, apart from agent proposals", async () => {
+    const waiting = await api.call(API_ROUTES.recipesList, {
+      query: { status: "pending_review", source: "bundled" },
+    });
+    expect(waiting.recipes.length).toBeGreaterThan(0);
+    for (const recipe of waiting.recipes) {
+      expect(recipe.definition.liveStatus).not.toBe("verified");
+    }
+    const proposals = await api.call(API_ROUTES.recipesList, {
+      query: { status: "pending_review", source: "proposed" },
+    });
+    expect(proposals.recipes).toEqual([]);
+  });
+});
+
 describe("one-click campaign", () => {
   const fixtureIds = [...EMAIL_FIXTURES, "fx-company", "fx-captcha", "fx-agent", "fx-people"];
 

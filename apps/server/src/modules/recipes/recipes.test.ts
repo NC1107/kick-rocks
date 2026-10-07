@@ -123,6 +123,31 @@ describe("recipe sync at startup", () => {
       expect(row(c, recipe.id)?.status).toBe("pending_review");
     });
 
+    it("stays rejected across restarts, and only a newer version asks again", async () => {
+      const recipe = makeRecipe({ brokerId: "alpha" });
+      writeRecipe(bundled(), recipe);
+      const c = await start(null);
+      syncRecipes(c.services, { bundledDir: bundled() });
+      createRecipeStore(c.services).reject(recipe.id);
+
+      const report = syncRecipes(c.services, { bundledDir: bundled() });
+      expect(report).toMatchObject({ unchanged: 1, updated: [] });
+      expect(row(c, recipe.id)?.status).toBe("rejected");
+
+      writeRecipe(
+        bundled(),
+        makeRecipe({ brokerId: "alpha", definition: { entryUrl: "https://alpha.test/edited" } }),
+      );
+      syncRecipes(c.services, { bundledDir: bundled() });
+      expect(row(c, recipe.id)?.status).toBe("rejected");
+
+      const newer = makeRecipe({ brokerId: "alpha", version: 2 });
+      writeRecipe(bundled(), newer);
+      syncRecipes(c.services, { bundledDir: bundled() });
+      expect(row(c, newer.id)).toMatchObject({ source: "bundled", status: "pending_review" });
+      expect(row(c, recipe.id)?.status).toBe("rejected");
+    });
+
     it("moves an already active copy back to review when the shipped file says it is unverified", async () => {
       const recipe = makeRecipe({ brokerId: "alpha", definition: { liveStatus: "verified" } });
       writeRecipe(bundled(), recipe);
@@ -405,6 +430,17 @@ describe("approving and rejecting a proposal", () => {
     await c.call(API_ROUTES.recipesApprove, { params: { id: record.id } });
     const again = await c.call(API_ROUTES.recipesApprove, { params: { id: record.id } });
     expect(again.ok && again.body.status).toBe("active");
+  });
+
+  it("lists only the recipes of one source when asked", async () => {
+    const c = await start();
+    const target = seedTarget(c);
+    const shipped = seedRecipe(c, target.id, { source: "bundled", status: "pending_review" });
+    seedRecipe(c, target.id, { source: "proposed", status: "pending_review", version: 2 });
+    const result = await c.call(API_ROUTES.recipesList, {
+      query: { status: "pending_review", source: "bundled" },
+    });
+    expect(result.ok && result.body.recipes.map((r) => r.id)).toEqual([shipped.id]);
   });
 
   it("rejects a proposal, and a rejected one never runs", async () => {

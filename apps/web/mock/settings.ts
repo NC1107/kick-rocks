@@ -17,11 +17,6 @@ function hex(store: MockStore, length: number): string {
   return Array.from({ length }, () => Math.floor(store.random() * 16).toString(16)).join("");
 }
 
-/** Parsed, so the defaults a real recipe gets (optional steps, wait states) are filled in. */
-function recipeFor(target: TargetDetail, purpose: RecipePurpose, version: number): Recipe {
-  return Recipe.parse(recipeInput(target, purpose, version));
-}
-
 function recipeInput(target: TargetDetail, purpose: RecipePurpose, version: number) {
   const base = {
     id: `${target.id}.${purpose}.v${version}`,
@@ -90,12 +85,16 @@ function seedRecipe(
     health?: RecipeHealth;
     failureCount?: number;
     notes?: string;
+    liveStatus?: Recipe["liveStatus"];
     createdDaysAgo?: number;
   } = {},
 ): void {
   const target = store.targets.find((candidate) => candidate.id === targetId);
   if (!target) return;
-  const definition = recipeFor(target, purpose, 1);
+  const definition = Recipe.parse({
+    ...recipeInput(target, purpose, 1),
+    ...(fields.liveStatus ? { liveStatus: fields.liveStatus, verifiedAt: "2026-10-07" } : {}),
+  });
   const record: RecipeRecord = {
     id: definition.id,
     targetId,
@@ -245,6 +244,21 @@ export default defineMockDomain({
     });
     seedRecipe(store, "findrecord", "scan");
     seedRecipe(store, "cityfile-directory", "scan", { health: "unknown" });
+    seedRecipe(store, "cardinal-insights", "remove", {
+      status: "pending_review",
+      health: "unknown",
+      liveStatus: "unverified",
+      notes:
+        "Verified in headed Chrome: the opt-out form takes a profile URL and an email address and shows no captcha. Submission and the page after it were not exercised, so the wording that proves the request went through is a guess.",
+      createdDaysAgo: 5,
+    });
+    seedRecipe(store, "brightlist", "scan", {
+      status: "pending_review",
+      health: "unknown",
+      liveStatus: "blocked_by_bot_protection",
+      notes: "Headless Chrome got a 403 and the search page was never read.",
+      createdDaysAgo: 5,
+    });
     seedRecipe(store, "locata", "remove", {
       source: "proposed",
       status: "pending_review",
@@ -269,7 +283,10 @@ export default defineMockDomain({
     };
     const decide = (id: string, status: "active" | "rejected") => {
       const recipe = recipeOf(id);
-      if (recipe.status !== "pending_review")
+      if (
+        recipe.status !== "pending_review" &&
+        !(status === "active" && recipe.status === "rejected")
+      )
         throw conflict("Only a recipe waiting for review can be decided.");
       recipe.status = status;
       return recipe;
@@ -308,8 +325,10 @@ export default defineMockDomain({
       handle(API_ROUTES.settingsJurisdictions, () => ({ jurisdictions: JURISDICTIONS })),
 
       handle(API_ROUTES.recipesList, ({ query }) => ({
-        recipes: store.recipes.filter((recipe) =>
-          query.status ? recipe.status === query.status : true,
+        recipes: store.recipes.filter(
+          (recipe) =>
+            (query.status ? recipe.status === query.status : true) &&
+            (query.source ? recipe.source === query.source : true),
         ),
       })),
       handle(API_ROUTES.recipesApprove, ({ params }) => decide(params.id, "active")),

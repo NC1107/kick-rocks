@@ -209,6 +209,12 @@ The format is in `packages/recipes/recipes/README.md`.
 - A broker can have five proposals waiting for one purpose, and more are refused with `too_many_proposals`.
 - A recipe is a script that runs in the person's own browser with their details, so put only what the site needs in `fields`.
 
+A proposal is separate from the recipes that ship with Kick Rocks.
+Those that were not seen through to a real removal wait on the Recipes tab in Settings, under "Bundled recipes to check", with the notes from their author.
+A person approves or rejects each one there, and a rejection holds until a newer version of the recipe ships.
+Until a bundled recipe is approved, its tasks come to agents like a site with no recipe.
+Proposals wait on the Agents tab instead, and `list` on the recipes API takes `source` to tell the two apart.
+
 Once a person approves a recipe, the built-in worker uses it, and a weekly canary check watches it.
 A canary that cannot find a selector marks the recipe broken, and work for that broker goes back to agents until it is fixed.
 

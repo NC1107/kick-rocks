@@ -4,6 +4,7 @@ import { createMockApp, type MockApp } from "../../../mock/app.js";
 import { renderPage } from "../../test/render.js";
 import { Component as AgentsPage } from "./agents/index.js";
 import { Component as SettingsPage } from "./index.js";
+import { Component as RecipesPage } from "./recipes/index.js";
 
 /** Routes matching `pattern` answer 403, a client error, so the query client does not retry and wait. */
 function failing(pattern: RegExp): MockApp {
@@ -24,6 +25,9 @@ const general = (mock = createMockApp()) =>
   renderPage(<SettingsPage />, { path: "/settings", route: "/settings", mock });
 const agents = (mock = createMockApp()) =>
   renderPage(<AgentsPage />, { path: "/settings/agents", route: "/settings/agents", mock });
+
+const bundled = (mock = createMockApp()) =>
+  renderPage(<RecipesPage />, { path: "/settings/recipes", route: "/settings/recipes", mock });
 
 const field = (label: RegExp | string) => screen.findByLabelText(label);
 
@@ -233,5 +237,76 @@ describe("agent settings", () => {
   it("says when the proposed recipes cannot load", async () => {
     agents(failing(/\/api\/recipes/));
     expect(await screen.findByText("Could not load proposed recipes")).toBeVisible();
+  });
+});
+
+describe("bundled recipes to check", () => {
+  const statusOf = (mock: MockApp, targetId: string) =>
+    mock.store.recipes.find((recipe) => recipe.targetId === targetId)?.status;
+
+  it("lists shipped recipes that were not seen through, with what was and was not checked", async () => {
+    bundled();
+    expect(await screen.findByRole("heading", { name: "Bundled recipes to check" })).toBeVisible();
+    const cardinal = await screen.findByRole("region", {
+      name: /Cardinal Insights removal recipe/,
+    });
+    expect(
+      within(cardinal).getByText("The form was read but no real request was ever sent through it."),
+    ).toBeVisible();
+    expect(within(cardinal).getByText("What was and was not checked")).toBeVisible();
+    expect(
+      within(cardinal).getByText(/Submission and the page after it were not exercised/),
+    ).toBeVisible();
+    const blocked = screen.getByRole("region", { name: /Brightlist scan recipe/ });
+    expect(within(blocked).getByText(/Bot protection hid the site/)).toBeVisible();
+  });
+
+  it("keeps an agent's proposals out of the bundled list", async () => {
+    bundled();
+    await screen.findByRole("region", { name: /Cardinal Insights removal recipe/ });
+    expect(screen.queryByRole("region", { name: /Locata removal recipe/ })).not.toBeInTheDocument();
+  });
+
+  it("keeps bundled recipes out of the agents' proposals", async () => {
+    agents();
+    await screen.findByRole("region", { name: /Locata removal recipe/ });
+    expect(
+      screen.queryByRole("region", { name: /Cardinal Insights removal recipe/ }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("approves a recipe", async () => {
+    const { user, mock } = bundled();
+    const card = await screen.findByRole("region", { name: /Cardinal Insights removal recipe/ });
+    await user.click(within(card).getByRole("button", { name: "Approve" }));
+    await waitFor(() => expect(statusOf(mock, "cardinal-insights")).toBe("active"));
+  });
+
+  it("rejects only after a confirmation, then offers to approve it anyway", async () => {
+    const { user, mock } = bundled();
+    const card = await screen.findByRole("region", { name: /Brightlist scan recipe/ });
+    await user.click(within(card).getByRole("button", { name: "Reject" }));
+    const dialog = await screen.findByRole("dialog");
+    expect(statusOf(mock, "brightlist")).toBe("pending_review");
+    await user.click(within(dialog).getByRole("button", { name: "Reject" }));
+    await waitFor(() => expect(statusOf(mock, "brightlist")).toBe("rejected"));
+    const rejected = await screen.findByRole("heading", { name: "Rejected bundled recipes" });
+    expect(rejected).toBeVisible();
+    await user.click(await screen.findByRole("button", { name: "Approve anyway" }));
+    await waitFor(() => expect(statusOf(mock, "brightlist")).toBe("active"));
+  });
+
+  it("says when every bundled recipe has been decided", async () => {
+    const mock = createMockApp();
+    mock.store.recipes = mock.store.recipes.filter(
+      (recipe) => !(recipe.source === "bundled" && recipe.status === "pending_review"),
+    );
+    bundled(mock);
+    expect(await screen.findByText("Nothing to check")).toBeVisible();
+  });
+
+  it("says when the bundled recipes cannot load", async () => {
+    bundled(failing(/\/api\/recipes/));
+    expect(await screen.findByText("Could not load bundled recipes")).toBeVisible();
   });
 });

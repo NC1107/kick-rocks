@@ -2,6 +2,7 @@ import { LinkTabs, PageHeader } from "../../components/ui/index.js";
 
 const TABS = [
   { to: "/settings", label: "General", end: true },
+  { to: "/settings/recipes", label: "Recipes" },
   { to: "/settings/agents", label: "Agents" },
 ] as const;
 

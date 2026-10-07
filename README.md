@@ -17,6 +17,12 @@ People-search sites are the annoying part. Most of them want you to find your ow
 For those there are per-site recipes that drive a real chrome on your machine, and when a recipe doesn't exist or breaks, the task goes into a queue that claude code or another agent can pick up over mcp.
 Captchas and id checks never get solved automatically, they just wait in a review list for you.
 
+Most bundled recipes were read against the live site but never seen through to a real removal, so they start out switched off.
+Settings has a Recipes tab that lists each one with what its author did and did not check.
+You approve the ones you are happy to run on your details and reject the rest, and until you decide, that site goes to an agent or to you by hand.
+A rejection sticks across restarts, and only a newer version of that recipe asks again.
+Recipes an agent proposes are reviewed separately, on the Agents tab.
+
 It runs at home on purpose. Datacenter ips get blocked by the bot checks on these sites pretty much immediately, a residential connection with a real browser mostly doesn't.
 
 ## Running it

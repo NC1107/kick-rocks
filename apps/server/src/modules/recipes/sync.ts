@@ -34,7 +34,8 @@ const describeIssue = (issue: ApiIssue) => `${issue.path.join(".") || "(root)"}:
 /**
  * Where a recipe file starts out. Extra recipes are code the person installed, so they are active
  * at once. A bundled recipe is active only when its author saw the whole flow through, and waits
- * for a person to approve it otherwise, so a guessed script never runs on its own.
+ * for a person to approve it otherwise, so a guessed script never runs on its own. A bundled
+ * recipe the person rejected stays rejected for that version.
  */
 function initialStatus(recipe: Recipe, origin: RecipeOrigin): "active" | "pending_review" {
   return origin === "bundled" && recipe.liveStatus !== "verified" ? "pending_review" : "active";
@@ -94,8 +95,12 @@ export function syncRecipes(
       }
       seen.add(recipe.id);
       const source = SOURCE_OF_ORIGIN[origin];
-      const status = initialStatus(recipe, origin);
       const current = tx.select().from(recipes).where(eq(recipes.id, recipe.id)).get();
+      const fromFile = initialStatus(recipe, origin);
+      // A person's "no" to this id and version is final, so a restart never asks again; the next
+      // version of the recipe is a new id and is asked about afresh.
+      const status =
+        current?.status === "rejected" && fromFile === "pending_review" ? "rejected" : fromFile;
       if (!current) {
         tx.insert(recipes)
           .values({

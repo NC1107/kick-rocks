@@ -21,7 +21,7 @@ import {
   ProfileSummary,
   ReplaceIdentitiesBody,
 } from "./profiles.js";
-import { RecipeRecord, RecipeStatus } from "./recipe.js";
+import { RecipeRecord, RecipeSource, RecipeStatus } from "./recipe.js";
 import {
   RequestAction,
   RequestChannel,
@@ -240,7 +240,11 @@ export type RequestsQuery = z.infer<typeof RequestsQuery>;
 
 export const ScansQuery = PageQuery;
 export const ReviewQuery = z.object({ profileId: z.string().min(1).optional() });
-export const RecipesQuery = z.object({ status: RecipeStatus.optional() });
+export const RecipesQuery = z.object({
+  status: RecipeStatus.optional(),
+  /** Bundled recipes the app ships, recipes an agent proposed, or recipes the person installed. */
+  source: RecipeSource.optional(),
+});
 
 export const API_ROUTES = {
   /** Open to anyone, so it says only that the server is up. */

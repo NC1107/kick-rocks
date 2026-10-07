@@ -15,7 +15,7 @@ export const recipesModule: ModulePlugin = (app, services) => {
   registerCanaryHealth(services);
 
   registerRoute(app, API_ROUTES.recipesList, ({ query }) => ({
-    recipes: store.list({ status: query.status }),
+    recipes: store.list({ status: query.status, source: query.source }),
   }));
   registerRoute(app, API_ROUTES.recipesApprove, ({ params }) => store.approve(params.id));
   registerRoute(app, API_ROUTES.recipesReject, ({ params }) => store.reject(params.id));

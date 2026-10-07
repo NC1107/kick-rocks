@@ -3,6 +3,7 @@ import {
   Recipe,
   type RecipePurpose,
   type RecipeRecord,
+  type RecipeSource,
   type RecipeStatus,
   recipeId,
 } from "@kickrocks/shared";
@@ -18,6 +19,7 @@ export const MAX_PENDING_PER_TARGET_PURPOSE = 5;
 
 export interface RecipeListFilter {
   status?: RecipeStatus | undefined;
+  source?: RecipeSource | undefined;
   targetId?: string | undefined;
   purpose?: RecipePurpose | undefined;
 }
@@ -98,9 +100,10 @@ export function createRecipeStore({ db, clock }: StoreServices): RecipeStore {
   }
 
   return {
-    list({ status, targetId, purpose } = {}) {
+    list({ status, source, targetId, purpose } = {}) {
       const conditions = [
         status ? eq(recipes.status, status) : undefined,
+        source ? eq(recipes.source, source) : undefined,
         targetId ? eq(recipes.targetId, targetId) : undefined,
         purpose ? eq(recipes.purpose, purpose) : undefined,
       ].filter((condition) => condition !== undefined);
