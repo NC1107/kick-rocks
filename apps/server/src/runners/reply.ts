@@ -7,6 +7,7 @@ import {
   type RequestActor,
   type RequestRecord,
   WebUrl,
+  withoutSharedHosts,
 } from "@kickrocks/shared";
 import { and, eq } from "drizzle-orm";
 import { AppError } from "../core/errors.js";
@@ -45,7 +46,7 @@ export function awaitingConfirmationOf(
   const latest = rows.sort((a, b) => a.createdAt.localeCompare(b.createdAt)).at(-1);
   const payload = latest?.payload as Partial<AwaitingConfirmation> | undefined;
   return {
-    fromDomains: payload?.fromDomains ?? [],
+    fromDomains: withoutSharedHosts(payload?.fromDomains ?? []),
     linkTextPattern: payload?.linkTextPattern ?? null,
   };
 }

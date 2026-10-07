@@ -1,10 +1,12 @@
 import {
   isOnDomain,
+  isSharedMailHost,
   type LlmSettings,
   normalizeRecordUrl,
   parseOutgoingMessageId,
   parseReferences,
   type ReplyClassification,
+  withoutSharedHosts,
 } from "@kickrocks/shared";
 import type { SettingsStore } from "../core/settings.js";
 import { askLlm, type LlmFetch } from "./llm.js";
@@ -72,11 +74,30 @@ function onDomain(host: string, domain: string): boolean {
 
 /** Where a confirmation link may point: following one is stricter than trusting a sender. */
 function linkDomainsOf(request: ClassifierRequest): string[] {
-  return [request.targetDomain, ...(request.awaitingConfirmation?.fromDomains ?? [])];
+  return [request.targetDomain, ...expectedSendersOf(request)];
 }
 
+/** Senders a waiting form named. A shared host never counts, whatever was stored. */
+function expectedSendersOf(request: ClassifierRequest): string[] {
+  return withoutSharedHosts(request.awaitingConfirmation?.fromDomains ?? []);
+}
+
+/** Every domain a signature may align with to vouch for a reply. */
 function domainsOf(request: ClassifierRequest): string[] {
-  return [...request.replyDomains, ...(request.awaitingConfirmation?.fromDomains ?? [])];
+  const own = request.targetDomain.toLowerCase();
+  const listed = withoutSharedHosts(request.replyDomains);
+  return [
+    ...new Set([...(isSharedMailHost(own) ? [own] : []), ...listed, ...expectedSendersOf(request)]),
+  ];
+}
+
+/**
+ * Domains whose mail may be matched to a request on the sender alone. A target that lives on a
+ * shared host, such as google.com, gets none for its own domain, since anyone on the host can
+ * send as it.
+ */
+function senderDomainsOf(request: ClassifierRequest): string[] {
+  return withoutSharedHosts(linkDomainsOf(request));
 }
 
 function fromReplyAddress(message: InboxMessage, request: ClassifierRequest): boolean {
@@ -190,7 +211,7 @@ function matchAwaitingConfirmation(
     .filter(
       (request) =>
         request.awaitingConfirmation !== null &&
-        linkDomainsOf(request).some((domain) => onDomain(host, domain)),
+        senderDomainsOf(request).some((domain) => onDomain(host, domain)),
     )
     .sort(byWaitingSince);
   if (waiting.length === 0) return null;
@@ -217,7 +238,7 @@ function correlateBySender(message: InboxMessage, requests: ClassifierRequest[])
   const host = senderHost(message);
   const candidates = requests.filter(
     (request) =>
-      request.replyDomains.some((domain) => onDomain(host, domain)) ||
+      withoutSharedHosts(request.replyDomains).some((domain) => onDomain(host, domain)) ||
       fromReplyAddress(message, request),
   );
   if (candidates.length === 1)
@@ -283,7 +304,8 @@ async function capFor(
   const found = await trust();
   if (found === "bound") return { confidence, reason: null };
   // The exception is narrower than the trust above: only the target's own site, or the sender a
-  // waiting form named, may have a link followed on a signature alone.
+  // waiting form named, may have a link followed on a signature alone. A target on a shared host
+  // never qualifies, because its site is no one's own.
   if (
     found === "signed" &&
     classification === "confirmation_link" &&
@@ -373,7 +395,7 @@ export function createReplyClassifier(deps: ReplyClassifierDeps): ReplyClassifie
           : senderTrust(message, matched.request, domainsOf(matched.request)),
       );
       const ownSiteTrust = once<SenderTrust>(async () =>
-        matched === null
+        matched === null || isSharedMailHost(matched.request.targetDomain)
           ? "unsigned"
           : senderTrust(message, matched.request, linkDomainsOf(matched.request), false),
       );

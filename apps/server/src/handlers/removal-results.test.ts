@@ -136,6 +136,40 @@ describe("a form run that finished", () => {
     },
   );
 
+  it("drops a shared platform that a stored recipe step or the page named as the sender", () => {
+    seedTarget(ctx, { domain: "google.com" });
+    ctx.services.db.delete(recipes).run();
+    const stored = seedRecipe(ctx, targetId, {
+      purpose: "remove",
+      definition: {
+        steps: [
+          { kind: "goto", url: "https://records.test/optout" },
+          { kind: "email_confirmation", fromDomain: "sister.test" },
+          { kind: "expect_text", text: "request received" },
+        ],
+      },
+    });
+    ctx.services.db
+      .update(recipes)
+      .set({
+        definition: {
+          ...stored.definition,
+          steps: stored.definition.steps.map((step) =>
+            step.kind === "email_confirmation"
+              ? { ...step, fromDomain: "accounts.google.com" }
+              : step,
+          ),
+        },
+      })
+      .where(eq(recipes.id, stored.id))
+      .run();
+    const { request } = openRemoval();
+    finishForm({ outcome: "awaiting_email_confirmation", confirmationFrom: "google.com" });
+    expect(
+      eventsOf(request.id).find((event) => event.type === "awaiting_confirmation"),
+    ).toMatchObject({ payload: { fromDomains: [] } });
+  });
+
   it("uses what the page said when the recipe names no sender", () => {
     seedTarget(ctx, { domain: "other.test" });
     const { request } = openRemoval();

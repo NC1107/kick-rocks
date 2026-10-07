@@ -332,6 +332,27 @@ describe("confirmation links", () => {
     expect(stored()[0]?.reviewed).toBe(true);
   });
 
+  it("never lets a shared platform stored as an expected sender receive the link", async () => {
+    const { request, target } = await sentRequest();
+    ctx.services.requests.update(request.id, {
+      awaitingConfirmationSince: ctx.clock.now().toISOString(),
+    });
+    ctx.services.requests.addEvent(request.id, {
+      type: "awaiting_confirmation",
+      actor: "worker",
+      payload: { fromDomains: ["google.com", "sister.test"], linkTextPattern: null },
+    });
+    const link = `https://calendar.google.com/confirm/${request.reference}`;
+    answer("Confirm", request.id, "confirmation_link", { links: [link] });
+    deliver("Confirm");
+
+    await poll();
+
+    expect(ctx.mail.linkFollower.calls).toEqual([
+      { url: link, allowedDomains: [target.domain, "sister.test"] },
+    ]);
+  });
+
   it("leaves a sister site's link that needs a browser for a person, since the browser only opens the broker's own site", async () => {
     const { request } = await sentRequest();
     ctx.services.requests.addEvent(request.id, {

@@ -1,10 +1,13 @@
+import type { TargetRow } from "@kickrocks/db";
 import {
+  type Company,
   outgoingMessageId,
   type ProfileField,
   type ReplyClassification,
-  replyDomainsOf,
 } from "@kickrocks/shared";
 import { describe, expect, it } from "vitest";
+import { replyAddressesOfRow, replyDomainsOfRow, targetValues } from "../core/targets.js";
+import { makeCompany } from "../test-utils/builders.js";
 import { noDkim, signedAs } from "../test-utils/dkim.js";
 import { createReplyClassifier } from "./classifier.js";
 import type { ClassifierRequest, InboxMessage } from "./types.js";
@@ -27,6 +30,26 @@ function request(overrides: Partial<ClassifierRequest> = {}): ClassifierRequest 
     awaitingConfirmation: null,
     ...overrides,
   };
+}
+
+/** A request whose reply trust comes from a stored target, the way the inbox poll builds it. */
+function requestForTarget(
+  company: Partial<Company>,
+  overrides: Partial<ClassifierRequest> = {},
+): ClassifierRequest {
+  const row = {
+    ...targetValues({ kind: "company", record: makeCompany(company) }),
+    datasetVersion: "test",
+    retired: false,
+    createdAt: "2026-10-01T00:00:00.000Z",
+  } as TargetRow;
+  return request({
+    targetId: row.id,
+    targetDomain: row.domain,
+    replyDomains: replyDomainsOfRow(row),
+    replyAddresses: replyAddressesOfRow(row),
+    ...overrides,
+  });
 }
 
 /** A reply the broker signed, covering the In-Reply-To, References, and Subject it carries, unless a test says otherwise. */
@@ -796,11 +819,10 @@ describe("hostile input", () => {
 
 describe("a target whose privacy mailbox is on a public mail provider", () => {
   const gmailTarget = (overrides: Partial<ClassifierRequest> = {}) =>
-    request({
-      replyDomains: ["acme.test"],
-      replyAddresses: ["acme.privacy@gmail.com"],
-      ...overrides,
-    });
+    requestForTarget(
+      { id: "acme", domain: "acme.test", privacyEmail: "acme.privacy@gmail.com" },
+      overrides,
+    );
   const personal = (overrides: Partial<InboxMessage> = {}): Partial<InboxMessage> => ({
     inReplyTo: null,
     subject: "Hello",
@@ -866,11 +888,37 @@ describe("a target whose privacy mailbox is on a public mail provider", () => {
     );
     expect(result.confidence).toBeLessThan(0.6);
   });
+
+  it("does not align a signature from the provider's regional domain", async () => {
+    const regional = requestForTarget({
+      id: "acme",
+      domain: "acme.test",
+      privacyEmail: "acme.privacy@yahoo.co.uk",
+    });
+    expect(regional.replyDomains).toEqual(["acme.test"]);
+    const result = await classify(
+      "Your data has been deleted.",
+      {
+        from: { name: "Someone", address: "someone.else@yahoo.co.uk" },
+        verifyDkim: signedAs("yahoo.co.uk", {
+          inReplyTo: [outgoingMessageId("req-1", "example.com")],
+        }),
+      },
+      [regional],
+    );
+    expect(result.confidence).toBeLessThan(0.6);
+  });
 });
 
 describe("a target that publishes an opt-out form on a shared platform", () => {
   it("does not treat a d=google.com signature as aligned", async () => {
-    // The dataset lists docs.google.com as the opt-out form, which no longer yields a reply domain.
+    const target = requestForTarget({
+      id: "acme",
+      domain: "acme.test",
+      privacyEmail: null,
+      optOutUrl: "https://docs.google.com/forms/d/e/1",
+    });
+    expect(target.replyDomains).toEqual(["acme.test"]);
     const result = await classify(
       "Your data has been deleted.",
       {
@@ -878,8 +926,118 @@ describe("a target that publishes an opt-out form on a shared platform", () => {
           inReplyTo: [outgoingMessageId("req-1", "example.com")],
         }),
       },
-      [request({ replyDomains: replyDomainsOf({ domain: "acme.test", privacyEmail: null }) })],
+      [target],
     );
     expect(result.confidence).toBeLessThan(0.6);
+  });
+});
+
+describe("a confirmation sender that is a shared host", () => {
+  const calendarInvite = (overrides: Partial<InboxMessage> = {}): Partial<InboxMessage> => ({
+    inReplyTo: null,
+    subject: "Invitation: confirm your opt-out",
+    from: { name: "Google Calendar", address: "calendar-notification@google.com" },
+    text: "Please confirm your opt-out using the link below.",
+    html: '<p>Please confirm your opt-out using the link below.</p><a href="https://calendar.google.com/calendar/confirm?t=1">Confirm</a>',
+    verifyDkim: signedAs("google.com"),
+    ...overrides,
+  });
+  const waitingFor = (fromDomains: string[]) =>
+    requestForTarget(
+      { id: "acme", domain: "acme.test" },
+      {
+        channel: "form",
+        awaitingConfirmation: {
+          fromDomains,
+          linkTextPattern: null,
+          since: "2026-10-01T10:00:00.000Z",
+        },
+      },
+    );
+
+  it("is not matched or followed when a stored wait lists google.com as the sender", async () => {
+    const result = await classify("", calendarInvite(), [waitingFor(["google.com"])]);
+    expect(result).toMatchObject({ requestId: null, links: [] });
+  });
+
+  it("still matches the genuine sender listed beside it", async () => {
+    const result = await classify(
+      "",
+      calendarInvite({
+        from: { name: "Acme", address: "noreply@mail.acme.test" },
+        text: "Please confirm your opt-out using the link below.",
+        html: '<a href="https://acme.test/confirm?t=1">Confirm</a>',
+        verifyDkim: signedAs("acme.test"),
+      }),
+      [waitingFor(["google.com", "mail.acme.test"])],
+    );
+    expect(result).toMatchObject({ requestId: "req-1", classification: "confirmation_link" });
+    expect(result.links).toEqual(["https://acme.test/confirm?t=1"]);
+  });
+});
+
+describe("a target whose own domain is a shared platform", () => {
+  const googleTarget = (overrides: Partial<ClassifierRequest> = {}) =>
+    requestForTarget(
+      { id: "google", domain: "google.com", privacyEmail: "privacy@google.com" },
+      overrides,
+    );
+  const invite = (overrides: Partial<InboxMessage> = {}): Partial<InboxMessage> => ({
+    inReplyTo: null,
+    subject: "Invitation: confirm your opt-out",
+    from: { name: "Google Calendar", address: "calendar-notification@google.com" },
+    text: "Please confirm your opt-out using the link below.",
+    html: '<p>Please confirm your opt-out using the link below.</p><a href="https://calendar.google.com/calendar/confirm?t=1">Confirm</a>',
+    verifyDkim: signedAs("google.com"),
+    ...overrides,
+  });
+
+  it("does not match mail by sender domain alone", async () => {
+    const waiting = googleTarget({
+      channel: "form",
+      awaitingConfirmation: {
+        fromDomains: [],
+        linkTextPattern: null,
+        since: "2026-10-01T10:00:00.000Z",
+      },
+    });
+    const result = await classify("", invite(), [waiting]);
+    expect(result).toMatchObject({ requestId: null, correlation: null, links: [] });
+  });
+
+  it("does not correlate a plain reply by sender domain", async () => {
+    const result = await classify("Your data has been deleted.", invite({ subject: "Hello" }), [
+      googleTarget(),
+    ]);
+    expect(result).toMatchObject({ requestId: null, correlation: null });
+  });
+
+  it("sends a confirmation link signed but not bound to the request to review", async () => {
+    const result = await classify(
+      "",
+      invite({
+        inReplyTo: outgoingMessageId("req-1", "example.com"),
+        html: '<p>Please confirm your opt-out using the link below.</p><a href="https://google.com/confirm?t=1">Confirm</a>',
+      }),
+      [googleTarget()],
+    );
+    expect(result.requestId).toBe("req-1");
+    expect(result.confidence).toBeLessThan(0.6);
+  });
+
+  it("acts on a confirmation link whose signature binds it to the request", async () => {
+    const result = await classify(
+      "",
+      invite({
+        inReplyTo: outgoingMessageId("req-1", "example.com"),
+        html: '<p>Please confirm your opt-out using the link below.</p><a href="https://google.com/confirm?t=1">Confirm</a>',
+        verifyDkim: signedAs("google.com", {
+          inReplyTo: [outgoingMessageId("req-1", "example.com")],
+        }),
+      }),
+      [googleTarget()],
+    );
+    expect(result).toMatchObject({ requestId: "req-1", classification: "confirmation_link" });
+    expect(result.confidence).toBeGreaterThanOrEqual(0.6);
   });
 });

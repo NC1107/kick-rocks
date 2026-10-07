@@ -1,5 +1,12 @@
 import { type DbHandle, recipes, targets } from "@kickrocks/db";
-import { FORM_OUTCOMES, type FormResult, isOnDomain, type RequestActor } from "@kickrocks/shared";
+import {
+  FORM_OUTCOMES,
+  type FormResult,
+  isOnDomain,
+  isSharedMailHost,
+  type RequestActor,
+  withoutSharedHosts,
+} from "@kickrocks/shared";
 import { eq } from "drizzle-orm";
 import type { Task } from "../core/task-types.js";
 import { responseWindow } from "../runners/deadlines.js";
@@ -13,10 +20,12 @@ interface ConfirmationExpectation {
 
 /**
  * A sender the page named, which an agent can be talked into writing, counts only when it belongs
- * to a broker in the dataset. Otherwise "com" or a webmail domain would make every mail from that
- * domain look like the broker's confirmation, and its links would be followed.
+ * to a broker in the dataset and is not a shared host. Otherwise "com", a webmail domain, or a
+ * platform that hosts a broker target such as google.com would make every mail from that domain
+ * look like the broker's confirmation, and its links would be followed.
  */
 function isKnownBrokerDomain(tx: DbHandle, domain: string): boolean {
+  if (isSharedMailHost(domain)) return false;
   return tx
     .select({ domain: targets.domain })
     .from(targets)
@@ -43,11 +52,11 @@ function expectedConfirmation(
   const step = definition?.steps.find((candidate) => candidate.kind === "email_confirmation");
   const reported = result.confirmationFrom?.toLowerCase();
   const domains = [
-    step?.fromDomain.toLowerCase(),
+    step?.fromDomain,
     reported && isKnownBrokerDomain(tx, reported) ? reported : undefined,
   ].filter((domain): domain is string => Boolean(domain));
   return {
-    fromDomains: [...new Set(domains)],
+    fromDomains: [...new Set(withoutSharedHosts(domains))],
     linkTextPattern: step?.linkTextPattern ?? null,
   };
 }
