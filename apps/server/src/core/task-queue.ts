@@ -50,6 +50,12 @@ export function retryDelayMs(attempts: number): number {
   return Math.min(RETRY_BASE_MS * 2 ** Math.max(attempts - 1, 0), RETRY_MAX_MS);
 }
 
+/**
+ * How long a task whose lease ran out stays out of every claim. Its holder may still be running,
+ * and a form that two workers submit is worse than a task that starts a few minutes late.
+ */
+export const DEFAULT_LAPSED_HOLDER_GRACE_MS = 5 * 60 * 1000;
+
 export interface EnqueueInput<K extends TaskKind, S extends TaskKind = K> {
   kind: K;
   payload: TaskPayloadMap[K];
@@ -166,7 +172,8 @@ export interface TaskScreenshotData {
  * puts the task back in the queue and remembers who held it. That holder may still report
  * finished, blocked, or failed work until another claimer takes the task: a form submitted twice
  * is worse than a late answer. Only `heartbeat` refuses an expired lease, so a worker finds out
- * it is late.
+ * it is late. A recovered task stays out of every claim for a grace period, so the holder that is
+ * still running is not joined by a second worker doing the same work.
  */
 export interface TaskQueue {
   enqueue<K extends TaskKind, S extends TaskKind = K>(
@@ -213,6 +220,7 @@ export interface TaskQueueDeps {
   db: KickRocksDb;
   clock: Clock;
   handlers: TaskHandlers;
+  lapsedHolderGraceMs?: number;
 }
 
 function toTask(row: TaskRow): Task {
@@ -274,7 +282,12 @@ function invalidResult(kind: TaskKind, error: z.ZodError): AppError {
   );
 }
 
-export function createTaskQueue({ db, clock, handlers }: TaskQueueDeps): TaskQueue {
+export function createTaskQueue({
+  db,
+  clock,
+  handlers,
+  lapsedHolderGraceMs = DEFAULT_LAPSED_HOLDER_GRACE_MS,
+}: TaskQueueDeps): TaskQueue {
   type Tx = Parameters<Parameters<KickRocksDb["transaction"]>[0]>[0];
 
   function loadRow(handle: Pick<Tx, "select">, id: string): TaskRow {
@@ -362,7 +375,7 @@ export function createTaskQueue({ db, clock, handlers }: TaskQueueDeps): TaskQue
       {
         error: "The lease expired",
         retryable: true,
-        delayMs: retryDelayMs(row.attempts),
+        delayMs: Math.max(retryDelayMs(row.attempts), lapsedHolderGraceMs),
         kind: "internal",
         step: null,
         finishedBy: null,
@@ -500,6 +513,10 @@ export function createTaskQueue({ db, clock, handlers }: TaskQueueDeps): TaskQue
     heartbeat(id, { workerId, leaseMs }) {
       const now = nowIso(clock);
       return db.transaction((tx) => {
+        const row = loadRow(tx, id);
+        if (row.status === "queued" && row.leaseOwner === workerId) {
+          throw conflict("lease_expired", `The lease on task ${id} ran out and was recovered`);
+        }
         const current = leasedRow(tx, id, workerId);
         if (current.leaseExpiresAt !== null && current.leaseExpiresAt <= now) {
           throw conflict(
@@ -507,13 +524,13 @@ export function createTaskQueue({ db, clock, handlers }: TaskQueueDeps): TaskQue
             `The lease on task ${id} ran out at ${current.leaseExpiresAt}`,
           );
         }
-        const row = tx
+        const extended = tx
           .update(tasks)
           .set({ leaseExpiresAt: addMs(now, leaseMs), updatedAt: now })
           .where(eq(tasks.id, id))
           .returning()
           .get();
-        return toTask(row);
+        return toTask(extended);
       });
     },
 

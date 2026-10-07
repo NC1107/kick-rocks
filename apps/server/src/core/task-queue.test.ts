@@ -8,7 +8,10 @@ import {
   type TestContext,
 } from "../test-utils/index.js";
 import type { AppError } from "./errors.js";
-import { DEFAULT_MAX_ATTEMPTS, retryDelayMs, TASK_PRIORITY, type TaskQueue } from "./task-queue.js";
+import {
+  DEFAULT_LAPSED_HOLDER_GRACE_MS,
+  DEFAULT_MAX_ATTEMPTS,
+  retryDelayMs, TASK_PRIORITY, type TaskQueue } from "./task-queue.js";
 import type { TaskEvent } from "./task-types.js";
 
 let ctx: TestContext;
@@ -656,7 +659,9 @@ describe("reapExpiredLeases", () => {
       status: "queued",
       leaseOwner: "worker-1",
       lastError: "The lease expired",
-      runAfter: new Date(ctx.clock.now().getTime() + retryDelayMs(1)).toISOString(),
+      runAfter: new Date(
+        ctx.clock.now().getTime() + DEFAULT_LAPSED_HOLDER_GRACE_MS,
+      ).toISOString(),
     });
   });
 
@@ -665,7 +670,7 @@ describe("reapExpiredLeases", () => {
     const task = claimOne();
     ctx.clock.advance(DAY);
     queue.reapExpiredLeases();
-    ctx.clock.advance(retryDelayMs(1));
+    ctx.clock.advance(DEFAULT_LAPSED_HOLDER_GRACE_MS);
     const second = queue.claim({ workerId: "worker-2", kinds: ["email_send"], leaseMs: MINUTE });
     expect(second?.id).toBe(task.id);
     expect(codeOf(() => queue.complete(task.id, { ...worker, result: {}, actor: "worker" }))).toBe(
@@ -1020,7 +1025,7 @@ describe("expired leases", () => {
     queue.enqueue({ kind: "email_send", payload: emailPayload() });
     const stuck = claimOne();
     ctx.clock.advance(5 * MINUTE);
-    // The claim recovers the task, but it waits out its backoff before it can be handed out again.
+    // The claim recovers the task, but it waits out the grace for its holder before it is handed out again.
     expect(
       queue.claim({ workerId: "worker-2", kinds: ["email_send"], leaseMs: MINUTE }),
     ).toBeNull();
@@ -1028,7 +1033,7 @@ describe("expired leases", () => {
       status: "queued",
       lastError: "The lease expired",
     });
-    ctx.clock.advance(retryDelayMs(1));
+    ctx.clock.advance(DEFAULT_LAPSED_HOLDER_GRACE_MS);
     const next = queue.claim({ workerId: "worker-2", kinds: ["email_send"], leaseMs: MINUTE });
     expect(next).toMatchObject({ id: stuck.id, leaseOwner: "worker-2", attempts: 2 });
   });
@@ -1104,7 +1109,47 @@ describe("a report after the lease was reaped", () => {
     const task = claimOne();
     ctx.clock.advance(DAY);
     queue.reapExpiredLeases();
+    expect(codeOf(() => queue.heartbeat(task.id, { ...worker }))).toBe("lease_expired");
+  });
+
+  it("tells a worker that another worker now holds the task that the lease is not held", () => {
+    queue.enqueue({ kind: "email_send", payload: emailPayload() });
+    const task = claimOne();
+    ctx.clock.advance(DAY);
+    queue.reapExpiredLeases();
+    ctx.clock.advance(DEFAULT_LAPSED_HOLDER_GRACE_MS);
+    const taken = queue.claim({ workerId: "worker-2", kinds: ["email_send"], leaseMs: MINUTE });
+    expect(taken?.id).toBe(task.id);
     expect(codeOf(() => queue.heartbeat(task.id, { ...worker }))).toBe("lease_not_held");
+  });
+
+  it("submits once when the reaper recovers the lease before the holder's heartbeat", () => {
+    queue.enqueue({ kind: "email_send", payload: emailPayload() });
+    const task = claimOne();
+    const submissions = ["worker-1"];
+    ctx.clock.advance(5 * MINUTE + 5 * SECOND);
+    queue.reapExpiredLeases();
+
+    expect(codeOf(() => queue.heartbeat(task.id, { ...worker }))).toBe("lease_expired");
+
+    const other = queue.claim({ workerId: "worker-2", kinds: ["email_send"], leaseMs: MINUTE });
+    if (other) submissions.push("worker-2");
+    ctx.clock.advance(2 * MINUTE);
+    const stillOther = queue.claim({ workerId: "worker-2", kinds: ["email_send"], leaseMs: MINUTE });
+    if (stillOther) submissions.push("worker-2");
+
+    expect(queue.complete(task.id, { ...worker, result: {}, actor: "worker" }).status).toBe("done");
+    expect(submissions).toEqual(["worker-1"]);
+  });
+
+  it("lets another worker take a recovered task once the holder has been silent past the grace", () => {
+    queue.enqueue({ kind: "email_send", payload: emailPayload() });
+    const task = claimOne();
+    ctx.clock.advance(5 * MINUTE + 5 * SECOND);
+    queue.reapExpiredLeases();
+    ctx.clock.advance(6 * MINUTE);
+    const other = queue.claim({ workerId: "worker-2", kinds: ["email_send"], leaseMs: MINUTE });
+    expect(other?.id).toBe(task.id);
   });
 });
 
