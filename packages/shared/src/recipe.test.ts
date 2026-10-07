@@ -206,3 +206,338 @@ describe("RecipeStep", () => {
     ).toBe(false);
   });
 });
+
+describe("a remove recipe that reaches the record the person confirmed", () => {
+  const recordRemove = {
+    id: "fastpeoplesearch.remove.v1",
+    brokerId: "fastpeoplesearch",
+    version: 1,
+    purpose: "remove",
+    entryUrl: "https://www.fastpeoplesearch.test/removal",
+    fields: ["record_url", "first_name", "last_name", "state", "email"],
+    steps: [
+      { kind: "goto", url: "{{record_url}}" },
+      { kind: "wait_for", target: { css: ".record" } },
+      { kind: "click", target: { role: "link", label: "Remove my record" } },
+    ],
+    canary: { url: "https://www.fastpeoplesearch.test/removal", selectors: [{ css: "form" }] },
+  };
+
+  it("accepts a goto that is exactly {{record_url}}", () => {
+    expect(failure(recordRemove)).toEqual([]);
+    expect(
+      failure({
+        ...recordRemove,
+        steps: [{ kind: "goto", url: "{{ record_url }}" }, recordRemove.steps[2]],
+      }),
+    ).toEqual([]);
+  });
+
+  it("still rejects any other bare template as a url", () => {
+    for (const url of ["{{first_name}}", "{{email}}", "{{record_url|lower}}", "{{record_url}}/x"]) {
+      expect(
+        failure({ ...recordRemove, steps: [{ kind: "goto", url }, recordRemove.steps[2]] }),
+        url,
+      ).not.toEqual([]);
+    }
+  });
+
+  it("keeps the host of a url literal, so no value can pick the site that gets the details", () => {
+    for (const url of [
+      "https://{{email}}/x",
+      "https://www.{{first_name}}.test/",
+      "http://x.test{{email}}",
+    ]) {
+      const problems = failure({
+        ...recordRemove,
+        steps: [{ kind: "goto", url }, recordRemove.steps[2]],
+      });
+      expect(problems.join(), url).toMatch(/host of a url must be written out|Uses field/);
+    }
+    expect(
+      failure({
+        ...recordRemove,
+        steps: [
+          { kind: "goto", url: "https://www.fastpeoplesearch.test/{{first_name|slug}}" },
+          recordRemove.steps[2],
+        ],
+      }),
+    ).toEqual([]);
+    expect(
+      failure({
+        ...recordRemove,
+        steps: [{ kind: "goto", url: "https://{{first_name}}.test/" }, recordRemove.steps[2]],
+      }),
+    ).toEqual(["The host of a url must be written out, not filled from a template"]);
+  });
+
+  it("needs record_url declared like any other field", () => {
+    expect(failure({ ...recordRemove, fields: ["email"] })).toEqual([
+      'Uses field "record_url" that the recipe does not declare in fields',
+    ]);
+  });
+
+  it("picks one result out of a list with select_record", () => {
+    const select = {
+      kind: "select_record",
+      item: { css: ".result" },
+      link: { css: "a.profile", attr: "href" },
+      action: "click",
+    };
+    const steps = [
+      { kind: "goto", url: "https://www.fastpeoplesearch.test/search?q={{first_name|slug}}" },
+      select,
+    ];
+    expect(failure({ ...recordRemove, steps })).toEqual([]);
+    expect(failure({ ...recordRemove, fields: ["first_name"], steps })).toEqual([
+      'Uses field "record_url" that the recipe does not declare in fields',
+    ]);
+    expect(RecipeStep.safeParse({ ...select, action: "hover" }).success).toBe(false);
+  });
+
+  it("keeps select_record and email_confirmation out of scan recipes", () => {
+    const steps = [
+      ...scanRecipe.steps,
+      {
+        kind: "select_record",
+        item: { css: ".r" },
+        link: { css: "a", attr: "href" },
+        action: "click",
+      },
+    ];
+    expect(failure({ ...scanRecipe, fields: [...scanRecipe.fields, "record_url"], steps })).toEqual(
+      expect.arrayContaining([
+        "Only a remove recipe may use select_record",
+        "A scan finds the record, so it cannot start from record_url",
+      ]),
+    );
+  });
+});
+
+describe("steps are strict", () => {
+  it("rejects a key the step does not have, instead of dropping it", () => {
+    expect(
+      RecipeStep.safeParse({ kind: "click", target: { css: "a" }, optionl: true }).success,
+    ).toBe(false);
+    expect(
+      RecipeStep.safeParse({ kind: "goto", url: "https://x.test", optional: true }).success,
+    ).toBe(false);
+    expect(RecipeStep.safeParse({ kind: "captcha_checkpoint", extra: 1 }).success).toBe(false);
+  });
+
+  it("rejects an unknown key on a selector, a candidate field, and the recipe itself", () => {
+    expect(Selector.safeParse({ css: "a", nth: 2 }).success).toBe(false);
+    expect(
+      RecipeStep.safeParse({
+        kind: "extract_candidates",
+        item: { css: "li" },
+        fields: { recordUrl: { css: "a", attr: "href", first: true }, name: { css: "b" } },
+      }).success,
+    ).toBe(false);
+    expect(failure({ ...scanRecipe, verifiedat: "2026-10-01" })).not.toEqual([]);
+  });
+
+  it("keeps an author's optional flag instead of silently making the step mandatory", () => {
+    expect(RecipeStep.parse({ kind: "click", target: { css: "a" }, optional: true })).toMatchObject(
+      { optional: true },
+    );
+    expect(RecipeStep.parse({ kind: "click", target: { css: "a" } })).toMatchObject({
+      optional: false,
+    });
+    for (const step of [
+      { kind: "fill", target: { css: "i" }, field: "email" },
+      { kind: "select", target: { css: "s" }, field: "state" },
+      { kind: "check", target: { css: "c" } },
+      { kind: "press", key: "Enter" },
+      { kind: "wait_for", target: { css: "w" } },
+    ]) {
+      expect(RecipeStep.parse({ ...step, optional: true }), step.kind).toMatchObject({
+        optional: true,
+      });
+    }
+  });
+});
+
+describe("waiting, frames, and selecting options", () => {
+  it("waits for an element to appear by default and can wait for it to go", () => {
+    expect(RecipeStep.parse({ kind: "wait_for", target: { css: ".spinner" } })).toMatchObject({
+      state: "visible",
+    });
+    for (const state of ["visible", "hidden", "attached", "detached"]) {
+      expect(
+        RecipeStep.safeParse({ kind: "wait_for", target: { css: ".x" }, state }).success,
+        state,
+      ).toBe(true);
+    }
+    expect(
+      RecipeStep.safeParse({ kind: "wait_for", target: { css: ".x" }, state: "gone" }).success,
+    ).toBe(false);
+  });
+
+  it("targets a form inside an iframe", () => {
+    const step = RecipeStep.parse({
+      kind: "fill",
+      target: { label: "Email" },
+      field: "email",
+      frame: { css: "iframe#optout" },
+    });
+    expect(step).toMatchObject({ frame: { css: "iframe#optout" } });
+  });
+
+  it("selects by label unless told to use the value, from a field or a template", () => {
+    const target = { css: "select" };
+    expect(RecipeStep.parse({ kind: "select", target, field: "state" })).toMatchObject({
+      by: "label",
+    });
+    expect(
+      RecipeStep.parse({ kind: "select", target, value: "{{state|state_name}}", by: "label" }),
+    ).toMatchObject({ value: "{{state|state_name}}" });
+    expect(
+      RecipeStep.safeParse({ kind: "select", target, value: "privacy", by: "value" }).success,
+    ).toBe(true);
+    expect(RecipeStep.safeParse({ kind: "select", target }).success).toBe(false);
+    expect(
+      RecipeStep.safeParse({ kind: "select", target, field: "state", value: "x" }).success,
+    ).toBe(false);
+    expect(
+      RecipeStep.safeParse({ kind: "select", target, field: "state", by: "text" }).success,
+    ).toBe(false);
+  });
+
+  it("reads emails off a result as well as phones and relatives", () => {
+    expect(
+      RecipeStep.safeParse({
+        kind: "extract_candidates",
+        item: { css: "li" },
+        fields: {
+          recordUrl: { css: "a", attr: "href" },
+          name: { css: "b" },
+          emails: { css: ".mail", all: true },
+        },
+      }).success,
+    ).toBe(true);
+  });
+
+  it("rejects a template with a filter that does not exist or a malformed placeholder", () => {
+    const withUrl = (url: string) => ({
+      ...scanRecipe,
+      steps: [{ kind: "goto", url }, scanRecipe.steps[2]],
+    });
+    expect(failure(withUrl("https://x.test/{{first_name|shout}}"))).toEqual(
+      expect.arrayContaining(['Unknown template filter "shout"']),
+    );
+    expect(failure(withUrl("https://x.test/{{first_name"))).not.toEqual([]);
+  });
+});
+
+describe("ending a run with an outcome", () => {
+  const whenStep = (when: unknown[]) => ({ kind: "outcome_when", when });
+
+  it("maps what is on the page to a form outcome or a human check", () => {
+    const step = RecipeStep.parse(
+      whenStep([
+        { text: "No records found", outcome: "not_found" },
+        { selector: { css: ".already-removed" }, outcome: "already_removed" },
+        { urlPattern: "/verify-phone", outcome: "blocked", reason: "phone_verification" },
+      ]),
+    );
+    expect(step.kind).toBe("outcome_when");
+  });
+
+  it("needs a reason for a blocked outcome and none for the others", () => {
+    expect(RecipeStep.safeParse(whenStep([{ text: "x", outcome: "blocked" }])).success).toBe(false);
+    expect(
+      RecipeStep.safeParse(whenStep([{ text: "x", outcome: "not_found", reason: "captcha" }]))
+        .success,
+    ).toBe(false);
+  });
+
+  it("needs something to look for and at least one condition", () => {
+    expect(RecipeStep.safeParse(whenStep([{ outcome: "not_found" }])).success).toBe(false);
+    expect(RecipeStep.safeParse(whenStep([])).success).toBe(false);
+    expect(RecipeStep.safeParse(whenStep([{ text: "x", outcome: "done" }])).success).toBe(false);
+  });
+
+  it("lets a scan end a run only as blocked", () => {
+    const blocked = whenStep([{ text: "Are you human", outcome: "blocked", reason: "captcha" }]);
+    const notFound = whenStep([{ text: "none", outcome: "not_found" }]);
+    expect(
+      failure({ ...scanRecipe, steps: [scanRecipe.steps[0], blocked, scanRecipe.steps[2]] }),
+    ).toEqual([]);
+    expect(
+      failure({ ...scanRecipe, steps: [scanRecipe.steps[0], notFound, scanRecipe.steps[2]] }),
+    ).toEqual(["A scan can only end a run as blocked"]);
+  });
+});
+
+describe("one recipe for several brokers", () => {
+  it("defaults to none and may not list its own broker", () => {
+    expect(Recipe.parse(scanRecipe).alsoFor).toEqual([]);
+    expect(
+      Recipe.parse({ ...scanRecipe, alsoFor: ["peoplelooker", "instantcheckmate"] }).alsoFor,
+    ).toEqual(["peoplelooker", "instantcheckmate"]);
+    expect(failure({ ...scanRecipe, alsoFor: ["spokeo"] })).toEqual([
+      "alsoFor lists other brokers, not the recipe's own",
+    ]);
+  });
+});
+
+describe("canary steps", () => {
+  const withCanarySteps = (steps: unknown[]) => ({
+    ...scanRecipe,
+    canary: { url: "https://www.spokeo.test/search", selectors: [{ css: ".results" }], steps },
+  });
+
+  it("defaults to none", () => {
+    expect(Recipe.parse(scanRecipe).canary.steps).toEqual([]);
+  });
+
+  it("lets a scan canary search for a generic name and wait for results", () => {
+    expect(
+      failure(
+        withCanarySteps([
+          { kind: "goto", url: "https://www.spokeo.test/search" },
+          { kind: "fill", target: { label: "Name" }, value: "John Smith" },
+          { kind: "click", target: { role: "button", label: "Search" } },
+          { kind: "wait_for", target: { css: ".results" } },
+        ]),
+      ),
+    ).toEqual([]);
+  });
+
+  it("never types a profile field or a template, so a health check discloses nobody", () => {
+    expect(
+      failure(withCanarySteps([{ kind: "fill", target: { label: "Name" }, field: "full_name" }])),
+    ).not.toEqual([]);
+    expect(
+      failure(
+        withCanarySteps([{ kind: "fill", target: { label: "Name" }, value: "{{full_name}}" }]),
+      ),
+    ).not.toEqual([]);
+  });
+
+  it("allows only goto, fill, click, and wait_for", () => {
+    expect(failure(withCanarySteps([{ kind: "captcha_checkpoint" }]))).not.toEqual([]);
+    expect(failure(withCanarySteps([{ kind: "goto", url: "{{record_url}}" }]))).not.toEqual([]);
+    expect(
+      failure(
+        withCanarySteps(
+          Array.from({ length: 11 }, () => ({ kind: "click", target: { css: "a" } })),
+        ),
+      ),
+    ).not.toEqual([]);
+  });
+
+  it("is not allowed on a remove recipe, where a click could submit a removal", () => {
+    expect(
+      failure({
+        ...removeRecipe,
+        canary: {
+          url: "https://www.spokeo.test/optout",
+          selectors: [{ label: "Email" }],
+          steps: [{ kind: "click", target: { css: "button" } }],
+        },
+      }),
+    ).toEqual(["Only a scan recipe may have canary steps, because a click there is a search"]);
+  });
+});

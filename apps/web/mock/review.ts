@@ -27,8 +27,7 @@ const MANUAL_INSTRUCTIONS: Record<BlockedReason, string> = {
     "The site wants you to sign in first. Create or use an account, finish the removal, then mark the task done.",
   bot_detection:
     "The site blocked the automated browser. Open the page in your own browser and finish the removal.",
-  recipe_failed:
-    "The saved steps no longer match the page. Finish the removal by hand, then mark the task done.",
+
   unknown: "Open the page and finish the removal by hand, then mark the task done.",
 };
 

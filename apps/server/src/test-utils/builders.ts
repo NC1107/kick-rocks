@@ -3,6 +3,7 @@ import {
   type Company,
   type IdentityInput,
   Recipe,
+  type RecipeInput,
   type RecipePurpose,
   recipeId,
 } from "@kickrocks/shared";
@@ -67,7 +68,7 @@ export interface RecipeOverrides {
   purpose?: RecipePurpose;
   version?: number;
   /** Merged over the generated recipe before it is validated. */
-  definition?: Partial<Recipe>;
+  definition?: Partial<RecipeInput>;
 }
 
 /**

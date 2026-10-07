@@ -1,7 +1,7 @@
 import {
   API_ROUTES,
   type Jurisdiction,
-  type Recipe,
+  Recipe,
   type RecipeHealth,
   type RecipePurpose,
   type RecipeRecord,
@@ -17,7 +17,12 @@ function hex(store: MockStore, length: number): string {
   return Array.from({ length }, () => Math.floor(store.random() * 16).toString(16)).join("");
 }
 
+/** Parsed, so the defaults a real recipe gets (optional steps, wait states) are filled in. */
 function recipeFor(target: TargetDetail, purpose: RecipePurpose, version: number): Recipe {
+  return Recipe.parse(recipeInput(target, purpose, version));
+}
+
+function recipeInput(target: TargetDetail, purpose: RecipePurpose, version: number) {
   const base = {
     id: `${target.id}.${purpose}.v${version}`,
     brokerId: target.id,

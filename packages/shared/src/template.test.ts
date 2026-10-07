@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { renderTemplate, TemplateError, templateFields } from "./template.js";
+import { renderTemplate, TemplateError, templateFields, templateProblem } from "./template.js";
 
 const fields = {
   first_name: "Mary Ann",
@@ -73,5 +73,30 @@ describe("templateFields", () => {
   it("lists distinct field names in order", () => {
     expect(templateFields("{{b}}/{{a|slug}}/{{b|lower}}")).toEqual(["b", "a"]);
     expect(templateFields("no placeholders")).toEqual([]);
+  });
+});
+
+describe("state_name", () => {
+  it("turns a state code into the name a dropdown shows", () => {
+    expect(renderTemplate("{{state|state_name}}", { state: "TX" })).toBe("Texas");
+    expect(renderTemplate("{{state|state_name}}", { state: "dc" })).toBe("District of Columbia");
+  });
+
+  it("throws on something that is not a state code", () => {
+    expect(() => renderTemplate("{{state|state_name}}", { state: "Texas" })).toThrow(
+      /not a state code/,
+    );
+  });
+});
+
+describe("templateProblem", () => {
+  it("is null for a well formed template", () => {
+    expect(templateProblem("https://x.test/{{first_name|slug}}/{{state|state_name}}")).toBeNull();
+    expect(templateProblem("no placeholders")).toBeNull();
+  });
+
+  it("names a malformed placeholder or an unknown filter without needing any values", () => {
+    expect(templateProblem("{{city")).toMatch(/Malformed/);
+    expect(templateProblem("{{city|shout}}")).toMatch(/Unknown template filter "shout"/);
   });
 });

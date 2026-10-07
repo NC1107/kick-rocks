@@ -1,6 +1,7 @@
 import type {
   BlockedReason,
   CanaryResult,
+  FailureKind,
   FormResult,
   ProfileFields,
   Recipe,
@@ -12,11 +13,23 @@ import type { Page } from "playwright";
 /**
  * How a run ends. A run that hits a CAPTCHA, phone or ID demand, login wall, or bot check is
  * blocked for a human rather than failed, and carries the evidence a person needs.
+ *
+ * A failure says what broke, because the server counts only `recipe` failures against a recipe's
+ * health and hands the task to an agent for them. A recipe failure (a selector that is gone, an
+ * `expect_text` that did not hold) is always reported with `retryable: false`, since running the
+ * same script again cannot help; `step` is the index of the step that failed. A `site` error or a
+ * dropped `network` may be retried.
  */
 export type RunOutcome<R> =
   | { status: "completed"; result: R }
   | { status: "blocked"; reason: BlockedReason; detail: string; screenshot: Buffer | null }
-  | { status: "failed"; error: string; retryable: boolean };
+  | {
+      status: "failed";
+      kind: FailureKind;
+      error: string;
+      retryable: boolean;
+      step?: number | undefined;
+    };
 
 export type RecipeResultFor<P extends RecipePurpose> = P extends "scan" ? ScanResult : FormResult;
 

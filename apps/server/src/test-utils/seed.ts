@@ -17,8 +17,8 @@ import type {
   Company,
   Identity,
   IdentityInput,
-  Recipe,
   RecipeHealth,
+  RecipeInput,
   RecipeSource,
   RecipeStatus,
   RequestChannel,
@@ -155,7 +155,7 @@ export function seedRecipe(
   overrides: {
     purpose?: "scan" | "remove";
     version?: number;
-    definition?: Partial<Recipe>;
+    definition?: Partial<RecipeInput>;
     status?: RecipeStatus;
     health?: RecipeHealth;
     source?: RecipeSource;

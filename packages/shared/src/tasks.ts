@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { ProfileField } from "./identities.js";
+import { BlockedReason, FormOutcome } from "./outcomes.js";
 import { Recipe } from "./recipe.js";
 import { TargetSummary } from "./targets.js";
 import { WebUrl } from "./url.js";
@@ -42,18 +43,6 @@ export const LIVE_TASK_STATUSES = [
   "leased",
   "blocked",
 ] as const satisfies readonly TaskStatus[];
-
-export const BlockedReason = z.enum([
-  "captcha",
-  "phone_verification",
-  "id_upload",
-  "email_verification",
-  "login_required",
-  "bot_detection",
-  "recipe_failed",
-  "unknown",
-]);
-export type BlockedReason = z.infer<typeof BlockedReason>;
 
 export const TaskLease = z.object({
   owner: z.string().min(1),
@@ -120,7 +109,7 @@ export const ScanResult = z.object({ candidates: z.array(Candidate) });
 export type ScanResult = z.infer<typeof ScanResult>;
 
 export const FormResult = z.object({
-  outcome: z.enum(["submitted", "not_found", "already_removed", "awaiting_email_confirmation"]),
+  outcome: FormOutcome,
   confirmationText: z.string().optional(),
   notes: z.string().optional(),
 });

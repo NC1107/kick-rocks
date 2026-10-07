@@ -1,4 +1,5 @@
 import { slugify } from "./broker.js";
+import { US_STATES } from "./geography.js";
 
 export class TemplateError extends Error {
   override name = "TemplateError";
@@ -6,13 +7,39 @@ export class TemplateError extends Error {
 
 type Filter = (value: string) => string;
 
+function stateName(value: string): string {
+  const state = US_STATES.find((candidate) => candidate.code === value.toUpperCase());
+  if (!state) throw new TemplateError(`"${value}" is not a state code`);
+  return state.name;
+}
+
 const FILTERS: Record<string, Filter> = {
   slug: slugify,
   lower: (value) => value.toLowerCase(),
   urlencode: encodeURIComponent,
+  /** "TX" to "Texas", for dropdowns that show the full name. */
+  state_name: stateName,
 };
 
-const PLACEHOLDER = /\{\{\s*([a-z][a-z0-9_]*)\s*(?:\|\s*([a-z]+)\s*)?\}\}/g;
+export const TEMPLATE_FILTERS = Object.keys(FILTERS);
+
+const PLACEHOLDER = /\{\{\s*([a-z][a-z0-9_]*)\s*(?:\|\s*([a-z_]+)\s*)?\}\}/g;
+
+/**
+ * What is wrong with a template that can be known without any field values: a malformed
+ * placeholder or a filter that does not exist. Null when the template is well formed.
+ */
+export function templateProblem(template: string): string | null {
+  const leftover = template.replace(PLACEHOLDER, "");
+  if (leftover.includes("{{") || leftover.includes("}}")) {
+    return `Malformed placeholder in "${template}"`;
+  }
+  for (const match of template.matchAll(PLACEHOLDER)) {
+    const filter = match[2];
+    if (filter !== undefined && !(filter in FILTERS)) return `Unknown template filter "${filter}"`;
+  }
+  return null;
+}
 
 /** Names of the fields a template refers to, in order of first use. */
 export function templateFields(template: string): string[] {
@@ -22,7 +49,8 @@ export function templateFields(template: string): string[] {
 }
 
 /**
- * Fills `{{field}}` placeholders, optionally through one filter (`slug`, `lower`, `urlencode`).
+ * Fills `{{field}}` placeholders, optionally through one filter (`slug`, `lower`, `urlencode`,
+ * `state_name`).
  * Anything that cannot be rendered throws, because a half-filled URL or form value sent to a
  * real site is worse than a failed run.
  */

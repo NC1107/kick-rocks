@@ -324,6 +324,7 @@ State-changing routes also require the header `X-Kick-Rocks: 1`, which a cross-s
 - MCP server at `/mcp` using `@modelcontextprotocol/sdk` streamable HTTP, with tools `list_tasks`, `claim_task`, `heartbeat_task`, `complete_task`, `block_task`, `fail_task`, `get_target`, `get_recipe`, and `propose_recipe`.
   Tool inputs and outputs are the shared schemas; `claim_task` returns the `ClaimedTask` with instructions.
 - Recipes module: sync bundled recipes from `packages/recipes` and `KICKROCKS_EXTRA_RECIPES` at startup, list proposed recipes, approve or reject them, and update health from canary results.
+  The sync runs from the startup seam in 4.3 after targets are synced, and reports a recipe that `recipeTargetProblems` (`core/recipe-catalog.ts`) flags, such as an unknown `brokerId` or a page on another site, instead of skipping it silently.
 - `docs/agents.md`: how to connect Claude Code (`claude mcp add --transport http ...`) or any MCP client, what an agent task looks like, and the rules agents must follow.
 
 ### F. worker
@@ -332,6 +333,10 @@ State-changing routes also require the header `X-Kick-Rocks: 1`, which a cross-s
 - Playwright with a persistent profile, using installed Chrome when present and bundled Chromium otherwise, headed under Xvfb inside Docker.
 - Human-paced input: per-key typing delay and small random pauses.
 - `packages/recipes/src/runner`: executes recipe steps against a page, resolves selectors (role and label, then test id, then CSS, then text), fills fields, extracts candidates, detects CAPTCHAs (reCAPTCHA, hCaptcha, Turnstile, and Cloudflare or "verify you are human" interstitials) and blocks with a screenshot, and returns typed results or a typed failure.
+  It implements every step in `packages/recipes/recipes/README.md`: `optional` steps are skipped when their target does not show up within a short timeout, `wait_for` honors `state`, `frame` scopes a step to an iframe, `select_record` matches items by `normalizeRecordUrl` and ends the run as `not_found` when none matches, `outcome_when` ends a run with the first matching outcome, and a canary runs its `canary.steps` before it checks selectors.
+  A `goto` to `{{record_url}}` is rendered and then checked before navigation: `https`, and a host equal to the target's domain or one of its subdomains (use `isOnDomain`); anything else fails the run as a `recipe` failure.
+  A failed run carries a `kind` (`recipe`, `site`, `network`, or `internal`) and the failing `step`.
+  A `recipe` failure is always `retryable: false`; the server counts only those against recipe health and hands the task to an agent.
 - Runner tests against local fixture pages with real Chromium.
 - Replace the placeholder `apps/worker/Dockerfile` with the real image.
   The foundation already added the `worker` service to `docker-compose.yml`: it builds from that Dockerfile, reads `KICKROCKS_WORKER_TOKEN`, points at `http://server:8420`, keeps the Chrome profile in the `kickrocks-chrome` volume mounted at `/profile` (`KICKROCKS_CHROME_PROFILE`), and has `shm_size: 1gb`.
