@@ -81,6 +81,49 @@ describe("a page on a platform that serves many tenants", () => {
     expect(withinSites(`${own}9`, sites)).toBe(false);
   });
 
+  it("keeps a single-page portal usable as the visitor moves through its screens", () => {
+    const ekata = scoped(
+      "https://www.mastercard.us/public/my-data/dgr-public/personal-data-request.html?locale=en-us&region=NAM#/ekata/request/personalinfo",
+    );
+    const screen = (route: string) =>
+      `https://www.mastercard.us/public/my-data/dgr-public/personal-data-request.html?locale=en-us&region=NAM#/${route}`;
+    expect(withinSites(screen("ekata/request/personalinfo"), ekata)).toBe(true);
+    expect(withinSites(screen("ekata/request/verify"), ekata)).toBe(true);
+    expect(withinSites(screen("ekata"), ekata)).toBe(true);
+    expect(withinSites(screen("other-company/request/personalinfo"), ekata)).toBe(false);
+  });
+
+  it("goes through the tenant's own segment of a route fragment and no further", () => {
+    const own = "https://crexi.bigidprivacy.cloud/consumer/#/EnSBtJyXmT/Form-hajoaIUvXqIGKFJ";
+    const sites = scoped(own);
+    expect(withinSites("https://crexi.bigidprivacy.cloud/consumer/#/EnSBtJyXmT/Done", sites)).toBe(
+      true,
+    );
+    expect(withinSites("https://crexi.bigidprivacy.cloud/consumer/#/o2TCsG9LJ7", sites)).toBe(
+      false,
+    );
+  });
+
+  it("ignores a tracking fragment, which says nothing about whose page it is", () => {
+    const own =
+      "https://privacyportal.onetrust.com/webform/9bbdeb31-9ca4-4397-b421-b165438ad177/1ca01042-21a7-4307-8b42-a6c7439c9685#xd_co_f=NjJjZjJhZTUtN2I3Yy00NmNkLTlhYTAtYmM2OWQ1N2Y3MGFk~";
+    const sites = scoped(own);
+    expect(sites.pages[0]?.fragment).toBeUndefined();
+    expect(withinSites(own, sites)).toBe(true);
+    expect(
+      withinSites(
+        "https://privacyportal.onetrust.com/webform/9bbdeb31-9ca4-4397-b421-b165438ad177/1ca01042-21a7-4307-8b42-a6c7439c9685#xd_co_f=b3RoZXI~",
+        sites,
+      ),
+    ).toBe(true);
+    expect(
+      withinSites(
+        "https://privacyportal.onetrust.com/webform/00000000-0000-0000-0000-000000000000/1ca01042-21a7-4307-8b42-a6c7439c9685",
+        sites,
+      ),
+    ).toBe(false);
+  });
+
   it("uses the folder only when the address itself ends in a slash", () => {
     const sites = scoped("https://privacy.vendor.test/center/");
     expect(withinSites("https://privacy.vendor.test/center/form", sites)).toBe(true);
@@ -97,8 +140,8 @@ describe("a page on a platform that serves many tenants", () => {
   });
 
   it("names the required parameters and fragment to the model", () => {
-    const sites = scoped("https://portal.test/dsar/form?org=7#/dsr/9");
-    expect(describeSites(sites)).toContain("portal.test/dsar/form?org=7#/dsr/9");
+    const sites = scoped("https://portal.test/dsar/form?org=7#/dsr/1b319101");
+    expect(describeSites(sites)).toContain("portal.test/dsar/form?org=7#/dsr/1b319101");
   });
 });
 

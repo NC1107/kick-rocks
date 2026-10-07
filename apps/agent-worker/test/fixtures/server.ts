@@ -58,6 +58,7 @@ const PAGES: Record<string, string> = {
   "/framed": "framed.html",
   "/wandering": "wandering.html",
   "/nested": "nested.html",
+  "/spa": "spa.html",
 };
 
 function escapeHtml(text: string): string {

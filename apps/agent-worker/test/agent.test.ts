@@ -1453,3 +1453,42 @@ describeBrowser("redirects that start in a tab or a frame", () => {
     });
   });
 });
+
+describeBrowser("a single-page portal on a shared host", () => {
+  const portal = () =>
+    agentTask({ target: { ...TARGET, optOutUrl: `${OFFSITE}/spa#/ekata/request/personalinfo` } });
+
+  it("stays usable after the portal changes its own address", async () => {
+    const { provider } = await run(
+      [
+        { calls: [["navigate", { url: `${OFFSITE}/spa#/ekata/request/personalinfo` }]] },
+        (v) => ({ calls: [["click", { ref: v.ref("Next screen") }]] }),
+        (v) => ({ calls: [["click", { ref: v.ref("Review screen") }]] }),
+        { calls: [["snapshot"]] },
+        { calls: [["report", { status: "release" }]] },
+      ],
+      { task: portal() },
+    );
+    const answers = provider.requests.flatMap((request) => {
+      const latest = request.messages.at(-1);
+      return latest?.role === "tool" ? latest.results.map((result) => result.content) : [];
+    });
+    expect(answers.join("\n")).not.toContain("The page is not usable");
+    expect(answers.at(-1)).toContain(`url: ${OFFSITE}/elsewhere?step=3`);
+  });
+
+  it("still refuses to load another route of the portal's host as a new document", async () => {
+    const { provider } = await run(
+      [
+        { calls: [["navigate", { url: `${OFFSITE}/spa#/ekata/request/personalinfo` }]] },
+        { calls: [["navigate", { url: `${OFFSITE}/elsewhere` }]] },
+        { calls: [["report", { status: "release" }]] },
+      ],
+      { task: portal() },
+    );
+    const answer = provider.requests[2]?.messages.at(-1);
+    const result = answer?.role === "tool" ? answer.results[0] : undefined;
+    expect(result?.isError).toBe(true);
+    expect(result?.content).toContain("Refused");
+  });
+});

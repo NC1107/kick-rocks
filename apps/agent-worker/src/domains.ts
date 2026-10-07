@@ -24,7 +24,11 @@ export interface PageScope {
   path: string;
   /** Parameters an address must carry with these exact values, when they are what names the tenant. */
   query?: [name: string, value: string][];
-  /** A fragment an address must start with, for single-page portals that put the tenant in it. */
+  /**
+   * A route fragment an address must start with, for single-page portals that put the tenant in
+   * it. It runs through the tenant's own segment and no further, so moving around the portal's
+   * routes stays inside it.
+   */
   fragment?: string;
 }
 
@@ -38,6 +42,42 @@ export interface AllowedSites {
 /** Parameters that tell a visitor's source or view apart, never a tenant. */
 const NON_IDENTIFYING_PARAMETERS = /^(utm_.*|usp|fbclid|gclid)$/i;
 
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** How often a segment switches between upper and lower case, which a word does once and a random id often. */
+function caseChanges(segment: string): number {
+  let changes = 0;
+  let previous = "";
+  for (const letter of segment.replace(/[^A-Za-z]/g, "")) {
+    const kind = letter === letter.toUpperCase() ? "upper" : "lower";
+    if (previous !== "" && kind !== previous) changes += 1;
+    previous = kind;
+  }
+  return changes;
+}
+
+/** A segment that names an account or form rather than a screen: a UUID, or a long token of mixed characters. */
+function looksLikeTenantId(segment: string): boolean {
+  if (UUID.test(segment)) return true;
+  if (segment.length < 8) return false;
+  return /\d/.test(segment) || caseChanges(segment) >= 4;
+}
+
+/**
+ * What a route fragment of a single-page portal says about whose portal it is: the path up to and
+ * including the first segment that looks like an id, or the first segment when none does. The
+ * screens after it change as the visitor moves through the portal. A fragment that is not a route
+ * (an anchor, or tracking such as `xd_co_f=...`) names nobody and is ignored.
+ */
+function tenantFragment(hash: string): string {
+  const lead = hash.startsWith("#!/") ? "#!/" : hash.startsWith("#/") ? "#/" : null;
+  if (lead === null) return "";
+  const segments = (hash.slice(lead.length).split("?")[0] ?? "").split("/").filter(Boolean);
+  if (segments.length === 0) return "";
+  const tenant = segments.findIndex(looksLikeTenantId);
+  return `${lead}${segments.slice(0, (tenant === -1 ? 0 : tenant) + 1).join("/")}`;
+}
+
 /**
  * The pages of one form that live side by side in that form's own folder, such as the page that
  * shows a Google Form and the one that receives it.
@@ -47,7 +87,7 @@ const SIBLING_FORM_PAGES = new Set(["viewform", "formresponse"]);
 /**
  * What a third-party page covers. A shared platform serves every tenant under the same folder
  * (app.termly.io/dsar/*), so the folder says nothing about whose page it is. The page's own path
- * is the scope, and a tenant named in the query or the fragment is required there too.
+ * is the scope, and a tenant named in the query or in a route fragment is required there too.
  */
 export function scopeOf(url: string): PageScope | null {
   let parsed: URL;
@@ -62,7 +102,7 @@ export function scopeOf(url: string): PageScope | null {
     ? `${segments.slice(0, -1).join("/")}/`
     : parsed.pathname;
   const query = [...parsed.searchParams].filter(([name]) => !NON_IDENTIFYING_PARAMETERS.test(name));
-  const fragment = parsed.hash.length > 1 ? parsed.hash : "";
+  const fragment = tenantFragment(parsed.hash);
   return {
     host: bareHost(parsed.hostname),
     path,
@@ -158,6 +198,30 @@ function describePage(page: PageScope): string {
 
 export function describeSites(sites: Pick<NavigationPolicy, "domains" | "pages">): string {
   return [...sites.domains, ...sites.pages.map(describePage)].join(", ");
+}
+
+/**
+ * Why the page may not stay where it is now, or null. A page that was let in can change its own
+ * address without loading anything (a route fragment, or history.pushState on the same origin),
+ * and a single-page portal does so on every screen, so a change within the origin of the
+ * document that was let in is that document's own business. Any other address is judged like a
+ * request for it.
+ */
+export function refuseCurrentUrl(
+  url: string,
+  admittedDocument: string | null,
+  policy: NavigationPolicy,
+): string | null {
+  const problem = refuseNavigation(url, policy);
+  if (problem === null || admittedDocument === null) return problem;
+  try {
+    const admitted = new URL(admittedDocument);
+    if (new URL(url).origin !== admitted.origin) return problem;
+    const host = bareHost(admitted.hostname);
+    return refuseNavigation(url, { ...policy, pages: [...policy.pages, { host, path: "/" }] });
+  } catch {
+    return problem;
+  }
 }
 
 /** Why a URL may not be opened, or null when it may. The reason is shown to the model. */

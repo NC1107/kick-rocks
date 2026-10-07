@@ -7,7 +7,13 @@ import {
 } from "@kickrocks/shared";
 import { describeError } from "@kickrocks/worker/dist/logger.js";
 import type { CDPSession, Dialog, Locator, Page, Request, Route } from "playwright";
-import { type NavigationPolicy, type PageScope, refuseNavigation, scopeOf } from "./domains.js";
+import {
+  type NavigationPolicy,
+  type PageScope,
+  refuseCurrentUrl,
+  refuseNavigation,
+  scopeOf,
+} from "./domains.js";
 import { type CdpChannel, guardFrameTargets } from "./frame-guard.js";
 import {
   formatSnapshot,
@@ -126,6 +132,8 @@ export class Toolbox {
   private clickCount = 0;
   private installed = false;
   private cdp: CDPSession | null = null;
+  /** The last document the page was let load, which its own address changes are measured against. */
+  private admittedDocument: string | null = null;
   private readonly actionTimeoutMs: number;
 
   constructor(private readonly options: ToolboxOptions) {
@@ -239,6 +247,9 @@ export class Toolbox {
           ? refuseNavigation(`${event.request.url}${event.request.urlFragment ?? ""}`, this.policy)
           : null;
       if (reason === null) {
+        if (event.responseStatusCode === undefined && event.frameId === mainFrameId) {
+          this.admittedDocument = event.request.url;
+        }
         session
           .send("Fetch.continueRequest", { requestId: event.requestId })
           .catch(() => undefined);
@@ -287,7 +298,7 @@ export class Toolbox {
   currentUrlProblem(): string | null {
     const url = this.options.page.url();
     if (url === "about:blank" || url === "") return null;
-    return refuseNavigation(url, this.policy);
+    return refuseCurrentUrl(url, this.admittedDocument, this.policy);
   }
 
   /** Every answer for the model passes through here, so no path can show it a person's value. */
