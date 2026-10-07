@@ -10,16 +10,43 @@ function propertyValues(result: string, property: string): string[] {
   return [...result.matchAll(pattern)].map((found) => (found[2] ?? "").toLowerCase());
 }
 
+function authservIdOf(header: string): string {
+  const first = header.split(";", 1)[0] ?? "";
+  return (first.trim().split(/\s+/, 1)[0] ?? "").toLowerCase();
+}
+
+/**
+ * The Authentication-Results header the user's own mail provider added, or null. RFC 8601 lets any
+ * hop write this header, so a forger's copy is only ignorable by position and name: the receiving
+ * provider prepends its own, so the topmost header carrying one of its authserv-ids is the one to
+ * read, and everything below it, or under any other id, is the sender's to write.
+ */
+export function trustedAuthenticationResult(
+  message: InboxMessage,
+  trustedAuthservIds: string[],
+): string | null {
+  for (const header of message.authenticationResults) {
+    const id = authservIdOf(header);
+    if (id !== "" && trustedAuthservIds.some((trusted) => onDomain(id, trusted))) return header;
+  }
+  return null;
+}
+
 /**
  * True when the user's mail provider vouched for the sender with a DKIM or DMARC pass that names
  * one of the given domains. The From address alone is forgeable, so only this earns a reply the
- * trust that its sender is who it says.
+ * trust that its sender is who it says. A provider with no known authserv-id vouches for no one.
  */
-export function senderIsAuthenticated(message: InboxMessage, domains: string[]): boolean {
-  const header = message.headers["authentication-results"];
+export function senderIsAuthenticated(
+  message: InboxMessage,
+  domains: string[],
+  trustedAuthservIds: string[],
+): boolean {
+  const header = trustedAuthenticationResult(message, trustedAuthservIds);
   if (!header) return false;
   return header
     .split(";")
+    .slice(1)
     .map((part) => part.trim().toLowerCase())
     .some((result) => {
       const names = (property: string) =>

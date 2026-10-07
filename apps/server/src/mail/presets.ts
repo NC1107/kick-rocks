@@ -9,6 +9,7 @@ const SUPPORTED = { supported: true, unsupportedReason: null } as const;
 export const PROVIDER_PRESETS: readonly ProviderPreset[] = [
   {
     id: "gmail",
+    authservIds: ["mx.google.com"],
     label: "Gmail",
     smtpHost: "smtp.gmail.com",
     smtpPort: 465,
@@ -23,6 +24,7 @@ export const PROVIDER_PRESETS: readonly ProviderPreset[] = [
   },
   {
     id: "google-workspace",
+    authservIds: ["mx.google.com"],
     label: "Google Workspace",
     smtpHost: "smtp.gmail.com",
     smtpPort: 465,
@@ -37,6 +39,7 @@ export const PROVIDER_PRESETS: readonly ProviderPreset[] = [
   },
   {
     id: "fastmail",
+    authservIds: ["messagingengine.com"],
     label: "Fastmail",
     smtpHost: "smtp.fastmail.com",
     smtpPort: 465,
@@ -50,6 +53,7 @@ export const PROVIDER_PRESETS: readonly ProviderPreset[] = [
   },
   {
     id: "icloud",
+    authservIds: ["icloud.com"],
     label: "iCloud Mail",
     smtpHost: "smtp.mail.me.com",
     smtpPort: 587,
@@ -64,6 +68,7 @@ export const PROVIDER_PRESETS: readonly ProviderPreset[] = [
   },
   {
     id: "yahoo",
+    authservIds: ["yahoo.com"],
     label: "Yahoo Mail",
     smtpHost: "smtp.mail.yahoo.com",
     smtpPort: 465,
@@ -77,6 +82,7 @@ export const PROVIDER_PRESETS: readonly ProviderPreset[] = [
   },
   {
     id: "proton-bridge",
+    authservIds: ["protonmail.ch"],
     label: "Proton Mail Bridge",
     smtpHost: "127.0.0.1",
     smtpPort: 1025,
@@ -91,6 +97,7 @@ export const PROVIDER_PRESETS: readonly ProviderPreset[] = [
   },
   {
     id: "mailbox-org",
+    authservIds: ["mailbox.org"],
     label: "mailbox.org",
     smtpHost: "smtp.mailbox.org",
     smtpPort: 465,
@@ -105,6 +112,7 @@ export const PROVIDER_PRESETS: readonly ProviderPreset[] = [
   },
   {
     id: "zoho",
+    authservIds: ["zohomail.com"],
     label: "Zoho Mail",
     smtpHost: "smtp.zoho.com",
     smtpPort: 465,
@@ -119,6 +127,7 @@ export const PROVIDER_PRESETS: readonly ProviderPreset[] = [
   },
   {
     id: "other",
+    authservIds: [],
     label: "Other provider",
     smtpHost: "",
     smtpPort: 587,
@@ -133,6 +142,7 @@ export const PROVIDER_PRESETS: readonly ProviderPreset[] = [
   },
   {
     id: "outlook",
+    authservIds: [],
     label: "Outlook.com",
     smtpHost: "",
     smtpPort: 587,

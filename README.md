@@ -144,7 +144,7 @@ It covers setup and login, a profile, the mailbox, a campaign with sends, a brok
 
 `KICKROCKS_E2E_KEEP=1 pnpm e2e` leaves the stack running afterwards, so you can open http://127.0.0.1:8520 and look around, with the password `correct horse battery staple`.
 `KICKROCKS_E2E_NO_BUILD=1 pnpm e2e` reuses the images from the last run.
-The stack sets `KICKROCKS_SEND_GAP_MS=0` and `KICKROCKS_PLAINTEXT_MAIL_HOSTS=greenmail`, which a real install must not.
+The stack sets `KICKROCKS_SEND_GAP_MS=0`, `KICKROCKS_PLAINTEXT_MAIL_HOSTS=greenmail`, and `KICKROCKS_MAIL_AUTHSERV_IDS=mx.test`, which a real install must not.
 
 See `docs/DESIGN.md` for the architecture, the decisions behind it, and the milestone plan.
 

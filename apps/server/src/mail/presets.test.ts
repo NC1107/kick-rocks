@@ -22,6 +22,14 @@ describe("provider presets", () => {
     ]);
   });
 
+  it("name the authserv-ids of every real provider, and none for the ones with unknown mail servers", () => {
+    for (const preset of PROVIDER_PRESETS) {
+      const known = preset.supported && preset.id !== "other";
+      expect(preset.authservIds.length > 0).toBe(known);
+    }
+    expect(findProviderPreset("gmail")?.authservIds).toContain("mx.google.com");
+  });
+
   it("have unique ids", () => {
     const ids = PROVIDER_PRESETS.map((preset) => preset.id);
     expect(new Set(ids).size).toBe(ids.length);

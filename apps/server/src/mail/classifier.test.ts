@@ -36,6 +36,7 @@ function message(overrides: Partial<InboxMessage> = {}): InboxMessage {
     isBounce: false,
     autoSubmitted: false,
     headers: {},
+    authenticationResults: [],
     ...overrides,
   };
 }
@@ -46,12 +47,17 @@ const ORIGINAL = [
   "> Reference: KR-7K3M9Q",
 ].join("\n");
 
+const PROVIDER_ID = "mx.example.com";
+
 async function classify(
   text: string,
   overrides: Partial<InboxMessage> = {},
   requests: ClassifierRequest[] = [request()],
 ) {
-  return classifier.classify(message({ text, ...overrides }), { requests });
+  return classifier.classify(message({ text, ...overrides }), {
+    requests,
+    trustedAuthservIds: [PROVIDER_ID],
+  });
 }
 
 describe("correlation", () => {
@@ -132,7 +138,7 @@ describe("correlation", () => {
       inReplyTo: null,
       subject: "Your privacy request",
       from: { name: null, address: "ticket@help.acme.test" },
-      headers: { "authentication-results": "mx.example.com; dkim=pass header.d=help.acme.test" },
+      authenticationResults: ["mx.example.com; dkim=pass header.d=help.acme.test"],
     });
     expect(result).toMatchObject({
       requestId: "req-1",
@@ -164,7 +170,7 @@ describe("correlation", () => {
       inReplyTo: null,
       subject: "Your privacy request",
       from: { name: null, address: "privacy@acme.test" },
-      headers: { "authentication-results": header },
+      authenticationResults: [header],
     });
     expect(result.confidence).toBeLessThan(0.6);
   });
@@ -174,9 +180,63 @@ describe("correlation", () => {
       inReplyTo: null,
       subject: "Your privacy request",
       from: { name: null, address: "privacy@acme.test" },
-      headers: { "authentication-results": "mx.example.com; dmarc=pass header.from=acme.test" },
+      authenticationResults: ["mx.example.com; dmarc=pass header.from=acme.test"],
     });
     expect(result.confidence).toBeGreaterThanOrEqual(0.6);
+  });
+
+  describe("whose Authentication-Results is believed", () => {
+    const sender = {
+      inReplyTo: null,
+      subject: "Your privacy request",
+      from: { name: null, address: "privacy@acme.test" },
+    };
+    const forged = "mail.evil.test; dkim=pass header.d=acme.test";
+    const real = "mx.example.com; dkim=pass header.d=acme.test";
+
+    it("ignores a header under an authserv-id that is not the user's provider", async () => {
+      const result = await classify("We have completed your request.", {
+        ...sender,
+        authenticationResults: [forged],
+      });
+      expect(result.confidence).toBeLessThan(0.6);
+    });
+
+    it("ignores a forged header that claims the provider's id below the provider's own", async () => {
+      const result = await classify("We have completed your request.", {
+        ...sender,
+        authenticationResults: ["mx.example.com; dkim=fail header.d=acme.test", real],
+      });
+      expect(result.confidence).toBeLessThan(0.6);
+    });
+
+    it("reads the provider's header even when a foreign one sits above it", async () => {
+      const result = await classify("We have completed your request.", {
+        ...sender,
+        authenticationResults: [forged.replace("acme", "evil"), real],
+      });
+      expect(result.confidence).toBeGreaterThanOrEqual(0.6);
+    });
+
+    it("vouches for no one when the provider has no known authserv-id", async () => {
+      const result = await classifier.classify(
+        message({
+          text: "We have completed your request.",
+          ...sender,
+          authenticationResults: [real],
+        }),
+        { requests: [request()] },
+      );
+      expect(result.confidence).toBeLessThan(0.6);
+    });
+
+    it("reads the authserv-id when it carries a version number", async () => {
+      const result = await classify("We have completed your request.", {
+        ...sender,
+        authenticationResults: ["mx.example.com 1; dkim=pass header.d=acme.test"],
+      });
+      expect(result.confidence).toBeGreaterThanOrEqual(0.6);
+    });
   });
 
   it("does not match a lookalike domain", async () => {
@@ -568,6 +628,35 @@ describe("a confirmation email after a form submission", () => {
     expect(result.confidence).toBeGreaterThanOrEqual(0.8);
   });
 
+  it("sends completion wording from an unauthenticated sender to review, link or not", async () => {
+    const result = await classify(
+      "",
+      confirmation({
+        subject: "Your removal is complete",
+        text: "Your record has been removed from our site and your data has been deleted. Click the link below to confirm your opt-out.",
+        html: '<p>Your record has been removed from our site and your data has been deleted.</p><p>Click the link below to confirm your opt-out.</p><a href="https://suppression.peopleconnect.test/confirm?id=9">Confirm</a>',
+      }),
+      [waiting()],
+    );
+    expect(result).toMatchObject({ requestId: "form-1", classification: "completed" });
+    expect(result.confidence).toBeLessThan(0.6);
+  });
+
+  it("lets the same completion wording act once the provider vouches for the sender", async () => {
+    const result = await classify(
+      "",
+      confirmation({
+        subject: "Your removal is complete",
+        text: "Your record has been removed from our site and your data has been deleted. Click the link below to confirm your opt-out.",
+        html: '<p>Your record has been removed from our site and your data has been deleted.</p><p>Click the link below to confirm your opt-out.</p><a href="https://suppression.peopleconnect.test/confirm?id=9">Confirm</a>',
+        authenticationResults: ["mx.example.com; dkim=pass header.d=peopleconnect.test"],
+      }),
+      [waiting()],
+    );
+    expect(result.classification).toBe("completed");
+    expect(result.confidence).toBeGreaterThanOrEqual(0.6);
+  });
+
   it("goes to the oldest waiting request for that sender", async () => {
     const older = waiting({
       id: "form-old",
@@ -676,9 +765,7 @@ describe("a confirmation email after a form submission", () => {
         inReplyTo: null,
         subject: "Your request",
         from: { name: null, address: "privacy@intelius.test" },
-        headers: {
-          "authentication-results": "mx.example.com; dmarc=pass header.from=intelius.test",
-        },
+        authenticationResults: ["mx.example.com; dmarc=pass header.from=intelius.test"],
       },
       [waiting()],
     );

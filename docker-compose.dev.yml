@@ -55,6 +55,8 @@ services:
       KICKROCKS_SEND_GAP_MS: "0"
       # GreenMail offers no TLS, so the mail connection is allowed to skip it for this one host.
       KICKROCKS_PLAINTEXT_MAIL_HOSTS: greenmail
+      # GreenMail adds no Authentication-Results, so the suite writes one under this id, as a real provider would.
+      KICKROCKS_MAIL_AUTHSERV_IDS: mx.test
     volumes:
       - ./e2e/fixtures:/fixtures:ro
     healthcheck:

@@ -302,10 +302,13 @@ export function createReplyClassifier(deps: ReplyClassifierDeps): ReplyClassifie
 
       const links = match ? usableLinks(allLinks, match.request).map((link) => link.url) : [];
       const via = match?.via ?? null;
-      // A confirmation email for a waiting form is only ever acted on through links on the request's own sites.
-      const senderVouched =
-        confirmationForWaitingForm ||
-        (match !== null && senderIsAuthenticated(message, domainsOf(match.request)));
+      const authenticated =
+        match !== null &&
+        senderIsAuthenticated(message, domainsOf(match.request), context.trustedAuthservIds ?? []);
+      // A waiting form's confirmation is only ever acted on through links on the request's own
+      // sites, so it needs no vouching; any other wording from an unauthenticated sender does.
+      const senderVouched = (classification: ReplyClassification): boolean =>
+        authenticated || (confirmationForWaitingForm && classification === "confirmation_link");
       const requestId = match?.request.id ?? null;
 
       signals.sort(
@@ -337,7 +340,9 @@ export function createReplyClassifier(deps: ReplyClassifierDeps): ReplyClassifie
           requestId,
           correlation: via,
           classification: top.classification,
-          confidence: round(capFor(top.classification, via, floored, senderVouched)),
+          confidence: round(
+            capFor(top.classification, via, floored, senderVouched(top.classification)),
+          ),
           rationale: `${top.rationale}${rival ? ", though other wording points elsewhere" : ""}; ${describeCorrelation(via)}`,
           links,
           requestedFields:
@@ -377,7 +382,7 @@ async function refineWithLlm(
   body: string,
   current: ClassificationResult,
   via: Correlation | null,
-  senderVouched: boolean,
+  senderVouched: (classification: ReplyClassification) => boolean,
 ): Promise<ClassificationResult> {
   const llm = configuredLlm(deps.settings);
   if (!llm) return current;
@@ -402,7 +407,7 @@ async function refineWithLlm(
       classification,
       via,
       unsupported ? 0.3 : Math.min(answer.confidence, 0.9),
-      senderVouched,
+      senderVouched(classification),
     ),
   );
   if (confidence <= current.confidence) return current;

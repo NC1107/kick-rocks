@@ -22,6 +22,7 @@ const Env = z.object({
   KICKROCKS_SCHEDULER: z.enum(["on", "off"]).default("on"),
   KICKROCKS_ALLOW_PRIVATE_LINK_HOSTS: z.string().optional(),
   KICKROCKS_PLAINTEXT_MAIL_HOSTS: z.string().optional(),
+  KICKROCKS_MAIL_AUTHSERV_IDS: z.string().optional(),
   KICKROCKS_SEND_GAP_MS: z
     .string()
     .regex(/^\d+(-\d+)?$/, 'KICKROCKS_SEND_GAP_MS must be "<ms>" or "<min>-<max>"')
@@ -68,6 +69,11 @@ export interface Config {
      * password never crosses a network in the clear; the development stack lists its GreenMail container.
      */
     plaintextHosts: string[];
+    /**
+     * Authserv-ids to trust in Authentication-Results besides the chosen provider's own, for a
+     * mailbox on a provider with no preset. Empty by default, so an unknown provider vouches for no one.
+     */
+    extraAuthservIds: string[];
   };
   linkFollower: {
     /**
@@ -146,7 +152,10 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     trustProxy: proxyTrust(parsed.KICKROCKS_TRUST_PROXY),
     schedulerEnabled: parsed.KICKROCKS_SCHEDULER === "on",
     sendGapMs: gapRange(parsed.KICKROCKS_SEND_GAP_MS),
-    mail: { plaintextHosts: hostList(parsed.KICKROCKS_PLAINTEXT_MAIL_HOSTS) },
+    mail: {
+      plaintextHosts: hostList(parsed.KICKROCKS_PLAINTEXT_MAIL_HOSTS),
+      extraAuthservIds: hostList(parsed.KICKROCKS_MAIL_AUTHSERV_IDS),
+    },
     linkFollower: { allowedPrivateHosts: hostList(parsed.KICKROCKS_ALLOW_PRIVATE_LINK_HOSTS) },
     logLevel: parsed.LOG_LEVEL,
     env: parsed.NODE_ENV,

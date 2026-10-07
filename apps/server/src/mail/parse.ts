@@ -29,6 +29,18 @@ function headerRecord(parsed: ParsedMail): Record<string, string> {
 }
 
 /** A delivery status report, or a mail from a mailer daemon, which is how servers say "bounced". */
+function authenticationResultsOf(parsed: ParsedMail): string[] {
+  return parsed.headerLines
+    .slice(0, MAX_HEADERS)
+    .filter(({ key }) => key === "authentication-results")
+    .map(({ line }) =>
+      line
+        .slice(line.indexOf(":") + 1)
+        .replace(/\r?\n[ \t]+/g, " ")
+        .trim(),
+    );
+}
+
 export function detectBounce(parsed: ParsedMail, headers: Record<string, string>): boolean {
   const contentType = (headers["content-type"] ?? "").toLowerCase();
   if (contentType.includes("multipart/report") && contentType.includes("delivery-status")) {
@@ -87,6 +99,7 @@ export async function parseInboxMessage({
       isBounce: false,
       autoSubmitted: false,
       headers: {},
+      authenticationResults: [],
     };
   }
 
@@ -115,5 +128,6 @@ export async function parseInboxMessage({
     isBounce: detectBounce(parsed, headers),
     autoSubmitted: detectAutoSubmitted(headers),
     headers,
+    authenticationResults: authenticationResultsOf(parsed),
   };
 }

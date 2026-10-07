@@ -56,6 +56,13 @@ describe("loadConfig", () => {
     ).toEqual([]);
   });
 
+  it("trusts no extra authserv-id unless asked to", () => {
+    expect(loadConfig({}).mail.extraAuthservIds).toEqual([]);
+    expect(loadConfig({ KICKROCKS_MAIL_AUTHSERV_IDS: " Mx.Test, " }).mail.extraAuthservIds).toEqual(
+      ["mx.test"],
+    );
+  });
+
   it("trusts proxy headers only when asked to", () => {
     expect(loadConfig({}).trustProxy).toBe(false);
     expect(loadConfig({ KICKROCKS_TRUST_PROXY: "1" }).trustProxy).toBe(1);

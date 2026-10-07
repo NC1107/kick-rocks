@@ -106,6 +106,12 @@ export const ProviderPreset = z.object({
   imapPort: z.number().int().min(1).max(65535),
   appPasswordUrl: WebUrl.nullable(),
   notes: z.string(),
+  /**
+   * The authserv-ids this provider writes in the Authentication-Results header it adds to incoming
+   * mail, each matching itself and its subdomains. Empty when the provider is unknown, and then no
+   * sender can be vouched for.
+   */
+  authservIds: z.array(z.string().min(1)),
   defaultDailyCap: z.number().int().positive(),
   supported: z.boolean(),
   /** Why a provider cannot be used, shown in place of the connection form. */

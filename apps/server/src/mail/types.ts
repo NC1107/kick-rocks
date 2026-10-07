@@ -64,6 +64,8 @@ export interface InboxMessage {
   autoSubmitted: boolean;
   /** Header names are lower case. */
   headers: Record<string, string>;
+  /** Every Authentication-Results header, topmost first, which `headers` joins and so cannot order. */
+  authenticationResults: string[];
 }
 
 export interface FetchOptions {
@@ -144,6 +146,11 @@ export interface ClassifierRequest {
 
 export interface ClassifyContext {
   requests: ClassifierRequest[];
+  /**
+   * The authserv-ids of the mail provider that received the message. Only an Authentication-Results
+   * header under one of these counts as proof of who sent it; with none, no sender is vouched for.
+   */
+  trustedAuthservIds?: string[];
 }
 
 export interface ClassificationResult {
