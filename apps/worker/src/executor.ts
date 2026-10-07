@@ -42,7 +42,8 @@ export interface Runners {
 }
 
 export interface ExecutorOptions {
-  openPage: () => Promise<Page>;
+  /** Opens a page in the browser that belongs to the person the task is for. */
+  openPage: (profileId: string | null) => Promise<Page>;
   pace: "human" | "instant";
   allowHttp: boolean;
   logger: Logger;
@@ -162,7 +163,7 @@ export function createExecutor(options: ExecutorOptions): TaskExecutor {
 
     let page: Page;
     try {
-      page = await options.openPage();
+      page = await options.openPage(task.profileId ?? null);
     } catch (error) {
       options.logger.error("could not open a browser page", { error: describeError(error) });
       return {

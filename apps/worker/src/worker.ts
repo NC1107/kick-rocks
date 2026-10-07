@@ -1,5 +1,5 @@
 import { WorkerApiClient } from "./api-client.js";
-import { type BrowserLauncher, createBrowserSession } from "./browser.js";
+import { type BrowserLauncher, createProfileBrowsers } from "./browser.js";
 import { type ClaimLoopContext, runClaimLoop } from "./claim-loop.js";
 import type { WorkerConfig } from "./config.js";
 import { createExecutor, type Runners } from "./executor.js";
@@ -24,7 +24,7 @@ export async function runWorker(options: WorkerOptions): Promise<void> {
     token: config.token,
     workerId: config.workerId,
   });
-  const browser = createBrowserSession(
+  const browser = createProfileBrowsers(
     {
       profileDir: config.chromeProfileDir,
       headless: config.headless,
@@ -35,7 +35,7 @@ export async function runWorker(options: WorkerOptions): Promise<void> {
     options.launcher,
   );
   const executor = createExecutor({
-    openPage: () => browser.newPage(),
+    openPage: (profileId) => browser.newPage(profileId),
     pace: config.pace,
     allowHttp: config.allowHttp,
     logger,

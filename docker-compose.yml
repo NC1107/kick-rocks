@@ -31,6 +31,7 @@ services:
       KICKROCKS_SERVER_URL: http://server:8420
       KICKROCKS_WORKER_TOKEN: ${KICKROCKS_WORKER_TOKEN:-}
       # Cookies and logins survive restarts, which keeps bot checks from treating every run as new.
+      # Each Kick Rocks profile gets its own browser folder under it, so brokers cannot link people.
       KICKROCKS_CHROME_PROFILE: /profile
     volumes:
       - kickrocks-chrome:/profile
