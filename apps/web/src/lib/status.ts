@@ -1,4 +1,5 @@
 import type { RequestStatus, TaskStatus } from "@kickrocks/shared";
+import type { Family } from "./tone.js";
 
 /** Where a status sits for the person: waiting on someone else, done, needs them, or broken. */
 export type StatusFamily = "progress" | "resolved" | "needs" | "failed" | "closed";
@@ -6,6 +7,8 @@ export type StatusFamily = "progress" | "resolved" | "needs" | "failed" | "close
 /** Each shape is the same in every theme, so a status reads without its color. */
 export type StatusShape =
   | "ring"
+  /** Out and being waited on: the ring with a centre dot, so it differs from Queued by shape. */
+  | "ring-dot"
   | "dashed-ring"
   | "disc"
   | "dash"
@@ -17,8 +20,6 @@ export interface StatusMeta {
   label: string;
   family: StatusFamily;
   shape: StatusShape;
-  /** A ring in the accent instead of the muted ink: the request is out and being waited on. */
-  accent?: true;
   /** One sentence for a tooltip: what this status means for the person. */
   description: string;
 }
@@ -44,15 +45,13 @@ export const REQUEST_STATUS_META: Record<RequestStatus, StatusMeta> = {
   sent: {
     label: "Sent",
     family: "progress",
-    shape: "ring",
-    accent: true,
+    shape: "ring-dot",
     description: "Delivered to the company.",
   },
   awaiting_reply: {
     label: "Awaiting reply",
     family: "progress",
-    shape: "ring",
-    accent: true,
+    shape: "ring-dot",
     description: "Sent, and the company has until the due date to answer.",
   },
   confirmed: {
@@ -142,4 +141,12 @@ export const TASK_STATUS_META: Record<TaskStatus, StatusMeta> = {
     shape: "dash",
     description: "Cancelled.",
   },
+};
+
+/** The shape that stands for each state family wherever a bare indicator is shown without a word. */
+export const TONE_SHAPE: Record<Family, StatusShape> = {
+  neutral: "ring",
+  positive: "disc",
+  attention: "triangle",
+  danger: "square",
 };

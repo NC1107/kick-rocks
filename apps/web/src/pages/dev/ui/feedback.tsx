@@ -28,7 +28,7 @@ export function Feedback() {
     <>
       <Panel
         title="Callouts and toasts"
-        description="A callout is a 1px edge in its tone on the surface and stays in the page. A toast confirms something the person just did and names it with the verb of the button that caused it."
+        description="A callout is a 1px edge in its tone on the surface and stays in the page. A toast confirms something the person just did and names it with the verb of the button that caused it. Failures never toast."
       >
         <div className="grid gap-3 md:grid-cols-2">
           <Callout intent="info" title="Inbox checked 7 minutes ago">
@@ -58,18 +58,6 @@ export function Feedback() {
           <Button onClick={() => toast.success("Cancelled the request")}>Success</Button>
           <Button onClick={() => toast.info("Checked the inbox", "New replies show up in Review.")}>
             Neutral
-          </Button>
-          <Button
-            onClick={() =>
-              toast.toast({ intent: "warning", title: "Mailbox is close to its limit" })
-            }
-          >
-            Attention
-          </Button>
-          <Button
-            onClick={() => toast.error("Could not send", "The mail server refused the password.")}
-          >
-            Danger
           </Button>
         </Specimen>
       </Panel>

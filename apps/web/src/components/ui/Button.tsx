@@ -20,7 +20,7 @@ const VARIANTS: Record<ButtonVariant, string> = {
   ghost: "border-transparent text-ink-2 hover:bg-hover hover:text-ink",
   danger: "border-danger text-danger-text hover:bg-[rgb(var(--kr-danger-rgb)/0.12)]",
   "danger-solid":
-    "border-transparent bg-danger-solid font-semibold text-accent-on hover:bg-danger-solid-hover",
+    "border-transparent bg-danger-solid font-semibold text-danger-on hover:bg-danger-solid-hover",
 };
 
 const SIZES: Record<ButtonSize, string> = {

@@ -19,17 +19,19 @@ export interface NavItem {
   badge?: "review";
 }
 
-/** Day-to-day work first, then the things you set up once. */
+/** Review sits second because it is where the person acts; setup lives apart from daily work. */
 export const NAV_GROUPS: readonly (readonly NavItem[])[] = [
   [
     { to: "/", label: "Dashboard", icon: LayoutDashboard, end: true },
-    { to: "/targets", label: "Targets", icon: Crosshair },
-    { to: "/requests", label: "Requests", icon: Send },
     { to: "/review", label: "Review", icon: ClipboardCheck, badge: "review" },
+    { to: "/requests", label: "Requests", icon: Send },
+    { to: "/targets", label: "Targets", icon: Crosshair },
   ],
   [
     { to: "/profiles", label: "Profiles", icon: Users },
     { to: "/settings", label: "Settings", icon: Settings },
-    { to: "/about", label: "About", icon: Info },
   ],
 ];
+
+/** Pinned to the bottom of the rail with the version. */
+export const ABOUT_ITEM: NavItem = { to: "/about", label: "About", icon: Info };

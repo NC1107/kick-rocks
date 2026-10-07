@@ -88,10 +88,27 @@ describe("color tokens", () => {
     expect(ratio(base, scheme, "accent-text", "accent-soft")).toBeGreaterThanOrEqual(4.5);
   });
 
-  it.each(SCHEMES)("keeps text on the accent fill readable (%s)", (scheme) => {
-    expect(ratio(base, scheme, "accent-on", "accent-fill")).toBeGreaterThanOrEqual(4.5);
-    expect(ratio(base, scheme, "accent-on", "accent-fill-hover")).toBeGreaterThanOrEqual(4.5);
-    expect(ratio(base, scheme, "accent-on", "danger-solid")).toBeGreaterThanOrEqual(4.5);
+  it.each(SCHEMES)("separates secondary text from muted text (%s)", (scheme) => {
+    expect(ratio(base, scheme, "ink-2", "ink-3")).toBeGreaterThanOrEqual(1.4);
+  });
+
+  const ACCENTS = [
+    ["indigo", base],
+    ["cyan", { ...base, ...cyanTokens }],
+  ] as const;
+  const FILL_PAIRS = [
+    ["accent-on", "accent-fill"],
+    ["accent-on", "accent-fill-hover"],
+    ["danger-on", "danger-solid"],
+    ["danger-on", "danger-solid-hover"],
+  ] as const;
+
+  describe.each(ACCENTS)("text on a filled surface with the %s accent", (_name, tokens) => {
+    it.each(SCHEMES)("stays readable (%s)", (scheme) => {
+      for (const [text, fill] of FILL_PAIRS) {
+        expect(ratio(tokens, scheme, text, fill), `${text} on ${fill}`).toBeGreaterThanOrEqual(4.5);
+      }
+    });
   });
 
   it.each(SCHEMES)("gives controls and the focus ring a 3:1 edge (%s)", (scheme) => {

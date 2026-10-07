@@ -41,6 +41,15 @@ export function formatRelative(
   return "just now";
 }
 
+/** "now", "7m ago", "2h ago", "3d ago": the short form for a chip, where room is tight. */
+export function formatShortAgo(iso: string, now = Date.now()): string {
+  const elapsed = Math.max(0, now - new Date(iso).getTime());
+  if (elapsed < MINUTE) return "now";
+  if (elapsed < HOUR) return `${Math.floor(elapsed / MINUTE)}m ago`;
+  if (elapsed < DAY) return `${Math.floor(elapsed / HOUR)}h ago`;
+  return `${Math.floor(elapsed / DAY)}d ago`;
+}
+
 export function formatCount(value: number, { locale }: FormatOptions = {}): string {
   return new Intl.NumberFormat(locale).format(value);
 }

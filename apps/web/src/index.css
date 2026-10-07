@@ -183,7 +183,7 @@
    * lighter in dark and darker in light than the first draft of the spec.
    */
   --kr-ink: light-dark(#1b1e22, #ededef);
-  --kr-ink-2: light-dark(#5b6169, #ababb0);
+  --kr-ink-2: light-dark(#474d55, #ababb0);
   --kr-ink-3: light-dark(#666d76, #8a8a96);
 
   /* Accent roles: fill (buttons, markers), on (text on the fill), text (links), soft (washes) */
@@ -204,6 +204,8 @@
   --kr-danger-wash-text: light-dark(#b91c1c, #fca5a5);
   /* The one filled danger surface, for a confirm dialog's final button */
   --kr-danger-solid: #dc2626;
+  /* White whatever the accent is: the cyan accent-on is near-black, which fails on this red */
+  --kr-danger-on: #ffffff;
   --kr-danger-solid-hover: #b91c1c;
 
   --kr-tracking-label: 0.07em;
@@ -442,7 +444,8 @@
   --color-accent-ink: var(--kr-accent-on);
   --color-accent-soft-ink: var(--kr-accent-text);
   --color-danger-hover: var(--kr-danger-solid-hover);
-  --color-danger-ink: var(--kr-accent-on);
+  --color-danger-ink: var(--kr-danger-on);
+  --color-danger-on: var(--kr-danger-on);
 }
 
 @utility px-gutter {

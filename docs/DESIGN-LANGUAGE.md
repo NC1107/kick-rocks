@@ -214,7 +214,8 @@ Rules.
 - Dark is the reference theme and the default when the OS gives no preference (Strong, 5/5).
 - Light ships too, because the app already supports it and slim, echo and npc-shelf all offer one (Medium).
 - One accent, split into four roles like slim: `accent-fill` (primary button, selected tab underline, active nav tab), `accent-on` (text on the fill), `accent-text` (links and accent glyphs), `accent-soft` (active nav and selection wash).
-- Accent is allowed in exactly these places: primary button, links, active nav item, selected tab, focus ring, row selection, checkbox and radio fill, meter fill.
+- Accent is allowed in exactly these places: primary button, links, active nav item, selected tab, focus ring, row selection, checkbox and radio fill, meter fill, the text selection wash, and the logo tile.
+  Status marks never use accent: Sent and Awaiting reply are rings in `ink-2` with a centre dot.
   Anything else using accent is a bug (slim's rule).
 - State uses four semantic families only: positive, attention, danger, and neutral.
   No other hues exist.
@@ -259,6 +260,7 @@ Both are listed below so the swap is five values.
 | `--kr-danger` | `#EF4444` | dot, outlined danger button edge | sink `--danger`, echo |
 | `--kr-danger-text` | `#F87171` | danger text, 6.2:1 | derived |
 | `--kr-danger-wash-text` | `#FCA5A5` | text on a danger wash | sink `--on-danger-wash` |
+| `--kr-danger-solid` / `--kr-danger-on` | `#DC2626` / `#FFFFFF` | the confirm dialog's final button in both schemes and with either accent, white on red at 4.8:1 | derived |
 | `--kr-scrim` | `rgba(0,0,0,0.55)` | dialog backdrop | sink |
 
 **Light tokens** (cool slate, from slim's tested light ramp, with muted text lifted for AA the way check-in did).
@@ -278,7 +280,7 @@ Both are listed below so the swap is five values.
 | `--kr-line-popover` | `#C9CED5` | stronger edge for floating layers |
 | `--kr-line-strong` | `#858A8F` | slim `borderStrong`, 3.5:1 on white |
 | `--kr-ink` | `#1B1E22` | slim, 16.7:1 |
-| `--kr-ink-2` | `#5B6169` | slim, 6.3:1 |
+| `--kr-ink-2` | `#474D55` | darkened from slim's `#5B6169` so it sits a real step above ink-3, 8.5:1 on white |
 | `--kr-ink-3` | `#666D76` | lifted from slim's `#8A929B` (3.2:1) to 5.2:1 on white and 4.6:1 on the rail |
 | `--kr-accent-fill` | `#4648D4` | `#5557E0` darkened, white text at 6.7:1 |
 | `--kr-accent-fill-hover` | `#3B3DC0` | |

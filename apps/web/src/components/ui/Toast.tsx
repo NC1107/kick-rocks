@@ -1,4 +1,4 @@
-import { CircleAlert, CircleCheck, Info, TriangleAlert, X } from "lucide-react";
+import { CircleAlert, CircleCheck, Info, X } from "lucide-react";
 import {
   createContext,
   type ReactNode,
@@ -9,19 +9,26 @@ import {
   useRef,
   useState,
 } from "react";
-import { INTENT_TONE, type Intent } from "../../lib/tone.js";
 import { IconButton } from "./IconButton.js";
 
+/** A toast confirms or notes something. Failures and warnings stay on the thing that has them. */
+export type ToastIntent = "info" | "success";
+
 export interface ToastOptions {
-  intent?: Intent;
+  intent?: ToastIntent;
   title: string;
   description?: string | undefined;
-  /** Milliseconds before it goes away. Errors stay longer, and 0 keeps it until dismissed. */
+  /** Milliseconds before it goes away. 0 keeps it until dismissed. */
   durationMs?: number;
 }
 
-interface ToastItem extends Required<Pick<ToastOptions, "intent" | "title">> {
+// "danger" exists only for the deprecated error shim and goes away with it.
+type ItemIntent = ToastIntent | "danger";
+
+interface ToastItem {
   id: number;
+  intent: ItemIntent;
+  title: string;
   description: string | undefined;
   durationMs: number;
 }
@@ -29,31 +36,31 @@ interface ToastItem extends Required<Pick<ToastOptions, "intent" | "title">> {
 interface ToastApi {
   toast: (options: ToastOptions) => void;
   success: (title: string, description?: string) => void;
+  /**
+   * @deprecated Errors never toast. Put the message on the field, row, or callout that failed.
+   * Each screen drops its calls in phase 2, and toast.test.ts only lets the count go down.
+   */
   error: (title: string, description?: string) => void;
   info: (title: string, description?: string) => void;
 }
 
 const ToastContext = createContext<ToastApi | null>(null);
 
-const DEFAULT_MS: Record<Intent, number> = {
-  info: 5000,
-  success: 5000,
-  warning: 8000,
-  danger: 9000,
-};
+const DEFAULT_MS = 5000;
 const MAX_VISIBLE = 4;
 
 const ICONS = {
   info: Info,
   success: CircleCheck,
-  warning: TriangleAlert,
   danger: CircleAlert,
 } as const;
+
+const ITEM_TONE = { info: "neutral", success: "positive", danger: "danger" } as const;
 
 /**
  * Wrap the app once. A toast confirms something the person just did, so name the result with the
  * same verb as the button that caused it: "Delete" produces "Deleted", never "Success". A failure
- * belongs on the thing that failed; the error helper stays for pages that have not moved there.
+ * belongs on the thing that failed, so there is no error or warning intent.
  */
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<ToastItem[]>([]);
@@ -68,14 +75,13 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const api = useMemo<ToastApi>(() => {
-    const toast = (options: ToastOptions) => {
-      const intent = options.intent ?? "info";
+    const push = (intent: ItemIntent, options: Omit<ToastOptions, "intent">) => {
       const item: ToastItem = {
         id: nextId.current++,
         intent,
         title: options.title,
         description: options.description,
-        durationMs: options.durationMs ?? DEFAULT_MS[intent],
+        durationMs: options.durationMs ?? DEFAULT_MS,
       };
       setItems((current) => [...current, item].slice(-MAX_VISIBLE));
       const text = options.description ? `${options.title}. ${options.description}` : options.title;
@@ -84,10 +90,10 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       );
     };
     return {
-      toast,
-      success: (title, description) => toast({ intent: "success", title, description }),
-      error: (title, description) => toast({ intent: "danger", title, description }),
-      info: (title, description) => toast({ intent: "info", title, description }),
+      toast: (options) => push(options.intent ?? "info", options),
+      success: (title, description) => push("success", { title, description }),
+      error: (title, description) => push("danger", { title, description }),
+      info: (title, description) => push("info", { title, description }),
     };
   }, []);
 
@@ -126,7 +132,7 @@ function ToastCard({ item, onDismiss }: { item: ToastItem; onDismiss: (id: numbe
   return (
     // biome-ignore lint/a11y/noStaticElementInteractions: hover and focus only pause the timer
     <div
-      data-tone={INTENT_TONE[item.intent]}
+      data-tone={ITEM_TONE[item.intent]}
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
       onFocus={() => setPaused(true)}

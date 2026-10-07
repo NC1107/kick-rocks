@@ -94,7 +94,7 @@ export function Section({
   return (
     <section className={cn("min-w-0", className)}>
       <div className="mt-2.5 mb-1.5 flex min-h-5 items-center justify-between gap-3">
-        <Heading className="text-eyebrow text-ink-3">
+        <Heading className="text-eyebrow font-semibold! text-ink-3">
           {label}
           {count === undefined ? null : ` · ${count}`}
         </Heading>
