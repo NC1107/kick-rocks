@@ -1,39 +1,53 @@
-import { mkdtempSync, rmSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { type App, buildApp, openAppDatabase } from "./app.js";
-import { loadConfig } from "./config.js";
+import { createTestContext, seedTarget, type TestContext } from "./test-utils/index.js";
 
-let dir: string;
-let app: App;
+let ctx: TestContext;
 
 beforeEach(async () => {
-  dir = mkdtempSync(join(tmpdir(), "kickrocks-server-"));
-  const config = loadConfig({
-    KICKROCKS_DATA_DIR: dir,
-    LOG_LEVEL: "error",
-    NODE_ENV: "test",
-  });
-  app = await buildApp({ config, database: openAppDatabase(config), version: "test" });
+  ctx = await createTestContext();
 });
 
 afterEach(async () => {
-  await app.close();
-  rmSync(dir, { recursive: true, force: true });
+  await ctx.close();
 });
 
 describe("GET /api/health", () => {
-  it("reports status, version, and counts", async () => {
-    const response = await app.server.inject({ method: "GET", url: "/api/health" });
+  it("reports status, version, and counts without a session", async () => {
+    ctx.auth.deny();
+    const response = await ctx.app.inject({ method: "GET", url: "/api/health" });
     expect(response.statusCode).toBe(200);
-    const body = response.json();
-    expect(body).toMatchObject({ ok: true, version: "test", profiles: 0 });
-    expect(typeof body.brokers.total).toBe("number");
+    expect(response.json()).toEqual({
+      ok: true,
+      version: "test",
+      profiles: 0,
+      brokers: { available: false, total: 0 },
+      targets: { brokers: 0, companies: 0 },
+    });
   });
 
-  it("returns json 404 for unknown api routes", async () => {
-    const response = await app.server.inject({ method: "GET", url: "/api/nope" });
+  it("counts targets that are not retired", async () => {
+    seedTarget(ctx, { id: "a" });
+    seedTarget(ctx, { kind: "company", id: "b" });
+    const body = (await ctx.app.inject({ method: "GET", url: "/api/health" })).json();
+    expect(body.brokers).toEqual({ available: true, total: 1 });
+    expect(body.targets).toEqual({ brokers: 1, companies: 1 });
+  });
+});
+
+describe("unknown routes", () => {
+  it("answer with json 404 under /api and /mcp for an authorized caller", async () => {
+    for (const response of [
+      await ctx.inject({ url: "/api/nope" }),
+      await ctx.injectMcp({ url: "/mcp/nope" }),
+    ]) {
+      expect(response.statusCode).toBe(404);
+      expect(response.json()).toEqual({ error: "not_found" });
+    }
+  });
+
+  it("answer 404 json elsewhere when there is no web build", async () => {
+    const response = await ctx.app.inject({ method: "GET", url: "/anything" });
     expect(response.statusCode).toBe(404);
+    expect(response.json()).toEqual({ error: "not_found" });
   });
 });
