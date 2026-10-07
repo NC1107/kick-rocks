@@ -16,6 +16,7 @@ function request(overrides: Partial<ClassifierRequest> = {}): ClassifierRequest 
     targetId: "acme",
     targetName: "Acme Data",
     targetDomain: "acme.test",
+    replyDomains: ["acme.test"],
     recordUrl: null,
     awaitingConfirmation: null,
     ...overrides,
@@ -557,6 +558,7 @@ describe("a confirmation email after a form submission", () => {
       outgoingMessageId: null,
       channel: "form",
       targetDomain: "intelius.test",
+      replyDomains: ["intelius.test"],
       awaitingConfirmation: {
         fromDomains: ["peopleconnect.test"],
         linkTextPattern: null,

@@ -29,6 +29,8 @@ export type CompanyCategory = z.infer<typeof CompanyCategory>;
 export const TargetCategory = z.enum([...BrokerCategory.options, ...CompanyCategory.options]);
 export type TargetCategory = z.infer<typeof TargetCategory>;
 
+const HOSTNAME = /^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$/;
+
 /** An ordinary consumer company asked to stop selling or sharing a person's data. */
 export const Company = z.object({
   id: z.string().regex(/^[a-z0-9][a-z0-9-]*$/),
@@ -39,6 +41,11 @@ export const Company = z.object({
   optOutUrl: WebUrl.nullable(),
   privacyRightsUrl: WebUrl.nullable(),
   contactMethod: ContactMethod,
+  /**
+   * Extra domains the company's replies may come from, for senders that none of the contact
+   * fields reveal. The contact fields' own hosts are trusted without being listed here.
+   */
+  replyDomains: z.array(z.string().regex(HOSTNAME)).optional(),
   notes: z.string().nullable(),
   sources: z.array(DataSource).min(1),
   /** The day someone checked these contacts against the company's own privacy page. */
@@ -134,3 +141,36 @@ export const TargetDetail = TargetSummary.extend({
   recipes: z.array(TargetRecipe),
 });
 export type TargetDetail = z.infer<typeof TargetDetail>;
+
+function hostnameOf(url: string | null): string | null {
+  if (url === null) return null;
+  try {
+    return new URL(url).hostname.toLowerCase();
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * The domains a target's genuine replies come from: its own site, the hosts it publishes for
+ * contact (a parent company or privacy vendor often owns the mailbox), and any `replyDomains`
+ * the dataset lists. Used to match a reply to a request and to align its DKIM signature; it never
+ * replaces the request-reference binding a reply still needs.
+ */
+export function replyDomainsOf(target: {
+  domain: string;
+  privacyEmail: string | null;
+  optOutUrl: string | null;
+  privacyRightsUrl: string | null;
+  replyDomains?: readonly string[] | undefined;
+}): string[] {
+  const emailHost = target.privacyEmail?.split("@").pop()?.toLowerCase() ?? null;
+  const all = [
+    target.domain.toLowerCase(),
+    emailHost,
+    hostnameOf(target.optOutUrl),
+    hostnameOf(target.privacyRightsUrl),
+    ...(target.replyDomains ?? []).map((domain) => domain.toLowerCase()),
+  ];
+  return [...new Set(all.filter((domain): domain is string => !!domain))];
+}

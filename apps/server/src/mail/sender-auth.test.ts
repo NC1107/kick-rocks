@@ -22,6 +22,7 @@ const outstanding: ClassifierRequest = {
   targetId: "acme",
   targetName: "Acme Data",
   targetDomain: "acme.test",
+  replyDomains: ["acme.test"],
   recordUrl: null,
   awaitingConfirmation: null,
 };
@@ -327,5 +328,42 @@ describe("a reply that carries the Authentication-Results its provider would hav
   it("is still vouched for by a real signature, whatever the header says", async () => {
     const raw = await signed(withHeader("mx.example.com; dkim=fail header.d=acme.test"));
     expect(await trustOf(raw)).toBe("bound");
+  });
+});
+
+describe("a company whose privacy mailbox is on a vendor domain", () => {
+  const vendorRequest: ClassifierRequest = {
+    ...outstanding,
+    targetDomain: "acme.test",
+    replyDomains: ["acme.test", "privacyvendor.test"],
+  };
+  const vendorResolver = servingKeysFor("acme.test", "privacyvendor.test");
+  const fromVendor = (...headers: string[]) =>
+    unsigned(BODY, "privacy@privacyvendor.test", headers);
+  const classifyVendor = async (raw: string, request = vendorRequest) =>
+    classifier.classify(await receive(raw, vendorResolver), { requests: [request] });
+
+  it("binds a signed reply from the vendor domain that quotes the request", async () => {
+    const raw = await signed(fromVendor(`In-Reply-To: ${OUR_ID}`), {
+      domain: "privacyvendor.test",
+    });
+    const result = await classifyVendor(raw);
+    expect(result).toMatchObject({ requestId: "req-1", classification: "completed" });
+    expect(result.confidence).toBeGreaterThanOrEqual(0.6);
+  });
+
+  it("matches the vendor's reply by sender but still sends it to review when it quotes nothing", async () => {
+    const raw = await signed(fromVendor(), { domain: "privacyvendor.test" });
+    const result = await classifyVendor(raw);
+    expect(result).toMatchObject({ requestId: "req-1", correlation: "sender_domain" });
+    expect(result.confidence).toBeLessThan(0.6);
+  });
+
+  it("does not trust a vendor signature when the dataset lists no vendor domain", async () => {
+    const raw = await signed(fromVendor(`In-Reply-To: ${OUR_ID}`), {
+      domain: "privacyvendor.test",
+    });
+    const result = await classifyVendor(raw, outstanding);
+    expect(result.confidence).toBeLessThan(0.6);
   });
 });

@@ -4,6 +4,7 @@ import {
   Broker,
   Company,
   needsRecord,
+  replyDomainsOf,
   type TargetKind,
   type TargetSummary,
 } from "@kickrocks/shared";
@@ -88,6 +89,12 @@ export function toTargetSummary(row: TargetRow): TargetSummary {
     californiaRegistered: row.data.sources.some((source) => source.source === "ca-registry-2025"),
     retired: row.retired,
   };
+}
+
+/** The reply domains of a stored target, from its own columns and the dataset's explicit list. */
+export function replyDomainsOfRow(row: TargetRow): string[] {
+  const listed = "replyDomains" in row.data ? row.data.replyDomains : undefined;
+  return replyDomainsOf({ ...row, replyDomains: listed });
 }
 
 /** Columns derived from a dataset record. Companies have no region, requirements, or priority. */

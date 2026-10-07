@@ -3,6 +3,7 @@ import {
   Company,
   needsRecord,
   RECORD_NOT_NEEDED,
+  replyDomainsOf,
   TargetCategory,
   TargetSummary,
 } from "./targets.js";
@@ -81,5 +82,50 @@ describe("TargetSummary", () => {
       retired: false,
     };
     expect(TargetSummary.parse(summary)).toEqual(summary);
+  });
+});
+
+describe("replyDomainsOf", () => {
+  const base = {
+    domain: "acme.test",
+    privacyEmail: null,
+    optOutUrl: null,
+    privacyRightsUrl: null,
+  };
+
+  it("is the target's own domain when nothing else is published", () => {
+    expect(replyDomainsOf(base)).toEqual(["acme.test"]);
+  });
+
+  it("adds the hosts of the privacy email, opt-out page, and rights page", () => {
+    expect(
+      replyDomainsOf({
+        ...base,
+        privacyEmail: "Privacy@Vendor.test",
+        optOutUrl: "https://optout.parent.test/form",
+        privacyRightsUrl: "https://acme.test/rights",
+      }),
+    ).toEqual(["acme.test", "vendor.test", "optout.parent.test"]);
+  });
+
+  it("adds the dataset's explicit list without duplicates", () => {
+    expect(
+      replyDomainsOf({
+        ...base,
+        privacyEmail: "p@acme.test",
+        replyDomains: ["Sister.test", "acme.test"],
+      }),
+    ).toEqual(["acme.test", "sister.test"]);
+  });
+});
+
+describe("Company replyDomains", () => {
+  it("accepts a list of hostnames and rejects anything else", () => {
+    expect(Company.safeParse({ ...company, replyDomains: ["mail.vendor.test"] }).success).toBe(
+      true,
+    );
+    expect(Company.safeParse({ ...company, replyDomains: ["https://vendor.test"] }).success).toBe(
+      false,
+    );
   });
 });

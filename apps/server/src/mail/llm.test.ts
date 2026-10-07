@@ -16,6 +16,7 @@ const target: ClassifierRequest = {
   targetId: "acme",
   targetName: "Acme Data",
   targetDomain: "acme.test",
+  replyDomains: ["acme.test"],
   recordUrl: null,
   awaitingConfirmation: null,
 };

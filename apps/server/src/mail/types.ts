@@ -141,6 +141,12 @@ export interface ClassifierRequest {
   targetName: string;
   /** The target's domain; its subdomains count as the same site. */
   targetDomain: string;
+  /**
+   * Every domain the target's genuine replies may come from, its own included. A company often
+   * answers from a parent or a privacy vendor. Used to match a sender to the request and to align
+   * DKIM; a reply still needs a signature that binds it to the request.
+   */
+  replyDomains: string[];
   /** The record a form removal is for, which tells apart several requests to one target. */
   recordUrl: string | null;
   /**

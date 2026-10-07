@@ -70,8 +70,13 @@ function onDomain(host: string, domain: string): boolean {
   return host !== "" && isOnDomain(`https://${host}/`, domain);
 }
 
-function domainsOf(request: ClassifierRequest): string[] {
+/** Where a confirmation link may point: following one is stricter than trusting a sender. */
+function linkDomainsOf(request: ClassifierRequest): string[] {
   return [request.targetDomain, ...(request.awaitingConfirmation?.fromDomains ?? [])];
+}
+
+function domainsOf(request: ClassifierRequest): string[] {
+  return [...request.replyDomains, ...(request.awaitingConfirmation?.fromDomains ?? [])];
 }
 
 function bareId(id: string): string {
@@ -130,7 +135,7 @@ function hinted(link: MailLink): boolean {
 
 /** The links of a message that sit on the request's own sites and are worth following, best first. */
 function usableLinks(links: MailLink[], request: ClassifierRequest): MailLink[] {
-  const domains = domainsOf(request);
+  const domains = linkDomainsOf(request);
   const pattern = compilePattern(request.awaitingConfirmation?.linkTextPattern ?? null);
   const rank = (link: MailLink) =>
     (pattern?.test(link.text.slice(0, 300)) ? 2 : 0) + (hinted(link) ? 1 : 0);
@@ -206,7 +211,9 @@ function matchAwaitingConfirmation(
 
 function correlateBySender(message: InboxMessage, requests: ClassifierRequest[]): Match | null {
   const host = senderHost(message);
-  const candidates = requests.filter((request) => onDomain(host, request.targetDomain));
+  const candidates = requests.filter((request) =>
+    request.replyDomains.some((domain) => onDomain(host, domain)),
+  );
   if (candidates.length === 1)
     return { request: candidates[0] as ClassifierRequest, via: "sender_domain" };
   const active = candidates.filter((request) => ACTIVE_STATUSES.has(request.status));
