@@ -4,6 +4,7 @@ import {
   Broker,
   Company,
   needsRecord,
+  replyAddressesOf,
   replyDomainsOf,
   type TargetKind,
   type TargetSummary,
@@ -95,6 +96,11 @@ export function toTargetSummary(row: TargetRow): TargetSummary {
 export function replyDomainsOfRow(row: TargetRow): string[] {
   const listed = "replyDomains" in row.data ? row.data.replyDomains : undefined;
   return replyDomainsOf({ ...row, replyDomains: listed });
+}
+
+/** The exact sender addresses trusted for a stored target whose mailbox is on a shared host. */
+export function replyAddressesOfRow(row: TargetRow): string[] {
+  return replyAddressesOf(row);
 }
 
 /** Columns derived from a dataset record. Companies have no region, requirements, or priority. */

@@ -23,6 +23,7 @@ const outstanding: ClassifierRequest = {
   targetName: "Acme Data",
   targetDomain: "acme.test",
   replyDomains: ["acme.test"],
+  replyAddresses: [],
   recordUrl: null,
   awaitingConfirmation: null,
 };
@@ -336,6 +337,7 @@ describe("a company whose privacy mailbox is on a vendor domain", () => {
     ...outstanding,
     targetDomain: "acme.test",
     replyDomains: ["acme.test", "privacyvendor.test"],
+    replyAddresses: [],
   };
   const vendorResolver = servingKeysFor("acme.test", "privacyvendor.test");
   const fromVendor = (...headers: string[]) =>

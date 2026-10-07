@@ -49,9 +49,18 @@ export async function senderTrust(
   message: InboxMessage,
   request: ClassifierRequest,
   domains: readonly string[],
+  allowReplyAddress = true,
 ): Promise<SenderTrust> {
-  const aligned = (await message.verifyDkim(domains)).filter((signature) =>
-    alignsWithAny(signature.domain, domains),
+  // A shared host's signature proves only the account that sent it, so it counts for no one but
+  // the exact address the target published.
+  const address = message.from.address.trim().toLowerCase();
+  const accountDomain =
+    allowReplyAddress && request.replyAddresses.includes(address)
+      ? address.split("@").pop()
+      : undefined;
+  const trusted = accountDomain ? [...domains, accountDomain] : domains;
+  const aligned = (await message.verifyDkim(trusted)).filter((signature) =>
+    alignsWithAny(signature.domain, trusted),
   );
   if (aligned.length === 0) return "unsigned";
   return aligned.some((signature) => bindsTo(signature, request, message.text))

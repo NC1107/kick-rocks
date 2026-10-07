@@ -3,6 +3,7 @@ import {
   Company,
   needsRecord,
   RECORD_NOT_NEEDED,
+  replyAddressesOf,
   replyDomainsOf,
   TargetCategory,
   TargetSummary,
@@ -97,16 +98,29 @@ describe("replyDomainsOf", () => {
     expect(replyDomainsOf(base)).toEqual(["acme.test"]);
   });
 
-  it("adds the hosts of the privacy email, opt-out page, and rights page", () => {
+  it("adds the privacy email's domain", () => {
+    expect(replyDomainsOf({ ...base, privacyEmail: "Privacy@Vendor.test" })).toEqual([
+      "acme.test",
+      "vendor.test",
+    ]);
+  });
+
+  it("never adds the host of an opt-out or rights page", () => {
     expect(
       replyDomainsOf({
         ...base,
-        privacyEmail: "Privacy@Vendor.test",
-        optOutUrl: "https://optout.parent.test/form",
-        privacyRightsUrl: "https://acme.test/rights",
-      }),
-    ).toEqual(["acme.test", "vendor.test", "optout.parent.test"]);
+        optOutUrl: "https://docs.google.com/forms/d/e/1",
+        privacyRightsUrl: "https://preferences.hubspot.com/x",
+      } as never),
+    ).toEqual(["acme.test"]);
   });
+
+  it.each(["gmail.com", "Yahoo.com", "proton.me", "mail.onetrust.com", "forms.gle"])(
+    "leaves out a privacy email on the shared host %s",
+    (host) => {
+      expect(replyDomainsOf({ ...base, privacyEmail: `privacy@${host}` })).toEqual(["acme.test"]);
+    },
+  );
 
   it("adds the dataset's explicit list without duplicates", () => {
     expect(
@@ -116,6 +130,17 @@ describe("replyDomainsOf", () => {
         replyDomains: ["Sister.test", "acme.test"],
       }),
     ).toEqual(["acme.test", "sister.test"]);
+  });
+});
+
+describe("replyAddressesOf", () => {
+  it("is the exact lowercased address when the mailbox is on a public provider", () => {
+    expect(replyAddressesOf({ privacyEmail: "Privacy@Gmail.com" })).toEqual(["privacy@gmail.com"]);
+  });
+
+  it("is empty for a mailbox on the target's own or a vendor domain, or none", () => {
+    expect(replyAddressesOf({ privacyEmail: "privacy@acme.test" })).toEqual([]);
+    expect(replyAddressesOf({ privacyEmail: null })).toEqual([]);
   });
 });
 

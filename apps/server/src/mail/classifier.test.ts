@@ -1,4 +1,9 @@
-import { outgoingMessageId, type ProfileField, type ReplyClassification } from "@kickrocks/shared";
+import {
+  outgoingMessageId,
+  type ProfileField,
+  type ReplyClassification,
+  replyDomainsOf,
+} from "@kickrocks/shared";
 import { describe, expect, it } from "vitest";
 import { noDkim, signedAs } from "../test-utils/dkim.js";
 import { createReplyClassifier } from "./classifier.js";
@@ -17,6 +22,7 @@ function request(overrides: Partial<ClassifierRequest> = {}): ClassifierRequest 
     targetName: "Acme Data",
     targetDomain: "acme.test",
     replyDomains: ["acme.test"],
+    replyAddresses: [],
     recordUrl: null,
     awaitingConfirmation: null,
     ...overrides,
@@ -559,6 +565,7 @@ describe("a confirmation email after a form submission", () => {
       channel: "form",
       targetDomain: "intelius.test",
       replyDomains: ["intelius.test"],
+      replyAddresses: [],
       awaitingConfirmation: {
         fromDomains: ["peopleconnect.test"],
         linkTextPattern: null,
@@ -784,5 +791,95 @@ describe("hostile input", () => {
       { requests: [request()] },
     );
     expect(result.classification).toBeDefined();
+  });
+});
+
+describe("a target whose privacy mailbox is on a public mail provider", () => {
+  const gmailTarget = (overrides: Partial<ClassifierRequest> = {}) =>
+    request({
+      replyDomains: ["acme.test"],
+      replyAddresses: ["acme.privacy@gmail.com"],
+      ...overrides,
+    });
+  const personal = (overrides: Partial<InboxMessage> = {}): Partial<InboxMessage> => ({
+    inReplyTo: null,
+    subject: "Hello",
+    from: { name: "Someone", address: "someone.else@gmail.com" },
+    verifyDkim: signedAs("gmail.com"),
+    ...overrides,
+  });
+
+  it("does not match a personal Gmail message signed by gmail.com", async () => {
+    const result = await classify("Your data has been deleted.", personal(), [gmailTarget()]);
+    expect(result).toMatchObject({ requestId: null, correlation: null });
+  });
+
+  it("does not follow a confirmation link from another Gmail address while awaiting one", async () => {
+    const waiting = gmailTarget({
+      channel: "form",
+      awaitingConfirmation: {
+        fromDomains: [],
+        linkTextPattern: null,
+        since: "2026-10-01T10:00:00.000Z",
+      },
+    });
+    const result = await classify(
+      "",
+      personal({
+        subject: "Confirm your request",
+        text: "Please confirm your opt-out using the link below.",
+        html: '<p>Please confirm your opt-out using the link below.</p><a href="https://acme.test/confirm?t=1">Confirm</a>',
+      }),
+      [waiting],
+    );
+    expect(result.requestId).toBeNull();
+    expect(result.links).toEqual([]);
+  });
+
+  it("binds a signed reply from the exact privacy address that quotes the request", async () => {
+    const result = await classify(
+      "Your data has been deleted.",
+      personal({
+        from: { name: "Acme Privacy", address: "Acme.Privacy@gmail.com" },
+        inReplyTo: outgoingMessageId("req-1", "example.com"),
+        verifyDkim: signedAs("gmail.com", {
+          inReplyTo: [outgoingMessageId("req-1", "example.com")],
+        }),
+      }),
+      [gmailTarget()],
+    );
+    expect(result).toMatchObject({ requestId: "req-1", classification: "completed" });
+    expect(result.confidence).toBeGreaterThanOrEqual(0.6);
+  });
+
+  it("does not let the exact address vouch when the signature is another account's", async () => {
+    const result = await classify(
+      "Your data has been deleted.",
+      personal({
+        from: { name: "Acme Privacy", address: "acme.privacy@gmail.com" },
+        inReplyTo: outgoingMessageId("req-1", "example.com"),
+        verifyDkim: signedAs("evil.test", {
+          inReplyTo: [outgoingMessageId("req-1", "example.com")],
+        }),
+      }),
+      [gmailTarget()],
+    );
+    expect(result.confidence).toBeLessThan(0.6);
+  });
+});
+
+describe("a target that publishes an opt-out form on a shared platform", () => {
+  it("does not treat a d=google.com signature as aligned", async () => {
+    // The dataset lists docs.google.com as the opt-out form, which no longer yields a reply domain.
+    const result = await classify(
+      "Your data has been deleted.",
+      {
+        verifyDkim: signedAs("google.com", {
+          inReplyTo: [outgoingMessageId("req-1", "example.com")],
+        }),
+      },
+      [request({ replyDomains: replyDomainsOf({ domain: "acme.test", privacyEmail: null }) })],
+    );
+    expect(result.confidence).toBeLessThan(0.6);
   });
 });

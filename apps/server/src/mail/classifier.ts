@@ -79,6 +79,10 @@ function domainsOf(request: ClassifierRequest): string[] {
   return [...request.replyDomains, ...(request.awaitingConfirmation?.fromDomains ?? [])];
 }
 
+function fromReplyAddress(message: InboxMessage, request: ClassifierRequest): boolean {
+  return request.replyAddresses.includes(message.from.address.trim().toLowerCase());
+}
+
 function bareId(id: string): string {
   return id.trim().replace(/^<|>$/g, "");
 }
@@ -186,7 +190,7 @@ function matchAwaitingConfirmation(
     .filter(
       (request) =>
         request.awaitingConfirmation !== null &&
-        domainsOf(request).some((domain) => onDomain(host, domain)),
+        linkDomainsOf(request).some((domain) => onDomain(host, domain)),
     )
     .sort(byWaitingSince);
   if (waiting.length === 0) return null;
@@ -211,8 +215,10 @@ function matchAwaitingConfirmation(
 
 function correlateBySender(message: InboxMessage, requests: ClassifierRequest[]): Match | null {
   const host = senderHost(message);
-  const candidates = requests.filter((request) =>
-    request.replyDomains.some((domain) => onDomain(host, domain)),
+  const candidates = requests.filter(
+    (request) =>
+      request.replyDomains.some((domain) => onDomain(host, domain)) ||
+      fromReplyAddress(message, request),
   );
   if (candidates.length === 1)
     return { request: candidates[0] as ClassifierRequest, via: "sender_domain" };
@@ -262,6 +268,7 @@ async function capFor(
   via: Correlation | null,
   confidence: number,
   trust: () => Promise<SenderTrust>,
+  ownSiteTrust: () => Promise<SenderTrust>,
 ): Promise<Capped> {
   if (via === null) {
     return {
@@ -274,7 +281,14 @@ async function capFor(
     return { confidence, reason: null };
   }
   const found = await trust();
-  if (found === "bound" || (found === "signed" && classification === "confirmation_link")) {
+  if (found === "bound") return { confidence, reason: null };
+  // The exception is narrower than the trust above: only the target's own site, or the sender a
+  // waiting form named, may have a link followed on a signature alone.
+  if (
+    found === "signed" &&
+    classification === "confirmation_link" &&
+    (await ownSiteTrust()) !== "unsigned"
+  ) {
     return { confidence, reason: null };
   }
   return {
@@ -358,6 +372,11 @@ export function createReplyClassifier(deps: ReplyClassifierDeps): ReplyClassifie
           ? "unsigned"
           : senderTrust(message, matched.request, domainsOf(matched.request)),
       );
+      const ownSiteTrust = once<SenderTrust>(async () =>
+        matched === null
+          ? "unsigned"
+          : senderTrust(message, matched.request, linkDomainsOf(matched.request), false),
+      );
       const requestId = match?.request.id ?? null;
 
       signals.sort(
@@ -385,7 +404,7 @@ export function createReplyClassifier(deps: ReplyClassifierDeps): ReplyClassifie
           match?.request.awaitingConfirmation
             ? Math.max(confidence, AWAITING_CONFIRMATION_FLOOR)
             : confidence;
-        const capped = await capFor(top.classification, via, floored, trust);
+        const capped = await capFor(top.classification, via, floored, trust, ownSiteTrust);
         result = {
           requestId,
           correlation: via,
@@ -419,7 +438,7 @@ export function createReplyClassifier(deps: ReplyClassifierDeps): ReplyClassifie
       }
 
       if (result.confidence >= CONFIDENCE_THRESHOLD) return result;
-      return refineWithLlm(deps, message, body, result, via, trust);
+      return refineWithLlm(deps, message, body, result, via, trust, ownSiteTrust);
     },
   };
 }
@@ -431,6 +450,7 @@ async function refineWithLlm(
   current: ClassificationResult,
   via: Correlation | null,
   trust: () => Promise<SenderTrust>,
+  ownSiteTrust: () => Promise<SenderTrust>,
 ): Promise<ClassificationResult> {
   const llm = configuredLlm(deps.settings);
   if (!llm) return current;
@@ -455,6 +475,7 @@ async function refineWithLlm(
     via,
     unsupported ? 0.3 : Math.min(answer.confidence, 0.9),
     trust,
+    ownSiteTrust,
   );
   const confidence = round(capped.confidence);
   if (confidence <= current.confidence) return current;

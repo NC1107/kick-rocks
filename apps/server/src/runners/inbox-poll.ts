@@ -8,7 +8,7 @@ import {
 } from "@kickrocks/shared";
 import { and, eq, gte, inArray, isNotNull, min, ne, or } from "drizzle-orm";
 import { newId } from "../core/ids.js";
-import { replyDomainsOfRow } from "../core/targets.js";
+import { replyAddressesOfRow, replyDomainsOfRow } from "../core/targets.js";
 import type { Task } from "../core/task-types.js";
 import type { ClassificationResult, ClassifierRequest, InboxMessage } from "../mail/types.js";
 import type { AppServices } from "../services.js";
@@ -379,6 +379,7 @@ export class InboxRunner {
       targetName: target.name,
       targetDomain: target.domain,
       replyDomains: replyDomainsOfRow(target),
+      replyAddresses: replyAddressesOfRow(target),
       recordUrl: request.recordUrl,
       awaitingConfirmation: request.awaitingConfirmationSince
         ? {

@@ -142,35 +142,97 @@ export const TargetDetail = TargetSummary.extend({
 });
 export type TargetDetail = z.infer<typeof TargetDetail>;
 
-function hostnameOf(url: string | null): string | null {
-  if (url === null) return null;
-  try {
-    return new URL(url).hostname.toLowerCase();
-  } catch {
-    return null;
-  }
+/**
+ * Hosts that many unrelated parties send from or publish forms on: public mailbox providers and
+ * multi-tenant privacy or form platforms. A signature from one of them proves only that some
+ * customer of the host sent the mail, so none of them may stand in for a target's own domain.
+ */
+export const SHARED_MAIL_HOSTS: readonly string[] = [
+  "gmail.com",
+  "googlemail.com",
+  "yahoo.com",
+  "ymail.com",
+  "outlook.com",
+  "hotmail.com",
+  "live.com",
+  "msn.com",
+  "aol.com",
+  "icloud.com",
+  "me.com",
+  "mac.com",
+  "proton.me",
+  "protonmail.com",
+  "pm.me",
+  "gmx.com",
+  "gmx.net",
+  "mail.com",
+  "zoho.com",
+  "yandex.com",
+  "fastmail.com",
+  "hey.com",
+  "google.com",
+  "forms.gle",
+  "hubspot.com",
+  "onetrust.com",
+  "trustarc.com",
+  "termly.io",
+  "jotform.com",
+  "typeform.com",
+  "salesforce.com",
+  "zendesk.com",
+  "freshdesk.com",
+  "surveymonkey.com",
+  "wufoo.com",
+  "airtable.com",
+  "smartsheet.com",
+  "office.com",
+  "microsoft.com",
+  "sharepoint.com",
+  "mailchimp.com",
+  "sendgrid.net",
+  "amazonses.com",
+  "wixsite.com",
+  "squarespace.com",
+  "notion.site",
+];
+
+/** True when `host` is a shared host or a subdomain of one. */
+export function isSharedMailHost(host: string): boolean {
+  const lower = host.toLowerCase();
+  return SHARED_MAIL_HOSTS.some((shared) => lower === shared || lower.endsWith(`.${shared}`));
+}
+
+function emailHostOf(email: string | null): string | null {
+  return email?.split("@").pop()?.toLowerCase() || null;
 }
 
 /**
- * The domains a target's genuine replies come from: its own site, the hosts it publishes for
- * contact (a parent company or privacy vendor often owns the mailbox), and any `replyDomains`
- * the dataset lists. Used to match a reply to a request and to align its DKIM signature; it never
- * replaces the request-reference binding a reply still needs.
+ * The domains a target's genuine replies come from: its own site, the domain of its privacy
+ * mailbox unless that is a shared host, and any `replyDomains` the dataset lists. URL hosts never
+ * count, because opt-out and rights pages are often hosted on someone else's platform. Used to
+ * match a reply to a request and to align its DKIM signature; it never replaces the
+ * request-reference binding a reply still needs.
  */
 export function replyDomainsOf(target: {
   domain: string;
   privacyEmail: string | null;
-  optOutUrl: string | null;
-  privacyRightsUrl: string | null;
   replyDomains?: readonly string[] | undefined;
 }): string[] {
-  const emailHost = target.privacyEmail?.split("@").pop()?.toLowerCase() ?? null;
+  const emailHost = emailHostOf(target.privacyEmail);
   const all = [
     target.domain.toLowerCase(),
-    emailHost,
-    hostnameOf(target.optOutUrl),
-    hostnameOf(target.privacyRightsUrl),
+    emailHost !== null && !isSharedMailHost(emailHost) ? emailHost : null,
     ...(target.replyDomains ?? []).map((domain) => domain.toLowerCase()),
   ];
   return [...new Set(all.filter((domain): domain is string => !!domain))];
+}
+
+/**
+ * The exact sender addresses to trust when the privacy mailbox sits on a shared host, where the
+ * domain says nothing about who is writing.
+ */
+export function replyAddressesOf(target: { privacyEmail: string | null }): string[] {
+  const email = target.privacyEmail?.trim().toLowerCase() ?? null;
+  const host = emailHostOf(email);
+  return email !== null && host !== null && isSharedMailHost(host) ? [email] : [];
 }

@@ -270,6 +270,7 @@ describe("programmable classifier", () => {
       targetName: "T",
       targetDomain: "t.test",
       replyDomains: ["t.test"],
+      replyAddresses: [],
       recordUrl: null,
       awaitingConfirmation: null,
     };

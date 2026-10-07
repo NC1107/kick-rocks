@@ -147,6 +147,12 @@ export interface ClassifierRequest {
    * DKIM; a reply still needs a signature that binds it to the request.
    */
   replyDomains: string[];
+  /**
+   * Exact sender addresses to trust when the target's privacy mailbox is on a public mail
+   * provider, where the domain proves nothing. A signature from that provider's domain then vouches
+   * only for a message sent from one of these addresses.
+   */
+  replyAddresses: string[];
   /** The record a form removal is for, which tells apart several requests to one target. */
   recordUrl: string | null;
   /**
