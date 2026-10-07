@@ -1,5 +1,4 @@
 export { Alert, type AlertProps } from "./Alert.js";
-export { Badge, type BadgeProps } from "./Badge.js";
 export {
   Button,
   type ButtonProps,
@@ -54,12 +53,6 @@ export {
   TaskStatusMark,
   type TaskStatusMarkProps,
 } from "./StatusMark.js";
-export {
-  StatusPill,
-  type StatusPillProps,
-  TaskStatusPill,
-  type TaskStatusPillProps,
-} from "./StatusPill.js";
 export {
   Table,
   TableBody,

@@ -14,7 +14,7 @@ export interface TagProps {
  * text, print text instead; a tag earns its edge only when it must be picked out of a line.
  */
 export function Tag({ tone = "neutral", children, className }: TagProps) {
-  const neutral = tone === "neutral" || tone === "slate";
+  const neutral = tone === "neutral";
   return (
     <span
       data-tone={tone}

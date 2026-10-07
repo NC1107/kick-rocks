@@ -23,7 +23,6 @@ import type {
   TargetPriority,
   TaskKind,
 } from "@kickrocks/shared";
-import type { Tone } from "./tone.js";
 
 /*
  * Display words for every enum a page shows. They live here so the same value reads the same on
@@ -78,12 +77,6 @@ export const PRIORITY_LABELS: Record<TargetPriority, string> = {
   crucial: "Crucial",
   high: "High",
   normal: "Normal",
-};
-
-export const PRIORITY_TONES: Record<TargetPriority, Tone> = {
-  crucial: "violet",
-  high: "indigo",
-  normal: "neutral",
 };
 
 export const RIGHT_LABELS: Record<RequestRight, string> = {
@@ -157,12 +150,6 @@ export const RECIPE_HEALTH_LABELS: Record<RecipeHealth, string> = {
   unknown: "Not checked",
   healthy: "Healthy",
   broken: "Broken",
-};
-
-export const RECIPE_HEALTH_TONES: Record<RecipeHealth, Tone> = {
-  unknown: "neutral",
-  healthy: "green",
-  broken: "red",
 };
 
 export const RECIPE_STATUS_LABELS: Record<RecipeStatus, string> = {

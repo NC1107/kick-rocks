@@ -8,6 +8,7 @@ import {
   RowGroup,
   Section,
   StatusShapeGlyph,
+  Tooltip,
   useToast,
 } from "../../components/ui/index.js";
 import { formatDateTime, formatRelative } from "../../lib/format.js";
@@ -101,9 +102,11 @@ function WorkerRow({
                 title="Last seen"
                 trailing={
                   <Value>
-                    <time dateTime={status.lastSeenAt} title={formatDateTime(status.lastSeenAt)}>
-                      {formatRelative(status.lastSeenAt, { now })}
-                    </time>
+                    <Tooltip content={formatDateTime(status.lastSeenAt)}>
+                      <time dateTime={status.lastSeenAt}>
+                        {formatRelative(status.lastSeenAt, { now })}
+                      </time>
+                    </Tooltip>
                   </Value>
                 }
               />

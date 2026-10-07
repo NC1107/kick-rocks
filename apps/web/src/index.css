@@ -289,8 +289,7 @@
 
 /*
  * A tone is one of four families. Tag, StatusMark, Callout, and Toast set data-tone and read
- * --tone-*, so a new state never needs a new color definition. The older hue names still resolve,
- * folded into the family they meant, until the pages that use them are moved over.
+ * --tone-*, so a new state never needs a new color definition.
  */
 [data-tone] {
   --tone-ink: var(--kr-ink-2);
@@ -299,24 +298,17 @@
   --tone-line: rgb(var(--tone-rgb) / 0.4);
   --tone-bg: rgb(var(--tone-rgb) / 0.12);
 }
-[data-tone="positive"],
-[data-tone="green"],
-[data-tone="teal"] {
+[data-tone="positive"] {
   --tone-ink: var(--kr-positive-text);
   --tone-dot: var(--kr-positive);
   --tone-rgb: var(--kr-positive-rgb);
 }
-[data-tone="attention"],
-[data-tone="amber"],
-[data-tone="orange"],
-[data-tone="sand"],
-[data-tone="violet"] {
+[data-tone="attention"] {
   --tone-ink: var(--kr-attention-text);
   --tone-dot: var(--kr-attention);
   --tone-rgb: var(--kr-attention-rgb);
 }
-[data-tone="danger"],
-[data-tone="red"] {
+[data-tone="danger"] {
   --tone-ink: var(--kr-danger-text);
   --tone-dot: var(--kr-danger);
   --tone-rgb: var(--kr-danger-rgb);

@@ -7,6 +7,7 @@ import {
   RowGroup,
   Section,
   Select,
+  Tooltip,
   useToast,
 } from "../../../components/ui/index.js";
 import { formatDateTime, formatRelative } from "../../../lib/format.js";
@@ -138,12 +139,11 @@ export function DigestCard({
         {status.digestLastSentAt ? (
           <GroupNote>
             Last digest covered up to{" "}
-            <time
-              dateTime={status.digestLastSentAt}
-              title={formatDateTime(status.digestLastSentAt)}
-            >
-              {formatRelative(status.digestLastSentAt)}
-            </time>
+            <Tooltip content={formatDateTime(status.digestLastSentAt)}>
+              <time dateTime={status.digestLastSentAt}>
+                {formatRelative(status.digestLastSentAt)}
+              </time>
+            </Tooltip>
             .
           </GroupNote>
         ) : null}

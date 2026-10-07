@@ -2,7 +2,7 @@ import { LogOut, X } from "lucide-react";
 import { NavLink } from "react-router";
 import { useCurrentProfile, useLogout, useReviewCount } from "../../api/index.js";
 import { cn } from "../../lib/cn.js";
-import { Badge, IconButton } from "../ui/index.js";
+import { IconButton, Tag } from "../ui/index.js";
 import { Logo } from "./Logo.js";
 import { NAV_GROUPS, type NavItem } from "./nav.js";
 import { ProfileSwitcher } from "./ProfileSwitcher.js";
@@ -101,9 +101,9 @@ export function SidebarContent({
       </nav>
       <div className="flex flex-col gap-2.5 border-t border-line pt-3">
         {import.meta.env.MODE === "mock" ? (
-          <Badge tone="amber" className="self-start">
+          <Tag tone="attention" className="self-start">
             Mock data
-          </Badge>
+          </Tag>
         ) : null}
         <div className="flex items-center justify-between">
           <ThemeToggle />

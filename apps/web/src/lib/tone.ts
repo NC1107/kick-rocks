@@ -5,23 +5,7 @@
 export const TONES = ["neutral", "positive", "attention", "danger"] as const;
 export type Family = (typeof TONES)[number];
 
-/**
- * Hue names from before the four families. index.css folds each into the family it meant, so a
- * page that still passes one keeps rendering until it moves to a family.
- */
-export type LegacyTone =
-  | "slate"
-  | "blue"
-  | "indigo"
-  | "violet"
-  | "teal"
-  | "green"
-  | "amber"
-  | "orange"
-  | "red"
-  | "sand";
-
-export type Tone = Family | LegacyTone;
+export type Tone = Family;
 
 /** What a notice means, independent of its hue. */
 export type Intent = "info" | "success" | "warning" | "danger";

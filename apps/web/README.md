@@ -51,7 +51,7 @@ Put the page's own pieces next to it, in the same directory, and never edit `rou
 import { API_ROUTES } from "@kickrocks/shared";
 import { useApiQuery } from "../../api/index.js";
 import { RequireProfile } from "../../components/layout/RequireProfile.js";
-import { Alert, PageHeader, StatusPill } from "../../components/ui/index.js";
+import { Alert, PageHeader, StatusMark } from "../../components/ui/index.js";
 
 export function Component() {
   return (
@@ -103,8 +103,8 @@ Spacing, color, and type come from tokens (below), not from raw Tailwind palette
 | `Field` | Wrap one control with its label, help, and error. The control gets its id and `aria-describedby` from it. |
 | `Input`, `Textarea`, `Select`, `Checkbox`, `RadioGroup` | Form controls. `Select` is the native element. |
 | `Card`, `CardHeader`, `CardFooter` | Group related content. Structure is a hairline, not a shadow. |
-| `Badge` | A fact about a row: a category, a requirement. |
-| `StatusPill`, `TaskStatusPill` | Request and task state. Each status has its own tone, icon, and words. |
+| `Tag` | A fact about a row: a category, a requirement. Outlined, never tinted. |
+| `StatusMark`, `TaskStatusMark` | Request and task state: a shape and a word. |
 | `Table` and its parts, `Pagination` | Lists. The table scrolls inside its frame on a phone. Show an `EmptyState` instead of a table with no rows. |
 | `Tabs`, `LinkTabs` | `Tabs` for panels on one page, `LinkTabs` for sections that are routes. |
 | `Dialog`, `ConfirmDialog` | Native modal: focus trap, Escape, focus return. Use `ConfirmDialog` with `destructive` before anything irreversible. |
@@ -129,7 +129,7 @@ Tailwind's own palette is removed, so a class such as `bg-red-500` does not exis
 - Lines: `line` for hairlines, `line-strong` for the edge of a control (3:1 against its surface).
 - Text: `ink`, `ink-muted`, `ink-faint`.
 - Accent: `accent`, `accent-hover`, `accent-ink`, `accent-soft`, `accent-soft-ink`, plus `danger` for destructive actions.
-- Tones: set `data-tone="green"` (or any of the eleven) and use `bg-tone-bg text-tone-ink`, `border-tone-line`, `text-tone-dot`.
+- Tones: set `data-tone` to `neutral`, `positive`, `attention` or `danger` and use `bg-tone-bg text-tone-ink`, `border-tone-line`, `text-tone-dot`.
 - Type: system font stack, 12, 13, 14, 16, 18, 22, and 28 px, with 14 px as body.
 - Radius by role: `xs` checkbox, `sm` badge, `md` control, `lg` card, `xl` dialog.
 - Only floating layers get a shadow: `shadow-pop` and `shadow-dialog`.
