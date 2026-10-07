@@ -345,6 +345,16 @@ export function createTaskQueue({
     handlers.emit({ name, task, actor, ...extra }, tx);
   }
 
+  const MAY_HAVE_SUBMITTED_NOTE = "The form may already have been submitted.";
+
+  /** Keeps a person who reads why a flagged task stopped from missing that its form went out. */
+  function withSubmissionNote(row: TaskRow, detail: string | undefined): string | null {
+    if (!row.mayHaveSubmitted || detail?.includes("may already have been submitted")) {
+      return detail ?? null;
+    }
+    return [detail, MAY_HAVE_SUBMITTED_NOTE].filter(Boolean).join(" ");
+  }
+
   /** Whether running this task again could submit a form a second time. */
   function mayResubmit(row: TaskRow): boolean {
     if (!row.mayHaveSubmitted) return false;
@@ -376,7 +386,7 @@ export function createTaskQueue({
           : {}),
         status: "blocked",
         blockedReason: "unknown",
-        blockedDetail: `The form may already have been submitted, so it was not retried. The run ended with: ${cause.text}`,
+        blockedDetail: `${MAY_HAVE_SUBMITTED_NOTE} It was not retried. The run ended with: ${cause.text}`,
         blockedUrl: null,
         leaseOwner: null,
         leaseExpiresAt: null,
@@ -699,7 +709,7 @@ export function createTaskQueue({
             .set({
               status: "blocked",
               blockedReason: reason,
-              blockedDetail: detail ?? null,
+              blockedDetail: withSubmissionNote(row, detail),
               blockedUrl: url ?? null,
               leaseOwner: null,
               leaseExpiresAt: null,

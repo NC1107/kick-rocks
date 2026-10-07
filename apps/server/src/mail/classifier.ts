@@ -1,16 +1,19 @@
+import { isTrustedConfirmationDomain } from "@kickrocks/brokers";
 import {
   isOnDomain,
+  isSharedMailHost,
   type LlmSettings,
   normalizeRecordUrl,
   parseOutgoingMessageId,
   parseReferences,
   type ReplyClassification,
+  withoutSharedHosts,
 } from "@kickrocks/shared";
 import type { SettingsStore } from "../core/settings.js";
 import { askLlm, type LlmFetch } from "./llm.js";
 import { CLASS_PRIORITY, matchSignals, requestedFieldsIn, type Signal } from "./reply-rules.js";
 import { extractLinks, type MailLink, stripQuoted } from "./reply-text.js";
-import { senderIsAuthenticated } from "./sender-auth.js";
+import { type SenderTrust, senderTrust } from "./sender-auth.js";
 import type {
   ClassificationResult,
   ClassifierRequest,
@@ -23,13 +26,12 @@ import type {
 export const CONFIDENCE_THRESHOLD = 0.6;
 /** What a reply can reach when nothing ties it to a request, so it always waits for a person. */
 const UNMATCHED_CAP = 0.55;
-/** What a reply can reach when only its sender's domain ties it to a request and a DKIM signature this server verified vouches for that domain and this mailbox. */
-const SENDER_DOMAIN_CAP = 0.8;
 /**
- * The same match without such a signature rests on a forgeable From address, and so does one that
- * names another request's reference, which a replayed genuine reply would carry, so it waits for a person.
+ * What a reply that would change a request can reach without a DKIM signature that vouches for it,
+ * so it always waits for a person. A signature vouches when it is the broker's and, for anything
+ * but a confirmation link, also covers a quote of this request.
  */
-const UNAUTHENTICATED_SENDER_CAP = 0.55;
+const UNVERIFIED_CAP = 0.55;
 /** The floor the contract gives a confirmation email that matches a waiting form submission. */
 const AWAITING_CONFIRMATION_FLOOR = 0.8;
 const AMBIGUITY_PENALTY = 0.15;
@@ -71,8 +73,38 @@ function onDomain(host: string, domain: string): boolean {
   return host !== "" && isOnDomain(`https://${host}/`, domain);
 }
 
+/** Where a confirmation link may point: following one is stricter than trusting a sender. */
+function linkDomainsOf(request: ClassifierRequest): string[] {
+  return [request.targetDomain, ...expectedSendersOf(request)];
+}
+
+/** Senders a waiting form named that the target would accept. Whatever was stored is checked again. */
+function expectedSendersOf(request: ClassifierRequest): string[] {
+  return (request.awaitingConfirmation?.fromDomains ?? []).filter((domain) =>
+    isTrustedConfirmationDomain(domain, request.targetDomain, request.curatedReplyDomains),
+  );
+}
+
+/** Every domain a signature may align with to vouch for a reply. */
 function domainsOf(request: ClassifierRequest): string[] {
-  return [request.targetDomain, ...(request.awaitingConfirmation?.fromDomains ?? [])];
+  const own = request.targetDomain.toLowerCase();
+  const listed = withoutSharedHosts(request.replyDomains);
+  return [
+    ...new Set([...(isSharedMailHost(own) ? [own] : []), ...listed, ...expectedSendersOf(request)]),
+  ];
+}
+
+/**
+ * Domains whose mail may be matched to a request on the sender alone. A target that lives on a
+ * shared host, such as google.com, gets none for its own domain, since anyone on the host can
+ * send as it.
+ */
+function senderDomainsOf(request: ClassifierRequest): string[] {
+  return withoutSharedHosts(linkDomainsOf(request));
+}
+
+function fromReplyAddress(message: InboxMessage, request: ClassifierRequest): boolean {
+  return request.replyAddresses.includes(message.from.address.trim().toLowerCase());
 }
 
 function bareId(id: string): string {
@@ -131,7 +163,7 @@ function hinted(link: MailLink): boolean {
 
 /** The links of a message that sit on the request's own sites and are worth following, best first. */
 function usableLinks(links: MailLink[], request: ClassifierRequest): MailLink[] {
-  const domains = domainsOf(request);
+  const domains = linkDomainsOf(request);
   const pattern = compilePattern(request.awaitingConfirmation?.linkTextPattern ?? null);
   const rank = (link: MailLink) =>
     (pattern?.test(link.text.slice(0, 300)) ? 2 : 0) + (hinted(link) ? 1 : 0);
@@ -182,7 +214,7 @@ function matchAwaitingConfirmation(
     .filter(
       (request) =>
         request.awaitingConfirmation !== null &&
-        domainsOf(request).some((domain) => onDomain(host, domain)),
+        senderDomainsOf(request).some((domain) => onDomain(host, domain)),
     )
     .sort(byWaitingSince);
   if (waiting.length === 0) return null;
@@ -207,7 +239,11 @@ function matchAwaitingConfirmation(
 
 function correlateBySender(message: InboxMessage, requests: ClassifierRequest[]): Match | null {
   const host = senderHost(message);
-  const candidates = requests.filter((request) => onDomain(host, request.targetDomain));
+  const candidates = requests.filter(
+    (request) =>
+      withoutSharedHosts(request.replyDomains).some((domain) => onDomain(host, domain)) ||
+      fromReplyAddress(message, request),
+  );
   if (candidates.length === 1)
     return { request: candidates[0] as ClassifierRequest, via: "sender_domain" };
   const active = candidates.filter((request) => ACTIVE_STATUSES.has(request.status));
@@ -229,42 +265,66 @@ function describeCorrelation(via: Correlation | null): string {
   }
 }
 
-/** What a classification may reach given how firmly the reply is tied to a request. */
+/** The classifications that move a request or switch its channel, so they need a signature to be applied. */
+const CHANGES_REQUEST = new Set<ReplyClassification>([
+  "bounce",
+  "confirmation_link",
+  "verification_required",
+  "completed",
+  "no_record",
+  "rejected",
+  "needs_form",
+]);
+
+interface Capped {
+  confidence: number;
+  /** Why a person must look, set only when the missing trust is what held the confidence back. */
+  reason: string | null;
+}
+
+/**
+ * What a classification may reach given how firmly the reply is tied to a request. A confirmation
+ * link needs only the broker's signature, because following a genuine link on the broker's own
+ * domain can only confirm a removal; every other change needs the signature to quote the request.
+ */
 async function capFor(
   classification: ReplyClassification,
   via: Correlation | null,
   confidence: number,
-  senderVouched: () => Promise<boolean>,
-): Promise<number> {
-  if (via === null)
-    return classification === "unrelated" ? confidence : Math.min(confidence, UNMATCHED_CAP);
-  if (via === "sender_domain") {
-    // Verifying costs DNS lookups, so it is skipped when the unauthenticated cap already decides.
-    if (confidence <= UNAUTHENTICATED_SENDER_CAP) return confidence;
-    return Math.min(
-      confidence,
-      (await senderVouched()) ? SENDER_DOMAIN_CAP : UNAUTHENTICATED_SENDER_CAP,
-    );
+  trust: () => Promise<SenderTrust>,
+  ownSiteTrust: () => Promise<SenderTrust>,
+): Promise<Capped> {
+  if (via === null) {
+    return {
+      confidence: classification === "unrelated" ? confidence : Math.min(confidence, UNMATCHED_CAP),
+      reason: null,
+    };
   }
-  return confidence;
-}
-
-/** A reply that names a different request's Message-ID or reference than the one its sender matched. */
-function namesAnotherRequest(message: InboxMessage, request: ClassifierRequest): boolean {
-  const ids = [message.inReplyTo, ...message.references].filter((id): id is string => Boolean(id));
-  const foreignId = ids.some((id) => {
-    const parsed = parseOutgoingMessageId(id);
-    return parsed !== null && parsed.requestId !== request.id;
-  });
-  const foreignReference = parseReferences(`${message.subject}\n${message.text}`).some(
-    (reference) => reference !== request.reference,
-  );
-  return foreignId || foreignReference;
+  // Verifying costs DNS lookups, so it is skipped when the cap already decides.
+  if (!CHANGES_REQUEST.has(classification) || confidence <= UNVERIFIED_CAP) {
+    return { confidence, reason: null };
+  }
+  const found = await trust();
+  if (found === "bound") return { confidence, reason: null };
+  // The exception is narrower than the trust above: only the target's own site, or the sender a
+  // waiting form named, may have a link followed on a signature alone. A target on a shared host
+  // never qualifies, because its site is no one's own.
+  if (
+    found === "signed" &&
+    classification === "confirmation_link" &&
+    (await ownSiteTrust()) !== "unsigned"
+  ) {
+    return { confidence, reason: null };
+  }
+  return {
+    confidence: UNVERIFIED_CAP,
+    reason: found === "unsigned" ? "not signed by the broker" : "does not quote this request",
+  };
 }
 
 /** Remembers the answer, because the check may be wanted by both the rules and the model fallback. */
-function once(work: () => Promise<boolean>): () => Promise<boolean> {
-  let answer: Promise<boolean> | undefined;
+function once<T>(work: () => Promise<T>): () => Promise<T> {
+  let answer: Promise<T> | undefined;
   return () => {
     answer ??= work();
     return answer;
@@ -332,10 +392,15 @@ export function createReplyClassifier(deps: ReplyClassifierDeps): ReplyClassifie
       const links = match ? usableLinks(allLinks, match.request).map((link) => link.url) : [];
       const via = match?.via ?? null;
       const matched = match;
-      const authenticated = once(async () =>
-        matched === null || namesAnotherRequest(message, matched.request)
-          ? false
-          : senderIsAuthenticated(message, domainsOf(matched.request), context.mailboxAddress),
+      const trust = once<SenderTrust>(async () =>
+        matched === null
+          ? "unsigned"
+          : senderTrust(message, matched.request, domainsOf(matched.request)),
+      );
+      const ownSiteTrust = once<SenderTrust>(async () =>
+        matched === null || isSharedMailHost(matched.request.targetDomain)
+          ? "unsigned"
+          : senderTrust(message, matched.request, linkDomainsOf(matched.request), false),
       );
       const requestId = match?.request.id ?? null;
 
@@ -364,12 +429,13 @@ export function createReplyClassifier(deps: ReplyClassifierDeps): ReplyClassifie
           match?.request.awaitingConfirmation
             ? Math.max(confidence, AWAITING_CONFIRMATION_FLOOR)
             : confidence;
+        const capped = await capFor(top.classification, via, floored, trust, ownSiteTrust);
         result = {
           requestId,
           correlation: via,
           classification: top.classification,
-          confidence: round(await capFor(top.classification, via, floored, authenticated)),
-          rationale: `${top.rationale}${rival ? ", though other wording points elsewhere" : ""}; ${describeCorrelation(via)}`,
+          confidence: round(capped.confidence),
+          rationale: `${top.rationale}${rival ? ", though other wording points elsewhere" : ""}; ${describeCorrelation(via)}${capped.reason ? `; ${capped.reason}` : ""}`,
           links,
           requestedFields:
             top.classification === "verification_required" ? requestedFieldsIn(body) : [],
@@ -397,7 +463,7 @@ export function createReplyClassifier(deps: ReplyClassifierDeps): ReplyClassifie
       }
 
       if (result.confidence >= CONFIDENCE_THRESHOLD) return result;
-      return refineWithLlm(deps, message, body, result, via, authenticated);
+      return refineWithLlm(deps, message, body, result, via, trust, ownSiteTrust);
     },
   };
 }
@@ -408,7 +474,8 @@ async function refineWithLlm(
   body: string,
   current: ClassificationResult,
   via: Correlation | null,
-  authenticated: () => Promise<boolean>,
+  trust: () => Promise<SenderTrust>,
+  ownSiteTrust: () => Promise<SenderTrust>,
 ): Promise<ClassificationResult> {
   const llm = configuredLlm(deps.settings);
   if (!llm) return current;
@@ -428,20 +495,20 @@ async function refineWithLlm(
   // own sites were ever collected, so with none the claim has nothing to act on.
   const unsupported = answer.classification === "confirmation_link" && current.links.length === 0;
   const classification: ReplyClassification = unsupported ? "unknown" : answer.classification;
-  const confidence = round(
-    await capFor(
-      classification,
-      via,
-      unsupported ? 0.3 : Math.min(answer.confidence, 0.9),
-      authenticated,
-    ),
+  const capped = await capFor(
+    classification,
+    via,
+    unsupported ? 0.3 : Math.min(answer.confidence, 0.9),
+    trust,
+    ownSiteTrust,
   );
+  const confidence = round(capped.confidence);
   if (confidence <= current.confidence) return current;
   return {
     ...current,
     classification,
     confidence,
-    rationale: `Model: ${answer.rationale || "no reason given"}`,
+    rationale: `Model: ${answer.rationale || "no reason given"}${capped.reason ? `; ${capped.reason}` : ""}`,
     requestedFields: classification === "verification_required" ? answer.requested_fields : [],
   };
 }

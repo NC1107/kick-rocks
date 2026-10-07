@@ -1,6 +1,7 @@
-import { type DbHandle, recipes, targets } from "@kickrocks/db";
-import { FORM_OUTCOMES, type FormResult, isOnDomain, type RequestActor } from "@kickrocks/shared";
+import { type DbHandle, recipes, type TargetRow } from "@kickrocks/db";
+import { FORM_OUTCOMES, type FormResult, type RequestActor } from "@kickrocks/shared";
 import { eq } from "drizzle-orm";
+import { isTrustedConfirmationSender } from "../core/targets.js";
 import type { Task } from "../core/task-types.js";
 import { responseWindow } from "../runners/deadlines.js";
 import type { AppServices } from "../services.js";
@@ -12,24 +13,12 @@ interface ConfirmationExpectation {
 }
 
 /**
- * A sender the page named, which an agent can be talked into writing, counts only when it belongs
- * to a broker in the dataset. Otherwise "com" or a webmail domain would make every mail from that
- * domain look like the broker's confirmation, and its links would be followed.
- */
-function isKnownBrokerDomain(tx: DbHandle, domain: string): boolean {
-  return tx
-    .select({ domain: targets.domain })
-    .from(targets)
-    .all()
-    .some((target) => isOnDomain(`https://${domain}/`, target.domain));
-}
-
-/**
  * Who the confirmation email will come from and what its link says, taken from the recipe's
  * `email_confirmation` step and from what the page itself told the run.
  */
 function expectedConfirmation(
   tx: DbHandle,
+  target: TargetRow,
   recipeId: string | null,
   result: FormResult,
 ): ConfirmationExpectation {
@@ -42,10 +31,9 @@ function expectedConfirmation(
     : undefined;
   const step = definition?.steps.find((candidate) => candidate.kind === "email_confirmation");
   const reported = result.confirmationFrom?.toLowerCase();
-  const domains = [
-    step?.fromDomain.toLowerCase(),
-    reported && isKnownBrokerDomain(tx, reported) ? reported : undefined,
-  ].filter((domain): domain is string => Boolean(domain));
+  const domains = [step?.fromDomain?.toLowerCase(), reported]
+    .filter((domain): domain is string => Boolean(domain))
+    .filter((domain) => isTrustedConfirmationSender(target, domain));
   return {
     fromDomains: [...new Set(domains)],
     linkTextPattern: step?.linkTextPattern ?? null,
@@ -98,7 +86,12 @@ function applyRemoval(
     services.requests.addEvent(request.id, {
       type: "awaiting_confirmation",
       actor,
-      payload: expectedConfirmation(tx, recipeId, result),
+      payload: expectedConfirmation(
+        tx,
+        services.targets.getOrThrow(request.targetId),
+        recipeId,
+        result,
+      ),
     });
   }
 }

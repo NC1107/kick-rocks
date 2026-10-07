@@ -1,11 +1,9 @@
 import { Resolver } from "node:dns/promises";
 import { readFileSync } from "node:fs";
-import { domainToASCII } from "node:url";
+import { alignsWithAny } from "@kickrocks/brokers";
 import { dkimVerify } from "mailauth";
-import { simpleParser } from "mailparser";
 import { z } from "zod";
-import { alignsWithAny } from "./sender-auth.js";
-import type { DkimScope } from "./types.js";
+import type { VerifiedSignature } from "./types.js";
 
 export type DnsResolver = (domain: string, rrtype: string) => Promise<string[][] | string[]>;
 
@@ -23,11 +21,11 @@ export interface DkimVerifierOptions {
 /** Checks the DKIM signatures of a raw message. */
 export interface DkimVerifier {
   /**
-   * The signing domains of the signatures that verified over the whole body, belong to one of
-   * `scope.domains`, and cover a To or Cc naming `scope.recipient`. Empty when nothing qualified
-   * or when verification could not finish, so a failure never vouches for anyone.
+   * The signatures that verified over the whole body and belong to one of `domains`, each with the
+   * values of the In-Reply-To, References, and Subject headers it covers. Empty when nothing
+   * qualified or when verification could not finish, so a failure never vouches for anyone.
    */
-  verifiedDomains(source: Buffer, scope: DkimScope): Promise<string[]>;
+  verifiedSignatures(source: Buffer, domains: readonly string[]): Promise<VerifiedSignature[]>;
   /** A verifier sharing this one's key cache that stops spending time once one poll run's budget is gone. */
   forRun(): DkimVerifier;
 }
@@ -101,7 +99,10 @@ interface HeaderField {
   raw: string;
 }
 
-function splitHeaders(source: Buffer): { fields: HeaderField[]; bodyStart: number } {
+function splitHeaders(source: Buffer): {
+  fields: HeaderField[];
+  bodyStart: number;
+} {
   const crlf = source.indexOf("\r\n\r\n");
   const lf = source.indexOf("\n\n");
   const bodyStart =
@@ -146,10 +147,7 @@ export function hasDkimSignature(source: Buffer): boolean {
  * the domains, at most `MAX_SIGNATURES` of them. Every other signature and every ARC header is
  * dropped so the verifier never hashes for them or looks up their keys.
  */
-function reduceToRelevantSignatures(
-  source: Buffer,
-  domains: readonly string[],
-): { source: Buffer; hasCc: boolean } | null {
+function reduceToRelevantSignatures(source: Buffer, domains: readonly string[]): Buffer | null {
   const { fields, bodyStart } = splitHeaders(source);
   let kept = 0;
   const headers = fields.filter((field) => {
@@ -161,69 +159,55 @@ function reduceToRelevantSignatures(
     return true;
   });
   if (kept === 0) return null;
-  return {
-    source: Buffer.concat([
-      Buffer.from(headers.map((field) => field.raw).join(""), "latin1"),
-      source.subarray(bodyStart),
-    ]),
-    hasCc: fields.some((field) => field.name === "cc"),
-  };
-}
-
-const lowerAscii = (text: string) => text.replace(/[A-Z]+/g, (letters) => letters.toLowerCase());
-
-/** The address with its domain as A-labels and its local part untouched, so only ASCII case folds. */
-function comparableAddress(address: string): string {
-  const at = address.lastIndexOf("@");
-  if (at < 1) return "";
-  const domain = domainToASCII(address.slice(at + 1).trim());
-  return domain === "" ? "" : `${lowerAscii(address.slice(0, at))}@${domain}`;
-}
-
-async function addressesOfHeader(line: string): Promise<string[]> {
-  const parsed = await simpleParser(Buffer.from(`${line.replace(/\s+$/, "")}\r\n\r\n`, "utf8"));
-  const field =
-    line.slice(0, line.indexOf(":")).trim().toLowerCase() === "cc" ? parsed.cc : parsed.to;
-  const objects = field === undefined ? [] : Array.isArray(field) ? field : [field];
-  return objects
-    .flatMap((object) => object.value)
-    .flatMap((entry) => (entry.address ? [comparableAddress(entry.address)] : []));
+  return Buffer.concat([
+    Buffer.from(headers.map((field) => field.raw).join(""), "latin1"),
+    source.subarray(bodyStart),
+  ]);
 }
 
 /**
- * Whether the signature itself covers the recipients and names this mailbox among them. A genuine
- * reply to someone else verifies just as well, so only a signed To or Cc that holds the mailbox
- * address ties the signature to this mail. The headers read are the instances the signature
- * hashed, which are the bottom-most of each name.
+ * The values of the covered headers called `name`, read raw from the lines the signature hashed
+ * (the bottom-most instances, per RFC 6376) with only folding removed, so nothing a header could
+ * hide behind an encoding is revealed and nothing above the signed instance is read.
  */
-async function signedForRecipient(
-  signedHeaders: readonly string[],
-  recipient: string,
-  hasCc: boolean,
-): Promise<boolean> {
-  const first = (name: string) =>
-    signedHeaders.find((line) => line.slice(0, line.indexOf(":")).trim().toLowerCase() === name);
-  const to = first("to");
-  const cc = first("cc");
-  if (to === undefined || (hasCc && cc === undefined)) return false;
-  const wanted = comparableAddress(recipient.trim());
-  const signed = (
-    await Promise.all([to, ...(cc === undefined ? [] : [cc])].map(addressesOfHeader))
-  ).flat();
-  return wanted !== "" && signed.includes(wanted);
+function signedValues(signedHeaders: readonly string[], name: string): string[] {
+  return signedHeaders
+    .filter((line) => line.slice(0, line.indexOf(":")).trim().toLowerCase() === name)
+    .map((line) =>
+      line
+        .slice(line.indexOf(":") + 1)
+        .replace(/\r?\n(?=[ \t])/g, "")
+        .trim(),
+    );
 }
 
 function timeoutError(): Error {
-  return Object.assign(new Error("DNS lookup ran out of time"), { code: "ETIMEOUT" });
+  return Object.assign(new Error("DNS lookup ran out of time"), {
+    code: "ETIMEOUT",
+  });
 }
 
 /** Answers every lookup from the underlying resolver until the deadline, and refuses every one after it. */
-function withDeadline(resolve: DnsResolver, deadline: number, now: () => number): DnsResolver {
+export function withDeadline(
+  resolve: DnsResolver,
+  deadline: number,
+  now: () => number,
+  onExpire: () => void = () => {},
+): DnsResolver {
+  // A timer can fire a millisecond before the clock reaches the deadline, so the timer itself marks it passed.
+  let expired = false;
   return (domain, rrtype) => {
     const left = deadline - now();
-    if (left <= 0) return Promise.reject(timeoutError());
+    if (expired || left <= 0) {
+      onExpire();
+      return Promise.reject(timeoutError());
+    }
     return new Promise((done, fail) => {
-      const timer = setTimeout(() => fail(timeoutError()), left);
+      const timer = setTimeout(() => {
+        expired = true;
+        onExpire();
+        fail(timeoutError());
+      }, left);
       resolve(domain, rrtype).then(
         (records) => {
           clearTimeout(timer);
@@ -246,42 +230,49 @@ export function createDkimVerifier({
 }: DkimVerifierOptions = {}): DkimVerifier {
   const resolve = cachingResolver(withTestKeys(resolver, testKeys), Date.now);
 
-  async function verify(source: Buffer, scope: DkimScope, deadline: number): Promise<string[]> {
-    const relevant = reduceToRelevantSignatures(source, scope.domains);
+  async function verify(
+    source: Buffer,
+    domains: readonly string[],
+    deadline: number,
+    onExpire: () => void,
+  ): Promise<VerifiedSignature[]> {
+    const relevant = reduceToRelevantSignatures(source, domains);
     if (!relevant) return [];
-    const { results } = await dkimVerify(relevant.source, {
-      resolver: withDeadline(resolve, deadline, Date.now),
+    const { results } = await dkimVerify(relevant, {
+      resolver: withDeadline(resolve, deadline, Date.now, onExpire),
       rejectRsaSha1: true,
     });
-    const domains: string[] = [];
+    const verified: VerifiedSignature[] = [];
     for (const result of results) {
       if (
         result.status.result === "pass" &&
         // An l= tag lets anyone append text the signature never saw.
         !result.status.underSized &&
         result.signingDomain &&
-        alignsWithAny(result.signingDomain, scope.domains) &&
-        (await signedForRecipient(
-          result.signingHeaders?.headers ?? [],
-          scope.recipient,
-          relevant.hasCc,
-        ))
+        alignsWithAny(result.signingDomain, domains)
       ) {
-        domains.push(result.signingDomain.toLowerCase());
+        const covered = result.signingHeaders?.headers ?? [];
+        verified.push({
+          domain: result.signingDomain.toLowerCase(),
+          inReplyTo: signedValues(covered, "in-reply-to"),
+          references: signedValues(covered, "references"),
+          subject: signedValues(covered, "subject"),
+        });
       }
     }
-    return [...new Set(domains)];
+    return verified;
   }
 
   function verifier(budget: { left: number } | null): DkimVerifier {
     return {
-      async verifiedDomains(source, scope) {
+      async verifiedSignatures(source, domains) {
         const allowed = Math.min(timeoutMs, budget?.left ?? timeoutMs);
         if (allowed <= 0) return [];
         const started = Date.now();
         let timer: NodeJS.Timeout | undefined;
         let gaveUp = false;
-        const giveUp = new Promise<string[]>((done) => {
+        let lookupExpired = false;
+        const giveUp = new Promise<VerifiedSignature[]>((done) => {
           timer = setTimeout(() => {
             gaveUp = true;
             done([]);
@@ -289,12 +280,15 @@ export function createDkimVerifier({
         });
         try {
           return await Promise.race([
-            verify(source, scope, started + allowed).catch(() => []),
+            verify(source, domains, started + allowed, () => {
+              lookupExpired = true;
+            }).catch(() => []),
             giveUp,
           ]);
         } finally {
           clearTimeout(timer);
-          if (budget) budget.left -= gaveUp ? allowed : Date.now() - started;
+          // A lookup timer can fire a millisecond early, and charging the elapsed time then would leave a sliver of budget for another lookup.
+          if (budget) budget.left -= gaveUp || lookupExpired ? allowed : Date.now() - started;
         }
       },
       forRun: () => verifier({ left: runBudgetMs }),

@@ -2,6 +2,7 @@ import { isActiveStatus } from "@kickrocks/shared";
 import { conflict } from "../../core/errors.js";
 import type { EnqueueResult } from "../../core/task-queue.js";
 import type { Task } from "../../core/task-types.js";
+import { siteChecksAllowed } from "../../scheduler/canaries.js";
 import type { AppServices } from "../../services.js";
 
 /**
@@ -41,7 +42,16 @@ function enqueueAgain(services: AppServices, task: Task): EnqueueResult | null {
     return dispatch.enqueueScan(task.profileId, task.targetId, task.payload.variant);
   }
   if (task.kind === "inbox_poll") return dispatch.enqueueInboxPoll(task.payload.mailboxId);
-  if (task.kind === "canary") return dispatch.enqueueCanary(task.payload.recipeId);
+  if (task.kind === "canary") {
+    // The scheduler cancels waiting canaries while site checks are off, so a retry would vanish unseen.
+    if (!siteChecksAllowed(services)) {
+      throw conflict(
+        "site_checks_off",
+        "Site checks are off, so this check cannot be retried. Turn them on in Settings first.",
+      );
+    }
+    return dispatch.enqueueCanary(task.payload.recipeId);
+  }
 
   const request = task.requestId ? requests.get(task.requestId) : null;
   if (!request || !isActiveStatus(request.status)) return null;

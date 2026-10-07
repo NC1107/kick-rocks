@@ -32,7 +32,7 @@ import {
   TARGET_CATEGORY_LABELS,
   TARGET_KIND_LABELS,
 } from "../../lib/labels.js";
-import { HealthMark } from "./Automation.js";
+import { AutomationLegend, HealthMark } from "./Automation.js";
 import { type FilterKey, hasFilters, readFilters, TARGETS_PAGE_SIZE, toQuery } from "./filters.js";
 import { LoadingRows } from "./LoadingRows.js";
 import { Priority } from "./Priority.js";
@@ -272,6 +272,7 @@ export function Component() {
         />
       ) : (
         <>
+          <AutomationLegend />
           <Table label="Targets" aria-busy={list.isPlaceholderData || undefined}>
             <TableHead>
               <tr>

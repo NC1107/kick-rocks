@@ -68,10 +68,11 @@ export function Component() {
             onChange={(event) => setConfirm(event.target.value)}
           />
         </Field>
-        <Callout intent="info" title="Back up the data folder">
-          Your data is encrypted with a key file next to the database, not with this password. Back
-          up the whole data folder, key file included. Without the key file the data cannot be
-          opened.
+        <Callout intent="info" title="Back up the data volume">
+          Your data is encrypted with a key that is stored next to the database, not with this
+          password. Under Docker both live in the kickrocks-data volume, so back up that volume as a
+          whole, key included. Without the key the data cannot be opened. The README section
+          "Backup, restore, and the data volume" has the commands.
         </Callout>
         {failure && !fieldIssue ? <Callout intent="danger">{errorMessage(failure)}</Callout> : null}
         <Button type="submit" variant="primary" loading={setup.isPending} className="w-full">

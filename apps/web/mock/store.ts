@@ -1,5 +1,6 @@
 import type {
   Match,
+  NotificationSettings,
   ProfileDetail,
   RecipeRecord,
   RequestEvent,
@@ -18,6 +19,31 @@ export type StoredRequest = RequestListItem & { events: RequestEvent[] };
 export interface BlockedTaskInfo {
   url: string | null;
   manualInstructions: string;
+}
+
+/** Notification settings and delivery status. The saved tokens never reach a response. */
+export interface MockNotifications {
+  settings: NotificationSettings;
+  lastSentAt: string | null;
+  lastError: string | null;
+  digestLastSentAt: string | null;
+  digestLastError: string | null;
+}
+
+export function freshMockNotifications(): MockNotifications {
+  return {
+    settings: {
+      ntfy: null,
+      telegram: null,
+      categories: ["blocked_task", "verification", "match", "mailbox", "recipe"],
+      maxPerHour: 6,
+      digest: { frequency: "off", hourUtc: 8, weekday: 1 },
+    },
+    lastSentAt: null,
+    lastError: null,
+    digestLastSentAt: null,
+    digestLastError: null,
+  };
 }
 
 export type MockAuthMode = "authed" | "login" | "setup";
@@ -52,6 +78,7 @@ export interface MockStore {
   settings: SettingsView;
   /** The last MCP token minted, kept only so the mock can say a token is set. */
   mcpToken: string | null;
+  notifications: MockNotifications;
   /** A short unique id such as "req_0007". */
   nextId(prefix: string): string;
   /** A float in [0, 1) from a fixed seed, so fixtures do not change between restarts. */
@@ -114,10 +141,12 @@ export function createStore(authMode: MockAuthMode = "authed"): MockStore {
       llm: null,
       retention: { messageDays: null, screenshotDays: 30 },
       mcp: { enabled: false, tokenSet: false, url: "http://localhost:8420/mcp" },
+      siteChecks: { enabled: false },
       agent: { takeUnreviewed: false },
       worker: { enabled: false, builtin: null, model: null },
     },
     mcpToken: null,
+    notifications: freshMockNotifications(),
     nextId(prefix) {
       const next = (counters.get(prefix) ?? 0) + 1;
       counters.set(prefix, next);

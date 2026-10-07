@@ -1,0 +1,16 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Posts into a window opened earlier by name</title></head>
+<body>
+<h1>Remove your listing</h1>
+<form id="request" method="post" action="{{OFFSITE}}/submit">
+  <label for="first">First name</label>
+  <input id="first" name="first_name">
+  <button type="submit">Submit request</button>
+</form>
+<script>
+  window.open("about:blank", "earlier");
+  document.getElementById("request").target = "earlier";
+</script>
+</body>
+</html>

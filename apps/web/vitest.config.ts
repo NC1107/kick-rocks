@@ -25,6 +25,9 @@ export default defineConfig({
           environment: "jsdom",
           include: ["src/**/*.test.tsx", "mock/**/*.test.tsx"],
           setupFiles: ["./src/test/setup.ts"],
+          // The form tests type a character at a time through jsdom, which on a shared CI runner
+          // takes longer than the 5 second default and then leaks half-typed input into the next test.
+          testTimeout: 30_000,
         },
       },
     ],

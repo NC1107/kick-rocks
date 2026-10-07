@@ -12,12 +12,16 @@ import { parseBadboolReport } from "./import/badbool.js";
 import { parseCaRegistry } from "./import/ca-registry.js";
 import { parseCuratedBrokers } from "./import/curated.js";
 import { parseEraserBrokers } from "./import/eraser.js";
+import { loadCompanyDataset } from "./index.js";
 import { mergeBrokers } from "./merge.js";
+import { readBundledRecipes, unpairedRecipeSenders } from "./recipe-senders.js";
+import { applyReplyDomains } from "./reply-domains.js";
 import { readPinnedUpstream } from "./upstream.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const dataDir = resolve(here, "..", "data");
 const upstream = resolve(dataDir, "upstream");
+const bundledRecipesDir = resolve(here, "..", "..", "recipes", "recipes");
 const outFile = resolve(dataDir, "generated", "brokers.json");
 export const IDS_FILE = resolve(dataDir, "ids.json");
 
@@ -38,7 +42,12 @@ export function buildDataset(
   );
   const eraser = parseEraserBrokers(readFileSync(resolve(upstream, "eraser-brokers.yaml"), "utf8"));
   const registry = parseCaRegistry(readFileSync(resolve(upstream, "ca-registry-2025.csv"), "utf8"));
-  const brokers = mergeBrokers([badbool, eraser, registry, curated], { pinnedIds });
+  const brokers = applyReplyDomains(
+    mergeBrokers([badbool, eraser, registry, curated], { pinnedIds }),
+    readFileSync(resolve(dataDir, "reply-domains.yaml"), "utf8"),
+  );
+  const unpaired = unpairedRecipeSenders(brokers, readBundledRecipes(bundledRecipesDir));
+  if (unpaired.length > 0) throw new Error(unpaired.join("\n"));
   return BrokerDatasetSchema.parse({
     generatedAt: new Date().toISOString(),
     license: BROKER_DATASET_LICENSE,
@@ -73,11 +82,13 @@ function summarize(dataset: BrokerDataset): string {
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  const companyCount = loadCompanyDataset().companies.length;
   const pinned = loadPinnedIds();
   const dataset = buildDataset(pinned);
   mkdirSync(dirname(outFile), { recursive: true });
   writeFileSync(outFile, `${JSON.stringify(dataset, null, 2)}\n`);
   console.log(summarize(dataset));
+  console.log(`${companyCount} companies validated`);
   console.log(`wrote ${outFile}`);
 
   const pinnedNow = pinNewIds(pinned, dataset);

@@ -89,8 +89,7 @@ export function restoreFields(text: string, fields: NamedValues): string {
 
 /**
  * Hides the person's values in text the model reads or the server stores. The recipe runner's
- * redactor knows the plain, percent-encoded and slug spellings; a form submitted by GET puts a
- * space in the address as a plus sign, so that spelling is covered here too. A page's input mask
+ * redactor knows every URL and markup spelling of a value, form-urlencoded ones included. A page's input mask
  * can reformat a phone number or a date, so those fields also hide their common US formats.
  */
 export function createMask(fields: ProfileFields, hidden: readonly string[] = []): Redact {
@@ -99,14 +98,11 @@ export function createMask(fields: ProfileFields, hidden: readonly string[] = []
     (entry): entry is [string, string] => typeof entry[1] === "string" && entry[1].trim() !== "",
   );
   const plain = createRedactor(everything as ProfileFields);
-  const withPlus = createRedactor(
-    Object.fromEntries(entries.map(([name, value]) => [name, value.replaceAll(" ", "+")])),
-  );
   const reformatted = redactorFor(
     entries.flatMap(([name, value]) =>
       variantsOf(name, value).map((spelling): [string, string] => [name, spelling]),
     ),
   );
   // The long spellings go first: a date such as 04/05/1990 must not lose its year to the birth year alone.
-  return (text) => withPlus(plain(reformatted(text)));
+  return (text) => plain(reformatted(text));
 }

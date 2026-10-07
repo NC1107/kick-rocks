@@ -3,9 +3,11 @@ import {
   BrokerCategory,
   ContactMethod,
   DataSource,
+  ReplyDomains,
   Requirement,
   TargetPriority,
 } from "./broker.js";
+import { isSharedMailHost, withoutSharedHosts } from "./mail-hosts.js";
 import { RecipeHealth, RecipePurpose, RecipeSource, RecipeStatus } from "./recipe.js";
 import { WebUrl } from "./url.js";
 
@@ -39,6 +41,11 @@ export const Company = z.object({
   optOutUrl: WebUrl.nullable(),
   privacyRightsUrl: WebUrl.nullable(),
   contactMethod: ContactMethod,
+  /**
+   * Extra domains the company's replies may come from, for senders that none of the contact
+   * fields reveal. The contact fields' own hosts are trusted without being listed here.
+   */
+  replyDomains: ReplyDomains.optional(),
   notes: z.string().nullable(),
   sources: z.array(DataSource).min(1),
   /** The day someone checked these contacts against the company's own privacy page. */
@@ -135,3 +142,38 @@ export const TargetDetail = TargetSummary.extend({
   recipes: z.array(TargetRecipe),
 });
 export type TargetDetail = z.infer<typeof TargetDetail>;
+
+function emailHostOf(email: string | null): string | null {
+  return email?.split("@").pop()?.toLowerCase() || null;
+}
+
+/**
+ * The domains a target's genuine replies come from: its own site, the domain of its privacy
+ * mailbox unless that is a shared host, and any `replyDomains` the dataset lists. URL hosts never
+ * count, because opt-out and rights pages are often hosted on someone else's platform. Used to
+ * match a reply to a request and to align its DKIM signature; it never replaces the
+ * request-reference binding a reply still needs.
+ */
+export function replyDomainsOf(target: {
+  domain: string;
+  privacyEmail: string | null;
+  replyDomains?: readonly string[] | undefined;
+}): string[] {
+  const emailHost = emailHostOf(target.privacyEmail);
+  const all = [
+    target.domain.toLowerCase(),
+    emailHost !== null && !isSharedMailHost(emailHost) ? emailHost : null,
+    ...withoutSharedHosts(target.replyDomains ?? []),
+  ];
+  return [...new Set(all.filter((domain): domain is string => !!domain))];
+}
+
+/**
+ * The exact sender addresses to trust when the privacy mailbox sits on a shared host, where the
+ * domain says nothing about who is writing.
+ */
+export function replyAddressesOf(target: { privacyEmail: string | null }): string[] {
+  const email = target.privacyEmail?.trim().toLowerCase() ?? null;
+  const host = emailHostOf(email);
+  return email !== null && host !== null && isSharedMailHost(host) ? [email] : [];
+}

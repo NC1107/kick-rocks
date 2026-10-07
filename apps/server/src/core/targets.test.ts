@@ -7,7 +7,12 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { datasetSources } from "../services.js";
 import { makeBroker, makeCompany } from "../test-utils/builders.js";
 import { createTestContext, type TestContext } from "../test-utils/index.js";
-import { createTargetsService, type DatasetSnapshot, type TargetsService } from "./targets.js";
+import {
+  createTargetsService,
+  type DatasetSnapshot,
+  replyDomainsOfRow,
+  type TargetsService,
+} from "./targets.js";
 
 let ctx: TestContext;
 let dir: string;
@@ -264,6 +269,23 @@ describe("sync", () => {
     expect(first.added).toBeGreaterThan(500);
     expect(first.retired).toBe(0);
     expect(real.sync()).toMatchObject({ added: 0, updated: 0, retired: 0 });
+  });
+});
+
+describe("replyDomainsOfRow", () => {
+  it("covers the vendor behind a company's privacy email and its explicit list", () => {
+    const company = makeCompany({
+      id: "shop",
+      domain: "shop.test",
+      privacyEmail: "privacy@vendor.test",
+      replyDomains: ["mail.sister.test"],
+    });
+    service({ brokers: null, companies: companies([company]) }).sync();
+    expect(replyDomainsOfRow(rows()[0] as never)).toEqual([
+      "shop.test",
+      "vendor.test",
+      "mail.sister.test",
+    ]);
   });
 });
 

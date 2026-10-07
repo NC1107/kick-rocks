@@ -1,7 +1,7 @@
 import { generateKeyPairSync } from "node:crypto";
 import { dkimSign } from "mailauth";
 import type { DnsResolver } from "../mail/dkim.js";
-import type { DkimCheck } from "../mail/types.js";
+import type { DkimCheck, VerifiedSignature } from "../mail/types.js";
 
 /** A throwaway key pair and the helpers to sign mail with it and serve its public key as DNS. */
 const { publicKey, privateKey } = generateKeyPairSync("rsa", { modulusLength: 2048 });
@@ -10,11 +10,16 @@ export const KEY_RECORD = `v=DKIM1; k=rsa; p=${publicKey.export({ type: "spki", 
 
 export const BODY = "We have completed your request.\r\n";
 
-export function unsigned(body = BODY, from = "privacy@acme.test"): string {
+export function unsigned(
+  body = BODY,
+  from = "privacy@acme.test",
+  extraHeaders: readonly string[] = [],
+): string {
   return [
     `From: Acme Privacy <${from}>`,
     "To: jordan@example.com",
     "Subject: Your privacy request",
+    ...extraHeaders,
     "Date: Thu, 01 Oct 2026 12:00:00 +0000",
     "Message-ID: <reply-1@acme.test>",
     "MIME-Version: 1.0",
@@ -56,9 +61,18 @@ export function servingKeysFor(...domains: string[]): DnsResolver {
   };
 }
 
-/** A DKIM check that reports these signers whatever it is asked, for tests that are not about verification. */
+/** A DKIM check that reports a signature from each of these domains that covers nothing that names a request. */
 export function verifiedBy(...domains: string[]): DkimCheck {
-  return async () => domains;
+  return async () =>
+    domains.map((domain) => ({ domain, inReplyTo: [], references: [], subject: [] }));
+}
+
+/** A DKIM check that reports one signature from `domain` covering these header values, whatever it is asked. */
+export function signedAs(
+  domain: string,
+  covered: Partial<Omit<VerifiedSignature, "domain">> = {},
+): DkimCheck {
+  return async () => [{ domain, inReplyTo: [], references: [], subject: [], ...covered }];
 }
 
 export const noDkim: DkimCheck = verifiedBy();

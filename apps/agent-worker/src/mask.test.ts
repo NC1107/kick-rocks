@@ -47,6 +47,56 @@ describe("createMask", () => {
     );
   });
 
+  it("hides a value in every encoding an address or a page can give it", () => {
+    const person = createMask({ full_name: "Jordan O'Neil, Jr. #2 & Co" });
+    const value = "Jordan O'Neil, Jr. #2 & Co";
+    const spellings = [
+      value,
+      new URLSearchParams({ q: value }).toString().slice(2),
+      encodeURIComponent(value),
+      encodeURI(value),
+      encodeURIComponent(value).toLowerCase(),
+      new URLSearchParams({ q: value }).toString().slice(2).toLowerCase(),
+      encodeURIComponent(value).replace("%20", "+"),
+      "Jordan+O%27Neil,%20Jr.+%232+%26+Co",
+      "Jordan O&#39;Neil, Jr. #2 &amp; Co",
+    ];
+    for (const spelling of spellings) {
+      expect(person(`https://x.test/search?name=${spelling}&page=2`)).toBe(
+        "https://x.test/search?name={{full_name}}&page=2",
+      );
+      expect(person(`/people?next=${spelling}`)).toBe("/people?next={{full_name}}");
+    }
+  });
+
+  it("hides a value that a return address carries inside another address", () => {
+    const person = createMask({
+      email: "pk1977@mail.test",
+      street: "742 Evergreen Terrace",
+      last_name: "O'Neil",
+    });
+    const next = (path: string) => `http://127.0.0.1:8637/login?next=${encodeURIComponent(path)}`;
+    const cases: [string, string[]][] = [
+      [
+        next("/search?email=pk1977%40mail.test&addr=742+Evergreen+Terrace"),
+        ["{{email}}", "{{street}}"],
+      ],
+      [
+        "/login?next=%2Fsearch%3Femail%3Dpk1977%2540mail.test%26addr%3D742%2BEvergreen%2BTerrace",
+        ["{{email}}", "{{street}}"],
+      ],
+      ["/x?return=%2Fp%3Fn%3DO%2527Neil", ["{{last_name}}"]],
+      ["a=742%2520Evergreen%2520Terrace&b=1", ["{{street}}", "&b=1"]],
+      ["a=742%252BEvergreen%252BTerrace", ["{{street}}"]],
+      ["a=742%25252BEvergreen%252520Terrace", ["{{street}}"]],
+    ];
+    for (const [input, placeholders] of cases) {
+      const masked = person(input);
+      expect(masked).not.toMatch(/pk1977|Evergreen|Neil/i);
+      for (const placeholder of placeholders) expect(masked).toContain(placeholder);
+    }
+  });
+
   it("restores a value where a placeholder stands, and leaves other placeholders alone", () => {
     expect(
       restoreFields("{{first_name}} {{last_name}} {{zip}} {{nope}}", {

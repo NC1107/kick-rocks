@@ -1,10 +1,21 @@
-import { outgoingMessageId, type ProfileField, type ReplyClassification } from "@kickrocks/shared";
+import type { TargetRow } from "@kickrocks/db";
+import {
+  type Company,
+  outgoingMessageId,
+  type ProfileField,
+  type ReplyClassification,
+} from "@kickrocks/shared";
 import { describe, expect, it } from "vitest";
-import { noDkim, verifiedBy } from "../test-utils/dkim.js";
+import {
+  curatedReplyDomainsOfRow,
+  replyAddressesOfRow,
+  replyDomainsOfRow,
+  targetValues,
+} from "../core/targets.js";
+import { makeCompany } from "../test-utils/builders.js";
+import { noDkim, signedAs } from "../test-utils/dkim.js";
 import { createReplyClassifier } from "./classifier.js";
 import type { ClassifierRequest, InboxMessage } from "./types.js";
-
-const MAILBOX = "jordan@example.com";
 
 const classifier = createReplyClassifier({ settings: { get: () => null as never } });
 
@@ -18,14 +29,39 @@ function request(overrides: Partial<ClassifierRequest> = {}): ClassifierRequest 
     targetId: "acme",
     targetName: "Acme Data",
     targetDomain: "acme.test",
+    replyDomains: ["acme.test"],
+    curatedReplyDomains: [],
+    replyAddresses: [],
     recordUrl: null,
     awaitingConfirmation: null,
     ...overrides,
   };
 }
 
+/** A request whose reply trust comes from a stored target, the way the inbox poll builds it. */
+function requestForTarget(
+  company: Partial<Company>,
+  overrides: Partial<ClassifierRequest> = {},
+): ClassifierRequest {
+  const row = {
+    ...targetValues({ kind: "company", record: makeCompany(company) }),
+    datasetVersion: "test",
+    retired: false,
+    createdAt: "2026-10-01T00:00:00.000Z",
+  } as TargetRow;
+  return request({
+    targetId: row.id,
+    targetDomain: row.domain,
+    replyDomains: replyDomainsOfRow(row),
+    curatedReplyDomains: curatedReplyDomainsOfRow(row),
+    replyAddresses: replyAddressesOfRow(row),
+    ...overrides,
+  });
+}
+
+/** A reply the broker signed, covering the In-Reply-To, References, and Subject it carries, unless a test says otherwise. */
 function message(overrides: Partial<InboxMessage> = {}): InboxMessage {
-  return {
+  const base: InboxMessage = {
     uid: 1,
     messageId: "<reply-1@acme.test>",
     inReplyTo: outgoingMessageId("req-1", "example.com"),
@@ -42,6 +78,15 @@ function message(overrides: Partial<InboxMessage> = {}): InboxMessage {
     verifyDkim: noDkim,
     ...overrides,
   };
+  if (overrides.verifyDkim) return base;
+  return {
+    ...base,
+    verifyDkim: signedAs("acme.test", {
+      inReplyTo: base.inReplyTo ? [base.inReplyTo] : [],
+      references: base.references,
+      subject: [base.subject],
+    }),
+  };
 }
 
 const ORIGINAL = [
@@ -55,10 +100,7 @@ async function classify(
   overrides: Partial<InboxMessage> = {},
   requests: ClassifierRequest[] = [request()],
 ) {
-  return classifier.classify(message({ text, ...overrides }), {
-    requests,
-    mailboxAddress: MAILBOX,
-  });
+  return classifier.classify(message({ text, ...overrides }), { requests });
 }
 
 describe("correlation", () => {
@@ -134,20 +176,20 @@ describe("correlation", () => {
     expect(result.requestId).toBeNull();
   });
 
-  it("falls back to the sender's domain, with lower confidence, and accepts a subdomain", async () => {
+  it("keeps a sender-domain match for a person even when the broker signed it", async () => {
     const result = await classify("Your data has been deleted.", {
       inReplyTo: null,
       subject: "Your privacy request",
       from: { name: null, address: "ticket@help.acme.test" },
-      verifyDkim: verifiedBy("help.acme.test"),
+      verifyDkim: signedAs("help.acme.test", { subject: ["Your privacy request"] }),
     });
     expect(result).toMatchObject({
       requestId: "req-1",
       correlation: "sender_domain",
       classification: "completed",
     });
-    expect(result.confidence).toBeLessThanOrEqual(0.8);
-    expect(result.confidence).toBeGreaterThanOrEqual(0.6);
+    expect(result.confidence).toBeLessThan(0.6);
+    expect(result.rationale).toContain("does not quote this request");
   });
 
   it("keeps a sender-domain match with no authentication for a person to review", async () => {
@@ -156,34 +198,38 @@ describe("correlation", () => {
       messageId: "<attacker@evil.test>",
       subject: "Your privacy request",
       from: { name: null, address: "privacy@acme.test" },
+      verifyDkim: noDkim,
     });
     expect(result).toMatchObject({ requestId: "req-1", correlation: "sender_domain" });
     expect(result.confidence).toBeLessThan(0.6);
+    expect(result.rationale).toContain("not signed by the broker");
   });
 
   it.each([
     ["a signature from another domain", ["evil.test"]],
     ["a signature from a lookalike domain", ["notacme.test"]],
     ["no verified signature", []],
-  ])("does not trust %s", async (_name, dkimDomains) => {
+  ])("does not trust %s", async (_name, signers) => {
     const result = await classify("We have completed your request.", {
-      inReplyTo: null,
-      subject: "Your privacy request",
-      from: { name: null, address: "privacy@acme.test" },
-      verifyDkim: verifiedBy(...dkimDomains),
+      verifyDkim: async () =>
+        signers.map((domain) => ({
+          domain,
+          inReplyTo: [outgoingMessageId("req-1", "example.com")],
+          references: [],
+          subject: ["Re: Opt-out request KR-7K3M9Q"],
+        })),
     });
+    expect(result).toMatchObject({ requestId: "req-1", correlation: "message_id" });
     expect(result.confidence).toBeLessThan(0.6);
+    expect(result.rationale).toContain("not signed by the broker");
   });
 
   it.each([
     ["the target's own domain", "acme.test"],
     ["a subdomain of it", "mail.acme.test"],
-  ])("trusts a verified signature from %s", async (_name, signer) => {
+  ])("trusts a signature from %s that quotes the request", async (_name, signer) => {
     const result = await classify("We have completed your request.", {
-      inReplyTo: null,
-      subject: "Your privacy request",
-      from: { name: null, address: "privacy@acme.test" },
-      verifyDkim: verifiedBy(signer),
+      verifyDkim: signedAs(signer, { inReplyTo: [outgoingMessageId("req-1", "example.com")] }),
     });
     expect(result.confidence).toBeGreaterThanOrEqual(0.6);
   });
@@ -544,10 +590,13 @@ describe("a confirmation email after a form submission", () => {
   const waiting = (overrides: Partial<ClassifierRequest> = {}) =>
     request({
       id: "form-1",
-      reference: "KR-FORM01",
+      reference: "KR-F0RM01",
       outgoingMessageId: null,
       channel: "form",
       targetDomain: "intelius.test",
+      replyDomains: ["intelius.test", "peopleconnect.test"],
+      curatedReplyDomains: ["peopleconnect.test"],
+      replyAddresses: [],
       awaitingConfirmation: {
         fromDomains: ["peopleconnect.test"],
         linkTextPattern: null,
@@ -563,7 +612,7 @@ describe("a confirmation email after a form submission", () => {
     from: { name: null, address: "no-reply@peopleconnect.test" },
     html: '<p>Click the link below to confirm your opt-out.</p><a href="https://suppression.peopleconnect.test/confirm?id=9">Confirm</a>',
     text: "Click the link below to confirm your opt-out.",
-    verifyDkim: verifiedBy("peopleconnect.test"),
+    verifyDkim: signedAs("peopleconnect.test"),
     ...overrides,
   });
 
@@ -599,7 +648,7 @@ describe("a confirmation email after a form submission", () => {
     expect(result.confidence).toBeLessThan(0.6);
   });
 
-  it("lets the same completion wording act once a signature of the sender verifies", async () => {
+  it("keeps completion wording for review when the sender's signature does not quote the request", async () => {
     const result = await classify(
       "",
       confirmation({
@@ -610,6 +659,23 @@ describe("a confirmation email after a form submission", () => {
       [waiting()],
     );
     expect(result.classification).toBe("completed");
+    expect(result.confidence).toBeLessThan(0.6);
+    expect(result.rationale).toContain("does not quote this request");
+  });
+
+  it("lets the same completion wording act once the signature quotes the request", async () => {
+    const subject = "Your removal is complete KR-F0RM01";
+    const result = await classify(
+      "",
+      confirmation({
+        subject,
+        text: "Your record has been removed from our site and your data has been deleted.",
+        html: null,
+        verifyDkim: signedAs("peopleconnect.test", { subject: [subject] }),
+      }),
+      [waiting()],
+    );
+    expect(result).toMatchObject({ classification: "completed", correlation: "reference" });
     expect(result.confidence).toBeGreaterThanOrEqual(0.6);
   });
 
@@ -709,8 +775,60 @@ describe("a confirmation email after a form submission", () => {
     expect(result.classification).not.toBe("confirmation_link");
   });
 
+  it.each([
+    ["a shared platform", "paypal.com"],
+    ["a domain the target does not list", "otherbroker.test"],
+  ])("ignores %s stored as an expected sender", async (_name, stored) => {
+    const waitingForStored = waiting({
+      awaitingConfirmation: {
+        fromDomains: [stored],
+        linkTextPattern: null,
+        since: "2026-10-01T10:00:00.000Z",
+      },
+    });
+    const result = await classify(
+      "",
+      confirmation({
+        from: { name: null, address: `no-reply@${stored}` },
+        html: `<p>Click the link below to confirm your opt-out.</p><a href="https://${stored}/confirm?id=9">Confirm</a>`,
+        verifyDkim: signedAs(stored),
+      }),
+      [waitingForStored],
+    );
+    expect(result.requestId).toBeNull();
+    expect(result.links).toEqual([]);
+  });
+
+  it("ignores a stored sender that is only the host of the target's privacy mailbox", async () => {
+    const vendorTarget = requestForTarget(
+      { id: "acme", domain: "acme.test", privacyEmail: "privacy@vendorhost.test" },
+      {
+        channel: "form",
+        awaitingConfirmation: {
+          fromDomains: ["vendorhost.test"],
+          linkTextPattern: null,
+          since: "2026-10-01T10:00:00.000Z",
+        },
+      },
+    );
+    expect(vendorTarget.replyDomains).toContain("vendorhost.test");
+    const result = await classify(
+      "",
+      confirmation({
+        messageId: "<c1@vendorhost.test>",
+        from: { name: null, address: "no-reply@vendorhost.test" },
+        html: '<p>Click the link below to confirm your opt-out.</p><a href="https://vendorhost.test/confirm?id=9">Confirm</a>',
+        verifyDkim: signedAs("vendorhost.test"),
+      }),
+      [vendorTarget],
+    );
+    expect(result.links).toEqual([]);
+  });
+
   it("is not matched when no request is waiting for a confirmation", async () => {
-    const result = await classify("", confirmation(), [waiting({ awaitingConfirmation: null })]);
+    const result = await classify("", confirmation(), [
+      waiting({ awaitingConfirmation: null, replyDomains: ["intelius.test"] }),
+    ]);
     expect(result.requestId).toBeNull();
   });
 
@@ -721,7 +839,7 @@ describe("a confirmation email after a form submission", () => {
         inReplyTo: null,
         subject: "Your request",
         from: { name: null, address: "privacy@intelius.test" },
-        verifyDkim: verifiedBy("intelius.test"),
+        verifyDkim: signedAs("intelius.test"),
       },
       [waiting()],
     );
@@ -753,8 +871,233 @@ describe("hostile input", () => {
   it("does not throw on a message with nothing in it", async () => {
     const result = await classifier.classify(
       message({ subject: "", text: "", from: { name: null, address: "" } }),
-      { requests: [request()], mailboxAddress: MAILBOX },
+      { requests: [request()] },
     );
     expect(result.classification).toBeDefined();
+  });
+});
+
+describe("a target whose privacy mailbox is on a public mail provider", () => {
+  const gmailTarget = (overrides: Partial<ClassifierRequest> = {}) =>
+    requestForTarget(
+      { id: "acme", domain: "acme.test", privacyEmail: "acme.privacy@gmail.com" },
+      overrides,
+    );
+  const personal = (overrides: Partial<InboxMessage> = {}): Partial<InboxMessage> => ({
+    inReplyTo: null,
+    subject: "Hello",
+    from: { name: "Someone", address: "someone.else@gmail.com" },
+    verifyDkim: signedAs("gmail.com"),
+    ...overrides,
+  });
+
+  it("does not match a personal Gmail message signed by gmail.com", async () => {
+    const result = await classify("Your data has been deleted.", personal(), [gmailTarget()]);
+    expect(result).toMatchObject({ requestId: null, correlation: null });
+  });
+
+  it("does not follow a confirmation link from another Gmail address while awaiting one", async () => {
+    const waiting = gmailTarget({
+      channel: "form",
+      awaitingConfirmation: {
+        fromDomains: [],
+        linkTextPattern: null,
+        since: "2026-10-01T10:00:00.000Z",
+      },
+    });
+    const result = await classify(
+      "",
+      personal({
+        subject: "Confirm your request",
+        text: "Please confirm your opt-out using the link below.",
+        html: '<p>Please confirm your opt-out using the link below.</p><a href="https://acme.test/confirm?t=1">Confirm</a>',
+      }),
+      [waiting],
+    );
+    expect(result.requestId).toBeNull();
+    expect(result.links).toEqual([]);
+  });
+
+  it("binds a signed reply from the exact privacy address that quotes the request", async () => {
+    const result = await classify(
+      "Your data has been deleted.",
+      personal({
+        from: { name: "Acme Privacy", address: "Acme.Privacy@gmail.com" },
+        inReplyTo: outgoingMessageId("req-1", "example.com"),
+        verifyDkim: signedAs("gmail.com", {
+          inReplyTo: [outgoingMessageId("req-1", "example.com")],
+        }),
+      }),
+      [gmailTarget()],
+    );
+    expect(result).toMatchObject({ requestId: "req-1", classification: "completed" });
+    expect(result.confidence).toBeGreaterThanOrEqual(0.6);
+  });
+
+  it("does not let the exact address vouch when the signature is another account's", async () => {
+    const result = await classify(
+      "Your data has been deleted.",
+      personal({
+        from: { name: "Acme Privacy", address: "acme.privacy@gmail.com" },
+        inReplyTo: outgoingMessageId("req-1", "example.com"),
+        verifyDkim: signedAs("evil.test", {
+          inReplyTo: [outgoingMessageId("req-1", "example.com")],
+        }),
+      }),
+      [gmailTarget()],
+    );
+    expect(result.confidence).toBeLessThan(0.6);
+  });
+
+  it("does not align a signature from the provider's regional domain", async () => {
+    const regional = requestForTarget({
+      id: "acme",
+      domain: "acme.test",
+      privacyEmail: "acme.privacy@yahoo.co.uk",
+    });
+    expect(regional.replyDomains).toEqual(["acme.test"]);
+    const result = await classify(
+      "Your data has been deleted.",
+      {
+        from: { name: "Someone", address: "someone.else@yahoo.co.uk" },
+        verifyDkim: signedAs("yahoo.co.uk", {
+          inReplyTo: [outgoingMessageId("req-1", "example.com")],
+        }),
+      },
+      [regional],
+    );
+    expect(result.confidence).toBeLessThan(0.6);
+  });
+});
+
+describe("a target that publishes an opt-out form on a shared platform", () => {
+  it("does not treat a d=google.com signature as aligned", async () => {
+    const target = requestForTarget({
+      id: "acme",
+      domain: "acme.test",
+      privacyEmail: null,
+      optOutUrl: "https://docs.google.com/forms/d/e/1",
+    });
+    expect(target.replyDomains).toEqual(["acme.test"]);
+    const result = await classify(
+      "Your data has been deleted.",
+      {
+        verifyDkim: signedAs("google.com", {
+          inReplyTo: [outgoingMessageId("req-1", "example.com")],
+        }),
+      },
+      [target],
+    );
+    expect(result.confidence).toBeLessThan(0.6);
+  });
+});
+
+describe("a confirmation sender that is a shared host", () => {
+  const calendarInvite = (overrides: Partial<InboxMessage> = {}): Partial<InboxMessage> => ({
+    inReplyTo: null,
+    subject: "Invitation: confirm your opt-out",
+    from: { name: "Google Calendar", address: "calendar-notification@google.com" },
+    text: "Please confirm your opt-out using the link below.",
+    html: '<p>Please confirm your opt-out using the link below.</p><a href="https://calendar.google.com/calendar/confirm?t=1">Confirm</a>',
+    verifyDkim: signedAs("google.com"),
+    ...overrides,
+  });
+  const waitingFor = (fromDomains: string[]) =>
+    requestForTarget(
+      { id: "acme", domain: "acme.test" },
+      {
+        channel: "form",
+        awaitingConfirmation: {
+          fromDomains,
+          linkTextPattern: null,
+          since: "2026-10-01T10:00:00.000Z",
+        },
+      },
+    );
+
+  it("is not matched or followed when a stored wait lists google.com as the sender", async () => {
+    const result = await classify("", calendarInvite(), [waitingFor(["google.com"])]);
+    expect(result).toMatchObject({ requestId: null, links: [] });
+  });
+
+  it("still matches the genuine sender listed beside it", async () => {
+    const result = await classify(
+      "",
+      calendarInvite({
+        from: { name: "Acme", address: "noreply@mail.acme.test" },
+        text: "Please confirm your opt-out using the link below.",
+        html: '<a href="https://acme.test/confirm?t=1">Confirm</a>',
+        verifyDkim: signedAs("acme.test"),
+      }),
+      [waitingFor(["google.com", "mail.acme.test"])],
+    );
+    expect(result).toMatchObject({ requestId: "req-1", classification: "confirmation_link" });
+    expect(result.links).toEqual(["https://acme.test/confirm?t=1"]);
+  });
+});
+
+describe("a target whose own domain is a shared platform", () => {
+  const googleTarget = (overrides: Partial<ClassifierRequest> = {}) =>
+    requestForTarget(
+      { id: "google", domain: "google.com", privacyEmail: "privacy@google.com" },
+      overrides,
+    );
+  const invite = (overrides: Partial<InboxMessage> = {}): Partial<InboxMessage> => ({
+    inReplyTo: null,
+    subject: "Invitation: confirm your opt-out",
+    from: { name: "Google Calendar", address: "calendar-notification@google.com" },
+    text: "Please confirm your opt-out using the link below.",
+    html: '<p>Please confirm your opt-out using the link below.</p><a href="https://calendar.google.com/calendar/confirm?t=1">Confirm</a>',
+    verifyDkim: signedAs("google.com"),
+    ...overrides,
+  });
+
+  it("does not match mail by sender domain alone", async () => {
+    const waiting = googleTarget({
+      channel: "form",
+      awaitingConfirmation: {
+        fromDomains: [],
+        linkTextPattern: null,
+        since: "2026-10-01T10:00:00.000Z",
+      },
+    });
+    const result = await classify("", invite(), [waiting]);
+    expect(result).toMatchObject({ requestId: null, correlation: null, links: [] });
+  });
+
+  it("does not correlate a plain reply by sender domain", async () => {
+    const result = await classify("Your data has been deleted.", invite({ subject: "Hello" }), [
+      googleTarget(),
+    ]);
+    expect(result).toMatchObject({ requestId: null, correlation: null });
+  });
+
+  it("sends a confirmation link signed but not bound to the request to review", async () => {
+    const result = await classify(
+      "",
+      invite({
+        inReplyTo: outgoingMessageId("req-1", "example.com"),
+        html: '<p>Please confirm your opt-out using the link below.</p><a href="https://google.com/confirm?t=1">Confirm</a>',
+      }),
+      [googleTarget()],
+    );
+    expect(result.requestId).toBe("req-1");
+    expect(result.confidence).toBeLessThan(0.6);
+  });
+
+  it("acts on a confirmation link whose signature binds it to the request", async () => {
+    const result = await classify(
+      "",
+      invite({
+        inReplyTo: outgoingMessageId("req-1", "example.com"),
+        html: '<p>Please confirm your opt-out using the link below.</p><a href="https://google.com/confirm?t=1">Confirm</a>',
+        verifyDkim: signedAs("google.com", {
+          inReplyTo: [outgoingMessageId("req-1", "example.com")],
+        }),
+      }),
+      [googleTarget()],
+    );
+    expect(result).toMatchObject({ requestId: "req-1", classification: "confirmation_link" });
+    expect(result.confidence).toBeGreaterThanOrEqual(0.6);
   });
 });

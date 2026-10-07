@@ -1,4 +1,4 @@
-import { recipes, requests } from "@kickrocks/db";
+import { recipes, requests, targets } from "@kickrocks/db";
 import type { FormResult } from "@kickrocks/shared";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -59,6 +59,19 @@ function finishForm(result: FormResult) {
   return task;
 }
 
+function curateReplyDomains(replyDomains: string[]) {
+  const row = ctx.services.targets.getOrThrow(targetId);
+  ctx.services.db
+    .update(targets)
+    .set({ data: { ...row.data, replyDomains } })
+    .where(eq(targets.id, targetId))
+    .run();
+}
+
+function confirmationOf(requestId: string) {
+  return eventsOf(requestId).find((event) => event.type === "awaiting_confirmation");
+}
+
 const requestOf = (id: string) => ctx.services.requests.getOrThrow(id);
 const eventsOf = (id: string) => ctx.services.requests.events(id);
 const statuses = (id: string) =>
@@ -99,7 +112,7 @@ describe("a form run that finished", () => {
   );
 
   it("waits for the broker's email and remembers who it will come from", () => {
-    seedTarget(ctx, { domain: "other.test" });
+    curateReplyDomains(["sister.test"]);
     ctx.services.db.delete(recipes).run();
     seedRecipe(ctx, targetId, {
       purpose: "remove",
@@ -112,17 +125,67 @@ describe("a form run that finished", () => {
       },
     });
     const { request } = openRemoval();
-    finishForm({ outcome: "awaiting_email_confirmation", confirmationFrom: "mail.other.test" });
+    finishForm({ outcome: "awaiting_email_confirmation", confirmationFrom: "mail.records.test" });
 
     expect(requestOf(request.id)).toMatchObject({
       status: "awaiting_reply",
       awaitingConfirmationSince: ctx.clock.now().toISOString(),
     });
-    expect(
-      eventsOf(request.id).find((event) => event.type === "awaiting_confirmation"),
-    ).toMatchObject({
-      payload: { fromDomains: ["sister.test", "mail.other.test"], linkTextPattern: "Confirm" },
+    expect(confirmationOf(request.id)).toMatchObject({
+      payload: { fromDomains: ["sister.test", "mail.records.test"], linkTextPattern: "Confirm" },
     });
+  });
+
+  it.each(["paypal.com", "linkedin.com", "intuit.com", "stripe.com", "other.test"])(
+    "drops %s as a sender the page named, since it is not the target's organization",
+    (confirmationFrom) => {
+      seedTarget(ctx, { domain: "other.test" });
+      for (const domain of ["paypal.com", "linkedin.com", "intuit.com", "stripe.com"]) {
+        seedTarget(ctx, { kind: "company", domain });
+      }
+      const { request } = openRemoval();
+      finishForm({ outcome: "awaiting_email_confirmation", confirmationFrom });
+      expect(confirmationOf(request.id)).toMatchObject({ payload: { fromDomains: [] } });
+    },
+  );
+
+  it("drops a shared host even when the target lists it", () => {
+    seedTarget(ctx, { domain: "gmail.com" });
+    const { request } = openRemoval();
+    finishForm({ outcome: "awaiting_email_confirmation", confirmationFrom: "gmail.com" });
+    expect(confirmationOf(request.id)).toMatchObject({ payload: { fromDomains: [] } });
+  });
+
+  it("keeps a sender on the target's own subdomain", () => {
+    const { request } = openRemoval();
+    finishForm({ outcome: "awaiting_email_confirmation", confirmationFrom: "Mail.Records.test" });
+    expect(confirmationOf(request.id)).toMatchObject({
+      payload: { fromDomains: ["mail.records.test"] },
+    });
+  });
+
+  it("keeps a sister domain that the target's curated reply domains list", () => {
+    curateReplyDomains(["sister.test"]);
+    const { request } = openRemoval();
+    finishForm({ outcome: "awaiting_email_confirmation", confirmationFrom: "sister.test" });
+    expect(confirmationOf(request.id)).toMatchObject({ payload: { fromDomains: ["sister.test"] } });
+  });
+
+  it("drops a recipe step sender that is neither the target's organization nor curated", () => {
+    ctx.services.db.delete(recipes).run();
+    seedRecipe(ctx, targetId, {
+      purpose: "remove",
+      definition: {
+        steps: [
+          { kind: "goto", url: "https://records.test/optout" },
+          { kind: "email_confirmation", fromDomain: "sister.test" },
+          { kind: "expect_text", text: "request received" },
+        ],
+      },
+    });
+    const { request } = openRemoval();
+    finishForm({ outcome: "awaiting_email_confirmation" });
+    expect(confirmationOf(request.id)).toMatchObject({ payload: { fromDomains: [] } });
   });
 
   it.each(["com", "co.uk", "gmail.com"])(
@@ -136,13 +199,46 @@ describe("a form run that finished", () => {
     },
   );
 
-  it("uses what the page said when the recipe names no sender", () => {
-    seedTarget(ctx, { domain: "other.test" });
+  it("drops a shared platform that a stored recipe step or the page named as the sender", () => {
+    seedTarget(ctx, { domain: "google.com" });
+    ctx.services.db.delete(recipes).run();
+    const stored = seedRecipe(ctx, targetId, {
+      purpose: "remove",
+      definition: {
+        steps: [
+          { kind: "goto", url: "https://records.test/optout" },
+          { kind: "email_confirmation", fromDomain: "sister.test" },
+          { kind: "expect_text", text: "request received" },
+        ],
+      },
+    });
+    ctx.services.db
+      .update(recipes)
+      .set({
+        definition: {
+          ...stored.definition,
+          steps: stored.definition.steps.map((step) =>
+            step.kind === "email_confirmation"
+              ? { ...step, fromDomain: "accounts.google.com" }
+              : step,
+          ),
+        },
+      })
+      .where(eq(recipes.id, stored.id))
+      .run();
     const { request } = openRemoval();
-    finishForm({ outcome: "awaiting_email_confirmation", confirmationFrom: "mail.other.test" });
+    finishForm({ outcome: "awaiting_email_confirmation", confirmationFrom: "google.com" });
     expect(
       eventsOf(request.id).find((event) => event.type === "awaiting_confirmation"),
-    ).toMatchObject({ payload: { fromDomains: ["mail.other.test"], linkTextPattern: null } });
+    ).toMatchObject({ payload: { fromDomains: [] } });
+  });
+
+  it("uses what the page said when the recipe names no sender", () => {
+    const { request } = openRemoval();
+    finishForm({ outcome: "awaiting_email_confirmation", confirmationFrom: "mail.records.test" });
+    expect(confirmationOf(request.id)).toMatchObject({
+      payload: { fromDomains: ["mail.records.test"], linkTextPattern: null },
+    });
   });
 
   it("is waiting for a confirmation only while the request is awaiting a reply", () => {

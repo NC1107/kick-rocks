@@ -126,7 +126,7 @@ export async function parseInboxMessage({
     headers,
     verifyDkim:
       dkim && hasDkimSignature(source)
-        ? (scope) => dkim.verifiedDomains(source, scope)
+        ? (domains) => dkim.verifiedSignatures(source, domains)
         : async () => [],
   };
 }

@@ -707,6 +707,26 @@ describe("task actions", () => {
       ).toMatchObject({ actor: "user", payload: { action: "retry_task" } });
     });
 
+    it("refuses to retry a failed site check while site checks are off, and retries it once on", async () => {
+      const recipe = seedRecipe(ctx, targetId, { purpose: "scan" });
+      const failed = seedTask(ctx, {
+        kind: "canary",
+        payload: { recipeId: recipe.id },
+        status: "failed",
+        dedupeKey: `canary:${recipe.id}`,
+      });
+      expect(await call(API_ROUTES.taskRetry, failed.id)).toMatchObject({
+        ok: false,
+        status: 409,
+        body: { error: "site_checks_off" },
+      });
+
+      ctx.services.settings.set("auth.passwordHash", "hash");
+      ctx.services.settings.set("siteChecks.enabled", true);
+      const result = await call(API_ROUTES.taskRetry, failed.id);
+      expect(result.ok && result.body.task).toMatchObject({ kind: "canary", status: "queued" });
+    });
+
     it("keeps a verification reply a verification reply", async () => {
       const target = seedTarget(ctx);
       const request = seedRequest(ctx, {

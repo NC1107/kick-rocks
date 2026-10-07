@@ -77,6 +77,7 @@ export const SETTING_SCHEMAS = {
   "auth.passwordHash": z.string().nullable().default(null),
   "mcp.tokenHash": z.string().nullable().default(null),
   "mcp.enabled": z.boolean().default(false),
+  "siteChecks.enabled": z.boolean().default(false),
   schedule: ScheduleSettings.default(ScheduleSettings.parse({})),
   llm: LlmSettings.nullable().default(null),
   retention: RetentionSettings.default(RetentionSettings.parse({})),
@@ -102,6 +103,8 @@ export const SettingsView = z.object({
     /** Where an MCP client connects, built from KICKROCKS_PUBLIC_URL. */
     url: WebUrl,
   }),
+  /** Whether the worker may open real broker sites on its own to check that the recipes still work. */
+  siteChecks: z.object({ enabled: z.boolean() }),
   agent: z.object({
     /** Lets the agent worker take a site whose bundled recipe has not been approved yet. */
     takeUnreviewed: z.boolean(),
@@ -130,6 +133,7 @@ export const SettingsPatch = z.object({
     .nullable()
     .optional(),
   mcp: z.object({ enabled: z.boolean() }).optional(),
+  siteChecks: z.object({ enabled: z.boolean() }).optional(),
   agent: z.object({ takeUnreviewed: z.boolean() }).optional(),
 });
 export type SettingsPatch = z.infer<typeof SettingsPatch>;

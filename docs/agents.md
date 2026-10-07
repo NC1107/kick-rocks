@@ -144,6 +144,9 @@ A scan task reports the records it found, and a removal task reports how the for
 ```
 
 The form outcomes are `submitted`, `awaiting_email_confirmation`, `not_found`, and `already_removed`.
+`confirmationFrom` is accepted only when it is the target's own organization (the same organizational domain as the target's domain, over the public suffix list) or a sister domain the dataset curates for that target in `replyDomains`.
+Any other value is dropped, including another broker's domain and platforms such as paypal.com, and a shared mail host is never accepted.
+A dropped sender means no confirmation email will be matched to the request, so name the sender only when the page names it.
 A scan never removes anything.
 It only finds candidates, and a person confirms which are theirs before any removal starts.
 
@@ -243,7 +246,8 @@ It uses its own Chrome profile, since two browsers cannot share one.
 
 ### Start it
 
-With Docker, set the model in `.env` and start the `agent` profile.
+With Docker, set the model in `.env` and add `agent` to `COMPOSE_PROFILES` there, next to `worker`.
+A `--profile` flag on the command line replaces `COMPOSE_PROFILES`, so use the variable and not the flag, and later `docker compose up -d --build` updates keep the agent worker.
 The settings are listed in `.env.example`.
 
 ```sh
@@ -251,7 +255,7 @@ The settings are listed in `.env.example`.
 KICKROCKS_AGENT_MODEL=<an Ollama model that supports tools>
 KICKROCKS_AGENT_BASE_URL=http://host.docker.internal:11434/v1
 
-docker compose --profile agent up -d --build
+docker compose up -d --build
 ```
 
 From a checkout, build once, then run it with the same variables exported.

@@ -29,6 +29,7 @@ export async function runWorker(options: WorkerOptions): Promise<void> {
       profileDir: config.chromeProfileDir,
       headless: config.headless,
       noSandbox: config.noSandbox,
+      proxyServer: config.proxyServer,
       executablePath: config.chromeExecutable,
     },
     logger,

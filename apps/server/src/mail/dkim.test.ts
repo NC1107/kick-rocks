@@ -1,23 +1,32 @@
 import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import { BODY, KEY_RECORD, servingKeysFor, signed, unsigned } from "../test-utils/dkim.js";
-import { createDkimVerifier, type DnsResolver } from "./dkim.js";
-import type { DkimScope } from "./types.js";
+import type { DkimVerifier } from "./dkim.js";
+import { createDkimVerifier, type DnsResolver, withDeadline } from "./dkim.js";
+import type { VerifiedSignature } from "./types.js";
 
-const SCOPE: DkimScope = { domains: ["acme.test", "evil.test"], recipient: "jordan@example.com" };
+const DOMAINS = ["acme.test", "evil.test"];
+
+const signatures = (verifier: DkimVerifier, message: string | Buffer) =>
+  verifier.verifiedSignatures(Buffer.from(message), DOMAINS);
+
+const names = async (verifier: DkimVerifier, message: string | Buffer) =>
+  (await signatures(verifier, message)).map((signature: VerifiedSignature) => signature.domain);
 
 const verify = (
   message: string,
   resolver: DnsResolver = servingKeysFor("acme.test", "evil.test"),
-) => createDkimVerifier({ resolver, timeoutMs: 500 }).verifiedDomains(Buffer.from(message), SCOPE);
+) => names(createDkimVerifier({ resolver, timeoutMs: 500 }), message);
 
-describe("verifiedDomains", () => {
+describe("verifiedSignatures", () => {
   it("names the signing domain of a valid signature", async () => {
     expect(await verify(await signed(unsigned()))).toEqual(["acme.test"]);
   });
 
   it("names every domain whose signature verifies", async () => {
-    const twice = await signed(await signed(unsigned()), { domain: "evil.test" });
+    const twice = await signed(await signed(unsigned()), {
+      domain: "evil.test",
+    });
     expect((await verify(twice)).sort()).toEqual(["acme.test", "evil.test"]);
   });
 
@@ -67,9 +76,7 @@ describe("verifiedDomains", () => {
     const hanging: DnsResolver = () => new Promise(() => {});
     const started = Date.now();
     const verifier = createDkimVerifier({ resolver: hanging, timeoutMs: 50 });
-    expect(await verifier.verifiedDomains(Buffer.from(await signed(unsigned())), SCOPE)).toEqual(
-      [],
-    );
+    expect(await names(verifier, await signed(unsigned()))).toEqual([]);
     expect(Date.now() - started).toBeLessThan(2_000);
   });
 
@@ -83,7 +90,7 @@ describe("verifiedDomains", () => {
       testKeys: { "kr._domainkey.acme.test": KEY_RECORD },
     });
     const message = await signed(unsigned());
-    expect(await verifier.verifiedDomains(Buffer.from(message), SCOPE)).toEqual(["acme.test"]);
+    expect(await names(verifier, message)).toEqual(["acme.test"]);
   });
 
   it("asks DNS once for a key it saw a moment ago", async () => {
@@ -94,8 +101,8 @@ describe("verifiedDomains", () => {
     };
     const verifier = createDkimVerifier({ resolver: counting });
     const message = Buffer.from(await signed(unsigned()));
-    await verifier.verifiedDomains(message, SCOPE);
-    await verifier.verifiedDomains(message, SCOPE);
+    await names(verifier, message);
+    await names(verifier, message);
     expect(lookups).toBe(1);
   });
 
@@ -108,8 +115,8 @@ describe("verifiedDomains", () => {
     };
     const verifier = createDkimVerifier({ resolver: flaky });
     const message = Buffer.from(await signed(unsigned()));
-    expect(await verifier.verifiedDomains(message, SCOPE)).toEqual([]);
-    expect(await verifier.verifiedDomains(message, SCOPE)).toEqual(["acme.test"]);
+    expect(await names(verifier, message)).toEqual([]);
+    expect(await names(verifier, message)).toEqual(["acme.test"]);
   });
 
   it("refuses an rsa-sha1 signature without looking up its key", async () => {
@@ -126,73 +133,49 @@ describe("verifiedDomains", () => {
     expect(asked).toEqual([]);
   });
 
-  it("names nothing when the signature does not cover the recipients", async () => {
-    const message = await signed(unsigned(), { headerList: ["from", "subject", "date"] });
-    expect(await verify(message)).toEqual([]);
-  });
+  describe("the headers a signature covers", () => {
+    const ID = "<kr.req-1.0@example.com>";
+    const withHeaders = (...lines: string[]) => unsigned(BODY, "privacy@acme.test", lines);
+    const read = async (message: string) =>
+      (await signatures(createDkimVerifier({ resolver: servingKeysFor("acme.test") }), message))[0];
 
-  it("names nothing when the signed To is someone else", async () => {
-    const message = await signed(unsigned().replace("jordan@example.com", "casey@example.org"));
-    expect(await verify(message)).toEqual([]);
-  });
-
-  it("accepts a mailbox that is only on the signed Cc", async () => {
-    const message = await signed(
-      unsigned().replace(
-        "To: jordan@example.com",
-        "To: casey@example.org\r\nCc: jordan@example.com",
-      ),
-    );
-    expect(await verify(message)).toEqual(["acme.test"]);
-  });
-
-  it("names nothing when a Cc is present and the signature leaves it out", async () => {
-    const message = await signed(
-      unsigned().replace(
-        "To: jordan@example.com",
-        "To: jordan@example.com\r\nCc: casey@example.org",
-      ),
-      { headerList: ["from", "to", "subject", "date", "message-id"] },
-    );
-    expect(await verify(message)).toEqual([]);
-  });
-
-  it("reads the To the signature covers, which is the bottom-most one", async () => {
-    const message = await signed(unsigned().replace("jordan@example.com", "casey@example.org"));
-    expect(await verify(`To: jordan@example.com\r\n${message}`)).toEqual([]);
-  });
-
-  describe("with non-ASCII recipients", () => {
-    const withTo = (to: string) => unsigned().replace("To: jordan@example.com", `To: ${to}`);
-    const verifyFor = (message: string, recipient: string) =>
-      createDkimVerifier({ resolver: servingKeysFor("acme.test"), timeoutMs: 500 }).verifiedDomains(
-        Buffer.from(message, "utf8"),
-        { ...SCOPE, recipient },
+    it("reports the signed In-Reply-To, References, and Subject", async () => {
+      const message = await signed(
+        withHeaders(`In-Reply-To: ${ID}`, `References: <a@x.test> ${ID}`),
       );
-
-    it("names nothing when the signed To is a UTF-8 lookalike of the mailbox", async () => {
-      const message = await signed(withTo("jordan@exa\u016Dple.com"));
-      expect(await verifyFor(message, "jordan@example.com")).toEqual([]);
+      expect(await read(message)).toEqual({
+        domain: "acme.test",
+        inReplyTo: [ID],
+        references: [`<a@x.test> ${ID}`],
+        subject: ["Your privacy request"],
+      });
     });
 
-    it("names nothing when the signed To is the punycode form of a lookalike", async () => {
-      const message = await signed(withTo("jordan@xn--exaple-rmb.com"));
-      expect(await verifyFor(message, "jordan@example.com")).toEqual([]);
+    it("reports nothing for a header the signature does not list", async () => {
+      const message = await signed(withHeaders(`In-Reply-To: ${ID}`), {
+        headerList: ["from", "to", "subject", "date", "message-id"],
+      });
+      expect((await read(message))?.inReplyTo).toEqual([]);
     });
 
-    it("names nothing when only the local part differs by a non-ASCII letter", async () => {
-      const message = await signed(withTo("j\u00D6rdan@example.com"));
-      expect(await verifyFor(message, "j\u00F6rdan@example.com")).toEqual([]);
+    it("reads the instance the signature covers, which is the bottom-most one", async () => {
+      const message = await signed(unsigned());
+      const forged = `Subject: forged KR-2B4C6D\r\nIn-Reply-To: <forged@x.test>\r\n${message}`;
+      const signature = await read(forged);
+      expect(signature?.subject).toEqual(["Your privacy request"]);
+      expect(signature?.inReplyTo).toEqual([]);
     });
 
-    it("accepts a UTF-8 address that equals the mailbox", async () => {
-      const message = await signed(withTo("jordan@exa\u016Dple.com"));
-      expect(await verifyFor(message, "jordan@exa\u016Dple.com")).toEqual(["acme.test"]);
-    });
-
-    it("accepts the punycode form of the mailbox domain", async () => {
-      const message = await signed(withTo("jordan@xn--exaple-rmb.com"));
-      expect(await verifyFor(message, "jordan@exa\u016Dple.com")).toEqual(["acme.test"]);
+    it("removes folding and decodes nothing else", async () => {
+      const message = await signed(
+        withHeaders(
+          "In-Reply-To: <a@x.test>\r\n <kr.req-1.0@example.com>",
+          "References: =?utf-8?Q?<kr.x>?=",
+        ),
+      );
+      const signature = await read(message);
+      expect(signature?.inReplyTo).toEqual(["<a@x.test> <kr.req-1.0@example.com>"]);
+      expect(signature?.references).toEqual(["=?utf-8?Q?<kr.x>?="]);
     });
   });
 
@@ -215,7 +198,7 @@ describe("verifiedDomains", () => {
       ).join("");
       const verifier = createDkimVerifier({ resolver, timeoutMs: 500 });
       const message = await signed(unsigned(), { domain: "other.test" });
-      expect(await verifier.verifiedDomains(Buffer.from(noise + message), SCOPE)).toEqual([]);
+      expect(await names(verifier, noise + message)).toEqual([]);
       expect(asked).toEqual([]);
     });
 
@@ -228,9 +211,7 @@ describe("verifiedDomains", () => {
       ).join("");
       const verifier = createDkimVerifier({ resolver, timeoutMs: 500 });
       const message = await signed(unsigned());
-      expect(await verifier.verifiedDomains(Buffer.from(noise + message), SCOPE)).toEqual([
-        "acme.test",
-      ]);
+      expect(await names(verifier, noise + message)).toEqual(["acme.test"]);
       expect(asked).toEqual(["kr._domainkey.acme.test"]);
     });
 
@@ -240,7 +221,7 @@ describe("verifiedDomains", () => {
       let message = unsigned();
       for (const domain of subdomains) message = await signed(message, { domain });
       const verifier = createDkimVerifier({ resolver, timeoutMs: 500 });
-      const verified = await verifier.verifiedDomains(Buffer.from(message), SCOPE);
+      const verified = await names(verifier, message);
       expect(asked).toHaveLength(5);
       expect(verified).toHaveLength(5);
     });
@@ -256,9 +237,27 @@ describe("verifiedDomains", () => {
         );
       };
       const verifier = createDkimVerifier({ resolver: slow, timeoutMs: 40 });
-      const message = await signed(await signed(unsigned()), { domain: "evil.test" });
-      expect(await verifier.verifiedDomains(Buffer.from(message), SCOPE)).toEqual([]);
+      const message = await signed(await signed(unsigned()), {
+        domain: "evil.test",
+      });
+      expect(await names(verifier, message)).toEqual([]);
       await new Promise((resolve) => setTimeout(resolve, 300));
+      expect(lookups).toBe(1);
+    });
+
+    it("refuses a lookup once the timer has fired, even when the clock still reads before the deadline", async () => {
+      let lookups = 0;
+      const hanging: DnsResolver = () => {
+        lookups += 1;
+        return new Promise(() => {});
+      };
+      const lagging = withDeadline(hanging, 1_000, () => 999);
+      await expect(lagging("a._domainkey.acme.test", "TXT")).rejects.toMatchObject({
+        code: "ETIMEOUT",
+      });
+      await expect(lagging("b._domainkey.acme.test", "TXT")).rejects.toMatchObject({
+        code: "ETIMEOUT",
+      });
       expect(lookups).toBe(1);
     });
 
@@ -274,10 +273,10 @@ describe("verifiedDomains", () => {
         runBudgetMs: 40,
       }).forRun();
       const message = Buffer.from(await signed(unsigned()));
-      expect(await run.verifiedDomains(message, SCOPE)).toEqual([]);
+      expect(await names(run, message)).toEqual([]);
       const spent = lookups;
       const started = Date.now();
-      expect(await run.verifiedDomains(message, SCOPE)).toEqual([]);
+      expect(await names(run, message)).toEqual([]);
       expect(lookups).toBe(spent);
       expect(Date.now() - started).toBeLessThan(30);
     });

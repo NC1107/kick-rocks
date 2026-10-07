@@ -2,12 +2,17 @@ import { existsSync } from "node:fs";
 import fastifyCookie from "@fastify/cookie";
 import fastifyStatic from "@fastify/static";
 import { type OpenedDatabase, openDatabase } from "@kickrocks/db";
-import Fastify, { type FastifyInstance } from "fastify";
+import Fastify, {
+  type FastifyError,
+  type FastifyInstance,
+  type FastifyReply,
+  type FastifyRequest,
+} from "fastify";
 import type { Config } from "./config.js";
 import { registerGuards } from "./core/guard.js";
 import { registerHealth } from "./core/health.js";
 import { createHostPolicy } from "./core/hosts.js";
-import { installErrorHandling } from "./core/http.js";
+import { frameworkErrorResponse, installErrorHandling } from "./core/http.js";
 import { registerModules } from "./modules/index.js";
 import { registerScheduler } from "./scheduler/index.js";
 import type { AppServices } from "./services.js";
@@ -39,14 +44,26 @@ const CONTENT_SECURITY_POLICY = [
   "object-src 'none'",
 ].join("; ");
 
+function setSecurityHeaders(reply: FastifyReply): void {
+  reply
+    .header("x-content-type-options", "nosniff")
+    .header("referrer-policy", "no-referrer")
+    .header("x-frame-options", "DENY")
+    .header("content-security-policy", CONTENT_SECURITY_POLICY);
+}
+
 function registerSecurityHeaders(server: FastifyInstance): void {
-  server.addHook("onSend", async (_request, reply) => {
-    reply
-      .header("x-content-type-options", "nosniff")
-      .header("referrer-policy", "no-referrer")
-      .header("x-frame-options", "DENY")
-      .header("content-security-policy", CONTENT_SECURITY_POLICY);
-  });
+  server.addHook("onSend", async (_request, reply) => setSecurityHeaders(reply));
+}
+
+/**
+ * Fastify answers a request it cannot route, such as a malformed URL, before any hook runs, so
+ * its raw error and the missing security headers need this handler.
+ */
+function answerFrameworkError(error: FastifyError, _request: FastifyRequest, reply: FastifyReply) {
+  setSecurityHeaders(reply);
+  const { status, body } = frameworkErrorResponse(error);
+  return reply.code(status).send(body);
 }
 
 export async function buildApp({ services, database, version }: AppContext): Promise<App> {
@@ -54,6 +71,7 @@ export async function buildApp({ services, database, version }: AppContext): Pro
   const { trustProxy } = config;
   const server = Fastify({
     loggerInstance: services.logger,
+    frameworkErrors: answerFrameworkError,
     trustProxy: typeof trustProxy === "number" ? (_address, hop) => hop < trustProxy : trustProxy,
   });
 

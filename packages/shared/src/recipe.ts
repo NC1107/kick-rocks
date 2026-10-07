@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { ProfileField } from "./identities.js";
+import { isSharedMailHost } from "./mail-hosts.js";
 import { BlockedReason, FormOutcome } from "./outcomes.js";
 import { templateFields, templateProblem } from "./template.js";
 import { WebUrl } from "./url.js";
@@ -211,7 +212,13 @@ const OutcomeWhen = step("outcome_when", {
 });
 const CaptchaCheckpoint = step("captcha_checkpoint", {});
 const EmailConfirmation = step("email_confirmation", {
-  fromDomain: z.string().min(1),
+  fromDomain: z
+    .string()
+    .min(1)
+    .refine(
+      (host) => !isSharedMailHost(host),
+      "a shared mail host cannot vouch for a confirmation",
+    ),
   linkTextPattern: z.string().optional(),
 });
 

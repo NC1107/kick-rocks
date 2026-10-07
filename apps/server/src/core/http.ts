@@ -121,3 +121,22 @@ export function installErrorHandling(app: FastifyInstance): void {
     return reply.code(500).send({ error: "internal_error" });
   });
 }
+
+/**
+ * The status and body for an error Fastify raised before routing, in the shape of the rest of the
+ * API. The message is fixed, because Fastify's own text repeats the request path.
+ */
+export function frameworkErrorResponse(error: { statusCode?: number }): {
+  status: number;
+  body: { error: string; message?: string };
+} {
+  const status = error.statusCode !== undefined && error.statusCode < 500 ? error.statusCode : 500;
+  if (status === 500) return { status, body: { error: "internal_error" } };
+  return {
+    status,
+    body: {
+      error: CODE_BY_STATUS[status] ?? "invalid_request",
+      message: "The request could not be processed",
+    },
+  };
+}

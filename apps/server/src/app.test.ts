@@ -72,6 +72,21 @@ describe("security headers", () => {
   });
 });
 
+describe("framework errors", () => {
+  it("answer a malformed URL in the API error shape with the security headers", async () => {
+    const response = await ctx.app.inject({ url: "/%c0" });
+    expect(response.statusCode).toBe(400);
+    expect(response.json()).toEqual({
+      error: "invalid_request",
+      message: "The request could not be processed",
+    });
+    expect(response.body).not.toContain("FST_ERR");
+    expect(response.headers["x-content-type-options"]).toBe("nosniff");
+    expect(response.headers["referrer-policy"]).toBe("no-referrer");
+    expect(String(response.headers["content-security-policy"])).toContain("default-src 'self'");
+  });
+});
+
 describe("unknown routes", () => {
   it("answer with json 404 under /api and /mcp for an authorized caller", async () => {
     for (const response of [

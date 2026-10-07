@@ -342,6 +342,54 @@ describe("the agent claim loop", () => {
     expect(clicked).toBe(true);
   });
 
+  it("counts a flagged heartbeat the interval timer got acknowledged as the record", async () => {
+    const api = fakeApi([agentTask()]);
+    let flagged = 0;
+    api.taskHeartbeat.mockImplementation((async (_id: string, _lease: number, flag?: boolean) => {
+      if (!flag) return { leaseExpiresAt: "2026-10-07T00:10:00.000Z" };
+      const call = ++flagged;
+      if (call === 1) {
+        await new Promise((resolve) => setTimeout(resolve, 60));
+        throw new WorkerApiError(503, "unavailable", "down");
+      }
+      if (call > 2) throw new WorkerApiError(503, "unavailable", "down");
+      return { leaseExpiresAt: "2026-10-07T00:10:00.000Z" };
+    }) as never);
+    let clicked = false;
+    const executor: AgentExecutor = async (_task, _signal, progress) => {
+      await progress?.mayHaveSubmitted();
+      clicked = true;
+      return { kind: "complete", result: {}, usage: {} };
+    };
+    await drive(api, executor, () => api.complete.mock.calls.length > 0);
+    expect(clicked).toBe(true);
+  });
+
+  it("lets the click through when an interval heartbeat records the flag while a non-transient failure was pending", async () => {
+    const api = fakeApi([agentTask()]);
+    let flagged = 0;
+    api.taskHeartbeat.mockImplementation((async (_id: string, _lease: number, flag?: boolean) => {
+      if (!flag) return { leaseExpiresAt: "2026-10-07T00:10:00.000Z" };
+      if (++flagged === 1) {
+        await new Promise((resolve) => setTimeout(resolve, 80));
+        throw new WorkerApiError(400, "bad_request", "no");
+      }
+      return { leaseExpiresAt: "2026-10-07T00:10:00.000Z" };
+    }) as never);
+    let clicked = false;
+    const executor: AgentExecutor = async (_task, _signal, progress) => {
+      try {
+        await progress?.mayHaveSubmitted();
+        clicked = true;
+      } catch {
+        clicked = false;
+      }
+      return { kind: "complete", result: {}, usage: {} };
+    };
+    await drive(api, executor, () => api.complete.mock.calls.length > 0);
+    expect(clicked).toBe(true);
+  });
+
   it("tells the browser which profiles still exist while idle, and never deletes on a silent server", async () => {
     const keepProfiles = vi.fn(async () => undefined);
     const withList = fakeApi([null, null]);

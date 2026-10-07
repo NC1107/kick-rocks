@@ -51,7 +51,7 @@ export function ResetCard() {
       <RowGroup>
         <ActionRow
           title="Delete all data"
-          description="Removes every profile, request, and setting. Cannot be undone."
+          description="Removes every profile and everything about it, stops running tasks, and clears your settings, language model key, agent token, and notification tokens and schedule. Your sign-in password and the broker list stay. This cannot be undone, and requests already sent cannot be recalled."
         >
           <Button variant="danger" onClick={() => setOpen(true)}>
             Delete all data

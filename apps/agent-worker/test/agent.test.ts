@@ -1,8 +1,16 @@
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { INSTANT_PACE } from "@kickrocks/recipes";
 import { MAX_SCREENSHOT_BYTES, resultSchemaFor, TaskBlockReport } from "@kickrocks/shared";
-import { BROWSER_CONTEXT_OPTIONS } from "@kickrocks/worker/dist/browser.js";
+import {
+  BROWSER_CONTEXT_OPTIONS,
+  clearServiceWorkers,
+  findInstalledChrome,
+  launchPersistentChrome,
+} from "@kickrocks/worker/dist/browser.js";
 import { SubmitNotRecorded } from "@kickrocks/worker/dist/executor.js";
-import type { Browser, BrowserContext } from "playwright";
+import { type Browser, type BrowserContext, chromium } from "playwright";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { type AgentOutcome, runAgentTask } from "../src/agent.js";
 import type { AgentLimits } from "../src/config.js";
@@ -488,6 +496,134 @@ describeBrowser("the rules the code enforces", () => {
     expect(submissions.filter((entry) => entry.host === "localhost")).toEqual([]);
   });
 
+  describe("with a service worker an earlier visit left in the profile", () => {
+    let profileDir: string;
+    const executablePath = process.env.KICKROCKS_CHROME_EXECUTABLE ?? findInstalledChrome();
+    const settings = () => ({
+      profileDir,
+      headless: true,
+      noSandbox: false,
+      executablePath: executablePath ?? null,
+    });
+
+    beforeEach(async () => {
+      profileDir = await mkdtemp(join(tmpdir(), "kickrocks-sw-"));
+    });
+
+    afterAll(async () => {
+      await context?.close().catch(() => undefined);
+    });
+
+    async function registerWithoutTheBlock(path: string): Promise<void> {
+      const earlier = await chromium.launchPersistentContext(profileDir, {
+        headless: true,
+        serviceWorkers: "allow",
+        ...(executablePath ? { executablePath } : {}),
+      });
+      const page = await earlier.newPage();
+      await page.goto(`${OFFSITE}${path}`);
+      await page.waitForFunction("document.title === 'Worker ready'", undefined, {
+        timeout: 10_000,
+      });
+      await earlier.close();
+    }
+
+    async function postsNothingToTheOtherSite(): Promise<void> {
+      await run([
+        navigate("/sw-form"),
+        (v) => ({ calls: [["type", { ref: v.ref("First name"), field: "first_name" }]] }),
+        (v) => ({ calls: [["click", { ref: v.ref("Submit request") }]] }),
+        { calls: [["report", { status: "release" }]] },
+      ]);
+      const { submissions } = await fixtureState();
+      expect(submissions.filter((entry) => entry.host === "localhost")).toEqual([]);
+    }
+
+    it("forgets the worker when the real launcher starts the profile again", async () => {
+      await registerWithoutTheBlock("/sw-register");
+      await context.close();
+      context = await launchPersistentChrome(settings());
+      await postsNothingToTheOtherSite();
+    });
+
+    it("keeps a worker a page registers by the prototype from installing or answering", async () => {
+      await relaunchWithAWorkerRegistered();
+      await postsNothingToTheOtherSite();
+    });
+
+    async function relaunchWithAWorkerRegistered(
+      guardOptions?: Parameters<typeof launchPersistentChrome>[1],
+    ): Promise<void> {
+      await context.close();
+      context = await launchPersistentChrome(settings(), guardOptions);
+      const registering = await context.newPage();
+      await registering.goto(`${OFFSITE}/sw-evade`);
+      const outcome = guardOptions?.allowServiceWorkerScripts ? "Worker ready" : "Worker refused";
+      await registering.waitForFunction(
+        `document.title.startsWith(${JSON.stringify(outcome)})`,
+        undefined,
+        { timeout: 10_000 },
+      );
+      await registering.close();
+    }
+
+    async function submitsFrom(path: string): Promise<void> {
+      await run([
+        navigate(path),
+        (v) => ({ calls: [["type", { ref: v.ref("First name"), field: "first_name" }]] }),
+        (v) => ({ calls: [["click", { ref: v.ref("Submit request") }]] }),
+        { calls: [["report", { status: "release" }]] },
+      ]);
+      const { submissions } = await fixtureState();
+      expect(submissions.filter((entry) => entry.path === "/leak")).toEqual([]);
+    }
+
+    it.each([
+      "/sw-popup-form",
+      "/sw-popup-blank",
+      "/sw-popup-named",
+      "/sw-popup-open-first",
+      "/sw-popup-flood",
+    ])("keeps a worker from answering a form that posts into a new tab (%s)", async (path) => {
+      await relaunchWithAWorkerRegistered();
+      await submitsFrom(path);
+    });
+
+    it("does not depend on how fast the guard reaches a new tab", async () => {
+      await relaunchWithAWorkerRegistered({ holdDelayMs: 1_500 });
+      await submitsFrom("/sw-popup-blank");
+    });
+
+    it("leaves no worker registered when the browser is reused for the next task", async () => {
+      await relaunchWithAWorkerRegistered({ allowServiceWorkerScripts: true });
+      const countRegistrations = async (): Promise<number> => {
+        const probe = await context.newPage();
+        await probe.goto(`${OFFSITE}/offsite`);
+        const count = (await probe.evaluate(
+          "navigator.serviceWorker.getRegistrations().then((all) => all.length)",
+        )) as number;
+        await probe.close();
+        return count;
+      };
+      expect(await countRegistrations()).toBe(1);
+      await clearServiceWorkers(context);
+      expect(await countRegistrations()).toBe(0);
+    });
+
+    it("deletes the profile's service worker storage on launch", async () => {
+      await registerWithoutTheBlock("/sw-register");
+      await context.close();
+      context = await launchPersistentChrome(settings());
+      const probe = await context.newPage();
+      await probe.goto(`${OFFSITE}/offsite`);
+      const registrations = await probe.evaluate(
+        "navigator.serviceWorker.getRegistrations().then((all) => all.length)",
+      );
+      expect(registrations).toBe(0);
+      await rm(profileDir, { recursive: true, force: true });
+    });
+  });
+
   it("blocks a redirect that leaves the domain", async () => {
     const { provider } = await run([
       navigate("/optout"),
@@ -695,6 +831,22 @@ describeBrowser("the final report", () => {
     if (outcome.report.kind !== "complete") return;
     expect(JSON.stringify(outcome.report.result)).not.toMatch(/Jordan|jordan\.example/);
     expect(JSON.stringify(outcome.report.result)).toContain("{{email}}");
+  });
+
+  it("hides values that a return address carries percent-encoded twice from the model", async () => {
+    const task = agentTask({
+      fields: {
+        ...PERSON,
+        email: "pk1977@mail.test",
+        street: "742 Evergreen Terrace",
+        last_name: "O'Neil",
+      },
+    });
+    const { provider } = await run([navigate("/return-link"), { calls: [["snapshot"]] }], { task });
+    const seen = provider.requests[1]?.messages.at(-1);
+    const snapshot = seen?.role === "tool" ? (seen.results[0]?.content ?? "") : "";
+    expect(snapshot).toContain("login?next=");
+    expect(snapshot).not.toMatch(/pk1977|Evergreen|Neil/i);
   });
 
   /** Builds a candidate the way a model does, from the masked text of the snapshot it was given. */
@@ -1526,8 +1678,82 @@ describeBrowser("telling the worker that a removal may have been submitted", () 
         seen.push((await fixtureState()).submissions.length);
       },
     });
-    expect(seen).toEqual([0]);
+    expect(seen).toEqual([0, 0, 0, 0, 0, 0]);
     expect((await fixtureState()).submissions).toHaveLength(1);
+  });
+
+  it("records a choice or a tick before it is made, because a page may submit on change", async () => {
+    const onMayHaveSubmitted = vi.fn(async () => undefined);
+    await run(
+      [
+        navigate("/optout"),
+        (v) => ({ calls: [["select", { ref: v.ref("State"), field: "state" }]] }),
+        (v) => ({ calls: [["check", { ref: v.ref("I agree") }]] }),
+        { calls: [["report", { status: "release" }]] },
+      ],
+      { onMayHaveSubmitted },
+    );
+    expect(onMayHaveSubmitted).toHaveBeenCalledTimes(2);
+  });
+
+  it("records typing into a field whose change event submits the form, before the page can send it", async () => {
+    const seen: number[] = [];
+    await run(
+      [
+        navigate("/onchange"),
+        (v) => ({
+          calls: [
+            ["type", { ref: v.ref("First name"), field: "first_name" }],
+            ["type", { ref: v.ref("Last name"), field: "last_name" }],
+          ],
+        }),
+        { calls: [["report", { status: "release" }]] },
+      ],
+      {
+        onMayHaveSubmitted: async () => {
+          seen.push((await fixtureState()).submissions.length);
+        },
+      },
+    );
+    expect(seen.length).toBeGreaterThan(0);
+    expect(seen[0]).toBe(0);
+    expect((await fixtureState()).submissions.length).toBeGreaterThan(0);
+  });
+
+  it("does not report a submission after typing alone", async () => {
+    const { outcome } = await run(
+      [
+        navigate("/optout"),
+        (v) => ({ calls: [["type", { ref: v.ref("First name"), field: "first_name" }]] }),
+        {
+          calls: [
+            [
+              "report",
+              { status: "complete", result: { purpose: "remove", form: { outcome: "submitted" } } },
+            ],
+          ],
+        },
+      ],
+      { onMayHaveSubmitted: async () => undefined },
+    );
+    expect(outcome.report.kind).not.toBe("complete");
+  });
+
+  it("does not select or tick when the server could not record the submission", async () => {
+    const { outcome } = await run(
+      [
+        navigate("/optout"),
+        (v) => ({ calls: [["check", { ref: v.ref("I agree") }]] }),
+        { calls: [["report", { status: "release" }]] },
+      ],
+      {
+        onMayHaveSubmitted: async () => {
+          throw new SubmitNotRecorded("503");
+        },
+      },
+    );
+    expect(outcome.report.kind).toBe("release");
+    expect((await fixtureState()).submissions).toEqual([]);
   });
 
   it("does not click, and gives the task back, when the server could not record the submission", async () => {

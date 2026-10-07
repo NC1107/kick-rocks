@@ -10,6 +10,7 @@ import { count, desc, eq, sql } from "drizzle-orm";
 import { notFound } from "../../core/errors.js";
 import { registerRoute } from "../../core/http.js";
 import type { ModulePlugin } from "../../core/module.js";
+import { withTrustedConfirmationSenders } from "../../core/targets.js";
 import type { AppServices } from "../../services.js";
 import { buildReviewQueue } from "../review/queue.js";
 
@@ -73,6 +74,7 @@ export function buildDashboard(services: AppServices, profileId: string): Dashbo
       eventCount: ranked.eventCount,
       requestReference: requests.reference,
       targetName: targets.name,
+      target: targets,
     })
     .from(ranked)
     .innerJoin(requestEvents, eq(requestEvents.id, ranked.eventId))
@@ -82,7 +84,7 @@ export function buildDashboard(services: AppServices, profileId: string): Dashbo
     .orderBy(desc(requestEvents.createdAt), desc(sql`${requestEvents}.rowid`))
     .limit(RECENT_REQUESTS)
     .all()
-    .map((row) => DashboardEvent.parse(row));
+    .map(({ target, ...row }) => DashboardEvent.parse(withTrustedConfirmationSenders(row, target)));
 
   return {
     profileId,

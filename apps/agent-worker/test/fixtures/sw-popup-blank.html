@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Posts into an about:blank popup</title></head>
+<body>
+<h1>Remove your listing</h1>
+<form id="request" method="post" action="{{OFFSITE}}/submit">
+  <label for="first">First name</label>
+  <input id="first" name="first_name">
+  <button type="submit">Submit request</button>
+</form>
+<script>
+  document.getElementById("request").addEventListener("submit", (event) => {
+    event.preventDefault();
+    window.open("about:blank", "blankpopup");
+    event.target.target = "blankpopup";
+    event.target.submit();
+  });
+</script>
+</body>
+</html>

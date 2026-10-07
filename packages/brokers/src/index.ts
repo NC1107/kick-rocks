@@ -11,6 +11,7 @@ import {
   CompanyDataset as CompanyDatasetSchema,
 } from "@kickrocks/shared";
 
+export { alignsWithAny, isTrustedConfirmationDomain } from "./confirmation-sender.js";
 export { type BadboolReport, parseBadbool, parseBadboolReport } from "./import/badbool.js";
 export { parseCaRegistry } from "./import/ca-registry.js";
 export { parseCuratedBrokers } from "./import/curated.js";

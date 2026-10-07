@@ -1,0 +1,14 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Opt out on change - Fixture Broker</title></head>
+<body>
+<h1>Remove your listing</h1>
+<form method="post" action="/optout">
+  <label for="first">First name</label>
+  <input id="first" name="first_name" onchange="this.form.submit()">
+  <label for="last">Last name</label>
+  <input id="last" name="last_name">
+  <button type="submit">Submit request</button>
+</form>
+</body>
+</html>

@@ -1,11 +1,15 @@
 import { readFileSync } from "node:fs";
+import { isTrustedConfirmationDomain } from "@kickrocks/brokers";
 import { type KickRocksDb, type TargetRow, targets } from "@kickrocks/db";
 import {
   Broker,
   Company,
   needsRecord,
+  replyAddressesOf,
+  replyDomainsOf,
   type TargetKind,
   type TargetSummary,
+  withoutSharedHosts,
 } from "@kickrocks/shared";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
@@ -89,6 +93,31 @@ export function toTargetSummary(row: TargetRow): TargetSummary {
     californiaRegistered: row.data.sources.some((source) => source.source === "ca-registry-2025"),
     retired: row.retired,
   };
+}
+
+/** The reply domains of a stored target, from its own columns and the dataset's explicit list. */
+export function replyDomainsOfRow(row: TargetRow): string[] {
+  const listed = "replyDomains" in row.data ? row.data.replyDomains : undefined;
+  return replyDomainsOf({ ...row, replyDomains: listed });
+}
+
+/** Only the sister domains the dataset curates for a stored target, without its own contact hosts. */
+export function curatedReplyDomainsOfRow(row: TargetRow): string[] {
+  const listed = "replyDomains" in row.data ? row.data.replyDomains : undefined;
+  return withoutSharedHosts(listed ?? []);
+}
+
+/**
+ * Whether mail from `domain` may confirm a removal for a stored target: its own organization or a
+ * sister domain the dataset curates for it, and never a shared host.
+ */
+export function isTrustedConfirmationSender(target: TargetRow, domain: string): boolean {
+  return isTrustedConfirmationDomain(domain, target.domain, curatedReplyDomainsOfRow(target));
+}
+
+/** The exact sender addresses trusted for a stored target whose mailbox is on a shared host. */
+export function replyAddressesOfRow(row: TargetRow): string[] {
+  return replyAddressesOf(row);
 }
 
 /** Columns derived from a dataset record. Companies have no region, requirements, or priority. */
@@ -270,4 +299,21 @@ export function createTargetsService({
       return toTargetSummary(getOrThrow(id));
     },
   };
+}
+
+/**
+ * A timeline event as the person should read it. A confirmation wait stored before the sender rule
+ * existed can name a sender the server now ignores, and the person should not be told to wait for
+ * mail that will never be matched.
+ */
+export function withTrustedConfirmationSenders<
+  E extends { type: string; payload: Record<string, unknown> },
+>(event: E, target: TargetRow): E {
+  const named = event.payload.fromDomains;
+  if (event.type !== "awaiting_confirmation" || !Array.isArray(named)) return event;
+  const fromDomains = named.filter(
+    (domain): domain is string =>
+      typeof domain === "string" && isTrustedConfirmationSender(target, domain),
+  );
+  return { ...event, payload: { ...event.payload, fromDomains } };
 }

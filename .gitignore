@@ -16,3 +16,4 @@ packages/brokers/data/generated/
 apps/worker/.chrome-profile/
 e2e/.dkim/
 apps/agent-worker/.chrome-profile-agent/
+kickrocks-backup*

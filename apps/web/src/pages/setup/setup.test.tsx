@@ -10,11 +10,18 @@ function open() {
 }
 
 describe("the setup page", () => {
-  it("says the password only signs in, and that the key file needs a backup", () => {
+  it("carries a hidden username so a password manager has an account to save under", () => {
+    const { container } = open();
+    const username = container.querySelector('input[autocomplete="username"]');
+    expect(username).not.toBeNull();
+    expect(username?.closest("form")?.querySelector('input[type="password"]')).not.toBeNull();
+  });
+
+  it("says the password only signs in, and that the data volume with its key needs a backup", () => {
     open();
     expect(screen.queryByText(/protects everything/)).not.toBeInTheDocument();
     expect(screen.getByText(/This password signs you in/)).toBeVisible();
-    expect(screen.getByText(/Back up the whole data folder, key file included/)).toBeVisible();
+    expect(screen.getByText(/back up that volume as a whole, key included/)).toBeVisible();
   });
 
   it("rejects a short password and says how long it must be", async () => {

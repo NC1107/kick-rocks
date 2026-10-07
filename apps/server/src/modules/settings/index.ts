@@ -27,6 +27,7 @@ function viewOf({ settings, config }: AppServices): SettingsView {
       tokenSet: settings.get("mcp.tokenHash") !== null,
       url: `${config.publicUrl}/mcp`,
     },
+    siteChecks: { enabled: settings.get("siteChecks.enabled") },
     agent: { takeUnreviewed: settings.get("agent.takeUnreviewed") },
     worker: {
       enabled: config.workerToken !== null,
@@ -78,6 +79,7 @@ function applyPatch({ settings }: AppServices, patch: SettingsPatch): void {
     settings.set("llm", { baseUrl, model, apiKey: kept });
   }
   if (patch.mcp) settings.set("mcp.enabled", patch.mcp.enabled);
+  if (patch.siteChecks) settings.set("siteChecks.enabled", patch.siteChecks.enabled);
   if (patch.agent) settings.set("agent.takeUnreviewed", patch.agent.takeUnreviewed);
 }
 

@@ -847,6 +847,65 @@ describe("claiming a task by id", () => {
       expect(result.scanId).toBe(scan.scanId);
     });
 
+    describe("held because its form may already have been submitted", () => {
+      function heldRemoval() {
+        ensureMailbox(profileId);
+        const target = seedTarget(ctx, {
+          kind: "company",
+          category: "retail",
+          domain: "shop.example.com",
+          optOutUrl: "https://shop.example.com/do-not-sell",
+          contactMethod: "form",
+          privacyEmail: null,
+        });
+        const request = seedRequest(ctx, {
+          profileId,
+          targetId: target.id,
+          status: "queued",
+          channel: "form",
+          rights: ["opt_out"],
+        });
+        const { task } = ctx.services.dispatch.dispatchRequest(request.id);
+        const claimed = claim(["agent"]);
+        ctx.services.taskQueue.heartbeat(task.id, {
+          workerId: "worker-1",
+          leaseMs: 60_000,
+          mayHaveSubmitted: true,
+        });
+        ctx.services.taskQueue.block(task.id, {
+          workerId: "worker-1",
+          reason: "captcha",
+          actor: "agent",
+        });
+        return claimed?.id ?? task.id;
+      }
+
+      it("is not handed to an agent by id, because the agent would submit it again", () => {
+        const id = heldRemoval();
+        expect(() => claim(["agent"], { taskId: id, claimerKind: "mcp" })).toThrow(
+          expect.objectContaining({ status: 409, code: "held_for_person" }),
+        );
+        expect(ctx.services.taskQueue.getOrThrow(id).status).toBe("blocked");
+      });
+
+      it("says on the block that the form may already have been submitted", () => {
+        const id = heldRemoval();
+        const task = ctx.services.taskQueue.getOrThrow(id);
+        expect(task.mayHaveSubmitted).toBe(true);
+        expect(task.blockedDetail).toBe("The form may already have been submitted.");
+      });
+
+      it("is handed over by nobody but the person", () => {
+        const id = heldRemoval();
+        for (const actor of ["agent", "worker", "system"] as const) {
+          expect(() => ctx.services.dispatch.handToAgent(id, actor)).toThrow(
+            expect.objectContaining({ code: "held_for_person" }),
+          );
+        }
+        expect(ctx.services.dispatch.handToAgent(id, "user").task.kind).toBe("agent");
+      });
+    });
+
     it("is refused for a kind an agent cannot do", () => {
       const target = seedTarget(ctx);
       const task = seedTask(ctx, {

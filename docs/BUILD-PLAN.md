@@ -99,6 +99,12 @@ Packages:
 | I web-core | `kr/web-core` | `apps/web/src/pages/{setup,login,dashboard,profiles,mailbox,about}/**`, `apps/web/mock/{auth,profiles,mailbox,dashboard,about}.ts`, and the tests beside them, `apps/web/mock/{auth,profiles,mailbox,dashboard,about}.test.ts` and `apps/web/src/pages/<page>/*.test.tsx` |
 | J web-flows | `kr/web-flows` | `apps/web/src/pages/{targets,campaigns,requests,review,settings}/**`, `apps/web/mock/{targets,campaigns,requests,review,settings}.ts`, and the tests beside them, `apps/web/mock/{targets,campaigns,requests,review,settings}.test.ts` and `apps/web/src/pages/<page>/*.test.tsx` |
 | K data-rights | `kr2/data-rights` | `apps/server/src/modules/data-rights/**`, the retention hook in `apps/server/src/scheduler/scheduler.ts`, `packages/shared/src/{data-rights,api,settings,index}.ts` and their tests (contract additions accepted for this module), `apps/web/mock/{profiles,settings,store}.ts`, `apps/server/src/modules/{index,profiles,settings}/`, the in-flight-delete guard in `apps/server/src/runners/email-send.ts`, and the export, retention, and reset cards in `apps/web/src/pages/{profiles/detail,settings}/` |
+| L companies | `kr2/companies` | the company contacts in `packages/brokers/data/**` and the company import in `packages/brokers/src/**` |
+| M legal-accuracy | `kr2/legal-accuracy` | `packages/legal/**`, and the DROP advisory the campaign planner shows |
+| N notify | `kr2/notify` | `apps/server/src/modules/notifications/**`, `packages/shared/src/notifications.ts`, `apps/web/mock/notifications.ts`, and the Notifications tab in `apps/web/src/pages/settings/notifications/**` |
+| O recipes-live | `kr2/recipes-live` | `packages/recipes/recipes/**`, re-read against the live sites |
+| P agent-worker | `kr2/agent-worker` | `apps/agent-worker/**`, its Dockerfile and compose profile, and "Running a model as the agent" in `docs/agents.md` |
+| Q install-docs | `kr2/fix-install-docs` | `README.md`, `install.sh`, `docker-compose.yml`, `docs/*.md` except `docs/agents.md`, `packages/legal/README.md`, the site checks gate in `apps/server/src/scheduler/canaries.ts` and its setting, and the setup, login, targets, and settings copy in `apps/web/src/pages/` |
 
 Each module's test files live next to its code inside its own paths.
 
@@ -200,6 +206,7 @@ Result schemas, posted by whoever completes the task:
 - `ScanResult`: `{ candidates: Candidate[] }` where `Candidate` is `{ recordUrl, name, age?, locations: string[], relatives?: string[], phones?: string[], emails?: string[] }`
 - `FormResult`: `{ outcome: "submitted" | "not_found" | "already_removed" | "awaiting_email_confirmation", confirmationText?, confirmationFrom?, notes? }`.
   `confirmationFrom` is the domain the confirmation email will come from, when the page says so.
+  It is kept only when it is the same organizational domain as the target (relaxed alignment over the public suffix list) or is listed in the target's curated `replyDomains`, and never when it is a shared host.
 - `ConfirmResult`: `{ confirmed: boolean, finalUrl, notes? }`
 - `CanaryResult`: `{ healthy: boolean, missingSelectors: string[] }`
 - `AgentResult`: `{ purpose: "scan", scan: ScanResult } | { purpose: "remove", form: FormResult }`
@@ -407,15 +414,20 @@ The server and the web mock both build issues with `toApiIssues`, and the web cl
 - `InboxSource` on imapflow: list folders, fetch since the last UID in the reply folder, handle UIDVALIDITY resets, parse with mailparser.
   `fetchSince` honors `since` (IMAP SINCE) and `limit`, and reports `hasMore` and `highestUid`, as described in 4.3.
   Parse links out of the HTML body with `htmlparser2`, which the foundation added to `apps/server`, rather than with regular expressions.
-  Verify DKIM on the raw source of each fetched message (`mail/dkim.ts`, on `mailauth`) and put the signing domains that verified over the whole body on `InboxMessage.dkimDomains`.
+  Verify DKIM on the raw source of each fetched message (`mail/dkim.ts`, on `mailauth`) and expose a lazy check on `InboxMessage.verifyDkim` that returns the signatures that verified over the whole body and align with the given domains, each with the In-Reply-To, References, and Subject values it covers.
   The resolver has a short timeout and a small cache, and a DNS failure or timeout means no domain is verified, so the message goes to review and the poll goes on.
   Authentication-Results headers are never read, because a provider can echo sender-controlled text into them.
 - `ReplyClassifier`: correlate by In-Reply-To or References matching our Message-ID, then by the `KR-` reference in subject or body, then by sender domain against awaiting requests (lower confidence).
-  A reply matched only by sender domain is acted on only when a verified DKIM signing domain shares an organizational domain (public suffix list) with the target's domain or one of its known sender domains; otherwise it is held for review.
+  The recipient address is never a trust input.
+  A reply changes a request (completed, no_record, rejected, verification_required, needs_form, or a bounce that switches channel) only when at least one DKIM signature verifies over the whole body with a d= that shares an organizational domain (public suffix list) with the target's domain or one of its known sender domains, and that same signature binds the message to this request.
+  A signature binds when its h= covers In-Reply-To or References and those signed headers hold this request's outgoing Message-ID (any sequence variant), or its h= covers Subject and the signed Subject holds this request's `KR-` reference, or the body it fully covers holds the reference.
+  Signed headers are read raw from the instance the signature hashed (the bottom-most per RFC 6376), with only folding removed.
+  A reply that fails either test is capped below 0.6 so it goes to review, and its rationale says "not signed by the broker" or "does not quote this request".
+  A `confirmation_link` needs only the first test, keeping the link-domain restriction and the company-deletion rule.
   Detect bounces from DSN reports and mailer-daemon senders, auto-replies from `Auto-Submitted` and common patterns, and the other classes from keyword rules.
   Extract links and keep only those on the target's domain, its known subdomains, or an expected sender in `awaitingConfirmation.fromDomains`.
   For `verification_required`, return the identifiers the broker asked for as `requestedFields` (profile field names only).
-  A broker's confirmation email after a form submission has no `KR-` reference and no In-Reply-To, so apply the matching rule documented on `ClassifierRequest.awaitingConfirmation`, with confidence of at least 0.8 when a DKIM signature of the sender verified.
+  A broker's confirmation email after a form submission has no `KR-` reference and no In-Reply-To, so apply the matching rule documented on `ClassifierRequest.awaitingConfirmation`, with confidence of at least 0.8, because following a link on the sender's own domain needs only that a DKIM signature of the sender verified.
   Store each message with its text cut to 20,000 characters, for `GET /messages/:id`.
   When confidence is below 0.6 and an LLM is configured, ask it for a classification with a strict JSON schema; otherwise leave the message for review.
 - `LinkFollower`: GET with redirects re-validated hop by hop against the allowed domains, refusing private and loopback addresses unless the host is in `config.linkFollower.allowedPrivateHosts`, with a size and time limit; report `needsBrowser` when the page needs JavaScript or a button press.
@@ -452,13 +464,16 @@ The server and the web mock both build issues with `toApiIssues`, and the web cl
 
 ### D2. automation
 
-- Scheduler loop, off when `KICKROCKS_SCHEDULER=off`: reap leases, enqueue inbox polls per mailbox on the poll interval, run in-process tasks, move overdue `awaiting_reply` requests to `no_response` then `follow_up_due` and send follow-ups up to `maxFollowUps`, re-scan people-search targets every `peopleSearchRescanDays`, re-send unconfirmed broker requests every `brokerRescanDays`, enqueue weekly canary checks, and delete artifacts of tasks finished more than 30 days ago.
+- Scheduler loop, off when `KICKROCKS_SCHEDULER=off`: reap leases, enqueue inbox polls per mailbox on the poll interval, run in-process tasks, move overdue `awaiting_reply` requests to `no_response` then `follow_up_due` and send follow-ups up to `maxFollowUps`, re-scan people-search targets every `peopleSearchRescanDays`, re-send unconfirmed broker requests every `brokerRescanDays`, enqueue weekly canary checks only after a password is set and Settings has site checks turned on (with it off, canaries still waiting are cancelled, so no browser task visits a broker site on its own), run the notification pass, and delete the artifacts of finished tasks older than the screenshot retention window (30 days by default, set in Settings).
 - `email_send` runner: compose with `services.composer.requestEmail` (the payload's kind, fields, and inReplyTo), send with `MailTransport`, record the send with `mailQuota.record`, and set `sentAt` and `dueAt` from the legal basis.
   Respect the mailbox daily cap and a jittered gap between sends (20 to 60 seconds) using `mailQuota.remaining` and `mailQuota.lastSentAt`: claim with `excludeProfileIds` for mailboxes that are capped, and `release` a task that has to wait, with `runAfter`, instead of failing it.
 - `inbox_poll` runner: fetch (from the mailbox's creation time or its oldest outstanding send, never the whole folder), store, classify, and apply, using `REPLY_OUTCOMES` and `canTransition`; a reply the machine will not apply is only recorded.
   `completed` confirms, `no_record` and `rejected` close, `verification_required` moves to `needs_verification` and stores the message's `requestedFields` for the review queue, `confirmation_link` follows the link or enqueues a `confirm` task when a browser is needed, `bounce` switches to the form channel when the target has one, `needs_form` switches channel (both through `requests.requeue` with a `channel_switched` event), `auto_ack` only adds an event, and low-confidence mail waits for review.
 - Task handlers, synchronous and inside the transaction of the task change (see `core/task-handlers.ts`): scan results become matches (deduplicated against earlier decisions by `normalizeRecordUrl`), form and agent results move a `queued` request along with `FORM_OUTCOMES` (and a request that has moved on is left alone), and a `recipe` failure calls `dispatch.fallbackToAgent` and `recipeHealth.recordRun` (only `recipe` failures count toward health).
   A form result with `awaiting_email_confirmation` sets `awaitingConfirmationSince` and writes `awaiting_confirmation` from the recipe's `email_confirmation` step or `FormResult.confirmationFrom`.
+  Either sender is kept only when it is the same organizational domain as the target or is in the target's curated `replyDomains`, and never a shared host.
+  A sender that merely belongs to some other target in the dataset does not count, because a company platform that relays user content would then vouch for mail it does not control.
+  Broker `replyDomains` live in `packages/brokers/data/reply-domains.yaml` with a note each, and `pnpm data:build` fails when a bundled recipe's `email_confirmation` `fromDomain` is neither in its broker's own organizational domain nor one of those domains.
   The task timeline events are written by `core/task-audit.ts`; handlers do not write them.
   A person's result from `POST /tasks/:id/mark-done` reaches handlers as the task result, null when they gave none.
 - Scans routes and the review routes in 4.4, including deciding matches (`mine` calls `requests.open` for a form request with the record URL and the body's `rights`), classifying messages by hand, `GET /messages/:id`, `POST /tasks/:id/hand-off` (`dispatch.handToAgent`), and `POST /tasks/:id/retry` (dispatch the task's request again, or its scan).

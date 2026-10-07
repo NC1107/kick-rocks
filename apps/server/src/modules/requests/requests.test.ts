@@ -196,6 +196,28 @@ describe("GET /requests/:id", () => {
     expect(detail.actions).toEqual(["cancel", "mark_confirmed", "mark_rejected", "mark_no_record"]);
   });
 
+  it("drops a stored confirmation sender the server no longer trusts from the timeline", async () => {
+    const { profile, target } = setup();
+    const { request } = ctx.services.requests.open({
+      profileId: profile.id,
+      targetId: "broker",
+      rights: ["opt_out"],
+      channel: "email",
+      actor: "user",
+    });
+    ctx.services.requests.addEvent(request.id, {
+      type: "awaiting_confirmation",
+      actor: "worker",
+      payload: { fromDomains: ["paypal.com", `mail.${target.domain}`], linkTextPattern: null },
+    });
+
+    const event = (await detailOf(request.id)).events.find(
+      (candidate) => candidate.type === "awaiting_confirmation",
+    );
+
+    expect(event?.payload).toMatchObject({ fromDomains: [`mail.${target.domain}`] });
+  });
+
   it("lists messages oldest first", async () => {
     const { profile, mailbox } = setup();
     const request = seedRequest(ctx, { profileId: profile.id, targetId: "broker" });

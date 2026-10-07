@@ -4,30 +4,87 @@ function escapeRegExp(text: string): string {
   return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+const ENTITIES: Record<string, string[]> = {
+  "&": ["&amp;", "&#38;", "&#x26;"],
+  "'": ["&#39;", "&#x27;", "&apos;"],
+  '"': ["&quot;", "&#34;", "&#x22;"],
+  "<": ["&lt;", "&#60;", "&#x3c;"],
+  ">": ["&gt;", "&#62;", "&#x3e;"],
+};
+
+/** How many times a return address may wrap another one, such as /login?next=%2Fsearch%3Femail%3D. */
+const MAX_NESTED_ENCODINGS = 3;
+
+function singleSpellings(character: string): string[] {
+  if (character === " ") return [" ", "+", "%20", "&nbsp;", "&#32;"];
+  const spellings = new Set<string>([character, ...(ENTITIES[character] ?? [])]);
+  spellings.add(encodeURIComponent(character));
+  spellings.add(encodeURI(character));
+  spellings.add(new URLSearchParams({ v: character }).toString().slice(2));
+  for (const byte of new TextEncoder().encode(character)) {
+    spellings.add(`%${byte.toString(16).padStart(2, "0")}`);
+  }
+  return [...spellings];
+}
+
+/**
+ * Every way one character can appear in a URL or in markup, including after the address that holds
+ * it was itself percent-encoded into a parameter of another address, so a value can be spelled by
+ * mixing them.
+ */
+function characterSpellings(character: string): string[] {
+  const all = new Set(singleSpellings(character));
+  let wrapped = [...all];
+  for (let level = 0; level < MAX_NESTED_ENCODINGS; level++) {
+    wrapped = wrapped.map((spelling) => encodeURIComponent(spelling));
+    for (const spelling of wrapped) all.add(spelling);
+  }
+  return [...all];
+}
+
+/**
+ * A regular expression source matching a value in any spelling it can take in an address or a
+ * page: as typed, form-urlencoded, encodeURIComponent, encodeURI, with a plus or %20 for each
+ * space, in lower or upper case hex (match it with the `i` flag), or as markup entities. Each
+ * character is matched on its own, so spellings may also be mixed within one value.
+ */
+export function valueSpellingPattern(value: string): string {
+  return Array.from(value)
+    .map((character) => {
+      const spellings = characterSpellings(character).map(escapeRegExp);
+      return spellings.length === 1 ? (spellings[0] ?? "") : `(?:${spellings.join("|")})`;
+    })
+    .join("");
+}
+
+interface Entry {
+  pattern: string;
+  label: string;
+  length: number;
+}
+
 /**
  * Hides the person's field values in text that leaves the run, such as the message of a failure,
  * which the server stores and shows on a timeline. A value appears in an error as typed, in a URL
- * as encoded, or as a slug, so all three spellings are replaced by the name of the field.
+ * as encoded, or as a slug, so every spelling is replaced by the name of the field.
  */
 export function createRedactor(fields: ProfileFields): (text: string) => string {
-  const replacements = new Map<string, string>();
+  const entries: Entry[] = [];
   for (const [name, raw] of Object.entries(fields)) {
     const value = raw?.trim();
     if (!value || value.length < 3) continue;
-    for (const spelling of [value, encodeURIComponent(value), slugify(value)]) {
-      if (spelling.length >= 3) replacements.set(spelling, `{{${name}}}`);
-    }
+    const label = `{{${name}}}`;
+    entries.push({ pattern: valueSpellingPattern(value), label, length: value.length });
+    const slug = slugify(value);
+    if (slug.length >= 3) entries.push({ pattern: escapeRegExp(slug), label, length: slug.length });
   }
-  if (replacements.size === 0) return (text) => text;
-  const pattern = new RegExp(
-    Array.from(replacements.keys())
-      .sort((a, b) => b.length - a.length)
-      .map(escapeRegExp)
-      .join("|"),
-    "gi",
-  );
-  const byLowerCase = new Map(
-    Array.from(replacements, ([spelling, label]) => [spelling.toLowerCase(), label]),
-  );
-  return (text) => text.replace(pattern, (match) => byLowerCase.get(match.toLowerCase()) ?? match);
+  if (entries.length === 0) return (text) => text;
+  // The longest values go first, so a value that contains another is not left half replaced.
+  entries.sort((a, b) => b.length - a.length);
+  const pattern = new RegExp(entries.map((entry) => `(${entry.pattern})`).join("|"), "gi");
+  return (text) =>
+    text.replace(pattern, (...args: unknown[]) => {
+      const index = args.slice(1, entries.length + 1).findIndex((group) => group !== undefined);
+      return entries[index]?.label ?? String(args[0]);
+    });
 }

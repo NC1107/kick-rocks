@@ -71,20 +71,20 @@ export interface InboxMessage {
   verifyDkim: DkimCheck;
 }
 
-/** Which signatures are worth checking for one message. */
-export interface DkimScope {
-  /** Only signatures whose d= could align with one of these are verified. */
-  domains: readonly string[];
-  /** The mailbox's own address, which a verified signature must show in its signed To or Cc. */
-  recipient: string;
+/**
+ * A DKIM signature that verified over the whole body and belongs to a domain the check was asked
+ * about, with the values of the headers it covers. Each value is raw text with only folding
+ * removed, taken from the instance the signature hashed, so a header added above it is not here.
+ */
+export interface VerifiedSignature {
+  domain: string;
+  inReplyTo: string[];
+  references: string[];
+  subject: string[];
 }
 
-/**
- * The signing domains of the signatures that verified over the whole body, aligned with one of
- * `scope.domains`, and addressed to `scope.recipient`. Empty when none qualified or when
- * verification could not finish.
- */
-export type DkimCheck = (scope: DkimScope) => Promise<string[]>;
+/** The verified signatures whose d= could align with one of `domains`. Empty when none qualified or verification could not finish. */
+export type DkimCheck = (domains: readonly string[]) => Promise<VerifiedSignature[]>;
 
 export interface FetchOptions {
   /**
@@ -141,6 +141,24 @@ export interface ClassifierRequest {
   targetName: string;
   /** The target's domain; its subdomains count as the same site. */
   targetDomain: string;
+  /**
+   * Every domain the target's genuine replies may come from, its own included. A company often
+   * answers from a parent or a privacy vendor. Used to match a sender to the request and to align
+   * DKIM; a reply still needs a signature that binds it to the request.
+   */
+  replyDomains: string[];
+  /**
+   * Only the sister domains the dataset curates for the target. A confirmation sender stored with a
+   * form wait is trusted by this list and the target's own organization, never by `replyDomains`,
+   * which also holds the host of the target's contact mailbox.
+   */
+  curatedReplyDomains: string[];
+  /**
+   * Exact sender addresses to trust when the target's privacy mailbox is on a public mail
+   * provider, where the domain proves nothing. A signature from that provider's domain then vouches
+   * only for a message sent from one of these addresses.
+   */
+  replyAddresses: string[];
   /** The record a form removal is for, which tells apart several requests to one target. */
   recordUrl: string | null;
   /**
@@ -164,8 +182,6 @@ export interface ClassifierRequest {
 
 export interface ClassifyContext {
   requests: ClassifierRequest[];
-  /** The address of the mailbox the message arrived in. */
-  mailboxAddress: string;
 }
 
 export interface ClassificationResult {

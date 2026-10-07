@@ -331,6 +331,25 @@ describe("GET /profiles/:id/dashboard", () => {
       });
     });
 
+    it("drops a stored confirmation sender the server no longer trusts", async () => {
+      const profile = seedProfile(ctx);
+      seedTarget(ctx, { id: "b" });
+      const request = seedRequest(ctx, { profileId: profile.id, targetId: "b" });
+      ctx.clock.advance(MINUTE);
+      ctx.services.requests.addEvent(request.id, {
+        type: "awaiting_confirmation",
+        actor: "worker",
+        payload: { fromDomains: ["paypal.com"], linkTextPattern: null },
+      });
+
+      const { recentEvents } = await dashboard(profile.id);
+
+      expect(recentEvents[0]).toMatchObject({
+        type: "awaiting_confirmation",
+        payload: { fromDomains: [] },
+      });
+    });
+
     it("keeps every request visible and counted when one request has 300 events", async () => {
       const profile = seedProfile(ctx);
       seedTarget(ctx, { id: "b" });

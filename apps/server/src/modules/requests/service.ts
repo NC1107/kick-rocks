@@ -19,6 +19,7 @@ import { nowIso } from "../../core/clock.js";
 import { conflict, invalidRequest, notFound } from "../../core/errors.js";
 import { loadIdentities } from "../../core/identities.js";
 import { likePattern } from "../../core/like.js";
+import { withTrustedConfirmationSenders } from "../../core/targets.js";
 import type { AppServices } from "../../services.js";
 
 const ACTION_OUTCOMES = {
@@ -42,10 +43,13 @@ export function createRequestsApi(services: AppServices): RequestsApi {
     const record = requests.get(id);
     if (!record) throw notFound(`Request ${id} not found`, "request_not_found");
     const tasks = taskQueue.list({ requestId: id });
+    const target = db.select().from(targets).where(eq(targets.id, record.targetId)).get();
     return {
       ...record,
       target: targetsService.summary(record.targetId),
-      events: requests.events(id),
+      events: requests
+        .events(id)
+        .map((event) => (target ? withTrustedConfirmationSenders(event, target) : event)),
       messages: db
         .select()
         .from(messages)
