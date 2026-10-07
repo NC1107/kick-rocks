@@ -33,7 +33,7 @@ const MAILBOX_ERROR_CODES = new Set([
 ]);
 
 /** The server could not be reached or would not let the mailbox in, which says nothing about the request. */
-function isMailboxProblem(error: unknown): boolean {
+export function isMailboxProblem(error: unknown): boolean {
   const { responseCode, code } = error as { responseCode?: unknown; code?: unknown };
   return responseCode === 421 || (typeof code === "string" && MAILBOX_ERROR_CODES.has(code));
 }

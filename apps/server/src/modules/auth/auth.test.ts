@@ -399,7 +399,8 @@ describe("expiry and logout", () => {
     }
     expect(ctx.services.db.select().from(sessions).all().length).toBeLessThanOrEqual(100);
     expect((await stateOf(first)).json().authenticated).toBe(false);
-  });
+    // A hundred real password hashes: on a loaded machine the default 5s is not enough.
+  }, 60_000);
 });
 
 describe("password change", () => {

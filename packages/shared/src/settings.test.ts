@@ -65,6 +65,8 @@ describe("SETTING_SCHEMAS", () => {
         "retention",
         "schedule",
         "worker.status",
+        "notifications",
+        "notifications.state",
       ].sort(),
     );
   });

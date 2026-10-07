@@ -10,6 +10,7 @@ export * from "./identities.js";
 export * from "./legal.js";
 export * from "./mail.js";
 export * from "./mcp.js";
+export * from "./notifications.js";
 export * from "./outcomes.js";
 export * from "./profiles.js";
 export * from "./recipe.js";

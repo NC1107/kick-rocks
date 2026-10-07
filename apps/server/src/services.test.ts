@@ -46,6 +46,7 @@ describe("createServices with no overrides", () => {
           "mail",
           "mailHolds",
           "mailQuota",
+          "notificationChannels",
           "passwords",
           "recipeHealth",
           "requests",

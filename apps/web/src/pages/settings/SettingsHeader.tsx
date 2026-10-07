@@ -4,6 +4,7 @@ const TABS = [
   { to: "/settings", label: "General", end: true },
   { to: "/settings/recipes", label: "Recipes" },
   { to: "/settings/agents", label: "Agents" },
+  { to: "/settings/notifications", label: "Notifications" },
 ] as const;
 
 /** The heading and section tabs both settings pages share, so the two read as one place. */

@@ -1,4 +1,5 @@
 import { applyRetention } from "../modules/data-rights/index.js";
+import { runNotifications } from "../modules/notifications/index.js";
 import { type Runners, runnersOf } from "../runners/index.js";
 import type { AppServices } from "../services.js";
 import { enqueueDueCanaries } from "./canaries.js";
@@ -66,6 +67,7 @@ export function createScheduler(
       await job("overdue-requests", () => advanceOverdueRequests(services));
       await job("rescans", () => enqueueDueRescans(services));
       await job("canaries", () => enqueueDueCanaries(services));
+      await job("notifications", () => runNotifications(services));
     }
     if (due("retention", retentionMs)) {
       await job("retention", () => applyRetention(services, { compact: "when-worthwhile" }));

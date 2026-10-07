@@ -35,6 +35,10 @@ import {
   type PasswordHasher,
 } from "./modules/auth/passwords.js";
 import { createAuthService } from "./modules/auth/service.js";
+import {
+  createNotificationChannels,
+  type NotificationChannels,
+} from "./modules/notifications/channels.js";
 import { registerRunners } from "./runners/index.js";
 
 /**
@@ -67,6 +71,8 @@ export interface AppServices {
   legal: LegalApi;
   auth: AuthService;
   passwords: PasswordHasher;
+  /** How a push reaches ntfy or Telegram, replaced in tests with a local server. */
+  notificationChannels: NotificationChannels;
 }
 
 /** Replacements for the pieces tests and tools need to control. */
@@ -76,6 +82,7 @@ export interface ServiceOverrides {
   mail?: MailServices;
   legal?: LegalApi;
   auth?: AuthService;
+  notificationChannels?: NotificationChannels;
   targetSources?: TargetSources;
   /** Cheaper argon2 settings so a test that signs in many times stays fast. Never set outside tests. */
   passwordCost?: PasswordCost;
@@ -166,6 +173,7 @@ export function createServices(
     legal,
     passwords: createPasswordHasher(overrides.passwordCost),
     auth: overrides.auth ?? createAuthService({ config, db, clock, logger, settings, secrets }),
+    notificationChannels: overrides.notificationChannels ?? createNotificationChannels(),
   };
 
   registerHandlers(services);

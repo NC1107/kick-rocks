@@ -11,6 +11,7 @@ import {
   type TargetDetail,
 } from "@kickrocks/shared";
 import { conflict, defineMockDomain, handle, notFound } from "./core.js";
+import { notificationRoutes } from "./notifications.js";
 import type { MockStore } from "./store.js";
 
 function hex(store: MockStore, length: number): string {
@@ -313,6 +314,8 @@ export default defineMockDomain({
     };
 
     return [
+      ...notificationRoutes(store),
+
       handle(API_ROUTES.settingsGet, (): SettingsView => store.settings),
 
       handle(API_ROUTES.settingsPatch, ({ body }): SettingsView => {

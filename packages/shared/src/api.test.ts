@@ -68,6 +68,10 @@ const PLANNED = [
   "POST /settings/mcp-token",
   "GET /settings/jurisdictions",
   "GET /settings/data-sources",
+  "GET /notifications",
+  "PATCH /notifications",
+  "POST /notifications/test",
+  "POST /notifications/digest/send",
   "POST /worker/heartbeat",
   "POST /worker/claim",
   "POST /worker/tasks/:id/heartbeat",
@@ -127,6 +131,7 @@ describe("API_ROUTES", () => {
         "review",
         "recipes",
         "settings",
+        "notifications",
         "worker-api",
       ]),
     );

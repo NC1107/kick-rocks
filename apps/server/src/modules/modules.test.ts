@@ -24,6 +24,7 @@ describe("modules", () => {
         "data-rights",
         "mailbox",
         "mcp",
+        "notifications",
         "profiles",
         "recipes",
         "requests",
