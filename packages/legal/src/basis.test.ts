@@ -66,9 +66,7 @@ describe("resolveLegalBasis", () => {
 
   it("has a statute in effect today for every state that has one, except Florida", () => {
     const withLaw = new Set(
-      STATUTES.filter(
-        (s) => s.kind === "comprehensive" && Date.parse(s.effectiveDate) <= NOW.getTime(),
-      ).map((s) => s.state),
+      STATUTES.filter((s) => Date.parse(s.effectiveDate) <= NOW.getTime()).map((s) => s.state),
     );
     for (const { code } of US_STATES) {
       const basis = resolveLegalBasis({
@@ -80,6 +78,62 @@ describe("resolveLegalBasis", () => {
       const expected = withLaw.has(code) && code !== "FL" ? "statute" : "policy";
       expect(basis.kind, code).toBe(expected);
     }
+  });
+
+  it("cites the statute for the opt-out when a broker request also asks for deletion", () => {
+    for (const [state, id] of [
+      ["UT", "ut-ucpa"],
+      ["IA", "ia-icdpa"],
+      ["CA", "ca-ccpa"],
+    ] as const) {
+      const basis = resolveLegalBasis({
+        state,
+        target: BROKER,
+        rights: ["opt_out", "delete"],
+        asOf: NOW,
+      });
+      expect(basis.id, state).toBe(id);
+    }
+  });
+
+  it("gives Nevada residents the NRS 603A opt-out against brokers and companies, and no deletion right", () => {
+    for (const target of [BROKER, COMPANY]) {
+      const optOut = resolveLegalBasis({ state: "NV", target, rights: ["opt_out"], asOf: NOW });
+      expect(optOut).toMatchObject({ id: "nv-nrs-603a", responseDays: 60 });
+      expect(optOut.statute?.extensionDays).toBe(30);
+      const both = resolveLegalBasis({
+        state: "NV",
+        target,
+        rights: ["opt_out", "delete"],
+        asOf: NOW,
+      });
+      expect(both.id).toBe("nv-nrs-603a");
+      expect(resolveLegalBasis({ state: "NV", target, rights: ["delete"], asOf: NOW }).kind).toBe(
+        "policy",
+      );
+    }
+    const before = resolveLegalBasis({
+      state: "NV",
+      target: BROKER,
+      rights: ["opt_out"],
+      asOf: new Date("2021-09-30T00:00:00Z"),
+    });
+    expect(before.kind).toBe("policy");
+  });
+
+  it("gives a California request that only opts out the 15 business day window", () => {
+    const base = { state: "CA" as const, target: BROKER, asOf: NOW };
+    expect(resolveLegalBasis({ ...base, rights: ["opt_out"] }).responseDays).toBe(21);
+    expect(getLegalBasis("ca-ccpa", "CA", ["opt_out"])?.responseDays).toBe(21);
+    expect(resolveLegalBasis({ ...base, rights: ["opt_out", "delete"] }).responseDays).toBe(45);
+    expect(getLegalBasis("ca-ccpa", "CA")?.responseDays).toBe(45);
+    const texas = resolveLegalBasis({
+      state: "TX",
+      target: BROKER,
+      rights: ["opt_out"],
+      asOf: NOW,
+    });
+    expect(texas.responseDays).toBe(45);
   });
 
   it("does not claim Florida's law, which binds only very large controllers", () => {
@@ -132,16 +186,13 @@ describe("resolveLegalBasis", () => {
 
   it("uses the CCPA when the Delete Act is not the right route", () => {
     const base = { state: "CA" as const, asOf: NOW };
-    expect(resolveLegalBasis({ ...base, target: BROKER, rights: ["delete"] }).id).toBe("ca-ccpa");
     expect(resolveLegalBasis({ ...base, target: CA_REGISTERED, rights: ["opt_out"] }).id).toBe(
       "ca-ccpa",
     );
     expect(
       resolveLegalBasis({ ...base, target: CA_REGISTERED, rights: ["opt_out", "delete"] }).id,
     ).toBe("ca-ccpa");
-    expect(resolveLegalBasis({ ...base, target: PEOPLE_SEARCH, rights: ["delete"] }).id).toBe(
-      "ca-ccpa",
-    );
+    expect(resolveLegalBasis({ ...base, target: COMPANY, rights: ["delete"] }).id).toBe("ca-ccpa");
     expect(
       resolveLegalBasis({
         ...base,
@@ -151,11 +202,18 @@ describe("resolveLegalBasis", () => {
     ).toBe("ca-ccpa");
   });
 
+  it("does not claim a CCPA deletion right against a broker, which did not collect the data from the person", () => {
+    const base = { state: "CA" as const, asOf: NOW };
+    for (const target of [BROKER, PEOPLE_SEARCH]) {
+      expect(resolveLegalBasis({ ...base, target, rights: ["delete"] }).kind).toBe("policy");
+    }
+  });
+
   it("uses the CCPA for a registered broker before the Delete Act processing date", () => {
     const basis = resolveLegalBasis({
       state: "CA",
       target: CA_REGISTERED,
-      rights: ["delete"],
+      rights: ["opt_out", "delete"],
       asOf: new Date("2026-07-31T23:59:59Z"),
     });
     expect(basis.id).toBe("ca-ccpa");
@@ -233,7 +291,7 @@ describe("getLegalBasis", () => {
             asOf: new Date("2029-01-01T00:00:00Z"),
           });
           expect(
-            getLegalBasis(basis.id, state),
+            getLegalBasis(basis.id, state, rights),
             `${state} ${target.id} ${rights.join("+")}`,
           ).toEqual(basis);
         }

@@ -10,7 +10,7 @@ import {
 } from "@kickrocks/shared";
 import { z } from "zod";
 import { LegalInputError } from "./errors.js";
-import { STATUTES, traitsOf } from "./statutes.js";
+import { STATUTES, splitRights, traitsOf } from "./statutes.js";
 import type { ResolveLegalBasisInput } from "./types.js";
 
 const ResolveInput = z.object({
@@ -34,13 +34,25 @@ function policyBasis(state: StateCode): LegalBasis {
   };
 }
 
-function statuteBasis(statute: Statute): LegalBasis {
+const BUSINESS_DAYS_PER_WEEK = 5;
+const DAYS_PER_WEEK = 7;
+
+/** Calendar days that always hold the statute's business-day opt-out deadline. */
+function responseDaysFor(statute: Statute, rights: readonly RequestRight[] | undefined): number {
+  const { optOutBusinessDays } = traitsOf(statute.id);
+  const optsOutOnly =
+    rights !== undefined && rights.length > 0 && rights.every((right) => right === "opt_out");
+  if (optOutBusinessDays === null || !optsOutOnly) return statute.responseDays;
+  return Math.ceil((optOutBusinessDays * DAYS_PER_WEEK) / BUSINESS_DAYS_PER_WEEK);
+}
+
+function statuteBasis(statute: Statute, rights?: readonly RequestRight[]): LegalBasis {
   return {
     id: statute.id,
     kind: "statute",
     state: statute.state,
     statute,
-    responseDays: statute.responseDays,
+    responseDays: responseDaysFor(statute, rights),
   };
 }
 
@@ -48,19 +60,15 @@ function isInEffect(statute: Statute, asOf: Date): boolean {
   return asOf.getTime() >= Date.parse(`${statute.effectiveDate}T00:00:00Z`);
 }
 
+/** A statute backs a request when it reaches at least one right asked for; the rest go to policy. */
 function covers(
   statute: Statute,
   rights: readonly RequestRight[],
   targetKind: "broker" | "company",
 ): boolean {
-  const { deleteScope, citable } = traitsOf(statute.id);
-  if (!citable) return false;
-  return rights.every((right) => {
-    if (!statute.rights.includes(right)) return false;
-    // A broker never received the data from the person, so a right limited to data the person
-    // provided does not reach it.
-    return !(right === "delete" && deleteScope === "provided" && targetKind === "broker");
-  });
+  return (
+    traitsOf(statute.id).citable && splitRights(statute, rights, targetKind).covered.length > 0
+  );
 }
 
 /**
@@ -96,16 +104,20 @@ export function resolveLegalBasis(input: ResolveLegalBasisInput): LegalBasis {
       isInEffect(statute, asOf) &&
       covers(statute, rights, targetKind),
   );
-  return match ? statuteBasis(match) : policyBasis(state);
+  return match ? statuteBasis(match, rights) : policyBasis(state);
 }
 
-export function getLegalBasis(id: string, state: StateCode): LegalBasis | null {
+export function getLegalBasis(
+  id: string,
+  state: StateCode,
+  rights?: readonly RequestRight[],
+): LegalBasis | null {
   const parsedState = StateCode.safeParse(state);
   if (!parsedState.success) return null;
   if (id === POLICY_BASIS_ID) return policyBasis(parsedState.data);
   const statute = STATUTES_BY_ID.get(id);
   if (!statute || statute.state !== parsedState.data) return null;
-  return statuteBasis(statute);
+  return statuteBasis(statute, rights);
 }
 
 export function listJurisdictions(): Jurisdiction[] {

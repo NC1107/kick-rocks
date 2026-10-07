@@ -705,6 +705,8 @@ describe("skip reasons", () => {
         ]);
         expect(items[0]?.detail).toContain("DROP");
         expect(items[0]?.detail).toContain("Sign up once");
+        expect(items[0]?.detail).toContain("File one request at DROP (https://example.org/drop)");
+        expect(items[0]?.detail).not.toContain("already handles");
       }
       expect(ctx.services.db.select().from(requestsTable).all()).toEqual([]);
     });

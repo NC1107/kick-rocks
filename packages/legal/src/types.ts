@@ -61,7 +61,7 @@ export interface LegalApi {
    * request cited even after a newer law takes effect. Null for an id the package does not know,
    * or one that belongs to another state.
    */
-  getLegalBasis(id: string, state: StateCode): LegalBasis | null;
+  getLegalBasis(id: string, state: StateCode, rights?: readonly RequestRight[]): LegalBasis | null;
   listJurisdictions(): Jurisdiction[];
   /**
    * The least that may be disclosed for a purpose, resolved from identities in force on `asOf`.

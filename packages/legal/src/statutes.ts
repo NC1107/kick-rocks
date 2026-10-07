@@ -1,4 +1,4 @@
-import type { Statute } from "@kickrocks/shared";
+import type { RequestRight, Statute } from "@kickrocks/shared";
 
 /**
  * How a statute is used beyond what the shared schema records.
@@ -10,9 +10,25 @@ import type { Statute } from "@kickrocks/shared";
 export interface StatuteTraits {
   deleteScope: "all" | "provided";
   citable: boolean;
+  /**
+   * True only where the text or its regulations say an opt-out of sale needs no authentication.
+   * Elsewhere the controller may ask to verify, so the email asks politely instead of claiming it.
+   */
+  optOutAuthExempt: boolean;
+  /**
+   * A shorter deadline, in business days, for a request that only opts out, where the opt-out has
+   * its own clock separate from the 45 days that apply to requests to know and delete.
+   */
+  optOutBusinessDays: number | null;
 }
 
-const ALL: StatuteTraits = { deleteScope: "all", citable: true };
+const ALL: StatuteTraits = {
+  deleteScope: "all",
+  citable: true,
+  optOutAuthExempt: false,
+  optOutBusinessDays: null,
+};
+const PROVIDED: StatuteTraits = { ...ALL, deleteScope: "provided" };
 
 interface StatuteEntry {
   statute: Statute;
@@ -48,21 +64,24 @@ const GENERAL_BROKER_NOTE =
  * package README.
  */
 export const STATUTE_ENTRIES: readonly StatuteEntry[] = [
-  comprehensive({
-    id: "ca-ccpa",
-    state: "CA",
-    name: "California Consumer Privacy Act",
-    citation: "Cal. Civ. Code 1798.100 et seq.",
-    effectiveDate: "2020-01-01",
-    responseDays: 45,
-    extensionDays: 45,
-    brokerNotes:
-      "Data brokers are businesses under the Act. Registered brokers must also process deletion requests made through DROP under the Delete Act.",
-    sourceUrl:
-      "https://leginfo.legislature.ca.gov/faces/codes_displayText.xhtml?lawCode=CIV&division=3.&title=1.81.5.&part=4.&chapter=&article=",
-    notes:
-      "Amended by the California Privacy Rights Act from 2023-01-01. The opt-out covers sale and sharing of personal information.",
-  }),
+  comprehensive(
+    {
+      id: "ca-ccpa",
+      state: "CA",
+      name: "California Consumer Privacy Act",
+      citation: "Cal. Civ. Code 1798.100 et seq.",
+      effectiveDate: "2020-01-01",
+      responseDays: 45,
+      extensionDays: 45,
+      brokerNotes:
+        "Data brokers are businesses under the Act. Registered brokers must also process deletion requests made through DROP under the Delete Act.",
+      sourceUrl:
+        "https://leginfo.legislature.ca.gov/faces/codes_displayText.xhtml?lawCode=CIV&division=3.&title=1.81.5.&part=4.&chapter=&article=",
+      notes:
+        "Amended by the California Privacy Rights Act from 2023-01-01. The opt-out covers sale and sharing of personal information. The deletion right reaches only personal information collected from the consumer (1798.105(a)), so it does not reach a broker that collected the data elsewhere. A request that only opts out is owed action within 15 business days under 11 CCR 7026(f).",
+    },
+    PROVIDED,
+  ),
   {
     statute: {
       id: "ca-delete-act",
@@ -137,7 +156,7 @@ export const STATUTE_ENTRIES: readonly StatuteEntry[] = [
       notes:
         "The deletion right reaches only personal data the consumer provided to the business, so it does not reach a broker that collected the data elsewhere.",
     },
-    { deleteScope: "provided", citable: true },
+    PROVIDED,
   ),
   comprehensive({
     id: "tx-tdpsa",
@@ -190,7 +209,7 @@ export const STATUTE_ENTRIES: readonly StatuteEntry[] = [
       notes:
         "The consumer rights bind only controllers with more than 1 billion dollars in global revenue that also meet a further test, so this tool does not cite it. Only the sensitive data sale rule reaches other businesses.",
     },
-    { deleteScope: "all", citable: false },
+    { ...ALL, citable: false },
   ),
   comprehensive({
     id: "de-dpdpa",
@@ -217,7 +236,7 @@ export const STATUTE_ENTRIES: readonly StatuteEntry[] = [
       notes:
         "The response period is 90 days, the longest of any state. The deletion right reaches only data the consumer provided to the business.",
     },
-    { deleteScope: "provided", citable: true },
+    PROVIDED,
   ),
   comprehensive({
     id: "ne-ndpa",
@@ -372,11 +391,76 @@ export const STATUTE_ENTRIES: readonly StatuteEntry[] = [
     notes:
       "Signed 2026-06-16. The response deadline was read from a law firm summary, not the enrolled text.",
   }),
+  {
+    statute: {
+      id: "nv-nrs-603a",
+      state: "NV",
+      kind: "data_broker",
+      name: "Nevada Revised Statutes chapter 603A",
+      citation: "Nev. Rev. Stat. 603A.345 and 603A.346",
+      effectiveDate: "2021-10-01",
+      rights: ["opt_out"],
+      responseDays: 60,
+      extensionDays: 30,
+      brokerNotes:
+        "A data broker must keep a designated address for verified requests not to sell covered information, and must answer within 60 days. SB 260 of 2021 added the broker duty.",
+      platform: null,
+      sourceUrl: "https://www.leg.state.nv.us/NRS/NRS-603A.html",
+      notes:
+        "Nevada is not a comprehensive privacy law and gives no deletion right. The request must be verified and 'sale' is defined narrowly, so the email does not claim the request needs no proof of identity.",
+    },
+    traits: ALL,
+  },
 ];
 
 export const STATUTES: readonly Statute[] = STATUTE_ENTRIES.map((entry) => entry.statute);
 
-const TRAITS = new Map(STATUTE_ENTRIES.map((entry) => [entry.statute.id, entry.traits]));
+const OPT_OUT_AUTH_EXEMPT = new Set([
+  "ca-ccpa",
+  "co-cpa",
+  "ct-ctdpa",
+  "nj-njdpa",
+  "or-ocpa",
+  "mn-mcdpa",
+  "md-modpa",
+  "de-dpdpa",
+]);
+
+/** CCPA regulation 11 CCR 7026(f) gives 15 business days to stop selling or sharing. */
+const OPT_OUT_BUSINESS_DAYS = new Map([["ca-ccpa", 15]]);
+
+const TRAITS = new Map(
+  STATUTE_ENTRIES.map(({ statute, traits }) => [
+    statute.id,
+    {
+      ...traits,
+      optOutAuthExempt: OPT_OUT_AUTH_EXEMPT.has(statute.id),
+      optOutBusinessDays: OPT_OUT_BUSINESS_DAYS.get(statute.id) ?? null,
+    },
+  ]),
+);
+
+/**
+ * Splits the rights a request asks for into those the statute reaches for this kind of target and
+ * those it does not. A broker never received the data from the person, so a deletion right
+ * limited to data the person provided does not reach it.
+ */
+export function splitRights(
+  statute: Statute,
+  rights: readonly RequestRight[],
+  targetKind: "broker" | "company",
+): { covered: RequestRight[]; uncovered: RequestRight[] } {
+  const { deleteScope } = traitsOf(statute.id);
+  const covered: RequestRight[] = [];
+  const uncovered: RequestRight[] = [];
+  for (const right of rights) {
+    const reaches =
+      statute.rights.includes(right) &&
+      !(right === "delete" && deleteScope === "provided" && targetKind === "broker");
+    (reaches ? covered : uncovered).push(right);
+  }
+  return { covered, uncovered };
+}
 
 export function traitsOf(statuteId: string): StatuteTraits {
   const traits = TRAITS.get(statuteId);

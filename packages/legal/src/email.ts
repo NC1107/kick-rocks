@@ -6,10 +6,12 @@ import {
   Reference,
   type RenderedEmail,
   RequestRight,
+  type Statute,
   stateName,
 } from "@kickrocks/shared";
 import { z } from "zod";
 import { LegalInputError } from "./errors.js";
+import { splitRights, traitsOf } from "./statutes.js";
 import type { LegalApi, RenderRequestEmailInput } from "./types.js";
 
 const FIELD_LABELS: Record<ProfileField, string> = {
@@ -59,49 +61,75 @@ function askLines(rights: readonly RequestRight[]): string[] {
   return ["I ask you to:", ...rights.map((right) => `- ${asks[right]}`)];
 }
 
-function rightPhrase(rights: readonly RequestRight[]): string {
+const POLICY_COMMITMENTS = "your own published privacy commitments";
+const CHANNEL_REQUEST =
+  "If your privacy notice requires another way to submit this, tell me which.";
+
+function rightPhrase(rights: readonly RequestRight[], statute: Statute): string {
+  const deleteWording =
+    traitsOf(statute.id).deleteScope === "provided"
+      ? "have the personal information I provided to you deleted"
+      : "have my personal information deleted";
   const phrases: Record<RequestRight, string> = {
     opt_out: "opt out of the sale of my personal information",
-    delete: "have my personal information deleted",
+    delete: deleteWording,
   };
   return rights.map((right) => phrases[right]).join(" and to ");
+}
+
+/** The Delete Act binds registered brokers to DROP, so the person has no right to demand an email answer. */
+function isPlatformStatute(statute: Statute): boolean {
+  return statute.kind === "data_broker" && statute.platform !== null;
+}
+
+function statuteIntro(basis: LegalBasis, statute: Statute, covered: RequestRight[]): string {
+  const opening = `I live in ${stateName(basis.state)}.`;
+  const closing =
+    "I ask you to honor this request under that law, to the extent it applies to you.";
+  if (isPlatformStatute(statute)) {
+    return `${opening} Under the ${statute.name} (${statute.citation}), a data broker registered with the state must process consumer deletion requests. ${closing}`;
+  }
+  return `${opening} Under the ${statute.name} (${statute.citation}), I have the right to ${rightPhrase(covered, statute)}. ${closing}`;
 }
 
 /** The sentences that say why the request is owed an answer, from the stored basis only. */
 function basisLines(
   basis: LegalBasis,
   rights: readonly RequestRight[],
+  targetKind: "broker" | "company",
   followUp: boolean,
+  channel: boolean,
 ): string[] {
   if (basis.kind === "statute" && basis.statute === null) {
     throw new LegalInputError("A statute basis must carry its statute");
   }
   const statute = basis.statute;
-  const policy =
-    "I ask you to honor it under your own published privacy commitments. If your privacy policy names a different way to submit it, tell me and I will use it.";
+  const policy = `I ask you to honor it under ${POLICY_COMMITMENTS}. If your privacy policy names a different way to submit it, tell me and I will use it.`;
   if (basis.kind === "policy" || statute === null) {
-    return [
-      followUp ? `I asked you to honor it under your own published privacy commitments.` : policy,
-    ];
+    return [followUp ? `I asked you to honor it under ${POLICY_COMMITMENTS}.` : policy];
   }
 
-  const covered = rights.filter((right) => statute.rights.includes(right));
-  const uncovered = rights.filter((right) => !statute.rights.includes(right));
+  const { covered, uncovered } = splitRights(statute, rights, targetKind);
   const lines = [
     followUp
       ? `I made this request under the ${statute.name} (${statute.citation}), to the extent it applies to you.`
-      : `I live in ${stateName(basis.state)}. Under the ${statute.name} (${statute.citation}), I have the right to ${rightPhrase(covered)}. I ask you to honor this request under that law, to the extent it applies to you.`,
+      : statuteIntro(basis, statute, covered),
   ];
   if (uncovered.length > 0) {
     lines.push(
-      `That law does not cover everything I ask, so for the rest I ask you to honor it under your own published privacy commitments.`,
+      `That law does not cover everything I ask, so for the rest I ask you to honor it under ${POLICY_COMMITMENTS}.`,
     );
   }
+  if (channel) lines.push(CHANNEL_REQUEST);
   return lines;
 }
 
-function responseLine(basis: LegalBasis): string {
+function responseLine(basis: LegalBasis, rights: readonly RequestRight[]): string {
   const statute = basis.statute;
+  const businessDays = statute ? traitsOf(statute.id).optOutBusinessDays : null;
+  if (businessDays !== null && rights.every((right) => right === "opt_out")) {
+    return `Please stop selling and sharing my personal information as soon as feasible, no later than ${businessDays} business days after you receive this email, and confirm in writing.`;
+  }
   const days = basis.kind === "statute" ? basis.responseDays : POLICY_RESPONSE_DAYS;
   const base = `Please confirm in writing within ${days} days of receiving this email.`;
   if (statute && statute.extensionDays > 0) {
@@ -128,13 +156,28 @@ function detailLines(
   return [...lines(requested), ...lines(rest)];
 }
 
-function verificationLines(rights: readonly RequestRight[]): string[] {
+function optOutAuthLine(
+  basis: LegalBasis,
+  rights: readonly RequestRight[],
+  targetKind: "broker" | "company",
+): string {
+  const statute = basis.statute;
+  const exempt =
+    statute !== null &&
+    traitsOf(statute.id).optOutAuthExempt &&
+    splitRights(statute, rights, targetKind).covered.includes("opt_out");
+  return exempt
+    ? "Under that law an opt-out of sale needs no proof of my identity. Please do not ask for ID, an account, or a fee."
+    : "Please do not ask for ID, an account, or a fee to stop selling my data.";
+}
+
+function verificationLines(
+  basis: LegalBasis,
+  rights: readonly RequestRight[],
+  targetKind: "broker" | "company",
+): string[] {
   const lines: string[] = [];
-  if (rights.includes("opt_out")) {
-    lines.push(
-      "Opting out of sale does not need proof of my identity. Please do not ask for ID, an account, or a fee for it.",
-    );
-  }
+  if (rights.includes("opt_out")) lines.push(optOutAuthLine(basis, rights, targetKind));
   if (rights.includes("delete")) {
     lines.push(
       "If you need to verify me before deleting, tell me which detail you need and why. I will decide whether to send it.",
@@ -165,14 +208,14 @@ function initialBody(input: RenderRequestEmailInput, rights: RequestRight[]): st
     "",
     ...askLines(rights),
     "",
-    ...basisLines(input.basis, rights, false),
+    ...basisLines(input.basis, rights, input.target.kind, false, true),
     "",
     "Details to find my records:",
     ...detailLines(input.identifiers, input.sender, new Set()),
     "",
-    ...verificationLines(rights),
+    ...verificationLines(input.basis, rights, input.target.kind),
     "",
-    responseLine(input.basis),
+    responseLine(input.basis, rights),
     `Please keep ${input.reference} in the subject of your reply so I can match it.`,
     "",
     ...signature(input.sender),
@@ -200,7 +243,7 @@ function followUpBody(
     "",
     ...askLines(rights),
     "",
-    ...basisLines(input.basis, rights, true),
+    ...basisLines(input.basis, rights, input.target.kind, true, false),
     "",
     "Details to find my records:",
     ...detailLines(input.identifiers, input.sender, new Set()),
@@ -233,7 +276,7 @@ function verificationBody(input: RenderRequestEmailInput, rights: RequestRight[]
     "",
     ...askLines(rights),
     "",
-    ...basisLines(input.basis, rights, true),
+    ...basisLines(input.basis, rights, input.target.kind, true, false),
     "",
     `Please confirm in writing when it is done, and keep ${input.reference} in the subject of your reply.`,
     "",
