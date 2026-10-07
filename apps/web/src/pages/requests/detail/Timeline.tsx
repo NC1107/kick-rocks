@@ -1,7 +1,6 @@
 import type { RequestActor, RequestEvent, RequestEventType } from "@kickrocks/shared";
 import { describeEvent } from "../../../lib/events.js";
 import { formatDateTime, formatRelative } from "../../../lib/format.js";
-import { REQUEST_EVENT_LABELS } from "../../../lib/labels.js";
 import type { Tone } from "../../../lib/tone.js";
 
 const ACTOR_LABELS: Record<RequestActor, string> = {
@@ -35,9 +34,37 @@ const EVENT_TONES: Record<RequestEventType, Tone> = {
   note: "neutral",
 };
 
-/** Newest first, so what just happened is at the top. */
+/** The kind of thing that happened, so the line above the sentence adds something the sentence lacks. */
+const EVENT_CATEGORIES: Record<RequestEventType, string> = {
+  created: "Request",
+  queued: "Request",
+  sent: "Sent",
+  send_failed: "Email",
+  reply_received: "Reply",
+  classified: "Reply",
+  link_followed: "Confirmation",
+  status_changed: "Status",
+  follow_up_sent: "Sent",
+  channel_switched: "Channel",
+  awaiting_confirmation: "Confirmation",
+  task_enqueued: "Task",
+  task_blocked: "Task",
+  task_completed: "Task",
+  task_failed: "Task",
+  task_cancelled: "Task",
+  task_resumed: "Task",
+  task_retrying: "Task",
+  user_action: "You",
+  relisted: "Record",
+  note: "Note",
+};
+
+/**
+ * Newest first, so what just happened is at the top. Events in the same moment keep the order they
+ * were recorded in, reversed, so a task never reads as older than the request that started it.
+ */
 export function newestFirst(events: readonly RequestEvent[]): RequestEvent[] {
-  return [...events].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  return [...events].reverse().sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 }
 
 export function Timeline({ events }: { events: readonly RequestEvent[] }) {
@@ -60,7 +87,7 @@ export function Timeline({ events }: { events: readonly RequestEvent[] }) {
             className="relative mt-1.5 size-2.5 shrink-0 rounded-full bg-tone-dot ring-4 ring-surface"
           />
           <div className="min-w-0 flex-1">
-            <p className="text-sm font-medium text-ink-muted">{REQUEST_EVENT_LABELS[event.type]}</p>
+            <p className="text-sm font-medium text-ink-muted">{EVENT_CATEGORIES[event.type]}</p>
             <p className="break-words text-base text-ink">{describeEvent(event)}</p>
             <p className="text-sm text-ink-faint">
               <time dateTime={event.createdAt} title={formatDateTime(event.createdAt)}>

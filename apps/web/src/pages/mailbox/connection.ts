@@ -27,11 +27,12 @@ export interface ConnectionForm {
 export const DEFAULT_REPLY_FOLDER = "INBOX";
 export const MAX_DAILY_CAP = 2000;
 
-export function emptyForm(): ConnectionForm {
+/** A blank form, starting from the profile's own email address, which is usually the mailbox to use. */
+export function emptyForm(address = ""): ConnectionForm {
   return {
     providerId: "",
-    address: "",
-    username: "",
+    address,
+    username: address,
     usernameEdited: false,
     password: "",
     smtpHost: "",

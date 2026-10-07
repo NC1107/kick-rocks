@@ -107,6 +107,27 @@ describe("general settings", () => {
     expect(screen.getByText("2 laws")).toBeVisible();
   });
 
+  it("lists only states that have a law, with one line for the rest", async () => {
+    const mock = createMockApp();
+    const withoutLaws = { state: "AK" as const, statutes: [] };
+    mock.handle = ((handle) => async (request: Parameters<typeof handle>[0]) => {
+      const response = await handle(request);
+      if (!request.url.endsWith("/settings/jurisdictions")) return response;
+      const body = JSON.parse(response.body as string) as { jurisdictions: unknown[] };
+      return {
+        ...response,
+        body: JSON.stringify({ jurisdictions: [...body.jurisdictions, withoutLaws] }),
+      };
+    })(mock.handle.bind(mock));
+    general(mock);
+    await screen.findByText("California");
+    expect(screen.queryByText("Alaska")).not.toBeInTheDocument();
+    expect(screen.queryByText("0 laws")).not.toBeInTheDocument();
+    expect(
+      screen.getByText(/the other states, requests cite the company's own privacy policy/),
+    ).toBeVisible();
+  });
+
   it("catches a password mismatch before asking the server", async () => {
     const { user } = general();
     await user.type(await field("Current password"), "kickrocks-mock");

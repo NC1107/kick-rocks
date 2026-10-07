@@ -24,8 +24,14 @@ async function chooseProvider(user: User, name: RegExp) {
   await user.click(screen.getByRole("button", { name: "Continue" }));
 }
 
+async function typeAddress(user: User, address: string) {
+  const field = await screen.findByLabelText("Email address");
+  await user.clear(field);
+  await user.type(field, address);
+}
+
 async function signIn(user: User, password = "app-password") {
-  await user.type(await screen.findByLabelText("Email address"), "riley@example.net");
+  await typeAddress(user, "riley@example.net");
   await user.type(screen.getByLabelText(/password/i), password);
   await user.click(screen.getByRole("button", { name: "Continue" }));
 }
@@ -77,9 +83,19 @@ describe("connecting a mailbox", () => {
     expect(screen.getByLabelText("Password")).toBeInTheDocument();
   });
 
+  it("starts from the profile's own email address and names each port by protocol", async () => {
+    const { user, profile } = open("riley");
+    await chooseProvider(user, /^Proton Mail Bridge/);
+    expect(await screen.findByLabelText("Email address")).toHaveValue(profile.primaryEmail);
+    await user.click(screen.getByRole("button", { name: "Server settings" }));
+    expect(screen.getByLabelText("SMTP port")).toBeVisible();
+    expect(screen.getByLabelText("IMAP port")).toBeVisible();
+  });
+
   it("asks for the missing details before testing", async () => {
     const { user } = open("riley");
     await chooseProvider(user, /^Gmail/);
+    await user.clear(await screen.findByLabelText("Email address"));
     await user.click(await screen.findByRole("button", { name: "Continue" }));
     expect(screen.getAllByText("Required")).toHaveLength(2);
     expect(screen.getByLabelText("Email address")).toBeInvalid();
@@ -100,10 +116,10 @@ describe("connecting a mailbox", () => {
   it("rejects a port outside the range", async () => {
     const { user } = open("riley");
     await chooseProvider(user, /^Gmail/);
-    await user.type(await screen.findByLabelText("Email address"), "riley@example.net");
+    await typeAddress(user, "riley@example.net");
     await user.type(screen.getByLabelText(/password/i), "app-password");
     await user.click(screen.getByRole("button", { name: "Server settings" }));
-    const port = screen.getAllByLabelText("Port")[0] as HTMLElement;
+    const port = screen.getByLabelText("SMTP port");
     await user.clear(port);
     await user.type(port, "70000");
     await user.click(screen.getByRole("button", { name: "Continue" }));
@@ -199,6 +215,7 @@ describe("connecting a mailbox", () => {
     await user.click(screen.getByRole("button", { name: "Save mailbox" }));
 
     expect(await screen.findByText("Saved")).toBeInTheDocument();
+    expect(screen.getAllByText(/Next, start a campaign/).length).toBeGreaterThan(0);
     const put = seen.find((request) => request.method === "PUT");
     expect(put?.url).toBe(`/api/profiles/${profile.id}/mailbox`);
     expect(put?.json).toMatchObject({
@@ -257,7 +274,7 @@ describe("connecting a mailbox", () => {
   it("can go back through the steps without losing what was typed", async () => {
     const { user } = open("riley");
     await chooseProvider(user, /^Gmail/);
-    await user.type(await screen.findByLabelText("Email address"), "riley@example.net");
+    await typeAddress(user, "riley@example.net");
     await user.click(screen.getByRole("button", { name: "Back" }));
     expect(screen.getByRole("radio", { name: /^Gmail/ })).toBeChecked();
     await user.click(screen.getByRole("button", { name: "Continue" }));

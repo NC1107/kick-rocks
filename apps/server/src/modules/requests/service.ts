@@ -11,10 +11,13 @@ import {
   type RequestStatus,
   type RequestsQuery,
   resendEmailKind,
+  resolveProfileFields,
   type VerificationReplyBody,
 } from "@kickrocks/shared";
 import { and, asc, desc, eq, inArray, type SQL, sql } from "drizzle-orm";
+import { nowIso } from "../../core/clock.js";
 import { conflict, invalidRequest, notFound } from "../../core/errors.js";
+import { loadIdentities } from "../../core/identities.js";
 import { likePattern } from "../../core/like.js";
 import type { AppServices } from "../../services.js";
 
@@ -183,6 +186,19 @@ export function createRequestsApi(services: AppServices): RequestsApi {
                   },
                 ],
           ),
+        );
+      }
+      const available = resolveProfileFields(loadIdentities(db, record.profileId), fields, {
+        asOf: nowIso(services.clock).slice(0, 10),
+      });
+      const lacking = fields.filter((field) => available[field] === undefined);
+      if (lacking.length > 0) {
+        throw invalidRequest(
+          "The profile has no value for a detail that was approved",
+          lacking.map((field) => ({
+            path: ["body", "fields", body.fields.indexOf(field)],
+            message: `The profile has no ${field.replaceAll("_", " ")} to send`,
+          })),
         );
       }
       db.transaction(() => {

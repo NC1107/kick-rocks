@@ -246,7 +246,7 @@ function Wizard({ profile, providers, onCancel, onSaved }: WizardProps) {
   const navigate = useNavigate();
   const existing = profile.mailbox;
   const [form, setForm] = useState<ConnectionForm>(() =>
-    existing ? formFromMailbox(existing) : emptyForm(),
+    existing ? formFromMailbox(existing) : emptyForm(profile.primaryEmail ?? ""),
   );
   const [step, setStep] = useState<StepIndex>(existing ? 1 : 0);
   const [errors, setErrors] = useState<FormErrors>({});
@@ -266,9 +266,14 @@ function Wizard({ profile, providers, onCancel, onSaved }: WizardProps) {
   const save = useApiMutation(API_ROUTES.mailboxSave, {
     invalidates: [API_ROUTES.profilesGet, API_ROUTES.profilesList, API_ROUTES.dashboardGet],
     onSuccess: (saved) => {
-      toast.success("Saved", `${saved.address} is connected.`);
       onSaved();
-      navigate(`/profiles/${profile.id}`);
+      if (existing) {
+        toast.success("Saved", `${saved.address} is connected.`);
+        navigate(`/profiles/${profile.id}`);
+        return;
+      }
+      toast.success("Saved", `${saved.address} is connected. Next, start a campaign.`);
+      navigate("/");
     },
   });
 

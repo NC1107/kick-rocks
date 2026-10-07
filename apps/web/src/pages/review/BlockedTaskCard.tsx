@@ -1,14 +1,15 @@
-import type { BlockedTaskItem, FormOutcome } from "@kickrocks/shared";
-import { API_ROUTES } from "@kickrocks/shared";
+import type { BlockedTaskItem, FormOutcome, ProfileField } from "@kickrocks/shared";
+import { API_ROUTES, resolveProfileFields } from "@kickrocks/shared";
 import { ImageOff } from "lucide-react";
 import { useState } from "react";
 import { Link } from "react-router";
-import { errorMessage, screenshotUrl, useApiMutation } from "../../api/index.js";
+import { errorMessage, screenshotUrl, useApiMutation, useApiQuery } from "../../api/index.js";
 import {
   Badge,
   Button,
   Card,
   ConfirmDialog,
+  CopyButton,
   Dialog,
   ExternalLinkText,
   Field,
@@ -17,8 +18,9 @@ import {
   Textarea,
   useToast,
 } from "../../components/ui/index.js";
+import { describeFailure } from "../../lib/failures.js";
 import { formatRelative } from "../../lib/format.js";
-import { BLOCKED_REASON_LABELS, FAILURE_KIND_LABELS, TASK_KIND_LABELS } from "../../lib/labels.js";
+import { BLOCKED_REASON_LABELS, PROFILE_FIELD_LABELS, TASK_KIND_LABELS } from "../../lib/labels.js";
 import {
   canHandOff,
   canReportOutcome,
@@ -42,31 +44,73 @@ function Screenshot({ taskId }: { taskId: string }) {
       href={screenshotUrl(taskId)}
       target="_blank"
       rel="noopener noreferrer"
-      className="block overflow-hidden rounded-md border border-line bg-sunken"
+      className="block max-h-72 overflow-auto rounded-md border border-line bg-sunken"
     >
       <img
         src={screenshotUrl(taskId)}
         alt="The page where the task stopped"
         loading="lazy"
         onError={() => setFailed(true)}
-        className="mx-auto max-h-72 w-full object-contain"
+        className="mx-auto h-auto w-[44rem] max-w-none sm:w-full sm:max-w-full sm:object-contain"
       />
       <span className="sr-only">(opens the full screenshot in a new tab)</span>
     </a>
   );
 }
 
+const IDENTIFIERS_TO_TYPE: readonly ProfileField[] = ["full_name", "email"];
+
+/** The details a person types into the form themselves, one copy button each. */
+function ValuesToEnter({ profileId }: { profileId: string }) {
+  const profile = useApiQuery(API_ROUTES.profilesGet, { params: { id: profileId } });
+  if (!profile.data) return null;
+  const values = resolveProfileFields(profile.data.identities, IDENTIFIERS_TO_TYPE, {
+    asOf: new Date().toISOString().slice(0, 10),
+  });
+  const rows = IDENTIFIERS_TO_TYPE.flatMap((field) =>
+    values[field] === undefined ? [] : [{ field, value: values[field] }],
+  );
+  if (rows.length === 0) return null;
+  return (
+    <div className="mt-3">
+      <p className="mb-1.5 text-sm font-semibold text-ink">Details to type into the form</p>
+      <ul className="m-0 flex list-none flex-col gap-1.5 p-0">
+        {rows.map(({ field, value }) => (
+          <li key={field} className="flex flex-wrap items-center justify-between gap-2">
+            <span className="min-w-0 break-words text-base text-ink">
+              <span className="text-ink-muted">{PROFILE_FIELD_LABELS[field]}: </span>
+              {value}
+            </span>
+            <CopyButton value={value as string} label="Copy" />
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 export function BlockedTaskCard({
   item,
   variant,
+  profileId,
+  nested = false,
 }: {
   item: BlockedTaskItem;
-  variant: "blocked" | "failed";
+  variant: "blocked" | "failed" | "agent";
+  profileId: string;
+  /** The card sits under a section heading, so its own title is one level lower. */
+  nested?: boolean;
 }) {
+  const Title = nested ? "h3" : "h2";
+  const SubTitle = nested ? "h4" : "h3";
   const { task } = item;
   const toast = useToast();
+  const settings = useApiQuery(API_ROUTES.settingsGet, { enabled: variant === "blocked" });
+  const agentAccessOff = settings.data ? !settings.data.mcp.enabled : false;
+  const agentAccessUnknown = variant === "blocked" && settings.data === undefined;
   const [doneOpen, setDoneOpen] = useState(false);
   const [cancelOpen, setCancelOpen] = useState(false);
+  const [handOffOpen, setHandOffOpen] = useState(false);
   const [outcome, setOutcome] = useState<FormOutcome>("submitted");
   const [note, setNote] = useState("");
 
@@ -81,8 +125,17 @@ export function BlockedTaskCard({
   });
   const handOff = useApiMutation(API_ROUTES.taskHandOff, {
     ...options,
-    onSuccess: () => toast.success("Handed to an agent"),
-    onError: fail,
+    onSuccess: () => {
+      setHandOffOpen(false);
+      toast.success(
+        "Handed to an agent",
+        "It now waits under Waiting for an agent until one takes it.",
+      );
+    },
+    onError: (error) => {
+      setHandOffOpen(false);
+      fail(error);
+    },
   });
   const retry = useApiMutation(API_ROUTES.taskRetry, {
     ...options,
@@ -93,7 +146,7 @@ export function BlockedTaskCard({
     ...options,
     onSuccess: () => {
       setCancelOpen(false);
-      toast.success("Task cancelled");
+      toast.success(variant === "failed" ? "Dismissed" : "Task cancelled");
     },
     onError: (error) => {
       setCancelOpen(false);
@@ -117,16 +170,16 @@ export function BlockedTaskCard({
     retry.isPending ||
     cancel.isPending ||
     markDone.isPending;
-  const detail = variant === "failed" ? task.lastError : (task.blockedDetail ?? null);
+  const failure = variant === "failed" ? describeFailure(task) : null;
+  const detail = failure ? failure.detail : (task.blockedDetail ?? null);
   const pill = (
     <span className="flex flex-wrap items-center gap-2">
       {variant === "failed" ? <TaskStatusPill status={task.status} /> : null}
       {variant === "blocked" && task.blockedReason ? (
         <Badge tone="amber">{BLOCKED_REASON_LABELS[task.blockedReason]}</Badge>
       ) : null}
-      {variant === "failed" && task.failureKind ? (
-        <Badge tone="red">{FAILURE_KIND_LABELS[task.failureKind]}</Badge>
-      ) : null}
+      {variant === "agent" ? <Badge tone="amber">Waiting for an agent</Badge> : null}
+      {failure ? <Badge tone="red">{failure.label}</Badge> : null}
     </span>
   );
 
@@ -134,9 +187,9 @@ export function BlockedTaskCard({
     <Card aria-label={`${task.targetName ?? "Task"}, ${TASK_KIND_LABELS[task.kind]}`}>
       <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
         <div className="min-w-0">
-          <h3 className="break-words text-lg font-semibold text-ink">
+          <Title className="break-words text-lg font-semibold text-ink">
             {task.targetName ?? "Unknown target"}
-          </h3>
+          </Title>
           <p className="text-sm text-ink-muted">
             {TASK_KIND_LABELS[task.kind]}
             {item.requestReference ? (
@@ -170,9 +223,9 @@ export function BlockedTaskCard({
       ) : null}
 
       <div className="mt-4 rounded-md bg-sunken p-3.5">
-        <h4 className="mb-1.5 text-sm font-semibold text-ink">
-          {variant === "blocked" ? "What to do" : "What happened"}
-        </h4>
+        <SubTitle className="mb-1.5 text-sm font-semibold text-ink">
+          {variant === "failed" ? "What happened" : "What to do"}
+        </SubTitle>
         {steps.length > 1 ? (
           <ol className="m-0 list-decimal pl-5 text-base text-ink">
             {steps.map((step) => (
@@ -190,6 +243,19 @@ export function BlockedTaskCard({
               Open the page
             </ExternalLinkText>
           </p>
+        ) : null}
+        {failure?.needsProfile ? (
+          <p className="mt-2.5 text-base">
+            <Link
+              to={`/profiles/${encodeURIComponent(profileId)}`}
+              className="text-accent underline underline-offset-2"
+            >
+              Open the profile to add it
+            </Link>
+          </p>
+        ) : null}
+        {variant !== "failed" && canReportOutcome(task) ? (
+          <ValuesToEnter profileId={profileId} />
         ) : null}
       </div>
 
@@ -209,8 +275,8 @@ export function BlockedTaskCard({
             {canHandOff(task) ? (
               <Button
                 loading={handOff.isPending}
-                disabled={busy && !handOff.isPending}
-                onClick={() => handOff.mutate({ params: { id: task.id } })}
+                disabled={(busy && !handOff.isPending) || agentAccessOff || agentAccessUnknown}
+                onClick={() => setHandOffOpen(true)}
               >
                 Hand to an agent
               </Button>
@@ -218,23 +284,63 @@ export function BlockedTaskCard({
             <Button variant="ghost" onClick={() => setCancelOpen(true)} disabled={busy}>
               Cancel task
             </Button>
+            {agentAccessOff ? (
+              <span className="text-sm text-ink-muted">
+                Agent access is off.{" "}
+                <Link to="/settings" className="text-accent underline underline-offset-2">
+                  Turn it on in Settings
+                </Link>
+              </span>
+            ) : null}
+          </>
+        ) : variant === "agent" ? (
+          <>
+            <Button variant="primary" onClick={() => setDoneOpen(true)} disabled={busy}>
+              I did it myself
+            </Button>
+            <Button variant="ghost" onClick={() => setCancelOpen(true)} disabled={busy}>
+              Cancel task
+            </Button>
           </>
         ) : (
-          <Button
-            variant="primary"
-            loading={retry.isPending}
-            disabled={busy && !retry.isPending}
-            onClick={() => retry.mutate({ params: { id: task.id } })}
-          >
-            Retry
-          </Button>
+          <>
+            <Button
+              variant="primary"
+              loading={retry.isPending}
+              disabled={busy && !retry.isPending}
+              onClick={() => retry.mutate({ params: { id: task.id } })}
+            >
+              Retry
+            </Button>
+            <Button variant="ghost" onClick={() => setCancelOpen(true)} disabled={busy}>
+              Dismiss
+            </Button>
+          </>
         )}
       </div>
+
+      <ConfirmDialog
+        open={handOffOpen}
+        onClose={() => setHandOffOpen(false)}
+        title="Hand this task to an agent?"
+        description="An agent is an AI assistant you connected to Kick Rocks over MCP. The task leaves your hands and waits until a connected agent takes it. The agent then receives your name and email address, and what the page asks for from this profile, to fill in the form for you."
+        confirmLabel="Hand to an agent"
+        loading={handOff.isPending}
+        onConfirm={() => handOff.mutate({ params: { id: task.id } })}
+      >
+        <p className="text-base text-ink-muted">
+          Nothing happens until one is connected.{" "}
+          <Link to="/settings" className="text-accent underline underline-offset-2">
+            Connect one in Settings
+          </Link>
+          .
+        </p>
+      </ConfirmDialog>
 
       <Dialog
         open={doneOpen}
         onClose={() => setDoneOpen(false)}
-        title="Mark this task done"
+        title={variant === "agent" ? "Finish this task yourself" : "Mark this task done"}
         description="Say how it ended, so the request moves to the right state."
         dismissible={!markDone.isPending}
         footer={
@@ -292,9 +398,13 @@ export function BlockedTaskCard({
       <ConfirmDialog
         open={cancelOpen}
         onClose={() => setCancelOpen(false)}
-        title="Cancel this task?"
-        description="The request keeps its place, but nothing will try this task again."
-        confirmLabel="Cancel task"
+        title={variant === "failed" ? "Dismiss this task?" : "Cancel this task?"}
+        description={
+          variant === "failed"
+            ? "It leaves the review queue. The request keeps its place, but nothing will try this task again."
+            : "The request keeps its place, but nothing will try this task again."
+        }
+        confirmLabel={variant === "failed" ? "Dismiss" : "Cancel task"}
         cancelLabel="Keep it"
         destructive
         loading={cancel.isPending}

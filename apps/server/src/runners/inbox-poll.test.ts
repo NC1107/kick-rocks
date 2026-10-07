@@ -307,6 +307,28 @@ describe("confirmation links", () => {
     expect(stored()[0]?.reviewed).toBe(false);
   });
 
+  it("leaves a company's deletion confirmation link for a person to decide", async () => {
+    const target = seedTarget(ctx, { kind: "company", category: "retail" });
+    const { request } = ctx.services.requests.open({
+      profileId,
+      targetId: target.id,
+      rights: ["opt_out", "delete"],
+      channel: "email",
+      actor: "user",
+    });
+    await runners.email.runDue();
+    ctx.clock.advance(MINUTE);
+    answer("Verify deletion", request.id, "confirmation_link", {
+      links: [`https://${target.domain}/verify-deletion`],
+    });
+    deliver("Verify deletion");
+
+    await poll();
+
+    expect(ctx.mail.linkFollower.calls).toEqual([]);
+    expect(stored()[0]?.reviewed).toBe(false);
+  });
+
   it("asks the browser to finish a link that needs a button press", async () => {
     const { request, target } = await sentRequest();
     const link = `https://${target.domain}/confirm?token=x`;

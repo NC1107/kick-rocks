@@ -1,5 +1,5 @@
 import type { CampaignPreview, RenderedEmail } from "@kickrocks/shared";
-import { ChevronDown, Globe, Mail, ScanSearch, SkipForward } from "lucide-react";
+import { Bot, ChevronDown, Globe, Mail, ScanSearch, SkipForward } from "lucide-react";
 import type { ComponentType } from "react";
 import { Card, CardHeader, Skeleton } from "../../../components/ui/index.js";
 import { formatCount } from "../../../lib/format.js";
@@ -28,9 +28,9 @@ function Tile({ icon: Icon, value, label, hint }: TileProps) {
 
 export function CountsSkeleton() {
   return (
-    <div aria-busy="true" className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+    <div aria-busy="true" className="grid grid-cols-2 gap-3 lg:grid-cols-5">
       <span className="sr-only">Loading preview</span>
-      {Array.from({ length: 4 }, (_, index) => (
+      {Array.from({ length: 5 }, (_, index) => (
         // biome-ignore lint/suspicious/noArrayIndexKey: placeholder tiles have no identity
         <Skeleton key={index} className="h-28 rounded-lg" />
       ))}
@@ -41,9 +41,10 @@ export function CountsSkeleton() {
 /** What a campaign would do, counted by the way each target is reached. */
 export function ChannelTiles({ counts }: { counts: ChannelCounts }) {
   return (
-    <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+    <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
       <Tile icon={Mail} value={counts.email} label="By email" hint="Sent from your mailbox" />
       <Tile icon={Globe} value={counts.form} label="By web form" hint="Filled in by the worker" />
+      <Tile icon={Bot} value={counts.manual} label="Agent or you" hint="No working saved steps" />
       <Tile
         icon={ScanSearch}
         value={counts.scan}
@@ -103,10 +104,12 @@ export function EmailPreview({
   email,
   fromAddress,
   targetName,
+  toAddress,
 }: {
   email: RenderedEmail;
   fromAddress: string | null;
   targetName: string | null;
+  toAddress: string | null;
 }) {
   return (
     <Card>
@@ -120,7 +123,9 @@ export function EmailPreview({
         {targetName ? (
           <>
             <dt className="text-ink-muted">To</dt>
-            <dd className="m-0 min-w-0 break-words text-ink">{targetName}</dd>
+            <dd className="m-0 min-w-0 break-words text-ink">
+              {toAddress ? `${targetName} (${toAddress})` : targetName}
+            </dd>
           </>
         ) : null}
         <dt className="text-ink-muted">Subject</dt>

@@ -3,8 +3,12 @@ import {
   createContext,
   type KeyboardEvent,
   type ReactNode,
+  useCallback,
   useContext,
+  useEffect,
   useId,
+  useLayoutEffect,
+  useRef,
   useState,
 } from "react";
 import { NavLink } from "react-router";
@@ -52,7 +56,29 @@ export function Tabs({ value, defaultValue, onValueChange, children, className }
  * Left and right arrows move between tabs and select as they go, Home and End jump to the ends.
  * Only the selected tab is in the Tab order, so one Tab press passes the whole list.
  */
-export function TabList({ className, ...rest }: ComponentProps<"div">) {
+export function TabList({ className, style, onScroll, ...rest }: ComponentProps<"div">) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [hidden, setHidden] = useState({ start: false, end: false });
+
+  const measure = useCallback(() => {
+    const strip = ref.current;
+    if (!strip) return;
+    const start = strip.scrollLeft > 1;
+    const end = strip.scrollLeft + strip.clientWidth < strip.scrollWidth - 1;
+    setHidden((current) =>
+      current.start === start && current.end === end ? current : { start, end },
+    );
+  }, []);
+
+  useLayoutEffect(() => {
+    measure();
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
+  }, [measure]);
+
+  // A fade at an edge says there are more tabs past it, which a clipped label alone does not.
+  const fade = `linear-gradient(to right, ${hidden.start ? "transparent, black 1.5rem" : "black, black"}, ${hidden.end ? "black calc(100% - 1.5rem), transparent" : "black, black"})`;
+
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     const tabs = Array.from(
       event.currentTarget.querySelectorAll<HTMLElement>('[role="tab"]:not(:disabled)'),
@@ -78,8 +104,16 @@ export function TabList({ className, ...rest }: ComponentProps<"div">) {
 
   return (
     <div
+      ref={ref}
       role="tablist"
       onKeyDown={onKeyDown}
+      onScroll={(event) => {
+        measure();
+        onScroll?.(event);
+      }}
+      style={
+        hidden.start || hidden.end ? { maskImage: fade, WebkitMaskImage: fade, ...style } : style
+      }
       className={cn("relative flex gap-1 overflow-x-auto border-b border-line", className)}
       {...rest}
     />
@@ -97,8 +131,14 @@ const TAB_CLASS =
 export function Tab({ value, className, children, ...rest }: TabProps) {
   const { value: selected, select, baseId } = useTabs();
   const active = selected === value;
+  const ref = useRef<HTMLButtonElement>(null);
+  // The strip scrolls on a narrow screen, so a tab chosen from the address must be brought into view.
+  useEffect(() => {
+    if (active) ref.current?.scrollIntoView?.({ block: "nearest", inline: "nearest" });
+  }, [active]);
   return (
     <button
+      ref={ref}
       type="button"
       role="tab"
       id={`${baseId}-tab-${value}`}

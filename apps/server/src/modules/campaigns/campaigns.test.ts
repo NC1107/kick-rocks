@@ -174,6 +174,27 @@ describe("presets", () => {
     expect(ids(result.items)).toEqual(["shop"]);
   });
 
+  it("asks companies only to opt out in a group campaign, whatever rights were ticked", async () => {
+    const { profile } = setup();
+    seedMix();
+    const result = await create(profile.id, {
+      selection: { preset: "companies" },
+      rights: [...BOTH],
+    });
+    if (!result.ok) throw new Error("create failed");
+    const rows = ctx.services.db.select().from(requestsTable).all();
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.rights).toEqual(["opt_out"]);
+  });
+
+  it("keeps deletion for a company the person picked by name", async () => {
+    const { profile } = setup();
+    seedMix();
+    const result = await create(profile.id, body(["shop"]));
+    if (!result.ok) throw new Error("create failed");
+    expect(ctx.services.db.select().from(requestsTable).all()[0]?.rights).toEqual([...BOTH]);
+  });
+
   it("email_brokers selects brokers with an email address that are not people-search sites", async () => {
     const { profile } = setup();
     seedMix();

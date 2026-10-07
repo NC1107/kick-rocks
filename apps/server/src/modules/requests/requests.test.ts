@@ -4,8 +4,10 @@ import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   createTestContext,
+  jordanIdentities,
   MINUTE,
   SECOND,
+  seedIdentities,
   seedMailbox,
   seedMessage,
   seedProfile,
@@ -639,6 +641,27 @@ describe("POST /requests/:id/verification", () => {
     expect(!result.ok && result.body.issues?.map((issue) => issue.path)).toEqual([
       ["body", "fields", 1],
       ["body", "fields", 2],
+    ]);
+    expect(reread(request.id).status).toBe("needs_verification");
+    expect(taskRows()).toEqual([]);
+  });
+
+  it("answers 400 for a detail the profile does not have, and leaves the request waiting", async () => {
+    const { profile, request, message } = waitingForVerification();
+    seedIdentities(
+      ctx,
+      profile.id,
+      jordanIdentities().filter((identity) => identity.kind !== "dob"),
+    );
+
+    const result = await verify(request.id, {
+      messageId: message.id,
+      fields: ["street", "date_of_birth"],
+    });
+
+    expect(result).toMatchObject({ ok: false, status: 400, body: { error: "invalid_request" } });
+    expect(!result.ok && result.body.issues).toEqual([
+      { path: ["body", "fields", 1], message: "The profile has no date of birth to send" },
     ]);
     expect(reread(request.id).status).toBe("needs_verification");
     expect(taskRows()).toEqual([]);

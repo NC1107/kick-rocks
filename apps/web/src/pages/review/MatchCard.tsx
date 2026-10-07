@@ -19,7 +19,9 @@ function Fact({ label, values }: { label: string; values: readonly string[] | un
   return (
     <>
       <dt className="text-sm text-ink-muted">{label}</dt>
-      <dd className="m-0 min-w-0 break-words text-base text-ink">{values.join(", ")}</dd>
+      <dd className="m-0 min-w-0 break-words text-base text-ink">
+        {values.join(label === "Locations" ? "; " : ", ")}
+      </dd>
     </>
   );
 }
@@ -50,7 +52,7 @@ export function MatchCard({ match }: { match: Match }) {
     <Card aria-label={`${fields.name} on ${match.targetName}`}>
       <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-1">
         <div className="min-w-0">
-          <h3 className="break-words text-lg font-semibold text-ink">{fields.name}</h3>
+          <h2 className="break-words text-lg font-semibold text-ink">{fields.name}</h2>
           <p className="text-sm text-ink-muted">Found on {match.targetName}</p>
         </div>
         {fields.age !== undefined ? (

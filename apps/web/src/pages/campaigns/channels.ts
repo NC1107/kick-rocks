@@ -18,24 +18,37 @@ export function channelOf(
 
 export interface ChannelCounts {
   email: number;
+  /** Web forms a saved recipe fills in. */
   form: number;
+  /** Web forms with no working recipe, which wait for an agent or for the person. */
+  manual: number;
   scan: number;
   skipped: number;
+}
+
+type CountedTarget = Pick<TargetListItem, "needsRecord" | "contactMethod"> &
+  Partial<Pick<TargetListItem, "automation">>;
+
+/** A form the built-in worker cannot run: it has no saved steps, or the ones it has are broken. */
+function needsAgentOrPerson(target: CountedTarget): boolean {
+  const remove = target.automation?.remove;
+  return remove === null || remove === "broken";
 }
 
 /** Counts a preview by the channel each target would use. A target the list cannot name counts as a form. */
 export function countByChannel(
   items: readonly TargetOutcome[],
-  targets: ReadonlyMap<string, Pick<TargetListItem, "needsRecord" | "contactMethod">>,
+  targets: ReadonlyMap<string, CountedTarget>,
 ): ChannelCounts {
-  const counts: ChannelCounts = { email: 0, form: 0, scan: 0, skipped: 0 };
+  const counts: ChannelCounts = { email: 0, form: 0, manual: 0, scan: 0, skipped: 0 };
   for (const item of items) {
     if (item.outcome === "skipped") counts.skipped += 1;
     else if (item.outcome === "scan_started") counts.scan += 1;
     else {
       const target = targets.get(item.targetId);
       const channel = target ? channelOf(target) : null;
-      counts[channel === "email" ? "email" : "form"] += 1;
+      if (channel === "email") counts.email += 1;
+      else counts[target && needsAgentOrPerson(target) ? "manual" : "form"] += 1;
     }
   }
   return counts;

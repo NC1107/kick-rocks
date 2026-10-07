@@ -51,6 +51,16 @@ describe("the request page", () => {
     expect(newestFirst(events).map((event) => event.id)).toEqual(["b", "c", "a"]);
   });
 
+  it("keeps events from the same moment in reverse order of recording", () => {
+    const at = "2026-01-01T00:00:00.000Z";
+    const events = [
+      { id: "created", createdAt: at },
+      { id: "queued", createdAt: at },
+      { id: "task", createdAt: at },
+    ] as unknown as Parameters<typeof newestFirst>[0];
+    expect(newestFirst(events).map((event) => event.id)).toEqual(["task", "queued", "created"]);
+  });
+
   it("offers only the actions the server allows", async () => {
     open(byTarget("audiencegrid"));
     await screen.findByRole("heading", { name: "AudienceGrid", level: 1 });
@@ -62,6 +72,10 @@ describe("the request page", () => {
   it("sends a request again straight from the page", async () => {
     const { user, mock, id } = open(byTarget("cardinal-insights"));
     await user.click(await screen.findByRole("button", { name: "Send again" }));
+    const dialog = within(await screen.findByRole("dialog"));
+    expect(await dialog.findByText(/privacy@/)).toBeVisible();
+    expect(mock.store.requests.find((request) => request.id === id)?.status).toBe("awaiting_reply");
+    await user.click(dialog.getByRole("button", { name: "Send again" }));
     await waitFor(() =>
       expect(mock.store.requests.find((request) => request.id === id)?.status).toBe("queued"),
     );

@@ -122,6 +122,29 @@ describe("describeEvent", () => {
     ).toBe("The submit form task finished. You noted: Did it by hand");
   });
 
+  it("shows field names as words and leaves out a failure label that says nothing", () => {
+    expect(
+      describeEvent(
+        event("send_failed", {
+          error: "A verification reply cannot answer for fields with no value: date_of_birth",
+          willRetry: false,
+        }),
+      ),
+    ).toBe(
+      "Sending failed: A verification reply cannot answer for fields with no value: date of birth.",
+    );
+    expect(
+      describeEvent(
+        event("task_failed", {
+          taskId: "t1",
+          kind: "form",
+          error: "No address on the profile",
+          failureKind: "internal",
+        }),
+      ),
+    ).toBe("The submit form task failed: No address on the profile.");
+  });
+
   it("names the sender a confirmation email is expected from", () => {
     expect(describeEvent(event("awaiting_confirmation"))).toBe(
       "Waiting for the confirmation email from broker.test.",

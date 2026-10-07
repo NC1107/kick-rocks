@@ -16,7 +16,14 @@ export function initialsOf(name: string): string {
  * Picks which profile every profile-scoped page works on. The choice is kept in localStorage, so
  * it survives a reload and is shared by every page.
  */
-export function ProfileSwitcher({ className }: { className?: string }) {
+export function ProfileSwitcher({
+  className,
+  onSwitch,
+}: {
+  className?: string;
+  /** Called after another profile is picked, so a drawer that holds the switcher can close. */
+  onSwitch?: (() => void) | undefined;
+}) {
   const { profile, profiles, isLoading, setProfileId } = useCurrentProfile();
   const navigate = useNavigate();
 
@@ -28,7 +35,10 @@ export function ProfileSwitcher({ className }: { className?: string }) {
       label: candidate.displayName,
       description: candidate.primaryEmail ?? "No email",
       selected: candidate.id === profile?.id,
-      onSelect: () => setProfileId(candidate.id),
+      onSelect: () => {
+        setProfileId(candidate.id);
+        onSwitch?.();
+      },
     })),
     {
       id: "manage",

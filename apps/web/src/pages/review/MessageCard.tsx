@@ -3,41 +3,42 @@ import { skipToken } from "@tanstack/react-query";
 import { useState } from "react";
 import { errorMessage, useApiMutation, useApiQuery } from "../../api/index.js";
 import {
-  Alert,
   Badge,
   Button,
   Card,
+  ConfirmDialog,
   ExternalLinkText,
   Field,
   Select,
-  SkeletonText,
   useToast,
 } from "../../components/ui/index.js";
 import { formatDateTime } from "../../lib/format.js";
 import { CLASSIFICATION_LABELS } from "../../lib/labels.js";
+import { MessageBody } from "./MessageBody.js";
 import { REVIEW_INVALIDATES } from "./model.js";
 
-function FullText({ messageId }: { messageId: string }) {
-  const query = useApiQuery(API_ROUTES.messageGet, { params: { id: messageId } });
-  if (query.isPending) return <SkeletonText lines={4} />;
-  if (query.isError) {
-    return (
-      <Alert intent="danger" title="Could not load the message">
-        {errorMessage(query.error)}
-      </Alert>
-    );
-  }
-  return (
-    <pre className="m-0 whitespace-pre-wrap break-words rounded-md bg-sunken p-3 font-sans text-base text-ink">
-      {query.data.text ?? "This message has no text."}
-    </pre>
-  );
-}
+/** What choosing each answer does, since a few of them settle the request. */
+const CLASSIFICATION_HELP: Partial<Record<ReplyClassification, string>> = {
+  bounce: "The email did not arrive. The request is marked bounced.",
+  auto_ack: "A receipt only. Nothing changes.",
+  confirmation_link: "Kick Rocks follows the link in it.",
+  verification_required: "They want more details. You choose what to send.",
+  completed: "They did what was asked. The request is marked confirmed.",
+  no_record: "They hold nothing about you. The request is closed.",
+  rejected: "They refused. The request is marked rejected.",
+  needs_form: "They want their web form used instead.",
+  unrelated: "Not about any request. Nothing changes.",
+};
+
+const CHOICES = ReplyClassification.options.filter((option) => option !== "unknown");
+
+/** Choices that end the request, so the person is asked before one is applied. */
+const SETTLES: ReadonlySet<ReplyClassification> = new Set(["completed", "no_record", "rejected"]);
 
 /** Mail nobody could classify. The person says what it is, and may attach it to a request. */
 export function MessageCard({ message, profileId }: { message: ReviewMessage; profileId: string }) {
   const toast = useToast();
-  const [expanded, setExpanded] = useState(false);
+  const [confirming, setConfirming] = useState(false);
   const [classification, setClassification] = useState<ReplyClassification | "">("");
   const [requestId, setRequestId] = useState("");
 
@@ -51,21 +52,38 @@ export function MessageCard({ message, profileId }: { message: ReviewMessage; pr
 
   const classify = useApiMutation(API_ROUTES.messageClassify, {
     invalidates: REVIEW_INVALIDATES,
-    onSuccess: () => toast.success("Message classified"),
-    onError: (error) => toast.error("That did not work", errorMessage(error)),
+    onSuccess: () => {
+      setConfirming(false);
+      toast.success("Message classified");
+    },
+    onError: (error) => {
+      setConfirming(false);
+      toast.error("That did not work", errorMessage(error));
+    },
   });
+  const settlesRequest =
+    classification !== "" &&
+    SETTLES.has(classification) &&
+    (message.requestId !== null || requestId !== "");
+  const submit = () => {
+    if (!classification) return;
+    classify.mutate({
+      params: { id: message.id },
+      body: { classification, ...(requestId ? { requestId } : {}) },
+    });
+  };
 
   return (
     <Card aria-label={message.subject}>
       <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-1">
         <div className="min-w-0">
-          <h3 className="break-words text-lg font-semibold text-ink">{message.subject}</h3>
+          <h2 className="break-words text-lg font-semibold text-ink">{message.subject}</h2>
           <p className="break-words text-sm text-ink-muted">
             From {message.fromAddress},{" "}
             <time dateTime={message.receivedAt}>{formatDateTime(message.receivedAt)}</time>
           </p>
         </div>
-        <Badge tone="amber">{Math.round(message.confidence * 100)}% sure</Badge>
+        <Badge tone="amber">Kick Rocks is unsure what this is</Badge>
       </div>
 
       {message.requestReference ? (
@@ -80,20 +98,7 @@ export function MessageCard({ message, profileId }: { message: ReviewMessage; pr
       ) : null}
 
       <div className="mt-3">
-        {expanded ? (
-          <FullText messageId={message.id} />
-        ) : message.snippet ? (
-          <p className="break-words text-base text-ink">{message.snippet}</p>
-        ) : null}
-        <Button
-          size="sm"
-          variant="ghost"
-          className="mt-2 -ml-2.5"
-          aria-expanded={expanded}
-          onClick={() => setExpanded((value) => !value)}
-        >
-          {expanded ? "Show less" : "Read the whole message"}
-        </Button>
+        <MessageBody messageId={message.id} snippet={message.snippet} />
       </div>
 
       {message.links.length > 0 ? (
@@ -112,20 +117,20 @@ export function MessageCard({ message, profileId }: { message: ReviewMessage; pr
         className="mt-4 grid gap-3 border-t border-line pt-4 sm:grid-cols-2"
         onSubmit={(event) => {
           event.preventDefault();
-          if (!classification) return;
-          classify.mutate({
-            params: { id: message.id },
-            body: { classification, ...(requestId ? { requestId } : {}) },
-          });
+          if (settlesRequest) setConfirming(true);
+          else submit();
         }}
       >
-        <Field label="What is this message">
+        <Field
+          label="What is this message"
+          help={classification ? CLASSIFICATION_HELP[classification] : undefined}
+        >
           <Select
             value={classification}
             onChange={(event) => setClassification(event.target.value as ReplyClassification)}
           >
             <option value="">Choose one</option>
-            {ReplyClassification.options.map((option) => (
+            {CHOICES.map((option) => (
               <option key={option} value={option}>
                 {CLASSIFICATION_LABELS[option]}
               </option>
@@ -167,6 +172,16 @@ export function MessageCard({ message, profileId }: { message: ReviewMessage; pr
           </Button>
         </div>
       </form>
+
+      <ConfirmDialog
+        open={confirming}
+        onClose={() => setConfirming(false)}
+        title={`Mark this message as ${classification ? CLASSIFICATION_LABELS[classification].toLowerCase() : ""}?`}
+        description={classification ? CLASSIFICATION_HELP[classification] : undefined}
+        confirmLabel="Classify"
+        loading={classify.isPending}
+        onConfirm={submit}
+      />
     </Card>
   );
 }

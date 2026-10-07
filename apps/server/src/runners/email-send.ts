@@ -1,6 +1,11 @@
-import { mailboxes, outgoingMail } from "@kickrocks/db";
-import { type EmailKind, outgoingMessageId, type RequestRecord } from "@kickrocks/shared";
-import { count, eq } from "drizzle-orm";
+import { mailboxes, messages, outgoingMail } from "@kickrocks/db";
+import {
+  canTransition,
+  type EmailKind,
+  outgoingMessageId,
+  type RequestRecord,
+} from "@kickrocks/shared";
+import { and, count, eq } from "drizzle-orm";
 import { AppError } from "../core/errors.js";
 import type { RequestPatch } from "../core/requests.js";
 import type { Task } from "../core/task-types.js";
@@ -288,6 +293,22 @@ export class EmailRunner {
         kind: how.kind,
         actor: "system",
       });
+      if (!how.retryable && task.payload.kind === "verification_reply") {
+        this.returnToVerification(request.id, task.payload.inReplyTo);
+      }
     });
+  }
+
+  /** The person still owes the broker an answer, so the request goes back to where they can give it. */
+  private returnToVerification(requestId: string, inReplyTo: string | null | undefined): void {
+    const { db, requests } = this.services;
+    if (!canTransition("queued", "needs_verification", { actor: "system" })) return;
+    requests.transition(requestId, "needs_verification", { actor: "system" });
+    if (inReplyTo) {
+      db.update(messages)
+        .set({ reviewed: false })
+        .where(and(eq(messages.requestId, requestId), eq(messages.messageIdHeader, inReplyTo)))
+        .run();
+    }
   }
 }

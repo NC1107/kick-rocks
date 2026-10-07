@@ -1,4 +1,5 @@
 import { screen, waitFor, within } from "@testing-library/react";
+import { Link } from "react-router";
 import { describe, expect, it } from "vitest";
 import { createMockApp } from "../../../../mock/app.js";
 import { renderPage } from "../../../test/render.js";
@@ -17,6 +18,44 @@ function open(mock = createMockApp(), index = 0) {
 }
 
 describe("the profile page", () => {
+  it("asks before an in-app move throws unsaved edits away", async () => {
+    const mock = createMockApp();
+    const profile = mock.store.profiles[0];
+    const { user } = renderPage(
+      <>
+        <ProfileDetailPage />
+        <Link to="/away">Away</Link>
+      </>,
+      { mock, route: `/profiles/${profile?.id}`, path: "/profiles/:id" },
+    );
+    await user.type(await screen.findByLabelText("Profile name"), " Two");
+    await user.click(screen.getByRole("link", { name: "Away" }));
+    const dialog = within(await screen.findByRole("dialog"));
+    expect(dialog.getByText("Leave without saving?")).toBeVisible();
+    await user.click(dialog.getByRole("button", { name: "Keep editing" }));
+    expect(screen.queryByText("Away page")).not.toBeInTheDocument();
+    await user.click(screen.getByRole("link", { name: "Away" }));
+    await user.click(
+      within(await screen.findByRole("dialog")).getByRole("button", { name: "Discard and leave" }),
+    );
+    expect(await screen.findByText("Away page")).toBeVisible();
+  });
+
+  it("lets an in-app move through when nothing was changed", async () => {
+    const mock = createMockApp();
+    const profile = mock.store.profiles[0];
+    const { user } = renderPage(
+      <>
+        <ProfileDetailPage />
+        <Link to="/away">Away</Link>
+      </>,
+      { mock, route: `/profiles/${profile?.id}`, path: "/profiles/:id" },
+    );
+    await screen.findByLabelText("Profile name");
+    await user.click(screen.getByRole("link", { name: "Away" }));
+    expect(await screen.findByText("Away page")).toBeVisible();
+  });
+
   it("shows every stored identity grouped by kind, with the primary marked", async () => {
     open();
     expect(

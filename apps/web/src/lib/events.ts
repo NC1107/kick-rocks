@@ -1,4 +1,5 @@
 import type { RequestEvent, RequestRight, UserAction } from "@kickrocks/shared";
+import { plainError } from "./failures.js";
 import {
   BLOCKED_REASON_LABELS,
   CHANNEL_LABELS,
@@ -63,7 +64,7 @@ export function describeEvent(event: RequestEvent): string {
       return kind === "initial" ? "Sent the email." : `Sent the ${lower(EMAIL_KIND_LABELS[kind])}.`;
     }
     case "send_failed":
-      return `Sending failed: ${event.payload.error}.${event.payload.willRetry ? " It will try again." : ""}`;
+      return `Sending failed: ${plainError(event.payload.error)}.${event.payload.willRetry ? " It will try again." : ""}`;
     case "reply_received":
       return `Reply received from ${event.payload.from}.`;
     case "classified": {
@@ -101,8 +102,10 @@ export function describeEvent(event: RequestEvent): string {
     }
     case "task_failed": {
       const { kind, error, failureKind } = event.payload;
-      const why = failureKind ? ` ${FAILURE_KIND_LABELS[failureKind]}.` : "";
-      return `The ${task(kind)} task failed: ${error}.${why}`;
+      // "Something went wrong here" adds nothing to an error that already says what happened.
+      const why =
+        failureKind && failureKind !== "internal" ? ` ${FAILURE_KIND_LABELS[failureKind]}.` : "";
+      return `The ${task(kind)} task failed: ${plainError(error)}.${why}`;
     }
     case "task_cancelled":
       return `The ${task(event.payload.kind)} task was cancelled.`;

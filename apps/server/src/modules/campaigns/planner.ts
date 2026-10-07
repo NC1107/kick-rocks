@@ -26,7 +26,13 @@ import type { TaskQueue } from "../../core/task-queue.js";
 
 /** What the campaign will do for one target. */
 export type Plan =
-  | { kind: "request"; target: TargetRow; channel: RequestChannel; legalBasis: string }
+  | {
+      kind: "request";
+      target: TargetRow;
+      channel: RequestChannel;
+      legalBasis: string;
+      rights: RequestRight[];
+    }
   | { kind: "scan"; target: TargetRow }
   | { kind: "skip"; target: TargetRow; reason: SkipReason; detail: string };
 
@@ -138,10 +144,22 @@ export function createCampaignPlanner({
     return usable?.definition.fields.includes("email") ?? false;
   }
 
+  /**
+   * A group campaign asks companies only to stop selling data. Deleting what a company holds can
+   * close an account or erase purchases or genetic data, so it takes a person choosing that company.
+   */
+  function rightsFor(
+    row: TargetRow,
+    selection: CampaignSelection,
+    rights: RequestRight[],
+  ): RequestRight[] {
+    return row.kind === "company" && "preset" in selection ? ["opt_out"] : rights;
+  }
+
   function plan(
     profileId: string,
     selection: CampaignSelection,
-    rights: RequestRight[],
+    chosenRights: RequestRight[],
   ): CampaignPlan {
     const profile = db.select().from(profiles).where(eq(profiles.id, profileId)).get();
     if (!profile) throw notFound(`Profile ${profileId} not found`, "profile_not_found");
@@ -202,6 +220,7 @@ export function createCampaignPlanner({
         return skip("scan_in_progress", `A scan of ${row.name} is already running.`);
       }
 
+      const rights = rightsFor(row, selection, chosenRights);
       const basis = legal.resolveLegalBasis({
         state: profile.state,
         target: summary,
@@ -245,7 +264,7 @@ export function createCampaignPlanner({
             : `${row.name} confirms by email, so connect a mailbox first.`,
         );
       }
-      return { kind: "request", target: row, channel, legalBasis: basis.id };
+      return { kind: "request", target: row, channel, legalBasis: basis.id, rights };
     });
 
     return {

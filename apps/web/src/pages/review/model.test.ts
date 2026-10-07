@@ -14,6 +14,7 @@ const empty: ReviewQueue = {
   matches: [],
   verifications: [],
   failedTasks: [],
+  agentTasks: [],
   messages: [],
 };
 

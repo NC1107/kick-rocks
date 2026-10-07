@@ -2,6 +2,7 @@ import {
   API_ROUTES,
   type RequestAction,
   type RequestDetail,
+  resendEmailKind,
   type TaskSummary,
 } from "@kickrocks/shared";
 import { skipToken } from "@tanstack/react-query";
@@ -39,6 +40,8 @@ import {
   RIGHT_LABELS,
   TASK_KIND_LABELS,
 } from "../../../lib/labels.js";
+import { MessageBody } from "../../review/MessageBody.js";
+import { detailRefreshInterval } from "../polling.js";
 import { Timeline } from "./Timeline.js";
 
 /** What each action says when it is done, in the verb of the button that started it. */
@@ -49,6 +52,17 @@ const ACTION_DONE: Record<RequestAction, string> = {
   mark_rejected: "Marked as rejected",
   mark_no_record: "Marked as no record",
 };
+
+/** Says which email goes to which address, since a resend cannot be taken back once it is sent. */
+function resendWarning(request: RequestDetail, address: string | null): string {
+  if (request.channel === "form") {
+    return "Kick Rocks fills in the target's web form again.";
+  }
+  const to = address ? ` to ${address}` : "";
+  return resendEmailKind(request.status) === "follow_up" && request.sentAt !== null
+    ? `A follow-up email goes${to} from your mailbox. It cannot be recalled.`
+    : `The original request email goes${to} again from your mailbox. It cannot be recalled.`;
+}
 
 const ACTION_WARNING: Partial<Record<RequestAction, string>> = {
   cancel: "Kick Rocks stops working on this request. Nothing already sent is recalled.",
@@ -104,7 +118,15 @@ function TaskRow({ task }: { task: TaskSummary }) {
 
 export function Component() {
   const { id } = useParams();
-  const query = useApiQuery(API_ROUTES.requestsGet, id ? { params: { id } } : skipToken);
+  const query = useApiQuery(
+    API_ROUTES.requestsGet,
+    id
+      ? {
+          params: { id },
+          refetchInterval: detailRefreshInterval,
+        }
+      : skipToken,
+  );
 
   if (query.isPending) return <Loading />;
 
@@ -164,6 +186,13 @@ function Detail({ request }: { request: RequestDetail }) {
   const run = (action: RequestAction) =>
     act.mutate({ params: { id: request.id }, body: { action } });
   const can = (action: RequestAction) => request.actions.includes(action);
+  const targetDetail = useApiQuery(
+    API_ROUTES.targetsGet,
+    can("resend") ? { params: { id: request.target.id } } : skipToken,
+  );
+  const waitingAgent = request.tasks.find(
+    (task) => task.kind === "agent" && task.status === "queued",
+  );
   const blocked = request.tasks.find((task) => task.status === "blocked");
   const menuItems: MenuItem[] = CONFIRMED_ACTIONS.filter(can).map((action, index) => ({
     id: action,
@@ -206,11 +235,7 @@ function Detail({ request }: { request: RequestDetail }) {
               />
             ) : null}
             {can("resend") ? (
-              <Button
-                variant="primary"
-                loading={act.isPending && confirming === null}
-                onClick={() => run("resend")}
-              >
+              <Button variant="primary" onClick={() => setConfirming("resend")}>
                 {REQUEST_ACTION_LABELS.resend}
               </Button>
             ) : null}
@@ -230,6 +255,26 @@ function Detail({ request }: { request: RequestDetail }) {
             }
           >
             Nothing goes out until you choose which details to share.
+          </Alert>
+        ) : null}
+        {waitingAgent ? (
+          <Alert
+            intent="warning"
+            title="Waiting for an agent"
+            action={
+              <span className="flex flex-wrap gap-2">
+                {target.optOutUrl ? (
+                  <ExternalLinkText href={target.optOutUrl}>Open the opt-out page</ExternalLinkText>
+                ) : null}
+                <LinkButton size="sm" to="/review?tab=agents">
+                  Do it myself
+                </LinkButton>
+              </span>
+            }
+          >
+            Kick Rocks has no saved steps for this site, so the form is left to an agent you connect
+            in Settings. Nothing happens until one takes it. You can open the page and finish it
+            yourself, then mark the task done in Review, or cancel the request.
           </Alert>
         ) : null}
         {blocked ? (
@@ -340,9 +385,9 @@ function Detail({ request }: { request: RequestDetail }) {
                     From {message.fromAddress},{" "}
                     <time dateTime={message.receivedAt}>{formatDateTime(message.receivedAt)}</time>
                   </p>
-                  {message.snippet ? (
-                    <p className="mt-1.5 break-words text-base text-ink">{message.snippet}</p>
-                  ) : null}
+                  <div className="mt-1.5">
+                    <MessageBody messageId={message.id} snippet={message.snippet} />
+                  </div>
                 </li>
               ))}
             </ul>
@@ -374,7 +419,13 @@ function Detail({ request }: { request: RequestDetail }) {
         open={confirming !== null}
         onClose={() => setConfirming(null)}
         title={confirming ? `${REQUEST_ACTION_LABELS[confirming]}?` : ""}
-        description={confirming ? ACTION_WARNING[confirming] : undefined}
+        description={
+          confirming === "resend"
+            ? resendWarning(request, targetDetail.data?.privacyEmail ?? null)
+            : confirming
+              ? ACTION_WARNING[confirming]
+              : undefined
+        }
         confirmLabel={confirming ? REQUEST_ACTION_LABELS[confirming] : "Confirm"}
         destructive={confirming === "cancel"}
         loading={act.isPending}

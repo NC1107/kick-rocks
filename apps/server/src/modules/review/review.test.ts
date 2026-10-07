@@ -80,7 +80,66 @@ describe("GET /review", () => {
       matches: [],
       verifications: [],
       failedTasks: [],
+      agentTasks: [],
       messages: [],
+    });
+  });
+
+  describe("agent tasks nobody has claimed", () => {
+    function waitingAgentTask() {
+      const request = formRequest();
+      return {
+        request,
+        task: seedTask(ctx, {
+          kind: "agent",
+          payload: {
+            purpose: "remove",
+            profileId,
+            targetId,
+            requestId: request.id,
+            recordUrl: RECORD,
+            variant: null,
+            reason: "no_recipe",
+            previousError: null,
+            blockedReason: null,
+          },
+          profileId,
+          targetId,
+          requestId: request.id,
+        }),
+      };
+    }
+
+    it("lists a queued agent task with the way to finish it by hand", async () => {
+      const { request, task } = waitingAgentTask();
+
+      const { agentTasks, blockedTasks } = await queue(profileId);
+
+      expect(blockedTasks).toEqual([]);
+      expect(agentTasks).toHaveLength(1);
+      expect(agentTasks[0]).toMatchObject({
+        requestReference: request.reference,
+        manualInstructions: expect.stringContaining("No agent has taken this"),
+        url: RECORD,
+        task: { id: task.id, kind: "agent", status: "queued" },
+      });
+    });
+
+    it("stops listing it once an agent claims it", async () => {
+      waitingAgentTask();
+      ctx.services.taskQueue.claim({ workerId: "agent", kinds: ["agent"], leaseMs: 60_000 });
+      expect((await queue(profileId)).agentTasks).toEqual([]);
+    });
+
+    it("lets a person finish it by hand", async () => {
+      const { request, task } = waitingAgentTask();
+      const result = await ctx.call(API_ROUTES.taskMarkDone, {
+        params: { id: task.id },
+        body: { result: { outcome: "submitted" } },
+      });
+      expect(result.ok && result.body.task.status).toBe("done");
+      expect(ctx.services.requests.getOrThrow(request.id).status).toBe("awaiting_reply");
+      expect((await queue(profileId)).agentTasks).toEqual([]);
     });
   });
 
@@ -339,6 +398,21 @@ describe("GET /review", () => {
       expect((await queue()).failedTasks).toHaveLength(0);
     });
 
+    it("words the steps for a failed scan without a mark-done button", async () => {
+      seedTask(ctx, {
+        kind: "scan",
+        payload: { profileId, targetId, recipeId: null, variant: null },
+        status: "failed",
+        profileId,
+        targetId,
+        lastError: "boom",
+        failureKind: "network",
+      });
+      const { failedTasks } = await queue();
+      expect(failedTasks[0]?.manualInstructions).toContain("This scan failed");
+      expect(failedTasks[0]?.manualInstructions).not.toContain("mark it done");
+    });
+
     it("keeps a failed scan, which has no request to settle", async () => {
       seedTask(ctx, {
         kind: "scan",
@@ -486,6 +560,26 @@ describe("task actions", () => {
       expect(
         availableActions(after, { hasLiveTask: ctx.services.taskQueue.hasLiveTask(request.id) }),
       ).toContain("resend");
+    });
+
+    it("dismisses a task that failed, so it leaves the queue", async () => {
+      const request = formRequest();
+      const task = seedTask(ctx, {
+        kind: "form",
+        payload: formPayload(request.id),
+        status: "failed",
+        profileId,
+        targetId,
+        requestId: request.id,
+        lastError: "site down",
+        failureKind: "site",
+      });
+      expect((await queue()).failedTasks).toHaveLength(1);
+
+      const result = await call(API_ROUTES.taskCancel, task.id);
+
+      expect(result.ok && result.body.task.status).toBe("cancelled");
+      expect((await queue()).failedTasks).toHaveLength(0);
     });
 
     it("refuses a task that already finished", async () => {

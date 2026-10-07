@@ -165,7 +165,7 @@ export function AccountStep({
                 onChange={(event) => set({ smtpHost: event.target.value })}
               />
             </Field>
-            <Field label="Port" error={errors.smtpPort} className="sm:col-span-2">
+            <Field label="SMTP port" error={errors.smtpPort} className="sm:col-span-2">
               <Input
                 inputMode="numeric"
                 value={form.smtpPort}
@@ -187,7 +187,7 @@ export function AccountStep({
                 onChange={(event) => set({ imapHost: event.target.value })}
               />
             </Field>
-            <Field label="Port" error={errors.imapPort} className="sm:col-span-2">
+            <Field label="IMAP port" error={errors.imapPort} className="sm:col-span-2">
               <Input
                 inputMode="numeric"
                 value={form.imapPort}

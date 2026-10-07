@@ -44,6 +44,11 @@ export const ReviewQueue = z.object({
    * has to, with `POST /tasks/:id/retry`.
    */
   failedTasks: z.array(BlockedTaskItem),
+  /**
+   * Agent tasks that no MCP client has claimed yet. Nothing else runs them, so a person can finish
+   * one by hand, with `POST /tasks/:id/mark-done`, or drop it, with `POST /tasks/:id/cancel`.
+   */
+  agentTasks: z.array(BlockedTaskItem),
   messages: z.array(ReviewMessage),
 });
 export type ReviewQueue = z.infer<typeof ReviewQueue>;

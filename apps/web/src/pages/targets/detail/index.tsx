@@ -271,8 +271,8 @@ export function Component() {
               <TableHead>
                 <tr>
                   <TableHeaderCell>Purpose</TableHeaderCell>
-                  <TableHeaderCell>Version</TableHeaderCell>
-                  <TableHeaderCell>Source</TableHeaderCell>
+                  <TableHeaderCell className="hidden sm:table-cell">Version</TableHeaderCell>
+                  <TableHeaderCell className="hidden sm:table-cell">Source</TableHeaderCell>
                   <TableHeaderCell>Status</TableHeaderCell>
                   <TableHeaderCell>Health</TableHeaderCell>
                 </tr>
@@ -281,8 +281,10 @@ export function Component() {
                 {target.recipes.map((recipe) => (
                   <TableRow key={recipe.id}>
                     <TableCell>{recipe.purpose === "scan" ? "Scan" : "Removal"}</TableCell>
-                    <TableCell>v{recipe.version}</TableCell>
-                    <TableCell className="capitalize">{recipe.source}</TableCell>
+                    <TableCell className="hidden sm:table-cell">v{recipe.version}</TableCell>
+                    <TableCell className="hidden capitalize sm:table-cell">
+                      {recipe.source}
+                    </TableCell>
                     <TableCell>{RECIPE_STATUS_LABELS[recipe.status]}</TableCell>
                     <TableCell>
                       <Badge tone={RECIPE_HEALTH_TONES[recipe.health]}>

@@ -33,6 +33,26 @@ describe("the new profile page", () => {
     expect(seen.filter((request) => request.method === "POST")).toHaveLength(0);
   });
 
+  it("does not demand a profile name that defaults to the primary name", async () => {
+    const { user } = renderPage(<NewProfilePage />);
+    await user.type(screen.getByLabelText("First name"), "Taylor");
+    await user.type(screen.getByLabelText("Last name"), "Sample");
+    await user.click(screen.getByRole("button", { name: "Create profile" }));
+    expect(await screen.findByText("Choose a state")).toBeInTheDocument();
+    expect(screen.getByLabelText("Profile name")).not.toBeInvalid();
+  });
+
+  it("clears each error once the field is fixed and focuses the first problem", async () => {
+    const { user } = renderPage(<NewProfilePage />);
+    await user.click(screen.getByRole("button", { name: "Create profile" }));
+    await screen.findByText("Choose a state");
+    expect(screen.getByLabelText("State of residence")).toHaveFocus();
+    await fillMinimum(user);
+    expect(screen.queryByText("Choose a state")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("First name")).not.toBeInvalid();
+    expect(screen.getByLabelText("Email address")).not.toBeInvalid();
+  });
+
   it("checks the email, phone, and ZIP before sending", async () => {
     const { user } = renderPage(<NewProfilePage />);
     await fillMinimum(user);

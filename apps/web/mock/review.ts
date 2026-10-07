@@ -35,6 +35,9 @@ const MANUAL_INSTRUCTIONS: Record<BlockedReason, string> = {
   unknown: "Open the page and finish the removal by hand, then mark the task done.",
 };
 
+const AGENT_INSTRUCTIONS =
+  "No agent has taken this yet, and the built-in worker will not run it. Connect an agent in Settings, or open the page and finish the job yourself, then mark it done.";
+
 const FAILED_INSTRUCTIONS =
   "This task failed and nothing will try it again by itself. Retry it, or finish the job by hand and mark it done.";
 
@@ -291,7 +294,11 @@ export default defineMockDomain({
             url: info?.url ?? task.blockedUrl ?? request?.recordUrl ?? target?.optOutUrl ?? null,
             manualInstructions:
               info?.manualInstructions ??
-              (task.status === "failed" ? FAILED_INSTRUCTIONS : MANUAL_INSTRUCTIONS.unknown),
+              (task.status === "failed"
+                ? FAILED_INSTRUCTIONS
+                : task.status === "queued"
+                  ? AGENT_INSTRUCTIONS
+                  : MANUAL_INSTRUCTIONS.unknown),
           };
         };
         const cutoff = store.ago({ days: FAILED_WINDOW_DAYS });
@@ -335,6 +342,10 @@ export default defineMockDomain({
               return request ? isActiveStatus(request.status) : true;
             })
             .map(toItem),
+          agentTasks: store.tasks
+            .filter((task) => task.kind === "agent" && task.status === "queued")
+            .filter(inScope)
+            .map(toItem),
           messages: store.messages
             .filter((message) => !message.reviewed)
             .filter((message) =>
@@ -364,7 +375,8 @@ export default defineMockDomain({
 
       handle(API_ROUTES.taskMarkDone, ({ params, body }) => {
         const task = taskOf(params.id);
-        if (task.status !== "blocked") throw conflict("Only a blocked task can be marked done.");
+        if (task.status !== "blocked" && !(task.status === "queued" && task.kind === "agent"))
+          throw conflict("Only a blocked task can be marked done.");
         let outcome: string | null = null;
         if (body.result !== undefined) {
           const parsed = manualResultSchemaFor({

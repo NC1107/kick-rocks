@@ -586,6 +586,7 @@ describe("the screens a person sees, with a review queue that has things in it",
       queue.matches.filter((match) => match.decision === "pending").length +
       queue.verifications.length +
       queue.failedTasks.length +
+      queue.agentTasks.length +
       queue.messages.length;
     expect(waiting).toBeGreaterThan(0);
 
