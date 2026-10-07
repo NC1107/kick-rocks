@@ -40,7 +40,7 @@ describe("allowedSitesFor", () => {
     ).toEqual(["brand.test", "parent.test"]);
   });
 
-  it("limits a start page on another host to its own folder", () => {
+  it("limits a start page on another host to its own page, not its folder", () => {
     const sites = allowedSitesFor(
       target({
         optOutUrl: "https://docs.google.com/forms/d/e/ABC123/viewform?usp=sf_link",
@@ -51,8 +51,8 @@ describe("allowedSitesFor", () => {
     expect(sites.domains).toEqual(["example-broker.test"]);
     expect(sites.pages).toEqual([
       { host: "docs.google.com", path: "/forms/d/e/ABC123/" },
-      { host: "privacyportal.onetrust.com", path: "/webform/tenant-1/" },
-      { host: "other.test", path: "/people/" },
+      { host: "privacyportal.onetrust.com", path: "/webform/tenant-1/form-9" },
+      { host: "other.test", path: "/people/jordan-1" },
     ]);
   });
 
