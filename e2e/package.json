@@ -1,0 +1,26 @@
+{
+  "name": "@kickrocks/e2e",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "e2e": "node run.mjs",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@kickrocks/shared": "workspace:*",
+    "@modelcontextprotocol/sdk": "^1.32.1",
+    "imapflow": "^2.2.6",
+    "mailparser": "^3.9.36",
+    "nodemailer": "^10.0.15",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@types/mailparser": "^3.9.0",
+    "@types/node": "^22.19.0",
+    "@types/nodemailer": "^8.0.2",
+    "typescript": "^5.9.0",
+    "vitest": "^5.0.3"
+  }
+}

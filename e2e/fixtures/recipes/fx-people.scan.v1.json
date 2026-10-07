@@ -1,0 +1,58 @@
+{
+  "id": "fx-people.scan.v1",
+  "brokerId": "fx-people",
+  "version": 1,
+  "purpose": "scan",
+  "entryUrl": "http://fixture-people.test:8530/",
+  "fields": ["first_name", "last_name", "state"],
+  "steps": [
+    {
+      "kind": "goto",
+      "url": "http://fixture-people.test:8530/search?first={{first_name|urlencode}}&last={{last_name|urlencode}}&state={{state}}"
+    },
+    {
+      "kind": "extract_candidates",
+      "item": {
+        "css": ".result"
+      },
+      "fields": {
+        "recordUrl": {
+          "css": "a.view",
+          "attr": "href"
+        },
+        "name": {
+          "css": ".name"
+        },
+        "age": {
+          "css": ".age"
+        },
+        "locations": {
+          "css": ".loc",
+          "all": true
+        },
+        "relatives": {
+          "css": ".rel",
+          "all": true
+        }
+      }
+    }
+  ],
+  "canary": {
+    "url": "http://fixture-people.test:8530/",
+    "selectors": [
+      {
+        "label": "First name"
+      },
+      {
+        "label": "Last name"
+      },
+      {
+        "role": "button",
+        "label": "Search"
+      }
+    ]
+  },
+  "notes": "Test-only recipe for the fixture people-search site.",
+  "verifiedAt": "2026-10-07",
+  "liveStatus": "verified"
+}

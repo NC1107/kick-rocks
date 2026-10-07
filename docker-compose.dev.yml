@@ -1,0 +1,109 @@
+# The development and end-to-end stack: the server, the worker, GreenMail, and a fixture broker site.
+# Start it with `pnpm e2e` (which also runs the suite and tears the stack down) or by hand with
+# `docker compose -f docker-compose.dev.yml up -d --build`.
+#
+# Nothing in it can reach the internet or a real mail server. The `stack` network is internal, so
+# its containers have no route out, and GreenMail accepts mail for every address and never relays
+# it. Only `edge` has a second network, and it only passes the four ports below through to
+# 127.0.0.1. The host ports are 8520 (web and API), 3525 (SMTP), 3643 (IMAP), and 8530 (fixture site).
+name: kickrocks-dev
+
+x-fixture-hosts: &fixture-hosts
+  - fixture-people.test
+  - fixture-captcha.test
+  - fixture-bounce.test
+  - fixture-needsform.test
+  - fixture-agent.test
+  - fixture-link.test
+  - fixture-linkjs.test
+
+services:
+  greenmail:
+    image: greenmail/standalone:2.1.5
+    environment:
+      GREENMAIL_OPTS: >-
+        -Dgreenmail.setup.test.smtp
+        -Dgreenmail.setup.test.imap
+        -Dgreenmail.hostname=0.0.0.0
+        -Dgreenmail.auth.disabled
+    networks:
+      - stack
+
+  fixture:
+    image: node:22-bookworm-slim
+    command: ["node", "/fixtures/site/server.mjs"]
+    volumes:
+      - ./e2e/fixtures:/fixtures:ro
+    networks:
+      stack:
+        aliases: *fixture-hosts
+
+  server:
+    build: .
+    image: kickrocks/server:dev
+    depends_on:
+      - greenmail
+      - fixture
+    environment:
+      LOG_LEVEL: info
+      KICKROCKS_PUBLIC_URL: http://localhost:8520
+      KICKROCKS_WORKER_TOKEN: ${KICKROCKS_WORKER_TOKEN:-e2e-worker-token-0123456789abcdef}
+      KICKROCKS_EXTRA_TARGETS: /fixtures/targets.json
+      KICKROCKS_EXTRA_RECIPES: /fixtures/recipes
+      KICKROCKS_ALLOW_PRIVATE_LINK_HOSTS: fixture-link.test,fixture-linkjs.test,fixture-people.test
+      # The stack only ever talks to GreenMail, so the pause that protects a real mailbox is not needed.
+      KICKROCKS_SEND_GAP_MS: "0"
+      # GreenMail offers no TLS, so the mail connection is allowed to skip it for this one host.
+      KICKROCKS_PLAINTEXT_MAIL_HOSTS: greenmail
+    volumes:
+      - ./e2e/fixtures:/fixtures:ro
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - 'fetch("http://127.0.0.1:8420/api/health").then((r) => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))'
+      interval: 2s
+      timeout: 3s
+      retries: 60
+    networks:
+      - stack
+
+  worker:
+    build:
+      context: .
+      dockerfile: apps/worker/Dockerfile
+    image: kickrocks/worker:dev
+    depends_on:
+      server:
+        condition: service_healthy
+    shm_size: 1gb
+    environment:
+      KICKROCKS_SERVER_URL: http://server:8420
+      KICKROCKS_WORKER_TOKEN: ${KICKROCKS_WORKER_TOKEN:-e2e-worker-token-0123456789abcdef}
+      KICKROCKS_WORKER_POLL_MS: "500"
+      KICKROCKS_WORKER_PACE: instant
+      KICKROCKS_WORKER_ALLOW_HTTP: "true"
+    networks:
+      - stack
+
+  edge:
+    image: node:22-bookworm-slim
+    command: ["node", "/stack/edge.mjs"]
+    volumes:
+      - ./e2e/stack:/stack:ro
+    environment:
+      EDGE_FORWARDS: 8420=server:8420,3025=greenmail:3025,3143=greenmail:3143,8530=fixture:8530
+    ports:
+      - "127.0.0.1:8520:8420"
+      - "127.0.0.1:3525:3025"
+      - "127.0.0.1:3643:3143"
+      - "127.0.0.1:8530:8530"
+    networks:
+      - stack
+      - outside
+
+networks:
+  stack:
+    internal: true
+  outside: {}

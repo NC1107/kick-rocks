@@ -1,0 +1,65 @@
+{
+  "id": "fx-captcha.remove.v1",
+  "brokerId": "fx-captcha",
+  "version": 1,
+  "purpose": "remove",
+  "entryUrl": "http://fixture-captcha.test:8530/optout/captcha",
+  "fields": ["full_name", "email"],
+  "steps": [
+    {
+      "kind": "goto",
+      "url": "http://fixture-captcha.test:8530/optout/captcha"
+    },
+    {
+      "kind": "fill",
+      "target": {
+        "label": "Full name"
+      },
+      "field": "full_name"
+    },
+    {
+      "kind": "fill",
+      "target": {
+        "label": "Email address"
+      },
+      "field": "email"
+    },
+    {
+      "kind": "captcha_checkpoint"
+    },
+    {
+      "kind": "click",
+      "target": {
+        "role": "button",
+        "label": "Opt out"
+      }
+    },
+    {
+      "kind": "outcome_when",
+      "when": [
+        {
+          "text": "opt-out request was received",
+          "outcome": "submitted"
+        }
+      ]
+    }
+  ],
+  "canary": {
+    "url": "http://fixture-captcha.test:8530/optout/captcha",
+    "selectors": [
+      {
+        "label": "Full name"
+      },
+      {
+        "label": "Email address"
+      },
+      {
+        "role": "button",
+        "label": "Opt out"
+      }
+    ]
+  },
+  "notes": "Test-only recipe. The fixture shows a reCAPTCHA-style widget until the suite marks it solved.",
+  "verifiedAt": "2026-10-07",
+  "liveStatus": "verified"
+}

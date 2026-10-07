@@ -1,0 +1,388 @@
+{
+  "brokers": [
+    {
+      "region": "us",
+      "requiresId": false,
+      "regulatedBy": [],
+      "collectsMinors": null,
+      "collectsGeolocation": null,
+      "collectsReproductiveHealth": null,
+      "metrics": null,
+      "sources": [
+        {
+          "source": "kickrocks",
+          "license": "PolyForm-Noncommercial-1.0.0"
+        }
+      ],
+      "searchUrl": null,
+      "optOutUrl": null,
+      "privacyRightsUrl": null,
+      "privacyEmail": "privacy@fx-complete.test",
+      "requirements": [],
+      "priority": "normal",
+      "id": "fx-complete",
+      "name": "Fixture Complete Data",
+      "domain": "fx-complete.test",
+      "website": "https://fx-complete.test",
+      "category": "marketing",
+      "contactMethod": "email",
+      "notes": "Test-only target for the end-to-end suite."
+    },
+    {
+      "region": "us",
+      "requiresId": false,
+      "regulatedBy": [],
+      "collectsMinors": null,
+      "collectsGeolocation": null,
+      "collectsReproductiveHealth": null,
+      "metrics": null,
+      "sources": [
+        {
+          "source": "kickrocks",
+          "license": "PolyForm-Noncommercial-1.0.0"
+        }
+      ],
+      "searchUrl": null,
+      "optOutUrl": null,
+      "privacyRightsUrl": null,
+      "privacyEmail": "privacy@fx-ack.test",
+      "requirements": [],
+      "priority": "normal",
+      "id": "fx-ack",
+      "name": "Fixture Ack Data",
+      "domain": "fx-ack.test",
+      "website": "https://fx-ack.test",
+      "category": "marketing",
+      "contactMethod": "email",
+      "notes": "Test-only target for the end-to-end suite."
+    },
+    {
+      "region": "us",
+      "requiresId": false,
+      "regulatedBy": [],
+      "collectsMinors": null,
+      "collectsGeolocation": null,
+      "collectsReproductiveHealth": null,
+      "metrics": null,
+      "sources": [
+        {
+          "source": "kickrocks",
+          "license": "PolyForm-Noncommercial-1.0.0"
+        }
+      ],
+      "searchUrl": null,
+      "optOutUrl": null,
+      "privacyRightsUrl": null,
+      "privacyEmail": "privacy@fx-norecord.test",
+      "requirements": [],
+      "priority": "normal",
+      "id": "fx-norecord",
+      "name": "Fixture NoRecord Data",
+      "domain": "fx-norecord.test",
+      "website": "https://fx-norecord.test",
+      "category": "marketing",
+      "contactMethod": "email",
+      "notes": "Test-only target for the end-to-end suite."
+    },
+    {
+      "region": "us",
+      "requiresId": false,
+      "regulatedBy": [],
+      "collectsMinors": null,
+      "collectsGeolocation": null,
+      "collectsReproductiveHealth": null,
+      "metrics": null,
+      "sources": [
+        {
+          "source": "kickrocks",
+          "license": "PolyForm-Noncommercial-1.0.0"
+        }
+      ],
+      "searchUrl": null,
+      "optOutUrl": null,
+      "privacyRightsUrl": null,
+      "privacyEmail": "privacy@fx-reject.test",
+      "requirements": [],
+      "priority": "normal",
+      "id": "fx-reject",
+      "name": "Fixture Reject Data",
+      "domain": "fx-reject.test",
+      "website": "https://fx-reject.test",
+      "category": "marketing",
+      "contactMethod": "email",
+      "notes": "Test-only target for the end-to-end suite."
+    },
+    {
+      "region": "us",
+      "requiresId": false,
+      "regulatedBy": [],
+      "collectsMinors": null,
+      "collectsGeolocation": null,
+      "collectsReproductiveHealth": null,
+      "metrics": null,
+      "sources": [
+        {
+          "source": "kickrocks",
+          "license": "PolyForm-Noncommercial-1.0.0"
+        }
+      ],
+      "searchUrl": null,
+      "optOutUrl": null,
+      "privacyRightsUrl": null,
+      "privacyEmail": "privacy@fx-verify.test",
+      "requirements": [],
+      "priority": "normal",
+      "id": "fx-verify",
+      "name": "Fixture Verify Data",
+      "domain": "fx-verify.test",
+      "website": "https://fx-verify.test",
+      "category": "marketing",
+      "contactMethod": "email",
+      "notes": "Test-only target for the end-to-end suite."
+    },
+    {
+      "region": "us",
+      "requiresId": false,
+      "regulatedBy": [],
+      "collectsMinors": null,
+      "collectsGeolocation": null,
+      "collectsReproductiveHealth": null,
+      "metrics": null,
+      "sources": [
+        {
+          "source": "kickrocks",
+          "license": "PolyForm-Noncommercial-1.0.0"
+        }
+      ],
+      "searchUrl": null,
+      "optOutUrl": null,
+      "privacyRightsUrl": null,
+      "privacyEmail": "privacy@fx-unrelated.test",
+      "requirements": [],
+      "priority": "normal",
+      "id": "fx-unrelated",
+      "name": "Fixture Unrelated Data",
+      "domain": "fx-unrelated.test",
+      "website": "https://fx-unrelated.test",
+      "category": "marketing",
+      "contactMethod": "email",
+      "notes": "Test-only target for the end-to-end suite."
+    },
+    {
+      "region": "us",
+      "requiresId": false,
+      "regulatedBy": [],
+      "collectsMinors": null,
+      "collectsGeolocation": null,
+      "collectsReproductiveHealth": null,
+      "metrics": null,
+      "sources": [
+        {
+          "source": "kickrocks",
+          "license": "PolyForm-Noncommercial-1.0.0"
+        }
+      ],
+      "searchUrl": null,
+      "optOutUrl": null,
+      "privacyRightsUrl": null,
+      "privacyEmail": "privacy@fixture-link.test",
+      "requirements": [],
+      "priority": "normal",
+      "id": "fx-link",
+      "name": "Fixture Link Data",
+      "domain": "fixture-link.test",
+      "website": "https://fixture-link.test",
+      "category": "marketing",
+      "contactMethod": "email",
+      "notes": "Test-only target for the end-to-end suite."
+    },
+    {
+      "region": "us",
+      "requiresId": false,
+      "regulatedBy": [],
+      "collectsMinors": null,
+      "collectsGeolocation": null,
+      "collectsReproductiveHealth": null,
+      "metrics": null,
+      "sources": [
+        {
+          "source": "kickrocks",
+          "license": "PolyForm-Noncommercial-1.0.0"
+        }
+      ],
+      "searchUrl": null,
+      "optOutUrl": null,
+      "privacyRightsUrl": null,
+      "privacyEmail": "privacy@fixture-linkjs.test",
+      "requirements": [],
+      "priority": "normal",
+      "id": "fx-linkjs",
+      "name": "Fixture Link Script Data",
+      "domain": "fixture-linkjs.test",
+      "website": "https://fixture-linkjs.test",
+      "category": "marketing",
+      "contactMethod": "email",
+      "notes": "Test-only target for the end-to-end suite."
+    },
+    {
+      "region": "us",
+      "requiresId": false,
+      "regulatedBy": [],
+      "collectsMinors": null,
+      "collectsGeolocation": null,
+      "collectsReproductiveHealth": null,
+      "metrics": null,
+      "sources": [
+        {
+          "source": "kickrocks",
+          "license": "PolyForm-Noncommercial-1.0.0"
+        }
+      ],
+      "searchUrl": null,
+      "optOutUrl": "http://fixture-bounce.test:8530/optout/simple",
+      "privacyRightsUrl": null,
+      "privacyEmail": "privacy@fixture-bounce.test",
+      "requirements": [],
+      "priority": "normal",
+      "id": "fx-bounce",
+      "name": "Fixture Bounce Data",
+      "domain": "fixture-bounce.test",
+      "website": "https://fixture-bounce.test",
+      "category": "marketing",
+      "contactMethod": "both",
+      "notes": "Test-only target for the end-to-end suite."
+    },
+    {
+      "region": "us",
+      "requiresId": false,
+      "regulatedBy": [],
+      "collectsMinors": null,
+      "collectsGeolocation": null,
+      "collectsReproductiveHealth": null,
+      "metrics": null,
+      "sources": [
+        {
+          "source": "kickrocks",
+          "license": "PolyForm-Noncommercial-1.0.0"
+        }
+      ],
+      "searchUrl": null,
+      "optOutUrl": "http://fixture-needsform.test:8530/optout/simple",
+      "privacyRightsUrl": null,
+      "privacyEmail": "privacy@fixture-needsform.test",
+      "requirements": [],
+      "priority": "normal",
+      "id": "fx-needsform",
+      "name": "Fixture Needs Form Data",
+      "domain": "fixture-needsform.test",
+      "website": "https://fixture-needsform.test",
+      "category": "marketing",
+      "contactMethod": "both",
+      "notes": "Test-only target for the end-to-end suite."
+    },
+    {
+      "region": "us",
+      "requiresId": false,
+      "regulatedBy": [],
+      "collectsMinors": null,
+      "collectsGeolocation": null,
+      "collectsReproductiveHealth": null,
+      "metrics": null,
+      "sources": [
+        {
+          "source": "kickrocks",
+          "license": "PolyForm-Noncommercial-1.0.0"
+        }
+      ],
+      "searchUrl": null,
+      "optOutUrl": "http://fixture-captcha.test:8530/optout/captcha",
+      "privacyRightsUrl": null,
+      "privacyEmail": null,
+      "requirements": ["captcha"],
+      "priority": "normal",
+      "id": "fx-captcha",
+      "name": "Fixture Captcha Data",
+      "domain": "fixture-captcha.test",
+      "website": "https://fixture-captcha.test",
+      "category": "marketing",
+      "contactMethod": "form",
+      "notes": "Test-only target for the end-to-end suite."
+    },
+    {
+      "region": "us",
+      "requiresId": false,
+      "regulatedBy": [],
+      "collectsMinors": null,
+      "collectsGeolocation": null,
+      "collectsReproductiveHealth": null,
+      "metrics": null,
+      "sources": [
+        {
+          "source": "kickrocks",
+          "license": "PolyForm-Noncommercial-1.0.0"
+        }
+      ],
+      "searchUrl": null,
+      "optOutUrl": "http://fixture-agent.test:8530/optout/simple",
+      "privacyRightsUrl": null,
+      "privacyEmail": null,
+      "requirements": [],
+      "priority": "normal",
+      "id": "fx-agent",
+      "name": "Fixture Agent Data",
+      "domain": "fixture-agent.test",
+      "website": "https://fixture-agent.test",
+      "category": "marketing",
+      "contactMethod": "form",
+      "notes": "Test-only target for the end-to-end suite."
+    },
+    {
+      "region": "us",
+      "requiresId": false,
+      "regulatedBy": [],
+      "collectsMinors": null,
+      "collectsGeolocation": null,
+      "collectsReproductiveHealth": null,
+      "metrics": null,
+      "sources": [
+        {
+          "source": "kickrocks",
+          "license": "PolyForm-Noncommercial-1.0.0"
+        }
+      ],
+      "searchUrl": "http://fixture-people.test:8530/",
+      "optOutUrl": "http://fixture-people.test:8530/",
+      "privacyRightsUrl": null,
+      "privacyEmail": null,
+      "requirements": ["email_confirmation", "record_url"],
+      "priority": "high",
+      "id": "fx-people",
+      "name": "Fixture People Search",
+      "domain": "fixture-people.test",
+      "website": "http://fixture-people.test:8530/",
+      "category": "people-search",
+      "contactMethod": "form",
+      "notes": "Test-only target for the end-to-end suite."
+    }
+  ],
+  "companies": [
+    {
+      "id": "fx-company",
+      "name": "Fixture Retail Co",
+      "domain": "fx-company.test",
+      "category": "retail",
+      "privacyEmail": "privacy@fx-company.test",
+      "optOutUrl": null,
+      "privacyRightsUrl": null,
+      "contactMethod": "email",
+      "notes": "Test-only target for the end-to-end suite.",
+      "sources": [
+        {
+          "source": "kickrocks",
+          "license": "PolyForm-Noncommercial-1.0.0"
+        }
+      ],
+      "verifiedAt": "2026-10-07"
+    }
+  ]
+}

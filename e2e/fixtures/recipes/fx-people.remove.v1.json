@@ -1,0 +1,60 @@
+{
+  "id": "fx-people.remove.v1",
+  "brokerId": "fx-people",
+  "version": 1,
+  "purpose": "remove",
+  "entryUrl": "http://fixture-people.test:8530/",
+  "fields": ["email", "record_url"],
+  "steps": [
+    {
+      "kind": "goto",
+      "url": "{{record_url}}"
+    },
+    {
+      "kind": "click",
+      "target": {
+        "role": "link",
+        "label": "Remove this record"
+      }
+    },
+    {
+      "kind": "fill",
+      "target": {
+        "label": "Email address"
+      },
+      "field": "email"
+    },
+    {
+      "kind": "click",
+      "target": {
+        "role": "button",
+        "label": "Send confirmation email"
+      }
+    },
+    {
+      "kind": "wait_for",
+      "target": {
+        "text": "Check your email"
+      }
+    },
+    {
+      "kind": "email_confirmation",
+      "fromDomain": "fixture-people.test"
+    }
+  ],
+  "canary": {
+    "url": "http://fixture-people.test:8530/",
+    "selectors": [
+      {
+        "label": "First name"
+      },
+      {
+        "role": "button",
+        "label": "Search"
+      }
+    ]
+  },
+  "notes": "Test-only recipe: removal finishes through a link in an email.",
+  "verifiedAt": "2026-10-07",
+  "liveStatus": "verified"
+}
