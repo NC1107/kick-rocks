@@ -7,7 +7,7 @@ import { Api } from "../src/api.js";
 import { inspectScreens, launchBrowser, statusPillOffsets } from "../src/browser.js";
 import { inServerContainer } from "../src/docker.js";
 import { fixtureState, resetFixture, solveFixtureCaptcha } from "../src/fixture-site.js";
-import { bounceMessage, deliver, readInbox, type SeenMail } from "../src/mail.js";
+import { bounceMessage, bounceSender, deliver, readInbox, type SeenMail } from "../src/mail.js";
 import { callTool, connectMcp } from "../src/mcp.js";
 import { STACK } from "../src/stack.js";
 import { eventually } from "../src/wait.js";
@@ -481,7 +481,7 @@ describe("broker replies", () => {
     const [original] = await receivedBy(brokerAddress("fx-bounce"));
     if (!original) throw new Error("fx-bounce never got our mail");
     await deliver({
-      from: "mailer-daemon@broker.test",
+      from: bounceSender(brokerAddress("fx-bounce")),
       to: MAILBOX_ADDRESS,
       subject: "",
       text: "",
@@ -712,7 +712,7 @@ describe("a match on the people-search site", () => {
     expect(await eventTypes(request)).toContain("link_followed");
   });
 
-  it("settles the request when the broker says the record is gone", async () => {
+  it("keeps a signed completion that quotes nothing of ours for a person, who settles it", async () => {
     await deliver({
       from: "no-reply@fixture-people.test",
       to: MAILBOX_ADDRESS,
@@ -720,6 +720,27 @@ describe("a match on the people-search site", () => {
       text: "Your record has been removed from our site.",
     });
     await pollNow();
+
+    const held = await eventually(
+      async () => {
+        const queue = await api.call(API_ROUTES.reviewQueue, {
+          query: { profileId: world.profileId },
+        });
+        return queue.messages.find(
+          (item) =>
+            item.subject === "Your removal is complete" &&
+            item.targetName === "Fixture People Search",
+        );
+      },
+      { what: "the unreferenced completion to reach the review queue" },
+    );
+    expect(held.rationale).toContain("does not quote this request");
+    expect((await requestFor("fx-people")).status).toBe("awaiting_reply");
+
+    await api.call(API_ROUTES.messageClassify, {
+      params: { id: held.id },
+      body: { classification: "completed" },
+    });
     await waitForStatus("fx-people", ["confirmed"]);
   });
 

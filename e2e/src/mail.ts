@@ -76,7 +76,7 @@ export interface Delivery {
   subject: string;
   text: string;
   inReplyTo?: string | undefined;
-  /** Sent as the raw message when a test needs headers nodemailer would not write, such as a bounce. */
+  /** Sent as the raw message when a test needs headers nodemailer would not write, such as a bounce. It is signed like any other. */
   raw?: string | undefined;
   headers?: Record<string, string> | undefined;
   /** Skips the DKIM signature a broker's mail server would add, as a forger's mail lacks it. */
@@ -91,7 +91,7 @@ export async function deliver(mail: Delivery): Promise<string> {
     port: STACK.smtpPort,
     secure: false,
     ignoreTLS: true,
-    ...(mail.unsigned || mail.raw
+    ...(mail.unsigned
       ? {}
       : {
           dkim: { domainName: domain, keySelector: DKIM_SELECTOR, privateKey: dkimPrivateKey() },
@@ -118,10 +118,14 @@ export async function deliver(mail: Delivery): Promise<string> {
   return messageId;
 }
 
+/** The sender of the delivery status report a broker's mail server writes for one of its own addresses. */
+export const bounceSender = (failedAddress: string): string =>
+  `mailer-daemon@${failedAddress.slice(failedAddress.lastIndexOf("@") + 1)}`;
+
 /** A delivery status report from a mail server, as a broker's failing address produces. */
 export function bounceMessage(to: string, failedAddress: string, original: SeenMail): string {
   return [
-    "From: Mail Delivery Subsystem <mailer-daemon@broker.test>",
+    `From: Mail Delivery Subsystem <${bounceSender(failedAddress)}>`,
     `To: ${to}`,
     "Subject: Delivery Status Notification (Failure)",
     `Message-ID: <${randomBytes(8).toString("hex")}@broker.test>`,
@@ -139,7 +143,7 @@ export function bounceMessage(to: string, failedAddress: string, original: SeenM
     "--bounce-boundary",
     "Content-Type: message/delivery-status",
     "",
-    "Reporting-MTA: dns; broker.test",
+    `Reporting-MTA: dns; ${failedAddress.slice(failedAddress.lastIndexOf("@") + 1)}`,
     "",
     `Final-Recipient: rfc822; ${failedAddress}`,
     "Action: failed",
