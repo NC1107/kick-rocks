@@ -1,0 +1,174 @@
+import type {
+  BrowserTaskKind,
+  ClaimedTask,
+  ClaimerKind,
+  RequestActor,
+  TaskBlockReport,
+  TaskFailureReport,
+  TaskSummary,
+  TaskUsage,
+} from "@kickrocks/shared";
+import { claimTask } from "../../core/claim.js";
+import { AppError, conflict, invalidRequest, notFound } from "../../core/errors.js";
+import type { Task } from "../../core/task-types.js";
+import type { AppServices } from "../../services.js";
+import { decodeScreenshot } from "./screenshot.js";
+
+/**
+ * Who is calling. The worker API and the MCP server do the same work on the same queue, and this
+ * is the only difference between them: how a caller is recorded and which tasks it may touch.
+ */
+export interface Caller {
+  actor: RequestActor;
+  /** Whether a task claimed by this kind of claimer is this caller's to report on. */
+  owns(claimerKind: ClaimerKind | null): boolean;
+  /** Only a recipe run can fail with kind `recipe`; an agent follows instructions instead. */
+  mayReportRecipeFailure: boolean;
+}
+
+/** The built-in worker and any model-backed worker that uses the worker token. */
+export const WORKER_CALLER: Caller = {
+  actor: "worker",
+  owns: (claimerKind) => claimerKind !== "mcp",
+  mayReportRecipeFailure: true,
+};
+
+/** An MCP client. It cannot report on a task the built-in worker holds, whatever worker id it gives. */
+export const MCP_CALLER: Caller = {
+  actor: "agent",
+  owns: (claimerKind) => claimerKind === "mcp",
+  mayReportRecipeFailure: false,
+};
+
+export interface ClaimRequest {
+  workerId: string;
+  kinds: readonly BrowserTaskKind[];
+  leaseMs: number;
+  taskId?: string | undefined;
+  claimerKind: ClaimerKind;
+}
+
+export interface TaskOperations {
+  claim(request: ClaimRequest): ClaimedTask | null;
+  heartbeat(
+    taskId: string,
+    request: { workerId: string; leaseMs: number },
+  ): { leaseExpiresAt: string };
+  complete(
+    taskId: string,
+    request: { workerId: string; result: unknown; usage?: TaskUsage | undefined },
+  ): TaskSummary;
+  block(taskId: string, request: TaskBlockReport & { workerId: string }): TaskSummary;
+  fail(taskId: string, request: TaskFailureReport & { workerId: string }): TaskSummary;
+  release(
+    taskId: string,
+    request: { workerId: string; retryAfterMs?: number | undefined },
+  ): TaskSummary;
+}
+
+type OperationServices = Pick<
+  AppServices,
+  "db" | "clock" | "targets" | "taskQueue" | "requests" | "legal" | "dispatch"
+>;
+
+/**
+ * A claim that fails while preparing a task fails that task for good before it throws, so the next
+ * claim moves on. A handful of retries keeps one malformed task from hiding the healthy ones
+ * behind it, and a bounded count keeps a systemic fault from failing the whole queue.
+ */
+const MAX_UNPREPARABLE_TASKS = 5;
+
+export function createTaskOperations(services: OperationServices, caller: Caller): TaskOperations {
+  const { taskQueue, clock } = services;
+
+  function summarize(task: Task): TaskSummary {
+    const [summary] = taskQueue.summarize([task]);
+    if (!summary) throw new AppError(500, "internal_error", "A task could not be summarized");
+    return summary;
+  }
+
+  function authorize(taskId: string): void {
+    const task = taskQueue.get(taskId);
+    if (!task) throw notFound(`Task ${taskId} not found`, "task_not_found");
+    if (!caller.owns(task.claimerKind)) {
+      throw conflict("lease_not_held", `Task ${taskId} was not claimed through this interface`);
+    }
+  }
+
+  return {
+    claim({ taskId, ...request }) {
+      if (taskId !== undefined) return claimTask(services, { ...request, taskId });
+      let lastError: unknown;
+      for (let attempt = 0; attempt <= MAX_UNPREPARABLE_TASKS; attempt++) {
+        try {
+          return claimTask(services, request);
+        } catch (error) {
+          if (!(error instanceof AppError) || error.status >= 500) throw error;
+          lastError = error;
+        }
+      }
+      throw lastError;
+    },
+
+    heartbeat(taskId, { workerId, leaseMs }) {
+      authorize(taskId);
+      const task = taskQueue.heartbeat(taskId, { workerId, leaseMs });
+      if (task.leaseExpiresAt === null) {
+        throw new AppError(500, "internal_error", "A leased task has no lease expiry");
+      }
+      return { leaseExpiresAt: task.leaseExpiresAt };
+    },
+
+    complete(taskId, { workerId, result, usage }) {
+      authorize(taskId);
+      return summarize(
+        taskQueue.complete(taskId, { workerId, result, usage, actor: caller.actor }),
+      );
+    },
+
+    block(taskId, { workerId, reason, detail, url, screenshot, usage }) {
+      authorize(taskId);
+      return summarize(
+        taskQueue.block(taskId, {
+          workerId,
+          reason,
+          detail,
+          url,
+          screenshot: screenshot ? decodeScreenshot(screenshot) : undefined,
+          usage,
+          actor: caller.actor,
+        }),
+      );
+    },
+
+    fail(taskId, { workerId, error, retryable, kind, step, retryAfterMs, usage }) {
+      authorize(taskId);
+      if (kind === "recipe" && !caller.mayReportRecipeFailure) {
+        throw invalidRequest("Only a recipe run can fail with kind recipe", [
+          {
+            path: ["kind"],
+            message: "An agent does not run a recipe; use site, network, or internal",
+          },
+        ]);
+      }
+      return summarize(
+        taskQueue.fail(taskId, {
+          workerId,
+          error,
+          retryable,
+          kind,
+          step,
+          retryAfterMs,
+          usage,
+          actor: caller.actor,
+        }),
+      );
+    },
+
+    release(taskId, { workerId, retryAfterMs }) {
+      authorize(taskId);
+      const runAfter = retryAfterMs ? new Date(clock.now().getTime() + retryAfterMs) : undefined;
+      return summarize(taskQueue.release(taskId, { workerId, runAfter }));
+    },
+  };
+}
