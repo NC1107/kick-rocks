@@ -64,10 +64,12 @@ async function readEndpoint(profileDir: string): Promise<string> {
 }
 
 /**
- * A second, flat DevTools connection to the browser itself, which only holds new tabs at their
- * start. Playwright hands a tab out after it has started, so anything it does to a tab comes too
- * late for the tab's first request, and a service worker answers before request interception sees
- * it. Playwright cannot address the sessions it did not create, so this speaks the protocol itself.
+ * A second, flat DevTools connection to the browser itself. Playwright hands a tab out after it
+ * has started, so anything it does to a tab comes too late for the tab's first request, and a
+ * service worker answers before request interception sees it. Pausing at the browser level
+ * reaches every request of every tab, including a popup's first one, and lets the guard refuse
+ * service worker scripts before any worker installs. Playwright cannot address the sessions it
+ * did not create, so this speaks the protocol itself.
  */
 class FlatConnection {
   private nextId = 0;
@@ -148,6 +150,8 @@ const REGISTRATIONS_WAIT_MS = 500;
 export interface TabGuardOptions {
   /** Stalls the guard before it acts on a new tab, so a test can show the result is not a race. */
   holdDelayMs?: number;
+  /** Lets service worker scripts load, so a test can have a real worker to clear. */
+  allowServiceWorkerScripts?: boolean;
 }
 
 /**
@@ -199,7 +203,7 @@ export async function bypassServiceWorkersBeforeTabsRun(
       hold(event).catch(() => undefined);
     },
     (paused) => {
-      const refused = isServiceWorkerScript(paused);
+      const refused = !options.allowServiceWorkerScripts && isServiceWorkerScript(paused);
       connection
         .send(
           refused ? "Fetch.failRequest" : "Fetch.continueRequest",

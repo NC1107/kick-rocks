@@ -558,9 +558,12 @@ describeBrowser("the rules the code enforces", () => {
       context = await launchPersistentChrome(settings(), guardOptions);
       const registering = await context.newPage();
       await registering.goto(`${OFFSITE}/sw-evade`);
-      await registering
-        .waitForFunction("document.title === 'Worker ready'", undefined, { timeout: 3_000 })
-        .catch(() => undefined);
+      const outcome = guardOptions?.allowServiceWorkerScripts ? "Worker ready" : "Worker refused";
+      await registering.waitForFunction(
+        `document.title.startsWith(${JSON.stringify(outcome)})`,
+        undefined,
+        { timeout: 10_000 },
+      );
       await registering.close();
     }
 
@@ -592,14 +595,19 @@ describeBrowser("the rules the code enforces", () => {
     });
 
     it("leaves no worker registered when the browser is reused for the next task", async () => {
-      await relaunchWithAWorkerRegistered();
+      await relaunchWithAWorkerRegistered({ allowServiceWorkerScripts: true });
+      const countRegistrations = async (): Promise<number> => {
+        const probe = await context.newPage();
+        await probe.goto(`${OFFSITE}/offsite`);
+        const count = (await probe.evaluate(
+          "navigator.serviceWorker.getRegistrations().then((all) => all.length)",
+        )) as number;
+        await probe.close();
+        return count;
+      };
+      expect(await countRegistrations()).toBe(1);
       await clearServiceWorkers(context);
-      const probe = await context.newPage();
-      await probe.goto(`${OFFSITE}/offsite`);
-      const registrations = await probe.evaluate(
-        "navigator.serviceWorker.getRegistrations().then((all) => all.length)",
-      );
-      expect(registrations).toBe(0);
+      expect(await countRegistrations()).toBe(0);
     });
 
     it("deletes the profile's service worker storage on launch", async () => {
