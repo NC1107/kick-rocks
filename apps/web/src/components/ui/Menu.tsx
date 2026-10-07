@@ -164,15 +164,15 @@ export function Menu({
           aria-label={heading}
           onKeyDown={onPanelKeyDown}
           className={cn(
-            "absolute z-30 mt-1 min-w-full max-w-[calc(100vw-2rem)] rounded-lg border border-line bg-raised p-1 shadow-pop",
+            "absolute z-30 mt-1 min-w-full max-w-[calc(100vw-2rem)] rounded-lg border border-line-popover bg-popover p-1 shadow-pop",
             align === "end" ? "right-0" : "left-0",
             panelClassName,
           )}
         >
-          {heading ? <p className="px-2.5 pt-1.5 pb-1 text-xs text-ink-muted">{heading}</p> : null}
+          {heading ? <p className="px-2.5 pt-1.5 pb-1 text-caption text-ink-3">{heading}</p> : null}
           {items.map((item) => (
             <Fragment key={item.id}>
-              {item.separatorBefore ? <hr className="mx-1 my-1 border-line" /> : null}
+              {item.separatorBefore ? <hr className="mx-1 my-1 border-line-popover" /> : null}
               <button
                 type="button"
                 {...(item.selected === undefined
@@ -180,24 +180,23 @@ export function Menu({
                   : { role: "menuitemradio", "aria-checked": item.selected })}
                 disabled={item.disabled}
                 tabIndex={-1}
-                title={typeof item.label === "string" ? item.label : undefined}
                 onClick={() => {
                   close(true);
                   item.onSelect();
                 }}
                 className={cn(
-                  "flex min-h-control w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-left text-base hover:bg-sunken focus-visible:bg-sunken focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50 [&_svg]:size-4",
-                  item.destructive ? "text-danger" : "text-ink",
+                  "flex min-h-control w-full items-center gap-2.5 rounded-sm px-2.5 py-1.5 text-left text-ui hover:bg-popover-hover focus-visible:bg-popover-hover focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50 [&_svg]:size-4",
+                  item.destructive ? "text-danger-text" : "text-ink",
                 )}
               >
-                {item.icon ? <span className="text-ink-muted">{item.icon}</span> : null}
+                {item.icon ? <span className="text-ink-3">{item.icon}</span> : null}
                 <span className="flex min-w-0 flex-1 flex-col">
                   <span className="truncate">{item.label}</span>
                   {item.description ? (
-                    <span className="truncate text-sm text-ink-muted">{item.description}</span>
+                    <span className="truncate text-meta text-ink-3">{item.description}</span>
                   ) : null}
                 </span>
-                {item.selected ? <Check aria-hidden="true" className="text-accent" /> : null}
+                {item.selected ? <Check aria-hidden="true" className="text-accent-text" /> : null}
               </button>
             </Fragment>
           ))}{" "}

@@ -51,8 +51,9 @@ const ICONS = {
 } as const;
 
 /**
- * Wrap the app once. A toast confirms something that already happened, so name the result with the
- * same verb as the button that caused it: "Delete" produces "Deleted", never "Success".
+ * Wrap the app once. A toast confirms something the person just did, so name the result with the
+ * same verb as the button that caused it: "Delete" produces "Deleted", never "Success". A failure
+ * belongs on the thing that failed; the error helper stays for pages that have not moved there.
  */
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<ToastItem[]>([]);
@@ -130,16 +131,16 @@ function ToastCard({ item, onDismiss }: { item: ToastItem; onDismiss: (id: numbe
       onMouseLeave={() => setPaused(false)}
       onFocus={() => setPaused(true)}
       onBlur={() => setPaused(false)}
-      className="pointer-events-auto flex animate-settle items-start gap-3 rounded-lg border border-tone-line bg-raised py-2 pr-2 pl-3 shadow-pop"
+      className="pointer-events-auto flex animate-rise items-start gap-3 rounded-lg border border-tone-line bg-popover py-2 pr-2 pl-3 shadow-pop"
     >
       {/* The icon, the first line of text, and the dismiss button share one center line, on a phone too. */}
-      <span className="flex h-[calc(var(--kr-control-h)-0.5rem)] shrink-0 items-center">
-        <Icon aria-hidden="true" className="size-4.5 text-tone-dot" />
+      <span className="flex h-(--kr-control-sm) shrink-0 items-center">
+        <Icon aria-hidden="true" className="size-4 text-tone-dot" />
       </span>
-      <div className="min-w-0 flex-1 pt-[calc((var(--kr-control-h)-0.5rem-1.375rem)/2)] pb-1.5">
-        <p className="text-base font-medium text-ink">{item.title}</p>
+      <div className="min-w-0 flex-1 pt-[calc((var(--kr-control-sm)-1.25rem)/2)] pb-1.5">
+        <p className="text-ui font-medium text-ink">{item.title}</p>
         {item.description ? (
-          <p className="mt-0.5 text-sm text-ink-muted">{item.description}</p>
+          <p className="mt-0.5 text-meta text-ink-2">{item.description}</p>
         ) : null}
       </div>
       <IconButton label="Dismiss" size="sm" onClick={() => onDismiss(item.id)}>

@@ -122,13 +122,19 @@ export function TabList({ className, style, onScroll, ...rest }: ComponentProps<
 
 export interface TabProps extends Omit<ComponentProps<"button">, "value"> {
   value: string;
+  /** Shown as a mono number after the label, in the label's own color and never in a chip. */
+  count?: number;
+}
+
+function TabCount({ count }: { count: number }) {
+  return <span className="font-mono text-meta tabular-nums">{count}</span>;
 }
 
 const TAB_CLASS =
   // The focus ring sits inside the tab, because the tab strip scrolls and would clip a ring outside it.
-  "-mb-px inline-flex h-control shrink-0 items-center gap-2 whitespace-nowrap border-b-2 px-3 text-base font-medium transition-colors duration-100 focus-visible:-outline-offset-2 disabled:cursor-not-allowed disabled:opacity-50";
+  "-mb-px inline-flex h-control shrink-0 items-center gap-1.5 whitespace-nowrap border-b-2 px-3 text-ui font-medium transition-colors duration-100 focus-visible:-outline-offset-2 disabled:cursor-not-allowed disabled:text-ink-3";
 
-export function Tab({ value, className, children, ...rest }: TabProps) {
+export function Tab({ value, count, className, children, ...rest }: TabProps) {
   const { value: selected, select, baseId } = useTabs();
   const active = selected === value;
   const ref = useRef<HTMLButtonElement>(null);
@@ -148,14 +154,13 @@ export function Tab({ value, className, children, ...rest }: TabProps) {
       onClick={() => select(value)}
       className={cn(
         TAB_CLASS,
-        active
-          ? "border-accent text-ink"
-          : "border-transparent text-ink-muted hover:border-line-strong hover:text-ink",
+        active ? "border-accent-fill text-ink" : "border-transparent text-ink-3 hover:text-ink-2",
         className,
       )}
       {...rest}
     >
       {children}
+      {count === undefined ? null : <TabCount count={count} />}
     </button>
   );
 }
@@ -184,6 +189,7 @@ export interface LinkTab {
   label: ReactNode;
   /** Match only this exact path, so a parent route's tab is not active on its children. */
   end?: boolean;
+  count?: number;
 }
 
 /**
@@ -202,12 +208,13 @@ export function LinkTabs({ items, label }: { items: readonly LinkTab[]; label: s
             cn(
               TAB_CLASS,
               isActive
-                ? "border-accent text-ink"
-                : "border-transparent text-ink-muted hover:border-line-strong hover:text-ink",
+                ? "border-accent-fill text-ink"
+                : "border-transparent text-ink-3 hover:text-ink-2",
             )
           }
         >
           {item.label}
+          {item.count === undefined ? null : <TabCount count={item.count} />}
         </NavLink>
       ))}
     </nav>

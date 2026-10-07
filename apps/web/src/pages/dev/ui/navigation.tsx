@@ -11,12 +11,12 @@ import {
   Tabs,
   TextLink,
 } from "../../../components/ui/index.js";
-import { Section, Specimen } from "./parts.js";
+import { Panel, Specimen } from "./parts.js";
 
 export function Navigation() {
   const [last, setLast] = useState("Nothing chosen yet");
   return (
-    <Section
+    <Panel
       title="Tabs, menus, links"
       description="Tabs take arrow keys, Home, and End. Menus take arrows, Home, End, a typed letter, and Escape."
     >
@@ -24,22 +24,26 @@ export function Navigation() {
         <Tabs defaultValue="timeline" className="w-full">
           <TabList aria-label="Request details">
             <Tab value="timeline">Timeline</Tab>
-            <Tab value="messages">Messages</Tab>
-            <Tab value="tasks">Tasks</Tab>
+            <Tab value="messages" count={3}>
+              Messages
+            </Tab>
+            <Tab value="tasks" count={12}>
+              Tasks
+            </Tab>
             <Tab value="legal" disabled>
               Legal basis
             </Tab>
           </TabList>
           <TabPanel value="timeline">
-            <p className="text-base text-ink-muted">Every change to the request, newest last.</p>
+            <p className="text-ui text-ink-2">Every change to the request, newest last.</p>
           </TabPanel>
           <TabPanel value="messages">
-            <p className="text-base text-ink-muted">
+            <p className="text-ui text-ink-2">
               Replies from the broker, with how each was classified.
             </p>
           </TabPanel>
           <TabPanel value="tasks">
-            <p className="text-base text-ink-muted">Browser and mail work done for this request.</p>
+            <p className="text-ui text-ink-2">Browser and mail work done for this request.</p>
           </TabPanel>
         </Tabs>
       </Specimen>
@@ -49,7 +53,7 @@ export function Navigation() {
             label="Settings sections"
             items={[
               { to: "/dev/ui", label: "General", end: true },
-              { to: "/settings/agents", label: "Agents" },
+              { to: "/settings/agents", label: "Agents", count: 2 },
             ]}
           />
         </div>
@@ -92,7 +96,7 @@ export function Navigation() {
             </Button>
           )}
         />
-        <span className="text-sm text-ink-muted" aria-live="polite">
+        <span className="text-meta text-ink-3" aria-live="polite">
           {last}
         </span>
       </Specimen>
@@ -102,6 +106,6 @@ export function Navigation() {
           A link to another site
         </ExternalLinkText>
       </Specimen>
-    </Section>
+    </Panel>
   );
 }

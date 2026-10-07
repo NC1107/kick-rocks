@@ -33,7 +33,7 @@ describe("the targets page", () => {
     expect(list.length).toBe(25);
     expect(within(list[0] as HTMLElement).getByRole("link", { name: "ClearCheck" })).toBeVisible();
     expect(screen.getAllByText("ID upload").length).toBeGreaterThan(0);
-    expect(screen.getByText(/Showing 1 to 25 of 61 targets/)).toBeVisible();
+    expect(screen.getByText(/1-25 of 61/)).toBeVisible();
   });
 
   it("narrows the list as a person searches", async () => {
@@ -46,7 +46,7 @@ describe("the targets page", () => {
 
   it("filters by type from the facets and starts from the address bar", async () => {
     renderPage(<TargetsPage />, { path: "/targets", route: "/targets?kind=company" });
-    await waitFor(() => expect(screen.getByText(/of 32 targets/)).toBeVisible());
+    await waitFor(() => expect(screen.getByText(/1-25 of 32/)).toBeVisible());
     expect(screen.getByLabelText("Type")).toHaveValue("company");
   });
 

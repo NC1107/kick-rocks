@@ -4,7 +4,7 @@ import { Link, type LinkProps } from "react-router";
 import { cn } from "../../lib/cn.js";
 
 const LINK_CLASS =
-  "rounded-xs text-accent underline decoration-accent/40 underline-offset-2 hover:decoration-accent";
+  "rounded-xs text-accent-text underline decoration-accent-text/40 underline-offset-2 hover:decoration-accent-text";
 
 export function TextLink({ className, ...rest }: LinkProps) {
   return <Link className={cn(LINK_CLASS, className)} {...rest} />;

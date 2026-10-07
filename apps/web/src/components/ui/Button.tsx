@@ -3,22 +3,30 @@ import { Link, type LinkProps } from "react-router";
 import { cn } from "../../lib/cn.js";
 import { Spinner } from "./Spinner.js";
 
-export type ButtonVariant = "primary" | "secondary" | "ghost" | "danger";
-export type ButtonSize = "sm" | "md";
+export type ButtonVariant = "primary" | "secondary" | "ghost" | "danger" | "danger-solid";
+export type ButtonSize = "sm" | "md" | "lg";
 
-const BASE =
-  "inline-flex shrink-0 select-none items-center justify-center gap-2 whitespace-nowrap rounded-md font-medium transition-colors duration-100 disabled:cursor-not-allowed disabled:opacity-50 aria-disabled:cursor-not-allowed aria-disabled:opacity-50";
+// A disabled button is a flat neutral slab, not a faded copy of its variant, so a washed-out
+// accent never reads as an available action.
+const DISABLED =
+  "[&:is(:disabled,[aria-disabled=true]):not([aria-busy=true])]:cursor-not-allowed [&:is(:disabled,[aria-disabled=true]):not([aria-busy=true])]:border-transparent [&:is(:disabled,[aria-disabled=true]):not([aria-busy=true])]:bg-active [&:is(:disabled,[aria-disabled=true]):not([aria-busy=true])]:text-ink-3 aria-busy:cursor-progress";
+
+const BASE = `inline-flex shrink-0 select-none items-center justify-center gap-2 whitespace-nowrap rounded-sm border font-medium transition-[background-color,color,scale] duration-100 ease-out enabled:active:scale-[0.98] [&_svg]:size-4 ${DISABLED}`;
 
 const VARIANTS: Record<ButtonVariant, string> = {
-  primary: "bg-accent text-accent-ink hover:bg-accent-hover",
-  secondary: "border border-line-strong bg-surface text-ink hover:bg-sunken",
-  ghost: "text-ink-muted hover:bg-sunken hover:text-ink",
-  danger: "bg-danger text-danger-ink hover:bg-danger-hover",
+  primary:
+    "border-transparent bg-accent-fill font-semibold text-accent-on hover:bg-accent-fill-hover",
+  secondary: "border-line-strong text-ink hover:bg-hover",
+  ghost: "border-transparent text-ink-2 hover:bg-hover hover:text-ink",
+  danger: "border-danger text-danger-text hover:bg-[rgb(var(--kr-danger-rgb)/0.12)]",
+  "danger-solid":
+    "border-transparent bg-danger-solid font-semibold text-accent-on hover:bg-danger-solid-hover",
 };
 
 const SIZES: Record<ButtonSize, string> = {
-  md: "h-control px-3.5 text-base",
-  sm: "h-control-sm px-2.5 text-sm",
+  sm: "h-control-sm px-2.5 text-meta",
+  md: "h-control px-3.5 text-ui",
+  lg: "h-control-lg px-4 text-ui",
 };
 
 export function buttonClass(variant: ButtonVariant = "secondary", size: ButtonSize = "md") {

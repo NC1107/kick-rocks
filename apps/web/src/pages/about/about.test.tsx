@@ -79,7 +79,9 @@ describe("the about page", () => {
 
   it("shows skeletons while loading", () => {
     renderPage(<AboutPage />, { withProfile: false });
-    expect(document.querySelectorAll("[aria-hidden=true].animate-pulse").length).toBeGreaterThan(0);
+    expect(
+      document.querySelectorAll("[aria-hidden=true].animate-pulse-soft").length,
+    ).toBeGreaterThan(0);
   });
 
   it("keeps the rest of the page when the sources cannot load, and retries", async () => {

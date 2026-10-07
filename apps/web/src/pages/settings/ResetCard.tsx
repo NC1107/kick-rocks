@@ -69,7 +69,7 @@ export function ResetCard() {
             <Button
               type="submit"
               form="reset-all-form"
-              variant="danger"
+              variant="danger-solid"
               disabled={!confirmed}
               loading={reset.isPending}
             >
