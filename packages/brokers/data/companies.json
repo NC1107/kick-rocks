@@ -82,7 +82,7 @@
       "privacyEmail": "privacy@advance-auto.com",
       "optOutUrl": null,
       "privacyRightsUrl": "https://privacyportal.onetrust.com/webform/ddb34d47-8b03-4197-ba12-dc9d43a70db9/5cabdba6-54dd-4f52-8ae9-e7ece547725b",
-      "contactMethod": "both",
+      "contactMethod": "email",
       "notes": "Contacts read from https://shop.advanceautoparts.com/o/privacy-notice on 2026-10-07.",
       "sources": [
         {
@@ -152,8 +152,8 @@
       "domain": "aldi.us",
       "category": "retail",
       "privacyEmail": null,
-      "optOutUrl": null,
-      "privacyRightsUrl": "https://aldi-privacy.my.onetrust.com/webform/88287088-72d8-4e0d-8c0f-28404e719f48/9e6a4928-be83-47a5-bc67-5b8b01022f13",
+      "optOutUrl": "https://aldi-privacy.my.onetrust.com/webform/88287088-72d8-4e0d-8c0f-28404e719f48/9e6a4928-be83-47a5-bc67-5b8b01022f13",
+      "privacyRightsUrl": null,
       "contactMethod": "form",
       "notes": "Contacts read from https://www.aldi.us/store/aldi/pages/online-privacy-notice on 2026-10-07.",
       "sources": [
@@ -172,7 +172,7 @@
       "privacyEmail": "customerprivacy@allstate.com",
       "optOutUrl": null,
       "privacyRightsUrl": "https://allstate.consumerprivacyinfo.com/",
-      "contactMethod": "both",
+      "contactMethod": "email",
       "notes": "Contacts read from https://www.allstate.com/privacy-center on 2026-10-07.",
       "sources": [
         {
@@ -244,7 +244,7 @@
       "privacyEmail": "privacy@amd.com",
       "optOutUrl": null,
       "privacyRightsUrl": "https://privacyportal.onetrust.com/webform/522af4e3-8eb6-419a-ab34-33424f162acd/8cc41943-5c42-4be1-a49d-973a8817fc12",
-      "contactMethod": "both",
+      "contactMethod": "email",
       "notes": "Contacts read from https://www.amd.com/en/legal/privacy.html on 2026-10-07.",
       "sources": [
         {
@@ -278,8 +278,8 @@
       "domain": "ae.com",
       "category": "retail",
       "privacyEmail": null,
-      "optOutUrl": null,
-      "privacyRightsUrl": "https://aeo.clarip.com/dsr/create?lang=en",
+      "optOutUrl": "https://aeo.clarip.com/dsr/create?lang=en",
+      "privacyRightsUrl": null,
       "contactMethod": "form",
       "notes": "Contacts read from https://www.ae.com/us/en/content/help/privacy-notice on 2026-10-07.",
       "sources": [
@@ -332,8 +332,8 @@
       "domain": "apple.com",
       "category": "tech",
       "privacyEmail": null,
-      "optOutUrl": null,
-      "privacyRightsUrl": "https://privacy.apple.com/",
+      "optOutUrl": "https://privacy.apple.com/",
+      "privacyRightsUrl": null,
       "contactMethod": "form",
       "notes": "Contacts read from https://www.apple.com/legal/privacy/en-ww/ on 2026-10-07.",
       "sources": [
@@ -352,7 +352,7 @@
       "privacyEmail": "privacy@atlassian.com",
       "optOutUrl": null,
       "privacyRightsUrl": "https://www.atlassian.com/trust/privacy/gdpr/request-personal-data",
-      "contactMethod": "both",
+      "contactMethod": "email",
       "notes": "Contacts read from https://www.atlassian.com/legal/privacy-policy on 2026-10-07.",
       "sources": [
         {
@@ -386,8 +386,8 @@
       "domain": "audiusa.com",
       "category": "auto",
       "privacyEmail": null,
-      "optOutUrl": null,
-      "privacyRightsUrl": "https://privacyportal.volkswagengroupofamerica.com/",
+      "optOutUrl": "https://privacyportal.volkswagengroupofamerica.com/",
+      "privacyRightsUrl": null,
       "contactMethod": "form",
       "notes": "Contacts read from https://www.audiusa.com/en/compliance/privacy/ on 2026-10-07.",
       "sources": [
@@ -440,8 +440,8 @@
       "domain": "bankofamerica.com",
       "category": "finance",
       "privacyEmail": null,
-      "optOutUrl": null,
-      "privacyRightsUrl": "https://secure.bankofamerica.com/customer-preferences/public/personal-information-request/#!/page1/",
+      "optOutUrl": "https://secure.bankofamerica.com/customer-preferences/public/personal-information-request/#!/page1/",
+      "privacyRightsUrl": null,
       "contactMethod": "form",
       "notes": "Contacts read from https://web.bankofamerica.com/en/privacy/online-privacy-notice on 2026-10-07.",
       "sources": [
@@ -476,9 +476,9 @@
       "domain": "bedbathandbeyond.com",
       "category": "retail",
       "privacyEmail": "privacy@beyond.com",
-      "optOutUrl": null,
+      "optOutUrl": "https://corporate.beyond.com/corporate/privacyrequest",
       "privacyRightsUrl": null,
-      "contactMethod": "email",
+      "contactMethod": "both",
       "notes": "Contacts read from https://help.bedbathandbeyond.com/help/s/article/PRIVACY-AND-SECURITY-POLICY on 2026-10-07.",
       "sources": [
         {
@@ -532,7 +532,7 @@
       "privacyEmail": "dataprotectionoffice@booking.com",
       "optOutUrl": null,
       "privacyRightsUrl": "https://www.booking.com/content/dsar.en-us.html",
-      "contactMethod": "both",
+      "contactMethod": "email",
       "notes": "Contacts read from https://www.booking.com/content/privacy.html on 2026-10-07.",
       "sources": [
         {
@@ -602,8 +602,8 @@
       "domain": "canva.com",
       "category": "tech",
       "privacyEmail": null,
-      "optOutUrl": null,
-      "privacyRightsUrl": "https://www.canva.com/help/legal-form/",
+      "optOutUrl": "https://www.canva.com/help/legal-form/",
+      "privacyRightsUrl": null,
       "contactMethod": "form",
       "notes": "Contacts read from https://www.canva.com/policies/privacy-policy/ on 2026-10-07.",
       "sources": [
@@ -694,7 +694,7 @@
       "privacyEmail": "service@chewy.com",
       "optOutUrl": null,
       "privacyRightsUrl": "https://www.chewy.com/app/account/privacy-rights-request",
-      "contactMethod": "both",
+      "contactMethod": "email",
       "notes": "Contacts read from https://www.chewy.com/app/content/privacy on 2026-10-07.",
       "sources": [
         {
@@ -730,7 +730,7 @@
       "privacyEmail": "privacy@chipotle.com",
       "optOutUrl": null,
       "privacyRightsUrl": "https://www.chipotle.com/datarequest",
-      "contactMethod": "both",
+      "contactMethod": "email",
       "notes": "Contacts read from https://www.chipotle.com/privacy-policy on 2026-10-07.",
       "sources": [
         {
@@ -746,8 +746,8 @@
       "domain": "cisco.com",
       "category": "tech",
       "privacyEmail": null,
-      "optOutUrl": null,
-      "privacyRightsUrl": "https://privacyrequest.cisco.com/",
+      "optOutUrl": "https://privacyrequest.cisco.com/",
+      "privacyRightsUrl": null,
       "contactMethod": "form",
       "notes": "Contacts read from https://www.cisco.com/site/us/en/about/legal/privacy.html on 2026-10-07.",
       "sources": [
@@ -818,8 +818,8 @@
       "domain": "coinbase.com",
       "category": "finance",
       "privacyEmail": null,
-      "optOutUrl": null,
-      "privacyRightsUrl": "https://www.coinbase.com/settings/privacy-rights",
+      "optOutUrl": "https://www.coinbase.com/settings/privacy-rights",
+      "privacyRightsUrl": null,
       "contactMethod": "form",
       "notes": "Contacts read from https://www.coinbase.com/legal/privacy on 2026-10-07.",
       "sources": [
@@ -944,8 +944,8 @@
       "domain": "delta.com",
       "category": "travel",
       "privacyEmail": null,
-      "optOutUrl": null,
-      "privacyRightsUrl": "https://privacyportal.onetrust.com/webform/6b6d972e-480d-4bb2-96d3-4bf62b3d9551/b93b3428-6c7a-47bb-8e16-3165b1fc5ec7",
+      "optOutUrl": "https://privacyportal.onetrust.com/webform/6b6d972e-480d-4bb2-96d3-4bf62b3d9551/b93b3428-6c7a-47bb-8e16-3165b1fc5ec7",
+      "privacyRightsUrl": null,
       "contactMethod": "form",
       "notes": "Contacts read from https://www.delta.com/us/en/legal/privacy-and-security on 2026-10-07.",
       "sources": [
@@ -1090,7 +1090,7 @@
       "privacyEmail": "privacy@docusign.com",
       "optOutUrl": null,
       "privacyRightsUrl": "https://privacy.docusign.com",
-      "contactMethod": "both",
+      "contactMethod": "email",
       "notes": "Contacts read from https://www.docusign.com/company/privacy-policy on 2026-10-07.",
       "sources": [
         {
@@ -1108,7 +1108,7 @@
       "privacyEmail": "privacypolicy@dollargeneral.com",
       "optOutUrl": null,
       "privacyRightsUrl": "https://dg.clarip.com/dsr/create",
-      "contactMethod": "both",
+      "contactMethod": "email",
       "notes": "Contacts read from https://www.dollargeneral.com/privacy-policy on 2026-10-07.",
       "sources": [
         {
@@ -1180,7 +1180,7 @@
       "privacyEmail": "privacy@dropbox.com",
       "optOutUrl": null,
       "privacyRightsUrl": "https://www.dropbox.com/privacy/dsr/submission",
-      "contactMethod": "both",
+      "contactMethod": "email",
       "notes": "Contacts read from https://www.dropbox.com/privacy on 2026-10-07.",
       "sources": [
         {
@@ -1250,8 +1250,8 @@
       "domain": "enterprise.com",
       "category": "travel",
       "privacyEmail": null,
-      "optOutUrl": null,
-      "privacyRightsUrl": "https://privacyportal.onetrust.com/webform/b7f28d27-6bb9-46d7-a7f4-c89ba7faf08f/11d10d39-31c6-4713-8de9-5ac77a61e2cb",
+      "optOutUrl": "https://privacyportal.onetrust.com/webform/b7f28d27-6bb9-46d7-a7f4-c89ba7faf08f/11d10d39-31c6-4713-8de9-5ac77a61e2cb",
+      "privacyRightsUrl": null,
       "contactMethod": "form",
       "notes": "Contacts read from https://www.enterprisemobility.com/en_us/privacy on 2026-10-07.",
       "sources": [
@@ -1304,8 +1304,8 @@
       "domain": "fandango.com",
       "category": "media",
       "privacyEmail": null,
-      "optOutUrl": null,
-      "privacyRightsUrl": "https://privacyportal.onetrust.com/webform/941b48f1-4637-4ecd-b01d-629494daf8b2/b932d7e5-941a-4129-bb6b-c3401136941b",
+      "optOutUrl": "https://privacyportal.onetrust.com/webform/941b48f1-4637-4ecd-b01d-629494daf8b2/b932d7e5-941a-4129-bb6b-c3401136941b",
+      "privacyRightsUrl": null,
       "contactMethod": "form",
       "notes": "Contacts read from https://www.versantprivacy.com/privacy on 2026-10-07.",
       "sources": [
@@ -1322,8 +1322,8 @@
       "domain": "farmers.com",
       "category": "finance",
       "privacyEmail": null,
-      "optOutUrl": null,
-      "privacyRightsUrl": "https://privacyportal.onetrust.com/webform/6f9548c9-3a87-4370-a23c-df4855d9b84c/3e27401f-507e-465d-a4cf-0255324eec65",
+      "optOutUrl": "https://privacyportal.onetrust.com/webform/6f9548c9-3a87-4370-a23c-df4855d9b84c/3e27401f-507e-465d-a4cf-0255324eec65",
+      "privacyRightsUrl": null,
       "contactMethod": "form",
       "notes": "Contacts read from https://www.farmers.com/privacy-statement/ on 2026-10-07.",
       "sources": [
@@ -1376,8 +1376,8 @@
       "domain": "flyfrontier.com",
       "category": "travel",
       "privacyEmail": null,
-      "optOutUrl": null,
-      "privacyRightsUrl": "https://www.flyfrontier.com/frontier-consumer-privacy-request-form/",
+      "optOutUrl": "https://www.flyfrontier.com/frontier-consumer-privacy-request-form/",
+      "privacyRightsUrl": null,
       "contactMethod": "form",
       "notes": "Contacts read from https://www.flyfrontier.com/legal/privacy-policy/ on 2026-10-07.",
       "sources": [
@@ -1448,8 +1448,8 @@
       "domain": "gamestop.com",
       "category": "retail",
       "privacyEmail": null,
-      "optOutUrl": null,
-      "privacyRightsUrl": "https://www.gamestop.com/californiaprivacy",
+      "optOutUrl": "https://www.gamestop.com/californiaprivacy",
+      "privacyRightsUrl": null,
       "contactMethod": "form",
       "notes": "Contacts read from https://www.gamestop.com/PrivacyPolicy.html on 2026-10-07.",
       "sources": [
@@ -1468,7 +1468,7 @@
       "privacyEmail": "myprivacyrights@gap.com",
       "optOutUrl": null,
       "privacyRightsUrl": "https://privacyportal.onetrust.com/webform/e1cf9ab6-fc39-4557-b4ef-4393861dad52/ab80a2eb-1313-49f2-9a8a-e8d8d43f1521",
-      "contactMethod": "both",
+      "contactMethod": "email",
       "notes": "Contacts read from https://www.gapinc.com/en-us/consumer-privacy-policy on 2026-10-07.",
       "sources": [
         {
@@ -1504,7 +1504,7 @@
       "privacyEmail": "privacypolicy@geicomail.com",
       "optOutUrl": null,
       "privacyRightsUrl": "https://privacyportal-cdn.onetrust.com/dsarwebform/3f71504a-d28e-4b48-9b8c-e803409ca65d/b6fe4b9b-a871-41a4-9356-4fc555f0722a.html",
-      "contactMethod": "both",
+      "contactMethod": "email",
       "notes": "Contacts read from https://media.geico.com/legal/privacy_policy.htm on 2026-10-07.",
       "sources": [
         {
@@ -1520,8 +1520,8 @@
       "domain": "glassdoor.com",
       "category": "other",
       "privacyEmail": null,
-      "optOutUrl": null,
-      "privacyRightsUrl": "https://help.glassdoor.com/s/privacyrequest?language=en_US",
+      "optOutUrl": "https://help.glassdoor.com/s/privacyrequest?language=en_US",
+      "privacyRightsUrl": null,
       "contactMethod": "form",
       "notes": "Contacts read from https://hrtechprivacy.com/brands/glassdoor on 2026-10-07.",
       "sources": [
@@ -1630,7 +1630,7 @@
       "privacyEmail": "privacy@hcahealthcare.com",
       "optOutUrl": null,
       "privacyRightsUrl": "https://privacy-central.securiti.ai/#/dsr/27217c8a-f5ed-4536-b062-584c57dd90a0",
-      "contactMethod": "both",
+      "contactMethod": "email",
       "notes": "Contacts read from https://www.hcahealthcare.com/legal/privacy-policy on 2026-10-07.",
       "sources": [
         {
@@ -1828,7 +1828,7 @@
       "privacyEmail": "privacyoffice@humana.com",
       "optOutUrl": null,
       "privacyRightsUrl": "https://submit-irm.trustarc.com/services/validation/0b44550f-9d30-4fc5-abe3-d1d7fe6528aa",
-      "contactMethod": "both",
+      "contactMethod": "email",
       "notes": "Contacts read from https://www.humana.com/legal/privacy-policy on 2026-10-07.",
       "sources": [
         {
@@ -1846,7 +1846,7 @@
       "privacyEmail": "privacy@hmausa.com",
       "optOutUrl": null,
       "privacyRightsUrl": "https://owners.hyundaiusa.com/us/en/privacy/data-request.html",
-      "contactMethod": "both",
+      "contactMethod": "email",
       "notes": "Contacts read from https://www.hyundaiusa.com/us/en/privacy-policy on 2026-10-07.",
       "sources": [
         {
@@ -1862,8 +1862,8 @@
       "domain": "ibm.com",
       "category": "tech",
       "privacyEmail": null,
-      "optOutUrl": null,
-      "privacyRightsUrl": "https://www.ibm.com/privacy/requests/",
+      "optOutUrl": "https://www.ibm.com/privacy/requests/",
+      "privacyRightsUrl": null,
       "contactMethod": "form",
       "notes": "Contacts read from https://www.ibm.com/privacy on 2026-10-07.",
       "sources": [
@@ -1882,7 +1882,7 @@
       "privacyEmail": "privacy@iheartmedia.com",
       "optOutUrl": null,
       "privacyRightsUrl": "https://iheart.com/privacycontrols",
-      "contactMethod": "both",
+      "contactMethod": "email",
       "notes": "Contacts read from https://www.iheart.com/privacy/ on 2026-10-07.",
       "sources": [
         {
@@ -1918,7 +1918,7 @@
       "privacyEmail": "infosec.dataprivacy.us@ikea.com",
       "optOutUrl": null,
       "privacyRightsUrl": "https://us.irr.privacy.ingka.com/en",
-      "contactMethod": "both",
+      "contactMethod": "email",
       "notes": "Contacts read from https://www.ikea.com/us/en/customer-service/privacy-policy/ on 2026-10-07.",
       "sources": [
         {
@@ -1936,7 +1936,7 @@
       "privacyEmail": "privacy-dept@indeed.com",
       "optOutUrl": null,
       "privacyRightsUrl": "https://requests.hrtechprivacy.com/create",
-      "contactMethod": "both",
+      "contactMethod": "email",
       "notes": "Contacts read from https://hrtechprivacy.com/brands/indeed on 2026-10-07.",
       "sources": [
         {
@@ -1970,8 +1970,8 @@
       "domain": "intuit.com",
       "category": "finance",
       "privacyEmail": null,
-      "optOutUrl": null,
-      "privacyRightsUrl": "https://www.intuit.com/privacy/submit-a-question/",
+      "optOutUrl": "https://www.intuit.com/privacy/submit-a-question/",
+      "privacyRightsUrl": null,
       "contactMethod": "form",
       "notes": "Contacts read from https://www.intuit.com/privacy/statement/ on 2026-10-07.",
       "sources": [
@@ -2116,7 +2116,7 @@
       "privacyEmail": "privacy@lenovo.com",
       "optOutUrl": null,
       "privacyRightsUrl": "https://privacyportal.onetrust.com/webform/3c884b5f-db83-4077-91c8-fbfdaaba21fe/f15f8a67-782c-48c4-bf1e-0d7e6cd9b464",
-      "contactMethod": "both",
+      "contactMethod": "email",
       "notes": "Contacts read from https://www.lenovo.com/us/en/privacy/ on 2026-10-07.",
       "sources": [
         {
@@ -2150,8 +2150,8 @@
       "domain": "linkedin.com",
       "category": "tech",
       "privacyEmail": null,
-      "optOutUrl": null,
-      "privacyRightsUrl": "https://www.linkedin.com/psettings/privacy",
+      "optOutUrl": "https://www.linkedin.com/psettings/privacy",
+      "privacyRightsUrl": null,
       "contactMethod": "form",
       "notes": "Contacts read from https://www.linkedin.com/legal/privacy-policy on 2026-10-07.",
       "sources": [
@@ -2170,7 +2170,7 @@
       "privacyEmail": "privacy@livenation.com",
       "optOutUrl": null,
       "privacyRightsUrl": "https://privacyportal.onetrust.com/webform/ba6f9c5b-dda5-43bd-bac4-4e06afccd928/08c35604-aec2-48df-9cfd-916a063a1718",
-      "contactMethod": "both",
+      "contactMethod": "email",
       "notes": "Contacts read from https://privacy.livenation.com/privacy-policy on 2026-10-07.",
       "sources": [
         {
@@ -2188,7 +2188,7 @@
       "privacyEmail": "privacy@lowes.com",
       "optOutUrl": null,
       "privacyRightsUrl": "https://lowesprod.service-now.com/prm",
-      "contactMethod": "both",
+      "contactMethod": "email",
       "notes": "Contacts read from https://www.lowes.com/l/about/privacy-and-security-statement on 2026-10-07.",
       "sources": [
         {
@@ -2242,7 +2242,7 @@
       "privacyEmail": "privacy@lumen.com",
       "optOutUrl": null,
       "privacyRightsUrl": "https://www.centurylink.com/dsr_request/",
-      "contactMethod": "both",
+      "contactMethod": "email",
       "notes": "Contacts read from https://www.lumen.com/en-us/about/legal/privacy-center.html on 2026-10-07.",
       "sources": [
         {
@@ -2258,8 +2258,8 @@
       "domain": "lyft.com",
       "category": "tech",
       "privacyEmail": null,
-      "optOutUrl": null,
-      "privacyRightsUrl": "https://www.lyft.com/privacy/data",
+      "optOutUrl": "https://www.lyft.com/privacy/data",
+      "privacyRightsUrl": null,
       "contactMethod": "form",
       "notes": "Contacts read from https://www.lyft.com/privacy on 2026-10-07.",
       "sources": [
@@ -2294,8 +2294,8 @@
       "domain": "marcus.com",
       "category": "finance",
       "privacyEmail": null,
-      "optOutUrl": null,
-      "privacyRightsUrl": "https://www.marcus.com/us/en/privacy-center/ccpa-request.html",
+      "optOutUrl": "https://www.marcus.com/us/en/privacy-center/ccpa-request.html",
+      "privacyRightsUrl": null,
       "contactMethod": "form",
       "notes": "Contacts read from https://www.marcus.com/us/en/privacy-center on 2026-10-07.",
       "sources": [
@@ -2366,8 +2366,8 @@
       "domain": "facebook.com",
       "category": "tech",
       "privacyEmail": null,
-      "optOutUrl": null,
-      "privacyRightsUrl": "https://www.facebook.com/privacy/center/",
+      "optOutUrl": "https://www.facebook.com/privacy/center/",
+      "privacyRightsUrl": null,
       "contactMethod": "form",
       "notes": "Contacts read from https://www.facebook.com/privacy/policy/ on 2026-10-07.",
       "sources": [
@@ -2548,7 +2548,7 @@
       "privacyEmail": "privacy@nvidia.com",
       "optOutUrl": null,
       "privacyRightsUrl": "https://www.nvidia.com/privacy-center/",
-      "contactMethod": "both",
+      "contactMethod": "email",
       "notes": "Contacts read from https://www.nvidia.com/en-us/about-nvidia/privacy-policy/ on 2026-10-07.",
       "sources": [
         {
@@ -2602,7 +2602,7 @@
       "privacyEmail": "privacy@openai.com",
       "optOutUrl": null,
       "privacyRightsUrl": "https://privacy.openai.com/policies",
-      "contactMethod": "both",
+      "contactMethod": "email",
       "notes": "Contacts read from https://openai.com/policies/privacy-policy/ on 2026-10-07.",
       "sources": [
         {
@@ -2674,7 +2674,7 @@
       "privacyEmail": "privacy@pandora.com",
       "optOutUrl": null,
       "privacyRightsUrl": "https://www.pandora.com/privacy/ccpa",
-      "contactMethod": "both",
+      "contactMethod": "email",
       "notes": "Contacts read from https://www.pandora.com/privacy on 2026-10-07.",
       "sources": [
         {
@@ -2710,7 +2710,7 @@
       "privacyEmail": "privacy@papajohns.com",
       "optOutUrl": null,
       "privacyRightsUrl": "https://privacyportal.onetrust.com/webform/24528fbe-3e9a-4ba1-b316-39ca27517543/74eacbe6-6f75-4a5d-924f-fb875717beed",
-      "contactMethod": "both",
+      "contactMethod": "email",
       "notes": "Contacts read from https://www.papajohns.com/privacy-policy.html on 2026-10-07.",
       "sources": [
         {
@@ -2744,8 +2744,8 @@
       "domain": "paypal.com",
       "category": "finance",
       "privacyEmail": null,
-      "optOutUrl": null,
-      "privacyRightsUrl": "https://www.paypal.com/myaccount/privacy",
+      "optOutUrl": "https://www.paypal.com/myaccount/privacy",
+      "privacyRightsUrl": null,
       "contactMethod": "form",
       "notes": "Contacts read from https://www.paypal.com/us/privacy-center/home on 2026-10-07.",
       "sources": [
@@ -2782,7 +2782,7 @@
       "privacyEmail": "privacy@onepeloton.com",
       "optOutUrl": null,
       "privacyRightsUrl": "https://preferences.onepeloton.com/",
-      "contactMethod": "both",
+      "contactMethod": "email",
       "notes": "Contacts read from https://www.onepeloton.com/privacy-policy on 2026-10-07.",
       "sources": [
         {
@@ -3088,7 +3088,7 @@
       "privacyEmail": "privacy@robinhood.com",
       "optOutUrl": null,
       "privacyRightsUrl": "https://robinhood.com/us/en/support/articles/data-sharing-preferences/",
-      "contactMethod": "both",
+      "contactMethod": "email",
       "notes": "Contacts read from https://robinhood.com/us/en/support/articles/privacy-policy/ on 2026-10-07.",
       "sources": [
         {
@@ -3124,7 +3124,7 @@
       "privacyEmail": "privacy@ros.com",
       "optOutUrl": null,
       "privacyRightsUrl": "http://rossstoresprivacyrequest.com",
-      "contactMethod": "both",
+      "contactMethod": "email",
       "notes": "Contacts read from https://www.rossstores.com/privacy on 2026-10-07.",
       "sources": [
         {
@@ -3160,7 +3160,7 @@
       "privacyEmail": "privacy@salesforce.com",
       "optOutUrl": null,
       "privacyRightsUrl": "https://www.salesforce.com/form/other/privacy-request/?d=pb",
-      "contactMethod": "both",
+      "contactMethod": "email",
       "notes": "Contacts read from https://www.salesforce.com/company/privacy/ on 2026-10-07.",
       "sources": [
         {
@@ -3176,8 +3176,8 @@
       "domain": "samsung.com",
       "category": "tech",
       "privacyEmail": null,
-      "optOutUrl": null,
-      "privacyRightsUrl": "https://www.samsung.com/us/privacy/rights/",
+      "optOutUrl": "https://www.samsung.com/us/privacy/rights/",
+      "privacyRightsUrl": null,
       "contactMethod": "form",
       "notes": "Contacts read from https://www.samsung.com/us/account/privacy-policy/ on 2026-10-07.",
       "sources": [
@@ -3194,8 +3194,8 @@
       "domain": "shopify.com",
       "category": "tech",
       "privacyEmail": null,
-      "optOutUrl": null,
-      "privacyRightsUrl": "https://privacy.shopify.com/en",
+      "optOutUrl": "https://privacy.shopify.com/en",
+      "privacyRightsUrl": null,
       "contactMethod": "form",
       "notes": "Contacts read from https://www.shopify.com/legal/privacy on 2026-10-07.",
       "sources": [
@@ -3214,7 +3214,7 @@
       "privacyEmail": "privacy@siriusxm.com",
       "optOutUrl": null,
       "privacyRightsUrl": "https://www.siriusxm.com/yourprivacychoices",
-      "contactMethod": "both",
+      "contactMethod": "email",
       "notes": "Contacts read from https://www.siriusxm.com/privacy-policy on 2026-10-07.",
       "sources": [
         {
@@ -3232,7 +3232,7 @@
       "privacyEmail": "privacy@slack.com",
       "optOutUrl": null,
       "privacyRightsUrl": "https://www.salesforce.com/form/other/privacy-request/",
-      "contactMethod": "both",
+      "contactMethod": "email",
       "notes": "Contacts read from https://slack.com/trust/privacy/privacy-policy on 2026-10-07.",
       "sources": [
         {
@@ -3248,8 +3248,8 @@
       "domain": "snap.com",
       "category": "tech",
       "privacyEmail": null,
-      "optOutUrl": null,
-      "privacyRightsUrl": "https://help.snapchat.com/hc/requests/new?lang=en-US",
+      "optOutUrl": "https://help.snapchat.com/hc/requests/new?lang=en-US",
+      "privacyRightsUrl": null,
       "contactMethod": "form",
       "notes": "Contacts read from https://values.snap.com/privacy/privacy-policy on 2026-10-07.",
       "sources": [
@@ -3304,7 +3304,7 @@
       "privacyEmail": "southwest.privacy@wnco.com",
       "optOutUrl": null,
       "privacyRightsUrl": "https://www.southwest.com/dataprivacyrequest/",
-      "contactMethod": "both",
+      "contactMethod": "email",
       "notes": "Contacts read from https://www.southwest.com/about-southwest/terms-and-conditions/privacy-policy/ on 2026-10-07.",
       "sources": [
         {
@@ -3340,7 +3340,7 @@
       "privacyEmail": "privacy@spotify.com",
       "optOutUrl": null,
       "privacyRightsUrl": "https://www.spotify.com/account/privacy/",
-      "contactMethod": "both",
+      "contactMethod": "email",
       "notes": "Contacts read from https://www.spotify.com/us/legal/privacy-policy/ on 2026-10-07.",
       "sources": [
         {
@@ -3356,8 +3356,8 @@
       "domain": "squareup.com",
       "category": "finance",
       "privacyEmail": null,
-      "optOutUrl": null,
-      "privacyRightsUrl": "https://privacy.block.xyz",
+      "optOutUrl": "https://privacy.block.xyz",
+      "privacyRightsUrl": null,
       "contactMethod": "form",
       "notes": "Contacts read from https://squareup.com/us/en/legal/general/privacy on 2026-10-07.",
       "sources": [
@@ -3428,8 +3428,8 @@
       "domain": "statefarm.com",
       "category": "finance",
       "privacyEmail": null,
-      "optOutUrl": null,
-      "privacyRightsUrl": "https://apps.statefarm.com/CustomerForms/ConsumerDataAccessRequestForm.htm",
+      "optOutUrl": "https://apps.statefarm.com/CustomerForms/ConsumerDataAccessRequestForm.htm",
+      "privacyRightsUrl": null,
       "contactMethod": "form",
       "notes": "Contacts read from https://www.statefarm.com/customer-care/privacy-security on 2026-10-07.",
       "sources": [
@@ -3466,7 +3466,7 @@
       "privacyEmail": "privacy@stripe.com",
       "optOutUrl": null,
       "privacyRightsUrl": "https://stripe.com/legal/privacy-center",
-      "contactMethod": "both",
+      "contactMethod": "email",
       "notes": "Contacts read from https://stripe.com/privacy on 2026-10-07.",
       "sources": [
         {
@@ -3482,8 +3482,8 @@
       "domain": "subaru.com",
       "category": "auto",
       "privacyEmail": null,
-      "optOutUrl": null,
-      "privacyRightsUrl": "https://www.subaru.com/support/consumer-privacy.html",
+      "optOutUrl": "https://www.subaru.com/support/consumer-privacy.html",
+      "privacyRightsUrl": null,
       "contactMethod": "form",
       "notes": "Contacts read from https://www.subaru.com/support/privacy-data-communications-preferences on 2026-10-07.",
       "sources": [
@@ -3518,9 +3518,9 @@
       "domain": "synchrony.com",
       "category": "finance",
       "privacyEmail": "privacyoffice@syf.com",
-      "optOutUrl": null,
+      "optOutUrl": "https://www.synchronycredit.com/cpra/",
       "privacyRightsUrl": null,
-      "contactMethod": "email",
+      "contactMethod": "both",
       "notes": "Contacts read from https://www.synchrony.com/legal/privacy-policy on 2026-10-07.",
       "sources": [
         {
@@ -3626,8 +3626,8 @@
       "domain": "tiktok.com",
       "category": "media",
       "privacyEmail": null,
-      "optOutUrl": null,
-      "privacyRightsUrl": "https://www.tiktok.com/legal/report/privacy",
+      "optOutUrl": "https://www.tiktok.com/legal/report/privacy",
+      "privacyRightsUrl": null,
       "contactMethod": "form",
       "notes": "Contacts read from https://www.tiktok.com/legal/page/us/privacy-policy/en on 2026-10-07.",
       "sources": [
@@ -3644,8 +3644,8 @@
       "domain": "tinder.com",
       "category": "tech",
       "privacyEmail": null,
-      "optOutUrl": null,
-      "privacyRightsUrl": "https://www.help.tinder.com/hc/en-us/requests/new",
+      "optOutUrl": "https://www.help.tinder.com/hc/en-us/requests/new",
+      "privacyRightsUrl": null,
       "contactMethod": "form",
       "notes": "Contacts read from https://policies.tinder.com/privacy/intl/en on 2026-10-07.",
       "sources": [
@@ -3662,8 +3662,8 @@
       "domain": "tjx.com",
       "category": "retail",
       "privacyEmail": null,
-      "optOutUrl": null,
-      "privacyRightsUrl": "https://compliance.tjx.com/",
+      "optOutUrl": "https://compliance.tjx.com/",
+      "privacyRightsUrl": null,
       "contactMethod": "form",
       "notes": "Contacts read from https://tjmaxx.tjx.com/store/jump/topic/find-help/legal/2400080 on 2026-10-07.",
       "sources": [
@@ -3700,7 +3700,7 @@
       "privacyEmail": "privacy@tractorsupply.com",
       "optOutUrl": null,
       "privacyRightsUrl": "https://privacyportal.tractorsupply.com/",
-      "contactMethod": "both",
+      "contactMethod": "email",
       "notes": "Contacts read from https://privacyportal.tractorsupply.com/ on 2026-10-07.",
       "sources": [
         {
@@ -3716,8 +3716,8 @@
       "domain": "tripadvisor.com",
       "category": "travel",
       "privacyEmail": null,
-      "optOutUrl": null,
-      "privacyRightsUrl": "https://privacyportal-cdn.onetrust.com/dsarwebform/da774af3-e615-4e8c-8a28-3d13e98367c5/d294c536-2b05-4be5-b3dc-22f11e5c9d19.html",
+      "optOutUrl": "https://privacyportal-cdn.onetrust.com/dsarwebform/da774af3-e615-4e8c-8a28-3d13e98367c5/d294c536-2b05-4be5-b3dc-22f11e5c9d19.html",
+      "privacyRightsUrl": null,
       "contactMethod": "form",
       "notes": "Contacts read from https://tripadvisor.mediaroom.com/us-privacy-policy on 2026-10-07.",
       "sources": [
@@ -3842,8 +3842,8 @@
       "domain": "usaa.com",
       "category": "finance",
       "privacyEmail": null,
-      "optOutUrl": null,
-      "privacyRightsUrl": "https://www.usaa.com/privacy/consumer-rights-request/",
+      "optOutUrl": "https://www.usaa.com/privacy/consumer-rights-request/",
+      "privacyRightsUrl": null,
       "contactMethod": "form",
       "notes": "Contacts read from https://www.usaa.com/privacy/ on 2026-10-07.",
       "sources": [
@@ -3860,8 +3860,8 @@
       "domain": "usbank.com",
       "category": "finance",
       "privacyEmail": null,
-      "optOutUrl": null,
-      "privacyRightsUrl": "https://onlinebanking.usbank.com/digital/servicing/privacy-preferences/",
+      "optOutUrl": "https://onlinebanking.usbank.com/digital/servicing/privacy-preferences/",
+      "privacyRightsUrl": null,
       "contactMethod": "form",
       "notes": "Contacts read from https://www.usbank.com/about-us-bank/privacy.html on 2026-10-07.",
       "sources": [
@@ -3898,7 +3898,7 @@
       "privacyEmail": "privacy@venmo.com",
       "optOutUrl": null,
       "privacyRightsUrl": "https://help.venmo.com/hc/en-us/requests/new",
-      "contactMethod": "both",
+      "contactMethod": "email",
       "notes": "Contacts read from https://venmo.com/legal/us-privacy-policy/ on 2026-10-07.",
       "sources": [
         {
@@ -3952,7 +3952,7 @@
       "privacyEmail": "privacy@vw.com",
       "optOutUrl": null,
       "privacyRightsUrl": "https://privacy.vwgoa.com/",
-      "contactMethod": "both",
+      "contactMethod": "email",
       "notes": "Contacts read from https://www.vw.com/en/privacy.html on 2026-10-07.",
       "sources": [
         {
@@ -4115,7 +4115,7 @@
       "optOutUrl": "https://www.wellsfargo.com/privacy-security/opt-out-notice/",
       "privacyRightsUrl": null,
       "contactMethod": "form",
-      "notes": "Contacts read from https://www.wellsfargo.com/privacy-security/fraud/report/ on 2026-10-07.",
+      "notes": "Contacts read from https://www.wellsfargo.com/privacy-security/opt-out-notice/ on 2026-10-07.",
       "sources": [
         {
           "source": "kickrocks-companies",
@@ -4238,8 +4238,8 @@
       "domain": "x.com",
       "category": "tech",
       "privacyEmail": null,
-      "optOutUrl": null,
-      "privacyRightsUrl": "https://privacy.x.com/en/ccpa",
+      "optOutUrl": "https://privacy.x.com/en/ccpa",
+      "privacyRightsUrl": null,
       "contactMethod": "form",
       "notes": "Contacts read from https://x.com/en/privacy on 2026-10-07.",
       "sources": [
@@ -4276,7 +4276,7 @@
       "privacyEmail": "dataprotection@yelp.com",
       "optOutUrl": null,
       "privacyRightsUrl": "https://www.yelp-support.com/article/How-do-I-make-a-data-rights-request?l=en_US",
-      "contactMethod": "both",
+      "contactMethod": "email",
       "notes": "Contacts read from https://terms.yelp.com/privacy/en_us on 2026-10-07.",
       "sources": [
         {
@@ -4330,7 +4330,7 @@
       "privacyEmail": "privacy@zoom.us",
       "optOutUrl": null,
       "privacyRightsUrl": "https://privacyportal.onetrust.com/webform/65962359-ef0d-4399-9db4-572d06de08aa/f277f9f7-bfee-4233-815e-80e290139bc2",
-      "contactMethod": "both",
+      "contactMethod": "email",
       "notes": "Contacts read from https://www.zoom.com/en/trust/privacy/privacy-statement/ on 2026-10-07.",
       "sources": [
         {

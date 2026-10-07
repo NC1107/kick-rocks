@@ -52,6 +52,20 @@ const FIRST_PARTY_HOST_EXCEPTIONS: Record<string, string[]> = {
   zoom: ["www.zoom.com"],
 };
 
+/**
+ * Brands that answer to one parent privacy program and publish a single shared channel.
+ * Each stays its own record because a person holds an account with the brand, not the parent.
+ * A new collision must be added here on purpose.
+ */
+const SHARED_CONTACT_CHANNELS = [
+  "globalprivacy@yum.com kfc,tacobell",
+  "https://privacy.toyota.com/ lexus,toyota",
+  "https://privacychoices.thewaltdisneycompany.com/en-US disney,hulu",
+  "https://www.nbcuniversalprivacy.com/privacy/notrtoo nbcuniversal,peacock",
+  "https://www.wbdprivacy.com/opt-out/ cnn,hbomax,warnerbrosdiscovery",
+  "privacy@nbcuni.com nbcuniversal,peacock",
+].sort();
+
 function citedHost(company: Company): string {
   const cited = company.notes?.match(/^Contacts read from (https?:\/\/\S+) on /)?.[1];
   return new URL(cited ?? "https://invalid.invalid/").hostname;
@@ -113,12 +127,34 @@ describe("the company dataset", () => {
     }
   });
 
-  it("gives every company a way to ask, and states the contact method that way", () => {
+  it("gives every company a channel the campaign planner can act on, and states the contact method that way", () => {
     for (const company of companies) {
-      const form = company.optOutUrl ?? company.privacyRightsUrl;
-      expect(company.privacyEmail !== null || form !== null, company.id).toBe(true);
-      expect(company.contactMethod, company.id).toBe(contactMethodFor(company.privacyEmail, form));
+      expect(company.privacyEmail !== null || company.optOutUrl !== null, company.id).toBe(true);
+      expect(company.contactMethod, company.id).toBe(
+        contactMethodFor(company.privacyEmail, company.optOutUrl),
+      );
     }
+  });
+
+  it("never leaves a request portal only in privacyRightsUrl, which the planner does not read", () => {
+    const hidden = companies
+      .filter((company) => company.privacyEmail === null && company.optOutUrl === null)
+      .map((company) => company.id);
+    expect(hidden).toEqual([]);
+  });
+
+  it("shares a contact channel between companies only where one privacy program serves several brands", () => {
+    const owners = new Map<string, string[]>();
+    for (const company of companies) {
+      for (const channel of [company.privacyEmail, company.optOutUrl, company.privacyRightsUrl]) {
+        if (channel) owners.set(channel, [...(owners.get(channel) ?? []), company.id]);
+      }
+    }
+    const shared = [...owners]
+      .filter(([, ids]) => ids.length > 1)
+      .map(([channel, ids]) => `${channel} ${ids.join(",")}`)
+      .sort();
+    expect(shared).toEqual(SHARED_CONTACT_CHANNELS);
   });
 
   it("keeps emails lowercase and links on https or http only", () => {
