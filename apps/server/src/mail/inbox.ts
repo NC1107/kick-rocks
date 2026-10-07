@@ -1,6 +1,6 @@
 import type { MailFolder } from "@kickrocks/shared";
 import { ImapFlow, type MailboxObject } from "imapflow";
-import { describeMailError, isLoopbackHost } from "./net.js";
+import { describeMailError, isTrustedPlaintextHost } from "./net.js";
 import { parseInboxMessage } from "./parse.js";
 import type {
   FetchOptions,
@@ -24,15 +24,20 @@ export class MailFetchError extends Error {
   override name = "MailFetchError";
 }
 
-function openClient(connection: MailConnection): ImapFlow {
-  const local = isLoopbackHost(connection.imapHost);
+/** Hosts that may be reached without TLS besides this machine. */
+export interface InboxSourceOptions {
+  plaintextHosts?: readonly string[];
+}
+
+function openClient(connection: MailConnection, plaintextHosts: readonly string[]): ImapFlow {
+  const local = isTrustedPlaintextHost(connection.imapHost, plaintextHosts);
   const secure = connection.imapPort === IMPLICIT_TLS_PORT;
   const client = new ImapFlow({
     host: connection.imapHost,
     port: connection.imapPort,
     secure,
     // Credentials must not cross the network unencrypted, so STARTTLS is mandatory unless the
-    // server is on this machine, as with Proton Bridge and the test mail server.
+    // server is on this machine or named by the operator, as with Proton Bridge and the test mail server.
     ...(secure || local ? {} : { doSTARTTLS: true }),
     ...(local ? { tls: { rejectUnauthorized: false } } : {}),
     auth: { user: connection.username, pass: connection.password },
@@ -52,9 +57,10 @@ function openClient(connection: MailConnection): ImapFlow {
 
 async function withClient<T>(
   connection: MailConnection,
+  plaintextHosts: readonly string[],
   work: (client: ImapFlow) => Promise<T>,
 ): Promise<T> {
-  const client = openClient(connection);
+  const client = openClient(connection, plaintextHosts);
   try {
     await client.connect();
     return await work(client);
@@ -76,10 +82,13 @@ function folderRank(folder: MailFolder): number {
   return folder.specialUse ? 1 : 2;
 }
 
-export function createInboxSource(connection: MailConnection): InboxSource {
+export function createInboxSource(
+  connection: MailConnection,
+  { plaintextHosts = [] }: InboxSourceOptions = {},
+): InboxSource {
   return {
     listFolders() {
-      return withClient(connection, async (client) => {
+      return withClient(connection, plaintextHosts, async (client) => {
         const listed = await client.list();
         const folders = listed
           .filter((entry) => !entry.flags.has("\\Noselect") && !entry.flags.has("\\NonExistent"))
@@ -98,7 +107,7 @@ export function createInboxSource(connection: MailConnection): InboxSource {
     },
 
     fetchSince(folder, afterUid, uidValidity, options) {
-      return withClient(connection, (client) =>
+      return withClient(connection, plaintextHosts, (client) =>
         fetchFolder(client, folder, afterUid, uidValidity, options),
       );
     },

@@ -31,8 +31,10 @@ export function createMailServices(
   deps: MailServiceDeps = {},
 ): MailServices {
   return {
-    transport: createMailTransport,
-    inbox: createInboxSource,
+    transport: (connection) =>
+      createMailTransport(connection, { plaintextHosts: config.mail.plaintextHosts }),
+    inbox: (connection) =>
+      createInboxSource(connection, { plaintextHosts: config.mail.plaintextHosts }),
     classifier: createReplyClassifier({
       settings,
       ...(deps.fetch ? { fetch: deps.fetch } : {}),

@@ -21,6 +21,15 @@ export function isLoopbackHost(host: string): boolean {
   }
 }
 
+/**
+ * Whether credentials may cross to this host without TLS: this machine, or a host the operator
+ * named in `KICKROCKS_PLAINTEXT_MAIL_HOSTS`, which is how the development stack reaches its
+ * GreenMail container.
+ */
+export function isTrustedPlaintextHost(host: string, trusted: readonly string[] = []): boolean {
+  return isLoopbackHost(host) || trusted.includes(host.trim().toLowerCase());
+}
+
 const AUTH_CODES = new Set(["EAUTH", "AUTHENTICATIONFAILED", "NOAUTH", "AUTHENTICATIONFAILURE"]);
 
 const ERROR_TEXT: Record<string, string> = {

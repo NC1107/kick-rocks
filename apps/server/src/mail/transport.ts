@@ -1,7 +1,7 @@
 import { createTransport } from "nodemailer";
 import type SMTPTransport from "nodemailer/lib/smtp-transport";
 import { z } from "zod";
-import { describeMailError, isLoopbackHost } from "./net.js";
+import { describeMailError, isTrustedPlaintextHost } from "./net.js";
 import type { MailConnection, MailTransport, OutgoingMail, SendResult } from "./types.js";
 
 const CONNECTION_TIMEOUT_MS = 15_000;
@@ -42,15 +42,23 @@ export class MailSendError extends Error {
   }
 }
 
-function transportOptions(connection: MailConnection): SMTPTransport.Options {
-  const local = isLoopbackHost(connection.smtpHost);
+/** Hosts that may be reached without TLS besides this machine. */
+export interface MailTransportOptions {
+  plaintextHosts?: readonly string[];
+}
+
+export function transportOptions(
+  connection: MailConnection,
+  { plaintextHosts = [] }: MailTransportOptions = {},
+): SMTPTransport.Options {
+  const local = isTrustedPlaintextHost(connection.smtpHost, plaintextHosts);
   return {
     host: connection.smtpHost,
     port: connection.smtpPort,
     secure: connection.smtpSecure,
     auth: { user: connection.username, pass: connection.password },
     // Credentials must never cross the network unencrypted, so STARTTLS is mandatory unless the
-    // relay is on this machine, as with Proton Bridge and the test mail server.
+    // relay is on this machine or named by the operator, as with Proton Bridge and the test mail server.
     requireTLS: !connection.smtpSecure && !local,
     ...(local ? { tls: { rejectUnauthorized: false } } : {}),
     connectionTimeout: CONNECTION_TIMEOUT_MS,
@@ -71,12 +79,15 @@ function isTransient(error: unknown): boolean {
   return record.code !== "EAUTH" && record.code !== "EENVELOPE" && record.code !== "EMESSAGE";
 }
 
-export function createMailTransport(connection: MailConnection): MailTransport {
+export function createMailTransport(
+  connection: MailConnection,
+  options: MailTransportOptions = {},
+): MailTransport {
   const secrets = [connection.password];
 
   return {
     async verify() {
-      const transporter = createTransport(transportOptions(connection));
+      const transporter = createTransport(transportOptions(connection, options));
       try {
         await transporter.verify();
         return { ok: true, error: null };
@@ -97,7 +108,7 @@ export function createMailTransport(connection: MailConnection): MailTransport {
       }
       const { from, to, subject, text, messageId, inReplyTo, references } = parsed.data;
 
-      const transporter = createTransport(transportOptions(connection));
+      const transporter = createTransport(transportOptions(connection, options));
       try {
         // Plain text only: a reply is matched by Message-ID and reference, so the mail needs no
         // tracking pixel, no tracked link, and no HTML part.

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { describeMailError, isLoopbackHost } from "./net.js";
+import { describeMailError, isLoopbackHost, isTrustedPlaintextHost } from "./net.js";
 
 describe("isLoopbackHost", () => {
   it.each([
@@ -21,6 +21,16 @@ describe("isLoopbackHost", () => {
     "localhost.example.com",
     "",
   ])("treats %s as another machine", (host) => expect(isLoopbackHost(host)).toBe(false));
+});
+
+describe("isTrustedPlaintextHost", () => {
+  it("trusts this machine and the hosts the operator named, and nothing else", () => {
+    expect(isTrustedPlaintextHost("localhost")).toBe(true);
+    expect(isTrustedPlaintextHost("greenmail", ["greenmail"])).toBe(true);
+    expect(isTrustedPlaintextHost(" GreenMail ", ["greenmail"])).toBe(true);
+    expect(isTrustedPlaintextHost("smtp.gmail.com", ["greenmail"])).toBe(false);
+    expect(isTrustedPlaintextHost("greenmail")).toBe(false);
+  });
 });
 
 describe("describeMailError", () => {
