@@ -294,7 +294,7 @@ export function Component() {
                     <TableCell wrap className="min-w-48">
                       <Link
                         to={`/targets/${encodeURIComponent(item.id)}`}
-                        className="rounded-xs font-medium text-ink hover:text-accent hover:underline"
+                        className="rounded-xs font-medium text-ink hover:text-accent-text hover:underline"
                       >
                         {item.name}
                       </Link>

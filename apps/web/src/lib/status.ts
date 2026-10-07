@@ -1,110 +1,106 @@
 import type { RequestStatus, TaskStatus } from "@kickrocks/shared";
-import {
-  Ban,
-  BellRing,
-  Check,
-  CircleCheck,
-  CircleDashed,
-  CircleSlash2,
-  CircleX,
-  Clock3,
-  Hourglass,
-  Loader,
-  type LucideIcon,
-  MailX,
-  OctagonAlert,
-  Pause,
-  SearchX,
-  Send,
-  ShieldAlert,
-  Undo2,
-} from "lucide-react";
-import type { Tone } from "./tone.js";
+
+/** Where a status sits for the person: waiting on someone else, done, needs them, or broken. */
+export type StatusFamily = "progress" | "resolved" | "needs" | "failed" | "closed";
+
+/** Each shape is the same in every theme, so a status reads without its color. */
+export type StatusShape =
+  | "ring"
+  | "dashed-ring"
+  | "disc"
+  | "dash"
+  | "triangle"
+  | "square"
+  | "running";
 
 export interface StatusMeta {
   label: string;
-  tone: Tone;
-  icon: LucideIcon;
+  family: StatusFamily;
+  shape: StatusShape;
+  /** A ring in the accent instead of the muted ink: the request is out and being waited on. */
+  accent?: true;
   /** One sentence for a tooltip: what this status means for the person. */
   description: string;
 }
 
 /**
  * Typed as a Record over every status, so adding a status to the shared state machine fails to
- * compile here until it has a label, a tone, and an icon. Color is never the only signal: each
- * status also has its own icon and its own words.
+ * compile here until it has a label, a family, and a shape. Color is never the only signal: each
+ * status also has its own shape and its own words.
  */
 export const REQUEST_STATUS_META: Record<RequestStatus, StatusMeta> = {
   draft: {
     label: "Draft",
-    tone: "neutral",
-    icon: CircleDashed,
+    family: "progress",
+    shape: "dashed-ring",
     description: "Created but not queued yet.",
   },
   queued: {
     label: "Queued",
-    tone: "slate",
-    icon: Clock3,
+    family: "progress",
+    shape: "ring",
     description: "Waiting its turn to be sent.",
   },
   sent: {
     label: "Sent",
-    tone: "blue",
-    icon: Send,
+    family: "progress",
+    shape: "ring",
+    accent: true,
     description: "Delivered to the company.",
   },
   awaiting_reply: {
     label: "Awaiting reply",
-    tone: "indigo",
-    icon: Hourglass,
+    family: "progress",
+    shape: "ring",
+    accent: true,
     description: "Sent, and the company has until the due date to answer.",
   },
   confirmed: {
     label: "Confirmed",
-    tone: "green",
-    icon: CircleCheck,
+    family: "resolved",
+    shape: "disc",
     description: "The company confirmed it honored the request.",
   },
   no_record: {
     label: "No record",
-    tone: "teal",
-    icon: SearchX,
+    family: "resolved",
+    shape: "disc",
     description: "The company says it holds no data about you.",
   },
   needs_verification: {
     label: "Needs verification",
-    tone: "amber",
-    icon: ShieldAlert,
+    family: "needs",
+    shape: "triangle",
     description: "The company asked for something before it will act.",
   },
   follow_up_due: {
     label: "Follow-up due",
-    tone: "violet",
-    icon: BellRing,
+    family: "needs",
+    shape: "triangle",
     description: "No answer in time. A follow-up is ready to send.",
   },
   no_response: {
     label: "No response",
-    tone: "sand",
-    icon: Undo2,
+    family: "needs",
+    shape: "triangle",
     description: "The deadline passed without an answer.",
   },
   bounced: {
     label: "Bounced",
-    tone: "orange",
-    icon: MailX,
+    family: "failed",
+    shape: "square",
     description: "The email could not be delivered.",
   },
   rejected: {
     label: "Rejected",
-    tone: "red",
-    icon: CircleX,
+    family: "failed",
+    shape: "square",
     description: "The company refused the request.",
   },
   cancelled: {
     label: "Cancelled",
-    tone: "neutral",
-    icon: Ban,
+    family: "closed",
+    shape: "dash",
     description: "You cancelled this request.",
   },
 };
@@ -112,38 +108,38 @@ export const REQUEST_STATUS_META: Record<RequestStatus, StatusMeta> = {
 export const TASK_STATUS_META: Record<TaskStatus, StatusMeta> = {
   queued: {
     label: "Queued",
-    tone: "slate",
-    icon: Clock3,
+    family: "progress",
+    shape: "ring",
     description: "Waiting for a worker.",
   },
   leased: {
     label: "Running",
-    tone: "blue",
-    icon: Loader,
+    family: "progress",
+    shape: "running",
     description: "A worker is on it.",
   },
   done: {
     label: "Done",
-    tone: "green",
-    icon: Check,
+    family: "resolved",
+    shape: "disc",
     description: "Finished.",
   },
   blocked: {
     label: "Blocked",
-    tone: "amber",
-    icon: Pause,
+    family: "needs",
+    shape: "triangle",
     description: "Waiting for you.",
   },
   failed: {
     label: "Failed",
-    tone: "red",
-    icon: OctagonAlert,
+    family: "failed",
+    shape: "square",
     description: "Gave up after its attempts.",
   },
   cancelled: {
     label: "Cancelled",
-    tone: "neutral",
-    icon: CircleSlash2,
+    family: "closed",
+    shape: "dash",
     description: "Cancelled.",
   },
 };

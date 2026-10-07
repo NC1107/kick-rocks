@@ -131,7 +131,7 @@ export function MatchCard({ match }: { match: Match }) {
             ))}
           </div>
           {rights.length === 0 ? (
-            <p role="alert" className="mt-2 text-sm text-danger">
+            <p role="alert" className="mt-2 text-sm text-danger-text">
               Choose at least one.
             </p>
           ) : null}

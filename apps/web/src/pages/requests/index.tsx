@@ -226,7 +226,7 @@ function Requests({ profileId }: { profileId: string }) {
                     <TableCell wrap className="w-full min-w-0">
                       <Link
                         to={`/requests/${encodeURIComponent(item.id)}`}
-                        className="rounded-xs font-medium text-ink hover:text-accent hover:underline"
+                        className="rounded-xs font-medium text-ink hover:text-accent-text hover:underline"
                       >
                         {item.target.name}
                       </Link>

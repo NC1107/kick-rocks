@@ -143,7 +143,7 @@ export function IdentitiesEditor({
               ) : null}
             </div>
             {error ? (
-              <p role="alert" className="mb-3 text-sm text-danger">
+              <p role="alert" className="mb-3 text-sm text-danger-text">
                 {error}
               </p>
             ) : null}

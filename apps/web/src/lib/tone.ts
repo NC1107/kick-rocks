@@ -1,28 +1,34 @@
 /**
- * The hues a badge, pill, or alert can take. Each one is defined once in index.css as a hue and
- * lightness steps for light and dark, so adding a state never means choosing new colors.
+ * The four state families. Each is defined once in index.css with a color for its shape fill, one
+ * for its text, and an rgb triplet for washes, so adding a state never means choosing new colors.
  */
-export const TONES = [
-  "neutral",
-  "slate",
-  "blue",
-  "indigo",
-  "violet",
-  "teal",
-  "green",
-  "amber",
-  "orange",
-  "red",
-  "sand",
-] as const;
-export type Tone = (typeof TONES)[number];
+export const TONES = ["neutral", "positive", "attention", "danger"] as const;
+export type Family = (typeof TONES)[number];
+
+/**
+ * Hue names from before the four families. index.css folds each into the family it meant, so a
+ * page that still passes one keeps rendering until it moves to a family.
+ */
+export type LegacyTone =
+  | "slate"
+  | "blue"
+  | "indigo"
+  | "violet"
+  | "teal"
+  | "green"
+  | "amber"
+  | "orange"
+  | "red"
+  | "sand";
+
+export type Tone = Family | LegacyTone;
 
 /** What a notice means, independent of its hue. */
 export type Intent = "info" | "success" | "warning" | "danger";
 
-export const INTENT_TONE: Record<Intent, Tone> = {
-  info: "blue",
-  success: "green",
-  warning: "amber",
-  danger: "red",
+export const INTENT_TONE: Record<Intent, Family> = {
+  info: "neutral",
+  success: "positive",
+  warning: "attention",
+  danger: "danger",
 };

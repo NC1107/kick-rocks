@@ -68,7 +68,7 @@ export function RecipeCard({
           <h3 className="break-words text-lg font-semibold text-ink">
             <Link
               to={`/targets/${encodeURIComponent(recipe.targetId)}`}
-              className="rounded-xs hover:text-accent hover:underline"
+              className="rounded-xs hover:text-accent-text hover:underline"
             >
               {recipe.targetName}
             </Link>

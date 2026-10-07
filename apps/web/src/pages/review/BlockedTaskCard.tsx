@@ -206,7 +206,7 @@ export function BlockedTaskCard({
                 {task.requestId ? (
                   <Link
                     to={`/requests/${encodeURIComponent(task.requestId)}`}
-                    className="rounded-xs font-mono text-accent underline decoration-accent/40 underline-offset-2 hover:decoration-accent"
+                    className="rounded-xs font-mono text-accent-text underline decoration-accent/40 underline-offset-2 hover:decoration-accent"
                   >
                     {item.requestReference}
                   </Link>
@@ -256,7 +256,7 @@ export function BlockedTaskCard({
           <p className="mt-2.5 text-base">
             <Link
               to={`/profiles/${encodeURIComponent(profileId)}`}
-              className="text-accent underline underline-offset-2"
+              className="text-accent-text underline underline-offset-2"
             >
               Open the profile to add it
             </Link>
@@ -295,7 +295,7 @@ export function BlockedTaskCard({
             {agentAccessOff ? (
               <span className="text-sm text-ink-muted">
                 Agent access is off.{" "}
-                <Link to="/settings" className="text-accent underline underline-offset-2">
+                <Link to="/settings" className="text-accent-text underline underline-offset-2">
                   Turn it on in Settings
                 </Link>
               </span>
@@ -338,7 +338,7 @@ export function BlockedTaskCard({
       >
         <p className="text-base text-ink-muted">
           Nothing happens until one is connected.{" "}
-          <Link to="/settings" className="text-accent underline underline-offset-2">
+          <Link to="/settings" className="text-accent-text underline underline-offset-2">
             Connect one in Settings
           </Link>
           .

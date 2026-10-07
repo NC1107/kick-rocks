@@ -140,7 +140,7 @@ export function AccountStep({
           aria-controls="server-settings"
           disabled={generic}
           onClick={() => setShowServers((open) => !open)}
-          className="-ml-1 inline-flex items-center gap-1 rounded-sm px-1 text-sm font-medium text-ink hover:text-accent disabled:cursor-default disabled:hover:text-ink"
+          className="-ml-1 inline-flex items-center gap-1 rounded-sm px-1 text-sm font-medium text-ink hover:text-accent-text disabled:cursor-default disabled:hover:text-ink"
         >
           <ChevronDown
             aria-hidden="true"

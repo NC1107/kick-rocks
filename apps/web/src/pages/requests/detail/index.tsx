@@ -108,7 +108,7 @@ function TaskRow({ task }: { task: TaskSummary }) {
           </span>
         ) : null}
         {task.status === "failed" && task.lastError ? (
-          <span className="block text-sm text-danger">{task.lastError}</span>
+          <span className="block text-sm text-danger-text">{task.lastError}</span>
         ) : null}
       </span>
       <TaskStatusPill status={task.status} />
@@ -313,7 +313,7 @@ function Detail({ request }: { request: RequestDetail }) {
                 description: (
                   <Link
                     to={`/targets/${encodeURIComponent(target.id)}`}
-                    className="rounded-xs text-accent underline decoration-accent/40 underline-offset-2 hover:decoration-accent"
+                    className="rounded-xs text-accent-text underline decoration-accent/40 underline-offset-2 hover:decoration-accent"
                   >
                     {target.name}
                   </Link>

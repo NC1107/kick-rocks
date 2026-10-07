@@ -5,29 +5,44 @@ import { formatRelative, pluralize } from "./format.js";
 import * as labels from "./labels.js";
 import { REQUEST_STATUS_META, TASK_STATUS_META } from "./status.js";
 import { STORAGE_KEYS } from "./storage.js";
-import { TONES } from "./tone.js";
+
+const FAMILY_SHAPE = {
+  resolved: "disc",
+  needs: "triangle",
+  failed: "square",
+  closed: "dash",
+} as const;
 
 describe("status metadata", () => {
-  it("gives every request status words, a known tone, and an icon", () => {
+  it("gives every request status words, a family, and a shape", () => {
     for (const status of RequestStatus.options) {
       const meta = REQUEST_STATUS_META[status];
       expect(meta.label.length).toBeGreaterThan(0);
-      expect(TONES).toContain(meta.tone);
-      expect(meta.icon).toBeDefined();
+      expect(meta.family).toBeTruthy();
+      expect(meta.shape).toBeTruthy();
     }
   });
 
-  it("keeps request status labels distinct, so two pills never read the same", () => {
+  it("keeps request status labels distinct, so two marks never read the same", () => {
     const names = RequestStatus.options.map((status) => REQUEST_STATUS_META[status].label);
     expect(new Set(names).size).toBe(names.length);
   });
 
-  it("separates statuses by hue or icon, so color is never the only signal", () => {
-    const pairs = RequestStatus.options.map((status) => {
-      const meta = REQUEST_STATUS_META[status];
-      return `${meta.tone}:${meta.icon.displayName ?? meta.label}`;
-    });
-    expect(new Set(pairs).size).toBe(pairs.length);
+  it("gives each outcome family its own shape, so color is never the only signal", () => {
+    for (const meta of [
+      ...Object.values(REQUEST_STATUS_META),
+      ...Object.values(TASK_STATUS_META),
+    ]) {
+      const expected = FAMILY_SHAPE[meta.family as keyof typeof FAMILY_SHAPE];
+      if (expected) expect(meta.shape).toBe(expected);
+    }
+  });
+
+  it("draws a waiting request as a ring, and only a running task as a moving one", () => {
+    for (const meta of Object.values(REQUEST_STATUS_META)) {
+      if (meta.family === "progress") expect(["ring", "dashed-ring"]).toContain(meta.shape);
+    }
+    expect(TASK_STATUS_META.leased.shape).toBe("running");
   });
 
   it("covers every task status", () => {

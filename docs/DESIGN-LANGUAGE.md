@@ -245,7 +245,7 @@ Both are listed below so the swap is five values.
 | `--kr-line-strong` | `#6B6B75` | control edges, 3.2:1 on surface | slim `borderStrong` rule (3:1) |
 | `--kr-ink` | `#EDEDEF` | primary text | sink and echo |
 | `--kr-ink-2` | `#ABABB0` | secondary text, 7.4:1 on surface | sink and echo |
-| `--kr-ink-3` | `#848490` | muted text, labels, 4.6:1 on surface | sink and echo |
+| `--kr-ink-3` | `#8A8A96` | muted text, labels, 5.0:1 on surface and 4.6:1 on hover | sink and echo `#848490`, lifted one step because that value is 4.2:1 on the hover fill |
 | `--kr-accent-fill` | `#5557E0` | primary fill, white text at 5.5:1 | sink and echo `accent` |
 | `--kr-accent-fill-hover` | `#6466E8` | primary hover | derived, small lift |
 | `--kr-accent-on` | `#FFFFFF` | text on the fill | echo (dark accent takes white) |
@@ -279,7 +279,7 @@ Both are listed below so the swap is five values.
 | `--kr-line-strong` | `#858A8F` | slim `borderStrong`, 3.5:1 on white |
 | `--kr-ink` | `#1B1E22` | slim, 16.7:1 |
 | `--kr-ink-2` | `#5B6169` | slim, 6.3:1 |
-| `--kr-ink-3` | `#6B727B` | lifted from slim's `#8A929B` (3.2:1) to 4.9:1 |
+| `--kr-ink-3` | `#666D76` | lifted from slim's `#8A929B` (3.2:1) to 5.2:1 on white and 4.6:1 on the rail |
 | `--kr-accent-fill` | `#4648D4` | `#5557E0` darkened, white text at 6.7:1 |
 | `--kr-accent-fill-hover` | `#3B3DC0` | |
 | `--kr-accent-on` | `#FFFFFF` | |

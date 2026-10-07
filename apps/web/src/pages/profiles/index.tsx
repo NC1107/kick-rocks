@@ -95,7 +95,7 @@ export function Component() {
                     ) : (
                       <Link
                         to={`/profiles/${profile.id}/mailbox`}
-                        className="rounded-xs text-base text-accent underline decoration-accent/40 underline-offset-2 hover:decoration-accent"
+                        className="rounded-xs text-base text-accent-text underline decoration-accent/40 underline-offset-2 hover:decoration-accent"
                       >
                         Connect mailbox
                       </Link>
@@ -182,7 +182,7 @@ export function Component() {
                         ) : (
                           <Link
                             to={`/profiles/${profile.id}/mailbox`}
-                            className="rounded-xs text-accent underline decoration-accent/40 underline-offset-2 hover:decoration-accent"
+                            className="rounded-xs text-accent-text underline decoration-accent/40 underline-offset-2 hover:decoration-accent"
                           >
                             Connect
                           </Link>

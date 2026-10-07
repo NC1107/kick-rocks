@@ -186,7 +186,7 @@ function Builder({ profile }: { profile: ProfileSummary }) {
             action={
               <Link
                 to={`/profiles/${encodeURIComponent(profile.id)}/mailbox`}
-                className="text-accent underline underline-offset-2"
+                className="text-accent-text underline underline-offset-2"
               >
                 Connect a mailbox
               </Link>
@@ -253,7 +253,7 @@ function Builder({ profile }: { profile: ProfileSummary }) {
               </p>
             ) : null}
             {rights.length === 0 ? (
-              <p role="alert" className="mt-3 text-sm text-danger">
+              <p role="alert" className="mt-3 text-sm text-danger-text">
                 Choose at least one.
               </p>
             ) : null}

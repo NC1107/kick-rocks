@@ -164,7 +164,7 @@ export function ScansPanel({ profileId }: { profileId: string }) {
                   </TableCell>
                   <TableCell wrap className="hidden min-w-56 md:table-cell">
                     {scan.error ? (
-                      <span className="text-danger">{errorText(scan)}</span>
+                      <span className="text-danger-text">{errorText(scan)}</span>
                     ) : (
                       matchSummary(scan)
                     )}

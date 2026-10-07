@@ -70,7 +70,7 @@ export function VerificationCard({ item }: { item: VerificationItem }) {
         Request{" "}
         <Link
           to={`/requests/${encodeURIComponent(request.id)}`}
-          className="rounded-xs font-mono text-accent underline decoration-accent/40 underline-offset-2 hover:decoration-accent"
+          className="rounded-xs font-mono text-accent-text underline decoration-accent/40 underline-offset-2 hover:decoration-accent"
         >
           {request.reference}
         </Link>
@@ -111,7 +111,7 @@ export function VerificationCard({ item }: { item: VerificationItem }) {
               <p key={field} className="m-0 text-sm text-ink-muted">
                 <span className="font-medium text-ink">{PROFILE_FIELD_LABELS[field]}</span> is not
                 on the profile.{" "}
-                <Link to={profileLink} className="text-accent underline underline-offset-2">
+                <Link to={profileLink} className="text-accent-text underline underline-offset-2">
                   Add a {PROFILE_FIELD_LABELS[field].toLowerCase()} to send it
                 </Link>
                 .
