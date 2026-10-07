@@ -1,7 +1,13 @@
 import { LegalBasis, POLICY_BASIS_ID, POLICY_RESPONSE_DAYS, US_STATES } from "@kickrocks/shared";
 import { describe, expect, it } from "vitest";
 import { CA_REGISTERED, COMPANY, makeTarget, PEOPLE_SEARCH } from "./fixtures.js";
-import { getLegalBasis, LegalInputError, listJurisdictions, resolveLegalBasis } from "./index.js";
+import {
+  getLegalBasis,
+  LegalInputError,
+  listJurisdictions,
+  recommendDrop,
+  resolveLegalBasis,
+} from "./index.js";
 import { STATUTES } from "./statutes.js";
 
 const NOW = new Date("2026-10-07T12:00:00Z");
@@ -297,5 +303,76 @@ describe("getLegalBasis", () => {
         }
       }
     }
+  });
+});
+
+describe("recommendDrop", () => {
+  const AFTER = new Date("2026-08-01T00:00:00Z");
+  const BEFORE = new Date("2026-07-31T23:59:59Z");
+  const base = { state: "CA" as const, target: CA_REGISTERED, asOf: AFTER };
+
+  it("recommends DROP for a deletion from a California resident to a California registered broker", () => {
+    for (const rights of [["delete"], ["opt_out", "delete"]] as const) {
+      const result = recommendDrop({ ...base, rights });
+      expect(result).toMatchObject({ recommended: true, reason: "recommended" });
+      expect(result.platform?.url).toBe("https://privacy.ca.gov/drop/");
+    }
+  });
+
+  it("does not recommend it before brokers must process requests", () => {
+    expect(recommendDrop({ ...base, rights: ["delete"], asOf: BEFORE })).toEqual({
+      recommended: false,
+      reason: "not_yet_processed",
+      platform: null,
+    });
+  });
+
+  it("does not recommend it for an opt-out alone, because DROP is a deletion request the person did not ask for", () => {
+    expect(recommendDrop({ ...base, rights: ["opt_out"] }).reason).toBe("no_deletion_asked");
+  });
+
+  it("does not recommend it for a broker outside the California registry, a company, or another state", () => {
+    expect(recommendDrop({ ...base, target: BROKER, rights: ["delete"] }).reason).toBe(
+      "not_a_registered_broker",
+    );
+    expect(recommendDrop({ ...base, target: COMPANY, rights: ["delete"] }).reason).toBe(
+      "not_a_registered_broker",
+    );
+    expect(recommendDrop({ ...base, state: "TX", rights: ["delete"] }).reason).toBe(
+      "not_california",
+    );
+  });
+
+  it("agrees with the legal basis, which is the Delete Act only for a deletion-only request", () => {
+    expect(resolveLegalBasis({ ...base, rights: ["delete"] }).id).toBe("ca-delete-act");
+    expect(resolveLegalBasis({ ...base, rights: ["opt_out", "delete"] }).id).toBe("ca-ccpa");
+  });
+
+  it("rejects input it cannot read", () => {
+    expect(() => recommendDrop({ ...base, rights: [] })).toThrow(LegalInputError);
+  });
+});
+
+describe("California deletion against brokers", () => {
+  it("never cites the CCPA deletion right to a broker, because it reaches only data collected from the consumer", () => {
+    for (const target of [BROKER, CA_REGISTERED]) {
+      const basis = resolveLegalBasis({
+        state: "CA",
+        target,
+        rights: ["delete"],
+        asOf: new Date("2026-07-31T00:00:00Z"),
+      });
+      expect(basis.kind).toBe("policy");
+    }
+  });
+
+  it("still cites the CCPA deletion right to a company, for the data the person provided", () => {
+    const basis = resolveLegalBasis({
+      state: "CA",
+      target: COMPANY,
+      rights: ["delete"],
+      asOf: NOW,
+    });
+    expect(basis.id).toBe("ca-ccpa");
   });
 });

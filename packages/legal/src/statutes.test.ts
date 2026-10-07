@@ -123,6 +123,52 @@ describe("statute data", () => {
     expect(days["va-vcdpa"]).toBe("45+45");
   });
 
+  it("cites the enacted New Jersey chapter and sections, not the bill number", () => {
+    const comprehensive = STATUTES.find((statute) => statute.id === "nj-njdpa");
+    expect(comprehensive?.citation).toContain("56:8-166.4");
+    expect(comprehensive?.citation).toContain("P.L. 2023, c. 266");
+    const broker = BROKER_REGISTRATION_LAWS.find((law) => law.state === "NJ");
+    expect(broker?.citation).toBe("P.L. 2026, c. 25 (N.J.S.A. 56:8-166.20 to 56:8-166.24)");
+    expect(broker?.citation).not.toContain("A5328");
+    expect(broker?.sourceUrl).toBe("https://pub.njleg.state.nj.us/Bills/2026/PL26/25_.PDF");
+  });
+
+  it("cites the Nevada operator and data broker sections and keeps the verified request limit", () => {
+    const nevada = STATUTES.find((statute) => statute.id === "nv-nrs-603a");
+    expect(nevada?.citation).toBe("Nev. Rev. Stat. 603A.345 and 603A.346");
+    expect(nevada?.rights).toEqual(["opt_out"]);
+    expect(nevada?.responseDays).toBe(60);
+    expect(nevada?.notes).toContain("603A.337");
+    expect(traitsOf("nv-nrs-603a").optOutAuthRule).toBeNull();
+  });
+
+  it("cites 1798.99.86 for DROP and limits the CCPA deletion right to data collected from the consumer", () => {
+    expect(STATUTES.find((s) => s.id === "ca-delete-act")?.notes).toContain("1798.99.86");
+    expect(STATUTES.find((s) => s.id === "ca-ccpa")?.notes).toContain("1798.105(a)");
+    expect(traitsOf("ca-ccpa").deleteScope).toBe("provided");
+  });
+
+  it("names the rule behind every opt-out authentication claim and makes none for Colorado", () => {
+    const withRule = STATUTES.filter((s) => traitsOf(s.id).optOutAuthRule !== null);
+    expect(withRule.map((s) => s.state).sort()).toEqual([
+      "CA",
+      "CT",
+      "DE",
+      "MD",
+      "MN",
+      "MT",
+      "NH",
+      "NJ",
+      "OR",
+      "RI",
+    ]);
+    for (const statute of withRule) {
+      expect(statute.kind, statute.id).toBe("comprehensive");
+      expect(traitsOf(statute.id).optOutAuthRule, statute.id).toMatch(/\d/);
+    }
+    expect(traitsOf("co-cpa").optOutAuthRule).toBeNull();
+  });
+
   it("never writes an em dash", () => {
     expect(JSON.stringify([STATUTES, BROKER_REGISTRATION_LAWS])).not.toContain(EM_DASH);
   });

@@ -156,19 +156,20 @@ function detailLines(
   return [...lines(requested), ...lines(rest)];
 }
 
+const OPT_OUT_ID_ASK = "Please do not ask for ID, an account, or a fee to stop selling my data.";
+
 function optOutAuthLine(
   basis: LegalBasis,
   rights: readonly RequestRight[],
   targetKind: "broker" | "company",
 ): string {
   const statute = basis.statute;
-  const exempt =
-    statute !== null &&
-    traitsOf(statute.id).optOutAuthExempt &&
-    splitRights(statute, rights, targetKind).covered.includes("opt_out");
-  return exempt
-    ? "Under that law an opt-out of sale needs no proof of my identity. Please do not ask for ID, an account, or a fee."
-    : "Please do not ask for ID, an account, or a fee to stop selling my data.";
+  const rule =
+    statute !== null && splitRights(statute, rights, targetKind).covered.includes("opt_out")
+      ? traitsOf(statute.id).optOutAuthRule
+      : null;
+  if (rule === null) return OPT_OUT_ID_ASK;
+  return `Under ${rule}, an opt-out of sale does not have to be authenticated. ${OPT_OUT_ID_ASK} If you need a detail to find my record, tell me which one.`;
 }
 
 function verificationLines(

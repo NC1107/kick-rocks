@@ -52,10 +52,10 @@ export const BROKER_REGISTRATION_LAWS: readonly BrokerRegistrationLaw[] = [
     id: "nj-data-broker-registration",
     state: "NJ",
     name: "New Jersey data broker and data collector registration",
-    citation: "N.J. A5328 (2026)",
+    citation: "P.L. 2026, c. 25 (N.J.S.A. 56:8-166.20 to 56:8-166.24)",
     effectiveDate: "2026-06-30",
     summary:
-      "Brokers and data collectors, meaning businesses with a direct consumer relationship that sell or license personal data to a broker, register each year and may not sell or license sensitive data. Most provisions took effect on signing, the first registration period runs from 2027-04-01 to 2027-06-30, and the public registry follows. It is a registration and conduct law, so it gives consumers no request right.",
-    sourceUrl: "https://www.njleg.state.nj.us/bill-search/2026/A5328",
+      "Brokers and data collectors, meaning businesses with a direct consumer relationship that sell or license personal data to a broker, register each year and may not sell or license sensitive data. The act (A5328) was approved on 2026-06-30 and took effect immediately, except that the public registry stays inoperative for 270 days after enactment, which is 2027-03-27. The registry lists each broker's opt-out information. It is a registration and conduct law, so it gives consumers no request right. The comprehensive Data Privacy Act (P.L. 2023, c. 266) is the separate source of New Jersey consumer rights.",
+    sourceUrl: "https://pub.njleg.state.nj.us/Bills/2026/PL26/25_.PDF",
   },
 ];
