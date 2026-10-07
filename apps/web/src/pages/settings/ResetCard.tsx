@@ -6,13 +6,14 @@ import { errorMessage, useApiMutation } from "../../api/index.js";
 import {
   Alert,
   Button,
-  Card,
-  CardHeader,
   Dialog,
   Field,
   Input,
+  RowGroup,
+  Section,
   useToast,
 } from "../../components/ui/index.js";
+import { ActionRow } from "./rows.js";
 
 export function ResetCard() {
   const toast = useToast();
@@ -46,21 +47,24 @@ export function ResetCard() {
   };
 
   return (
-    <Card>
-      <CardHeader
-        title="Delete all data"
-        description="Removes every profile and everything about it, stops running tasks, and clears your settings, language model key, and agent token. Your sign-in password and the broker list stay. This cannot be undone, and requests already sent cannot be recalled."
-      />
-      <Button variant="danger" onClick={() => setOpen(true)}>
-        Delete all data
-      </Button>
+    <Section label="Danger zone">
+      <RowGroup>
+        <ActionRow
+          title="Delete all data"
+          description="Removes every profile, request, and setting. Cannot be undone."
+        >
+          <Button variant="danger" onClick={() => setOpen(true)}>
+            Delete all data
+          </Button>
+        </ActionRow>
+      </RowGroup>
       <Dialog
         open={open}
         onClose={close}
         dismissible={!reset.isPending}
         size="sm"
         title="Delete all data?"
-        description="Export any profile you want to keep first. After this there is nothing to recover."
+        description="Removes every profile and everything about it, stops running tasks, and clears settings, keys, and tokens. Your sign-in password and the target list stay. Requests already sent cannot be recalled."
         footer={
           <>
             <Button variant="secondary" onClick={close} disabled={reset.isPending}>
@@ -95,6 +99,6 @@ export function ResetCard() {
           </Alert>
         ) : null}
       </Dialog>
-    </Card>
+    </Section>
   );
 }

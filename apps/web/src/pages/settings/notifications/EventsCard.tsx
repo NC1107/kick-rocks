@@ -7,16 +7,15 @@ import {
 import { useEffect, useState } from "react";
 import { errorMessage, useApiMutation } from "../../../api/index.js";
 import {
-  Alert,
   Button,
-  Card,
-  CardFooter,
-  CardHeader,
+  Callout,
   Checkbox,
-  Field,
   Input,
+  RowGroup,
+  Section,
   useToast,
 } from "../../../components/ui/index.js";
+import { BodyRow, FieldRow, GroupFooter, GroupNote } from "../rows.js";
 import { checkMaxPerHour } from "./model.js";
 
 const CATEGORIES = Object.keys(NOTIFICATION_CATEGORY_LABELS) as NotificationCategory[];
@@ -49,72 +48,72 @@ export function EventsCard({
     CATEGORIES.some((category) => chosen.includes(category) !== categories.includes(category));
 
   return (
-    <Card>
-      <form
-        noValidate
-        onSubmit={(event) => {
-          event.preventDefault();
-          setSubmitted(true);
-          if (checked.value === undefined) return;
-          save.mutate({
-            body: {
-              categories: CATEGORIES.filter((category) => chosen.includes(category)),
-              maxPerHour: checked.value,
-            },
-          });
-        }}
-      >
-        <CardHeader
-          title="What to tell you about"
-          description="A push says how many things need you and links to this app. It never names a broker, a person, or an address."
-        />
-        <fieldset className="flex flex-col gap-3">
-          <legend className="sr-only">Send a notification when</legend>
-          {CATEGORIES.map((category) => (
-            <Checkbox
-              key={category}
-              label={NOTIFICATION_CATEGORY_LABELS[category]}
-              checked={chosen.includes(category)}
-              onChange={(event) =>
-                setChosen((current) =>
-                  event.target.checked
-                    ? [...current, category]
-                    : current.filter((item) => item !== category),
-                )
-              }
-            />
-          ))}
-        </fieldset>
-        <div className="mt-5 max-w-xs">
-          <Field
+    <form
+      noValidate
+      onSubmit={(event) => {
+        event.preventDefault();
+        setSubmitted(true);
+        if (checked.value === undefined) return;
+        save.mutate({
+          body: {
+            categories: CATEGORIES.filter((category) => chosen.includes(category)),
+            maxPerHour: checked.value,
+          },
+        });
+      }}
+    >
+      <Section label="What to tell you about">
+        <RowGroup>
+          <fieldset className="m-0 min-w-0 divide-y divide-line border-0 p-0">
+            <legend className="sr-only">Send a notification when</legend>
+            {CATEGORIES.map((category) => (
+              <BodyRow key={category}>
+                <Checkbox
+                  label={NOTIFICATION_CATEGORY_LABELS[category]}
+                  checked={chosen.includes(category)}
+                  onChange={(event) =>
+                    setChosen((current) =>
+                      event.target.checked
+                        ? [...current, category]
+                        : current.filter((item) => item !== category),
+                    )
+                  }
+                />
+              </BodyRow>
+            ))}
+          </fieldset>
+          <FieldRow
             label="Pushes per hour, at most"
-            help="Anything held back goes out together in the next message."
+            help="Held-back ones go out together."
             error={submitted ? checked.error : undefined}
           >
             <Input
+              mono
               type="number"
               inputMode="numeric"
               min={1}
               max={60}
               step={1}
+              unit="/h"
               value={limit}
               onChange={(event) => setLimit(event.target.value)}
             />
-          </Field>
-        </div>
+          </FieldRow>
+          <GroupFooter>
+            <Button type="submit" variant="primary" loading={save.isPending} disabled={!dirty}>
+              Save
+            </Button>
+          </GroupFooter>
+        </RowGroup>
+        <GroupNote>
+          A push gives a count and a link here. It never names a target or a person.
+        </GroupNote>
         {save.isError ? (
-          <div className="mt-4">
-            <Alert intent="danger" title="Could not save">
-              {errorMessage(save.error)}
-            </Alert>
-          </div>
+          <Callout intent="danger" title="Could not save" className="mt-3">
+            {errorMessage(save.error)}
+          </Callout>
         ) : null}
-        <CardFooter>
-          <Button type="submit" variant="primary" loading={save.isPending} disabled={!dirty}>
-            Save
-          </Button>
-        </CardFooter>
-      </form>
-    </Card>
+      </Section>
+    </form>
   );
 }

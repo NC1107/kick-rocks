@@ -1,6 +1,6 @@
 import { type FormEvent, useEffect, useRef, useState } from "react";
 import { ApiRequestError, errorMessage, useLogin } from "../../api/index.js";
-import { Alert, Button, Card, CardHeader, Field } from "../../components/ui/index.js";
+import { Button, Callout, Card, Field } from "../../components/ui/index.js";
 import { usePageTitle } from "../../lib/use-page-title.js";
 import { PasswordInput } from "./password-input.js";
 
@@ -21,8 +21,9 @@ export function Component() {
   const wrongPassword = failure instanceof ApiRequestError && failure.status === 401;
 
   return (
-    <Card>
-      <CardHeader title="Sign in" description="Enter the password for this Kick Rocks instance." />
+    <Card className="mx-auto w-full max-w-[22.5rem] rounded-lg">
+      <h1 className="text-heading font-semibold text-ink">Sign in</h1>
+      <p className="mt-0.5 mb-4 text-meta text-ink-3">Enter the password for this instance.</p>
       <form onSubmit={submit} className="flex flex-col gap-4">
         {/* Gives password managers an account name to save the password under. */}
         <input
@@ -42,7 +43,9 @@ export function Component() {
             onChange={(event) => setPassword(event.target.value)}
           />
         </Field>
-        {failure && !wrongPassword ? <Alert intent="danger">{errorMessage(failure)}</Alert> : null}
+        {failure && !wrongPassword ? (
+          <Callout intent="danger">{errorMessage(failure)}</Callout>
+        ) : null}
         <Button type="submit" variant="primary" loading={login.isPending} className="w-full">
           Sign in
         </Button>

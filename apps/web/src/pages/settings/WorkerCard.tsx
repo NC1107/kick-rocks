@@ -2,28 +2,38 @@ import { API_ROUTES, type SettingsView, type WorkerStatus } from "@kickrocks/sha
 import type { ReactNode } from "react";
 import { errorMessage, useApiMutation } from "../../api/index.js";
 import {
-  Alert,
-  Badge,
-  Card,
-  CardHeader,
+  Callout,
   Checkbox,
-  DescriptionList,
+  Row,
+  RowGroup,
+  Section,
+  StatusShapeGlyph,
   useToast,
 } from "../../components/ui/index.js";
 import { formatDateTime, formatRelative } from "../../lib/format.js";
-import type { Tone } from "../../lib/tone.js";
+import type { StatusShape } from "../../lib/status.js";
 import { type WorkerState, workerState } from "./model.js";
+import { BodyRow, Value } from "./rows.js";
 
-const STATE_LABELS: Record<WorkerState, { label: string; tone: Tone }> = {
-  online: { label: "Online", tone: "green" },
-  offline: { label: "Not responding", tone: "amber" },
-  never: { label: "Never connected", tone: "neutral" },
+const STATE_MARKS: Record<WorkerState, { label: string; shape: StatusShape; word: string }> = {
+  online: { label: "Online", shape: "disc", word: "text-ink-2" },
+  offline: { label: "Not responding", shape: "triangle", word: "text-attention-text font-medium" },
+  never: { label: "Never connected", shape: "ring", word: "text-ink-2" },
 };
+
+function WorkerMark({ state }: { state: WorkerState }) {
+  const mark = STATE_MARKS[state];
+  return (
+    <span className="inline-flex items-center gap-2 text-meta normal-case tracking-normal">
+      <StatusShapeGlyph shape={mark.shape} />
+      <span className={mark.word}>{mark.label}</span>
+    </span>
+  );
+}
 
 interface WorkerKind {
   key: "builtin" | "model";
   title: string;
-  description: string;
   never: string;
   offline: string;
 }
@@ -32,17 +42,14 @@ const KINDS: WorkerKind[] = [
   {
     key: "builtin",
     title: "Recipe worker",
-    description: "Runs approved recipes in a browser on your home connection.",
-    never: "It has not checked in yet. Start it with the same token as the server.",
-    offline: "It has not checked in for a while. Recipe tasks wait until it is back.",
+    never: "Not checked in yet. Start it with the same token as the server.",
+    offline: "Silent for a while. Recipe tasks wait until it is back.",
   },
   {
     key: "model",
     title: "Agent worker",
-    description: "Drives a browser with a language model for sites that have no approved recipe.",
-    never: "It has not checked in yet. Without it, those sites wait in Review for you or an agent.",
-    offline:
-      "It has not checked in for a while. Tasks for sites without a recipe wait until it is back.",
+    never: "Not checked in yet. Targets without a recipe wait in Review.",
+    offline: "Silent for a while. Targets without a recipe wait until it is back.",
   },
 ];
 
@@ -53,15 +60,15 @@ function UnreviewedSites({ agent }: { agent: SettingsView["agent"] }) {
     onSuccess: (view) =>
       toast.success(
         view.agent.takeUnreviewed
-          ? "The agent worker will take unreviewed sites"
-          : "The agent worker will leave unreviewed sites to you",
+          ? "The agent worker will take unreviewed targets"
+          : "The agent worker will leave unreviewed targets to you",
       ),
     onError: (error) => toast.error("That did not work", errorMessage(error)),
   });
   return (
     <Checkbox
-      label="Let the agent worker take unreviewed sites"
-      description="Sites whose bundled recipe you have not approved yet. When off, those tasks wait for you or a connected agent. A site whose recipe you rejected always waits for you."
+      label="Let the agent worker take unreviewed targets"
+      description="Targets whose bundled recipe you have not approved. Rejected ones always wait for you."
       checked={agent.takeUnreviewed}
       disabled={save.isPending}
       onChange={(event) =>
@@ -83,38 +90,35 @@ function WorkerRow({
   children?: ReactNode;
 }) {
   const state = workerState(status?.lastSeenAt ?? null, now);
+  const note = state === "never" ? kind.never : state === "offline" ? kind.offline : null;
   return (
-    <section
-      aria-label={kind.title}
-      className="flex flex-col gap-3 not-first:border-t not-first:border-line not-first:pt-6"
-    >
-      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
-        <div>
-          <h3 className="text-base font-medium text-ink">{kind.title}</h3>
-          <p className="text-sm text-ink-muted">{kind.description}</p>
-        </div>
-        <Badge tone={STATE_LABELS[state].tone}>{STATE_LABELS[state].label}</Badge>
-      </div>
-      {status ? (
-        <DescriptionList
-          items={[
-            {
-              term: "Last seen",
-              description: (
-                <time dateTime={status.lastSeenAt} title={formatDateTime(status.lastSeenAt)}>
-                  {formatRelative(status.lastSeenAt, { now })}
-                </time>
-              ),
-            },
-            { term: "Name", description: status.workerId },
-            { term: "Version", description: status.version ?? "Unknown" },
-            { term: "Doing", description: status.busy ? "Working on a task" : "Waiting for work" },
-          ]}
-        />
-      ) : null}
-      {state === "never" ? <p className="text-base text-ink-muted">{kind.never}</p> : null}
-      {state === "offline" ? <p className="text-base text-ink-muted">{kind.offline}</p> : null}
-      {children ? <div className="mt-1">{children}</div> : null}
+    <section aria-label={kind.title}>
+      <Section label={kind.title} as="h3" actions={<WorkerMark state={state} />}>
+        <RowGroup>
+          {status ? (
+            <>
+              <Row
+                title="Last seen"
+                trailing={
+                  <Value>
+                    <time dateTime={status.lastSeenAt} title={formatDateTime(status.lastSeenAt)}>
+                      {formatRelative(status.lastSeenAt, { now })}
+                    </time>
+                  </Value>
+                }
+              />
+              <Row title="Name" trailing={<Value>{status.workerId}</Value>} />
+              <Row title="Version" trailing={<Value>{status.version ?? "-"}</Value>} />
+              <Row
+                title="Doing"
+                trailing={<Value>{status.busy ? "Working on a task" : "Waiting for work"}</Value>}
+              />
+            </>
+          ) : null}
+          {note ? <BodyRow className="text-meta text-ink-2">{note}</BodyRow> : null}
+          {children ? <BodyRow>{children}</BodyRow> : null}
+        </RowGroup>
+      </Section>
     </section>
   );
 }
@@ -128,23 +132,23 @@ export function WorkerCard({
   agent: SettingsView["agent"];
   now: number;
 }) {
-  return (
-    <Card>
-      <CardHeader title="Workers" description="The browsers that fill in forms for you." />
-      {!worker.enabled ? (
-        <Alert intent="info" title="The workers are switched off">
+  if (!worker.enabled) {
+    return (
+      <Section label="Workers">
+        <Callout intent="info" title="The workers are switched off">
           Set KICKROCKS_WORKER_TOKEN on the server and start a worker to run forms and scans
           automatically. Until then those tasks wait in Review or go to an agent.
-        </Alert>
-      ) : (
-        <div className="flex flex-col gap-6">
-          {KINDS.map((kind) => (
-            <WorkerRow key={kind.key} kind={kind} status={worker[kind.key]} now={now}>
-              {kind.key === "model" ? <UnreviewedSites agent={agent} /> : null}
-            </WorkerRow>
-          ))}
-        </div>
-      )}
-    </Card>
+        </Callout>
+      </Section>
+    );
+  }
+  return (
+    <div className="flex flex-col gap-4">
+      {KINDS.map((kind) => (
+        <WorkerRow key={kind.key} kind={kind} status={worker[kind.key]} now={now}>
+          {kind.key === "model" ? <UnreviewedSites agent={agent} /> : null}
+        </WorkerRow>
+      ))}
+    </div>
   );
 }
