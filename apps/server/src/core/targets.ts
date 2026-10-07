@@ -299,3 +299,20 @@ export function createTargetsService({
     },
   };
 }
+
+/**
+ * A timeline event as the person should read it. A confirmation wait stored before the sender rule
+ * existed can name a sender the server now ignores, and the person should not be told to wait for
+ * mail that will never be matched.
+ */
+export function withTrustedConfirmationSenders<
+  E extends { type: string; payload: Record<string, unknown> },
+>(event: E, target: TargetRow): E {
+  const named = event.payload.fromDomains;
+  if (event.type !== "awaiting_confirmation" || !Array.isArray(named)) return event;
+  const fromDomains = named.filter(
+    (domain): domain is string =>
+      typeof domain === "string" && isTrustedConfirmationSender(target, domain),
+  );
+  return { ...event, payload: { ...event.payload, fromDomains } };
+}
