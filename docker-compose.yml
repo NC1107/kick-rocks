@@ -53,6 +53,52 @@ services:
     profiles:
       - worker
 
+  # An optional worker that lets a model take the agent tasks no recipe covers: a local model through
+  # Ollama or any OpenAI-compatible endpoint, or the Anthropic API. It starts only with
+  # `docker compose --profile agent up -d`, needs KICKROCKS_AGENT_MODEL (and an API key for a hosted
+  # model), and keeps its own Chrome profile because two browsers cannot share one.
+  agent-worker:
+    build:
+      context: .
+      dockerfile: apps/agent-worker/Dockerfile
+    image: kickrocks/agent-worker:dev
+    restart: unless-stopped
+    depends_on:
+      - server
+    environment:
+      KICKROCKS_SERVER_URL: http://server:8420
+      KICKROCKS_WORKER_TOKEN: ${KICKROCKS_WORKER_TOKEN:-}
+      KICKROCKS_WORKER_ID: ${KICKROCKS_AGENT_WORKER_ID:-}
+      KICKROCKS_CHROME_PROFILE: /profile
+      KICKROCKS_AGENT_PROVIDER: ${KICKROCKS_AGENT_PROVIDER:-openai}
+      KICKROCKS_AGENT_MODEL: ${KICKROCKS_AGENT_MODEL:-}
+      # Inside the container localhost is the container, so Ollama on this machine is reached as
+      # http://host.docker.internal:11434/v1. Empty means the provider's own default.
+      KICKROCKS_AGENT_BASE_URL: ${KICKROCKS_AGENT_BASE_URL:-}
+      KICKROCKS_AGENT_API_KEY: ${KICKROCKS_AGENT_API_KEY:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      KICKROCKS_AGENT_MAX_STEPS: ${KICKROCKS_AGENT_MAX_STEPS:-}
+      KICKROCKS_AGENT_MAX_MINUTES: ${KICKROCKS_AGENT_MAX_MINUTES:-}
+      KICKROCKS_AGENT_MAX_TOTAL_TOKENS: ${KICKROCKS_AGENT_MAX_TOTAL_TOKENS:-}
+      KICKROCKS_AGENT_INPUT_USD_PER_MTOK: ${KICKROCKS_AGENT_INPUT_USD_PER_MTOK:-}
+      KICKROCKS_AGENT_OUTPUT_USD_PER_MTOK: ${KICKROCKS_AGENT_OUTPUT_USD_PER_MTOK:-}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - kickrocks-agent-chrome:/profile
+    # Chrome crashes on the 64 MB default shared memory of a container.
+    shm_size: 1gb
+    # Same shutdown grace as the recipe worker: it releases its task before it closes Chrome.
+    stop_grace_period: 30s
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    profiles:
+      - agent
+
 volumes:
   kickrocks-data:
   kickrocks-chrome:
+  kickrocks-agent-chrome:
