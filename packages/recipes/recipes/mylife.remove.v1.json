@@ -101,6 +101,31 @@
       "frame": {
         "css": "iframe[src*=\"mylife.jotform.com\"]"
       }
+    },
+    {
+      "kind": "outcome_when",
+      "when": [
+        {
+          "text": "has been submitted",
+          "outcome": "submitted"
+        },
+        {
+          "text": "has been received",
+          "outcome": "submitted"
+        },
+        {
+          "text": "successfully submitted",
+          "outcome": "submitted"
+        },
+        {
+          "text": "we have received your request",
+          "outcome": "submitted"
+        },
+        {
+          "text": "we received your request",
+          "outcome": "submitted"
+        }
+      ]
     }
   ],
   "canary": {
@@ -108,10 +133,31 @@
     "selectors": [
       {
         "css": "iframe[src*=\"mylife.jotform.com\"]"
+      },
+      {
+        "css": "#first_6"
+      },
+      {
+        "css": "#last_6"
+      },
+      {
+        "css": "#input_11_city"
+      },
+      {
+        "css": "#input_21"
+      },
+      {
+        "css": "#input_11_postal"
+      },
+      {
+        "css": "#input_15"
+      },
+      {
+        "css": "#input_2"
       }
     ]
   },
-  "notes": "Verified live 2026-10-07 in headed Chrome. The page embeds a Jotform (mylife.jotform.com) in an iframe, and the form fields were read by loading the embed address directly: state select #input_21, name #first_6 and #last_6, city #input_11_city, postal #input_11_postal, birth year #input_15, a reCAPTCHA, and the Submit button #input_2. The state select lists full state names, so the recipe selects by label with the state name. The email input #input_7 is hidden on load and is filled only when it shows. The form has no confirmation email step on its face, so a submit completes as submitted. The canary can see only the iframe element on mylife.com, not the fields inside it. Headless Chrome got 403 on the entry page. Nothing was submitted.",
+  "notes": "Verified live 2026-10-07 in headed Chrome. The page embeds a Jotform (mylife.jotform.com) in an iframe, and the form fields were read by loading the embed address directly: state select #input_21, name #first_6 and #last_6, city #input_11_city, postal #input_11_postal, birth year #input_15, a reCAPTCHA, and the Submit button #input_2. The state select lists full state names, so the recipe selects by label with the state name. The email input #input_7 is hidden on load and is filled only when it shows. The form has no confirmation email step on its face, so a submit completes as submitted. The canary checks the iframe and the fields inside it. Headless Chrome got 403 on the entry page. Nothing was submitted. The wording the site shows after Submit was never observed, so the outcome_when texts that prove the request went through are guesses, and the recipe stays unverified until a real submission has been seen.",
   "verifiedAt": "2026-10-07",
-  "liveStatus": "verified"
+  "liveStatus": "unverified"
 }

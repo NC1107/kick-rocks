@@ -160,3 +160,42 @@ describe("loadRecipes", () => {
     expect(BUNDLED_RECIPES_DIR.endsWith("/recipes")).toBe(true);
   });
 });
+
+describe("the bundled recipes", () => {
+  const bundled = loadRecipes().recipes.map((loaded) => loaded.recipe);
+  const removals = bundled.filter((recipe) => recipe.purpose === "remove");
+
+  it("never call a removal verified, because no submission has been seen", () => {
+    expect(removals.filter((recipe) => recipe.liveStatus === "verified").map((r) => r.id)).toEqual(
+      [],
+    );
+  });
+
+  it("never claim a result list is complete without having seen it", () => {
+    const claims = removals.filter((recipe) =>
+      recipe.steps.some((step) => step.kind === "select_record" && step.exhaustive),
+    );
+    expect(claims.filter((recipe) => recipe.liveStatus !== "verified")).toEqual([]);
+  });
+
+  it.each(["intelius.remove.v1", "mylife.remove.v1"])(
+    "%s canary checks every selector its steps need",
+    (id) => {
+      const recipe = removals.find((candidate) => candidate.id === id);
+      expect(recipe).toBeDefined();
+      const checked = new Set(recipe?.canary.selectors.map((selector) => JSON.stringify(selector)));
+      const needed = (recipe?.steps ?? []).flatMap((step) =>
+        "target" in step && step.target !== undefined && !("optional" in step && step.optional)
+          ? [JSON.stringify(step.target)]
+          : [],
+      );
+      expect(needed.filter((selector) => !checked.has(selector))).toEqual([]);
+    },
+  );
+
+  it("opens the page a removal fills in as its entry, with no detour first", () => {
+    const intelius = removals.find((recipe) => recipe.id === "intelius.remove.v1");
+    expect(intelius?.entryUrl).toBe("https://suppression.peopleconnect.us/?brand=Intelius");
+    expect(intelius?.steps.filter((step) => step.kind === "goto")).toHaveLength(1);
+  });
+});

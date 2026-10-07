@@ -13,6 +13,7 @@ const STATUS: Record<string, number> = {
   "/mail/expired": 410,
   "/wall/cloudflare": 403,
   "/wall/denied": 403,
+  "/wall/blank": 403,
   "/boom": 500,
   "/limited": 429,
 };
@@ -25,6 +26,9 @@ const POST_RESPONSES: Record<string, string> = {
   "/mail/send": "/mail/sent",
   "/frame/submit": "/frame/done",
   "/verify/submit": "/rec/done",
+  "/form/reject-submit": "/form/rejected",
+  "/mail/press-submit": "/mail/confirm",
+  "/mail/press-stale-submit": "/mail/stale",
 };
 
 export interface Submission {

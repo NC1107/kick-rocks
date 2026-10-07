@@ -4,13 +4,9 @@
   "alsoFor": ["peopleconnect"],
   "version": 1,
   "purpose": "remove",
-  "entryUrl": "https://app.intelius.com/privacy-center/",
+  "entryUrl": "https://suppression.peopleconnect.us/?brand=Intelius",
   "fields": ["email"],
   "steps": [
-    {
-      "kind": "goto",
-      "url": "https://app.intelius.com/privacy-center/"
-    },
     {
       "kind": "goto",
       "url": "https://suppression.peopleconnect.us/?brand=Intelius"
@@ -32,29 +28,65 @@
       "kind": "captcha_checkpoint"
     },
     {
+      "kind": "email_confirmation",
+      "fromDomain": "peopleconnect.us"
+    },
+    {
       "kind": "click",
       "target": {
         "css": "form button[type=\"submit\"]"
       }
     },
     {
-      "kind": "email_confirmation",
-      "fromDomain": "peopleconnect.us"
+      "kind": "outcome_when",
+      "when": [
+        {
+          "text": "has been sent",
+          "outcome": "awaiting_email_confirmation"
+        },
+        {
+          "text": "we have sent",
+          "outcome": "awaiting_email_confirmation"
+        },
+        {
+          "text": "we've sent",
+          "outcome": "awaiting_email_confirmation"
+        },
+        {
+          "text": "we sent",
+          "outcome": "awaiting_email_confirmation"
+        },
+        {
+          "text": "sent you an email",
+          "outcome": "awaiting_email_confirmation"
+        },
+        {
+          "text": "sent an email",
+          "outcome": "awaiting_email_confirmation"
+        },
+        {
+          "text": "check your inbox",
+          "outcome": "awaiting_email_confirmation"
+        }
+      ]
     }
   ],
   "canary": {
-    "url": "https://app.intelius.com/privacy-center/",
+    "url": "https://suppression.peopleconnect.us/?brand=Intelius",
     "selectors": [
       {
-        "role": "button",
-        "label": "View Public Data Tools"
+        "css": "input[name=\"login-email\"]"
       },
       {
-        "css": "input[name=\"retrievalEmail\"]"
+        "css": "input[name=\"consent\"]"
+      },
+      {
+        "css": "form button[type=\"submit\"]"
       }
-    ]
+    ],
+    "steps": []
   },
-  "notes": "Verified live 2026-10-07 in headless Chrome. Intelius removes public records through the PeopleConnect suppression center: the privacy center's \"Manage My Suppression Rules\" link opens https://suppression.peopleconnect.us/?brand=Intelius in a new tab, so the recipe goes there directly. That page asks for an email address and a consent box and then emails a verification link, which the confirm task follows. The user-data tools on the privacy center (copy of data, delete user data) are a different right and are not used. Nothing was submitted.",
+  "notes": "Verified live 2026-10-07 in headless Chrome. Intelius removes public records through the PeopleConnect suppression center: the privacy center's \"Manage My Suppression Rules\" link opens https://suppression.peopleconnect.us/?brand=Intelius in a new tab, so the recipe goes there directly. That page asks for an email address and a consent box and then emails a verification link, which the confirm task follows. The user-data tools on the privacy center (copy of data, delete user data) are a different right and are not used. Nothing was submitted. The wording the site shows after Submit was never observed, so the outcome_when texts that prove the request went through are guesses, and the recipe stays unverified until a real submission has been seen.",
   "verifiedAt": "2026-10-07",
-  "liveStatus": "verified"
+  "liveStatus": "unverified"
 }

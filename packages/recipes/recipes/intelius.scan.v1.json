@@ -76,7 +76,7 @@
       }
     ]
   },
-  "notes": "Verified live 2026-10-07 in headless Chrome. The name page lists 20 people per page nationwide with .person cards: an h2 (\"name in City, State | Age - N\", so the name field carries that extra text), a .details block of phones, address, relatives and previous locations, and a \"View Full Report\" link a.view that goes to a /search/ funnel URL with the person's name and city. Emails are blurred and left out. The state pages need the state spelled as a slug, which the template filters cannot chain, so the scan reads the nationwide page and the server filters by location. A common name will have more matches than the first page shows.",
+  "notes": "Verified live 2026-10-07 in headless Chrome. The name page lists 20 people per page nationwide with .person cards: an h2 (\"name in City, State | Age - N\", so the name field carries that extra text), a .details block of phones, address, relatives and previous locations, and a \"View Full Report\" link a.view that goes to a /search/ funnel URL with the person's name and city. Emails are blurred and left out. The state pages need the state spelled as a slug, which the template filters cannot chain, so the scan reads the nationwide page and returns every person on it with their locations, and the person picks the right one when confirming matches. A common name will have more matches than the first page shows.",
   "verifiedAt": "2026-10-07",
   "liveStatus": "verified"
 }

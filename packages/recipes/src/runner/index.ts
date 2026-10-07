@@ -115,6 +115,13 @@ function finish(ctx: RunContext, recipe: Recipe): RunOutcome<FormResult | ScanRe
   if (recipe.purpose === "scan") {
     return { status: "completed", result: { candidates: ctx.state.candidates } };
   }
+  if (!ctx.state.proved) {
+    throw new RunFailure(
+      "recipe",
+      "The run reached its last step without the site showing it accepted the request",
+      false,
+    );
+  }
   const outcome =
     ctx.state.awaitingEmailFrom === undefined ? "submitted" : "awaiting_email_confirmation";
   return { status: "completed", result: formResult(ctx, outcome) };

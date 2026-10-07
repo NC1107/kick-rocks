@@ -165,13 +165,18 @@ const ExtractText = step("extract_text", {
 /**
  * Finds the result whose link is the record the person confirmed and acts on it, which is how a
  * search-then-select site is removed. Each item's `link` is read, both sides are compared through
- * `normalizeRecordUrl`, and the matching item is clicked or checked. When no item matches the run
- * ends as a completed run with the form outcome `not_found`, because the record is already gone.
+ * `normalizeRecordUrl`, and the matching item is clicked or checked. When no item matches and the
+ * recipe says its result list is `exhaustive`, the run ends as a completed run with the form
+ * outcome `not_found`, because the record is already gone. Otherwise the run stops for a person,
+ * because a page that lists other results, or links in another shape than the scan read, is no
+ * proof that the record is gone.
  */
 const SelectRecord = step("select_record", {
   item: Selector,
   link: CandidateField,
   action: z.enum(["click", "check"]),
+  /** The author saw that the list holds every match and links in the shape a scan reads. */
+  exhaustive: z.boolean().default(false),
   ...frame,
 });
 const OutcomeCondition = z
@@ -191,9 +196,9 @@ const OutcomeCondition = z
   });
 /**
  * Ends the run with the outcome of the first condition that matches the page, so a recipe can
- * report "not found", "already removed", or a human check without failing. A run that reaches the
- * end without one of these completes as `submitted`, or as `awaiting_email_confirmation` when it
- * passed an `email_confirmation` step.
+ * report "not found", "already removed", or a human check without failing. A remove run that
+ * reaches the end without a match is a recipe failure unless an `expect_text` or `expect_url` after
+ * its last submit held, so a form the site rejected is never reported as sent.
  */
 const OutcomeWhen = step("outcome_when", { when: z.array(OutcomeCondition).min(1).max(10) });
 const CaptchaCheckpoint = step("captcha_checkpoint", {});
@@ -271,6 +276,27 @@ function fieldsUsedBy(step: RecipeStep): string[] {
     default:
       return [];
   }
+}
+
+/** Steps that send something to the site, after which a remove recipe must see proof it took. */
+function submits(step: RecipeStep): boolean {
+  return (
+    step.kind === "click" ||
+    step.kind === "press" ||
+    (step.kind === "select_record" && step.action === "click")
+  );
+}
+
+/** Whether a step shows the site accepted a submission, as opposed to merely not complaining. */
+function proves(step: RecipeStep): boolean {
+  return (
+    step.kind === "expect_text" ||
+    step.kind === "expect_url" ||
+    (step.kind === "outcome_when" &&
+      step.when.some(
+        (c) => c.outcome === "submitted" || c.outcome === "awaiting_email_confirmation",
+      ))
+  );
 }
 
 /** A template in the host would let a value decide which site receives the person's details. */
@@ -374,6 +400,15 @@ export const Recipe = z
           code: "custom",
           path: ["steps"],
           message: "Only a scan recipe may extract candidates",
+        });
+      }
+      const lastSubmit = recipe.steps.findLastIndex(submits);
+      if (!recipe.steps.some((step, index) => index > lastSubmit && proves(step))) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["steps"],
+          message:
+            "A remove recipe needs an expect_text, expect_url, or outcome_when with a submitted outcome after its last click, so a run proves the site accepted the request",
         });
       }
       if (recipe.canary.steps.length > 0) {

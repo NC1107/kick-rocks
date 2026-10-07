@@ -187,6 +187,11 @@ async function goto(ctx: RunContext, template: string): Promise<Ended> {
   if (status !== null && (status >= 500 || status === 429)) {
     throw new RunFailure("site", `The site answered ${status}`, true);
   }
+  // Bot management often answers 401 or 403 with a body the detector has no words for, and the
+  // form the next step looks for is then missing for a reason that says nothing about the recipe.
+  if (status === 401 || status === 403) {
+    return blocked(ctx, "bot_detection", `The site answered ${status} to the browser.`);
+  }
   return null;
 }
 
@@ -244,6 +249,7 @@ async function click(
   if (element === null) return null;
   await pauseBeforeAction(ctx);
   await act("click", step.target, () => element.click({ timeout: ctx.timeouts.stepMs }));
+  ctx.state.proved = false;
   return afterNavigation(ctx);
 }
 
@@ -275,6 +281,7 @@ async function press(
       element.press(step.key, { timeout: ctx.timeouts.stepMs }),
     );
   }
+  ctx.state.proved = false;
   return afterNavigation(ctx);
 }
 
@@ -314,6 +321,7 @@ async function expectText(
     signal: ctx.signal,
   });
   if (!found) throw recipeFailure(`expect_text: the page does not show "${step.text}"`);
+  ctx.state.proved = true;
   return null;
 }
 
@@ -327,6 +335,7 @@ async function expectUrl(
     signal: ctx.signal,
   });
   if (!found) throw recipeFailure(`expect_url: the page address does not match ${step.pattern}`);
+  ctx.state.proved = true;
   return null;
 }
 
@@ -401,6 +410,13 @@ async function selectRecord(
   }
   const index = await findRecordIndex(items, step.link, wanted, ctx.page.url());
   if (index < 0) {
+    if (!step.exhaustive) {
+      return blocked(
+        ctx,
+        "unknown",
+        "The search listed results but none matched the record. A person should check whether it is still listed.",
+      );
+    }
     return {
       status: "completed",
       result: { outcome: "not_found", notes: "No search result matched the record." },
@@ -410,6 +426,7 @@ async function selectRecord(
   await pauseBeforeAction(ctx);
   if (step.action === "click") {
     await act("select_record", step.item, () => row.click({ timeout: ctx.timeouts.stepMs }));
+    ctx.state.proved = false;
     return afterNavigation(ctx);
   }
   const box = (await row.evaluate(IS_CHECKABLE))

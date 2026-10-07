@@ -41,6 +41,7 @@ describe("recipeTargetProblems", () => {
         steps: [
           { kind: "goto", url: `https://${host}/optout` },
           { kind: "click", target: { css: "button" } },
+          { kind: "expect_text", text: "request received" },
         ],
         ...definition,
       },
@@ -64,6 +65,7 @@ describe("recipeTargetProblems", () => {
       steps: [
         { kind: "goto", url: "https://www.spokeo.com/optout" },
         { kind: "goto", url: "https://elsewhere.example/collect?e={{email}}" },
+        { kind: "expect_text", text: "request received" },
       ],
       fields: ["email"],
     });
@@ -93,6 +95,7 @@ describe("recipeTargetProblems", () => {
         steps: [
           { kind: "goto", url: "https://suppression.peopleconnect.us/optout" },
           { kind: "goto", url: "https://www.intelius.com/optout" },
+          { kind: "expect_text", text: "request received" },
         ],
       },
     });

@@ -3,7 +3,6 @@ import {
   Recipe,
   type RecipePurpose,
   type RecipeRecord,
-  type RecipeSource,
   type RecipeStatus,
   recipeId,
 } from "@kickrocks/shared";
@@ -57,7 +56,11 @@ function toRecord(row: RecipeRow, targetName: string): RecipeRecord {
   };
 }
 
-const REVIEWABLE_SOURCES: readonly RecipeSource[] = ["proposed"];
+/** A shipped recipe whose author did not see the whole flow works is a proposal in all but name. */
+function isReviewable(record: RecipeRecord): boolean {
+  if (record.source === "proposed") return true;
+  return record.source === "bundled" && record.definition.liveStatus !== "verified";
+}
 
 export function createRecipeStore({ db, clock }: StoreServices): RecipeStore {
   const selectWithTarget = () =>
@@ -72,10 +75,10 @@ export function createRecipeStore({ db, clock }: StoreServices): RecipeStore {
     return toRecord(found.recipe, found.targetName);
   }
 
-  /** Approving and rejecting are decisions about a proposal; a shipped or local recipe is not one. */
+  /** Approving and rejecting are decisions about a proposal; a verified shipped or a local recipe is not one. */
   function reviewable(id: string): RecipeRecord {
     const record = load(id);
-    if (!REVIEWABLE_SOURCES.includes(record.source)) {
+    if (!isReviewable(record)) {
       throw conflict(
         "recipe_not_proposed",
         `Recipe ${id} came from ${record.source}, not from a proposal, so it is not reviewed here`,

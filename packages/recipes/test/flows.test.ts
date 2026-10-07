@@ -108,7 +108,7 @@ describeBrowser("a record URL removal form", () => {
 });
 
 describeBrowser("a search-and-select removal", () => {
-  const removal = (action: "check" | "click") => ({
+  const removal = (action: "check" | "click", exhaustive = false) => ({
     entry: "/ps/index",
     fields: ["first_name", "last_name", "record_url"] as (
       | "first_name"
@@ -122,6 +122,7 @@ describeBrowser("a search-and-select removal", () => {
         item: { css: ".result" },
         link: { css: "a.view", attr: "href" },
         action,
+        exhaustive,
       },
       { kind: "click", target: { role: "button", label: "Request removal" } },
       {
@@ -148,12 +149,21 @@ describeBrowser("a search-and-select removal", () => {
     expect(server.submissions[0]?.fields).toEqual({ remove: "2" });
   });
 
-  it("ends as not_found, without submitting, when no result matches", async () => {
-    const outcome = await run(removal("check"), {
+  it("ends as not_found, without submitting, when no result matches an exhaustive list", async () => {
+    const outcome = await run(removal("check", true), {
       ...JORDAN,
       record_url: `${server.origin}/ps/record/jordan-example-99`,
     });
     expect(outcome).toMatchObject({ status: "completed", result: { outcome: "not_found" } });
+    expect(server.submissions).toEqual([]);
+  });
+
+  it("stops for a person instead of closing the request when a list that may be partial has no match", async () => {
+    const outcome = await run(removal("check"), {
+      ...JORDAN,
+      record_url: `${server.origin}/ps/record/jordan-example-99`,
+    });
+    expect(outcome).toMatchObject({ status: "blocked", reason: "unknown" });
     expect(server.submissions).toEqual([]);
   });
 
@@ -254,6 +264,75 @@ describeBrowser("a scan", () => {
   it("reports no candidates when the page has no results", async () => {
     const outcome = await run(scan("/ps/empty"));
     expect(outcome).toEqual({ status: "completed", result: { candidates: [] } });
+  });
+});
+
+describeBrowser("proof that the site accepted a removal", () => {
+  const rejectedForm = (proof: unknown) => ({
+    entry: "/form/reject",
+    fields: ["email" as const],
+    steps: [
+      { kind: "fill", target: { label: "Email" }, field: "email" },
+      { kind: "click", target: { role: "button", label: "Submit request" } },
+      proof,
+    ],
+  });
+
+  it("fails as a recipe failure when the page the submit lands on never shows the success wording", async () => {
+    const outcome = await run(
+      rejectedForm({
+        kind: "outcome_when",
+        when: [{ text: "your request has been received", outcome: "submitted" }],
+      }),
+    );
+    expect(outcome).toMatchObject({ status: "failed", kind: "recipe", retryable: false });
+    expect(server.submissions).toEqual([
+      { path: "/form/reject-submit", fields: { email: "jordan@example.com" } },
+    ]);
+  });
+
+  it("fails an email flow the same way instead of waiting for a confirmation that was never sent", async () => {
+    const outcome = await run({
+      entry: "/form/reject",
+      fields: ["email"],
+      steps: [
+        { kind: "fill", target: { label: "Email" }, field: "email" },
+        { kind: "email_confirmation", fromDomain: "example.test" },
+        { kind: "click", target: { role: "button", label: "Submit request" } },
+        {
+          kind: "outcome_when",
+          when: [{ text: "we sent a confirmation", outcome: "awaiting_email_confirmation" }],
+        },
+      ],
+    });
+    expect(outcome).toMatchObject({ status: "failed", kind: "recipe" });
+  });
+
+  it("reports the submission when the page after the submit shows the success wording", async () => {
+    const outcome = await run({
+      entry: "/form",
+      steps: [
+        { kind: "click", target: { role: "button", label: "Submit request" } },
+        { kind: "expect_text", text: "Your request has been received" },
+      ],
+    });
+    expect(outcome).toEqual({ status: "completed", result: { outcome: "submitted" } });
+  });
+
+  it("does not let a check made before the submit count as proof of it", async () => {
+    const outcome = await run({
+      entry: "/form/reject",
+      fields: ["email"],
+      steps: [
+        { kind: "expect_text", text: "Opt out" },
+        { kind: "click", target: { role: "button", label: "Submit request" } },
+        {
+          kind: "outcome_when",
+          when: [{ text: "your request has been received", outcome: "submitted" }],
+        },
+      ],
+    });
+    expect(outcome).toMatchObject({ status: "failed", kind: "recipe" });
   });
 });
 

@@ -28,14 +28,47 @@
       "kind": "captcha_checkpoint"
     },
     {
+      "kind": "email_confirmation",
+      "fromDomain": "spokeo.com"
+    },
+    {
       "kind": "click",
       "target": {
         "css": "form[name=\"optout-form\"] button[type=\"submit\"]"
       }
     },
     {
-      "kind": "email_confirmation",
-      "fromDomain": "spokeo.com"
+      "kind": "outcome_when",
+      "when": [
+        {
+          "text": "has been sent",
+          "outcome": "awaiting_email_confirmation"
+        },
+        {
+          "text": "we have sent",
+          "outcome": "awaiting_email_confirmation"
+        },
+        {
+          "text": "we've sent",
+          "outcome": "awaiting_email_confirmation"
+        },
+        {
+          "text": "we sent",
+          "outcome": "awaiting_email_confirmation"
+        },
+        {
+          "text": "sent you an email",
+          "outcome": "awaiting_email_confirmation"
+        },
+        {
+          "text": "sent an email",
+          "outcome": "awaiting_email_confirmation"
+        },
+        {
+          "text": "check your inbox",
+          "outcome": "awaiting_email_confirmation"
+        }
+      ]
     }
   ],
   "canary": {
@@ -55,7 +88,7 @@
       }
     ]
   },
-  "notes": "Verified live 2026-10-07 in headed Chrome: the opt-out form takes a profile URL and an email address and no captcha was present on load. Spokeo then emails a confirmation link, which the confirm task follows. Submission and the page after it were not exercised. Headless Chrome got 403. A real Chrome on a residential connection was used for every check, no challenge was solved, and nothing was submitted.",
+  "notes": "Verified live 2026-10-07 in headed Chrome: the opt-out form takes a profile URL and an email address and no captcha was present on load. Spokeo then emails a confirmation link, which the confirm task follows. Submission and the page after it were not exercised. Headless Chrome got 403. A real Chrome on a residential connection was used for every check, no challenge was solved, and nothing was submitted. The wording the site shows after Submit was never observed, so the outcome_when texts that prove the request went through are guesses, and the recipe stays unverified until a real submission has been seen.",
   "verifiedAt": "2026-10-07",
-  "liveStatus": "verified"
+  "liveStatus": "unverified"
 }

@@ -48,14 +48,47 @@
       "kind": "captcha_checkpoint"
     },
     {
+      "kind": "email_confirmation",
+      "fromDomain": "smartbackgroundchecks.com"
+    },
+    {
       "kind": "click",
       "target": {
         "css": "form[action=\"/remove\"] button[type=\"submit\"].btn-primary"
       }
     },
     {
-      "kind": "email_confirmation",
-      "fromDomain": "smartbackgroundchecks.com"
+      "kind": "outcome_when",
+      "when": [
+        {
+          "text": "has been sent",
+          "outcome": "awaiting_email_confirmation"
+        },
+        {
+          "text": "we have sent",
+          "outcome": "awaiting_email_confirmation"
+        },
+        {
+          "text": "we've sent",
+          "outcome": "awaiting_email_confirmation"
+        },
+        {
+          "text": "we sent",
+          "outcome": "awaiting_email_confirmation"
+        },
+        {
+          "text": "sent you an email",
+          "outcome": "awaiting_email_confirmation"
+        },
+        {
+          "text": "sent an email",
+          "outcome": "awaiting_email_confirmation"
+        },
+        {
+          "text": "check your inbox",
+          "outcome": "awaiting_email_confirmation"
+        }
+      ]
     }
   ],
   "canary": {
@@ -78,7 +111,7 @@
       }
     ]
   },
-  "notes": "Verified live 2026-10-07 in headed and headless Chrome. /optout redirects to /remove, which has a requester select, subject first, middle and last name and email, a confirm-authorize checkbox, a reCAPTCHA, and Submit. Only the subject path is used. The page does not say what follows a submit, so the recipe assumes an emailed confirmation link; if that is wrong the run still ends cleanly, and the first real run should correct the note. Nothing was submitted.",
+  "notes": "Verified live 2026-10-07 in headed and headless Chrome. /optout redirects to /remove, which has a requester select, subject first, middle and last name and email, a confirm-authorize checkbox, a reCAPTCHA, and Submit. Only the subject path is used. The page does not say what follows a submit, so the recipe assumes an emailed confirmation link; if that is wrong the run still ends cleanly, and the first real run should correct the note. Nothing was submitted. The wording the site shows after Submit was never observed, so the outcome_when texts that prove the request went through are guesses, and the recipe stays unverified until a real submission has been seen.",
   "verifiedAt": "2026-10-07",
-  "liveStatus": "verified"
+  "liveStatus": "unverified"
 }

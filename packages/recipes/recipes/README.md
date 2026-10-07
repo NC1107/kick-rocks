@@ -29,6 +29,9 @@ A recipe has these top level fields.
   A canary loads the page and checks selectors and never submits anything.
 - `notes`, `verifiedAt`, and `liveStatus`, which record what an author checked against the live site, when, and whether bot protection blocked the check.
   `liveStatus` is `verified`, `blocked_by_bot_protection`, or `unverified`.
+  `verified` means the author saw the whole flow through to the site accepting the request, with real wording to match.
+  A page that was only read is `unverified`, and a page that bot protection hid is `blocked_by_bot_protection`.
+  A bundled recipe that is not `verified` is loaded as `pending_review`, so a person approves it before the app runs it.
 
 ## Steps
 
@@ -54,7 +57,8 @@ A step is strict: a key it does not have makes the recipe invalid, so a typo suc
 - `extract_text` reads a confirmation message or a record URL.
 - `select_record` finds the result whose link is the record the person confirmed and clicks or checks it, for sites where removal means searching and then choosing a result.
   `item` selects each result, `link` says where to read its URL, and the match is made on `normalizeRecordUrl` of both sides.
-  When results exist but none matches, the run ends as completed with the form outcome `not_found`.
+  When results exist but none matches, the run stops for a person, because the list may be partial or may link in a different shape than the scan read.
+  Set `exhaustive: true` only when the list was seen to hold every match in the same URL shape a scan produces, and the run then ends as completed with the form outcome `not_found`.
   A page with no results at all fails the run as a recipe failure, so a stale selector cannot close a request as `no_record`.
   Handle a site's "no results" wording with `outcome_when` before this step.
   The recipe must declare `record_url` in `fields`.
@@ -64,7 +68,12 @@ A step is strict: a key it does not have makes the recipe invalid, so a typo suc
   A scan may only end a run as `blocked`.
 - `captcha_checkpoint` stops the run for a human when a challenge is on the page.
 - `email_confirmation` marks a form that finishes through a link in an email.
-  A run that passes it completes as `awaiting_email_confirmation`.
+  A run that passes it completes as `awaiting_email_confirmation` once its proof step has matched.
+
+A remove recipe must prove that the site took the request.
+After its last `click`, `press`, or clicking `select_record` it needs an `expect_text`, an `expect_url`, or an `outcome_when` with a `submitted` or `awaiting_email_confirmation` condition.
+A run that reaches its last step without that proof having held fails as a recipe failure, so a form the site rejected is never recorded as sent.
+Put `email_confirmation` before the click when the proof is an `outcome_when`, because a matching `outcome_when` ends the run.
 
 `click`, `check`, `press`, `fill`, `select`, and `wait_for` accept `optional: true`.
 An optional step is skipped when its target does not appear within a short timeout, which is how a recipe handles a cookie banner or an interstitial that only shows up sometimes.
@@ -78,6 +87,8 @@ A template that names an unknown field or filter is rejected when the recipe is 
 ## Canary
 
 A canary loads a page and checks that selectors still exist.
+It should list the selectors the steps use on that page, and no others from a page the steps never fill.
+A page that answers 401 or 403 is reported as blocked, never as unhealthy.
 A scan recipe's canary may also have `steps` to reach selectors that only appear after a search: `goto` a literal URL, `fill` a literal generic value such as `John Smith`, `click`, and `wait_for`.
 Canary steps never use profile fields, so a health check discloses nobody, and a remove recipe may not have them, because a click there could submit a removal.
 

@@ -219,16 +219,19 @@ describe("a remove recipe that reaches the record the person confirmed", () => {
       { kind: "goto", url: "{{record_url}}" },
       { kind: "wait_for", target: { css: ".record" } },
       { kind: "click", target: { role: "link", label: "Remove my record" } },
+      { kind: "expect_text", text: "will be removed" },
     ],
     canary: { url: "https://www.fastpeoplesearch.test/removal", selectors: [{ css: "form" }] },
   };
+
+  const proof = { kind: "expect_text", text: "will be removed" };
 
   it("accepts a goto that is exactly {{record_url}}", () => {
     expect(failure(recordRemove)).toEqual([]);
     expect(
       failure({
         ...recordRemove,
-        steps: [{ kind: "goto", url: "{{ record_url }}" }, recordRemove.steps[2]],
+        steps: [{ kind: "goto", url: "{{ record_url }}" }, recordRemove.steps[2], proof],
       }),
     ).toEqual([]);
   });
@@ -236,7 +239,7 @@ describe("a remove recipe that reaches the record the person confirmed", () => {
   it("still rejects any other bare template as a url", () => {
     for (const url of ["{{first_name}}", "{{email}}", "{{record_url|lower}}", "{{record_url}}/x"]) {
       expect(
-        failure({ ...recordRemove, steps: [{ kind: "goto", url }, recordRemove.steps[2]] }),
+        failure({ ...recordRemove, steps: [{ kind: "goto", url }, recordRemove.steps[2], proof] }),
         url,
       ).not.toEqual([]);
     }
@@ -250,7 +253,7 @@ describe("a remove recipe that reaches the record the person confirmed", () => {
     ]) {
       const problems = failure({
         ...recordRemove,
-        steps: [{ kind: "goto", url }, recordRemove.steps[2]],
+        steps: [{ kind: "goto", url }, recordRemove.steps[2], proof],
       });
       expect(problems.join(), url).toMatch(/host of a url must be written out|Uses field/);
     }
@@ -260,13 +263,18 @@ describe("a remove recipe that reaches the record the person confirmed", () => {
         steps: [
           { kind: "goto", url: "https://www.fastpeoplesearch.test/{{first_name|slug}}" },
           recordRemove.steps[2],
+          proof,
         ],
       }),
     ).toEqual([]);
     expect(
       failure({
         ...recordRemove,
-        steps: [{ kind: "goto", url: "https://{{first_name}}.test/" }, recordRemove.steps[2]],
+        steps: [
+          { kind: "goto", url: "https://{{first_name}}.test/" },
+          recordRemove.steps[2],
+          proof,
+        ],
       }),
     ).toEqual(["The host of a url must be written out, not filled from a template"]);
   });
@@ -287,12 +295,67 @@ describe("a remove recipe that reaches the record the person confirmed", () => {
     const steps = [
       { kind: "goto", url: "https://www.fastpeoplesearch.test/search?q={{first_name|slug}}" },
       select,
+      proof,
     ];
     expect(failure({ ...recordRemove, steps })).toEqual([]);
     expect(failure({ ...recordRemove, fields: ["first_name"], steps })).toEqual([
       'Uses field "record_url" that the recipe does not declare in fields',
     ]);
     expect(RecipeStep.safeParse({ ...select, action: "hover" }).success).toBe(false);
+  });
+
+  it("defaults select_record to a list that is not exhaustive", () => {
+    const parsed = RecipeStep.parse({
+      kind: "select_record",
+      item: { css: ".result" },
+      link: { css: "a", attr: "href" },
+      action: "click",
+    });
+    expect(parsed).toMatchObject({ exhaustive: false });
+  });
+
+  describe("proof that the site accepted the request", () => {
+    const message = /needs an expect_text, expect_url, or outcome_when/;
+    const click = recordRemove.steps[2];
+    const withSteps = (steps: unknown[]) => failure({ ...recordRemove, steps });
+
+    it("rejects a remove recipe that ends at its submit", () => {
+      expect(withSteps([recordRemove.steps[0], click]).join()).toMatch(message);
+    });
+
+    it("rejects a proof that comes before the last submit", () => {
+      expect(withSteps([recordRemove.steps[0], proof, click]).join()).toMatch(message);
+    });
+
+    it.each([
+      ["expect_text", { kind: "expect_text", text: "done" }],
+      ["expect_url", { kind: "expect_url", pattern: "/done$" }],
+      [
+        "a positive outcome_when",
+        { kind: "outcome_when", when: [{ text: "done", outcome: "submitted" }] },
+      ],
+      [
+        "a positive outcome_when for an email",
+        { kind: "outcome_when", when: [{ text: "sent", outcome: "awaiting_email_confirmation" }] },
+      ],
+    ])("accepts %s after the submit", (_name, step) => {
+      expect(withSteps([recordRemove.steps[0], click, step])).toEqual([]);
+    });
+
+    it("does not take an outcome_when that only blocks or reports a missing record as proof", () => {
+      const onlyNegative = {
+        kind: "outcome_when",
+        when: [
+          { text: "no record", outcome: "not_found" },
+          { text: "phone", outcome: "blocked", reason: "phone_verification" },
+        ],
+      };
+      expect(withSteps([recordRemove.steps[0], click, onlyNegative]).join()).toMatch(message);
+    });
+
+    it("does not ask a scan recipe for proof", () => {
+      expect(failure(scanRecipe)).toEqual([]);
+    });
   });
 
   it("keeps select_record and email_confirmation out of scan recipes", () => {

@@ -32,9 +32,18 @@ const SOURCE_OF_ORIGIN = { bundled: "bundled", extra: "user" } as const satisfie
 const describeIssue = (issue: ApiIssue) => `${issue.path.join(".") || "(root)"}: ${issue.message}`;
 
 /**
- * Makes the `recipes` table say what the recipe files say. Bundled and extra recipes are trusted
- * code the person installed, so they are active at once; a proposal waits for review and is never
- * touched here, unless a file with the same id ships, in which case the file replaces it.
+ * Where a recipe file starts out. Extra recipes are code the person installed, so they are active
+ * at once. A bundled recipe is active only when its author saw the whole flow through, and waits
+ * for a person to approve it otherwise, so a guessed script never runs on its own.
+ */
+function initialStatus(recipe: Recipe, origin: RecipeOrigin): "active" | "pending_review" {
+  return origin === "bundled" && recipe.liveStatus !== "verified" ? "pending_review" : "active";
+}
+
+/**
+ * Makes the `recipes` table say what the recipe files say. A proposal waits for review and is
+ * never touched here, unless a file with the same id ships, in which case the file replaces it.
+ * A bundled recipe that a person approved stays approved until its script changes.
  *
  * A recipe whose broker is not in the dataset, or whose pages are on another site, is reported and
  * left out. A recipe whose file is gone is retired, but only when every file loaded cleanly, so a
@@ -85,6 +94,7 @@ export function syncRecipes(
       }
       seen.add(recipe.id);
       const source = SOURCE_OF_ORIGIN[origin];
+      const status = initialStatus(recipe, origin);
       const current = tx.select().from(recipes).where(eq(recipes.id, recipe.id)).get();
       if (!current) {
         tx.insert(recipes)
@@ -95,7 +105,7 @@ export function syncRecipes(
             version: recipe.version,
             definition: recipe,
             source,
-            status: "active",
+            status,
             health: "unknown",
             failureCount: 0,
             notes: recipe.notes,
@@ -107,7 +117,12 @@ export function syncRecipes(
       }
       const stored = Recipe.parse(current.definition);
       const sameDefinition = JSON.stringify(stored) === JSON.stringify(recipe);
-      if (sameDefinition && current.source === source && current.status === "active") {
+      const approvedByHand = status === "pending_review" && current.status === "active";
+      if (
+        sameDefinition &&
+        current.source === source &&
+        (current.status === status || approvedByHand)
+      ) {
         report.unchanged += 1;
         continue;
       }
@@ -115,7 +130,7 @@ export function syncRecipes(
         .set({
           definition: recipe,
           source,
-          status: "active",
+          status,
           notes: recipe.notes,
           // A different script has no track record, so what was learned about the old one is dropped.
           ...(behaviour(stored) === behaviour(recipe)
@@ -131,7 +146,12 @@ export function syncRecipes(
       const gone = tx
         .select({ id: recipes.id })
         .from(recipes)
-        .where(and(inArray(recipes.source, ["bundled", "user"]), eq(recipes.status, "active")))
+        .where(
+          and(
+            inArray(recipes.source, ["bundled", "user"]),
+            inArray(recipes.status, ["active", "pending_review"]),
+          ),
+        )
         .all()
         .map((row) => row.id)
         .filter((id) => !seen.has(id));

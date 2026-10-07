@@ -158,6 +158,19 @@ describeBrowser("bot walls", () => {
     expect(outcome).toMatchObject({ status: "blocked", reason: "bot_detection" });
   });
 
+  it("blocks on a bare 403 whose body the detector has no words for, instead of failing the recipe", async () => {
+    const outcome = await run({ entry: "/wall/blank", steps: afterWall });
+    expect(outcome).toMatchObject({ status: "blocked", reason: "bot_detection" });
+  });
+
+  it("blocks when a step navigates to a bare 403", async () => {
+    const outcome = await run({
+      entry: "/form",
+      steps: [{ kind: "goto", url: `${server.origin}/wall/blank` }, ...afterWall],
+    });
+    expect(outcome).toMatchObject({ status: "blocked", reason: "bot_detection" });
+  });
+
   it("lets an interstitial that clears by itself pass", async () => {
     const outcome = await run({ entry: "/wall/auto", steps: afterWall });
     expect(outcome).toEqual({ status: "completed", result: { outcome: "submitted" } });
@@ -281,6 +294,16 @@ describeBrowser("a canary", () => {
     expect(server.submissions).toEqual([]);
   });
 
+  it("is blocked rather than unhealthy when a bare 403 hides the page", async () => {
+    const outcome = await canary({
+      ...scanCanary,
+      origin: server.origin,
+      entry: "/wall/blank",
+      canary: { url: "/wall/blank", selectors: [{ css: "form" }] },
+    });
+    expect(outcome).toMatchObject({ status: "blocked", reason: "bot_detection" });
+  });
+
   it("is blocked rather than unhealthy when a human check hides the page", async () => {
     const outcome = await canary({
       origin: server.origin,
@@ -313,6 +336,29 @@ describeBrowser("an email confirmation link", () => {
       result: { confirmed: true, finalUrl: `${server.origin}/mail/confirm` },
     });
     expect(server.hits).toContain("GET /mail/confirm?token=s3cret-token");
+  });
+
+  it("presses the one button that confirms and reports where it led", async () => {
+    const outcome = await confirm(`${server.origin}/mail/press?token=s3cret-token`);
+    expect(outcome).toEqual({
+      status: "completed",
+      result: { confirmed: true, finalUrl: `${server.origin}/mail/press-submit` },
+    });
+    expect(server.submissions).toEqual([{ path: "/mail/press-submit", fields: {} }]);
+  });
+
+  it("reports a button that leads to an expired page as not confirmed", async () => {
+    const outcome = await confirm(`${server.origin}/mail/press-stale`);
+    expect(outcome).toMatchObject({
+      status: "completed",
+      result: { confirmed: false, notes: expect.stringContaining("expired") },
+    });
+  });
+
+  it("presses nothing and reports not confirmed when several buttons could be the one", async () => {
+    const outcome = await confirm(`${server.origin}/mail/press-many`);
+    expect(outcome).toMatchObject({ status: "completed", result: { confirmed: false } });
+    expect(server.submissions).toEqual([]);
   });
 
   it("reports a page that says the link expired as not confirmed", async () => {

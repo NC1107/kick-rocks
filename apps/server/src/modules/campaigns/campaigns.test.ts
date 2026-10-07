@@ -38,6 +38,7 @@ const NO_EMAIL_RECIPE: Partial<RecipeInput> = {
     { kind: "goto", url: "https://fixture.test/optout" },
     { kind: "fill", target: { label: "Profile URL" }, field: "record_url" },
     { kind: "click", target: { role: "button", label: "Remove" } },
+    { kind: "expect_text", text: "request received" },
   ],
 };
 

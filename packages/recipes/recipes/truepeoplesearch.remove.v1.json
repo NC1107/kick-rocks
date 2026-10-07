@@ -36,6 +36,31 @@
     },
     {
       "kind": "captcha_checkpoint"
+    },
+    {
+      "kind": "outcome_when",
+      "when": [
+        {
+          "text": "has been submitted",
+          "outcome": "submitted"
+        },
+        {
+          "text": "has been received",
+          "outcome": "submitted"
+        },
+        {
+          "text": "successfully submitted",
+          "outcome": "submitted"
+        },
+        {
+          "text": "we have received your request",
+          "outcome": "submitted"
+        },
+        {
+          "text": "we received your request",
+          "outcome": "submitted"
+        }
+      ]
     }
   ],
   "canary": {
@@ -47,7 +72,7 @@
       }
     ]
   },
-  "notes": "Not verified. /removal answered with a Cloudflare \"Just a moment\" challenge on 2026-10-07 in headless and headed Chrome, and no challenge was solved, so no removal markup was seen. The flow (open the record, choose to remove it, pass a captcha) and the button names are reconstructed from the site's published instructions and are unverified guesses. Expect a bot_detection block.",
+  "notes": "Not verified. /removal answered with a Cloudflare \"Just a moment\" challenge on 2026-10-07 in headless and headed Chrome, and no challenge was solved, so no removal markup was seen. The flow (open the record, choose to remove it, pass a captcha) and the button names are reconstructed from the site's published instructions and are unverified guesses. Expect a bot_detection block. The wording the site shows after Submit was never observed, so the outcome_when texts that prove the request went through are guesses, and the recipe stays unverified until a real submission has been seen.",
   "verifiedAt": "2026-10-07",
-  "liveStatus": "blocked_by_bot_protection"
+  "liveStatus": "unverified"
 }
