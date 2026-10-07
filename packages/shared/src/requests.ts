@@ -2,6 +2,7 @@ import { z } from "zod";
 import { ProfileField } from "./identities.js";
 import { EmailKind, MessageSummary, Reference, ReplyClassification } from "./mail.js";
 import { BlockedReason, FailureKind, type FormOutcome } from "./outcomes.js";
+import { RequestRight } from "./rights.js";
 import { TargetSummary } from "./targets.js";
 import { TaskKind, TaskSummary } from "./tasks.js";
 import { WebUrl } from "./url.js";
@@ -22,8 +23,7 @@ export const RequestStatus = z.enum([
 ]);
 export type RequestStatus = z.infer<typeof RequestStatus>;
 
-export const RequestRight = z.enum(["opt_out", "delete"]);
-export type RequestRight = z.infer<typeof RequestRight>;
+export { RequestRight };
 
 /** At least one right, each at most once. */
 export const RequestRights = z

@@ -246,11 +246,18 @@ export default defineMockDomain({
       ...store.settings,
       worker: {
         enabled: true,
-        status: {
+        builtin: {
           workerId: "worker-home",
           version: "0.1.0",
           lastSeenAt: store.ago({ minutes: 1 }),
           busy: false,
+          currentTaskId: null,
+        },
+        model: {
+          workerId: "agent-home",
+          version: "agent-0.1.0",
+          lastSeenAt: store.ago({ minutes: 1 }),
+          busy: true,
           currentTaskId: null,
         },
       },
@@ -341,6 +348,7 @@ export default defineMockDomain({
           };
         }
         if (body.mcp) current.mcp = { ...current.mcp, enabled: body.mcp.enabled };
+        if (body.agent) current.agent = { takeUnreviewed: body.agent.takeUnreviewed };
         return current;
       }),
 
@@ -350,6 +358,7 @@ export default defineMockDomain({
           ...store.settings,
           schedule: { ...DEFAULT_SCHEDULE },
           llm: null,
+          agent: { takeUnreviewed: false },
           retention: { messageDays: null, screenshotDays: 30 },
           mcp: { ...store.settings.mcp, enabled: false, tokenSet: false },
         };

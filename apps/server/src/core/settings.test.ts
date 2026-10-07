@@ -23,7 +23,8 @@ describe("settings store", () => {
     });
     expect(settings.get("llm")).toBeNull();
     expect(settings.get("auth.passwordHash")).toBeNull();
-    expect(settings.get("worker.status")).toBeNull();
+    expect(settings.get("worker.status.builtin")).toBeNull();
+    expect(settings.get("worker.status.model")).toBeNull();
   });
 
   it("round-trips a value and overwrites it", () => {

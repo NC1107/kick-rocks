@@ -326,6 +326,7 @@ export function summaryOf(target: TargetDetail): TargetSummary {
     domain: target.domain,
     website: target.website,
     optOutUrl: target.optOutUrl,
+    privacyRightsUrl: target.privacyRightsUrl,
     searchUrl: target.searchUrl,
     contactMethod: target.contactMethod,
     requiresId: target.requiresId,

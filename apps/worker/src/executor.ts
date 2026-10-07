@@ -33,7 +33,30 @@ export type TaskReport =
   /** Hand the task back without costing it an attempt. */
   | { kind: "release"; reason: string; retryAfterMs?: number };
 
-export type TaskExecutor = (task: ClaimedTask, signal: AbortSignal) => Promise<TaskReport>;
+/** What a run tells the loop that carries it, beyond the report it ends with. */
+export interface RunProgress {
+  /**
+   * Called before the run does something that may submit a form. Resolves once the server has
+   * acknowledged it, so a lease that is lost afterwards holds the task for a person and does not
+   * retry it. Rejects with `SubmitNotRecorded` when it could not, and then the run must not click.
+   */
+  mayHaveSubmitted(): Promise<void>;
+}
+
+/** The server did not acknowledge that a run may submit a form, so the run must not click. */
+export class SubmitNotRecorded extends Error {
+  override name = "SubmitNotRecorded";
+
+  constructor(reason: string) {
+    super(`The server could not be told a form may be submitted: ${reason}`);
+  }
+}
+
+export type TaskExecutor = (
+  task: ClaimedTask,
+  signal: AbortSignal,
+  progress?: RunProgress,
+) => Promise<TaskReport>;
 
 export interface Runners {
   runRecipe: typeof runRecipe;
@@ -142,7 +165,7 @@ export function createExecutor(options: ExecutorOptions): TaskExecutor {
   const now = options.now ?? Date.now;
   const pace: Pace = options.pace === "instant" ? INSTANT_PACE : HUMAN_PACE;
 
-  return async (task, signal) => {
+  return async (task, signal, progress) => {
     if (task.kind === "agent") {
       return {
         kind: "release",
@@ -195,6 +218,7 @@ export function createExecutor(options: ExecutorOptions): TaskExecutor {
         case "form": {
           const outcome = await runners.runRecipe({
             ...shared,
+            ...(progress ? { onSubmit: progress.mayHaveSubmitted } : {}),
             recipe: recipe as Recipe & { purpose: "remove" },
             fields: fieldsFor(task, recipe as Recipe),
           });

@@ -200,6 +200,7 @@ function agentPayload() {
     requestId: null,
     recordUrl: null,
     variant: null,
+    rights: [] as never[],
     reason: "no_recipe" as const,
     previousError: null,
     blockedReason: null,

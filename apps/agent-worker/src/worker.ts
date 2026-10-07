@@ -13,24 +13,6 @@ import { readAgentWorkerVersion } from "./version.js";
 /** A browser that will not start is the worker's problem, not the task's. */
 const BROWSER_UNAVAILABLE_RETRY_MS = 60_000;
 
-const CLAIM_PATH = "/api/worker/claim";
-
-/**
- * The worker API client does not say who is claiming, and the server counts a claim as a recipe
- * worker's unless the body says `model`. This marks the claim so runs by a model are measured
- * apart, without changing the shared client.
- */
-export function markClaimsAsModel(base: typeof fetch = fetch): typeof fetch {
-  return (input, init) => {
-    const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
-    if (init?.method === "POST" && url.endsWith(CLAIM_PATH) && typeof init.body === "string") {
-      const body = JSON.parse(init.body) as Record<string, unknown>;
-      return base(input, { ...init, body: JSON.stringify({ ...body, claimer: "model" }) });
-    }
-    return base(input, init);
-  };
-}
-
 export interface AgentWorkerOptions {
   config: AgentWorkerConfig;
   signal: AbortSignal;
@@ -50,7 +32,8 @@ export async function runAgentWorker(options: AgentWorkerOptions): Promise<void>
     serverUrl: config.serverUrl,
     token: config.token,
     workerId: config.workerId,
-    fetch: markClaimsAsModel(options.fetch),
+    claimer: "model",
+    ...(options.fetch ? { fetch: options.fetch } : {}),
   });
   const provider = options.provider ?? createProvider(config.provider);
   const browsers = createProfileBrowsers(
@@ -65,7 +48,7 @@ export async function runAgentWorker(options: AgentWorkerOptions): Promise<void>
   );
   const pace: Pace = config.pace === "instant" ? INSTANT_PACE : HUMAN_PACE;
 
-  const executor: AgentExecutor = async (task, runSignal) => {
+  const executor: AgentExecutor = async (task, runSignal, progress) => {
     let page: Page;
     try {
       page = await browsers.newPage(task.profileId ?? null);
@@ -89,6 +72,7 @@ export async function runAgentWorker(options: AgentWorkerOptions): Promise<void>
         maxOutputTokens: config.provider.maxOutputTokens,
         signal: runSignal,
         logger,
+        ...(progress ? { onMayHaveSubmitted: progress.mayHaveSubmitted } : {}),
         ...(options.challengeGraceMs === undefined
           ? {}
           : { challengeGraceMs: options.challengeGraceMs }),
@@ -127,6 +111,7 @@ export async function runAgentWorker(options: AgentWorkerOptions): Promise<void>
       leaseMs: config.leaseMs,
       version: `agent-${readAgentWorkerVersion()}`,
       forceStop: () => browsers.close(),
+      keepProfiles: (profileIds) => browsers.keepOnly(profileIds),
       ...(options.timing ? { timing: options.timing } : {}),
     });
   } finally {

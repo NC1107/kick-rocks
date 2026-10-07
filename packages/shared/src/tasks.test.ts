@@ -95,6 +95,23 @@ describe("task payloads", () => {
     ).toBe("recipe_failed");
   });
 
+  it("reads an agent task stored before it carried rights as asking for none", () => {
+    const stored = {
+      purpose: "remove",
+      profileId: "p",
+      targetId: "t",
+      requestId: "r",
+      recordUrl: null,
+      variant: null,
+      reason: "no_recipe",
+      previousError: null,
+      blockedReason: null,
+    };
+    expect(parseTaskPayload("agent", stored).rights).toEqual([]);
+    expect(parseTaskPayload("agent", { ...stored, rights: ["delete"] }).rights).toEqual(["delete"]);
+    expect(() => parseTaskPayload("agent", { ...stored, rights: ["sell"] })).toThrow();
+  });
+
   it("says why an agent has the work, including a human check that stopped the worker", () => {
     const agent = {
       purpose: "scan",
@@ -258,6 +275,7 @@ describe("ClaimedTask", () => {
     domain: "spokeo.com",
     website: null,
     optOutUrl: "https://www.spokeo.com/optout",
+    privacyRightsUrl: null,
     searchUrl: null,
     contactMethod: "form",
     requiresId: false,

@@ -20,7 +20,6 @@ export function targetDetail(
   return {
     ...targets.toSummary(row),
     privacyEmail: row.privacyEmail,
-    privacyRightsUrl: row.privacyRightsUrl,
     region: row.region,
     notes: row.data.notes,
     sources: row.data.sources,

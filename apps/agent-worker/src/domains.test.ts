@@ -10,6 +10,7 @@ const target = (overrides: Partial<TargetSummary> = {}): TargetSummary => ({
   domain: "www.example-broker.test",
   website: "https://www.example-broker.test/",
   optOutUrl: "https://privacy.example-broker.test/optout",
+  privacyRightsUrl: null,
   searchUrl: null,
   contactMethod: "form",
   requiresId: false,
@@ -33,6 +34,15 @@ describe("allowedSitesFor", () => {
     ).toEqual({ domains: ["example-broker.test"], pages: [] });
   });
 
+  it("limits the privacy rights page on another host to its own page, as it does the opt-out page", () => {
+    const sites = allowedSitesFor(
+      target({ privacyRightsUrl: "https://app.privacyportal.test/shop/requests" }),
+    );
+    expect(sites.pages).toContainEqual({ host: "app.privacyportal.test", path: "/shop/requests" });
+    expect(withinSites("https://app.privacyportal.test/shop/requests/new", sites)).toBe(true);
+    expect(withinSites("https://app.privacyportal.test/other-shop/requests", sites)).toBe(false);
+  });
+
   it("trusts the website host as a whole when it differs from the domain", () => {
     expect(
       allowedSitesFor(target({ domain: "brand.test", website: "https://www.parent.test/" }))
@@ -40,7 +50,7 @@ describe("allowedSitesFor", () => {
     ).toEqual(["brand.test", "parent.test"]);
   });
 
-  it("limits a start page on another host to its own folder", () => {
+  it("limits a start page on another host to its own page, not its folder", () => {
     const sites = allowedSitesFor(
       target({
         optOutUrl: "https://docs.google.com/forms/d/e/ABC123/viewform?usp=sf_link",
@@ -51,8 +61,8 @@ describe("allowedSitesFor", () => {
     expect(sites.domains).toEqual(["example-broker.test"]);
     expect(sites.pages).toEqual([
       { host: "docs.google.com", path: "/forms/d/e/ABC123/" },
-      { host: "privacyportal.onetrust.com", path: "/webform/tenant-1/" },
-      { host: "other.test", path: "/people/" },
+      { host: "privacyportal.onetrust.com", path: "/webform/tenant-1/form-9" },
+      { host: "other.test", path: "/people/jordan-1" },
     ]);
   });
 

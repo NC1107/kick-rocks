@@ -36,8 +36,34 @@ describe("general settings", () => {
     general();
     expect(await field(/Check the inbox every/)).toHaveValue(15);
     expect(screen.getByLabelText(/Follow up at most/)).toHaveValue(2);
-    expect(await screen.findByText("Worker")).toBeVisible();
+    expect(await screen.findByText("Workers")).toBeVisible();
     expect(screen.getByText("worker-home")).toBeVisible();
+    expect(screen.getByText("agent-home")).toBeVisible();
+  });
+
+  it("shows each worker's own state, so a down agent worker is not hidden by a live recipe worker", async () => {
+    const { mock } = general();
+    mock.store.settings.worker.model = {
+      ...(mock.store.settings.worker.model as NonNullable<typeof mock.store.settings.worker.model>),
+      lastSeenAt: new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString(),
+    };
+    const recipe = await screen.findByRole("region", { name: "Recipe worker" });
+    const agent = screen.getByRole("region", { name: "Agent worker" });
+    expect(within(recipe).getByText("Online")).toBeVisible();
+    expect(within(agent).getByText("Not responding")).toBeVisible();
+  });
+
+  it("lets the person allow the agent worker onto unreviewed sites, and take it back", async () => {
+    const { user, mock } = general();
+    const box = await screen.findByRole("checkbox", {
+      name: /Let the agent worker take unreviewed sites/,
+    });
+    expect(box).not.toBeChecked();
+    await user.click(box);
+    await waitFor(() => expect(mock.store.settings.agent.takeUnreviewed).toBe(true));
+    await waitFor(() => expect(box).toBeChecked());
+    await user.click(box);
+    await waitFor(() => expect(mock.store.settings.agent.takeUnreviewed).toBe(false));
   });
 
   it("saves only a changed schedule and confirms it", async () => {
@@ -101,9 +127,9 @@ describe("general settings", () => {
 
   it("says when the worker is switched off", async () => {
     const mock = createMockApp();
-    mock.store.settings.worker = { enabled: false, status: null };
+    mock.store.settings.worker = { enabled: false, builtin: null, model: null };
     general(mock);
-    expect(await screen.findByText("The worker is switched off")).toBeVisible();
+    expect(await screen.findByText("The workers are switched off")).toBeVisible();
   });
 
   it("lists the privacy laws by state", async () => {

@@ -257,6 +257,31 @@ describe("a form run that failed", () => {
     expect(requestOf(request.id)).toMatchObject({ status: "queued", lastError: null });
   });
 
+  it("holds a recipe failure for a person after a click, queues no agent, and counts the failure", () => {
+    const { request, task } = openRemoval();
+    claim("form");
+    queue().heartbeat(task.id, { workerId: "w", leaseMs: 60_000, mayHaveSubmitted: true });
+    queue().fail(task.id, {
+      workerId: "w",
+      error: "reached its last step without the site showing it accepted the request",
+      retryable: false,
+      kind: "recipe",
+      step: 5,
+      actor: "worker",
+    });
+
+    expect(queue().getOrThrow(task.id)).toMatchObject({
+      status: "blocked",
+      blockedReason: "unknown",
+    });
+    expect(
+      queue()
+        .list({ requestId: request.id })
+        .filter((entry) => entry.kind === "agent"),
+    ).toEqual([]);
+    expect(ctx.services.db.select().from(recipes).get()).toMatchObject({ failureCount: 1 });
+  });
+
   it("leaves a site failure with the request for a person to retry", () => {
     const { request } = fail("site");
     expect(requestOf(request.id)).toMatchObject({ status: "queued", lastError: "site down" });

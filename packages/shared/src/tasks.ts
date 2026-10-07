@@ -3,6 +3,7 @@ import { ProfileField } from "./identities.js";
 import { EmailKind } from "./mail.js";
 import { BlockedReason, FailureKind, FormOutcome } from "./outcomes.js";
 import { Recipe } from "./recipe.js";
+import { RequestRight } from "./rights.js";
 import { TargetSummary } from "./targets.js";
 import { WebUrl } from "./url.js";
 
@@ -106,6 +107,8 @@ export const AgentPayload = z.object({
   requestId: z.string().nullable(),
   recordUrl: WebUrl.nullable(),
   variant: ScanVariant.nullable(),
+  /** What a removal asks for, so the agent knows whether this is an opt-out or a deletion. Empty for a scan. */
+  rights: z.array(RequestRight).default(() => []),
   reason: AgentReason,
   previousError: z.string().nullable(),
   /** For reason `blocked`, the human check that stopped the earlier run. */
@@ -243,6 +246,12 @@ const claimedBase = {
   recipe: Recipe.nullable(),
   /** Only what the recipe declares, or for agent tasks what the legal package allows. */
   fields: z.partialRecord(ProfileField, z.string()),
+  /**
+   * Every other value the profile holds, for a worker that shows pages to a language model and
+   * must hide them from it. Given only to such a worker, never to an MCP client, because it goes
+   * beyond what the legal package allows the task to use.
+   */
+  maskValues: z.array(z.string()).optional(),
   instructions: z.string(),
 };
 

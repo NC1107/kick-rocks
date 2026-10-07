@@ -47,4 +47,10 @@ export interface RunnerOptions {
   /** Ends the run early, as a worker that is shutting down does. */
   signal?: AbortSignal | undefined;
   timeouts?: Partial<Timeouts> | undefined;
+  /**
+   * Awaited just before a step that sends something to the site (a click or a key press), and so
+   * before the run can know whether the site took it. A worker uses it to tell the server that a
+   * removal may already have been submitted and must not be run again on its own.
+   */
+  onSubmit?: (() => void | Promise<void>) | undefined;
 }

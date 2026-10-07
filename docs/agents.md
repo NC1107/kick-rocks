@@ -54,7 +54,7 @@ Every tool takes and returns the schemas in `packages/shared/src/mcp.ts`, and th
 |---|---|
 | `list_tasks` | Lists waiting, running, and blocked browser tasks with a redacted summary: no payload, no result, no personal data. Pass `status` to see finished ones. |
 | `claim_task` | Leases the next task meant for an agent, or the task named by `taskId`. Returns the full task, or `null` when nothing is waiting. |
-| `heartbeat_task` | Extends the lease on a task you hold. |
+| `heartbeat_task` | Extends the lease on a task you hold. For a removal, pass `mayHaveSubmitted: true` as soon as you click the submit button. |
 | `complete_task` | Reports the result and, if you have it, the usage. |
 | `block_task` | Parks the task for a person, with a reason, the page, and an optional screenshot. |
 | `fail_task` | Reports that the task failed. |
@@ -94,6 +94,7 @@ The values are examples.
     "requestId": "9d3b...",
     "recordUrl": "https://www.examplebroker.test/people/jordan-example",
     "variant": null,
+    "rights": ["opt_out"],
     "reason": "blocked",
     "previousError": null,
     "blockedReason": "captcha"
@@ -103,6 +104,7 @@ The values are examples.
     "name": "Example Broker",
     "domain": "examplebroker.test",
     "optOutUrl": "https://www.examplebroker.test/optout",
+    "privacyRightsUrl": null,
     "searchUrl": null,
     "requirements": ["captcha"]
   },
@@ -113,6 +115,9 @@ The values are examples.
 ```
 
 - `purpose` is `scan` (find the person's candidate records) or `remove` (opt out of one record).
+- `rights` says what a removal asks for: `opt_out` (stop selling or sharing the person's data), `delete` (delete it), or both.
+  It is empty for a scan, and the instructions say the same in words.
+  A deletion starts at the company's `privacyRightsUrl` when it has one, and at `optOutUrl` when it does not, because an opt-out page is usually a do-not-sell form and not a deletion form.
 - `reason` says why it is here: `no_recipe`, `recipe_failed`, or `blocked`.
   For `blocked`, `blockedReason` names the human check that stopped the earlier run.
 - `fields` holds only the identifiers you may use for this broker.
@@ -160,6 +165,12 @@ Kick Rocks sums them across attempts so the cost and success of agents can be me
 
 If you stop for any reason without finishing, release the task.
 A lease you abandon is recovered after it expires, but only after it expires.
+
+A removal can submit its form before you know whether the site took it.
+Call `heartbeat_task` with `mayHaveSubmitted: true` right after you click the submit button.
+Kick Rocks then never queues that task again by itself.
+If the lease runs out, you fail it as retryable, or you release it, the task is blocked for a person with reason `unknown`, because another run would submit the form twice.
+You can still report what happened until the person puts the task back in the queue.
 
 ## Rules
 
@@ -213,7 +224,7 @@ The format is in `packages/recipes/recipes/README.md`.
 A proposal is separate from the recipes that ship with Kick Rocks.
 Those that were not seen through to a real removal wait on the Recipes tab in Settings, under "Bundled recipes to check", with the notes from their author.
 A person approves or rejects each one there, and a rejection holds until a newer version of the recipe ships.
-Until a bundled recipe is approved, its tasks come to agents like a site with no recipe.
+Until a bundled recipe is approved, its tasks come to agents like a site with no recipe, with one limit for an unattended model: see "Which sites the agent worker takes" below.
 Proposals wait on the Agents tab instead, and `list` on the recipes API takes `source` to tell the two apart.
 
 Once a person approves a recipe, the built-in worker uses it, and a weekly canary check watches it.
@@ -296,7 +307,14 @@ The worker does not rely on the model to follow them.
 
 - The page may only go to the target's domains and their subdomains, over https.
   That holds for a link, a script, and every hop of a redirect, and the model is told what was blocked.
-  A new tab a link opens is closed.
+  That also holds for a frame inside the page and a form aimed at a frame.
+  A frame of another site runs in its own browser process, so each one is held at its start, given the same guard as the page, and only then let go.
+  A frame that cannot be guarded is not let go.
+  A new tab or window is refused whole, with every document it would load and every redirect it would follow, and the tab is closed.
+  A page on a shared form platform (Termly, TrustArc, OneTrust, Google Forms and the like) is allowed for its own path and what is under it, plus the query parameters that name the tenant, and never for the whole folder.
+  A single-page portal that keeps the tenant in a route fragment (`#/ekata/request/...`) is allowed for the fragment up to the tenant's own segment, and a tracking fragment such as `xd_co_f=...` names nobody.
+  A page that was let in may change its own address inside its origin, as a single-page portal does on every screen, without a new check.
+  A new document is always checked against the full scope.
 - `type` takes the name of a field in the task, and nothing else.
   A literal value in the call is ignored, and a field the task lacks is refused.
   Password, payment, read-only, and file controls cannot be used.
@@ -307,10 +325,17 @@ The worker does not rely on the model to follow them.
 - Every answer the model reads is masked once, at the last step, so no path skips it.
   That covers the snapshot, dropdown options, dialog text and error messages.
   The model sees `{{first_name}}` where the page shows the person's first name, for each field of the task.
+  The program hides every value the profile holds, not only the task's fields: all names and aliases (and each part of them), every email, phone, and address with its street, city and ZIP, and the date of birth and the year.
+  A value that is not a field of the task reads `{{other_3}}` or similar, and the program puts it back in a scan result it reports.
+  The server gives that list only to a model worker that claims as one, never to an MCP client.
   Phone numbers and dates of birth are also masked in the common US formats that an input mask produces.
   A value written in a way the program does not know, such as a nickname the page derived from the name, is not masked.
+  Values of one or two characters, such as a two-letter state, are not masked.
 - For a scan, the model reports each candidate with the masked text and link it read.
   The program matches each link to one the page really showed and fills the real values back into the text before the server stores it, and it rejects an address that no page showed.
+  The task's instructions and the first message are masked the same way, so the model reads `{{record_url}}` where the server wrote the record address.
+  `navigate` accepts `{{record_url}}` and a masked link from a snapshot, and opens the real address after checking it against the allowed domains.
+  The MCP claim keeps the real record address in the instructions, because an MCP client has no masking step and must be able to open the page.
   The system prompt lists field names, and a value in the page, in a link, or in a field the program typed is replaced by `{{field_name}}` before the model reads it.
 - A visible CAPTCHA or a whole-page bot check ends the run at once.
   The task is blocked with the reason, the page address, and a screenshot, and the model is not asked again.
@@ -319,6 +344,12 @@ The worker does not rely on the model to follow them.
   A scan candidate must be on the target's domains, and a removal reported as `submitted` or `awaiting_email_confirmation` needs at least one click.
   A result that fails these goes back to the model as an error.
   Text the model copies from the page into `confirmationText`, `notes`, or a failure message has the person's values masked.
+- A removal run that has clicked, including a click that timed out, may already have submitted the form.
+  Before the click, the worker tells the server through the task heartbeat that the form may be submitted, retries a failed beat a few times, and clicks only once the server has acknowledged it.
+  When it cannot be acknowledged, nothing is clicked and the run is handed back.
+  From then on a release or a failure that could be retried becomes a block for a person with reason `unknown`, the page address, and a screenshot, so the form is never submitted twice.
+  If the worker is stopped while the page is stuck, the block is still what is reported.
+  If it loses its connection or its lease instead, the server blocks the task when the lease runs out and does not queue it again.
 - A task has a step budget, a time budget, and optionally a token budget.
   One that runs out is failed as `internal` and is not retried.
 - A model that answers three times in a row without using a tool is failed.
@@ -333,15 +364,57 @@ Neither costs the task an attempt.
 `complete`, `block_task`, and `fail_task` carry `usage` with input tokens, output tokens, and wall time, and a cost when prices are set.
 The number of steps goes to the worker log, because the usage contract has no field for it.
 
+### Which sites the agent worker takes
+
+The agent worker claims the tasks no approved recipe covers, with two exceptions that keep an unattended model away from a site the person has not cleared.
+
+- A site whose recipe you rejected is blocked for you when the agent worker claims it.
+  Finish it by hand, or hand it to an agent yourself.
+  A task you hand over stays in the queue for a connected agent, and the agent worker leaves it alone.
+- A site whose bundled recipe is still waiting for your review stays in the queue, for a connected agent or for you.
+  Turn on "Let the agent worker take unreviewed sites" under Workers in Settings to let the model take those too.
+  The setting is off by default.
+
+A connected MCP client is not held back by either rule, because you connected it on purpose.
+
+### Workers in Settings
+
+Settings shows a row for the recipe worker and one for the agent worker.
+Each has its own state, so an agent worker that is down is never hidden by a recipe worker that is up.
+
+### Browser data of deleted profiles
+
+Each worker keeps one Chrome profile per Kick Rocks profile, with its cookies, history and cached pages.
+The server tells each worker which profiles still exist whenever it checks in, and between tasks the worker closes and deletes the browser data of any other.
+Deleting a profile, or resetting the instance, therefore removes that data from both workers' volumes within a heartbeat or two of the worker being idle.
+A worker that is stopped when you delete a profile does it the next time it starts and checks in.
+
+### What a hosted model can and cannot see
+
+The model sees the text of every page the worker shows it, and that text goes to whoever runs the model.
+
+It cannot see:
+
+- Any value the profile holds: names and aliases, emails, phone numbers, addresses, the date of birth and the birth year.
+  Each is replaced by a placeholder, in the page text, in links, in dialog text and in error messages, in the spellings listed under the rules above.
+- The person's values in what it writes: it types by field name, and the program supplies the value.
+- Passwords, and anything in a field the program does not offer.
+
+It can see:
+
+- Everything else on the page, which on a people-search site is a lot: other people's names, ages, relatives, past addresses, phones and emails the profile does not hold, and the age the page shows, which gives away roughly when the person was born.
+- A value written in a way the program does not recognise, and values of one or two characters.
+- Which placeholders repeat, which tells it that two places on a page show the same hidden value.
+- The target, the task's instructions, the names of the task's fields, and the model's own earlier answers.
+
+Use a local model when even that is too much.
+
 ### Limits
 
 - It reads the page's own document only.
   A form inside an iframe, such as a third-party form vendor, shows up as an embedded frame it cannot use, and the model should block the task.
 - A small model may misread a page.
   Recipes remain the primary path, and an agent run is worth checking the first few times.
-- Page text reaches the model.
-  A hosted model sees the pages it visits, though not the person's values.
-  Use a local model when that matters.
 
 ## Running the built-in worker and an agent together
 

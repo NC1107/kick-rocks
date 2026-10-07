@@ -6,13 +6,13 @@ import {
   ScanResult,
   type TaskUsage,
 } from "@kickrocks/shared";
-import type { TaskReport } from "@kickrocks/worker/dist/executor.js";
+import { SubmitNotRecorded, type TaskReport } from "@kickrocks/worker/dist/executor.js";
 import { describeError, type Logger } from "@kickrocks/worker/dist/logger.js";
 import type { Page } from "playwright";
 import type { z } from "zod";
 import type { AgentLimits, Pricing } from "./config.js";
 import { type AllowedSites, allowedSitesFor, describeSites, withinSites } from "./domains.js";
-import { createMask, restoreFields } from "./mask.js";
+import { createMask, namedHiddenValues, restoreFields } from "./mask.js";
 import { buildOpeningMessage, buildSystemPrompt, startUrlFor } from "./prompt.js";
 import {
   type Message,
@@ -39,6 +39,9 @@ export interface AgentRunOptions {
   logger: Logger;
   now?: () => number;
   challengeGraceMs?: number;
+  actionTimeoutMs?: number;
+  /** Awaited before each click of a removal run, so the server knows the form may be submitted. */
+  onMayHaveSubmitted?: () => Promise<void>;
 }
 
 /** A model that is down is not the task's fault, so the task goes back unchanged, later. */
@@ -47,6 +50,7 @@ const MODEL_UNAVAILABLE_RETRY_MS = 60_000;
 const MODEL_MISCONFIGURED_RETRY_MS = 10 * 60_000;
 /** A model that hands tasks back is no better placed an hour later, so a person gets time to look first. */
 const MODEL_RELEASE_RETRY_MS = 60 * 60_000;
+const SUBMIT_NOT_RECORDED_RETRY_MS = 60_000;
 const MAX_TEXT_ONLY_TURNS = 3;
 const OMITTED_SNAPSHOT = "(An earlier page snapshot was left out. Use the latest one.)";
 const NEEDS_A_CLICK = new Set(["submitted", "awaiting_email_confirmation"]);
@@ -68,6 +72,8 @@ class AgentRun {
   private readonly sites: AllowedSites;
   private readonly fieldNames: string[];
   private readonly mask: (text: string) => string;
+  /** What every placeholder the model may have copied stands for. */
+  private readonly known: Record<string, string | undefined>;
   private readonly toolbox: Toolbox;
   private readonly messages: Message[] = [];
   private inputTokens = 0;
@@ -84,7 +90,8 @@ class AgentRun {
     this.fieldNames = Object.entries(task.fields)
       .filter(([, value]) => value !== undefined && value !== "")
       .map(([name]) => name);
-    this.mask = createMask(task.fields);
+    this.mask = createMask(task.fields, task.maskValues);
+    this.known = { ...task.fields, ...namedHiddenValues(task.fields, task.maskValues ?? []) };
     this.toolbox = new Toolbox({
       page: options.page,
       fields: task.fields,
@@ -93,6 +100,12 @@ class AgentRun {
       pace: options.pace,
       mask: this.mask,
       signal: options.signal,
+      ...(task.payload.purpose === "remove" && options.onMayHaveSubmitted
+        ? { onClick: options.onMayHaveSubmitted }
+        : {}),
+      ...(options.actionTimeoutMs === undefined
+        ? {}
+        : { actionTimeoutMs: options.actionTimeoutMs }),
       ...(options.challengeGraceMs === undefined
         ? {}
         : { challengeGraceMs: options.challengeGraceMs }),
@@ -154,14 +167,51 @@ class AgentRun {
   }
 
   async run(): Promise<TaskReport> {
+    return this.holdForPerson(await this.drive());
+  }
+
+  /**
+   * A removal run that has clicked may already have submitted the form. Handing the task back or
+   * retrying it would submit again, so it goes to a person, who can see the page and the screenshot.
+   */
+  private async holdForPerson(report: TaskReport): Promise<TaskReport> {
+    const { task, logger } = this.options;
+    const wouldRetry =
+      report.kind === "release" || (report.kind === "fail" && report.report.retryable);
+    if (!wouldRetry || task.payload.purpose !== "remove" || this.toolbox.clicks === 0) {
+      return report;
+    }
+    const cause = report.kind === "release" ? report.reason : report.report.error;
+    logger.info("a removal run ended after a click, so a person decides", { taskId: task.id });
+    const screenshot = await this.toolbox.screenshot();
+    const url = this.toolbox.blockedUrl();
+    return {
+      kind: "block",
+      report: {
+        reason: "unknown",
+        detail: clip(
+          `The form may already have been submitted, so it was not retried. The run ended with: ${this.mask(cause)}`,
+          2000,
+        ),
+        ...(url ? { url } : {}),
+        ...(screenshot ? { screenshot } : {}),
+        usage: this.usage(),
+      },
+    };
+  }
+
+  private async drive(): Promise<TaskReport> {
     const { task, signal, provider, logger } = this.options;
     const system = buildSystemPrompt({
-      task,
+      task: { ...task, instructions: this.mask(task.instructions) },
       sites: this.sites,
       fieldNames: this.fieldNames,
       maxSteps: this.options.limits.maxSteps,
     });
-    this.messages.push({ role: "user", text: buildOpeningMessage(startUrlFor(task)) });
+    this.messages.push({
+      role: "user",
+      text: this.mask(buildOpeningMessage(startUrlFor(task))),
+    });
     await this.toolbox.install();
     try {
       let textOnlyTurns = 0;
@@ -220,6 +270,13 @@ class AgentRun {
       }
     } catch (error) {
       if (signal.aborted) return this.release("the worker is shutting down");
+      if (error instanceof SubmitNotRecorded) {
+        logger.warn("the server could not record a possible submission, so nothing was clicked", {
+          taskId: task.id,
+          error: describeError(error),
+        });
+        return this.release(error.message, SUBMIT_NOT_RECORDED_RETRY_MS);
+      }
       logger.error("the agent run threw", { taskId: task.id, error: describeError(error) });
       return this.fail(describeError(error) || "The agent run failed", true);
     } finally {
@@ -412,7 +469,7 @@ class AgentRun {
           error: `The address ${candidate.recordUrl} is not a link the pages you read showed. Copy each record link exactly as the snapshot shows it.`,
         };
       }
-      const restore = (text: string) => restoreFields(text, this.options.task.fields);
+      const restore = (text: string) => restoreFields(text, this.known);
       candidates.push({
         ...candidate,
         recordUrl,

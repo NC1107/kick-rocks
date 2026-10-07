@@ -1,7 +1,9 @@
 import { INSTANT_PACE } from "@kickrocks/recipes";
 import { MAX_SCREENSHOT_BYTES, resultSchemaFor, TaskBlockReport } from "@kickrocks/shared";
+import { BROWSER_CONTEXT_OPTIONS } from "@kickrocks/worker/dist/browser.js";
+import { SubmitNotRecorded } from "@kickrocks/worker/dist/executor.js";
 import type { Browser, BrowserContext } from "playwright";
-import { afterAll, beforeAll, beforeEach, expect, it } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { type AgentOutcome, runAgentTask } from "../src/agent.js";
 import type { AgentLimits } from "../src/config.js";
 import { ProviderError } from "../src/provider.js";
@@ -35,7 +37,7 @@ afterAll(async () => {
 
 beforeEach(async () => {
   await context?.close();
-  context = await browser.newContext();
+  context = await browser.newContext(BROWSER_CONTEXT_OPTIONS);
   await resetFixture();
 });
 
@@ -55,6 +57,8 @@ async function run(
     now?: () => number;
     graceMs?: number;
     pace?: typeof INSTANT_PACE;
+    actionTimeoutMs?: number;
+    onMayHaveSubmitted?: () => Promise<void>;
   } = {},
 ): Promise<Run> {
   const provider = options.provider ?? scripted(steps);
@@ -71,6 +75,8 @@ async function run(
     signal: options.signal ?? new AbortController().signal,
     logger: silentLogger,
     challengeGraceMs: options.graceMs ?? 200,
+    ...(options.actionTimeoutMs === undefined ? {} : { actionTimeoutMs: options.actionTimeoutMs }),
+    ...(options.onMayHaveSubmitted ? { onMayHaveSubmitted: options.onMayHaveSubmitted } : {}),
     ...(options.now ? { now: options.now } : {}),
   });
   await page.close();
@@ -217,12 +223,71 @@ describeBrowser("a removal run", () => {
     expect(typed?.content).toContain("not visible to a person");
   });
 
-  it("uses the start page the task names in its opening message", async () => {
+  const RECORD = `${ORIGIN}/people/jordan-example`;
+  const withRecord = () =>
+    agentTask({
+      fields: { ...PERSON, record_url: RECORD },
+      instructions: `Task: Remove this person (record: ${RECORD}). Start at ${RECORD}.`,
+      payload: { recordUrl: RECORD },
+    });
+
+  it("names the start page in the opening message without the person's name in it", async () => {
     const { provider } = await run([{ calls: [["report", { status: "release" }]] }], {
-      task: agentTask({ payload: { recordUrl: `${ORIGIN}/people/jordan-example` } }),
+      task: withRecord(),
     });
     const opening = provider.requests[0]?.messages[0];
-    expect(opening?.role === "user" && opening.text).toContain(`${ORIGIN}/people/jordan-example`);
+    const text = opening?.role === "user" ? opening.text : "";
+    expect(text).toContain("{{record_url}}");
+    expect(text).not.toMatch(/jordan|example/i);
+  });
+
+  it("hides the record address in the instructions of the system prompt", async () => {
+    const { provider } = await run([{ calls: [["report", { status: "release" }]] }], {
+      task: withRecord(),
+    });
+    const system = provider.requests[0]?.system ?? "";
+    expect(system).toContain("(record: {{record_url}}). Start at {{record_url}}.");
+    expect(system).not.toMatch(/jordan-example/i);
+  });
+
+  it("opens the real record page when the model navigates to the record placeholder", async () => {
+    const { provider } = await run(
+      [
+        { calls: [["navigate", { url: "{{record_url}}" }]] },
+        { calls: [["report", { status: "release" }]] },
+      ],
+      { task: withRecord() },
+    );
+    const landed = provider.requests[1]?.messages.at(-1);
+    const answer = landed?.role === "tool" ? landed.results[0] : undefined;
+    expect(answer?.isError).toBe(false);
+    expect(answer?.content).toContain("Remove this record");
+    expect(answer?.content).not.toMatch(/jordan-example/i);
+    expect((await fixtureState()).hits.map((hit) => hit.path)).toEqual(["/people/jordan-example"]);
+  });
+
+  it("opens the real page behind a masked link that a snapshot showed", async () => {
+    const task = agentTask({ payload: { purpose: "scan" } });
+    const { provider } = await run(
+      [
+        navigate("/search"),
+        (v) => {
+          const line = v.snapshot.split("\n").find((l) => l.includes("View record")) ?? "";
+          const masked = line.match(/-> (\S+\{\{\w+\}\}\S*)/)?.[1] ?? "";
+          return { calls: [["navigate", { url: masked }]] };
+        },
+        { calls: [["report", { status: "release" }]] },
+      ],
+      { task },
+    );
+    const landed = provider.requests[2]?.messages.at(-1);
+    const answer = landed?.role === "tool" ? landed.results[0] : undefined;
+    expect(answer?.isError).toBe(false);
+    expect(answer?.content).toContain("Remove this record");
+    expect((await fixtureState()).hits.map((hit) => hit.path)).toEqual([
+      "/search",
+      "/people/jordan-example",
+    ]);
   });
 
   it("shows a name the page echoes back as the field it came from", async () => {
@@ -401,6 +466,26 @@ describeBrowser("the rules the code enforces", () => {
     const answer = provider.requests[3]?.messages.at(-1);
     const content = answer?.role === "tool" ? answer.results[0]?.content : "";
     expect(content).toContain('value="{{first_name}}"');
+  });
+
+  it("delivers nothing to another site's service worker when a form posts there", async () => {
+    const earlier = await context.newPage();
+    await earlier.goto(`${OFFSITE}/sw-register`);
+    // A browser that blocks service workers never reports one, so the wait is bounded.
+    await earlier
+      .waitForFunction("document.title === 'Worker ready'", undefined, { timeout: 1_500 })
+      .catch(() => undefined);
+    await earlier.close();
+
+    await run([
+      navigate("/sw-form"),
+      (v) => ({ calls: [["type", { ref: v.ref("First name"), field: "first_name" }]] }),
+      (v) => ({ calls: [["click", { ref: v.ref("Submit request") }]] }),
+      { calls: [["report", { status: "release" }]] },
+    ]);
+
+    const { submissions } = await fixtureState();
+    expect(submissions.filter((entry) => entry.host === "localhost")).toEqual([]);
   });
 
   it("blocks a redirect that leaves the domain", async () => {
@@ -1111,5 +1196,450 @@ describeBrowser("a target whose pages live on a shared host", () => {
     expect(after).toContain("Blocked a navigation");
     const { hits } = await fixtureState();
     expect(hits.map((hit) => hit.path)).toEqual(["/go", "/forms/a/start"]);
+  });
+});
+
+describeBrowser("a removal run that has already clicked", () => {
+  const heldForPerson = {
+    kind: "block",
+    report: {
+      reason: "unknown",
+      detail: expect.stringContaining("may already have been submitted"),
+    },
+  };
+
+  it("holds the task for a person when the model releases it", async () => {
+    const { outcome } = await run([...fillForm, { calls: [["report", { status: "release" }]] }]);
+    expect(outcome.report).toMatchObject(heldForPerson);
+    if (outcome.report.kind !== "block") return;
+    expect(outcome.report.report.screenshot).toBeDefined();
+    expect(outcome.report.report.url).toBe(`${ORIGIN}/optout`);
+    expect(TaskBlockReport.safeParse(outcome.report.report).success).toBe(true);
+    expect((await fixtureState()).submissions).toHaveLength(1);
+  });
+
+  it("holds the task when the model reports a failure that could be retried", async () => {
+    const { outcome } = await run([
+      ...fillForm,
+      {
+        calls: [["report", { status: "failed", error: "The page looked broken", retryable: true }]],
+      },
+    ]);
+    expect(outcome.report).toMatchObject(heldForPerson);
+    expect(outcome.report.kind === "block" && outcome.report.report.detail).toContain(
+      "The page looked broken",
+    );
+  });
+
+  it("still reports a failure the model says cannot be retried", async () => {
+    const { outcome } = await run([
+      ...fillForm,
+      { calls: [["report", { status: "failed", error: "No such form", retryable: false }]] },
+    ]);
+    expect(outcome.report).toMatchObject({ kind: "fail", report: { retryable: false } });
+  });
+
+  const afterSubmit = (step: Step): Step[] => [...fillForm, step];
+
+  it("holds the task when the model endpoint goes down", async () => {
+    const { outcome } = await run(
+      afterSubmit(() => {
+        throw new ProviderError("The model endpoint could not be reached", "unavailable");
+      }),
+    );
+    expect(outcome.report).toMatchObject(heldForPerson);
+  });
+
+  it("holds the task when the provider refuses the next request with a 400", async () => {
+    const { outcome } = await run(
+      afterSubmit(() => {
+        throw new ProviderError("invalid tool schema", "rejected", 400);
+      }),
+    );
+    expect(outcome.report).toMatchObject(heldForPerson);
+  });
+
+  it("holds the task when the provider fails in a way nobody expected", async () => {
+    const { outcome } = await run(
+      afterSubmit(() => {
+        throw new Error("boom");
+      }),
+    );
+    expect(outcome.report).toMatchObject(heldForPerson);
+  });
+
+  it("holds the task when the browser page closes", async () => {
+    const { outcome } = await run(
+      afterSubmit(() => {
+        for (const page of context.pages()) void page.close();
+        return { calls: [["snapshot"]] };
+      }),
+    );
+    expect(outcome.report).toMatchObject(heldForPerson);
+  });
+
+  it("holds the task when the worker shuts down", async () => {
+    const controller = new AbortController();
+    const { outcome } = await run(
+      afterSubmit(() => {
+        controller.abort();
+        return { calls: [["snapshot"]] };
+      }),
+      { signal: controller.signal },
+    );
+    expect(outcome.report).toMatchObject(heldForPerson);
+  });
+
+  it("counts a click that timed out, tells the model it may have submitted, and holds the task", async () => {
+    const { outcome, provider } = await run(
+      [
+        navigate("/slow-form"),
+        (v) => ({
+          calls: [
+            ["type", { ref: v.ref("Email address"), field: "email" }],
+            ["click", { ref: v.ref("Send slowly") }],
+          ],
+        }),
+        { calls: [["report", { status: "release", reason: "not sure it went through" }]] },
+      ],
+      { actionTimeoutMs: 500 },
+    );
+    const answered = provider.requests[2]?.messages.at(-1);
+    const click = answered?.role === "tool" ? answered.results[1] : undefined;
+    expect(click?.isError).toBe(true);
+    expect(click?.content).toContain("may still have been delivered");
+    expect(click?.content).toContain("may have been submitted");
+    expect(outcome.report).toMatchObject(heldForPerson);
+    expect((await fixtureState()).submissions).toHaveLength(1);
+  });
+
+  it("does not let a result of submitted stand on a click that never happened", async () => {
+    const { outcome } = await run([
+      navigate("/optout"),
+      { calls: [["report", { status: "complete", result: removed }]] },
+      { calls: [["report", { status: "release" }]] },
+    ]);
+    expect(outcome.report).toMatchObject({ kind: "release" });
+  });
+
+  it("hands a scan task back as before, since a scan submits nothing", async () => {
+    const { outcome } = await run(
+      [
+        navigate("/optout"),
+        (v) => ({ calls: [["click", { ref: v.ref("Privacy policy") }]] }),
+        { calls: [["report", { status: "release" }]] },
+      ],
+      { task: agentTask({ payload: { purpose: "scan" } }) },
+    );
+    expect(outcome.report).toMatchObject({ kind: "release" });
+  });
+});
+
+describeBrowser("documents that do not load in the main frame", () => {
+  async function submitFrom(label: string, field: string, button: string) {
+    const { provider } = await run([
+      navigate("/frames"),
+      (v) => ({ calls: [["type", { ref: v.ref(label), field }]] }),
+      (v) => ({ calls: [["click", { ref: v.ref(button) }]] }),
+      { calls: [["wait", { seconds: 1 }]] },
+      { calls: [["report", { status: "release" }]] },
+    ]);
+    return { provider, state: await fixtureState() };
+  }
+
+  const offsite = (state: FixtureState) => ({
+    hits: state.hits.filter((hit) => hit.host === "localhost"),
+    submissions: state.submissions.filter((submission) => submission.host === "localhost"),
+  });
+
+  it("does not deliver typed values to a form that opens in a new tab", async () => {
+    const { state } = await submitFrom("Name for a new tab", "first_name", "Send in new tab");
+    expect(offsite(state)).toEqual({ hits: [], submissions: [] });
+  });
+
+  it("does not deliver typed values to a form aimed at a frame", async () => {
+    const { state, provider } = await submitFrom(
+      "Name for a frame",
+      "first_name",
+      "Send into frame",
+    );
+    expect(offsite(state)).toEqual({ hits: [], submissions: [] });
+    const answers = provider.requests.flatMap((request) => {
+      const latest = request.messages.at(-1);
+      return latest?.role === "tool" ? latest.results.map((result) => result.content) : [];
+    });
+    expect(answers.join("\n")).toContain("Blocked a navigation");
+  });
+
+  it("does not open another domain in a window the page opens by script", async () => {
+    const { state } = await submitFrom("Name for a new tab", "first_name", "Open window");
+    expect(offsite(state)).toEqual({ hits: [], submissions: [] });
+  });
+
+  it("does not load a frame the page embeds from another domain", async () => {
+    const { state } = await submitFrom("Name for a new tab", "first_name", "Send in new tab");
+    expect(state.hits.some((hit) => hit.host === "localhost" && hit.path === "/offsite")).toBe(
+      false,
+    );
+  });
+
+  it("still delivers a form aimed at a frame on the target's own domain", async () => {
+    const { state } = await submitFrom(
+      "Name for our own frame",
+      "first_name",
+      "Send into own frame",
+    );
+    expect(state.submissions).toEqual([
+      expect.objectContaining({ host: "127.0.0.1", path: "/collect" }),
+    ]);
+  });
+});
+
+describeBrowser("redirects that start in a tab or a frame", () => {
+  const strangers = (state: FixtureState) => ({
+    hits: state.hits.filter((hit) => hit.host === "other.test"),
+    submissions: state.submissions.filter((submission) => submission.host === "other.test"),
+  });
+
+  async function typeAndClick(path: string, label: string, button: string, task = agentTask()) {
+    await run(
+      [
+        navigate(path),
+        (v) => ({ calls: [["type", { ref: v.ref(label), field: "first_name" }]] }),
+        (v) => ({ calls: [["click", { ref: v.ref(button) }]] }),
+        { calls: [["wait", { seconds: 2 }]] },
+        { calls: [["report", { status: "release" }]] },
+      ],
+      { task },
+    );
+    return strangers(await fixtureState());
+  }
+
+  it("does not follow a 307 that a form in a new tab is posted through", async () => {
+    const seen = await typeAndClick("/hops", "Name for a posted tab", "Post in new tab");
+    expect(seen).toEqual({ hits: [], submissions: [] });
+  });
+
+  it("does not follow a 302 from a window the page opens by script", async () => {
+    const seen = await typeAndClick("/hops", "Name for a window", "Open redirecting window");
+    expect(seen).toEqual({ hits: [], submissions: [] });
+  });
+
+  it("does not follow a 302 from a window opened without an opener", async () => {
+    const seen = await typeAndClick(
+      "/hops",
+      "Name for a window",
+      "Open redirecting window without opener",
+    );
+    expect(seen).toEqual({ hits: [], submissions: [] });
+  });
+
+  describe("on a target that owns two hosts", () => {
+    const task = () => agentTask({ target: { ...TARGET, website: OFFSITE } });
+
+    it("does not follow a 307 that a form aimed at a frame of the second host is posted through", async () => {
+      const seen = await typeAndClick(
+        "/oopif",
+        "Name for the friend frame",
+        "Send into friend frame",
+        task(),
+      );
+      expect(seen).toEqual({ hits: [], submissions: [] });
+    });
+
+    it("does not let a frame of the second host send itself to a third", async () => {
+      await run(
+        [
+          navigate("/oopif"),
+          { calls: [["wait", { seconds: 3 }]] },
+          { calls: [["report", { status: "release" }]] },
+        ],
+        { task: task() },
+      );
+      expect(strangers(await fixtureState())).toEqual({ hits: [], submissions: [] });
+    });
+
+    it("still delivers a form aimed at a frame of the second host to that host", async () => {
+      await run(
+        [
+          navigate("/oopif"),
+          (v) => ({
+            calls: [["type", { ref: v.ref("Name for the friend frame"), field: "first_name" }]],
+          }),
+          (v) => ({ calls: [["click", { ref: v.ref("Send into friend frame") }]] }),
+          { calls: [["wait", { seconds: 1 }]] },
+          { calls: [["report", { status: "release" }]] },
+        ],
+        { task: task() },
+      );
+      const { hits } = await fixtureState();
+      expect(hits.some((hit) => hit.host === "localhost" && hit.path === "/hop307")).toBe(true);
+    });
+  });
+});
+
+describeBrowser("a single-page portal on a shared host", () => {
+  const portal = () =>
+    agentTask({ target: { ...TARGET, optOutUrl: `${OFFSITE}/spa#/ekata/request/personalinfo` } });
+
+  it("stays usable after the portal changes its own address", async () => {
+    const { provider } = await run(
+      [
+        { calls: [["navigate", { url: `${OFFSITE}/spa#/ekata/request/personalinfo` }]] },
+        (v) => ({ calls: [["click", { ref: v.ref("Next screen") }]] }),
+        (v) => ({ calls: [["click", { ref: v.ref("Review screen") }]] }),
+        { calls: [["snapshot"]] },
+        { calls: [["report", { status: "release" }]] },
+      ],
+      { task: portal() },
+    );
+    const answers = provider.requests.flatMap((request) => {
+      const latest = request.messages.at(-1);
+      return latest?.role === "tool" ? latest.results.map((result) => result.content) : [];
+    });
+    expect(answers.join("\n")).not.toContain("The page is not usable");
+    expect(answers.at(-1)).toContain(`url: ${OFFSITE}/elsewhere?step=3`);
+  });
+
+  it("still refuses to load another route of the portal's host as a new document", async () => {
+    const { provider } = await run(
+      [
+        { calls: [["navigate", { url: `${OFFSITE}/spa#/ekata/request/personalinfo` }]] },
+        { calls: [["navigate", { url: `${OFFSITE}/elsewhere` }]] },
+        { calls: [["report", { status: "release" }]] },
+      ],
+      { task: portal() },
+    );
+    const answer = provider.requests[2]?.messages.at(-1);
+    const result = answer?.role === "tool" ? answer.results[0] : undefined;
+    expect(result?.isError).toBe(true);
+    expect(result?.content).toContain("Refused");
+  });
+});
+
+describeBrowser("telling the worker that a removal may have been submitted", () => {
+  it("waits for the worker before a click of a removal reaches the page", async () => {
+    const seen: number[] = [];
+    await run([...fillForm, { calls: [["report", { status: "release" }]] }], {
+      onMayHaveSubmitted: async () => {
+        await new Promise((resolve) => setTimeout(resolve, 20));
+        seen.push((await fixtureState()).submissions.length);
+      },
+    });
+    expect(seen).toEqual([0]);
+    expect((await fixtureState()).submissions).toHaveLength(1);
+  });
+
+  it("does not click, and gives the task back, when the server could not record the submission", async () => {
+    const { outcome } = await run(fillForm, {
+      onMayHaveSubmitted: async () => {
+        throw new SubmitNotRecorded("503");
+      },
+    });
+    expect(outcome.report.kind).toBe("release");
+    expect((await fixtureState()).submissions).toEqual([]);
+  });
+
+  it("stays quiet for a scan, which submits nothing", async () => {
+    const onMayHaveSubmitted = vi.fn(async () => undefined);
+    await run(
+      [
+        navigate("/optout"),
+        (v) => ({ calls: [["click", { ref: v.ref("Privacy policy") }]] }),
+        { calls: [["report", { status: "release" }]] },
+      ],
+      { task: agentTask({ payload: { purpose: "scan" } }), onMayHaveSubmitted },
+    );
+    expect(onMayHaveSubmitted).not.toHaveBeenCalled();
+  });
+});
+
+describeBrowser("everything the profile holds, not only what the task uses", () => {
+  const HELD = [
+    "Jo Sample",
+    "+15125550100",
+    "old.address@example.org",
+    "12 Old Mill Road",
+    "Houston",
+    "1990",
+  ];
+
+  function detailsTask() {
+    return agentTask({ payload: { purpose: "scan" }, maskValues: HELD });
+  }
+
+  function snapshotOf(provider: ScriptedProvider): string {
+    const seen = provider.requests[1]?.messages.at(-1);
+    return seen?.role === "tool" ? (seen.results[0]?.content ?? "") : "";
+  }
+
+  it("hides the other names, phones, emails, addresses and birth year a page shows", async () => {
+    const { provider } = await run(
+      [navigate("/details"), { calls: [["report", { status: "release" }]] }],
+      { task: detailsTask() },
+    );
+    const snapshot = snapshotOf(provider);
+    for (const held of ["Sample", "555-0100", "old.address", "Old Mill", "Houston", "1990"]) {
+      expect(snapshot).not.toContain(held);
+    }
+    expect(snapshot).toMatch(/Phones: \{\{other_\d+\}\}, \(512\) 555-0199/);
+    expect(
+      provider.requests.map((request) => JSON.stringify(request.messages)).join(),
+    ).not.toContain("Houston");
+  });
+
+  it("shows what the profile does not hold, which is the page's own knowledge", async () => {
+    const { provider } = await run(
+      [navigate("/details"), { calls: [["report", { status: "release" }]] }],
+      { task: detailsTask() },
+    );
+    const snapshot = snapshotOf(provider);
+    expect(snapshot).toContain("555-0199");
+    expect(snapshot).toContain("someone.else@");
+    expect(snapshot).toContain("Riley Other");
+    expect(snapshot).toContain("Age 35");
+  });
+
+  it("puts the hidden values back in a scan candidate the model copied from what it saw", async () => {
+    const { outcome } = await run(
+      [
+        navigate("/details"),
+        (v) => {
+          const phone = v.snapshot.match(/Phones: (\{\{other_\d+\}\})/)?.[1] ?? "";
+          const link = v.snapshot.match(/-> (\S+)/)?.[1] ?? "";
+          return {
+            calls: [
+              [
+                "report",
+                {
+                  status: "complete",
+                  result: {
+                    purpose: "scan",
+                    scan: {
+                      candidates: [
+                        { recordUrl: link, name: "x", locations: ["Austin, TX"], phones: [phone] },
+                      ],
+                    },
+                  },
+                },
+              ],
+            ],
+          };
+        },
+      ],
+      { task: detailsTask() },
+    );
+    expect(outcome.report).toMatchObject({
+      kind: "complete",
+      result: { scan: { candidates: [{ phones: ["+15125550100"] }] } },
+    });
+  });
+
+  it("hides nothing extra from a task that was given no list", async () => {
+    const { provider } = await run(
+      [navigate("/details"), { calls: [["report", { status: "release" }]] }],
+      { task: agentTask({ payload: { purpose: "scan" } }) },
+    );
+    expect(snapshotOf(provider)).toContain("Houston");
   });
 });

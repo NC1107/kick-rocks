@@ -17,6 +17,7 @@ import {
   seedTask,
   type TestContext,
 } from "../../test-utils/index.js";
+import { eraseInstance, eraseProfile } from "../data-rights/erase.js";
 import { decodeScreenshot } from "./screenshot.js";
 
 const PNG = Buffer.concat([
@@ -100,8 +101,9 @@ describe("heartbeat", () => {
     expect(result.ok && result.body).toEqual({
       ok: true,
       serverTime: ctx.clock.now().toISOString(),
+      profileIds: [profileId],
     });
-    expect(ctx.services.settings.get("worker.status")).toEqual({
+    expect(ctx.services.settings.get("worker.status.builtin")).toEqual({
       workerId: "worker-1",
       version: "0.3.0",
       lastSeenAt: ctx.clock.now().toISOString(),
@@ -114,13 +116,49 @@ describe("heartbeat", () => {
     await ctx.call(API_ROUTES.workerHeartbeat, { body: { workerId: "a", busy: true } });
     ctx.clock.advance(30_000);
     await ctx.call(API_ROUTES.workerHeartbeat, { body: { workerId: "b", busy: false } });
-    expect(ctx.services.settings.get("worker.status")).toMatchObject({
+    expect(ctx.services.settings.get("worker.status.builtin")).toMatchObject({
       workerId: "b",
       version: null,
       busy: false,
       currentTaskId: null,
       lastSeenAt: ctx.clock.now().toISOString(),
     });
+  });
+
+  it("keeps the built-in worker and the model worker apart, so one never makes the other look alive", async () => {
+    await ctx.call(API_ROUTES.workerHeartbeat, {
+      body: { workerId: "recipes", busy: false, claimer: "builtin" },
+    });
+    ctx.clock.advance(120_000);
+    await ctx.call(API_ROUTES.workerHeartbeat, {
+      body: { workerId: "model", busy: true, currentTaskId: "t9", claimer: "model" },
+    });
+    expect(ctx.services.settings.get("worker.status.builtin")).toMatchObject({
+      workerId: "recipes",
+      busy: false,
+      lastSeenAt: new Date(ctx.clock.now().getTime() - 120_000).toISOString(),
+    });
+    expect(ctx.services.settings.get("worker.status.model")).toMatchObject({
+      workerId: "model",
+      busy: true,
+      currentTaskId: "t9",
+      lastSeenAt: ctx.clock.now().toISOString(),
+    });
+  });
+
+  it("lists the profiles that still exist, so a worker can forget the others", async () => {
+    const other = seedProfile(ctx).id;
+    const beat = async () => {
+      const result = await ctx.call(API_ROUTES.workerHeartbeat, {
+        body: { workerId: "worker-1", busy: false },
+      });
+      return result.ok ? [...(result.body.profileIds ?? [])].sort() : null;
+    };
+    expect(await beat()).toEqual([profileId, other].sort());
+    eraseProfile(ctx.services, other);
+    expect(await beat()).toEqual([profileId]);
+    eraseInstance(ctx.services);
+    expect(await beat()).toEqual([]);
   });
 
   it("validates the body", async () => {
@@ -589,5 +627,53 @@ describe("a lapsed holder reporting on a scan after its last lease expired", () 
     expect(done.ok).toBe(true);
     expect(scanOfTask(agent.id)).toMatchObject({ error: null, finishedAt: expect.any(String) });
     expect(allMatches()).toHaveLength(1);
+  });
+});
+
+describe("a removal the worker says it clicked", () => {
+  async function claimRemoval() {
+    seedMailbox(ctx, profileId);
+    const target = seedTarget(ctx, { contactMethod: "form", category: "marketing" });
+    const request = seedRequest(ctx, {
+      profileId,
+      targetId: target.id,
+      status: "queued",
+      channel: "form",
+    });
+    ctx.services.dispatch.dispatchRequest(request.id);
+    const task = (await claim({
+      workerId: "agent-1",
+      kinds: ["agent"],
+      claimer: "model",
+    })) as ClaimedTask;
+    expect(task.kind).toBe("agent");
+    return { task, request };
+  }
+
+  it("is held for a person when the lease runs out, and the request is not sent again", async () => {
+    const { task, request } = await claimRemoval();
+    const beat = await ctx.call(API_ROUTES.workerTaskHeartbeat, {
+      params: { id: task.id },
+      body: { workerId: "agent-1", mayHaveSubmitted: true },
+    });
+    expect(beat.ok).toBe(true);
+
+    ctx.clock.advance(60 * 60 * 1000);
+    ctx.services.taskQueue.reapExpiredLeases();
+    expect(ctx.services.taskQueue.getOrThrow(task.id)).toMatchObject({
+      status: "blocked",
+      blockedReason: "unknown",
+      mayHaveSubmitted: true,
+    });
+    ctx.clock.advance(60 * 60 * 1000);
+    expect(await claim({ workerId: "agent-2", kinds: ["agent"], claimer: "model" })).toBeNull();
+    expect(ctx.services.requests.getOrThrow(request.id).status).not.toBe("sent");
+  });
+
+  it("is queued again, as before, when the worker never said it clicked", async () => {
+    const { task } = await claimRemoval();
+    ctx.clock.advance(60 * 60 * 1000);
+    ctx.services.taskQueue.reapExpiredLeases();
+    expect(ctx.services.taskQueue.getOrThrow(task.id).status).toBe("queued");
   });
 });

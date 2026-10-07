@@ -23,6 +23,7 @@ export function buildSystemPrompt({ task, sites, fieldNames, maxSteps }: PromptC
     "How this differs from the instructions at the end:",
     "- They were written for a client with MCP tools. You have none. Where they say complete_task, block_task, fail_task or release_task, call the report tool with status complete, blocked, failed or release. Heartbeats are done for you. Ignore get_target, get_recipe and propose_recipe.",
     `- You never see the person's details and never write them. To enter one, call type with the name of the field, and the program fills in the value. The fields for this task are: ${fieldNames.length > 0 ? fieldNames.join(", ") : "none"}.`,
+    "- A record address in the instructions or your first message reads {{record_url}}. Pass it to navigate exactly like that and the program opens the real page.",
     "- Where the page shows one of the person's details, you see a placeholder such as {{first_name}} instead. When you report a scan candidate, copy its text and its record link exactly as the snapshot shows them, placeholders included, and the program puts the real values back.",
     "",
     "Rules the program enforces. Breaking one does not work, it only wastes steps:",
@@ -38,6 +39,7 @@ export function buildSystemPrompt({ task, sites, fieldNames, maxSteps }: PromptC
     `- wait takes up to ${MAX_WAIT_SECONDS} seconds.`,
     "- If the site needs a detail that is not a field of this task, an account, a phone number, a payment or a document, stop with report status blocked and say what it needs.",
     "- Report what actually happened. If you cannot tell whether the request went through, report failed instead of guessing.",
+    "- A click that times out may still have been delivered, and a form may have been submitted. Look at the page before you click submit again, and never submit twice.",
     "- A result of submitted or awaiting_email_confirmation is only accepted after you clicked something on the page.",
     "",
     `Target: ${task.target.name} (${task.target.domain}). Purpose: ${task.payload.purpose}.`,
@@ -51,11 +53,17 @@ export function buildOpeningMessage(startUrl: string): string {
   return `Begin the task. Start by opening ${startUrl} with navigate, then work through the instructions. Finish with report.`;
 }
 
-/** Where the run starts: the page the task names, most specific first. */
+/**
+ * Where the run starts: the page the task names, most specific first. A deletion starts at the
+ * company's privacy rights page, because its opt-out page is usually a do-not-sell form.
+ */
 export function startUrlFor(task: AgentTask): string {
-  const { recordUrl } = task.payload;
-  const { optOutUrl, searchUrl, website, domain } = task.target;
+  const { recordUrl, purpose, rights } = task.payload;
+  const { optOutUrl, privacyRightsUrl, searchUrl, website, domain } = task.target;
+  const deletes = purpose === "remove" && rights.includes("delete");
   const named =
-    task.payload.purpose === "scan" ? [searchUrl, optOutUrl] : [recordUrl, optOutUrl, searchUrl];
+    purpose === "scan"
+      ? [searchUrl, optOutUrl]
+      : [recordUrl, deletes ? privacyRightsUrl : null, optOutUrl, searchUrl];
   return named.find((url) => url !== null && url !== undefined) ?? website ?? `https://${domain}/`;
 }
