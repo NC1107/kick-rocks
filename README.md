@@ -82,6 +82,21 @@ Three settings in `.env` make that work.
 
 The proxy must pass the original `Host` header through, which most do by default, and keep the connection to the server on a network only it can reach.
 
+## Notifications and the digest
+
+Settings has a Notifications tab so you do not have to keep the app open.
+
+- Push goes to ntfy (ntfy.sh or your own server and a topic) or Telegram (a bot token and a chat id).
+  It is sent when a task is blocked for you, a broker asks you to approve identifiers, a listing needs your decision, a mailbox fails, or a recipe breaks.
+  Each item is announced once while it stays open, items that arrive together share one message, and at most six pushes go out per hour unless you change that.
+- A push carries counts and one link to this app, such as "2 tasks are blocked. Open https://kickrocks.example.org/review".
+  It never names a broker, a person, or an address, because it passes through a server you may not run.
+  Set `KICKROCKS_PUBLIC_URL` so the link opens from your phone.
+- The digest is a daily or weekly email from your own mailbox to itself, listing status changes and what needs you.
+  It is sent through the same mailbox as your requests, so it never touches another service, and it is skipped when nothing changed and nothing waits on you.
+- Tokens are stored in the encrypted database and are never shown again after saving.
+  The server reaches ntfy and Telegram over the network, so it needs outbound access to the ntfy address you enter and to `api.telegram.org`.
+
 ## Backup, restore, and the data volume
 
 The database and its key live in a docker volume named `kickrocks-data`, which compose prefixes with the project name `kick-rocks`, so on disk it is `kick-rocks_kickrocks-data`.
