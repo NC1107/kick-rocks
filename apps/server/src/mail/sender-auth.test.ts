@@ -21,7 +21,7 @@ function messageWith(
     autoSubmitted: false,
     headers: {},
     authenticationResults,
-    authenticationReceivedAbove,
+    ...(authenticationReceivedAbove ? { authenticationReceivedAbove } : {}),
   };
 }
 
