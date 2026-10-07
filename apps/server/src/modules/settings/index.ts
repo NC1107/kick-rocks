@@ -27,6 +27,7 @@ function viewOf({ settings, config }: AppServices): SettingsView {
       tokenSet: settings.get("mcp.tokenHash") !== null,
       url: `${config.publicUrl}/mcp`,
     },
+    siteChecks: { enabled: settings.get("siteChecks.enabled") },
     worker: {
       enabled: config.workerToken !== null,
       status: settings.get("worker.status"),
@@ -76,6 +77,7 @@ function applyPatch({ settings }: AppServices, patch: SettingsPatch): void {
     settings.set("llm", { baseUrl, model, apiKey: kept });
   }
   if (patch.mcp) settings.set("mcp.enabled", patch.mcp.enabled);
+  if (patch.siteChecks) settings.set("siteChecks.enabled", patch.siteChecks.enabled);
 }
 
 /** How many live targets list each source, counting a target once however it lists it. */

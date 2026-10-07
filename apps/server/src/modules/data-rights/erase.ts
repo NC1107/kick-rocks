@@ -34,6 +34,7 @@ const SETTINGS_TO_FORGET: readonly SettingKey[] = [
   "retention",
   "mcp.enabled",
   "mcp.tokenHash",
+  "siteChecks.enabled",
   "worker.status",
 ];
 

@@ -573,6 +573,7 @@ describe("reset instance", () => {
     store.set("schedule", { ...store.get("schedule"), pollMinutes: 5 });
     store.set("llm", { baseUrl: "http://localhost:11434/v1", model: "m", apiKey: "k" });
     store.set("mcp.enabled", true);
+    store.set("siteChecks.enabled", true);
     store.set("mcp.tokenHash", "token-hash");
     store.set("retention", { messageDays: 10, screenshotDays: 5 });
     db.insert(sessions)
@@ -590,6 +591,7 @@ describe("reset instance", () => {
     expect(store.get("schedule").pollMinutes).toBe(15);
     expect(store.get("llm")).toBeNull();
     expect(store.get("mcp.enabled")).toBe(false);
+    expect(store.get("siteChecks.enabled")).toBe(false);
     expect(store.get("mcp.tokenHash")).toBeNull();
     expect(store.get("retention")).toEqual({ messageDays: null, screenshotDays: 30 });
     expect(store.get("auth.passwordHash")).toBe("hash-of-the-password");

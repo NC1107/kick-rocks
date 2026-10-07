@@ -51,7 +51,8 @@ A request the broker cannot verify is processed as an opt-out of sale or sharing
 It recommends DROP when the person lives in California, the target is a broker registered with California, a deletion is asked for (alone or with an opt-out), and the date is on or after 2026-08-01.
 It does not recommend DROP for an opt-out alone, because DROP is a deletion request the person did not ask for, even though DROP also stops future sale or sharing (Civ. Code 1798.99.86(d)).
 It does not recommend it for a broker outside the California registry, for a company, or before the processing date.
-A deletion-only request to a registered broker is still emailed under the Delete Act basis, and a two-right request keeps the CCPA opt-out email while the deletion goes through DROP.
+The library still resolves the Delete Act basis for a deletion-only request to a registered broker, but the server's campaign planner does not email it: it skips that target as covered by the platform and tells the person to file at DROP.
+A two-right request keeps the CCPA opt-out email, and the planner adds an advisory that DROP can also delete what the broker holds.
 A deletion request to a company stays a CCPA request for the data the person provided.
 
 The law only says "to the extent it applies to you" because every statute has size thresholds the tool cannot check for a given business.
@@ -164,4 +165,4 @@ The tests also pin the opt-out authentication rule per state, check that the cla
 - The California regulations 11 CCR 7026(d) and (f) and the Montana and New Hampshire sections were confirmed from secondary hosts of the official text, not the agency or legislature copy.
 - New Jersey's implementing rules under the Data Privacy Act were not reviewed.
 - Nevada's NRS 603A.345 took effect two years before the entry's date, which is the broker date.
-- Nothing in the server calls `recommendDrop` yet, because the server files are owned by another change.
+- Kick Rocks never files at DROP for the person, because DROP needs the person's own identity verification. It only points to it.

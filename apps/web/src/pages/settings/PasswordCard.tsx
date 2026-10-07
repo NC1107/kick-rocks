@@ -50,7 +50,7 @@ export function PasswordCard() {
       >
         <CardHeader
           title="Password"
-          description="The password that signs you in to this instance. Other signed-in browsers stay signed in. It does not encrypt your data: that uses a key file next to the database, so back up the whole data folder, key file included."
+          description="The password that signs you in to this instance. Other signed-in browsers stay signed in. It does not encrypt your data: that uses a key stored next to the database, so back up the whole kickrocks-data volume, key included. The README has the commands."
         />
         <div className="grid gap-x-6 gap-y-4 sm:grid-cols-2">
           <Field

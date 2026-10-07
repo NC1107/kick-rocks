@@ -41,7 +41,7 @@ Datacenter IPs trip bot management on people-search sites, so the browser runs o
 - Push notifications over ntfy or Telegram when a task blocks.
 - Outlook.com support through OAuth.
 - GDPR templates and EU broker data.
-- Daily email digest of status changes.
+- A daily or weekly email digest of status changes, sent from the person's own mailbox to itself, and push notifications through ntfy or Telegram.
 
 ### Out of Scope
 
@@ -146,6 +146,7 @@ A recipe is a JSON document with a version, the broker id, the entry URL, and an
 Step kinds are `goto`, `fill`, `click`, `select`, `wait_for`, `extract`, `expect_text`, `captcha_checkpoint`, and `email_confirmation`.
 Selectors are preferred in order of role and label, test id, then CSS.
 Every recipe has a `canary` section that lets a health check load the entry page and verify the key selectors still exist without submitting anything.
+A health check visits the real broker site, so none runs until the person has set a password and turned on site checks in Settings.
 
 ## Alternatives Considered
 
@@ -255,6 +256,16 @@ Deletion cancels the profile's live tasks through the queue before removing rows
 Retention windows for screenshots and for reply text replace the fixed 30 day screenshot purge, and a typed confirmation resets the whole instance.
 Consequences: reply text is blanked rather than the row deleted, because the unique index on the mailbox UID is what keeps a poll from importing the same mail again.
 A worker or runner that held a lease on deleted work gets a not found answer, and an email already handed to the mail server cannot be recalled.
+
+### ADR-012: A model-driven agent worker as an optional second claimer
+
+Context: ADR-003 lets any client claim agent tasks over MCP, but that needs Claude Code or another MCP client to be running, and some people want a local model to take over when a recipe is missing.
+Decision: `apps/agent-worker` is a separate program that claims only `agent` tasks through the worker API, drives its own Chrome with its own profile, and asks a model (Ollama or any OpenAI-compatible endpoint, or the Anthropic API) for the next step.
+The model never sees profile values: it names a profile field and the program types the value, and everything the model reads is masked to placeholders such as `{{first_name}}`.
+The program types only on the broker's own domains and pages, a step, time, and token budget bounds each task, and a CAPTCHA or verification wall stops the task for the person as in ADR-005.
+It starts only with the `agent` compose profile and a configured model, so a default install never runs it.
+Consequences: a third claimer type that the server counts apart from recipe runs and MCP clients, a second Chrome image of about 2 GB, and a model call per step that costs money for a hosted model.
+A weak local model fails more tasks, and a failed task returns to the review queue.
 
 ## Implementation Plan
 

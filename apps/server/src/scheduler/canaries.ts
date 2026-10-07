@@ -8,11 +8,23 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 export const CANARY_INTERVAL_DAYS = 7;
 
 /**
+ * Canaries open real broker sites, so they wait until the person has set a password and turned
+ * site checks on in Settings.
+ */
+export function siteChecksAllowed({ settings }: AppServices): boolean {
+  return settings.get("auth.passwordHash") !== null && settings.get("siteChecks.enabled");
+}
+
+/**
  * Queues a canary for every approved recipe that has gone a week without one, so a form that
  * changed is noticed before a person's removal fails on it. A recipe a real run exercised
  * recently has been checked already.
  */
 export function enqueueDueCanaries(services: AppServices): number {
+  if (!siteChecksAllowed(services)) {
+    cancelWaitingCanaries(services);
+    return 0;
+  }
   const cutoff = new Date(
     services.clock.now().getTime() - CANARY_INTERVAL_DAYS * DAY_MS,
   ).toISOString();
@@ -40,4 +52,11 @@ export function enqueueDueCanaries(services: AppServices): number {
     if (services.dispatch.enqueueCanary(recipe.id).created) queued += 1;
   }
   return queued;
+}
+
+/** A canary queued before site checks were switched off must not be picked up by the worker. */
+function cancelWaitingCanaries(services: AppServices): void {
+  for (const task of services.taskQueue.list({ kinds: ["canary"], status: "queued" })) {
+    services.taskQueue.cancel(task.id);
+  }
 }

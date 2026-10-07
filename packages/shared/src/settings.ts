@@ -77,6 +77,7 @@ export const SETTING_SCHEMAS = {
   "auth.passwordHash": z.string().nullable().default(null),
   "mcp.tokenHash": z.string().nullable().default(null),
   "mcp.enabled": z.boolean().default(false),
+  "siteChecks.enabled": z.boolean().default(false),
   schedule: ScheduleSettings.default(ScheduleSettings.parse({})),
   llm: LlmSettings.nullable().default(null),
   retention: RetentionSettings.default(RetentionSettings.parse({})),
@@ -99,6 +100,8 @@ export const SettingsView = z.object({
     /** Where an MCP client connects, built from KICKROCKS_PUBLIC_URL. */
     url: WebUrl,
   }),
+  /** Whether the worker may open real broker sites on its own to check that the recipes still work. */
+  siteChecks: z.object({ enabled: z.boolean() }),
   worker: z.object({
     /** False when KICKROCKS_WORKER_TOKEN is unset and the worker API is switched off. */
     enabled: z.boolean(),
@@ -120,6 +123,7 @@ export const SettingsPatch = z.object({
     .nullable()
     .optional(),
   mcp: z.object({ enabled: z.boolean() }).optional(),
+  siteChecks: z.object({ enabled: z.boolean() }).optional(),
 });
 export type SettingsPatch = z.infer<typeof SettingsPatch>;
 

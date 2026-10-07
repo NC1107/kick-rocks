@@ -75,17 +75,55 @@ describe("docker-compose.yml", () => {
     for (const key of keys) expect(compose, key).toContain(`\${${key}`);
   });
 
+  it("waits for a healthy server before it starts either worker", () => {
+    expect(service("server")).toContain("healthcheck:");
+    for (const name of ["worker", "agent-worker"]) {
+      expect(service(name), name).toMatch(
+        /depends_on:\s*\n\s*server:\s*\n\s*condition: service_healthy/,
+      );
+    }
+  });
+
   it("publishes the UI on loopback unless the person chooses another address", () => {
     expect(compose).toContain("KICKROCKS_BIND_ADDRESS:-127.0.0.1");
   });
 });
 
 describe("README.md", () => {
-  it("stops the server before it copies the database, and says how to restore and what -v does", () => {
+  it("stops everything before it copies the database, and says how to restore and what -v does", () => {
     const backup = readme.indexOf("tar czf");
-    expect(readme.lastIndexOf("docker compose stop server", backup)).toBeGreaterThan(-1);
+    expect(readme.lastIndexOf("docker compose stop", backup)).toBeGreaterThan(-1);
     expect(readme).toContain("tar xzf");
     expect(readme).toContain("down -v");
+  });
+
+  it("writes the backup owner-only and outside the repository, and warns that it holds the key", () => {
+    expect(readme).toContain("umask 077");
+    expect(readme).not.toMatch(/-v "\$PWD":\/backup/);
+    expect(readme).toMatch(/off shared folders and cloud storage/);
+    expect(read(".gitignore").split("\n")).toContain("kickrocks-backup*");
+  });
+
+  it("gives the stop, start, and uninstall commands and the disk and build time", () => {
+    for (const text of [
+      "--stop",
+      "--start",
+      "--uninstall",
+      "COMPOSE_PROFILES=worker",
+      "GB",
+      "minutes",
+    ]) {
+      expect(readme, text).toContain(text);
+    }
+  });
+
+  it("says no site is visited until site checks are turned on", () => {
+    expect(readme).toContain("Nothing visits a broker site until you say so");
+    expect(readme).toContain("Site checks");
+  });
+
+  it("asks for a state, which the profile form requires", () => {
+    expect(readme).toContain("name, email, and state of residence");
   });
 
   it("explains how to reach the UI from another device", () => {
@@ -101,7 +139,7 @@ describe("README.md", () => {
   });
 
   it("covers updating and logs", () => {
-    expect(readme).toContain("--profile worker up -d --build");
+    expect(readme).toContain("docker compose up -d --build");
     expect(readme).toContain("docker compose logs");
   });
 });
@@ -177,6 +215,16 @@ describe("install.sh", () => {
       rmSync(dir, { recursive: true, force: true });
     }
   };
+
+  it("writes COMPOSE_PROFILES so every compose command sees the worker", () => {
+    const script = read("install.sh");
+    expect(script).toContain("COMPOSE_PROFILES=");
+    for (const flag of ["--stop", "--start", "--backup", "--uninstall"]) {
+      expect(script, flag).toContain(flag);
+    }
+    expect(script).toContain("umask 077");
+    expect(script).toContain("--wait");
+  });
 
   it("prints the address compose publishes by default", () => {
     expect(urlFor("KICKROCKS_WORKER_TOKEN=\n")).toBe("http://127.0.0.1:8420");
