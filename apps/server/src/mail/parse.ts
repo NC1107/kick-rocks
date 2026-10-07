@@ -11,7 +11,8 @@ function addressesOf(field: AddressObject | AddressObject[] | undefined) {
   const objects = field === undefined ? [] : Array.isArray(field) ? field : [field];
   return objects
     .flatMap((object) => object.value)
-    .filter((entry): entry is { address: string; name: string } => Boolean(entry.address));
+    .filter((entry): entry is { address: string; name: string } => Boolean(entry.address))
+    .map((entry) => ({ ...entry, address: entry.address.toLowerCase() }));
 }
 
 /** Header names are lower case, and a header that repeats is joined with commas. */
@@ -106,7 +107,9 @@ export async function parseInboxMessage({
     from: { name: from?.name ? from.name : null, address: from?.address ?? "" },
     to: addressesOf(parsed.to).map((entry) => entry.address),
     subject: parsed.subject ?? "",
-    date: validDate(parsed.date) ?? arrival,
+    // The parser quietly turns an unreadable Date header into the current time, which would make an
+    // old message look new, so the header is read again here.
+    date: validDate(headers.date ? new Date(headers.date) : null) ?? arrival,
     text: (parsed.text ?? "").slice(0, MAX_PARSED_TEXT_CHARS),
     html: typeof parsed.html === "string" ? parsed.html.slice(0, MAX_PARSED_TEXT_CHARS * 2) : null,
     isBounce: detectBounce(parsed, headers),
