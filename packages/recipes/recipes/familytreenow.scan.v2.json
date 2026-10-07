@@ -4,10 +4,7 @@
   "version": 2,
   "purpose": "scan",
   "entryUrl": "https://www.familytreenow.com/",
-  "fields": [
-    "first_name",
-    "last_name"
-  ],
+  "fields": ["first_name", "last_name"],
   "steps": [
     {
       "kind": "goto",

@@ -4,12 +4,7 @@
   "version": 2,
   "purpose": "scan",
   "entryUrl": "https://thatsthem.com/",
-  "fields": [
-    "first_name",
-    "last_name",
-    "city",
-    "state"
-  ],
+  "fields": ["first_name", "last_name", "city", "state"],
   "steps": [
     {
       "kind": "goto",

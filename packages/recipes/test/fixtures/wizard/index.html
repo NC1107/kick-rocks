@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Wizard opt-out</title>
+</head>
+<body>
+
+<h1>Opt-out of Example</h1>
+<p id="alert" role="alert"></p>
+
+<section id="step1">
+  <p>Step 1 of 5</p>
+  <input id="listing-url" data-qa-selector="listing-url" placeholder="Paste the URL of your listing" type="text">
+  <button type="button" id="next1">Next</button>
+</section>
+
+<section id="step2" hidden>
+  <h2>Is this the person you want to remove?</h2>
+  <button type="button" id="confirm">Remove Me</button>
+</section>
+
+<section id="step3" hidden>
+  <h2>Please tell us why you would like your information removed</h2>
+  <select class="select" id="reason">
+    <option value="" disabled selected>Select a reason</option>
+    <option>My profile information is incorrect</option>
+    <option>I just want to keep my information private</option>
+  </select>
+  <button type="button" id="next3" disabled>Next</button>
+</section>
+
+<section id="step4" hidden>
+  <h2>Verify your identity with a phone call</h2>
+  <input data-qa-selector="phone-number" placeholder="Enter your phone number" type="text">
+  <label><input class="checkbox" id="affirm" type="checkbox"> By checking this box I affirm that this is my phone number.</label>
+  <button type="button" id="call">Call now to verify</button>
+</section>
+
+<section id="step5" hidden>
+  <h2>Your verification code</h2>
+  <p id="code">4821</p>
+</section>
+
+<script>
+  const show = (n) => {
+    for (const s of document.querySelectorAll("section")) s.hidden = s.id !== `step${n}`;
+  };
+  document.getElementById("next1").addEventListener("click", () => {
+    const url = document.getElementById("listing-url").value;
+    if (url.includes("/name/")) {
+      document.getElementById("alert").textContent = "";
+      show(2);
+    } else {
+      document.getElementById("alert").textContent =
+        "Sorry, we are not able to locate the listing associated with the URL provided.";
+    }
+  });
+  document.getElementById("confirm").addEventListener("click", () => show(3));
+  document.getElementById("reason").addEventListener("change", () => {
+    document.getElementById("next3").disabled = false;
+  });
+  document.getElementById("next3").addEventListener("click", () => show(4));
+  document.getElementById("call").addEventListener("click", () => {
+    if (document.getElementById("affirm").checked) show(5);
+  });
+</script>
+
+</body>
+</html>

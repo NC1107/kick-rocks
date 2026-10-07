@@ -1,0 +1,129 @@
+{
+  "id": "whitepages.remove.v2",
+  "brokerId": "whitepages",
+  "version": 2,
+  "purpose": "remove",
+  "entryUrl": "https://www.whitepages.com/suppression-requests",
+  "fields": ["record_url", "phone"],
+  "steps": [
+    {
+      "kind": "goto",
+      "url": "https://www.whitepages.com/suppression-requests"
+    },
+    {
+      "kind": "fill",
+      "target": {
+        "css": "#suppression-requests-person-url"
+      },
+      "field": "record_url"
+    },
+    {
+      "kind": "captcha_checkpoint"
+    },
+    {
+      "kind": "click",
+      "target": {
+        "role": "button",
+        "label": "Next"
+      }
+    },
+    {
+      "kind": "outcome_when",
+      "when": [
+        {
+          "text": "not able to locate the listing",
+          "outcome": "not_found"
+        }
+      ]
+    },
+    {
+      "kind": "wait_for",
+      "target": {
+        "text": "Is this the person you want to remove?"
+      }
+    },
+    {
+      "kind": "click",
+      "target": {
+        "role": "button",
+        "label": "Remove Me"
+      }
+    },
+    {
+      "kind": "wait_for",
+      "target": {
+        "text": "Please tell us why"
+      }
+    },
+    {
+      "kind": "select",
+      "target": {
+        "css": "select.select"
+      },
+      "value": "I just want to keep my information private"
+    },
+    {
+      "kind": "click",
+      "target": {
+        "role": "button",
+        "label": "Next"
+      }
+    },
+    {
+      "kind": "wait_for",
+      "target": {
+        "text": "Verify your identity with a phone call"
+      }
+    },
+    {
+      "kind": "fill",
+      "target": {
+        "css": "[data-qa-selector=\"suppression-requests-phone-number\"]"
+      },
+      "field": "phone"
+    },
+    {
+      "kind": "check",
+      "target": {
+        "css": "input.checkbox[type=\"checkbox\"]"
+      }
+    },
+    {
+      "kind": "click",
+      "target": {
+        "role": "button",
+        "label": "Call now to verify"
+      }
+    },
+    {
+      "kind": "outcome_when",
+      "when": [
+        {
+          "text": "Your request to opt out has been accepted",
+          "outcome": "submitted"
+        },
+        {
+          "text": "Your verification code",
+          "outcome": "blocked",
+          "reason": "phone_verification"
+        }
+      ]
+    }
+  ],
+  "canary": {
+    "url": "https://www.whitepages.com/suppression-requests",
+    "selectors": [
+      {
+        "css": "#suppression-requests-person-url"
+      },
+      {
+        "role": "button",
+        "label": "Next"
+      }
+    ],
+    "steps": []
+  },
+  "notes": "Step 1 was seen live on 2026-10-07 in a plain headed Chrome from a residential connection: a profile URL input (#suppression-requests-person-url) and a Next button under \"Step 1 of 5\". Steps 2 to 5 are written from the page's own shipped Vue component (the /_nuxt chunk that renders /suppression-requests), not from a browser, because Next needs a real listing URL and the name pages that list one sit behind a DataDome challenge. The flow in that component is: Next loads the listing (a read only lookup) and shows \"Is this the person you want to remove?\" with a Remove Me button (step 2); Remove Me creates the suppression request, and step 3 asks for a reason in a plain select (select.select, with four fixed reasons) and an optional comment, with Next disabled until a reason is chosen; step 4 asks for a phone number (data-qa-selector suppression-requests-phone-number) and an affirmation checkbox, with a Call now to verify button; step 5 shows a verification code that a Whitepages robot asks for on a phone call. The page then polls and shows \"Your request to opt out has been accepted\" once the call is done, so the run ends as blocked for phone verification at the code screen and a person takes the call. A URL it cannot match shows \"Sorry, we're not able to locate the listing associated with the URL provided\", which ends the run as not found. The page can also show an opt-out maintenance notice. Texts and selectors after step 1 are unverified in a browser, so the recipe stays unverified. The old version guessed a confirmation text and a phone wall after the first click.",
+  "verifiedAt": "2026-10-07",
+  "liveStatus": "unverified"
+}

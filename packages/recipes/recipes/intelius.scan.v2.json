@@ -4,11 +4,7 @@
   "version": 2,
   "purpose": "scan",
   "entryUrl": "https://www.intelius.com/people-search/",
-  "fields": [
-    "first_name",
-    "last_name",
-    "state"
-  ],
+  "fields": ["first_name", "last_name", "state"],
   "steps": [
     {
       "kind": "goto",

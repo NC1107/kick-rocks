@@ -4,11 +4,7 @@
   "version": 2,
   "purpose": "remove",
   "entryUrl": "https://www.truepeoplesearch.com/removal",
-  "fields": [
-    "first_name",
-    "last_name",
-    "email"
-  ],
+  "fields": ["first_name", "last_name", "email"],
   "steps": [
     {
       "kind": "goto",
