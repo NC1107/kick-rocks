@@ -471,14 +471,10 @@ describeBrowser("the rules the code enforces", () => {
   it("delivers nothing to another site's service worker when a form posts there", async () => {
     const earlier = await context.newPage();
     await earlier.goto(`${OFFSITE}/sw-register`);
-    await earlier.evaluate(async () => {
-      // A browser that blocks service workers never settles the registration, which is the point.
-      const registered = navigator.serviceWorker
-        .register("/sw.js")
-        .then(() => navigator.serviceWorker.ready)
-        .catch(() => undefined);
-      await Promise.race([registered, new Promise((done) => setTimeout(done, 1_500))]);
-    });
+    // A browser that blocks service workers never reports one, so the wait is bounded.
+    await earlier
+      .waitForFunction("document.title === 'Worker ready'", undefined, { timeout: 1_500 })
+      .catch(() => undefined);
     await earlier.close();
 
     await run([
