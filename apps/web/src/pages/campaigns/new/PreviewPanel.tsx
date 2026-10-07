@@ -103,10 +103,12 @@ export function EmailPreview({
   email,
   fromAddress,
   targetName,
+  toAddress,
 }: {
   email: RenderedEmail;
   fromAddress: string | null;
   targetName: string | null;
+  toAddress: string | null;
 }) {
   return (
     <Card>
@@ -120,7 +122,9 @@ export function EmailPreview({
         {targetName ? (
           <>
             <dt className="text-ink-muted">To</dt>
-            <dd className="m-0 min-w-0 break-words text-ink">{targetName}</dd>
+            <dd className="m-0 min-w-0 break-words text-ink">
+              {toAddress ? `${targetName} (${toAddress})` : targetName}
+            </dd>
           </>
         ) : null}
         <dt className="text-ink-muted">Subject</dt>

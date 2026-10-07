@@ -66,12 +66,28 @@ describe("the campaign builder", () => {
     expect((await screen.findAllByText(/queued to send/)).length).toBeGreaterThan(0);
   });
 
+  it("asks only to opt out until deletion is ticked", async () => {
+    const { user } = open();
+    await user.click(await screen.findByRole("radio", { name: /Everyday companies/ }));
+    expect(screen.getByRole("checkbox", { name: /Opt out of sale/ })).toBeChecked();
+    expect(screen.getByRole("checkbox", { name: /Delete my data/ })).not.toBeChecked();
+    expect(screen.getByText(/may close your account/)).toBeVisible();
+  });
+
+  it("shows the address the first email goes to", async () => {
+    const { user } = open();
+    await user.click(
+      await screen.findByRole("radio", { name: /Data brokers with an email address/ }),
+    );
+    const preview = await screen.findByRole("region", { name: "Preview" });
+    expect(await within(preview).findByText(/\(privacy@[^)]+\)/)).toBeVisible();
+  });
+
   it("will not preview with no right chosen", async () => {
     const { user } = open();
     await user.click(await screen.findByRole("radio", { name: /Everyday companies/ }));
     await screen.findByRole("region", { name: "Preview" });
     await user.click(screen.getByRole("checkbox", { name: /Opt out of sale/ }));
-    await user.click(screen.getByRole("checkbox", { name: /Delete my data/ }));
     expect(screen.getByText("Choose at least one.")).toBeVisible();
     expect(screen.queryByRole("region", { name: "Preview" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Send requests" })).toBeDisabled();

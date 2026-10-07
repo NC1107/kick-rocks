@@ -5,9 +5,10 @@ import {
   type ProfileSummary,
   type RequestRight,
 } from "@kickrocks/shared";
+import { skipToken } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
-import { errorMessage, useApiMutation } from "../../../api/index.js";
+import { errorMessage, useApiMutation, useApiQuery } from "../../../api/index.js";
 import { RequireProfile } from "../../../components/layout/RequireProfile.js";
 import {
   Alert,
@@ -23,7 +24,7 @@ import {
 } from "../../../components/ui/index.js";
 import { pluralize } from "../../../lib/format.js";
 import { RIGHT_LABELS } from "../../../lib/labels.js";
-import { countByChannel, parseTargetIds } from "../channels.js";
+import { channelOf, countByChannel, parseTargetIds } from "../channels.js";
 import { ChannelTiles, CountsSkeleton, EmailPreview, SkippedList } from "./PreviewPanel.js";
 import { useAllTargets } from "./use-all-targets.js";
 
@@ -53,7 +54,8 @@ const PRESET_OPTIONS: readonly RadioOption<CampaignPreset>[] = [
 
 const RIGHT_HELP: Record<RequestRight, string> = {
   opt_out: "Ask them to stop selling or sharing your information.",
-  delete: "Ask them to erase what they hold about you.",
+  delete:
+    "Ask them to erase what they hold about you. A company may close your account and erase purchases or files.",
 };
 
 const RIGHT_ORDER: readonly RequestRight[] = ["opt_out", "delete"];
@@ -71,7 +73,7 @@ function Builder({ profile }: { profile: ProfileSummary }) {
 
   const targetIds = useMemo(() => parseTargetIds(params.get("targets")), [params]);
   const [preset, setPreset] = useState<CampaignPreset | null>(null);
-  const [rights, setRights] = useState<readonly RequestRight[]>(["opt_out", "delete"]);
+  const [rights, setRights] = useState<readonly RequestRight[]>(["opt_out"]);
   const [confirming, setConfirming] = useState(false);
 
   const choice: Choice =
@@ -130,9 +132,17 @@ function Builder({ profile }: { profile: ProfileSummary }) {
     [result, targetsById],
   );
   const work = result ? result.counts.request_created + result.counts.scan_started : 0;
-  const firstRequest = result?.items.find((item) => item.outcome === "request_created");
+  const firstRequest = result?.items.find((item) => {
+    if (item.outcome !== "request_created") return false;
+    const target = targetsById.get(item.targetId);
+    return target ? channelOf(target) === "email" : false;
+  });
   const canSend = body !== null && work > 0 && !preview.isPending;
   const noMailbox = !profile.mailboxConnected;
+  const recipient = useApiQuery(
+    API_ROUTES.targetsGet,
+    firstRequest ? { params: { id: firstRequest.targetId } } : skipToken,
+  );
 
   const toggleRight = (right: RequestRight, on: boolean) =>
     setRights((current) =>
@@ -183,7 +193,11 @@ function Builder({ profile }: { profile: ProfileSummary }) {
         <Card>
           <CardHeader
             title="Who to ask"
-            description="Pick a group to see exactly what would happen before anything is sent."
+            description={
+              targetIds.length > 0
+                ? "Check what would happen before anything is sent."
+                : "Pick a group to see exactly what would happen before anything is sent."
+            }
           />
           {targetIds.length > 0 ? (
             <div className="flex flex-wrap items-center justify-between gap-3">
@@ -226,6 +240,12 @@ function Builder({ profile }: { profile: ProfileSummary }) {
                 />
               ))}
             </div>
+            {targetIds.length === 0 ? (
+              <p className="mt-3 text-sm text-ink-muted">
+                A group campaign asks companies only to stop selling your data. To ask a company to
+                delete your data, select it on the Targets page.
+              </p>
+            ) : null}
             {rights.length === 0 ? (
               <p role="alert" className="mt-3 text-sm text-danger">
                 Choose at least one.
@@ -258,7 +278,9 @@ function Builder({ profile }: { profile: ProfileSummary }) {
             <ChannelTiles counts={counts} />
             {work === 0 ? (
               <Alert intent="info" title="Nothing to send">
-                Every target in this group is skipped. Pick another group or read the reasons below.
+                {targetIds.length > 0
+                  ? "Every target you selected is skipped. Read the reasons below or choose a group instead."
+                  : "Every target in this group is skipped. Pick another group or read the reasons below."}
               </Alert>
             ) : null}
             {result.sampleEmail ? (
@@ -266,6 +288,7 @@ function Builder({ profile }: { profile: ProfileSummary }) {
                 email={result.sampleEmail}
                 fromAddress={profile.primaryEmail}
                 targetName={firstRequest?.targetName ?? null}
+                toAddress={recipient.data?.privacyEmail ?? null}
               />
             ) : null}
             <SkippedList items={result.items} />
@@ -281,7 +304,9 @@ function Builder({ profile }: { profile: ProfileSummary }) {
                     result?.counts.scan_started ?? 0,
                   )
                 : body === null
-                  ? "Pick a group and at least one right to see a preview."
+                  ? targetIds.length > 0
+                    ? "Choose at least one right to see a preview."
+                    : "Pick a group and at least one right to see a preview."
                   : "Nothing to send yet."}
             </p>
             <Button variant="primary" disabled={!canSend} onClick={() => setConfirming(true)}>
@@ -302,7 +327,7 @@ function Builder({ profile }: { profile: ProfileSummary }) {
         open={confirming}
         onClose={() => setConfirming(false)}
         title="Send these requests?"
-        description="Emails go out one at a time from your mailbox, spaced out and within its daily limit. You can cancel any request afterwards."
+        description="Emails go out one at a time from your mailbox, spaced out and within its daily limit. You can stop requests that have not gone out yet."
         confirmLabel="Send requests"
         loading={create.isPending}
         onConfirm={() => body && create.mutate({ params: { id: profile.id }, body })}
