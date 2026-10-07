@@ -552,7 +552,11 @@ describe("a lapsed holder reporting on a scan after its last lease expired", () 
       body: { workerId: "worker-1", error: "selector gone", retryable: false, kind: "recipe" },
     });
     expect(failed.ok).toBe(true);
-    const row = ctx.services.db.select().from(scans).where(eq(scans.id, original?.id ?? "")).get();
+    const row = ctx.services.db
+      .select()
+      .from(scans)
+      .where(eq(scans.id, original?.id ?? ""))
+      .get();
     expect(row?.error).toEqual(expect.any(String));
     expect(row?.finishedAt).toEqual(expect.any(String));
   });
