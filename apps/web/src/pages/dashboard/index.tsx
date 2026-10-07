@@ -1,36 +1,29 @@
 import { API_ROUTES, type Dashboard } from "@kickrocks/shared";
-import { Inbox, Send } from "lucide-react";
 import { errorMessage, useApiQuery } from "../../api/index.js";
 import { RequireProfile } from "../../components/layout/RequireProfile.js";
 import {
   Alert,
   Button,
-  Card,
-  CardHeader,
   EmptyState,
   LinkButton,
   PageHeader,
   Skeleton,
 } from "../../components/ui/index.js";
 import {
-  ActivityList,
-  AttentionCard,
+  ActivitySection,
+  AttentionSection,
   MailboxNotices,
-  SendingCard,
-  StatusCard,
+  RequestsSection,
+  SendingSection,
 } from "./sections.js";
 
 const REFRESH_MS = 30_000;
 
 export function Component() {
-  return (
-    <RequireProfile>
-      {(profile) => <DashboardView profileId={profile.id} name={profile.displayName} />}
-    </RequireProfile>
-  );
+  return <RequireProfile>{(profile) => <DashboardView profileId={profile.id} />}</RequireProfile>;
 }
 
-function DashboardView({ profileId, name }: { profileId: string; name: string }) {
+function DashboardView({ profileId }: { profileId: string }) {
   const query = useApiQuery(API_ROUTES.dashboardGet, {
     params: { id: profileId },
     refetchInterval: REFRESH_MS,
@@ -41,11 +34,10 @@ function DashboardView({ profileId, name }: { profileId: string; name: string })
   const header = (
     <PageHeader
       title="Dashboard"
-      description={`Where requests for ${name} stand, and what needs you.`}
+      description="Where requests stand"
       actions={
         fresh ? undefined : (
           <LinkButton to="/campaigns/new" variant="primary">
-            <Send aria-hidden="true" className="size-4" />
             New campaign
           </LinkButton>
         )
@@ -92,16 +84,15 @@ function DashboardView({ profileId, name }: { profileId: string; name: string })
 function DashboardBody({ dashboard, profileId }: { dashboard: Dashboard; profileId: string }) {
   const fresh = dashboard.total === 0;
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-5">
       <MailboxNotices dashboard={dashboard} profileId={profileId} showMissing={!fresh} />
       {fresh ? (
         <EmptyState
-          icon={Inbox}
-          title="No requests yet"
+          title="No requests yet."
           description={
             dashboard.mailbox
-              ? "Start a campaign to send opt-out and deletion requests to data brokers and companies."
-              : "Connect a mailbox first, then start a campaign to send opt-out and deletion requests."
+              ? "Start a campaign to send opt-out and deletion requests."
+              : "Connect a mailbox, then start a campaign."
           }
           actions={
             <>
@@ -117,34 +108,55 @@ function DashboardBody({ dashboard, profileId }: { dashboard: Dashboard; profile
           }
         />
       ) : (
-        <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
-          <div className="flex min-w-0 flex-col gap-6 lg:col-start-2 lg:row-start-1">
-            <AttentionCard attention={dashboard.attention} />
-            <SendingCard dashboard={dashboard} />
-          </div>
-          <div className="flex min-w-0 flex-col gap-6 lg:col-start-1 lg:row-start-1">
-            <StatusCard dashboard={dashboard} />
-            <Card>
-              <CardHeader title="Recent activity" />
-              <ActivityList events={dashboard.recentEvents} />
-            </Card>
-          </div>
-        </div>
+        <>
+          <AttentionSection attention={dashboard.attention} />
+          <RequestsSection dashboard={dashboard} />
+          <SendingSection dashboard={dashboard} />
+          <ActivitySection events={dashboard.recentEvents} />
+        </>
       )}
+    </div>
+  );
+}
+
+function SkeletonLabel({ width }: { width: string }) {
+  return (
+    <div className="mt-2.5 mb-1.5 flex min-h-5 items-center">
+      <Skeleton className={`h-2.5 ${width}`} />
+    </div>
+  );
+}
+
+function SkeletonRows({ rows }: { rows: number }) {
+  return (
+    <div className="flex flex-col divide-y divide-line overflow-hidden rounded-md border border-line">
+      {Array.from({ length: rows }, (_, row) => (
+        // biome-ignore lint/suspicious/noArrayIndexKey: placeholder rows have no identity
+        <div key={row} className="flex h-row items-center justify-between gap-6 px-3.5">
+          <Skeleton className="h-3.5 w-48" />
+          <Skeleton className="h-3.5 w-6" />
+        </div>
+      ))}
     </div>
   );
 }
 
 function DashboardSkeleton() {
   return (
-    <div aria-busy="true" className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
-      <div className="flex flex-col gap-6">
-        <Skeleton className="h-64 w-full rounded-lg" />
-        <Skeleton className="h-72 w-full rounded-lg" />
+    <div aria-busy="true" className="flex flex-col gap-5">
+      <span className="sr-only">Loading</span>
+      <div>
+        <SkeletonLabel width="w-20" />
+        <SkeletonRows rows={4} />
       </div>
-      <div className="flex flex-col gap-6">
-        <Skeleton className="h-44 w-full rounded-lg" />
-        <Skeleton className="h-32 w-full rounded-lg" />
+      <div>
+        <SkeletonLabel width="w-24" />
+        <Skeleton className="h-1.5 w-full rounded-full" />
+        <div className="mt-4 grid gap-x-8 gap-y-5 sm:grid-cols-3">
+          <Skeleton className="h-32 w-full" />
+          <Skeleton className="h-32 w-full" />
+          <Skeleton className="h-32 w-full" />
+        </div>
       </div>
     </div>
   );

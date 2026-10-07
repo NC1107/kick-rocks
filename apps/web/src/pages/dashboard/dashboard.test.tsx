@@ -5,7 +5,7 @@ import { renderPage } from "../../test/render.js";
 import { instrument } from "../profiles/test-support.js";
 import { Component as DashboardPage } from "./index.js";
 import {
-  AttentionCard,
+  AttentionSection,
   attentionItems,
   groupActivity,
   groupTotal,
@@ -17,7 +17,7 @@ describe("the dashboard", () => {
     renderPage(<DashboardPage />, { mockOptions: { latencyMs: 60 } });
     await screen.findByRole("heading", { name: "Dashboard" });
     expect(document.querySelector("[aria-busy=true]")).not.toBeNull();
-    expect(await screen.findByRole("heading", { name: "Requests" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: /^Requests/ })).toBeInTheDocument();
     expect(document.querySelector("[aria-busy=true]")).toBeNull();
   });
 
@@ -26,7 +26,7 @@ describe("the dashboard", () => {
     const jordan = mock.store.profiles[0]?.id;
     const own = mock.store.requests.filter((request) => request.profileId === jordan);
 
-    const requests = (await screen.findByRole("heading", { name: "Requests" })).closest(
+    const requests = (await screen.findByRole("heading", { name: /^Requests/ })).closest(
       "section",
     ) as HTMLElement;
     for (const group of STATUS_GROUPS) {
@@ -36,15 +36,34 @@ describe("the dashboard", () => {
     }
   });
 
+  it("draws one stacked bar whose label states each family's count", async () => {
+    const { mock } = renderPage(<DashboardPage />);
+    const jordan = mock.store.profiles[0]?.id;
+    const own = mock.store.requests.filter((request) => request.profileId === jordan);
+    const bar = await screen.findByRole("img", { name: /in progress/ });
+    for (const group of STATUS_GROUPS) {
+      const expected = own.filter((request) => group.statuses.includes(request.status)).length;
+      expect(bar).toHaveAccessibleName(new RegExp(`${expected} ${group.title.toLowerCase()}`));
+    }
+    expect(screen.getAllByRole("img", { name: /in progress/ })).toHaveLength(1);
+  });
+
+  it("puts what needs the person ahead of the request counts", async () => {
+    renderPage(<DashboardPage />);
+    const needs = await screen.findByRole("heading", { name: /^Needs you/ });
+    const requests = await screen.findByRole("heading", { name: /^Requests/ });
+    expect(needs.compareDocumentPosition(requests) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
   it("links each status to the request list filtered by it", async () => {
     renderPage(<DashboardPage />);
-    const confirmed = await screen.findByRole("link", { name: "Confirmed" });
+    const confirmed = await screen.findByRole("link", { name: /^Confirmed/ });
     expect(confirmed).toHaveAttribute("href", "/requests?status=confirmed");
   });
 
   it("lists what needs the person, each linking to the review queue", async () => {
     renderPage(<DashboardPage />);
-    const needs = (await screen.findByRole("heading", { name: "Needs you" })).closest(
+    const needs = (await screen.findByRole("heading", { name: /^Needs you/ })).closest(
       "section",
     ) as HTMLElement;
     const links = within(needs).getAllByRole("link");
@@ -62,14 +81,15 @@ describe("the dashboard", () => {
       if (request.status === "needs_verification") request.status = "awaiting_reply";
     }
     renderPage(<DashboardPage />, { mock });
-    expect(await screen.findByText("Nothing is waiting on you.")).toBeInTheDocument();
+    expect(await screen.findByText("Nothing needs you.")).toBeInTheDocument();
   });
 
   it("shows the sending meter against the daily limit", async () => {
     renderPage(<DashboardPage />);
-    const meter = await screen.findByRole("progressbar", { name: "Daily sending limit used" });
+    const meter = await screen.findByRole("meter", { name: "Daily sending limit used" });
     expect(meter).toHaveAttribute("aria-valuemax", "150");
     expect(Number(meter.getAttribute("aria-valuenow"))).toBeGreaterThanOrEqual(0);
+    expect(screen.getByText(/of 150$/)).toBeInTheDocument();
     expect(screen.getByText(/left$/)).toBeInTheDocument();
     expect(screen.getByText(/Inbox checked/)).toBeInTheDocument();
   });
@@ -92,7 +112,7 @@ describe("the dashboard", () => {
 
   it("describes recent activity in sentences with the broker and reference", async () => {
     renderPage(<DashboardPage />);
-    const activity = (await screen.findByRole("heading", { name: "Recent activity" })).closest(
+    const activity = (await screen.findByRole("heading", { name: /^Recent activity/ })).closest(
       "section",
     ) as HTMLElement;
     const items = within(activity).getAllByRole("listitem");
@@ -118,7 +138,7 @@ describe("the dashboard", () => {
       "href",
       `/profiles/${riley.id}/mailbox`,
     );
-    expect(screen.queryByRole("progressbar")).toBeNull();
+    expect(screen.queryByRole("meter")).toBeNull();
   });
 
   it("starts a new person at the first step: connect a mailbox", async () => {
@@ -127,7 +147,7 @@ describe("the dashboard", () => {
     if (!newcomer) throw new Error("fixture");
     localStorage.setItem("kickrocks.profileId", newcomer.id);
     renderPage(<DashboardPage />, { mock });
-    expect(await screen.findByText("No requests yet")).toBeInTheDocument();
+    expect(await screen.findByText("No requests yet.")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Connect a mailbox" })).toHaveAttribute(
       "href",
       `/profiles/${newcomer.id}/mailbox`,
@@ -143,7 +163,7 @@ describe("the dashboard", () => {
     const mock = createMockApp();
     mock.store.requests = [];
     renderPage(<DashboardPage />, { mock });
-    expect(await screen.findByText("No requests yet")).toBeInTheDocument();
+    expect(await screen.findByText("No requests yet.")).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Connect a mailbox" })).toBeNull();
     expect(screen.getAllByRole("link", { name: /campaign/i }).length).toBeGreaterThan(0);
   });
@@ -227,18 +247,18 @@ describe("attention detail wording", () => {
   };
 
   it("speaks of one failed task as it", () => {
-    renderPage(<AttentionCard attention={{ ...none, failedTasks: 1 }} />);
+    renderPage(<AttentionSection attention={{ ...none, failedTasks: 1 }} />);
     expect(screen.getByText("Failed task")).toBeInTheDocument();
     expect(screen.getByText("Retry it, or finish it by hand.")).toBeInTheDocument();
   });
 
   it("speaks of several failed tasks as them", () => {
-    renderPage(<AttentionCard attention={{ ...none, failedTasks: 2 }} />);
+    renderPage(<AttentionSection attention={{ ...none, failedTasks: 2 }} />);
     expect(screen.getByText("Retry them, or finish them by hand.")).toBeInTheDocument();
   });
 
   it("speaks of one task waiting for an agent as it", () => {
-    renderPage(<AttentionCard attention={{ ...none, agentTasks: 1 }} />);
+    renderPage(<AttentionSection attention={{ ...none, agentTasks: 1 }} />);
     expect(screen.getByText("Connect an agent, or finish it by hand.")).toBeInTheDocument();
   });
 });
@@ -287,7 +307,7 @@ describe("recent activity on the page", () => {
     const base = mock.store.requests[0];
     if (!base) throw new Error("fixture");
     renderPage(<DashboardPage />, { mock });
-    const activity = (await screen.findByRole("heading", { name: "Recent activity" })).closest(
+    const activity = (await screen.findByRole("heading", { name: /^Recent activity/ })).closest(
       "section",
     ) as HTMLElement;
     const requestIds = within(activity)
