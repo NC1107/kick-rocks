@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Sign in - Fixture Broker</title></head>
+<body>
+<h1>Sign in to continue</h1>
+<form method="post" action="/login">
+  <label for="user">Account email</label>
+  <input id="user" name="user" type="email">
+  <label for="pw">Password</label>
+  <input id="pw" name="pw" type="password">
+  <label for="card">Card number</label>
+  <input id="card" name="card" autocomplete="cc-number">
+  <label for="locked">Customer id</label>
+  <input id="locked" name="locked" readonly value="A-100">
+  <button type="submit">Sign in</button>
+</form>
+</body>
+</html>

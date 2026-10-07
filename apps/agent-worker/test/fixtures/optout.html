@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Opt out - Fixture Broker</title></head>
+<body>
+<h1>Remove your listing</h1>
+<p>Fill in the form to ask us to remove your record.</p>
+<form method="post" action="/optout">
+  <label for="first">First name</label>
+  <input id="first" name="first_name" required>
+  <label for="last">Last name</label>
+  <input id="last" name="last_name" required>
+  <label for="email">Email address</label>
+  <input id="email" name="email" type="email" required>
+  <label for="state">State</label>
+  <select id="state" name="state">
+    <option value="">Choose a state</option>
+    <option value="TX">Texas</option>
+    <option value="CA">California</option>
+  </select>
+  <div style="display:none"><label for="trap1">Website</label><input id="trap1" name="website"></div>
+  <input id="trap2" name="company" aria-label="Company" style="position:absolute;left:-9999px">
+  <input id="trap3" name="fax" aria-label="Fax" style="opacity:0;pointer-events:none;position:absolute">
+  <label><input type="checkbox" name="agree" value="yes"> I agree to the terms</label>
+  <button type="submit">Submit request</button>
+</form>
+<p>
+  <a href="{{OFFSITE}}/offsite">Partner site</a>
+  <a href="/privacy">Privacy policy</a>
+  <a href="/popup" target="_blank">Open in a new tab</a>
+  <a href="/redirect">Moved page</a>
+</p>
+</body>
+</html>
