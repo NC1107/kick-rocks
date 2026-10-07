@@ -41,7 +41,7 @@ export function CountsSkeleton() {
 /** What a campaign would do, counted by the way each target is reached. */
 export function ChannelTiles({ counts }: { counts: ChannelCounts }) {
   return (
-    <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
+    <div className="grid grid-cols-2 gap-3 lg:grid-cols-5 [&>:last-child:nth-child(odd)]:col-span-2 lg:[&>:last-child:nth-child(odd)]:col-span-1">
       <Tile icon={Mail} value={counts.email} label="By email" hint="Sent from your mailbox" />
       <Tile icon={Globe} value={counts.form} label="By web form" hint="Filled in by the worker" />
       <Tile icon={Bot} value={counts.manual} label="Agent or you" hint="No working saved steps" />

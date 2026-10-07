@@ -322,7 +322,13 @@ function Detail({ request }: { request: RequestDetail }) {
               { term: "Channel", description: CHANNEL_LABELS[request.channel] },
               {
                 term: "Asked for",
-                description: request.rights.map((right) => RIGHT_LABELS[right]).join(" and "),
+                description: request.rights
+                  .map((right, index) =>
+                    index === 0
+                      ? RIGHT_LABELS[right]
+                      : RIGHT_LABELS[right].replace(/^./, (first) => first.toLowerCase()),
+                  )
+                  .join(" and "),
               },
               {
                 term: "Legal basis",

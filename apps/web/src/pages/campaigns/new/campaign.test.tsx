@@ -28,6 +28,7 @@ describe("the campaign builder", () => {
     expect(
       await screen.findByText("Pick a group and at least one right to see a preview."),
     ).toBeVisible();
+    expect(screen.getByTestId("send-bar")).toHaveClass("sticky", "bottom-3");
     expect(screen.getByRole("button", { name: "Send requests" })).toBeDisabled();
   });
 

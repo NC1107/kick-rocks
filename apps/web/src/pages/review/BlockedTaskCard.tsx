@@ -51,9 +51,15 @@ function Screenshot({ taskId }: { taskId: string }) {
         alt="The page where the task stopped"
         loading="lazy"
         onError={() => setFailed(true)}
-        className="mx-auto h-auto w-[44rem] max-w-none sm:w-full sm:max-w-full sm:object-contain"
+        className="mx-auto h-auto w-full max-w-full object-contain"
       />
       <span className="sr-only">(opens the full screenshot in a new tab)</span>
+      <span
+        aria-hidden="true"
+        className="block border-t border-line px-3 py-1.5 text-xs text-ink-muted sm:hidden"
+      >
+        Tap to open full size
+      </span>
     </a>
   );
 }
@@ -181,7 +187,7 @@ export function BlockedTaskCard({
         <Badge tone="amber">{BLOCKED_REASON_LABELS[task.blockedReason]}</Badge>
       ) : null}
       {variant === "agent" ? <Badge tone="amber">Waiting for an agent</Badge> : null}
-      {failure ? <Badge tone="red">{failure.label}</Badge> : null}
+      {failure && !nested ? <Badge tone="red">{failure.label}</Badge> : null}
     </span>
   );
 
