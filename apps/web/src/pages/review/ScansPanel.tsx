@@ -73,10 +73,7 @@ export function ScansPanel({ profileId }: { profileId: string }) {
           : `Started ${pluralize(started, "scan")}${skipped > 0 ? `, ${skipped} already running` : ""}`,
       );
     },
-    onError: (error) => {
-      setConfirming(false);
-      toast.error("That did not work", errorMessage(error));
-    },
+    onError: () => setConfirming(false),
   });
 
   return (
@@ -85,6 +82,7 @@ export function ScansPanel({ profileId }: { profileId: string }) {
         label="Scans"
         title="Scans"
         meta="Search people-search sites for records that look like you."
+        error={start.isError ? errorMessage(start.error) : undefined}
         footer={
           <Button variant="primary" onClick={() => setConfirming(true)}>
             Scan people-search sites

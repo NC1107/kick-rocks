@@ -4,6 +4,7 @@ import { errorMessage, useApiMutation } from "../../api/index.js";
 import {
   Callout,
   Checkbox,
+  InlineError,
   RelativeTime,
   Row,
   RowGroup,
@@ -16,8 +17,8 @@ import { type WorkerState, workerState } from "./model.js";
 import { BodyRow, Value } from "./rows.js";
 
 const STATE_MARKS: Record<WorkerState, { label: string; shape: StatusShape; word: string }> = {
-  online: { label: "Online", shape: "disc", word: "text-ink-2" },
-  offline: { label: "Not responding", shape: "triangle", word: "text-attention-text font-medium" },
+  online: { label: "Worker online", shape: "disc", word: "text-ink-2" },
+  offline: { label: "Worker offline", shape: "triangle", word: "text-attention-text font-medium" },
   never: { label: "Never connected", shape: "ring", word: "text-ink-2" },
 };
 
@@ -63,18 +64,20 @@ function UnreviewedSites({ agent }: { agent: SettingsView["agent"] }) {
           ? "The agent worker will take unreviewed targets"
           : "The agent worker will leave unreviewed targets to you",
       ),
-    onError: (error) => toast.error("That did not work", errorMessage(error)),
   });
   return (
-    <Checkbox
-      label="Let the agent worker take unreviewed targets"
-      description="Targets whose bundled recipe you have not approved. Rejected ones always wait for you."
-      checked={agent.takeUnreviewed}
-      disabled={save.isPending}
-      onChange={(event) =>
-        save.mutate({ body: { agent: { takeUnreviewed: event.target.checked } } })
-      }
-    />
+    <div className="flex flex-col gap-2">
+      <Checkbox
+        label="Let the agent worker take unreviewed targets"
+        description="Targets whose bundled recipe you have not approved. Rejected ones always wait for you."
+        checked={agent.takeUnreviewed}
+        disabled={save.isPending}
+        onChange={(event) =>
+          save.mutate({ body: { agent: { takeUnreviewed: event.target.checked } } })
+        }
+      />
+      {save.isError ? <InlineError>{errorMessage(save.error)}</InlineError> : null}
+    </div>
   );
 }
 

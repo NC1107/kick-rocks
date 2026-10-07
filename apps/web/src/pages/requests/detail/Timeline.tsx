@@ -1,8 +1,7 @@
-import type { RequestEvent, TaskSummary } from "@kickrocks/shared";
-import { Button, MonoEmails, Tooltip } from "../../../components/ui/index.js";
+import { type RequestEvent, type TaskSummary, tellEvents } from "@kickrocks/shared";
+import { Button, InlineError, MonoEmails, Tooltip } from "../../../components/ui/index.js";
 import { cn } from "../../../lib/cn.js";
 import { describeEvent } from "../../../lib/events.js";
-import { tellEvents } from "../../../lib/fold.js";
 import { formatDateTime } from "../../../lib/format.js";
 import { EventRow } from "../EventRow.js";
 import { eventShape, eventWeight } from "../event-shape.js";
@@ -138,7 +137,7 @@ export function Timeline({
                 ) : null}
               </div>
               {event.id === retry?.eventId && retryError ? (
-                <p className="mt-0.5 text-meta text-danger-text">{retryError}</p>
+                <InlineError className="mt-0.5">{retryError}</InlineError>
               ) : null}
             </EventRow>
           );

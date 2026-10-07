@@ -6,6 +6,7 @@ import { errorMessage, useApiMutation } from "../../api/index.js";
 import {
   Button,
   ConfirmDialog,
+  InlineError,
   RowGroup,
   StatusShapeGlyph,
   useToast,
@@ -51,7 +52,6 @@ export function RecipeCard({
   const approve = useApiMutation(API_ROUTES.recipesApprove, {
     invalidates,
     onSuccess: () => toast.success("Recipe approved"),
-    onError: (error) => toast.error("That did not work", errorMessage(error)),
   });
   const reject = useApiMutation(API_ROUTES.recipesReject, {
     invalidates,
@@ -59,10 +59,7 @@ export function RecipeCard({
       setRejecting(false);
       toast.success("Recipe rejected");
     },
-    onError: (error) => {
-      setRejecting(false);
-      toast.error("That did not work", errorMessage(error));
-    },
+    onError: () => setRejecting(false),
   });
 
   const { definition } = recipe;
@@ -129,6 +126,11 @@ export function RecipeCard({
         </details>
 
         <GroupFooter>
+          {approve.isError || reject.isError ? (
+            <InlineError className="mr-auto">
+              {errorMessage(approve.isError ? approve.error : reject.error)}
+            </InlineError>
+          ) : null}
           {rejected ? null : (
             <Button variant="ghost" disabled={approve.isPending} onClick={() => setRejecting(true)}>
               Reject

@@ -8,6 +8,8 @@ import {
   DescriptionList,
   Dialog,
   ExternalLinkText,
+  InlineError,
+  MonoEmails,
   useToast,
 } from "../../components/ui/index.js";
 import { RIGHT_LABELS } from "../../lib/labels.js";
@@ -23,7 +25,9 @@ function facts(fields: Match["fields"], recordUrl: string): DescriptionItem[] {
     ...list("Locations", fields.locations, "; "),
     ...list("Relatives", fields.relatives),
     ...list("Phones", fields.phones),
-    ...list("Emails", fields.emails),
+    ...(fields.emails && fields.emails.length > 0
+      ? [{ term: "Emails", description: <MonoEmails text={fields.emails.join(", ")} /> }]
+      : []),
     {
       term: "Record",
       description: (
@@ -48,7 +52,6 @@ export function MatchDetail({ match }: { match: Match }) {
         variables.body.decision === "mine" ? "Removal request queued" : "Marked as not you",
       );
     },
-    onError: (error) => toast.error("That did not work", errorMessage(error)),
   });
 
   const { fields } = match;
@@ -68,6 +71,7 @@ export function MatchDetail({ match }: { match: Match }) {
             {fields.age !== undefined ? `, age ${fields.age}` : ""}
           </>
         }
+        error={decide.isError && !open ? errorMessage(decide.error) : undefined}
         footer={
           <>
             <Button variant="primary" onClick={() => setOpen(true)} disabled={decide.isPending}>
@@ -95,7 +99,7 @@ export function MatchDetail({ match }: { match: Match }) {
         open={open}
         onClose={() => setOpen(false)}
         title="Remove this record"
-        description={`Kick Rocks asks ${match.targetName} to take this record down. Only confirm a record that is yours.`}
+        description={`Asks ${match.targetName} to take this record down. Only confirm a record that is yours.`}
         dismissible={!decide.isPending}
         footer={
           <>
@@ -130,6 +134,9 @@ export function MatchDetail({ match }: { match: Match }) {
               />
             ))}
           </div>
+          {decide.isError ? (
+            <InlineError className="mt-2">{errorMessage(decide.error)}</InlineError>
+          ) : null}
           {rights.length === 0 ? (
             <p role="alert" className="mt-2 text-caption text-danger-text">
               Choose at least one.

@@ -120,7 +120,7 @@ export function Component() {
     <>
       <PageHeader
         title={target.name}
-        description={`${TARGET_KIND_LABELS[target.kind]} in ${TARGET_CATEGORY_LABELS[target.category].toLowerCase()}`}
+        description={`${TARGET_KIND_LABELS[target.kind]}, ${TARGET_CATEGORY_LABELS[target.category].toLowerCase()}`}
         back={{ to: "/targets", label: "Targets" }}
         actions={
           <>

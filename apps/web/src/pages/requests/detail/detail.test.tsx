@@ -1,3 +1,4 @@
+import { tellEvents } from "@kickrocks/shared";
 import { screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { createMockApp, type MockApp } from "../../../../mock/app.js";
@@ -6,7 +7,6 @@ import {
   BreadcrumbTailProvider,
   useBreadcrumbTailValue,
 } from "../../../components/layout/breadcrumb-context.js";
-import { tellEvents } from "../../../lib/fold.js";
 import { renderPage } from "../../../test/render.js";
 import { Component as RequestDetailPage } from "./index.js";
 import { groupEvents, newestFirst, retryableFailure } from "./Timeline.js";

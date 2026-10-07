@@ -73,6 +73,23 @@ describe("the review queue on a phone", () => {
   });
 });
 
+describe("the review queue on a phone after a decision", () => {
+  it("moves focus to the open item and names it in the address", async () => {
+    setWide(false);
+    const { user, mock } = open("matches");
+    const match = await openItem(user, /^Jordan Example\s*Found/, /Jordan Example on NameLookup/);
+    await user.click(match.getByRole("button", { name: "Not me" }));
+    await waitFor(() =>
+      expect(
+        mock.store.matches.find((candidate) => candidate.recordUrl.endsWith("tx-88120"))?.decision,
+      ).toBe("not_mine"),
+    );
+    const pane = await screen.findByRole("region", { name: /on (NameLookup|Cityfile Directory)/ });
+    await waitFor(() => expect(document.getElementById("review-detail")).toHaveFocus());
+    expect(pane).toBeVisible();
+  });
+});
+
 describe("the review queue", () => {
   it("lists everything waiting under a labelled group and opens the first item", async () => {
     open();
@@ -273,6 +290,16 @@ describe("the review queue", () => {
         mock.store.matches.find((candidate) => candidate.recordUrl.endsWith("tx-88120"))?.decision,
       ).toBe("not_mine"),
     );
+  });
+
+  it("puts a failed decision on the footer that failed, not in a toast", async () => {
+    const { user } = open("matches", failing(/\/api\/matches\/.*\/decision/));
+    const match = await openItem(user, /^Jordan Example\s*Found/, /Jordan Example on NameLookup/);
+    await user.click(match.getByRole("button", { name: "Not me" }));
+    expect(await match.findByRole("alert")).toHaveTextContent("Blocked for the test.");
+    expect(
+      within(screen.getByRole("region", { name: "Notifications" })).queryByText(/did not work/),
+    ).toBeNull();
   });
 
   it("sends nothing to a broker until a detail is ticked and the values are confirmed", async () => {

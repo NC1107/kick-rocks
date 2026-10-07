@@ -57,7 +57,7 @@ describe("connecting a mailbox", () => {
     expect(screen.queryByRole("radio", { name: /Outlook/ })).toBeNull();
     const unsupported = screen.getByRole("region", { name: "Not supported yet" });
     expect(within(unsupported).getByText("Outlook.com")).toBeInTheDocument();
-    expect(within(unsupported).getByText(/Needs OAuth sign-in/)).toBeInTheDocument();
+    expect(within(unsupported).getByText(/only through OAuth/)).toBeInTheDocument();
   });
 
   it("will not continue until a provider is chosen", async () => {

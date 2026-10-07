@@ -140,7 +140,8 @@ const PROVIDERS: ProviderPreset[] = [
     notes: "",
     defaultDailyCap: 50,
     supported: false,
-    unsupportedReason: "Needs OAuth sign-in, which is not supported yet.",
+    unsupportedReason:
+      "Outlook.com, Hotmail, and Live accept IMAP and SMTP sign-in only through OAuth, which is not supported yet. Use another mailbox for now.",
   },
 ];
 

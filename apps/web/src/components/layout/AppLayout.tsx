@@ -71,7 +71,7 @@ function PhoneBar({ onOpenMenu }: { onOpenMenu: () => void }) {
         <Menu />
       </IconButton>
       <LogoMark />
-      <div className="ml-auto flex items-center gap-2 pr-2">
+      <div className="ml-auto flex items-center gap-2">
         {IS_MOCK ? <Tag>Mock</Tag> : null}
         <UrgentStatusMark chips={chips} />
       </div>

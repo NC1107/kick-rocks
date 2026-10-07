@@ -1,7 +1,13 @@
 import { API_ROUTES, type BlockedTaskItem } from "@kickrocks/shared";
 import { useState } from "react";
 import { useApiMutation } from "../../api/index.js";
-import { Button, ConfirmDialog, Section, useToast } from "../../components/ui/index.js";
+import {
+  Button,
+  ConfirmDialog,
+  InlineError,
+  Section,
+  useToast,
+} from "../../components/ui/index.js";
 import { pluralize } from "../../lib/format.js";
 import { REVIEW_INVALIDATES } from "./model.js";
 
@@ -16,6 +22,7 @@ export function FailedGroupActions({
   const toast = useToast();
   const [confirming, setConfirming] = useState<"retry" | "dismiss" | null>(null);
   const [busy, setBusy] = useState(false);
+  const [problem, setProblem] = useState<string | null>(null);
   const options = { invalidates: REVIEW_INVALIDATES };
   const retry = useApiMutation(API_ROUTES.taskRetry, options);
   const dismiss = useApiMutation(API_ROUTES.taskCancel, options);
@@ -31,8 +38,12 @@ export function FailedGroupActions({
     const failed = results.filter((result) => result.status === "rejected").length;
     const done = results.length - failed;
     const verb = action === "retry" ? "queued to retry" : "dismissed";
-    if (failed === 0) toast.success(`${pluralize(done, "task")} ${verb}`);
-    else toast.error(`${pluralize(failed, "task")} could not be changed`, `${done} ${verb}.`);
+    if (failed === 0) {
+      setProblem(null);
+      toast.success(`${pluralize(done, "task")} ${verb}`);
+    } else {
+      setProblem(`${pluralize(failed, "task")} could not be changed. ${done} ${verb}.`);
+    }
   };
 
   return (
@@ -45,6 +56,7 @@ export function FailedGroupActions({
           Dismiss all
         </Button>
       </div>
+      {problem ? <InlineError className="mt-2">{problem}</InlineError> : null}
 
       <ConfirmDialog
         open={confirming === "retry"}

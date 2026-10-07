@@ -72,7 +72,7 @@ function ProfileRow({
         ) : (
           <Link
             to={`/profiles/${profile.id}/mailbox`}
-            className="rounded-xs text-accent-text underline underline-offset-2"
+            className="rounded-xs text-accent-text underline underline-offset-2 max-sm:flex max-sm:min-h-11 max-sm:items-center"
           >
             Connect mailbox
           </Link>

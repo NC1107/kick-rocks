@@ -91,10 +91,7 @@ export function MailDetail({ message, profileId }: { message: ReviewMessage; pro
         `Classified as ${CLASSIFICATION_LABELS[variables.body.classification].toLowerCase()}`,
       );
     },
-    onError: (error) => {
-      setConfirming(false);
-      toast.error("That did not work", errorMessage(error));
-    },
+    onError: () => setConfirming(false),
   });
   const settlesRequest =
     classification !== "" &&
@@ -128,6 +125,7 @@ export function MailDetail({ message, profileId }: { message: ReviewMessage; pro
             <time dateTime={message.receivedAt}>{formatDateTime(message.receivedAt)}</time>
           </>
         }
+        error={classify.isError ? errorMessage(classify.error) : undefined}
         footer={
           <form
             className="flex w-full flex-col gap-3"

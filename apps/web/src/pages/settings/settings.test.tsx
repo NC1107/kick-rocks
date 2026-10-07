@@ -49,8 +49,8 @@ describe("general settings", () => {
     };
     const recipe = await screen.findByRole("region", { name: "Recipe worker" });
     const agent = screen.getByRole("region", { name: "Agent worker" });
-    expect(within(recipe).getByText("Online")).toBeVisible();
-    expect(within(agent).getByText("Not responding")).toBeVisible();
+    expect(within(recipe).getByText("Worker online")).toBeVisible();
+    expect(within(agent).getByText("Worker offline")).toBeVisible();
   });
 
   it("lets the person allow the agent worker onto unreviewed sites, and take it back", async () => {

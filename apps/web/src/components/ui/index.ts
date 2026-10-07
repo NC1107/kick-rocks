@@ -36,6 +36,7 @@ export { Field, type FieldProps, useFieldControl } from "./Field.js";
 export { Hatch } from "./Hatch.js";
 export { ICON_SIZES, Icon, type IconProps, type IconSize } from "./Icon.js";
 export { IconButton, type IconButtonProps } from "./IconButton.js";
+export { InlineError } from "./InlineError.js";
 export { Input, type InputProps } from "./Input.js";
 export { Kbd } from "./Kbd.js";
 export { Menu, type MenuItem, type MenuProps, type MenuTriggerProps } from "./Menu.js";

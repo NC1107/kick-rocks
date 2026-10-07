@@ -82,7 +82,11 @@ export function RequestsSection({ dashboard }: { dashboard: Dashboard }) {
     <Section
       label="Requests"
       count={formatCount(dashboard.total)}
-      actions={<TextLink to="/requests">All requests</TextLink>}
+      actions={
+        <TextLink to="/requests" className="max-sm:inline-flex max-sm:min-h-11 max-sm:items-center">
+          All requests
+        </TextLink>
+      }
     >
       <StackedBar dashboard={dashboard} />
       <div className="mt-4 grid gap-x-8 gap-y-5 sm:grid-cols-3">
@@ -328,6 +332,7 @@ export function ActivitySection({ events }: { events: readonly DashboardEvent[] 
           {groups.map(({ latest: event, count }) => (
             <EventRow
               key={event.id}
+              className="relative"
               shape={eventShape(event)}
               time={<RelativeTime iso={event.createdAt} />}
             >
@@ -337,7 +342,7 @@ export function ActivitySection({ events }: { events: readonly DashboardEvent[] 
               <p className="flex flex-wrap items-center gap-x-3 text-meta text-ink-3">
                 <Link
                   to={`/requests/${event.requestId}`}
-                  className="min-w-0 break-words rounded-xs text-ink-2 hover:text-accent-text hover:underline"
+                  className="min-w-0 break-words rounded-xs text-ink-2 hover:text-accent-text hover:underline max-sm:after:absolute max-sm:after:inset-0 max-sm:after:content-['']"
                 >
                   {event.targetName}
                 </Link>

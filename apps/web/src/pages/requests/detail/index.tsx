@@ -5,6 +5,7 @@ import {
   type RequestDetail,
   resendEmailKind,
   type TaskSummary,
+  tellEvents,
 } from "@kickrocks/shared";
 import { skipToken } from "@tanstack/react-query";
 import { MoreHorizontal } from "lucide-react";
@@ -19,6 +20,7 @@ import {
   EmptyState,
   ExternalLinkText,
   IconButton,
+  InlineError,
   LinkButton,
   Menu,
   type MenuItem,
@@ -33,7 +35,6 @@ import {
   useToast,
 } from "../../../components/ui/index.js";
 import { cn } from "../../../lib/cn.js";
-import { tellEvents } from "../../../lib/fold.js";
 import { formatDate, formatDateTime } from "../../../lib/format.js";
 import {
   BLOCKED_REASON_LABELS,
@@ -209,10 +210,7 @@ function Detail({ request }: { request: RequestDetail }) {
       setConfirming(null);
       toast.success(ACTION_DONE[variables.body.action]);
     },
-    onError: (error) => {
-      setConfirming(null);
-      toast.error("That did not work", errorMessage(error));
-    },
+    onError: () => setConfirming(null),
   });
 
   const [retryError, setRetryError] = useState<string | null>(null);
@@ -288,6 +286,7 @@ function Detail({ request }: { request: RequestDetail }) {
       />
 
       <div className="flex max-w-3xl flex-col gap-5">
+        {act.isError ? <InlineError>{errorMessage(act.error)}</InlineError> : null}
         {request.status === "needs_verification" ? (
           <Alert
             intent="warning"

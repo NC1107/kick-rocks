@@ -1,4 +1,4 @@
-import { CircleAlert, CircleCheck, Info, X } from "lucide-react";
+import { CircleCheck, Info, X } from "lucide-react";
 import {
   createContext,
   type ReactNode,
@@ -22,12 +22,9 @@ export interface ToastOptions {
   durationMs?: number;
 }
 
-// "danger" exists only for the deprecated error shim and goes away with it.
-type ItemIntent = ToastIntent | "danger";
-
 interface ToastItem {
   id: number;
-  intent: ItemIntent;
+  intent: ToastIntent;
   title: string;
   description: string | undefined;
   durationMs: number;
@@ -36,11 +33,6 @@ interface ToastItem {
 interface ToastApi {
   toast: (options: ToastOptions) => void;
   success: (title: string, description?: string) => void;
-  /**
-   * @deprecated Errors never toast. Put the message on the field, row, or callout that failed.
-   * Each screen drops its calls in phase 2, and toast.test.ts only lets the count go down.
-   */
-  error: (title: string, description?: string) => void;
   info: (title: string, description?: string) => void;
 }
 
@@ -52,25 +44,21 @@ const MAX_VISIBLE = 4;
 const ICONS = {
   info: Info,
   success: CircleCheck,
-  danger: CircleAlert,
 } as const;
 
-const ITEM_TONE = { info: "neutral", success: "positive", danger: "danger" } as const;
+const ITEM_TONE = { info: "neutral", success: "positive" } as const;
 
 /**
  * Wrap the app once. A toast confirms something the person just did, so name the result with the
  * same verb as the button that caused it: "Delete" produces "Deleted", never "Success". A failure
  * belongs on the thing that failed, so there is no error or warning intent.
- * Toasts sit bottom-left of the content on wide screens and under the top bar on phones, because
- * the decision footers and page actions that pin to the bottom-right and bottom edge must stay
- * reachable for the whole life of a toast.
+ * Toasts sit bottom-left of the content on wide screens, on the content gutter. On phones they
+ * cover the top bar, because the back link below it and the decision footer pinned to the bottom
+ * edge must stay reachable for the whole life of a toast.
  */
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<ToastItem[]>([]);
-  const [announcement, setAnnouncement] = useState<{ polite: string; assertive: string }>({
-    polite: "",
-    assertive: "",
-  });
+  const [announcement, setAnnouncement] = useState("");
   const nextId = useRef(1);
 
   const dismiss = useCallback((id: number) => {
@@ -78,7 +66,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const api = useMemo<ToastApi>(() => {
-    const push = (intent: ItemIntent, options: Omit<ToastOptions, "intent">) => {
+    const push = (intent: ToastIntent, options: Omit<ToastOptions, "intent">) => {
       const item: ToastItem = {
         id: nextId.current++,
         intent,
@@ -88,14 +76,11 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       };
       setItems((current) => [...current, item].slice(-MAX_VISIBLE));
       const text = options.description ? `${options.title}. ${options.description}` : options.title;
-      setAnnouncement(
-        intent === "danger" ? { polite: "", assertive: text } : { polite: text, assertive: "" },
-      );
+      setAnnouncement(text);
     };
     return {
       toast: (options) => push(options.intent ?? "info", options),
       success: (title, description) => push("success", { title, description }),
-      error: (title, description) => push("danger", { title, description }),
       info: (title, description) => push("info", { title, description }),
     };
   }, []);
@@ -103,16 +88,13 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   return (
     <ToastContext value={api}>
       {children}
-      {/* Live regions announce only text that changes after they are mounted, so these two stay mounted. */}
+      {/* A live region announces only text that changes after it is mounted, so it stays mounted. */}
       <div aria-live="polite" className="sr-only">
-        {announcement.polite}
-      </div>
-      <div aria-live="assertive" className="sr-only">
-        {announcement.assertive}
+        {announcement}
       </div>
       <section
         aria-label="Notifications"
-        className="pointer-events-none fixed inset-x-0 top-(--kr-bar-h) z-50 flex flex-col items-stretch gap-2 p-4 sm:inset-x-auto sm:top-auto sm:bottom-0 sm:left-54 sm:w-96"
+        className="pointer-events-none fixed inset-x-0 top-0 z-50 flex flex-col items-stretch gap-2 px-4 pt-[max(0.5rem,env(safe-area-inset-top))] sm:inset-x-auto sm:top-auto sm:bottom-5 sm:left-[calc(13.5rem+1.25rem)] sm:w-96 sm:p-0"
       >
         {items.map((item) => (
           <ToastCard key={item.id} item={item} onDismiss={dismiss} />

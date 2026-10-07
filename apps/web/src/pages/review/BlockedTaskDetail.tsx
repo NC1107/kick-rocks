@@ -10,6 +10,7 @@ import {
   ExternalLinkText,
   Field,
   Hatch,
+  InlineError,
   RelativeTime,
   Row,
   RowGroup,
@@ -114,13 +115,10 @@ export function BlockedTaskDetail({
   const [note, setNote] = useState("");
 
   const options = { invalidates: REVIEW_INVALIDATES };
-  const fail = (error: Parameters<typeof errorMessage>[0]) =>
-    toast.error("That did not work", errorMessage(error));
 
   const resume = useApiMutation(API_ROUTES.taskResume, {
     ...options,
     onSuccess: () => toast.success("Task resumed"),
-    onError: fail,
   });
   const handOff = useApiMutation(API_ROUTES.taskHandOff, {
     ...options,
@@ -131,15 +129,11 @@ export function BlockedTaskDetail({
         "It waits under Waiting for an agent until one takes it.",
       );
     },
-    onError: (error) => {
-      setHandOffOpen(false);
-      fail(error);
-    },
+    onError: () => setHandOffOpen(false),
   });
   const retry = useApiMutation(API_ROUTES.taskRetry, {
     ...options,
     onSuccess: () => toast.success("Task queued to retry"),
-    onError: fail,
   });
   const cancel = useApiMutation(API_ROUTES.taskCancel, {
     ...options,
@@ -147,10 +141,7 @@ export function BlockedTaskDetail({
       setCancelOpen(false);
       toast.success(variant === "failed" ? "Dismissed" : "Task cancelled");
     },
-    onError: (error) => {
-      setCancelOpen(false);
-      fail(error);
-    },
+    onError: () => setCancelOpen(false),
   });
   const markDone = useApiMutation(API_ROUTES.taskMarkDone, {
     ...options,
@@ -158,7 +149,6 @@ export function BlockedTaskDetail({
       setDoneOpen(false);
       toast.success("Marked done");
     },
-    onError: fail,
   });
 
   const reportsOutcome = canReportOutcome(task);
@@ -169,6 +159,7 @@ export function BlockedTaskDetail({
     retry.isPending ||
     cancel.isPending ||
     markDone.isPending;
+  const footerError = [resume, handOff, retry, cancel].find((mutation) => mutation.isError)?.error;
   const failure = variant === "failed" ? describeFailure(task) : null;
   const detail = failure ? failure.detail : (task.blockedDetail ?? null);
   const showsMark = variant === "failed" || (variant === "blocked" && task.blockedReason);
@@ -256,6 +247,7 @@ export function BlockedTaskDetail({
         title={task.targetName ?? "Unknown target"}
         meta={meta}
         footer={footer}
+        error={footerError ? errorMessage(footerError) : undefined}
       >
         {showsMark ? (
           <div className="flex flex-wrap items-center gap-2.5">
@@ -330,13 +322,22 @@ export function BlockedTaskDetail({
 
       <Dialog
         open={doneOpen}
-        onClose={() => setDoneOpen(false)}
+        onClose={() => {
+          setDoneOpen(false);
+          markDone.reset();
+        }}
         title={variant === "agent" ? "Finish this task yourself" : "Mark this task done"}
         description="Say how it ended, so the request moves to the right state."
         dismissible={!markDone.isPending}
         footer={
           <>
-            <Button onClick={() => setDoneOpen(false)} disabled={markDone.isPending}>
+            <Button
+              onClick={() => {
+                setDoneOpen(false);
+                markDone.reset();
+              }}
+              disabled={markDone.isPending}
+            >
               Cancel
             </Button>
             <Button
@@ -383,6 +384,7 @@ export function BlockedTaskDetail({
               rows={3}
             />
           </Field>
+          {markDone.isError ? <InlineError>{errorMessage(markDone.error)}</InlineError> : null}
         </div>
       </Dialog>
 

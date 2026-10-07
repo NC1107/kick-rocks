@@ -8,6 +8,7 @@ import {
   CodeBlock,
   ConfirmDialog,
   CopyButton,
+  InlineError,
   Row,
   RowGroup,
   Section,
@@ -25,7 +26,6 @@ export function McpCard({ mcp }: { mcp: SettingsView["mcp"] }) {
     invalidates: [API_ROUTES.settingsGet],
     onSuccess: (view) =>
       toast.success(view.mcp.enabled ? "Agent access turned on" : "Agent access turned off"),
-    onError: (error) => toast.error("That did not work", errorMessage(error)),
   });
   const create = useApiMutation(API_ROUTES.settingsMcpToken, {
     invalidates: [API_ROUTES.settingsGet],
@@ -34,10 +34,7 @@ export function McpCard({ mcp }: { mcp: SettingsView["mcp"] }) {
       setToken(result.token);
       toast.success("Token created");
     },
-    onError: (error) => {
-      setConfirming(false);
-      toast.error("That did not work", errorMessage(error));
-    },
+    onError: () => setConfirming(false),
   });
 
   const makeToken = () => (mcp.tokenSet ? setConfirming(true) : create.mutate());
@@ -46,7 +43,7 @@ export function McpCard({ mcp }: { mcp: SettingsView["mcp"] }) {
     <>
       <Section label="Agent access">
         <RowGroup>
-          <BodyRow>
+          <BodyRow className="flex flex-col gap-2">
             <Checkbox
               label="Allow agents to connect"
               description="When off, the MCP address refuses every client."
@@ -56,6 +53,7 @@ export function McpCard({ mcp }: { mcp: SettingsView["mcp"] }) {
                 toggle.mutate({ body: { mcp: { enabled: event.target.checked } } })
               }
             />
+            {toggle.isError ? <InlineError>{errorMessage(toggle.error)}</InlineError> : null}
           </BodyRow>
           <BodyRow>
             <div className="flex items-center justify-between gap-3">
@@ -66,6 +64,9 @@ export function McpCard({ mcp }: { mcp: SettingsView["mcp"] }) {
           </BodyRow>
           <Row title="Token" trailing={<Value>{mcp.tokenSet ? "Created" : "Not created"}</Value>} />
           <GroupFooter>
+            {create.isError ? (
+              <InlineError className="mr-auto">{errorMessage(create.error)}</InlineError>
+            ) : null}
             <Button
               variant={mcp.tokenSet ? "secondary" : "primary"}
               loading={create.isPending}

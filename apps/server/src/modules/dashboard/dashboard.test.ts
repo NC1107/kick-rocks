@@ -324,7 +324,7 @@ describe("GET /profiles/:id/dashboard", () => {
       expect(recentEvents).toHaveLength(1);
       expect(recentEvents[0]).toMatchObject({
         type: "task_enqueued",
-        eventCount: 4,
+        eventCount: 3,
         requestId: request.id,
         requestReference: request.reference,
         targetName: "Example Broker",
@@ -348,6 +348,28 @@ describe("GET /profiles/:id/dashboard", () => {
         type: "awaiting_confirmation",
         payload: { fromDomains: [] },
       });
+    });
+
+    it("tells a status change through the event beside it and counts the same events as the timeline", async () => {
+      const profile = seedProfile(ctx);
+      seedTarget(ctx, { id: "b" });
+      const request = seedRequest(ctx, { profileId: profile.id, targetId: "b" });
+      const before = eventCount(request.id);
+      ctx.clock.advance(MINUTE);
+      ctx.services.requests.addEvent(request.id, {
+        type: "note",
+        actor: "user",
+        payload: { text: "called them" },
+      });
+      ctx.services.requests.addEvent(request.id, {
+        type: "status_changed",
+        actor: "system",
+        payload: { from: "queued", to: "sent" },
+      });
+
+      const { recentEvents } = await dashboard(profile.id);
+
+      expect(recentEvents[0]).toMatchObject({ type: "note", eventCount: before + 1 });
     });
 
     it("keeps every request visible and counted when one request has 300 events", async () => {

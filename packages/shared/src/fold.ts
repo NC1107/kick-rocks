@@ -1,4 +1,4 @@
-import type { RequestEvent } from "@kickrocks/shared";
+import type { RequestEvent } from "./requests.js";
 
 const FOLD_WINDOW_MS = 60_000;
 

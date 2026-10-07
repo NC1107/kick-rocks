@@ -279,7 +279,7 @@ export function Component() {
                 <TableHeaderCell className="w-10 pr-0 max-sm:p-0">
                   <label
                     htmlFor="select-page"
-                    className="flex cursor-pointer items-center justify-center max-sm:min-w-11"
+                    className="flex cursor-pointer items-center justify-center max-sm:min-h-11 max-sm:min-w-11"
                   >
                     <Checkbox
                       id="select-page"

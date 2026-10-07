@@ -5,8 +5,9 @@ import {
   DashboardEvent,
   RequestStatus,
   reviewAttention,
+  tellEvents,
 } from "@kickrocks/shared";
-import { count, desc, eq, sql } from "drizzle-orm";
+import { count, eq, sql } from "drizzle-orm";
 import { notFound } from "../../core/errors.js";
 import { registerRoute } from "../../core/http.js";
 import type { ModulePlugin } from "../../core/module.js";
@@ -14,8 +15,8 @@ import { withTrustedConfirmationSenders } from "../../core/targets.js";
 import type { AppServices } from "../../services.js";
 import { buildReviewQueue } from "../review/queue.js";
 
-// One newest event per request, with the request's event count, so a noisy request cannot push
-// the others out and there is no global row cap to make counts wrong.
+// One newest told event per request, with the count of told events, so a noisy request cannot push
+// the others out and the count agrees with the request's own timeline.
 const RECENT_REQUESTS = 20;
 
 export function buildDashboard(services: AppServices, profileId: string): Dashboard {
@@ -47,23 +48,7 @@ export function buildDashboard(services: AppServices, profileId: string): Dashbo
   // The review page is where these totals lead, so they come from the same queue it lists.
   const queue = buildReviewQueue(services, profileId);
 
-  const ranked = db
-    .select({
-      eventId: requestEvents.id,
-      position:
-        sql<number>`row_number() over (partition by ${requestEvents.requestId} order by ${requestEvents.createdAt} desc, ${requestEvents}.rowid desc)`.as(
-          "position",
-        ),
-      eventCount: sql<number>`count(*) over (partition by ${requestEvents.requestId})`.as(
-        "event_count",
-      ),
-    })
-    .from(requestEvents)
-    .innerJoin(requests, eq(requests.id, requestEvents.requestId))
-    .where(eq(requests.profileId, profileId))
-    .as("ranked");
-
-  const recentEvents = db
+  const events = db
     .select({
       id: requestEvents.id,
       requestId: requestEvents.requestId,
@@ -71,20 +56,34 @@ export function buildDashboard(services: AppServices, profileId: string): Dashbo
       actor: requestEvents.actor,
       payload: requestEvents.payload,
       createdAt: requestEvents.createdAt,
-      eventCount: ranked.eventCount,
       requestReference: requests.reference,
       targetName: targets.name,
       target: targets,
     })
-    .from(ranked)
-    .innerJoin(requestEvents, eq(requestEvents.id, ranked.eventId))
+    .from(requestEvents)
     .innerJoin(requests, eq(requests.id, requestEvents.requestId))
     .innerJoin(targets, eq(targets.id, requests.targetId))
-    .where(eq(ranked.position, 1))
-    .orderBy(desc(requestEvents.createdAt), desc(sql`${requestEvents}.rowid`))
-    .limit(RECENT_REQUESTS)
-    .all()
-    .map(({ target, ...row }) => DashboardEvent.parse(withTrustedConfirmationSenders(row, target)));
+    .where(eq(requests.profileId, profileId))
+    .orderBy(requestEvents.createdAt, sql`${requestEvents}.rowid`)
+    .all();
+
+  const byRequest = new Map<string, typeof events>();
+  for (const event of events) {
+    const group = byRequest.get(event.requestId);
+    if (group) group.push(event);
+    else byRequest.set(event.requestId, [event]);
+  }
+  const recentEvents = [...byRequest.values()]
+    .flatMap((all) => {
+      const told = tellEvents(all);
+      const latest = told.at(-1);
+      return latest ? [{ latest, eventCount: told.length }] : [];
+    })
+    .sort((a, b) => b.latest.createdAt.localeCompare(a.latest.createdAt))
+    .slice(0, RECENT_REQUESTS)
+    .map(({ latest: { target, ...row }, eventCount }) =>
+      DashboardEvent.parse(withTrustedConfirmationSenders({ ...row, eventCount }, target)),
+    );
 
   return {
     profileId,

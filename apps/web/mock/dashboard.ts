@@ -4,8 +4,9 @@ import {
   type DashboardEvent,
   RequestStatus,
   reviewAttention,
+  tellEvents,
 } from "@kickrocks/shared";
-import { tellEvents } from "../src/lib/fold.js";
+
 import { defineMockDomain, handle, notFound } from "./core.js";
 import { buildMockQueue } from "./review.js";
 

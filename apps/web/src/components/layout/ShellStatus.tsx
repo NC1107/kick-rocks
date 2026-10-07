@@ -64,7 +64,7 @@ export function UrgentStatusMark({ chips }: { chips: readonly StatusChip[] }) {
       <button
         type="button"
         aria-label={chipText(chip)}
-        className="flex size-6 items-center justify-center rounded-xs"
+        className="flex size-11 items-center justify-center rounded-xs"
       >
         <StatusShapeGlyph shape={TONE_SHAPE[chip.tone]} className="size-2.5" />
       </button>

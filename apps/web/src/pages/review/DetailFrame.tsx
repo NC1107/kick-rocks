@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { InlineError } from "../../components/ui/index.js";
 
 export interface DetailFrameProps {
   /** Names the region for screen readers and for the shortcut that moves focus into it. */
@@ -9,6 +10,8 @@ export interface DetailFrameProps {
   children?: ReactNode;
   /** The decision controls. They stay at the bottom edge while the body scrolls. */
   footer?: ReactNode;
+  /** Why the last decision failed. It sits on the footer that failed, never in a toast. */
+  error?: string | undefined;
 }
 
 /**
@@ -16,7 +19,7 @@ export interface DetailFrameProps {
  * wide screen the body scrolls inside the pane and the footer never moves; on a phone the page
  * scrolls and the footer sticks to the bottom of the screen.
  */
-export function DetailFrame({ label, title, meta, children, footer }: DetailFrameProps) {
+export function DetailFrame({ label, title, meta, children, footer, error }: DetailFrameProps) {
   return (
     <section aria-label={label} className="flex min-h-0 min-w-0 flex-1 flex-col">
       <div className="min-h-0 flex-1 px-4 py-4 sm:px-5 lg:overflow-y-auto">
@@ -26,6 +29,9 @@ export function DetailFrame({ label, title, meta, children, footer }: DetailFram
       </div>
       {footer ? (
         <div className="sticky bottom-0 z-10 flex flex-wrap items-center gap-2 rounded-b-md border-t border-line bg-canvas px-4 py-3 sm:px-5 max-sm:grid max-sm:grid-cols-2 max-sm:[&>*]:min-w-0 max-sm:[&>button]:w-full max-sm:[&>form]:col-span-full max-sm:[&>span]:col-span-full">
+          {error ? (
+            <InlineError className="basis-full max-sm:col-span-full">{error}</InlineError>
+          ) : null}
           {footer}
         </div>
       ) : null}

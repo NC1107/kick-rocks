@@ -5,6 +5,7 @@ export * from "./campaigns.js";
 export * from "./dashboard.js";
 export * from "./data-rights.js";
 export * from "./errors.js";
+export * from "./fold.js";
 export * from "./geography.js";
 export * from "./identities.js";
 export * from "./legal.js";

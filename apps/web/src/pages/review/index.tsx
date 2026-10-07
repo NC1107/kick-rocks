@@ -156,6 +156,13 @@ function Queue({ queue, profileId }: { queue: ReviewQueue; profileId: string }) 
     if (selected) lastIndex.current = entries.indexOf(selected);
   }, [entries, selected]);
 
+  // After a decision removes the open item, the URL names the item that took its place.
+  useEffect(() => {
+    if (itemParam !== null && itemParam !== selectedKey) {
+      setParams(new URLSearchParams({ item: selectedKey }), { replace: true });
+    }
+  }, [itemParam, selectedKey, setParams]);
+
   const select = (key: string, { replace }: { replace: boolean }) =>
     setParams(new URLSearchParams({ item: key }), { replace });
 
@@ -190,12 +197,17 @@ function Queue({ queue, profileId }: { queue: ReviewQueue; profileId: string }) 
   const selectedRef = useRef(selectedKey);
   selectedRef.current = selectedKey;
   const previousKey = useRef(selectedKey);
+  const listShownRef = useRef(true);
+  listShownRef.current = wide || itemParam === null;
 
   const settleFocus = useCallback(() => {
     if (!owedFocus.current || document.querySelector("dialog[open]")) return;
     owedFocus.current = false;
     const active = document.activeElement;
-    if (!active || active === document.body) focusEntry(selectedRef.current);
+    if (active && active !== document.body) return;
+    // Below the split layout the list is hidden while an item is open, so the pane takes focus.
+    if (listShownRef.current) focusEntry(selectedRef.current);
+    else pane.current?.focus();
   }, []);
 
   useEffect(() => {
