@@ -123,6 +123,18 @@ async function runOnce(
   steps: Step[],
   options: { launcher?: () => Promise<never>; provider?: ReturnType<typeof scripted> } = {},
 ) {
+  const { finished, controller, provider } = startWorker(server, steps, options);
+  await vi.waitUntil(() => server.transitions().length > 0, { timeout: 20_000, interval: 20 });
+  controller.abort();
+  await finished;
+  return provider;
+}
+
+function startWorker(
+  server: ReturnType<typeof fakeServer>,
+  steps: Step[],
+  options: { launcher?: () => Promise<never>; provider?: ReturnType<typeof scripted> } = {},
+) {
   const controller = new AbortController();
   const provider = options.provider ?? scripted(steps);
   const finished = runAgentWorker({
@@ -132,13 +144,15 @@ async function runOnce(
     provider,
     fetch: server.fetch,
     launcher: options.launcher ?? (() => browser.newContext()),
-    timing: { idleHeartbeatMs: 10_000, leaseHeartbeatMs: 1_000, reportRetryMs: 1 },
+    timing: {
+      idleHeartbeatMs: 10_000,
+      leaseHeartbeatMs: 1_000,
+      reportRetryMs: 1,
+      shutdownGraceMs: 300,
+    },
     challengeGraceMs: 200,
   });
-  await vi.waitUntil(() => server.transitions().length > 0, { timeout: 20_000, interval: 20 });
-  controller.abort();
-  await finished;
-  return provider;
+  return { finished, controller, provider };
 }
 
 describe("markClaimsAsModel", () => {
@@ -269,5 +283,36 @@ describeBrowser("the agent worker end to end", () => {
       },
     });
     expect(TaskReleaseBody.parse(server.transitions()[0]?.body).retryAfterMs).toBe(60_000);
+  });
+
+  it("holds a removal that clicked for a person when shutdown finds the run stalled", async () => {
+    const task = agentTask();
+    const server = fakeServer(task);
+    const { finished, controller } = startWorker(server, [
+      { calls: [["navigate", { url: `${ORIGIN}/optout` }]] },
+      (v) => ({
+        calls: [
+          ["type", { ref: v.ref("First name"), field: "first_name" }],
+          ["type", { ref: v.ref("Last name"), field: "last_name" }],
+          ["type", { ref: v.ref("Email address"), field: "email" }],
+        ],
+      }),
+      (v) => ({ calls: [["click", { ref: v.ref("Submit request") }]] }),
+      { calls: [["navigate", { url: `${ORIGIN}/hang` }]] },
+    ]);
+    await vi.waitUntil(async () => (await fixtureState()).hits.some((h) => h.path === "/hang"), {
+      timeout: 20_000,
+      interval: 20,
+    });
+    controller.abort();
+    await finished;
+
+    const [report] = server.transitions();
+    expect(report?.path).toBe(`/api/worker/tasks/${task.id}/block`);
+    expect(TaskBlockBody.parse(report?.body)).toMatchObject({
+      reason: "unknown",
+      detail: expect.stringContaining("may already have been submitted"),
+    });
+    expect((await fixtureState()).submissions).toHaveLength(1);
   });
 });

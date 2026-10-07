@@ -3,7 +3,8 @@ import { createServer, type IncomingMessage, type Server, type ServerResponse } 
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-export const FIXTURE_PORT = 8631;
+/** Parallel checkouts on one machine set KICKROCKS_FIXTURE_PORT so their fixture sites do not collide. */
+export const FIXTURE_PORT = Number(process.env.KICKROCKS_FIXTURE_PORT ?? 8631);
 /** The target's domain in tests. `localhost` is another host name for the same server, so it plays an unrelated site. */
 export const ORIGIN = `http://127.0.0.1:${FIXTURE_PORT}`;
 export const OFFSITE = `http://localhost:${FIXTURE_PORT}`;
@@ -108,6 +109,7 @@ export function startFixtureServer(port: number = FIXTURE_PORT): Promise<{
       if (path === "/slow") await new Promise((done) => setTimeout(done, SLOW_RESPONSE_MS));
       return send(response, 200, page("confirmation.html"));
     }
+    if (path === "/hang") return;
     if (path === "/redirect") {
       response.writeHead(302, { location: `${OFFSITE}/offsite` });
       return response.end();

@@ -1,5 +1,6 @@
 import type { ClaimedTask } from "@kickrocks/shared";
 import { WorkerApiError } from "@kickrocks/worker/dist/api-client.js";
+import type { TaskReport } from "@kickrocks/worker/dist/executor.js";
 import { describe, expect, it, vi } from "vitest";
 import { agentTask, silentLogger, summary } from "../test/support.js";
 import { type AgentApi, type AgentExecutor, type LoopTiming, runLoop } from "./loop.js";
@@ -224,22 +225,45 @@ describe("the agent claim loop", () => {
     expect(api.release).toHaveBeenCalledWith(expect.any(String), undefined);
   });
 
-  it("closes the browser and releases the task when a run ignores the shutdown", async () => {
+  async function stalledShutdown(report: TaskReport, api = fakeApi([agentTask()])) {
     const controller = new AbortController();
-    const api = fakeApi([agentTask()]);
     let unblock: () => void = () => undefined;
     const forceStop = vi.fn(async () => unblock());
     const executor: AgentExecutor = () =>
       new Promise((resolve) => {
         controller.abort();
-        unblock = () => resolve({ kind: "complete", result: { late: true }, usage: {} });
+        unblock = () => resolve(report);
       });
-    await drive(api, executor, () => api.release.mock.calls.length > 0, {
-      signal: controller,
-      forceStop,
-    });
+    const transitions = () =>
+      [api.release, api.block, api.fail, api.complete].flatMap((m) => m.mock.calls);
+    await drive(api, executor, () => transitions().length > 0, { signal: controller, forceStop });
     expect(forceStop).toHaveBeenCalled();
-    expect(api.complete).not.toHaveBeenCalled();
+    return api;
+  }
+
+  it("closes the browser and releases the task when a run ignores the shutdown", async () => {
+    const api = await stalledShutdown({ kind: "fail", report: { error: "x", retryable: true } });
+    expect(api.release).toHaveBeenCalled();
+    expect(api.fail).not.toHaveBeenCalled();
+  });
+
+  it("keeps a block that the stopped run reached", async () => {
+    const report = { reason: "unknown" as const, detail: "may already have been submitted" };
+    const api = await stalledShutdown({ kind: "block", report });
+    expect(api.block).toHaveBeenCalledWith(expect.any(String), report);
+    expect(api.release).not.toHaveBeenCalled();
+  });
+
+  it("keeps a result and a failure that will not be retried", async () => {
+    const done = await stalledShutdown({ kind: "complete", result: { late: true }, usage: {} });
+    expect(done.complete).toHaveBeenCalled();
+    expect(done.release).not.toHaveBeenCalled();
+    const failed = await stalledShutdown({
+      kind: "fail",
+      report: { error: "x", retryable: false },
+    });
+    expect(failed.fail).toHaveBeenCalled();
+    expect(failed.release).not.toHaveBeenCalled();
   });
 
   it("gives back a task that is not an agent task without running it", async () => {

@@ -67,6 +67,15 @@ function transient(error: unknown): boolean {
   return !(error instanceof WorkerApiError) || error.status >= 500;
 }
 
+/**
+ * A result, a block or a failure that will not be retried says what happened and stays, however
+ * the run was stopped: a removal that clicked is held for a person by the run itself, and handing
+ * that back would submit the form again.
+ */
+function isFinal(report: TaskReport): boolean {
+  return report.kind !== "release" && !(report.kind === "fail" && report.report.retryable);
+}
+
 class Loop {
   private readonly timing: LoopTiming;
   private lastBeat = Number.NEGATIVE_INFINITY;
@@ -203,7 +212,8 @@ class Loop {
       logger.info("dropping the result of a task that is no longer ours", log);
       return;
     }
-    if (forced) report = { kind: "release", reason: "the worker is shutting down" };
+    if (forced && !isFinal(report))
+      report = { kind: "release", reason: "the worker is shutting down" };
     await this.send(task, report, log);
     await this.beat(false, null, true);
   }
