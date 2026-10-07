@@ -6,7 +6,7 @@ import {
   type RequestStatus,
   WebUrl,
 } from "@kickrocks/shared";
-import { and, eq, gte, inArray, isNotNull, min, ne } from "drizzle-orm";
+import { and, eq, gte, inArray, isNotNull, min, ne, or } from "drizzle-orm";
 import { newId } from "../core/ids.js";
 import type { Task } from "../core/task-types.js";
 import type { ClassificationResult, ClassifierRequest, InboxMessage } from "../mail/types.js";
@@ -25,7 +25,7 @@ const PAGE_LIMIT = 50;
 const MAX_PAGES_PER_RUN = 10;
 const SUBJECT_MAX_CHARS = 500;
 const SNIPPET_MAX_CHARS = 280;
-/** How far back a reply can still belong to a request, so a classifier never weighs years of history. */
+/** How long a finished request stays in the classifier context, so it never weighs years of history. */
 const CORRELATION_WINDOW_MS = 180 * 24 * 60 * 60 * 1000;
 
 /** Statuses in which a broker's answer is still expected, which is where a poll starts reading. */
@@ -202,6 +202,18 @@ export class InboxRunner {
     }
   }
 
+  private alreadyStored(mailboxId: string, messageIdHeader: string): boolean {
+    return (
+      this.services.db
+        .select({ id: messages.id })
+        .from(messages)
+        .where(
+          and(eq(messages.mailboxId, mailboxId), eq(messages.messageIdHeader, messageIdHeader)),
+        )
+        .get() !== undefined
+    );
+  }
+
   private async ingest(
     mailbox: MailboxRow,
     uidValidity: number,
@@ -220,6 +232,9 @@ export class InboxRunner {
       )
       .get();
     if (seen) return "skipped";
+    // A renumbered folder presents every old message under a new uid, and applying it again would
+    // undo what later mail and the person's own answers have since done.
+    if (message.messageId && this.alreadyStored(mailbox.id, message.messageId)) return "skipped";
     // Our own sent mail turns up in an "all mail" folder, and is not a reply to anything.
     if (message.messageId && parseOutgoingMessageId(message.messageId)) return "skipped";
 
@@ -349,7 +364,7 @@ export class InboxRunner {
         and(
           eq(requests.profileId, profileId),
           ne(requests.status, "draft"),
-          gte(requests.createdAt, cutoff),
+          or(gte(requests.updatedAt, cutoff), inArray(requests.status, [...OUTSTANDING])),
         ),
       )
       .all();

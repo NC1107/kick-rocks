@@ -95,6 +95,17 @@ const BROKEN_RECIPE_ERROR = "The recipe is marked broken after repeated failures
 
 const sha256 = (value: string) => createHash("sha256").update(value).digest("hex");
 
+function sameSend(
+  a: { kind: string; fields: readonly string[]; inReplyTo: string | null },
+  b: { kind: string; fields: readonly string[]; inReplyTo: string | null },
+): boolean {
+  return (
+    a.kind === b.kind &&
+    a.inReplyTo === b.inReplyTo &&
+    [...a.fields].sort().join(",") === [...b.fields].sort().join(",")
+  );
+}
+
 export function createDispatch({
   db,
   clock,
@@ -281,9 +292,26 @@ export function createDispatch({
           if (!targetRow.privacyEmail) {
             throw conflict("no_email_address", `${target.name} has no email address to send to`);
           }
+          const payload = {
+            requestId: request.id,
+            kind,
+            fields,
+            inReplyTo: options.inReplyTo ?? null,
+          };
+          // A send still waiting on the cap or the gap shares this request's dedupe key, so
+          // without this the person's approved reply would be swallowed by an older, different mail.
+          for (const waiting of taskQueue.list({
+            requestId: request.id,
+            kinds: ["email_send"],
+            status: "queued",
+          })) {
+            if (!sameSend(waiting.payload as typeof payload, payload)) {
+              taskQueue.cancel(waiting.id, "system");
+            }
+          }
           const result = taskQueue.enqueue({
             kind: "email_send",
-            payload: { requestId: request.id, kind, fields, inReplyTo: options.inReplyTo ?? null },
+            payload,
             dedupeKey: `email_send:${request.id}`,
             ...common,
           });

@@ -442,6 +442,45 @@ describe("what a poll reads", () => {
     ).toMatchObject({ uidValidity: 2 });
   });
 
+  it("does not apply a message again when the server renumbers a folder that still holds it", async () => {
+    const { request } = await sentRequest();
+    answer("All done", request.id, "completed");
+    deliver("All done");
+    await poll();
+    const eventsBefore = ctx.services.requests.events(request.id).length;
+
+    ctx.mail.mailbox(MAILBOX_ADDRESS).resetUidValidity();
+    await poll();
+
+    expect(stored()).toHaveLength(1);
+    expect(ctx.services.requests.events(request.id)).toHaveLength(eventsBefore);
+  });
+
+  it("still matches a reply to a request that was created long ago and kept alive", async () => {
+    const { request } = await sentRequest();
+    ctx.services.db
+      .update(requests)
+      .set({ createdAt: new Date(ctx.clock.now().getTime() - 200 * DAY).toISOString() })
+      .where(eq(requests.id, request.id))
+      .run();
+    ctx.mail.classifier.program((_message, context) =>
+      context.requests.some((candidate) => candidate.id === request.id)
+        ? {
+            requestId: request.id,
+            correlation: "message_id",
+            classification: "completed",
+            confidence: 0.9,
+            rationale: "test",
+          }
+        : null,
+    );
+    deliver("We removed you");
+
+    await poll();
+
+    expect(requestOf(request.id).status).toBe("confirmed");
+  });
+
   it("never reads mail from before the oldest request still waiting", async () => {
     const { request } = await sentRequest();
     ctx.mail.mailbox(MAILBOX_ADDRESS).deliver({

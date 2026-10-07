@@ -151,7 +151,7 @@ describe("fake inbox", () => {
     ).toEqual([]);
   });
 
-  it("reports a UIDVALIDITY change as a reset and returns everything", async () => {
+  it("reports a UIDVALIDITY change as a reset and returns every message under a new uid", async () => {
     const { fake } = setup();
     const box = fake.mailbox(connection.address);
     box.deliver();
@@ -161,7 +161,12 @@ describe("fake inbox", () => {
     box.deliver();
     const result = await inbox.fetchSince("INBOX", 2, 1, ALL);
     expect(result).toMatchObject({ uidValidity: 9, reset: true });
-    expect(result.messages.map((m) => m.uid)).toEqual([1]);
+    expect(result.messages.map((m) => m.uid)).toEqual([1001, 1002, 1003]);
+    expect(result.messages.map((m) => m.messageId)).toEqual([
+      "<fake-INBOX-1@mail.test>",
+      "<fake-INBOX-2@mail.test>",
+      "<fake-INBOX-1003@mail.test>",
+    ]);
   });
 
   it("lists its folders", async () => {
