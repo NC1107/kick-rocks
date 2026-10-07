@@ -83,6 +83,7 @@ export function toTargetSummary(row: TargetRow): TargetSummary {
     domain: row.domain,
     website: row.website,
     optOutUrl: row.optOutUrl,
+    privacyRightsUrl: row.privacyRightsUrl,
     searchUrl: row.searchUrl,
     contactMethod: row.contactMethod,
     requiresId: row.requiresId,

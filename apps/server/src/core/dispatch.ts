@@ -216,6 +216,7 @@ export function createDispatch({
                 requestId: null,
                 recordUrl: null,
                 variant: task.payload.variant,
+                rights: [],
                 ...reasons,
               },
               ...common,
@@ -230,6 +231,7 @@ export function createDispatch({
                   requestId: task.payload.requestId,
                   recordUrl: task.payload.recordUrl,
                   variant: null,
+                  rights: [...requests.getOrThrow(task.payload.requestId).rights],
                   ...reasons,
                 },
                 ...common,
@@ -355,6 +357,7 @@ export function createDispatch({
                 requestId: request.id,
                 recordUrl: request.recordUrl,
                 variant: null,
+                rights: [...request.rights],
                 reason: allBroken ? "recipe_failed" : "no_recipe",
                 previousError: allBroken ? BROKEN_RECIPE_ERROR : null,
                 blockedReason: null,
@@ -394,6 +397,7 @@ export function createDispatch({
                 requestId: null,
                 recordUrl: null,
                 variant,
+                rights: [],
                 reason: allBroken ? "recipe_failed" : "no_recipe",
                 previousError: allBroken ? BROKEN_RECIPE_ERROR : null,
                 blockedReason: null,
@@ -436,6 +440,12 @@ export function createDispatch({
         }
         if (task.kind !== "scan" && task.kind !== "form" && task.kind !== "agent") {
           throw conflict("not_handoffable", `A ${task.kind} task cannot be handed to an agent`);
+        }
+        if (task.mayHaveSubmitted && actor !== "user") {
+          throw conflict(
+            "held_for_person",
+            `Task ${taskId} may already have submitted its form, so only a person can release it`,
+          );
         }
         return toAgent(
           task as Task<"scan" | "form" | "agent">,

@@ -34,6 +34,7 @@ export interface RunContext {
   targetDomain: string;
   allowHttp: boolean;
   redact: (text: string) => string;
+  onSubmit: (() => void | Promise<void>) | undefined;
   deadline: number;
   state: RunState;
 }
@@ -66,6 +67,7 @@ export function createContext(
     targetDomain: options.targetDomain ?? fallbackDomain,
     allowHttp: options.allowHttp ?? false,
     redact: createRedactor(usable),
+    onSubmit: options.onSubmit,
     deadline: Date.now() + timeouts.runMs,
     state: {
       candidates: [],

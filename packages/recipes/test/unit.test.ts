@@ -30,6 +30,33 @@ describe("createRedactor", () => {
     );
   });
 
+  it("hides form-urlencoded, mixed plus and percent-space, and mixed-case hex spellings", () => {
+    const hide = createRedactor({ full_name: "Jordan O'Neil, Jr." });
+    for (const spelling of [
+      "Jordan+O%27Neil%2C+Jr.",
+      "jordan%20o%27neil%2c%20jr.",
+      "Jordan+O'Neil,%20Jr.",
+      "Jordan%20O'Neil,%20Jr.",
+    ]) {
+      expect(hide(`/search?q=${spelling}&p=2`)).toBe("/search?q={{full_name}}&p=2");
+    }
+  });
+
+  it("hides a value that was percent-encoded again inside a return address", () => {
+    const hide = createRedactor({
+      email: "pk1977@mail.test",
+      street: "742 Evergreen Terrace",
+      last_name: "O'Neil",
+    });
+    const hidden = hide(
+      "/login?next=%2Fsearch%3Femail%3Dpk1977%2540mail.test%26addr%3D742%2BEvergreen%2BTerrace%26n%3DO%2527Neil&x=123%2520Main",
+    );
+    expect(hidden).not.toMatch(/pk1977|Evergreen|Neil/i);
+    expect(hidden).toContain("{{email}}");
+    expect(hidden).toContain("{{street}}");
+    expect(hidden).toContain("{{last_name}}");
+  });
+
   it("prefers the longest value, so an address is not cut in two", () => {
     expect(redact("sent to jordan@example.com")).toBe("sent to {{email}}");
   });

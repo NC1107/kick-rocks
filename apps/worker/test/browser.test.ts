@@ -1,4 +1,13 @@
-import { lstatSync, mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  lstatSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
@@ -213,6 +222,66 @@ describe("one browser per Kick Rocks profile", () => {
     const { dirs, launch } = fakeLauncher();
     await createProfileBrowsers(settings(), silentLogger, launch).newPage(null);
     expect(dirs).toEqual([join(dir, "kickrocks", "shared")]);
+  });
+
+  describe("when profiles are deleted", () => {
+    const folder = (name: string) => join(dir, "kickrocks", name);
+
+    it("deletes the folders and closes the browsers of profiles that are gone, and keeps the rest", async () => {
+      const closed: string[] = [];
+      const launch = vi.fn(async (opened: { profileDir: string }) => {
+        const page = {};
+        return {
+          on: vi.fn(),
+          pages: () => [page],
+          newPage: async () => page,
+          close: async () => void closed.push(opened.profileDir),
+        } as never;
+      });
+      const browsers = createProfileBrowsers(settings(), silentLogger, launch);
+      await browsers.newPage("p-kept");
+      await browsers.newPage("p-gone");
+      await browsers.newPage(null);
+      mkdirSync(folder("p-old-run"), { recursive: true });
+      writeFileSync(join(folder("p-gone"), "Cookies"), "cookie data");
+
+      await browsers.keepOnly(["p-kept"]);
+
+      expect(existsSync(folder("p-gone"))).toBe(false);
+      expect(existsSync(folder("p-old-run"))).toBe(false);
+      expect(existsSync(folder("p-kept"))).toBe(true);
+      expect(existsSync(folder("shared"))).toBe(true);
+      expect(closed).toEqual([folder("p-gone")]);
+
+      await browsers.newPage("p-gone");
+      expect(launch).toHaveBeenCalledTimes(4);
+    });
+
+    it("deletes every profile's folder when none is left, as after a reset", async () => {
+      const { launch } = fakeLauncher();
+      const browsers = createProfileBrowsers(settings(), silentLogger, launch);
+      await browsers.newPage("p-one");
+      await browsers.newPage("p-two");
+      await browsers.keepOnly([]);
+      expect(existsSync(folder("p-one"))).toBe(false);
+      expect(existsSync(folder("p-two"))).toBe(false);
+    });
+
+    it("finds a hashed folder by the profile id it was made from", async () => {
+      const { launch } = fakeLauncher();
+      const browsers = createProfileBrowsers(settings(), silentLogger, launch);
+      await browsers.newPage("../../etc");
+      await browsers.keepOnly(["../../etc"]);
+      expect(readdirSync(join(dir, "kickrocks")).some((name) => name.startsWith("h-"))).toBe(true);
+      await browsers.keepOnly([]);
+      expect(readdirSync(join(dir, "kickrocks")).some((name) => name.startsWith("h-"))).toBe(false);
+    });
+
+    it("does nothing when the worker has never opened a browser", async () => {
+      const { launch } = fakeLauncher();
+      await createProfileBrowsers(settings(), silentLogger, launch).keepOnly([]);
+      expect(existsSync(join(dir, "kickrocks"))).toBe(false);
+    });
   });
 
   it("never lets a profile id climb out of the folder", async () => {

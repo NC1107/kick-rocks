@@ -320,6 +320,11 @@ export const tasks = sqliteTable(
     blockedUrl: text("blocked_url"),
     leaseOwner: text("lease_owner"),
     leaseExpiresAt: timestamp("lease_expires_at"),
+    /**
+     * The worker said a removal run has clicked, so the form may already be submitted. A task in
+     * this state is never retried: losing its lease holds it for a person.
+     */
+    mayHaveSubmitted: integer("may_have_submitted", { mode: "boolean" }).notNull().default(false),
     attempts: integer("attempts").notNull().default(0),
     maxAttempts: integer("max_attempts").notNull(),
     runAfter: timestamp("run_after"),

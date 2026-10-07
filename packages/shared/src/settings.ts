@@ -81,7 +81,10 @@ export const SETTING_SCHEMAS = {
   schedule: ScheduleSettings.default(ScheduleSettings.parse({})),
   llm: LlmSettings.nullable().default(null),
   retention: RetentionSettings.default(RetentionSettings.parse({})),
-  "worker.status": WorkerStatus.nullable().default(null),
+  /** Whether the agent worker may take sites whose bundled recipe is still waiting for the person's review. */
+  "agent.takeUnreviewed": z.boolean().default(false),
+  "worker.status.builtin": WorkerStatus.nullable().default(null),
+  "worker.status.model": WorkerStatus.nullable().default(null),
   notifications: NotificationSettings.default(NotificationSettings.parse({})),
   "notifications.state": NotificationState.default(NotificationState.parse({})),
 } as const;
@@ -102,10 +105,17 @@ export const SettingsView = z.object({
   }),
   /** Whether the worker may open real broker sites on its own to check that the recipes still work. */
   siteChecks: z.object({ enabled: z.boolean() }),
+  agent: z.object({
+    /** Lets the agent worker take a site whose bundled recipe has not been approved yet. */
+    takeUnreviewed: z.boolean(),
+  }),
   worker: z.object({
     /** False when KICKROCKS_WORKER_TOKEN is unset and the worker API is switched off. */
     enabled: z.boolean(),
-    status: WorkerStatus.nullable(),
+    /** The worker that runs recipes. It and the model worker report separately. */
+    builtin: WorkerStatus.nullable(),
+    /** The worker that drives a model for the sites no recipe covers. */
+    model: WorkerStatus.nullable(),
   }),
 });
 export type SettingsView = z.infer<typeof SettingsView>;
@@ -124,6 +134,7 @@ export const SettingsPatch = z.object({
     .optional(),
   mcp: z.object({ enabled: z.boolean() }).optional(),
   siteChecks: z.object({ enabled: z.boolean() }).optional(),
+  agent: z.object({ takeUnreviewed: z.boolean() }).optional(),
 });
 export type SettingsPatch = z.infer<typeof SettingsPatch>;
 

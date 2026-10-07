@@ -34,17 +34,33 @@ export const WORKER_AUTH_HEADER = "authorization";
 
 const WorkerId = z.string().min(1).max(100);
 
+/**
+ * Which kind of worker is calling: the built-in one that runs recipes, or one that drives a model.
+ * The server counts their runs and shows their health apart.
+ */
+export const WorkerClaimer = z.enum(["builtin", "model"]);
+export type WorkerClaimer = z.infer<typeof WorkerClaimer>;
+
 export const WorkerHeartbeatBody = z.object({
   workerId: WorkerId,
   version: z.string().max(50).optional(),
   busy: z.boolean(),
   currentTaskId: z.string().nullable().optional(),
+  /** Kept per kind, so one kind of worker beating never makes the other look alive. */
+  claimer: WorkerClaimer.default("builtin"),
 });
 export type WorkerHeartbeatBody = z.infer<typeof WorkerHeartbeatBody>;
 
 export const WorkerHeartbeatResponse = z.object({
   ok: z.literal(true),
   serverTime: z.iso.datetime(),
+  /**
+   * Every profile the instance still has. A worker keeps one Chrome profile per Kick Rocks
+   * profile and deletes the browser data of any other, so deleting a profile or resetting the
+   * instance also removes the cookies and history its visits left. A server that omits the list
+   * says nothing about profiles, and a worker must then delete nothing.
+   */
+  profileIds: z.array(z.string()).optional(),
 });
 export type WorkerHeartbeatResponse = z.infer<typeof WorkerHeartbeatResponse>;
 
@@ -57,7 +73,7 @@ export const WorkerClaimBody = z.object({
     .default(() => [...WORKER_DEFAULT_KINDS]),
   leaseMs: LeaseMs.default(LEASE_MS.default),
   /** A worker that drives a model says so, so its runs are counted apart from recipe runs. */
-  claimer: z.enum(["builtin", "model"]).default("builtin"),
+  claimer: WorkerClaimer.default("builtin"),
 });
 export type WorkerClaimBody = z.infer<typeof WorkerClaimBody>;
 
@@ -67,6 +83,12 @@ export type WorkerClaimResponse = z.infer<typeof WorkerClaimResponse>;
 export const TaskHeartbeatBody = z.object({
   workerId: WorkerId,
   leaseMs: LeaseMs.default(LEASE_MS.default),
+  /**
+   * Set once a removal run has clicked, so its form may already be submitted. The server then
+   * holds the task for a person instead of retrying it if the lease is lost or the run ends
+   * without an answer, because a retry would submit the form again.
+   */
+  mayHaveSubmitted: z.boolean().optional(),
 });
 export type TaskHeartbeatBody = z.infer<typeof TaskHeartbeatBody>;
 

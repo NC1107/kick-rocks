@@ -110,6 +110,7 @@ describe("GET /profiles/:id/dashboard", () => {
         requestId: request.id,
         recordUrl: "https://b.test/1",
         variant: null,
+        rights: ["opt_out"],
         reason: "no_recipe",
         previousError: null,
         blockedReason: null,

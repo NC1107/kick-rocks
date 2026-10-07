@@ -1,0 +1,16 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Hops - Fixture Broker</title></head>
+<body>
+<h1>Hops</h1>
+<form method="post" action="/hop307" target="_blank">
+  <label for="post-name">Name for a posted tab</label>
+  <input id="post-name" name="first_name">
+  <button type="submit">Post in new tab</button>
+</form>
+<label for="window-name">Name for a window</label>
+<input id="window-name" name="window_name">
+<button type="button" onclick="window.open('/hop302?name=' + encodeURIComponent(document.getElementById('window-name').value))">Open redirecting window</button>
+<button type="button" onclick="window.open('/hop302?name=' + encodeURIComponent(document.getElementById('window-name').value), '_blank', 'noopener')">Open redirecting window without opener</button>
+</body>
+</html>

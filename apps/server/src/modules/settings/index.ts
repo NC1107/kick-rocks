@@ -28,9 +28,11 @@ function viewOf({ settings, config }: AppServices): SettingsView {
       url: `${config.publicUrl}/mcp`,
     },
     siteChecks: { enabled: settings.get("siteChecks.enabled") },
+    agent: { takeUnreviewed: settings.get("agent.takeUnreviewed") },
     worker: {
       enabled: config.workerToken !== null,
-      status: settings.get("worker.status"),
+      builtin: settings.get("worker.status.builtin"),
+      model: settings.get("worker.status.model"),
     },
   };
 }
@@ -78,6 +80,7 @@ function applyPatch({ settings }: AppServices, patch: SettingsPatch): void {
   }
   if (patch.mcp) settings.set("mcp.enabled", patch.mcp.enabled);
   if (patch.siteChecks) settings.set("siteChecks.enabled", patch.siteChecks.enabled);
+  if (patch.agent) settings.set("agent.takeUnreviewed", patch.agent.takeUnreviewed);
 }
 
 /** How many live targets list each source, counting a target once however it lists it. */

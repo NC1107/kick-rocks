@@ -1,0 +1,1 @@
+ALTER TABLE `tasks` ADD `may_have_submitted` integer DEFAULT false NOT NULL;

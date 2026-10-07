@@ -53,11 +53,13 @@ export const MCP_TOOLS = {
     output: z.object({ task: ClaimedTask.nullable() }),
   },
   heartbeat_task: {
-    description: "Extend the lease on a task you hold. Call it while a long task is running.",
+    description:
+      "Extend the lease on a task you hold. Call it while a long task is running. For a removal, call it with mayHaveSubmitted true as soon as you have clicked the submit button, so the task is held for a person and not retried if your lease runs out.",
     input: z.object({
       workerId: WorkerName,
       taskId: TaskId,
       leaseMs: LeaseMs.default(LEASE_MS.default),
+      mayHaveSubmitted: z.boolean().optional(),
     }),
     output: TaskHeartbeatResponse,
   },

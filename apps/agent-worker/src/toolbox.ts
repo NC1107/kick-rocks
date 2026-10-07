@@ -5,9 +5,18 @@ import {
   type TaskScreenshot,
   WebUrl,
 } from "@kickrocks/shared";
+import { bypassServiceWorkers } from "@kickrocks/worker/dist/browser.js";
+import { SubmitNotRecorded } from "@kickrocks/worker/dist/executor.js";
 import { describeError } from "@kickrocks/worker/dist/logger.js";
-import type { CDPSession, Dialog, Locator, Page } from "playwright";
-import { type NavigationPolicy, type PageScope, refuseNavigation, scopeOf } from "./domains.js";
+import type { CDPSession, Dialog, Locator, Page, Request, Route } from "playwright";
+import {
+  type NavigationPolicy,
+  type PageScope,
+  refuseCurrentUrl,
+  refuseNavigation,
+  scopeOf,
+} from "./domains.js";
+import { type CdpChannel, guardFrameTargets } from "./frame-guard.js";
 import {
   formatSnapshot,
   fromSource,
@@ -38,8 +47,21 @@ export interface ToolboxOptions {
    */
   startUrls?: readonly string[];
   signal: AbortSignal;
+  /** Awaited just before every click, which may be the one that submits a form. */
+  onClick?: () => Promise<void>;
+  /** How long a click, a fill or a choice may take before it counts as timed out. */
+  actionTimeoutMs?: number;
   /** How long a whole-page bot check gets to clear by itself before it stops the run. */
   challengeGraceMs?: number;
+}
+
+interface PausedRequest {
+  requestId: string;
+  resourceType: string;
+  frameId?: string;
+  responseStatusCode?: number;
+  responseHeaders?: { name: string; value: string }[];
+  request: { url: string; urlFragment?: string };
 }
 
 interface ElementInfo {
@@ -77,8 +99,11 @@ const NON_TEXT_INPUTS = new Set([
   "color",
 ]);
 
-const ACTION_TIMEOUT_MS = 8_000;
+const DEFAULT_ACTION_TIMEOUT_MS = 8_000;
 const NAVIGATION_TIMEOUT_MS = 30_000;
+
+/** Every request, so that a document in a tab or window the run did not open is seen. */
+const documentsOfOtherPages = "**/*";
 
 function failure(text: string): ToolOutcome {
   return { kind: "result", text, snapshot: false, isError: true };
@@ -111,8 +136,12 @@ export class Toolbox {
   private clickCount = 0;
   private installed = false;
   private cdp: CDPSession | null = null;
+  /** The last document the page was let load, which its own address changes are measured against. */
+  private admittedDocument: string | null = null;
+  private readonly actionTimeoutMs: number;
 
   constructor(private readonly options: ToolboxOptions) {
+    this.actionTimeoutMs = options.actionTimeoutMs ?? DEFAULT_ACTION_TIMEOUT_MS;
     this.policy = { ...options.policy, pages: [...options.policy.pages] };
     this.redirectsToFollow = new Set(
       (options.startUrls ?? []).flatMap((url) => {
@@ -133,7 +162,10 @@ export class Toolbox {
     return this.links.get(shown) ?? null;
   }
 
-  /** How many clicks worked, so a "submitted" result can be told from one the model made up. */
+  /**
+   * How many clicks were made, counting those that timed out. A "submitted" result can be told from
+   * one the model made up by it, and a run that has clicked may already have submitted its form.
+   */
   get clicks(): number {
     return this.clickCount;
   }
@@ -146,7 +178,7 @@ export class Toolbox {
     if (this.installed) return;
     this.installed = true;
     const { page } = this.options;
-    await this.guardMainFrameNavigations();
+    await this.guardNavigations();
     page.on("dialog", this.onDialog);
     page.on("popup", this.onPopup);
   }
@@ -157,25 +189,73 @@ export class Toolbox {
     const { page } = this.options;
     page.off("dialog", this.onDialog);
     page.off("popup", this.onPopup);
+    await page
+      .context()
+      .unroute(documentsOfOtherPages, this.routeOtherPage)
+      .catch(() => undefined);
+    page.context().off("page", this.bypassServiceWorkers);
     await this.cdp?.detach().catch(() => undefined);
     this.cdp = null;
   }
 
   /**
-   * Stops the page's own frame from loading anything off the allowed domains, however it got
-   * there: a click, a script, or a redirect. This goes through the browser's request interception
-   * for documents only, because `page.route` never sees the later hops of a redirect, and a
-   * redirect is the usual way a page sends a visitor elsewhere.
+   * Stops every document the page loads, in its own frame or in a frame inside it, from coming off
+   * the allowed domains, however it got there: a click, a script, a form aimed at a frame, or a
+   * redirect. This goes through the browser's request interception for documents only, because
+   * `page.route` never sees the later hops of a redirect, and a redirect is the usual way a page
+   * sends a visitor elsewhere. A new tab or window is another page of the same context, so its
+   * documents are all refused through a context route, and the tab is closed as soon as it opens.
+   * A frame of another site runs in its own process with its own request interception, so each
+   * one is held at its start and given the same guard as the page before it can load anything.
    */
-  private async guardMainFrameNavigations(): Promise<void> {
+  private async guardNavigations(): Promise<void> {
     const { page } = this.options;
-    const cdp = await page.context().newCDPSession(page);
+    const context = page.context();
+    await context.route(documentsOfOtherPages, this.routeOtherPage);
+    context.on("page", this.bypassServiceWorkers);
+    const cdp = await context.newCDPSession(page);
     this.cdp = cdp;
     const { frameTree } = await cdp.send("Page.getFrameTree");
-    const mainFrameId = frameTree.frame.id;
-    cdp.on("Fetch.requestPaused", (event) => {
-      const ours = event.resourceType === "Document" && event.frameId === mainFrameId;
-      if (ours && event.responseStatusCode !== undefined) {
+    const channel: CdpChannel = {
+      send: (method, params) => cdp.send(method as never, params as never),
+      on: (event, handler) => cdp.on(event as never, handler as never),
+    };
+    await this.guardSession(channel, frameTree.frame.id);
+    await guardFrameTargets(
+      channel,
+      (frame) => this.guardSession(frame, ""),
+      (error) => {
+        this.refusedNavigations.push(
+          `A frame could not be checked and was held back: ${describeError(error)}`,
+        );
+      },
+    );
+  }
+
+  private readonly bypassServiceWorkers = (page: Page): void => {
+    bypassServiceWorkers(page).catch((error: unknown) => {
+      this.refusedNavigations.push(
+        `A tab could not be kept from service workers: ${describeError(error)}`,
+      );
+    });
+  };
+
+  /**
+   * Decides every document request of one DevTools session: the page's own, or a frame's. A
+   * service worker would answer a request before this interception saw it, so each session also
+   * bypasses service workers, and a frame in its own process has a session of its own.
+   */
+  private async guardSession(session: CdpChannel, mainFrameId: string): Promise<void> {
+    await session.send("Network.enable");
+    await session.send("Network.setBypassServiceWorker", { bypass: true });
+    session.on("Fetch.requestPaused", (event: PausedRequest) => {
+      if (event.resourceType !== "Document") {
+        session
+          .send("Fetch.continueRequest", { requestId: event.requestId })
+          .catch(() => undefined);
+        return;
+      }
+      if (event.responseStatusCode !== undefined && event.frameId === mainFrameId) {
         this.followStartRedirect(
           event.request.url,
           event.responseStatusCode,
@@ -183,21 +263,26 @@ export class Toolbox {
         );
       }
       const reason =
-        ours && event.responseStatusCode === undefined
-          ? refuseNavigation(event.request.url, this.policy)
+        event.responseStatusCode === undefined
+          ? refuseNavigation(`${event.request.url}${event.request.urlFragment ?? ""}`, this.policy)
           : null;
       if (reason === null) {
-        cdp.send("Fetch.continueRequest", { requestId: event.requestId }).catch(() => undefined);
+        if (event.responseStatusCode === undefined && event.frameId === mainFrameId) {
+          this.admittedDocument = event.request.url;
+        }
+        session
+          .send("Fetch.continueRequest", { requestId: event.requestId })
+          .catch(() => undefined);
         return;
       }
       this.refusedNavigations.push(reason);
       // Aborted keeps the page where it is. A failure the browser reports as blocked would
       // replace the page with an error page and lose what was typed into it.
-      cdp
+      session
         .send("Fetch.failRequest", { requestId: event.requestId, errorReason: "Aborted" })
         .catch(() => undefined);
     });
-    await cdp.send("Fetch.enable", {
+    await session.send("Fetch.enable", {
       patterns: [
         { urlPattern: "*", resourceType: "Document", requestStage: "Request" },
         { urlPattern: "*", resourceType: "Document", requestStage: "Response" },
@@ -233,7 +318,7 @@ export class Toolbox {
   currentUrlProblem(): string | null {
     const url = this.options.page.url();
     if (url === "about:blank" || url === "") return null;
-    return refuseNavigation(url, this.policy);
+    return refuseCurrentUrl(url, this.admittedDocument, this.policy);
   }
 
   /** Every answer for the model passes through here, so no path can show it a person's value. */
@@ -242,7 +327,7 @@ export class Toolbox {
     try {
       outcome = await this.run(name, args);
     } catch (error) {
-      if (this.options.signal.aborted) throw error;
+      if (this.options.signal.aborted || error instanceof SubmitNotRecorded) throw error;
       outcome = failure(this.withNotes(this.explain(error)));
     }
     return outcome.kind === "result"
@@ -283,6 +368,43 @@ export class Toolbox {
     }
     return finding;
   }
+
+  /** The first request of a new tab is made before the tab has a frame, so having none means it is not ours. */
+  private isOurs(request: Request): boolean {
+    try {
+      return request.frame().page() === this.options.page;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * A new tab is closed the moment it opens, so none of its documents is wanted, and a route
+   * only sees the first request of a tab, never the redirects after it. Refusing all of them
+   * leaves a redirect nothing to carry a typed value through.
+   */
+  private readonly routeOtherPage = (route: Route): void => {
+    const request = route.request();
+    if (request.resourceType() !== "document") {
+      route.fallback().catch(() => undefined);
+      return;
+    }
+    if (!this.isOurs(request)) {
+      this.refusedNavigations.push("A new tab or window cannot be opened");
+      route.abort("aborted").catch(() => undefined);
+      return;
+    }
+    const reason =
+      request.frame() === this.options.page.mainFrame()
+        ? null
+        : refuseNavigation(request.url(), this.policy);
+    if (reason === null) {
+      route.fallback().catch(() => undefined);
+      return;
+    }
+    this.refusedNavigations.push(reason);
+    route.abort("aborted").catch(() => undefined);
+  };
 
   private readonly onDialog = (dialog: Dialog): void => {
     this.notes.push(
@@ -391,12 +513,27 @@ export class Toolbox {
     ].join("\n");
   }
 
+  /**
+   * The model only ever sees masked addresses, so what it passes to navigate is mapped back: a
+   * link a snapshot showed becomes the page's real address, and the record placeholder becomes the
+   * task's record address. No other placeholder is filled, so a person's value never gets into an
+   * address the model composed.
+   */
+  private realAddress(requested: string): string {
+    const shown = this.links.get(requested);
+    if (shown !== undefined && shown !== null) return shown;
+    const recordUrl = this.options.fields.record_url;
+    if (recordUrl === undefined || recordUrl === "") return requested;
+    return requested.replaceAll("{{record_url}}", recordUrl);
+  }
+
   private async navigate(args: unknown): Promise<ToolOutcome> {
     const parsed = NavigateArgs.safeParse(args);
     if (!parsed.success) return failure("navigate needs a url");
-    const reason = refuseNavigation(parsed.data.url, this.policy);
+    const address = this.realAddress(parsed.data.url);
+    const reason = refuseNavigation(address, this.policy);
     if (reason !== null) return failure(`Refused: ${reason}.`);
-    const response = await this.options.page.goto(parsed.data.url, {
+    const response = await this.options.page.goto(address, {
       waitUntil: "domcontentloaded",
       timeout: NAVIGATION_TIMEOUT_MS,
     });
@@ -429,6 +566,31 @@ export class Toolbox {
     return locator.evaluate(fromSource<(el: unknown) => boolean>(REACHABLE));
   }
 
+  /**
+   * Runs before anything that can send the form: a click, and also a choice or a tick, because a
+   * page may submit on change. It is counted before the action is made: one that times out may
+   * still have been delivered, and a form that was already submitted must never be submitted
+   * again by a retry.
+   */
+  private async beforeSending(): Promise<void> {
+    await this.beforeAction();
+    this.clickCount += 1;
+  }
+
+  /**
+   * Typing is not a click, but a page may submit on a field's change event, which fires when focus
+   * moves on. It is recorded like a send without being counted as one, because typing alone must
+   * not let a run report a submission.
+   */
+  private async beforeEditing(): Promise<void> {
+    await this.beforeAction();
+  }
+
+  private async beforeAction(): Promise<void> {
+    await this.options.onClick?.();
+    if (this.options.signal.aborted) throw new Error("The run was stopped before the action");
+  }
+
   private async click(args: unknown): Promise<ToolOutcome> {
     const parsed = ClickArgs.safeParse(args);
     if (!parsed.success) return failure("click needs a ref such as e12");
@@ -439,8 +601,19 @@ export class Toolbox {
         "File upload controls cannot be used. If the site needs a document, report blocked with id_upload.",
       );
     }
-    await target.locator.click({ timeout: ACTION_TIMEOUT_MS });
-    this.clickCount += 1;
+    await this.beforeSending();
+    try {
+      await target.locator.click({ timeout: this.actionTimeoutMs });
+    } catch (error) {
+      if (this.options.signal.aborted || !/Timeout \d+ms exceeded/.test(describeError(error))) {
+        throw error;
+      }
+      return failure(
+        this.withNotes(
+          `The click on ${parsed.data.ref} timed out. It may still have been delivered, and a form may have been submitted. Call snapshot to see where the page is, and do not submit the form again. If you cannot tell whether it went through, report failed.`,
+        ),
+      );
+    }
     await this.settle();
     return this.readPage(`Clicked ${parsed.data.ref}.`);
   }
@@ -475,15 +648,16 @@ export class Toolbox {
       return failure(`${ref} is not visible to a person on the page now, so nothing was typed.`);
     }
 
+    await this.beforeEditing();
     const { pace } = this.options;
     if (pace.typeDelayMs[1] > 0) {
-      await target.locator.click({ timeout: ACTION_TIMEOUT_MS });
-      await target.locator.fill("", { timeout: ACTION_TIMEOUT_MS });
+      await target.locator.click({ timeout: this.actionTimeoutMs });
+      await target.locator.fill("", { timeout: this.actionTimeoutMs });
       for (const character of value) {
         await target.locator.pressSequentially(character, { delay: typeDelay(pace) });
       }
     } else {
-      await target.locator.fill(value, { timeout: ACTION_TIMEOUT_MS });
+      await target.locator.fill(value, { timeout: this.actionTimeoutMs });
     }
     return done(this.withNotes(`Typed ${field} into ${ref}.`));
   }
@@ -531,7 +705,8 @@ export class Toolbox {
           : `No option of ${ref} matches the ${field} value. Options: ${shown}. Choose one with option if it is the right one.`,
       );
     }
-    await target.locator.selectOption({ value: match.value }, { timeout: ACTION_TIMEOUT_MS });
+    await this.beforeSending();
+    await target.locator.selectOption({ value: match.value }, { timeout: this.actionTimeoutMs });
     return done(this.withNotes(`Selected ${JSON.stringify(match.label)} in ${ref}.`));
   }
 
@@ -543,7 +718,8 @@ export class Toolbox {
     if (target.info.type !== "checkbox" && target.info.type !== "radio") {
       return failure(`${parsed.data.ref} is not a checkbox or radio button. Use click.`);
     }
-    await target.locator.setChecked(parsed.data.checked, { timeout: ACTION_TIMEOUT_MS });
+    await this.beforeSending();
+    await target.locator.setChecked(parsed.data.checked, { timeout: this.actionTimeoutMs });
     return done(
       this.withNotes(`${parsed.data.checked ? "Checked" : "Unchecked"} ${parsed.data.ref}.`),
     );

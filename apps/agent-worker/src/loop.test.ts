@@ -1,5 +1,6 @@
 import type { ClaimedTask } from "@kickrocks/shared";
 import { WorkerApiError } from "@kickrocks/worker/dist/api-client.js";
+import { SubmitNotRecorded, type TaskReport } from "@kickrocks/worker/dist/executor.js";
 import { describe, expect, it, vi } from "vitest";
 import { agentTask, silentLogger, summary } from "../test/support.js";
 import { type AgentApi, type AgentExecutor, type LoopTiming, runLoop } from "./loop.js";
@@ -224,22 +225,45 @@ describe("the agent claim loop", () => {
     expect(api.release).toHaveBeenCalledWith(expect.any(String), undefined);
   });
 
-  it("closes the browser and releases the task when a run ignores the shutdown", async () => {
+  async function stalledShutdown(report: TaskReport, api = fakeApi([agentTask()])) {
     const controller = new AbortController();
-    const api = fakeApi([agentTask()]);
     let unblock: () => void = () => undefined;
     const forceStop = vi.fn(async () => unblock());
     const executor: AgentExecutor = () =>
       new Promise((resolve) => {
         controller.abort();
-        unblock = () => resolve({ kind: "complete", result: { late: true }, usage: {} });
+        unblock = () => resolve(report);
       });
-    await drive(api, executor, () => api.release.mock.calls.length > 0, {
-      signal: controller,
-      forceStop,
-    });
+    const transitions = () =>
+      [api.release, api.block, api.fail, api.complete].flatMap((m) => m.mock.calls);
+    await drive(api, executor, () => transitions().length > 0, { signal: controller, forceStop });
     expect(forceStop).toHaveBeenCalled();
-    expect(api.complete).not.toHaveBeenCalled();
+    return api;
+  }
+
+  it("closes the browser and releases the task when a run ignores the shutdown", async () => {
+    const api = await stalledShutdown({ kind: "fail", report: { error: "x", retryable: true } });
+    expect(api.release).toHaveBeenCalled();
+    expect(api.fail).not.toHaveBeenCalled();
+  });
+
+  it("keeps a block that the stopped run reached", async () => {
+    const report = { reason: "unknown" as const, detail: "may already have been submitted" };
+    const api = await stalledShutdown({ kind: "block", report });
+    expect(api.block).toHaveBeenCalledWith(expect.any(String), report);
+    expect(api.release).not.toHaveBeenCalled();
+  });
+
+  it("keeps a result and a failure that will not be retried", async () => {
+    const done = await stalledShutdown({ kind: "complete", result: { late: true }, usage: {} });
+    expect(done.complete).toHaveBeenCalled();
+    expect(done.release).not.toHaveBeenCalled();
+    const failed = await stalledShutdown({
+      kind: "fail",
+      report: { error: "x", retryable: false },
+    });
+    expect(failed.fail).toHaveBeenCalled();
+    expect(failed.release).not.toHaveBeenCalled();
   });
 
   it("gives back a task that is not an agent task without running it", async () => {
@@ -249,5 +273,165 @@ describe("the agent claim loop", () => {
     await drive(api, executor, () => api.release.mock.calls.length > 0);
     expect(executor).not.toHaveBeenCalled();
     expect(api.release).toHaveBeenCalledWith(wrong.id, 60_000);
+  });
+
+  it("tells the server a removal may have been submitted before the run goes on, and with every later beat", async () => {
+    const api = fakeApi([agentTask()]);
+    const executor: AgentExecutor = async (_task, _signal, progress) => {
+      expect(api.taskHeartbeat).not.toHaveBeenCalledWith(expect.any(String), 60_000, true);
+      await progress?.mayHaveSubmitted();
+      await progress?.mayHaveSubmitted();
+      const calls = api.taskHeartbeat.mock.calls as unknown[][];
+      expect(calls.filter((call) => call[2] === true)).toHaveLength(1);
+      const before = calls.length;
+      await vi.waitUntil(() => api.taskHeartbeat.mock.calls.length > before + 1, {
+        timeout: 2000,
+        interval: 5,
+      });
+      for (const call of calls.slice(before))
+        expect(call).toEqual([expect.any(String), 60_000, true]);
+      return { kind: "complete", result: {}, usage: {} };
+    };
+    await drive(api, executor, () => api.complete.mock.calls.length > 0);
+    expect(api.complete).toHaveBeenCalled();
+  });
+
+  it.each([
+    ["a 503", () => new WorkerApiError(503, "unavailable", "down")],
+    ["a network error", () => new TypeError("fetch failed")],
+    ["a lease that is no longer ours", () => new WorkerApiError(409, "lease_not_held", "taken")],
+    ["a lease that lapsed", () => new WorkerApiError(409, "lease_expired", "lapsed")],
+  ])("does not let the run click when the flagged heartbeat meets %s", async (_name, makeError) => {
+    const api = fakeApi([agentTask()]);
+    api.taskHeartbeat.mockImplementation((async (_id: string, _lease: number, flag?: boolean) => {
+      if (flag) throw makeError();
+      return { leaseExpiresAt: "2026-10-07T00:10:00.000Z" };
+    }) as never);
+    let clicked = false;
+    let refusal: unknown;
+    let ran = false;
+    const executor: AgentExecutor = async (_task, _signal, progress) => {
+      try {
+        await progress?.mayHaveSubmitted();
+        clicked = true;
+      } catch (error) {
+        refusal = error;
+      }
+      ran = true;
+      return { kind: "release", reason: "not recorded" };
+    };
+    await drive(api, executor, () => ran);
+    expect(clicked).toBe(false);
+    expect(refusal).toBeInstanceOf(SubmitNotRecorded);
+  });
+
+  it("retries a flagged heartbeat that failed in passing, and lets the click through once it is acknowledged", async () => {
+    const api = fakeApi([agentTask()]);
+    let failures = 1;
+    api.taskHeartbeat.mockImplementation((async (_id: string, _lease: number, flag?: boolean) => {
+      if (flag && failures-- > 0) throw new WorkerApiError(503, "unavailable", "down");
+      return { leaseExpiresAt: "2026-10-07T00:10:00.000Z" };
+    }) as never);
+    let clicked = false;
+    const executor: AgentExecutor = async (_task, _signal, progress) => {
+      await progress?.mayHaveSubmitted();
+      clicked = true;
+      return { kind: "complete", result: {}, usage: {} };
+    };
+    await drive(api, executor, () => api.complete.mock.calls.length > 0);
+    expect(clicked).toBe(true);
+  });
+
+  it("counts a flagged heartbeat the interval timer got acknowledged as the record", async () => {
+    const api = fakeApi([agentTask()]);
+    let flagged = 0;
+    api.taskHeartbeat.mockImplementation((async (_id: string, _lease: number, flag?: boolean) => {
+      if (!flag) return { leaseExpiresAt: "2026-10-07T00:10:00.000Z" };
+      const call = ++flagged;
+      if (call === 1) {
+        await new Promise((resolve) => setTimeout(resolve, 60));
+        throw new WorkerApiError(503, "unavailable", "down");
+      }
+      if (call > 2) throw new WorkerApiError(503, "unavailable", "down");
+      return { leaseExpiresAt: "2026-10-07T00:10:00.000Z" };
+    }) as never);
+    let clicked = false;
+    const executor: AgentExecutor = async (_task, _signal, progress) => {
+      await progress?.mayHaveSubmitted();
+      clicked = true;
+      return { kind: "complete", result: {}, usage: {} };
+    };
+    await drive(api, executor, () => api.complete.mock.calls.length > 0);
+    expect(clicked).toBe(true);
+  });
+
+  it("lets the click through when an interval heartbeat records the flag while a non-transient failure was pending", async () => {
+    const api = fakeApi([agentTask()]);
+    let flagged = 0;
+    api.taskHeartbeat.mockImplementation((async (_id: string, _lease: number, flag?: boolean) => {
+      if (!flag) return { leaseExpiresAt: "2026-10-07T00:10:00.000Z" };
+      if (++flagged === 1) {
+        await new Promise((resolve) => setTimeout(resolve, 80));
+        throw new WorkerApiError(400, "bad_request", "no");
+      }
+      return { leaseExpiresAt: "2026-10-07T00:10:00.000Z" };
+    }) as never);
+    let clicked = false;
+    const executor: AgentExecutor = async (_task, _signal, progress) => {
+      try {
+        await progress?.mayHaveSubmitted();
+        clicked = true;
+      } catch {
+        clicked = false;
+      }
+      return { kind: "complete", result: {}, usage: {} };
+    };
+    await drive(api, executor, () => api.complete.mock.calls.length > 0);
+    expect(clicked).toBe(true);
+  });
+
+  it("tells the browser which profiles still exist while idle, and never deletes on a silent server", async () => {
+    const keepProfiles = vi.fn(async () => undefined);
+    const withList = fakeApi([null, null]);
+    withList.heartbeat.mockImplementation(async () => ({
+      ok: true as const,
+      serverTime: "2026-10-07T00:00:00.000Z",
+      profileIds: ["p1"],
+    }));
+    const controller = new AbortController();
+    const finished = runLoop({
+      api: withList,
+      executor: async () => ({ kind: "release", reason: "x" }),
+      signal: controller.signal,
+      logger: silentLogger,
+      workerId: "test-agent",
+      pollMs: 5,
+      leaseMs: 60_000,
+      timing: FAST,
+      keepProfiles,
+    });
+    await vi.waitUntil(() => withList.claim.mock.calls.length >= 2, { timeout: 2000, interval: 5 });
+    controller.abort();
+    await finished;
+    expect(keepProfiles).toHaveBeenCalledWith(["p1"]);
+
+    const silent = fakeApi([null, null]);
+    const quiet = vi.fn(async () => undefined);
+    const other = new AbortController();
+    const done = runLoop({
+      api: silent,
+      executor: async () => ({ kind: "release", reason: "x" }),
+      signal: other.signal,
+      logger: silentLogger,
+      workerId: "test-agent",
+      pollMs: 5,
+      leaseMs: 60_000,
+      timing: FAST,
+      keepProfiles: quiet,
+    });
+    await vi.waitUntil(() => silent.claim.mock.calls.length >= 2, { timeout: 2000, interval: 5 });
+    other.abort();
+    await done;
+    expect(quiet).not.toHaveBeenCalled();
   });
 });

@@ -1,3 +1,4 @@
+import { profiles } from "@kickrocks/db";
 import { API_ROUTES } from "@kickrocks/shared";
 import { nowIso } from "../../core/clock.js";
 import { registerRoute } from "../../core/http.js";
@@ -13,14 +14,19 @@ export const workerApiModule: ModulePlugin = (app, services) => {
 
   registerRoute(app, API_ROUTES.workerHeartbeat, ({ body }) => {
     const now = nowIso(services.clock);
-    services.settings.set("worker.status", {
+    services.settings.set(`worker.status.${body.claimer}`, {
       workerId: body.workerId,
       version: body.version ?? null,
       lastSeenAt: now,
       busy: body.busy,
       currentTaskId: body.currentTaskId ?? null,
     });
-    return { ok: true as const, serverTime: now };
+    const profileIds = services.db
+      .select({ id: profiles.id })
+      .from(profiles)
+      .all()
+      .map((row) => row.id);
+    return { ok: true as const, serverTime: now, profileIds };
   });
 
   registerRoute(app, API_ROUTES.workerClaim, ({ body }) => ({

@@ -39,9 +39,13 @@ function dateSpellings(date: string): string[] {
   ];
 }
 
+const E164 = /^\+[1-9]\d{6,14}$/;
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+
+/** Other spellings of a value that a page's input mask or layout may use instead of the stored one. */
 function variantsOf(name: string, value: string): string[] {
-  if (name === "phone") return phoneSpellings(value);
-  if (name === "date_of_birth") return dateSpellings(value);
+  if (name === "phone" || E164.test(value)) return phoneSpellings(value);
+  if (name === "date_of_birth" || ISO_DATE.test(value)) return dateSpellings(value);
   return [];
 }
 
@@ -53,32 +57,52 @@ function redactorFor(entries: [string, string][]): Redact {
   return (text) => redactors.reduce((current, redact) => redact(current), text);
 }
 
+type NamedValues = Record<string, string | undefined>;
+
+/**
+ * Names the person's other values, the ones the task has no field for, so a page that shows one
+ * reads {{other_3}} to the model and the program can still put the value back in what it reports.
+ * A value the task's fields already hide keeps its field's name.
+ */
+export function namedHiddenValues(
+  fields: ProfileFields,
+  hidden: readonly string[],
+): Record<string, string> {
+  const seen = new Set(Object.values(fields).map((value) => value?.trim().toLowerCase()));
+  const named: Record<string, string> = {};
+  for (const raw of hidden) {
+    const value = raw.trim();
+    if (value === "" || seen.has(value.toLowerCase())) continue;
+    seen.add(value.toLowerCase());
+    named[`other_${Object.keys(named).length + 1}`] = value;
+  }
+  return named;
+}
+
 /** Puts the person's values back where a {{field}} placeholder stands, for text the model copied. */
-export function restoreFields(text: string, fields: ProfileFields): string {
+export function restoreFields(text: string, fields: NamedValues): string {
   return text.replace(/\{\{(\w+)\}\}/g, (placeholder, name: string) => {
-    const value = (fields as Record<string, string | undefined>)[name];
+    const value = fields[name];
     return value === undefined || value === "" ? placeholder : value;
   });
 }
 
 /**
  * Hides the person's values in text the model reads or the server stores. The recipe runner's
- * redactor knows the plain, percent-encoded and slug spellings; a form submitted by GET puts a
- * space in the address as a plus sign, so that spelling is covered here too. A page's input mask
+ * redactor knows every URL and markup spelling of a value, form-urlencoded ones included. A page's input mask
  * can reformat a phone number or a date, so those fields also hide their common US formats.
  */
-export function createMask(fields: ProfileFields): Redact {
-  const entries = Object.entries(fields).filter(
+export function createMask(fields: ProfileFields, hidden: readonly string[] = []): Redact {
+  const everything: NamedValues = { ...fields, ...namedHiddenValues(fields, hidden) };
+  const entries = Object.entries(everything).filter(
     (entry): entry is [string, string] => typeof entry[1] === "string" && entry[1].trim() !== "",
   );
-  const plain = createRedactor(fields);
-  const withPlus = createRedactor(
-    Object.fromEntries(entries.map(([name, value]) => [name, value.replaceAll(" ", "+")])),
-  );
+  const plain = createRedactor(everything as ProfileFields);
   const reformatted = redactorFor(
     entries.flatMap(([name, value]) =>
       variantsOf(name, value).map((spelling): [string, string] => [name, spelling]),
     ),
   );
-  return (text) => reformatted(withPlus(plain(text)));
+  // The long spellings go first: a date such as 04/05/1990 must not lose its year to the birth year alone.
+  return (text) => plain(reformatted(text));
 }

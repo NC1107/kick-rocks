@@ -508,9 +508,25 @@ export function formResult(ctx: RunContext, outcome: FormResult["outcome"]): For
   return result;
 }
 
+/** A fill counts too: moving focus off an edited field fires its change event, and a page may submit on that. */
+function sendsToSite(step: RecipeStep): boolean {
+  return (
+    step.kind === "fill" ||
+    step.kind === "click" ||
+    step.kind === "press" ||
+    step.kind === "select" ||
+    step.kind === "check" ||
+    step.kind === "select_record"
+  );
+}
+
 /** Runs one step. A step ends the run by returning an outcome, and otherwise returns null. */
 export async function runStep(ctx: RunContext, step: RecipeStep, index: number): Promise<Ended> {
   checkLive(ctx);
+  if (sendsToSite(step)) {
+    await ctx.onSubmit?.();
+    checkLive(ctx);
+  }
   try {
     switch (step.kind) {
       case "goto":

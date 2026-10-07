@@ -427,6 +427,7 @@ describe("agent tasks", () => {
       previousError?: string | null;
       blockedReason?: "captcha" | null;
     } = {},
+    claimerKind: "builtin" | "mcp" | "model" = "builtin",
   ) {
     ensureMailbox(profileId);
     const target =
@@ -461,6 +462,7 @@ describe("agent tasks", () => {
         requestId: request?.id ?? null,
         recordUrl: request?.recordUrl ?? null,
         variant: null,
+        rights: [],
         reason: why.reason ?? (why.previousError ? "recipe_failed" : "no_recipe"),
         previousError: why.previousError ?? null,
         blockedReason: why.blockedReason ?? null,
@@ -469,8 +471,72 @@ describe("agent tasks", () => {
       targetId: target.id,
       requestId: request?.id ?? null,
     });
-    return claim(["agent"]);
+    return claim(["agent"], { claimerKind });
   }
+
+  it("gives a model worker every value the profile holds to hide, and nobody else", () => {
+    seedIdentities(ctx, profileId, [
+      ...jordanIdentities(),
+      {
+        kind: "alias",
+        value: { first: "Jo", last: "Sample" },
+        isPrimary: false,
+        validFrom: null,
+        validTo: null,
+      },
+      {
+        kind: "email",
+        value: { address: "old.address@example.org" },
+        isPrimary: false,
+        validFrom: null,
+        validTo: null,
+      },
+      {
+        kind: "address",
+        value: {
+          street: "12 Old Mill Road",
+          unit: "4B",
+          city: "Houston",
+          state: "TX",
+          zip: "77001",
+        },
+        isPrimary: false,
+        validFrom: "2010-01-01",
+        validTo: "2015-01-01",
+      },
+    ]);
+    const forModel = agentClaim("scan", {}, "model");
+    expect(forModel?.maskValues).toEqual(
+      expect.arrayContaining([
+        "Jordan",
+        "Q",
+        "Example",
+        "Jordan Q Example",
+        "Jordan Example",
+        "Jo",
+        "Sample",
+        "Jo Sample",
+        "jordan@example.com",
+        "old.address@example.org",
+        "+15555550123",
+        "100 Example Way",
+        "Austin",
+        "78701",
+        "12 Old Mill Road",
+        "12 Old Mill Road 4B",
+        "Houston",
+        "77001",
+        "1990-04-05",
+        "1990",
+      ]),
+    );
+    expect(Object.keys(forModel?.fields ?? {})).not.toContain("street");
+  });
+
+  it("keeps that list from a client that is not a model worker, which may use fewer values", () => {
+    expect(agentClaim("scan", {}, "builtin")).not.toHaveProperty("maskValues");
+    expect(agentClaim("scan", {}, "mcp")).not.toHaveProperty("maskValues");
+  });
 
   it("takes its fields from the legal package for a scan", () => {
     const task = agentClaim("scan");
@@ -499,6 +565,11 @@ describe("agent tasks", () => {
     expect(agentClaim("remove")?.instructions).toContain("block_task with reason unknown");
   });
 
+  it("asks a removal to say when it has clicked, and a scan not to", () => {
+    expect(agentClaim("remove")?.instructions).toContain("mayHaveSubmitted true");
+    expect(agentClaim("scan")?.instructions).not.toContain("mayHaveSubmitted");
+  });
+
   it("states when the lease runs out and what happens after", () => {
     const task = agentClaim("remove");
     expect(task?.instructions).toContain(task?.leaseExpiresAt);
@@ -524,6 +595,7 @@ describe("agent tasks", () => {
         requestId: request.id,
         recordUrl: null,
         variant: null,
+        rights: ["opt_out"],
         reason: "no_recipe",
         previousError: null,
         blockedReason: null,
@@ -634,6 +706,7 @@ describe("claimTask", () => {
         requestId: null,
         recordUrl: null,
         variant: null,
+        rights: [],
         reason: "no_recipe",
         previousError: null,
         blockedReason: null,
@@ -774,6 +847,65 @@ describe("claiming a task by id", () => {
       expect(result.scanId).toBe(scan.scanId);
     });
 
+    describe("held because its form may already have been submitted", () => {
+      function heldRemoval() {
+        ensureMailbox(profileId);
+        const target = seedTarget(ctx, {
+          kind: "company",
+          category: "retail",
+          domain: "shop.example.com",
+          optOutUrl: "https://shop.example.com/do-not-sell",
+          contactMethod: "form",
+          privacyEmail: null,
+        });
+        const request = seedRequest(ctx, {
+          profileId,
+          targetId: target.id,
+          status: "queued",
+          channel: "form",
+          rights: ["opt_out"],
+        });
+        const { task } = ctx.services.dispatch.dispatchRequest(request.id);
+        const claimed = claim(["agent"]);
+        ctx.services.taskQueue.heartbeat(task.id, {
+          workerId: "worker-1",
+          leaseMs: 60_000,
+          mayHaveSubmitted: true,
+        });
+        ctx.services.taskQueue.block(task.id, {
+          workerId: "worker-1",
+          reason: "captcha",
+          actor: "agent",
+        });
+        return claimed?.id ?? task.id;
+      }
+
+      it("is not handed to an agent by id, because the agent would submit it again", () => {
+        const id = heldRemoval();
+        expect(() => claim(["agent"], { taskId: id, claimerKind: "mcp" })).toThrow(
+          expect.objectContaining({ status: 409, code: "held_for_person" }),
+        );
+        expect(ctx.services.taskQueue.getOrThrow(id).status).toBe("blocked");
+      });
+
+      it("says on the block that the form may already have been submitted", () => {
+        const id = heldRemoval();
+        const task = ctx.services.taskQueue.getOrThrow(id);
+        expect(task.mayHaveSubmitted).toBe(true);
+        expect(task.blockedDetail).toBe("The form may already have been submitted.");
+      });
+
+      it("is handed over by nobody but the person", () => {
+        const id = heldRemoval();
+        for (const actor of ["agent", "worker", "system"] as const) {
+          expect(() => ctx.services.dispatch.handToAgent(id, actor)).toThrow(
+            expect.objectContaining({ code: "held_for_person" }),
+          );
+        }
+        expect(ctx.services.dispatch.handToAgent(id, "user").task.kind).toBe("agent");
+      });
+    });
+
     it("is refused for a kind an agent cannot do", () => {
       const target = seedTarget(ctx);
       const task = seedTask(ctx, {
@@ -827,6 +959,7 @@ describe("tasks that name a record on another site", () => {
           purpose: "remove",
           recordUrl: offSite,
           variant: null,
+          rights: ["opt_out"],
           reason: "no_recipe",
           previousError: null,
           blockedReason: null,
@@ -884,5 +1017,213 @@ describe("agent scans for a past name or address", () => {
       state: "TX",
     });
     expect(task?.instructions).toContain("past name or address");
+  });
+});
+
+describe("what a removal agent is told about the rights requested", () => {
+  function company(rights: ("opt_out" | "delete")[], recordUrl: string | null = null) {
+    ensureMailbox(profileId);
+    const target = seedTarget(ctx, {
+      kind: "company",
+      category: "retail",
+      domain: "shop.example.com",
+      optOutUrl: "https://shop.example.com/do-not-sell",
+      privacyRightsUrl: "https://privacy.shop.example.com/requests",
+      contactMethod: "form",
+      privacyEmail: null,
+    });
+    const request = seedRequest(ctx, {
+      profileId,
+      targetId: target.id,
+      status: "queued",
+      channel: "form",
+      rights,
+      recordUrl,
+    });
+    const { task } = ctx.services.dispatch.dispatchRequest(request.id);
+    return { task, claimed: claim(["agent"]) };
+  }
+
+  it("starts a deletion at the privacy rights page and says it is a deletion", () => {
+    const { task, claimed } = company(["delete"]);
+    expect(task.kind).toBe("agent");
+    expect(claimed).toMatchObject({
+      payload: { rights: ["delete"] },
+      target: { privacyRightsUrl: "https://privacy.shop.example.com/requests" },
+    });
+    expect(claimed?.instructions).toContain("Start at https://privacy.shop.example.com/requests.");
+    expect(claimed?.instructions).toContain("delete their personal data");
+    expect(claimed?.instructions).not.toContain("opt out");
+  });
+
+  it("starts an opt-out at the opt-out page and says it is an opt-out", () => {
+    const { claimed } = company(["opt_out"]);
+    expect(claimed?.instructions).toContain("Start at https://shop.example.com/do-not-sell.");
+    expect(claimed?.instructions).toContain(
+      "stop selling or sharing their personal data (opt out)",
+    );
+    expect(claimed?.instructions).not.toContain("delete their personal data");
+  });
+
+  it("names both rights when both are requested", () => {
+    const { claimed } = company(["opt_out", "delete"]);
+    expect(claimed?.instructions).toContain("opt out) and to delete their personal data");
+  });
+
+  it("falls back to the opt-out page for a deletion when the company has no rights page", () => {
+    ensureMailbox(profileId);
+    const target = seedTarget(ctx, {
+      kind: "company",
+      category: "retail",
+      domain: "bare.example.com",
+      optOutUrl: "https://bare.example.com/privacy",
+      privacyRightsUrl: null,
+      contactMethod: "form",
+      privacyEmail: null,
+    });
+    const request = seedRequest(ctx, {
+      profileId,
+      targetId: target.id,
+      status: "queued",
+      channel: "form",
+      rights: ["delete"],
+    });
+    ctx.services.dispatch.dispatchRequest(request.id);
+    expect(claim(["agent"])?.instructions).toContain("Start at https://bare.example.com/privacy.");
+  });
+
+  it("keeps the rights when a blocked task is handed to an agent again", () => {
+    const { task } = company(["delete"]);
+    ctx.services.taskQueue.block(task.id, {
+      workerId: "worker-1",
+      reason: "captcha",
+      actor: "worker",
+    });
+    const again = ctx.services.dispatch.handToAgent(task.id, "user");
+    expect(again.task.payload).toMatchObject({ rights: ["delete"] });
+  });
+});
+
+describe("which sites a model worker may take on its own", () => {
+  function agentScanFor(targetId: string) {
+    return ctx.services.taskQueue.enqueue({
+      kind: "agent",
+      payload: {
+        purpose: "scan",
+        profileId,
+        targetId,
+        requestId: null,
+        recordUrl: null,
+        variant: null,
+        rights: [],
+        reason: "no_recipe",
+        previousError: null,
+        blockedReason: null,
+      },
+      profileId,
+      targetId,
+      dedupeKey: `scan:${profileId}:${targetId}`,
+    }).task;
+  }
+
+  const site = (recipeStatus?: "pending_review" | "rejected" | "active", health?: "broken") => {
+    const target = seedTarget(ctx, { category: "people-search" });
+    if (recipeStatus) {
+      seedRecipe(ctx, target.id, {
+        purpose: "scan",
+        status: recipeStatus,
+        ...(health ? { health } : {}),
+      });
+    }
+    return target;
+  };
+
+  const claimAs = (claimerKind: "model" | "mcp") =>
+    claim(["agent"], { claimerKind, workerId: `${claimerKind}-1` });
+
+  it("takes a site that has no recipe at all", () => {
+    const target = site();
+    agentScanFor(target.id);
+    expect(claimAs("model")?.target.id).toBe(target.id);
+  });
+
+  it("takes a site whose approved recipe is broken, as the fallback it was made for", () => {
+    const target = site("active", "broken");
+    agentScanFor(target.id);
+    expect(claimAs("model")?.target.id).toBe(target.id);
+  });
+
+  it("leaves a site with an unreviewed recipe queued, and takes the ones behind it", () => {
+    const unreviewed = site("pending_review");
+    const task = agentScanFor(unreviewed.id);
+    const open = site();
+    agentScanFor(open.id);
+    expect(claimAs("model")?.target.id).toBe(open.id);
+    expect(claimAs("model")).toBeNull();
+    expect(ctx.services.taskQueue.getOrThrow(task.id)).toMatchObject({
+      status: "queued",
+      attempts: 0,
+    });
+  });
+
+  it("takes the unreviewed site once the person allows it", () => {
+    const target = site("pending_review");
+    agentScanFor(target.id);
+    ctx.services.settings.set("agent.takeUnreviewed", true);
+    expect(claimAs("model")?.target.id).toBe(target.id);
+  });
+
+  it("blocks a site whose recipe was rejected for a person, even when unreviewed sites are allowed", () => {
+    const rejected = site("rejected");
+    const task = agentScanFor(rejected.id);
+    const open = site();
+    agentScanFor(open.id);
+    ctx.services.settings.set("agent.takeUnreviewed", true);
+    expect(claimAs("model")?.target.id).toBe(open.id);
+    expect(ctx.services.taskQueue.getOrThrow(task.id)).toMatchObject({
+      status: "blocked",
+      blockedReason: "unknown",
+      blockedDetail: expect.stringContaining("rejected the recipe"),
+    });
+    expect(claimAs("model")).toBeNull();
+  });
+
+  it("leaves a task that a person handed over from a rejected site for an MCP client", () => {
+    const rejected = site("rejected");
+    const task = agentScanFor(rejected.id);
+    expect(claimAs("model")).toBeNull();
+    const blockedTask = ctx.services.taskQueue.getOrThrow(task.id);
+    expect(blockedTask.status).toBe("blocked");
+
+    const handed = ctx.services.dispatch.handToAgent(task.id, "user").task;
+    expect(claimAs("model")).toBeNull();
+    expect(ctx.services.taskQueue.getOrThrow(handed.id)).toMatchObject({
+      status: "queued",
+      attempts: 0,
+    });
+    expect(claimAs("mcp")?.target.id).toBe(rejected.id);
+  });
+
+  it("does not hold back an MCP client, which the person connected on purpose", () => {
+    const pending = site("pending_review");
+    agentScanFor(pending.id);
+    const rejected = site("rejected");
+    agentScanFor(rejected.id);
+    const seen = [claimAs("mcp")?.target.id, claimAs("mcp")?.target.id].sort();
+    expect(seen).toEqual([pending.id, rejected.id].sort());
+  });
+
+  it("judges a removal by the removal recipe, not the scan recipe", () => {
+    const target = site("rejected");
+    seedMailbox(ctx, profileId);
+    const request = seedRequest(ctx, {
+      profileId,
+      targetId: target.id,
+      status: "queued",
+      channel: "form",
+      recordUrl: `https://${target.domain}/p/1`,
+    });
+    ctx.services.dispatch.dispatchRequest(request.id);
+    expect(claimAs("model")?.target.id).toBe(target.id);
   });
 });

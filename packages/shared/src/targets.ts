@@ -95,6 +95,8 @@ export const TargetSummary = z.object({
   website: WebUrl.nullable(),
   /** Where to opt out, so an agent does not need a second call to find the page. */
   optOutUrl: WebUrl.nullable(),
+  /** The page for asking a company to delete a person's data, which is not the same as its opt-out page. */
+  privacyRightsUrl: WebUrl.nullable(),
   /** Where a person finds their own record, for sites that remove a specific record. */
   searchUrl: WebUrl.nullable(),
   contactMethod: ContactMethod,
@@ -133,7 +135,6 @@ export type TargetListItem = z.infer<typeof TargetListItem>;
 
 export const TargetDetail = TargetSummary.extend({
   privacyEmail: z.email().nullable(),
-  privacyRightsUrl: WebUrl.nullable(),
   region: z.enum(["us", "eu", "global"]),
   notes: z.string().nullable(),
   sources: z.array(DataSource),

@@ -1,0 +1,15 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Frames of another site - Fixture Broker</title></head>
+<body>
+<h1>Frames of another site</h1>
+<form method="post" action="{{OFFSITE}}/hop307" target="friend-frame">
+  <label for="friend-name">Name for the friend frame</label>
+  <input id="friend-name" name="first_name">
+  <button type="submit">Send into friend frame</button>
+</form>
+<iframe name="friend-frame" title="Friend frame" src="{{OFFSITE}}/framed" style="width:240px;height:60px"></iframe>
+<iframe name="nested-frame" title="Nested frame" src="{{OFFSITE}}/nested" style="width:240px;height:100px"></iframe>
+<iframe name="wandering-frame" title="Wandering frame" src="{{OFFSITE}}/wandering" style="width:240px;height:60px"></iframe>
+</body>
+</html>

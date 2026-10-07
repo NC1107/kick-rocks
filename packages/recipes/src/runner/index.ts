@@ -24,7 +24,7 @@ export { MAX_CANDIDATES } from "./extract.js";
 export { describeSelector } from "./locate.js";
 export { DEFAULT_TIMEOUTS, type RunnerOptions, type Timeouts } from "./options.js";
 export { HUMAN_PACE, INSTANT_PACE, type Pace, sleepFor } from "./pacing.js";
-export { createRedactor } from "./redact.js";
+export { createRedactor, valueSpellingPattern } from "./redact.js";
 
 /** The fields a step needs before it can run, so a missing one stops the run before anything is typed. */
 function requiredFields(step: RecipeStep): string[] {

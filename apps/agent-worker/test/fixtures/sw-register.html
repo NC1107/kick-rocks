@@ -1,0 +1,16 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Registers a worker</title></head>
+<body>
+<h1>Registers a worker</h1>
+<script>
+  if (navigator.serviceWorker) {
+    navigator.serviceWorker
+      .register("/sw.js")
+      .then(() => navigator.serviceWorker.ready)
+      .then(() => { document.title = "Worker ready"; })
+      .catch(() => undefined);
+  }
+</script>
+</body>
+</html>

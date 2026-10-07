@@ -3,10 +3,16 @@ import { createServer, type IncomingMessage, type Server, type ServerResponse } 
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-export const FIXTURE_PORT = 8631;
+/** Parallel checkouts on one machine set KICKROCKS_FIXTURE_PORT so their fixture sites do not collide. */
+export const FIXTURE_PORT = Number(process.env.KICKROCKS_FIXTURE_PORT ?? 8631);
 /** The target's domain in tests. `localhost` is another host name for the same server, so it plays an unrelated site. */
 export const ORIGIN = `http://127.0.0.1:${FIXTURE_PORT}`;
 export const OFFSITE = `http://localhost:${FIXTURE_PORT}`;
+/** A third host, which the test browser maps to this server, for tests where two hosts are allowed and a third is not. */
+export const OTHER = `http://other.test:${FIXTURE_PORT}`;
+
+/** How long the slow form's endpoint keeps a visitor waiting after it has taken the submission. */
+const SLOW_RESPONSE_MS = 3_000;
 
 export interface Submission {
   path: string;
@@ -45,6 +51,25 @@ const PAGES: Record<string, string> = {
   "/choose": "choose.html",
   "/phone": "phone.html",
   "/late": "late.html",
+  "/frames": "frames.html",
+  "/slow-form": "slow.html",
+  "/hops": "hops.html",
+  "/oopif": "oopif.html",
+  "/framed": "framed.html",
+  "/wandering": "wandering.html",
+  "/nested": "nested.html",
+  "/spa": "spa.html",
+  "/details": "details.html",
+  "/sw-register": "sw-register.html",
+  "/sw-form": "sw-form.html",
+  "/sw-evade": "sw-evade.html",
+  "/sw-popup-form": "sw-popup-form.html",
+  "/sw-popup-blank": "sw-popup-blank.html",
+  "/sw-popup-named": "sw-popup-named.html",
+  "/sw-popup-flood": "sw-popup-flood.html",
+  "/sw-popup-open-first": "sw-popup-open-first.html",
+  "/return-link": "return-link.html",
+  "/onchange": "onchange.html",
 };
 
 function escapeHtml(text: string): string {
@@ -52,7 +77,7 @@ function escapeHtml(text: string): string {
 }
 
 function page(file: string, extra: Record<string, string> = {}): string {
-  const values: Record<string, string> = { ORIGIN, OFFSITE, GREETING: "", ...extra };
+  const values: Record<string, string> = { ORIGIN, OFFSITE, OTHER, GREETING: "", ...extra };
   return readFileSync(join(here, file), "utf8").replace(
     /\{\{(\w+)\}\}/g,
     (_, key: string) => values[key] ?? "",
@@ -98,10 +123,23 @@ export function startFixtureServer(port: number = FIXTURE_PORT): Promise<{
     }
     if (path !== "/favicon.ico") state.hits.push({ host, path });
 
+    if (path === "/hop307") {
+      // A 307 keeps the method and the body, so a form posted here is posted again at the target.
+      response.writeHead(307, { location: `${OTHER}/collect` });
+      return response.end();
+    }
+    if (path === "/hop302") {
+      const name = url.searchParams.get("name") ?? "";
+      response.writeHead(302, { location: `${OTHER}/collect?name=${encodeURIComponent(name)}` });
+      return response.end();
+    }
     if (request.method === "POST") {
       state.submissions.push({ path, host, fields: await readForm(request) });
+      if (path === "/slow") await new Promise((done) => setTimeout(done, SLOW_RESPONSE_MS));
       return send(response, 200, page("confirmation.html"));
     }
+    if (path === "/hang") return;
+    if (path === "/sw.js") return send(response, 200, page("sw.js"), "text/javascript");
     if (path === "/redirect") {
       response.writeHead(302, { location: `${OFFSITE}/offsite` });
       return response.end();

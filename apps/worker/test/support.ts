@@ -35,6 +35,7 @@ export const TARGET: TargetSummary = {
   domain: "127.0.0.1",
   website: null,
   optOutUrl: null,
+  privacyRightsUrl: null,
   searchUrl: null,
   contactMethod: "form",
   requiresId: false,

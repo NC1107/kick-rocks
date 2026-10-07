@@ -92,6 +92,8 @@ export interface ClaimInput {
   profileId?: string | undefined;
   /** Skip tasks of these profiles, so a capped mailbox does not hold up one that has room. */
   excludeProfileIds?: readonly string[] | undefined;
+  /** Skip these tasks, which the claimer is not allowed to take, so they do not hold up the ones behind them. */
+  excludeTaskIds?: readonly string[] | undefined;
   /** Who is claiming, which the route that took the call decides. Null for work the server does itself. */
   claimerKind?: ClaimerKind | undefined;
 }
@@ -99,6 +101,8 @@ export interface ClaimInput {
 export interface HeartbeatInput {
   workerId: string;
   leaseMs: number;
+  /** Once true it stays true for the attempt: the worker cannot take the click back. */
+  mayHaveSubmitted?: boolean | undefined;
 }
 
 export interface CompleteInput {
@@ -245,6 +249,7 @@ function toTask(row: TaskRow): Task {
     blockedUrl: row.blockedUrl,
     leaseOwner: row.leaseOwner,
     leaseExpiresAt: row.leaseExpiresAt,
+    mayHaveSubmitted: row.mayHaveSubmitted,
     attempts: row.attempts,
     maxAttempts: row.maxAttempts,
     runAfter: row.runAfter,
@@ -312,10 +317,12 @@ export function createTaskQueue({
 
   /**
    * Only a lease that ran out leaves an owner on a task that is not leased: it is queued while
-   * attempts remain and failed once they are spent, and every other way out clears the owner.
+   * attempts remain, failed once they are spent, and blocked when the form may have been
+   * submitted. Every other way out clears the owner.
    */
   const isLapsedHolder = (row: TaskRow, workerId: string): boolean =>
-    (row.status === "queued" || row.status === "failed") && row.leaseOwner === workerId;
+    (row.status === "queued" || row.status === "failed" || row.status === "blocked") &&
+    row.leaseOwner === workerId;
 
   /**
    * The row a finished, blocked, or failed report is about. After a lease runs out the task goes
@@ -338,9 +345,69 @@ export function createTaskQueue({
     handlers.emit({ name, task, actor, ...extra }, tx);
   }
 
+  const MAY_HAVE_SUBMITTED_NOTE = "The form may already have been submitted.";
+
+  /** Keeps a person who reads why a flagged task stopped from missing that its form went out. */
+  function withSubmissionNote(row: TaskRow, detail: string | undefined): string | null {
+    if (!row.mayHaveSubmitted || detail?.includes("may already have been submitted")) {
+      return detail ?? null;
+    }
+    return [detail, MAY_HAVE_SUBMITTED_NOTE].filter(Boolean).join(" ");
+  }
+
+  /** Whether running this task again could submit a form a second time. */
+  function mayResubmit(row: TaskRow): boolean {
+    if (!row.mayHaveSubmitted) return false;
+    if (row.kind === "form") return true;
+    return row.kind === "agent" && parseTaskPayload("agent", row.payload).purpose === "remove";
+  }
+
+  /**
+   * Parks a removal that may already have been submitted for a person, who can see the page and
+   * decide, in place of the retry that would submit the form again.
+   */
+  function holdForPerson(
+    tx: Tx,
+    row: TaskRow,
+    cause: {
+      text: string;
+      finishedBy: string | null;
+      usage: TaskUsage | undefined;
+      failure?: { kind: FailureKind; step: number | null };
+    },
+    actor: RequestActor,
+    now: string,
+  ): Task {
+    const updated = tx
+      .update(tasks)
+      .set({
+        ...(cause.failure
+          ? { failureKind: cause.failure.kind, failureStep: cause.failure.step }
+          : {}),
+        status: "blocked",
+        blockedReason: "unknown",
+        blockedDetail: `${MAY_HAVE_SUBMITTED_NOTE} It was not retried. The run ended with: ${cause.text}`,
+        blockedUrl: null,
+        leaseOwner: null,
+        leaseExpiresAt: null,
+        lastError: cause.text,
+        finishedBy: cause.finishedBy ?? row.finishedBy,
+        usage: addUsage(row.usage, cause.usage),
+        updatedAt: now,
+      })
+      .where(eq(tasks.id, row.id))
+      .returning()
+      .get();
+    const task = toTask(updated);
+    emit(tx, "blocked", task, actor);
+    return task;
+  }
+
   /**
    * Re-queues with a backoff while attempts remain, otherwise fails for good, and tells the
-   * handlers which of the two happened.
+   * handlers which of the two happened. A removal that may have been submitted is held for a
+   * person instead of being queued again. A form is held even when its failure is final, because
+   * a failed form is handed to an agent, which would submit it again.
    */
   function retryOrFail(
     tx: Tx,
@@ -358,6 +425,20 @@ export function createTaskQueue({
     now: string,
   ): Task {
     const requeue = failure.retryable && row.attempts < row.maxAttempts;
+    if (mayResubmit(row) && (requeue || row.kind === "form")) {
+      return holdForPerson(
+        tx,
+        row,
+        {
+          text: failure.error,
+          finishedBy: failure.finishedBy,
+          usage: failure.usage,
+          failure: { kind: failure.kind, step: failure.step },
+        },
+        actor,
+        now,
+      );
+    }
     const updated = tx
       .update(tasks)
       .set({
@@ -381,21 +462,29 @@ export function createTaskQueue({
   }
 
   function expireLease(tx: Tx, row: TaskRow, now: string): Task {
-    const task = retryOrFail(
-      tx,
-      row,
-      {
-        error: "The lease expired",
-        retryable: true,
-        delayMs: Math.max(retryDelayMs(row.attempts), lapsedHolderGraceMs),
-        kind: "internal",
-        step: null,
-        finishedBy: null,
-        usage: undefined,
-      },
-      "system",
-      now,
-    );
+    const task = mayResubmit(row)
+      ? holdForPerson(
+          tx,
+          row,
+          { text: "The lease expired", finishedBy: row.leaseOwner, usage: undefined },
+          "system",
+          now,
+        )
+      : retryOrFail(
+          tx,
+          row,
+          {
+            error: "The lease expired",
+            retryable: true,
+            delayMs: Math.max(retryDelayMs(row.attempts), lapsedHolderGraceMs),
+            kind: "internal",
+            step: null,
+            finishedBy: null,
+            usage: undefined,
+          },
+          "system",
+          now,
+        );
     tx.update(tasks).set({ leaseOwner: row.leaseOwner }).where(eq(tasks.id, row.id)).run();
     return { ...task, leaseOwner: row.leaseOwner };
   }
@@ -477,7 +566,16 @@ export function createTaskQueue({
       });
     },
 
-    claim({ workerId, kinds, leaseMs, taskId, profileId, excludeProfileIds, claimerKind }) {
+    claim({
+      workerId,
+      kinds,
+      leaseMs,
+      taskId,
+      profileId,
+      excludeProfileIds,
+      excludeTaskIds,
+      claimerKind,
+    }) {
       if (kinds.length === 0) return null;
       const now = nowIso(clock);
       return db.transaction(
@@ -492,6 +590,9 @@ export function createTaskQueue({
                 inArray(tasks.kind, [...kinds]),
                 or(isNull(tasks.runAfter), lte(tasks.runAfter, now)),
                 taskId ? eq(tasks.id, taskId) : undefined,
+                excludeTaskIds && excludeTaskIds.length > 0
+                  ? notInArray(tasks.id, [...excludeTaskIds])
+                  : undefined,
                 profileId ? eq(tasks.profileId, profileId) : undefined,
                 excludeProfileIds && excludeProfileIds.length > 0
                   ? or(isNull(tasks.profileId), notInArray(tasks.profileId, [...excludeProfileIds]))
@@ -509,6 +610,7 @@ export function createTaskQueue({
               leaseOwner: workerId,
               leaseExpiresAt: addMs(now, leaseMs),
               attempts: candidate.attempts + 1,
+              mayHaveSubmitted: false,
               claimerKind: claimerKind ?? null,
               updatedAt: now,
             })
@@ -521,7 +623,7 @@ export function createTaskQueue({
       );
     },
 
-    heartbeat(id, { workerId, leaseMs }) {
+    heartbeat(id, { workerId, leaseMs, mayHaveSubmitted }) {
       const now = nowIso(clock);
       return db.transaction((tx) => {
         const row = loadRow(tx, id);
@@ -537,7 +639,11 @@ export function createTaskQueue({
         }
         const extended = tx
           .update(tasks)
-          .set({ leaseExpiresAt: addMs(now, leaseMs), updatedAt: now })
+          .set({
+            leaseExpiresAt: addMs(now, leaseMs),
+            updatedAt: now,
+            ...(mayHaveSubmitted ? { mayHaveSubmitted: true } : {}),
+          })
           .where(eq(tasks.id, id))
           .returning()
           .get();
@@ -603,7 +709,7 @@ export function createTaskQueue({
             .set({
               status: "blocked",
               blockedReason: reason,
-              blockedDetail: detail ?? null,
+              blockedDetail: withSubmissionNote(row, detail),
               blockedUrl: url ?? null,
               leaseOwner: null,
               leaseExpiresAt: null,
@@ -647,6 +753,15 @@ export function createTaskQueue({
       const now = nowIso(clock);
       return db.transaction((tx) => {
         const row = leasedRow(tx, id, workerId);
+        if (mayResubmit(row)) {
+          return holdForPerson(
+            tx,
+            row,
+            { text: "The worker handed the task back", finishedBy: workerId, usage: undefined },
+            "worker",
+            now,
+          );
+        }
         return toTask(
           tx
             .update(tasks)
@@ -697,6 +812,10 @@ export function createTaskQueue({
               blockedReason: null,
               blockedDetail: null,
               blockedUrl: null,
+              leaseOwner: null,
+              mayHaveSubmitted: false,
+              failureKind: null,
+              failureStep: null,
               attempts: 0,
               runAfter: null,
               updatedAt: now,
@@ -729,7 +848,13 @@ export function createTaskQueue({
         const task = toTask(
           tx
             .update(tasks)
-            .set({ status: "done", result: stored, lastError: null, updatedAt: now })
+            .set({
+              status: "done",
+              result: stored,
+              leaseOwner: null,
+              lastError: null,
+              updatedAt: now,
+            })
             .where(eq(tasks.id, id))
             .returning()
             .get(),

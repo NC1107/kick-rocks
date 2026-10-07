@@ -32,7 +32,11 @@ export const describeBrowser = describe.skipIf(
 
 export function launchTestBrowser(): Promise<Browser> {
   const executablePath = process.env.KICKROCKS_CHROME_EXECUTABLE ?? findInstalledChrome();
-  return chromium.launch({ headless: true, ...(executablePath ? { executablePath } : {}) });
+  return chromium.launch({
+    headless: true,
+    args: [`--host-resolver-rules=MAP other.test 127.0.0.1`],
+    ...(executablePath ? { executablePath } : {}),
+  });
 }
 
 export const TARGET: TargetSummary = {
@@ -43,6 +47,7 @@ export const TARGET: TargetSummary = {
   domain: "127.0.0.1",
   website: null,
   optOutUrl: `${ORIGIN}/optout`,
+  privacyRightsUrl: null,
   searchUrl: `${ORIGIN}/search`,
   contactMethod: "form",
   requiresId: false,
@@ -87,6 +92,7 @@ export function agentTask(
       requestId: "request-1",
       recordUrl: null,
       variant: null,
+      rights: ["opt_out"],
       reason: "no_recipe",
       previousError: null,
       blockedReason: null,

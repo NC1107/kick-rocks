@@ -1,18 +1,20 @@
-import { mkdtempSync, rmSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
   TaskBlockBody,
   TaskCompleteBody,
   TaskFailBody,
+  TaskHeartbeatBody,
   TaskReleaseBody,
   WorkerClaimBody,
+  WorkerHeartbeatBody,
 } from "@kickrocks/shared";
 import type { Browser } from "playwright";
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, expect, it, vi } from "vitest";
 import type { AgentWorkerConfig } from "../src/config.js";
 import { ProviderError } from "../src/provider.js";
-import { markClaimsAsModel, runAgentWorker } from "../src/worker.js";
+import { runAgentWorker } from "../src/worker.js";
 import { ORIGIN } from "./fixtures/server.js";
 import {
   agentTask,
@@ -30,9 +32,11 @@ interface Seen {
   path: string;
   authorization: string | null;
   body: unknown;
+  /** How many forms the fixture site had taken when this request reached the server. */
+  submissionsSoFar: number;
 }
 
-function fakeServer(task: ReturnType<typeof agentTask> | null) {
+function fakeServer(task: ReturnType<typeof agentTask> | null, profileIds?: string[]) {
   const seen: Seen[] = [];
   let given = false;
   const json = (body: unknown) =>
@@ -49,9 +53,10 @@ function fakeServer(task: ReturnType<typeof agentTask> | null) {
       path: url.pathname,
       authorization: headers.authorization ?? null,
       body: init?.body ? JSON.parse(String(init.body)) : null,
+      submissionsSoFar: (await fixtureState()).submissions.length,
     });
     if (url.pathname === "/api/worker/heartbeat") {
-      return json({ ok: true, serverTime: "2026-10-07T00:00:00.000Z" });
+      return json({ ok: true, serverTime: "2026-10-07T00:00:00.000Z", profileIds });
     }
     if (url.pathname === "/api/worker/claim") {
       const next = !given ? task : null;
@@ -123,6 +128,18 @@ async function runOnce(
   steps: Step[],
   options: { launcher?: () => Promise<never>; provider?: ReturnType<typeof scripted> } = {},
 ) {
+  const { finished, controller, provider } = startWorker(server, steps, options);
+  await vi.waitUntil(() => server.transitions().length > 0, { timeout: 20_000, interval: 20 });
+  controller.abort();
+  await finished;
+  return provider;
+}
+
+function startWorker(
+  server: ReturnType<typeof fakeServer>,
+  steps: Step[],
+  options: { launcher?: () => Promise<never>; provider?: ReturnType<typeof scripted> } = {},
+) {
   const controller = new AbortController();
   const provider = options.provider ?? scripted(steps);
   const finished = runAgentWorker({
@@ -132,44 +149,16 @@ async function runOnce(
     provider,
     fetch: server.fetch,
     launcher: options.launcher ?? (() => browser.newContext()),
-    timing: { idleHeartbeatMs: 10_000, leaseHeartbeatMs: 1_000, reportRetryMs: 1 },
+    timing: {
+      idleHeartbeatMs: 10_000,
+      leaseHeartbeatMs: 1_000,
+      reportRetryMs: 1,
+      shutdownGraceMs: 300,
+    },
     challengeGraceMs: 200,
   });
-  await vi.waitUntil(() => server.transitions().length > 0, { timeout: 20_000, interval: 20 });
-  controller.abort();
-  await finished;
-  return provider;
+  return { finished, controller, provider };
 }
-
-describe("markClaimsAsModel", () => {
-  it("adds claimer model to the claim body and nothing else", async () => {
-    const base = vi.fn(async () => new Response("{}"));
-    const marked = markClaimsAsModel(base as unknown as typeof fetch);
-    await marked("http://s/api/worker/claim", {
-      method: "POST",
-      body: JSON.stringify({ workerId: "w", kinds: ["agent"] }),
-    });
-    const sent = base.mock.calls[0] as unknown as [string, RequestInit];
-    expect(JSON.parse(String(sent[1].body))).toEqual({
-      workerId: "w",
-      kinds: ["agent"],
-      claimer: "model",
-    });
-    expect(WorkerClaimBody.parse(JSON.parse(String(sent[1].body))).claimer).toBe("model");
-  });
-
-  it("leaves every other request alone", async () => {
-    const base = vi.fn(async () => new Response("{}"));
-    const marked = markClaimsAsModel(base as unknown as typeof fetch);
-    const init = { method: "POST", body: JSON.stringify({ workerId: "w", busy: false }) };
-    await marked(new URL("http://s/api/worker/heartbeat"), init);
-    await marked("http://s/api/worker/tasks/t1/complete", init);
-    await marked("http://s/api/worker/claim", { method: "GET" });
-    for (const call of base.mock.calls as unknown as [unknown, RequestInit][]) {
-      expect(call[1]?.body === undefined || !String(call[1].body).includes("claimer")).toBe(true);
-    }
-  });
-});
 
 describeBrowser("the agent worker end to end", () => {
   it("claims as a model, drives the page, and completes the task with usage", async () => {
@@ -199,6 +188,11 @@ describeBrowser("the agent worker end to end", () => {
       claimer: "model",
     });
     expect(claim?.authorization).toBe("Bearer a-token-of-sixteen-chars");
+    const beats = server.seen.filter((entry) => entry.path === "/api/worker/heartbeat");
+    expect(beats.length).toBeGreaterThan(0);
+    for (const beat of beats) {
+      expect(WorkerHeartbeatBody.parse(beat.body).claimer).toBe("model");
+    }
 
     const [complete] = server.transitions();
     expect(complete?.path).toBe(`/api/worker/tasks/${task.id}/complete`);
@@ -207,6 +201,14 @@ describeBrowser("the agent worker end to end", () => {
     expect(body.usage).toMatchObject({ inputTokens: 400, outputTokens: 80 });
     expect(body.usage?.durationMs).toBeGreaterThan(0);
     expect(body.usage?.costUsd).toBeCloseTo((400 * 1 + 80 * 2) / 1_000_000, 10);
+
+    const flagged = server.seen.find(
+      (entry) =>
+        entry.path === `/api/worker/tasks/${task.id}/heartbeat` &&
+        (entry.body as { mayHaveSubmitted?: boolean }).mayHaveSubmitted === true,
+    );
+    expect(TaskHeartbeatBody.parse(flagged?.body).mayHaveSubmitted).toBe(true);
+    expect(flagged?.submissionsSoFar).toBe(0);
 
     const { submissions } = await fixtureState();
     expect(submissions).toHaveLength(1);
@@ -269,5 +271,51 @@ describeBrowser("the agent worker end to end", () => {
       },
     });
     expect(TaskReleaseBody.parse(server.transitions()[0]?.body).retryAfterMs).toBe(60_000);
+  });
+
+  it("holds a removal that clicked for a person when shutdown finds the run stalled", async () => {
+    const task = agentTask();
+    const server = fakeServer(task);
+    const { finished, controller } = startWorker(server, [
+      { calls: [["navigate", { url: `${ORIGIN}/optout` }]] },
+      (v) => ({
+        calls: [
+          ["type", { ref: v.ref("First name"), field: "first_name" }],
+          ["type", { ref: v.ref("Last name"), field: "last_name" }],
+          ["type", { ref: v.ref("Email address"), field: "email" }],
+        ],
+      }),
+      (v) => ({ calls: [["click", { ref: v.ref("Submit request") }]] }),
+      { calls: [["navigate", { url: `${ORIGIN}/hang` }]] },
+    ]);
+    await vi.waitUntil(async () => (await fixtureState()).hits.some((h) => h.path === "/hang"), {
+      timeout: 20_000,
+      interval: 20,
+    });
+    controller.abort();
+    await finished;
+
+    const [report] = server.transitions();
+    expect(report?.path).toBe(`/api/worker/tasks/${task.id}/block`);
+    expect(TaskBlockBody.parse(report?.body)).toMatchObject({
+      reason: "unknown",
+      detail: expect.stringContaining("may already have been submitted"),
+    });
+    expect((await fixtureState()).submissions).toHaveLength(1);
+  });
+
+  it("deletes the browser data of a profile the server no longer has, between tasks", async () => {
+    const server = fakeServer(null, ["profile-1"]);
+    const kept = join(profileDir, "kickrocks", "profile-1");
+    const gone = join(profileDir, "kickrocks", "profile-deleted");
+    mkdirSync(kept, { recursive: true });
+    mkdirSync(gone, { recursive: true });
+    writeFileSync(join(gone, "Cookies"), "cookie data");
+
+    const { finished, controller } = startWorker(server, []);
+    await vi.waitUntil(() => !existsSync(gone), { timeout: 5_000, interval: 20 });
+    controller.abort();
+    await finished;
+    expect(existsSync(kept)).toBe(true);
   });
 });

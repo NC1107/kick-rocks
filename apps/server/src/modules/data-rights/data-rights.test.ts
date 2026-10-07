@@ -629,13 +629,16 @@ describe("reset instance", () => {
       ...store.get("notifications.state"),
       digestLastSentAt: "2026-01-01T00:00:00.000Z",
     });
-    store.set("worker.status", {
-      workerId: "w",
-      version: null,
-      lastSeenAt: ctx.clock.now().toISOString(),
-      busy: false,
-      currentTaskId: null,
-    });
+    store.set("agent.takeUnreviewed", true);
+    for (const key of ["worker.status.builtin", "worker.status.model"] as const) {
+      store.set(key, {
+        workerId: "w",
+        version: null,
+        lastSeenAt: ctx.clock.now().toISOString(),
+        busy: false,
+        currentTaskId: null,
+      });
+    }
     const before = Object.fromEntries(SettingKey.options.map((key) => [key, store.get(key)]));
 
     await ctx.call(API_ROUTES.settingsReset, { body: confirmed });

@@ -6,6 +6,7 @@ import {
   TaskReleaseBody,
   WORKER_DEFAULT_KINDS,
   WorkerClaimBody,
+  WorkerHeartbeatBody,
 } from "./worker.js";
 
 describe("claim defaults", () => {
@@ -27,6 +28,18 @@ describe("claim defaults", () => {
     expect(WorkerClaimBody.parse({ workerId: "w" }).claimer).toBe("builtin");
     expect(WorkerClaimBody.parse({ workerId: "w", claimer: "model" }).claimer).toBe("model");
     expect(WorkerClaimBody.safeParse({ workerId: "w", claimer: "mcp" }).success).toBe(false);
+  });
+});
+
+describe("a worker's heartbeat", () => {
+  it("counts as the built-in worker unless it says it drives a model", () => {
+    expect(WorkerHeartbeatBody.parse({ workerId: "w", busy: false }).claimer).toBe("builtin");
+    expect(
+      WorkerHeartbeatBody.parse({ workerId: "w", busy: false, claimer: "model" }).claimer,
+    ).toBe("model");
+    expect(
+      WorkerHeartbeatBody.safeParse({ workerId: "w", busy: false, claimer: "mcp" }).success,
+    ).toBe(false);
   });
 });
 

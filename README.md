@@ -95,6 +95,10 @@ The optional agent worker drives its own Chrome and asks a local model (Ollama o
 Set `KICKROCKS_AGENT_MODEL` in `.env` and add `agent` to `COMPOSE_PROFILES`, then run `docker compose up -d --build`.
 The model does not see your details: it names a profile field and the program types the value, and what the model reads is masked so a field's value shows as a placeholder such as `{{first_name}}`.
 The program types only on the broker's own domains and pages, and a CAPTCHA stops the task for you.
+Settings shows one row for the browser worker and one for the agent worker, each with its own last-seen time.
+A switch there lets the agent worker take sites whose bundled recipe you have not reviewed yet, and it is off by default.
+With a hosted model, the text of every page the worker shows it goes to whoever runs the model, so a people-search page can reveal other people's names and addresses even though your own values stay masked.
+Use a local model when that is too much.
 See "Running a model as the agent" in `docs/agents.md`.
 
 ## Reaching it from another device
@@ -195,6 +199,7 @@ Kick Rocks only keeps what it needs, and you can take it out or remove it from t
   It leaves out the mailbox password and the text of replies.
 - **Delete a profile.** The profile page removes the profile and everything about it: identities, mailbox connection, requests, replies, scans, matches, and screenshots.
   Running tasks are cancelled first, so a worker that still holds one finds nothing to report against.
+  The workers' saved browser data for that profile is removed too.
   The database file is then compacted with `VACUUM`, so the freed pages do not keep the old bytes.
 - **Retention.** Settings has one window for screenshots (30 days by default) and one for the text of replies you have dealt with (kept by default).
   The sender, subject, and outcome of a reply always stay, so a request keeps its history.
@@ -213,6 +218,9 @@ It is safe to repeat, rebuilds the images, and adds the worker to `COMPOSE_PROFI
 ```sh
 git pull && ./install.sh
 ```
+
+The server applies database migrations itself when it starts, so an update that changes the database needs nothing from you.
+Migration 0001 adds the marker for a task that may have submitted a form, and an existing install gets it on the first start after the update.
 
 `docker compose logs -f server` and `docker compose logs -f worker` show what each container is doing, and `docker compose logs -f agent-worker` shows the agent worker.
 The lines are JSON, one object per line.

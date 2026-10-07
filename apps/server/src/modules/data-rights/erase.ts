@@ -35,9 +35,11 @@ const SETTINGS_TO_FORGET: readonly SettingKey[] = [
   "mcp.enabled",
   "mcp.tokenHash",
   "siteChecks.enabled",
-  "worker.status",
   "notifications",
   "notifications.state",
+  "agent.takeUnreviewed",
+  "worker.status.builtin",
+  "worker.status.model",
 ];
 
 /** Tasks that carry no personal data and belong to the recipes, so a reset leaves them alone. */

@@ -2,7 +2,7 @@ import { type ClaimedTask, WORKER_DEFAULT_KINDS } from "@kickrocks/shared";
 import { describe, expect, it, vi } from "vitest";
 import { WorkerApiError } from "../src/api-client.js";
 import { type ClaimLoopContext, runClaimLoop, type WorkerApi } from "../src/claim-loop.js";
-import type { TaskReport } from "../src/executor.js";
+import { SubmitNotRecorded, type TaskReport } from "../src/executor.js";
 import { config, silentLogger, summary, task } from "./support.js";
 
 const formTask = () =>
@@ -11,7 +11,10 @@ const formTask = () =>
 function fakeClient(queue: (ClaimedTask | null)[] = []) {
   const calls: string[] = [];
   const client = {
-    heartbeat: vi.fn(async () => ({ ok: true as const, serverTime: "2026-10-07T00:00:00.000Z" })),
+    heartbeat: vi.fn<WorkerApi["heartbeat"]>(async () => ({
+      ok: true as const,
+      serverTime: "2026-10-07T00:00:00.000Z",
+    })),
     claim: vi.fn(async () => queue.shift() ?? null),
     taskHeartbeat: vi.fn(async () => ({ leaseExpiresAt: "2026-10-07T00:05:00.000Z" })),
     complete: vi.fn(async (id: string) => summary(id)),
@@ -248,7 +251,7 @@ describe("the claim loop", () => {
     const executor = async (): Promise<TaskReport> => {
       setTimeout(() => controller.abort(), 10);
       await stuck;
-      return { kind: "complete", result: { late: true }, usage: {} };
+      return { kind: "fail", report: { error: "browser closed", retryable: true } };
     };
     await runClaimLoop(context({ client, executor, forceStop }));
     expect(forceStop).toHaveBeenCalledTimes(1);
@@ -382,5 +385,261 @@ describe("the claim loop", () => {
         usage: { durationMs: 5 },
       });
     });
+  });
+});
+
+describe("a removal that may have been submitted", () => {
+  it("tells the server before the run goes on, and with every later lease heartbeat", async () => {
+    const { controller, context } = setup();
+    const { client } = fakeClient([formTask()]);
+    const executor = async (
+      _task: ClaimedTask,
+      _signal: AbortSignal,
+      progress?: { mayHaveSubmitted(): Promise<void> },
+    ): Promise<TaskReport> => {
+      expect(client.taskHeartbeat).not.toHaveBeenCalledWith(expect.any(String), 60_000, true);
+      await progress?.mayHaveSubmitted();
+      expect(client.taskHeartbeat).toHaveBeenCalledWith(expect.any(String), 60_000, true);
+      const before = client.taskHeartbeat.mock.calls.length;
+      await delay(60);
+      expect(client.taskHeartbeat.mock.calls.length).toBeGreaterThan(before);
+      for (const call of client.taskHeartbeat.mock.calls.slice(before)) {
+        expect(call).toEqual([expect.any(String), 60_000, true]);
+      }
+      return { kind: "complete", result: {}, usage: {} };
+    };
+    const running = runClaimLoop(context({ client, executor }));
+    await until(() => client.complete.mock.calls.length > 0, controller);
+    await running;
+    expect(client.complete).toHaveBeenCalled();
+  });
+
+  it("sends the flag once, however often the run reports it", async () => {
+    const { controller, context } = setup();
+    const { client } = fakeClient([formTask()]);
+    const executor = async (
+      _task: ClaimedTask,
+      _signal: AbortSignal,
+      progress?: { mayHaveSubmitted(): Promise<void> },
+    ): Promise<TaskReport> => {
+      await progress?.mayHaveSubmitted();
+      await progress?.mayHaveSubmitted();
+      const calls = client.taskHeartbeat.mock.calls as unknown[][];
+      const flagged = calls.filter((call) => call[2] === true);
+      expect(flagged).toHaveLength(1);
+      return { kind: "complete", result: {}, usage: {} };
+    };
+    const running = runClaimLoop(context({ client, executor }));
+    await until(() => client.complete.mock.calls.length > 0, controller);
+    await running;
+  });
+
+  it("lets the click through when an interval heartbeat records the flag while a non-transient failure was pending", async () => {
+    const { controller, context } = setup();
+    const { client } = fakeClient([formTask()]);
+    let flagged = 0;
+    client.taskHeartbeat.mockImplementation((async (
+      _id: string,
+      _lease: number,
+      flag?: boolean,
+    ) => {
+      if (!flag) return { leaseExpiresAt: "2026-10-07T00:05:00.000Z" };
+      if (++flagged === 1) {
+        await delay(80);
+        throw new WorkerApiError(400, "bad_request", "no");
+      }
+      return { leaseExpiresAt: "2026-10-07T00:05:00.000Z" };
+    }) as never);
+    let clicked = false;
+    const executor = async (
+      _task: ClaimedTask,
+      _signal: AbortSignal,
+      progress?: { mayHaveSubmitted(): Promise<void> },
+    ): Promise<TaskReport> => {
+      try {
+        await progress?.mayHaveSubmitted();
+        clicked = true;
+      } catch {
+        clicked = false;
+      }
+      return { kind: "complete", result: {}, usage: {} };
+    };
+    const running = runClaimLoop(context({ client, executor }));
+    await until(() => client.complete.mock.calls.length > 0, controller);
+    await running;
+    expect(clicked).toBe(true);
+  });
+
+  describe.each([
+    ["a 503", () => new WorkerApiError(503, "unavailable", "down")],
+    ["a network error", () => new TypeError("fetch failed")],
+    ["a lease that is no longer ours", () => new WorkerApiError(409, "lease_not_held", "taken")],
+    ["a lease that lapsed", () => new WorkerApiError(409, "lease_expired", "lapsed")],
+  ])("when the flagged heartbeat meets %s", (_name, makeError) => {
+    it("does not let the run click", async () => {
+      const { controller, context } = setup();
+      const { client } = fakeClient([formTask()]);
+      client.taskHeartbeat.mockImplementation((async (
+        _id: string,
+        _lease: number,
+        flag?: boolean,
+      ) => {
+        if (flag) throw makeError();
+        return { leaseExpiresAt: "2026-10-07T00:05:00.000Z" };
+      }) as never);
+      let clicked = false;
+      let refusal: unknown;
+      let ran = false;
+      const executor = async (
+        _task: ClaimedTask,
+        _signal: AbortSignal,
+        progress?: { mayHaveSubmitted(): Promise<void> },
+      ): Promise<TaskReport> => {
+        try {
+          await progress?.mayHaveSubmitted();
+          clicked = true;
+        } catch (error) {
+          refusal = error;
+        }
+        ran = true;
+        return { kind: "release", reason: "not recorded" };
+      };
+      const running = runClaimLoop(context({ client, executor }));
+      await until(() => ran, controller);
+      await running;
+      expect(clicked).toBe(false);
+      expect(refusal).toBeInstanceOf(SubmitNotRecorded);
+    });
+  });
+
+  it("retries a flagged heartbeat that failed in passing, and lets the click through once it is acknowledged", async () => {
+    const { controller, context } = setup();
+    const { client } = fakeClient([formTask()]);
+    let failures = 1;
+    client.taskHeartbeat.mockImplementation((async (
+      _id: string,
+      _lease: number,
+      flag?: boolean,
+    ) => {
+      if (flag && failures-- > 0) throw new WorkerApiError(503, "unavailable", "down");
+      return { leaseExpiresAt: "2026-10-07T00:05:00.000Z" };
+    }) as never);
+    let clicked = false;
+    const executor = async (
+      _task: ClaimedTask,
+      _signal: AbortSignal,
+      progress?: { mayHaveSubmitted(): Promise<void> },
+    ): Promise<TaskReport> => {
+      await progress?.mayHaveSubmitted();
+      clicked = true;
+      return { kind: "complete", result: {}, usage: {} };
+    };
+    const running = runClaimLoop(context({ client, executor }));
+    await until(() => client.complete.mock.calls.length > 0, controller);
+    await running;
+    expect(clicked).toBe(true);
+  });
+
+  it("counts a flagged heartbeat the interval timer got acknowledged as the record", async () => {
+    const { controller, context } = setup();
+    const { client } = fakeClient([formTask()]);
+    let flagged = 0;
+    client.taskHeartbeat.mockImplementation((async (
+      _id: string,
+      _lease: number,
+      flag?: boolean,
+    ) => {
+      if (!flag) return { leaseExpiresAt: "2026-10-07T00:05:00.000Z" };
+      const call = ++flagged;
+      if (call === 1) {
+        await delay(50);
+        throw new WorkerApiError(503, "unavailable", "down");
+      }
+      if (call > 2) throw new WorkerApiError(503, "unavailable", "down");
+      return { leaseExpiresAt: "2026-10-07T00:05:00.000Z" };
+    }) as never);
+    let clicked = false;
+    const executor = async (
+      _task: ClaimedTask,
+      _signal: AbortSignal,
+      progress?: { mayHaveSubmitted(): Promise<void> },
+    ): Promise<TaskReport> => {
+      await progress?.mayHaveSubmitted();
+      clicked = true;
+      return { kind: "complete", result: {}, usage: {} };
+    };
+    const running = runClaimLoop(context({ client, executor }));
+    await until(() => client.complete.mock.calls.length > 0, controller);
+    await running;
+    expect(clicked).toBe(true);
+  });
+
+  it("keeps a result that finishes after the browser was closed under the run", async () => {
+    const { controller, context } = setup();
+    const { client } = fakeClient([formTask()]);
+    let unblock: () => void = () => undefined;
+    const executor = (): Promise<TaskReport> =>
+      new Promise((resolve) => {
+        controller.abort();
+        unblock = () => resolve({ kind: "complete", result: { outcome: "submitted" }, usage: {} });
+      });
+    const running = runClaimLoop(context({ client, executor, forceStop: async () => unblock() }));
+    await running;
+    expect(client.complete).toHaveBeenCalled();
+    expect(client.release).not.toHaveBeenCalled();
+  });
+});
+
+describe("forgetting deleted profiles", () => {
+  const answer = (profileIds?: string[]) => ({
+    ok: true as const,
+    serverTime: "2026-10-07T00:00:00.000Z",
+    ...(profileIds ? { profileIds } : {}),
+  });
+
+  it("passes the server's list on while idle, and not while a task is running", async () => {
+    const { controller, context } = setup();
+    const { client } = fakeClient([formTask()]);
+    let busy = false;
+    client.heartbeat.mockImplementation(async (status: { busy: boolean }) => {
+      busy = status.busy;
+      return answer(["p1", "p2"]);
+    });
+    const busyWhenCalled: boolean[] = [];
+    const keepProfiles = vi.fn(async () => void busyWhenCalled.push(busy));
+    const executor = async (): Promise<TaskReport> => {
+      await delay(60);
+      return { kind: "complete", result: {}, usage: {} };
+    };
+    const running = runClaimLoop(context({ client, executor, keepProfiles }));
+    await until(() => client.complete.mock.calls.length > 0, controller);
+    await running;
+    expect(keepProfiles).toHaveBeenCalledWith(["p1", "p2"]);
+    expect(busyWhenCalled.length).toBeGreaterThan(0);
+    expect(busyWhenCalled).not.toContain(true);
+  });
+
+  it("deletes nothing when the server does not say which profiles exist", async () => {
+    const { controller, context } = setup();
+    const { client } = fakeClient();
+    client.heartbeat.mockImplementation(async () => answer());
+    const keepProfiles = vi.fn(async () => undefined);
+    const running = runClaimLoop(context({ client, keepProfiles }));
+    await until(() => client.claim.mock.calls.length >= 2, controller);
+    await running;
+    expect(keepProfiles).not.toHaveBeenCalled();
+  });
+
+  it("carries on when removing the data fails", async () => {
+    const { controller, context } = setup();
+    const { client } = fakeClient([formTask()]);
+    client.heartbeat.mockImplementation(async () => answer([]));
+    const keepProfiles = vi.fn(async () => {
+      throw new Error("EBUSY");
+    });
+    const running = runClaimLoop(context({ client, keepProfiles }));
+    await until(() => client.complete.mock.calls.length > 0, controller);
+    await running;
+    expect(client.complete).toHaveBeenCalled();
   });
 });

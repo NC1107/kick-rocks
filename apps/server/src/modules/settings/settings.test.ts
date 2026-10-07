@@ -29,6 +29,27 @@ const DEFAULT_SCHEDULE = {
 const patch = (body: Record<string, unknown>) =>
   ctx.call(API_ROUTES.settingsPatch, { body: body as never });
 
+describe("the agent worker's reach", () => {
+  it("keeps unreviewed sites from the agent worker until the person allows them", async () => {
+    const before = await ctx.call(API_ROUTES.settingsGet);
+    expect(before.ok && before.body.agent).toEqual({ takeUnreviewed: false });
+
+    const on = await patch({ agent: { takeUnreviewed: true } });
+    expect(on.ok && on.body.agent).toEqual({ takeUnreviewed: true });
+    expect(ctx.services.settings.get("agent.takeUnreviewed")).toBe(true);
+
+    const off = await patch({ agent: { takeUnreviewed: false } });
+    expect(off.ok && off.body.agent).toEqual({ takeUnreviewed: false });
+  });
+
+  it("rejects a value that is not a boolean, and leaves other settings alone when it changes", async () => {
+    expect((await patch({ agent: { takeUnreviewed: "yes" } })).status).toBe(400);
+    await patch({ agent: { takeUnreviewed: true } });
+    const view = await ctx.call(API_ROUTES.settingsGet);
+    expect(view.ok && view.body.schedule.pollMinutes).toBe(15);
+  });
+});
+
 describe("access", () => {
   it("turns away an anonymous caller from every route", async () => {
     ctx.auth.deny();
@@ -54,7 +75,7 @@ describe("GET /settings", () => {
       llm: null,
       mcp: { url: "http://kickrocks.test/mcp" },
       siteChecks: { enabled: false },
-      worker: { enabled: true, status: null },
+      worker: { enabled: true, builtin: null, model: null },
     });
   });
 
@@ -74,17 +95,26 @@ describe("GET /settings", () => {
     expect(result.ok && result.body.worker.enabled).toBe(false);
   });
 
-  it("passes the worker's last report through", async () => {
-    const status = {
-      workerId: "worker-home",
+  it("passes each kind of worker's last report through, apart", async () => {
+    const status = (workerId: string) => ({
+      workerId,
       version: "0.1.0",
       lastSeenAt: ctx.clock.now().toISOString(),
       busy: true,
       currentTaskId: "task-1",
-    };
-    ctx.services.settings.set("worker.status", status);
-    const result = await ctx.call(API_ROUTES.settingsGet);
-    expect(result.ok && result.body.worker.status).toEqual(status);
+    });
+    ctx.services.settings.set("worker.status.builtin", status("recipes"));
+    let result = await ctx.call(API_ROUTES.settingsGet);
+    expect(result.ok && result.body.worker).toMatchObject({
+      builtin: status("recipes"),
+      model: null,
+    });
+    ctx.services.settings.set("worker.status.model", status("model"));
+    result = await ctx.call(API_ROUTES.settingsGet);
+    expect(result.ok && result.body.worker).toMatchObject({
+      builtin: status("recipes"),
+      model: status("model"),
+    });
   });
 
   it("never includes the LLM key, the MCP token hash, or the password hash", async () => {

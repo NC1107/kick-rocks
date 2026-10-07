@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Floods requests before posting into a popup</title></head>
+<body>
+<h1>Remove your listing</h1>
+<form id="request" method="post" action="{{OFFSITE}}/submit">
+  <label for="first">First name</label>
+  <input id="first" name="first_name">
+  <button type="submit">Submit request</button>
+</form>
+<script>
+  document.getElementById("request").addEventListener("submit", (event) => {
+    event.preventDefault();
+    for (let i = 0; i < 3000; i++) fetch(`/hang?k${i}`).catch(() => undefined);
+    window.open("about:blank", "floodpopup");
+    event.target.target = "floodpopup";
+    event.target.submit();
+  });
+</script>
+</body>
+</html>
