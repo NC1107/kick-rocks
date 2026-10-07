@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Opt-out form</title>
+</head>
+<body>
+
+<h1>Opt out</h1>
+<form method="post" action="/form/submit">
+  <label for="first">First name</label><input id="first" name="first" type="text" autocomplete="off">
+  <label for="last">Last name</label><input id="last" name="last" type="text" autocomplete="off">
+  <label for="email">Email</label><input id="email" name="email" type="email" autocomplete="off">
+  <label for="state">State</label>
+  <select id="state" name="state">
+    <option value="">Choose</option>
+    <option value="TX">Texas</option>
+    <option value="CA">California</option>
+    <option value="NY">New York</option>
+  </select>
+  <label><input type="checkbox" name="confirm" value="yes"> I confirm this is my information</label>
+  <button type="submit">Submit request</button>
+</form>
+
+</body>
+</html>

@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Selector fixture</title>
+</head>
+<body>
+
+<h1>Selectors</h1>
+<label for="by-label">Email address</label>
+<input id="by-label" name="by_label" type="text">
+<input id="by-testid" data-testid="email-box" type="text" aria-label="Second box">
+<input id="by-css" class="email-css" type="text" aria-label="Third box">
+<input id="twin-hidden" style="display:none" aria-label="Twin" type="text">
+<input id="twin-visible" aria-label="Twin" type="text">
+<button type="button" id="go">Search</button>
+<button type="button" id="go-other">Search again</button>
+<a id="text-link" href="#opened">Open the details</a>
+<p id="status"></p>
+<script>
+document.getElementById("go").addEventListener("click", () => { document.getElementById("status").textContent = "clicked search"; });
+document.getElementById("text-link").addEventListener("click", () => { document.getElementById("status").textContent = "clicked text link"; });
+</script>
+
+</body>
+</html>

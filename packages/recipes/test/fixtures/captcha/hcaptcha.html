@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>hCaptcha form</title>
+</head>
+<body>
+
+<h1>Opt out</h1>
+<form method="post" action="/form/submit">
+  <label for="em">Email</label><input id="em" name="email" type="email" autocomplete="off">
+  <div class="h-captcha" data-sitekey="test-key"><iframe title="hCaptcha" src="/captcha/widget/newassets.hcaptcha.com/captcha/v1/checkbox" width="303" height="78"></iframe></div>
+  <button type="submit" id="submit">Submit request</button>
+</form>
+
+</body>
+</html>

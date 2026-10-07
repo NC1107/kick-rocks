@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Invisible reCAPTCHA form</title>
+</head>
+<body>
+
+<h1>Opt out</h1>
+<form method="post" action="/form/submit">
+  <label for="em">Email</label><input id="em" name="email" type="email" autocomplete="off">
+  
+<iframe title="reCAPTCHA" src="/captcha/widget/recaptcha/api2/anchor?k=test&amp;size=invisible" width="256" height="60"></iframe>
+<div class="grecaptcha-badge" style="width:256px;height:60px">protected by reCAPTCHA</div>
+
+  <button type="submit" id="submit" class="g-recaptcha" data-sitekey="test-key" data-callback="onSubmit">Submit request</button>
+</form>
+
+</body>
+</html>

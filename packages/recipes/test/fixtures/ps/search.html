@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Search results</title>
+</head>
+<body>
+
+<h1>Results</h1>
+<form method="post" action="/ps/remove">
+
+<ul id="results">
+  <li class="result" data-id="1">
+    <h3 class="name">Jordan Example</h3>
+    <a class="view" href="/ps/record/jordan-example-1">View record</a>
+    <span class="age">Age 34</span>
+    <span class="loc">Austin, TX</span>
+    <span class="loc">Dallas, TX</span>
+    <span class="rel">Alex Example</span>
+    <span class="rel">Sam Example</span>
+    <span class="phone">(555) 010-0101</span>
+    <span class="mail">jordan@example.com</span>
+    <label><input type="checkbox" name="remove" value="1"> Select</label>
+  </li>
+  <li class="result" data-id="2">
+    <h3 class="name">Jordan Example</h3>
+    <a class="view" href="/ps/record/jordan-example-2/">View record</a>
+    <span class="age">Age 61</span>
+    <span class="loc">Portland, OR</span>
+    <label><input type="checkbox" name="remove" value="2"> Select</label>
+  </li>
+  <li class="result" data-id="3">
+    <h3 class="name">Jordan Example</h3>
+    <a class="view" href="/ps/record/jordan-example-1#again">View record</a>
+    <span class="age">Age 34</span>
+    <span class="loc">Austin, TX</span>
+    <label><input type="checkbox" name="remove" value="3"> Select</label>
+  </li>
+  <li class="result" data-id="4">
+    <h3 class="name">No Link Example</h3>
+    <span class="age">Age 29</span>
+    <label><input type="checkbox" name="remove" value="4"> Select</label>
+  </li>
+  <li class="result" data-id="5">
+    <h3 class="name">Data Example</h3>
+    <a class="view" href="data:text/plain,none">View record</a>
+    <span class="age">Age 400</span>
+  </li>
+</ul>
+
+  <button type="submit">Request removal</button>
+</form>
+
+</body>
+</html>

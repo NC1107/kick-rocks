@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Banner fixture</title>
+</head>
+<body>
+
+<h1>Page with an optional banner</h1>
+<div id="cookie-banner" hidden>
+  <p>We use cookies.</p>
+  <button type="button" id="accept">Accept cookies</button>
+</div>
+<label for="name">Name</label><input id="name" type="text">
+<script>
+if (new URLSearchParams(location.search).get("banner") === "1") {
+  document.getElementById("cookie-banner").hidden = false;
+  document.getElementById("accept").addEventListener("click", () => { document.getElementById("cookie-banner").hidden = true; document.title = "banner accepted"; });
+}
+</script>
+
+</body>
+</html>
