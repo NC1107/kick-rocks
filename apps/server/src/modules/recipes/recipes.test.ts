@@ -2,6 +2,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { recipes, targets } from "@kickrocks/db";
+import { loadRecipes } from "@kickrocks/recipes";
 import { API_ROUTES, type Recipe, type RecipeRecord } from "@kickrocks/shared";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -47,6 +48,12 @@ async function start(extraDir: string | null = dir) {
   });
   return ctx;
 }
+
+const bundledIds = new Set(loadRecipes({ extraDir: null }).recipes.map(({ recipe }) => recipe.id));
+
+/** The shipped catalog names brokers the small test dataset does not hold, so it is not what these tests are about. */
+const skippedExtras = (report: ReturnType<typeof syncRecipes>) =>
+  report.skipped.filter((entry) => !bundledIds.has(entry.subject));
 
 const rows = (c: TestContext) => c.services.db.select().from(recipes).all();
 const row = (c: TestContext, id: string) => rows(c).find((r) => r.id === id);
@@ -129,7 +136,7 @@ describe("recipe sync at startup", () => {
     const c = await start();
     expect(row(c, ghost.id)).toBeUndefined();
     const report = syncRecipes(c.services);
-    expect(report.skipped).toEqual([
+    expect(skippedExtras(report)).toEqual([
       { subject: ghost.id, problems: [expect.stringContaining('broker "ghost" is not a target')] },
     ]);
   });
@@ -149,7 +156,7 @@ describe("recipe sync at startup", () => {
     const c = await start();
     expect(row(c, stray.id)).toBeUndefined();
     const report = syncRecipes(c.services);
-    expect(report.skipped[0]?.problems.join(" ")).toContain("collector.example.org");
+    expect(skippedExtras(report)[0]?.problems.join(" ")).toContain("collector.example.org");
   });
 
   it("reports files it cannot read and keeps loading the rest", async () => {
@@ -159,7 +166,7 @@ describe("recipe sync at startup", () => {
     const c = await start();
     expect(row(c, good.id)).toBeDefined();
     const report = syncRecipes(c.services);
-    expect(report.skipped).toEqual([
+    expect(skippedExtras(report)).toEqual([
       {
         subject: join(dir, "beta.remove.v1.json"),
         problems: [expect.stringContaining("Not valid JSON")],
@@ -170,7 +177,7 @@ describe("recipe sync at startup", () => {
   it("reports a recipes directory that does not exist", async () => {
     const c = await start(join(dir, "missing"));
     const report = syncRecipes(c.services);
-    expect(report.skipped).toEqual([
+    expect(skippedExtras(report)).toEqual([
       { subject: join(dir, "missing"), problems: ["Recipe directory not found"] },
     ]);
   });
@@ -234,7 +241,7 @@ describe("recipe sync at startup", () => {
     const c = await start();
     c.services.db.update(targets).set({ retired: true }).where(eq(targets.id, "alpha")).run();
     const report = syncRecipes(c.services);
-    expect(report.skipped[0]?.subject).toBe(recipe.id);
+    expect(skippedExtras(report)[0]?.subject).toBe(recipe.id);
     expect(row(c, recipe.id)?.status).toBe("active");
   });
 
