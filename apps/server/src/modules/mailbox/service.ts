@@ -85,14 +85,39 @@ function checkProvider(provider: string): void {
   }
 }
 
-function requirePassword(password: string | undefined, stored: MailboxRow | null): string {
-  const resolved = password ?? stored?.secret;
-  if (!resolved) {
+type Connecting = Pick<
+  MailboxTestBody,
+  "username" | "smtpHost" | "smtpPort" | "imapHost" | "imapPort"
+>;
+
+/** A saved password was issued for one account on one pair of servers, and goes nowhere else. */
+function sameDestination(stored: MailboxRow, body: Connecting): boolean {
+  return (
+    stored.username === body.username &&
+    stored.smtpHost === body.smtpHost &&
+    stored.smtpPort === body.smtpPort &&
+    stored.imapHost === body.imapHost &&
+    stored.imapPort === body.imapPort
+  );
+}
+
+function requirePassword(
+  password: string | undefined,
+  stored: MailboxRow | null,
+  body: Connecting,
+): string {
+  if (password) return password;
+  if (stored && !sameDestination(stored, body)) {
+    throw invalidRequest("The saved app password is for different servers", [
+      issue("password", "The username or servers changed, so enter the app password again"),
+    ]);
+  }
+  if (!stored?.secret) {
     throw invalidRequest("An app password is required", [
       issue("password", "Enter the app password"),
     ]);
   }
-  return resolved;
+  return stored.secret;
 }
 
 /** The connection a test should use: what was typed, with the stored password when none was typed. */
@@ -104,7 +129,7 @@ export function connectionForTest(
   return {
     address: body.address,
     username: body.username,
-    password: requirePassword(body.password, stored),
+    password: requirePassword(body.password, stored, body),
     smtpHost: body.smtpHost,
     smtpPort: body.smtpPort,
     smtpSecure: body.smtpSecure,
@@ -130,7 +155,7 @@ export function saveMailbox(
 ): MailboxRow {
   checkProvider(body.provider);
   const existing = findMailbox(services, profileId);
-  const secret = requirePassword(body.password, existing);
+  const secret = requirePassword(body.password, existing, body);
   const fields = {
     provider: body.provider,
     address: body.address,

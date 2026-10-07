@@ -184,6 +184,32 @@ describe("PATCH /settings llm", () => {
     expect(ctx.services.settings.get("llm")?.apiKey).toBe("sk-test-key");
   });
 
+  it("does not hand the stored key to a different server", async () => {
+    await patch({ llm: { ...llm, apiKey: "sk-test-key" } });
+    const result = await patch({
+      llm: { baseUrl: "https://api.other.example/v1", model: "m" },
+    });
+    expect(result).toMatchObject({
+      ok: false,
+      status: 400,
+      body: { issues: [{ path: ["body", "llm", "apiKey"] }] },
+    });
+    expect(ctx.services.settings.get("llm")).toEqual({ ...llm, apiKey: "sk-test-key" });
+  });
+
+  it("keeps the stored key when only the path of the endpoint changes", async () => {
+    await patch({ llm: { ...llm, apiKey: "sk-test-key" } });
+    const result = await patch({ llm: { baseUrl: "http://localhost:11434/other", model: "m" } });
+    expect(result.ok).toBe(true);
+    expect(ctx.services.settings.get("llm")?.apiKey).toBe("sk-test-key");
+  });
+
+  it("accepts a new endpoint with a new key", async () => {
+    await patch({ llm: { ...llm, apiKey: "sk-test-key" } });
+    await patch({ llm: { baseUrl: "https://api.other.example/v1", model: "m", apiKey: "sk-new" } });
+    expect(ctx.services.settings.get("llm")?.apiKey).toBe("sk-new");
+  });
+
   it("removes the key when it is sent as null, and replaces it when a new one is sent", async () => {
     await patch({ llm: { ...llm, apiKey: "sk-one" } });
     await patch({ llm: { ...llm, apiKey: "sk-two" } });

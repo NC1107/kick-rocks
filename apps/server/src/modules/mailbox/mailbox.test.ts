@@ -36,6 +36,15 @@ const NEW_MAILBOX = {
 
 const { password: _password, replyFolder: _folder, dailyCap: _cap, ...TEST_BODY } = NEW_MAILBOX;
 
+/** A stored mailbox on the same account and servers as NEW_MAILBOX. */
+const SAME_SERVERS = {
+  username: NEW_MAILBOX.username,
+  smtpHost: NEW_MAILBOX.smtpHost,
+  smtpPort: NEW_MAILBOX.smtpPort,
+  imapHost: NEW_MAILBOX.imapHost,
+  imapPort: NEW_MAILBOX.imapPort,
+};
+
 function storedRow(profileId: string) {
   return ctx.services.db.select().from(mailboxes).where(eq(mailboxes.profileId, profileId)).get();
 }
@@ -116,7 +125,7 @@ describe("POST /profiles/:id/mailbox/test", () => {
 
   it("tests with the stored password when none is typed, and with the typed one when it is", async () => {
     const profile = seedProfile(ctx);
-    seedMailbox(ctx, profile.id, { secret: "stored-password" });
+    seedMailbox(ctx, profile.id, { secret: "stored-password", ...SAME_SERVERS });
     const used: string[] = [];
     const original = ctx.services.mail.transport;
     ctx.services.mail.transport = (connection: MailConnection) => {
@@ -130,6 +139,34 @@ describe("POST /profiles/:id/mailbox/test", () => {
       body: { ...TEST_BODY, password: "typed-password" },
     });
     expect(used).toEqual(["stored-password", "typed-password"]);
+  });
+
+  it.each([
+    ["smtpHost", "smtp.other.test"],
+    ["imapHost", "imap.other.test"],
+    ["smtpPort", 587],
+    ["imapPort", 143],
+    ["username", "someone-else@example.com"],
+  ])("never sends the stored password to a changed %s", async (field, value) => {
+    const profile = seedProfile(ctx);
+    seedMailbox(ctx, profile.id, { secret: "stored-password", ...SAME_SERVERS });
+    const used: string[] = [];
+    const original = ctx.services.mail.transport;
+    ctx.services.mail.transport = (connection: MailConnection) => {
+      used.push(connection.password);
+      return original(connection);
+    };
+
+    const result = await ctx.call(API_ROUTES.mailboxTest, {
+      params: { id: profile.id },
+      body: { ...TEST_BODY, [field]: value },
+    });
+    expect(result).toMatchObject({
+      ok: false,
+      status: 400,
+      body: { error: "invalid_request", issues: [{ path: ["body", "password"] }] },
+    });
+    expect(used).toEqual([]);
   });
 
   it("asks for a password when none is typed and none is stored", async () => {
@@ -246,9 +283,29 @@ describe("PUT /profiles/:id/mailbox", () => {
     expect(storedRow(profile.id)).toBeUndefined();
   });
 
+  it("does not carry the stored password over to a different server", async () => {
+    const profile = seedProfile(ctx);
+    seedMailbox(ctx, profile.id, { secret: "stored-password", ...SAME_SERVERS });
+    const { password: _unused, ...withoutPassword } = NEW_MAILBOX;
+
+    const result = await ctx.call(API_ROUTES.mailboxSave, {
+      params: { id: profile.id },
+      body: { ...withoutPassword, smtpHost: "smtp.other.test", imapHost: "imap.other.test" },
+    });
+    expect(result).toMatchObject({
+      ok: false,
+      status: 400,
+      body: { issues: [{ path: ["body", "password"] }] },
+    });
+    expect(storedRow(profile.id)).toMatchObject({
+      secret: "stored-password",
+      smtpHost: NEW_MAILBOX.smtpHost,
+    });
+  });
+
   it("keeps the stored password when none is sent, and replaces it when one is", async () => {
     const profile = seedProfile(ctx);
-    const created = seedMailbox(ctx, profile.id, { secret: "stored-password" });
+    const created = seedMailbox(ctx, profile.id, { secret: "stored-password", ...SAME_SERVERS });
     const { password: _unused, ...withoutPassword } = NEW_MAILBOX;
 
     const kept = await ctx.call(API_ROUTES.mailboxSave, {
