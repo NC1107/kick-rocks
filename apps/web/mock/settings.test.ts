@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { call, freshMockAppEachTest } from "./test-helpers.js";
+import { app, call, freshMockAppEachTest } from "./test-helpers.js";
 
 freshMockAppEachTest();
 
@@ -53,5 +53,58 @@ describe("settings and recipe handlers", () => {
     );
     expect(counts.badbool).toBeGreaterThan(0);
     expect(counts["kickrocks-companies"]).toBeGreaterThan(0);
+  });
+});
+
+describe("retention and reset handlers", () => {
+  it("patches one retention window at a time", async () => {
+    await call({ method: "PATCH", path: "/settings", body: { retention: { messageDays: 90 } } });
+    const patched = await call({
+      method: "PATCH",
+      path: "/settings",
+      body: { retention: { screenshotDays: null } },
+    });
+    expect(patched.json.retention).toEqual({ messageDays: 90, screenshotDays: null });
+  });
+
+  it("resets only with the typed phrase", async () => {
+    const wrong = await call({
+      method: "POST",
+      path: "/settings/reset",
+      body: { confirm: "reset" },
+    });
+    expect(wrong.status).toBe(400);
+    expect(app.store.profiles.length).toBeGreaterThan(0);
+  });
+
+  it("keeps canary tasks through a reset, as the server does", async () => {
+    const [template] = app.store.tasks;
+    if (!template) throw new Error("the seed has no tasks");
+    app.store.tasks.push({ ...template, id: "tsk_canary", kind: "canary", requestId: null });
+    app.store.blockedInfo.set("tsk_canary", { reason: "captcha" } as never);
+    await call({ method: "POST", path: "/settings/reset", body: { confirm: "delete everything" } });
+    expect(app.store.tasks.map((task) => task.id)).toEqual(["tsk_canary"]);
+    expect(app.store.blockedInfo.has("tsk_canary")).toBe(true);
+    expect(app.store.blockedInfo.size).toBe(1);
+  });
+
+  it("wipes the data and the instance settings", async () => {
+    await call({
+      method: "PATCH",
+      path: "/settings",
+      body: { schedule: { pollMinutes: 5 }, retention: { messageDays: 30 } },
+    });
+    const done = await call({
+      method: "POST",
+      path: "/settings/reset",
+      body: { confirm: "delete everything" },
+    });
+    expect(done.json).toEqual({ ok: true });
+    expect(app.store.profiles).toEqual([]);
+    expect(app.store.requests).toEqual([]);
+    expect(app.store.messages).toEqual([]);
+    const settings = (await call({ path: "/settings" })).json;
+    expect(settings.schedule.pollMinutes).toBe(15);
+    expect(settings.retention).toEqual({ messageDays: null, screenshotDays: 30 });
   });
 });

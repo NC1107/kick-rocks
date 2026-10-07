@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { DataSourceId } from "./broker.js";
 import {
   DATA_SOURCE_DETAILS,
+  RetentionSettings,
   ScheduleSettings,
   SETTING_SCHEMAS,
   SettingKey,
@@ -26,6 +27,27 @@ describe("ScheduleSettings", () => {
   });
 });
 
+describe("RetentionSettings", () => {
+  it("keeps screenshots 30 days and messages forever until told otherwise", () => {
+    expect(RetentionSettings.parse({})).toEqual({ messageDays: null, screenshotDays: 30 });
+  });
+
+  it("takes a whole number of days or null, and nothing else", () => {
+    expect(RetentionSettings.safeParse({ messageDays: 90, screenshotDays: null }).success).toBe(
+      true,
+    );
+    for (const bad of [0, -1, 1.5, 3651, "7"]) {
+      expect(RetentionSettings.safeParse({ messageDays: bad }).success, String(bad)).toBe(false);
+    }
+  });
+
+  it("is patched one field at a time", () => {
+    expect(SettingsPatch.parse({ retention: { screenshotDays: null } })).toEqual({
+      retention: { screenshotDays: null },
+    });
+  });
+});
+
 describe("SETTING_SCHEMAS", () => {
   it("gives every key a default", () => {
     for (const key of SettingKey.options) {
@@ -40,6 +62,7 @@ describe("SETTING_SCHEMAS", () => {
         "llm",
         "mcp.enabled",
         "mcp.tokenHash",
+        "retention",
         "schedule",
         "worker.status",
       ].sort(),

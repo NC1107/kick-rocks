@@ -32,7 +32,6 @@ export interface ProfileStore {
   }): ProfileDetail;
   update(id: string, patch: ProfilePatch): ProfileDetail;
   replaceIdentities(id: string, inputs: IdentityInput[]): ProfileDetail;
-  remove(id: string): void;
 }
 
 function primaryEmailOf(identityList: readonly Identity[]): string | null {
@@ -201,11 +200,6 @@ export function createProfileStore(deps: {
         touch(id);
       });
       return detail(requireRow(id));
-    },
-
-    remove(id) {
-      requireRow(id);
-      db.delete(profiles).where(eq(profiles.id, id)).run();
     },
   };
 }

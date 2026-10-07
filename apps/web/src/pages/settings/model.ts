@@ -2,6 +2,8 @@ import {
   MAX_PASSWORD_LENGTH,
   MIN_PASSWORD_LENGTH,
   type RecipeStep,
+  type RetentionPatch,
+  type RetentionSettings,
   type SchedulePatch,
   type ScheduleSettings,
   WebUrl,
@@ -195,4 +197,69 @@ export function checkPassword(draft: PasswordDraft): Partial<Record<keyof Passwo
   }
   if (draft.confirm !== draft.newPassword) errors.confirm = "The two passwords do not match.";
   return errors;
+}
+
+export interface RetentionField {
+  key: keyof RetentionSettings;
+  label: string;
+  help: string;
+  /** Windows offered in the list, in days. The saved value is added if it is not one of these. */
+  choices: readonly number[];
+}
+
+export const RETENTION_FIELDS: readonly RetentionField[] = [
+  {
+    key: "screenshotDays",
+    label: "Keep screenshots for",
+    help: "A worker takes one when a form gets stuck. Each is deleted this long after its task finishes.",
+    choices: [7, 14, 30, 90, 180, 365],
+  },
+  {
+    key: "messageDays",
+    label: "Keep reply text for",
+    help: "The body, preview, and links of replies you have dealt with. The sender, subject, and outcome stay, so a request keeps its history.",
+    choices: [30, 90, 180, 365],
+  },
+];
+
+export const KEEP_FOREVER = "forever";
+
+export type RetentionDraft = Record<keyof RetentionSettings, string>;
+
+export function retentionDraftOf(retention: RetentionSettings): RetentionDraft {
+  const text = (days: number | null) => (days === null ? KEEP_FOREVER : String(days));
+  return {
+    screenshotDays: text(retention.screenshotDays),
+    messageDays: text(retention.messageDays),
+  };
+}
+
+/** The list for one field: its usual windows, plus a saved value set some other way, in order. */
+export function retentionChoices(field: RetentionField, saved: number | null): number[] {
+  return [...new Set([...field.choices, ...(saved === null ? [] : [saved])])].sort((a, b) => a - b);
+}
+
+export function describeDays(days: number): string {
+  if (days % 365 === 0) return days === 365 ? "1 year" : `${days / 365} years`;
+  return `${days} days`;
+}
+
+/** A window that went from keeping forever to a number, or got shorter, deletes data on save. */
+export function clearsData(patch: RetentionPatch, saved: RetentionSettings): boolean {
+  return RETENTION_FIELDS.some(({ key }) => {
+    const next = patch[key];
+    if (next === undefined || next === null) return false;
+    const before = saved[key];
+    return before === null || next < before;
+  });
+}
+
+/** Only the fields that differ from what is saved, so a save never rewrites one it did not touch. */
+export function retentionPatchOf(draft: RetentionDraft, saved: RetentionSettings): RetentionPatch {
+  const patch: RetentionPatch = {};
+  for (const field of RETENTION_FIELDS) {
+    const value = draft[field.key] === KEEP_FOREVER ? null : Number(draft[field.key]);
+    if (value !== saved[field.key]) patch[field.key] = value;
+  }
+  return patch;
 }

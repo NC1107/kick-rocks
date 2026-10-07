@@ -68,7 +68,8 @@ describe("general settings", () => {
     const poll = await field(/Check the inbox every/);
     await user.clear(poll);
     await user.type(poll, "99");
-    await user.click(screen.getByRole("button", { name: "Reset" }));
+    const schedule = poll.closest("form") as HTMLFormElement;
+    await user.click(within(schedule).getByRole("button", { name: "Reset" }));
     expect(poll).toHaveValue(15);
   });
 
@@ -130,6 +131,113 @@ describe("general settings", () => {
     expect(
       screen.getByText(/the other states, requests cite the company's own privacy policy/),
     ).toBeVisible();
+  });
+
+  it("shows the retention windows and saves only the one that changed", async () => {
+    const { user, mock } = general();
+    const screenshots = await field("Keep screenshots for");
+    expect(screenshots).toHaveValue("30");
+    expect(screen.getByLabelText("Keep reply text for")).toHaveValue("forever");
+    const save = screen.getByRole("button", { name: "Save retention" });
+    expect(save).toBeDisabled();
+
+    await user.selectOptions(screenshots, "7");
+    await user.click(save);
+
+    await waitFor(() => expect(mock.store.settings.retention.screenshotDays).toBe(7));
+    expect(mock.store.settings.retention.messageDays).toBeNull();
+    expect((await screen.findAllByText("Retention saved")).length).toBeGreaterThan(0);
+    expect(await screen.findAllByText("Older data was cleared right away.")).not.toHaveLength(0);
+  });
+
+  it("does not claim anything was cleared when a window is made longer or switched off", async () => {
+    const { user, mock } = general();
+    await user.selectOptions(await field("Keep screenshots for"), "forever");
+    await user.click(screen.getByRole("button", { name: "Save retention" }));
+    await waitFor(() => expect(mock.store.settings.retention.screenshotDays).toBeNull());
+    expect((await screen.findAllByText("Retention saved")).length).toBeGreaterThan(0);
+    expect(screen.queryByText("Older data was cleared right away.")).not.toBeInTheDocument();
+  });
+
+  it("can keep a window until the person deletes the data, and can turn one on", async () => {
+    const { user, mock } = general();
+    await user.selectOptions(await field("Keep screenshots for"), "forever");
+    await user.selectOptions(screen.getByLabelText("Keep reply text for"), "90");
+    await user.click(screen.getByRole("button", { name: "Save retention" }));
+    await waitFor(() =>
+      expect(mock.store.settings.retention).toEqual({ messageDays: 90, screenshotDays: null }),
+    );
+  });
+
+  it("lists a saved window that is not one of the usual choices", async () => {
+    const mock = createMockApp();
+    mock.store.settings.retention = { messageDays: null, screenshotDays: 45 };
+    general(mock);
+    const screenshots = await field("Keep screenshots for");
+    expect(screenshots).toHaveValue("45");
+    expect(within(screenshots).getByRole("option", { name: "45 days" })).toBeInTheDocument();
+  });
+
+  it("puts the retention changes back with Reset", async () => {
+    const { user } = general();
+    const screenshots = await field("Keep screenshots for");
+    await user.selectOptions(screenshots, "7");
+    const form = screenshots.closest("form") as HTMLFormElement;
+    await user.click(within(form).getByRole("button", { name: "Reset" }));
+    expect(screenshots).toHaveValue("30");
+  });
+
+  it("will not delete everything until the phrase is typed exactly", async () => {
+    const { user, mock } = general();
+    await user.click(await screen.findByRole("button", { name: "Delete all data" }));
+    const dialog = await screen.findByRole("dialog", { name: "Delete all data?" });
+    const confirm = within(dialog).getByRole("button", { name: "Delete all data" });
+    expect(confirm).toBeDisabled();
+
+    const box = within(dialog).getByLabelText(/Type "delete everything" to confirm/);
+    await user.type(box, "delete everythin");
+    expect(confirm).toBeDisabled();
+    await user.type(box, "g");
+    expect(confirm).toBeEnabled();
+    expect(mock.store.profiles.length).toBeGreaterThan(0);
+  });
+
+  it("deletes everything after the phrase, then leaves for an empty profiles page", async () => {
+    const { user, mock } = general();
+    mock.store.settings.llm = { baseUrl: "http://localhost:11434/v1", model: "m", apiKeySet: true };
+    await user.click(await screen.findByRole("button", { name: "Delete all data" }));
+    const dialog = await screen.findByRole("dialog", { name: "Delete all data?" });
+    await user.type(within(dialog).getByRole("textbox"), "delete everything");
+    await user.click(within(dialog).getByRole("button", { name: "Delete all data" }));
+
+    await waitFor(() => expect(mock.store.profiles).toEqual([]));
+    expect(mock.store.requests).toEqual([]);
+    expect(mock.store.settings.llm).toBeNull();
+    expect((await screen.findAllByText("Everything was deleted")).length).toBeGreaterThan(0);
+  });
+
+  it("cancelling the reset dialog keeps the data and forgets what was typed", async () => {
+    const { user, mock } = general();
+    await user.click(await screen.findByRole("button", { name: "Delete all data" }));
+    let dialog = await screen.findByRole("dialog", { name: "Delete all data?" });
+    await user.type(within(dialog).getByRole("textbox"), "delete everything");
+    await user.click(within(dialog).getByRole("button", { name: "Cancel" }));
+    expect(mock.store.profiles.length).toBeGreaterThan(0);
+
+    await user.click(screen.getByRole("button", { name: "Delete all data" }));
+    dialog = await screen.findByRole("dialog", { name: "Delete all data?" });
+    expect(within(dialog).getByRole("textbox")).toHaveValue("");
+  });
+
+  it("shows why a reset failed and keeps the dialog open", async () => {
+    const mock = failing(/\/settings\/reset$/);
+    const { user } = general(mock);
+    await user.click(await screen.findByRole("button", { name: "Delete all data" }));
+    const dialog = await screen.findByRole("dialog", { name: "Delete all data?" });
+    await user.type(within(dialog).getByRole("textbox"), "delete everything");
+    await user.click(within(dialog).getByRole("button", { name: "Delete all data" }));
+    expect(await within(dialog).findByText("Blocked for the test.")).toBeVisible();
+    expect(dialog).toHaveAttribute("open");
   });
 
   it("catches a password mismatch before asking the server", async () => {

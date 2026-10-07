@@ -3,6 +3,7 @@ import { AuthState, ChangePasswordBody, LoginBody, Ok, SetupBody } from "./auth.
 import { BrokerCategory, ContactMethod, Requirement, TargetPriority } from "./broker.js";
 import { CampaignBody, CampaignCreated, CampaignPreview } from "./campaigns.js";
 import { Dashboard } from "./dashboard.js";
+import { ProfileExport, ResetBody } from "./data-rights.js";
 import { Jurisdiction } from "./legal.js";
 import {
   Mailbox,
@@ -352,6 +353,14 @@ export const API_ROUTES = {
     params: IdParam,
     response: Ok,
   }),
+  profilesExport: defineRoute({
+    method: "GET",
+    path: "/profiles/:id/export",
+    module: "profiles",
+    auth: "session",
+    params: IdParam,
+    response: ProfileExport,
+  }),
   profilesReplaceIdentities: defineRoute({
     method: "PUT",
     path: "/profiles/:id/identities",
@@ -647,6 +656,14 @@ export const API_ROUTES = {
     auth: "session",
     body: SettingsPatch,
     response: SettingsView,
+  }),
+  settingsReset: defineRoute({
+    method: "POST",
+    path: "/settings/reset",
+    module: "settings",
+    auth: "session",
+    body: ResetBody,
+    response: Ok,
   }),
   settingsMcpToken: defineRoute({
     method: "POST",

@@ -1,6 +1,6 @@
 import { screen, waitFor, within } from "@testing-library/react";
 import { Link } from "react-router";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { createMockApp } from "../../../../mock/app.js";
 import { renderPage } from "../../../test/render.js";
 import { instrument } from "../test-support.js";
@@ -16,6 +16,87 @@ function open(mock = createMockApp(), index = 0) {
   });
   return { ...page, profile };
 }
+
+/** jsdom has no object URLs and does not download, so this records what a download would have saved. */
+function captureDownloads() {
+  const saved: { name: string; blob: Blob }[] = [];
+  const blobs = new Map<string, Blob>();
+  let next = 0;
+  Object.assign(URL, {
+    createObjectURL: (blob: Blob) => {
+      const url = `blob:test/${next++}`;
+      blobs.set(url, blob);
+      return url;
+    },
+    revokeObjectURL: () => undefined,
+  });
+  vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(function (
+    this: HTMLAnchorElement,
+  ) {
+    saved.push({ name: this.download, blob: blobs.get(this.href) as Blob });
+  });
+  return saved;
+}
+
+afterEach(() => {
+  Reflect.deleteProperty(URL, "createObjectURL");
+  Reflect.deleteProperty(URL, "revokeObjectURL");
+  vi.restoreAllMocks();
+});
+
+async function savedJson(saved: { blob: Blob }[]) {
+  const blob = saved[0]?.blob;
+  if (!blob) throw new Error("nothing was saved");
+  return JSON.parse(await blob.text());
+}
+
+describe("exporting a profile", () => {
+  it("saves the profile's data as a JSON file named for it", async () => {
+    const saved = captureDownloads();
+    const { user, profile } = open();
+    await user.click(await screen.findByRole("button", { name: "Export profile data" }));
+
+    await waitFor(() => expect(saved).toHaveLength(1));
+    expect(saved[0]?.name).toMatch(/^kickrocks-jordan-example-\d{4}-\d{2}-\d{2}\.json$/);
+    const file = await savedJson(saved);
+    expect(file).toMatchObject({
+      format: "kickrocks-profile-export",
+      profile: { id: profile.id, displayName: "Jordan Example" },
+    });
+    expect(file.identities.length).toBeGreaterThan(0);
+    expect((await screen.findAllByText("Export ready")).length).toBeGreaterThan(0);
+  });
+
+  it("includes the profile's requests with their timelines", async () => {
+    const saved = captureDownloads();
+    const mock = createMockApp();
+    const profile = mock.store.profiles[0];
+    const owned = mock.store.requests.filter((request) => request.profileId === profile?.id);
+    expect(owned.length).toBeGreaterThan(0);
+    const { user } = open(mock);
+    await user.click(await screen.findByRole("button", { name: "Export profile data" }));
+    await waitFor(() => expect(saved).toHaveLength(1));
+    const file = await savedJson(saved);
+    expect(file.requests.map((request: { id: string }) => request.id).sort()).toEqual(
+      owned.map((request) => request.id).sort(),
+    );
+    expect(file.requests[0].events.length).toBeGreaterThan(0);
+  });
+
+  it("says so when the export fails, and saves nothing", async () => {
+    const saved = captureDownloads();
+    const mock = createMockApp();
+    instrument(mock, {
+      match: `GET /api/profiles/${mock.store.profiles[0]?.id}/export`,
+      status: 403,
+      body: { error: "forbidden", message: "That request was blocked." },
+    });
+    const { user } = open(mock);
+    await user.click(await screen.findByRole("button", { name: "Export profile data" }));
+    expect(await screen.findByText("Could not export")).toBeVisible();
+    expect(saved).toHaveLength(0);
+  });
+});
 
 describe("the profile page", () => {
   it("asks before an in-app move throws unsaved edits away", async () => {
