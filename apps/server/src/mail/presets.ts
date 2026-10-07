@@ -3,20 +3,12 @@ import type { ProviderPreset } from "@kickrocks/shared";
 const SUPPORTED = { supported: true, unsupportedReason: null } as const;
 
 /**
- * Authserv-ids match by domain suffix, so one entry covers every host a provider writes under it.
- * Checked against published real headers: gmail and google-workspace (mx.google.com), fastmail
- * (mx1.messagingengine.com), yahoo (yahoo.com), proton-bridge (mail.protonmail.ch), zoho
- * (mx.zoho.com). Not confirmed from any source: icloud (icloud.com is the expected domain, and
- * per-method hosts such as dkim-verifier.icloud.com are recalled, not seen in a published header)
- * and mailbox-org (mailbox.org is the expected domain, no inbound header was found).
- *
  * Daily caps sit well under each provider's published sending limit, because a mailbox that sends
  * a burst of near-identical mail is what gets an app password suspended.
  */
 export const PROVIDER_PRESETS: readonly ProviderPreset[] = [
   {
     id: "gmail",
-    authservIds: ["mx.google.com"],
     label: "Gmail",
     smtpHost: "smtp.gmail.com",
     smtpPort: 465,
@@ -31,7 +23,6 @@ export const PROVIDER_PRESETS: readonly ProviderPreset[] = [
   },
   {
     id: "google-workspace",
-    authservIds: ["mx.google.com"],
     label: "Google Workspace",
     smtpHost: "smtp.gmail.com",
     smtpPort: 465,
@@ -46,7 +37,6 @@ export const PROVIDER_PRESETS: readonly ProviderPreset[] = [
   },
   {
     id: "fastmail",
-    authservIds: ["messagingengine.com"],
     label: "Fastmail",
     smtpHost: "smtp.fastmail.com",
     smtpPort: 465,
@@ -60,7 +50,6 @@ export const PROVIDER_PRESETS: readonly ProviderPreset[] = [
   },
   {
     id: "icloud",
-    authservIds: ["icloud.com"],
     label: "iCloud Mail",
     smtpHost: "smtp.mail.me.com",
     smtpPort: 587,
@@ -75,7 +64,6 @@ export const PROVIDER_PRESETS: readonly ProviderPreset[] = [
   },
   {
     id: "yahoo",
-    authservIds: ["yahoo.com"],
     label: "Yahoo Mail",
     smtpHost: "smtp.mail.yahoo.com",
     smtpPort: 465,
@@ -89,7 +77,6 @@ export const PROVIDER_PRESETS: readonly ProviderPreset[] = [
   },
   {
     id: "proton-bridge",
-    authservIds: ["protonmail.ch"],
     label: "Proton Mail Bridge",
     smtpHost: "127.0.0.1",
     smtpPort: 1025,
@@ -104,7 +91,6 @@ export const PROVIDER_PRESETS: readonly ProviderPreset[] = [
   },
   {
     id: "mailbox-org",
-    authservIds: ["mailbox.org"],
     label: "mailbox.org",
     smtpHost: "smtp.mailbox.org",
     smtpPort: 465,
@@ -119,7 +105,6 @@ export const PROVIDER_PRESETS: readonly ProviderPreset[] = [
   },
   {
     id: "zoho",
-    authservIds: ["zoho.com", "zohomail.com"],
     label: "Zoho Mail",
     smtpHost: "smtp.zoho.com",
     smtpPort: 465,
@@ -134,7 +119,6 @@ export const PROVIDER_PRESETS: readonly ProviderPreset[] = [
   },
   {
     id: "other",
-    authservIds: [],
     label: "Other provider",
     smtpHost: "",
     smtpPort: 587,
@@ -149,7 +133,6 @@ export const PROVIDER_PRESETS: readonly ProviderPreset[] = [
   },
   {
     id: "outlook",
-    authservIds: [],
     label: "Outlook.com",
     smtpHost: "",
     smtpPort: 587,

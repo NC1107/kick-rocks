@@ -28,7 +28,6 @@ const GMAIL: ProviderPreset = {
   defaultDailyCap: 100,
   supported: true,
   unsupportedReason: null,
-  authservIds: [],
 };
 
 const BRIDGE: ProviderPreset = {

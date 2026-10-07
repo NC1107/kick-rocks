@@ -64,13 +64,11 @@ export interface InboxMessage {
   autoSubmitted: boolean;
   /** Header names are lower case. */
   headers: Record<string, string>;
-  /** Every Authentication-Results header, topmost first, which `headers` joins and so cannot order. */
-  authenticationResults: string[];
   /**
-   * For each entry of `authenticationResults`, how many Received headers sit above it. Two headers
-   * with the same count have no hop between them. A missing list counts every header as 0.
+   * The signing domains of the DKIM signatures this server verified over the message's whole body.
+   * Empty when none verified or when verification could not finish.
    */
-  authenticationReceivedAbove?: number[];
+  dkimDomains: string[];
 }
 
 export interface FetchOptions {
@@ -151,11 +149,6 @@ export interface ClassifierRequest {
 
 export interface ClassifyContext {
   requests: ClassifierRequest[];
-  /**
-   * The authserv-ids of the mail provider that received the message. Only an Authentication-Results
-   * header under one of these counts as proof of who sent it; with none, no sender is vouched for.
-   */
-  trustedAuthservIds?: string[];
 }
 
 export interface ClassificationResult {

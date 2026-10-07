@@ -55,10 +55,14 @@ services:
       KICKROCKS_SEND_GAP_MS: "0"
       # GreenMail offers no TLS, so the mail connection is allowed to skip it for this one host.
       KICKROCKS_PLAINTEXT_MAIL_HOSTS: greenmail
-      # GreenMail adds no Authentication-Results, so the suite writes one under this id, as a real provider would.
-      KICKROCKS_MAIL_AUTHSERV_IDS: mx.test
+      # TEST ONLY. The stack has no internet, so DKIM keys come from a file that e2e/run.mjs writes
+      # instead of DNS. The server reads it only when NODE_ENV is not production, so the image's
+      # production default is overridden here.
+      NODE_ENV: development
+      KICKROCKS_DKIM_TEST_KEYS: /dkim/keys.json
     volumes:
       - ./e2e/fixtures:/fixtures:ro
+      - ./e2e/.dkim:/dkim:ro
     healthcheck:
       test:
         - CMD

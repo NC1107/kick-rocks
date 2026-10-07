@@ -1,6 +1,7 @@
 import type { Config } from "../config.js";
 import type { SettingsStore } from "../core/settings.js";
 import { createReplyClassifier } from "./classifier.js";
+import { createDkimVerifier, type DkimVerifierOptions, loadDkimTestKeys } from "./dkim.js";
 import { createInboxSource } from "./inbox.js";
 import { createLinkFollower, type HostResolver } from "./link-follower.js";
 import type { LlmFetch } from "./llm.js";
@@ -18,6 +19,8 @@ export interface MailServiceDeps {
   fetch?: LlmFetch;
   /** Used by the link follower to find a host's addresses. */
   resolve?: HostResolver;
+  /** Replacements for DNS and the clock of DKIM verification. */
+  dkim?: DkimVerifierOptions;
 }
 
 /**
@@ -30,11 +33,17 @@ export function createMailServices(
   settings: SettingsStore,
   deps: MailServiceDeps = {},
 ): MailServices {
+  const dkim = createDkimVerifier({
+    ...(config.mail.dkimTestKeysPath
+      ? { testKeys: loadDkimTestKeys(config.mail.dkimTestKeysPath) }
+      : {}),
+    ...deps.dkim,
+  });
   return {
     transport: (connection) =>
       createMailTransport(connection, { plaintextHosts: config.mail.plaintextHosts }),
     inbox: (connection) =>
-      createInboxSource(connection, { plaintextHosts: config.mail.plaintextHosts }),
+      createInboxSource(connection, { plaintextHosts: config.mail.plaintextHosts, dkim }),
     classifier: createReplyClassifier({
       settings,
       ...(deps.fetch ? { fetch: deps.fetch } : {}),

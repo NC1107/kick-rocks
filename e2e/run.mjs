@@ -1,4 +1,6 @@
 import { spawn, spawnSync } from "node:child_process";
+import { generateKeyPairSync } from "node:crypto";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -9,6 +11,26 @@ import { fileURLToPath } from "node:url";
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const compose = ["compose", "-f", resolve(root, "docker-compose.dev.yml")];
 const keep = process.env.KICKROCKS_E2E_KEEP === "1";
+
+// The stack has no internet, so the server reads the public half of a throwaway DKIM key from a
+// file instead of DNS (KICKROCKS_DKIM_TEST_KEYS), and the suite signs its broker replies with the
+// private half. A new pair per run keeps any key out of the repository.
+function writeDkimKeys() {
+  const dir = resolve(root, "e2e/.dkim");
+  mkdirSync(dir, { recursive: true });
+  const { publicKey, privateKey } = generateKeyPairSync("rsa", { modulusLength: 2048 });
+  const targets = JSON.parse(readFileSync(resolve(root, "e2e/fixtures/targets.json"), "utf8"));
+  const domains = new Set(["fixture-people.test"]);
+  for (const target of [...targets.brokers, ...targets.companies]) {
+    if (target.privacyEmail) domains.add(target.privacyEmail.split("@")[1]);
+  }
+  const record = `v=DKIM1; k=rsa; p=${publicKey.export({ type: "spki", format: "der" }).toString("base64")}`;
+  const keys = Object.fromEntries(
+    [...domains].map((domain) => [`e2e._domainkey.${domain}`, record]),
+  );
+  writeFileSync(resolve(dir, "keys.json"), JSON.stringify(keys, null, 2));
+  writeFileSync(resolve(dir, "private.pem"), privateKey.export({ type: "pkcs8", format: "pem" }));
+}
 
 function docker(args, options = {}) {
   return spawnSync("docker", [...compose, ...args], { cwd: root, stdio: "inherit", ...options });
@@ -52,6 +74,7 @@ for (const signal of ["SIGINT", "SIGTERM"]) {
 }
 
 try {
+  writeDkimKeys();
   // A previous run that was killed leaves a stack with old state behind.
   docker(["down", "--volumes", "--remove-orphans"], { stdio: "ignore" });
   const up = docker([

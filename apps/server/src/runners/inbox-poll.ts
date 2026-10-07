@@ -9,7 +9,6 @@ import {
 import { and, eq, gte, inArray, isNotNull, min, ne, or } from "drizzle-orm";
 import { newId } from "../core/ids.js";
 import type { Task } from "../core/task-types.js";
-import { findProviderPreset } from "../mail/presets.js";
 import type { ClassificationResult, ClassifierRequest, InboxMessage } from "../mail/types.js";
 import type { AppServices } from "../services.js";
 import { connectionOf, describeError } from "./connection.js";
@@ -240,7 +239,7 @@ export class InboxRunner {
     if (message.messageId && parseOutgoingMessageId(message.messageId)) return "skipped";
 
     const context = this.classifierRequests(mailbox.profileId);
-    const classified = await this.classify(message, context, mailbox);
+    const classified = await this.classify(message, context);
     const request = classified.requestId
       ? (context.find((candidate) => candidate.id === classified.requestId) ?? null)
       : null;
@@ -338,12 +337,10 @@ export class InboxRunner {
   private async classify(
     message: InboxMessage,
     requests: ClassifierRequest[],
-    mailbox: MailboxRow,
   ): Promise<ClassificationResult> {
     try {
       return await this.services.mail.classifier.classify(message, {
         requests,
-        trustedAuthservIds: this.trustedAuthservIds(mailbox),
       });
     } catch (error) {
       return {
@@ -356,11 +353,6 @@ export class InboxRunner {
         requestedFields: [],
       };
     }
-  }
-
-  private trustedAuthservIds(mailbox: MailboxRow): string[] {
-    const preset = findProviderPreset(mailbox.provider);
-    return [...(preset?.authservIds ?? []), ...this.services.config.mail.extraAuthservIds];
   }
 
   private classifierRequests(profileId: string): ClassifierRequest[] {

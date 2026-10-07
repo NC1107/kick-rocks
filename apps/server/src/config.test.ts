@@ -56,11 +56,16 @@ describe("loadConfig", () => {
     ).toEqual([]);
   });
 
-  it("trusts no extra authserv-id unless asked to", () => {
-    expect(loadConfig({}).mail.extraAuthservIds).toEqual([]);
-    expect(loadConfig({ KICKROCKS_MAIL_AUTHSERV_IDS: " Mx.Test, " }).mail.extraAuthservIds).toEqual(
-      ["mx.test"],
-    );
+  it("reads the DKIM test keys only outside production", () => {
+    expect(loadConfig({}).mail.dkimTestKeysPath).toBeNull();
+    expect(
+      loadConfig({ KICKROCKS_DKIM_TEST_KEYS: "/keys.json", NODE_ENV: "development" }).mail
+        .dkimTestKeysPath,
+    ).toBe("/keys.json");
+    expect(
+      loadConfig({ KICKROCKS_DKIM_TEST_KEYS: "/keys.json", NODE_ENV: "production" }).mail
+        .dkimTestKeysPath,
+    ).toBeNull();
   });
 
   it("trusts proxy headers only when asked to", () => {

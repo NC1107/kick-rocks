@@ -1,4 +1,5 @@
 import { type AddressObject, type ParsedMail, simpleParser } from "mailparser";
+import type { DkimVerifier } from "./dkim.js";
 import type { InboxMessage } from "./types.js";
 
 /** Mail text is cut here so one enormous message cannot exhaust memory before storage trims it. */
@@ -32,22 +33,6 @@ function unfolded(line: string): string {
     .trim();
 }
 
-function authenticationResultsOf(parsed: ParsedMail): {
-  values: string[];
-  receivedAbove: number[];
-} {
-  const values: string[] = [];
-  const receivedAbove: number[] = [];
-  let received = 0;
-  for (const { key, line } of parsed.headerLines.slice(0, MAX_HEADERS)) {
-    if (key === "received") received += 1;
-    if (key !== "authentication-results") continue;
-    values.push(unfolded(line));
-    receivedAbove.push(received);
-  }
-  return { values, receivedAbove };
-}
-
 /** A delivery status report, or a mail from a mailer daemon, which is how servers say "bounced". */
 export function detectBounce(parsed: ParsedMail, headers: Record<string, string>): boolean {
   const contentType = (headers["content-type"] ?? "").toLowerCase();
@@ -77,6 +62,8 @@ export interface ParseInput {
   source: Buffer;
   /** The server's arrival time, used when the message has no usable Date header. */
   internalDate?: Date | string | undefined;
+  /** Without one, no signature is checked and no sender counts as authenticated. */
+  dkim?: DkimVerifier | undefined;
 }
 
 /**
@@ -87,6 +74,7 @@ export async function parseInboxMessage({
   uid,
   source,
   internalDate,
+  dkim,
 }: ParseInput): Promise<InboxMessage> {
   const arrival = validDate(internalDate === undefined ? null : new Date(internalDate));
   let parsed: ParsedMail;
@@ -107,12 +95,11 @@ export async function parseInboxMessage({
       isBounce: false,
       autoSubmitted: false,
       headers: {},
-      authenticationResults: [],
+      dkimDomains: [],
     };
   }
 
   const headers = headerRecord(parsed);
-  const authentication = authenticationResultsOf(parsed);
   const from = addressesOf(parsed.from)[0];
   const references =
     parsed.references === undefined
@@ -137,7 +124,6 @@ export async function parseInboxMessage({
     isBounce: detectBounce(parsed, headers),
     autoSubmitted: detectAutoSubmitted(headers),
     headers,
-    authenticationResults: authentication.values,
-    authenticationReceivedAbove: authentication.receivedAbove,
+    dkimDomains: dkim ? await dkim.verifiedDomains(source) : [],
   };
 }

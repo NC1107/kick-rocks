@@ -269,7 +269,6 @@ export function createReplyClassifier(deps: ReplyClassifierDeps): ReplyClassifie
       let match =
         correlateByMessageId(message, requests) ?? correlateByReference(message, requests);
       const signals = matchSignals({ message, body });
-      let confirmationForWaitingForm = false;
 
       if (match) {
         const signal = confirmationSignal(
@@ -282,7 +281,6 @@ export function createReplyClassifier(deps: ReplyClassifierDeps): ReplyClassifie
         const awaiting = matchAwaitingConfirmation(message, requests, allLinks, text);
         if (awaiting) {
           match = awaiting.match;
-          confirmationForWaitingForm = true;
           signals.push({
             ...awaiting.signal,
             confidence: Math.max(awaiting.signal.confidence, AWAITING_CONFIRMATION_FLOOR),
@@ -303,12 +301,7 @@ export function createReplyClassifier(deps: ReplyClassifierDeps): ReplyClassifie
       const links = match ? usableLinks(allLinks, match.request).map((link) => link.url) : [];
       const via = match?.via ?? null;
       const authenticated =
-        match !== null &&
-        senderIsAuthenticated(message, domainsOf(match.request), context.trustedAuthservIds ?? []);
-      // A waiting form's confirmation is only ever acted on through links on the request's own
-      // sites, so it needs no vouching; any other wording from an unauthenticated sender does.
-      const senderVouched = (classification: ReplyClassification): boolean =>
-        authenticated || (confirmationForWaitingForm && classification === "confirmation_link");
+        match !== null && senderIsAuthenticated(message, domainsOf(match.request));
       const requestId = match?.request.id ?? null;
 
       signals.sort(
@@ -340,9 +333,7 @@ export function createReplyClassifier(deps: ReplyClassifierDeps): ReplyClassifie
           requestId,
           correlation: via,
           classification: top.classification,
-          confidence: round(
-            capFor(top.classification, via, floored, senderVouched(top.classification)),
-          ),
+          confidence: round(capFor(top.classification, via, floored, authenticated)),
           rationale: `${top.rationale}${rival ? ", though other wording points elsewhere" : ""}; ${describeCorrelation(via)}`,
           links,
           requestedFields:
@@ -371,7 +362,7 @@ export function createReplyClassifier(deps: ReplyClassifierDeps): ReplyClassifie
       }
 
       if (result.confidence >= CONFIDENCE_THRESHOLD) return result;
-      return refineWithLlm(deps, message, body, result, via, senderVouched);
+      return refineWithLlm(deps, message, body, result, via, authenticated);
     },
   };
 }
@@ -382,7 +373,7 @@ async function refineWithLlm(
   body: string,
   current: ClassificationResult,
   via: Correlation | null,
-  senderVouched: (classification: ReplyClassification) => boolean,
+  authenticated: boolean,
 ): Promise<ClassificationResult> {
   const llm = configuredLlm(deps.settings);
   if (!llm) return current;
@@ -407,7 +398,7 @@ async function refineWithLlm(
       classification,
       via,
       unsupported ? 0.3 : Math.min(answer.confidence, 0.9),
-      senderVouched(classification),
+      authenticated,
     ),
   );
   if (confidence <= current.confidence) return current;

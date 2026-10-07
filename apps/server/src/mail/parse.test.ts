@@ -5,24 +5,6 @@ const parse = (lines: string[], internalDate?: Date) =>
   parseInboxMessage({ uid: 7, source: Buffer.from(lines.join("\r\n")), internalDate });
 
 describe("parseInboxMessage", () => {
-  it("keeps every Authentication-Results header in the order the message lists them", async () => {
-    const message = await parse([
-      "Authentication-Results: mx.google.com; dkim=pass header.d=real.test",
-      "Received: from relay.evil.test by mx.google.com",
-      "Authentication-Results: mx.google.com;",
-      "  dkim=pass header.d=forged.test",
-      "From: privacy@acme.test",
-      "Subject: Hi",
-      "",
-      "Body",
-    ]);
-    expect(message.authenticationResults).toEqual([
-      "mx.google.com; dkim=pass header.d=real.test",
-      "mx.google.com; dkim=pass header.d=forged.test",
-    ]);
-    expect(message.authenticationReceivedAbove).toEqual([0, 1]);
-  });
-
   it("maps the headers and body of a plain message", async () => {
     const message = await parse([
       "From: Acme Privacy <Privacy@Acme.test>",

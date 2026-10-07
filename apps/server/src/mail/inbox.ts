@@ -1,5 +1,6 @@
 import type { MailFolder } from "@kickrocks/shared";
 import { ImapFlow, type MailboxObject } from "imapflow";
+import type { DkimVerifier } from "./dkim.js";
 import { describeMailError, isTrustedPlaintextHost } from "./net.js";
 import { parseInboxMessage } from "./parse.js";
 import type {
@@ -27,6 +28,8 @@ export class MailFetchError extends Error {
 /** Hosts that may be reached without TLS besides this machine. */
 export interface InboxSourceOptions {
   plaintextHosts?: readonly string[];
+  /** Checks the DKIM signatures of each fetched message; without one no sender is authenticated. */
+  dkim?: DkimVerifier;
 }
 
 function openClient(connection: MailConnection, plaintextHosts: readonly string[]): ImapFlow {
@@ -84,7 +87,7 @@ function folderRank(folder: MailFolder): number {
 
 export function createInboxSource(
   connection: MailConnection,
-  { plaintextHosts = [] }: InboxSourceOptions = {},
+  { plaintextHosts = [], dkim }: InboxSourceOptions = {},
 ): InboxSource {
   return {
     listFolders() {
@@ -108,7 +111,7 @@ export function createInboxSource(
 
     fetchSince(folder, afterUid, uidValidity, options) {
       return withClient(connection, plaintextHosts, (client) =>
-        fetchFolder(client, folder, afterUid, uidValidity, options),
+        fetchFolder(client, folder, afterUid, uidValidity, options, dkim),
       );
     },
   };
@@ -120,6 +123,7 @@ async function fetchFolder(
   afterUid: number | null,
   uidValidity: number | null,
   { since, limit }: FetchOptions,
+  dkim: DkimVerifier | undefined,
 ): Promise<FetchResult> {
   let lock: Awaited<ReturnType<ImapFlow["getMailboxLock"]>>;
   try {
@@ -174,6 +178,7 @@ async function fetchFolder(
             uid: item.uid,
             source: item.source,
             internalDate: item.internalDate,
+            dkim,
           }),
         );
       }

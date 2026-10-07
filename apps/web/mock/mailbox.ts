@@ -8,7 +8,6 @@ const SUPPORTED = { supported: true, unsupportedReason: null } as const;
 const PROVIDERS: ProviderPreset[] = [
   {
     id: "gmail",
-    authservIds: [],
     label: "Gmail",
     smtpHost: "smtp.gmail.com",
     smtpPort: 465,
@@ -23,7 +22,6 @@ const PROVIDERS: ProviderPreset[] = [
   },
   {
     id: "google-workspace",
-    authservIds: [],
     label: "Google Workspace",
     smtpHost: "smtp.gmail.com",
     smtpPort: 465,
@@ -37,7 +35,6 @@ const PROVIDERS: ProviderPreset[] = [
   },
   {
     id: "fastmail",
-    authservIds: [],
     label: "Fastmail",
     smtpHost: "smtp.fastmail.com",
     smtpPort: 465,
@@ -51,7 +48,6 @@ const PROVIDERS: ProviderPreset[] = [
   },
   {
     id: "icloud",
-    authservIds: [],
     label: "iCloud Mail",
     smtpHost: "smtp.mail.me.com",
     smtpPort: 587,
@@ -65,7 +61,6 @@ const PROVIDERS: ProviderPreset[] = [
   },
   {
     id: "yahoo",
-    authservIds: [],
     label: "Yahoo Mail",
     smtpHost: "smtp.mail.yahoo.com",
     smtpPort: 465,
@@ -79,7 +74,6 @@ const PROVIDERS: ProviderPreset[] = [
   },
   {
     id: "proton-bridge",
-    authservIds: [],
     label: "Proton Mail Bridge",
     smtpHost: "127.0.0.1",
     smtpPort: 1025,
@@ -94,7 +88,6 @@ const PROVIDERS: ProviderPreset[] = [
   },
   {
     id: "mailbox-org",
-    authservIds: [],
     label: "mailbox.org",
     smtpHost: "smtp.mailbox.org",
     smtpPort: 465,
@@ -109,7 +102,6 @@ const PROVIDERS: ProviderPreset[] = [
   },
   {
     id: "zoho",
-    authservIds: [],
     label: "Zoho Mail",
     smtpHost: "smtp.zoho.com",
     smtpPort: 465,
@@ -124,7 +116,6 @@ const PROVIDERS: ProviderPreset[] = [
   },
   {
     id: "other",
-    authservIds: [],
     label: "Other provider",
     smtpHost: "",
     smtpPort: 587,
@@ -139,7 +130,6 @@ const PROVIDERS: ProviderPreset[] = [
   },
   {
     id: "outlook",
-    authservIds: [],
     label: "Outlook.com",
     smtpHost: "",
     smtpPort: 587,

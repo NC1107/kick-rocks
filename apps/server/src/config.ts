@@ -22,7 +22,7 @@ const Env = z.object({
   KICKROCKS_SCHEDULER: z.enum(["on", "off"]).default("on"),
   KICKROCKS_ALLOW_PRIVATE_LINK_HOSTS: z.string().optional(),
   KICKROCKS_PLAINTEXT_MAIL_HOSTS: z.string().optional(),
-  KICKROCKS_MAIL_AUTHSERV_IDS: z.string().optional(),
+  KICKROCKS_DKIM_TEST_KEYS: z.string().optional(),
   KICKROCKS_SEND_GAP_MS: z
     .string()
     .regex(/^\d+(-\d+)?$/, 'KICKROCKS_SEND_GAP_MS must be "<ms>" or "<min>-<max>"')
@@ -70,10 +70,11 @@ export interface Config {
      */
     plaintextHosts: string[];
     /**
-     * Authserv-ids to trust in Authentication-Results besides the chosen provider's own, for a
-     * mailbox on a provider with no preset. Empty by default, so an unknown provider vouches for no one.
+     * A JSON file of DKIM key records served in place of DNS, for the development stack, which has
+     * no internet. Test only: it is ignored when NODE_ENV is production, because a key listed here
+     * is believed without asking the signer's DNS.
      */
-    extraAuthservIds: string[];
+    dkimTestKeysPath: string | null;
   };
   linkFollower: {
     /**
@@ -154,7 +155,8 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     sendGapMs: gapRange(parsed.KICKROCKS_SEND_GAP_MS),
     mail: {
       plaintextHosts: hostList(parsed.KICKROCKS_PLAINTEXT_MAIL_HOSTS),
-      extraAuthservIds: hostList(parsed.KICKROCKS_MAIL_AUTHSERV_IDS),
+      dkimTestKeysPath:
+        parsed.NODE_ENV === "production" ? null : pathOrNull(parsed.KICKROCKS_DKIM_TEST_KEYS),
     },
     linkFollower: { allowedPrivateHosts: hostList(parsed.KICKROCKS_ALLOW_PRIVATE_LINK_HOSTS) },
     logLevel: parsed.LOG_LEVEL,

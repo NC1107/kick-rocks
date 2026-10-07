@@ -2,7 +2,9 @@ import { randomBytes } from "node:crypto";
 import { outgoingMessageId } from "@kickrocks/shared";
 import { createTransport } from "nodemailer";
 import { expect, it } from "vitest";
+import { KEY_RECORD, signed, unsigned } from "../test-utils/dkim.js";
 import { describeIntegration } from "../test-utils/index.js";
+import { createDkimVerifier } from "./dkim.js";
 import { createInboxSource } from "./inbox.js";
 import { createMailTransport, InvalidOutgoingMailError, MailSendError } from "./transport.js";
 import type { InboxMessage, MailConnection } from "./types.js";
@@ -267,6 +269,23 @@ describeIntegration("greenmail", "mail over a real SMTP and IMAP server", () => 
     const [message] = await fetchAll(connection, 1);
     expect(message?.html).toContain('href="https://broker.test/confirm?t=abc"');
     expect(message?.text).toContain("to confirm");
+  });
+
+  it("verifies the DKIM signature of the raw source it fetched", async () => {
+    const connection = freshMailbox();
+    await deliverRaw(connection.address, await signed(unsigned(), { domain: "broker.test" }));
+    await deliverRaw(connection.address, unsigned().replace("acme.test", "broker.test"));
+    const dkim = createDkimVerifier({
+      testKeys: { "kr._domainkey.broker.test": KEY_RECORD },
+    });
+    const inbox = createInboxSource(connection, { dkim });
+    let messages: InboxMessage[] = [];
+    for (let attempt = 0; attempt < 20 && messages.length < 2; attempt += 1) {
+      const result = await inbox.fetchSince("INBOX", null, null, { since: null, limit: 100 });
+      messages = result.messages;
+      if (messages.length < 2) await new Promise((resolve) => setTimeout(resolve, 150));
+    }
+    expect(messages.map((message) => message.dkimDomains)).toEqual([["broker.test"], []]);
   });
 
   it("reports a missing folder in plain words", async () => {

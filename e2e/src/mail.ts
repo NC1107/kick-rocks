@@ -1,4 +1,7 @@
 import { randomBytes } from "node:crypto";
+import { readFileSync } from "node:fs";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { ImapFlow } from "imapflow";
 import { simpleParser } from "mailparser";
 import { createTransport } from "nodemailer";
@@ -58,6 +61,15 @@ export async function readInbox(address: string): Promise<SeenMail[]> {
   }
 }
 
+const DKIM_SELECTOR = "e2e";
+
+/** The private half of the key `run.mjs` made for this run, whose public half the server was given. */
+const dkimPrivateKey = (): string =>
+  readFileSync(
+    resolve(dirname(fileURLToPath(import.meta.url)), "..", ".dkim", "private.pem"),
+    "utf8",
+  );
+
 export interface Delivery {
   from: string;
   to: string;
@@ -67,15 +79,23 @@ export interface Delivery {
   /** Sent as the raw message when a test needs headers nodemailer would not write, such as a bounce. */
   raw?: string | undefined;
   headers?: Record<string, string> | undefined;
+  /** Skips the DKIM signature a broker's mail server would add, as a forger's mail lacks it. */
+  unsigned?: boolean | undefined;
 }
 
 /** Puts a message in an inbox the way a broker's server would, through GreenMail's SMTP port. */
 export async function deliver(mail: Delivery): Promise<string> {
+  const domain = mail.from.slice(mail.from.lastIndexOf("@") + 1);
   const transport = createTransport({
     host: STACK.host,
     port: STACK.smtpPort,
     secure: false,
     ignoreTLS: true,
+    ...(mail.unsigned || mail.raw
+      ? {}
+      : {
+          dkim: { domainName: domain, keySelector: DKIM_SELECTOR, privateKey: dkimPrivateKey() },
+        }),
   });
   const messageId = `<${randomBytes(8).toString("hex")}@broker.test>`;
   try {

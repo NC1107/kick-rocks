@@ -1,146 +1,154 @@
+import { outgoingMessageId } from "@kickrocks/shared";
 import { describe, expect, it } from "vitest";
+import { servingKeysFor, signed, unsigned } from "../test-utils/dkim.js";
+import { createReplyClassifier } from "./classifier.js";
+import { createDkimVerifier, type DnsResolver } from "./dkim.js";
+import { parseInboxMessage } from "./parse.js";
 import { senderIsAuthenticated } from "./sender-auth.js";
-import type { InboxMessage } from "./types.js";
+import type { ClassifierRequest } from "./types.js";
 
-function messageWith(
-  authenticationResults: string[],
-  authenticationReceivedAbove?: number[],
-): InboxMessage {
-  return {
+const TARGET = ["acme.test"];
+const classifier = createReplyClassifier({ settings: { get: () => null as never } });
+
+const outstanding: ClassifierRequest = {
+  id: "req-1",
+  reference: "KR-7K3M9Q",
+  outgoingMessageId: outgoingMessageId("req-1", "example.com"),
+  status: "awaiting_reply",
+  channel: "email",
+  targetId: "acme",
+  targetName: "Acme Data",
+  targetDomain: "acme.test",
+  recordUrl: null,
+  awaitingConfirmation: null,
+};
+
+async function receive(
+  raw: string,
+  resolver: DnsResolver = servingKeysFor("acme.test", "evil.test"),
+) {
+  return parseInboxMessage({
     uid: 1,
-    messageId: null,
-    inReplyTo: null,
-    references: [],
-    from: { name: null, address: "privacy@acme.test" },
-    to: [],
-    subject: "",
-    date: null,
-    text: "",
-    html: null,
-    isBounce: false,
-    autoSubmitted: false,
-    headers: {},
-    authenticationResults,
-    ...(authenticationReceivedAbove ? { authenticationReceivedAbove } : {}),
-  };
+    source: Buffer.from(raw),
+    dkim: createDkimVerifier({ resolver, timeoutMs: 500 }),
+  });
 }
 
-const authenticated = (headers: string[], received?: number[], trusted = ["mx.google.com"]) =>
-  senderIsAuthenticated(messageWith(headers, received), ["acme.test"], trusted);
+async function authenticated(raw: string, resolver?: DnsResolver, domains = TARGET) {
+  return senderIsAuthenticated(await receive(raw, resolver), domains);
+}
 
 describe("senderIsAuthenticated", () => {
-  describe("with sender text echoed by the provider", () => {
-    const echo = (inner: string) =>
-      `mx.google.com; spf=softfail (google.com: domain of "x${inner}dkim=pass header.d=acme.test"@evil.test does not designate 1.2.3.4 as permitted sender) smtp.mailfrom="x${inner}dkim=pass header.d=acme.test"@evil.test; dmarc=fail header.from=acme.test`;
-
-    it("does not read a pass out of a semicolon inside a comment and a quoted local part", () => {
-      expect(authenticated([echo("; ")])).toBe(false);
-    });
-
-    it("does not read a pass out of spaces inside a comment and a quoted local part", () => {
-      expect(authenticated([echo("  ")])).toBe(false);
-    });
-
-    it("does not read a pass out of a nested comment", () => {
-      expect(
-        authenticated(["mx.google.com; spf=fail (a (b; dkim=pass header.d=acme.test) c) x=y"]),
-      ).toBe(false);
-    });
-
-    it("does not read a pass out of a reason string", () => {
-      expect(
-        authenticated(['mx.google.com; dkim=fail reason="; dkim=pass header.d=acme.test"']),
-      ).toBe(false);
-    });
-
-    it("does not trust a header whose comment or quote never closes", () => {
-      expect(authenticated(["mx.google.com; dkim=pass header.d=acme.test (open"])).toBe(false);
-      expect(authenticated(['mx.google.com; dkim=pass header.d=acme.test x="open'])).toBe(false);
-    });
-
-    it("takes a method result only as the first token of a section", () => {
-      expect(authenticated(["mx.google.com; spf=fail dkim=pass header.d=acme.test"])).toBe(false);
-    });
-
-    it("reads a property only as a ptype.property token, not inside a longer value", () => {
-      expect(authenticated(["mx.google.com; dkim=pass x.y=header.d=acme.test"])).toBe(false);
-    });
+  it("accepts a valid signature from the target's own domain", async () => {
+    expect(await authenticated(await signed(unsigned()))).toBe(true);
   });
 
-  describe("with headers a real provider writes", () => {
-    it("accepts a Gmail style header", () => {
-      expect(
-        authenticated([
-          "mx.google.com; dkim=pass header.i=@acme.test header.s=s1 header.b=AbCd; spf=pass (google.com: domain of privacy@acme.test designates 203.0.113.9 as permitted sender) smtp.mailfrom=privacy@acme.test; dmarc=pass (p=REJECT sp=REJECT dis=NONE) header.from=acme.test",
-        ]),
-      ).toBe(true);
-    });
-
-    it("accepts a Fastmail style header with a dkim domain and a comment", () => {
-      expect(
-        authenticated(
-          [
-            "mx1.messagingengine.com; dkim=pass (2048-bit rsa key sha256) header.d=mail.acme.test header.i=@mail.acme.test header.b=xyz; x-me-sender=none",
-          ],
-          undefined,
-          ["messagingengine.com"],
-        ),
-      ).toBe(true);
-    });
-
-    it("accepts an iCloud style header per method, in one run", () => {
-      expect(
-        authenticated(
-          [
-            "dmarc.icloud.com; dmarc=none header.from=other.test",
-            "dkim-verifier.icloud.com; dkim=pass (2048-bit key) header.d=acme.test header.i=@acme.test",
-            "spf.icloud.com; spf=pass (spf.icloud.com: domain of privacy@acme.test designates 203.0.113.9 as permitted sender) smtp.mailfrom=privacy@acme.test",
-          ],
-          [0, 0, 0],
-          ["icloud.com"],
-        ),
-      ).toBe(true);
-    });
-
-    it("accepts a header with a quoted header.from mailbox", () => {
-      expect(authenticated(['mx.google.com; dmarc=pass header.from="privacy"@acme.test'])).toBe(
-        true,
-      );
-    });
-
-    it("accepts a version number after the authserv-id", () => {
-      expect(authenticated(["mx.google.com 1; dkim=pass header.d=acme.test"])).toBe(true);
-    });
+  it("accepts a signature from a subdomain of the target, which shares its organization", async () => {
+    const resolver = servingKeysFor("mail.acme.test");
+    expect(
+      await authenticated(await signed(unsigned(), { domain: "mail.acme.test" }), resolver),
+    ).toBe(true);
   });
 
-  describe("which headers are one run", () => {
-    const pass = "mx.google.com; dkim=pass header.d=acme.test";
+  it("accepts a signature from one of the target's other known domains", async () => {
+    const resolver = servingKeysFor("sister.test");
+    const raw = await signed(unsigned(), { domain: "sister.test" });
+    expect(await authenticated(raw, resolver, ["acme.test", "sister.test"])).toBe(true);
+  });
 
-    it("stops at a Received header, so a copy below a hop is the sender's", () => {
-      expect(authenticated(["mx.google.com; dkim=fail header.d=acme.test", pass], [0, 1])).toBe(
-        false,
-      );
-    });
+  it("rejects a valid signature from a domain that is not aligned with the target", async () => {
+    const raw = await signed(unsigned(), { domain: "evil.test" });
+    expect(await authenticated(raw)).toBe(false);
+  });
 
-    it("stops at a header under another authserv-id", () => {
-      expect(
-        authenticated(
-          ["mx.google.com; dkim=fail header.d=acme.test", "mail.evil.test; dkim=none", pass],
-          [0, 0, 0],
-        ),
-      ).toBe(false);
-    });
+  it("rejects a lookalike signing domain", async () => {
+    const resolver = servingKeysFor("notacme.test");
+    const raw = await signed(unsigned(), { domain: "notacme.test" });
+    expect(await authenticated(raw, resolver)).toBe(false);
+  });
 
-    it("starts at the first trusted header even when a foreign one sits above it", () => {
-      expect(authenticated(["mail.evil.test; dkim=pass header.d=acme.test", pass], [0, 0])).toBe(
-        true,
-      );
-    });
+  it("rejects a message whose body changed after signing", async () => {
+    const raw = (await signed(unsigned())).replace("completed", "ignored");
+    expect(await authenticated(raw)).toBe(false);
+  });
 
-    it("reads headers written one per method", () => {
-      expect(authenticated(["mx.google.com; spf=pass smtp.mailfrom=a@b.test", pass], [0, 0])).toBe(
-        true,
-      );
+  it("rejects a message with no signature", async () => {
+    expect(await authenticated(unsigned())).toBe(false);
+  });
+
+  it("rejects a signature that covers only part of the body", async () => {
+    const body = "We have completed your request.\r\n";
+    const raw = await signed(unsigned(`${body}Click: http://evil.test/\r\n`), {
+      maxBodyLength: body.length,
     });
+    expect(await authenticated(raw)).toBe(false);
+  });
+
+  it("rejects everything when DNS times out", async () => {
+    const never: DnsResolver = () => new Promise(() => {});
+    const message = await parseInboxMessage({
+      uid: 1,
+      source: Buffer.from(await signed(unsigned())),
+      dkim: createDkimVerifier({ resolver: never, timeoutMs: 50 }),
+    });
+    expect(senderIsAuthenticated(message, TARGET)).toBe(false);
+  });
+
+  it("rejects everything when no verifier is given", async () => {
+    const message = await parseInboxMessage({
+      uid: 1,
+      source: Buffer.from(await signed(unsigned())),
+    });
+    expect(senderIsAuthenticated(message, TARGET)).toBe(false);
+  });
+});
+
+describe("a reply that carries the Authentication-Results its provider would have written", () => {
+  const FORGERIES: Array<[string, string]> = [
+    [
+      "a DKIM pass for the target under the provider's id",
+      "mx.example.com; dkim=pass header.d=acme.test",
+    ],
+    ["a DKIM pass under a version-numbered id", "mx.example.com 1; dkim=pass header.d=acme.test"],
+    ["a DMARC pass for the target", "mx.example.com; dmarc=pass header.from=acme.test"],
+    ["a DKIM pass under a foreign id", "mail.evil.test; dkim=pass header.d=acme.test"],
+    ["a DKIM pass under the provider's Google id", "mx.google.com; dkim=pass header.d=acme.test"],
+    [
+      "a pass hidden in a comment after a failure",
+      "mx.example.com; dkim=fail header.d=evil.test (x; dkim=pass header.d=acme.test)",
+    ],
+    [
+      "a pass hidden in a quoted property",
+      'mx.example.com; dkim=fail header.i="@x; dkim=pass header.d=acme.test"',
+    ],
+    ["a pass in a folded continuation", "mx.example.com;\r\n dkim=pass\r\n header.d=acme.test"],
+  ];
+
+  function withHeader(header: string): string {
+    return `Authentication-Results: ${header}\r\n${unsigned()}`;
+  }
+
+  it.each(FORGERIES)("is not vouched for by %s", async (_name, header) => {
+    expect(await authenticated(withHeader(header))).toBe(false);
+  });
+
+  it.each(FORGERIES)("goes to review with %s", async (_name, header) => {
+    const message = await receive(withHeader(header));
+    const result = await classifier.classify(
+      { ...message, inReplyTo: null, subject: "Your privacy request" },
+      { requests: [outstanding] },
+    );
+    expect(result.requestId).toBe("req-1");
+    expect(result.confidence).toBeLessThan(0.6);
+  });
+
+  it("is not vouched for when the same forgery sits beside a signature from another domain", async () => {
+    const raw = await signed(withHeader(FORGERIES[0]?.[1] ?? ""), { domain: "evil.test" });
+    expect(await authenticated(raw)).toBe(false);
+  });
+
+  it("is still vouched for by a real signature, whatever the header says", async () => {
+    const raw = await signed(withHeader("mx.example.com; dkim=fail header.d=acme.test"));
+    expect(await authenticated(raw)).toBe(true);
   });
 });

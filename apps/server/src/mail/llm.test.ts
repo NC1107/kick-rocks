@@ -34,7 +34,7 @@ function message(overrides: Partial<InboxMessage> = {}): InboxMessage {
     isBounce: false,
     autoSubmitted: false,
     headers: {},
-    authenticationResults: [],
+    dkimDomains: [],
     ...overrides,
   };
 }

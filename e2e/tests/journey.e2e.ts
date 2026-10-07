@@ -718,7 +718,6 @@ describe("a match on the people-search site", () => {
       to: MAILBOX_ADDRESS,
       subject: "Your removal is complete",
       text: "Your record has been removed from our site.",
-      headers: { "Authentication-Results": "mx.test; dkim=pass header.d=fixture-people.test" },
     });
     await pollNow();
     await waitForStatus("fx-people", ["confirmed"]);

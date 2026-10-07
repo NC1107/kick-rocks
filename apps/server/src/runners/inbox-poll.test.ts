@@ -305,28 +305,6 @@ describe("storing and applying replies", () => {
   });
 });
 
-describe("which Authentication-Results the classifier may trust", () => {
-  const trustedFor = async () => {
-    await sentRequest();
-    deliver("Anything");
-    await poll();
-    return ctx.mail.classifier.calls[0]?.context.trustedAuthservIds;
-  };
-
-  it("hands over the authserv-ids of the mailbox's own provider", async () => {
-    ctx.services.db
-      .update(mailboxes)
-      .set({ provider: "gmail" })
-      .where(eq(mailboxes.id, mailboxId))
-      .run();
-    expect(await trustedFor()).toEqual(["mx.google.com"]);
-  });
-
-  it("hands over none for a provider it does not know", async () => {
-    expect(await trustedFor()).toEqual([]);
-  });
-});
-
 describe("confirmation links", () => {
   it("follows the link, writes it to the timeline, and stops waiting for the email", async () => {
     const { request, target } = await sentRequest();

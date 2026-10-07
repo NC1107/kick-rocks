@@ -188,7 +188,7 @@ class ScriptedMailbox implements FakeMailbox {
       isBounce: false,
       autoSubmitted: false,
       headers: {},
-      authenticationResults: [],
+      dkimDomains: [],
       ...overrides,
     };
     this.byFolder.set(folder, [...(this.byFolder.get(folder) ?? []), message]);

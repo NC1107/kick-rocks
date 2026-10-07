@@ -167,7 +167,14 @@ It covers setup and login, a profile, the mailbox, a campaign with sends, a brok
 
 `KICKROCKS_E2E_KEEP=1 pnpm e2e` leaves the stack running afterwards, so you can open http://127.0.0.1:8520 and look around, with the password `correct horse battery staple`.
 `KICKROCKS_E2E_NO_BUILD=1 pnpm e2e` reuses the images from the last run.
-The stack sets `KICKROCKS_SEND_GAP_MS=0`, `KICKROCKS_PLAINTEXT_MAIL_HOSTS=greenmail`, and `KICKROCKS_MAIL_AUTHSERV_IDS=mx.test`, which a real install must not.
+The stack sets `KICKROCKS_SEND_GAP_MS=0`, `KICKROCKS_PLAINTEXT_MAIL_HOSTS=greenmail`, `NODE_ENV=development`, and `KICKROCKS_DKIM_TEST_KEYS=/dkim/keys.json`, which a real install must not.
+The stack has no internet, so `pnpm e2e` writes a throwaway DKIM key pair to `e2e/.dkim` before the stack starts, the server reads the public key from that file instead of DNS, and the suite signs its broker replies with the private key.
+Starting the stack by hand with `docker compose -f docker-compose.dev.yml up` needs that folder to exist, so run `pnpm e2e` once first.
+
+The server checks DKIM signatures itself when it reads mail and ignores every `Authentication-Results` header, because a provider can echo text a sender wrote into that header.
+A reply counts as coming from the broker only when a DKIM signature that covers the whole body verifies and its domain shares an organizational domain with the broker's own domains.
+Anything else from a sender who is only matched by address goes to review.
+If DNS cannot be reached when a message is read, the message goes to review and the poll carries on.
 
 See `docs/DESIGN.md` for the architecture, the decisions behind it, and the milestone plan.
 

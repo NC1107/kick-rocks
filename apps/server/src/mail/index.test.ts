@@ -58,7 +58,7 @@ describe("createMailServices", () => {
       isBounce: false,
       autoSubmitted: false,
       headers: {},
-      authenticationResults: [],
+      dkimDomains: [],
     };
     await mail.classifier.classify(message, { requests: [] });
     expect(reads).toBe(0);
