@@ -217,6 +217,24 @@ const JURISDICTIONS: Jurisdiction[] = [
   },
 ];
 
+const DEFAULT_SCHEDULE = {
+  pollMinutes: 15,
+  peopleSearchRescanDays: 60,
+  brokerRescanDays: 90,
+  noResponseDays: 45,
+  maxFollowUps: 2,
+};
+
+function wipePersonalData(store: MockStore): void {
+  store.profiles = [];
+  store.requests = [];
+  store.messages = [];
+  store.tasks = [];
+  store.matches = [];
+  store.scans = [];
+  store.blockedInfo.clear();
+}
+
 export default defineMockDomain({
   name: "settings",
 
@@ -303,6 +321,12 @@ export default defineMockDomain({
           );
           current.schedule = { ...current.schedule, ...patch };
         }
+        if (body.retention) {
+          const patch = Object.fromEntries(
+            Object.entries(body.retention).filter(([, value]) => value !== undefined),
+          );
+          current.retention = { ...current.retention, ...patch };
+        }
         if (body.llm === null) current.llm = null;
         else if (body.llm) {
           current.llm = {
@@ -313,6 +337,19 @@ export default defineMockDomain({
         }
         if (body.mcp) current.mcp = { ...current.mcp, enabled: body.mcp.enabled };
         return current;
+      }),
+
+      handle(API_ROUTES.settingsReset, () => {
+        wipePersonalData(store);
+        store.settings = {
+          ...store.settings,
+          schedule: { ...DEFAULT_SCHEDULE },
+          llm: null,
+          retention: { messageDays: null, screenshotDays: 30 },
+          mcp: { ...store.settings.mcp, enabled: false, tokenSet: false },
+        };
+        store.mcpToken = null;
+        return { ok: true as const };
       }),
 
       handle(API_ROUTES.settingsMcpToken, () => {

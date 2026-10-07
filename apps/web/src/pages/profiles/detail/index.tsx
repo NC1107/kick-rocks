@@ -33,6 +33,7 @@ import {
   validateDrafts,
 } from "../identity-drafts.js";
 import { UnsavedChangesDialog, useUnsavedWarning } from "../use-unsaved-warning.js";
+import { DataCard } from "./DataCard.js";
 
 const SAVED_ROUTES = [API_ROUTES.profilesList, API_ROUTES.profilesGet] as const;
 
@@ -123,10 +124,11 @@ function ProfileEditor({ profile }: { profile: ProfileDetail }) {
         <DetailsCard profile={profile} onDirtyChange={markDirty("details")} />
         <IdentitiesCard profile={profile} onDirtyChange={markDirty("identities")} />
         <MailboxCard profile={profile} />
+        <DataCard profile={profile} />
         <Card>
           <CardHeader
             title="Delete this profile"
-            description="Removes the profile, its identities, mailbox connection, and every request and reply recorded for it. Requests already sent cannot be recalled."
+            description="Stops its running tasks, then removes the profile, its identities, mailbox connection, scans, matches, screenshots, and every request and reply recorded for it. Requests already sent cannot be recalled. Export first if you want a copy."
           />
           <Button variant="danger" onClick={() => setConfirmingDelete(true)}>
             Delete profile
@@ -138,7 +140,7 @@ function ProfileEditor({ profile }: { profile: ProfileDetail }) {
         open={confirmingDelete}
         onClose={() => setConfirmingDelete(false)}
         title={`Delete ${profile.displayName}?`}
-        description="This also deletes its requests and replies. It cannot be undone."
+        description="This stops its running tasks and deletes its requests, replies, scans, and screenshots. It cannot be undone."
         confirmLabel="Delete profile"
         destructive
         loading={remove.isPending}
