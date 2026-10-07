@@ -14,6 +14,7 @@ const Env = z.object({
     .optional(),
   KICKROCKS_EXTRA_TARGETS: z.string().optional(),
   KICKROCKS_EXTRA_RECIPES: z.string().optional(),
+  KICKROCKS_TRUST_PROXY: z.enum(["on", "off"]).default("off"),
   KICKROCKS_SCHEDULER: z.enum(["on", "off"]).default("on"),
   KICKROCKS_ALLOW_PRIVATE_LINK_HOSTS: z.string().optional(),
   LOG_LEVEL: z.enum(["trace", "debug", "info", "warn", "error", "fatal", "silent"]).default("info"),
@@ -35,6 +36,11 @@ export interface Config {
   extraTargetsPath: string | null;
   /** A directory of extra recipe files. */
   extraRecipesDir: string | null;
+  /**
+   * Whether to believe X-Forwarded-* headers. Off by default because a client could forge them to
+   * dodge the login throttle; turn it on behind a reverse proxy so every client is not one address.
+   */
+  trustProxy: boolean;
   schedulerEnabled: boolean;
   linkFollower: {
     /**
@@ -81,6 +87,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     workerToken: parsed.KICKROCKS_WORKER_TOKEN ?? null,
     extraTargetsPath: pathOrNull(parsed.KICKROCKS_EXTRA_TARGETS),
     extraRecipesDir: pathOrNull(parsed.KICKROCKS_EXTRA_RECIPES),
+    trustProxy: parsed.KICKROCKS_TRUST_PROXY === "on",
     schedulerEnabled: parsed.KICKROCKS_SCHEDULER === "on",
     linkFollower: { allowedPrivateHosts: hostList(parsed.KICKROCKS_ALLOW_PRIVATE_LINK_HOSTS) },
     logLevel: parsed.LOG_LEVEL,

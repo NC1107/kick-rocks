@@ -14,6 +14,7 @@ services:
       # Empty values count as unset. A worker token turns the worker API on.
       KICKROCKS_WORKER_TOKEN: ${KICKROCKS_WORKER_TOKEN:-}
       KICKROCKS_PUBLIC_URL: ${KICKROCKS_PUBLIC_URL:-}
+      KICKROCKS_TRUST_PROXY: ${KICKROCKS_TRUST_PROXY:-}
 
   # The browser worker. It needs the same KICKROCKS_WORKER_TOKEN as the server, so it only starts
   # with `docker compose --profile worker up -d`; a plain `docker compose up` keeps working

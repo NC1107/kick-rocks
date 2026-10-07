@@ -54,6 +54,13 @@ describe("loadConfig", () => {
     ).toEqual([]);
   });
 
+  it("trusts proxy headers only when asked to", () => {
+    expect(loadConfig({}).trustProxy).toBe(false);
+    expect(loadConfig({ KICKROCKS_TRUST_PROXY: "on" }).trustProxy).toBe(true);
+    expect(loadConfig({ KICKROCKS_TRUST_PROXY: "" }).trustProxy).toBe(false);
+    expect(() => loadConfig({ KICKROCKS_TRUST_PROXY: "yes" })).toThrow();
+  });
+
   it("derives the public url from the port when none is given", () => {
     expect(loadConfig({ KICKROCKS_PORT: "9001" }).publicUrl).toBe("http://localhost:9001");
   });
