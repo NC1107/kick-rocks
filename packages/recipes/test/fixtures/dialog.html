@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Dialog fixture</title>
+</head>
+<body>
+<h1>Confirm removal</h1>
+<button type="button" id="remove">Remove my data</button>
+<p id="result"></p>
+<script>
+document.getElementById("remove").addEventListener("click", () => {
+  document.getElementById("result").textContent = confirm("Remove your data?") ? "removed" : "kept";
+});
+</script>
+</body>
+</html>

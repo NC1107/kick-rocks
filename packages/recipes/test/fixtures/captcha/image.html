@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Image captcha form</title>
+</head>
+<body>
+
+<h1>Opt out</h1>
+<form method="post" action="/form/submit">
+  <label for="em">Email</label><input id="em" name="email" type="email" autocomplete="off">
+  <img src="/captcha/image.svg" alt="captcha" width="120" height="40"><label for="cap">Type the letters</label><input id="cap" name="captcha_text" type="text">
+  <button type="submit" id="submit">Submit request</button>
+</form>
+
+</body>
+</html>

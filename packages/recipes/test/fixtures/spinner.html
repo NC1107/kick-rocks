@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Spinner fixture</title>
+</head>
+<body>
+
+<h1>Working</h1>
+<div id="spinner" role="status">Loading</div>
+<p id="done" hidden>All finished</p>
+<script>
+setTimeout(() => { document.getElementById("spinner").remove(); document.getElementById("done").hidden = false; }, 500);
+</script>
+
+</body>
+</html>

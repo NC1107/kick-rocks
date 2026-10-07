@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Challenge after submit</title>
+</head>
+<body>
+
+<h1>Opt out</h1>
+<button id="submit" type="button">Submit request</button>
+<div id="slot"></div>
+<script>
+document.getElementById("submit").addEventListener("click", () => {
+  document.getElementById("slot").innerHTML = '<iframe title="recaptcha challenge" src="/captcha/widget/recaptcha/api2/bframe?hl=en" width="400" height="580"></iframe>';
+});
+</script>
+
+</body>
+</html>

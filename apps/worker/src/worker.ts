@@ -1,0 +1,58 @@
+import { WorkerApiClient } from "./api-client.js";
+import { type BrowserLauncher, createBrowserSession } from "./browser.js";
+import { type ClaimLoopContext, runClaimLoop } from "./claim-loop.js";
+import type { WorkerConfig } from "./config.js";
+import { createExecutor, type Runners } from "./executor.js";
+import type { Logger } from "./logger.js";
+import { readWorkerVersion } from "./version.js";
+
+export interface WorkerOptions {
+  config: WorkerConfig;
+  signal: AbortSignal;
+  logger: Logger;
+  /** Replaced in tests. */
+  launcher?: BrowserLauncher;
+  runners?: Runners;
+  timing?: ClaimLoopContext["timing"];
+}
+
+/** Builds the worker from its config and runs it until the signal aborts, then closes the browser. */
+export async function runWorker(options: WorkerOptions): Promise<void> {
+  const { config, signal, logger } = options;
+  const client = new WorkerApiClient({
+    serverUrl: config.serverUrl,
+    token: config.token,
+    workerId: config.workerId,
+  });
+  const browser = createBrowserSession(
+    {
+      profileDir: config.chromeProfileDir,
+      headless: config.headless,
+      noSandbox: config.noSandbox,
+      executablePath: config.chromeExecutable,
+    },
+    logger,
+    options.launcher,
+  );
+  const executor = createExecutor({
+    openPage: () => browser.newPage(),
+    pace: config.pace,
+    allowHttp: config.allowHttp,
+    logger,
+    ...(options.runners ? { runners: options.runners } : {}),
+  });
+  try {
+    await runClaimLoop({
+      config,
+      client,
+      signal,
+      executor,
+      logger,
+      version: readWorkerVersion(),
+      forceStop: () => browser.close(),
+      ...(options.timing ? { timing: options.timing } : {}),
+    });
+  } finally {
+    await browser.close();
+  }
+}

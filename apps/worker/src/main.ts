@@ -1,23 +1,35 @@
-import { WorkerApiClient } from "./api-client.js";
-import { runClaimLoop } from "./claim-loop.js";
+import { ZodError } from "zod";
 import { loadWorkerConfig } from "./config.js";
+import { createLogger } from "./logger.js";
+import { runWorker } from "./worker.js";
 
 async function main() {
   const config = loadWorkerConfig();
-  const client = new WorkerApiClient({
-    serverUrl: config.serverUrl,
-    token: config.token,
-    workerId: config.workerId,
-  });
+  const logger = createLogger(config.logLevel);
 
   const shutdown = new AbortController();
-  process.on("SIGINT", () => shutdown.abort());
-  process.on("SIGTERM", () => shutdown.abort());
+  const stop = (name: string) => {
+    if (shutdown.signal.aborted) {
+      logger.warn(`${name} again, exiting now`);
+      process.exit(1);
+    }
+    logger.info(`${name}, finishing up`);
+    shutdown.abort();
+  };
+  process.on("SIGINT", () => stop("SIGINT"));
+  process.on("SIGTERM", () => stop("SIGTERM"));
 
-  await runClaimLoop({ config, client, signal: shutdown.signal });
+  await runWorker({ config, signal: shutdown.signal, logger });
 }
 
-main().catch((error) => {
-  console.error(error);
+main().catch((error: unknown) => {
+  if (error instanceof ZodError) {
+    console.error("The worker is not configured correctly:");
+    for (const issue of error.issues) {
+      console.error(`  ${issue.path.join(".") || "environment"}: ${issue.message}`);
+    }
+  } else {
+    console.error(error);
+  }
   process.exit(1);
 });

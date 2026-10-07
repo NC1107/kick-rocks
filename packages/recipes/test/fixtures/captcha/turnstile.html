@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Turnstile form</title>
+</head>
+<body>
+
+<h1>Opt out</h1>
+<form method="post" action="/form/submit">
+  <label for="em">Email</label><input id="em" name="email" type="email" autocomplete="off">
+  <div class="cf-turnstile" data-sitekey="test-key"><iframe title="Cloudflare challenge" src="/captcha/widget/challenges.cloudflare.com/cdn-cgi/challenge-platform/turnstile" width="300" height="65"></iframe></div>
+  <button type="submit" id="submit">Submit request</button>
+</form>
+
+</body>
+</html>
