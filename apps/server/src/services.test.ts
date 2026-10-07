@@ -61,6 +61,7 @@ describe("createServices with no overrides", () => {
       expect(typeof services.requests.open).toBe("function");
       expect(typeof services.requests.requeue).toBe("function");
       expect(typeof services.legal.getLegalBasis).toBe("function");
+      expect(typeof services.legal.recommendDrop).toBe("function");
     } finally {
       database.close();
     }

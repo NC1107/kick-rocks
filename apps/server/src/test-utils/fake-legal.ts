@@ -1,4 +1,4 @@
-import type { LegalApi } from "@kickrocks/legal";
+import type { DropRecommendation, DropRecommendationReason, LegalApi } from "@kickrocks/legal";
 import {
   type Jurisdiction,
   type LegalBasis,
@@ -54,6 +54,18 @@ function statuteBasis(state: StateCode): LegalBasis {
   };
 }
 
+const FAKE_DROP_PLATFORM = {
+  name: "DROP",
+  url: "https://example.org/drop",
+  note: "Sign up once for all registered brokers.",
+};
+
+const notRecommended = (reason: DropRecommendationReason): DropRecommendation => ({
+  recommended: false,
+  reason,
+  platform: null,
+});
+
 export function createFakeLegal(): LegalApi {
   return {
     resolveLegalBasis({ state, rights, asOf }): LegalBasis {
@@ -67,6 +79,15 @@ export function createFakeLegal(): LegalApi {
     getLegalBasis(id, state): LegalBasis | null {
       if (id === POLICY_BASIS_ID) return policyBasis(state);
       return id === FAKE_STATUTE.id && state === FAKE_STATUTE.state ? statuteBasis(state) : null;
+    },
+
+    recommendDrop({ state, target, rights }) {
+      if (state !== "CA") return notRecommended("not_california");
+      if (target.kind !== "broker" || !target.californiaRegistered) {
+        return notRecommended("not_a_registered_broker");
+      }
+      if (!rights.includes("delete")) return notRecommended("no_deletion_asked");
+      return { recommended: true, reason: "recommended", platform: FAKE_DROP_PLATFORM };
     },
 
     listJurisdictions(): Jurisdiction[] {

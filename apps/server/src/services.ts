@@ -142,6 +142,7 @@ export function createServices(
   const legal: LegalApi = overrides.legal ?? {
     resolveLegalBasis: legalExports.resolveLegalBasis,
     getLegalBasis: legalExports.getLegalBasis,
+    recommendDrop: legalExports.recommendDrop,
     listJurisdictions: legalExports.listJurisdictions,
     identifiersFor: legalExports.identifiersFor,
     renderRequestEmail: legalExports.renderRequestEmail,

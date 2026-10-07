@@ -25,7 +25,13 @@ import {
 import { pluralize } from "../../../lib/format.js";
 import { RIGHT_LABELS } from "../../../lib/labels.js";
 import { channelOf, countByChannel, parseTargetIds } from "../channels.js";
-import { ChannelTiles, CountsSkeleton, EmailPreview, SkippedList } from "./PreviewPanel.js";
+import {
+  AdvisoryList,
+  ChannelTiles,
+  CountsSkeleton,
+  EmailPreview,
+  SkippedList,
+} from "./PreviewPanel.js";
 import { useAllTargets } from "./use-all-targets.js";
 
 const PRESET_OPTIONS: readonly RadioOption<CampaignPreset>[] = [
@@ -291,6 +297,7 @@ function Builder({ profile }: { profile: ProfileSummary }) {
                 toAddress={recipient.data?.privacyEmail ?? null}
               />
             ) : null}
+            <AdvisoryList items={result.items} />
             <SkippedList items={result.items} />
           </section>
         )}

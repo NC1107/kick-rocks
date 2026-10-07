@@ -849,6 +849,41 @@ describe("skip reasons", () => {
     });
   });
 
+  describe("DROP advisory", () => {
+    it("tells a California resident that DROP can delete more when a registered broker still gets a request", async () => {
+      const { profile } = setup("CA");
+      seedTarget(ctx, { id: "regd", category: "registered-broker", sources: CA_REGISTRY });
+
+      const both = body(["regd"], ["delete", "opt_out"]);
+      const preview = await previewOk(profile.id, both);
+      const created = await createOk(profile.id, both);
+
+      for (const items of [preview.items, created.items]) {
+        expect(items[0]?.outcome).toBe("request_created");
+        expect(items[0]?.reason).toBeNull();
+        expect(items[0]?.detail).toContain("DROP (https://example.org/drop)");
+        expect(items[0]?.detail).toContain("does not file DROP for you");
+      }
+    });
+
+    it("stays quiet for an opt-out only request, an unregistered broker, and a resident of another state", async () => {
+      const ca = setup("CA").profile;
+      seedTarget(ctx, { id: "regd", category: "registered-broker", sources: CA_REGISTRY });
+      seedTarget(ctx, { id: "plain", category: "marketing" });
+      const texan = seedProfile(ctx, { state: "TX" });
+      seedMailbox(ctx, texan.id);
+
+      const optOut = await previewOk(ca.id, body(["regd"], ["opt_out"]));
+      const unregistered = await previewOk(ca.id, body(["plain"], ["delete", "opt_out"]));
+      const elsewhere = await previewOk(texan.id, body(["regd"], ["delete", "opt_out"]));
+
+      for (const result of [optOut, unregistered, elsewhere]) {
+        expect(result.items[0]?.outcome).toBe("request_created");
+        expect(result.items[0]?.detail).toBeNull();
+      }
+    });
+  });
+
   it("reports skip reasons in the same order the targets were chosen, mixed with what goes out", async () => {
     const { profile } = setup();
     seedTarget(ctx, { id: "a" });

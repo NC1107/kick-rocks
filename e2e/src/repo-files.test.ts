@@ -117,9 +117,24 @@ describe("root scripts", () => {
   });
 });
 
+describe("Dockerfiles", () => {
+  const workspaceApps = ["server", "web", "worker", "agent-worker"];
+
+  it.each(["Dockerfile", "apps/worker/Dockerfile", "apps/agent-worker/Dockerfile"])(
+    "%s copies every app manifest so the frozen lockfile still matches",
+    (dockerfile) => {
+      for (const app of workspaceApps) {
+        expect(read(dockerfile)).toContain(`COPY apps/${app}/package.json apps/${app}/`);
+      }
+    },
+  );
+});
+
 describe("CI", () => {
   it("builds the docker images", () => {
-    expect(read(".github/workflows/ci.yml")).toContain("docker compose --profile worker build");
+    expect(read(".github/workflows/ci.yml")).toContain(
+      "docker compose --profile worker --profile agent build",
+    );
   });
 });
 

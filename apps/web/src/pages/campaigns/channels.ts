@@ -71,6 +71,11 @@ export function groupSkipped(items: CampaignPreview["items"]): SkipGroup[] {
     .sort((a, b) => b.items.length - a.items.length || a.reason.localeCompare(b.reason));
 }
 
+/** Targets that go ahead with something worth reading first, in the order they were chosen. */
+export function advisories(items: CampaignPreview["items"]): TargetOutcome[] {
+  return items.filter((item) => item.outcome !== "skipped" && item.detail !== null);
+}
+
 /** The target ids a campaign link carries, with blanks and repeats dropped. */
 export function parseTargetIds(value: string | null): string[] {
   if (!value) return [];

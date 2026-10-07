@@ -52,4 +52,4 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: docker compose --profile worker build
+      - run: docker compose --profile worker --profile agent build

@@ -33,6 +33,8 @@ export type Plan =
       channel: RequestChannel;
       legalBasis: string;
       rights: RequestRight[];
+      /** Worth knowing before it goes out, such as a platform that would delete more than this request can. */
+      advisory: string | null;
     }
   | { kind: "scan"; target: TargetRow }
   | { kind: "skip"; target: TargetRow; reason: SkipReason; detail: string };
@@ -274,7 +276,18 @@ export function createCampaignPlanner({
             : `${row.name} confirms by email, so connect a mailbox first.`,
         );
       }
-      return { kind: "request", target: row, channel, legalBasis: basis.id, rights };
+      const drop = legal.recommendDrop({ state: profile.state, target: summary, rights, asOf });
+      const advisory = drop.platform
+        ? `${row.name} is registered as a data broker in California, so ${drop.platform.name} (${drop.platform.url}) can also delete what it holds. Kick Rocks still sends this request, and does not file ${drop.platform.name} for you.`
+        : null;
+      return {
+        kind: "request",
+        target: row,
+        channel,
+        legalBasis: basis.id,
+        rights,
+        advisory,
+      };
     });
 
     return {

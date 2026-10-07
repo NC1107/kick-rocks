@@ -164,7 +164,8 @@ git pull
 docker compose --profile worker up -d --build
 ```
 
-`docker compose logs -f server` and `docker compose logs -f worker` show what each container is doing.
+If you run the agent worker, add `--profile agent` to that command so it is rebuilt too.
+`docker compose logs -f server` and `docker compose logs -f worker` show what each container is doing, and `docker compose logs -f agent-worker` shows the agent worker.
 The lines are JSON, one object per line.
 
 ## Developing
@@ -188,6 +189,8 @@ The server reads its settings from the environment, not from `.env`.
 The repo is a pnpm workspace.
 `apps/server` is the fastify api, scheduler, mail handling, task queue, and mcp server.
 `apps/web` is the react ui.
+`apps/worker` is the browser worker that runs recipes.
+`apps/agent-worker` is the optional model-driven worker for tasks no recipe covers.
 `packages/db` is the drizzle schema over an sqlcipher-encrypted sqlite file.
 `packages/brokers` turns the upstream broker lists into one normalized dataset.
 `packages/shared` is the zod schemas everything else agrees on.

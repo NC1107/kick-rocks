@@ -5,6 +5,7 @@ COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.base.json ./
 COPY apps/server/package.json apps/server/
 COPY apps/web/package.json apps/web/
 COPY apps/worker/package.json apps/worker/
+COPY apps/agent-worker/package.json apps/agent-worker/
 COPY e2e/package.json e2e/
 COPY packages/shared/package.json packages/shared/
 COPY packages/db/package.json packages/db/
