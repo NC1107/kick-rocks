@@ -61,9 +61,11 @@ See `docs/DESIGN.md` for the architecture, the decisions behind it, and the mile
 
 ## Data sources
 
-Broker data is built from the mit-licensed list in [eraser](https://github.com/drumandbytes/eraser) and the public [california data broker registry](https://cppa.ca.gov/data_broker_registry/).
+Broker data is built from the mit-licensed list in [eraser](https://github.com/drumandbytes/eraser), the public [california data broker registry](https://cppa.ca.gov/data_broker_registry/), and the people-search section of the big ass data broker opt-out list (BADBOOL, CC BY-NC-SA 4.0, imported from a pinned and hash-checked copy with attribution).
+Company contacts come from each company's own privacy page.
 Every record carries its source and license.
-The big ass data broker opt-out list and simple opt out are great references but their licenses don't allow bundling, so nothing is copied from them.
+`packages/brokers/data/NOTICE.md` has the per-source licenses and attribution, and says why other state registries are not imported.
+Simple opt out is a great reference but its license doesn't allow bundling, so nothing is copied from it.
 
 ## License
 

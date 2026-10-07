@@ -54,7 +54,9 @@ A step is strict: a key it does not have makes the recipe invalid, so a typo suc
 - `extract_text` reads a confirmation message or a record URL.
 - `select_record` finds the result whose link is the record the person confirmed and clicks or checks it, for sites where removal means searching and then choosing a result.
   `item` selects each result, `link` says where to read its URL, and the match is made on `normalizeRecordUrl` of both sides.
-  When no result matches, the run ends as completed with the form outcome `not_found`.
+  When results exist but none matches, the run ends as completed with the form outcome `not_found`.
+  A page with no results at all fails the run as a recipe failure, so a stale selector cannot close a request as `no_record`.
+  Handle a site's "no results" wording with `outcome_when` before this step.
   The recipe must declare `record_url` in `fields`.
 - `outcome_when` ends the run with the outcome of the first condition that matches the page.
   A condition has `text`, `selector`, or `urlPattern` (at least one) and an `outcome`: `not_found`, `already_removed`, `submitted`, `awaiting_email_confirmation`, or `blocked` with a `reason`.

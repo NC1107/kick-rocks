@@ -219,7 +219,7 @@ Claiming a task by id ignores the kinds.
 `ClaimedTask` is what a claimer receives: `{ id, kind, attempt, leaseExpiresAt, payload, target: TargetSummary, recipe: Recipe | null, fields: Partial<Record<ProfileField, string>>, instructions: string }`.
 `fields` holds only what the recipe declares, or for agent tasks what `identifiersFor` allows, resolved at claim time so personal data never sits in task payloads.
 The `email` field of a form or agent removal is always the address of the request's mailbox, never another address on the profile, because the confirmation email lands in the mailbox Kick Rocks polls.
-`TargetSummary` carries `optOutUrl`, `searchUrl`, and `retired`, so an agent does not need a second call to find where to go.
+`TargetSummary` carries `optOutUrl`, `searchUrl`, `californiaRegistered` (listed in the California registry, which is what makes the Delete Act apply), and `retired`, so an agent does not need a second call to find where to go.
 
 **API.** `shared/api.ts` defines request and response schemas for every route in 4.4, so the web app and the server agree by construction.
 
@@ -250,7 +250,7 @@ Tables and the columns that matter:
 
 ### 4.3 Server structure (`apps/server`)
 
-- `config.ts` adds `KICKROCKS_WORKER_TOKEN` (worker API disabled when unset), `KICKROCKS_EXTRA_TARGETS` (path to a JSON file of extra targets, for fixtures and power users), `KICKROCKS_EXTRA_RECIPES` (directory of extra recipe files), `KICKROCKS_SCHEDULER` (`on | off`, default on, tests use off), `KICKROCKS_PUBLIC_URL` for links shown in the UI, and `KICKROCKS_ALLOW_PRIVATE_LINK_HOSTS`, a comma separated list of hostnames the link follower may reach even on a private or loopback address (empty by default; the end-to-end suite lists its fixture broker site), exposed as `config.linkFollower.allowedPrivateHosts`.
+- `config.ts` adds `KICKROCKS_WORKER_TOKEN` (worker API disabled when unset), `KICKROCKS_EXTRA_TARGETS` (path to a JSON file of extra targets, for fixtures and power users), `KICKROCKS_EXTRA_RECIPES` (directory of extra recipe files), `KICKROCKS_SCHEDULER` (`on | off`, default on, tests use off), `KICKROCKS_PUBLIC_URL` for links shown in the UI, `KICKROCKS_TRUST_PROXY` (`on | off`, default off, for running behind a reverse proxy; read as `config.trustProxy` and passed to Fastify), and `KICKROCKS_ALLOW_PRIVATE_LINK_HOSTS`, a comma separated list of hostnames the link follower may reach even on a private or loopback address (empty by default; the end-to-end suite lists its fixture broker site), exposed as `config.linkFollower.allowedPrivateHosts`.
 - `services.ts` builds one `AppServices` object: config, db, clock, logger, `taskQueue`, `requests`, `targets`, `dispatch`, `composer`, `mailQuota`, `startup`, `secrets`, `taskHandlers`, `recipeHealth`, `settings`, `mail` (from `createMailServices`), `legal` (the `@kickrocks/legal` exports), `auth`.
   Feature code receives services as an argument and never builds its own.
 - Every module in `src/modules/<name>/index.ts` exports a Fastify plugin `(app, services) => void` registered under `/api`.
@@ -263,7 +263,8 @@ Tables and the columns that matter:
   `/api/auth/password` is a session route, like every route the table marks `session`; an `/api` route nobody declared needs a session too.
   It also enforces the CSRF header: every method that changes state under `/api` needs `X-Kick-Rocks: 1`, the `/api/auth/*` routes included, and a request without it gets 403 before its body is parsed.
   Bearer-token calls are exempt.
-  `AuthService.authenticate` therefore only decides whether there is a session, and module A does not check the header.
+  `AuthService.authenticate(request, reply)` therefore only decides whether there is a session, and module A does not check the header.
+  It receives the reply so a valid session can re-issue its cookie, which lets the cookie lifetime slide on every call.
   The foundation stub allows everything; module A replaces it.
 - The server sets `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer`, `X-Frame-Options: DENY`, and a Content-Security-Policy of `default-src 'self'` with `frame-ancestors 'none'` on every response.
 - `GET /api/health` answers `{ ok, version }` to anyone; the counts are `GET /api/status`, behind the session.
@@ -474,7 +475,7 @@ The server and the web mock both build issues with `toApiIssues`, and the web cl
 - Playwright with a persistent profile, using installed Chrome when present and bundled Chromium otherwise, headed under Xvfb inside Docker.
 - Human-paced input: per-key typing delay and small random pauses.
 - `packages/recipes/src/runner`: executes recipe steps against a page, resolves selectors (role and label, then test id, then CSS, then text), fills fields, extracts candidates, detects CAPTCHAs (reCAPTCHA, hCaptcha, Turnstile, and Cloudflare or "verify you are human" interstitials) and blocks with a screenshot, and returns typed results or a typed failure.
-  It implements every step in `packages/recipes/recipes/README.md`: `optional` steps are skipped when their target does not show up within a short timeout, `wait_for` honors `state`, `frame` scopes a step to an iframe, `select_record` matches items by `normalizeRecordUrl` and ends the run as `not_found` when none matches, `outcome_when` ends a run with the first matching outcome, and a canary runs its `canary.steps` before it checks selectors.
+  It implements every step in `packages/recipes/recipes/README.md`: `optional` steps are skipped when their target does not show up within a short timeout, `wait_for` honors `state`, `frame` scopes a step to an iframe, `select_record` matches items by `normalizeRecordUrl` and ends the run as `not_found` when results exist but none matches (and fails it as a recipe failure when the page has no results at all), `outcome_when` ends a run with the first matching outcome, and a canary runs its `canary.steps` before it checks selectors.
   A `goto` to `{{record_url}}` is rendered and then checked before navigation: `https`, and a host equal to the target's domain or one of its subdomains (use `isOnDomain`); anything else fails the run as a `recipe` failure.
   A failed run carries a `kind` (`recipe`, `site`, `network`, or `internal`) and the failing `step`.
   A `recipe` failure is always `retryable: false`; the server counts only those against recipe health and hands the task to an agent.
