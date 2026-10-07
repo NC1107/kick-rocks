@@ -174,7 +174,8 @@ describeBrowser("templating", () => {
     expect(outcome).toEqual({
       status: "failed",
       kind: "internal",
-      error: "The profile has no value for: email",
+      error:
+        "This site needs an email address on the profile. Add it on the profile page, then retry.",
       retryable: false,
       step: undefined,
     });

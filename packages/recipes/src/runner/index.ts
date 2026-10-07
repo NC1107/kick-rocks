@@ -42,6 +42,26 @@ function requiredFields(step: RecipeStep): string[] {
   }
 }
 
+const FIELD_LABELS: Record<string, string> = {
+  first_name: "a first name",
+  last_name: "a last name",
+  full_name: "a name",
+  email: "an email address",
+  phone: "a phone number",
+  city: "an address with a city",
+  state: "an address with a state",
+  zip: "an address with a ZIP code",
+  street: "an address with a street",
+  birth_year: "a date of birth",
+  date_of_birth: "a date of birth",
+  record_url: "a record link",
+};
+
+function describeMissing(names: string[]): string {
+  const labels = [...new Set(names.map((name) => FIELD_LABELS[name] ?? name))];
+  return `This site needs ${labels.join(" and ")} on the profile. Add it on the profile page, then retry.`;
+}
+
 function missingFields(recipe: Recipe, fields: ProfileFields): string[] {
   const needed = new Set(recipe.steps.flatMap(requiredFields));
   return Array.from(needed).filter((name) => fields[name as keyof ProfileFields] === undefined);
@@ -112,10 +132,7 @@ export async function runRecipe<P extends RecipePurpose>(
   const ctx = createContext(page, fields, hostOf(recipe.entryUrl), input);
   const missing = missingFields(recipe, ctx.fields);
   if (missing.length > 0) {
-    return failed(
-      ctx,
-      new RunFailure("internal", `The profile has no value for: ${missing.join(", ")}`, false),
-    );
+    return failed(ctx, new RunFailure("internal", describeMissing(missing), false));
   }
   const stopDialogs = acceptDialogs(page);
   try {
