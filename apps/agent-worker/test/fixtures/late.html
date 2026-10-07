@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Late - Fixture Broker</title></head>
+<body>
+<h1>Late</h1>
+<label for="email">Email address</label>
+<input id="email" type="email">
+<label><input type="checkbox" id="collapse"> Collapse the form</label>
+<script>
+  document.getElementById("collapse").addEventListener("change", () => {
+    const field = document.getElementById("email");
+    field.style.position = "absolute";
+    field.style.left = "100000px";
+  });
+</script>
+</body>
+</html>
