@@ -26,10 +26,10 @@ describe("createMailServices", () => {
       loadConfig({ KICKROCKS_ALLOW_PRIVATE_LINK_HOSTS: "broker.test" }),
       { get: () => null } as never,
       {
-        resolve: async () => [{ address: "10.0.0.9", family: 4 }],
+        resolve: async () => [{ address: "127.0.0.1", family: 4 }],
       },
     );
-    // Allowed to resolve privately, so the failure is the connection, not the address check.
+    // Allowed to resolve privately, so the failure is the connection, not the address check. Loopback refuses at once; a LAN address would wait for a connect timeout on a runner with no such host.
     const allowed = await mail.linkFollower.follow("http://broker.test:1/x", ["broker.test"]);
     expect(allowed.reason).not.toMatch(/private/);
 
