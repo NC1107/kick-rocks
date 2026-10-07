@@ -504,6 +504,40 @@ describe("a removal that may have been submitted", () => {
     expect(clicked).toBe(true);
   });
 
+  it("counts a flagged heartbeat the interval timer got acknowledged as the record", async () => {
+    const { controller, context } = setup();
+    const { client } = fakeClient([formTask()]);
+    let flagged = 0;
+    client.taskHeartbeat.mockImplementation((async (
+      _id: string,
+      _lease: number,
+      flag?: boolean,
+    ) => {
+      if (!flag) return { leaseExpiresAt: "2026-10-07T00:05:00.000Z" };
+      const call = ++flagged;
+      if (call === 1) {
+        await delay(50);
+        throw new WorkerApiError(503, "unavailable", "down");
+      }
+      if (call > 2) throw new WorkerApiError(503, "unavailable", "down");
+      return { leaseExpiresAt: "2026-10-07T00:05:00.000Z" };
+    }) as never);
+    let clicked = false;
+    const executor = async (
+      _task: ClaimedTask,
+      _signal: AbortSignal,
+      progress?: { mayHaveSubmitted(): Promise<void> },
+    ): Promise<TaskReport> => {
+      await progress?.mayHaveSubmitted();
+      clicked = true;
+      return { kind: "complete", result: {}, usage: {} };
+    };
+    const running = runClaimLoop(context({ client, executor }));
+    await until(() => client.complete.mock.calls.length > 0, controller);
+    await running;
+    expect(clicked).toBe(true);
+  });
+
   it("keeps a result that finishes after the browser was closed under the run", async () => {
     const { controller, context } = setup();
     const { client } = fakeClient([formTask()]);

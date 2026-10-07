@@ -184,10 +184,15 @@ class Loop {
 
     let flagRequested = false;
     let recorded = false;
-    const sendHeartbeat = (): Promise<unknown> =>
-      flagRequested
-        ? client.taskHeartbeat(task.id, config.leaseMs, true)
-        : client.taskHeartbeat(task.id, config.leaseMs);
+    // Any acknowledged heartbeat that carried the flag is the record, whoever sent it.
+    const sendHeartbeat = async (): Promise<void> => {
+      if (!flagRequested) {
+        await client.taskHeartbeat(task.id, config.leaseMs);
+        return;
+      }
+      await client.taskHeartbeat(task.id, config.leaseMs, true);
+      recorded = true;
+    };
     const handleLeaseError = (error: unknown): void => {
       if (leaseTaken(error)) {
         lost = true;
@@ -217,10 +222,10 @@ class Loop {
         flagRequested = true;
         let pause = this.timing.reportRetryMs;
         for (let tries = 1; ; tries++) {
+          if (recorded) return;
           if (run.signal.aborted) throw new SubmitNotRecorded("the run was stopped");
           try {
             await sendHeartbeat();
-            recorded = true;
             return;
           } catch (error) {
             if (
