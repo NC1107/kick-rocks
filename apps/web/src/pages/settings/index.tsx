@@ -8,6 +8,7 @@ import { ResetCard } from "./ResetCard.js";
 import { RetentionCard } from "./RetentionCard.js";
 import { ScheduleCard } from "./ScheduleCard.js";
 import { SettingsHeader } from "./SettingsHeader.js";
+import { SiteChecksCard } from "./SiteChecksCard.js";
 import { WorkerCard } from "./WorkerCard.js";
 
 const WORKER_POLL_MS = 15_000;
@@ -43,6 +44,7 @@ export function Component() {
         <div className="flex flex-col gap-5">
           <ScheduleCard schedule={settings.data.schedule} />
           <WorkerCard worker={settings.data.worker} now={settings.dataUpdatedAt} />
+          <SiteChecksCard siteChecks={settings.data.siteChecks} />
           <LlmCard llm={settings.data.llm} />
           <JurisdictionsCard />
           <RetentionCard retention={settings.data.retention} />

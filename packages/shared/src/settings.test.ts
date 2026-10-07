@@ -64,6 +64,7 @@ describe("SETTING_SCHEMAS", () => {
         "mcp.tokenHash",
         "retention",
         "schedule",
+        "siteChecks.enabled",
         "worker.status",
         "notifications",
         "notifications.state",

@@ -36,6 +36,15 @@ describe("the targets page", () => {
     expect(screen.getByText(/Showing 1 to 25 of 61 targets/)).toBeVisible();
   });
 
+  it("explains the Scan and Removal badges", async () => {
+    renderPage(<TargetsPage />, { path: "/targets", route: "/targets" });
+    await rows();
+    expect(screen.getByText("What do the Scan and Removal badges mean?")).toBeInTheDocument();
+    for (const term of ["Not checked", "Healthy", "Broken", "None"]) {
+      expect(screen.getAllByText(term).length).toBeGreaterThan(0);
+    }
+  });
+
   it("narrows the list as a person searches", async () => {
     const { user } = renderPage(<TargetsPage />, { path: "/targets", route: "/targets" });
     await rows();

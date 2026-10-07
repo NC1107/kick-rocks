@@ -415,6 +415,35 @@ describe("re-scans", () => {
 describe("canary checks", () => {
   const canaries = () => ctx.services.taskQueue.list({ kinds: ["canary"] });
 
+  beforeEach(() => {
+    ctx.services.settings.set("auth.passwordHash", "hash");
+    ctx.services.settings.set("siteChecks.enabled", true);
+  });
+
+  it("visits no site before a password is set, even with site checks turned on", async () => {
+    ctx.services.settings.reset("auth.passwordHash");
+    seedRecipe(ctx, seedTarget(ctx).id, { purpose: "scan" });
+    await scheduler.tick();
+    expect(canaries()).toHaveLength(0);
+  });
+
+  it("visits no site until site checks are turned on, and cancels checks already waiting", async () => {
+    ctx.services.settings.set("siteChecks.enabled", false);
+    const target = seedTarget(ctx);
+    const recipe = seedRecipe(ctx, target.id, { purpose: "scan" });
+    await scheduler.tick();
+    expect(canaries()).toHaveLength(0);
+
+    ctx.services.dispatch.enqueueCanary(recipe.id);
+    await scheduler.tick();
+    expect(canaries()).toMatchObject([{ status: "cancelled" }]);
+
+    ctx.services.settings.set("siteChecks.enabled", true);
+    ctx.clock.advance(8 * DAY);
+    await scheduler.tick();
+    expect(canaries().filter((task) => task.status === "queued")).toHaveLength(1);
+  });
+
   it("checks an approved recipe that was never checked, once a week", async () => {
     const target = seedTarget(ctx);
     const recipe = seedRecipe(ctx, target.id, { purpose: "remove" });
@@ -473,6 +502,8 @@ describe("canary checks", () => {
 
 describe("housekeeping", () => {
   it("recovers a task whose lease ran out", async () => {
+    ctx.services.settings.set("auth.passwordHash", "hash");
+    ctx.services.settings.set("siteChecks.enabled", true);
     const target = seedTarget(ctx);
     const task = seedTask(ctx, {
       kind: "canary",

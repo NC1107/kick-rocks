@@ -21,6 +21,12 @@ describe("the new profile page", () => {
     expect(screen.getAllByText("None added.")).toHaveLength(4);
   });
 
+  it("says the state is required", () => {
+    renderPage(<NewProfilePage />);
+    expect(screen.getByLabelText("State of residence")).toHaveAttribute("aria-required", "true");
+    expect(screen.getByText(/^Required\. Decides which state privacy law/)).toBeVisible();
+  });
+
   it("marks every missing field and sends nothing", async () => {
     const { user, mock } = renderPage(<NewProfilePage />);
     const seen = instrument(mock);

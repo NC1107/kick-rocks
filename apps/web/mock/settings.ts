@@ -341,6 +341,7 @@ export default defineMockDomain({
           };
         }
         if (body.mcp) current.mcp = { ...current.mcp, enabled: body.mcp.enabled };
+        if (body.siteChecks) current.siteChecks = { enabled: body.siteChecks.enabled };
         return current;
       }),
 
@@ -352,6 +353,7 @@ export default defineMockDomain({
           llm: null,
           retention: { messageDays: null, screenshotDays: 30 },
           mcp: { ...store.settings.mcp, enabled: false, tokenSet: false },
+          siteChecks: { enabled: false },
         };
         store.mcpToken = null;
         store.notifications = freshMockNotifications();

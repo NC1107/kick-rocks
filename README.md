@@ -4,7 +4,8 @@ Self-hosted tool that tells data brokers and companies to kick rocks.
 It sends opt-out and deletion requests from your own mailbox, drives the broker opt-out forms that need a browser, tracks every reply, and keeps doing it on a schedule.
 
 Status: early development.
-The whole flow runs end to end against a local test stack (see "End-to-end tests"), but nothing has been tried against a real mail provider or a real broker site yet.
+The whole flow runs end to end against a local test stack (see "End-to-end tests"), but nothing has been tried against a real mail provider yet.
+Nine people-search scan recipes (Spokeo, Intelius, MyLife, PeopleFinders, CheckPeople, FastPeopleSearch, TruePeopleSearch, USPhoneBook, and SmartBackgroundChecks) were run against the live sites by their authors and are marked verified, but no removal form has been seen through to a real removal.
 
 ## How it works
 
@@ -28,6 +29,9 @@ It runs at home on purpose. Datacenter ips get blocked by the bot checks on thes
 ## Running it
 
 You need docker and a residential internet connection.
+Plan for roughly 4 GB of disk: the server image is about 0.5 GB and the browser worker image about 1.9 GB, plus the Chrome profile and your data.
+The optional agent worker adds another 2.1 GB.
+The first start downloads and builds the images, which takes about 5 to 15 minutes depending on your connection, and later starts take seconds.
 
 ```sh
 git clone https://github.com/NC1107/kick-rocks.git
@@ -35,17 +39,49 @@ cd kick-rocks
 ./install.sh
 ```
 
-The script writes `.env` with a random `KICKROCKS_WORKER_TOKEN` (it never replaces one that exists), builds the images, and starts the server and the browser worker.
+The script writes `.env` with a random `KICKROCKS_WORKER_TOKEN` (it never replaces one that exists) and `COMPOSE_PROFILES=worker`, builds the images, starts the server and the browser worker, and waits until the server answers.
 Then open http://127.0.0.1:8420, set a password, and create a profile.
-The first start builds a Chrome image for the worker, so it takes a few minutes.
+The server has a health check and the worker waits for it, so the worker does not start before the server is listening.
 
-To start only the server, without the browser worker, run `docker compose up -d`.
+`COMPOSE_PROFILES=worker` in `.env` is what makes every `docker compose` command see the worker, so `docker compose stop` and `docker compose down` reach it too.
+Add `agent` to that line (`COMPOSE_PROFILES=worker,agent`) to include the optional agent worker.
+
+### Stop, start, and uninstall
+
+```sh
+./install.sh --stop        # stops every container, keeps all your data
+./install.sh --start       # starts them again
+./install.sh --uninstall   # asks you to type "delete", then removes the containers, volumes, and images
+```
+
+These are shortcuts for `docker compose stop`, `docker compose up -d --wait`, and `docker compose --profile worker --profile agent down --volumes --rmi all`.
+Uninstall deletes the database and its key for good, so back up first if you might want your data again.
+It leaves the folder and `.env` alone, so delete the folder when you are done.
+
+### What runs by itself
+
+Nothing visits a broker site until you say so.
+On a fresh install the worker only waits for tasks, and no browser task runs before you have set a password.
+Even then, Settings has a Site checks switch that is off by default.
+Turned on, it lets the worker load the page of each recipe you approved once a week, on your connection, to see whether the broker's form changed.
+A site check loads the recipe's page and may search a generic name such as John Smith to reach the results page, never uses your details, and never submits a removal, but the broker does see a visit from your home address.
+The Scan and Removal badges on Targets show the result: None (no approved recipe), Not checked, Healthy, or Broken.
+Scans and removals you start yourself run whether or not site checks are on.
+
+Once you have run a first scan or campaign, a few things do run on a schedule, and the site checks switch does not gate them.
+People-search sites you have scanned are scanned again with your details every 60 days by default, and the interval is in Settings.
+Email requests get follow-ups when a broker has not answered, and failed sends are tried again.
+Before your first scan or campaign, none of these start.
+
+To start only the server, without the browser worker, run `docker compose up -d server`.
 Email requests work without the worker, but scans and web forms need it.
 `.env.example` lists the settings compose passes on, and the server settings for `pnpm dev` that it does not.
 
 First steps in the app:
 
-1. Create a profile with your name, email, and address.
+1. Create a profile with your name, email, and state of residence.
+   The state is required because it decides which privacy law the requests cite.
+   Addresses and other details are optional, and a scan of a people-search site asks for what it needs.
 2. Open the profile's mailbox page, pick your provider, and paste an app password.
    The page links to where each provider creates one.
 3. Click New campaign on the dashboard, pick a preset, read the preview email, and send.
@@ -56,7 +92,7 @@ To let Claude Code or another agent take over tasks the worker cannot do, turn o
 
 You can also let a model take those tasks without Claude Code.
 The optional agent worker drives its own Chrome and asks a local model (Ollama or any OpenAI-compatible endpoint) or the Anthropic API what to do next.
-Set `KICKROCKS_AGENT_MODEL` in `.env`, then run `docker compose --profile agent up -d --build`.
+Set `KICKROCKS_AGENT_MODEL` in `.env` and add `agent` to `COMPOSE_PROFILES`, then run `docker compose up -d --build`.
 The model does not see your details: it names a profile field and the program types the value, and what the model reads is masked so a field's value shows as a placeholder such as `{{first_name}}`.
 The program types only on the broker's own domains and pages, and a CAPTCHA stops the task for you.
 See "Running a model as the agent" in `docs/agents.md`.
@@ -68,7 +104,7 @@ That is on purpose: the first-run setup page is open to anyone who can reach it 
 Set a password first, then pick one of these.
 
 - An SSH tunnel keeps it on loopback: `ssh -L 8420:127.0.0.1:8420 user@host`, then open http://127.0.0.1:8420 on your laptop.
-- To listen on your LAN, set `KICKROCKS_BIND_ADDRESS` in `.env` to the host's LAN address (or `0.0.0.0`) and run `docker compose --profile worker up -d`.
+- To listen on your LAN, set `KICKROCKS_BIND_ADDRESS` in `.env` to the host's LAN address (or `0.0.0.0`) and run `docker compose up -d`.
   Set `KICKROCKS_PUBLIC_URL` to the address you use, so the links in the UI and the MCP setup show it.
   Only do this on a network you trust, or behind your own VPN.
 - The server answers only to loopback names, IP addresses, and the host of `KICKROCKS_PUBLIC_URL`.
@@ -108,23 +144,36 @@ Settings has a Notifications tab so you do not have to keep the app open.
 
 The database and its key live in a docker volume named `kickrocks-data`, which compose prefixes with the project name `kick-rocks`, so on disk it is `kick-rocks_kickrocks-data`.
 The key gets generated on first start and the database is useless without it, so back up the volume as a unit.
-Stop the server first, because a copy of a running database can be inconsistent:
 
 ```sh
-docker compose stop server
-docker run --rm -v kick-rocks_kickrocks-data:/data -v "$PWD":/backup alpine tar czf /backup/kickrocks-backup.tgz -C /data .
-docker compose start server
+./install.sh --backup                     # writes ~/kickrocks-backup-<date>.tgz
+./install.sh --backup /path/to/file.tgz   # or somewhere you choose
 ```
 
-To restore, stop the server, put the archive back, and start it again:
+The script stops everything, because a copy of a running database can be inconsistent, writes the archive, and starts everything again.
+The archive is owned by you and readable only by you, and the script refuses to write it inside the repository.
+
+The archive holds the database and the key that decrypts it, so whoever has the file has your data.
+Keep it off shared folders and cloud storage, or encrypt it before it goes there.
+`kickrocks-backup*` is in `.gitignore` as a second guard against committing one.
+
+By hand, the same thing is:
 
 ```sh
-docker compose stop server
-docker run --rm -v kick-rocks_kickrocks-data:/data -v "$PWD":/backup alpine sh -c "rm -rf /data/* /data/.[!.]* && tar xzf /backup/kickrocks-backup.tgz -C /data"
-docker compose start server
+docker compose stop
+(umask 077 && docker run --rm -v kick-rocks_kickrocks-data:/data:ro alpine tar czf - -C /data . > ~/kickrocks-backup.tgz)
+docker compose start
 ```
 
-`docker compose down -v` deletes the volumes, and with them the database and its key, so never add `-v` unless you mean to start over.
+To restore, stop everything, put the archive back, and start it again:
+
+```sh
+docker compose stop
+docker run --rm -i -v kick-rocks_kickrocks-data:/data alpine sh -c "rm -rf /data/* /data/.[!.]* && tar xzf - -C /data" < ~/kickrocks-backup.tgz
+docker compose start
+```
+
+`docker compose down -v` and `./install.sh --uninstall` delete the volumes, and with them the database and its key, so never add `-v` unless you mean to start over.
 
 If you forget the password, there is no email reset, because nothing here talks to an outside service.
 Run this on the machine that hosts it:
@@ -157,14 +206,14 @@ Requests that were already sent cannot be recalled, and nothing here reaches int
 
 ## Updating and logs
 
-To update, pull and rebuild both images, and keep the profile flag so the worker is rebuilt next to the server:
+To update, pull and run the installer again.
+It is safe to repeat, rebuilds the images, and adds the worker to `COMPOSE_PROFILES` in `.env` if an older install left it out.
+`COMPOSE_PROFILES` makes compose rebuild the worker, and the agent worker if you listed it, next to the server:
 
 ```sh
-git pull
-docker compose --profile worker up -d --build
+git pull && ./install.sh
 ```
 
-If you run the agent worker, add `--profile agent` to that command so it is rebuilt too.
 `docker compose logs -f server` and `docker compose logs -f worker` show what each container is doing, and `docker compose logs -f agent-worker` shows the agent worker.
 The lines are JSON, one object per line.
 

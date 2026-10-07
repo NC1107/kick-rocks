@@ -53,8 +53,18 @@ describe("GET /settings", () => {
       schedule: DEFAULT_SCHEDULE,
       llm: null,
       mcp: { url: "http://kickrocks.test/mcp" },
+      siteChecks: { enabled: false },
       worker: { enabled: true, status: null },
     });
+  });
+
+  it("turns site checks on and off, and rejects a value that is not a boolean", async () => {
+    const on = await patch({ siteChecks: { enabled: true } });
+    expect(on.ok && on.body.siteChecks).toEqual({ enabled: true });
+    expect(ctx.services.settings.get("siteChecks.enabled")).toBe(true);
+    const off = await patch({ siteChecks: { enabled: false } });
+    expect(off.ok && off.body.siteChecks).toEqual({ enabled: false });
+    expect((await patch({ siteChecks: { enabled: "yes" } })).status).toBe(400);
   });
 
   it("says the worker API is off when no worker token is configured", async () => {

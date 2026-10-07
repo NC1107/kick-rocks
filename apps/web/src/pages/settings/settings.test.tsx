@@ -40,6 +40,17 @@ describe("general settings", () => {
     expect(screen.getByText("worker-home")).toBeVisible();
   });
 
+  it("keeps site checks off until they are turned on, and says what they do", async () => {
+    const { user, mock } = general();
+    const box = await field(/Check recipe pages on the real broker sites/);
+    expect(box).not.toBeChecked();
+    expect(screen.getByText(/never uses your details and never submits a removal/)).toBeVisible();
+    expect(screen.getByText(/scanned again on the schedule in/)).toBeVisible();
+    await user.click(box);
+    await waitFor(() => expect(mock.store.settings.siteChecks.enabled).toBe(true));
+    expect((await screen.findAllByText("Site checks turned on")).length).toBeGreaterThan(0);
+  });
+
   it("saves only a changed schedule and confirms it", async () => {
     const { user, mock } = general();
     const poll = await field(/Check the inbox every/);

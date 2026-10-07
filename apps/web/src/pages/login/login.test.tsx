@@ -4,6 +4,16 @@ import { renderPage } from "../../test/render.js";
 import { Component as LoginPage } from "./index.js";
 
 describe("the sign in page", () => {
+  it("carries a hidden username so a password manager has an account to save under", () => {
+    const { container } = renderPage(<LoginPage />, {
+      mockOptions: { auth: "login" },
+      withProfile: false,
+    });
+    const username = container.querySelector('input[autocomplete="username"]');
+    expect(username).not.toBeNull();
+    expect(username?.closest("form")?.querySelector('input[type="password"]')).not.toBeNull();
+  });
+
   it("tells a person the password is wrong, in a place a screen reader announces", async () => {
     const { user, mock } = renderPage(<LoginPage />, {
       mockOptions: { auth: "login" },

@@ -1,5 +1,15 @@
 import { execFileSync } from "node:child_process";
-import { copyFileSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+  chmodSync,
+  copyFileSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -75,17 +85,55 @@ describe("docker-compose.yml", () => {
     for (const key of keys) expect(compose, key).toContain(`\${${key}`);
   });
 
+  it("waits for a healthy server before it starts either worker", () => {
+    expect(service("server")).toContain("healthcheck:");
+    for (const name of ["worker", "agent-worker"]) {
+      expect(service(name), name).toMatch(
+        /depends_on:\s*\n\s*server:\s*\n\s*condition: service_healthy/,
+      );
+    }
+  });
+
   it("publishes the UI on loopback unless the person chooses another address", () => {
     expect(compose).toContain("KICKROCKS_BIND_ADDRESS:-127.0.0.1");
   });
 });
 
 describe("README.md", () => {
-  it("stops the server before it copies the database, and says how to restore and what -v does", () => {
+  it("stops everything before it copies the database, and says how to restore and what -v does", () => {
     const backup = readme.indexOf("tar czf");
-    expect(readme.lastIndexOf("docker compose stop server", backup)).toBeGreaterThan(-1);
+    expect(readme.lastIndexOf("docker compose stop", backup)).toBeGreaterThan(-1);
     expect(readme).toContain("tar xzf");
     expect(readme).toContain("down -v");
+  });
+
+  it("writes the backup owner-only and outside the repository, and warns that it holds the key", () => {
+    expect(readme).toContain("umask 077");
+    expect(readme).not.toMatch(/-v "\$PWD":\/backup/);
+    expect(readme).toMatch(/off shared folders and cloud storage/);
+    expect(read(".gitignore").split("\n")).toContain("kickrocks-backup*");
+  });
+
+  it("gives the stop, start, and uninstall commands and the disk and build time", () => {
+    for (const text of [
+      "--stop",
+      "--start",
+      "--uninstall",
+      "COMPOSE_PROFILES=worker",
+      "GB",
+      "minutes",
+    ]) {
+      expect(readme, text).toContain(text);
+    }
+  });
+
+  it("says no site is visited until site checks are turned on", () => {
+    expect(readme).toContain("Nothing visits a broker site until you say so");
+    expect(readme).toContain("Site checks");
+  });
+
+  it("asks for a state, which the profile form requires", () => {
+    expect(readme).toContain("name, email, and state of residence");
   });
 
   it("explains how to reach the UI from another device", () => {
@@ -101,7 +149,7 @@ describe("README.md", () => {
   });
 
   it("covers updating and logs", () => {
-    expect(readme).toContain("--profile worker up -d --build");
+    expect(readme).toContain("docker compose up -d --build");
     expect(readme).toContain("docker compose logs");
   });
 });
@@ -178,6 +226,16 @@ describe("install.sh", () => {
     }
   };
 
+  it("writes COMPOSE_PROFILES so every compose command sees the worker", () => {
+    const script = read("install.sh");
+    expect(script).toContain("COMPOSE_PROFILES=");
+    for (const flag of ["--stop", "--start", "--backup", "--uninstall"]) {
+      expect(script, flag).toContain(flag);
+    }
+    expect(script).toContain("umask 077");
+    expect(script).toContain("--wait");
+  });
+
   it("prints the address compose publishes by default", () => {
     expect(urlFor("KICKROCKS_WORKER_TOKEN=\n")).toBe("http://127.0.0.1:8420");
   });
@@ -215,6 +273,90 @@ describe("install.sh", () => {
     expect(
       urlFor("KICKROCKS_PUBLIC_URL=https://kickrocks.example.org/\nKICKROCKS_HOST_PORT=9000\n"),
     ).toBe("https://kickrocks.example.org");
+  });
+
+  describe("with a stand-in docker", () => {
+    const FAKE_DOCKER = `#!/usr/bin/env bash
+echo "$*" >> "$FAKE_LOG"
+case "$*" in
+  "compose version") ;;
+  "volume inspect "*) ;;
+  *"config") echo "name: kr" ;;
+  *"ps --services --status running") printf '%s' "$FAKE_RUNNING" ;;
+  "run "*) echo data ;;
+esac
+`;
+
+    const run = (args: string[], options: { running?: string; cwd?: "caller" | "repo" } = {}) => {
+      const dir = mkdtempSync(join(tmpdir(), "kickrocks-install-"));
+      try {
+        const repo = join(dir, "repo");
+        const caller = join(dir, "caller");
+        const bin = join(dir, "bin");
+        for (const path of [repo, caller, bin]) mkdirSync(path);
+        copyFileSync(resolve(ROOT, "install.sh"), join(repo, "install.sh"));
+        writeFileSync(join(bin, "docker"), FAKE_DOCKER);
+        chmodSync(join(bin, "docker"), 0o755);
+        const log = join(dir, "log");
+        writeFileSync(log, "");
+        let failed = false;
+        try {
+          execFileSync("bash", [join(repo, "install.sh"), ...args], {
+            cwd: options.cwd === "repo" ? repo : caller,
+            encoding: "utf8",
+            stdio: "pipe",
+            env: {
+              ...process.env,
+              PATH: `${bin}:${process.env.PATH}`,
+              FAKE_LOG: log,
+              FAKE_RUNNING: options.running ?? "",
+            },
+          });
+        } catch {
+          failed = true;
+        }
+        return {
+          failed,
+          calls: readFileSync(log, "utf8").trim().split("\n"),
+          env: existsSync(join(repo, ".env")) ? readFileSync(join(repo, ".env"), "utf8") : "",
+          callerFiles: readdirSync(caller),
+          repoFiles: readdirSync(repo),
+        };
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    };
+
+    it("--start adds the worker profile for an install from before it existed", () => {
+      const result = run(["--start"]);
+      expect(result.env).toContain("COMPOSE_PROFILES=worker");
+      expect(result.calls).toContain("compose up -d --wait");
+    });
+
+    it("--backup writes a relative file next to where it was run, not inside the repository", () => {
+      const result = run(["--backup", "mine.tgz"]);
+      expect(result.failed).toBe(false);
+      expect(result.callerFiles).toContain("mine.tgz");
+      expect(result.repoFiles).not.toContain("mine.tgz");
+    });
+
+    it("--backup refuses a relative file when run from inside the repository", () => {
+      const result = run(["--backup", "mine.tgz"], { cwd: "repo" });
+      expect(result.failed).toBe(true);
+      expect(result.repoFiles).not.toContain("mine.tgz");
+    });
+
+    it("--backup starts again only what was running, in every profile", () => {
+      const result = run(["--backup", "b.tgz"], { running: "server\nagent-worker\n" });
+      expect(result.calls.at(-1)).toBe(
+        "compose --profile worker --profile agent start server agent-worker",
+      );
+    });
+
+    it("--backup starts nothing when everything was stopped", () => {
+      const result = run(["--backup", "b.tgz"], { running: "" });
+      expect(result.calls.some((call) => / start( |$)/.test(call))).toBe(false);
+    });
   });
 });
 
