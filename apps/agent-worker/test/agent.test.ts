@@ -1,5 +1,6 @@
 import { INSTANT_PACE } from "@kickrocks/recipes";
 import { MAX_SCREENSHOT_BYTES, resultSchemaFor, TaskBlockReport } from "@kickrocks/shared";
+import { BROWSER_CONTEXT_OPTIONS } from "@kickrocks/worker/dist/browser.js";
 import { SubmitNotRecorded } from "@kickrocks/worker/dist/executor.js";
 import type { Browser, BrowserContext } from "playwright";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
@@ -36,7 +37,7 @@ afterAll(async () => {
 
 beforeEach(async () => {
   await context?.close();
-  context = await browser.newContext();
+  context = await browser.newContext(BROWSER_CONTEXT_OPTIONS);
   await resetFixture();
 });
 
@@ -465,6 +466,30 @@ describeBrowser("the rules the code enforces", () => {
     const answer = provider.requests[3]?.messages.at(-1);
     const content = answer?.role === "tool" ? answer.results[0]?.content : "";
     expect(content).toContain('value="{{first_name}}"');
+  });
+
+  it("delivers nothing to another site's service worker when a form posts there", async () => {
+    const earlier = await context.newPage();
+    await earlier.goto(`${OFFSITE}/sw-register`);
+    await earlier.evaluate(async () => {
+      // A browser that blocks service workers never settles the registration, which is the point.
+      const registered = navigator.serviceWorker
+        .register("/sw.js")
+        .then(() => navigator.serviceWorker.ready)
+        .catch(() => undefined);
+      await Promise.race([registered, new Promise((done) => setTimeout(done, 1_500))]);
+    });
+    await earlier.close();
+
+    await run([
+      navigate("/sw-form"),
+      (v) => ({ calls: [["type", { ref: v.ref("First name"), field: "first_name" }]] }),
+      (v) => ({ calls: [["click", { ref: v.ref("Submit request") }]] }),
+      { calls: [["report", { status: "release" }]] },
+    ]);
+
+    const { submissions } = await fixtureState();
+    expect(submissions.filter((entry) => entry.host === "localhost")).toEqual([]);
   });
 
   it("blocks a redirect that leaves the domain", async () => {

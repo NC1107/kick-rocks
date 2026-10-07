@@ -84,6 +84,17 @@ export interface BrowserSettings {
 
 export type BrowserLauncher = (settings: BrowserSettings) => Promise<BrowserContext>;
 
+/**
+ * Service workers are blocked because a worker that an earlier visit registered on another site
+ * would answer a navigation before the navigation guard ever saw it, and could forward a form.
+ */
+export const BROWSER_CONTEXT_OPTIONS = {
+  viewport: { width: 1366, height: 850 },
+  locale: "en-US",
+  acceptDownloads: false,
+  serviceWorkers: "block",
+} as const;
+
 export const launchPersistentChrome: BrowserLauncher = async (settings) => {
   clearStaleProfileLock(settings.profileDir);
   const executablePath = settings.executablePath ?? findInstalledChrome();
@@ -92,9 +103,7 @@ export const launchPersistentChrome: BrowserLauncher = async (settings) => {
       headless: settings.headless,
       ...(executablePath ? { executablePath } : {}),
       ...(settings.noSandbox ? { args: ["--no-sandbox"] } : {}),
-      viewport: { width: 1366, height: 850 },
-      locale: "en-US",
-      acceptDownloads: false,
+      ...BROWSER_CONTEXT_OPTIONS,
     });
   } catch (error) {
     const message = describeError(error);

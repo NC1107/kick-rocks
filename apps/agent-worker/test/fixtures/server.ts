@@ -60,6 +60,8 @@ const PAGES: Record<string, string> = {
   "/nested": "nested.html",
   "/spa": "spa.html",
   "/details": "details.html",
+  "/sw-register": "sw-register.html",
+  "/sw-form": "sw-form.html",
 };
 
 function escapeHtml(text: string): string {
@@ -129,6 +131,7 @@ export function startFixtureServer(port: number = FIXTURE_PORT): Promise<{
       return send(response, 200, page("confirmation.html"));
     }
     if (path === "/hang") return;
+    if (path === "/sw.js") return send(response, 200, page("sw.js"), "text/javascript");
     if (path === "/redirect") {
       response.writeHead(302, { location: `${OFFSITE}/offsite` });
       return response.end();
