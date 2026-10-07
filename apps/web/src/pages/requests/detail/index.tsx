@@ -398,13 +398,15 @@ function Detail({ request }: { request: RequestDetail }) {
           <CardHeader
             title="Tasks"
             description={
-              live.length > 0
-                ? "Work queued, running, or waiting for you."
-                : "Nothing is running for this request."
+              request.tasks.length === 0
+                ? undefined
+                : live.length > 0
+                  ? "Work queued, running, or waiting for you."
+                  : "Nothing is running for this request."
             }
           />
           {request.tasks.length === 0 ? (
-            <p className="text-base text-ink-muted">No tasks yet.</p>
+            <p className="text-base text-ink-muted">No tasks for this request yet.</p>
           ) : (
             <ul className="m-0 list-none divide-y divide-line p-0">
               {request.tasks.map((task) => (
