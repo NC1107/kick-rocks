@@ -1,0 +1,1392 @@
+{
+  "generatedAt": "2026-10-07T00:00:00.000Z",
+  "license": "PolyForm-Noncommercial-1.0.0",
+  "companies": [
+    {
+      "id": "23andme",
+      "name": "23andMe",
+      "domain": "23andme.com",
+      "category": "health",
+      "privacyEmail": "privacy@23andme.com",
+      "optOutUrl": null,
+      "privacyRightsUrl": null,
+      "contactMethod": "email",
+      "notes": "Contacts read from https://www.23andme.org/legal/privacy/ on 2026-10-07.",
+      "sources": [
+        {
+          "source": "kickrocks-companies",
+          "license": "PolyForm-Noncommercial-1.0.0"
+        }
+      ],
+      "verifiedAt": "2026-10-07"
+    },
+    {
+      "id": "adobe",
+      "name": "Adobe",
+      "domain": "adobe.com",
+      "category": "tech",
+      "privacyEmail": null,
+      "optOutUrl": "https://www.adobe.com/privacy/opt-out.html",
+      "privacyRightsUrl": "https://www.adobe.com/go/privacyinquiry",
+      "contactMethod": "form",
+      "notes": "Contacts read from https://www.adobe.com/privacy/policy.html on 2026-10-07.",
+      "sources": [
+        {
+          "source": "kickrocks-companies",
+          "license": "PolyForm-Noncommercial-1.0.0"
+        }
+      ],
+      "verifiedAt": "2026-10-07"
+    },
+    {
+      "id": "airbnb",
+      "name": "Airbnb",
+      "domain": "airbnb.com",
+      "category": "travel",
+      "privacyEmail": null,
+      "optOutUrl": "https://www.airbnb.com/help/sale-share-opt-out",
+      "privacyRightsUrl": null,
+      "contactMethod": "form",
+      "notes": "Contacts read from https://www.airbnb.com/help/article/2855 on 2026-10-07.",
+      "sources": [
+        {
+          "source": "kickrocks-companies",
+          "license": "PolyForm-Noncommercial-1.0.0"
+        }
+      ],
+      "verifiedAt": "2026-10-07"
+    },
+    {
+      "id": "apple",
+      "name": "Apple",
+      "domain": "apple.com",
+      "category": "tech",
+      "privacyEmail": null,
+      "optOutUrl": null,
+      "privacyRightsUrl": "https://privacy.apple.com/",
+      "contactMethod": "form",
+      "notes": "Contacts read from https://www.apple.com/legal/privacy/en-ww/ on 2026-10-07.",
+      "sources": [
+        {
+          "source": "kickrocks-companies",
+          "license": "PolyForm-Noncommercial-1.0.0"
+        }
+      ],
+      "verifiedAt": "2026-10-07"
+    },
+    {
+      "id": "atlassian",
+      "name": "Atlassian",
+      "domain": "atlassian.com",
+      "category": "tech",
+      "privacyEmail": "privacy@atlassian.com",
+      "optOutUrl": null,
+      "privacyRightsUrl": "https://www.atlassian.com/trust/privacy/gdpr/request-personal-data",
+      "contactMethod": "both",
+      "notes": "Contacts read from https://www.atlassian.com/legal/privacy-policy on 2026-10-07.",
+      "sources": [
+        {
+          "source": "kickrocks-companies",
+          "license": "PolyForm-Noncommercial-1.0.0"
+        }
+      ],
+      "verifiedAt": "2026-10-07"
+    },
+    {
+      "id": "bestbuy",
+      "name": "Best Buy",
+      "domain": "bestbuy.com",
+      "category": "retail",
+      "privacyEmail": "privacymanager@bestbuy.com",
+      "optOutUrl": "https://www.bestbuy.com/sentry/landing?type=donottarget",
+      "privacyRightsUrl": null,
+      "contactMethod": "both",
+      "notes": "Contacts read from https://www.bestbuy.com/site/help-topics/privacy-policy/pcmcat204400050062.c on 2026-10-07.",
+      "sources": [
+        {
+          "source": "kickrocks-companies",
+          "license": "PolyForm-Noncommercial-1.0.0"
+        }
+      ],
+      "verifiedAt": "2026-10-07"
+    },
+    {
+      "id": "bumble",
+      "name": "Bumble",
+      "domain": "bumble.com",
+      "category": "tech",
+      "privacyEmail": "dpo@bumble.com",
+      "optOutUrl": null,
+      "privacyRightsUrl": null,
+      "contactMethod": "email",
+      "notes": "Contacts read from https://bumble.com/en/privacy on 2026-10-07.",
+      "sources": [
+        {
+          "source": "kickrocks-companies",
+          "license": "PolyForm-Noncommercial-1.0.0"
+        }
+      ],
+      "verifiedAt": "2026-10-07"
+    },
+    {
+      "id": "buzzfeed",
+      "name": "BuzzFeed",
+      "domain": "buzzfeed.com",
+      "category": "media",
+      "privacyEmail": "data-privacy@buzzfeed.com",
+      "optOutUrl": "https://www.buzzfeed.com/consent-preferences",
+      "privacyRightsUrl": "https://buzzfeed-privacy.my.onetrust.com/webform/a2fdc8ea-c07a-4e1a-9c6e-d481efbe7ce8/852b34f0-af60-481c-a823-8a8ea0b4147e",
+      "contactMethod": "both",
+      "notes": "Contacts read from https://www.buzzfeed.com/about/privacy on 2026-10-07.",
+      "sources": [
+        {
+          "source": "kickrocks-companies",
+          "license": "PolyForm-Noncommercial-1.0.0"
+        }
+      ],
+      "verifiedAt": "2026-10-07"
+    },
+    {
+      "id": "canva",
+      "name": "Canva",
+      "domain": "canva.com",
+      "category": "tech",
+      "privacyEmail": null,
+      "optOutUrl": null,
+      "privacyRightsUrl": "https://www.canva.com/help/legal-form/",
+      "contactMethod": "form",
+      "notes": "Contacts read from https://www.canva.com/policies/privacy-policy/ on 2026-10-07.",
+      "sources": [
+        {
+          "source": "kickrocks-companies",
+          "license": "PolyForm-Noncommercial-1.0.0"
+        }
+      ],
+      "verifiedAt": "2026-10-07"
+    },
+    {
+      "id": "chase",
+      "name": "Chase (JPMorgan Chase)",
+      "domain": "chase.com",
+      "category": "finance",
+      "privacyEmail": null,
+      "optOutUrl": "https://www.chase.com/digital/resources/privacy-security/privacy/set-your-privacy-preferences",
+      "privacyRightsUrl": null,
+      "contactMethod": "form",
+      "notes": "Contacts read from https://www.chase.com/digital/resources/privacy-security/privacy/online-privacy-policy on 2026-10-07.",
+      "sources": [
+        {
+          "source": "kickrocks-companies",
+          "license": "PolyForm-Noncommercial-1.0.0"
+        }
+      ],
+      "verifiedAt": "2026-10-07"
+    },
+    {
+      "id": "chewy",
+      "name": "Chewy",
+      "domain": "chewy.com",
+      "category": "retail",
+      "privacyEmail": "service@chewy.com",
+      "optOutUrl": null,
+      "privacyRightsUrl": "https://www.chewy.com/app/account/privacy-rights-request",
+      "contactMethod": "both",
+      "notes": "Contacts read from https://www.chewy.com/app/content/privacy on 2026-10-07.",
+      "sources": [
+        {
+          "source": "kickrocks-companies",
+          "license": "PolyForm-Noncommercial-1.0.0"
+        }
+      ],
+      "verifiedAt": "2026-10-07"
+    },
+    {
+      "id": "chipotle",
+      "name": "Chipotle",
+      "domain": "chipotle.com",
+      "category": "retail",
+      "privacyEmail": "privacy@chipotle.com",
+      "optOutUrl": null,
+      "privacyRightsUrl": "https://www.chipotle.com/datarequest",
+      "contactMethod": "both",
+      "notes": "Contacts read from https://www.chipotle.com/privacy-policy on 2026-10-07.",
+      "sources": [
+        {
+          "source": "kickrocks-companies",
+          "license": "PolyForm-Noncommercial-1.0.0"
+        }
+      ],
+      "verifiedAt": "2026-10-07"
+    },
+    {
+      "id": "cloudflare",
+      "name": "Cloudflare",
+      "domain": "cloudflare.com",
+      "category": "tech",
+      "privacyEmail": "sar@cloudflare.com",
+      "optOutUrl": null,
+      "privacyRightsUrl": null,
+      "contactMethod": "email",
+      "notes": "Contacts read from https://www.cloudflare.com/privacypolicy/ on 2026-10-07.",
+      "sources": [
+        {
+          "source": "kickrocks-companies",
+          "license": "PolyForm-Noncommercial-1.0.0"
+        }
+      ],
+      "verifiedAt": "2026-10-07"
+    },
+    {
+      "id": "costco",
+      "name": "Costco",
+      "domain": "costco.com",
+      "category": "retail",
+      "privacyEmail": null,
+      "optOutUrl": "https://www.costco.com/DNSMIView",
+      "privacyRightsUrl": null,
+      "contactMethod": "form",
+      "notes": "Contacts read from https://www.costco.com/privacy-policy.html on 2026-10-07.",
+      "sources": [
+        {
+          "source": "kickrocks-companies",
+          "license": "PolyForm-Noncommercial-1.0.0"
+        }
+      ],
+      "verifiedAt": "2026-10-07"
+    },
+    {
+      "id": "cvs",
+      "name": "CVS Health",
+      "domain": "cvs.com",
+      "category": "health",
+      "privacyEmail": "consumerprivacy@cvshealth.com",
+      "optOutUrl": "https://www.cvs.com/account/compliance/do-not-sell",
+      "privacyRightsUrl": "https://privacyportal.onetrust.com/webform/1885551f-146f-4594-ae8d-5966aac0551f/1eb23c44-cba9-45c6-bd0f-4f89053910f4?formField136=web",
+      "contactMethod": "both",
+      "notes": "Contacts read from https://www.cvs.com/content/privacy-policy on 2026-10-07.",
+      "sources": [
+        {
+          "source": "kickrocks-companies",
+          "license": "PolyForm-Noncommercial-1.0.0"
+        }
+      ],
+      "verifiedAt": "2026-10-07"
+    },
+    {
+      "id": "discord",
+      "name": "Discord",
+      "domain": "discord.com",
+      "category": "tech",
+      "privacyEmail": "privacy@discord.com",
+      "optOutUrl": null,
+      "privacyRightsUrl": null,
+      "contactMethod": "email",
+      "notes": "Contacts read from https://discord.com/privacy on 2026-10-07.",
+      "sources": [
+        {
+          "source": "kickrocks-companies",
+          "license": "PolyForm-Noncommercial-1.0.0"
+        }
+      ],
+      "verifiedAt": "2026-10-07"
+    },
+    {
+      "id": "discover",
+      "name": "Discover",
+      "domain": "discover.com",
+      "category": "finance",
+      "privacyEmail": null,
+      "optOutUrl": "https://www.discover.com/cpra/form",
+      "privacyRightsUrl": "https://www.discover.com/privacy-statement/california-request.html",
+      "contactMethod": "form",
+      "notes": "Contacts read from https://www.discover.com/privacy-statement/ on 2026-10-07.",
+      "sources": [
+        {
+          "source": "kickrocks-companies",
+          "license": "PolyForm-Noncommercial-1.0.0"
+        }
+      ],
+      "verifiedAt": "2026-10-07"
+    },
+    {
+      "id": "disney",
+      "name": "The Walt Disney Company",
+      "domain": "thewaltdisneycompany.com",
+      "category": "media",
+      "privacyEmail": null,
+      "optOutUrl": "https://privacychoices.thewaltdisneycompany.com/en-US",
+      "privacyRightsUrl": "https://privacy.thewaltdisneycompany.com/en/current-privacy-policy/data-subject-rights-portal/",
+      "contactMethod": "form",
+      "notes": "Contacts read from https://privacy.thewaltdisneycompany.com/en/current-privacy-policy/ on 2026-10-07.",
+      "sources": [
+        {
+          "source": "kickrocks-companies",
+          "license": "PolyForm-Noncommercial-1.0.0"
+        }
+      ],
+      "verifiedAt": "2026-10-07"
+    },
+    {
+      "id": "docusign",
+      "name": "DocuSign",
+      "domain": "docusign.com",
+      "category": "tech",
+      "privacyEmail": "privacy@docusign.com",
+      "optOutUrl": null,
+      "privacyRightsUrl": "https://privacy.docusign.com",
+      "contactMethod": "both",
+      "notes": "Contacts read from https://www.docusign.com/company/privacy-policy on 2026-10-07.",
+      "sources": [
+        {
+          "source": "kickrocks-companies",
+          "license": "PolyForm-Noncommercial-1.0.0"
+        }
+      ],
+      "verifiedAt": "2026-10-07"
+    },
+    {
+      "id": "dollargeneral",
+      "name": "Dollar General",
+      "domain": "dollargeneral.com",
+      "category": "retail",
+      "privacyEmail": "privacypolicy@dollargeneral.com",
+      "optOutUrl": null,
+      "privacyRightsUrl": "https://dg.clarip.com/dsr/create",
+      "contactMethod": "both",
+      "notes": "Contacts read from https://www.dollargeneral.com/privacy-policy on 2026-10-07.",
+      "sources": [
+        {
+          "source": "kickrocks-companies",
+          "license": "PolyForm-Noncommercial-1.0.0"
+        }
+      ],
+      "verifiedAt": "2026-10-07"
+    },
+    {
+      "id": "doordash",
+      "name": "DoorDash",
+      "domain": "doordash.com",
+      "category": "tech",
+      "privacyEmail": "privacy@doordash.com",
+      "optOutUrl": "https://www.doordash.com/consumer/personalize",
+      "privacyRightsUrl": "https://www.doordash.com/consumer/privacy/manage_account",
+      "contactMethod": "both",
+      "notes": "Contacts read from https://help.doordash.com/legal/document?type=cx-privacy-policy&region=US&locale=en-US on 2026-10-07.",
+      "sources": [
+        {
+          "source": "kickrocks-companies",
+          "license": "PolyForm-Noncommercial-1.0.0"
+        }
+      ],
+      "verifiedAt": "2026-10-07"
+    },
+    {
+      "id": "dropbox",
+      "name": "Dropbox",
+      "domain": "dropbox.com",
+      "category": "tech",
+      "privacyEmail": "privacy@dropbox.com",
+      "optOutUrl": null,
+      "privacyRightsUrl": "https://www.dropbox.com/privacy/dsr/submission",
+      "contactMethod": "both",
+      "notes": "Contacts read from https://www.dropbox.com/privacy on 2026-10-07.",
+      "sources": [
+        {
+          "source": "kickrocks-companies",
+          "license": "PolyForm-Noncommercial-1.0.0"
+        }
+      ],
+      "verifiedAt": "2026-10-07"
+    },
+    {
+      "id": "ebay",
+      "name": "eBay",
+      "domain": "ebay.com",
+      "category": "retail",
+      "privacyEmail": null,
+      "optOutUrl": "https://www.ebay.com/adchoice",
+      "privacyRightsUrl": "https://www.ebayinc.com/company/privacy-center/privacy-contact/",
+      "contactMethod": "form",
+      "notes": "Contacts read from https://www.ebay.com/help/policies/member-behaviour-policies/user-privacy-notice-privacy-policy?id=4260 on 2026-10-07.",
+      "sources": [
+        {
+          "source": "kickrocks-companies",
+          "license": "PolyForm-Noncommercial-1.0.0"
+        }
+      ],
+      "verifiedAt": "2026-10-07"
+    },
+    {
+      "id": "fandango",
+      "name": "Fandango",
+      "domain": "fandango.com",
+      "category": "media",
+      "privacyEmail": null,
+      "optOutUrl": null,
+      "privacyRightsUrl": "https://privacyportal.onetrust.com/webform/941b48f1-4637-4ecd-b01d-629494daf8b2/b932d7e5-941a-4129-bb6b-c3401136941b",
+      "contactMethod": "form",
+      "notes": "Contacts read from https://www.versantprivacy.com/privacy on 2026-10-07.",
+      "sources": [
+        {
+          "source": "kickrocks-companies",
+          "license": "PolyForm-Noncommercial-1.0.0"
+        }
+      ],
+      "verifiedAt": "2026-10-07"
+    },
+    {
+      "id": "figma",
+      "name": "Figma",
+      "domain": "figma.com",
+      "category": "tech",
+      "privacyEmail": "privacy@figma.com",
+      "optOutUrl": null,
+      "privacyRightsUrl": null,
+      "contactMethod": "email",
+      "notes": "Contacts read from https://www.figma.com/legal/privacy/ on 2026-10-07.",
+      "sources": [
+        {
+          "source": "kickrocks-companies",
+          "license": "PolyForm-Noncommercial-1.0.0"
+        }
+      ],
+      "verifiedAt": "2026-10-07"
+    },
+    {
+      "id": "foxnews",
+      "name": "Fox News",
+      "domain": "foxnews.com",
+      "category": "media",
+      "privacyEmail": "privacy@fox.com",
+      "optOutUrl": "https://privacy.foxnews.com/main/web/main",
+      "privacyRightsUrl": "https://privacy.fox.com/main/web/consumer",
+      "contactMethod": "both",
+      "notes": "Contacts read from https://www.foxnews.com/privacy-policy on 2026-10-07.",
+      "sources": [
+        {
+          "source": "kickrocks-companies",
+          "license": "PolyForm-Noncommercial-1.0.0"
+        }
+      ],
+      "verifiedAt": "2026-10-07"
+    },
+    {
+      "id": "glassdoor",
+      "name": "Glassdoor",
+      "domain": "glassdoor.com",
+      "category": "other",
+      "privacyEmail": null,
+      "optOutUrl": null,
+      "privacyRightsUrl": "https://help.glassdoor.com/s/privacyrequest?language=en_US",
+      "contactMethod": "form",
+      "notes": "Contacts read from https://hrtechprivacy.com/brands/glassdoor on 2026-10-07.",
+      "sources": [
+        {
+          "source": "kickrocks-companies",
+          "license": "PolyForm-Noncommercial-1.0.0"
+        }
+      ],
+      "verifiedAt": "2026-10-07"
+    },
+    {
+      "id": "google",
+      "name": "Google",
+      "domain": "google.com",
+      "category": "tech",
+      "privacyEmail": null,
+      "optOutUrl": "https://myadcenter.google.com",
+      "privacyRightsUrl": "https://support.google.com/policies/answer/9581826",
+      "contactMethod": "form",
+      "notes": "Contacts read from https://policies.google.com/privacy on 2026-10-07.",
+      "sources": [
+        {
+          "source": "kickrocks-companies",
+          "license": "PolyForm-Noncommercial-1.0.0"
+        }
+      ],
+      "verifiedAt": "2026-10-07"
+    },
+    {
+      "id": "grubhub",
+      "name": "Grubhub",
+      "domain": "grubhub.com",
+      "category": "tech",
+      "privacyEmail": "privacy@grubhub.com",
+      "optOutUrl": "https://www.grubhub.com/help/privacy/opt-out",
+      "privacyRightsUrl": "https://www.grubhub.com/help/privacy/manage-your-data",
+      "contactMethod": "both",
+      "notes": "Contacts read from https://www.grubhub.com/legal/privacy-policy on 2026-10-07.",
+      "sources": [
+        {
+          "source": "kickrocks-companies",
+          "license": "PolyForm-Noncommercial-1.0.0"
+        }
+      ],
+      "verifiedAt": "2026-10-07"
+    },
+    {
+      "id": "homedepot",
+      "name": "The Home Depot",
+      "domain": "homedepot.com",
+      "category": "retail",
+      "privacyEmail": "privacy@homedepot.com",
+      "optOutUrl": "https://www.homedepot.com/privacy/Exercise-My-Privacy-Rights",
+      "privacyRightsUrl": null,
+      "contactMethod": "both",
+      "notes": "Contacts read from https://www.homedepot.com/privacy/privacy-and-security-statement on 2026-10-07.",
+      "sources": [
+        {
+          "source": "kickrocks-companies",
+          "license": "PolyForm-Noncommercial-1.0.0"
+        }
+      ],
+      "verifiedAt": "2026-10-07"
+    },
+    {
+      "id": "hp",
+      "name": "HP",
+      "domain": "hp.com",
+      "category": "tech",
+      "privacyEmail": null,
+      "optOutUrl": "https://www.hp.com/us-en/privacy/your-privacy-choices.html",
+      "privacyRightsUrl": "https://www.hp.com/us-en/privacy/ww-privacy-form.html",
+      "contactMethod": "form",
+      "notes": "Contacts read from https://www.hp.com/us-en/privacy/privacy-central.html on 2026-10-07.",
+      "sources": [
+        {
+          "source": "kickrocks-companies",
+          "license": "PolyForm-Noncommercial-1.0.0"
+        }
+      ],
+      "verifiedAt": "2026-10-07"
+    },
+    {
+      "id": "ibm",
+      "name": "IBM",
+      "domain": "ibm.com",
+      "category": "tech",
+      "privacyEmail": null,
+      "optOutUrl": null,
+      "privacyRightsUrl": "https://www.ibm.com/privacy/requests/",
+      "contactMethod": "form",
+      "notes": "Contacts read from https://www.ibm.com/privacy on 2026-10-07.",
+      "sources": [
+        {
+          "source": "kickrocks-companies",
+          "license": "PolyForm-Noncommercial-1.0.0"
+        }
+      ],
+      "verifiedAt": "2026-10-07"
+    },
+    {
+      "id": "iheart",
+      "name": "iHeartMedia",
+      "domain": "iheart.com",
+      "category": "media",
+      "privacyEmail": "privacy@iheartmedia.com",
+      "optOutUrl": null,
+      "privacyRightsUrl": "https://iheart.com/privacycontrols",
+      "contactMethod": "both",
+      "notes": "Contacts read from https://www.iheart.com/privacy/ on 2026-10-07.",
+      "sources": [
+        {
+          "source": "kickrocks-companies",
+          "license": "PolyForm-Noncommercial-1.0.0"
+        }
+      ],
+      "verifiedAt": "2026-10-07"
+    },
+    {
+      "id": "ikea",
+      "name": "IKEA",
+      "domain": "ikea.com",
+      "category": "retail",
+      "privacyEmail": "infosec.dataprivacy.us@ikea.com",
+      "optOutUrl": null,
+      "privacyRightsUrl": "https://us.irr.privacy.ingka.com/en",
+      "contactMethod": "both",
+      "notes": "Contacts read from https://www.ikea.com/us/en/customer-service/privacy-policy/ on 2026-10-07.",
+      "sources": [
+        {
+          "source": "kickrocks-companies",
+          "license": "PolyForm-Noncommercial-1.0.0"
+        }
+      ],
+      "verifiedAt": "2026-10-07"
+    },
+    {
+      "id": "indeed",
+      "name": "Indeed",
+      "domain": "indeed.com",
+      "category": "other",
+      "privacyEmail": "privacy-dept@indeed.com",
+      "optOutUrl": null,
+      "privacyRightsUrl": "https://requests.hrtechprivacy.com/create",
+      "contactMethod": "both",
+      "notes": "Contacts read from https://hrtechprivacy.com/brands/indeed on 2026-10-07.",
+      "sources": [
+        {
+          "source": "kickrocks-companies",
+          "license": "PolyForm-Noncommercial-1.0.0"
+        }
+      ],
+      "verifiedAt": "2026-10-07"
+    },
+    {
+      "id": "instacart",
+      "name": "Instacart",
+      "domain": "instacart.com",
+      "category": "retail",
+      "privacyEmail": "customerprivacy@instacart.com",
+      "optOutUrl": "https://www.instacart.com/accounts/your-privacy-choices",
+      "privacyRightsUrl": "https://www.instacart.com/user_privacy/authenticate",
+      "contactMethod": "both",
+      "notes": "Contacts read from https://www.instacart.com/privacy on 2026-10-07.",
+      "sources": [
+        {
+          "source": "kickrocks-companies",
+          "license": "PolyForm-Noncommercial-1.0.0"
+        }
+      ],
+      "verifiedAt": "2026-10-07"
+    },
+    {
+      "id": "intuit",
+      "name": "Intuit",
+      "domain": "intuit.com",
+      "category": "finance",
+      "privacyEmail": null,
+      "optOutUrl": null,
+      "privacyRightsUrl": "https://www.intuit.com/privacy/submit-a-question/",
+      "contactMethod": "form",
+      "notes": "Contacts read from https://www.intuit.com/privacy/statement/ on 2026-10-07.",
+      "sources": [
+        {
+          "source": "kickrocks-companies",
+          "license": "PolyForm-Noncommercial-1.0.0"
+        }
+      ],
+      "verifiedAt": "2026-10-07"
+    },
+    {
+      "id": "kayak",
+      "name": "Kayak",
+      "domain": "kayak.com",
+      "category": "travel",
+      "privacyEmail": "privacy@kayak.com",
+      "optOutUrl": "https://www.kayak.com/privacy/manage",
+      "privacyRightsUrl": "https://www.kayak.com/feedback/form",
+      "contactMethod": "both",
+      "notes": "Contacts read from https://www.kayak.com/privacy on 2026-10-07.",
+      "sources": [
+        {
+          "source": "kickrocks-companies",
+          "license": "PolyForm-Noncommercial-1.0.0"
+        }
+      ],
+      "verifiedAt": "2026-10-07"
+    },
+    {
+      "id": "kroger",
+      "name": "Kroger",
+      "domain": "kroger.com",
+      "category": "retail",
+      "privacyEmail": "krogerprivacyoffice@kroger.com",
+      "optOutUrl": "https://privacyportal.onetrust.com/webform/f95f67ef-e8ad-4274-9c69-04fd38042f86/550d355b-d9af-4bcf-b933-f734d464c0a9",
+      "privacyRightsUrl": null,
+      "contactMethod": "both",
+      "notes": "Contacts read from https://www.kroger.com/i/privacy-policy on 2026-10-07.",
+      "sources": [
+        {
+          "source": "kickrocks-companies",
+          "license": "PolyForm-Noncommercial-1.0.0"
+        }
+      ],
+      "verifiedAt": "2026-10-07"
+    },
+    {
+      "id": "linkedin",
+      "name": "LinkedIn",
+      "domain": "linkedin.com",
+      "category": "tech",
+      "privacyEmail": null,
+      "optOutUrl": null,
+      "privacyRightsUrl": "https://www.linkedin.com/psettings/privacy",
+      "contactMethod": "form",
+      "notes": "Contacts read from https://www.linkedin.com/legal/privacy-policy on 2026-10-07.",
+      "sources": [
+        {
+          "source": "kickrocks-companies",
+          "license": "PolyForm-Noncommercial-1.0.0"
+        }
+      ],
+      "verifiedAt": "2026-10-07"
+    },
+    {
+      "id": "livenation",
+      "name": "Live Nation",
+      "domain": "livenation.com",
+      "category": "media",
+      "privacyEmail": "privacy@livenation.com",
+      "optOutUrl": null,
+      "privacyRightsUrl": "https://privacyportal.onetrust.com/webform/ba6f9c5b-dda5-43bd-bac4-4e06afccd928/08c35604-aec2-48df-9cfd-916a063a1718",
+      "contactMethod": "both",
+      "notes": "Contacts read from https://privacy.livenation.com/privacy-policy on 2026-10-07.",
+      "sources": [
+        {
+          "source": "kickrocks-companies",
+          "license": "PolyForm-Noncommercial-1.0.0"
+        }
+      ],
+      "verifiedAt": "2026-10-07"
+    },
+    {
+      "id": "lyft",
+      "name": "Lyft",
+      "domain": "lyft.com",
+      "category": "tech",
+      "privacyEmail": null,
+      "optOutUrl": null,
+      "privacyRightsUrl": "https://www.lyft.com/privacy/data",
+      "contactMethod": "form",
+      "notes": "Contacts read from https://www.lyft.com/privacy on 2026-10-07.",
+      "sources": [
+        {
+          "source": "kickrocks-companies",
+          "license": "PolyForm-Noncommercial-1.0.0"
+        }
+      ],
+      "verifiedAt": "2026-10-07"
+    },
+    {
+      "id": "meta",
+      "name": "Meta (Facebook and Instagram)",
+      "domain": "facebook.com",
+      "category": "tech",
+      "privacyEmail": null,
+      "optOutUrl": null,
+      "privacyRightsUrl": "https://www.facebook.com/privacy/center/",
+      "contactMethod": "form",
+      "notes": "Contacts read from https://www.facebook.com/privacy/policy/ on 2026-10-07.",
+      "sources": [
+        {
+          "source": "kickrocks-companies",
+          "license": "PolyForm-Noncommercial-1.0.0"
+        }
+      ],
+      "verifiedAt": "2026-10-07"
+    },
+    {
+      "id": "microsoft",
+      "name": "Microsoft",
+      "domain": "microsoft.com",
+      "category": "tech",
+      "privacyEmail": null,
+      "optOutUrl": "https://go.microsoft.com/fwlink/?LinkID=286759",
+      "privacyRightsUrl": "https://account.microsoft.com/privacy",
+      "contactMethod": "form",
+      "notes": "Contacts read from https://www.microsoft.com/en-us/privacy/privacystatement on 2026-10-07.",
+      "sources": [
+        {
+          "source": "kickrocks-companies",
+          "license": "PolyForm-Noncommercial-1.0.0"
+        }
+      ],
+      "verifiedAt": "2026-10-07"
+    },
+    {
+      "id": "netflix",
+      "name": "Netflix",
+      "domain": "netflix.com",
+      "category": "media",
+      "privacyEmail": "privacy@netflix.com",
+      "optOutUrl": "https://www.netflix.com/dnsspi",
+      "privacyRightsUrl": "https://www.netflix.com/account/getmyinfo",
+      "contactMethod": "both",
+      "notes": "Contacts read from https://help.netflix.com/legal/privacy on 2026-10-07.",
+      "sources": [
+        {
+          "source": "kickrocks-companies",
+          "license": "PolyForm-Noncommercial-1.0.0"
+        }
+      ],
+      "verifiedAt": "2026-10-07"
+    },
+    {
+      "id": "nike",
+      "name": "Nike",
+      "domain": "nike.com",
+      "category": "retail",
+      "privacyEmail": null,
+      "optOutUrl": "https://www.nike.com/guest/settings/do-not-share-my-data",
+      "privacyRightsUrl": null,
+      "contactMethod": "form",
+      "notes": "Contacts read from https://www.nike.com/help/a/privacy-policy on 2026-10-07.",
+      "sources": [
+        {
+          "source": "kickrocks-companies",
+          "license": "PolyForm-Noncommercial-1.0.0"
+        }
+      ],
+      "verifiedAt": "2026-10-07"
+    },
+    {
+      "id": "nvidia",
+      "name": "NVIDIA",
+      "domain": "nvidia.com",
+      "category": "tech",
+      "privacyEmail": "privacy@nvidia.com",
+      "optOutUrl": null,
+      "privacyRightsUrl": "https://www.nvidia.com/privacy-center/",
+      "contactMethod": "both",
+      "notes": "Contacts read from https://www.nvidia.com/en-us/about-nvidia/privacy-policy/ on 2026-10-07.",
+      "sources": [
+        {
+          "source": "kickrocks-companies",
+          "license": "PolyForm-Noncommercial-1.0.0"
+        }
+      ],
+      "verifiedAt": "2026-10-07"
+    },
+    {
+      "id": "paypal",
+      "name": "PayPal",
+      "domain": "paypal.com",
+      "category": "finance",
+      "privacyEmail": null,
+      "optOutUrl": null,
+      "privacyRightsUrl": "https://www.paypal.com/myaccount/privacy",
+      "contactMethod": "form",
+      "notes": "Contacts read from https://www.paypal.com/us/privacy-center/home on 2026-10-07.",
+      "sources": [
+        {
+          "source": "kickrocks-companies",
+          "license": "PolyForm-Noncommercial-1.0.0"
+        }
+      ],
+      "verifiedAt": "2026-10-07"
+    },
+    {
+      "id": "pinterest",
+      "name": "Pinterest",
+      "domain": "pinterest.com",
+      "category": "tech",
+      "privacyEmail": "privacy-support@pinterest.com",
+      "optOutUrl": "https://www.pinterest.com/settings/privacy/",
+      "privacyRightsUrl": "https://help.pinterest.com/article/review-personal-data-options",
+      "contactMethod": "both",
+      "notes": "Contacts read from https://policy.pinterest.com/en/privacy-policy on 2026-10-07.",
+      "sources": [
+        {
+          "source": "kickrocks-companies",
+          "license": "PolyForm-Noncommercial-1.0.0"
+        }
+      ],
+      "verifiedAt": "2026-10-07"
+    },
+    {
+      "id": "redfin",
+      "name": "Redfin",
+      "domain": "redfin.com",
+      "category": "other",
+      "privacyEmail": "privacy@redfin.com",
+      "optOutUrl": "https://www.redfin.com/about/privacy/cookie",
+      "privacyRightsUrl": "https://www.redfin.com/about/contact-us",
+      "contactMethod": "both",
+      "notes": "Contacts read from https://www.redfin.com/about/privacy-policy on 2026-10-07.",
+      "sources": [
+        {
+          "source": "kickrocks-companies",
+          "license": "PolyForm-Noncommercial-1.0.0"
+        }
+      ],
+      "verifiedAt": "2026-10-07"
+    },
+    {
+      "id": "ross",
+      "name": "Ross Stores",
+      "domain": "rossstores.com",
+      "category": "retail",
+      "privacyEmail": "privacy@ros.com",
+      "optOutUrl": null,
+      "privacyRightsUrl": "http://rossstoresprivacyrequest.com",
+      "contactMethod": "both",
+      "notes": "Contacts read from https://www.rossstores.com/privacy on 2026-10-07.",
+      "sources": [
+        {
+          "source": "kickrocks-companies",
+          "license": "PolyForm-Noncommercial-1.0.0"
+        }
+      ],
+      "verifiedAt": "2026-10-07"
+    },
+    {
+      "id": "salesforce",
+      "name": "Salesforce",
+      "domain": "salesforce.com",
+      "category": "tech",
+      "privacyEmail": "privacy@salesforce.com",
+      "optOutUrl": null,
+      "privacyRightsUrl": "https://www.salesforce.com/form/other/privacy-request/?d=pb",
+      "contactMethod": "both",
+      "notes": "Contacts read from https://www.salesforce.com/company/privacy/ on 2026-10-07.",
+      "sources": [
+        {
+          "source": "kickrocks-companies",
+          "license": "PolyForm-Noncommercial-1.0.0"
+        }
+      ],
+      "verifiedAt": "2026-10-07"
+    },
+    {
+      "id": "samsung",
+      "name": "Samsung Electronics America",
+      "domain": "samsung.com",
+      "category": "tech",
+      "privacyEmail": null,
+      "optOutUrl": null,
+      "privacyRightsUrl": "https://www.samsung.com/us/privacy/rights/",
+      "contactMethod": "form",
+      "notes": "Contacts read from https://www.samsung.com/us/account/privacy-policy/ on 2026-10-07.",
+      "sources": [
+        {
+          "source": "kickrocks-companies",
+          "license": "PolyForm-Noncommercial-1.0.0"
+        }
+      ],
+      "verifiedAt": "2026-10-07"
+    },
+    {
+      "id": "shopify",
+      "name": "Shopify",
+      "domain": "shopify.com",
+      "category": "tech",
+      "privacyEmail": null,
+      "optOutUrl": null,
+      "privacyRightsUrl": "https://privacy.shopify.com/en",
+      "contactMethod": "form",
+      "notes": "Contacts read from https://www.shopify.com/legal/privacy on 2026-10-07.",
+      "sources": [
+        {
+          "source": "kickrocks-companies",
+          "license": "PolyForm-Noncommercial-1.0.0"
+        }
+      ],
+      "verifiedAt": "2026-10-07"
+    },
+    {
+      "id": "siriusxm",
+      "name": "SiriusXM",
+      "domain": "siriusxm.com",
+      "category": "media",
+      "privacyEmail": "privacy@siriusxm.com",
+      "optOutUrl": null,
+      "privacyRightsUrl": "https://www.siriusxm.com/yourprivacychoices",
+      "contactMethod": "both",
+      "notes": "Contacts read from https://www.siriusxm.com/privacy-policy on 2026-10-07.",
+      "sources": [
+        {
+          "source": "kickrocks-companies",
+          "license": "PolyForm-Noncommercial-1.0.0"
+        }
+      ],
+      "verifiedAt": "2026-10-07"
+    },
+    {
+      "id": "slack",
+      "name": "Slack",
+      "domain": "slack.com",
+      "category": "tech",
+      "privacyEmail": "privacy@slack.com",
+      "optOutUrl": null,
+      "privacyRightsUrl": "https://www.salesforce.com/form/other/privacy-request/",
+      "contactMethod": "both",
+      "notes": "Contacts read from https://slack.com/trust/privacy/privacy-policy on 2026-10-07.",
+      "sources": [
+        {
+          "source": "kickrocks-companies",
+          "license": "PolyForm-Noncommercial-1.0.0"
+        }
+      ],
+      "verifiedAt": "2026-10-07"
+    },
+    {
+      "id": "snap",
+      "name": "Snap (Snapchat)",
+      "domain": "snap.com",
+      "category": "tech",
+      "privacyEmail": null,
+      "optOutUrl": null,
+      "privacyRightsUrl": "https://help.snapchat.com/hc/requests/new?lang=en-US",
+      "contactMethod": "form",
+      "notes": "Contacts read from https://values.snap.com/privacy/privacy-policy on 2026-10-07.",
+      "sources": [
+        {
+          "source": "kickrocks-companies",
+          "license": "PolyForm-Noncommercial-1.0.0"
+        }
+      ],
+      "verifiedAt": "2026-10-07"
+    },
+    {
+      "id": "sonos",
+      "name": "Sonos",
+      "domain": "sonos.com",
+      "category": "tech",
+      "privacyEmail": "privacy@sonos.com",
+      "optOutUrl": null,
+      "privacyRightsUrl": null,
+      "contactMethod": "email",
+      "notes": "Contacts read from https://www.sonos.com/en-us/legal/privacy on 2026-10-07.",
+      "sources": [
+        {
+          "source": "kickrocks-companies",
+          "license": "PolyForm-Noncommercial-1.0.0"
+        }
+      ],
+      "verifiedAt": "2026-10-07"
+    },
+    {
+      "id": "spotify",
+      "name": "Spotify",
+      "domain": "spotify.com",
+      "category": "media",
+      "privacyEmail": "privacy@spotify.com",
+      "optOutUrl": null,
+      "privacyRightsUrl": "https://www.spotify.com/account/privacy/",
+      "contactMethod": "both",
+      "notes": "Contacts read from https://www.spotify.com/us/legal/privacy-policy/ on 2026-10-07.",
+      "sources": [
+        {
+          "source": "kickrocks-companies",
+          "license": "PolyForm-Noncommercial-1.0.0"
+        }
+      ],
+      "verifiedAt": "2026-10-07"
+    },
+    {
+      "id": "square",
+      "name": "Square (Block)",
+      "domain": "squareup.com",
+      "category": "finance",
+      "privacyEmail": null,
+      "optOutUrl": null,
+      "privacyRightsUrl": "https://privacy.block.xyz",
+      "contactMethod": "form",
+      "notes": "Contacts read from https://squareup.com/us/en/legal/general/privacy on 2026-10-07.",
+      "sources": [
+        {
+          "source": "kickrocks-companies",
+          "license": "PolyForm-Noncommercial-1.0.0"
+        }
+      ],
+      "verifiedAt": "2026-10-07"
+    },
+    {
+      "id": "squarespace",
+      "name": "Squarespace",
+      "domain": "squarespace.com",
+      "category": "tech",
+      "privacyEmail": "privacy@squarespace.com",
+      "optOutUrl": null,
+      "privacyRightsUrl": null,
+      "contactMethod": "email",
+      "notes": "Contacts read from https://www.squarespace.com/privacy on 2026-10-07.",
+      "sources": [
+        {
+          "source": "kickrocks-companies",
+          "license": "PolyForm-Noncommercial-1.0.0"
+        }
+      ],
+      "verifiedAt": "2026-10-07"
+    },
+    {
+      "id": "strava",
+      "name": "Strava",
+      "domain": "strava.com",
+      "category": "tech",
+      "privacyEmail": "dpo@strava.com",
+      "optOutUrl": null,
+      "privacyRightsUrl": null,
+      "contactMethod": "email",
+      "notes": "Contacts read from https://www.strava.com/legal/privacy on 2026-10-07.",
+      "sources": [
+        {
+          "source": "kickrocks-companies",
+          "license": "PolyForm-Noncommercial-1.0.0"
+        }
+      ],
+      "verifiedAt": "2026-10-07"
+    },
+    {
+      "id": "stripe",
+      "name": "Stripe",
+      "domain": "stripe.com",
+      "category": "finance",
+      "privacyEmail": "privacy@stripe.com",
+      "optOutUrl": null,
+      "privacyRightsUrl": "https://stripe.com/legal/privacy-center",
+      "contactMethod": "both",
+      "notes": "Contacts read from https://stripe.com/privacy on 2026-10-07.",
+      "sources": [
+        {
+          "source": "kickrocks-companies",
+          "license": "PolyForm-Noncommercial-1.0.0"
+        }
+      ],
+      "verifiedAt": "2026-10-07"
+    },
+    {
+      "id": "target",
+      "name": "Target",
+      "domain": "target.com",
+      "category": "retail",
+      "privacyEmail": "privacy.request@target.com",
+      "optOutUrl": "https://www.target.com/guest-privacy",
+      "privacyRightsUrl": null,
+      "contactMethod": "both",
+      "notes": "Contacts read from https://www.target.com/c/target-privacy-policy/-/N-4sr7p on 2026-10-07.",
+      "sources": [
+        {
+          "source": "kickrocks-companies",
+          "license": "PolyForm-Noncommercial-1.0.0"
+        }
+      ],
+      "verifiedAt": "2026-10-07"
+    },
+    {
+      "id": "ticketmaster",
+      "name": "Ticketmaster",
+      "domain": "ticketmaster.com",
+      "category": "media",
+      "privacyEmail": "privacy@ticketmaster.com",
+      "optOutUrl": null,
+      "privacyRightsUrl": null,
+      "contactMethod": "email",
+      "notes": "Contacts read from https://privacy.ticketmaster.com/ on 2026-10-07.",
+      "sources": [
+        {
+          "source": "kickrocks-companies",
+          "license": "PolyForm-Noncommercial-1.0.0"
+        }
+      ],
+      "verifiedAt": "2026-10-07"
+    },
+    {
+      "id": "tiktok",
+      "name": "TikTok",
+      "domain": "tiktok.com",
+      "category": "media",
+      "privacyEmail": null,
+      "optOutUrl": null,
+      "privacyRightsUrl": "https://www.tiktok.com/legal/report/privacy",
+      "contactMethod": "form",
+      "notes": "Contacts read from https://www.tiktok.com/legal/page/us/privacy-policy/en on 2026-10-07.",
+      "sources": [
+        {
+          "source": "kickrocks-companies",
+          "license": "PolyForm-Noncommercial-1.0.0"
+        }
+      ],
+      "verifiedAt": "2026-10-07"
+    },
+    {
+      "id": "tinder",
+      "name": "Tinder",
+      "domain": "tinder.com",
+      "category": "tech",
+      "privacyEmail": null,
+      "optOutUrl": null,
+      "privacyRightsUrl": "https://www.help.tinder.com/hc/en-us/requests/new",
+      "contactMethod": "form",
+      "notes": "Contacts read from https://policies.tinder.com/privacy/intl/en on 2026-10-07.",
+      "sources": [
+        {
+          "source": "kickrocks-companies",
+          "license": "PolyForm-Noncommercial-1.0.0"
+        }
+      ],
+      "verifiedAt": "2026-10-07"
+    },
+    {
+      "id": "tripadvisor",
+      "name": "Tripadvisor",
+      "domain": "tripadvisor.com",
+      "category": "travel",
+      "privacyEmail": null,
+      "optOutUrl": null,
+      "privacyRightsUrl": "https://privacyportal-cdn.onetrust.com/dsarwebform/da774af3-e615-4e8c-8a28-3d13e98367c5/d294c536-2b05-4be5-b3dc-22f11e5c9d19.html",
+      "contactMethod": "form",
+      "notes": "Contacts read from https://tripadvisor.mediaroom.com/us-privacy-policy on 2026-10-07.",
+      "sources": [
+        {
+          "source": "kickrocks-companies",
+          "license": "PolyForm-Noncommercial-1.0.0"
+        }
+      ],
+      "verifiedAt": "2026-10-07"
+    },
+    {
+      "id": "twilio",
+      "name": "Twilio",
+      "domain": "twilio.com",
+      "category": "tech",
+      "privacyEmail": "privacy@twilio.com",
+      "optOutUrl": null,
+      "privacyRightsUrl": null,
+      "contactMethod": "email",
+      "notes": "Contacts read from https://www.twilio.com/en-us/legal/privacy on 2026-10-07.",
+      "sources": [
+        {
+          "source": "kickrocks-companies",
+          "license": "PolyForm-Noncommercial-1.0.0"
+        }
+      ],
+      "verifiedAt": "2026-10-07"
+    },
+    {
+      "id": "uber",
+      "name": "Uber",
+      "domain": "uber.com",
+      "category": "tech",
+      "privacyEmail": null,
+      "optOutUrl": "https://privacy.uber.com/center",
+      "privacyRightsUrl": "https://help.uber.com/riders/article/submit-a-privacy-inquiry?nodeId=489292a2-27ce-42f5-9a47-d4dd017559fd",
+      "contactMethod": "form",
+      "notes": "Contacts read from https://www.uber.com/legal/en/document/?name=privacy-notice&country=united-states&lang=en on 2026-10-07.",
+      "sources": [
+        {
+          "source": "kickrocks-companies",
+          "license": "PolyForm-Noncommercial-1.0.0"
+        }
+      ],
+      "verifiedAt": "2026-10-07"
+    },
+    {
+      "id": "venmo",
+      "name": "Venmo",
+      "domain": "venmo.com",
+      "category": "finance",
+      "privacyEmail": "privacy@venmo.com",
+      "optOutUrl": null,
+      "privacyRightsUrl": "https://help.venmo.com/hc/en-us/requests/new",
+      "contactMethod": "both",
+      "notes": "Contacts read from https://venmo.com/legal/us-privacy-policy/ on 2026-10-07.",
+      "sources": [
+        {
+          "source": "kickrocks-companies",
+          "license": "PolyForm-Noncommercial-1.0.0"
+        }
+      ],
+      "verifiedAt": "2026-10-07"
+    },
+    {
+      "id": "verizon",
+      "name": "Verizon",
+      "domain": "verizon.com",
+      "category": "telecom",
+      "privacyEmail": null,
+      "optOutUrl": "https://www.verizon.com/privacy/your-privacy-choices",
+      "privacyRightsUrl": "https://www.verizon.com/about/privacy/privacy-inquiries",
+      "contactMethod": "form",
+      "notes": "Contacts read from https://www.verizon.com/about/privacy/ on 2026-10-07.",
+      "sources": [
+        {
+          "source": "kickrocks-companies",
+          "license": "PolyForm-Noncommercial-1.0.0"
+        }
+      ],
+      "verifiedAt": "2026-10-07"
+    },
+    {
+      "id": "walgreens",
+      "name": "Walgreens",
+      "domain": "walgreens.com",
+      "category": "health",
+      "privacyEmail": null,
+      "optOutUrl": "https://www.walgreens.com/topic/donotsellmyinfo.jsp?o=acs",
+      "privacyRightsUrl": null,
+      "contactMethod": "form",
+      "notes": "Contacts read from https://www.walgreens.com/topic/help/generalhelp/noticeofprivacypractices.jsp on 2026-10-07.",
+      "sources": [
+        {
+          "source": "kickrocks-companies",
+          "license": "PolyForm-Noncommercial-1.0.0"
+        }
+      ],
+      "verifiedAt": "2026-10-07"
+    },
+    {
+      "id": "walmart",
+      "name": "Walmart",
+      "domain": "walmart.com",
+      "category": "retail",
+      "privacyEmail": "globalprivacy@wal-mart.com",
+      "optOutUrl": "https://cpa-ui.walmart.com/dc/privacy/en-US/affirmation?brandCode=WMT&languageCode=en-US&market=US",
+      "privacyRightsUrl": null,
+      "contactMethod": "both",
+      "notes": "Contacts read from https://corporate.walmart.com/privacy-security/walmart-privacy-notice on 2026-10-07.",
+      "sources": [
+        {
+          "source": "kickrocks-companies",
+          "license": "PolyForm-Noncommercial-1.0.0"
+        }
+      ],
+      "verifiedAt": "2026-10-07"
+    },
+    {
+      "id": "wix",
+      "name": "Wix",
+      "domain": "wix.com",
+      "category": "tech",
+      "privacyEmail": "privacy@wix.com",
+      "optOutUrl": "https://www.wix.com/about/privacy/do-not-sell-my-personal-information",
+      "privacyRightsUrl": "https://www.wix.com/account/support/permanent-delete",
+      "contactMethod": "both",
+      "notes": "Contacts read from https://www.wix.com/about/privacy on 2026-10-07.",
+      "sources": [
+        {
+          "source": "kickrocks-companies",
+          "license": "PolyForm-Noncommercial-1.0.0"
+        }
+      ],
+      "verifiedAt": "2026-10-07"
+    },
+    {
+      "id": "yelp",
+      "name": "Yelp",
+      "domain": "yelp.com",
+      "category": "tech",
+      "privacyEmail": "dataprotection@yelp.com",
+      "optOutUrl": null,
+      "privacyRightsUrl": "https://www.yelp-support.com/article/How-do-I-make-a-data-rights-request?l=en_US",
+      "contactMethod": "both",
+      "notes": "Contacts read from https://terms.yelp.com/privacy/en_us on 2026-10-07.",
+      "sources": [
+        {
+          "source": "kickrocks-companies",
+          "license": "PolyForm-Noncommercial-1.0.0"
+        }
+      ],
+      "verifiedAt": "2026-10-07"
+    },
+    {
+      "id": "zoom",
+      "name": "Zoom",
+      "domain": "zoom.us",
+      "category": "tech",
+      "privacyEmail": "privacy@zoom.us",
+      "optOutUrl": null,
+      "privacyRightsUrl": "https://privacyportal.onetrust.com/webform/65962359-ef0d-4399-9db4-572d06de08aa/f277f9f7-bfee-4233-815e-80e290139bc2",
+      "contactMethod": "both",
+      "notes": "Contacts read from https://www.zoom.com/en/trust/privacy/privacy-statement/ on 2026-10-07.",
+      "sources": [
+        {
+          "source": "kickrocks-companies",
+          "license": "PolyForm-Noncommercial-1.0.0"
+        }
+      ],
+      "verifiedAt": "2026-10-07"
+    }
+  ]
+}
