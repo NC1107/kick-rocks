@@ -330,7 +330,7 @@ The worker does not rely on the model to follow them.
   The server gives that list only to a model worker that claims as one, never to an MCP client.
   Phone numbers and dates of birth are also masked in the common US formats that an input mask produces.
   A value written in a way the program does not know, such as a nickname the page derived from the name, is not masked.
-  Values of three characters or fewer, such as a two-letter state, are not masked.
+  Values of one or two characters, such as a two-letter state, are not masked.
 - For a scan, the model reports each candidate with the masked text and link it read.
   The program matches each link to one the page really showed and fills the real values back into the text before the server stores it, and it rejects an address that no page showed.
   The task's instructions and the first message are masked the same way, so the model reads `{{record_url}}` where the server wrote the record address.
@@ -370,6 +370,7 @@ The agent worker claims the tasks no approved recipe covers, with two exceptions
 
 - A site whose recipe you rejected is blocked for you when the agent worker claims it.
   Finish it by hand, or hand it to an agent yourself.
+  A task you hand over stays in the queue for a connected agent, and the agent worker leaves it alone.
 - A site whose bundled recipe is still waiting for your review stays in the queue, for a connected agent or for you.
   Turn on "Let the agent worker take unreviewed sites" under Workers in Settings to let the model take those too.
   The setting is off by default.
@@ -402,7 +403,7 @@ It cannot see:
 It can see:
 
 - Everything else on the page, which on a people-search site is a lot: other people's names, ages, relatives, past addresses, phones and emails the profile does not hold, and the age the page shows, which gives away roughly when the person was born.
-- A value written in a way the program does not recognise, and values of three characters or fewer.
+- A value written in a way the program does not recognise, and values of one or two characters.
 - Which placeholders repeat, which tells it that two places on a page show the same hidden value.
 - The target, the task's instructions, the names of the task's fields, and the model's own earlier answers.
 
