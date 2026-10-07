@@ -383,7 +383,7 @@ export class InboxRunner {
       recordUrl: request.recordUrl,
       awaitingConfirmation: request.awaitingConfirmationSince
         ? {
-            ...awaitingConfirmationOf(this.services, request.id),
+            ...awaitingConfirmationOf(this.services, request.id, target),
             since: request.awaitingConfirmationSince,
           }
         : null,

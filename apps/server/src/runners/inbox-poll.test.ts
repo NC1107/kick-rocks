@@ -1,5 +1,5 @@
 import { mailboxes, messages, requests, targets, tasks } from "@kickrocks/db";
-import { outgoingMessageId, type ReplyClassification } from "@kickrocks/shared";
+import { isOnDomain, outgoingMessageId, type ReplyClassification } from "@kickrocks/shared";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { ClassificationResult, InboxMessage } from "../mail/types.js";
@@ -307,7 +307,7 @@ describe("storing and applying replies", () => {
 
 describe("confirmation links", () => {
   it("follows the link, writes it to the timeline, and stops waiting for the email", async () => {
-    const { request, target } = await sentRequest();
+    const { request, target } = await sentRequest({ replyDomains: ["sister.test"] });
     ctx.services.requests.update(request.id, {
       awaitingConfirmationSince: ctx.clock.now().toISOString(),
     });
@@ -333,7 +333,7 @@ describe("confirmation links", () => {
   });
 
   it("never lets a shared platform stored as an expected sender receive the link", async () => {
-    const { request, target } = await sentRequest();
+    const { request, target } = await sentRequest({ replyDomains: ["sister.test"] });
     ctx.services.requests.update(request.id, {
       awaitingConfirmationSince: ctx.clock.now().toISOString(),
     });
@@ -352,6 +352,40 @@ describe("confirmation links", () => {
       { url: link, allowedDomains: [target.domain, "sister.test"] },
     ]);
   });
+
+  it.each(["paypal.com", "otherbroker.test"])(
+    "never follows a link from %s stored as an expected sender before the rule existed",
+    async (stored) => {
+      const { request, target } = await sentRequest();
+      const since = ctx.clock.now().toISOString();
+      ctx.services.requests.update(request.id, { awaitingConfirmationSince: since });
+      ctx.services.requests.addEvent(request.id, {
+        type: "awaiting_confirmation",
+        actor: "worker",
+        payload: { fromDomains: [stored], linkTextPattern: null },
+      });
+      const link = `https://${stored}/confirm/${request.reference}`;
+      answer("Confirm", request.id, "confirmation_link", { links: [link] });
+      ctx.mail.linkFollower.program((url, allowedDomains) =>
+        allowedDomains.some((domain) => isOnDomain(url, domain))
+          ? null
+          : { ok: false, status: 403, reason: "off the allow list" },
+      );
+      deliver("Confirm", { from: { name: null, address: `no-reply@${stored}` } });
+
+      await poll();
+
+      expect(ctx.mail.linkFollower.calls).toEqual([{ url: link, allowedDomains: [target.domain] }]);
+      expect(
+        ctx.services.requests
+          .events(request.id)
+          .some(
+            (event) => event.type === "link_followed" && (event.payload as { ok?: boolean }).ok,
+          ),
+      ).toBe(false);
+      expect(requestOf(request.id).awaitingConfirmationSince).toBe(since);
+    },
+  );
 
   it("leaves a sister site's link that needs a browser for a person, since the browser only opens the broker's own site", async () => {
     const { request } = await sentRequest();

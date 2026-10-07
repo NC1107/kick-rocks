@@ -1,11 +1,6 @@
+import { alignsWithAny } from "@kickrocks/brokers";
 import { parseOutgoingMessageId, parseReferences } from "@kickrocks/shared";
-import { getAlignment } from "mailauth/lib/tools.js";
 import type { ClassifierRequest, InboxMessage, VerifiedSignature } from "./types.js";
-
-/** True when `signingDomain` is one of `domains` or shares an organizational domain with one. */
-export function alignsWithAny(signingDomain: string, domains: readonly string[]): boolean {
-  return domains.some((domain) => getAlignment(signingDomain, [domain], false) !== false);
-}
 
 /**
  * How far a reply's DKIM signatures vouch for it:

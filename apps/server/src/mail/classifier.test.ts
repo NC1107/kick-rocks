@@ -587,7 +587,7 @@ describe("a confirmation email after a form submission", () => {
       outgoingMessageId: null,
       channel: "form",
       targetDomain: "intelius.test",
-      replyDomains: ["intelius.test"],
+      replyDomains: ["intelius.test", "peopleconnect.test"],
       replyAddresses: [],
       awaitingConfirmation: {
         fromDomains: ["peopleconnect.test"],
@@ -767,8 +767,34 @@ describe("a confirmation email after a form submission", () => {
     expect(result.classification).not.toBe("confirmation_link");
   });
 
+  it.each([
+    ["a shared platform", "paypal.com"],
+    ["a domain the target does not list", "otherbroker.test"],
+  ])("ignores %s stored as an expected sender", async (_name, stored) => {
+    const waitingForStored = waiting({
+      awaitingConfirmation: {
+        fromDomains: [stored],
+        linkTextPattern: null,
+        since: "2026-10-01T10:00:00.000Z",
+      },
+    });
+    const result = await classify(
+      "",
+      confirmation({
+        from: { name: null, address: `no-reply@${stored}` },
+        html: `<p>Click the link below to confirm your opt-out.</p><a href="https://${stored}/confirm?id=9">Confirm</a>`,
+        verifyDkim: signedAs(stored),
+      }),
+      [waitingForStored],
+    );
+    expect(result.requestId).toBeNull();
+    expect(result.links).toEqual([]);
+  });
+
   it("is not matched when no request is waiting for a confirmation", async () => {
-    const result = await classify("", confirmation(), [waiting({ awaitingConfirmation: null })]);
+    const result = await classify("", confirmation(), [
+      waiting({ awaitingConfirmation: null, replyDomains: ["intelius.test"] }),
+    ]);
     expect(result.requestId).toBeNull();
   });
 

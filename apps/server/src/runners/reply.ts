@@ -1,4 +1,4 @@
-import { requestEvents, targets } from "@kickrocks/db";
+import { requestEvents, type TargetRow, targets } from "@kickrocks/db";
 import {
   canTransition,
   isOnDomain,
@@ -7,10 +7,10 @@ import {
   type RequestActor,
   type RequestRecord,
   WebUrl,
-  withoutSharedHosts,
 } from "@kickrocks/shared";
 import { and, eq } from "drizzle-orm";
 import { AppError } from "../core/errors.js";
+import { isTrustedConfirmationSender } from "../core/targets.js";
 import type { Task } from "../core/task-types.js";
 import type { AppServices } from "../services.js";
 import { describeError } from "./connection.js";
@@ -35,6 +35,7 @@ export interface AwaitingConfirmation {
 export function awaitingConfirmationOf(
   services: Pick<AppServices, "db">,
   requestId: string,
+  target: TargetRow,
 ): AwaitingConfirmation {
   const rows = services.db
     .select()
@@ -46,7 +47,9 @@ export function awaitingConfirmationOf(
   const latest = rows.sort((a, b) => a.createdAt.localeCompare(b.createdAt)).at(-1);
   const payload = latest?.payload as Partial<AwaitingConfirmation> | undefined;
   return {
-    fromDomains: withoutSharedHosts(payload?.fromDomains ?? []),
+    fromDomains: (payload?.fromDomains ?? []).filter((domain) =>
+      isTrustedConfirmationSender(target, domain),
+    ),
     linkTextPattern: payload?.linkTextPattern ?? null,
   };
 }
@@ -68,7 +71,10 @@ export async function followConfirmationLinks(
   if (!target) return null;
   // A company's deletion confirmation can close an account, so a person decides whether to click it.
   if (target.kind === "company" && request.rights.includes("delete")) return null;
-  const allowed = [target.domain, ...awaitingConfirmationOf(services, request.id).fromDomains];
+  const allowed = [
+    target.domain,
+    ...awaitingConfirmationOf(services, request.id, target).fromDomains,
+  ];
 
   let failure: LinkOutcome = { kind: "failed", url: usable[0] as string, finalUrl: null };
   for (const url of usable) {

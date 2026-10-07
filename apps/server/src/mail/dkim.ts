@@ -1,8 +1,8 @@
 import { Resolver } from "node:dns/promises";
 import { readFileSync } from "node:fs";
+import { alignsWithAny } from "@kickrocks/brokers";
 import { dkimVerify } from "mailauth";
 import { z } from "zod";
-import { alignsWithAny } from "./sender-auth.js";
 import type { VerifiedSignature } from "./types.js";
 
 export type DnsResolver = (domain: string, rrtype: string) => Promise<string[][] | string[]>;

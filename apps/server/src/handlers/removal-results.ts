@@ -1,15 +1,8 @@
 import { type DbHandle, recipes, type TargetRow } from "@kickrocks/db";
-import {
-  FORM_OUTCOMES,
-  type FormResult,
-  isOnDomain,
-  isSharedMailHost,
-  type RequestActor,
-} from "@kickrocks/shared";
+import { FORM_OUTCOMES, type FormResult, type RequestActor } from "@kickrocks/shared";
 import { eq } from "drizzle-orm";
-import { curatedReplyDomainsOfRow } from "../core/targets.js";
+import { isTrustedConfirmationSender } from "../core/targets.js";
 import type { Task } from "../core/task-types.js";
-import { alignsWithAny } from "../mail/sender-auth.js";
 import { responseWindow } from "../runners/deadlines.js";
 import type { AppServices } from "../services.js";
 import { handToAgentAfterRecipeFailure, recordRecipeRun } from "./recipe-runs.js";
@@ -17,20 +10,6 @@ import { handToAgentAfterRecipeFailure, recordRecipeRun } from "./recipe-runs.js
 interface ConfirmationExpectation {
   fromDomains: string[];
   linkTextPattern: string | null;
-}
-
-/**
- * A confirmation sender, whether the page named it or a recipe step did, counts only when it is
- * the target's own organization or a sister domain the dataset curates for it, and never a shared
- * host. Anything looser lets an agent be talked into naming a platform that relays user content,
- * such as paypal.com, whose mail and links would then be followed as the broker's confirmation.
- */
-function isTrustedConfirmationSender(target: TargetRow, domain: string): boolean {
-  if (isSharedMailHost(domain)) return false;
-  return (
-    alignsWithAny(domain, [target.domain]) ||
-    curatedReplyDomainsOfRow(target).some((listed) => isOnDomain(`https://${domain}/`, listed))
-  );
 }
 
 /**

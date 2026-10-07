@@ -1,3 +1,4 @@
+import { isTrustedConfirmationDomain } from "@kickrocks/brokers";
 import {
   isOnDomain,
   isSharedMailHost,
@@ -77,9 +78,11 @@ function linkDomainsOf(request: ClassifierRequest): string[] {
   return [request.targetDomain, ...expectedSendersOf(request)];
 }
 
-/** Senders a waiting form named. A shared host never counts, whatever was stored. */
+/** Senders a waiting form named that the target would accept. Whatever was stored is checked again. */
 function expectedSendersOf(request: ClassifierRequest): string[] {
-  return withoutSharedHosts(request.awaitingConfirmation?.fromDomains ?? []);
+  return (request.awaitingConfirmation?.fromDomains ?? []).filter((domain) =>
+    isTrustedConfirmationDomain(domain, request.targetDomain, request.replyDomains),
+  );
 }
 
 /** Every domain a signature may align with to vouch for a reply. */

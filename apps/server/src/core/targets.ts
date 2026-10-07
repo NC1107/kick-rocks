@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import { isTrustedConfirmationDomain } from "@kickrocks/brokers";
 import { type KickRocksDb, type TargetRow, targets } from "@kickrocks/db";
 import {
   Broker,
@@ -103,6 +104,14 @@ export function replyDomainsOfRow(row: TargetRow): string[] {
 export function curatedReplyDomainsOfRow(row: TargetRow): string[] {
   const listed = "replyDomains" in row.data ? row.data.replyDomains : undefined;
   return withoutSharedHosts(listed ?? []);
+}
+
+/**
+ * Whether mail from `domain` may confirm a removal for a stored target: its own organization or a
+ * sister domain the dataset curates for it, and never a shared host.
+ */
+export function isTrustedConfirmationSender(target: TargetRow, domain: string): boolean {
+  return isTrustedConfirmationDomain(domain, target.domain, curatedReplyDomainsOfRow(target));
 }
 
 /** The exact sender addresses trusted for a stored target whose mailbox is on a shared host. */
