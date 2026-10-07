@@ -113,14 +113,24 @@ export function isPrivateAddress(address: string): boolean {
   ];
   const embedded = [g6 >> 8, g6 & 255, g7 >> 8, g7 & 255];
   const unspecifiedOrLoopback = groups.slice(0, 7).every((g) => g === 0) && g7 <= 1;
-  // IPv4-mapped (::ffff:a.b.c.d), IPv4-compatible, and NAT64 (64:ff9b::/96) carry an IPv4 address.
-  const mapped = g0 === 0 && g1 === 0 && g2 === 0 && g3 === 0 && g4 === 0 && g5 === 0xffff;
+  const zeroPrefix = g0 === 0 && g1 === 0 && g2 === 0 && g3 === 0;
+  // IPv4-mapped (::ffff:a.b.c.d), IPv4-translated (::ffff:0:a.b.c.d), and NAT64 (64:ff9b::/96) carry an IPv4 address.
+  const mapped = zeroPrefix && g4 === 0 && g5 === 0xffff;
+  const translated = zeroPrefix && g4 === 0xffff && g5 === 0;
   const nat64 = g0 === 0x64 && g1 === 0xff9b && g2 === 0 && g3 === 0 && g4 === 0 && g5 === 0;
-  if (mapped || nat64) return isPrivateIpv4(embedded);
+  if (mapped || translated || nat64) return isPrivateIpv4(embedded);
+  // The deprecated IPv4-compatible block (::/96) holds no public host, and a transition gateway would route it to the embedded IPv4 address.
+  const compatible = zeroPrefix && g4 === 0 && g5 === 0;
   // 6to4 (2002::/16) embeds the IPv4 address in the next two groups.
   if (g0 === 0x2002) return isPrivateIpv4([g1 >> 8, g1 & 255, g2 >> 8, g2 & 255]);
   return (
     unspecifiedOrLoopback ||
+    compatible ||
+    // Local-use NAT64, the discard prefix, the IETF protocol block with Teredo, and the 5f00::/16 SRv6 block.
+    (g0 === 0x64 && g1 === 0xff9b && g2 === 1) ||
+    (g0 === 0x100 && g1 === 0 && g2 === 0 && g3 === 0) ||
+    (g0 === 0x2001 && g1 < 0x200) ||
+    g0 === 0x5f00 ||
     (g0 & 0xfe00) === 0xfc00 ||
     (g0 & 0xffc0) === 0xfe80 ||
     (g0 & 0xff00) === 0xff00 ||

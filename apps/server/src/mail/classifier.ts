@@ -10,6 +10,7 @@ import type { SettingsStore } from "../core/settings.js";
 import { askLlm, type LlmFetch } from "./llm.js";
 import { CLASS_PRIORITY, matchSignals, requestedFieldsIn, type Signal } from "./reply-rules.js";
 import { extractLinks, type MailLink, stripQuoted } from "./reply-text.js";
+import { senderIsAuthenticated } from "./sender-auth.js";
 import type {
   ClassificationResult,
   ClassifierRequest,
@@ -22,8 +23,10 @@ import type {
 export const CONFIDENCE_THRESHOLD = 0.6;
 /** What a reply can reach when nothing ties it to a request, so it always waits for a person. */
 const UNMATCHED_CAP = 0.55;
-/** What a reply can reach when only its sender's domain ties it to a request. */
+/** What a reply can reach when only its sender's domain ties it to a request and the provider vouched for that domain. */
 const SENDER_DOMAIN_CAP = 0.8;
+/** The same match without a DKIM or DMARC pass rests on a forgeable From address, so it waits for a person. */
+const UNAUTHENTICATED_SENDER_CAP = 0.55;
 /** The floor the contract gives a confirmation email that matches a waiting form submission. */
 const AWAITING_CONFIRMATION_FLOOR = 0.8;
 const AMBIGUITY_PENALTY = 0.15;
@@ -228,10 +231,12 @@ function capFor(
   classification: ReplyClassification,
   via: Correlation | null,
   confidence: number,
+  senderVouched: boolean,
 ): number {
   if (via === null)
     return classification === "unrelated" ? confidence : Math.min(confidence, UNMATCHED_CAP);
-  if (via === "sender_domain") return Math.min(confidence, SENDER_DOMAIN_CAP);
+  if (via === "sender_domain")
+    return Math.min(confidence, senderVouched ? SENDER_DOMAIN_CAP : UNAUTHENTICATED_SENDER_CAP);
   return confidence;
 }
 
@@ -264,6 +269,7 @@ export function createReplyClassifier(deps: ReplyClassifierDeps): ReplyClassifie
       let match =
         correlateByMessageId(message, requests) ?? correlateByReference(message, requests);
       const signals = matchSignals({ message, body });
+      let confirmationForWaitingForm = false;
 
       if (match) {
         const signal = confirmationSignal(
@@ -276,6 +282,7 @@ export function createReplyClassifier(deps: ReplyClassifierDeps): ReplyClassifie
         const awaiting = matchAwaitingConfirmation(message, requests, allLinks, text);
         if (awaiting) {
           match = awaiting.match;
+          confirmationForWaitingForm = true;
           signals.push({
             ...awaiting.signal,
             confidence: Math.max(awaiting.signal.confidence, AWAITING_CONFIRMATION_FLOOR),
@@ -295,6 +302,10 @@ export function createReplyClassifier(deps: ReplyClassifierDeps): ReplyClassifie
 
       const links = match ? usableLinks(allLinks, match.request).map((link) => link.url) : [];
       const via = match?.via ?? null;
+      // A confirmation email for a waiting form is only ever acted on through links on the request's own sites.
+      const senderVouched =
+        confirmationForWaitingForm ||
+        (match !== null && senderIsAuthenticated(message, domainsOf(match.request)));
       const requestId = match?.request.id ?? null;
 
       signals.sort(
@@ -326,7 +337,7 @@ export function createReplyClassifier(deps: ReplyClassifierDeps): ReplyClassifie
           requestId,
           correlation: via,
           classification: top.classification,
-          confidence: round(capFor(top.classification, via, floored)),
+          confidence: round(capFor(top.classification, via, floored, senderVouched)),
           rationale: `${top.rationale}${rival ? ", though other wording points elsewhere" : ""}; ${describeCorrelation(via)}`,
           links,
           requestedFields:
@@ -355,7 +366,7 @@ export function createReplyClassifier(deps: ReplyClassifierDeps): ReplyClassifie
       }
 
       if (result.confidence >= CONFIDENCE_THRESHOLD) return result;
-      return refineWithLlm(deps, message, body, result, via);
+      return refineWithLlm(deps, message, body, result, via, senderVouched);
     },
   };
 }
@@ -366,6 +377,7 @@ async function refineWithLlm(
   body: string,
   current: ClassificationResult,
   via: Correlation | null,
+  senderVouched: boolean,
 ): Promise<ClassificationResult> {
   const llm = configuredLlm(deps.settings);
   if (!llm) return current;
@@ -386,7 +398,12 @@ async function refineWithLlm(
   const unsupported = answer.classification === "confirmation_link" && current.links.length === 0;
   const classification: ReplyClassification = unsupported ? "unknown" : answer.classification;
   const confidence = round(
-    capFor(classification, via, unsupported ? 0.3 : Math.min(answer.confidence, 0.9)),
+    capFor(
+      classification,
+      via,
+      unsupported ? 0.3 : Math.min(answer.confidence, 0.9),
+      senderVouched,
+    ),
   );
   if (confidence <= current.confidence) return current;
   return {

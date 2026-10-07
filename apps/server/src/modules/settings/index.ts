@@ -8,6 +8,7 @@ import {
   type SettingsView,
 } from "@kickrocks/shared";
 import { sql } from "drizzle-orm";
+import { invalidRequest } from "../../core/errors.js";
 import { registerRoute } from "../../core/http.js";
 import type { ModulePlugin } from "../../core/module.js";
 import { definedOnly } from "../../core/objects.js";
@@ -30,6 +31,14 @@ function viewOf({ settings, config }: AppServices): SettingsView {
   };
 }
 
+function sameOrigin(a: string, b: string): boolean {
+  try {
+    return new URL(a).origin === new URL(b).origin;
+  } catch {
+    return false;
+  }
+}
+
 function applyPatch({ settings }: AppServices, patch: SettingsPatch): void {
   if (patch.schedule) {
     settings.set(
@@ -41,8 +50,17 @@ function applyPatch({ settings }: AppServices, patch: SettingsPatch): void {
     settings.reset("llm");
   } else if (patch.llm) {
     const { baseUrl, model, apiKey } = patch.llm;
+    const stored = settings.get("llm");
+    if (apiKey === undefined && stored?.apiKey && !sameOrigin(stored.baseUrl, baseUrl)) {
+      throw invalidRequest("The saved API key is for a different server", [
+        {
+          path: ["body", "llm", "apiKey"],
+          message: "The endpoint changed, so enter the API key again",
+        },
+      ]);
+    }
     // An omitted key keeps the stored one, so editing the model does not mean typing the key again.
-    const kept = apiKey === undefined ? (settings.get("llm")?.apiKey ?? null) : apiKey;
+    const kept = apiKey === undefined ? (stored?.apiKey ?? null) : apiKey;
     settings.set("llm", { baseUrl, model, apiKey: kept });
   }
   if (patch.mcp) settings.set("mcp.enabled", patch.mcp.enabled);
