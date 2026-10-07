@@ -1,20 +1,51 @@
 import { API_ROUTES } from "@kickrocks/shared";
-import { StubPage } from "../../components/layout/StubPage.js";
+import { errorMessage, useApiQuery } from "../../api/index.js";
+import { Alert, Button, Card, SkeletonText } from "../../components/ui/index.js";
+import { JurisdictionsCard } from "./JurisdictionsCard.js";
+import { LlmCard } from "./LlmCard.js";
+import { PasswordCard } from "./PasswordCard.js";
+import { ScheduleCard } from "./ScheduleCard.js";
+import { SettingsHeader } from "./SettingsHeader.js";
+import { WorkerCard } from "./WorkerCard.js";
+
+const WORKER_POLL_MS = 15_000;
 
 export function Component() {
+  const settings = useApiQuery(API_ROUTES.settingsGet, { refetchInterval: WORKER_POLL_MS });
+
   return (
-    <StubPage
-      title="Settings"
-      description="Schedule, language model, worker, jurisdictions, and the password."
-      file="src/pages/settings/index.tsx"
-      mock="mock/settings.ts"
-      routes={[
-        API_ROUTES.settingsGet,
-        API_ROUTES.settingsPatch,
-        // Jurisdictions and changing the password live here, even though the password route is auth's.
-        API_ROUTES.settingsJurisdictions,
-        API_ROUTES.authPassword,
-      ]}
-    />
+    <>
+      <SettingsHeader description="Schedule, language model, worker, privacy laws, and the password." />
+      {settings.isPending ? (
+        <div aria-busy="true" className="flex flex-col gap-5">
+          <span className="sr-only">Loading settings</span>
+          {[0, 1, 2].map((key) => (
+            <Card key={key}>
+              <SkeletonText lines={4} />
+            </Card>
+          ))}
+        </div>
+      ) : settings.isError ? (
+        <Alert
+          intent="danger"
+          title="Could not load settings"
+          action={
+            <Button size="sm" onClick={() => settings.refetch()}>
+              Try again
+            </Button>
+          }
+        >
+          {errorMessage(settings.error)}
+        </Alert>
+      ) : (
+        <div className="flex flex-col gap-5">
+          <ScheduleCard schedule={settings.data.schedule} />
+          <WorkerCard worker={settings.data.worker} now={settings.dataUpdatedAt} />
+          <LlmCard llm={settings.data.llm} />
+          <JurisdictionsCard />
+          <PasswordCard />
+        </div>
+      )}
+    </>
   );
 }
