@@ -1,7 +1,6 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "rootDir": "src",
     "module": "ESNext",
     "moduleResolution": "Bundler",
     "lib": ["ES2023", "DOM", "DOM.Iterable"],
@@ -11,13 +10,8 @@
     "declaration": false,
     "declarationMap": false,
     "sourceMap": false,
-    "types": ["vite/client"]
+    "types": ["vite/client", "node"]
   },
-  "include": ["src"],
-  "references": [
-    {
-      "path": "../../packages/shared"
-    }
-  ],
-  "exclude": ["src/test", "src/**/*.test.tsx"]
+  "include": ["src/test", "src/**/*.test.tsx", "mock"],
+  "references": [{ "path": "../../packages/shared" }]
 }
