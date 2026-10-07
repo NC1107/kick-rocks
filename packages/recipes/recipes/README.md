@@ -82,6 +82,7 @@ Steps that take a selector accept `frame`, the selector of an iframe, for a form
 
 Selectors are tried in this order: role and label, test id, CSS, then visible text.
 Template filters are `slug`, `lower`, `urlencode`, and `state_name`.
+Filters chain left to right, so `{{state|state_name|slug}}` renders "TX" as "texas" for a state scoped URL.
 A template that names an unknown field or filter is rejected when the recipe is loaded, and one that cannot be rendered fails the run instead of sending a half-filled value.
 
 ## Canary
