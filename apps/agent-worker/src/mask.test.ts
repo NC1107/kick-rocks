@@ -47,6 +47,28 @@ describe("createMask", () => {
     );
   });
 
+  it("hides a value in every encoding an address or a page can give it", () => {
+    const person = createMask({ full_name: "Jordan O'Neil, Jr. #2 & Co" });
+    const value = "Jordan O'Neil, Jr. #2 & Co";
+    const spellings = [
+      value,
+      new URLSearchParams({ q: value }).toString().slice(2),
+      encodeURIComponent(value),
+      encodeURI(value),
+      encodeURIComponent(value).toLowerCase(),
+      new URLSearchParams({ q: value }).toString().slice(2).toLowerCase(),
+      encodeURIComponent(value).replace("%20", "+"),
+      "Jordan+O%27Neil,%20Jr.+%232+%26+Co",
+      "Jordan O&#39;Neil, Jr. #2 &amp; Co",
+    ];
+    for (const spelling of spellings) {
+      expect(person(`https://x.test/search?name=${spelling}&page=2`)).toBe(
+        "https://x.test/search?name={{full_name}}&page=2",
+      );
+      expect(person(`/people?next=${spelling}`)).toBe("/people?next={{full_name}}");
+    }
+  });
+
   it("restores a value where a placeholder stands, and leaves other placeholders alone", () => {
     expect(
       restoreFields("{{first_name}} {{last_name}} {{zip}} {{nope}}", {
