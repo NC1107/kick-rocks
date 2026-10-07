@@ -42,7 +42,13 @@ import {
   seedTask,
   type TestContext,
 } from "../../test-utils/index.js";
+import { compactDatabase } from "./compact.js";
 import { applyRetention } from "./retention.js";
+
+vi.mock("./compact.js", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./compact.js")>();
+  return { compactDatabase: vi.fn(actual.compactDatabase) };
+});
 
 let ctx: TestContext;
 
@@ -765,6 +771,31 @@ describe("retention", () => {
     expect(applyRetention(ctx.services).screenshots).toBe(1);
     expect(freePages()).toBe(0);
     expect(count(taskArtifacts)).toBe(0);
+  });
+
+  it("does not compact on the scheduled path when the purge freed almost nothing", () => {
+    const profile = seedProfile(ctx);
+    const mailbox = seedMailbox(ctx, profile.id);
+    seedOldMessage({ mailboxId: mailbox.id, reviewed: true }, 40);
+    setRetention({ messageDays: 30, screenshotDays: 30 });
+    vi.mocked(compactDatabase).mockClear();
+
+    expect(applyRetention(ctx.services, { compact: "when-worthwhile" }).messages).toBe(1);
+    expect(compactDatabase).not.toHaveBeenCalled();
+  });
+
+  it("compacts on the scheduled path when the purge freed a meaningful share of the file", () => {
+    seedTask(ctx, {
+      kind: "canary",
+      payload: { recipeId: "a" },
+      status: "failed",
+      screenshot: BIG_SCREENSHOT,
+    });
+    ctx.clock.advance(31 * DAY);
+    vi.mocked(compactDatabase).mockClear();
+
+    expect(applyRetention(ctx.services, { compact: "when-worthwhile" }).screenshots).toBe(1);
+    expect(compactDatabase).toHaveBeenCalledTimes(1);
   });
 
   it("is what the scheduler runs, with the person's windows", async () => {

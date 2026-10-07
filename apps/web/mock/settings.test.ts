@@ -77,6 +77,17 @@ describe("retention and reset handlers", () => {
     expect(app.store.profiles.length).toBeGreaterThan(0);
   });
 
+  it("keeps canary tasks through a reset, as the server does", async () => {
+    const [template] = app.store.tasks;
+    if (!template) throw new Error("the seed has no tasks");
+    app.store.tasks.push({ ...template, id: "tsk_canary", kind: "canary", requestId: null });
+    app.store.blockedInfo.set("tsk_canary", { reason: "captcha" } as never);
+    await call({ method: "POST", path: "/settings/reset", body: { confirm: "delete everything" } });
+    expect(app.store.tasks.map((task) => task.id)).toEqual(["tsk_canary"]);
+    expect(app.store.blockedInfo.has("tsk_canary")).toBe(true);
+    expect(app.store.blockedInfo.size).toBe(1);
+  });
+
   it("wipes the data and the instance settings", async () => {
     await call({
       method: "PATCH",

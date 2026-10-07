@@ -244,6 +244,16 @@ export function describeDays(days: number): string {
   return `${days} days`;
 }
 
+/** A window that went from keeping forever to a number, or got shorter, deletes data on save. */
+export function clearsData(patch: RetentionPatch, saved: RetentionSettings): boolean {
+  return RETENTION_FIELDS.some(({ key }) => {
+    const next = patch[key];
+    if (next === undefined || next === null) return false;
+    const before = saved[key];
+    return before === null || next < before;
+  });
+}
+
 /** Only the fields that differ from what is saved, so a save never rewrites one it did not touch. */
 export function retentionPatchOf(draft: RetentionDraft, saved: RetentionSettings): RetentionPatch {
   const patch: RetentionPatch = {};

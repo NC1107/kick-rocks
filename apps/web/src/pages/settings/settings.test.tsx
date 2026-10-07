@@ -147,6 +147,16 @@ describe("general settings", () => {
     await waitFor(() => expect(mock.store.settings.retention.screenshotDays).toBe(7));
     expect(mock.store.settings.retention.messageDays).toBeNull();
     expect((await screen.findAllByText("Retention saved")).length).toBeGreaterThan(0);
+    expect(await screen.findAllByText("Older data was cleared right away.")).not.toHaveLength(0);
+  });
+
+  it("does not claim anything was cleared when a window is made longer or switched off", async () => {
+    const { user, mock } = general();
+    await user.selectOptions(await field("Keep screenshots for"), "forever");
+    await user.click(screen.getByRole("button", { name: "Save retention" }));
+    await waitFor(() => expect(mock.store.settings.retention.screenshotDays).toBeNull());
+    expect((await screen.findAllByText("Retention saved")).length).toBeGreaterThan(0);
+    expect(screen.queryByText("Older data was cleared right away.")).not.toBeInTheDocument();
   });
 
   it("can keep a window until the person deletes the data, and can turn one on", async () => {

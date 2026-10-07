@@ -98,7 +98,7 @@ Packages:
 | H datasets | `kr/datasets` | `packages/brokers/**` |
 | I web-core | `kr/web-core` | `apps/web/src/pages/{setup,login,dashboard,profiles,mailbox,about}/**`, `apps/web/mock/{auth,profiles,mailbox,dashboard,about}.ts`, and the tests beside them, `apps/web/mock/{auth,profiles,mailbox,dashboard,about}.test.ts` and `apps/web/src/pages/<page>/*.test.tsx` |
 | J web-flows | `kr/web-flows` | `apps/web/src/pages/{targets,campaigns,requests,review,settings}/**`, `apps/web/mock/{targets,campaigns,requests,review,settings}.ts`, and the tests beside them, `apps/web/mock/{targets,campaigns,requests,review,settings}.test.ts` and `apps/web/src/pages/<page>/*.test.tsx` |
-| K data-rights | `kr2/data-rights` | `apps/server/src/modules/data-rights/**`, the retention hook in `apps/server/src/scheduler/scheduler.ts`, `packages/shared/src/data-rights.ts`, and the export, retention, and reset cards in `apps/web/src/pages/{profiles/detail,settings}/` |
+| K data-rights | `kr2/data-rights` | `apps/server/src/modules/data-rights/**`, the retention hook in `apps/server/src/scheduler/scheduler.ts`, `packages/shared/src/{data-rights,api,settings,index}.ts` and their tests (contract additions accepted for this module), `apps/web/mock/{profiles,settings,store}.ts`, `apps/server/src/modules/{index,profiles,settings}/`, the in-flight-delete guard in `apps/server/src/runners/email-send.ts`, and the export, retention, and reset cards in `apps/web/src/pages/{profiles/detail,settings}/` |
 
 Each module's test files live next to its code inside its own paths.
 

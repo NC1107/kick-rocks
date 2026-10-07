@@ -1,7 +1,7 @@
 import { mailboxes, outgoingMail, requests, targets, tasks } from "@kickrocks/db";
 import { API_ROUTES, POLICY_RESPONSE_DAYS, parseOutgoingMessageId } from "@kickrocks/shared";
 import { eq } from "drizzle-orm";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   createTestContext,
   DAY,
@@ -622,6 +622,44 @@ describe("a request moved without its task being cancelled while mail was on the
     await runners.email.runDue();
     expect(ctx.services.mailQuota.sentLastDay(mailboxId)).toBe(1);
     expect(taskFor(request.id)?.attempts).toBe(1);
+  });
+});
+
+describe("a profile deleted while its mail was on the way", () => {
+  it("records nothing and still sends the other profiles' mail in the same pass", async () => {
+    const other = seedProfile(ctx, { displayName: "Casey Example" });
+    seedMailbox(ctx, other.id, { address: "casey@example.org" });
+    openRequest(profileId);
+    openRequest(other.id);
+
+    let release: () => void = () => {};
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let first = true;
+    const transport = ctx.mail.services.transport;
+    ctx.mail.services.transport = (connection) => ({
+      ...transport(connection),
+      send: async (mail) => {
+        if (first) {
+          first = false;
+          await gate;
+          return { messageId: mail.messageId, accepted: [mail.to], rejected: [] };
+        }
+        return transport(connection).send(mail);
+      },
+    });
+
+    const pass = runners.email.runDue();
+    await vi.waitFor(() => expect(first).toBe(false));
+    const deleted = await ctx.call(API_ROUTES.profilesDelete, { params: { id: profileId } });
+    expect(deleted.status).toBe(200);
+    release();
+
+    expect(await pass).toBe(1);
+    ctx.mail.services.transport = transport;
+    expect(ctx.services.db.select().from(outgoingMail).all()).toHaveLength(1);
+    expect(ctx.mail.sent.map((entry) => entry.mail.from.address)).toEqual(["casey@example.org"]);
   });
 });
 

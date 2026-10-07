@@ -68,7 +68,7 @@ export function createScheduler(
       await job("canaries", () => enqueueDueCanaries(services));
     }
     if (due("retention", retentionMs)) {
-      await job("retention", () => applyRetention(services));
+      await job("retention", () => applyRetention(services, { compact: "when-worthwhile" }));
     }
     await job("runners", () => runners.runDue());
   }

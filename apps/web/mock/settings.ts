@@ -229,10 +229,12 @@ function wipePersonalData(store: MockStore): void {
   store.profiles = [];
   store.requests = [];
   store.messages = [];
-  store.tasks = [];
+  store.tasks = store.tasks.filter((task) => task.kind === "canary");
   store.matches = [];
   store.scans = [];
-  store.blockedInfo.clear();
+  for (const id of store.blockedInfo.keys()) {
+    if (!store.tasks.some((task) => task.id === id)) store.blockedInfo.delete(id);
+  }
 }
 
 export default defineMockDomain({

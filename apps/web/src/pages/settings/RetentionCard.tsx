@@ -12,6 +12,7 @@ import {
   useToast,
 } from "../../components/ui/index.js";
 import {
+  clearsData,
   describeDays,
   KEEP_FOREVER,
   RETENTION_FIELDS,
@@ -29,7 +30,13 @@ export function RetentionCard({ retention }: { retention: RetentionSettings }) {
 
   const save = useApiMutation(API_ROUTES.settingsPatch, {
     invalidates: [API_ROUTES.settingsGet],
-    onSuccess: () => toast.success("Retention saved", "Older data was cleared right away."),
+    onSuccess: (_data, variables) =>
+      toast.success(
+        "Retention saved",
+        clearsData(variables.body.retention ?? {}, retention)
+          ? "Older data was cleared right away."
+          : undefined,
+      ),
   });
 
   const patch = retentionPatchOf(draft, retention);
