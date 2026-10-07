@@ -66,6 +66,11 @@ export interface InboxMessage {
   headers: Record<string, string>;
   /** Every Authentication-Results header, topmost first, which `headers` joins and so cannot order. */
   authenticationResults: string[];
+  /**
+   * For each entry of `authenticationResults`, how many Received headers sit above it. Two headers
+   * with the same count have no hop between them. A missing list counts every header as 0.
+   */
+  authenticationReceivedAbove?: number[];
 }
 
 export interface FetchOptions {

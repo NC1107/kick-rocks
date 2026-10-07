@@ -206,6 +206,7 @@ describe("correlation", () => {
       const result = await classify("We have completed your request.", {
         ...sender,
         authenticationResults: ["mx.example.com; dkim=fail header.d=acme.test", real],
+        authenticationReceivedAbove: [0, 1],
       });
       expect(result.confidence).toBeLessThan(0.6);
     });

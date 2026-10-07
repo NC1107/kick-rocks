@@ -20,6 +20,7 @@ describe("parseInboxMessage", () => {
       "mx.google.com; dkim=pass header.d=real.test",
       "mx.google.com; dkim=pass header.d=forged.test",
     ]);
+    expect(message.authenticationReceivedAbove).toEqual([0, 1]);
   });
 
   it("maps the headers and body of a plain message", async () => {

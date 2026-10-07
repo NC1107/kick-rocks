@@ -3,6 +3,13 @@ import type { ProviderPreset } from "@kickrocks/shared";
 const SUPPORTED = { supported: true, unsupportedReason: null } as const;
 
 /**
+ * Authserv-ids match by domain suffix, so one entry covers every host a provider writes under it.
+ * Checked against published real headers: gmail and google-workspace (mx.google.com), fastmail
+ * (mx1.messagingengine.com), yahoo (yahoo.com), proton-bridge (mail.protonmail.ch), zoho
+ * (mx.zoho.com). Not confirmed from any source: icloud (icloud.com is the expected domain, and
+ * per-method hosts such as dkim-verifier.icloud.com are recalled, not seen in a published header)
+ * and mailbox-org (mailbox.org is the expected domain, no inbound header was found).
+ *
  * Daily caps sit well under each provider's published sending limit, because a mailbox that sends
  * a burst of near-identical mail is what gets an app password suspended.
  */
@@ -112,7 +119,7 @@ export const PROVIDER_PRESETS: readonly ProviderPreset[] = [
   },
   {
     id: "zoho",
-    authservIds: ["zohomail.com"],
+    authservIds: ["zoho.com", "zohomail.com"],
     label: "Zoho Mail",
     smtpHost: "smtp.zoho.com",
     smtpPort: 465,

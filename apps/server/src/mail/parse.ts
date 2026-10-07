@@ -19,28 +19,36 @@ function addressesOf(field: AddressObject | AddressObject[] | undefined) {
 function headerRecord(parsed: ParsedMail): Record<string, string> {
   const headers: Record<string, string> = {};
   for (const { key, line } of parsed.headerLines.slice(0, MAX_HEADERS)) {
-    const value = line
-      .slice(line.indexOf(":") + 1)
-      .replace(/\r?\n[ \t]+/g, " ")
-      .trim();
+    const value = unfolded(line);
     headers[key] = key in headers ? `${headers[key]}, ${value}` : value;
   }
   return headers;
 }
 
-/** A delivery status report, or a mail from a mailer daemon, which is how servers say "bounced". */
-function authenticationResultsOf(parsed: ParsedMail): string[] {
-  return parsed.headerLines
-    .slice(0, MAX_HEADERS)
-    .filter(({ key }) => key === "authentication-results")
-    .map(({ line }) =>
-      line
-        .slice(line.indexOf(":") + 1)
-        .replace(/\r?\n[ \t]+/g, " ")
-        .trim(),
-    );
+function unfolded(line: string): string {
+  return line
+    .slice(line.indexOf(":") + 1)
+    .replace(/\r?\n[ \t]+/g, " ")
+    .trim();
 }
 
+function authenticationResultsOf(parsed: ParsedMail): {
+  values: string[];
+  receivedAbove: number[];
+} {
+  const values: string[] = [];
+  const receivedAbove: number[] = [];
+  let received = 0;
+  for (const { key, line } of parsed.headerLines.slice(0, MAX_HEADERS)) {
+    if (key === "received") received += 1;
+    if (key !== "authentication-results") continue;
+    values.push(unfolded(line));
+    receivedAbove.push(received);
+  }
+  return { values, receivedAbove };
+}
+
+/** A delivery status report, or a mail from a mailer daemon, which is how servers say "bounced". */
 export function detectBounce(parsed: ParsedMail, headers: Record<string, string>): boolean {
   const contentType = (headers["content-type"] ?? "").toLowerCase();
   if (contentType.includes("multipart/report") && contentType.includes("delivery-status")) {
@@ -104,6 +112,7 @@ export async function parseInboxMessage({
   }
 
   const headers = headerRecord(parsed);
+  const authentication = authenticationResultsOf(parsed);
   const from = addressesOf(parsed.from)[0];
   const references =
     parsed.references === undefined
@@ -128,6 +137,7 @@ export async function parseInboxMessage({
     isBounce: detectBounce(parsed, headers),
     autoSubmitted: detectAutoSubmitted(headers),
     headers,
-    authenticationResults: authenticationResultsOf(parsed),
+    authenticationResults: authentication.values,
+    authenticationReceivedAbove: authentication.receivedAbove,
   };
 }

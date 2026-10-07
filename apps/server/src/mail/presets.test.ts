@@ -30,6 +30,10 @@ describe("provider presets", () => {
     expect(findProviderPreset("gmail")?.authservIds).toContain("mx.google.com");
   });
 
+  it("name Zoho's mx.zoho.com, which is not under zohomail.com", () => {
+    expect(findProviderPreset("zoho")?.authservIds).toContain("zoho.com");
+  });
+
   it("have unique ids", () => {
     const ids = PROVIDER_PRESETS.map((preset) => preset.id);
     expect(new Set(ids).size).toBe(ids.length);
