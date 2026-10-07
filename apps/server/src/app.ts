@@ -50,7 +50,11 @@ function registerSecurityHeaders(server: FastifyInstance): void {
 
 export async function buildApp({ services, database, version }: AppContext): Promise<App> {
   const { config } = services;
-  const server = Fastify({ loggerInstance: services.logger, trustProxy: config.trustProxy });
+  const { trustProxy } = config;
+  const server = Fastify({
+    loggerInstance: services.logger,
+    trustProxy: typeof trustProxy === "number" ? (_address, hop) => hop < trustProxy : trustProxy,
+  });
 
   installErrorHandling(server);
   registerSecurityHeaders(server);

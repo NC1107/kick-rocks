@@ -21,6 +21,7 @@ beforeEach(async () => {
   profileId = seedProfile(ctx).id;
   seedMailbox(ctx, profileId);
   targetId = seedTarget(ctx, {
+    domain: "records.test",
     category: "people-search",
     contactMethod: "form",
     requirements: ["record_url"],

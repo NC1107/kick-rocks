@@ -462,6 +462,26 @@ describe("password change", () => {
   });
 });
 
+describe("login throttling behind a reverse proxy", () => {
+  beforeEach(async () => {
+    await ctx.close();
+    ctx = await createTestContext({ auth: "real", env: { KICKROCKS_TRUST_PROXY: "1" } });
+  });
+
+  it("keys the lockout on the address the proxy saw, not on one the client wrote", async () => {
+    await setUp();
+    const statuses: number[] = [];
+    for (let i = 0; i < 8; i += 1) {
+      const response = await logIn("wrong password here", {
+        "x-forwarded-for": `203.0.113.${i}, 198.51.100.9`,
+      });
+      statuses.push(response.statusCode);
+    }
+    expect(statuses.slice(0, 5)).toEqual([401, 401, 401, 401, 401]);
+    expect(statuses.slice(5)).toEqual([429, 429, 429]);
+  });
+});
+
 describe("security headers on the auth routes", () => {
   it("never lets a response that sets a session be cached", async () => {
     const response = await post(API_ROUTES.authSetup, { password: PASSWORD });

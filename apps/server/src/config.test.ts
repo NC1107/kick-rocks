@@ -58,8 +58,17 @@ describe("loadConfig", () => {
 
   it("trusts proxy headers only when asked to", () => {
     expect(loadConfig({}).trustProxy).toBe(false);
-    expect(loadConfig({ KICKROCKS_TRUST_PROXY: "on" }).trustProxy).toBe(true);
+    expect(loadConfig({ KICKROCKS_TRUST_PROXY: "1" }).trustProxy).toBe(1);
+    expect(loadConfig({ KICKROCKS_TRUST_PROXY: "172.17.0.0/16, ::1" }).trustProxy).toEqual([
+      "172.17.0.0/16",
+      "::1",
+    ]);
     expect(loadConfig({ KICKROCKS_TRUST_PROXY: "" }).trustProxy).toBe(false);
+    expect(loadConfig({ KICKROCKS_TRUST_PROXY: "off" }).trustProxy).toBe(false);
+  });
+
+  it("refuses to trust every hop, which lets a client pick its own address", () => {
+    expect(() => loadConfig({ KICKROCKS_TRUST_PROXY: "on" })).toThrow(/number of proxies/);
     expect(() => loadConfig({ KICKROCKS_TRUST_PROXY: "yes" })).toThrow();
   });
 
