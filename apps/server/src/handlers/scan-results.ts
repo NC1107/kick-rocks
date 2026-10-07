@@ -160,9 +160,8 @@ function finishScan(
 }
 
 /** Puts a scan that was marked failed back to running, for the agent that takes the work over. */
-function reopenScan(tx: DbHandle, taskId: string): void {
-  const scan = scanOf(tx, taskId);
-  if (!scan || !endedInFailure(scan)) return;
+function reopenScan(tx: DbHandle, scan: ScanRow): void {
+  if (!endedInFailure(scan)) return;
   tx.update(scans).set({ finishedAt: null, error: null }).where(eq(scans.id, scan.id)).run();
 }
 
@@ -196,8 +195,14 @@ export function registerScanHandlers(services: AppServices): void {
   taskHandlers.on("scan", "failed", ({ task }, tx) => {
     if (task.failureKind === "recipe") {
       recordRecipeRun(services, tx, task.payload.recipeId, false);
-      reopenScan(tx, task.id);
-      if (handToAgentAfterRecipeFailure(services, task)) return;
+      const scan = scanOf(tx, task.id);
+      const handoff = handToAgentAfterRecipeFailure(services, task);
+      // An agent task that was already live belongs to some other scan row, so this one has to
+      // keep saying why it failed instead of looking finished with nothing found.
+      if (handoff?.created) {
+        if (scan) reopenScan(tx, scan);
+        return;
+      }
     }
     failScan(services, tx, task);
   });

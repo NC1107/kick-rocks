@@ -541,6 +541,22 @@ describe("a lapsed holder reporting on a scan after its last lease expired", () 
     expect(allMatches()).toHaveLength(1);
   });
 
+  it("keeps the failure visible when a rescan already holds the work a late recipe failure would hand over", async () => {
+    const target = queueScan();
+    const task = await letEveryLeaseExpire(["scan"]);
+    const original = scanOfTask(task.id);
+    ctx.services.dispatch.enqueueScan(profileId, target.id);
+
+    const failed = await ctx.call(API_ROUTES.workerTaskFail, {
+      params: { id: task.id },
+      body: { workerId: "worker-1", error: "selector gone", retryable: false, kind: "recipe" },
+    });
+    expect(failed.ok).toBe(true);
+    const row = ctx.services.db.select().from(scans).where(eq(scans.id, original?.id ?? "")).get();
+    expect(row?.error).toEqual(expect.any(String));
+    expect(row?.finishedAt).toEqual(expect.any(String));
+  });
+
   it("hands a late recipe failure to an agent whose result lands", async () => {
     const target = queueScan();
     const task = await letEveryLeaseExpire(["scan"]);

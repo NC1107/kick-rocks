@@ -123,7 +123,7 @@ export function registerRemovalHandlers(services: AppServices): void {
     recordRecipeRun(services, tx, task.payload.recipeId, false);
     const request = services.requests.get(task.payload.requestId);
     if (request?.status !== "queued") return;
-    if (handToAgentAfterRecipeFailure(services, task)) {
+    if (handToAgentAfterRecipeFailure(services, task) !== null) {
       // The agent task now holds the work, so the request no longer needs a person.
       services.requests.update(request.id, { lastError: null });
     }

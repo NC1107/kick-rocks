@@ -1,6 +1,7 @@
 import { type DbHandle, recipes } from "@kickrocks/db";
 import { eq } from "drizzle-orm";
 import { AppError } from "../core/errors.js";
+import type { EnqueueResult } from "../core/task-queue.js";
 import type { Task } from "../core/task-types.js";
 import type { AppServices } from "../services.js";
 
@@ -20,22 +21,25 @@ export function recordRecipeRun(
 }
 
 /**
- * Hands the work of a scan or form task whose recipe broke to an agent. Returns whether an agent
- * task now holds the work, so the caller knows whether anything else still has to account for it.
+ * Hands the work of a scan or form task whose recipe broke to an agent. Returns the enqueue result
+ * when an agent task now holds the work, so the caller can tell a task it created from one that
+ * was already live, and null when nothing took the work over.
  */
 export function handToAgentAfterRecipeFailure(
   services: AppServices,
   task: Task<"scan" | "form">,
-): boolean {
+): EnqueueResult | null {
   try {
-    services.dispatch.fallbackToAgent(task, { reason: "recipe_failed", error: task.lastError });
-    return true;
+    return services.dispatch.fallbackToAgent(task, {
+      reason: "recipe_failed",
+      error: task.lastError,
+    });
   } catch (error) {
     if (!(error instanceof AppError)) throw error;
     services.logger.warn(
       { taskId: task.id, code: error.code },
       "could not hand a failed recipe run to an agent",
     );
-    return false;
+    return null;
   }
 }
