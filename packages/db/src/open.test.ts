@@ -7,6 +7,12 @@ import { profiles } from "./schema.js";
 
 let dir: string;
 
+const NOW = "2026-10-07T00:00:00.000Z";
+
+function profile(id: string, displayName: string, state: "TX" | "CA") {
+  return { id, displayName, state, createdAt: NOW, updatedAt: NOW };
+}
+
 beforeEach(() => {
   dir = mkdtempSync(join(tmpdir(), "kickrocks-db-"));
 });
@@ -37,7 +43,10 @@ describe("openDatabase", () => {
     const dbPath = join(dir, "kickrocks.db");
     const keyPath = join(dir, "db.key");
     const first = openDatabase({ dbPath, keyPath });
-    first.db.insert(profiles).values({ id: "p1", displayName: "Nick", state: "TX" }).run();
+    first.db
+      .insert(profiles)
+      .values(profile("p1", "Nick", "TX"))
+      .run();
     first.close();
 
     const second = openDatabase({ dbPath, keyPath });
@@ -61,7 +70,7 @@ describe("openDatabase", () => {
     const opened = openDatabase({ dbPath, keyPath: join(dir, "db.key") });
     opened.db
       .insert(profiles)
-      .values({ id: "p1", displayName: "PLAINTEXT-MARKER", state: "CA" })
+      .values(profile("p1", "PLAINTEXT-MARKER", "CA"))
       .run();
     opened.close();
     const bytes = readFileSync(dbPath);

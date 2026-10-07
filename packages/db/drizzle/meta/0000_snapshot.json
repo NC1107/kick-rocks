@@ -1,9 +1,78 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "dfdb7fbc-c390-44eb-9fee-6208c263af13",
+  "id": "08a5cfaf-659a-49e2-8de6-d28cc24efc59",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
+    "campaigns": {
+      "name": "campaigns",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "profile_id": {
+          "name": "profile_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "rights": {
+          "name": "rights",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "selection": {
+          "name": "selection",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_count": {
+          "name": "created_count",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "skipped": {
+          "name": "skipped",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "campaigns_profile_id_profiles_id_fk": {
+          "name": "campaigns_profile_id_profiles_id_fk",
+          "tableFrom": "campaigns",
+          "tableTo": "profiles",
+          "columnsFrom": ["profile_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
     "identities": {
       "name": "identities",
       "columns": {
@@ -55,13 +124,6 @@
           "type": "text",
           "primaryKey": false,
           "notNull": false,
-          "autoincrement": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
           "autoincrement": false
         }
       },
@@ -118,6 +180,20 @@
           "notNull": true,
           "autoincrement": false
         },
+        "username": {
+          "name": "username",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "secret": {
+          "name": "secret",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
         "smtp_host": {
           "name": "smtp_host",
           "type": "text",
@@ -153,20 +229,6 @@
           "notNull": true,
           "autoincrement": false
         },
-        "username": {
-          "name": "username",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "secret": {
-          "name": "secret",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
         "reply_folder": {
           "name": "reply_folder",
           "type": "text",
@@ -180,6 +242,13 @@
           "type": "integer",
           "primaryKey": false,
           "notNull": true,
+          "autoincrement": false
+        },
+        "uid_validity": {
+          "name": "uid_validity",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
           "autoincrement": false
         },
         "last_poll_uid": {
@@ -196,6 +265,13 @@
           "notNull": false,
           "autoincrement": false
         },
+        "last_error": {
+          "name": "last_error",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
         "created_at": {
           "name": "created_at",
           "type": "text",
@@ -204,7 +280,13 @@
           "autoincrement": false
         }
       },
-      "indexes": {},
+      "indexes": {
+        "mailboxes_profile_idx": {
+          "name": "mailboxes_profile_idx",
+          "columns": ["profile_id"],
+          "isUnique": true
+        }
+      },
       "foreignKeys": {
         "mailboxes_profile_id_profiles_id_fk": {
           "name": "mailboxes_profile_id_profiles_id_fk",
@@ -232,6 +314,20 @@
         },
         "scan_id": {
           "name": "scan_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "profile_id": {
+          "name": "profile_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "target_id": {
+          "name": "target_id",
           "type": "text",
           "primaryKey": false,
           "notNull": true,
@@ -266,11 +362,11 @@
           "notNull": false,
           "autoincrement": false
         },
-        "created_at": {
-          "name": "created_at",
+        "request_id": {
+          "name": "request_id",
           "type": "text",
           "primaryKey": false,
-          "notNull": true,
+          "notNull": false,
           "autoincrement": false
         }
       },
@@ -280,9 +376,14 @@
           "columns": ["scan_id"],
           "isUnique": false
         },
-        "matches_decision_idx": {
-          "name": "matches_decision_idx",
-          "columns": ["decision"],
+        "matches_profile_decision_idx": {
+          "name": "matches_profile_decision_idx",
+          "columns": ["profile_id", "decision"],
+          "isUnique": false
+        },
+        "matches_record_idx": {
+          "name": "matches_record_idx",
+          "columns": ["profile_id", "target_id", "record_url"],
           "isUnique": false
         }
       },
@@ -294,6 +395,33 @@
           "columnsFrom": ["scan_id"],
           "columnsTo": ["id"],
           "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "matches_profile_id_profiles_id_fk": {
+          "name": "matches_profile_id_profiles_id_fk",
+          "tableFrom": "matches",
+          "tableTo": "profiles",
+          "columnsFrom": ["profile_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "matches_target_id_targets_id_fk": {
+          "name": "matches_target_id_targets_id_fk",
+          "tableFrom": "matches",
+          "tableTo": "targets",
+          "columnsFrom": ["target_id"],
+          "columnsTo": ["id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "matches_request_id_requests_id_fk": {
+          "name": "matches_request_id_requests_id_fk",
+          "tableFrom": "matches",
+          "tableTo": "requests",
+          "columnsFrom": ["request_id"],
+          "columnsTo": ["id"],
+          "onDelete": "set null",
           "onUpdate": "no action"
         }
       },
@@ -325,8 +453,29 @@
           "notNull": true,
           "autoincrement": false
         },
+        "uid_validity": {
+          "name": "uid_validity",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
         "request_id": {
           "name": "request_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "message_id_header": {
+          "name": "message_id_header",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "in_reply_to": {
+          "name": "in_reply_to",
           "type": "text",
           "primaryKey": false,
           "notNull": false,
@@ -367,8 +516,15 @@
           "notNull": true,
           "autoincrement": false
         },
-        "headers": {
-          "name": "headers",
+        "rationale": {
+          "name": "rationale",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "links": {
+          "name": "links",
           "type": "text",
           "primaryKey": false,
           "notNull": true,
@@ -381,6 +537,14 @@
           "notNull": false,
           "autoincrement": false
         },
+        "reviewed": {
+          "name": "reviewed",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": false
+        },
         "created_at": {
           "name": "created_at",
           "type": "text",
@@ -392,12 +556,17 @@
       "indexes": {
         "messages_mailbox_uid_idx": {
           "name": "messages_mailbox_uid_idx",
-          "columns": ["mailbox_id", "imap_uid"],
+          "columns": ["mailbox_id", "uid_validity", "imap_uid"],
           "isUnique": true
         },
         "messages_request_idx": {
           "name": "messages_request_idx",
           "columns": ["request_id"],
+          "isUnique": false
+        },
+        "messages_review_idx": {
+          "name": "messages_review_idx",
+          "columns": ["reviewed", "classification"],
           "isUnique": false
         }
       },
@@ -444,13 +613,20 @@
         },
         "state": {
           "name": "state",
-          "type": "text(2)",
+          "type": "text",
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
         },
         "created_at": {
           "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "updated_at": {
+          "name": "updated_at",
           "type": "text",
           "primaryKey": false,
           "notNull": true,
@@ -501,6 +677,20 @@
           "notNull": true,
           "autoincrement": false
         },
+        "source": {
+          "name": "source",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
         "health": {
           "name": "health",
           "type": "text",
@@ -509,8 +699,23 @@
           "autoincrement": false,
           "default": "'unknown'"
         },
+        "failure_count": {
+          "name": "failure_count",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        },
         "last_checked_at": {
           "name": "last_checked_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "notes": {
+          "name": "notes",
           "type": "text",
           "primaryKey": false,
           "notNull": false,
@@ -529,6 +734,11 @@
           "name": "recipes_target_purpose_version_idx",
           "columns": ["target_id", "purpose", "version"],
           "isUnique": true
+        },
+        "recipes_target_status_idx": {
+          "name": "recipes_target_status_idx",
+          "columns": ["target_id", "purpose", "status"],
+          "isUnique": false
         }
       },
       "foreignKeys": {
@@ -570,6 +780,13 @@
           "notNull": true,
           "autoincrement": false
         },
+        "actor": {
+          "name": "actor",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
         "payload": {
           "name": "payload",
           "type": "text",
@@ -588,7 +805,7 @@
       "indexes": {
         "request_events_request_idx": {
           "name": "request_events_request_idx",
-          "columns": ["request_id"],
+          "columns": ["request_id", "created_at"],
           "isUnique": false
         }
       },
@@ -631,8 +848,22 @@
           "notNull": true,
           "autoincrement": false
         },
-        "right": {
-          "name": "right",
+        "campaign_id": {
+          "name": "campaign_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "mailbox_id": {
+          "name": "mailbox_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "rights": {
+          "name": "rights",
           "type": "text",
           "primaryKey": false,
           "notNull": true,
@@ -666,6 +897,28 @@
           "notNull": true,
           "autoincrement": false
         },
+        "outgoing_message_id": {
+          "name": "outgoing_message_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "record_url": {
+          "name": "record_url",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "follow_ups": {
+          "name": "follow_ups",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        },
         "sent_at": {
           "name": "sent_at",
           "type": "text",
@@ -687,6 +940,13 @@
           "notNull": false,
           "autoincrement": false
         },
+        "last_error": {
+          "name": "last_error",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
         "created_at": {
           "name": "created_at",
           "type": "text",
@@ -703,20 +963,25 @@
         }
       },
       "indexes": {
-        "requests_profile_idx": {
-          "name": "requests_profile_idx",
-          "columns": ["profile_id"],
-          "isUnique": false
-        },
-        "requests_status_idx": {
-          "name": "requests_status_idx",
-          "columns": ["status"],
-          "isUnique": false
-        },
         "requests_reference_idx": {
           "name": "requests_reference_idx",
           "columns": ["reference"],
           "isUnique": true
+        },
+        "requests_profile_status_idx": {
+          "name": "requests_profile_status_idx",
+          "columns": ["profile_id", "status"],
+          "isUnique": false
+        },
+        "requests_target_idx": {
+          "name": "requests_target_idx",
+          "columns": ["target_id"],
+          "isUnique": false
+        },
+        "requests_outgoing_message_idx": {
+          "name": "requests_outgoing_message_idx",
+          "columns": ["outgoing_message_id"],
+          "isUnique": false
         }
       },
       "foreignKeys": {
@@ -736,6 +1001,24 @@
           "columnsFrom": ["target_id"],
           "columnsTo": ["id"],
           "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "requests_campaign_id_campaigns_id_fk": {
+          "name": "requests_campaign_id_campaigns_id_fk",
+          "tableFrom": "requests",
+          "tableTo": "campaigns",
+          "columnsFrom": ["campaign_id"],
+          "columnsTo": ["id"],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "requests_mailbox_id_mailboxes_id_fk": {
+          "name": "requests_mailbox_id_mailboxes_id_fk",
+          "tableFrom": "requests",
+          "tableTo": "mailboxes",
+          "columnsFrom": ["mailbox_id"],
+          "columnsTo": ["id"],
+          "onDelete": "set null",
           "onUpdate": "no action"
         }
       },
@@ -765,6 +1048,13 @@
           "type": "text",
           "primaryKey": false,
           "notNull": true,
+          "autoincrement": false
+        },
+        "task_id": {
+          "name": "task_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
           "autoincrement": false
         },
         "started_at": {
@@ -801,6 +1091,11 @@
           "name": "scans_profile_idx",
           "columns": ["profile_id"],
           "isUnique": false
+        },
+        "scans_task_idx": {
+          "name": "scans_task_idx",
+          "columns": ["task_id"],
+          "isUnique": false
         }
       },
       "foreignKeys": {
@@ -821,8 +1116,68 @@
           "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
+        },
+        "scans_task_id_tasks_id_fk": {
+          "name": "scans_task_id_tasks_id_fk",
+          "tableFrom": "scans",
+          "tableTo": "tasks",
+          "columnsFrom": ["task_id"],
+          "columnsTo": ["id"],
+          "onDelete": "set null",
+          "onUpdate": "no action"
         }
       },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "sessions": {
+      "name": "sessions",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "last_seen_at": {
+          "name": "last_seen_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "expires_at": {
+          "name": "expires_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "user_agent": {
+          "name": "user_agent",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "sessions_expires_idx": {
+          "name": "sessions_expires_idx",
+          "columns": ["expires_at"],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "checkConstraints": {}
@@ -924,6 +1279,13 @@
           "notNull": false,
           "autoincrement": false
         },
+        "search_url": {
+          "name": "search_url",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
         "contact_method": {
           "name": "contact_method",
           "type": "text",
@@ -946,6 +1308,20 @@
           "autoincrement": false,
           "default": false
         },
+        "requirements": {
+          "name": "requirements",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "priority": {
+          "name": "priority",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
         "data": {
           "name": "data",
           "type": "text",
@@ -959,6 +1335,14 @@
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
+        },
+        "retired": {
+          "name": "retired",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": false
         },
         "created_at": {
           "name": "created_at",
@@ -976,6 +1360,74 @@
         }
       },
       "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "task_artifacts": {
+      "name": "task_artifacts",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "task_id": {
+          "name": "task_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "kind": {
+          "name": "kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "mime": {
+          "name": "mime",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "data": {
+          "name": "data",
+          "type": "blob",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "task_artifacts_task_idx": {
+          "name": "task_artifacts_task_idx",
+          "columns": ["task_id"],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "task_artifacts_task_id_tasks_id_fk": {
+          "name": "task_artifacts_task_id_tasks_id_fk",
+          "tableFrom": "task_artifacts",
+          "tableTo": "tasks",
+          "columnsFrom": ["task_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "checkConstraints": {}
@@ -1055,8 +1507,8 @@
           "notNull": false,
           "autoincrement": false
         },
-        "screenshot_path": {
-          "name": "screenshot_path",
+        "blocked_detail": {
+          "name": "blocked_detail",
           "type": "text",
           "primaryKey": false,
           "notNull": false,
@@ -1084,8 +1536,29 @@
           "autoincrement": false,
           "default": 0
         },
+        "max_attempts": {
+          "name": "max_attempts",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
         "run_after": {
           "name": "run_after",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "dedupe_key": {
+          "name": "dedupe_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "last_error": {
+          "name": "last_error",
           "type": "text",
           "primaryKey": false,
           "notNull": false,
@@ -1107,15 +1580,26 @@
         }
       },
       "indexes": {
-        "tasks_status_kind_idx": {
-          "name": "tasks_status_kind_idx",
-          "columns": ["status", "kind"],
+        "tasks_claim_idx": {
+          "name": "tasks_claim_idx",
+          "columns": ["status", "kind", "priority"],
           "isUnique": false
         },
         "tasks_profile_idx": {
           "name": "tasks_profile_idx",
           "columns": ["profile_id"],
           "isUnique": false
+        },
+        "tasks_request_idx": {
+          "name": "tasks_request_idx",
+          "columns": ["request_id"],
+          "isUnique": false
+        },
+        "tasks_dedupe_live_idx": {
+          "name": "tasks_dedupe_live_idx",
+          "columns": ["dedupe_key"],
+          "isUnique": true,
+          "where": "\"tasks\".\"status\" in ('queued', 'leased', 'blocked')"
         }
       },
       "foreignKeys": {
@@ -1143,7 +1627,7 @@
           "tableTo": "requests",
           "columnsFrom": ["request_id"],
           "columnsTo": ["id"],
-          "onDelete": "set null",
+          "onDelete": "cascade",
           "onUpdate": "no action"
         }
       },
