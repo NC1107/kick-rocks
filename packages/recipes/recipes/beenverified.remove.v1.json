@@ -1,0 +1,91 @@
+{
+  "id": "beenverified.remove.v1",
+  "brokerId": "beenverified",
+  "version": 1,
+  "purpose": "remove",
+  "entryUrl": "https://www.beenverified.com/app/optout/search",
+  "fields": ["first_name", "last_name", "state", "email", "record_url"],
+  "steps": [
+    {
+      "kind": "goto",
+      "url": "https://www.beenverified.com/app/optout/search"
+    },
+    {
+      "kind": "captcha_checkpoint"
+    },
+    {
+      "kind": "fill",
+      "target": {
+        "label": "First Name"
+      },
+      "field": "first_name"
+    },
+    {
+      "kind": "fill",
+      "target": {
+        "label": "Last Name"
+      },
+      "field": "last_name"
+    },
+    {
+      "kind": "select",
+      "target": {
+        "label": "State"
+      },
+      "value": "{{state|state_name}}"
+    },
+    {
+      "kind": "click",
+      "target": {
+        "role": "button",
+        "label": "Search"
+      }
+    },
+    {
+      "kind": "select_record",
+      "item": {
+        "css": "a[href*='/optout/'], a[href*='/people/']"
+      },
+      "link": {
+        "css": ":scope",
+        "attr": "href"
+      },
+      "action": "click"
+    },
+    {
+      "kind": "fill",
+      "target": {
+        "label": "Email"
+      },
+      "field": "email"
+    },
+    {
+      "kind": "captcha_checkpoint"
+    },
+    {
+      "kind": "click",
+      "target": {
+        "role": "button",
+        "label": "Submit"
+      }
+    },
+    {
+      "kind": "email_confirmation",
+      "fromDomain": "beenverified.com"
+    }
+  ],
+  "canary": {
+    "url": "https://www.beenverified.com/app/optout/search",
+    "selectors": [
+      {
+        "label": "First Name"
+      },
+      {
+        "label": "Last Name"
+      }
+    ]
+  },
+  "notes": "Not verified. The opt-out search page redirects to /svc/optout/search/ and answered with a Cloudflare Turnstile interstitial in headless and headed Chrome on 2026-10-07, so no form was seen and no challenge was solved. The steps follow the site's published flow (search by name and state, pick the record, give an email, confirm by email) with label-based selectors that are unverified. Expect a bot_detection block until a human or agent clears it.",
+  "verifiedAt": "2026-10-07",
+  "liveStatus": "blocked_by_bot_protection"
+}

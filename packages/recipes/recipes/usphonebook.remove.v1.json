@@ -1,0 +1,87 @@
+{
+  "id": "usphonebook.remove.v1",
+  "brokerId": "usphonebook",
+  "version": 1,
+  "purpose": "remove",
+  "entryUrl": "https://www.usphonebook.com/removal",
+  "fields": ["first_name", "last_name", "email"],
+  "steps": [
+    {
+      "kind": "goto",
+      "url": "https://www.usphonebook.com/removal"
+    },
+    {
+      "kind": "select",
+      "target": {
+        "css": "form#verifyEmailForm select#user-type"
+      },
+      "value": "The subject of the request"
+    },
+    {
+      "kind": "fill",
+      "target": {
+        "css": "form#verifyEmailForm #subject-firstname"
+      },
+      "field": "first_name"
+    },
+    {
+      "kind": "fill",
+      "target": {
+        "css": "form#verifyEmailForm #subject-lastname"
+      },
+      "field": "last_name"
+    },
+    {
+      "kind": "fill",
+      "target": {
+        "css": "form#verifyEmailForm #subject-email"
+      },
+      "field": "email"
+    },
+    {
+      "kind": "check",
+      "target": {
+        "css": "form#verifyEmailForm #agreement"
+      }
+    },
+    {
+      "kind": "captcha_checkpoint"
+    },
+    {
+      "kind": "click",
+      "target": {
+        "css": "form#verifyEmailForm #BRP"
+      }
+    },
+    {
+      "kind": "email_confirmation",
+      "fromDomain": "usphonebook.com"
+    }
+  ],
+  "canary": {
+    "url": "https://www.usphonebook.com/removal",
+    "selectors": [
+      {
+        "css": "form#verifyEmailForm select#user-type"
+      },
+      {
+        "css": "form#verifyEmailForm #subject-firstname"
+      },
+      {
+        "css": "form#verifyEmailForm #subject-lastname"
+      },
+      {
+        "css": "form#verifyEmailForm #subject-email"
+      },
+      {
+        "css": "form#verifyEmailForm #agreement"
+      },
+      {
+        "css": "form#verifyEmailForm #BRP"
+      }
+    ]
+  },
+  "notes": "Verified live 2026-10-07 in headed Chrome. /opt-out redirects to /removal, whose form#verifyEmailForm has a requester select, first, middle and last name, email, an agreement checkbox, a reCAPTCHA Enterprise widget, and a \"Begin Removal Process\" button #BRP. The page says it will confirm the request by email, so the run ends as awaiting_email_confirmation. Only the subject path is used. Nothing was submitted.",
+  "verifiedAt": "2026-10-07",
+  "liveStatus": "verified"
+}

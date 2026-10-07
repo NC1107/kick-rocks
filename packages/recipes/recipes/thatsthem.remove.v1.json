@@ -1,0 +1,96 @@
+{
+  "id": "thatsthem.remove.v1",
+  "brokerId": "thatsthem",
+  "version": 1,
+  "purpose": "remove",
+  "entryUrl": "https://thatsthem.com/optout",
+  "fields": ["full_name", "street", "city", "state", "zip", "email"],
+  "steps": [
+    {
+      "kind": "goto",
+      "url": "https://thatsthem.com/optout"
+    },
+    {
+      "kind": "fill",
+      "target": {
+        "css": "form #name"
+      },
+      "field": "full_name"
+    },
+    {
+      "kind": "fill",
+      "target": {
+        "css": "form #street"
+      },
+      "field": "street"
+    },
+    {
+      "kind": "fill",
+      "target": {
+        "css": "form #city"
+      },
+      "field": "city"
+    },
+    {
+      "kind": "select",
+      "target": {
+        "css": "form #state"
+      },
+      "value": "{{state|state_name}}"
+    },
+    {
+      "kind": "fill",
+      "target": {
+        "css": "form #zip"
+      },
+      "field": "zip"
+    },
+    {
+      "kind": "fill",
+      "target": {
+        "css": "form #email"
+      },
+      "field": "email"
+    },
+    {
+      "kind": "captcha_checkpoint"
+    },
+    {
+      "kind": "click",
+      "target": {
+        "role": "button",
+        "label": "Submit Opt-Out Request"
+      }
+    }
+  ],
+  "canary": {
+    "url": "https://thatsthem.com/optout",
+    "selectors": [
+      {
+        "css": "form #name"
+      },
+      {
+        "css": "form #street"
+      },
+      {
+        "css": "form #city"
+      },
+      {
+        "css": "form #state"
+      },
+      {
+        "css": "form #zip"
+      },
+      {
+        "css": "form #email"
+      },
+      {
+        "role": "button",
+        "label": "Submit Opt-Out Request"
+      }
+    ]
+  },
+  "notes": "Verified live 2026-10-07 in headed Chrome: a single form with full name, street, city, state, zip, email and an optional phone, a Cloudflare Turnstile widget (a hidden cf-turnstile-response input), and a \"Submit Opt-Out Request\" button. The state select lists full names. No confirmation email step is shown on the page, so a submit completes as submitted. The runner's captcha detection must catch the Turnstile before the click. The first load returned the form; after a dozen more automated page loads in the same hour the site answered 403 to this connection, so the ids were checked against the captured markup and not re-run through a browser. Nothing was submitted.",
+  "verifiedAt": "2026-10-07",
+  "liveStatus": "verified"
+}

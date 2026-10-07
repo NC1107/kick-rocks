@@ -1,0 +1,57 @@
+{
+  "id": "radaris.scan.v1",
+  "brokerId": "radaris",
+  "version": 1,
+  "purpose": "scan",
+  "entryUrl": "https://radaris.com/",
+  "fields": ["first_name", "last_name"],
+  "steps": [
+    {
+      "kind": "goto",
+      "url": "https://radaris.com/p/{{first_name|slug}}/{{last_name|slug}}/"
+    },
+    {
+      "kind": "captcha_checkpoint"
+    },
+    {
+      "kind": "wait_for",
+      "target": {
+        "css": "a[href*='/p/']"
+      },
+      "optional": true
+    },
+    {
+      "kind": "extract_candidates",
+      "item": {
+        "css": "[class*='card'], [class*='result'], li"
+      },
+      "fields": {
+        "recordUrl": {
+          "css": "a[href*='/p/']",
+          "attr": "href"
+        },
+        "name": {
+          "css": "h2, h3, a"
+        },
+        "age": {
+          "css": "[class*='age']"
+        },
+        "locations": {
+          "css": "[class*='location'], [class*='address']",
+          "all": true
+        }
+      }
+    }
+  ],
+  "canary": {
+    "url": "https://radaris.com/",
+    "selectors": [
+      {
+        "css": "input[type='text']"
+      }
+    ]
+  },
+  "notes": "Not verified, and probably obsolete. On 2026-10-07 radaris.com served only a notice that the domain was transferred to Atlas Data Privacy Corporation by a New Jersey Superior Court judgment (Atlas Data Privacy Corporation v. Radaris.com, docket MID-L-000847-24, final judgment August 27, 2026), with no search or opt-out pages. The URL and selectors are guesses from the site's former layout. Treat this target as defunct until it is re-hosted, and retire the recipe if it stays that way.",
+  "verifiedAt": "2026-10-07",
+  "liveStatus": "unverified"
+}

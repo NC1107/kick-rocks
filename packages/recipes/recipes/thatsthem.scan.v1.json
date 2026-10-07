@@ -1,0 +1,57 @@
+{
+  "id": "thatsthem.scan.v1",
+  "brokerId": "thatsthem",
+  "version": 1,
+  "purpose": "scan",
+  "entryUrl": "https://thatsthem.com/",
+  "fields": ["first_name", "last_name", "city", "state"],
+  "steps": [
+    {
+      "kind": "goto",
+      "url": "https://thatsthem.com/name/{{first_name|slug}}-{{last_name|slug}}/{{city|slug}},-{{state}}"
+    },
+    {
+      "kind": "captcha_checkpoint"
+    },
+    {
+      "kind": "wait_for",
+      "target": {
+        "css": "a[href*=\"/name/\"]"
+      },
+      "optional": true
+    },
+    {
+      "kind": "extract_candidates",
+      "item": {
+        "css": "[class*='record'], [class*='result'], article"
+      },
+      "fields": {
+        "recordUrl": {
+          "css": "a[href]",
+          "attr": "href"
+        },
+        "name": {
+          "css": "h2, h3, a"
+        },
+        "age": {
+          "css": "[class*='age']"
+        },
+        "locations": {
+          "css": "[class*='address'], [class*='location']",
+          "all": true
+        }
+      }
+    }
+  ],
+  "canary": {
+    "url": "https://thatsthem.com/optout",
+    "selectors": [
+      {
+        "css": "form input#name"
+      }
+    ]
+  },
+  "notes": "Not verified. Every name search URL on thatsthem.com answered 403 \"Access denied. This request was blocked due to unusual activity\" on 2026-10-07 in headed Chrome, though the opt-out page loaded. The search URL and result selectors are guesses. The canary checks the opt-out page, which does load. Expect a bot_detection block.",
+  "verifiedAt": "2026-10-07",
+  "liveStatus": "blocked_by_bot_protection"
+}

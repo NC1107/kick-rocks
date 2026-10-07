@@ -1,0 +1,79 @@
+{
+  "id": "fastpeoplesearch.scan.v1",
+  "brokerId": "fastpeoplesearch",
+  "version": 1,
+  "purpose": "scan",
+  "entryUrl": "https://www.fastpeoplesearch.com/",
+  "fields": ["first_name", "last_name", "city", "state"],
+  "steps": [
+    {
+      "kind": "goto",
+      "url": "https://www.fastpeoplesearch.com/name/{{first_name|slug}}-{{last_name|slug}}_{{city|slug}}-{{state|lower}}"
+    },
+    {
+      "kind": "captcha_checkpoint"
+    },
+    {
+      "kind": "wait_for",
+      "target": {
+        "css": ".people-list .card"
+      },
+      "optional": true
+    },
+    {
+      "kind": "extract_candidates",
+      "item": {
+        "css": ".people-list > .card"
+      },
+      "fields": {
+        "recordUrl": {
+          "css": "h3.card-title a",
+          "attr": "href"
+        },
+        "name": {
+          "css": "h3.card-title .larger"
+        },
+        "age": {
+          "css": "h3.card-title .grey"
+        },
+        "locations": {
+          "css": ".card-block > div:nth-of-type(1) a",
+          "all": true
+        },
+        "relatives": {
+          "css": ".card-block > div:nth-of-type(2) a",
+          "all": true
+        }
+      }
+    }
+  ],
+  "canary": {
+    "url": "https://www.fastpeoplesearch.com/",
+    "selectors": [
+      {
+        "css": ".people-list > .card"
+      },
+      {
+        "css": ".people-list h3.card-title a"
+      },
+      {
+        "css": ".people-list .card-block"
+      }
+    ],
+    "steps": [
+      {
+        "kind": "goto",
+        "url": "https://www.fastpeoplesearch.com/name/john-smith_los-angeles-ca"
+      },
+      {
+        "kind": "wait_for",
+        "target": {
+          "css": ".people-list .card"
+        }
+      }
+    ]
+  },
+  "notes": "Verified live 2026-10-07 in headed Chrome. A name and city page lists people in .people-list > .card, each with an h3.card-title link (the record, the name in .larger, and \"Age N • City, ST\" in .grey) and a block with past addresses, relatives and aliases as the first, second and third div. The age field reads the .grey line, so the runner must take the first integer. The first load returned the full list; after a dozen more automated page loads in the same hour the site answered 403 to this connection, so the selectors were checked against the captured markup and not re-run through a browser. Nothing was submitted.",
+  "verifiedAt": "2026-10-07",
+  "liveStatus": "verified"
+}

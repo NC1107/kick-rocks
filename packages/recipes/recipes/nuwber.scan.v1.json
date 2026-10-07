@@ -1,0 +1,57 @@
+{
+  "id": "nuwber.scan.v1",
+  "brokerId": "nuwber",
+  "version": 1,
+  "purpose": "scan",
+  "entryUrl": "https://nuwber.com/",
+  "fields": ["first_name", "last_name"],
+  "steps": [
+    {
+      "kind": "goto",
+      "url": "https://nuwber.com/person/{{first_name|slug}}-{{last_name|slug}}"
+    },
+    {
+      "kind": "captcha_checkpoint"
+    },
+    {
+      "kind": "wait_for",
+      "target": {
+        "css": "a[href*=\"/person/\"]"
+      },
+      "optional": true
+    },
+    {
+      "kind": "extract_candidates",
+      "item": {
+        "css": "[class*='result'], article, li"
+      },
+      "fields": {
+        "recordUrl": {
+          "css": "a[href*=\"/person/\"]",
+          "attr": "href"
+        },
+        "name": {
+          "css": "h2, h3, a"
+        },
+        "age": {
+          "css": "[class*='age']"
+        },
+        "locations": {
+          "css": "[class*='location'], [class*='address']",
+          "all": true
+        }
+      }
+    }
+  ],
+  "canary": {
+    "url": "https://nuwber.com/",
+    "selectors": [
+      {
+        "css": "input[type='text']"
+      }
+    ]
+  },
+  "notes": "Not verified. nuwber.com did not resolve in DNS from this machine on 2026-10-07 (ERR_NAME_NOT_RESOLVED for nuwber.com and www.nuwber.com, and an empty answer from 1.1.1.1), so no page was loaded. The URL shape and selectors are guesses. Check whether the site is still operating before relying on this recipe.",
+  "verifiedAt": "2026-10-07",
+  "liveStatus": "unverified"
+}

@@ -1,0 +1,62 @@
+{
+  "id": "whitepages.remove.v1",
+  "brokerId": "whitepages",
+  "version": 1,
+  "purpose": "remove",
+  "entryUrl": "https://www.whitepages.com/suppression-requests",
+  "fields": ["record_url"],
+  "steps": [
+    {
+      "kind": "goto",
+      "url": "https://www.whitepages.com/suppression-requests"
+    },
+    {
+      "kind": "fill",
+      "target": {
+        "css": "#suppression-requests-person-url"
+      },
+      "field": "record_url"
+    },
+    {
+      "kind": "captcha_checkpoint"
+    },
+    {
+      "kind": "click",
+      "target": {
+        "css": "button[type=\"submit\"].btn--large"
+      }
+    },
+    {
+      "kind": "outcome_when",
+      "when": [
+        {
+          "text": "phone number",
+          "outcome": "blocked",
+          "reason": "phone_verification"
+        },
+        {
+          "text": "Verify",
+          "outcome": "blocked",
+          "reason": "phone_verification"
+        }
+      ]
+    },
+    {
+      "kind": "captcha_checkpoint"
+    }
+  ],
+  "canary": {
+    "url": "https://www.whitepages.com/suppression-requests",
+    "selectors": [
+      {
+        "css": "#suppression-requests-person-url"
+      },
+      {
+        "css": "button[type=\"submit\"].btn--large"
+      }
+    ]
+  },
+  "notes": "Verified live 2026-10-07 in headed Chrome for step 1 of 5 only: a profile URL input (#suppression-requests-person-url) and a Next button. The first load in headless Chrome was a Cloudflare \"Just a moment\" page. Steps 2 to 5 sit behind Next and were not opened, because Next submits the first step. Whitepages is known to ask for a phone verification, which this recipe reports as a block for a human. The outcome_when texts after the click are unverified guesses.",
+  "verifiedAt": "2026-10-07",
+  "liveStatus": "verified"
+}

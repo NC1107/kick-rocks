@@ -1,0 +1,55 @@
+{
+  "id": "checkpeople.remove.v1",
+  "brokerId": "checkpeople",
+  "version": 1,
+  "purpose": "remove",
+  "entryUrl": "https://www.checkpeople.com/opt-out",
+  "fields": ["email"],
+  "steps": [
+    {
+      "kind": "goto",
+      "url": "https://www.checkpeople.com/opt-out"
+    },
+    {
+      "kind": "fill",
+      "target": {
+        "css": "form.cp-auto-optout__form #requestorEmail"
+      },
+      "field": "email"
+    },
+    {
+      "kind": "check",
+      "target": {
+        "css": "form.cp-auto-optout__form #acknowledge"
+      },
+      "optional": true
+    },
+    {
+      "kind": "captcha_checkpoint"
+    },
+    {
+      "kind": "click",
+      "target": {
+        "css": "form.cp-auto-optout__form button.cp-auto-optout__button"
+      }
+    },
+    {
+      "kind": "email_confirmation",
+      "fromDomain": "checkpeople.com"
+    }
+  ],
+  "canary": {
+    "url": "https://www.checkpeople.com/opt-out",
+    "selectors": [
+      {
+        "css": "form.cp-auto-optout__form #requestorEmail"
+      },
+      {
+        "css": "form.cp-auto-optout__form button.cp-auto-optout__button"
+      }
+    ]
+  },
+  "notes": "Verified live 2026-10-07 in headed Chrome: the \"Suppression Center\" page takes one email address and says it will send a verification link before anything else. The acknowledgement checkbox #acknowledge exists but is reported hidden (it is probably a styled control), so the check step is optional. Later steps, behind the emailed link, were not opened. Headless Chrome got a Cloudflare challenge. Nothing was submitted.",
+  "verifiedAt": "2026-10-07",
+  "liveStatus": "verified"
+}

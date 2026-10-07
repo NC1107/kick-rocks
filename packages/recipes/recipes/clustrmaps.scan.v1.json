@@ -1,0 +1,57 @@
+{
+  "id": "clustrmaps.scan.v1",
+  "brokerId": "clustrmaps",
+  "version": 1,
+  "purpose": "scan",
+  "entryUrl": "https://clustrmaps.com/",
+  "fields": ["first_name", "last_name"],
+  "steps": [
+    {
+      "kind": "goto",
+      "url": "https://clustrmaps.com/persons/{{first_name|slug}}-{{last_name|slug}}"
+    },
+    {
+      "kind": "captcha_checkpoint"
+    },
+    {
+      "kind": "wait_for",
+      "target": {
+        "css": "a[href*='/person/']"
+      },
+      "optional": true
+    },
+    {
+      "kind": "extract_candidates",
+      "item": {
+        "css": "[class*='result'], [itemtype*='Person'], li"
+      },
+      "fields": {
+        "recordUrl": {
+          "css": "a[href*='/person/']",
+          "attr": "href"
+        },
+        "name": {
+          "css": "[itemprop='name'], h2, h3, a"
+        },
+        "age": {
+          "css": "[class*='age']"
+        },
+        "locations": {
+          "css": "[itemprop='address'], [class*='location']",
+          "all": true
+        }
+      }
+    }
+  ],
+  "canary": {
+    "url": "https://clustrmaps.com/",
+    "selectors": [
+      {
+        "css": "input[type='text']"
+      }
+    ]
+  },
+  "notes": "Not verified. clustrmaps.com resolved to 127.0.0.1 from this machine's DNS on 2026-10-07 and refused connections, so the resolver is blocking or redirecting it and no page was loaded. The URL and selectors are guesses. Re-check from a network that resolves the site.",
+  "verifiedAt": "2026-10-07",
+  "liveStatus": "unverified"
+}

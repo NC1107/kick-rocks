@@ -1,0 +1,88 @@
+{
+  "id": "peoplefinders.remove.v1",
+  "brokerId": "peoplefinders",
+  "version": 1,
+  "purpose": "remove",
+  "entryUrl": "https://www.peoplefinders.com/opt-out",
+  "fields": ["first_name", "last_name", "street", "city", "state"],
+  "steps": [
+    {
+      "kind": "goto",
+      "url": "https://www.peoplefinders.com/opt-out"
+    },
+    {
+      "kind": "click",
+      "target": {
+        "css": "#acceptButton"
+      },
+      "optional": true
+    },
+    {
+      "kind": "fill",
+      "target": {
+        "css": "form.mb-5 input[placeholder=\"First Name\"]"
+      },
+      "field": "first_name"
+    },
+    {
+      "kind": "fill",
+      "target": {
+        "css": "form.mb-5 input[placeholder=\"Last Name\"]"
+      },
+      "field": "last_name"
+    },
+    {
+      "kind": "fill",
+      "target": {
+        "css": "form.mb-5 input[placeholder=\"Street Address\"]"
+      },
+      "field": "street"
+    },
+    {
+      "kind": "fill",
+      "target": {
+        "css": "form.mb-5 input[placeholder=\"City\"]"
+      },
+      "field": "city"
+    },
+    {
+      "kind": "select",
+      "target": {
+        "css": "form.mb-5 .input-wrapper-3 select"
+      },
+      "value": "{{state|state_name}}"
+    },
+    {
+      "kind": "captcha_checkpoint"
+    },
+    {
+      "kind": "click",
+      "target": {
+        "css": "button[type=\"submit\"].btn-primary"
+      }
+    }
+  ],
+  "canary": {
+    "url": "https://www.peoplefinders.com/opt-out",
+    "selectors": [
+      {
+        "css": "form.mb-5 input[placeholder=\"First Name\"]"
+      },
+      {
+        "css": "form.mb-5 input[placeholder=\"Last Name\"]"
+      },
+      {
+        "css": "form.mb-5 input[placeholder=\"Street Address\"]"
+      },
+      {
+        "css": "form.mb-5 input[placeholder=\"City\"]"
+      },
+      {
+        "css": "form.mb-5 .input-wrapper-3 select"
+      }
+    ]
+  },
+  "notes": "Verified live 2026-10-07 in headed Chrome. The opt-out form (form.mb-5, a Vue form with no field names) asks for first and last name (required), middle name, phone, date of birth, street, city and state (required), then a reCAPTCHA Enterprise widget and a Submit button. Email is shown disabled. The recipe sends only the required fields. The state select lists full names, so it selects by label. Fields are found by placeholder text because the inputs have no names or ids. What happens after Submit was not observed, so the run ends as submitted. Headless Chrome got a Cloudflare challenge on this page. Nothing was submitted.",
+  "verifiedAt": "2026-10-07",
+  "liveStatus": "verified"
+}
