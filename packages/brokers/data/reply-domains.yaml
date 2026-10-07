@@ -1,0 +1,14 @@
+# Sister domains that a broker's confirmation emails come from, curated by hand.
+# A confirmation sender counts only when it is the broker's own organization or listed here, so
+# every bundled recipe whose email_confirmation fromDomain is not the broker's own site needs an
+# entry. `pnpm data:build` fails when one is missing.
+reply_domains:
+  - broker: intelius
+    domains: [peopleconnect.us]
+    note: 'Intelius suppression runs on the PeopleConnect platform, and the bundled recipe waits for mail from peopleconnect.us.'
+  - broker: instantcheckmate
+    domains: [peopleconnect.us]
+    note: 'Instant Checkmate is a PeopleConnect brand and shares its suppression flow and sender.'
+  - broker: truthfinder
+    domains: [peopleconnect.us]
+    note: 'TruthFinder is a PeopleConnect brand and shares its suppression flow and sender.'

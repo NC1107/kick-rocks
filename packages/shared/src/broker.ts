@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { isSharedMailHost } from "./mail-hosts.js";
 import { WebUrl } from "./url.js";
 
 export const BrokerCategory = z.enum([
@@ -64,6 +65,20 @@ export const RequestMetrics = z.object({
 });
 export type RequestMetrics = z.infer<typeof RequestMetrics>;
 
+const HOSTNAME = /^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$/;
+
+/**
+ * Extra domains a target's replies and confirmation emails may come from, for sister domains that
+ * none of the contact fields reveal. Curated by hand, and never a shared mail host.
+ */
+export const ReplyDomains = z.array(
+  z
+    .string()
+    .regex(HOSTNAME)
+    .refine((host) => !isSharedMailHost(host), "a shared mail host cannot vouch for a target"),
+);
+export type ReplyDomains = z.infer<typeof ReplyDomains>;
+
 export const Broker = z.object({
   id: z.string().regex(/^[a-z0-9][a-z0-9-]*$/),
   name: z.string().min(1),
@@ -80,6 +95,8 @@ export const Broker = z.object({
   requiresId: z.boolean(),
   requirements: z.array(Requirement),
   priority: TargetPriority,
+  /** Curated sister domains the broker's confirmation emails come from; see {@link ReplyDomains}. */
+  replyDomains: ReplyDomains.optional(),
   regulatedBy: z.array(RegulatoryRegime),
   collectsMinors: z.boolean().nullable(),
   collectsGeolocation: z.boolean().nullable(),

@@ -3,6 +3,7 @@ import {
   BrokerCategory,
   ContactMethod,
   DataSource,
+  ReplyDomains,
   Requirement,
   TargetPriority,
 } from "./broker.js";
@@ -30,8 +31,6 @@ export type CompanyCategory = z.infer<typeof CompanyCategory>;
 export const TargetCategory = z.enum([...BrokerCategory.options, ...CompanyCategory.options]);
 export type TargetCategory = z.infer<typeof TargetCategory>;
 
-const HOSTNAME = /^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$/;
-
 /** An ordinary consumer company asked to stop selling or sharing a person's data. */
 export const Company = z.object({
   id: z.string().regex(/^[a-z0-9][a-z0-9-]*$/),
@@ -46,14 +45,7 @@ export const Company = z.object({
    * Extra domains the company's replies may come from, for senders that none of the contact
    * fields reveal. The contact fields' own hosts are trusted without being listed here.
    */
-  replyDomains: z
-    .array(
-      z
-        .string()
-        .regex(HOSTNAME)
-        .refine((host) => !isSharedMailHost(host), "a shared mail host cannot vouch for a company"),
-    )
-    .optional(),
+  replyDomains: ReplyDomains.optional(),
   notes: z.string().nullable(),
   sources: z.array(DataSource).min(1),
   /** The day someone checked these contacts against the company's own privacy page. */
