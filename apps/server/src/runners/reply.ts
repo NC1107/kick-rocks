@@ -63,6 +63,8 @@ export async function followConfirmationLinks(
   if (usable.length === 0) return null;
   const target = services.db.select().from(targets).where(eq(targets.id, request.targetId)).get();
   if (!target) return null;
+  // A company's deletion confirmation can close an account, so a person decides whether to click it.
+  if (target.kind === "company" && request.rights.includes("delete")) return null;
   const allowed = [target.domain, ...awaitingConfirmationOf(services, request.id).fromDomains];
 
   let failure: LinkOutcome = { kind: "failed", url: usable[0] as string, finalUrl: null };

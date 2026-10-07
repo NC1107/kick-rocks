@@ -73,7 +73,7 @@ export function createCampaignService(services: AppServices): CampaignService {
   }
 
   /** The first email that would go out, composed by the same code that composes the real one. */
-  function sampleEmail(plan: CampaignPlan, rights: CampaignBody["rights"]) {
+  function sampleEmail(plan: CampaignPlan) {
     const first = plan.plans.find(
       (item): item is Extract<Plan, { kind: "request" }> =>
         item.kind === "request" && item.channel === "email",
@@ -83,7 +83,7 @@ export function createCampaignService(services: AppServices): CampaignService {
       {
         profileId: plan.profile.id,
         targetId: first.target.id,
-        rights,
+        rights: first.rights,
         legalBasis: first.legalBasis,
         reference: PREVIEW_REFERENCE,
         sentAt: null,
@@ -101,7 +101,7 @@ export function createCampaignService(services: AppServices): CampaignService {
       return {
         items,
         counts: countOutcomes(items),
-        sampleEmail: sampleEmail(plan, body.rights),
+        sampleEmail: sampleEmail(plan),
       };
     },
 
@@ -145,7 +145,7 @@ export function createCampaignService(services: AppServices): CampaignService {
               const opened = requests.open({
                 profileId,
                 targetId: item.target.id,
-                rights: body.rights,
+                rights: item.rights,
                 channel: item.channel,
                 campaignId,
                 actor: "user",
