@@ -311,15 +311,21 @@ export function createTaskQueue({
   }
 
   /**
+   * Only a lease that ran out leaves an owner on a task that is not leased: it is queued while
+   * attempts remain and failed once they are spent, and every other way out clears the owner.
+   */
+  const isLapsedHolder = (row: TaskRow, workerId: string): boolean =>
+    (row.status === "queued" || row.status === "failed") && row.leaseOwner === workerId;
+
+  /**
    * The row a finished, blocked, or failed report is about. After a lease runs out the task goes
-   * back in the queue but remembers its last holder, who may still report until someone else
-   * claims it, because an opt-out form that was submitted is better kept than submitted again.
+   * back in the queue, or fails when no attempt is left, but remembers its last holder, who may
+   * still report until someone else claims it, because an opt-out form that was submitted is
+   * better kept than submitted again, and a real outcome beats the expiry failure.
    */
   function reportingRow(handle: Pick<Tx, "select">, id: string, workerId: string): TaskRow {
     const row = loadRow(handle, id);
-    const lapsedHolder = row.status === "queued" && row.leaseOwner === workerId;
-    if (!lapsedHolder) return leasedRow(handle, id, workerId);
-    return row;
+    return isLapsedHolder(row, workerId) ? row : leasedRow(handle, id, workerId);
   }
 
   function emit(
@@ -390,7 +396,6 @@ export function createTaskQueue({
       "system",
       now,
     );
-    if (task.status !== "queued") return task;
     tx.update(tasks).set({ leaseOwner: row.leaseOwner }).where(eq(tasks.id, row.id)).run();
     return { ...task, leaseOwner: row.leaseOwner };
   }
@@ -520,7 +525,7 @@ export function createTaskQueue({
       const now = nowIso(clock);
       return db.transaction((tx) => {
         const row = loadRow(tx, id);
-        if (row.status === "queued" && row.leaseOwner === workerId) {
+        if (isLapsedHolder(row, workerId)) {
           throw conflict("lease_expired", `The lease on task ${id} ran out and was recovered`);
         }
         const current = leasedRow(tx, id, workerId);

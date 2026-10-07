@@ -284,6 +284,7 @@ Core services the foundation implements fully, with tests:
   - Lease-owning calls reject a caller that does not hold the lease.
     `heartbeat` refuses an expired lease with `lease_expired`, so a late worker finds out.
     `complete`, `block`, and `fail` are still accepted from the worker that holds an expired lease until someone else claims the task, because finished work is better kept than redone.
+    This includes a task the expiry failed because no attempt was left: the failed row keeps the lapsed holder as `leaseOwner`, and the holder's real result replaces the expiry failure until a person dismisses the task.
   - `complete` validates the result against `resultSchemaFor(task)`, which follows the agent payload's purpose.
     `markDone(id, { actor, result?, note? })` validates a person's result the same way and stores it, so a handler can tell "I submitted it by hand" from "already removed".
   - `enqueue` takes `dedupeKey`, which prevents duplicate live tasks, and `sameWork`, the other kinds that count as the same work: the key names the work, not the kind, so an agent task holding `form:<requestId>` is returned when a recipe is approved and the request is dispatched again.

@@ -152,9 +152,10 @@ Kick Rocks sums them across attempts so the cost and success of agents can be me
 3. While you work, call `heartbeat_task` before the lease runs out.
    The lease is `leaseExpiresAt`, and a long task needs a heartbeat every few minutes.
    The default lease is five minutes, and `claim_task` takes a `leaseMs` of up to an hour, so ask for about 30 minutes when the site is slow.
-   A heartbeat after the lease expired answers `lease_expired`, or `lease_not_held` once the task was put back in the queue.
+   A heartbeat after the lease expired answers `lease_expired`, or `lease_not_held` once someone else claimed the task.
    Either way the lease cannot be revived.
    If you already finished the work, still call `complete_task`, `block_task`, or `fail_task`: it is accepted until someone else claims the task, and refused after that.
+   This holds even when the expiry used up the last attempt and failed the task: your real outcome replaces that failure.
 4. Finish with exactly one of `complete_task`, `block_task`, `fail_task`, or `release_task`.
 
 If you stop for any reason without finishing, release the task.

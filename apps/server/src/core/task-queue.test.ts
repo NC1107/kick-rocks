@@ -697,6 +697,71 @@ describe("reapExpiredLeases", () => {
     expect(seen).toEqual(["system:The lease expired"]);
   });
 
+  describe("when the expiry used up the last attempt", () => {
+    const lapse = () => {
+      queue.enqueue({ kind: "email_send", payload: emailPayload(), maxAttempts: 1 });
+      const task = claimOne();
+      ctx.clock.advance(DAY);
+      const [reaped] = queue.reapExpiredLeases();
+      expect(reaped).toMatchObject({
+        id: task.id,
+        status: "failed",
+        leaseOwner: "worker-1",
+        lastError: "The lease expired",
+      });
+      return task;
+    };
+
+    it("tells the lapsed holder its lease expired, and nobody else that it never held one", async () => {
+      const task = lapse();
+      expect(codeOf(() => queue.heartbeat(task.id, { ...worker }))).toBe("lease_expired");
+      expect(
+        codeOf(() => queue.heartbeat(task.id, { workerId: "intruder", leaseMs: MINUTE })),
+      ).toBe("lease_not_held");
+    });
+
+    it("accepts the lapsed holder's late result in place of the expiry failure", async () => {
+      const task = lapse();
+      expect(queue.complete(task.id, { ...worker, result: {}, actor: "worker" })).toMatchObject({
+        status: "done",
+        leaseOwner: null,
+        lastError: null,
+        finishedBy: "worker-1",
+      });
+    });
+
+    it("accepts the lapsed holder's late block", async () => {
+      const task = lapse();
+      expect(queue.block(task.id, { ...worker, reason: "captcha", actor: "worker" })).toMatchObject(
+        { status: "blocked", leaseOwner: null },
+      );
+    });
+
+    it("replaces the expiry failure with the lapsed holder's own failure", async () => {
+      const task = lapse();
+      expect(
+        queue.fail(task.id, { ...worker, error: "Form crashed", retryable: true, actor: "worker" }),
+      ).toMatchObject({ status: "failed", leaseOwner: null, lastError: "Form crashed" });
+    });
+
+    it("refuses a result from anyone else", async () => {
+      const task = lapse();
+      expect(
+        codeOf(() =>
+          queue.complete(task.id, { workerId: "intruder", result: {}, actor: "worker" }),
+        ),
+      ).toBe("lease_not_held");
+    });
+
+    it("stops accepting the holder once the failure is dismissed", async () => {
+      const task = lapse();
+      queue.cancel(task.id);
+      expect(
+        codeOf(() => queue.complete(task.id, { ...worker, result: {}, actor: "worker" })),
+      ).toBe("lease_not_held");
+    });
+  });
+
   it("leaves live leases and other states alone", async () => {
     queue.enqueue({ kind: "email_send", payload: emailPayload("a") });
     queue.enqueue({ kind: "email_send", payload: emailPayload("b") });
