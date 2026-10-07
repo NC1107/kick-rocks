@@ -193,7 +193,6 @@ describe("programmable classifier", () => {
     const { fake } = setup();
     const result = await fake.classifier.classify(message("hello"), {
       requests: [],
-      mailboxAddress: "jordan@example.com",
     });
     expect(result).toMatchObject({
       requestId: null,
@@ -215,19 +214,16 @@ describe("programmable classifier", () => {
     expect(
       await fake.classifier.classify(message("Re: KR-AAAAAA"), {
         requests: [],
-        mailboxAddress: "jordan@example.com",
       }),
     ).toMatchObject({ requestId: "r1", classification: "completed", confidence: 0.95 });
     expect(
       await fake.classifier.classify(message("Undeliverable: BOUNCE"), {
         requests: [],
-        mailboxAddress: "jordan@example.com",
       }),
     ).toMatchObject({ classification: "bounce" });
     expect(
       await fake.classifier.classify(message("other"), {
         requests: [],
-        mailboxAddress: "jordan@example.com",
       }),
     ).toMatchObject({
       classification: "unknown",
@@ -245,7 +241,6 @@ describe("programmable classifier", () => {
       (
         await fake.classifier.classify(message("special"), {
           requests: [],
-          mailboxAddress: "jordan@example.com",
         })
       ).classification,
     ).toBe("needs_form");
@@ -253,7 +248,6 @@ describe("programmable classifier", () => {
       (
         await fake.classifier.classify(message("plain"), {
           requests: [],
-          mailboxAddress: "jordan@example.com",
         })
       ).classification,
     ).toBe("rejected");
@@ -282,7 +276,6 @@ describe("programmable classifier", () => {
       (
         await fake.classifier.classify(message("x"), {
           requests: [request],
-          mailboxAddress: "jordan@example.com",
         })
       ).requestId,
     ).toBe("r9");
@@ -291,7 +284,6 @@ describe("programmable classifier", () => {
       (
         await fake.classifier.classify(message("x"), {
           requests: [request],
-          mailboxAddress: "jordan@example.com",
         })
       ).classification,
     ).toBe("unknown");

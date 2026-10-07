@@ -1,14 +1,14 @@
 import { outgoingMessageId } from "@kickrocks/shared";
 import { describe, expect, it } from "vitest";
-import { servingKeysFor, signed, unsigned } from "../test-utils/dkim.js";
+import { BODY, servingKeysFor, signed, unsigned } from "../test-utils/dkim.js";
 import { createReplyClassifier } from "./classifier.js";
 import { createDkimVerifier, type DnsResolver } from "./dkim.js";
 import { parseInboxMessage } from "./parse.js";
-import { senderIsAuthenticated } from "./sender-auth.js";
+import { type SenderTrust, senderTrust } from "./sender-auth.js";
 import type { ClassifierRequest, InboxMessage } from "./types.js";
 
 const TARGET = ["acme.test"];
-const MAILBOX = "jordan@example.com";
+const OUR_ID = outgoingMessageId("req-1", "example.com");
 const classifier = createReplyClassifier({
   settings: { get: () => null as never },
 });
@@ -16,7 +16,7 @@ const classifier = createReplyClassifier({
 const outstanding: ClassifierRequest = {
   id: "req-1",
   reference: "KR-7K3M9Q",
-  outgoingMessageId: outgoingMessageId("req-1", "example.com"),
+  outgoingMessageId: OUR_ID,
   status: "awaiting_reply",
   channel: "email",
   targetId: "acme",
@@ -37,120 +37,125 @@ async function receive(
   });
 }
 
-async function authenticated(raw: string, resolver?: DnsResolver, domains = TARGET) {
-  return senderIsAuthenticated(await receive(raw, resolver), domains, MAILBOX);
+async function trustOf(
+  raw: string,
+  resolver?: DnsResolver,
+  domains = TARGET,
+): Promise<SenderTrust> {
+  return senderTrust(await receive(raw, resolver), outstanding, domains);
 }
 
-describe("senderIsAuthenticated", () => {
-  it("accepts a valid signature from the target's own domain", async () => {
-    expect(await authenticated(await signed(unsigned()))).toBe(true);
+const classifyRaw = async (raw: string) =>
+  classifier.classify(await receive(raw), { requests: [outstanding] });
+
+const replyTo = (...headers: string[]) => unsigned(BODY, "privacy@acme.test", headers);
+
+describe("senderTrust", () => {
+  it("is signed for a valid signature from the target's own domain that quotes nothing", async () => {
+    expect(await trustOf(await signed(unsigned()))).toBe("signed");
   });
 
   it("accepts a signature from a subdomain of the target, which shares its organization", async () => {
     const resolver = servingKeysFor("mail.acme.test");
-    expect(
-      await authenticated(await signed(unsigned(), { domain: "mail.acme.test" }), resolver),
-    ).toBe(true);
+    expect(await trustOf(await signed(unsigned(), { domain: "mail.acme.test" }), resolver)).toBe(
+      "signed",
+    );
   });
 
   it("accepts a signature from one of the target's other known domains", async () => {
     const resolver = servingKeysFor("sister.test");
     const raw = await signed(unsigned(), { domain: "sister.test" });
-    expect(await authenticated(raw, resolver, ["acme.test", "sister.test"])).toBe(true);
+    expect(await trustOf(raw, resolver, ["acme.test", "sister.test"])).toBe("signed");
   });
 
-  it("rejects a valid signature from a domain that is not aligned with the target", async () => {
-    const raw = await signed(unsigned(), { domain: "evil.test" });
-    expect(await authenticated(raw)).toBe(false);
+  it("is unsigned for a valid signature from a domain that is not aligned with the target", async () => {
+    expect(await trustOf(await signed(unsigned(), { domain: "evil.test" }))).toBe("unsigned");
   });
 
-  it("rejects a lookalike signing domain", async () => {
+  it("is unsigned for a lookalike signing domain", async () => {
     const resolver = servingKeysFor("notacme.test");
     const raw = await signed(unsigned(), { domain: "notacme.test" });
-    expect(await authenticated(raw, resolver)).toBe(false);
+    expect(await trustOf(raw, resolver)).toBe("unsigned");
   });
 
-  it("rejects a message whose body changed after signing", async () => {
+  it("is unsigned when the body changed after signing", async () => {
     const raw = (await signed(unsigned())).replace("completed", "ignored");
-    expect(await authenticated(raw)).toBe(false);
+    expect(await trustOf(raw)).toBe("unsigned");
   });
 
-  it("rejects a message with no signature", async () => {
-    expect(await authenticated(unsigned())).toBe(false);
+  it("is unsigned for a message with no signature", async () => {
+    expect(await trustOf(unsigned())).toBe("unsigned");
   });
 
-  it("rejects a signature that covers only part of the body", async () => {
-    const body = "We have completed your request.\r\n";
-    const raw = await signed(unsigned(`${body}Click: http://evil.test/\r\n`), {
-      maxBodyLength: body.length,
+  it("is unsigned when the signature covers only part of the body", async () => {
+    const raw = await signed(unsigned(`${BODY}Click: http://evil.test/\r\n`), {
+      maxBodyLength: BODY.length,
     });
-    expect(await authenticated(raw)).toBe(false);
+    expect(await trustOf(raw)).toBe("unsigned");
   });
 
-  it("rejects everything when DNS times out", async () => {
+  it("is unsigned when DNS times out", async () => {
     const never: DnsResolver = () => new Promise(() => {});
     const message = await parseInboxMessage({
       uid: 1,
       source: Buffer.from(await signed(unsigned())),
       dkim: createDkimVerifier({ resolver: never, timeoutMs: 50 }),
     });
-    expect(await senderIsAuthenticated(message, TARGET, MAILBOX)).toBe(false);
+    expect(await senderTrust(message, outstanding, TARGET)).toBe("unsigned");
   });
 
-  it("rejects everything when no verifier is given", async () => {
+  it("is unsigned when no verifier is given", async () => {
     const message = await parseInboxMessage({
       uid: 1,
       source: Buffer.from(await signed(unsigned())),
     });
-    expect(await senderIsAuthenticated(message, TARGET, MAILBOX)).toBe(false);
+    expect(await senderTrust(message, outstanding, TARGET)).toBe("unsigned");
   });
 });
 
-describe("a genuine signed reply that was not written for this mailbox", () => {
-  const classifyRaw = async (raw: string) =>
-    classifier.classify(await receive(raw), {
-      requests: [outstanding],
-      mailboxAddress: MAILBOX,
-    });
-  const otherPerson = () => unsigned().replace("jordan@example.com", "casey@example.org");
-
-  it("is not authenticated when it was addressed to another person", async () => {
-    expect(await authenticated(await signed(otherPerson()))).toBe(false);
+describe("a signed reply from the broker's domain", () => {
+  it("applies when its signed In-Reply-To quotes this request's Message-ID", async () => {
+    const result = await classifyRaw(await signed(replyTo(`In-Reply-To: ${OUR_ID}`)));
+    expect(result).toMatchObject({ requestId: "req-1", classification: "completed" });
+    expect(result.confidence).toBeGreaterThanOrEqual(0.6);
   });
 
-  it("goes to review when it was addressed to another person", async () => {
-    const result = await classifyRaw(await signed(otherPerson()));
-    expect(result).toMatchObject({
-      requestId: "req-1",
-      correlation: "sender_domain",
-    });
-    expect(result.confidence).toBeLessThan(0.6);
+  it("applies when its signed References hold another message of this request's sequence", async () => {
+    const raw = replyTo(
+      `References: <unrelated@x.test> ${outgoingMessageId("req-1", "example.com", 2)}`,
+    );
+    const result = await classifyRaw(await signed(raw));
+    expect(result.confidence).toBeGreaterThanOrEqual(0.6);
   });
 
-  it.each([
-    ["a UTF-8 lookalike domain", "jordan@exa\u016Dple.com"],
-    ["a punycode lookalike domain", "jordan@xn--exaple-rmb.com"],
-    ["a path after the domain", "jordan@example.com/x.evil.org"],
-    ["a backslash after the domain", "jordan@example.com\\x.evil.org"],
-    ["a query after the domain", "jordan@example.com?evil.test"],
-    ["a fragment after the domain", "jordan@example.com#evil.test"],
-    ["a percent-encoded domain", "jordan@ex%61mple.com"],
-    ["an encoded-word domain", "jordan@=?utf-8?Q?example.com=2F?=.evil.org"],
-  ])("is not authenticated and goes to review when addressed to %s", async (_label, to) => {
-    const raw = await signed(unsigned().replace("jordan@example.com", to));
-    expect(await authenticated(raw)).toBe(false);
-    const result = await classifyRaw(raw);
-    expect(result.confidence).toBeLessThan(0.6);
+  it("applies when its signed Subject carries this request's reference", async () => {
+    const raw = unsigned().replace(
+      "Subject: Your privacy request",
+      "Subject: Re: Your privacy request KR-7K3M9Q",
+    );
+    const result = await classifyRaw(await signed(raw));
+    expect(result).toMatchObject({ requestId: "req-1", correlation: "reference" });
+    expect(result.confidence).toBeGreaterThanOrEqual(0.6);
   });
 
-  it("is authenticated when the signed To is the same UTF-8 address as the mailbox", async () => {
-    const mailbox = "jordan@exa\u016Dple.com";
-    const raw = await signed(unsigned().replace("jordan@example.com", mailbox));
-    const message = await receive(raw);
-    expect(await senderIsAuthenticated(message, TARGET, mailbox)).toBe(true);
+  it("applies when only its fully signed body carries this request's reference", async () => {
+    const result = await classifyRaw(
+      await signed(unsigned(`${BODY}\r\n> Reference: KR-7K3M9Q\r\n`)),
+    );
+    expect(result).toMatchObject({ requestId: "req-1", correlation: "reference" });
+    expect(result.confidence).toBeGreaterThanOrEqual(0.6);
   });
 
-  it("goes to review when it names another request's reference", async () => {
+  it("applies even when it was addressed to someone else, as long as it quotes the request", async () => {
+    const raw = replyTo(`In-Reply-To: ${OUR_ID}`).replace(
+      "jordan@example.com",
+      "casey@example.org",
+    );
+    const result = await classifyRaw(await signed(raw));
+    expect(result.confidence).toBeGreaterThanOrEqual(0.6);
+  });
+
+  it("does not apply to this request when it quotes another request's reference", async () => {
     const raw = unsigned().replace(
       "Subject: Your privacy request",
       "Subject: Your privacy request KR-2B4C6D",
@@ -158,34 +163,94 @@ describe("a genuine signed reply that was not written for this mailbox", () => {
     const result = await classifyRaw(await signed(raw));
     expect(result.correlation).toBe("sender_domain");
     expect(result.confidence).toBeLessThan(0.6);
+    expect(result.rationale).toContain("does not quote this request");
   });
 
-  it("goes to review when it answers another request's Message-ID", async () => {
-    const raw = unsigned().replace(
-      "MIME-Version: 1.0",
-      `In-Reply-To: ${outgoingMessageId("req-other", "example.org")}\r\nMIME-Version: 1.0`,
-    );
-    const result = await classifyRaw(await signed(raw));
+  it("does not apply to this request when it answers another request's Message-ID", async () => {
+    const other = outgoingMessageId("req-other", "example.org");
+    const result = await classifyRaw(await signed(replyTo(`In-Reply-To: ${other}`)));
     expect(result.correlation).toBe("sender_domain");
     expect(result.confidence).toBeLessThan(0.6);
   });
 
-  it("is trusted when it is addressed to this mailbox and names only its own request", async () => {
-    const raw = unsigned().replace(
-      "Subject: Your privacy request",
-      "Subject: Your privacy request KR-7K3M9Q",
-    );
-    const result = await classifyRaw(await signed(raw));
+  it("goes to review when it quotes nothing", async () => {
+    const result = await classifyRaw(await signed(unsigned()));
+    expect(result).toMatchObject({ requestId: "req-1", correlation: "sender_domain" });
+    expect(result.confidence).toBeLessThan(0.6);
+    expect(result.rationale).toContain("does not quote this request");
+  });
+
+  it("goes to review when its In-Reply-To is not among the headers the signature covers", async () => {
+    const raw = await signed(replyTo(`In-Reply-To: ${OUR_ID}`), {
+      headerList: ["from", "to", "subject", "date", "message-id"],
+    });
+    const result = await classifyRaw(raw);
+    expect(result).toMatchObject({ requestId: "req-1", correlation: "message_id" });
+    expect(result.confidence).toBeLessThan(0.6);
+    expect(result.rationale).toContain("does not quote this request");
+  });
+
+  it("does not count a second, unsigned In-Reply-To above the signed one", async () => {
+    const other = outgoingMessageId("req-other", "example.org");
+    const signedMessage = await signed(replyTo(`In-Reply-To: ${other}`));
+    const result = await classifyRaw(`In-Reply-To: ${OUR_ID}\r\n${signedMessage}`);
+    expect(result.confidence).toBeLessThan(0.6);
+    expect(result.rationale).toContain("does not quote this request");
+  });
+
+  it("does not count a second, unsigned Subject above the signed one", async () => {
+    const signedMessage = await signed(unsigned());
+    const result = await classifyRaw(`Subject: Re: KR-7K3M9Q\r\n${signedMessage}`);
+    expect(result.confidence).toBeLessThan(0.6);
+    expect(result.rationale).toContain("does not quote this request");
+  });
+
+  it("goes to review when the reference sits only in an unsigned trailer after a length-limited body", async () => {
+    const message = await signed(unsigned(), { maxBodyLength: BODY.length });
+    const result = await classifyRaw(`${message}Reference: KR-7K3M9Q\r\n`);
+    expect(result).toMatchObject({ requestId: "req-1", correlation: "reference" });
+    expect(result.confidence).toBeLessThan(0.6);
+  });
+});
+
+describe("a reply that is not signed by the broker", () => {
+  it.each([
+    ["no signature", async () => replyTo(`In-Reply-To: ${OUR_ID}`)],
+    [
+      "a signature from another domain",
+      async () => signed(replyTo(`In-Reply-To: ${OUR_ID}`), { domain: "evil.test" }),
+    ],
+  ])("goes to review with %s even when it quotes the request", async (_name, build) => {
+    const result = await classifyRaw(await build());
+    expect(result).toMatchObject({ requestId: "req-1", correlation: "message_id" });
+    expect(result.confidence).toBeLessThan(0.6);
+    expect(result.rationale).toContain("not signed by the broker");
+  });
+});
+
+describe("a confirmation link", () => {
+  const CONFIRM = [
+    "Please confirm your opt-out request.",
+    "Click the link below to confirm: https://acme.test/optout/confirm?t=abc",
+    "",
+  ].join("\r\n");
+  const unreferenced = () => unsigned(CONFIRM);
+
+  it("is followed when the broker signed it, even though nothing quotes the request", async () => {
+    const result = await classifyRaw(await signed(unreferenced()));
+    expect(result).toMatchObject({
+      requestId: "req-1",
+      classification: "confirmation_link",
+      links: ["https://acme.test/optout/confirm?t=abc"],
+    });
     expect(result.confidence).toBeGreaterThanOrEqual(0.6);
   });
 
-  it("is trusted when it is addressed to this mailbox and names no request", async () => {
-    const result = await classifyRaw(await signed(unsigned()));
-    expect(result).toMatchObject({
-      requestId: "req-1",
-      correlation: "sender_domain",
-    });
-    expect(result.confidence).toBeGreaterThanOrEqual(0.6);
+  it("goes to review when the broker did not sign it", async () => {
+    const result = await classifyRaw(unreferenced());
+    expect(result.classification).toBe("confirmation_link");
+    expect(result.confidence).toBeLessThan(0.6);
+    expect(result.rationale).toContain("not signed by the broker");
   });
 });
 
@@ -198,21 +263,24 @@ describe("DKIM verification by the classifier", () => {
         ...message,
         verifyDkim: async () => {
           calls += 1;
-          return ["acme.test"];
+          return [];
         },
         ...overrides,
       },
-      { requests: [outstanding], mailboxAddress: MAILBOX },
+      { requests: [outstanding] },
     );
     return calls;
   }
 
-  it("is not run for a reply matched by the Message-ID it answers", async () => {
-    expect(await callsFor({ inReplyTo: outgoingMessageId("req-1", "example.com") })).toBe(0);
+  it("is run once for a matched reply that would change the request", async () => {
+    expect(await callsFor({ inReplyTo: OUR_ID })).toBe(1);
+    expect(await callsFor({ inReplyTo: null })).toBe(1);
   });
 
-  it("is run once for a reply matched only by its sender", async () => {
-    expect(await callsFor({ inReplyTo: null })).toBe(1);
+  it("is not run for mail that changes nothing", async () => {
+    expect(await callsFor({ text: "This is an automatic reply. We received your message." })).toBe(
+      0,
+    );
   });
 });
 
@@ -238,32 +306,26 @@ describe("a reply that carries the Authentication-Results its provider would hav
   ];
 
   function withHeader(header: string): string {
-    return `Authentication-Results: ${header}\r\n${unsigned()}`;
+    return `Authentication-Results: ${header}\r\n${replyTo(`In-Reply-To: ${OUR_ID}`)}`;
   }
 
   it.each(FORGERIES)("is not vouched for by %s", async (_name, header) => {
-    expect(await authenticated(withHeader(header))).toBe(false);
+    expect(await trustOf(withHeader(header))).toBe("unsigned");
   });
 
   it.each(FORGERIES)("goes to review with %s", async (_name, header) => {
-    const message = await receive(withHeader(header));
-    const result = await classifier.classify(
-      { ...message, inReplyTo: null, subject: "Your privacy request" },
-      { requests: [outstanding], mailboxAddress: "jordan@example.com" },
-    );
+    const result = await classifyRaw(withHeader(header));
     expect(result.requestId).toBe("req-1");
     expect(result.confidence).toBeLessThan(0.6);
   });
 
   it("is not vouched for when the same forgery sits beside a signature from another domain", async () => {
-    const raw = await signed(withHeader(FORGERIES[0]?.[1] ?? ""), {
-      domain: "evil.test",
-    });
-    expect(await authenticated(raw)).toBe(false);
+    const raw = await signed(withHeader(FORGERIES[0]?.[1] ?? ""), { domain: "evil.test" });
+    expect(await trustOf(raw)).toBe("unsigned");
   });
 
   it("is still vouched for by a real signature, whatever the header says", async () => {
     const raw = await signed(withHeader("mx.example.com; dkim=fail header.d=acme.test"));
-    expect(await authenticated(raw)).toBe(true);
+    expect(await trustOf(raw)).toBe("bound");
   });
 });

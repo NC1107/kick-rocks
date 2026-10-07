@@ -61,11 +61,11 @@ describe("createMailServices", () => {
       headers: {},
       verifyDkim: noDkim,
     };
-    await mail.classifier.classify(message, { requests: [], mailboxAddress: "jordan@example.com" });
+    await mail.classifier.classify(message, { requests: [] });
     expect(reads).toBe(0);
     await mail.classifier.classify(
       { ...message, text: "Your data has been deleted." },
-      { requests: [], mailboxAddress: "jordan@example.com" },
+      { requests: [] },
     );
     expect(reads).toBe(1);
   });

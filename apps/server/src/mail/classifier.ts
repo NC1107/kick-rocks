@@ -10,7 +10,7 @@ import type { SettingsStore } from "../core/settings.js";
 import { askLlm, type LlmFetch } from "./llm.js";
 import { CLASS_PRIORITY, matchSignals, requestedFieldsIn, type Signal } from "./reply-rules.js";
 import { extractLinks, type MailLink, stripQuoted } from "./reply-text.js";
-import { senderIsAuthenticated } from "./sender-auth.js";
+import { type SenderTrust, senderTrust } from "./sender-auth.js";
 import type {
   ClassificationResult,
   ClassifierRequest,
@@ -23,13 +23,12 @@ import type {
 export const CONFIDENCE_THRESHOLD = 0.6;
 /** What a reply can reach when nothing ties it to a request, so it always waits for a person. */
 const UNMATCHED_CAP = 0.55;
-/** What a reply can reach when only its sender's domain ties it to a request and a DKIM signature this server verified vouches for that domain and this mailbox. */
-const SENDER_DOMAIN_CAP = 0.8;
 /**
- * The same match without such a signature rests on a forgeable From address, and so does one that
- * names another request's reference, which a replayed genuine reply would carry, so it waits for a person.
+ * What a reply that would change a request can reach without a DKIM signature that vouches for it,
+ * so it always waits for a person. A signature vouches when it is the broker's and, for anything
+ * but a confirmation link, also covers a quote of this request.
  */
-const UNAUTHENTICATED_SENDER_CAP = 0.55;
+const UNVERIFIED_CAP = 0.55;
 /** The floor the contract gives a confirmation email that matches a waiting form submission. */
 const AWAITING_CONFIRMATION_FLOOR = 0.8;
 const AMBIGUITY_PENALTY = 0.15;
@@ -229,42 +228,57 @@ function describeCorrelation(via: Correlation | null): string {
   }
 }
 
-/** What a classification may reach given how firmly the reply is tied to a request. */
+/** The classifications that move a request or switch its channel, so they need a signature to be applied. */
+const CHANGES_REQUEST = new Set<ReplyClassification>([
+  "bounce",
+  "confirmation_link",
+  "verification_required",
+  "completed",
+  "no_record",
+  "rejected",
+  "needs_form",
+]);
+
+interface Capped {
+  confidence: number;
+  /** Why a person must look, set only when the missing trust is what held the confidence back. */
+  reason: string | null;
+}
+
+/**
+ * What a classification may reach given how firmly the reply is tied to a request. A confirmation
+ * link needs only the broker's signature, because following a genuine link on the broker's own
+ * domain can only confirm a removal; every other change needs the signature to quote the request.
+ */
 async function capFor(
   classification: ReplyClassification,
   via: Correlation | null,
   confidence: number,
-  senderVouched: () => Promise<boolean>,
-): Promise<number> {
-  if (via === null)
-    return classification === "unrelated" ? confidence : Math.min(confidence, UNMATCHED_CAP);
-  if (via === "sender_domain") {
-    // Verifying costs DNS lookups, so it is skipped when the unauthenticated cap already decides.
-    if (confidence <= UNAUTHENTICATED_SENDER_CAP) return confidence;
-    return Math.min(
-      confidence,
-      (await senderVouched()) ? SENDER_DOMAIN_CAP : UNAUTHENTICATED_SENDER_CAP,
-    );
+  trust: () => Promise<SenderTrust>,
+): Promise<Capped> {
+  if (via === null) {
+    return {
+      confidence: classification === "unrelated" ? confidence : Math.min(confidence, UNMATCHED_CAP),
+      reason: null,
+    };
   }
-  return confidence;
-}
-
-/** A reply that names a different request's Message-ID or reference than the one its sender matched. */
-function namesAnotherRequest(message: InboxMessage, request: ClassifierRequest): boolean {
-  const ids = [message.inReplyTo, ...message.references].filter((id): id is string => Boolean(id));
-  const foreignId = ids.some((id) => {
-    const parsed = parseOutgoingMessageId(id);
-    return parsed !== null && parsed.requestId !== request.id;
-  });
-  const foreignReference = parseReferences(`${message.subject}\n${message.text}`).some(
-    (reference) => reference !== request.reference,
-  );
-  return foreignId || foreignReference;
+  // Verifying costs DNS lookups, so it is skipped when the cap already decides.
+  if (!CHANGES_REQUEST.has(classification) || confidence <= UNVERIFIED_CAP) {
+    return { confidence, reason: null };
+  }
+  const found = await trust();
+  if (found === "bound" || (found === "signed" && classification === "confirmation_link")) {
+    return { confidence, reason: null };
+  }
+  return {
+    confidence: UNVERIFIED_CAP,
+    reason: found === "unsigned" ? "not signed by the broker" : "does not quote this request",
+  };
 }
 
 /** Remembers the answer, because the check may be wanted by both the rules and the model fallback. */
-function once(work: () => Promise<boolean>): () => Promise<boolean> {
-  let answer: Promise<boolean> | undefined;
+function once<T>(work: () => Promise<T>): () => Promise<T> {
+  let answer: Promise<T> | undefined;
   return () => {
     answer ??= work();
     return answer;
@@ -332,10 +346,10 @@ export function createReplyClassifier(deps: ReplyClassifierDeps): ReplyClassifie
       const links = match ? usableLinks(allLinks, match.request).map((link) => link.url) : [];
       const via = match?.via ?? null;
       const matched = match;
-      const authenticated = once(async () =>
-        matched === null || namesAnotherRequest(message, matched.request)
-          ? false
-          : senderIsAuthenticated(message, domainsOf(matched.request), context.mailboxAddress),
+      const trust = once<SenderTrust>(async () =>
+        matched === null
+          ? "unsigned"
+          : senderTrust(message, matched.request, domainsOf(matched.request)),
       );
       const requestId = match?.request.id ?? null;
 
@@ -364,12 +378,13 @@ export function createReplyClassifier(deps: ReplyClassifierDeps): ReplyClassifie
           match?.request.awaitingConfirmation
             ? Math.max(confidence, AWAITING_CONFIRMATION_FLOOR)
             : confidence;
+        const capped = await capFor(top.classification, via, floored, trust);
         result = {
           requestId,
           correlation: via,
           classification: top.classification,
-          confidence: round(await capFor(top.classification, via, floored, authenticated)),
-          rationale: `${top.rationale}${rival ? ", though other wording points elsewhere" : ""}; ${describeCorrelation(via)}`,
+          confidence: round(capped.confidence),
+          rationale: `${top.rationale}${rival ? ", though other wording points elsewhere" : ""}; ${describeCorrelation(via)}${capped.reason ? `; ${capped.reason}` : ""}`,
           links,
           requestedFields:
             top.classification === "verification_required" ? requestedFieldsIn(body) : [],
@@ -397,7 +412,7 @@ export function createReplyClassifier(deps: ReplyClassifierDeps): ReplyClassifie
       }
 
       if (result.confidence >= CONFIDENCE_THRESHOLD) return result;
-      return refineWithLlm(deps, message, body, result, via, authenticated);
+      return refineWithLlm(deps, message, body, result, via, trust);
     },
   };
 }
@@ -408,7 +423,7 @@ async function refineWithLlm(
   body: string,
   current: ClassificationResult,
   via: Correlation | null,
-  authenticated: () => Promise<boolean>,
+  trust: () => Promise<SenderTrust>,
 ): Promise<ClassificationResult> {
   const llm = configuredLlm(deps.settings);
   if (!llm) return current;
@@ -428,20 +443,19 @@ async function refineWithLlm(
   // own sites were ever collected, so with none the claim has nothing to act on.
   const unsupported = answer.classification === "confirmation_link" && current.links.length === 0;
   const classification: ReplyClassification = unsupported ? "unknown" : answer.classification;
-  const confidence = round(
-    await capFor(
-      classification,
-      via,
-      unsupported ? 0.3 : Math.min(answer.confidence, 0.9),
-      authenticated,
-    ),
+  const capped = await capFor(
+    classification,
+    via,
+    unsupported ? 0.3 : Math.min(answer.confidence, 0.9),
+    trust,
   );
+  const confidence = round(capped.confidence);
   if (confidence <= current.confidence) return current;
   return {
     ...current,
     classification,
     confidence,
-    rationale: `Model: ${answer.rationale || "no reason given"}`,
+    rationale: `Model: ${answer.rationale || "no reason given"}${capped.reason ? `; ${capped.reason}` : ""}`,
     requestedFields: classification === "verification_required" ? answer.requested_fields : [],
   };
 }

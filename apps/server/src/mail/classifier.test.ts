@@ -1,10 +1,8 @@
 import { outgoingMessageId, type ProfileField, type ReplyClassification } from "@kickrocks/shared";
 import { describe, expect, it } from "vitest";
-import { noDkim, verifiedBy } from "../test-utils/dkim.js";
+import { noDkim, signedAs } from "../test-utils/dkim.js";
 import { createReplyClassifier } from "./classifier.js";
 import type { ClassifierRequest, InboxMessage } from "./types.js";
-
-const MAILBOX = "jordan@example.com";
 
 const classifier = createReplyClassifier({ settings: { get: () => null as never } });
 
@@ -24,8 +22,9 @@ function request(overrides: Partial<ClassifierRequest> = {}): ClassifierRequest 
   };
 }
 
+/** A reply the broker signed, covering the In-Reply-To, References, and Subject it carries, unless a test says otherwise. */
 function message(overrides: Partial<InboxMessage> = {}): InboxMessage {
-  return {
+  const base: InboxMessage = {
     uid: 1,
     messageId: "<reply-1@acme.test>",
     inReplyTo: outgoingMessageId("req-1", "example.com"),
@@ -42,6 +41,15 @@ function message(overrides: Partial<InboxMessage> = {}): InboxMessage {
     verifyDkim: noDkim,
     ...overrides,
   };
+  if (overrides.verifyDkim) return base;
+  return {
+    ...base,
+    verifyDkim: signedAs("acme.test", {
+      inReplyTo: base.inReplyTo ? [base.inReplyTo] : [],
+      references: base.references,
+      subject: [base.subject],
+    }),
+  };
 }
 
 const ORIGINAL = [
@@ -55,10 +63,7 @@ async function classify(
   overrides: Partial<InboxMessage> = {},
   requests: ClassifierRequest[] = [request()],
 ) {
-  return classifier.classify(message({ text, ...overrides }), {
-    requests,
-    mailboxAddress: MAILBOX,
-  });
+  return classifier.classify(message({ text, ...overrides }), { requests });
 }
 
 describe("correlation", () => {
@@ -134,20 +139,20 @@ describe("correlation", () => {
     expect(result.requestId).toBeNull();
   });
 
-  it("falls back to the sender's domain, with lower confidence, and accepts a subdomain", async () => {
+  it("keeps a sender-domain match for a person even when the broker signed it", async () => {
     const result = await classify("Your data has been deleted.", {
       inReplyTo: null,
       subject: "Your privacy request",
       from: { name: null, address: "ticket@help.acme.test" },
-      verifyDkim: verifiedBy("help.acme.test"),
+      verifyDkim: signedAs("help.acme.test", { subject: ["Your privacy request"] }),
     });
     expect(result).toMatchObject({
       requestId: "req-1",
       correlation: "sender_domain",
       classification: "completed",
     });
-    expect(result.confidence).toBeLessThanOrEqual(0.8);
-    expect(result.confidence).toBeGreaterThanOrEqual(0.6);
+    expect(result.confidence).toBeLessThan(0.6);
+    expect(result.rationale).toContain("does not quote this request");
   });
 
   it("keeps a sender-domain match with no authentication for a person to review", async () => {
@@ -156,34 +161,38 @@ describe("correlation", () => {
       messageId: "<attacker@evil.test>",
       subject: "Your privacy request",
       from: { name: null, address: "privacy@acme.test" },
+      verifyDkim: noDkim,
     });
     expect(result).toMatchObject({ requestId: "req-1", correlation: "sender_domain" });
     expect(result.confidence).toBeLessThan(0.6);
+    expect(result.rationale).toContain("not signed by the broker");
   });
 
   it.each([
     ["a signature from another domain", ["evil.test"]],
     ["a signature from a lookalike domain", ["notacme.test"]],
     ["no verified signature", []],
-  ])("does not trust %s", async (_name, dkimDomains) => {
+  ])("does not trust %s", async (_name, signers) => {
     const result = await classify("We have completed your request.", {
-      inReplyTo: null,
-      subject: "Your privacy request",
-      from: { name: null, address: "privacy@acme.test" },
-      verifyDkim: verifiedBy(...dkimDomains),
+      verifyDkim: async () =>
+        signers.map((domain) => ({
+          domain,
+          inReplyTo: [outgoingMessageId("req-1", "example.com")],
+          references: [],
+          subject: ["Re: Opt-out request KR-7K3M9Q"],
+        })),
     });
+    expect(result).toMatchObject({ requestId: "req-1", correlation: "message_id" });
     expect(result.confidence).toBeLessThan(0.6);
+    expect(result.rationale).toContain("not signed by the broker");
   });
 
   it.each([
     ["the target's own domain", "acme.test"],
     ["a subdomain of it", "mail.acme.test"],
-  ])("trusts a verified signature from %s", async (_name, signer) => {
+  ])("trusts a signature from %s that quotes the request", async (_name, signer) => {
     const result = await classify("We have completed your request.", {
-      inReplyTo: null,
-      subject: "Your privacy request",
-      from: { name: null, address: "privacy@acme.test" },
-      verifyDkim: verifiedBy(signer),
+      verifyDkim: signedAs(signer, { inReplyTo: [outgoingMessageId("req-1", "example.com")] }),
     });
     expect(result.confidence).toBeGreaterThanOrEqual(0.6);
   });
@@ -544,7 +553,7 @@ describe("a confirmation email after a form submission", () => {
   const waiting = (overrides: Partial<ClassifierRequest> = {}) =>
     request({
       id: "form-1",
-      reference: "KR-FORM01",
+      reference: "KR-F0RM01",
       outgoingMessageId: null,
       channel: "form",
       targetDomain: "intelius.test",
@@ -563,7 +572,7 @@ describe("a confirmation email after a form submission", () => {
     from: { name: null, address: "no-reply@peopleconnect.test" },
     html: '<p>Click the link below to confirm your opt-out.</p><a href="https://suppression.peopleconnect.test/confirm?id=9">Confirm</a>',
     text: "Click the link below to confirm your opt-out.",
-    verifyDkim: verifiedBy("peopleconnect.test"),
+    verifyDkim: signedAs("peopleconnect.test"),
     ...overrides,
   });
 
@@ -599,7 +608,7 @@ describe("a confirmation email after a form submission", () => {
     expect(result.confidence).toBeLessThan(0.6);
   });
 
-  it("lets the same completion wording act once a signature of the sender verifies", async () => {
+  it("keeps completion wording for review when the sender's signature does not quote the request", async () => {
     const result = await classify(
       "",
       confirmation({
@@ -610,6 +619,23 @@ describe("a confirmation email after a form submission", () => {
       [waiting()],
     );
     expect(result.classification).toBe("completed");
+    expect(result.confidence).toBeLessThan(0.6);
+    expect(result.rationale).toContain("does not quote this request");
+  });
+
+  it("lets the same completion wording act once the signature quotes the request", async () => {
+    const subject = "Your removal is complete KR-F0RM01";
+    const result = await classify(
+      "",
+      confirmation({
+        subject,
+        text: "Your record has been removed from our site and your data has been deleted.",
+        html: null,
+        verifyDkim: signedAs("peopleconnect.test", { subject: [subject] }),
+      }),
+      [waiting()],
+    );
+    expect(result).toMatchObject({ classification: "completed", correlation: "reference" });
     expect(result.confidence).toBeGreaterThanOrEqual(0.6);
   });
 
@@ -721,7 +747,7 @@ describe("a confirmation email after a form submission", () => {
         inReplyTo: null,
         subject: "Your request",
         from: { name: null, address: "privacy@intelius.test" },
-        verifyDkim: verifiedBy("intelius.test"),
+        verifyDkim: signedAs("intelius.test"),
       },
       [waiting()],
     );
@@ -753,7 +779,7 @@ describe("hostile input", () => {
   it("does not throw on a message with nothing in it", async () => {
     const result = await classifier.classify(
       message({ subject: "", text: "", from: { name: null, address: "" } }),
-      { requests: [request()], mailboxAddress: MAILBOX },
+      { requests: [request()] },
     );
     expect(result.classification).toBeDefined();
   });
