@@ -1,6 +1,6 @@
 import type { TargetOutcome } from "@kickrocks/shared";
 import { describe, expect, it } from "vitest";
-import { channelOf, countByChannel, groupSkipped, parseTargetIds } from "./channels.js";
+import { advisories, channelOf, countByChannel, groupSkipped, parseTargetIds } from "./channels.js";
 
 const outcome = (
   targetId: string,
@@ -104,6 +104,14 @@ describe("groupSkipped", () => {
       ["already_active", 2],
       ["no_mailbox", 1],
     ]);
+  });
+});
+
+describe("advisories", () => {
+  it("keeps targets that go ahead with a note and drops skips and plain outcomes", () => {
+    const noted = { ...outcome("a", "request_created"), detail: "DROP can delete more." };
+    const skipped = { ...outcome("b", "skipped", "no_mailbox"), detail: "Connect a mailbox." };
+    expect(advisories([noted, skipped, outcome("c", "request_created")])).toEqual([noted]);
   });
 });
 

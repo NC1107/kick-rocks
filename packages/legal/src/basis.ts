@@ -84,6 +84,49 @@ function isDropRequest(input: ResolveLegalBasisInput): boolean {
   );
 }
 
+export type DropRecommendationReason =
+  | "recommended"
+  | "not_california"
+  | "not_a_registered_broker"
+  | "no_deletion_asked"
+  | "not_yet_processed";
+
+export interface DropRecommendation {
+  recommended: boolean;
+  reason: DropRecommendationReason;
+  /** The DROP platform when it is recommended, so a caller can link to it. */
+  platform: NonNullable<Statute["platform"]> | null;
+}
+
+/**
+ * Whether the person should be pointed to DROP for the deletion part of a request.
+ * The CCPA deletion right reaches only data a business collected from the consumer, which a
+ * broker never did, while DROP (Civ. Code 1798.99.86) deletes everything a registered broker holds.
+ * Brokers must process DROP requests only from 2026-08-01, so earlier it is no better than an email.
+ * An opt-out does not change this: DROP deletes, and the opt-out still goes by email under the CCPA.
+ */
+export function recommendDrop(input: ResolveLegalBasisInput): DropRecommendation {
+  const parsed = ResolveInput.safeParse(input);
+  if (!parsed.success) {
+    throw new LegalInputError(`Cannot recommend DROP: ${z.prettifyError(parsed.error)}`);
+  }
+  const none = (reason: DropRecommendationReason): DropRecommendation => ({
+    recommended: false,
+    reason,
+    platform: null,
+  });
+  const deleteAct = STATUTES_BY_ID.get(CALIFORNIA_DELETE_ACT);
+  if (input.state !== "CA") return none("not_california");
+  if (input.target.kind !== "broker" || !input.target.californiaRegistered) {
+    return none("not_a_registered_broker");
+  }
+  if (!input.rights.includes("delete")) return none("no_deletion_asked");
+  if (!deleteAct?.platform || !isInEffect(deleteAct, parsed.data.asOf)) {
+    return none("not_yet_processed");
+  }
+  return { recommended: true, reason: "recommended", platform: deleteAct.platform };
+}
+
 export function resolveLegalBasis(input: ResolveLegalBasisInput): LegalBasis {
   const parsed = ResolveInput.safeParse(input);
   if (!parsed.success) {

@@ -29,6 +29,10 @@ const appRoutes: RouteObject[] = [
   { path: "settings", lazy: () => import("./pages/settings/index.js") },
   { path: "settings/recipes", lazy: () => import("./pages/settings/recipes/index.js") },
   { path: "settings/agents", lazy: () => import("./pages/settings/agents/index.js") },
+  {
+    path: "settings/notifications",
+    lazy: () => import("./pages/settings/notifications/index.js"),
+  },
   { path: "about", lazy: () => import("./pages/about/index.js") },
   // A living style guide for the components, only in development.
   ...(import.meta.env.DEV

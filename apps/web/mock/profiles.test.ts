@@ -130,3 +130,40 @@ describe("profile changes", () => {
     expect(response.status).toBe(403);
   });
 });
+
+describe("profile export and deletion", () => {
+  it("exports a profile in the shape the server does, without the mailbox password", async () => {
+    const response = await call({ path: `/profiles/${jordan().id}/export` });
+    expect(response.status).toBe(200);
+    expect(response.json).toMatchObject({
+      format: "kickrocks-profile-export",
+      version: 1,
+      profile: { id: jordan().id },
+    });
+    expect(response.json.identities.length).toBe(jordan().identities.length);
+    expect(JSON.stringify(response.json)).not.toMatch(/secret|password/i);
+  });
+
+  it("exports only the requests of that profile", async () => {
+    const response = await call({ path: `/profiles/${jordan().id}/export` });
+    const ids = response.json.requests.map((request: { id: string }) => request.id).sort();
+    expect(ids).toEqual(
+      app.store.requests
+        .filter((request) => request.profileId === jordan().id)
+        .map((request) => request.id)
+        .sort(),
+    );
+  });
+
+  it("answers 404 for a profile that does not exist", async () => {
+    expect((await call({ path: "/profiles/nope/export" })).status).toBe(404);
+  });
+
+  it("deleting removes the scans, matches, tasks, and messages of the profile too", async () => {
+    const id = jordan().id;
+    await call({ method: "DELETE", path: `/profiles/${id}` });
+    expect(app.store.scans.some((scan) => scan.profileId === id)).toBe(false);
+    expect(app.store.matches.some((match) => match.profileId === id)).toBe(false);
+    expect(app.store.tasks.some((task) => task.profileId === id)).toBe(false);
+  });
+});

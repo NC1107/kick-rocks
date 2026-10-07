@@ -3,6 +3,7 @@ import {
   DATA_SOURCE_DETAILS,
   DataSourceId,
   type DataSourceInfo,
+  RetentionSettings,
   ScheduleSettings,
   type SettingsPatch,
   type SettingsView,
@@ -13,11 +14,13 @@ import { registerRoute } from "../../core/http.js";
 import type { ModulePlugin } from "../../core/module.js";
 import { definedOnly } from "../../core/objects.js";
 import type { AppServices } from "../../services.js";
+import { applyRetention } from "../data-rights/index.js";
 
 function viewOf({ settings, config }: AppServices): SettingsView {
   const llm = settings.get("llm");
   return {
     schedule: settings.get("schedule"),
+    retention: settings.get("retention"),
     llm: llm ? { baseUrl: llm.baseUrl, model: llm.model, apiKeySet: llm.apiKey !== null } : null,
     mcp: {
       enabled: settings.get("mcp.enabled"),
@@ -44,6 +47,15 @@ function applyPatch({ settings }: AppServices, patch: SettingsPatch): void {
     settings.set(
       "schedule",
       ScheduleSettings.parse({ ...settings.get("schedule"), ...definedOnly(patch.schedule) }),
+    );
+  }
+  if (patch.retention) {
+    settings.set(
+      "retention",
+      RetentionSettings.parse({
+        ...settings.get("retention"),
+        ...definedOnly(patch.retention),
+      }),
     );
   }
   if (patch.llm === null) {
@@ -84,6 +96,8 @@ export const settingsModule: ModulePlugin = (app, services) => {
 
   registerRoute(app, API_ROUTES.settingsPatch, ({ body }) => {
     db.transaction(() => applyPatch(services, body));
+    // A shorter window should take effect now, not at the scheduler's next pass.
+    if (body.retention) applyRetention(services);
     return viewOf(services);
   });
 

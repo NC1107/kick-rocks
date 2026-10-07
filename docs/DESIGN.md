@@ -247,6 +247,15 @@ Decision: Playwright drives recipes.
 Stagehand is evaluated for the agent fallback behind the task queue once real tasks exist to test against.
 Consequences: no premature dependency on an agent framework, and the agent surface can be swapped per worker.
 
+### ADR-011: The person controls the data Kick Rocks holds
+
+Context: the database holds identities, mail metadata, and screenshots, and deleting rows from an encrypted SQLite file leaves their pages on the free list.
+Decision: a profile can be exported as JSON without the mailbox password or message text, and deleted with everything about it.
+Deletion cancels the profile's live tasks through the queue before removing rows, so a leased task cannot complete later against deleted data, and then runs `VACUUM` and a WAL checkpoint.
+Retention windows for screenshots and for reply text replace the fixed 30 day screenshot purge, and a typed confirmation resets the whole instance.
+Consequences: reply text is blanked rather than the row deleted, because the unique index on the mailbox UID is what keeps a poll from importing the same mail again.
+A worker or runner that held a lease on deleted work gets a not found answer, and an email already handed to the mail server cannot be recalled.
+
 ## Implementation Plan
 
 ### Milestone 0: Scaffold

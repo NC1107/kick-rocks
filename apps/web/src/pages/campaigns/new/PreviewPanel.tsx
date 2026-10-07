@@ -4,7 +4,7 @@ import type { ComponentType } from "react";
 import { Card, CardHeader, Skeleton } from "../../../components/ui/index.js";
 import { formatCount } from "../../../lib/format.js";
 import { SKIP_REASON_LABELS } from "../../../lib/labels.js";
-import { type ChannelCounts, groupSkipped } from "../channels.js";
+import { advisories, type ChannelCounts, groupSkipped } from "../channels.js";
 
 interface TileProps {
   icon: ComponentType<{ className?: string; "aria-hidden"?: boolean }>;
@@ -93,6 +93,28 @@ export function SkippedList({ items }: { items: CampaignPreview["items"] }) {
                 ))}
               </ul>
             </details>
+          </li>
+        ))}
+      </ul>
+    </Card>
+  );
+}
+
+export function AdvisoryList({ items }: { items: CampaignPreview["items"] }) {
+  const flagged = advisories(items);
+  if (flagged.length === 0) return null;
+  return (
+    <Card>
+      <CardHeader
+        title="Worth knowing"
+        description="These still go ahead. Read the note first if one affects what you want."
+        className="mb-2"
+      />
+      <ul className="m-0 list-none divide-y divide-line p-0">
+        {flagged.map((item) => (
+          <li key={item.targetId} className="py-2 text-base first:pt-0 last:pb-0">
+            <span className="text-ink">{item.targetName}</span>
+            <span className="block text-sm text-ink-muted">{item.detail}</span>
           </li>
         ))}
       </ul>

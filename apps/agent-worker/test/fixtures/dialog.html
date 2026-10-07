@@ -1,0 +1,13 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Confirm removal</title></head>
+<body>
+<h1>Remove my record</h1>
+<button type="button" id="go">Remove now</button>
+<script>
+  document.getElementById("go").addEventListener("click", () => {
+    if (confirm("Really remove this record?")) location.href = "/confirmation";
+  });
+</script>
+</body>
+</html>

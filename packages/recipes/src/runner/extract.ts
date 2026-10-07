@@ -14,8 +14,9 @@ export async function readRows(items: Locator, rules: Rules): Promise<Row[]> {
   return items.evaluateAll(READ_FIELDS, rules);
 }
 
-function age(values: string[] | undefined): number | undefined {
-  const digits = /\d{1,3}/.exec(values?.[0] ?? "");
+/** The first whole number in the text, so "John Smith, 45 (born 1980)" reads as 45. */
+export function ageFrom(values: string[] | undefined): number | undefined {
+  const digits = /\d+/.exec(values?.[0] ?? "");
   if (!digits) return undefined;
   const years = Number.parseInt(digits[0], 10);
   return years >= 0 && years <= 130 ? years : undefined;
@@ -59,7 +60,7 @@ export async function extractCandidates(
     if (recordUrl === null || !name) continue;
     const key = normalizeRecordUrl(recordUrl);
     if (key === null || seen.has(key)) continue;
-    const years = age(row.age);
+    const years = ageFrom(row.age);
     const parsed = Candidate.safeParse({
       recordUrl,
       name,

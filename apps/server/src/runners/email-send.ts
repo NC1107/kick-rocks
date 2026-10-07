@@ -33,7 +33,7 @@ const MAILBOX_ERROR_CODES = new Set([
 ]);
 
 /** The server could not be reached or would not let the mailbox in, which says nothing about the request. */
-function isMailboxProblem(error: unknown): boolean {
+export function isMailboxProblem(error: unknown): boolean {
   const { responseCode, code } = error as { responseCode?: unknown; code?: unknown };
   return responseCode === 421 || (typeof code === "string" && MAILBOX_ERROR_CODES.has(code));
 }
@@ -158,8 +158,7 @@ export class EmailRunner {
       .set({ lastError: null })
       .where(eq(mailboxes.id, mailbox.id))
       .run();
-    this.recordSend(task, request.id, composed.mailboxId, outgoing.messageId);
-    return true;
+    return this.recordSend(task, request.id, composed.mailboxId, outgoing.messageId);
   }
 
   /** Hands the task back without spending an attempt and shows the person why the mailbox is idle. */
@@ -214,10 +213,17 @@ export class EmailRunner {
     requestId: string,
     mailboxId: string,
     messageId: string,
-  ): void {
+  ): boolean {
     const { db, taskQueue, requests, mailQuota, clock } = this.services;
     const kind: EmailKind = task.payload.kind;
-    db.transaction(() => {
+    return db.transaction(() => {
+      if (!requests.get(requestId) || !taskQueue.get(task.id)) {
+        this.services.logger.info(
+          { requestId },
+          "the profile was deleted while its mail was in flight, so the send is not recorded",
+        );
+        return false;
+      }
       mailQuota.record({ mailboxId, requestId, kind, messageId });
       const current = requests.getOrThrow(requestId);
       const live = taskQueue.getOrThrow(task.id);
@@ -236,7 +242,7 @@ export class EmailRunner {
             result: { messageId, kind },
           });
         }
-        return;
+        return true;
       }
 
       const now = clock.now();
@@ -266,6 +272,7 @@ export class EmailRunner {
         actor: "system",
         result: { messageId, kind },
       });
+      return true;
     });
   }
 

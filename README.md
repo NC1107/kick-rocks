@@ -54,6 +54,13 @@ First steps in the app:
 To let Claude Code or another agent take over tasks the worker cannot do, turn on MCP in Settings.
 `docs/agents.md` explains how to connect.
 
+You can also let a model take those tasks without Claude Code.
+The optional agent worker drives its own Chrome and asks a local model (Ollama or any OpenAI-compatible endpoint) or the Anthropic API what to do next.
+Set `KICKROCKS_AGENT_MODEL` in `.env`, then run `docker compose --profile agent up -d --build`.
+The model does not see your details: it names a profile field and the program types the value, and what the model reads is masked so a field's value shows as a placeholder such as `{{first_name}}`.
+The program types only on the broker's own domains and pages, and a CAPTCHA stops the task for you.
+See "Running a model as the agent" in `docs/agents.md`.
+
 ## Reaching it from another device
 
 The UI is published on `127.0.0.1` only, so a headless home server, NAS, or Pi is not reachable from your laptop by default.
@@ -81,6 +88,21 @@ Three settings in `.env` make that work.
   A bare `on` is refused.
 
 The proxy must pass the original `Host` header through, which most do by default, and keep the connection to the server on a network only it can reach.
+
+## Notifications and the digest
+
+Settings has a Notifications tab so you do not have to keep the app open.
+
+- Push goes to ntfy (ntfy.sh or your own server and a topic) or Telegram (a bot token and a chat id).
+  It is sent when a task is blocked for you, a broker asks you to approve identifiers, a listing needs your decision, a mailbox fails, or a recipe breaks.
+  Each item is announced once while it stays open, items that arrive together share one message, and at most six pushes go out per hour unless you change that.
+- A push carries counts and one link to this app, such as "2 tasks are blocked. Open https://kickrocks.example.org/review".
+  It never names a broker, a person, or an address, because it passes through a server you may not run.
+  Set `KICKROCKS_PUBLIC_URL` so the link opens from your phone.
+- The digest is a daily or weekly email from your own mailbox to itself, listing status changes and what needs you.
+  It is sent through the same mailbox as your requests, so it never touches another service, and it is skipped when nothing changed and nothing waits on you.
+- Tokens are stored in the encrypted database and are never shown again after saving.
+  The server reaches ntfy and Telegram over the network, so it needs outbound access to the ntfy address you enter and to `api.telegram.org`.
 
 ## Backup, restore, and the data volume
 
@@ -116,6 +138,23 @@ Your profiles, requests, and mailbox setup stay as they were.
 
 If you'd rather have a plain folder on disk, swap the volume for a bind mount in `docker-compose.yml` and chown that folder to uid 1000 first, the container runs as an unprivileged user.
 
+## Your data
+
+Kick Rocks only keeps what it needs, and you can take it out or remove it from the web UI.
+
+- **Export.** The profile page has "Export profile data", which saves one JSON file with the identities, requests and their timelines, reply details, scans, and matches.
+  It leaves out the mailbox password and the text of replies.
+- **Delete a profile.** The profile page removes the profile and everything about it: identities, mailbox connection, requests, replies, scans, matches, and screenshots.
+  Running tasks are cancelled first, so a worker that still holds one finds nothing to report against.
+  The database file is then compacted with `VACUUM`, so the freed pages do not keep the old bytes.
+- **Retention.** Settings has one window for screenshots (30 days by default) and one for the text of replies you have dealt with (kept by default).
+  The sender, subject, and outcome of a reply always stay, so a request keeps its history.
+  Saving a shorter window applies it at once, and the scheduler applies it every hour after that.
+- **Delete all data.** Settings can wipe every profile and the instance settings after you type a confirmation phrase.
+  It keeps your sign-in password, the broker list, and the recipes.
+
+Requests that were already sent cannot be recalled, and nothing here reaches into your mailbox: delete the replies there yourself if you want them gone.
+
 ## Updating and logs
 
 To update, pull and rebuild both images, and keep the profile flag so the worker is rebuilt next to the server:
@@ -125,7 +164,8 @@ git pull
 docker compose --profile worker up -d --build
 ```
 
-`docker compose logs -f server` and `docker compose logs -f worker` show what each container is doing.
+If you run the agent worker, add `--profile agent` to that command so it is rebuilt too.
+`docker compose logs -f server` and `docker compose logs -f worker` show what each container is doing, and `docker compose logs -f agent-worker` shows the agent worker.
 The lines are JSON, one object per line.
 
 ## Developing
@@ -149,6 +189,8 @@ The server reads its settings from the environment, not from `.env`.
 The repo is a pnpm workspace.
 `apps/server` is the fastify api, scheduler, mail handling, task queue, and mcp server.
 `apps/web` is the react ui.
+`apps/worker` is the browser worker that runs recipes.
+`apps/agent-worker` is the optional model-driven worker for tasks no recipe covers.
 `packages/db` is the drizzle schema over an sqlcipher-encrypted sqlite file.
 `packages/brokers` turns the upstream broker lists into one normalized dataset.
 `packages/shared` is the zod schemas everything else agrees on.

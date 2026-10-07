@@ -4,6 +4,8 @@ import { Alert, Button, Card, SkeletonText } from "../../components/ui/index.js"
 import { JurisdictionsCard } from "./JurisdictionsCard.js";
 import { LlmCard } from "./LlmCard.js";
 import { PasswordCard } from "./PasswordCard.js";
+import { ResetCard } from "./ResetCard.js";
+import { RetentionCard } from "./RetentionCard.js";
 import { ScheduleCard } from "./ScheduleCard.js";
 import { SettingsHeader } from "./SettingsHeader.js";
 import { WorkerCard } from "./WorkerCard.js";
@@ -15,7 +17,7 @@ export function Component() {
 
   return (
     <>
-      <SettingsHeader description="Schedule, language model, worker, privacy laws, and the password." />
+      <SettingsHeader description="Schedule, language model, worker, privacy laws, retention, and the password." />
       {settings.isPending ? (
         <div aria-busy="true" className="flex flex-col gap-5">
           <span className="sr-only">Loading settings</span>
@@ -43,7 +45,9 @@ export function Component() {
           <WorkerCard worker={settings.data.worker} now={settings.dataUpdatedAt} />
           <LlmCard llm={settings.data.llm} />
           <JurisdictionsCard />
+          <RetentionCard retention={settings.data.retention} />
           <PasswordCard />
+          <ResetCard />
         </div>
       )}
     </>

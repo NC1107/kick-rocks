@@ -8,6 +8,7 @@ import type { Clock } from "../../core/clock.js";
 import { invalidRequest } from "../../core/errors.js";
 import { registerRoute } from "../../core/http.js";
 import type { ModulePlugin } from "../../core/module.js";
+import { eraseProfile } from "../data-rights/index.js";
 import { createProfileStore, identityKey } from "./store.js";
 
 /**
@@ -36,7 +37,8 @@ function requireValid(inputs: readonly IdentityInput[], clock: Clock): void {
   if (issues.length > 0) throw invalidRequest("The identities are not valid", issues);
 }
 
-export const profilesModule: ModulePlugin = (app, { db, clock, mailHolds }) => {
+export const profilesModule: ModulePlugin = (app, services) => {
+  const { db, clock, mailHolds } = services;
   const store = createProfileStore({ db, clock, mailHolds });
 
   registerRoute(app, API_ROUTES.profilesList, () => ({ profiles: store.list() }));
@@ -58,7 +60,7 @@ export const profilesModule: ModulePlugin = (app, { db, clock, mailHolds }) => {
   });
 
   registerRoute(app, API_ROUTES.profilesDelete, ({ params }) => {
-    store.remove(params.id);
+    eraseProfile(services, params.id);
     return { ok: true as const };
   });
 };

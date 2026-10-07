@@ -51,7 +51,10 @@ export const TargetOutcome = z.object({
   requestId: z.string().nullable(),
   scanId: z.string().nullable(),
   reason: SkipReason.nullable(),
-  /** A sentence for a person to read when the reason alone is not enough, such as which platform covers it. */
+  /**
+   * A sentence for a person to read when the reason alone is not enough, such as which platform covers it.
+   * On a target that goes ahead it is an advisory, such as a platform that can delete more than the request.
+   */
   detail: z.string().nullable(),
 });
 export type TargetOutcome = z.infer<typeof TargetOutcome>;

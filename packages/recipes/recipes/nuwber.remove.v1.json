@@ -82,7 +82,7 @@
       }
     ]
   },
-  "notes": "Not verified. nuwber.com did not resolve in DNS from this machine on 2026-10-07, so the opt-out page at the address in the broker dataset was never loaded. The steps follow the site's published flow (paste the profile link, give an email, confirm by email link) with generic selectors that are guesses. Check whether the site is still operating before relying on this recipe. The wording the site shows after Submit was never observed, so the outcome_when texts that prove the request went through are guesses, and the recipe stays unverified until a real submission has been seen.",
+  "notes": "Not verified. nuwber.com did not resolve in DNS from this machine on 2026-10-07, so the opt-out page at the address in the broker dataset was never loaded. The steps follow the site's published flow (paste the profile link, give an email, confirm by email link) with generic selectors that are guesses. Check whether the site is still operating before relying on this recipe. The wording the site shows after Submit was never observed, so the outcome_when texts that prove the request went through are guesses, and the recipe stays unverified until a real submission has been seen. Re-checked 2026-10-07: nuwber.com does not resolve (no address record from 1.1.1.1 or 8.8.8.8 for the bare or www name), so the site may be offline. Nothing about the page could be checked.",
   "verifiedAt": "2026-10-07",
   "liveStatus": "unverified"
 }

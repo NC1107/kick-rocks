@@ -2,6 +2,8 @@ import {
   API_ROUTES,
   type Identity,
   type IdentityInput,
+  PROFILE_EXPORT_FORMAT,
+  PROFILE_EXPORT_VERSION,
   type ProfileDetail,
   type ProfileSummary,
   validateIdentities,
@@ -177,10 +179,98 @@ export default defineMockDomain({
       return profile;
     }),
 
+    handle(API_ROUTES.profilesExport, ({ params }) => {
+      const profile = find(store, params.id);
+      const requests = store.requests.filter((request) => request.profileId === profile.id);
+      const requestIds = new Set(requests.map((request) => request.id));
+      return {
+        format: PROFILE_EXPORT_FORMAT,
+        version: PROFILE_EXPORT_VERSION,
+        exportedAt: store.clock.now().toISOString(),
+        profile: {
+          id: profile.id,
+          displayName: profile.displayName,
+          state: profile.state,
+          createdAt: profile.createdAt,
+          updatedAt: profile.updatedAt,
+        },
+        identities: profile.identities,
+        mailbox: profile.mailbox
+          ? {
+              provider: profile.mailbox.provider,
+              address: profile.mailbox.address,
+              username: profile.mailbox.username,
+              smtpHost: profile.mailbox.smtpHost,
+              smtpPort: profile.mailbox.smtpPort,
+              smtpSecure: profile.mailbox.smtpSecure,
+              imapHost: profile.mailbox.imapHost,
+              imapPort: profile.mailbox.imapPort,
+              replyFolder: profile.mailbox.replyFolder,
+              dailyCap: profile.mailbox.dailyCap,
+              createdAt: profile.mailbox.createdAt,
+            }
+          : null,
+        requests: requests.map(({ events, target, ...request }) => ({
+          id: request.id,
+          reference: request.reference,
+          target: { id: target.id, name: target.name, domain: target.domain, kind: target.kind },
+          rights: request.rights,
+          legalBasis: request.legalBasis,
+          channel: request.channel,
+          status: request.status,
+          recordUrl: request.recordUrl,
+          followUps: request.followUps,
+          sentAt: request.sentAt,
+          dueAt: request.dueAt,
+          followUpAt: request.followUpAt,
+          lastError: request.lastError,
+          createdAt: request.createdAt,
+          updatedAt: request.updatedAt,
+          events,
+        })),
+        messages: store.messages
+          .filter((message) => message.requestId !== null && requestIds.has(message.requestId))
+          .map((message) => ({
+            id: message.id,
+            requestId: message.requestId,
+            fromAddress: message.fromAddress,
+            subject: message.subject,
+            receivedAt: message.receivedAt,
+            classification: message.classification,
+            confidence: message.confidence,
+            requestedFields: message.requestedFields,
+            reviewed: message.reviewed,
+          })),
+        scans: store.scans
+          .filter((scan) => scan.profileId === profile.id)
+          .map((scan) => ({
+            id: scan.id,
+            targetId: scan.targetId,
+            targetName: scan.targetName,
+            startedAt: scan.startedAt,
+            finishedAt: scan.finishedAt,
+            error: scan.error,
+            candidates: null,
+          })),
+        matches: store.matches
+          .filter((match) => match.profileId === profile.id)
+          .map(({ profileId: _profileId, targetName: _targetName, ...match }) => match),
+      };
+    }),
+
     handle(API_ROUTES.profilesDelete, ({ params }) => {
       const profile = find(store, params.id);
+      const requestIds = new Set(
+        store.requests.filter((request) => request.profileId === profile.id).map((r) => r.id),
+      );
       store.profiles = store.profiles.filter((candidate) => candidate.id !== profile.id);
       store.requests = store.requests.filter((request) => request.profileId !== profile.id);
+      store.messages = store.messages.filter(
+        (message) => message.requestId === null || !requestIds.has(message.requestId),
+      );
+      store.tasks = store.tasks.filter((task) => task.profileId !== profile.id);
+      store.scans = store.scans.filter((scan) => scan.profileId !== profile.id);
+      store.matches = store.matches.filter((match) => match.profileId !== profile.id);
       return { ok: true as const };
     }),
   ],

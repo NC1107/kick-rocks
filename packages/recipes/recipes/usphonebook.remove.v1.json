@@ -114,7 +114,7 @@
       }
     ]
   },
-  "notes": "Verified live 2026-10-07 in headed Chrome. /opt-out redirects to /removal, whose form#verifyEmailForm has a requester select, first, middle and last name, email, an agreement checkbox, a reCAPTCHA Enterprise widget, and a \"Begin Removal Process\" button #BRP. The page says it will confirm the request by email, so the run ends as awaiting_email_confirmation. Only the subject path is used. Nothing was submitted. The wording the site shows after Submit was never observed, so the outcome_when texts that prove the request went through are guesses, and the recipe stays unverified until a real submission has been seen.",
+  "notes": "Verified live 2026-10-07 in headed Chrome. /opt-out redirects to /removal, whose form#verifyEmailForm has a requester select, first, middle and last name, email, an agreement checkbox, a reCAPTCHA Enterprise widget, and a \"Begin Removal Process\" button #BRP. The page says it will confirm the request by email, so the run ends as awaiting_email_confirmation. Only the subject path is used. Nothing was submitted. The wording the site shows after Submit was never observed, so the outcome_when texts that prove the request went through are guesses, and the recipe stays unverified until a real submission has been seen. Re-checked 2026-10-07 in a plain headed Chrome: every selector is still present (the form, requester select, names, email, agreement and #BRP).",
   "verifiedAt": "2026-10-07",
   "liveStatus": "unverified"
 }

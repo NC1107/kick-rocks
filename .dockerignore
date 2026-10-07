@@ -12,6 +12,7 @@ docs
 # cookies in each app's own directory. `pnpm deploy` would copy them into the image.
 apps/*/data
 **/.chrome-profile
+**/.chrome-profile-agent
 **/*.db
 **/*.db-*
 **/*.key

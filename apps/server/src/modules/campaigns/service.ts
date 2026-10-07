@@ -68,7 +68,7 @@ export function createCampaignService(services: AppServices): CampaignService {
       requestId: null,
       scanId: null,
       reason: null,
-      detail: null,
+      detail: plan.kind === "request" ? plan.advisory : null,
     };
   }
 

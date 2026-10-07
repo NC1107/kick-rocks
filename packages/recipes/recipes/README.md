@@ -63,6 +63,7 @@ A step is strict: a key it does not have makes the recipe invalid, so a typo suc
   Handle a site's "no results" wording with `outcome_when` before this step.
   The recipe must declare `record_url` in `fields`.
 - `outcome_when` ends the run with the outcome of the first condition that matches the page.
+  Its optional `continueWhen` selector is for a page that shows either an outcome or the next step, with the outcome arriving late: the check then waits like `wait_for` and carries on as soon as that selector shows.
   A condition has `text`, `selector`, or `urlPattern` (at least one) and an `outcome`: `not_found`, `already_removed`, `submitted`, `awaiting_email_confirmation`, or `blocked` with a `reason`.
   Use it for pages that say "no records found" or "this listing was already removed", and for human checks that need no step to fail, such as a phone verification wall.
   A scan may only end a run as `blocked`.
@@ -72,6 +73,8 @@ A step is strict: a key it does not have makes the recipe invalid, so a typo suc
 
 A remove recipe must prove that the site took the request.
 After its last `click`, `press`, or clicking `select_record` it needs an `expect_text`, an `expect_url`, or an `outcome_when` with a `submitted` or `awaiting_email_confirmation` condition.
+A recipe whose last step is an `outcome_when` with only `blocked` conditions needs no proof, because it can never end as sent.
+It is how a flow stops before a step that must not run without a person, such as a phone call.
 A run that reaches its last step without that proof having held fails as a recipe failure, so a form the site rejected is never recorded as sent.
 Put `email_confirmation` before the click when the proof is an `outcome_when`, because a matching `outcome_when` ends the run.
 
@@ -82,6 +85,7 @@ Steps that take a selector accept `frame`, the selector of an iframe, for a form
 
 Selectors are tried in this order: role and label, test id, CSS, then visible text.
 Template filters are `slug`, `lower`, `urlencode`, and `state_name`.
+Filters chain left to right, so `{{state|state_name|slug}}` renders "TX" as "texas" for a state scoped URL.
 A template that names an unknown field or filter is rejected when the recipe is loaded, and one that cannot be rendered fails the run instead of sending a half-filled value.
 
 ## Canary

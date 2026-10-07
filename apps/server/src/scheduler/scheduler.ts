@@ -1,11 +1,11 @@
+import { applyRetention } from "../modules/data-rights/index.js";
+import { runNotifications } from "../modules/notifications/index.js";
 import { type Runners, runnersOf } from "../runners/index.js";
 import type { AppServices } from "../services.js";
 import { enqueueDueCanaries } from "./canaries.js";
 import { advanceOverdueRequests } from "./overdue.js";
 import { enqueueDueInboxPolls } from "./polls.js";
 import { enqueueDueRescans } from "./rescans.js";
-
-const ARTIFACT_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
 
 export interface SchedulerOptions {
   runners?: Runners;
@@ -67,13 +67,10 @@ export function createScheduler(
       await job("overdue-requests", () => advanceOverdueRequests(services));
       await job("rescans", () => enqueueDueRescans(services));
       await job("canaries", () => enqueueDueCanaries(services));
+      await job("notifications", () => runNotifications(services));
     }
     if (due("retention", retentionMs)) {
-      await job("artifact-retention", () =>
-        services.taskQueue.purgeArtifacts(
-          new Date(services.clock.now().getTime() - ARTIFACT_RETENTION_MS),
-        ),
-      );
+      await job("retention", () => applyRetention(services, { compact: "when-worthwhile" }));
     }
     await job("runners", () => runners.runDue());
   }

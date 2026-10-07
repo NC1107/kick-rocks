@@ -12,6 +12,7 @@ import type {
   StateCode,
   TargetSummary,
 } from "@kickrocks/shared";
+import type { DropRecommendation } from "./basis.js";
 
 export type { EmailKind };
 
@@ -49,7 +50,7 @@ export interface RenderRequestEmailInput {
   verification?: { requestedFields: readonly ProfileField[] };
 }
 
-/** The four calls the server makes into the legal package. */
+/** The calls the server makes into the legal package. */
 export interface LegalApi {
   /**
    * The statute that backs a request for these rights to this target on this date, or a
@@ -62,6 +63,8 @@ export interface LegalApi {
    * or one that belongs to another state.
    */
   getLegalBasis(id: string, state: StateCode, rights?: readonly RequestRight[]): LegalBasis | null;
+  /** Whether the deletion part of a request is better filed once through a state platform such as DROP. */
+  recommendDrop(input: ResolveLegalBasisInput): DropRecommendation;
   listJurisdictions(): Jurisdiction[];
   /**
    * The least that may be disclosed for a purpose, resolved from identities in force on `asOf`.

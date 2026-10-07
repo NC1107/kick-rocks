@@ -1,0 +1,15 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Just a moment...</title></head>
+<body>
+<h1>Checking your browser before accessing the site</h1>
+<script>
+  setTimeout(() => {
+    document.title = "Welcome - Fixture Broker";
+    document.body.innerHTML =
+      "<h1>Welcome</h1><p>This is the real page, with enough words on it that nobody would mistake it for a bot check by its text alone, because a bot check is a short page and this one has grown past that once the script ran.</p>" +
+      "<a href=\"/optout\">Go to the opt-out form</a>" + "<p>".padEnd(2600, "x") + "</p>";
+  }, 400);
+</script>
+</body>
+</html>
