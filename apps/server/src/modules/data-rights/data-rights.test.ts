@@ -22,6 +22,8 @@ import {
   PROFILE_EXPORT_FORMAT,
   PROFILE_EXPORT_VERSION,
   RESET_CONFIRMATION,
+  SETTING_SCHEMAS,
+  SettingKey,
 } from "@kickrocks/shared";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -606,6 +608,52 @@ describe("reset instance", () => {
     expect(ctx.services.taskQueue.get(canary.id)).not.toBeNull();
   });
 
+  it("resets every setting except the password hash", async () => {
+    const { settings: store, db } = ctx.services;
+    store.set("auth.passwordHash", "hash-of-the-password");
+    store.set("mcp.enabled", true);
+    store.set("mcp.tokenHash", "token-hash");
+    store.set("llm", { baseUrl: "http://localhost:11434/v1", model: "m", apiKey: "k" });
+    store.set("schedule", { ...store.get("schedule"), pollMinutes: 5 });
+    store.set("retention", { messageDays: 10, screenshotDays: 5 });
+    store.set("notifications", {
+      ...store.get("notifications"),
+      ntfy: { serverUrl: "https://ntfy.example.test", topic: "topic", token: "tk_secret" },
+      telegram: { botToken: "123456:abcdefghijklmnopqrstuvwxyz", chatId: "1234" },
+      digest: { frequency: "daily", hourUtc: 9, weekday: 1 },
+    });
+    store.set("notifications.state", {
+      ...store.get("notifications.state"),
+      digestLastSentAt: "2026-01-01T00:00:00.000Z",
+    });
+    store.set("worker.status", {
+      workerId: "w",
+      version: null,
+      lastSeenAt: ctx.clock.now().toISOString(),
+      busy: false,
+      currentTaskId: null,
+    });
+    const before = Object.fromEntries(SettingKey.options.map((key) => [key, store.get(key)]));
+
+    await ctx.call(API_ROUTES.settingsReset, { body: confirmed });
+
+    for (const key of SettingKey.options) {
+      if (key === "auth.passwordHash") {
+        expect(store.get(key)).toBe("hash-of-the-password");
+        continue;
+      }
+      expect(store.get(key), key).toEqual(SETTING_SCHEMAS[key].parse(undefined));
+      expect(store.get(key), key).not.toEqual(before[key]);
+    }
+    expect(
+      db
+        .select()
+        .from(settings)
+        .all()
+        .map((row) => row.key),
+    ).toEqual(["auth.passwordHash"]);
+  });
+
   it("compacts the file", async () => {
     seedFullProfile();
     await ctx.call(API_ROUTES.settingsReset, { body: confirmed });
@@ -749,6 +797,35 @@ describe("retention", () => {
       const row = ctx.services.db.select().from(messages).where(eq(messages.id, id)).get();
       expect(row?.text, id).toBe("body");
     }
+  });
+
+  it("keeps the text of a reviewed message whose request still needs verification", () => {
+    const profile = seedProfile(ctx);
+    const mailbox = seedMailbox(ctx, profile.id);
+    const target = seedTarget(ctx, { category: "people-search" });
+    const waiting = seedRequest(ctx, {
+      profileId: profile.id,
+      targetId: target.id,
+      status: "needs_verification",
+    });
+    const kept = seedOldMessage(
+      { mailboxId: mailbox.id, requestId: waiting.id, reviewed: true },
+      40,
+    );
+    const textOf = () =>
+      ctx.services.db.select().from(messages).where(eq(messages.id, kept.id)).get()?.text;
+    setRetention({ messageDays: 30, screenshotDays: 30 });
+
+    expect(applyRetention(ctx.services).messages).toBe(0);
+    expect(textOf()).toBe("body");
+
+    ctx.services.db
+      .update(requests)
+      .set({ status: "confirmed" })
+      .where(eq(requests.id, waiting.id))
+      .run();
+    expect(applyRetention(ctx.services).messages).toBe(1);
+    expect(textOf()).toBeNull();
   });
 
   it("does not count a message it already blanked", () => {
