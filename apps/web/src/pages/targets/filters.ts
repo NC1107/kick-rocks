@@ -48,7 +48,7 @@ export function hasFilters(filters: TargetFilters): boolean {
   return FILTER_KEYS.some((key) => filters[key] !== "");
 }
 
-export const TARGETS_PAGE_SIZE = 25;
+export const TARGETS_PAGE_SIZE = 50;
 
 /** The query the list route takes: empty filters are left out so the server applies none. */
 export function toQuery(filters: TargetFilters) {

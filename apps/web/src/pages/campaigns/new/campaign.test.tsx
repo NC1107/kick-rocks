@@ -28,8 +28,18 @@ describe("the campaign builder", () => {
     expect(
       await screen.findByText("Pick a group and at least one right to see a preview."),
     ).toBeVisible();
-    expect(screen.getByTestId("send-bar")).toHaveClass("sticky", "bottom-3");
-    expect(screen.getByRole("button", { name: "Send requests" })).toBeDisabled();
+    expect(
+      within(screen.getByTestId("send-bar")).getByRole("button", { name: "Send requests" }),
+    ).toBeDisabled();
+  });
+
+  it("shows the readout with zeros before anything is chosen", async () => {
+    open();
+    const preview = await screen.findByRole("region", { name: "Preview" });
+    const counts = within(preview).getByRole("region", { name: "Counts by channel" });
+    for (const label of ["email", "web form", "agent or you", "scan first", "skipped"]) {
+      expect(within(counts).getByText(label).nextElementSibling).toHaveTextContent("0");
+    }
   });
 
   it("counts a preset by channel and previews the email before anything is sent", async () => {
@@ -38,18 +48,21 @@ describe("the campaign builder", () => {
       await screen.findByRole("radio", { name: /Data brokers with an email address/ }),
     );
     const preview = await screen.findByRole("region", { name: "Preview" });
-    expect(within(preview).getByText("By email")).toBeVisible();
-    expect(within(preview).getByText("By web form")).toBeVisible();
-    expect(within(preview).getByText("Scans first")).toBeVisible();
-    expect(within(preview).getByText("Skipped")).toBeVisible();
-    expect(within(preview).getByText("Email preview")).toBeVisible();
+    const counts = within(preview).getByRole("region", { name: "Counts by channel" });
+    await waitFor(() =>
+      expect(within(counts).getByText("email").nextElementSibling).not.toHaveTextContent(/^0$/),
+    );
+    expect(within(counts).getByText("web form")).toBeVisible();
+    expect(within(counts).getByText("scan first")).toBeVisible();
+    expect(within(counts).getByText("skipped")).toBeVisible();
+    expect(await within(preview).findByText("Email preview")).toBeVisible();
     expect(within(preview).getByText(/Privacy request KR-/)).toBeVisible();
   });
 
   it("lists why targets were skipped, grouped by reason", async () => {
     const { user } = open();
     await user.click(await screen.findByRole("radio", { name: /Everything/ }));
-    await screen.findByText("Skipped targets");
+    await screen.findByText(/Skipped targets/);
     expect(screen.getByText("Already in progress")).toBeVisible();
   });
 
@@ -57,7 +70,9 @@ describe("the campaign builder", () => {
     const { user, mock } = open();
     const before = mock.store.requests.length;
     await user.click(await screen.findByRole("radio", { name: /Everyday companies/ }));
-    const send = await screen.findByRole("button", { name: "Send requests" });
+    const send = within(screen.getByTestId("send-bar")).getByRole("button", {
+      name: "Send requests",
+    });
     await waitFor(() => expect(send).toBeEnabled());
     await user.click(send);
     const dialog = await screen.findByRole("dialog");
@@ -72,7 +87,7 @@ describe("the campaign builder", () => {
     await user.click(await screen.findByRole("radio", { name: /Everyday companies/ }));
     expect(screen.getByRole("checkbox", { name: /Opt out of sale/ })).toBeChecked();
     expect(screen.getByRole("checkbox", { name: /Delete my data/ })).not.toBeChecked();
-    expect(screen.getByText(/may close your account/)).toBeVisible();
+    expect(screen.getByText(/Companies may close accounts/)).toBeVisible();
   });
 
   it("shows the address the first email goes to", async () => {
@@ -87,10 +102,9 @@ describe("the campaign builder", () => {
   it("will not preview with no right chosen", async () => {
     const { user } = open();
     await user.click(await screen.findByRole("radio", { name: /Everyday companies/ }));
-    await screen.findByRole("region", { name: "Preview" });
     await user.click(screen.getByRole("checkbox", { name: /Opt out of sale/ }));
     expect(screen.getByText("Choose at least one.")).toBeVisible();
-    expect(screen.queryByRole("region", { name: "Preview" })).not.toBeInTheDocument();
+    expect(screen.queryByText("Email preview")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Send requests" })).toBeDisabled();
   });
 
@@ -98,7 +112,21 @@ describe("the campaign builder", () => {
     open("/campaigns/new?targets=audiencegrid,larkspur-bank");
     expect(await screen.findByText("2 targets selected")).toBeVisible();
     const preview = await screen.findByRole("region", { name: "Preview" });
-    expect(within(preview).getByText("By email")).toBeVisible();
+    expect(await within(preview).findByText("First targets · 1")).toBeVisible();
+  });
+
+  it("shows the size of the chosen group beside it", async () => {
+    const { user } = open();
+    await user.click(await screen.findByRole("radio", { name: /Everyday companies/ }));
+    const row = screen.getByRole("radio", { name: /Everyday companies/ }).closest("label");
+    await waitFor(() => expect(row).toHaveTextContent(/\d+ targets/));
+  });
+
+  it("summarizes the send in the bar once there is something to send", async () => {
+    const { user } = open();
+    await user.click(await screen.findByRole("radio", { name: /Everyday companies/ }));
+    const bar = screen.getByTestId("send-bar");
+    await waitFor(() => expect(bar).toHaveTextContent(/\d+ requests? · opt-out/));
   });
 
   it("explains a missing mailbox", async () => {

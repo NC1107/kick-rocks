@@ -26,7 +26,7 @@ export interface ChannelCounts {
   skipped: number;
 }
 
-type CountedTarget = Pick<TargetListItem, "needsRecord" | "contactMethod"> &
+export type CountedTarget = Pick<TargetListItem, "needsRecord" | "contactMethod"> &
   Partial<Pick<TargetListItem, "automation">>;
 
 /** A form the built-in worker cannot run: it has no saved steps, or the ones it has are broken. */
@@ -35,22 +35,25 @@ function needsAgentOrPerson(target: CountedTarget): boolean {
   return remove === null || remove === "broken";
 }
 
-/** Counts a preview by the channel each target would use. A target the list cannot name counts as a form. */
+/** The row of the readout a preview outcome lands in. A target the list cannot name counts as a form. */
+export function outcomeChannel(
+  item: TargetOutcome,
+  targets: ReadonlyMap<string, CountedTarget>,
+): keyof ChannelCounts {
+  if (item.outcome === "skipped") return "skipped";
+  if (item.outcome === "scan_started") return "scan";
+  const target = targets.get(item.targetId);
+  if (target && channelOf(target) === "email") return "email";
+  return target && needsAgentOrPerson(target) ? "manual" : "form";
+}
+
+/** Counts a preview by the channel each target would use. */
 export function countByChannel(
   items: readonly TargetOutcome[],
   targets: ReadonlyMap<string, CountedTarget>,
 ): ChannelCounts {
   const counts: ChannelCounts = { email: 0, form: 0, manual: 0, scan: 0, skipped: 0 };
-  for (const item of items) {
-    if (item.outcome === "skipped") counts.skipped += 1;
-    else if (item.outcome === "scan_started") counts.scan += 1;
-    else {
-      const target = targets.get(item.targetId);
-      const channel = target ? channelOf(target) : null;
-      if (channel === "email") counts.email += 1;
-      else counts[target && needsAgentOrPerson(target) ? "manual" : "form"] += 1;
-    }
-  }
+  for (const item of items) counts[outcomeChannel(item, targets)] += 1;
   return counts;
 }
 

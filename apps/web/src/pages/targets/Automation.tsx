@@ -1,32 +1,24 @@
 import type { RecipeHealth } from "@kickrocks/shared";
-import { Badge } from "../../components/ui/index.js";
-import { RECIPE_HEALTH_LABELS, RECIPE_HEALTH_TONES } from "../../lib/labels.js";
+import { StatusShapeGlyph } from "../../components/ui/index.js";
+import { cn } from "../../lib/cn.js";
+import { RECIPE_HEALTH_LABELS } from "../../lib/labels.js";
+import type { StatusShape } from "../../lib/status.js";
 
-function Line({ purpose, health }: { purpose: string; health: RecipeHealth | null }) {
-  return (
-    <span className="flex items-center gap-1.5">
-      <span className="w-16 text-sm text-ink-muted">{purpose}</span>
-      {health ? (
-        <Badge tone={RECIPE_HEALTH_TONES[health]}>{RECIPE_HEALTH_LABELS[health]}</Badge>
-      ) : (
-        <span className="text-sm text-ink-faint">None</span>
-      )}
-    </span>
-  );
-}
+const HEALTH_SHAPE: Record<RecipeHealth, StatusShape> = {
+  unknown: "dashed-ring",
+  healthy: "disc",
+  broken: "square",
+};
 
-/** Which of a target's scan and removal steps are automated, and whether they still work. */
-export function Automation({
-  scan,
-  remove,
-}: {
-  scan: RecipeHealth | null;
-  remove: RecipeHealth | null;
-}) {
+/** The state of one automated step. A target with no saved step for it shows a muted dash. */
+export function HealthMark({ health }: { health: RecipeHealth | null }) {
+  if (health === null) return <span className="text-ink-3">-</span>;
   return (
-    <span className="flex flex-col gap-1">
-      <Line purpose="Scan" health={scan} />
-      <Line purpose="Removal" health={remove} />
+    <span className="inline-flex items-center gap-2 whitespace-nowrap text-meta">
+      <StatusShapeGlyph shape={HEALTH_SHAPE[health]} />
+      <span className={cn(health === "broken" ? "font-medium text-danger-text" : "text-ink-2")}>
+        {RECIPE_HEALTH_LABELS[health]}
+      </span>
     </span>
   );
 }

@@ -16,7 +16,7 @@ const item = (targetId: string, detail: string | null): TargetOutcome => ({
 describe("AdvisoryList", () => {
   it("shows the note of each target that goes ahead with one", () => {
     render(<AdvisoryList items={[item("a", "DROP can delete what it holds."), item("b", null)]} />);
-    expect(screen.getByText("Worth knowing")).toBeVisible();
+    expect(screen.getByText(/Worth knowing/)).toBeVisible();
     expect(screen.getByText("Broker a")).toBeVisible();
     expect(screen.getByText("DROP can delete what it holds.")).toBeVisible();
     expect(screen.queryByText("Broker b")).toBeNull();

@@ -1,6 +1,13 @@
 import type { TargetOutcome } from "@kickrocks/shared";
 import { describe, expect, it } from "vitest";
-import { advisories, channelOf, countByChannel, groupSkipped, parseTargetIds } from "./channels.js";
+import {
+  advisories,
+  channelOf,
+  countByChannel,
+  groupSkipped,
+  outcomeChannel,
+  parseTargetIds,
+} from "./channels.js";
 
 const outcome = (
   targetId: string,
@@ -119,5 +126,16 @@ describe("parseTargetIds", () => {
   it("drops blanks and repeats", () => {
     expect(parseTargetIds("a, b,,a ,c")).toEqual(["a", "b", "c"]);
     expect(parseTargetIds(null)).toEqual([]);
+  });
+});
+
+describe("outcomeChannel", () => {
+  const targets = new Map([["a", { needsRecord: false, contactMethod: "email" as const }]]);
+
+  it("names the readout row of each outcome", () => {
+    expect(outcomeChannel(outcome("a", "request_created"), targets)).toBe("email");
+    expect(outcomeChannel(outcome("a", "scan_started"), targets)).toBe("scan");
+    expect(outcomeChannel(outcome("a", "skipped", "already_active"), targets)).toBe("skipped");
+    expect(outcomeChannel(outcome("unknown", "request_created"), targets)).toBe("form");
   });
 });
