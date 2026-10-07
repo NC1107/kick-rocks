@@ -41,6 +41,8 @@ it("lists profiles", async () => {
 
 The scheduler is off, there are no targets until you seed some, and the worker API and MCP are enabled with known tokens (`workerToken`, `mcpToken`).
 Each context has its own database, so tests do not share state.
+Rows from `seedTarget` are not dataset records, so calling `services.targets.sync()` afterwards retires them.
+To test a sync, pass `targetSources` to `createTestContext` instead.
 A route or hook can only be added before the app is ready, so tests that need one pass `beforeReady`.
 
 ## Fake mail

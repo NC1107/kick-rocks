@@ -11,6 +11,9 @@ services:
       - kickrocks-data:/data
     environment:
       LOG_LEVEL: info
+      # Empty values count as unset. A worker token turns the worker API on.
+      KICKROCKS_WORKER_TOKEN: ${KICKROCKS_WORKER_TOKEN:-}
+      KICKROCKS_PUBLIC_URL: ${KICKROCKS_PUBLIC_URL:-}
 
 volumes:
   kickrocks-data:

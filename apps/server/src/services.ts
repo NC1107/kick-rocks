@@ -7,6 +7,7 @@ import type { AuthService } from "./core/auth.js";
 import { type Clock, systemClock } from "./core/clock.js";
 import { createDispatch, type Dispatch } from "./core/dispatch.js";
 import { createLogger, type Logger } from "./core/logger.js";
+import { createRecipeHealth, type RecipeHealthService } from "./core/recipe-health.js";
 import { createRequestsService, type RequestsService } from "./core/requests.js";
 import { createSecrets, type Secrets } from "./core/secrets.js";
 import { createSettingsStore, type SettingsStore } from "./core/settings.js";
@@ -32,6 +33,7 @@ export interface AppServices {
   taskQueue: TaskQueue;
   taskHandlers: TaskHandlers;
   requests: RequestsService;
+  recipeHealth: RecipeHealthService;
   targets: TargetsService;
   dispatch: Dispatch;
   secrets: Secrets;
@@ -94,6 +96,7 @@ export function createServices(
     taskQueue,
     taskHandlers,
     requests,
+    recipeHealth: createRecipeHealth(db, clock),
     targets,
     dispatch,
     secrets,
