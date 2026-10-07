@@ -50,14 +50,24 @@ export function loopTiming(config: WorkerConfig, overrides: Partial<LoopTiming> 
   };
 }
 
-/** The server no longer lets this worker work on the task: it expired, was cancelled, or went elsewhere. */
-function leaseLost(error: unknown): boolean {
+/**
+ * The server no longer lets this worker work on the task: it was cancelled or went elsewhere. A
+ * lease that merely ran out is not this: the server still takes a late report from its holder.
+ */
+function leaseTaken(error: unknown): boolean {
   return (
     error instanceof WorkerApiError &&
-    (error.code === "lease_expired" ||
-      error.code === "lease_not_held" ||
-      error.code === "task_not_found")
+    (error.code === "lease_not_held" || error.code === "task_not_found")
   );
+}
+
+function leaseLapsed(error: unknown): boolean {
+  return error instanceof WorkerApiError && error.code === "lease_expired";
+}
+
+/** A report the server can never take, because the task is no longer this worker's. */
+function leaseLost(error: unknown): boolean {
+  return leaseTaken(error) || leaseLapsed(error);
 }
 
 /** A report that can be sent again: the server or the network failed, not the report. */
@@ -154,10 +164,14 @@ class Loop {
         .taskHeartbeat(task.id, config.leaseMs)
         .then(() => this.beat(true, task.id, true))
         .catch((error: unknown) => {
-          if (leaseLost(error)) {
+          if (leaseTaken(error)) {
             lost = true;
             this.logger.warn("the lease on the task is gone, stopping the run", log);
             run.abort();
+          } else if (leaseLapsed(error)) {
+            // Stopping now would drop a result, and the task would be run, and its form sent, again.
+            this.logger.warn("the lease on the task ran out, finishing the run to report it", log);
+            clearInterval(lease);
           } else {
             this.logger.warn("lease heartbeat failed", { ...log, error: describeError(error) });
           }

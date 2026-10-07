@@ -163,11 +163,11 @@ describe("the claim loop", () => {
     expect(client.taskHeartbeat).toHaveBeenCalledWith(claimed.id, 60_000);
   });
 
-  it("stops the run and reports nothing when the lease is lost", async () => {
+  it("stops the run and reports nothing when the task went to another worker", async () => {
     const { controller, context } = setup();
     const { client } = fakeClient([formTask()]);
     client.taskHeartbeat.mockRejectedValue(
-      new WorkerApiError(409, "lease_expired", "The lease ran out"),
+      new WorkerApiError(409, "lease_not_held", "Another worker holds this task"),
     );
     let stopped = false;
     const executor = async (_task: ClaimedTask, signal: AbortSignal): Promise<TaskReport> => {
@@ -178,10 +178,34 @@ describe("the claim loop", () => {
     const loop = runClaimLoop(context({ client, executor }));
     await until(() => stopped, controller);
     await loop;
-    expect(stopped).toBe(true);
-    expect(client.release).not.toHaveBeenCalled();
     expect(client.complete).not.toHaveBeenCalled();
-    expect(client.fail).not.toHaveBeenCalled();
+    expect(client.release).not.toHaveBeenCalled();
+  });
+
+  it("finishes the run and reports it when only the lease ran out, without running the task again", async () => {
+    const { controller, context } = setup();
+    const { client } = fakeClient([formTask()]);
+    client.taskHeartbeat.mockRejectedValue(
+      new WorkerApiError(409, "lease_expired", "The lease ran out"),
+    );
+    let aborted = false;
+    const executor = vi.fn(async (_task: ClaimedTask, signal: AbortSignal): Promise<TaskReport> => {
+      signal.addEventListener("abort", () => {
+        aborted = true;
+      });
+      await delay(80);
+      return { kind: "complete", result: { outcome: "submitted" }, usage: {} };
+    });
+    const loop = runClaimLoop(context({ client, executor }));
+    await until(() => client.complete.mock.calls.length > 0, controller);
+    await loop;
+    expect(aborted).toBe(false);
+    expect(executor).toHaveBeenCalledTimes(1);
+    expect(client.complete).toHaveBeenCalledWith(
+      expect.stringMatching(/^task-/),
+      { outcome: "submitted" },
+      {},
+    );
   });
 
   it("keeps running through a heartbeat that fails for another reason", async () => {
