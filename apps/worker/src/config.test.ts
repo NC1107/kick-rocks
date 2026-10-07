@@ -1,3 +1,4 @@
+import { LEASE_MS } from "@kickrocks/shared";
 import { describe, expect, it } from "vitest";
 import { loadWorkerConfig } from "./config.js";
 
@@ -52,9 +53,19 @@ describe("loadWorkerConfig", () => {
     expect(config.workerId.length).toBeGreaterThan(0);
   });
 
+  it("accepts the longest lease the server allows", () => {
+    expect(
+      loadWorkerConfig({ ...base, KICKROCKS_WORKER_LEASE_MS: String(LEASE_MS.max) }).leaseMs,
+    ).toBe(LEASE_MS.max);
+  });
+
   it("rejects values that would misbehave", () => {
     expect(() => loadWorkerConfig({ ...base, KICKROCKS_SERVER_URL: "not a url" })).toThrow();
     expect(() => loadWorkerConfig({ ...base, KICKROCKS_WORKER_POLL_MS: "10" })).toThrow();
+    expect(() => loadWorkerConfig({ ...base, KICKROCKS_WORKER_LEASE_MS: "9999" })).toThrow();
+    expect(() =>
+      loadWorkerConfig({ ...base, KICKROCKS_WORKER_LEASE_MS: String(LEASE_MS.max + 1) }),
+    ).toThrow();
     expect(() => loadWorkerConfig({ ...base, KICKROCKS_WORKER_HEADLESS: "maybe" })).toThrow();
   });
 });

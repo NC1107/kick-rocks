@@ -327,7 +327,10 @@ State-changing routes also require the header `X-Kick-Rocks: 1`, which a cross-s
 - Human-paced input: per-key typing delay and small random pauses.
 - `packages/recipes/src/runner`: executes recipe steps against a page, resolves selectors (role and label, then test id, then CSS, then text), fills fields, extracts candidates, detects CAPTCHAs (reCAPTCHA, hCaptcha, Turnstile, and Cloudflare or "verify you are human" interstitials) and blocks with a screenshot, and returns typed results or a typed failure.
 - Runner tests against local fixture pages with real Chromium.
-- `apps/worker/Dockerfile` and a `worker` service in `docker-compose.yml` that reads `KICKROCKS_WORKER_TOKEN`.
+- Replace the placeholder `apps/worker/Dockerfile` with the real image.
+  The foundation already added the `worker` service to `docker-compose.yml`: it builds from that Dockerfile, reads `KICKROCKS_WORKER_TOKEN`, points at `http://server:8420`, keeps the Chrome profile in the `kickrocks-chrome` volume mounted at `/profile` (`KICKROCKS_CHROME_PROFILE`), and has `shm_size: 1gb`.
+  It sits under the `worker` compose profile so a plain `docker compose up` still works without a token.
+  Do not edit the compose file; list any change you need under `contractRequests`.
 
 ### G. recipes
 

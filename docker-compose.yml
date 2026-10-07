@@ -15,5 +15,29 @@ services:
       KICKROCKS_WORKER_TOKEN: ${KICKROCKS_WORKER_TOKEN:-}
       KICKROCKS_PUBLIC_URL: ${KICKROCKS_PUBLIC_URL:-}
 
+  # The browser worker. It needs the same KICKROCKS_WORKER_TOKEN as the server, so it only starts
+  # with `docker compose --profile worker up -d`; a plain `docker compose up` keeps working
+  # without a token.
+  worker:
+    build:
+      context: .
+      dockerfile: apps/worker/Dockerfile
+    image: kickrocks/worker:dev
+    restart: unless-stopped
+    depends_on:
+      - server
+    environment:
+      KICKROCKS_SERVER_URL: http://server:8420
+      KICKROCKS_WORKER_TOKEN: ${KICKROCKS_WORKER_TOKEN:-}
+      # Cookies and logins survive restarts, which keeps bot checks from treating every run as new.
+      KICKROCKS_CHROME_PROFILE: /profile
+    volumes:
+      - kickrocks-chrome:/profile
+    # Chrome crashes on the 64 MB default shared memory of a container.
+    shm_size: 1gb
+    profiles:
+      - worker
+
 volumes:
   kickrocks-data:
+  kickrocks-chrome:

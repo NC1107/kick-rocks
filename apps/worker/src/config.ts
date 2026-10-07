@@ -1,5 +1,6 @@
 import { hostname } from "node:os";
 import { resolve } from "node:path";
+import { LEASE_MS } from "@kickrocks/shared";
 import { z } from "zod";
 
 const Env = z.object({
@@ -9,7 +10,13 @@ const Env = z.object({
     .min(16, "KICKROCKS_WORKER_TOKEN must be at least 16 characters"),
   KICKROCKS_WORKER_ID: z.string().min(1).max(100).default(hostname()),
   KICKROCKS_WORKER_POLL_MS: z.coerce.number().int().min(500).default(5000),
-  KICKROCKS_WORKER_LEASE_MS: z.coerce.number().int().min(10_000).default(300_000),
+  // The server rejects any other lease, so a bad value is caught at startup instead of at the first claim.
+  KICKROCKS_WORKER_LEASE_MS: z.coerce
+    .number()
+    .int()
+    .min(LEASE_MS.min)
+    .max(LEASE_MS.max)
+    .default(LEASE_MS.default),
   KICKROCKS_CHROME_PROFILE: z.string().default("./.chrome-profile"),
   KICKROCKS_WORKER_HEADLESS: z.enum(["true", "false"]).default("false"),
   LOG_LEVEL: z.enum(["debug", "info", "warn", "error"]).default("info"),
