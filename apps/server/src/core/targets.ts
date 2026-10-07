@@ -65,6 +65,11 @@ export interface TargetsDeps {
 type TargetRecord = { kind: "broker"; record: Broker } | { kind: "company"; record: Company };
 type TargetValues = Omit<TargetRow, "createdAt" | "retired" | "datasetVersion">;
 
+/** The sites a people-search campaign and scan cover: brokers that remove a specific record. */
+export function isPeopleSearchTarget(row: Pick<TargetRow, "id" | "kind" | "category">): boolean {
+  return row.kind === "broker" && needsRecord(row);
+}
+
 export function toTargetSummary(row: TargetRow): TargetSummary {
   return {
     id: row.id,

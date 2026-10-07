@@ -217,6 +217,27 @@ describe("presets", () => {
     expect(result.counts.scan_started).toBe(2);
   });
 
+  it("leaves a company out of people_search even when its category looks like one", async () => {
+    const { profile } = setup();
+    seedMix();
+    const company = seedTarget(ctx, {
+      kind: "company",
+      id: "lookalike",
+      name: "Lookalike",
+      category: "retail",
+    });
+    ctx.services.db
+      .update(targets)
+      .set({ category: "people-search" })
+      .where(eq(targets.id, company.id))
+      .run();
+    const result = await previewOk(profile.id, {
+      selection: { preset: "people_search" },
+      rights: ["opt_out"],
+    });
+    expect(ids(result.items)).toEqual(["people"]);
+  });
+
   describe("a scan the profile cannot run", () => {
     const nameOnly = () =>
       seedProfile(ctx, {

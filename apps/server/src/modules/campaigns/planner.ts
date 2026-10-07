@@ -22,7 +22,7 @@ import { and, desc, eq, inArray } from "drizzle-orm";
 import type { Clock } from "../../core/clock.js";
 import { conflict, notFound } from "../../core/errors.js";
 import { describeMissingScanFields, missingScanFields } from "../../core/scan-readiness.js";
-import type { TargetsService } from "../../core/targets.js";
+import { isPeopleSearchTarget, type TargetsService } from "../../core/targets.js";
 import type { TaskQueue } from "../../core/task-queue.js";
 
 /** What the campaign will do for one target. */
@@ -87,7 +87,7 @@ export function createCampaignPlanner({
   const PRESET_MEMBERS: Record<CampaignPreset, (row: TargetRow) => boolean> = {
     companies: (row) => row.kind === "company",
     email_brokers: (row) => row.kind === "broker" && row.privacyEmail !== null && !needsRecord(row),
-    people_search: (row) => needsRecord(row),
+    people_search: isPeopleSearchTarget,
     everything: () => true,
   };
 

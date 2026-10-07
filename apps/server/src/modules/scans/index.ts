@@ -6,6 +6,7 @@ import { registerRoute } from "../../core/http.js";
 import type { ModulePlugin } from "../../core/module.js";
 import { requireProfile } from "../../core/require-profile.js";
 import { describeMissingScanFields, missingScanFields } from "../../core/scan-readiness.js";
+import { isPeopleSearchTarget } from "../../core/targets.js";
 import type { AppServices } from "../../services.js";
 
 const skipped = (
@@ -33,7 +34,7 @@ function targetsToScan(
       .select()
       .from(targets)
       .all()
-      .filter((row) => !row.retired && row.kind === "broker" && needsRecord(row));
+      .filter((row) => !row.retired && isPeopleSearchTarget(row));
   }
   const ids = [...new Set(selection.targetIds)];
   const rows = services.db.select().from(targets).where(inArray(targets.id, ids)).all();
