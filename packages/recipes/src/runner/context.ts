@@ -9,9 +9,9 @@ import {
 import type { Page } from "playwright";
 import type { RunOutcome } from "../types.js";
 import { type BlockFinding, detectBlockAfterGrace } from "./detect.js";
-import { RunAborted, RunFailure } from "./errors.js";
+import { isClosedError, RunAborted, RunFailure } from "./errors.js";
 import { DEFAULT_TIMEOUTS, type RunnerOptions, type Timeouts } from "./options.js";
-import { HUMAN_PACE, type Pace } from "./pacing.js";
+import { HUMAN_PACE, type Pace, sleepFor } from "./pacing.js";
 import { createRedactor } from "./redact.js";
 
 /** What a run has learned so far, which later steps and the final result draw on. */
@@ -135,13 +135,29 @@ export function describeBlock(reason: BlockedReason): string {
   return BLOCK_SENTENCES[reason];
 }
 
+/**
+ * Chrome answers "unable to capture screenshot" when a page has not painted yet, which a page that
+ * has just opened can still be, so a few quick retries cost less than a block with no picture.
+ */
+async function takeScreenshot(ctx: RunContext): Promise<Buffer | null> {
+  for (const wait of [0, 200, 500, 1000]) {
+    await sleepFor(wait, ctx.signal);
+    try {
+      return await ctx.page.screenshot({ type: "png", timeout: 5000 });
+    } catch (error) {
+      if (isClosedError(error)) return null;
+    }
+  }
+  return null;
+}
+
 /** Ends the run for a person, with a screenshot of what the page showed. */
 export async function blocked(
   ctx: RunContext,
   reason: BlockedReason,
   detail: string,
 ): Promise<Extract<RunOutcome<never>, { status: "blocked" }>> {
-  const screenshot = await ctx.page.screenshot({ type: "png", timeout: 5000 }).catch(() => null);
+  const screenshot = await takeScreenshot(ctx);
   return { status: "blocked", reason, detail, screenshot };
 }
 
