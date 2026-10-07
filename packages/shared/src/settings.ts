@@ -27,6 +27,25 @@ export const SchedulePatch = z.object({
 });
 export type SchedulePatch = z.infer<typeof SchedulePatch>;
 
+const retentionDays = z.number().int().min(1).max(3650);
+
+/**
+ * How long Kick Rocks keeps the bulky and sensitive parts of what it stores. Null keeps them
+ * until the person deletes them. Message text is the body, snippet, links, and classifier note of
+ * mail already dealt with; the sender, subject, and outcome stay so a request keeps its history.
+ */
+export const RetentionSettings = z.object({
+  messageDays: retentionDays.nullable().default(null),
+  screenshotDays: retentionDays.nullable().default(30),
+});
+export type RetentionSettings = z.infer<typeof RetentionSettings>;
+
+export const RetentionPatch = z.object({
+  messageDays: retentionDays.nullable().optional(),
+  screenshotDays: retentionDays.nullable().optional(),
+});
+export type RetentionPatch = z.infer<typeof RetentionPatch>;
+
 /** Any OpenAI-compatible endpoint, such as Ollama, used to classify mail the rules cannot. */
 export const LlmSettings = z.object({
   baseUrl: WebUrl,
@@ -59,6 +78,7 @@ export const SETTING_SCHEMAS = {
   "mcp.enabled": z.boolean().default(false),
   schedule: ScheduleSettings.default(ScheduleSettings.parse({})),
   llm: LlmSettings.nullable().default(null),
+  retention: RetentionSettings.default(RetentionSettings.parse({})),
   "worker.status": WorkerStatus.nullable().default(null),
 } as const;
 
@@ -69,6 +89,7 @@ export const SettingKey = z.enum(Object.keys(SETTING_SCHEMAS) as [SettingKey, ..
 export const SettingsView = z.object({
   schedule: ScheduleSettings,
   llm: LlmSettingsView.nullable(),
+  retention: RetentionSettings,
   mcp: z.object({
     enabled: z.boolean(),
     tokenSet: z.boolean(),
@@ -85,6 +106,7 @@ export type SettingsView = z.infer<typeof SettingsView>;
 
 export const SettingsPatch = z.object({
   schedule: SchedulePatch.optional(),
+  retention: RetentionPatch.optional(),
   /** Null removes the LLM; an omitted apiKey keeps the stored one. */
   llm: z
     .object({

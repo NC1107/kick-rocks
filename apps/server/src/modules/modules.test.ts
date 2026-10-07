@@ -21,6 +21,7 @@ describe("modules", () => {
         "auth",
         "campaigns",
         "dashboard",
+        "data-rights",
         "mailbox",
         "mcp",
         "profiles",
