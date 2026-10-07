@@ -15,13 +15,16 @@ export class ApiRequestError extends Error {
   }
 
   /**
-   * Validation problems keyed by dotted path ("identities.0.value.address"), the first message
-   * per path. Hand these to the matching Field's error prop.
+   * Validation problems in the request body keyed by dotted path ("identities.0.value.address"),
+   * the first message per path. The server prefixes every path with where the value was read
+   * from, and a form only sends a body, so a leading "body" is dropped. Hand these to the
+   * matching Field's error prop.
    */
   get fieldErrors(): Record<string, string> {
     const byPath: Record<string, string> = {};
     for (const issue of this.issues) {
-      const key = issue.path.join(".");
+      const path = issue.path[0] === "body" ? issue.path.slice(1) : issue.path;
+      const key = path.join(".");
       if (!(key in byPath)) byPath[key] = issue.message;
     }
     return byPath;

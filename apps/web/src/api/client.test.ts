@@ -87,8 +87,15 @@ describe("callRoute", () => {
           error: "invalid_request",
           message: "Some details are not valid.",
           issues: [
-            { path: ["identities", 0, "value", "address"], message: "Enter a valid email" },
-            { path: ["identities", 0, "value", "address"], message: "second message ignored" },
+            {
+              path: ["body", "identities", 0, "value", "address"],
+              message: "Enter a valid email",
+            },
+            {
+              path: ["body", "identities", 0, "value", "address"],
+              message: "second message ignored",
+            },
+            { path: ["query", "page"], message: "Must be a number" },
           ],
         },
         { status: 400 },
@@ -101,7 +108,10 @@ describe("callRoute", () => {
     const failure = error as ApiRequestError;
     expect(failure.status).toBe(400);
     expect(failure.code).toBe("invalid_request");
-    expect(failure.fieldErrors).toEqual({ "identities.0.value.address": "Enter a valid email" });
+    expect(failure.fieldErrors).toEqual({
+      "identities.0.value.address": "Enter a valid email",
+      "query.page": "Must be a number",
+    });
     expect(errorMessage(failure)).toBe("Some details are not valid.");
   });
 

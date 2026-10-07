@@ -96,8 +96,8 @@ Packages:
 | F worker | `kr/worker` | `apps/worker/**` (beyond the skeleton), `packages/recipes/src/runner/**`, `packages/recipes/test/**` |
 | G recipes | `kr/recipes` | `packages/recipes/recipes/**` |
 | H datasets | `kr/datasets` | `packages/brokers/**` |
-| I web-core | `kr/web-core` | `apps/web/src/pages/{setup,login,dashboard,profiles,mailbox,about}/**`, `apps/web/mock/{auth,profiles,mailbox,dashboard,about}.ts` |
-| J web-flows | `kr/web-flows` | `apps/web/src/pages/{targets,campaigns,requests,review,settings}/**`, `apps/web/mock/{targets,campaigns,requests,review,settings}.ts` |
+| I web-core | `kr/web-core` | `apps/web/src/pages/{setup,login,dashboard,profiles,mailbox,about}/**`, `apps/web/mock/{auth,profiles,mailbox,dashboard,about}.ts`, and the tests beside them, `apps/web/mock/{auth,profiles,mailbox,dashboard,about}.test.ts` and `apps/web/src/pages/<page>/*.test.tsx` |
+| J web-flows | `kr/web-flows` | `apps/web/src/pages/{targets,campaigns,requests,review,settings}/**`, `apps/web/mock/{targets,campaigns,requests,review,settings}.ts`, and the tests beside them, `apps/web/mock/{targets,campaigns,requests,review,settings}.test.ts` and `apps/web/src/pages/<page>/*.test.tsx` |
 
 Each module's test files live next to its code inside its own paths.
 
@@ -377,6 +377,10 @@ The server and the web mock both build issues with `toApiIssues`, and the web cl
 - UI components in `src/components/ui/`: Button, IconButton, Input, Select, Textarea, Checkbox, Field (label, help, error), Card, Badge, StatusPill (one color per request status), Table, Tabs, Dialog, Toast, EmptyState, Skeleton, Spinner, PageHeader, CopyButton, CodeBlock.
 - Routes with stub pages: `/setup`, `/login`, `/`, `/profiles`, `/profiles/new`, `/profiles/:id`, `/profiles/:id/mailbox`, `/targets`, `/targets/:id`, `/campaigns/new`, `/requests`, `/requests/:id`, `/review`, `/settings`, `/settings/agents`, `/about`.
 - A mock API for UI work: `pnpm --filter @kickrocks/web dev:mock` starts Vite with a plugin that answers `/api/*` from handler modules in `apps/web/mock/`, one file per domain, each validated against the shared schemas and backed by in-memory fixture state.
+  `mock/mock.test.ts` holds only what is true of the mock as a whole (coverage, the server's rules, reserved domains, determinism); what a domain's handlers do is tested in `mock/<domain>.test.ts`, which the page agent that owns the handlers owns, using `mock/test-helpers.ts`.
+  Validation issues carry the same `body`, `query`, or `params` prefix the server sends, built by the shared `toApiIssues`.
+- Web tests: `.test.ts` files run in Node and `.test.tsx` files in jsdom with Testing Library (`@testing-library/react`, `user-event`, `jest-dom`), all installed by the foundation, so a page agent never edits `package.json` or the lockfile.
+  `src/test/render.tsx` has `renderPage(<Page />, { route?, path?, mockOptions? })`, which wraps a page in the query client, router, toast provider, and current-profile provider with `fetch` answered by the mock API.
 
 ## 5. Feature modules
 

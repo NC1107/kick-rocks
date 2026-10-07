@@ -1,8 +1,10 @@
 import { RequestStatus, TaskStatus } from "@kickrocks/shared";
 import { describe, expect, it } from "vitest";
+import themeInit from "../../public/theme-init.js?raw";
 import { formatRelative, pluralize } from "./format.js";
 import * as labels from "./labels.js";
 import { REQUEST_STATUS_META, TASK_STATUS_META } from "./status.js";
+import { STORAGE_KEYS } from "./storage.js";
 import { TONES } from "./tone.js";
 
 describe("status metadata", () => {
@@ -73,5 +75,11 @@ describe("format", () => {
     expect(pluralize(1, "request")).toBe("1 request");
     expect(pluralize(3, "request")).toBe("3 requests");
     expect(pluralize(2, "company", "companies")).toBe("2 companies");
+  });
+});
+
+describe("theme-init.js", () => {
+  it("reads the same storage key the app writes", () => {
+    expect(themeInit).toContain(`"${STORAGE_KEYS.theme}"`);
   });
 });

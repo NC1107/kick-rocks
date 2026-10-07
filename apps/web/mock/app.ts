@@ -1,8 +1,10 @@
 import {
   CSRF_HEADER,
   CSRF_HEADER_VALUE,
+  type IssueLocation,
   type RouteDef,
   requiresCsrfHeader,
+  toApiIssues,
 } from "@kickrocks/shared";
 import { type MockBinary, type MockDomain, MockHttpError, type MockRoute } from "./core.js";
 import { MOCK_DOMAINS } from "./registry.js";
@@ -85,13 +87,6 @@ function match(route: CompiledRoute, method: string, path: string): Record<strin
   return params;
 }
 
-function zodIssues(error: { issues: readonly { path: PropertyKey[]; message: string }[] }) {
-  return error.issues.map((issue) => ({
-    path: issue.path.filter((part): part is string | number => typeof part !== "symbol"),
-    message: issue.message,
-  }));
-}
-
 /**
  * The mock server without any HTTP in it: give it a request, get a response. The Vite plugin adapts
  * Node's request objects to this, and the tests call it directly.
@@ -157,8 +152,8 @@ export function createMockApp(options: MockAppOptions = {}): MockApp {
         throw new MockHttpError(403, "forbidden", `Missing the ${CSRF_HEADER} header.`);
       }
 
-      const params = parseInput(route.params, rawParams);
-      const query = parseInput(route.query, Object.fromEntries(url.searchParams));
+      const params = parseInput(route.params, rawParams, "params");
+      const query = parseInput(route.query, Object.fromEntries(url.searchParams), "query");
       let body: unknown;
       if (route.body) {
         let raw: unknown;
@@ -167,7 +162,7 @@ export function createMockApp(options: MockAppOptions = {}): MockApp {
         } catch {
           throw new MockHttpError(400, "invalid_request", "The body is not valid JSON.");
         }
-        body = parseInput(route.body, raw);
+        body = parseInput(route.body, raw, "body");
       }
 
       const result = await entry.handler({ params, query, body, store } as never);
@@ -188,7 +183,7 @@ export function createMockApp(options: MockAppOptions = {}): MockApp {
           return json(500, {
             error: "mock_contract_violation",
             message: `The mock for ${route.method} ${route.path} broke the shared response schema. See the dev server log.`,
-            issues: zodIssues(checked.error),
+            issues: toApiIssues(checked.error, "body"),
           });
         }
       }
@@ -203,7 +198,7 @@ export function createMockApp(options: MockAppOptions = {}): MockApp {
     }
   }
 
-  function parseInput(schema: RouteDef["params"], raw: unknown): unknown {
+  function parseInput(schema: RouteDef["params"], raw: unknown, location: IssueLocation): unknown {
     if (!schema) return undefined;
     const parsed = schema.safeParse(raw);
     if (!parsed.success) {
@@ -211,7 +206,7 @@ export function createMockApp(options: MockAppOptions = {}): MockApp {
         400,
         "invalid_request",
         "Some of the details are not valid.",
-        zodIssues(parsed.error),
+        toApiIssues(parsed.error, location),
       );
     }
     return parsed.data;
