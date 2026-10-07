@@ -22,15 +22,12 @@ export interface App {
   close(): Promise<void>;
 }
 
-/** Large enough for a full page screenshot posted as base64 when a task blocks. */
-const BODY_LIMIT_BYTES = 16 * 1024 * 1024;
-
 const isApiPath = (url: string) =>
   url === "/api" || url.startsWith("/api/") || url === "/mcp" || url.startsWith("/mcp/");
 
 export async function buildApp({ services, database, version }: AppContext): Promise<App> {
   const { config } = services;
-  const server = Fastify({ loggerInstance: services.logger, bodyLimit: BODY_LIMIT_BYTES });
+  const server = Fastify({ loggerInstance: services.logger });
 
   installErrorHandling(server);
   await server.register(fastifyCookie);

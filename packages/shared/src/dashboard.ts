@@ -13,6 +13,7 @@ const Count = z.number().int().nonnegative();
 export const Dashboard = z.object({
   profileId: z.string(),
   total: Count,
+  /** Requests per status. Every status is present, with 0 when there are none. */
   counts: z.record(RequestStatus, Count),
   attention: z.object({
     blockedTasks: Count,

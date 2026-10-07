@@ -32,7 +32,7 @@ import { MatchDecisionBody, MessageClassificationBody, ReviewQueue } from "./rev
 import { Match, ScanStartBody, ScanStartResult, ScanSummary } from "./scans.js";
 import { DataSourceInfo, SettingsPatch, SettingsView } from "./settings.js";
 import { CompanyCategory, TargetDetail, TargetKind, TargetSummary } from "./targets.js";
-import { SCREENSHOT_MIME_TYPES, TaskSummary } from "./tasks.js";
+import { SCREENSHOT_BODY_LIMIT_BYTES, SCREENSHOT_MIME_TYPES, TaskSummary } from "./tasks.js";
 import {
   TaskBlockBody,
   TaskCompleteBody,
@@ -139,6 +139,8 @@ export interface RouteDef {
   readonly response?: z.ZodType;
   /** Content types of a binary response, used instead of `response`. */
   readonly binary?: readonly string[];
+  /** Largest request body in bytes, for a route that must accept more than the server default. */
+  readonly bodyLimit?: number;
 }
 
 function defineRoute<const D extends RouteDef>(definition: D): D {
@@ -628,6 +630,7 @@ export const API_ROUTES = {
     path: "/worker/tasks/:id/block",
     module: "worker-api",
     auth: "worker",
+    bodyLimit: SCREENSHOT_BODY_LIMIT_BYTES,
     params: IdParam,
     body: TaskBlockBody,
     response: TaskTransitionResponse,

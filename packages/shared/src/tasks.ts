@@ -216,6 +216,9 @@ export const SCREENSHOT_MIME_TYPES = ["image/png", "image/jpeg"] as const;
 /** Largest screenshot accepted, in bytes of the decoded image. */
 export const MAX_SCREENSHOT_BYTES = 8 * 1024 * 1024;
 
+/** The most a request carrying one screenshot as base64 can weigh, with room for the rest of the body. */
+export const SCREENSHOT_BODY_LIMIT_BYTES = Math.ceil((MAX_SCREENSHOT_BYTES * 4) / 3) + 64 * 1024;
+
 export const TaskScreenshot = z.object({
   mime: z.enum(SCREENSHOT_MIME_TYPES),
   dataBase64: z

@@ -93,6 +93,26 @@ describe("registerRoute validation", () => {
     expect(response.json().error).toBe("payload_too_large");
   });
 
+  it("accepts a larger body only on a route that asks for it", async () => {
+    await build(
+      (a) => {
+        registerRoute(a, API_ROUTES.profilesCreate, () => ({}) as never);
+        registerRoute(a, API_ROUTES.workerTaskBlock, () => ({ task: {} }) as never);
+      },
+      { bodyLimit: 100 },
+    );
+    const big = "x".repeat(500);
+    expect(
+      (await app.inject({ method: "POST", url: "/profiles", payload: { big } })).statusCode,
+    ).toBe(413);
+    const block = await app.inject({
+      method: "POST",
+      url: "/worker/tasks/t1/block",
+      payload: { workerId: "w", reason: "captcha", detail: big },
+    });
+    expect(block.statusCode).not.toBe(413);
+  });
+
   it("passes route params", async () => {
     let id = "";
     await build((a) =>
@@ -231,5 +251,24 @@ describe("registerNotImplemented", () => {
       message: "POST /worker/claim is not implemented yet",
     });
     expect((await app.inject({ method: "GET", url: "/profiles" })).statusCode).toBe(404);
+  });
+
+  it("skips routes a module has already built", async () => {
+    await build((a) => {
+      registerRoute(a, API_ROUTES.workerHeartbeat, () => ({
+        ok: true as const,
+        serverTime: "2026-10-07T00:00:00.000Z",
+      }));
+      registerNotImplemented(a, "worker-api", [API_ROUTES.workerHeartbeat]);
+    });
+    const built = await app.inject({
+      method: "POST",
+      url: "/worker/heartbeat",
+      payload: { workerId: "w", busy: false },
+    });
+    expect(built.statusCode).toBe(200);
+    expect(
+      (await app.inject({ method: "POST", url: "/worker/claim", payload: {} })).statusCode,
+    ).toBe(501);
   });
 });

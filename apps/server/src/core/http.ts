@@ -62,6 +62,7 @@ export function registerRoute<R extends RouteDef>(
   app.route({
     method: route.method,
     url: route.path,
+    ...(route.bodyLimit === undefined ? {} : { bodyLimit: route.bodyLimit }),
     handler: async (request, reply) => {
       const result = await handler({
         params: parseInput(route.params, request.params, "params") as RouteParams<R>,
@@ -80,9 +81,17 @@ export function registerRoute<R extends RouteDef>(
   });
 }
 
-/** Answers every route of a module with 501 until the module's own routes replace it. */
-export function registerNotImplemented(app: FastifyInstance, module: ApiModule): void {
+/**
+ * Answers every route of a module with 501 until the module's own routes replace it. A module
+ * that has built some of its routes passes them as `implemented` so they are not registered twice.
+ */
+export function registerNotImplemented(
+  app: FastifyInstance,
+  module: ApiModule,
+  implemented: readonly RouteDef[] = [],
+): void {
   for (const route of routesOfModule(module)) {
+    if (implemented.includes(route)) continue;
     app.route({
       method: route.method,
       url: route.path,

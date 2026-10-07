@@ -130,6 +130,14 @@ describe("API_ROUTES", () => {
   });
 });
 
+describe("body limits", () => {
+  it("only the screenshot upload may exceed the server default", () => {
+    const limited = routes.filter(([, route]) => "bodyLimit" in route).map(([name]) => name);
+    expect(limited).toEqual(["workerTaskBlock"]);
+    expect(API_ROUTES.workerTaskBlock.bodyLimit).toBeGreaterThan(8 * 1024 * 1024);
+  });
+});
+
 describe("requiresCsrfHeader", () => {
   it("applies to state-changing browser routes only", () => {
     expect(requiresCsrfHeader(API_ROUTES.profilesCreate)).toBe(true);
