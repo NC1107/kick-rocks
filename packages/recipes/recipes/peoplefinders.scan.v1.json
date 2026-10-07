@@ -1,0 +1,76 @@
+{
+  "id": "peoplefinders.scan.v1",
+  "brokerId": "peoplefinders",
+  "version": 1,
+  "purpose": "scan",
+  "entryUrl": "https://www.peoplefinders.com/",
+  "fields": ["first_name", "last_name", "city", "state"],
+  "steps": [
+    {
+      "kind": "goto",
+      "url": "https://www.peoplefinders.com/people/{{first_name|slug}}-{{last_name|slug}}/{{state|lower}}/{{city|slug}}"
+    },
+    {
+      "kind": "captcha_checkpoint"
+    },
+    {
+      "kind": "wait_for",
+      "target": {
+        "css": "#detail-results a.record"
+      },
+      "optional": true
+    },
+    {
+      "kind": "extract_candidates",
+      "item": {
+        "css": "#detail-results a.record"
+      },
+      "fields": {
+        "recordUrl": {
+          "css": ":scope",
+          "attr": "href"
+        },
+        "name": {
+          "css": ".record__data.d-lg-block .record__title"
+        },
+        "age": {
+          "css": ".record__data.d-lg-block .col-lg-1 .text-dark"
+        },
+        "locations": {
+          "css": ".record__data.d-lg-block .col-lg-2 li.text-dark span",
+          "all": true
+        },
+        "relatives": {
+          "css": ".record__data.d-lg-block .col-md-2 li.text-dark span",
+          "all": true
+        }
+      }
+    }
+  ],
+  "canary": {
+    "url": "https://www.peoplefinders.com/",
+    "selectors": [
+      {
+        "css": "#detail-results a.record"
+      },
+      {
+        "css": "#detail-results .record__data.d-lg-block .record__title"
+      }
+    ],
+    "steps": [
+      {
+        "kind": "goto",
+        "url": "https://www.peoplefinders.com/people/john-smith/ca/los-angeles"
+      },
+      {
+        "kind": "wait_for",
+        "target": {
+          "css": "#detail-results a.record"
+        }
+      }
+    ]
+  },
+  "notes": "Verified live 2026-10-07 in headed Chrome. The results page for a name, state and city renders each person as an a.record link with the name in .record__title, age in the first narrow column, locations and relatives in the next columns. The record link points at a /products/name checkout funnel with the person's id, not at a public record page, so it identifies the row but is not a page to read. The row is the link itself, so recordUrl reads the item's own href with \":scope\"; the runner needs to support that. \"More locations...\" and \"More relatives...\" filler spans are included in the lists until the runner trims them. Nothing was submitted.",
+  "verifiedAt": "2026-10-07",
+  "liveStatus": "verified"
+}

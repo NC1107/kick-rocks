@@ -1,0 +1,106 @@
+{
+  "id": "usphonebook.scan.v1",
+  "brokerId": "usphonebook",
+  "version": 1,
+  "purpose": "scan",
+  "entryUrl": "https://www.usphonebook.com/removal",
+  "fields": ["first_name", "last_name", "city", "state"],
+  "steps": [
+    {
+      "kind": "goto",
+      "url": "https://www.usphonebook.com/removal"
+    },
+    {
+      "kind": "fill",
+      "target": {
+        "css": "form#headerName input[name=\"name\"]"
+      },
+      "value": "{{first_name}} {{last_name}}"
+    },
+    {
+      "kind": "fill",
+      "target": {
+        "css": "form#headerName input[name=\"city\"]"
+      },
+      "field": "city"
+    },
+    {
+      "kind": "select",
+      "target": {
+        "css": "form#headerName select[name=\"state\"]"
+      },
+      "value": "{{state|state_name}}"
+    },
+    {
+      "kind": "click",
+      "target": {
+        "css": "form#headerName button[type=\"submit\"]"
+      }
+    },
+    {
+      "kind": "captcha_checkpoint"
+    },
+    {
+      "kind": "wait_for",
+      "target": {
+        "css": ".success-wrapper-padding"
+      },
+      "optional": true
+    },
+    {
+      "kind": "extract_candidates",
+      "item": {
+        "css": ".success-wrapper-padding"
+      },
+      "fields": {
+        "recordUrl": {
+          "css": "a.ls_contacts-btn",
+          "attr": "href"
+        },
+        "name": {
+          "css": "h3 [itemprop=\"name\"]"
+        },
+        "age": {
+          "css": "h3.ls_number-text"
+        },
+        "locations": {
+          "css": "[itemprop=\"address\"]",
+          "all": true
+        },
+        "relatives": {
+          "css": "[itemprop=\"relatedTo\"] [itemprop=\"name\"]",
+          "all": true
+        }
+      }
+    }
+  ],
+  "canary": {
+    "url": "https://www.usphonebook.com/removal",
+    "selectors": [
+      {
+        "css": ".success-wrapper-padding"
+      },
+      {
+        "css": ".success-wrapper-padding a.ls_contacts-btn"
+      },
+      {
+        "css": ".success-wrapper-padding h3 [itemprop=\"name\"]"
+      }
+    ],
+    "steps": [
+      {
+        "kind": "goto",
+        "url": "https://www.usphonebook.com/john-smith/california/los-angeles"
+      },
+      {
+        "kind": "wait_for",
+        "target": {
+          "css": ".success-wrapper-padding"
+        }
+      }
+    ]
+  },
+  "notes": "Verified live 2026-10-07 in headed Chrome by running the name, city and state form end to end. Results are .success-wrapper-padding cards with the name in an itemprop=name span inside the h3, the age in the h3 text, itemprop=address spans for places, itemprop=relatedTo links for relatives, and a \"VIEW FULL ADDRESS & PHONE\" link a.ls_contacts-btn to the record. The state URL path needs a slug of the state name, which the template filters cannot chain, so the recipe drives the form on /removal, whose header search form is the same one the home page uses. The state select lists full names.",
+  "verifiedAt": "2026-10-07",
+  "liveStatus": "verified"
+}

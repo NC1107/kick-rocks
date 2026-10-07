@@ -1,0 +1,60 @@
+{
+  "id": "intelius.remove.v1",
+  "brokerId": "intelius",
+  "alsoFor": ["peopleconnect"],
+  "version": 1,
+  "purpose": "remove",
+  "entryUrl": "https://app.intelius.com/privacy-center/",
+  "fields": ["email"],
+  "steps": [
+    {
+      "kind": "goto",
+      "url": "https://app.intelius.com/privacy-center/"
+    },
+    {
+      "kind": "goto",
+      "url": "https://suppression.peopleconnect.us/?brand=Intelius"
+    },
+    {
+      "kind": "fill",
+      "target": {
+        "css": "input[name=\"login-email\"]"
+      },
+      "field": "email"
+    },
+    {
+      "kind": "check",
+      "target": {
+        "css": "input[name=\"consent\"]"
+      }
+    },
+    {
+      "kind": "captcha_checkpoint"
+    },
+    {
+      "kind": "click",
+      "target": {
+        "css": "form button[type=\"submit\"]"
+      }
+    },
+    {
+      "kind": "email_confirmation",
+      "fromDomain": "peopleconnect.us"
+    }
+  ],
+  "canary": {
+    "url": "https://app.intelius.com/privacy-center/",
+    "selectors": [
+      {
+        "role": "button",
+        "label": "View Public Data Tools"
+      },
+      {
+        "css": "input[name=\"retrievalEmail\"]"
+      }
+    ]
+  },
+  "notes": "Verified live 2026-10-07 in headless Chrome. Intelius removes public records through the PeopleConnect suppression center: the privacy center's \"Manage My Suppression Rules\" link opens https://suppression.peopleconnect.us/?brand=Intelius in a new tab, so the recipe goes there directly. That page asks for an email address and a consent box and then emails a verification link, which the confirm task follows. The user-data tools on the privacy center (copy of data, delete user data) are a different right and are not used. Nothing was submitted.",
+  "verifiedAt": "2026-10-07",
+  "liveStatus": "verified"
+}

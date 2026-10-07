@@ -1,0 +1,75 @@
+{
+  "id": "spokeo.scan.v1",
+  "brokerId": "spokeo",
+  "version": 1,
+  "purpose": "scan",
+  "entryUrl": "https://www.spokeo.com/",
+  "fields": ["full_name", "city", "state"],
+  "steps": [
+    {
+      "kind": "goto",
+      "url": "https://www.spokeo.com/search?q={{full_name|urlencode}}%20{{city|urlencode}}%20{{state}}"
+    },
+    {
+      "kind": "captcha_checkpoint"
+    },
+    {
+      "kind": "wait_for",
+      "target": {
+        "css": "#name-search-results-list"
+      },
+      "optional": true
+    },
+    {
+      "kind": "extract_candidates",
+      "item": {
+        "css": "#name-search-results-list > div"
+      },
+      "fields": {
+        "recordUrl": {
+          "css": "h3 a",
+          "attr": "href"
+        },
+        "name": {
+          "css": "h3 a"
+        },
+        "age": {
+          "css": "h3 a"
+        },
+        "locations": {
+          "css": ".uppercase"
+        },
+        "relatives": {
+          "css": "a.inline",
+          "all": true
+        }
+      }
+    }
+  ],
+  "canary": {
+    "url": "https://www.spokeo.com/",
+    "selectors": [
+      {
+        "css": "#name-search-results-list"
+      },
+      {
+        "css": "#name-search-results-list h3 a"
+      }
+    ],
+    "steps": [
+      {
+        "kind": "goto",
+        "url": "https://www.spokeo.com/John-Smith/California/Los-Angeles"
+      },
+      {
+        "kind": "wait_for",
+        "target": {
+          "css": "#name-search-results-list"
+        }
+      }
+    ]
+  },
+  "notes": "Verified live 2026-10-07 in headed Chrome: the name search (/search?q= redirects to the results page for the name and place) and the results list. Each row of #name-search-results-list holds an h3 link whose text is \"Name, Age N\" and whose href is the record. The age field reads the same link, so the runner must take the first integer. Spokeo returned 403 to headless Chrome, so run this headed. A real Chrome on a residential connection was used for every check, no challenge was solved, and nothing was submitted.",
+  "verifiedAt": "2026-10-07",
+  "liveStatus": "verified"
+}

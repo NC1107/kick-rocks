@@ -1,0 +1,74 @@
+{
+  "id": "truepeoplesearch.scan.v1",
+  "brokerId": "truepeoplesearch",
+  "version": 1,
+  "purpose": "scan",
+  "entryUrl": "https://www.truepeoplesearch.com/",
+  "fields": ["full_name", "city", "state"],
+  "steps": [
+    {
+      "kind": "goto",
+      "url": "https://www.truepeoplesearch.com/results?name={{full_name|urlencode}}&citystatezip={{city|urlencode}}%2C%20{{state}}"
+    },
+    {
+      "kind": "captcha_checkpoint"
+    },
+    {
+      "kind": "wait_for",
+      "target": {
+        "css": ".card-summary"
+      },
+      "optional": true
+    },
+    {
+      "kind": "extract_candidates",
+      "item": {
+        "css": ".card-summary"
+      },
+      "fields": {
+        "recordUrl": {
+          "css": "a.detail-link",
+          "attr": "href"
+        },
+        "name": {
+          "css": ".content-header"
+        },
+        "age": {
+          "css": ".content-header + div > span:nth-of-type(2)"
+        },
+        "locations": {
+          "css": ".content-header + div > span:nth-of-type(4)"
+        }
+      }
+    }
+  ],
+  "canary": {
+    "url": "https://www.truepeoplesearch.com/",
+    "selectors": [
+      {
+        "css": ".card-summary"
+      },
+      {
+        "css": ".card-summary a.detail-link"
+      },
+      {
+        "css": ".card-summary .content-header"
+      }
+    ],
+    "steps": [
+      {
+        "kind": "goto",
+        "url": "https://www.truepeoplesearch.com/results?name=John%20Smith&citystatezip=Los%20Angeles%2C%20CA"
+      },
+      {
+        "kind": "wait_for",
+        "target": {
+          "css": ".card-summary"
+        }
+      }
+    ]
+  },
+  "notes": "Verified live 2026-10-07 in headed Chrome. The results URL (name and citystatezip query) lists .card-summary cards with the name in .content-header, \"Age N • City, ST\" in the line after it, a \"Used to live in\" and \"Related to\" line, and a View Details link a.detail-link to /find/person/<id>. The relatives line is truncated on the card, so it is left out. Headless Chrome and the /removal page both answered with a Cloudflare challenge, so run this headed.",
+  "verifiedAt": "2026-10-07",
+  "liveStatus": "verified"
+}

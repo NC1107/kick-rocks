@@ -1,0 +1,82 @@
+{
+  "id": "intelius.scan.v1",
+  "brokerId": "intelius",
+  "version": 1,
+  "purpose": "scan",
+  "entryUrl": "https://www.intelius.com/people-search/",
+  "fields": ["first_name", "last_name"],
+  "steps": [
+    {
+      "kind": "goto",
+      "url": "https://www.intelius.com/people-search/{{first_name|slug}}-{{last_name|slug}}/"
+    },
+    {
+      "kind": "captcha_checkpoint"
+    },
+    {
+      "kind": "wait_for",
+      "target": {
+        "css": "#container-persons .person"
+      },
+      "optional": true
+    },
+    {
+      "kind": "extract_candidates",
+      "item": {
+        "css": "#container-persons > .person"
+      },
+      "fields": {
+        "recordUrl": {
+          "css": "a.view",
+          "attr": "href"
+        },
+        "name": {
+          "css": "h2"
+        },
+        "age": {
+          "css": "h2 .age"
+        },
+        "locations": {
+          "css": "h2 > span:first-of-type"
+        },
+        "relatives": {
+          "css": ".details p.value a[href^=\"/people-search/\"]",
+          "all": true
+        },
+        "phones": {
+          "css": ".details a[href^=\"/phone/\"]",
+          "all": true
+        }
+      }
+    }
+  ],
+  "canary": {
+    "url": "https://www.intelius.com/people-search/",
+    "selectors": [
+      {
+        "css": "#container-persons .person"
+      },
+      {
+        "css": "#container-persons .person a.view"
+      },
+      {
+        "css": "#container-persons .person h2"
+      }
+    ],
+    "steps": [
+      {
+        "kind": "goto",
+        "url": "https://www.intelius.com/people-search/john-smith/"
+      },
+      {
+        "kind": "wait_for",
+        "target": {
+          "css": "#container-persons .person"
+        }
+      }
+    ]
+  },
+  "notes": "Verified live 2026-10-07 in headless Chrome. The name page lists 20 people per page nationwide with .person cards: an h2 (\"name in City, State | Age - N\", so the name field carries that extra text), a .details block of phones, address, relatives and previous locations, and a \"View Full Report\" link a.view that goes to a /search/ funnel URL with the person's name and city. Emails are blurred and left out. The state pages need the state spelled as a slug, which the template filters cannot chain, so the scan reads the nationwide page and the server filters by location. A common name will have more matches than the first page shows.",
+  "verifiedAt": "2026-10-07",
+  "liveStatus": "verified"
+}

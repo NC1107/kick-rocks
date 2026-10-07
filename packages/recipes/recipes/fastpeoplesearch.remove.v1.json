@@ -1,0 +1,87 @@
+{
+  "id": "fastpeoplesearch.remove.v1",
+  "brokerId": "fastpeoplesearch",
+  "version": 1,
+  "purpose": "remove",
+  "entryUrl": "https://www.fastpeoplesearch.com/removal",
+  "fields": ["first_name", "last_name", "email"],
+  "steps": [
+    {
+      "kind": "goto",
+      "url": "https://www.fastpeoplesearch.com/removal"
+    },
+    {
+      "kind": "select",
+      "target": {
+        "css": "form#optout-start select[name=\"am\"]"
+      },
+      "value": "The subject of this request"
+    },
+    {
+      "kind": "fill",
+      "target": {
+        "css": "form#optout-start #firstname"
+      },
+      "field": "first_name"
+    },
+    {
+      "kind": "fill",
+      "target": {
+        "css": "form#optout-start #lastname"
+      },
+      "field": "last_name"
+    },
+    {
+      "kind": "fill",
+      "target": {
+        "css": "form#optout-start #email"
+      },
+      "field": "email"
+    },
+    {
+      "kind": "check",
+      "target": {
+        "css": "form#optout-start input[name=\"legal\"]"
+      }
+    },
+    {
+      "kind": "captcha_checkpoint"
+    },
+    {
+      "kind": "click",
+      "target": {
+        "css": "form#optout-start button[type=\"submit\"]"
+      }
+    },
+    {
+      "kind": "email_confirmation",
+      "fromDomain": "fastpeoplesearch.com"
+    }
+  ],
+  "canary": {
+    "url": "https://www.fastpeoplesearch.com/removal",
+    "selectors": [
+      {
+        "css": "form#optout-start select[name=\"am\"]"
+      },
+      {
+        "css": "form#optout-start #firstname"
+      },
+      {
+        "css": "form#optout-start #lastname"
+      },
+      {
+        "css": "form#optout-start #email"
+      },
+      {
+        "css": "form#optout-start input[name=\"legal\"]"
+      },
+      {
+        "css": "form#optout-start button[type=\"submit\"]"
+      }
+    ]
+  },
+  "notes": "Verified live 2026-10-07 in headed Chrome. /removal redirects to /optout, which has form#optout-start: a requester select (the subject of the request, or an authorized agent), first, last and email, a legal-statement checkbox, a Cloudflare Turnstile widget, and Submit. Only the subject path is used, since requests are always made by the data subject. The site then emails a link for the next step, so the run ends as awaiting_email_confirmation. Nothing was submitted.",
+  "verifiedAt": "2026-10-07",
+  "liveStatus": "verified"
+}
