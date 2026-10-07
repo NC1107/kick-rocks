@@ -441,6 +441,12 @@ export function createDispatch({
         if (task.kind !== "scan" && task.kind !== "form" && task.kind !== "agent") {
           throw conflict("not_handoffable", `A ${task.kind} task cannot be handed to an agent`);
         }
+        if (task.mayHaveSubmitted && actor !== "user") {
+          throw conflict(
+            "held_for_person",
+            `Task ${taskId} may already have submitted its form, so only a person can release it`,
+          );
+        }
         return toAgent(
           task as Task<"scan" | "form" | "agent">,
           {
