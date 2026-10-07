@@ -80,7 +80,7 @@ export function TabList({ className, ...rest }: ComponentProps<"div">) {
     <div
       role="tablist"
       onKeyDown={onKeyDown}
-      className={cn("flex gap-1 overflow-x-auto border-b border-line", className)}
+      className={cn("relative flex gap-1 overflow-x-auto border-b border-line", className)}
       {...rest}
     />
   );
@@ -152,7 +152,7 @@ export interface LinkTab {
  */
 export function LinkTabs({ items, label }: { items: readonly LinkTab[]; label: string }) {
   return (
-    <nav aria-label={label} className="flex gap-1 overflow-x-auto border-b border-line">
+    <nav aria-label={label} className="relative flex gap-1 overflow-x-auto border-b border-line">
       {items.map((item) => (
         <NavLink
           key={item.to}
