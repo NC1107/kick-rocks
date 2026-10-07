@@ -215,6 +215,13 @@ describe("parseBadbool sections and notes", () => {
     expect(broker.notes).toBe("BADBOOL: Find your information. Note: this is slow.");
   });
 
+  it("writes an em dash in the entry text as a plain dash", () => {
+    const broker = parseOne(
+      "### Alpha\n[Find](https://alpha.example/) it\u2014slow \u2014 but free.\n",
+    );
+    expect(broker.notes).toBe("BADBOOL: Find it - slow - but free.");
+  });
+
   it("carries the source and license on every record", () => {
     for (const broker of parseBadbool(readme("### Alpha\n[Find](https://alpha.example/)\n"))) {
       expect(broker.sources).toEqual([

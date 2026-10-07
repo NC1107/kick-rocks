@@ -60,6 +60,6 @@ describe("provider presets", () => {
   });
 
   it("contains no em dash", () => {
-    expect(JSON.stringify(PROVIDER_PRESETS)).not.toContain("—");
+    expect(JSON.stringify(PROVIDER_PRESETS)).not.toContain("\u2014");
   });
 });
