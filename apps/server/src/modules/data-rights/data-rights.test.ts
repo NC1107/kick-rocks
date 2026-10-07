@@ -614,6 +614,7 @@ describe("reset instance", () => {
     const { settings: store, db } = ctx.services;
     store.set("auth.passwordHash", "hash-of-the-password");
     store.set("mcp.enabled", true);
+    store.set("siteChecks.enabled", true);
     store.set("mcp.tokenHash", "token-hash");
     store.set("llm", { baseUrl: "http://localhost:11434/v1", model: "m", apiKey: "k" });
     store.set("schedule", { ...store.get("schedule"), pollMinutes: 5 });
