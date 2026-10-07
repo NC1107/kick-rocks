@@ -46,12 +46,13 @@ afterEach(async () => {
   await new Promise<void>((resolve) => server.close(() => resolve()));
 });
 
-function client() {
+function client(claimer?: "builtin" | "model") {
   const { port } = server.address() as AddressInfo;
   return new WorkerApiClient({
     serverUrl: `http://127.0.0.1:${port}`,
     token: "secret-token-1234567",
     workerId: "worker-1",
+    ...(claimer ? { claimer } : {}),
   });
 }
 
@@ -91,6 +92,17 @@ describe("WorkerApiClient", () => {
         authorization: "Bearer secret-token-1234567",
         body: { workerId: "worker-1", busy: false, currentTaskId: null, version: "1.2.3" },
       },
+    ]);
+  });
+
+  it("says which kind of worker it is on every heartbeat and claim, when it says so", async () => {
+    reply.body = { ok: true, serverTime: "2026-10-07T00:00:00.000Z" };
+    await client("model").heartbeat({ busy: false });
+    reply.body = { task: null };
+    await client("model").claim(["agent"]);
+    expect(seen.map((call) => (call.body as { claimer?: string }).claimer)).toEqual([
+      "model",
+      "model",
     ]);
   });
 

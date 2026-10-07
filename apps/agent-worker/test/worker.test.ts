@@ -8,12 +8,13 @@ import {
   TaskHeartbeatBody,
   TaskReleaseBody,
   WorkerClaimBody,
+  WorkerHeartbeatBody,
 } from "@kickrocks/shared";
 import type { Browser } from "playwright";
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, expect, it, vi } from "vitest";
 import type { AgentWorkerConfig } from "../src/config.js";
 import { ProviderError } from "../src/provider.js";
-import { markClaimsAsModel, runAgentWorker } from "../src/worker.js";
+import { runAgentWorker } from "../src/worker.js";
 import { ORIGIN } from "./fixtures/server.js";
 import {
   agentTask,
@@ -159,36 +160,6 @@ function startWorker(
   return { finished, controller, provider };
 }
 
-describe("markClaimsAsModel", () => {
-  it("adds claimer model to the claim body and nothing else", async () => {
-    const base = vi.fn(async () => new Response("{}"));
-    const marked = markClaimsAsModel(base as unknown as typeof fetch);
-    await marked("http://s/api/worker/claim", {
-      method: "POST",
-      body: JSON.stringify({ workerId: "w", kinds: ["agent"] }),
-    });
-    const sent = base.mock.calls[0] as unknown as [string, RequestInit];
-    expect(JSON.parse(String(sent[1].body))).toEqual({
-      workerId: "w",
-      kinds: ["agent"],
-      claimer: "model",
-    });
-    expect(WorkerClaimBody.parse(JSON.parse(String(sent[1].body))).claimer).toBe("model");
-  });
-
-  it("leaves every other request alone", async () => {
-    const base = vi.fn(async () => new Response("{}"));
-    const marked = markClaimsAsModel(base as unknown as typeof fetch);
-    const init = { method: "POST", body: JSON.stringify({ workerId: "w", busy: false }) };
-    await marked(new URL("http://s/api/worker/heartbeat"), init);
-    await marked("http://s/api/worker/tasks/t1/complete", init);
-    await marked("http://s/api/worker/claim", { method: "GET" });
-    for (const call of base.mock.calls as unknown as [unknown, RequestInit][]) {
-      expect(call[1]?.body === undefined || !String(call[1].body).includes("claimer")).toBe(true);
-    }
-  });
-});
-
 describeBrowser("the agent worker end to end", () => {
   it("claims as a model, drives the page, and completes the task with usage", async () => {
     const task = agentTask();
@@ -217,6 +188,11 @@ describeBrowser("the agent worker end to end", () => {
       claimer: "model",
     });
     expect(claim?.authorization).toBe("Bearer a-token-of-sixteen-chars");
+    const beats = server.seen.filter((entry) => entry.path === "/api/worker/heartbeat");
+    expect(beats.length).toBeGreaterThan(0);
+    for (const beat of beats) {
+      expect(WorkerHeartbeatBody.parse(beat.body).claimer).toBe("model");
+    }
 
     const [complete] = server.transitions();
     expect(complete?.path).toBe(`/api/worker/tasks/${task.id}/complete`);

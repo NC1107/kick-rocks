@@ -13,6 +13,7 @@ import {
   type TaskHeartbeatResponse,
   type TaskSummary,
   type TaskUsage,
+  type WorkerClaimer,
   type WorkerHeartbeatBody,
   type WorkerHeartbeatResponse,
 } from "@kickrocks/shared";
@@ -41,6 +42,8 @@ export interface WorkerApiClientOptions {
   serverUrl: string;
   token: string;
   workerId: string;
+  /** Which kind of worker this is. The server counts the built-in one unless told otherwise. */
+  claimer?: WorkerClaimer;
   /** Replaced in tests. */
   fetch?: typeof fetch;
 }
@@ -53,10 +56,16 @@ export class WorkerApiClient {
     this.fetchImpl = options.fetch ?? fetch;
   }
 
-  heartbeat(status: Omit<WorkerHeartbeatBody, "workerId">): Promise<WorkerHeartbeatResponse> {
+  heartbeat(
+    status: Omit<WorkerHeartbeatBody, "workerId" | "claimer">,
+  ): Promise<WorkerHeartbeatResponse> {
     return this.call(API_ROUTES.workerHeartbeat, {
-      body: { workerId: this.options.workerId, ...status },
+      body: { workerId: this.options.workerId, ...this.claimer(), ...status },
     });
+  }
+
+  private claimer(): { claimer?: WorkerClaimer } {
+    return this.options.claimer ? { claimer: this.options.claimer } : {};
   }
 
   /** Without `kinds` the server gives a worker the kinds a recipe can run, and never `agent`. */
@@ -64,6 +73,7 @@ export class WorkerApiClient {
     const response = await this.call(API_ROUTES.workerClaim, {
       body: {
         workerId: this.options.workerId,
+        ...this.claimer(),
         ...(kinds ? { kinds: [...kinds] } : {}),
         ...(leaseMs ? { leaseMs } : {}),
       },

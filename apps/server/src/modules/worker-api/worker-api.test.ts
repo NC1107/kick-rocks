@@ -103,7 +103,7 @@ describe("heartbeat", () => {
       serverTime: ctx.clock.now().toISOString(),
       profileIds: [profileId],
     });
-    expect(ctx.services.settings.get("worker.status")).toEqual({
+    expect(ctx.services.settings.get("worker.status.builtin")).toEqual({
       workerId: "worker-1",
       version: "0.3.0",
       lastSeenAt: ctx.clock.now().toISOString(),
@@ -116,11 +116,32 @@ describe("heartbeat", () => {
     await ctx.call(API_ROUTES.workerHeartbeat, { body: { workerId: "a", busy: true } });
     ctx.clock.advance(30_000);
     await ctx.call(API_ROUTES.workerHeartbeat, { body: { workerId: "b", busy: false } });
-    expect(ctx.services.settings.get("worker.status")).toMatchObject({
+    expect(ctx.services.settings.get("worker.status.builtin")).toMatchObject({
       workerId: "b",
       version: null,
       busy: false,
       currentTaskId: null,
+      lastSeenAt: ctx.clock.now().toISOString(),
+    });
+  });
+
+  it("keeps the built-in worker and the model worker apart, so one never makes the other look alive", async () => {
+    await ctx.call(API_ROUTES.workerHeartbeat, {
+      body: { workerId: "recipes", busy: false, claimer: "builtin" },
+    });
+    ctx.clock.advance(120_000);
+    await ctx.call(API_ROUTES.workerHeartbeat, {
+      body: { workerId: "model", busy: true, currentTaskId: "t9", claimer: "model" },
+    });
+    expect(ctx.services.settings.get("worker.status.builtin")).toMatchObject({
+      workerId: "recipes",
+      busy: false,
+      lastSeenAt: new Date(ctx.clock.now().getTime() - 120_000).toISOString(),
+    });
+    expect(ctx.services.settings.get("worker.status.model")).toMatchObject({
+      workerId: "model",
+      busy: true,
+      currentTaskId: "t9",
       lastSeenAt: ctx.clock.now().toISOString(),
     });
   });

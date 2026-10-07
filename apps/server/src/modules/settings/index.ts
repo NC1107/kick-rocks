@@ -29,7 +29,8 @@ function viewOf({ settings, config }: AppServices): SettingsView {
     },
     worker: {
       enabled: config.workerToken !== null,
-      status: settings.get("worker.status"),
+      builtin: settings.get("worker.status.builtin"),
+      model: settings.get("worker.status.model"),
     },
   };
 }

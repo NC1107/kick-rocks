@@ -14,7 +14,7 @@ export const workerApiModule: ModulePlugin = (app, services) => {
 
   registerRoute(app, API_ROUTES.workerHeartbeat, ({ body }) => {
     const now = nowIso(services.clock);
-    services.settings.set("worker.status", {
+    services.settings.set(`worker.status.${body.claimer}`, {
       workerId: body.workerId,
       version: body.version ?? null,
       lastSeenAt: now,

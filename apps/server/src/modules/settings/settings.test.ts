@@ -53,7 +53,7 @@ describe("GET /settings", () => {
       schedule: DEFAULT_SCHEDULE,
       llm: null,
       mcp: { url: "http://kickrocks.test/mcp" },
-      worker: { enabled: true, status: null },
+      worker: { enabled: true, builtin: null, model: null },
     });
   });
 
@@ -64,17 +64,26 @@ describe("GET /settings", () => {
     expect(result.ok && result.body.worker.enabled).toBe(false);
   });
 
-  it("passes the worker's last report through", async () => {
-    const status = {
-      workerId: "worker-home",
+  it("passes each kind of worker's last report through, apart", async () => {
+    const status = (workerId: string) => ({
+      workerId,
       version: "0.1.0",
       lastSeenAt: ctx.clock.now().toISOString(),
       busy: true,
       currentTaskId: "task-1",
-    };
-    ctx.services.settings.set("worker.status", status);
-    const result = await ctx.call(API_ROUTES.settingsGet);
-    expect(result.ok && result.body.worker.status).toEqual(status);
+    });
+    ctx.services.settings.set("worker.status.builtin", status("recipes"));
+    let result = await ctx.call(API_ROUTES.settingsGet);
+    expect(result.ok && result.body.worker).toMatchObject({
+      builtin: status("recipes"),
+      model: null,
+    });
+    ctx.services.settings.set("worker.status.model", status("model"));
+    result = await ctx.call(API_ROUTES.settingsGet);
+    expect(result.ok && result.body.worker).toMatchObject({
+      builtin: status("recipes"),
+      model: status("model"),
+    });
   });
 
   it("never includes the LLM key, the MCP token hash, or the password hash", async () => {

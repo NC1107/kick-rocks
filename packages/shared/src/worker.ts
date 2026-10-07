@@ -34,11 +34,20 @@ export const WORKER_AUTH_HEADER = "authorization";
 
 const WorkerId = z.string().min(1).max(100);
 
+/**
+ * Which kind of worker is calling: the built-in one that runs recipes, or one that drives a model.
+ * The server counts their runs and shows their health apart.
+ */
+export const WorkerClaimer = z.enum(["builtin", "model"]);
+export type WorkerClaimer = z.infer<typeof WorkerClaimer>;
+
 export const WorkerHeartbeatBody = z.object({
   workerId: WorkerId,
   version: z.string().max(50).optional(),
   busy: z.boolean(),
   currentTaskId: z.string().nullable().optional(),
+  /** Kept per kind, so one kind of worker beating never makes the other look alive. */
+  claimer: WorkerClaimer.default("builtin"),
 });
 export type WorkerHeartbeatBody = z.infer<typeof WorkerHeartbeatBody>;
 
@@ -64,7 +73,7 @@ export const WorkerClaimBody = z.object({
     .default(() => [...WORKER_DEFAULT_KINDS]),
   leaseMs: LeaseMs.default(LEASE_MS.default),
   /** A worker that drives a model says so, so its runs are counted apart from recipe runs. */
-  claimer: z.enum(["builtin", "model"]).default("builtin"),
+  claimer: WorkerClaimer.default("builtin"),
 });
 export type WorkerClaimBody = z.infer<typeof WorkerClaimBody>;
 
