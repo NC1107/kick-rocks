@@ -23,6 +23,10 @@ A `:` or `/` in the model name becomes `_` in the file name.
 | `--agent-only`, `--replies-only` | Run one half. |
 | `--fake perfect`, `--fake bad` | Use a scripted model, to check the harness itself. |
 | `--base-url <url>` | Another OpenAI compatible endpoint. |
+| `--provider openai`, `--provider ollama` | The worker's provider for the agent half. Default openai. The reply half always uses the OpenAI compatible endpoint. |
+| `--num-ctx <n>` | The ollama provider's context window. Default is the worker's own, 16384. |
+| `--thinking default`, `--thinking off` | Off asks a model that can think not to. It applies to the agent half only. |
+| `--out-name <name>` | Name the result files this instead of the model, to keep an earlier set. |
 | `--pace instant`, `--pace human` | Browser typing speed. Instant is the default so wall time is the model's. |
 | `--max-steps`, `--max-minutes`, `--max-output-tokens` | Override the worker's budgets (40 steps, 10 minutes, 4096 tokens). |
 | `--reply-timeout-ms <n>` | Override the server's 30 second limit for a reply. |

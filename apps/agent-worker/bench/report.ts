@@ -50,6 +50,8 @@ export interface BenchResults {
     maxMinutes: number;
     maxOutputTokens: number;
     pace: string;
+    provider?: string;
+    thinking?: string;
     idleVramMiB: number | null;
     ollamaContextLength: number | null;
     ollamaVramBytes: number | null;
@@ -169,7 +171,7 @@ export function markdownSummary(results: BenchResults): string {
   lines.push(`# Agent model benchmark: ${results.model}`, "");
   lines.push(`Run from ${results.startedAt} to ${results.finishedAt}.`);
   lines.push(
-    `Endpoint ${env.baseUrl}, ${env.runsPerScenario} run(s) per scenario, at most ${env.maxSteps} steps and ${env.maxMinutes} minutes per run, ${env.maxOutputTokens} output tokens per turn, ${env.pace} pace.`,
+    `Endpoint ${env.baseUrl}, ${env.runsPerScenario} run(s) per scenario, at most ${env.maxSteps} steps and ${env.maxMinutes} minutes per run, ${env.maxOutputTokens} output tokens per turn, ${env.pace} pace${env.provider ? `, the ${env.provider} provider, thinking ${env.thinking}` : ""}.`,
   );
   if (env.ollamaContextLength !== null) {
     lines.push(`Ollama loaded the model with a context of ${env.ollamaContextLength} tokens.`);

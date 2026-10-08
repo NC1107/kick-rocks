@@ -12,6 +12,10 @@ import { SCENARIOS, type Scenario } from "./scenarios.js";
 export interface BenchOptions {
   model: string;
   baseUrl?: string;
+  /** The worker's provider for the agent half. The reply half always uses the OpenAI compatible endpoint. */
+  provider?: "openai" | "ollama";
+  numCtx?: number;
+  thinking?: "default" | "off";
   runs: number;
   scenarios?: number[];
   fake?: FakeKind;
@@ -26,19 +30,35 @@ export interface BenchOptions {
 }
 
 /** One short request, so the weights are in memory before the first timed run. */
-async function warmUp(baseUrl: string, model: string, log: (line: string) => void): Promise<void> {
+async function warmUp(
+  baseUrl: string,
+  options: BenchOptions,
+  log: (line: string) => void,
+): Promise<void> {
   const started = performance.now();
+  const { model } = options;
+  // The native call carries num_ctx, so the model is loaded at the size the timed runs use.
+  const native = options.provider === "ollama";
   try {
-    await fetch(`${baseUrl}/chat/completions`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        model,
-        max_tokens: 8,
-        messages: [{ role: "user", content: "Say ok." }],
-      }),
-      signal: AbortSignal.timeout(300_000),
-    });
+    await fetch(
+      native ? `${baseUrl.replace(/\/v1$/, "")}/api/chat` : `${baseUrl}/chat/completions`,
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(
+          native
+            ? {
+                model,
+                stream: false,
+                ...(options.thinking === "off" ? { think: false } : {}),
+                options: { num_ctx: options.numCtx ?? 16_384, num_predict: 8 },
+                messages: [{ role: "user", content: "Say ok." }],
+              }
+            : { model, max_tokens: 8, messages: [{ role: "user", content: "Say ok." }] },
+        ),
+        signal: AbortSignal.timeout(300_000),
+      },
+    );
     log(`warm-up took ${Math.round(performance.now() - started)} ms`);
   } catch (error) {
     log(`warm-up failed: ${error instanceof Error ? error.message : String(error)}`);
@@ -53,9 +73,12 @@ export async function runBench(options: BenchOptions): Promise<BenchResults> {
   );
   const config = loadAgentWorkerConfig({
     KICKROCKS_WORKER_TOKEN: "benchmark-worker-token",
-    KICKROCKS_AGENT_PROVIDER: "openai",
+    KICKROCKS_AGENT_PROVIDER: options.provider ?? "openai",
     KICKROCKS_AGENT_MODEL: options.model,
-    KICKROCKS_AGENT_BASE_URL: baseUrl,
+    KICKROCKS_AGENT_BASE_URL:
+      options.provider === "ollama" ? baseUrl.replace(/\/v1$/, "") : baseUrl,
+    ...(options.numCtx ? { KICKROCKS_AGENT_NUM_CTX: String(options.numCtx) } : {}),
+    ...(options.thinking ? { KICKROCKS_AGENT_THINKING: options.thinking } : {}),
     ...(options.maxSteps ? { KICKROCKS_AGENT_MAX_STEPS: String(options.maxSteps) } : {}),
     ...(options.maxMinutes ? { KICKROCKS_AGENT_MAX_MINUTES: String(options.maxMinutes) } : {}),
     ...(options.maxOutputTokens
@@ -76,7 +99,7 @@ export async function runBench(options: BenchOptions): Promise<BenchResults> {
     : SCENARIOS;
   const pace = options.pace ?? "instant";
 
-  if (!options.fake) await warmUp(baseUrl, options.model, log);
+  if (!options.fake) await warmUp(baseUrl, options, log);
   const loadedAtStart = options.fake
     ? { contextLength: null, sizeVram: null }
     : await ollamaStatus(baseUrl, options.model);
@@ -122,9 +145,12 @@ export async function runBench(options: BenchOptions): Promise<BenchResults> {
   const loadedAtEnd = options.fake
     ? { contextLength: null, sizeVram: null }
     : await ollamaStatus(baseUrl, options.model);
+  // The reply half goes through the OpenAI endpoint, which may reload the model at Ollama's own context.
+  const [first, second] =
+    options.provider === "ollama" ? [loadedAtStart, loadedAtEnd] : [loadedAtEnd, loadedAtStart];
   const status = {
-    contextLength: loadedAtEnd.contextLength ?? loadedAtStart.contextLength,
-    sizeVram: loadedAtEnd.sizeVram ?? loadedAtStart.sizeVram,
+    contextLength: first.contextLength ?? second.contextLength,
+    sizeVram: first.sizeVram ?? second.sizeVram,
   };
   return {
     model: options.model,
@@ -137,6 +163,8 @@ export async function runBench(options: BenchOptions): Promise<BenchResults> {
       maxMinutes: Math.round(config.limits.maxMs / 600) / 100,
       maxOutputTokens: config.provider.maxOutputTokens,
       pace,
+      provider: options.provider ?? "openai",
+      thinking: options.thinking ?? "default",
       idleVramMiB,
       ollamaContextLength: status.contextLength,
       ollamaVramBytes: status.sizeVram,

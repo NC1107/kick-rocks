@@ -1,0 +1,1631 @@
+{
+  "model": "llama3.2:3b",
+  "startedAt": "2026-10-08T12:57:44.721Z",
+  "finishedAt": "2026-10-08T12:58:29.226Z",
+  "environment": {
+    "baseUrl": "http://127.0.0.1:11434/v1",
+    "runsPerScenario": 3,
+    "maxSteps": 40,
+    "maxMinutes": 10,
+    "maxOutputTokens": 4096,
+    "pace": "instant",
+    "provider": "ollama",
+    "thinking": "default",
+    "idleVramMiB": 517,
+    "ollamaContextLength": 16384,
+    "ollamaVramBytes": 4062571396
+  },
+  "agent": null,
+  "replies": {
+    "runs": [
+      {
+        "cases": [
+          {
+            "id": "bounce-1",
+            "truth": "bounce",
+            "predicted": "bounce",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 2681,
+            "fieldsCorrect": null,
+            "inputTokens": 412,
+            "outputTokens": 62
+          },
+          {
+            "id": "bounce-2",
+            "truth": "bounce",
+            "predicted": "bounce",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 336,
+            "fieldsCorrect": null,
+            "inputTokens": 353,
+            "outputTokens": 52
+          },
+          {
+            "id": "bounce-3",
+            "truth": "bounce",
+            "predicted": "bounce",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 331,
+            "fieldsCorrect": null,
+            "inputTokens": 383,
+            "outputTokens": 53
+          },
+          {
+            "id": "bounce-4",
+            "truth": "bounce",
+            "predicted": "bounce",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 388,
+            "fieldsCorrect": null,
+            "inputTokens": 349,
+            "outputTokens": 68
+          },
+          {
+            "id": "ack-1",
+            "truth": "auto_ack",
+            "predicted": "auto_ack",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 358,
+            "fieldsCorrect": null,
+            "inputTokens": 350,
+            "outputTokens": 58
+          },
+          {
+            "id": "ack-2",
+            "truth": "auto_ack",
+            "predicted": "auto_ack",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 383,
+            "fieldsCorrect": null,
+            "inputTokens": 346,
+            "outputTokens": 60
+          },
+          {
+            "id": "ack-3",
+            "truth": "auto_ack",
+            "predicted": "auto_ack",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 349,
+            "fieldsCorrect": null,
+            "inputTokens": 349,
+            "outputTokens": 53
+          },
+          {
+            "id": "ack-4",
+            "truth": "auto_ack",
+            "predicted": "auto_ack",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 368,
+            "fieldsCorrect": null,
+            "inputTokens": 339,
+            "outputTokens": 62
+          },
+          {
+            "id": "link-1",
+            "truth": "confirmation_link",
+            "predicted": "confirmation_link",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 349,
+            "fieldsCorrect": null,
+            "inputTokens": 361,
+            "outputTokens": 60
+          },
+          {
+            "id": "link-2",
+            "truth": "confirmation_link",
+            "predicted": "confirmation_link",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 330,
+            "fieldsCorrect": null,
+            "inputTokens": 359,
+            "outputTokens": 60
+          },
+          {
+            "id": "link-3",
+            "truth": "confirmation_link",
+            "predicted": "confirmation_link",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 326,
+            "fieldsCorrect": null,
+            "inputTokens": 345,
+            "outputTokens": 49
+          },
+          {
+            "id": "link-4",
+            "truth": "confirmation_link",
+            "predicted": "confirmation_link",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 346,
+            "fieldsCorrect": null,
+            "inputTokens": 352,
+            "outputTokens": 56
+          },
+          {
+            "id": "verify-1",
+            "truth": "verification_required",
+            "predicted": "verification_required",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 391,
+            "fieldsCorrect": true,
+            "inputTokens": 356,
+            "outputTokens": 70
+          },
+          {
+            "id": "verify-2",
+            "truth": "verification_required",
+            "predicted": "verification_required",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 257,
+            "fieldsCorrect": true,
+            "inputTokens": 326,
+            "outputTokens": 38
+          },
+          {
+            "id": "verify-3",
+            "truth": "verification_required",
+            "predicted": "verification_required",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 388,
+            "fieldsCorrect": true,
+            "inputTokens": 332,
+            "outputTokens": 72
+          },
+          {
+            "id": "verify-4",
+            "truth": "verification_required",
+            "predicted": "verification_required",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 351,
+            "fieldsCorrect": false,
+            "inputTokens": 332,
+            "outputTokens": 58
+          },
+          {
+            "id": "verify-5",
+            "truth": "verification_required",
+            "predicted": "unrelated",
+            "correct": false,
+            "failure": null,
+            "latencyMs": 338,
+            "fieldsCorrect": false,
+            "inputTokens": 336,
+            "outputTokens": 56
+          },
+          {
+            "id": "done-1",
+            "truth": "completed",
+            "predicted": "completed",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 397,
+            "fieldsCorrect": null,
+            "inputTokens": 338,
+            "outputTokens": 70
+          },
+          {
+            "id": "done-2",
+            "truth": "completed",
+            "predicted": "completed",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 258,
+            "fieldsCorrect": null,
+            "inputTokens": 332,
+            "outputTokens": 33
+          },
+          {
+            "id": "done-3",
+            "truth": "completed",
+            "predicted": "completed",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 241,
+            "fieldsCorrect": null,
+            "inputTokens": 323,
+            "outputTokens": 32
+          },
+          {
+            "id": "done-4",
+            "truth": "completed",
+            "predicted": "completed",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 235,
+            "fieldsCorrect": null,
+            "inputTokens": 325,
+            "outputTokens": 30
+          },
+          {
+            "id": "done-5",
+            "truth": "completed",
+            "predicted": "completed",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 326,
+            "fieldsCorrect": null,
+            "inputTokens": 341,
+            "outputTokens": 51
+          },
+          {
+            "id": "norec-1",
+            "truth": "no_record",
+            "predicted": "no_record",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 353,
+            "fieldsCorrect": null,
+            "inputTokens": 331,
+            "outputTokens": 67
+          },
+          {
+            "id": "norec-2",
+            "truth": "no_record",
+            "predicted": "no_record",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 242,
+            "fieldsCorrect": null,
+            "inputTokens": 322,
+            "outputTokens": 33
+          },
+          {
+            "id": "norec-3",
+            "truth": "no_record",
+            "predicted": "no_record",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 244,
+            "fieldsCorrect": null,
+            "inputTokens": 322,
+            "outputTokens": 33
+          },
+          {
+            "id": "norec-4",
+            "truth": "no_record",
+            "predicted": "no_record",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 250,
+            "fieldsCorrect": null,
+            "inputTokens": 322,
+            "outputTokens": 33
+          },
+          {
+            "id": "reject-1",
+            "truth": "rejected",
+            "predicted": "unrelated",
+            "correct": false,
+            "failure": null,
+            "latencyMs": 244,
+            "fieldsCorrect": null,
+            "inputTokens": 334,
+            "outputTokens": 33
+          },
+          {
+            "id": "reject-2",
+            "truth": "rejected",
+            "predicted": "rejected",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 244,
+            "fieldsCorrect": null,
+            "inputTokens": 318,
+            "outputTokens": 33
+          },
+          {
+            "id": "reject-3",
+            "truth": "rejected",
+            "predicted": "rejected",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 357,
+            "fieldsCorrect": null,
+            "inputTokens": 318,
+            "outputTokens": 58
+          },
+          {
+            "id": "reject-4",
+            "truth": "rejected",
+            "predicted": "rejected",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 245,
+            "fieldsCorrect": null,
+            "inputTokens": 316,
+            "outputTokens": 32
+          },
+          {
+            "id": "form-1",
+            "truth": "needs_form",
+            "predicted": "needs_form",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 304,
+            "fieldsCorrect": null,
+            "inputTokens": 341,
+            "outputTokens": 52
+          },
+          {
+            "id": "form-2",
+            "truth": "needs_form",
+            "predicted": "unrelated",
+            "correct": false,
+            "failure": null,
+            "latencyMs": 344,
+            "fieldsCorrect": null,
+            "inputTokens": 324,
+            "outputTokens": 62
+          },
+          {
+            "id": "form-3",
+            "truth": "needs_form",
+            "predicted": "needs_form",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 324,
+            "fieldsCorrect": null,
+            "inputTokens": 329,
+            "outputTokens": 55
+          },
+          {
+            "id": "form-4",
+            "truth": "needs_form",
+            "predicted": "unrelated",
+            "correct": false,
+            "failure": null,
+            "latencyMs": 321,
+            "fieldsCorrect": null,
+            "inputTokens": 324,
+            "outputTokens": 57
+          },
+          {
+            "id": "unrel-1",
+            "truth": "unrelated",
+            "predicted": "unrelated",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 354,
+            "fieldsCorrect": null,
+            "inputTokens": 345,
+            "outputTokens": 51
+          },
+          {
+            "id": "unrel-2",
+            "truth": "unrelated",
+            "predicted": "unrelated",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 316,
+            "fieldsCorrect": null,
+            "inputTokens": 333,
+            "outputTokens": 47
+          },
+          {
+            "id": "unrel-3",
+            "truth": "unrelated",
+            "predicted": "unrelated",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 358,
+            "fieldsCorrect": null,
+            "inputTokens": 337,
+            "outputTokens": 61
+          },
+          {
+            "id": "unknown-1",
+            "truth": "unknown",
+            "predicted": "auto_ack",
+            "correct": false,
+            "failure": null,
+            "latencyMs": 340,
+            "fieldsCorrect": null,
+            "inputTokens": 299,
+            "outputTokens": 60
+          },
+          {
+            "id": "unknown-2",
+            "truth": "unknown",
+            "predicted": "unrelated",
+            "correct": false,
+            "failure": null,
+            "latencyMs": 375,
+            "fieldsCorrect": null,
+            "inputTokens": 317,
+            "outputTokens": 62
+          },
+          {
+            "id": "unknown-3",
+            "truth": "unknown",
+            "predicted": "unknown",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 340,
+            "fieldsCorrect": null,
+            "inputTokens": 304,
+            "outputTokens": 53
+          }
+        ],
+        "summary": {
+          "total": 40,
+          "correct": 34,
+          "accuracy": 0.85,
+          "invalidJson": 0,
+          "invalidJsonRate": 0,
+          "invalidSchema": 0,
+          "otherFailures": 0,
+          "latencyMs": {
+            "mean": 382,
+            "median": 338,
+            "p95": 391,
+            "max": 2681
+          },
+          "requestedFieldsAccuracy": 0.6,
+          "perClass": {
+            "bounce": {
+              "cases": 4,
+              "correct": 4
+            },
+            "auto_ack": {
+              "cases": 4,
+              "correct": 4
+            },
+            "confirmation_link": {
+              "cases": 4,
+              "correct": 4
+            },
+            "verification_required": {
+              "cases": 5,
+              "correct": 4
+            },
+            "completed": {
+              "cases": 5,
+              "correct": 5
+            },
+            "no_record": {
+              "cases": 4,
+              "correct": 4
+            },
+            "rejected": {
+              "cases": 4,
+              "correct": 3
+            },
+            "needs_form": {
+              "cases": 4,
+              "correct": 2
+            },
+            "unrelated": {
+              "cases": 3,
+              "correct": 3
+            },
+            "unknown": {
+              "cases": 3,
+              "correct": 1
+            }
+          },
+          "confusions": [
+            {
+              "id": "verify-5",
+              "truth": "verification_required",
+              "predicted": "unrelated"
+            },
+            {
+              "id": "reject-1",
+              "truth": "rejected",
+              "predicted": "unrelated"
+            },
+            {
+              "id": "form-2",
+              "truth": "needs_form",
+              "predicted": "unrelated"
+            },
+            {
+              "id": "form-4",
+              "truth": "needs_form",
+              "predicted": "unrelated"
+            },
+            {
+              "id": "unknown-1",
+              "truth": "unknown",
+              "predicted": "auto_ack"
+            },
+            {
+              "id": "unknown-2",
+              "truth": "unknown",
+              "predicted": "unrelated"
+            }
+          ],
+          "peakVramMiB": 3271
+        }
+      },
+      {
+        "cases": [
+          {
+            "id": "bounce-1",
+            "truth": "bounce",
+            "predicted": "bounce",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 320,
+            "fieldsCorrect": null,
+            "inputTokens": 412,
+            "outputTokens": 54
+          },
+          {
+            "id": "bounce-2",
+            "truth": "bounce",
+            "predicted": "bounce",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 332,
+            "fieldsCorrect": null,
+            "inputTokens": 353,
+            "outputTokens": 52
+          },
+          {
+            "id": "bounce-3",
+            "truth": "bounce",
+            "predicted": "bounce",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 326,
+            "fieldsCorrect": null,
+            "inputTokens": 383,
+            "outputTokens": 53
+          },
+          {
+            "id": "bounce-4",
+            "truth": "bounce",
+            "predicted": "bounce",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 382,
+            "fieldsCorrect": null,
+            "inputTokens": 349,
+            "outputTokens": 68
+          },
+          {
+            "id": "ack-1",
+            "truth": "auto_ack",
+            "predicted": "auto_ack",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 356,
+            "fieldsCorrect": null,
+            "inputTokens": 350,
+            "outputTokens": 58
+          },
+          {
+            "id": "ack-2",
+            "truth": "auto_ack",
+            "predicted": "auto_ack",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 380,
+            "fieldsCorrect": null,
+            "inputTokens": 346,
+            "outputTokens": 60
+          },
+          {
+            "id": "ack-3",
+            "truth": "auto_ack",
+            "predicted": "auto_ack",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 344,
+            "fieldsCorrect": null,
+            "inputTokens": 349,
+            "outputTokens": 53
+          },
+          {
+            "id": "ack-4",
+            "truth": "auto_ack",
+            "predicted": "auto_ack",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 362,
+            "fieldsCorrect": null,
+            "inputTokens": 339,
+            "outputTokens": 62
+          },
+          {
+            "id": "link-1",
+            "truth": "confirmation_link",
+            "predicted": "confirmation_link",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 347,
+            "fieldsCorrect": null,
+            "inputTokens": 361,
+            "outputTokens": 60
+          },
+          {
+            "id": "link-2",
+            "truth": "confirmation_link",
+            "predicted": "confirmation_link",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 330,
+            "fieldsCorrect": null,
+            "inputTokens": 359,
+            "outputTokens": 60
+          },
+          {
+            "id": "link-3",
+            "truth": "confirmation_link",
+            "predicted": "confirmation_link",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 319,
+            "fieldsCorrect": null,
+            "inputTokens": 345,
+            "outputTokens": 49
+          },
+          {
+            "id": "link-4",
+            "truth": "confirmation_link",
+            "predicted": "confirmation_link",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 347,
+            "fieldsCorrect": null,
+            "inputTokens": 352,
+            "outputTokens": 56
+          },
+          {
+            "id": "verify-1",
+            "truth": "verification_required",
+            "predicted": "verification_required",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 377,
+            "fieldsCorrect": true,
+            "inputTokens": 356,
+            "outputTokens": 70
+          },
+          {
+            "id": "verify-2",
+            "truth": "verification_required",
+            "predicted": "verification_required",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 261,
+            "fieldsCorrect": true,
+            "inputTokens": 326,
+            "outputTokens": 38
+          },
+          {
+            "id": "verify-3",
+            "truth": "verification_required",
+            "predicted": "verification_required",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 392,
+            "fieldsCorrect": true,
+            "inputTokens": 332,
+            "outputTokens": 72
+          },
+          {
+            "id": "verify-4",
+            "truth": "verification_required",
+            "predicted": "verification_required",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 353,
+            "fieldsCorrect": false,
+            "inputTokens": 332,
+            "outputTokens": 58
+          },
+          {
+            "id": "verify-5",
+            "truth": "verification_required",
+            "predicted": "unrelated",
+            "correct": false,
+            "failure": null,
+            "latencyMs": 335,
+            "fieldsCorrect": false,
+            "inputTokens": 336,
+            "outputTokens": 56
+          },
+          {
+            "id": "done-1",
+            "truth": "completed",
+            "predicted": "completed",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 397,
+            "fieldsCorrect": null,
+            "inputTokens": 338,
+            "outputTokens": 70
+          },
+          {
+            "id": "done-2",
+            "truth": "completed",
+            "predicted": "completed",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 253,
+            "fieldsCorrect": null,
+            "inputTokens": 332,
+            "outputTokens": 33
+          },
+          {
+            "id": "done-3",
+            "truth": "completed",
+            "predicted": "completed",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 242,
+            "fieldsCorrect": null,
+            "inputTokens": 323,
+            "outputTokens": 32
+          },
+          {
+            "id": "done-4",
+            "truth": "completed",
+            "predicted": "completed",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 234,
+            "fieldsCorrect": null,
+            "inputTokens": 325,
+            "outputTokens": 30
+          },
+          {
+            "id": "done-5",
+            "truth": "completed",
+            "predicted": "completed",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 324,
+            "fieldsCorrect": null,
+            "inputTokens": 341,
+            "outputTokens": 51
+          },
+          {
+            "id": "norec-1",
+            "truth": "no_record",
+            "predicted": "no_record",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 350,
+            "fieldsCorrect": null,
+            "inputTokens": 331,
+            "outputTokens": 67
+          },
+          {
+            "id": "norec-2",
+            "truth": "no_record",
+            "predicted": "no_record",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 246,
+            "fieldsCorrect": null,
+            "inputTokens": 322,
+            "outputTokens": 33
+          },
+          {
+            "id": "norec-3",
+            "truth": "no_record",
+            "predicted": "no_record",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 246,
+            "fieldsCorrect": null,
+            "inputTokens": 322,
+            "outputTokens": 33
+          },
+          {
+            "id": "norec-4",
+            "truth": "no_record",
+            "predicted": "no_record",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 254,
+            "fieldsCorrect": null,
+            "inputTokens": 322,
+            "outputTokens": 33
+          },
+          {
+            "id": "reject-1",
+            "truth": "rejected",
+            "predicted": "unrelated",
+            "correct": false,
+            "failure": null,
+            "latencyMs": 249,
+            "fieldsCorrect": null,
+            "inputTokens": 334,
+            "outputTokens": 33
+          },
+          {
+            "id": "reject-2",
+            "truth": "rejected",
+            "predicted": "rejected",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 249,
+            "fieldsCorrect": null,
+            "inputTokens": 318,
+            "outputTokens": 33
+          },
+          {
+            "id": "reject-3",
+            "truth": "rejected",
+            "predicted": "rejected",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 351,
+            "fieldsCorrect": null,
+            "inputTokens": 318,
+            "outputTokens": 58
+          },
+          {
+            "id": "reject-4",
+            "truth": "rejected",
+            "predicted": "rejected",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 241,
+            "fieldsCorrect": null,
+            "inputTokens": 316,
+            "outputTokens": 32
+          },
+          {
+            "id": "form-1",
+            "truth": "needs_form",
+            "predicted": "needs_form",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 305,
+            "fieldsCorrect": null,
+            "inputTokens": 341,
+            "outputTokens": 52
+          },
+          {
+            "id": "form-2",
+            "truth": "needs_form",
+            "predicted": "unrelated",
+            "correct": false,
+            "failure": null,
+            "latencyMs": 337,
+            "fieldsCorrect": null,
+            "inputTokens": 324,
+            "outputTokens": 62
+          },
+          {
+            "id": "form-3",
+            "truth": "needs_form",
+            "predicted": "needs_form",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 320,
+            "fieldsCorrect": null,
+            "inputTokens": 329,
+            "outputTokens": 55
+          },
+          {
+            "id": "form-4",
+            "truth": "needs_form",
+            "predicted": "unrelated",
+            "correct": false,
+            "failure": null,
+            "latencyMs": 320,
+            "fieldsCorrect": null,
+            "inputTokens": 324,
+            "outputTokens": 57
+          },
+          {
+            "id": "unrel-1",
+            "truth": "unrelated",
+            "predicted": "unrelated",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 352,
+            "fieldsCorrect": null,
+            "inputTokens": 345,
+            "outputTokens": 51
+          },
+          {
+            "id": "unrel-2",
+            "truth": "unrelated",
+            "predicted": "unrelated",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 319,
+            "fieldsCorrect": null,
+            "inputTokens": 333,
+            "outputTokens": 47
+          },
+          {
+            "id": "unrel-3",
+            "truth": "unrelated",
+            "predicted": "unrelated",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 359,
+            "fieldsCorrect": null,
+            "inputTokens": 337,
+            "outputTokens": 61
+          },
+          {
+            "id": "unknown-1",
+            "truth": "unknown",
+            "predicted": "auto_ack",
+            "correct": false,
+            "failure": null,
+            "latencyMs": 339,
+            "fieldsCorrect": null,
+            "inputTokens": 299,
+            "outputTokens": 60
+          },
+          {
+            "id": "unknown-2",
+            "truth": "unknown",
+            "predicted": "unrelated",
+            "correct": false,
+            "failure": null,
+            "latencyMs": 378,
+            "fieldsCorrect": null,
+            "inputTokens": 317,
+            "outputTokens": 62
+          },
+          {
+            "id": "unknown-3",
+            "truth": "unknown",
+            "predicted": "unknown",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 337,
+            "fieldsCorrect": null,
+            "inputTokens": 304,
+            "outputTokens": 53
+          }
+        ],
+        "summary": {
+          "total": 40,
+          "correct": 34,
+          "accuracy": 0.85,
+          "invalidJson": 0,
+          "invalidJsonRate": 0,
+          "invalidSchema": 0,
+          "otherFailures": 0,
+          "latencyMs": {
+            "mean": 322,
+            "median": 332,
+            "p95": 382,
+            "max": 397
+          },
+          "requestedFieldsAccuracy": 0.6,
+          "perClass": {
+            "bounce": {
+              "cases": 4,
+              "correct": 4
+            },
+            "auto_ack": {
+              "cases": 4,
+              "correct": 4
+            },
+            "confirmation_link": {
+              "cases": 4,
+              "correct": 4
+            },
+            "verification_required": {
+              "cases": 5,
+              "correct": 4
+            },
+            "completed": {
+              "cases": 5,
+              "correct": 5
+            },
+            "no_record": {
+              "cases": 4,
+              "correct": 4
+            },
+            "rejected": {
+              "cases": 4,
+              "correct": 3
+            },
+            "needs_form": {
+              "cases": 4,
+              "correct": 2
+            },
+            "unrelated": {
+              "cases": 3,
+              "correct": 3
+            },
+            "unknown": {
+              "cases": 3,
+              "correct": 1
+            }
+          },
+          "confusions": [
+            {
+              "id": "verify-5",
+              "truth": "verification_required",
+              "predicted": "unrelated"
+            },
+            {
+              "id": "reject-1",
+              "truth": "rejected",
+              "predicted": "unrelated"
+            },
+            {
+              "id": "form-2",
+              "truth": "needs_form",
+              "predicted": "unrelated"
+            },
+            {
+              "id": "form-4",
+              "truth": "needs_form",
+              "predicted": "unrelated"
+            },
+            {
+              "id": "unknown-1",
+              "truth": "unknown",
+              "predicted": "auto_ack"
+            },
+            {
+              "id": "unknown-2",
+              "truth": "unknown",
+              "predicted": "unrelated"
+            }
+          ],
+          "peakVramMiB": 3271
+        }
+      },
+      {
+        "cases": [
+          {
+            "id": "bounce-1",
+            "truth": "bounce",
+            "predicted": "bounce",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 321,
+            "fieldsCorrect": null,
+            "inputTokens": 412,
+            "outputTokens": 54
+          },
+          {
+            "id": "bounce-2",
+            "truth": "bounce",
+            "predicted": "bounce",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 329,
+            "fieldsCorrect": null,
+            "inputTokens": 353,
+            "outputTokens": 52
+          },
+          {
+            "id": "bounce-3",
+            "truth": "bounce",
+            "predicted": "bounce",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 332,
+            "fieldsCorrect": null,
+            "inputTokens": 383,
+            "outputTokens": 53
+          },
+          {
+            "id": "bounce-4",
+            "truth": "bounce",
+            "predicted": "bounce",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 383,
+            "fieldsCorrect": null,
+            "inputTokens": 349,
+            "outputTokens": 68
+          },
+          {
+            "id": "ack-1",
+            "truth": "auto_ack",
+            "predicted": "auto_ack",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 362,
+            "fieldsCorrect": null,
+            "inputTokens": 350,
+            "outputTokens": 58
+          },
+          {
+            "id": "ack-2",
+            "truth": "auto_ack",
+            "predicted": "auto_ack",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 385,
+            "fieldsCorrect": null,
+            "inputTokens": 346,
+            "outputTokens": 60
+          },
+          {
+            "id": "ack-3",
+            "truth": "auto_ack",
+            "predicted": "auto_ack",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 346,
+            "fieldsCorrect": null,
+            "inputTokens": 349,
+            "outputTokens": 53
+          },
+          {
+            "id": "ack-4",
+            "truth": "auto_ack",
+            "predicted": "auto_ack",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 366,
+            "fieldsCorrect": null,
+            "inputTokens": 339,
+            "outputTokens": 62
+          },
+          {
+            "id": "link-1",
+            "truth": "confirmation_link",
+            "predicted": "confirmation_link",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 349,
+            "fieldsCorrect": null,
+            "inputTokens": 361,
+            "outputTokens": 60
+          },
+          {
+            "id": "link-2",
+            "truth": "confirmation_link",
+            "predicted": "confirmation_link",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 327,
+            "fieldsCorrect": null,
+            "inputTokens": 359,
+            "outputTokens": 60
+          },
+          {
+            "id": "link-3",
+            "truth": "confirmation_link",
+            "predicted": "confirmation_link",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 322,
+            "fieldsCorrect": null,
+            "inputTokens": 345,
+            "outputTokens": 49
+          },
+          {
+            "id": "link-4",
+            "truth": "confirmation_link",
+            "predicted": "confirmation_link",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 344,
+            "fieldsCorrect": null,
+            "inputTokens": 352,
+            "outputTokens": 56
+          },
+          {
+            "id": "verify-1",
+            "truth": "verification_required",
+            "predicted": "verification_required",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 378,
+            "fieldsCorrect": true,
+            "inputTokens": 356,
+            "outputTokens": 70
+          },
+          {
+            "id": "verify-2",
+            "truth": "verification_required",
+            "predicted": "verification_required",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 260,
+            "fieldsCorrect": true,
+            "inputTokens": 326,
+            "outputTokens": 38
+          },
+          {
+            "id": "verify-3",
+            "truth": "verification_required",
+            "predicted": "verification_required",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 390,
+            "fieldsCorrect": true,
+            "inputTokens": 332,
+            "outputTokens": 72
+          },
+          {
+            "id": "verify-4",
+            "truth": "verification_required",
+            "predicted": "verification_required",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 358,
+            "fieldsCorrect": false,
+            "inputTokens": 332,
+            "outputTokens": 58
+          },
+          {
+            "id": "verify-5",
+            "truth": "verification_required",
+            "predicted": "unrelated",
+            "correct": false,
+            "failure": null,
+            "latencyMs": 340,
+            "fieldsCorrect": false,
+            "inputTokens": 336,
+            "outputTokens": 56
+          },
+          {
+            "id": "done-1",
+            "truth": "completed",
+            "predicted": "completed",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 401,
+            "fieldsCorrect": null,
+            "inputTokens": 338,
+            "outputTokens": 70
+          },
+          {
+            "id": "done-2",
+            "truth": "completed",
+            "predicted": "completed",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 258,
+            "fieldsCorrect": null,
+            "inputTokens": 332,
+            "outputTokens": 33
+          },
+          {
+            "id": "done-3",
+            "truth": "completed",
+            "predicted": "completed",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 244,
+            "fieldsCorrect": null,
+            "inputTokens": 323,
+            "outputTokens": 32
+          },
+          {
+            "id": "done-4",
+            "truth": "completed",
+            "predicted": "completed",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 237,
+            "fieldsCorrect": null,
+            "inputTokens": 325,
+            "outputTokens": 30
+          },
+          {
+            "id": "done-5",
+            "truth": "completed",
+            "predicted": "completed",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 325,
+            "fieldsCorrect": null,
+            "inputTokens": 341,
+            "outputTokens": 51
+          },
+          {
+            "id": "norec-1",
+            "truth": "no_record",
+            "predicted": "no_record",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 349,
+            "fieldsCorrect": null,
+            "inputTokens": 331,
+            "outputTokens": 67
+          },
+          {
+            "id": "norec-2",
+            "truth": "no_record",
+            "predicted": "no_record",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 247,
+            "fieldsCorrect": null,
+            "inputTokens": 322,
+            "outputTokens": 33
+          },
+          {
+            "id": "norec-3",
+            "truth": "no_record",
+            "predicted": "no_record",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 245,
+            "fieldsCorrect": null,
+            "inputTokens": 322,
+            "outputTokens": 33
+          },
+          {
+            "id": "norec-4",
+            "truth": "no_record",
+            "predicted": "no_record",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 253,
+            "fieldsCorrect": null,
+            "inputTokens": 322,
+            "outputTokens": 33
+          },
+          {
+            "id": "reject-1",
+            "truth": "rejected",
+            "predicted": "unrelated",
+            "correct": false,
+            "failure": null,
+            "latencyMs": 246,
+            "fieldsCorrect": null,
+            "inputTokens": 334,
+            "outputTokens": 33
+          },
+          {
+            "id": "reject-2",
+            "truth": "rejected",
+            "predicted": "rejected",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 243,
+            "fieldsCorrect": null,
+            "inputTokens": 318,
+            "outputTokens": 33
+          },
+          {
+            "id": "reject-3",
+            "truth": "rejected",
+            "predicted": "rejected",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 353,
+            "fieldsCorrect": null,
+            "inputTokens": 318,
+            "outputTokens": 58
+          },
+          {
+            "id": "reject-4",
+            "truth": "rejected",
+            "predicted": "rejected",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 242,
+            "fieldsCorrect": null,
+            "inputTokens": 316,
+            "outputTokens": 32
+          },
+          {
+            "id": "form-1",
+            "truth": "needs_form",
+            "predicted": "needs_form",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 305,
+            "fieldsCorrect": null,
+            "inputTokens": 341,
+            "outputTokens": 52
+          },
+          {
+            "id": "form-2",
+            "truth": "needs_form",
+            "predicted": "unrelated",
+            "correct": false,
+            "failure": null,
+            "latencyMs": 338,
+            "fieldsCorrect": null,
+            "inputTokens": 324,
+            "outputTokens": 62
+          },
+          {
+            "id": "form-3",
+            "truth": "needs_form",
+            "predicted": "needs_form",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 320,
+            "fieldsCorrect": null,
+            "inputTokens": 329,
+            "outputTokens": 55
+          },
+          {
+            "id": "form-4",
+            "truth": "needs_form",
+            "predicted": "unrelated",
+            "correct": false,
+            "failure": null,
+            "latencyMs": 316,
+            "fieldsCorrect": null,
+            "inputTokens": 324,
+            "outputTokens": 57
+          },
+          {
+            "id": "unrel-1",
+            "truth": "unrelated",
+            "predicted": "unrelated",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 352,
+            "fieldsCorrect": null,
+            "inputTokens": 345,
+            "outputTokens": 51
+          },
+          {
+            "id": "unrel-2",
+            "truth": "unrelated",
+            "predicted": "unrelated",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 316,
+            "fieldsCorrect": null,
+            "inputTokens": 333,
+            "outputTokens": 47
+          },
+          {
+            "id": "unrel-3",
+            "truth": "unrelated",
+            "predicted": "unrelated",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 357,
+            "fieldsCorrect": null,
+            "inputTokens": 337,
+            "outputTokens": 61
+          },
+          {
+            "id": "unknown-1",
+            "truth": "unknown",
+            "predicted": "auto_ack",
+            "correct": false,
+            "failure": null,
+            "latencyMs": 339,
+            "fieldsCorrect": null,
+            "inputTokens": 299,
+            "outputTokens": 60
+          },
+          {
+            "id": "unknown-2",
+            "truth": "unknown",
+            "predicted": "unrelated",
+            "correct": false,
+            "failure": null,
+            "latencyMs": 374,
+            "fieldsCorrect": null,
+            "inputTokens": 317,
+            "outputTokens": 62
+          },
+          {
+            "id": "unknown-3",
+            "truth": "unknown",
+            "predicted": "unknown",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 333,
+            "fieldsCorrect": null,
+            "inputTokens": 304,
+            "outputTokens": 53
+          }
+        ],
+        "summary": {
+          "total": 40,
+          "correct": 34,
+          "accuracy": 0.85,
+          "invalidJson": 0,
+          "invalidJsonRate": 0,
+          "invalidSchema": 0,
+          "otherFailures": 0,
+          "latencyMs": {
+            "mean": 322,
+            "median": 332,
+            "p95": 385,
+            "max": 401
+          },
+          "requestedFieldsAccuracy": 0.6,
+          "perClass": {
+            "bounce": {
+              "cases": 4,
+              "correct": 4
+            },
+            "auto_ack": {
+              "cases": 4,
+              "correct": 4
+            },
+            "confirmation_link": {
+              "cases": 4,
+              "correct": 4
+            },
+            "verification_required": {
+              "cases": 5,
+              "correct": 4
+            },
+            "completed": {
+              "cases": 5,
+              "correct": 5
+            },
+            "no_record": {
+              "cases": 4,
+              "correct": 4
+            },
+            "rejected": {
+              "cases": 4,
+              "correct": 3
+            },
+            "needs_form": {
+              "cases": 4,
+              "correct": 2
+            },
+            "unrelated": {
+              "cases": 3,
+              "correct": 3
+            },
+            "unknown": {
+              "cases": 3,
+              "correct": 1
+            }
+          },
+          "confusions": [
+            {
+              "id": "verify-5",
+              "truth": "verification_required",
+              "predicted": "unrelated"
+            },
+            {
+              "id": "reject-1",
+              "truth": "rejected",
+              "predicted": "unrelated"
+            },
+            {
+              "id": "form-2",
+              "truth": "needs_form",
+              "predicted": "unrelated"
+            },
+            {
+              "id": "form-4",
+              "truth": "needs_form",
+              "predicted": "unrelated"
+            },
+            {
+              "id": "unknown-1",
+              "truth": "unknown",
+              "predicted": "auto_ack"
+            },
+            {
+              "id": "unknown-2",
+              "truth": "unknown",
+              "predicted": "unrelated"
+            }
+          ],
+          "peakVramMiB": 3271
+        }
+      }
+    ],
+    "accuracy": 0.85,
+    "invalidJsonRate": 0,
+    "meanLatencyMs": 342
+  }
+}
