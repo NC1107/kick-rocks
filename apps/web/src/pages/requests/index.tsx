@@ -1,7 +1,7 @@
 import { API_ROUTES, RequestStatus } from "@kickrocks/shared";
 import { skipToken } from "@tanstack/react-query";
 import { Search } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router";
 import { errorMessage, useApiQuery } from "../../api/index.js";
 import { RequireProfile } from "../../components/layout/RequireProfile.js";
@@ -49,6 +49,7 @@ export function Component() {
 }
 
 function Requests({ profileId }: { profileId: string }) {
+  const filtersButton = useRef<HTMLButtonElement>(null);
   const [params, setParams] = useSearchParams();
   const filters = readRequestFilters(params);
   const [search, setSearch] = useState(filters.q);
@@ -147,6 +148,7 @@ function Requests({ profileId }: { profileId: string }) {
 
   const items = list.data?.items ?? [];
   const filtered = hasRequestFilters(filters);
+  const resultCount = list.data ? pluralize(list.data.total, "request") : undefined;
 
   return (
     <>
@@ -160,9 +162,9 @@ function Requests({ profileId }: { profileId: string }) {
         }
       />
 
-      <TableToolbar count={list.data ? pluralize(list.data.total, "request") : undefined}>
+      <TableToolbar count={resultCount}>
         <search aria-label="Filter requests" className="contents">
-          <Field label="Search" hideLabel className="min-w-0 flex-1 sm:w-70 sm:flex-none">
+          <Field label="Search" hideLabel className="min-w-0 flex-1 sm:w-70 sm:flex-initial">
             <Input
               type="search"
               value={search}
@@ -175,11 +177,13 @@ function Requests({ profileId }: { profileId: string }) {
           <Filters
             groups={groups}
             onClear={clearMenuFilters}
+            resultCount={resultCount}
+            triggerRef={filtersButton}
             extraActive={filters.targetId ? 1 : 0}
           />
         </search>
       </TableToolbar>
-      <FilterTags tags={tags} />
+      <FilterTags tags={tags} emptyFocusRef={filtersButton} />
 
       {list.isError ? (
         <Alert

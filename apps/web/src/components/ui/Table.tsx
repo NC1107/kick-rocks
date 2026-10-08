@@ -283,7 +283,7 @@ export function TableToolbar({
     <div className={cn("mb-2.5 flex items-center gap-2", className)}>
       {children}
       {count ? (
-        <span className="ml-auto font-mono text-meta text-ink-3 tabular-nums max-sm:hidden">
+        <span className="ml-auto shrink-0 whitespace-nowrap font-mono text-meta text-ink-3 tabular-nums max-sm:hidden">
           {count}
         </span>
       ) : null}

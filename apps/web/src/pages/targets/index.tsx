@@ -1,6 +1,6 @@
 import { API_ROUTES, type TargetFacets } from "@kickrocks/shared";
 import { Search } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router";
 import { errorMessage, useApiQuery } from "../../api/index.js";
 import {
@@ -63,6 +63,7 @@ function facetOptions(
 const SEARCH_DELAY_MS = 250;
 
 export function Component() {
+  const filtersButton = useRef<HTMLButtonElement>(null);
   const [params, setParams] = useSearchParams();
   const filters = readFilters(params);
   const [search, setSearch] = useState(filters.q);
@@ -187,6 +188,7 @@ export function Component() {
 
   const campaignLink = `/campaigns/new?targets=${[...selected].map(encodeURIComponent).join(",")}`;
   const filtered = hasFilters(filters);
+  const resultCount = list.data ? `${formatCount(list.data.total)} targets` : undefined;
 
   return (
     <>
@@ -201,8 +203,8 @@ export function Component() {
       />
 
       <search aria-label="Filter targets">
-        <TableToolbar count={list.data ? `${formatCount(list.data.total)} targets` : undefined}>
-          <Field label="Search" hideLabel className="min-w-0 flex-1 sm:w-64 sm:flex-none">
+        <TableToolbar count={resultCount}>
+          <Field label="Search" hideLabel className="min-w-0 flex-1 sm:w-70 sm:flex-initial">
             <Input
               type="search"
               value={search}
@@ -212,10 +214,15 @@ export function Component() {
               leading={<Search aria-hidden="true" />}
             />
           </Field>
-          <Filters groups={groups} onClear={clearFacetFilters} />
+          <Filters
+            groups={groups}
+            onClear={clearFacetFilters}
+            resultCount={resultCount}
+            triggerRef={filtersButton}
+          />
         </TableToolbar>
       </search>
-      <FilterTags tags={activeFilterTags(groups)} />
+      <FilterTags tags={activeFilterTags(groups)} emptyFocusRef={filtersButton} />
 
       {selected.size > 0 ? (
         <div

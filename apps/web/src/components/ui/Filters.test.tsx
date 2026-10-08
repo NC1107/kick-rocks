@@ -79,27 +79,67 @@ describe("Filters", () => {
   it("closes when focus tabs out of the popover on wider screens", async () => {
     const user = userEvent.setup();
     setPhone(false);
-    render(<Filters groups={[group()]} onClear={vi.fn()} />);
+    render(
+      <>
+        <Filters groups={[group()]} onClear={vi.fn()} />
+        <button type="button">Next</button>
+      </>,
+    );
     await user.click(screen.getByRole("button", { name: "Filters" }));
     await user.tab();
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Next" })).toHaveFocus();
   });
 
-  it("keeps focus inside the sheet on a phone", async () => {
+  it("opens as a modal sheet on a phone", async () => {
     const user = userEvent.setup();
     setPhone(true);
+    const showModal = vi.spyOn(HTMLDialogElement.prototype, "showModal");
+    render(<Filters groups={[group("company")]} onClear={vi.fn()} resultCount="5 targets" />);
+    await user.click(screen.getByRole("button", { name: "Filters, 1 active" }));
+    expect(showModal).toHaveBeenCalledOnce();
+    expect(screen.getByLabelText("Type")).toHaveFocus();
+    showModal.mockRestore();
+  });
+
+  it("closes on Escape after focus left the panel", async () => {
+    const user = userEvent.setup();
+    setPhone(false);
+    render(<Filters groups={[group("company")]} onClear={vi.fn()} />);
+    const button = screen.getByRole("button", { name: "Filters, 1 active" });
+    await user.click(button);
+    await user.click(screen.getByRole("heading", { name: "Filters" }));
+    await user.keyboard("{Escape}");
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(button).toHaveFocus();
+  });
+
+  it("returns focus to the button on Shift+Tab from the first control", async () => {
+    const user = userEvent.setup();
+    setPhone(false);
+    render(<Filters groups={[group()]} onClear={vi.fn()} />);
+    const button = screen.getByRole("button", { name: "Filters" });
+    await user.click(button);
+    await user.tab({ shift: true });
+    expect(screen.getByRole("button", { name: "Close filters" })).toHaveFocus();
+    await user.tab({ shift: true });
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(button).toHaveFocus();
+  });
+
+  it("hides Clear all when no filter is active", async () => {
+    const user = userEvent.setup();
+    render(<Filters groups={[group()]} onClear={vi.fn()} />);
+    await user.click(screen.getByRole("button", { name: "Filters" }));
+    expect(screen.queryByRole("button", { name: "Clear all" })).not.toBeInTheDocument();
+  });
+
+  it("keeps focus in the panel after Clear all", async () => {
+    const user = userEvent.setup();
     render(<Filters groups={[group("company")]} onClear={vi.fn()} />);
     await user.click(screen.getByRole("button", { name: "Filters, 1 active" }));
-    const dialog = screen.getByRole("dialog");
+    await user.click(screen.getByRole("button", { name: "Clear all" }));
     expect(screen.getByLabelText("Type")).toHaveFocus();
-    for (let step = 0; step < 6; step++) {
-      await user.tab();
-      expect(dialog).toContainElement(document.activeElement as HTMLElement);
-    }
-    for (let step = 0; step < 6; step++) {
-      await user.tab({ shift: true });
-      expect(dialog).toContainElement(document.activeElement as HTMLElement);
-    }
   });
 });
 
@@ -115,5 +155,33 @@ describe("FilterTags", () => {
     render(<FilterTags tags={[{ id: "kind", label: "Type: Company", onRemove }]} />);
     await user.click(screen.getByRole("button", { name: "Remove Type: Company" }));
     expect(onRemove).toHaveBeenCalledOnce();
+  });
+
+  it("moves focus to the next tag, else the previous, when one is removed", async () => {
+    const user = userEvent.setup();
+    const tags = [
+      { id: "a", label: "A: one", onRemove: vi.fn() },
+      { id: "b", label: "B: two", onRemove: vi.fn() },
+    ];
+    render(<FilterTags tags={tags} />);
+    await user.click(screen.getByRole("button", { name: "Remove A: one" }));
+    expect(screen.getByRole("button", { name: "Remove B: two" })).toHaveFocus();
+    await user.click(screen.getByRole("button", { name: "Remove B: two" }));
+    expect(screen.getByRole("button", { name: "Remove A: one" })).toHaveFocus();
+  });
+
+  it("moves focus to the fallback when the last tag is removed", async () => {
+    const user = userEvent.setup();
+    const fallback = { current: document.createElement("button") };
+    document.body.append(fallback.current);
+    render(
+      <FilterTags
+        tags={[{ id: "a", label: "A: one", onRemove: vi.fn() }]}
+        emptyFocusRef={fallback}
+      />,
+    );
+    await user.click(screen.getByRole("button", { name: "Remove A: one" }));
+    expect(fallback.current).toHaveFocus();
+    fallback.current.remove();
   });
 });

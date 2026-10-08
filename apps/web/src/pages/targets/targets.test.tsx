@@ -108,7 +108,7 @@ describe("the targets page", () => {
     await user.click(screen.getByRole("button", { name: "Clear all" }));
     expect(screen.queryByRole("list", { name: "Active filters" })).not.toBeInTheDocument();
     expect(screen.getByRole("searchbox", { name: "Search" })).toHaveValue("a");
-    expect(screen.getByRole("button", { name: "Clear all" })).toBeDisabled();
+    expect(screen.queryByRole("button", { name: "Clear all" })).not.toBeInTheDocument();
   });
 
   it("removes a filter from its tag without opening the popup", async () => {
