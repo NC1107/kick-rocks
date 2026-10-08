@@ -489,6 +489,9 @@ export default defineMockDomain({
         if (body.agent?.takeUnreviewed !== undefined) {
           current.agent = { ...current.agent, takeUnreviewed: body.agent.takeUnreviewed };
         }
+        if (body.agent?.approvalHoldMinutes !== undefined) {
+          current.agent = { ...current.agent, approvalHoldMinutes: body.agent.approvalHoldMinutes };
+        }
         if (body.agent?.gateOverride) {
           const { provider, name, enabled } = body.agent.gateOverride;
           current.agent = {
@@ -513,7 +516,11 @@ export default defineMockDomain({
           ...store.settings,
           schedule: { ...DEFAULT_SCHEDULE },
           llm: null,
-          agent: { takeUnreviewed: false, gate: { records: [], current: null } },
+          agent: {
+            takeUnreviewed: false,
+            approvalHoldMinutes: 10,
+            gate: { records: [], current: null },
+          },
           retention: { messageDays: null, screenshotDays: 30 },
           scanning: ScanningSettings.parse({}),
           egress: { proxyUrl: null, domains: [] },

@@ -13,6 +13,8 @@ import {
   type TargetDetail,
   type TaskSummary,
 } from "@kickrocks/shared";
+import type { MockSends } from "./sends.js";
+
 /** A request as stored: the list row plus its timeline. The detail view adds messages and tasks. */
 export type StoredRequest = RequestListItem & { events: RequestEvent[] };
 
@@ -76,6 +78,8 @@ export interface MockStore {
   messages: ReviewMessage[];
   tasks: TaskSummary[];
   blockedInfo: Map<string, BlockedTaskInfo>;
+  /** What each agent task's browser sent, by task id. */
+  sends: Map<string, MockSends>;
   matches: Match[];
   scans: ScanSummary[];
   /** What the politeness gate remembers about each site, keyed by the owner domain. */
@@ -134,6 +138,7 @@ export function createStore(authMode: MockAuthMode = "authed"): MockStore {
     messages: [],
     tasks: [],
     blockedInfo: new Map(),
+    sends: new Map(),
     matches: [],
     scans: [],
     sites: [],
@@ -153,7 +158,11 @@ export function createStore(authMode: MockAuthMode = "authed"): MockStore {
       egressCoverage: {},
       mcp: { enabled: false, tokenSet: false, url: "http://localhost:8420/mcp" },
       siteChecks: { enabled: false },
-      agent: { takeUnreviewed: false, gate: { records: [], current: null } },
+      agent: {
+        takeUnreviewed: false,
+        approvalHoldMinutes: 10,
+        gate: { records: [], current: null },
+      },
       worker: { enabled: false, builtin: null, model: null },
     },
     mcpToken: null,

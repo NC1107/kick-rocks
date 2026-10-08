@@ -14,6 +14,7 @@ describe("review handlers", () => {
   it("resumes, completes, and cancels blocked tasks", async () => {
     const blocked = app.store.tasks.filter((task) => task.status === "blocked");
     const [first, second, third] = blocked;
+    const before = await call({ path: "/review" });
     expect(
       (await call({ method: "POST", path: `/tasks/${first?.id}/resume` })).json.task.status,
     ).toBe("queued");
@@ -25,7 +26,7 @@ describe("review handlers", () => {
       (await call({ method: "POST", path: `/tasks/${third?.id}/cancel` })).json.task.status,
     ).toBe("cancelled");
     const queue = await call({ path: "/review" });
-    expect(queue.json.blockedTasks.length).toBe(blocked.length - 3);
+    expect(queue.json.blockedTasks.length).toBe(before.json.blockedTasks.length - 3);
     expect((await call({ method: "POST", path: `/tasks/${first?.id}/resume` })).status).toBe(409);
   });
 

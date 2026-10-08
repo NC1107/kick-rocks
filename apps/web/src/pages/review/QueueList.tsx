@@ -41,7 +41,11 @@ function describe(entry: QueueEntry): RowView {
         title: task.targetName ?? "Unknown target",
         reason:
           task.blockedDetail ??
-          (task.blockedReason ? BLOCKED_REASON_LABELS[task.blockedReason] : "Needs you"),
+          (task.blockedReason
+            ? BLOCKED_REASON_LABELS[task.blockedReason]
+            : task.status === "leased"
+              ? "Waiting for you"
+              : "Needs you"),
         at: task.updatedAt,
         shape,
       };

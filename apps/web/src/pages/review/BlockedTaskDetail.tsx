@@ -26,6 +26,7 @@ import { describeFailure } from "../../lib/failures.js";
 import { BLOCKED_REASON_LABELS, PROFILE_FIELD_LABELS, TASK_KIND_LABELS } from "../../lib/labels.js";
 import { DetailFrame } from "./DetailFrame.js";
 import { FailedGroupActions } from "./FailedGroupActions.js";
+import { HeldSendsPanel } from "./HeldSendsPanel.js";
 import {
   awaitsSubmitApproval,
   canHandOff,
@@ -35,6 +36,8 @@ import {
   REVIEW_INVALIDATES,
   sentWithoutApproval,
 } from "./model.js";
+import { SentLog } from "./SentLog.js";
+import { liveHolds, nextRunHolds } from "./sends-model.js";
 
 function Screenshot({ taskId }: { taskId: string }) {
   const [failed, setFailed] = useState(false);
@@ -116,6 +119,17 @@ export function BlockedTaskDetail({
   const [handOffOpen, setHandOffOpen] = useState(false);
   const [outcome, setOutcome] = useState<FormOutcome>("submitted");
   const [note, setNote] = useState("");
+  /** The requests the person leaves out when they approve what the last run held. */
+  const [declined, setDeclined] = useState<string[]>([]);
+  const logs = useApiQuery(API_ROUTES.taskSends, {
+    params: { id: task.id },
+    enabled: task.kind === "agent",
+    refetchInterval: (data) =>
+      data?.sends.some((row) => row.status === "pending_live") ? 2_000 : false,
+  });
+  const log = logs.data;
+  const holdingNow = log ? liveHolds(log, Date.now()).length > 0 : false;
+  const heldForLater = log ? nextRunHolds(log).length > 0 : false;
 
   const options = { invalidates: REVIEW_INVALIDATES };
 
@@ -138,8 +152,8 @@ export function BlockedTaskDetail({
     ...options,
     onSuccess: () =>
       toast.success(
-        "Submit approved",
-        "The agent worker runs the task again and may send the form.",
+        "Approved for the next run",
+        "The agent worker runs the task again and sends each approved request once.",
       ),
   });
   const retry = useApiMutation(API_ROUTES.taskRetry, {
@@ -178,7 +192,9 @@ export function BlockedTaskDetail({
   )?.error;
   const failure = variant === "failed" ? describeFailure(task) : null;
   const detail = failure ? failure.detail : (task.blockedDetail ?? null);
-  const showsMark = variant === "failed" || (variant === "blocked" && task.blockedReason);
+  const showsMark =
+    variant === "failed" ||
+    (variant === "blocked" && (task.blockedReason !== null || task.status === "leased"));
 
   const meta = (
     <>
@@ -201,16 +217,33 @@ export function BlockedTaskDetail({
   );
 
   const footer =
-    variant === "blocked" && needsApproval ? (
+    variant === "blocked" && task.status === "leased" ? (
+      <Button variant="ghost" onClick={() => setCancelOpen(true)} disabled={busy}>
+        Cancel task
+      </Button>
+    ) : variant === "blocked" && needsApproval ? (
       <>
-        <Button
-          variant="primary"
-          loading={approve.isPending}
-          disabled={busy && !approve.isPending}
-          onClick={() => approve.mutate({ params: { id: task.id } })}
-        >
-          Approve submit
-        </Button>
+        {heldForLater || logs.isPending ? (
+          <Button
+            variant="primary"
+            loading={approve.isPending}
+            disabled={(busy && !approve.isPending) || logs.isPending}
+            onClick={() =>
+              approve.mutate({ params: { id: task.id }, body: { declineSendIds: declined } })
+            }
+          >
+            Approve for the next run
+          </Button>
+        ) : (
+          <Button
+            variant="primary"
+            loading={resume.isPending}
+            disabled={busy && !resume.isPending}
+            onClick={() => resume.mutate({ params: { id: task.id } })}
+          >
+            Run again and wait for me
+          </Button>
+        )}
         <Button onClick={() => setDoneOpen(true)} disabled={busy}>
           Mark done
         </Button>
@@ -297,12 +330,31 @@ export function BlockedTaskDetail({
             {variant === "blocked" && task.blockedReason ? (
               <Tag tone="attention">{BLOCKED_REASON_LABELS[task.blockedReason]}</Tag>
             ) : null}
+            {variant === "blocked" && task.status === "leased" ? (
+              <Tag tone="attention">Waiting for you</Tag>
+            ) : null}
           </div>
         ) : null}
 
         {detail ? <p className="break-words text-body text-ink">{detail}</p> : null}
 
-        {task.hasScreenshot ? <Screenshot taskId={task.id} /> : null}
+        {task.hasScreenshot && !holdingNow ? <Screenshot taskId={task.id} /> : null}
+
+        {log ? (
+          <HeldSendsPanel
+            taskId={task.id}
+            log={log}
+            declined={declined}
+            onDeclinedChange={setDeclined}
+            onFinishByHand={() => {
+              if (item.url) window.open(item.url, "_blank", "noopener,noreferrer");
+              toast.success(
+                "Held back",
+                "Finish the form yourself, then mark the task done once the run stops.",
+              );
+            }}
+          />
+        ) : null}
 
         <Section label={variant === "failed" ? "What happened" : "What to do"} as="h3">
           {steps.length > 1 && variant !== "failed" ? (
@@ -341,6 +393,8 @@ export function BlockedTaskDetail({
         {variant !== "failed" && !needsApproval && !mayBeSent && canReportOutcome(task) ? (
           <ValuesToEnter profileId={profileId} />
         ) : null}
+
+        {log ? <SentLog log={log} /> : null}
 
         {variant === "failed" && siblings.length > 1 ? (
           <FailedGroupActions items={siblings} label={failure?.label ?? ""} />

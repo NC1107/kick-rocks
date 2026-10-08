@@ -1,6 +1,7 @@
 export {
   callRoute,
   screenshotUrl,
+  sendScreenshotUrl,
 } from "./client.js";
 export {
   CurrentProfileProvider,

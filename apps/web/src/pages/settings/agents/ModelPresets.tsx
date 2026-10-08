@@ -159,6 +159,7 @@ export function ModelPresets({ settings }: { settings: SettingsView }) {
           <SafetyGate
             agent={agent}
             gate={settings.agent.gate}
+            holdMinutes={settings.agent.approvalHoldMinutes}
             serverUrl={settings.mcp.url.replace(/\/mcp$/, "")}
           />
         </>

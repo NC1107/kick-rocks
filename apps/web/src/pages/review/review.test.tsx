@@ -93,7 +93,7 @@ describe("the review queue on a phone after a decision", () => {
 describe("the review queue", () => {
   it("lists everything waiting under a labelled group and opens the first item", async () => {
     open();
-    expect(await screen.findByRole("heading", { name: "Blocked · 5" })).toBeVisible();
+    expect(await screen.findByRole("heading", { name: "Blocked · 6" })).toBeVisible();
     expect(screen.getByRole("heading", { name: "Records · 3" })).toBeVisible();
     expect(screen.getByRole("heading", { name: "Details asked · 2" })).toBeVisible();
     expect(screen.getByRole("heading", { name: "Unsorted mail · 2" })).toBeVisible();
@@ -210,14 +210,14 @@ describe("the review queue", () => {
 
   it("lets the person approve the submit a model stopped before, and nothing else", async () => {
     const { user, mock } = open("blocked");
-    const task = await openItem(user, /Quillnote\s*Stopped before/, /Quillnote,/);
+    const task = await openItem(user, /Quillnote\s*qwen3/, /Quillnote,/);
     expect(task.getByText("Needs approval")).toBeVisible();
     expect(task.getByRole("img", { name: /where the task stopped/ })).toBeVisible();
     expect(task.queryByRole("button", { name: "Resume" })).not.toBeInTheDocument();
     expect(task.queryByRole("button", { name: "Hand to an agent" })).not.toBeInTheDocument();
     expect(task.queryByText("Details to type in")).not.toBeInTheDocument();
 
-    await user.click(task.getByRole("button", { name: "Approve submit" }));
+    await user.click(await task.findByRole("button", { name: "Approve for the next run" }));
 
     await waitFor(() =>
       expect(
@@ -240,9 +240,140 @@ describe("the review queue", () => {
     expect(task.getByRole("button", { name: "Cancel task" })).toBeVisible();
     expect(task.queryByRole("button", { name: "Resume" })).not.toBeInTheDocument();
     expect(task.queryByRole("button", { name: "Hand to an agent" })).not.toBeInTheDocument();
-    expect(task.queryByRole("button", { name: "Approve submit" })).not.toBeInTheDocument();
+    expect(
+      task.queryByRole("button", { name: "Approve for the next run" }),
+    ).not.toBeInTheDocument();
     expect(task.queryByText("Details to type in")).not.toBeInTheDocument();
     expect(task.getAllByText(/may already have been submitted/)).toHaveLength(1);
+  });
+
+  it("lists, for a run that released a request nobody approved, what left the browser", async () => {
+    const { user } = open("blocked");
+    const task = await openItem(
+      user,
+      /Harbor Consumer Data\s*The agent worker/,
+      /Harbor Consumer Data,/,
+    );
+    expect(
+      await task.findByText("1 request carrying your details left the browser."),
+    ).toBeVisible();
+    expect(task.getByText("Looked something up")).toBeVisible();
+    expect(
+      task.getByText(/POST harbor.*\/remove, with email address, first name, answered 200/i),
+    ).toBeVisible();
+  });
+
+  describe("a run that is waiting for the person", () => {
+    const openWaiting = async () => {
+      const opened = open("blocked");
+      const task = await openItem(
+        opened.user,
+        /Cardinal Insights\s*Waiting for you/,
+        /Cardinal Insights,/,
+      );
+      return { ...opened, task };
+    };
+
+    it("is listed first and shows the request with the person's own values", async () => {
+      const { task } = await openWaiting();
+      expect(await task.findByRole("heading", { name: "Waiting for you · 1" })).toBeVisible();
+      expect(task.getByText("Background request")).toBeVisible();
+      expect(task.getByText("jordan.example@example.com")).toBeVisible();
+      expect(task.getByText("your email address")).toBeVisible();
+      expect(task.getByText("set by the site, may change next run")).toBeVisible();
+      expect(task.getByRole("button", { name: "Send" })).toBeEnabled();
+      expect(task.getByRole("button", { name: "Don't send" })).toBeEnabled();
+      expect(task.getByRole("button", { name: "Finish by hand" })).toBeEnabled();
+      expect(task.queryByRole("button", { name: "Resume" })).not.toBeInTheDocument();
+    });
+
+    it("counts down what is left of the hold", async () => {
+      const { task } = await openWaiting();
+      expect(await task.findByText(/^[89]:\d\d$/)).toBeVisible();
+    });
+
+    it("sends the request when the person says send, and records it as sent", async () => {
+      const { user, mock, task } = await openWaiting();
+      await user.click(await task.findByRole("button", { name: "Send" }));
+      await waitFor(() => {
+        const rows = [...mock.store.sends.values()].flatMap((sends) => sends.rows);
+        expect(rows.filter((row) => row.kind === "held" && row.status === "sent")).toHaveLength(2);
+        expect(rows.some((row) => row.kind === "released" && row.responseStatus === 200)).toBe(
+          true,
+        );
+      });
+    });
+
+    it("holds the request back when the person says don't send", async () => {
+      const { user, mock, task } = await openWaiting();
+      await user.click(await task.findByRole("button", { name: "Don't send" }));
+      await waitFor(() => {
+        const rows = [...mock.store.sends.values()].flatMap((sends) => sends.rows);
+        expect(rows.some((row) => row.status === "declined")).toBe(true);
+      });
+    });
+
+    it("says so when the hold ran out before the person decided", async () => {
+      const { user, mock, task } = await openWaiting();
+      for (const sends of mock.store.sends.values()) {
+        for (const row of sends.rows) {
+          if (row.status === "pending_live")
+            row.expiresAt = new Date(Date.now() - 1000).toISOString();
+        }
+      }
+      await user.click(await task.findByRole("button", { name: "Send" }));
+      expect(await task.findByText(/no longer waiting/)).toBeVisible();
+    });
+  });
+
+  describe("a run that stopped at the second step of a form", () => {
+    const openStopped = async () => {
+      const opened = open("blocked");
+      const task = await openItem(opened.user, /Quillnote\s*qwen3/, /Quillnote,/);
+      return { ...opened, task };
+    };
+
+    it("says step one will go out again before step two", async () => {
+      const { task } = await openStopped();
+      expect(
+        await task.findByText(
+          /Step 1 already went out once\. Approving sends it again, then step 2\./,
+        ),
+      ).toBeVisible();
+      expect(task.getByText(/Step 2\. Held for the next run\./)).toBeVisible();
+    });
+
+    it("lets the person leave a request out of the approval", async () => {
+      const { user, mock, task } = await openStopped();
+      await user.click(await task.findByRole("checkbox", { name: /Leave this one out/ }));
+      await user.click(task.getByRole("button", { name: "Approve for the next run" }));
+      await waitFor(() => {
+        const rows = [...mock.store.sends.values()].flatMap((sends) => sends.rows);
+        expect(rows.some((row) => row.status === "declined")).toBe(true);
+      });
+    });
+
+    it("lists what the gate cannot see", async () => {
+      const { user, task } = await openStopped();
+      await user.click(await task.findByText("What the gate cannot see"));
+      expect(task.getByText(/Sites that need a live connection\./)).toBeVisible();
+      expect(task.getByText(/Bot sensors\./)).toBeVisible();
+    });
+  });
+
+  it("offers to run again and wait for the person when an old stop has no held request", async () => {
+    const mock = failing(/never/);
+    const task = mock.store.tasks.find(
+      (candidate) => candidate.kind === "agent" && candidate.targetId === "quillnote",
+    );
+    if (task) mock.store.sends.delete(task.id);
+    const { user } = open("blocked", mock);
+    const pane = await openItem(user, /Quillnote\s*qwen3/, /Quillnote,/);
+    expect(
+      pane.queryByRole("button", { name: "Approve for the next run" }),
+    ).not.toBeInTheDocument();
+    await user.click(await pane.findByRole("button", { name: "Run again and wait for me" }));
+    await waitFor(() => expect(task?.status).toBe("queued"));
   });
 
   it("resumes a task", async () => {
