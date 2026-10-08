@@ -84,6 +84,9 @@ export function JurisdictionsCard() {
                           ))}
                           <span className="text-sm text-ink-muted">
                             {statute.responseDays} days to answer
+                            {statute.responseDaysChange
+                              ? `, ${statute.responseDaysChange.days} from ${formatDate(statute.responseDaysChange.from)}`
+                              : ""}
                           </span>
                         </p>
                         {statute.platform ? (

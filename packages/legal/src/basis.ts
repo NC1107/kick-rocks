@@ -41,22 +41,26 @@ const DAYS_PER_WEEK = 7;
 function responseDaysFor(
   statute: Statute,
   rights: readonly RequestRight[] | undefined,
-  asOf: Date | undefined,
+  asOf: Date,
 ): number {
-  const { optOutBusinessDays, responseDaysChange } = traitsOf(statute.id);
+  const { optOutBusinessDays } = traitsOf(statute.id);
+  const { responseDaysChange } = statute;
   const optsOutOnly =
     rights !== undefined && rights.length > 0 && rights.every((right) => right === "opt_out");
   if (optOutBusinessDays === null || !optsOutOnly) {
     const changed =
       responseDaysChange !== null &&
-      asOf !== undefined &&
       asOf.getTime() >= Date.parse(`${responseDaysChange.from}T00:00:00Z`);
     return changed ? responseDaysChange.days : statute.responseDays;
   }
   return Math.ceil((optOutBusinessDays * DAYS_PER_WEEK) / BUSINESS_DAYS_PER_WEEK);
 }
 
-function statuteBasis(statute: Statute, rights?: readonly RequestRight[], asOf?: Date): LegalBasis {
+function statuteBasis(
+  statute: Statute,
+  rights: readonly RequestRight[] | undefined,
+  asOf: Date,
+): LegalBasis {
   return {
     id: statute.id,
     kind: "statute",
@@ -163,8 +167,8 @@ export function resolveLegalBasis(input: ResolveLegalBasisInput): LegalBasis {
 export function getLegalBasis(
   id: string,
   state: StateCode,
-  rights?: readonly RequestRight[],
-  asOf?: Date,
+  rights: readonly RequestRight[] | undefined,
+  asOf: Date,
 ): LegalBasis | null {
   const parsedState = StateCode.safeParse(state);
   if (!parsedState.success) return null;

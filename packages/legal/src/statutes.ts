@@ -21,11 +21,6 @@ export interface StatuteTraits {
    * its own clock separate from the 45 days that apply to requests to know and delete.
    */
   optOutBusinessDays: number | null;
-  /**
-   * A response period that replaces `responseDays` from a later date, for a statute amended with a
-   * delayed effective date.
-   */
-  responseDaysChange: { from: string; days: number } | null;
 }
 
 const ALL: StatuteTraits = {
@@ -33,7 +28,6 @@ const ALL: StatuteTraits = {
   citable: true,
   optOutAuthRule: null,
   optOutBusinessDays: null,
-  responseDaysChange: null,
 };
 const PROVIDED: StatuteTraits = { ...ALL, deleteScope: "provided" };
 const NOT_CITABLE: StatuteTraits = { ...ALL, citable: false };
@@ -46,8 +40,11 @@ interface StatuteEntry {
 const BOTH = ["opt_out", "delete"] as const;
 
 function comprehensive(
-  fields: Omit<Statute, "kind" | "rights" | "brokerNotes" | "platform" | "notes"> &
-    Partial<Pick<Statute, "rights" | "brokerNotes" | "platform" | "notes">>,
+  fields: Omit<
+    Statute,
+    "kind" | "rights" | "brokerNotes" | "platform" | "notes" | "responseDaysChange"
+  > &
+    Partial<Pick<Statute, "rights" | "brokerNotes" | "platform" | "notes" | "responseDaysChange">>,
   traits: StatuteTraits = ALL,
 ): StatuteEntry {
   return {
@@ -57,6 +54,7 @@ function comprehensive(
       brokerNotes: null,
       platform: null,
       notes: null,
+      responseDaysChange: null,
       ...fields,
     },
     traits,
@@ -68,8 +66,8 @@ const GENERAL_BROKER_NOTE =
 
 /**
  * Every US state comprehensive privacy law enacted as of 2026-10-07, plus California's Delete Act.
- * Each entry cites the primary source it was read from, and every entry was checked against that
- * source on 2026-10-07.
+ * Each entry cites the primary source it was read from; the dates they were checked are in the
+ * package README.
  */
 export const STATUTE_ENTRIES: readonly StatuteEntry[] = [
   comprehensive(
@@ -102,6 +100,8 @@ export const STATUTE_ENTRIES: readonly StatuteEntry[] = [
       effectiveDate: "2026-08-01",
       rights: ["delete"],
       responseDays: 45,
+      // AB 883 (Stats. 2026, ch. 507) cuts every Delete Act period from 45 to 30 days.
+      responseDaysChange: { from: "2027-01-01", days: 30 },
       extensionDays: 0,
       brokerNotes:
         "Registered data brokers must check DROP at least every 45 days from 2026-08-01 and process the deletion requests they find there. From 2027-01-01 the cycle is every 30 days (AB 883, Stats. 2026, ch. 507).",
@@ -290,23 +290,19 @@ export const STATUTE_ENTRIES: readonly StatuteEntry[] = [
     notes:
       'P.L. 2026, c. 25 sec. 1 amends 56:8-166.12(a)(6): a controller may "not sell sensitive data, which shall apply to all individuals or legal entities regardless of the number of consumers".',
   }),
-  comprehensive(
-    {
-      id: "tn-tipa",
-      state: "TN",
-      name: "Tennessee Information Protection Act",
-      citation: "Tenn. Code Ann. 47-18-3201 et seq.",
-      effectiveDate: "2025-07-01",
-      responseDays: 45,
-      extensionDays: 45,
-      brokerNotes:
-        "Reaches a broker only with revenue over 25,000,000 dollars, so this tool does not claim it for a broker.",
-      sourceUrl: "https://publications.tnsosfiles.com/acts/113/pub/pc0408.pdf",
-      notes:
-        "Public Chapter 408, effective 2025-07-01 (sec. 6). 47-18-3202 applies only to a person with revenue over 25,000,000 dollars that also controls or processes the data of 175,000 consumers, or of 25,000 consumers with more than 50 percent of revenue from the sale of personal data. The tool cannot check that for a target, so it does not cite this law, as with Florida.",
-    },
-    NOT_CITABLE,
-  ),
+  comprehensive({
+    id: "tn-tipa",
+    state: "TN",
+    name: "Tennessee Information Protection Act",
+    citation: "Tenn. Code Ann. 47-18-3201 et seq.",
+    effectiveDate: "2025-07-01",
+    responseDays: 45,
+    extensionDays: 45,
+    brokerNotes: GENERAL_BROKER_NOTE,
+    sourceUrl: "https://publications.tnsosfiles.com/acts/113/pub/pc0408.pdf",
+    notes:
+      "Public Chapter 408, effective 2025-07-01 (sec. 6). 47-18-3202 applies only to a person with revenue over 25,000,000 dollars that also controls or processes the data of 175,000 consumers, or of 25,000 consumers with more than 50 percent of revenue from the sale of personal data.",
+  }),
   comprehensive({
     id: "mn-mcdpa",
     state: "MN",
@@ -329,7 +325,7 @@ export const STATUTE_ENTRIES: readonly StatuteEntry[] = [
     brokerNotes: GENERAL_BROKER_NOTE,
     sourceUrl: "https://mgaleg.maryland.gov/2024RS/bills/sb/sb0541E.pdf",
     notes:
-      "In effect from 2025-10-01 (SB 541 sec. 4). SB 541 sec. 2 limits only the exceptions section (enacted as 14-4612, now 14-4712) to processing on or after 2026-04-01. HB 711 of 2026 (Chapter 874, effective 2026-07-01) bars selling personal data to a governmental unit that engaged in or supported civil immigration enforcement.",
+      "SB 541 numbers the act 14-4601 et seq., and the Code codifies it as 14-4701 et seq. In effect from 2025-10-01 (SB 541 sec. 4). SB 541 sec. 2 limits only the exceptions section (enacted as 14-4612, now 14-4712) to processing on or after 2026-04-01. HB 711 of 2026 (Chapter 874, effective 2026-07-01) bars selling personal data to a governmental unit that engaged in or supported civil immigration enforcement.",
   }),
   comprehensive({
     id: "in-icdpa",
@@ -386,7 +382,7 @@ export const STATUTE_ENTRIES: readonly StatuteEntry[] = [
     responseDays: 45,
     extensionDays: 45,
     brokerNotes: GENERAL_BROKER_NOTE,
-    sourceUrl: "https://legis.la.gov/legis/BillInfo.aspx?s=26RS&b=SB386&sbi=y",
+    sourceUrl: "https://legis.la.gov/legis/ViewDocument.aspx?d=1480202",
     notes:
       "Signed 2026-05-29. The 45 calendar days plus one 45 day extension are in R.S. 51:1780.3(B)(2).",
   }),
@@ -399,7 +395,8 @@ export const STATUTE_ENTRIES: readonly StatuteEntry[] = [
     responseDays: 45,
     extensionDays: 45,
     brokerNotes: GENERAL_BROKER_NOTE,
-    sourceUrl: "https://alison.legislature.state.al.us/bill/2026RS/HB351",
+    sourceUrl:
+      "https://alison.legislature.state.al.us/files/pdf/SearchableInstruments/2026RS/HB351-enr.pdf",
     notes: "Signed 2026-04-17. The act is uncodified, and its 45 plus 45 days are in sec. 5(d)(1).",
   }),
   comprehensive({
@@ -412,7 +409,8 @@ export const STATUTE_ENTRIES: readonly StatuteEntry[] = [
     extensionDays: 45,
     brokerNotes:
       "Applies to data brokers like any other controller. Vermont's separate broker registration law (9 V.S.A. 2430, 2446, 2447) gives consumers no request right.",
-    sourceUrl: "https://legislature.vermont.gov/bill/status/2026/S.71",
+    sourceUrl:
+      "https://legislature.vermont.gov/Documents/2026/Docs/ACTS/ACT145/ACT145%20As%20Enacted.pdf",
     notes: "Signed 2026-06-16. The 45 plus 45 days are in 2415d(c)(1).",
   }),
   {
@@ -425,6 +423,7 @@ export const STATUTE_ENTRIES: readonly StatuteEntry[] = [
       effectiveDate: "2021-10-01",
       rights: ["opt_out"],
       responseDays: 60,
+      responseDaysChange: null,
       extensionDays: 30,
       brokerNotes:
         "A data broker, meaning a person whose primary business is buying covered information about Nevada residents with whom it has no direct relationship, from operators or other brokers, and selling it, must keep a designated request address for verified requests not to sell covered information it has purchased or will purchase, and must answer within 60 days (NRS 603A.323, 603A.346).",
@@ -455,7 +454,7 @@ export const STATUTES: readonly Statute[] = STATUTE_ENTRIES.map((entry) => entry
  * Oklahoma have no such rule in their text.
  */
 const OPT_OUT_AUTH_RULES = new Map([
-  ["al-apdpa", "Act 2026-552, sec. 5(d)(4)"],
+  ["al-apdpa", "Ala. Act 2026-552, sec. 5(d)(4)"],
   ["ca-ccpa", "11 CCR 7026(d)"],
   ["ct-ctdpa", "Conn. Gen. Stat. 42-518(c)(4)"],
   ["de-dpdpa", "6 Del. C. 12D-104(c)(4)"],
@@ -472,9 +471,6 @@ const OPT_OUT_AUTH_RULES = new Map([
 /** CCPA regulation 11 CCR 7026(f) gives 15 business days to stop selling or sharing. */
 const OPT_OUT_BUSINESS_DAYS = new Map([["ca-ccpa", 15]]);
 
-/** AB 883 (Stats. 2026, ch. 507) cuts every Delete Act period from 45 to 30 days. */
-const RESPONSE_DAYS_CHANGES = new Map([["ca-delete-act", { from: "2027-01-01", days: 30 }]]);
-
 const TRAITS = new Map(
   STATUTE_ENTRIES.map(({ statute, traits }) => [
     statute.id,
@@ -482,7 +478,6 @@ const TRAITS = new Map(
       ...traits,
       optOutAuthRule: OPT_OUT_AUTH_RULES.get(statute.id) ?? null,
       optOutBusinessDays: OPT_OUT_BUSINESS_DAYS.get(statute.id) ?? null,
-      responseDaysChange: RESPONSE_DAYS_CHANGES.get(statute.id) ?? null,
     },
   ]),
 );

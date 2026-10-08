@@ -206,7 +206,7 @@ describe("renderRequestEmail properties", () => {
   it("cites the Alabama and Vermont authentication rules once those laws take effect", () => {
     const claim = "does not have to be authenticated";
     const rules = {
-      AL: ["2027-05-01", "Act 2026-552, sec. 5(d)(4)"],
+      AL: ["2027-05-01", "Ala. Act 2026-552, sec. 5(d)(4)"],
       VT: ["2028-01-01", "9 V.S.A. 2415d(c)(4)(B)"],
     } as const;
     for (const [state, [effective, rule]] of Object.entries(rules)) {
@@ -226,7 +226,12 @@ describe("renderRequestEmail properties", () => {
     const deleteOnly = renderRequestEmail(build("CA", "initial", ["delete"])).text;
     expect(deleteOnly).not.toContain(claim);
     expect(deleteOnly).not.toContain("do not ask for ID");
-    const policy = getLegalBasis(POLICY_BASIS_ID, "CA");
+    const policy = getLegalBasis(
+      POLICY_BASIS_ID,
+      "CA",
+      undefined,
+      new Date("2026-10-07T12:00:00Z"),
+    );
     if (!policy) throw new Error("the policy basis must resolve");
     const policyOptOut = renderRequestEmail({
       ...build("CA", "initial", ["opt_out"]),

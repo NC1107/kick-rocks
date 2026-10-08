@@ -17,6 +17,10 @@ export const Statute = z.object({
   /** Which rights the law gives a consumer against the businesses it covers. */
   rights: z.array(RequestRight).min(1),
   responseDays: z.number().int().positive(),
+  /** A period that replaces `responseDays` from a later date, for a law amended with a delayed start. */
+  responseDaysChange: z
+    .object({ from: z.iso.date(), days: z.number().int().positive() })
+    .nullable(),
   extensionDays: z.number().int().nonnegative(),
   /** What the law says specifically about data brokers, when it does. */
   brokerNotes: z.string().nullable(),

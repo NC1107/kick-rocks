@@ -180,12 +180,11 @@ describe("statute data", () => {
     expect(STATUTES.find((s) => s.id === "tn-tipa")?.sourceUrl).toBe(
       "https://publications.tnsosfiles.com/acts/113/pub/pc0408.pdf",
     );
-    expect(traitsOf("tn-tipa").citable).toBe(false);
   });
 
   it("keeps Louisiana out of the opt-out authentication rules and names the Alabama and Vermont ones", () => {
     expect(traitsOf("la-ldpa").optOutAuthRule).toBeNull();
-    expect(traitsOf("al-apdpa").optOutAuthRule).toBe("Act 2026-552, sec. 5(d)(4)");
+    expect(traitsOf("al-apdpa").optOutAuthRule).toBe("Ala. Act 2026-552, sec. 5(d)(4)");
     expect(traitsOf("vt-vdposa").optOutAuthRule).toBe("9 V.S.A. 2415d(c)(4)(B)");
   });
 
@@ -195,7 +194,7 @@ describe("statute data", () => {
 });
 
 describe("broker registration laws", () => {
-  it("are valid, sourced, and give no request right", () => {
+  it("are valid, sourced, and none is a basis for an email request", () => {
     expect(BROKER_REGISTRATION_LAWS.map((law) => law.state).sort()).toEqual([
       "CT",
       "NJ",

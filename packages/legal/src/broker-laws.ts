@@ -3,9 +3,9 @@ import { z } from "zod";
 
 /**
  * A data broker registration law. These make a broker register and publish how a consumer can opt
- * out, but give the consumer no right to demand anything by email, so they are never the basis of
- * a request. Connecticut's also creates a state deletion mechanism, which does not exist yet. They
- * are kept so the app can say which states register brokers.
+ * out, and none of them is a basis for an email request. Connecticut's also creates a state
+ * deletion mechanism, which does not exist yet and has no encoded deadline. They are kept so the
+ * app can say which states register brokers.
  */
 export const BrokerRegistrationLaw = z.object({
   id: z.string().regex(/^[a-z0-9][a-z0-9-]*$/),
@@ -66,7 +66,7 @@ export const BROKER_REGISTRATION_LAWS: readonly BrokerRegistrationLaw[] = [
     citation: "Conn. P.A. 26-64 secs. 1-10, as amended by P.A. 26-100 secs. 39-43",
     effectiveDate: "2026-10-01",
     summary:
-      "From 2027-01-01 no data broker may sell or license brokered personal data unless registered (sec. 2, fee 2,500 dollars). The Commissioner must build an accessible deletion mechanism by 2028-07-01 (sec. 5(a)), and from 2028-10-01 each registered broker must access it at least once every forty-five days (sec. 5(c)). Like California's Delete Act this gives consumers a deletion route through a state platform, so it is not a registration law with no right, but the mechanism does not exist yet and no deadline for answering is encoded here. Until it does, no request is based on it.",
+      "From 2027-01-01 no data broker may sell or license brokered personal data unless registered (sec. 2, fee 2,500 dollars). The Commissioner must build an accessible deletion mechanism by 2028-07-01 (sec. 5(a)), and from 2028-10-01 each registered broker must access it at least once every forty-five days (sec. 5(c)). Like California's Delete Act this will give consumers a deletion route through a state platform, but the mechanism does not exist yet and no deadline for answering is encoded here, so no request is based on it.",
     sourceUrl: "https://www.cga.ct.gov/2026/ACT/PA/PDF/2026PA-00064-R00SB-00004-PA.PDF",
   },
 ];

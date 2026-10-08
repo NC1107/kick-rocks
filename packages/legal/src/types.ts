@@ -65,8 +65,8 @@ export interface LegalApi {
   getLegalBasis(
     id: string,
     state: StateCode,
-    rights?: readonly RequestRight[],
-    asOf?: Date,
+    rights: readonly RequestRight[] | undefined,
+    asOf: Date,
   ): LegalBasis | null;
   /** Whether the deletion part of a request is better filed once through a state platform such as DROP. */
   recommendDrop(input: ResolveLegalBasisInput): DropRecommendation;
