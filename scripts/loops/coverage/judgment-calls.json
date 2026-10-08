@@ -1,0 +1,57 @@
+[
+  {
+    "check": "email_evidence",
+    "id": "alc",
+    "reason": "Eraser kept the address on purpose: its note says the email is left in place in case the inbox is eventually read, and that is the pinned list's own decision."
+  },
+  {
+    "check": "email_evidence",
+    "id": "buildertrend-solutions",
+    "reason": "The reply names the form section of the privacy notice, and the opt-out link on file is that notice and not a form, so dropping the email would leave the request with nowhere to go."
+  },
+  {
+    "check": "email_evidence",
+    "id": "captify-technologies",
+    "reason": "The same note says a live team inbox was found on 2026-08-20 and email is worth retrying, so email is the intended primary channel."
+  },
+  {
+    "check": "email_evidence",
+    "id": "famous-birthdays",
+    "reason": "The reply came from info@ and speaks about that address only, and the form on file is a general contact page."
+  },
+  {
+    "check": "email_evidence",
+    "id": "meltwater-news-us",
+    "reason": "The note says the broker's own CCPA flow runs through a form or privacy@meltwater.com, which is the address on file."
+  },
+  {
+    "check": "email_evidence",
+    "id": "lender-feed",
+    "reason": "The reply asks for a deletion form whose address was not captured, and the link on file is only the privacy policy, so there is no confirmed form to switch to."
+  },
+  {
+    "check": "email_evidence",
+    "id": "seamless-contacts",
+    "reason": "The note says the address does accept a follow-up reply that carries the person's details, so email stays usable."
+  },
+  {
+    "check": "owner_group",
+    "id": "peopleconnect",
+    "reason": "The suppression center record is filed as marketing on purpose, because its recipe is removal-only and it has no listing to find. The email on file is a named person's address, and replacing it needs the company's own privacy policy, which is not in the pinned data."
+  },
+  {
+    "check": "owner_group",
+    "id": "classmates",
+    "reason": "Filed as marketing on 2026-10-08 with a source: its BADBOOL entry only describes cancelling a membership, so there is no listing to scan."
+  },
+  {
+    "check": "owner_group",
+    "id": "publicrecordsnow",
+    "reason": "The pinned Eraser note says its only email hard-bounced on 2026-08-23 and no other contact exists in any pinned list, so it is skipped as having no contact method."
+  },
+  {
+    "check": "owner_group",
+    "id": "peoplefindersdaas",
+    "reason": "A business data service filed as marketing by the California registry, with no public listing to scan."
+  }
+]

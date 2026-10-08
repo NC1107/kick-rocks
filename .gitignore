@@ -11,6 +11,7 @@ dist/
 *.db-shm
 *.key
 coverage/
+!/scripts/loops/coverage/
 .DS_Store
 packages/brokers/data/generated/
 apps/worker/.chrome-profile/
