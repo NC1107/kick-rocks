@@ -69,10 +69,10 @@ const MONO = "font-mono text-meta";
 
 function Loading() {
   return (
-    <div aria-busy="true" className="flex max-w-180 flex-col gap-4">
+    <div aria-busy="true">
       <span className="sr-only">Loading target</span>
       <PageHeader title="Target" back={{ to: "/targets", label: "Targets" }} />
-      <div className="rounded-md border border-line bg-surface p-3.5">
+      <div className="max-w-180 rounded-md border border-line bg-surface p-3.5">
         <SkeletonText lines={5} />
       </div>
     </div>

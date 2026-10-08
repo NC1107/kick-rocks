@@ -84,20 +84,22 @@ const CONFIRMED_ACTIONS: readonly RequestAction[] = [
 
 function Loading() {
   return (
-    <div aria-busy="true" className="flex max-w-3xl flex-col gap-5">
+    <div aria-busy="true">
       <span className="sr-only">Loading request</span>
       <PageHeader title="Request" back={{ to: "/requests", label: "Requests" }} />
-      <Section label="Summary">
-        <RowGroup>
-          {Array.from({ length: 6 }, (_, row) => (
-            // biome-ignore lint/suspicious/noArrayIndexKey: placeholder rows have no identity
-            <div key={row} className="flex h-row items-center gap-8 px-3.5">
-              <Skeleton className="h-3 w-24" />
-              <Skeleton className="h-3 w-40" />
-            </div>
-          ))}
-        </RowGroup>
-      </Section>
+      <div className="flex max-w-3xl flex-col gap-5">
+        <Section label="Summary">
+          <RowGroup>
+            {Array.from({ length: 6 }, (_, row) => (
+              // biome-ignore lint/suspicious/noArrayIndexKey: placeholder rows have no identity
+              <div key={row} className="flex h-row items-center gap-8 px-3.5">
+                <Skeleton className="h-3 w-24" />
+                <Skeleton className="h-3 w-40" />
+              </div>
+            ))}
+          </RowGroup>
+        </Section>
+      </div>
     </div>
   );
 }
