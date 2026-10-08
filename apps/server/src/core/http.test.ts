@@ -1,14 +1,17 @@
 import { API_ROUTES, toApiIssues } from "@kickrocks/shared";
 import Fastify, { type FastifyInstance } from "fastify";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { AppError, conflict, invalidRequest, notFound } from "./errors.js";
 import { installErrorHandling, registerRoute } from "./http.js";
 
 let app: FastifyInstance;
 
-async function build(setup: (app: FastifyInstance) => void, options: { bodyLimit?: number } = {}) {
+async function build(
+  setup: (app: FastifyInstance) => void,
+  options: { bodyLimit?: number; reserve?: { releaseOnFull(error: unknown): void } } = {},
+) {
   app = Fastify({ bodyLimit: options.bodyLimit ?? 1024 * 1024 });
-  installErrorHandling(app);
+  installErrorHandling(app, options.reserve);
   setup(app);
   await app.ready();
   return app;
@@ -268,6 +271,20 @@ describe("error handling", () => {
     expect(response.statusCode).toBe(507);
     expect(response.json()).toMatchObject({ error: "disk_full" });
     expect(response.json().message).toContain("disk");
+  });
+
+  it("gives the held-back disk space up the moment a request meets a full disk", async () => {
+    const reserve = { releaseOnFull: vi.fn() };
+    const error = Object.assign(new Error("database or disk is full"), { code: "SQLITE_FULL" });
+    await build(
+      (a) =>
+        a.get("/boom", () => {
+          throw error;
+        }),
+      { reserve },
+    );
+    await app.inject({ method: "GET", url: "/boom" });
+    expect(reserve.releaseOnFull).toHaveBeenCalledWith(error);
   });
 
   it("hides the cause of an unexpected error", async () => {

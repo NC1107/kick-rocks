@@ -605,6 +605,22 @@ describe("the registered scheduler", () => {
   });
 });
 
+describe("a full disk", () => {
+  it("gives the held-back space up when a job meets it, so the next writes can land", async () => {
+    const release = vi.spyOn(ctx.services.diskReserve, "releaseOnFull");
+    const full = Object.assign(new Error("database or disk is full"), { code: "SQLITE_FULL" });
+    const failing = createScheduler(ctx.services, {
+      runners: {
+        runDue: async () => {
+          throw full;
+        },
+      } as never,
+    });
+    await failing.tick();
+    expect(release).toHaveBeenCalledWith(full);
+  });
+});
+
 describe("requests are untouched by an idle scheduler", () => {
   it("changes nothing when nothing is due", async () => {
     const target = seedTarget(ctx);

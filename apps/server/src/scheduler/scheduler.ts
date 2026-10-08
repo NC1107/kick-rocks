@@ -68,6 +68,7 @@ export function createScheduler(
     try {
       await run();
     } catch (error) {
+      services.diskReserve.releaseOnFull(error);
       services.logger.error({ job: name, err: error }, "scheduler job failed");
     }
   };
@@ -139,8 +140,12 @@ export function createScheduler(
     start() {
       if (timer) return;
       services.liveness.expectScheduler();
-      timer = setInterval(() => void scheduler.tick(), tickMs);
+      timer = setInterval(() => {
+        services.diskReserve.arm();
+        void scheduler.tick();
+      }, tickMs);
       timer.unref();
+      services.diskReserve.arm();
       void scheduler.tick();
     },
 

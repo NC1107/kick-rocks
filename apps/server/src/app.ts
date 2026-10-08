@@ -76,7 +76,7 @@ export async function buildApp({ services, database, version }: AppContext): Pro
     trustProxy: typeof trustProxy === "number" ? (_address, hop) => hop < trustProxy : trustProxy,
   });
 
-  installErrorHandling(server);
+  installErrorHandling(server, services.diskReserve);
   registerSecurityHeaders(server);
   await server.register(fastifyCookie);
   registerGuards(server, services, createHostPolicy(config));
