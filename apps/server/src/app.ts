@@ -16,6 +16,7 @@ import { frameworkErrorResponse, installErrorHandling } from "./core/http.js";
 import { registerModules } from "./modules/index.js";
 import { registerScheduler } from "./scheduler/index.js";
 import type { AppServices } from "./services.js";
+import { webAssetOptions } from "./web-assets.js";
 
 interface AppContext {
   services: AppServices;
@@ -90,7 +91,7 @@ export async function buildApp({ services, database, version }: AppContext): Pro
   await services.startup.run();
 
   if (config.webDist && existsSync(config.webDist)) {
-    await server.register(fastifyStatic, { root: config.webDist, wildcard: false });
+    await server.register(fastifyStatic, webAssetOptions(config.webDist));
   }
   server.setNotFoundHandler((request, reply) => {
     if (isApiPath(request.url) || !config.webDist || !existsSync(config.webDist)) {
