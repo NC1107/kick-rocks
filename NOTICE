@@ -1,0 +1,26 @@
+Kick Rocks
+Copyright (c) 2026 NC1107
+
+The code in this repository is under the PolyForm Noncommercial License 1.0.0.
+The license text is in LICENSE.
+
+The broker dataset bundles data from other sources, and each one keeps its own license.
+The full notices, with the pinned commits and the changes made, are in packages/brokers/data/NOTICE.md.
+
+Big Ass Data Broker Opt-Out List (BADBOOL)
+  By Yael Grauer, https://github.com/yaelwrites/Big-Ass-Data-Broker-Opt-Out-List
+  License: Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International,
+  https://creativecommons.org/licenses/by-nc-sa/4.0/
+  Because of the ShareAlike clause, the generated broker file (packages/brokers/data/generated/brokers.json)
+  is distributed under the same license, separately from the application code.
+  The license text is packages/brokers/data/upstream/BADBOOL-LICENSE.md.
+
+Eraser broker list
+  https://github.com/drumandbytes/eraser
+  License: MIT.
+  The copyright notice and permission notice must stay with copies of that list.
+  The license text is packages/brokers/data/upstream/ERASER-LICENSE.
+
+California Data Broker Registry
+  Published by the California Privacy Protection Agency, https://cppa.ca.gov/data_broker_registry/
+  A public record.

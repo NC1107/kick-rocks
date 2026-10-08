@@ -17,6 +17,7 @@ import { BodyRow, FactRow, SETTINGS_WIDTH } from "../settings/rows.js";
 
 const POLYFORM_URL = "https://polyformproject.org/licenses/noncommercial/1.0.0/";
 const CC_BY_NC_SA_URL = "https://creativecommons.org/licenses/by-nc-sa/4.0/";
+const ERASER_URL = "https://github.com/drumandbytes/eraser";
 const BADBOOL_URL = "https://github.com/yaelwrites/Big-Ass-Data-Broker-Opt-Out-List";
 
 export function Component() {
@@ -26,6 +27,7 @@ export function Component() {
       <div className={`${SETTINGS_WIDTH} flex flex-col gap-4`}>
         <InstanceSection />
         <SourcesSection />
+        <LimitsSection />
         <AttributionSection />
       </div>
     </>
@@ -150,6 +152,31 @@ function SourceRow({ source }: { source: DataSourceInfo }) {
   );
 }
 
+function LimitsSection() {
+  return (
+    <Section label="Limits">
+      <div className="flex max-w-prose flex-col gap-3 text-body text-ink">
+        <p>
+          This is not legal advice. A privacy law may not apply to a given business, and a request
+          does not guarantee that anything gets deleted.
+        </p>
+        <p>
+          A broker can add you back after it removes you, or get your details again from somewhere
+          else. That is why the rescans exist.
+        </p>
+        <p>
+          A request to a broker that never had you can create a new link between your name and your
+          email on its side.
+        </p>
+        <p>
+          Many states have no privacy law. There the email rests on the broker's own published
+          privacy commitments, which it may not have.
+        </p>
+      </div>
+    </Section>
+  );
+}
+
 function AttributionSection() {
   return (
     <Section label="Attribution">
@@ -164,6 +191,11 @@ function AttributionSection() {
           Kick Rocks converted those entries into its own format and added fields to them. The
           resulting broker list is shared under the same license, separately from the application
           code.
+        </p>
+        <p>
+          It also includes entries from the{" "}
+          <ExternalLinkText href={ERASER_URL}>Eraser</ExternalLinkText> broker list, under the MIT
+          license. The MIT license text stays with the copy of that list in the repository.
         </p>
         <p className="text-ink-2">
           Contacts in the company list were checked against each company's own privacy page.
