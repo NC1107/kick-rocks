@@ -7,38 +7,78 @@ import {
   WebUrl,
 } from "@kickrocks/shared";
 import { parse } from "csv-parse/sync";
-import { z } from "zod";
+import { usablePrivacyEmail } from "./privacy-email.js";
+
+const DELETE = "requests to delete";
+const OPT_OUT = "requests to opt out of sale or sharing";
 
 /**
- * Column positions in the CPPA registry export. The file has two header rows:
- * the first holds publishing notes, the second holds the question text.
+ * The registry export changes its column count and order between years, so columns are found by
+ * their header text. Each entry matches the normalized header of exactly one column.
  */
-const COL = {
-  name: 0,
-  dba: 1,
-  website: 2,
-  email: 3,
-  collectsMinors: 11,
-  collectsGeolocation: 12,
-  collectsReproductiveHealth: 13,
-  privacyRightsUrl: 14,
-  fcra: 15,
-  glba: 19,
-  iippa: 23,
-  cmia: 27,
-  hipaa: 31,
-  deleteReceived: 35,
-  deleteCompliedWhole: 36,
-  deleteDenied: 38,
-  deleteMedianDays: 39,
-  optOutReceived: 53,
-  optOutCompliedWhole: 54,
-  optOutDenied: 56,
-  optOutMedianDays: 57,
+const COLUMN_MATCHERS = {
+  name: (h: string) => h === "data broker name:",
+  dba: (h: string) => h.startsWith("doing business as"),
+  website: (h: string) => h === "data broker primary website:",
+  email: (h: string) => h.startsWith("data broker primary contact email"),
+  privacyRightsUrl: (h: string) => h.startsWith("data broker's primary website that contains"),
+  collectsMinors: (h: string) => h.includes("collects personal information of minors"),
+  collectsGeolocation: (h: string) => h.includes("collects consumers' precise geolocation"),
+  collectsReproductiveHealth: (h: string) => h.includes("collects consumers' reproductive health"),
+  fcra: (h: string) => regulatedBy(h, "federal fair credit reporting act"),
+  glba: (h: string) => regulatedBy(h, "gramm-leach-bliley act"),
+  iippa: (h: string) => regulatedBy(h, "insurance information and privacy protection act"),
+  cmia: (h: string) => regulatedBy(h, "confidentiality of medical information act"),
+  hipaa: (h: string) => regulatedBy(h, "hipaa privacy"),
+  deleteReceived: (h: string) => h === "requests to delete - total requests received",
+  deleteCompliedWhole: (h: string) =>
+    h === `${DELETE} - total requests received - complied in whole`,
+  deleteDenied: (h: string) => h === `${DELETE} - total requests received - denied`,
+  deleteMedianDays: (h: string) =>
+    h.startsWith(`${DELETE} - the number of days`) && h.endsWith("median"),
+  optOutReceived: (h: string) => h === `${OPT_OUT} - total requests received`,
+  optOutCompliedWhole: (h: string) =>
+    h === `${OPT_OUT} - total requests received - complied in whole`,
+  optOutDenied: (h: string) => h === `${OPT_OUT} - total requests received - denied`,
+  optOutMedianDays: (h: string) =>
+    h.startsWith(`${OPT_OUT} - the number of days`) && h.endsWith("median"),
 } as const;
 
-const HEADER_ROWS = 2;
-const METRICS_YEAR = 2023;
+type ColumnName = keyof typeof COLUMN_MATCHERS;
+type Columns = Record<ColumnName, number>;
+
+/** The regime question itself, not the "if regulated, describe ..." follow-ups under it. */
+function regulatedBy(header: string, law: string): boolean {
+  return !header.startsWith("if ") && header.includes("regulated by") && header.includes(law);
+}
+
+function normalizeHeader(header: string): string {
+  return header
+    .replace(/^\uFEFF/, "")
+    .replace(/[\u2018\u2019]/g, "'")
+    .replace(/[\u2010-\u2015\u2212]/g, "-")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
+}
+
+function locateColumns(header: readonly string[]): Columns {
+  const normalized = header.map(normalizeHeader);
+  const columns = {} as Columns;
+  for (const name of Object.keys(COLUMN_MATCHERS) as ColumnName[]) {
+    const index = normalized.findIndex(COLUMN_MATCHERS[name]);
+    if (index === -1) throw new Error(`The California registry has no column for ${name}`);
+    columns[name] = index;
+  }
+  return columns;
+}
+
+/** The reporting year is stated in the header of the response-time columns, as "... in 2024 - Median". */
+function metricsYear(header: readonly string[], column: number): number {
+  const year = /\bin (\d{4})\b/.exec(header[column] ?? "")?.[1];
+  if (!year) throw new Error("The California registry does not say which year its metrics cover");
+  return Number(year);
+}
 
 function cell(row: readonly string[], index: number): string {
   return (row[index] ?? "").trim();
@@ -84,19 +124,13 @@ function urlOrNull(value: string): string | null {
   return webUrls(value)[0] ?? null;
 }
 
-function emailOrNull(value: string): string | null {
-  if (!value) return null;
-  const first = value.split(/[;,\s]+/)[0] ?? "";
-  return z.email().safeParse(first).success ? first : null;
-}
-
-function regimes(row: readonly string[]): RegulatoryRegime[] {
+function regimes(row: readonly string[], col: Columns): RegulatoryRegime[] {
   const out: RegulatoryRegime[] = [];
-  if (yesNo(cell(row, COL.fcra))) out.push("fcra");
-  if (yesNo(cell(row, COL.glba))) out.push("glba");
-  if (yesNo(cell(row, COL.iippa))) out.push("iippa");
-  if (yesNo(cell(row, COL.cmia))) out.push("cmia");
-  if (yesNo(cell(row, COL.hipaa))) out.push("hipaa");
+  if (yesNo(cell(row, col.fcra))) out.push("fcra");
+  if (yesNo(cell(row, col.glba))) out.push("glba");
+  if (yesNo(cell(row, col.iippa))) out.push("iippa");
+  if (yesNo(cell(row, col.cmia))) out.push("cmia");
+  if (yesNo(cell(row, col.hipaa))) out.push("hipaa");
   return out;
 }
 
@@ -114,20 +148,28 @@ export function parseCaRegistry(csvText: string): Broker[] {
     relax_column_count: true,
     skip_empty_lines: true,
   }) as string[][];
+  const header = rows[0];
+  if (!header) throw new Error("The California registry is empty");
+  const col = locateColumns(header);
+  const year = metricsYear(header, col.deleteMedianDays);
   const brokers: Broker[] = [];
   const seenIds = new Set<string>();
-  for (const row of rows.slice(HEADER_ROWS)) {
-    const name = cell(row, COL.name);
+  for (const row of rows.slice(1)) {
+    const name = cell(row, col.name);
     if (!name) continue;
-    const websites = webUrls(cell(row, COL.website));
+    const websites = webUrls(cell(row, col.website));
     const website = websites[0] ?? null;
-    const privacyRightsUrl = urlOrNull(cell(row, COL.privacyRightsUrl));
-    const privacyEmail = emailOrNull(cell(row, COL.email));
+    const privacyRightsUrl = urlOrNull(cell(row, col.privacyRightsUrl));
+    const emailCell = cell(row, col.email);
     const domain =
       (website && normalizeDomain(website)) ??
       (privacyRightsUrl && normalizeDomain(privacyRightsUrl)) ??
-      (privacyEmail ? normalizeDomain(privacyEmail.split("@")[1] ?? "") : null);
+      normalizeDomain(emailCell.split(/[;,\s]+/)[0]?.split("@")[1] ?? "");
     if (!domain) continue;
+    const privacyEmail = usablePrivacyEmail(emailCell, [
+      domain,
+      ...[...websites, privacyRightsUrl].map((url) => (url ? normalizeDomain(url) : null)),
+    ]);
     let id = slugify(name);
     if (!id) id = slugify(domain);
     if (seenIds.has(id)) id = `${id}-${slugify(domain)}`;
@@ -147,23 +189,23 @@ export function parseCaRegistry(csvText: string): Broker[] {
       requiresId: false,
       requirements: [],
       priority: "normal",
-      regulatedBy: regimes(row),
-      collectsMinors: yesNo(cell(row, COL.collectsMinors)),
-      collectsGeolocation: yesNo(cell(row, COL.collectsGeolocation)),
-      collectsReproductiveHealth: yesNo(cell(row, COL.collectsReproductiveHealth)),
+      regulatedBy: regimes(row, col),
+      collectsMinors: yesNo(cell(row, col.collectsMinors)),
+      collectsGeolocation: yesNo(cell(row, col.collectsGeolocation)),
+      collectsReproductiveHealth: yesNo(cell(row, col.collectsReproductiveHealth)),
       metrics: {
-        year: METRICS_YEAR,
-        deleteReceived: intOrNull(cell(row, COL.deleteReceived)),
-        deleteCompliedWhole: intOrNull(cell(row, COL.deleteCompliedWhole)),
-        deleteDenied: intOrNull(cell(row, COL.deleteDenied)),
-        deleteMedianDays: numberOrNull(cell(row, COL.deleteMedianDays)),
-        optOutReceived: intOrNull(cell(row, COL.optOutReceived)),
-        optOutCompliedWhole: intOrNull(cell(row, COL.optOutCompliedWhole)),
-        optOutDenied: intOrNull(cell(row, COL.optOutDenied)),
-        optOutMedianDays: numberOrNull(cell(row, COL.optOutMedianDays)),
+        year,
+        deleteReceived: intOrNull(cell(row, col.deleteReceived)),
+        deleteCompliedWhole: intOrNull(cell(row, col.deleteCompliedWhole)),
+        deleteDenied: intOrNull(cell(row, col.deleteDenied)),
+        deleteMedianDays: numberOrNull(cell(row, col.deleteMedianDays)),
+        optOutReceived: intOrNull(cell(row, col.optOutReceived)),
+        optOutCompliedWhole: intOrNull(cell(row, col.optOutCompliedWhole)),
+        optOutDenied: intOrNull(cell(row, col.optOutDenied)),
+        optOutMedianDays: numberOrNull(cell(row, col.optOutMedianDays)),
       },
-      notes: noteFor(cell(row, COL.dba), websites.slice(1)),
-      sources: [{ source: "ca-registry-2025", license: "public-record", upstreamId: name }],
+      notes: noteFor(cell(row, col.dba), websites.slice(1)),
+      sources: [{ source: "ca-registry-2026", license: "public-record", upstreamId: name }],
     });
   }
   return brokers;

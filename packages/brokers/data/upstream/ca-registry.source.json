@@ -1,0 +1,15 @@
+{
+  "name": "California Data Broker Registry 2026",
+  "publisher": "California Privacy Protection Agency",
+  "pageUrl": "https://cppa.ca.gov/data_broker_registry/",
+  "url": "https://cppa.ca.gov/data_broker_registry/registry.csv",
+  "retrievedAt": "2026-10-07",
+  "lastModified": "2026-07-29T21:19:47Z",
+  "license": "public-record",
+  "files": {
+    "ca-registry-2026.csv": {
+      "path": "registry.csv",
+      "sha256": "067eb5a3ff1f6e34fba5be93ec047847bc992d6043f542e593850ca98928b303"
+    }
+  }
+}

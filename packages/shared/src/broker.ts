@@ -18,8 +18,9 @@ export type ContactMethod = z.infer<typeof ContactMethod>;
 
 export const DataSourceId = z.enum([
   "eraser",
-  "ca-registry-2025",
+  "ca-registry-2026",
   "badbool",
+  "optery",
   "kickrocks",
   "kickrocks-companies",
 ]);
@@ -112,7 +113,7 @@ export const BROKER_DATASET_LICENSE = "CC-BY-NC-SA-4.0";
 
 /** Credit that has to travel with the generated file wherever it goes. */
 export const BROKER_DATASET_ATTRIBUTION =
-  "Contains data from the Big Ass Data Broker Opt-Out List by Yael Grauer (CC BY-NC-SA 4.0), the Eraser broker list (MIT), and the California Data Broker Registry (public record).";
+  "Contains data from the Big Ass Data Broker Opt-Out List by Yael Grauer (CC BY-NC-SA 4.0), the Optery Data Brokers Directory (CC BY-NC-SA 4.0), the Eraser broker list (MIT), and the California Data Broker Registry (public record).";
 
 export const BrokerDataset = z.object({
   generatedAt: z.iso.datetime(),

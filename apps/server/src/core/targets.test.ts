@@ -393,7 +393,7 @@ describe("lookups", () => {
         makeBroker({
           id: "ca-listed",
           category: "people-search",
-          sources: [{ source: "ca-registry-2025", license: "public-record" }],
+          sources: [{ source: "ca-registry-2026", license: "public-record" }],
         }),
         makeBroker({ id: "unlisted", category: "registered-broker" }),
       ]),
