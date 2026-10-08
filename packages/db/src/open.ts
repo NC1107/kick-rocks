@@ -4,11 +4,14 @@ import {
   copyFileSync,
   existsSync,
   mkdirSync,
+  readdirSync,
   readFileSync,
+  renameSync,
+  rmSync,
   statSync,
   writeFileSync,
 } from "node:fs";
-import { dirname, resolve } from "node:path";
+import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import Database from "better-sqlite3";
 import { drizzle } from "drizzle-orm/better-sqlite3";
@@ -118,8 +121,49 @@ function guardMigrations(sqlite: Database.Database, options: OpenDatabaseOptions
   }
   const pending = entries.find((entry) => entry.when > applied);
   if (!pending) return;
-  sqlite.pragma("wal_checkpoint(TRUNCATE)");
-  copyFileSync(options.dbPath, `${options.dbPath}.before-${pending.tag}`);
+  writeRollbackCopy(sqlite, options.dbPath, pending.tag);
+}
+
+function preMigrationCopies(dbPath: string): string[] {
+  const prefix = `${basename(dbPath)}.before-`;
+  return readdirSync(dirname(dbPath))
+    .filter((file) => file.startsWith(prefix))
+    .map((file) => join(dirname(dbPath), file));
+}
+
+/**
+ * A rollback copy holds everything the database held, so it must not outlive a deletion: erasing
+ * data has to take these with it, or the bytes a VACUUM removed stay readable in the copy.
+ */
+export function removePreMigrationCopies(dbPath: string): void {
+  for (const copy of preMigrationCopies(dbPath)) rmSync(copy, { force: true });
+}
+
+/**
+ * The copy is written under a temporary name and renamed, so a copy cut short by a full disk never
+ * carries the name of a good one. Only the newest copy is kept, since each is a full database.
+ */
+function writeRollbackCopy(sqlite: Database.Database, dbPath: string, tag: string): void {
+  const [checkpoint] = sqlite.pragma("wal_checkpoint(TRUNCATE)") as { busy: number }[];
+  if (checkpoint?.busy) {
+    sqlite.close();
+    throw new Error(
+      `${dbPath} is in use by another process, so a copy to roll back to cannot be made before migrating`,
+    );
+  }
+  const final = `${dbPath}.before-${tag}`;
+  const partial = `${final}.partial`;
+  try {
+    copyFileSync(dbPath, partial);
+    renameSync(partial, final);
+  } catch (error) {
+    rmSync(partial, { force: true });
+    sqlite.close();
+    throw error;
+  }
+  for (const older of preMigrationCopies(dbPath)) {
+    if (older !== final) rmSync(older, { force: true });
+  }
 }
 
 export function openDatabase(options: OpenDatabaseOptions): OpenedDatabase {

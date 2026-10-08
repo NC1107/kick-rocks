@@ -181,6 +181,23 @@ function freshDataDir(scratch, name) {
   return dir;
 }
 
+// The copy is a database in its own right, so it is opened and read back rather than trusted by name.
+function copyEqualsSnapshot(dataDir, file, before) {
+  const Database = require("better-sqlite3");
+  const sqlite = new Database(join(dataDir, file), { readonly: true });
+  try {
+    sqlite.pragma("cipher='sqlcipher'");
+    sqlite.pragma("legacy=4");
+    sqlite.pragma(`key="x'${KEY}'"`);
+    const { mismatched, lostTables } = compare(before, snapshot(sqlite));
+    return mismatched === 0 && lostTables.length === 0;
+  } catch {
+    return false;
+  } finally {
+    sqlite.close();
+  }
+}
+
 async function rung(scratch, from, head) {
   const tag = journal().entries[from - 1].tag;
   const dir = freshDataDir(scratch, `from-${from}`);
@@ -195,6 +212,8 @@ async function rung(scratch, from, head) {
   } catch (error) {
     return { from: tag, to: head, error: String(error?.message ?? error) };
   }
+  const kept = readdirSync(dir).filter((file) => /^kickrocks\.db\.before-/.test(file));
+  const copyMatchesSeed = kept.length === 1 && copyEqualsSnapshot(dir, kept[0], before);
   const after = openRaw(dir);
   after.pragma("foreign_keys = ON");
   const result = {
@@ -204,6 +223,7 @@ async function rung(scratch, from, head) {
     foreignKeyViolations: after.pragma("foreign_key_check").length,
     ...compare(before, snapshot(after)),
     leftoverFiles: readdirSync(dir).filter((file) => !DATA_FILES.test(file)),
+    copyMatchesSeed,
   };
   after.close();
   return result;
@@ -217,11 +237,13 @@ async function newerSchemaRefused(scratch) {
     .prepare("insert into __drizzle_migrations (hash, created_at) values (?, ?)")
     .run("from-the-future", 9_999_999_999_999);
   sqlite.close();
+  const bytes = readFileSync(join(dir, "kickrocks.db"));
   try {
     (await openHead(dir)).close();
     return false;
-  } catch {
-    return true;
+  } catch (error) {
+    const refusedForThatReason = /newer build/.test(String(error?.message ?? error));
+    return refusedForThatReason && readFileSync(join(dir, "kickrocks.db")).equals(bytes);
   }
 }
 
@@ -260,8 +282,9 @@ export async function runLadder() {
       .map((r) => `ladder: ${r.from} to ${r.to}`);
     const newerRefused = await newerSchemaRefused(scratch);
     if (!newerRefused) failing.push("a database from a newer build is opened instead of refused");
-    const copyKept = (rungs[0]?.leftoverFiles?.length ?? 0) > 0;
-    if (!copyKept) failing.push("no copy of the database is kept before pending migrations run");
+    const copyKept = rungs[0]?.copyMatchesSeed === true;
+    if (!copyKept)
+      failing.push("no readable copy of the database is kept before pending migrations run");
     return { head, rungs, newerRefused, copyKeptBeforeMigrate: copyKept, failing };
   } finally {
     rmSync(scratch, { recursive: true, force: true });

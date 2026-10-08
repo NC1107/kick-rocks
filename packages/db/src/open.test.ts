@@ -14,7 +14,7 @@ import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { loadOrCreateKey, openDatabase } from "./open.js";
+import { loadOrCreateKey, openDatabase, removePreMigrationCopies } from "./open.js";
 import { profiles } from "./schema.js";
 
 let dir: string;
@@ -167,6 +167,26 @@ describe("openDatabase across builds", () => {
     });
     expect(old.db.select().from(profiles).all()).toHaveLength(1);
     old.close();
+  });
+
+  it("keeps only the newest copy, and no partial file", () => {
+    openDatabase({ ...paths(), migrationsFolder: foldersCutAt(1) }).close();
+    openDatabase({ ...paths(), migrationsFolder: foldersCutAt(2) }).close();
+    expect(copies()).toHaveLength(1);
+    openDatabase(paths()).close();
+    const left = copies();
+    expect(left).toHaveLength(1);
+    expect(left[0]).toMatch(/^kickrocks\.db\.before-0002_/);
+    expect(left.some((file) => file.endsWith(".partial"))).toBe(false);
+  });
+
+  it("removes every copy on request", () => {
+    openDatabase({ ...paths(), migrationsFolder: foldersCutAt(2) }).close();
+    openDatabase(paths()).close();
+    expect(copies()).toHaveLength(1);
+    removePreMigrationCopies(paths().dbPath);
+    expect(copies()).toEqual([]);
+    expect(existsSync(paths().dbPath)).toBe(true);
   });
 
   it("makes no copy when nothing is pending", () => {
