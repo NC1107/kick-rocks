@@ -33,6 +33,7 @@ export interface Scan {
 
 const MIN_VALUE_LENGTH = 2;
 const MIN_PREFIX_LENGTH = 6;
+const MIN_REVERSED_LENGTH = 6;
 const STRICT_BELOW = 5;
 const HASHES = ["md5", "sha1", "sha256"] as const;
 
@@ -152,6 +153,7 @@ export class ValueDetector {
       if (!this.whole.has(fold(value))) this.whole.set(fold(value), field);
     }
     this.addPrefixes();
+    this.addReversed(entries);
     for (const join of nameJoins(fields.first_name?.trim(), fields.last_name?.trim())) {
       this.add("full_name", join);
     }
@@ -198,6 +200,21 @@ export class ValueDetector {
         if (lookups.has(prefix) || this.isLookupSubstring(prefix)) continue;
         this.add(needle.field, prefix);
         break;
+      }
+    }
+  }
+
+  /**
+   * A contact value written backwards, which a page can undo on its own server and no packing
+   * detector undoes for it. Names and places are left out, since their reversals are not
+   * distinctive enough to be worth a held request.
+   */
+  private addReversed(entries: readonly [CarriedField, string][]): void {
+    for (const [field, value] of entries) {
+      if (classOf(field) !== "contact") continue;
+      for (const spelling of spellingsOf(field, value)) {
+        const reversed = [...fold(spelling)].reverse().join("");
+        if (reversed.length >= MIN_REVERSED_LENGTH) this.add(field, reversed);
       }
     }
   }

@@ -749,6 +749,143 @@ describeBrowser("the outgoing gate end to end with the real server", () => {
     });
   });
 
+  describe("one page, one way out for the email", () => {
+    const heldPaths = (taskId: string) =>
+      rowsOf(taskId)
+        .filter((row) => row.kind === "held")
+        .map((row) => ("path" in row.request ? row.request.path : ""));
+
+    /** Nothing the vector page asked of the site reached it, whatever it carried. */
+    async function expectNothingArrived(): Promise<void> {
+      const { hits, submissions } = await fixtureState();
+      expect(hits.filter((hit) => hit.path.startsWith("/gate-v-"))).toEqual([]);
+      expect(submissions).toEqual([]);
+    }
+
+    async function stopsForApproval(vector: string, steps: Step[]) {
+      const taskId = await startServer(`/gate-vectors#${vector}`);
+      const done = await workOnce(taskId, [open(`/gate-vectors#${vector}`), ...steps]);
+      await expectNothingArrived();
+      return { taskId, done };
+    }
+
+    it.each([
+      ["css", "a background image set from script", "/gate-v-css"],
+      ["font", "a web font loaded from script", "/gate-v-font"],
+      ["eventsource", "an event stream", "/gate-v-sse"],
+      ["refresh", "a meta refresh to an address with the value", "/gate-v-refresh"],
+      ["pushstate", "a pushState followed by a reload", "/gate-v-push"],
+      ["srcdoc", "a srcdoc frame that posts", "/gate-v-srcdoc"],
+      ["timer", "a fetch five seconds after typing", "/gate-v-timer"],
+    ])("stops for approval at %s: %s", async (vector, _, path) => {
+      const { taskId, done } = await stopsForApproval(vector, [
+        typeEmail,
+        wait(vector === "timer" ? 7 : 2),
+        snap,
+        giveBack,
+      ]);
+      expect(done).toMatchObject({ status: "blocked", blockedReason: "approval_needed" });
+      expect(heldPaths(taskId)).toContain(path);
+      expect(JSON.stringify(rowsOf(taskId).map((row) => row.request))).not.toContain(
+        "jordan@example.com",
+      );
+    });
+
+    it("opens no new tab for a form aimed at one, so the post is never made and nothing is asked", async () => {
+      const taskId = await startServer("/gate-vectors#blank");
+      const done = await workOnce(taskId, [
+        open("/gate-vectors#blank"),
+        typeEmail,
+        wait(2),
+        giveBack,
+      ]);
+      await expectNothingArrived();
+      expect(done.status).toBe("queued");
+      expect(rowsOf(taskId).filter((row) => row.kind === "held")).toEqual([]);
+    });
+
+    it("stops a beacon sent on pagehide, which only goes out as the run ends", async () => {
+      const taskId = await startServer("/gate-vectors#pagehide");
+      await workOnce(taskId, [open("/gate-vectors#pagehide"), typeEmail, giveBack]);
+      await new Promise((resolve) => setTimeout(resolve, 1_500));
+      await expectNothingArrived();
+      const rows = rowsOf(taskId).filter(
+        (row) => "path" in row.request && row.request.path === "/gate-v-pagehide",
+      );
+      expect(rows.length).toBeGreaterThan(0);
+      expect(rows.every((row) => row.kind === "held" || row.kind === "refused")).toBe(true);
+    });
+
+    it.each([
+      { vector: "trimmed", how: "with spaces around it" },
+      { vector: "lowercased", how: "in capitals" },
+      { vector: "split", how: "split at the @ into two fields" },
+      { vector: "base64", how: "as base64" },
+      { vector: "reversed", how: "written backwards" },
+      { vector: "sha256", how: "as a sha256 hash" },
+    ])("stops for approval when the value is sent $how", async ({ vector }) => {
+      const { taskId, done } = await stopsForApproval(vector, [typeEmail, wait(2), snap, giveBack]);
+      expect(done).toMatchObject({ status: "blocked", blockedReason: "approval_needed" });
+      expect(heldPaths(taskId)).toContain(`/gate-v-${vector}`);
+    });
+  });
+
+  describe("a form with two steps that is approved one step at a time", () => {
+    it("never sends step 2 on the approval of step 1", async () => {
+      const taskId = await startServer("/gate-step1");
+      const answered = answerHolds(taskId, ["send", "dont_send"]);
+      const done = await workOnce(
+        taskId,
+        [
+          open("/gate-step1"),
+          typeEmail,
+          snap,
+          clickLabel("Continue"),
+          snap,
+          clickLabel("Confirm removal"),
+          giveBack,
+        ],
+        { holdMs: ANSWER_MS },
+      );
+      await answered;
+      expect(done.status).not.toBe("done");
+      expect((await fixtureState()).submissions.map((s) => s.path)).toEqual(["/gate-step1-post"]);
+      expect(releasedOf(taskId)).toHaveLength(1);
+    });
+  });
+
+  describe("a page that changes a field as the form goes out", () => {
+    const steps = (): Step[] => [
+      open("/gate-mutate"),
+      typeEmail,
+      snap,
+      clickLabel("Submit request"),
+    ];
+
+    it("sends what the person was shown when they approve it in the run", async () => {
+      const taskId = await startServer("/gate-mutate");
+      const answered = answerHolds(taskId, ["send"]);
+      await workOnce(taskId, [...steps(), report], { holdMs: ANSWER_MS });
+      await answered;
+      const { submissions } = await fixtureState();
+      expect(submissions).toHaveLength(1);
+      const held = rowsOf(taskId).find((row) => row.kind === "held");
+      const shown = held && "body" in held.request ? held.request.body : [];
+      expect(shown.some((entry) => entry.path === "note")).toBe(true);
+      expect(submissions[0]?.fields.note).toMatch(/^at-\d+$/);
+    });
+
+    it("holds the replay again when the page changed the field in a way the approval did not cover", async () => {
+      const taskId = await startServer("/gate-mutate");
+      await workOnce(taskId, steps());
+      expect((await approveNext(taskId)).ok).toBe(true);
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      const after = await workOnce(taskId, [...steps(), giveBack]);
+      expect(after).toMatchObject({ status: "blocked", blockedReason: "approval_needed" });
+      expect((await fixtureState()).submissions).toEqual([]);
+    });
+  });
+
   describe("the screenshot of a held send", () => {
     function pngHeight(data: Buffer): number {
       return data.readUInt32BE(20);

@@ -29,6 +29,8 @@ describe("ValueDetector", () => {
   describe("a contact value in the spellings a page may use", () => {
     it.each([
       ["as typed", email],
+      ["written backwards", [...email].reverse().join("")],
+      ["written backwards and percent encoded", encodeURIComponent([...email].reverse().join(""))],
       ["in another case", email.toUpperCase()],
       ["percent encoded", encodeURIComponent(email)],
       ["double percent encoded", encodeURIComponent(encodeURIComponent(email))],

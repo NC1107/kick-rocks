@@ -335,7 +335,7 @@ What the gate does not hold, so you know what you are trusting:
   It is listed under "What left the browser" as a lookup.
   Searches have to work for a removal to find the record, so this is on purpose.
   Before the run first types, even a POST that carries only such values goes out as a lookup.
-- A page can scramble what the run typed with its own code (reversed, ROT13, a salted hash, or a character or two per keystroke) and put it in the address of a GET, an image or a stylesheet.
+- A page can scramble what the run typed with its own code (ROT13, a salted hash, or a character or two per keystroke) and put it in the address of a GET, an image or a stylesheet.
   The gate reads many encodings and the common hashes, but it cannot undo every transform a page invents, and a GET with no body and no value it recognizes is not held.
   The gate reads values in query keys, header names, the whole query string and the host name as well as in values, so a recognized value in any of them is held.
   Per-keystroke requests can give away about the first five characters of an email before the gate recognizes it.

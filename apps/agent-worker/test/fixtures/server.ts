@@ -152,6 +152,8 @@ const PAGES: Record<string, string> = {
   "/gate-blank-form": "gate-blank-form.html",
   "/gate-see-other": "gate-see-other.html",
   "/gate-push-state": "gate-push-state.html",
+  "/gate-vectors": "gate-vectors.html",
+  "/gate-mutate": "gate-mutate.html",
 };
 
 /** Scripts the gate pages load, served with a script type. */

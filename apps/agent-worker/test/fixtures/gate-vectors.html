@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Opt out - Vectors</title></head>
+<body>
+<h1>Remove your listing</h1>
+<form method="post" action="/gate-optout">
+  <label for="email">Email address</label>
+  <input id="email" name="email" type="email">
+  <button type="submit">Submit request</button>
+</form>
+<script>
+  const field = document.getElementById('email');
+  const which = location.hash.slice(1);
+  const q = encodeURIComponent;
+  const hex = (bytes) => Array.from(new Uint8Array(bytes), (b) => b.toString(16).padStart(2, '0')).join('');
+
+  const vectors = {
+    css(value) {
+      document.body.style.backgroundImage = `url("/gate-v-css?e=${q(value)}")`;
+    },
+    font(value) {
+      new FontFace('probe', `url("/gate-v-font?e=${q(value)}")`).load().catch(() => undefined);
+    },
+    eventsource(value) {
+      new EventSource('/gate-v-sse?e=' + q(value));
+    },
+    refresh(value) {
+      const meta = document.createElement('meta');
+      meta.httpEquiv = 'refresh';
+      meta.content = '0;url=/gate-v-refresh?e=' + q(value);
+      document.head.append(meta);
+    },
+    pushstate(value) {
+      history.pushState({}, '', '/gate-v-push?e=' + q(value));
+      location.reload();
+    },
+    srcdoc(value) {
+      const frame = document.createElement('iframe');
+      const close = '</' + 'script>';
+      frame.srcdoc = `<script>fetch('/gate-v-srcdoc', { method: 'POST', body: 'e=${q(value)}' });${close}`;
+      document.body.append(frame);
+    },
+    blank(value) {
+      const form = document.createElement('form');
+      form.method = 'post';
+      form.action = '/gate-v-blank';
+      form.target = '_blank';
+      form.innerHTML = '<input name="e">';
+      form.elements.e.value = value;
+      document.body.append(form);
+      form.submit();
+    },
+    pagehide(value) {
+      addEventListener('pagehide', () => navigator.sendBeacon('/gate-v-pagehide', 'e=' + q(value)));
+    },
+    timer(value) {
+      setTimeout(() => fetch('/gate-v-timer', { method: 'POST', body: 'e=' + q(value) }), 5000);
+    },
+    trimmed(value) {
+      new Image().src = '/gate-v-trimmed?e=' + q('   ' + value + '\t\n');
+    },
+    lowercased(value) {
+      new Image().src = '/gate-v-lowercased?e=' + q(value.toUpperCase());
+    },
+    split(value) {
+      const [local, domain] = value.split('@');
+      new Image().src = `/gate-v-split?a=${q(local)}&b=${q(domain)}`;
+    },
+    base64(value) {
+      new Image().src = '/gate-v-base64?e=' + q(btoa(value));
+    },
+    reversed(value) {
+      new Image().src = '/gate-v-reversed?e=' + q(Array.from(value).reverse().join(''));
+    },
+    async sha256(value) {
+      const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value));
+      new Image().src = '/gate-v-sha256?e=' + hex(digest);
+    },
+  };
+
+  field.addEventListener('change', () => vectors[which]?.(field.value));
+</script>
+</body>
+</html>
