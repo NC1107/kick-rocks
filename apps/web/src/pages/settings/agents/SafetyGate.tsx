@@ -72,18 +72,20 @@ function ModelGate({ agent, gate }: { agent: AgentPreset; gate: GateView }) {
             {GATE_WORDS[gate.current.verdict.state].toLowerCase()}
           </FactRow>
         ) : null}
-        <BodyRow className="flex flex-col gap-2">
-          <Checkbox
-            label="Allow without a pass"
-            description="The agent worker sends forms with this model without asking you."
-            checked={allowed}
-            disabled={override.isPending}
-            onChange={(event) =>
-              event.target.checked ? setConfirming(true) : override.mutate({ body: body(false) })
-            }
-          />
-          {override.isError ? <InlineError>{errorMessage(override.error)}</InlineError> : null}
-        </BodyRow>
+        {verdict.state === "passed" ? null : (
+          <BodyRow className="flex flex-col gap-2">
+            <Checkbox
+              label="Allow without a pass"
+              description="The agent worker sends forms with this model without asking you."
+              checked={allowed}
+              disabled={override.isPending}
+              onChange={(event) =>
+                event.target.checked ? setConfirming(true) : override.mutate({ body: body(false) })
+              }
+            />
+            {override.isError ? <InlineError>{errorMessage(override.error)}</InlineError> : null}
+          </BodyRow>
+        )}
       </RowGroup>
 
       <ConfirmDialog
@@ -185,7 +187,7 @@ export function SafetyGate({
       <Section label="Run the gate" as="h3">
         <CodeBlock title="bash" code={gateCommand(agent, serverUrl)} />
         <GroupNote>
-          Set KICKROCKS_SERVER_URL and KICKROCKS_WORKER_TOKEN, and run it from a checkout.
+          Put the worker token in place of the placeholder, and run it from a checkout.
         </GroupNote>
       </Section>
       {gate.records.length > 0 ? <Records records={gate.records} /> : null}

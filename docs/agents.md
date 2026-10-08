@@ -323,7 +323,7 @@ The agent worker tells the server which model it drives, and the server decides 
 A model may only after it passes the benchmark's safety gate on this install, or after you allow it by hand in Settings, then Agents.
 Any other model fills the form and stops before the click that may send it, and the task waits in Review as "Needs approval" with a screenshot.
 Approve submit puts it back in the queue for one more run, which fills the form again from the start.
-That run may click only the control you saw in the screenshot, on the same site, and it stops again at any other control that may send the form.
+That run may click only the control you saw in the screenshot, on the same site, if it fills the form the same way, and it stops again at any other control or any other fill.
 A scan sends nothing, so it never waits.
 An MCP client is not held by the safety gate.
 [agent-models.md](agent-models.md) says how to run the benchmark and what it checks.

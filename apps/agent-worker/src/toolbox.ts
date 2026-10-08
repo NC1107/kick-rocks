@@ -35,10 +35,13 @@ import {
 } from "./stand-ins.js";
 import {
   type ApprovedControl,
+  CONTROL_KEY,
   CONTROL_LABEL,
+  FilledForm,
   isApprovedControl,
   mayBeTheSubmit,
   SubmitNeedsApproval,
+  shownControl,
 } from "./submit-approval.js";
 import {
   CheckArgs,
@@ -70,9 +73,15 @@ interface ToolboxOptions {
    */
   startUrls?: readonly string[];
   signal: AbortSignal;
-  /** Awaited just before every click, which may be the one that submits a form. */
+  /**
+   * Awaited just before an action that may submit a form. While an approval is pending only the
+   * approved click is one, since every other action is held back from sending.
+   */
   onClick?: () => Promise<void>;
-  /** The click that may send the form stops the run until a person approves it. */
+  /**
+   * Nothing the run does may send the form until a person approves the click that sends it. An
+   * approval that names no control leaves every send control held.
+   */
   submitNeedsApproval?: boolean;
   /** With an approval, the one send control the run may click without stopping again. */
   approvedSubmit?: ApprovedControl;
@@ -168,6 +177,16 @@ const CHOICE_DETAILS = `(el) => {
   return { choice: true, hint: hint.filter(Boolean).join(" ").replace(/[_-]+/g, " "), required, text: textOf(el), options };
 }`;
 
+interface ControlFacts {
+  key: string;
+  ticked: boolean;
+  text: string;
+}
+
+type ChoiceDetails =
+  | { choice: false }
+  | { choice: true; hint: string; required: boolean; text: string; options: DropdownOption[] };
+
 const NON_TEXT_INPUTS = new Set([
   "checkbox",
   "radio",
@@ -218,9 +237,12 @@ export class Toolbox {
   private clickCount = 0;
   /** Details typed, chosen or ticked so far, which turn a later button into a likely submit. */
   private detailsEntered = 0;
-  /** Set while a choice or a tick is made, when a request that sends something is refused. */
+  /** Set while an action runs that must not send, when a request that sends something is refused. */
   private watchingForSend = false;
   private sendAttempted = false;
+  /** A form was submitted and its document request has not been seen yet. */
+  private formNavigationPending = false;
+  private readonly filled = new FilledForm();
   private approvalSpent = false;
   private installed = false;
   private cdp: CDPSession | null = null;
@@ -336,6 +358,14 @@ export class Toolbox {
   private async guardSession(session: CdpChannel, mainFrameId: string): Promise<void> {
     await session.send("Network.enable");
     await session.send("Network.setBypassServiceWorker", { bypass: true });
+    if (this.options.submitNeedsApproval) {
+      await session.send("Page.enable");
+      session.on("Page.frameRequestedNavigation", (event: { reason: string }) => {
+        if (!this.watchingForSend || !event.reason.startsWith("formSubmission")) return;
+        this.sendAttempted = true;
+        this.formNavigationPending = true;
+      });
+    }
     session.on("Fetch.requestPaused", (event: PausedRequest) => {
       if (this.watchingForSend && this.sendsSomething(event)) {
         this.sendAttempted = true;
@@ -385,23 +415,31 @@ export class Toolbox {
           ? [
               { urlPattern: "*", resourceType: "XHR", requestStage: "Request" },
               { urlPattern: "*", resourceType: "Fetch", requestStage: "Request" },
+              { urlPattern: "*", resourceType: "Ping", requestStage: "Request" },
             ]
           : []),
       ],
     });
   }
 
-  /** A navigation, or a script's request that carries data, which nothing but a send would start. */
+  /**
+   * A request that carries data, or the document a form was submitted for. A page reached by a
+   * link or a script is not a send, since reading a page is how a site is used.
+   */
   private sendsSomething(event: PausedRequest): boolean {
-    if (event.resourceType === "Document") return event.responseStatusCode === undefined;
     const method = (event.request.method ?? "GET").toUpperCase();
-    return method !== "GET" && method !== "HEAD";
+    if (method !== "GET" && method !== "HEAD") return true;
+    if (event.resourceType !== "Document" || event.responseStatusCode !== undefined) return false;
+    const fromForm = this.formNavigationPending;
+    this.formNavigationPending = false;
+    return fromForm;
   }
 
   /**
-   * Runs a choice or a tick that a page may answer by sending the form. While an approval is
-   * pending nothing may go out, so a request or navigation it starts is cancelled and the run
-   * stops for a person, the same as at a button.
+   * Runs an action that a page may answer by sending the form: typing and moving on, a choice, a
+   * tick, or a click that is not the approved one. While an approval is pending nothing may go
+   * out, so a request or form submission it starts is cancelled, including one that a change or
+   * blur event starts after the action itself, and the run stops for a person.
    */
   private async withoutSending(action: () => Promise<void>): Promise<void> {
     if (!this.options.submitNeedsApproval) {
@@ -409,6 +447,7 @@ export class Toolbox {
       return;
     }
     this.sendAttempted = false;
+    this.formNavigationPending = false;
     this.watchingForSend = true;
     try {
       await action();
@@ -417,8 +456,31 @@ export class Toolbox {
       this.watchingForSend = false;
     }
     if (this.sendAttempted) {
-      throw new SubmitNeedsApproval("", this.options.page.url(), "change");
+      throw new SubmitNeedsApproval(
+        "",
+        this.options.page.url(),
+        "change",
+        this.filled.fingerprint(),
+      );
     }
+  }
+
+  /**
+   * Reads what a control is called before the action on it, because the action may leave the page.
+   * Only a run held for approval keeps a fingerprint of the form, so any other reads nothing.
+   */
+  private async controlOf(locator: Locator): Promise<ControlFacts | null> {
+    if (!this.options.submitNeedsApproval) return null;
+    return locator
+      .evaluate(fromSource<(el: unknown) => ControlFacts>(CONTROL_KEY), undefined, {
+        timeout: this.actionTimeoutMs,
+      })
+      .catch(() => null);
+  }
+
+  /** Notes what the run put into a control, which the approval of a later submit is tied to. */
+  private recordFilled(control: ControlFacts | null, token: (facts: ControlFacts) => string): void {
+    if (control !== null) this.filled.record(control.key, token(control));
   }
 
   /** Trusts where a start page sends the visitor, once, and only that page. */
@@ -723,21 +785,22 @@ export class Toolbox {
    * Runs before anything that can send the form: a click, and also a choice or a tick, because a
    * page may submit on change. It is counted before the action is made: one that times out may
    * still have been delivered, and a form that was already submitted must never be submitted
-   * again by a retry.
+   * again by a retry. `mayBeSent` is false for an action that is held back from sending, because
+   * the server must not be told a form may be out when nothing could have sent it.
    */
-  private async beforeSending(): Promise<ToolOutcome | null> {
-    const stopped = await this.gate();
+  private async beforeSending(mayBeSent: boolean): Promise<ToolOutcome | null> {
+    const stopped = await this.gate(mayBeSent);
     if (stopped === null) this.clickCount += 1;
     return stopped;
   }
 
   /**
    * Typing is not a click, but a page may submit on a field's change event, which fires when focus
-   * moves on. It is recorded like a send without being counted as one, because typing alone must
-   * not let a run report a submission.
+   * moves on. Where nothing is held back from sending it is recorded like a send without being
+   * counted as one, because typing alone must not let a run report a submission.
    */
   private async beforeEditing(): Promise<ToolOutcome | null> {
-    return this.gate();
+    return this.gate(!this.options.submitNeedsApproval);
   }
 
   /**
@@ -745,10 +808,10 @@ export class Toolbox {
    * page is looked at before the server hears of the action, and again after, because that round
    * trip is long enough for a widget to appear in.
    */
-  private async gate(): Promise<ToolOutcome | null> {
+  private async gate(mayBeSent: boolean): Promise<ToolOutcome | null> {
     const early = await this.stopForChallenge();
     if (early !== null) return early;
-    await this.options.onClick?.();
+    if (mayBeSent) await this.options.onClick?.();
     if (this.options.signal.aborted) throw new Error("The run was stopped before the action");
     return this.stopForChallenge();
   }
@@ -763,18 +826,18 @@ export class Toolbox {
         "File upload controls cannot be used. If the site needs a document, report blocked with id_upload.",
       );
     }
-    const invented = await this.refuseInventedChoice(parsed.data.ref, target.locator);
+    const choice = await this.choiceDetails(target.locator);
+    const invented = this.refuseInventedChoice(parsed.data.ref, choice);
     if (invented !== null) return invented;
-    await this.requireApprovalToSubmit(target);
-    const stopped = await this.beforeSending();
+    const sending = await this.requireApprovalToSubmit(target);
+    const stopped = await this.beforeSending(sending !== "held");
     if (stopped !== null) return stopped;
+    const control = await this.controlOf(target.locator);
     try {
-      const ticks = target.info.type === "checkbox" || target.info.type === "radio";
-      if (ticks) {
-        await this.withoutSending(() => target.locator.click({ timeout: this.actionTimeoutMs }));
-      } else {
-        await target.locator.click({ timeout: this.actionTimeoutMs });
-      }
+      const click = () => target.locator.click({ timeout: this.actionTimeoutMs });
+      if (sending === "held") await this.withoutSending(click);
+      else await click();
+      this.recordChoice(target.info.type, control, choice);
     } catch (error) {
       if (error instanceof SubmitNeedsApproval) throw error;
       if (this.options.signal.aborted || !/Timeout \d+ms exceeded/.test(describeError(error))) {
@@ -786,24 +849,49 @@ export class Toolbox {
         ),
       );
     }
-    await this.settle();
+    if (sending !== "held") await this.settle();
     return this.readPage(`Clicked ${parsed.data.ref}.`);
   }
 
-  private async requireApprovalToSubmit(target: { locator: Locator; info: ElementInfo }) {
-    if (!this.options.submitNeedsApproval) return;
+  /**
+   * While an approval is pending, the click the person approved is the only one that may send.
+   * Any other click that could is a stop, and one that could not is `held`, which means it runs
+   * where a request that sends something is cancelled.
+   */
+  private async requireApprovalToSubmit(target: {
+    locator: Locator;
+    info: ElementInfo;
+  }): Promise<"free" | "approved" | "held"> {
+    if (!this.options.submitNeedsApproval) return "free";
     const label = await target.locator.evaluate(fromSource<(el: unknown) => string>(CONTROL_LABEL));
-    if (!mayBeTheSubmit({ ...target.info, label }, this.detailsEntered)) return;
+    if (!mayBeTheSubmit({ ...target.info, label }, this.detailsEntered)) return "held";
     const { approvedSubmit, page } = this.options;
-    const approved =
+    const shown = shownControl(label, this.options.mask);
+    const fingerprint = this.filled.fingerprint();
+    if (
       approvedSubmit !== undefined &&
       !this.approvalSpent &&
-      isApprovedControl(approvedSubmit, page.url(), this.options.mask(label));
-    if (approved) {
+      isApprovedControl(approvedSubmit, page.url(), shown, fingerprint)
+    ) {
       this.approvalSpent = true;
-      return;
+      return "approved";
     }
-    throw new SubmitNeedsApproval(label, page.url());
+    throw new SubmitNeedsApproval(shown, page.url(), "click", fingerprint);
+  }
+
+  /** What a click on a tick box, radio button or list option chose, for the fingerprint. */
+  private recordChoice(type: string, control: ControlFacts | null, choice: ChoiceDetails): void {
+    if (type === "radio") this.recordTicked(type, control, true);
+    else if (type === "checkbox") this.recordTicked(type, control, !control?.ticked);
+    else if (choice.choice && control !== null) {
+      this.filled.record(`choice|${choice.hint}`, normalize(choice.text));
+    }
+  }
+
+  private recordTicked(type: string, control: ControlFacts | null, ticked: boolean): void {
+    this.recordFilled(control, (facts) =>
+      type === "radio" ? `chose:${normalize(facts.text)}` : `ticked:${ticked}`,
+    );
   }
 
   private async type(args: unknown): Promise<ToolOutcome> {
@@ -839,17 +927,29 @@ export class Toolbox {
     const stopped = await this.beforeEditing();
     if (stopped !== null) return stopped;
     this.detailsEntered += 1;
+    const control = await this.controlOf(target.locator);
+    await this.withoutSending(async () => {
+      await this.enter(target.locator, value);
+      // Moving on is what fires a field's change event, so it happens here, where it is held.
+      if (this.options.submitNeedsApproval) {
+        await target.locator.blur({ timeout: this.actionTimeoutMs });
+      }
+    });
+    this.recordFilled(control, () => `typed:${field}`);
+    return (await this.stopForChallenge()) ?? done(this.withNotes(`Typed ${field} into ${ref}.`));
+  }
+
+  private async enter(locator: Locator, value: string): Promise<void> {
     const { pace } = this.options;
     if (pace.typeDelayMs[1] > 0) {
-      await target.locator.click({ timeout: this.actionTimeoutMs });
-      await target.locator.fill("", { timeout: this.actionTimeoutMs });
+      await locator.click({ timeout: this.actionTimeoutMs });
+      await locator.fill("", { timeout: this.actionTimeoutMs });
       for (const character of value) {
-        await target.locator.pressSequentially(character, { delay: typeDelay(pace) });
+        await locator.pressSequentially(character, { delay: typeDelay(pace) });
       }
     } else {
-      await target.locator.fill(value, { timeout: this.actionTimeoutMs });
+      await locator.fill(value, { timeout: this.actionTimeoutMs });
     }
-    return (await this.stopForChallenge()) ?? done(this.withNotes(`Typed ${field} into ${ref}.`));
   }
 
   private fieldNames(): string {
@@ -909,13 +1009,17 @@ export class Toolbox {
         `No option of ${ref} matches the ${field} value. Options: ${shown}.${asked === null ? " Choose one with option if it is the right one." : ""}`,
       );
     }
-    const stopped = await this.beforeSending();
+    const stopped = await this.beforeSending(!this.options.submitNeedsApproval);
     if (stopped !== null) return stopped;
     this.detailsEntered += 1;
+    const control = await this.controlOf(target.locator);
     await this.withoutSending(() =>
       target.locator
         .selectOption({ value: match.value }, { timeout: this.actionTimeoutMs })
         .then(() => undefined),
+    );
+    this.recordFilled(control, () =>
+      field === undefined ? `option:${normalize(match.label)}` : `field:${field}`,
     );
     return (
       (await this.stopForChallenge()) ??
@@ -965,20 +1069,11 @@ export class Toolbox {
    * or a date of birth that no field of the task holds. It is allowed only when the option shows
    * the value of a field the task has for that detail.
    */
-  private async refuseInventedChoice(ref: string, locator: Locator): Promise<ToolOutcome | null> {
-    const found = await locator.evaluate(
-      fromSource<
-        (el: unknown) =>
-          | { choice: false }
-          | {
-              choice: true;
-              hint: string;
-              required: boolean;
-              text: string;
-              options: DropdownOption[];
-            }
-      >(CHOICE_DETAILS),
-    );
+  private choiceDetails(locator: Locator): Promise<ChoiceDetails> {
+    return locator.evaluate(fromSource<(el: unknown) => ChoiceDetails>(CHOICE_DETAILS));
+  }
+
+  private refuseInventedChoice(ref: string, found: ChoiceDetails): ToolOutcome | null {
     if (!found.choice) return null;
     const asked = detailAskedFor(found.hint, found.options);
     if (asked === null) return null;
@@ -1005,15 +1100,20 @@ export class Toolbox {
       return failure(`${parsed.data.ref} is not a checkbox or radio button. Use click.`);
     }
     if (target.info.type === "radio") {
-      const invented = await this.refuseInventedChoice(parsed.data.ref, target.locator);
+      const invented = this.refuseInventedChoice(
+        parsed.data.ref,
+        await this.choiceDetails(target.locator),
+      );
       if (invented !== null) return invented;
     }
-    const stopped = await this.beforeSending();
+    const stopped = await this.beforeSending(!this.options.submitNeedsApproval);
     if (stopped !== null) return stopped;
     this.detailsEntered += 1;
+    const control = await this.controlOf(target.locator);
     await this.withoutSending(() =>
       target.locator.setChecked(parsed.data.checked, { timeout: this.actionTimeoutMs }),
     );
+    this.recordTicked(target.info.type, control, parsed.data.checked);
     return (
       (await this.stopForChallenge()) ??
       done(this.withNotes(`${parsed.data.checked ? "Checked" : "Unchecked"} ${parsed.data.ref}.`))

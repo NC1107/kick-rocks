@@ -447,7 +447,7 @@ export function buildClaimedTask(
         payload: task.payload,
         recipe: null,
         fields,
-        ...(claimerKind === "model" ? { maskValues: identityValues(identities) } : {}),
+        ...(claimerKind !== "mcp" ? { maskValues: identityValues(identities) } : {}),
         ...(submitApproval ? { submitApproval } : {}),
         ...(submitApproval === "granted" && task.submitStop
           ? { approvedSubmit: task.submitStop }
@@ -488,7 +488,7 @@ function prepare(
   try {
     const submitApproval =
       claimerKind !== "mcp" && task.kind === "agent"
-        ? settleSubmitApproval(services, task, model)
+        ? settleSubmitApproval(services, task, claimerKind, model)
         : undefined;
     return buildClaimedTask(services, task, claimerKind, submitApproval);
   } catch (error) {

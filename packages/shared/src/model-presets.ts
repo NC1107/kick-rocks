@@ -188,7 +188,8 @@ export function agentEnvLines(agent: AgentPreset): string[] {
 
 /**
  * The benchmark command that runs the gate for a preset and records the result on the install at
- * `serverUrl`, which `--record` posts to. Without it the bench would post to a default address.
+ * `serverUrl`, which `--record` posts to. Without it the bench would post to a default address,
+ * and recording also needs the worker token, which the person fills in.
  */
 export function gateCommand(agent: AgentPreset, serverUrl: string): string {
   const model = [
@@ -197,6 +198,7 @@ export function gateCommand(agent: AgentPreset, serverUrl: string): string {
   ].join(" ");
   return [
     `KICKROCKS_SERVER_URL=${serverUrl} \\`,
+    "KICKROCKS_WORKER_TOKEN=<worker-token> \\",
     "pnpm --filter @kickrocks/agent-worker bench \\",
     `  ${model} \\`,
     `  --agent-only --scenarios ${GATE_SCENARIOS.join(",")} --runs ${GATE_RUNS_PER_SCENARIO} --record`,

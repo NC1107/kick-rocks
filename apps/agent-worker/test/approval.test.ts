@@ -32,7 +32,22 @@ beforeEach(async () => {
   await resetFixture();
 });
 
-async function run(steps: Step[], approval: "required" | "granted" | "not_needed" | undefined) {
+type Approval = "required" | "granted" | "not_needed" | undefined;
+
+/** Counts how often the server would have been told that the form may have been submitted. */
+function submissionFlags() {
+  const flags = { count: 0 };
+  const onMayHaveSubmitted = async () => {
+    flags.count += 1;
+  };
+  return { flags, onMayHaveSubmitted };
+}
+
+async function run(
+  steps: Step[],
+  approval: Approval,
+  onMayHaveSubmitted: () => Promise<void> = async () => undefined,
+) {
   const page = await context.newPage();
   const task = agentTask();
   if (approval === undefined) delete task.submitApproval;
@@ -49,7 +64,7 @@ async function run(steps: Step[], approval: "required" | "granted" | "not_needed
     signal: new AbortController().signal,
     logger: silentLogger,
     challengeGraceMs: 200,
-    onMayHaveSubmitted: async () => undefined,
+    onMayHaveSubmitted,
   });
   await page.close();
   return outcome;
@@ -220,14 +235,91 @@ describeBrowser("a choice that sends the form by itself", () => {
   });
 });
 
-describeBrowser("a run that was approved", () => {
-  const approved = { origin: ORIGIN, control: "Submit request" };
+describeBrowser("a typed field or a link that sends the form by itself", () => {
+  const typeFirstAndLast: Step[] = [
+    navigate("/onchange"),
+    (v) => ({
+      calls: [
+        ["type", { ref: v.ref("First name"), field: "first_name" }],
+        ["type", { ref: v.ref("Last name"), field: "last_name" }],
+      ],
+    }),
+  ];
+  const afterTyping = (click: string): Step[] => [
+    navigate("/save-link"),
+    (v) => ({ calls: [["type", { ref: v.ref("First name"), field: "first_name" }]] }),
+    (v) => ({ calls: [["click", { ref: v.ref(click) }]] }),
+  ];
 
-  async function runApproved(steps: Step[], approvedSubmit: typeof approved) {
+  const cases: [string, Step[]][] = [
+    ["a field whose change event submits", typeFirstAndLast],
+    ["a Save link that submits from a script", afterTyping("Save")],
+    ["a menu item that submits from a script", afterTyping("Yes")],
+    ["a link that submits a search form", afterTyping("Find")],
+  ];
+
+  for (const [name, steps] of cases) {
+    it(`stops for a person at ${name} and sends nothing`, async () => {
+      const sent = submissionFlags();
+      const { report } = await run(steps, "required", sent.onMayHaveSubmitted);
+      expect(report.kind === "block" && report.report.reason).toBe("unknown");
+      expect(sent.flags.count).toBe(0);
+      const state = await fixtureState();
+      expect(state.submissions).toHaveLength(0);
+      expect(state.hits.some((hit) => hit.path === "/search")).toBe(false);
+    });
+  }
+
+  it("sends the same form for a model that is cleared, so the stop is what held it back", async () => {
+    await run(typeFirstAndLast, "not_needed");
+    expect((await fixtureState()).submissions).toHaveLength(1);
+  });
+
+  it("still follows an ordinary link to another page", async () => {
+    let shown = "";
+    await run(
+      [
+        ...afterTyping("Privacy policy"),
+        (v) => {
+          shown = v.snapshot;
+          return { calls: [["report", { status: "release", reason: "enough" }]] };
+        },
+      ],
+      "required",
+    );
+    expect(shown).toContain("Privacy");
+    expect(shown).not.toContain("Save and continue");
+  });
+
+  it("does not tell the server a form may have been submitted for typing, choosing or ticking", async () => {
+    const sent = submissionFlags();
+    const { report } = await run(fillThenSubmit, "required", sent.onMayHaveSubmitted);
+    expect(report.kind === "block" && report.report.reason).toBe("approval_needed");
+    expect(sent.flags.count).toBe(0);
+  });
+});
+
+/** The stop a person would be shown, and the approval they would give to it. */
+async function approvalFor(steps: Step[]) {
+  const { report } = await run(steps, "required");
+  if (report.kind !== "block" || report.report.reason !== "approval_needed") {
+    throw new Error("The run did not stop for an approval");
+  }
+  const { url, control, fingerprint } = report.report;
+  if (!url || control === undefined || !fingerprint) throw new Error("The stop named no control");
+  return { origin: new URL(url).origin, control, fingerprint };
+}
+
+describeBrowser("a run that was approved", () => {
+  async function runApproved(
+    steps: Step[],
+    approvedSubmit: Awaited<ReturnType<typeof approvalFor>> | undefined,
+    onMayHaveSubmitted: () => Promise<void> = async () => undefined,
+  ) {
     const page = await context.newPage();
     const task = agentTask();
     task.submitApproval = "granted";
-    task.approvedSubmit = approvedSubmit;
+    if (approvedSubmit) task.approvedSubmit = approvedSubmit;
     const outcome = await runAgentTask({
       task,
       page,
@@ -240,25 +332,39 @@ describeBrowser("a run that was approved", () => {
       signal: new AbortController().signal,
       logger: silentLogger,
       challengeGraceMs: 200,
-      onMayHaveSubmitted: async () => undefined,
+      onMayHaveSubmitted,
     });
     await page.close();
     return outcome;
   }
 
   it("sends the form through the control the person looked at", async () => {
+    const approved = await approvalFor(fillThenSubmit);
     const { report } = await runApproved(fillThenSubmit, approved);
     expect(report.kind).toBe("complete");
     expect((await fixtureState()).submissions).toHaveLength(1);
   });
 
+  it("is the only run that tells the server the form may have been submitted, once, at the click", async () => {
+    const stopped = submissionFlags();
+    await run(fillThenSubmit, "required", stopped.onMayHaveSubmitted);
+    expect(stopped.flags.count).toBe(0);
+
+    const approved = await approvalFor(fillThenSubmit);
+    const sent = submissionFlags();
+    await runApproved(fillThenSubmit, approved, sent.onMayHaveSubmitted);
+    expect(sent.flags.count).toBe(1);
+  });
+
   it("stops again at a different control", async () => {
+    const approved = await approvalFor(fillThenSubmit);
     const { report } = await runApproved(fillThenSubmit, { ...approved, control: "Remove me" });
     expect(report.kind === "block" && report.report.reason).toBe("approval_needed");
     expect((await fixtureState()).submissions).toHaveLength(0);
   });
 
   it("stops again on another site", async () => {
+    const approved = await approvalFor(fillThenSubmit);
     const { report } = await runApproved(fillThenSubmit, {
       ...approved,
       origin: "https://other.example",
@@ -267,18 +373,75 @@ describeBrowser("a run that was approved", () => {
     expect((await fixtureState()).submissions).toHaveLength(0);
   });
 
+  it("stops again when the run fills the form differently from the one the person saw", async () => {
+    const approved = await approvalFor(fillThenSubmit);
+    const withoutEmail: Step[] = [
+      navigate("/optout"),
+      (v) => ({
+        calls: [
+          ["type", { ref: v.ref("First name"), field: "first_name" }],
+          ["type", { ref: v.ref("Last name"), field: "last_name" }],
+          ["select", { ref: v.ref("State"), field: "state" }],
+        ],
+      }),
+      (v) => ({ calls: [["click", { ref: v.ref("Submit request") }]] }),
+    ];
+    const { report } = await runApproved(withoutEmail, approved);
+    expect(report.kind === "block" && report.report.reason).toBe("approval_needed");
+    expect((await fixtureState()).submissions).toHaveLength(0);
+  });
+
+  it("is held to a send control with no words, which stops with an empty label", async () => {
+    const steps: Step[] = [
+      navigate("/icon-submit"),
+      (v) => ({ calls: [["type", { ref: v.ref("First name"), field: "first_name" }]] }),
+      (v) => ({ calls: [["click", { ref: v.ref("] button") }]] }),
+    ];
+    const approved = await approvalFor(steps);
+    expect(approved.control).toBe("");
+
+    const { report } = await runApproved(steps, approved);
+    expect(report.kind === "block" && report.report.reason).toBe("unknown");
+    expect((await fixtureState()).submissions).toHaveLength(1);
+  });
+
+  it("matches a long label that holds the person's name, which masking makes longer", async () => {
+    const steps: Step[] = [
+      navigate("/long-label"),
+      (v) => ({ calls: [["type", { ref: v.ref("First name"), field: "first_name" }]] }),
+      (v) => ({ calls: [["click", { ref: v.ref("from every list") }]] }),
+    ];
+    const approved = await approvalFor(steps);
+    expect(approved.control.length).toBeLessThanOrEqual(80);
+
+    await runApproved(steps, approved);
+    expect((await fixtureState()).submissions).toHaveLength(1);
+  });
+
   it("names the control it stopped before, for the approval to be tied to", async () => {
     const { report } = await run(fillThenSubmit, "required");
     expect(report.kind === "block" && report.report.control).toBe("Submit request");
   });
+
+  it("keeps every send control held when the approval names none", async () => {
+    const { report } = await runApproved(fillThenSubmit, undefined);
+    expect(report.kind === "block" && report.report.reason).toBe("approval_needed");
+    expect((await fixtureState()).submissions).toHaveLength(0);
+  });
 });
 
-describeBrowser("a model that is cleared or approved", () => {
-  for (const approval of ["not_needed", "granted"] as const) {
-    it(`sends the form without stopping when the approval is ${approval}`, async () => {
-      const { report } = await run(fillThenSubmit, approval);
-      expect(report.kind).toBe("complete");
-      expect((await fixtureState()).submissions).toHaveLength(1);
-    });
-  }
+describeBrowser("a model that is cleared", () => {
+  it("sends the form without stopping, and says so before each action", async () => {
+    const sent = submissionFlags();
+    const { report } = await run(fillThenSubmit, "not_needed", sent.onMayHaveSubmitted);
+    expect(report.kind).toBe("complete");
+    expect((await fixtureState()).submissions).toHaveLength(1);
+    expect(sent.flags.count).toBeGreaterThan(0);
+  });
+
+  it("is held when the approval it was given names no control", async () => {
+    const { report } = await run(fillThenSubmit, "granted");
+    expect(report.kind === "block" && report.report.reason).toBe("approval_needed");
+    expect((await fixtureState()).submissions).toHaveLength(0);
+  });
 });

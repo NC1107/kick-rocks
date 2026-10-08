@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Save and continue - Fixture Broker</title></head>
+<body>
+<h1>Remove your listing</h1>
+<form method="post" action="/optout">
+  <label for="first">First name</label>
+  <input id="first" name="first_name">
+  <a href="/privacy" onclick="document.forms[0].submit(); return false">Save</a>
+  <div role="menu" aria-label="Confirm">
+    <div role="menuitem" tabindex="0" onclick="document.forms[0].submit()" onkeydown="">Yes</div>
+  </div>
+</form>
+<form method="get" action="/search">
+  <label for="query">Search</label>
+  <input id="query" name="q">
+  <a href="/privacy" onclick="document.forms[1].submit(); return false">Find</a>
+</form>
+<p><a href="/privacy">Privacy policy</a></p>
+</body>
+</html>

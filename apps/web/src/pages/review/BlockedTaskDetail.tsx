@@ -33,6 +33,7 @@ import {
   instructionSteps,
   OUTCOME_CHOICES,
   REVIEW_INVALIDATES,
+  sentWithoutApproval,
 } from "./model.js";
 
 function Screenshot({ taskId }: { taskId: string }) {
@@ -163,6 +164,7 @@ export function BlockedTaskDetail({
   const reportsOutcome = canReportOutcome(task);
   const steps = instructionSteps(item.manualInstructions);
   const needsApproval = awaitsSubmitApproval(task);
+  const mayBeSent = sentWithoutApproval(task);
   const busy =
     approve.isPending ||
     resume.isPending ||
@@ -209,6 +211,15 @@ export function BlockedTaskDetail({
           Approve submit
         </Button>
         <Button onClick={() => setDoneOpen(true)} disabled={busy}>
+          Mark done
+        </Button>
+        <Button variant="ghost" onClick={() => setCancelOpen(true)} disabled={busy}>
+          Cancel task
+        </Button>
+      </>
+    ) : variant === "blocked" && mayBeSent ? (
+      <>
+        <Button variant="primary" onClick={() => setDoneOpen(true)} disabled={busy}>
           Mark done
         </Button>
         <Button variant="ghost" onClick={() => setCancelOpen(true)} disabled={busy}>
@@ -326,7 +337,7 @@ export function BlockedTaskDetail({
           ) : null}
         </Section>
 
-        {variant !== "failed" && !needsApproval && canReportOutcome(task) ? (
+        {variant !== "failed" && !needsApproval && !mayBeSent && canReportOutcome(task) ? (
           <ValuesToEnter profileId={profileId} />
         ) : null}
 

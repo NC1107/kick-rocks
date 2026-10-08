@@ -122,7 +122,7 @@ export function createTaskOperations(services: OperationServices, caller: Caller
       // Not approval_needed: that reason offers Approve submit, and the form may already be out.
       reason: "unapproved_submit",
       detail:
-        "The agent worker reported a sent form that no one approved. Check the site before you do anything else, because the form may have gone out.",
+        "The agent worker reported a sent form that no one approved, so the form may already have been submitted. Check the site before you do anything else.",
       actor: "system",
     });
     throw conflict(
@@ -139,6 +139,22 @@ export function createTaskOperations(services: OperationServices, caller: Caller
     const task = taskQueue.get(taskId);
     if (reason !== "approval_needed" || !task?.mayHaveSubmitted) return reason;
     return task.submitApproval === "required" ? "unapproved_submit" : "unknown";
+  }
+
+  /**
+   * Only a model-backed run held back by the gate can ask for an approval. An MCP client, a
+   * built-in run or a model that was cleared has none to ask for, and an approval it asked for
+   * would unlock a run with no limits. A run that already spent an approval can stop again.
+   */
+  function refuseUnearnedApprovalStop(taskId: string, reason: BlockedReason): void {
+    if (reason !== "approval_needed" && reason !== "unapproved_submit") return;
+    const task = taskQueue.get(taskId);
+    const held = task?.submitApproval === "required" || task?.submitApproval === "used";
+    if (task?.kind === "agent" && task.claimerKind === "model" && held) return;
+    throw conflict(
+      "approval_not_applicable",
+      "Only a model-backed run that needs a person's approval to submit can report this reason",
+    );
   }
 
   return {
@@ -173,8 +189,9 @@ export function createTaskOperations(services: OperationServices, caller: Caller
       );
     },
 
-    block(taskId, { workerId, reason, detail, url, control, screenshot, usage }) {
+    block(taskId, { workerId, reason, detail, url, control, fingerprint, screenshot, usage }) {
       authorize(taskId);
+      refuseUnearnedApprovalStop(taskId, reason);
       return summarize(
         taskQueue.block(taskId, {
           workerId,
@@ -182,6 +199,7 @@ export function createTaskOperations(services: OperationServices, caller: Caller
           detail,
           url,
           control,
+          fingerprint,
           screenshot: screenshot ? decodeScreenshot(screenshot) : undefined,
           usage,
           actor: caller.actor,

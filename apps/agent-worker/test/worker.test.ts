@@ -225,6 +225,37 @@ describeBrowser("the agent worker end to end", () => {
     });
   });
 
+  it("stops a removal that needs approval at the send button without saying a form may have gone out", async () => {
+    const task = agentTask({ submitApproval: "required" });
+    const server = fakeServer(task);
+    await runOnce(server, [
+      { calls: [["navigate", { url: `${ORIGIN}/optout` }]] },
+      (v) => ({
+        calls: [
+          ["type", { ref: v.ref("First name"), field: "first_name" }],
+          ["type", { ref: v.ref("Last name"), field: "last_name" }],
+          ["type", { ref: v.ref("Email address"), field: "email" }],
+        ],
+      }),
+      (v) => ({ calls: [["click", { ref: v.ref("Submit request") }]] }),
+    ]);
+
+    const flagged = server.seen.filter(
+      (entry) =>
+        entry.path === `/api/worker/tasks/${task.id}/heartbeat` &&
+        (entry.body as { mayHaveSubmitted?: boolean }).mayHaveSubmitted === true,
+    );
+    expect(flagged).toHaveLength(0);
+    const [block] = server.transitions();
+    expect(block?.path).toBe(`/api/worker/tasks/${task.id}/block`);
+    expect(TaskBlockBody.parse(block?.body)).toMatchObject({
+      reason: "approval_needed",
+      control: "Submit request",
+      fingerprint: expect.stringMatching(/^[0-9a-f]{32}$/),
+    });
+    expect((await fixtureState()).submissions).toHaveLength(0);
+  });
+
   it("blocks the task with a screenshot when the page shows a CAPTCHA", async () => {
     const task = agentTask();
     const server = fakeServer(task);

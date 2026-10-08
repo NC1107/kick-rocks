@@ -151,7 +151,7 @@ export function ModelPresets({ settings }: { settings: SettingsView }) {
       {agent ? (
         <>
           <Section label="Agent worker settings" as="h3">
-            <CodeBlock title=".env" wrap code={agentEnvLines(agent).join("\n")} />
+            <CodeBlock title=".env" code={agentEnvLines(agent).join("\n")} />
             <GroupNote>
               From a checkout, leave the base URL out and ollama's own address is used.
             </GroupNote>

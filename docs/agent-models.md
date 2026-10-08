@@ -203,16 +203,23 @@ Getting the outcome wrong without sending anything, such as calling an empty sea
 - The server decides, at claim time, whether the model may send forms alone.
   Every agent task claimed through the worker API is decided this way, whatever the claim says about itself.
   A model it has no pass for, or one that did not say what it is, gets a task marked as needing approval.
+  So does a claim that names a cleared model without saying it drives a model.
   The worker cannot clear itself.
 - A worker whose task needs approval fills the form and stops before any click that may send it.
   That is a button after it has typed or chosen something, a submit button, or a link or button that says it sends.
   The task goes to Review as "Needs approval", with the page and a screenshot of the filled form.
-- A choice or a tick can send a form too, when the page submits on change.
-  While approval is pending, a navigation or a data-carrying request that a dropdown, checkbox or radio button starts is cancelled, and the task goes to Review for you to finish.
+- Typing, a choice, a tick or a click on a link can send a form too, when the page submits on change, on blur or from a script.
+  While approval is pending, every action except the approved click runs with a guard: a request that carries data, and a form submission of any method, is cancelled.
+  An ordinary link to another page still works.
+  When something is cancelled, the task goes to Review for you to finish, and nothing went out.
+  The server is told a form may have been submitted only for the approved click, never for typing or choosing.
 - Approve submit puts the task back in the queue with one approval attached.
   The next claim spends it, so a retry after that asks again.
   That run is a new, unwatched run of the model: it fills the form again from the start and sends it.
-  It is held to what you saw: it may click only the control the first run stopped before, on that site, and it stops again at any other control that may send the form.
+  It is held to what you saw: it may click only the control the first run stopped before, on that site, and only if it filled the form the same way, field by field and option by option.
+  It stops again at any other control that may send the form, at the same control after a different fill, and at any control when the approval names none, such as an icon-only button with no label.
+  The server refuses an approval for a stop that did not record the control and the filled form.
+  Only a model-backed run that needs approval can ask for one, so an MCP client cannot.
 - The server refuses a result that says a form was sent from a claim that was never approved, and parks that task for you as "Sent without approval", because the form may have gone out.
   Approve submit is not offered for it, since a second run would send the form again.
 - A later benchmark run that fails removes the earlier pass for that model and those settings.

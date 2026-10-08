@@ -81,6 +81,20 @@ async function record(body: GateEvidence) {
   return result.body;
 }
 
+/** What the model worker reports when it stops before the button that sends the form. */
+const STOP = {
+  url: "https://example.com/optout?step=2",
+  control: "Submit request",
+  fingerprint: "f".repeat(32),
+};
+
+function stopForApproval(taskId: string, extra: Record<string, unknown> = {}) {
+  return ctx.call(API_ROUTES.workerTaskBlock, {
+    params: { id: taskId },
+    body: { workerId: "agent-1", reason: "approval_needed", ...STOP, ...extra },
+  });
+}
+
 function sendTheForm(taskId: string) {
   return ctx.call(API_ROUTES.workerTaskComplete, {
     params: { id: taskId },
@@ -188,14 +202,82 @@ describe("a model nobody has cleared", () => {
       params: { id: task.id },
       body: { workerId: "agent-1", mayHaveSubmitted: true },
     });
-    await ctx.call(API_ROUTES.workerTaskBlock, {
-      params: { id: task.id },
-      body: { workerId: "agent-1", reason: "approval_needed" },
-    });
+    await stopForApproval(task.id);
 
     expect(ctx.services.taskQueue.getOrThrow(task.id).blockedReason).toBe("unapproved_submit");
     const approved = await ctx.call(API_ROUTES.taskApproveSubmit, { params: { id: task.id } });
     expect(approved.status).toBe(409);
+  });
+
+  it("is offered an approval when it only typed and stopped at the send button", async () => {
+    queueRemoval();
+    const task = (await claim(MODEL)) as AgentClaim;
+    const stopped = await stopForApproval(task.id);
+
+    expect(stopped.ok).toBe(true);
+    expect(ctx.services.taskQueue.getOrThrow(task.id)).toMatchObject({
+      blockedReason: "approval_needed",
+      mayHaveSubmitted: false,
+    });
+    expect((await ctx.call(API_ROUTES.taskApproveSubmit, { params: { id: task.id } })).status).toBe(
+      200,
+    );
+  });
+
+  it("says once that a refused report may already have been submitted", async () => {
+    queueRemoval();
+    const task = (await claim(MODEL)) as AgentClaim;
+    await ctx.call(API_ROUTES.workerTaskHeartbeat, {
+      params: { id: task.id },
+      body: { workerId: "agent-1", mayHaveSubmitted: true },
+    });
+    await sendTheForm(task.id);
+
+    const detail = ctx.services.taskQueue.getOrThrow(task.id).blockedDetail ?? "";
+    expect(detail.match(/may already have been submitted/g)).toHaveLength(1);
+  });
+
+  it("stores the stop of an unlabeled send control, and holds the approved run to it", async () => {
+    queueRemoval();
+    const first = (await claim(MODEL)) as AgentClaim;
+    await stopForApproval(first.id, { control: "" });
+    await ctx.call(API_ROUTES.taskApproveSubmit, { params: { id: first.id } });
+
+    expect((await claim(MODEL))?.approvedSubmit).toEqual({
+      origin: "https://example.com",
+      control: "",
+      fingerprint: STOP.fingerprint,
+    });
+  });
+
+  it("cannot approve a stop that did not say which form and control it stopped at", async () => {
+    queueRemoval();
+    const task = (await claim(MODEL)) as AgentClaim;
+    await ctx.call(API_ROUTES.workerTaskBlock, {
+      params: { id: task.id },
+      body: { workerId: "agent-1", reason: "approval_needed" },
+    });
+    expect(ctx.services.taskQueue.getOrThrow(task.id).submitStop).toBeNull();
+    const approved = await ctx.call(API_ROUTES.taskApproveSubmit, { params: { id: task.id } });
+    expect(approved.status).toBe(409);
+  });
+
+  it("is told a stop for approval is not available to a model that was cleared", async () => {
+    await record(evidence(MODEL));
+    queueRemoval();
+    const task = (await claim(MODEL)) as AgentClaim;
+    const refused = await stopForApproval(task.id);
+    expect(refused.status).toBe(409);
+    expect(refused.ok ? null : refused.body.error).toBe("approval_not_applicable");
+    expect(ctx.services.taskQueue.getOrThrow(task.id).status).toBe("leased");
+  });
+
+  it("holds a worker that names a cleared model but does not say it drives one", async () => {
+    await record(evidence(MODEL));
+    queueRemoval();
+    const task = (await claim(MODEL, "builtin")) as AgentClaim;
+    expect(task.submitApproval).toBe("required");
+    expect(task.maskValues?.length).toBeGreaterThan(0);
   });
 
   it("may still report that nothing was sent", async () => {
@@ -214,10 +296,7 @@ describe("a model nobody has cleared", () => {
   it("runs the submit once a person approves it, and asks again for the next attempt", async () => {
     queueRemoval();
     const first = (await claim(MODEL)) as AgentClaim;
-    await ctx.call(API_ROUTES.workerTaskBlock, {
-      params: { id: first.id },
-      body: { workerId: "agent-1", reason: "approval_needed", detail: "Stopped before Submit." },
-    });
+    await stopForApproval(first.id, { detail: "Stopped before Submit." });
 
     const approved = await ctx.call(API_ROUTES.taskApproveSubmit, { params: { id: first.id } });
     expect(approved.ok && approved.body.task.status).toBe("queued");
@@ -231,31 +310,21 @@ describe("a model nobody has cleared", () => {
   it("holds the approved run to the control the person looked at", async () => {
     queueRemoval();
     const first = (await claim(MODEL)) as AgentClaim;
-    await ctx.call(API_ROUTES.workerTaskBlock, {
-      params: { id: first.id },
-      body: {
-        workerId: "agent-1",
-        reason: "approval_needed",
-        url: "https://example.com/optout?step=2",
-        control: "Submit request",
-      },
-    });
+    await stopForApproval(first.id);
     await ctx.call(API_ROUTES.taskApproveSubmit, { params: { id: first.id } });
 
     const second = await claim(MODEL);
     expect(second?.approvedSubmit).toEqual({
       origin: "https://example.com",
       control: "Submit request",
+      fingerprint: STOP.fingerprint,
     });
   });
 
   it("does not reuse an approval for a later attempt", async () => {
     queueRemoval();
     const first = (await claim(MODEL)) as AgentClaim;
-    await ctx.call(API_ROUTES.workerTaskBlock, {
-      params: { id: first.id },
-      body: { workerId: "agent-1", reason: "approval_needed" },
-    });
+    await stopForApproval(first.id);
     await ctx.call(API_ROUTES.taskApproveSubmit, { params: { id: first.id } });
     expect((await claim(MODEL))?.submitApproval).toBe("granted");
     await ctx.call(API_ROUTES.workerTaskRelease, {

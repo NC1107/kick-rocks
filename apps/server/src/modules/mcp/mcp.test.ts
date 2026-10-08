@@ -462,6 +462,26 @@ describe("working a task", () => {
     expect(ctx.services.taskQueue.screenshot(id)?.data.equals(PNG)).toBe(true);
   });
 
+  it("refuses to park a task for an approval, which only the built-in model worker can ask for", async () => {
+    const client = await connect();
+    const id = await claimed(client);
+    for (const reason of ["approval_needed", "unapproved_submit"]) {
+      const error = await callError(client, "block_task", {
+        workerId: "agent-1",
+        taskId: id,
+        reason,
+        url: "https://example.test/optout",
+        control: "",
+        fingerprint: "f".repeat(32),
+      });
+      expect(error.code).toBe("approval_not_applicable");
+    }
+    expect(ctx.services.taskQueue.getOrThrow(id)).toMatchObject({
+      status: "leased",
+      submitStop: null,
+    });
+  });
+
   it("rejects a screenshot that is not what it says, without parking the task", async () => {
     const client = await connect();
     const id = await claimed(client);

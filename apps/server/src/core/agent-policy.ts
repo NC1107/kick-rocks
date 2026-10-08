@@ -1,5 +1,6 @@
 import { recipes } from "@kickrocks/db";
 import {
+  type ClaimerKind,
   type GateVerdict,
   gateVerdict,
   type ModelIdentity,
@@ -70,10 +71,14 @@ export function modelGate(
 export function settleSubmitApproval(
   services: Pick<PolicyServices, "settings" | "taskQueue">,
   task: Task<"agent">,
+  claimerKind: ClaimerKind,
   model: ModelIdentity | undefined,
 ): SubmitApproval {
   const { taskQueue } = services;
-  if (task.payload.purpose !== "remove" || modelGate(services, model).unattended) {
+  // A claim that does not say it drives a model is unproven whatever model it names, since the
+  // worker API cannot tell which model is really behind it.
+  const named = claimerKind === "model" ? model : undefined;
+  if (task.payload.purpose !== "remove" || modelGate(services, named).unattended) {
     taskQueue.setSubmitApproval(task.id, null);
     return "not_needed";
   }

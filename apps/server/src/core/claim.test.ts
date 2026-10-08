@@ -533,8 +533,8 @@ describe("agent tasks", () => {
     expect(Object.keys(forModel?.fields ?? {})).not.toContain("street");
   });
 
-  it("keeps that list from a client that is not a model worker, which may use fewer values", () => {
-    expect(agentClaim("scan", {}, "builtin")).not.toHaveProperty("maskValues");
+  it("keeps that list from an MCP client, which may use fewer values, but not from a worker that only leaves out that it drives a model", () => {
+    expect(agentClaim("scan", {}, "builtin")).toHaveProperty("maskValues");
     expect(agentClaim("scan", {}, "mcp")).not.toHaveProperty("maskValues");
   });
 

@@ -69,12 +69,11 @@ function describeIssues(error: z.ZodError): string {
 
 /**
  * A task that does not say is treated as needing approval, so a missing field never opens the
- * gate. An approval does not either, when it names the control the person looked at: that run is
- * still held, and may click only that one.
+ * gate. An approval does not either: that run is still held, and may click only the control the
+ * person looked at. A granted approval that names none holds every control.
  */
 function needsApprovalToSubmit(task: AgentTask): boolean {
-  if (task.payload.purpose !== "remove" || task.submitApproval === "not_needed") return false;
-  return task.submitApproval !== "granted" || task.approvedSubmit !== undefined;
+  return task.payload.purpose === "remove" && task.submitApproval !== "not_needed";
 }
 
 class AgentRun {
@@ -312,21 +311,22 @@ class AgentRun {
         kind: "block",
         report: {
           reason: "unknown",
-          detail: `Choosing an option or ticking a box tried to send the form by itself, and the request was cancelled. ${provider.model} has not passed the safety gate on this install, so a person finishes this one.`,
+          detail: `Typing, choosing an option or ticking a box tried to send the form by itself, and the request was cancelled, so nothing went out. ${provider.model} has not passed the safety gate on this install, so a person finishes this one.`,
           url,
           ...(screenshot ? { screenshot } : {}),
           usage: this.usage(),
         },
       };
     }
-    const shown = clip(this.mask(stop.label), 80);
+    const shown = stop.label;
     return {
       kind: "block",
       report: {
         reason: "approval_needed",
-        detail: `Stopped before clicking ${shown ? `"${shown}"` : "a button"}, which may send the form. ${provider.model} has not passed the safety gate on this install, so a person approves each submit.`,
+        detail: `Stopped before clicking ${shown ? `"${shown}"` : "a button"}, which may send the form. Nothing has been sent. ${provider.model} has not passed the safety gate on this install, so a person approves each submit.`,
         url,
-        ...(shown ? { control: shown } : {}),
+        control: shown,
+        fingerprint: stop.fingerprint,
         ...(screenshot ? { screenshot } : {}),
         usage: this.usage(),
       },

@@ -262,11 +262,14 @@ function claimed<K extends BrowserTaskKind>(kind: K, payload: (typeof TASK_PAYLO
 
 /**
  * The send control a person looked at before approving a submit, so the approved run is held to
- * it: the page's origin and what the control said, with the person's values hidden.
+ * it: the page's origin, what the control said with the person's values hidden (empty for a control
+ * with no words), and a fingerprint of the form as it was filled, so a run that fills it
+ * differently is stopped again.
  */
 export const ApprovedSubmit = z.object({
   origin: z.string().max(300),
   control: z.string().max(200),
+  fingerprint: z.string().min(1).max(128),
 });
 export type ApprovedSubmit = z.infer<typeof ApprovedSubmit>;
 
@@ -364,6 +367,8 @@ export const TaskBlockReport = z.object({
   url: WebUrl.optional(),
   /** For a stop before a send control: what the control says, which an approval is tied to. */
   control: z.string().max(200).optional(),
+  /** For a stop before a send control: a hash of the filled form, which an approval is tied to as well. */
+  fingerprint: z.string().min(1).max(128).optional(),
   screenshot: TaskScreenshot.optional(),
   usage: TaskUsage.optional(),
 });

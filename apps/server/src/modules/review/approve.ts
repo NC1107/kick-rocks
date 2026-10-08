@@ -4,7 +4,9 @@ import type { AppServices } from "../../services.js";
 
 /**
  * A person says the model may send the form it stopped at. The task goes back in the queue with
- * the approval attached, and the next model claim that takes it spends the approval.
+ * the approval attached, and the next model claim that takes it spends the approval. A stop that
+ * did not record the control and the filled form cannot be approved, since the run it unlocks
+ * would be held to nothing.
  */
 export function approveSubmit(services: AppServices, taskId: string): Task {
   return services.db.transaction(() => {
@@ -13,7 +15,8 @@ export function approveSubmit(services: AppServices, taskId: string): Task {
       task.kind !== "agent" ||
       task.status !== "blocked" ||
       task.blockedReason !== "approval_needed" ||
-      task.mayHaveSubmitted
+      task.mayHaveSubmitted ||
+      task.submitStop === null
     ) {
       throw conflict("invalid_task_state", `Task ${taskId} is not waiting for a submit approval`);
     }

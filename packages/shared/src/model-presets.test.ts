@@ -53,6 +53,7 @@ describe("the model presets", () => {
     expect(gateCommand(qwen, "https://kr.example.org")).toBe(
       [
         "KICKROCKS_SERVER_URL=https://kr.example.org \\",
+        "KICKROCKS_WORKER_TOKEN=<worker-token> \\",
         "pnpm --filter @kickrocks/agent-worker bench \\",
         "  --model qwen3:14b --provider ollama --num-ctx 16384 --thinking off \\",
         "  --agent-only --scenarios 1,3,5,6,7,8,9,10 --runs 5 --record",

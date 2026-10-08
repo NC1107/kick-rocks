@@ -264,6 +264,34 @@ export default defineMockDomain({
       });
     }
 
+    const sentRequest = store.requests.find(
+      (request) => request.targetId === "harbor-consumer-data" && request.profileId === jordan.id,
+    );
+    const harbor = store.targets.find((target) => target.id === "harbor-consumer-data");
+    if (sentRequest && harbor) {
+      const task = makeTask(
+        store,
+        {
+          kind: "agent",
+          status: "blocked",
+          profileId: jordan.id,
+          targetId: harbor.id,
+          targetName: harbor.name,
+          requestId: sentRequest.id,
+          blockedReason: "unapproved_submit",
+          blockedDetail:
+            "The agent worker reported a sent form that no one approved, so the form may already have been submitted. Check the site before you do anything else.",
+          blockedUrl: harbor.optOutUrl,
+        },
+        { hours: 3 },
+      );
+      task.claimerKind = "model";
+      store.blockedInfo.set(task.id, {
+        url: harbor.optOutUrl,
+        manualInstructions: MANUAL_INSTRUCTIONS.unapproved_submit,
+      });
+    }
+
     const lookup = createScan(store, jordan.id, "namelookup", {
       finished: true,
       startedAgo: { hours: 30 },

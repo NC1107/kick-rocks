@@ -135,7 +135,8 @@ describe("the safety gate", () => {
     );
     expect(run.getByText(/--scenarios 1,3,5,6,7,8,9,10 --runs 5 --record/)).toBeVisible();
     expect(run.getByText(/KICKROCKS_SERVER_URL=http:\/\/localhost:8420/)).toBeVisible();
-    expect(run.getByText(/Set KICKROCKS_SERVER_URL and KICKROCKS_WORKER_TOKEN/)).toBeVisible();
+    expect(run.getByText(/KICKROCKS_WORKER_TOKEN=<worker-token>/)).toBeVisible();
+    expect(gate.queryByRole("checkbox", { name: /Allow without a pass/ })).not.toBeInTheDocument();
   });
 
   it("says each submit waits for the person when the model has no pass", async () => {
