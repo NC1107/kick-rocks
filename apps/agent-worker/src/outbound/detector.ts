@@ -32,8 +32,28 @@ export interface Scan {
 }
 
 const MIN_VALUE_LENGTH = 2;
-const MIN_PREFIX_LENGTH = 6;
+const RUN_LENGTH = 6;
 const MIN_REVERSED_LENGTH = 6;
+/** Mailbox providers whose names say nothing about the person, so a run inside one is not a leak. */
+const COMMON_DOMAINS = [
+  "gmail.com",
+  "googlemail.com",
+  "yahoo.com",
+  "outlook.com",
+  "hotmail.com",
+  "live.com",
+  "msn.com",
+  "icloud.com",
+  "me.com",
+  "aol.com",
+  "proton.me",
+  "protonmail.com",
+  "gmx.com",
+  "mail.com",
+  "comcast.net",
+  "verizon.net",
+  "att.net",
+];
 const STRICT_BELOW = 5;
 const HASHES = ["md5", "sha1", "sha256"] as const;
 
@@ -138,8 +158,15 @@ function spellingsOf(field: CarriedField, value: string): string[] {
 export class ValueDetector {
   private readonly needles: Needle[] = [];
   private readonly whole = new Map<string, CarriedField>();
+  private readonly runs = new Map<string, CarriedField>();
+  private readonly runStarts = new Set<number>();
 
-  constructor(fields: ProfileFields, maskValues: readonly string[] = []) {
+  /** `domains` are the target's own, which a page may name without giving anything away. */
+  constructor(
+    fields: ProfileFields,
+    maskValues: readonly string[] = [],
+    domains: readonly string[] = [],
+  ) {
     const entries: [CarriedField, string][] = [];
     for (const [name, raw] of Object.entries(fields)) {
       const value = raw?.trim();
@@ -152,7 +179,7 @@ export class ValueDetector {
       this.addValue(field, value);
       if (!this.whole.has(fold(value))) this.whole.set(fold(value), field);
     }
-    this.addPrefixes();
+    this.addRuns(entries, domains);
     this.addReversed(entries);
     for (const join of nameJoins(fields.first_name?.trim(), fields.last_name?.trim())) {
       this.add("full_name", join);
@@ -182,24 +209,28 @@ export class ValueDetector {
   }
 
   /**
-   * The first characters of a contact value, for a page that uploads it as it is typed. Only the
-   * shortest prefix that is not itself a lookup value is kept, since every longer one contains it.
+   * Every run of six characters in a contact value, so a page that sends a piece of one, or the
+   * value as it is typed, is recognized by a piece alone. A run that sits inside a value the task
+   * allows in a search, or inside a domain that names no one, is left out, since the page may
+   * send those on their own.
    */
-  private addPrefixes(): void {
-    const lookups = new Set(
-      this.needles.filter((needle) => needle.cls === "lookup").map((needle) => needle.text),
-    );
-    const contacts = this.needles.filter(
-      (needle) => needle.cls === "contact" && !needle.strict && /[a-z@.]/.test(needle.text),
-    );
-    for (const needle of contacts) {
-      if (!["email", OTHER_VALUE].includes(needle.field) || needle.text.length <= MIN_PREFIX_LENGTH)
-        continue;
-      for (let length = MIN_PREFIX_LENGTH; length < needle.text.length; length++) {
-        const prefix = needle.text.slice(0, length);
-        if (lookups.has(prefix) || this.isLookupSubstring(prefix)) continue;
-        this.add(needle.field, prefix);
-        break;
+  private addRuns(entries: readonly [CarriedField, string][], domains: readonly string[]): void {
+    const allowed = [
+      ...entries
+        .filter(([field]) => classOf(field) === "lookup")
+        .flatMap(([field, value]) => spellingsOf(field, value).map(fold)),
+      ...[...COMMON_DOMAINS, ...domains].map((domain) => fold(domain).replace(/^\./, "")),
+    ];
+    for (const [field, value] of entries) {
+      if (classOf(field) !== "contact") continue;
+      for (const spelling of spellingsOf(field, value)) {
+        const text = fold(spelling);
+        for (let start = 0; start + RUN_LENGTH <= text.length; start++) {
+          const run = text.slice(start, start + RUN_LENGTH);
+          if (this.runs.has(run) || allowed.some((known) => known.includes(run))) continue;
+          this.runs.set(run, field);
+          this.runStarts.add(run.charCodeAt(0));
+        }
       }
     }
   }
@@ -219,17 +250,22 @@ export class ValueDetector {
     }
   }
 
-  private isLookupSubstring(prefix: string): boolean {
-    return this.needles.some((needle) => needle.cls === "lookup" && needle.text.includes(prefix));
-  }
-
   /** The field a text is exactly the value of, when it is one, so it can be shown as its placeholder. */
   fieldOfWhole(text: string): CarriedField | null {
     return this.whole.get(fold(text)) ?? null;
   }
 
   get isEmpty(): boolean {
-    return this.needles.length === 0;
+    return this.needles.length === 0 && this.runs.size === 0;
+  }
+
+  private scanRuns(text: string, fields: Set<CarriedField>): void {
+    if (this.runs.size === 0) return;
+    for (let start = 0; start + RUN_LENGTH <= text.length; start++) {
+      if (!this.runStarts.has(text.charCodeAt(start))) continue;
+      const field = this.runs.get(text.slice(start, start + RUN_LENGTH));
+      if (field !== undefined) fields.add(field);
+    }
   }
 
   /** Looks for the person's details in all of the pieces and in everything they unpack to. */
@@ -249,6 +285,7 @@ export class ValueDetector {
         const hit = needle.pattern ? needle.pattern.test(text) : text.includes(needle.text);
         if (hit) fields.add(needle.field);
       }
+      this.scanRuns(text, fields);
     }
     const found = [...fields].sort();
     return {

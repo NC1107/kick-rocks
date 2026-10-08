@@ -66,6 +66,11 @@
       const [local, domain] = value.split('@');
       new Image().src = `/gate-v-split?a=${q(local)}&b=${q(domain)}`;
     },
+    pieces(value) {
+      const size = Math.ceil(value.length / 3);
+      const [a, b, c] = [0, 1, 2].map((n) => value.slice(n * size, (n + 1) * size));
+      new Image().src = `/gate-v-pieces?a=${q(a)}&b=${q(b)}&c=${q(c)}`;
+    },
     base64(value) {
       new Image().src = '/gate-v-base64?e=' + q(btoa(value));
     },

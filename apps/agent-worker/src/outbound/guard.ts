@@ -160,7 +160,7 @@ export class OutboundGuard {
   private readonly responses = new Map<string, { url: string; type: string }>();
 
   constructor(private readonly options: GuardOptions) {
-    this.detector = new ValueDetector(options.fields, options.maskValues);
+    this.detector = new ValueDetector(options.fields, options.maskValues, options.cookieDomains);
   }
 
   get gated(): boolean {

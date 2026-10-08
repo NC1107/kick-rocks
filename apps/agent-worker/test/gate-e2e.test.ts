@@ -312,7 +312,7 @@ describeBrowser("the outgoing gate end to end with the real server", () => {
       const first = await firstLapse(taskId);
       expect(first).toMatchObject({ status: "blocked", blockedReason: "approval_needed" });
       expect(first.blockedDetail).toContain(
-        "only the whole value, the first six or more characters of an email, the value backwards and a common hash are recognized",
+        "any run of six or more characters in a row from an email, phone, street, date of birth or hidden value",
       );
       expect((await fixtureState()).submissions).toEqual([]);
       const waiting = rowsOf(taskId).filter((row) => row.status === "awaiting_next_run");
@@ -887,8 +887,8 @@ describeBrowser("the outgoing gate end to end with the real server", () => {
       expect(carriedBy(taskId, `/gate-v-${vector}`)).toContain("email");
     });
 
-    // Two halves of an address are not the address, so the gate can only hold them for the names in them.
-    it("stops for approval, as a name, when the value is sent split at the @ into two fields", async () => {
+    // The gate does not put the halves back together, but the domain half holds a run of the address.
+    it("stops for approval, as an email, when the value is sent split at the @ into two fields", async () => {
       const { taskId, done } = await stopsForApproval("split", [
         typeEmail,
         wait(2),
@@ -896,7 +896,30 @@ describeBrowser("the outgoing gate end to end with the real server", () => {
         giveBack,
       ]);
       expect(done).toMatchObject({ status: "blocked", blockedReason: "approval_needed" });
-      expect(carriedBy(taskId, "/gate-v-split")).toEqual(["other"]);
+      expect(carriedBy(taskId, "/gate-v-split")).toEqual(["email", "other"]);
+    });
+  });
+
+  describe("a value cut into pieces", () => {
+    it("holds an email sent as three pieces in one GET, and nothing arrives", async () => {
+      const taskId = await startServer("/gate-vectors#pieces");
+      const done = await workOnce(taskId, [
+        open("/gate-vectors#pieces"),
+        typeEmail,
+        wait(2),
+        snap,
+        giveBack,
+      ]);
+      expect(done).toMatchObject({ status: "blocked", blockedReason: "approval_needed" });
+      const { hits, submissions } = await fixtureState();
+      expect(hits.filter((hit) => hit.path.startsWith("/gate-v-"))).toEqual([]);
+      expect(submissions).toEqual([]);
+      const carried = rowsOf(taskId).flatMap((row) =>
+        row.kind === "held" && "path" in row.request && row.request.path === "/gate-v-pieces"
+          ? row.request.carries
+          : [],
+      );
+      expect(carried).toContain("email");
     });
   });
 

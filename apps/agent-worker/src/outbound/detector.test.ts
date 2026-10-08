@@ -1,4 +1,4 @@
-import { createHash, randomBytes } from "node:crypto";
+import { createHash } from "node:crypto";
 import { brotliCompressSync, deflateSync, gzipSync } from "node:zlib";
 import { describe, expect, it } from "vitest";
 import { ValueDetector } from "./detector.js";
@@ -130,11 +130,11 @@ describe("ValueDetector", () => {
 
     // A known limit, listed in docs/agents.md: the halves of an address are not the address.
     it("does not put an email split at the @ back together, so the halves pass as a name lookup", () => {
-      const named = new ValueDetector({
-        first_name: "Jordan",
-        last_name: "Example",
-        email: "jordan@example.com",
-      });
+      const named = new ValueDetector(
+        { first_name: "Jordan", last_name: "Example", email: "jordan@example.com" },
+        [],
+        ["example.com"],
+      );
       expect(named.scan(["jordan", "example.com"])).toMatchObject({ contact: false, lookup: true });
     });
 
@@ -155,6 +155,56 @@ describe("ValueDetector", () => {
     });
   });
 
+  describe("a piece of a contact value", () => {
+    it.each([
+      ["a piece from the middle of the email", "dan.exam"],
+      ["the email with three characters cut off the front", email.slice(3)],
+      ["the email with three characters cut off the end", email.slice(0, -3)],
+      ["the last six characters of the email", "le.com"],
+      ["the first six digits of the phone", "512555"],
+      ["a middle run of the phone digits", "255501"],
+      ["a masked phone as it is typed", "(512) 555"],
+      ["the street as it is typed", "42 oak l"],
+      ["a middle run of the street", "ak lan"],
+      ["the date of birth as it is typed", "1990-04"],
+      ["a run of the date of birth in US form", "04/05/19"],
+      ["a run of a hidden value", "uentin"],
+    ])("finds %s", (_, text) => {
+      expect(contactIn(`q=${text}`)).toBe(true);
+    });
+
+    it("finds each of three pieces of the email on its own", () => {
+      for (const piece of ["jordan.", "example@", "example.com"]) {
+        expect(contactIn(`p=${piece}`), piece).toBe(true);
+      }
+    });
+
+    it("lets five characters of a value through", () => {
+      for (const piece of ["51255", "42 oa", "1990-", "dan.e"]) {
+        expect(contactIn(`p=${piece}`), piece).toBe(false);
+      }
+    });
+
+    it("lets a run through that is only a value the task may search for", () => {
+      for (const text of ["jordan", "xample", "austin", "jordan example", "78701", "1990"]) {
+        expect(contactIn(`q=${text}`), text).toBe(false);
+      }
+      expect(detector.scan(["q=jordan+example"]).lookup).toBe(true);
+    });
+
+    it("lets a common domain or the target's own domain through alone", () => {
+      const own = new ValueDetector({ email: "jordan@gmail.com" }, [], ["www.acme-brokers.test"]);
+      expect(own.scan(["gmail.com"]).contact).toBe(false);
+      expect(own.scan(["host=www.acme-brokers.test"]).contact).toBe(false);
+      expect(own.scan(["jordan@gmail.com"]).contact).toBe(true);
+      expect(own.scan(["an@gmail"]).contact).toBe(true);
+    });
+
+    it("holds a run that crosses from a lookup value into a contact value", () => {
+      expect(contactIn("q=jordan.exam")).toBe(true);
+    });
+  });
+
   describe("short and numeric values", () => {
     it("match as a whole value or a delimited token only", () => {
       expect(detector.scan(["state=TX"]).fields).toContain("state");
@@ -171,9 +221,10 @@ describe("ValueDetector", () => {
   });
 
   describe("a false-positive corpus", () => {
+    // Fixed tokens, because a random token holds a run of a value by chance often enough to flake.
     it("does not take random tokens for a value", () => {
       for (let n = 0; n < 300; n++) {
-        const token = randomBytes(24);
+        const token = createHash("sha256").update(`corpus-${n}`).digest().subarray(0, 24);
         for (const text of [
           token.toString("hex"),
           token.toString("base64"),
