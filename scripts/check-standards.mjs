@@ -61,6 +61,37 @@ export function findCommitViolations(commits) {
   return violations;
 }
 
+const JOURNAL = "packages/db/drizzle/meta/_journal.json";
+
+/**
+ * Drizzle's migrator applies only migrations stamped later than the last one a database ran, so a
+ * migration stamped earlier than one already on the base branch is skipped without any error on
+ * every database that ran the later one first.
+ */
+export function findJournalViolations(journal, baseJournal) {
+  const violations = [];
+  const entries = journal.entries;
+  entries.forEach((entry, position) => {
+    if (entry.idx !== position) {
+      violations.push(`${JOURNAL}: ${entry.tag} has idx ${entry.idx}, expected ${position}`);
+    }
+    const previous = entries[position - 1];
+    if (previous && entry.when <= previous.when) {
+      violations.push(`${JOURNAL}: ${entry.tag} is not stamped later than ${previous.tag}`);
+    }
+  });
+  const known = new Set(baseJournal.entries.map((entry) => entry.tag));
+  const newest = Math.max(0, ...baseJournal.entries.map((entry) => entry.when));
+  for (const entry of entries) {
+    if (!known.has(entry.tag) && entry.when <= newest) {
+      violations.push(
+        `${JOURNAL}: ${entry.tag} is not stamped later than the newest migration on the base branch`,
+      );
+    }
+  }
+  return violations;
+}
+
 export function resolveRange(env, refExists) {
   const explicit = env.STANDARDS_RANGE;
   if (explicit) {
@@ -102,12 +133,20 @@ function readCommits(range) {
     });
 }
 
+function readJournals() {
+  const base = ["origin/main", "main"].find(refExists);
+  const current = JSON.parse(readFileSync(JOURNAL, "utf8"));
+  const baseJournal = base ? JSON.parse(git("show", `${base}:${JOURNAL}`)) : { entries: [] };
+  return { current, baseJournal };
+}
+
 function main() {
   const files = git("ls-files", "-z").split("\0").filter(Boolean);
   const range = resolveRange(process.env, refExists);
   const violations = [
     ...findViolations(files, (file) => readFileSync(file, "utf8")),
     ...findCommitViolations(readCommits(range)),
+    ...(({ current, baseJournal }) => findJournalViolations(current, baseJournal))(readJournals()),
   ];
   if (violations.length > 0) {
     console.error(violations.join("\n"));

@@ -89,6 +89,20 @@ describe("describeEvent", () => {
     ).toBe("Sent the verification reply.");
   });
 
+  it("says a mail the server never confirmed is sent and will not be sent again", () => {
+    expect(
+      describeEvent(
+        event("sent", {
+          channel: "email",
+          kind: "initial",
+          messageId: "<a@b>",
+          mailboxId: "m",
+          unconfirmed: true,
+        }),
+      ),
+    ).toBe("Sent the email, but the mail server did not confirm it. It will not be sent again.");
+  });
+
   it("says why a request was queued again", () => {
     expect(
       describeEvent(event("queued", { channel: "email", reason: "verification_reply" })),

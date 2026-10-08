@@ -129,8 +129,10 @@ export class EmailRunner {
   private async process(task: EmailTask): Promise<boolean> {
     const { taskQueue, requests, composer, mail, logger } = this.services;
     const request = requests.get(task.payload.requestId);
+    const earlier = this.offeredEarlier(task.id);
     if (request?.status !== "queued") {
-      taskQueue.cancel(task.id, "system");
+      if (request && earlier) this.recordOfferedBeforeChange(task, request, earlier);
+      this.cancelUnlessFinished(task.id);
       return false;
     }
 
@@ -171,7 +173,6 @@ export class EmailRunner {
       return false;
     }
 
-    const earlier = this.offeredEarlier(task.id);
     if (earlier) {
       return this.settleUnconfirmed(
         task,
@@ -185,10 +186,8 @@ export class EmailRunner {
     this.beforeData.add(task.id);
     try {
       const result = await mail.transport(connectionOf(mailbox)).send(outgoing, {
-        onData: () => {
-          this.beforeData.delete(task.id);
-          this.markOffered(task.id, outgoing.messageId);
-        },
+        onData: () => this.beforeData.delete(task.id),
+        onBodyEnd: () => this.markOffered(task.id, outgoing.messageId),
       });
       if (result.accepted.length === 0) {
         throw Object.assign(new Error("The mail server rejected the address"), {
@@ -274,9 +273,10 @@ export class EmailRunner {
   }
 
   /**
-   * A mail whose body went out without an answer may be delivered, and mailing a broker twice costs
-   * the person more than a request that goes unanswered, which a follow-up already covers. So it is
-   * counted as sent and the timeline and mailbox say it was not confirmed.
+   * A mail whose whole body went out without an answer may be delivered, and mailing a broker twice
+   * costs the person more than a request that goes unanswered, which a follow-up already covers. So
+   * it is counted as sent and the timeline says the server did not confirm it. The mailbox is left
+   * alone because the person has nothing to fix there.
    */
   private settleUnconfirmed(
     task: EmailTask,
@@ -285,21 +285,37 @@ export class EmailRunner {
     messageId: string,
     cause: string,
   ): boolean {
-    const { db, requests } = this.services;
-    const note = `A send was cut off before the mail server answered (${cause}), so it is counted as sent and will not be sent again`;
-    const recorded = this.recordSend(task, request.id, mailboxId, messageId);
-    db.transaction(() => {
-      if (requests.get(request.id)) {
-        requests.addEvent(request.id, {
-          type: "send_failed",
-          actor: "system",
-          payload: { error: note, willRetry: false },
-        });
-      }
-      db.update(mailboxes).set({ lastSendError: note }).where(eq(mailboxes.id, mailboxId)).run();
-    });
+    this.services.logger.warn(
+      { requestId: request.id, cause },
+      "a send was cut off before the mail server answered, so it is counted as sent",
+    );
+    const recorded = this.recordSend(task, request.id, mailboxId, messageId, { unconfirmed: true });
     this.clearOffered(task.id);
     return recorded;
+  }
+
+  /**
+   * The person changed the request after the process died with its mail on the wire. The mail may
+   * be delivered, and a broker reply to it can only be matched if the Message-ID is on record.
+   */
+  private recordOfferedBeforeChange(
+    task: EmailTask,
+    request: RequestRecord,
+    messageId: string,
+  ): void {
+    const { db } = this.services;
+    const mailbox = request.mailboxId
+      ? db.select().from(mailboxes).where(eq(mailboxes.id, request.mailboxId)).get()
+      : db.select().from(mailboxes).where(eq(mailboxes.profileId, request.profileId)).get();
+    if (mailbox) this.recordSend(task, request.id, mailbox.id, messageId, { unconfirmed: true });
+    this.clearOffered(task.id);
+  }
+
+  private cancelUnlessFinished(taskId: string): void {
+    const live = this.services.taskQueue.get(taskId);
+    if (live && live.status !== "done" && live.status !== "cancelled") {
+      this.services.taskQueue.cancel(taskId, "system");
+    }
   }
 
   /**
@@ -369,6 +385,7 @@ export class EmailRunner {
     requestId: string,
     mailboxId: string,
     messageId: string,
+    { unconfirmed = false }: { unconfirmed?: boolean } = {},
   ): boolean {
     const { db, taskQueue, requests, mailQuota, clock } = this.services;
     const kind: EmailKind = task.payload.kind;
@@ -385,7 +402,13 @@ export class EmailRunner {
       const live = taskQueue.getOrThrow(task.id);
       const sentEvent = {
         type: "sent" as const,
-        payload: { channel: "email" as const, kind, messageId, mailboxId },
+        payload: {
+          channel: "email" as const,
+          kind,
+          messageId,
+          mailboxId,
+          ...(unconfirmed ? { unconfirmed } : {}),
+        },
       };
       // A send can outlast its lease, which puts the task back in the queue (or fails it) but keeps
       // us as its last holder, and finishing it as that holder is what stops the next pass mailing it again.

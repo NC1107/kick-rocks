@@ -158,9 +158,12 @@ export function transportOptions(
 
 /**
  * The SMTP connection starts reading the message only once the server has answered DATA, so the
- * first reader of the message stream is the point after which a delivery can no longer be ruled out.
+ * first reader of the message stream marks the start of the body. The source stream ends as soon as
+ * the connection's own encoder has taken everything, which can be long before the socket has, so
+ * the whole body counts as handed over only when that encoder, which appends the closing line, has
+ * been drained into the socket.
  */
-function announceDataStart(transporter: Transporter, onData: () => void): void {
+function announceBody(transporter: Transporter, hooks: SendHooks): void {
   transporter.use("stream", (mail, done) => {
     const createReadStream = mail.message.createReadStream.bind(mail.message);
     mail.message.createReadStream = () => {
@@ -168,9 +171,14 @@ function announceDataStart(transporter: Transporter, onData: () => void): void {
       const announce = (event: string | symbol) => {
         if (event !== "data") return;
         stream.off("newListener", announce);
-        onData();
+        hooks.onData?.();
       };
       stream.on("newListener", announce);
+      const pipe = stream.pipe.bind(stream);
+      stream.pipe = ((destination: NodeJS.WritableStream, options?: { end?: boolean }) => {
+        destination.once("end", () => hooks.onBodyEnd?.());
+        return pipe(destination, options);
+      }) as typeof stream.pipe;
       return stream;
     };
     done();
@@ -217,7 +225,7 @@ export function createMailTransport(
       const { from, to, subject, text, messageId, inReplyTo, references } = parsed.data;
 
       const transporter = createTransport(transportOptions(connection, options));
-      if (hooks.onData) announceDataStart(transporter, hooks.onData);
+      if (hooks.onData || hooks.onBodyEnd) announceBody(transporter, hooks);
       try {
         // Plain text only: a reply is matched by Message-ID and reference, so the mail needs no
         // tracking pixel, no tracked link, and no HTML part.

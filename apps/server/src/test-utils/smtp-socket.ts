@@ -9,6 +9,7 @@ export type SmtpBehavior =
   | "mail_from_553"
   | "silent"
   | "drop_after_data"
+  | "drop_mid_body"
   | "stall_after_data";
 
 export interface SmtpSocketFake {
@@ -50,6 +51,12 @@ export async function startSmtpSocketFake(
       buffer += chunk.toString("latin1");
       for (;;) {
         if (data !== null) {
+          if (mode === "drop_mid_body") {
+            // Reading stops so the sender's buffers fill and the connection dies with the body unfinished.
+            socket.pause();
+            setTimeout(() => socket.destroy(), 100);
+            return;
+          }
           const end = buffer.indexOf("\r\n.\r\n");
           if (end < 0) {
             data += buffer;

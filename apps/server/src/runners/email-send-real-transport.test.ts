@@ -3,6 +3,7 @@ import { API_ROUTES } from "@kickrocks/shared";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createMailTransport } from "../mail/transport.js";
+import { collectAttention } from "../modules/notifications/attention.js";
 import { createScheduler } from "../scheduler/scheduler.js";
 import {
   createTestContext,
@@ -148,7 +149,46 @@ describe("the email runner against the real transport", () => {
 
     expect(taskFor(request.id)).toMatchObject({ status: "done" });
     expect(smtp.received).toHaveLength(1);
-    expect(lastError()).toContain("counted as sent");
+    expect(lastError()).toBeNull();
+    const sent = ctx.services.requests.events(request.id).filter((event) => event.type === "sent");
+    expect(sent).toHaveLength(1);
+    expect(sent[0]).toMatchObject({ payload: { unconfirmed: true } });
+    expect(collectAttention(ctx.services).map((item) => item.category)).not.toContain("mailbox");
+  });
+
+  it("mails again, and does not count it as sent, a message that dropped partway through its body", async () => {
+    smtp.behave("drop_mid_body");
+    const request = openRequest();
+    // A body this long cannot be buffered whole, so the connection dies while it is still being read.
+    ctx.mail.services.transport = (connection) => {
+      const real = createMailTransport(connection, {
+        timeouts: { connectionMs: 300, socketMs: 2_000 },
+      });
+      return {
+        verify: () => real.verify(),
+        send: (mail, hooks) =>
+          real.send({ ...mail, text: "Remove me.\n".repeat(1_000_000) }, hooks),
+      };
+    };
+
+    await runners.email.runDue();
+
+    expect(smtp.received).toHaveLength(0);
+    expect(ctx.services.requests.getOrThrow(request.id).status).toBe("queued");
+    expect(ctx.services.requests.events(request.id).filter((e) => e.type === "sent")).toHaveLength(
+      0,
+    );
+    expect(ctx.services.mailQuota.sentLastDay(mailboxId)).toBe(0);
+
+    smtp.behave("accept");
+    for (let pass = 0; pass < 4 && smtp.received.length === 0; pass += 1) {
+      ctx.clock.advance(HOUR);
+      await runners.email.runDue();
+    }
+
+    expect(smtp.received).toHaveLength(1);
+    expect(taskFor(request.id)).toMatchObject({ status: "done" });
+    expect(ctx.services.requests.getOrThrow(request.id).status).toBe("awaiting_reply");
   });
 
   it("does not send again a message that was offered before the process died", async () => {
@@ -166,7 +206,32 @@ describe("the email runner against the real transport", () => {
     expect(ctx.services.requests.getOrThrow(request.id).status).toBe("awaiting_reply");
   });
 
-  it("sends a message at most maxAttempts times when every restart cuts the send off after DATA", async () => {
+  it("keeps the fact of a mail offered before the process died after the person changed the request", async () => {
+    const request = openRequest();
+    ctx.services.db
+      .update(tasks)
+      .set({ unconfirmedMessageId: "<kr.before-restart@x.test>" })
+      .where(eq(tasks.requestId, request.id))
+      .run();
+    ctx.services.requests.transition(request.id, "awaiting_reply", { actor: "user" });
+
+    await runners.email.runDue();
+
+    expect(smtp.received).toHaveLength(0);
+    expect(ctx.services.mailQuota.sentLastDay(mailboxId)).toBe(1);
+    expect(
+      ctx.services.requests
+        .events(request.id)
+        .find((event) => event.type === "sent" && event.actor === "system"),
+    ).toMatchObject({ payload: { messageId: "<kr.before-restart@x.test>", unconfirmed: true } });
+    expect(taskFor(request.id)?.status).not.toBe("queued");
+    expect(
+      ctx.services.db.select().from(tasks).where(eq(tasks.requestId, request.id)).get()
+        ?.unconfirmedMessageId,
+    ).toBeNull();
+  });
+
+  it("sends a message once when every restart cuts the send off after the whole body", async () => {
     smtp.behave("stall_after_data");
     const request = openRequest();
 
@@ -189,9 +254,8 @@ describe("the email runner against the real transport", () => {
       ctx.clock.advance(HOUR);
     }
 
-    const task = taskFor(request.id);
-    expect(smtp.received.length).toBeLessThanOrEqual(task?.maxAttempts ?? 0);
-    expect(task?.attempts).toBeGreaterThan(0);
+    expect(smtp.received).toHaveLength(1);
+    expect(taskFor(request.id)).toMatchObject({ status: "done" });
   });
 
   it("retries a recipient the server deferred with a 450 instead of failing it", async () => {

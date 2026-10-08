@@ -61,7 +61,12 @@ export const isoAgo = (ms) => new Date(Date.now() - ms).toISOString();
 /** What the person, or the operator, would learn without opening a log. */
 async function seenByPerson(world) {
   const board = await dashboard(world.instance, world.profileId);
+  const [unconfirmed] = await sqlRows(
+    world,
+    "select count(*) as n from request_events where type = 'sent' and json_extract(payload, '$.unconfirmed') = 1",
+  );
   return (
+    Number(unconfirmed?.n ?? 0) > 0 ||
     Boolean(board?.mailbox?.lastError) ||
     (board?.attention?.failedTasks ?? 0) > 0 ||
     world.push.received.length > 0

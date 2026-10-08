@@ -59,9 +59,13 @@ export function describeEvent(event: RequestEvent): string {
     case "queued":
       return QUEUED_REASONS[event.payload.reason];
     case "sent": {
-      const { channel, kind } = event.payload;
+      const { channel, kind, unconfirmed } = event.payload;
       if (channel === "form") return "Submitted the web form.";
-      return kind === "initial" ? "Sent the email." : `Sent the ${lower(EMAIL_KIND_LABELS[kind])}.`;
+      const sent =
+        kind === "initial" ? "Sent the email" : `Sent the ${lower(EMAIL_KIND_LABELS[kind])}`;
+      return unconfirmed
+        ? `${sent}, but the mail server did not confirm it. It will not be sent again.`
+        : `${sent}.`;
     }
     case "send_failed":
       return `Sending failed: ${plainError(event.payload.error)}.${event.payload.willRetry ? " It will try again." : ""}`;
