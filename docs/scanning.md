@@ -150,6 +150,6 @@ With a proxy in use Chrome also keeps WebRTC from sending UDP outside the proxy,
 - **Settings, Sites cooling down:** each site being left alone, why, and until when.
 - **Header:** a "Cooling down" status chip appears while any site is being left alone.
 - **Target page:** visits today against the cap, the last pushback, and any cooldown.
-- **Review:** a notice lists tasks waiting on a site, with the reason and the next try, so they do not look lost or failed.
+- **Review:** a "Waiting" group in the list shows tasks held for a site, with the reason and the next try, so they do not look lost or failed.
 
 An MCP client that claims a waiting task by id gets a `site_waiting` error that says when to ask again.
