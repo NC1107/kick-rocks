@@ -28,7 +28,7 @@ export function DetailFrame({ label, title, meta, children, footer, error }: Det
         {children ? <div className="mt-4 flex flex-col gap-4">{children}</div> : null}
       </div>
       {footer ? (
-        <div className="sticky bottom-0 z-10 flex flex-wrap items-center gap-2 rounded-b-md border-t border-line bg-canvas px-4 py-3 sm:px-5 max-sm:grid max-sm:grid-cols-2 max-sm:[&>*]:min-w-0 max-sm:[&>button]:w-full max-sm:[&>form]:col-span-full max-sm:[&>span]:col-span-full">
+        <div className="sticky bottom-0 z-10 flex flex-wrap items-center gap-2 rounded-b-md border-t border-line bg-canvas px-4 py-3 sm:px-5 max-sm:grid max-sm:grid-cols-2 max-sm:[&>*]:min-w-0 max-sm:[&>button]:h-auto max-sm:[&>button]:min-h-control max-sm:[&>button]:w-full max-sm:[&>button]:whitespace-normal max-sm:[&>button]:py-2 max-sm:[&>form]:col-span-full max-sm:[&>span]:col-span-full">
           {error ? (
             <InlineError className="basis-full max-sm:col-span-full">{error}</InlineError>
           ) : null}

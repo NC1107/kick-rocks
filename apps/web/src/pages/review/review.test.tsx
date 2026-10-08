@@ -367,6 +367,12 @@ describe("the review queue", () => {
     );
   });
 
+  it("says that anything beyond the profile details is up to the person", async () => {
+    open("verifications");
+    const item = await card(/ClearCheck asked for more details/);
+    expect(item.getByText(/like a copy of an ID, is up to you/)).toBeVisible();
+  });
+
   it("does not offer a detail the profile lacks and points to the profile", async () => {
     const mock = failing(/never/);
     for (const profile of mock.store.profiles) {
