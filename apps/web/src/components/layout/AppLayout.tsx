@@ -7,6 +7,7 @@ import { breadcrumbTrail } from "./breadcrumb.js";
 import { BreadcrumbTailProvider, useBreadcrumbTailValue } from "./breadcrumb-context.js";
 import { Drawer } from "./Drawer.js";
 import { LogoMark } from "./Logo.js";
+import { RouteAnnouncer } from "./RouteAnnouncer.js";
 import { StatusChips, UrgentStatusMark, useShellStatus } from "./ShellStatus.js";
 import { SidebarContent } from "./Sidebar.js";
 
@@ -100,6 +101,8 @@ export function AppLayout() {
         >
           Skip to content
         </a>
+
+        <RouteAnnouncer />
 
         <aside className="fixed inset-y-0 left-0 z-30 hidden w-54 border-r border-line bg-rail sm:block">
           <SidebarContent />
