@@ -15,7 +15,12 @@ export default defineConfig({
         test: {
           name: "node",
           environment: "node",
-          include: ["src/**/*.test.ts", "mock/**/*.test.ts", "design/**/*.test.ts"],
+          include: [
+            "src/**/*.test.ts",
+            "mock/**/*.test.ts",
+            "design/**/*.test.ts",
+            "build/**/*.test.ts",
+          ],
         },
       },
       {

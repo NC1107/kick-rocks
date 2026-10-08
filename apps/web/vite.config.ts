@@ -1,13 +1,14 @@
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
+import { webDelivery } from "./build/web-delivery.js";
 import { kickRocksMock } from "./mock/plugin.js";
 
 // `vite --mode mock` (pnpm dev:mock) answers /api/* from apps/web/mock instead of the server.
 export default defineConfig(({ mode }) => {
   const mocked = mode === "mock";
   return {
-    plugins: [react(), tailwindcss(), ...(mocked ? [kickRocksMock()] : [])],
+    plugins: [react(), tailwindcss(), webDelivery(), ...(mocked ? [kickRocksMock()] : [])],
     server: {
       port: 5173,
       ...(mocked ? {} : { proxy: { "/api": "http://127.0.0.1:8420" } }),
@@ -23,7 +24,7 @@ export default defineConfig(({ mode }) => {
           // in the same chunk, ahead of them. Left in the entry chunk it runs after them and the
           // refused `new Function` probe reaches the console again.
           manualChunks(id) {
-            if (id.endsWith("/src/jitless.ts") || id.includes("/node_modules/zod/")) return "api";
+            if (id.endsWith("/src/jitless.ts") || id.includes("/node_modules/zod/")) return "zod";
             return undefined;
           },
         },
