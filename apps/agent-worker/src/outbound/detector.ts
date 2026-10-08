@@ -206,8 +206,8 @@ export class ValueDetector {
 
   /**
    * A contact value written backwards, which a page can undo on its own server and no packing
-   * detector undoes for it. Names and places are left out, since their reversals are not
-   * distinctive enough to be worth a held request.
+   * detector undoes for it. Hidden values such as a name or a city are reversed too, because they
+   * are contact values to the gate, so a request that carries "nadroj" is held.
    */
   private addReversed(entries: readonly [CarriedField, string][]): void {
     for (const [field, value] of entries) {

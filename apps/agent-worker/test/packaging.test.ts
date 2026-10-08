@@ -18,6 +18,14 @@ function service(name: string): string {
   return next === -1 ? rest : rest.slice(0, next + 1);
 }
 
+describe("the gate limits in the agent guide", () => {
+  it("say that a page can split a value into pieces the gate does not put back together", () => {
+    const guide = read("docs/agents.md");
+    expect(guide).toContain("A page can send a value split into pieces");
+    expect(guide).toContain("at least the first five characters of an email");
+  });
+});
+
 describe("the agent worker's compose service", () => {
   const agent = service("agent-worker");
 

@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { API_ROUTES, type SendRow } from "@kickrocks/shared";
 import { BROWSER_CONTEXT_OPTIONS } from "@kickrocks/worker/dist/browser.js";
 import { createLogger } from "@kickrocks/worker/dist/logger.js";
-import type { Browser } from "playwright";
+import type { Browser, BrowserContext } from "playwright";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   createTestContext,
@@ -23,17 +23,21 @@ import {
   launchTestBrowser,
   resetFixture,
   type Step,
+  type Turn,
   scripted,
 } from "./support.js";
 
 vi.setConfig({ testTimeout: 120_000 });
 
 const debugLogger = createLogger(process.env.GATE_LOG === "1" ? "debug" : "error");
-const SERVER_PORT = Number(process.env.GATE_SERVER_PORT ?? 8772);
 /** Long enough that a person (the test) can answer, short enough that a lapse is quick. */
 const ANSWER_MS = 30_000;
 const LAPSE_MS = 1_200;
 
+/** Set once the server listens, on a port the operating system picked so no run needs one free. */
+let serverUrl = "";
+/** The browser context of the run in progress, for a test that has to look at its tabs. */
+let runContext: BrowserContext | null = null;
 let browser: Browser;
 let ctx: TestContext;
 let profileDir: string;
@@ -56,7 +60,7 @@ afterEach(async () => {
 
 function config(): AgentWorkerConfig {
   return {
-    serverUrl: `http://127.0.0.1:${SERVER_PORT}`,
+    serverUrl,
     token: ctx.workerToken,
     workerId: "gate-agent",
     pollMs: 20,
@@ -102,7 +106,7 @@ async function startServer(path = "/gate-form", twoHosts = false): Promise<strin
     channel: "form",
   });
   ctx.services.dispatch.dispatchRequest(request.id);
-  await ctx.app.listen({ port: SERVER_PORT, host: "127.0.0.1" });
+  serverUrl = await ctx.app.listen({ port: 0, host: "127.0.0.1" });
   const task = ctx.services.taskQueue
     .list({ kinds: ["agent"], status: "queued" })
     .find((t) => t.kind === "agent");
@@ -125,7 +129,10 @@ async function workOnce(taskId: string, steps: Step[], options: WorkOptions = {}
     signal: controller.signal,
     logger: debugLogger,
     provider: scripted(steps),
-    launcher: () => browser.newContext(BROWSER_CONTEXT_OPTIONS),
+    launcher: async () => {
+      runContext = await browser.newContext(BROWSER_CONTEXT_OPTIONS);
+      return runContext;
+    },
     timing: {
       idleHeartbeatMs: 10_000,
       leaseHeartbeatMs: 1_000,
@@ -305,6 +312,7 @@ describeBrowser("the outgoing gate end to end with the real server", () => {
       const taskId = await startServer();
       const first = await firstLapse(taskId);
       expect(first).toMatchObject({ status: "blocked", blockedReason: "approval_needed" });
+      expect(first.blockedDetail).toContain("splits into short pieces or pieces that equal a name, place or domain");
       expect((await fixtureState()).submissions).toEqual([]);
       const waiting = rowsOf(taskId).filter((row) => row.status === "awaiting_next_run");
       expect(waiting).toHaveLength(1);
@@ -755,6 +763,13 @@ describeBrowser("the outgoing gate end to end with the real server", () => {
         .filter((row) => row.kind === "held")
         .map((row) => ("path" in row.request ? row.request.path : ""));
 
+    const carriedBy = (taskId: string, path: string) =>
+      rowsOf(taskId).flatMap((row) =>
+        row.kind === "held" && "path" in row.request && row.request.path === path
+          ? row.request.carries
+          : [],
+      );
+
     /** Nothing the vector page asked of the site reached it, whatever it carried. */
     async function expectNothingArrived(): Promise<void> {
       const { hits, submissions } = await fixtureState();
@@ -793,12 +808,27 @@ describeBrowser("the outgoing gate end to end with the real server", () => {
 
     it("opens no new tab for a form aimed at one, so the post is never made and nothing is asked", async () => {
       const taskId = await startServer("/gate-vectors#blank");
+      let transcript = "";
+      let opened = 0;
+      let stillOpen = -1;
       const done = await workOnce(taskId, [
-        open("/gate-vectors#blank"),
+        () => {
+          runContext?.on("page", () => (opened += 1));
+          return open("/gate-vectors#blank") as Turn;
+        },
         typeEmail,
         wait(2),
-        giveBack,
+        (view) => {
+          transcript = view.transcript;
+          stillOpen = (runContext?.pages() ?? []).filter((page) => !page.isClosed()).length;
+          return giveBack;
+        },
       ]);
+      // The script appends its form just before submitting it, so the field is proof it ran that far.
+      expect(transcript).toContain(`textbox "e"`);
+      // The submit did ask for a tab, and only the run's own page is left open once it is closed.
+      expect(opened).toBeGreaterThan(0);
+      expect(stillOpen).toBe(1);
       await expectNothingArrived();
       expect(done.status).toBe("queued");
       expect(rowsOf(taskId).filter((row) => row.kind === "held")).toEqual([]);
@@ -816,17 +846,30 @@ describeBrowser("the outgoing gate end to end with the real server", () => {
       expect(rows.every((row) => row.kind === "held" || row.kind === "refused")).toBe(true);
     });
 
+    // The profile's hidden first and last names are substrings of the email, so a request is held for
+    // them whether or not the gate recognises the email. Only the carried field shows which one did it.
     it.each([
       { vector: "trimmed", how: "with spaces around it" },
       { vector: "lowercased", how: "in capitals" },
-      { vector: "split", how: "split at the @ into two fields" },
       { vector: "base64", how: "as base64" },
       { vector: "reversed", how: "written backwards" },
       { vector: "sha256", how: "as a sha256 hash" },
-    ])("stops for approval when the value is sent $how", async ({ vector }) => {
+    ])("stops for approval, as the email, when the value is sent $how", async ({ vector }) => {
       const { taskId, done } = await stopsForApproval(vector, [typeEmail, wait(2), snap, giveBack]);
       expect(done).toMatchObject({ status: "blocked", blockedReason: "approval_needed" });
-      expect(heldPaths(taskId)).toContain(`/gate-v-${vector}`);
+      expect(carriedBy(taskId, `/gate-v-${vector}`)).toContain("email");
+    });
+
+    // Two halves of an address are not the address, so the gate can only hold them for the names in them.
+    it("stops for approval, as a name, when the value is sent split at the @ into two fields", async () => {
+      const { taskId, done } = await stopsForApproval("split", [
+        typeEmail,
+        wait(2),
+        snap,
+        giveBack,
+      ]);
+      expect(done).toMatchObject({ status: "blocked", blockedReason: "approval_needed" });
+      expect(carriedBy(taskId, "/gate-v-split")).toEqual(["other"]);
     });
   });
 
@@ -871,8 +914,12 @@ describeBrowser("the outgoing gate end to end with the real server", () => {
       expect(submissions).toHaveLength(1);
       const held = rowsOf(taskId).find((row) => row.kind === "held");
       const shown = held && "body" in held.request ? held.request.body : [];
-      expect(shown.some((entry) => entry.path === "note")).toBe(true);
-      expect(submissions[0]?.fields.note).toMatch(/^at-\d+$/);
+      const shownValue = (path: string) => shown.find((entry) => entry.path === path);
+      expect(shownValue("note")).toBeDefined();
+      expect(submissions[0]?.fields.note).toBe(shownValue("note")?.value);
+      expect(submissions[0]?.fields.email).toBe(
+        shownValue("email")?.value.replace("{{email}}", "jordan@example.com"),
+      );
     });
 
     it("holds the replay again when the page changed the field in a way the approval did not cover", async () => {

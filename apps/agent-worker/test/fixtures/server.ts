@@ -301,12 +301,12 @@ export function startFixtureServer(): Promise<{
     if (path === "/gate-csrf")
       return send(response, 200, page("gate-csrf.html", { CSRF: token() }));
     if (path === "/gate-see-other" && request.method === "POST") {
-      response.writeHead(303, { location: `${ORIGIN}/gate-collect?after=303` });
+      response.writeHead(303, { location: `${hosts.origin}/gate-collect?after=303` });
       return response.end();
     }
     if (path === "/gate-hop" && request.method === "POST") {
       // A 307 sends the same body again, here to another page of the same site.
-      response.writeHead(307, { location: `${ORIGIN}/gate-optout` });
+      response.writeHead(307, { location: `${hosts.origin}/gate-optout` });
       return response.end();
     }
     if (request.method === "POST") {

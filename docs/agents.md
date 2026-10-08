@@ -338,7 +338,10 @@ What the gate does not hold, so you know what you are trusting:
 - A page can scramble what the run typed with its own code (ROT13, a salted hash, or a character or two per keystroke) and put it in the address of a GET, an image or a stylesheet.
   The gate reads many encodings and the common hashes, but it cannot undo every transform a page invents, and a GET with no body and no value it recognizes is not held.
   The gate reads values in query keys, header names, the whole query string and the host name as well as in values, so a recognized value in any of them is held.
-  Per-keystroke requests can give away about the first five characters of an email before the gate recognizes it.
+  Per-keystroke requests can give away at least the first five characters of an email before the gate recognizes it, and more when those characters match the person's name, because a name goes out as a lookup before the email is held.
+- A page can send a value split into pieces, across fields or across requests, in a plain GET.
+  The gate does not put the pieces back together, so it holds only a piece it recognizes on its own.
+  A piece shorter than 6 characters, or a piece that is itself a name, place or domain it lets through, goes out without asking.
 - A 307 or 308 redirect of a request you released sends the same body again, and it may land on a different path of the target's own sites without asking you a second time.
   A redirect to another site is still refused.
 - A host name that carries a value, such as a label of a subdomain, is looked up in DNS before the gate sees the request.
