@@ -21,6 +21,23 @@ describe("checkScanning", () => {
     expect(checkScanning(draft, saved).patch).toEqual({ dailyCapPerSite: 3 });
   });
 
+  it("patches quiet hours and the daily total, and holds the hour to the clock", () => {
+    const draft = {
+      ...scanningDraftOf(saved),
+      quietStartHour: "22",
+      quietEndHour: "6",
+      dailyCapTotal: "40",
+    };
+    expect(checkScanning(draft, saved).patch).toEqual({
+      quietStartHour: 22,
+      quietEndHour: 6,
+      dailyCapTotal: 40,
+    });
+    expect(checkScanning({ ...draft, quietEndHour: "24" }, saved).errors).toEqual({
+      quietEndHour: "Enter 0 to 23.",
+    });
+  });
+
   it("explains a value that is not a whole number or out of range", () => {
     const draft = { ...scanningDraftOf(saved), minGapMinutes: "1.5", hourlyCapTotal: "9000" };
     expect(checkScanning(draft, saved).errors).toEqual({

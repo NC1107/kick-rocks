@@ -34,6 +34,9 @@ const UNPACED_SCANNING = ScanningSettings.parse({
   gapJitterPercent: 0,
   dailyCapPerSite: 100,
   hourlyCapTotal: 500,
+  dailyCapTotal: 2000,
+  quietStartHour: 0,
+  quietEndHour: 0,
   reuseHours: 0,
 });
 

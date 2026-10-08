@@ -12,6 +12,7 @@ import type {
 } from "@kickrocks/shared";
 import { claimTask } from "../../core/claim.js";
 import { AppError, conflict, invalidRequest, notFound } from "../../core/errors.js";
+import type { PushbackOutcome } from "../../core/site-politeness.js";
 import type { Task } from "../../core/task-types.js";
 import type { AppServices } from "../../services.js";
 import { decodeScreenshot } from "./screenshot.js";
@@ -120,6 +121,18 @@ export function createTaskOperations(services: OperationServices, caller: Caller
     }
   }
 
+  /**
+   * What a run saw of the site is recorded on its own, before the task moves. A worker held up by a
+   * throttling site can report after its lease ran out, the move is then refused, and the site must
+   * still be left alone.
+   */
+  function observeBeforeTransition(
+    taskId: string,
+    site: SiteObservation | undefined,
+  ): PushbackOutcome | null {
+    return services.db.transaction(() => politeness.observe(taskQueue.getOrThrow(taskId), site));
+  }
+
   return {
     claim({ taskId, ...request }) {
       if (taskId !== undefined) return claimTask(services, { ...request, taskId });
@@ -146,9 +159,9 @@ export function createTaskOperations(services: OperationServices, caller: Caller
 
     complete(taskId, { workerId, result, usage, site }) {
       authorize(taskId);
+      observeBeforeTransition(taskId, site);
       return services.db.transaction(() => {
         const done = taskQueue.complete(taskId, { workerId, result, usage, actor: caller.actor });
-        politeness.observe(done, site);
         if (!site?.pushback) politeness.recordClean(done);
         return summarize(done);
       });
@@ -156,6 +169,8 @@ export function createTaskOperations(services: OperationServices, caller: Caller
 
     block(taskId, { workerId, reason, detail, url, screenshot, usage, site }) {
       authorize(taskId);
+      const seen = site ?? impliedByBlock(reason);
+      observeBeforeTransition(taskId, seen);
       return services.db.transaction(() => {
         const blocked = taskQueue.block(taskId, {
           workerId,
@@ -166,8 +181,6 @@ export function createTaskOperations(services: OperationServices, caller: Caller
           usage,
           actor: caller.actor,
         });
-        const seen = site ?? impliedByBlock(reason);
-        politeness.observe(blocked, seen);
         if (!seen?.pushback) politeness.recordClean(blocked);
         return summarize(blocked);
       });
@@ -183,9 +196,8 @@ export function createTaskOperations(services: OperationServices, caller: Caller
           },
         ]);
       }
+      const outcome = observeBeforeTransition(taskId, site);
       return services.db.transaction(() => {
-        const current = taskQueue.getOrThrow(taskId);
-        const outcome = politeness.observe(current, site);
         if (outcome) {
           // A site that pushes back is left alone until its cooldown ends: no retry on the usual
           // backoff, no attempt used, and no hand-off to an agent that would try again sooner.

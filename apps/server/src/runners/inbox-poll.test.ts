@@ -448,6 +448,55 @@ describe("confirmation links", () => {
     expect(stored()[0]?.reviewed).toBe(true);
   });
 
+  describe("a site that must not be opened from the server", () => {
+    async function confirmationLink() {
+      const { request, target } = await sentRequest();
+      const link = `https://${target.domain}/confirm?token=x`;
+      answer("Confirm", request.id, "confirmation_link", { links: [link] });
+      deliver("Confirm");
+      return { request, target, link };
+    }
+
+    const confirmTasks = (requestId: string) =>
+      ctx.services.taskQueue.list({ requestId }).filter((task) => task.kind === "confirm");
+
+    it("hands the link to a browser task when the person routed the site through a proxy", async () => {
+      ctx.services.settings.set("egress", { proxyUrl: "http://10.0.0.100:8888", domains: [] });
+      const { request, link } = await confirmationLink();
+      await poll();
+      expect(ctx.mail.linkFollower.calls).toEqual([]);
+      expect(confirmTasks(request.id)).toMatchObject([{ payload: { url: link } }]);
+    });
+
+    it("hands the link to a browser task while the site is cooling down", async () => {
+      const { request, target, link } = await confirmationLink();
+      ctx.services.politeness.observe(
+        { id: null, kind: "scan", targetId: target.id },
+        { pushback: { kind: "rate_limited", status: 429 } },
+      );
+      await poll();
+      expect(ctx.mail.linkFollower.calls).toEqual([]);
+      expect(confirmTasks(request.id)).toMatchObject([{ payload: { url: link } }]);
+    });
+
+    it("counts the visit it makes, and leaves the site alone after a 429", async () => {
+      const { request, target } = await sentRequest();
+      const first = `https://${target.domain}/a`;
+      const second = `https://${target.domain}/b`;
+      ctx.mail.linkFollower.program(() => ({ ok: false, status: 429, reason: "slow down" }));
+      answer("Confirm", request.id, "confirmation_link", { links: [first, second] });
+      deliver("Confirm");
+      await poll();
+
+      expect(ctx.mail.linkFollower.calls.map((call) => call.url)).toEqual([first]);
+      expect(ctx.services.politeness.siteStatus(target.domain)).toMatchObject({
+        visitsToday: 1,
+        lastPushbackKind: "rate_limited",
+      });
+      expect(ctx.services.politeness.siteStatus(target.domain)?.coolingDownUntil).not.toBeNull();
+    });
+  });
+
   it("tries the next link when one fails and says so when none works", async () => {
     const { request, target } = await sentRequest();
     const bad = `https://${target.domain}/a`;

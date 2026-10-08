@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   EgressPatch,
   isCoolingDown,
+  isQuietHour,
   MAX_RETRY_AFTER_SECONDS,
   ProxyUrl,
   parseRetryAfter,
@@ -19,6 +20,9 @@ describe("ScanningSettings", () => {
       gapJitterPercent: 50,
       dailyCapPerSite: 6,
       hourlyCapTotal: 12,
+      dailyCapTotal: 60,
+      quietStartHour: 23,
+      quietEndHour: 7,
       reuseHours: 24,
       backoffBaseHours: 6,
       backoffMaxHours: 168,
@@ -71,13 +75,10 @@ describe("site owners", () => {
     expect(registrableDomain("localhost")).toBe("localhost");
   });
 
-  it("puts the PeopleConnect family under one key", () => {
-    const keys = [
-      "intelius.com",
-      "www.truthfinder.com",
-      "instantcheckmate.com",
-      "ussearch.com",
-    ].map((domain) => siteOwnerKey(domain));
+  it("uses the owner group the dataset names, whatever the domain and the mail say", () => {
+    const keys = ["intelius.com", "www.truthfinder.com", "instantcheckmate.com"].map((domain) =>
+      siteOwnerKey(domain, ["elsewhere.test"], "peopleconnect.us"),
+    );
     expect(new Set(keys)).toEqual(new Set(["peopleconnect.us"]));
   });
 
@@ -124,5 +125,23 @@ describe("isCoolingDown", () => {
       true,
     );
     expect(isCoolingDown({ coolingDownUntil: null, breaker: "half_open" })).toBe(true);
+  });
+});
+
+describe("isQuietHour", () => {
+  it("covers a window that runs past midnight", () => {
+    const quiet = [0, 1, 6, 23].map((hour) => isQuietHour(hour, 23, 7));
+    const awake = [7, 12, 22].map((hour) => isQuietHour(hour, 23, 7));
+    expect(quiet).toEqual([true, true, true, true]);
+    expect(awake).toEqual([false, false, false]);
+  });
+
+  it("covers a window inside one day", () => {
+    expect(isQuietHour(13, 12, 14)).toBe(true);
+    expect(isQuietHour(14, 12, 14)).toBe(false);
+  });
+
+  it("is off when the start and the end are the same hour", () => {
+    expect(isQuietHour(3, 0, 0)).toBe(false);
   });
 });

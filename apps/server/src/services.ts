@@ -149,7 +149,6 @@ export function createServices(
     sources: overrides.targetSources ?? datasetSources(),
     extraTargetsPath: config.extraTargetsPath,
   });
-  const dispatch = createDispatch({ db, clock, taskQueue, requests: requestStore, targets });
   const legal: LegalApi = overrides.legal ?? {
     resolveLegalBasis: legalExports.resolveLegalBasis,
     getLegalBasis: legalExports.getLegalBasis,
@@ -158,6 +157,7 @@ export function createServices(
     identifiersFor: legalExports.identifiersFor,
     renderRequestEmail: legalExports.renderRequestEmail,
   };
+  const dispatch = createDispatch({ db, clock, taskQueue, requests: requestStore, targets, legal });
   const requests: Requests = {
     ...requestStore,
     ...createRequestFlow({ db, clock, legal, requests: requestStore, targets, dispatch }),

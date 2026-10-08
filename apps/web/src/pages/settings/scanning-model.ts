@@ -6,7 +6,14 @@ import {
   type ScanningSettings,
 } from "@kickrocks/shared";
 
-type ScanningKey = "minGapMinutes" | "dailyCapPerSite" | "hourlyCapTotal" | "reuseHours";
+type ScanningKey =
+  | "minGapMinutes"
+  | "dailyCapPerSite"
+  | "hourlyCapTotal"
+  | "dailyCapTotal"
+  | "quietStartHour"
+  | "quietEndHour"
+  | "reuseHours";
 
 export interface ScanningField {
   key: ScanningKey;
@@ -43,6 +50,30 @@ export const SCANNING_FIELDS: readonly ScanningField[] = [
     max: 500,
   },
   {
+    key: "dailyCapTotal",
+    label: "Visits to all sites per day",
+    help: "A ceiling on the whole day, so the hourly pace cannot run around the clock.",
+    unit: "visits",
+    min: 1,
+    max: 2000,
+  },
+  {
+    key: "quietStartHour",
+    label: "Quiet hours begin",
+    help: "No browser visit starts from this hour until quiet hours end, in this server's local time. Set both to the same hour to turn quiet hours off.",
+    unit: "hour, 0 to 23",
+    min: 0,
+    max: 23,
+  },
+  {
+    key: "quietEndHour",
+    label: "Quiet hours end",
+    help: "Visits start again at this hour.",
+    unit: "hour, 0 to 23",
+    min: 0,
+    max: 23,
+  },
+  {
     key: "reuseHours",
     label: "Reuse a finished search for",
     help: "A repeat search for the same person on the same site inside this time uses the earlier answer. Zero turns it off.",
@@ -59,6 +90,9 @@ export function scanningDraftOf(scanning: ScanningSettings): ScanningDraft {
     minGapMinutes: String(scanning.minGapMinutes),
     dailyCapPerSite: String(scanning.dailyCapPerSite),
     hourlyCapTotal: String(scanning.hourlyCapTotal),
+    dailyCapTotal: String(scanning.dailyCapTotal),
+    quietStartHour: String(scanning.quietStartHour),
+    quietEndHour: String(scanning.quietEndHour),
     reuseHours: String(scanning.reuseHours),
   };
 }

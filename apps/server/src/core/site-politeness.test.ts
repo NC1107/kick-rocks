@@ -6,6 +6,7 @@ import {
   createTestContext,
   DAY,
   HOUR,
+  jordanIdentities,
   MINUTE,
   seedIdentities,
   seedProfile,
@@ -26,7 +27,7 @@ const GAP = 25 * MINUTE;
 beforeEach(async () => {
   ctx = await createTestContext({ politeness: "default", overrides: { random: HALF } });
   profileId = seedProfile(ctx).id;
-  setScanning({ reuseHours: 0 });
+  setScanning({ reuseHours: 0, quietStartHour: 0, quietEndHour: 0, dailyCapTotal: 2000 });
 });
 
 afterEach(async () => {
@@ -37,8 +38,12 @@ function setScanning(patch: Partial<ReturnType<typeof ctx.services.politeness.se
   ctx.services.settings.set("scanning", { ...ctx.services.settings.get("scanning"), ...patch });
 }
 
-function site(domain: string) {
-  const target = seedTarget(ctx, { category: "people-search", domain });
+function site(domain: string, ownerGroup?: string) {
+  const target = seedTarget(ctx, {
+    category: "people-search",
+    domain,
+    ...(ownerGroup ? { ownerGroup } : {}),
+  });
   seedRecipe(ctx, target.id, { purpose: "scan" });
   return target;
 }
@@ -127,8 +132,8 @@ describe("one task at a time on a site", () => {
   });
 
   it("treats sister domains as one site", () => {
-    const intelius = site("intelius.com");
-    const truthfinder = site("truthfinder.com");
+    const intelius = site("intelius.com", "peopleconnect.us");
+    const truthfinder = site("truthfinder.com", "peopleconnect.us");
     queueScan(intelius.id);
     queueScan(truthfinder.id);
 
@@ -499,8 +504,12 @@ describe("the same gate for every claimer", () => {
   });
 
   it("makes an agent task wait for a running scan on a sister site", () => {
-    queueScan(site("intelius.com").id);
-    const noRecipe = seedTarget(ctx, { category: "people-search", domain: "truthfinder.com" });
+    queueScan(site("intelius.com", "peopleconnect.us").id);
+    const noRecipe = seedTarget(ctx, {
+      category: "people-search",
+      domain: "truthfinder.com",
+      ownerGroup: "peopleconnect.us",
+    });
     const agentTask = queueScan(noRecipe.id);
     expect(agentTask.kind).toBe("agent");
 
@@ -636,6 +645,54 @@ describe("reusing a scan", () => {
     expect(taskRow(later.id).status).not.toBe("done");
   });
 
+  describe("an agent search, which has no recipe to name its fields", () => {
+    const agentCandidates = { purpose: "scan", scan: { candidates } };
+
+    async function agentScanned(targetId: string, forProfile: string) {
+      const task = queueScan(targetId, forProfile);
+      const claimed = claim() as ClaimedTask;
+      expect(claimed.id).toBe(task.id);
+      const response = await ctx.call(API_ROUTES.workerTaskComplete, {
+        params: { id: claimed.id },
+        body: { workerId: "worker-1", result: agentCandidates },
+      });
+      expect(response.ok, JSON.stringify(response.body)).toBe(true);
+      return task;
+    }
+
+    function withPhone(number: string) {
+      return jordanIdentities().map((identity) =>
+        identity.kind === "phone" ? { ...identity, value: { number } } : identity,
+      );
+    }
+
+    beforeEach(() => {
+      const identifiersFor = ctx.services.legal.identifiersFor;
+      ctx.services.legal.identifiersFor = (target, identities, purpose, requested = [], asOf) =>
+        identifiersFor(target, identities, purpose, [...requested, "phone"], asOf);
+    });
+
+    it("keeps one profile's search from standing in for another's when the agent may use a phone number", async () => {
+      const target = seedTarget(ctx, { category: "people-search", domain: "a.test" });
+      await agentScanned(target.id, profileId);
+
+      const other = seedProfile(ctx, { identities: withPhone("+15555550999") }).id;
+      const repeat = queueScan(target.id, other);
+      expect(claim()?.id).toBe(repeat.id);
+      expect(taskRow(repeat.id).status).not.toBe("done");
+    });
+
+    it("still reuses it when everything the agent may use is the same", async () => {
+      const target = seedTarget(ctx, { category: "people-search", domain: "a.test" });
+      await agentScanned(target.id, profileId);
+
+      const twin = seedProfile(ctx, { identities: withPhone("+15555550123") }).id;
+      const repeat = queueScan(target.id, twin);
+      expect(claim()).toBeNull();
+      expect(taskRow(repeat.id).status).toBe("done");
+    });
+  });
+
   it("can be turned off", async () => {
     ctx.services.settings.set("scanning", {
       ...ctx.services.settings.get("scanning"),
@@ -715,5 +772,129 @@ describe("what the person can see", () => {
       const response = await ctx.call(API_ROUTES.settingsPatch, { body: { egress: { proxyUrl } } });
       expect(response.ok, proxyUrl).toBe(false);
     }
+  });
+});
+
+describe("quiet hours and the daily total", () => {
+  /** Moves the test clock to a local hour of the next day, so the result does not depend on the time zone. */
+  function atLocalHour(hour: number) {
+    const target = new Date(ctx.clock.now());
+    target.setDate(target.getDate() + 1);
+    target.setHours(hour, 0, 0, 0);
+    ctx.clock.set(target);
+  }
+
+  const withQuietHours = () => setScanning({ quietStartHour: 23, quietEndHour: 7 });
+
+  it("starts nothing overnight, says when it will, and carries on in the morning", () => {
+    withQuietHours();
+    atLocalHour(2);
+    queueScan(site("a.test").id);
+
+    expect(claim()).toBeNull();
+    const waiting = ctx.services.taskQueue.list({ status: "queued" })[0];
+    const reason = waiting && ctx.services.taskQueue.waitingFor(waiting);
+    expect(reason).toMatchObject({ reason: "quiet_hours", domain: "a.test" });
+    const until = new Date(reason?.until ?? "");
+    expect([until.getHours(), until.getMinutes()]).toEqual([7, 0]);
+
+    atLocalHour(7);
+    expect(claim()).not.toBeNull();
+  });
+
+  it("holds a late evening start too, since the window runs past midnight", () => {
+    withQuietHours();
+    atLocalHour(23);
+    queueScan(site("a.test").id);
+    expect(claim()).toBeNull();
+  });
+
+  it("allows starts outside the window", () => {
+    withQuietHours();
+    atLocalHour(12);
+    queueScan(site("a.test").id);
+    expect(claim()).not.toBeNull();
+  });
+
+  it("never holds a confirmation link back for the night", () => {
+    withQuietHours();
+    atLocalHour(3);
+    const a = site("a.test");
+    expect(
+      ctx.services.politeness.evaluate({ id: "x", kind: "confirm", targetId: a.id }),
+    ).toMatchObject({ allow: true });
+  });
+
+  it("stops all sites at the daily total, and opens again a day after the first start", async () => {
+    setScanning({ minGapMinutes: 0, gapJitterPercent: 0, hourlyCapTotal: 500, dailyCapTotal: 2 });
+    for (const domain of ["a.test", "b.test", "c.test"]) queueScan(site(domain).id);
+
+    await complete(claim() as ClaimedTask);
+    await complete(claim() as ClaimedTask);
+    expect(claim()).toBeNull();
+    const waiting = ctx.services.taskQueue.list({ status: "queued" })[0];
+    expect(waiting && ctx.services.taskQueue.waitingFor(waiting)?.reason).toBe("daily_cap");
+
+    ctx.clock.advance(DAY);
+    expect(claim()).not.toBeNull();
+  });
+});
+
+describe("a request the server makes itself", () => {
+  it("is admitted once, recorded as a visit, and spaces the next one", () => {
+    const a = site("a.test");
+    expect(ctx.services.politeness.startDirect(a.id)).toMatchObject({ allow: true });
+    expect(status("a.test")).toMatchObject({ visitsToday: 1 });
+    expect(ctx.services.politeness.startDirect(a.id)).toMatchObject({
+      allow: false,
+      wait: { reason: "site_gap", domain: "a.test" },
+    });
+  });
+
+  it("waits while the site is cooling down", async () => {
+    const a = site("a.test");
+    queueScan(a.id);
+    await pushBack(claim() as ClaimedTask, rateLimited());
+    expect(ctx.services.politeness.startDirect(a.id)).toMatchObject({
+      allow: false,
+      wait: { reason: "site_cooldown" },
+    });
+  });
+});
+
+describe("pushback reported after the lease ran out", () => {
+  it("still leaves the site alone, though the task can no longer be moved", async () => {
+    const a = site("a.test");
+    queueScan(a.id);
+    const claimed = claim() as ClaimedTask;
+    const takeOver = () =>
+      claimTask(ctx.services, {
+        workerId: "worker-2",
+        kinds: KINDS,
+        leaseMs: 5 * MINUTE,
+        claimerKind: "builtin",
+      });
+    ctx.clock.advance(HOUR);
+    expect(takeOver()).toBeNull();
+    ctx.clock.advance(10 * MINUTE);
+    expect(takeOver()?.id).toBe(claimed.id);
+
+    const response = await ctx.call(API_ROUTES.workerTaskFail, {
+      params: { id: claimed.id },
+      body: {
+        workerId: "worker-1",
+        error: "The site answered 429",
+        retryable: true,
+        kind: "site",
+        site: { pushback: rateLimited() },
+      },
+    });
+
+    expect(response.ok).toBe(false);
+    expect(status("a.test")).toMatchObject({
+      consecutivePushback: 1,
+      lastPushbackKind: "rate_limited",
+    });
+    expect(status("a.test")?.coolingDownUntil).not.toBeNull();
   });
 });

@@ -33,16 +33,27 @@ It is never failed, and the review queue says it is waiting for a site.
 - **A spaced start.** After a task starts, the next start on that site waits the minimum gap plus a random extra of up to the jitter share.
 - **A daily cap per site.** A site gets at most a fixed number of task starts in a rolling 24 hours.
 - **An hourly cap overall.** All sites together get at most a fixed number of starts in a rolling hour.
+- **A daily cap overall.** All sites together get at most a fixed number of starts in a rolling 24 hours.
+- **Quiet hours.** No browser task starts between the quiet start and end hours, in the server's local time (23:00 to 07:00 by default).
+  The hourly pace alone would run around the clock at an even cadence, which no person does, and bot vendors see the whole pattern across sites.
 - **No active cooldown or breaker.** See the next section.
 
-A confirmation link is a single page load that expires, so it is counted but never held back by a cap.
+A confirmation link is a single page load that expires, so it is counted but never held back by a cap or by quiet hours.
 It still obeys the one-at-a-time rule, the gap, the cooldown, and the breaker.
+
+The server follows a confirmation link from an email itself only when the same gate says yes.
+It asks the gate first, records the visit, and sends the request with no user agent, because a Node client that names the tool or claims to be Chrome would both be wrong.
+When the site is waiting, or the person routed it through a proxy, the link goes to a confirm task instead, so the browser opens it later and by the right route.
+A 429, 403 or 503 on a link counts as pushback, and the other links in that email are not tried.
 
 ### What counts as one site
 
 The key is the site owner, not the host name.
 `www.spokeo.com` and `api.spokeo.com` are one site.
-Sister sites that one company runs behind the same defences share a key: the PeopleConnect family (Intelius, TruthFinder, Instant Checkmate, US Search, Zabasearch, Classmates), the BeenVerified family, and Whitepages with 411.
+Sister sites that one operator runs behind the same defences share a key.
+The groups are data, not code: `packages/brokers/data/owner-groups.yaml` names each group and its members, `pnpm data:build` writes the group onto each broker as `ownerGroup`, and the build fails for a group that matches no broker or a domain in two groups.
+Today they are the PeopleConnect family, the BeenVerified family, Whitepages with 411, the TruePeopleSearch network (FastPeopleSearch, PeopleSearchNow, SmartBackgroundChecks, CyberBackgroundChecks, AdvancedBackgroundChecks, SearchPeopleFree), and PeopleFinders with PublicRecordsNow.
+Membership in the TruePeopleSearch network comes from public reporting and should be checked against each site's legal entity.
 A broker whose dataset entry lists confirmation-mail domains that belong to another platform is grouped with that platform as well.
 
 ## Defaults and why
@@ -53,6 +64,8 @@ A broker whose dataset entry lists confirmation-mail domains that belong to anot
 | Jitter | up to 50 percent extra | Visits that land on an exact clock are a bot tell, and the spread keeps several sites from lining up. |
 | Daily cap per site | 6 starts | A scan, a removal, and a confirmation fit in one day with room to spare, and a runaway retry loop stops at six. |
 | Hourly cap overall | 12 starts | With the gap this means a large campaign trickles out across days instead of bursting from one address. |
+| Daily cap overall | 60 starts | About an hour of ordinary browsing a day spread over many sites, and a hard stop for a runaway campaign. |
+| Quiet hours | 23:00 to 07:00 | A person does not look themselves up at three in the morning, and neither should the address. |
 | Reuse window | 24 hours | A repeat search for the same person on the same site inside a day would return the same page, so it is not worth a visit. |
 | First cooldown | 6 hours | Longer than the usual rate-limit mitigation windows, so the block has cleared before the next visit. |
 | Backoff | doubles each time, to 7 days | Repeated pushback means the site has decided against this address, and the cost of waiting is only time. |
@@ -88,6 +101,7 @@ A probe that ends without telling anything about the site leaves the breaker hal
 
 - **Reuse.** A queued scan for the same person on the same site, finished by an earlier scan inside the reuse window, is completed from that result with no visit and no slot at the gate.
   This works across profiles in one household when the identity fields the recipe searches with are the same.
+  For an agent search, which has no recipe, the key covers every field the agent is allowed to use, so a result found with one profile's phone number or alias is never copied to a profile that lacks it.
   A reused result never counts as a fresh search, so reuse cannot extend itself.
 - **Staggered rescans.** A rescan becomes due somewhere in the last quarter of the rescan window, at a position set by a hash of the profile and the site.
   The position is stable, so a restart does not move it, and a first campaign does not rescan everything on one afternoon.
@@ -101,7 +115,10 @@ A probe that ends without telling anything about the site leaves the breaker hal
 - No rotation of user agents or fingerprints, and no stealth plugins.
 - Human pacing in both workers: typing rhythm with hesitations, a pause before each action, a dwell of about one to three seconds on a freshly opened page, and a small scroll as a reader would make.
 - Pages load normally: no blocking of images, scripts, or fonts, which looks automated.
-- A scan reads the site's robots.txt once a day, and when it sets a Crawl-delay for everyone, the run leaves that long between page loads and the server uses it as a floor for the gap between visits.
+- Chrome starts with the automation flag hidden, so `navigator.webdriver` is false as it is in a person's own browser.
+- The worker never fetches robots.txt: a request from Node's HTTP client has a different TLS fingerprint and headers than the browser it sits beside, and no visitor looks at it before a search.
+  The gap floor above is what spaces visits.
+- Every page the main frame loads is read for pushback, whatever started it, so a 429 that answers the search submit is handled like one that answers the first visit.
 
 ## Optional egress proxy
 
@@ -112,7 +129,9 @@ Listing a site covers its sister sites too.
 
 Many VPN and datacenter addresses are challenged more than a home connection, not less, so a proxy is for keeping one site's traffic apart, not for hiding.
 A worker that was started with its own proxy keeps it, because that one is the operator's safety filter.
-Changing the route restarts that profile's browser between tasks.
+A task whose site the person routed through a different proxy then fails with a clear message instead of silently taking the worker's route.
+Changing the route restarts that profile's browser between tasks, and each route has its own browser folder, so cookies from a direct visit never meet the proxy's address.
+With a proxy in use Chrome also keeps WebRTC from sending UDP outside the proxy, which would reveal the home address.
 
 ## What the person sees
 

@@ -446,4 +446,7 @@ A `claim_task` that finds only gated tasks returns no task, and a claim by id fo
 Report what you see of the site: `complete_task`, `block_task`, and `fail_task` take an optional `site` with a `pushback` (kind, status, retryAfterSeconds).
 A `block_task` for a CAPTCHA or bot check counts as pushback even without it.
 A failure that carries pushback is not retried and not given to anyone else, so do not claim the task again before its cooldown ends.
+The server records what you report even when your lease has run out, so a late report of a 429 still keeps the site quiet.
+When a page answers 429, 403 or 503, stop and report; do not reload or try another page.
+The built-in model worker does this itself and ends the run at the first such answer.
 See `docs/scanning.md`.

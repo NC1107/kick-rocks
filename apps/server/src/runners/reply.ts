@@ -2,6 +2,7 @@ import { requestEvents, type TargetRow, targets } from "@kickrocks/db";
 import {
   canTransition,
   isOnDomain,
+  pushbackKindForStatus,
   REPLY_OUTCOMES,
   type ReplyClassification,
   type RequestActor,
@@ -9,6 +10,7 @@ import {
   WebUrl,
 } from "@kickrocks/shared";
 import { and, eq } from "drizzle-orm";
+import { proxyFor } from "../core/egress.js";
 import { AppError } from "../core/errors.js";
 import { isTrustedConfirmationSender } from "../core/targets.js";
 import type { Task } from "../core/task-types.js";
@@ -76,16 +78,37 @@ export async function followConfirmationLinks(
     ...awaitingConfirmationOf(services, request.id, target).fromDomains,
   ];
 
+  // The browser is the one place that honors a site's route, cooldown and breaker, so a link the
+  // server may not open itself goes to a confirm task, which waits its turn and goes the right way.
+  const handoff: LinkOutcome = {
+    kind: "browser",
+    url: usable.find((url) => isOnDomain(url, target.domain)) ?? (usable[0] as string),
+  };
+  const ownerKey = services.politeness.domainOf(target.id);
+  if (proxyFor(services.settings.get("egress"), { domain: target.domain, ownerKey }) !== null) {
+    return handoff;
+  }
+  if (!services.politeness.startDirect(target.id).allow) return handoff;
+
   let failure: LinkOutcome = { kind: "failed", url: usable[0] as string, finalUrl: null };
   for (const url of usable) {
     try {
       const result = await services.mail.linkFollower.follow(url, allowed);
+      const kind = result.status === null ? null : pushbackKindForStatus(result.status);
+      if (kind !== null) {
+        services.politeness.observe(
+          { id: null, kind: "confirm", targetId: target.id },
+          { pushback: { kind, status: result.status as number } },
+        );
+      }
       if (result.ok && result.needsBrowser) return { kind: "browser", url };
       if (result.ok) {
         return { kind: "followed", url, finalUrl: validUrlOrNull(result.finalUrl) };
       }
       if (result.needsBrowser) return { kind: "browser", url };
       failure = { kind: "failed", url, finalUrl: validUrlOrNull(result.finalUrl) };
+      // A site that just said slow down is not asked about the next link in the same message.
+      if (kind !== null) break;
     } catch (error) {
       services.logger.warn(
         { requestId: request.id, err: describeError(error) },

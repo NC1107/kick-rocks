@@ -6,20 +6,6 @@ import type { AppServices } from "../services.js";
 import { type Clock, nowIso } from "./clock.js";
 import { loadIdentities } from "./identities.js";
 
-/**
- * What an agent search can be driven by when there is no recipe to name the fields. The same
- * handful identifies a person to a people-search site, so two profiles that agree on all of them
- * would get the same page back.
- */
-const AGENT_SEARCH_FIELDS: readonly ProfileField[] = [
-  "first_name",
-  "last_name",
-  "city",
-  "state",
-  "zip",
-  "birth_year",
-];
-
 const REUSE_WORKER = "kickrocks-scan-reuse";
 const REUSE_LEASE_MS = 60_000;
 const MAX_REUSED_PER_PASS = 100;
@@ -37,6 +23,8 @@ export function scanSearchKey(
     targetId: string;
     recipeId: string | null;
     variant: ScanVariant | null;
+    /** The fields an agent may search with, which a scan without a recipe has no other way to name. */
+    agentFields: readonly ProfileField[];
   },
 ): string {
   const recipe = input.recipeId
@@ -46,7 +34,7 @@ export function scanSearchKey(
         .where(eq(recipes.id, input.recipeId))
         .get()
     : undefined;
-  const names = recipe?.definition.fields ?? AGENT_SEARCH_FIELDS;
+  const names = recipe?.definition.fields ?? input.agentFields;
   const fields = resolveProfileFields(loadIdentities(db, input.profileId), names, {
     asOf: nowIso(clock).slice(0, 10),
     nameId: input.variant?.nameId ?? null,

@@ -36,6 +36,7 @@ export const SiteObservation = z.object({
 export type SiteObservation = z.infer<typeof SiteObservation>;
 
 const minutes = z.number().int().min(0).max(1440);
+const hourOfDay = z.number().int().min(0).max(23);
 const reuseHours = z
   .number()
   .int()
@@ -52,6 +53,12 @@ export const ScanningSettings = z.object({
   dailyCapPerSite: z.number().int().min(1).max(100).default(6),
   /** Task starts across all sites in a rolling hour. */
   hourlyCapTotal: z.number().int().min(1).max(500).default(12),
+  /** Task starts across all sites in a rolling day, so the hourly pace cannot run around the clock. */
+  dailyCapTotal: z.number().int().min(1).max(2000).default(60),
+  /** The hour of the day, in the server's local time, from which no browser task starts. */
+  quietStartHour: hourOfDay.default(23),
+  /** The hour of the day, in the server's local time, at which browser tasks may start again. Equal to the start means no quiet hours. */
+  quietEndHour: hourOfDay.default(7),
   /** How long a finished search for the same person on the same site is reused. Zero turns reuse off. */
   reuseHours: reuseHours.default(24),
   /** The first cooldown after a site pushes back. It doubles with each repeat. */
@@ -72,6 +79,9 @@ export const ScanningPatch = z.object({
   gapJitterPercent: z.number().int().min(0).max(200).optional(),
   dailyCapPerSite: z.number().int().min(1).max(100).optional(),
   hourlyCapTotal: z.number().int().min(1).max(500).optional(),
+  dailyCapTotal: ScanningSettings.shape.dailyCapTotal.optional(),
+  quietStartHour: ScanningSettings.shape.quietStartHour.optional(),
+  quietEndHour: ScanningSettings.shape.quietEndHour.optional(),
   reuseHours: reuseHours.optional(),
   backoffBaseHours: ScanningSettings.shape.backoffBaseHours.optional(),
   backoffMaxHours: ScanningSettings.shape.backoffMaxHours.optional(),
@@ -117,6 +127,8 @@ export const WaitReason = z.enum([
   "site_gap",
   "site_daily_cap",
   "hourly_cap",
+  "daily_cap",
+  "quiet_hours",
   "site_cooldown",
   "site_breaker",
 ]);
@@ -128,6 +140,8 @@ export const WAIT_REASON_TEXT: Record<WaitReason, string> = {
   site_gap: "visits to that site are spaced out",
   site_daily_cap: "that site has had its visits for the day",
   hourly_cap: "the hourly limit across all sites is used up",
+  daily_cap: "the daily limit across all sites is used up",
+  quiet_hours: "browser tasks do not start during quiet hours",
   site_cooldown: "that site asked to be left alone for a while",
   site_breaker: "that site is paused after repeated pushback",
 };
@@ -172,6 +186,14 @@ export type TargetSite = z.infer<typeof TargetSite>;
 /** Whether a site is being left alone right now, which is what a person wants to know at a glance. */
 export function isCoolingDown(site: Pick<SiteStatus, "coolingDownUntil" | "breaker">): boolean {
   return site.coolingDownUntil !== null || site.breaker !== "closed";
+}
+
+/** Whether an hour of the day falls in the quiet window, which may run past midnight. */
+export function isQuietHour(hour: number, startHour: number, endHour: number): boolean {
+  if (startHour === endHour) return false;
+  return startHour < endHour
+    ? hour >= startHour && hour < endHour
+    : hour >= startHour || hour < endHour;
 }
 
 /** Pushback the site's own status line says, with no need to read the page. */
@@ -221,47 +243,21 @@ export function registrableDomain(host: string): string {
 }
 
 /**
- * Sites one company runs behind the same infrastructure and the same bot defences, so a visit to
- * one counts as a visit to all. The key is the group's lead domain.
+ * The key politeness is counted under. Sister domains that share an operator share a key, which
+ * the broker dataset names in `ownerGroup`. Without one, a broker whose confirmation mail comes
+ * from another registrable domain (one on `peopleconnect.us` runs on that platform) takes that
+ * domain, and otherwise the key is the domain itself.
  */
-const OWNER_GROUPS: Record<string, readonly string[]> = {
-  "peopleconnect.us": [
-    "peopleconnect.us",
-    "intelius.com",
-    "instantcheckmate.com",
-    "truthfinder.com",
-    "ussearch.com",
-    "zabasearch.com",
-    "classmates.com",
-  ],
-  "beenverified.com": [
-    "beenverified.com",
-    "peoplelooker.com",
-    "neighborreport.com",
-    "peoplesmart.com",
-    "ownerly.com",
-  ],
-  "whitepages.com": ["whitepages.com", "411.com", "whitepagespremium.com"],
-};
-
-const OWNER_OF = new Map(
-  Object.entries(OWNER_GROUPS).flatMap(([owner, domains]) =>
-    domains.map((domain): [string, string] => [domain, owner]),
-  ),
-);
-
-/**
- * The key politeness is counted under. Sister domains that share an owner share a key, found from
- * the curated groups above, then from the confirmation-mail domains the dataset lists (a broker
- * whose mail comes from `peopleconnect.us` runs on that platform), then the domain itself.
- */
-export function siteOwnerKey(domain: string, replyDomains: readonly string[] = []): string {
+export function siteOwnerKey(
+  domain: string,
+  replyDomains: readonly string[] = [],
+  ownerGroup?: string,
+): string {
+  if (ownerGroup) return ownerGroup;
   const own = registrableDomain(domain);
-  const grouped = OWNER_OF.get(own);
-  if (grouped) return grouped;
   for (const reply of replyDomains) {
     const sister = registrableDomain(reply);
-    if (sister !== own) return OWNER_OF.get(sister) ?? sister;
+    if (sister !== own) return sister;
   }
   return own;
 }

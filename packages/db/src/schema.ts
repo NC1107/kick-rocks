@@ -409,9 +409,8 @@ export const siteVisits = sqliteTable(
   {
     id: id(),
     domain: text("domain").notNull(),
-    taskId: text("task_id")
-      .notNull()
-      .references(() => tasks.id, { onDelete: "cascade" }),
+    /** Null for a request the server made itself, such as following a confirmation link. */
+    taskId: text("task_id").references(() => tasks.id, { onDelete: "cascade" }),
     startedAt: timestamp("started_at").notNull(),
     /** The visit was the single cautious probe after a circuit breaker's cooldown. */
     probe: integer("probe", { mode: "boolean" }).notNull().default(false),

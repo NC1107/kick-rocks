@@ -1,7 +1,15 @@
-import { type DbHandle, siteState, siteVisits, targets, tasks } from "@kickrocks/db";
+import {
+  type DbHandle,
+  type KickRocksDb,
+  siteState,
+  siteVisits,
+  targets,
+  tasks,
+} from "@kickrocks/db";
 import {
   BROWSER_TASK_KINDS,
   type BreakerState,
+  isQuietHour,
   type Pushback,
   type ScanningSettings,
   type SiteObservation,
@@ -30,7 +38,8 @@ export const MAX_GATED_CANDIDATES = 200;
 const VISIT_RETENTION_MS = 3 * DAY_MS;
 
 export interface TaskForGate {
-  id: string;
+  /** Null for a request the server makes itself, which has no task row. */
+  id: string | null;
   kind: string;
   targetId: string | null;
 }
@@ -42,7 +51,7 @@ export type GateDecision =
 const ALLOWED_WITHOUT_SITE: GateDecision = { allow: true, domain: null, probe: false };
 
 export interface SitePolitenessDeps {
-  db: Pick<DbHandle, "select" | "insert" | "update" | "delete">;
+  db: Pick<KickRocksDb, "select" | "insert" | "update" | "delete" | "transaction">;
   clock: Clock;
   settings: SettingsStore;
   /** Spreads the gap between task starts; replaced in tests. */
@@ -68,6 +77,11 @@ export interface SitePoliteness {
   evaluate(task: TaskForGate, handle?: DbHandle): GateDecision;
   /** Records the start of an admitted task, which spaces the next one. */
   admit(task: TaskForGate, decision: GateDecision & { allow: true }, handle?: DbHandle): void;
+  /**
+   * Asks to make a request to a target's site from the server itself, as following a confirmation
+   * link does, and records the visit when the answer is yes. Decided and written in one step.
+   */
+  startDirect(targetId: string): GateDecision;
   /** Takes in what a run saw of the site. Returns the cooldown a pushback set, if any. */
   observe(
     task: TaskForGate,
@@ -130,7 +144,8 @@ export function createSitePoliteness({
       .get();
     if (!row) return null;
     const replyDomains = "replyDomains" in row.data ? (row.data.replyDomains ?? []) : [];
-    const key = siteOwnerKey(row.domain, replyDomains);
+    const ownerGroup = "ownerGroup" in row.data ? row.data.ownerGroup : undefined;
+    const key = siteOwnerKey(row.domain, replyDomains, ownerGroup);
     ownerByTarget.set(targetId, key);
     return key;
   }
@@ -215,6 +230,15 @@ export function createSitePoliteness({
     return addMs(starts[index] ?? starts[0] ?? new Date().toISOString(), windowMs);
   }
 
+  /** When quiet hours end, if `now` falls inside them; null otherwise. Hours are in the server's local time. */
+  function quietHoursEnd(now: Date, config: ScanningSettings): Date | null {
+    if (!isQuietHour(now.getHours(), config.quietStartHour, config.quietEndHour)) return null;
+    const end = new Date(now);
+    end.setHours(config.quietEndHour, 0, 0, 0);
+    if (end <= now) end.setDate(end.getDate() + 1);
+    return end;
+  }
+
   const isBrowserTask = (task: TaskForGate) =>
     (BROWSER_TASK_KINDS as readonly string[]).includes(task.kind);
 
@@ -248,7 +272,7 @@ export function createSitePoliteness({
   const domainOf = (targetId: string | null): string | null =>
     targetId === null ? null : ownerKeyOf(db as DbHandle, targetId);
 
-  return {
+  const politeness: SitePoliteness = {
     settings: () => settingsStore.get("scanning"),
     domainOf,
 
@@ -278,6 +302,8 @@ export function createSitePoliteness({
       // A confirmation link expires, and opening one is a single page load, so it is counted but
       // never held back by a cap.
       if (task.kind !== "confirm") {
+        const quietUntil = quietHoursEnd(nowDate, config);
+        if (quietUntil) return wait("quiet_hours", domain, quietUntil.toISOString());
         const today = startsSince(handle, addMs(now, -DAY_MS), domain);
         if (today.length >= config.dailyCapPerSite) {
           return wait(
@@ -293,6 +319,10 @@ export function createSitePoliteness({
             domain,
             windowOpensAt(lastHour, config.hourlyCapTotal, HOUR_MS),
           );
+        }
+        const lastDay = startsSince(handle, addMs(now, -DAY_MS));
+        if (lastDay.length >= config.dailyCapTotal) {
+          return wait("daily_cap", domain, windowOpensAt(lastDay, config.dailyCapTotal, DAY_MS));
         }
       }
       return { allow: true, domain, probe: breaker === "half_open" };
@@ -327,6 +357,15 @@ export function createSitePoliteness({
         },
         now,
       );
+    },
+
+    startDirect(targetId) {
+      return db.transaction((tx) => {
+        const task: TaskForGate = { id: null, kind: "confirm", targetId };
+        const decision = politeness.evaluate(task, tx);
+        if (decision.allow) politeness.admit(task, decision, tx);
+        return decision;
+      });
     },
 
     observe(task, observation, handle = db as DbHandle) {
@@ -426,4 +465,5 @@ export function createSitePoliteness({
       return db.delete(siteVisits).where(lt(siteVisits.startedAt, cutoff)).run().changes;
     },
   };
+  return politeness;
 }
