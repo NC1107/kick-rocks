@@ -185,30 +185,57 @@ archive_is_intact() {
   printf '%s\n' "$listing" | grep -qx '\./db\.key'
 }
 
+# Exit status of the database check when the database is there but does not open with its key.
+# Anything else non-zero means the check could not run, which says nothing about the backup.
+readonly DATABASE_UNUSABLE=3
+
+# Builds the server image with its output on screen when this machine does not have it yet, so the
+# check never spends minutes building it out of sight.
+ensure_server_image() {
+  local project
+  project="$(docker compose config | sed -n 's/^name: //p')"
+  docker image inspect "$project-server" >/dev/null 2>&1 && return 0
+  echo "Building the server image first, which the check of the backup needs. This takes a few minutes."
+  docker compose build server
+}
+
 # Whether the unpacked data in VOLUME opens with the key beside it. An archive can list whole and
 # still hold a database that no key opens, and restoring it would swap good data for unusable data.
 # It runs in the server image because that is the build that has to open the restored database.
+# The volume is mounted read-only and the files are opened from a copy, because opening a WAL
+# database creates side files, and root-owned ones in the volume that gets swapped in would make
+# every later write by the server fail.
 volume_database_opens() {
   local script
   script='
     const fs = require("fs");
     const Database = require("better-sqlite3");
-    const key = fs.readFileSync("/check/db.key", "utf8").trim();
-    if (!/^[0-9a-f]{64}$/i.test(key)) process.exit(1);
-    const db = new Database("/check/kickrocks.db", { readonly: true, fileMustExist: true });
-    db.pragma("cipher=\u0027sqlcipher\u0027");
-    db.pragma("legacy=4");
-    db.pragma("key=\"x\u0027" + key + "\u0027\"");
-    db.prepare("select count(*) from sqlite_master").get();
-    if (db.pragma("quick_check", { simple: true }) !== "ok") process.exit(1);
+    const unusable = () => process.exit(Number(process.env.DATABASE_UNUSABLE));
+    try {
+      fs.mkdirSync("/tmp/check");
+      for (const name of fs.readdirSync("/check")) {
+        if (/^(kickrocks\.db(-wal)?|db\.key)$/.test(name)) fs.copyFileSync("/check/" + name, "/tmp/check/" + name);
+      }
+      const key = fs.readFileSync("/tmp/check/db.key", "utf8").trim();
+      if (!/^[0-9a-f]{64}$/i.test(key)) unusable();
+      const db = new Database("/tmp/check/kickrocks.db", { fileMustExist: true });
+      db.pragma("cipher=\u0027sqlcipher\u0027");
+      db.pragma("legacy=4");
+      db.pragma("key=\"x\u0027" + key + "\u0027\"");
+      db.prepare("select count(*) from sqlite_master").get();
+      if (db.pragma("quick_check", { simple: true }) !== "ok") unusable();
+    } catch {
+      unusable();
+    }
   '
-  docker compose run --rm --no-deps -T --user 0 --workdir /app/server/node_modules/@kickrocks/db -v "$1":/check \
-    --entrypoint node server -e "$script" >/dev/null 2>&1
+  docker compose run --rm --no-deps -T --user 0 --workdir /app/server/node_modules/@kickrocks/db \
+    -e "DATABASE_UNUSABLE=$DATABASE_UNUSABLE" -v "$1":/check:ro \
+    --entrypoint node server -e "$script" >/dev/null
 }
 
 backup() {
   local file volume
-  file="$(absolute_path "${1:-$HOME/kickrocks-backup-$(date +%Y%m%d-%H%M%S).tgz}")"
+  file="$(absolute_path "${1:-$HOME/kickrocks-backup-$(date +%Y%m%d-%H%M%S).tgz${passphrase_file:+.enc}}")"
   volume="$(data_volume)"
   docker volume inspect "$volume" >/dev/null 2>&1 || { echo "No data volume named $volume yet." >&2; exit 1; }
   case "$(cd "$(dirname "$file")" && pwd)/" in
@@ -232,7 +259,7 @@ backup() {
 # bad archive is found before the live data is touched, and the old data is put back if the swap fails.
 # The copy of the old data is the only way back, so it is deleted only once the restore is known good.
 restore() {
-  local file volume scratch previous answer had_previous=false
+  local file volume scratch previous answer opens had_previous=false
   [ -n "${1:-}" ] || { echo "Usage: ./install.sh --restore FILE" >&2; exit 2; }
   file="$(absolute_path "$1")"
   [ -f "$file" ] || { echo "No such file: $file" >&2; exit 1; }
@@ -255,8 +282,14 @@ restore() {
     echo "The archive could not be unpacked, so nothing was changed." >&2
     exit 1
   fi
-  if ! volume_database_opens "$scratch"; then
+  ensure_server_image || { echo "Could not build the server image to check the backup with, so nothing was changed. Run ./install.sh once and try again." >&2; exit 1; }
+  opens=0
+  volume_database_opens "$scratch" || opens=$?
+  if [ "$opens" -eq "$DATABASE_UNUSABLE" ]; then
     echo "The database in the archive does not open with the key in it, so nothing was changed." >&2
+    exit 1
+  elif [ "$opens" -ne 0 ]; then
+    echo "The check of the backup could not run (docker exited with $opens), so nothing was changed. The backup itself may be fine." >&2
     exit 1
   fi
   if docker volume inspect "$volume" >/dev/null 2>&1; then

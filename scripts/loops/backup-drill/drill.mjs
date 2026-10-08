@@ -287,6 +287,27 @@ export async function runDrill() {
     metrics.rowDiffAfterRestore = rowDiff;
     if (rowDiff !== 0) fail(`row diff after restore is ${rowDiff}`);
 
+    const foreign = run(
+      "docker",
+      [
+        "run",
+        "--rm",
+        "-v",
+        `${target.volume}:/data:ro`,
+        "alpine",
+        "find",
+        "/data",
+        "!",
+        "-user",
+        "1000",
+      ],
+      { env: target.env },
+    );
+    metrics.filesNotOwnedByTheServer = foreign.out.split("\n").filter(Boolean).length;
+    if (foreign.code !== 0 || metrics.filesNotOwnedByTheServer !== 0) {
+      fail("the restored volume holds files the server user does not own");
+    }
+
     const healthy = target.up();
     metrics.secondsToHealthyRestore = Math.round((Date.now() - restoreStart) / 100) / 10;
     if (healthy.code !== 0) fail("the restored instance does not become healthy");

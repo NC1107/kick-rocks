@@ -40,11 +40,13 @@ case "$1 $2" in
   "compose version") exit 0 ;;
   "compose config") echo "name: scratch"; exit 0 ;;
   "volume inspect") exit 0 ;;
+  "image inspect") [ -z "$FAKE_NO_IMAGE" ] || exit 1; exit 0 ;;
+  "compose build") [ "$FAKE_BUILD" != fail ] || exit 1; exit 0 ;;
 esac
 case "$*" in
   *"ps -a -q"*) [ -n "$FAKE_NO_CONTAINERS" ] || echo abc123 ;;
   *"ps --services"*) if [ -n "$FAKE_STOPPED" ]; then echo; elif [ -z "$FAKE_NO_CONTAINERS" ]; then echo server; fi ;;
-  "compose run"*) [ "$FAKE_OPENS" != fail ] || exit 1 ;;
+  "compose run"*) case "$FAKE_OPENS" in fail) exit 3 ;; broken) exit 1 ;; esac ;;
   *"compose "*" stop"*) [ -z "$FAKE_NO_CONTAINERS" ] || { echo 'no container found for project "scratch": not found' >&2; exit 1; } ;;
   *"-previous-"*":/from:ro"*) [ "$FAKE_ROLLBACK" != fail ] || exit 1 ;;
   *"-restore-"*":/from:ro"*)
@@ -147,6 +149,48 @@ describe("install.sh backup and restore", () => {
     });
     assert.equal(result.status, 1);
     assert.match(result.stderr, /does not open with the key/);
+    assert.doesNotMatch(calls(), /-v scratch_kickrocks-data:\/to/);
+  });
+
+  it("checks the database from a read-only mount so the volume gets no side files", () => {
+    const result = install(["--restore", archive], { input: "restore\n" });
+    assert.equal(result.status, 0, result.stderr);
+    assert.match(calls(), /compose run .* -v scratch_kickrocks-data-restore-\d+:\/check:ro /);
+  });
+
+  it("builds the server image in view when the machine has none", () => {
+    const result = install(["--restore", archive], {
+      input: "restore\n",
+      env: { FAKE_NO_IMAGE: "1" },
+    });
+    assert.equal(result.status, 0, result.stderr);
+    assert.match(result.stdout, /Building the server image/);
+    assert.match(calls(), /compose build server/);
+  });
+
+  it("does not build the server image when it is there", () => {
+    install(["--restore", archive], { input: "restore\n" });
+    assert.doesNotMatch(calls(), /compose build/);
+  });
+
+  it("blames the build, not the backup, when the image cannot be built", () => {
+    const result = install(["--restore", archive], {
+      input: "restore\n",
+      env: { FAKE_NO_IMAGE: "1", FAKE_BUILD: "fail" },
+    });
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, /Could not build the server image/);
+    assert.doesNotMatch(result.stderr, /does not open with the key/);
+  });
+
+  it("blames the check, not the backup, when compose fails to run it", () => {
+    const result = install(["--restore", archive], {
+      input: "restore\n",
+      env: { FAKE_OPENS: "broken" },
+    });
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, /could not run/);
+    assert.doesNotMatch(result.stderr, /does not open with the key/);
     assert.doesNotMatch(calls(), /-v scratch_kickrocks-data:\/to/);
   });
 

@@ -35,8 +35,9 @@ The first person to open the app sets it, and until then the setup page is open 
 | none | Writes `.env`, builds, starts, waits until the server is healthy. |
 | `--start` | Starts the stopped containers again and checks `COMPOSE_PROFILES`. |
 | `--stop` | Stops every container, including the agent worker, and keeps all data. |
-| `--backup [FILE]` | Writes the data volume to `FILE`, or to `~/kickrocks-backup-<date>.tgz`. See [Backups](#backups-and-restore). |
-| `--restore FILE` | Replaces the data volume with a backup, after checking the archive. See [Backups](#backups-and-restore). |
+| `--backup [FILE]` | Writes the data volume to `FILE`, or to `~/kickrocks-backup-<date>.tgz`, or `.tgz.enc` with a passphrase. See [Backups](#backups-and-restore). |
+| `--restore FILE` | Replaces the data volume with a backup, after checking the archive and that its database opens with its key. See [Backups](#backups-and-restore). |
+| `--passphrase-file PATH` | With `--backup`, encrypts the archive with the passphrase in `PATH`. With `--restore`, opens an encrypted one. |
 | `--uninstall` | Asks you to type `delete`, then removes the containers, volumes, and images. |
 | `--url` | Prints the address of the UI and exits. |
 
@@ -194,6 +195,17 @@ The archive is readable only by you, and the script refuses to write it inside t
 The archive holds the database and the key that decrypts it, so whoever has the file has your data.
 Keep it off shared folders and cloud storage, or encrypt it before it goes there.
 
+To have the script encrypt it, add `--passphrase-file` with the path of a file that holds the passphrase.
+
+```sh
+./install.sh --backup --passphrase-file ~/kickrocks-passphrase.txt
+```
+
+The archive is then encrypted with AES-256 through `openssl`, with a key derived from the passphrase, and the default name ends in `.tgz.enc`.
+A passphrase that is lost cannot be recovered, and neither can the backup.
+Restoring needs the same file: `./install.sh --restore FILE --passphrase-file PATH`.
+Keep the passphrase somewhere other than next to the backup.
+
 A backup is built next to its destination as a `.partial` file, and it only replaces the real file once it reads back whole.
 So a run that fails halfway leaves the backup you already had alone.
 
@@ -215,6 +227,9 @@ To restore, give the script the archive.
 
 It checks that the file is a complete archive with the database and its key in it, and then asks you to type `restore`.
 It stops everything and unpacks the archive into a scratch volume, so a file that unpacks badly is caught before your current data is touched.
+It then opens the database there with the key from the archive, and refuses the restore if that fails.
+That check runs in the server image, which the script builds first, in view, if the machine has none yet.
+If the check cannot run at all, for example because docker is unhealthy, it says so instead of blaming the backup.
 Only then does it copy the current data aside and swap the backup in, and it starts back up whatever was running.
 If the swap fails it puts the previous data back.
 If putting it back fails too, it keeps the copy, tells you its name and the command that restores it, and leaves everything stopped.

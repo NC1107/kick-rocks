@@ -11,6 +11,7 @@
 - The ladder also checks that a database from a newer build is refused and that a copy is kept before pending migrations run.
 - The drill builds the stack under two scratch compose projects named `loop-backup-drill-*` on ports the OS picks.
   It seeds one instance, runs `./install.sh --backup`, restores into the other, and diffs every table against a raw copy of the source volume.
+  The restored volume must hold no file owned by anyone but uid 1000, and the restored instance must accept a login, which writes a session.
 - Negative cases: a truncated archive, an archive whose key does not open its database, an archive with a damaged database, and a backup that fails halfway over a good file.
   A bad archive must be refused and leave the data volume byte for byte as it was.
 - Features still to build are probed through the interface the harness expects: `--backup FILE --passphrase-file PATH`, `--restore FILE --passphrase-file PATH`, `--schedule-backup DIR --once --keep N`, and a `health.backup` field in `/api/status`.
