@@ -1,7 +1,6 @@
 import type {
   AgentReason,
   BlockedReason,
-  ClaimerKind,
   ContactMethod,
   EmailKind,
   FailureKind,
@@ -23,7 +22,6 @@ import type {
   TargetPriority,
   TaskKind,
 } from "@kickrocks/shared";
-import type { Tone } from "./tone.js";
 
 /*
  * Display words for every enum a page shows. They live here so the same value reads the same on
@@ -78,12 +76,6 @@ export const PRIORITY_LABELS: Record<TargetPriority, string> = {
   crucial: "Crucial",
   high: "High",
   normal: "Normal",
-};
-
-export const PRIORITY_TONES: Record<TargetPriority, Tone> = {
-  crucial: "violet",
-  high: "indigo",
-  normal: "neutral",
 };
 
 export const RIGHT_LABELS: Record<RequestRight, string> = {
@@ -157,12 +149,6 @@ export const RECIPE_HEALTH_LABELS: Record<RecipeHealth, string> = {
   unknown: "Not checked",
   healthy: "Healthy",
   broken: "Broken",
-};
-
-export const RECIPE_HEALTH_TONES: Record<RecipeHealth, Tone> = {
-  unknown: "neutral",
-  healthy: "green",
-  broken: "red",
 };
 
 export const RECIPE_STATUS_LABELS: Record<RecipeStatus, string> = {
@@ -245,10 +231,4 @@ export const AGENT_REASON_LABELS: Record<AgentReason, string> = {
   no_recipe: "No saved steps for this site",
   recipe_failed: "The saved steps stopped working",
   blocked: "Handed over after a human check",
-};
-
-export const CLAIMER_KIND_LABELS: Record<ClaimerKind, string> = {
-  builtin: "Built-in worker",
-  mcp: "Agent over MCP",
-  model: "Model worker",
 };

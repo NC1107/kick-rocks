@@ -1,37 +1,41 @@
 import {
   API_ROUTES,
+  isActiveStatus,
   type RequestAction,
   type RequestDetail,
   resendEmailKind,
   type TaskSummary,
+  tellEvents,
 } from "@kickrocks/shared";
 import { skipToken } from "@tanstack/react-query";
-import { FileSearch, MoreHorizontal } from "lucide-react";
-import { useState } from "react";
+import { MoreHorizontal } from "lucide-react";
+import { type ReactNode, useState } from "react";
 import { Link, useParams } from "react-router";
 import { errorMessage, useApiMutation, useApiQuery } from "../../../api/index.js";
+import { useBreadcrumbTail } from "../../../components/layout/breadcrumb-context.js";
 import {
   Alert,
-  Badge,
   Button,
-  Card,
-  CardHeader,
   ConfirmDialog,
-  DescriptionList,
   EmptyState,
   ExternalLinkText,
   IconButton,
+  InlineError,
   LinkButton,
   Menu,
   type MenuItem,
   PageHeader,
+  RelativeTime,
+  RowGroup,
+  Section,
   Skeleton,
-  SkeletonText,
-  StatusPill,
-  TaskStatusPill,
+  StatusMark,
+  Tag,
+  TaskStatusMark,
   useToast,
 } from "../../../components/ui/index.js";
-import { formatDate, formatDateTime, formatRelative } from "../../../lib/format.js";
+import { cn } from "../../../lib/cn.js";
+import { formatDate, formatDateTime } from "../../../lib/format.js";
 import {
   BLOCKED_REASON_LABELS,
   CHANNEL_LABELS,
@@ -65,7 +69,7 @@ function resendWarning(request: RequestDetail, address: string | null): string {
 }
 
 const ACTION_WARNING: Partial<Record<RequestAction, string>> = {
-  cancel: "Kick Rocks stops working on this request. Nothing already sent is recalled.",
+  cancel: "Work on this request stops. Nothing already sent is recalled.",
   mark_confirmed: "Use this when the target confirmed by some other route. It closes the request.",
   mark_rejected: "This records that the target refused the request.",
   mark_no_record: "This closes the request, because the target holds nothing about you.",
@@ -80,39 +84,70 @@ const CONFIRMED_ACTIONS: readonly RequestAction[] = [
 
 function Loading() {
   return (
-    <div aria-busy="true" className="flex flex-col gap-4">
+    <div aria-busy="true">
       <span className="sr-only">Loading request</span>
-      <Skeleton className="h-8 w-64" />
-      <Card>
-        <SkeletonText lines={5} />
-      </Card>
-      <Card>
-        <SkeletonText lines={6} />
-      </Card>
+      <PageHeader title="Request" back={{ to: "/requests", label: "Requests" }} />
+      <div className="flex max-w-3xl flex-col gap-5">
+        <Section label="Summary">
+          <RowGroup>
+            {Array.from({ length: 6 }, (_, row) => (
+              // biome-ignore lint/suspicious/noArrayIndexKey: placeholder rows have no identity
+              <div key={row} className="flex h-row items-center gap-8 px-3.5">
+                <Skeleton className="h-3 w-24" />
+                <Skeleton className="h-3 w-40" />
+              </div>
+            ))}
+          </RowGroup>
+        </Section>
+      </div>
     </div>
+  );
+}
+
+function Facts({
+  items,
+}: {
+  items: readonly { term: string; value: ReactNode; mono?: boolean }[];
+}) {
+  return (
+    <dl className="m-0 divide-y divide-line overflow-hidden rounded-md border border-line bg-surface">
+      {items.map((item) => (
+        <div
+          key={item.term}
+          className="grid min-h-row items-baseline gap-x-6 px-3.5 py-2 sm:grid-cols-[9rem_minmax(0,1fr)]"
+        >
+          <dt className="text-meta text-ink-3">{item.term}</dt>
+          <dd
+            className={cn(
+              "m-0 min-w-0 break-words text-ui text-ink",
+              item.mono && "font-mono text-meta",
+            )}
+          >
+            {item.value}
+          </dd>
+        </div>
+      ))}
+    </dl>
   );
 }
 
 function TaskRow({ task }: { task: TaskSummary }) {
   return (
-    <li className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1.5 py-3 first:pt-0 last:pb-0">
-      <span className="min-w-0">
-        <span className="block text-base font-medium text-ink">{TASK_KIND_LABELS[task.kind]}</span>
-        <span className="block text-sm text-ink-muted">
-          Updated <time dateTime={task.updatedAt}>{formatRelative(task.updatedAt)}</time>
+    <div className="flex min-h-row flex-wrap items-center justify-between gap-x-4 gap-y-1.5 px-3.5 py-2">
+      <div className="min-w-0">
+        <p className="text-ui font-medium text-ink">{TASK_KIND_LABELS[task.kind]}</p>
+        <p className="text-meta text-ink-3">
+          Updated <RelativeTime iso={task.updatedAt} />
           {task.attempts > 1 ? `, attempt ${task.attempts} of ${task.maxAttempts}` : ""}
-        </span>
+        </p>
         {task.status === "blocked" && task.blockedReason ? (
-          <span className="block text-sm text-ink-muted">
-            Stopped for you: {BLOCKED_REASON_LABELS[task.blockedReason].toLowerCase()}
-          </span>
+          <p className="text-meta text-ink-3">
+            Stopped for you: {BLOCKED_REASON_LABELS[task.blockedReason]}
+          </p>
         ) : null}
-        {task.status === "failed" && task.lastError ? (
-          <span className="block text-sm text-danger">{task.lastError}</span>
-        ) : null}
-      </span>
-      <TaskStatusPill status={task.status} />
-    </li>
+      </div>
+      <TaskStatusMark status={task.status} />
+    </div>
   );
 }
 
@@ -127,6 +162,7 @@ export function Component() {
         }
       : skipToken,
   );
+  useBreadcrumbTail(query.data?.target.name);
 
   if (query.isPending) return <Loading />;
 
@@ -134,8 +170,7 @@ export function Component() {
     if (query.error.status === 404) {
       return (
         <EmptyState
-          icon={FileSearch}
-          title="Request not found"
+          title="Request not found."
           description="It may belong to a profile that was deleted."
           actions={<LinkButton to="/requests">Back to requests</LinkButton>}
         />
@@ -177,10 +212,22 @@ function Detail({ request }: { request: RequestDetail }) {
       setConfirming(null);
       toast.success(ACTION_DONE[variables.body.action]);
     },
-    onError: (error) => {
-      setConfirming(null);
-      toast.error("That did not work", errorMessage(error));
+    onError: () => setConfirming(null),
+  });
+
+  const [retryError, setRetryError] = useState<string | null>(null);
+  const retry = useApiMutation(API_ROUTES.taskRetry, {
+    invalidates: [
+      API_ROUTES.requestsGet,
+      API_ROUTES.requestsList,
+      API_ROUTES.dashboardGet,
+      API_ROUTES.reviewQueue,
+    ],
+    onSuccess: () => {
+      setRetryError(null);
+      toast.success("Task queued to retry");
     },
+    onError: (error) => setRetryError(errorMessage(error)),
   });
 
   const run = (action: RequestAction) =>
@@ -206,18 +253,15 @@ function Detail({ request }: { request: RequestDetail }) {
   const statute = jurisdictions.data?.jurisdictions
     .flatMap((jurisdiction) => jurisdiction.statutes)
     .find((candidate) => candidate.id === request.legalBasis);
-  const live = request.tasks.filter(
-    (task) => task.status !== "done" && task.status !== "cancelled",
-  );
 
   return (
     <>
       <PageHeader
         title={target.name}
         description={
-          <span className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
-            <StatusPill status={request.status} />
-            <span className="font-mono text-base">{request.reference}</span>
+          <span className="flex flex-wrap items-center gap-x-4 gap-y-1">
+            <StatusMark status={request.status} />
+            <span className="font-mono text-meta">{request.reference}</span>
           </span>
         }
         back={{ to: "/requests", label: "Requests" }}
@@ -243,7 +287,8 @@ function Detail({ request }: { request: RequestDetail }) {
         }
       />
 
-      <div className="flex flex-col gap-5">
+      <div className="flex max-w-3xl flex-col gap-5">
+        {act.isError ? <InlineError>{errorMessage(act.error)}</InlineError> : null}
         {request.status === "needs_verification" ? (
           <Alert
             intent="warning"
@@ -262,7 +307,7 @@ function Detail({ request }: { request: RequestDetail }) {
             intent="warning"
             title="Waiting for an agent"
             action={
-              <span className="flex flex-wrap gap-2">
+              <span className="flex flex-wrap items-center gap-3">
                 {target.optOutUrl ? (
                   <ExternalLinkText href={target.optOutUrl}>Open the opt-out page</ExternalLinkText>
                 ) : null}
@@ -272,9 +317,8 @@ function Detail({ request }: { request: RequestDetail }) {
               </span>
             }
           >
-            Kick Rocks has no saved steps for this site, so the form is left to an agent you connect
-            in Settings. Nothing happens until one takes it. You can open the page and finish it
-            yourself, then mark the task done in Review, or cancel the request.
+            There are no saved steps for this target, so an agent you connect in Settings takes the
+            form. Open the page and finish it yourself, then mark the task done in Review.
           </Alert>
         ) : null}
         {blocked ? (
@@ -288,41 +332,35 @@ function Detail({ request }: { request: RequestDetail }) {
             }
           >
             {blocked.blockedReason
-              ? `It stopped at: ${BLOCKED_REASON_LABELS[blocked.blockedReason].toLowerCase()}.`
+              ? `It stopped for you: ${BLOCKED_REASON_LABELS[blocked.blockedReason]}.`
               : "It stopped and needs a person."}
           </Alert>
         ) : null}
         {request.awaitingConfirmationSince ? (
           <Alert intent="info" title="Waiting for a confirmation email">
-            The form was submitted {formatRelative(request.awaitingConfirmationSince)}. Kick Rocks
-            follows the link when the email arrives.
-          </Alert>
-        ) : null}
-        {request.lastError ? (
-          <Alert intent="danger" title="The last attempt failed">
-            {request.lastError}
+            The form was submitted <RelativeTime iso={request.awaitingConfirmationSince} />. The
+            link is followed when the email arrives.
           </Alert>
         ) : null}
 
-        <Card>
-          <CardHeader title="Summary" />
-          <DescriptionList
+        <Section label="Summary">
+          <Facts
             items={[
               {
                 term: "Target",
-                description: (
+                value: (
                   <Link
                     to={`/targets/${encodeURIComponent(target.id)}`}
-                    className="rounded-xs text-accent underline decoration-accent/40 underline-offset-2 hover:decoration-accent"
+                    className="rounded-xs text-accent-text underline decoration-accent-text/40 underline-offset-2 hover:decoration-accent-text"
                   >
                     {target.name}
                   </Link>
                 ),
               },
-              { term: "Channel", description: CHANNEL_LABELS[request.channel] },
+              { term: "Channel", value: CHANNEL_LABELS[request.channel] },
               {
                 term: "Asked for",
-                description: request.rights
+                value: request.rights
                   .map((right, index) =>
                     index === 0
                       ? RIGHT_LABELS[right]
@@ -332,31 +370,34 @@ function Detail({ request }: { request: RequestDetail }) {
               },
               {
                 term: "Legal basis",
-                description:
+                value:
                   request.legalBasis === "policy"
                     ? "Their own privacy policy"
                     : (statute?.name ?? request.legalBasis),
               },
               {
                 term: "Created",
-                description: (
+                mono: true,
+                value: (
                   <time dateTime={request.createdAt}>{formatDateTime(request.createdAt)}</time>
                 ),
               },
               {
                 term: "Sent",
-                description: request.sentAt ? formatDateTime(request.sentAt) : "Not sent yet",
+                mono: Boolean(request.sentAt),
+                value: request.sentAt ? formatDateTime(request.sentAt) : "Not sent yet",
               },
               {
                 term: "Reply due",
-                description: request.dueAt ? formatDate(request.dueAt) : "Not set",
+                mono: Boolean(request.dueAt),
+                value: request.dueAt ? formatDate(request.dueAt) : "Not set",
               },
-              { term: "Follow-ups sent", description: String(request.followUps) },
+              { term: "Follow-ups sent", mono: true, value: String(request.followUps) },
               ...(request.recordUrl
                 ? [
                     {
                       term: "Record",
-                      description: (
+                      value: (
                         <ExternalLinkText href={request.recordUrl} className="break-all">
                           {request.recordUrl}
                         </ExternalLinkText>
@@ -366,61 +407,57 @@ function Detail({ request }: { request: RequestDetail }) {
                 : []),
             ]}
           />
-        </Card>
+        </Section>
 
-        <Card>
-          <CardHeader title="Timeline" description="Everything that happened, newest first." />
-          <Timeline events={request.events} />
-        </Card>
+        <Section label="Timeline" count={tellEvents(request.events).length}>
+          <Timeline
+            events={request.events}
+            tasks={request.tasks}
+            lastError={request.lastError}
+            open={isActiveStatus(request.status)}
+            onRetry={(taskId) => retry.mutate({ params: { id: taskId } })}
+            retrying={retry.isPending}
+            retryError={retryError}
+          />
+        </Section>
 
-        <Card>
-          <CardHeader title="Replies" />
+        <Section label="Replies" count={request.messages.length}>
           {request.messages.length === 0 ? (
-            <p className="text-base text-ink-muted">No replies yet.</p>
+            <p className="py-1 text-ui text-ink-2">No replies yet.</p>
           ) : (
-            <ul className="m-0 list-none divide-y divide-line p-0">
+            <RowGroup>
               {request.messages.map((message) => (
-                <li key={message.id} className="py-3 first:pt-0 last:pb-0">
+                <div key={message.id} className="px-3.5 py-3">
                   <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
-                    <p className="min-w-0 break-words text-base font-medium text-ink">
+                    <p className="min-w-0 break-words text-ui font-medium text-ink">
                       {message.subject}
                     </p>
-                    <Badge tone="indigo">{CLASSIFICATION_LABELS[message.classification]}</Badge>
+                    <Tag>{CLASSIFICATION_LABELS[message.classification]}</Tag>
                   </div>
-                  <p className="break-words text-sm text-ink-muted">
-                    From {message.fromAddress},{" "}
+                  <p className="break-words font-mono text-caption text-ink-3">
+                    {message.fromAddress},{" "}
                     <time dateTime={message.receivedAt}>{formatDateTime(message.receivedAt)}</time>
                   </p>
-                  <div className="mt-1.5">
+                  <div className="mt-2">
                     <MessageBody messageId={message.id} snippet={message.snippet} />
                   </div>
-                </li>
+                </div>
               ))}
-            </ul>
+            </RowGroup>
           )}
-        </Card>
+        </Section>
 
-        <Card>
-          <CardHeader
-            title="Tasks"
-            description={
-              request.tasks.length === 0
-                ? undefined
-                : live.length > 0
-                  ? "Work queued, running, or waiting for you."
-                  : "Nothing is running for this request."
-            }
-          />
+        <Section label="Tasks" count={request.tasks.length}>
           {request.tasks.length === 0 ? (
-            <p className="text-base text-ink-muted">No tasks for this request yet.</p>
+            <p className="py-1 text-ui text-ink-2">No tasks for this request yet.</p>
           ) : (
-            <ul className="m-0 list-none divide-y divide-line p-0">
+            <RowGroup>
               {request.tasks.map((task) => (
                 <TaskRow key={task.id} task={task} />
               ))}
-            </ul>
+            </RowGroup>
           )}
-        </Card>
+        </Section>
       </div>
 
       <ConfirmDialog
@@ -435,6 +472,7 @@ function Detail({ request }: { request: RequestDetail }) {
               : undefined
         }
         confirmLabel={confirming ? REQUEST_ACTION_LABELS[confirming] : "Confirm"}
+        cancelLabel={confirming === "cancel" ? "Keep request" : "Cancel"}
         destructive={confirming === "cancel"}
         loading={act.isPending}
         onConfirm={() => confirming && run(confirming)}

@@ -381,7 +381,8 @@ The server and the web mock both build issues with `toApiIssues`, and the web cl
 ### 4.5 Web shell (`apps/web`)
 
 - React 19, `react-router`, `@tanstack/react-query`, Tailwind v4, `lucide-react` icons.
-- Design tokens as CSS variables for light and dark, mapped into Tailwind's theme, following the frontend-pixel-perfect skill.
+- Design tokens as CSS variables for light and dark, mapped into Tailwind's theme.
+  The visual language, token values, and component rules are specified in `docs/DESIGN-LANGUAGE.md`, which wins over the current UI when the two differ.
 - A typed API client in `src/api/` built from `shared/api.ts`, which sends the `X-Kick-Rocks` header and redirects to login on 401.
 - An app layout with sidebar navigation, a profile switcher (current profile kept in localStorage), and an auth gate that routes to `/setup` or `/login`.
 - UI components in `src/components/ui/`: Button, IconButton, Input, Select, Textarea, Checkbox, Field (label, help, error), Card, Badge, StatusPill (one color per request status), Table, Tabs, Dialog, Toast, EmptyState, Skeleton, Spinner, PageHeader, CopyButton, CodeBlock.

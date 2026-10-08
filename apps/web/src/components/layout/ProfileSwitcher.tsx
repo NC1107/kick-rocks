@@ -5,11 +5,15 @@ import { cn } from "../../lib/cn.js";
 import { Menu, type MenuItem } from "../ui/index.js";
 import { Skeleton } from "../ui/Skeleton.js";
 
+const NAME_FILLER = new Set(["the", "of", "de", "van", "von", "jr", "sr", "ii", "iii", "iv"]);
+
+/** The first two name parts, so a long or suffixed name still gives two stable letters. */
 export function initialsOf(name: string): string {
-  const words = name.split(/\s+/).filter(Boolean);
-  const first = words[0]?.[0] ?? "?";
-  const last = words.length > 1 ? (words[words.length - 1]?.[0] ?? "") : "";
-  return `${first}${last}`.toUpperCase();
+  const words = name
+    .split(/\s+/)
+    .filter((word) => word.length > 0 && !NAME_FILLER.has(word.toLowerCase().replace(/\.$/, "")));
+  const second = words.slice(1).find((word) => word.length > 1) ?? words[1];
+  return `${words[0]?.[0] ?? "?"}${second?.[0] ?? ""}`.toUpperCase();
 }
 
 /**
@@ -27,13 +31,14 @@ export function ProfileSwitcher({
   const { profile, profiles, isLoading, setProfileId } = useCurrentProfile();
   const navigate = useNavigate();
 
-  if (isLoading) return <Skeleton className={cn("h-12 w-full rounded-md", className)} />;
+  if (isLoading) return <Skeleton className={cn("h-10 w-full rounded-sm", className)} />;
 
   const items: MenuItem[] = [
     ...profiles.map((candidate) => ({
       id: candidate.id,
       label: candidate.displayName,
       description: candidate.primaryEmail ?? "No email",
+      descriptionMono: candidate.primaryEmail !== null,
       selected: candidate.id === profile?.id,
       onSelect: () => {
         setProfileId(candidate.id);
@@ -68,23 +73,23 @@ export function ProfileSwitcher({
           aria-label={
             profile ? `Profile: ${profile.displayName}. Switch profile` : "Choose a profile"
           }
-          className="flex h-12 w-full items-center gap-2.5 rounded-md border border-line bg-surface px-2 text-left transition-colors duration-100 hover:bg-sunken"
+          className="flex h-10 w-full items-center gap-2.5 rounded-sm border border-line bg-surface px-2 text-left transition-colors duration-100 hover:bg-hover max-sm:h-12"
         >
           <span
             aria-hidden="true"
-            className="inline-flex size-8 shrink-0 items-center justify-center rounded-md bg-accent-soft text-sm font-semibold text-accent-soft-ink"
+            className="inline-flex size-6 shrink-0 items-center justify-center rounded-full bg-active font-mono text-label font-semibold text-ink-2"
           >
             {profile ? initialsOf(profile.displayName) : "?"}
           </span>
           <span className="flex min-w-0 flex-1 flex-col">
-            <span className="truncate text-base font-medium leading-5 text-ink">
+            <span className="truncate text-ui leading-4 font-medium text-ink">
               {profile?.displayName ?? "No profile yet"}
             </span>
-            <span className="truncate text-xs leading-4 text-ink-muted">
+            <span className="truncate font-mono text-label leading-3.5 text-ink-3">
               {profile ? (profile.primaryEmail ?? "No email") : "Add one to begin"}
             </span>
           </span>
-          <ChevronsUpDown aria-hidden="true" className="size-4 shrink-0 text-ink-muted" />
+          <ChevronsUpDown aria-hidden="true" className="size-4 shrink-0 text-ink-3" />
         </button>
       )}
     />

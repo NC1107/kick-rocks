@@ -8,14 +8,15 @@ import {
   useCurrentProfile,
 } from "../../../api/index.js";
 import {
-  Alert,
   Button,
-  Card,
-  CardHeader,
+  Callout,
   LinkButton,
   PageHeader,
+  RowGroup,
+  Section,
   useToast,
 } from "../../../components/ui/index.js";
+import { GroupNote } from "../../settings/rows.js";
 import { type DetailsErrors, DetailsFields, validateDetails } from "../details-fields.js";
 import { IdentitiesEditor } from "../identities-editor.js";
 import {
@@ -107,26 +108,26 @@ export function Component() {
     <>
       <PageHeader
         title="New profile"
-        description="Add a person and the details brokers know them by."
+        description="A person and the details targets know them by"
         back={{ to: "/profiles", label: "Profiles" }}
       />
       <UnsavedChangesDialog blocker={unsaved.blocker} />
-      <form ref={form} onSubmit={submit} noValidate className="flex max-w-4xl flex-col gap-6">
-        <Card>
-          <CardHeader title="Profile" />
-          <DetailsFields
-            value={details}
-            onChange={setDetails}
-            errors={detailErrors}
-            disabled={create.isPending}
-            namePlaceholder={defaultDisplayName(drafts)}
-          />
-        </Card>
-        <Card>
-          <CardHeader
-            title="Identities"
-            description="Everything a broker might have on file. Each request still sends only what that broker needs."
-          />
+      <form ref={form} onSubmit={submit} noValidate className="flex max-w-3xl flex-col gap-4">
+        <Section label="Profile">
+          <RowGroup>
+            <DetailsFields
+              value={details}
+              onChange={setDetails}
+              errors={detailErrors}
+              disabled={create.isPending}
+              namePlaceholder={defaultDisplayName(drafts)}
+            />
+          </RowGroup>
+        </Section>
+        <Section label="Identities" as="h2">
+          <GroupNote className="mt-0 mb-2">
+            Everything a target might have on file. Each request sends only what that target needs.
+          </GroupNote>
           <IdentitiesEditor
             drafts={drafts}
             onChange={setDrafts}
@@ -134,11 +135,11 @@ export function Component() {
             disabled={create.isPending}
             today={today}
           />
-        </Card>
+        </Section>
         {failure ? (
-          <Alert intent="danger" title="Could not create the profile">
+          <Callout intent="danger" title="Could not create the profile">
             {explained ? "Fix the marked fields and try again." : errorMessage(failure)}
-          </Alert>
+          </Callout>
         ) : null}
         <div className="flex flex-wrap items-center justify-end gap-2">
           <LinkButton to="/profiles" variant="ghost">

@@ -114,7 +114,7 @@ export function TabList({ className, style, onScroll, ...rest }: ComponentProps<
       style={
         hidden.start || hidden.end ? { maskImage: fade, WebkitMaskImage: fade, ...style } : style
       }
-      className={cn("relative flex gap-1 overflow-x-auto border-b border-line", className)}
+      className={cn(STRIP_CLASS, className)}
       {...rest}
     />
   );
@@ -122,13 +122,25 @@ export function TabList({ className, style, onScroll, ...rest }: ComponentProps<
 
 export interface TabProps extends Omit<ComponentProps<"button">, "value"> {
   value: string;
+  /** Shown as a mono number after the label, in the label's own color and never in a chip. */
+  count?: number;
 }
+
+function TabCount({ count }: { count: number }) {
+  return <span className="font-mono text-meta tabular-nums">{count}</span>;
+}
+
+// The hairline is a background inside the scroll box, not a border: a border sits outside the
+// padding box, so the strip's overflow clipped the pixel row where the 2px underline overlaps it
+// and the active mark rendered 1px.
+const STRIP_CLASS =
+  "relative flex gap-1 overflow-x-auto bg-[linear-gradient(var(--kr-line),var(--kr-line))] bg-size-[100%_1px] bg-bottom bg-no-repeat";
 
 const TAB_CLASS =
   // The focus ring sits inside the tab, because the tab strip scrolls and would clip a ring outside it.
-  "-mb-px inline-flex h-control shrink-0 items-center gap-2 whitespace-nowrap border-b-2 px-3 text-base font-medium transition-colors duration-100 focus-visible:-outline-offset-2 disabled:cursor-not-allowed disabled:opacity-50";
+  "inline-flex h-control shrink-0 items-center gap-1.5 whitespace-nowrap border-b-2 px-3 text-ui font-medium transition-colors duration-100 focus-visible:-outline-offset-2 disabled:cursor-not-allowed disabled:text-ink-3";
 
-export function Tab({ value, className, children, ...rest }: TabProps) {
+export function Tab({ value, count, className, children, ...rest }: TabProps) {
   const { value: selected, select, baseId } = useTabs();
   const active = selected === value;
   const ref = useRef<HTMLButtonElement>(null);
@@ -148,14 +160,13 @@ export function Tab({ value, className, children, ...rest }: TabProps) {
       onClick={() => select(value)}
       className={cn(
         TAB_CLASS,
-        active
-          ? "border-accent text-ink"
-          : "border-transparent text-ink-muted hover:border-line-strong hover:text-ink",
+        active ? "border-accent-fill text-ink" : "border-transparent text-ink-3 hover:text-ink-2",
         className,
       )}
       {...rest}
     >
       {children}
+      {count === undefined ? null : <TabCount count={count} />}
     </button>
   );
 }
@@ -184,6 +195,7 @@ export interface LinkTab {
   label: ReactNode;
   /** Match only this exact path, so a parent route's tab is not active on its children. */
   end?: boolean;
+  count?: number;
 }
 
 /**
@@ -192,7 +204,7 @@ export interface LinkTab {
  */
 export function LinkTabs({ items, label }: { items: readonly LinkTab[]; label: string }) {
   return (
-    <nav aria-label={label} className="relative flex gap-1 overflow-x-auto border-b border-line">
+    <nav aria-label={label} className={STRIP_CLASS}>
       {items.map((item) => (
         <NavLink
           key={item.to}
@@ -202,12 +214,13 @@ export function LinkTabs({ items, label }: { items: readonly LinkTab[]; label: s
             cn(
               TAB_CLASS,
               isActive
-                ? "border-accent text-ink"
-                : "border-transparent text-ink-muted hover:border-line-strong hover:text-ink",
+                ? "border-accent-fill text-ink"
+                : "border-transparent text-ink-3 hover:text-ink-2",
             )
           }
         >
           {item.label}
+          {item.count === undefined ? null : <TabCount count={item.count} />}
         </NavLink>
       ))}
     </nav>

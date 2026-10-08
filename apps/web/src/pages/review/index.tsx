@@ -1,40 +1,41 @@
 import { API_ROUTES, type ReviewQueue } from "@kickrocks/shared";
-import { Bot, CircleCheck, Mail, PauseCircle, ShieldQuestion, UserSearch } from "lucide-react";
-import type { ReactNode } from "react";
+import { ChevronLeft } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useSyncExternalStore } from "react";
 import { useSearchParams } from "react-router";
 import { errorMessage, useApiQuery } from "../../api/index.js";
 import { RequireProfile } from "../../components/layout/RequireProfile.js";
-import {
-  Alert,
-  Badge,
-  Button,
-  Card,
-  EmptyState,
-  PageHeader,
-  Skeleton,
-  SkeletonText,
-  Tab,
-  TabList,
-  TabPanel,
-  Tabs,
-} from "../../components/ui/index.js";
-import { BlockedTaskCard } from "./BlockedTaskCard.js";
-import { FailedTasks } from "./FailedTasks.js";
-import { MatchCard } from "./MatchCard.js";
-import { MessageCard } from "./MessageCard.js";
-import { firstBusyTab, parseTab, REVIEW_TABS, type ReviewTab, tabCounts } from "./model.js";
+import { Alert, Button, PageHeader, Skeleton, SkeletonText } from "../../components/ui/index.js";
+import { cn } from "../../lib/cn.js";
+import { describeFailure } from "../../lib/failures.js";
+import { BlockedTaskDetail } from "./BlockedTaskDetail.js";
+import { shortcutAllowed } from "./keys.js";
+import { MailDetail } from "./MailDetail.js";
+import { MatchDetail } from "./MatchDetail.js";
+import { buildEntries, pickEntry, type QueueEntry, SCANS_KEY } from "./model.js";
+import { QueueList } from "./QueueList.js";
 import { ScansPanel } from "./ScansPanel.js";
-import { VerificationCard } from "./VerificationCard.js";
+import { VerificationDetail } from "./VerificationDetail.js";
 
-const TAB_LABELS: Record<ReviewTab, string> = {
-  blocked: "Blocked",
-  matches: "Records to confirm",
-  verifications: "More details asked",
-  mail: "Unclassified mail",
-  failed: "Failed",
-  agents: "Waiting for an agent",
-  scans: "Scans",
-};
+const DETAIL_ID = "review-detail";
+const WIDE = "(min-width: 1024px)";
+
+/** Whether the list and the item sit side by side, which is also when one is always selected. */
+function useWide(): boolean {
+  return useSyncExternalStore(
+    (notify) => {
+      const query = window.matchMedia(WIDE);
+      query.addEventListener("change", notify);
+      return () => query.removeEventListener("change", notify);
+    },
+    () => window.matchMedia(WIDE).matches,
+    () => true,
+  );
+}
+
+/** Selection and focus travel together, so Enter or Space acts on the row that looks selected. */
+function focusEntry(key: string) {
+  document.querySelector<HTMLElement>(`[data-entry="${key}"] > :is(a, button)`)?.focus();
+}
 
 export function Component() {
   return <RequireProfile>{(profile) => <Review profileId={profile.id} />}</RequireProfile>;
@@ -42,43 +43,32 @@ export function Component() {
 
 function Loading() {
   return (
-    <div aria-busy="true" className="flex flex-col gap-4">
+    <div aria-busy="true" className="grid grid-cols-1 gap-5 lg:grid-cols-[22.5rem_minmax(0,1fr)]">
       <span className="sr-only">Loading the review queue</span>
-      <Skeleton className="h-10 w-full max-w-xl" />
-      <Card>
+      <div className="flex flex-col gap-2">
+        <Skeleton className="h-4 w-24" />
+        <Skeleton className="h-13 w-full" />
+        <Skeleton className="h-13 w-full" />
+        <Skeleton className="h-13 w-full" />
+      </div>
+      <div className="hidden rounded-md border border-line bg-surface p-5 lg:block">
+        <Skeleton className="mb-3 h-6 w-56" />
         <SkeletonText lines={5} />
-      </Card>
-      <Card>
-        <SkeletonText lines={5} />
-      </Card>
+      </div>
     </div>
   );
 }
 
-function Cards({ children }: { children: ReactNode }) {
-  return <div className="flex flex-col gap-4">{children}</div>;
-}
-
 function Review({ profileId }: { profileId: string }) {
-  const [params, setParams] = useSearchParams();
+  const [params] = useSearchParams();
   const queue = useApiQuery(API_ROUTES.reviewQueue, { query: { profileId } });
-
-  const selectTab = (tab: string) =>
-    setParams(
-      (current) => {
-        const next = new URLSearchParams(current);
-        next.set("tab", tab);
-        return next;
-      },
-      { replace: true },
-    );
+  const drilled = params.has("item");
 
   return (
     <>
-      <PageHeader
-        title="Review"
-        description="Everything that needs a person: stuck tasks, records to confirm, and mail nobody could classify."
-      />
+      <div className={cn(drilled && "max-lg:hidden")}>
+        <PageHeader title="Review" description="Everything waiting on you" />
+      </div>
       {queue.isPending ? (
         <Loading />
       ) : queue.isError ? (
@@ -94,157 +84,194 @@ function Review({ profileId }: { profileId: string }) {
           {errorMessage(queue.error)}
         </Alert>
       ) : (
-        <Queue
-          queue={queue.data}
-          profileId={profileId}
-          tab={parseTab(params.get("tab")) ?? firstBusyTab(queue.data)}
-          onTab={selectTab}
-        />
+        <Queue queue={queue.data} profileId={profileId} />
       )}
     </>
   );
 }
 
-function Queue({
-  queue,
+function Detail({
+  entry,
+  entries,
   profileId,
-  tab,
-  onTab,
 }: {
-  queue: ReviewQueue;
+  entry: QueueEntry;
+  entries: readonly QueueEntry[];
   profileId: string;
-  tab: ReviewTab;
-  onTab: (tab: string) => void;
 }) {
-  const counts = tabCounts(queue);
+  switch (entry.kind) {
+    case "blocked":
+    case "agents":
+      return (
+        <BlockedTaskDetail
+          key={entry.key}
+          item={entry.item}
+          variant={entry.kind === "agents" ? "agent" : "blocked"}
+          profileId={profileId}
+        />
+      );
+    case "failed": {
+      const { group } = describeFailure(entry.item.task);
+      const siblings = entries.flatMap((other) =>
+        other.kind === "failed" && describeFailure(other.item.task).group === group
+          ? [other.item]
+          : [],
+      );
+      return (
+        <BlockedTaskDetail
+          key={entry.key}
+          item={entry.item}
+          variant="failed"
+          profileId={profileId}
+          siblings={siblings}
+        />
+      );
+    }
+    case "matches":
+      return <MatchDetail key={entry.key} match={entry.match} />;
+    case "verifications":
+      return <VerificationDetail key={entry.key} item={entry.item} />;
+    case "mail":
+      return <MailDetail key={entry.key} message={entry.message} profileId={profileId} />;
+  }
+}
+
+function Queue({ queue, profileId }: { queue: ReviewQueue; profileId: string }) {
+  const [params, setParams] = useSearchParams();
+  const entries = useMemo(() => buildEntries(queue), [queue]);
+  const itemParam = params.get("item");
+  const tabParam = params.get("tab");
+  const lastIndex = useRef(0);
+  const pane = useRef<HTMLDivElement>(null);
+  const wide = useWide();
+
+  const wantsScans = itemParam === SCANS_KEY || (itemParam === null && tabParam === "scans");
+  const selected = wantsScans
+    ? null
+    : pickEntry(entries, { item: itemParam, tab: tabParam, lastIndex: lastIndex.current });
+  const showScans = selected === null;
+  const selectedKey = showScans ? SCANS_KEY : selected.key;
+
+  useEffect(() => {
+    if (selected) lastIndex.current = entries.indexOf(selected);
+  }, [entries, selected]);
+
+  // After a decision removes the open item, the URL names the item that took its place.
+  useEffect(() => {
+    if (itemParam !== null && itemParam !== selectedKey) {
+      setParams(new URLSearchParams({ item: selectedKey }), { replace: true });
+    }
+  }, [itemParam, selectedKey, setParams]);
+
+  const select = (key: string, { replace }: { replace: boolean }) =>
+    setParams(new URLSearchParams({ item: key }), { replace });
+
+  const move = (step: 1 | -1) => {
+    const keys = [...entries.map((entry) => entry.key), SCANS_KEY];
+    const next = keys[Math.min(Math.max(keys.indexOf(selectedKey) + step, 0), keys.length - 1)];
+    if (!next || next === selectedKey) return;
+    select(next, { replace: true });
+    if (!pane.current?.contains(document.activeElement)) focusEntry(next);
+  };
+
+  // The handler reads the latest selection, so it is re-bound whenever that changes.
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (!shortcutAllowed(event)) return;
+      const inList = event.target instanceof Element && event.target.closest("[data-entry]");
+      if (event.key === "j" || (inList && event.key === "ArrowDown")) move(1);
+      else if (event.key === "k" || (inList && event.key === "ArrowUp")) move(-1);
+      else if (event.key === "Enter" && event.target === document.body) pane.current?.focus();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  });
+
+  useEffect(() => {
+    document.querySelector(`[data-entry="${selectedKey}"]`)?.scrollIntoView?.({ block: "nearest" });
+  }, [selectedKey]);
+
+  // Deciding an item removes the control that had focus, and the queue advances behind it. The new
+  // row takes focus, once any confirm dialog has closed, so a keyboard user carries on from there.
+  const owedFocus = useRef(false);
+  const selectedRef = useRef(selectedKey);
+  selectedRef.current = selectedKey;
+  const previousKey = useRef(selectedKey);
+  const listShownRef = useRef(true);
+  listShownRef.current = wide || itemParam === null;
+
+  const settleFocus = useCallback(() => {
+    if (!owedFocus.current || document.querySelector("dialog[open]")) return;
+    owedFocus.current = false;
+    const active = document.activeElement;
+    if (active && active !== document.body) return;
+    // Below the split layout the list is hidden while an item is open, so the pane takes focus.
+    if (listShownRef.current) focusEntry(selectedRef.current);
+    else pane.current?.focus();
+  }, []);
+
+  useEffect(() => {
+    const removed =
+      previousKey.current !== SCANS_KEY &&
+      !entries.some((entry) => entry.key === previousKey.current);
+    previousKey.current = selectedKey;
+    if (removed) owedFocus.current = true;
+    settleFocus();
+  }, [entries, selectedKey, settleFocus]);
+
+  useEffect(() => {
+    const onClose = () => setTimeout(settleFocus, 0);
+    document.addEventListener("close", onClose, true);
+    return () => document.removeEventListener("close", onClose, true);
+  }, [settleFocus]);
+
+  const drilled = itemParam !== null;
+
+  // Below the split layout, opening or closing an item swaps which half is on screen. The half
+  // that was focused is now hidden, so focus follows the swap instead of falling to the body.
+  const wasDrilled = useRef(drilled);
+  useEffect(() => {
+    if (wasDrilled.current === drilled) return;
+    wasDrilled.current = drilled;
+    if (wide) return;
+    if (drilled) pane.current?.focus();
+    else focusEntry(selectedRef.current);
+  }, [drilled, wide]);
+
   return (
-    <Tabs value={tab} onValueChange={onTab}>
-      <TabList aria-label="Review queue">
-        {REVIEW_TABS.map((value) => {
-          const count = value === "scans" ? 0 : counts[value];
-          return (
-            <Tab key={value} value={value}>
-              {TAB_LABELS[value]}
-              {count > 0 ? (
-                <Badge tone={value === "failed" ? "red" : "amber"}>
-                  {count}
-                  <span className="sr-only"> waiting</span>
-                </Badge>
-              ) : null}
-            </Tab>
-          );
-        })}
-      </TabList>
-
-      <TabPanel value="blocked">
-        {queue.blockedTasks.length === 0 ? (
-          <EmptyState
-            icon={PauseCircle}
-            title="Nothing is blocked"
-            description="When a site shows a CAPTCHA or asks for a phone code or an ID, the task waits here for you."
-          />
-        ) : (
-          <Cards>
-            {queue.blockedTasks.map((item) => (
-              <BlockedTaskCard
-                key={item.task.id}
-                item={item}
-                variant="blocked"
-                profileId={profileId}
-              />
-            ))}
-          </Cards>
+    <div className="grid grid-cols-1 gap-5 lg:h-[calc(100dvh-9.5rem)] lg:min-h-[30rem] lg:grid-cols-[22.5rem_minmax(0,1fr)]">
+      <div className={cn("min-h-0 lg:overflow-y-auto lg:pr-1 lg:pb-2", drilled && "max-lg:hidden")}>
+        <QueueList
+          entries={entries}
+          selectedKey={wide || drilled ? selectedKey : null}
+          onSelect={(key) => select(key, { replace: wide })}
+        />
+      </div>
+      <div
+        id={DETAIL_ID}
+        ref={pane}
+        tabIndex={-1}
+        className={cn(
+          "flex min-h-0 min-w-0 flex-col rounded-md border border-line bg-surface outline-none lg:overflow-hidden",
+          !drilled && "max-lg:hidden",
         )}
-      </TabPanel>
-
-      <TabPanel value="matches">
-        {queue.matches.length === 0 ? (
-          <EmptyState
-            icon={UserSearch}
-            title="No records to confirm"
-            description="Records a scan finds appear here. Nothing is removed until you say a record is yours."
-          />
+      >
+        <div className="border-b border-line px-2 py-1.5 lg:hidden">
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => setParams(new URLSearchParams(), { replace: true })}
+          >
+            <ChevronLeft aria-hidden="true" strokeWidth={1.5} />
+            Review
+          </Button>
+        </div>
+        {selected ? (
+          <Detail entry={selected} entries={entries} profileId={profileId} />
         ) : (
-          <Cards>
-            {queue.matches.map((match) => (
-              <MatchCard key={match.id} match={match} />
-            ))}
-          </Cards>
+          <ScansPanel profileId={profileId} />
         )}
-      </TabPanel>
-
-      <TabPanel value="verifications">
-        {queue.verifications.length === 0 ? (
-          <EmptyState
-            icon={ShieldQuestion}
-            title="Nobody is asking for more details"
-            description="If a broker asks for more identifiers before it acts, you choose here what to share."
-          />
-        ) : (
-          <Cards>
-            {queue.verifications.map((item) => (
-              <VerificationCard key={item.request.id} item={item} />
-            ))}
-          </Cards>
-        )}
-      </TabPanel>
-
-      <TabPanel value="mail">
-        {queue.messages.length === 0 ? (
-          <EmptyState
-            icon={Mail}
-            title="No unclassified mail"
-            description="Replies Kick Rocks cannot place on its own show up here."
-          />
-        ) : (
-          <Cards>
-            {queue.messages.map((message) => (
-              <MessageCard key={message.id} message={message} profileId={profileId} />
-            ))}
-          </Cards>
-        )}
-      </TabPanel>
-
-      <TabPanel value="failed">
-        {queue.failedTasks.length === 0 ? (
-          <EmptyState
-            icon={CircleCheck}
-            title="No failed tasks"
-            description="A task that gave up for good in the last 30 days is listed here so you can retry it."
-          />
-        ) : (
-          <FailedTasks items={queue.failedTasks} profileId={profileId} />
-        )}
-      </TabPanel>
-
-      <TabPanel value="agents">
-        {queue.agentTasks.length === 0 ? (
-          <EmptyState
-            icon={Bot}
-            title="Nothing is waiting for an agent"
-            description="Work handed to an agent, or a site with no saved steps, waits here until an agent takes it."
-          />
-        ) : (
-          <Cards>
-            <Alert intent="info" title="No agent has taken these yet">
-              An agent is an AI assistant connected to Kick Rocks over MCP. Connect one in Settings,
-              or open each page and finish it yourself.
-            </Alert>
-            {queue.agentTasks.map((item) => (
-              <BlockedTaskCard
-                key={item.task.id}
-                item={item}
-                variant="agent"
-                profileId={profileId}
-              />
-            ))}
-          </Cards>
-        )}
-      </TabPanel>
-
-      <TabPanel value="scans">
-        <ScansPanel profileId={profileId} />
-      </TabPanel>
-    </Tabs>
+      </div>
+    </div>
   );
 }

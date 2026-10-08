@@ -1,16 +1,19 @@
 import { type IdentityKind, US_STATES } from "@kickrocks/shared";
-import { Plus, Trash2 } from "lucide-react";
+import { Trash2 } from "lucide-react";
 import type { ReactNode } from "react";
 import {
-  Alert,
-  Badge,
   Button,
+  Callout,
   Field,
   IconButton,
   Input,
+  RowGroup,
+  Section,
   Select,
+  Tag,
 } from "../../components/ui/index.js";
 import { IDENTITY_KIND_LABELS } from "../../lib/labels.js";
+import { GroupNote } from "../settings/rows.js";
 import {
   addDraft,
   type DraftErrors,
@@ -26,7 +29,8 @@ import {
 interface SectionSpec {
   kind: IdentityKind;
   title: string;
-  description: string;
+  /** One line under the group, only where the rows do not say it. */
+  note?: string;
   addLabel: string;
   /** The most rows allowed. A person has one birth date. */
   max?: number;
@@ -36,38 +40,35 @@ const SECTIONS: readonly SectionSpec[] = [
   {
     kind: "name",
     title: "Names",
-    description: "The name requests go out under. Mark one as primary.",
     addLabel: "Add name",
   },
   {
     kind: "alias",
     title: "Aliases",
-    description: "Nicknames, maiden names, and spellings brokers may list you under.",
     addLabel: "Add alias",
   },
   {
     kind: "email",
     title: "Email addresses",
-    description: "Brokers often know you by an old address. Add every one you have used.",
+    note: "Add every address you have used. Targets often know an old one.",
     addLabel: "Add email",
   },
   {
     kind: "phone",
     title: "Phone numbers",
-    description: "Used only when a broker or form asks for one.",
+    note: "Used only when a target or form asks for one.",
     addLabel: "Add phone",
   },
   {
     kind: "address",
     title: "Addresses",
-    description:
-      "Current and past addresses. Dates tell Kick Rocks which one to use and which to search under.",
+    note: "Dates tell Kick Rocks which address to use and which to search under.",
     addLabel: "Add address",
   },
   {
     kind: "dob",
     title: "Date of birth",
-    description: "Disclosed only when a broker requires it and you approve it.",
+    note: "Disclosed only when a target requires it and you approve it.",
     addLabel: "Add date of birth",
     max: 1,
   },
@@ -104,13 +105,11 @@ export function IdentitiesEditor({
   today,
 }: IdentitiesEditorProps) {
   return (
-    <div className="divide-y divide-line">
+    <div className="flex flex-col gap-4">
       {errors.general.length > 0 ? (
-        <div className="pb-5">
-          <Alert intent="danger" title="Some details need attention">
-            {errors.general.join(" ")}
-          </Alert>
-        </div>
+        <Callout intent="danger" title="Some details need attention">
+          {errors.general.join(" ")}
+        </Callout>
       ) : null}
       {SECTIONS.map((section) => {
         const rows = drafts
@@ -119,68 +118,62 @@ export function IdentitiesEditor({
         const canAdd = section.max === undefined || rows.length < section.max;
         const error = errors.sections[section.kind];
         return (
-          <section
+          <Section
             key={section.kind}
-            aria-labelledby={`identities-${section.kind}`}
-            className="py-5 first:pt-0 last:pb-0"
-          >
-            <div className="mb-3 flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
-              <div className="min-w-0">
-                <h3 id={`identities-${section.kind}`} className="text-base font-semibold text-ink">
-                  {section.title}
-                </h3>
-                <p className="mt-0.5 max-w-xl text-sm text-ink-muted">{section.description}</p>
-              </div>
-              {canAdd ? (
+            label={section.title}
+            count={rows.length}
+            as="h3"
+            actions={
+              canAdd ? (
                 <Button
                   size="sm"
                   disabled={disabled}
                   onClick={() => onChange(addDraft(drafts, section.kind))}
                 >
-                  <Plus aria-hidden="true" className="size-3.5" />
                   {section.addLabel}
                 </Button>
-              ) : null}
-            </div>
+              ) : null
+            }
+          >
             {error ? (
-              <p role="alert" className="mb-3 text-sm text-danger">
+              <p role="alert" className="mb-1.5 text-caption text-danger-text">
                 {error}
               </p>
             ) : null}
             {rows.length === 0 ? (
-              <p className="text-sm text-ink-faint">None added.</p>
+              <p className="text-meta text-ink-3">None added.</p>
             ) : (
-              <ul className="m-0 flex list-none flex-col gap-4 p-0">
+              <RowGroup>
                 {rows.map(({ draft, index }, position) => (
-                  <li key={draft.key}>
-                    <fieldset className="m-0 flex min-w-0 flex-col gap-3 rounded-md border border-line bg-canvas p-3 sm:flex-row sm:items-start sm:gap-4">
-                      <legend className="sr-only">
-                        {IDENTITY_KIND_LABELS[draft.kind]} {position + 1}
-                      </legend>
-                      <div className="min-w-0 flex-1">
-                        <RowFields
-                          draft={draft}
-                          index={index}
-                          errors={errors}
-                          disabled={disabled}
-                          today={today}
-                          onChange={(change) => onChange(updateDraft(drafts, draft.key, change))}
-                        />
-                      </div>
-                      <div className="flex shrink-0 items-center gap-2 sm:mt-[1.625rem] sm:h-control sm:w-36 sm:justify-end">
-                        {hasPrimary(draft.kind) ? (
-                          draft.isPrimary ? (
-                            <Badge tone="green">Primary</Badge>
-                          ) : (
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              disabled={disabled}
-                              onClick={() => onChange(makePrimary(drafts, draft.key))}
-                            >
-                              Make primary
-                            </Button>
-                          )
+                  <fieldset
+                    key={draft.key}
+                    className="group m-0 flex min-w-0 flex-col gap-3 border-0 px-3.5 py-3 lg:flex-row lg:items-start lg:gap-4"
+                  >
+                    <legend className="sr-only">
+                      {IDENTITY_KIND_LABELS[draft.kind]} {position + 1}
+                    </legend>
+                    <div className="min-w-0 flex-1">
+                      <RowFields
+                        draft={draft}
+                        index={index}
+                        errors={errors}
+                        disabled={disabled}
+                        today={today}
+                        onChange={(change) => onChange(updateDraft(drafts, draft.key, change))}
+                      />
+                    </div>
+                    <div className="flex shrink-0 items-center justify-end gap-1 lg:mt-[1.375rem] lg:h-control lg:w-44">
+                      {hasPrimary(draft.kind) && draft.isPrimary ? <Tag>Primary</Tag> : null}
+                      <div className="flex items-center gap-1 opacity-0 transition-opacity duration-100 group-focus-within:opacity-100 group-hover:opacity-100 pointer-coarse:opacity-100 max-lg:opacity-100">
+                        {hasPrimary(draft.kind) && !draft.isPrimary ? (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            disabled={disabled}
+                            onClick={() => onChange(makePrimary(drafts, draft.key))}
+                          >
+                            Make primary
+                          </Button>
                         ) : null}
                         <IconButton
                           label={`Remove ${SINGULAR[draft.kind]} ${position + 1}`}
@@ -191,12 +184,13 @@ export function IdentitiesEditor({
                           <Trash2 />
                         </IconButton>
                       </div>
-                    </fieldset>
-                  </li>
+                    </div>
+                  </fieldset>
                 ))}
-              </ul>
+              </RowGroup>
             )}
-          </section>
+            {section.note ? <GroupNote>{section.note}</GroupNote> : null}
+          </Section>
         );
       })}
     </div>
@@ -239,7 +233,7 @@ function RowFields({ draft, index, errors, disabled, today, onChange }: RowField
     case "name":
     case "alias":
       return (
-        <div className="grid gap-3 sm:grid-cols-3">
+        <div className="grid gap-3 lg:grid-cols-3">
           {text("First name", "first", "value.first")}
           {text("Middle name", "middle", "value.middle", { optional: true })}
           {text("Last name", "last", "value.last")}
@@ -250,6 +244,7 @@ function RowFields({ draft, index, errors, disabled, today, onChange }: RowField
         <Field label="Email address" error={error("value.address")}>
           <Input
             type="email"
+            mono
             inputMode="email"
             autoComplete="off"
             value={draft.address}
@@ -260,13 +255,10 @@ function RowFields({ draft, index, errors, disabled, today, onChange }: RowField
       );
     case "phone":
       return (
-        <Field
-          label="Phone number"
-          error={error("value.number")}
-          help="A US number can be typed as (555) 555-0123."
-        >
+        <Field label="Phone number" error={error("value.number")} help="For example (555) 555-0123">
           <Input
             type="tel"
+            mono
             inputMode="tel"
             autoComplete="off"
             value={draft.number}
@@ -278,11 +270,11 @@ function RowFields({ draft, index, errors, disabled, today, onChange }: RowField
       );
     case "address":
       return (
-        <div className="grid gap-3 sm:grid-cols-6">
-          {text("Street", "street", "value.street", { className: "sm:col-span-4" })}
-          {text("Unit", "unit", "value.unit", { optional: true, className: "sm:col-span-2" })}
-          {text("City", "city", "value.city", { className: "sm:col-span-3" })}
-          <Field label="State" error={error("value.state")} className="sm:col-span-2">
+        <div className="grid gap-3 lg:grid-cols-6">
+          {text("Street", "street", "value.street", { className: "lg:col-span-4" })}
+          {text("Unit", "unit", "value.unit", { optional: true, className: "lg:col-span-2" })}
+          {text("City", "city", "value.city", { className: "lg:col-span-3" })}
+          <Field label="State" error={error("value.state")} className="lg:col-span-2">
             <Select
               value={draft.state}
               disabled={disabled}
@@ -296,8 +288,8 @@ function RowFields({ draft, index, errors, disabled, today, onChange }: RowField
               ))}
             </Select>
           </Field>
-          {text("ZIP", "zip", "value.zip", { className: "sm:col-span-1" })}
-          <Field label="Lived here from" optional className="sm:col-span-3">
+          {text("ZIP", "zip", "value.zip", { className: "lg:col-span-1" })}
+          <Field label="Lived here from" optional className="lg:col-span-3">
             <Input
               type="date"
               max={today}
@@ -311,7 +303,7 @@ function RowFields({ draft, index, errors, disabled, today, onChange }: RowField
             optional
             error={error("validTo")}
             help="Leave empty for a current address."
-            className="sm:col-span-3"
+            className="lg:col-span-3"
           >
             <Input
               type="date"

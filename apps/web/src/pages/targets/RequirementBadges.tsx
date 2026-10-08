@@ -1,9 +1,9 @@
 import type { Requirement } from "@kickrocks/shared";
-import { Badge } from "../../components/ui/index.js";
+import { Tag } from "../../components/ui/index.js";
 import { REQUIREMENT_LABELS } from "../../lib/labels.js";
 
 /** Requirements that ask something of a person, as opposed to ones the automation can meet. */
-const HUMAN_STEPS: ReadonlySet<Requirement> = new Set([
+export const HUMAN_STEPS: ReadonlySet<Requirement> = new Set([
   "captcha",
   "phone_call",
   "id_upload",
@@ -13,6 +13,7 @@ const HUMAN_STEPS: ReadonlySet<Requirement> = new Set([
   "fax",
 ]);
 
+/** Only what the person has to do gets a tag. Everything the automation handles stays quiet. */
 export function RequirementBadges({
   requirements,
   max,
@@ -20,17 +21,18 @@ export function RequirementBadges({
   requirements: readonly Requirement[];
   max?: number;
 }) {
-  if (requirements.length === 0) return <span className="text-sm text-ink-faint">None</span>;
-  const shown = max === undefined ? requirements : requirements.slice(0, max);
-  const hidden = requirements.length - shown.length;
+  const needed = requirements.filter((requirement) => HUMAN_STEPS.has(requirement));
+  if (needed.length === 0) return <span className="text-ink-3">-</span>;
+  const shown = max === undefined ? needed : needed.slice(0, max);
+  const hidden = needed.length - shown.length;
   return (
-    <span className="flex flex-wrap gap-1">
+    <span className="flex flex-nowrap items-center gap-1">
       {shown.map((requirement) => (
-        <Badge key={requirement} tone={HUMAN_STEPS.has(requirement) ? "amber" : "neutral"}>
+        <Tag key={requirement} tone="attention">
           {REQUIREMENT_LABELS[requirement]}
-        </Badge>
+        </Tag>
       ))}
-      {hidden > 0 ? <Badge variant="outline">+{hidden}</Badge> : null}
+      {hidden > 0 ? <span className="font-mono text-meta text-ink-3">+{hidden}</span> : null}
     </span>
   );
 }

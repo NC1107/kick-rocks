@@ -1,10 +1,11 @@
+import { API_ROUTES } from "@kickrocks/shared";
 import { LogOut, X } from "lucide-react";
 import { NavLink } from "react-router";
-import { useCurrentProfile, useLogout, useReviewCount } from "../../api/index.js";
+import { useApiQuery, useCurrentProfile, useLogout, useReviewCount } from "../../api/index.js";
 import { cn } from "../../lib/cn.js";
-import { Badge, IconButton } from "../ui/index.js";
+import { IconButton } from "../ui/index.js";
 import { Logo } from "./Logo.js";
-import { NAV_GROUPS, type NavItem } from "./nav.js";
+import { ABOUT_ITEM, NAV_GROUPS, type NavItem } from "./nav.js";
 import { ProfileSwitcher } from "./ProfileSwitcher.js";
 import { ThemeToggle } from "./ThemeToggle.js";
 
@@ -14,7 +15,7 @@ function ReviewCount({ count }: { count: number | null }) {
     <>
       <span
         aria-hidden="true"
-        className="ml-auto inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-accent px-1.5 text-xs font-semibold tabular-nums text-accent-ink"
+        className="ml-auto font-mono text-meta font-medium tabular-nums text-attention-text"
       >
         {count > 99 ? "99+" : count}
       </span>
@@ -27,10 +28,12 @@ function NavRow({
   item,
   reviewCount,
   onNavigate,
+  trailing,
 }: {
   item: NavItem;
   reviewCount: number | null;
   onNavigate: (() => void) | undefined;
+  trailing?: string | undefined;
 }) {
   const Icon = item.icon;
   return (
@@ -40,16 +43,30 @@ function NavRow({
       onClick={onNavigate}
       className={({ isActive }) =>
         cn(
-          "flex h-control items-center gap-2.5 rounded-md px-2.5 text-base transition-colors duration-100",
-          isActive
-            ? "bg-accent-soft font-medium text-accent-soft-ink"
-            : "text-ink-muted hover:bg-sunken hover:text-ink",
+          "marked group flex h-8 items-center gap-2.5 rounded-sm px-2.5 text-ui font-medium transition-colors duration-100 focus-visible:-outline-offset-2 max-sm:h-11",
+          isActive ? "bg-accent-soft text-accent-text" : "text-ink-2 hover:bg-hover hover:text-ink",
         )
       }
     >
-      <Icon aria-hidden="true" className="size-4.5 shrink-0" strokeWidth={1.75} />
-      {item.label}
-      {item.badge === "review" ? <ReviewCount count={reviewCount} /> : null}
+      {({ isActive }) => (
+        <>
+          <Icon
+            aria-hidden="true"
+            strokeWidth={1.5}
+            className={cn(
+              "size-4 shrink-0 transition-colors duration-100",
+              isActive ? "text-accent-text" : "text-ink-3 group-hover:text-ink-2",
+            )}
+          />
+          {item.label}
+          {item.badge === "review" ? <ReviewCount count={reviewCount} /> : null}
+          {trailing ? (
+            <span className="ml-auto font-mono text-caption font-normal text-ink-3">
+              {trailing}
+            </span>
+          ) : null}
+        </>
+      )}
     </NavLink>
   );
 }
@@ -66,50 +83,51 @@ export function SidebarContent({
   const { profile } = useCurrentProfile();
   const reviewCount = useReviewCount(profile?.id ?? null);
   const logout = useLogout();
+  const health = useApiQuery(API_ROUTES.health);
 
   return (
-    <div className="flex h-full min-h-0 flex-col gap-4 px-3 py-4">
-      <div className="flex items-center justify-between gap-2 px-1.5 pt-0.5">
+    <div className="flex h-full min-h-0 flex-col">
+      {/* The logo row is as tall as the header bar, so the two hairlines meet across the page. */}
+      <div className="flex h-bar shrink-0 items-center justify-between gap-2 border-b border-line px-3.5">
         <Logo />
         {onClose ? (
-          <IconButton label="Close menu" onClick={onClose} className="-mr-1.5">
+          <IconButton label="Close menu" onClick={onClose} className="-mr-2">
             <X />
           </IconButton>
         ) : null}
       </div>
-      <ProfileSwitcher onSwitch={onNavigate} />
-      <nav
-        aria-label="Main"
-        className="-mx-1.5 flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-1.5 py-1"
-      >
-        {NAV_GROUPS.map((group, index) => (
-          <ul
-            key={group.map((item) => item.to).join()}
-            // The second group sits below a hairline: setup lives apart from daily work.
-            className={cn(
-              "m-0 flex list-none flex-col gap-0.5 p-0",
-              index > 0 && "border-t border-line pt-3",
-            )}
-          >
-            {group.map((item) => (
-              <li key={item.to}>
-                <NavRow item={item} reviewCount={reviewCount} onNavigate={onNavigate} />
-              </li>
-            ))}
-          </ul>
-        ))}
-      </nav>
-      <div className="flex flex-col gap-2.5 border-t border-line pt-3">
-        {import.meta.env.MODE === "mock" ? (
-          <Badge tone="amber" className="self-start">
-            Mock data
-          </Badge>
-        ) : null}
-        <div className="flex items-center justify-between">
-          <ThemeToggle />
-          <IconButton label="Sign out" onClick={() => logout.mutate()} loading={logout.isPending}>
-            <LogOut />
-          </IconButton>
+      <div className="flex min-h-0 flex-1 flex-col gap-3 px-2.5 pt-3 pb-2.5">
+        <ProfileSwitcher onSwitch={onNavigate} />
+        <nav aria-label="Main" className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto">
+          {NAV_GROUPS.map((group, index) => (
+            <ul
+              key={group.map((item) => item.to).join()}
+              className={cn(
+                "m-0 flex list-none flex-col gap-0.5 p-0",
+                index > 0 && "border-t border-line pt-3",
+              )}
+            >
+              {group.map((item) => (
+                <li key={item.to}>
+                  <NavRow item={item} reviewCount={reviewCount} onNavigate={onNavigate} />
+                </li>
+              ))}
+            </ul>
+          ))}
+        </nav>
+        <div className="flex flex-col gap-2.5 border-t border-line pt-2.5">
+          <NavRow
+            item={ABOUT_ITEM}
+            reviewCount={null}
+            onNavigate={onNavigate}
+            trailing={health.data ? `v${health.data.version}` : undefined}
+          />
+          <div className="flex items-center justify-between">
+            <ThemeToggle />
+            <IconButton label="Sign out" onClick={() => logout.mutate()} loading={logout.isPending}>
+              <LogOut />
+            </IconButton>
+          </div>
         </div>
       </div>
     </div>

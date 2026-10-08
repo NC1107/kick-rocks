@@ -1,18 +1,21 @@
-import { RefreshCw } from "lucide-react";
 import { useState } from "react";
 import {
-  Alert,
   Button,
+  Callout,
   ConfirmDialog,
   Dialog,
+  EmptyState,
   Field,
+  Hatch,
   Input,
+  Meter,
   Skeleton,
   SkeletonText,
   Spinner,
+  TextLink,
   useToast,
 } from "../../../components/ui/index.js";
-import { Section, Specimen } from "./parts.js";
+import { Panel, Specimen } from "./parts.js";
 
 export function Feedback() {
   const toast = useToast();
@@ -23,58 +26,43 @@ export function Feedback() {
 
   return (
     <>
-      <Section
-        title="Alerts and toasts"
-        description="An alert stays in the page. A toast confirms something that already happened and names it with the verb of the button that caused it."
+      <Panel
+        title="Callouts and toasts"
+        description="A callout is a 1px edge in its tone on the surface and stays in the page. A toast confirms something the person just did and names it with the verb of the button that caused it. Failures never toast."
       >
         <div className="grid gap-3 md:grid-cols-2">
-          <Alert intent="info" title="Mailbox checked a few minutes ago">
-            Replies are read every 15 minutes.
-          </Alert>
-          <Alert intent="success" title="Connected">
+          <Callout intent="info" title="Inbox checked 7 minutes ago">
+            Replies are read every minute.
+          </Callout>
+          <Callout intent="success" title="Connected">
             Sent a test message and read the inbox.
-          </Alert>
-          <Alert
+          </Callout>
+          <Callout
             intent="warning"
-            title="Daily cap nearly reached"
-            action={<Button size="sm">Raise cap</Button>}
+            title="Daily limit nearly reached"
+            action={<Button size="sm">Raise limit</Button>}
           >
             140 of 150 messages sent in the last 24 hours.
-          </Alert>
-          <Alert
+          </Callout>
+          <Callout
             intent="danger"
             title="Could not load requests"
-            action={
-              <Button size="sm">
-                <RefreshCw aria-hidden="true" className="size-3.5" />
-                Try again
-              </Button>
-            }
+            action={<Button size="sm">Try again</Button>}
           >
-            Could not reach the server. Check that Kick Rocks is running, then try again.
-          </Alert>
+            Could not reach the server.
+          </Callout>
+          <Callout intent="warning">The worker has not answered in 12 minutes.</Callout>
+          <Callout intent="danger">The mail server refused the password.</Callout>
         </div>
-        <Specimen label="Toasts">
-          <Button onClick={() => toast.success("Request cancelled")}>Success</Button>
-          <Button
-            onClick={() => toast.info("Checking the inbox", "New replies show up in Review.")}
-          >
-            Info
-          </Button>
-          <Button
-            onClick={() => toast.toast({ intent: "warning", title: "Mailbox is close to its cap" })}
-          >
-            Warning
-          </Button>
-          <Button
-            onClick={() => toast.error("Could not send", "The mail server refused the password.")}
-          >
-            Error
+        <Specimen label="Toasts: confirmations only">
+          <Button onClick={() => toast.success("Cancelled the request")}>Success</Button>
+          <Button onClick={() => toast.info("Checked the inbox", "New replies show up in Review.")}>
+            Neutral
           </Button>
         </Specimen>
-      </Section>
+      </Panel>
 
-      <Section
+      <Panel
         title="Dialogs"
         description="The native modal element: focus is trapped, Escape closes it, and focus returns to the button that opened it."
       >
@@ -89,7 +77,7 @@ export function Feedback() {
           open={dialog === "plain"}
           onClose={close}
           title="Edit address"
-          description="Brokers match on the address they hold, so use the one on file with them."
+          description="Targets match on the address they hold."
           footer={
             <>
               <Button onClick={close}>Cancel</Button>
@@ -133,22 +121,59 @@ export function Feedback() {
           destructive
           onConfirm={close}
         />
-      </Section>
+      </Panel>
 
-      <Section
-        title="Loading"
-        description="Skeletons hold the shape of what is coming. A spinner is for a short wait with no shape."
+      <Panel
+        title="Meter"
+        description="A 6px track with a mono readout and ticks at 50% and 80%. The fill turns to attention past the warning line."
       >
+        <div className="grid max-w-xl gap-4">
+          <Meter label="Sent today" value={0} max={150} readout="0 of 150" />
+          <Meter label="Sent today" value={42} max={150} readout="42 of 150" />
+          <Meter label="Sent today" value={96} max={150} readout="96 of 150" />
+          <Meter label="Sent today" value={141} max={150} readout="141 of 150" />
+          <Meter label="Reply window" value={34} max={45} readout="due in 11 d" />
+        </div>
+      </Panel>
+
+      <Panel
+        title="Empty, loading, hatch"
+        description="An empty state is one sentence where the content would be. Skeletons keep the shape of what is coming. Hatching stands in for missing imagery."
+      >
+        <div className="grid gap-6 md:grid-cols-2">
+          <EmptyState title="Nothing needs you." />
+          <EmptyState
+            title="No requests yet."
+            actions={
+              <TextLink to="/campaigns/new" className="text-ui">
+                Start a campaign
+              </TextLink>
+            }
+          />
+          <EmptyState
+            title="No targets match these filters."
+            actions={<Button size="sm">Clear filters</Button>}
+          />
+          <EmptyState
+            title="Could not load the queue."
+            description="Check that Kick Rocks is running."
+            actions={<Button size="sm">Try again</Button>}
+          />
+        </div>
         <div className="flex flex-wrap items-center gap-6">
           <Spinner size="sm" />
           <Spinner />
           <Spinner size="lg" />
         </div>
-        <div className="grid max-w-xl gap-3 rounded-lg border border-line bg-surface p-4">
+        <div className="grid max-w-xl gap-3 rounded-md border border-line bg-surface p-4">
           <Skeleton className="h-5 w-40" />
           <SkeletonText lines={3} />
         </div>
-      </Section>
+        <Specimen label="Hatch: a screenshot that was not captured">
+          <Hatch className="h-28 w-56">No screenshot</Hatch>
+          <Hatch className="size-12 text-label" aria-label="No logo" />
+        </Specimen>
+      </Panel>
     </>
   );
 }

@@ -144,7 +144,7 @@ export const PROVIDER_PRESETS: readonly ProviderPreset[] = [
     defaultDailyCap: 50,
     supported: false,
     unsupportedReason:
-      "Outlook.com, Hotmail, and Live accept IMAP and SMTP sign-in only through OAuth, which Kick Rocks does not support yet. Use another mailbox for now.",
+      "Outlook.com, Hotmail, and Live accept IMAP and SMTP sign-in only through OAuth, which is not supported yet. Use another mailbox for now.",
   },
 ];
 

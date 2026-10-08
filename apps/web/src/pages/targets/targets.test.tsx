@@ -27,20 +27,47 @@ async function rows() {
 }
 
 describe("the targets page", () => {
-  it("lists targets with their priority, contact method, and requirements", async () => {
+  it("lists targets with their priority, contact method, and what needs a person", async () => {
     renderPage(<TargetsPage />, { path: "/targets", route: "/targets" });
     const list = await rows();
-    expect(list.length).toBe(25);
+    expect(list.length).toBe(50);
     expect(within(list[0] as HTMLElement).getByRole("link", { name: "ClearCheck" })).toBeVisible();
-    expect(screen.getAllByText("ID upload").length).toBeGreaterThan(0);
-    expect(screen.getByText(/Showing 1 to 25 of 61 targets/)).toBeVisible();
+    expect(within(list[0] as HTMLElement).getByText("ID upload")).toBeVisible();
+    expect(screen.getByText(/1-50 of 61/)).toBeVisible();
+    expect(screen.getByText("61 targets")).toBeVisible();
+  });
+
+  it("tags only the requirements that need the person", async () => {
+    renderPage(<TargetsPage />, { path: "/targets", route: "/targets" });
+    const list = await rows();
+    const findRecord = list.find((row) => within(row).queryByRole("link", { name: "FindRecord" }));
+    expect(within(findRecord as HTMLElement).getByText("CAPTCHA")).toBeVisible();
+    expect(within(findRecord as HTMLElement).queryByText("Record URL")).not.toBeInTheDocument();
+    expect(screen.queryByText("None")).not.toBeInTheDocument();
+  });
+
+  it("shows scan and removal as two status marks", async () => {
+    renderPage(<TargetsPage />, { path: "/targets", route: "/targets" });
+    const list = await rows();
+    const findRecord = list.find((row) => within(row).queryByRole("link", { name: "FindRecord" }));
+    const cells = within(findRecord as HTMLElement).getAllByRole("cell");
+    expect(cells.at(-2)).toHaveTextContent("Healthy");
+    expect(cells.at(-1)).toHaveTextContent("Broken");
+  });
+
+  it("goes to the second page with the rest of the targets", async () => {
+    const { user } = renderPage(<TargetsPage />, { path: "/targets", route: "/targets" });
+    await rows();
+    await user.click(screen.getByRole("button", { name: "Next page" }));
+    await waitFor(() => expect(screen.getByText(/51-61 of 61/)).toBeVisible());
+    expect((await rows()).length).toBe(11);
   });
 
   it("explains the Scan and Removal badges", async () => {
     renderPage(<TargetsPage />, { path: "/targets", route: "/targets" });
     await rows();
-    expect(screen.getByText("What do the Scan and Removal badges mean?")).toBeInTheDocument();
-    for (const term of ["Not checked", "Healthy", "Broken", "None"]) {
+    expect(screen.getByText("What do the Scan and Removal marks mean?")).toBeInTheDocument();
+    for (const term of ["Not checked", "Healthy", "Broken", "No recipe"]) {
       expect(screen.getAllByText(term).length).toBeGreaterThan(0);
     }
   });
@@ -55,7 +82,7 @@ describe("the targets page", () => {
 
   it("filters by type from the facets and starts from the address bar", async () => {
     renderPage(<TargetsPage />, { path: "/targets", route: "/targets?kind=company" });
-    await waitFor(() => expect(screen.getByText(/of 32 targets/)).toBeVisible());
+    await waitFor(() => expect(screen.getByText(/1-32 of 32/)).toBeVisible());
     expect(screen.getByLabelText("Type")).toHaveValue("company");
   });
 
@@ -64,7 +91,7 @@ describe("the targets page", () => {
       path: "/targets",
       route: "/targets?q=nothing-called-this",
     });
-    expect(await screen.findByText("No targets match")).toBeVisible();
+    expect(await screen.findByText("No targets match these filters.")).toBeVisible();
     await user.click(screen.getByRole("button", { name: "Clear filters" }));
     expect((await rows()).length).toBeGreaterThan(1);
   });
@@ -101,7 +128,7 @@ describe("target filters", () => {
   it("leaves empty filters out of the query", () => {
     expect(toQuery(readFilters(new URLSearchParams("q=%20spo%20&priority=high")))).toEqual({
       page: 1,
-      pageSize: 25,
+      pageSize: 50,
       q: "spo",
       priority: "high",
     });

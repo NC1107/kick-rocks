@@ -1,11 +1,10 @@
 import { API_ROUTES, type TargetFacets } from "@kickrocks/shared";
-import { Search, SearchX } from "lucide-react";
+import { Search } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { Link, useSearchParams } from "react-router";
+import { useSearchParams } from "react-router";
 import { errorMessage, useApiQuery } from "../../api/index.js";
 import {
   Alert,
-  Badge,
   Button,
   Checkbox,
   EmptyState,
@@ -20,32 +19,38 @@ import {
   TableCell,
   TableHead,
   TableHeaderCell,
+  TableIdentity,
   TableRow,
+  TableToolbar,
+  Tag,
 } from "../../components/ui/index.js";
 import { formatCount } from "../../lib/format.js";
 import {
   CONTACT_METHOD_LABELS,
   PRIORITY_LABELS,
-  PRIORITY_TONES,
   REQUIREMENT_LABELS,
   TARGET_CATEGORY_LABELS,
   TARGET_KIND_LABELS,
 } from "../../lib/labels.js";
-import { Automation, AutomationLegend } from "./Automation.js";
+import { AutomationLegend, HealthMark } from "./Automation.js";
 import { type FilterKey, hasFilters, readFilters, TARGETS_PAGE_SIZE, toQuery } from "./filters.js";
 import { LoadingRows } from "./LoadingRows.js";
+import { Priority } from "./Priority.js";
 import { RequirementBadges } from "./RequirementBadges.js";
 
+/** Every option repeats the facet name, so the closed select reads "Type: Company". */
 function FacetOptions({
   facet,
   labels,
+  name,
 }: {
   facet: TargetFacets[keyof TargetFacets] | undefined;
   labels: Record<string, string>;
+  name: string;
 }) {
   return (facet ?? []).map((entry) => (
     <option key={entry.value} value={entry.value}>
-      {labels[entry.value] ?? entry.value} ({formatCount(entry.count)})
+      {name}: {labels[entry.value] ?? entry.value} ({formatCount(entry.count)})
     </option>
   ));
 }
@@ -129,90 +134,108 @@ export function Component() {
     <>
       <PageHeader
         title="Targets"
-        description="Data brokers and companies you can ask to stop selling your data."
+        description="Brokers and companies you can ask"
         actions={
           <LinkButton to="/campaigns/new" variant="primary">
-            Start a campaign
+            New campaign
           </LinkButton>
         }
       />
 
-      <search aria-label="Filter targets" className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-5">
-        <Field label="Search" hideLabel className="col-span-2 lg:col-span-5 lg:max-w-md">
-          <Input
-            type="search"
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            placeholder="Search by name or domain"
-            maxLength={100}
-            leading={<Search aria-hidden="true" />}
-          />
-        </Field>
-        <Field label="Type" hideLabel>
-          <Select
-            aria-label="Type"
-            value={filters.kind}
-            onChange={(event) => setFilter("kind", event.target.value)}
-          >
-            <option value="">All types</option>
-            <FacetOptions facet={facets.data?.kind} labels={TARGET_KIND_LABELS} />
-          </Select>
-        </Field>
-        <Field label="Category" hideLabel>
-          <Select
-            aria-label="Category"
-            value={filters.category}
-            onChange={(event) => setFilter("category", event.target.value)}
-          >
-            <option value="">All categories</option>
-            <FacetOptions facet={facets.data?.category} labels={TARGET_CATEGORY_LABELS} />
-          </Select>
-        </Field>
-        <Field label="Contact method" hideLabel>
-          <Select
-            aria-label="Contact method"
-            value={filters.contactMethod}
-            onChange={(event) => setFilter("contactMethod", event.target.value)}
-          >
-            <option value="">Any contact</option>
-            <FacetOptions facet={facets.data?.contactMethod} labels={CONTACT_METHOD_LABELS} />
-          </Select>
-        </Field>
-        <Field label="Requirement" hideLabel>
-          <Select
-            aria-label="Requirement"
-            value={filters.requirement}
-            onChange={(event) => setFilter("requirement", event.target.value)}
-          >
-            <option value="">Any requirement</option>
-            <FacetOptions facet={facets.data?.requirement} labels={REQUIREMENT_LABELS} />
-          </Select>
-        </Field>
-        <Field label="Priority" hideLabel>
-          <Select
-            aria-label="Priority"
-            value={filters.priority}
-            onChange={(event) => setFilter("priority", event.target.value)}
-          >
-            <option value="">Any priority</option>
-            <FacetOptions facet={facets.data?.priority} labels={PRIORITY_LABELS} />
-          </Select>
-        </Field>
-        {filtered && items.length > 0 ? (
-          <div className="col-span-2 flex items-center lg:col-span-5">
-            <Button variant="ghost" onClick={clearFilters} className="-ml-3.5">
+      <search aria-label="Filter targets">
+        <TableToolbar count={list.data ? `${formatCount(list.data.total)} targets` : undefined}>
+          <Field label="Search" hideLabel className="w-full sm:w-48">
+            <Input
+              type="search"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Search targets"
+              maxLength={100}
+              leading={<Search aria-hidden="true" />}
+            />
+          </Field>
+          <Field label="Type" hideLabel className="w-[calc(50%-0.25rem)] sm:w-30">
+            <Select
+              aria-label="Type"
+              value={filters.kind}
+              onChange={(event) => setFilter("kind", event.target.value)}
+            >
+              <option value="">Type: all</option>
+              <FacetOptions facet={facets.data?.kind} labels={TARGET_KIND_LABELS} name="Type" />
+            </Select>
+          </Field>
+          <Field label="Category" hideLabel className="w-[calc(50%-0.25rem)] sm:w-37">
+            <Select
+              aria-label="Category"
+              value={filters.category}
+              onChange={(event) => setFilter("category", event.target.value)}
+            >
+              <option value="">Category: all</option>
+              <FacetOptions
+                facet={facets.data?.category}
+                labels={TARGET_CATEGORY_LABELS}
+                name="Category"
+              />
+            </Select>
+          </Field>
+          <Field label="Contact method" hideLabel className="w-[calc(50%-0.25rem)] sm:w-35">
+            <Select
+              aria-label="Contact method"
+              value={filters.contactMethod}
+              onChange={(event) => setFilter("contactMethod", event.target.value)}
+            >
+              <option value="">Contact: all</option>
+              <FacetOptions
+                facet={facets.data?.contactMethod}
+                labels={CONTACT_METHOD_LABELS}
+                name="Contact"
+              />
+            </Select>
+          </Field>
+          <Field label="Requirement" hideLabel className="w-[calc(50%-0.25rem)] sm:w-28">
+            <Select
+              aria-label="Requirement"
+              value={filters.requirement}
+              onChange={(event) => setFilter("requirement", event.target.value)}
+            >
+              <option value="">Needs: all</option>
+              <FacetOptions
+                facet={facets.data?.requirement}
+                labels={REQUIREMENT_LABELS}
+                name="Needs"
+              />
+            </Select>
+          </Field>
+          <Field label="Priority" hideLabel className="w-[calc(50%-0.25rem)] sm:w-33">
+            <Select
+              aria-label="Priority"
+              value={filters.priority}
+              onChange={(event) => setFilter("priority", event.target.value)}
+            >
+              <option value="">Priority: all</option>
+              <FacetOptions
+                facet={facets.data?.priority}
+                labels={PRIORITY_LABELS}
+                name="Priority"
+              />
+            </Select>
+          </Field>
+          {filtered && items.length > 0 ? (
+            <Button variant="ghost" onClick={clearFilters}>
               Clear filters
             </Button>
-          </div>
-        ) : null}
+          ) : null}
+        </TableToolbar>
       </search>
 
       {selected.size > 0 ? (
         <div
           role="status"
-          className="mb-3 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-line bg-accent-soft px-4 py-2.5 text-base text-accent-soft-ink"
+          className="mb-2.5 flex flex-wrap items-center justify-between gap-3 rounded-md border border-line bg-accent-soft px-3.5 py-2 text-ui text-ink"
         >
-          <span>{formatCount(selected.size)} selected</span>
+          <span className="font-mono text-meta tabular-nums">
+            {formatCount(selected.size)} selected
+          </span>
           <span className="flex items-center gap-2">
             <Button size="sm" variant="ghost" onClick={() => setSelected(new Set())}>
               Clear selection
@@ -238,13 +261,13 @@ export function Component() {
         </Alert>
       ) : list.data && items.length === 0 ? (
         <EmptyState
-          icon={SearchX}
-          title={filtered ? "No targets match" : "No targets yet"}
-          description={
-            filtered
-              ? "Try removing a filter or searching for a different name."
-              : "The broker and company lists are empty. Rebuild the data and restart the server."
-          }
+          title={filtered ? "No targets match these filters." : "No targets yet."}
+          {...(filtered
+            ? {}
+            : {
+                description:
+                  "The broker and company lists are empty. Rebuild the data and restart the server.",
+              })}
           actions={filtered ? <Button onClick={clearFilters}>Clear filters</Button> : undefined}
         />
       ) : (
@@ -253,20 +276,28 @@ export function Component() {
           <Table label="Targets" aria-busy={list.isPlaceholderData || undefined}>
             <TableHead>
               <tr>
-                <TableHeaderCell className="w-10">
-                  <Checkbox
-                    aria-label="Select all targets on this page"
-                    checked={allSelected}
-                    indeterminate={someSelected && !allSelected}
-                    disabled={selectable.length === 0}
-                    onChange={(event) => togglePage(event.target.checked)}
-                  />
+                <TableHeaderCell className="w-10 pr-0 max-sm:p-0">
+                  <label
+                    htmlFor="select-page"
+                    className="flex cursor-pointer items-center justify-center max-sm:min-h-11 max-sm:min-w-11"
+                  >
+                    <Checkbox
+                      id="select-page"
+                      aria-label="Select all targets on this page"
+                      checked={allSelected}
+                      indeterminate={someSelected && !allSelected}
+                      disabled={selectable.length === 0}
+                      onChange={(event) => togglePage(event.target.checked)}
+                    />
+                  </label>
                 </TableHeaderCell>
                 <TableHeaderCell>Target</TableHeaderCell>
+                <TableHeaderCell className="hidden xl:table-cell">Category</TableHeaderCell>
                 <TableHeaderCell>Priority</TableHeaderCell>
                 <TableHeaderCell className="hidden md:table-cell">Contact</TableHeaderCell>
-                <TableHeaderCell className="hidden md:table-cell">Requirements</TableHeaderCell>
-                <TableHeaderCell className="hidden lg:table-cell">Automation</TableHeaderCell>
+                <TableHeaderCell className="hidden lg:table-cell">Needs</TableHeaderCell>
+                <TableHeaderCell className="hidden lg:table-cell">Scan</TableHeaderCell>
+                <TableHeaderCell className="hidden lg:table-cell">Removal</TableHeaderCell>
               </tr>
             </TableHead>
             <TableBody>
@@ -275,54 +306,56 @@ export function Component() {
                   columns={[
                     { bar: "w-4" },
                     { bar: "w-40" },
+                    { className: "hidden xl:table-cell", bar: "w-20" },
                     {},
-                    { className: "hidden md:table-cell" },
-                    { className: "hidden md:table-cell", bar: "w-32" },
+                    { className: "hidden md:table-cell", bar: "w-20" },
+                    { className: "hidden lg:table-cell", bar: "w-24" },
+                    { className: "hidden lg:table-cell" },
                     { className: "hidden lg:table-cell" },
                   ]}
                 />
               ) : (
                 items.map((item) => (
-                  <TableRow key={item.id}>
-                    <TableCell className="w-10 pr-0">
-                      <Checkbox
-                        aria-label={`Select ${item.name}`}
-                        checked={selected.has(item.id)}
-                        disabled={item.retired}
-                        onChange={(event) => toggle(item.id, event.target.checked)}
+                  <TableRow key={item.id} selected={selected.has(item.id)}>
+                    <TableCell className="w-10 pr-0 max-sm:p-0">
+                      <label
+                        htmlFor={`select-${item.id}`}
+                        className="relative flex cursor-pointer items-center justify-center max-sm:min-h-11 max-sm:min-w-11"
+                      >
+                        <Checkbox
+                          id={`select-${item.id}`}
+                          aria-label={`Select ${item.name}`}
+                          checked={selected.has(item.id)}
+                          disabled={item.retired}
+                          onChange={(event) => toggle(item.id, event.target.checked)}
+                        />
+                      </label>
+                    </TableCell>
+                    <TableCell className="max-w-64 min-w-40">
+                      <TableIdentity
+                        title={item.name}
+                        to={`/targets/${encodeURIComponent(item.id)}`}
+                        badge={item.retired ? <Tag>Retired</Tag> : null}
+                        meta={item.domain}
                       />
                     </TableCell>
-                    <TableCell wrap className="min-w-48">
-                      <Link
-                        to={`/targets/${encodeURIComponent(item.id)}`}
-                        className="rounded-xs font-medium text-ink hover:text-accent hover:underline"
-                      >
-                        {item.name}
-                      </Link>
-                      <span className="mt-0.5 flex flex-wrap items-center gap-x-2 text-sm text-ink-muted">
-                        {item.domain}
-                        {item.retired ? <Badge tone="sand">Retired</Badge> : null}
-                      </span>
-                      <span className="block text-sm text-ink-muted">
-                        {TARGET_CATEGORY_LABELS[item.category]}
-                        <span className="md:hidden">
-                          {`, ${CONTACT_METHOD_LABELS[item.contactMethod].toLowerCase()}`}
-                        </span>
-                      </span>
+                    <TableCell className="hidden text-ink-2 xl:table-cell">
+                      {TARGET_CATEGORY_LABELS[item.category]}
                     </TableCell>
                     <TableCell>
-                      <Badge tone={PRIORITY_TONES[item.priority]}>
-                        {PRIORITY_LABELS[item.priority]}
-                      </Badge>
+                      <Priority priority={item.priority} />
                     </TableCell>
-                    <TableCell className="hidden md:table-cell">
+                    <TableCell className="hidden text-ink-2 md:table-cell">
                       {CONTACT_METHOD_LABELS[item.contactMethod]}
                     </TableCell>
-                    <TableCell wrap className="hidden min-w-44 md:table-cell">
-                      <RequirementBadges requirements={item.requirements} max={3} />
+                    <TableCell className="hidden lg:table-cell">
+                      <RequirementBadges requirements={item.requirements} max={2} />
                     </TableCell>
                     <TableCell className="hidden lg:table-cell">
-                      <Automation scan={item.automation.scan} remove={item.automation.remove} />
+                      <HealthMark health={item.automation.scan} />
+                    </TableCell>
+                    <TableCell className="hidden lg:table-cell">
+                      <HealthMark health={item.automation.remove} />
                     </TableCell>
                   </TableRow>
                 ))

@@ -1,18 +1,21 @@
 import type { MailboxTestResult, MailFolder, ProviderPreset } from "@kickrocks/shared";
-import { ChevronDown, CircleCheck, CircleX, KeyRound } from "lucide-react";
+import { ChevronDown } from "lucide-react";
 import { type ReactNode, useState } from "react";
 import {
-  Alert,
   Button,
+  Callout,
   Checkbox,
   ExternalLinkText,
-  Field,
   Input,
   RadioGroup,
+  RowGroup,
+  Section,
   Select,
-  Spinner,
+  StatusShapeGlyph,
 } from "../../components/ui/index.js";
 import { cn } from "../../lib/cn.js";
+import type { StatusShape } from "../../lib/status.js";
+import { BodyRow, FieldRow, GroupNote } from "../settings/rows.js";
 import {
   type ConnectionForm,
   type FormErrors,
@@ -35,11 +38,11 @@ export function ProviderStep({ providers, form, onChoose, error }: ProviderStepP
   const supported = providers.filter((preset) => preset.supported);
   const unsupported = providers.filter((preset) => !preset.supported);
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-4">
       <RadioGroup
         legend="Mail provider"
         hideLegend
-        help="Pick the provider that hosts the email address requests go out from."
+        rows
         error={error}
         value={form.providerId || null}
         onValueChange={(id) => {
@@ -53,20 +56,19 @@ export function ProviderStep({ providers, form, onChoose, error }: ProviderStepP
         }))}
       />
       {unsupported.length > 0 ? (
-        <section aria-labelledby="unsupported-heading" className="border-t border-line pt-5">
-          <h3 id="unsupported-heading" className="text-sm font-medium text-ink">
-            Not supported yet
-          </h3>
-          <ul className="mt-2 flex list-none flex-col gap-3 p-0">
-            {unsupported.map((preset) => (
-              <li key={preset.id} className="text-sm">
-                <span className="font-medium text-ink">{preset.label}</span>
-                <p className="text-ink-muted">
-                  {preset.unsupportedReason ?? "Kick Rocks cannot connect to this provider."}
-                </p>
-              </li>
-            ))}
-          </ul>
+        <section aria-label="Not supported yet">
+          <Section label="Not supported yet" as="h3">
+            <RowGroup>
+              {unsupported.map((preset) => (
+                <div key={preset.id} className="px-3.5 py-2.5">
+                  <p className="text-ui font-medium text-ink">{preset.label}</p>
+                  <p className="text-meta text-ink-3">
+                    {preset.unsupportedReason ?? "This provider is not supported."}
+                  </p>
+                </div>
+              ))}
+            </RowGroup>
+          </Section>
         </section>
       ) : null}
     </div>
@@ -99,38 +101,34 @@ export function AccountStep({
   const set = (change: Partial<ConnectionForm>) => onChange({ ...form, ...change });
 
   return (
-    <div className="flex flex-col gap-5">
+    <div className="flex flex-col gap-4">
       <Guidance preset={preset} />
-      <div className="grid gap-4 sm:grid-cols-2">
-        <Field
-          label="Email address"
-          error={errors.address}
-          help="The address requests are sent from and replies arrive at."
-        >
-          <Input
-            type="email"
-            inputMode="email"
-            autoComplete="off"
-            value={form.address}
-            onChange={(event) => onChange(setAddress(form, event.target.value))}
-          />
-        </Field>
-        <Field
-          label={passwordLabel}
-          error={errors.password}
-          help={
-            hasSavedPassword
-              ? "Leave empty to keep the saved password."
-              : "Stored encrypted. It is never shown again."
-          }
-        >
-          <Input
-            type="password"
-            autoComplete="off"
-            value={form.password}
-            onChange={(event) => set({ password: event.target.value })}
-          />
-        </Field>
+      <div>
+        <RowGroup>
+          <FieldRow label="Email address" error={errors.address}>
+            <Input
+              mono
+              type="email"
+              inputMode="email"
+              autoComplete="off"
+              value={form.address}
+              onChange={(event) => onChange(setAddress(form, event.target.value))}
+            />
+          </FieldRow>
+          <FieldRow
+            label={passwordLabel}
+            error={errors.password}
+            help={hasSavedPassword ? "Leave empty to keep the saved password." : undefined}
+          >
+            <Input
+              type="password"
+              autoComplete="off"
+              value={form.password}
+              onChange={(event) => set({ password: event.target.value })}
+            />
+          </FieldRow>
+        </RowGroup>
+        <GroupNote>Stored encrypted and never shown again.</GroupNote>
       </div>
 
       <div>
@@ -140,61 +138,68 @@ export function AccountStep({
           aria-controls="server-settings"
           disabled={generic}
           onClick={() => setShowServers((open) => !open)}
-          className="-ml-1 inline-flex items-center gap-1 rounded-sm px-1 text-sm font-medium text-ink hover:text-accent disabled:cursor-default disabled:hover:text-ink"
+          className="-ml-1 mb-1.5 inline-flex items-center gap-1 rounded-sm px-1 text-meta font-medium text-ink-2 hover:text-ink disabled:cursor-default disabled:hover:text-ink-2"
         >
           <ChevronDown
             aria-hidden="true"
-            className={cn("size-4 transition-transform", !serversOpen && "-rotate-90")}
+            strokeWidth={1.5}
+            className={cn("size-4 transition-transform duration-100", !serversOpen && "-rotate-90")}
           />
           Server settings
         </button>
         {serversOpen ? (
-          <div id="server-settings" className="mt-3 grid gap-4 sm:grid-cols-6">
-            <Field label="Username" error={errors.username} className="sm:col-span-6">
+          <RowGroup id="server-settings">
+            <FieldRow label="Username" error={errors.username}>
               <Input
+                mono
                 autoComplete="off"
                 value={form.username}
                 onChange={(event) => set({ username: event.target.value, usernameEdited: true })}
               />
-            </Field>
-            <Field label="Sending host (SMTP)" error={errors.smtpHost} className="sm:col-span-4">
+            </FieldRow>
+            <FieldRow label="Sending host (SMTP)" error={errors.smtpHost}>
               <Input
+                mono
                 autoComplete="off"
                 autoCapitalize="none"
                 value={form.smtpHost}
                 onChange={(event) => set({ smtpHost: event.target.value })}
               />
-            </Field>
-            <Field label="SMTP port" error={errors.smtpPort} className="sm:col-span-2">
+            </FieldRow>
+            <FieldRow label="SMTP port" error={errors.smtpPort}>
               <Input
+                mono
                 inputMode="numeric"
                 value={form.smtpPort}
                 onChange={(event) => set({ smtpPort: event.target.value })}
               />
-            </Field>
-            <Checkbox
-              className="sm:col-span-6"
-              label="Secure from the first byte"
-              description="On for port 465. Off for ports that upgrade the connection, such as 587."
-              checked={form.smtpSecure}
-              onChange={(event) => set({ smtpSecure: event.target.checked })}
-            />
-            <Field label="Receiving host (IMAP)" error={errors.imapHost} className="sm:col-span-4">
+            </FieldRow>
+            <BodyRow>
+              <Checkbox
+                label="Secure from the first byte"
+                description="On for port 465. Off for ports that upgrade the connection, such as 587."
+                checked={form.smtpSecure}
+                onChange={(event) => set({ smtpSecure: event.target.checked })}
+              />
+            </BodyRow>
+            <FieldRow label="Receiving host (IMAP)" error={errors.imapHost}>
               <Input
+                mono
                 autoComplete="off"
                 autoCapitalize="none"
                 value={form.imapHost}
                 onChange={(event) => set({ imapHost: event.target.value })}
               />
-            </Field>
-            <Field label="IMAP port" error={errors.imapPort} className="sm:col-span-2">
+            </FieldRow>
+            <FieldRow label="IMAP port" error={errors.imapPort}>
               <Input
+                mono
                 inputMode="numeric"
                 value={form.imapPort}
                 onChange={(event) => set({ imapPort: event.target.value })}
               />
-            </Field>
-          </div>
+            </FieldRow>
+          </RowGroup>
         ) : null}
       </div>
     </div>
@@ -204,15 +209,14 @@ export function AccountStep({
 function Guidance({ preset }: { preset: ProviderPreset }) {
   const generic = preset.id === "other";
   return (
-    <Alert
+    <Callout
       intent="info"
       title={generic ? "Use your provider's details" : `Connect ${preset.label}`}
     >
       <div className="flex flex-col gap-2">
         {preset.notes ? <p>{preset.notes}</p> : null}
         {preset.appPasswordUrl ? (
-          <p className="flex items-center gap-1.5">
-            <KeyRound aria-hidden="true" className="size-3.5 shrink-0" />
+          <p>
             <ExternalLinkText href={preset.appPasswordUrl}>
               Create an app password for {preset.label}
             </ExternalLinkText>
@@ -225,7 +229,7 @@ function Guidance({ preset }: { preset: ProviderPreset }) {
           </p>
         ) : null}
       </div>
-    </Alert>
+    </Callout>
   );
 }
 
@@ -241,22 +245,20 @@ export interface TestStepProps {
 export function TestStep({ form, preset, result, testing, failure, onTest }: TestStepProps) {
   return (
     <div className="flex flex-col gap-4">
-      <p className="text-base text-ink-muted">
-        Kick Rocks signs in to <strong className="font-medium text-ink">{form.smtpHost}</strong> to
-        send and to <strong className="font-medium text-ink">{form.imapHost}</strong> to read
-        replies. Nothing is sent.
+      <p className="text-ui text-ink-2">
+        Kick Rocks signs in to{" "}
+        <strong className="font-mono text-meta font-medium text-ink">{form.smtpHost}</strong> to
+        send and to{" "}
+        <strong className="font-mono text-meta font-medium text-ink">{form.imapHost}</strong> to
+        read replies. Nothing is sent.
       </p>
       <div>
         <Button variant={result ? "secondary" : "primary"} onClick={onTest} loading={testing}>
           {result ? "Test again" : "Test connection"}
         </Button>
       </div>
-      {failure ? <Alert intent="danger">{failure}</Alert> : null}
-      <ul
-        aria-label="Connection results"
-        aria-live="polite"
-        className="m-0 flex list-none flex-col gap-3 p-0"
-      >
+      {failure ? <Callout intent="danger">{failure}</Callout> : null}
+      <RowGroup role="list" aria-label="Connection results" aria-live="polite">
         <ProtocolRow
           name="Sending (SMTP)"
           testing={testing}
@@ -270,7 +272,7 @@ export function TestStep({ form, preset, result, testing, failure, onTest }: Tes
           preset={preset}
           extra={result?.imap.ok ? folderCount(result.imap.folders) : undefined}
         />
-      </ul>
+      </RowGroup>
     </div>
   );
 }
@@ -288,46 +290,43 @@ interface ProtocolRowProps {
 
 function ProtocolRow({ name, testing, outcome, preset, extra }: ProtocolRowProps) {
   const hint = outcome && !outcome.ok ? hintForError(outcome.error, preset) : undefined;
+  const shape: StatusShape = testing
+    ? "running"
+    : outcome
+      ? outcome.ok
+        ? "disc"
+        : "square"
+      : "ring";
+  const word = testing
+    ? "Checking"
+    : outcome
+      ? outcome.ok
+        ? (extra ?? "Connected")
+        : "Failed"
+      : "Not tested";
   return (
-    <li
-      data-tone={testing ? "neutral" : outcome ? (outcome.ok ? "green" : "red") : "neutral"}
-      className="flex items-start gap-3 rounded-md border border-line p-3"
-    >
-      <span className="mt-0.5 shrink-0 text-tone-dot">
-        {testing ? (
-          <Spinner size="md" label="" />
-        ) : outcome ? (
-          outcome.ok ? (
-            <CircleCheck aria-hidden="true" className="size-4.5" />
-          ) : (
-            <CircleX aria-hidden="true" className="size-4.5" />
-          )
-        ) : (
-          <span
-            aria-hidden="true"
-            className="block size-4.5 rounded-full border border-line-strong"
-          />
-        )}
+    <li className="flex items-start gap-3 px-3.5 py-2.5">
+      <span className="mt-[0.4375rem] shrink-0">
+        <StatusShapeGlyph shape={shape} />
       </span>
-      <div className="min-w-0 text-base">
+      <div className="min-w-0 text-ui">
         <p className="font-medium text-ink">
           {name}
-          <span className="ml-2 text-sm font-normal text-ink-muted">
-            {testing
-              ? "Checking"
-              : outcome
-                ? outcome.ok
-                  ? (extra ?? "Connected")
-                  : "Failed"
-                : "Not tested"}
+          <span
+            className={cn(
+              "ml-2 text-meta font-normal",
+              outcome && !outcome.ok && !testing ? "text-danger-text" : "text-ink-3",
+            )}
+          >
+            {word}
           </span>
         </p>
         {outcome && !outcome.ok ? (
           <>
             {outcome.error ? (
-              <p className="mt-1 break-words text-sm text-ink-muted">{outcome.error}</p>
+              <p className="mt-1 break-words text-meta text-ink-3">{outcome.error}</p>
             ) : null}
-            {hint ? <p className="mt-1 text-sm text-ink">{hint}</p> : null}
+            {hint ? <p className="mt-1 text-meta text-ink">{hint}</p> : null}
           </>
         ) : null}
       </div>
@@ -358,53 +357,54 @@ export function SettingsStep({
   const cap = Number(form.dailyCap);
   const overUsual = Number.isInteger(cap) && cap > preset.defaultDailyCap;
   return (
-    <div className="flex flex-col gap-5">
-      <div className="grid items-start gap-4 sm:grid-cols-2">
-        <div className="flex flex-col gap-2">
-          <Field
-            label="Reply folder"
-            error={errors.replyFolder}
-            help="Kick Rocks reads replies from this folder only. Use the inbox, or a folder your mail filter sends broker replies to."
+    <div className="flex flex-col gap-4">
+      <RowGroup>
+        <FieldRow
+          label="Reply folder"
+          error={errors.replyFolder}
+          help="Replies are read from this folder only."
+        >
+          <Select
+            mono
+            value={form.replyFolder}
+            onChange={(event) => onChange({ ...form, replyFolder: event.target.value })}
           >
-            <Select
-              value={form.replyFolder}
-              onChange={(event) => onChange({ ...form, replyFolder: event.target.value })}
-            >
-              {choices.map((choice) => (
-                <option key={choice.path} value={choice.path}>
-                  {choice.label}
-                </option>
-              ))}
-            </Select>
-          </Field>
-          {onRefreshFolders ? (
-            <div>
-              <Button size="sm" variant="ghost" onClick={onRefreshFolders} loading={refreshing}>
-                Refresh folders
-              </Button>
-            </div>
-          ) : null}
-        </div>
-        <Field
+            {choices.map((choice) => (
+              <option key={choice.path} value={choice.path}>
+                {choice.label}
+              </option>
+            ))}
+          </Select>
+        </FieldRow>
+        {onRefreshFolders ? (
+          <BodyRow className="flex justify-end py-1.5">
+            <Button size="sm" variant="ghost" onClick={onRefreshFolders} loading={refreshing}>
+              Refresh folders
+            </Button>
+          </BodyRow>
+        ) : null}
+        <FieldRow
           label="Daily limit"
           error={errors.dailyCap}
-          help={`Most requests sent in 24 hours. The suggested limit for ${preset.label} is ${preset.defaultDailyCap}.`}
+          help={`Suggested for ${preset.label}: ${preset.defaultDailyCap}`}
         >
           <Input
+            mono
             type="number"
             inputMode="numeric"
             min={1}
             step={1}
+            unit="/day"
             value={form.dailyCap}
             onChange={(event) => onChange({ ...form, dailyCap: event.target.value })}
           />
-        </Field>
-      </div>
+        </FieldRow>
+      </RowGroup>
       {overUsual ? (
-        <Alert intent="warning" title="Higher than the suggested limit">
+        <Callout intent="warning" title="Higher than the suggested limit">
           Sending more than {preset.defaultDailyCap} a day from {preset.label} can get the account
           flagged or paused. Requests beyond the limit wait until the next day.
-        </Alert>
+        </Callout>
       ) : null}
     </div>
   );

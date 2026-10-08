@@ -33,17 +33,36 @@ describe("the requests page", () => {
   it("lists the current profile's requests with status, reference, and channel", async () => {
     open();
     const list = await rows();
-    expect(list.length).toBe(25);
+    expect(list.length).toBe(33);
     const first = within(list[0] as HTMLElement);
     expect(first.getByText(/^KR-/)).toBeVisible();
     expect(first.getAllByText(/Email|Web form/).length).toBeGreaterThan(0);
+  });
+
+  it("prints what each request asked for as mono tokens, and a dash for a missing date", async () => {
+    open();
+    const list = await rows();
+    const text = list.map((row) => row.textContent ?? "").join("\n");
+    expect(text).toMatch(/opt-out/);
+    expect(text).toMatch(/delete/);
+    expect(text).not.toContain("None");
+    const drafts = list.filter((row) => within(row).queryByText("Draft"));
+    expect(drafts.length).toBeGreaterThan(0);
+    for (const row of drafts) expect(within(row).getAllByText("-")).toHaveLength(2);
+  });
+
+  it("counts the requests in the toolbar", async () => {
+    open();
+    await rows();
+    expect(await screen.findByText("33 requests")).toBeVisible();
   });
 
   it("filters by status from the address bar", async () => {
     open("/requests?status=needs_verification");
     await waitFor(async () => expect((await rows()).length).toBe(2));
     expect(screen.getByLabelText("Status")).toHaveValue("needs_verification");
-    expect(screen.getAllByText("Needs verification").length).toBeGreaterThan(0);
+    for (const row of await rows())
+      expect(within(row).getByText("Needs verification")).toBeVisible();
   });
 
   it("filters to one target and says which", async () => {
@@ -72,13 +91,13 @@ describe("the requests page", () => {
     const mock = failing(/never/);
     mock.store.requests.length = 0;
     open("/requests", mock);
-    expect(await screen.findByText("No requests yet")).toBeVisible();
+    expect(await screen.findByText("No requests yet.")).toBeVisible();
     expect(screen.getAllByRole("link", { name: /campaign/i }).length).toBeGreaterThan(0);
   });
 
   it("shows an empty state with a way out when a filter matches nothing", async () => {
     const { user } = open("/requests?q=nothing-matches-this");
-    expect(await screen.findByText("No requests match")).toBeVisible();
+    expect(await screen.findByText("No requests match these filters.")).toBeVisible();
     expect(screen.getAllByRole("button", { name: "Clear filters" })).toHaveLength(1);
     await user.click(screen.getByRole("button", { name: "Clear filters" }));
     expect((await rows()).length).toBeGreaterThan(1);
@@ -103,7 +122,7 @@ describe("request filters", () => {
       toRequestQuery(readRequestFilters(new URLSearchParams("status=sent&channel=form"))),
     ).toEqual({
       page: 1,
-      pageSize: 25,
+      pageSize: 50,
       status: ["sent"],
       channel: "form",
     });

@@ -97,9 +97,9 @@ export function checkTelegram(
   } else if (!shape.botToken.safeParse(botToken).success) {
     errors.botToken = "That does not look like a bot token. It looks like 123456:ABC-DEF.";
   }
-  if (chatId === "") errors.chatId = "Enter the chat id.";
+  if (chatId === "") errors.chatId = "Enter the chat ID.";
   else if (!shape.chatId.safeParse(chatId).success) {
-    errors.chatId = "Use the numeric chat id or an @channel name.";
+    errors.chatId = "Use the numeric chat ID or an @channel name.";
   }
   return { errors, patch: { chatId, ...(botToken === "" ? {} : { botToken }) } };
 }

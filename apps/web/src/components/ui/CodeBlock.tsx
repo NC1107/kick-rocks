@@ -13,9 +13,9 @@ export interface CodeBlockProps {
 /** A command or config the person will copy. The copy button is always there. */
 export function CodeBlock({ code, title, wrap = false, className }: CodeBlockProps) {
   return (
-    <div className={cn("overflow-hidden rounded-md border border-line bg-sunken", className)}>
+    <div className={cn("overflow-hidden rounded-md border border-line bg-field", className)}>
       <div className="flex min-h-9 items-center justify-between gap-3 border-b border-line pr-1.5 pl-3">
-        <span className="truncate text-xs text-ink-muted">{title ?? ""}</span>
+        <span className="truncate font-mono text-caption text-ink-3">{title ?? ""}</span>
         <CopyButton value={code} iconOnly label="Copy code" />
       </div>
       <pre

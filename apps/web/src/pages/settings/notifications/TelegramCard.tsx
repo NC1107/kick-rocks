@@ -2,16 +2,15 @@ import { API_ROUTES, type NotificationsView } from "@kickrocks/shared";
 import { useEffect, useState } from "react";
 import { errorMessage, useApiMutation } from "../../../api/index.js";
 import {
-  Alert,
   Button,
-  Card,
-  CardFooter,
-  CardHeader,
+  Callout,
   ConfirmDialog,
-  Field,
   Input,
+  RowGroup,
+  Section,
   useToast,
 } from "../../../components/ui/index.js";
+import { FieldRow, GroupFooter } from "../rows.js";
 import { checkTelegram, type TelegramDraft, telegramDirty, telegramDraftOf } from "./model.js";
 import { useChannelTest } from "./useChannelTest.js";
 
@@ -39,7 +38,7 @@ export function TelegramCard({ telegram }: { telegram: NotificationsView["telegr
   const test = useChannelTest("telegram", telegram === null || dirty);
 
   return (
-    <Card>
+    <>
       <form
         noValidate
         onSubmit={(event) => {
@@ -49,68 +48,67 @@ export function TelegramCard({ telegram }: { telegram: NotificationsView["telegr
           save.mutate({ body: { telegram: patch } });
         }}
       >
-        <CardHeader
-          title="Telegram"
-          description="Create a bot with BotFather, send it a message, then enter its token and the id of your chat with it."
-        />
-        <div className="grid gap-x-6 gap-y-4 sm:grid-cols-2">
-          <Field
-            label="Bot token"
-            help={
-              telegram?.botTokenSet
-                ? "A token is saved. Leave this blank to keep it."
-                : "From BotFather, like 123456:ABC-DEF."
-            }
-            error={(submitted ? errors.botToken : undefined) ?? serverErrors["telegram.botToken"]}
-          >
-            <Input
-              type="password"
-              autoComplete="new-password"
-              value={draft.botToken}
-              onChange={(event) =>
-                setDraft((current) => ({ ...current, botToken: event.target.value }))
+        <Section label="Telegram">
+          <RowGroup>
+            <FieldRow
+              label="Bot token"
+              help={
+                telegram?.botTokenSet
+                  ? "A token is saved. Leave this blank to keep it."
+                  : "From BotFather, like 123456:ABC-DEF."
               }
-            />
-          </Field>
-          <Field
-            label="Chat id"
-            error={(submitted ? errors.chatId : undefined) ?? serverErrors["telegram.chatId"]}
-          >
-            <Input
-              autoComplete="off"
-              inputMode="text"
-              placeholder="123456789"
-              value={draft.chatId}
-              onChange={(event) =>
-                setDraft((current) => ({ ...current, chatId: event.target.value }))
-              }
-            />
-          </Field>
-        </div>
-        {save.isError && Object.keys(serverErrors).length === 0 ? (
-          <div className="mt-4">
-            <Alert intent="danger" title="Could not save Telegram">
+              error={(submitted ? errors.botToken : undefined) ?? serverErrors["telegram.botToken"]}
+            >
+              <Input
+                mono
+                type="password"
+                autoComplete="new-password"
+                value={draft.botToken}
+                onChange={(event) =>
+                  setDraft((current) => ({ ...current, botToken: event.target.value }))
+                }
+              />
+            </FieldRow>
+            <FieldRow
+              label="Chat ID"
+              help="The ID of your chat with the bot."
+              error={(submitted ? errors.chatId : undefined) ?? serverErrors["telegram.chatId"]}
+            >
+              <Input
+                mono
+                autoComplete="off"
+                inputMode="text"
+                placeholder="123456789"
+                value={draft.chatId}
+                onChange={(event) =>
+                  setDraft((current) => ({ ...current, chatId: event.target.value }))
+                }
+              />
+            </FieldRow>
+            <GroupFooter>
+              {telegram ? (
+                <Button variant="danger" onClick={() => setRemoving(true)} className="mr-auto">
+                  Remove
+                </Button>
+              ) : null}
+              {test.button}
+              <Button
+                type="submit"
+                variant="primary"
+                loading={save.isPending && !removing}
+                disabled={!dirty}
+              >
+                Save Telegram
+              </Button>
+            </GroupFooter>
+          </RowGroup>
+          {save.isError && Object.keys(serverErrors).length === 0 ? (
+            <Callout intent="danger" title="Could not save Telegram" className="mt-3">
               {errorMessage(save.error)}
-            </Alert>
-          </div>
-        ) : null}
-        {test.result ? <div className="mt-4">{test.result}</div> : null}
-        <CardFooter>
-          {telegram ? (
-            <Button variant="ghost" onClick={() => setRemoving(true)} className="mr-auto">
-              Remove
-            </Button>
+            </Callout>
           ) : null}
-          {test.button}
-          <Button
-            type="submit"
-            variant="primary"
-            loading={save.isPending && !removing}
-            disabled={!dirty}
-          >
-            Save Telegram
-          </Button>
-        </CardFooter>
+          {test.result ? <div className="mt-3">{test.result}</div> : null}
+        </Section>
       </form>
 
       <ConfirmDialog
@@ -123,6 +121,6 @@ export function TelegramCard({ telegram }: { telegram: NotificationsView["telegr
         loading={save.isPending}
         onConfirm={() => save.mutate({ body: { telegram: null } })}
       />
-    </Card>
+    </>
   );
 }

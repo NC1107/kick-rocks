@@ -3,9 +3,17 @@ import { ChevronDown } from "lucide-react";
 import { type ReactNode, useState } from "react";
 import { Link } from "react-router";
 import { errorMessage, useApiMutation } from "../../api/index.js";
-import { Badge, Button, Card, ConfirmDialog, useToast } from "../../components/ui/index.js";
+import {
+  Button,
+  ConfirmDialog,
+  InlineError,
+  RowGroup,
+  StatusShapeGlyph,
+  useToast,
+} from "../../components/ui/index.js";
 import { pluralize } from "../../lib/format.js";
 import { describeStep } from "./model.js";
+import { GroupFooter } from "./rows.js";
 
 export interface RecipeCardCopy {
   /** The line under the broker name, saying where the steps came from. */
@@ -44,7 +52,6 @@ export function RecipeCard({
   const approve = useApiMutation(API_ROUTES.recipesApprove, {
     invalidates,
     onSuccess: () => toast.success("Recipe approved"),
-    onError: (error) => toast.error("That did not work", errorMessage(error)),
   });
   const reject = useApiMutation(API_ROUTES.recipesReject, {
     invalidates,
@@ -52,91 +59,93 @@ export function RecipeCard({
       setRejecting(false);
       toast.success("Recipe rejected");
     },
-    onError: (error) => {
-      setRejecting(false);
-      toast.error("That did not work", errorMessage(error));
-    },
+    onError: () => setRejecting(false),
   });
 
   const { definition } = recipe;
   const purpose = recipe.purpose === "scan" ? "scan" : "removal";
 
   return (
-    <Card aria-label={`${recipe.targetName} ${purpose} recipe`}>
-      <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
-        <div className="min-w-0">
-          <h3 className="break-words text-lg font-semibold text-ink">
-            <Link
-              to={`/targets/${encodeURIComponent(recipe.targetId)}`}
-              className="rounded-xs hover:text-accent hover:underline"
-            >
-              {recipe.targetName}
-            </Link>
-          </h3>
-          <p className="text-sm text-ink-muted">{copy.origin(purpose, recipe)}</p>
+    <>
+      <RowGroup role="region" aria-label={`${recipe.targetName} ${purpose} recipe`}>
+        <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-1 px-3.5 py-2.5">
+          <div className="min-w-0">
+            <h3 className="break-words text-ui font-medium text-ink">
+              <Link
+                to={`/targets/${encodeURIComponent(recipe.targetId)}`}
+                className="rounded-xs hover:text-accent-text hover:underline"
+              >
+                {recipe.targetName}
+              </Link>
+            </h3>
+            <p className="text-meta text-ink-3">{copy.origin(purpose, recipe)}</p>
+          </div>
+          <span className="inline-flex items-center gap-2 text-meta">
+            <StatusShapeGlyph shape={rejected ? "dash" : "triangle"} />
+            <span className={rejected ? "text-ink-2" : "font-medium text-attention-text"}>
+              {rejected ? "Rejected" : "Waiting for review"}
+            </span>
+          </span>
         </div>
-        {rejected ? (
-          <Badge tone="neutral">Rejected</Badge>
-        ) : (
-          <Badge tone="amber">Waiting for review</Badge>
-        )}
-      </div>
 
-      {copy.showChecked ? (
-        <p className="mt-3 text-sm font-medium text-ink">
-          {LIVE_STATUS_TEXT[definition.liveStatus]}
-        </p>
-      ) : null}
-      {recipe.notes ? (
-        <>
-          {copy.notesHeading ? (
-            <h4 className="mt-3 text-sm font-medium text-ink-muted">{copy.notesHeading}</h4>
+        {copy.showChecked || recipe.notes ? (
+          <div className="flex flex-col gap-2 px-3.5 py-2.5 text-meta">
+            {copy.showChecked ? (
+              <p className="font-medium text-ink">{LIVE_STATUS_TEXT[definition.liveStatus]}</p>
+            ) : null}
+            {recipe.notes ? (
+              <div>
+                {copy.notesHeading ? (
+                  <h4 className="text-eyebrow text-ink-3">{copy.notesHeading}</h4>
+                ) : null}
+                <p className="mt-1 break-words text-ink-2">{recipe.notes}</p>
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+
+        <details className="group">
+          <summary className="flex min-h-row cursor-pointer list-none items-center justify-between px-3.5 py-1.5 text-ui text-ink transition-colors duration-100 hover:bg-hover [&::-webkit-details-marker]:hidden">
+            <span className="font-mono text-meta tabular-nums">
+              {pluralize(definition.steps.length, "step")}
+            </span>
+            <ChevronDown
+              aria-hidden="true"
+              strokeWidth={1.5}
+              className="size-4 text-ink-3 transition-transform duration-100 group-open:rotate-180"
+            />
+          </summary>
+          <ol className="m-0 list-decimal border-t border-line bg-canvas py-2 pr-3.5 pl-9 text-meta text-ink-2">
+            {definition.steps.map((step, index) => (
+              // biome-ignore lint/suspicious/noArrayIndexKey: steps have no id, and their order is their identity
+              <li key={index} className="break-words py-0.5">
+                {describeStep(step)}
+              </li>
+            ))}
+          </ol>
+        </details>
+
+        <GroupFooter>
+          {approve.isError || reject.isError ? (
+            <InlineError className="mr-auto">
+              {errorMessage(approve.isError ? approve.error : reject.error)}
+            </InlineError>
           ) : null}
-          <p
-            className={
-              copy.notesHeading
-                ? "mt-1 break-words text-base text-ink"
-                : "mt-3 break-words text-base text-ink"
-            }
+          {rejected ? null : (
+            <Button variant="ghost" disabled={approve.isPending} onClick={() => setRejecting(true)}>
+              Reject
+            </Button>
+          )}
+          <Button
+            variant="secondary"
+            loading={approve.isPending}
+            disabled={reject.isPending}
+            onClick={() => approve.mutate({ params: { id: recipe.id } })}
           >
-            {recipe.notes}
-          </p>
-        </>
-      ) : null}
-
-      <details className="group mt-3 rounded-md bg-sunken">
-        <summary className="flex cursor-pointer list-none items-center justify-between px-3.5 py-2.5 text-base font-medium text-ink [&::-webkit-details-marker]:hidden">
-          {pluralize(definition.steps.length, "step")}
-          <ChevronDown
-            aria-hidden="true"
-            className="size-4 transition-transform group-open:rotate-180"
-          />
-        </summary>
-        <ol className="m-0 list-decimal px-3.5 pb-3 pl-8 text-base text-ink">
-          {definition.steps.map((step, index) => (
-            // biome-ignore lint/suspicious/noArrayIndexKey: steps have no id, and their order is their identity
-            <li key={index} className="break-words py-0.5">
-              {describeStep(step)}
-            </li>
-          ))}
-        </ol>
-      </details>
-
-      <div className="mt-4 flex flex-wrap items-center gap-2">
-        <Button
-          variant="primary"
-          loading={approve.isPending}
-          disabled={reject.isPending}
-          onClick={() => approve.mutate({ params: { id: recipe.id } })}
-        >
-          {rejected ? "Approve anyway" : "Approve"}
-        </Button>
-        {rejected ? null : (
-          <Button variant="ghost" disabled={approve.isPending} onClick={() => setRejecting(true)}>
-            Reject
+            {rejected ? "Approve anyway" : "Approve"}
           </Button>
-        )}
-      </div>
+        </GroupFooter>
+      </RowGroup>
 
       <ConfirmDialog
         open={rejecting}
@@ -148,6 +157,6 @@ export function RecipeCard({
         loading={reject.isPending}
         onConfirm={() => reject.mutate({ params: { id: recipe.id } })}
       />
-    </Card>
+    </>
   );
 }

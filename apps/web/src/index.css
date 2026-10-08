@@ -1,142 +1,319 @@
 @import "tailwindcss";
 
 /*
- * Design tokens.
+ * Design tokens. The spec is docs/DESIGN-LANGUAGE.md; this file is where it becomes values.
  *
  * Raw values live in --kr-* variables so one place decides light and dark. Tailwind's theme
- * (below) maps them to utilities such as bg-surface and text-ink-muted, and drops its own color
+ * (below) maps them to utilities such as bg-surface and text-ink-2, and drops its own color
  * palette, so a page cannot reach for a color that has no meaning here.
  *
- * Neutrals carry a faint cool tint (hue 255). Color is reserved for meaning: the accent marks
- * what you can act on, and the tones below mark state. Nothing is decorative.
+ * Dark is the reference scheme and the default. Neutrals carry a faint cool tint and step in small
+ * tonal layers. Exactly one accent exists, and it is allowed only on the primary button, links,
+ * the active nav item, the selected tab, the focus ring, row selection, checkbox and radio fills,
+ * and meter fills. Every other color means state: positive, attention, danger, or neutral.
  */
 
-:root {
-  /* Both schemes, resolved by light-dark(); data-theme below pins one of them. */
-  color-scheme: light dark;
+/* The fonts are vendored, so the page's CSP never has to name a font host. */
+@font-face {
+  font-family: "IBM Plex Sans";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("./fonts/IBMPlexSans-Regular-Latin1.woff2") format("woff2");
+  unicode-range:
+    U+0000, U+000D, U+0020-007E, U+00A0-00FF, U+0131, U+0152-0153, U+02C6, U+02DA, U+02DC, U+2013-2014, U+2018-201A, U+201C-201E, U+2020-2022, U+2026, U+2030, U+2039-203A, U+2044, U+20AC, U+2122, U+2212, U+FB01-FB02;
+}
 
-  /* Surfaces, from the page down to things that sit on it */
-  --kr-canvas: light-dark(oklch(0.975 0.004 255), oklch(0.175 0.008 255));
-  --kr-surface: light-dark(oklch(1 0 0), oklch(0.215 0.009 255));
-  --kr-raised: light-dark(oklch(1 0 0), oklch(0.26 0.01 255));
-  --kr-sunken: light-dark(oklch(0.955 0.005 255), oklch(0.245 0.009 255));
-  --kr-sidebar: light-dark(oklch(0.962 0.005 255), oklch(0.155 0.008 255));
-  --kr-field: light-dark(oklch(1 0 0), oklch(0.19 0.009 255));
-  --kr-scrim: light-dark(oklch(0.2 0.02 255 / 0.45), oklch(0.08 0.01 255 / 0.62));
+@font-face {
+  font-family: "IBM Plex Sans";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("./fonts/IBMPlexSans-Regular-Latin2.woff2") format("woff2");
+  unicode-range:
+    U+0100-0101, U+0104-0130, U+0132-0151, U+0154-017F, U+018F, U+0192, U+01A0-01A1, U+01AF-01B0, U+01FA-01FF, U+0218-021B, U+0237, U+0259, U+1E80-1E85, U+1E9E, U+20A1, U+20A4, U+20A6, U+20A8-20AA, U+20AD-20AE, U+20B1-20B2, U+20B4-20B5, U+20B8-20BA, U+20BD, U+20BF;
+}
+
+@font-face {
+  font-family: "IBM Plex Sans";
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+  src: url("./fonts/IBMPlexSans-Italic-Latin1.woff2") format("woff2");
+  unicode-range:
+    U+0000, U+000D, U+0020-007E, U+00A0-00FF, U+0131, U+0152-0153, U+02C6, U+02DA, U+02DC, U+2013-2014, U+2018-201A, U+201C-201E, U+2020-2022, U+2026, U+2030, U+2039-203A, U+2044, U+20AC, U+2122, U+2212, U+FB01-FB02;
+}
+
+@font-face {
+  font-family: "IBM Plex Sans";
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+  src: url("./fonts/IBMPlexSans-Italic-Latin2.woff2") format("woff2");
+  unicode-range:
+    U+0100-0101, U+0104-0130, U+0132-0151, U+0154-017F, U+018F, U+0192, U+01A0-01A1, U+01AF-01B0, U+01FA-01FF, U+0218-021B, U+0237, U+0259, U+1E80-1E85, U+1E9E, U+20A1, U+20A4, U+20A6, U+20A8-20AA, U+20AD-20AE, U+20B1-20B2, U+20B4-20B5, U+20B8-20BA, U+20BD, U+20BF;
+}
+
+@font-face {
+  font-family: "IBM Plex Sans";
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("./fonts/IBMPlexSans-Medium-Latin1.woff2") format("woff2");
+  unicode-range:
+    U+0000, U+000D, U+0020-007E, U+00A0-00FF, U+0131, U+0152-0153, U+02C6, U+02DA, U+02DC, U+2013-2014, U+2018-201A, U+201C-201E, U+2020-2022, U+2026, U+2030, U+2039-203A, U+2044, U+20AC, U+2122, U+2212, U+FB01-FB02;
+}
+
+@font-face {
+  font-family: "IBM Plex Sans";
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("./fonts/IBMPlexSans-Medium-Latin2.woff2") format("woff2");
+  unicode-range:
+    U+0100-0101, U+0104-0130, U+0132-0151, U+0154-017F, U+018F, U+0192, U+01A0-01A1, U+01AF-01B0, U+01FA-01FF, U+0218-021B, U+0237, U+0259, U+1E80-1E85, U+1E9E, U+20A1, U+20A4, U+20A6, U+20A8-20AA, U+20AD-20AE, U+20B1-20B2, U+20B4-20B5, U+20B8-20BA, U+20BD, U+20BF;
+}
+
+@font-face {
+  font-family: "IBM Plex Sans";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("./fonts/IBMPlexSans-SemiBold-Latin1.woff2") format("woff2");
+  unicode-range:
+    U+0000, U+000D, U+0020-007E, U+00A0-00FF, U+0131, U+0152-0153, U+02C6, U+02DA, U+02DC, U+2013-2014, U+2018-201A, U+201C-201E, U+2020-2022, U+2026, U+2030, U+2039-203A, U+2044, U+20AC, U+2122, U+2212, U+FB01-FB02;
+}
+
+@font-face {
+  font-family: "IBM Plex Sans";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("./fonts/IBMPlexSans-SemiBold-Latin2.woff2") format("woff2");
+  unicode-range:
+    U+0100-0101, U+0104-0130, U+0132-0151, U+0154-017F, U+018F, U+0192, U+01A0-01A1, U+01AF-01B0, U+01FA-01FF, U+0218-021B, U+0237, U+0259, U+1E80-1E85, U+1E9E, U+20A1, U+20A4, U+20A6, U+20A8-20AA, U+20AD-20AE, U+20B1-20B2, U+20B4-20B5, U+20B8-20BA, U+20BD, U+20BF;
+}
+
+@font-face {
+  font-family: "IBM Plex Mono";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("./fonts/IBMPlexMono-Regular-Latin1.woff2") format("woff2");
+  unicode-range:
+    U+0000, U+000D, U+0020-007E, U+00A0-00FF, U+0131, U+0152-0153, U+02C6, U+02DA, U+02DC, U+2013-2014, U+2018-201A, U+201C-201E, U+2020-2022, U+2026, U+2030, U+2039-203A, U+2044, U+20AC, U+2122, U+2212, U+FB01-FB02;
+}
+
+@font-face {
+  font-family: "IBM Plex Mono";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("./fonts/IBMPlexMono-Regular-Latin2.woff2") format("woff2");
+  unicode-range:
+    U+0100-0101, U+0104-0130, U+0132-0151, U+0154-017F, U+018F, U+0192, U+01A0-01A1, U+01AF-01B0, U+01FA-01FF, U+0218-021B, U+0237, U+0259, U+1E80-1E85, U+1E9E, U+20A1, U+20A4, U+20A6, U+20A8-20AA, U+20AD-20AE, U+20B1-20B2, U+20B4-20B5, U+20B8-20BA, U+20BD, U+20BF;
+}
+
+@font-face {
+  font-family: "IBM Plex Mono";
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("./fonts/IBMPlexMono-Medium-Latin1.woff2") format("woff2");
+  unicode-range:
+    U+0000, U+000D, U+0020-007E, U+00A0-00FF, U+0131, U+0152-0153, U+02C6, U+02DA, U+02DC, U+2013-2014, U+2018-201A, U+201C-201E, U+2020-2022, U+2026, U+2030, U+2039-203A, U+2044, U+20AC, U+2122, U+2212, U+FB01-FB02;
+}
+
+@font-face {
+  font-family: "IBM Plex Mono";
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("./fonts/IBMPlexMono-Medium-Latin2.woff2") format("woff2");
+  unicode-range:
+    U+0100-0101, U+0104-0130, U+0132-0151, U+0154-017F, U+018F, U+0192, U+01A0-01A1, U+01AF-01B0, U+01FA-01FF, U+0218-021B, U+0237, U+0259, U+1E80-1E85, U+1E9E, U+20A1, U+20A4, U+20A6, U+20A8-20AA, U+20AD-20AE, U+20B1-20B2, U+20B4-20B5, U+20B8-20BA, U+20BD, U+20BF;
+}
+
+@font-face {
+  font-family: "IBM Plex Mono";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("./fonts/IBMPlexMono-SemiBold-Latin1.woff2") format("woff2");
+  unicode-range:
+    U+0000, U+000D, U+0020-007E, U+00A0-00FF, U+0131, U+0152-0153, U+02C6, U+02DA, U+02DC, U+2013-2014, U+2018-201A, U+201C-201E, U+2020-2022, U+2026, U+2030, U+2039-203A, U+2044, U+20AC, U+2122, U+2212, U+FB01-FB02;
+}
+
+@font-face {
+  font-family: "IBM Plex Mono";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("./fonts/IBMPlexMono-SemiBold-Latin2.woff2") format("woff2");
+  unicode-range:
+    U+0100-0101, U+0104-0130, U+0132-0151, U+0154-017F, U+018F, U+0192, U+01A0-01A1, U+01AF-01B0, U+01FA-01FF, U+0218-021B, U+0237, U+0259, U+1E80-1E85, U+1E9E, U+20A1, U+20A4, U+20A6, U+20A8-20AA, U+20AD-20AE, U+20B1-20B2, U+20B4-20B5, U+20B8-20BA, U+20BD, U+20BF;
+}
+
+:root {
+  color-scheme: dark;
+
+  /* Surfaces, from the page behind everything up to what sits on it */
+  --kr-frame: light-dark(#eff1f3, #0a0a0b);
+  --kr-rail: light-dark(#eff1f3, #0f0f10);
+  --kr-canvas: light-dark(#f7f8f9, #141415);
+  --kr-surface: light-dark(#ffffff, #1c1c1e);
+  --kr-hover: light-dark(#f0f2f4, #232326);
+  --kr-active: light-dark(#e6e9ed, #27272a);
+  /* Inset in dark, so a field reads as a hole in the surface rather than a raised plate */
+  --kr-field: light-dark(#ffffff, #0f0f10);
+  --kr-popover: light-dark(#ffffff, #2b2b31);
+  --kr-popover-hover: light-dark(#f0f2f4, #38383f);
+  --kr-scrim: light-dark(rgb(15 17 19 / 0.45), rgb(0 0 0 / 0.55));
   /* The edge shade that tells a scrolling table there is more beyond it */
-  --kr-shade: light-dark(oklch(0.2 0.02 255 / 0.14), oklch(0 0 0 / 0.4));
+  --kr-shade: light-dark(rgb(15 17 19 / 0.12), rgb(0 0 0 / 0.4));
 
   /* Lines. line-strong is the edge of a control and meets 3:1 against its surface. */
-  --kr-line: light-dark(oklch(0.915 0.006 255), oklch(0.31 0.01 255));
-  --kr-line-strong: light-dark(oklch(0.62 0.012 255), oklch(0.55 0.012 255));
-
-  /* Text */
-  --kr-ink: light-dark(oklch(0.21 0.015 255), oklch(0.95 0.005 255));
-  --kr-ink-muted: light-dark(oklch(0.45 0.014 255), oklch(0.74 0.01 255));
-  --kr-ink-faint: light-dark(oklch(0.53 0.012 255), oklch(0.66 0.01 255));
-
-  /* Accent: links, primary actions, the selected nav item, the focus ring */
-  --kr-accent: light-dark(oklch(0.5 0.17 258), oklch(0.74 0.12 255));
-  --kr-accent-hover: light-dark(oklch(0.44 0.17 258), oklch(0.8 0.11 255));
-  --kr-accent-ink: light-dark(oklch(1 0 0), oklch(0.17 0.03 255));
-  --kr-accent-soft: light-dark(oklch(0.95 0.025 258), oklch(0.3 0.05 258));
-  --kr-accent-soft-ink: light-dark(oklch(0.4 0.14 258), oklch(0.86 0.08 255));
-  --kr-focus: light-dark(oklch(0.58 0.19 258), oklch(0.74 0.14 255));
-
-  /* Destructive actions */
-  --kr-danger: light-dark(oklch(0.5 0.18 25), oklch(0.7 0.16 25));
-  --kr-danger-hover: light-dark(oklch(0.44 0.18 25), oklch(0.76 0.15 25));
-  --kr-danger-ink: light-dark(oklch(1 0 0), oklch(0.17 0.03 25));
+  --kr-line: light-dark(#dce0e5, #27272a);
+  --kr-line-popover: light-dark(#c9ced5, #45454e);
+  --kr-line-strong: light-dark(#858a8f, #6b6b75);
 
   /*
-   * Elevation: only things that float get a shadow. The geometry is the same in both schemes and
-   * only the color changes, since light-dark() chooses colors, not lengths.
+   * Text. Never pure white on dark. ink-3 is the quietest text that still passes 4.5:1 on every
+   * layer it sits on, including the hover fill and the light rail, which is why it sits a step
+   * lighter in dark and darker in light than the first draft of the spec.
    */
-  --kr-shadow-pop:
-    0 1px 2px light-dark(oklch(0.2 0.02 255 / 0.08), oklch(0 0 0 / 0.4)),
-    0 6px 16px light-dark(oklch(0.2 0.02 255 / 0.12), oklch(0 0 0 / 0.45));
-  --kr-shadow-dialog:
-    0 2px 4px light-dark(oklch(0.2 0.02 255 / 0.08), oklch(0 0 0 / 0.4)),
-    0 20px 48px light-dark(oklch(0.2 0.02 255 / 0.22), oklch(0 0 0 / 0.6));
+  --kr-ink: light-dark(#1b1e22, #ededef);
+  --kr-ink-2: light-dark(#474d55, #ababb0);
+  --kr-ink-3: light-dark(#666d76, #8a8a96);
 
-  /* Rhythm */
-  --kr-gutter: 1.5rem;
-  --kr-control-h: 2.25rem;
+  /* Accent roles: fill (buttons, markers), on (text on the fill), text (links), soft (washes) */
+  --kr-accent-fill: light-dark(#4648d4, #5557e0);
+  --kr-accent-fill-hover: light-dark(#3b3dc0, #6466e8);
+  --kr-accent-on: #ffffff;
+  --kr-accent-text: light-dark(#4648d4, #818cf8);
+  --kr-accent-soft: light-dark(#ececfc, #1c1c2d);
+  --kr-focus: light-dark(#4648d4, #818cf8);
+
+  /* State families: a shape fill, and a text color that passes AA on the surface */
+  --kr-positive: light-dark(#16a34a, #22c55e);
+  --kr-positive-text: light-dark(#15803d, #4ade80);
+  --kr-attention: light-dark(#d97706, #f59e0b);
+  --kr-attention-text: light-dark(#b45309, #fbbf24);
+  --kr-danger: light-dark(#dc2626, #ef4444);
+  --kr-danger-text: light-dark(#b91c1c, #f87171);
+  --kr-danger-wash-text: light-dark(#b91c1c, #fca5a5);
+  /* The one filled danger surface, for a confirm dialog's final button */
+  --kr-danger-solid: #dc2626;
+  /* White whatever the accent is: the cyan accent-on is near-black, which fails on this red */
+  --kr-danger-on: #ffffff;
+  --kr-danger-solid-hover: #b91c1c;
+
+  --kr-tracking-label: 0.07em;
+
+  /* Motion */
+  --kr-fast: 100ms;
+  --kr-base: 160ms;
+  --kr-slow: 240ms;
+  --kr-slow-out: 160ms;
+  --kr-pulse: 900ms;
+  --kr-ease-base: cubic-bezier(0.33, 1, 0.68, 1);
+
+  /* Rhythm. Controls: 28 small, 34 default, 40 large; phones take 44 for all of them. */
+  --kr-gutter: 1.25rem;
+  --kr-control-sm: 1.75rem;
+  --kr-control-h: 2.125rem;
+  --kr-control-lg: 2.5rem;
+  --kr-row-h: 2.25rem;
+  --kr-bar-h: 3rem;
+
+  /*
+   * Values that light-dark() cannot carry: color channels, which washes and halos give their own
+   * alpha, and shadow geometry, which differs by scheme. These repeat per scheme, below.
+   */
+  --kr-positive-rgb: 34 197 94;
+  --kr-attention-rgb: 245 158 11;
+  --kr-danger-rgb: 239 68 68;
+  --kr-neutral-rgb: 138 138 150;
+  --kr-shadow-pop: 0 16px 40px rgb(0 0 0 / 0.6), 0 2px 8px rgb(0 0 0 / 0.4);
+  --kr-shadow-dialog: 0 18px 50px rgb(0 0 0 / 0.5);
+}
+
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme]) {
+    color-scheme: light;
+    --kr-positive-rgb: 22 163 74;
+    --kr-attention-rgb: 217 119 6;
+    --kr-danger-rgb: 220 38 38;
+    --kr-neutral-rgb: 102 109 118;
+    --kr-shadow-pop: 0 12px 32px rgb(15 17 19 / 0.14), 0 1px 3px rgb(15 17 19 / 0.08);
+    --kr-shadow-dialog: 0 20px 48px rgb(15 17 19 / 0.18);
+  }
 }
 
 :root[data-theme="light"] {
   color-scheme: light;
+  --kr-positive-rgb: 22 163 74;
+  --kr-attention-rgb: 217 119 6;
+  --kr-danger-rgb: 220 38 38;
+  --kr-neutral-rgb: 102 109 118;
+  --kr-shadow-pop: 0 12px 32px rgb(15 17 19 / 0.14), 0 1px 3px rgb(15 17 19 / 0.08);
+  --kr-shadow-dialog: 0 20px 48px rgb(15 17 19 / 0.18);
 }
 
 :root[data-theme="dark"] {
   color-scheme: dark;
 }
 
+/*
+ * The cyan accent is the fallback if indigo reads as generic in a side-by-side render. The roles
+ * are what make the swap this small. Only the component gallery sets it.
+ */
+:root[data-accent="cyan"] {
+  --kr-accent-fill: light-dark(#1b6f91, #58b4d8);
+  --kr-accent-fill-hover: light-dark(#165a77, #70c2e2);
+  --kr-accent-on: light-dark(#ffffff, #070e12);
+  --kr-accent-text: light-dark(#1b6f91, #58b4d8);
+  --kr-accent-soft: light-dark(#dae9f2, #1d2b33);
+  --kr-focus: light-dark(#1b6f91, #58b4d8);
+}
+
 /* Phone: larger touch targets and a tighter gutter. Flips at the same width as Tailwind's max-sm. */
 @media (width < 40rem) {
   :root {
     --kr-gutter: 1rem;
+    --kr-control-sm: 2.75rem;
     --kr-control-h: 2.75rem;
+    --kr-control-lg: 2.75rem;
+    --kr-row-h: 2.75rem;
+    --kr-bar-h: 3.25rem;
   }
 }
 
 /*
- * A tone is a hue and a chroma multiplier. Badge, StatusPill, Alert, and Toast set data-tone and
- * read --color-tone-*, so a new status never needs a new color definition.
+ * A tone is one of four families. Tag, StatusMark, Callout, and Toast set data-tone and read
+ * --tone-*, so a new state never needs a new color definition.
  */
 [data-tone] {
-  --tone-bg: light-dark(
-    oklch(0.955 calc(0.03 * var(--tone-k, 1)) var(--tone-h)),
-    oklch(0.27 calc(0.045 * var(--tone-k, 1)) var(--tone-h))
-  );
-  --tone-ink: light-dark(
-    oklch(0.4 calc(0.11 * var(--tone-k, 1)) var(--tone-h)),
-    oklch(0.86 calc(0.08 * var(--tone-k, 1)) var(--tone-h))
-  );
-  --tone-dot: light-dark(
-    oklch(0.58 calc(0.16 * var(--tone-k, 1)) var(--tone-h)),
-    oklch(0.72 calc(0.15 * var(--tone-k, 1)) var(--tone-h))
-  );
-  --tone-line: light-dark(
-    oklch(0.88 calc(0.05 * var(--tone-k, 1)) var(--tone-h)),
-    oklch(0.36 calc(0.06 * var(--tone-k, 1)) var(--tone-h))
-  );
+  --tone-ink: var(--kr-ink-2);
+  --tone-dot: var(--kr-ink-3);
+  --tone-rgb: var(--kr-neutral-rgb);
+  --tone-line: rgb(var(--tone-rgb) / 0.4);
+  --tone-bg: rgb(var(--tone-rgb) / 0.12);
 }
-[data-tone="neutral"] {
-  --tone-h: 255;
-  --tone-k: 0.25;
+[data-tone="positive"] {
+  --tone-ink: var(--kr-positive-text);
+  --tone-dot: var(--kr-positive);
+  --tone-rgb: var(--kr-positive-rgb);
 }
-[data-tone="slate"] {
-  --tone-h: 245;
-  --tone-k: 0.55;
+[data-tone="attention"] {
+  --tone-ink: var(--kr-attention-text);
+  --tone-dot: var(--kr-attention);
+  --tone-rgb: var(--kr-attention-rgb);
 }
-[data-tone="blue"] {
-  --tone-h: 245;
-}
-[data-tone="indigo"] {
-  --tone-h: 278;
-}
-[data-tone="violet"] {
-  --tone-h: 312;
-}
-[data-tone="teal"] {
-  --tone-h: 192;
-}
-[data-tone="green"] {
-  --tone-h: 152;
-}
-[data-tone="amber"] {
-  --tone-h: 85;
-}
-[data-tone="orange"] {
-  --tone-h: 52;
-}
-[data-tone="red"] {
-  --tone-h: 25;
-}
-[data-tone="sand"] {
-  --tone-h: 70;
-  --tone-k: 0.5;
+[data-tone="danger"] {
+  --tone-ink: var(--kr-danger-text);
+  --tone-dot: var(--kr-danger);
+  --tone-rgb: var(--kr-danger-rgb);
 }
 
 @theme {
@@ -146,40 +323,66 @@
   --color-current: currentColor;
 
   --font-sans:
-    ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    "IBM Plex Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue",
+    Arial, sans-serif;
   --font-mono:
-    ui-monospace, "SF Mono", "Cascadia Mono", "Roboto Mono", Menlo, Consolas, "Liberation Mono",
-    monospace;
+    "IBM Plex Mono", ui-monospace, "SF Mono", "Cascadia Mono", "Roboto Mono", Menlo, Consolas,
+    "Liberation Mono", monospace;
 
-  /* Dense and legible: 14px body, 4px grid */
+  /*
+   * The type scale. The first block is the named scale; the numeric block repeats it under
+   * Tailwind's own names so existing text-sm and text-base still land on a step.
+   */
+  --text-label: 0.6875rem;
+  --text-label--line-height: 0.875rem;
+  --text-caption: 0.75rem;
+  --text-caption--line-height: 1rem;
+  --text-meta: 0.8125rem;
+  --text-meta--line-height: 1.125rem;
+  --text-ui: 0.875rem;
+  --text-ui--line-height: 1.25rem;
+  --text-body: 0.9375rem;
+  --text-body--line-height: 1.375rem;
+  --text-heading: 1.125rem;
+  --text-heading--line-height: 1.5rem;
+  --text-title: 1.375rem;
+  --text-title--line-height: 1.75rem;
+  --text-numeral: 1.75rem;
+  --text-numeral--line-height: 2rem;
+
   --text-xs: 0.75rem;
   --text-xs--line-height: 1rem;
   --text-sm: 0.8125rem;
-  --text-sm--line-height: 1.25rem;
+  --text-sm--line-height: 1.125rem;
   --text-base: 0.875rem;
-  --text-base--line-height: 1.375rem;
-  --text-lg: 1rem;
-  --text-lg--line-height: 1.5rem;
+  --text-base--line-height: 1.25rem;
+  --text-lg: 0.9375rem;
+  --text-lg--line-height: 1.375rem;
   --text-xl: 1.125rem;
-  --text-xl--line-height: 1.625rem;
+  --text-xl--line-height: 1.5rem;
   --text-2xl: 1.375rem;
   --text-2xl--line-height: 1.75rem;
   --text-3xl: 1.75rem;
-  --text-3xl--line-height: 2.125rem;
+  --text-3xl--line-height: 2rem;
 
-  /* Radius follows role: small marks, controls, surfaces, floating layers */
-  --radius-xs: 0.1875rem;
-  --radius-sm: 0.25rem;
-  --radius-md: 0.375rem;
-  --radius-lg: 0.625rem;
-  --radius-xl: 0.875rem;
+  /* Radius follows role: tags and keycaps, controls, groups and callouts, floating layers */
+  --radius-xs: 0.25rem;
+  --radius-sm: 0.375rem;
+  --radius-md: 0.625rem;
+  --radius-lg: 0.75rem;
+  --radius-xl: 0.75rem;
 
   --shadow-*: initial;
   --shadow-pop: var(--kr-shadow-pop);
   --shadow-dialog: var(--kr-shadow-dialog);
 
-  --animate-settle: kr-settle 140ms ease-out;
-  --animate-fade: kr-fade 120ms ease-out;
+  --ease-base: cubic-bezier(0.33, 1, 0.68, 1);
+
+  --animate-settle: kr-settle 240ms ease-out;
+  --animate-rise: kr-rise 240ms ease-out;
+  --animate-fade: kr-fade 100ms ease-out;
+  --animate-pulse-soft: kr-pulse 900ms ease-in-out infinite alternate;
+  --animate-running: kr-running 1.2s linear infinite;
 
   --breakpoint-sm: 40rem;
   --breakpoint-md: 48rem;
@@ -188,37 +391,61 @@
 
 /* Variables that change with the theme map inline so utilities resolve them at use time. */
 @theme inline {
+  --color-frame: var(--kr-frame);
+  --color-rail: var(--kr-rail);
   --color-canvas: var(--kr-canvas);
   --color-surface: var(--kr-surface);
-  --color-raised: var(--kr-raised);
-  --color-sunken: var(--kr-sunken);
-  --color-sidebar: var(--kr-sidebar);
+  --color-hover: var(--kr-hover);
+  --color-active: var(--kr-active);
   --color-field: var(--kr-field);
+  --color-popover: var(--kr-popover);
+  --color-popover-hover: var(--kr-popover-hover);
   --color-scrim: var(--kr-scrim);
   --color-shade: var(--kr-shade);
 
   --color-line: var(--kr-line);
+  --color-line-popover: var(--kr-line-popover);
   --color-line-strong: var(--kr-line-strong);
 
   --color-ink: var(--kr-ink);
-  --color-ink-muted: var(--kr-ink-muted);
-  --color-ink-faint: var(--kr-ink-faint);
+  --color-ink-2: var(--kr-ink-2);
+  --color-ink-3: var(--kr-ink-3);
 
-  --color-accent: var(--kr-accent);
-  --color-accent-hover: var(--kr-accent-hover);
-  --color-accent-ink: var(--kr-accent-ink);
+  --color-accent-fill: var(--kr-accent-fill);
+  --color-accent-fill-hover: var(--kr-accent-fill-hover);
+  --color-accent-on: var(--kr-accent-on);
+  --color-accent-text: var(--kr-accent-text);
   --color-accent-soft: var(--kr-accent-soft);
-  --color-accent-soft-ink: var(--kr-accent-soft-ink);
   --color-focus: var(--kr-focus);
 
+  --color-positive: var(--kr-positive);
+  --color-positive-text: var(--kr-positive-text);
+  --color-attention: var(--kr-attention);
+  --color-attention-text: var(--kr-attention-text);
   --color-danger: var(--kr-danger);
-  --color-danger-hover: var(--kr-danger-hover);
-  --color-danger-ink: var(--kr-danger-ink);
+  --color-danger-text: var(--kr-danger-text);
+  --color-danger-wash-text: var(--kr-danger-wash-text);
+  --color-danger-solid: var(--kr-danger-solid);
+  --color-danger-solid-hover: var(--kr-danger-solid-hover);
 
   --color-tone-bg: var(--tone-bg);
   --color-tone-ink: var(--tone-ink);
   --color-tone-dot: var(--tone-dot);
   --color-tone-line: var(--tone-line);
+
+  /* Names pages used before the redesign. Each points at the token that replaced it. */
+  --color-raised: var(--kr-popover);
+  --color-sunken: var(--kr-hover);
+  --color-sidebar: var(--kr-rail);
+  --color-ink-muted: var(--kr-ink-2);
+  --color-ink-faint: var(--kr-ink-3);
+  --color-accent: var(--kr-accent-fill);
+  --color-accent-hover: var(--kr-accent-fill-hover);
+  --color-accent-ink: var(--kr-accent-on);
+  --color-accent-soft-ink: var(--kr-accent-text);
+  --color-danger-hover: var(--kr-danger-solid-hover);
+  --color-danger-ink: var(--kr-danger-on);
+  --color-danger-on: var(--kr-danger-on);
 }
 
 @utility px-gutter {
@@ -230,11 +457,86 @@
 }
 
 @utility h-control-sm {
-  height: calc(var(--kr-control-h) - 0.5rem);
+  height: var(--kr-control-sm);
+}
+
+@utility h-control-lg {
+  height: var(--kr-control-lg);
 }
 
 @utility min-h-control {
   min-height: var(--kr-control-h);
+}
+
+@utility h-row {
+  height: var(--kr-row-h);
+}
+
+@utility min-h-row {
+  min-height: var(--kr-row-h);
+}
+
+@utility h-bar {
+  height: var(--kr-bar-h);
+}
+
+/* The small mono caption over a section, column, or tag. Mono, uppercase, tracked. */
+@utility text-eyebrow {
+  font-family: var(--font-mono);
+  font-size: var(--text-label);
+  line-height: var(--text-label--line-height);
+  font-weight: 500;
+  letter-spacing: var(--kr-tracking-label);
+  text-transform: uppercase;
+}
+
+/*
+ * Selection is a wash plus a 3px marker on the left edge. Focus is a 2px outline. The two must
+ * never look alike, so the marker is a solid bar inside the box and the ring is always outside.
+ * The marker grows from its center on the base duration while the fill follows on the fast one.
+ */
+@utility marked {
+  position: relative;
+  &::before {
+    content: "";
+    position: absolute;
+    inset-inline-start: 0;
+    top: 50%;
+    width: 3px;
+    height: 18px;
+    margin-top: -9px;
+    border-radius: 0 3px 3px 0;
+    background: var(--kr-accent-fill);
+    transform: scaleY(0);
+    transition: transform var(--kr-base) var(--kr-ease-base);
+  }
+  &[data-selected="true"]::before,
+  &[aria-selected="true"]::before,
+  &[aria-current="page"]::before {
+    transform: scaleY(1);
+  }
+}
+
+@utility marked-row {
+  & > :first-child {
+    position: relative;
+  }
+  & > :first-child::before {
+    content: "";
+    position: absolute;
+    inset-inline-start: 0;
+    top: 50%;
+    width: 3px;
+    height: 18px;
+    margin-top: -9px;
+    border-radius: 0 3px 3px 0;
+    background: var(--kr-accent-fill);
+    transform: scaleY(0);
+    transition: transform var(--kr-base) var(--kr-ease-base);
+  }
+  &[data-selected="true"] > :first-child::before {
+    transform: scaleY(1);
+  }
 }
 
 @layer base {
@@ -250,15 +552,19 @@
     margin: 0;
     min-height: 100dvh;
     background: var(--kr-canvas);
-    font-size: var(--text-base);
-    line-height: var(--text-base--line-height);
+    font-size: var(--text-ui);
+    line-height: var(--text-ui--line-height);
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
   }
 
+  :where(.font-mono, code, kbd, samp, pre) {
+    font-variant-numeric: tabular-nums;
+  }
+
   ::selection {
     background: var(--kr-accent-soft);
-    color: var(--kr-accent-soft-ink);
+    color: var(--kr-accent-text);
   }
 
   :where(a, button, summary, [role="tab"], [role="menuitem"], [role="menuitemradio"]):focus-visible,
@@ -286,6 +592,11 @@
     margin: 0;
   }
 
+  /* Icons are drawn at 1.5 everywhere, including the pages that import them directly. */
+  svg.lucide {
+    stroke-width: 1.5;
+  }
+
   /* Inputs stay at 16px on phones; smaller text makes iOS zoom the page on focus. */
   @media (width < 40rem) {
     :where(input, select, textarea) {
@@ -294,7 +605,7 @@
   }
 }
 
-/* The one deliberate bit of motion: a dialog settles in, so it reads as a layer above the page. */
+/* A floating layer settles in with a short rise, so it reads as sitting above the page. */
 @keyframes kr-settle {
   from {
     opacity: 0;
@@ -302,9 +613,31 @@
   }
 }
 
+@keyframes kr-rise {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
 @keyframes kr-fade {
   from {
     opacity: 0;
+  }
+}
+
+@keyframes kr-pulse {
+  from {
+    opacity: 0.35;
+  }
+  to {
+    opacity: 0.7;
+  }
+}
+
+@keyframes kr-running {
+  to {
+    transform: rotate(360deg);
   }
 }
 

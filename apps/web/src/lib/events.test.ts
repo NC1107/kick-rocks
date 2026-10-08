@@ -92,12 +92,12 @@ describe("describeEvent", () => {
   it("says why a request was queued again", () => {
     expect(
       describeEvent(event("queued", { channel: "email", reason: "verification_reply" })),
-    ).toMatch(/details the broker asked for/);
+    ).toMatch(/details the target asked for/);
   });
 
   it("explains a block, a failure, and a finish with what the person needs", () => {
     expect(describeEvent(event("task_blocked"))).toBe(
-      "The submit form task stopped for you: captcha.",
+      "The submit form task stopped for you: CAPTCHA.",
     );
     expect(describeEvent(event("task_failed"))).toContain(
       "The saved steps no longer match the page.",
@@ -157,7 +157,7 @@ describe("describeEvent", () => {
   it("reads a person's own actions as something they chose", () => {
     expect(describeEvent(event("user_action"))).toBe("You chose to mark it as confirmed.");
     expect(describeEvent(event("user_action", { action: "verification_reply", note: null }))).toBe(
-      "You chose to approve sending the details the broker asked for.",
+      "You chose to approve sending the details the target asked for.",
     );
   });
 

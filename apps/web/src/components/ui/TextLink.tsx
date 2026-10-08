@@ -3,8 +3,10 @@ import type { ComponentProps } from "react";
 import { Link, type LinkProps } from "react-router";
 import { cn } from "../../lib/cn.js";
 
+// The ring sits inside the box because rows truncate their text, and a truncating parent would
+// clip an outside ring down to a sliver.
 const LINK_CLASS =
-  "rounded-xs text-accent underline decoration-accent/40 underline-offset-2 hover:decoration-accent";
+  "rounded-xs text-accent-text underline decoration-accent-text/40 underline-offset-2 hover:decoration-accent-text focus-visible:-outline-offset-2";
 
 export function TextLink({ className, ...rest }: LinkProps) {
   return <Link className={cn(LINK_CLASS, className)} {...rest} />;

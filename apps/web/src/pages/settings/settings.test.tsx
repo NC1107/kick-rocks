@@ -34,29 +34,31 @@ const field = (label: RegExp | string) => screen.findByLabelText(label);
 describe("general settings", () => {
   it("shows the saved schedule and the worker's state", async () => {
     general();
-    expect(await field(/Check the inbox every/)).toHaveValue(15);
-    expect(screen.getByLabelText(/Follow up at most/)).toHaveValue(2);
-    expect(await screen.findByText("Workers")).toBeVisible();
+    expect(await field(/Check inbox every/)).toHaveValue(15);
+    expect(screen.getByLabelText(/Follow-ups/)).toHaveValue(2);
+    expect(await screen.findByText("Recipe worker")).toBeVisible();
     expect(screen.getByText("worker-home")).toBeVisible();
     expect(screen.getByText("agent-home")).toBeVisible();
   });
 
   it("shows each worker's own state, so a down agent worker is not hidden by a live recipe worker", async () => {
-    const { mock } = general();
+    const mock = createMockApp();
     mock.store.settings.worker.model = {
       ...(mock.store.settings.worker.model as NonNullable<typeof mock.store.settings.worker.model>),
       lastSeenAt: new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString(),
     };
+    general(mock);
     const recipe = await screen.findByRole("region", { name: "Recipe worker" });
     const agent = screen.getByRole("region", { name: "Agent worker" });
-    expect(within(recipe).getByText("Online")).toBeVisible();
-    expect(within(agent).getByText("Not responding")).toBeVisible();
+    expect(within(recipe).getByText("Worker online")).toBeVisible();
+    expect(within(agent).getByText("Worker offline")).toBeVisible();
+    expect(within(agent).queryByText("Doing")).toBeNull();
   });
 
   it("lets the person allow the agent worker onto unreviewed sites, and take it back", async () => {
     const { user, mock } = general();
     const box = await screen.findByRole("checkbox", {
-      name: /Let the agent worker take unreviewed sites/,
+      name: /Let the agent worker take unreviewed targets/,
     });
     expect(box).not.toBeChecked();
     await user.click(box);
@@ -70,8 +72,7 @@ describe("general settings", () => {
     const { user, mock } = general();
     const box = await field(/Check recipe pages on the real broker sites/);
     expect(box).not.toBeChecked();
-    expect(screen.getByText(/never uses your details and never submits a removal/)).toBeVisible();
-    expect(screen.getByText(/scanned again on the schedule in/)).toBeVisible();
+    expect(screen.getByText(/never submits a removal/)).toBeInTheDocument();
     await user.click(box);
     await waitFor(() => expect(mock.store.settings.siteChecks.enabled).toBe(true));
     expect((await screen.findAllByText("Site checks turned on")).length).toBeGreaterThan(0);
@@ -79,7 +80,7 @@ describe("general settings", () => {
 
   it("saves only a changed schedule and confirms it", async () => {
     const { user, mock } = general();
-    const poll = await field(/Check the inbox every/);
+    const poll = await field(/Check inbox every/);
     const save = screen.getByRole("button", { name: "Save schedule" });
     expect(save).toBeDisabled();
     await user.clear(poll);
@@ -92,7 +93,7 @@ describe("general settings", () => {
 
   it("explains a value that is out of range and does not send it", async () => {
     const { user, mock } = general();
-    const poll = await field(/Check the inbox every/);
+    const poll = await field(/Check inbox every/);
     await user.clear(poll);
     await user.type(poll, "5000");
     await user.click(screen.getByRole("button", { name: "Save schedule" }));
@@ -102,7 +103,7 @@ describe("general settings", () => {
 
   it("resets the form to what is saved", async () => {
     const { user } = general();
-    const poll = await field(/Check the inbox every/);
+    const poll = await field(/Check inbox every/);
     await user.clear(poll);
     await user.type(poll, "99");
     const schedule = poll.closest("form") as HTMLFormElement;
@@ -165,9 +166,7 @@ describe("general settings", () => {
     await screen.findByText("California");
     expect(screen.queryByText("Alaska")).not.toBeInTheDocument();
     expect(screen.queryByText("0 laws")).not.toBeInTheDocument();
-    expect(
-      screen.getByText(/the other states, requests cite the company's own privacy policy/),
-    ).toBeVisible();
+    expect(screen.getByText(/have no law on file/)).toBeVisible();
   });
 
   it("shows the retention windows and saves only the one that changed", async () => {
@@ -275,6 +274,17 @@ describe("general settings", () => {
     await user.click(within(dialog).getByRole("button", { name: "Delete all data" }));
     expect(await within(dialog).findByText("Blocked for the test.")).toBeVisible();
     expect(dialog).toHaveAttribute("open");
+  });
+
+  it("keeps Change password disabled until all three fields are filled", async () => {
+    const { user } = general();
+    const button = await screen.findByRole("button", { name: "Change password" });
+    expect(button).toBeDisabled();
+    await user.type(await field("Current password"), "kickrocks-mock");
+    await user.type(screen.getByLabelText("New password"), "a-long-enough-password");
+    expect(button).toBeDisabled();
+    await user.type(screen.getByLabelText("Repeat the new password"), "a-long-enough-password");
+    expect(button).toBeEnabled();
   });
 
   it("catches a password mismatch before asking the server", async () => {
@@ -391,7 +401,7 @@ describe("bundled recipes to check", () => {
 
   it("lists shipped recipes that were not seen through, with what was and was not checked", async () => {
     bundled();
-    expect(await screen.findByRole("heading", { name: "Bundled recipes to check" })).toBeVisible();
+    expect(await screen.findByRole("heading", { name: /^Bundled recipes to check/ })).toBeVisible();
     const cardinal = await screen.findByRole("region", {
       name: /Cardinal Insights removal recipe/,
     });
@@ -435,7 +445,7 @@ describe("bundled recipes to check", () => {
     expect(statusOf(mock, "brightlist")).toBe("pending_review");
     await user.click(within(dialog).getByRole("button", { name: "Reject" }));
     await waitFor(() => expect(statusOf(mock, "brightlist")).toBe("rejected"));
-    const rejected = await screen.findByRole("heading", { name: "Rejected bundled recipes" });
+    const rejected = await screen.findByRole("heading", { name: /^Rejected bundled recipes/ });
     expect(rejected).toBeVisible();
     await user.click(await screen.findByRole("button", { name: "Approve anyway" }));
     await waitFor(() => expect(statusOf(mock, "brightlist")).toBe("active"));

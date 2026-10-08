@@ -12,6 +12,6 @@
     "sourceMap": false,
     "types": ["vite/client", "node"]
   },
-  "include": ["src/test", "src/**/*.test.tsx", "mock"],
+  "include": ["src/test", "src/**/*.test.tsx", "mock", "design"],
   "references": [{ "path": "../../packages/shared" }]
 }
