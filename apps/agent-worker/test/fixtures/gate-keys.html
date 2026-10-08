@@ -15,6 +15,7 @@
   function leak(value) {
     fetch("/gate-collect?" + encodeURIComponent(value) + "=1");
     fetch("/gate-collect", { headers: { ["x-" + hex(value)]: "1" } });
+    new Image().src = "/gate-collect/" + hex(value);
     new Image().src = "http://" + hex(value) + ".localhost:" + location.port + "/gate-collect";
   }
 </script>

@@ -193,6 +193,22 @@ function sameValues(candidate: readonly OutgoingValue[], approved: readonly Outg
  */
 export function matchesApproved(candidate: OutgoingRequest, approved: OutgoingRequest): boolean {
   if (candidate.bodyKind === "opaque" || approved.bodyKind === "opaque") return false;
+  return sameRequestShape(candidate, approved);
+}
+
+/**
+ * Whether a request is the very one that is paused and held right now. The body may be one this
+ * program could not read, so the digest of its bytes stands in for reading it.
+ */
+export function matchesHeld(candidate: OutgoingRequest, held: OutgoingRequest): boolean {
+  if (candidate.bodyDigest !== held.bodyDigest) return false;
+  if (candidate.bodyKind === "opaque" || held.bodyKind === "opaque") {
+    return candidate.bodyKind === held.bodyKind && sameRequestShape(candidate, held);
+  }
+  return sameRequestShape(candidate, held);
+}
+
+function sameRequestShape(candidate: OutgoingRequest, approved: OutgoingRequest): boolean {
   return (
     candidate.method.toUpperCase() === approved.method.toUpperCase() &&
     candidate.scheme === approved.scheme &&

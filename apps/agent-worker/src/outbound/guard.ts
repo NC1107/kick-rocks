@@ -254,7 +254,7 @@ export class OutboundGuard {
     await session.send("Network.enable", { maxPostDataSize: MAX_BODY_BYTES + 1 });
     await session.send("Network.setBypassServiceWorker", { bypass: true });
     if (this.gated) {
-      session.on("Network.webSocketCreated", () => this.onWebSocket());
+      session.on("Network.webSocketCreated", () => this.onWebSocket(false));
       session.on("Network.responseReceived", (event: ResponseReceived) => this.onResponse(event));
       session.on("Network.loadingFailed", (event: { requestId: string; errorText: string }) =>
         this.onFailed(event),
@@ -347,7 +347,7 @@ export class OutboundGuard {
     if (desk === null) return;
     const url = event.request.url;
     if (hostOf(url) === CHANNEL_SIGNAL_HOST) {
-      this.onWebSocket();
+      this.onWebSocket(true);
       await this.failRequest(session, event);
       return;
     }
@@ -534,14 +534,17 @@ export class OutboundGuard {
     this.served.record(answer.body, meta.type);
   }
 
-  /** The page tried to open a live connection, or opened one the stub did not catch. */
-  private onWebSocket(): void {
+  /**
+   * The page tried to open a live connection. A stub that caught it threw before anything left the
+   * browser, so only a connection the stub did not catch is logged as unguarded.
+   */
+  private onWebSocket(caught: boolean): void {
     const afterTouch = this.touched;
     this.channel ??= new UnguardedChannel("live connection", afterTouch);
     this.options.desk?.log({
       kind: "guard_event",
       request: { note: "The page opened a WebSocket, which is blocked" },
-      reason: afterTouch ? "unguarded:websocket" : "websocket",
+      reason: afterTouch && !caught ? "unguarded:websocket" : "websocket",
     });
   }
 

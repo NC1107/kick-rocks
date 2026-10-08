@@ -87,6 +87,25 @@ describe("canonicalize places other than a value", () => {
     expect(JSON.stringify(request)).not.toContain(hex);
   });
 
+  it("carries a value that is a hex path segment and hides it in what is stored", () => {
+    const { request, scan } = get(`https://broker.test/gate-collect/${hex}`);
+    expect(scan.contact).toBe(true);
+    expect(request.path).toMatch(/^\/gate-collect\/\{\{email.*\}\} \(encoded\)$/);
+    expect(JSON.stringify(request)).not.toContain(hex);
+  });
+
+  it("carries a value that is a base64 path segment and hides it in what is stored", () => {
+    const packed = Buffer.from(EMAIL).toString("base64url");
+    const { request, scan } = get(`https://broker.test/a/${packed}/b`);
+    expect(scan.contact).toBe(true);
+    expect(request.path).toMatch(/^\/a\/\{\{email.*\}\} \(encoded\)\/b$/);
+    expect(JSON.stringify(request)).not.toContain(packed);
+  });
+
+  it("leaves a path without a value as it was", () => {
+    expect(get("https://broker.test/a/b%20c/").request.path).toBe("/a/b%20c/");
+  });
+
   it("carries a value that is a subdomain label of the target", () => {
     const { request, scan } = get(`https://${hex}.broker.test/s`, {}, "target");
     expect(scan.contact).toBe(true);

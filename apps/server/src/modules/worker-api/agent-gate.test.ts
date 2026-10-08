@@ -306,6 +306,35 @@ describe("a model nobody has cleared", () => {
 });
 
 describe("a send held for a person", () => {
+  it("refuses a live release whose query or headers differ from what the person saw", async () => {
+    queueRemoval();
+    const task = (await claim(MODEL)) as AgentClaim;
+    const seen = outgoing({
+      query: [{ path: "ref", value: "home", class: "literal" }],
+      headers: [{ path: "x-note", value: "a", class: "literal" }],
+    });
+    const held = await hold(task.id, seen);
+    await decide(task.id, held.id, "send");
+
+    const changedQuery = outgoing({
+      query: [{ path: "ref", value: "elsewhere", class: "literal" }],
+      headers: seen.headers,
+    });
+    const refusedQuery = await release(task.id, held.id, changedQuery);
+    expect(refusedQuery.status).toBe(409);
+    expect(refusedQuery.ok ? null : refusedQuery.body.error).toBe("send_mismatch");
+
+    const refusedHeader = await release(
+      task.id,
+      held.id,
+      outgoing({ query: seen.query, headers: [{ path: "x-note", value: "b", class: "literal" }] }),
+    );
+    expect(refusedHeader.status).toBe(409);
+    expect(ctx.services.taskQueue.getOrThrow(task.id).mayHaveSubmitted).toBe(false);
+
+    expect((await release(task.id, held.id, seen)).ok).toBe(true);
+  });
+
   it("is released once, and only after the server has it on record", async () => {
     queueRemoval();
     const task = (await claim(MODEL)) as AgentClaim;

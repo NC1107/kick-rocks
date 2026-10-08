@@ -336,6 +336,15 @@ export function canonicalize(input: CanonicalizeInput): Canonical {
   const pathScan = noteScan(
     detector.scan([...segments.map((segment) => safeDecode(segment)), url.pathname]),
   );
+  const pathShown = url.pathname
+    .split("/")
+    .map((segment) => {
+      const masked = mask(segment);
+      if (masked !== segment || segment === "") return masked;
+      const found = detector.scan([safeDecode(segment), segment]).fields;
+      return found.length > 0 ? `{{${found.join("+")}}} (encoded)` : segment;
+    })
+    .join("/");
   const hostScan = noteScan(detector.scan([url.hostname]));
 
   const shaped = shapeBody(body, contentType, encoding);
@@ -374,7 +383,7 @@ export function canonicalize(input: CanonicalizeInput): Canonical {
     method,
     scheme: url.protocol.replace(":", ""),
     host: hostShown,
-    path: clip(mask(url.pathname)),
+    path: clip(mask(pathShown)),
     resourceType: event.resourceType,
     isDocument: event.resourceType === "Document",
     target,

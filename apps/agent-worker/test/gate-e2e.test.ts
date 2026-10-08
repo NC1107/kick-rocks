@@ -401,6 +401,9 @@ describeBrowser("the outgoing gate end to end with the real server", () => {
       expect(requests.some((r) => r.query.some((entry) => entry.path.includes("{{")))).toBe(true);
       expect(requests.some((r) => r.headers.some((entry) => entry.path.includes("{{")))).toBe(true);
       expect(requests.some((r) => r.host.includes("{{"))).toBe(true);
+      expect(requests.some((r) => r.path.includes("{{"))).toBe(true);
+      const packed = Buffer.from("jordan@example.com").toString("hex");
+      expect(JSON.stringify(held.map((row) => row.request))).not.toContain(packed);
       expect(JSON.stringify(held.map((row) => row.request))).not.toContain("jordan@example.com");
     });
 
@@ -420,9 +423,9 @@ describeBrowser("the outgoing gate end to end with the real server", () => {
       const taskId = await startServer("/gate-ws");
       const done = await workOnce(taskId, [open("/gate-ws"), typeEmail, wait(2), giveBack]);
       expect((await fixtureState()).wsFrames).toEqual([]);
-      expect(done).toMatchObject({ status: "blocked", blockedReason: "unapproved_submit" });
+      expect(done).toMatchObject({ status: "blocked", blockedReason: "approval_needed" });
       expect(done.blockedDetail).toContain("live connection");
-      expect(done.mayHaveSubmitted).toBe(true);
+      expect(done.mayHaveSubmitted).toBe(false);
     });
   });
 
@@ -451,6 +454,24 @@ describeBrowser("the outgoing gate end to end with the real server", () => {
       const paths = (await fixtureState()).hits.map((hit) => hit.path);
       expect(paths).not.toContain("/gate-shared-post");
       expect(paths).not.toContain("/sw.js");
+    });
+
+    it("sends nothing through a stylesheet, a font, a srcdoc frame, a refresh, a blank-target form, an event stream or a beacon", async () => {
+      const taskId = await startServer("/gate-probes");
+      await workOnce(taskId, [open("/gate-probes"), typeEmail, wait(2), giveBack]);
+      const probes = (await fixtureState()).hits.filter((hit) =>
+        hit.path.startsWith("/gate-probe-"),
+      );
+      expect(probes).toEqual([]);
+      const heldPaths = rowsOf(taskId)
+        .filter((row) => row.kind === "held")
+        .map((row) => ("path" in row.request ? row.request.path : ""));
+      for (const probe of ["css", "font", "srcdoc", "refresh", "sse", "beacon"]) {
+        expect(heldPaths.some((path) => path.includes(`/gate-probe-${probe}`))).toBe(true);
+      }
+      expect(JSON.stringify(rowsOf(taskId).map((row) => row.request))).not.toContain(
+        "jordan@example.com",
+      );
     });
 
     it("refuses a value however the page packs it, and holds the unpacked ones", async () => {

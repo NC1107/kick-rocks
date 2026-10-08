@@ -3,6 +3,7 @@ import {
   type ApprovedSend,
   isOutgoingRequest,
   matchesApproved,
+  matchesHeld,
   type OutgoingRequest,
   type RegisteredSend,
   type SendKind,
@@ -364,13 +365,7 @@ export function createTaskSends({ db, clock }: Deps): TaskSends {
         const now = nowIso(clock);
         let spendsSendId: string | null = null;
         if (held.status === "sent") {
-          const sameRequest =
-            held.releasedAt === null &&
-            approved.bodyDigest === request.bodyDigest &&
-            approved.method === request.method &&
-            approved.host === request.host &&
-            approved.path === request.path;
-          if (!sameRequest) {
+          if (held.releasedAt !== null || !matchesHeld(request, approved)) {
             throw conflict("send_mismatch", "That is not the request the person approved");
           }
           tx.update(taskSends).set({ releasedAt: now }).where(eq(taskSends.id, held.id)).run();

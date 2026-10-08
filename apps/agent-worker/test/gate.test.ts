@@ -374,6 +374,18 @@ describeBrowser("a live connection", () => {
     expect(blocked(outcome)).toMatchObject({ reason: "approval_needed" });
   });
 
+  it("logs a connection the stub caught in a fresh frame as websocket, not as unguarded", async () => {
+    const sends = NOBODY();
+    const { outcome } = await run([open("/gate-ws-frame"), typeEmail, wait(2)], { sends });
+    expect((await fixtureState()).wsFrames).toEqual([]);
+    expect(blocked(outcome)?.detail).toContain("live connection");
+    const reasons = sends.registered.flatMap((item) =>
+      item.kind === "guard_event" ? [item.reason] : [],
+    );
+    expect(reasons).toContain("websocket");
+    expect(reasons).not.toContain("unguarded:websocket");
+  });
+
   it("ends the run with nothing sent when the page opens one before anything was touched", async () => {
     const { outcome } = await run([open("/gate-ws?load=1"), wait(2)], { sends: NOBODY() });
     expect((await fixtureState()).wsFrames).toEqual([]);
