@@ -1,12 +1,26 @@
 import { API_ROUTES, type AuthState, type ReviewQueue, reviewAttention } from "@kickrocks/shared";
-import { useQueryClient } from "@tanstack/react-query";
+import { type QueryClient, useQueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
-import { onUnauthorized } from "./client.js";
+import { callRoute, onUnauthorized } from "./client.js";
 import { routeKey, routeKeyPrefix, useApiMutation, useApiQuery } from "./hooks.js";
+
+const AUTH_STATE_STALE_MS = 60_000;
 
 /** Whether this instance needs its first password, and whether this browser is signed in. */
 export function useAuthState() {
-  return useApiQuery(API_ROUTES.authState, { staleTime: 60_000 });
+  return useApiQuery(API_ROUTES.authState, { staleTime: AUTH_STATE_STALE_MS });
+}
+
+/**
+ * Starts the auth state request before React renders, so it travels alongside the first route's
+ * chunk instead of waiting behind it. The gate then reads the cached answer.
+ */
+export function prefetchAuthState(client: QueryClient): Promise<void> {
+  return client.prefetchQuery({
+    queryKey: routeKey(API_ROUTES.authState),
+    queryFn: ({ signal }) => callRoute(API_ROUTES.authState, { signal }),
+    staleTime: AUTH_STATE_STALE_MS,
+  });
 }
 
 /** Marks this browser signed out, wipes everything cached for the old session, and lets the gate redirect. */

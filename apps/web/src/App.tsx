@@ -1,10 +1,11 @@
 import { QueryClientProvider } from "@tanstack/react-query";
 import { RouterProvider } from "react-router/dom";
-import { createQueryClient, useUnauthorizedListener } from "./api/index.js";
+import { createQueryClient, prefetchAuthState, useUnauthorizedListener } from "./api/index.js";
 import { ToastProvider } from "./components/ui/index.js";
 import { router } from "./router.js";
 
 const queryClient = createQueryClient();
+void prefetchAuthState(queryClient);
 
 /** Any 401 from a signed-in route ends the session; the auth gate then shows /login. */
 function SessionWatcher() {
