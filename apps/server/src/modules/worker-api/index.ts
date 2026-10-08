@@ -73,6 +73,24 @@ export const workerApiModule: ModulePlugin = (app, services) => {
     task: operations.fail(params.id, body),
   }));
 
+  registerRoute(app, API_ROUTES.workerSends, ({ params, body }) =>
+    operations.registerSends(params.id, body),
+  );
+
+  registerRoute(app, API_ROUTES.workerSendDecision, ({ params, query }) =>
+    operations.awaitDecision(params.id, params.sendId, query.workerId, query.waitMs),
+  );
+
+  registerRoute(app, API_ROUTES.workerSendRelease, ({ params, body }) => ({
+    ok: true as const,
+    ...operations.releaseSend(params.id, params.sendId, body),
+  }));
+
+  registerRoute(app, API_ROUTES.workerSendResult, ({ params, body }) => {
+    operations.sendResult(params.id, params.sendId, body);
+    return { ok: true as const };
+  });
+
   registerRoute(app, API_ROUTES.workerTaskRelease, ({ params, body }) => ({
     task: operations.release(params.id, body),
   }));

@@ -39,11 +39,14 @@ const MANUAL_INSTRUCTIONS: Record<BlockedReason, string> = {
   bot_detection:
     "The site blocked the automated browser. Open the page in your own browser and finish the removal.",
   approval_needed:
-    "Check the filled form in the screenshot. Approve the submit, or finish it yourself and mark it done.",
+    "Look at the requests the run held back. Approve them for the next run, or finish it yourself and mark it done.",
   unapproved_submit:
     "Open the site and check whether the form went out. If it did, mark the task done. If not, finish the removal yourself.",
   unknown: "Open the page and finish the removal by hand, then mark the task done.",
 };
+
+const LIVE_HOLD_INSTRUCTIONS =
+  "The run is waiting for you. Look at what the page is about to send, then send it, hold it back, or finish by hand.";
 
 const AGENT_INSTRUCTIONS =
   "No agent has taken this yet, and the recipe worker will not run it. Connect an agent in Settings, or open the page and finish the job yourself, then mark it done.";
@@ -71,7 +74,9 @@ function toItem(services: AppServices, task: Task, summary: TaskSummary): Blocke
           : FAILED_INSTRUCTIONS
         : task.status === "queued"
           ? AGENT_INSTRUCTIONS
-          : MANUAL_INSTRUCTIONS[task.blockedReason ?? "unknown"],
+          : task.status === "leased"
+            ? LIVE_HOLD_INSTRUCTIONS
+            : MANUAL_INSTRUCTIONS[task.blockedReason ?? "unknown"],
   };
 }
 
@@ -230,16 +235,26 @@ function waitingTasks(
   };
 }
 
+/**
+ * Runs that are holding a request for a person right now. They are leased, not blocked, and the
+ * person is the one the run is waiting for, so they head the list of what needs attention.
+ */
+function heldLive(services: AppServices, profileId: string | undefined): Task[] {
+  return services.taskQueue
+    .list({ status: "leased", kinds: ["agent"], profileId })
+    .filter((task) => services.taskSends.hasLiveHold(task.id));
+}
+
 /** Everything waiting on a person, optionally for one profile. */
 export function buildReviewQueue(
   services: AppServices,
   profileId: string | undefined,
 ): ReviewQueue {
   return {
-    blockedTasks: items(
-      services,
-      services.taskQueue.list({ status: "blocked", profileId }).reverse(),
-    ),
+    blockedTasks: items(services, [
+      ...heldLive(services, profileId),
+      ...services.taskQueue.list({ status: "blocked", profileId }).reverse(),
+    ]),
     matches: pendingMatches(services, profileId),
     verifications: verifications(services, profileId),
     failedTasks: failedTasks(services, profileId),

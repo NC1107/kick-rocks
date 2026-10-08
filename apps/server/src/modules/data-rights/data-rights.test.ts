@@ -632,6 +632,7 @@ describe("reset instance", () => {
       digestLastSentAt: "2026-01-01T00:00:00.000Z",
     });
     store.set("agent.takeUnreviewed", true);
+    store.set("agent.approvalHoldMinutes", 3);
     store.set("agent.gate", {
       records: [
         {

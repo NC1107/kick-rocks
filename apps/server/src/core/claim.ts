@@ -3,13 +3,14 @@ import {
   type BlockedReason,
   BROWSER_TASK_KINDS,
   type BrowserTaskKind,
-  type ClaimedTask,
+  ClaimedTask,
   type ClaimerKind,
   formatFullName,
   type Identity,
   isActiveStatus,
   isOnDomain,
   type ModelIdentity,
+  namedHiddenValues,
   type ProfileField,
   type ProfileFields,
   Recipe,
@@ -18,11 +19,12 @@ import {
   resolveProfileFields,
   type ScanVariant,
   type SubmitApproval,
+  type SubmitGate,
   WAIT_REASON_TEXT,
 } from "@kickrocks/shared";
 import { and, eq } from "drizzle-orm";
 import type { AppServices } from "../services.js";
-import { modelStance, settleSubmitApproval, tasksForModelToSkip } from "./agent-policy.js";
+import { modelStance, settleSubmitGate, tasksForModelToSkip } from "./agent-policy.js";
 import { nowIso } from "./clock.js";
 import { createEgressRouter, proxyForTarget } from "./egress.js";
 import { AppError, conflict, notFound } from "./errors.js";
@@ -41,6 +43,8 @@ type ClaimServices = Pick<
   | "dispatch"
   | "settings"
   | "politeness"
+  | "taskSends"
+  | "logger"
 >;
 
 interface ClaimOptions {
@@ -324,7 +328,7 @@ export function buildClaimedTask(
   services: ClaimServices,
   task: BrowserTask,
   claimerKind?: ClaimerKind,
-  submitApproval?: SubmitApproval,
+  gate: { approval?: SubmitApproval | undefined; submitGate?: SubmitGate | undefined } = {},
 ): ClaimedTask {
   if (task.targetId === null)
     throw new AppError(500, "task_without_target", `Task ${task.id} has no target`);
@@ -421,39 +425,7 @@ export function buildClaimedTask(
       };
     }
     case "agent": {
-      const identities = loadIdentities(services.db, task.payload.profileId);
-      checkVariant(identities, task.payload.variant);
-      const request =
-        task.payload.purpose === "remove" && task.payload.requestId
-          ? queuedRequest(services, task.payload.requestId)
-          : null;
-      requireOnTargetSite(task.payload.recordUrl, target.domain);
-      const purpose = task.payload.purpose === "scan" ? "scan" : "remove";
-      const allowed = services.legal.identifiersFor(
-        target,
-        identities,
-        purpose,
-        undefined,
-        services.clock.now(),
-      );
-      // The legal package decides which identifiers may be disclosed. Resolving that same set again
-      // lets a variant scan search under the past name or address instead of the current ones.
-      const resolved = resolveProfileFields(
-        identities,
-        [
-          ...(Object.keys(allowed) as ProfileField[]),
-          ...(task.payload.recordUrl ? (["record_url"] as const) : []),
-        ],
-        {
-          asOf,
-          nameId: task.payload.variant?.nameId ?? null,
-          addressId: task.payload.variant?.addressId ?? null,
-          recordUrl: task.payload.recordUrl,
-        },
-      );
-      const fields = request
-        ? withMailboxEmail(resolved, "email" in resolved, services, request)
-        : resolved;
+      const { identities, fields } = resolveAgentFields(services, task, target, asOf, true);
       return {
         ...base,
         kind: task.kind,
@@ -461,13 +433,90 @@ export function buildClaimedTask(
         recipe: null,
         fields,
         ...(claimerKind !== "mcp" ? { maskValues: identityValues(identities) } : {}),
-        ...(submitApproval ? { submitApproval } : {}),
-        ...(submitApproval === "granted" && task.submitStop
-          ? { approvedSubmit: task.submitStop }
-          : {}),
+        ...(gate.approval ? { submitApproval: gate.approval } : {}),
+        ...(gate.submitGate ? { submitGate: gate.submitGate } : {}),
         instructions: agentInstructions(task, target, Object.keys(fields)),
       };
     }
+  }
+}
+
+/**
+ * The identities and the fields an agent task is allowed to use. A claim needs its request to
+ * still be queued, and a page that shows the task afterwards does not.
+ */
+function resolveAgentFields(
+  services: ClaimServices,
+  task: Task<"agent">,
+  target: ReturnType<ClaimServices["targets"]["summary"]>,
+  asOf: string,
+  forClaim: boolean,
+): { identities: Identity[]; fields: ProfileFields } {
+  const identities = loadIdentities(services.db, task.payload.profileId);
+  checkVariant(identities, task.payload.variant);
+  let request: RequestRecord | null = null;
+  if (task.payload.purpose === "remove" && task.payload.requestId) {
+    request = forClaim
+      ? queuedRequest(services, task.payload.requestId)
+      : services.requests.get(task.payload.requestId);
+  }
+  if (forClaim) requireOnTargetSite(task.payload.recordUrl, target.domain);
+  const purpose = task.payload.purpose === "scan" ? "scan" : "remove";
+  const allowed = services.legal.identifiersFor(
+    target,
+    identities,
+    purpose,
+    undefined,
+    services.clock.now(),
+  );
+  // The legal package decides which identifiers may be disclosed. Resolving that same set again
+  // lets a variant scan search under the past name or address instead of the current ones.
+  const resolved = resolveProfileFields(
+    identities,
+    [
+      ...(Object.keys(allowed) as ProfileField[]),
+      ...(task.payload.recordUrl ? (["record_url"] as const) : []),
+    ],
+    {
+      asOf,
+      nameId: task.payload.variant?.nameId ?? null,
+      addressId: task.payload.variant?.addressId ?? null,
+      recordUrl: task.payload.recordUrl,
+    },
+  );
+  const fields =
+    request === null
+      ? resolved
+      : withMailboxEmail(resolved, "email" in resolved, services, request);
+  return { identities, fields };
+}
+
+/**
+ * Every value the gate hides for an agent task, by its placeholder, so a person reads a held
+ * request with their own details in it. The values are the ones the claim handed to the worker.
+ */
+export function placeholderValues(
+  services: ClaimServices,
+  task: Task<"agent">,
+): Record<string, string> {
+  if (task.targetId === null) return {};
+  try {
+    const target = services.targets.summary(task.targetId);
+    const asOf = nowIso(services.clock).slice(0, 10);
+    const { identities, fields } = resolveAgentFields(services, task, target, asOf, false);
+    const values: Record<string, string> = {};
+    for (const [name, value] of Object.entries(fields)) {
+      if (value !== undefined && value !== "") values[`{{${name}}}`] = value;
+    }
+    for (const [name, value] of Object.entries(
+      namedHiddenValues(fields, identityValues(identities)),
+    )) {
+      values[`{{${name}}}`] = value;
+    }
+    return values;
+  } catch {
+    // A task whose profile or target is gone has nothing left to restore.
+    return {};
   }
 }
 
@@ -499,11 +548,36 @@ function prepare(
     return null;
   }
   try {
-    const submitApproval =
-      claimerKind !== "mcp" && task.kind === "agent"
-        ? settleSubmitApproval(services, task, claimerKind, model)
-        : undefined;
-    return buildClaimedTask(services, task, claimerKind, submitApproval);
+    const settled =
+      task.kind === "agent"
+        ? settleSubmitGate(services, task, claimerKind, model)
+        : { approval: undefined, gate: undefined };
+    const built = buildClaimedTask(services, task, claimerKind, {
+      approval: settled.approval,
+      submitGate: settled.gate,
+    });
+    // The route answers through this same schema, and an answer it cannot build would leave the
+    // task leased to a caller that never received it.
+    const checked = ClaimedTask.safeParse(built);
+    if (!checked.success) {
+      const issues = checked.error.issues
+        .slice(0, 5)
+        .map((issue) => `${issue.path.join(".") || "claim"}: ${issue.message}`)
+        .join("; ");
+      services.logger.error(
+        { taskId: task.id, issues },
+        "a claim did not fit its schema, so the task was failed",
+      );
+      services.taskQueue.fail(task.id, {
+        workerId,
+        error: `The task could not be prepared: ${issues}`,
+        retryable: false,
+        kind: "internal",
+        actor: "system",
+      });
+      return null;
+    }
+    return built;
   } catch (error) {
     if (error instanceof TaskObsoleteError) {
       services.taskQueue.cancel(task.id, "system");

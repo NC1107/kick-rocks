@@ -1,6 +1,7 @@
 import { messages } from "@kickrocks/db";
 import { API_ROUTES, type TaskSummary } from "@kickrocks/shared";
 import { eq } from "drizzle-orm";
+import { placeholderValues } from "../../core/claim.js";
 import { notFound } from "../../core/errors.js";
 import { registerRoute } from "../../core/http.js";
 import type { ModulePlugin } from "../../core/module.js";
@@ -23,9 +24,31 @@ export const reviewModule: ModulePlugin = (app, services) => {
     task: summary(services.taskQueue.resume(params.id, "user")),
   }));
 
-  registerRoute(app, API_ROUTES.taskApproveSubmit, ({ params }) => ({
-    task: summary(approveSubmit(services, params.id)),
+  registerRoute(app, API_ROUTES.taskApproveSubmit, ({ params, body }) => ({
+    task: summary(approveSubmit(services, params.id, body)),
   }));
+
+  registerRoute(app, API_ROUTES.taskSends, ({ params }) => {
+    const task = services.taskQueue.getOrThrow(params.id);
+    const { sends, runStartedSeq } = services.taskSends.list(params.id);
+    return {
+      sends,
+      runStartedSeq,
+      values: task.kind === "agent" ? placeholderValues(services, task) : {},
+    };
+  });
+
+  registerRoute(app, API_ROUTES.taskSendDecide, ({ params, body }) => {
+    services.taskQueue.getOrThrow(params.id);
+    return { send: services.taskSends.decide(params.id, params.sendId, body.decision) };
+  });
+
+  registerRoute(app, API_ROUTES.taskSendScreenshot, ({ params }) => {
+    services.taskQueue.getOrThrow(params.id);
+    const screenshot = services.taskSends.screenshot(params.id, params.sendId);
+    if (!screenshot) throw notFound("That request has no screenshot", "screenshot_not_found");
+    return { contentType: screenshot.mime, data: screenshot.data };
+  });
 
   registerRoute(app, API_ROUTES.taskCancel, ({ params }) => ({
     task: summary(services.taskQueue.cancel(params.id, "user")),

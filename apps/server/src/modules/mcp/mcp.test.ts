@@ -471,15 +471,10 @@ describe("working a task", () => {
         taskId: id,
         reason,
         url: "https://example.test/optout",
-        control: "",
-        fingerprint: "f".repeat(32),
       });
       expect(error.code).toBe("approval_not_applicable");
     }
-    expect(ctx.services.taskQueue.getOrThrow(id)).toMatchObject({
-      status: "leased",
-      submitStop: null,
-    });
+    expect(ctx.services.taskQueue.getOrThrow(id)).toMatchObject({ status: "leased" });
   });
 
   it("rejects a screenshot that is not what it says, without parking the task", async () => {
