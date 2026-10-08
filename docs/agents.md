@@ -262,6 +262,7 @@ A canary that cannot find a selector marks the recipe broken, and work for that 
 An mcp client is one way to take agent tasks.
 The agent worker is another: a small program that claims the same tasks itself, drives its own chrome, and asks a model what to do next.
 The model can be a local one through ollama or any openai-compatible endpoint, or a hosted one through the anthropic api.
+Which local model to run for your GPU, what to expect from it, and the check it should pass before it runs unattended are in [agent-models.md](agent-models.md).
 It lives in `apps/agent-worker` and talks to the server through the worker API, so it needs `KICKROCKS_WORKER_TOKEN` and not an mcp token.
 
 It claims only `agent` tasks, and it says it is a model when it claims, so kick rocks counts its runs apart from recipe runs and from mcp clients.
@@ -493,6 +494,7 @@ Use a local model when even that is too much.
   A form inside an iframe, such as a third-party form vendor, shows up as an embedded frame it cannot use, and the model should block the task.
 - A small model may misread a page.
   Recipes remain the primary path, and an agent run is worth checking the first few times.
+  [agent-models.md](agent-models.md) has the benchmark results and which tasks a local model handles.
 
 ## Running the built-in worker and an agent together
 
