@@ -2,6 +2,7 @@ import {
   API_ROUTES,
   type CampaignBody,
   type CampaignPreset,
+  type CampaignPreview,
   type ProfileSummary,
   type RequestRight,
   type TargetFilter,
@@ -38,6 +39,7 @@ import {
 import {
   channelOf,
   countByChannel,
+  countNovelty,
   outcomeChannel,
   parseFilterParam,
   parseTargetIds,
@@ -113,6 +115,13 @@ function describeFilter(filter: TargetFilter): string {
     filter.difficulty ? `Difficulty: ${DIFFICULTY_LABELS[filter.difficulty]}` : null,
   ].filter(Boolean);
   return parts.length > 0 ? parts.join(", ") : "Every target";
+}
+
+function noveltyMeta(items: CampaignPreview["items"]): string {
+  const { fresh, handled } = countNovelty(items);
+  return handled > 0
+    ? `${formatCount(fresh)} new, ${formatCount(handled)} already handled`
+    : `${formatCount(fresh)} new`;
 }
 
 export function Component() {
@@ -274,7 +283,7 @@ function Builder({ profile }: { profile: ProfileSummary }) {
     () =>
       PRESET_OPTIONS.map((option) =>
         option.value === preset && result && choice?.kind === "preset"
-          ? { ...option, meta: pluralize(result.items.length, "target") }
+          ? { ...option, meta: noveltyMeta(result.items) }
           : option.value === "easy" && easyCount !== undefined
             ? { ...option, meta: pluralize(easyCount, "target") }
             : option,

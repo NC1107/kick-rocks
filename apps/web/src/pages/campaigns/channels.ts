@@ -81,6 +81,23 @@ export function groupSkipped(items: CampaignPreview["items"]): SkipGroup[] {
     .sort((a, b) => b.items.length - a.items.length || a.reason.localeCompare(b.reason));
 }
 
+const HANDLED_REASONS: ReadonlySet<SkipReason> = new Set([
+  "already_active",
+  "scan_in_progress",
+  "already_confirmed",
+]);
+
+/** How many targets a campaign would start, and how many it leaves alone because they are already in hand. */
+export function countNovelty(items: CampaignPreview["items"]): { fresh: number; handled: number } {
+  let fresh = 0;
+  let handled = 0;
+  for (const item of items) {
+    if (item.outcome !== "skipped") fresh += 1;
+    else if (item.reason && HANDLED_REASONS.has(item.reason)) handled += 1;
+  }
+  return { fresh, handled };
+}
+
 /** Targets that go ahead with something worth reading first, in the order they were chosen. */
 export function advisories(items: CampaignPreview["items"]): TargetOutcome[] {
   return items.filter((item) => item.outcome !== "skipped" && item.detail !== null);

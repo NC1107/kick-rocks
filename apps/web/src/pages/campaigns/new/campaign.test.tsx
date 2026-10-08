@@ -230,11 +230,11 @@ describe("the campaign builder", () => {
     expect(screen.getByRole("button", { name: "Send requests" })).toBeDisabled();
   });
 
-  it("shows the size of the chosen group beside it", async () => {
+  it("says how many targets in the chosen group are new and how many are already handled", async () => {
     const { user } = open();
     await user.click(await screen.findByRole("radio", { name: /Everyday companies/ }));
     const row = screen.getByRole("radio", { name: /Everyday companies/ }).closest("label");
-    await waitFor(() => expect(row).toHaveTextContent(/\d+ targets/));
+    await waitFor(() => expect(row).toHaveTextContent(/\d+ new, \d+ already handled/));
   });
 
   it("summarizes the send in the bar once there is something to send", async () => {
