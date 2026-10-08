@@ -15,7 +15,7 @@ import {
 import { CampaignBody } from "./campaigns.js";
 import { ScanStartBody } from "./scans.js";
 
-/** Every route listed in BUILD-PLAN section 4.4, plus the existing health check. */
+/** The routes the web app and the workers depend on, so dropping one fails here. */
 const PLANNED = [
   "GET /health",
   "GET /status",

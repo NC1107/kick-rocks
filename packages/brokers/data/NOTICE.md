@@ -15,6 +15,7 @@ Each source keeps its own license, and every generated record names its source a
 | `upstream/eraser-brokers.yaml` | Pinned copy of the Eraser broker list | MIT |
 | `upstream/ca-registry-2026.csv` | Pinned copy of the California registry export | Public record |
 | `corrections.yaml`, `excluded.yaml`, `reply-domains.yaml` | Hand-checked fixes to the imported records | PolyForm Noncommercial 1.0.0 |
+| `upstream/*.source.json` | The commit or retrieval date and the hashes that pin each upstream file | PolyForm Noncommercial 1.0.0 |
 
 The code in this repository is under PolyForm Noncommercial 1.0.0.
 The generated broker file is distributed under CC BY-NC-SA 4.0 and must keep the attribution below wherever it goes.
