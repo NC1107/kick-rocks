@@ -66,15 +66,31 @@ describe("the real SMTP transport against a socket server", () => {
     expect(error).toMatchObject({ code: "EENVELOPE", responseCode: 550, transient: false });
   });
 
+  it("reports a deferred recipient as transient with its 450", async () => {
+    const error = await sendFailure("rcpt_450");
+    expect(error).toMatchObject({ code: "EENVELOPE", responseCode: 450, transient: true });
+  });
+
+  it("reports a refused sender as a MAIL FROM failure that never reached DATA", async () => {
+    const error = await sendFailure("mail_from_553");
+    expect(error).toMatchObject({ responseCode: 553, command: "MAIL FROM", neverSent: true });
+  });
+
   it("reports a server that never greets as a timeout", async () => {
     const error = await sendFailure("silent");
-    expect(error).toMatchObject({ code: "ETIMEDOUT", transient: true });
+    expect(error).toMatchObject({ code: "ETIMEDOUT", transient: true, neverSent: true });
   });
 
   it("reports a connection dropped after DATA as a transient connection failure", async () => {
     const error = await sendFailure("drop_after_data");
     expect(error).toMatchObject({ code: "ECONNECTION", transient: true });
     expect(error.responseCode).toBeUndefined();
+    expect(error.neverSent).toBe(false);
+  });
+
+  it("reports a socket timeout while waiting for the reply to DATA as possibly sent", async () => {
+    const error = await sendFailure("stall_after_data");
+    expect(error).toMatchObject({ code: "ETIMEDOUT", neverSent: false });
   });
 
   it("delivers when the server accepts", async () => {

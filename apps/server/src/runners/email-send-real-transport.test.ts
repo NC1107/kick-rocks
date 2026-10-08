@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createMailTransport } from "../mail/transport.js";
 import {
   createTestContext,
+  HOUR,
   MINUTE,
   SECOND,
   type SmtpSocketFake,
@@ -120,13 +121,40 @@ describe("the email runner against the real transport", () => {
     });
   });
 
-  it("treats a connection dropped after DATA as a retry, not a permanent failure", async () => {
+  it("sends a message the server kept before dropping the connection at most maxAttempts times", async () => {
     smtp.behave("drop_after_data");
+    const request = openRequest();
+
+    for (let pass = 0; pass < 12; pass += 1) {
+      await runners.email.runDue();
+      ctx.clock.advance(HOUR);
+    }
+
+    const task = taskFor(request.id);
+    expect(task?.status).toBe("failed");
+    expect(smtp.received).toHaveLength(task?.maxAttempts ?? 0);
+  });
+
+  it("retries a recipient the server deferred with a 450 instead of failing it", async () => {
+    smtp.behave("rcpt_450");
     const request = openRequest();
 
     await runners.email.runDue();
 
-    expect(taskFor(request.id)?.status).not.toBe("failed");
+    expect(taskFor(request.id)).toMatchObject({ status: "queued", attempts: 1 });
+  });
+
+  it("holds the mailbox when the server refuses the sender, without failing the request", async () => {
+    smtp.behave("mail_from_553");
+    const requests = [openRequest(), openRequest()];
+
+    await runners.email.runDue();
+
+    for (const request of requests) {
+      expect(taskFor(request.id)).toMatchObject({ status: "queued", attempts: 0 });
+    }
+    expect(lastError()).toContain("Sending is paused");
+    expect(smtp.connections()).toBe(1);
   });
 
   describe("the pass budget", () => {

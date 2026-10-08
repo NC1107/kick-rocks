@@ -35,6 +35,41 @@ export interface MailSendFailure {
   code?: string | undefined;
   responseCode?: number | undefined;
   command?: string | undefined;
+  /** True only when the failure proves no message body reached the server, so sending again cannot duplicate it. */
+  neverSent?: boolean | undefined;
+}
+
+/** Replies that refuse the login or the sender before any message body is offered. */
+const REFUSED_BEFORE_DATA_REPLIES = new Set([421, 530, 534, 535, 538]);
+const REFUSED_BEFORE_DATA_CODES = new Set([
+  "EAUTH",
+  "ECONNREFUSED",
+  "ENOTFOUND",
+  "EDNS",
+  "EAI_AGAIN",
+  "EHOSTUNREACH",
+  "ENETUNREACH",
+  "ETLS",
+]);
+
+/**
+ * A dropped connection or a socket timeout can come after the server took the message but before
+ * it said so, and nodemailer reports both under the same codes as a failed connect. Only the
+ * failures that happen before DATA is offered prove the mail was not sent.
+ */
+export function provesNeverSent(error: unknown): boolean {
+  const record = (error ?? {}) as Record<string, unknown>;
+  const { code, responseCode, command, message } = record;
+  if (typeof responseCode === "number" && REFUSED_BEFORE_DATA_REPLIES.has(responseCode)) {
+    return true;
+  }
+  if (typeof code === "string" && REFUSED_BEFORE_DATA_CODES.has(code)) return true;
+  if (typeof command === "string" && (command === "MAIL FROM" || command.startsWith("AUTH"))) {
+    return true;
+  }
+  return (
+    typeof message === "string" && /^(Connection timeout|Greeting never received)/.test(message)
+  );
 }
 
 /**
@@ -46,6 +81,7 @@ export class MailSendError extends Error implements MailSendFailure {
   readonly code: string | undefined;
   readonly responseCode: number | undefined;
   readonly command: string | undefined;
+  readonly neverSent: boolean;
 
   constructor(
     message: string,
@@ -57,6 +93,7 @@ export class MailSendError extends Error implements MailSendFailure {
     this.code = failure.code;
     this.responseCode = failure.responseCode;
     this.command = failure.command;
+    this.neverSent = failure.neverSent ?? false;
   }
 }
 
@@ -66,6 +103,7 @@ function failureOf(error: unknown): MailSendFailure {
     code: typeof record.code === "string" ? record.code : undefined,
     responseCode: typeof record.responseCode === "number" ? record.responseCode : undefined,
     command: typeof record.command === "string" ? record.command : undefined,
+    neverSent: provesNeverSent(error),
   };
 }
 

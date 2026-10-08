@@ -5,14 +5,17 @@ export type SmtpBehavior =
   | "auth_rejected"
   | "greeting_421"
   | "rcpt_550"
+  | "rcpt_450"
+  | "mail_from_553"
   | "silent"
-  | "drop_after_data";
+  | "drop_after_data"
+  | "stall_after_data";
 
 export interface SmtpSocketFake {
   readonly port: number;
   /** What the server does for connections from now on. */
   behave(behavior: SmtpBehavior): void;
-  /** Message-ID headers of mail the server took in completely. */
+  /** Message-ID headers of mail the server kept, including mail whose acknowledgement it then withheld. */
   readonly received: string[];
   /** How many connections were opened, to show that a held mailbox is not dialed again. */
   connections(): number;
@@ -55,13 +58,14 @@ export async function startSmtpSocketFake(
           }
           data += buffer.slice(0, end);
           buffer = buffer.slice(end + 5);
+          const id = /^message-id:\s*(.*)$/im.exec(data)?.[1]?.trim();
+          if (id) received.push(id);
+          data = null;
           if (mode === "drop_after_data") {
             socket.destroy();
             return;
           }
-          const id = /^message-id:\s*(.*)$/im.exec(data)?.[1]?.trim();
-          if (id) received.push(id);
-          data = null;
+          if (mode === "stall_after_data") return;
           socket.write("250 2.0.0 queued\r\n");
           continue;
         }
@@ -76,9 +80,20 @@ export async function startSmtpSocketFake(
               ? "535 5.7.8 Username and Password not accepted\r\n"
               : "235 2.7.0 ok\r\n",
           );
-        } else if (line.startsWith("MAIL FROM")) socket.write("250 ok\r\n");
-        else if (line.startsWith("RCPT TO")) {
-          socket.write(mode === "rcpt_550" ? "550 5.1.1 no such user\r\n" : "250 ok\r\n");
+        } else if (line.startsWith("MAIL FROM")) {
+          socket.write(
+            mode === "mail_from_553"
+              ? "553 5.7.1 Sender address rejected: not owned by user\r\n"
+              : "250 ok\r\n",
+          );
+        } else if (line.startsWith("RCPT TO")) {
+          const refusal =
+            mode === "rcpt_550"
+              ? "550 5.1.1 no such user\r\n"
+              : mode === "rcpt_450"
+                ? "450 4.2.0 greylisted, try again later\r\n"
+                : "250 ok\r\n";
+          socket.write(refusal);
         } else if (line === "DATA") {
           data = "";
           socket.write("354 go\r\n");

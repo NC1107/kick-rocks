@@ -9,6 +9,7 @@ import { and, count, eq } from "drizzle-orm";
 import { AppError } from "../core/errors.js";
 import type { RequestPatch } from "../core/requests.js";
 import type { Task } from "../core/task-types.js";
+import { MailSendError, provesNeverSent } from "../mail/transport.js";
 import type { OutgoingMail } from "../mail/types.js";
 import type { AppServices } from "../services.js";
 import { connectionOf, describeError } from "./connection.js";
@@ -43,17 +44,25 @@ const MAILBOX_ERROR_CODES = new Set([
 
 /** The server could not be reached or would not let the mailbox in, which says nothing about the request. */
 export function isMailboxProblem(error: unknown): boolean {
-  const { responseCode, code } = error as { responseCode?: unknown; code?: unknown };
+  const { responseCode, code, command } = error as {
+    responseCode?: unknown;
+    code?: unknown;
+    command?: unknown;
+  };
   return (
     (typeof responseCode === "number" && MAILBOX_RESPONSE_CODES.has(responseCode)) ||
-    (typeof code === "string" && MAILBOX_ERROR_CODES.has(code))
+    (typeof code === "string" && MAILBOX_ERROR_CODES.has(code)) ||
+    // A refused sender or login says the mailbox is misconfigured or blocked, whatever the broker is.
+    command === "MAIL FROM" ||
+    (typeof command === "string" && command.startsWith("AUTH"))
   );
 }
 
 /** SMTP says a 5xx answer will not change by asking again, and a bad address is the same. */
 function isPermanentSendError(error: unknown): boolean {
   const { responseCode, code } = error as { responseCode?: unknown; code?: unknown };
-  if (typeof responseCode === "number" && responseCode >= 500 && responseCode < 600) return true;
+  // A reply decides on its own: nodemailer files a greylisted 450 under EENVELOPE as well.
+  if (typeof responseCode === "number") return responseCode >= 500 && responseCode < 600;
   return code === "EENVELOPE";
 }
 
@@ -162,7 +171,7 @@ export class EmailRunner {
     } catch (error) {
       logger.warn({ requestId: request.id, err: describeError(error) }, "email send failed");
       if (isMailboxProblem(error)) {
-        this.holdMailbox(task, mailbox.id, error);
+        this.holdMailbox(task, request, mailbox.id, error);
         return false;
       }
       const permanent = isPermanentSendError(error);
@@ -182,16 +191,27 @@ export class EmailRunner {
     return this.recordSend(task, request.id, composed.mailboxId, outgoing.messageId);
   }
 
-  /** Hands the task back without spending an attempt and shows the person why the mailbox is idle. */
-  private holdMailbox(task: EmailTask, mailboxId: string, error: unknown): void {
+  /**
+   * Pauses the mailbox and shows the person why it is idle. The task keeps its attempt only when
+   * the failure proves the mail never reached the server, because a drop after DATA may have
+   * delivered it and every hold would then send it again without limit.
+   */
+  private holdMailbox(
+    task: EmailTask,
+    request: RequestRecord,
+    mailboxId: string,
+    error: unknown,
+  ): void {
     const { db, taskQueue } = this.services;
     const until = this.services.mailHolds.hold(mailboxId);
+    const neverSent = error instanceof MailSendError ? error.neverSent : provesNeverSent(error);
     db.transaction(() => {
       db.update(mailboxes)
         .set({ lastError: `Sending is paused: ${describeError(error)}` })
         .where(eq(mailboxes.id, mailboxId))
         .run();
-      taskQueue.release(task.id, { workerId: EMAIL_WORKER_ID, runAfter: until });
+      if (neverSent) taskQueue.release(task.id, { workerId: EMAIL_WORKER_ID, runAfter: until });
+      else this.fail(task, request, error, { retryable: true, kind: "network" });
     });
   }
 
