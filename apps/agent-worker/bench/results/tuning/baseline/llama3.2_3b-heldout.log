@@ -1,0 +1,78 @@
+
+> @kickrocks/agent-worker@0.0.0 bench /home/npc/Documents/projects/opt-out/.claude/worktrees/wf_bd6927e1-a88-1/apps/agent-worker
+> tsx bench/cli.ts --model llama3.2:3b --runs 3 --split heldout --out /home/npc/Documents/projects/opt-out/.claude/worktrees/wf_bd6927e1-a88-1/apps/agent-worker/bench/results/tuning/baseline --out-name llama3.2_3b-heldout --replies-only
+
+warm-up took 2270 ms
+replies run 1: accuracy 70.3%, invalid JSON 0.0%, median 476 ms
+replies run 2: accuracy 70.3%, invalid JSON 0.0%, median 477 ms
+replies run 3: accuracy 70.3%, invalid JSON 0.0%, median 479 ms
+# Agent model benchmark: llama3.2:3b
+
+Run from 2026-10-08T17:32:33.772Z to 2026-10-08T17:34:12.292Z.
+Endpoint http://127.0.0.1:11434/v1, 3 run(s) per scenario, at most 40 steps and 10 minutes per run, 4096 output tokens per turn, instant pace, the openai provider, thinking default.
+Ollama loaded the model with a context of 4096 tokens.
+Idle GPU memory before the runs was 667 MiB.
+
+## Reply classification
+
+Accuracy 70.3% over 3 run(s) of 64 replies.
+Invalid JSON rate 0.0%.
+Mean latency 476 ms.
+Latency of the first run: median 476 ms, 95th percentile 545 ms, max 569 ms.
+Answers outside the schema: 0. Requests that failed or timed out: 0.
+Answers that listed requested fields for a reply that asks for none: 1.
+Requested fields named exactly on verification replies: 25.0%.
+
+| Class | Correct | Cases |
+|---|---|---|
+| bounce | 4 | 6 |
+| auto_ack | 6 | 6 |
+| confirmation_link | 5 | 7 |
+| verification_required | 5 | 8 |
+| completed | 5 | 7 |
+| no_record | 5 | 6 |
+| rejected | 4 | 6 |
+| needs_form | 3 | 6 |
+| unrelated | 6 | 6 |
+| unknown | 2 | 6 |
+
+| Style | Correct | Cases |
+|---|---|---|
+| plain | 8 | 13 |
+| html-text | 6 | 7 |
+| legal | 8 | 9 |
+| quoted-thread | 4 | 7 |
+| ticket | 6 | 8 |
+| autoresponder | 2 | 3 |
+| odd-link | 2 | 3 |
+| other-people | 3 | 6 |
+| id-request | 2 | 2 |
+| partial | 3 | 3 |
+| no-sale-denial | 1 | 3 |
+
+Answers that were wrong in the first run:
+- held-bounce-4: answered no_record, expected bounce because permanent failure because the recipient server could not be reached, with our request quoted.
+- held-bounce-6: answered no_record, expected bounce because a permanent delivery failure.
+- held-link-5: answered auto_ack, expected confirmation_link because asks to click Resume to continue, a click-only ask.
+- held-link-6: answered verification_required, expected confirmation_link because legal wording whose only ask is to select a link to confirm; listed fields [email] for a reply that asks for none.
+- held-verify-1: named fields [phone, email, date_of_birth, street, city, state, zip], expected [].
+- held-verify-3: answered unrelated, expected verification_required because asks for the full name on the account; named fields [], expected [full_name].
+- held-verify-4: named fields [full_name, date_of_birth, street, city, state, zip], expected [street, city, state, zip, date_of_birth].
+- held-verify-5: answered unrelated, expected verification_required because asks for the web address of the listing; named fields [], expected [record_url].
+- held-verify-6: answered unrelated, expected verification_required because asks for the phone number to check it is the right person; another person is mentioned; named fields [], expected [phone].
+- held-verify-8: named fields [date_of_birth, email, first_name, last_name, phone], expected [].
+- held-done-6: answered unrelated, expected completed because the requested listing was taken down; a neighbor's listing was left alone.
+- held-done-7: answered unrelated, expected completed because the preference was recorded and applied.
+- held-norec-5: answered unrelated, expected no_record because no listing exists for the person; a relative's listing was not touched.
+- held-reject-1: answered unrelated, expected rejected because closes the request with no action because it does not sell data.
+- held-reject-4: answered unrelated, expected rejected because refuses to delete.
+- held-form-3: answered unrelated, expected needs_form because must submit using the form.
+- held-form-4: answered unrelated, expected needs_form because an auto-reply that points to the privacy choices form.
+- held-form-5: answered unrelated, expected needs_form because must use the online removal tool.
+- held-unknown-1: answered auto_ack, expected unknown because a two word message that decides nothing.
+- held-unknown-2: answered unrelated, expected unknown because a forward with the body removed.
+- held-unknown-3: answered unrelated, expected unknown because asks for a call and says nothing about the request.
+- held-unknown-4: answered unrelated, expected unknown because an internal exchange that decides nothing.
+
+
+Wrote /home/npc/Documents/projects/opt-out/.claude/worktrees/wf_bd6927e1-a88-1/apps/agent-worker/bench/results/tuning/baseline/llama3.2_3b-heldout.json and /home/npc/Documents/projects/opt-out/.claude/worktrees/wf_bd6927e1-a88-1/apps/agent-worker/bench/results/tuning/baseline/llama3.2_3b-heldout.md
