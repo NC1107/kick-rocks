@@ -7,6 +7,7 @@ import { IconButton } from "../ui/index.js";
 import { Logo } from "./Logo.js";
 import { ABOUT_ITEM, NAV_GROUPS, type NavItem } from "./nav.js";
 import { ProfileSwitcher } from "./ProfileSwitcher.js";
+import { versionLabel } from "./shell-status.js";
 import { ThemeToggle } from "./ThemeToggle.js";
 
 function ReviewCount({ count }: { count: number | null }) {
@@ -61,7 +62,10 @@ function NavRow({
           {item.label}
           {item.badge === "review" ? <ReviewCount count={reviewCount} /> : null}
           {trailing ? (
-            <span className="ml-auto font-mono text-caption font-normal text-ink-3">
+            <span
+              title={trailing}
+              className="ml-auto min-w-0 truncate whitespace-nowrap font-mono text-caption font-normal text-ink-3"
+            >
               {trailing}
             </span>
           ) : null}
@@ -120,7 +124,7 @@ export function SidebarContent({
             item={ABOUT_ITEM}
             reviewCount={null}
             onNavigate={onNavigate}
-            trailing={health.data ? `v${health.data.version}` : undefined}
+            trailing={health.data ? versionLabel(health.data.version) : undefined}
           />
           <div className="flex items-center justify-between">
             <ThemeToggle />

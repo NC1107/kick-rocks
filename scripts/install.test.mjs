@@ -42,7 +42,12 @@ case "$1 $2" in
   "volume inspect") exit 0 ;;
 esac
 case "$*" in
-  *"ps --services"*) echo server ;;
+  *"ps -a -q"*) [ -n "$FAKE_NO_CONTAINERS" ] || echo abc123 ;;
+  *"ps --services"*) [ -n "$FAKE_NO_CONTAINERS" ] || echo server ;;
+  *"compose "*" stop"*) [ -z "$FAKE_NO_CONTAINERS" ] || { echo 'no container found for project "scratch": not found' >&2; exit 1; } ;;
+  *"-previous-"*":/from:ro"*) [ "$FAKE_ROLLBACK" != fail ] || exit 1 ;;
+  *"-restore-"*":/from:ro"*) [ "$FAKE_SWAP" != fail ] || exit 1 ;;
+  *"-v scratch_kickrocks-data:/from:ro"*) [ "$FAKE_ASIDE" != fail ] || exit 1 ;;
   "run --rm -v scratch_kickrocks-data:/data:ro alpine tar czf"*)
     case "$FAKE_TAR" in
       ok) cat "$FAKE_ARCHIVE" ;;
@@ -148,5 +153,61 @@ describe("install.sh backup and restore", () => {
       /-v scratch_kickrocks-data-restore-\d+:\/from:ro -v scratch_kickrocks-data:\/to/,
     );
     assert.match(log, /volume rm -f scratch_kickrocks-data-restore-\d+/);
+  });
+
+  it("puts the previous data back and removes its copy when the swap fails", () => {
+    const result = install(["--restore", archive], {
+      input: "restore\n",
+      env: { FAKE_SWAP: "fail" },
+    });
+    assert.equal(result.status, 1);
+    const log = calls();
+    assert.match(
+      log,
+      /-v scratch_kickrocks-data-previous-\d+:\/from:ro -v scratch_kickrocks-data:\/to/,
+    );
+    assert.match(log, /volume rm -f scratch_kickrocks-data-previous-\d+/);
+    assert.match(log, /compose .*start server/);
+  });
+
+  it("keeps the previous data and starts nothing when the rollback fails too", () => {
+    const result = install(["--restore", archive], {
+      input: "restore\n",
+      env: { FAKE_SWAP: "fail", FAKE_ROLLBACK: "fail" },
+    });
+    assert.equal(result.status, 1);
+    const log = calls();
+    assert.match(
+      log,
+      /-v scratch_kickrocks-data-previous-\d+:\/from:ro -v scratch_kickrocks-data:\/to/,
+    );
+    assert.doesNotMatch(log, /volume rm [^\n]*-previous-/);
+    assert.doesNotMatch(log, /compose .* start/);
+    const name = result.stderr.match(/volume (scratch_kickrocks-data-previous-\d+)\./)?.[1];
+    assert.ok(name, result.stderr);
+    assert.match(
+      result.stderr,
+      new RegExp(`docker run --rm -v ${name}:/from:ro -v scratch_kickrocks-data:/to`),
+    );
+  });
+
+  it("explains a full disk when the current data cannot be copied aside", () => {
+    const result = install(["--restore", archive], {
+      input: "restore\n",
+      env: { FAKE_ASIDE: "fail" },
+    });
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, /three times/);
+    assert.doesNotMatch(calls(), /-restore-\d+:\/from:ro -v scratch_kickrocks-data:\/to/);
+  });
+
+  it("prints no error on a new machine with no containers", () => {
+    const result = install(["--restore", archive], {
+      input: "restore\n",
+      env: { FAKE_NO_CONTAINERS: "1" },
+    });
+    assert.equal(result.status, 0, result.stderr);
+    assert.doesNotMatch(result.stderr, /no container found/);
+    assert.match(result.stdout, /Restored scratch_kickrocks-data/);
   });
 });

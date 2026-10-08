@@ -217,6 +217,7 @@ It checks that the file is a complete archive with the database and its key in i
 It stops everything and unpacks the archive into a scratch volume, so a file that unpacks badly is caught before your current data is touched.
 Only then does it copy the current data aside and swap the backup in, and it starts back up whatever was running.
 If the swap fails it puts the previous data back.
+If putting it back fails too, it keeps the copy, tells you its name and the command that restores it, and leaves everything stopped.
 On a new machine there is no volume yet, and the script creates it.
 
 `docker compose down -v` and `./install.sh --uninstall` delete the volumes, and with them the database and its key.

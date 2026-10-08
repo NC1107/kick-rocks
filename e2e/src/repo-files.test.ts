@@ -303,6 +303,7 @@ case "$*" in
   "compose version") ;;
   "volume inspect "*) ;;
   *"config") echo "name: kr" ;;
+  *"ps -a -q") echo abc123 ;;
   *"ps --services --status running") printf '%s' "$FAKE_RUNNING" ;;
   "run "*"tar czf"*) cat "$FAKE_ARCHIVE" ;;
 esac

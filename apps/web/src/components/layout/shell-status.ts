@@ -82,3 +82,8 @@ export function mostUrgent(chips: readonly StatusChip[]): StatusChip | undefined
   );
   return worst && SEVERITY[worst.tone] >= SEVERITY.attention ? worst : undefined;
 }
+
+/** A release reads as "v0.3.1"; a commit hash from an untagged checkout is shown as it is, since a "v" would make it look like a release. */
+export function versionLabel(version: string): string {
+  return /^\d+\.\d+/.test(version) ? `v${version}` : version;
+}
