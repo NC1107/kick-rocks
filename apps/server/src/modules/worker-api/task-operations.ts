@@ -333,7 +333,10 @@ export function createTaskOperations(services: OperationServices, caller: Caller
       });
     },
 
-    block(taskId, { workerId, reason, detail, url, control, fingerprint, screenshot, usage, site }) {
+    block(
+      taskId,
+      { workerId, reason, detail, url, control, fingerprint, screenshot, usage, site },
+    ) {
       authorize(taskId);
       refuseUnearnedApprovalStop(taskId, reason);
       const seen = withImplied(site, impliedByBlock(reason));
