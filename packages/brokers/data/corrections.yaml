@@ -1,0 +1,53 @@
+# Fixes to imported broker records that were checked by hand against the broker's own pages.
+# They apply to every imported list before the lists merge, because an imported record always wins
+# over curated-brokers.yaml. Each entry names the pages it was read from and the day it was checked.
+# `pnpm data:build` fails when an entry matches no record, so drop an entry once its upstream list
+# carries the fix.
+corrections:
+  - domain: thebridgecorp.com
+    set:
+      email: privacy@thebridgecorp.com
+      privacy_rights_url: https://www.thebridgecorp.com/california-residents-ccpa/
+    source_urls:
+      - https://www.thebridgecorp.com/privacy-policy/
+      - https://www.thebridgecorp.com/california-residents-ccpa/
+    checked: 2026-10-07
+    note: 'Eraser lists a named person. The privacy policy and the CCPA page name privacy@thebridgecorp.com, and the 2026 California registry lists the same address for OWMN, LTD.'
+
+  - domain: choreograph.com
+    set:
+      email: privacy@choreograph.com
+      privacy_rights_url: https://www.choreograph.com/ccpa
+    source_urls:
+      - https://www.choreograph.com/ccpa
+      - https://www.choreograph.com/global-privacy-policy/global-privacy-policy-english
+    checked: 2026-10-07
+    note: 'Eraser lists a named person. The CCPA page also names DoNotMail@Choreograph.com and the 2026 registry names datagovernance@choreograph.com; privacy@ is the general address. The page loads on choreograph.com without a trailing slash, and with one it redirects to a staging host.'
+
+  - domain: mlxp.com
+    set:
+      domain: mailinglists.com
+      website: https://mailinglists.com
+      email: privacy@mailinglists.com
+    source_urls:
+      - https://mailinglists.com/about/privacy-policy
+    checked: 2026-10-07
+    note: 'mlxp.com redirects to mailinglists.com. The privacy policy of Infinite Media Concepts, Inc. (d/b/a MailingLists.com, last updated 2026-07-01) lists privacy@mailinglists.com.'
+
+  - domain: nctue.com
+    set:
+      email: admin@nctue.com
+      privacy_rights_url: https://nctue.com/consumer/
+    source_urls:
+      - https://nctue.com/privacy-policy/
+      - https://nctue.com/consumer/
+    checked: 2026-10-07
+    note: 'Eraser lists an address on an unrelated domain. admin@nctue.com is the only address on nctue.com and its privacy policy, and consumer disclosure and dispute requests go through the consumer page.'
+
+  - domain: foursquare.com
+    set:
+      email: privacy@foursquare.com
+    source_urls:
+      - https://foursquare.com/legal/privacy-center/foursquare-privacy-policy-consumer-services/
+    checked: 2026-10-07
+    note: 'Eraser lists legal@. The consumer privacy policy names privacy@foursquare.com for questions to its Data Protection Officer. The 2026 registry lists privacyteam@foursquare.com instead.'

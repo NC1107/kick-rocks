@@ -8,10 +8,17 @@ import {
   BrokerDataset as BrokerDatasetSchema,
 } from "@kickrocks/shared";
 import { z } from "zod";
+import {
+  applyCorrections,
+  dropExcluded,
+  parseCorrections,
+  parseExclusions,
+} from "./corrections.js";
 import { parseBadboolReport } from "./import/badbool.js";
 import { parseCaRegistry } from "./import/ca-registry.js";
 import { parseCuratedBrokers } from "./import/curated.js";
 import { parseEraserBrokers } from "./import/eraser.js";
+import { parseOpteryBrokers } from "./import/optery.js";
 import { loadCompanyDataset } from "./index.js";
 import { mergeBrokers } from "./merge.js";
 import { readBundledRecipes, unpairedRecipeSenders } from "./recipe-senders.js";
@@ -20,7 +27,9 @@ import { readPinnedUpstream } from "./upstream.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const dataDir = resolve(here, "..", "data");
-const upstream = resolve(dataDir, "upstream");
+const ERASER_PIN = "eraser.source.json";
+const CA_REGISTRY_PIN = "ca-registry.source.json";
+const OPTERY_PIN = "optery.source.json";
 const bundledRecipesDir = resolve(here, "..", "..", "recipes", "recipes");
 const outFile = resolve(dataDir, "generated", "brokers.json");
 export const IDS_FILE = resolve(dataDir, "ids.json");
@@ -36,14 +45,32 @@ export function buildDataset(
   pinnedIds: Readonly<Record<string, string>> = loadPinnedIds(),
 ): BrokerDataset {
   readPinnedUpstream("BADBOOL-LICENSE.md");
+  readPinnedUpstream("ERASER-LICENSE", { source: ERASER_PIN });
+  readPinnedUpstream("OPTERY-LICENSE.md", { source: OPTERY_PIN });
   const badbool = parseBadboolReport(readPinnedUpstream("BADBOOL-README.md")).brokers;
   const curated = parseCuratedBrokers(
     readFileSync(resolve(dataDir, "curated-brokers.yaml"), "utf8"),
   );
-  const eraser = parseEraserBrokers(readFileSync(resolve(upstream, "eraser-brokers.yaml"), "utf8"));
-  const registry = parseCaRegistry(readFileSync(resolve(upstream, "ca-registry-2025.csv"), "utf8"));
+  const eraser = parseEraserBrokers(
+    readPinnedUpstream("eraser-brokers.yaml", { source: ERASER_PIN }),
+  );
+  const registry = parseCaRegistry(
+    readPinnedUpstream("ca-registry-2026.csv", { source: CA_REGISTRY_PIN }),
+  );
+  const optery = parseOpteryBrokers(
+    readPinnedUpstream("optery-data-brokers.json", { source: OPTERY_PIN }),
+  );
+  const companyDomains = loadCompanyDataset().companies.map((company) => company.domain);
+  const excluded = parseExclusions(readFileSync(resolve(dataDir, "excluded.yaml"), "utf8"));
+  const imported = applyCorrections(
+    dropExcluded(
+      [badbool, eraser, registry, optery],
+      new Set([...excluded.map((entry) => entry.domain), ...companyDomains]),
+    ),
+    parseCorrections(readFileSync(resolve(dataDir, "corrections.yaml"), "utf8")),
+  );
   const brokers = applyReplyDomains(
-    mergeBrokers([badbool, eraser, registry, curated], { pinnedIds }),
+    mergeBrokers([...imported, curated], { pinnedIds }),
     readFileSync(resolve(dataDir, "reply-domains.yaml"), "utf8"),
   );
   const unpaired = unpairedRecipeSenders(brokers, readBundledRecipes(bundledRecipesDir));

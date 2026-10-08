@@ -12,6 +12,7 @@ describe("the generated broker dataset", () => {
   it("carries its license and attribution", () => {
     expect(dataset.license).toBe("CC-BY-NC-SA-4.0");
     expect(dataset.attribution).toMatch(/Yael Grauer/);
+    expect(dataset.attribution).toMatch(/Optery/);
   });
 
   it("has a valid hostname for every broker, so no site is listed twice under a broken domain", () => {
@@ -73,10 +74,44 @@ describe("the generated broker dataset", () => {
     expect(whitepages?.sources.map((source) => source.source)).toEqual([
       "badbool",
       "eraser",
-      "ca-registry-2025",
+      "ca-registry-2026",
+      "optery",
     ]);
     expect(whitepages?.optOutUrl).toBe("https://www.whitepages.com/suppression_requests");
     expect(whitepages?.priority).toBe("crucial");
+  });
+
+  it("applies the hand-checked corrections over the imported contacts", () => {
+    const byDomain = new Map(dataset.brokers.map((broker) => [broker.domain, broker]));
+    expect(byDomain.get("thebridgecorp.com")?.privacyEmail).toBe("privacy@thebridgecorp.com");
+    expect(byDomain.get("choreograph.com")).toMatchObject({
+      privacyEmail: "privacy@choreograph.com",
+      privacyRightsUrl: "https://www.choreograph.com/ccpa",
+    });
+    expect(byDomain.get("foursquare.com")?.privacyEmail).toBe("privacy@foursquare.com");
+    expect(byDomain.get("nctue.com")?.privacyEmail).toBe("admin@nctue.com");
+    expect(byDomain.get("mailinglists.com")).toMatchObject({
+      privacyEmail: "privacy@mailinglists.com",
+      website: "https://mailinglists.com",
+    });
+    expect(byDomain.has("mlxp.com")).toBe(false);
+  });
+
+  it("uses no California registry contact that is a named person or on a foreign host", () => {
+    const plug = dataset.brokers.find((broker) => broker.domain === "plug-industries.com");
+    expect(plug?.sources.map((source) => source.source)).toEqual(["ca-registry-2026"]);
+    expect(plug?.privacyEmail).toBeNull();
+  });
+
+  it("carries the Optery directory with its own license", () => {
+    const optery = dataset.brokers.filter((broker) =>
+      broker.sources.some((source) => source.source === "optery"),
+    );
+    expect(optery.length).toBeGreaterThan(500);
+    for (const broker of optery) {
+      const source = broker.sources.find((s) => s.source === "optery");
+      expect(source?.license, broker.id).toBe("CC-BY-NC-SA-4.0");
+    }
   });
 
   it("fills a field BADBOOL lacks from Eraser", () => {
@@ -86,7 +121,14 @@ describe("the generated broker dataset", () => {
 
   it("puts curated records after every import", () => {
     const clustrmaps = dataset.brokers.find((broker) => broker.id === "clustrmaps");
-    expect(clustrmaps?.sources.map((source) => source.source)).toEqual(["kickrocks"]);
+    expect(clustrmaps?.sources.at(-1)?.source).toBe("kickrocks");
+  });
+
+  it("leaves out the sites BADBOOL dropped and the domains of company targets", () => {
+    const domains = new Set(dataset.brokers.map((broker) => broker.domain));
+    for (const domain of ["rehold.com", "opendatausa.com", "salesforce.com", "shopify.com"]) {
+      expect(domains.has(domain), domain).toBe(false);
+    }
   });
 
   it("refuses to build from a README that no longer matches its pin", () => {
