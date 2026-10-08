@@ -89,6 +89,11 @@ export interface BrowserSettings {
   proxyServer?: string | null;
   /** A specific binary; otherwise the installed Chrome, otherwise Playwright's Chromium. */
   executablePath: string | null;
+  /**
+   * Never lets a shared worker start. A shared worker has no DevTools session a page's request
+   * interception could reach, so a run whose requests are all inspected cannot allow one.
+   */
+  blockSharedWorkers?: boolean;
 }
 
 export type BrowserLauncher = (settings: BrowserSettings) => Promise<BrowserContext>;
@@ -174,6 +179,8 @@ export function chromeArgs(settings: Pick<BrowserSettings, "noSandbox" | "proxyS
   return [
     "--remote-debugging-port=0",
     "--disable-blink-features=AutomationControlled",
+    // A prerendered page loads in a target the request gate has no session on.
+    "--disable-features=Prerender2",
     ...(settings.noSandbox ? ["--no-sandbox"] : []),
     ...(settings.proxyServer
       ? [
@@ -203,7 +210,10 @@ export const launchPersistentChrome = async (
     });
     bypassOnEveryPage(context);
     try {
-      const guard = await bypassServiceWorkersBeforeTabsRun(settings.profileDir, guardOptions);
+      const guard = await bypassServiceWorkersBeforeTabsRun(settings.profileDir, {
+        ...(settings.blockSharedWorkers ? { blockSharedWorkers: true } : {}),
+        ...guardOptions,
+      });
       tabGuards.set(context, guard);
       context.on("close", () => guard.close());
     } catch (error) {

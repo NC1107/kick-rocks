@@ -116,6 +116,10 @@ describe("the arguments Chrome starts with", () => {
     );
   });
 
+  it("turns off prerendering, which loads a page in a target nothing inspects", () => {
+    expect(chromeArgs({ noSandbox: false })).toContain("--disable-features=Prerender2");
+  });
+
   it("adds the sandbox switch only when asked", () => {
     expect(chromeArgs({ noSandbox: true })).toContain("--no-sandbox");
     expect(chromeArgs({ noSandbox: false })).not.toContain("--no-sandbox");
@@ -138,6 +142,66 @@ describeBrowser("the browser a broker page sees", () => {
     } finally {
       await context.close();
     }
+  });
+});
+
+describeBrowser("shared workers in a browser whose requests are all inspected", () => {
+  let site: Server;
+  let origin: string;
+  const asked: string[] = [];
+
+  beforeAll(async () => {
+    site = createServer((request, response) => {
+      asked.push(request.url ?? "");
+      if (request.url === "/shared.js") {
+        response.writeHead(200, { "content-type": "text/javascript" });
+        response.end(
+          "onconnect = (e) => { fetch('/from-shared-worker', { method: 'POST', body: 'x' }); };",
+        );
+        return;
+      }
+      response.writeHead(200, { "content-type": "text/html" });
+      response.end(
+        "<!doctype html><title>Shared</title><script>new SharedWorker('/shared.js').port.start()</script>",
+      );
+    });
+    await new Promise<void>((resolve) => site.listen(0, "127.0.0.1", resolve));
+    origin = `http://127.0.0.1:${(site.address() as AddressInfo).port}`;
+  });
+
+  afterAll(async () => {
+    site.closeAllConnections();
+    await new Promise<void>((resolve) => site.close(() => resolve()));
+  });
+
+  async function visit(blockSharedWorkers: boolean): Promise<void> {
+    asked.length = 0;
+    const profileDir = join(dir, `profile-${blockSharedWorkers}`);
+    mkdirSync(profileDir, { recursive: true });
+    const context = await launchPersistentChrome({
+      profileDir,
+      headless: true,
+      noSandbox: false,
+      executablePath: null,
+      blockSharedWorkers,
+    });
+    try {
+      const page = await context.newPage();
+      await page.goto(origin);
+      await page.waitForTimeout(1_000);
+    } finally {
+      await context.close();
+    }
+  }
+
+  it("runs one when nothing stops it, which is what the next test rules out", async () => {
+    await visit(false);
+    expect(asked).toContain("/from-shared-worker");
+  });
+
+  it("never lets one run when asked, so what it would send is never sent", async () => {
+    await visit(true);
+    expect(asked).not.toContain("/from-shared-worker");
   });
 });
 

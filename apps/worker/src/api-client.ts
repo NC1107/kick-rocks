@@ -8,9 +8,12 @@ import {
   type GateEvidence,
   type GateResultResponse,
   type ModelIdentity,
+  type OutgoingRequest,
+  type RegisteredSend,
   type RouteBodyInput,
   type RouteDef,
   type RouteResponse,
+  type SendRegistration,
   type SiteObservation,
   type TaskBlockReport,
   type TaskFailureReport,
@@ -18,6 +21,7 @@ import {
   type TaskSummary,
   type TaskUsage,
   type WorkerClaimer,
+  type WorkerDecision,
   type WorkerHeartbeatBody,
   type WorkerHeartbeatResponse,
 } from "@kickrocks/shared";
@@ -39,7 +43,9 @@ type JsonRoute = RouteDef & { response: NonNullable<RouteDef["response"]> };
 
 interface CallInput<R extends RouteDef> {
   params?: Record<string, string>;
+  query?: Record<string, string | number>;
   body?: RouteBodyInput<R>;
+  signal?: AbortSignal;
 }
 
 interface WorkerApiClientOptions {
@@ -156,6 +162,61 @@ export class WorkerApiClient {
     return response.task;
   }
 
+  /** Tells the server what the outgoing gate decided, and holds the requests that wait for a person. */
+  async registerSends(
+    taskId: string,
+    attempt: number,
+    items: SendRegistration[],
+  ): Promise<RegisteredSend[]> {
+    const response = await this.call(API_ROUTES.workerSends, {
+      params: { id: taskId },
+      body: { workerId: this.options.workerId, attempt, items },
+    });
+    return response.sends;
+  }
+
+  /** Waits up to `waitMs` for a person to decide a held request. */
+  awaitDecision(
+    taskId: string,
+    sendId: string,
+    waitMs: number,
+    signal?: AbortSignal,
+  ): Promise<WorkerDecision> {
+    return this.call(API_ROUTES.workerSendDecision, {
+      params: { id: taskId, sendId },
+      query: { workerId: this.options.workerId, waitMs },
+      ...(signal ? { signal } : {}),
+    });
+  }
+
+  /** Rejects with a 409 `WorkerApiError` when the server does not accept the request as approved. */
+  async releaseSend(
+    taskId: string,
+    sendId: string,
+    request: OutgoingRequest,
+  ): Promise<{ releaseId: string }> {
+    const response = await this.call(API_ROUTES.workerSendRelease, {
+      params: { id: taskId, sendId },
+      body: { workerId: this.options.workerId, request },
+    });
+    return { releaseId: response.releaseId };
+  }
+
+  async sendResult(
+    taskId: string,
+    sendId: string,
+    outcome: { status: number | null; error?: string | undefined },
+  ): Promise<void> {
+    await this.call(API_ROUTES.workerSendResult, {
+      params: { id: taskId, sendId },
+      body: {
+        workerId: this.options.workerId,
+        status: outcome.status,
+        ...(outcome.error === undefined ? {} : { error: outcome.error }),
+      },
+    });
+  }
+
   /** A `recipe` failure is never retried by the server, whatever `retryable` says. */
   async fail(
     taskId: string,
@@ -172,9 +233,13 @@ export class WorkerApiClient {
     route: R,
     input: CallInput<R> = {},
   ): Promise<RouteResponse<R>> {
-    const url = `${this.options.serverUrl}/api${buildRoutePath(route.path, input.params)}`;
+    const search = input.query
+      ? `?${new URLSearchParams(Object.fromEntries(Object.entries(input.query).map(([k, v]) => [k, String(v)])))}`
+      : "";
+    const url = `${this.options.serverUrl}/api${buildRoutePath(route.path, input.params)}${search}`;
     const response = await this.fetchImpl(url, {
       method: route.method,
+      ...(input.signal ? { signal: input.signal } : {}),
       headers: {
         authorization: `Bearer ${this.options.token}`,
         ...(input.body === undefined ? {} : { "content-type": "application/json" }),

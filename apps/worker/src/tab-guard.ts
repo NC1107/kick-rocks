@@ -12,7 +12,7 @@ interface Pending {
 
 interface AttachedEvent {
   sessionId: string;
-  targetInfo: { type: string };
+  targetInfo: { type: string; targetId?: string };
   waitingForDebugger: boolean;
 }
 
@@ -36,6 +36,7 @@ interface Message {
 
 /** What Chrome calls the target of a tab, and of a frame that runs in a process of its own. */
 const GUARDED_TARGETS = [{ type: "page" }, { type: "iframe" }, { exclude: true }];
+const GUARDED_TARGETS_WITH_SHARED_WORKERS = [{ type: "shared_worker" }, ...GUARDED_TARGETS];
 
 /** Chrome marks the request for a worker's script, which is how a worker is kept from installing. */
 function isServiceWorkerScript(paused: PausedRequest): boolean {
@@ -152,6 +153,8 @@ export interface TabGuardOptions {
   holdDelayMs?: number;
   /** Lets service worker scripts load, so a test can have a real worker to clear. */
   allowServiceWorkerScripts?: boolean;
+  /** Closes every shared worker the moment it appears, before it runs anything. */
+  blockSharedWorkers?: boolean;
 }
 
 /**
@@ -176,12 +179,26 @@ export async function bypassServiceWorkersBeforeTabsRun(
   const attach = (session?: string) =>
     connection.send(
       "Target.setAutoAttach",
-      { autoAttach: true, waitForDebuggerOnStart: true, flatten: true, filter: GUARDED_TARGETS },
+      {
+        autoAttach: true,
+        waitForDebuggerOnStart: true,
+        flatten: true,
+        filter: options.blockSharedWorkers ? GUARDED_TARGETS_WITH_SHARED_WORKERS : GUARDED_TARGETS,
+      },
       session,
     );
 
   const hold = async (event: AttachedEvent): Promise<void> => {
     const { sessionId } = event;
+    if (event.targetInfo.type === "shared_worker") {
+      // It was held at its start and is never let go.
+      if (event.targetInfo.targetId !== undefined) {
+        await connection
+          .send("Target.closeTarget", { targetId: event.targetInfo.targetId })
+          .catch(() => undefined);
+      }
+      return;
+    }
     try {
       if (options.holdDelayMs) await sleep(options.holdDelayMs);
       await connection.send("Network.enable", {}, sessionId);
