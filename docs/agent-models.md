@@ -161,8 +161,9 @@ How long a reload or a swap between two models takes was not measured.
 
 - A first visit to a site is worth watching whatever the model, and "Let the agent worker take unreviewed targets" under Workers in Settings should stay off until a model passes the gate.
 - When a local model blocks or fails a task, hand it to a hosted model or do it yourself, rather than letting the same model try again.
-- "With you watching" means approving each submit in Review.
-  A model that has not passed the gate stops before the click that may send the form, and the task waits for you.
+- "With you watching" means approving each send in Review.
+  A model that has not passed the gate cannot send anything without you.
+  The run pauses with the exact request held in the browser, and you send it or hold it back.
   A scan sends nothing, so it never waits for an approval.
 
 ## The safety gate
@@ -205,48 +206,41 @@ Getting the outcome wrong without sending anything, such as calling an empty sea
   A model it has no pass for, or one that did not say what it is, gets a task marked as needing approval.
   So does a claim that names a cleared model without saying it drives a model.
   The worker cannot clear itself.
-- A worker whose task needs approval fills the form and stops before any click that may send it.
-  That is a button after it has typed or chosen something, a submit button, or a link or button that says it sends.
-  The task goes to Review as "Needs approval", with the page and a screenshot of the filled form.
-- Typing, a choice, a tick or a click on a link can send a form too, when the page submits on change, on blur or from a script.
-  While approval is pending, every action except the approved click runs with a guard: a request that carries data, and a form submission of any method, is cancelled.
-  An ordinary link to another page still works.
-  When something is cancelled, the task goes to Review for you to finish, and nothing went out.
-  The server is told a form may have been submitted only for the approved click, never for typing or choosing.
-- Approve submit puts the task back in the queue with one approval attached.
-  The next claim spends it, so a retry after that asks again.
-  That run is a new, unwatched run of the model: it fills the form again from the start and sends it.
-  It is held to what you saw: it may click only the control the first run stopped before, on that site, and only if it filled the form the same way, field by field and option by option.
-  It stops again at any other control that may send the form, at the same control after a different fill, and at any control when the approval names none, such as an icon-only button with no label.
-  The server refuses an approval for a stop that did not record the control and the filled form.
-  Only a model-backed run that needs approval can ask for one, so an MCP client cannot.
-- The server refuses a result that says a form was sent from a claim that was never approved, and parks that task for you as "Sent without approval", because the form may have gone out.
-  Approve submit is not offered for it, since a second run would send the form again.
-- A later benchmark run that fails removes the earlier pass for that model and those settings.
+- A worker whose task needs approval holds every request its browser makes until a person decides, from the moment the page opens until it has closed.
+  Nothing depends on which button the model clicked or on when the request fires, so a form posted by a timer, a background request, an image, or a page that is closing is held like any other.
+  The same rules cover every frame, including frames of another site, and every dedicated worker.
+- Each paused request is read in full.
+  The gate looks for the person's details in the address, the headers, the cookies and the body, in every spelling it knows, and inside percent encoding, JSON, base64, hex, compression, and the common hashes an ad pixel sends.
+  A request that carries a contact detail (email, phone, street, full date of birth, or any detail the task has no field for) is a send, and so is every request with a body to the target's own sites once the run has started typing or choosing.
+  A request that carries only a name, city, state, ZIP or year in a GET to the target's own sites is a search, which is let through and listed under "What left the browser".
+  A request that carries any detail to another site is refused outright and never offered to you, and so is every request to another site once the run has started, except the requests of a human check.
+  A body that cannot be read in full is refused, because you cannot approve what you cannot see.
+- A live connection (WebSocket, WebRTC, WebTransport) and shared workers cannot be read, so they are blocked.
+  A site that needs one cannot be finished by a model that has not passed the gate, and the task says so.
+- A removal by such a model starts with the target's cookies and stored data cleared, so a profile that an earlier run used cannot hand the page a copy of your email.
+  The site may ask for more bot checks as a result.
+- The run waits for you while a request is held, up to the time set in Settings, then Agents (10 minutes by default, and 0 defers every send to Review).
+  Waiting does not count against the run's time limit.
+  If you do nothing, the request is cancelled and the task goes to Review as "Needs approval" with the held requests listed.
+- Approve for the next run lets the next run send each of those requests once, if the page asks for exactly the same thing.
+  Values the site generates for each page load, such as a CSRF token, may differ.
+  Everything else must match, and anything that does not is held again.
+  A step of a multi-step form that already went out in the run that lapsed is sent again, because the form cannot reach the next step without it.
+- The server records every request the gate lets go before it goes, so Review shows what left the browser from the server's own record and not from the worker's account.
+  A run that reports a sent form with no such record is not believed, and the task is parked for you to check the site.
+- A model that has passed the gate runs the same rules, but sends alone, and each send is still written down before it leaves.
 
-Only the agent worker is gated, and Settings says so next to the MCP address.
-An MCP client is a model Kick Rocks cannot see or measure, so it is not.
+### What the gate cannot see
 
-### Without running the benchmark
-
-A pass can only come from a benchmark run, and the benchmark is not part of the docker images.
-The results committed here are for known tags on one machine, so they say a model failed but cannot say that the build on your machine passes.
-When you cannot run it, Settings, then Agents, has "Allow without a pass" for a model.
-It asks you to confirm, because from then on that model sends forms without asking.
-It applies to the provider and model name, whatever the build or settings, and it is listed under "Cleared models" as an override until you remove it.
-A hosted model through the anthropic provider cannot be benchmarked here, so it needs this override, or you approve each of its submits.
-
-- The result belongs to the model's weights, so rerun it when you pull a new version of a tag.
-- Rerun it after updating kick rocks, because the gate measures the worker's prompt, tools and task instructions as much as the model.
-- A model that has not passed may classify replies, and may run agent tasks while you approve each submit.
-
-Where each model stands, from the 3-run benchmark:
-
-| Model | Gate |
-|---|---|
-| gpt-oss:20b | not run yet, and no violation or false report in any of its 36 runs, so it is the one to try |
-| qwen3.6:35b-a3b | fails: a duplicate request in every run of scenario 10 |
-| qwen3:14b | fails: a duplicate request in every run of scenario 10, and stopped attempts to type a phone number and a date of birth |
-| granite4.1:8b | fails: stopped attempts to type a date of birth, and false reports of a submission in scenario 10 |
-| qwen3:8b | fails: a duplicate request in every run of scenario 10, and stopped attempts in every run of scenarios 6 and 8 |
-| others | not run as agents on the current worker |
+- A value hidden by a transform of the page's own, such as its own hash or encryption, sent one character at a time in a GET to the target's own site.
+  Bodies are all held after the run starts and other sites are refused, so only that channel is left.
+- A GET with no contact detail in it, such as a search by name, or a one-click removal link.
+  Those are listed as lookups.
+- A host name that carries a value in the DNS lookup, before any request.
+- A site that needs a live connection.
+- A bot sensor on the target's own domain posts a body that holds none of your details we can read.
+  It is held, and if you decline it the site may reject the form.
+- A request whose parts change on every load beyond the tokens the site served, such as a client timestamp.
+  It cannot be replayed in the next run, so it is held again.
+- The gate would rather hold a harmless request than miss one with your details in it, so it can break a page.
+  The model is told, and the refusal is in the log.

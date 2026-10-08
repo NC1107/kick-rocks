@@ -321,10 +321,12 @@ KICKROCKS_WORKER_TOKEN=<token> KICKROCKS_AGENT_MODEL=<model> pnpm --filter @kick
 
 The agent worker tells the server which model it drives, and the server decides whether that model may send a form without asking.
 A model may only after it passes the benchmark's safety gate on this install, or after you allow it by hand in Settings, then Agents.
-Any other model fills the form and stops before the click that may send it, and the task waits in Review as "Needs approval" with a screenshot.
-Approve submit puts it back in the queue for one more run, which fills the form again from the start.
-That run may click only the control you saw in the screenshot, on the same site, if it fills the form the same way, and it stops again at any other control or any other fill.
+Any other model works under the outgoing gate: every request its browser makes is held until you decide, and the task waits in Review as "Waiting for you" while the run is paused.
+You see the request, its fields with your own values in them, the page as it stood, and you send it or hold it back.
+If you are not there, the request is cancelled after the hold time in Settings, and the task waits in Review as "Needs approval".
+Approve for the next run lets the next run send each held request once, if the page asks for the same thing.
 A scan sends nothing, so it never waits.
+Every agent task shows "What left the browser", which comes from the server's own record.
 An MCP client is not held by the safety gate.
 [agent-models.md](agent-models.md) says how to run the benchmark and what it checks.
 
