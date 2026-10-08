@@ -16,7 +16,7 @@ import {
   TableSkeletonRows,
   Tag,
 } from "../../../components/ui/index.js";
-import { DifficultyTag } from "../../targets/DifficultyTag.js";
+import { Difficulty } from "../../targets/Difficulty.js";
 import { SelectCell } from "../../targets/SelectCell.js";
 
 const PICKER_PAGE_SIZE = 8;
@@ -83,7 +83,7 @@ export function TargetPicker({
           <Table label="Pick targets" aria-busy={list.isPlaceholderData || undefined}>
             <TableBody>
               {list.isPending ? (
-                <TableSkeletonRows columns={2} rows={4} />
+                <TableSkeletonRows columns={3} rows={4} />
               ) : (
                 items.map((item) => (
                   <TableRow key={item.id} selected={selectedIds.includes(item.id)}>
@@ -98,13 +98,11 @@ export function TargetPicker({
                       <TableIdentity
                         title={item.name}
                         meta={item.domain}
-                        badge={
-                          <>
-                            {item.retired ? <Tag>Retired</Tag> : null}
-                            <DifficultyTag difficulty={item.difficulty} />
-                          </>
-                        }
+                        {...(item.retired ? { badge: <Tag>Retired</Tag> } : {})}
                       />
+                    </TableCell>
+                    <TableCell>
+                      <Difficulty difficulty={item.difficulty} />
                     </TableCell>
                   </TableRow>
                 ))

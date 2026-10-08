@@ -1,4 +1,4 @@
-import { API_ROUTES, type TargetFacets } from "@kickrocks/shared";
+import { API_ROUTES, needsRecord, type TargetFacets } from "@kickrocks/shared";
 import { Search } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router";
@@ -41,7 +41,7 @@ import {
   TARGET_KIND_LABELS,
 } from "../../lib/labels.js";
 import { AutomationLegend, HealthMark } from "./Automation.js";
-import { DifficultyTag } from "./DifficultyTag.js";
+import { Difficulty } from "./Difficulty.js";
 import {
   FILTER_KEYS,
   type FilterKey,
@@ -55,6 +55,7 @@ import { LoadingRows } from "./LoadingRows.js";
 import { Priority } from "./Priority.js";
 import { RequirementBadges } from "./RequirementBadges.js";
 import { SelectCell } from "./SelectCell.js";
+import { useMatchingTargets } from "./use-matching-targets.js";
 
 function facetOptions(
   facet: TargetFacets[keyof TargetFacets] | undefined,
@@ -71,6 +72,7 @@ const SEARCH_DELAY_MS = 250;
 
 export function Component() {
   const filtersButton = useRef<HTMLButtonElement>(null);
+  const clearSelectionButton = useRef<HTMLButtonElement>(null);
   const [params, setParams] = useSearchParams();
   const filters = readFilters(params);
   const [search, setSearch] = useState(filters.q);
@@ -192,14 +194,12 @@ export function Component() {
   const someSelected = selectable.some((item) => isChecked(item.id));
   const offerAllMatching = allSelected && !allMatching && total > items.length;
 
-  const dropAllMatching = () => {
-    if (!allMatching) return;
-    setMatchingKey(null);
-    setSelected(new Set(selectable.map((item) => item.id)));
-  };
-
   const toggle = (id: string, on: boolean) => {
-    dropAllMatching();
+    if (allMatching) {
+      setMatchingKey(null);
+      const remaining = selectable.length - (on ? 0 : 1);
+      toast.info(`Selection narrowed to the ${pluralize(remaining, "target")} on this page`);
+    }
     setSelected((current) => {
       const next = new Set(allMatching ? selectable.map((item) => item.id) : current);
       if (on) next.add(id);
@@ -223,15 +223,25 @@ export function Component() {
     });
   };
 
+  const selectAllMatching = () => {
+    setMatchingKey(filterKey);
+    // The pressed button leaves the bar, so focus moves to one that stays.
+    queueMicrotask(() => clearSelectionButton.current?.focus());
+  };
+
   const clearSelection = () => {
     setSelected(new Set());
     setMatchingKey(null);
   };
 
+  const matching = useMatchingTargets(filter, allMatching);
+  const scannable = matching.data?.filter((item) => needsRecord(item) && !item.retired).length;
+
   const scan = useApiMutation(API_ROUTES.scansStart, {
     invalidates: [API_ROUTES.scansList, API_ROUTES.reviewQueue, API_ROUTES.dashboardGet],
     onSuccess: (result) => {
       setConfirmingScan(false);
+      clearSelection();
       const started = result.items.filter((item) => item.outcome === "scan_started").length;
       toast.success(
         started === 0 ? "No new scans to start" : `Started ${pluralize(started, "scan")}`,
@@ -292,19 +302,25 @@ export function Component() {
                 : `${formatCount(selected.size)} selected`}
             </span>
             {offerAllMatching ? (
-              <Button size="sm" variant="ghost" onClick={() => setMatchingKey(filterKey)}>
+              <Button size="sm" variant="ghost" className="-ml-2.5" onClick={selectAllMatching}>
                 Select all {formatCount(total)} matching
               </Button>
             ) : null}
           </span>
-          <span className="flex flex-wrap items-center gap-2">
-            <Button size="sm" variant="ghost" onClick={clearSelection}>
+          <span className="flex flex-wrap items-center gap-2 max-sm:w-full">
+            <Button
+              ref={clearSelectionButton}
+              size="sm"
+              variant="ghost"
+              className="-ml-2.5"
+              onClick={clearSelection}
+            >
               Clear selection
             </Button>
             {allMatching ? (
               <Button
                 size="sm"
-                disabled={!profile}
+                disabled={!profile || !scannable}
                 onClick={() => {
                   scan.reset();
                   setConfirmingScan(true);
@@ -313,7 +329,7 @@ export function Component() {
                 Scan these
               </Button>
             ) : null}
-            <LinkButton size="sm" variant="primary" to={campaignLink}>
+            <LinkButton size="sm" variant="primary" to={campaignLink} className="max-sm:w-full">
               Ask these to remove my data
             </LinkButton>
           </span>
@@ -372,6 +388,7 @@ export function Component() {
                 <TableHeaderCell>Target</TableHeaderCell>
                 <TableHeaderCell className="hidden xl:table-cell">Category</TableHeaderCell>
                 <TableHeaderCell>Priority</TableHeaderCell>
+                <TableHeaderCell className="hidden sm:table-cell">Difficulty</TableHeaderCell>
                 <TableHeaderCell className="hidden md:table-cell">Contact</TableHeaderCell>
                 <TableHeaderCell className="hidden lg:table-cell">Needs</TableHeaderCell>
                 <TableHeaderCell className="hidden lg:table-cell">Scan</TableHeaderCell>
@@ -386,6 +403,7 @@ export function Component() {
                     { bar: "w-40" },
                     { className: "hidden xl:table-cell", bar: "w-20" },
                     {},
+                    { className: "hidden sm:table-cell" },
                     { className: "hidden md:table-cell", bar: "w-20" },
                     { className: "hidden lg:table-cell", bar: "w-24" },
                     { className: "hidden lg:table-cell" },
@@ -406,12 +424,7 @@ export function Component() {
                       <TableIdentity
                         title={item.name}
                         to={`/targets/${encodeURIComponent(item.id)}`}
-                        badge={
-                          <>
-                            {item.retired ? <Tag>Retired</Tag> : null}
-                            <DifficultyTag difficulty={item.difficulty} />
-                          </>
-                        }
+                        {...(item.retired ? { badge: <Tag>Retired</Tag> } : {})}
                         meta={item.domain}
                       />
                     </TableCell>
@@ -420,6 +433,9 @@ export function Component() {
                     </TableCell>
                     <TableCell>
                       <Priority priority={item.priority} />
+                    </TableCell>
+                    <TableCell className="hidden sm:table-cell">
+                      <Difficulty difficulty={item.difficulty} />
                     </TableCell>
                     <TableCell className="hidden text-ink-2 md:table-cell">
                       {CONTACT_METHOD_LABELS[item.contactMethod]}
@@ -453,7 +469,7 @@ export function Component() {
       <ConfirmDialog
         open={confirmingScan}
         onClose={() => setConfirmingScan(false)}
-        title={`Scan ${formatCount(total)} matching targets?`}
+        title={`Scan the ${pluralize(scannable ?? 0, "people-search site")} among these ${formatCount(total)}?`}
         description="Kick Rocks searches the people-search sites among them for this person, one after another. Nothing is removed until you confirm a record."
         confirmLabel="Start scans"
         loading={scan.isPending}

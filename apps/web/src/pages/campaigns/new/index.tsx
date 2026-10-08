@@ -8,7 +8,7 @@ import {
 } from "@kickrocks/shared";
 import { skipToken } from "@tanstack/react-query";
 import { ChevronDown } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
 import { errorMessage, useApiMutation, useApiQuery } from "../../../api/index.js";
 import { RequireProfile } from "../../../components/layout/RequireProfile.js";
@@ -79,7 +79,7 @@ const PRESET_OPTIONS: readonly RadioOption<CampaignPreset>[] = [
   {
     value: "everything",
     label: "Everything",
-    description: "All three groups.",
+    description: "Every target.",
   },
 ];
 
@@ -129,6 +129,7 @@ function Builder({ profile }: { profile: ProfileSummary }) {
   const [rights, setRights] = useState<readonly RequestRight[]>(["opt_out"]);
   const [confirming, setConfirming] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(() => targetIds.length > 0);
+  const pickerSummary = useRef<HTMLElement>(null);
 
   const filter = useMemo(() => parseFilterParam(params.get("filter")), [params]);
   const choice: Choice = filter
@@ -237,12 +238,20 @@ function Builder({ profile }: { profile: ProfileSummary }) {
     setPreset(next);
   };
 
-  const toggleTarget = (id: string, on: boolean) =>
+  const toggleTarget = (id: string, on: boolean) => {
+    if (on) setPreset(null);
     setTargetIds(
       on
         ? [...targetIds.filter((existing) => existing !== id), id]
         : targetIds.filter((existing) => existing !== id),
     );
+  };
+
+  const clearTargets = () => {
+    setTargetIds([]);
+    // The button leaves with its row, so focus moves to the control that stays.
+    pickerSummary.current?.focus();
+  };
 
   const selectedNames = targetIds
     .slice(0, 4)
@@ -350,26 +359,15 @@ function Builder({ profile }: { profile: ProfileSummary }) {
               label="Or pick targets"
               {...(targetIds.length > 0 ? { count: targetIds.length } : {})}
             >
-              {targetIds.length > 0 ? (
-                <RowGroup className="mb-2.5">
-                  <Row
-                    title={`${pluralize(targetIds.length, "target")} selected`}
-                    description={`${selectedNames}${targetIds.length > 4 ? `, and ${targetIds.length - 4} more` : ""}`}
-                    trailingBelowOnPhone
-                    trailing={
-                      <Button size="sm" onClick={() => setTargetIds([])}>
-                        Clear targets
-                      </Button>
-                    }
-                  />
-                </RowGroup>
-              ) : null}
               <details
                 open={pickerOpen}
                 onToggle={(event) => setPickerOpen(event.currentTarget.open)}
                 className="group rounded-md border border-line bg-surface"
               >
-                <summary className="flex min-h-9 cursor-pointer list-none items-center justify-between gap-3 rounded-md px-3.5 text-ui text-ink transition-colors duration-100 hover:bg-hover [&::-webkit-details-marker]:hidden">
+                <summary
+                  ref={pickerSummary}
+                  className="flex min-h-9 max-sm:min-h-11 cursor-pointer list-none items-center justify-between gap-3 rounded-md px-3.5 text-ui text-ink transition-colors duration-100 hover:bg-hover [&::-webkit-details-marker]:hidden"
+                >
                   <span>Search and pick targets</span>
                   <ChevronDown
                     aria-hidden="true"
@@ -380,6 +378,20 @@ function Builder({ profile }: { profile: ProfileSummary }) {
                   <TargetPicker selectedIds={targetIds} onToggle={toggleTarget} />
                 </div>
               </details>
+              {targetIds.length > 0 ? (
+                <RowGroup className="mt-2.5">
+                  <Row
+                    title={`${pluralize(targetIds.length, "target")} selected`}
+                    description={`${selectedNames}${targetIds.length > 4 ? `, and ${targetIds.length - 4} more` : ""}`}
+                    trailingBelowOnPhone
+                    trailing={
+                      <Button size="sm" onClick={clearTargets}>
+                        Clear targets
+                      </Button>
+                    }
+                  />
+                </RowGroup>
+              ) : null}
             </Section>
           )}
 
@@ -399,10 +411,10 @@ function Builder({ profile }: { profile: ProfileSummary }) {
                 ))}
               </RowGroup>
             </fieldset>
-            {choice?.kind !== "targets" && choice?.kind !== "filter" ? (
+            {choice?.kind !== "targets" ? (
               <p className="mt-2 text-meta text-ink-3">
-                Group campaigns only ask companies to stop selling. To ask for deletion, pick
-                targets below.
+                Group and filter campaigns only ask companies to stop selling. To ask for deletion,
+                pick targets.
               </p>
             ) : null}
             {rights.length === 0 ? (

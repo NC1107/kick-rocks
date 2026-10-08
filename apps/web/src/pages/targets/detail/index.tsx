@@ -35,7 +35,6 @@ import {
   TARGET_KIND_LABELS,
 } from "../../../lib/labels.js";
 import { HealthMark } from "../Automation.js";
-import { DifficultyTag } from "../DifficultyTag.js";
 import { Priority } from "../Priority.js";
 import { HUMAN_STEPS } from "../RequirementBadges.js";
 
@@ -236,7 +235,7 @@ export function Component() {
           </div>
         </Section>
 
-        <Section label="Difficulty" actions={<DifficultyTag difficulty={target.difficulty} />}>
+        <Section label="Difficulty">
           <RowGroup>
             <p className="px-3.5 py-2.5 text-ui text-ink">
               <span className="font-medium">{DIFFICULTY_LABELS[target.difficulty]}.</span>{" "}

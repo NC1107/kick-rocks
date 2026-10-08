@@ -49,6 +49,15 @@ function targetsFor(store: MockStore, selection: CampaignSelection): TargetDetai
 /** Channels a person has to use by post, fax, phone, or card, which Kick Rocks does not drive. */
 const MANUAL_ONLY: readonly Requirement[] = ["postal_mail", "fax", "phone_call", "paid"];
 
+/** Mirrors the server's planner: only a hand-picked company is asked to delete. */
+function rightsFor(
+  target: TargetDetail,
+  selection: CampaignSelection,
+  rights: RequestRight[],
+): RequestRight[] {
+  return target.kind === "company" && !("targetIds" in selection) ? ["opt_out"] : rights;
+}
+
 function outcomeFor(store: MockStore, profileId: string, target: TargetDetail): TargetOutcome {
   const base = {
     targetId: target.id,
@@ -170,7 +179,12 @@ export default defineMockDomain({
           items,
           counts: countOutcomes(items),
           sampleEmail: firstTarget
-            ? sampleEmail(store, profile.id, firstTarget, body.rights)
+            ? sampleEmail(
+                store,
+                profile.id,
+                firstTarget,
+                rightsFor(firstTarget, body.selection, body.rights),
+              )
             : null,
         };
       }),
@@ -188,7 +202,7 @@ export default defineMockDomain({
               profileId: profile.id,
               targetId: item.targetId,
               channel: target?.contactMethod === "form" ? "form" : "email",
-              rights: body.rights,
+              rights: target ? rightsFor(target, body.selection, body.rights) : body.rights,
               status: "queued",
               createdDaysAgo: 0,
               campaignId,

@@ -46,7 +46,7 @@ describe("the target page", () => {
     open("findrecord");
     const section = (await screen.findByRole("heading", { name: "Difficulty" })).closest("section");
     const difficulty = within(section as HTMLElement);
-    expect(difficulty.getByText("hard")).toBeVisible();
+    expect(difficulty.getByText("Hard.")).toBeVisible();
     expect(
       difficulty.getByText("Your listing has to be found before it can be removed."),
     ).toBeVisible();
@@ -60,7 +60,7 @@ describe("the target page", () => {
     open("audiencegrid");
     const section = (await screen.findByRole("heading", { name: "Difficulty" })).closest("section");
     const difficulty = within(section as HTMLElement);
-    expect(difficulty.getByText("easy")).toBeVisible();
+    expect(difficulty.getByText("Easy.")).toBeVisible();
     expect(
       difficulty.getByText("It takes requests at its own privacy email address."),
     ).toBeVisible();

@@ -145,8 +145,21 @@ describe("the targets page", () => {
     expect(screen.getByRole("status")).toHaveTextContent("50 selected");
     await user.click(screen.getByRole("button", { name: "Select all 61 matching" }));
     expect(screen.getByRole("status")).toHaveTextContent("All 61 matching selected");
+    expect(screen.getByRole("button", { name: "Clear selection" })).toHaveFocus();
     const link = screen.getByRole("link", { name: "Ask these to remove my data" });
     expect(link).toHaveAttribute("href", `/campaigns/new?filter=${encodeURIComponent("{}")}`);
+  });
+
+  it("narrows to the current page, and says so, when one row is unticked after select all", async () => {
+    const { user } = renderPage(<TargetsPage />, { path: "/targets", route: "/targets" });
+    const list = await rows();
+    await user.click(screen.getByRole("checkbox", { name: "Select all targets on this page" }));
+    await user.click(screen.getByRole("button", { name: "Select all 61 matching" }));
+    await user.click(within(list[0] as HTMLElement).getByRole("checkbox"));
+    expect(screen.getByRole("status")).toHaveTextContent("49 selected");
+    expect(
+      await screen.findByText("Selection narrowed to the 49 targets on this page"),
+    ).toBeVisible();
   });
 
   it("carries the filter it is under, not a list of ids", async () => {
@@ -193,9 +206,34 @@ describe("the targets page", () => {
     const before = mock.store.scans.length;
     await user.click(screen.getByRole("button", { name: "Scan these" }));
     const dialog = await screen.findByRole("dialog");
-    expect(within(dialog).getByText("Scan 61 matching targets?")).toBeVisible();
+    const sites = mock.store.targets.filter((target) => target.needsRecord).length;
+    expect(
+      await within(dialog).findByText(`Scan the ${sites} people-search sites among these 61?`),
+    ).toBeVisible();
     await user.click(within(dialog).getByRole("button", { name: "Start scans" }));
     await waitFor(() => expect(mock.store.scans.length).toBeGreaterThan(before));
+    await waitFor(() => expect(screen.queryByText(/matching selected/)).not.toBeInTheDocument());
+  });
+
+  it("offers no scan when the filter matches no people-search site", async () => {
+    const mock = createMockApp();
+    const company = mock.store.targets.find((target) => target.kind === "company");
+    for (let index = 0; index < 20; index += 1) {
+      mock.store.targets.push({
+        ...(company as TargetDetail),
+        id: `extra-${index}`,
+        name: `Extra ${index}`,
+      });
+    }
+    const { user } = renderPage(<TargetsPage />, {
+      path: "/targets",
+      route: "/targets?kind=company",
+      mock,
+    });
+    await rows();
+    await user.click(screen.getByRole("checkbox", { name: "Select all targets on this page" }));
+    await user.click(screen.getByRole("button", { name: "Select all 52 matching" }));
+    expect(screen.getByRole("button", { name: "Scan these" })).toBeDisabled();
   });
 
   it("shows the server's cap message plainly when the selection is too large", async () => {

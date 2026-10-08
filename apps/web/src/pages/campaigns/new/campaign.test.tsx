@@ -183,9 +183,11 @@ describe("the campaign builder", () => {
   it("warns before sending that form-only requests will wait for a person", async () => {
     const { user } = open();
     await user.click(await screen.findByRole("radio", { name: /^Everything/ }));
-    const notice = await screen.findByRole("alert");
-    expect(notice).toHaveTextContent(/\d+ requests will wait for you/);
-    expect(notice).toHaveTextContent("no agent has connected");
+    const notice = await screen.findByText(/will wait for you/);
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(notice.closest("p")).toHaveTextContent(/\d+ requests will wait for you/);
+    expect(notice.closest("p")).toHaveTextContent("no working recipe");
+    expect(notice.closest("p")).toHaveTextContent("no agent has connected");
   });
 
   it("does not warn once an agent worker has been seen", async () => {
@@ -201,6 +203,31 @@ describe("the campaign builder", () => {
     await user.click(await screen.findByRole("radio", { name: /^Everything/ }));
     await screen.findByText(/First targets/);
     expect(screen.queryByText(/will wait for you/)).not.toBeInTheDocument();
+  });
+
+  it("says a filter campaign only asks companies to stop selling", async () => {
+    const { user } = open(`/campaigns/new?filter=${encodeURIComponent('{"kind":"company"}')}`);
+    await user.click(await screen.findByRole("checkbox", { name: /Delete my data/ }));
+    expect(
+      screen.getByText(/Group and filter campaigns only ask companies to stop selling/),
+    ).toBeVisible();
+    const preview = await screen.findByRole("region", { name: "Preview" });
+    expect(await within(preview).findByText("Email preview")).toBeVisible();
+    expect(within(preview).queryByText(/delete the personal information/)).not.toBeInTheDocument();
+  });
+
+  it("does not bring a group back after the picked targets are cleared", async () => {
+    const { user } = open();
+    await user.click(await screen.findByRole("radio", { name: /Easy ones/ }));
+    await user.click(screen.getByText("Search and pick targets"));
+    await user.type(await screen.findByRole("searchbox", { name: "Search targets" }), "pawprint");
+    await user.click(await screen.findByRole("checkbox", { name: "Pick Pawprint Pet Supply" }));
+    expect(await screen.findByText("1 target selected")).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "Clear targets" }));
+    expect(screen.queryByText("1 target selected")).not.toBeInTheDocument();
+    for (const radio of screen.getAllByRole("radio")) expect(radio).not.toBeChecked();
+    expect(screen.getByText("Search and pick targets").closest("summary")).toHaveFocus();
+    expect(screen.getByRole("button", { name: "Send requests" })).toBeDisabled();
   });
 
   it("shows the size of the chosen group beside it", async () => {

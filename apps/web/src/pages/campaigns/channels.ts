@@ -111,7 +111,7 @@ export function parseFilterParam(value: string | null): TargetFilter | null {
 }
 
 /**
- * Forms that no approved recipe can fill in, so the request waits for an agent or for the person.
+ * Forms that no working recipe can fill in, so the request waits for an agent or for the person.
  * Only worth a warning when no agent worker has ever reported in, because an agent would take them.
  */
 export function waitingForPerson(counts: ChannelCounts, agentSeen: boolean): number {
