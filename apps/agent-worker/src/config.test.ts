@@ -12,8 +12,10 @@ describe("loadAgentWorkerConfig", () => {
       model: "qwen3:14b",
       baseUrl: "http://localhost:11434/v1",
       apiKey: null,
-      maxOutputTokens: 2048,
+      maxOutputTokens: 4096,
       tokenParam: "max_tokens",
+      numCtx: 16_384,
+      thinking: "default",
     });
     expect(config.serverUrl).toBe("http://127.0.0.1:8420");
     expect(config.workerId).toMatch(/-agent$/);
@@ -46,6 +48,65 @@ describe("loadAgentWorkerConfig", () => {
         KICKROCKS_AGENT_TOKEN_PARAM: "n",
       }),
     ).toThrow();
+  });
+
+  it("gives a thinking model room by default, and lets thinking be turned off", () => {
+    const env = { ...BASE, KICKROCKS_AGENT_MODEL: "qwen3:8b" };
+    expect(loadAgentWorkerConfig(env).provider.maxOutputTokens).toBe(4096);
+    expect(loadAgentWorkerConfig(env).provider.thinking).toBe("default");
+    const off = loadAgentWorkerConfig({
+      ...env,
+      KICKROCKS_AGENT_THINKING: "off",
+      KICKROCKS_AGENT_MAX_OUTPUT_TOKENS: "1024",
+    });
+    expect(off.provider).toMatchObject({ thinking: "off", maxOutputTokens: 1024 });
+    expect(() => loadAgentWorkerConfig({ ...env, KICKROCKS_AGENT_THINKING: "low" })).toThrow();
+  });
+
+  describe("the ollama provider", () => {
+    const env = {
+      ...BASE,
+      KICKROCKS_AGENT_PROVIDER: "ollama",
+      KICKROCKS_AGENT_MODEL: "gpt-oss:20b",
+    };
+
+    it("talks to Ollama's native address with a context of 16384, so nobody gets the 4096 default", () => {
+      expect(loadAgentWorkerConfig(env).provider).toEqual({
+        kind: "ollama",
+        model: "gpt-oss:20b",
+        baseUrl: "http://localhost:11434",
+        apiKey: null,
+        maxOutputTokens: 4096,
+        tokenParam: "max_tokens",
+        numCtx: 16_384,
+        thinking: "default",
+      });
+    });
+
+    it("takes another context size, and refuses one too small to hold a page", () => {
+      expect(
+        loadAgentWorkerConfig({ ...env, KICKROCKS_AGENT_NUM_CTX: "32768" }).provider,
+      ).toMatchObject({ numCtx: 32_768 });
+      expect(() => loadAgentWorkerConfig({ ...env, KICKROCKS_AGENT_NUM_CTX: "1024" })).toThrow();
+    });
+
+    it("needs a model, and drops the /v1 that an openai address ends with", () => {
+      expect(() => loadAgentWorkerConfig({ ...BASE, KICKROCKS_AGENT_PROVIDER: "ollama" })).toThrow(
+        /ollama provider needs KICKROCKS_AGENT_MODEL/,
+      );
+      expect(
+        loadAgentWorkerConfig({
+          ...env,
+          KICKROCKS_AGENT_BASE_URL: "http://host.docker.internal:11434/v1/",
+        }).provider.baseUrl,
+      ).toBe("http://host.docker.internal:11434");
+    });
+
+    it("leaves the openai provider on the /v1 address, for any compatible server", () => {
+      expect(
+        loadAgentWorkerConfig({ ...env, KICKROCKS_AGENT_PROVIDER: "openai" }).provider,
+      ).toMatchObject({ kind: "openai", baseUrl: "http://localhost:11434/v1" });
+    });
   });
 
   it("defaults Anthropic to claude-sonnet-4-6 and needs a key", () => {

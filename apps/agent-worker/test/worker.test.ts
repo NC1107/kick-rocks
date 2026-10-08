@@ -110,6 +110,8 @@ function config(): AgentWorkerConfig {
       apiKey: null,
       maxOutputTokens: 1024,
       tokenParam: "max_tokens",
+      numCtx: 16_384,
+      thinking: "default",
     },
     pricing: { inputUsdPerMtok: 1, outputUsdPerMtok: 2 },
     limits: { maxSteps: 30, maxMs: 60_000, maxTotalTokens: null },
