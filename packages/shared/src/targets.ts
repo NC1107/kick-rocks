@@ -7,6 +7,7 @@ import {
   Requirement,
   TargetPriority,
 } from "./broker.js";
+import { Difficulty, DifficultyReason } from "./difficulty.js";
 import { isSharedMailHost, withoutSharedHosts } from "./mail-hosts.js";
 import { RecipeHealth, RecipePurpose, RecipeSource, RecipeStatus } from "./recipe.js";
 import { WebUrl } from "./url.js";
@@ -85,6 +86,21 @@ export function needsRecord(target: { id: string; category: TargetCategory }): b
   return PEOPLE_SEARCH_LIKE.has(target.category) && !RECORD_NOT_NEEDED.has(target.id);
 }
 
+/** The filters a targets list and a campaign selection share. */
+export const TargetFilter = z.object({
+  kind: TargetKind.optional(),
+  category: TargetCategory.optional(),
+  contactMethod: ContactMethod.optional(),
+  requirement: Requirement.optional(),
+  priority: TargetPriority.optional(),
+  difficulty: Difficulty.optional(),
+  q: z.string().trim().max(100).optional(),
+});
+export type TargetFilter = z.infer<typeof TargetFilter>;
+
+/** The most targets one campaign or scan may take, whether named by id or selected by a filter. */
+export const MAX_SELECTED_TARGETS = 5000;
+
 /** What lists, claims, and agents need to know about a target. Contains no personal data. */
 export const TargetSummary = z.object({
   id: z.string(),
@@ -108,6 +124,9 @@ export const TargetSummary = z.object({
   californiaRegistered: z.boolean(),
   /** The dataset no longer lists it. Nothing new is sent to it, but its history stays. */
   retired: z.boolean(),
+  /** How much of a removal Kick Rocks can do on its own, derived from the target's data and its approved recipes. */
+  difficulty: Difficulty,
+  difficultyReasons: z.array(DifficultyReason),
 });
 export type TargetSummary = z.infer<typeof TargetSummary>;
 

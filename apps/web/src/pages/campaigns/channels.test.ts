@@ -6,7 +6,9 @@ import {
   countByChannel,
   groupSkipped,
   outcomeChannel,
+  parseFilterParam,
   parseTargetIds,
+  waitingForPerson,
 } from "./channels.js";
 
 const outcome = (
@@ -137,5 +139,33 @@ describe("outcomeChannel", () => {
     expect(outcomeChannel(outcome("a", "scan_started"), targets)).toBe("scan");
     expect(outcomeChannel(outcome("a", "skipped", "already_active"), targets)).toBe("skipped");
     expect(outcomeChannel(outcome("unknown", "request_created"), targets)).toBe("form");
+  });
+});
+
+describe("parseFilterParam", () => {
+  it("reads a filter a Targets link carries", () => {
+    expect(parseFilterParam('{"difficulty":"easy","kind":"broker"}')).toEqual({
+      difficulty: "easy",
+      kind: "broker",
+    });
+  });
+
+  it("ignores anything that is not a filter", () => {
+    expect(parseFilterParam(null)).toBeNull();
+    expect(parseFilterParam("not json")).toBeNull();
+    expect(parseFilterParam('{"difficulty":"trivial"}')).toBeNull();
+    expect(parseFilterParam('{"unknown":"x"}')).toBeNull();
+  });
+});
+
+describe("waitingForPerson", () => {
+  const counts = { email: 4, form: 2, manual: 3, scan: 1, skipped: 0 };
+
+  it("counts the forms no recipe covers when no agent has been seen", () => {
+    expect(waitingForPerson(counts, false)).toBe(3);
+  });
+
+  it("stays quiet once an agent has been seen", () => {
+    expect(waitingForPerson(counts, true)).toBe(0);
   });
 });

@@ -1,4 +1,11 @@
-import type { CampaignPreview, SkipReason, TargetListItem, TargetOutcome } from "@kickrocks/shared";
+import {
+  type CampaignPreview,
+  MAX_SELECTED_TARGETS,
+  type SkipReason,
+  TargetFilter,
+  type TargetListItem,
+  type TargetOutcome,
+} from "@kickrocks/shared";
 
 /** How a target in a campaign is reached: an email, a web form, or a scan that finds the record first. */
 export type CampaignChannel = "email" | "form" | "scan";
@@ -89,5 +96,24 @@ export function parseTargetIds(value: string | null): string[] {
         .map((id) => id.trim())
         .filter(Boolean),
     ),
-  ].slice(0, 5000);
+  ].slice(0, MAX_SELECTED_TARGETS);
+}
+
+/** The filter a Targets page "select all matching" link carries, or null when it is missing or not a filter. */
+export function parseFilterParam(value: string | null): TargetFilter | null {
+  if (!value) return null;
+  try {
+    const parsed = TargetFilter.strict().safeParse(JSON.parse(value));
+    return parsed.success ? parsed.data : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Forms that no working recipe can fill in, so the request waits for an agent or for the person.
+ * Only worth a warning when no agent worker has ever reported in, because an agent would take them.
+ */
+export function waitingForPerson(counts: ChannelCounts, agentSeen: boolean): number {
+  return agentSeen ? 0 : counts.manual;
 }

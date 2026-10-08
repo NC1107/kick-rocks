@@ -58,6 +58,32 @@ describe("target handlers", () => {
     expect(row.automation).toEqual({ scan: "healthy", remove: "broken" });
   });
 
+  it("filter by difficulty and count each difficulty in the facets", async () => {
+    const facets = (await call({ path: "/targets/facets" })).json.difficulty as {
+      value: string;
+      count: number;
+    }[];
+    expect(facets.map((facet) => facet.value)).toEqual(["easy", "medium", "hard"]);
+    const all = await call({ path: "/targets?pageSize=1" });
+    expect(facets.reduce((sum, facet) => sum + facet.count, 0)).toBe(all.json.total);
+    for (const { value, count } of facets) {
+      const listed = await call({ path: `/targets?difficulty=${value}&pageSize=200` });
+      expect(listed.json.total).toBe(count);
+      expect(
+        listed.json.items.every((item: { difficulty: string }) => item.difficulty === value),
+      ).toBe(true);
+    }
+  });
+
+  it("report why a target has its difficulty", async () => {
+    const detail = await call({ path: "/targets/peopletrace" });
+    expect(detail.json.difficulty).toBe("medium");
+    expect(detail.json.difficultyReasons).toEqual(["needs_record", "recipe_ready"]);
+    const captcha = await call({ path: "/targets/findrecord" });
+    expect(captcha.json).toMatchObject({ difficulty: "hard" });
+    expect(captcha.json.difficultyReasons).toContain("captcha");
+  });
+
   it("answer 404 for a target that does not exist and 400 for a bad filter", async () => {
     expect((await call({ path: "/targets/not-a-target" })).status).toBe(404);
     expect((await call({ path: "/targets?kind=bogus" })).status).toBe(400);

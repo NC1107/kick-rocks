@@ -255,13 +255,8 @@ export default defineMockDomain({
           busy: false,
           currentTaskId: null,
         },
-        model: {
-          workerId: "agent-home",
-          version: "agent-0.1.0",
-          lastSeenAt: store.ago({ minutes: 1 }),
-          busy: true,
-          currentTaskId: null,
-        },
+        // No agent has connected, so form-only targets wait for a person, as the campaign preview warns.
+        model: null,
       },
     };
     seedRecipe(store, "peopletrace", "scan");
@@ -319,6 +314,9 @@ export default defineMockDomain({
       )
         throw conflict("Only a recipe waiting for review can be decided.");
       recipe.status = status;
+      const target = store.targets.find((candidate) => candidate.id === recipe.targetId);
+      const listed = target?.recipes.find((candidate) => candidate.id === recipe.id);
+      if (listed) listed.status = status;
       return recipe;
     };
 

@@ -24,6 +24,12 @@ export class MockHttpError extends Error {
 
 export const notFound = (what: string) =>
   new MockHttpError(404, "not_found", `${what} was not found.`);
+export const selectionTooLarge = (matched: number, max: number) =>
+  new MockHttpError(
+    422,
+    "selection_too_large",
+    `That filter matches ${matched} targets, and one request takes at most ${max}. Narrow the filter and try again.`,
+  );
 export const conflict = (message: string) => new MockHttpError(409, "conflict", message);
 export const invalid = (message: string, path: (string | number)[] = []) =>
   new MockHttpError(400, "invalid_request", message, [{ path, message }]);

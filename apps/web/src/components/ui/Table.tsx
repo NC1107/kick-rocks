@@ -269,7 +269,7 @@ export function TableIdentity({
   );
 }
 
-/** The bar above a table: search, then filters, then a right-aligned mono count. */
+/** The one-line bar above a table: search, the Filters button, then a right-aligned mono count on wider screens. */
 export function TableToolbar({
   count,
   className,
@@ -280,10 +280,12 @@ export function TableToolbar({
   children?: ReactNode;
 }) {
   return (
-    <div className={cn("mb-2.5 flex flex-wrap items-center gap-2", className)}>
+    <div className={cn("mb-2.5 flex items-center gap-2", className)}>
       {children}
       {count ? (
-        <span className="ml-auto font-mono text-meta text-ink-3 tabular-nums">{count}</span>
+        <span className="ml-auto shrink-0 whitespace-nowrap font-mono text-meta text-ink-3 tabular-nums max-sm:hidden">
+          {count}
+        </span>
       ) : null}
     </div>
   );

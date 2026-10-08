@@ -60,16 +60,37 @@ describe("the requests page", () => {
   it("filters by status from the address bar", async () => {
     open("/requests?status=needs_verification");
     await waitFor(async () => expect((await rows()).length).toBe(2));
-    expect(screen.getByLabelText("Status")).toHaveValue("needs_verification");
+    expect(screen.getByRole("list", { name: "Active filters" })).toHaveTextContent(
+      "Status: Needs verification",
+    );
     for (const row of await rows())
       expect(within(row).getByText("Needs verification")).toBeVisible();
   });
 
   it("filters to one target and says which", async () => {
     open("/requests?targetId=audiencegrid");
-    expect(await screen.findByText(/Showing requests to/)).toBeVisible();
     await waitFor(async () => expect((await rows()).length).toBe(1));
-    expect(await screen.findByText("AudienceGrid", { selector: "span" })).toBeVisible();
+    expect(await screen.findByText("Target: AudienceGrid")).toBeVisible();
+    expect(screen.getByRole("button", { name: "Filters, 1 active" })).toBeVisible();
+  });
+
+  it("filters from the popup and drops the filter when its tag is removed", async () => {
+    const { user } = open();
+    await rows();
+    expect(screen.queryByRole("list", { name: "Active filters" })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Filters" }));
+    await user.selectOptions(screen.getByLabelText("Status"), "needs_verification");
+    await waitFor(async () => expect((await rows()).length).toBe(2));
+    await user.click(screen.getByRole("button", { name: "Remove Status: Needs verification" }));
+    await waitFor(async () => expect((await rows()).length).toBeGreaterThan(2));
+    expect(screen.queryByRole("list", { name: "Active filters" })).not.toBeInTheDocument();
+  });
+
+  it("removes the target filter from its tag", async () => {
+    const { user } = open("/requests?targetId=audiencegrid");
+    await waitFor(async () => expect((await rows()).length).toBe(1));
+    await user.click(await screen.findByRole("button", { name: "Remove Target: AudienceGrid" }));
+    await waitFor(async () => expect((await rows()).length).toBeGreaterThan(1));
   });
 
   it("searches by reference", async () => {

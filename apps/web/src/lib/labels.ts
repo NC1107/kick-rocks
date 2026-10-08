@@ -2,6 +2,8 @@ import type {
   AgentReason,
   BlockedReason,
   ContactMethod,
+  Difficulty,
+  DifficultyReason,
   EmailKind,
   FailureKind,
   FormOutcome,
@@ -76,6 +78,38 @@ export const PRIORITY_LABELS: Record<TargetPriority, string> = {
   crucial: "Crucial",
   high: "High",
   normal: "Normal",
+};
+
+export const DIFFICULTY_LABELS: Record<Difficulty, string> = {
+  easy: "Easy",
+  medium: "Medium",
+  hard: "Hard",
+};
+
+export const DIFFICULTY_MEANINGS: Record<Difficulty, string> = {
+  easy: "Kick Rocks can send this on its own, by email.",
+  medium: "Kick Rocks can do this with a recipe it already trusts.",
+  hard: "A person or an agent has to do part of this.",
+};
+
+export const DIFFICULTY_REASON_LABELS: Record<DifficultyReason, string> = {
+  email: "It takes requests at its own privacy email address.",
+  no_record_needed: "A request can go out without finding your listing first.",
+  form: "It takes requests through a web form.",
+  recipe_ready: "An approved recipe covers each step Kick Rocks runs, and none is failing.",
+  needs_record: "Your listing has to be found before it can be removed.",
+  needs_phone: "It needs a phone call that only you can make.",
+  needs_id: "It wants a photo of your ID.",
+  needs_payment: "It charges for removal.",
+  needs_account: "You have to create an account first.",
+  captcha: "It shows a CAPTCHA that only you can solve.",
+  needs_mail: "It only accepts requests by post.",
+  needs_fax: "It only accepts requests by fax.",
+  no_recipe: "No approved recipe fills in its form, so an agent or you have to.",
+  recipe_broken: "Its approved recipe is failing against the live site.",
+  email_shared:
+    "Its only address is on a shared mail host such as gmail.com, which proves nothing about who replies.",
+  no_contact: "There is no usable email address or opt-out page on file.",
 };
 
 export const RIGHT_LABELS: Record<RequestRight, string> = {

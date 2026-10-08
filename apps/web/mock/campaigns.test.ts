@@ -36,6 +36,37 @@ describe("campaign handlers", () => {
     expect(again.json.counts.request_created).toBe(0);
   });
 
+  it("selects every easy target with the easy preset and the same ones by filter", async () => {
+    const easy = (await call({ path: "/targets?difficulty=easy&pageSize=1" })).json.total;
+    const path = `/profiles/${jordan().id}/campaigns/preview`;
+    const rights = ["opt_out"];
+    const preset = await call({
+      method: "POST",
+      path,
+      body: { selection: { preset: "easy" }, rights },
+    });
+    const filter = await call({
+      method: "POST",
+      path,
+      body: { selection: { filter: { difficulty: "easy" } }, rights },
+    });
+    expect(preset.json.items).toHaveLength(easy);
+    expect(filter.json.items.map((item: { targetId: string }) => item.targetId).sort()).toEqual(
+      preset.json.items.map((item: { targetId: string }) => item.targetId).sort(),
+    );
+  });
+
+  it("starts scans for the people-search targets a filter selects", async () => {
+    const riley = app.store.profiles[1] as NonNullable<(typeof app.store.profiles)[number]>;
+    const scanned = await call({
+      method: "POST",
+      path: `/profiles/${riley.id}/scans`,
+      body: { filter: { category: "people-search" } },
+    });
+    expect(scanned.status).toBeLessThan(300);
+    expect(scanned.json.items.length).toBeGreaterThan(0);
+  });
+
   it("names the first emailed target in the sample, even in a mixed group", async () => {
     const preview = await call({
       method: "POST",

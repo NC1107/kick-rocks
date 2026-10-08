@@ -4,18 +4,23 @@ import { type KickRocksDb, type TargetRow, targets } from "@kickrocks/db";
 import {
   Broker,
   Company,
+  classifyDifficulty,
+  type DifficultyAssessment,
   needsRecord,
   replyAddressesOf,
   replyDomainsOf,
+  type TargetFilter,
   type TargetKind,
   type TargetSummary,
   withoutSharedHosts,
 } from "@kickrocks/shared";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
+import { approvedRecipesOf, NO_RECIPES } from "./approved-recipes.js";
 import { type Clock, nowIso } from "./clock.js";
 import { notFound } from "./errors.js";
 import type { Logger } from "./logger.js";
+import { liveTargetsMatching } from "./target-filter.js";
 
 export interface DatasetSnapshot<T> {
   /** Identifies this build of the dataset, stored on every target it produced. */
@@ -54,6 +59,12 @@ export interface TargetsService {
   get(id: string): TargetRow | null;
   getOrThrow(id: string): TargetRow;
   toSummary(row: TargetRow): TargetSummary;
+  /** Summaries for many rows with one recipe read, for lists. */
+  toSummaries(rows: readonly TargetRow[]): TargetSummary[];
+  /** How hard each row is to remove, from its data and its approved recipes as they are now. */
+  assess(rows: readonly TargetRow[]): Map<string, DifficultyAssessment>;
+  /** Every live target a filter matches, in the order the targets list shows them. */
+  select(filter: TargetFilter): TargetRow[];
   /** The summary of a target by id, for claims and listings. */
   summary(id: string): TargetSummary;
 }
@@ -74,7 +85,7 @@ export function isPeopleSearchTarget(row: Pick<TargetRow, "id" | "kind" | "categ
   return row.kind === "broker" && needsRecord(row);
 }
 
-export function toTargetSummary(row: TargetRow): TargetSummary {
+export function toTargetSummary(row: TargetRow, assessment: DifficultyAssessment): TargetSummary {
   return {
     id: row.id,
     kind: row.kind,
@@ -92,6 +103,8 @@ export function toTargetSummary(row: TargetRow): TargetSummary {
     needsRecord: needsRecord({ id: row.id, category: row.category }),
     californiaRegistered: row.data.sources.some((source) => source.source === "ca-registry-2025"),
     retired: row.retired,
+    difficulty: assessment.difficulty,
+    difficultyReasons: assessment.reasons,
   };
 }
 
@@ -240,6 +253,27 @@ export function createTargetsService({
     return row;
   }
 
+  function assess(rows: readonly TargetRow[]): Map<string, DifficultyAssessment> {
+    const recipesByTarget = approvedRecipesOf(
+      db,
+      rows.map((row) => row.id),
+    );
+    return new Map(
+      rows.map((row) => [
+        row.id,
+        classifyDifficulty({
+          ...row,
+          recipes: recipesByTarget.get(row.id) ?? NO_RECIPES,
+        }),
+      ]),
+    );
+  }
+
+  function toSummaries(rows: readonly TargetRow[]): TargetSummary[] {
+    const assessments = assess(rows);
+    return rows.map((row) => toTargetSummary(row, assessments.get(row.id) as DifficultyAssessment));
+  }
+
   return {
     sync() {
       const { desired, syncedKinds } = collect();
@@ -293,10 +327,23 @@ export function createTargetsService({
 
     getOrThrow,
 
-    toSummary: toTargetSummary,
+    toSummary(row) {
+      return toSummaries([row])[0] as TargetSummary;
+    },
+
+    toSummaries,
+
+    assess,
+
+    select({ difficulty, ...filter }) {
+      const rows = liveTargetsMatching(db, filter);
+      if (!difficulty) return rows;
+      const assessments = assess(rows);
+      return rows.filter((row) => assessments.get(row.id)?.difficulty === difficulty);
+    },
 
     summary(id) {
-      return toTargetSummary(getOrThrow(id));
+      return toSummaries([getOrThrow(id)])[0] as TargetSummary;
     },
   };
 }

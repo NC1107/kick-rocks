@@ -1,19 +1,25 @@
-import { API_ROUTES, type TargetFacets } from "@kickrocks/shared";
+import { API_ROUTES, needsRecord, type TargetFacets } from "@kickrocks/shared";
 import { Search } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router";
-import { errorMessage, useApiQuery } from "../../api/index.js";
+import { useCurrentProfile } from "../../api/current-profile.js";
+import { errorMessage, useApiMutation, useApiQuery } from "../../api/index.js";
 import {
   Alert,
+  activeFilterTags,
   Button,
   Checkbox,
+  ConfirmDialog,
   EmptyState,
   Field,
+  type FilterGroup,
+  type FilterOption,
+  Filters,
+  FilterTags,
   Input,
   LinkButton,
   PageHeader,
   Pagination,
-  Select,
   Table,
   TableBody,
   TableCell,
@@ -23,45 +29,59 @@ import {
   TableRow,
   TableToolbar,
   Tag,
+  useToast,
 } from "../../components/ui/index.js";
-import { formatCount } from "../../lib/format.js";
+import { formatCount, pluralize } from "../../lib/format.js";
 import {
   CONTACT_METHOD_LABELS,
+  DIFFICULTY_LABELS,
   PRIORITY_LABELS,
   REQUIREMENT_LABELS,
   TARGET_CATEGORY_LABELS,
   TARGET_KIND_LABELS,
 } from "../../lib/labels.js";
 import { AutomationLegend, HealthMark } from "./Automation.js";
-import { type FilterKey, hasFilters, readFilters, TARGETS_PAGE_SIZE, toQuery } from "./filters.js";
+import { Difficulty } from "./Difficulty.js";
+import {
+  FILTER_KEYS,
+  type FilterKey,
+  hasFilters,
+  readFilters,
+  TARGETS_PAGE_SIZE,
+  toFilter,
+  toQuery,
+} from "./filters.js";
 import { LoadingRows } from "./LoadingRows.js";
 import { Priority } from "./Priority.js";
 import { RequirementBadges } from "./RequirementBadges.js";
+import { SelectCell } from "./SelectCell.js";
+import { useMatchingTargets } from "./use-matching-targets.js";
 
-/** Every option repeats the facet name, so the closed select reads "Type: Company". */
-function FacetOptions({
-  facet,
-  labels,
-  name,
-}: {
-  facet: TargetFacets[keyof TargetFacets] | undefined;
-  labels: Record<string, string>;
-  name: string;
-}) {
-  return (facet ?? []).map((entry) => (
-    <option key={entry.value} value={entry.value}>
-      {name}: {labels[entry.value] ?? entry.value} ({formatCount(entry.count)})
-    </option>
-  ));
+function facetOptions(
+  facet: TargetFacets[keyof TargetFacets] | undefined,
+  labels: Record<string, string>,
+): FilterOption[] {
+  return (facet ?? []).map((entry) => ({
+    value: entry.value,
+    label: labels[entry.value] ?? entry.value,
+    count: entry.count,
+  }));
 }
 
 const SEARCH_DELAY_MS = 250;
 
 export function Component() {
+  const filtersButton = useRef<HTMLButtonElement>(null);
+  const clearSelectionButton = useRef<HTMLButtonElement>(null);
   const [params, setParams] = useSearchParams();
   const filters = readFilters(params);
   const [search, setSearch] = useState(filters.q);
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
+  // Which filter "select all matching" was pressed under, so changing the filter drops it.
+  const [matchingKey, setMatchingKey] = useState<string | null>(null);
+  const [confirmingScan, setConfirmingScan] = useState(false);
+  const toast = useToast();
+  const { profile } = useCurrentProfile();
 
   const facets = useApiQuery(API_ROUTES.targetsFacets, { staleTime: 60_000 });
   const list = useApiQuery(API_ROUTES.targetsList, { query: toQuery(filters), keepPrevious: true });
@@ -93,6 +113,65 @@ export function Component() {
     setParams({}, { replace: true });
   };
 
+  const clearFacetFilters = () =>
+    setParams(
+      (current) => {
+        const next = new URLSearchParams(current);
+        for (const key of FILTER_KEYS) if (key !== "q") next.delete(key);
+        next.delete("page");
+        return next;
+      },
+      { replace: true },
+    );
+
+  const facetGroup = (
+    key: Exclude<FilterKey, "q">,
+    label: string,
+    allLabel: string,
+    options: FilterOption[],
+  ): FilterGroup => ({
+    id: key,
+    label,
+    value: filters[key],
+    options,
+    allLabel,
+    onChange: (value) => setFilter(key, value),
+  });
+
+  const groups = [
+    facetGroup("kind", "Type", "All types", facetOptions(facets.data?.kind, TARGET_KIND_LABELS)),
+    facetGroup(
+      "category",
+      "Category",
+      "All categories",
+      facetOptions(facets.data?.category, TARGET_CATEGORY_LABELS),
+    ),
+    facetGroup(
+      "contactMethod",
+      "Contact",
+      "Any contact method",
+      facetOptions(facets.data?.contactMethod, CONTACT_METHOD_LABELS),
+    ),
+    facetGroup(
+      "requirement",
+      "Needs",
+      "Any requirement",
+      facetOptions(facets.data?.requirement, REQUIREMENT_LABELS),
+    ),
+    facetGroup(
+      "priority",
+      "Priority",
+      "Any priority",
+      facetOptions(facets.data?.priority, PRIORITY_LABELS),
+    ),
+    facetGroup(
+      "difficulty",
+      "Difficulty",
+      "Any difficulty",
+      facetOptions(facets.data?.difficulty, DIFFICULTY_LABELS),
+    ),
+  ];
+
   // The address bar is the source of truth, so the box follows it when a filter is cleared or the
   // back button changes it.
   useEffect(() => setSearch(filters.q), [filters.q]);
@@ -106,18 +185,34 @@ export function Component() {
 
   const items = list.data?.items ?? [];
   const selectable = useMemo(() => items.filter((item) => !item.retired), [items]);
-  const allSelected = selectable.length > 0 && selectable.every((item) => selected.has(item.id));
-  const someSelected = selectable.some((item) => selected.has(item.id));
+  const filter = toFilter(filters);
+  const filterKey = JSON.stringify(filter);
+  const allMatching = matchingKey === filterKey;
+  const total = list.data?.total ?? 0;
+  const isChecked = (id: string) => allMatching || selected.has(id);
+  const allSelected = selectable.length > 0 && selectable.every((item) => isChecked(item.id));
+  const someSelected = selectable.some((item) => isChecked(item.id));
+  const offerAllMatching = allSelected && !allMatching && total > items.length;
 
-  const toggle = (id: string, on: boolean) =>
+  const toggle = (id: string, on: boolean) => {
+    if (allMatching) {
+      setMatchingKey(null);
+      const remaining = selectable.length - (on ? 0 : 1);
+      toast.info(`Selection narrowed to the ${pluralize(remaining, "target")} on this page`);
+    }
     setSelected((current) => {
-      const next = new Set(current);
+      const next = new Set(allMatching ? selectable.map((item) => item.id) : current);
       if (on) next.add(id);
       else next.delete(id);
       return next;
     });
+  };
 
-  const togglePage = (on: boolean) =>
+  const togglePage = (on: boolean) => {
+    if (allMatching && !on) {
+      clearSelection();
+      return;
+    }
     setSelected((current) => {
       const next = new Set(current);
       for (const item of selectable) {
@@ -126,9 +221,40 @@ export function Component() {
       }
       return next;
     });
+  };
 
-  const campaignLink = `/campaigns/new?targets=${[...selected].map(encodeURIComponent).join(",")}`;
+  const selectAllMatching = () => {
+    setMatchingKey(filterKey);
+    // The pressed button leaves the bar, so focus moves to one that stays.
+    queueMicrotask(() => clearSelectionButton.current?.focus());
+  };
+
+  const clearSelection = () => {
+    setSelected(new Set());
+    setMatchingKey(null);
+  };
+
+  const matching = useMatchingTargets(filter, allMatching);
+  const scannable = matching.data?.filter((item) => needsRecord(item) && !item.retired).length;
+
+  const scan = useApiMutation(API_ROUTES.scansStart, {
+    invalidates: [API_ROUTES.scansList, API_ROUTES.reviewQueue, API_ROUTES.dashboardGet],
+    onSuccess: (result) => {
+      setConfirmingScan(false);
+      clearSelection();
+      const started = result.items.filter((item) => item.outcome === "scan_started").length;
+      toast.success(
+        started === 0 ? "No new scans to start" : `Started ${pluralize(started, "scan")}`,
+      );
+    },
+    onError: () => setConfirmingScan(false),
+  });
+
+  const campaignLink = allMatching
+    ? `/campaigns/new?filter=${encodeURIComponent(filterKey)}`
+    : `/campaigns/new?targets=${[...selected].map(encodeURIComponent).join(",")}`;
   const filtered = hasFilters(filters);
+  const resultCount = list.data ? `${formatCount(list.data.total)} targets` : undefined;
 
   return (
     <>
@@ -143,8 +269,8 @@ export function Component() {
       />
 
       <search aria-label="Filter targets">
-        <TableToolbar count={list.data ? `${formatCount(list.data.total)} targets` : undefined}>
-          <Field label="Search" hideLabel className="w-full sm:w-48">
+        <TableToolbar count={resultCount}>
+          <Field label="Search" hideLabel className="min-w-0 flex-1 sm:w-70 sm:flex-initial">
             <Input
               type="search"
               value={search}
@@ -154,97 +280,65 @@ export function Component() {
               leading={<Search aria-hidden="true" />}
             />
           </Field>
-          <Field label="Type" hideLabel className="w-[calc(50%-0.25rem)] sm:w-30">
-            <Select
-              aria-label="Type"
-              value={filters.kind}
-              onChange={(event) => setFilter("kind", event.target.value)}
-            >
-              <option value="">Type: all</option>
-              <FacetOptions facet={facets.data?.kind} labels={TARGET_KIND_LABELS} name="Type" />
-            </Select>
-          </Field>
-          <Field label="Category" hideLabel className="w-[calc(50%-0.25rem)] sm:w-37">
-            <Select
-              aria-label="Category"
-              value={filters.category}
-              onChange={(event) => setFilter("category", event.target.value)}
-            >
-              <option value="">Category: all</option>
-              <FacetOptions
-                facet={facets.data?.category}
-                labels={TARGET_CATEGORY_LABELS}
-                name="Category"
-              />
-            </Select>
-          </Field>
-          <Field label="Contact method" hideLabel className="w-[calc(50%-0.25rem)] sm:w-35">
-            <Select
-              aria-label="Contact method"
-              value={filters.contactMethod}
-              onChange={(event) => setFilter("contactMethod", event.target.value)}
-            >
-              <option value="">Contact: all</option>
-              <FacetOptions
-                facet={facets.data?.contactMethod}
-                labels={CONTACT_METHOD_LABELS}
-                name="Contact"
-              />
-            </Select>
-          </Field>
-          <Field label="Requirement" hideLabel className="w-[calc(50%-0.25rem)] sm:w-28">
-            <Select
-              aria-label="Requirement"
-              value={filters.requirement}
-              onChange={(event) => setFilter("requirement", event.target.value)}
-            >
-              <option value="">Needs: all</option>
-              <FacetOptions
-                facet={facets.data?.requirement}
-                labels={REQUIREMENT_LABELS}
-                name="Needs"
-              />
-            </Select>
-          </Field>
-          <Field label="Priority" hideLabel className="w-[calc(50%-0.25rem)] sm:w-33">
-            <Select
-              aria-label="Priority"
-              value={filters.priority}
-              onChange={(event) => setFilter("priority", event.target.value)}
-            >
-              <option value="">Priority: all</option>
-              <FacetOptions
-                facet={facets.data?.priority}
-                labels={PRIORITY_LABELS}
-                name="Priority"
-              />
-            </Select>
-          </Field>
-          {filtered && items.length > 0 ? (
-            <Button variant="ghost" onClick={clearFilters}>
-              Clear filters
-            </Button>
-          ) : null}
+          <Filters
+            groups={groups}
+            onClear={clearFacetFilters}
+            resultCount={resultCount}
+            triggerRef={filtersButton}
+          />
         </TableToolbar>
       </search>
+      <FilterTags tags={activeFilterTags(groups)} emptyFocusRef={filtersButton} />
 
-      {selected.size > 0 ? (
+      {allMatching || selected.size > 0 ? (
         <div
           role="status"
-          className="mb-2.5 flex flex-wrap items-center justify-between gap-3 rounded-md border border-line bg-accent-soft px-3.5 py-2 text-ui text-ink"
+          className="mb-2.5 flex flex-wrap items-center justify-between gap-x-3 gap-y-2 rounded-md border border-line bg-accent-soft px-3.5 py-2 text-ui text-ink"
         >
-          <span className="font-mono text-meta tabular-nums">
-            {formatCount(selected.size)} selected
+          <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
+            <span className="font-mono text-meta tabular-nums">
+              {allMatching
+                ? `All ${formatCount(total)} matching selected`
+                : `${formatCount(selected.size)} selected`}
+            </span>
+            {offerAllMatching ? (
+              <Button size="sm" variant="ghost" className="-ml-2.5" onClick={selectAllMatching}>
+                Select all {formatCount(total)} matching
+              </Button>
+            ) : null}
           </span>
-          <span className="flex items-center gap-2">
-            <Button size="sm" variant="ghost" onClick={() => setSelected(new Set())}>
+          <span className="flex flex-wrap items-center gap-2 max-sm:w-full">
+            <Button
+              ref={clearSelectionButton}
+              size="sm"
+              variant="ghost"
+              className="-ml-2.5"
+              onClick={clearSelection}
+            >
               Clear selection
             </Button>
-            <LinkButton size="sm" variant="primary" to={campaignLink}>
+            {allMatching ? (
+              <Button
+                size="sm"
+                disabled={!profile || !scannable}
+                onClick={() => {
+                  scan.reset();
+                  setConfirmingScan(true);
+                }}
+              >
+                Scan these
+              </Button>
+            ) : null}
+            <LinkButton size="sm" variant="primary" to={campaignLink} className="max-sm:w-full">
               Ask these to remove my data
             </LinkButton>
           </span>
         </div>
+      ) : null}
+      {scan.isError ? (
+        <Alert intent="danger" title="Could not scan these targets" className="mb-2.5">
+          {errorMessage(scan.error)}
+        </Alert>
       ) : null}
 
       {list.isError ? (
@@ -294,6 +388,7 @@ export function Component() {
                 <TableHeaderCell>Target</TableHeaderCell>
                 <TableHeaderCell className="hidden xl:table-cell">Category</TableHeaderCell>
                 <TableHeaderCell>Priority</TableHeaderCell>
+                <TableHeaderCell className="hidden sm:table-cell">Difficulty</TableHeaderCell>
                 <TableHeaderCell className="hidden md:table-cell">Contact</TableHeaderCell>
                 <TableHeaderCell className="hidden lg:table-cell">Needs</TableHeaderCell>
                 <TableHeaderCell className="hidden lg:table-cell">Scan</TableHeaderCell>
@@ -308,6 +403,7 @@ export function Component() {
                     { bar: "w-40" },
                     { className: "hidden xl:table-cell", bar: "w-20" },
                     {},
+                    { className: "hidden sm:table-cell" },
                     { className: "hidden md:table-cell", bar: "w-20" },
                     { className: "hidden lg:table-cell", bar: "w-24" },
                     { className: "hidden lg:table-cell" },
@@ -316,26 +412,19 @@ export function Component() {
                 />
               ) : (
                 items.map((item) => (
-                  <TableRow key={item.id} selected={selected.has(item.id)}>
-                    <TableCell className="w-10 pr-0 max-sm:p-0">
-                      <label
-                        htmlFor={`select-${item.id}`}
-                        className="relative flex cursor-pointer items-center justify-center max-sm:min-h-11 max-sm:min-w-11"
-                      >
-                        <Checkbox
-                          id={`select-${item.id}`}
-                          aria-label={`Select ${item.name}`}
-                          checked={selected.has(item.id)}
-                          disabled={item.retired}
-                          onChange={(event) => toggle(item.id, event.target.checked)}
-                        />
-                      </label>
-                    </TableCell>
+                  <TableRow key={item.id} selected={isChecked(item.id) && !item.retired}>
+                    <SelectCell
+                      id={`select-${item.id}`}
+                      label={`Select ${item.name}`}
+                      checked={isChecked(item.id) && !item.retired}
+                      disabled={item.retired}
+                      onChange={(on) => toggle(item.id, on)}
+                    />
                     <TableCell className="max-w-64 min-w-40">
                       <TableIdentity
                         title={item.name}
                         to={`/targets/${encodeURIComponent(item.id)}`}
-                        badge={item.retired ? <Tag>Retired</Tag> : null}
+                        {...(item.retired ? { badge: <Tag>Retired</Tag> } : {})}
                         meta={item.domain}
                       />
                     </TableCell>
@@ -344,6 +433,9 @@ export function Component() {
                     </TableCell>
                     <TableCell>
                       <Priority priority={item.priority} />
+                    </TableCell>
+                    <TableCell className="hidden sm:table-cell">
+                      <Difficulty difficulty={item.difficulty} />
                     </TableCell>
                     <TableCell className="hidden text-ink-2 md:table-cell">
                       {CONTACT_METHOD_LABELS[item.contactMethod]}
@@ -373,6 +465,16 @@ export function Component() {
           ) : null}
         </>
       )}
+
+      <ConfirmDialog
+        open={confirmingScan}
+        onClose={() => setConfirmingScan(false)}
+        title={`Scan the ${pluralize(scannable ?? 0, "people-search site")} among these ${formatCount(total)}?`}
+        description="Kick Rocks searches the people-search sites among them for this person, one after another. Nothing is removed until you confirm a record."
+        confirmLabel="Start scans"
+        loading={scan.isPending}
+        onConfirm={() => profile && scan.mutate({ params: { id: profile.id }, body: { filter } })}
+      />
     </>
   );
 }

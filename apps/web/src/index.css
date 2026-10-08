@@ -579,7 +579,7 @@
   }
 
   /* A modal dialog does not stop the page behind it from scrolling, so stop it here. */
-  :root:has(dialog[open]) {
+  :root:has(dialog:modal) {
     overflow: hidden;
   }
 

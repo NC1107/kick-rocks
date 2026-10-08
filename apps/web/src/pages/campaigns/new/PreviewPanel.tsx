@@ -2,7 +2,7 @@ import type { CampaignPreview, RenderedEmail } from "@kickrocks/shared";
 import { ChevronDown } from "lucide-react";
 import { RowGroup, Section, Skeleton } from "../../../components/ui/index.js";
 import { cn } from "../../../lib/cn.js";
-import { formatCount } from "../../../lib/format.js";
+import { formatCount, pluralize } from "../../../lib/format.js";
 import { SKIP_REASON_LABELS } from "../../../lib/labels.js";
 import { advisories, type ChannelCounts, groupSkipped } from "../channels.js";
 
@@ -190,5 +190,23 @@ export function EmailPreview({
         </pre>
       </div>
     </Section>
+  );
+}
+
+/**
+ * Web forms no working recipe can fill in. With no agent worker connected they sit in Review
+ * until the person does them, so the person hears it before sending, not after. Attention text
+ * in a polite status region, so a screen reader does not interrupt each time the preview recomputes.
+ */
+export function WaitingForPersonNotice({ count }: { count: number }) {
+  if (count === 0) return null;
+  const many = count !== 1;
+  return (
+    <p role="status" className="text-meta text-attention-text">
+      <span className="font-semibold">{pluralize(count, "request")} will wait for you.</span>{" "}
+      {many ? "They are web forms" : "It is a web form"} with no working recipe, and no agent has
+      connected to fill {many ? "them" : "it"} in. {many ? "They" : "It"} will sit in Review until
+      you do {many ? "them" : "it"} by hand or connect an agent.
+    </p>
   );
 }

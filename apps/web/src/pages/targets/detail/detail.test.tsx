@@ -42,6 +42,30 @@ describe("the target page", () => {
     );
   });
 
+  it("explains in plain words why a target is hard", async () => {
+    open("findrecord");
+    const section = (await screen.findByRole("heading", { name: "Difficulty" })).closest("section");
+    const difficulty = within(section as HTMLElement);
+    expect(difficulty.getByText("Hard.")).toBeVisible();
+    expect(
+      difficulty.getByText("Your listing has to be found before it can be removed."),
+    ).toBeVisible();
+    expect(difficulty.getByText("It shows a CAPTCHA that only you can solve.")).toBeVisible();
+    expect(
+      difficulty.getByText("Its approved recipe is failing against the live site."),
+    ).toBeVisible();
+  });
+
+  it("calls an email-only target easy and says why", async () => {
+    open("audiencegrid");
+    const section = (await screen.findByRole("heading", { name: "Difficulty" })).closest("section");
+    const difficulty = within(section as HTMLElement);
+    expect(difficulty.getByText("Easy.")).toBeVisible();
+    expect(
+      difficulty.getByText("It takes requests at its own privacy email address."),
+    ).toBeVisible();
+  });
+
   it("shows each recipe with its health, and the sources with their licenses", async () => {
     open("findrecord");
     await screen.findByRole("heading", { name: "Automation" });
