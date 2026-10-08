@@ -76,8 +76,12 @@ describe("the targets page", () => {
   it("narrows the list as a person searches", async () => {
     const { user } = renderPage(<TargetsPage />, { path: "/targets", route: "/targets" });
     await rows();
-    await user.type(screen.getByRole("searchbox", { name: "Search" }), "peopletrace");
-    await waitFor(async () => expect((await rows()).length).toBe(1));
+    const table = screen.getByRole("region", { name: "Targets" });
+    // One paste is one change, so the work does not grow with the CPU a typed character costs on a
+    // loaded runner; the debounce still starts only after the last change.
+    await user.click(screen.getByRole("searchbox", { name: "Search" }));
+    await user.paste("peopletrace");
+    await waitFor(() => expect(within(table).getAllByRole("row")).toHaveLength(2));
     expect(screen.getByRole("link", { name: "PeopleTrace" })).toBeVisible();
   });
 

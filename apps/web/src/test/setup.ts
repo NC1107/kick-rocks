@@ -3,8 +3,11 @@ import { cleanup, configure } from "@testing-library/react";
 import { afterEach } from "vitest";
 
 // The default one second for findBy queries is shorter than a mock round trip on a loaded CI runner,
-// which made page tests fail there while passing everywhere else. A real hang still fails, just later.
-configure({ asyncUtilTimeout: 5000 });
+// which made page tests fail there while passing everywhere else. Five seconds still was not enough
+// for a filter change: the router applies it in a React transition, which yields to the scheduler
+// between slices, so a starved CPU stretches a page re-render from milliseconds to many seconds.
+// A real hang still fails, just later, and well inside the 30 second test timeout.
+configure({ asyncUtilTimeout: 15_000 });
 
 afterEach(() => {
   cleanup();
