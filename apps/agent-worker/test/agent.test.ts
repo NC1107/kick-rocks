@@ -718,23 +718,26 @@ describeBrowser("human checks", () => {
   });
 
   it("tells the server when the site answered 429, so the task waits out the cooldown", async () => {
-    const { outcome } = await run([
-      navigate("/limited"),
-      {
-        calls: [
-          [
-            "report",
-            { status: "failed", error: "The site said too many requests", retryable: true },
-          ],
-        ],
-      },
-    ]);
+    const { outcome } = await run([navigate("/limited")]);
     expect(outcome.report).toMatchObject({
       kind: "fail",
       report: {
+        retryable: true,
+        kind: "site",
         site: { pushback: { kind: "rate_limited", status: 429, retryAfterSeconds: 180 } },
       },
     });
+  });
+
+  it("stops asking a site that answered 429, even when the model would go on", async () => {
+    const { outcome, provider } = await run([
+      navigate("/limited"),
+      navigate("/limited"),
+      navigate("/optout"),
+    ]);
+    expect(outcome.report).toMatchObject({ kind: "fail", report: { retryable: true } });
+    expect(provider.requests).toHaveLength(1);
+    expect((await fixtureState()).hits.map((hit) => hit.path)).toEqual(["/limited"]);
   });
 
   it("tells the server about a Cloudflare challenge, and does not try to pass it", async () => {

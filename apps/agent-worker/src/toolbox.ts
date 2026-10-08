@@ -307,6 +307,12 @@ export class Toolbox {
     return this.pushback ? { pushback: this.pushback } : undefined;
   }
 
+  /** The HTTP answer that told the run to slow down, when the site gave one. */
+  get refusal(): (Pushback & { status: number }) | undefined {
+    const { pushback } = this;
+    return pushback?.status === undefined ? undefined : { ...pushback, status: pushback.status };
+  }
+
   /** Remembers the first 429, 403, 503, or Cloudflare challenge the page's own document answered. */
   private notePushback(
     status: number,

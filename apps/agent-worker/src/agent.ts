@@ -374,8 +374,32 @@ class AgentRun {
         },
       };
     }
+    const refusal = this.toolbox.refusal;
+    if (refusal) return this.stopForRefusal(refusal.status);
     answer(outcome.text, outcome.isError, outcome.snapshot);
     return null;
+  }
+
+  /**
+   * A site that answered 429, 403 or 503 has asked for fewer requests. A model that reloaded or
+   * tried another page would make more of them, so the run ends here and the server decides when
+   * the site may be visited again.
+   */
+  private stopForRefusal(status: number): TaskReport {
+    this.options.logger.info("the site pushed back, so the run stopped", {
+      taskId: this.options.task.id,
+      status,
+    });
+    return {
+      kind: "fail",
+      report: {
+        error: `The site answered HTTP ${status}, so the run stopped instead of asking again.`,
+        retryable: true,
+        kind: "site",
+        usage: this.usage(),
+        ...this.site(),
+      },
+    };
   }
 
   private async report(
