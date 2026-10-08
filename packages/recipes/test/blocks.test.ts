@@ -349,6 +349,7 @@ describeBrowser("an email confirmation link", () => {
   it.each([
     ["a rate limit", "limited", 429, "rate_limited"],
     ["an outage", "unavailable", 503, "unavailable"],
+    ["a blank 403", "forbidden", 403, "forbidden"],
   ])("fails retryably when the button's post meets %s", async (_name, page_, status, kind) => {
     const outcome = await confirm(`${server.origin}/mail/press-${page_}`);
     expect(outcome).toMatchObject({
@@ -356,15 +357,6 @@ describeBrowser("an email confirmation link", () => {
       kind: "site",
       retryable: true,
       site: { pushback: { kind, status } },
-    });
-  });
-
-  it("does not report a confirmation when the button's post is refused with a blank 403", async () => {
-    const outcome = await confirm(`${server.origin}/mail/press-forbidden`);
-    expect(outcome).toMatchObject({
-      status: "completed",
-      result: { confirmed: false, notes: "The site answered 403." },
-      site: { pushback: { kind: "forbidden", status: 403 } },
     });
   });
 

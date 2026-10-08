@@ -18,67 +18,34 @@ type ScanningKey =
 
 export interface ScanningField {
   key: ScanningKey;
+  /** Five words or fewer; the unit goes in the suffix, not here. */
   label: string;
-  help: string;
+  /** Only where the label alone leaves the value ambiguous, as one clause. */
+  help?: string;
   unit: string;
   min: number;
   max: number;
 }
 
 export const SCANNING_FIELDS: readonly ScanningField[] = [
-  {
-    key: "minGapMinutes",
-    label: "Wait between visits to one site",
-    help: "A random extra wait of up to half of this is added, so visits never fall on a clock.",
-    unit: "minutes",
-    min: 0,
-    max: 1440,
-  },
-  {
-    key: "dailyCapPerSite",
-    label: "Visits to one site per day",
-    help: "Scans, removals, and checks all count. Sister sites owned by one company share a count.",
-    unit: "visits",
-    min: 1,
-    max: 100,
-  },
-  {
-    key: "hourlyCapTotal",
-    label: "Visits to all sites per hour",
-    help: "Keeps a large campaign from looking like a burst from your home address.",
-    unit: "visits",
-    min: 1,
-    max: 500,
-  },
-  {
-    key: "dailyCapTotal",
-    label: "Visits to all sites per day",
-    help: "A ceiling on the whole day, so the hourly pace cannot run around the clock.",
-    unit: "visits",
-    min: 1,
-    max: 2000,
-  },
+  { key: "minGapMinutes", label: "Wait between site visits", unit: "min", min: 0, max: 1440 },
+  { key: "dailyCapPerSite", label: "Daily visits per site", unit: "visits", min: 1, max: 100 },
+  { key: "hourlyCapTotal", label: "Hourly visits, all sites", unit: "visits", min: 1, max: 500 },
+  { key: "dailyCapTotal", label: "Daily visits, all sites", unit: "visits", min: 1, max: 2000 },
   {
     key: "quietStartHour",
     label: "Quiet hours begin",
-    help: "No browser visit starts from this hour until quiet hours end, in the time zone below. Set both to the same hour to turn quiet hours off.",
-    unit: "hour, 0 to 23",
+    help: "The same hour for both turns quiet hours off",
+    unit: "h",
     min: 0,
     max: 23,
   },
-  {
-    key: "quietEndHour",
-    label: "Quiet hours end",
-    help: "Visits start again at this hour.",
-    unit: "hour, 0 to 23",
-    min: 0,
-    max: 23,
-  },
+  { key: "quietEndHour", label: "Quiet hours end", unit: "h", min: 0, max: 23 },
   {
     key: "reuseHours",
     label: "Reuse a finished search for",
-    help: "A repeat search for the same person on the same site inside this time uses the earlier answer. Zero turns it off.",
-    unit: "hours",
+    help: "0 turns reuse off",
+    unit: "h",
     min: 0,
     max: 336,
   },
@@ -95,8 +62,14 @@ export function browserTimeZone(): string {
   }
 }
 
-export const TIME_ZONE_HELP =
-  "A name such as America/Los_Angeles. Quiet hours are read on this clock. Until you save, the server uses its own, which is UTC unless the install set TZ.";
+export const TIME_ZONE_LABEL = "Quiet hours time zone";
+export const TIME_ZONE_HELP = "A name such as America/Los_Angeles";
+
+export const PROXY_LABEL = "Send visits through a proxy";
+export const PROXY_HELP = "An http:// address with no user name or password";
+
+export const PROXY_SITES_LABEL = "Only for these sites";
+export const PROXY_SITES_HELP = "One per line; empty covers every site";
 
 export function scanningDraftOf(
   scanning: ScanningSettings,

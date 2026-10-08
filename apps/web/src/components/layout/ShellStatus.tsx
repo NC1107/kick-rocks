@@ -6,11 +6,19 @@ import { shortRelative } from "../../lib/format.js";
 import { TONE_SHAPE } from "../../lib/status.js";
 import { useNow } from "../../lib/use-now.js";
 import { StatusShapeGlyph, Tooltip } from "../ui/index.js";
-import { inboxChip, mostUrgent, type StatusChip, sendsChip, workerChip } from "./shell-status.js";
+import {
+  inboxChip,
+  mostUrgent,
+  type StatusChip,
+  sendsChip,
+  sitesChip,
+  workerChip,
+} from "./shell-status.js";
 
 const REFRESH_MS = 30_000;
+const SITES_REFRESH_MS = 60_000;
 
-/** Live system state for the header: the worker, the inbox, and today's sending. */
+/** Live system state for the header: the worker, the inbox, today's sending, and any site being left alone. */
 export function useShellStatus(): StatusChip[] {
   const { profile } = useCurrentProfile();
   const settings = useApiQuery(API_ROUTES.settingsGet, { refetchInterval: REFRESH_MS });
@@ -18,6 +26,7 @@ export function useShellStatus(): StatusChip[] {
     API_ROUTES.dashboardGet,
     profile ? { params: { id: profile.id }, refetchInterval: REFRESH_MS } : skipToken,
   );
+  const sites = useApiQuery(API_ROUTES.settingsSites, { refetchInterval: SITES_REFRESH_MS });
   const now = useNow();
   const chips: StatusChip[] = [];
   if (settings.data) chips.push(workerChip(settings.data.worker, now));
@@ -26,6 +35,8 @@ export function useShellStatus(): StatusChip[] {
     const sends = sendsChip(dashboard.data.sending);
     if (sends) chips.push(sends);
   }
+  const cooling = sites.data ? sitesChip(sites.data.items) : null;
+  if (cooling) chips.push(cooling);
   return chips;
 }
 

@@ -1,8 +1,14 @@
 import { API_ROUTES } from "@kickrocks/shared";
 import { useApiQuery } from "../../../api/index.js";
-import { Row, RowGroup, Section, SkeletonText, Tag } from "../../../components/ui/index.js";
-import { formatDateTime, formatRelative } from "../../../lib/format.js";
-import { PUSHBACK_LABELS, siteLabel, siteTone } from "../../../lib/sites.js";
+import {
+  RelativeTime,
+  RowGroup,
+  Section,
+  SiteMark,
+  SkeletonText,
+} from "../../../components/ui/index.js";
+import { PUSHBACK_LABELS } from "../../../lib/sites.js";
+import { FactRow } from "../../settings/rows.js";
 
 /** How Kick Rocks has been treating this site and how the site has answered. */
 export function SiteVisits({ targetId }: { targetId: string }) {
@@ -14,39 +20,30 @@ export function SiteVisits({ targetId }: { targetId: string }) {
       {query.isPending ? (
         <SkeletonText lines={3} />
       ) : query.isError ? (
-        <p className="text-meta text-ink-3">Could not load the visit history just now.</p>
+        <p className="text-ui text-ink-2">Could not load the visit history just now.</p>
       ) : site === null ? (
-        <p className="text-meta text-ink-3">
+        <p className="text-ui text-ink-2">
           Nothing has visited this site yet, so there is no history to show.
         </p>
       ) : (
         <RowGroup>
-          <Row title="Visits today" trailing={`${site.visitsToday} of ${site.dailyCap}`} />
-          <Row title="Status" trailing={<Tag tone={siteTone(site)}>{siteLabel(site)}</Tag>} />
-          <Row
-            title="Last pushback"
-            trailing={
-              site.lastPushbackAt && site.lastPushbackKind ? (
-                <time dateTime={site.lastPushbackAt} title={formatDateTime(site.lastPushbackAt)}>
-                  {PUSHBACK_LABELS[site.lastPushbackKind]}, {formatRelative(site.lastPushbackAt)}
-                </time>
-              ) : (
-                "None"
-              )
-            }
-          />
+          <FactRow label="Visits today">{`${site.visitsToday} of ${site.dailyCap}`}</FactRow>
+          <FactRow label="Status" mono={false}>
+            <SiteMark site={site} />
+          </FactRow>
+          <FactRow label="Last pushback">
+            {site.lastPushbackAt && site.lastPushbackKind ? (
+              <>
+                {PUSHBACK_LABELS[site.lastPushbackKind]}, <RelativeTime iso={site.lastPushbackAt} />
+              </>
+            ) : (
+              "-"
+            )}
+          </FactRow>
           {site.coolingDownUntil ? (
-            <Row
-              title="Cooling down until"
-              trailing={
-                <time
-                  dateTime={site.coolingDownUntil}
-                  title={formatDateTime(site.coolingDownUntil)}
-                >
-                  {formatRelative(site.coolingDownUntil)}
-                </time>
-              }
-            />
+            <FactRow label="Resumes">
+              <RelativeTime iso={site.coolingDownUntil} />
+            </FactRow>
           ) : null}
         </RowGroup>
       )}

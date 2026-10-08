@@ -15,9 +15,14 @@ import {
   checkEgress,
   checkScanning,
   egressDraftOf,
+  PROXY_HELP,
+  PROXY_LABEL,
+  PROXY_SITES_HELP,
+  PROXY_SITES_LABEL,
   SCANNING_FIELDS,
   scanningDraftOf,
   TIME_ZONE_HELP,
+  TIME_ZONE_LABEL,
 } from "./scanning-model.js";
 
 /**
@@ -83,8 +88,8 @@ export function ScanPaceCard({
           {SCANNING_FIELDS.flatMap((field) => [
             <FieldRow
               key={field.key}
-              label={`${field.label} (${field.unit})`}
-              help={field.help}
+              label={field.label}
+              {...(field.help ? { help: field.help } : {})}
               error={
                 (submitted ? paceCheck.errors[field.key] : undefined) ??
                 serverErrors[`scanning.${field.key}`]
@@ -97,6 +102,7 @@ export function ScanPaceCard({
                 min={field.min}
                 max={field.max}
                 step={1}
+                unit={field.unit}
                 value={pace[field.key]}
                 onChange={(event) =>
                   setPace((current) => ({ ...current, [field.key]: event.target.value }))
@@ -107,7 +113,7 @@ export function ScanPaceCard({
               ? [
                   <FieldRow
                     key="timeZone"
-                    label="Time zone for quiet hours"
+                    label={TIME_ZONE_LABEL}
                     help={TIME_ZONE_HELP}
                     error={
                       (submitted ? paceCheck.errors.timeZone : undefined) ??
@@ -128,8 +134,8 @@ export function ScanPaceCard({
               : []),
           ])}
           <FieldRow
-            label="Send visits through a proxy"
-            help="Optional. Point this at a proxy you run, such as a VPN container's HTTP port. For example http://10.0.0.100:8888, with no user name or password. Off unless you set an address."
+            label={PROXY_LABEL}
+            help={PROXY_HELP}
             error={
               (submitted ? routeCheck.errors.proxyUrl : undefined) ??
               serverErrors["egress.proxyUrl"]
@@ -148,8 +154,8 @@ export function ScanPaceCard({
             />
           </FieldRow>
           <FieldRow
-            label="Only for these sites"
-            help="One site per line, such as spokeo.com. Leave empty to use the proxy for every site."
+            label={PROXY_SITES_LABEL}
+            help={PROXY_SITES_HELP}
             error={
               (submitted ? routeCheck.errors.domains : undefined) ?? serverErrors["egress.domains"]
             }
@@ -184,10 +190,16 @@ export function ScanPaceCard({
             {note.domain} also covers {note.sisters.join(", ")}.
           </GroupNote>
         ))}
-        <Callout intent="warning" title="A VPN does not make sites trust you more" className="mt-3">
-          Many broker sites challenge VPN and datacenter addresses more often than a home
-          connection, not less. Use a proxy to keep one site's traffic apart, not to hide.
-        </Callout>
+        {route.proxyUrl.trim() !== "" ? (
+          <Callout
+            intent="warning"
+            title="A VPN does not make sites trust you more"
+            className="mt-3"
+          >
+            Many broker sites challenge VPN and datacenter addresses more often than a home
+            connection, not less. Use a proxy to keep one site's traffic apart, not to hide.
+          </Callout>
+        ) : null}
         {save.isError && Object.keys(serverErrors).length === 0 ? (
           <Callout intent="danger" title="Could not save the settings" className="mt-3">
             {errorMessage(save.error)}

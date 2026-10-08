@@ -10,7 +10,6 @@ import {
   type TaskKind,
   type TaskSummary,
   type VerificationItem,
-  type WaitingTask,
   WebUrl,
 } from "@kickrocks/shared";
 import { and, desc, eq, gte, inArray, sql } from "drizzle-orm";
@@ -200,27 +199,31 @@ function unreviewedMessages(services: AppServices, profileId: string | undefined
 }
 
 /** Browser tasks that are queued but held back to keep their site from being flagged. */
-function waitingTasks(services: AppServices, profileId: string | undefined): WaitingTask[] {
+function waitingTasks(
+  services: AppServices,
+  profileId: string | undefined,
+): Pick<ReviewQueue, "waitingTasks" | "waitingTotal"> {
   const queued = services.taskQueue.list({
     status: "queued",
     kinds: BROWSER_TASK_KINDS,
     profileId,
-    limit: WAITING_LIMIT,
   });
-  const names = services.taskQueue.summarize(queued);
-  return queued.flatMap((task, index) => {
+  const held = queued.flatMap((task) => {
     const waiting = services.taskQueue.waitingFor(task);
-    if (waiting === null) return [];
-    return [
-      {
-        taskId: task.id,
-        kind: task.kind,
-        targetId: task.targetId,
-        targetName: names[index]?.targetName ?? null,
-        waiting,
-      },
-    ];
+    return waiting === null ? [] : [{ task, waiting }];
   });
+  const shown = held.slice(0, WAITING_LIMIT);
+  const names = services.taskQueue.summarize(shown.map(({ task }) => task));
+  return {
+    waitingTotal: held.length,
+    waitingTasks: shown.map(({ task, waiting }, index) => ({
+      taskId: task.id,
+      kind: task.kind,
+      targetId: task.targetId,
+      targetName: names[index]?.targetName ?? null,
+      waiting,
+    })),
+  };
 }
 
 /** Everything waiting on a person, optionally for one profile. */
@@ -241,6 +244,6 @@ export function buildReviewQueue(
       services.taskQueue.list({ status: "queued", kinds: ["agent"], profileId }).reverse(),
     ),
     messages: unreviewedMessages(services, profileId),
-    waitingTasks: waitingTasks(services, profileId),
+    ...waitingTasks(services, profileId),
   };
 }

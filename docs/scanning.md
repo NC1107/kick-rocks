@@ -148,7 +148,7 @@ With a proxy in use Chrome also keeps WebRTC from sending UDP outside the proxy,
 
 - **Settings, Pace and route:** the defaults above, editable, with the proxy and the VPN warning.
 - **Settings, Sites cooling down:** each site being left alone, why, and until when.
-- **Sidebar:** a small chip appears while any site is cooling down.
+- **Header:** a "Cooling down" status chip appears while any site is being left alone.
 - **Target page:** visits today against the cap, the last pushback, and any cooldown.
 - **Review:** a notice lists tasks waiting on a site, with the reason and the next try, so they do not look lost or failed.
 

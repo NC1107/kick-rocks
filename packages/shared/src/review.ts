@@ -56,6 +56,8 @@ export const ReviewQueue = z.object({
    * letting the site cool down. Nothing here needs the person, so it is not counted as attention.
    */
   waitingTasks: z.array(WaitingTask),
+  /** How many tasks are waiting in all, which can be more than `waitingTasks` lists. */
+  waitingTotal: z.number().int().nonnegative(),
 });
 export type ReviewQueue = z.infer<typeof ReviewQueue>;
 

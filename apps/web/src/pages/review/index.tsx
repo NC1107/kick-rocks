@@ -15,7 +15,6 @@ import { buildEntries, pickEntry, type QueueEntry, SCANS_KEY } from "./model.js"
 import { QueueList } from "./QueueList.js";
 import { ScansPanel } from "./ScansPanel.js";
 import { VerificationDetail } from "./VerificationDetail.js";
-import { WaitingNotice } from "./WaitingNotice.js";
 
 const DETAIL_ID = "review-detail";
 const WIDE = "(min-width: 1024px)";
@@ -240,46 +239,41 @@ function Queue({ queue, profileId }: { queue: ReviewQueue; profileId: string }) 
   }, [drilled, wide]);
 
   return (
-    <>
-      <div className={cn(drilled && "max-lg:hidden")}>
-        <WaitingNotice items={queue.waitingTasks} />
+    <div className="grid grid-cols-1 gap-5 lg:h-[calc(100dvh-9.5rem)] lg:min-h-[30rem] lg:grid-cols-[22.5rem_minmax(0,1fr)]">
+      <div className={cn("min-h-0 lg:overflow-y-auto lg:pr-1 lg:pb-2", drilled && "max-lg:hidden")}>
+        <QueueList
+          entries={entries}
+          waiting={queue.waitingTasks}
+          waitingTotal={queue.waitingTotal}
+          selectedKey={wide || drilled ? selectedKey : null}
+          onSelect={(key) => select(key, { replace: wide })}
+        />
       </div>
-      <div className="grid grid-cols-1 gap-5 lg:h-[calc(100dvh-9.5rem)] lg:min-h-[30rem] lg:grid-cols-[22.5rem_minmax(0,1fr)]">
-        <div
-          className={cn("min-h-0 lg:overflow-y-auto lg:pr-1 lg:pb-2", drilled && "max-lg:hidden")}
-        >
-          <QueueList
-            entries={entries}
-            selectedKey={wide || drilled ? selectedKey : null}
-            onSelect={(key) => select(key, { replace: wide })}
-          />
+      <div
+        id={DETAIL_ID}
+        ref={pane}
+        tabIndex={-1}
+        className={cn(
+          "flex min-h-0 min-w-0 flex-col rounded-md border border-line bg-surface outline-none lg:overflow-hidden",
+          !drilled && "max-lg:hidden",
+        )}
+      >
+        <div className="border-b border-line px-2 py-1.5 lg:hidden">
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => setParams(new URLSearchParams(), { replace: true })}
+          >
+            <ChevronLeft aria-hidden="true" strokeWidth={1.5} />
+            Review
+          </Button>
         </div>
-        <div
-          id={DETAIL_ID}
-          ref={pane}
-          tabIndex={-1}
-          className={cn(
-            "flex min-h-0 min-w-0 flex-col rounded-md border border-line bg-surface outline-none lg:overflow-hidden",
-            !drilled && "max-lg:hidden",
-          )}
-        >
-          <div className="border-b border-line px-2 py-1.5 lg:hidden">
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={() => setParams(new URLSearchParams(), { replace: true })}
-            >
-              <ChevronLeft aria-hidden="true" strokeWidth={1.5} />
-              Review
-            </Button>
-          </div>
-          {selected ? (
-            <Detail entry={selected} entries={entries} profileId={profileId} />
-          ) : (
-            <ScansPanel profileId={profileId} />
-          )}
-        </div>
+        {selected ? (
+          <Detail entry={selected} entries={entries} profileId={profileId} />
+        ) : (
+          <ScansPanel profileId={profileId} />
+        )}
       </div>
-    </>
+    </div>
   );
 }

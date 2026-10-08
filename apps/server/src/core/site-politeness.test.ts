@@ -13,6 +13,7 @@ import {
   seedProfile,
   seedRecipe,
   seedTarget,
+  seedTask,
   type TestContext,
 } from "../test-utils/index.js";
 import { claimTask } from "./claim.js";
@@ -945,6 +946,24 @@ describe("what the person can see", () => {
     expect(review.ok && review.body.waitingTasks).toMatchObject([
       { kind: "scan", waiting: { reason: "site_cooldown", domain: "a.test" } },
     ]);
+  });
+
+  it("counts every waiting task in the review queue even when it lists only some", async () => {
+    const a = site("a.test");
+    queueScan(a.id);
+    await pushBack(claim() as ClaimedTask, rateLimited());
+    for (let n = 0; n < 104; n += 1) {
+      seedTask(ctx, {
+        kind: "scan",
+        targetId: a.id,
+        profileId,
+        payload: { profileId, targetId: a.id, recipeId: null, variant: null },
+      });
+    }
+
+    const review = await ctx.call(API_ROUTES.reviewQueue, { query: {} });
+    expect(review.ok && review.body.waitingTasks).toHaveLength(100);
+    expect(review.ok && review.body.waitingTotal).toBe(105);
   });
 
   it("tells a claimer which proxy a site goes through, only for the sites the person listed", async () => {

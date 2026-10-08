@@ -257,6 +257,20 @@ function seedSites(store: MockStore): void {
       consecutivePushback: 1,
       coolingDownUntil: store.ahead({ hours: 5 }),
     }),
+    site("recordfinder.example", {
+      visitsToday: 4,
+      lastPushbackAt: store.ago({ minutes: 20 }),
+      lastPushbackKind: "challenge",
+      consecutivePushback: 3,
+      coolingDownUntil: store.ahead({ hours: 20 }),
+      breaker: "open",
+    }),
+    site("peoplefacts.example", {
+      lastPushbackAt: store.ago({ hours: 2 }),
+      lastPushbackKind: "captcha",
+      consecutivePushback: 3,
+      breaker: "half_open",
+    }),
     site("namelookup.example", { visitsToday: 3, nextStartAfter: store.ahead({ minutes: 14 }) }),
   ];
 }

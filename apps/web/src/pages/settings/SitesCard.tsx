@@ -1,9 +1,16 @@
 import { API_ROUTES, isCoolingDown } from "@kickrocks/shared";
 import { useApiQuery } from "../../api/index.js";
-import { Row, RowGroup, Section, SkeletonText, Tag } from "../../components/ui/index.js";
-import { formatDateTime, formatRelative, pluralize } from "../../lib/format.js";
-import { describeCooldown, siteLabel, siteTone } from "../../lib/sites.js";
-import { BodyRow, GroupNote } from "./rows.js";
+import {
+  RelativeTime,
+  Row,
+  RowGroup,
+  Section,
+  SiteMark,
+  SkeletonText,
+} from "../../components/ui/index.js";
+import { pluralize } from "../../lib/format.js";
+import { describeCooldown } from "../../lib/sites.js";
+import { BodyRow, GroupNote, Value } from "./rows.js";
 
 const POLL_MS = 30_000;
 
@@ -20,9 +27,9 @@ export function SitesCard() {
             <SkeletonText lines={2} />
           </BodyRow>
         ) : sites.isError ? (
-          <BodyRow className="text-meta text-ink-3">Could not load the sites just now.</BodyRow>
+          <BodyRow className="text-ui text-ink-2">Could not load the sites just now.</BodyRow>
         ) : cooling.length === 0 ? (
-          <BodyRow className="text-meta text-ink-3">
+          <BodyRow className="text-ui text-ink-2">
             No site is cooling down. {pluralize(sites.data.visitsLastHour, "visit")} in the last
             hour, out of {sites.data.hourlyCap} allowed.
           </BodyRow>
@@ -36,15 +43,11 @@ export function SitesCard() {
               trailing={
                 <>
                   {site.coolingDownUntil ? (
-                    <time
-                      dateTime={site.coolingDownUntil}
-                      title={formatDateTime(site.coolingDownUntil)}
-                      className="text-meta text-ink-3"
-                    >
-                      Until {formatRelative(site.coolingDownUntil)}
-                    </time>
+                    <Value className="text-ink-3">
+                      Resumes <RelativeTime iso={site.coolingDownUntil} />
+                    </Value>
                   ) : null}
-                  <Tag tone={siteTone(site)}>{siteLabel(site)}</Tag>
+                  <SiteMark site={site} />
                 </>
               }
             />

@@ -20,6 +20,7 @@ const empty: ReviewQueue = {
   agentTasks: [],
   messages: [],
   waitingTasks: [],
+  waitingTotal: 0,
 };
 
 describe("instructionSteps", () => {

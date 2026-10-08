@@ -17,7 +17,7 @@ export function SiteChecksCard({ siteChecks }: { siteChecks: SettingsView["siteC
         <BodyRow>
           <Checkbox
             label="Check recipe pages on the real broker sites"
-            description="Loads the first page of each approved recipe once a week, at the same pace as everything else."
+            description="Loads each approved recipe's first page weekly, at the usual pace."
             checked={siteChecks.enabled}
             disabled={toggle.isPending}
             onChange={(event) =>

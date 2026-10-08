@@ -1,4 +1,4 @@
-import { type ConfirmResult, isOnDomain } from "@kickrocks/shared";
+import { type ConfirmResult, isOnDomain, pushbackKindForStatus } from "@kickrocks/shared";
 import type { Page } from "playwright";
 import type { RunOutcome } from "../types.js";
 import { checkLive, createContext, guard, type RunContext, withSite } from "./context.js";
@@ -70,11 +70,12 @@ function notConfirmed(finalUrl: string, notes: string): RunOutcome<ConfirmResult
 }
 
 /**
- * A page the site refused is not a confirmation. A rate limit or an outage is worth another try
- * while the one-time link still works, and any other error status means this attempt did not take.
+ * A page the site refused is not a confirmation. Pushback (a rate limit, a bot-wall 403 or an
+ * outage) is worth another try while the one-time link still works, and any other error status
+ * means this attempt did not take.
  */
 function refusedAnswer(status: number, finalUrl: string): RunOutcome<ConfirmResult> | null {
-  if (status >= 500 || status === 429) {
+  if (status >= 500 || pushbackKindForStatus(status) !== null) {
     throw new RunFailure("site", `The site answered ${status}`, true);
   }
   if (status >= 400) return notConfirmed(finalUrl, `The site answered ${status}.`);

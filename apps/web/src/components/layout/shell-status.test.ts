@@ -1,6 +1,6 @@
 import type { SettingsView } from "@kickrocks/shared";
 import { describe, expect, it } from "vitest";
-import { inboxChip, mostUrgent, sendsChip, workerChip } from "./shell-status.js";
+import { inboxChip, mostUrgent, sendsChip, sitesChip, workerChip } from "./shell-status.js";
 
 const NOW = Date.parse("2026-10-07T12:00:00Z");
 
@@ -48,5 +48,27 @@ describe("shell status chips", () => {
     expect(mostUrgent(fine)).toBeUndefined();
     const trouble = [...fine, { id: "inbox", tone: "danger", label: "Inbox unreachable" }] as const;
     expect(mostUrgent(trouble)?.id).toBe("inbox");
+  });
+
+  it("shows a sites chip only while a site is being left alone, and counts them", () => {
+    const open = { coolingDownUntil: null, breaker: "closed" } as const;
+    const cooling = { coolingDownUntil: "2026-10-07T17:00:00Z", breaker: "closed" } as const;
+    const paused = { coolingDownUntil: null, breaker: "open" } as const;
+    expect(sitesChip([open])).toBeNull();
+    expect(sitesChip([open, cooling])).toEqual({
+      id: "sites",
+      tone: "attention",
+      label: "Cooling down",
+      value: "1 site",
+    });
+    expect(sitesChip([cooling, paused])?.value).toBe("2 sites");
+  });
+
+  it("lets a cooling site feed the phone bar mark", () => {
+    const chips = [
+      { id: "worker", tone: "positive", label: "Worker online" } as const,
+      { id: "sites", tone: "attention", label: "Cooling down", value: "1 site" } as const,
+    ];
+    expect(mostUrgent(chips)?.id).toBe("sites");
   });
 });

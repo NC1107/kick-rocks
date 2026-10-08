@@ -51,6 +51,7 @@ export { Pagination, type PaginationProps } from "./Pagination.js";
 export { RadioGroup, type RadioGroupProps, type RadioOption } from "./Radio.js";
 export { RelativeTime } from "./RelativeTime.js";
 export { Select } from "./Select.js";
+export { SiteMark } from "./SiteMark.js";
 export { Skeleton, SkeletonText } from "./Skeleton.js";
 export { Spinner, type SpinnerProps } from "./Spinner.js";
 export {

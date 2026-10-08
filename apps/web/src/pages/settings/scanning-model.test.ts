@@ -4,8 +4,11 @@ import {
   checkEgress,
   checkScanning,
   egressDraftOf,
+  PROXY_LABEL,
+  PROXY_SITES_LABEL,
   SCANNING_FIELDS,
   scanningDraftOf,
+  TIME_ZONE_LABEL,
 } from "./scanning-model.js";
 
 const saved = ScanningSettings.parse({ timeZone: "America/Los_Angeles" });
@@ -112,5 +115,29 @@ describe("checkEgress", () => {
   it("clears the proxy when the field is emptied", () => {
     const withProxy = EgressSettings.parse({ proxyUrl: "http://10.0.0.100:8888" });
     expect(checkEgress({ proxyUrl: "", domains: "" }, withProxy).patch).toEqual({ proxyUrl: null });
+  });
+});
+
+describe("the scanning fields", () => {
+  const words = (text: string) => text.trim().split(/\s+/).length;
+
+  it("keep labels to five words and put the unit in the suffix", () => {
+    for (const field of SCANNING_FIELDS) {
+      expect(words(field.label), field.label).toBeLessThanOrEqual(5);
+      expect(field.label).not.toMatch(/\(/);
+      expect(field.unit.length).toBeLessThanOrEqual(6);
+    }
+    for (const label of [TIME_ZONE_LABEL, PROXY_LABEL, PROXY_SITES_LABEL]) {
+      expect(words(label), label).toBeLessThanOrEqual(5);
+    }
+  });
+
+  it("explain only what the label leaves ambiguous, in one clause without a default", () => {
+    const helped = SCANNING_FIELDS.filter((field) => field.help !== undefined);
+    expect(helped.length).toBeLessThan(SCANNING_FIELDS.length / 2);
+    for (const field of helped) {
+      expect(field.help).not.toMatch(/[.]\s/);
+      expect(field.help).not.toMatch(/\b(default|unless|until)\b/i);
+    }
   });
 });

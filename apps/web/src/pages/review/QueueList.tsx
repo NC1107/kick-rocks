@@ -1,7 +1,9 @@
+import { WAIT_REASON_TEXT, type WaitingTask } from "@kickrocks/shared";
 import type { ReactNode } from "react";
 import {
   EmptyState,
   Kbd,
+  RelativeTime,
   Row,
   RowGroup,
   Section,
@@ -127,17 +129,57 @@ function Entry({
 
 const KIND_ORDER = Object.keys(KIND_LABELS) as ReviewKind[];
 
+/**
+ * Queued tasks that are held back to keep a site from being flagged. Nothing here needs the
+ * person, so the rows are plain and the group sits below everything that does.
+ */
+function WaitingGroup({ waiting, total }: { waiting: readonly WaitingTask[]; total: number }) {
+  if (total === 0) return null;
+  const hidden = total - waiting.length;
+  return (
+    <Section label="Waiting" count={total}>
+      <RowGroup>
+        {waiting.map((item) => (
+          <Row
+            key={item.taskId}
+            leading={<StatusShapeGlyph shape="dashed-ring" />}
+            title={item.targetName ?? "Unknown target"}
+            description={WAIT_REASON_TEXT[item.waiting.reason]}
+            trailing={
+              <span className="font-mono text-caption text-ink-3 tabular-nums">
+                <RelativeTime iso={item.waiting.until} />
+              </span>
+            }
+            className="py-1.5"
+          />
+        ))}
+        {hidden > 0 ? (
+          <p className="px-3.5 py-2 font-mono text-caption text-ink-3">+{hidden} more</p>
+        ) : null}
+      </RowGroup>
+    </Section>
+  );
+}
+
 export interface QueueListProps {
   entries: readonly QueueEntry[];
+  waiting: readonly WaitingTask[];
+  waitingTotal: number;
   selectedKey: string | null;
   onSelect: (key: string) => void;
 }
 
 /**
- * Everything waiting on the person, grouped under a mono label per kind with its count, plus the
- * scans entry at the bottom. The list is the whole queue, so nothing hides behind a tab.
+ * Everything waiting on the person, grouped under a mono label per kind with its count, then the
+ * tasks held back for a site, plus the scans entry at the bottom. The list is the whole queue, so nothing hides behind a tab.
  */
-export function QueueList({ entries, selectedKey, onSelect }: QueueListProps) {
+export function QueueList({
+  entries,
+  waiting,
+  waitingTotal,
+  selectedKey,
+  onSelect,
+}: QueueListProps) {
   const sections: ReactNode[] = KIND_ORDER.flatMap((kind) => {
     const own = entries.filter((entry) => entry.kind === kind);
     if (own.length === 0) return [];
@@ -160,6 +202,7 @@ export function QueueList({ entries, selectedKey, onSelect }: QueueListProps) {
   return (
     <nav aria-label="Review queue" className="flex min-w-0 flex-col gap-3">
       {entries.length === 0 ? <EmptyState title="Nothing needs you." /> : sections}
+      <WaitingGroup waiting={waiting} total={waitingTotal} />
       <Section label="Scans">
         <RowGroup>
           <div data-entry={SCANS_KEY}>

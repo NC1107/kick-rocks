@@ -83,6 +83,7 @@ describe("GET /review", () => {
       agentTasks: [],
       messages: [],
       waitingTasks: [],
+      waitingTotal: 0,
     });
   });
 
