@@ -1,3 +1,5 @@
+import { writeFileSync } from "node:fs";
+import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   createTestContext,
@@ -94,6 +96,16 @@ describe("GET /api/health", () => {
     const { scheduler } = (await status()).json().health;
     expect(scheduler).toMatchObject({ sendingStalled: true, stalled: false });
     ctx.services.liveness.deliveryFinished("sending");
+    expect((await health()).statusCode).toBe(200);
+  });
+
+  it("reports no backup as stale, and a verified one as fresh until two days pass", async () => {
+    expect((await status()).json().health.backup).toEqual({ lastVerifiedAt: null, stale: true });
+    const at = ctx.clock.now().toISOString();
+    writeFileSync(join(ctx.services.config.dataDir, "last-backup"), `${at}\n`);
+    expect((await status()).json().health.backup).toEqual({ lastVerifiedAt: at, stale: false });
+    ctx.clock.advance(49 * 60 * 60 * 1000);
+    expect((await status()).json().health.backup).toEqual({ lastVerifiedAt: at, stale: true });
     expect((await health()).statusCode).toBe(200);
   });
 

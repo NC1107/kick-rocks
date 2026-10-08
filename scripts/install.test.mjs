@@ -5,6 +5,7 @@ import {
   existsSync,
   mkdirSync,
   mkdtempSync,
+  readdirSync,
   readFileSync,
   rmSync,
   writeFileSync,
@@ -120,6 +121,38 @@ describe("install.sh backup and restore", () => {
     const result = install(["--backup", target], { env: { FAKE_TAR: "ok" } });
     assert.equal(result.status, 0, result.stderr);
     execFileSync("tar", ["tzf", target]);
+  });
+
+  it("tells the app about a backup that read back whole, and about no other", () => {
+    install(["--backup", join(dir, "short2.tgz")], { env: { FAKE_TAR: "truncated" } });
+    assert.doesNotMatch(calls(), /last-backup/);
+    install(["--backup", join(dir, "whole2.tgz")], { env: { FAKE_TAR: "ok" } });
+    assert.match(calls(), /VERIFIED_AT=\d{4}-\d\d-\d\dT[\d:]+Z .*\/data\/last-backup/);
+  });
+
+  it("keeps the newest N scheduled backups and deletes older ones only after a good run", () => {
+    const folder = join(dir, "scheduled");
+    for (let i = 0; i < 4; i++) {
+      const result = install(["--schedule-backup", folder, "--once", "--keep", "2"], {
+        env: { FAKE_TAR: "ok" },
+      });
+      assert.equal(result.status, 0, result.stderr);
+    }
+    const names = readdirSync(folder).sort();
+    assert.equal(names.length, 2);
+    for (const name of names) execFileSync("tar", ["tzf", join(folder, name)]);
+    const failed = install(["--schedule-backup", folder, "--once", "--keep", "1"], {
+      env: { FAKE_TAR: "truncated" },
+    });
+    assert.notEqual(failed.status, 0);
+    assert.deepEqual(readdirSync(folder).sort(), names);
+  });
+
+  it("prints a crontab line without running a backup when --once is absent", () => {
+    const result = install(["--schedule-backup", join(dir, "nightly"), "--keep", "5"]);
+    assert.equal(result.status, 0, result.stderr);
+    assert.match(result.stdout, /30 3 \* \* \* .*--schedule-backup .*--once --keep 5/);
+    assert.doesNotMatch(calls(), /tar czf/);
   });
 
   it("refuses to restore a truncated archive before touching any volume", () => {

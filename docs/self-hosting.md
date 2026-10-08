@@ -38,6 +38,7 @@ The first person to open the app sets it, and until then the setup page is open 
 | `--backup [FILE]` | Writes the data volume to `FILE`, or to `~/kickrocks-backup-<date>.tgz`, or `.tgz.enc` with a passphrase. See [Backups](#backups-and-restore). |
 | `--restore FILE` | Replaces the data volume with a backup, after checking the archive and that its database opens with its key. See [Backups](#backups-and-restore). |
 | `--passphrase-file PATH` | With `--backup`, encrypts the archive with the passphrase in `PATH`. With `--restore`, opens an encrypted one. |
+| `--schedule-backup DIR [--once] [--keep N]` | With `--once`, takes one backup into `DIR` and keeps the newest `N` (7 by default). Without it, prints a crontab line that does this every night. |
 | `--uninstall` | Asks you to type `delete`, then removes the containers, volumes, and images. |
 | `--url` | Prints the address of the UI and exits. |
 
@@ -205,6 +206,16 @@ The archive is then encrypted with AES-256 through `openssl`, with a key derived
 A passphrase that is lost cannot be recovered, and neither can the backup.
 Restoring needs the same file: `./install.sh --restore FILE --passphrase-file PATH`.
 Keep the passphrase somewhere other than next to the backup.
+
+### Scheduled backups
+
+`./install.sh --schedule-backup ~/kickrocks-backups` prints a crontab line.
+Add it with `crontab -e` and a backup is taken every night.
+Each run stops the stack for a moment, as a manual backup does.
+A run that fails deletes nothing, so the older backups stay.
+
+Every backup that reads back whole also tells the app, and the About page shows how long ago that was.
+It turns red when the last one is more than two days old, or when there has been none.
 
 A backup is built next to its destination as a `.partial` file, and it only replaces the real file once it reads back whole.
 So a run that fails halfway leaves the backup you already had alone.

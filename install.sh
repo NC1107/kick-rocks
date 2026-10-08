@@ -6,6 +6,8 @@
 #   ./install.sh --start      start the stopped containers again
 #   ./install.sh --backup [FILE]   write the data volume to FILE, readable only by you
 #   ./install.sh --restore FILE    replace the data volume with the contents of a backup FILE
+#   ./install.sh --schedule-backup DIR [--keep N]   print the crontab line for a daily backup into DIR
+#   ./install.sh --schedule-backup DIR --once [--keep N]   take one backup into DIR now and keep the newest N
 #   Add --passphrase-file PATH to either to encrypt the backup, or to open an encrypted one.
 #   ./install.sh --uninstall  delete the containers, the data volume, the browser profile and the images
 #   ./install.sh --url        print the address of the UI
@@ -233,6 +235,14 @@ volume_database_opens() {
     --entrypoint node server -e "$script" >/dev/null
 }
 
+# The server reads this file to show how old the last good backup is. It is written only after the
+# archive read back whole, and it is the server user's, so the server can always read it back.
+record_verified_backup() {
+  docker run --rm -v "$1":/data -e "VERIFIED_AT=$(date -u +%Y-%m-%dT%H:%M:%SZ)" alpine \
+    sh -c 'echo "$VERIFIED_AT" > /data/last-backup && chown 1000:1000 /data/last-backup' \
+    || echo "The backup is good, but the app could not be told about it, so it may still call the backup old." >&2
+}
+
 backup() {
   local file volume
   file="$(absolute_path "${1:-$HOME/kickrocks-backup-$(date +%Y%m%d-%H%M%S).tgz${passphrase_file:+.enc}}")"
@@ -252,7 +262,27 @@ backup() {
     exit 1
   fi
   mv -f "$partial_file" "$file"
+  record_verified_backup "$volume"
   echo "Wrote $file (readable only by you). It contains the database key: keep it off shared and cloud storage."
+}
+
+# Takes one backup into DIR, then deletes all but the newest KEEP. Nothing is deleted unless the new
+# backup read back whole, so a run that fails leaves every earlier backup in place.
+scheduled_backup() {
+  local dir="$1" keep="$2" file stamp suffix n=0
+  suffix=".tgz${passphrase_file:+.enc}"
+  (umask 077 && mkdir -p "$dir")
+  stamp="$(date +%Y%m%d-%H%M%S)"
+  file="$dir/kickrocks-backup-$stamp$suffix"
+  while [ -e "$file" ]; do
+    n=$((n + 1))
+    file="$dir/kickrocks-backup-$stamp-$n$suffix"
+  done
+  backup "$file"
+  # Names sort by time, and a counter only follows a name taken in the same second.
+  find "$dir" -maxdepth 1 -type f -name "kickrocks-backup-*$suffix" -print | sort -r | tail -n +"$((keep + 1))" | while IFS= read -r old; do
+    rm -f "$old"
+  done
 }
 
 # Replaces the data volume with a backup. The archive is unpacked into a scratch volume first, so a
@@ -413,6 +443,37 @@ case "${1:-}" in
     shift
     parse_archive_args "$@"
     backup "$archive_arg"
+    exit 0
+    ;;
+  --schedule-backup)
+    shift
+    schedule_dir=""
+    schedule_keep=7
+    schedule_once=false
+    schedule_rest=()
+    while [ "$#" -gt 0 ]; do
+      case "$1" in
+        --once) schedule_once=true; shift ;;
+        --keep)
+          case "${2:-}" in
+            ''|*[!0-9]*|0) echo "--keep needs a number of backups to keep, 1 or more." >&2; exit 2 ;;
+          esac
+          schedule_keep="$2"
+          shift 2
+          ;;
+        --passphrase-file) schedule_rest+=("$1" "${2:-}"); shift 2 || shift ;;
+        *) schedule_dir="$1"; shift ;;
+      esac
+    done
+    [ -n "$schedule_dir" ] || { echo "--schedule-backup needs the folder to write backups to." >&2; exit 2; }
+    parse_archive_args "${schedule_rest[@]+"${schedule_rest[@]}"}"
+    schedule_dir="$(absolute_path "$schedule_dir")"
+    if [ "$schedule_once" = true ]; then
+      scheduled_backup "$schedule_dir" "$schedule_keep"
+    else
+      echo "Add this line with crontab -e to back up every night at 03:30 and keep the newest $schedule_keep:"
+      echo "30 3 * * * $PWD/install.sh --schedule-backup '$schedule_dir' --once --keep $schedule_keep${passphrase_file:+ --passphrase-file '$passphrase_file'}"
+    fi
     exit 0
     ;;
   --restore)

@@ -12,7 +12,13 @@ import {
   SkeletonText,
   Tag,
 } from "../../components/ui/index.js";
-import { formatCount, formatDate, formatDateTime, pluralize } from "../../lib/format.js";
+import {
+  formatCount,
+  formatDate,
+  formatDateTime,
+  formatRelative,
+  pluralize,
+} from "../../lib/format.js";
 import { BodyRow, FactRow, SETTINGS_WIDTH } from "../settings/rows.js";
 
 const POLYFORM_URL = "https://polyformproject.org/licenses/noncommercial/1.0.0/";
@@ -90,6 +96,9 @@ function InstanceSection() {
                   {pluralize(status.data.targets.companies, "company", "companies")}
                 </FactRow>
                 <FactRow label="Profiles">{formatCount(status.data.profiles)}</FactRow>
+                <FactRow label="Backup" mono={false}>
+                  <BackupFreshness backup={status.data.health.backup} />
+                </FactRow>
               </>
             ) : null}
             <FactRow label="License" mono={false}>
@@ -133,6 +142,18 @@ export function problemsOf({ scheduler, database, disk }: InstanceHealth): strin
     );
   }
   return problems;
+}
+
+export function backupSummary({ lastVerifiedAt, stale }: InstanceHealth["backup"]): string {
+  if (!lastVerifiedAt) return "No verified backup yet. Run ./install.sh --backup.";
+  const when = `Last verified backup ${formatRelative(lastVerifiedAt)}.`;
+  return stale ? `${when} That is too old: run ./install.sh --backup again.` : when;
+}
+
+function BackupFreshness({ backup }: { backup: InstanceHealth["backup"] }) {
+  return (
+    <span className={backup.stale ? "text-danger-text" : undefined}>{backupSummary(backup)}</span>
+  );
 }
 
 function ProblemList({ health }: { health: InstanceHealth | undefined }) {
