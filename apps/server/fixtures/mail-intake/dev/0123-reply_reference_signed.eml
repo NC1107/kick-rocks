@@ -1,0 +1,29 @@
+DKIM-Signature: v=1; a=ed25519-sha256; c=relaxed/relaxed; d=radaris.com;
+ h=Content-Transfer-Encoding: Content-Type: MIME-Version: Reply-To:
+ Message-ID: Date: Subject: To: From; q=dns/txt; s=kr; t=1791007740;
+ bh=y+D3t/M4RvbOrzCM721qx/Snw8vdRTd7igwZDsOvcbM=;
+ b=GdALWt3eV2BbK5TX1JyEW43tKqnShBtBG7ttvA7E+Up0jn1l6YyrcgcP8v0+YpYfIX2teE9+/
+ SQw2rPC7n3qDA==
+Return-Path: <bounce-35258@radaris.com>
+Received: from mail.radaris.com (mail.radaris.com [203.0.113.21]) by mx.example.com with ESMTPS id bd1cd572f5 for <jordan@example.com>; Sat, 03 Oct 2026 06:09:00 +0000
+From: Radaris Privacy <privacyteam@radaris.com>
+To: jordan@example.com
+Subject: Your privacy request KR-8N6BF3
+Date: Sat, 03 Oct 2026 06:09:00 +0000
+Message-ID: <0fbeb9cc3991d23fa1238005@radaris.com>
+Reply-To: privacy@radaris.com
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+Hi Jordan,
+
+We need additional information to process your request. Please reply with the phone number and zip code associated with the listing.
+
+Please include:
+- Full name
+- Date of birth
+- Current street address
+
+Regards,
+Radaris Privacy Team

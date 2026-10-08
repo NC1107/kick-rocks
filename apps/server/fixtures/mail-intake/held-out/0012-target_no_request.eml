@@ -1,0 +1,36 @@
+DKIM-Signature: v=1; a=ed25519-sha256; c=relaxed/relaxed; d=mylife.com;
+ h=Content-Type: MIME-Version: List-Unsubscribe: Reply-To: Message-ID:
+ Date: Subject: To: From; q=dns/txt; s=kr; t=1790505180;
+ bh=l0bFM5ZfZU+ImNtzEmfoq3FE+IYDymXsz08wmPyjD8Q=;
+ b=IOpURW0lv0tvT59UnGt48pv+C/S4s9WKIg9gUEVEuRyMMUDwidJ/T/maHFkLBzHymeJxm9Jeh
+ npy+JK/ZsnsBQ==
+Return-Path: <bounce-529854@bounce.mylife.com>
+Received: from mail.mylife.com (mail.mylife.com [203.0.113.20]) by mx.example.com with ESMTPS id 8f0b392fa7 for <jordan@example.com>; Sun, 27 Sep 2026 10:33:00 +0000
+From: MyLife <alerts@mylife.com>
+To: jordan@example.com
+Subject: Someone is looking at your profile
+Date: Sun, 27 Sep 2026 10:33:00 +0000
+Message-ID: <620090c12fc9de88e28fae0a@mylife.com>
+Reply-To: no-reply@mylife.com
+List-Unsubscribe: <https://mylife.com/unsubscribe?u=06db1c0875a87954>, <mailto:unsubscribe-06db1c08@mylife.com>
+List-Unsubscribe-Post: List-Unsubscribe=One-Click
+Precedence: bulk
+X-Mailer: Salesforce Marketing Cloud
+MIME-Version: 1.0
+Content-Type: multipart/alternative; boundary="----=_Part_9484a7b65097"
+
+------=_Part_9484a7b65097
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+Someone is looking at your profile
+
+Shop now: https://mylife.com/offers?ref=b1be2af7
+
+You are receiving this email because you have an account with MyLife. To stop receiving these emails, unsubscribe: https://mylife.com/unsubscribe
+------=_Part_9484a7b65097
+Content-Type: text/html; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+<html><body style="font-family:Arial,sans-serif"><h2>Someone is looking at your profile</h2><p><a href="https://mylife.com/offers?ref=b1be2af7">Shop now</a></p><p style="font-size:11px">You are receiving this email because you have an account with MyLife. To stop receiving these emails, unsubscribe: https://mylife.com/unsubscribe</p></body></html>
+------=_Part_9484a7b65097--

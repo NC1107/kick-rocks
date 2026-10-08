@@ -8,7 +8,9 @@
     "dev": "tsx watch src/main.ts",
     "start": "node dist/main.js",
     "typecheck": "tsc -b && tsc -p tsconfig.test.json",
-    "test": "vitest run"
+    "test": "vitest run",
+    "loop:mail-intake": "tsx src/test-utils/mail-intake/cli.ts",
+    "loop:mail-intake:generate": "tsx src/test-utils/mail-intake/generate.ts"
   },
   "dependencies": {
     "@fastify/cookie": "^11.1.2",

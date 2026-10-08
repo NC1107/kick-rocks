@@ -1,0 +1,35 @@
+Return-Path: <sam.rivera82@gmail.com>
+Received: from mail.gmail.com (mail.gmail.com [203.0.113.19]) by mx.example.com with ESMTPS id ff42dd9fc3 for <jordan@example.com>; Fri, 02 Oct 2026 07:55:00 +0000
+From: Sam Rivera <sam.rivera82@gmail.com>
+To: jordan@example.com
+Subject: Invitation: Car service @ Tue, 13 Oct 2026
+Date: Fri, 02 Oct 2026 07:55:00 +0000
+Message-ID: <6c0a4d2cf5a72d5adb6feec9@gmail.com>
+MIME-Version: 1.0
+Content-Type: multipart/alternative; boundary="----=_Part_b9cd896b7e3e"
+
+------=_Part_b9cd896b7e3e
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+Sam Rivera has invited you to Car service.
+When: Tue, 13 Oct 2026 06:00:00 GMT
+Join: https://meet.example.com/21b-fae5
+------=_Part_b9cd896b7e3e
+Content-Type: text/calendar; charset=utf-8; method=REQUEST
+Content-Transfer-Encoding: 7bit
+
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Synthetic Calendar//EN
+METHOD:REQUEST
+BEGIN:VEVENT
+UID:4060db51d3873889@example.com
+DTSTAMP:20261013T060000Z
+DTSTART:20261013T060000Z
+SUMMARY:Car service
+ORGANIZER;CN=Sam Rivera:mailto:sam.rivera82@gmail.com
+ATTENDEE;RSVP=TRUE:mailto:jordan@example.com
+END:VEVENT
+END:VCALENDAR
+------=_Part_b9cd896b7e3e--

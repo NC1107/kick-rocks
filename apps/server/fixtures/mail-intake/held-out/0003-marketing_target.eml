@@ -1,0 +1,36 @@
+DKIM-Signature: v=1; a=ed25519-sha256; c=relaxed/relaxed; d=amazon.com;
+ h=Content-Type: MIME-Version: List-Unsubscribe: Reply-To: Message-ID:
+ Date: Subject: To: From; q=dns/txt; s=kr; t=1790458440;
+ bh=j22+6SAP6ELZNITGRRKXexNwp0fbybhDuQa2EyfWO3w=;
+ b=/eTq5UIdYJ3HMLNUb9X+cQvN3uZHSkJEjLc8xf6ekn69ITp84smyVr46dtXjhavEG0zsyX91g
+ xS89WwZG3MaCQ==
+Return-Path: <bounce-188316@bounce.amazon.com>
+Received: from mail.amazon.com (mail.amazon.com [203.0.113.20]) by mx.example.com with ESMTPS id 8f0b392fa7 for <jordan@example.com>; Sat, 26 Sep 2026 21:34:00 +0000
+From: Amazon <store-offers@amazon.com>
+To: jordan@example.com
+Subject: Save 20% on your next grocery order
+Date: Sat, 26 Sep 2026 21:34:00 +0000
+Message-ID: <d8f6eeb462fcd99873a232a4@amazon.com>
+Reply-To: no-reply@amazon.com
+List-Unsubscribe: <https://amazon.com/unsubscribe?u=164f372b275f60dc>, <mailto:unsubscribe-164f372b@amazon.com>
+List-Unsubscribe-Post: List-Unsubscribe=One-Click
+Precedence: bulk
+X-Mailer: SendGrid
+MIME-Version: 1.0
+Content-Type: multipart/alternative; boundary="----=_Part_9484a7b65097"
+
+------=_Part_9484a7b65097
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+Save 20% on your next grocery order
+
+Shop now: https://amazon.com/offers?ref=cff02a14
+
+You are receiving this email because you have an account with Amazon. To stop receiving these emails, unsubscribe: https://amazon.com/unsubscribe
+------=_Part_9484a7b65097
+Content-Type: text/html; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+<html><body style="font-family:Arial,sans-serif"><h2>Save 20% on your next grocery order</h2><p><a href="https://amazon.com/offers?ref=cff02a14">Shop now</a></p><p style="font-size:11px">You are receiving this email because you have an account with Amazon. To stop receiving these emails, unsubscribe: https://amazon.com/unsubscribe</p></body></html>
+------=_Part_9484a7b65097--

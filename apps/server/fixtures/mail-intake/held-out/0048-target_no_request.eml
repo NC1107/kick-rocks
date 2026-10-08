@@ -1,0 +1,36 @@
+DKIM-Signature: v=1; a=ed25519-sha256; c=relaxed/relaxed; d=mylife.com;
+ h=Content-Type: MIME-Version: List-Unsubscribe: Reply-To: Message-ID:
+ Date: Subject: To: From; q=dns/txt; s=kr; t=1790703780;
+ bh=kbtYa+IKa80UR0TDKD8w2NVPz0bl3NTaKID5ukQ4A6U=;
+ b=qMW4hx1dLiBHVeNqZYUHBcprkHKiQThwpCbnQxTToHtyQ6IvOxeJF1ZqlWn8/cVwlmW+Nyw6X
+ FpkJ3ShvXLwAQ==
+Return-Path: <bounce-843193@bounce.mylife.com>
+Received: from mail.mylife.com (mail.mylife.com [203.0.113.20]) by mx.example.com with ESMTPS id 8f0b392fa7 for <jordan@example.com>; Tue, 29 Sep 2026 17:43:00 +0000
+From: MyLife <alerts@mylife.com>
+To: jordan@example.com
+Subject: Reactivate your account
+Date: Tue, 29 Sep 2026 17:43:00 +0000
+Message-ID: <46f073e4ed777ca8d3140aba@mylife.com>
+Reply-To: no-reply@mylife.com
+List-Unsubscribe: <https://mylife.com/unsubscribe?u=b0af7386f23b6a11>, <mailto:unsubscribe-b0af7386@mylife.com>
+List-Unsubscribe-Post: List-Unsubscribe=One-Click
+Precedence: bulk
+X-Mailer: SendGrid
+MIME-Version: 1.0
+Content-Type: multipart/alternative; boundary="----=_Part_9484a7b65097"
+
+------=_Part_9484a7b65097
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+Reactivate your account
+
+Shop now: https://mylife.com/offers?ref=45f36f81
+
+You are receiving this email because you have an account with MyLife. To stop receiving these emails, unsubscribe: https://mylife.com/unsubscribe
+------=_Part_9484a7b65097
+Content-Type: text/html; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+<html><body style="font-family:Arial,sans-serif"><h2>Reactivate your account</h2><p><a href="https://mylife.com/offers?ref=45f36f81">Shop now</a></p><p style="font-size:11px">You are receiving this email because you have an account with MyLife. To stop receiving these emails, unsubscribe: https://mylife.com/unsubscribe</p></body></html>
+------=_Part_9484a7b65097--

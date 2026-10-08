@@ -1,0 +1,36 @@
+DKIM-Signature: v=1; a=ed25519-sha256; c=relaxed/relaxed; d=whitepages.com;
+ h=Content-Type: MIME-Version: Message-ID: Date: Subject: To: From;
+ q=dns/txt; s=kr; t=1790489700;
+ bh=5qK5evwuwZRRC9Os1V1Ivk3sWk5QqVScvddXsCy9FJM=;
+ b=vUqdTV/6ThBqFTMY0jQ0JG8aqM4XfjKCS+KWKCQDKKoYDxg5o1ekSt7rubguu1lhni2+RIGPJ
+ t8z8Ilb7XEOCQ==
+Return-Path: <bounce-1622@whitepages.com>
+Received: from mail.whitepages.com (mail.whitepages.com [203.0.113.24]) by mx.example.com with ESMTPS id d8a8d7e70b for <jordan@example.com>; Sun, 27 Sep 2026 06:15:00 +0000
+From: Whitepages <privacy@whitepages.com>
+To: jordan@example.com
+Subject: Confirm your opt-out request KR-2D8RV6
+Date: Sun, 27 Sep 2026 06:15:00 +0000
+Message-ID: <f97536c3994c6eaafbe9af28@whitepages.com>
+Auto-Submitted: auto-generated
+MIME-Version: 1.0
+Content-Type: multipart/alternative; boundary="----=_Part_a92c9b346b1a"
+
+------=_Part_a92c9b346b1a
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+Hello,
+
+We received a request to remove your information from Whitepages. To complete your removal, please confirm your email address by clicking the link below.
+
+https://whitepages.com/optout/confirm?token=14240325742cfec9166d09b317cb
+
+If you did not make this request, ignore this message.
+
+Whitepages Privacy Team
+------=_Part_a92c9b346b1a
+Content-Type: text/html; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+<html><body style="font-family:Arial,sans-serif"><p>To complete your removal, please confirm your email address.</p><p><a href="https://whitepages.com/optout/confirm?token=14240325742cfec9166d09b317cb">Confirm my request</a></p></body></html>
+------=_Part_a92c9b346b1a--

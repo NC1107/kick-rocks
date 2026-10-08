@@ -1,0 +1,24 @@
+DKIM-Signature: v=1; a=ed25519-sha256; c=relaxed/relaxed; d=netflix.com;
+ h=Content-Transfer-Encoding: Content-Type: MIME-Version: Message-ID: Date:
+ Subject: To: From; q=dns/txt; s=kr; t=1790593740;
+ bh=N+n9WGpfFIjOxqkQrHg631oZ6aJKay8sxST/Nm9mqw4=;
+ b=SZPi9iqmTbQq/aWbeNlxnaqmBTYr4M0+5cRM+42gUb42FwGFjPVbzMTfQf/LQR7sDi+K31hjt
+ MMdcjq/ZM2FDg==
+Return-Path: <bounce-98072@netflix.com>
+Received: from mail.netflix.com (mail.netflix.com [203.0.113.21]) by mx.example.com with ESMTPS id bd1cd572f5 for <jordan@example.com>; Mon, 28 Sep 2026 11:09:00 +0000
+From: Netflix Privacy <privacy@netflix.com>
+To: jordan@example.com
+Subject: Update on request KR-9M3XW5
+Date: Mon, 28 Sep 2026 11:09:00 +0000
+Message-ID: <761bcda35ed14e5e686cc597@netflix.com>
+Auto-Submitted: auto-replied
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+Hi Jordan,
+
+Your request has been logged. Case number #479491. We will be in touch.
+
+Thank you,
+Customer Care, Netflix

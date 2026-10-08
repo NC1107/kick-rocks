@@ -1,0 +1,22 @@
+DKIM-Signature: v=1; a=ed25519-sha256; c=relaxed/relaxed; d=chase.com;
+ h=Content-Transfer-Encoding: Content-Type: MIME-Version: Message-ID: Date:
+ Subject: To: From; q=dns/txt; s=kr; t=1791129600;
+ bh=TzNd/DMPJ7PeCHj/IQ97dP5NTBnUcjQq8xyZB6iD67k=;
+ b=QCWnkwRCOwwyOCat8EhJjZul+V63oTQc7Oi5qi+b8vzauVlphJ1esubpBC+PbgKdO5dBTpcsa
+ ZzLswb5asnhBw==
+Return-Path: <no.reply.alerts@chase.com>
+Received: from mail.chase.com (mail.chase.com [203.0.113.19]) by mx.example.com with ESMTPS id ff42dd9fc3 for <jordan@example.com>; Sun, 04 Oct 2026 16:00:00 +0000
+From: Chase <no.reply.alerts@chase.com>
+To: jordan@example.com
+Subject: Security alert: we need to verify your identity
+Date: Sun, 04 Oct 2026 16:00:00 +0000
+Message-ID: <c26148be397a489ba6a5cf43@chase.com>
+Auto-Submitted: auto-generated
+X-Priority: 1
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+To keep your account safe we need you to confirm your identity. Click the link below to continue. This link expires in 24 hours.
+
+https://chase.com/verify?t=0b7c8520a3669ca7e22aa776

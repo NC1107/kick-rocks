@@ -1,0 +1,20 @@
+DKIM-Signature: v=1; a=ed25519-sha256; c=relaxed/relaxed; d=paypal.com;
+ h=Content-Transfer-Encoding: Content-Type: MIME-Version: Message-ID: Date:
+ Subject: To: From; q=dns/txt; s=kr; t=1790609520;
+ bh=Fnml+2soq2AdqaDkMSdc1DNEviRGACnlyB1aCk2x4Tg=;
+ b=HmO3u34xSwa1uoce6Vf9Hd/yPGiFg7a/kv6DH8LQmIs+/uj3m18JbnoPfVqjzOA+LnT/nJP/t
+ 583eGZT19UGBA==
+Return-Path: <service@paypal.com>
+Received: from mail.paypal.com (mail.paypal.com [203.0.113.20]) by mx.example.com with ESMTPS id 8f0b392fa7 for <jordan@example.com>; Mon, 28 Sep 2026 15:32:00 +0000
+From: PayPal <service@paypal.com>
+To: jordan@example.com
+Subject: Confirm your identity to restore access
+Date: Mon, 28 Sep 2026 15:32:00 +0000
+Message-ID: <2ab630b6f299f0ebdf0c00b2@paypal.com>
+Auto-Submitted: auto-generated
+X-Priority: 1
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+Your statement is ready. Sign in to view your balance and recent transactions. Your request to update alerts has been processed.

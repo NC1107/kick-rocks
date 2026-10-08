@@ -1,0 +1,22 @@
+DKIM-Signature: v=1; a=ed25519-sha256; c=relaxed/relaxed; d=chase.com;
+ h=Content-Transfer-Encoding: Content-Type: MIME-Version: Message-ID: Date:
+ Subject: To: From; q=dns/txt; s=kr; t=1791173100;
+ bh=bFRFfSzsxkmnmnlwZEEUv9x1RKtya9HudHH3AikcNhA=;
+ b=5l0VWRrSmHDcwuH88e+mXIColspR2WOELXY7XefbzO/uQEt0fc7QA3Is0dyFaWk3JHKEe1JTr
+ oQf3c5ks+eSAw==
+Return-Path: <no.reply.alerts@chase.com>
+Received: from mail.chase.com (mail.chase.com [203.0.113.19]) by mx.example.com with ESMTPS id ff42dd9fc3 for <jordan@example.com>; Mon, 05 Oct 2026 04:05:00 +0000
+From: Chase <no.reply.alerts@chase.com>
+To: jordan@example.com
+Subject: A new device signed in to your account
+Date: Mon, 05 Oct 2026 04:05:00 +0000
+Message-ID: <f06aa0c9f5eaf4184f837735@chase.com>
+Auto-Submitted: auto-generated
+X-Priority: 1
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+We noticed a sign-in from a new device. If this was you, no action is needed. If not, please verify your identity and secure your account at the link below.
+
+https://chase.com/security/review?id=04157ac8d1393f51dab1e1ca

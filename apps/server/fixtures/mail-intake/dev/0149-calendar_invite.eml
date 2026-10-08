@@ -1,0 +1,35 @@
+Return-Path: <priya.n@outlook.com>
+Received: from mail.outlook.com (mail.outlook.com [203.0.113.21]) by mx.example.com with ESMTPS id bd1cd572f5 for <jordan@example.com>; Sun, 04 Oct 2026 23:37:00 +0000
+From: Priya N <priya.n@outlook.com>
+To: jordan@example.com
+Subject: Invitation: Car service @ Mon, 12 Oct 2026
+Date: Sun, 04 Oct 2026 23:37:00 +0000
+Message-ID: <0f66998ea7a483c55e98add9@outlook.com>
+MIME-Version: 1.0
+Content-Type: multipart/alternative; boundary="----=_Part_de00e43001a2"
+
+------=_Part_de00e43001a2
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+Priya N has invited you to Car service.
+When: Mon, 12 Oct 2026 06:00:00 GMT
+Join: https://meet.example.com/1aa-763f
+------=_Part_de00e43001a2
+Content-Type: text/calendar; charset=utf-8; method=REQUEST
+Content-Transfer-Encoding: 7bit
+
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Synthetic Calendar//EN
+METHOD:REQUEST
+BEGIN:VEVENT
+UID:b8e721d3ae53bf71@example.com
+DTSTAMP:20261012T060000Z
+DTSTART:20261012T060000Z
+SUMMARY:Car service
+ORGANIZER;CN=Priya N:mailto:priya.n@outlook.com
+ATTENDEE;RSVP=TRUE:mailto:jordan@example.com
+END:VEVENT
+END:VCALENDAR
+------=_Part_de00e43001a2--

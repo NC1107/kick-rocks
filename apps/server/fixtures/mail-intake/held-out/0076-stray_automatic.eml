@@ -1,0 +1,17 @@
+Return-Path: <dana.okafor@acme-corp.example>
+Received: from mail.acme-corp.example (mail.acme-corp.example [203.0.113.27]) by mx.example.com with ESMTPS id d21ca7869c for <jordan@example.com>; Fri, 02 Oct 2026 06:12:00 +0000
+From: Dana Okafor <dana.okafor@acme-corp.example>
+To: jordan@example.com
+Subject: Automatic reply: Lunch tomorrow?
+Date: Fri, 02 Oct 2026 06:12:00 +0000
+Message-ID: <d7926e5ac30ce95992f4f9f0@acme-corp.example>
+Auto-Submitted: auto-replied
+X-Auto-Response-Suppress: All
+In-Reply-To: <555c6a05b5be8fbfb358@example.com>
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+Thank you for your email. I am on leave and will reply when I return on Oct 19.
+
+Dana

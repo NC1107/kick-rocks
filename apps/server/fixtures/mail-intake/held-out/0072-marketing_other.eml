@@ -1,0 +1,36 @@
+DKIM-Signature: v=1; a=ed25519-sha256; c=relaxed/relaxed;
+ d=mail.instacart.com; h=Content-Type: MIME-Version: List-Unsubscribe:
+ Reply-To: Message-ID: Date: Subject: To: From; q=dns/txt; s=kr;
+ t=1790861640; bh=aPfmsBBAj903Loi/JuHP5bc+Vi2R+hbYJQAipDMBXpA=;
+ b=kQOEEKYVwxICpnE0s5D3WHhIE7T6+qQB8TyU+Wkc5P1FgRLAnubnq0FnMkFU6Pd/Ik96PC9Wg
+ bTvqKFac3LaCg==
+Return-Path: <bounce-570796@bounce.mail.instacart.com>
+Received: from mail.mail.instacart.com (mail.mail.instacart.com [203.0.113.28]) by mx.example.com with ESMTPS id 0ec5770b9c for <jordan@example.com>; Thu, 01 Oct 2026 13:34:00 +0000
+From: Instacart <hello@mail.instacart.com>
+To: jordan@example.com
+Subject: $10 off your next order
+Date: Thu, 01 Oct 2026 13:34:00 +0000
+Message-ID: <2f8bbf682d78deb533247c0e@mail.instacart.com>
+Reply-To: no-reply@mail.instacart.com
+List-Unsubscribe: <https://mail.instacart.com/unsubscribe?u=65eb89880e3f0720>, <mailto:unsubscribe-65eb8988@mail.instacart.com>
+List-Unsubscribe-Post: List-Unsubscribe=One-Click
+Precedence: bulk
+X-Mailer: SendGrid
+MIME-Version: 1.0
+Content-Type: multipart/alternative; boundary="----=_Part_eb54dfb6236a"
+
+------=_Part_eb54dfb6236a
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+$10 off your next order
+
+Shop now: https://mail.instacart.com/offers?ref=b9ab7730
+
+You are receiving this email because you have an account with Instacart. To stop receiving these emails, unsubscribe: https://mail.instacart.com/unsubscribe
+------=_Part_eb54dfb6236a
+Content-Type: text/html; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+<html><body style="font-family:Arial,sans-serif"><h2>$10 off your next order</h2><p><a href="https://mail.instacart.com/offers?ref=b9ab7730">Shop now</a></p><p style="font-size:11px">You are receiving this email because you have an account with Instacart. To stop receiving these emails, unsubscribe: https://mail.instacart.com/unsubscribe</p></body></html>
+------=_Part_eb54dfb6236a--

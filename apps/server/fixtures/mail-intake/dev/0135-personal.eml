@@ -1,0 +1,20 @@
+DKIM-Signature: v=1; a=ed25519-sha256; c=relaxed/relaxed; d=gmail.com;
+ h=Content-Transfer-Encoding: Content-Type: MIME-Version: Message-ID: Date:
+ Subject: To: From; q=dns/txt; s=kr; t=1791094260;
+ bh=YCOJWFBOCv4RgOqy6b0z7/cdLa9l/fLxMsY84/9vPPk=;
+ b=kUfDv9yQsKMhuaFTHMlxKbOOlDjphYbbpTH3b/M2L0LLDhBX4AZpPI/rAYcNfbyWsn7KCFukB
+ P+s+CaW8I3DDQ==
+Return-Path: <linda.example55@gmail.com>
+Received: from mail.gmail.com (mail.gmail.com [203.0.113.19]) by mx.example.com with ESMTPS id ff42dd9fc3 for <jordan@example.com>; Sun, 04 Oct 2026 06:11:00 +0000
+From: Mom <linda.example55@gmail.com>
+To: jordan@example.com
+Subject: Happy birthday!
+Date: Sun, 04 Oct 2026 06:11:00 +0000
+Message-ID: <38e6d0e104ee142b8f20c5f9@gmail.com>
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+Happy birthday! Dinner is on me this weekend. Pick a place and send it over.
+
+Mom

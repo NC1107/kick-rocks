@@ -1,0 +1,36 @@
+DKIM-Signature: v=1; a=ed25519-sha256; c=relaxed/relaxed;
+ d=truthfinder.com; h=Content-Type: MIME-Version: List-Unsubscribe:
+ Reply-To: Message-ID: Date: Subject: To: From; q=dns/txt; s=kr;
+ t=1790520720; bh=3mUCYv669Z6o9ZpDchkFVYk/bvhyCZgBiMy2D/kn2Qg=;
+ b=sqROxXR+iXEeOnQpzRLV9WYqUCNlhEkbmR7Z0ROK3Vb1pjr1jUK70u9uaIaNXd6wLkTULl/vd
+ mpRVIsb/EBFBQ==
+Return-Path: <bounce-460553@bounce.truthfinder.com>
+Received: from mail.truthfinder.com (mail.truthfinder.com [203.0.113.25]) by mx.example.com with ESMTPS id 97da2849d7 for <jordan@example.com>; Sun, 27 Sep 2026 14:52:00 +0000
+From: TruthFinder <offers@truthfinder.com>
+To: jordan@example.com
+Subject: Special offer inside
+Date: Sun, 27 Sep 2026 14:52:00 +0000
+Message-ID: <f473dcdad9fd51c8dec13adb@truthfinder.com>
+Reply-To: no-reply@truthfinder.com
+List-Unsubscribe: <https://truthfinder.com/unsubscribe?u=75c88d0305c48035>, <mailto:unsubscribe-75c88d03@truthfinder.com>
+List-Unsubscribe-Post: List-Unsubscribe=One-Click
+Precedence: bulk
+X-Mailer: Braze
+MIME-Version: 1.0
+Content-Type: multipart/alternative; boundary="----=_Part_c0e2d2c26b54"
+
+------=_Part_c0e2d2c26b54
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+Special offer inside
+
+Shop now: https://truthfinder.com/offers?ref=8404842b
+
+You are receiving this email because you have an account with TruthFinder. To stop receiving these emails, unsubscribe: https://truthfinder.com/unsubscribe
+------=_Part_c0e2d2c26b54
+Content-Type: text/html; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+<html><body style="font-family:Arial,sans-serif"><h2>Special offer inside</h2><p><a href="https://truthfinder.com/offers?ref=8404842b">Shop now</a></p><p style="font-size:11px">You are receiving this email because you have an account with TruthFinder. To stop receiving these emails, unsubscribe: https://truthfinder.com/unsubscribe</p></body></html>
+------=_Part_c0e2d2c26b54--

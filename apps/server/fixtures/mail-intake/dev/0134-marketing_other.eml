@@ -1,0 +1,36 @@
+DKIM-Signature: v=1; a=ed25519-sha256; c=relaxed/relaxed;
+ d=utility-co.example; h=Content-Type: MIME-Version: List-Unsubscribe:
+ Reply-To: Message-ID: Date: Subject: To: From; q=dns/txt; s=kr;
+ t=1791076560; bh=LcD0Aeg1M1PVTiXIOrjqSwz05DvzGkMZzEoGGcVhOjg=;
+ b=K3b8tZRHKpkBXxmacNydr3Dk+QtdDEluTAEwBAL0ZOtxrAxBYgMTY7fETMHQr+l9gZK+ACRtY
+ makhw01sYF2DQ==
+Return-Path: <bounce-961542@bounce.utility-co.example>
+Received: from mail.utility-co.example (mail.utility-co.example [203.0.113.28]) by mx.example.com with ESMTPS id 0ec5770b9c for <jordan@example.com>; Sun, 04 Oct 2026 01:16:00 +0000
+From: Lone Star Power <billing@utility-co.example>
+To: jordan@example.com
+Subject: Autopay scheduled
+Date: Sun, 04 Oct 2026 01:16:00 +0000
+Message-ID: <659d8cb10a76dd4ad7f1c2e8@utility-co.example>
+Reply-To: no-reply@utility-co.example
+List-Unsubscribe: <https://utility-co.example/unsubscribe?u=c75728a12f1c2583>, <mailto:unsubscribe-c75728a1@utility-co.example>
+List-Unsubscribe-Post: List-Unsubscribe=One-Click
+Precedence: bulk
+X-Mailer: SendGrid
+MIME-Version: 1.0
+Content-Type: multipart/alternative; boundary="----=_Part_eb54dfb6236a"
+
+------=_Part_eb54dfb6236a
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+Autopay scheduled
+
+Shop now: https://utility-co.example/offers?ref=33fa4e7d
+
+You are receiving this email because you have an account with Lone Star Power. To stop receiving these emails, unsubscribe: https://utility-co.example/unsubscribe
+------=_Part_eb54dfb6236a
+Content-Type: text/html; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+<html><body style="font-family:Arial,sans-serif"><h2>Autopay scheduled</h2><p><a href="https://utility-co.example/offers?ref=33fa4e7d">Shop now</a></p><p style="font-size:11px">You are receiving this email because you have an account with Lone Star Power. To stop receiving these emails, unsubscribe: https://utility-co.example/unsubscribe</p></body></html>
+------=_Part_eb54dfb6236a--

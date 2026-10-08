@@ -1,0 +1,41 @@
+Return-Path: <>
+Received: from mail.googlemail.com (mail.googlemail.com [203.0.113.24]) by mx.example.com with ESMTPS id d8a8d7e70b for <jordan@example.com>; Mon, 28 Sep 2026 14:39:00 +0000
+From: Mail Delivery Subsystem <mailer-daemon@googlemail.com>
+To: jordan@example.com
+Subject: Delivery Status Notification (Failure)
+Date: Mon, 28 Sep 2026 14:39:00 +0000
+Message-ID: <80b7758c2d00f3bae2c4b239@googlemail.com>
+Auto-Submitted: auto-replied
+X-Failed-Recipients: sam.rivera82@gmail.com
+MIME-Version: 1.0
+Content-Type: multipart/report; report-type=delivery-status; boundary="----=_Part_a92c9b346b1a"
+
+------=_Part_a92c9b346b1a
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+Delivery to the following recipient failed permanently:
+
+    sam.rivera82@gmail.com
+
+The response was:
+552 5.2.2 The recipient's mailbox is full.
+------=_Part_a92c9b346b1a
+Content-Type: message/delivery-status
+
+Reporting-MTA: dns; googlemail.com
+Final-Recipient: rfc822; sam.rivera82@gmail.com
+Action: failed
+Status: 5.1.1
+Diagnostic-Code: smtp; 552 5.2.2 The recipient's mailbox is full.
+------=_Part_a92c9b346b1a
+Content-Type: message/rfc822
+
+Message-ID: <1d782a28865a22257881@example.com>
+From: jordan@example.com
+To: sam.rivera82@gmail.com
+To: sam.rivera82@gmail.com
+Date: Mon, 21 Sep 2026 14:05:00 +0000
+
+(original message body omitted)
+------=_Part_a92c9b346b1a--

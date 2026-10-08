@@ -1,0 +1,42 @@
+DKIM-Signature: v=1; a=ed25519-sha256; c=relaxed/relaxed; d=google.com;
+ h=Content-Type: MIME-Version: Message-ID: Date: Subject: To: From;
+ q=dns/txt; s=kr; t=1790521800;
+ bh=AQ7knJg+OWS0J0JujwAbUVX72ZQTKhKYtK6dfH/1/Y4=;
+ b=kfFlRz3WexZcR+J/3PS2HF6jlsc6qc1g/jq+rNvn7I1kIIA2M7kgYQH/UvTa97i+Os5IGcnzW
+ DbfYorKZkW7Dg==
+Return-Path: <calendar-notification@google.com>
+Received: from mail.google.com (mail.google.com [203.0.113.20]) by mx.example.com with ESMTPS id 8f0b392fa7 for <jordan@example.com>; Sun, 27 Sep 2026 15:10:00 +0000
+From: Mom <calendar-notification@google.com>
+To: jordan@example.com
+Subject: Invitation: Dentist appointment @ Wed, 14 Oct 2026
+Date: Sun, 27 Sep 2026 15:10:00 +0000
+Message-ID: <95f3ce76bb981b198cc7d14c@google.com>
+Auto-Submitted: auto-generated
+MIME-Version: 1.0
+Content-Type: multipart/alternative; boundary="----=_Part_9484a7b65097"
+
+------=_Part_9484a7b65097
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+Mom has invited you to Dentist appointment.
+When: Wed, 14 Oct 2026 06:00:00 GMT
+Join: https://meet.example.com/553-29ea
+------=_Part_9484a7b65097
+Content-Type: text/calendar; charset=utf-8; method=REQUEST
+Content-Transfer-Encoding: 7bit
+
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Synthetic Calendar//EN
+METHOD:REQUEST
+BEGIN:VEVENT
+UID:9597a263010ae83f@example.com
+DTSTAMP:20261014T060000Z
+DTSTART:20261014T060000Z
+SUMMARY:Dentist appointment
+ORGANIZER;CN=Mom:mailto:linda.example55@gmail.com
+ATTENDEE;RSVP=TRUE:mailto:jordan@example.com
+END:VEVENT
+END:VCALENDAR
+------=_Part_9484a7b65097--

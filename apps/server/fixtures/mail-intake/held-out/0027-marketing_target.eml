@@ -1,0 +1,36 @@
+DKIM-Signature: v=1; a=ed25519-sha256; c=relaxed/relaxed; d=netflix.com;
+ h=Content-Type: MIME-Version: List-Unsubscribe: Reply-To: Message-ID:
+ Date: Subject: To: From; q=dns/txt; s=kr; t=1790568540;
+ bh=/HsAPFcPtict2T45gotSeu8qDyrts4b+vKj4uUetvLc=;
+ b=+d25IpnSwIN1wTYPl4L2GG4HEjBpgzAiJkcXoLp0NYbVQsXXiMCCMqeIybKWOqucxxXFAmwlt
+ ePC/89q6YbdCw==
+Return-Path: <bounce-092954@bounce.netflix.com>
+Received: from mail.mailer.netflix.com (mail.mailer.netflix.com [203.0.113.28]) by mx.example.com with ESMTPS id 0ec5770b9c for <jordan@example.com>; Mon, 28 Sep 2026 04:09:00 +0000
+From: Netflix <info@mailer.netflix.com>
+To: jordan@example.com
+Subject: Top picks for Jordan
+Date: Mon, 28 Sep 2026 04:09:00 +0000
+Message-ID: <f6f618d1a292f99e0c77ec41@mailer.netflix.com>
+Reply-To: no-reply@netflix.com
+List-Unsubscribe: <https://netflix.com/unsubscribe?u=23198b821d0d1084>, <mailto:unsubscribe-23198b82@netflix.com>
+List-Unsubscribe-Post: List-Unsubscribe=One-Click
+Precedence: bulk
+X-Mailer: Mailchimp Mailer
+MIME-Version: 1.0
+Content-Type: multipart/alternative; boundary="----=_Part_eb54dfb6236a"
+
+------=_Part_eb54dfb6236a
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+Top picks for Jordan
+
+Shop now: https://netflix.com/offers?ref=8b758d1d
+
+You are receiving this email because you have an account with Netflix. To stop receiving these emails, unsubscribe: https://netflix.com/unsubscribe
+------=_Part_eb54dfb6236a
+Content-Type: text/html; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+<html><body style="font-family:Arial,sans-serif"><h2>Top picks for Jordan</h2><p><a href="https://netflix.com/offers?ref=8b758d1d">Shop now</a></p><p style="font-size:11px">You are receiving this email because you have an account with Netflix. To stop receiving these emails, unsubscribe: https://netflix.com/unsubscribe</p></body></html>
+------=_Part_eb54dfb6236a--

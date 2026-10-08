@@ -1,0 +1,29 @@
+Return-Path: <bounce-51824@morning-brief.example>
+Received: from mail.morning-brief.example (mail.morning-brief.example [203.0.113.31]) by mx.example.com with ESMTPS id d8417c26cc for <jordan@example.com>; Mon, 28 Sep 2026 09:46:00 +0000
+From: Morning Brief <daily@morning-brief.example>
+To: jordan@example.com
+Subject: Your Thursday briefing
+Date: Mon, 28 Sep 2026 09:46:00 +0000
+Message-ID: <8cdaa66cdf05ba6061d4e477@morning-brief.example>
+List-Id: <daily.morning-brief.example>
+List-Unsubscribe: <https://morning-brief.example/unsubscribe?e=5e8646cde7eb>
+Precedence: list
+MIME-Version: 1.0
+Content-Type: multipart/alternative; boundary="----=_Part_7a9dbe464999"
+
+------=_Part_7a9dbe464999
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+Your Thursday briefing
+
+This week we look at what changed, what did not, and what to read next.
+Read online: https://morning-brief.example/p/a0d959
+
+You are subscribed as jordan@example.com. Unsubscribe: https://morning-brief.example/unsubscribe
+------=_Part_7a9dbe464999
+Content-Type: text/html; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+<html><body style="font-family:Arial,sans-serif"><h1>Your Thursday briefing</h1><p>This week we look at what changed.</p></body></html>
+------=_Part_7a9dbe464999--

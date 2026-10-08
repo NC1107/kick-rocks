@@ -1,0 +1,22 @@
+DKIM-Signature: v=1; a=ed25519-sha256; c=relaxed/relaxed; d=paypal.com;
+ h=Content-Transfer-Encoding: Content-Type: MIME-Version: Message-ID: Date:
+ Subject: To: From; q=dns/txt; s=kr; t=1791422580;
+ bh=nNx9PuCfQBmyXAL7XzB2gGMVbk1toInVExJMOXfVGc0=;
+ b=CDfsP57hHLtyfJkmEJBSQMIuL7MiHPfnZYG5Zy41uqVPhSHDc9IDB73qpcHgcq5zY9QuONZsM
+ VCHKOFm5+BTBQ==
+Return-Path: <service@paypal.com>
+Received: from mail.paypal.com (mail.paypal.com [203.0.113.20]) by mx.example.com with ESMTPS id 8f0b392fa7 for <jordan@example.com>; Thu, 08 Oct 2026 01:23:00 +0000
+From: PayPal <service@paypal.com>
+To: jordan@example.com
+Subject: Action required: verify your email address
+Date: Thu, 08 Oct 2026 01:23:00 +0000
+Message-ID: <eb61f7216992b6163a77ed48@paypal.com>
+Auto-Submitted: auto-generated
+X-Priority: 1
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+A purchase of USD 496.52 was attempted. Please confirm whether this was you, and we will remove the hold.
+
+https://paypal.com/alerts/9b531e4d2e5f13869a431625
