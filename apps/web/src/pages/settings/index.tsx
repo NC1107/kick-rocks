@@ -6,9 +6,11 @@ import { LlmCard } from "./LlmCard.js";
 import { PasswordCard } from "./PasswordCard.js";
 import { ResetCard } from "./ResetCard.js";
 import { RetentionCard } from "./RetentionCard.js";
+import { ScanPaceCard } from "./ScanPaceCard.js";
 import { ScheduleCard } from "./ScheduleCard.js";
 import { SettingsHeader } from "./SettingsHeader.js";
 import { SiteChecksCard } from "./SiteChecksCard.js";
+import { SitesCard } from "./SitesCard.js";
 import { WorkerCard } from "./WorkerCard.js";
 
 const WORKER_POLL_MS = 15_000;
@@ -44,6 +46,8 @@ export function Component() {
         <div className="flex flex-col gap-5">
           <ScheduleCard schedule={settings.data.schedule} />
           <SiteChecksCard siteChecks={settings.data.siteChecks} />
+          <ScanPaceCard scanning={settings.data.scanning} egress={settings.data.egress} />
+          <SitesCard />
           <WorkerCard
             worker={settings.data.worker}
             agent={settings.data.agent}

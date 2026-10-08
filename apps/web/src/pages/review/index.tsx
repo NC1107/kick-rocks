@@ -25,6 +25,7 @@ import { MessageCard } from "./MessageCard.js";
 import { firstBusyTab, parseTab, REVIEW_TABS, type ReviewTab, tabCounts } from "./model.js";
 import { ScansPanel } from "./ScansPanel.js";
 import { VerificationCard } from "./VerificationCard.js";
+import { WaitingNotice } from "./WaitingNotice.js";
 
 const TAB_LABELS: Record<ReviewTab, string> = {
   blocked: "Blocked",
@@ -118,133 +119,136 @@ function Queue({
 }) {
   const counts = tabCounts(queue);
   return (
-    <Tabs value={tab} onValueChange={onTab}>
-      <TabList aria-label="Review queue">
-        {REVIEW_TABS.map((value) => {
-          const count = value === "scans" ? 0 : counts[value];
-          return (
-            <Tab key={value} value={value}>
-              {TAB_LABELS[value]}
-              {count > 0 ? (
-                <Badge tone={value === "failed" ? "red" : "amber"}>
-                  {count}
-                  <span className="sr-only"> waiting</span>
-                </Badge>
-              ) : null}
-            </Tab>
-          );
-        })}
-      </TabList>
+    <>
+      <WaitingNotice items={queue.waitingTasks} />
+      <Tabs value={tab} onValueChange={onTab}>
+        <TabList aria-label="Review queue">
+          {REVIEW_TABS.map((value) => {
+            const count = value === "scans" ? 0 : counts[value];
+            return (
+              <Tab key={value} value={value}>
+                {TAB_LABELS[value]}
+                {count > 0 ? (
+                  <Badge tone={value === "failed" ? "red" : "amber"}>
+                    {count}
+                    <span className="sr-only"> waiting</span>
+                  </Badge>
+                ) : null}
+              </Tab>
+            );
+          })}
+        </TabList>
 
-      <TabPanel value="blocked">
-        {queue.blockedTasks.length === 0 ? (
-          <EmptyState
-            icon={PauseCircle}
-            title="Nothing is blocked"
-            description="When a site shows a CAPTCHA or asks for a phone code or an ID, the task waits here for you."
-          />
-        ) : (
-          <Cards>
-            {queue.blockedTasks.map((item) => (
-              <BlockedTaskCard
-                key={item.task.id}
-                item={item}
-                variant="blocked"
-                profileId={profileId}
-              />
-            ))}
-          </Cards>
-        )}
-      </TabPanel>
+        <TabPanel value="blocked">
+          {queue.blockedTasks.length === 0 ? (
+            <EmptyState
+              icon={PauseCircle}
+              title="Nothing is blocked"
+              description="When a site shows a CAPTCHA or asks for a phone code or an ID, the task waits here for you."
+            />
+          ) : (
+            <Cards>
+              {queue.blockedTasks.map((item) => (
+                <BlockedTaskCard
+                  key={item.task.id}
+                  item={item}
+                  variant="blocked"
+                  profileId={profileId}
+                />
+              ))}
+            </Cards>
+          )}
+        </TabPanel>
 
-      <TabPanel value="matches">
-        {queue.matches.length === 0 ? (
-          <EmptyState
-            icon={UserSearch}
-            title="No records to confirm"
-            description="Records a scan finds appear here. Nothing is removed until you say a record is yours."
-          />
-        ) : (
-          <Cards>
-            {queue.matches.map((match) => (
-              <MatchCard key={match.id} match={match} />
-            ))}
-          </Cards>
-        )}
-      </TabPanel>
+        <TabPanel value="matches">
+          {queue.matches.length === 0 ? (
+            <EmptyState
+              icon={UserSearch}
+              title="No records to confirm"
+              description="Records a scan finds appear here. Nothing is removed until you say a record is yours."
+            />
+          ) : (
+            <Cards>
+              {queue.matches.map((match) => (
+                <MatchCard key={match.id} match={match} />
+              ))}
+            </Cards>
+          )}
+        </TabPanel>
 
-      <TabPanel value="verifications">
-        {queue.verifications.length === 0 ? (
-          <EmptyState
-            icon={ShieldQuestion}
-            title="Nobody is asking for more details"
-            description="If a broker asks for more identifiers before it acts, you choose here what to share."
-          />
-        ) : (
-          <Cards>
-            {queue.verifications.map((item) => (
-              <VerificationCard key={item.request.id} item={item} />
-            ))}
-          </Cards>
-        )}
-      </TabPanel>
+        <TabPanel value="verifications">
+          {queue.verifications.length === 0 ? (
+            <EmptyState
+              icon={ShieldQuestion}
+              title="Nobody is asking for more details"
+              description="If a broker asks for more identifiers before it acts, you choose here what to share."
+            />
+          ) : (
+            <Cards>
+              {queue.verifications.map((item) => (
+                <VerificationCard key={item.request.id} item={item} />
+              ))}
+            </Cards>
+          )}
+        </TabPanel>
 
-      <TabPanel value="mail">
-        {queue.messages.length === 0 ? (
-          <EmptyState
-            icon={Mail}
-            title="No unclassified mail"
-            description="Replies Kick Rocks cannot place on its own show up here."
-          />
-        ) : (
-          <Cards>
-            {queue.messages.map((message) => (
-              <MessageCard key={message.id} message={message} profileId={profileId} />
-            ))}
-          </Cards>
-        )}
-      </TabPanel>
+        <TabPanel value="mail">
+          {queue.messages.length === 0 ? (
+            <EmptyState
+              icon={Mail}
+              title="No unclassified mail"
+              description="Replies Kick Rocks cannot place on its own show up here."
+            />
+          ) : (
+            <Cards>
+              {queue.messages.map((message) => (
+                <MessageCard key={message.id} message={message} profileId={profileId} />
+              ))}
+            </Cards>
+          )}
+        </TabPanel>
 
-      <TabPanel value="failed">
-        {queue.failedTasks.length === 0 ? (
-          <EmptyState
-            icon={CircleCheck}
-            title="No failed tasks"
-            description="A task that gave up for good in the last 30 days is listed here so you can retry it."
-          />
-        ) : (
-          <FailedTasks items={queue.failedTasks} profileId={profileId} />
-        )}
-      </TabPanel>
+        <TabPanel value="failed">
+          {queue.failedTasks.length === 0 ? (
+            <EmptyState
+              icon={CircleCheck}
+              title="No failed tasks"
+              description="A task that gave up for good in the last 30 days is listed here so you can retry it."
+            />
+          ) : (
+            <FailedTasks items={queue.failedTasks} profileId={profileId} />
+          )}
+        </TabPanel>
 
-      <TabPanel value="agents">
-        {queue.agentTasks.length === 0 ? (
-          <EmptyState
-            icon={Bot}
-            title="Nothing is waiting for an agent"
-            description="Work handed to an agent, or a site with no saved steps, waits here until an agent takes it."
-          />
-        ) : (
-          <Cards>
-            <Alert intent="info" title="No agent has taken these yet">
-              An agent is an AI assistant connected to Kick Rocks over MCP. Connect one in Settings,
-              or open each page and finish it yourself.
-            </Alert>
-            {queue.agentTasks.map((item) => (
-              <BlockedTaskCard
-                key={item.task.id}
-                item={item}
-                variant="agent"
-                profileId={profileId}
-              />
-            ))}
-          </Cards>
-        )}
-      </TabPanel>
+        <TabPanel value="agents">
+          {queue.agentTasks.length === 0 ? (
+            <EmptyState
+              icon={Bot}
+              title="Nothing is waiting for an agent"
+              description="Work handed to an agent, or a site with no saved steps, waits here until an agent takes it."
+            />
+          ) : (
+            <Cards>
+              <Alert intent="info" title="No agent has taken these yet">
+                An agent is an AI assistant connected to Kick Rocks over MCP. Connect one in
+                Settings, or open each page and finish it yourself.
+              </Alert>
+              {queue.agentTasks.map((item) => (
+                <BlockedTaskCard
+                  key={item.task.id}
+                  item={item}
+                  variant="agent"
+                  profileId={profileId}
+                />
+              ))}
+            </Cards>
+          )}
+        </TabPanel>
 
-      <TabPanel value="scans">
-        <ScansPanel profileId={profileId} />
-      </TabPanel>
-    </Tabs>
+        <TabPanel value="scans">
+          <ScansPanel profileId={profileId} />
+        </TabPanel>
+      </Tabs>
+    </>
   );
 }

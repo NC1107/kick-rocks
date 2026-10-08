@@ -35,6 +35,7 @@ import {
   TARGET_CATEGORY_LABELS,
   TARGET_KIND_LABELS,
 } from "../../../lib/labels.js";
+import { SiteVisits } from "./SiteVisits.js";
 
 const REQUIREMENT_HELP: Record<Requirement, string> = {
   email_confirmation: "It sends a confirmation email, and the link in it has to be followed.",
@@ -255,6 +256,8 @@ export function Component() {
             </div>
           ) : null}
         </Card>
+
+        {target.kind === "broker" ? <SiteVisits targetId={target.id} /> : null}
 
         <section aria-labelledby="recipes-heading">
           <h2 id="recipes-heading" className="mb-3 text-lg font-semibold text-ink">

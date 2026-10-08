@@ -33,8 +33,9 @@ export function SiteChecksCard({ siteChecks }: { siteChecks: SettingsView["siteC
             sees an ordinary visit from your home address.
           </li>
           <li>
-            It loads the recipe's page and may search a generic name such as John Smith to reach the
-            results page. It never uses your details and never submits a removal.
+            It loads only the first page of each recipe, as a visitor clicking a link would. It
+            never searches, never uses your details, and never submits a removal. These visits
+            follow the same pace as everything else.
           </li>
           <li>
             The result shows as the Scan and Removal badges on Targets. Turning this off stops only

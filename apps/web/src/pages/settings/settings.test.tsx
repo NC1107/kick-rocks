@@ -70,7 +70,9 @@ describe("general settings", () => {
     const { user, mock } = general();
     const box = await field(/Check recipe pages on the real broker sites/);
     expect(box).not.toBeChecked();
-    expect(screen.getByText(/never uses your details and never submits a removal/)).toBeVisible();
+    expect(
+      screen.getByText(/never searches, never uses your details, and never submits a removal/),
+    ).toBeVisible();
     expect(screen.getByText(/scanned again on the schedule in/)).toBeVisible();
     await user.click(box);
     await waitFor(() => expect(mock.store.settings.siteChecks.enabled).toBe(true));
@@ -453,5 +455,67 @@ describe("bundled recipes to check", () => {
   it("says when the bundled recipes cannot load", async () => {
     bundled(failing(/\/api\/recipes/));
     expect(await screen.findByText("Could not load bundled recipes")).toBeVisible();
+  });
+});
+
+describe("pace and route", () => {
+  it("shows the conservative pace the server keeps by default", async () => {
+    general();
+    expect(await field(/Wait between visits to one site/)).toHaveValue(20);
+    expect(screen.getByLabelText(/Visits to one site per day/)).toHaveValue(6);
+    expect(screen.getByLabelText(/Visits to all sites per hour/)).toHaveValue(12);
+    expect(screen.getByLabelText(/Reuse a finished search for/)).toHaveValue(24);
+  });
+
+  it("saves only the pace that changed", async () => {
+    const { user, mock } = general();
+    const daily = await field(/Visits to one site per day/);
+    await user.clear(daily);
+    await user.type(daily, "4");
+    const card = screen.getByRole("heading", { name: "Pace and route" }).closest("form");
+    await user.click(within(card as HTMLElement).getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(mock.store.settings.scanning.dailyCapPerSite).toBe(4));
+    expect(mock.store.settings.scanning.minGapMinutes).toBe(20);
+    expect((await screen.findAllByText("Scanning settings saved")).length).toBeGreaterThan(0);
+  });
+
+  it("warns that a VPN is challenged more, and refuses a proxy with a password", async () => {
+    const { user, mock } = general();
+    expect(await screen.findByText("A VPN does not make sites trust you more")).toBeVisible();
+    expect(screen.getByText(/challenge VPN and datacenter addresses more often/)).toBeVisible();
+
+    const proxy = await field(/Proxy address/);
+    await user.type(proxy, "http://user:pw@10.0.0.100:8888");
+    const card = screen.getByRole("heading", { name: "Pace and route" }).closest("form");
+    await user.click(within(card as HTMLElement).getByRole("button", { name: "Save" }));
+    expect(await screen.findByText(/without a user name or password/)).toBeVisible();
+    expect(mock.store.settings.egress.proxyUrl).toBeNull();
+
+    await user.clear(proxy);
+    await user.type(proxy, "http://10.0.0.100:8888");
+    await user.type(screen.getByLabelText(/Only for these sites/), "spokeo.com");
+    await user.click(within(card as HTMLElement).getByRole("button", { name: "Save" }));
+    await waitFor(() =>
+      expect(mock.store.settings.egress).toEqual({
+        proxyUrl: "http://10.0.0.100:8888",
+        domains: ["spokeo.com"],
+      }),
+    );
+  });
+});
+
+describe("sites cooling down", () => {
+  it("lists only the sites that are being left alone, with why and until when", async () => {
+    general();
+    expect(await screen.findByText("peopletrace.example")).toBeVisible();
+    expect(screen.getByText(/Left alone after too many requests/)).toBeVisible();
+    expect(screen.queryByText("namelookup.example")).not.toBeInTheDocument();
+  });
+
+  it("says so when nothing is cooling down", async () => {
+    const mock = createMockApp();
+    mock.store.sites = [];
+    general(mock);
+    expect(await screen.findByText(/No site is cooling down/)).toBeVisible();
   });
 });

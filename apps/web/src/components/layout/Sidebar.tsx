@@ -6,6 +6,7 @@ import { Badge, IconButton } from "../ui/index.js";
 import { Logo } from "./Logo.js";
 import { NAV_GROUPS, type NavItem } from "./nav.js";
 import { ProfileSwitcher } from "./ProfileSwitcher.js";
+import { SitesChip } from "./SitesChip.js";
 import { ThemeToggle } from "./ThemeToggle.js";
 
 function ReviewCount({ count }: { count: number | null }) {
@@ -100,6 +101,7 @@ export function SidebarContent({
         ))}
       </nav>
       <div className="flex flex-col gap-2.5 border-t border-line pt-3">
+        <SitesChip onNavigate={onNavigate} />
         {import.meta.env.MODE === "mock" ? (
           <Badge tone="amber" className="self-start">
             Mock data
