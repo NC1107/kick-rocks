@@ -255,6 +255,15 @@ export default defineMockDomain({
       }
     }
 
+    // Held back by the cooling sites seeded in the settings domain, so Review shows a Waiting group.
+    for (const targetId of ["peopletrace", "findrecord"]) {
+      createScan(store, jordan.id, targetId, {
+        taskStatus: "queued",
+        finished: false,
+        startedAgo: { minutes: 12 },
+      });
+    }
+
     const lookup = createScan(store, jordan.id, "namelookup", {
       finished: true,
       startedAgo: { hours: 30 },

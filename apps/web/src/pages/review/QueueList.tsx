@@ -1,4 +1,4 @@
-import { WAIT_REASON_TEXT, type WaitingTask } from "@kickrocks/shared";
+import type { WaitingTask } from "@kickrocks/shared";
 import type { ReactNode } from "react";
 import {
   EmptyState,
@@ -13,6 +13,7 @@ import { describeFailure } from "../../lib/failures.js";
 import { BLOCKED_REASON_LABELS, PROFILE_FIELD_LABELS } from "../../lib/labels.js";
 import type { StatusShape } from "../../lib/status.js";
 import { ageLabel, KIND_LABELS, type QueueEntry, type ReviewKind, SCANS_KEY } from "./model.js";
+import { WaitReasonText } from "./WaitReasonText.js";
 
 interface RowView {
   title: ReactNode;
@@ -142,9 +143,11 @@ function WaitingGroup({ waiting, total }: { waiting: readonly WaitingTask[]; tot
         {waiting.map((item) => (
           <Row
             key={item.taskId}
-            leading={<StatusShapeGlyph shape="dashed-ring" />}
+            leading={<StatusShapeGlyph shape="ring" />}
             title={item.targetName ?? "Unknown target"}
-            description={WAIT_REASON_TEXT[item.waiting.reason]}
+            description={
+              <WaitReasonText reason={item.waiting.reason} domain={item.waiting.domain} />
+            }
             trailing={
               <span className="font-mono text-caption text-ink-3 tabular-nums">
                 <RelativeTime iso={item.waiting.until} />

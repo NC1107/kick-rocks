@@ -36,6 +36,8 @@ export function Tooltip({ content, children, delayMs = 600, className }: Tooltip
   const triggerRef = useRef<HTMLSpanElement>(null);
   const bubbleRef = useRef<HTMLSpanElement>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const openRef = useRef(false);
+  const touchWasOpen = useRef<boolean | null>(null);
   const [open, setOpen] = useState(false);
   const [placement, setPlacement] = useState<Placement | null>(null);
 
@@ -50,14 +52,23 @@ export function Tooltip({ content, children, delayMs = 600, className }: Tooltip
   }, []);
 
   useEffect(() => () => clearTimeout(timer.current), []);
+  openRef.current = open;
 
   useEffect(() => {
     if (!open) return;
     const onKey = (event: KeyboardEvent) => {
       if (event.key === "Escape") hide();
     };
+    // A finger has no pointer to leave and iOS never focuses a tapped button, so a tap elsewhere is the only way a touch user closes it.
+    const onOutside = (event: PointerEvent) => {
+      if (!triggerRef.current?.contains(event.target as Node)) hide();
+    };
     document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
+    document.addEventListener("pointerdown", onOutside);
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.removeEventListener("pointerdown", onOutside);
+    };
   }, [open, hide]);
 
   useLayoutEffect(() => {
@@ -74,6 +85,7 @@ export function Tooltip({ content, children, delayMs = 600, className }: Tooltip
 
   return (
     <>
+      {/* biome-ignore lint/a11y/useKeyWithClickEvents: the click only toggles the hint for a touch tap, the child handles the keyboard */}
       {/* biome-ignore lint/a11y/noStaticElementInteractions: the listeners only show a hint for the child, which keeps its own role */}
       <span
         ref={triggerRef}
@@ -82,7 +94,20 @@ export function Tooltip({ content, children, delayMs = 600, className }: Tooltip
         onMouseLeave={hide}
         onFocus={() => show(0)}
         onBlur={hide}
-        onPointerDown={hide}
+        onPointerDown={(event) => {
+          if (event.pointerType === "touch") {
+            touchWasOpen.current = openRef.current;
+            return;
+          }
+          hide();
+        }}
+        onClick={() => {
+          const wasOpen = touchWasOpen.current;
+          touchWasOpen.current = null;
+          if (wasOpen === null) return;
+          if (wasOpen) hide();
+          else show(0);
+        }}
         className={cn("inline-flex", className)}
       >
         {children}

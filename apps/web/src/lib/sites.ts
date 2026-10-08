@@ -17,8 +17,8 @@ export const BREAKER_LABELS: Record<BreakerState, string> = {
 };
 
 export function siteTone(site: Pick<SiteStatus, "breaker" | "coolingDownUntil">): Tone {
-  if (site.breaker === "open") return "danger";
-  return site.breaker === "half_open" || site.coolingDownUntil !== null ? "attention" : "positive";
+  // A paused site resumes by itself and asks nothing of the person, so it is attention, not danger.
+  return site.breaker !== "closed" || site.coolingDownUntil !== null ? "attention" : "positive";
 }
 
 interface Noun {
@@ -48,7 +48,7 @@ export function describeCooldown(
 ): string {
   const noun = site.lastPushbackKind ? PUSHBACK_NOUNS[site.lastPushbackKind] : UNKNOWN_NOUN;
   if (site.breaker === "half_open") {
-    return `Paused after repeated ${noun.plural}. The next visit is a single careful try.`;
+    return `Paused after repeated ${noun.plural}; next visit is a careful try`;
   }
   if (site.breaker === "open") {
     const count = site.consecutivePushback;

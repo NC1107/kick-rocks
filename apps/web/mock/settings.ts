@@ -257,7 +257,7 @@ function seedSites(store: MockStore): void {
       consecutivePushback: 1,
       coolingDownUntil: store.ahead({ hours: 5 }),
     }),
-    site("recordfinder.example", {
+    site("findrecord.example", {
       visitsToday: 4,
       lastPushbackAt: store.ago({ minutes: 20 }),
       lastPushbackKind: "challenge",
@@ -265,7 +265,7 @@ function seedSites(store: MockStore): void {
       coolingDownUntil: store.ahead({ hours: 20 }),
       breaker: "open",
     }),
-    site("peoplefacts.example", {
+    site("homerecords.example", {
       lastPushbackAt: store.ago({ hours: 2 }),
       lastPushbackKind: "captcha",
       consecutivePushback: 3,

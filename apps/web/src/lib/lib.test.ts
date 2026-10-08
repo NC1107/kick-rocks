@@ -122,7 +122,7 @@ describe("describeCooldown", () => {
 
   it("names the repeated pushback for a breaker that is trying one visit", () => {
     expect(describeCooldown(site({ breaker: "half_open", lastPushbackKind: "forbidden" }))).toBe(
-      "Paused after repeated refusals. The next visit is a single careful try.",
+      "Paused after repeated refusals; next visit is a careful try",
     );
   });
 

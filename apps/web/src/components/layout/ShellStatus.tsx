@@ -18,7 +18,7 @@ import {
 const REFRESH_MS = 30_000;
 const SITES_REFRESH_MS = 60_000;
 
-/** Live system state for the header: the worker, the inbox, today's sending, and any site being left alone. */
+/** Live system state for the header: the worker, the inbox, and either today's sending or, when it matters more, any site being left alone. */
 export function useShellStatus(): StatusChip[] {
   const { profile } = useCurrentProfile();
   const settings = useApiQuery(API_ROUTES.settingsGet, { refetchInterval: REFRESH_MS });
@@ -28,14 +28,15 @@ export function useShellStatus(): StatusChip[] {
   );
   const sites = useApiQuery(API_ROUTES.settingsSites, { refetchInterval: SITES_REFRESH_MS });
   const now = useNow();
+  const cooling = sites.data ? sitesChip(sites.data.items) : null;
   const chips: StatusChip[] = [];
   if (settings.data) chips.push(workerChip(settings.data.worker, now));
   if (dashboard.data) {
     chips.push(inboxChip(dashboard.data.mailbox, (iso) => shortRelative(iso, now)));
-    const sends = sendsChip(dashboard.data.sending);
+    // The header holds three chips; a site being left alone is news, today's send count is not.
+    const sends = cooling ? null : sendsChip(dashboard.data.sending);
     if (sends) chips.push(sends);
   }
-  const cooling = sites.data ? sitesChip(sites.data.items) : null;
   if (cooling) chips.push(cooling);
   return chips;
 }

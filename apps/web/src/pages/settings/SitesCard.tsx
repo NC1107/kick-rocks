@@ -37,15 +37,18 @@ export function SitesCard() {
           cooling.map((site) => (
             <Row
               key={site.domain}
-              title={site.domain}
+              title={<span className="font-mono">{site.domain}</span>}
               description={describeCooldown(site)}
               trailingBelowOnPhone
               trailing={
                 <>
                   {site.coolingDownUntil ? (
-                    <Value className="text-ink-3">
-                      Resumes <RelativeTime iso={site.coolingDownUntil} />
-                    </Value>
+                    <span className="text-meta text-ink-3">
+                      Resumes{" "}
+                      <Value className="text-ink-3">
+                        <RelativeTime iso={site.coolingDownUntil} />
+                      </Value>
+                    </span>
                   ) : null}
                   <SiteMark site={site} />
                 </>

@@ -58,11 +58,9 @@ export function ScanPaceCard({
   const routeCheck = checkEgress(route, egress);
   const hasErrors =
     Object.keys(paceCheck.errors).length > 0 || Object.keys(routeCheck.errors).length > 0;
-  // A zone nobody has saved yet shows the browser's, and saving it is what makes it apply.
   const dirty =
-    scanning.timeZone === null ||
     JSON.stringify([pace, route]) !==
-      JSON.stringify([scanningDraftOf(scanning), egressDraftOf(egress)]);
+    JSON.stringify([scanningDraftOf(scanning), egressDraftOf(egress)]);
   const sisterNotes = egress.domains
     .map((domain) => ({ domain, sisters: coverage[domain] ?? [] }))
     .filter((note) => note.sisters.length > 0);
@@ -185,6 +183,11 @@ export function ScanPaceCard({
             </Button>
           </GroupFooter>
         </RowGroup>
+        {scanning.timeZone === null ? (
+          <GroupNote>
+            Quiet hours use {pace.timeZone.trim() || "your browser's time zone"} until you save.
+          </GroupNote>
+        ) : null}
         {sisterNotes.map((note) => (
           <GroupNote key={note.domain}>
             {note.domain} also covers {note.sisters.join(", ")}.

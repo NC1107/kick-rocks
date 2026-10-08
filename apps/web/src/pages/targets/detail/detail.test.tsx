@@ -150,7 +150,7 @@ describe("the visit history on a target page", () => {
   });
 
   it("says nothing has visited a site that was never visited", async () => {
-    open("findrecord");
+    open("cityfile-directory");
     expect(await screen.findByText(/Nothing has visited this site yet/)).toBeVisible();
   });
 });

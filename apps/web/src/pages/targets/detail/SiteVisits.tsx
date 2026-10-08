@@ -1,14 +1,15 @@
 import { API_ROUTES } from "@kickrocks/shared";
 import { useApiQuery } from "../../../api/index.js";
 import {
+  DescriptionList,
   RelativeTime,
-  RowGroup,
   Section,
   SiteMark,
   SkeletonText,
 } from "../../../components/ui/index.js";
 import { PUSHBACK_LABELS } from "../../../lib/sites.js";
-import { FactRow } from "../../settings/rows.js";
+
+const MONO = "font-mono tabular-nums";
 
 /** How Kick Rocks has been treating this site and how the site has answered. */
 export function SiteVisits({ targetId }: { targetId: string }) {
@@ -26,26 +27,45 @@ export function SiteVisits({ targetId }: { targetId: string }) {
           Nothing has visited this site yet, so there is no history to show.
         </p>
       ) : (
-        <RowGroup>
-          <FactRow label="Visits today">{`${site.visitsToday} of ${site.dailyCap}`}</FactRow>
-          <FactRow label="Status" mono={false}>
-            <SiteMark site={site} />
-          </FactRow>
-          <FactRow label="Last pushback">
-            {site.lastPushbackAt && site.lastPushbackKind ? (
-              <>
-                {PUSHBACK_LABELS[site.lastPushbackKind]}, <RelativeTime iso={site.lastPushbackAt} />
-              </>
-            ) : (
-              "-"
-            )}
-          </FactRow>
-          {site.coolingDownUntil ? (
-            <FactRow label="Resumes">
-              <RelativeTime iso={site.coolingDownUntil} />
-            </FactRow>
-          ) : null}
-        </RowGroup>
+        <div className="rounded-md border border-line bg-surface px-3.5 py-3">
+          <DescriptionList
+            items={[
+              {
+                term: "Visits today",
+                description: (
+                  <span className={MONO}>{`${site.visitsToday} of ${site.dailyCap}`}</span>
+                ),
+              },
+              { term: "Status", description: <SiteMark site={site} /> },
+              {
+                term: "Last pushback",
+                description:
+                  site.lastPushbackAt && site.lastPushbackKind ? (
+                    <>
+                      {PUSHBACK_LABELS[site.lastPushbackKind]},{" "}
+                      <span className={MONO}>
+                        <RelativeTime iso={site.lastPushbackAt} />
+                      </span>
+                    </>
+                  ) : (
+                    "-"
+                  ),
+              },
+              ...(site.coolingDownUntil
+                ? [
+                    {
+                      term: "Resumes",
+                      description: (
+                        <span className={MONO}>
+                          <RelativeTime iso={site.coolingDownUntil} />
+                        </span>
+                      ),
+                    },
+                  ]
+                : []),
+            ]}
+          />
+        </div>
       )}
     </Section>
   );

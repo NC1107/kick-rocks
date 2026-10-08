@@ -135,7 +135,16 @@ export function Row({
       ) : null}
       <span className="flex min-w-0 flex-1 flex-col">
         <span className="truncate text-ui font-medium text-ink">{title}</span>
-        {description ? <span className="truncate text-meta text-ink-3">{description}</span> : null}
+        {description ? (
+          <span
+            className={cn(
+              "text-meta text-ink-3",
+              trailingBelowOnPhone ? "sm:truncate" : "truncate",
+            )}
+          >
+            {description}
+          </span>
+        ) : null}
       </span>
       {trailing ? (
         <span

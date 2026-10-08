@@ -38,8 +38,8 @@ describe("the waiting group in the queue list", () => {
     const heading = screen.getByRole("heading", { name: "Waiting · 2" });
     const rows = within(heading.closest("section") as HTMLElement);
     expect(rows.getByText("Broker 1")).toBeVisible();
-    expect(rows.getByText(/asked to be left alone/)).toBeVisible();
-    expect(rows.getByText(/had its visits for the day/)).toBeVisible();
+    expect(rows.getByText(/asked for a break/)).toBeVisible();
+    expect(rows.getByText(/has had its visits for today/)).toBeVisible();
     expect(rows.getAllByText("in 5h")).toHaveLength(2);
     expect(rows.queryByRole("button")).toBeNull();
   });
