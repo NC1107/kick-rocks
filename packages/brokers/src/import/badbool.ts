@@ -17,6 +17,7 @@ const MARKER = {
   high: "☠",
   id: "\u{1F3AB}",
   phone: "\u{1F4DE}",
+  /** Only strips the character from names: the legend means paid access or removal, so it proves nothing about the cost of removing. */
   paid: "\u{1F4B0}",
 } as const;
 
@@ -26,17 +27,6 @@ const MARKER_CHARS = new Set<string>(Object.values(MARKER));
 /** The README sections whose entries are brokers, and what each one means for the category. */
 const SECTION_CATEGORY: Readonly<Record<string, BrokerCategory>> = {
   "people search sites": "people-search",
-};
-
-/**
- * BADBOOL files these under people search, but none of them publishes a listing a person can find
- * and point at, so a scan-first removal would never find a record and the request would stall.
- */
-const CATEGORY_OVERRIDES: Readonly<Record<string, BrokerCategory>> = {
-  "acxiom.com": "marketing",
-  "zoominfo.com": "marketing",
-  "classmates.com": "marketing",
-  "facecheck.id": "requires-id",
 };
 
 const MIN_ENTRIES = 25;
@@ -221,7 +211,6 @@ function requirementsFor(
   const found = new Set<Requirement>();
   if (markers.has(MARKER.id)) found.add("id_upload");
   if (markers.has(MARKER.phone)) found.add("phone_call");
-  if (markers.has(MARKER.paid)) found.add("paid");
   const text = plainText(body);
   if (/captcha/i.test(text)) found.add("captcha");
   if (/(click|confirm|verify)[^.]*\b(link|email|inbox)\b|\bverification link\b/i.test(text)) {
@@ -237,7 +226,6 @@ function requirementsFor(
     "id_upload",
     "captcha",
     "account",
-    "paid",
     "record_url",
     "postal_mail",
     "fax",
@@ -290,8 +278,7 @@ export function parseBadboolReport(markdown: string): BadboolReport {
       emails[0] ??
       null;
     const requirements = requirementsFor(markers, entry.body, searchUrl !== null);
-    const resolved: BrokerCategory =
-      CATEGORY_OVERRIDES[domain] ?? (markers.has(MARKER.id) ? "requires-id" : category);
+    const resolved: BrokerCategory = markers.has(MARKER.id) ? "requires-id" : category;
     let id = idFor(name) || slugify(domain);
     if (seenIds.has(id)) id = `${id}-${slugify(domain)}`;
     seenIds.add(id);

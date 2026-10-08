@@ -69,10 +69,34 @@ corrections:
     checked: 2026-10-07
     note: 'Only the 2026 California registry lists it, so it was filed as a registered broker and its campaign never scanned it. The site is a people-search site: a name, state and city search lists records, and the opt-out form asks for the same identifiers. The scan recipe ran end to end on 2026-10-07 and returned candidates.'
 
-  - domain: spokeo.com
+  - domain: acxiom.com
     set:
-      remove_requirements: [paid]
+      category: marketing
     source_urls:
-      - https://www.spokeo.com/optout
-    checked: 2026-10-07
-    note: 'BADBOOL marks Spokeo paid because it reports that removed data can persist for paid accounts. Removal itself is free: the opt-out form takes a profile URL and an email address and then a confirmation link, with no payment step (checked 2026-10-07).'
+      - https://www.acxiom.com/optout/
+    checked: 2026-10-08
+    note: 'BADBOOL files it under people search, but its own entry says it is hard to find your info for free, and Acxiom publishes no listing a person can find and point at. A scan-first removal would never find a record and the request would stall.'
+
+  - domain: zoominfo.com
+    set:
+      category: marketing
+    source_urls:
+      - https://privacyrequest.zoominfo.com/remove/verify
+    checked: 2026-10-08
+    note: 'BADBOOL files it under people search. Its removal form checks whether an email is on record and then sends a code, and there is no listing to find and point at, so a scan-first removal would stall.'
+
+  - domain: classmates.com
+    set:
+      category: marketing
+    source_urls:
+      - https://help.classmates.com/hc/en-us/articles/115002224171-How-can-I-cancel-my-membership-
+    checked: 2026-10-08
+    note: 'BADBOOL files it under people search, but its entry only describes cancelling a membership. There is no public listing to find and point at, so a scan-first removal would stall.'
+
+  - domain: facecheck.id
+    set:
+      category: requires-id
+    source_urls:
+      - https://facecheck.id/Face-Search/RemoveMyPhotos
+    checked: 2026-10-08
+    note: 'BADBOOL files it under people search without an ID marker. Removal means uploading an image and a driver''s license, an ID card or a selfie, so it belongs with the sites that ask for ID.'

@@ -80,16 +80,14 @@ function changesRecord(broker: Broker, correction: Correction): boolean {
   );
 }
 
-/**
- * Applies hand-checked fixes to imported records before they merge, because an imported record
- * always wins over the curated list and an upstream list can be wrong for a long time. A correction
- * is stale, and an error, when it matches no record (the upstream list dropped the broker) or when
- * it changes none of the records it matches (the upstream list carries the fix now).
- */
-export function applyCorrections(
-  lists: readonly (readonly Broker[])[],
-  corrections: readonly Correction[],
-): Broker[][] {
+/** A flag a correction removes must exist on a matched record, or the correction carries a dead part. */
+function deadRemovals(correction: Correction, matches: readonly Broker[]): Requirement[] {
+  return (correction.set.remove_requirements ?? []).filter(
+    (requirement) => !matches.some((broker) => broker.requirements.includes(requirement)),
+  );
+}
+
+function correctLists(lists: readonly (readonly Broker[])[], corrections: readonly Correction[]) {
   const matched = new Set<Correction>();
   const changed = new Set<Correction>();
   const corrected = lists.map((list) =>
@@ -102,6 +100,23 @@ export function applyCorrections(
       return found.reduce(correct, broker);
     }),
   );
+  return { corrected, matched, changed };
+}
+
+/**
+ * Applies hand-checked fixes to imported records before they merge, because an imported record
+ * always wins over the curated list and an upstream list can be wrong for a long time. A correction
+ * is stale, and an error, when it matches no record (the upstream list dropped the broker), when it
+ * changes none of the records it matches, when it removes a flag no matched record carries, or, when
+ * `merge` is given, when the merged result is the same without it (another list carries the fix and
+ * wins the merge). The merge check is what sees a category that a later list already supplies.
+ */
+export function applyCorrections(
+  lists: readonly (readonly Broker[])[],
+  corrections: readonly Correction[],
+  merge?: (lists: readonly (readonly Broker[])[]) => readonly Broker[],
+): Broker[][] {
+  const { corrected, matched, changed } = correctLists(lists, corrections);
   const stale = corrections.filter((correction) => !matched.has(correction));
   if (stale.length > 0) {
     throw new Error(
@@ -115,6 +130,36 @@ export function applyCorrections(
     throw new Error(
       `corrections change nothing because upstream already carries them: ${redundant.map((c) => c.domain).join(", ")}`,
     );
+  }
+  const all = lists.flat();
+  const dead = corrections.flatMap((correction) => {
+    const flags = deadRemovals(
+      correction,
+      all.filter((broker) => broker.domain === correction.domain),
+    );
+    return flags.length > 0 ? [`${correction.domain} (${flags.join(", ")})`] : [];
+  });
+  if (dead.length > 0) {
+    throw new Error(`corrections remove flags no imported record carries: ${dead.join(", ")}`);
+  }
+  if (merge) {
+    const withAll = JSON.stringify(merge(corrected));
+    const moot = corrections.filter(
+      (correction) =>
+        JSON.stringify(
+          merge(
+            correctLists(
+              lists,
+              corrections.filter((other) => other !== correction),
+            ).corrected,
+          ),
+        ) === withAll,
+    );
+    if (moot.length > 0) {
+      throw new Error(
+        `corrections change nothing in the merged dataset because another list carries them: ${moot.map((c) => c.domain).join(", ")}`,
+      );
+    }
   }
   return corrected;
 }
