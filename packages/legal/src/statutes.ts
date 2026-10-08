@@ -281,7 +281,7 @@ export const STATUTE_ENTRIES: readonly StatuteEntry[] = [
     responseDays: 45,
     extensionDays: 45,
     brokerNotes: GENERAL_BROKER_NOTE,
-    sourceUrl: "https://www.capitol.tn.gov/Bills/113/Bill/HB1181.pdf",
+    sourceUrl: "https://www.capitol.tn.gov/Bills/113/Amend/HA0348.pdf",
   }),
   comprehensive({
     id: "mn-mcdpa",
@@ -361,9 +361,9 @@ export const STATUTE_ENTRIES: readonly StatuteEntry[] = [
     responseDays: 45,
     extensionDays: 45,
     brokerNotes: GENERAL_BROKER_NOTE,
-    sourceUrl: "https://legis.la.gov/legis/BillInfo.aspx?s=26RS&b=SB386&sbi=y",
+    sourceUrl: "https://legis.la.gov/legis/ViewDocument.aspx?d=1480202",
     notes:
-      "Signed 2026-05-29. The response deadlines were read from law firm summaries, not the enrolled text, and the Revised Statutes numbers were not confirmed.",
+      "Signed 2026-05-29. The 45 day deadline, the 45 day extension and the 2027-01-01 date were read from the Act 502 text. The Revised Statutes numbers were not confirmed.",
   }),
   comprehensive({
     id: "al-apdpa",
@@ -374,9 +374,10 @@ export const STATUTE_ENTRIES: readonly StatuteEntry[] = [
     responseDays: 45,
     extensionDays: 45,
     brokerNotes: GENERAL_BROKER_NOTE,
-    sourceUrl: "https://alison.legislature.state.al.us/bill/2026RS/HB351",
+    sourceUrl:
+      "https://alison.legislature.state.al.us/files/pdf/SearchableInstruments/2026RS/HB351-enr.pdf",
     notes:
-      "Signed 2026-04-17. The response deadlines were read from law firm summaries, not the enrolled text, and the Code of Alabama numbers were not confirmed.",
+      "The 45 day deadline, the 45 day extension and the 2027-05-01 date were read from the enrolled text. The signing date and the Code of Alabama numbers were not confirmed.",
   }),
   comprehensive({
     id: "vt-vdposa",
@@ -388,9 +389,10 @@ export const STATUTE_ENTRIES: readonly StatuteEntry[] = [
     extensionDays: 45,
     brokerNotes:
       "Applies to data brokers like any other controller. Vermont's separate broker registration law (9 V.S.A. 2430, 2446, 2447) gives consumers no request right.",
-    sourceUrl: "https://legislature.vermont.gov/bill/status/2026/S.71",
+    sourceUrl:
+      "https://legislature.vermont.gov/Documents/2026/Docs/ACTS/ACT145/ACT145%20As%20Enacted.pdf",
     notes:
-      "Signed 2026-06-16. The response deadline was read from a law firm summary, not the enrolled text.",
+      "Signed 2026-06-16. The 45 day deadline, the 45 day extension and the 2028-01-01 date were read from the act as enacted.",
   }),
   {
     statute: {

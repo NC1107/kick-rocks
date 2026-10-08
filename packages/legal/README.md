@@ -95,16 +95,16 @@ Statutes with a deadline or right that came only from a summary say so in their 
 | NE | Data Privacy Act | 2025-01-01 | https://nebraskalegislature.gov/FloorDocs/108/PDF/Slip/LB1074.pdf |
 | NH | Privacy Act | 2025-01-01 | https://gc.nh.gov/rsa/html/NHTOC/NHTOC-LII-507-H.htm |
 | NJ | Data Privacy Act | 2025-01-15 | https://pub.njleg.state.nj.us/Bills/2022/PL23/266_.PDF |
-| TN | Information Protection Act | 2025-07-01 | https://www.capitol.tn.gov/Bills/113/Bill/HB1181.pdf |
+| TN | Information Protection Act | 2025-07-01 | https://www.capitol.tn.gov/Bills/113/Amend/HA0348.pdf |
 | MN | Consumer Data Privacy Act | 2025-07-31 | https://www.revisor.mn.gov/statutes/cite/325M |
 | MD | Online Data Privacy Act of 2024 | 2025-10-01 | https://mgaleg.maryland.gov/2024RS/bills/sb/sb0541E.pdf |
 | IN | Consumer Data Protection Act | 2026-01-01 | https://iga.in.gov/laws/2025/ic/titles/24 |
 | KY | Consumer Data Protection Act | 2026-01-01 | https://apps.legislature.ky.gov/recorddocuments/bill/24RS/hb15/bill.pdf |
 | RI | Data Transparency and Privacy Protection Act | 2026-01-01 | https://webserver.rilegislature.gov/Statutes/TITLE6/6-48.1/INDEX.HTM |
 | OK | Consumer Data Privacy Act (SB 546) | 2027-01-01 | https://www.oklegislature.gov/cf_pdf/2025-26%20ENR/SB/SB546%20ENR.PDF |
-| LA | Data Privacy Act (SB 386, Act 502) | 2027-01-01 | https://legis.la.gov/legis/BillInfo.aspx?s=26RS&b=SB386&sbi=y |
-| AL | Personal Data Protection Act (HB 351) | 2027-05-01 | https://alison.legislature.state.al.us/bill/2026RS/HB351 |
-| VT | Data Privacy and Online Surveillance Act (S.71, Act 145) | 2028-01-01 | https://legislature.vermont.gov/bill/status/2026/S.71 |
+| LA | Data Privacy Act (SB 386, Act 502) | 2027-01-01 | https://legis.la.gov/legis/ViewDocument.aspx?d=1480202 |
+| AL | Personal Data Protection Act (HB 351) | 2027-05-01 | https://alison.legislature.state.al.us/files/pdf/SearchableInstruments/2026RS/HB351-enr.pdf |
+| VT | Data Privacy and Online Surveillance Act (S.71, Act 145) | 2028-01-01 | https://legislature.vermont.gov/Documents/2026/Docs/ACTS/ACT145/ACT145%20As%20Enacted.pdf |
 
 Data broker registration laws, which give consumers no request right:
 
@@ -143,10 +143,17 @@ leginfo.legislature.ca.gov served only a script challenge, so the primary URL in
 What was read directly and what was not:
 
 - Read from the enrolled or codified text: Virginia, Connecticut, Iowa, Delaware, Minnesota, Maryland, Tennessee, Kentucky, Nebraska, New Jersey (both acts), Colorado, Oregon, Rhode Island, Oklahoma, Nevada, and the Vermont broker section and Oregon broker section.
-- California, Utah, Texas, Montana, New Hampshire, Indiana, and Florida pages block scripts or render with JavaScript, so their rights, deadlines, and dates were confirmed from the statute sections as quoted by other sources and from the Texas, Utah, and California agency pages.
-- Alabama, Louisiana, and Vermont (S.71) were enacted in 2026 and their enrolled text was not readable.
-  Their dates and signing came from the legislature's bill pages, and their 45 day deadlines and rights from law firm summaries.
-  Re-read them against the enrolled text before relying on the section numbers.
+- Also read from the primary text:
+  - Utah 13-61-203 (45 + 45, effective 12/31/2023): https://le.utah.gov/xcode/Title13/Chapter61/C13-61-S203_2022050420231231.html
+  - Texas enrolled HB 4 (45th day + 45, SECTION 7 effective July 1, 2024): https://capitol.texas.gov/tlodocs/88R/billtext/pdf/HB00004F.pdf
+  - Montana 30-14-2808: https://mca.legmt.gov/bills/mca/title_0300/chapter_0140/part_0280/section_0080/0300-0140-0280-0080.html
+  - New Hampshire 507-H: https://gc.nh.gov/rsa/html/LII/507-H/507-H-mrg.htm
+  - Louisiana Act 502: https://legis.la.gov/legis/ViewDocument.aspx?d=1480202
+  - Alabama HB 351 as enrolled: https://alison.legislature.state.al.us/files/pdf/SearchableInstruments/2026RS/HB351-enr.pdf
+  - Vermont Act 145 (S.71) as enacted: https://legislature.vermont.gov/Documents/2026/Docs/ACTS/ACT145/ACT145%20As%20Enacted.pdf
+- California and Florida were confirmed from the statute sections as quoted by other sources and from the California agency pages.
+- Indiana's 45 + 45 and its 2026-01-01 date are confirmed by the Attorney General, the enforcing agency: https://www.in.gov/attorneygeneral/files/Indiana-Consumer-Data-Protection-Consumer-Bill-of-Rights_Web.pdf
+- The Louisiana, Alabama, and Vermont (S.71) section numbers were not confirmed.
 - Connecticut's 2025 amendments (2026-07-01), Montana's 2025 amendments, Maryland's 2026 amendments, and Vermont Act 138 of 2026 (broker registration, 2027-01-01) were noted from law firm summaries.
   None changes a consumer right or deadline used here.
 
