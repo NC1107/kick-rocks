@@ -44,11 +44,6 @@ export interface RunnerOptions {
   allowHttp?: boolean | undefined;
   /** Defaults to the human pace. */
   pace?: Pace | undefined;
-  /**
-   * The Crawl-delay the site's robots.txt sets for everyone, in seconds. The run leaves at least
-   * this long between two page loads, and passes it on so the server spaces whole visits by it.
-   */
-  crawlDelaySeconds?: number | undefined;
   /** Ends the run early, as a worker that is shutting down does. */
   signal?: AbortSignal | undefined;
   timeouts?: Partial<Timeouts> | undefined;

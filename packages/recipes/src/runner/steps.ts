@@ -1,12 +1,10 @@
 import {
   type FormResult,
   normalizeRecordUrl,
-  parseRetryAfter,
-  pushbackKindForStatus,
   type RecipeStep,
   type Selector,
 } from "@kickrocks/shared";
-import type { Locator, Response } from "playwright";
+import type { Locator } from "playwright";
 import type { RunOutcome } from "../types.js";
 import {
   blocked,
@@ -109,9 +107,30 @@ async function settle(ctx: RunContext): Promise<void> {
 /** After anything that can load a new page: let it settle, then stop for a human check if one shows. */
 async function afterNavigation(ctx: RunContext): Promise<Ended> {
   await settle(ctx);
+  const loaded = ctx.state.navigationStatus;
+  ctx.state.navigationStatus = null;
   const stopped = await guard(ctx);
   if (stopped) return stopped;
+  const refused = await refusedByStatus(ctx, loaded);
+  if (refused) return refused;
   await lookAtPage(ctx);
+  return null;
+}
+
+/**
+ * A page that was loaded and answered with a rate limit or a refusal. After a click, key press or
+ * submit this is what tells a search that was turned away from one that found nothing. Bot
+ * management often answers 401 or 403 with a body the detector has no words for, and the form the
+ * next step looks for is then missing for a reason that says nothing about the recipe.
+ */
+async function refusedByStatus(ctx: RunContext, status: number | null): Promise<Ended> {
+  if (status === null) return null;
+  if (status >= 500 || status === 429) {
+    throw new RunFailure("site", `The site answered ${status}`, true);
+  }
+  if (status === 401 || status === 403) {
+    return blocked(ctx, "bot_detection", `The site answered ${status} to the browser.`);
+  }
   return null;
 }
 
@@ -126,30 +145,6 @@ async function lookAtPage(ctx: RunContext): Promise<void> {
     await ctx.page.mouse.wheel(0, between(scrollPx, ctx.pace.random)).catch(() => undefined);
     await pauseBeforeAction(ctx);
   }
-}
-
-/** Leaves the gap a site's robots.txt asks for between two page loads. */
-async function waitForCrawlDelay(ctx: RunContext): Promise<void> {
-  const { crawlDelaySeconds } = ctx;
-  if (!crawlDelaySeconds || ctx.state.lastNavigationAt === null) return;
-  const remaining = ctx.state.lastNavigationAt + crawlDelaySeconds * 1000 - Date.now();
-  if (remaining > 0) await ctx.pace.sleep(remaining, ctx.signal);
-}
-
-/** Remembers a 429, 403, 503, or Cloudflare challenge on the page itself, with the wait the site asked for. */
-export function notePushback(ctx: RunContext, response: Response): void {
-  if (ctx.state.pushback) return;
-  const status = response.status();
-  const headers = response.headers();
-  const kind =
-    headers["cf-mitigated"] === "challenge" ? "challenge" : pushbackKindForStatus(status);
-  if (kind === null) return;
-  const retryAfterSeconds = parseRetryAfter(headers["retry-after"], new Date());
-  ctx.state.pushback = {
-    kind,
-    status,
-    ...(retryAfterSeconds === undefined ? {} : { retryAfterSeconds }),
-  };
 }
 
 async function pauseBeforeAction(ctx: RunContext): Promise<void> {
@@ -207,15 +202,13 @@ async function goto(ctx: RunContext, template: string): Promise<Ended> {
     if (problem !== null) throw recipeFailure(problem);
   }
   let status: number | null;
-  await waitForCrawlDelay(ctx);
   try {
-    ctx.state.lastNavigationAt = Date.now();
+    ctx.state.navigationStatus = null;
     const response = await ctx.page.goto(url, {
       waitUntil: "domcontentloaded",
       timeout: ctx.timeouts.navigationMs,
     });
     status = response?.status() ?? null;
-    if (response) notePushback(ctx, response);
   } catch (error) {
     if (error instanceof Error && error.name === "TimeoutError") {
       throw new RunFailure("site", "The page did not load in time", true);
@@ -229,14 +222,8 @@ async function goto(ctx: RunContext, template: string): Promise<Ended> {
   }
   const stopped = await guard(ctx);
   if (stopped) return stopped;
-  if (status !== null && (status >= 500 || status === 429)) {
-    throw new RunFailure("site", `The site answered ${status}`, true);
-  }
-  // Bot management often answers 401 or 403 with a body the detector has no words for, and the
-  // form the next step looks for is then missing for a reason that says nothing about the recipe.
-  if (status === 401 || status === 403) {
-    return blocked(ctx, "bot_detection", `The site answered ${status} to the browser.`);
-  }
+  const refused = await refusedByStatus(ctx, status);
+  if (refused) return refused;
   await lookAtPage(ctx);
   return null;
 }

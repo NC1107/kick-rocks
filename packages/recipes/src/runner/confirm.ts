@@ -4,7 +4,6 @@ import type { RunOutcome } from "../types.js";
 import { createContext, guard, type RunContext, withSite } from "./context.js";
 import { RunAborted, RunFailure, toFailure } from "./errors.js";
 import type { RunnerOptions } from "./options.js";
-import { notePushback } from "./steps.js";
 import { pageText } from "./text.js";
 
 export interface RunConfirmationInput extends RunnerOptions {
@@ -103,7 +102,6 @@ async function confirmationOutcome(
       timeout: ctx.timeouts.navigationMs,
     });
     await page.waitForLoadState("load", { timeout: 5000 }).catch(() => undefined);
-    if (response) notePushback(ctx, response);
     const stopped = await guard(ctx);
     if (stopped) return stopped;
     const status = response?.status() ?? 0;

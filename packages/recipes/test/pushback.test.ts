@@ -114,6 +114,50 @@ describeBrowser("what a run reports about a site that pushes back", () => {
     });
   });
 
+  const searchAfterSubmit = [
+    { kind: "fill", target: { label: "First name" }, field: "first_name" },
+    { kind: "fill", target: { label: "Last name" }, field: "last_name" },
+    { kind: "click", target: { role: "button", label: "Search" } },
+    {
+      kind: "extract_candidates",
+      item: { css: ".result" },
+      fields: { recordUrl: { css: "a", attr: "href" }, name: { css: "h3" } },
+    },
+  ] as const;
+
+  it("reports a 429 that answers the search submit, not a scan that found nobody", async () => {
+    const outcome = await visit(
+      "/ps/index-limited",
+      {},
+      {
+        fields: ["first_name", "last_name"],
+        steps: [...searchAfterSubmit],
+      },
+    );
+    expect(outcome).toMatchObject({
+      status: "failed",
+      kind: "site",
+      retryable: true,
+      site: { pushback: { kind: "rate_limited", status: 429, retryAfterSeconds: 120 } },
+    });
+  });
+
+  it("reports a 403 that answers the search submit as the site refusing the browser", async () => {
+    const outcome = await visit(
+      "/ps/index-forbidden",
+      {},
+      {
+        fields: ["first_name", "last_name"],
+        steps: [...searchAfterSubmit],
+      },
+    );
+    expect(outcome).toMatchObject({
+      status: "blocked",
+      reason: "bot_detection",
+      site: { pushback: { kind: "forbidden", status: 403 } },
+    });
+  });
+
   it("reports pushback on a confirmation link too", async () => {
     const outcome = await runConfirmation({
       page,
@@ -135,28 +179,6 @@ describeBrowser("what a run reports about a site that pushes back", () => {
 });
 
 describeBrowser("how a run paces itself", () => {
-  it("leaves the robots.txt crawl delay between two page loads and reports it", async () => {
-    const started = Date.now();
-    const outcome = await visit(
-      "/ps/index",
-      { crawlDelaySeconds: 1 },
-      {
-        steps: [
-          { kind: "goto", url: `${server.origin}/ps/search?first=John&last=Smith` },
-          { kind: "goto", url: `${server.origin}/ps/index` },
-          {
-            kind: "extract_candidates",
-            item: { css: ".result" },
-            fields: { recordUrl: { css: "a", attr: "href" }, name: { css: "h3" } },
-          },
-        ],
-      },
-    );
-    expect(Date.now() - started).toBeGreaterThanOrEqual(1900);
-    expect(outcome).toMatchObject({ status: "completed", site: { crawlDelaySeconds: 1 } });
-    expect(server.hits.filter((hit) => hit.startsWith("GET /ps/"))).toHaveLength(3);
-  });
-
   it("looks at a page before acting on it", async () => {
     const started = Date.now();
     const outcome = await visit("/ps/index", {

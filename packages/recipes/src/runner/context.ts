@@ -4,11 +4,13 @@ import {
   isOnDomain,
   type ProfileFields,
   type Pushback,
+  parseRetryAfter,
+  pushbackKindForStatus,
   renderTemplate,
   type SiteObservation,
   TemplateError,
 } from "@kickrocks/shared";
-import type { Page } from "playwright";
+import type { Page, Response } from "playwright";
 import type { RunOutcome } from "../types.js";
 import { type BlockFinding, detectBlockAfterGrace } from "./detect.js";
 import { isClosedError, RunAborted, RunFailure } from "./errors.js";
@@ -25,8 +27,8 @@ export interface RunState {
   lastStatus: number | null;
   /** What the site did that says to slow down, the first time it did it in this run. */
   pushback: Pushback | undefined;
-  /** When the last page load began, for the robots.txt crawl delay. */
-  lastNavigationAt: number | null;
+  /** The status of the newest page the main frame loaded, cleared once a step has judged it. */
+  navigationStatus: number | null;
   /** The page showed that the site took the last submission; any later submit clears it. */
   proved: boolean;
 }
@@ -42,7 +44,8 @@ export interface RunContext {
   redact: (text: string) => string;
   onSubmit: (() => void | Promise<void>) | undefined;
   deadline: number;
-  crawlDelaySeconds: number | undefined;
+  /** Stops watching the page; every run calls it when it ends. */
+  stop: () => void;
   state: RunState;
 }
 
@@ -65,6 +68,17 @@ export function createContext(
 ): RunContext {
   const timeouts = { ...DEFAULT_TIMEOUTS, ...options.timeouts };
   const usable = usableFields(fields);
+  const state: RunState = {
+    candidates: [],
+    confirmationText: undefined,
+    extractedRecordUrl: undefined,
+    awaitingEmailFrom: undefined,
+    lastStatus: null,
+    pushback: undefined,
+    navigationStatus: null,
+    proved: false,
+  };
+  const stop = watchNavigations(page, state);
   return {
     page,
     fields: usable,
@@ -76,17 +90,39 @@ export function createContext(
     redact: createRedactor(usable),
     onSubmit: options.onSubmit,
     deadline: Date.now() + timeouts.runMs,
-    crawlDelaySeconds: options.crawlDelaySeconds,
-    state: {
-      candidates: [],
-      confirmationText: undefined,
-      extractedRecordUrl: undefined,
-      awaitingEmailFrom: undefined,
-      lastStatus: null,
-      pushback: undefined,
-      lastNavigationAt: null,
-      proved: false,
-    },
+    stop,
+    state,
+  };
+}
+
+/**
+ * Reads every page the main frame loads, whatever started the load. A search that is rate limited
+ * usually answers the submit, not the first visit, so looking only at `goto` would miss it.
+ */
+function watchNavigations(page: Page, state: RunState): () => void {
+  const onResponse = (response: Response): void => {
+    if (!response.request().isNavigationRequest()) return;
+    if (response.frame() !== page.mainFrame()) return;
+    state.navigationStatus = response.status();
+    notePushback(state, response);
+  };
+  page.on("response", onResponse);
+  return () => page.off("response", onResponse);
+}
+
+/** Remembers a 429, 403, 503, or Cloudflare challenge, with the wait the site asked for. */
+export function notePushback(state: RunState, response: Response): void {
+  if (state.pushback) return;
+  const status = response.status();
+  const headers = response.headers();
+  const kind =
+    headers["cf-mitigated"] === "challenge" ? "challenge" : pushbackKindForStatus(status);
+  if (kind === null) return;
+  const retryAfterSeconds = parseRetryAfter(headers["retry-after"], new Date());
+  state.pushback = {
+    kind,
+    status,
+    ...(retryAfterSeconds === undefined ? {} : { retryAfterSeconds }),
   };
 }
 
@@ -184,15 +220,12 @@ export async function blockedBy(ctx: RunContext, finding: BlockFinding) {
 /** What the run saw of the site, for the server to pace the next visit. Undefined when nothing stands out. */
 export function siteObservation(ctx: RunContext): SiteObservation | undefined {
   const { pushback } = ctx.state;
-  if (pushback === undefined && ctx.crawlDelaySeconds === undefined) return undefined;
-  return {
-    ...(pushback ? { pushback } : {}),
-    ...(ctx.crawlDelaySeconds === undefined ? {} : { crawlDelaySeconds: ctx.crawlDelaySeconds }),
-  };
+  return pushback === undefined ? undefined : { pushback };
 }
 
 /** Adds what the run saw of the site to however the run ended. */
 export function withSite<R>(ctx: RunContext, outcome: RunOutcome<R>): RunOutcome<R> {
+  ctx.stop();
   const site = siteObservation(ctx);
   return site === undefined ? outcome : { ...outcome, site };
 }
