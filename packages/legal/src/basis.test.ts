@@ -81,7 +81,7 @@ describe("resolveLegalBasis", () => {
         rights: ["opt_out"],
         asOf: NOW,
       });
-      const expected = withLaw.has(code) && code !== "FL" ? "statute" : "policy";
+      const expected = withLaw.has(code) && code !== "FL" && code !== "TN" ? "statute" : "policy";
       expect(basis.kind, code).toBe(expected);
     }
   });
@@ -151,6 +151,28 @@ describe("resolveLegalBasis", () => {
     });
     expect(basis.kind).toBe("policy");
     expect(getLegalBasis("fl-fdbr", "FL")?.kind).toBe("statute");
+  });
+
+  it("does not claim Tennessee's law, which reaches only businesses with revenue over 25 million dollars", () => {
+    const basis = resolveLegalBasis({
+      state: "TN",
+      target: BROKER,
+      rights: ["opt_out", "delete"],
+      asOf: NOW,
+    });
+    expect(basis.kind).toBe("policy");
+    expect(getLegalBasis("tn-tipa", "TN")?.kind).toBe("statute");
+  });
+
+  it("moves the Delete Act to 30 days from 2027-01-01 and keeps 45 before", () => {
+    const base = { state: "CA" as const, target: CA_REGISTERED, rights: ["delete" as const] };
+    const before = new Date("2026-12-31T23:59:59Z");
+    const after = new Date("2027-01-01T00:00:00Z");
+    expect(resolveLegalBasis({ ...base, asOf: before }).responseDays).toBe(45);
+    expect(resolveLegalBasis({ ...base, asOf: after }).responseDays).toBe(30);
+    expect(getLegalBasis("ca-delete-act", "CA", ["delete"], before)?.responseDays).toBe(45);
+    expect(getLegalBasis("ca-delete-act", "CA", ["delete"], after)?.responseDays).toBe(30);
+    expect(getLegalBasis("ca-delete-act", "CA", ["delete"])?.responseDays).toBe(45);
   });
 
   it("does not claim a deletion right the statute limits to data the person provided, against a broker", () => {
@@ -290,14 +312,10 @@ describe("getLegalBasis", () => {
     for (const { state } of listJurisdictions()) {
       for (const target of [BROKER, COMPANY, CA_REGISTERED]) {
         for (const rights of [["opt_out"], ["delete"], ["opt_out", "delete"]] as const) {
-          const basis = resolveLegalBasis({
-            state,
-            target,
-            rights,
-            asOf: new Date("2029-01-01T00:00:00Z"),
-          });
+          const asOf = new Date("2029-01-01T00:00:00Z");
+          const basis = resolveLegalBasis({ state, target, rights, asOf });
           expect(
-            getLegalBasis(basis.id, state, rights),
+            getLegalBasis(basis.id, state, rights, asOf),
             `${state} ${target.id} ${rights.join("+")}`,
           ).toEqual(basis);
         }

@@ -62,7 +62,12 @@ export interface LegalApi {
    * request cited even after a newer law takes effect. Null for an id the package does not know,
    * or one that belongs to another state.
    */
-  getLegalBasis(id: string, state: StateCode, rights?: readonly RequestRight[]): LegalBasis | null;
+  getLegalBasis(
+    id: string,
+    state: StateCode,
+    rights?: readonly RequestRight[],
+    asOf?: Date,
+  ): LegalBasis | null;
   /** Whether the deletion part of a request is better filed once through a state platform such as DROP. */
   recommendDrop(input: ResolveLegalBasisInput): DropRecommendation;
   listJurisdictions(): Jurisdiction[];
