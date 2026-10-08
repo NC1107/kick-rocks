@@ -256,5 +256,8 @@ Set `LOG_LEVEL=debug` in `.env` and run `docker compose up -d` for more detail.
 
 The agent worker is optional and off by default.
 Add `agent` to `COMPOSE_PROFILES` in `.env`, set the model, and run `docker compose up -d --build`.
+For a model served by ollama on the same machine, set `KICKROCKS_AGENT_PROVIDER=ollama` and `KICKROCKS_AGENT_BASE_URL=http://host.docker.internal:11434`.
+The `ollama` provider asks ollama for a context of 16384 tokens on every request, because ollama's own default of 4096 cuts a long run short without any error.
+`KICKROCKS_AGENT_NUM_CTX` changes it, and the `openai` provider remains for any other openai-compatible server.
 It keeps its own chrome profile in the `kickrocks-agent-chrome` volume, because two browsers can't share one.
 Setup, settings, and what the model can see are in [agents.md](agents.md).
