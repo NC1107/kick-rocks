@@ -68,9 +68,13 @@ The server decides when a task may start, so the worker never paces itself again
 What the worker adds is observation and manners.
 See `docs/scanning.md` for the rules and the defaults.
 
-- Every report carries what the run saw of the site: a 429, 403, or 503 with its Retry-After, a Cloudflare challenge, a CAPTCHA, or an access-denied page, and the robots.txt Crawl-delay.
-- A scan reads robots.txt once a day per site and leaves the Crawl-delay between page loads.
+- Every report carries what the run saw of the site: a 429, 403, or 503 with its Retry-After, a Cloudflare challenge, a CAPTCHA, or an access-denied page.
+- Every page the main frame loads is checked, not only the first, so a 429 that answers the search submit stops the run instead of reading as no results.
+- Chrome starts with `--disable-blink-features=AutomationControlled`, so `navigator.webdriver` is false.
+- The worker never fetches robots.txt, because that request would not look like the browser beside it.
 - A run dwells on a freshly opened page and scrolls a little before acting, and it never blocks images, scripts, or fonts.
 - A canary loads only the recipe entry page and checks its `entrySelectors`.
 - When the person routes a site through a proxy in Settings, the task names it and the worker restarts that profile browser with it between tasks.
+  Each route has its own browser folder, and WebRTC is kept from sending UDP outside the proxy.
   A proxy set with `KICKROCKS_WORKER_PROXY` always wins, because it is the operator safety filter.
+  A task whose site is routed through a different proxy fails with that explanation instead of silently using the worker's route.

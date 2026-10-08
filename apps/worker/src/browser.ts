@@ -151,6 +151,28 @@ export async function clearServiceWorkers(context: BrowserContext): Promise<void
   await tabGuards.get(context)?.clearServiceWorkers();
 }
 
+/**
+ * Chrome announces itself as automated through `navigator.webdriver` whenever it is driven over
+ * the DevTools protocol, and bot management reads that flag first. This switch is what a person's
+ * own Chrome has by default, so the visitor looks like one.
+ *
+ * Over a proxy, WebRTC would otherwise let a page read the home address from STUN candidates,
+ * because UDP does not go through an http proxy.
+ */
+export function chromeArgs(settings: Pick<BrowserSettings, "noSandbox" | "proxyServer">): string[] {
+  return [
+    "--remote-debugging-port=0",
+    "--disable-blink-features=AutomationControlled",
+    ...(settings.noSandbox ? ["--no-sandbox"] : []),
+    ...(settings.proxyServer
+      ? [
+          "--webrtc-ip-handling-policy=disable_non_proxied_udp",
+          "--force-webrtc-ip-handling-policy=disable_non_proxied_udp",
+        ]
+      : []),
+  ];
+}
+
 export const launchPersistentChrome = async (
   settings: BrowserSettings,
   guardOptions: TabGuardOptions = {},
@@ -163,7 +185,7 @@ export const launchPersistentChrome = async (
     const context = await chromium.launchPersistentContext(settings.profileDir, {
       headless: settings.headless,
       ...(executablePath ? { executablePath } : {}),
-      args: ["--remote-debugging-port=0", ...(settings.noSandbox ? ["--no-sandbox"] : [])],
+      args: chromeArgs(settings),
       ...(settings.proxyServer ? { proxy: { server: settings.proxyServer } } : {}),
       ...BROWSER_CONTEXT_OPTIONS,
     });
@@ -271,9 +293,10 @@ function scopeName(profileId: string | null): string {
  */
 export interface ProfileBrowsers {
   /**
-   * A page in the person's browser. A proxy given here is used for the page's traffic unless the
-   * worker was started with a proxy of its own, which always wins because it is the operator's
-   * safety filter. Changing proxy restarts that profile's browser, so it happens between tasks.
+   * A page in the person's browser. A proxy given here is used for the page's traffic. Each route
+   * has its own user data folder, so cookies from a direct visit never meet the proxy's address.
+   * A worker started with a proxy of its own refuses a different one with `ProxyConflictError`.
+   * Changing route restarts that profile's browser, so it happens between tasks.
    */
   newPage(profileId: string | null, proxy?: string | null): Promise<Page>;
   /**
@@ -285,6 +308,27 @@ export interface ProfileBrowsers {
   close(): Promise<void>;
 }
 
+/**
+ * The person routed a site through a proxy, but this worker was started with a proxy of its own,
+ * which always wins. Going on would send the visit through the wrong route without saying so.
+ */
+export class ProxyConflictError extends Error {
+  override name = "ProxyConflictError";
+
+  constructor() {
+    super(
+      "This site is routed through a proxy in Settings, but this worker was started with its own proxy (KICKROCKS_WORKER_PROXY), which cannot be combined with it. Remove one of the two.",
+    );
+  }
+}
+
+/** A folder name for a route, so the identity a site sees through one address never shares storage with another. */
+function routeName(proxy: string | null): string {
+  return proxy === null
+    ? "direct"
+    : `via-${createHash("sha256").update(proxy).digest("hex").slice(0, 16)}`;
+}
+
 export function createProfileBrowsers(
   settings: BrowserSettings,
   logger: Logger,
@@ -294,6 +338,9 @@ export function createProfileBrowsers(
 
   async function sessionFor(profileId: string | null, requested: string | null) {
     const scope = scopeName(profileId);
+    if (requested !== null && settings.proxyServer && requested !== settings.proxyServer) {
+      throw new ProxyConflictError();
+    }
     const proxy = settings.proxyServer ?? requested;
     const open = sessions.get(scope);
     if (open && open.proxy === proxy) return open.session;
@@ -301,7 +348,7 @@ export function createProfileBrowsers(
       sessions.delete(scope);
       await open.session.close();
     }
-    const profileDir = join(settings.profileDir, "kickrocks", scope);
+    const profileDir = join(settings.profileDir, "kickrocks", scope, routeName(proxy));
     mkdirSync(profileDir, { recursive: true });
     const session = createBrowserSession(
       { ...settings, profileDir, proxyServer: proxy },

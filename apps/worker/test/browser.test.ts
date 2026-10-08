@@ -15,11 +15,14 @@ import { join } from "node:path";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   type BrowserSession,
+  chromeArgs,
   clearStaleProfileLock,
   createBrowserSession,
   createProfileBrowsers,
   findInstalledChrome,
   installedChromePaths,
+  launchPersistentChrome,
+  ProxyConflictError,
 } from "../src/browser.js";
 import { describeBrowser, silentLogger } from "./support.js";
 
@@ -90,6 +93,50 @@ describe("a stale Chrome profile lock", () => {
   it("does nothing when there is no lock or the profile does not exist", () => {
     expect(clearStaleProfileLock(dir)).toBe(false);
     expect(clearStaleProfileLock(join(dir, "missing"))).toBe(false);
+  });
+});
+
+describe("the arguments Chrome starts with", () => {
+  it("hides the automation flag, which bot management reads first", () => {
+    expect(chromeArgs({ noSandbox: false })).toContain(
+      "--disable-blink-features=AutomationControlled",
+    );
+  });
+
+  it("keeps WebRTC from reading the home address only when a proxy is in use", () => {
+    expect(chromeArgs({ noSandbox: false })).not.toContain(
+      "--force-webrtc-ip-handling-policy=disable_non_proxied_udp",
+    );
+    expect(chromeArgs({ noSandbox: false, proxyServer: "http://10.0.0.100:8888" })).toEqual(
+      expect.arrayContaining([
+        "--webrtc-ip-handling-policy=disable_non_proxied_udp",
+        "--force-webrtc-ip-handling-policy=disable_non_proxied_udp",
+      ]),
+    );
+  });
+
+  it("adds the sandbox switch only when asked", () => {
+    expect(chromeArgs({ noSandbox: true })).toContain("--no-sandbox");
+    expect(chromeArgs({ noSandbox: false })).not.toContain("--no-sandbox");
+  });
+});
+
+describeBrowser("the browser a broker page sees", () => {
+  it("does not announce itself as automated", async () => {
+    const profileDir = join(dir, "profile");
+    mkdirSync(profileDir, { recursive: true });
+    const context = await launchPersistentChrome({
+      profileDir,
+      headless: true,
+      noSandbox: false,
+      executablePath: null,
+    });
+    try {
+      const page = context.pages()[0] ?? (await context.newPage());
+      expect(await page.evaluate("navigator.webdriver")).toBe(false);
+    } finally {
+      await context.close();
+    }
   });
 });
 
@@ -215,13 +262,16 @@ describe("one browser per Kick Rocks profile", () => {
     await browsers.newPage("p-one");
     await browsers.newPage("p-two");
     await browsers.newPage("p-one");
-    expect(dirs).toEqual([join(dir, "kickrocks", "p-one"), join(dir, "kickrocks", "p-two")]);
+    expect(dirs).toEqual([
+      join(dir, "kickrocks", "p-one", "direct"),
+      join(dir, "kickrocks", "p-two", "direct"),
+    ]);
   });
 
   it("keeps canaries and other tasks without a person in a folder of their own", async () => {
     const { dirs, launch } = fakeLauncher();
     await createProfileBrowsers(settings(), silentLogger, launch).newPage(null);
-    expect(dirs).toEqual([join(dir, "kickrocks", "shared")]);
+    expect(dirs).toEqual([join(dir, "kickrocks", "shared", "direct")]);
   });
 
   describe("a proxy the person chose for a site", () => {
@@ -248,7 +298,7 @@ describe("one browser per Kick Rocks profile", () => {
       expect(launch).toHaveBeenCalledTimes(1);
     });
 
-    it("restarts that profile's browser when the route changes, on the same user data folder", async () => {
+    it("restarts that profile's browser when the route changes", async () => {
       const { proxies, launch } = proxiedLauncher();
       const browsers = createProfileBrowsers(settings(), silentLogger, launch);
       await browsers.newPage("p-one", null);
@@ -257,14 +307,31 @@ describe("one browser per Kick Rocks profile", () => {
       expect(proxies).toEqual([null, "http://10.0.0.100:8888", null]);
     });
 
-    it("never overrides a proxy the worker was started with", async () => {
+    it("keeps each route's cookies and storage in a folder of its own", async () => {
+      const { launch } = fakeLauncher();
+      const browsers = createProfileBrowsers(settings(), silentLogger, launch);
+      await browsers.newPage("p-one", null);
+      await browsers.newPage("p-one", "http://10.0.0.100:8888");
+      await browsers.newPage("p-one", "http://10.0.0.200:8888");
+      await browsers.newPage("p-one", null);
+      const folders = launch.mock.calls.map(([opened]) => opened.profileDir);
+      expect(new Set(folders).size).toBe(3);
+      expect(folders[0]).toBe(join(dir, "kickrocks", "p-one", "direct"));
+      expect(folders[3]).toBe(folders[0]);
+      expect(folders[1]?.startsWith(join(dir, "kickrocks", "p-one", "via-"))).toBe(true);
+    });
+
+    it("refuses a different proxy than the one the worker was started with, and says why", async () => {
       const { proxies, launch } = proxiedLauncher();
       const browsers = createProfileBrowsers(
         { ...settings(), proxyServer: "http://egress-filter:3128" },
         silentLogger,
         launch,
       );
-      await browsers.newPage("p-one", "http://10.0.0.100:8888");
+      await expect(browsers.newPage("p-one", "http://10.0.0.100:8888")).rejects.toBeInstanceOf(
+        ProxyConflictError,
+      );
+      await browsers.newPage("p-one", "http://egress-filter:3128");
       await browsers.newPage("p-one", null);
       expect(proxies).toEqual(["http://egress-filter:3128"]);
     });
@@ -297,7 +364,7 @@ describe("one browser per Kick Rocks profile", () => {
       expect(existsSync(folder("p-old-run"))).toBe(false);
       expect(existsSync(folder("p-kept"))).toBe(true);
       expect(existsSync(folder("shared"))).toBe(true);
-      expect(closed).toEqual([folder("p-gone")]);
+      expect(closed).toEqual([join(folder("p-gone"), "direct")]);
 
       await browsers.newPage("p-gone");
       expect(launch).toHaveBeenCalledTimes(4);

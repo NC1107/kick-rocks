@@ -24,8 +24,8 @@ import {
 } from "@kickrocks/shared";
 import type { Page } from "playwright";
 import type { z } from "zod";
+import { ProxyConflictError } from "./browser.js";
 import { describeError, type Logger } from "./logger.js";
-import { type CrawlDelayReader, createCrawlDelayReader } from "./robots.js";
 
 /** What to tell the server about a task after running it. */
 export type TaskReport =
@@ -76,7 +76,6 @@ export interface ExecutorOptions {
   allowHttp: boolean;
   logger: Logger;
   runners?: Runners;
-  crawlDelays?: CrawlDelayReader;
   now?: () => number;
 }
 
@@ -172,7 +171,6 @@ function fieldsFor(task: ClaimedTask, recipe: Recipe): ProfileFields {
 export function createExecutor(options: ExecutorOptions): TaskExecutor {
   const runners = options.runners ?? DEFAULT_RUNNERS;
   const now = options.now ?? Date.now;
-  const crawlDelays = options.crawlDelays ?? createCrawlDelayReader(options.logger);
   const pace: Pace = options.pace === "instant" ? INSTANT_PACE : HUMAN_PACE;
 
   return async (task, signal, progress) => {
@@ -198,6 +196,7 @@ export function createExecutor(options: ExecutorOptions): TaskExecutor {
     try {
       page = await options.openPage(task.profileId ?? null, task.proxyUrl ?? null);
     } catch (error) {
+      if (error instanceof ProxyConflictError) return internal(error.message, false);
       options.logger.error("could not open a browser page", { error: describeError(error) });
       return {
         kind: "release",
@@ -209,17 +208,12 @@ export function createExecutor(options: ExecutorOptions): TaskExecutor {
     const started = now();
     const usage = (): TaskUsage => ({ durationMs: Math.max(0, now() - started) });
     try {
-      const crawlDelaySeconds =
-        task.kind === "scan" && recipe
-          ? await crawlDelays.read(page, new URL(recipe.entryUrl).origin)
-          : undefined;
       const shared = {
         page,
         pace,
         signal,
         allowHttp: options.allowHttp,
         targetDomain: task.target.domain,
-        ...(crawlDelaySeconds === undefined ? {} : { crawlDelaySeconds }),
       };
       switch (task.kind) {
         case "scan": {

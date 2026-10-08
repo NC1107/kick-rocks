@@ -2,8 +2,8 @@ import type { RunOutcome } from "@kickrocks/recipes";
 import { MAX_SCREENSHOT_BYTES } from "@kickrocks/shared";
 import type { Page } from "playwright";
 import { describe, expect, it, vi } from "vitest";
+import { ProxyConflictError } from "../src/browser.js";
 import { createExecutor, type Runners, type TaskExecutor } from "../src/executor.js";
-import type { CrawlDelayReader } from "../src/robots.js";
 import { recipeFor, silentLogger, task } from "./support.js";
 
 const ORIGIN = "http://127.0.0.1:9999";
@@ -429,41 +429,6 @@ describe("telling the server what the site did", () => {
   });
 });
 
-describe("respecting a site's crawl delay", () => {
-  function withReader(read: CrawlDelayReader["read"]) {
-    const page = fakePage();
-    const run = vi.fn(async (..._args: unknown[]) => ({
-      status: "completed",
-      result: { candidates: [] },
-    }));
-    const executor = createExecutor({
-      openPage: vi.fn(async () => page as unknown as Page),
-      pace: "instant",
-      allowHttp: false,
-      logger: silentLogger,
-      runners: { runRecipe: run, runCanary: run, runConfirmation: run } as unknown as Runners,
-      crawlDelays: { read },
-    });
-    return { executor, run };
-  }
-
-  it("reads the delay for a scan and hands it to the run", async () => {
-    const read = vi.fn<CrawlDelayReader["read"]>(async () => 8);
-    const { executor, run } = withReader(read);
-    await executor(scanTask(), live);
-    expect(read).toHaveBeenCalledWith(expect.anything(), ORIGIN);
-    expect(run).toHaveBeenCalledWith(expect.objectContaining({ crawlDelaySeconds: 8 }));
-  });
-
-  it("does not read robots.txt for a removal, which loads no search page", async () => {
-    const read = vi.fn<CrawlDelayReader["read"]>(async () => 8);
-    const { executor, run } = withReader(read);
-    await executor(formTask(), live);
-    expect(read).not.toHaveBeenCalled();
-    expect(run.mock.calls[0]?.[0]).not.toHaveProperty("crawlDelaySeconds");
-  });
-});
-
 describe("routing a site through the person's proxy", () => {
   it("opens the page through the proxy the server named for the task", async () => {
     const { executor, openPage } = harness({ status: "completed", result: { candidates: [] } });
@@ -472,5 +437,22 @@ describe("routing a site through the person's proxy", () => {
       live,
     );
     expect(openPage).toHaveBeenCalledWith(null, "http://10.0.0.100:8888");
+  });
+
+  it("fails the task with the reason when the worker's own proxy would replace it", async () => {
+    const { executor, openPage, runners } = harness({
+      status: "completed",
+      result: { candidates: [] },
+    });
+    openPage.mockRejectedValueOnce(new ProxyConflictError());
+    const report = await executor(
+      { ...scanTask(), proxyUrl: "http://10.0.0.100:8888" } as ReturnType<typeof scanTask>,
+      live,
+    );
+    expect(report).toMatchObject({
+      kind: "fail",
+      report: { retryable: false, error: expect.stringContaining("KICKROCKS_WORKER_PROXY") },
+    });
+    expect(runners.runRecipe).not.toHaveBeenCalled();
   });
 });
