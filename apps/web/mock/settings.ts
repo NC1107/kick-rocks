@@ -238,6 +238,8 @@ function wipePersonalData(store: MockStore): void {
   }
 }
 
+const KEEP_ALIVE_MS = 10 * 60 * 1000;
+
 export default defineMockDomain({
   name: "settings",
 
@@ -323,7 +325,20 @@ export default defineMockDomain({
     return [
       ...notificationRoutes(store),
 
-      handle(API_ROUTES.settingsGet, (): SettingsView => store.settings),
+      handle(API_ROUTES.settingsGet, (): SettingsView => {
+        const now = store.clock.now().getTime();
+        // A worker seen in the last few minutes keeps checking in, so the fixture stays online
+        // however long the session runs. One a test or a walk has set further back stays down.
+        const checkIn = <T extends { lastSeenAt: string }>(worker: T | null): T | null =>
+          worker && now - Date.parse(worker.lastSeenAt) < KEEP_ALIVE_MS
+            ? { ...worker, lastSeenAt: new Date(now - 30_000).toISOString() }
+            : worker;
+        const { worker } = store.settings;
+        return {
+          ...store.settings,
+          worker: { ...worker, builtin: checkIn(worker.builtin), model: checkIn(worker.model) },
+        };
+      }),
 
       handle(API_ROUTES.settingsPatch, ({ body }): SettingsView => {
         const current = store.settings;

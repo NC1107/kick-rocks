@@ -39,7 +39,7 @@ const MANUAL_INSTRUCTIONS: Record<BlockedReason, string> = {
 };
 
 const AGENT_INSTRUCTIONS =
-  "No agent has taken this yet, and the built-in worker will not run it. Connect an agent in Settings, or open the page and finish the job yourself, then mark it done.";
+  "No agent has taken this yet, and the recipe worker will not run it. Connect an agent in Settings, or open the page and finish the job yourself, then mark it done.";
 
 const FAILED_INSTRUCTIONS =
   "This task failed and nothing will try it again by itself. Retry it, open the page and finish the job yourself, or dismiss it.";

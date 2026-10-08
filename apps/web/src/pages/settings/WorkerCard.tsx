@@ -110,10 +110,12 @@ function WorkerRow({
               />
               <Row title="Name" trailing={<Value>{status.workerId}</Value>} />
               <Row title="Version" trailing={<Value>{status.version ?? "-"}</Value>} />
-              <Row
-                title="Doing"
-                trailing={<Value>{status.busy ? "Working on a task" : "Waiting for work"}</Value>}
-              />
+              {state === "online" ? (
+                <Row
+                  title="Doing"
+                  trailing={<Value>{status.busy ? "Working on a task" : "Waiting for work"}</Value>}
+                />
+              ) : null}
             </>
           ) : null}
           {note ? <BodyRow className="text-meta text-ink-2">{note}</BodyRow> : null}

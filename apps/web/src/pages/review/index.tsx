@@ -226,6 +226,18 @@ function Queue({ queue, profileId }: { queue: ReviewQueue; profileId: string }) 
   }, [settleFocus]);
 
   const drilled = itemParam !== null;
+
+  // Below the split layout, opening or closing an item swaps which half is on screen. The half
+  // that was focused is now hidden, so focus follows the swap instead of falling to the body.
+  const wasDrilled = useRef(drilled);
+  useEffect(() => {
+    if (wasDrilled.current === drilled) return;
+    wasDrilled.current = drilled;
+    if (wide) return;
+    if (drilled) pane.current?.focus();
+    else focusEntry(selectedRef.current);
+  }, [drilled, wide]);
+
   return (
     <div className="grid grid-cols-1 gap-5 lg:h-[calc(100dvh-9.5rem)] lg:min-h-[30rem] lg:grid-cols-[22.5rem_minmax(0,1fr)]">
       <div className={cn("min-h-0 lg:overflow-y-auto lg:pr-1 lg:pb-2", drilled && "max-lg:hidden")}>
