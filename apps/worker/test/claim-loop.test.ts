@@ -1,6 +1,6 @@
 import { type ClaimedTask, WORKER_DEFAULT_KINDS } from "@kickrocks/shared";
 import { describe, expect, it, vi } from "vitest";
-import { WorkerApiError } from "../src/api-client.js";
+import { ServerUnreachableError, WorkerApiError } from "../src/api-client.js";
 import { type ClaimLoopContext, runClaimLoop, type WorkerApi } from "../src/claim-loop.js";
 import { SubmitNotRecorded, type TaskReport } from "../src/executor.js";
 import { config, silentLogger, summary, task } from "./support.js";
@@ -123,7 +123,7 @@ describe("the claim loop", () => {
     const { client } = fakeClient([formTask()]);
     client.claim
       .mockRejectedValueOnce(new WorkerApiError(503, "worker_api_disabled", "off"))
-      .mockRejectedValueOnce(new TypeError("fetch failed"));
+      .mockRejectedValueOnce(new ServerUnreachableError("fetch failed"));
     const loop = runClaimLoop(context({ client }));
     await until(() => client.complete.mock.calls.length > 0, controller);
     await loop;
@@ -216,7 +216,7 @@ describe("the claim loop", () => {
   it("keeps running through a heartbeat that fails for another reason", async () => {
     const { controller, context } = setup();
     const { client } = fakeClient([formTask()]);
-    client.taskHeartbeat.mockRejectedValue(new TypeError("fetch failed"));
+    client.taskHeartbeat.mockRejectedValue(new ServerUnreachableError("fetch failed"));
     const executor = async (): Promise<TaskReport> => {
       await delay(60);
       return { kind: "complete", result: { ok: true }, usage: {} };
@@ -349,12 +349,12 @@ describe("the claim loop", () => {
       const flaky = await report({ kind: "release", reason: "r" }, (client) => {
         client.release
           .mockRejectedValueOnce(new WorkerApiError(503, "unavailable", "down"))
-          .mockRejectedValueOnce(new TypeError("fetch failed"));
+          .mockRejectedValueOnce(new ServerUnreachableError("fetch failed"));
       });
       expect(flaky.release).toHaveBeenCalledTimes(3);
 
       const down = await report({ kind: "release", reason: "r" }, (client) => {
-        client.release.mockRejectedValue(new TypeError("fetch failed"));
+        client.release.mockRejectedValue(new ServerUnreachableError("fetch failed"));
       });
       expect(down.release).toHaveBeenCalledTimes(3);
     });
@@ -363,7 +363,7 @@ describe("the claim loop", () => {
       const { controller, context } = setup();
       const { client } = fakeClient([formTask()]);
       for (let i = 0; i < 12; i++)
-        client.complete.mockRejectedValueOnce(new TypeError("fetch failed"));
+        client.complete.mockRejectedValueOnce(new ServerUnreachableError("fetch failed"));
       const loop = runClaimLoop(
         context({ client, executor: async () => ({ kind: "complete", result: {}, usage: {} }) }),
       );
@@ -382,11 +382,44 @@ describe("the claim loop", () => {
       expect(client.complete.mock.calls.filter(([id]) => id !== "second")).toHaveLength(3);
     });
 
+    it.each([
+      [
+        "a result that cannot be serialised",
+        () => new TypeError("Do not know how to serialize a BigInt"),
+      ],
+      ["an answer that breaks the contract", () => new Error("invalid response")],
+    ])(
+      "gives up on a result that fails with %s and claims the next task",
+      async (_name, makeError) => {
+        const { controller, context } = setup();
+        const { client } = fakeClient([formTask(), { ...formTask(), id: "second" }]);
+        client.complete.mockRejectedValue(makeError());
+        const loop = runClaimLoop(context({ client }));
+        await until(() => client.complete.mock.calls.some(([id]) => id === "second"), controller);
+        await loop;
+        expect(client.complete.mock.calls.filter(([id]) => id !== "second")).toHaveLength(3);
+      },
+    );
+
+    it("says a finished run is waiting to be delivered while the server cannot take it", async () => {
+      const { controller, context } = setup();
+      const waiting = formTask();
+      const { client } = fakeClient([waiting]);
+      for (let i = 0; i < 4; i++)
+        client.complete.mockRejectedValueOnce(new ServerUnreachableError("fetch failed"));
+      const loop = runClaimLoop(context({ client }));
+      await until(() => client.complete.mock.calls.length >= 5, controller);
+      await loop;
+      const pending = client.heartbeat.mock.calls.filter(([beat]) => beat.resultPending);
+      expect(pending.length).toBeGreaterThan(0);
+      expect(pending[0]?.[0]).toMatchObject({ busy: true, currentTaskId: waiting.id });
+    });
+
     it("keeps telling the server it is alive while a result waits for the server to come back", async () => {
       const { controller, context } = setup();
       const { client } = fakeClient([formTask()]);
       for (let i = 0; i < 12; i++)
-        client.complete.mockRejectedValueOnce(new TypeError("fetch failed"));
+        client.complete.mockRejectedValueOnce(new ServerUnreachableError("fetch failed"));
       const loop = runClaimLoop(
         context({
           client,
@@ -409,7 +442,7 @@ describe("the claim loop", () => {
     it("stops sending a result that cannot get through once the worker is stopping", async () => {
       const { controller, context } = setup();
       const { client } = fakeClient([formTask()]);
-      client.complete.mockRejectedValue(new TypeError("fetch failed"));
+      client.complete.mockRejectedValue(new ServerUnreachableError("fetch failed"));
       await runClaimLoop(
         context({
           client,
@@ -428,7 +461,7 @@ describe("the claim loop", () => {
       const stamps: number[] = [];
       client.complete.mockImplementation(async () => {
         stamps.push(Date.now());
-        throw new TypeError("fetch failed");
+        throw new ServerUnreachableError("fetch failed");
       });
       await runClaimLoop(
         context({
@@ -569,7 +602,7 @@ describe("a removal that may have been submitted", () => {
 
   describe.each([
     ["a 503", () => new WorkerApiError(503, "unavailable", "down")],
-    ["a network error", () => new TypeError("fetch failed")],
+    ["a network error", () => new ServerUnreachableError("fetch failed")],
     ["a lease that is no longer ours", () => new WorkerApiError(409, "lease_not_held", "taken")],
     ["a lease that lapsed", () => new WorkerApiError(409, "lease_expired", "lapsed")],
   ])("when the flagged heartbeat meets %s", (_name, makeError) => {

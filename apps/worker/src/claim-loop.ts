@@ -1,6 +1,6 @@
 import { sleepFor } from "@kickrocks/recipes";
 import { type ClaimedTask, WORKER_DEFAULT_KINDS } from "@kickrocks/shared";
-import { type WorkerApiClient, WorkerApiError } from "./api-client.js";
+import { ServerUnreachableError, type WorkerApiClient, WorkerApiError } from "./api-client.js";
 import type { WorkerConfig } from "./config.js";
 import {
   type RunProgress,
@@ -85,7 +85,10 @@ function transient(error: unknown): boolean {
 
 /** The server could not be reached, so nothing was judged: no answer came, or a proxy said it is down. */
 function unreachable(error: unknown): boolean {
-  return !(error instanceof WorkerApiError) || [502, 503, 504].includes(error.status);
+  return (
+    error instanceof ServerUnreachableError ||
+    (error instanceof WorkerApiError && [502, 503, 504].includes(error.status))
+  );
 }
 
 /** A result, a block or a failure that will not be retried says what happened, however the run was stopped. */
@@ -140,7 +143,12 @@ class Loop {
     await sleepFor(wait, this.ctx.signal);
   }
 
-  private async beat(busy: boolean, taskId: string | null, force = false): Promise<void> {
+  private async beat(
+    busy: boolean,
+    taskId: string | null,
+    force = false,
+    resultPending = false,
+  ): Promise<void> {
     const at = Date.now();
     if (!force && at - this.lastBeat < this.timing.idleHeartbeatMs) return;
     this.lastBeat = at;
@@ -148,6 +156,7 @@ class Loop {
       const answer = await this.ctx.client.heartbeat({
         busy,
         currentTaskId: taskId,
+        ...(resultPending ? { resultPending } : {}),
         ...(this.ctx.version ? { version: this.ctx.version } : {}),
       });
       if (!busy && answer.profileIds) await this.forgetOtherProfiles(answer.profileIds);
@@ -362,7 +371,7 @@ class Loop {
         }
         this.logger.warn("reporting failed, trying again", { ...log, error: describeError(error) });
         // The lease timer is stopped by now, so this is the only sign that the worker is alive.
-        await this.beat(true, task.id);
+        await this.beat(true, task.id, tries === 1, true);
         // The abort that stops the worker must not also end the pacing, or every try lands in the
         // same instant and the server gets no time to come back before the grace runs out.
         if (shutdownAt === undefined) await sleepFor(pause, this.ctx.signal);

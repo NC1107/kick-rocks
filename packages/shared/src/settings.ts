@@ -77,6 +77,8 @@ export const WorkerStatus = z.object({
   lastSeenAt: z.iso.datetime(),
   busy: z.boolean(),
   currentTaskId: z.string().nullable(),
+  /** The worker holds a finished run that the server has not taken yet. */
+  resultPending: z.boolean().optional(),
   /** The model a model-backed worker drives, as it last said. */
   model: ModelIdentity.nullable().optional(),
 });

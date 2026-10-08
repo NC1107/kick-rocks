@@ -35,6 +35,11 @@ export class WorkerApiError extends Error {
   }
 }
 
+/** The server could not be reached, or something other than it answered, so nothing was judged. */
+export class ServerUnreachableError extends Error {
+  override name = "ServerUnreachableError";
+}
+
 type JsonRoute = RouteDef & { response: NonNullable<RouteDef["response"]> };
 
 interface CallInput<R extends RouteDef> {
@@ -173,16 +178,26 @@ export class WorkerApiClient {
     input: CallInput<R> = {},
   ): Promise<RouteResponse<R>> {
     const url = `${this.options.serverUrl}/api${buildRoutePath(route.path, input.params)}`;
-    const response = await this.fetchImpl(url, {
-      method: route.method,
-      headers: {
-        authorization: `Bearer ${this.options.token}`,
-        ...(input.body === undefined ? {} : { "content-type": "application/json" }),
-      },
-      ...(input.body === undefined ? {} : { body: JSON.stringify(input.body) }),
-    });
-    const text = await response.text();
-    const payload: unknown = text ? JSON.parse(text) : null;
+    // Serialised here so a body that cannot be serialised is not mistaken for a network failure.
+    const body = input.body === undefined ? undefined : JSON.stringify(input.body);
+    let payload: unknown;
+    let response: Response;
+    try {
+      response = await this.fetchImpl(url, {
+        method: route.method,
+        headers: {
+          authorization: `Bearer ${this.options.token}`,
+          ...(body === undefined ? {} : { "content-type": "application/json" }),
+        },
+        ...(body === undefined ? {} : { body }),
+      });
+      const text = await response.text();
+      payload = text ? JSON.parse(text) : null;
+    } catch (error) {
+      throw new ServerUnreachableError(`Could not reach the server: ${describeCause(error)}`, {
+        cause: error,
+      });
+    }
     if (!response.ok) {
       const error = ApiError.safeParse(payload);
       throw new WorkerApiError(
@@ -193,4 +208,8 @@ export class WorkerApiClient {
     }
     return route.response.parse(payload) as RouteResponse<R>;
   }
+}
+
+function describeCause(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }

@@ -1,5 +1,5 @@
 import type { ClaimedTask } from "@kickrocks/shared";
-import { WorkerApiError } from "@kickrocks/worker/dist/api-client.js";
+import { ServerUnreachableError, WorkerApiError } from "@kickrocks/worker/dist/api-client.js";
 import { SubmitNotRecorded, type TaskReport } from "@kickrocks/worker/dist/executor.js";
 import { describe, expect, it, vi } from "vitest";
 import { agentTask, silentLogger, summary } from "../test/support.js";
@@ -190,7 +190,8 @@ describe("the agent claim loop", () => {
 
   it("keeps sending a result through an outage that outlasts the tries a report that can wait gets", async () => {
     const api = fakeApi([agentTask()]);
-    for (let i = 0; i < 12; i++) api.complete.mockRejectedValueOnce(new TypeError("fetch failed"));
+    for (let i = 0; i < 12; i++)
+      api.complete.mockRejectedValueOnce(new ServerUnreachableError("fetch failed"));
     await drive(
       api,
       async () => ({ kind: "complete", result: {}, usage: {} }) as never,
@@ -210,9 +211,43 @@ describe("the agent claim loop", () => {
     expect(api.complete.mock.calls.filter(([id]) => id !== "second")).toHaveLength(3);
   });
 
+  it.each([
+    [
+      "a result that cannot be serialised",
+      () => new TypeError("Do not know how to serialize a BigInt"),
+    ],
+    ["an answer that breaks the contract", () => new Error("invalid response")],
+  ])(
+    "gives up on a result that fails with %s and claims the next task",
+    async (_name, makeError) => {
+      const api = fakeApi([agentTask(), { ...agentTask(), id: "second" }]);
+      api.complete.mockRejectedValue(makeError());
+      await drive(
+        api,
+        async () => ({ kind: "complete", result: {}, usage: {} }) as never,
+        () => api.complete.mock.calls.some(([id]) => id === "second"),
+      );
+      expect(api.complete.mock.calls.filter(([id]) => id !== "second")).toHaveLength(3);
+    },
+  );
+
+  it("says a finished run is waiting to be delivered while the server cannot take it", async () => {
+    const api = fakeApi([agentTask()]);
+    for (let i = 0; i < 4; i++)
+      api.complete.mockRejectedValueOnce(new ServerUnreachableError("fetch failed"));
+    await drive(
+      api,
+      async () => ({ kind: "complete", result: {}, usage: {} }) as never,
+      () => api.complete.mock.calls.length >= 5,
+    );
+    const pending = api.heartbeat.mock.calls.filter(([beat]) => beat.resultPending);
+    expect(pending.length).toBeGreaterThan(0);
+  });
+
   it("keeps telling the server it is alive while a result waits for the server to come back", async () => {
     const api = fakeApi([agentTask()]);
-    for (let i = 0; i < 12; i++) api.complete.mockRejectedValueOnce(new TypeError("fetch failed"));
+    for (let i = 0; i < 12; i++)
+      api.complete.mockRejectedValueOnce(new ServerUnreachableError("fetch failed"));
     const controller = new AbortController();
     const finished = runLoop({
       api,
@@ -293,7 +328,7 @@ describe("the agent claim loop", () => {
     const stamps: number[] = [];
     api.complete.mockImplementation(async () => {
       stamps.push(Date.now());
-      throw new TypeError("fetch failed");
+      throw new ServerUnreachableError("fetch failed");
     });
     const executor: AgentExecutor = async () => {
       controller.abort();
@@ -374,7 +409,7 @@ describe("the agent claim loop", () => {
 
   it.each([
     ["a 503", () => new WorkerApiError(503, "unavailable", "down")],
-    ["a network error", () => new TypeError("fetch failed")],
+    ["a network error", () => new ServerUnreachableError("fetch failed")],
     ["a lease that is no longer ours", () => new WorkerApiError(409, "lease_not_held", "taken")],
     ["a lease that lapsed", () => new WorkerApiError(409, "lease_expired", "lapsed")],
   ])("does not let the run click when the flagged heartbeat meets %s", async (_name, makeError) => {
