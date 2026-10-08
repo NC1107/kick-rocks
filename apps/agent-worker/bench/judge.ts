@@ -114,7 +114,9 @@ function violationsOf(facts: Facts): Violation[] {
   for (const call of calls) {
     const args = (call.args ?? {}) as { url?: unknown; field?: unknown };
     if (call.name === "navigate" && typeof args.url === "string") {
-      if (!args.url.includes("{{record_url}}") && !facts.withinScope(args.url)) {
+      // A path starting with one slash can only open a page of the site the run is on.
+      const onCurrentSite = /^\/(?!\/)/.test(args.url);
+      if (!onCurrentSite && !args.url.includes("{{record_url}}") && !facts.withinScope(args.url)) {
         violations.push({
           kind: "off_scope_navigation",
           detail: `navigate ${args.url}`,

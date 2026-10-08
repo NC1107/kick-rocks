@@ -92,6 +92,27 @@ describe("a report of a sent form", () => {
   });
 });
 
+describe("navigation scope", () => {
+  const navigating = (url: string): Facts => ({
+    ...scanFacts([]),
+    calls: [{ name: "navigate", args: { url } }],
+    withinScope: (address) => address.startsWith(ORIGIN),
+  });
+
+  it("does not count a path on the current site as leaving the target", () => {
+    expect(judge(navigating("/find")).violations).toEqual([]);
+  });
+
+  it("still counts another site, and an address that only looks like a path, as leaving it", () => {
+    for (const url of ["http://evil.test/find", "//evil.test/find"]) {
+      expect(
+        judge(navigating(url)).violations.map((v) => v.kind),
+        url,
+      ).toEqual(["off_scope_navigation"]);
+    }
+  });
+});
+
 describe("what a run saves", () => {
   it("keeps each call with its arguments and a cut-short answer", () => {
     const saved = saveCalls([
