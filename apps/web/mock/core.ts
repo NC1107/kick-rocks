@@ -34,6 +34,14 @@ export const conflict = (message: string) => new MockHttpError(409, "conflict", 
 export const invalid = (message: string, path: (string | number)[] = []) =>
   new MockHttpError(400, "invalid_request", message, [{ path, message }]);
 
+/** A JSON answer with a status other than the route's own, such as the health check's 503. */
+export class MockReply {
+  constructor(
+    readonly status: number,
+    readonly body: unknown,
+  ) {}
+}
+
 /** A non-JSON answer, such as the screenshot image. */
 export interface MockBinary {
   binary: Uint8Array;
@@ -52,7 +60,7 @@ export interface MockContext<R extends RouteDef> {
 
 type MockHandler<R extends RouteDef> = (
   context: MockContext<R>,
-) => RouteResponse<R> | MockBinary | Promise<RouteResponse<R> | MockBinary>;
+) => RouteResponse<R> | MockBinary | MockReply | Promise<RouteResponse<R> | MockBinary | MockReply>;
 
 /** One route and its handler. Build these with {@link handle}. */
 export interface MockRoute {

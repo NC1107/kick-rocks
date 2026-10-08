@@ -8,7 +8,15 @@ describe("about handlers", () => {
   it("answers the health check to anyone, with a version", async () => {
     const response = await call({ path: "/health" });
     expect(response.status).toBe(200);
-    expect(response.json).toMatchObject({ ok: true, version: "0.1.0-mock" });
+    expect(response.json).toEqual({ ok: true, version: "0.1.0-mock" });
+  });
+
+  it("answers 503 with the version when the instance is unwell, and says why behind the session", async () => {
+    app.store.health = "scheduler";
+    const health = await call({ path: "/health" });
+    expect(health.status).toBe(503);
+    expect(health.json).toEqual({ ok: false, version: "0.1.0-mock" });
+    expect((await call({ path: "/status" })).json.health.scheduler.stalled).toBe(true);
   });
 
   it("counts profiles and targets from the store", async () => {

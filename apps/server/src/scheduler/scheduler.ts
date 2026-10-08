@@ -20,9 +20,10 @@ interface SchedulerOptions {
 
 export interface Scheduler {
   /**
-   * One pass of everything that is due: maintenance, then the runners. Neither lane overlaps
-   * itself. A maintenance pass that arrives during another waits for it, while a runner pass that
-   * arrives during a long send is skipped, so a send that never answers never holds up the rest.
+   * One pass of everything that is due: maintenance, then the runners and the notifications. No
+   * lane overlaps itself. A maintenance pass that arrives during another waits for it, while a
+   * runner or notification pass that arrives during a long one is skipped, so a host that never
+   * answers never holds up the rest.
    */
   tick(): Promise<void>;
   start(): void;
@@ -71,14 +72,17 @@ export function createScheduler(
     }
   };
 
-  /** Runs `body` one at a time. */
-  const lane = (body: () => Promise<void>) => {
+  /** Runs `body` one at a time. A delivery lane also tells the health check how long its pass has run. */
+  const lane = (body: () => Promise<void>, { delivery }: { delivery?: string } = {}) => {
     let inFlight: Promise<void> | null = null;
     return {
       busy: () => inFlight !== null,
       run(): Promise<void> {
-        inFlight ??= body().finally(() => {
+        if (inFlight) return inFlight;
+        if (delivery) services.liveness.deliveryStarted(delivery);
+        inFlight = body().finally(() => {
           inFlight = null;
+          if (delivery) services.liveness.deliveryFinished(delivery);
         });
         return inFlight;
       },
@@ -86,7 +90,7 @@ export function createScheduler(
     };
   };
 
-  /** Everything except sending. It only touches the database, so no network host can stall it. */
+  /** Everything that touches only the database and local files, so no network host can stall it. */
   const maintenance = lane(async () => {
     await job("reap-leases", () => services.taskQueue.reapExpiredLeases());
     if (due("housekeeping", housekeepingMs)) {
@@ -96,7 +100,6 @@ export function createScheduler(
       await job("scan-reuse", () => reuseRecentScans(services));
       await job("site-visits", () => services.politeness.prune());
       await job("canaries", () => enqueueDueCanaries(services));
-      await job("notifications", () => runNotifications(services));
     }
     if (due("retention", retentionMs)) {
       await job("retention", () => applyRetention(services, { compact: "when-worthwhile" }));
@@ -105,7 +108,17 @@ export function createScheduler(
   });
 
   /** Polls and sends wait on mail servers, so they get a lane of their own. */
-  const sending = lane(() => job("runners", () => runners.runDue()));
+  const sending = lane(() => job("runners", () => runners.runDue()), { delivery: "sending" });
+
+  /** Push and the digest go to hosts too, and a slow one must not hold up the sends or the maintenance. */
+  const notifying = lane(
+    async () => {
+      if (due("notifications", housekeepingMs)) {
+        await job("notifications", () => runNotifications(services));
+      }
+    },
+    { delivery: "notifying" },
+  );
 
   const releaseRunnerLeases = (): void => {
     for (const task of services.taskQueue.list({ status: "leased" })) {
@@ -117,7 +130,7 @@ export function createScheduler(
   const scheduler: Scheduler = {
     async tick() {
       await maintenance.run();
-      if (!sending.busy()) await sending.run();
+      await Promise.all([sending, notifying].filter((l) => !l.busy()).map((l) => l.run()));
     },
 
     start() {
@@ -131,7 +144,7 @@ export function createScheduler(
     async stop({ graceMs } = {}) {
       if (timer) clearInterval(timer);
       timer = null;
-      const settled = Promise.all([maintenance.settled(), sending.settled()]);
+      const settled = Promise.all([maintenance.settled(), sending.settled(), notifying.settled()]);
       if (graceMs === undefined) {
         await settled;
         return;

@@ -17,6 +17,7 @@ import { MailPacer } from "./pacing.js";
 
 const EMAIL_WORKER_ID = "server:email-send";
 const LEASE_MS = 5 * 60 * 1000;
+const HOLDER_STATUSES = new Set<Task["status"]>(["leased", "queued", "failed"]);
 
 type EmailTask = Task<"email_send">;
 
@@ -231,11 +232,14 @@ export class EmailRunner {
         type: "sent" as const,
         payload: { channel: "email" as const, kind, messageId, mailboxId },
       };
-      if (current.status !== "queued" || live.status !== "leased") {
+      // A send can outlast its lease, which puts the task back in the queue (or fails it) but keeps
+      // us as its last holder, and finishing it as that holder is what stops the next pass mailing it again.
+      const holdsTask = live.leaseOwner === EMAIL_WORKER_ID && HOLDER_STATUSES.has(live.status);
+      if (current.status !== "queued" || !holdsTask) {
         // The person changed the request while the mail was on its way, so only the fact is kept.
         requests.addEvent(requestId, { ...sentEvent, actor: "system" });
-        // A task still leased to us must be finished, or its lease would expire and send the mail again.
-        if (live.status === "leased" && live.leaseOwner === EMAIL_WORKER_ID) {
+        // A task still ours must be finished, or its lease would expire and send the mail again.
+        if (holdsTask) {
           taskQueue.complete(task.id, {
             workerId: EMAIL_WORKER_ID,
             actor: "system",

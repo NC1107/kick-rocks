@@ -1,6 +1,6 @@
 import { statfsSync } from "node:fs";
 import { profiles, targets } from "@kickrocks/db";
-import { API_ROUTES } from "@kickrocks/shared";
+import { API_ROUTES, type InstanceHealth } from "@kickrocks/shared";
 import { and, count, eq, sql } from "drizzle-orm";
 import type { FastifyInstance } from "fastify";
 import type { AppServices } from "../services.js";
@@ -10,8 +10,8 @@ import { registerRoute } from "./http.js";
 type HealthDeps = Pick<AppServices, "db" | "config" | "clock" | "liveness" | "logger">;
 
 /**
- * Commits and removes a row, so a full disk or a locked file shows up here and not in the first
- * request that needs to write. It leaves no row behind.
+ * Commits and removes a row, so a locked file or a read-only volume shows up here and not in the
+ * first request that needs to write. It leaves no row behind.
  */
 function databaseIsWritable({ db, clock, logger }: HealthDeps): boolean {
   try {
@@ -37,21 +37,58 @@ function freeDiskBytes(dataDir: string): number | null {
   }
 }
 
+/**
+ * Below this a write may still fit, as SQLite takes small ones into the last pages of a full
+ * file, so the write probe alone would stay green until the disk was already out of room.
+ */
+export const DISK_FLOOR_BYTES = 64 * 1024 * 1024;
+
+/** Long enough that a page polling the health check does not turn each poll into a disk write. */
+const PROBE_TTL_MS = 30_000;
+
+/** Reads the database and disk at most once in {@link PROBE_TTL_MS}, however often it is asked. */
+function createStorageProbe(deps: HealthDeps) {
+  let cached: { at: number; writable: boolean; freeBytes: number | null } | null = null;
+  return () => {
+    const now = deps.clock.now().getTime();
+    if (!cached || now - cached.at >= PROBE_TTL_MS) {
+      cached = {
+        at: now,
+        writable: databaseIsWritable(deps),
+        freeBytes: freeDiskBytes(deps.config.dataDir),
+      };
+    }
+    return cached;
+  };
+}
+
 export function registerHealth(app: FastifyInstance, services: HealthDeps, version: string): void {
-  const { db, config, liveness } = services;
-  registerRoute(app, API_ROUTES.health, ({ reply }) => {
+  const { db, liveness } = services;
+  const probe = createStorageProbe(services);
+
+  const inspect = (): { ok: boolean; health: InstanceHealth } => {
     const scheduler = liveness.scheduler();
-    const writable = databaseIsWritable(services);
-    const ok = writable && !scheduler.stalled;
-    const body = {
-      ok,
-      version,
-      scheduler: { lastPassAt: scheduler.lastPassAt?.toISOString() ?? null },
-      database: { writable },
-      disk: { freeBytes: freeDiskBytes(config.dataDir) },
+    const { writable, freeBytes } = probe();
+    const low = freeBytes !== null && freeBytes < DISK_FLOOR_BYTES;
+    return {
+      ok: writable && !low && !scheduler.stalled && !scheduler.sendingStalled,
+      health: {
+        scheduler: {
+          lastPassAt: scheduler.lastPassAt?.toISOString() ?? null,
+          stalled: scheduler.stalled,
+          sendingSince: scheduler.sendingSince?.toISOString() ?? null,
+          sendingStalled: scheduler.sendingStalled,
+        },
+        database: { writable },
+        disk: { freeBytes, low },
+      },
     };
+  };
+
+  registerRoute(app, API_ROUTES.health, ({ reply }) => {
+    const body = { ok: inspect().ok, version };
     // A failing check must reach the container healthcheck as a status, not only in the body.
-    if (!ok) reply.code(503).send(API_ROUTES.health.response.parse(body));
+    if (!body.ok) reply.code(503).send(API_ROUTES.health.response.parse(body));
     return body;
   });
 
@@ -68,6 +105,7 @@ export function registerHealth(app: FastifyInstance, services: HealthDeps, versi
       profiles: profileCount,
       brokers: { available: brokers > 0, total: brokers },
       targets: { brokers, companies: countKind("company") },
+      health: inspect().health,
     };
   });
 }

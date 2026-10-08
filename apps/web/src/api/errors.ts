@@ -10,6 +10,8 @@ export class ApiRequestError extends Error {
     readonly code: string,
     message: string,
     readonly issues: readonly ApiIssue[] = [],
+    /** The parsed response body, for a route whose error answer carries more than an error. */
+    readonly body?: unknown,
   ) {
     super(message);
   }
