@@ -271,11 +271,18 @@ function Detail({ request }: { request: RequestDetail }) {
               <Menu
                 align="end"
                 items={menuItems}
-                trigger={(props) => (
-                  <IconButton label="More actions" variant="secondary" {...props}>
-                    <MoreHorizontal />
-                  </IconButton>
-                )}
+                trigger={(props) =>
+                  can("resend") ? (
+                    <IconButton label="More actions" variant="secondary" {...props}>
+                      <MoreHorizontal />
+                    </IconButton>
+                  ) : (
+                    <Button variant="secondary" {...props}>
+                      <MoreHorizontal aria-hidden="true" />
+                      More actions
+                    </Button>
+                  )
+                }
               />
             ) : null}
             {can("resend") ? (
