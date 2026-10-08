@@ -13,7 +13,6 @@ import {
   PageHeader,
   RowGroup,
   Section,
-  Skeleton,
   SkeletonText,
   Table,
   TableBody,
@@ -72,7 +71,7 @@ function Loading() {
   return (
     <div aria-busy="true" className="flex max-w-180 flex-col gap-4">
       <span className="sr-only">Loading target</span>
-      <Skeleton className="h-7 w-64" />
+      <PageHeader title="Target" back={{ to: "/targets", label: "Targets" }} />
       <div className="rounded-md border border-line bg-surface p-3.5">
         <SkeletonText lines={5} />
       </div>

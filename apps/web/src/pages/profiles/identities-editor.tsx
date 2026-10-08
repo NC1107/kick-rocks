@@ -147,7 +147,7 @@ export function IdentitiesEditor({
                 {rows.map(({ draft, index }, position) => (
                   <fieldset
                     key={draft.key}
-                    className="group m-0 flex min-w-0 flex-col gap-3 border-0 px-3.5 py-3 sm:flex-row sm:items-start sm:gap-4"
+                    className="group m-0 flex min-w-0 flex-col gap-3 border-0 px-3.5 py-3 lg:flex-row lg:items-start lg:gap-4"
                   >
                     <legend className="sr-only">
                       {IDENTITY_KIND_LABELS[draft.kind]} {position + 1}
@@ -162,9 +162,9 @@ export function IdentitiesEditor({
                         onChange={(change) => onChange(updateDraft(drafts, draft.key, change))}
                       />
                     </div>
-                    <div className="flex shrink-0 items-center justify-end gap-1 sm:mt-[1.375rem] sm:h-control sm:w-44">
+                    <div className="flex shrink-0 items-center justify-end gap-1 lg:mt-[1.375rem] lg:h-control lg:w-44">
                       {hasPrimary(draft.kind) && draft.isPrimary ? <Tag>Primary</Tag> : null}
-                      <div className="flex items-center gap-1 opacity-0 transition-opacity duration-100 group-focus-within:opacity-100 group-hover:opacity-100 pointer-coarse:opacity-100 max-sm:opacity-100">
+                      <div className="flex items-center gap-1 opacity-0 transition-opacity duration-100 group-focus-within:opacity-100 group-hover:opacity-100 pointer-coarse:opacity-100 max-lg:opacity-100">
                         {hasPrimary(draft.kind) && !draft.isPrimary ? (
                           <Button
                             size="sm"
@@ -233,7 +233,7 @@ function RowFields({ draft, index, errors, disabled, today, onChange }: RowField
     case "name":
     case "alias":
       return (
-        <div className="grid gap-3 sm:grid-cols-3">
+        <div className="grid gap-3 lg:grid-cols-3">
           {text("First name", "first", "value.first")}
           {text("Middle name", "middle", "value.middle", { optional: true })}
           {text("Last name", "last", "value.last")}
@@ -270,11 +270,11 @@ function RowFields({ draft, index, errors, disabled, today, onChange }: RowField
       );
     case "address":
       return (
-        <div className="grid gap-3 sm:grid-cols-6">
-          {text("Street", "street", "value.street", { className: "sm:col-span-4" })}
-          {text("Unit", "unit", "value.unit", { optional: true, className: "sm:col-span-2" })}
-          {text("City", "city", "value.city", { className: "sm:col-span-3" })}
-          <Field label="State" error={error("value.state")} className="sm:col-span-2">
+        <div className="grid gap-3 lg:grid-cols-6">
+          {text("Street", "street", "value.street", { className: "lg:col-span-4" })}
+          {text("Unit", "unit", "value.unit", { optional: true, className: "lg:col-span-2" })}
+          {text("City", "city", "value.city", { className: "lg:col-span-3" })}
+          <Field label="State" error={error("value.state")} className="lg:col-span-2">
             <Select
               value={draft.state}
               disabled={disabled}
@@ -288,8 +288,8 @@ function RowFields({ draft, index, errors, disabled, today, onChange }: RowField
               ))}
             </Select>
           </Field>
-          {text("ZIP", "zip", "value.zip", { className: "sm:col-span-1" })}
-          <Field label="Lived here from" optional className="sm:col-span-3">
+          {text("ZIP", "zip", "value.zip", { className: "lg:col-span-1" })}
+          <Field label="Lived here from" optional className="lg:col-span-3">
             <Input
               type="date"
               max={today}
@@ -303,7 +303,7 @@ function RowFields({ draft, index, errors, disabled, today, onChange }: RowField
             optional
             error={error("validTo")}
             help="Leave empty for a current address."
-            className="sm:col-span-3"
+            className="lg:col-span-3"
           >
             <Input
               type="date"

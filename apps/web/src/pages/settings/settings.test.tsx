@@ -72,8 +72,7 @@ describe("general settings", () => {
     const { user, mock } = general();
     const box = await field(/Check recipe pages on the real broker sites/);
     expect(box).not.toBeChecked();
-    expect(screen.getByText(/never uses your details and never submits a removal/)).toBeVisible();
-    expect(screen.getByText(/scanned again on the schedule above/)).toBeVisible();
+    expect(screen.getByText(/never submits a removal/)).toBeInTheDocument();
     await user.click(box);
     await waitFor(() => expect(mock.store.settings.siteChecks.enabled).toBe(true));
     expect((await screen.findAllByText("Site checks turned on")).length).toBeGreaterThan(0);

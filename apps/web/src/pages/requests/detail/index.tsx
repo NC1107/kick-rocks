@@ -86,7 +86,7 @@ function Loading() {
   return (
     <div aria-busy="true" className="flex max-w-3xl flex-col gap-5">
       <span className="sr-only">Loading request</span>
-      <Skeleton className="h-8 w-64" />
+      <PageHeader title="Request" back={{ to: "/requests", label: "Requests" }} />
       <Section label="Summary">
         <RowGroup>
           {Array.from({ length: 6 }, (_, row) => (
