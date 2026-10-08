@@ -1,7 +1,9 @@
 import {
   type Broker,
+  BrokerCategory,
   contactMethodFor,
   normalizeDomain,
+  Requirement,
   rightsPageAsForm,
   WebUrl,
 } from "@kickrocks/shared";
@@ -18,6 +20,9 @@ const Correction = z.object({
       email: z.email().nullable().optional(),
       privacy_rights_url: WebUrl.nullable().optional(),
       opt_out_url: WebUrl.nullable().optional(),
+      category: BrokerCategory.optional(),
+      /** Flags the broker's own pages disprove. Only removal is allowed, so a flag is never invented. */
+      remove_requirements: z.array(Requirement).min(1).optional(),
     })
     .refine((fields) => Object.keys(fields).length > 0, "a correction must set a field"),
   source_urls: z.array(WebUrl).min(1),
@@ -54,6 +59,10 @@ function correct(broker: Broker, { set }: Correction): Broker {
     privacyEmail,
     optOutUrl,
     privacyRightsUrl,
+    category: set.category ?? broker.category,
+    requirements: broker.requirements.filter(
+      (requirement) => !set.remove_requirements?.includes(requirement),
+    ),
     contactMethod: contactMethodFor(privacyEmail, optOutUrl ?? rightsPageAsForm(privacyRightsUrl)),
   };
 }
@@ -65,7 +74,9 @@ function changesRecord(broker: Broker, correction: Correction): boolean {
     corrected.website !== broker.website ||
     corrected.privacyEmail !== broker.privacyEmail ||
     corrected.optOutUrl !== broker.optOutUrl ||
-    corrected.privacyRightsUrl !== broker.privacyRightsUrl
+    corrected.privacyRightsUrl !== broker.privacyRightsUrl ||
+    corrected.category !== broker.category ||
+    corrected.requirements.length !== broker.requirements.length
   );
 }
 

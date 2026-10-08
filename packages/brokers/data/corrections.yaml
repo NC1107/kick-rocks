@@ -59,3 +59,20 @@ corrections:
       - https://foursquare.com/legal/privacy-center/foursquare-privacy-policy-consumer-services/
     checked: 2026-10-07
     note: 'Eraser lists legal@. The consumer privacy policy names privacy@foursquare.com for questions to its Data Protection Officer. The 2026 registry lists privacyteam@foursquare.com instead.'
+
+  - domain: peoplefinders.com
+    set:
+      category: people-search
+    source_urls:
+      - https://www.peoplefinders.com/
+      - https://www.peoplefinders.com/opt-out
+    checked: 2026-10-07
+    note: 'Only the 2026 California registry lists it, so it was filed as a registered broker and its campaign never scanned it. The site is a people-search site: a name, state and city search lists records, and the opt-out form asks for the same identifiers. The scan recipe ran end to end on 2026-10-07 and returned candidates.'
+
+  - domain: spokeo.com
+    set:
+      remove_requirements: [paid]
+    source_urls:
+      - https://www.spokeo.com/optout
+    checked: 2026-10-07
+    note: 'BADBOOL marks Spokeo paid because it reports that removed data can persist for paid accounts. Removal itself is free: the opt-out form takes a profile URL and an email address and then a confirmation link, with no payment step (checked 2026-10-07).'
