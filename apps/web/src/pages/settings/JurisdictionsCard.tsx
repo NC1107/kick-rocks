@@ -30,6 +30,9 @@ function Statutes({ jurisdiction }: { jurisdiction: Jurisdiction }) {
             <span className="font-mono text-caption text-ink-3">
               {" "}
               · {statute.responseDays} d to answer
+              {statute.responseDaysChange
+                ? `, ${statute.responseDaysChange.days} d from ${formatDate(statute.responseDaysChange.from)}`
+                : ""}
             </span>
           </p>
           {statute.platform ? (

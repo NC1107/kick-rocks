@@ -50,10 +50,15 @@ describe("fake legal", () => {
   });
 
   it("looks a stored basis up by id, in the state it belongs to", () => {
-    expect(legal.getLegalBasis(FAKE_STATUTE.id, "CA")).toMatchObject({ kind: "statute" });
-    expect(legal.getLegalBasis("policy", "TX")).toMatchObject({ kind: "policy", state: "TX" });
-    expect(legal.getLegalBasis(FAKE_STATUTE.id, "TX")).toBeNull();
-    expect(legal.getLegalBasis("no-such-law", "CA")).toBeNull();
+    expect(legal.getLegalBasis(FAKE_STATUTE.id, "CA", undefined, new Date())).toMatchObject({
+      kind: "statute",
+    });
+    expect(legal.getLegalBasis("policy", "TX", undefined, new Date())).toMatchObject({
+      kind: "policy",
+      state: "TX",
+    });
+    expect(legal.getLegalBasis(FAKE_STATUTE.id, "TX", undefined, new Date())).toBeNull();
+    expect(legal.getLegalBasis("no-such-law", "CA", undefined, new Date())).toBeNull();
   });
 
   it("lists valid jurisdictions", () => {

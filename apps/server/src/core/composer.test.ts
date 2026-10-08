@@ -1,3 +1,4 @@
+import * as realLegal from "@kickrocks/legal";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { jordanIdentities } from "../test-utils/builders.js";
 import { FAKE_STATUTE } from "../test-utils/fake-legal.js";
@@ -174,5 +175,30 @@ describe("composer.requestEmail", () => {
     expect(() => compose({ ...request, targetId: "missing" })).toThrow(
       expect.objectContaining({ status: 404 }),
     );
+  });
+});
+
+describe("composer.requestEmail and the Delete Act response period", () => {
+  it("keeps the 30 day period of a Delete Act request sent after 2027-01-01 in its follow-up", () => {
+    Object.assign(ctx.legal, {
+      getLegalBasis: realLegal.getLegalBasis,
+      renderRequestEmail: realLegal.renderRequestEmail,
+    });
+    const { request } = setup("CA");
+    const sent = { ...request, legalBasis: "ca-delete-act", rights: ["delete" as const] };
+
+    const before = compose(
+      { ...sent, sentAt: "2026-12-01T00:00:00.000Z", followUps: 0 },
+      "follow_up",
+    );
+    const after = compose(
+      { ...sent, sentAt: "2027-02-01T00:00:00.000Z", followUps: 0 },
+      "follow_up",
+    );
+
+    expect(before.input.basis.responseDays).toBe(45);
+    expect(after.input.basis.responseDays).toBe(30);
+    const initial = compose({ ...sent, sentAt: "2027-02-01T00:00:00.000Z", followUps: 0 });
+    expect(initial.email.text).toContain("within 30 days");
   });
 });

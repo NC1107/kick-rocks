@@ -170,7 +170,7 @@ describe("renderRequestEmail properties", () => {
       CA: "11 CCR 7026(d)",
       CT: "Conn. Gen. Stat. 42-518(c)(4)",
       DE: "6 Del. C. 12D-104(c)(4)",
-      MD: "Md. Code, Com. Law 14-4605(e)(6)",
+      MD: "Md. Code, Com. Law 14-4705(e)(6)",
       MN: "Minn. Stat. 325M.14, subd. 4(h)",
       MT: "Mont. Code Ann. 30-14-2808(4)(d)",
       NH: "N.H. Rev. Stat. Ann. 507-H:4, III(d)",
@@ -203,12 +203,35 @@ describe("renderRequestEmail properties", () => {
     }
   });
 
+  it("cites the Alabama and Vermont authentication rules once those laws take effect", () => {
+    const claim = "does not have to be authenticated";
+    const rules = {
+      AL: ["2027-05-01", "Ala. Act 2026-552, sec. 5(d)(4)"],
+      VT: ["2028-01-01", "9 V.S.A. 2415d(c)(4)(B)"],
+    } as const;
+    for (const [state, [effective, rule]] of Object.entries(rules)) {
+      const text = (asOf: string) =>
+        renderRequestEmail(
+          build(state as keyof typeof rules, "initial", ["opt_out"], {
+            asOf: new Date(`${asOf}T00:00:00Z`),
+          }),
+        ).text;
+      expect(text(effective), state).toContain(`Under ${rule}, an opt-out of sale ${claim}.`);
+      expect(text("2026-10-07"), state).not.toContain(claim);
+    }
+  });
+
   it("does not make the authentication claim for the part of a request the statute does not cover", () => {
     const claim = "does not have to be authenticated";
     const deleteOnly = renderRequestEmail(build("CA", "initial", ["delete"])).text;
     expect(deleteOnly).not.toContain(claim);
     expect(deleteOnly).not.toContain("do not ask for ID");
-    const policy = getLegalBasis(POLICY_BASIS_ID, "CA");
+    const policy = getLegalBasis(
+      POLICY_BASIS_ID,
+      "CA",
+      undefined,
+      new Date("2026-10-07T12:00:00Z"),
+    );
     if (!policy) throw new Error("the policy basis must resolve");
     const policyOptOut = renderRequestEmail({
       ...build("CA", "initial", ["opt_out"]),

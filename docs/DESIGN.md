@@ -10,7 +10,7 @@ Kick Rocks is a self-hosted tool that sends those requests from the user's own m
 ## Context
 
 Research gathered in October 2026 shapes this design.
-Only 26 to 38 percent of California-registered brokers respond to opt-out or deletion requests, 37 to 39 percent illegally demand identity verification for opt-outs, 22 percent put a CAPTCHA in the flow, and 75 to 80 percent accept requests only through a web form.
+Only 26 to 38 percent of California-registered brokers respond to opt-out or deletion requests (arXiv:2607.04552, Table 1), 37 percent demand identity verification for opt-outs (arXiv:2605.21376), while arXiv:2607.04552 (Table 5) finds 22 percent non-compliant and 39 percent potentially non-compliant on opt-out verification, 22 percent put a CAPTCHA in the flow (arXiv:2605.21376), and 75 to 80 percent could be reached through a web form (arXiv:2607.04552).
 California's DROP platform now handles registered brokers for California residents, so the gap is everyone else, plus people-search sites and ordinary companies.
 Self-hosted mail servers cannot deliver reliably from residential IPs, so the tool sends from the user's existing mailbox instead.
 Datacenter IPs trip bot management on people-search sites, so the browser runs on the user's home connection.

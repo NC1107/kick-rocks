@@ -29,7 +29,7 @@ export function responseWindow(
     .get();
   const responseDays =
     (profile
-      ? services.legal.getLegalBasis(request.legalBasis, profile.state, request.rights)
+      ? services.legal.getLegalBasis(request.legalBasis, profile.state, request.rights, sentAt)
       : null
     )?.responseDays ?? POLICY_RESPONSE_DAYS;
   const waitDays = Math.max(responseDays, services.settings.get("schedule").noResponseDays);

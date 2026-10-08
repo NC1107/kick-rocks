@@ -20,6 +20,7 @@ export const FAKE_STATUTE: Statute = {
   effectiveDate: "2020-01-01",
   rights: ["opt_out", "delete"],
   responseDays: 45,
+  responseDaysChange: null,
   extensionDays: 45,
   brokerNotes: null,
   platform: null,
