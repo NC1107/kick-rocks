@@ -1145,7 +1145,7 @@
       "optOutUrl": "https://www.dominos.com/en/pages/content/opt-out/opt-out",
       "privacyRightsUrl": null,
       "contactMethod": "both",
-      "notes": "Contacts read from https://www.dominos.com/en/#!/content/privacy/ on 2026-10-07.",
+      "notes": "Contacts read from https://www.dominos.com/content/privacy on 2026-10-07.",
       "sources": [
         {
           "source": "kickrocks-companies",
