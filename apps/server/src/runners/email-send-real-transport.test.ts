@@ -1,4 +1,4 @@
-import { mailboxes } from "@kickrocks/db";
+import { mailboxes, tasks } from "@kickrocks/db";
 import { API_ROUTES } from "@kickrocks/shared";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -137,7 +137,7 @@ describe("the email runner against the real transport", () => {
     });
   });
 
-  it("sends a message the server kept before dropping the connection at most maxAttempts times", async () => {
+  it("counts a message the server kept before dropping the connection as sent, and sends it once", async () => {
     smtp.behave("drop_after_data");
     const request = openRequest();
 
@@ -146,9 +146,24 @@ describe("the email runner against the real transport", () => {
       ctx.clock.advance(HOUR);
     }
 
-    const task = taskFor(request.id);
-    expect(task?.status).toBe("failed");
-    expect(smtp.received).toHaveLength(task?.maxAttempts ?? 0);
+    expect(taskFor(request.id)).toMatchObject({ status: "done" });
+    expect(smtp.received).toHaveLength(1);
+    expect(lastError()).toContain("counted as sent");
+  });
+
+  it("does not send again a message that was offered before the process died", async () => {
+    const request = openRequest();
+    ctx.services.db
+      .update(tasks)
+      .set({ unconfirmedMessageId: "<kr.before-restart@x.test>" })
+      .where(eq(tasks.requestId, request.id))
+      .run();
+
+    await runners.email.runDue();
+
+    expect(smtp.received).toHaveLength(0);
+    expect(taskFor(request.id)).toMatchObject({ status: "done" });
+    expect(ctx.services.requests.getOrThrow(request.id).status).toBe("awaiting_reply");
   });
 
   it("sends a message at most maxAttempts times when every restart cuts the send off after DATA", async () => {

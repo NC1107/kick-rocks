@@ -352,6 +352,12 @@ export const tasks = sqliteTable(
     lastError: text("last_error"),
     failureKind: text("failure_kind", { enum: values(FailureKind.options) }),
     failureStep: integer("failure_step"),
+    /**
+     * The Message-ID of a mail whose body was offered to the SMTP server but not yet recorded as
+     * sent. A lease lost with this set means the mail may be delivered, so it is counted as sent
+     * instead of mailed again.
+     */
+    unconfirmedMessageId: text("unconfirmed_message_id"),
     /** The worker that last ended its lease on the task. */
     finishedBy: text("finished_by"),
     /** Who claimed it: the built-in worker, an MCP client, or a model. Set by the claiming route. */

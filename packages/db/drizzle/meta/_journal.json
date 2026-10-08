@@ -57,6 +57,13 @@
       "when": 1791485727344,
       "tag": "0007_tiny_korg",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1791489423339,
+      "tag": "0008_rapid_wonder_man",
+      "breakpoints": true
     }
   ]
 }

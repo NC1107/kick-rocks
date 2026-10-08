@@ -1,4 +1,4 @@
-import { mailboxes, messages, outgoingMail } from "@kickrocks/db";
+import { mailboxes, messages, outgoingMail, tasks } from "@kickrocks/db";
 import {
   canTransition,
   type EmailKind,
@@ -85,6 +85,8 @@ export class EmailRunner {
   readonly pacer: MailPacer;
   /** Sends that have not yet offered a message body, so a shutdown can tell which ones sent nothing. */
   private readonly beforeData = new Set<string>();
+  /** Mail that was offered to a server and not yet recorded, kept here too because a full disk refuses the database marker. */
+  private readonly offered = new Map<string, string>();
 
   constructor(
     private readonly services: AppServices,
@@ -169,11 +171,25 @@ export class EmailRunner {
       return false;
     }
 
+    const earlier = this.offeredEarlier(task.id);
+    if (earlier) {
+      return this.settleUnconfirmed(
+        task,
+        request,
+        composed.mailboxId,
+        earlier,
+        "an earlier attempt",
+      );
+    }
+
     this.beforeData.add(task.id);
     try {
-      const result = await mail
-        .transport(connectionOf(mailbox))
-        .send(outgoing, { onData: () => this.beforeData.delete(task.id) });
+      const result = await mail.transport(connectionOf(mailbox)).send(outgoing, {
+        onData: () => {
+          this.beforeData.delete(task.id);
+          this.markOffered(task.id, outgoing.messageId);
+        },
+      });
       if (result.accepted.length === 0) {
         throw Object.assign(new Error("The mail server rejected the address"), {
           responseCode: 550,
@@ -181,6 +197,16 @@ export class EmailRunner {
       }
     } catch (error) {
       logger.warn({ requestId: request.id, err: describeError(error) }, "email send failed");
+      if (this.cutOffAfterOffer(task.id, error)) {
+        return this.settleUnconfirmed(
+          task,
+          request,
+          composed.mailboxId,
+          outgoing.messageId,
+          describeError(error),
+        );
+      }
+      this.clearOffered(task.id);
       if (isMailboxProblem(error)) {
         this.holdMailbox(task, request, mailbox.id, error);
         return false;
@@ -201,7 +227,79 @@ export class EmailRunner {
       .set({ lastSendError: null })
       .where(eq(mailboxes.id, mailbox.id))
       .run();
-    return this.recordSend(task, request.id, composed.mailboxId, outgoing.messageId);
+    const recorded = this.recordSend(task, request.id, composed.mailboxId, outgoing.messageId);
+    this.clearOffered(task.id);
+    return recorded;
+  }
+
+  /** A reply or a refusal settles the send either way, so only a silent end leaves it unknown. */
+  private cutOffAfterOffer(taskId: string, error: unknown): boolean {
+    if (!this.offered.has(taskId) || this.beforeData.has(taskId)) return false;
+    return typeof (error as { responseCode?: unknown }).responseCode !== "number";
+  }
+
+  private markOffered(taskId: string, messageId: string): void {
+    this.offered.set(taskId, messageId);
+    try {
+      this.services.db
+        .update(tasks)
+        .set({ unconfirmedMessageId: messageId })
+        .where(eq(tasks.id, taskId))
+        .run();
+    } catch (error) {
+      this.services.logger.warn({ err: describeError(error) }, "could not note the offered mail");
+    }
+  }
+
+  private offeredEarlier(taskId: string): string | null {
+    const row = this.services.db
+      .select({ id: tasks.unconfirmedMessageId })
+      .from(tasks)
+      .where(eq(tasks.id, taskId))
+      .get();
+    return this.offered.get(taskId) ?? row?.id ?? null;
+  }
+
+  private clearOffered(taskId: string): void {
+    this.offered.delete(taskId);
+    try {
+      this.services.db
+        .update(tasks)
+        .set({ unconfirmedMessageId: null })
+        .where(eq(tasks.id, taskId))
+        .run();
+    } catch (error) {
+      this.services.logger.warn({ err: describeError(error) }, "could not clear the offered mail");
+    }
+  }
+
+  /**
+   * A mail whose body went out without an answer may be delivered, and mailing a broker twice costs
+   * the person more than a request that goes unanswered, which a follow-up already covers. So it is
+   * counted as sent and the timeline and mailbox say it was not confirmed.
+   */
+  private settleUnconfirmed(
+    task: EmailTask,
+    request: RequestRecord,
+    mailboxId: string,
+    messageId: string,
+    cause: string,
+  ): boolean {
+    const { db, requests } = this.services;
+    const note = `A send was cut off before the mail server answered (${cause}), so it is counted as sent and will not be sent again`;
+    const recorded = this.recordSend(task, request.id, mailboxId, messageId);
+    db.transaction(() => {
+      if (requests.get(request.id)) {
+        requests.addEvent(request.id, {
+          type: "send_failed",
+          actor: "system",
+          payload: { error: note, willRetry: false },
+        });
+      }
+      db.update(mailboxes).set({ lastSendError: note }).where(eq(mailboxes.id, mailboxId)).run();
+    });
+    this.clearOffered(task.id);
+    return recorded;
   }
 
   /**
