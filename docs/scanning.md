@@ -92,6 +92,8 @@ A client that parks a task for a CAPTCHA or bot check without sending an observa
 On pushback the server records the time and kind, counts it, and sets a cooldown of the longer of the site's Retry-After and the backoff.
 A failure that carries pushback is deferred, not retried: the task goes back in the queue until the cooldown ends, the attempt is refunded, and nothing is handed to an agent.
 A removal that may already have been submitted is held for a person instead, as always.
+A person who passes a CAPTCHA or bot check by hand and resumes the parked task ends the cooldown that check set, so the task is not held back by the very check they just passed.
+The pushback count stays, so an open breaker still lets only one probe through.
 
 ### The circuit breaker
 

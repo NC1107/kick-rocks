@@ -447,6 +447,39 @@ describe("pushback", () => {
     expect(status("a.test")).toMatchObject({ lastPushbackKind: "captcha", consecutivePushback: 1 });
   });
 
+  it("lets a person who passed the CAPTCHA resume the task without waiting out its cooldown", async () => {
+    const a = site("a.test");
+    queueScan(a.id);
+    const claimed = claim() as ClaimedTask;
+    await ctx.call(API_ROUTES.workerTaskBlock, {
+      params: { id: claimed.id },
+      body: { workerId: "worker-1", reason: "captcha", detail: "A CAPTCHA is on the page." },
+    });
+    expect(status("a.test")?.coolingDownUntil).not.toBeNull();
+
+    ctx.services.taskQueue.resume(claimed.id, "user");
+    expect(status("a.test")).toMatchObject({ coolingDownUntil: null, consecutivePushback: 1 });
+
+    ctx.clock.advance(GAP);
+    expect(claim()?.id).toBe(claimed.id);
+  });
+
+  it("keeps a rate limit's cooldown when the person resumes a different kind of block", async () => {
+    const a = site("a.test");
+    queueScan(a.id);
+    const claimed = claim() as ClaimedTask;
+    await ctx.call(API_ROUTES.workerTaskBlock, {
+      params: { id: claimed.id },
+      body: {
+        workerId: "worker-1",
+        reason: "phone_verification",
+        site: { pushback: rateLimited() },
+      },
+    });
+    ctx.services.taskQueue.resume(claimed.id, "user");
+    expect(status("a.test")?.coolingDownUntil).not.toBeNull();
+  });
+
   it("does not count a phone verification as pushback", async () => {
     const a = site("a.test");
     queueScan(a.id);

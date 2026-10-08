@@ -907,6 +907,10 @@ export function createTaskQueue({
             .returning()
             .get(),
         );
+        // The cooldown a check set would otherwise hold back the very task its solver just resumed.
+        if (row.blockedReason === "captcha" || row.blockedReason === "bot_detection") {
+          politeness?.liftCooldown(task, tx);
+        }
         emit(tx, "resumed", task, actor);
         return task;
       });

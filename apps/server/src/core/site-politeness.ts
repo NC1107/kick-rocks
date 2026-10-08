@@ -90,6 +90,11 @@ export interface SitePoliteness {
     observation: SiteObservation | undefined,
     handle?: DbHandle,
   ): PushbackOutcome | null;
+  /**
+   * A person passed the site's check by hand and sent the task back, which ends the cooldown that
+   * check set. The pushback count stays, so an open breaker still lets only one probe through.
+   */
+  liftCooldown(task: TaskForGate, handle?: DbHandle): void;
   /** A run finished and the site showed no pushback, which closes a breaker that was probing. */
   recordClean(task: TaskForGate, handle?: DbHandle): void;
   status(): SitesStatus;
@@ -408,6 +413,12 @@ export function createSitePoliteness({
         cooldownUntil: until,
         breakerOpened: opens && state?.breaker !== "open",
       };
+    },
+
+    liftCooldown(task, handle = db as DbHandle) {
+      const domain = domainOf(task.targetId);
+      if (domain === null || !stateOf(handle, domain)?.coolingDownUntil) return;
+      saveState(handle, domain, { coolingDownUntil: null }, clock.now().toISOString());
     },
 
     recordClean(task, handle = db as DbHandle) {

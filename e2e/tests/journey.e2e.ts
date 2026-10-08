@@ -153,6 +153,25 @@ describe("first run", () => {
     await api.call(API_ROUTES.authLogin, { body: { password: PASSWORD } });
     expect((await api.call(API_ROUTES.profilesList)).profiles).toEqual([]);
   });
+
+  // The journey visits the same fixture sites many times within minutes; the real pacing defaults
+  // (a gap per site, quiet hours, a day's reuse) would park every later visit for hours.
+  it("turns the polite-scanning pacing off, since the fixture sites are ours", async () => {
+    await api.call(API_ROUTES.settingsPatch, {
+      body: {
+        scanning: {
+          minGapMinutes: 0,
+          gapJitterPercent: 0,
+          dailyCapPerSite: 100,
+          hourlyCapTotal: 500,
+          dailyCapTotal: 2000,
+          quietStartHour: 0,
+          quietEndHour: 0,
+          reuseHours: 0,
+        },
+      },
+    });
+  });
 });
 
 describe("profile and mailbox", () => {
