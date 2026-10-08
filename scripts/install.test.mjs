@@ -43,7 +43,8 @@ case "$1 $2" in
 esac
 case "$*" in
   *"ps -a -q"*) [ -n "$FAKE_NO_CONTAINERS" ] || echo abc123 ;;
-  *"ps --services"*) [ -n "$FAKE_NO_CONTAINERS" ] || echo server ;;
+  *"ps --services"*) if [ -n "$FAKE_STOPPED" ]; then echo; elif [ -z "$FAKE_NO_CONTAINERS" ]; then echo server; fi ;;
+  "compose run"*) [ "$FAKE_OPENS" != fail ] || exit 1 ;;
   *"compose "*" stop"*) [ -z "$FAKE_NO_CONTAINERS" ] || { echo 'no container found for project "scratch": not found' >&2; exit 1; } ;;
   *"-previous-"*":/from:ro"*) [ "$FAKE_ROLLBACK" != fail ] || exit 1 ;;
   *"-restore-"*":/from:ro"*)
@@ -137,6 +138,61 @@ describe("install.sh backup and restore", () => {
     const result = install(["--restore", other], { input: "restore\n" });
     assert.notEqual(result.status, 0);
     assert.match(result.stderr, /not a complete/);
+  });
+
+  it("refuses an archive whose database does not open, before touching the live volume", () => {
+    const result = install(["--restore", archive], {
+      input: "restore\n",
+      env: { FAKE_OPENS: "fail" },
+    });
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, /does not open with the key/);
+    assert.doesNotMatch(calls(), /-v scratch_kickrocks-data:\/to/);
+  });
+
+  it("backs up a stack that is stopped without trying to start a service named nothing", () => {
+    const target = join(dir, "stopped.tgz");
+    const result = install(["--backup", target], { env: { FAKE_TAR: "ok", FAKE_STOPPED: "1" } });
+    assert.equal(result.status, 0, result.stderr);
+    assert.doesNotMatch(result.stderr, /no such service/);
+    assert.doesNotMatch(calls(), /compose .* start/);
+  });
+
+  describe("with a passphrase", () => {
+    let passphrase;
+    let wrong;
+    before(() => {
+      passphrase = join(dir, "pass.txt");
+      wrong = join(dir, "wrong.txt");
+      writeFileSync(passphrase, "correct passphrase\n", { mode: 0o600 });
+      writeFileSync(wrong, "another passphrase\n", { mode: 0o600 });
+    });
+
+    it("writes an archive tar cannot read, and restores it with the passphrase", () => {
+      const target = join(dir, "sealed.bin");
+      const made = install(["--backup", target, "--passphrase-file", passphrase], {
+        env: { FAKE_TAR: "ok" },
+      });
+      assert.equal(made.status, 0, made.stderr);
+      assert.throws(() => execFileSync("tar", ["tzf", target], { stdio: "ignore" }));
+      const restored = install(["--restore", target, "--passphrase-file", passphrase], {
+        input: "restore\n",
+      });
+      assert.equal(restored.status, 0, restored.stderr);
+    });
+
+    it("refuses the wrong passphrase, and an encrypted archive given none", () => {
+      const target = join(dir, "sealed2.bin");
+      install(["--backup", target, "--passphrase-file", passphrase], { env: { FAKE_TAR: "ok" } });
+      const mistaken = install(["--restore", target, "--passphrase-file", wrong], {
+        input: "restore\n",
+      });
+      assert.equal(mistaken.status, 1);
+      assert.doesNotMatch(calls(), /volume create/);
+      const bare = install(["--restore", target], { input: "restore\n" });
+      assert.equal(bare.status, 1);
+      assert.match(bare.stderr, /is encrypted/);
+    });
   });
 
   it("changes nothing unless the person types restore", () => {

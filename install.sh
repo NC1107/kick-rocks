@@ -6,6 +6,7 @@
 #   ./install.sh --start      start the stopped containers again
 #   ./install.sh --backup [FILE]   write the data volume to FILE, readable only by you
 #   ./install.sh --restore FILE    replace the data volume with the contents of a backup FILE
+#   Add --passphrase-file PATH to either to encrypt the backup, or to open an encrypted one.
 #   ./install.sh --uninstall  delete the containers, the data volume, the browser profile and the images
 #   ./install.sh --url        print the address of the UI
 #
@@ -114,7 +115,8 @@ stop_for_copy() {
   trap finish EXIT
   # On a new machine the project has no containers, and compose reports that as an error.
   [ -n "$(docker compose "${ALL_PROFILES[@]}" ps -a -q)" ] || return 0
-  mapfile -t was_running < <(docker compose "${ALL_PROFILES[@]}" ps --services --status running)
+  # Compose prints a blank line when nothing runs, which would otherwise become a service named "".
+  mapfile -t was_running < <(docker compose "${ALL_PROFILES[@]}" ps --services --status running | sed '/^$/d')
   docker compose "${ALL_PROFILES[@]}" stop
 }
 
@@ -125,13 +127,83 @@ absolute_path() {
   esac
 }
 
+passphrase_file=""
+
+# Reads the passphrase option that --backup and --restore share, leaving the file argument in
+# archive_arg.
+archive_arg=""
+parse_archive_args() {
+  archive_arg=""
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      --passphrase-file)
+        [ -n "${2:-}" ] || { echo "--passphrase-file needs a path." >&2; exit 2; }
+        passphrase_file="$(absolute_path "$2")"
+        [ -s "$passphrase_file" ] || { echo "The passphrase file $passphrase_file is missing or empty." >&2; exit 1; }
+        command -v openssl >/dev/null || { echo "A passphrase needs openssl, which is not installed." >&2; exit 1; }
+        shift 2
+        ;;
+      *)
+        archive_arg="$1"
+        shift
+        ;;
+    esac
+  done
+}
+
+openssl_cipher=(openssl enc -aes-256-cbc -pbkdf2 -iter 600000 -salt)
+
+# The archive as a plain gzip tar on stdout, decrypting first when a passphrase was given.
+read_archive() {
+  if [ -n "$passphrase_file" ]; then
+    "${openssl_cipher[@]}" -d -pass "file:$passphrase_file" -in "$1"
+  else
+    cat "$1"
+  fi
+}
+
+encrypt_if_asked() {
+  if [ -n "$passphrase_file" ]; then
+    "${openssl_cipher[@]}" -pass "file:$passphrase_file"
+  else
+    cat
+  fi
+}
+
+# openssl marks its output with this, so an encrypted archive is told apart from a plain one.
+is_encrypted_archive() {
+  head -c 8 "$1" 2>/dev/null | grep -aq '^Salted__'
+}
+
 # Whether an archive is a readable gzip tar that holds the database and its key.
 # A truncated download or a half-written file fails the listing, and so does an archive of something else.
+# A wrong passphrase decrypts to noise, which fails here too.
 archive_is_intact() {
   local listing
-  listing="$(tar tzf "$1" 2>/dev/null)" || return 1
+  listing="$(read_archive "$1" 2>/dev/null | tar tz 2>/dev/null)" || return 1
   printf '%s\n' "$listing" | grep -qx '\./kickrocks\.db' || return 1
   printf '%s\n' "$listing" | grep -qx '\./db\.key'
+}
+
+# Whether the unpacked data in VOLUME opens with the key beside it. An archive can list whole and
+# still hold a database that no key opens, and restoring it would swap good data for unusable data.
+# It runs in the server image because that is the build that has to open the restored database.
+volume_database_opens() {
+  local script
+  script='
+    const fs = require("fs");
+    const Database = require("better-sqlite3");
+    const key = fs.readFileSync("/check/db.key", "utf8").trim();
+    if (!/^[0-9a-f]{64}$/i.test(key)) process.exit(1);
+    const db = new Database("/check/kickrocks.db", { readonly: true, fileMustExist: true });
+    db.pragma("cipher=\u0027sqlcipher\u0027");
+    db.pragma("legacy=4");
+    db.pragma("key=\"x\u0027" + key + "\u0027\"");
+    db.prepare("select count(*) from sqlite_master").get();
+    if (db.pragma("quick_check", { simple: true }) !== "ok") process.exit(1);
+  '
+  docker compose run --rm --no-deps -T --user 0 --workdir /app/server/node_modules/@kickrocks/db -v "$1":/check \
+    --entrypoint node server -e "$script" >/dev/null 2>&1
 }
 
 backup() {
@@ -148,7 +220,7 @@ backup() {
   partial_file="$file.partial"
   # tar runs as root inside the container because it must read the key, but the archive is written
   # by this shell, so it belongs to the invoking user and no one else can read it.
-  if ! (umask 077 && docker run --rm -v "$volume":/data:ro alpine tar czf - -C /data . >"$partial_file") || ! archive_is_intact "$partial_file"; then
+  if ! (umask 077 && docker run --rm -v "$volume":/data:ro alpine tar czf - -C /data . | encrypt_if_asked >"$partial_file") || ! archive_is_intact "$partial_file"; then
     echo "The backup did not complete, so nothing was written to $file." >&2
     exit 1
   fi
@@ -164,7 +236,11 @@ restore() {
   [ -n "${1:-}" ] || { echo "Usage: ./install.sh --restore FILE" >&2; exit 2; }
   file="$(absolute_path "$1")"
   [ -f "$file" ] || { echo "No such file: $file" >&2; exit 1; }
-  archive_is_intact "$file" || { echo "$file is not a complete Kick Rocks backup, so nothing was changed." >&2; exit 1; }
+  if is_encrypted_archive "$file" && [ -z "$passphrase_file" ]; then
+    echo "$file is encrypted. Add --passphrase-file PATH with its passphrase." >&2
+    exit 1
+  fi
+  archive_is_intact "$file" || { echo "$file is not a complete Kick Rocks backup, or the passphrase is wrong, so nothing was changed." >&2; exit 1; }
   volume="$(data_volume)"
   restore_volume="$volume"
   scratch="$volume-restore-$$"
@@ -175,8 +251,12 @@ restore() {
   stop_for_copy
   scratch_volumes=("$scratch")
   docker volume create "$scratch" >/dev/null
-  if ! docker run --rm -i -v "$scratch":/data alpine sh -c 'tar xzf - -C /data && test -s /data/kickrocks.db && test -s /data/db.key' <"$file"; then
+  if ! read_archive "$file" | docker run --rm -i -v "$scratch":/data alpine sh -c 'tar xzf - -C /data && test -s /data/kickrocks.db && test -s /data/db.key'; then
     echo "The archive could not be unpacked, so nothing was changed." >&2
+    exit 1
+  fi
+  if ! volume_database_opens "$scratch"; then
+    echo "The database in the archive does not open with the key in it, so nothing was changed." >&2
     exit 1
   fi
   if docker volume inspect "$volume" >/dev/null 2>&1; then
@@ -297,11 +377,15 @@ case "${1:-}" in
     exit 0
     ;;
   --backup)
-    backup "${2:-}"
+    shift
+    parse_archive_args "$@"
+    backup "$archive_arg"
     exit 0
     ;;
   --restore)
-    restore "${2:-}"
+    shift
+    parse_archive_args "$@"
+    restore "$archive_arg"
     exit 0
     ;;
   --uninstall)
