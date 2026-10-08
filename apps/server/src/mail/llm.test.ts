@@ -186,6 +186,22 @@ describe("the language model fallback", () => {
     expect(prompt).toContain('"FYI" with a signature is unknown');
   });
 
+  it("gives each class that small models miss a generic example, and keeps a form link apart from a confirmation link", async () => {
+    const { calls, fetchImpl } = fakeLlm(verdict());
+    await classifierWith(LLM, fetchImpl).classify(message(), { requests: [target] });
+    const messages = (calls[0] as Call).body.messages as Array<{ role: string; content: string }>;
+    const prompt = messages[0]?.content ?? "";
+    expect(prompt).toContain('"Delivery has failed to these recipients" or "Undeliverable: ..."');
+    expect(prompt).toContain('"I am out of the office until Monday"');
+    expect(prompt).toContain('"This mailbox is not monitored; your message was received"');
+    expect(prompt).toContain('"We are unable to act on your request because ..."');
+    expect(prompt).toContain('"Please submit your request through our online privacy form at ..."');
+    expect(prompt).toContain("only a link that confirms the request we already sent");
+    expect(prompt).toContain(
+      "a link to a form or portal where the request must be made is needs_form, not confirmation_link",
+    );
+  });
+
   it("sends no authorization header when the endpoint needs no key", async () => {
     const { calls, fetchImpl } = fakeLlm(verdict());
     await classifierWith({ ...LLM, apiKey: null as never }, fetchImpl).classify(message(), {
@@ -237,6 +253,31 @@ describe("the language model fallback", () => {
       classification: "verification_required",
       requestedFields: ["phone", "zip"],
     });
+  });
+
+  it("treats a list of nine or more of the eleven fields as no list, because the model copied the enum", async () => {
+    const all = [...ProfileField.options];
+    const dumped = fakeLlm(
+      verdict({ classification: "verification_required", requested_fields: all }),
+    );
+    const result = await classifierWith(LLM, dumped.fetchImpl).classify(message(), {
+      requests: [target],
+    });
+    expect(result.requestedFields).toEqual([]);
+    const nine = fakeLlm(
+      verdict({ classification: "verification_required", requested_fields: all.slice(0, 9) }),
+    );
+    expect(
+      (await classifierWith(LLM, nine.fetchImpl).classify(message(), { requests: [target] }))
+        .requestedFields,
+    ).toEqual([]);
+    const eight = fakeLlm(
+      verdict({ classification: "verification_required", requested_fields: all.slice(0, 8) }),
+    );
+    expect(
+      (await classifierWith(LLM, eight.fetchImpl).classify(message(), { requests: [target] }))
+        .requestedFields,
+    ).toEqual(all.slice(0, 8));
   });
 
   it("returns no identifiers for any other class", async () => {

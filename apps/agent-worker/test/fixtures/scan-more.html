@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>People results - Fixture Broker</title></head>
+<body>
+<main>
+<h1>People results</h1>
+<div id="cards">
+<article>
+  <h3><a href="/people/m1">Jordan A Example</a></h3>
+  <p>Born 1990 &middot; Austin, TX</p>
+  <a href="/people/m1">View free report</a>
+</article>
+<article>
+  <h3><a href="/people/m2">Sam Smith</a></h3>
+  <p>Born 1990 &middot; Austin, TX</p>
+  <a href="/people/m2">View free report</a>
+</article>
+</div>
+<template id="rest">
+<article>
+  <h3><a href="/people/m3">Jordan B Example</a></h3>
+  <p>Born 1990 &middot; Austin, TX</p>
+  <a href="/people/m3">View free report</a>
+</article>
+</template>
+<p><button type="button" id="more">View 1 more results</button></p>
+<p><button type="button" id="again">Show more</button></p>
+</main>
+<script>
+  document.getElementById("more").addEventListener("click", function () {
+    document.getElementById("cards").appendChild(document.getElementById("rest").content.cloneNode(true));
+    this.remove();
+  });
+</script>
+</body>
+</html>

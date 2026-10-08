@@ -15,9 +15,10 @@ const SCAN_STEPS = [
   "How to scan:",
   "1. Search with the name and location fields: type them into the site's search form and submit it.",
   "2. Go through every results page, following Next page, numbered pages and View more, until there are none.",
-  "3. The worker compares each record on a results page with the person and lists the verdicts under the snapshot: fits, contradicts or not decided. A placeholder such as {{city}} or {{birth_year}} means that detail is the person's own. A real value where a placeholder would be (another city, state or birth year, an age that does not fit) means a different person. A placeholder that appears only among a record's relatives does not make it the person's record.",
-  "4. Open every record marked not decided and call check_record there without a ref, because the record page can hold the deciding detail. Report the records that fit and leave out the ones that contradict.",
-  "5. Report all records that fit, or an empty list, never only the first.",
+  "3. Under each results page the worker lists every record as fits, contradicts or not decided, and the results pages you have not opened.",
+  "4. If any record is not decided, call check_record without a ref on that results page.",
+  "5. When the worker says nothing is left to decide, call report with the records it names.",
+  "A placeholder such as {{city}} or {{birth_year}} means that detail is the person's own. A real value where a placeholder would be (another city, state or birth year, an age that does not fit) means a different person. A placeholder that appears only among a record's relatives does not make it the person's record.",
   "Opt-out, do-not-sell and removal pages are not part of a scan. Do not open them.",
   "A scan never sends a request to the site. Report the records you have seen.",
   "",
@@ -38,15 +39,23 @@ const SCAN_INTRO = [
  * the model how this worker differs from the MCP client those instructions were written for.
  */
 export function buildSystemPrompt({ task, sites, fieldNames, maxSteps }: PromptContext): string {
+  const scan = task.payload.purpose === "scan";
   return [
-    ...(task.payload.purpose === "scan" ? SCAN_INTRO : REMOVAL_INTRO),
+    ...(scan ? SCAN_INTRO : REMOVAL_INTRO),
     "",
     "How this differs from the instructions at the end:",
     "- They were written for a client with MCP tools. You have none. Where they say complete_task, block_task, fail_task or release_task, call the report tool with status complete, blocked, failed or release. Heartbeats are done for you. Ignore get_target, get_recipe and propose_recipe.",
     `- You never see the person's details and never write them. To enter one, call type with the name of the field, and the program fills in the value. The fields for this task are: ${fieldNames.length > 0 ? fieldNames.join(", ") : "none"}.`,
     '- The program holds the value of every field listed above. Where the instructions say the values are in "fields", that means these names: you can search with them and fill forms with them through type and select. Never block, fail or release because you cannot see a value.',
     "- A record address in the instructions or your first message reads {{record_url}}. Pass it to navigate exactly like that and the program opens the real page.",
-    "- Where the page shows one of the person's details, you see a placeholder such as {{first_name}} instead. When you report a scan candidate, copy its text and its record link exactly as the snapshot shows them, placeholders included, and the program puts the real values back.",
+    scan
+      ? "- Where the page shows one of the person's details, you see a placeholder such as {{first_name}} instead. When you report a record, copy its link exactly as the snapshot shows it, placeholders included, and the program puts the real values back."
+      : "- Where the page shows one of the person's details, you see a placeholder such as {{first_name}} instead. When you report a scan candidate, copy its text and its record link exactly as the snapshot shows them, placeholders included, and the program puts the real values back.",
+    ...(scan
+      ? [
+          "- Where the instructions give a result shape for complete_task, you do not write it: call report with status complete and records.",
+        ]
+      : []),
     "",
     "Rules the program enforces. Breaking one does not work, it only wastes steps:",
     `- You may open only these domains (with their subdomains) and pages: ${describeSites(sites)}. A path ending in * covers the pages under it. A link that leaves them is blocked and the page stays where it is.`,
@@ -67,7 +76,7 @@ export function buildSystemPrompt({ task, sites, fieldNames, maxSteps }: PromptC
     "- A click that times out may still have been delivered, and a form may have been submitted. Look at the page before you click submit again, and never submit twice.",
     "- A result of submitted or awaiting_email_confirmation is only accepted after you clicked something on the page.",
     "",
-    ...(task.payload.purpose === "scan" ? SCAN_STEPS : []),
+    ...(scan ? SCAN_STEPS : []),
     `Target: ${task.target.name} (${task.target.domain}). Purpose: ${task.payload.purpose}.`,
     "",
     "Instructions for this task from Kick Rocks:",

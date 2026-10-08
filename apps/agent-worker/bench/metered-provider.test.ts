@@ -61,11 +61,23 @@ describe("MeteredProvider diagnostics", () => {
     expect(metered.calls[0]?.name).toBe(PROVIDER_ERROR);
   });
 
-  it("keeps the text of those entries in the saved calls", async () => {
-    const metered = provider([{ text: "I am done", toolCalls: [], usage }]);
+  it("keeps the text of those entries in the saved calls, with the tokens the turn wrote", async () => {
+    const metered = provider([
+      { text: "I am done", toolCalls: [], usage: { inputTokens: 40, outputTokens: 7 } },
+    ]);
     await metered.complete(REQUEST);
     expect(saveCalls(metered.calls)).toEqual([
-      { name: TEXT_ONLY_TURN, args: null, text: "I am done" },
+      { name: TEXT_ONLY_TURN, args: null, text: "I am done", outputTokens: 7 },
     ]);
+  });
+
+  it("tells an empty turn from a dropped call by the tokens it wrote", async () => {
+    const metered = provider([
+      { text: "", toolCalls: [], usage: { inputTokens: 40, outputTokens: 0 } },
+      { text: "", toolCalls: [], usage: { inputTokens: 40, outputTokens: 260 } },
+    ]);
+    await metered.complete(REQUEST);
+    await metered.complete(REQUEST);
+    expect(saveCalls(metered.calls).map((call) => call.outputTokens)).toEqual([0, 260]);
   });
 });

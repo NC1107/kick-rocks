@@ -238,7 +238,11 @@ export function markdownSummary(results: BenchResults): string {
         if (reported) lines.push(`  - Reported ${reported}`);
         const unusable = run.calls.filter((call) => call.text !== undefined).at(-1);
         if (unusable?.text !== undefined) {
-          lines.push(`  - Last ${unusable.name}: ${JSON.stringify(unusable.text.slice(0, 200))}`);
+          const wrote =
+            unusable.outputTokens === undefined ? "" : ` (${unusable.outputTokens} tokens)`;
+          lines.push(
+            `  - Last ${unusable.name}${wrote}: ${JSON.stringify(unusable.text.slice(0, 200))}`,
+          );
         }
         for (const v of run.judgement.violations) {
           lines.push(

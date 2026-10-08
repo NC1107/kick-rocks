@@ -72,16 +72,24 @@ describe("buildSystemPrompt", () => {
     expect(scan).toContain("following Next page, numbered pages and View more");
     expect(scan).toContain("check_record");
     expect(scan).toContain(
-      "The worker compares each record on a results page with the person and lists the verdicts under the snapshot",
+      "3. Under each results page the worker lists every record as fits, contradicts or not decided, and the results pages you have not opened.",
     );
     expect(scan).toContain(
-      "Open every record marked not decided and call check_record there without a ref",
+      "4. If any record is not decided, call check_record without a ref on that results page.",
+    );
+    expect(scan).toContain(
+      "5. When the worker says nothing is left to decide, call report with the records it names.",
+    );
+    expect(scan).toContain(
+      "Where the instructions give a result shape for complete_task, you do not write it: call report with status complete and records.",
+    );
+    expect(scan).toContain(
+      "When you report a record, copy its link exactly as the snapshot shows it",
     );
     expect(scan).toContain(
       "A placeholder such as {{city}} or {{birth_year}} means that detail is the person's own.",
     );
     expect(scan).toContain("only among a record's relatives does not make it the person's record");
-    expect(scan).toContain("never only the first");
     expect(scan).toContain(
       "A scan never sends a request to the site. Report the records you have seen.",
     );

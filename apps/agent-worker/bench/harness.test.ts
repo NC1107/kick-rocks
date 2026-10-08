@@ -93,6 +93,7 @@ describeBrowser("benchmark harness", () => {
       name: "(text only)",
       args: null,
       text: "I am not sure what to do.",
+      outputTokens: expect.any(Number),
     });
   });
 

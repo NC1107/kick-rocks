@@ -42,6 +42,36 @@ describe("toolCallInText", () => {
     expect(toolCallInText(text, TOOLS, "t5")).toBeNull();
   });
 
+  it("reads a bare object with a final status and no name as a report call", () => {
+    for (const status of ["complete", "blocked", "failed", "release"]) {
+      const text = JSON.stringify({ status, records: [] });
+      expect(toolCallInText(text, TOOLS, "t7")).toEqual({
+        id: "t7",
+        name: "report",
+        args: { status, records: [] },
+      });
+    }
+    expect(
+      toolCallInText('Done.\n{"status":"complete","records":["/profile/a"]}', TOOLS, "t8"),
+    ).toMatchObject({ name: "report", args: { records: ["/profile/a"] } });
+  });
+
+  it("reads an object whose only key is url as a navigate call", () => {
+    expect(toolCallInText('{"url": "/profile/abc"}', TOOLS, "t9")).toEqual({
+      id: "t9",
+      name: "navigate",
+      args: { url: "/profile/abc" },
+    });
+  });
+
+  it("does not read a bare object as a call when it could be something else", () => {
+    expect(toolCallInText('{"status": "pending"}', TOOLS, "t10")).toBeNull();
+    expect(toolCallInText('{"url": "/a", "extra": 1}', TOOLS, "t10")).toBeNull();
+    expect(toolCallInText('{"status": "complete"}', ["navigate"], "t10")).toBeNull();
+    expect(toolCallInText('{"url": "/a"}', ["report"], "t10")).toBeNull();
+    expect(toolCallInText('{"name": "rm", "status": "complete"}', TOOLS, "t10")).toBeNull();
+  });
+
   it("leaves a name that is no tool of this task, and a shape that is not a call, alone", () => {
     expect(toolCallInText('{"name": "rm", "arguments": {}}', TOOLS, "t6")).toBeNull();
     expect(toolCallInText('{"name": "click"}', TOOLS, "t6")).toBeNull();

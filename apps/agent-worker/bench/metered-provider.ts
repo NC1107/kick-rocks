@@ -21,6 +21,8 @@ export interface RecordedCall {
   argsError?: string;
   /** For a turn that made no call and a model call that failed: what the model wrote, or what went wrong. */
   text?: string;
+  /** For a turn that made no call: the tokens that turn wrote, which tells an empty turn from a dropped call. */
+  outputTokens?: number;
   /** What the toolbox answered, once a later request carried it. The final call of a run has none. */
   result?: { content: string; isError: boolean };
 }
@@ -100,7 +102,12 @@ export class MeteredProvider implements ModelProvider {
     this.totals.maxPromptTokens = Math.max(this.totals.maxPromptTokens, response.usage.inputTokens);
     if (response.toolCalls.length === 0) {
       this.totals.textOnlyTurns += 1;
-      this.calls.push({ name: TEXT_ONLY_TURN, args: null, text: clip(response.text) });
+      this.calls.push({
+        name: TEXT_ONLY_TURN,
+        args: null,
+        text: clip(response.text),
+        outputTokens: response.usage.outputTokens,
+      });
     }
     for (const call of response.toolCalls) this.record(call);
     return response;

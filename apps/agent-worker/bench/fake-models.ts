@@ -258,17 +258,9 @@ function scanScript(kind: FakeKind, id: number, task: AgentTask): Step[] {
   if (expected.kind !== "scan") throw new Error(`There is no fake script for scenario ${id}`);
   const start = task.target.searchUrl;
   const origin = new URL(start ?? "http://127.0.0.1/").origin;
-  const candidates = (paths: string[]) =>
-    paths.map((path) => ({
-      recordUrl: `${origin}${path}`,
-      name: "{{first_name}} {{last_name}}",
-      locations: ["{{city}}, {{state}}"],
-    }));
-  // The worker questions a scan's first report against its own comparison, and a second one goes through.
+  // The worker applies its own verdicts to a second report, so a report is sent twice.
   const finish = (paths: string[]): Step[] => {
-    const final = report("complete", {
-      result: { purpose: "scan", scan: { candidates: candidates(paths) } },
-    });
+    const final = report("complete", { records: paths.map((path) => `${origin}${path}`) });
     return [final, final];
   };
   if (kind === "bad") {

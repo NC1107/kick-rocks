@@ -56,8 +56,19 @@ export const WaitArgs = z.object({
   seconds: z.number().min(0.2).max(MAX_WAIT_SECONDS).default(2),
 });
 
+/** A model that names one record sends the link alone, and one that has none sends null. */
+const Records = z.preprocess(
+  (value) => (typeof value === "string" ? [value] : value === null ? undefined : value),
+  z.array(z.string().max(2000)).max(200).optional(),
+);
+
 export const ReportArgs = z.discriminatedUnion("status", [
-  z.object({ status: z.literal("complete"), result: z.unknown() }),
+  z.object({
+    status: z.literal("complete"),
+    result: z.unknown().optional(),
+    // A scan names the links of the records that fit, and the worker fills in each record's details.
+    records: Records,
+  }),
   z.object({
     status: z.literal("blocked"),
     // Only the worker stops for approval, so a model cannot ask for it.
@@ -103,6 +114,64 @@ const BLOCK_REASONS = [
   "unknown: anything else, naming what it needs",
 ];
 
+const REPORT_PROPERTIES = {
+  status: { type: "string", enum: ["complete", "blocked", "failed", "release"] },
+  reason: {
+    type: "string",
+    description: "For blocked: one of the block reasons. For release: a short note.",
+  },
+  detail: {
+    type: "string",
+    description: "For blocked: what stopped you and on which page.",
+  },
+  error: {
+    type: "string",
+    description: "For failed: what went wrong, without personal data.",
+  },
+  failureKind: { type: "string", enum: ["site", "network", "internal"] },
+  retryable: { type: "boolean" },
+};
+
+function reportSpec(purpose: "scan" | "remove"): ToolSpec {
+  const outcomes = `status blocked stops for a person and needs a reason and detail. The reasons are ${BLOCK_REASONS.join("; ")}. status failed needs error, failureKind (site, network or internal) and retryable. status release hands the task back unchanged.`;
+  if (purpose === "scan") {
+    return {
+      name: "report",
+      description: `Finish the task. For a scan: status complete and records, the links of the records that fit, or [] when none fits. The program fills in each record's details. ${outcomes}`,
+      parameters: {
+        type: "object",
+        properties: {
+          ...REPORT_PROPERTIES,
+          records: {
+            type: "array",
+            items: { type: "string" },
+            description:
+              "For complete: the links of the records that fit, copied from the snapshot or the So far line, or [] when none fits.",
+          },
+        },
+        required: ["status"],
+        additionalProperties: false,
+      },
+    };
+  }
+  return {
+    name: "report",
+    description: `Finish the task. status complete needs result in the exact shape the instructions give. ${outcomes}`,
+    parameters: {
+      type: "object",
+      properties: {
+        ...REPORT_PROPERTIES,
+        result: {
+          type: "object",
+          description: "For complete: the result object from the instructions.",
+        },
+      },
+      required: ["status"],
+      additionalProperties: false,
+    },
+  };
+}
+
 export interface ToolContext {
   /** The names of the task's fields, which are the only ones type and select accept. */
   fieldNames: readonly string[];
@@ -119,10 +188,16 @@ export function toolSpecsFor({ fieldNames, purpose }: ToolContext): ToolSpec[] {
     {
       name: "navigate",
       description:
-        "Open a page of the target's own site. Addresses on other domains are refused. Returns the page snapshot.",
-      parameters: object({ url: { type: "string", description: "A full https address." } }, [
-        "url",
-      ]),
+        "Open a page of the target's own site. Addresses on other domains are refused. A path starting with / opens that page of the current site. Returns the page snapshot.",
+      parameters: object(
+        {
+          url: {
+            type: "string",
+            description: "A full https address, or a path starting with / on the current site.",
+          },
+        },
+        ["url"],
+      ),
     },
     {
       name: "snapshot",
@@ -170,44 +245,13 @@ export function toolSpecsFor({ fieldNames, purpose }: ToolContext): ToolSpec[] {
       description: `Wait up to ${MAX_WAIT_SECONDS} seconds for the page to change, then read it again.`,
       parameters: object({ seconds: { type: "number" } }, []),
     },
-    {
-      name: "report",
-      description: `Finish the task. status complete needs result in the exact shape the instructions give. status blocked stops for a person and needs a reason and detail. The reasons are ${BLOCK_REASONS.join("; ")}. status failed needs error, failureKind (site, network or internal) and retryable. status release hands the task back unchanged.`,
-      parameters: {
-        type: "object",
-        properties: {
-          status: { type: "string", enum: ["complete", "blocked", "failed", "release"] },
-          result: {
-            type: "object",
-            description: "For complete: the result object from the instructions.",
-          },
-          reason: {
-            type: "string",
-            description: "For blocked: one of the block reasons. For release: a short note.",
-          },
-          detail: {
-            type: "string",
-            description: "For blocked: what stopped you and on which page.",
-          },
-          error: {
-            type: "string",
-            description: "For failed: what went wrong, without personal data.",
-          },
-          failureKind: { type: "string", enum: ["site", "network", "internal"] },
-          retryable: { type: "boolean" },
-        },
-        required: ["status"],
-        additionalProperties: false,
-      },
-    },
   ];
-  if (purpose !== "scan") return specs;
-  const report = specs.pop() as ToolSpec;
+  if (purpose !== "scan") return [...specs, reportSpec(purpose)];
   specs.push(
     {
       name: "check_record",
       description:
-        "Compare a record with the person's details. Give the ref of a record link from the latest snapshot to read its card, or no ref to read the record page you are on. It starts with the record link it judged, tells you per identifier whether it matches, differs or is not shown, never the values, and ends with fits: report it, contradicts: leave it out, or not decided: open the record page.",
+        "Compare records with the person's details. On a results page, call it without a ref: the worker opens each record marked not decided, judges its record page, comes back to the results page and answers with one line per record. On a record page, call it without a ref to judge that page. A ref must be a record link listed under the results page. It starts with the record link it judged, tells you per identifier whether it matches, differs or is not shown, never the values, and ends with fits: include it in your report, contradicts: leave it out, or not decided: call check_record without a ref on the results page.",
       parameters: object(
         {
           ref: {
@@ -218,7 +262,7 @@ export function toolSpecsFor({ fieldNames, purpose }: ToolContext): ToolSpec[] {
         [],
       ),
     },
-    report,
+    reportSpec(purpose),
   );
   return specs;
 }

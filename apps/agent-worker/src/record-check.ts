@@ -20,7 +20,7 @@ type Verdict = {
 const SUFFIXES = new Set(["jr", "sr", "ii", "iii", "iv"]);
 const ALIAS_LABEL =
   /\b(?:also known as|a\.?k\.?a\.?|aliases|alias|formerly|previously known as|maiden name|other names|also called|nee)\b\s*:?/i;
-const RELATIVES_LABEL =
+export const RELATIVES_LABEL =
   /\b(?:possible relatives|relatives|relative|associates|associate|related to|family members|household members|neighbors)\b\s*:?/i;
 
 function tokens(text: string): string[] {
@@ -60,7 +60,7 @@ function nameIn(unit: string, name: { first: string; last: string }): boolean {
   return apart(name.first, name.last) || apart(name.last, name.first);
 }
 
-function looksLikeName(text: string): boolean {
+export function looksLikeName(text: string): boolean {
   const words = text.split(/[\s,]+/).filter(Boolean);
   if (words.length < 2 || words.length > 6 || text.length > 60) return false;
   if (/,\s*[A-Z]{2}$/.test(text) || US_STATES.some((state) => state.name === text)) return false;
@@ -248,9 +248,9 @@ export function judgeRecord(
 }
 
 export const VERDICT_ENDINGS = {
-  fits: "fits: report it",
+  fits: "fits: include it in your report",
   contradicts: "contradicts: leave it out",
-  undecided: "not decided: open the record page",
+  undecided: "not decided: call check_record without a ref on the results page",
 } as const;
 
 /** The answer for the model: one verdict per identifier, never a value. */

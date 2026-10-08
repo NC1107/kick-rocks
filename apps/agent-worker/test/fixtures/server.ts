@@ -84,9 +84,13 @@ const PAGES: Record<string, string> = {
   "/many-links": "many-links.html",
   "/huge-page": "huge-page.html",
   "/scan-cards": "scan-cards.html",
+  "/scan-pages": "scan-pages.html",
+  "/scan-pages-2": "scan-pages-2.html",
+  "/scan-more": "scan-more.html",
   "/dropdowns": "dropdowns.html",
   "/comboboxes": "comboboxes.html",
   "/validation": "validation.html",
+  "/required-form": "required-form.html",
 };
 
 function escapeHtml(text: string): string {
@@ -175,6 +179,9 @@ export function startFixtureServer(port: number = FIXTURE_PORT): Promise<{
         200,
         page("echo.html", { GREETING: name === null ? "" : `Hello, ${escapeHtml(name)}.` }),
       );
+    }
+    if (path === "/people/r3" || path === "/people/p4") {
+      return send(response, 200, page("record-other.html"));
     }
     if (path.startsWith("/people/")) return send(response, 200, page("record.html"));
     const file = PAGES[path];

@@ -146,7 +146,7 @@ describe("birth year and age", () => {
       state: "TX",
     });
     expect(answer).not.toContain("age:");
-    expect(answer.endsWith("fits: report it")).toBe(true);
+    expect(answer.endsWith("fits: include it in your report")).toBe(true);
   });
 });
 
@@ -158,27 +158,35 @@ describe("the last line", () => {
         "place: found in current or past places",
         "birth year: matches",
         "age: fits",
-        "fits: report it",
+        "fits: include it in your report",
       ].join("\n"),
     );
   });
 
   it("fits on an age alone when the birth year is not printed", () => {
-    expect(check("Jordan Example", "Age 36 · Austin, TX").endsWith("fits: report it")).toBe(true);
+    expect(
+      check("Jordan Example", "Age 36 · Austin, TX").endsWith("fits: include it in your report"),
+    ).toBe(true);
   });
 
   it("is not decided on a card that leaves an identifier out, and points at the record page", () => {
     expect(
-      check("Jordan Example", "Austin, TX").endsWith("not decided: open the record page"),
+      check("Jordan Example", "Austin, TX").endsWith(
+        "not decided: call check_record without a ref on the results page",
+      ),
     ).toBe(true);
   });
 
   it("is decided on the record page itself when nothing it shows contradicts", () => {
-    expect(check("Jordan Example", "Austin, TX", PERSON, true).endsWith("fits: report it")).toBe(
-      true,
-    );
     expect(
-      check("", "Austin, TX", PERSON, true).endsWith("not decided: open the record page"),
+      check("Jordan Example", "Austin, TX", PERSON, true).endsWith(
+        "fits: include it in your report",
+      ),
+    ).toBe(true);
+    expect(
+      check("", "Austin, TX", PERSON, true).endsWith(
+        "not decided: call check_record without a ref on the results page",
+      ),
     ).toBe(true);
   });
 

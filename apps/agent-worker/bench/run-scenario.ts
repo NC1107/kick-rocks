@@ -22,26 +22,46 @@ export interface SavedCall {
   args: unknown;
   argsError?: string;
   text?: string;
+  /** Tokens a text-only turn wrote. */
+  outputTokens?: number;
   isError?: boolean;
+  /** The first characters of the answer. */
   answer?: string;
+  /** The last characters of a longer answer, where the comparison block and the So far line sit under a snapshot. */
+  answerEnd?: string;
 }
 
-const SAVED_ANSWER_CHARS = 700;
+const ANSWER_HEAD_CHARS = 500;
+const ANSWER_TAIL_CHARS = 800;
 
 function clip(text: string, limit: number): string {
   return text.length > limit ? `${text.slice(0, limit)}...` : text;
 }
 
+/** The end of an answer that the head did not already cover. */
+function tailOf(text: string): string | undefined {
+  if (text.length <= ANSWER_HEAD_CHARS) return undefined;
+  return text.slice(Math.max(ANSWER_HEAD_CHARS, text.length - ANSWER_TAIL_CHARS));
+}
+
 export function saveCalls(calls: readonly RecordedCall[]): SavedCall[] {
-  return calls.map((call) => ({
-    name: call.name,
-    args: call.args,
-    ...(call.argsError === undefined ? {} : { argsError: call.argsError }),
-    ...(call.text === undefined ? {} : { text: call.text }),
-    ...(call.result === undefined
-      ? {}
-      : { isError: call.result.isError, answer: clip(call.result.content, SAVED_ANSWER_CHARS) }),
-  }));
+  return calls.map((call) => {
+    const end = call.result === undefined ? undefined : tailOf(call.result.content);
+    return {
+      name: call.name,
+      args: call.args,
+      ...(call.argsError === undefined ? {} : { argsError: call.argsError }),
+      ...(call.text === undefined ? {} : { text: call.text }),
+      ...(call.outputTokens === undefined ? {} : { outputTokens: call.outputTokens }),
+      ...(call.result === undefined
+        ? {}
+        : {
+            isError: call.result.isError,
+            answer: clip(call.result.content, ANSWER_HEAD_CHARS),
+            ...(end === undefined ? {} : { answerEnd: end }),
+          }),
+    };
+  });
 }
 
 /** What the run told the server, with the free text cut to a length a results file can hold. */

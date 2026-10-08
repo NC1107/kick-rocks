@@ -63,6 +63,28 @@ describe("tool specs", () => {
     ]);
   });
 
+  it("asks a scan to finish with records and a removal with a result", () => {
+    const scan = SCAN_SPECS.find((spec) => spec.name === "report");
+    const removal = TOOL_SPECS.find((spec) => spec.name === "report");
+    if (!scan || !removal) throw new Error("no report tool");
+    expect(scan.description).toContain(
+      "For a scan: status complete and records, the links of the records that fit, or [] when none fits. The program fills in each record's details.",
+    );
+    const scanProperties = (scan.parameters as { properties: Record<string, unknown> }).properties;
+    expect(scanProperties.records).toMatchObject({ type: "array", items: { type: "string" } });
+    expect(scanProperties).not.toHaveProperty("result");
+    const removalProperties = (removal.parameters as { properties: Record<string, unknown> })
+      .properties;
+    expect(removalProperties).toHaveProperty("result");
+    expect(removalProperties).not.toHaveProperty("records");
+    expect(removal.description).toContain("status complete needs result in the exact shape");
+  });
+
+  it("tells navigate that a path on the current site works", () => {
+    const navigate = TOOL_SPECS.find((spec) => spec.name === "navigate");
+    expect(navigate?.description).toContain("A path starting with / opens that page");
+  });
+
   it("says in the report tool what each blocked reason means", () => {
     const report = TOOL_SPECS.find((spec) => spec.name === "report");
     expect(report?.description).toContain("phone_verification: the site asks for a phone number");
@@ -177,6 +199,21 @@ describe("report arguments", () => {
       ReportArgs.safeParse({ status: "failed", error: "x", failureKind: "recipe" }).success,
     ).toBe(false);
     expect(ReportArgs.safeParse({ status: "done" }).success).toBe(false);
+  });
+
+  it("takes a scan's records as a list of strings, a lone string as one record, and null as none given", () => {
+    expect(ReportArgs.parse({ status: "complete", records: ["/profile/a", "e12"] })).toMatchObject({
+      records: ["/profile/a", "e12"],
+    });
+    expect(ReportArgs.parse({ status: "complete", records: "/profile/a" })).toMatchObject({
+      records: ["/profile/a"],
+    });
+    expect(ReportArgs.parse({ status: "complete", records: [] })).toMatchObject({ records: [] });
+    expect(ReportArgs.parse({ status: "complete", records: null })).toEqual({ status: "complete" });
+    expect(ReportArgs.parse({ status: "complete" })).toEqual({ status: "complete" });
+    expect(ReportArgs.safeParse({ status: "complete", records: [{ url: "x" }] }).success).toBe(
+      false,
+    );
   });
 
   it("defaults a failure to internal and not retryable", () => {
