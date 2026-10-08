@@ -91,10 +91,16 @@ async function readJson(response: Response): Promise<unknown> {
 function toRequestError(status: number, body: unknown): ApiRequestError {
   const parsed = ApiError.safeParse(body);
   if (!parsed.success) {
-    return new ApiRequestError(status, "unknown", messageForStatus(status));
+    return new ApiRequestError(status, "unknown", messageForStatus(status), [], body);
   }
   const { error, message, issues } = parsed.data;
-  return new ApiRequestError(status, error, message ?? messageForStatus(status), issues ?? []);
+  return new ApiRequestError(
+    status,
+    error,
+    message ?? messageForStatus(status),
+    issues ?? [],
+    body,
+  );
 }
 
 /**

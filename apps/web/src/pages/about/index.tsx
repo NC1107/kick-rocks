@@ -1,5 +1,5 @@
-import { API_ROUTES, type DataSourceInfo } from "@kickrocks/shared";
-import { errorMessage, useApiQuery } from "../../api/index.js";
+import { API_ROUTES, type DataSourceInfo, type InstanceHealth } from "@kickrocks/shared";
+import { errorMessage, useApiQuery, useInstanceHealth } from "../../api/index.js";
 import {
   Button,
   Callout,
@@ -12,7 +12,7 @@ import {
   SkeletonText,
   Tag,
 } from "../../components/ui/index.js";
-import { formatCount, formatDate, pluralize } from "../../lib/format.js";
+import { formatCount, formatDate, formatDateTime, pluralize } from "../../lib/format.js";
 import { BodyRow, FactRow, SETTINGS_WIDTH } from "../settings/rows.js";
 
 const POLYFORM_URL = "https://polyformproject.org/licenses/noncommercial/1.0.0/";
@@ -33,7 +33,7 @@ export function Component() {
 }
 
 function InstanceSection() {
-  const health = useApiQuery(API_ROUTES.health);
+  const health = useInstanceHealth();
   const status = useApiQuery(API_ROUTES.status);
 
   return (
@@ -66,6 +66,11 @@ function InstanceSection() {
               {errorMessage(health.error ?? status.error)}
             </Callout>
           ) : null}
+          {health.data && !health.data.ok ? (
+            <Callout intent="danger" title="This instance is not working properly" className="mb-3">
+              <ProblemList health={status.data?.health} />
+            </Callout>
+          ) : null}
           <RowGroup>
             {health.data ? <FactRow label="Version">{health.data.version}</FactRow> : null}
             {status.data ? (
@@ -95,6 +100,48 @@ function InstanceSection() {
         </>
       )}
     </Section>
+  );
+}
+
+const MEBIBYTE = 1024 * 1024;
+
+/** What the health check found, in the order a person would fix it. */
+export function problemsOf({ scheduler, database, disk }: InstanceHealth): string[] {
+  const problems: string[] = [];
+  if (!database.writable) {
+    problems.push(
+      "The database cannot be written. Check that the data volume is mounted and not read-only.",
+    );
+  }
+  if (disk.low) {
+    problems.push(
+      `Only ${formatCount(Math.floor((disk.freeBytes ?? 0) / MEBIBYTE))} MB is free on the data volume. Free some space on it.`,
+    );
+  }
+  if (scheduler.stalled) {
+    problems.push(
+      scheduler.lastPassAt
+        ? `The scheduler has not run since ${formatDateTime(scheduler.lastPassAt)}.`
+        : "The scheduler has not finished a pass since it started.",
+    );
+  }
+  if (scheduler.sendingStalled && scheduler.sendingSince) {
+    problems.push(
+      `Mail has been stuck since ${formatDateTime(scheduler.sendingSince)}, probably waiting on a mail server that stopped answering. Nothing is sent or polled until it lets go.`,
+    );
+  }
+  return problems;
+}
+
+function ProblemList({ health }: { health: InstanceHealth | undefined }) {
+  const problems = health ? problemsOf(health) : [];
+  if (problems.length === 0) return <>The server says it cannot do its job right now.</>;
+  return (
+    <ul className="list-none space-y-1">
+      {problems.map((problem) => (
+        <li key={problem}>{problem}</li>
+      ))}
+    </ul>
   );
 }
 

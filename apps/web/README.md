@@ -172,6 +172,7 @@ handle(API_ROUTES.targetsGet, ({ params }) => {
 - `seed(store)` fills the shared store. Domains seed in the order listed in `mock/registry.ts`, so requests can read the targets and profiles seeded before them.
 - State lives in memory. Saving any file under `mock/` reloads the mock and re-seeds it on the next request.
 - `POST /__mock/reset` puts the fixtures back, and `GET /__mock/auth?mode=login|setup|authed` jumps the session to a state to test the auth gate.
+- `GET /__mock/health?state=ok|scheduler|sending|database|disk` makes the health check answer 503 for that problem, to check the degraded About page and sidebar.
 - `KICKROCKS_MOCK_LATENCY` sets the delay in milliseconds, 150 by default, and `KICKROCKS_MOCK_AUTH` sets where the mock starts.
 - Fixtures use fictional brokers on `.example` domains and fake people on `example.com`. A test fails on anything else, and on an em dash.
 - The worker API is not mocked, because the web app never calls it.

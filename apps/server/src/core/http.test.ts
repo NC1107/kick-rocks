@@ -247,6 +247,29 @@ describe("error handling", () => {
     expect(response.json()).toEqual(body);
   });
 
+  it.each([
+    [
+      "SQLite itself",
+      Object.assign(new Error("database or disk is full"), { code: "SQLITE_FULL" }),
+    ],
+    [
+      "a wrapper around it",
+      new Error("Failed query", {
+        cause: Object.assign(new Error("database or disk is full"), { code: "SQLITE_FULL" }),
+      }),
+    ],
+  ])("says the disk is full when %s reports it", async (_name, error) => {
+    await build((a) =>
+      a.get("/boom", () => {
+        throw error;
+      }),
+    );
+    const response = await app.inject({ method: "GET", url: "/boom" });
+    expect(response.statusCode).toBe(507);
+    expect(response.json()).toMatchObject({ error: "disk_full" });
+    expect(response.json().message).toContain("disk");
+  });
+
   it("hides the cause of an unexpected error", async () => {
     await build((a) =>
       a.get("/boom", () => {

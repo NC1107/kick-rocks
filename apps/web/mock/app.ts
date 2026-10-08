@@ -6,7 +6,13 @@ import {
   requiresCsrfHeader,
   toApiIssues,
 } from "@kickrocks/shared";
-import { type MockBinary, type MockDomain, MockHttpError, type MockRoute } from "./core.js";
+import {
+  type MockBinary,
+  type MockDomain,
+  MockHttpError,
+  MockReply,
+  type MockRoute,
+} from "./core.js";
 import { MOCK_DOMAINS } from "./registry.js";
 import { createStore, type MockAuthMode, type MockStore } from "./store.js";
 
@@ -166,6 +172,8 @@ export function createMockApp(options: MockAppOptions = {}): MockApp {
       }
 
       const result = await entry.handler({ params, query, body, store } as never);
+
+      if (result instanceof MockReply) return json(result.status, result.body);
 
       if (isBinary(result)) {
         return {

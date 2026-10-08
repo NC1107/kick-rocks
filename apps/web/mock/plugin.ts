@@ -1,7 +1,7 @@
 import type { IncomingMessage } from "node:http";
 import type { Plugin, ViteDevServer } from "vite";
 import type { MockApp, MockRequest } from "./app.js";
-import type { MockAuthMode } from "./store.js";
+import type { MockAuthMode, MockHealthState } from "./store.js";
 
 interface KickRocksMockOptions {
   /** Milliseconds added to every answer. Defaults to KICKROCKS_MOCK_LATENCY, else 150. */
@@ -10,6 +10,13 @@ interface KickRocksMockOptions {
   auth?: MockAuthMode;
 }
 
+const HEALTH_STATES: readonly MockHealthState[] = [
+  "ok",
+  "scheduler",
+  "sending",
+  "database",
+  "disk",
+];
 const AUTH_MODES: readonly MockAuthMode[] = ["authed", "login", "setup"];
 
 function readOptions(options: KickRocksMockOptions): Required<KickRocksMockOptions> {
@@ -39,7 +46,8 @@ async function readBody(request: IncomingMessage): Promise<string | undefined> {
  * mock the next request: fixtures re-seed and edited handlers apply without a restart.
  *
  * POST /__mock/reset puts the fixtures back. GET /__mock/auth?mode=login|setup|authed jumps the
- * session to a state, for testing the auth gate.
+ * session to a state, for testing the auth gate. GET /__mock/health?state=ok|scheduler|sending|database|disk
+ * makes the health check report that problem.
  */
 export function kickRocksMock(options: KickRocksMockOptions = {}): Plugin {
   const settings = readOptions(options);
@@ -85,6 +93,14 @@ export function kickRocksMock(options: KickRocksMockOptions = {}): Plugin {
               app.store.auth.setupRequired = mode === "setup";
               app.store.auth.authenticated = mode === "authed";
               app.store.auth.password = mode === "setup" ? null : app.store.auth.password;
+            } else if (path.pathname === "/__mock/health") {
+              const state = path.searchParams.get("state") as MockHealthState | null;
+              if (!state || !HEALTH_STATES.includes(state)) {
+                response.statusCode = 400;
+                response.end(`state must be ${HEALTH_STATES.join(", ")}`);
+                return;
+              }
+              app.store.health = state;
             } else {
               response.statusCode = 404;
               response.end("unknown mock control");

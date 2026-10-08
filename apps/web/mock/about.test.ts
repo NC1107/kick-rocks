@@ -11,6 +11,14 @@ describe("about handlers", () => {
     expect(response.json).toEqual({ ok: true, version: "0.1.0-mock" });
   });
 
+  it("answers 503 with the version when the instance is unwell, and says why behind the session", async () => {
+    app.store.health = "scheduler";
+    const health = await call({ path: "/health" });
+    expect(health.status).toBe(503);
+    expect(health.json).toEqual({ ok: false, version: "0.1.0-mock" });
+    expect((await call({ path: "/status" })).json.health.scheduler.stalled).toBe(true);
+  });
+
   it("counts profiles and targets from the store", async () => {
     const { json } = await call({ path: "/status" });
     expect(json.profiles).toBe(app.store.profiles.length);

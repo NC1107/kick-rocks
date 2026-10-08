@@ -100,6 +100,15 @@ const CODE_BY_STATUS: Record<number, string> = {
   429: "rate_limited",
 };
 
+/** SQLite reports a full disk as SQLITE_FULL, which the query layer may wrap in an error of its own. */
+function isDiskFull(error: unknown): boolean {
+  for (let current = error, depth = 0; current && depth < 5; depth += 1) {
+    if ((current as { code?: unknown }).code === "SQLITE_FULL") return true;
+    current = (current as { cause?: unknown }).cause;
+  }
+  return false;
+}
+
 /** One error shape for the whole API: { error, message?, issues? }. */
 export function installErrorHandling(app: FastifyInstance): void {
   app.setErrorHandler((error, request, reply) => {
@@ -115,6 +124,14 @@ export function installErrorHandling(app: FastifyInstance): void {
       return reply.code(status).send({
         error: CODE_BY_STATUS[status] ?? "invalid_request",
         message: error instanceof Error ? error.message : "The request could not be processed",
+      });
+    }
+    if (isDiskFull(error)) {
+      request.log.error({ err: error }, "the disk is full");
+      return reply.code(507).send({
+        error: "disk_full",
+        message:
+          "The disk that holds the Kick Rocks data is full. Free some space on it, then try again.",
       });
     }
     request.log.error({ err: error }, "unhandled error");

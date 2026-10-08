@@ -251,14 +251,39 @@ export const RecipesQuery = z.object({
   source: RecipeSource.optional(),
 });
 
+/** What the health check looked at, shown only to a signed-in person. */
+export const InstanceHealth = z.object({
+  scheduler: z.object({
+    /** When the scheduler last finished a maintenance pass, or null before its first. */
+    lastPassAt: z.string().nullable(),
+    /** Whether it has gone too long without one. */
+    stalled: z.boolean(),
+    /** When the sending pass now running began, or null when none is. */
+    sendingSince: z.string().nullable(),
+    /** Whether that pass has outlasted what a send may take. */
+    sendingStalled: z.boolean(),
+  }),
+  database: z.object({ writable: z.boolean() }),
+  disk: z.object({
+    /** Free bytes on the volume that holds the data directory, or null when it cannot be read. */
+    freeBytes: z.number().int().nonnegative().nullable(),
+    /** Whether that is too little to keep running safely. */
+    low: z.boolean(),
+  }),
+});
+export type InstanceHealth = z.infer<typeof InstanceHealth>;
+
 export const API_ROUTES = {
-  /** Open to anyone, so it says only that the server is up. */
+  /**
+   * Open to anyone, so it says only whether the server can do its job, never what it holds or why
+   * not. It answers 503 with the same body when it cannot; the reasons are in `status`.
+   */
   health: defineRoute({
     method: "GET",
     path: "/health",
     module: "core",
     auth: "none",
-    response: z.object({ ok: z.literal(true), version: z.string() }),
+    response: z.object({ ok: z.boolean(), version: z.string() }),
   }),
   /** What the instance holds, behind the session because it reveals who uses it. */
   status: defineRoute({
@@ -274,6 +299,7 @@ export const API_ROUTES = {
         generatedAt: z.string().optional(),
       }),
       targets: z.object({ brokers: Count, companies: Count }),
+      health: InstanceHealth,
     }),
   }),
 

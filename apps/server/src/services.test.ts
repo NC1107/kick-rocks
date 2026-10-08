@@ -42,6 +42,7 @@ describe("createServices with no overrides", () => {
           "db",
           "dispatch",
           "legal",
+          "liveness",
           "logger",
           "mail",
           "mailHolds",

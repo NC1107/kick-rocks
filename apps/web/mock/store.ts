@@ -48,6 +48,7 @@ export function freshMockNotifications(): MockNotifications {
 }
 
 export type MockAuthMode = "authed" | "login" | "setup";
+export type MockHealthState = "ok" | "scheduler" | "sending" | "database" | "disk";
 
 export interface MockAuthState {
   setupRequired: boolean;
@@ -67,6 +68,8 @@ export interface MockStore {
   /** Fixture time, so relative dates such as "3 days ago" stay stable across a session. */
   readonly clock: { now(): Date };
   auth: MockAuthState;
+  /** Which health problem the mock reports, for checking the degraded About page. */
+  health: MockHealthState;
   profiles: ProfileDetail[];
   targets: TargetDetail[];
   requests: StoredRequest[];
@@ -124,6 +127,7 @@ export function createStore(authMode: MockAuthMode = "authed"): MockStore {
       password: authMode === "setup" ? null : MOCK_PASSWORD,
       failedLogins: 0,
     },
+    health: "ok",
     profiles: [],
     targets: [],
     requests: [],

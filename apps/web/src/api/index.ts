@@ -10,6 +10,7 @@ export {
   ApiRequestError,
   errorMessage,
 } from "./errors.js";
+export { useInstanceHealth } from "./health.js";
 export {
   useApiMutation,
   useApiQuery,

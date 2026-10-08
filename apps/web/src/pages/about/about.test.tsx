@@ -77,6 +77,30 @@ describe("the about page", () => {
     expect(await screen.findByText(/Not built yet\. Run pnpm data:build/)).toBeInTheDocument();
   });
 
+  it.each([
+    ["scheduler", /The scheduler has not run since/],
+    ["sending", /Mail has been stuck since/],
+    ["database", /The database cannot be written/],
+    ["disk", /Only 18 MB is free/],
+  ] as const)(
+    "names the problem when the %s check fails, and keeps the version",
+    async (state, text) => {
+      const mock = createMockApp();
+      mock.store.health = state;
+      renderPage(<AboutPage />, { mock, withProfile: false });
+      expect(await screen.findByText(text)).toBeInTheDocument();
+      expect(screen.getByText("This instance is not working properly")).toBeInTheDocument();
+      expect(screen.getByText("0.1.0-mock")).toBeInTheDocument();
+      expect(screen.queryByText("Could not load this instance's details")).not.toBeInTheDocument();
+    },
+  );
+
+  it("shows no warning when the instance is well", async () => {
+    renderPage(<AboutPage />, { withProfile: false });
+    await screen.findByText("0.1.0-mock");
+    expect(screen.queryByText("This instance is not working properly")).not.toBeInTheDocument();
+  });
+
   it("shows skeletons while loading", () => {
     renderPage(<AboutPage />, { withProfile: false });
     expect(
