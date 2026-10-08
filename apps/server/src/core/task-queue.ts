@@ -16,6 +16,7 @@ import {
   type TaskStatus,
   type TaskSummary,
   type TaskUsage,
+  type TaskWaiting,
   toTaskResult,
 } from "@kickrocks/shared";
 import { and, asc, desc, eq, inArray, isNull, lte, notInArray, or, sql } from "drizzle-orm";
@@ -23,6 +24,7 @@ import type { z } from "zod";
 import { type Clock, nowIso } from "./clock.js";
 import { AppError, conflict, notFound } from "./errors.js";
 import { newId } from "./ids.js";
+import { MAX_GATED_CANDIDATES, type SitePoliteness } from "./site-politeness.js";
 import type { TaskHandlers } from "./task-handlers.js";
 import type { Task, TaskEvent } from "./task-types.js";
 
@@ -96,6 +98,11 @@ export interface ClaimInput {
   excludeTaskIds?: readonly string[] | undefined;
   /** Who is claiming, which the route that took the call decides. Null for work the server does itself. */
   claimerKind?: ClaimerKind | undefined;
+  /**
+   * Skip the politeness gate. Only for work that makes no request to a site, such as finishing a
+   * scan from a result that was already fetched.
+   */
+  skipPoliteness?: boolean | undefined;
 }
 
 export interface HeartbeatInput {
@@ -132,6 +139,16 @@ export interface FailInput {
   kind?: FailureKind | undefined;
   step?: number | undefined;
   retryAfterMs?: number | undefined;
+  actor: RequestActor;
+  usage?: TaskUsage | undefined;
+}
+
+export interface DeferInput {
+  workerId: string;
+  /** The task is not offered again before this time. */
+  until: Date;
+  /** Why, for the audit trail and for the person who wonders where the task went. */
+  reason: string;
   actor: RequestActor;
   usage?: TaskUsage | undefined;
 }
@@ -199,6 +216,17 @@ export interface TaskQueue {
    */
   release(id: string, input: ReleaseInput): Task;
   /**
+   * Puts a leased task back in the queue until a time, refunding the attempt, because the site it
+   * visited asked to be left alone. It is not a failure: nothing is handed to an agent and the
+   * attempt budget is untouched. A removal that may have been submitted is held for a person.
+   */
+  defer(id: string, input: DeferInput): Task;
+  /**
+   * Why a queued task is not starting, when the reason is politeness to its site. Reads only, and
+   * is null for a task that is free to start.
+   */
+  waitingFor(task: Task): TaskWaiting | null;
+  /**
    * Makes queued tasks of one kind and profile due at `to` when they were waiting for no later
    * than `waitingUntil`. A task that waits out a recovered lease keeps its grace. Returns how
    * many it moved.
@@ -230,6 +258,8 @@ interface TaskQueueDeps {
   db: KickRocksDb;
   clock: Clock;
   handlers: TaskHandlers;
+  /** Decides which browser tasks may start. A queue without one starts any task that is due. */
+  politeness?: SitePoliteness;
   lapsedHolderGraceMs?: number;
 }
 
@@ -297,6 +327,7 @@ export function createTaskQueue({
   db,
   clock,
   handlers,
+  politeness,
   lapsedHolderGraceMs = DEFAULT_LAPSED_HOLDER_GRACE_MS,
 }: TaskQueueDeps): TaskQueue {
   type Tx = Parameters<Parameters<KickRocksDb["transaction"]>[0]>[0];
@@ -575,13 +606,14 @@ export function createTaskQueue({
       excludeProfileIds,
       excludeTaskIds,
       claimerKind,
+      skipPoliteness,
     }) {
       if (kinds.length === 0) return null;
       const now = nowIso(clock);
       return db.transaction(
         (tx) => {
           for (const expired of expiredLeases(tx, now)) expireLease(tx, expired, now);
-          const candidate = tx
+          const candidates = tx
             .select()
             .from(tasks)
             .where(
@@ -600,24 +632,39 @@ export function createTaskQueue({
               ),
             )
             .orderBy(desc(tasks.priority), asc(tasks.createdAt), asc(sql`rowid`))
-            .limit(1)
-            .get();
-          if (!candidate) return null;
-          const row = tx
-            .update(tasks)
-            .set({
-              status: "leased",
-              leaseOwner: workerId,
-              leaseExpiresAt: addMs(now, leaseMs),
-              attempts: candidate.attempts + 1,
-              mayHaveSubmitted: false,
-              claimerKind: claimerKind ?? null,
-              updatedAt: now,
-            })
-            .where(eq(tasks.id, candidate.id))
-            .returning()
-            .get();
-          return toTask(row);
+            .limit(MAX_GATED_CANDIDATES)
+            .all();
+          for (const candidate of candidates) {
+            const decision =
+              politeness && !skipPoliteness
+                ? politeness.evaluate(candidate, tx)
+                : ({ allow: true, domain: null, probe: false } as const);
+            if (!decision.allow) {
+              // Stays queued. The wait is written on the task so later claims skip it until then.
+              const { until } = decision.wait;
+              if (candidate.runAfter === null || candidate.runAfter < until) {
+                tx.update(tasks).set({ runAfter: until }).where(eq(tasks.id, candidate.id)).run();
+              }
+              continue;
+            }
+            const row = tx
+              .update(tasks)
+              .set({
+                status: "leased",
+                leaseOwner: workerId,
+                leaseExpiresAt: addMs(now, leaseMs),
+                attempts: candidate.attempts + 1,
+                mayHaveSubmitted: false,
+                claimerKind: claimerKind ?? null,
+                updatedAt: now,
+              })
+              .where(eq(tasks.id, candidate.id))
+              .returning()
+              .get();
+            if (decision.domain !== null) politeness?.admit(candidate, decision, tx);
+            return toTask(row);
+          }
+          return null;
         },
         { behavior: "immediate" },
       );
@@ -778,6 +825,42 @@ export function createTaskQueue({
             .get(),
         );
       });
+    },
+
+    defer(id, { workerId, until, reason, actor, usage }) {
+      const now = nowIso(clock);
+      return db.transaction((tx) => {
+        const row = leasedRow(tx, id, workerId);
+        if (mayResubmit(row)) {
+          return holdForPerson(tx, row, { text: reason, finishedBy: workerId, usage }, actor, now);
+        }
+        const task = toTask(
+          tx
+            .update(tasks)
+            .set({
+              status: "queued",
+              leaseOwner: null,
+              leaseExpiresAt: null,
+              attempts: Math.max(row.attempts - 1, 0),
+              runAfter: until.toISOString(),
+              lastError: reason,
+              finishedBy: workerId,
+              usage: addUsage(row.usage, usage),
+              updatedAt: now,
+            })
+            .where(eq(tasks.id, id))
+            .returning()
+            .get(),
+        );
+        emit(tx, "retrying", task, actor);
+        return task;
+      });
+    },
+
+    waitingFor(task) {
+      if (!politeness || task.status !== "queued") return null;
+      const decision = politeness.evaluate(task);
+      return decision.allow ? null : decision.wait;
     },
 
     pullForward({ kind, profileId, waitingUntil, to }) {

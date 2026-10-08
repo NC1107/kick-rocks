@@ -7,9 +7,11 @@ import { PasswordCard } from "./PasswordCard.js";
 import { ResetCard } from "./ResetCard.js";
 import { RetentionCard } from "./RetentionCard.js";
 import { BodyRow, SETTINGS_WIDTH } from "./rows.js";
+import { ScanPaceCard } from "./ScanPaceCard.js";
 import { ScheduleCard } from "./ScheduleCard.js";
 import { SettingsHeader } from "./SettingsHeader.js";
 import { SiteChecksCard } from "./SiteChecksCard.js";
+import { SitesCard } from "./SitesCard.js";
 import { WorkerCard } from "./WorkerCard.js";
 
 const WORKER_POLL_MS = 15_000;
@@ -48,6 +50,12 @@ export function Component() {
           <div className="flex flex-col gap-4">
             <ScheduleCard schedule={settings.data.schedule} />
             <SiteChecksCard siteChecks={settings.data.siteChecks} />
+            <ScanPaceCard
+              scanning={settings.data.scanning}
+              egress={settings.data.egress}
+              coverage={settings.data.egressCoverage}
+            />
+            <SitesCard />
             <WorkerCard
               worker={settings.data.worker}
               agent={settings.data.agent}

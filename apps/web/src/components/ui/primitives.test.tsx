@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
 import { describe, expect, it } from "vitest";
@@ -64,6 +64,30 @@ describe("Tooltip", () => {
     await user.tab();
     expect(await screen.findByRole("tooltip")).toBeVisible();
     await user.keyboard("{Escape}");
+    expect(screen.queryByRole("tooltip")).toBeNull();
+  });
+
+  it("opens on a touch tap, closes on a second tap and on a tap elsewhere", async () => {
+    render(
+      <>
+        <Tooltip content="Cooling down 3 sites">
+          <button type="button">Mark</button>
+        </Tooltip>
+        <p>Elsewhere</p>
+      </>,
+    );
+    const mark = screen.getByRole("button", { name: "Mark" });
+    const tap = (target: Element) => {
+      fireEvent.pointerDown(target, { pointerType: "touch" });
+      fireEvent.click(target);
+    };
+    tap(mark);
+    expect(await screen.findByRole("tooltip")).toHaveTextContent("Cooling down 3 sites");
+    tap(mark);
+    expect(screen.queryByRole("tooltip")).toBeNull();
+    tap(mark);
+    expect(await screen.findByRole("tooltip")).toBeVisible();
+    fireEvent.pointerDown(screen.getByText("Elsewhere"), { pointerType: "touch" });
     expect(screen.queryByRole("tooltip")).toBeNull();
   });
 });

@@ -145,6 +145,11 @@ const ExpectUrl = step("expect_url", {
 });
 const ExtractCandidates = step("extract_candidates", {
   item: Selector,
+  /**
+   * What the site shows when nobody matches, such as "0 people found". An empty result with no
+   * such proof is not counted as a clean visit, because a soft block can look the same.
+   */
+  noResults: Selector.optional(),
   fields: z
     .object({
       recordUrl: CandidateField,
@@ -342,6 +347,12 @@ export const Recipe = z
       .object({
         url: WebUrl,
         selectors: z.array(Selector).min(1),
+        /**
+         * What a check that only loads the page at `entryUrl` looks for. A canary never searches,
+         * so selectors that exist only on a results page cannot be checked and are not listed here.
+         * Without any, the check is that the page loads and is not a bot check.
+         */
+        entrySelectors: z.array(Selector).default([]),
         /** Gets a canary past a search form to the selectors that only exist on its results page. */
         steps: z.array(CanaryStep).max(10).default([]),
       })

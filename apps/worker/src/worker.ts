@@ -36,7 +36,7 @@ export async function runWorker(options: WorkerOptions): Promise<void> {
     options.launcher,
   );
   const executor = createExecutor({
-    openPage: (profileId) => browser.newPage(profileId),
+    openPage: (profileId, proxy) => browser.newPage(profileId, proxy),
     pace: config.pace,
     allowHttp: config.allowHttp,
     logger,

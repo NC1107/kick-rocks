@@ -30,6 +30,7 @@ export function buildSystemPrompt({ task, sites, fieldNames, maxSteps }: PromptC
     `- You may open only these domains (with their subdomains) and pages: ${describeSites(sites)}. A path ending in * covers the pages under it. A link that leaves them is blocked and the page stays where it is.`,
     "- Only the task's fields can be typed. Password, payment and file upload controls cannot be used.",
     "- A CAPTCHA or bot check ends your run for a person the moment it shows. Never try to get past one.",
+    "- If the site answers HTTP 429, 403 or 503 it is asking for fewer requests. Stop and call report with status failed and retryable true. Do not reload, retry, or try another page.",
     `- You have at most ${maxSteps} tool calls and a time limit. Finish with report before they run out.`,
     "",
     "How to work:",

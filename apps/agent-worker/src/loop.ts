@@ -304,7 +304,7 @@ class Loop {
       switch (report.kind) {
         case "complete":
           try {
-            await api.complete(task.id, report.result, report.usage);
+            await api.complete(task.id, report.result, report.usage, report.site);
           } catch (error) {
             // The server judged the result invalid, so it will never accept it: say the run failed.
             if (error instanceof WorkerApiError && error.status === 400) {

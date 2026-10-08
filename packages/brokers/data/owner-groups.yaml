@@ -1,0 +1,49 @@
+# Sites that one operator runs behind the same infrastructure and the same bot defences, curated by hand.
+# Politeness counts a visit to any member as a visit to all of them, so a campaign cannot go through
+# the whole network back to back. A domain that is not in the dataset is ignored, but a group that
+# matches no broker at all fails `pnpm data:build`, because it would silently protect nobody.
+owner_groups:
+  - owner: peopleconnect.us
+    note: 'PeopleConnect runs these brands on one platform and one suppression flow.'
+    domains:
+      - peopleconnect.us
+      - intelius.com
+      - instantcheckmate.com
+      - truthfinder.com
+      - ussearch.com
+      - zabasearch.com
+      - classmates.com
+      - addresses.com
+  - owner: beenverified.com
+    note: 'BeenVerified owns these brands.'
+    domains:
+      - beenverified.com
+      - peoplelooker.com
+      - neighborreport.com
+      - peoplesmart.com
+      - ownerly.com
+      - neighborwho.com
+      - numberguru.com
+  - owner: whitepages.com
+    note: 'Whitepages runs these under one account system.'
+    domains:
+      - whitepages.com
+      - 411.com
+      - whitepagespremium.com
+  - owner: truepeoplesearch.com
+    note: 'Widely reported to share one operator and one Cloudflare setup; the dataset names Free Data Services LLC as the entity behind TruePeopleSearch. Confirm each member against its own legal entity before relying on it.'
+    domains:
+      - truepeoplesearch.com
+      - fastpeoplesearch.com
+      - peoplesearchnow.com
+      - smartbackgroundchecks.com
+      - cyberbackgroundchecks.com
+      - advancedbackgroundchecks.com
+      - searchpeoplefree.com
+      - fastbackgroundcheck.com
+  - owner: peoplefinders.com
+    note: 'PublicRecordsNow and the PeopleFinders data service are run with PeopleFinders.'
+    domains:
+      - peoplefinders.com
+      - publicrecordsnow.com
+      - peoplefindersdaas.com

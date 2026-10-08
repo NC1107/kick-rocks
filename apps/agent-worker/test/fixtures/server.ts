@@ -59,6 +59,7 @@ const PAGES: Record<string, string> = {
   "/wandering": "wandering.html",
   "/nested": "nested.html",
   "/spa": "spa.html",
+  "/xhr-search": "xhr-search.html",
   "/details": "details.html",
   "/sw-register": "sw-register.html",
   "/sw-form": "sw-form.html",
@@ -139,6 +140,14 @@ export function startFixtureServer(port: number = FIXTURE_PORT): Promise<{
       return send(response, 200, page("confirmation.html"));
     }
     if (path === "/hang") return;
+    if (path === "/limited") {
+      response.writeHead(429, { "content-type": "text/html", "retry-after": "180" });
+      return response.end("<!doctype html><title>Slow down</title><h1>Too many requests</h1>");
+    }
+    if (path === "/cf-challenge") {
+      response.writeHead(403, { "content-type": "text/html", "cf-mitigated": "challenge" });
+      return response.end("<!doctype html><title>Just a moment...</title><h1>Checking</h1>");
+    }
     if (path === "/sw.js") return send(response, 200, page("sw.js"), "text/javascript");
     if (path === "/redirect") {
       response.writeHead(302, { location: `${OFFSITE}/offsite` });

@@ -107,7 +107,44 @@ async function settle(ctx: RunContext): Promise<void> {
 /** After anything that can load a new page: let it settle, then stop for a human check if one shows. */
 async function afterNavigation(ctx: RunContext): Promise<Ended> {
   await settle(ctx);
-  return guard(ctx);
+  const loaded = ctx.state.navigationStatus;
+  ctx.state.navigationStatus = null;
+  const stopped = await guard(ctx);
+  if (stopped) return stopped;
+  const refused = await refusedByStatus(ctx, loaded);
+  if (refused) return refused;
+  await lookAtPage(ctx);
+  return null;
+}
+
+/**
+ * A page that was loaded and answered with a rate limit or a refusal. After a click, key press or
+ * submit this is what tells a search that was turned away from one that found nothing. Bot
+ * management often answers 401 or 403 with a body the detector has no words for, and the form the
+ * next step looks for is then missing for a reason that says nothing about the recipe.
+ */
+async function refusedByStatus(ctx: RunContext, status: number | null): Promise<Ended> {
+  if (status === null) return null;
+  if (status >= 500 || status === 429) {
+    throw new RunFailure("site", `The site answered ${status}`, true);
+  }
+  if (status === 401 || status === 403) {
+    return blocked(ctx, "bot_detection", `The site answered ${status} to the browser.`);
+  }
+  return null;
+}
+
+/**
+ * A person reads a page that has just opened before touching it, and scrolls a little as they do.
+ * A visitor that acts the instant the page loads is the clearest sign of a script.
+ */
+async function lookAtPage(ctx: RunContext): Promise<void> {
+  const { dwellMs, scrollPx } = ctx.pace;
+  if (dwellMs) await ctx.pace.sleep(between(dwellMs, ctx.pace.random), ctx.signal);
+  if (scrollPx && scrollPx[1] > 0) {
+    await ctx.page.mouse.wheel(0, between(scrollPx, ctx.pace.random)).catch(() => undefined);
+    await pauseBeforeAction(ctx);
+  }
 }
 
 async function pauseBeforeAction(ctx: RunContext): Promise<void> {
@@ -166,6 +203,7 @@ async function goto(ctx: RunContext, template: string): Promise<Ended> {
   }
   let status: number | null;
   try {
+    ctx.state.navigationStatus = null;
     const response = await ctx.page.goto(url, {
       waitUntil: "domcontentloaded",
       timeout: ctx.timeouts.navigationMs,
@@ -184,14 +222,9 @@ async function goto(ctx: RunContext, template: string): Promise<Ended> {
   }
   const stopped = await guard(ctx);
   if (stopped) return stopped;
-  if (status !== null && (status >= 500 || status === 429)) {
-    throw new RunFailure("site", `The site answered ${status}`, true);
-  }
-  // Bot management often answers 401 or 403 with a body the detector has no words for, and the
-  // form the next step looks for is then missing for a reason that says nothing about the recipe.
-  if (status === 401 || status === 403) {
-    return blocked(ctx, "bot_detection", `The site answered ${status} to the browser.`);
-  }
+  const refused = await refusedByStatus(ctx, status);
+  if (refused) return refused;
+  await lookAtPage(ctx);
   return null;
 }
 
@@ -353,6 +386,12 @@ async function extractCandidatesStep(
     const stopped = await guard(ctx);
     if (stopped) return stopped;
     ctx.state.candidates = [];
+    if (step.noResults) {
+      ctx.state.noResultsShown = await waitForState(scope, step.noResults, "visible", {
+        timeoutMs: ctx.timeouts.optionalMs,
+        signal: ctx.signal,
+      });
+    }
     return null;
   }
   ctx.state.candidates = await extractCandidates(items, step.fields, ctx.page.url());

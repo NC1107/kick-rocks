@@ -619,6 +619,8 @@ describe("reset instance", () => {
     store.set("llm", { baseUrl: "http://localhost:11434/v1", model: "m", apiKey: "k" });
     store.set("schedule", { ...store.get("schedule"), pollMinutes: 5 });
     store.set("retention", { messageDays: 10, screenshotDays: 5 });
+    store.set("scanning", { ...store.get("scanning"), dailyCapPerSite: 9 });
+    store.set("egress", { proxyUrl: "http://proxy.example.test:8888", domains: [] });
     store.set("notifications", {
       ...store.get("notifications"),
       ntfy: { serverUrl: "https://ntfy.example.test", topic: "topic", token: "tk_secret" },

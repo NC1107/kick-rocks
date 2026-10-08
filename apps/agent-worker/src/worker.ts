@@ -1,6 +1,10 @@
 import { HUMAN_PACE, INSTANT_PACE, type Pace } from "@kickrocks/recipes";
 import { WorkerApiClient } from "@kickrocks/worker/dist/api-client.js";
-import { type BrowserLauncher, createProfileBrowsers } from "@kickrocks/worker/dist/browser.js";
+import {
+  type BrowserLauncher,
+  createProfileBrowsers,
+  ProxyConflictError,
+} from "@kickrocks/worker/dist/browser.js";
 import { describeError, type Logger } from "@kickrocks/worker/dist/logger.js";
 import type { Page } from "playwright";
 import { runAgentTask } from "./agent.js";
@@ -51,8 +55,14 @@ export async function runAgentWorker(options: AgentWorkerOptions): Promise<void>
   const executor: AgentExecutor = async (task, runSignal, progress) => {
     let page: Page;
     try {
-      page = await browsers.newPage(task.profileId ?? null);
+      page = await browsers.newPage(task.profileId ?? null, task.proxyUrl ?? null);
     } catch (error) {
+      if (error instanceof ProxyConflictError) {
+        return {
+          kind: "fail",
+          report: { error: error.message, retryable: false, kind: "internal" },
+        };
+      }
       logger.error("could not open a browser page", { error: describeError(error) });
       return {
         kind: "release",

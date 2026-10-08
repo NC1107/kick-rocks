@@ -113,6 +113,41 @@ uninstall() {
   echo "Removed. The folder $PWD and its .env are still here; delete the folder when you are done."
 }
 
+# The host's IANA time zone, or nothing when it cannot be told. The containers run on UTC unless
+# told otherwise, which would put quiet hours at the wrong time of day and make the browser report
+# a zone that does not match the home address.
+host_timezone() {
+  local zone link
+  if command -v timedatectl >/dev/null 2>&1; then
+    zone="$(timedatectl show -p Timezone --value 2>/dev/null || true)"
+  fi
+  if [ -z "${zone:-}" ] && [ -L /etc/localtime ]; then
+    link="$(readlink /etc/localtime)"
+    zone="${link#*zoneinfo/}"
+  fi
+  if [ -z "${zone:-}" ] && [ -f /etc/timezone ]; then
+    zone="$(head -n 1 /etc/timezone)"
+  fi
+  case "${zone:-}" in
+    ""|*[!A-Za-z0-9_+/-]*) ;;
+    *) printf '%s\n' "$zone" ;;
+  esac
+}
+
+# Writes TZ to .env once, so a time zone the person set by hand is never overwritten.
+ensure_timezone() {
+  local zone
+  [ -z "$(env_value TZ)" ] || return 0
+  zone="$(host_timezone)"
+  if [ -z "$zone" ]; then
+    echo "Could not read this machine's time zone. Set TZ in .env, such as TZ=America/Los_Angeles, so quiet hours use your local time." >&2
+    return 0
+  fi
+  sed -i.bak '/^TZ=/d' .env && rm -f .env.bak
+  printf 'TZ=%s\n' "$zone" >> .env
+  echo "Wrote TZ=$zone to .env"
+}
+
 # With the worker in COMPOSE_PROFILES, plain `docker compose up`, `stop` and `down` reach it too.
 # An install from before the worker was a profile gets it added here.
 ensure_worker_profile() {
@@ -163,6 +198,7 @@ if ! grep -q '^KICKROCKS_WORKER_TOKEN=.\{16,\}' .env; then
   echo "Wrote a random KICKROCKS_WORKER_TOKEN to .env"
 fi
 ensure_worker_profile
+ensure_timezone
 chmod 600 .env
 
 docker compose up -d --build --wait --wait-timeout 180 || {

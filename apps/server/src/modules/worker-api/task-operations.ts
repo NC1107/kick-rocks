@@ -1,15 +1,19 @@
 import type {
+  BlockedReason,
   BrowserTaskKind,
   ClaimedTask,
   ClaimerKind,
   RequestActor,
+  SiteObservation,
   TaskBlockReport,
   TaskFailureReport,
   TaskSummary,
   TaskUsage,
 } from "@kickrocks/shared";
+import { pushbackKindForStatus } from "@kickrocks/shared";
 import { claimTask } from "../../core/claim.js";
 import { AppError, conflict, invalidRequest, notFound } from "../../core/errors.js";
+import type { PushbackOutcome } from "../../core/site-politeness.js";
 import type { Task } from "../../core/task-types.js";
 import type { AppServices } from "../../services.js";
 import { decodeScreenshot } from "./screenshot.js";
@@ -56,7 +60,12 @@ interface TaskOperations {
   ): { leaseExpiresAt: string };
   complete(
     taskId: string,
-    request: { workerId: string; result: unknown; usage?: TaskUsage | undefined },
+    request: {
+      workerId: string;
+      result: unknown;
+      usage?: TaskUsage | undefined;
+      site?: SiteObservation | undefined;
+    },
   ): TaskSummary;
   block(taskId: string, request: TaskBlockReport & { workerId: string }): TaskSummary;
   fail(taskId: string, request: TaskFailureReport & { workerId: string }): TaskSummary;
@@ -68,7 +77,15 @@ interface TaskOperations {
 
 type OperationServices = Pick<
   AppServices,
-  "db" | "clock" | "targets" | "taskQueue" | "requests" | "legal" | "dispatch" | "settings"
+  | "db"
+  | "clock"
+  | "targets"
+  | "taskQueue"
+  | "requests"
+  | "legal"
+  | "dispatch"
+  | "settings"
+  | "politeness"
 >;
 
 /**
@@ -78,8 +95,106 @@ type OperationServices = Pick<
  */
 const MAX_UNPREPARABLE_TASKS = 5;
 
+/**
+ * A client that parks a task for a CAPTCHA or a bot check has told us the site is challenging it,
+ * even when it sent no observation, so the site is left alone the same as when a worker says so.
+ */
+function impliedByBlock(reason: BlockedReason): SiteObservation | undefined {
+  if (reason === "captcha") return { pushback: { kind: "captcha" } };
+  if (reason === "bot_detection") return { pushback: { kind: "challenge" } };
+  return undefined;
+}
+
+/**
+ * A client that says only "the site answered 429" in its error text has still told us the site
+ * pushed back. Without this the report would get the normal retry backoff and the site no cooldown.
+ */
+function impliedByError(
+  error: string,
+  kind: TaskFailureReport["kind"],
+): SiteObservation | undefined {
+  if (kind !== "site") return undefined;
+  const status = /\b(429|403|503)\b/.exec(error)?.[1];
+  if (status !== undefined) {
+    const code = Number(status);
+    const pushbackKind = pushbackKindForStatus(code);
+    if (pushbackKind) return { pushback: { kind: pushbackKind, status: code } };
+  }
+  return /too many requests/i.test(error)
+    ? { pushback: { kind: "rate_limited", status: 429 } }
+    : undefined;
+}
+
+/**
+ * Whether a finished task proves the site treated the visit normally. A search that found nobody
+ * and never saw the site's own "no results" message may have met a soft block that looked like an
+ * empty page, so it must not close a breaker or clear the pushback count. A canary is held to the
+ * same standard: a page whose known selectors are missing proves nothing.
+ */
+function showsSiteWorking(task: Task): boolean {
+  // A canary that missed the recipe's selectors saw a page the site may have emptied on purpose.
+  if (task.kind === "canary") return task.result?.healthy === true;
+  const scan =
+    task.kind === "scan"
+      ? task.result
+      : task.kind === "agent" && task.result?.purpose === "scan"
+        ? task.result.scan
+        : null;
+  if (scan === null || scan === undefined) return true;
+  return scan.candidates.length > 0 || scan.noResultsShown === true;
+}
+
+/**
+ * Whether a result a client is about to report is a scan that found nobody and never saw the
+ * site's own "no results" message. It reads the raw result because the task must not complete
+ * first: completing is what saves the scan as finished.
+ */
+function reportsUnconfirmedEmptyScan(task: Task, result: unknown): boolean {
+  const scan = task.kind === "agent" ? (result as { scan?: unknown } | null)?.scan : result;
+  if (task.kind !== "scan" && !(task.kind === "agent" && task.payload.purpose === "scan")) {
+    return false;
+  }
+  const { candidates, noResultsShown } = (scan ?? {}) as {
+    candidates?: unknown;
+    noResultsShown?: unknown;
+  };
+  return Array.isArray(candidates) && candidates.length === 0 && noResultsShown !== true;
+}
+
+/** What a client said of the site, with what the report itself implies filling in a missing pushback. */
+function withImplied(
+  site: SiteObservation | undefined,
+  implied: SiteObservation | undefined,
+): SiteObservation | undefined {
+  const pushback = site?.pushback ?? implied?.pushback;
+  if (site === undefined && pushback === undefined) return undefined;
+  return { ...site, ...(pushback === undefined ? {} : { pushback }) };
+}
+
+/** Holds a task back until its site's cooldown ends, without using an attempt. */
+function deferUntilCalm(
+  taskQueue: OperationServices["taskQueue"],
+  caller: Caller,
+  taskId: string,
+  workerId: string,
+  outcome: PushbackOutcome,
+  message: string,
+  usage: TaskUsage | undefined,
+): Task {
+  return taskQueue.defer(taskId, {
+    workerId,
+    until: new Date(outcome.cooldownUntil),
+    reason: `${message} The site is being left alone until ${outcome.cooldownUntil}.`.slice(
+      0,
+      2000,
+    ),
+    actor: caller.actor,
+    usage,
+  });
+}
+
 export function createTaskOperations(services: OperationServices, caller: Caller): TaskOperations {
-  const { taskQueue, clock } = services;
+  const { taskQueue, clock, politeness } = services;
 
   function summarize(task: Task): TaskSummary {
     const [summary] = taskQueue.summarize([task]);
@@ -93,6 +208,18 @@ export function createTaskOperations(services: OperationServices, caller: Caller
     if (!caller.owns(task.claimerKind)) {
       throw conflict("lease_not_held", `Task ${taskId} was not claimed through this interface`);
     }
+  }
+
+  /**
+   * What a run saw of the site is recorded on its own, before the task moves. A worker held up by a
+   * throttling site can report after its lease ran out, the move is then refused, and the site must
+   * still be left alone.
+   */
+  function observeBeforeTransition(
+    taskId: string,
+    site: SiteObservation | undefined,
+  ): PushbackOutcome | null {
+    return services.db.transaction(() => politeness.observe(taskQueue.getOrThrow(taskId), site));
   }
 
   return {
@@ -119,17 +246,37 @@ export function createTaskOperations(services: OperationServices, caller: Caller
       return { leaseExpiresAt: task.leaseExpiresAt };
     },
 
-    complete(taskId, { workerId, result, usage }) {
+    complete(taskId, { workerId, result, usage, site }) {
       authorize(taskId);
-      return summarize(
-        taskQueue.complete(taskId, { workerId, result, usage, actor: caller.actor }),
-      );
+      const outcome = observeBeforeTransition(taskId, site);
+      return services.db.transaction(() => {
+        // An empty search after the site pushed back says nothing about the person, so the scan is
+        // not finished: the task waits out the cooldown and searches again.
+        if (outcome && reportsUnconfirmedEmptyScan(taskQueue.getOrThrow(taskId), result)) {
+          return summarize(
+            deferUntilCalm(
+              taskQueue,
+              caller,
+              taskId,
+              workerId,
+              outcome,
+              "The site pushed back before the search showed anything.",
+              usage,
+            ),
+          );
+        }
+        const done = taskQueue.complete(taskId, { workerId, result, usage, actor: caller.actor });
+        if (!site?.pushback && showsSiteWorking(done)) politeness.recordClean(done);
+        return summarize(done);
+      });
     },
 
-    block(taskId, { workerId, reason, detail, url, screenshot, usage }) {
+    block(taskId, { workerId, reason, detail, url, screenshot, usage, site }) {
       authorize(taskId);
-      return summarize(
-        taskQueue.block(taskId, {
+      const seen = withImplied(site, impliedByBlock(reason));
+      observeBeforeTransition(taskId, seen);
+      return services.db.transaction(() => {
+        const blocked = taskQueue.block(taskId, {
           workerId,
           reason,
           detail,
@@ -137,11 +284,13 @@ export function createTaskOperations(services: OperationServices, caller: Caller
           screenshot: screenshot ? decodeScreenshot(screenshot) : undefined,
           usage,
           actor: caller.actor,
-        }),
-      );
+        });
+        if (!seen?.pushback) politeness.recordClean(blocked);
+        return summarize(blocked);
+      });
     },
 
-    fail(taskId, { workerId, error, retryable, kind, step, retryAfterMs, usage }) {
+    fail(taskId, { workerId, error, retryable, kind, step, retryAfterMs, usage, site }) {
       authorize(taskId);
       if (kind === "recipe" && !caller.mayReportRecipeFailure) {
         throw invalidRequest("Only a recipe run can fail with kind recipe", [
@@ -151,18 +300,31 @@ export function createTaskOperations(services: OperationServices, caller: Caller
           },
         ]);
       }
-      return summarize(
-        taskQueue.fail(taskId, {
-          workerId,
-          error,
-          retryable,
-          kind,
-          step,
-          retryAfterMs,
-          usage,
-          actor: caller.actor,
-        }),
+      const outcome = observeBeforeTransition(
+        taskId,
+        withImplied(site, impliedByError(error, kind)),
       );
+      return services.db.transaction(() => {
+        if (outcome) {
+          // A site that pushes back is left alone until its cooldown ends: no retry on the usual
+          // backoff, no attempt used, and no hand-off to an agent that would try again sooner.
+          return summarize(
+            deferUntilCalm(taskQueue, caller, taskId, workerId, outcome, error, usage),
+          );
+        }
+        return summarize(
+          taskQueue.fail(taskId, {
+            workerId,
+            error,
+            retryable,
+            kind,
+            step,
+            retryAfterMs,
+            usage,
+            actor: caller.actor,
+          }),
+        );
+      });
     },
 
     release(taskId, { workerId, retryAfterMs }) {

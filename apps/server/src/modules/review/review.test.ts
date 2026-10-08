@@ -82,6 +82,8 @@ describe("GET /review", () => {
       failedTasks: [],
       agentTasks: [],
       messages: [],
+      waitingTasks: [],
+      waitingTotal: 0,
     });
   });
 
@@ -1155,8 +1157,8 @@ describe("messages", () => {
       });
     });
 
-    it("follows the link in a message the person says is a confirmation", async () => {
-      const { request, target } = await awaitingRequest();
+    it("follows the link in a company's message the person says is a confirmation", async () => {
+      const { request, target } = await awaitingRequest({ kind: "company" });
       const link = `https://${target.domain}/confirm?t=1`;
       const message = seedMessage(ctx, { mailboxId, requestId: request.id, links: [link] });
       await classify(message.id, { classification: "confirmation_link" });

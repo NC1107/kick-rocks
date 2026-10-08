@@ -1,5 +1,6 @@
 import {
   BlockedReason,
+  BreakerState,
   type Broker,
   type CampaignSelection,
   type Candidate,
@@ -14,6 +15,7 @@ import {
   MatchDecision,
   type MatchFields,
   type ProfileField,
+  PushbackKind,
   type Recipe,
   RecipeHealth,
   RecipePurpose,
@@ -383,9 +385,68 @@ export const scans = sqliteTable(
     finishedAt: timestamp("finished_at"),
     candidates: text("candidates", { mode: "json" }).$type<Candidate[]>(),
     error: text("error"),
+    /**
+     * A hash of who was searched for and where, so a later scan for the same identity on the same
+     * site can reuse this result. Null for scans from before the key existed.
+     */
+    searchKey: text("search_key"),
+    /** The scan whose result this one copied instead of searching, so a copy never extends reuse. */
+    reusedFromScanId: text("reused_from_scan_id"),
+    /**
+     * The site itself showed that nothing matched. An empty result without this may be a soft
+     * block that looked like an empty page, so it is neither a clean visit nor worth reusing.
+     */
+    noResultsShown: integer("no_results_shown", { mode: "boolean" }),
   },
-  (t) => [index("scans_profile_idx").on(t.profileId), index("scans_task_idx").on(t.taskId)],
+  (t) => [
+    index("scans_profile_idx").on(t.profileId),
+    index("scans_task_idx").on(t.taskId),
+    index("scans_search_key_idx").on(t.searchKey),
+  ],
 );
+
+/**
+ * Every browser task start, keyed by the owner of the site it visited. The daily cap, the hourly
+ * cap, and the one-at-a-time rule all read from here, so they cannot count differently.
+ */
+export const siteVisits = sqliteTable(
+  "site_visits",
+  {
+    id: id(),
+    domain: text("domain").notNull(),
+    /**
+     * Null for a request the server made itself, such as following a confirmation link, and for a
+     * visit whose task was erased. The row holds only the owner domain and a time, so it stays: the
+     * caps keep counting visits after the person who caused them is gone.
+     */
+    taskId: text("task_id").references(() => tasks.id, { onDelete: "set null" }),
+    startedAt: timestamp("started_at").notNull(),
+    /** The visit was the single cautious probe after a circuit breaker's cooldown. */
+    probe: integer("probe", { mode: "boolean" }).notNull().default(false),
+  },
+  (t) => [
+    index("site_visits_domain_started_idx").on(t.domain, t.startedAt),
+    index("site_visits_started_idx").on(t.startedAt),
+    index("site_visits_task_idx").on(t.taskId),
+  ],
+);
+
+/** What Kick Rocks remembers about how a site has treated it. One row per owner domain. */
+export const siteState = sqliteTable("site_state", {
+  domain: text("domain").primaryKey(),
+  /** The earliest the next task may start, after the gap and its jitter. */
+  nextStartAfter: timestamp("next_start_after"),
+  consecutivePushback: integer("consecutive_pushback").notNull().default(0),
+  lastPushbackAt: timestamp("last_pushback_at"),
+  lastPushbackKind: text("last_pushback_kind", { enum: values(PushbackKind.options) }),
+  coolingDownUntil: timestamp("cooling_down_until"),
+  breaker: text("breaker", { enum: values(BreakerState.options) })
+    .notNull()
+    .default("closed"),
+  /** The Crawl-delay the site's robots.txt sets, in seconds. */
+  crawlDelaySeconds: real("crawl_delay_seconds"),
+  updatedAt: timestamp("updated_at").notNull(),
+});
 
 export const matches = sqliteTable(
   "matches",
@@ -447,6 +508,8 @@ export type MessageRow = typeof messages.$inferSelect;
 export type TaskRow = typeof tasks.$inferSelect;
 export type TaskArtifactRow = typeof taskArtifacts.$inferSelect;
 export type ScanRow = typeof scans.$inferSelect;
+export type SiteVisitRow = typeof siteVisits.$inferSelect;
+export type SiteStateRow = typeof siteState.$inferSelect;
 export type MatchRow = typeof matches.$inferSelect;
 export type SessionRow = typeof sessions.$inferSelect;
 export type SettingRow = typeof settings.$inferSelect;

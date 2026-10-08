@@ -132,3 +132,25 @@ describe("the target page", () => {
     expect(screen.getByRole("button", { name: "Try again" })).toBeVisible();
   });
 });
+
+describe("the visit history on a target page", () => {
+  it("shows how many visits a site has had today and that it is cooling down", async () => {
+    open("peopletrace");
+    expect(await screen.findByRole("heading", { name: "Visits", level: 2 })).toBeVisible();
+    expect(await screen.findByText("2 of 6")).toBeVisible();
+    expect(screen.getByText("Resumes")).toBeVisible();
+    expect(screen.getByText(/Too many requests/)).toBeVisible();
+  });
+
+  it("prints a dash, not a word, when a site has never pushed back", async () => {
+    open("namelookup");
+    expect(await screen.findByText("Last pushback")).toBeVisible();
+    expect(screen.getByText("-")).toBeVisible();
+    expect(screen.queryByText("None")).toBeNull();
+  });
+
+  it("says nothing has visited a site that was never visited", async () => {
+    open("cityfile-directory");
+    expect(await screen.findByText(/Nothing has visited this site yet/)).toBeVisible();
+  });
+});

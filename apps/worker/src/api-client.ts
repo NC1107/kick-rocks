@@ -8,6 +8,7 @@ import {
   type RouteBodyInput,
   type RouteDef,
   type RouteResponse,
+  type SiteObservation,
   type TaskBlockReport,
   type TaskFailureReport,
   type TaskHeartbeatResponse,
@@ -97,10 +98,20 @@ export class WorkerApiClient {
     });
   }
 
-  async complete(taskId: string, result: unknown, usage?: TaskUsage): Promise<TaskSummary> {
+  async complete(
+    taskId: string,
+    result: unknown,
+    usage?: TaskUsage,
+    site?: SiteObservation,
+  ): Promise<TaskSummary> {
     const response = await this.call(API_ROUTES.workerTaskComplete, {
       params: { id: taskId },
-      body: { workerId: this.options.workerId, result, ...(usage ? { usage } : {}) },
+      body: {
+        workerId: this.options.workerId,
+        result,
+        ...(usage ? { usage } : {}),
+        ...(site ? { site } : {}),
+      },
     });
     return response.task;
   }

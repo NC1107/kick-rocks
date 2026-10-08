@@ -453,6 +453,10 @@ describe("agent tasks", () => {
             recordUrl: "https://example-broker.test/p/1",
           })
         : null;
+    // One task runs on a site at a time, so a test that claims again first ends the earlier run.
+    for (const running of ctx.services.taskQueue.list({ status: "leased" })) {
+      ctx.services.taskQueue.cancel(running.id);
+    }
     ctx.services.taskQueue.enqueue({
       kind: "agent",
       payload: {
@@ -568,6 +572,15 @@ describe("agent tasks", () => {
   it("asks a removal to say when it has clicked, and a scan not to", () => {
     expect(agentClaim("remove")?.instructions).toContain("mayHaveSubmitted true");
     expect(agentClaim("scan")?.instructions).not.toContain("mayHaveSubmitted");
+  });
+
+  it("tells the client to stop at once on a 429, 403 or 503 and to report the pushback", () => {
+    for (const purpose of ["scan", "remove"] as const) {
+      const instructions = agentClaim(purpose)?.instructions ?? "";
+      expect(instructions).toContain("HTTP 429, 403 or 503");
+      expect(instructions).toContain("make no further request");
+      expect(instructions).toContain("site { pushback:");
+    }
   });
 
   it("states when the lease runs out and what happens after", () => {
@@ -719,6 +732,7 @@ describe("claimTask", () => {
       const task = claim(["scan", "form", "confirm", "canary", "agent"]);
       expect(ClaimedTask.safeParse(task).success, JSON.stringify(task)).toBe(true);
       kinds.add(task?.kind ?? "none");
+      ctx.services.taskQueue.cancel(task?.id ?? "");
     }
     expect([...kinds].sort()).toEqual(["agent", "canary", "confirm", "form", "scan"]);
   });

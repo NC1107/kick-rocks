@@ -38,6 +38,7 @@ import {
   VerificationReplyBody,
 } from "./requests.js";
 import { MatchDecisionBody, MessageClassificationBody, ReviewQueue } from "./review.js";
+import { SitesStatus, TargetSite } from "./scanning.js";
 import { Match, ScanStartBody, ScanStartResult, ScanSummary } from "./scans.js";
 import { DataSourceInfo, SettingsPatch, SettingsView } from "./settings.js";
 import { TargetDetail, TargetFilter, TargetListItem } from "./targets.js";
@@ -445,6 +446,14 @@ export const API_ROUTES = {
     params: IdParam,
     response: TargetDetail,
   }),
+  targetsSite: defineRoute({
+    method: "GET",
+    path: "/targets/:id/site",
+    module: "targets",
+    auth: "session",
+    params: IdParam,
+    response: TargetSite,
+  }),
 
   campaignsPreview: defineRoute({
     method: "POST",
@@ -720,6 +729,14 @@ export const API_ROUTES = {
     module: "settings",
     auth: "session",
     response: z.object({ sources: z.array(DataSourceInfo) }),
+  }),
+
+  settingsSites: defineRoute({
+    method: "GET",
+    path: "/settings/sites",
+    module: "settings",
+    auth: "session",
+    response: SitesStatus,
   }),
 
   workerHeartbeat: defineRoute({

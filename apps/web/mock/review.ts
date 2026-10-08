@@ -14,6 +14,7 @@ import {
   type TargetOutcome,
   type TaskSummary,
   type VerificationItem,
+  type WaitingTask,
 } from "@kickrocks/shared";
 import { conflict, defineMockDomain, handle, invalid, notFound } from "./core.js";
 import { fakeScreenshotPng } from "./png.js";
@@ -188,6 +189,28 @@ export function buildMockQueue(store: MockStore, profileId: string | undefined):
         },
       ];
     });
+  const waitingTasks: WaitingTask[] = store.tasks
+    .filter((task) => task.status === "queued" && task.kind !== "agent")
+    .filter(inScope)
+    .flatMap((task) => {
+      const target = store.targets.find((candidate) => candidate.id === task.targetId);
+      const site = store.sites.find((candidate) => candidate.domain === target?.domain);
+      if (!target || !site?.coolingDownUntil) return [];
+      return [
+        {
+          taskId: task.id,
+          kind: task.kind,
+          targetId: target.id,
+          targetName: target.name,
+          waiting: {
+            reason:
+              site.breaker === "open" ? ("site_breaker" as const) : ("site_cooldown" as const),
+            domain: site.domain,
+            until: site.coolingDownUntil,
+          },
+        },
+      ];
+    });
   return {
     blockedTasks: store.tasks
       .filter((task) => task.status === "blocked")
@@ -210,6 +233,8 @@ export function buildMockQueue(store: MockStore, profileId: string | undefined):
     messages: store.messages
       .filter((message) => !message.reviewed)
       .filter((message) => (profileId ? requestProfile(message) === profileId : true)),
+    waitingTasks,
+    waitingTotal: waitingTasks.length,
   };
 }
 
@@ -229,6 +254,15 @@ export default defineMockDomain({
           manualInstructions: MANUAL_INSTRUCTIONS[task.blockedReason],
         });
       }
+    }
+
+    // Held back by the cooling sites seeded in the settings domain, so Review shows a Waiting group.
+    for (const targetId of ["peopletrace", "findrecord"]) {
+      createScan(store, jordan.id, targetId, {
+        taskStatus: "queued",
+        finished: false,
+        startedAgo: { minutes: 12 },
+      });
     }
 
     const lookup = createScan(store, jordan.id, "namelookup", {

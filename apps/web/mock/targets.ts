@@ -524,6 +524,12 @@ export default defineMockDomain({
       }),
     ),
 
+    handle(API_ROUTES.targetsSite, ({ params }) => {
+      const target = store.targets.find((candidate) => candidate.id === params.id);
+      if (!target) throw notFound("That target");
+      return { site: store.sites.find((site) => site.domain === target.domain) ?? null };
+    }),
+
     handle(API_ROUTES.targetsGet, ({ params }) => {
       const target = store.targets.find((candidate) => candidate.id === params.id);
       if (!target) throw notFound("That target");

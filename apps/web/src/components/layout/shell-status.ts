@@ -1,9 +1,15 @@
-import type { Dashboard, SettingsView } from "@kickrocks/shared";
+import {
+  type Dashboard,
+  isCoolingDown,
+  type SettingsView,
+  type SiteStatus,
+} from "@kickrocks/shared";
+import { pluralize } from "../../lib/format.js";
 import type { Family } from "../../lib/tone.js";
 import { workerState } from "../../pages/settings/model.js";
 
 export interface StatusChip {
-  id: "worker" | "inbox" | "sends";
+  id: "worker" | "inbox" | "sends" | "sites";
   tone: Family;
   /** The words before the value. */
   label: string;
@@ -48,6 +54,20 @@ export function sendsChip(sending: Dashboard["sending"]): StatusChip | null {
     tone: used >= NEAR_LIMIT ? "attention" : "neutral",
     label: "Sent",
     value: `${sending.sent} of ${sending.cap} today`,
+  };
+}
+
+/** Nothing while every site is open for visits, so the chip is a reason to look, not a fixture. */
+export function sitesChip(
+  sites: readonly Pick<SiteStatus, "coolingDownUntil" | "breaker">[],
+): StatusChip | null {
+  const cooling = sites.filter(isCoolingDown).length;
+  if (cooling === 0) return null;
+  return {
+    id: "sites",
+    tone: "attention",
+    label: "Cooling down",
+    value: pluralize(cooling, "site"),
   };
 }
 

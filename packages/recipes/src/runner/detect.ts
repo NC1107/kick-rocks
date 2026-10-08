@@ -1,4 +1,4 @@
-import type { BlockedReason } from "@kickrocks/shared";
+import type { BlockedReason, PushbackKind } from "@kickrocks/shared";
 import type { Frame, Page } from "playwright";
 import { RunAborted } from "./errors.js";
 import { sleepFor } from "./pacing.js";
@@ -13,6 +13,8 @@ export interface BlockFinding {
    * it gets a grace period before it counts. A widget in a form never clears without a person.
    */
   transient: boolean;
+  /** What this tells the server about the site: it is challenging or refusing the browser. */
+  pushback: Extract<PushbackKind, "challenge" | "captcha" | "access_denied" | "rate_limited">;
 }
 
 interface ChallengeSignals {
@@ -26,8 +28,21 @@ interface ChallengeSignals {
 const INTERSTITIAL_TITLE =
   /^\s*(just a moment|attention required|checking your browser|security check|one more step|access denied|are you a robot|verify you are human|pardon our interruption|you have been blocked)/i;
 
+/**
+ * A page that says the visitor searched too much. Sites often serve it with a 200 status, so only
+ * the words give it away.
+ */
+const RATE_LIMIT_TEXT = [
+  /too many requests/i,
+  /\brate[- ]limit(ed)?\b/i,
+  /\bsearch limit\b/i,
+  /exceeded (the |your )?(allowed |maximum )?(number of )?(free )?searches/i,
+  /\bunusual activity\b/i,
+];
+
 /** Only a short page can be an interstitial; a long article may mention any of these in passing. */
 const INTERSTITIAL_TEXT = [
+  ...RATE_LIMIT_TEXT,
   /verif(y|ying) (that )?you are (a )?human/i,
   /checking (if the site connection is secure|your browser before accessing)/i,
   /press (and|&) hold/i,
@@ -43,6 +58,10 @@ const INTERSTITIAL_TEXT = [
 ];
 
 const SHORT_PAGE_CHARS = 2500;
+
+/** A page that says it refused you, as opposed to one that asks you to prove something. */
+const ACCESS_DENIED =
+  /\b(access (to this (page|site|website) )?(has been )?denied|you have been blocked|access to this (page|site|website) (has been )?blocked)\b/i;
 
 const WIDGET_LABELS: Record<string, string> = {
   recaptcha: "reCAPTCHA",
@@ -71,6 +90,11 @@ export function interstitialIn(signals: ChallengeSignals): string | null {
   return null;
 }
 
+function pushbackOfInterstitial(words: string): "access_denied" | "rate_limited" | "challenge" {
+  if (ACCESS_DENIED.test(words)) return "access_denied";
+  return RATE_LIMIT_TEXT.some((pattern) => pattern.test(words)) ? "rate_limited" : "challenge";
+}
+
 /** Decides what, if anything, stands in the way, from the signals of the page and its frames. */
 export function classifySignals(
   main: ChallengeSignals,
@@ -78,10 +102,12 @@ export function classifySignals(
 ): BlockFinding | null {
   const interstitial = interstitialIn(main);
   if (interstitial !== null) {
+    const pushback = pushbackOfInterstitial(`${main.title} ${main.text}`);
     return {
       reason: "bot_detection",
       detail: `The site is showing a bot check ("${interstitial}").`,
-      transient: true,
+      transient: pushback !== "rate_limited",
+      pushback,
     };
   }
   const widgets = [main, ...frames].flatMap((signals) => signals.widgets);
@@ -91,6 +117,7 @@ export function classifySignals(
       reason: "captcha",
       detail: `${WIDGET_LABELS[first] ?? "A CAPTCHA"} is on the page and needs a person.`,
       transient: false,
+      pushback: "captcha",
     };
   }
   return null;

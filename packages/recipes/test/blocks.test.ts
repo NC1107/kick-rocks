@@ -209,7 +209,7 @@ describeBrowser("a canary", () => {
   const canary = (input: Parameters<typeof makeRecipe>[0]) =>
     runCanary({ page, recipe: makeRecipe(input), ...FAST });
 
-  it("is healthy when every selector is there, after running its search steps", async () => {
+  it("loads the entry page and nothing else, even when the recipe lists search steps", async () => {
     const outcome = await canary({
       ...scanCanary,
       origin: server.origin,
@@ -221,24 +221,33 @@ describeBrowser("a canary", () => {
           { kind: "click", target: { role: "button", label: "Search" } },
           { kind: "wait_for", target: { css: "#results" } },
         ],
-        selectors: [{ css: ".result" }, { css: "a.view" }, { text: "Request removal" }],
+        selectors: [{ css: ".result" }, { css: "a.view" }],
+        entrySelectors: [{ label: "First name" }, { role: "button", label: "Search" }],
       },
     });
     expect(outcome).toEqual({
       status: "completed",
       result: { healthy: true, missingSelectors: [] },
     });
-    expect(server.hits).toContain("GET /ps/search?first=John&last=Smith");
+    expect(server.hits).toEqual(["GET /ps/index"]);
     expect(server.submissions).toEqual([]);
   });
 
-  it("lists the selectors that are gone", async () => {
+  it("is healthy when the page loads and the recipe names no entry selectors", async () => {
+    const outcome = await canary({ ...scanCanary, origin: server.origin });
+    expect(outcome).toEqual({
+      status: "completed",
+      result: { healthy: true, missingSelectors: [] },
+    });
+    expect(server.hits).toEqual(["GET /ps/index"]);
+  });
+
+  it("lists the entry selectors that are gone", async () => {
     const outcome = await canary({
       ...scanCanary,
       origin: server.origin,
       canary: {
-        url: "/ps/index",
-        selectors: [
+        entrySelectors: [
           { label: "First name" },
           { role: "button", label: "Find" },
           { testId: "gone-box", css: "#gone" },
@@ -254,28 +263,12 @@ describeBrowser("a canary", () => {
     });
   });
 
-  it("is unhealthy, naming the target, when a search step cannot find its element", async () => {
-    const outcome = await canary({
-      ...scanCanary,
-      origin: server.origin,
-      canary: {
-        url: "/ps/index",
-        steps: [{ kind: "fill", target: { label: "Surname" }, value: "Smith" }],
-        selectors: [{ css: "body" }],
-      },
-    });
-    expect(outcome).toEqual({
-      status: "completed",
-      result: { healthy: false, missingSelectors: ['label="Surname"'] },
-    });
-  });
-
-  it("finds a selector inside an iframe", async () => {
+  it("finds an entry selector inside an iframe", async () => {
     const outcome = await canary({
       origin: server.origin,
       entry: "/frame/index",
       steps: [{ kind: "click", target: { css: "button" } }],
-      canary: { url: "/frame/index", selectors: [{ label: "Email" }, { css: "iframe#optout" }] },
+      canary: { entrySelectors: [{ label: "Email" }, { css: "iframe#optout" }] },
     });
     expect(outcome).toMatchObject({ status: "completed", result: { healthy: true } });
   });
@@ -286,8 +279,7 @@ describeBrowser("a canary", () => {
       entry: "/form",
       steps: [{ kind: "click", target: { role: "button", label: "Submit request" } }],
       canary: {
-        url: "/form",
-        selectors: [{ label: "Email" }, { role: "button", label: "Submit request" }],
+        entrySelectors: [{ label: "Email" }, { role: "button", label: "Submit request" }],
       },
     });
     expect(outcome).toMatchObject({ status: "completed", result: { healthy: true } });
@@ -299,7 +291,7 @@ describeBrowser("a canary", () => {
       ...scanCanary,
       origin: server.origin,
       entry: "/wall/blank",
-      canary: { url: "/wall/blank", selectors: [{ css: "form" }] },
+      canary: { entrySelectors: [{ css: "form" }] },
     });
     expect(outcome).toMatchObject({ status: "blocked", reason: "bot_detection" });
   });
@@ -309,17 +301,16 @@ describeBrowser("a canary", () => {
       origin: server.origin,
       entry: "/wall/cloudflare",
       steps: [{ kind: "click", target: { css: "button" } }],
-      canary: { url: "/wall/cloudflare", selectors: [{ label: "Email" }] },
+      canary: { entrySelectors: [{ label: "Email" }] },
     });
     expect(outcome).toMatchObject({ status: "blocked", reason: "bot_detection" });
   });
 
-  it("fails as a site failure when the canary page is down", async () => {
+  it("fails as a site failure when the entry page is down", async () => {
     const outcome = await canary({
       origin: server.origin,
-      entry: "/form",
+      entry: "/boom",
       steps: [{ kind: "click", target: { css: "button" } }],
-      canary: { url: "/boom", selectors: [{ css: "body" }] },
     });
     expect(outcome).toMatchObject({ status: "failed", kind: "site", retryable: true });
   });
@@ -352,6 +343,20 @@ describeBrowser("an email confirmation link", () => {
     expect(outcome).toMatchObject({
       status: "completed",
       result: { confirmed: false, notes: expect.stringContaining("expired") },
+    });
+  });
+
+  it.each([
+    ["a rate limit", "limited", 429, "rate_limited"],
+    ["an outage", "unavailable", 503, "unavailable"],
+    ["a blank 403", "forbidden", 403, "forbidden"],
+  ])("fails retryably when the button's post meets %s", async (_name, page_, status, kind) => {
+    const outcome = await confirm(`${server.origin}/mail/press-${page_}`);
+    expect(outcome).toMatchObject({
+      status: "failed",
+      kind: "site",
+      retryable: true,
+      site: { pushback: { kind, status } },
     });
   });
 

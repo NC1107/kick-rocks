@@ -19,6 +19,8 @@ const empty: ReviewQueue = {
   failedTasks: [],
   agentTasks: [],
   messages: [],
+  waitingTasks: [],
+  waitingTotal: 0,
 };
 
 describe("instructionSteps", () => {

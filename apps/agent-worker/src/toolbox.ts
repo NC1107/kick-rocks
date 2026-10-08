@@ -1,20 +1,26 @@
 import { detectBlock, type Pace, sleepFor } from "@kickrocks/recipes";
 import {
+  backgroundPushbackKind,
   MAX_SCREENSHOT_BYTES,
   type ProfileFields,
+  type Pushback,
+  parseRetryAfter,
+  pushbackKindForStatus,
+  type SiteObservation,
   type TaskScreenshot,
   WebUrl,
 } from "@kickrocks/shared";
 import { bypassServiceWorkers } from "@kickrocks/worker/dist/browser.js";
 import { SubmitNotRecorded } from "@kickrocks/worker/dist/executor.js";
 import { describeError } from "@kickrocks/worker/dist/logger.js";
-import type { CDPSession, Dialog, Locator, Page, Request, Route } from "playwright";
+import type { CDPSession, Dialog, Locator, Page, Request, Response, Route } from "playwright";
 import {
   type NavigationPolicy,
   type PageScope,
   refuseCurrentUrl,
   refuseNavigation,
   scopeOf,
+  withinSites,
 } from "./domains.js";
 import { type CdpChannel, guardFrameTargets } from "./frame-guard.js";
 import {
@@ -105,6 +111,11 @@ const NAVIGATION_TIMEOUT_MS = 30_000;
 /** Every request, so that a document in a tab or window the run did not open is seen. */
 const documentsOfOtherPages = "**/*";
 
+/** The headers of a Playwright response in the shape the DevTools protocol reports them. */
+function headersOf(response: Response | null): { name: string; value: string }[] {
+  return Object.entries(response?.headers() ?? {}).map(([name, value]) => ({ name, value }));
+}
+
 function failure(text: string): ToolOutcome {
   return { kind: "result", text, snapshot: false, isError: true };
 }
@@ -138,6 +149,7 @@ export class Toolbox {
   private cdp: CDPSession | null = null;
   /** The last document the page was let load, which its own address changes are measured against. */
   private admittedDocument: string | null = null;
+  private pushback: Pushback | undefined;
   private readonly actionTimeoutMs: number;
 
   constructor(private readonly options: ToolboxOptions) {
@@ -181,6 +193,7 @@ export class Toolbox {
     await this.guardNavigations();
     page.on("dialog", this.onDialog);
     page.on("popup", this.onPopup);
+    page.on("response", this.onBackgroundResponse);
   }
 
   async dispose(): Promise<void> {
@@ -189,6 +202,7 @@ export class Toolbox {
     const { page } = this.options;
     page.off("dialog", this.onDialog);
     page.off("popup", this.onPopup);
+    page.off("response", this.onBackgroundResponse);
     await page
       .context()
       .unroute(documentsOfOtherPages, this.routeOtherPage)
@@ -256,6 +270,7 @@ export class Toolbox {
         return;
       }
       if (event.responseStatusCode !== undefined && event.frameId === mainFrameId) {
+        this.notePushback(event.responseStatusCode, event.responseHeaders);
         this.followStartRedirect(
           event.request.url,
           event.responseStatusCode,
@@ -291,6 +306,41 @@ export class Toolbox {
   }
 
   /** Trusts where a start page sends the visitor, once, and only that page. */
+  /** What the site said so far that means slow down, for the server to pace the next visit. */
+  siteObservation(): SiteObservation | undefined {
+    return this.pushback ? { pushback: this.pushback } : undefined;
+  }
+
+  /** The HTTP answer that told the run to slow down, when the site gave one. */
+  get refusal(): (Pushback & { status: number }) | undefined {
+    const { pushback } = this;
+    return pushback?.status === undefined ? undefined : { ...pushback, status: pushback.status };
+  }
+
+  /** Remembers the first 429, 403, 503, or Cloudflare challenge the page's own document answered. */
+  private notePushback(
+    status: number,
+    headers: { name: string; value: string }[] | undefined,
+  ): void {
+    if (this.pushback) return;
+    const header = (name: string) =>
+      headers?.find((entry) => entry.name.toLowerCase() === name)?.value;
+    const kind =
+      header("cf-mitigated") === "challenge" ? "challenge" : pushbackKindForStatus(status);
+    if (kind === null) return;
+    const retryAfterSeconds = parseRetryAfter(header("retry-after"), new Date());
+    this.pushback = {
+      kind,
+      status,
+      ...(retryAfterSeconds === undefined ? {} : { retryAfterSeconds }),
+    };
+  }
+
+  /** A challenge the page itself shows counts as pushback too, when the status said nothing. */
+  noteChallenge(finding: BlockFinding): void {
+    this.pushback ??= { kind: finding.pushback };
+  }
+
   private followStartRedirect(
     from: string,
     status: number,
@@ -366,6 +416,8 @@ export class Toolbox {
       await sleepFor(400, this.options.signal);
       finding = await detectBlock(this.options.page);
     }
+    // A status that already said "slow down" is handled as that, not as a bot check to hand over.
+    if (finding?.pushback === "rate_limited" && this.pushback !== undefined) return null;
     return finding;
   }
 
@@ -404,6 +456,18 @@ export class Toolbox {
     }
     this.refusedNavigations.push(reason);
     route.abort("aborted").catch(() => undefined);
+  };
+
+  /**
+   * Search calls a single-page site makes in the background never pass the document interception.
+   * A 403 is left out here because background ones are often harmless auth checks.
+   */
+  private readonly onBackgroundResponse = (response: Response): void => {
+    if (response.request().isNavigationRequest()) return;
+    if (!withinSites(response.url(), this.policy)) return;
+    const challenged = response.headers()["cf-mitigated"] === "challenge";
+    if (backgroundPushbackKind(response.status(), challenged) === null) return;
+    this.notePushback(response.status(), headersOf(response));
   };
 
   private readonly onDialog = (dialog: Dialog): void => {
@@ -461,6 +525,17 @@ export class Toolbox {
         return this.wait(args);
       default:
         return failure(`There is no tool named ${name}`);
+    }
+  }
+
+  /** A person reads a page that has just opened, and scrolls a little, before acting on it. */
+  private async lookAtPage(): Promise<void> {
+    const { page, pace, signal } = this.options;
+    const between = (range: readonly [number, number]) =>
+      Math.round(range[0] + (range[1] - range[0]) * pace.random());
+    if (pace.dwellMs) await sleepFor(between(pace.dwellMs), signal);
+    if (pace.scrollPx && pace.scrollPx[1] > 0) {
+      await page.mouse.wheel(0, between(pace.scrollPx)).catch(() => undefined);
     }
   }
 
@@ -538,7 +613,9 @@ export class Toolbox {
       timeout: NAVIGATION_TIMEOUT_MS,
     });
     await this.settle();
+    await this.lookAtPage();
     const status = response?.status();
+    if (status !== undefined) this.notePushback(status, headersOf(response));
     const lead = status !== undefined && status >= 400 ? `The site answered HTTP ${status}.` : "";
     return this.readPage(lead);
   }

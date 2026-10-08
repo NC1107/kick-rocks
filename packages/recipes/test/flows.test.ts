@@ -343,6 +343,29 @@ describeBrowser("a scan", () => {
     const outcome = await run(scan("/ps/empty"));
     expect(outcome).toEqual({ status: "completed", result: { candidates: [] } });
   });
+
+  const withNoResultsMarker = (entry: string) => {
+    const base = scan(entry);
+    return {
+      ...base,
+      steps: base.steps.map((step) =>
+        step.kind === "extract_candidates" ? { ...step, noResults: { css: ".no-results" } } : step,
+      ),
+    };
+  };
+
+  it("says the site confirmed nobody matched when the recipe's no-results marker is on the page", async () => {
+    const outcome = await run(withNoResultsMarker("/ps/empty-confirmed"));
+    expect(outcome).toEqual({
+      status: "completed",
+      result: { candidates: [], noResultsShown: true },
+    });
+  });
+
+  it("does not claim a confirmed empty result when the marker is missing", async () => {
+    const outcome = await run(withNoResultsMarker("/ps/empty"));
+    expect(outcome).toEqual({ status: "completed", result: { candidates: [] } });
+  });
 });
 
 describeBrowser("proof that the site accepted a removal", () => {

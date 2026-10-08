@@ -17,7 +17,7 @@ export function SiteChecksCard({ siteChecks }: { siteChecks: SettingsView["siteC
         <BodyRow>
           <Checkbox
             label="Check recipe pages on the real broker sites"
-            description="Loads each approved recipe page once a week."
+            description="Loads each approved recipe's first page weekly, at the usual pace."
             checked={siteChecks.enabled}
             disabled={toggle.isPending}
             onChange={(event) =>
@@ -26,7 +26,10 @@ export function SiteChecksCard({ siteChecks }: { siteChecks: SettingsView["siteC
           />
         </BodyRow>
       </RowGroup>
-      <GroupNote>It runs from your home connection and never submits a removal.</GroupNote>
+      <GroupNote>
+        It runs from your home connection, never searches or uses your details, and never submits a
+        removal.
+      </GroupNote>
       {toggle.isError ? (
         <Callout intent="danger" title="Could not change site checks" className="mt-3">
           {errorMessage(toggle.error)}

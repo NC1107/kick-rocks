@@ -64,7 +64,7 @@ describe("the agent claim loop", () => {
     await drive(api, executor, () => api.complete.mock.calls.length > 0);
 
     expect(api.claim).toHaveBeenCalledWith(["agent"], 60_000);
-    expect(api.complete).toHaveBeenCalledWith(task.id, { ok: 1 }, usage);
+    expect(api.complete).toHaveBeenCalledWith(task.id, { ok: 1 }, usage, undefined);
   });
 
   it("reports a block with its screenshot, a failure, and a release", async () => {

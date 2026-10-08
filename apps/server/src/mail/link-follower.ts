@@ -31,7 +31,6 @@ const DEFAULTS = {
 };
 const MAX_URL_LENGTH = 2048;
 const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308]);
-const USER_AGENT = "Mozilla/5.0 (compatible; KickRocks/1.0; +self-hosted opt-out tool)";
 
 const defaultResolver: HostResolver = async (hostname) =>
   (await dnsLookup(hostname, { all: true, verbatim: true })).map(({ address, family }) => ({
@@ -242,8 +241,9 @@ export function createLinkFollower({
           signal,
           lookup: pinnedLookup(host),
           ...(secure ? { servername: isIP(host) ? undefined : host } : {}),
+          // No user-agent: a Node client that names this tool is a flag, and one that claims to be
+          // Chrome with a Node TLS fingerprint is a worse one.
           headers: {
-            "user-agent": USER_AGENT,
             accept: "text/html,application/xhtml+xml,*/*;q=0.8",
             "accept-encoding": "gzip, deflate, br",
             ...(cookie ? { cookie } : {}),

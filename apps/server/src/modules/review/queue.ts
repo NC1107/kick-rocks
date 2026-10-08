@@ -2,6 +2,7 @@ import { mailboxes, matches, messages, requests, targets, tasks } from "@kickroc
 import {
   type BlockedReason,
   type BlockedTaskItem,
+  BROWSER_TASK_KINDS,
   isActiveStatus,
   type ReviewMessage,
   type ReviewQueue,
@@ -19,6 +20,7 @@ import { toMatch, toMessageSummary } from "./mappers.js";
 /** Days a task that failed for good stays in the queue. */
 const FAILED_WINDOW_DAYS = 30;
 const MESSAGE_LIMIT = 200;
+const WAITING_LIMIT = 100;
 
 /** Tasks a person can do something about. A poll or a canary has no request and nothing to retry by hand. */
 const ACTIONABLE_FAILURES: readonly TaskKind[] = ["scan", "form", "agent", "confirm", "email_send"];
@@ -196,6 +198,34 @@ function unreviewedMessages(services: AppServices, profileId: string | undefined
   }));
 }
 
+/** Browser tasks that are queued but held back to keep their site from being flagged. */
+function waitingTasks(
+  services: AppServices,
+  profileId: string | undefined,
+): Pick<ReviewQueue, "waitingTasks" | "waitingTotal"> {
+  const queued = services.taskQueue.list({
+    status: "queued",
+    kinds: BROWSER_TASK_KINDS,
+    profileId,
+  });
+  const held = queued.flatMap((task) => {
+    const waiting = services.taskQueue.waitingFor(task);
+    return waiting === null ? [] : [{ task, waiting }];
+  });
+  const shown = held.slice(0, WAITING_LIMIT);
+  const names = services.taskQueue.summarize(shown.map(({ task }) => task));
+  return {
+    waitingTotal: held.length,
+    waitingTasks: shown.map(({ task, waiting }, index) => ({
+      taskId: task.id,
+      kind: task.kind,
+      targetId: task.targetId,
+      targetName: names[index]?.targetName ?? null,
+      waiting,
+    })),
+  };
+}
+
 /** Everything waiting on a person, optionally for one profile. */
 export function buildReviewQueue(
   services: AppServices,
@@ -214,5 +244,6 @@ export function buildReviewQueue(
       services.taskQueue.list({ status: "queued", kinds: ["agent"], profileId }).reverse(),
     ),
     messages: unreviewedMessages(services, profileId),
+    ...waitingTasks(services, profileId),
   };
 }

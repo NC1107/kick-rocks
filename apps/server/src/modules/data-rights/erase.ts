@@ -32,6 +32,8 @@ const SETTINGS_TO_FORGET: readonly SettingKey[] = [
   "schedule",
   "llm",
   "retention",
+  "scanning",
+  "egress",
   "mcp.enabled",
   "mcp.tokenHash",
   "siteChecks.enabled",

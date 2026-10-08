@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { type KickRocksDb, mailboxes, recipes, scans } from "@kickrocks/db";
+import type { LegalApi } from "@kickrocks/legal";
 import {
   type AgentReason,
   type BlockedReason,
@@ -17,6 +18,7 @@ import { loadIdentities } from "./identities.js";
 import { newId } from "./ids.js";
 import type { RequestsService } from "./requests.js";
 import { requireProfile } from "./require-profile.js";
+import { scanSearchKey } from "./scan-reuse.js";
 import type { TargetsService } from "./targets.js";
 import type { EnqueueResult, TaskQueue } from "./task-queue.js";
 import type { Task } from "./task-types.js";
@@ -90,6 +92,7 @@ interface DispatchDeps {
   taskQueue: TaskQueue;
   requests: RequestsService;
   targets: TargetsService;
+  legal: Pick<LegalApi, "identifiersFor">;
 }
 
 const BROKEN_RECIPE_ERROR = "The recipe is marked broken after repeated failures";
@@ -113,7 +116,24 @@ export function createDispatch({
   taskQueue,
   requests,
   targets,
+  legal,
 }: DispatchDeps): Dispatch {
+  /**
+   * The fields an agent search is driven by: exactly what the claim will hand the agent, because
+   * the agent may use any of them, and a result found with one profile's phone number or alias
+   * must not stand in for another profile's search.
+   */
+  function agentSearchFields(profileId: string, targetId: string): ProfileField[] {
+    const allowed = legal.identifiersFor(
+      targets.summary(targetId),
+      loadIdentities(db, profileId),
+      "scan",
+      undefined,
+      clock.now(),
+    );
+    return Object.keys(allowed) as ProfileField[];
+  }
+
   /**
    * The newest approved recipe that is not broken. When every approved recipe is broken, says so,
    * so the work goes to an agent for the right reason instead of failing on a recipe that is known
@@ -422,6 +442,13 @@ export function createDispatch({
             targetId,
             taskId: result.task.id,
             startedAt: nowIso(clock),
+            searchKey: scanSearchKey(db, clock, {
+              profileId,
+              targetId,
+              recipeId,
+              variant,
+              agentFields: recipeId === null ? agentSearchFields(profileId, targetId) : [],
+            }),
           })
           .run();
         return { ...result, scanId };

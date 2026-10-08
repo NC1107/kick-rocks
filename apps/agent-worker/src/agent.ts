@@ -4,6 +4,7 @@ import {
   FormResult,
   resultSchemaFor,
   ScanResult,
+  type SiteObservation,
   type TaskUsage,
 } from "@kickrocks/shared";
 import { SubmitNotRecorded, type TaskReport } from "@kickrocks/worker/dist/executor.js";
@@ -114,6 +115,12 @@ class AgentRun {
 
   get stepCount(): number {
     return this.steps;
+  }
+
+  /** What the browser saw of the site, for the server to pace the next visit. */
+  private site(): { site: SiteObservation } | Record<string, never> {
+    const site = this.toolbox.siteObservation();
+    return site ? { site } : {};
   }
 
   private usage(): TaskUsage {
@@ -348,6 +355,7 @@ class AgentRun {
 
     const outcome: ToolOutcome = await this.toolbox.execute(call.name, call.args);
     if (outcome.kind === "challenge") {
+      this.toolbox.noteChallenge(outcome.finding);
       const screenshot = await this.toolbox.screenshot();
       const url = this.toolbox.blockedUrl();
       logger.info("a human check stopped the run", {
@@ -362,11 +370,36 @@ class AgentRun {
           ...(url ? { url } : {}),
           ...(screenshot ? { screenshot } : {}),
           usage: this.usage(),
+          ...this.site(),
         },
       };
     }
+    const refusal = this.toolbox.refusal;
+    if (refusal) return this.stopForRefusal(refusal.status);
     answer(outcome.text, outcome.isError, outcome.snapshot);
     return null;
+  }
+
+  /**
+   * A site that answered 429, 403 or 503 has asked for fewer requests. A model that reloaded or
+   * tried another page would make more of them, so the run ends here and the server decides when
+   * the site may be visited again.
+   */
+  private stopForRefusal(status: number): TaskReport {
+    this.options.logger.info("the site pushed back, so the run stopped", {
+      taskId: this.options.task.id,
+      status,
+    });
+    return {
+      kind: "fail",
+      report: {
+        error: `The site answered HTTP ${status}, so the run stopped instead of asking again.`,
+        retryable: true,
+        kind: "site",
+        usage: this.usage(),
+        ...this.site(),
+      },
+    };
   }
 
   private async report(
@@ -386,7 +419,7 @@ class AgentRun {
           answer(checked.error, true);
           return null;
         }
-        return { kind: "complete", result: checked.result, usage: this.usage() };
+        return { kind: "complete", result: checked.result, usage: this.usage(), ...this.site() };
       }
       case "blocked": {
         const screenshot = await this.toolbox.screenshot();
@@ -399,6 +432,7 @@ class AgentRun {
             ...(url ? { url } : {}),
             ...(screenshot ? { screenshot } : {}),
             usage: this.usage(),
+            ...this.site(),
           },
         };
       }
@@ -410,6 +444,7 @@ class AgentRun {
             retryable: report.retryable,
             kind: report.failureKind,
             usage: this.usage(),
+            ...this.site(),
           },
         };
       case "release":

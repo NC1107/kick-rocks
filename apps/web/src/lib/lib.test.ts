@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import themeInit from "../../public/theme-init.js?raw";
 import { formatRelative, pluralize } from "./format.js";
 import * as labels from "./labels.js";
+import { describeCooldown } from "./sites.js";
 import { REQUEST_STATUS_META, TASK_STATUS_META } from "./status.js";
 import { STORAGE_KEYS } from "./storage.js";
 
@@ -91,6 +92,55 @@ describe("format", () => {
     expect(pluralize(1, "request")).toBe("1 request");
     expect(pluralize(3, "request")).toBe("3 requests");
     expect(pluralize(2, "company", "companies")).toBe("2 companies");
+  });
+});
+
+describe("describeCooldown", () => {
+  const site = (patch: Partial<Parameters<typeof describeCooldown>[0]>) => ({
+    breaker: "closed" as const,
+    coolingDownUntil: null,
+    lastPushbackKind: "rate_limited" as const,
+    consecutivePushback: 1,
+    ...patch,
+  });
+
+  it("counts the pushback of an open breaker in plain words", () => {
+    expect(describeCooldown(site({ breaker: "open", consecutivePushback: 3 }))).toBe(
+      "Paused after 3 rate limits in a row.",
+    );
+    expect(
+      describeCooldown(
+        site({ breaker: "open", consecutivePushback: 3, lastPushbackKind: "access_denied" }),
+      ),
+    ).toBe("Paused after 3 access denials in a row.");
+    expect(
+      describeCooldown(
+        site({ breaker: "open", consecutivePushback: 4, lastPushbackKind: "captcha" }),
+      ),
+    ).toBe("Paused after 4 CAPTCHAs in a row.");
+  });
+
+  it("names the repeated pushback for a breaker that is trying one visit", () => {
+    expect(describeCooldown(site({ breaker: "half_open", lastPushbackKind: "forbidden" }))).toBe(
+      "Paused after repeated refusals. Next visit is a careful try.",
+    );
+  });
+
+  it("names the one pushback of a site that is only cooling down", () => {
+    expect(
+      describeCooldown(
+        site({ coolingDownUntil: "2026-10-07T17:00:00Z", lastPushbackKind: "unavailable" }),
+      ),
+    ).toBe("Left alone after an outage.");
+    expect(describeCooldown(site({ lastPushbackKind: "challenge" }))).toBe(
+      "Left alone after a bot check.",
+    );
+  });
+
+  it("does not break a sentence when the kind is unknown", () => {
+    expect(
+      describeCooldown(site({ lastPushbackKind: null, breaker: "open", consecutivePushback: 2 })),
+    ).toBe("Paused after 2 pushbacks in a row.");
   });
 });
 

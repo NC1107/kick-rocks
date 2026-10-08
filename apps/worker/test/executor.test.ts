@@ -2,6 +2,7 @@ import type { RunOutcome } from "@kickrocks/recipes";
 import { MAX_SCREENSHOT_BYTES } from "@kickrocks/shared";
 import type { Page } from "playwright";
 import { describe, expect, it, vi } from "vitest";
+import { ProxyConflictError } from "../src/browser.js";
 import { createExecutor, type Runners, type TaskExecutor } from "../src/executor.js";
 import { recipeFor, silentLogger, task } from "./support.js";
 
@@ -58,13 +59,13 @@ describe("which browser a task runs in", () => {
   it("opens the page in the browser of the person the task is for", async () => {
     const { executor, openPage } = harness(done);
     await executor(formTask({ profileId: "p-jordan" }), live);
-    expect(openPage).toHaveBeenCalledWith("p-jordan");
+    expect(openPage).toHaveBeenCalledWith("p-jordan", null);
   });
 
   it("uses the shared browser for a task that belongs to nobody", async () => {
     const { executor, openPage } = harness(done);
     await executor(formTask(), live);
-    expect(openPage).toHaveBeenCalledWith(null);
+    expect(openPage).toHaveBeenCalledWith(null, null);
   });
 });
 
@@ -378,5 +379,80 @@ describe("the other task kinds", () => {
     const { executor } = harness({ status: "completed", result: {} });
     const report = await executor(task("canary", { recipeId: "x" }), live);
     expect(report).toMatchObject({ kind: "fail", report: { retryable: false } });
+  });
+});
+
+describe("telling the server what the site did", () => {
+  const pushback = { kind: "rate_limited", status: 429, retryAfterSeconds: 120 } as const;
+
+  it("passes a pushback on with a failure, so the server can wait instead of retrying", async () => {
+    const { executor } = harness({
+      status: "failed",
+      kind: "site",
+      error: "The site answered 429",
+      retryable: true,
+      site: { pushback },
+    });
+    expect(await executor(scanTask(), live)).toMatchObject({
+      kind: "fail",
+      report: { retryable: true, site: { pushback } },
+    });
+  });
+
+  it("passes it on with a block and with a result", async () => {
+    const blocked = harness({
+      status: "blocked",
+      reason: "bot_detection",
+      detail: "The site is showing a bot check.",
+      screenshot: null,
+      site: { pushback: { kind: "challenge", status: 403 } },
+    });
+    expect(await blocked.executor(scanTask(), live)).toMatchObject({
+      kind: "block",
+      report: { site: { pushback: { kind: "challenge" } } },
+    });
+
+    const done = harness({
+      status: "completed",
+      result: { candidates: [] },
+      site: { crawlDelaySeconds: 10 },
+    });
+    expect(await done.executor(scanTask(), live)).toMatchObject({
+      kind: "complete",
+      site: { crawlDelaySeconds: 10 },
+    });
+  });
+
+  it("sends nothing about a site that behaved", async () => {
+    const { executor } = harness({ status: "completed", result: { candidates: [] } });
+    expect(await executor(scanTask(), live)).not.toHaveProperty("site");
+  });
+});
+
+describe("routing a site through the person's proxy", () => {
+  it("opens the page through the proxy the server named for the task", async () => {
+    const { executor, openPage } = harness({ status: "completed", result: { candidates: [] } });
+    await executor(
+      { ...scanTask(), proxyUrl: "http://10.0.0.100:8888" } as ReturnType<typeof scanTask>,
+      live,
+    );
+    expect(openPage).toHaveBeenCalledWith(null, "http://10.0.0.100:8888");
+  });
+
+  it("fails the task with the reason when the worker's own proxy would replace it", async () => {
+    const { executor, openPage, runners } = harness({
+      status: "completed",
+      result: { candidates: [] },
+    });
+    openPage.mockRejectedValueOnce(new ProxyConflictError());
+    const report = await executor(
+      { ...scanTask(), proxyUrl: "http://10.0.0.100:8888" } as ReturnType<typeof scanTask>,
+      live,
+    );
+    expect(report).toMatchObject({
+      kind: "fail",
+      report: { retryable: false, error: expect.stringContaining("KICKROCKS_WORKER_PROXY") },
+    });
+    expect(runners.runRecipe).not.toHaveBeenCalled();
   });
 });

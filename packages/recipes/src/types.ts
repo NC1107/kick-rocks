@@ -7,6 +7,7 @@ import type {
   Recipe,
   RecipePurpose,
   ScanResult,
+  SiteObservation,
 } from "@kickrocks/shared";
 import type { Page } from "playwright";
 
@@ -21,14 +22,21 @@ import type { Page } from "playwright";
  * dropped `network` may be retried.
  */
 export type RunOutcome<R> =
-  | { status: "completed"; result: R }
-  | { status: "blocked"; reason: BlockedReason; detail: string; screenshot: Buffer | null }
+  | { status: "completed"; result: R; site?: SiteObservation | undefined }
+  | {
+      status: "blocked";
+      reason: BlockedReason;
+      detail: string;
+      screenshot: Buffer | null;
+      site?: SiteObservation | undefined;
+    }
   | {
       status: "failed";
       kind: FailureKind;
       error: string;
       retryable: boolean;
       step?: number | undefined;
+      site?: SiteObservation | undefined;
     };
 
 export type RecipeResultFor<P extends RecipePurpose> = P extends "scan" ? ScanResult : FormResult;

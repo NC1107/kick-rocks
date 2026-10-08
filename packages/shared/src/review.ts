@@ -2,6 +2,7 @@ import { z } from "zod";
 import { ProfileField } from "./identities.js";
 import { MessageSummary, Reference, ReplyClassification } from "./mail.js";
 import { RequestListItem, RequestRights } from "./requests.js";
+import { WaitingTask } from "./scanning.js";
 import { Match } from "./scans.js";
 import { TaskSummary } from "./tasks.js";
 import { WebUrl } from "./url.js";
@@ -50,6 +51,13 @@ export const ReviewQueue = z.object({
    */
   agentTasks: z.array(BlockedTaskItem),
   messages: z.array(ReviewMessage),
+  /**
+   * Queued tasks that are not stuck: Kick Rocks is keeping its visits to their site spaced out or
+   * letting the site cool down. Nothing here needs the person, so it is not counted as attention.
+   */
+  waitingTasks: z.array(WaitingTask),
+  /** How many tasks are waiting in all, which can be more than `waitingTasks` lists. */
+  waitingTotal: z.number().int().nonnegative(),
 });
 export type ReviewQueue = z.infer<typeof ReviewQueue>;
 

@@ -4,6 +4,7 @@ import { EmailKind } from "./mail.js";
 import { BlockedReason, FailureKind, FormOutcome } from "./outcomes.js";
 import { Recipe } from "./recipe.js";
 import { RequestRight } from "./rights.js";
+import { ProxyUrl, SiteObservation } from "./scanning.js";
 import { TargetSummary } from "./targets.js";
 import { WebUrl } from "./url.js";
 
@@ -142,7 +143,14 @@ export const Candidate = z.object({
 });
 export type Candidate = z.infer<typeof Candidate>;
 
-export const ScanResult = z.object({ candidates: z.array(Candidate) });
+export const ScanResult = z.object({
+  candidates: z.array(Candidate),
+  /**
+   * The site itself showed that nothing matched. A search that finds nobody and proves nothing
+   * could be a soft block that looked like an empty page, so only this makes it a clean visit.
+   */
+  noResultsShown: z.boolean().optional(),
+});
 export type ScanResult = z.infer<typeof ScanResult>;
 
 /** A host name, never an address, so it can be compared with the sender of a confirmation email. */
@@ -252,6 +260,11 @@ const claimedBase = {
    * beyond what the legal package allows the task to use.
    */
   maskValues: z.array(z.string()).optional(),
+  /**
+   * The http proxy this site is reached through, when the person set one up for it in Settings.
+   * A worker that already has a proxy of its own keeps that one.
+   */
+  proxyUrl: ProxyUrl.nullable().optional(),
   instructions: z.string(),
 };
 
@@ -341,6 +354,8 @@ export const TaskBlockReport = z.object({
   url: WebUrl.optional(),
   screenshot: TaskScreenshot.optional(),
   usage: TaskUsage.optional(),
+  /** What the run saw of the site, which paces the next visit. */
+  site: SiteObservation.optional(),
 });
 export type TaskBlockReport = z.infer<typeof TaskBlockReport>;
 
@@ -362,6 +377,11 @@ export const TaskFailureReport = z.object({
     .max(24 * 60 * 60 * 1000)
     .optional(),
   usage: TaskUsage.optional(),
+  /**
+   * What the run saw of the site. A failure that carries a pushback is not retried on the usual
+   * backoff: the task waits out the site's cooldown instead, and is never handed to an agent.
+   */
+  site: SiteObservation.optional(),
 });
 export type TaskFailureReport = z.infer<typeof TaskFailureReport>;
 

@@ -41,6 +41,7 @@ import {
 import { HealthMark } from "../Automation.js";
 import { Priority } from "../Priority.js";
 import { HUMAN_STEPS } from "../RequirementBadges.js";
+import { SiteVisits } from "./SiteVisits.js";
 
 const REQUIREMENT_HELP: Record<Requirement, string> = {
   email_confirmation: "It sends a confirmation email, and the link in it has to be followed.",
@@ -278,6 +279,8 @@ export function Component() {
             </div>
           ) : null}
         </Section>
+
+        {target.kind === "broker" ? <SiteVisits targetId={target.id} /> : null}
 
         <Section label="Automation">
           {target.recipes.length === 0 ? (

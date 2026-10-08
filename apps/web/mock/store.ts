@@ -1,17 +1,18 @@
-import type {
-  Match,
-  NotificationSettings,
-  ProfileDetail,
-  RecipeRecord,
-  RequestEvent,
-  RequestListItem,
-  ReviewMessage,
-  ScanSummary,
-  SettingsView,
-  TargetDetail,
-  TaskSummary,
+import {
+  type Match,
+  type NotificationSettings,
+  type ProfileDetail,
+  type RecipeRecord,
+  type RequestEvent,
+  type RequestListItem,
+  type ReviewMessage,
+  ScanningSettings,
+  type ScanSummary,
+  type SettingsView,
+  type SiteStatus,
+  type TargetDetail,
+  type TaskSummary,
 } from "@kickrocks/shared";
-
 /** A request as stored: the list row plus its timeline. The detail view adds messages and tasks. */
 export type StoredRequest = RequestListItem & { events: RequestEvent[] };
 
@@ -74,6 +75,8 @@ export interface MockStore {
   blockedInfo: Map<string, BlockedTaskInfo>;
   matches: Match[];
   scans: ScanSummary[];
+  /** What the politeness gate remembers about each site, keyed by the owner domain. */
+  sites: SiteStatus[];
   recipes: RecipeRecord[];
   settings: SettingsView;
   /** The last MCP token minted, kept only so the mock can say a token is set. */
@@ -129,6 +132,7 @@ export function createStore(authMode: MockAuthMode = "authed"): MockStore {
     blockedInfo: new Map(),
     matches: [],
     scans: [],
+    sites: [],
     recipes: [],
     settings: {
       schedule: {
@@ -140,6 +144,9 @@ export function createStore(authMode: MockAuthMode = "authed"): MockStore {
       },
       llm: null,
       retention: { messageDays: null, screenshotDays: 30 },
+      scanning: ScanningSettings.parse({}),
+      egress: { proxyUrl: null, domains: [] },
+      egressCoverage: {},
       mcp: { enabled: false, tokenSet: false, url: "http://localhost:8420/mcp" },
       siteChecks: { enabled: false },
       agent: { takeUnreviewed: false },

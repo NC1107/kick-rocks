@@ -1,12 +1,17 @@
 import {
   type BlockedReason,
+  backgroundPushbackKind,
   type Candidate,
   isOnDomain,
   type ProfileFields,
+  type Pushback,
+  parseRetryAfter,
+  pushbackKindForStatus,
   renderTemplate,
+  type SiteObservation,
   TemplateError,
 } from "@kickrocks/shared";
-import type { Page } from "playwright";
+import type { Page, Response } from "playwright";
 import type { RunOutcome } from "../types.js";
 import { type BlockFinding, detectBlockAfterGrace } from "./detect.js";
 import { isClosedError, RunAborted, RunFailure } from "./errors.js";
@@ -17,10 +22,20 @@ import { createRedactor } from "./redact.js";
 /** What a run has learned so far, which later steps and the final result draw on. */
 export interface RunState {
   candidates: Candidate[];
+  /** The page showed its own "no results" marker. */
+  noResultsShown: boolean;
   confirmationText: string | undefined;
   extractedRecordUrl: string | undefined;
   awaitingEmailFrom: string | undefined;
   lastStatus: number | null;
+  /** What the site did that says to slow down, the first time it did it in this run. */
+  pushback: Pushback | undefined;
+  /** The status of the newest page the main frame loaded, cleared once a step has judged it. */
+  navigationStatus: number | null;
+  /** Whether the newest page the main frame loaded is itself the one that answered with pushback. */
+  pageRefused: boolean;
+  /** A background request answered with pushback, which ends the run at the next check. */
+  backgroundRefusal: number | undefined;
   /** The page showed that the site took the last submission; any later submit clears it. */
   proved: boolean;
 }
@@ -36,6 +51,8 @@ export interface RunContext {
   redact: (text: string) => string;
   onSubmit: (() => void | Promise<void>) | undefined;
   deadline: number;
+  /** Stops watching the page; every run calls it when it ends. */
+  stop: () => void;
   state: RunState;
 }
 
@@ -58,6 +75,20 @@ export function createContext(
 ): RunContext {
   const timeouts = { ...DEFAULT_TIMEOUTS, ...options.timeouts };
   const usable = usableFields(fields);
+  const state: RunState = {
+    candidates: [],
+    noResultsShown: false,
+    confirmationText: undefined,
+    extractedRecordUrl: undefined,
+    awaitingEmailFrom: undefined,
+    lastStatus: null,
+    pushback: undefined,
+    navigationStatus: null,
+    pageRefused: false,
+    backgroundRefusal: undefined,
+    proved: false,
+  };
+  const stop = watchNavigations(page, state, options.targetDomain ?? fallbackDomain);
   return {
     page,
     fields: usable,
@@ -69,15 +100,58 @@ export function createContext(
     redact: createRedactor(usable),
     onSubmit: options.onSubmit,
     deadline: Date.now() + timeouts.runMs,
-    state: {
-      candidates: [],
-      confirmationText: undefined,
-      extractedRecordUrl: undefined,
-      awaitingEmailFrom: undefined,
-      lastStatus: null,
-      proved: false,
-    },
+    stop,
+    state,
   };
+}
+
+/**
+ * Reads every page the main frame loads, whatever started the load. A search that is rate limited
+ * usually answers the submit, not the first visit, so looking only at `goto` would miss it. Search
+ * calls a single-page site makes in the background are read too, when they go to the target's own
+ * domain.
+ */
+function watchNavigations(page: Page, state: RunState, targetDomain: string): () => void {
+  const onResponse = (response: Response): void => {
+    if (!response.request().isNavigationRequest()) {
+      noteBackgroundPushback(state, response, targetDomain);
+      return;
+    }
+    if (response.frame() !== page.mainFrame()) return;
+    state.navigationStatus = response.status();
+    state.pageRefused = notePushback(state, response) !== null;
+  };
+  page.on("response", onResponse);
+  return () => page.off("response", onResponse);
+}
+
+function noteBackgroundPushback(state: RunState, response: Response, targetDomain: string): void {
+  if (!isOnDomain(response.url(), targetDomain)) return;
+  const status = response.status();
+  const challenged = response.headers()["cf-mitigated"] === "challenge";
+  if (backgroundPushbackKind(status, challenged) === null) return;
+  notePushback(state, response);
+  state.backgroundRefusal ??= status;
+}
+
+/**
+ * Remembers a 429, 403, 503, or Cloudflare challenge, with the wait the site asked for, and
+ * returns what this response said whether or not an earlier one was remembered first.
+ */
+export function notePushback(state: RunState, response: Response): Pushback | null {
+  const status = response.status();
+  const headers = response.headers();
+  const kind =
+    headers["cf-mitigated"] === "challenge" ? "challenge" : pushbackKindForStatus(status);
+  if (kind === null) return null;
+  const retryAfterSeconds = parseRetryAfter(headers["retry-after"], new Date());
+  const pushback: Pushback = {
+    kind,
+    status,
+    ...(retryAfterSeconds === undefined ? {} : { retryAfterSeconds }),
+  };
+  state.pushback ??= pushback;
+  return pushback;
 }
 
 export function hostOf(url: string): string {
@@ -98,6 +172,13 @@ export function render(ctx: RunContext, template: string): string {
 
 export function checkLive(ctx: RunContext): void {
   if (ctx.signal?.aborted) throw new RunAborted();
+  if (ctx.state.backgroundRefusal !== undefined) {
+    throw new RunFailure(
+      "site",
+      `The site answered ${ctx.state.backgroundRefusal} to a search call`,
+      true,
+    );
+  }
   if (Date.now() > ctx.deadline) {
     throw new RunFailure("site", "The run took longer than its time limit", true);
   }
@@ -167,14 +248,38 @@ export async function blocked(
 }
 
 export async function blockedBy(ctx: RunContext, finding: BlockFinding) {
+  ctx.state.pushback ??= { kind: finding.pushback };
   return blocked(ctx, finding.reason, finding.detail);
 }
 
-/** Looks for a human check and ends the run for a person when there is one. */
-export async function guard(ctx: RunContext) {
+/** What the run saw of the site, for the server to pace the next visit. Undefined when nothing stands out. */
+export function siteObservation(ctx: RunContext): SiteObservation | undefined {
+  const { pushback } = ctx.state;
+  return pushback === undefined ? undefined : { pushback };
+}
+
+/** Adds what the run saw of the site to however the run ended. */
+export function withSite<R>(ctx: RunContext, outcome: RunOutcome<R>): RunOutcome<R> {
+  ctx.stop();
+  const site = siteObservation(ctx);
+  return site === undefined ? outcome : { ...outcome, site };
+}
+
+/**
+ * The block the page shows, if any. A response status that already said "slow down" is reported as
+ * exactly that, so a rate limit page whose words match is not turned into a bot check.
+ */
+export async function findBlock(ctx: RunContext): Promise<BlockFinding | null> {
   const finding = await detectBlockAfterGrace(ctx.page, {
     graceMs: ctx.timeouts.challengeGraceMs,
     signal: ctx.signal,
   });
+  if (finding?.pushback === "rate_limited" && ctx.state.pageRefused) return null;
+  return finding;
+}
+
+/** Looks for a human check and ends the run for a person when there is one. */
+export async function guard(ctx: RunContext) {
+  const finding = await findBlock(ctx);
   return finding === null ? null : blockedBy(ctx, finding);
 }

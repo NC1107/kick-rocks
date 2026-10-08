@@ -11,6 +11,7 @@ import {
   type RouteDef,
   type RouteQueryInput,
   type RouteResponse,
+  ScanningSettings,
 } from "@kickrocks/shared";
 import type { FastifyInstance, InjectOptions, LightMyRequestResponse } from "fastify";
 import { buildApp, openAppDatabase } from "../app.js";
@@ -28,6 +29,17 @@ export const TEST_MCP_TOKEN = "test-mcp-token-0123456789abcdef";
 /** The smallest argon2id settings the library accepts, so signing in a hundred times is not a load test. */
 const CHEAP_PASSWORD_COST = { timeCost: 1, memoryCost: 1024, parallelism: 1 };
 
+const UNPACED_SCANNING = ScanningSettings.parse({
+  minGapMinutes: 0,
+  gapJitterPercent: 0,
+  dailyCapPerSite: 100,
+  hourlyCapTotal: 500,
+  dailyCapTotal: 2000,
+  quietStartHour: 0,
+  quietEndHour: 0,
+  reuseHours: 0,
+});
+
 interface TestContextOptions {
   /** The fake clock's starting time. */
   now?: Date | string;
@@ -42,7 +54,12 @@ interface TestContextOptions {
   /** Datasets for the startup sync. Empty by default so tests start with no targets. */
   targetSources?: TargetSources;
   /** Replacements for services the test needs to point at a local stand-in, such as ntfy. */
-  overrides?: Pick<ServiceOverrides, "notificationChannels">;
+  overrides?: Pick<ServiceOverrides, "notificationChannels" | "random">;
+  /**
+   * `default` keeps the real politeness settings (spacing, caps, backoff). Any other value, and
+   * the default of this option, removes the spacing and caps so a test can claim tasks freely.
+   */
+  politeness?: "default" | "off";
   /** Runs before the app is made ready, the only time a route or hook can still be added. */
   beforeReady?: (app: FastifyInstance) => void | Promise<void>;
 }
@@ -161,6 +178,11 @@ export async function createTestContext(options: TestContextOptions = {}): Promi
       companies: () => ({ version: "test", records: [] }),
     },
   });
+  if (options.politeness !== "default") {
+    // Most tests run many tasks against one fixture site back to back, which is exactly what the
+    // gate exists to stop, so they run with the spacing and caps out of the way.
+    services.settings.set("scanning", UNPACED_SCANNING);
+  }
   services.settings.set("mcp.enabled", true);
   services.settings.set("mcp.tokenHash", services.secrets.hashToken(TEST_MCP_TOKEN));
 

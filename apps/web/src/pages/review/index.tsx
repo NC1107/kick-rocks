@@ -243,6 +243,8 @@ function Queue({ queue, profileId }: { queue: ReviewQueue; profileId: string }) 
       <div className={cn("min-h-0 lg:overflow-y-auto lg:pr-1 lg:pb-2", drilled && "max-lg:hidden")}>
         <QueueList
           entries={entries}
+          waiting={queue.waitingTasks}
+          waitingTotal={queue.waitingTotal}
           selectedKey={wide || drilled ? selectedKey : null}
           onSelect={(key) => select(key, { replace: wide })}
         />

@@ -81,6 +81,14 @@ export const ReplyDomains = z.array(
 );
 export type ReplyDomains = z.infer<typeof ReplyDomains>;
 
+/**
+ * The lead domain of the sites one operator runs behind the same infrastructure and bot defences.
+ * Politeness counts a visit to any of them as a visit to all, so the key must be the same on every
+ * member of the group.
+ */
+export const OwnerGroup = z.string().regex(HOSTNAME);
+export type OwnerGroup = z.infer<typeof OwnerGroup>;
+
 export const Broker = z.object({
   id: z.string().regex(/^[a-z0-9][a-z0-9-]*$/),
   name: z.string().min(1),
@@ -99,6 +107,8 @@ export const Broker = z.object({
   priority: TargetPriority,
   /** Curated sister domains the broker's confirmation emails come from; see {@link ReplyDomains}. */
   replyDomains: ReplyDomains.optional(),
+  /** Curated: the operator this site shares a network with; see {@link OwnerGroup}. */
+  ownerGroup: OwnerGroup.optional(),
   regulatedBy: z.array(RegulatoryRegime),
   collectsMinors: z.boolean().nullable(),
   collectsGeolocation: z.boolean().nullable(),

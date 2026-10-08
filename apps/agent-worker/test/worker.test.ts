@@ -10,6 +10,7 @@ import {
   WorkerClaimBody,
   WorkerHeartbeatBody,
 } from "@kickrocks/shared";
+import { ProxyConflictError } from "@kickrocks/worker/dist/browser.js";
 import type { Browser } from "playwright";
 import { afterAll, afterEach, beforeAll, beforeEach, expect, it, vi } from "vitest";
 import type { AgentWorkerConfig } from "../src/config.js";
@@ -271,6 +272,21 @@ describeBrowser("the agent worker end to end", () => {
       },
     });
     expect(TaskReleaseBody.parse(server.transitions()[0]?.body).retryAfterMs).toBe(60_000);
+  });
+
+  it("fails the task for good when its proxy cannot be combined with the worker's own", async () => {
+    const server = fakeServer(agentTask());
+    await runOnce(server, [], {
+      launcher: async () => {
+        throw new ProxyConflictError();
+      },
+    });
+    const transition = server.transitions()[0];
+    expect(transition?.path).toMatch(/\/fail$/);
+    expect(TaskFailBody.parse(transition?.body)).toMatchObject({
+      kind: "internal",
+      retryable: false,
+    });
   });
 
   it("holds a removal that clicked for a person when shutdown finds the run stalled", async () => {

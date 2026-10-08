@@ -7,7 +7,9 @@ import {
   type RecipeRecord,
   type RecipeSource,
   type RecipeStatus,
+  ScanningSettings,
   type SettingsView,
+  type SiteStatus,
   type TargetDetail,
 } from "@kickrocks/shared";
 import { conflict, defineMockDomain, handle, notFound } from "./core.js";
@@ -231,6 +233,48 @@ const DEFAULT_SCHEDULE = {
   maxFollowUps: 2,
 };
 
+/** One site that pushed back and one that has only been visited, so both states show. */
+function seedSites(store: MockStore): void {
+  const site = (domain: string, patch: Partial<SiteStatus>): SiteStatus => ({
+    domain,
+    visitsToday: 1,
+    dailyCap: 6,
+    lastVisitAt: store.ago({ hours: 3 }),
+    lastPushbackAt: null,
+    lastPushbackKind: null,
+    consecutivePushback: 0,
+    coolingDownUntil: null,
+    breaker: "closed",
+    nextStartAfter: null,
+    crawlDelaySeconds: null,
+    ...patch,
+  });
+  store.sites = [
+    site("peopletrace.example", {
+      visitsToday: 2,
+      lastPushbackAt: store.ago({ hours: 1 }),
+      lastPushbackKind: "rate_limited",
+      consecutivePushback: 1,
+      coolingDownUntil: store.ahead({ hours: 5 }),
+    }),
+    site("findrecord.example", {
+      visitsToday: 4,
+      lastPushbackAt: store.ago({ minutes: 20 }),
+      lastPushbackKind: "challenge",
+      consecutivePushback: 3,
+      coolingDownUntil: store.ahead({ hours: 20 }),
+      breaker: "open",
+    }),
+    site("homerecords.example", {
+      lastPushbackAt: store.ago({ hours: 2 }),
+      lastPushbackKind: "captcha",
+      consecutivePushback: 3,
+      breaker: "half_open",
+    }),
+    site("namelookup.example", { visitsToday: 3, nextStartAfter: store.ahead({ minutes: 14 }) }),
+  ];
+}
+
 function wipePersonalData(store: MockStore): void {
   store.profiles = [];
   store.requests = [];
@@ -264,6 +308,7 @@ export default defineMockDomain({
         model: null,
       },
     };
+    seedSites(store);
     seedRecipe(store, "peopletrace", "scan");
     seedRecipe(store, "peopletrace", "remove");
     seedRecipe(store, "namelookup", "scan");
@@ -343,6 +388,12 @@ export default defineMockDomain({
         };
       }),
 
+      handle(API_ROUTES.settingsSites, () => ({
+        items: store.sites,
+        visitsLastHour: store.sites.reduce((sum, site) => sum + Math.min(site.visitsToday, 2), 0),
+        hourlyCap: store.settings.scanning.hourlyCapTotal,
+      })),
+
       handle(API_ROUTES.settingsPatch, ({ body }): SettingsView => {
         const current = store.settings;
         if (body.schedule) {
@@ -356,6 +407,21 @@ export default defineMockDomain({
             Object.entries(body.retention).filter(([, value]) => value !== undefined),
           );
           current.retention = { ...current.retention, ...patch };
+        }
+        if (body.scanning) {
+          current.scanning = ScanningSettings.parse({
+            ...current.scanning,
+            ...Object.fromEntries(
+              Object.entries(body.scanning).filter(([, value]) => value !== undefined),
+            ),
+          });
+        }
+        if (body.egress) {
+          current.egress = {
+            proxyUrl:
+              body.egress.proxyUrl === undefined ? current.egress.proxyUrl : body.egress.proxyUrl,
+            domains: body.egress.domains ?? current.egress.domains,
+          };
         }
         if (body.llm === null) current.llm = null;
         else if (body.llm) {
@@ -379,6 +445,9 @@ export default defineMockDomain({
           llm: null,
           agent: { takeUnreviewed: false },
           retention: { messageDays: null, screenshotDays: 30 },
+          scanning: ScanningSettings.parse({}),
+          egress: { proxyUrl: null, domains: [] },
+          egressCoverage: {},
           mcp: { ...store.settings.mcp, enabled: false, tokenSet: false },
           siteChecks: { enabled: false },
         };

@@ -88,6 +88,34 @@ describe("general settings", () => {
     expect((await screen.findAllByText("Site checks turned on")).length).toBeGreaterThan(0);
   });
 
+  it("shows the VPN warning only once a proxy address is entered", async () => {
+    const { user } = general();
+    const proxy = await field("Send visits through a proxy");
+    expect(screen.queryByText(/does not make sites trust you more/)).toBeNull();
+    await user.type(proxy, "http://10.0.0.100:8888");
+    expect(await screen.findByText(/does not make sites trust you more/)).toBeVisible();
+  });
+
+  it("keeps the site checks description to one short line", async () => {
+    general();
+    await field(/Check recipe pages on the real broker sites/);
+    const description = screen.getByText(/^Loads each approved recipe/);
+    expect((description.textContent ?? "").trim().split(/\s+/).length).toBeLessThanOrEqual(12);
+  });
+
+  it("describes each site being left alone in whole sentences, with its state as a word", async () => {
+    general();
+    const heading = await screen.findByRole("heading", { name: "Sites cooling down" });
+    const region = within(heading.closest("section") as HTMLElement);
+    expect(await region.findByText("Paused after 3 bot checks in a row.")).toBeVisible();
+    expect(region.getByText(/Paused after repeated CAPTCHAs\. Next visit/)).toBeVisible();
+    expect(region.getByText("Left alone after a rate limit.")).toBeVisible();
+    expect(region.getByText("Paused")).toBeVisible();
+    expect(region.getByText("Trying one visit")).toBeVisible();
+    expect(region.getByText("Cooling down")).toBeVisible();
+    expect(region.queryByText(/^Until /)).toBeNull();
+  });
+
   it("saves only a changed schedule and confirms it", async () => {
     const { user, mock } = general();
     const poll = await field(/Check inbox every/);
