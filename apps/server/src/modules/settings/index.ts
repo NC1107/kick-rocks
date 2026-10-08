@@ -3,7 +3,9 @@ import {
   DATA_SOURCE_DETAILS,
   DataSourceId,
   type DataSourceInfo,
+  EgressSettings,
   RetentionSettings,
+  ScanningSettings,
   ScheduleSettings,
   type SettingsPatch,
   type SettingsView,
@@ -21,6 +23,8 @@ function viewOf({ settings, config }: AppServices): SettingsView {
   return {
     schedule: settings.get("schedule"),
     retention: settings.get("retention"),
+    scanning: settings.get("scanning"),
+    egress: settings.get("egress"),
     llm: llm ? { baseUrl: llm.baseUrl, model: llm.model, apiKeySet: llm.apiKey !== null } : null,
     mcp: {
       enabled: settings.get("mcp.enabled"),
@@ -59,6 +63,18 @@ function applyPatch({ settings }: AppServices, patch: SettingsPatch): void {
         ...settings.get("retention"),
         ...definedOnly(patch.retention),
       }),
+    );
+  }
+  if (patch.scanning) {
+    settings.set(
+      "scanning",
+      ScanningSettings.parse({ ...settings.get("scanning"), ...definedOnly(patch.scanning) }),
+    );
+  }
+  if (patch.egress) {
+    settings.set(
+      "egress",
+      EgressSettings.parse({ ...settings.get("egress"), ...definedOnly(patch.egress) }),
     );
   }
   if (patch.llm === null) {
@@ -105,6 +121,8 @@ export const settingsModule: ModulePlugin = (app, services) => {
     if (body.retention) applyRetention(services);
     return viewOf(services);
   });
+
+  registerRoute(app, API_ROUTES.settingsSites, () => services.politeness.status());
 
   registerRoute(app, API_ROUTES.settingsMcpToken, ({ reply }) => {
     reply.header("cache-control", "no-store");

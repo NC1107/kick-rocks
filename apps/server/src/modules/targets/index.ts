@@ -9,4 +9,9 @@ export const targetsModule: ModulePlugin = (app, services) => {
   registerRoute(app, API_ROUTES.targetsList, ({ query }) => catalog.list(query));
   registerRoute(app, API_ROUTES.targetsFacets, () => catalog.facets());
   registerRoute(app, API_ROUTES.targetsGet, ({ params }) => catalog.detail(params.id));
+  registerRoute(app, API_ROUTES.targetsSite, ({ params }) => {
+    services.targets.getOrThrow(params.id);
+    const domain = services.politeness.domainOf(params.id);
+    return { site: domain === null ? null : services.politeness.siteStatus(domain) };
+  });
 };

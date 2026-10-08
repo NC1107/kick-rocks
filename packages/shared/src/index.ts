@@ -17,6 +17,7 @@ export * from "./profiles.js";
 export * from "./recipe.js";
 export * from "./requests.js";
 export * from "./review.js";
+export * from "./scanning.js";
 export * from "./scans.js";
 export * from "./settings.js";
 export * from "./targets.js";

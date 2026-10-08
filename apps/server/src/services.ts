@@ -21,6 +21,7 @@ import { createRequestFlow, type Requests } from "./core/request-flow.js";
 import { createRequestsService } from "./core/requests.js";
 import { createSecrets, type Secrets } from "./core/secrets.js";
 import { createSettingsStore, type SettingsStore } from "./core/settings.js";
+import { createSitePoliteness, type SitePoliteness } from "./core/site-politeness.js";
 import { createStartup, type Startup } from "./core/startup.js";
 import { createTargetsService, type TargetSources, type TargetsService } from "./core/targets.js";
 import { registerTaskAudit } from "./core/task-audit.js";
@@ -52,6 +53,8 @@ export interface AppServices {
   logger: Logger;
   settings: SettingsStore;
   taskQueue: TaskQueue;
+  /** Which browser tasks may start now, shared by the queue, the status routes, and the scheduler. */
+  politeness: SitePoliteness;
   taskHandlers: TaskHandlers;
   /** Requests and their events, plus `open` and `requeue`, the two ways a request goes out. */
   requests: Requests;
@@ -78,6 +81,8 @@ export interface AppServices {
 /** Replacements for the pieces tests and tools need to control. */
 export interface ServiceOverrides {
   clock?: Clock;
+  /** Source of the jitter on the gap between visits to a site. Tests fix it to get exact times. */
+  random?: () => number;
   logger?: Logger;
   mail?: MailServices;
   legal?: LegalApi;
@@ -129,7 +134,13 @@ export function createServices(
   const settings = createSettingsStore(db, clock);
   const secrets = createSecrets(config, settings);
   const taskHandlers = createTaskHandlers();
-  const taskQueue = createTaskQueue({ db, clock, handlers: taskHandlers });
+  const politeness = createSitePoliteness({
+    db,
+    clock,
+    settings,
+    ...(overrides.random ? { random: overrides.random } : {}),
+  });
+  const taskQueue = createTaskQueue({ db, clock, handlers: taskHandlers, politeness });
   const requestStore = createRequestsService({ db, clock, taskQueue });
   const targets = createTargetsService({
     db,
@@ -160,6 +171,7 @@ export function createServices(
     logger,
     settings,
     taskQueue,
+    politeness,
     taskHandlers,
     requests,
     recipeHealth: createRecipeHealth(db, clock),

@@ -453,6 +453,10 @@ describe("agent tasks", () => {
             recordUrl: "https://example-broker.test/p/1",
           })
         : null;
+    // One task runs on a site at a time, so a test that claims again first ends the earlier run.
+    for (const running of ctx.services.taskQueue.list({ status: "leased" })) {
+      ctx.services.taskQueue.cancel(running.id);
+    }
     ctx.services.taskQueue.enqueue({
       kind: "agent",
       payload: {
@@ -719,6 +723,7 @@ describe("claimTask", () => {
       const task = claim(["scan", "form", "confirm", "canary", "agent"]);
       expect(ClaimedTask.safeParse(task).success, JSON.stringify(task)).toBe(true);
       kinds.add(task?.kind ?? "none");
+      ctx.services.taskQueue.cancel(task?.id ?? "");
     }
     expect([...kinds].sort()).toEqual(["agent", "canary", "confirm", "form", "scan"]);
   });

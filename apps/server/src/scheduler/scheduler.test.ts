@@ -360,11 +360,11 @@ describe("re-scans", () => {
 
   it("scans a people-search target again after the re-scan period, and not before", async () => {
     const target = scannedTarget();
-    ctx.clock.advance(59 * DAY);
+    ctx.clock.advance(44 * DAY);
     await scheduler.tick();
     expect(liveScans()).toHaveLength(0);
 
-    ctx.clock.advance(DAY);
+    ctx.clock.advance(16 * DAY);
     await scheduler.tick();
     expect(liveScans()).toHaveLength(1);
     expect(liveScans()[0]).toMatchObject({ targetId: target.id, profileId });

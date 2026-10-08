@@ -1,8 +1,10 @@
 import type {
+  BlockedReason,
   BrowserTaskKind,
   ClaimedTask,
   ClaimerKind,
   RequestActor,
+  SiteObservation,
   TaskBlockReport,
   TaskFailureReport,
   TaskSummary,
@@ -56,7 +58,12 @@ export interface TaskOperations {
   ): { leaseExpiresAt: string };
   complete(
     taskId: string,
-    request: { workerId: string; result: unknown; usage?: TaskUsage | undefined },
+    request: {
+      workerId: string;
+      result: unknown;
+      usage?: TaskUsage | undefined;
+      site?: SiteObservation | undefined;
+    },
   ): TaskSummary;
   block(taskId: string, request: TaskBlockReport & { workerId: string }): TaskSummary;
   fail(taskId: string, request: TaskFailureReport & { workerId: string }): TaskSummary;
@@ -68,7 +75,15 @@ export interface TaskOperations {
 
 type OperationServices = Pick<
   AppServices,
-  "db" | "clock" | "targets" | "taskQueue" | "requests" | "legal" | "dispatch" | "settings"
+  | "db"
+  | "clock"
+  | "targets"
+  | "taskQueue"
+  | "requests"
+  | "legal"
+  | "dispatch"
+  | "settings"
+  | "politeness"
 >;
 
 /**
@@ -78,8 +93,18 @@ type OperationServices = Pick<
  */
 const MAX_UNPREPARABLE_TASKS = 5;
 
+/**
+ * A client that parks a task for a CAPTCHA or a bot check has told us the site is challenging it,
+ * even when it sent no observation, so the site is left alone the same as when a worker says so.
+ */
+function impliedByBlock(reason: BlockedReason): SiteObservation | undefined {
+  if (reason === "captcha") return { pushback: { kind: "captcha" } };
+  if (reason === "bot_detection") return { pushback: { kind: "challenge" } };
+  return undefined;
+}
+
 export function createTaskOperations(services: OperationServices, caller: Caller): TaskOperations {
-  const { taskQueue, clock } = services;
+  const { taskQueue, clock, politeness } = services;
 
   function summarize(task: Task): TaskSummary {
     const [summary] = taskQueue.summarize([task]);
@@ -119,17 +144,20 @@ export function createTaskOperations(services: OperationServices, caller: Caller
       return { leaseExpiresAt: task.leaseExpiresAt };
     },
 
-    complete(taskId, { workerId, result, usage }) {
+    complete(taskId, { workerId, result, usage, site }) {
       authorize(taskId);
-      return summarize(
-        taskQueue.complete(taskId, { workerId, result, usage, actor: caller.actor }),
-      );
+      return services.db.transaction(() => {
+        const done = taskQueue.complete(taskId, { workerId, result, usage, actor: caller.actor });
+        politeness.observe(done, site);
+        if (!site?.pushback) politeness.recordClean(done);
+        return summarize(done);
+      });
     },
 
-    block(taskId, { workerId, reason, detail, url, screenshot, usage }) {
+    block(taskId, { workerId, reason, detail, url, screenshot, usage, site }) {
       authorize(taskId);
-      return summarize(
-        taskQueue.block(taskId, {
+      return services.db.transaction(() => {
+        const blocked = taskQueue.block(taskId, {
           workerId,
           reason,
           detail,
@@ -137,11 +165,15 @@ export function createTaskOperations(services: OperationServices, caller: Caller
           screenshot: screenshot ? decodeScreenshot(screenshot) : undefined,
           usage,
           actor: caller.actor,
-        }),
-      );
+        });
+        const seen = site ?? impliedByBlock(reason);
+        politeness.observe(blocked, seen);
+        if (!seen?.pushback) politeness.recordClean(blocked);
+        return summarize(blocked);
+      });
     },
 
-    fail(taskId, { workerId, error, retryable, kind, step, retryAfterMs, usage }) {
+    fail(taskId, { workerId, error, retryable, kind, step, retryAfterMs, usage, site }) {
       authorize(taskId);
       if (kind === "recipe" && !caller.mayReportRecipeFailure) {
         throw invalidRequest("Only a recipe run can fail with kind recipe", [
@@ -151,18 +183,38 @@ export function createTaskOperations(services: OperationServices, caller: Caller
           },
         ]);
       }
-      return summarize(
-        taskQueue.fail(taskId, {
-          workerId,
-          error,
-          retryable,
-          kind,
-          step,
-          retryAfterMs,
-          usage,
-          actor: caller.actor,
-        }),
-      );
+      return services.db.transaction(() => {
+        const current = taskQueue.getOrThrow(taskId);
+        const outcome = politeness.observe(current, site);
+        if (outcome) {
+          // A site that pushes back is left alone until its cooldown ends: no retry on the usual
+          // backoff, no attempt used, and no hand-off to an agent that would try again sooner.
+          return summarize(
+            taskQueue.defer(taskId, {
+              workerId,
+              until: new Date(outcome.cooldownUntil),
+              reason: `${error} The site is being left alone until ${outcome.cooldownUntil}.`.slice(
+                0,
+                2000,
+              ),
+              actor: caller.actor,
+              usage,
+            }),
+          );
+        }
+        return summarize(
+          taskQueue.fail(taskId, {
+            workerId,
+            error,
+            retryable,
+            kind,
+            step,
+            retryAfterMs,
+            usage,
+            actor: caller.actor,
+          }),
+        );
+      });
     },
 
     release(taskId, { workerId, retryAfterMs }) {

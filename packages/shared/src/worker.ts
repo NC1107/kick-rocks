@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { SiteObservation } from "./scanning.js";
 import {
   BrowserTaskKind,
   ClaimedTask,
@@ -103,6 +104,8 @@ export const TaskCompleteBody = z.object({
   workerId: WorkerId,
   result: z.unknown(),
   usage: TaskUsage.optional(),
+  /** What the run saw of the site, which paces the next visit. */
+  site: SiteObservation.optional(),
 });
 export type TaskCompleteBody = z.infer<typeof TaskCompleteBody>;
 

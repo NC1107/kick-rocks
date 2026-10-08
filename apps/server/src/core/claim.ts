@@ -16,18 +16,29 @@ import {
   type RequestRight,
   resolveProfileFields,
   type ScanVariant,
+  WAIT_REASON_TEXT,
 } from "@kickrocks/shared";
 import { and, eq } from "drizzle-orm";
 import type { AppServices } from "../services.js";
 import { modelStance, tasksForModelToSkip } from "./agent-policy.js";
 import { nowIso } from "./clock.js";
+import { proxyFor } from "./egress.js";
 import { AppError, conflict, notFound } from "./errors.js";
 import { loadIdentities } from "./identities.js";
+import { reuseRecentScans } from "./scan-reuse.js";
 import type { Task } from "./task-types.js";
 
 type ClaimServices = Pick<
   AppServices,
-  "db" | "clock" | "targets" | "taskQueue" | "requests" | "legal" | "dispatch" | "settings"
+  | "db"
+  | "clock"
+  | "targets"
+  | "taskQueue"
+  | "requests"
+  | "legal"
+  | "dispatch"
+  | "settings"
+  | "politeness"
 >;
 
 export interface ClaimOptions {
@@ -314,6 +325,10 @@ export function buildClaimedTask(
     leaseExpiresAt: task.leaseExpiresAt,
     target,
     profileId: task.profileId,
+    proxyUrl: proxyFor(services.settings.get("egress"), {
+      domain: target.domain,
+      ownerKey: services.politeness.domainOf(task.targetId),
+    }),
   };
 
   switch (task.kind) {
@@ -488,6 +503,20 @@ function prepare(
 }
 
 /**
+ * A claim for one named task that comes back empty is told apart from a task that is gone: when
+ * the task is only waiting for its site, the caller learns when it may ask again.
+ */
+function throwIfWaitingForSite(services: ClaimServices, taskId: string): void {
+  const task = services.taskQueue.get(taskId);
+  const waiting = task ? services.taskQueue.waitingFor(task) : null;
+  if (waiting === null) return;
+  throw conflict(
+    "site_waiting",
+    `Kick Rocks is pacing its visits to ${waiting.domain} (${WAIT_REASON_TEXT[waiting.reason]}). Ask again after ${waiting.until}.`,
+  );
+}
+
+/**
  * Leases the next browser task and builds its claim. A task whose request has been settled since
  * it was queued is cancelled and skipped. If the claim cannot be built the task is failed on the
  * spot rather than left leased to a caller that never received it.
@@ -496,6 +525,7 @@ export function claimTask(
   services: ClaimServices,
   { workerId, kinds, leaseMs, taskId, claimerKind }: ClaimOptions,
 ): ClaimedTask | null {
+  reuseRecentScans(services);
   if (taskId !== undefined) {
     const leased = services.db.transaction(() => {
       const current = services.taskQueue.get(taskId);
@@ -512,7 +542,11 @@ export function claimTask(
         claimerKind,
       });
     });
-    return leased === null ? null : prepare(services, leased, workerId, claimerKind);
+    if (leased === null) {
+      throwIfWaitingForSite(services, taskId);
+      return null;
+    }
+    return prepare(services, leased, workerId, claimerKind);
   }
 
   for (let skipped = 0; skipped <= MAX_OBSOLETE_PER_CLAIM; skipped++) {

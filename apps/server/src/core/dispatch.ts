@@ -17,6 +17,7 @@ import { loadIdentities } from "./identities.js";
 import { newId } from "./ids.js";
 import type { RequestsService } from "./requests.js";
 import { requireProfile } from "./require-profile.js";
+import { scanSearchKey } from "./scan-reuse.js";
 import type { TargetsService } from "./targets.js";
 import type { EnqueueResult, TaskQueue } from "./task-queue.js";
 import type { Task } from "./task-types.js";
@@ -422,6 +423,7 @@ export function createDispatch({
             targetId,
             taskId: result.task.id,
             startedAt: nowIso(clock),
+            searchKey: scanSearchKey(db, clock, { profileId, targetId, recipeId, variant }),
           })
           .run();
         return { ...result, scanId };

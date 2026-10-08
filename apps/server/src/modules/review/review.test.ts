@@ -82,6 +82,7 @@ describe("GET /review", () => {
       failedTasks: [],
       agentTasks: [],
       messages: [],
+      waitingTasks: [],
     });
   });
 

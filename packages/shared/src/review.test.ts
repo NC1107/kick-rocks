@@ -28,6 +28,7 @@ describe("ReviewQueue", () => {
       "matches",
       "messages",
       "verifications",
+      "waitingTasks",
     ]);
     expect(
       ReviewQueue.parse({
@@ -37,6 +38,7 @@ describe("ReviewQueue", () => {
         failedTasks: [],
         agentTasks: [],
         messages: [],
+        waitingTasks: [],
       }).verifications,
     ).toEqual([]);
   });

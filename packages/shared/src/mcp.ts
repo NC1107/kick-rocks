@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { Recipe, RecipePurpose, RecipeRecord } from "./recipe.js";
+import { SiteObservation } from "./scanning.js";
 import { TargetDetail } from "./targets.js";
 import {
   BrowserTaskKind,
@@ -71,6 +72,7 @@ export const MCP_TOOLS = {
       taskId: TaskId,
       result: z.unknown(),
       usage: TaskUsage.optional(),
+      site: SiteObservation.optional(),
     }),
     output: TaskTransitionResponse,
   },

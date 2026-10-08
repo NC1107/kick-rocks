@@ -181,8 +181,9 @@ function failScan(services: AppServices, tx: DbHandle, task: ScanTask): void {
 export function registerScanHandlers(services: AppServices): void {
   const { taskHandlers } = services;
 
-  taskHandlers.on("scan", "completed", ({ task }, tx) => {
-    recordRecipeRun(services, tx, task.payload.recipeId, true);
+  taskHandlers.on("scan", "completed", ({ task, actor }, tx) => {
+    // The server finishes a scan itself when it reuses an earlier result, and no recipe ran.
+    if (actor !== "system") recordRecipeRun(services, tx, task.payload.recipeId, true);
     finishScan(services, tx, task.id, task.result?.candidates ?? []);
   });
 

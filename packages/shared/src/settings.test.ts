@@ -64,6 +64,8 @@ describe("SETTING_SCHEMAS", () => {
         "mcp.tokenHash",
         "retention",
         "schedule",
+        "scanning",
+        "egress",
         "siteChecks.enabled",
         "agent.takeUnreviewed",
         "worker.status.builtin",

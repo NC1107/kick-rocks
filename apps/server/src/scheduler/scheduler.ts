@@ -1,3 +1,4 @@
+import { reuseRecentScans } from "../core/scan-reuse.js";
 import { applyRetention } from "../modules/data-rights/index.js";
 import { runNotifications } from "../modules/notifications/index.js";
 import { type Runners, runnersOf } from "../runners/index.js";
@@ -66,6 +67,8 @@ export function createScheduler(
       await job("inbox-polls", () => enqueueDueInboxPolls(services));
       await job("overdue-requests", () => advanceOverdueRequests(services));
       await job("rescans", () => enqueueDueRescans(services));
+      await job("scan-reuse", () => reuseRecentScans(services));
+      await job("site-visits", () => services.politeness.prune());
       await job("canaries", () => enqueueDueCanaries(services));
       await job("notifications", () => runNotifications(services));
     }

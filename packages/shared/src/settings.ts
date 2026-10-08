@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { DataSourceId } from "./broker.js";
 import { NotificationSettings, NotificationState } from "./notifications.js";
+import { EgressPatch, EgressSettings, ScanningPatch, ScanningSettings } from "./scanning.js";
 import { WebUrl } from "./url.js";
 
 const pollMinutes = z.number().int().min(1).max(1440);
@@ -81,6 +82,8 @@ export const SETTING_SCHEMAS = {
   schedule: ScheduleSettings.default(ScheduleSettings.parse({})),
   llm: LlmSettings.nullable().default(null),
   retention: RetentionSettings.default(RetentionSettings.parse({})),
+  scanning: ScanningSettings.default(ScanningSettings.parse({})),
+  egress: EgressSettings.default(EgressSettings.parse({})),
   /** Whether the agent worker may take sites whose bundled recipe is still waiting for the person's review. */
   "agent.takeUnreviewed": z.boolean().default(false),
   "worker.status.builtin": WorkerStatus.nullable().default(null),
@@ -97,6 +100,8 @@ export const SettingsView = z.object({
   schedule: ScheduleSettings,
   llm: LlmSettingsView.nullable(),
   retention: RetentionSettings,
+  scanning: ScanningSettings,
+  egress: EgressSettings,
   mcp: z.object({
     enabled: z.boolean(),
     tokenSet: z.boolean(),
@@ -123,6 +128,8 @@ export type SettingsView = z.infer<typeof SettingsView>;
 export const SettingsPatch = z.object({
   schedule: SchedulePatch.optional(),
   retention: RetentionPatch.optional(),
+  scanning: ScanningPatch.optional(),
+  egress: EgressPatch.optional(),
   /** Null removes the LLM; an omitted apiKey keeps the stored one. */
   llm: z
     .object({
