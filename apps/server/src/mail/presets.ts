@@ -3,8 +3,9 @@ import type { ProviderPreset } from "@kickrocks/shared";
 const SUPPORTED = { supported: true, unsupportedReason: null } as const;
 
 /**
- * Daily caps sit well under the sending limit a provider publishes, and stay conservative for providers such as Yahoo that publish none, because a mailbox that sends
- * a burst of near-identical mail is what gets an app password suspended.
+ * Daily caps sit well under the sending limit a provider publishes, and stay conservative for
+ * providers such as Yahoo that publish none, because a mailbox that sends a burst of
+ * near-identical mail is what gets an app password suspended.
  */
 export const PROVIDER_PRESETS: readonly ProviderPreset[] = [
   {

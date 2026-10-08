@@ -363,7 +363,7 @@ export const STATUTE_ENTRIES: readonly StatuteEntry[] = [
     brokerNotes: GENERAL_BROKER_NOTE,
     sourceUrl: "https://legis.la.gov/legis/ViewDocument.aspx?d=1480202",
     notes:
-      "Signed 2026-05-29. The 45 day deadline, the 45 day extension and the 2027-01-01 date were read from the Act 502 text. The Revised Statutes numbers were not confirmed.",
+      "Signed 2026-05-29. The 45 day deadline, the 45 day extension and the 2027-01-01 date were read from the Act 502 text. The Act enacts R.S. 51:1780.1 through 1780.5 (Chapter 20-B of Title 51 of the Louisiana Revised Statutes), also read from the Act 502 text.",
   }),
   comprehensive({
     id: "al-apdpa",

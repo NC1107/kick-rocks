@@ -153,7 +153,7 @@ What was read directly and what was not:
   - Vermont Act 145 (S.71) as enacted: https://legislature.vermont.gov/Documents/2026/Docs/ACTS/ACT145/ACT145%20As%20Enacted.pdf
 - California and Florida were confirmed from the statute sections as quoted by other sources and from the California agency pages.
 - Indiana's 45 + 45 and its 2026-01-01 date are confirmed by the Attorney General, the enforcing agency: https://www.in.gov/attorneygeneral/files/Indiana-Consumer-Data-Protection-Consumer-Bill-of-Rights_Web.pdf
-- The Louisiana, Alabama, and Vermont (S.71) section numbers were not confirmed.
+- The Code of Alabama section numbers for HB 351 were not confirmed.
 - Connecticut's 2025 amendments (2026-07-01), Montana's 2025 amendments, Maryland's 2026 amendments, and Vermont Act 138 of 2026 (broker registration, 2027-01-01) were noted from law firm summaries.
   None changes a consumer right or deadline used here.
 

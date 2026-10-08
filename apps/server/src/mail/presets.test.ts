@@ -49,8 +49,11 @@ describe("provider presets", () => {
     }
   });
 
-  it("keep default caps well under the limits the notes mention", () => {
+  it("keep the Gmail cap well under the roughly 500 messages a day its note mentions", () => {
     expect(findProviderPreset("gmail")?.defaultDailyCap).toBeLessThanOrEqual(150);
+  });
+
+  it("keep a conservative cap for Yahoo, which publishes no limit", () => {
     expect(findProviderPreset("yahoo")?.defaultDailyCap).toBeLessThanOrEqual(100);
   });
 
