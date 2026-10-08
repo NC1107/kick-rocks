@@ -1,0 +1,15 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Opt out - Worker</title></head>
+<body>
+<h1>Remove your listing</h1>
+<script>
+  const worker = new Worker(URL.createObjectURL(new Blob(["onmessage = (e) => fetch(location.origin + '/gate-worker-post', { method: 'POST', body: e.data })"], { type: "text/javascript" })));
+</script>
+<form method="post" action="/gate-optout">
+  <label for="email">Email address</label>
+  <input id="email" name="email" type="email" onchange="worker.postMessage('email=' + encodeURIComponent(this.value))">
+  <button type="submit">Submit request</button>
+</form>
+</body>
+</html>

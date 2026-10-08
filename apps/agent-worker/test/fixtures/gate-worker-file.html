@@ -1,0 +1,13 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Opt out - Worker file</title></head>
+<body>
+<h1>Remove your listing</h1>
+<script>const worker = new Worker('/gate-worker.js');</script>
+<form method="post" action="/gate-optout">
+  <label for="email">Email address</label>
+  <input id="email" name="email" type="email" onchange="worker.postMessage('email=' + encodeURIComponent(this.value))">
+  <button type="submit">Submit request</button>
+</form>
+</body>
+</html>

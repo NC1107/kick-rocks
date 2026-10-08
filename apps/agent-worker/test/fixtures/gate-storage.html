@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Opt out - Remembered</title></head>
+<body>
+<h1>Welcome back</h1>
+<script>
+  const kept = localStorage.getItem('seed') || 'none';
+  const cookie = document.cookie.includes('seed=') ? document.cookie : 'none';
+  new Image().src = '/gate-collect?via=storage&ls=' + encodeURIComponent(kept) + '&ck=' + encodeURIComponent(cookie);
+</script>
+<form method="post" action="/gate-optout">
+  <label for="email">Email address</label>
+  <input id="email" name="email" type="email">
+  <button type="submit">Submit request</button>
+</form>
+</body>
+</html>

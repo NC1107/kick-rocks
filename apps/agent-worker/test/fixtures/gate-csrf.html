@@ -1,0 +1,15 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Opt out - Tokens</title></head>
+<body>
+<h1>Remove your listing</h1>
+<form method="post" action="/gate-optout">
+  <input type="hidden" name="csrf" value="{{CSRF}}">
+  <input type="hidden" id="nonce" name="nonce" value="">
+  <label for="email">Email address</label>
+  <input id="email" name="email" type="email">
+  <button type="button" onclick="document.getElementById('nonce').value = Array.from(crypto.getRandomValues(new Uint8Array(18)), (b) => b.toString(16).padStart(2, '0')).join('')">Prepare request</button>
+  <button type="submit">Submit request</button>
+</form>
+</body>
+</html>

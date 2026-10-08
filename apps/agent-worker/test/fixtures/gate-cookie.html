@@ -1,0 +1,13 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Opt out - Cookie</title></head>
+<body>
+<h1>Remove your listing</h1>
+<form method="post" action="/gate-optout">
+  <label for="email">Email address</label>
+  <input id="email" name="email" type="email"
+         onchange="document.cookie = 'em=' + encodeURIComponent(this.value) + '; path=/'; new Image().src = '/gate-pixel?x=1'">
+  <button type="submit">Submit request</button>
+</form>
+</body>
+</html>

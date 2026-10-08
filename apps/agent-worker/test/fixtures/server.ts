@@ -1,7 +1,9 @@
+import { createHash, randomBytes } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import type { AddressInfo } from "node:net";
 import { dirname, join } from "node:path";
+import type { Duplex } from "node:stream";
 import { fileURLToPath } from "node:url";
 
 /**
@@ -44,11 +46,19 @@ export interface Submission {
 export interface Hit {
   host: string;
   path: string;
+  method: string;
+  /** The query string, without the question mark, so a test sees what a GET carried. */
+  search: string;
+  /** The raw body of a request that had one, so a test sees what a POST carried. */
+  body: string;
 }
 
 export interface FixtureState {
   submissions: Submission[];
   hits: Hit[];
+  /** Every WebSocket handshake the site accepted, and the text of every frame it then received. */
+  wsUpgrades: string[];
+  wsFrames: string[];
 }
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -108,7 +118,72 @@ const PAGES: Record<string, string> = {
   "/dob-selects": "dob-selects.html",
   "/many-links": "many-links.html",
   "/huge-page": "huge-page.html",
+  "/gate-form": "gate-form.html",
+  "/gate-delayed": "gate-delayed.html",
+  "/gate-delayed-submit": "gate-delayed-submit.html",
+  "/gate-get": "gate-get.html",
+  "/gate-worker": "gate-worker.html",
+  "/gate-encode": "gate-encode.html",
+  "/gate-custom": "gate-custom.html",
+  "/gate-step1": "gate-step1.html",
+  "/gate-ws": "gate-ws.html",
+  "/gate-nav": "gate-nav.html",
+  "/gate-seed": "gate-seed.html",
+  "/gate-storage": "gate-storage.html",
+  "/gate-cookie": "gate-cookie.html",
+  "/gate-third": "gate-third.html",
+  "/gate-beacon": "gate-beacon.html",
+  "/gate-worker-nested": "gate-worker-nested.html",
+  "/gate-worker-file": "gate-worker-file.html",
+  "/gate-shared": "gate-shared.html",
+  "/gate-cross": "gate-cross.html",
+  "/gate-frame": "gate-frame.html",
+  "/gate-long": "gate-long.html",
+  "/gate-noisy": "gate-noisy.html",
 };
+
+/** Scripts the gate pages load, served with a script type. */
+const SCRIPTS: Record<string, string> = {
+  "/gate-worker.js": "gate-worker.js",
+  "/gate-worker-outer.js": "gate-worker-outer.js",
+  "/gate-worker-inner.js": "gate-worker-inner.js",
+  "/gate-shared.js": "gate-shared.js",
+};
+
+function token(): string {
+  return randomBytes(18).toString("base64url");
+}
+
+function acceptKey(key: string): string {
+  return createHash("sha1").update(`${key}258EAFA5-E914-47DA-95CA-C5AB0DC85B11`).digest("base64");
+}
+
+/** Reads the text frames a client sends; masked, short or long, which is all a test page sends. */
+function readFrames(buffer: Buffer): string[] {
+  const frames: string[] = [];
+  let offset = 0;
+  while (offset + 2 <= buffer.length) {
+    const opcode = (buffer[offset] ?? 0) & 0x0f;
+    let length = (buffer[offset + 1] ?? 0) & 0x7f;
+    const masked = ((buffer[offset + 1] ?? 0) & 0x80) !== 0;
+    offset += 2;
+    if (length === 126) {
+      length = buffer.readUInt16BE(offset);
+      offset += 2;
+    } else if (length === 127) {
+      length = Number(buffer.readBigUInt64BE(offset));
+      offset += 8;
+    }
+    const mask = masked ? buffer.subarray(offset, offset + 4) : null;
+    offset += masked ? 4 : 0;
+    const payload = Buffer.from(buffer.subarray(offset, offset + length));
+    offset += length;
+    if (mask)
+      for (let i = 0; i < payload.length; i++) payload[i] = (payload[i] ?? 0) ^ (mask[i % 4] ?? 0);
+    if (opcode === 1) frames.push(payload.toString("utf8"));
+  }
+  return frames;
+}
 
 function escapeHtml(text: string): string {
   return text.replace(/[&<>"]/g, (c) => `&#${c.charCodeAt(0)};`);
@@ -123,6 +198,7 @@ function renderPage(
     ORIGIN: hosts.origin,
     OFFSITE: hosts.offsite,
     OTHER: hosts.other,
+    PORT: new URL(hosts.origin).port,
     GREETING: "",
     ...extra,
   };
@@ -140,10 +216,14 @@ function longPage(): string {
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Long page</title></head><body><h1>Long page</h1>${paragraphs.join("")}<button type="button">Last button</button></body></html>`;
 }
 
-async function readForm(request: IncomingMessage): Promise<Record<string, string>> {
+async function readBody(request: IncomingMessage): Promise<string> {
   const chunks: Buffer[] = [];
   for await (const chunk of request) chunks.push(chunk as Buffer);
-  return Object.fromEntries(new URLSearchParams(Buffer.concat(chunks).toString("utf8")));
+  return Buffer.concat(chunks).toString("utf8");
+}
+
+function parseForm(body: string): Record<string, string> {
+  return Object.fromEntries(new URLSearchParams(body));
 }
 
 function send(response: ServerResponse, status: number, body: string, type = "text/html") {
@@ -157,7 +237,7 @@ export function startFixtureServer(): Promise<{
   port: number;
   close: () => Promise<void>;
 }> {
-  const state: FixtureState = { submissions: [], hits: [] };
+  const state: FixtureState = { submissions: [], hits: [], wsUpgrades: [], wsFrames: [] };
 
   const server = createServer(async (request, response) => {
     const hosts = originsOf((server.address() as AddressInfo).port);
@@ -170,9 +250,20 @@ export function startFixtureServer(): Promise<{
     if (path === "/__reset") {
       state.submissions = [];
       state.hits = [];
+      state.wsUpgrades = [];
+      state.wsFrames = [];
       return send(response, 200, "{}", "application/json");
     }
-    if (path !== "/favicon.ico") state.hits.push({ host, path });
+    const body = request.method === "POST" ? await readBody(request) : "";
+    if (path !== "/favicon.ico") {
+      state.hits.push({
+        host,
+        path,
+        method: request.method ?? "GET",
+        search: url.search.slice(1),
+        body,
+      });
+    }
 
     if (path === "/hop307") {
       // A 307 keeps the method and the body, so a form posted here is posted again at the target.
@@ -186,9 +277,21 @@ export function startFixtureServer(): Promise<{
       });
       return response.end();
     }
+    if (path === "/gate-collect") {
+      state.submissions.push({ path, host, fields: Object.fromEntries(url.searchParams) });
+      return send(response, 200, "{}", "application/json");
+    }
+    if (path in SCRIPTS) {
+      return send(response, 200, page(SCRIPTS[path] ?? ""), "text/javascript");
+    }
+    if (path === "/gate-csrf")
+      return send(response, 200, page("gate-csrf.html", { CSRF: token() }));
     if (request.method === "POST") {
-      state.submissions.push({ path, host, fields: await readForm(request) });
+      state.submissions.push({ path, host, fields: parseForm(body) });
       if (path === "/slow") await new Promise((done) => setTimeout(done, SLOW_RESPONSE_MS));
+      if (path === "/gate-step1-post") {
+        return send(response, 200, page("gate-step2.html", { TICKET: token() }));
+      }
       return send(response, 200, page("confirmation.html"));
     }
     if (path === "/hang") return;
@@ -224,6 +327,27 @@ export function startFixtureServer(): Promise<{
     const file = PAGES[path];
     if (file) return send(response, 200, page(file));
     return send(response, 404, "<!doctype html><title>Not found</title><h1>Not found</h1>");
+  });
+
+  server.on("upgrade", (request: IncomingMessage, socket: Duplex) => {
+    const key = request.headers["sec-websocket-key"];
+    state.wsUpgrades.push(request.url ?? "");
+    if (typeof key !== "string") {
+      socket.destroy();
+      return;
+    }
+    socket.write(
+      [
+        "HTTP/1.1 101 Switching Protocols",
+        "Upgrade: websocket",
+        "Connection: Upgrade",
+        `Sec-WebSocket-Accept: ${acceptKey(key)}`,
+        "",
+        "",
+      ].join("\r\n"),
+    );
+    socket.on("data", (data: Buffer) => state.wsFrames.push(...readFrames(data)));
+    socket.on("error", () => undefined);
   });
 
   return new Promise((resolve, reject) => {

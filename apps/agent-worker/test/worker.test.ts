@@ -67,6 +67,17 @@ function fakeServer(task: ReturnType<typeof agentTask> | null, profileIds?: stri
     if (url.pathname.endsWith("/heartbeat")) {
       return json({ leaseExpiresAt: "2026-10-07T00:10:00.000Z" });
     }
+    if (url.pathname.endsWith("/sends")) {
+      const items = (JSON.parse(String(init?.body)) as { items: { kind: string }[] }).items;
+      return json({
+        sends: items.map((item, index) => ({
+          id: `send-${seen.length}-${index}`,
+          status: item.kind === "held" ? "pending_live" : "done",
+          expiresAt: null,
+        })),
+      });
+    }
+    if (url.pathname.endsWith("/decision")) return json({ status: "expired" });
     return json({ task: summary(task?.id ?? "x") });
   };
   return {
@@ -227,7 +238,10 @@ describeBrowser("the agent worker end to end", () => {
   });
 
   it("stops a removal that needs approval at the send button without saying a form may have gone out", async () => {
-    const task = agentTask({ submitApproval: "required" });
+    const task = agentTask({
+      submitApproval: "required",
+      submitGate: { mode: "hold", holdMs: 300, approved: [], declined: [] },
+    });
     const server = fakeServer(task);
     await runOnce(server, [
       { calls: [["navigate", { url: `${ORIGIN}/optout` }]] },
@@ -249,11 +263,14 @@ describeBrowser("the agent worker end to end", () => {
     expect(flagged).toHaveLength(0);
     const [block] = server.transitions();
     expect(block?.path).toBe(`/api/worker/tasks/${task.id}/block`);
-    expect(TaskBlockBody.parse(block?.body)).toMatchObject({
-      reason: "approval_needed",
-      control: "Submit request",
-      fingerprint: expect.stringMatching(/^[0-9a-f]{32}$/),
-    });
+    expect(TaskBlockBody.parse(block?.body)).toMatchObject({ reason: "approval_needed" });
+    const held = server.seen.find(
+      (entry) =>
+        entry.path === `/api/worker/tasks/${task.id}/sends` &&
+        (entry.body as { items: { kind: string }[] }).items[0]?.kind === "held",
+    );
+    expect(JSON.stringify(held?.body)).toContain("{{email}}");
+    expect(JSON.stringify(held?.body)).not.toContain("jordan.example@example.com");
     expect((await fixtureState()).submissions).toHaveLength(0);
   });
 
