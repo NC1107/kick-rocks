@@ -390,6 +390,20 @@ describeBrowser("the outgoing gate end to end with the real server", () => {
       expect(JSON.stringify(held.map((row) => row.request))).not.toContain("jordan@example.com");
     });
 
+    it("holds a value placed in a query key, a header name or a subdomain label", async () => {
+      const taskId = await startServer("/gate-keys", true);
+      const done = await workOnce(taskId, [open("/gate-keys"), typeEmail, wait(2), snap, giveBack]);
+      expect(done.status).toBe("blocked");
+      const state = await fixtureState();
+      expect(state.hits.filter((hit) => hit.path === "/gate-collect")).toEqual([]);
+      const held = rowsOf(taskId).filter((row) => row.kind === "held");
+      const requests = held.map((row) => row.request).filter((request) => "query" in request);
+      expect(requests.some((r) => r.query.some((entry) => entry.path.includes("{{")))).toBe(true);
+      expect(requests.some((r) => r.headers.some((entry) => entry.path.includes("{{")))).toBe(true);
+      expect(requests.some((r) => r.host.includes("{{"))).toBe(true);
+      expect(JSON.stringify(held.map((row) => row.request))).not.toContain("jordan@example.com");
+    });
+
     it("refuses a value sent to another site and never offers it for approval", async () => {
       const taskId = await startServer("/gate-cross", true);
       await workOnce(taskId, [open("/gate-cross"), typeEmail, wait(2), giveBack]);

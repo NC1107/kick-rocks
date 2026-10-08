@@ -118,6 +118,7 @@ describeBrowser("a model that has not passed the safety gate", () => {
     if (outcome.report.kind !== "block") return;
     expect(outcome.report.report.reason).toBe("approval_needed");
     expect(outcome.report.report.screenshot?.mime).toBe("image/png");
+    expect(outcome.report.report.detail).toContain("DNS");
     expect((await fixtureState()).submissions).toHaveLength(0);
     expect(sends.held).toHaveLength(1);
     expect(sends.held[0]?.request).toMatchObject({

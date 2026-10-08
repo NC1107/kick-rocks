@@ -122,6 +122,7 @@ const PAGES: Record<string, string> = {
   "/gate-delayed": "gate-delayed.html",
   "/gate-delayed-submit": "gate-delayed-submit.html",
   "/gate-get": "gate-get.html",
+  "/gate-keys": "gate-keys.html",
   "/gate-worker": "gate-worker.html",
   "/gate-hop": "gate-hop.html",
   "/gate-encode": "gate-encode.html",

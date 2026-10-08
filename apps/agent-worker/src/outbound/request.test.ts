@@ -54,6 +54,47 @@ function canonical(
   });
 }
 
+describe("canonicalize places other than a value", () => {
+  const EMAIL = "jordan.example@example.com";
+  const hex = Buffer.from(EMAIL).toString("hex");
+  const get = (url: string, headers: Record<string, string> = {}, party?: "target" | "third") =>
+    canonical(
+      paused({ url, method: "GET", headers }),
+      { bytes: null, present: false, unreadable: false },
+      new ServedValues(),
+      party,
+    );
+
+  it("carries a value that is a query key and hides it in what is stored", () => {
+    const { request, scan } = get(`https://broker.test/s?${encodeURIComponent(EMAIL)}=1`);
+    expect(scan.contact).toBe(true);
+    expect(request.carries).toContain("email");
+    expect(JSON.stringify(request)).not.toContain(EMAIL);
+    expect(JSON.stringify(request)).not.toContain("jordan.example%40");
+  });
+
+  it("carries a value that is a query key and is packed", () => {
+    const { request, scan } = get(`https://broker.test/s?${hex}=1`);
+    expect(scan.contact).toBe(true);
+    expect(request.query[0]?.path).toMatch(/^\{\{email.*\}\} \(encoded\)$/);
+    expect(JSON.stringify(request)).not.toContain(hex);
+  });
+
+  it("carries a value that is a header name", () => {
+    const { request, scan } = get("https://broker.test/s", { [`x-${hex}`]: "1" });
+    expect(scan.contact).toBe(true);
+    expect(request.headers[0]?.path).toMatch(/^\{\{email.*\}\} \(encoded\)$/);
+    expect(JSON.stringify(request)).not.toContain(hex);
+  });
+
+  it("carries a value that is a subdomain label of the target", () => {
+    const { request, scan } = get(`https://${hex}.broker.test/s`, {}, "target");
+    expect(scan.contact).toBe(true);
+    expect(request.host).toMatch(/^\{\{email.*\}\} \(encoded\)/);
+    expect(JSON.stringify(request)).not.toContain(hex);
+  });
+});
+
 describe("canonicalize", () => {
   it("shows a form body with the person's values as placeholders", () => {
     const { request } = canonical(

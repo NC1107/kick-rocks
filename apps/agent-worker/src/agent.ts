@@ -69,7 +69,7 @@ const LIVE_CONNECTION_COPY =
   "This site needs a live connection the safety gate does not allow. Finish it yourself, or clear the model.";
 /** What the gate lets through without asking, said wherever a person is asked to trust it. */
 const GATE_LIMITS_COPY =
-  "The gate lets a name, city, state, ZIP, year or record link through in a search without asking, and it cannot see a value that the page itself scrambles before sending it in a plain GET.";
+  "The gate lets a name, city, state, ZIP, year or record link through in a search without asking, and it cannot see a value that the page itself scrambles before sending it in a plain GET, and it cannot stop a host name that carries a value from reaching a DNS server.";
 const OMITTED_SNAPSHOT = "(An earlier page snapshot was left out. Use the latest one.)";
 const NEEDS_A_CLICK = new Set(["submitted", "awaiting_email_confirmation"]);
 

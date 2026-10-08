@@ -302,6 +302,16 @@ export function canonicalize(input: CanonicalizeInput): Canonical {
   };
 
   const leafOf = (path: string, raw: string, scan: Scan): OutgoingValue => {
+    const named = detector.scan([path]);
+    if (named.fields.length > 0) {
+      const hidden = mask(path);
+      return {
+        path: hidden === path ? `{{${named.fields.join("+")}}} (encoded)` : hidden,
+        value: clip(mask(raw)),
+        class: "profile",
+        fields: [...new Set([...scan.fields, ...named.fields])].sort() as CarriedField[],
+      };
+    }
     if (scan.fields.length > 0) {
       const whole = detector.fieldOfWhole(raw);
       const masked = whole === null ? mask(raw) : `{{${whole}}}`;
@@ -316,14 +326,17 @@ export function canonicalize(input: CanonicalizeInput): Canonical {
   const scanEach = (leaves: readonly Leaf[]): OutgoingValue[] =>
     leaves
       .slice(0, MAX_ENTRIES)
-      .map((leaf) => leafOf(leaf.path, leaf.value, noteScan(detector.scan([leaf.value]))));
+      .map((leaf) =>
+        leafOf(leaf.path, leaf.value, noteScan(detector.scan([leaf.path, leaf.value]))),
+      );
 
   const query = scanEach([...url.searchParams].map(([path, value]) => ({ path, value })));
+  const searchScan = noteScan(detector.scan([url.search, safeDecode(url.search)]));
   const segments = url.pathname.split("/").filter((segment) => segment !== "");
   const pathScan = noteScan(
     detector.scan([...segments.map((segment) => safeDecode(segment)), url.pathname]),
   );
-  const hostScan = party === "third" ? noteScan(detector.scan([url.hostname])) : emptyScan();
+  const hostScan = noteScan(detector.scan([url.hostname]));
 
   const shaped = shapeBody(body, contentType, encoding);
   const bodyValues = scanEach(shaped.leaves);
@@ -338,7 +351,7 @@ export function canonicalize(input: CanonicalizeInput): Canonical {
     const lower = name.toLowerCase();
     if (lower === "cookie" || (lower === "referer" && party === "target")) continue;
     if (headerValues.length >= MAX_HEADERS) break;
-    const scan = noteScan(detector.scan([value]));
+    const scan = noteScan(detector.scan([lower, value]));
     if (scan.fields.length > 0) headerValues.push(leafOf(lower, value, scan));
   }
   for (const cookie of cookies) {
@@ -348,12 +361,19 @@ export function canonicalize(input: CanonicalizeInput): Canonical {
       headerValues.push(leafOf(`cookie:${cookie.name}`, cookie.value, scan));
   }
 
+  const hostMasked = mask(url.host);
+  const hostShown =
+    hostScan.fields.length > 0 && hostMasked === url.host
+      ? `{{${hostScan.fields.join("+")}}} (encoded)`
+      : hostMasked;
+
   const fields = [...carried].sort();
-  const overflow = rawScan.overflow || pathScan.overflow || hostScan.overflow;
+  const overflow =
+    rawScan.overflow || pathScan.overflow || hostScan.overflow || searchScan.overflow;
   const request: OutgoingRequest = {
     method,
     scheme: url.protocol.replace(":", ""),
-    host: url.host,
+    host: hostShown,
     path: clip(mask(url.pathname)),
     resourceType: event.resourceType,
     isDocument: event.resourceType === "Document",
@@ -374,10 +394,6 @@ export function canonicalize(input: CanonicalizeInput): Canonical {
     overflow,
   };
   return { request, scan, body, method, url: event.request.url };
-}
-
-function emptyScan(): Scan {
-  return { fields: [], contact: false, lookup: false, overflow: false };
 }
 
 function safeDecode(text: string): string {
