@@ -293,4 +293,7 @@ Simple opt out is a great reference but its license doesn't allow bundling, so n
 ## License
 
 PolyForm Noncommercial 1.0.0.
+The broker data bundled in `packages/brokers/data` has its own licenses.
+The generated broker dataset and `upstream/BADBOOL-README.md` are CC BY-NC-SA 4.0, `upstream/eraser-brokers.yaml` is MIT, and the California registry is a public record.
+`packages/brokers/data/NOTICE.md` has the details and the attribution that has to travel with the data.
 Use it, change it, host it for your friends, just don't sell it.

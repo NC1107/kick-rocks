@@ -455,7 +455,7 @@ export default defineMockDomain({
         notes: seed.notes ?? null,
         sources:
           category === "registered-broker"
-            ? [{ source: "ca-registry-2025", license: "public-record" }]
+            ? [{ source: "ca-registry-2026", license: "public-record" }]
             : category === "people-search" || category === "background-check"
               ? [{ source: "badbool", license: "CC-BY-NC-SA-4.0" }]
               : [{ source: "eraser", license: "MIT" }],

@@ -162,6 +162,12 @@ export const DATA_SOURCE_DETAILS: Record<
   },
   "ca-registry-2025": {
     name: "California Data Broker Registry 2025",
+    url: "https://cppa.ca.gov/data_broker_registry/registry2025.csv",
+    license: "Public record",
+    attribution: null,
+  },
+  "ca-registry-2026": {
+    name: "California Data Broker Registry 2026",
     url: "https://cppa.ca.gov/data_broker_registry/",
     license: "Public record",
     attribution: null,

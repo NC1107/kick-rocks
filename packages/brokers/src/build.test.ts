@@ -1,4 +1,9 @@
-import { needsRecord, normalizeDomain, RECORD_NOT_NEEDED } from "@kickrocks/shared";
+import {
+  needsRecord,
+  normalizeDomain,
+  RECORD_NOT_NEEDED,
+  rightsPageAsForm,
+} from "@kickrocks/shared";
 import { describe, expect, it } from "vitest";
 import { buildDataset, loadPinnedIds, pinNewIds } from "./build.js";
 import { readPinnedUpstream } from "./upstream.js";
@@ -64,7 +69,7 @@ describe("the generated broker dataset", () => {
     expect(byId.get("smartbackgroundchecks")?.domain).toBe("smartbackgroundchecks.com");
   });
 
-  it("leaves Radaris out because the BADBOOL list dropped it when its domains were transferred", () => {
+  it("leaves Radaris out because the BADBOOL list dropped it", () => {
     expect(dataset.brokers.some((broker) => broker.domain === "radaris.com")).toBe(false);
   });
 
@@ -73,10 +78,51 @@ describe("the generated broker dataset", () => {
     expect(whitepages?.sources.map((source) => source.source)).toEqual([
       "badbool",
       "eraser",
-      "ca-registry-2025",
+      "ca-registry-2026",
     ]);
     expect(whitepages?.optOutUrl).toBe("https://www.whitepages.com/suppression_requests");
     expect(whitepages?.priority).toBe("crucial");
+  });
+
+  it("applies the hand-checked corrections over the imported contacts", () => {
+    const byDomain = new Map(dataset.brokers.map((broker) => [broker.domain, broker]));
+    expect(byDomain.get("thebridgecorp.com")?.privacyEmail).toBe("privacy@thebridgecorp.com");
+    expect(byDomain.get("choreograph.com")).toMatchObject({
+      privacyEmail: "privacy@choreograph.com",
+      privacyRightsUrl: "https://www.choreograph.com/ccpa",
+    });
+    expect(byDomain.get("foursquare.com")?.privacyEmail).toBe("privacy@foursquare.com");
+    expect(byDomain.get("nctue.com")?.privacyEmail).toBe("admin@nctue.com");
+    expect(byDomain.get("mlxp.com")).toMatchObject({
+      privacyEmail: "privacy@mailinglists.com",
+      website: "https://mailinglists.com",
+    });
+  });
+
+  it("keeps the infinite-media-concepts id when mlxp.com is corrected, so open requests still resolve", () => {
+    const byId = new Map(dataset.brokers.map((broker) => [broker.id, broker]));
+    expect(byId.get("infinite-media-concepts")?.domain).toBe("mlxp.com");
+    expect(pinned["mlxp.com"]).toBe("infinite-media-concepts");
+  });
+
+  it("keeps plug-industries by its only official contact and sends nobody to a home page as a form", () => {
+    const plug = dataset.brokers.find((broker) => broker.domain === "plug-industries.com");
+    expect(plug?.sources.map((source) => source.source)).toEqual(["ca-registry-2026"]);
+    expect(plug).toMatchObject({
+      privacyEmail: "blakehogan@plug-industries.com",
+      privacyRightsUrl: null,
+      contactMethod: "email",
+    });
+  });
+
+  it("never calls a registry rights page that is a bare home page a form", () => {
+    const homePageForms = dataset.brokers.filter(
+      (broker) =>
+        broker.contactMethod === "form" &&
+        broker.optOutUrl === null &&
+        rightsPageAsForm(broker.privacyRightsUrl) === null,
+    );
+    expect(homePageForms.map((broker) => broker.id)).toEqual([]);
   });
 
   it("fills a field BADBOOL lacks from Eraser", () => {
@@ -86,7 +132,14 @@ describe("the generated broker dataset", () => {
 
   it("puts curated records after every import", () => {
     const clustrmaps = dataset.brokers.find((broker) => broker.id === "clustrmaps");
-    expect(clustrmaps?.sources.map((source) => source.source)).toEqual(["kickrocks"]);
+    expect(clustrmaps?.sources.at(-1)?.source).toBe("kickrocks");
+  });
+
+  it("leaves out the sites BADBOOL dropped and the domains of company targets", () => {
+    const domains = new Set(dataset.brokers.map((broker) => broker.domain));
+    for (const domain of ["rehold.com", "opendatausa.com", "salesforce.com", "shopify.com"]) {
+      expect(domains.has(domain), domain).toBe(false);
+    }
   });
 
   it("refuses to build from a README that no longer matches its pin", () => {

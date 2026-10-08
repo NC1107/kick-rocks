@@ -11,13 +11,16 @@ export const UPSTREAM_DIR = resolve(
   "upstream",
 );
 
-const PinnedUpstream = z.object({
-  commit: z.string().regex(/^[0-9a-f]{40}$/),
-  files: z.record(
-    z.string(),
-    z.object({ path: z.string(), sha256: z.string().regex(/^[0-9a-f]{64}$/) }),
-  ),
-});
+const PinnedFiles = z.record(
+  z.string(),
+  z.object({ path: z.string(), sha256: z.string().regex(/^[0-9a-f]{64}$/) }),
+);
+
+/** A repository file is pinned by commit; a plain download by the URL it came from and the day it was fetched. */
+const PinnedUpstream = z.union([
+  z.object({ commit: z.string().regex(/^[0-9a-f]{40}$/), files: PinnedFiles }),
+  z.object({ url: z.url(), retrievedAt: z.iso.date(), files: PinnedFiles }),
+]);
 
 /**
  * Reads a pinned upstream file and refuses one that no longer matches its recorded hash, so a hand

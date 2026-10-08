@@ -59,6 +59,7 @@ const LICENSE_LABELS: Record<DataSource["license"], string> = {
 const SOURCE_LABELS: Record<DataSource["source"], string> = {
   eraser: "Eraser broker list",
   "ca-registry-2025": "California Data Broker Registry 2025",
+  "ca-registry-2026": "California Data Broker Registry 2026",
   badbool: "Big Ass Data Broker Opt-Out List",
   kickrocks: "Kick Rocks broker data",
   "kickrocks-companies": "Kick Rocks company list",

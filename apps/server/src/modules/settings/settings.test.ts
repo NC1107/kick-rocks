@@ -429,7 +429,7 @@ describe("GET /settings/data-sources", () => {
       if (!result.ok) throw new Error("data sources failed");
       return Object.fromEntries(result.body.sources.map((s) => [s.id, s.targetCount]));
     };
-    expect(await counts()).toMatchObject({ eraser: 2, badbool: 1, "ca-registry-2025": 0 });
+    expect(await counts()).toMatchObject({ eraser: 2, badbool: 1, "ca-registry-2026": 0 });
 
     ctx.services.db.update(targets).set({ retired: true }).run();
     expect(await counts()).toMatchObject({ eraser: 0, badbool: 0 });
