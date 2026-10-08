@@ -6,9 +6,9 @@ import { ThemeToggle } from "./ThemeToggle.js";
 export function PublicLayout() {
   return (
     <div className="flex min-h-dvh flex-col px-gutter py-6">
-      <div className="flex justify-end">
+      <header className="flex justify-end">
         <ThemeToggle />
-      </div>
+      </header>
       <main id="main" className="m-auto flex w-full max-w-sm flex-col gap-6 py-10">
         <Logo className="self-center" />
         <Outlet />
