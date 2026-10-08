@@ -6,33 +6,13 @@
   },
   {
     "check": "email_evidence",
-    "id": "buildertrend-solutions",
-    "reason": "The reply names the form section of the privacy notice, and the opt-out link on file is that notice and not a form, so dropping the email would leave the request with nowhere to go."
-  },
-  {
-    "check": "email_evidence",
     "id": "captify-technologies",
     "reason": "The same note says a live team inbox was found on 2026-08-20 and email is worth retrying, so email is the intended primary channel."
   },
   {
     "check": "email_evidence",
-    "id": "famous-birthdays",
-    "reason": "The reply came from info@ and speaks about that address only, and the form on file is a general contact page."
-  },
-  {
-    "check": "email_evidence",
     "id": "meltwater-news-us",
     "reason": "The note says the broker's own CCPA flow runs through a form or privacy@meltwater.com, which is the address on file."
-  },
-  {
-    "check": "email_evidence",
-    "id": "lender-feed",
-    "reason": "The reply asks for a deletion form whose address was not captured, and the link on file is only the privacy policy, so there is no confirmed form to switch to."
-  },
-  {
-    "check": "email_evidence",
-    "id": "seamless-contacts",
-    "reason": "The note says the address does accept a follow-up reply that carries the person's details, so email stays usable."
   },
   {
     "check": "owner_group",
@@ -53,5 +33,10 @@
     "check": "owner_group",
     "id": "peoplefindersdaas",
     "reason": "A business data service filed as marketing by the California registry, with no public listing to scan."
+  },
+  {
+    "check": "scan_not_planned",
+    "id": "whitepages",
+    "reason": "Removal needs a phone call, which Kick Rocks cannot place, and the pinned Eraser note records that its only email bounced on 2026-08-20. With the bounced registry address no longer backfilled there is no channel it can send, so skipping it as unsupported is the honest plan, and scanning for a listing it cannot remove would only mislead."
   }
 ]

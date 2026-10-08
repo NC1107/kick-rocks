@@ -89,11 +89,17 @@ const FORM_ONLY_REPLY = [
   /\b(direct|point|refer|redirect|route)(s|ed)?\b[^.]{0,80}\b(form|portal|webform|privacy center|dsar)\b/i,
   new RegExp(`${MAIL_WORD} requests require`, "i"),
   /\bdoes not respond to\b|\bno longer evaluate requests\b/i,
+  /\b(will|does|do) not (be )?(processed|process)\b/i,
+  /\bnot intended for (privacy|deletion|opt-?out|removal)/i,
+  /\bdesignated (channel|method)\b/i,
+  new RegExp(`(unable to|cannot|can.t|not able to) act on ${MAIL_WORD}`, "i"),
+  /\b(go|goes|going|submitted|submit)\b[^.]{0,40}\b(through|via|by)\b[^.]{0,60}\b(page|portal|form|web form|webform)\b/i,
 ];
 const SAYS_USE_FORM =
   /\b(use|via|through|go to|complete|fill)\b.{0,60}\b(form|portal|opt_out_url|web form)\b/i;
-const NAMES_OTHER_ADDRESS =
-  /\b(corrected to|updated to|is the address|found [^ ]+@|current one|now live|no longer in use|pointed to [^ ]+@|worth retrying)\b/i;
+const POINTS_TO_ADDRESS =
+  /\b(corrected to|updated to|is the address|found [^ ]+@|now live|no longer in use|pointed to [^ ]+@)\b/i;
+const EMAIL_WORTH_RETRYING = /\bworth retrying\b/i;
 
 const EMAIL_IN_TEXT = /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g;
 
@@ -223,9 +229,23 @@ function flagContradictions(rows: TargetRow[], recipes: RecipeSummary[]): Contra
   });
 }
 
+/** Whether one sentence of a note says the address the planner would send to is not the way in. */
+export function sentenceContradictsEmail(sentence: string, current: string): boolean {
+  return bounceHitsCurrentAddress(sentence, current) || replyHitsEmail(sentence, current);
+}
+
 /** Whether a bounce sentence is about the address the planner would still send to. */
+/** Whether the sentence names an address other than the one the planner sends to; a replaced URL does not count. */
+function namesOtherAddress(sentence: string, current: string): boolean {
+  if (EMAIL_WORTH_RETRYING.test(sentence)) return true;
+  if (!POINTS_TO_ADDRESS.test(sentence)) return false;
+  return (sentence.match(EMAIL_IN_TEXT) ?? []).some(
+    (address) => address.toLowerCase() !== current.toLowerCase(),
+  );
+}
+
 function bounceHitsCurrentAddress(sentence: string, current: string): boolean {
-  if (!BOUNCE.test(sentence) || NAMES_OTHER_ADDRESS.test(sentence) || TRANSIENT.test(sentence)) {
+  if (!BOUNCE.test(sentence) || namesOtherAddress(sentence, current) || TRANSIENT.test(sentence)) {
     return false;
   }
   const bounceAt = sentence.search(BOUNCE);
@@ -238,9 +258,9 @@ function bounceHitsCurrentAddress(sentence: string, current: string): boolean {
   return SAYS_USE_FORM.test(sentence) || /no working email/i.test(sentence);
 }
 
-function replyHitsEmail(sentence: string): boolean {
+function replyHitsEmail(sentence: string, current: string): boolean {
   if (
-    NAMES_OTHER_ADDRESS.test(sentence) ||
+    namesOtherAddress(sentence, current) ||
     TRANSIENT.test(sentence) ||
     IDENTIFIER_ONLY.test(sentence)
   ) {
@@ -260,9 +280,8 @@ function emailContradictions(rows: TargetRow[], plans: Plan[]): Contradiction[] 
     if (!emailed.has(row.id) || !notes || row.privacyEmail === null || row.optOutUrl === null) {
       return [];
     }
-    const hit = sentencesOf(notes).find(
-      (sentence) =>
-        bounceHitsCurrentAddress(sentence, row.privacyEmail as string) || replyHitsEmail(sentence),
+    const hit = sentencesOf(notes).find((sentence) =>
+      sentenceContradictsEmail(sentence, row.privacyEmail as string),
     );
     return hit ? [{ check: "email_evidence" as const, id: row.id, detail: hit.slice(0, 200) }] : [];
   });
