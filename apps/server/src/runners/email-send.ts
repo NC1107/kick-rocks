@@ -211,8 +211,12 @@ export class EmailRunner {
         .set({ lastError: `Sending is paused: ${describeError(error)}` })
         .where(eq(mailboxes.id, mailboxId))
         .run();
-      if (neverSent) taskQueue.release(task.id, { workerId: EMAIL_WORKER_ID, runAfter: until });
-      else this.fail(task, request, error, { retryable: true, kind: "network" });
+      // A send that outlived its lease was already requeued by the reaper, and only a live lease can be released.
+      if (neverSent) {
+        if (taskQueue.getOrThrow(task.id).status === "leased") {
+          taskQueue.release(task.id, { workerId: EMAIL_WORKER_ID, runAfter: until });
+        }
+      } else this.fail(task, request, error, { retryable: true, kind: "network" });
     });
   }
 

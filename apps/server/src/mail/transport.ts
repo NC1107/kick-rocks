@@ -53,6 +53,16 @@ const REFUSED_BEFORE_DATA_CODES = new Set([
 ]);
 
 /**
+ * Nodemailer reports a refused or unreachable connect as ESOCKET and drops the errno code, so the
+ * connect command and message are all that tell it from the same code raised after DATA.
+ */
+function failedToConnect({ command, syscall, message }: Record<string, unknown>): boolean {
+  if (typeof message !== "string") return false;
+  if (!/^connect E(CONNREFUSED|HOSTUNREACH|NETUNREACH)\b/.test(message)) return false;
+  return command === "CONN" || syscall === "connect";
+}
+
+/**
  * A dropped connection or a socket timeout can come after the server took the message but before
  * it said so, and nodemailer reports both under the same codes as a failed connect. Only the
  * failures that happen before DATA is offered prove the mail was not sent.
@@ -67,6 +77,7 @@ export function provesNeverSent(error: unknown): boolean {
   if (typeof command === "string" && (command === "MAIL FROM" || command.startsWith("AUTH"))) {
     return true;
   }
+  if (failedToConnect(record)) return true;
   return (
     typeof message === "string" && /^(Connection timeout|Greeting never received)/.test(message)
   );

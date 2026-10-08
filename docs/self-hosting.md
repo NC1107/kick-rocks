@@ -297,6 +297,9 @@ git pull && ./install.sh
 The server applies database migrations itself when it starts, so an update that changes the database needs nothing from you.
 Take a backup first if the data matters.
 
+Installs made before the images lost their fixed names keep the old `kickrocks/server:dev`, `kickrocks/worker:dev` and `kickrocks/agent-worker:dev` images, and `./install.sh --uninstall` no longer removes them.
+Delete them once with `docker image rm kickrocks/server:dev kickrocks/worker:dev kickrocks/agent-worker:dev`, unless you also run the development stack, which still uses the first two.
+
 `docker compose logs -f server` and `docker compose logs -f worker` show what each container is doing, and `docker compose logs -f agent-worker` shows the agent worker.
 The lines are JSON, one object per line.
 Set `LOG_LEVEL=debug` in `.env` and run `docker compose up -d` for more detail.

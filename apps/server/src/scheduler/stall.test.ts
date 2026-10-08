@@ -1,5 +1,6 @@
 import { NotificationSettings } from "@kickrocks/shared";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { MailSendError } from "../mail/transport.js";
 import { updateState } from "../modules/notifications/state.js";
 import { createRunners } from "../runners/index.js";
 import {
@@ -140,6 +141,41 @@ describe("a send that outlives its lease", () => {
   });
 });
 
+describe("a send refused after its lease lapsed", () => {
+  it("still tells the person why the mailbox stopped", async () => {
+    let refuse: () => void = () => {};
+    const started = new Promise<void>((resolve) => {
+      vi.spyOn(ctx.services.mail, "transport").mockReturnValue({
+        verify: () => Promise.resolve({ ok: true, smtp: true, imap: true }) as never,
+        send: () =>
+          new Promise((_, reject) => {
+            refuse = () =>
+              reject(
+                new MailSendError("421 service not available", true, {
+                  responseCode: 421,
+                  neverSent: true,
+                }),
+              );
+            resolve();
+          }),
+      });
+    });
+    queueSend();
+    const stuck = scheduler.tick();
+    await started;
+
+    ctx.clock.advance(6 * MINUTE);
+    await scheduler.tick();
+    refuse();
+    await stuck;
+
+    expect(ctx.services.db.query.mailboxes.findFirst().sync()?.lastError).toContain(
+      "Sending is paused",
+    );
+    await scheduler.stop();
+  });
+});
+
 describe("a digest that never answers", () => {
   it("does not stop lease reaping or the pass marker", async () => {
     const mailboxId = ctx.services.db.query.mailboxes.findFirst().sync()?.id ?? "";
@@ -200,7 +236,7 @@ describe("the health check while a pass never returns", () => {
 });
 
 describe("stopping while a send never answers", () => {
-  it("gives up after the grace period and hands the send back to the queue", async () => {
+  it("gives up after the grace period and keeps the attempt of the send in flight", async () => {
     const stalled = stallSends();
     const request = queueSend();
     void scheduler.tick();
@@ -213,9 +249,9 @@ describe("stopping while a send never answers", () => {
     expect(Date.now() - startedAt).toBeLessThan(2_000);
 
     expect(ctx.services.taskQueue.getOrThrow(leased[0]?.id ?? "")).toMatchObject({
-      status: "queued",
-      leaseOwner: null,
-      attempts: 0,
+      status: "leased",
+      leaseOwner: "server:email-send",
+      attempts: 1,
     });
     expect(ctx.services.requests.getOrThrow(request.id).status).toBe("queued");
     stalled.release();

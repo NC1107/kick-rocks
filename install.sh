@@ -84,9 +84,24 @@ backup_hint() {
 was_running=()
 partial_file=""
 scratch_volumes=()
+# Restore sets these so an interrupted run can tell a harmless stop from a half-copied data volume.
+previous_volume=""
+restore_volume=""
+swap_started=false
+copy_over='find /to -mindepth 1 -delete && cp -a /from/. /to/'
 
 finish() {
   [ -z "$partial_file" ] || rm -f "$partial_file"
+  if [ "$swap_started" = true ]; then
+    was_running=()
+    echo "The restore was interrupted, so the services stay stopped: the data volume may hold a partial copy." >&2
+    if [ -n "$previous_volume" ]; then
+      echo "Your previous data is safe in the volume $previous_volume. Put it back with:" >&2
+      echo "  docker run --rm -v $previous_volume:/from:ro -v $restore_volume:/to alpine sh -c '$copy_over'" >&2
+    fi
+  elif [ -n "$previous_volume" ]; then
+    docker volume rm -f "$previous_volume" >/dev/null 2>&1 || true
+  fi
   [ "${#scratch_volumes[@]}" -eq 0 ] || docker volume rm -f "${scratch_volumes[@]}" >/dev/null 2>&1 || true
   if [ "${#was_running[@]}" -gt 0 ]; then
     docker compose "${ALL_PROFILES[@]}" start "${was_running[@]}" >/dev/null
@@ -146,12 +161,12 @@ backup() {
 # The copy of the old data is the only way back, so it is deleted only once the restore is known good.
 restore() {
   local file volume scratch previous answer had_previous=false
-  local copy_over='find /to -mindepth 1 -delete && cp -a /from/. /to/'
   [ -n "${1:-}" ] || { echo "Usage: ./install.sh --restore FILE" >&2; exit 2; }
   file="$(absolute_path "$1")"
   [ -f "$file" ] || { echo "No such file: $file" >&2; exit 1; }
   archive_is_intact "$file" || { echo "$file is not a complete Kick Rocks backup, so nothing was changed." >&2; exit 1; }
   volume="$(data_volume)"
+  restore_volume="$volume"
   scratch="$volume-restore-$$"
   previous="$volume-previous-$$"
   echo "This replaces the data in the volume $volume with the contents of $file."
@@ -166,8 +181,10 @@ restore() {
   fi
   if docker volume inspect "$volume" >/dev/null 2>&1; then
     docker volume create "$previous" >/dev/null
+    previous_volume="$previous"
     if ! docker run --rm -v "$volume":/from:ro -v "$previous":/to alpine cp -a /from/. /to/; then
       docker volume rm -f "$previous" >/dev/null 2>&1 || true
+      previous_volume=""
       echo "Could not copy the current data aside, so nothing was changed." >&2
       echo "A restore needs room for about three times the size of the data. Free some disk space and try again." >&2
       exit 1
@@ -178,14 +195,19 @@ restore() {
       --label "com.docker.compose.project=${volume%_kickrocks-data}" \
       --label com.docker.compose.volume=kickrocks-data "$volume" >/dev/null
   fi
+  swap_started=true
   if ! docker run --rm -v "$scratch":/from:ro -v "$volume":/to alpine sh -c "$copy_over"; then
     echo "Swapping in the backup failed." >&2
     if [ "$had_previous" = true ] && docker run --rm -v "$previous":/from:ro -v "$volume":/to alpine sh -c "$copy_over"; then
       docker volume rm -f "$previous" >/dev/null 2>&1 || true
+      previous_volume=""
+      swap_started=false
       echo "The previous data is back." >&2
       exit 1
     fi
     was_running=()
+    swap_started=false
+    previous_volume=""
     if [ "$had_previous" = true ]; then
       echo "Putting the previous data back failed too, so the services stay stopped: $volume holds a partial copy." >&2
       echo "Your previous data is safe in the volume $previous. Put it back with:" >&2
@@ -193,7 +215,9 @@ restore() {
     fi
     exit 1
   fi
+  swap_started=false
   [ "$had_previous" = false ] || docker volume rm -f "$previous" >/dev/null 2>&1 || true
+  previous_volume=""
   echo "Restored $volume from $file."
   if [ "${#was_running[@]}" -eq 0 ]; then
     echo "Nothing was running, so nothing was started. Run ./install.sh to bring it up."

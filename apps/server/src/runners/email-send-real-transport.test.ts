@@ -1,8 +1,9 @@
 import { mailboxes } from "@kickrocks/db";
 import { API_ROUTES } from "@kickrocks/shared";
 import { eq } from "drizzle-orm";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createMailTransport } from "../mail/transport.js";
+import { createScheduler } from "../scheduler/scheduler.js";
 import {
   createTestContext,
   HOUR,
@@ -39,7 +40,7 @@ beforeEach(async () => {
 });
 
 afterEach(async () => {
-  await smtp.close();
+  await smtp.close().catch(() => undefined);
   await ctx.close();
 });
 
@@ -95,6 +96,21 @@ describe("the email runner against the real transport", () => {
     },
   );
 
+  it("holds the mailbox without spending an attempt when the port refuses the connection", async () => {
+    await smtp.close();
+    const request = openRequest();
+
+    await runners.email.runDue();
+    expect(taskFor(request.id)).toMatchObject({ status: "queued", attempts: 0 });
+    expect(lastError()).toContain("Sending is paused");
+
+    for (let hour = 0; hour < 12; hour += 1) {
+      ctx.clock.advance(HOUR);
+      await runners.email.runDue();
+    }
+    expect(taskFor(request.id)).toMatchObject({ status: "queued", attempts: 0 });
+  });
+
   it("recovers and sends once the server accepts again", async () => {
     smtp.behave("auth_rejected");
     const request = openRequest();
@@ -133,6 +149,34 @@ describe("the email runner against the real transport", () => {
     const task = taskFor(request.id);
     expect(task?.status).toBe("failed");
     expect(smtp.received).toHaveLength(task?.maxAttempts ?? 0);
+  });
+
+  it("sends a message at most maxAttempts times when every restart cuts the send off after DATA", async () => {
+    smtp.behave("stall_after_data");
+    const request = openRequest();
+
+    for (let round = 0; round < 6; round += 1) {
+      const scheduler = createScheduler(ctx.services, {
+        runners: createRunners(ctx.services, { random: () => 0 }),
+        housekeepingMs: 0,
+        retentionMs: 0,
+      });
+      const sentBefore = smtp.received.length;
+      void scheduler.tick();
+      if (taskFor(request.id)?.status !== "failed") {
+        await vi
+          .waitFor(() => expect(smtp.received.length).toBeGreaterThan(sentBefore), {
+            timeout: 500,
+          })
+          .catch(() => undefined);
+      }
+      await scheduler.stop({ graceMs: 50 });
+      ctx.clock.advance(HOUR);
+    }
+
+    const task = taskFor(request.id);
+    expect(smtp.received.length).toBeLessThanOrEqual(task?.maxAttempts ?? 0);
+    expect(task?.attempts).toBeGreaterThan(0);
   });
 
   it("retries a recipient the server deferred with a 450 instead of failing it", async () => {

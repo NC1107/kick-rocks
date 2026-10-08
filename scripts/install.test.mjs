@@ -46,7 +46,9 @@ case "$*" in
   *"ps --services"*) [ -n "$FAKE_NO_CONTAINERS" ] || echo server ;;
   *"compose "*" stop"*) [ -z "$FAKE_NO_CONTAINERS" ] || { echo 'no container found for project "scratch": not found' >&2; exit 1; } ;;
   *"-previous-"*":/from:ro"*) [ "$FAKE_ROLLBACK" != fail ] || exit 1 ;;
-  *"-restore-"*":/from:ro"*) [ "$FAKE_SWAP" != fail ] || exit 1 ;;
+  *"-restore-"*":/from:ro"*)
+    [ "$FAKE_SWAP" != interrupt ] || { kill -TERM "$PPID"; sleep 1; }
+    [ "$FAKE_SWAP" != fail ] || exit 1 ;;
   *"-v scratch_kickrocks-data:/from:ro"*) [ "$FAKE_ASIDE" != fail ] || exit 1 ;;
   "run --rm -v scratch_kickrocks-data:/data:ro alpine tar czf"*)
     case "$FAKE_TAR" in
@@ -189,6 +191,19 @@ describe("install.sh backup and restore", () => {
       result.stderr,
       new RegExp(`docker run --rm -v ${name}:/from:ro -v scratch_kickrocks-data:/to`),
     );
+  });
+
+  it("starts nothing and says where the old data is when interrupted during the swap", () => {
+    const result = install(["--restore", archive], {
+      input: "restore\n",
+      env: { FAKE_SWAP: "interrupt" },
+    });
+    assert.equal(result.signal, "SIGTERM");
+    assert.doesNotMatch(calls(), /compose .* start/);
+    const name = result.stderr.match(/volume (scratch_kickrocks-data-previous-\d+)\./)?.[1];
+    assert.ok(name, result.stderr);
+    assert.match(result.stderr, new RegExp(`-v ${name}:/from:ro -v scratch_kickrocks-data:/to`));
+    assert.doesNotMatch(calls(), /volume rm [^\n]*-previous-/);
   });
 
   it("explains a full disk when the current data cannot be copied aside", () => {

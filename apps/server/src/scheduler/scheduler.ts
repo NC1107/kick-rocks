@@ -29,8 +29,8 @@ export interface Scheduler {
   start(): void;
   /**
    * Stops waking and waits for the passes in progress. A pass still running after `graceMs` is
-   * left behind and the leases its runners hold are handed back, so shutdown is bounded and the
-   * unfinished sends come due again at once instead of after their lease runs out.
+   * left behind and its poll leases are handed back, so shutdown is bounded. A send cut off
+   * mid-flight keeps its lease and its attempt, because it may already have been delivered.
    */
   stop(options?: { graceMs?: number }): Promise<void>;
 }
@@ -123,6 +123,9 @@ export function createScheduler(
   const releaseRunnerLeases = (): void => {
     for (const task of services.taskQueue.list({ status: "leased" })) {
       if (!task.leaseOwner?.startsWith(RUNNER_LEASE_PREFIX)) continue;
+      // A send cut off mid-flight may already have delivered, and releasing it would forget the
+      // attempt. The reaper keeps the attempt and backs off, so the retry limit still holds.
+      if (task.kind === "email_send") continue;
       services.taskQueue.release(task.id, { workerId: task.leaseOwner });
     }
   };
@@ -159,7 +162,7 @@ export function createScheduler(
       clearTimeout(giveUp);
       if (outcome === "late") {
         services.logger.warn(
-          "a scheduler pass did not finish in time, so its leases are handed back",
+          "a scheduler pass did not finish in time, so its poll leases are handed back",
         );
         releaseRunnerLeases();
       }
