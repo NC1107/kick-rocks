@@ -52,8 +52,8 @@ export const taskRows = (world) =>
 export const requestRows = (world) => sqlRows(world, "select id, status, last_error from requests");
 
 export async function mailboxError(world) {
-  const [row] = await sqlRows(world, "select last_error from mailboxes");
-  return row?.last_error ?? null;
+  const [row] = await sqlRows(world, "select last_error, last_send_error from mailboxes");
+  return row?.last_send_error ?? row?.last_error ?? null;
 }
 
 export const isoAgo = (ms) => new Date(Date.now() - ms).toISOString();

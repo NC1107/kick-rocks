@@ -782,6 +782,18 @@ describe("what a poll reads", () => {
     ).toMatchObject({ lastError: null, lastPolledAt: ctx.clock.now().toISOString() });
   });
 
+  it("leaves a paused send on the mailbox when a poll succeeds", async () => {
+    ctx.services.db
+      .update(mailboxes)
+      .set({ lastSendError: "Sending is paused: connection refused" })
+      .where(eq(mailboxes.id, mailboxId))
+      .run();
+    await poll();
+    expect(
+      ctx.services.db.select().from(mailboxes).where(eq(mailboxes.id, mailboxId)).get(),
+    ).toMatchObject({ lastSendError: "Sending is paused: connection refused", lastError: null });
+  });
+
   it("records a connection failure on the mailbox and fails the poll without retrying it", async () => {
     const inbox = ctx.mail.services.inbox;
     ctx.mail.services.inbox = () => ({

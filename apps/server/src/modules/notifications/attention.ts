@@ -1,6 +1,6 @@
 import { mailboxes, matches, recipes, requests } from "@kickrocks/db";
 import type { NotificationCategory } from "@kickrocks/shared";
-import { and, eq, isNotNull } from "drizzle-orm";
+import { and, eq, isNotNull, or } from "drizzle-orm";
 import type { AppServices } from "../../services.js";
 
 export interface AttentionItem {
@@ -41,7 +41,7 @@ export function collectAttention(services: AppServices): AttentionItem[] {
   for (const row of db
     .select({ id: mailboxes.id, profileId: mailboxes.profileId })
     .from(mailboxes)
-    .where(isNotNull(mailboxes.lastError))
+    .where(or(isNotNull(mailboxes.lastError), isNotNull(mailboxes.lastSendError)))
     .all()) {
     items.push({
       category: "mailbox",

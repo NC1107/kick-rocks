@@ -186,7 +186,7 @@ export class EmailRunner {
     this.services.mailHolds.clear(mailbox.id);
     this.services.db
       .update(mailboxes)
-      .set({ lastError: null })
+      .set({ lastSendError: null })
       .where(eq(mailboxes.id, mailbox.id))
       .run();
     return this.recordSend(task, request.id, composed.mailboxId, outgoing.messageId);
@@ -208,7 +208,7 @@ export class EmailRunner {
     const neverSent = error instanceof MailSendError ? error.neverSent : provesNeverSent(error);
     db.transaction(() => {
       db.update(mailboxes)
-        .set({ lastError: `Sending is paused: ${describeError(error)}` })
+        .set({ lastSendError: `Sending is paused: ${describeError(error)}` })
         .where(eq(mailboxes.id, mailboxId))
         .run();
       // A send that outlived its lease was already requeued by the reaper, and only a live lease can be released.

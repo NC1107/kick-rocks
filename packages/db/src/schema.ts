@@ -107,6 +107,8 @@ export const mailboxes = sqliteTable(
     lastPollUid: integer("last_poll_uid"),
     lastPolledAt: timestamp("last_polled_at"),
     lastError: text("last_error"),
+    /** Kept apart from the poll error so a send that works cannot hide a poll that fails, or the reverse. */
+    lastSendError: text("last_send_error"),
     createdAt: timestamp("created_at").notNull(),
   },
   (t) => [uniqueIndex("mailboxes_profile_idx").on(t.profileId)],

@@ -169,7 +169,7 @@ describe("a send refused after its lease lapsed", () => {
     refuse();
     await stuck;
 
-    expect(ctx.services.db.query.mailboxes.findFirst().sync()?.lastError).toContain(
+    expect(ctx.services.db.query.mailboxes.findFirst().sync()?.lastSendError).toContain(
       "Sending is paused",
     );
     await scheduler.stop();

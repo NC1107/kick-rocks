@@ -306,6 +306,19 @@ describe("when sending fails", () => {
     expect(requestOf(request.id).status).toBe("awaiting_reply");
   });
 
+  it("keeps a failed inbox poll on the mailbox when a later send works", async () => {
+    ctx.services.db
+      .update(mailboxes)
+      .set({ lastError: "IMAP login failed" })
+      .where(eq(mailboxes.id, mailboxId))
+      .run();
+    openRequest();
+    expect(await runners.email.runDue()).toBe(1);
+    expect(
+      ctx.services.db.select().from(mailboxes).where(eq(mailboxes.id, mailboxId)).get(),
+    ).toMatchObject({ lastError: "IMAP login failed", lastSendError: null });
+  });
+
   it("gives up after the attempts are used and leaves the failure on the request", async () => {
     const { request } = openRequest();
     for (let attempt = 0; attempt < 3; attempt += 1) {
@@ -370,7 +383,7 @@ describe("when sending fails", () => {
         }
         expect(
           ctx.services.db.select().from(mailboxes).where(eq(mailboxes.id, mailboxId)).get()
-            ?.lastError,
+            ?.lastSendError,
         ).toContain("Sending is paused");
 
         repair();
@@ -382,7 +395,7 @@ describe("when sending fails", () => {
         expect(ctx.mail.sent).toHaveLength(3);
         expect(
           ctx.services.db.select().from(mailboxes).where(eq(mailboxes.id, mailboxId)).get()
-            ?.lastError,
+            ?.lastSendError,
         ).toBeNull();
       },
     );

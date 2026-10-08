@@ -76,7 +76,7 @@ function openRequest() {
 const taskFor = (requestId: string) =>
   ctx.services.taskQueue.list({ requestId }).find((task) => task.kind === "email_send");
 const lastError = () =>
-  ctx.services.db.select().from(mailboxes).where(eq(mailboxes.id, mailboxId)).get()?.lastError;
+  ctx.services.db.select().from(mailboxes).where(eq(mailboxes.id, mailboxId)).get()?.lastSendError;
 
 describe("the email runner against the real transport", () => {
   it.each(["auth_rejected", "greeting_421", "silent"] as const)(
