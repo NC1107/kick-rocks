@@ -386,6 +386,12 @@ async function extractCandidatesStep(
     const stopped = await guard(ctx);
     if (stopped) return stopped;
     ctx.state.candidates = [];
+    if (step.noResults) {
+      ctx.state.noResultsShown = await waitForState(scope, step.noResults, "visible", {
+        timeoutMs: ctx.timeouts.optionalMs,
+        signal: ctx.signal,
+      });
+    }
     return null;
   }
   ctx.state.candidates = await extractCandidates(items, step.fields, ctx.page.url());

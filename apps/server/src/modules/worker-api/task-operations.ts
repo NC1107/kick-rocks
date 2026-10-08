@@ -10,6 +10,7 @@ import type {
   TaskSummary,
   TaskUsage,
 } from "@kickrocks/shared";
+import { pushbackKindForStatus } from "@kickrocks/shared";
 import { claimTask } from "../../core/claim.js";
 import { AppError, conflict, invalidRequest, notFound } from "../../core/errors.js";
 import type { PushbackOutcome } from "../../core/site-politeness.js";
@@ -104,6 +105,42 @@ function impliedByBlock(reason: BlockedReason): SiteObservation | undefined {
   return undefined;
 }
 
+/**
+ * A client that says only "the site answered 429" in its error text has still told us the site
+ * pushed back. Without this the report would get the normal retry backoff and the site no cooldown.
+ */
+function impliedByError(
+  error: string,
+  kind: TaskFailureReport["kind"],
+): SiteObservation | undefined {
+  if (kind !== "site") return undefined;
+  const status = /\b(429|403|503)\b/.exec(error)?.[1];
+  if (status !== undefined) {
+    const code = Number(status);
+    const pushbackKind = pushbackKindForStatus(code);
+    if (pushbackKind) return { pushback: { kind: pushbackKind, status: code } };
+  }
+  return /too many requests/i.test(error)
+    ? { pushback: { kind: "rate_limited", status: 429 } }
+    : undefined;
+}
+
+/**
+ * Whether a finished task proves the site treated the visit normally. A search that found nobody
+ * and never saw the site's own "no results" message may have met a soft block that looked like an
+ * empty page, so it must not close a breaker or clear the pushback count.
+ */
+function showsSiteWorking(task: Task): boolean {
+  const scan =
+    task.kind === "scan"
+      ? task.result
+      : task.kind === "agent" && task.result?.purpose === "scan"
+        ? task.result.scan
+        : null;
+  if (scan === null || scan === undefined) return true;
+  return scan.candidates.length > 0 || scan.noResultsShown === true;
+}
+
 export function createTaskOperations(services: OperationServices, caller: Caller): TaskOperations {
   const { taskQueue, clock, politeness } = services;
 
@@ -162,7 +199,7 @@ export function createTaskOperations(services: OperationServices, caller: Caller
       observeBeforeTransition(taskId, site);
       return services.db.transaction(() => {
         const done = taskQueue.complete(taskId, { workerId, result, usage, actor: caller.actor });
-        if (!site?.pushback) politeness.recordClean(done);
+        if (!site?.pushback && showsSiteWorking(done)) politeness.recordClean(done);
         return summarize(done);
       });
     },
@@ -196,7 +233,7 @@ export function createTaskOperations(services: OperationServices, caller: Caller
           },
         ]);
       }
-      const outcome = observeBeforeTransition(taskId, site);
+      const outcome = observeBeforeTransition(taskId, site ?? impliedByError(error, kind));
       return services.db.transaction(() => {
         if (outcome) {
           // A site that pushes back is left alone until its cooldown ends: no retry on the usual

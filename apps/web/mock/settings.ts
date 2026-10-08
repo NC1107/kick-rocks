@@ -415,6 +415,7 @@ export default defineMockDomain({
           retention: { messageDays: null, screenshotDays: 30 },
           scanning: ScanningSettings.parse({}),
           egress: { proxyUrl: null, domains: [] },
+          egressCoverage: {},
           mcp: { ...store.settings.mcp, enabled: false, tokenSet: false },
           siteChecks: { enabled: false },
         };

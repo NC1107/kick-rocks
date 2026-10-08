@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { existsSync, lstatSync, mkdirSync, readdirSync, readlinkSync, rmSync } from "node:fs";
 import { hostname } from "node:os";
 import { join } from "node:path";
+import { isValidTimeZone } from "@kickrocks/shared";
 import { type BrowserContext, chromium, type Page } from "playwright";
 import { describeError, type Logger } from "./logger.js";
 import {
@@ -106,6 +107,16 @@ export const BROWSER_CONTEXT_OPTIONS = {
   serviceWorkers: "block",
 } as const;
 
+/**
+ * Chrome would report the container's UTC beside an en-US locale on a home address, and bot scripts
+ * compare the browser's zone with the address's. Naming the zone from TZ makes the page see the
+ * same zone the person's server and quiet hours run on. Unset or unknown leaves Chrome's own.
+ */
+export function timezoneOption(env: NodeJS.ProcessEnv = process.env): { timezoneId?: string } {
+  const zone = env.TZ?.trim();
+  return zone && isValidTimeZone(zone) ? { timezoneId: zone } : {};
+}
+
 const SERVICE_WORKER_STORAGE = [join("Default", "Service Worker"), "Service Worker"];
 
 /** Deletes every service worker a profile remembers, so none can answer a request in this run. */
@@ -188,6 +199,7 @@ export const launchPersistentChrome = async (
       args: chromeArgs(settings),
       ...(settings.proxyServer ? { proxy: { server: settings.proxyServer } } : {}),
       ...BROWSER_CONTEXT_OPTIONS,
+      ...timezoneOption(),
     });
     bypassOnEveryPage(context);
     try {

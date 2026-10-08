@@ -412,6 +412,8 @@ export class Toolbox {
       await sleepFor(400, this.options.signal);
       finding = await detectBlock(this.options.page);
     }
+    // A status that already said "slow down" is handled as that, not as a bot check to hand over.
+    if (finding?.pushback === "rate_limited" && this.pushback !== undefined) return null;
     return finding;
   }
 

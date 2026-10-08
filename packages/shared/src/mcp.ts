@@ -66,7 +66,7 @@ export const MCP_TOOLS = {
   },
   complete_task: {
     description:
-      "Report the result of a task you hold. The result must match the shape the task's instructions describe. Include usage with the tokens and cost your run took, so it can be measured.",
+      "Report the result of a task you hold. The result must match the shape the task's instructions describe. Include usage with the tokens and cost your run took, so it can be measured. Pass site when the run saw the site slow it down: site.pushback { kind, status, retryAfterSeconds } for a 429, 403 or 503 or a challenge page, and site.crawlDelaySeconds for a robots.txt Crawl-delay.",
     input: z.object({
       workerId: WorkerName,
       taskId: TaskId,
@@ -78,13 +78,13 @@ export const MCP_TOOLS = {
   },
   block_task: {
     description:
-      "Park a task for a human when you hit a CAPTCHA, phone or ID demand, login wall, or bot check. Never try to get past one.",
+      "Park a task for a human when you hit a CAPTCHA, phone or ID demand, login wall, or bot check. Never try to get past one. If the page answered 429, 403 or 503 or showed a challenge, also pass site.pushback { kind, status, retryAfterSeconds } so the site is left alone.",
     input: TaskBlockReport.extend({ workerId: WorkerName, taskId: TaskId }),
     output: TaskTransitionResponse,
   },
   fail_task: {
     description:
-      "Report that a task failed. Set retryable when trying again later could work, and kind to site (the broker's page is broken or down), network, or internal (you gave up). Never use recipe.",
+      "Report that a task failed. Set retryable when trying again later could work, and kind to site (the broker's page is broken or down), network, or internal (you gave up). Never use recipe. When a page answered HTTP 429, 403 or 503, stop making requests to that site and fail with retryable true and site.pushback { kind rate_limited, forbidden or unavailable, status, retryAfterSeconds if the page shows a Retry-After }: the server then leaves the site alone for a while instead of retrying on the usual backoff.",
     input: TaskFailureReport.extend({ workerId: WorkerName, taskId: TaskId }),
     output: TaskTransitionResponse,
   },

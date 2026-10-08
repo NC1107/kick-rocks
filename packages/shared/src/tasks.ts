@@ -143,7 +143,14 @@ export const Candidate = z.object({
 });
 export type Candidate = z.infer<typeof Candidate>;
 
-export const ScanResult = z.object({ candidates: z.array(Candidate) });
+export const ScanResult = z.object({
+  candidates: z.array(Candidate),
+  /**
+   * The site itself showed that nothing matched. A search that finds nobody and proves nothing
+   * could be a soft block that looked like an empty page, so only this makes it a clean visit.
+   */
+  noResultsShown: z.boolean().optional(),
+});
 export type ScanResult = z.infer<typeof ScanResult>;
 
 /** A host name, never an address, so it can be compared with the sender of a confirmation email. */

@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
+  clockIn,
   EgressPatch,
   isCoolingDown,
   isQuietHour,
   MAX_RETRY_AFTER_SECONDS,
+  nextHourIn,
   ProxyUrl,
   parseRetryAfter,
   pushbackKindForStatus,
@@ -21,6 +23,7 @@ describe("ScanningSettings", () => {
       dailyCapPerSite: 6,
       hourlyCapTotal: 12,
       dailyCapTotal: 60,
+      timeZone: null,
       quietStartHour: 23,
       quietEndHour: 7,
       reuseHours: 24,
@@ -143,5 +146,27 @@ describe("isQuietHour", () => {
 
   it("is off when the start and the end are the same hour", () => {
     expect(isQuietHour(3, 0, 0)).toBe(false);
+  });
+});
+
+describe("time zones", () => {
+  const instant = new Date("2026-10-07T07:30:15.250Z");
+
+  it("reads the clock in the named zone, not the process's", () => {
+    expect(clockIn(instant, "America/Los_Angeles")).toEqual({ hour: 0, minute: 30, second: 15 });
+    expect(clockIn(instant, "UTC")).toEqual({ hour: 7, minute: 30, second: 15 });
+    expect(clockIn(instant, "Asia/Kolkata")).toEqual({ hour: 13, minute: 0, second: 15 });
+  });
+
+  it("finds the next time a zone's clock reads an hour", () => {
+    expect(nextHourIn(instant, 7, "America/Los_Angeles").toISOString()).toBe(
+      "2026-10-07T14:00:00.000Z",
+    );
+    expect(nextHourIn(instant, 7, "UTC").toISOString()).toBe("2026-10-08T07:00:00.000Z");
+  });
+
+  it("accepts a real zone and refuses a made-up one", () => {
+    expect(ScanningSettings.safeParse({ timeZone: "Europe/Paris" }).success).toBe(true);
+    expect(ScanningSettings.safeParse({ timeZone: "Mars/Olympus" }).success).toBe(false);
   });
 });

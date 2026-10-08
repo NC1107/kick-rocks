@@ -145,6 +145,7 @@ function finishScan(
   tx: DbHandle,
   taskId: string,
   candidates: readonly Candidate[],
+  noResultsShown = false,
 ): void {
   const scan = scanOf(tx, taskId);
   if (!scan || (scan.finishedAt !== null && !endedInFailure(scan))) return;
@@ -152,6 +153,7 @@ function finishScan(
     .set({
       finishedAt: services.clock.now().toISOString(),
       candidates: [...candidates],
+      noResultsShown,
       error: null,
     })
     .where(eq(scans.id, scan.id))
@@ -184,13 +186,19 @@ export function registerScanHandlers(services: AppServices): void {
   taskHandlers.on("scan", "completed", ({ task, actor }, tx) => {
     // The server finishes a scan itself when it reuses an earlier result, and no recipe ran.
     if (actor !== "system") recordRecipeRun(services, tx, task.payload.recipeId, true);
-    finishScan(services, tx, task.id, task.result?.candidates ?? []);
+    finishScan(
+      services,
+      tx,
+      task.id,
+      task.result?.candidates ?? [],
+      task.result?.noResultsShown === true,
+    );
   });
 
   taskHandlers.on("agent", "completed", ({ task }, tx) => {
     if (task.payload.purpose !== "scan") return;
-    const result = task.result?.purpose === "scan" ? task.result.scan.candidates : [];
-    finishScan(services, tx, task.id, result);
+    const scan = task.result?.purpose === "scan" ? task.result.scan : null;
+    finishScan(services, tx, task.id, scan?.candidates ?? [], scan?.noResultsShown === true);
   });
 
   taskHandlers.on("scan", "failed", ({ task }, tx) => {

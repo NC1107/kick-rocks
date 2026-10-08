@@ -21,6 +21,8 @@ import { createRedactor } from "./redact.js";
 /** What a run has learned so far, which later steps and the final result draw on. */
 export interface RunState {
   candidates: Candidate[];
+  /** The page showed its own "no results" marker. */
+  noResultsShown: boolean;
   confirmationText: string | undefined;
   extractedRecordUrl: string | undefined;
   awaitingEmailFrom: string | undefined;
@@ -70,6 +72,7 @@ export function createContext(
   const usable = usableFields(fields);
   const state: RunState = {
     candidates: [],
+    noResultsShown: false,
     confirmationText: undefined,
     extractedRecordUrl: undefined,
     awaitingEmailFrom: undefined,
@@ -230,11 +233,21 @@ export function withSite<R>(ctx: RunContext, outcome: RunOutcome<R>): RunOutcome
   return site === undefined ? outcome : { ...outcome, site };
 }
 
-/** Looks for a human check and ends the run for a person when there is one. */
-export async function guard(ctx: RunContext) {
+/**
+ * The block the page shows, if any. A response status that already said "slow down" is reported as
+ * exactly that, so a rate limit page whose words match is not turned into a bot check.
+ */
+export async function findBlock(ctx: RunContext): Promise<BlockFinding | null> {
   const finding = await detectBlockAfterGrace(ctx.page, {
     graceMs: ctx.timeouts.challengeGraceMs,
     signal: ctx.signal,
   });
+  if (finding?.pushback === "rate_limited" && ctx.state.pushback !== undefined) return null;
+  return finding;
+}
+
+/** Looks for a human check and ends the run for a person when there is one. */
+export async function guard(ctx: RunContext) {
+  const finding = await findBlock(ctx);
   return finding === null ? null : blockedBy(ctx, finding);
 }

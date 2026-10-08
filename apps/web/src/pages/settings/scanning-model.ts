@@ -1,6 +1,7 @@
 import {
   type EgressPatch,
   type EgressSettings,
+  isValidTimeZone,
   ProxyUrl,
   type ScanningPatch,
   type ScanningSettings,
@@ -60,7 +61,7 @@ export const SCANNING_FIELDS: readonly ScanningField[] = [
   {
     key: "quietStartHour",
     label: "Quiet hours begin",
-    help: "No browser visit starts from this hour until quiet hours end, in this server's local time. Set both to the same hour to turn quiet hours off.",
+    help: "No browser visit starts from this hour until quiet hours end, in the time zone below. Set both to the same hour to turn quiet hours off.",
     unit: "hour, 0 to 23",
     min: 0,
     max: 23,
@@ -83,10 +84,26 @@ export const SCANNING_FIELDS: readonly ScanningField[] = [
   },
 ];
 
-export type ScanningDraft = Record<ScanningKey, string>;
+export type ScanningDraft = Record<ScanningKey, string> & { timeZone: string };
 
-export function scanningDraftOf(scanning: ScanningSettings): ScanningDraft {
+/** The zone this browser reports, which is the person's own when they have not chosen one. */
+export function browserTimeZone(): string {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone;
+  } catch {
+    return "";
+  }
+}
+
+export const TIME_ZONE_HELP =
+  "A name such as America/Los_Angeles. Quiet hours are read on this clock. Until you save, the server uses its own, which is UTC unless the install set TZ.";
+
+export function scanningDraftOf(
+  scanning: ScanningSettings,
+  fallbackZone: string = browserTimeZone(),
+): ScanningDraft {
   return {
+    timeZone: scanning.timeZone ?? fallbackZone,
     minGapMinutes: String(scanning.minGapMinutes),
     dailyCapPerSite: String(scanning.dailyCapPerSite),
     hourlyCapTotal: String(scanning.hourlyCapTotal),
@@ -98,7 +115,7 @@ export function scanningDraftOf(scanning: ScanningSettings): ScanningDraft {
 }
 
 export interface ScanningCheck {
-  errors: Partial<Record<ScanningKey, string>>;
+  errors: Partial<Record<ScanningKey | "timeZone", string>>;
   /** Only the fields that differ from what is saved. */
   patch: ScanningPatch;
 }
@@ -116,6 +133,12 @@ export function checkScanning(draft: ScanningDraft, saved: ScanningSettings): Sc
     } else if (value !== saved[field.key]) {
       patch[field.key] = value;
     }
+  }
+  const zone = draft.timeZone.trim();
+  if (zone === "" || !isValidTimeZone(zone)) {
+    errors.timeZone = "Use a time zone name such as America/Los_Angeles.";
+  } else if (zone !== saved.timeZone) {
+    patch.timeZone = zone;
   }
   return { errors, patch };
 }

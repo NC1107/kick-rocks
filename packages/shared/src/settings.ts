@@ -102,6 +102,8 @@ export const SettingsView = z.object({
   retention: RetentionSettings,
   scanning: ScanningSettings,
   egress: EgressSettings,
+  /** For each site listed for the proxy, the other sites of the same operator it also routes. */
+  egressCoverage: z.record(z.string(), z.array(z.string())),
   mcp: z.object({
     enabled: z.boolean(),
     tokenSet: z.boolean(),

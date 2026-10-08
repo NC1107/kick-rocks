@@ -448,5 +448,9 @@ A `block_task` for a CAPTCHA or bot check counts as pushback even without it.
 A failure that carries pushback is not retried and not given to anyone else, so do not claim the task again before its cooldown ends.
 The server records what you report even when your lease has run out, so a late report of a 429 still keeps the site quiet.
 When a page answers 429, 403 or 503, stop and report; do not reload or try another page.
+The task instructions say so too: stop at once, make no further request, and call `fail_task` with `retryable` true, kind `site`, and `site.pushback`.
+A `fail_task` whose error text names 429, 403, 503 or "too many requests" and carries no `site` is read as pushback by the server, but pass `site` so the status and Retry-After are exact.
+A scan that finds nobody should say `noResultsShown: true` in its result only when the site itself displayed a message that nothing matched; an empty result without it does not count as a clean visit.
+A site the person routed through a proxy in Settings is never given to an MCP client, because your browser cannot take the route; a claim by id for one fails with `site_routed`.
 The built-in model worker does this itself and ends the run at the first such answer.
 See `docs/scanning.md`.

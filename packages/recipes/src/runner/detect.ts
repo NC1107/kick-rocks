@@ -14,7 +14,7 @@ export interface BlockFinding {
    */
   transient: boolean;
   /** What this tells the server about the site: it is challenging or refusing the browser. */
-  pushback: Extract<PushbackKind, "challenge" | "captcha" | "access_denied">;
+  pushback: Extract<PushbackKind, "challenge" | "captcha" | "access_denied" | "rate_limited">;
 }
 
 export interface ChallengeSignals {
@@ -28,8 +28,21 @@ export interface ChallengeSignals {
 const INTERSTITIAL_TITLE =
   /^\s*(just a moment|attention required|checking your browser|security check|one more step|access denied|are you a robot|verify you are human|pardon our interruption|you have been blocked)/i;
 
+/**
+ * A page that says the visitor searched too much. Sites often serve it with a 200 status, so only
+ * the words give it away.
+ */
+const RATE_LIMIT_TEXT = [
+  /too many requests/i,
+  /\brate[- ]limit(ed)?\b/i,
+  /\bsearch limit\b/i,
+  /exceeded (the |your )?(allowed |maximum )?(number of )?(free )?searches/i,
+  /\bunusual activity\b/i,
+];
+
 /** Only a short page can be an interstitial; a long article may mention any of these in passing. */
 const INTERSTITIAL_TEXT = [
+  ...RATE_LIMIT_TEXT,
   /verif(y|ying) (that )?you are (a )?human/i,
   /checking (if the site connection is secure|your browser before accessing)/i,
   /press (and|&) hold/i,
@@ -77,6 +90,11 @@ export function interstitialIn(signals: ChallengeSignals): string | null {
   return null;
 }
 
+function pushbackOfInterstitial(words: string): "access_denied" | "rate_limited" | "challenge" {
+  if (ACCESS_DENIED.test(words)) return "access_denied";
+  return RATE_LIMIT_TEXT.some((pattern) => pattern.test(words)) ? "rate_limited" : "challenge";
+}
+
 /** Decides what, if anything, stands in the way, from the signals of the page and its frames. */
 export function classifySignals(
   main: ChallengeSignals,
@@ -84,11 +102,12 @@ export function classifySignals(
 ): BlockFinding | null {
   const interstitial = interstitialIn(main);
   if (interstitial !== null) {
+    const pushback = pushbackOfInterstitial(`${main.title} ${main.text}`);
     return {
       reason: "bot_detection",
       detail: `The site is showing a bot check ("${interstitial}").`,
-      transient: true,
-      pushback: ACCESS_DENIED.test(`${main.title} ${main.text}`) ? "access_denied" : "challenge",
+      transient: pushback !== "rate_limited",
+      pushback,
     };
   }
   const widgets = [main, ...frames].flatMap((signals) => signals.widgets);

@@ -86,8 +86,12 @@ export function reuseRecentScans(services: ReuseServices): number {
       .orderBy(desc(scans.finishedAt))
       .get();
     if (!source?.candidates) continue;
+    // An empty result the site never confirmed may have been a soft block, which must not be repeated.
+    if (source.candidates.length === 0 && source.noResultsShown !== true) continue;
 
     const candidates = source.candidates;
+    const noResultsShown = source.noResultsShown === true;
+    const scanResult = { candidates, ...(noResultsShown ? { noResultsShown } : {}) };
     const done = db.transaction(() => {
       const leased = taskQueue.claim({
         workerId: REUSE_WORKER,
@@ -99,10 +103,13 @@ export function reuseRecentScans(services: ReuseServices): number {
       if (!leased) return false;
       taskQueue.complete(task.id, {
         workerId: REUSE_WORKER,
-        result: task.kind === "agent" ? { purpose: "scan", scan: { candidates } } : { candidates },
+        result: task.kind === "agent" ? { purpose: "scan", scan: scanResult } : scanResult,
         actor: "system",
       });
-      db.update(scans).set({ reusedFromScanId: source.id }).where(eq(scans.id, pending.id)).run();
+      db.update(scans)
+        .set({ reusedFromScanId: source.id, noResultsShown: source.noResultsShown })
+        .where(eq(scans.id, pending.id))
+        .run();
       return true;
     });
     if (done) reused += 1;

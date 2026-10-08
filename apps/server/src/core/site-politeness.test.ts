@@ -1,6 +1,7 @@
 import { scans, siteVisits, tasks } from "@kickrocks/db";
 import { API_ROUTES, type ClaimedTask, type SiteObservation } from "@kickrocks/shared";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { eraseProfile } from "../modules/data-rights/erase.js";
 import { createTaskOperations, MCP_CALLER } from "../modules/worker-api/task-operations.js";
 import {
   createTestContext,
@@ -63,10 +64,14 @@ function claim(claimerKind: "builtin" | "model" | "mcp" = "builtin"): ClaimedTas
   });
 }
 
-async function complete(task: ClaimedTask, site?: SiteObservation) {
+async function complete(
+  task: ClaimedTask,
+  site?: SiteObservation,
+  result: unknown = { candidates: [], noResultsShown: true },
+) {
   const response = await ctx.call(API_ROUTES.workerTaskComplete, {
     params: { id: task.id },
-    body: { workerId: "worker-1", result: { candidates: [] }, ...(site ? { site } : {}) },
+    body: { workerId: "worker-1", result, ...(site ? { site } : {}) },
   });
   expect(response.ok, JSON.stringify(response.body)).toBe(true);
 }
@@ -390,6 +395,44 @@ describe("pushback", () => {
     expect(status("a.test")?.consecutivePushback).toBe(2);
   });
 
+  it("reads a 429 named only in a failure's error text as pushback", async () => {
+    const a = site("a.test");
+    queueScan(a.id);
+    const claimed = claim() as ClaimedTask;
+    const response = await ctx.call(API_ROUTES.workerTaskFail, {
+      params: { id: claimed.id },
+      body: {
+        workerId: "worker-1",
+        error: "The page answered HTTP 429 Too Many Requests",
+        retryable: true,
+        kind: "site",
+      },
+    });
+    expect(response.ok, JSON.stringify(response.body)).toBe(true);
+    expect(status("a.test")).toMatchObject({
+      lastPushbackKind: "rate_limited",
+      consecutivePushback: 1,
+    });
+    expect(taskRow(claimed.id).status).toBe("queued");
+    expect(claim()).toBeNull();
+  });
+
+  it("does not mistake a number inside another word for a status", async () => {
+    const a = site("a.test");
+    queueScan(a.id);
+    const claimed = claim() as ClaimedTask;
+    await ctx.call(API_ROUTES.workerTaskFail, {
+      params: { id: claimed.id },
+      body: {
+        workerId: "worker-1",
+        error: "Element #14290 was missing",
+        retryable: true,
+        kind: "site",
+      },
+    });
+    expect(status("a.test")?.consecutivePushback ?? 0).toBe(0);
+  });
+
   it("treats a block for a CAPTCHA as pushback even when the client reports nothing else", async () => {
     const a = site("a.test");
     queueScan(a.id);
@@ -482,6 +525,35 @@ describe("the circuit breaker", () => {
       body: { workerId: "worker-1", error: "boom", retryable: false, kind: "internal" },
     });
     expect(status("a.test")?.breaker).toBe("half_open");
+  });
+
+  it("does not close on a probe whose empty result the site never confirmed", async () => {
+    const a = await openBreaker();
+    queueScan(a.id, seedProfile(ctx).id);
+    await complete(claim() as ClaimedTask, undefined, { candidates: [] });
+    expect(status("a.test")).toMatchObject({ breaker: "half_open", consecutivePushback: 3 });
+  });
+
+  it("closes on a probe that found a record", async () => {
+    const a = await openBreaker();
+    queueScan(a.id, seedProfile(ctx).id);
+    const record = {
+      recordUrl: "https://a.test/p/1",
+      name: "Jordan Example",
+      locations: ["Springfield, ST"],
+    };
+    await complete(claim() as ClaimedTask, undefined, { candidates: [record] });
+    expect(status("a.test")).toMatchObject({ breaker: "closed", consecutivePushback: 0 });
+  });
+
+  it("does not reuse an empty scan the site never confirmed", async () => {
+    setScanning({ reuseHours: 24, minGapMinutes: 0, gapJitterPercent: 0 });
+    const a = site("a.test");
+    queueScan(a.id);
+    await complete(claim() as ClaimedTask, undefined, { candidates: [] });
+
+    const second = queueScan(a.id, profileId);
+    expect(claim()?.id).toBe(second.id);
   });
 });
 
@@ -763,6 +835,82 @@ describe("what the person can see", () => {
     expect(byTarget.get(b.id)).toBeNull();
   });
 
+  it("routes the sister sites of a listed brand too", async () => {
+    const intelius = site("intelius.com", "peopleconnect.us");
+    const truthfinder = site("truthfinder.com", "peopleconnect.us");
+    const other = site("other.test");
+    for (const target of [intelius, truthfinder, other]) queueScan(target.id);
+    await ctx.call(API_ROUTES.settingsPatch, {
+      body: { egress: { proxyUrl: "http://10.0.0.100:8888", domains: ["intelius.com"] } },
+    });
+    const routes = new Map<string, string | null | undefined>();
+    ctx.clock.advance(HOUR);
+    for (const _ of [1, 2, 3]) {
+      const task = claim();
+      if (task) {
+        routes.set(task.target.id, task.proxyUrl);
+        await complete(task);
+      }
+      ctx.clock.advance(HOUR);
+    }
+    expect(routes.get(intelius.id)).toBe("http://10.0.0.100:8888");
+    expect(routes.get(truthfinder.id)).toBe("http://10.0.0.100:8888");
+    expect(routes.get(other.id)).toBeNull();
+  });
+
+  it("shows which sister sites a listed domain covers", async () => {
+    site("intelius.com", "peopleconnect.us");
+    site("truthfinder.com", "peopleconnect.us");
+    site("other.test");
+    await ctx.call(API_ROUTES.settingsPatch, {
+      body: {
+        egress: { proxyUrl: "http://10.0.0.100:8888", domains: ["intelius.com", "other.test"] },
+      },
+    });
+    const view = await ctx.call(API_ROUTES.settingsGet, {});
+    expect(view.ok && view.body.egressCoverage).toEqual({
+      "intelius.com": ["truthfinder.com"],
+      "other.test": [],
+    });
+  });
+
+  it("keeps a routed site's task from an MCP client, which cannot apply the route", async () => {
+    const routed = site("a.test");
+    const direct = site("b.test");
+    queueScan(routed.id);
+    queueScan(direct.id);
+    await ctx.call(API_ROUTES.settingsPatch, {
+      body: { egress: { proxyUrl: "http://10.0.0.100:8888", domains: ["a.test"] } },
+    });
+
+    const first = claim("mcp");
+    expect(first?.target.id).toBe(direct.id);
+    expect(first?.proxyUrl).toBeNull();
+    expect(claim("mcp")).toBeNull();
+
+    const builtin = claim("builtin");
+    expect(builtin?.target.id).toBe(routed.id);
+    expect(builtin?.proxyUrl).toBe("http://10.0.0.100:8888");
+  });
+
+  it("refuses an MCP client that asks for a routed site's task by id", async () => {
+    const routed = site("a.test");
+    const task = queueScan(routed.id);
+    await ctx.call(API_ROUTES.settingsPatch, {
+      body: { egress: { proxyUrl: "http://10.0.0.100:8888" } },
+    });
+    expect(() =>
+      claimTask(ctx.services, {
+        workerId: "mcp-1",
+        kinds: KINDS,
+        leaseMs: 5 * MINUTE,
+        taskId: task.id,
+        claimerKind: "mcp",
+      }),
+    ).toThrow(/routed through a proxy/);
+    expect(taskRow(task.id).status).toBe("queued");
+  });
+
   it("refuses a proxy with credentials or a scheme other than http", async () => {
     for (const proxyUrl of [
       "http://user:pass@10.0.0.100:8888",
@@ -772,6 +920,26 @@ describe("what the person can see", () => {
       const response = await ctx.call(API_ROUTES.settingsPatch, { body: { egress: { proxyUrl } } });
       expect(response.ok, proxyUrl).toBe(false);
     }
+  });
+});
+
+describe("erasing a profile", () => {
+  it("keeps the visits the caps count, so deleting and re-adding a person resets nothing", async () => {
+    setScanning({ minGapMinutes: 0, gapJitterPercent: 0, dailyCapPerSite: 1 });
+    const a = site("a.test");
+    queueScan(a.id);
+    await complete(claim() as ClaimedTask);
+
+    eraseProfile(ctx.services, profileId);
+
+    const again = seedProfile(ctx).id;
+    queueScan(a.id, again);
+    expect(claim()).toBeNull();
+    const waiting = ctx.services.taskQueue.list({ status: "queued" })[0];
+    expect(waiting && ctx.services.taskQueue.waitingFor(waiting)).toMatchObject({
+      reason: "site_daily_cap",
+    });
+    expect(ctx.services.politeness.siteStatus("a.test")?.visitsToday).toBe(1);
   });
 });
 
@@ -800,6 +968,22 @@ describe("quiet hours and the daily total", () => {
 
     atLocalHour(7);
     expect(claim()).not.toBeNull();
+  });
+
+  it("reads quiet hours in the configured time zone, not the server's", () => {
+    setScanning({ quietStartHour: 23, quietEndHour: 7, timeZone: "America/Los_Angeles" });
+    // 16:00 in Los Angeles is midnight UTC, which a UTC server would call quiet.
+    ctx.clock.set(new Date("2026-10-08T23:30:00.000Z"));
+    queueScan(site("a.test").id);
+    expect(claim()).not.toBeNull();
+
+    // 05:00 in Los Angeles is noon UTC, which a UTC server would call awake.
+    ctx.clock.set(new Date("2026-10-10T12:00:00.000Z"));
+    queueScan(site("b.test").id);
+    expect(claim()).toBeNull();
+    const waiting = ctx.services.taskQueue.list({ status: "queued" })[0];
+    const reason = waiting && ctx.services.taskQueue.waitingFor(waiting);
+    expect(reason).toMatchObject({ reason: "quiet_hours", until: "2026-10-10T14:00:00.000Z" });
   });
 
   it("holds a late evening start too, since the window runs past midnight", () => {

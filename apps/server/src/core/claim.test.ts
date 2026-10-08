@@ -574,6 +574,15 @@ describe("agent tasks", () => {
     expect(agentClaim("scan")?.instructions).not.toContain("mayHaveSubmitted");
   });
 
+  it("tells the client to stop at once on a 429, 403 or 503 and to report the pushback", () => {
+    for (const purpose of ["scan", "remove"] as const) {
+      const instructions = agentClaim(purpose)?.instructions ?? "";
+      expect(instructions).toContain("HTTP 429, 403 or 503");
+      expect(instructions).toContain("make no further request");
+      expect(instructions).toContain("site { pushback:");
+    }
+  });
+
   it("states when the lease runs out and what happens after", () => {
     const task = agentClaim("remove");
     expect(task?.instructions).toContain(task?.leaseExpiresAt);

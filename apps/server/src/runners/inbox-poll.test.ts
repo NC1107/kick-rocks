@@ -306,8 +306,12 @@ describe("storing and applying replies", () => {
 });
 
 describe("confirmation links", () => {
+  /** The server follows a confirmation link itself only for a company; a broker's goes to the browser. */
+  const sentCompanyRequest = (overrides: Record<string, unknown> = {}) =>
+    sentRequest({ kind: "company", ...overrides } as Parameters<typeof seedTarget>[1]);
+
   it("follows the link, writes it to the timeline, and stops waiting for the email", async () => {
-    const { request, target } = await sentRequest({ replyDomains: ["sister.test"] });
+    const { request, target } = await sentCompanyRequest({ replyDomains: ["sister.test"] });
     ctx.services.requests.update(request.id, {
       awaitingConfirmationSince: ctx.clock.now().toISOString(),
     });
@@ -333,7 +337,7 @@ describe("confirmation links", () => {
   });
 
   it("never lets a shared platform stored as an expected sender receive the link", async () => {
-    const { request, target } = await sentRequest({ replyDomains: ["sister.test"] });
+    const { request, target } = await sentCompanyRequest({ replyDomains: ["sister.test"] });
     ctx.services.requests.update(request.id, {
       awaitingConfirmationSince: ctx.clock.now().toISOString(),
     });
@@ -356,7 +360,7 @@ describe("confirmation links", () => {
   it.each(["paypal.com", "otherbroker.test"])(
     "never follows a link from %s stored as an expected sender before the rule existed",
     async (stored) => {
-      const { request, target } = await sentRequest();
+      const { request, target } = await sentCompanyRequest();
       const since = ctx.clock.now().toISOString();
       ctx.services.requests.update(request.id, { awaitingConfirmationSince: since });
       ctx.services.requests.addEvent(request.id, {
@@ -388,7 +392,7 @@ describe("confirmation links", () => {
   );
 
   it("leaves a sister site's link that needs a browser for a person, since the browser only opens the broker's own site", async () => {
-    const { request } = await sentRequest();
+    const { request } = await sentCompanyRequest();
     ctx.services.requests.addEvent(request.id, {
       type: "awaiting_confirmation",
       actor: "worker",
@@ -432,7 +436,7 @@ describe("confirmation links", () => {
   });
 
   it("asks the browser to finish a link that needs a button press", async () => {
-    const { request, target } = await sentRequest();
+    const { request, target } = await sentCompanyRequest();
     const link = `https://${target.domain}/confirm?token=x`;
     ctx.mail.linkFollower.program(() => ({ needsBrowser: true }));
     answer("Confirm", request.id, "confirmation_link", { links: [link] });
@@ -448,9 +452,23 @@ describe("confirmation links", () => {
     expect(stored()[0]?.reviewed).toBe(true);
   });
 
+  it("hands every broker's link to a browser task, since a bare request is flagged by bot management", async () => {
+    const { request, target } = await sentRequest({ kind: "broker" });
+    const link = `https://${target.domain}/confirm?token=x`;
+    answer("Confirm", request.id, "confirmation_link", { links: [link] });
+    deliver("Confirm");
+    await poll();
+
+    expect(ctx.mail.linkFollower.calls).toEqual([]);
+    const confirms = ctx.services.taskQueue
+      .list({ requestId: request.id })
+      .filter((task) => task.kind === "confirm");
+    expect(confirms).toMatchObject([{ payload: { url: link } }]);
+  });
+
   describe("a site that must not be opened from the server", () => {
     async function confirmationLink() {
-      const { request, target } = await sentRequest();
+      const { request, target } = await sentCompanyRequest();
       const link = `https://${target.domain}/confirm?token=x`;
       answer("Confirm", request.id, "confirmation_link", { links: [link] });
       deliver("Confirm");
@@ -480,7 +498,7 @@ describe("confirmation links", () => {
     });
 
     it("counts the visit it makes, and leaves the site alone after a 429", async () => {
-      const { request, target } = await sentRequest();
+      const { request, target } = await sentCompanyRequest();
       const first = `https://${target.domain}/a`;
       const second = `https://${target.domain}/b`;
       ctx.mail.linkFollower.program(() => ({ ok: false, status: 429, reason: "slow down" }));
@@ -498,7 +516,7 @@ describe("confirmation links", () => {
   });
 
   it("tries the next link when one fails and says so when none works", async () => {
-    const { request, target } = await sentRequest();
+    const { request, target } = await sentCompanyRequest();
     const bad = `https://${target.domain}/a`;
     const good = `https://${target.domain}/b`;
     ctx.mail.linkFollower.program((url) => (url === bad ? { ok: false, reason: "404" } : null));
@@ -521,7 +539,7 @@ describe("confirmation links", () => {
   });
 
   it("survives a link follower that throws", async () => {
-    const { request, target } = await sentRequest();
+    const { request, target } = await sentCompanyRequest();
     ctx.mail.linkFollower.program(() => {
       throw new Error("socket hang up");
     });
@@ -533,7 +551,7 @@ describe("confirmation links", () => {
   });
 
   it("does not follow a link for a request the person cancelled", async () => {
-    const { request, target } = await sentRequest();
+    const { request, target } = await sentCompanyRequest();
     ctx.services.requests.transition(request.id, "cancelled", { actor: "user" });
     answer("Confirm", request.id, "confirmation_link", { links: [`https://${target.domain}/a`] });
     deliver("Confirm");
@@ -542,7 +560,7 @@ describe("confirmation links", () => {
   });
 
   it("does not follow a link that is not a web address", async () => {
-    const { request } = await sentRequest();
+    const { request } = await sentCompanyRequest();
     answer("Confirm", request.id, "confirmation_link", { links: ["javascript:alert(1)"] });
     deliver("Confirm");
     await poll();

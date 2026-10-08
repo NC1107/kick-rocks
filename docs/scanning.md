@@ -34,14 +34,18 @@ It is never failed, and the review queue says it is waiting for a site.
 - **A daily cap per site.** A site gets at most a fixed number of task starts in a rolling 24 hours.
 - **An hourly cap overall.** All sites together get at most a fixed number of starts in a rolling hour.
 - **A daily cap overall.** All sites together get at most a fixed number of starts in a rolling 24 hours.
-- **Quiet hours.** No browser task starts between the quiet start and end hours, in the server's local time (23:00 to 07:00 by default).
+- **Quiet hours.** No browser task starts between the quiet start and end hours (23:00 to 07:00 by default), read on the clock of the time zone set next to them in Settings.
+  The zone defaults to the server's own, which is UTC in a container, so `install.sh` writes the host's zone to `TZ` in `.env` and Settings offers the browser's zone on first save.
+  The browser worker reads the same `TZ`, so Chrome reports the zone of the address it connects from.
   The hourly pace alone would run around the clock at an even cadence, which no person does, and bot vendors see the whole pattern across sites.
 - **No active cooldown or breaker.** See the next section.
 
 A confirmation link is a single page load that expires, so it is counted but never held back by a cap or by quiet hours.
 It still obeys the one-at-a-time rule, the gap, the cooldown, and the breaker.
 
-The server follows a confirmation link from an email itself only when the same gate says yes.
+The server never opens a broker's confirmation link itself, because a bare Node request has no browser fingerprint and bot management flags it on sight.
+Every broker link goes to a confirm task, so the browser opens it, in turn, by the right route, and looks like the same one person as the rest of the visits.
+For a company the server follows the link itself only when the same gate says yes.
 It asks the gate first, records the visit, and sends the request with no user agent, because a Node client that names the tool or claims to be Chrome would both be wrong.
 When the site is waiting, or the person routed it through a proxy, the link goes to a confirm task instead, so the browser opens it later and by the right route.
 A 429, 403 or 503 on a link counts as pushback, and the other links in that email are not tried.
@@ -120,12 +124,19 @@ A probe that ends without telling anything about the site leaves the breaker hal
   The gap floor above is what spaces visits.
 - Every page the main frame loads is read for pushback, whatever started it, so a 429 that answers the search submit is handled like one that answers the first visit.
 
+## An empty search is not proof
+
+A scan that finds nobody counts as a clean visit only when the site itself showed its "no results" message, which a recipe names with `noResults` on its `extract_candidates` step.
+A rate limit or "unusual activity" page can be served with a 200 status and look like an empty list, so an empty result without that proof does not reset the pushback count, does not close a breaker, and is not reused for the next 24 hours.
+Pages that say "too many requests", "rate limit", "search limit" or "unusual activity" are read as pushback.
+
 ## Optional egress proxy
 
 A proxy the person controls can carry all visits or only those to chosen sites, for example the HTTP port of a gluetun container.
 It is off by default and set in Settings.
 The address must be `http://` with no user name or password.
-Listing a site covers its sister sites too.
+Listing a site covers its sister sites too: listing `intelius.com` also routes `truthfinder.com` and the other sites of the same operator, and Settings shows which sites each entry covers.
+An MCP client drives a browser of its own and cannot take the route, so it is never given a task for a routed site; the task waits for a worker.
 
 Many VPN and datacenter addresses are challenged more than a home connection, not less, so a proxy is for keeping one site's traffic apart, not for hiding.
 A worker that was started with its own proxy keeps it, because that one is the operator's safety filter.

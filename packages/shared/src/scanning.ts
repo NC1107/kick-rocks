@@ -37,6 +37,23 @@ export type SiteObservation = z.infer<typeof SiteObservation>;
 
 const minutes = z.number().int().min(0).max(1440);
 const hourOfDay = z.number().int().min(0).max(23);
+/** Whether the runtime knows this IANA zone, such as `America/Los_Angeles`. */
+export function isValidTimeZone(name: string): boolean {
+  try {
+    new Intl.DateTimeFormat("en-US", { timeZone: name });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+const TimeZoneName = z
+  .string()
+  .trim()
+  .min(1)
+  .max(64)
+  .refine(isValidTimeZone, { message: "Use a time zone such as America/Los_Angeles" });
+
 const reuseHours = z
   .number()
   .int()
@@ -55,9 +72,14 @@ export const ScanningSettings = z.object({
   hourlyCapTotal: z.number().int().min(1).max(500).default(12),
   /** Task starts across all sites in a rolling day, so the hourly pace cannot run around the clock. */
   dailyCapTotal: z.number().int().min(1).max(2000).default(60),
-  /** The hour of the day, in the server's local time, from which no browser task starts. */
+  /**
+   * The time zone quiet hours are read in. Null means the zone the server process runs in, which
+   * is UTC in a container unless TZ is set.
+   */
+  timeZone: TimeZoneName.nullable().default(null),
+  /** The hour of the day, in the time zone above, from which no browser task starts. */
   quietStartHour: hourOfDay.default(23),
-  /** The hour of the day, in the server's local time, at which browser tasks may start again. Equal to the start means no quiet hours. */
+  /** The hour of the day, in the time zone above, at which browser tasks may start again. Equal to the start means no quiet hours. */
   quietEndHour: hourOfDay.default(7),
   /** How long a finished search for the same person on the same site is reused. Zero turns reuse off. */
   reuseHours: reuseHours.default(24),
@@ -80,6 +102,7 @@ export const ScanningPatch = z.object({
   dailyCapPerSite: z.number().int().min(1).max(100).optional(),
   hourlyCapTotal: z.number().int().min(1).max(500).optional(),
   dailyCapTotal: ScanningSettings.shape.dailyCapTotal.optional(),
+  timeZone: TimeZoneName.nullable().optional(),
   quietStartHour: ScanningSettings.shape.quietStartHour.optional(),
   quietEndHour: ScanningSettings.shape.quietEndHour.optional(),
   reuseHours: reuseHours.optional(),
@@ -194,6 +217,31 @@ export function isQuietHour(hour: number, startHour: number, endHour: number): b
   return startHour < endHour
     ? hour >= startHour && hour < endHour
     : hour >= startHour || hour < endHour;
+}
+
+/** The clock time in a zone, or in the process's own zone when none is named. */
+export function clockIn(
+  date: Date,
+  timeZone: string | null,
+): { hour: number; minute: number; second: number } {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    ...(timeZone ? { timeZone } : {}),
+    hourCycle: "h23",
+    hour: "numeric",
+    minute: "numeric",
+    second: "numeric",
+  }).formatToParts(date);
+  const part = (type: string) => Number(parts.find((entry) => entry.type === type)?.value ?? 0);
+  return { hour: part("hour"), minute: part("minute"), second: part("second") };
+}
+
+/** The next moment the clock in a zone reads the given whole hour. */
+export function nextHourIn(date: Date, hour: number, timeZone: string | null): Date {
+  const clock = clockIn(date, timeZone);
+  const nowSeconds = clock.hour * 3600 + clock.minute * 60 + clock.second;
+  let wait = hour * 3600 - nowSeconds;
+  if (wait <= 0) wait += 24 * 3600;
+  return new Date(date.getTime() - date.getMilliseconds() + wait * 1000);
 }
 
 /** Pushback the site's own status line says, with no need to read the page. */

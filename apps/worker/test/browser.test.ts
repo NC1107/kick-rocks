@@ -23,6 +23,7 @@ import {
   installedChromePaths,
   launchPersistentChrome,
   ProxyConflictError,
+  timezoneOption,
 } from "../src/browser.js";
 import { describeBrowser, silentLogger } from "./support.js";
 
@@ -444,5 +445,19 @@ describeBrowser("browsers of different profiles", () => {
     } finally {
       await browsers.close();
     }
+  });
+});
+
+describe("timezoneOption", () => {
+  it("passes the host's zone to Chrome so it matches the address and the quiet hours", () => {
+    expect(timezoneOption({ TZ: "America/Los_Angeles" })).toEqual({
+      timezoneId: "America/Los_Angeles",
+    });
+  });
+
+  it("leaves Chrome's own zone when TZ is unset, empty, or not a zone", () => {
+    expect(timezoneOption({})).toEqual({});
+    expect(timezoneOption({ TZ: "" })).toEqual({});
+    expect(timezoneOption({ TZ: "Not/AZone" })).toEqual({});
   });
 });

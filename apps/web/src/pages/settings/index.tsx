@@ -46,7 +46,11 @@ export function Component() {
         <div className="flex flex-col gap-5">
           <ScheduleCard schedule={settings.data.schedule} />
           <SiteChecksCard siteChecks={settings.data.siteChecks} />
-          <ScanPaceCard scanning={settings.data.scanning} egress={settings.data.egress} />
+          <ScanPaceCard
+            scanning={settings.data.scanning}
+            egress={settings.data.egress}
+            coverage={settings.data.egressCoverage}
+          />
           <SitesCard />
           <WorkerCard
             worker={settings.data.worker}

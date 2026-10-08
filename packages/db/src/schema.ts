@@ -392,6 +392,11 @@ export const scans = sqliteTable(
     searchKey: text("search_key"),
     /** The scan whose result this one copied instead of searching, so a copy never extends reuse. */
     reusedFromScanId: text("reused_from_scan_id"),
+    /**
+     * The site itself showed that nothing matched. An empty result without this may be a soft
+     * block that looked like an empty page, so it is neither a clean visit nor worth reusing.
+     */
+    noResultsShown: integer("no_results_shown", { mode: "boolean" }),
   },
   (t) => [
     index("scans_profile_idx").on(t.profileId),
@@ -409,8 +414,12 @@ export const siteVisits = sqliteTable(
   {
     id: id(),
     domain: text("domain").notNull(),
-    /** Null for a request the server made itself, such as following a confirmation link. */
-    taskId: text("task_id").references(() => tasks.id, { onDelete: "cascade" }),
+    /**
+     * Null for a request the server made itself, such as following a confirmation link, and for a
+     * visit whose task was erased. The row holds only the owner domain and a time, so it stays: the
+     * caps keep counting visits after the person who caused them is gone.
+     */
+    taskId: text("task_id").references(() => tasks.id, { onDelete: "set null" }),
     startedAt: timestamp("started_at").notNull(),
     /** The visit was the single cautious probe after a circuit breaker's cooldown. */
     probe: integer("probe", { mode: "boolean" }).notNull().default(false),

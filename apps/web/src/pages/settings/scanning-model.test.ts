@@ -8,7 +8,7 @@ import {
   scanningDraftOf,
 } from "./scanning-model.js";
 
-const saved = ScanningSettings.parse({});
+const saved = ScanningSettings.parse({ timeZone: "America/Los_Angeles" });
 const savedEgress = EgressSettings.parse({});
 
 describe("checkScanning", () => {
@@ -51,10 +51,26 @@ describe("checkScanning", () => {
     expect(checkScanning(draft, saved)).toEqual({ errors: {}, patch: { reuseHours: 0 } });
   });
 
-  it("covers every field the card shows", () => {
+  it("covers every numeric field the card shows", () => {
     expect(SCANNING_FIELDS.map((field) => field.key).sort()).toEqual(
-      Object.keys(scanningDraftOf(saved)).sort(),
+      Object.keys(scanningDraftOf(saved))
+        .filter((key) => key !== "timeZone")
+        .sort(),
     );
+  });
+
+  it("offers the browser's zone while none is saved, and saves it as the choice", () => {
+    const unset = ScanningSettings.parse({});
+    const draft = scanningDraftOf(unset, "Europe/Paris");
+    expect(draft.timeZone).toBe("Europe/Paris");
+    expect(checkScanning(draft, unset).patch).toEqual({ timeZone: "Europe/Paris" });
+  });
+
+  it("refuses a time zone that does not exist", () => {
+    const draft = { ...scanningDraftOf(saved), timeZone: "Mars/Olympus" };
+    expect(checkScanning(draft, saved).errors).toEqual({
+      timeZone: "Use a time zone name such as America/Los_Angeles.",
+    });
   });
 });
 

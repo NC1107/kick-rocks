@@ -9,7 +9,9 @@ import {
 import {
   BROWSER_TASK_KINDS,
   type BreakerState,
+  clockIn,
   isQuietHour,
+  nextHourIn,
   type Pushback,
   type ScanningSettings,
   type SiteObservation,
@@ -126,6 +128,16 @@ export function cooldownMs(
   return Math.max(backoff * HOUR_MS, (retryAfterSeconds ?? 0) * 1000);
 }
 
+/** The owner key a target row is counted under. */
+export function ownerKeyOfRow(row: {
+  domain: string;
+  data: (typeof targets.$inferSelect)["data"];
+}): string {
+  const replyDomains = "replyDomains" in row.data ? (row.data.replyDomains ?? []) : [];
+  const ownerGroup = "ownerGroup" in row.data ? row.data.ownerGroup : undefined;
+  return siteOwnerKey(row.domain, replyDomains, ownerGroup);
+}
+
 export function createSitePoliteness({
   db,
   clock,
@@ -143,9 +155,7 @@ export function createSitePoliteness({
       .where(eq(targets.id, targetId))
       .get();
     if (!row) return null;
-    const replyDomains = "replyDomains" in row.data ? (row.data.replyDomains ?? []) : [];
-    const ownerGroup = "ownerGroup" in row.data ? row.data.ownerGroup : undefined;
-    const key = siteOwnerKey(row.domain, replyDomains, ownerGroup);
+    const key = ownerKeyOfRow(row);
     ownerByTarget.set(targetId, key);
     return key;
   }
@@ -230,13 +240,11 @@ export function createSitePoliteness({
     return addMs(starts[index] ?? starts[0] ?? new Date().toISOString(), windowMs);
   }
 
-  /** When quiet hours end, if `now` falls inside them; null otherwise. Hours are in the server's local time. */
+  /** When quiet hours end, if `now` falls inside them; null otherwise. Hours are read in the configured time zone. */
   function quietHoursEnd(now: Date, config: ScanningSettings): Date | null {
-    if (!isQuietHour(now.getHours(), config.quietStartHour, config.quietEndHour)) return null;
-    const end = new Date(now);
-    end.setHours(config.quietEndHour, 0, 0, 0);
-    if (end <= now) end.setDate(end.getDate() + 1);
-    return end;
+    const { hour } = clockIn(now, config.timeZone);
+    if (!isQuietHour(hour, config.quietStartHour, config.quietEndHour)) return null;
+    return nextHourIn(now, config.quietEndHour, config.timeZone);
   }
 
   const isBrowserTask = (task: TaskForGate) =>

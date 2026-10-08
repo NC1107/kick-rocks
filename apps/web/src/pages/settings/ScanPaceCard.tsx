@@ -18,6 +18,7 @@ import {
   egressDraftOf,
   SCANNING_FIELDS,
   scanningDraftOf,
+  TIME_ZONE_HELP,
 } from "./scanning-model.js";
 
 /**
@@ -27,9 +28,11 @@ import {
 export function ScanPaceCard({
   scanning,
   egress,
+  coverage,
 }: {
   scanning: SettingsView["scanning"];
   egress: SettingsView["egress"];
+  coverage: SettingsView["egressCoverage"];
 }) {
   const toast = useToast();
   const [pace, setPace] = useState(() => scanningDraftOf(scanning));
@@ -51,9 +54,14 @@ export function ScanPaceCard({
   const routeCheck = checkEgress(route, egress);
   const hasErrors =
     Object.keys(paceCheck.errors).length > 0 || Object.keys(routeCheck.errors).length > 0;
+  // A zone nobody has saved yet shows the browser's, and saving it is what makes it apply.
   const dirty =
+    scanning.timeZone === null ||
     JSON.stringify([pace, route]) !==
-    JSON.stringify([scanningDraftOf(scanning), egressDraftOf(egress)]);
+      JSON.stringify([scanningDraftOf(scanning), egressDraftOf(egress)]);
+  const sisterNotes = egress.domains
+    .map((domain) => ({ domain, sisters: coverage[domain] ?? [] }))
+    .filter((note) => note.sisters.length > 0);
   const serverErrors = save.error?.fieldErrors ?? {};
 
   return (
@@ -77,7 +85,7 @@ export function ScanPaceCard({
           description="How gently Kick Rocks visits broker sites, so your home address is never flagged for it."
         />
         <div className="grid gap-x-6 gap-y-4 sm:grid-cols-2">
-          {SCANNING_FIELDS.map((field) => (
+          {SCANNING_FIELDS.flatMap((field) => [
             <Field
               key={field.key}
               label={`${field.label} (${field.unit})`}
@@ -98,8 +106,30 @@ export function ScanPaceCard({
                   setPace((current) => ({ ...current, [field.key]: event.target.value }))
                 }
               />
-            </Field>
-          ))}
+            </Field>,
+            ...(field.key === "quietEndHour"
+              ? [
+                  <Field
+                    key="timeZone"
+                    label="Time zone for quiet hours"
+                    help={TIME_ZONE_HELP}
+                    error={
+                      (submitted ? paceCheck.errors.timeZone : undefined) ??
+                      serverErrors["scanning.timeZone"]
+                    }
+                  >
+                    <Input
+                      autoComplete="off"
+                      spellCheck={false}
+                      value={pace.timeZone}
+                      onChange={(event) =>
+                        setPace((current) => ({ ...current, timeZone: event.target.value }))
+                      }
+                    />
+                  </Field>,
+                ]
+              : []),
+          ])}
         </div>
 
         <div className="mt-6 flex flex-col gap-4 border-t border-line pt-6">
@@ -144,6 +174,16 @@ export function ScanPaceCard({
               }
             />
           </Field>
+          {sisterNotes.length > 0 ? (
+            <ul className="flex flex-col gap-1 text-sm text-ink-muted">
+              {sisterNotes.map((note) => (
+                <li key={note.domain}>
+                  <span className="font-medium text-ink">{note.domain}</span> also covers{" "}
+                  {note.sisters.join(", ")}.
+                </li>
+              ))}
+            </ul>
+          ) : null}
           <Alert intent="warning" title="A VPN does not make sites trust you more">
             Many broker sites challenge VPN and datacenter addresses more often than a home
             connection, not less. Use a proxy to keep one site's traffic apart, not to hide.

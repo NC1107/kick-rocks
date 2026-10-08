@@ -10,8 +10,15 @@ import {
 } from "@kickrocks/shared";
 import type { Page } from "playwright";
 import type { RecipeResultFor, RunCanaryInput, RunOutcome, RunRecipeInput } from "../types.js";
-import { blockedBy, createContext, guard, hostOf, type RunContext, withSite } from "./context.js";
-import { detectBlockAfterGrace } from "./detect.js";
+import {
+  blockedBy,
+  createContext,
+  findBlock,
+  guard,
+  hostOf,
+  type RunContext,
+  withSite,
+} from "./context.js";
 import { isClosedError, RunAborted, RunFailure, toFailure } from "./errors.js";
 import { describeSelector, existsWithin } from "./locate.js";
 import type { RunnerOptions } from "./options.js";
@@ -90,10 +97,7 @@ async function outcomeOfError(ctx: RunContext, error: unknown): Promise<RunOutco
   const failure = toFailure(error);
   if (failure.kind === "recipe" || failure.kind === "site") {
     try {
-      const finding = await detectBlockAfterGrace(ctx.page, {
-        graceMs: ctx.timeouts.challengeGraceMs,
-        signal: ctx.signal,
-      });
+      const finding = await findBlock(ctx);
       if (finding !== null) return await blockedBy(ctx, finding);
     } catch (probeError) {
       if (isClosedError(probeError)) return failed(ctx, toFailure(probeError));
@@ -113,7 +117,13 @@ function acceptDialogs(page: Page): () => void {
 
 function finish(ctx: RunContext, recipe: Recipe): RunOutcome<FormResult | ScanResult> {
   if (recipe.purpose === "scan") {
-    return { status: "completed", result: { candidates: ctx.state.candidates } };
+    return {
+      status: "completed",
+      result: {
+        candidates: ctx.state.candidates,
+        ...(ctx.state.noResultsShown ? { noResultsShown: true } : {}),
+      },
+    };
   }
   if (!ctx.state.proved) {
     throw new RunFailure(

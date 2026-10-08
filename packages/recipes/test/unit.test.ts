@@ -86,6 +86,9 @@ describe("telling a bot wall from a page", () => {
       "short verification text",
       { ...quiet, text: "Verifying you are human. This may take a few seconds." },
     ],
+    ["a rate limit notice", { ...quiet, text: "Too many requests. Please try again later." }],
+    ["a search limit notice", { ...quiet, text: "You have exceeded your free searches today." }],
+    ["an unusual activity notice", { ...quiet, text: "We noticed unusual activity from you." }],
     ["a press and hold prompt", { ...quiet, text: "Press & Hold to confirm" }],
     [
       "a security review notice",
@@ -93,6 +96,12 @@ describe("telling a bot wall from a page", () => {
     ],
   ])("recognizes %s", (_name, signals) => {
     expect(interstitialIn(signals)).not.toBeNull();
+  });
+
+  it("reads a rate limit page as rate limited, not as a bot check", () => {
+    expect(
+      classifySignals({ ...quiet, text: "Too many requests. Please slow down." }, []),
+    ).toMatchObject({ reason: "bot_detection", transient: false, pushback: "rate_limited" });
   });
 
   it("ignores those words in a long page", () => {

@@ -145,6 +145,11 @@ const ExpectUrl = step("expect_url", {
 });
 const ExtractCandidates = step("extract_candidates", {
   item: Selector,
+  /**
+   * What the site shows when nobody matches, such as "0 people found". An empty result with no
+   * such proof is not counted as a clean visit, because a soft block can look the same.
+   */
+  noResults: Selector.optional(),
   fields: z
     .object({
       recordUrl: CandidateField,

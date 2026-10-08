@@ -146,6 +146,7 @@ export function createStore(authMode: MockAuthMode = "authed"): MockStore {
       retention: { messageDays: null, screenshotDays: 30 },
       scanning: ScanningSettings.parse({}),
       egress: { proxyUrl: null, domains: [] },
+      egressCoverage: {},
       mcp: { enabled: false, tokenSet: false, url: "http://localhost:8420/mcp" },
       siteChecks: { enabled: false },
       agent: { takeUnreviewed: false },

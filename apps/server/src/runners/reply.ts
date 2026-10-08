@@ -10,7 +10,7 @@ import {
   WebUrl,
 } from "@kickrocks/shared";
 import { and, eq } from "drizzle-orm";
-import { proxyFor } from "../core/egress.js";
+import { proxyForTarget } from "../core/egress.js";
 import { AppError } from "../core/errors.js";
 import { isTrustedConfirmationSender } from "../core/targets.js";
 import type { Task } from "../core/task-types.js";
@@ -84,8 +84,11 @@ export async function followConfirmationLinks(
     kind: "browser",
     url: usable.find((url) => isOnDomain(url, target.domain)) ?? (usable[0] as string),
   };
-  const ownerKey = services.politeness.domainOf(target.id);
-  if (proxyFor(services.settings.get("egress"), { domain: target.domain, ownerKey }) !== null) {
+  // A broker sits behind bot management that flags a request with no browser fingerprint on sight,
+  // which would put a bot hit on the home address for every confirmation email. The browser looks
+  // like the one person the rest of the visits are, so it takes every broker's link.
+  if (target.kind === "broker") return handoff;
+  if (proxyForTarget(services, target) !== null) {
     return handoff;
   }
   if (!services.politeness.startDirect(target.id).allow) return handoff;
