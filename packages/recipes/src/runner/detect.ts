@@ -17,7 +17,7 @@ export interface BlockFinding {
   pushback: Extract<PushbackKind, "challenge" | "captcha" | "access_denied" | "rate_limited">;
 }
 
-export interface ChallengeSignals {
+interface ChallengeSignals {
   title: string;
   text: string;
   textLength: number;

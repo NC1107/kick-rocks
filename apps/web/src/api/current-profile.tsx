@@ -4,7 +4,7 @@ import { readStorage, STORAGE_KEYS, writeStorage } from "../lib/storage.js";
 import type { ApiRequestError } from "./errors.js";
 import { useApiQuery } from "./hooks.js";
 
-export interface CurrentProfileState {
+interface CurrentProfileState {
   /** The profile every profile-scoped page works on; null while loading or when none exist. */
   profile: ProfileSummary | null;
   profiles: readonly ProfileSummary[];

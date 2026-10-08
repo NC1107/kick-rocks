@@ -1,5 +1,6 @@
 import { z } from "zod";
-import { TargetOutcome } from "./campaigns.js";
+import { FilterSelection, TargetOutcome } from "./campaigns.js";
+import { MAX_SELECTED_TARGETS } from "./targets.js";
 import { Candidate, TaskStatus } from "./tasks.js";
 import { WebUrl } from "./url.js";
 
@@ -45,8 +46,9 @@ export const ScanSummary = z.object({
 export type ScanSummary = z.infer<typeof ScanSummary>;
 
 export const ScanStartBody = z.union([
-  z.object({ targetIds: z.array(z.string().min(1)).min(1).max(5000) }).strict(),
+  z.object({ targetIds: z.array(z.string().min(1)).min(1).max(MAX_SELECTED_TARGETS) }).strict(),
   z.object({ preset: z.literal("people_search") }).strict(),
+  FilterSelection,
 ]);
 export type ScanStartBody = z.infer<typeof ScanStartBody>;
 

@@ -94,7 +94,7 @@ export interface ServiceOverrides {
 }
 
 /** Where the dataset files are read from, so a test can say what is and is not on disk. */
-export interface DatasetFiles {
+interface DatasetFiles {
   hasBrokers(): boolean;
   loadBrokers(): BrokerDataset;
   hasCompanies(): boolean;

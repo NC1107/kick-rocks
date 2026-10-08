@@ -1,13 +1,11 @@
 # apps/web
 
 The Kick Rocks web app: React 19, react-router, @tanstack/react-query, Tailwind v4, and lucide icons.
-This file is for people building pages.
-The shell (router, layout, tokens, components, API client, mock API) is finished, so a page owner only edits files inside their own page directories and their own mock files.
+This file is for people changing pages and components.
 
 ## Run it
 
 ```sh
-export PATH="$HOME/.local/bin:$PATH"
 pnpm --filter @kickrocks/web dev:mock --port 5180
 ```
 
@@ -21,7 +19,7 @@ Use it to check a change in light and dark, and at phone width.
 
 ## Add a page
 
-Every route is already in `src/router.tsx`, pointing at a page module.
+Every route is in `src/router.tsx`, pointing at a page module.
 A page lives where its URL says, inside its area:
 
 | Route | Page file |
@@ -40,18 +38,19 @@ A page lives where its URL says, inside its area:
 | `/requests/:id` | `src/pages/requests/detail/index.tsx` |
 | `/review` | `src/pages/review/index.tsx` |
 | `/settings` | `src/pages/settings/index.tsx` |
+| `/settings/recipes` | `src/pages/settings/recipes/index.tsx` |
 | `/settings/agents` | `src/pages/settings/agents/index.tsx` |
+| `/settings/notifications` | `src/pages/settings/notifications/index.tsx` |
 | `/about` | `src/pages/about/index.tsx` |
 
-Replace the stub in the file.
-The module must export a component named `Component`, which is how the router lazy-loads it.
-Put the page's own pieces next to it, in the same directory, and never edit `router.tsx`.
+A new page is a module that exports a component named `Component`, which is how the router lazy-loads it, plus one entry in `router.tsx`.
+Put the page's own pieces next to it, in the same directory.
 
 ```tsx
 import { API_ROUTES } from "@kickrocks/shared";
 import { useApiQuery } from "../../api/index.js";
 import { RequireProfile } from "../../components/layout/RequireProfile.js";
-import { Alert, PageHeader, StatusPill } from "../../components/ui/index.js";
+import { Callout, PageHeader, StatusMark } from "../../components/ui/index.js";
 
 export function Component() {
   return (
@@ -90,7 +89,7 @@ cancel.mutate({ params: { id }, body: { action: "cancel" } });
 - On a failed mutation, `error.fieldErrors` maps validation issues by dotted path, such as `identities.0.value.address`, for a `Field`'s `error` prop.
 - `errorMessage(error)` gives text that is safe to show for any error.
 - `screenshotUrl(taskId)` is the `src` for a task screenshot.
-- `reviewCount`, `useAuthState`, and the profile hooks already exist.
+- `useReviewCount`, `useAuthState`, and the profile hooks already exist.
 
 ## Components
 
@@ -102,14 +101,15 @@ Spacing, color, and type come from tokens (below), not from raw Tailwind palette
 | `Button`, `LinkButton`, `IconButton` | Actions. One primary per view. `loading` blocks clicks and shows a spinner. An `IconButton` needs a `label`. |
 | `Field` | Wrap one control with its label, help, and error. The control gets its id and `aria-describedby` from it. |
 | `Input`, `Textarea`, `Select`, `Checkbox`, `RadioGroup` | Form controls. `Select` is the native element. |
-| `Card`, `CardHeader`, `CardFooter` | Group related content. Structure is a hairline, not a shadow. |
-| `Badge` | A fact about a row: a category, a requirement. |
-| `StatusPill`, `TaskStatusPill` | Request and task state. Each status has its own tone, icon, and words. |
+| `Section`, `RowGroup`, `Row` | A labelled group of rows divided by hairlines. This is the default way to lay out facts and settings. |
+| `Card` | A bounded object such as a dialog body or the login panel. Structure is a hairline, not a shadow. |
+| `Tag` | A fact about a row: a category, a requirement. Outlined, never tinted. |
+| `StatusMark`, `TaskStatusMark` | Request and task state: a shape and a word. |
 | `Table` and its parts, `Pagination` | Lists. The table scrolls inside its frame on a phone. Show an `EmptyState` instead of a table with no rows. |
 | `Tabs`, `LinkTabs` | `Tabs` for panels on one page, `LinkTabs` for sections that are routes. |
 | `Dialog`, `ConfirmDialog` | Native modal: focus trap, Escape, focus return. Use `ConfirmDialog` with `destructive` before anything irreversible. |
 | `useToast()` | Confirm what just happened, with the verb of the button: "Delete" gives "Deleted". |
-| `Alert` | A notice that stays in the page. |
+| `Callout` | A notice that stays in the page. |
 | `EmptyState`, `Skeleton`, `Spinner` | Nothing here, loading with a shape, loading without one. |
 | `PageHeader` | Title, description, actions, optional back link. |
 | `Menu` | A short list of actions, with a `selected` flag on items that choose one of several. |
@@ -121,22 +121,22 @@ Use them, so a value reads the same on every page.
 
 ## Design tokens
 
-Defined in `src/index.css` as CSS variables for light and dark, then mapped into Tailwind's theme.
-Light and dark follow the system through `prefers-color-scheme`, and the sidebar toggle stores an override in `localStorage` (`kickrocks.theme`).
-Tailwind's own palette is removed, so a class such as `bg-red-500` does not exist.
+The spec is [docs/DESIGN-LANGUAGE.md](../../docs/DESIGN-LANGUAGE.md), and `src/index.css` holds the values as CSS variables for light and dark, then maps them into Tailwind's theme.
+Dark is the default when the OS has no preference, and the sidebar toggle stores an override in `localStorage` (`kickrocks.theme`).
+Tailwind's own palette and numeric type sizes are removed, so a class such as `bg-red-500` or `text-sm` does not exist.
 
-- Surfaces: `canvas`, `surface`, `raised`, `sunken`, `sidebar`, `field`.
-- Lines: `line` for hairlines, `line-strong` for the edge of a control (3:1 against its surface).
-- Text: `ink`, `ink-muted`, `ink-faint`.
-- Accent: `accent`, `accent-hover`, `accent-ink`, `accent-soft`, `accent-soft-ink`, plus `danger` for destructive actions.
-- Tones: set `data-tone="green"` (or any of the eleven) and use `bg-tone-bg text-tone-ink`, `border-tone-line`, `text-tone-dot`.
-- Type: system font stack, 12, 13, 14, 16, 18, 22, and 28 px, with 14 px as body.
+- Surfaces: `frame`, `rail`, `canvas`, `surface`, `hover`, `active`, `field`, `popover`, `popover-hover`.
+- Lines: `line` for hairlines, `line-popover` for floating layers, `line-strong` for the edge of a control (3:1 against its surface).
+- Text: `ink`, `ink-2`, `ink-3`.
+- Accent: `accent-fill`, `accent-fill-hover`, `accent-on`, `accent-text`, `accent-soft`, and `focus`.
+- State: `positive`, `attention`, and `danger`, each with a `-text` variant for text.
+- Tones: set `data-tone` to `neutral`, `positive`, `attention` or `danger` and use `bg-tone-bg text-tone-ink`, `border-tone-line`, `text-tone-dot`.
+- Type: IBM Plex Sans and Mono, vendored so no font loads from a third party. Steps are `label`, `caption`, `meta`, `ui`, `body`, `heading`, `title`, and `numeral`, with `ui` (14 px) as body text.
 - Radius by role: `xs` checkbox, `sm` badge, `md` control, `lg` card, `xl` dialog.
 - Only floating layers get a shadow: `shadow-pop` and `shadow-dialog`.
-- Controls are 36 px tall (`h-control`), 44 px on a phone.
+- Controls are 34 px tall (`h-control`), 44 px on a phone.
 
 Every text and control-edge pair meets WCAG AA in both themes.
-No font or asset loads from a third party.
 
 ## The mock API
 
@@ -144,20 +144,21 @@ No font or asset loads from a third party.
 The server validates every handler's params, query, body, and response against the shared schemas, so a bad fixture answers 500 with the schema issues instead of confusing a page.
 It also behaves like the real server where a UI can notice: 401 when signed out, 403 without `X-Kick-Rocks`, 400 with issues, 409 for an illegal transition, and 429 after five wrong passwords.
 
-| File | Owner | Answers |
-|---|---|---|
-| `mock/auth.ts` | web-core | `/auth/*` |
-| `mock/profiles.ts` | web-core | `/profiles*` |
-| `mock/mailbox.ts` | web-core | `/mail/providers`, `/profiles/:id/mailbox*` |
-| `mock/dashboard.ts` | web-core | `/profiles/:id/dashboard` |
-| `mock/about.ts` | web-core | `/health`, `/settings/data-sources` |
-| `mock/targets.ts` | web-flows | `/targets*` |
-| `mock/campaigns.ts` | web-flows | `/profiles/:id/campaigns*` |
-| `mock/requests.ts` | web-flows | `/profiles/:id/requests`, `/requests/*` |
-| `mock/review.ts` | web-flows | `/review`, `/tasks/*`, `/matches/*`, `/messages/*`, `/profiles/:id/scans` |
-| `mock/settings.ts` | web-flows | `/settings*` except data sources, `/recipes*` |
+| File | Answers |
+|---|---|
+| `mock/auth.ts` | `/auth/*` |
+| `mock/profiles.ts` | `/profiles*` |
+| `mock/mailbox.ts` | `/mail/providers`, `/profiles/:id/mailbox*` |
+| `mock/dashboard.ts` | `/profiles/:id/dashboard` |
+| `mock/about.ts` | `/health`, `/settings/data-sources` |
+| `mock/targets.ts` | `/targets*` |
+| `mock/campaigns.ts` | `/profiles/:id/campaigns*` |
+| `mock/requests.ts` | `/profiles/:id/requests`, `/requests/*` |
+| `mock/review.ts` | `/review`, `/tasks/*`, `/matches/*`, `/messages/*`, `/profiles/:id/scans` |
+| `mock/settings.ts` | `/settings*` except data sources, `/recipes*` |
+| `mock/notifications.ts` | `/notifications*`, mounted through the settings domain |
 
-To add or change a handler, edit your own file.
+To add or change a handler, edit the file for its domain.
 A handler is typed from the route, so the compiler tells you the response shape:
 
 ```ts

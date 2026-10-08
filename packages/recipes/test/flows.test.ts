@@ -1,5 +1,5 @@
 import type { Browser, Page } from "playwright";
-import { afterAll, afterEach, beforeAll, beforeEach, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, expect, it, vi } from "vitest";
 import { runRecipe } from "../src/index.js";
 import { type FixtureServer, startFixtureServer } from "./fixture-server.js";
 import {
@@ -153,7 +153,9 @@ describeBrowser("a record URL removal form", () => {
       },
     );
     expect(submissionsSeen).toEqual([0, 0]);
-    expect(server.submissions.length).toBeGreaterThan(0);
+    await vi.waitFor(() => expect(server.submissions.length).toBeGreaterThan(0), {
+      timeout: 15_000,
+    });
   });
 
   it("does not click when the caller could not record the submission, and fails retryably", async () => {

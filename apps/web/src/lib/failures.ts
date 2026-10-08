@@ -12,7 +12,7 @@ export function plainError(text: string): string {
 
 export type FailureGroup = "profile" | "network" | "recipe" | "site" | "internal";
 
-export interface FailureView {
+interface FailureView {
   group: FailureGroup;
   /** The short label for the badge and for bulk actions. */
   label: string;

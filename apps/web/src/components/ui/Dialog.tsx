@@ -68,7 +68,7 @@ export function Dialog({
         if (dismissible && event.target === event.currentTarget) onClose();
       }}
       className={cn(
-        "m-auto max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] overflow-hidden rounded-xl border border-line bg-raised p-0 text-ink shadow-dialog backdrop:animate-fade backdrop:bg-scrim open:animate-settle",
+        "m-auto max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] overflow-hidden rounded-lg border border-line-popover bg-popover p-0 text-ink shadow-dialog backdrop:animate-fade backdrop:bg-scrim open:animate-settle",
         SIZES[size],
       )}
     >
@@ -77,11 +77,11 @@ export function Dialog({
           className={cn("flex items-start justify-between gap-4 px-5 pt-5", !children && "pb-4")}
         >
           <div className="min-w-0">
-            <h2 id={titleId} className="text-xl font-semibold text-ink">
+            <h2 id={titleId} className="text-heading font-semibold text-ink">
               {title}
             </h2>
             {description ? (
-              <p id={descriptionId} className="mt-1 text-base text-ink-muted">
+              <p id={descriptionId} className="mt-1 text-ui text-ink-2">
                 {description}
               </p>
             ) : null}
@@ -94,7 +94,7 @@ export function Dialog({
         </div>
         {children ? <div className="min-h-0 overflow-y-auto px-5 py-4">{children}</div> : null}
         {footer ? (
-          <div className="flex flex-wrap items-center justify-end gap-2 border-t border-line px-5 py-3.5">
+          <div className="flex flex-wrap items-center justify-end gap-2 border-t border-line-popover px-5 py-3.5">
             {footer}
           </div>
         ) : (
@@ -109,7 +109,7 @@ export interface ConfirmDialogProps
   extends Pick<DialogProps, "open" | "onClose" | "title" | "description" | "children"> {
   confirmLabel: string;
   onConfirm: () => void;
-  /** Red confirm button, for something that cannot be undone. */
+  /** Filled red confirm button, for something that cannot be undone. */
   destructive?: boolean;
   loading?: boolean;
   cancelLabel?: string;
@@ -137,7 +137,7 @@ export function ConfirmDialog({
             {cancelLabel}
           </Button>
           <Button
-            variant={destructive ? "danger" : "primary"}
+            variant={destructive ? "danger-solid" : "primary"}
             onClick={onConfirm}
             loading={loading}
           >

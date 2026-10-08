@@ -130,9 +130,9 @@ describe("resolveLegalBasis", () => {
   it("gives a California request that only opts out the 15 business day window", () => {
     const base = { state: "CA" as const, target: BROKER, asOf: NOW };
     expect(resolveLegalBasis({ ...base, rights: ["opt_out"] }).responseDays).toBe(21);
-    expect(getLegalBasis("ca-ccpa", "CA", ["opt_out"])?.responseDays).toBe(21);
+    expect(getLegalBasis("ca-ccpa", "CA", ["opt_out"], NOW)?.responseDays).toBe(21);
     expect(resolveLegalBasis({ ...base, rights: ["opt_out", "delete"] }).responseDays).toBe(45);
-    expect(getLegalBasis("ca-ccpa", "CA")?.responseDays).toBe(45);
+    expect(getLegalBasis("ca-ccpa", "CA", undefined, NOW)?.responseDays).toBe(45);
     const texas = resolveLegalBasis({
       state: "TX",
       target: BROKER,
@@ -150,7 +150,17 @@ describe("resolveLegalBasis", () => {
       asOf: NOW,
     });
     expect(basis.kind).toBe("policy");
-    expect(getLegalBasis("fl-fdbr", "FL")?.kind).toBe("statute");
+    expect(getLegalBasis("fl-fdbr", "FL", undefined, NOW)?.kind).toBe("statute");
+  });
+
+  it("moves the Delete Act to 30 days from 2027-01-01 and keeps 45 before", () => {
+    const base = { state: "CA" as const, target: CA_REGISTERED, rights: ["delete" as const] };
+    const before = new Date("2026-12-31T23:59:59Z");
+    const after = new Date("2027-01-01T00:00:00Z");
+    expect(resolveLegalBasis({ ...base, asOf: before }).responseDays).toBe(45);
+    expect(resolveLegalBasis({ ...base, asOf: after }).responseDays).toBe(30);
+    expect(getLegalBasis("ca-delete-act", "CA", ["delete"], before)?.responseDays).toBe(45);
+    expect(getLegalBasis("ca-delete-act", "CA", ["delete"], after)?.responseDays).toBe(30);
   });
 
   it("does not claim a deletion right the statute limits to data the person provided, against a broker", () => {
@@ -263,16 +273,16 @@ describe("resolveLegalBasis", () => {
 
 describe("getLegalBasis", () => {
   it("returns a stored statute id as it is, whatever the date", () => {
-    expect(getLegalBasis("va-vcdpa", "VA")).toMatchObject({
+    expect(getLegalBasis("va-vcdpa", "VA", undefined, NOW)).toMatchObject({
       id: "va-vcdpa",
       kind: "statute",
       responseDays: 45,
     });
-    expect(getLegalBasis("ia-icdpa", "IA")?.responseDays).toBe(90);
+    expect(getLegalBasis("ia-icdpa", "IA", undefined, NOW)?.responseDays).toBe(90);
   });
 
   it("returns the policy basis for any state", () => {
-    expect(getLegalBasis(POLICY_BASIS_ID, "WY")).toMatchObject({
+    expect(getLegalBasis(POLICY_BASIS_ID, "WY", undefined, NOW)).toMatchObject({
       kind: "policy",
       state: "WY",
       statute: null,
@@ -280,24 +290,20 @@ describe("getLegalBasis", () => {
   });
 
   it("is null for an unknown id, a statute of another state, or a bad state", () => {
-    expect(getLegalBasis("nope", "TX")).toBeNull();
-    expect(getLegalBasis("tx-tdpsa", "VA")).toBeNull();
-    expect(getLegalBasis("tx-tdpsa", "ZZ" as never)).toBeNull();
-    expect(getLegalBasis("", "TX")).toBeNull();
+    expect(getLegalBasis("nope", "TX", undefined, NOW)).toBeNull();
+    expect(getLegalBasis("tx-tdpsa", "VA", undefined, NOW)).toBeNull();
+    expect(getLegalBasis("tx-tdpsa", "ZZ" as never, undefined, NOW)).toBeNull();
+    expect(getLegalBasis("", "TX", undefined, NOW)).toBeNull();
   });
 
   it("round-trips every basis resolveLegalBasis can return", () => {
     for (const { state } of listJurisdictions()) {
       for (const target of [BROKER, COMPANY, CA_REGISTERED]) {
         for (const rights of [["opt_out"], ["delete"], ["opt_out", "delete"]] as const) {
-          const basis = resolveLegalBasis({
-            state,
-            target,
-            rights,
-            asOf: new Date("2029-01-01T00:00:00Z"),
-          });
+          const asOf = new Date("2029-01-01T00:00:00Z");
+          const basis = resolveLegalBasis({ state, target, rights, asOf });
           expect(
-            getLegalBasis(basis.id, state, rights),
+            getLegalBasis(basis.id, state, rights, asOf),
             `${state} ${target.id} ${rights.join("+")}`,
           ).toEqual(basis);
         }

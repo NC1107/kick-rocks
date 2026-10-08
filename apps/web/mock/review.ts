@@ -19,6 +19,7 @@ import { conflict, defineMockDomain, handle, invalid, notFound } from "./core.js
 import { fakeScreenshotPng } from "./png.js";
 import { addEvent, buildRequest, makeTask } from "./requests.js";
 import type { MockStore } from "./store.js";
+import { selectedByFilter } from "./targets.js";
 
 const MANUAL_INSTRUCTIONS: Record<BlockedReason, string> = {
   captcha:
@@ -37,7 +38,7 @@ const MANUAL_INSTRUCTIONS: Record<BlockedReason, string> = {
 };
 
 const AGENT_INSTRUCTIONS =
-  "No agent has taken this yet, and the built-in worker will not run it. Connect an agent in Settings, or open the page and finish the job yourself, then mark it done.";
+  "No agent has taken this yet, and the recipe worker will not run it. Connect an agent in Settings, or open the page and finish the job yourself, then mark it done.";
 
 const FAILED_INSTRUCTIONS =
   "This task failed and nothing will try it again by itself. Retry it, or finish the job by hand and mark it done.";
@@ -559,9 +560,11 @@ export default defineMockDomain({
         const targets =
           "preset" in body
             ? store.targets.filter((target) => target.needsRecord)
-            : body.targetIds
-                .map((id) => store.targets.find((target) => target.id === id))
-                .filter((target) => target !== undefined);
+            : "filter" in body
+              ? selectedByFilter(store, body.filter)
+              : body.targetIds
+                  .map((id) => store.targets.find((target) => target.id === id))
+                  .filter((target) => target !== undefined);
         const items: TargetOutcome[] = targets.map((target) => {
           const running = store.scans.some(
             (scan) =>

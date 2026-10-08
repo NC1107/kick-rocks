@@ -1,47 +1,22 @@
-import { type KickRocksDb, recipes, targets } from "@kickrocks/db";
+import { type KickRocksDb, type TargetRow, targets } from "@kickrocks/db";
 import type {
   Paged,
-  RecipeHealth,
-  RecipePurpose,
   TargetCategory,
   TargetDetail,
   TargetFacets,
   TargetListItem,
   TargetsQuery,
 } from "@kickrocks/shared";
-import { and, asc, desc, eq, inArray, notInArray, type SQL, sql } from "drizzle-orm";
-import { likePattern } from "../../core/like.js";
+import { and, asc, desc, eq, notInArray, type SQL, sql } from "drizzle-orm";
+import { approvedRecipesOf, NO_RECIPES } from "../../core/approved-recipes.js";
 import { targetDetail } from "../../core/target-detail.js";
+import { filterConditions, ID_REQUIREMENT, TARGET_ORDER } from "../../core/target-filter.js";
 import type { TargetsService } from "../../core/targets.js";
 
-const ID_REQUIREMENT = "id_upload";
+const DIFFICULTY_ORDER = ["easy", "medium", "hard"] as const;
 
 /** Categories that say what a site demands, which the Requirement filter already covers. */
 const REQUIREMENT_CATEGORIES: TargetCategory[] = ["requires-id"];
-
-const PRIORITY_RANK = sql`case ${targets.priority} when 'crucial' then 0 when 'high' then 1 else 2 end`;
-
-function filtersOf(query: Partial<TargetsQuery>): SQL[] {
-  const conditions: SQL[] = [];
-  if (query.kind) conditions.push(eq(targets.kind, query.kind));
-  if (query.category) conditions.push(eq(targets.category, query.category));
-  if (query.contactMethod) conditions.push(eq(targets.contactMethod, query.contactMethod));
-  if (query.priority) conditions.push(eq(targets.priority, query.priority));
-  if (query.requirement) {
-    const listed = sql`exists (select 1 from json_each(${targets.requirements}) where json_each.value = ${query.requirement})`;
-    // A site that wants ID is recorded in its category and flag, not always in its requirements.
-    conditions.push(
-      query.requirement === ID_REQUIREMENT ? sql`(${listed} or ${targets.requiresId} = 1)` : listed,
-    );
-  }
-  if (query.q) {
-    const pattern = likePattern(query.q);
-    conditions.push(
-      sql`(${targets.name} like ${pattern} escape '\\' or ${targets.domain} like ${pattern} escape '\\')`,
-    );
-  }
-  return conditions;
-}
 
 export interface TargetCatalog {
   list(query: TargetsQuery): Paged<TargetListItem>;
@@ -49,34 +24,10 @@ export interface TargetCatalog {
   detail(id: string): TargetDetail;
 }
 
-type Automation = Record<RecipePurpose, RecipeHealth | null>;
-
 export function createTargetCatalog(
   db: KickRocksDb,
   targetsService: TargetsService,
 ): TargetCatalog {
-  /**
-   * What automation exists per target: the health of its newest active recipe for each purpose.
-   * A proposal or a rejected recipe never runs, so it does not count as automation.
-   */
-  function automationOf(targetIds: readonly string[]): Map<string, Automation> {
-    const result = new Map<string, Automation>();
-    if (targetIds.length === 0) return result;
-    const rows = db
-      .select({ targetId: recipes.targetId, purpose: recipes.purpose, health: recipes.health })
-      .from(recipes)
-      .where(and(inArray(recipes.targetId, [...targetIds]), eq(recipes.status, "active")))
-      .orderBy(asc(recipes.version))
-      .all();
-    // Ascending by version, so the last row written for a purpose is the newest.
-    for (const row of rows) {
-      const entry = result.get(row.targetId) ?? { scan: null, remove: null };
-      entry[row.purpose] = row.health;
-      result.set(row.targetId, entry);
-    }
-    return result;
-  }
-
   function countBy(column: SQL, where: SQL | undefined) {
     return db
       .select({ value: sql<string>`${column}`, count: sql<number>`count(*)` })
@@ -88,34 +39,48 @@ export function createTargetCatalog(
   }
 
   return {
-    list(query) {
+    list({ page, pageSize, ...filter }) {
       // A retired target is no longer offered for browsing; its detail stays reachable by id so
       // the history of requests made to it keeps its meaning.
-      const where = and(eq(targets.retired, false), ...filtersOf(query));
-      const total =
-        db.select({ count: sql<number>`count(*)` }).from(targets).where(where).get()?.count ?? 0;
-      const rows = db
-        .select()
-        .from(targets)
-        .where(where)
-        .orderBy(PRIORITY_RANK, asc(sql`lower(${targets.name})`), asc(targets.id))
-        .limit(query.pageSize)
-        .offset((query.page - 1) * query.pageSize)
-        .all();
-      const automation = automationOf(rows.map((row) => row.id));
+      let rows: TargetRow[];
+      let total: number;
+      if (filter.difficulty) {
+        // Difficulty depends on recipes, which SQL cannot see, so it filters after the fact.
+        const matching = targetsService.select(filter);
+        total = matching.length;
+        rows = matching.slice((page - 1) * pageSize, page * pageSize);
+      } else {
+        const where = and(eq(targets.retired, false), ...filterConditions(filter));
+        total =
+          db.select({ count: sql<number>`count(*)` }).from(targets).where(where).get()?.count ?? 0;
+        rows = db
+          .select()
+          .from(targets)
+          .where(where)
+          .orderBy(...TARGET_ORDER)
+          .limit(pageSize)
+          .offset((page - 1) * pageSize)
+          .all();
+      }
+      const automation = approvedRecipesOf(
+        db,
+        rows.map((row) => row.id),
+      );
+      const summaries = targetsService.toSummaries(rows);
       return {
-        items: rows.map((row) => ({
-          ...targetsService.toSummary(row),
-          automation: automation.get(row.id) ?? { scan: null, remove: null },
+        items: summaries.map((summary) => ({
+          ...summary,
+          automation: automation.get(summary.id) ?? NO_RECIPES,
         })),
         total,
-        page: query.page,
-        pageSize: query.pageSize,
+        page,
+        pageSize,
       };
     },
 
     facets() {
       const live = eq(targets.retired, false);
+      const liveRows = db.select().from(targets).where(live).all();
       const listedRequirements = db
         .select({ value: sql<string>`json_each.value`, count: sql<number>`count(*)` })
         .from(targets)
@@ -127,8 +92,12 @@ export function createTargetCatalog(
         db
           .select({ count: sql<number>`count(*)` })
           .from(targets)
-          .where(and(live, ...filtersOf({ requirement: ID_REQUIREMENT })))
+          .where(and(live, ...filterConditions({ requirement: ID_REQUIREMENT })))
           .get()?.count ?? 0;
+      const difficulty = new Map<string, number>();
+      for (const { difficulty: level } of targetsService.assess(liveRows).values()) {
+        difficulty.set(level, (difficulty.get(level) ?? 0) + 1);
+      }
       return {
         kind: countBy(sql`${targets.kind}`, live),
         category: countBy(
@@ -136,6 +105,7 @@ export function createTargetCatalog(
           and(live, notInArray(targets.category, REQUIREMENT_CATEGORIES)),
         ),
         contactMethod: countBy(sql`${targets.contactMethod}`, live),
+        difficulty: DIFFICULTY_ORDER.map((value) => ({ value, count: difficulty.get(value) ?? 0 })),
         priority: countBy(sql`${targets.priority}`, live),
         requirement: [
           ...listedRequirements,

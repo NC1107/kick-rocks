@@ -1,7 +1,14 @@
-import type { CampaignPreview, SkipReason, TargetListItem, TargetOutcome } from "@kickrocks/shared";
+import {
+  type CampaignPreview,
+  MAX_SELECTED_TARGETS,
+  type SkipReason,
+  TargetFilter,
+  type TargetListItem,
+  type TargetOutcome,
+} from "@kickrocks/shared";
 
 /** How a target in a campaign is reached: an email, a web form, or a scan that finds the record first. */
-export type CampaignChannel = "email" | "form" | "scan";
+type CampaignChannel = "email" | "form" | "scan";
 
 /**
  * The channel the server will pick for a target: a site that needs a record starts from a scan,
@@ -26,7 +33,7 @@ export interface ChannelCounts {
   skipped: number;
 }
 
-type CountedTarget = Pick<TargetListItem, "needsRecord" | "contactMethod"> &
+export type CountedTarget = Pick<TargetListItem, "needsRecord" | "contactMethod"> &
   Partial<Pick<TargetListItem, "automation">>;
 
 /** A form the built-in worker cannot run: it has no saved steps, or the ones it has are broken. */
@@ -35,26 +42,29 @@ function needsAgentOrPerson(target: CountedTarget): boolean {
   return remove === null || remove === "broken";
 }
 
-/** Counts a preview by the channel each target would use. A target the list cannot name counts as a form. */
+/** The row of the readout a preview outcome lands in. A target the list cannot name counts as a form. */
+export function outcomeChannel(
+  item: TargetOutcome,
+  targets: ReadonlyMap<string, CountedTarget>,
+): keyof ChannelCounts {
+  if (item.outcome === "skipped") return "skipped";
+  if (item.outcome === "scan_started") return "scan";
+  const target = targets.get(item.targetId);
+  if (target && channelOf(target) === "email") return "email";
+  return target && needsAgentOrPerson(target) ? "manual" : "form";
+}
+
+/** Counts a preview by the channel each target would use. */
 export function countByChannel(
   items: readonly TargetOutcome[],
   targets: ReadonlyMap<string, CountedTarget>,
 ): ChannelCounts {
   const counts: ChannelCounts = { email: 0, form: 0, manual: 0, scan: 0, skipped: 0 };
-  for (const item of items) {
-    if (item.outcome === "skipped") counts.skipped += 1;
-    else if (item.outcome === "scan_started") counts.scan += 1;
-    else {
-      const target = targets.get(item.targetId);
-      const channel = target ? channelOf(target) : null;
-      if (channel === "email") counts.email += 1;
-      else counts[target && needsAgentOrPerson(target) ? "manual" : "form"] += 1;
-    }
-  }
+  for (const item of items) counts[outcomeChannel(item, targets)] += 1;
   return counts;
 }
 
-export interface SkipGroup {
+interface SkipGroup {
   reason: SkipReason;
   items: TargetOutcome[];
 }
@@ -86,5 +96,24 @@ export function parseTargetIds(value: string | null): string[] {
         .map((id) => id.trim())
         .filter(Boolean),
     ),
-  ].slice(0, 5000);
+  ].slice(0, MAX_SELECTED_TARGETS);
+}
+
+/** The filter a Targets page "select all matching" link carries, or null when it is missing or not a filter. */
+export function parseFilterParam(value: string | null): TargetFilter | null {
+  if (!value) return null;
+  try {
+    const parsed = TargetFilter.strict().safeParse(JSON.parse(value));
+    return parsed.success ? parsed.data : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Forms that no working recipe can fill in, so the request waits for an agent or for the person.
+ * Only worth a warning when no agent worker has ever reported in, because an agent would take them.
+ */
+export function waitingForPerson(counts: ChannelCounts, agentSeen: boolean): number {
+  return agentSeen ? 0 : counts.manual;
 }

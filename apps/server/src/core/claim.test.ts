@@ -825,7 +825,7 @@ describe("claiming a task by id", () => {
       const scan = blockedScan();
       const claimed = claim(["agent"], {
         taskId: scan.task.id,
-        workerId: "claude",
+        workerId: "agent-1",
         claimerKind: "mcp",
       });
       expect(claimed).toMatchObject({
@@ -837,14 +837,14 @@ describe("claiming a task by id", () => {
       expect(ctx.services.taskQueue.getOrThrow(scan.task.id).status).toBe("cancelled");
       expect(ctx.services.taskQueue.getOrThrow(claimed?.id ?? "")).toMatchObject({
         status: "leased",
-        leaseOwner: "claude",
+        leaseOwner: "agent-1",
         claimerKind: "mcp",
       });
     });
 
     it("cannot be run by the built-in worker at the same CAPTCHA in between", () => {
       const scan = blockedScan();
-      claim(["agent"], { taskId: scan.task.id, workerId: "claude", claimerKind: "mcp" });
+      claim(["agent"], { taskId: scan.task.id, workerId: "agent-1", claimerKind: "mcp" });
       expect(claim(["scan", "form"])).toBeNull();
     });
 
@@ -852,7 +852,7 @@ describe("claiming a task by id", () => {
       const scan = blockedScan();
       const claimed = claim(["agent"], {
         taskId: scan.task.id,
-        workerId: "claude",
+        workerId: "agent-1",
         claimerKind: "mcp",
       });
       const result = ctx.services.dispatch.enqueueScan(profileId, scan.task.targetId ?? "");

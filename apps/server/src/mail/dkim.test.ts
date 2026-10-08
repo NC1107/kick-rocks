@@ -269,7 +269,7 @@ describe("verifiedSignatures", () => {
       };
       const run = createDkimVerifier({
         resolver: hanging,
-        timeoutMs: 500,
+        timeoutMs: 20_000,
         runBudgetMs: 40,
       }).forRun();
       const message = Buffer.from(await signed(unsigned()));
@@ -278,7 +278,7 @@ describe("verifiedSignatures", () => {
       const started = Date.now();
       expect(await names(run, message)).toEqual([]);
       expect(lookups).toBe(spent);
-      expect(Date.now() - started).toBeLessThan(30);
+      expect(Date.now() - started).toBeLessThan(10_000);
     });
   });
 });

@@ -1,0 +1,19 @@
+{
+  "name": "Eraser broker list",
+  "author": "drumandbytes",
+  "repository": "https://github.com/drumandbytes/eraser",
+  "branch": "main",
+  "commit": "29bd7bb60a96cfb87eb84e65fd4f0a434860511e",
+  "committedAt": "2026-10-04T10:08:43Z",
+  "license": "MIT",
+  "files": {
+    "eraser-brokers.yaml": {
+      "path": "data/brokers.yaml",
+      "sha256": "cbd8391c1aab1477876d5e3909a28fa1045a40e16945c56948127cb44ef32792"
+    },
+    "ERASER-LICENSE": {
+      "path": "LICENSE",
+      "sha256": "90d17a1912449f9650c99ad54f30ffc657256baf083c74dd5ace45b24419b48a"
+    }
+  }
+}

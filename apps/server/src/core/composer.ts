@@ -57,7 +57,7 @@ export interface Composer {
   ): ComposedEmail;
 }
 
-export interface ComposerDeps {
+interface ComposerDeps {
   db: KickRocksDb;
   clock: Clock;
   legal: LegalApi;
@@ -92,7 +92,12 @@ export function createComposer({ db, clock, legal, targets }: ComposerDeps): Com
 
       // A follow-up cites the law the first request cited, even if a newer one has taken effect.
       const basis =
-        legal.getLegalBasis(request.legalBasis, profile.state) ??
+        legal.getLegalBasis(
+          request.legalBasis,
+          profile.state,
+          request.rights,
+          request.sentAt === null ? now : new Date(request.sentAt),
+        ) ??
         legal.resolveLegalBasis({
           state: profile.state,
           target,

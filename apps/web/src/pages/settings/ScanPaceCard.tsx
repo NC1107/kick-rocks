@@ -2,16 +2,15 @@ import { API_ROUTES, type SettingsView } from "@kickrocks/shared";
 import { useEffect, useState } from "react";
 import { errorMessage, useApiMutation } from "../../api/index.js";
 import {
-  Alert,
   Button,
-  Card,
-  CardFooter,
-  CardHeader,
-  Field,
+  Callout,
   Input,
+  RowGroup,
+  Section,
   Textarea,
   useToast,
 } from "../../components/ui/index.js";
+import { FieldRow, GroupFooter, GroupNote } from "./rows.js";
 import {
   checkEgress,
   checkScanning,
@@ -65,28 +64,24 @@ export function ScanPaceCard({
   const serverErrors = save.error?.fieldErrors ?? {};
 
   return (
-    <Card>
-      <form
-        noValidate
-        onSubmit={(event) => {
-          event.preventDefault();
-          setSubmitted(true);
-          if (hasErrors || !dirty) return;
-          save.mutate({
-            body: {
-              ...(Object.keys(paceCheck.patch).length > 0 ? { scanning: paceCheck.patch } : {}),
-              ...(Object.keys(routeCheck.patch).length > 0 ? { egress: routeCheck.patch } : {}),
-            },
-          });
-        }}
-      >
-        <CardHeader
-          title="Pace and route"
-          description="How gently Kick Rocks visits broker sites, so your home address is never flagged for it."
-        />
-        <div className="grid gap-x-6 gap-y-4 sm:grid-cols-2">
+    <form
+      noValidate
+      onSubmit={(event) => {
+        event.preventDefault();
+        setSubmitted(true);
+        if (hasErrors || !dirty) return;
+        save.mutate({
+          body: {
+            ...(Object.keys(paceCheck.patch).length > 0 ? { scanning: paceCheck.patch } : {}),
+            ...(Object.keys(routeCheck.patch).length > 0 ? { egress: routeCheck.patch } : {}),
+          },
+        });
+      }}
+    >
+      <Section label="Pace and route">
+        <RowGroup>
           {SCANNING_FIELDS.flatMap((field) => [
-            <Field
+            <FieldRow
               key={field.key}
               label={`${field.label} (${field.unit})`}
               help={field.help}
@@ -96,6 +91,7 @@ export function ScanPaceCard({
               }
             >
               <Input
+                mono
                 type="number"
                 inputMode="numeric"
                 min={field.min}
@@ -106,10 +102,10 @@ export function ScanPaceCard({
                   setPace((current) => ({ ...current, [field.key]: event.target.value }))
                 }
               />
-            </Field>,
+            </FieldRow>,
             ...(field.key === "quietEndHour"
               ? [
-                  <Field
+                  <FieldRow
                     key="timeZone"
                     label="Time zone for quiet hours"
                     help={TIME_ZONE_HELP}
@@ -119,6 +115,7 @@ export function ScanPaceCard({
                     }
                   >
                     <Input
+                      mono
                       autoComplete="off"
                       spellCheck={false}
                       value={pace.timeZone}
@@ -126,29 +123,20 @@ export function ScanPaceCard({
                         setPace((current) => ({ ...current, timeZone: event.target.value }))
                       }
                     />
-                  </Field>,
+                  </FieldRow>,
                 ]
               : []),
           ])}
-        </div>
-
-        <div className="mt-6 flex flex-col gap-4 border-t border-line pt-6">
-          <div>
-            <h3 className="text-base font-medium text-ink">Send visits through a proxy</h3>
-            <p className="text-sm text-ink-muted">
-              Optional. Point this at a proxy you run, such as a VPN container's HTTP port. Off
-              unless you set an address.
-            </p>
-          </div>
-          <Field
-            label="Proxy address"
-            help="For example http://10.0.0.100:8888. No user name or password."
+          <FieldRow
+            label="Send visits through a proxy"
+            help="Optional. Point this at a proxy you run, such as a VPN container's HTTP port. For example http://10.0.0.100:8888, with no user name or password. Off unless you set an address."
             error={
               (submitted ? routeCheck.errors.proxyUrl : undefined) ??
               serverErrors["egress.proxyUrl"]
             }
           >
             <Input
+              mono
               type="url"
               inputMode="url"
               autoComplete="off"
@@ -158,8 +146,8 @@ export function ScanPaceCard({
                 setRoute((current) => ({ ...current, proxyUrl: event.target.value }))
               }
             />
-          </Field>
-          <Field
+          </FieldRow>
+          <FieldRow
             label="Only for these sites"
             help="One site per line, such as spokeo.com. Leave empty to use the proxy for every site."
             error={
@@ -167,52 +155,45 @@ export function ScanPaceCard({
             }
           >
             <Textarea
+              mono
               rows={3}
               value={route.domains}
               onChange={(event) =>
                 setRoute((current) => ({ ...current, domains: event.target.value }))
               }
             />
-          </Field>
-          {sisterNotes.length > 0 ? (
-            <ul className="flex flex-col gap-1 text-sm text-ink-muted">
-              {sisterNotes.map((note) => (
-                <li key={note.domain}>
-                  <span className="font-medium text-ink">{note.domain}</span> also covers{" "}
-                  {note.sisters.join(", ")}.
-                </li>
-              ))}
-            </ul>
-          ) : null}
-          <Alert intent="warning" title="A VPN does not make sites trust you more">
-            Many broker sites challenge VPN and datacenter addresses more often than a home
-            connection, not less. Use a proxy to keep one site's traffic apart, not to hide.
-          </Alert>
-        </div>
-
+          </FieldRow>
+          <GroupFooter>
+            <Button
+              disabled={!dirty || save.isPending}
+              onClick={() => {
+                setPace(scanningDraftOf(scanning));
+                setRoute(egressDraftOf(egress));
+                setSubmitted(false);
+              }}
+            >
+              Reset
+            </Button>
+            <Button type="submit" variant="primary" loading={save.isPending} disabled={!dirty}>
+              Save
+            </Button>
+          </GroupFooter>
+        </RowGroup>
+        {sisterNotes.map((note) => (
+          <GroupNote key={note.domain}>
+            {note.domain} also covers {note.sisters.join(", ")}.
+          </GroupNote>
+        ))}
+        <Callout intent="warning" title="A VPN does not make sites trust you more" className="mt-3">
+          Many broker sites challenge VPN and datacenter addresses more often than a home
+          connection, not less. Use a proxy to keep one site's traffic apart, not to hide.
+        </Callout>
         {save.isError && Object.keys(serverErrors).length === 0 ? (
-          <div className="mt-4">
-            <Alert intent="danger" title="Could not save the settings">
-              {errorMessage(save.error)}
-            </Alert>
-          </div>
+          <Callout intent="danger" title="Could not save the settings" className="mt-3">
+            {errorMessage(save.error)}
+          </Callout>
         ) : null}
-        <CardFooter>
-          <Button
-            disabled={!dirty || save.isPending}
-            onClick={() => {
-              setPace(scanningDraftOf(scanning));
-              setRoute(egressDraftOf(egress));
-              setSubmitted(false);
-            }}
-          >
-            Reset
-          </Button>
-          <Button type="submit" variant="primary" loading={save.isPending} disabled={!dirty}>
-            Save
-          </Button>
-        </CardFooter>
-      </form>
-    </Card>
+      </Section>
+    </form>
   );
 }

@@ -1,6 +1,7 @@
 import { Monitor, Moon, Sun } from "lucide-react";
 import { cn } from "../../lib/cn.js";
 import { type ThemePreference, useTheme } from "../../lib/theme.js";
+import { Tooltip } from "../ui/index.js";
 
 const OPTIONS: { value: ThemePreference; label: string; icon: typeof Sun }[] = [
   { value: "system", label: "Match system theme", icon: Monitor },
@@ -12,29 +13,25 @@ const OPTIONS: { value: ThemePreference; label: string; icon: typeof Sun }[] = [
 export function ThemeToggle({ className }: { className?: string }) {
   const { preference, setPreference } = useTheme();
   return (
-    <fieldset
-      className={cn("m-0 inline-flex rounded-md border border-line bg-surface p-0.5", className)}
-    >
+    <fieldset className={cn("m-0 inline-flex rounded-sm border border-line p-0.5", className)}>
       <legend className="sr-only">Theme</legend>
       {OPTIONS.map(({ value, label, icon: Icon }) => {
         const selected = preference === value;
         return (
-          <button
-            key={value}
-            type="button"
-            aria-pressed={selected}
-            aria-label={label}
-            title={label}
-            onClick={() => setPreference(value)}
-            className={cn(
-              "inline-flex size-7 items-center justify-center rounded-sm transition-colors duration-100 max-sm:size-11",
-              selected
-                ? "bg-accent-soft text-accent-soft-ink"
-                : "text-ink-muted hover:bg-sunken hover:text-ink",
-            )}
-          >
-            <Icon aria-hidden="true" className="size-4" />
-          </button>
+          <Tooltip key={value} content={label}>
+            <button
+              type="button"
+              aria-pressed={selected}
+              aria-label={label}
+              onClick={() => setPreference(value)}
+              className={cn(
+                "inline-flex size-6 items-center justify-center rounded-xs transition-colors duration-100 max-sm:size-11",
+                selected ? "bg-active text-ink" : "text-ink-3 hover:bg-hover hover:text-ink",
+              )}
+            >
+              <Icon aria-hidden="true" strokeWidth={1.5} className="size-4" />
+            </button>
+          </Tooltip>
         );
       })}
     </fieldset>

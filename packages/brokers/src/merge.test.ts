@@ -44,7 +44,7 @@ describe("mergeBrokers", () => {
       privacyRightsUrl: "https://www.spokeo.com/privacy",
       regulatedBy: ["fcra"],
       sources: [
-        { source: "ca-registry-2025", license: "public-record", upstreamId: "Spokeo, Inc." },
+        { source: "ca-registry-2026", license: "public-record", upstreamId: "Spokeo, Inc." },
       ],
     });
     const merged = mergeBrokers([[eraser], [registry]]);
@@ -58,7 +58,7 @@ describe("mergeBrokers", () => {
       contactMethod: "both",
       regulatedBy: ["fcra"],
     });
-    expect(merged[0]?.sources.map((s) => s.source)).toEqual(["eraser", "ca-registry-2025"]);
+    expect(merged[0]?.sources.map((s) => s.source)).toEqual(["eraser", "ca-registry-2026"]);
   });
 
   it("keeps the search url, unions requirements, and takes the higher priority", () => {

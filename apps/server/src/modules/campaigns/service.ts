@@ -17,7 +17,7 @@ import { type CampaignPlan, createCampaignPlanner, type Plan } from "./planner.j
 /** Shown in the preview where the real reference goes, because no request exists yet. */
 const PREVIEW_REFERENCE: Reference = "KR-XXXXXX";
 
-export interface CampaignService {
+interface CampaignService {
   preview(profileId: string, body: CampaignBody): CampaignPreview;
   create(profileId: string, body: CampaignBody): CampaignCreated;
 }

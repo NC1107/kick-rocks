@@ -3,7 +3,7 @@ import { conflict, handle, invalid, type MockRoute } from "./core.js";
 import type { MockStore } from "./store.js";
 
 /** A topic with this name makes the mock server refuse the test, so the failure state can be seen. */
-export const MOCK_REFUSED_TOPIC = "refused";
+const MOCK_REFUSED_TOPIC = "refused";
 
 function sameOrigin(a: string, b: string): boolean {
   try {

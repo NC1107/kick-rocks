@@ -86,7 +86,7 @@ export interface Dispatch {
   needsRecord: typeof targetNeedsRecord;
 }
 
-export interface DispatchDeps {
+interface DispatchDeps {
   db: KickRocksDb;
   clock: Clock;
   taskQueue: TaskQueue;

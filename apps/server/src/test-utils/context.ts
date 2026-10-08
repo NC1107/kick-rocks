@@ -40,7 +40,7 @@ const UNPACED_SCANNING = ScanningSettings.parse({
   reuseHours: 0,
 });
 
-export interface TestContextOptions {
+interface TestContextOptions {
   /** The fake clock's starting time. */
   now?: Date | string;
   /** Extra environment for the server config, such as KICKROCKS_EXTRA_TARGETS. */

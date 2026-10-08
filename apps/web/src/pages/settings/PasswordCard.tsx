@@ -1,21 +1,13 @@
 import { API_ROUTES, MIN_PASSWORD_LENGTH } from "@kickrocks/shared";
 import { useState } from "react";
 import { errorMessage, useApiMutation } from "../../api/index.js";
-import {
-  Alert,
-  Button,
-  Card,
-  CardFooter,
-  CardHeader,
-  Field,
-  Input,
-  useToast,
-} from "../../components/ui/index.js";
+import { Button, Callout, Input, RowGroup, Section, useToast } from "../../components/ui/index.js";
 import {
   checkPassword,
   type PasswordDraft as Draft,
   EMPTY_PASSWORD_DRAFT as EMPTY,
 } from "./model.js";
+import { FieldRow, GroupFooter, GroupNote } from "./rows.js";
 
 export function PasswordCard() {
   const toast = useToast();
@@ -30,32 +22,28 @@ export function PasswordCard() {
     },
   });
 
+  const filled = Object.values(draft).every((value) => value !== "");
   const errors = checkPassword(draft);
   const serverErrors = change.error?.fieldErrors ?? {};
   const set = (key: keyof Draft) => (event: { target: { value: string } }) =>
     setDraft((current) => ({ ...current, [key]: event.target.value }));
 
   return (
-    <Card>
-      <form
-        noValidate
-        onSubmit={(event) => {
-          event.preventDefault();
-          setSubmitted(true);
-          if (Object.keys(errors).length > 0) return;
-          change.mutate({
-            body: { currentPassword: draft.currentPassword, newPassword: draft.newPassword },
-          });
-        }}
-      >
-        <CardHeader
-          title="Password"
-          description="The password that signs you in to this instance. Other signed-in browsers stay signed in. It does not encrypt your data: that uses a key stored next to the database, so back up the whole kickrocks-data volume, key included. The README has the commands."
-        />
-        <div className="grid gap-x-6 gap-y-4 sm:grid-cols-2">
-          <Field
+    <form
+      noValidate
+      onSubmit={(event) => {
+        event.preventDefault();
+        setSubmitted(true);
+        if (Object.keys(errors).length > 0) return;
+        change.mutate({
+          body: { currentPassword: draft.currentPassword, newPassword: draft.newPassword },
+        });
+      }}
+    >
+      <Section label="Password">
+        <RowGroup>
+          <FieldRow
             label="Current password"
-            className="sm:col-span-2"
             error={(submitted ? errors.currentPassword : undefined) ?? serverErrors.currentPassword}
           >
             <Input
@@ -64,8 +52,8 @@ export function PasswordCard() {
               value={draft.currentPassword}
               onChange={set("currentPassword")}
             />
-          </Field>
-          <Field
+          </FieldRow>
+          <FieldRow
             label="New password"
             help={`At least ${MIN_PASSWORD_LENGTH} characters.`}
             error={(submitted ? errors.newPassword : undefined) ?? serverErrors.newPassword}
@@ -76,29 +64,32 @@ export function PasswordCard() {
               value={draft.newPassword}
               onChange={set("newPassword")}
             />
-          </Field>
-          <Field label="Repeat the new password" error={submitted ? errors.confirm : undefined}>
+          </FieldRow>
+          <FieldRow label="Repeat the new password" error={submitted ? errors.confirm : undefined}>
             <Input
               type="password"
               autoComplete="new-password"
               value={draft.confirm}
               onChange={set("confirm")}
             />
-          </Field>
-        </div>
+          </FieldRow>
+          <GroupFooter>
+            <Button type="submit" variant="primary" loading={change.isPending} disabled={!filled}>
+              Change password
+            </Button>
+          </GroupFooter>
+        </RowGroup>
+        <GroupNote>
+          The password does not encrypt your data. That uses a key stored next to the database, so
+          back up the whole kickrocks-data volume, key included. docs/self-hosting.md has the
+          commands.
+        </GroupNote>
         {change.isError && Object.keys(serverErrors).length === 0 ? (
-          <div className="mt-4">
-            <Alert intent="danger" title="Could not change the password">
-              {errorMessage(change.error)}
-            </Alert>
-          </div>
+          <Callout intent="danger" title="Could not change the password" className="mt-3">
+            {errorMessage(change.error)}
+          </Callout>
         ) : null}
-        <CardFooter>
-          <Button type="submit" variant="primary" loading={change.isPending}>
-            Change password
-          </Button>
-        </CardFooter>
-      </form>
-    </Card>
+      </Section>
+    </form>
   );
 }

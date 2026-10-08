@@ -12,7 +12,7 @@ import {
 
 const API_VERSION = "2023-06-01";
 
-export interface AnthropicProviderOptions extends Partial<HttpOptions> {
+interface AnthropicProviderOptions extends Partial<HttpOptions> {
   baseUrl: string;
   model: string;
   apiKey: string;

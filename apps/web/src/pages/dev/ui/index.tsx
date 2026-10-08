@@ -12,10 +12,7 @@ import { Tokens } from "./tokens.js";
 export function Component() {
   return (
     <>
-      <PageHeader
-        title="Components"
-        description="Every shared component and its states. Use it to check a change in light and dark, and at phone width."
-      />
+      <PageHeader title="Components" description="Every primitive in every state" />
       <Tokens />
       <Controls />
       <DataDisplay />

@@ -1,18 +1,21 @@
 import {
   ContactMethod,
+  Difficulty,
   Requirement,
   TargetCategory,
+  type TargetFilter,
   TargetKind,
   TargetPriority,
 } from "@kickrocks/shared";
 
-export interface TargetFilters {
+interface TargetFilters {
   q: string;
   kind: TargetKind | "";
   category: TargetCategory | "";
   contactMethod: ContactMethod | "";
   requirement: Requirement | "";
   priority: TargetPriority | "";
+  difficulty: Difficulty | "";
   page: number;
 }
 
@@ -23,6 +26,7 @@ export const FILTER_KEYS = [
   "contactMethod",
   "requirement",
   "priority",
+  "difficulty",
 ] as const;
 export type FilterKey = (typeof FILTER_KEYS)[number];
 
@@ -40,6 +44,7 @@ export function readFilters(params: URLSearchParams): TargetFilters {
     contactMethod: pick(ContactMethod, params.get("contactMethod")),
     requirement: pick(Requirement, params.get("requirement")),
     priority: pick(TargetPriority, params.get("priority")),
+    difficulty: pick(Difficulty, params.get("difficulty")),
     page: Number.isInteger(page) && page >= 1 ? page : 1,
   };
 }
@@ -48,7 +53,13 @@ export function hasFilters(filters: TargetFilters): boolean {
   return FILTER_KEYS.some((key) => filters[key] !== "");
 }
 
-export const TARGETS_PAGE_SIZE = 25;
+export const TARGETS_PAGE_SIZE = 50;
+
+/** The filter a campaign or scan takes to select every target the list shows, with empty ones left out. */
+export function toFilter(filters: TargetFilters): TargetFilter {
+  const { page: _page, pageSize: _pageSize, ...filter } = toQuery(filters);
+  return filter;
+}
 
 /** The query the list route takes: empty filters are left out so the server applies none. */
 export function toQuery(filters: TargetFilters) {
@@ -61,5 +72,6 @@ export function toQuery(filters: TargetFilters) {
     ...(filters.contactMethod ? { contactMethod: filters.contactMethod } : {}),
     ...(filters.requirement ? { requirement: filters.requirement } : {}),
     ...(filters.priority ? { priority: filters.priority } : {}),
+    ...(filters.difficulty ? { difficulty: filters.difficulty } : {}),
   };
 }

@@ -2,7 +2,7 @@ import { RefreshCw } from "lucide-react";
 import type { ReactNode } from "react";
 import { Navigate, Outlet, useLocation } from "react-router";
 import { errorMessage, useAuthState } from "../../api/index.js";
-import { Alert, Button, Spinner } from "../ui/index.js";
+import { Button, Callout, Spinner } from "../ui/index.js";
 import { Logo } from "./Logo.js";
 
 function FullPage({ children }: { children: ReactNode }) {
@@ -12,7 +12,7 @@ function FullPage({ children }: { children: ReactNode }) {
 export function LoadingScreen() {
   return (
     <FullPage>
-      <div className="flex flex-col items-center gap-4 text-ink-muted">
+      <div className="flex flex-col items-center gap-4 text-ink-2">
         <Logo />
         <Spinner size="lg" label="Loading Kick Rocks" />
       </div>
@@ -25,7 +25,7 @@ function AuthError({ error, retry }: { error: unknown; retry: () => void }) {
     <FullPage>
       <div className="flex w-full max-w-md flex-col gap-4">
         <Logo />
-        <Alert
+        <Callout
           intent="danger"
           title="Kick Rocks did not answer"
           action={
@@ -36,7 +36,7 @@ function AuthError({ error, retry }: { error: unknown; retry: () => void }) {
           }
         >
           {errorMessage(error)}
-        </Alert>
+        </Callout>
       </div>
     </FullPage>
   );

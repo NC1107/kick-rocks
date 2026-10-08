@@ -4,15 +4,16 @@ import { type FormEvent, useState } from "react";
 import { useNavigate } from "react-router";
 import { errorMessage, useApiMutation } from "../../api/index.js";
 import {
-  Alert,
   Button,
-  Card,
-  CardHeader,
+  Callout,
   Dialog,
   Field,
   Input,
+  RowGroup,
+  Section,
   useToast,
 } from "../../components/ui/index.js";
+import { ActionRow } from "./rows.js";
 
 export function ResetCard() {
   const toast = useToast();
@@ -46,21 +47,24 @@ export function ResetCard() {
   };
 
   return (
-    <Card>
-      <CardHeader
-        title="Delete all data"
-        description="Removes every profile and everything about it, stops running tasks, and clears your settings, language model key, agent token, and notification tokens and schedule. Your sign-in password and the broker list stay. This cannot be undone, and requests already sent cannot be recalled."
-      />
-      <Button variant="danger" onClick={() => setOpen(true)}>
-        Delete all data
-      </Button>
+    <Section label="Danger zone">
+      <RowGroup>
+        <ActionRow
+          title="Delete all data"
+          description="Removes every profile and everything about it, stops running tasks, and clears your settings, language model key, agent token, and notification tokens and schedule. Your sign-in password and the broker list stay. This cannot be undone, and requests already sent cannot be recalled."
+        >
+          <Button variant="danger" onClick={() => setOpen(true)}>
+            Delete all data
+          </Button>
+        </ActionRow>
+      </RowGroup>
       <Dialog
         open={open}
         onClose={close}
         dismissible={!reset.isPending}
         size="sm"
         title="Delete all data?"
-        description="Export any profile you want to keep first. After this there is nothing to recover."
+        description="Removes every profile and everything about it, stops running tasks, and clears settings, keys, and tokens. Your sign-in password and the target list stay. Requests already sent cannot be recalled."
         footer={
           <>
             <Button variant="secondary" onClick={close} disabled={reset.isPending}>
@@ -69,7 +73,7 @@ export function ResetCard() {
             <Button
               type="submit"
               form="reset-all-form"
-              variant="danger"
+              variant="danger-solid"
               disabled={!confirmed}
               loading={reset.isPending}
             >
@@ -90,11 +94,11 @@ export function ResetCard() {
           </Field>
         </form>
         {reset.error ? (
-          <Alert intent="danger" title="Could not delete" className="mt-3">
+          <Callout intent="danger" title="Could not delete" className="mt-3">
             {errorMessage(reset.error)}
-          </Alert>
+          </Callout>
         ) : null}
       </Dialog>
-    </Card>
+    </Section>
   );
 }

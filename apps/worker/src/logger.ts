@@ -1,4 +1,4 @@
-export type LogLevel = "debug" | "info" | "warn" | "error";
+type LogLevel = "debug" | "info" | "warn" | "error";
 
 const ORDER: Record<LogLevel, number> = { debug: 0, info: 1, warn: 2, error: 3 };
 
@@ -11,7 +11,7 @@ export interface Logger {
   error(message: string, fields?: LogFields): void;
 }
 
-export type LogSink = (line: string) => void;
+type LogSink = (line: string) => void;
 
 /**
  * One line per event, with fields as JSON. Callers pass ids, kinds, and outcomes only: a task's

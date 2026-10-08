@@ -1,6 +1,6 @@
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { formatCount } from "../../lib/format.js";
-import { Button } from "./Button.js";
+import { IconButton } from "./IconButton.js";
 
 export interface PaginationProps {
   page: number;
@@ -26,23 +26,34 @@ export function Pagination({
   return (
     <nav
       aria-label="Pagination"
-      className="mt-3 flex flex-wrap items-center justify-between gap-3 text-sm text-ink-muted"
+      className="mt-2.5 flex flex-wrap items-center justify-between gap-3 font-mono text-meta text-ink-3"
     >
-      <p>
-        Showing {formatCount(from)} to {formatCount(to)} of {formatCount(total)} {noun}
+      <p className="tabular-nums">
+        {formatCount(from)}-{formatCount(to)} of {formatCount(total)}
+        <span className="sr-only"> {noun}</span>
       </p>
-      <div className="flex items-center gap-2">
-        <Button size="sm" disabled={page <= 1} onClick={() => onPageChange(page - 1)}>
-          <ChevronLeft aria-hidden="true" className="size-3.5" />
-          Previous
-        </Button>
-        <span className="min-w-16 text-center tabular-nums">
+      <div className="flex items-center gap-1">
+        <IconButton
+          label="Previous page"
+          size="sm"
+          variant="secondary"
+          disabled={page <= 1}
+          onClick={() => onPageChange(page - 1)}
+        >
+          <ChevronLeft aria-hidden="true" />
+        </IconButton>
+        <span className="min-w-14 text-center tabular-nums">
           {page} of {pages}
         </span>
-        <Button size="sm" disabled={page >= pages} onClick={() => onPageChange(page + 1)}>
-          Next
-          <ChevronRight aria-hidden="true" className="size-3.5" />
-        </Button>
+        <IconButton
+          label="Next page"
+          size="sm"
+          variant="secondary"
+          disabled={page >= pages}
+          onClick={() => onPageChange(page + 1)}
+        >
+          <ChevronRight aria-hidden="true" />
+        </IconButton>
       </div>
     </nav>
   );

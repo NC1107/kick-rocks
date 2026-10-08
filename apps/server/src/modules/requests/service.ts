@@ -12,6 +12,7 @@ import {
   type RequestsQuery,
   resendEmailKind,
   resolveProfileFields,
+  type TargetSummary,
   type VerificationReplyBody,
 } from "@kickrocks/shared";
 import { and, asc, desc, eq, inArray, type SQL, sql } from "drizzle-orm";
@@ -29,7 +30,7 @@ const ACTION_OUTCOMES = {
   mark_no_record: "no_record",
 } as const satisfies Partial<Record<RequestAction, RequestStatus>>;
 
-export interface RequestsApi {
+interface RequestsApi {
   list(profileId: string, query: RequestsQuery): Paged<RequestListItem>;
   detail(id: string): RequestDetail;
   act(id: string, action: RequestAction): RequestDetail;
@@ -124,10 +125,11 @@ export function createRequestsApi(services: AppServices): RequestsApi {
         .limit(query.pageSize)
         .offset((query.page - 1) * query.pageSize)
         .all();
+      const summaries = targetsService.toSummaries(rows.map(({ target }) => target));
       return {
-        items: rows.map(({ request, target }) => ({
+        items: rows.map(({ request }, index) => ({
           ...request,
-          target: targetsService.toSummary(target),
+          target: summaries[index] as TargetSummary,
         })),
         total,
         page: query.page,

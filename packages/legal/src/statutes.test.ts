@@ -47,6 +47,7 @@ describe("statute data", () => {
       /^leginfo\.legislature\.ca\.gov$/,
       /^privacy\.ca\.gov$/,
       /^statutes\.capitol\.texas\.gov$/,
+      /^publications\.tnsosfiles\.com$/,
     ];
     for (const record of [...STATUTES, ...BROKER_REGISTRATION_LAWS]) {
       const host = new URL(record.sourceUrl).hostname;
@@ -151,6 +152,7 @@ describe("statute data", () => {
   it("names the rule behind every opt-out authentication claim and makes none for Colorado", () => {
     const withRule = STATUTES.filter((s) => traitsOf(s.id).optOutAuthRule !== null);
     expect(withRule.map((s) => s.state).sort()).toEqual([
+      "AL",
       "CA",
       "CT",
       "DE",
@@ -161,6 +163,7 @@ describe("statute data", () => {
       "NJ",
       "OR",
       "RI",
+      "VT",
     ]);
     for (const statute of withRule) {
       expect(statute.kind, statute.id).toBe("comprehensive");
@@ -169,14 +172,31 @@ describe("statute data", () => {
     expect(traitsOf("co-cpa").optOutAuthRule).toBeNull();
   });
 
+  it("cites the Maryland sections at 14-47xx and the Tennessee act as enacted", () => {
+    expect(STATUTES.find((s) => s.id === "md-modpa")?.citation).toBe(
+      "Md. Code, Com. Law 14-4701 et seq.",
+    );
+    expect(traitsOf("md-modpa").optOutAuthRule).toBe("Md. Code, Com. Law 14-4705(e)(6)");
+    expect(STATUTES.find((s) => s.id === "tn-tipa")?.sourceUrl).toBe(
+      "https://publications.tnsosfiles.com/acts/113/pub/pc0408.pdf",
+    );
+  });
+
+  it("keeps Louisiana out of the opt-out authentication rules and names the Alabama and Vermont ones", () => {
+    expect(traitsOf("la-ldpa").optOutAuthRule).toBeNull();
+    expect(traitsOf("al-apdpa").optOutAuthRule).toBe("Ala. Act 2026-552, sec. 5(d)(4)");
+    expect(traitsOf("vt-vdposa").optOutAuthRule).toBe("9 V.S.A. 2415d(c)(4)(B)");
+  });
+
   it("never writes an em dash", () => {
     expect(JSON.stringify([STATUTES, BROKER_REGISTRATION_LAWS])).not.toContain(EM_DASH);
   });
 });
 
 describe("broker registration laws", () => {
-  it("are valid, sourced, and give no request right", () => {
+  it("are valid, sourced, and none is a basis for an email request", () => {
     expect(BROKER_REGISTRATION_LAWS.map((law) => law.state).sort()).toEqual([
+      "CT",
       "NJ",
       "OR",
       "TX",

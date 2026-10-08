@@ -23,7 +23,7 @@ function applyToDocument(next: ThemePreference) {
   else root.setAttribute("data-theme", next);
 }
 
-export function setThemePreference(next: ThemePreference): void {
+function setThemePreference(next: ThemePreference): void {
   preference = next;
   writeStorage(STORAGE_KEYS.theme, next === "system" ? null : next);
   applyToDocument(next);
@@ -32,32 +32,21 @@ export function setThemePreference(next: ThemePreference): void {
 
 function subscribe(listener: () => void): () => void {
   listeners.add(listener);
-  const media = globalThis.matchMedia?.("(prefers-color-scheme: dark)");
-  media?.addEventListener("change", listener);
   return () => {
     listeners.delete(listener);
-    media?.removeEventListener("change", listener);
   };
 }
 
-function resolve(): "light" | "dark" {
-  if (preference !== "system") return preference;
-  return globalThis.matchMedia?.("(prefers-color-scheme: dark)").matches ? "dark" : "light";
-}
-
-export interface ThemeState {
+interface ThemeState {
   preference: ThemePreference;
-  /** What is on screen, which differs from the preference when it is "system". */
-  resolved: "light" | "dark";
   setPreference: (next: ThemePreference) => void;
 }
 
 export function useTheme(): ThemeState {
   const current = useSyncExternalStore(
     subscribe,
-    () => `${preference}:${resolve()}`,
-    () => "system:light",
+    () => preference,
+    () => "system" as const,
   );
-  const [pref, resolved] = current.split(":") as [ThemePreference, "light" | "dark"];
-  return { preference: pref, resolved, setPreference: setThemePreference };
+  return { preference: current, setPreference: setThemePreference };
 }

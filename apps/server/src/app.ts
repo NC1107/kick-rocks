@@ -17,13 +17,13 @@ import { registerModules } from "./modules/index.js";
 import { registerScheduler } from "./scheduler/index.js";
 import type { AppServices } from "./services.js";
 
-export interface AppContext {
+interface AppContext {
   services: AppServices;
   database: OpenedDatabase;
   version: string;
 }
 
-export interface App {
+interface App {
   server: FastifyInstance;
   close(): Promise<void>;
 }

@@ -21,12 +21,12 @@ const FETCH_BATCH = 20;
 const IMPLICIT_TLS_PORT = 993;
 
 /** A mailbox that could not be read. The text is safe to show and never contains the password. */
-export class MailFetchError extends Error {
+class MailFetchError extends Error {
   override name = "MailFetchError";
 }
 
 /** Hosts that may be reached without TLS besides this machine. */
-export interface InboxSourceOptions {
+interface InboxSourceOptions {
   plaintextHosts?: readonly string[];
   /** Checks the DKIM signatures of each fetched message; without one no sender is authenticated. */
   dkim?: DkimVerifier;

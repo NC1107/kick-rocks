@@ -130,6 +130,7 @@ const JURISDICTIONS: Jurisdiction[] = [
         effectiveDate: "2020-01-01",
         rights: ["opt_out", "delete"],
         responseDays: 45,
+        responseDaysChange: null,
         extensionDays: 45,
         brokerNotes: null,
         platform: null,
@@ -145,6 +146,7 @@ const JURISDICTIONS: Jurisdiction[] = [
         effectiveDate: "2024-01-01",
         rights: ["delete"],
         responseDays: 45,
+        responseDaysChange: null,
         extensionDays: 0,
         brokerNotes:
           "Registered brokers must honor deletion requests made through the state platform.",
@@ -170,6 +172,7 @@ const JURISDICTIONS: Jurisdiction[] = [
         effectiveDate: "2023-07-01",
         rights: ["opt_out", "delete"],
         responseDays: 45,
+        responseDaysChange: null,
         extensionDays: 45,
         brokerNotes: null,
         platform: null,
@@ -190,6 +193,7 @@ const JURISDICTIONS: Jurisdiction[] = [
         effectiveDate: "2024-07-01",
         rights: ["opt_out", "delete"],
         responseDays: 45,
+        responseDaysChange: null,
         extensionDays: 45,
         brokerNotes: null,
         platform: null,
@@ -210,6 +214,7 @@ const JURISDICTIONS: Jurisdiction[] = [
         effectiveDate: "2023-01-01",
         rights: ["opt_out", "delete"],
         responseDays: 45,
+        responseDaysChange: null,
         extensionDays: 45,
         brokerNotes: null,
         platform: null,
@@ -268,6 +273,8 @@ function wipePersonalData(store: MockStore): void {
   }
 }
 
+const KEEP_ALIVE_MS = 10 * 60 * 1000;
+
 export default defineMockDomain({
   name: "settings",
 
@@ -283,13 +290,8 @@ export default defineMockDomain({
           busy: false,
           currentTaskId: null,
         },
-        model: {
-          workerId: "agent-home",
-          version: "agent-0.1.0",
-          lastSeenAt: store.ago({ minutes: 1 }),
-          busy: true,
-          currentTaskId: null,
-        },
+        // No agent has connected, so form-only targets wait for a person, as the campaign preview warns.
+        model: null,
       },
     };
     seedSites(store);
@@ -348,13 +350,29 @@ export default defineMockDomain({
       )
         throw conflict("Only a recipe waiting for review can be decided.");
       recipe.status = status;
+      const target = store.targets.find((candidate) => candidate.id === recipe.targetId);
+      const listed = target?.recipes.find((candidate) => candidate.id === recipe.id);
+      if (listed) listed.status = status;
       return recipe;
     };
 
     return [
       ...notificationRoutes(store),
 
-      handle(API_ROUTES.settingsGet, (): SettingsView => store.settings),
+      handle(API_ROUTES.settingsGet, (): SettingsView => {
+        const now = store.clock.now().getTime();
+        // A worker seen in the last few minutes keeps checking in, so the fixture stays online
+        // however long the session runs. One a test or a walk has set further back stays down.
+        const checkIn = <T extends { lastSeenAt: string }>(worker: T | null): T | null =>
+          worker && now - Date.parse(worker.lastSeenAt) < KEEP_ALIVE_MS
+            ? { ...worker, lastSeenAt: new Date(now - 30_000).toISOString() }
+            : worker;
+        const { worker } = store.settings;
+        return {
+          ...store.settings,
+          worker: { ...worker, builtin: checkIn(worker.builtin), model: checkIn(worker.model) },
+        };
+      }),
 
       handle(API_ROUTES.settingsSites, () => ({
         items: store.sites,

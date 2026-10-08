@@ -16,9 +16,11 @@ export type BrokerCategory = z.infer<typeof BrokerCategory>;
 export const ContactMethod = z.enum(["email", "form", "both", "unknown"]);
 export type ContactMethod = z.infer<typeof ContactMethod>;
 
+/** "ca-registry-2025" is no longer imported, but targets that left the dataset keep it in their stored sources. */
 export const DataSourceId = z.enum([
   "eraser",
   "ca-registry-2025",
+  "ca-registry-2026",
   "badbool",
   "kickrocks",
   "kickrocks-companies",
@@ -140,6 +142,20 @@ export function contactMethodFor(
   if (privacyEmail) return "email";
   if (optOutUrl) return "form";
   return "unknown";
+}
+
+/**
+ * A registry lists a rights page for every broker, and some give their front page. That is where a
+ * visitor starts looking, not a form that takes a request, so it must not make the target a form.
+ */
+export function rightsPageAsForm(url: string | null): string | null {
+  if (!url) return null;
+  try {
+    const { pathname, search, hash } = new URL(url);
+    return pathname === "/" && search === "" && hash === "" ? null : url;
+  } catch {
+    return url;
+  }
 }
 
 /** Strips scheme, credentials, port, path, and a leading www so two records for one site collide. */

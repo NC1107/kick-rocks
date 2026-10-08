@@ -22,12 +22,12 @@ declare module "fastify" {
   }
 }
 
-export interface BinaryReply {
+interface BinaryReply {
   contentType: string;
   data: Buffer;
 }
 
-export interface RouteContext<R extends RouteDef> {
+interface RouteContext<R extends RouteDef> {
   params: RouteParams<R>;
   query: RouteQuery<R>;
   body: RouteBody<R>;
@@ -39,7 +39,7 @@ type RouteResult<R extends RouteDef> = R extends { binary: readonly string[] }
   ? BinaryReply
   : RouteResponse<R>;
 
-export type RouteHandler<R extends RouteDef> = (
+type RouteHandler<R extends RouteDef> = (
   context: RouteContext<R>,
 ) => RouteResult<R> | Promise<RouteResult<R>>;
 

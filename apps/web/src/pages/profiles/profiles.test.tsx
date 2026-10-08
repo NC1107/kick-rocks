@@ -8,12 +8,12 @@ import { instrument } from "./test-support.js";
 describe("the profiles list", () => {
   it("lists every profile with its state, email, and mailbox status", async () => {
     renderPage(<ProfilesPage />);
-    const jordan = await screen.findByRole("row", { name: /Jordan Example/ });
+    const jordan = await screen.findByRole("listitem", { name: /Jordan Example/ });
     expect(within(jordan).getByText("CA")).toBeInTheDocument();
     expect(within(jordan).getByText("jordan@example.com")).toBeInTheDocument();
-    expect(within(jordan).getByText("Connected")).toBeInTheDocument();
-    const riley = screen.getByRole("row", { name: /Riley Sample/ });
-    expect(within(riley).getByRole("link", { name: "Connect" })).toHaveAttribute(
+    expect(within(jordan).getByText("Mailbox connected")).toBeInTheDocument();
+    const riley = screen.getByRole("listitem", { name: /Riley Sample/ });
+    expect(within(riley).getByRole("link", { name: "Connect mailbox" })).toHaveAttribute(
       "href",
       expect.stringMatching(/\/profiles\/prf_\d+\/mailbox$/),
     );
@@ -21,17 +21,17 @@ describe("the profiles list", () => {
 
   it("marks the current profile and switches to another", async () => {
     const { user } = renderPage(<ProfilesPage />);
-    const jordan = await screen.findByRole("row", { name: /Jordan Example/ });
+    const jordan = await screen.findByRole("listitem", { name: /Jordan Example/ });
     expect(within(jordan).getByText("Current")).toBeInTheDocument();
     expect(within(jordan).queryByRole("button", { name: "Make current" })).toBeNull();
 
-    const riley = screen.getByRole("row", { name: /Riley Sample/ });
+    const riley = screen.getByRole("listitem", { name: /Riley Sample/ });
     await user.click(within(riley).getByRole("button", { name: "Make current" }));
     expect(
-      within(screen.getByRole("row", { name: /Riley Sample/ })).getByText("Current"),
+      within(screen.getByRole("listitem", { name: /Riley Sample/ })).getByText("Current"),
     ).toBeInTheDocument();
     expect(
-      within(screen.getByRole("row", { name: /Jordan Example/ })).queryByText("Current"),
+      within(screen.getByRole("listitem", { name: /Jordan Example/ })).queryByText("Current"),
     ).toBeNull();
   });
 
@@ -42,7 +42,7 @@ describe("the profiles list", () => {
 
   it("asks before deleting, then removes the profile and says so", async () => {
     const { user, mock } = renderPage(<ProfilesPage />);
-    const row = await screen.findByRole("row", { name: /Riley Sample/ });
+    const row = await screen.findByRole("listitem", { name: /Riley Sample/ });
     await user.click(within(row).getByRole("button", { name: "Delete Riley Sample" }));
 
     const dialog = await screen.findByRole("dialog", { name: "Delete Riley Sample?" });
@@ -50,18 +50,20 @@ describe("the profiles list", () => {
     await user.click(within(dialog).getByRole("button", { name: "Delete profile" }));
 
     expect(await screen.findByText("Deleted")).toBeInTheDocument();
-    await waitFor(() => expect(screen.queryByRole("row", { name: /Riley Sample/ })).toBeNull());
+    await waitFor(() =>
+      expect(screen.queryByRole("listitem", { name: /Riley Sample/ })).toBeNull(),
+    );
     expect(mock.store.profiles.map((profile) => profile.displayName)).not.toContain("Riley Sample");
   });
 
   it("keeps the profile when the person cancels", async () => {
     const { user, mock } = renderPage(<ProfilesPage />);
-    const row = await screen.findByRole("row", { name: /Riley Sample/ });
+    const row = await screen.findByRole("listitem", { name: /Riley Sample/ });
     await user.click(within(row).getByRole("button", { name: "Delete Riley Sample" }));
     const dialog = await screen.findByRole("dialog", { name: "Delete Riley Sample?" });
     await user.click(within(dialog).getByRole("button", { name: "Cancel" }));
     expect(mock.store.profiles).toHaveLength(3);
-    expect(screen.getByRole("row", { name: /Riley Sample/ })).toBeInTheDocument();
+    expect(screen.getByRole("listitem", { name: /Riley Sample/ })).toBeInTheDocument();
   });
 
   it("explains an empty list and offers to create a profile", async () => {
@@ -92,9 +94,9 @@ describe("the profiles list", () => {
 
   it("shows a long name and email without breaking the row", async () => {
     renderPage(<ProfilesPage />);
-    const row = await screen.findByRole("row", { name: /Alexandria Montgomery-Fitzgerald/ });
+    const row = await screen.findByRole("listitem", { name: /Alexandria Montgomery-Fitzgerald/ });
     expect(
-      within(row).getByTitle("alexandria.montgomery-fitzgerald.example@subdomain.example.com"),
+      within(row).getByText("alexandria.montgomery-fitzgerald.example@subdomain.example.com"),
     ).toBeInTheDocument();
   });
 });

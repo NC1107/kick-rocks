@@ -42,7 +42,7 @@ export function addEvent<T extends RequestEventType>(
   } as RequestEvent);
 }
 
-export interface NewRequest {
+interface NewRequest {
   profileId: string;
   targetId: string;
   channel: RequestChannel;
@@ -56,6 +56,8 @@ export interface NewRequest {
   lastError?: string | null;
   /** A form request whose task is parked for a person. */
   blocked?: { reason: BlockedReason; detail: string; screenshot?: boolean };
+  /** A form request whose task ran out of attempts, so the timeline carries one error. */
+  failed?: { error: string };
 }
 
 const MS_DAY = 86_400_000;
@@ -170,6 +172,12 @@ export function buildRequest(store: MockStore, input: NewRequest): StoredRequest
     channel: input.channel,
     reason: "new",
   });
+  if (input.lastError && input.channel === "email") {
+    addEvent(store, request, "send_failed", "worker", shift(createdAt, 0, 0.2), {
+      error: input.lastError,
+      willRetry: true,
+    });
+  }
   if (input.status === "queued") return finish(store, request);
 
   if (input.status === "cancelled") {
@@ -192,7 +200,13 @@ export function buildRequest(store: MockStore, input: NewRequest): StoredRequest
       store,
       {
         kind: "form",
-        status: input.status === "sent" ? "queued" : input.blocked ? "blocked" : "done",
+        status: input.failed
+          ? "failed"
+          : input.status === "sent"
+            ? "queued"
+            : input.blocked
+              ? "blocked"
+              : "done",
         profileId: input.profileId,
         targetId: input.targetId,
         targetName: target.name,
@@ -204,13 +218,24 @@ export function buildRequest(store: MockStore, input: NewRequest): StoredRequest
               hasScreenshot: input.blocked.screenshot ?? false,
             }
           : {}),
+        ...(input.failed
+          ? { lastError: input.failed.error, failureKind: "site" as const, attempts: 3 }
+          : {}),
       },
       input.blocked
         ? { hours: 3 + Math.floor(store.random() * 40) }
         : { days: input.createdDaysAgo },
     );
     addEvent(store, request, "task_enqueued", "system", sendAt, { taskId: task.id, kind: "form" });
-    if (input.blocked) {
+    if (input.failed) {
+      request.lastError = input.failed.error;
+      addEvent(store, request, "task_failed", "worker", task.updatedAt, {
+        taskId: task.id,
+        kind: "form",
+        error: input.failed.error,
+        failureKind: "site",
+      });
+    } else if (input.blocked) {
       addEvent(store, request, "task_blocked", "system", task.updatedAt, {
         taskId: task.id,
         kind: "form",
@@ -357,6 +382,8 @@ interface Seed {
   followUps?: number;
   recordUrl?: string;
   blocked?: NewRequest["blocked"];
+  failed?: NewRequest["failed"];
+  lastError?: string;
 }
 
 const BOTH: RequestRight[] = ["opt_out", "delete"];
@@ -398,7 +425,13 @@ const JORDAN_REQUESTS: Seed[] = [
   },
   { target: "tidewater-card-services", status: "draft", daysAgo: 1, rights: BOTH },
   { target: "stayfield-hotels", status: "queued", daysAgo: 0, rights: OPT_OUT },
-  { target: "pixelforge", status: "queued", daysAgo: 0, rights: OPT_OUT },
+  {
+    target: "pixelforge",
+    status: "queued",
+    daysAgo: 0,
+    rights: OPT_OUT,
+    lastError: "Could not connect to the mail server",
+  },
   { target: "harbor-consumer-data", status: "sent", daysAgo: 0, rights: BOTH },
   { target: "quillnote", status: "sent", daysAgo: 0, channel: "form", rights: OPT_OUT },
   {
@@ -462,13 +495,15 @@ function seedRequests(store: MockStore, profileIndex: number, seeds: Seed[]): vo
       followUps: seed.followUps ?? 0,
       recordUrl: seed.recordUrl ?? null,
       ...(seed.blocked ? { blocked: seed.blocked } : {}),
+      ...(seed.failed ? { failed: seed.failed } : {}),
+      ...(seed.lastError ? { lastError: seed.lastError } : {}),
     });
   }
 }
 
 const LIVE_TASK = new Set(["queued", "leased", "blocked"]);
 
-export function detailOf(store: MockStore, request: StoredRequest): RequestDetail {
+function detailOf(store: MockStore, request: StoredRequest): RequestDetail {
   const { events, ...listItem } = request;
   const messages: MessageSummary[] = store.messages
     .filter((message) => message.requestId === request.id)

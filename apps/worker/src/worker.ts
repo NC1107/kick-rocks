@@ -6,7 +6,7 @@ import { createExecutor, type Runners } from "./executor.js";
 import type { Logger } from "./logger.js";
 import { readWorkerVersion } from "./version.js";
 
-export interface WorkerOptions {
+interface WorkerOptions {
   config: WorkerConfig;
   signal: AbortSignal;
   logger: Logger;

@@ -17,6 +17,17 @@ export default defineConfig(({ mode }) => {
       emptyOutDir: true,
       // React, the router, react-query, and the shared zod schemas make up the core chunk; pages load lazily.
       chunkSizeWarningLimit: 600,
+      rollupOptions: {
+        output: {
+          // zod builds its parsers while the shared schemas load, so the jitless switch has to run
+          // in the same chunk, ahead of them. Left in the entry chunk it runs after them and the
+          // refused `new Function` probe reaches the console again.
+          manualChunks(id) {
+            if (id.endsWith("/src/jitless.ts") || id.includes("/node_modules/zod/")) return "api";
+            return undefined;
+          },
+        },
+      },
     },
   };
 });

@@ -90,7 +90,7 @@ describe("notification settings page", () => {
 
   it("saves Telegram and checks the token shape first", async () => {
     const { user } = page();
-    await user.type(await field("Chat id"), "42");
+    await user.type(await field("Chat ID"), "42");
     await user.type(screen.getByLabelText("Bot token"), "nope");
     await user.click(screen.getByRole("button", { name: "Save Telegram" }));
     expect(await screen.findByText(/does not look like a bot token/)).toBeVisible();

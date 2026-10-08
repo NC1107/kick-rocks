@@ -1,4 +1,4 @@
-import { isOnDomain, type TargetSummary } from "@kickrocks/shared";
+import { isOnDomain, rightsPageAsForm, type TargetSummary } from "@kickrocks/shared";
 
 function bareHost(host: string): string {
   return host.toLowerCase().replace(/^www\./, "");
@@ -145,7 +145,8 @@ function pageAdmits(page: PageScope, parsed: URL): boolean {
 /**
  * The hosts and pages an agent may visit for a target. The target's domain and website are trusted
  * as a whole. A start page on any other host, which is usually a shared form platform, is trusted
- * for its own path only.
+ * for its own path only. A registry's rights page that is only the front page of another host
+ * names no page of its own, and trusting it would admit every tenant of that host.
  */
 export function allowedSitesFor(
   target: TargetSummary,
@@ -157,7 +158,8 @@ export function allowedSitesFor(
     ...new Set(trusted.filter((host): host is string => host !== null && host !== "")),
   ];
   const pages: PageScope[] = [];
-  for (const url of [target.optOutUrl, target.privacyRightsUrl, target.searchUrl, ...extraUrls]) {
+  const rightsPage = rightsPageAsForm(target.privacyRightsUrl);
+  for (const url of [target.optOutUrl, rightsPage, target.searchUrl, ...extraUrls]) {
     if (url === null || url === undefined || domains.some((host) => isOnDomain(url, host))) {
       continue;
     }

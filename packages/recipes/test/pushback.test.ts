@@ -154,6 +154,20 @@ describeBrowser("what a run reports about a site that pushes back", () => {
     });
   });
 
+  it("fails a search whose 403 sends the browser on to a blank 200 page, which shows nothing", async () => {
+    const outcome = await visit(
+      "/ps/index-forbidden-redirect",
+      {},
+      { fields: ["first_name", "last_name"], steps: [...searchAfterSubmit] },
+    );
+    expect(outcome).toMatchObject({
+      status: "failed",
+      kind: "site",
+      retryable: true,
+      site: { pushback: { kind: "forbidden", status: 403 } },
+    });
+  });
+
   it("reports a search call that answers 429 in the background", async () => {
     const outcome = await visit(
       "/ps/index-xhr-limited",

@@ -19,14 +19,14 @@ const QUEUED_REASONS = {
   new: "Queued to send.",
   resend: "Queued to send again.",
   follow_up: "Queued for a follow-up.",
-  verification_reply: "Queued to send the details the broker asked for.",
+  verification_reply: "Queued to send the details the target asked for.",
   channel_switch: "Queued on the other channel.",
   retry: "Queued to try again.",
 } as const;
 
 const SWITCH_REASONS = {
   bounce: "because the email bounced",
-  needs_form: "because the broker asked for its web form",
+  needs_form: "because the target asked for its web form",
   user: "at your request",
 } as const;
 
@@ -36,7 +36,7 @@ const ACTION_PHRASES: Record<UserAction, string> = {
   mark_confirmed: "mark it as confirmed",
   mark_rejected: "mark it as rejected",
   mark_no_record: "mark it as having no record",
-  verification_reply: "approve sending the details the broker asked for",
+  verification_reply: "approve sending the details the target asked for",
   retry_task: "retry the failed task",
 };
 
@@ -93,7 +93,7 @@ export function describeEvent(event: RequestEvent): string {
       return `Queued the ${task(event.payload.kind)} task.`;
     case "task_blocked": {
       const { kind, reason } = event.payload;
-      return `The ${task(kind)} task stopped for you: ${lower(BLOCKED_REASON_LABELS[reason])}.`;
+      return `The ${task(kind)} task stopped for you: ${BLOCKED_REASON_LABELS[reason]}.`;
     }
     case "task_completed": {
       const { kind, outcome, note } = event.payload;

@@ -1,8 +1,10 @@
 import { cn } from "../../lib/cn.js";
 
-/** A grey block that stands in for content that is on its way. Size it with className. */
+/** A block that stands in for content that is on its way. It pulses in opacity and never shimmers. */
 export function Skeleton({ className }: { className?: string }) {
-  return <div aria-hidden="true" className={cn("animate-pulse rounded-sm bg-line", className)} />;
+  return (
+    <div aria-hidden="true" className={cn("animate-pulse-soft rounded-xs bg-active", className)} />
+  );
 }
 
 export function SkeletonText({ lines = 3, className }: { lines?: number; className?: string }) {

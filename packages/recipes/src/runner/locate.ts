@@ -12,7 +12,7 @@ export interface Scope {
   locator: Page["locator"];
 }
 
-export type ElementState = "visible" | "hidden" | "attached" | "detached";
+type ElementState = "visible" | "hidden" | "attached" | "detached";
 
 const POLL_MS = 100;
 
@@ -23,7 +23,7 @@ type Role = Parameters<Page["getByRole"]>[0];
  * label, then test id, then CSS, then visible text. A selector with several keys is a list of
  * fallbacks, so a page that renames a test id can still be found by its CSS.
  */
-export function candidatesOf(scope: Scope, selector: Selector): Locator[] {
+function candidatesOf(scope: Scope, selector: Selector): Locator[] {
   const found: Locator[] = [];
   if (selector.role !== undefined) {
     found.push(
@@ -160,7 +160,7 @@ export async function waitForState(
 }
 
 /** The scopes to search when a step does not name a frame: the page, then every frame in it. */
-export function allScopes(page: Page): Scope[] {
+function allScopes(page: Page): Scope[] {
   return page.frames();
 }
 

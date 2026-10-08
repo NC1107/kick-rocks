@@ -7,13 +7,13 @@ import { type RecipeTarget, recipeTargetProblems } from "../../core/recipe-catal
 import type { AppServices } from "../../services.js";
 import { behaviour } from "./behaviour.js";
 
-export interface SkippedRecipe {
+interface SkippedRecipe {
   /** The recipe id, or the file when it could not even be read. */
   subject: string;
   problems: string[];
 }
 
-export interface RecipeSyncReport {
+interface RecipeSyncReport {
   added: string[];
   updated: string[];
   unchanged: number;

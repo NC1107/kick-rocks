@@ -416,6 +416,8 @@ export function createSitePoliteness({
       const now = clock.now().toISOString();
       const state = stateOf(handle, domain);
       if (!state || (state.consecutivePushback === 0 && state.breaker === "closed")) return;
+      // A canary loads the entry page, which says little about whether searching is throttled.
+      if (task.kind === "canary" && state.breaker !== "closed") return;
       // A run that began before the site pushed back can still finish cleanly during the
       // cooldown, and says nothing about whether the site has calmed down.
       if (state.coolingDownUntil && state.coolingDownUntil > now) return;

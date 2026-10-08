@@ -23,12 +23,12 @@ export const CONFIDENCE_THRESHOLD = 0.6;
 const MAX_LINKS_TRIED = 3;
 
 /** What became of the confirmation links in a message, decided before the database is touched. */
-export type LinkOutcome =
+type LinkOutcome =
   | { kind: "followed"; url: string; finalUrl: string | null }
   | { kind: "browser"; url: string }
   | { kind: "failed"; url: string; finalUrl: string | null };
 
-export interface AwaitingConfirmation {
+interface AwaitingConfirmation {
   fromDomains: string[];
   linkTextPattern: string | null;
 }
@@ -126,12 +126,12 @@ export async function followConfirmationLinks(
 const validUrlOrNull = (url: string | null): string | null =>
   url !== null && WebUrl.safeParse(url).success ? url : null;
 
-export interface AppliedReply {
+interface AppliedReply {
   /** A person still needs to look at the message, because nothing could act on it. */
   needsReview: boolean;
 }
 
-export interface ApplyReplyInput {
+interface ApplyReplyInput {
   request: RequestRecord;
   messageId: string;
   classification: ReplyClassification;

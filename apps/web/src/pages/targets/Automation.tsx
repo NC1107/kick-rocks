@@ -1,43 +1,40 @@
 import type { RecipeHealth } from "@kickrocks/shared";
-import { Badge } from "../../components/ui/index.js";
-import { RECIPE_HEALTH_LABELS, RECIPE_HEALTH_TONES } from "../../lib/labels.js";
+import { StatusShapeGlyph } from "../../components/ui/index.js";
+import { cn } from "../../lib/cn.js";
+import { RECIPE_HEALTH_LABELS } from "../../lib/labels.js";
+import type { StatusShape } from "../../lib/status.js";
 
-export const HEALTH_MEANINGS: Record<RecipeHealth | "none", string> = {
+const HEALTH_MEANINGS: Record<RecipeHealth | "none", string> = {
   none: "No approved recipe, so a person or an agent does this step.",
   unknown: "A recipe is approved but has not been run or checked yet.",
   healthy: "The recipe's last run or site check worked.",
   broken: "The recipe's last run or site check failed, so it needs a new version.",
 };
 
-function Line({ purpose, health }: { purpose: string; health: RecipeHealth | null }) {
-  return (
-    <span className="flex items-center gap-1.5">
-      <span className="w-16 text-sm text-ink-muted">{purpose}</span>
-      {health ? (
-        <span title={HEALTH_MEANINGS[health]}>
-          <Badge tone={RECIPE_HEALTH_TONES[health]}>{RECIPE_HEALTH_LABELS[health]}</Badge>
-        </span>
-      ) : (
-        <span className="text-sm text-ink-faint" title={HEALTH_MEANINGS.none}>
-          None
-        </span>
-      )}
-    </span>
-  );
-}
+const HEALTH_SHAPE: Record<RecipeHealth, StatusShape> = {
+  unknown: "dashed-ring",
+  healthy: "disc",
+  broken: "square",
+};
 
-/** Which of a target's scan and removal steps are automated, and whether they still work. */
-export function Automation({
-  scan,
-  remove,
-}: {
-  scan: RecipeHealth | null;
-  remove: RecipeHealth | null;
-}) {
+/** The state of one automated step. A target with no saved step for it shows a muted dash. */
+export function HealthMark({ health }: { health: RecipeHealth | null }) {
+  if (health === null) {
+    return (
+      <span className="text-ink-3" title={HEALTH_MEANINGS.none}>
+        -
+      </span>
+    );
+  }
   return (
-    <span className="flex flex-col gap-1">
-      <Line purpose="Scan" health={scan} />
-      <Line purpose="Removal" health={remove} />
+    <span
+      title={HEALTH_MEANINGS[health]}
+      className="inline-flex items-center gap-2 whitespace-nowrap text-meta"
+    >
+      <StatusShapeGlyph shape={HEALTH_SHAPE[health]} />
+      <span className={cn(health === "broken" ? "font-medium text-danger-text" : "text-ink-2")}>
+        {RECIPE_HEALTH_LABELS[health]}
+      </span>
     </span>
   );
 }
@@ -45,18 +42,18 @@ export function Automation({
 const LEGEND: readonly { term: string; meaning: string }[] = [
   { term: "Scan", meaning: "Looks for you on a people-search site." },
   { term: "Removal", meaning: "Fills in the site's opt-out form for you." },
-  { term: "None", meaning: HEALTH_MEANINGS.none },
-  { term: "Not checked", meaning: HEALTH_MEANINGS.unknown },
-  { term: "Healthy", meaning: HEALTH_MEANINGS.healthy },
-  { term: "Broken", meaning: HEALTH_MEANINGS.broken },
+  { term: "No recipe", meaning: HEALTH_MEANINGS.none },
+  { term: RECIPE_HEALTH_LABELS.unknown, meaning: HEALTH_MEANINGS.unknown },
+  { term: RECIPE_HEALTH_LABELS.healthy, meaning: HEALTH_MEANINGS.healthy },
+  { term: RECIPE_HEALTH_LABELS.broken, meaning: HEALTH_MEANINGS.broken },
 ];
 
-/** Explains the Automation column, which shows only from the large breakpoint up. */
+/** Explains the Scan and Removal columns, which show only from the large breakpoint up. */
 export function AutomationLegend() {
   return (
-    <details className="mb-3 hidden rounded-lg border border-line bg-surface px-4 py-2.5 text-sm text-ink-muted lg:block">
-      <summary className="cursor-pointer rounded-xs font-medium text-ink">
-        What do the Scan and Removal badges mean?
+    <details className="mb-2.5 hidden rounded-md border border-line px-3.5 py-2 text-meta text-ink-2 lg:block">
+      <summary className="cursor-pointer rounded-xs text-ui font-medium text-ink">
+        What do the Scan and Removal marks mean?
       </summary>
       <dl className="mt-3 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5">
         {LEGEND.map((entry) => (

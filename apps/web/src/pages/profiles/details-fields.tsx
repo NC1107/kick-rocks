@@ -1,9 +1,10 @@
 import { StateCode, US_STATES } from "@kickrocks/shared";
-import { Field, Input, Select } from "../../components/ui/index.js";
+import { Input, Select } from "../../components/ui/index.js";
+import { FieldRow } from "../settings/rows.js";
 
-export const DISPLAY_NAME_MAX = 80;
+const DISPLAY_NAME_MAX = 80;
 
-export interface DetailsValue {
+interface DetailsValue {
   displayName: string;
   state: string;
 }
@@ -28,7 +29,7 @@ export function validateDetails(
   return errors;
 }
 
-export interface DetailsFieldsProps {
+interface DetailsFieldsProps {
   value: DetailsValue;
   onChange: (value: DetailsValue) => void;
   errors: DetailsErrors;
@@ -36,7 +37,7 @@ export interface DetailsFieldsProps {
   namePlaceholder?: string;
 }
 
-/** The two fields on a profile itself, apart from its identities. */
+/** The two fields on a profile itself, apart from its identities, as rows of a group. */
 export function DetailsFields({
   value,
   onChange,
@@ -45,20 +46,16 @@ export function DetailsFields({
   namePlaceholder,
 }: DetailsFieldsProps) {
   return (
-    <div className="grid gap-4 sm:grid-cols-2">
-      <Field
-        label="Profile name"
-        error={errors.displayName}
-        help="How this profile is listed. It defaults to the primary name."
-      >
+    <>
+      <FieldRow label="Profile name" error={errors.displayName}>
         <Input
           value={value.displayName}
           disabled={disabled}
           placeholder={namePlaceholder}
           onChange={(event) => onChange({ ...value, displayName: event.target.value })}
         />
-      </Field>
-      <Field
+      </FieldRow>
+      <FieldRow
         label="State of residence"
         error={errors.state}
         help="Required. Decides which state privacy law the requests cite."
@@ -76,7 +73,7 @@ export function DetailsFields({
             </option>
           ))}
         </Select>
-      </Field>
-    </div>
+      </FieldRow>
+    </>
   );
 }

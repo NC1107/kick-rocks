@@ -24,8 +24,8 @@ export interface ConnectionForm {
   dailyCap: string;
 }
 
-export const DEFAULT_REPLY_FOLDER = "INBOX";
-export const MAX_DAILY_CAP = 2000;
+const DEFAULT_REPLY_FOLDER = "INBOX";
+const MAX_DAILY_CAP = 2000;
 
 /** A blank form, starting from the profile's own email address, which is usually the mailbox to use. */
 export function emptyForm(address = ""): ConnectionForm {
@@ -185,7 +185,7 @@ export function hintForError(
   return HINTS.find((hint) => hint.test.test(error))?.text(preset);
 }
 
-export interface FolderChoice {
+interface FolderChoice {
   path: string;
   label: string;
 }

@@ -761,7 +761,7 @@ describe("skip reasons", () => {
     expect(result.items[0]?.outcome).toBe("scan_started");
   });
 
-  const CA_REGISTRY = [{ source: "ca-registry-2025" as const, license: "public-record" as const }];
+  const CA_REGISTRY = [{ source: "ca-registry-2026" as const, license: "public-record" as const }];
 
   describe("covered_by_platform", () => {
     function withPlatform() {
@@ -791,7 +791,7 @@ describe("skip reasons", () => {
       seedTarget(ctx, {
         id: "listed",
         category: "marketing",
-        sources: [{ source: "ca-registry-2025", license: "public-record" }],
+        sources: [{ source: "ca-registry-2026", license: "public-record" }],
       });
 
       const result = await previewOk(profile.id, body(["regd", "listed"]));

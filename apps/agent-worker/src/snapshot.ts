@@ -246,13 +246,13 @@ export const READ_SNAPSHOT = `(() => {
   return { title: document.title, url: location.href, items };
 })()`;
 
-export interface SnapshotOptions {
+interface SnapshotOptions {
   /** Hides a value the person owns from the text. Left out, the text is shown as the page has it. */
   mask?: (text: string) => string;
   maxChars?: number;
 }
 
-export const DEFAULT_SNAPSHOT_CHARS = 12_000;
+const DEFAULT_SNAPSHOT_CHARS = 12_000;
 
 function quote(text: string): string {
   return JSON.stringify(text);

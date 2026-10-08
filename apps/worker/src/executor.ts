@@ -66,7 +66,7 @@ export interface Runners {
   runConfirmation: typeof runConfirmation;
 }
 
-export interface ExecutorOptions {
+interface ExecutorOptions {
   /**
    * Opens a page in the browser that belongs to the person the task is for, reaching the web
    * through `proxy` when the person routed this site through one.

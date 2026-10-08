@@ -34,7 +34,7 @@ import { IS_CHECKABLE, READ_OPTIONS } from "./page-scripts.js";
 import { clip, normalizeText, pageText, textContains, webUrlFrom } from "./text.js";
 
 /** A step that ends the run: for a person, or with a form outcome. Null means carry on. */
-export type Ended = Extract<RunOutcome<FormResult>, { status: "blocked" | "completed" }> | null;
+type Ended = Extract<RunOutcome<FormResult>, { status: "blocked" | "completed" }> | null;
 
 const RECORD_URL_TEMPLATE = /^\{\{\s*record_url\s*\}\}$/;
 const SENDER_DOMAIN = /^[a-z0-9]([a-z0-9.-]*[a-z0-9])?$/i;

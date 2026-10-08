@@ -19,7 +19,7 @@ import { notFound } from "../../core/errors.js";
 import { loadIdentities } from "../../core/identities.js";
 import type { Requests } from "../../core/request-flow.js";
 
-export interface ExportDeps {
+interface ExportDeps {
   db: KickRocksDb;
   clock: Clock;
   requests: Pick<Requests, "events">;

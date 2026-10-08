@@ -38,21 +38,35 @@ const BUSINESS_DAYS_PER_WEEK = 5;
 const DAYS_PER_WEEK = 7;
 
 /** Calendar days that always hold the statute's business-day opt-out deadline. */
-function responseDaysFor(statute: Statute, rights: readonly RequestRight[] | undefined): number {
+function responseDaysFor(
+  statute: Statute,
+  rights: readonly RequestRight[] | undefined,
+  asOf: Date,
+): number {
   const { optOutBusinessDays } = traitsOf(statute.id);
+  const { responseDaysChange } = statute;
   const optsOutOnly =
     rights !== undefined && rights.length > 0 && rights.every((right) => right === "opt_out");
-  if (optOutBusinessDays === null || !optsOutOnly) return statute.responseDays;
+  if (optOutBusinessDays === null || !optsOutOnly) {
+    const changed =
+      responseDaysChange !== null &&
+      asOf.getTime() >= Date.parse(`${responseDaysChange.from}T00:00:00Z`);
+    return changed ? responseDaysChange.days : statute.responseDays;
+  }
   return Math.ceil((optOutBusinessDays * DAYS_PER_WEEK) / BUSINESS_DAYS_PER_WEEK);
 }
 
-function statuteBasis(statute: Statute, rights?: readonly RequestRight[]): LegalBasis {
+function statuteBasis(
+  statute: Statute,
+  rights: readonly RequestRight[] | undefined,
+  asOf: Date,
+): LegalBasis {
   return {
     id: statute.id,
     kind: "statute",
     state: statute.state,
     statute,
-    responseDays: responseDaysFor(statute, rights),
+    responseDays: responseDaysFor(statute, rights, asOf),
   };
 }
 
@@ -137,7 +151,7 @@ export function resolveLegalBasis(input: ResolveLegalBasisInput): LegalBasis {
 
   const deleteAct = STATUTES_BY_ID.get(CALIFORNIA_DELETE_ACT);
   if (deleteAct && isDropRequest(input) && isInEffect(deleteAct, asOf)) {
-    return statuteBasis(deleteAct);
+    return statuteBasis(deleteAct, rights, asOf);
   }
 
   const match = STATUTES.find(
@@ -147,20 +161,21 @@ export function resolveLegalBasis(input: ResolveLegalBasisInput): LegalBasis {
       isInEffect(statute, asOf) &&
       covers(statute, rights, targetKind),
   );
-  return match ? statuteBasis(match, rights) : policyBasis(state);
+  return match ? statuteBasis(match, rights, asOf) : policyBasis(state);
 }
 
 export function getLegalBasis(
   id: string,
   state: StateCode,
-  rights?: readonly RequestRight[],
+  rights: readonly RequestRight[] | undefined,
+  asOf: Date,
 ): LegalBasis | null {
   const parsedState = StateCode.safeParse(state);
   if (!parsedState.success) return null;
   if (id === POLICY_BASIS_ID) return policyBasis(parsedState.data);
   const statute = STATUTES_BY_ID.get(id);
   if (!statute || statute.state !== parsedState.data) return null;
-  return statuteBasis(statute, rights);
+  return statuteBasis(statute, rights, asOf);
 }
 
 export function listJurisdictions(): Jurisdiction[] {

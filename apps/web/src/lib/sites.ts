@@ -17,8 +17,8 @@ export const BREAKER_LABELS: Record<BreakerState, string> = {
 };
 
 export function siteTone(site: Pick<SiteStatus, "breaker" | "coolingDownUntil">): Tone {
-  if (site.breaker === "open") return "red";
-  return site.breaker === "half_open" || site.coolingDownUntil !== null ? "amber" : "green";
+  if (site.breaker === "open") return "danger";
+  return site.breaker === "half_open" || site.coolingDownUntil !== null ? "attention" : "positive";
 }
 
 /** One line on what happened last and what happens next, for a site that is being left alone. */

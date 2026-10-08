@@ -2,17 +2,17 @@ import { type LlmSettings, ProfileField, ReplyClassification } from "@kickrocks/
 import { z } from "zod";
 
 /** How long a local model gets to answer before the message is left for a person. */
-export const LLM_TIMEOUT_MS = 30_000;
+const LLM_TIMEOUT_MS = 30_000;
 const MAX_MESSAGE_CHARS = 4000;
 const MAX_RESPONSE_BYTES = 64 * 1024;
 
-export const LlmAnswer = z.object({
+const LlmAnswer = z.object({
   classification: ReplyClassification,
   confidence: z.number().min(0).max(1),
   rationale: z.string().max(500),
   requested_fields: z.array(ProfileField),
 });
-export type LlmAnswer = z.infer<typeof LlmAnswer>;
+type LlmAnswer = z.infer<typeof LlmAnswer>;
 
 /** The strict schema sent to the endpoint, so a model that supports it can only answer in this shape. */
 export const LLM_RESPONSE_SCHEMA = {
@@ -50,7 +50,7 @@ Answer with JSON that matches the schema. Classes:
 For verification_required, list in requested_fields only the profile fields they ask for. Otherwise leave it empty.
 Set confidence to how sure you are, from 0 to 1.`;
 
-export interface LlmInput {
+interface LlmInput {
   subject: string;
   body: string;
   /** What the rules guessed, as a hint the model may overrule. */

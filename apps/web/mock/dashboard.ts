@@ -4,7 +4,9 @@ import {
   type DashboardEvent,
   RequestStatus,
   reviewAttention,
+  tellEvents,
 } from "@kickrocks/shared";
+
 import { defineMockDomain, handle, notFound } from "./core.js";
 import { buildMockQueue } from "./review.js";
 
@@ -34,7 +36,8 @@ export default defineMockDomain({
 
       const recentEvents: DashboardEvent[] = requests
         .flatMap((request) => {
-          const latest = request.events.reduce<(typeof request.events)[number] | undefined>(
+          const told = tellEvents(request.events);
+          const latest = told.reduce<(typeof request.events)[number] | undefined>(
             (best, event) => (!best || event.createdAt > best.createdAt ? event : best),
             undefined,
           );
@@ -42,7 +45,7 @@ export default defineMockDomain({
             ? [
                 {
                   ...latest,
-                  eventCount: request.events.length,
+                  eventCount: told.length,
                   requestReference: request.reference,
                   targetName: request.target.name,
                 },

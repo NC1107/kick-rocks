@@ -5,22 +5,20 @@ import {
   type ProfileDetail,
   type ProviderPreset,
 } from "@kickrocks/shared";
-import { Check, MailX } from "lucide-react";
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router";
 import { ApiRequestError, errorMessage, useApiMutation, useApiQuery } from "../../api/index.js";
+import { useBreadcrumbTail } from "../../components/layout/breadcrumb-context.js";
 import {
-  Alert,
-  Badge,
   Button,
-  Card,
-  CardFooter,
-  CardHeader,
+  Callout,
   ConfirmDialog,
   EmptyState,
   LinkButton,
   PageHeader,
+  Section,
   Skeleton,
+  StatusShapeGlyph,
   useToast,
 } from "../../components/ui/index.js";
 import { cn } from "../../lib/cn.js";
@@ -47,17 +45,18 @@ export function Component() {
   const { id = "" } = useParams();
   const profile = useApiQuery(API_ROUTES.profilesGet, { params: { id } });
   const providers = useApiQuery(API_ROUTES.mailProviders, { staleTime: 5 * 60_000 });
+  useBreadcrumbTail(profile.data?.displayName);
 
   const back = { to: "/profiles", label: "Profiles" };
 
   if (profile.isPending || providers.isPending) {
     return (
-      <div aria-busy="true" className="flex max-w-3xl flex-col gap-6">
+      <div aria-busy="true" className="flex max-w-3xl flex-col gap-4">
         <div>
           <Skeleton className="mb-2 h-4 w-20" />
           <Skeleton className="h-7 w-56" />
         </div>
-        <Skeleton className="h-80 w-full rounded-lg" />
+        <Skeleton className="h-72 w-full rounded-md" />
       </div>
     );
   }
@@ -70,7 +69,6 @@ export function Component() {
         <PageHeader title="Mailbox" back={back} />
         {missing ? (
           <EmptyState
-            icon={MailX}
             title="That profile does not exist"
             description="It may have been deleted."
             actions={
@@ -80,7 +78,7 @@ export function Component() {
             }
           />
         ) : (
-          <Alert
+          <Callout
             intent="danger"
             title="Could not load the mailbox"
             action={
@@ -96,7 +94,7 @@ export function Component() {
             }
           >
             {errorMessage(failure)}
-          </Alert>
+          </Callout>
         )}
       </>
     );
@@ -121,9 +119,7 @@ function MailboxPage({
       <PageHeader
         title={mailbox && !editing ? "Mailbox" : mailbox ? "Edit mailbox" : "Connect a mailbox"}
         description={
-          mailbox && !editing
-            ? `Requests for ${profile.displayName} go out from this account.`
-            : "Requests go out from this person's own email account, and replies are read from it."
+          mailbox && !editing ? `Requests for ${profile.displayName} go out from here` : undefined
         }
         back={{ to: `/profiles/${profile.id}`, label: profile.displayName }}
       />
@@ -165,48 +161,46 @@ function ConnectedMailbox({ profile, onEdit }: { profile: ProfileDetail; onEdit:
 
   if (!mailbox) return null;
 
+  const failed = Boolean(mailbox.lastError);
   return (
     <>
-      <Card>
-        <CardHeader
-          title={mailbox.address}
-          description={
-            mailbox.lastError ? (
-              <Badge tone="amber">Last check failed</Badge>
-            ) : (
-              <Badge tone="green">Connected</Badge>
-            )
-          }
-          actions={
-            <Button
-              loading={poll.isPending}
-              onClick={() => poll.mutate({ params: { id: profile.id } })}
-            >
-              Check inbox now
-            </Button>
-          }
-        />
-        {mailbox.lastError ? (
-          <Alert intent="warning" title="The last check failed" className="mb-4">
-            {mailbox.lastError}
-          </Alert>
-        ) : null}
-        <SendPauseAlert mailbox={mailbox} />
-        {poll.error ? (
-          <Alert intent="danger" className="mb-4">
-            {errorMessage(poll.error)}
-          </Alert>
-        ) : null}
-        <MailboxFacts mailbox={mailbox} providerLabel={label} hideAddress />
-        <CardFooter>
-          <Button variant="ghost" onClick={() => setDisconnecting(true)}>
-            Disconnect
-          </Button>
-          <Button variant="primary" onClick={onEdit}>
-            Edit connection
-          </Button>
-        </CardFooter>
-      </Card>
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+        <div className="min-w-0">
+          <h2 className="break-all font-mono text-heading font-medium text-ink">
+            {mailbox.address}
+          </h2>
+          <span className="mt-0.5 inline-flex items-center gap-2 text-meta text-ink-2">
+            <StatusShapeGlyph shape={failed ? "triangle" : "disc"} />
+            {failed ? "Last check failed" : "Connected"}
+          </span>
+        </div>
+        <Button
+          loading={poll.isPending}
+          onClick={() => poll.mutate({ params: { id: profile.id } })}
+        >
+          Check inbox now
+        </Button>
+      </div>
+      {mailbox.lastError ? (
+        <Callout intent="warning" title="The last check failed" className="mb-3">
+          {mailbox.lastError}
+        </Callout>
+      ) : null}
+      <SendPauseAlert mailbox={mailbox} />
+      {poll.error ? (
+        <Callout intent="danger" className="mb-3">
+          {errorMessage(poll.error)}
+        </Callout>
+      ) : null}
+      <MailboxFacts mailbox={mailbox} providerLabel={label} hideAddress />
+      <div className="mt-4 flex flex-wrap items-center justify-end gap-2">
+        <Button variant="danger" onClick={() => setDisconnecting(true)}>
+          Disconnect
+        </Button>
+        <Button variant="primary" onClick={onEdit}>
+          Edit connection
+        </Button>
+      </div>
       <ConfirmDialog
         open={disconnecting}
         onClose={() => {
@@ -221,9 +215,9 @@ function ConnectedMailbox({ profile, onEdit }: { profile: ProfileDetail; onEdit:
         onConfirm={() => disconnect.mutate({ params: { id: profile.id } })}
       >
         {disconnect.error ? (
-          <Alert intent="danger" className="mt-1">
+          <Callout intent="danger" className="mt-1">
             {errorMessage(disconnect.error)}
-          </Alert>
+          </Callout>
         ) : null}
       </ConfirmDialog>
     </>
@@ -338,23 +332,21 @@ function Wizard({ profile, providers, onCancel, onSaved }: WizardProps) {
   const testFailure = test.error ? errorMessage(test.error) : null;
 
   return (
-    <Card>
+    <div>
       <Stepper step={step} />
-      <div className="mt-6">
+      <div className="mt-5">
         {step === 0 ? (
-          <>
-            <CardHeader title="Choose your provider" as="h2" />
+          <Section label="Choose your provider">
             <ProviderStep
               providers={providers}
               form={form}
               onChoose={choosePreset}
               error={errors.providerId}
             />
-          </>
+          </Section>
         ) : null}
         {step === 1 && preset ? (
-          <>
-            <CardHeader title="Sign in details" />
+          <Section label="Sign in details">
             <AccountStep
               preset={preset}
               form={form}
@@ -362,11 +354,10 @@ function Wizard({ profile, providers, onCancel, onSaved }: WizardProps) {
               onChange={change}
               hasSavedPassword={existing !== null}
             />
-          </>
+          </Section>
         ) : null}
         {step === 2 && preset ? (
-          <>
-            <CardHeader title="Test the connection" />
+          <Section label="Test the connection">
             <TestStep
               form={form}
               preset={preset}
@@ -375,11 +366,10 @@ function Wizard({ profile, providers, onCancel, onSaved }: WizardProps) {
               failure={testFailure}
               onTest={runTest}
             />
-          </>
+          </Section>
         ) : null}
         {step === 3 && preset ? (
-          <>
-            <CardHeader title="Reply folder and daily limit" />
+          <Section label="Reply folder and daily limit">
             <SettingsStep
               form={form}
               preset={preset}
@@ -390,16 +380,16 @@ function Wizard({ profile, providers, onCancel, onSaved }: WizardProps) {
               refreshing={folderQuery.isFetching}
             />
             {saveFailure ? (
-              <Alert intent="danger" title="Could not save the mailbox" className="mt-5">
+              <Callout intent="danger" title="Could not save the mailbox" className="mt-4">
                 {explained
                   ? Object.values(saveFailure.fieldErrors).join(" ")
                   : errorMessage(saveFailure)}
-              </Alert>
+              </Callout>
             ) : null}
-          </>
+          </Section>
         ) : null}
       </div>
-      <CardFooter className="justify-between">
+      <div className="mt-5 flex flex-wrap items-center justify-between gap-2 border-t border-line pt-4">
         <div>
           {step === 0 && onCancel ? (
             <Button variant="ghost" onClick={onCancel}>
@@ -435,15 +425,15 @@ function Wizard({ profile, providers, onCancel, onSaved }: WizardProps) {
             Continue
           </Button>
         )}
-      </CardFooter>
-    </Card>
+      </div>
+    </div>
   );
 }
 
 function Stepper({ step }: { step: StepIndex }) {
   return (
     <nav aria-label="Progress">
-      <ol className="m-0 flex list-none items-center gap-2 p-0 text-sm sm:gap-3">
+      <ol className="m-0 flex list-none items-center gap-2 p-0 text-meta sm:gap-3">
         {STEPS.map((label, index) => {
           const state = index < step ? "done" : index === step ? "current" : "todo";
           return (
@@ -452,19 +442,19 @@ function Stepper({ step }: { step: StepIndex }) {
               aria-current={state === "current" ? "step" : undefined}
               className={cn(
                 "flex items-center gap-2",
-                state === "current" ? "font-semibold text-ink" : "text-ink-muted",
+                state === "current" ? "font-medium text-ink" : "text-ink-3",
               )}
             >
               <span
                 aria-hidden="true"
                 className={cn(
-                  "inline-flex size-6 shrink-0 items-center justify-center rounded-full border text-xs font-medium",
+                  "inline-flex size-5 shrink-0 items-center justify-center rounded-xs border font-mono text-label",
                   state === "todo" && "border-line-strong",
-                  state === "current" && "border-accent bg-accent text-accent-ink",
-                  state === "done" && "border-accent-soft bg-accent-soft text-accent-soft-ink",
+                  state === "current" && "border-accent-fill bg-accent-fill text-accent-on",
+                  state === "done" && "border-line-strong bg-active text-ink-2",
                 )}
               >
-                {state === "done" ? <Check className="size-3.5" strokeWidth={3} /> : index + 1}
+                {index + 1}
               </span>
               <span className={cn(state !== "current" && "max-sm:sr-only")}>{label}</span>
               {index < STEPS.length - 1 ? (

@@ -57,7 +57,7 @@ describe("connecting a mailbox", () => {
     expect(screen.queryByRole("radio", { name: /Outlook/ })).toBeNull();
     const unsupported = screen.getByRole("region", { name: "Not supported yet" });
     expect(within(unsupported).getByText("Outlook.com")).toBeInTheDocument();
-    expect(within(unsupported).getByText(/needs OAuth sign-in/)).toBeInTheDocument();
+    expect(within(unsupported).getByText(/only through OAuth/)).toBeInTheDocument();
   });
 
   it("will not continue until a provider is chosen", async () => {
@@ -310,7 +310,7 @@ describe("a connected mailbox", () => {
     if (mailbox) mailbox.sendPausedUntil = new Date(Date.now() + 25 * 60_000).toISOString();
     open("jordan", mock);
     expect(await screen.findByText("Sending is paused")).toBeInTheDocument();
-    expect(screen.getByText(/go out in 25 minutes/)).toBeInTheDocument();
+    expect(screen.getByText("in 25m")).toBeInTheDocument();
   });
 
   it("says nothing about a pause that has ended or never was", async () => {

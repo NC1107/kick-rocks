@@ -39,7 +39,7 @@ interface CallInput<R extends RouteDef> {
   body?: RouteBodyInput<R>;
 }
 
-export interface WorkerApiClientOptions {
+interface WorkerApiClientOptions {
   serverUrl: string;
   token: string;
   workerId: string;

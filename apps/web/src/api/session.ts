@@ -10,7 +10,7 @@ export function useAuthState() {
 }
 
 /** Marks this browser signed out, wipes everything cached for the old session, and lets the gate redirect. */
-export function useEndSession() {
+function useEndSession() {
   const client = useQueryClient();
   return (state: Pick<AuthState, "setupRequired"> = { setupRequired: false }) => {
     client.removeQueries({ predicate: (query) => query.queryKey[2] !== API_ROUTES.authState.path });

@@ -1,5 +1,5 @@
 import { WAIT_REASON_TEXT, type WaitingTask } from "@kickrocks/shared";
-import { Alert } from "../../components/ui/index.js";
+import { Callout } from "../../components/ui/index.js";
 import { formatDateTime, formatRelative, pluralize } from "../../lib/format.js";
 
 const KIND_LABELS: Record<string, string> = {
@@ -17,15 +17,15 @@ const KIND_LABELS: Record<string, string> = {
 export function WaitingNotice({ items }: { items: readonly WaitingTask[] }) {
   if (items.length === 0) return null;
   return (
-    <Alert
+    <Callout
       intent="info"
       title={`${pluralize(items.length, "task")} waiting on a site, not failing`}
-      className="mb-5"
+      className="mb-4"
     >
       <p>Kick Rocks spaces its visits, and lets a site cool down when it pushes back.</p>
       <ul className="mt-2 flex list-none flex-col gap-1 p-0">
         {items.map((item) => (
-          <li key={item.taskId} className="text-sm">
+          <li key={item.taskId} className="text-meta">
             <span className="font-medium">
               {KIND_LABELS[item.kind] ?? item.kind}
               {item.targetName ? ` for ${item.targetName}` : ""}
@@ -39,6 +39,6 @@ export function WaitingNotice({ items }: { items: readonly WaitingTask[] }) {
           </li>
         ))}
       </ul>
-    </Alert>
+    </Callout>
   );
 }

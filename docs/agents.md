@@ -2,43 +2,63 @@
 
 Kick Rocks keeps one queue of browser work.
 The built-in worker takes the tasks that a recipe can run.
-Everything else waits for an agent: a site with no recipe, a recipe that broke, or a task a person parked at a CAPTCHA and handed over.
-An agent reaches that queue through an MCP server at `/mcp`.
-Claude Code, a local model behind an MCP client, or any other MCP client can do the work.
+Everything else waits for an agent: a site with no recipe, a recipe that broke, or a task a person parked at a captcha and handed over.
+An agent reaches that queue through an mcp server at `/mcp`.
+Any mcp client can do the work, and so can the agent worker, which drives a model of your choice.
 
-This page covers how to connect, what an agent task looks like, and the rules an agent follows.
+This page covers both ways to take agent tasks, what a task looks like, and the rules an agent follows.
+
+Two rules hold for every agent, and the code enforces them for the agent worker.
+
+- A model only sees placeholders.
+  The agent worker masks every value the profile holds, so the model names a field and the program types the value.
+  An mcp client has no masking step, so it is given only the fields the task allows for that one broker, and nothing else about the person.
+- A removal form is never submitted twice.
+  The moment a click may have submitted it, the task is marked, and from then on it can't be queued again by itself.
+
+Both are explained in full under "Rules the code enforces" and "The loop" below.
 
 ## What the agent needs
 
-The MCP server only hands out tasks and takes results.
+The mcp server only hands out tasks and takes results.
 The agent does the browsing itself, so it needs three more things.
 
 - A browser automation tool that can open pages, fill fields, click, and read the page.
-  Claude Code's own `WebFetch` cannot fill or submit a form, so it is not enough.
-  For example, add Playwright's MCP server with `claude mcp add playwright -- npx @playwright/mcp@latest`, or use any other browser tool you trust.
-- The browser must run on the same machine and home connection as Kick Rocks, because broker sites block datacenter addresses (see ADR-002 in `docs/DESIGN.md`).
+  A tool that only fetches a page can't fill or submit a form, so it is not enough.
+  For example, playwright's mcp server (`npx @playwright/mcp@latest`) or any other browser tool you trust.
+- The browser must run on the same machine and home connection as kick rocks, because broker sites block datacenter addresses (see ADR-002 in `docs/DESIGN.md`).
   Run it headed, with a visible window, because bot checks treat headless browsers worse.
 - A lease is short, so keep it alive.
   Call `heartbeat_task` every few minutes while the browser works, and release the task if the browser tool fails.
 
-## Connect Claude Code
+## Connect a client
 
-1. Open Settings, then Agents, and turn on the MCP endpoint.
+1. Open Settings, then Agents, and turn on "Allow agents to connect" under Agent access.
 2. Create a token.
    It is shown once and only its hash is stored, so copy it now.
    Creating a new token replaces the old one, and every client using the old token stops working.
-3. Add the server to Claude Code.
+3. Give your client the endpoint and the token.
 
-```sh
-claude mcp add --transport http kick-rocks http://localhost:8420/mcp \
-  --header "Authorization: Bearer <token>"
+The endpoint is `/mcp` on the address you reach kick rocks at, which is `KICKROCKS_PUBLIC_URL` when it is set, such as `http://localhost:8420/mcp`.
+Every request carries the header `Authorization: Bearer <token>`.
+Most clients take a JSON config along these lines, though the key names differ a little between clients, so check yours.
+
+```json
+{
+  "mcpServers": {
+    "kickrocks": {
+      "type": "http",
+      "url": "http://localhost:8420/mcp",
+      "headers": { "Authorization": "Bearer <token>" }
+    }
+  }
+}
 ```
 
-Use the address you reach Kick Rocks at, which is `KICKROCKS_PUBLIC_URL` when it is set.
-Run `claude mcp list` to check that the server shows as connected, then ask Claude Code to list the Kick Rocks tasks.
+Clients that add servers from a command line usually take the same three things: a name, the URL, and the header.
+Once it connects, ask the client to list the kick rocks tasks.
 
-Any other client needs the same two things: the URL and the header `Authorization: Bearer <token>`.
-The transport is MCP streamable HTTP, and the server is stateless.
+The transport is mcp streamable HTTP, and the server is stateless.
 Every call is a `POST` that answers with JSON, there are no sessions, and `GET` and `DELETE` answer 405.
 A restart of the server never leaves a client in a session that no longer exists.
 
@@ -74,7 +94,7 @@ Pass `kinds` to take another kind on purpose.
 Pass `taskId` to take one task: a queued task is leased as it is, and a task a person parked as blocked is handed to you as a new agent task in the same call.
 The new task says which human check stopped the earlier run.
 `workerId` names you in the lease, so use the same one for every call about a task.
-Only a task you claimed through MCP can be completed, blocked, failed, or released through MCP.
+Only a task you claimed through mcp can be completed, blocked, failed, or released through mcp.
 
 ## What a task looks like
 
@@ -122,7 +142,7 @@ The values are examples.
   For `blocked`, `blockedReason` names the human check that stopped the earlier run.
 - `fields` holds only the identifiers you may use for this broker.
   Nothing else about the person is in the task, and nothing else is yours to use.
-  For a removal, `email` is the address of the mailbox Kick Rocks polls, because the broker's confirmation email has to land there.
+  For a removal, `email` is the address of the mailbox kick rocks polls, because the broker's confirmation email has to land there.
 - `instructions` says what to do, where to start, what never to do, and the exact result to report.
   Read it every time, because it is written for this task.
 
@@ -185,7 +205,7 @@ An agent must:
   A removal task has a `recordUrl`, and that is the only record to act on.
 - Report what actually happened.
   If the page says the record is not there, report `not_found`, and if you could not tell, fail or block the task instead of guessing.
-- Block the task and stop when it needs a human: a CAPTCHA, a phone call or text code, an ID upload, a login the person has to make, or a bot check.
+- Block the task and stop when it needs a human: a captcha, a phone call or text code, an ID upload, a login the person has to make, or a bot check.
   Give the reason and the page you stopped on.
   Add a screenshot only if your browser tool gives you the image as base64, because `block_task` takes inline base64 and accepts a block without one.
 - Keep the lease alive, and release or fail the task instead of leaving it.
@@ -193,7 +213,7 @@ An agent must:
 
 An agent must never:
 
-- Solve, bypass, or hand off a CAPTCHA to a solving service, or try to look less like a bot to get past a check.
+- Solve, bypass, or hand off a captcha to a solving service, or try to look less like a bot to get past a check.
 - Submit a form for a person other than the one in the task, or for a record the task does not name.
 - Type any personal detail the task did not give it, make up a value, or use a value from `fields` somewhere other than the broker's own page.
 - Upload an ID or any document, or agree to pay for anything.
@@ -224,7 +244,7 @@ The format is in `packages/recipes/recipes/README.md`.
 - A broker can have five proposals waiting for one purpose, and more are refused with `too_many_proposals`.
 - A recipe is a script that runs in the person's own browser with their details, so put only what the site needs in `fields`.
 
-A proposal is separate from the recipes that ship with Kick Rocks.
+A proposal is separate from the recipes that ship with kick rocks.
 Those that were not seen through to a real removal wait on the Recipes tab in Settings, under "Bundled recipes to check", with the notes from their author.
 A person approves or rejects each one there, and a rejection holds until a newer version of the recipe ships.
 Until a bundled recipe is approved, its tasks come to agents like a site with no recipe, with one limit for an unattended model: see "Which sites the agent worker takes" below.
@@ -235,28 +255,43 @@ A canary that cannot find a selector marks the recipe broken, and work for that 
 
 ## Running a model as the agent
 
-Claude Code over MCP is one way to take agent tasks.
-The agent worker is another: a small program that claims the same tasks itself, drives its own Chrome, and asks a model what to do next.
-The model can be a local one through Ollama or any OpenAI-compatible endpoint, or the Anthropic API.
-It lives in `apps/agent-worker` and talks to the server through the worker API, so it needs `KICKROCKS_WORKER_TOKEN` and not an MCP token.
+An mcp client is one way to take agent tasks.
+The agent worker is another: a small program that claims the same tasks itself, drives its own chrome, and asks a model what to do next.
+The model can be a local one through ollama or any openai-compatible endpoint, or a hosted one through the anthropic api.
+It lives in `apps/agent-worker` and talks to the server through the worker API, so it needs `KICKROCKS_WORKER_TOKEN` and not an mcp token.
 
-It claims only `agent` tasks, and it says it is a model when it claims, so Kick Rocks counts its runs apart from recipe runs and from MCP clients.
-It can run next to the built-in worker and next to Claude Code, because the server hands each task to one claimer.
-It uses its own Chrome profile, since two browsers cannot share one.
+It claims only `agent` tasks, and it says it is a model when it claims, so kick rocks counts its runs apart from recipe runs and from mcp clients.
+It can run next to the built-in worker and next to an mcp client, because the server hands each task to one claimer.
+It uses its own chrome profile, since two browsers cannot share one.
 
 ### Start it
 
-With Docker, set the model in `.env` and add `agent` to `COMPOSE_PROFILES` there, next to `worker`.
+With docker, set the provider and model in `.env` and add `agent` to `COMPOSE_PROFILES` there, next to `worker`.
 A `--profile` flag on the command line replaces `COMPOSE_PROFILES`, so use the variable and not the flag, and later `docker compose up -d --build` updates keep the agent worker.
 The settings are listed in `.env.example`.
 
-```sh
-# a local model on the same machine
-KICKROCKS_AGENT_MODEL=<an Ollama model that supports tools>
-KICKROCKS_AGENT_BASE_URL=http://host.docker.internal:11434/v1
+For a local model through ollama, the provider is `openai`, because ollama serves an openai-compatible endpoint, and the base URL points at it.
+There is no `ollama` value for the provider.
 
-docker compose up -d --build
+```sh
+# .env, a local model on the same machine
+COMPOSE_PROFILES=worker,agent
+KICKROCKS_AGENT_PROVIDER=openai
+KICKROCKS_AGENT_MODEL=<an ollama model that supports tool calling>
+KICKROCKS_AGENT_BASE_URL=http://host.docker.internal:11434/v1
 ```
+
+For the anthropic api, set the provider to `anthropic` and give it a key.
+The anthropic provider has a built-in default model, and `KICKROCKS_AGENT_MODEL` overrides it.
+
+```sh
+# .env, a hosted model
+COMPOSE_PROFILES=worker,agent
+KICKROCKS_AGENT_PROVIDER=anthropic
+ANTHROPIC_API_KEY=<your key>
+```
+
+Then run `docker compose up -d --build`.
 
 From a checkout, build once, then run it with the same variables exported.
 
@@ -265,26 +300,26 @@ pnpm build
 KICKROCKS_WORKER_TOKEN=<token> KICKROCKS_AGENT_MODEL=<model> pnpm --filter @kickrocks/agent-worker start
 ```
 
-For the Anthropic API, set `KICKROCKS_AGENT_PROVIDER=anthropic` and `ANTHROPIC_API_KEY`.
-The model defaults to `claude-sonnet-4-6`.
+### Settings
 
 | Variable | Meaning |
 |---|---|
-| `KICKROCKS_AGENT_PROVIDER` | `openai` for Ollama or any OpenAI-compatible endpoint (the default), or `anthropic`. |
-| `KICKROCKS_AGENT_MODEL` | The model name. Required for `openai`, and it must support tool calling. |
+| `KICKROCKS_AGENT_PROVIDER` | `openai` for ollama or any openai-compatible endpoint (the default), or `anthropic`. |
+| `KICKROCKS_AGENT_MODEL` | The model name. Required for `openai`, and it must support tool calling. Optional for `anthropic`. |
 | `KICKROCKS_AGENT_BASE_URL` | The endpoint. Defaults to `http://localhost:11434/v1` for `openai` and `https://api.anthropic.com` for `anthropic`. |
-| `KICKROCKS_AGENT_API_KEY` | A key for the endpoint. Ollama needs none. For `anthropic` it falls back to `ANTHROPIC_API_KEY`. |
+| `KICKROCKS_AGENT_API_KEY` | A key for the endpoint. ollama needs none. For `anthropic` it falls back to `ANTHROPIC_API_KEY`. |
+| `KICKROCKS_AGENT_WORKER_ID` | Names this worker to the server. Defaults to the host name plus `-agent`. Compose passes it to the worker as `KICKROCKS_WORKER_ID`. |
 | `KICKROCKS_AGENT_MAX_STEPS` | Tool calls one task may use. Default 40. |
 | `KICKROCKS_AGENT_MAX_MINUTES` | Wall time one task may use. Default 10. |
 | `KICKROCKS_AGENT_MAX_TOTAL_TOKENS` | Optional token budget for one task. |
 | `KICKROCKS_AGENT_INPUT_USD_PER_MTOK`, `KICKROCKS_AGENT_OUTPUT_USD_PER_MTOK` | Prices per million tokens. A cost is reported only when both are set. |
 | `KICKROCKS_AGENT_MAX_OUTPUT_TOKENS` | The most the model may write in one turn. Default 2048. |
-| `KICKROCKS_AGENT_TOKEN_PARAM` | What an OpenAI-compatible endpoint calls that limit: `max_tokens` (the default) or `max_completion_tokens`. OpenAI's reasoning models need the second. With the default, a model that refuses `max_tokens` or a temperature of 0 gets one retry with `max_completion_tokens` and no temperature. |
+| `KICKROCKS_AGENT_TOKEN_PARAM` | What an openai-compatible endpoint calls that limit: `max_tokens` (the default) or `max_completion_tokens`. Reasoning models from openai need the second. With the default, a model that refuses `max_tokens` or a temperature of 0 gets one retry with `max_completion_tokens` and no temperature. |
 
-The browser settings are the same as the built-in worker's: `KICKROCKS_WORKER_HEADLESS`, `KICKROCKS_WORKER_PACE`, `KICKROCKS_CHROME_EXECUTABLE`, and the rest of `apps/worker/README.md`.
+The browser settings are the same as the built-in worker's: `KICKROCKS_WORKER_HEADLESS`, `KICKROCKS_WORKER_PACE`, `KICKROCKS_CHROME_EXECUTABLE`, and the rest of `apps/worker/README.md`, apart from the proxy, which the agent worker does not read.
 In the compose service only `KICKROCKS_WORKER_PACE` can be changed from `.env`.
-The image fixes the others: it runs a headed Chrome on Xvfb with the sandbox off, because Docker's default seccomp profile blocks Chrome's sandbox.
-Inside a container, `localhost` is the container, so Ollama on the host is `host.docker.internal`, which the compose file maps for you.
+The image fixes the others: it runs a headed chrome on Xvfb with the sandbox off, because docker's default seccomp profile blocks chrome's sandbox.
+Inside a container, `localhost` is the container, so ollama on the host is `host.docker.internal`, which the compose file maps for you.
 
 ### What the model can do
 
@@ -315,7 +350,7 @@ The worker does not rely on the model to follow them.
   A frame of another site runs in its own browser process, so each one is held at its start, given the same guard as the page, and only then let go.
   A frame that cannot be guarded is not let go.
   A new tab or window is refused whole, with every document it would load and every redirect it would follow, and the tab is closed.
-  A page on a shared form platform (Termly, TrustArc, OneTrust, Google Forms and the like) is allowed for its own path and what is under it, plus the query parameters that name the tenant, and never for the whole folder.
+  A page on a shared form platform (termly, trustarc, onetrust, google forms and the like) is allowed for its own path and what is under it, plus the query parameters that name the tenant, and never for the whole folder.
   A single-page portal that keeps the tenant in a route fragment (`#/ekata/request/...`) is allowed for the fragment up to the tenant's own segment, and a tracking fragment such as `xd_co_f=...` names nobody.
   A page that was let in may change its own address inside its origin, as a single-page portal does on every screen, without a new check.
   A new document is always checked against the full scope.
@@ -331,7 +366,7 @@ The worker does not rely on the model to follow them.
   The model sees `{{first_name}}` where the page shows the person's first name, for each field of the task.
   The program hides every value the profile holds, not only the task's fields: all names and aliases (and each part of them), every email, phone, and address with its street, city and ZIP, and the date of birth and the year.
   A value that is not a field of the task reads `{{other_3}}` or similar, and the program puts it back in a scan result it reports.
-  The server gives that list only to a model worker that claims as one, never to an MCP client.
+  The server gives that list only to a model worker that claims as one, never to an mcp client.
   Phone numbers and dates of birth are also masked in the common US formats that an input mask produces.
   A value written in a way the program does not know, such as a nickname the page derived from the name, is not masked.
   Values of one or two characters, such as a two-letter state, are not masked.
@@ -339,9 +374,9 @@ The worker does not rely on the model to follow them.
   The program matches each link to one the page really showed and fills the real values back into the text before the server stores it, and it rejects an address that no page showed.
   The task's instructions and the first message are masked the same way, so the model reads `{{record_url}}` where the server wrote the record address.
   `navigate` accepts `{{record_url}}` and a masked link from a snapshot, and opens the real address after checking it against the allowed domains.
-  The MCP claim keeps the real record address in the instructions, because an MCP client has no masking step and must be able to open the page.
+  The mcp claim keeps the real record address in the instructions, because an mcp client has no masking step and must be able to open the page.
   The system prompt lists field names, and a value in the page, in a link, or in a field the program typed is replaced by `{{field_name}}` before the model reads it.
-- A visible CAPTCHA or a whole-page bot check ends the run at once.
+- A visible captcha or a whole-page bot check ends the run at once.
   The task is blocked with the reason, the page address, and a screenshot, and the model is not asked again.
   A bot check page that clears by itself gets a few seconds first.
 - A `complete` result must match the shared schema for the task's own purpose.
@@ -376,10 +411,10 @@ The agent worker claims the tasks no approved recipe covers, with two exceptions
   Finish it by hand, or hand it to an agent yourself.
   A task you hand over stays in the queue for a connected agent, and the agent worker leaves it alone.
 - A site whose bundled recipe is still waiting for your review stays in the queue, for a connected agent or for you.
-  Turn on "Let the agent worker take unreviewed sites" under Workers in Settings to let the model take those too.
+  Turn on "Let the agent worker take unreviewed targets" under Workers in Settings to let the model take those too.
   The setting is off by default.
 
-A connected MCP client is not held back by either rule, because you connected it on purpose.
+A connected mcp client is not held back by either rule, because you connected it on purpose.
 
 ### Workers in Settings
 
@@ -388,7 +423,7 @@ Each has its own state, so an agent worker that is down is never hidden by a rec
 
 ### Browser data of deleted profiles
 
-Each worker keeps one Chrome profile per Kick Rocks profile, with its cookies, history and cached pages.
+Each worker keeps one chrome profile per kick rocks profile, with its cookies, history and cached pages.
 The server tells each worker which profiles still exist whenever it checks in, and between tasks the worker closes and deletes the browser data of any other.
 Deleting a profile, or resetting the instance, therefore removes that data from both workers' volumes within a heartbeat or two of the worker being idle.
 A worker that is stopped when you delete a profile does it the next time it starts and checks in.
@@ -422,9 +457,9 @@ Use a local model when even that is too much.
 
 ## Running the built-in worker and an agent together
 
-The built-in worker and an MCP client share one queue, and the server keeps their work apart.
-A task claimed through the worker API cannot be reported on through MCP, and the other way around, whatever worker id is sent.
-The worker API uses `KICKROCKS_WORKER_TOKEN` and the MCP endpoint uses its own token, so one cannot be used for the other.
+The built-in worker and an mcp client share one queue, and the server keeps their work apart.
+A task claimed through the worker API cannot be reported on through mcp, and the other way around, whatever worker id is sent.
+The worker API uses `KICKROCKS_WORKER_TOKEN` and the mcp endpoint uses its own token, so one cannot be used for the other.
 
 ## Troubleshooting
 

@@ -1,13 +1,25 @@
 import { z } from "zod";
 import { RenderedEmail } from "./legal.js";
 import { RequestRights } from "./requests.js";
+import { MAX_SELECTED_TARGETS, TargetFilter } from "./targets.js";
 
-export const CampaignPreset = z.enum(["companies", "email_brokers", "people_search", "everything"]);
+export const CampaignPreset = z.enum([
+  "easy",
+  "companies",
+  "email_brokers",
+  "people_search",
+  "everything",
+]);
 export type CampaignPreset = z.infer<typeof CampaignPreset>;
 
+/** Every live target a targets-list filter matches, so "select all N matching" needs no id list. */
+export const FilterSelection = z.object({ filter: TargetFilter.strict() }).strict();
+export type FilterSelection = z.infer<typeof FilterSelection>;
+
 export const CampaignSelection = z.union([
-  z.object({ targetIds: z.array(z.string().min(1)).min(1).max(5000) }).strict(),
+  z.object({ targetIds: z.array(z.string().min(1)).min(1).max(MAX_SELECTED_TARGETS) }).strict(),
   z.object({ preset: CampaignPreset }).strict(),
+  FilterSelection,
 ]);
 export type CampaignSelection = z.infer<typeof CampaignSelection>;
 

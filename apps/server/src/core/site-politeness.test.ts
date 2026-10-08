@@ -511,6 +511,26 @@ describe("pushback", () => {
     expect(scan.every((entry) => entry.finishedAt === null)).toBe(true);
   });
 
+  it("does not finish an agent's scan that came back empty after the site pushed back", async () => {
+    const noRecipe = seedTarget(ctx, { category: "people-search", domain: "agent.test" });
+    const queued = queueScan(noRecipe.id);
+    expect(queued.kind).toBe("agent");
+    const claimed = claim("model") as ClaimedTask;
+    expect(claimed.id).toBe(queued.id);
+    await complete(
+      claimed,
+      { pushback: rateLimited(10 * 3600) },
+      { purpose: "scan", scan: { candidates: [] } },
+    );
+
+    const row = taskRow(claimed.id);
+    expect(row.status).toBe("queued");
+    expect(row.attempts).toBe(0);
+    expect(row.runAfter).toBe(new Date(ctx.clock.now().getTime() + 10 * HOUR).toISOString());
+    const scan = ctx.services.db.select().from(scans).all();
+    expect(scan.every((entry) => entry.finishedAt === null)).toBe(true);
+  });
+
   it("finishes a scan that found a record even though the site pushed back later", async () => {
     const a = site("a.test");
     queueScan(a.id);
@@ -525,6 +545,16 @@ describe("pushback", () => {
     expect(status("a.test")).toMatchObject({ consecutivePushback: 1 });
   });
 });
+
+/** Leaves a canary as the only waiting task, so it is the one a claim hands out. */
+function enqueueOnlyCanary(targetId: string) {
+  ctx.services.settings.set("siteChecks.enabled", true);
+  ctx.services.settings.set("auth.passwordHash", "hash");
+  for (const waiting of ctx.services.taskQueue.list({ status: "queued" })) {
+    ctx.services.taskQueue.cancel(waiting.id);
+  }
+  return ctx.services.dispatch.enqueueCanary(`${targetId}.scan.v1`);
+}
 
 describe("the circuit breaker", () => {
   async function openBreaker() {
@@ -600,6 +630,35 @@ describe("the circuit breaker", () => {
     queueScan(a.id, seedProfile(ctx).id);
     await complete(claim() as ClaimedTask, undefined, { candidates: [] });
     expect(status("a.test")).toMatchObject({ breaker: "half_open", consecutivePushback: 3 });
+  });
+
+  it("stays half open when a canary probe reports an unhealthy page", async () => {
+    const a = await openBreaker();
+    const canary = enqueueOnlyCanary(a.id);
+    const probe = claim() as ClaimedTask;
+    expect(probe.id).toBe(canary.task.id);
+    await complete(probe, undefined, { healthy: false, missingSelectors: ["form.search"] });
+    expect(status("a.test")).toMatchObject({ breaker: "half_open", consecutivePushback: 3 });
+  });
+
+  it("does not let even a healthy canary close a half open breaker", async () => {
+    const a = await openBreaker();
+    enqueueOnlyCanary(a.id);
+    await complete(claim() as ClaimedTask, undefined, { healthy: true, missingSelectors: [] });
+    expect(status("a.test")).toMatchObject({ breaker: "half_open", consecutivePushback: 3 });
+  });
+
+  it("does not clear the pushback count on a canary that found its selectors missing", async () => {
+    const a = site("a.test");
+    queueScan(a.id);
+    await pushBack(claim() as ClaimedTask, rateLimited());
+    ctx.clock.set(new Date(Date.parse(status("a.test")?.coolingDownUntil ?? "") + GAP));
+    enqueueOnlyCanary(a.id);
+    await complete(claim() as ClaimedTask, undefined, {
+      healthy: false,
+      missingSelectors: ["form.search"],
+    });
+    expect(status("a.test")).toMatchObject({ consecutivePushback: 1 });
   });
 
   it("closes on a probe that found a record", async () => {

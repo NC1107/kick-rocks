@@ -5,14 +5,14 @@ import { type Clock, nowIso } from "../../core/clock.js";
 import { generateToken, hashToken } from "../../core/secrets.js";
 
 export const SESSION_COOKIE = "kr_session";
-export const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 const MAX_SESSIONS = 100;
 const MAX_USER_AGENT = 255;
 /** Sliding the expiry on every request would turn each read into a write. */
 const REFRESH_AFTER_MS = 60_000;
 const TOKEN_SHAPE = /^[A-Za-z0-9_-]{43}$/;
 
-export interface SessionStore {
+interface SessionStore {
   /** Starts a session and returns the token for its cookie, which is never stored. */
   create(userAgent: string | undefined): string;
   /** Whether the token names a live session. A live one has its expiry pushed out. */
@@ -97,7 +97,7 @@ export function sessionTokenOf(request: FastifyRequest): string | undefined {
   return request.cookies?.[SESSION_COOKIE];
 }
 
-export interface CookieContext {
+interface CookieContext {
   publicUrl: string;
 }
 

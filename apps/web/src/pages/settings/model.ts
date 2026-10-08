@@ -9,53 +9,32 @@ import {
   WebUrl,
 } from "@kickrocks/shared";
 
-export interface ScheduleField {
+interface ScheduleField {
   key: keyof ScheduleSettings;
   label: string;
-  help: string;
-  unit: string;
+  /** Only where the label alone leaves the value ambiguous. */
+  help?: string;
+  /** A short mono suffix after the value, such as "min" or "d". */
+  unit?: string;
   min: number;
   max: number;
 }
 
 export const SCHEDULE_FIELDS: readonly ScheduleField[] = [
-  {
-    key: "pollMinutes",
-    label: "Check the inbox every",
-    help: "How often Kick Rocks looks for replies.",
-    unit: "minutes",
-    min: 1,
-    max: 1440,
-  },
-  {
-    key: "noResponseDays",
-    label: "Wait for a reply for",
-    help: "After this long without an answer, a request counts as unanswered.",
-    unit: "days",
-    min: 1,
-    max: 365,
-  },
-  {
-    key: "maxFollowUps",
-    label: "Follow up at most",
-    help: "How many reminders to send a target that stays silent. Zero turns them off.",
-    unit: "times",
-    min: 0,
-    max: 10,
-  },
+  { key: "pollMinutes", label: "Check inbox every", unit: "min", min: 1, max: 1440 },
+  { key: "noResponseDays", label: "Wait for a reply", unit: "d", min: 1, max: 365 },
+  { key: "maxFollowUps", label: "Follow-ups", help: "0 turns them off", min: 0, max: 10 },
   {
     key: "peopleSearchRescanDays",
-    label: "Re-scan people-search sites every",
-    help: "Listings come back, so Kick Rocks looks again on this schedule.",
-    unit: "days",
+    label: "Rescan people-search sites every",
+    unit: "d",
     min: 1,
     max: 365,
   },
   {
     key: "brokerRescanDays",
-    label: "Re-send unconfirmed broker requests every",
-    help: "Applies to brokers that never confirmed a removal.",
-    unit: "days",
+    label: "Resend unconfirmed requests every",
+    unit: "d",
     min: 1,
     max: 365,
   },
@@ -73,7 +52,7 @@ export function draftOf(schedule: ScheduleSettings): ScheduleDraft {
   };
 }
 
-export interface ScheduleCheck {
+interface ScheduleCheck {
   errors: Partial<Record<keyof ScheduleSettings, string>>;
   /** Only the fields that differ from what is saved, so a save never resets one it did not touch. */
   patch: SchedulePatch;
@@ -120,9 +99,23 @@ export function workerState(lastSeenAt: string | null, now: number): WorkerState
   return now - new Date(lastSeenAt).getTime() <= WORKER_ONLINE_MS ? "online" : "offline";
 }
 
-/** The command that registers Kick Rocks with Claude Code. The token is shown only when it was just made. */
-export function claudeCodeCommand(url: string, token: string | null): string {
-  return `claude mcp add --transport http kickrocks ${url} --header "Authorization: Bearer ${token ?? "<your-token>"}"`;
+export const MCP_TOKEN_PLACEHOLDER = "<your-token>";
+
+/** The token is known only right after it is made, so every other time the config carries a placeholder. */
+export function mcpClientConfig(url: string, token: string | null): string {
+  return JSON.stringify(
+    {
+      mcpServers: {
+        kickrocks: {
+          type: "http",
+          url,
+          headers: { Authorization: `Bearer ${token ?? MCP_TOKEN_PLACEHOLDER}` },
+        },
+      },
+    },
+    null,
+    2,
+  );
 }
 
 function describeLocator(value: unknown): string | null {
@@ -199,10 +192,10 @@ export function checkPassword(draft: PasswordDraft): Partial<Record<keyof Passwo
   return errors;
 }
 
-export interface RetentionField {
+interface RetentionField {
   key: keyof RetentionSettings;
   label: string;
-  help: string;
+  help?: string;
   /** Windows offered in the list, in days. The saved value is added if it is not one of these. */
   choices: readonly number[];
 }
@@ -211,13 +204,12 @@ export const RETENTION_FIELDS: readonly RetentionField[] = [
   {
     key: "screenshotDays",
     label: "Keep screenshots for",
-    help: "A worker takes one when a form gets stuck. Each is deleted this long after its task finishes.",
     choices: [7, 14, 30, 90, 180, 365],
   },
   {
     key: "messageDays",
     label: "Keep reply text for",
-    help: "The body, preview, and links of replies you have dealt with. The sender, subject, and outcome stay, so a request keeps its history.",
+    help: "The sender, subject, and outcome stay.",
     choices: [30, 90, 180, 365],
   },
 ];

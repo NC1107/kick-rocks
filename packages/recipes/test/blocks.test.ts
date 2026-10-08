@@ -346,6 +346,28 @@ describeBrowser("an email confirmation link", () => {
     });
   });
 
+  it.each([
+    ["a rate limit", "limited", 429, "rate_limited"],
+    ["an outage", "unavailable", 503, "unavailable"],
+  ])("fails retryably when the button's post meets %s", async (_name, page_, status, kind) => {
+    const outcome = await confirm(`${server.origin}/mail/press-${page_}`);
+    expect(outcome).toMatchObject({
+      status: "failed",
+      kind: "site",
+      retryable: true,
+      site: { pushback: { kind, status } },
+    });
+  });
+
+  it("does not report a confirmation when the button's post is refused with a blank 403", async () => {
+    const outcome = await confirm(`${server.origin}/mail/press-forbidden`);
+    expect(outcome).toMatchObject({
+      status: "completed",
+      result: { confirmed: false, notes: "The site answered 403." },
+      site: { pushback: { kind: "forbidden", status: 403 } },
+    });
+  });
+
   it("presses nothing and reports not confirmed when several buttons could be the one", async () => {
     const outcome = await confirm(`${server.origin}/mail/press-many`);
     expect(outcome).toMatchObject({ status: "completed", result: { confirmed: false } });

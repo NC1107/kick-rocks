@@ -17,7 +17,7 @@ import { readAgentWorkerVersion } from "./version.js";
 /** A browser that will not start is the worker's problem, not the task's. */
 const BROWSER_UNAVAILABLE_RETRY_MS = 60_000;
 
-export interface AgentWorkerOptions {
+interface AgentWorkerOptions {
   config: AgentWorkerConfig;
   signal: AbortSignal;
   logger: Logger;

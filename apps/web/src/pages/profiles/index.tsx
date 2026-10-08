@@ -1,27 +1,99 @@
 import { API_ROUTES, type ProfileSummary } from "@kickrocks/shared";
-import { Plus, Trash2, Users } from "lucide-react";
+import { Trash2 } from "lucide-react";
 import { useState } from "react";
 import { Link } from "react-router";
 import { errorMessage, useApiMutation, useApiQuery, useCurrentProfile } from "../../api/index.js";
 import {
-  Alert,
-  Badge,
   Button,
+  Callout,
   ConfirmDialog,
   EmptyState,
   IconButton,
   LinkButton,
   PageHeader,
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeaderCell,
-  TableRow,
-  TableSkeletonRows,
+  RelativeTime,
+  RowGroup,
+  Section,
+  Skeleton,
+  StatusShapeGlyph,
+  Tag,
+  Tooltip,
   useToast,
 } from "../../components/ui/index.js";
-import { formatRelative } from "../../lib/format.js";
+
+const ROW =
+  "marked group relative flex min-h-row flex-wrap items-center gap-x-4 gap-y-1 px-3.5 py-2 transition-colors duration-100 hover:bg-hover data-[selected=true]:bg-accent-soft";
+
+function ProfileRow({
+  profile,
+  current,
+  onMakeCurrent,
+  onDelete,
+}: {
+  profile: ProfileSummary;
+  current: boolean;
+  onMakeCurrent: () => void;
+  onDelete: () => void;
+}) {
+  return (
+    <li
+      aria-label={profile.displayName}
+      data-selected={current ? "true" : undefined}
+      className={ROW}
+    >
+      <div className="flex min-w-0 flex-1 basis-56 flex-col">
+        <span className="flex min-w-0 items-center gap-2">
+          <Link
+            to={`/profiles/${profile.id}`}
+            className="min-w-0 truncate rounded-xs text-ui font-medium text-ink after:absolute after:inset-0 after:content-['']"
+          >
+            {profile.displayName}
+          </Link>
+          {current ? <Tag>Current</Tag> : null}
+        </span>
+        <span className="flex min-w-0 items-center gap-1.5 font-mono text-caption text-ink-3">
+          <span>{profile.state}</span>
+          <span aria-hidden="true">·</span>
+          {profile.primaryEmail ? (
+            <Tooltip content={profile.primaryEmail} className="min-w-0">
+              <span className="min-w-0 truncate">{profile.primaryEmail}</span>
+            </Tooltip>
+          ) : (
+            <span>no email</span>
+          )}
+        </span>
+      </div>
+      <div className="relative flex items-center text-meta">
+        {profile.mailboxConnected ? (
+          <span className="inline-flex items-center gap-2 text-ink-2">
+            <StatusShapeGlyph shape="disc" />
+            Mailbox connected
+          </span>
+        ) : (
+          <Link
+            to={`/profiles/${profile.id}/mailbox`}
+            className="rounded-xs text-accent-text underline underline-offset-2 max-sm:flex max-sm:min-h-11 max-sm:items-center"
+          >
+            Connect mailbox
+          </Link>
+        )}
+      </div>
+      <span className="w-20 shrink-0 text-right font-mono text-caption tabular-nums text-ink-3 max-sm:hidden">
+        <RelativeTime iso={profile.updatedAt} />
+      </span>
+      <div className="relative flex items-center justify-end gap-1 opacity-0 transition-opacity duration-100 group-focus-within:opacity-100 group-hover:opacity-100 pointer-coarse:opacity-100 max-sm:opacity-100 sm:w-36">
+        {current ? null : (
+          <Button size="sm" variant="ghost" onClick={onMakeCurrent}>
+            Make current
+          </Button>
+        )}
+        <IconButton label={`Delete ${profile.displayName}`} size="sm" onClick={onDelete}>
+          <Trash2 />
+        </IconButton>
+      </div>
+    </li>
+  );
+}
 
 export function Component() {
   const query = useApiQuery(API_ROUTES.profilesList);
@@ -40,7 +112,6 @@ export function Component() {
   const profiles = query.data?.profiles ?? [];
   const newProfile = (
     <LinkButton to="/profiles/new" variant="primary">
-      <Plus aria-hidden="true" className="size-4" />
       New profile
     </LinkButton>
   );
@@ -49,11 +120,11 @@ export function Component() {
     <>
       <PageHeader
         title="Profiles"
-        description="The people Kick Rocks sends requests for. Each has its own mailbox."
+        description="Who requests are sent for"
         actions={profiles.length > 0 ? newProfile : undefined}
       />
       {query.error ? (
-        <Alert
+        <Callout
           intent="danger"
           title="Could not load profiles"
           action={
@@ -63,161 +134,38 @@ export function Component() {
           }
         >
           {errorMessage(query.error)}
-        </Alert>
+        </Callout>
       ) : query.data && profiles.length === 0 ? (
         <EmptyState
-          icon={Users}
           title="No profiles yet"
-          description="A profile holds one person's name, email, and address, and the mailbox requests are sent from."
+          description="A profile holds one person's name, email, and address, and the mailbox requests go out from."
           actions={newProfile}
         />
       ) : (
-        <>
-          {query.data ? (
-            <ul aria-label="Profiles" className="m-0 flex list-none flex-col gap-3 p-0 sm:hidden">
-              {profiles.map((profile) => (
-                <li key={profile.id} className="rounded-lg border border-line bg-surface p-4">
-                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                    <Link
-                      to={`/profiles/${profile.id}`}
-                      className="min-w-0 break-words rounded-xs font-medium text-ink underline-offset-2 hover:underline"
-                    >
-                      {profile.displayName}
-                    </Link>
-                    {profile.id === current?.id ? <Badge tone="blue">Current</Badge> : null}
-                  </div>
-                  <p className="mt-0.5 break-all text-sm text-ink-muted">
-                    {profile.state} - {profile.primaryEmail ?? "No email"}
-                  </p>
-                  <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2">
-                    {profile.mailboxConnected ? (
-                      <Badge tone="green">Mailbox connected</Badge>
-                    ) : (
-                      <Link
-                        to={`/profiles/${profile.id}/mailbox`}
-                        className="rounded-xs text-base text-accent underline decoration-accent/40 underline-offset-2 hover:decoration-accent"
-                      >
-                        Connect mailbox
-                      </Link>
-                    )}
-                    <span className="text-sm text-ink-muted">
-                      Changed {formatRelative(profile.updatedAt)}
-                    </span>
-                    {profile.id === current?.id ? (
-                      <IconButton
-                        label={`Delete ${profile.displayName}`}
-                        size="sm"
-                        className="-my-1 ml-auto"
-                        onClick={() => setPending(profile)}
-                      >
-                        <Trash2 />
-                      </IconButton>
-                    ) : null}
-                  </div>
-                  {profile.id === current?.id ? null : (
-                    <div className="mt-3 flex items-center gap-1 border-t border-line pt-3">
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="-ml-2.5"
-                        onClick={() => setProfileId(profile.id)}
-                      >
-                        Make current
-                      </Button>
-                      <IconButton
-                        label={`Delete ${profile.displayName}`}
-                        size="sm"
-                        className="ml-auto"
-                        onClick={() => setPending(profile)}
-                      >
-                        <Trash2 />
-                      </IconButton>
-                    </div>
-                  )}
-                </li>
+        <Section label="Profiles" {...(query.data ? { count: profiles.length } : {})}>
+          {query.isPending ? (
+            <RowGroup aria-busy="true">
+              <span className="sr-only">Loading</span>
+              {[0, 1, 2].map((key) => (
+                <div key={key} className="flex min-h-row items-center px-3.5 py-2">
+                  <Skeleton className="h-4 w-48" />
+                </div>
               ))}
-            </ul>
-          ) : null}
-          <div className={query.data ? "hidden sm:block" : undefined}>
-            <Table label="Profiles">
-              <TableHead>
-                <tr>
-                  <TableHeaderCell>Name</TableHeaderCell>
-                  <TableHeaderCell>State</TableHeaderCell>
-                  <TableHeaderCell>Email</TableHeaderCell>
-                  <TableHeaderCell>Mailbox</TableHeaderCell>
-                  <TableHeaderCell>Changed</TableHeaderCell>
-                  <TableHeaderCell align="right">
-                    <span className="sr-only">Actions</span>
-                  </TableHeaderCell>
-                </tr>
-              </TableHead>
-              <TableBody>
-                {query.isPending ? (
-                  <TableSkeletonRows columns={6} rows={3} />
-                ) : (
-                  profiles.map((profile) => (
-                    <TableRow key={profile.id}>
-                      <TableCell wrap>
-                        <div className="flex min-w-48 flex-wrap items-center gap-x-2 gap-y-1">
-                          <Link
-                            to={`/profiles/${profile.id}`}
-                            className="rounded-xs font-medium text-ink underline-offset-2 hover:underline"
-                          >
-                            {profile.displayName}
-                          </Link>
-                          {profile.id === current?.id ? <Badge tone="blue">Current</Badge> : null}
-                        </div>
-                      </TableCell>
-                      <TableCell>{profile.state}</TableCell>
-                      <TableCell
-                        className="max-w-56 truncate text-ink-muted"
-                        title={profile.primaryEmail ?? undefined}
-                      >
-                        {profile.primaryEmail ?? "None"}
-                      </TableCell>
-                      <TableCell>
-                        {profile.mailboxConnected ? (
-                          <Badge tone="green">Connected</Badge>
-                        ) : (
-                          <Link
-                            to={`/profiles/${profile.id}/mailbox`}
-                            className="rounded-xs text-accent underline decoration-accent/40 underline-offset-2 hover:decoration-accent"
-                          >
-                            Connect
-                          </Link>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-ink-muted">
-                        {formatRelative(profile.updatedAt)}
-                      </TableCell>
-                      <TableCell align="right">
-                        <div className="flex items-center justify-end gap-1">
-                          {profile.id === current?.id ? null : (
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => setProfileId(profile.id)}
-                            >
-                              Make current
-                            </Button>
-                          )}
-                          <IconButton
-                            label={`Delete ${profile.displayName}`}
-                            size="sm"
-                            onClick={() => setPending(profile)}
-                          >
-                            <Trash2 />
-                          </IconButton>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </div>
-        </>
+            </RowGroup>
+          ) : (
+            <RowGroup role="list" aria-label="Profiles" className="list-none">
+              {profiles.map((profile) => (
+                <ProfileRow
+                  key={profile.id}
+                  profile={profile}
+                  current={profile.id === current?.id}
+                  onMakeCurrent={() => setProfileId(profile.id)}
+                  onDelete={() => setPending(profile)}
+                />
+              ))}
+            </RowGroup>
+          )}
+        </Section>
       )}
       <ConfirmDialog
         open={pending !== null}
@@ -233,9 +181,9 @@ export function Component() {
         onConfirm={() => pending && remove.mutate({ params: { id: pending.id } })}
       >
         {remove.error ? (
-          <Alert intent="danger" className="mt-1">
+          <Callout intent="danger" className="mt-1">
             {errorMessage(remove.error)}
-          </Alert>
+          </Callout>
         ) : null}
       </ConfirmDialog>
     </>

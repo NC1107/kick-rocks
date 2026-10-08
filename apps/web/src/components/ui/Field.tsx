@@ -1,4 +1,3 @@
-import { CircleAlert } from "lucide-react";
 import { createContext, type ReactNode, useContext, useId } from "react";
 import { cn } from "../../lib/cn.js";
 
@@ -35,6 +34,11 @@ export interface FieldProps {
   optional?: boolean;
   /** Hides the label visually while keeping it for screen readers, such as a search box. */
   hideLabel?: boolean;
+  /**
+   * "row" puts the label and its help on the left and the control on the right, for a settings
+   * list. It stacks on a phone, where there is no room for two columns.
+   */
+  layout?: "stack" | "row";
   className?: string;
   children: ReactNode;
 }
@@ -49,6 +53,7 @@ export function Field({
   error,
   optional,
   hideLabel,
+  layout = "stack",
   className,
   children,
 }: FieldProps) {
@@ -58,30 +63,55 @@ export function Field({
   const hasError = Boolean(error);
   const describedBy = hasError ? errorId : help ? helpId : undefined;
 
+  const labelNode = (
+    <label
+      htmlFor={id}
+      className={cn(
+        "flex items-baseline gap-2 text-caption font-medium text-ink-2",
+        layout === "row" && "text-ui text-ink",
+        hideLabel && "sr-only",
+      )}
+    >
+      {label}
+      {optional ? <span className="text-caption font-normal text-ink-3">Optional</span> : null}
+    </label>
+  );
+  const message = hasError ? (
+    <p id={errorId} role="alert" className="text-caption text-danger-text">
+      {error}
+    </p>
+  ) : help ? (
+    <p id={helpId} className="text-caption text-ink-3">
+      {help}
+    </p>
+  ) : null;
+
+  if (layout === "row") {
+    return (
+      <FieldContext value={{ id, describedBy, invalid: hasError }}>
+        <div
+          className={cn(
+            "grid min-w-0 items-center gap-x-6 gap-y-1.5 sm:grid-cols-[minmax(0,1fr)_14rem]",
+            className,
+          )}
+        >
+          <div className="min-w-0">
+            {labelNode}
+            {help && !hasError ? message : null}
+          </div>
+          <div className="min-w-0">{children}</div>
+          {hasError ? <div className="sm:col-start-2">{message}</div> : null}
+        </div>
+      </FieldContext>
+    );
+  }
+
   return (
     <FieldContext value={{ id, describedBy, invalid: hasError }}>
       <div className={cn("flex min-w-0 flex-col gap-1.5", className)}>
-        <label
-          htmlFor={id}
-          className={cn(
-            "flex items-baseline gap-2 text-sm font-medium text-ink",
-            hideLabel && "sr-only",
-          )}
-        >
-          {label}
-          {optional ? <span className="text-xs font-normal text-ink-faint">Optional</span> : null}
-        </label>
+        {labelNode}
         {children}
-        {hasError ? (
-          <p id={errorId} role="alert" className="flex items-start gap-1.5 text-sm text-danger">
-            <CircleAlert aria-hidden="true" className="mt-0.5 size-3.5 shrink-0" />
-            <span>{error}</span>
-          </p>
-        ) : help ? (
-          <p id={helpId} className="text-sm text-ink-muted">
-            {help}
-          </p>
-        ) : null}
+        {message}
       </div>
     </FieldContext>
   );

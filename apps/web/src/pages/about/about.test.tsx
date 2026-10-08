@@ -25,7 +25,7 @@ describe("the about page", () => {
       "section",
     ) as HTMLElement;
     const rows = await within(sources).findAllByRole("listitem");
-    expect(rows).toHaveLength(5);
+    expect(rows).toHaveLength(6);
 
     const badbool = rows.find((row) => within(row).queryByText("Big Ass Data Broker Opt-Out List"));
     expect(badbool).toBeDefined();
@@ -79,7 +79,9 @@ describe("the about page", () => {
 
   it("shows skeletons while loading", () => {
     renderPage(<AboutPage />, { withProfile: false });
-    expect(document.querySelectorAll("[aria-hidden=true].animate-pulse").length).toBeGreaterThan(0);
+    expect(
+      document.querySelectorAll("[aria-hidden=true].animate-pulse-soft").length,
+    ).toBeGreaterThan(0);
   });
 
   it("keeps the rest of the page when the sources cannot load, and retries", async () => {

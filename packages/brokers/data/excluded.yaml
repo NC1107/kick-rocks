@@ -1,0 +1,21 @@
+# Sites that an imported list still carries but that must not become broker targets.
+# Domains of the company list are excluded automatically, because a site is either a broker or a
+# company target and never both.
+excluded:
+  - domain: radaris.com
+    reason: 'BADBOOL removed Radaris on 2026-09-27 because it is down due to a court order.'
+    source_urls:
+      - https://github.com/yaelwrites/Big-Ass-Data-Broker-Opt-Out-List/blob/79f63fdc8a9791246af5e10865865aff584d809b/README.md
+    checked: 2026-10-07
+
+  - domain: rehold.com
+    reason: 'BADBOOL removed Rehold on 2026-09-27 because it is down due to a court order.'
+    source_urls:
+      - https://github.com/yaelwrites/Big-Ass-Data-Broker-Opt-Out-List/blob/79f63fdc8a9791246af5e10865865aff584d809b/README.md
+    checked: 2026-10-07
+
+  - domain: opendatausa.com
+    reason: 'BADBOOL removed OpenDataUSA on 2026-09-27 because its registration expired.'
+    source_urls:
+      - https://github.com/yaelwrites/Big-Ass-Data-Broker-Opt-Out-List/blob/79f63fdc8a9791246af5e10865865aff584d809b/README.md
+    checked: 2026-10-07

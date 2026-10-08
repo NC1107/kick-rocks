@@ -4,7 +4,7 @@ import { MAX_WAIT_SECONDS } from "./tools.js";
 
 type AgentTask = Extract<ClaimedTask, { kind: "agent" }>;
 
-export interface PromptContext {
+interface PromptContext {
   task: AgentTask;
   sites: AllowedSites;
   fieldNames: readonly string[];

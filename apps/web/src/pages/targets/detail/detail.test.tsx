@@ -1,4 +1,4 @@
-import { screen } from "@testing-library/react";
+import { screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { createMockApp, type MockApp } from "../../../../mock/app.js";
 import { renderPage } from "../../../test/render.js";
@@ -42,11 +42,37 @@ describe("the target page", () => {
     );
   });
 
+  it("explains in plain words why a target is hard", async () => {
+    open("findrecord");
+    const section = (await screen.findByRole("heading", { name: "Difficulty" })).closest("section");
+    const difficulty = within(section as HTMLElement);
+    expect(difficulty.getByText("Hard.")).toBeVisible();
+    expect(
+      difficulty.getByText("Your listing has to be found before it can be removed."),
+    ).toBeVisible();
+    expect(difficulty.getByText("It shows a CAPTCHA that only you can solve.")).toBeVisible();
+    expect(
+      difficulty.getByText("Its approved recipe is failing against the live site."),
+    ).toBeVisible();
+  });
+
+  it("calls an email-only target easy and says why", async () => {
+    open("audiencegrid");
+    const section = (await screen.findByRole("heading", { name: "Difficulty" })).closest("section");
+    const difficulty = within(section as HTMLElement);
+    expect(difficulty.getByText("Easy.")).toBeVisible();
+    expect(
+      difficulty.getByText("It takes requests at its own privacy email address."),
+    ).toBeVisible();
+  });
+
   it("shows each recipe with its health, and the sources with their licenses", async () => {
     open("findrecord");
     await screen.findByRole("heading", { name: "Automation" });
-    expect(screen.getByText("Broken")).toBeVisible();
-    expect(screen.getByText("Healthy")).toBeVisible();
+    const recipes = screen.getByRole("region", { name: "Recipes for this target" });
+    const [scan, removal] = within(recipes).getAllByRole("row").slice(1);
+    expect(scan).toHaveTextContent("Healthy");
+    expect(removal).toHaveTextContent("Broken");
     expect(screen.getByText("Big Ass Data Broker Opt-Out List")).toBeVisible();
     expect(screen.getByText("CC BY-NC-SA 4.0")).toBeVisible();
   });
@@ -60,9 +86,16 @@ describe("the target page", () => {
     expect(screen.getByRole("columnheader", { name: "Health" })).not.toHaveClass("hidden");
   });
 
+  it("tags what needs the person and leaves the rest as plain tags", async () => {
+    open("findrecord");
+    await screen.findByRole("heading", { name: /Asks of you/, level: 2 });
+    expect(screen.getByText("CAPTCHA")).toHaveAttribute("data-tone", "attention");
+    expect(screen.getByText("Record URL")).toHaveAttribute("data-tone", "neutral");
+  });
+
   it("says plainly when a company has no saved steps", async () => {
     open("larkspur-bank");
-    expect(await screen.findByText("No saved steps for this site")).toBeVisible();
+    expect(await screen.findByText("No saved steps for this target.")).toBeVisible();
     expect(screen.getByText("Nothing beyond sending the request.")).toBeVisible();
   });
 
@@ -71,9 +104,25 @@ describe("the target page", () => {
     expect(await screen.findByText("No way to contact them on file")).toBeVisible();
   });
 
+  it("opens a target that left the dataset, with the source it was stored under", async () => {
+    const mock = createMockApp();
+    const base = mock.store.targets.find((target) => target.id === "findrecord");
+    if (!base) throw new Error("the mock has no findrecord target");
+    mock.store.targets.push({
+      ...base,
+      id: "audiencepoint-inc",
+      name: "AudiencePoint",
+      retired: true,
+      sources: [{ source: "ca-registry-2025", license: "public-record" }],
+    });
+    open("audiencepoint-inc", mock);
+    expect(await screen.findByRole("heading", { name: "AudiencePoint", level: 1 })).toBeVisible();
+    expect(screen.getByText("California Data Broker Registry 2025")).toBeVisible();
+  });
+
   it("offers a way back when the target does not exist", async () => {
     open("not-a-target");
-    expect(await screen.findByText("Target not found")).toBeVisible();
+    expect(await screen.findByText("Target not found.")).toBeVisible();
     expect(screen.getByRole("link", { name: "Back to targets" })).toBeVisible();
   });
 

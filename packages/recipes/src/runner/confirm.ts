@@ -1,12 +1,12 @@
 import { type ConfirmResult, isOnDomain } from "@kickrocks/shared";
 import type { Page } from "playwright";
 import type { RunOutcome } from "../types.js";
-import { createContext, guard, type RunContext, withSite } from "./context.js";
+import { checkLive, createContext, guard, type RunContext, withSite } from "./context.js";
 import { RunAborted, RunFailure, toFailure } from "./errors.js";
 import type { RunnerOptions } from "./options.js";
 import { pageText } from "./text.js";
 
-export interface RunConfirmationInput extends RunnerOptions {
+interface RunConfirmationInput extends RunnerOptions {
   page: Page;
   /** The link from the broker's email. */
   url: string;
@@ -70,6 +70,18 @@ function notConfirmed(finalUrl: string, notes: string): RunOutcome<ConfirmResult
 }
 
 /**
+ * A page the site refused is not a confirmation. A rate limit or an outage is worth another try
+ * while the one-time link still works, and any other error status means this attempt did not take.
+ */
+function refusedAnswer(status: number, finalUrl: string): RunOutcome<ConfirmResult> | null {
+  if (status >= 500 || status === 429) {
+    throw new RunFailure("site", `The site answered ${status}`, true);
+  }
+  if (status >= 400) return notConfirmed(finalUrl, `The site answered ${status}.`);
+  return null;
+}
+
+/**
  * Opens an email confirmation link that the plain link follower could not complete, such as one
  * that needs JavaScript or a button press. The link has to be on the broker's own domain and https,
  * because a link in an email is the one place a stranger gets to choose where the browser goes.
@@ -104,22 +116,16 @@ async function confirmationOutcome(
     await page.waitForLoadState("load", { timeout: 5000 }).catch(() => undefined);
     const stopped = await guard(ctx);
     if (stopped) return stopped;
-    const status = response?.status() ?? 0;
-    if (status >= 500 || status === 429) {
-      throw new RunFailure("site", `The site answered ${status}`, true);
-    }
     let finalUrl = withoutQuery(page.url());
-    if (status >= 400) {
-      return {
-        status: "completed",
-        result: { confirmed: false, finalUrl, notes: `The site answered ${status}.` },
-      };
-    }
+    const loadRefused = refusedAnswer(response?.status() ?? 0, finalUrl);
+    if (loadRefused) return loadRefused;
     const refused = async () => {
       const text = await pageText(page);
       return REFUSED.some((pattern) => pattern.test(text));
     };
     if (await refused()) return notConfirmed(finalUrl, REFUSED_NOTE);
+    ctx.state.navigationStatus = null;
+    ctx.state.backgroundRefusal = undefined;
     const pressed = await pressConfirmButton(ctx);
     if (pressed === "ambiguous") {
       return notConfirmed(finalUrl, "The page has more than one button, so none was pressed.");
@@ -128,6 +134,11 @@ async function confirmationOutcome(
       const afterPress = await guard(ctx);
       if (afterPress) return afterPress;
       finalUrl = withoutQuery(page.url());
+      const answered = ctx.state.navigationStatus;
+      ctx.state.navigationStatus = null;
+      const pressRefused = refusedAnswer(answered ?? 0, finalUrl);
+      if (pressRefused) return pressRefused;
+      checkLive(ctx);
       if (await refused()) return notConfirmed(finalUrl, REFUSED_NOTE);
     }
     return { status: "completed", result: { confirmed: true, finalUrl } };

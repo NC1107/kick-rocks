@@ -6,6 +6,7 @@ import {
   isActiveStatus,
   type ReviewMessage,
   type ReviewQueue,
+  type TargetSummary,
   type TaskKind,
   type TaskSummary,
   type VerificationItem,
@@ -18,7 +19,7 @@ import type { AppServices } from "../../services.js";
 import { toMatch, toMessageSummary } from "./mappers.js";
 
 /** Days a task that failed for good stays in the queue. */
-export const FAILED_WINDOW_DAYS = 30;
+const FAILED_WINDOW_DAYS = 30;
 const MESSAGE_LIMIT = 200;
 const WAITING_LIMIT = 100;
 
@@ -42,7 +43,7 @@ const MANUAL_INSTRUCTIONS: Record<BlockedReason, string> = {
 };
 
 const AGENT_INSTRUCTIONS =
-  "No agent has taken this yet, and the built-in worker will not run it. Connect an agent in Settings, or open the page and finish the job yourself, then mark it done.";
+  "No agent has taken this yet, and the recipe worker will not run it. Connect an agent in Settings, or open the page and finish the job yourself, then mark it done.";
 
 const FAILED_INSTRUCTIONS =
   "This task failed and nothing will try it again by itself. Retry it, open the page and finish the job yourself, or dismiss it.";
@@ -153,7 +154,8 @@ function verifications(services: AppServices, profileId: string | undefined): Ve
     )
     .orderBy(requests.updatedAt)
     .all();
-  return rows.flatMap(({ request, target }) => {
+  const summaries = services.targets.toSummaries(rows.map(({ target }) => target));
+  return rows.flatMap(({ request }, index) => {
     const message = services.db
       .select()
       .from(messages)
@@ -169,7 +171,7 @@ function verifications(services: AppServices, profileId: string | undefined): Ve
     if (!message) return [];
     return [
       {
-        request: { ...request, target: services.targets.toSummary(target) },
+        request: { ...request, target: summaries[index] as TargetSummary },
         message: toMessageSummary(message),
         requestedFields: message.requestedFields,
       },

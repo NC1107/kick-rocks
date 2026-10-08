@@ -14,6 +14,7 @@ const STATUS: Record<string, number> = {
   "/wall/cloudflare": 403,
   "/wall/denied": 403,
   "/wall/blank": 403,
+  "/wall/blank-redirect": 403,
   "/boom": 500,
   "/limited": 429,
   "/limited-redirect": 429,
@@ -31,6 +32,16 @@ const POST_RESPONSES: Record<string, string> = {
   "/form/reject-submit": "/form/rejected",
   "/mail/press-submit": "/mail/confirm",
   "/mail/press-stale-submit": "/mail/stale",
+  "/mail/press-limited-submit": "/limited",
+  "/mail/press-forbidden-submit": "/wall/blank",
+  "/mail/press-unavailable-submit": "/unavailable",
+};
+
+/** Posts the site turns away instead of taking. */
+const POST_STATUS: Record<string, number> = {
+  "/mail/press-limited-submit": 429,
+  "/mail/press-forbidden-submit": 403,
+  "/mail/press-unavailable-submit": 503,
 };
 
 export interface Submission {
@@ -91,7 +102,8 @@ export async function startFixtureServer(): Promise<FixtureServer> {
       const fields = Object.fromEntries(new URLSearchParams(await readBody(request)));
       submissions.push({ path: url.pathname, fields });
       const next = POST_RESPONSES[url.pathname];
-      await sendFile(response, next ?? "/missing", next ? 200 : 404);
+      if (POST_STATUS[url.pathname] === 429) response.setHeader("retry-after", "120");
+      await sendFile(response, next ?? "/missing", POST_STATUS[url.pathname] ?? (next ? 200 : 404));
       return;
     }
     if (url.pathname === "/echo") {

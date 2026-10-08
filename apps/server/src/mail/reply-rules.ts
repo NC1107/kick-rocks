@@ -135,7 +135,7 @@ export const CLASS_PRIORITY: readonly ReplyClassification[] = [
   "unrelated",
 ];
 
-export interface RuleInput {
+interface RuleInput {
   message: InboxMessage;
   /** What the sender wrote, without the quoted request. */
   body: string;

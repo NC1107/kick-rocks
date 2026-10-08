@@ -3,7 +3,7 @@ import type { Plugin, ViteDevServer } from "vite";
 import type { MockApp, MockRequest } from "./app.js";
 import type { MockAuthMode } from "./store.js";
 
-export interface KickRocksMockOptions {
+interface KickRocksMockOptions {
   /** Milliseconds added to every answer. Defaults to KICKROCKS_MOCK_LATENCY, else 150. */
   latencyMs?: number;
   /** Where the mock starts: signed in, at the login page, or at first-run setup. */

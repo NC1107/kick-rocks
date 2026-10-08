@@ -44,7 +44,7 @@ export interface LoopTiming {
   reportRetryMs: number;
 }
 
-export function loopTiming(config: WorkerConfig, overrides: Partial<LoopTiming> = {}): LoopTiming {
+function loopTiming(config: WorkerConfig, overrides: Partial<LoopTiming> = {}): LoopTiming {
   return {
     // A third of the lease keeps two heartbeats in hand if one is lost, capped so a long lease still beats often.
     leaseHeartbeatMs: Math.min(30_000, Math.max(2_000, Math.floor(config.leaseMs / 3))),

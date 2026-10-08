@@ -2,7 +2,7 @@ import { API_ROUTES, isCoolingDown } from "@kickrocks/shared";
 import { Link } from "react-router";
 import { useApiQuery } from "../../api/index.js";
 import { pluralize } from "../../lib/format.js";
-import { Badge } from "../ui/index.js";
+import { Tag } from "../ui/index.js";
 
 const POLL_MS = 60_000;
 
@@ -20,7 +20,7 @@ export function SitesChip({ onNavigate }: { onNavigate: (() => void) | undefined
       onClick={onNavigate}
       className="self-start rounded-md focus-visible:outline-2 focus-visible:outline-offset-2"
     >
-      <Badge tone="amber">{pluralize(cooling, "site")} cooling down</Badge>
+      <Tag tone="attention">{pluralize(cooling, "site")} cooling down</Tag>
     </Link>
   );
 }

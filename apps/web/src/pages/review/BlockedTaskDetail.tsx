@@ -1,26 +1,31 @@
 import type { BlockedTaskItem, FormOutcome, ProfileField } from "@kickrocks/shared";
 import { API_ROUTES, resolveProfileFields } from "@kickrocks/shared";
-import { ImageOff } from "lucide-react";
 import { useState } from "react";
-import { Link } from "react-router";
 import { errorMessage, screenshotUrl, useApiMutation, useApiQuery } from "../../api/index.js";
 import {
-  Badge,
   Button,
-  Card,
   ConfirmDialog,
   CopyButton,
   Dialog,
   ExternalLinkText,
   Field,
+  Hatch,
+  InlineError,
+  RelativeTime,
+  Row,
+  RowGroup,
+  Section,
   Select,
-  TaskStatusPill,
+  Tag,
+  TaskStatusMark,
   Textarea,
+  TextLink,
   useToast,
 } from "../../components/ui/index.js";
 import { describeFailure } from "../../lib/failures.js";
-import { formatRelative } from "../../lib/format.js";
 import { BLOCKED_REASON_LABELS, PROFILE_FIELD_LABELS, TASK_KIND_LABELS } from "../../lib/labels.js";
+import { DetailFrame } from "./DetailFrame.js";
+import { FailedGroupActions } from "./FailedGroupActions.js";
 import {
   canHandOff,
   canReportOutcome,
@@ -31,20 +36,13 @@ import {
 
 function Screenshot({ taskId }: { taskId: string }) {
   const [failed, setFailed] = useState(false);
-  if (failed) {
-    return (
-      <p className="flex items-center gap-2 rounded-md border border-line bg-sunken px-3 py-6 text-sm text-ink-muted">
-        <ImageOff aria-hidden="true" className="size-4 shrink-0" />
-        The screenshot could not be loaded.
-      </p>
-    );
-  }
+  if (failed) return <Hatch className="px-3 py-8">The screenshot could not be loaded.</Hatch>;
   return (
     <a
       href={screenshotUrl(taskId)}
       target="_blank"
       rel="noopener noreferrer"
-      className="block max-h-72 overflow-auto rounded-md border border-line bg-sunken"
+      className="block max-h-72 overflow-auto rounded-sm border border-line bg-canvas"
     >
       <img
         src={screenshotUrl(taskId)}
@@ -56,7 +54,7 @@ function Screenshot({ taskId }: { taskId: string }) {
       <span className="sr-only">(opens the full screenshot in a new tab)</span>
       <span
         aria-hidden="true"
-        className="block border-t border-line px-3 py-1.5 text-xs text-ink-muted sm:hidden"
+        className="block border-t border-line px-3 py-1.5 text-caption text-ink-3 sm:hidden"
       >
         Tap to open full size
       </span>
@@ -78,39 +76,33 @@ function ValuesToEnter({ profileId }: { profileId: string }) {
   );
   if (rows.length === 0) return null;
   return (
-    <div className="mt-3">
-      <p className="mb-1.5 text-sm font-semibold text-ink">Details to type into the form</p>
-      <ul className="m-0 flex list-none flex-col gap-1.5 p-0">
+    <Section label="Details to type in" as="h3">
+      <RowGroup>
         {rows.map(({ field, value }) => (
-          <li key={field} className="flex items-center justify-between gap-3">
-            <span className="min-w-0 text-base text-ink">
-              <span className="block text-sm text-ink-muted">{PROFILE_FIELD_LABELS[field]}</span>
-              <span className="break-words">{value}</span>
-            </span>
-            <span className="shrink-0">
-              <CopyButton value={value as string} label="Copy" />
-            </span>
-          </li>
+          <Row
+            key={field}
+            title={field === "email" ? <span className="font-mono">{value}</span> : value}
+            description={PROFILE_FIELD_LABELS[field]}
+            trailing={<CopyButton value={value as string} label="Copy" variant="ghost" />}
+          />
         ))}
-      </ul>
-    </div>
+      </RowGroup>
+    </Section>
   );
 }
 
-export function BlockedTaskCard({
+export function BlockedTaskDetail({
   item,
   variant,
   profileId,
-  nested = false,
+  siblings = [],
 }: {
   item: BlockedTaskItem;
   variant: "blocked" | "failed" | "agent";
   profileId: string;
-  /** The card sits under a section heading, so its own title is one level lower. */
-  nested?: boolean;
+  /** Failed tasks that failed the same way, this one included, for retrying or dismissing together. */
+  siblings?: readonly BlockedTaskItem[];
 }) {
-  const Title = nested ? "h3" : "h2";
-  const SubTitle = nested ? "h4" : "h3";
   const { task } = item;
   const toast = useToast();
   const settings = useApiQuery(API_ROUTES.settingsGet, { enabled: variant === "blocked" });
@@ -123,13 +115,10 @@ export function BlockedTaskCard({
   const [note, setNote] = useState("");
 
   const options = { invalidates: REVIEW_INVALIDATES };
-  const fail = (error: Parameters<typeof errorMessage>[0]) =>
-    toast.error("That did not work", errorMessage(error));
 
   const resume = useApiMutation(API_ROUTES.taskResume, {
     ...options,
     onSuccess: () => toast.success("Task resumed"),
-    onError: fail,
   });
   const handOff = useApiMutation(API_ROUTES.taskHandOff, {
     ...options,
@@ -137,18 +126,14 @@ export function BlockedTaskCard({
       setHandOffOpen(false);
       toast.success(
         "Handed to an agent",
-        "It now waits under Waiting for an agent until one takes it.",
+        "It waits under Waiting for an agent until one takes it.",
       );
     },
-    onError: (error) => {
-      setHandOffOpen(false);
-      fail(error);
-    },
+    onError: () => setHandOffOpen(false),
   });
   const retry = useApiMutation(API_ROUTES.taskRetry, {
     ...options,
     onSuccess: () => toast.success("Task queued to retry"),
-    onError: fail,
   });
   const cancel = useApiMutation(API_ROUTES.taskCancel, {
     ...options,
@@ -156,10 +141,7 @@ export function BlockedTaskCard({
       setCancelOpen(false);
       toast.success(variant === "failed" ? "Dismissed" : "Task cancelled");
     },
-    onError: (error) => {
-      setCancelOpen(false);
-      fail(error);
-    },
+    onError: () => setCancelOpen(false),
   });
   const markDone = useApiMutation(API_ROUTES.taskMarkDone, {
     ...options,
@@ -167,7 +149,6 @@ export function BlockedTaskCard({
       setDoneOpen(false);
       toast.success("Marked done");
     },
-    onError: fail,
   });
 
   const reportsOutcome = canReportOutcome(task);
@@ -178,154 +159,151 @@ export function BlockedTaskCard({
     retry.isPending ||
     cancel.isPending ||
     markDone.isPending;
+  const footerError = [resume, handOff, retry, cancel].find((mutation) => mutation.isError)?.error;
   const failure = variant === "failed" ? describeFailure(task) : null;
   const detail = failure ? failure.detail : (task.blockedDetail ?? null);
-  const pill = (
-    <span className="flex flex-wrap items-center gap-2">
-      {variant === "failed" ? <TaskStatusPill status={task.status} /> : null}
-      {variant === "blocked" && task.blockedReason ? (
-        <Badge tone="amber">{BLOCKED_REASON_LABELS[task.blockedReason]}</Badge>
+  const showsMark = variant === "failed" || (variant === "blocked" && task.blockedReason);
+
+  const meta = (
+    <>
+      {TASK_KIND_LABELS[task.kind]}
+      {item.requestReference ? (
+        <>
+          {" for request "}
+          {task.requestId ? (
+            <TextLink to={`/requests/${encodeURIComponent(task.requestId)}`} className="font-mono">
+              {item.requestReference}
+            </TextLink>
+          ) : (
+            <span className="font-mono">{item.requestReference}</span>
+          )}
+        </>
       ) : null}
-      {variant === "agent" ? <Badge tone="amber">Waiting for an agent</Badge> : null}
-      {failure && !nested ? <Badge tone="red">{failure.label}</Badge> : null}
-    </span>
+      {", updated "}
+      <RelativeTime iso={task.updatedAt} />
+    </>
   );
 
+  const footer =
+    variant === "blocked" ? (
+      <>
+        <Button variant="primary" onClick={() => setDoneOpen(true)} disabled={busy}>
+          Mark done
+        </Button>
+        <Button
+          loading={resume.isPending}
+          disabled={busy && !resume.isPending}
+          onClick={() => resume.mutate({ params: { id: task.id } })}
+        >
+          Resume
+        </Button>
+        {canHandOff(task) ? (
+          <Button
+            loading={handOff.isPending}
+            disabled={(busy && !handOff.isPending) || agentAccessOff || agentAccessUnknown}
+            onClick={() => setHandOffOpen(true)}
+          >
+            Hand to an agent
+          </Button>
+        ) : null}
+        <Button variant="ghost" onClick={() => setCancelOpen(true)} disabled={busy}>
+          Cancel task
+        </Button>
+        {agentAccessOff ? (
+          <span className="text-meta text-ink-3">
+            Agent access is off. <TextLink to="/settings">Turn it on in Settings</TextLink>
+          </span>
+        ) : null}
+      </>
+    ) : variant === "agent" ? (
+      <>
+        <Button variant="primary" onClick={() => setDoneOpen(true)} disabled={busy}>
+          I did it myself
+        </Button>
+        <Button variant="ghost" onClick={() => setCancelOpen(true)} disabled={busy}>
+          Cancel task
+        </Button>
+      </>
+    ) : (
+      <>
+        <Button
+          variant="primary"
+          loading={retry.isPending}
+          disabled={busy && !retry.isPending}
+          onClick={() => retry.mutate({ params: { id: task.id } })}
+        >
+          Retry
+        </Button>
+        <Button variant="ghost" onClick={() => setCancelOpen(true)} disabled={busy}>
+          Dismiss
+        </Button>
+      </>
+    );
+
   return (
-    <Card aria-label={`${task.targetName ?? "Task"}, ${TASK_KIND_LABELS[task.kind]}`}>
-      <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
-        <div className="min-w-0">
-          <Title className="break-words text-lg font-semibold text-ink">
-            {task.targetName ?? "Unknown target"}
-          </Title>
-          <p className="text-sm text-ink-muted">
-            {TASK_KIND_LABELS[task.kind]}
-            {item.requestReference ? (
-              <>
-                {" for request "}
-                {task.requestId ? (
-                  <Link
-                    to={`/requests/${encodeURIComponent(task.requestId)}`}
-                    className="rounded-xs font-mono text-accent underline decoration-accent/40 underline-offset-2 hover:decoration-accent"
-                  >
-                    {item.requestReference}
-                  </Link>
-                ) : (
-                  <span className="font-mono">{item.requestReference}</span>
-                )}
-              </>
+    <>
+      <DetailFrame
+        label={`${task.targetName ?? "Task"}, ${TASK_KIND_LABELS[task.kind]}`}
+        title={task.targetName ?? "Unknown target"}
+        meta={meta}
+        footer={footer}
+        error={footerError ? errorMessage(footerError) : undefined}
+      >
+        {showsMark ? (
+          <div className="flex flex-wrap items-center gap-2.5">
+            {variant === "failed" ? <TaskStatusMark status={task.status} /> : null}
+            {variant === "blocked" && task.blockedReason ? (
+              <Tag tone="attention">{BLOCKED_REASON_LABELS[task.blockedReason]}</Tag>
             ) : null}
-            {", updated "}
-            <time dateTime={task.updatedAt}>{formatRelative(task.updatedAt)}</time>
-          </p>
-        </div>
-        {pill}
-      </div>
-
-      {detail ? <p className="mt-3 break-words text-base text-ink">{detail}</p> : null}
-
-      {task.hasScreenshot ? (
-        <div className="mt-4">
-          <Screenshot taskId={task.id} />
-        </div>
-      ) : null}
-
-      <div className="mt-4 rounded-md bg-sunken p-3.5">
-        <SubTitle className="mb-1.5 text-sm font-semibold text-ink">
-          {variant === "failed" ? "What happened" : "What to do"}
-        </SubTitle>
-        {steps.length > 1 ? (
-          <ol className="m-0 list-decimal pl-5 text-base text-ink">
-            {steps.map((step) => (
-              <li key={step} className="py-0.5">
-                {step}
-              </li>
-            ))}
-          </ol>
-        ) : (
-          <p className="text-base text-ink">{steps[0]}</p>
-        )}
-        {item.url ? (
-          <p className="mt-2.5 text-base">
-            <ExternalLinkText href={item.url} className="break-all">
-              Open the page
-            </ExternalLinkText>
-          </p>
+          </div>
         ) : null}
-        {failure?.needsProfile ? (
-          <p className="mt-2.5 text-base">
-            <Link
-              to={`/profiles/${encodeURIComponent(profileId)}`}
-              className="text-accent underline underline-offset-2"
-            >
-              Open the profile to add it
-            </Link>
-          </p>
-        ) : null}
+
+        {detail ? <p className="break-words text-body text-ink">{detail}</p> : null}
+
+        {task.hasScreenshot ? <Screenshot taskId={task.id} /> : null}
+
+        <Section label={variant === "failed" ? "What happened" : "What to do"} as="h3">
+          {steps.length > 1 && variant !== "failed" ? (
+            <ol className="m-0 list-decimal pl-5 text-body text-ink marker:font-mono marker:text-ink-3">
+              {steps.map((step) => (
+                <li key={step} className="py-0.5">
+                  {step}
+                </li>
+              ))}
+            </ol>
+          ) : (
+            <p className="text-body text-ink">{steps.join(" ")}</p>
+          )}
+          {variant === "agent" ? (
+            <p className="mt-2 text-meta text-ink-3">
+              An agent is an AI assistant you connect over MCP in{" "}
+              <TextLink to="/settings">Settings</TextLink>.
+            </p>
+          ) : null}
+          {item.url || failure?.needsProfile ? (
+            <p className="mt-2.5 flex flex-wrap gap-x-4 gap-y-1 text-ui">
+              {item.url ? (
+                <ExternalLinkText href={item.url} className="break-all">
+                  Open the page
+                </ExternalLinkText>
+              ) : null}
+              {failure?.needsProfile ? (
+                <TextLink to={`/profiles/${encodeURIComponent(profileId)}`}>
+                  Open the profile to add it
+                </TextLink>
+              ) : null}
+            </p>
+          ) : null}
+        </Section>
+
         {variant !== "failed" && canReportOutcome(task) ? (
           <ValuesToEnter profileId={profileId} />
         ) : null}
-      </div>
 
-      <div className="mt-4 flex flex-wrap items-center gap-2">
-        {variant === "blocked" ? (
-          <>
-            <Button variant="primary" onClick={() => setDoneOpen(true)} disabled={busy}>
-              Mark done
-            </Button>
-            <Button
-              loading={resume.isPending}
-              disabled={busy && !resume.isPending}
-              onClick={() => resume.mutate({ params: { id: task.id } })}
-            >
-              Resume
-            </Button>
-            {canHandOff(task) ? (
-              <Button
-                loading={handOff.isPending}
-                disabled={(busy && !handOff.isPending) || agentAccessOff || agentAccessUnknown}
-                onClick={() => setHandOffOpen(true)}
-              >
-                Hand to an agent
-              </Button>
-            ) : null}
-            <Button variant="ghost" onClick={() => setCancelOpen(true)} disabled={busy}>
-              Cancel task
-            </Button>
-            {agentAccessOff ? (
-              <span className="text-sm text-ink-muted">
-                Agent access is off.{" "}
-                <Link to="/settings" className="text-accent underline underline-offset-2">
-                  Turn it on in Settings
-                </Link>
-              </span>
-            ) : null}
-          </>
-        ) : variant === "agent" ? (
-          <>
-            <Button variant="primary" onClick={() => setDoneOpen(true)} disabled={busy}>
-              I did it myself
-            </Button>
-            <Button variant="ghost" onClick={() => setCancelOpen(true)} disabled={busy}>
-              Cancel task
-            </Button>
-          </>
-        ) : (
-          <>
-            <Button
-              variant="primary"
-              loading={retry.isPending}
-              disabled={busy && !retry.isPending}
-              onClick={() => retry.mutate({ params: { id: task.id } })}
-            >
-              Retry
-            </Button>
-            <Button variant="ghost" onClick={() => setCancelOpen(true)} disabled={busy}>
-              Dismiss
-            </Button>
-          </>
-        )}
-      </div>
+        {variant === "failed" && siblings.length > 1 ? (
+          <FailedGroupActions items={siblings} label={failure?.label ?? ""} />
+        ) : null}
+      </DetailFrame>
 
       <ConfirmDialog
         open={handOffOpen}
@@ -336,24 +314,30 @@ export function BlockedTaskCard({
         loading={handOff.isPending}
         onConfirm={() => handOff.mutate({ params: { id: task.id } })}
       >
-        <p className="text-base text-ink-muted">
+        <p className="text-ui text-ink-2">
           Nothing happens until one is connected.{" "}
-          <Link to="/settings" className="text-accent underline underline-offset-2">
-            Connect one in Settings
-          </Link>
-          .
+          <TextLink to="/settings">Connect one in Settings</TextLink>.
         </p>
       </ConfirmDialog>
 
       <Dialog
         open={doneOpen}
-        onClose={() => setDoneOpen(false)}
+        onClose={() => {
+          setDoneOpen(false);
+          markDone.reset();
+        }}
         title={variant === "agent" ? "Finish this task yourself" : "Mark this task done"}
         description="Say how it ended, so the request moves to the right state."
         dismissible={!markDone.isPending}
         footer={
           <>
-            <Button onClick={() => setDoneOpen(false)} disabled={markDone.isPending}>
+            <Button
+              onClick={() => {
+                setDoneOpen(false);
+                markDone.reset();
+              }}
+              disabled={markDone.isPending}
+            >
               Cancel
             </Button>
             <Button
@@ -400,6 +384,7 @@ export function BlockedTaskCard({
               rows={3}
             />
           </Field>
+          {markDone.isError ? <InlineError>{errorMessage(markDone.error)}</InlineError> : null}
         </div>
       </Dialog>
 
@@ -418,6 +403,6 @@ export function BlockedTaskCard({
         loading={cancel.isPending}
         onConfirm={() => cancel.mutate({ params: { id: task.id } })}
       />
-    </Card>
+    </>
   );
 }

@@ -2,16 +2,15 @@ import { API_ROUTES, type DigestFrequency, type NotificationsView } from "@kickr
 import { useEffect, useState } from "react";
 import { errorMessage, useApiMutation } from "../../../api/index.js";
 import {
-  Alert,
   Button,
-  Card,
-  CardFooter,
-  CardHeader,
-  Field,
+  Callout,
+  RelativeTime,
+  RowGroup,
+  Section,
   Select,
   useToast,
 } from "../../../components/ui/index.js";
-import { formatDateTime, formatRelative } from "../../../lib/format.js";
+import { FieldRow, GroupFooter, GroupNote } from "../rows.js";
 import { formatHourUtc, HOURS, WEEKDAYS } from "./model.js";
 
 type Digest = NotificationsView["digest"];
@@ -57,27 +56,21 @@ export function DigestCard({
     draft.weekday !== digest.weekday;
 
   return (
-    <Card>
-      <form
-        noValidate
-        onSubmit={(event) => {
-          event.preventDefault();
-          save.mutate({ body: { digest: draft } });
-        }}
-      >
-        <CardHeader
-          title="Digest email"
-          description="A summary of status changes and what needs you, mailed from your own mailbox to itself. Nothing goes through another service."
-        />
+    <form
+      noValidate
+      onSubmit={(event) => {
+        event.preventDefault();
+        save.mutate({ body: { digest: draft } });
+      }}
+    >
+      <Section label="Digest email">
         {mailboxReady ? null : (
-          <div className="mb-4">
-            <Alert intent="warning" title="No mailbox yet">
-              The digest is sent from your mailbox. Connect one on your profile first.
-            </Alert>
-          </div>
+          <Callout intent="warning" title="No mailbox yet" className="mb-3">
+            The digest is sent from your mailbox. Connect one on your profile first.
+          </Callout>
         )}
-        <div className="grid gap-x-6 gap-y-4 sm:grid-cols-3">
-          <Field label="How often">
+        <RowGroup>
+          <FieldRow label="How often">
             <Select
               value={draft.frequency}
               onChange={(event) =>
@@ -91,8 +84,8 @@ export function DigestCard({
               <option value="daily">Every day</option>
               <option value="weekly">Every week</option>
             </Select>
-          </Field>
-          <Field label="On">
+          </FieldRow>
+          <FieldRow label="On">
             <Select
               disabled={draft.frequency !== "weekly"}
               value={draft.weekday}
@@ -106,9 +99,10 @@ export function DigestCard({
                 </option>
               ))}
             </Select>
-          </Field>
-          <Field label="At">
+          </FieldRow>
+          <FieldRow label="At">
             <Select
+              mono
               disabled={draft.frequency === "off"}
               value={draft.hourUtc}
               onChange={(event) =>
@@ -121,55 +115,47 @@ export function DigestCard({
                 </option>
               ))}
             </Select>
-          </Field>
-        </div>
-        {status.digestLastSentAt ? (
-          <p className="mt-4 text-sm text-ink-muted">
-            Last digest covered up to{" "}
-            <time
-              dateTime={status.digestLastSentAt}
-              title={formatDateTime(status.digestLastSentAt)}
+          </FieldRow>
+          <GroupFooter>
+            <Button
+              loading={sendNow.isPending}
+              disabled={!mailboxReady || dirty}
+              onClick={() => {
+                setNotice(null);
+                sendNow.mutate();
+              }}
             >
-              {formatRelative(status.digestLastSentAt)}
-            </time>
-            .
-          </p>
+              Send one now
+            </Button>
+            <Button type="submit" variant="primary" loading={save.isPending} disabled={!dirty}>
+              Save digest
+            </Button>
+          </GroupFooter>
+        </RowGroup>
+        <GroupNote>
+          Mailed from your own mailbox to itself. Nothing goes through another service.
+        </GroupNote>
+        {status.digestLastSentAt ? (
+          <GroupNote>
+            Last digest covered up to <RelativeTime iso={status.digestLastSentAt} />.
+          </GroupNote>
         ) : null}
         {status.digestLastError ? (
-          <div className="mt-4">
-            <Alert intent="danger" title="The last digest failed">
-              {status.digestLastError}
-            </Alert>
-          </div>
+          <Callout intent="danger" title="The last digest failed" className="mt-3">
+            {status.digestLastError}
+          </Callout>
         ) : null}
         {notice ? (
-          <div className="mt-4">
-            <Alert intent={notice.intent}>{notice.text}</Alert>
-          </div>
+          <Callout intent={notice.intent} className="mt-3">
+            {notice.text}
+          </Callout>
         ) : null}
         {save.isError ? (
-          <div className="mt-4">
-            <Alert intent="danger" title="Could not save the digest">
-              {errorMessage(save.error)}
-            </Alert>
-          </div>
+          <Callout intent="danger" title="Could not save the digest" className="mt-3">
+            {errorMessage(save.error)}
+          </Callout>
         ) : null}
-        <CardFooter>
-          <Button
-            loading={sendNow.isPending}
-            disabled={!mailboxReady || dirty}
-            onClick={() => {
-              setNotice(null);
-              sendNow.mutate();
-            }}
-          >
-            Send one now
-          </Button>
-          <Button type="submit" variant="primary" loading={save.isPending} disabled={!dirty}>
-            Save digest
-          </Button>
-        </CardFooter>
-      </form>
-    </Card>
+      </Section>
+    </form>
   );
 }

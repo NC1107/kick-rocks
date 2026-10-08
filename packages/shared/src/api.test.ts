@@ -15,7 +15,7 @@ import {
 import { CampaignBody } from "./campaigns.js";
 import { ScanStartBody } from "./scans.js";
 
-/** Every route listed in BUILD-PLAN section 4.4, plus the existing health check. */
+/** The routes the web app and the workers depend on, so dropping one fails here. */
 const PLANNED = [
   "GET /health",
   "GET /status",
@@ -302,6 +302,17 @@ describe("campaign and scan selections", () => {
       CampaignBody.safeParse({ selection: { preset: "companies" }, rights: ["delete", "delete"] })
         .success,
     ).toBe(false);
+  });
+
+  it("takes a target filter as a selection, and nothing beside it", () => {
+    const body = (selection: unknown) => CampaignBody.safeParse({ selection, rights: ["opt_out"] });
+    expect(body({ filter: { difficulty: "easy", kind: "company", q: "acme" } }).success).toBe(true);
+    expect(body({ filter: {} }).success).toBe(true);
+    expect(body({ preset: "easy" }).success).toBe(true);
+    expect(body({ filter: { difficulty: "trivial" } }).success).toBe(false);
+    expect(body({ filter: { page: 2 } }).success).toBe(false);
+    expect(body({ filter: {}, preset: "easy" }).success).toBe(false);
+    expect(ScanStartBody.safeParse({ filter: { category: "people-search" } }).success).toBe(true);
   });
 
   it("limits scans to the people_search preset", () => {

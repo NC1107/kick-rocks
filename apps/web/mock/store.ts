@@ -57,7 +57,7 @@ export interface MockAuthState {
   failedLogins: number;
 }
 
-export const MOCK_PASSWORD = "kickrocks-mock";
+const MOCK_PASSWORD = "kickrocks-mock";
 
 /**
  * Every collection the domains share. It is plain in-memory data: a page owner adds a collection

@@ -10,7 +10,7 @@ export interface CheckboxProps extends Omit<ComponentProps<"input">, "type"> {
 }
 
 export const BOX_CLASS =
-  "peer size-4.5 shrink-0 cursor-pointer appearance-none border border-line-strong bg-field transition-colors duration-100 hover:border-ink-muted focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:bg-sunken aria-invalid:border-danger";
+  "peer size-4.5 shrink-0 cursor-pointer appearance-none border border-line-strong bg-field transition-colors duration-100 hover:border-ink-3 focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:border-transparent disabled:bg-active aria-invalid:border-danger";
 
 /**
  * With no visible label, pass aria-label: a checkbox in a table row still needs a name.
@@ -37,19 +37,17 @@ export function Checkbox({
         type="checkbox"
         className={cn(
           BOX_CLASS,
-          "rounded-xs checked:border-accent checked:bg-accent indeterminate:border-accent indeterminate:bg-accent disabled:checked:border-ink-faint disabled:checked:bg-ink-faint",
+          "rounded-xs checked:border-accent-fill checked:bg-accent-fill indeterminate:border-accent-fill indeterminate:bg-accent-fill disabled:checked:border-transparent disabled:checked:bg-ink-3 disabled:indeterminate:border-transparent disabled:indeterminate:bg-ink-3",
         )}
         {...rest}
       />
       <Check
         aria-hidden="true"
-        strokeWidth={3}
-        className="pointer-events-none absolute inset-0 m-auto size-3 text-accent-ink opacity-0 peer-checked:opacity-100 peer-indeterminate:opacity-0"
+        className="pointer-events-none absolute inset-0 m-auto size-3 stroke-[3] text-accent-on opacity-0 peer-checked:opacity-100 peer-indeterminate:opacity-0"
       />
       <Minus
         aria-hidden="true"
-        strokeWidth={3}
-        className="pointer-events-none absolute inset-0 m-auto size-3 text-accent-ink opacity-0 peer-indeterminate:opacity-100"
+        className="pointer-events-none absolute inset-0 m-auto size-3 stroke-[3] text-accent-on opacity-0 peer-indeterminate:opacity-100"
       />
     </span>
   );
@@ -61,13 +59,14 @@ export function Checkbox({
       htmlFor={id}
       className={cn(
         "flex cursor-pointer items-start gap-2.5 has-disabled:cursor-not-allowed has-disabled:opacity-60",
+        description ? "max-sm:py-1.5" : "max-sm:min-h-11 max-sm:items-center",
         className,
       )}
     >
       {box}
       <span className="flex flex-col">
-        {label ? <span className="text-base text-ink">{label}</span> : null}
-        {description ? <span className="text-sm text-ink-muted">{description}</span> : null}
+        {label ? <span className="text-ui text-ink">{label}</span> : null}
+        {description ? <span className="text-meta text-ink-3">{description}</span> : null}
       </span>
     </label>
   );
