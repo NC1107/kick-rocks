@@ -410,7 +410,12 @@ export default defineMockDomain({
           current.llm = {
             baseUrl: body.llm.baseUrl,
             model: body.llm.model,
-            apiKeySet: body.llm.apiKey ? true : (current.llm?.apiKeySet ?? false),
+            apiKeySet:
+              body.llm.apiKey === null
+                ? false
+                : body.llm.apiKey
+                  ? true
+                  : (current.llm?.apiKeySet ?? false),
           };
         }
         if (body.mcp) current.mcp = { ...current.mcp, enabled: body.mcp.enabled };

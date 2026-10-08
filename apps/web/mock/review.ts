@@ -35,7 +35,9 @@ const MANUAL_INSTRUCTIONS: Record<BlockedReason, string> = {
   bot_detection:
     "The site blocked the automated browser. Open the page in your own browser and finish the removal.",
   approval_needed:
-    "The model stopped before sending the form because it has not passed the safety check here. Look at the screenshot, then approve the submit or finish it yourself.",
+    "Check the filled form in the screenshot. Approve the submit, or finish it yourself and mark it done.",
+  unapproved_submit:
+    "Open the site and check whether the form went out. If it did, mark the task done. If not, finish the removal yourself.",
   unknown: "Open the page and finish the removal by hand, then mark the task done.",
 };
 
@@ -249,7 +251,7 @@ export default defineMockDomain({
           requestId: waiting.id,
           blockedReason: "approval_needed",
           blockedDetail:
-            'Stopped before clicking "Submit request", which may send the form. qwen3:14b has not passed the safety check on this install, so a person approves each submit.',
+            'Stopped before clicking "Submit request", which may send the form. qwen3:14b has not passed the safety gate on this install, so a person approves each submit.',
           blockedUrl: quillnote.optOutUrl,
           hasScreenshot: true,
         },

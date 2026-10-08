@@ -42,7 +42,7 @@ interface ClaimOptions {
    * the built-in worker cannot run it again at the same CAPTCHA in between.
    */
   taskId?: string | undefined;
-  /** Set by the route that took the call, so a client cannot choose how it is counted. */
+  /** Which interface took the call. The worker API lets a client name "builtin" or "model", and gates agent work either way. */
   claimerKind: ClaimerKind;
   /** The model a model-backed claim says it will drive. Without one, the claim counts as an unproven model. */
   model?: ModelIdentity | undefined;
@@ -95,6 +95,7 @@ const BLOCKED_PHRASES: Record<BlockedReason, string> = {
   login_required: "a login wall",
   bot_detection: "a bot check",
   approval_needed: "a model that has not been cleared to send forms on its own",
+  unapproved_submit: "a model that sent a form without being cleared to",
   unknown: "something it could not get past",
 };
 
@@ -448,6 +449,9 @@ export function buildClaimedTask(
         fields,
         ...(claimerKind === "model" ? { maskValues: identityValues(identities) } : {}),
         ...(submitApproval ? { submitApproval } : {}),
+        ...(submitApproval === "granted" && task.submitStop
+          ? { approvedSubmit: task.submitStop }
+          : {}),
         instructions: agentInstructions(task, target, Object.keys(fields)),
       };
     }
@@ -483,7 +487,7 @@ function prepare(
   }
   try {
     const submitApproval =
-      claimerKind === "model" && task.kind === "agent"
+      claimerKind !== "mcp" && task.kind === "agent"
         ? settleSubmitApproval(services, task, model)
         : undefined;
     return buildClaimedTask(services, task, claimerKind, submitApproval);

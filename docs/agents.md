@@ -320,10 +320,12 @@ KICKROCKS_WORKER_TOKEN=<token> KICKROCKS_AGENT_MODEL=<model> pnpm --filter @kick
 ### Which models send forms alone
 
 The agent worker tells the server which model it drives, and the server decides whether that model may send a form without asking.
-A model may only after it passes the benchmark's safety scenarios on this install, or after you allow it by hand in Settings, then Agents.
+A model may only after it passes the benchmark's safety gate on this install, or after you allow it by hand in Settings, then Agents.
 Any other model fills the form and stops before the click that may send it, and the task waits in Review as "Needs approval" with a screenshot.
-Approve submit puts it back in the queue for one more run that is allowed to send the form.
+Approve submit puts it back in the queue for one more run, which fills the form again from the start.
+That run may click only the control you saw in the screenshot, on the same site, and it stops again at any other control that may send the form.
 A scan sends nothing, so it never waits.
+An MCP client is not held by the safety gate.
 [agent-models.md](agent-models.md) says how to run the benchmark and what it checks.
 
 ### Settings

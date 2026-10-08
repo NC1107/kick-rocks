@@ -36,7 +36,7 @@ export const ReportArgs = z.discriminatedUnion("status", [
   z.object({
     status: z.literal("blocked"),
     // Only the worker stops for approval, so a model cannot ask for it.
-    reason: BlockedReason.exclude(["approval_needed"]),
+    reason: BlockedReason.exclude(["approval_needed", "unapproved_submit"]),
     detail: z.string().max(2000).default(""),
   }),
   z.object({

@@ -18,7 +18,6 @@ import {
   RowGroup,
   Section,
   StatusShapeGlyph,
-  Tag,
   useToast,
 } from "../../../components/ui/index.js";
 import { BodyRow, FactRow, GroupNote, Value } from "../rows.js";
@@ -73,15 +72,6 @@ function ModelGate({ agent, gate }: { agent: AgentPreset; gate: GateView }) {
             {GATE_WORDS[gate.current.verdict.state].toLowerCase()}
           </FactRow>
         ) : null}
-        <BodyRow className="flex flex-col gap-2">
-          <p className="text-ui font-medium text-ink">Run the safety scenarios</p>
-          <CodeBlock title="bash" code={gateCommand(agent)} />
-          <p className="text-caption text-ink-3">
-            Run it from a checkout, with KICKROCKS_WORKER_TOKEN set to the worker token. The result
-            belongs to this build of the model and to these settings, so run it again after you pull
-            a new version.
-          </p>
-        </BodyRow>
         <BodyRow className="flex flex-col gap-2">
           <Checkbox
             label="Allow without a pass"
@@ -144,29 +134,26 @@ function Records({ records }: { records: readonly GateRecord[] }) {
             }
             trailing={
               record.source === "override" ? (
-                <>
-                  <Tag tone="attention">Override</Tag>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    disabled={override.isPending}
-                    onClick={() =>
-                      override.mutate({
-                        body: {
-                          agent: {
-                            gateOverride: {
-                              provider: record.model.provider,
-                              name: record.model.name,
-                              enabled: false,
-                            },
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  disabled={override.isPending}
+                  onClick={() =>
+                    override.mutate({
+                      body: {
+                        agent: {
+                          gateOverride: {
+                            provider: record.model.provider,
+                            name: record.model.name,
+                            enabled: false,
                           },
                         },
-                      })
-                    }
-                  >
-                    Remove
-                  </Button>
-                </>
+                      },
+                    })
+                  }
+                >
+                  Remove
+                </Button>
               ) : (
                 <Value>
                   {record.model.thinking === "off" ? "thinking off" : record.model.provider}
@@ -181,14 +168,24 @@ function Records({ records }: { records: readonly GateRecord[] }) {
   );
 }
 
-export function SafetyGate({ agent, gate }: { agent: AgentPreset; gate: GateView }) {
+export function SafetyGate({
+  agent,
+  gate,
+  serverUrl,
+}: {
+  agent: AgentPreset;
+  gate: GateView;
+  serverUrl: string;
+}) {
   return (
     <>
       <Section label="Safety gate" as="h3">
         <ModelGate agent={agent} gate={gate} />
+      </Section>
+      <Section label="Run the gate" as="h3">
+        <CodeBlock title="bash" code={gateCommand(agent, serverUrl)} />
         <GroupNote>
-          A model sends forms unattended only after it passes the safety scenarios on this install.
-          Until then it stops before each submit, and you approve it in Review.
+          Set KICKROCKS_SERVER_URL and KICKROCKS_WORKER_TOKEN, and run it from a checkout.
         </GroupNote>
       </Section>
       {gate.records.length > 0 ? <Records records={gate.records} /> : null}

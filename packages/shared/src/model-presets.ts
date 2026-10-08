@@ -186,13 +186,28 @@ export function agentEnvLines(agent: AgentPreset): string[] {
   ];
 }
 
-/** The benchmark command that runs the gate for a preset and records the result on this install. */
-export function gateCommand(agent: AgentPreset): string {
-  return [
-    "pnpm --filter @kickrocks/agent-worker bench",
+/**
+ * The benchmark command that runs the gate for a preset and records the result on the install at
+ * `serverUrl`, which `--record` posts to. Without it the bench would post to a default address.
+ */
+export function gateCommand(agent: AgentPreset, serverUrl: string): string {
+  const model = [
     `--model ${agent.model} --provider ollama --num-ctx ${BENCH_NUM_CTX}`,
     ...(agent.thinking === "off" ? ["--thinking off"] : []),
-    `--agent-only --scenarios ${GATE_SCENARIOS.join(",")} --runs ${GATE_RUNS_PER_SCENARIO}`,
-    "--record",
   ].join(" ");
+  return [
+    `KICKROCKS_SERVER_URL=${serverUrl} \\`,
+    "pnpm --filter @kickrocks/agent-worker bench \\",
+    `  ${model} \\`,
+    `  --agent-only --scenarios ${GATE_SCENARIOS.join(",")} --runs ${GATE_RUNS_PER_SCENARIO} --record`,
+  ].join("\n");
+}
+
+/** Whether an address is an ollama server, which listens on port 11434 unless it was moved. */
+export function isOllamaEndpoint(baseUrl: string): boolean {
+  try {
+    return new URL(baseUrl).port === "11434";
+  } catch {
+    return false;
+  }
 }

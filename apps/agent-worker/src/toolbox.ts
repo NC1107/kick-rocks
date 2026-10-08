@@ -33,7 +33,13 @@ import {
   detailAskedFor,
   stateSpellings,
 } from "./stand-ins.js";
-import { CONTROL_LABEL, mayBeTheSubmit, SubmitNeedsApproval } from "./submit-approval.js";
+import {
+  type ApprovedControl,
+  CONTROL_LABEL,
+  isApprovedControl,
+  mayBeTheSubmit,
+  SubmitNeedsApproval,
+} from "./submit-approval.js";
 import {
   CheckArgs,
   ClickArgs,
@@ -68,6 +74,8 @@ interface ToolboxOptions {
   onClick?: () => Promise<void>;
   /** The click that may send the form stops the run until a person approves it. */
   submitNeedsApproval?: boolean;
+  /** With an approval, the one send control the run may click without stopping again. */
+  approvedSubmit?: ApprovedControl;
   /** How long a click, a fill or a choice may take before it counts as timed out. */
   actionTimeoutMs?: number;
   /** How long a whole-page bot check gets to clear by itself before it stops the run. */
@@ -80,7 +88,7 @@ interface PausedRequest {
   frameId?: string;
   responseStatusCode?: number;
   responseHeaders?: { name: string; value: string }[];
-  request: { url: string; urlFragment?: string };
+  request: { url: string; urlFragment?: string; method?: string };
 }
 
 interface ElementInfo {
@@ -210,6 +218,10 @@ export class Toolbox {
   private clickCount = 0;
   /** Details typed, chosen or ticked so far, which turn a later button into a likely submit. */
   private detailsEntered = 0;
+  /** Set while a choice or a tick is made, when a request that sends something is refused. */
+  private watchingForSend = false;
+  private sendAttempted = false;
+  private approvalSpent = false;
   private installed = false;
   private cdp: CDPSession | null = null;
   /** The last document the page was let load, which its own address changes are measured against. */
@@ -325,6 +337,13 @@ export class Toolbox {
     await session.send("Network.enable");
     await session.send("Network.setBypassServiceWorker", { bypass: true });
     session.on("Fetch.requestPaused", (event: PausedRequest) => {
+      if (this.watchingForSend && this.sendsSomething(event)) {
+        this.sendAttempted = true;
+        session
+          .send("Fetch.failRequest", { requestId: event.requestId, errorReason: "Aborted" })
+          .catch(() => undefined);
+        return;
+      }
       if (event.resourceType !== "Document") {
         session
           .send("Fetch.continueRequest", { requestId: event.requestId })
@@ -362,8 +381,44 @@ export class Toolbox {
       patterns: [
         { urlPattern: "*", resourceType: "Document", requestStage: "Request" },
         { urlPattern: "*", resourceType: "Document", requestStage: "Response" },
+        ...(this.options.submitNeedsApproval
+          ? [
+              { urlPattern: "*", resourceType: "XHR", requestStage: "Request" },
+              { urlPattern: "*", resourceType: "Fetch", requestStage: "Request" },
+            ]
+          : []),
       ],
     });
+  }
+
+  /** A navigation, or a script's request that carries data, which nothing but a send would start. */
+  private sendsSomething(event: PausedRequest): boolean {
+    if (event.resourceType === "Document") return event.responseStatusCode === undefined;
+    const method = (event.request.method ?? "GET").toUpperCase();
+    return method !== "GET" && method !== "HEAD";
+  }
+
+  /**
+   * Runs a choice or a tick that a page may answer by sending the form. While an approval is
+   * pending nothing may go out, so a request or navigation it starts is cancelled and the run
+   * stops for a person, the same as at a button.
+   */
+  private async withoutSending(action: () => Promise<void>): Promise<void> {
+    if (!this.options.submitNeedsApproval) {
+      await action();
+      return;
+    }
+    this.sendAttempted = false;
+    this.watchingForSend = true;
+    try {
+      await action();
+      await this.settle();
+    } finally {
+      this.watchingForSend = false;
+    }
+    if (this.sendAttempted) {
+      throw new SubmitNeedsApproval("", this.options.page.url(), "change");
+    }
   }
 
   /** Trusts where a start page sends the visitor, once, and only that page. */
@@ -714,8 +769,14 @@ export class Toolbox {
     const stopped = await this.beforeSending();
     if (stopped !== null) return stopped;
     try {
-      await target.locator.click({ timeout: this.actionTimeoutMs });
+      const ticks = target.info.type === "checkbox" || target.info.type === "radio";
+      if (ticks) {
+        await this.withoutSending(() => target.locator.click({ timeout: this.actionTimeoutMs }));
+      } else {
+        await target.locator.click({ timeout: this.actionTimeoutMs });
+      }
     } catch (error) {
+      if (error instanceof SubmitNeedsApproval) throw error;
       if (this.options.signal.aborted || !/Timeout \d+ms exceeded/.test(describeError(error))) {
         throw error;
       }
@@ -732,9 +793,17 @@ export class Toolbox {
   private async requireApprovalToSubmit(target: { locator: Locator; info: ElementInfo }) {
     if (!this.options.submitNeedsApproval) return;
     const label = await target.locator.evaluate(fromSource<(el: unknown) => string>(CONTROL_LABEL));
-    if (mayBeTheSubmit({ ...target.info, label }, this.detailsEntered)) {
-      throw new SubmitNeedsApproval(label, this.options.page.url());
+    if (!mayBeTheSubmit({ ...target.info, label }, this.detailsEntered)) return;
+    const { approvedSubmit, page } = this.options;
+    const approved =
+      approvedSubmit !== undefined &&
+      !this.approvalSpent &&
+      isApprovedControl(approvedSubmit, page.url(), this.options.mask(label));
+    if (approved) {
+      this.approvalSpent = true;
+      return;
     }
+    throw new SubmitNeedsApproval(label, page.url());
   }
 
   private async type(args: unknown): Promise<ToolOutcome> {
@@ -843,7 +912,11 @@ export class Toolbox {
     const stopped = await this.beforeSending();
     if (stopped !== null) return stopped;
     this.detailsEntered += 1;
-    await target.locator.selectOption({ value: match.value }, { timeout: this.actionTimeoutMs });
+    await this.withoutSending(() =>
+      target.locator
+        .selectOption({ value: match.value }, { timeout: this.actionTimeoutMs })
+        .then(() => undefined),
+    );
     return (
       (await this.stopForChallenge()) ??
       done(this.withNotes(`Selected ${JSON.stringify(match.label)} in ${ref}.`))
@@ -938,7 +1011,9 @@ export class Toolbox {
     const stopped = await this.beforeSending();
     if (stopped !== null) return stopped;
     this.detailsEntered += 1;
-    await target.locator.setChecked(parsed.data.checked, { timeout: this.actionTimeoutMs });
+    await this.withoutSending(() =>
+      target.locator.setChecked(parsed.data.checked, { timeout: this.actionTimeoutMs }),
+    );
     return (
       (await this.stopForChallenge()) ??
       done(this.withNotes(`${parsed.data.checked ? "Checked" : "Unchecked"} ${parsed.data.ref}.`))

@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Opt out by script - Fixture Broker</title></head>
+<body>
+<h1>Remove your listing</h1>
+<form method="post" action="/optout">
+  <label for="first">First name</label>
+  <input id="first" name="first_name">
+  <label for="state">State</label>
+  <select id="state" name="state" onchange="fetch('/optout', { method: 'POST', body: new FormData(this.form) })">
+    <option value="">Choose a state</option>
+    <option value="TX">Texas</option>
+    <option value="CA">California</option>
+  </select>
+</form>
+</body>
+</html>

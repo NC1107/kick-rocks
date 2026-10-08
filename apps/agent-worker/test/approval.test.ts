@@ -158,6 +158,121 @@ describeBrowser("a model that has not passed the safety gate", () => {
   });
 });
 
+describeBrowser("a choice that sends the form by itself", () => {
+  const choose = (path: string, step: Step): Step[] => [
+    navigate(path),
+    (v) => ({ calls: [["type", { ref: v.ref("First name"), field: "first_name" }]] }),
+    step,
+  ];
+
+  const cases: [string, Step[]][] = [
+    [
+      "a dropdown that submits on change",
+      choose("/onchange-select", (v) => ({
+        calls: [["select", { ref: v.ref("State"), field: "state" }]],
+      })),
+    ],
+    [
+      "a dropdown whose change posts from a script",
+      choose("/onchange-fetch", (v) => ({
+        calls: [["select", { ref: v.ref("State"), field: "state" }]],
+      })),
+    ],
+    [
+      "a checkbox that submits on change",
+      choose("/onchange-check", (v) => ({ calls: [["check", { ref: v.ref("I agree") }]] })),
+    ],
+    [
+      "a checkbox ticked by clicking it",
+      choose("/onchange-check", (v) => ({ calls: [["click", { ref: v.ref("I agree") }]] })),
+    ],
+  ];
+
+  for (const [name, steps] of cases) {
+    it(`stops for a person at ${name} and sends nothing`, async () => {
+      const { report } = await run(steps, "required");
+      expect(report.kind === "block" && report.report.reason).toBe("unknown");
+      expect((await fixtureState()).submissions).toHaveLength(0);
+    });
+  }
+
+  it("sends on the same page for a model that is cleared, so the stop is what held it back", async () => {
+    const [, steps] = cases[0] ?? [];
+    await run(steps ?? [], "not_needed");
+    expect((await fixtureState()).submissions).toHaveLength(1);
+  });
+
+  it("lets an ordinary dropdown and checkbox through", async () => {
+    const { report } = await run(
+      [
+        navigate("/optout"),
+        (v) => ({
+          calls: [
+            ["select", { ref: v.ref("State"), field: "state" }],
+            ["check", { ref: v.ref("I agree") }],
+          ],
+        }),
+        (v) => ({ calls: [["click", { ref: v.ref("Submit request") }]] }),
+      ],
+      "required",
+    );
+    expect(report.kind === "block" && report.report.reason).toBe("approval_needed");
+  });
+});
+
+describeBrowser("a run that was approved", () => {
+  const approved = { origin: ORIGIN, control: "Submit request" };
+
+  async function runApproved(steps: Step[], approvedSubmit: typeof approved) {
+    const page = await context.newPage();
+    const task = agentTask();
+    task.submitApproval = "granted";
+    task.approvedSubmit = approvedSubmit;
+    const outcome = await runAgentTask({
+      task,
+      page,
+      provider: scripted(steps),
+      limits: { maxSteps: 30, maxMs: 60_000, maxTotalTokens: null },
+      pricing: null,
+      pace: INSTANT_PACE,
+      allowHttp: true,
+      maxOutputTokens: 1024,
+      signal: new AbortController().signal,
+      logger: silentLogger,
+      challengeGraceMs: 200,
+      onMayHaveSubmitted: async () => undefined,
+    });
+    await page.close();
+    return outcome;
+  }
+
+  it("sends the form through the control the person looked at", async () => {
+    const { report } = await runApproved(fillThenSubmit, approved);
+    expect(report.kind).toBe("complete");
+    expect((await fixtureState()).submissions).toHaveLength(1);
+  });
+
+  it("stops again at a different control", async () => {
+    const { report } = await runApproved(fillThenSubmit, { ...approved, control: "Remove me" });
+    expect(report.kind === "block" && report.report.reason).toBe("approval_needed");
+    expect((await fixtureState()).submissions).toHaveLength(0);
+  });
+
+  it("stops again on another site", async () => {
+    const { report } = await runApproved(fillThenSubmit, {
+      ...approved,
+      origin: "https://other.example",
+    });
+    expect(report.kind === "block" && report.report.reason).toBe("approval_needed");
+    expect((await fixtureState()).submissions).toHaveLength(0);
+  });
+
+  it("names the control it stopped before, for the approval to be tied to", async () => {
+    const { report } = await run(fillThenSubmit, "required");
+    expect(report.kind === "block" && report.report.control).toBe("Submit request");
+  });
+});
+
 describeBrowser("a model that is cleared or approved", () => {
   for (const approval of ["not_needed", "granted"] as const) {
     it(`sends the form without stopping when the approval is ${approval}`, async () => {

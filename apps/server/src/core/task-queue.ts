@@ -118,6 +118,8 @@ export interface BlockInput {
   detail?: string | undefined;
   /** The page where the run got stuck. */
   url?: string | undefined;
+  /** What the send control the run stopped before says, which a later approval is tied to. */
+  control?: string | undefined;
   screenshot?: { mime: (typeof SCREENSHOT_MIME_TYPES)[number]; data: Buffer } | undefined;
   actor: RequestActor;
   usage?: TaskUsage | undefined;
@@ -253,6 +255,7 @@ function toTask(row: TaskRow): Task {
     leaseExpiresAt: row.leaseExpiresAt,
     mayHaveSubmitted: row.mayHaveSubmitted,
     submitApproval: row.submitApproval,
+    submitStop: row.submitStop ?? null,
     attempts: row.attempts,
     maxAttempts: row.maxAttempts,
     runAfter: row.runAfter,
@@ -682,7 +685,7 @@ export function createTaskQueue({
       });
     },
 
-    block(id, { workerId, reason, detail, url, screenshot, actor, usage }) {
+    block(id, { workerId, reason, detail, url, control, screenshot, actor, usage }) {
       const now = nowIso(clock);
       if (screenshot) {
         if (screenshot.data.byteLength > MAX_SCREENSHOT_BYTES) {
@@ -714,6 +717,7 @@ export function createTaskQueue({
               blockedReason: reason,
               blockedDetail: withSubmissionNote(row, detail),
               blockedUrl: url ?? null,
+              submitStop: url && control ? { origin: new URL(url).origin, control } : null,
               leaseOwner: null,
               leaseExpiresAt: null,
               finishedBy: workerId,

@@ -75,11 +75,12 @@ export const WorkerClaimBody = z.object({
     .min(1)
     .default(() => [...WORKER_DEFAULT_KINDS]),
   leaseMs: LeaseMs.default(LEASE_MS.default),
-  /** A worker that drives a model says so, so its runs are counted apart from recipe runs. */
+  /** A worker that drives a model says so, so its runs are counted apart from recipe runs. Agent work is gated whichever it says. */
   claimer: WorkerClaimer.default("builtin"),
   /**
    * The model this claim will drive. A claim that does not name one is treated as an unproven
-   * model, so a worker cannot gain unattended work by leaving it out.
+   * model, and so is agent work claimed without saying `model` as the claimer, so a worker cannot
+   * gain unattended work by leaving either out.
    */
   model: ModelIdentity.optional(),
 });

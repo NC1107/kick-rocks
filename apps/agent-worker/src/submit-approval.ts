@@ -9,8 +9,37 @@ export class SubmitNeedsApproval extends Error {
     /** What the control says, so the person can tell which button the model reached for. */
     readonly label: string,
     readonly pageUrl: string,
+    /**
+     * `change` means choosing an option or ticking a box tried to send the form by itself. The
+     * request was cancelled, and a person is shown the page and finishes it, since there is no
+     * button to approve.
+     */
+    readonly via: "click" | "change" = "click",
   ) {
-    super(`A person has to approve clicking ${label || "this control"} before the form is sent`);
+    super(
+      via === "change"
+        ? "Choosing an option or ticking a box on this page tried to send the form"
+        : `A person has to approve clicking ${label || "this control"} before the form is sent`,
+    );
+  }
+}
+
+/** The send control a person approved, which the approved run may click once and nothing else. */
+export interface ApprovedControl {
+  origin: string;
+  control: string;
+}
+
+/** Whether a click is the one the person looked at before approving. */
+export function isApprovedControl(
+  approved: ApprovedControl,
+  pageUrl: string,
+  label: string,
+): boolean {
+  try {
+    return new URL(pageUrl).origin === approved.origin && label === approved.control;
+  } catch {
+    return false;
   }
 }
 

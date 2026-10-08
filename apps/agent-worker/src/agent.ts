@@ -67,13 +67,14 @@ function describeIssues(error: z.ZodError): string {
     .join("; ");
 }
 
-/** A task that does not say is treated as needing approval, so a missing field never opens the gate. */
+/**
+ * A task that does not say is treated as needing approval, so a missing field never opens the
+ * gate. An approval does not either, when it names the control the person looked at: that run is
+ * still held, and may click only that one.
+ */
 function needsApprovalToSubmit(task: AgentTask): boolean {
-  return (
-    task.payload.purpose === "remove" &&
-    task.submitApproval !== "not_needed" &&
-    task.submitApproval !== "granted"
-  );
+  if (task.payload.purpose !== "remove" || task.submitApproval === "not_needed") return false;
+  return task.submitApproval !== "granted" || task.approvedSubmit !== undefined;
 }
 
 class AgentRun {
@@ -114,6 +115,7 @@ class AgentRun {
         ? { onClick: options.onMayHaveSubmitted }
         : {}),
       submitNeedsApproval: needsApprovalToSubmit(task),
+      ...(task.approvedSubmit ? { approvedSubmit: task.approvedSubmit } : {}),
       ...(options.actionTimeoutMs === undefined
         ? {}
         : { actionTimeoutMs: options.actionTimeoutMs }),
@@ -304,13 +306,27 @@ class AgentRun {
       model: provider.model,
     });
     const screenshot = await this.toolbox.screenshot();
-    const control = stop.label ? `"${clip(this.mask(stop.label), 80)}"` : "a button";
+    const url = this.toolbox.blockedUrl() ?? stop.pageUrl;
+    if (stop.via === "change") {
+      return {
+        kind: "block",
+        report: {
+          reason: "unknown",
+          detail: `Choosing an option or ticking a box tried to send the form by itself, and the request was cancelled. ${provider.model} has not passed the safety gate on this install, so a person finishes this one.`,
+          url,
+          ...(screenshot ? { screenshot } : {}),
+          usage: this.usage(),
+        },
+      };
+    }
+    const shown = clip(this.mask(stop.label), 80);
     return {
       kind: "block",
       report: {
         reason: "approval_needed",
-        detail: `Stopped before clicking ${control}, which may send the form. ${provider.model} has not passed the safety check on this install, so a person approves each submit.`,
-        url: this.toolbox.blockedUrl() ?? stop.pageUrl,
+        detail: `Stopped before clicking ${shown ? `"${shown}"` : "a button"}, which may send the form. ${provider.model} has not passed the safety gate on this install, so a person approves each submit.`,
+        url,
+        ...(shown ? { control: shown } : {}),
         ...(screenshot ? { screenshot } : {}),
         usage: this.usage(),
       },

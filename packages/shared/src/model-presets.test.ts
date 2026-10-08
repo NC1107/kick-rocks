@@ -4,6 +4,7 @@ import {
   DEFAULT_GPU_SIZE_GB,
   GPU_SIZES_GB,
   gateCommand,
+  isOllamaEndpoint,
   MODEL_PRESETS,
   presetFor,
 } from "./model-presets.js";
@@ -49,8 +50,20 @@ describe("the model presets", () => {
   it("writes the gate command with the same settings the worker will run with", () => {
     const qwen = presetFor(12).agent;
     if (!qwen) throw new Error("expected an agent preset");
-    expect(gateCommand(qwen)).toBe(
-      "pnpm --filter @kickrocks/agent-worker bench --model qwen3:14b --provider ollama --num-ctx 16384 --thinking off --agent-only --scenarios 1,3,5,6,7,8,9,10 --runs 5 --record",
+    expect(gateCommand(qwen, "https://kr.example.org")).toBe(
+      [
+        "KICKROCKS_SERVER_URL=https://kr.example.org \\",
+        "pnpm --filter @kickrocks/agent-worker bench \\",
+        "  --model qwen3:14b --provider ollama --num-ctx 16384 --thinking off \\",
+        "  --agent-only --scenarios 1,3,5,6,7,8,9,10 --runs 5 --record",
+      ].join("\n"),
     );
+  });
+
+  it("tells an ollama address from a hosted endpoint", () => {
+    expect(isOllamaEndpoint("http://host.docker.internal:11434/v1")).toBe(true);
+    expect(isOllamaEndpoint("http://127.0.0.1:11434/v1")).toBe(true);
+    expect(isOllamaEndpoint("https://api.openai.com/v1")).toBe(false);
+    expect(isOllamaEndpoint("not a url")).toBe(false);
   });
 });

@@ -167,12 +167,13 @@ How long a reload or a swap between two models takes was not measured.
 
 ## The safety gate
 
-The gate is the benchmark's safety scenarios, run on the machine and with the settings the agent worker will use.
+The safety gate is the benchmark's safety scenarios, run on the machine and with the settings the agent worker will use.
 A model sends forms without asking only after it passes them on this install.
 Kick Rocks enforces that in the agent worker and in the server, and the Settings page shows which models are cleared.
 
 You run the benchmark yourself, from a checkout, because it needs chrome, the model, and the fixture pages.
-`--record` sends what it measured to the server, which decides whether it is enough.
+`--record` sends what it measured to the server at KICKROCKS_SERVER_URL, which decides whether it is enough.
+Set it to the address this install is served at, which Settings, then Agents, fills in for you, because the default only fits a server on the same machine.
 
 ```sh
 export PATH="$HOME/.local/bin:$PATH"
@@ -200,17 +201,23 @@ Getting the outcome wrong without sending anything, such as calling an empty sea
 - The agent worker tells the server which model it drives with every claim and heartbeat.
   For ollama that includes the digest of the tag, so a newer build pulled under the same tag no longer matches an earlier pass.
 - The server decides, at claim time, whether the model may send forms alone.
+  Every agent task claimed through the worker API is decided this way, whatever the claim says about itself.
   A model it has no pass for, or one that did not say what it is, gets a task marked as needing approval.
   The worker cannot clear itself.
 - A worker whose task needs approval fills the form and stops before any click that may send it.
   That is a button after it has typed or chosen something, a submit button, or a link or button that says it sends.
   The task goes to Review as "Needs approval", with the page and a screenshot of the filled form.
+- A choice or a tick can send a form too, when the page submits on change.
+  While approval is pending, a navigation or a data-carrying request that a dropdown, checkbox or radio button starts is cancelled, and the task goes to Review for you to finish.
 - Approve submit puts the task back in the queue with one approval attached.
   The next claim spends it, so a retry after that asks again.
-- The server refuses a result that says a form was sent from a claim that was never approved, and parks that task for you, because the form may have gone out.
+  That run is a new, unwatched run of the model: it fills the form again from the start and sends it.
+  It is held to what you saw: it may click only the control the first run stopped before, on that site, and it stops again at any other control that may send the form.
+- The server refuses a result that says a form was sent from a claim that was never approved, and parks that task for you as "Sent without approval", because the form may have gone out.
+  Approve submit is not offered for it, since a second run would send the form again.
 - A later benchmark run that fails removes the earlier pass for that model and those settings.
 
-Only the agent worker is gated.
+Only the agent worker is gated, and Settings says so next to the MCP address.
 An MCP client is a model Kick Rocks cannot see or measure, so it is not.
 
 ### Without running the benchmark

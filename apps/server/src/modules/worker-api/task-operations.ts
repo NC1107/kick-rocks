@@ -1,4 +1,5 @@
 import type {
+  BlockedReason,
   BrowserTaskKind,
   ClaimedTask,
   ClaimerKind,
@@ -107,23 +108,19 @@ export function createTaskOperations(services: OperationServices, caller: Caller
   }
 
   /**
-   * A model that is not cleared to work alone must not report a sent form that no person approved.
+   * An agent that is not cleared to work alone must not report a sent form that no person approved.
    * The report is refused and the task parked, because the form may well have gone out and only a
    * person can check the site.
    */
   function holdUnapprovedSubmit(taskId: string, workerId: string, result: unknown): void {
     const task = taskQueue.get(taskId);
-    if (
-      task?.kind !== "agent" ||
-      task.claimerKind !== "model" ||
-      task.submitApproval !== "required" ||
-      !reportsSentForm(result)
-    ) {
+    if (task?.kind !== "agent" || task.submitApproval !== "required" || !reportsSentForm(result)) {
       return;
     }
     taskQueue.block(taskId, {
       workerId,
-      reason: "approval_needed",
+      // Not approval_needed: that reason offers Approve submit, and the form may already be out.
+      reason: "unapproved_submit",
       detail:
         "The agent worker reported a sent form that no one approved. Check the site before you do anything else, because the form may have gone out.",
       actor: "system",
@@ -132,6 +129,16 @@ export function createTaskOperations(services: OperationServices, caller: Caller
       "approval_required",
       "This model is not cleared to send forms alone, and no person approved this submit",
     );
+  }
+
+  /**
+   * Approving runs the form again, so a run that may already have sent it cannot ask for that.
+   * Whether the person approved the send decides which reason says so.
+   */
+  function reasonToReport(taskId: string, reason: BlockedReason): BlockedReason {
+    const task = taskQueue.get(taskId);
+    if (reason !== "approval_needed" || !task?.mayHaveSubmitted) return reason;
+    return task.submitApproval === "required" ? "unapproved_submit" : "unknown";
   }
 
   return {
@@ -166,14 +173,15 @@ export function createTaskOperations(services: OperationServices, caller: Caller
       );
     },
 
-    block(taskId, { workerId, reason, detail, url, screenshot, usage }) {
+    block(taskId, { workerId, reason, detail, url, control, screenshot, usage }) {
       authorize(taskId);
       return summarize(
         taskQueue.block(taskId, {
           workerId,
-          reason,
+          reason: reasonToReport(taskId, reason),
           detail,
           url,
+          control,
           screenshot: screenshot ? decodeScreenshot(screenshot) : undefined,
           usage,
           actor: caller.actor,

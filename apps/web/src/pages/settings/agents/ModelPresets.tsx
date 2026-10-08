@@ -4,6 +4,7 @@ import {
   DEFAULT_GPU_SIZE_GB,
   GPU_SIZES_GB,
   type GpuSizeGb,
+  isOllamaEndpoint,
   MODEL_PRESETS,
   OLLAMA_OPENAI_FROM_DOCKER,
   presetFor,
@@ -48,8 +49,9 @@ function ReplyModelSection({
 }) {
   const toast = useToast();
   const { reply } = preset;
-  const baseUrl = llm?.baseUrl ?? OLLAMA_OPENAI_FROM_DOCKER;
-  const inUse = llm?.model === reply.model;
+  const keepsEndpoint = llm !== null && isOllamaEndpoint(llm.baseUrl);
+  const baseUrl = keepsEndpoint ? llm.baseUrl : OLLAMA_OPENAI_FROM_DOCKER;
+  const inUse = llm?.model === reply.model && llm.baseUrl === baseUrl;
   const use = useApiMutation(API_ROUTES.settingsPatch, {
     invalidates: [API_ROUTES.settingsGet],
     onSuccess: () => toast.success("Language model saved", `Replies now use ${reply.model}.`),
@@ -72,10 +74,20 @@ function ReplyModelSection({
             <InlineError className="mr-auto">{errorMessage(use.error)}</InlineError>
           ) : null}
           <Button
-            variant="primary"
+            variant="secondary"
             loading={use.isPending}
             disabled={inUse}
-            onClick={() => use.mutate({ body: { llm: { baseUrl, model: reply.model } } })}
+            onClick={() =>
+              use.mutate({
+                body: {
+                  llm: {
+                    baseUrl,
+                    model: reply.model,
+                    ...(llm !== null && !keepsEndpoint ? { apiKey: null } : {}),
+                  },
+                },
+              })
+            }
           >
             {inUse ? "In use as the language model" : "Use as the language model"}
           </Button>
@@ -139,12 +151,16 @@ export function ModelPresets({ settings }: { settings: SettingsView }) {
       {agent ? (
         <>
           <Section label="Agent worker settings" as="h3">
-            <CodeBlock title=".env" code={agentEnvLines(agent).join("\n")} />
+            <CodeBlock title=".env" wrap code={agentEnvLines(agent).join("\n")} />
             <GroupNote>
               From a checkout, leave the base URL out and ollama's own address is used.
             </GroupNote>
           </Section>
-          <SafetyGate agent={agent} gate={settings.agent.gate} />
+          <SafetyGate
+            agent={agent}
+            gate={settings.agent.gate}
+            serverUrl={settings.mcp.url.replace(/\/mcp$/, "")}
+          />
         </>
       ) : null}
 

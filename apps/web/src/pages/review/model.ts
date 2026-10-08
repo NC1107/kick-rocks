@@ -66,7 +66,7 @@ export function canHandOff(task: Pick<TaskSummary, "kind">): boolean {
   return task.kind === "scan" || task.kind === "form" || task.kind === "agent";
 }
 
-/** A model stopped before sending a form because it has not passed the safety check here. */
+/** A model stopped before sending a form because it has not passed the safety gate here. */
 export function awaitsSubmitApproval(
   task: Pick<TaskSummary, "kind" | "status" | "blockedReason">,
 ): boolean {

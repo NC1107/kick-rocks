@@ -76,10 +76,10 @@ describe("the model presets", () => {
     expect(within(group("Reply model") as HTMLElement).getByText("llama3.2:3b")).toBeVisible();
   });
 
-  it("sets the reply model as the language model without touching its endpoint or key", async () => {
+  it("sets the reply model on an ollama endpoint without touching its address or key", async () => {
     const mock = createMockApp();
     mock.store.settings.llm = {
-      baseUrl: "http://llm.home:8080/v1",
+      baseUrl: "http://10.0.0.5:11434/v1",
       model: "old-model",
       apiKeySet: true,
     };
@@ -88,12 +88,35 @@ describe("the model presets", () => {
     await user.click(await screen.findByRole("button", { name: "Use as the language model" }));
     await waitFor(() => expect(mock.store.settings.llm?.model).toBe("qwen3:8b"));
     expect(mock.store.settings.llm).toMatchObject({
-      baseUrl: "http://llm.home:8080/v1",
+      baseUrl: "http://10.0.0.5:11434/v1",
       apiKeySet: true,
     });
     expect(
       await screen.findByRole("button", { name: "In use as the language model" }),
     ).toBeDisabled();
+  });
+
+  it("points a hosted endpoint at ollama and drops its key, since that service has no such model", async () => {
+    const mock = createMockApp();
+    mock.store.settings.llm = {
+      baseUrl: "https://api.openai.com/v1",
+      model: "gpt-4o-mini",
+      apiKeySet: true,
+    };
+    const { user } = agents(mock);
+    await pickGpu(user, "8 GB");
+    await user.click(await screen.findByRole("button", { name: "Use as the language model" }));
+    await waitFor(() => expect(mock.store.settings.llm?.model).toBe("qwen3:8b"));
+    expect(mock.store.settings.llm).toMatchObject({
+      baseUrl: "http://host.docker.internal:11434/v1",
+      apiKeySet: false,
+    });
+  });
+
+  it("offers the language model as a secondary action, so the page keeps one primary", async () => {
+    agents();
+    const button = await screen.findByRole("button", { name: "Use as the language model" });
+    expect(button.className).not.toContain("bg-accent-fill");
   });
 });
 
@@ -106,8 +129,13 @@ describe("the safety gate", () => {
       ) as HTMLElement,
     );
     expect(gate.getByText("Cleared")).toBeVisible();
-    expect(gate.getByText(/passed the safety scenarios on this install/)).toBeVisible();
-    expect(gate.getByText(/--scenarios 1,3,5,6,7,8,9,10 --runs 5 --record/)).toBeVisible();
+    expect(gate.getByText(/passed the safety gate on this install/)).toBeVisible();
+    const run = within(
+      screen.getByRole("heading", { name: "Run the gate" }).closest("section") as HTMLElement,
+    );
+    expect(run.getByText(/--scenarios 1,3,5,6,7,8,9,10 --runs 5 --record/)).toBeVisible();
+    expect(run.getByText(/KICKROCKS_SERVER_URL=http:\/\/localhost:8420/)).toBeVisible();
+    expect(run.getByText(/Set KICKROCKS_SERVER_URL and KICKROCKS_WORKER_TOKEN/)).toBeVisible();
   });
 
   it("says each submit waits for the person when the model has no pass", async () => {
@@ -118,7 +146,7 @@ describe("the safety gate", () => {
     );
     expect(gate.getByText("Not cleared")).toBeVisible();
     expect(gate.getByText(/stops, and the task waits in Review/)).toBeVisible();
-    expect(gate.getByText(/--thinking off/)).toBeVisible();
+    expect(screen.getByText(/--thinking off/)).toBeVisible();
   });
 
   it("calls a pass for another build out of date once the worker reports the running build", async () => {
@@ -188,7 +216,7 @@ describe("the safety gate", () => {
     );
     expect(cleared.getByText("gpt-oss:20b")).toBeVisible();
     expect(cleared.getByText(/Passed 40 runs/)).toBeVisible();
-    expect(cleared.getByText("Override")).toBeVisible();
+    expect(cleared.getByText(/Allowed by you/)).toBeVisible();
     await user.click(cleared.getByRole("button", { name: "Remove" }));
     await waitFor(() =>
       expect(mock.store.settings.agent.gate.records.map((record) => record.source)).toEqual([

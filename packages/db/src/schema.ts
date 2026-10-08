@@ -331,6 +331,14 @@ export const tasks = sqliteTable(
      * the approval, so the next attempt asks again. Null for every other claim.
      */
     submitApproval: text("submit_approval", { enum: ["required", "granted", "used"] }),
+    /**
+     * The send control a model stopped before, as the page origin and the control's words. An
+     * approval of the submit carries it to the next claim, which may click only that control.
+     */
+    submitStop: text("submit_stop", { mode: "json" }).$type<{
+      origin: string;
+      control: string;
+    } | null>(),
     attempts: integer("attempts").notNull().default(0),
     maxAttempts: integer("max_attempts").notNull(),
     runAfter: timestamp("run_after"),

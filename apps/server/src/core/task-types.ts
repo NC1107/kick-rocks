@@ -28,6 +28,8 @@ interface TaskBase {
   mayHaveSubmitted: boolean;
   /** See `tasks.submitApproval` in the schema. */
   submitApproval: "required" | "granted" | "used" | null;
+  /** See `tasks.submitStop` in the schema. */
+  submitStop: { origin: string; control: string } | null;
   /** How many times the task has been claimed, less the times it was handed back unstarted. */
   attempts: number;
   maxAttempts: number;

@@ -12,7 +12,8 @@ export function approveSubmit(services: AppServices, taskId: string): Task {
     if (
       task.kind !== "agent" ||
       task.status !== "blocked" ||
-      task.blockedReason !== "approval_needed"
+      task.blockedReason !== "approval_needed" ||
+      task.mayHaveSubmitted
     ) {
       throw conflict("invalid_task_state", `Task ${taskId} is not waiting for a submit approval`);
     }

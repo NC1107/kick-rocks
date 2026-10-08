@@ -134,6 +134,7 @@ const BLOCK_SENTENCES: Record<BlockedReason, string> = {
   login_required: "The site needs a login.",
   bot_detection: "The site is blocking automated browsers.",
   approval_needed: "A person has to approve the submit before the form is sent.",
+  unapproved_submit: "The form may have been sent without a person's approval.",
   unknown: "The site stopped the run for a human check.",
 };
 

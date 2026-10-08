@@ -130,6 +130,7 @@ export const BLOCKED_REASON_LABELS: Record<BlockedReason, string> = {
   login_required: "Login required",
   bot_detection: "Bot detection",
   approval_needed: "Needs approval",
+  unapproved_submit: "Sent without approval",
   unknown: "Unknown",
 };
 

@@ -51,9 +51,9 @@ function queueRemoval(): void {
   ctx.services.dispatch.dispatchRequest(request.id);
 }
 
-async function claim(model: ModelIdentity | undefined) {
+async function claim(model: ModelIdentity | undefined, claimer: "model" | "builtin" = "model") {
   const result = await ctx.call(API_ROUTES.workerClaim, {
-    body: { workerId: "agent-1", kinds: ["agent"], claimer: "model", ...(model ? { model } : {}) },
+    body: { workerId: "agent-1", kinds: ["agent"], claimer, ...(model ? { model } : {}) },
   });
   if (!result.ok) throw new Error(`claim answered ${result.status}`);
   return result.body.task as AgentClaim | null;
@@ -150,8 +150,52 @@ describe("a model nobody has cleared", () => {
     expect(refused.ok ? null : refused.body.error).toBe("approval_required");
     expect(ctx.services.taskQueue.getOrThrow(task.id)).toMatchObject({
       status: "blocked",
-      blockedReason: "approval_needed",
+      blockedReason: "unapproved_submit",
     });
+  });
+
+  it("is gated the same when the claim leaves out that it drives a model", async () => {
+    queueRemoval();
+    const task = (await claim(undefined, "builtin")) as AgentClaim;
+    expect(task.submitApproval).toBe("required");
+
+    const refused = await sendTheForm(task.id);
+    expect(refused.status).toBe(409);
+    expect(refused.ok ? null : refused.body.error).toBe("approval_required");
+  });
+
+  it("cannot have the submit approved once a sent form was refused", async () => {
+    queueRemoval();
+    const task = (await claim(MODEL)) as AgentClaim;
+    await ctx.call(API_ROUTES.workerTaskHeartbeat, {
+      params: { id: task.id },
+      body: { workerId: "agent-1", mayHaveSubmitted: true },
+    });
+    expect((await sendTheForm(task.id)).status).toBe(409);
+
+    const approved = await ctx.call(API_ROUTES.taskApproveSubmit, { params: { id: task.id } });
+    expect(approved.status).toBe(409);
+    expect(ctx.services.taskQueue.getOrThrow(task.id)).toMatchObject({
+      status: "blocked",
+      mayHaveSubmitted: true,
+    });
+  });
+
+  it("is not offered an approval when the model may already have clicked", async () => {
+    queueRemoval();
+    const task = (await claim(MODEL)) as AgentClaim;
+    await ctx.call(API_ROUTES.workerTaskHeartbeat, {
+      params: { id: task.id },
+      body: { workerId: "agent-1", mayHaveSubmitted: true },
+    });
+    await ctx.call(API_ROUTES.workerTaskBlock, {
+      params: { id: task.id },
+      body: { workerId: "agent-1", reason: "approval_needed" },
+    });
+
+    expect(ctx.services.taskQueue.getOrThrow(task.id).blockedReason).toBe("unapproved_submit");
+    const approved = await ctx.call(API_ROUTES.taskApproveSubmit, { params: { id: task.id } });
+    expect(approved.status).toBe(409);
   });
 
   it("may still report that nothing was sent", async () => {
@@ -182,6 +226,27 @@ describe("a model nobody has cleared", () => {
     expect(second?.id).toBe(first.id);
     expect(second?.submitApproval).toBe("granted");
     expect((await sendTheForm(first.id)).ok).toBe(true);
+  });
+
+  it("holds the approved run to the control the person looked at", async () => {
+    queueRemoval();
+    const first = (await claim(MODEL)) as AgentClaim;
+    await ctx.call(API_ROUTES.workerTaskBlock, {
+      params: { id: first.id },
+      body: {
+        workerId: "agent-1",
+        reason: "approval_needed",
+        url: "https://example.com/optout?step=2",
+        control: "Submit request",
+      },
+    });
+    await ctx.call(API_ROUTES.taskApproveSubmit, { params: { id: first.id } });
+
+    const second = await claim(MODEL);
+    expect(second?.approvedSubmit).toEqual({
+      origin: "https://example.com",
+      control: "Submit request",
+    });
   });
 
   it("does not reuse an approval for a later attempt", async () => {
