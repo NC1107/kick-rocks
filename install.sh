@@ -5,6 +5,7 @@
 #   ./install.sh --stop       stop every container and keep all data
 #   ./install.sh --start      start the stopped containers again
 #   ./install.sh --backup [FILE]   write the data volume to FILE, readable only by you
+#   ./install.sh --restore FILE    replace the data volume with the contents of a backup FILE
 #   ./install.sh --uninstall  delete the containers, the data volume, the browser profile and the images
 #   ./install.sh --url        print the address of the UI
 #
@@ -79,29 +80,105 @@ backup_hint() {
   echo "Keep that file off shared and cloud storage: it holds the key to everything in it."
 }
 
+# What the EXIT trap tidies up. Set by backup and restore, which both stop the services first.
+was_running=()
+partial_file=""
+scratch_volumes=()
+
+finish() {
+  [ -z "$partial_file" ] || rm -f "$partial_file"
+  [ "${#scratch_volumes[@]}" -eq 0 ] || docker volume rm -f "${scratch_volumes[@]}" >/dev/null 2>&1 || true
+  if [ "${#was_running[@]}" -gt 0 ]; then
+    docker compose "${ALL_PROFILES[@]}" start "${was_running[@]}" >/dev/null
+  fi
+}
+
+# Stops every service for a consistent copy of the volume. Only what was running comes back when the
+# script ends, so a service stopped on purpose stays stopped.
+stop_for_copy() {
+  trap finish EXIT
+  mapfile -t was_running < <(docker compose "${ALL_PROFILES[@]}" ps --services --status running)
+  docker compose "${ALL_PROFILES[@]}" stop
+}
+
+absolute_path() {
+  case "$1" in
+    /*) printf '%s\n' "$1" ;;
+    *) printf '%s\n' "$caller_dir/$1" ;;
+  esac
+}
+
+# Whether an archive is a readable gzip tar that holds the database and its key.
+# A truncated download or a half-written file fails the listing, and so does an archive of something else.
+archive_is_intact() {
+  local listing
+  listing="$(tar tzf "$1" 2>/dev/null)" || return 1
+  printf '%s\n' "$listing" | grep -qx '\./kickrocks\.db' || return 1
+  printf '%s\n' "$listing" | grep -qx '\./db\.key'
+}
+
 backup() {
-  local file="${1:-$HOME/kickrocks-backup-$(date +%Y%m%d-%H%M%S).tgz}" volume
+  local file volume
+  file="$(absolute_path "${1:-$HOME/kickrocks-backup-$(date +%Y%m%d-%H%M%S).tgz}")"
   volume="$(data_volume)"
   docker volume inspect "$volume" >/dev/null 2>&1 || { echo "No data volume named $volume yet." >&2; exit 1; }
-  case "$file" in
-    /*) ;;
-    *) file="$caller_dir/$file" ;;
-  esac
   case "$(cd "$(dirname "$file")" && pwd)/" in
     "$PWD"/*) echo "Refusing to write the backup inside the repository: it holds the database key." >&2; exit 1 ;;
   esac
-  # A copy of a running database can be inconsistent, so everything stops for the copy.
-  # Only what was running comes back, so a service stopped on purpose stays stopped.
-  was_running=()
-  mapfile -t was_running < <(docker compose "${ALL_PROFILES[@]}" ps --services --status running)
-  docker compose "${ALL_PROFILES[@]}" stop
-  if [ "${#was_running[@]}" -gt 0 ]; then
-    trap 'docker compose "${ALL_PROFILES[@]}" start "${was_running[@]}" >/dev/null' EXIT
-  fi
+  stop_for_copy
+  # The archive is built beside its destination and renamed only once it reads back whole, so a
+  # failed run never replaces a good backup with a broken one.
+  partial_file="$file.partial"
   # tar runs as root inside the container because it must read the key, but the archive is written
   # by this shell, so it belongs to the invoking user and no one else can read it.
-  (umask 077 && docker run --rm -v "$volume":/data:ro alpine tar czf - -C /data . >"$file")
+  if ! (umask 077 && docker run --rm -v "$volume":/data:ro alpine tar czf - -C /data . >"$partial_file") || ! archive_is_intact "$partial_file"; then
+    echo "The backup did not complete, so nothing was written to $file." >&2
+    exit 1
+  fi
+  mv -f "$partial_file" "$file"
   echo "Wrote $file (readable only by you). It contains the database key: keep it off shared and cloud storage."
+}
+
+# Replaces the data volume with a backup. The archive is unpacked into a scratch volume first, so a
+# bad archive is found before the live data is touched, and the old data is put back if the swap fails.
+restore() {
+  local file volume scratch previous answer
+  [ -n "${1:-}" ] || { echo "Usage: ./install.sh --restore FILE" >&2; exit 2; }
+  file="$(absolute_path "$1")"
+  [ -f "$file" ] || { echo "No such file: $file" >&2; exit 1; }
+  archive_is_intact "$file" || { echo "$file is not a complete Kick Rocks backup, so nothing was changed." >&2; exit 1; }
+  volume="$(data_volume)"
+  scratch="$volume-restore-$$"
+  previous="$volume-previous-$$"
+  echo "This replaces the data in the volume $volume with the contents of $file."
+  read -r -p 'Type "restore" to continue: ' answer
+  [ "$answer" = "restore" ] || { echo "Nothing was changed."; exit 1; }
+  stop_for_copy
+  scratch_volumes=("$scratch" "$previous")
+  docker volume create "$scratch" >/dev/null
+  if ! docker run --rm -i -v "$scratch":/data alpine sh -c 'tar xzf - -C /data && test -s /data/kickrocks.db && test -s /data/db.key' <"$file"; then
+    echo "The archive could not be unpacked, so nothing was changed." >&2
+    exit 1
+  fi
+  if docker volume inspect "$volume" >/dev/null 2>&1; then
+    docker volume create "$previous" >/dev/null
+    docker run --rm -v "$volume":/from:ro -v "$previous":/to alpine cp -a /from/. /to/
+  else
+    docker volume create \
+      --label "com.docker.compose.project=${volume%_kickrocks-data}" \
+      --label com.docker.compose.volume=kickrocks-data "$volume" >/dev/null
+  fi
+  if ! docker run --rm -v "$scratch":/from:ro -v "$volume":/to alpine \
+    sh -c 'find /to -mindepth 1 -delete && cp -a /from/. /to/'; then
+    echo "Swapping in the backup failed. Putting the previous data back." >&2
+    docker run --rm -v "$previous":/from:ro -v "$volume":/to alpine \
+      sh -c 'find /to -mindepth 1 -delete && cp -a /from/. /to/'
+    exit 1
+  fi
+  echo "Restored $volume from $file."
+  if [ "${#was_running[@]}" -eq 0 ]; then
+    echo "Nothing was running, so nothing was started. Run ./install.sh to bring it up."
+  fi
 }
 
 uninstall() {
@@ -180,6 +257,10 @@ case "${1:-}" in
     backup "${2:-}"
     exit 0
     ;;
+  --restore)
+    restore "${2:-}"
+    exit 0
+    ;;
   --uninstall)
     uninstall
     exit 0
@@ -200,6 +281,12 @@ fi
 ensure_worker_profile
 ensure_timezone
 chmod 600 .env
+
+# The build context has no .git, so the version is read here and passed in as a build argument.
+if [ -z "${KICKROCKS_VERSION:-}" ]; then
+  KICKROCKS_VERSION="$(git describe --tags --always --dirty 2>/dev/null || true)"
+  export KICKROCKS_VERSION
+fi
 
 docker compose up -d --build --wait --wait-timeout 180 || {
   echo >&2
