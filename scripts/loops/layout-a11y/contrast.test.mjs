@@ -42,3 +42,9 @@ test("a text token that is too faint on its surfaces is reported", () => {
   assert.deepEqual(failingContrastPairs(css("#000000")), []);
   assert.ok(failingContrastPairs(css("#bbbbbb")).some((line) => line.startsWith("light ink on")));
 });
+
+test("the shipped theme tokens have no failing contrast pair", async () => {
+  const { failingContrastPairsOf } = await import("./contrast.mjs");
+  const cssPath = new URL("../../../apps/web/src/index.css", import.meta.url);
+  assert.deepEqual(failingContrastPairsOf(cssPath), []);
+});

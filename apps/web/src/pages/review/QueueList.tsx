@@ -121,6 +121,7 @@ function Entry({
         leading={<StatusShapeGlyph shape={view.shape} />}
         title={view.title}
         description={view.reason}
+        wrapDescription
         trailing={view.at ? <Age iso={view.at} /> : null}
         className="py-1.5"
       />
@@ -148,6 +149,7 @@ function WaitingGroup({ waiting, total }: { waiting: readonly WaitingTask[]; tot
             description={
               <WaitReasonText reason={item.waiting.reason} domain={item.waiting.domain} />
             }
+            wrapDescription
             trailing={
               <span className="font-mono text-caption text-ink-3 tabular-nums">
                 <RelativeTime iso={item.waiting.until} />

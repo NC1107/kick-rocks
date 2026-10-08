@@ -167,7 +167,7 @@
   /* Inset in dark, so a field reads as a hole in the surface rather than a raised plate */
   --kr-field: light-dark(#ffffff, #0f0f10);
   --kr-popover: light-dark(#ffffff, #2b2b31);
-  --kr-popover-hover: light-dark(#f0f2f4, #38383f);
+  --kr-popover-hover: light-dark(#f0f2f4, #303037);
   --kr-scrim: light-dark(rgb(15 17 19 / 0.45), rgb(0 0 0 / 0.55));
   /* The edge shade that tells a scrolling table there is more beyond it */
   --kr-shade: light-dark(rgb(15 17 19 / 0.12), rgb(0 0 0 / 0.4));
@@ -179,24 +179,24 @@
 
   /* Text. Never pure white on dark. ink-3 passes 4.5:1 on every layer, including hover and the light rail. */
   --kr-ink: light-dark(#1b1e22, #ededef);
-  --kr-ink-2: light-dark(#474d55, #ababb0);
-  --kr-ink-3: light-dark(#666d76, #8a8a96);
+  --kr-ink-2: light-dark(#474d55, #bebec4);
+  --kr-ink-3: light-dark(#5d646d, #9898a4);
 
   /* Accent roles: fill (buttons, markers), on (text on the fill), text (links), soft (washes) */
   --kr-accent-fill: light-dark(#4648d4, #5557e0);
   --kr-accent-fill-hover: light-dark(#3b3dc0, #6466e8);
   --kr-accent-on: #ffffff;
-  --kr-accent-text: light-dark(#4648d4, #818cf8);
+  --kr-accent-text: light-dark(#4648d4, #8f98f9);
   --kr-accent-soft: light-dark(#ececfc, #1c1c2d);
   --kr-focus: light-dark(#4648d4, #818cf8);
 
   /* State families: a shape fill, and a text color that passes AA on the surface */
   --kr-positive: light-dark(#16a34a, #22c55e);
-  --kr-positive-text: light-dark(#15803d, #4ade80);
+  --kr-positive-text: light-dark(#146c37, #4ade80);
   --kr-attention: light-dark(#d97706, #f59e0b);
-  --kr-attention-text: light-dark(#b45309, #fbbf24);
+  --kr-attention-text: light-dark(#9a4a08, #fbbf24);
   --kr-danger: light-dark(#dc2626, #ef4444);
-  --kr-danger-text: light-dark(#b91c1c, #f87171);
+  --kr-danger-text: light-dark(#b91c1c, #fa8080);
   --kr-danger-wash-text: light-dark(#b91c1c, #fca5a5);
   /* The one filled danger surface, for a confirm dialog's final button */
   --kr-danger-solid: #dc2626;
