@@ -1,4 +1,9 @@
-import { type Broker, contactMethodFor, type TargetPriority } from "@kickrocks/shared";
+import {
+  type Broker,
+  contactMethodFor,
+  rightsPageAsForm,
+  type TargetPriority,
+} from "@kickrocks/shared";
 
 const PRIORITY_RANK: Record<TargetPriority, number> = { crucial: 2, high: 1, normal: 0 };
 
@@ -24,7 +29,7 @@ function mergePair(primary: Broker, secondary: Broker): Broker {
     optOutUrl,
     privacyRightsUrl,
     searchUrl: primary.searchUrl ?? secondary.searchUrl,
-    contactMethod: contactMethodFor(privacyEmail, optOutUrl ?? privacyRightsUrl),
+    contactMethod: contactMethodFor(privacyEmail, optOutUrl ?? rightsPageAsForm(privacyRightsUrl)),
     requiresId: primary.requiresId || secondary.requiresId,
     requirements: Array.from(new Set([...primary.requirements, ...secondary.requirements])),
     priority: higherPriority(primary.priority, secondary.priority),

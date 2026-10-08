@@ -16,7 +16,6 @@ export { type BadboolReport, parseBadbool, parseBadboolReport } from "./import/b
 export { parseCaRegistry } from "./import/ca-registry.js";
 export { parseCuratedBrokers } from "./import/curated.js";
 export { parseEraserBrokers } from "./import/eraser.js";
-export { parseOpteryBrokers } from "./import/optery.js";
 export { type MergeOptions, mergeBrokers } from "./merge.js";
 
 const generatedFile = resolve(

@@ -85,8 +85,6 @@ describe("readPinnedUpstream", () => {
     ["eraser-brokers.yaml", "eraser.source.json", /Eraser/i],
     ["ERASER-LICENSE", "eraser.source.json", /MIT License/],
     ["ca-registry-2026.csv", "ca-registry.source.json", /Data broker name/],
-    ["optery-data-brokers.json", "optery.source.json", /"title"/],
-    ["OPTERY-LICENSE.md", "optery.source.json", /NonCommercial-ShareAlike 4.0/],
   ])("verifies the committed %s", (name, source, pattern) => {
     expect(readPinnedUpstream(name, { source })).toMatch(pattern);
   });

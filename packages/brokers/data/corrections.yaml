@@ -1,8 +1,8 @@
 # Fixes to imported broker records that were checked by hand against the broker's own pages.
 # They apply to every imported list before the lists merge, because an imported record always wins
 # over curated-brokers.yaml. Each entry names the pages it was read from and the day it was checked.
-# `pnpm data:build` fails when an entry matches no record, so drop an entry once its upstream list
-# carries the fix.
+# `pnpm data:build` fails when an entry matches no record or changes none of the records it matches,
+# so drop an entry once its upstream list carries the fix.
 corrections:
   - domain: thebridgecorp.com
     set:
@@ -26,13 +26,21 @@ corrections:
 
   - domain: mlxp.com
     set:
-      domain: mailinglists.com
       website: https://mailinglists.com
       email: privacy@mailinglists.com
     source_urls:
       - https://mailinglists.com/about/privacy-policy
     checked: 2026-10-07
-    note: 'mlxp.com redirects to mailinglists.com. The privacy policy of Infinite Media Concepts, Inc. (d/b/a MailingLists.com, last updated 2026-07-01) lists privacy@mailinglists.com.'
+    note: 'mlxp.com redirects to mailinglists.com. The privacy policy of Infinite Media Concepts, Inc. (d/b/a MailingLists.com, last updated 2026-07-01) lists privacy@mailinglists.com. The record keeps its own domain so it never merges into the infinite-media-concepts target.'
+
+  - domain: plug-industries.com
+    set:
+      email: blakehogan@plug-industries.com
+      privacy_rights_url: null
+    source_urls:
+      - https://cppa.ca.gov/data_broker_registry/registry.csv
+    checked: 2026-10-07
+    note: 'The 2026 California registry lists a named person as the only official contact. The /opt-out and /privacy-policy pages on plug-industries.com no longer exist, and the registry''s rights page is the home page, so there is no form to send people to.'
 
   - domain: nctue.com
     set:

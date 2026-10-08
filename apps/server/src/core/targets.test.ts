@@ -2,7 +2,7 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { targets } from "@kickrocks/db";
-import type { Broker, Company } from "@kickrocks/shared";
+import { API_ROUTES, type Broker, type Company, TargetDetail } from "@kickrocks/shared";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { datasetSources } from "../services.js";
 import { makeBroker, makeCompany } from "../test-utils/builders.js";
@@ -165,6 +165,20 @@ describe("sync", () => {
     expect(result.retired).toBe(1);
     expect(rows().find((r) => r.id === "gone")?.retired).toBe(true);
     expect(rows().find((r) => r.id === "keep")?.retired).toBe(false);
+  });
+
+  it("keeps the detail of a target retired from the 2025 registry readable", async () => {
+    const only2025 = makeBroker({
+      id: "audiencepoint-inc",
+      sources: [{ source: "ca-registry-2025", license: "public-record" }],
+    });
+    service({ brokers: brokers([only2025, makeBroker({ id: "keep" })]), companies: null }).sync();
+    service({ brokers: brokers([makeBroker({ id: "keep" })], "v2"), companies: null }).sync();
+
+    const result = await ctx.call(API_ROUTES.targetsGet, { params: { id: "audiencepoint-inc" } });
+    if (!result.ok) throw new Error("the retired target has no detail");
+    expect(result.body).toMatchObject({ retired: true, californiaRegistered: true });
+    expect(TargetDetail.safeParse(result.body).success).toBe(true);
   });
 
   it("brings a retired target back when it returns", () => {

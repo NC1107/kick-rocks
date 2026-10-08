@@ -73,7 +73,7 @@ const bareDomain: Partial<Record<Header, string>> = {
   "Data broker name:": "Bare Domain Co",
   "Data broker primary website:": "baredomain.example",
   "Data broker primary contact email address:":
-    "jane.doe@baredomain.example; privacy@baredomain.example",
+    "privacy@baredomain.example; legal@baredomain.example",
 };
 
 const nameless: Partial<Record<Header, string>> = {
@@ -89,48 +89,13 @@ const manySites: Partial<Record<Header, string>> = {
     "https://www.first.example/privacy;\nhttps://second.example/privacy",
 };
 
-const namedPerson: Partial<Record<Header, string>> = {
-  "Data broker name:": "Person Contact Co",
-  "Data broker primary website:": "https://personcontact.example",
-  "Data broker primary contact email address:": "joshua.hirsch@personcontact.example",
-  "Data broker's primary website that contains details on how consumers can exercise their CA Consumer Privacy rights:":
-    "https://personcontact.example/ccpa",
-};
-
-const accounting: Partial<Record<Header, string>> = {
-  "Data broker name:": "Accounting Contact Co",
-  "Data broker primary website:": "https://accountingcontact.example",
-  "Data broker primary contact email address:": "accounting@accountingcontact.example",
-};
-
-const foreignHost: Partial<Record<Header, string>> = {
-  "Data broker name:": "Foreign Host Co",
-  "Data broker primary website:": "https://foreignhost.example",
-  "Data broker primary contact email address:": "privacy@lawfirm.example",
-};
-
-const csv = csvOf(HEADERS, [
-  explorium,
-  bareDomain,
-  nameless,
-  manySites,
-  namedPerson,
-  accounting,
-  foreignHost,
-]);
+const csv = csvOf(HEADERS, [explorium, bareDomain, nameless, manySites]);
 
 describe("parseCaRegistry", () => {
   const brokers = parseCaRegistry(csv);
 
   it("skips nameless rows", () => {
-    expect(brokers.map((b) => b.id)).toEqual([
-      "explorium-inc",
-      "bare-domain-co",
-      "many-sites-llc",
-      "person-contact-co",
-      "accounting-contact-co",
-      "foreign-host-co",
-    ]);
+    expect(brokers.map((b) => b.id)).toEqual(["explorium-inc", "bare-domain-co", "many-sites-llc"]);
   });
 
   it("extracts contact, flags, regimes and metrics", () => {
@@ -169,7 +134,7 @@ describe("parseCaRegistry", () => {
     expect(explorer?.metrics?.deleteMedianDays).toBe(5);
   });
 
-  it("adds a scheme to bare domains and skips a named person for the next address", () => {
+  it("adds a scheme to bare domains and takes the first address of a list", () => {
     const bare = brokers[1];
     expect(bare?.website).toBe("https://baredomain.example");
     expect(bare?.privacyEmail).toBe("privacy@baredomain.example");
@@ -183,19 +148,6 @@ describe("parseCaRegistry", () => {
       privacyRightsUrl: "https://www.first.example/privacy",
       notes: "Other sites: https://second.example",
     });
-  });
-
-  it("falls back to the rights page when the contact is a named person", () => {
-    expect(brokers[3]).toMatchObject({
-      privacyEmail: null,
-      privacyRightsUrl: "https://personcontact.example/ccpa",
-      contactMethod: "form",
-    });
-  });
-
-  it("does not use an accounting inbox or a mailbox on another host as a privacy email", () => {
-    expect(brokers[4]).toMatchObject({ privacyEmail: null, contactMethod: "unknown" });
-    expect(brokers[5]).toMatchObject({ privacyEmail: null, contactMethod: "unknown" });
   });
 
   it("refuses a file whose columns it cannot find", () => {

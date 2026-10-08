@@ -71,6 +71,22 @@ describe("the target page", () => {
     expect(await screen.findByText("No way to contact them on file")).toBeVisible();
   });
 
+  it("opens a target that left the dataset, with the source it was stored under", async () => {
+    const mock = createMockApp();
+    const base = mock.store.targets.find((target) => target.id === "findrecord");
+    if (!base) throw new Error("the mock has no findrecord target");
+    mock.store.targets.push({
+      ...base,
+      id: "audiencepoint-inc",
+      name: "AudiencePoint",
+      retired: true,
+      sources: [{ source: "ca-registry-2025", license: "public-record" }],
+    });
+    open("audiencepoint-inc", mock);
+    expect(await screen.findByRole("heading", { name: "AudiencePoint", level: 1 })).toBeVisible();
+    expect(screen.getByText("California Data Broker Registry 2025")).toBeVisible();
+  });
+
   it("offers a way back when the target does not exist", async () => {
     open("not-a-target");
     expect(await screen.findByText("Target not found")).toBeVisible();

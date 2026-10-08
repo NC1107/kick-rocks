@@ -3,11 +3,12 @@ import {
   contactMethodFor,
   normalizeDomain,
   type RegulatoryRegime,
+  rightsPageAsForm,
   slugify,
   WebUrl,
 } from "@kickrocks/shared";
 import { parse } from "csv-parse/sync";
-import { usablePrivacyEmail } from "./privacy-email.js";
+import { z } from "zod";
 
 const DELETE = "requests to delete";
 const OPT_OUT = "requests to opt out of sale or sharing";
@@ -124,6 +125,12 @@ function urlOrNull(value: string): string | null {
   return webUrls(value)[0] ?? null;
 }
 
+function emailOrNull(value: string): string | null {
+  if (!value) return null;
+  const first = value.split(/[;,\s]+/)[0] ?? "";
+  return z.email().safeParse(first).success ? first : null;
+}
+
 function regimes(row: readonly string[], col: Columns): RegulatoryRegime[] {
   const out: RegulatoryRegime[] = [];
   if (yesNo(cell(row, col.fcra))) out.push("fcra");
@@ -160,16 +167,12 @@ export function parseCaRegistry(csvText: string): Broker[] {
     const websites = webUrls(cell(row, col.website));
     const website = websites[0] ?? null;
     const privacyRightsUrl = urlOrNull(cell(row, col.privacyRightsUrl));
-    const emailCell = cell(row, col.email);
+    const privacyEmail = emailOrNull(cell(row, col.email));
     const domain =
       (website && normalizeDomain(website)) ??
       (privacyRightsUrl && normalizeDomain(privacyRightsUrl)) ??
-      normalizeDomain(emailCell.split(/[;,\s]+/)[0]?.split("@")[1] ?? "");
+      (privacyEmail ? normalizeDomain(privacyEmail.split("@")[1] ?? "") : null);
     if (!domain) continue;
-    const privacyEmail = usablePrivacyEmail(emailCell, [
-      domain,
-      ...[...websites, privacyRightsUrl].map((url) => (url ? normalizeDomain(url) : null)),
-    ]);
     let id = slugify(name);
     if (!id) id = slugify(domain);
     if (seenIds.has(id)) id = `${id}-${slugify(domain)}`;
@@ -184,7 +187,7 @@ export function parseCaRegistry(csvText: string): Broker[] {
       optOutUrl: null,
       privacyRightsUrl,
       searchUrl: null,
-      contactMethod: contactMethodFor(privacyEmail, privacyRightsUrl),
+      contactMethod: contactMethodFor(privacyEmail, rightsPageAsForm(privacyRightsUrl)),
       region: "us",
       requiresId: false,
       requirements: [],

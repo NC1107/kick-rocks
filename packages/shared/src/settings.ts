@@ -160,6 +160,12 @@ export const DATA_SOURCE_DETAILS: Record<
     license: "MIT",
     attribution: null,
   },
+  "ca-registry-2025": {
+    name: "California Data Broker Registry 2025",
+    url: "https://cppa.ca.gov/data_broker_registry/registry2025.csv",
+    license: "Public record",
+    attribution: null,
+  },
   "ca-registry-2026": {
     name: "California Data Broker Registry 2026",
     url: "https://cppa.ca.gov/data_broker_registry/",
@@ -171,12 +177,6 @@ export const DATA_SOURCE_DETAILS: Record<
     url: "https://github.com/yaelwrites/Big-Ass-Data-Broker-Opt-Out-List",
     license: "CC BY-NC-SA 4.0",
     attribution: "Yael Grauer",
-  },
-  optery: {
-    name: "Optery Data Brokers Directory",
-    url: "https://github.com/optery/optery-data-brokers-directory",
-    license: "CC BY-NC-SA 4.0",
-    attribution: "Optery, Inc.",
   },
   kickrocks: {
     name: "Kick Rocks broker data",

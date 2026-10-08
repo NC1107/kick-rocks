@@ -90,7 +90,9 @@ export function toTargetSummary(row: TargetRow): TargetSummary {
     requirements: row.requirements,
     priority: row.priority,
     needsRecord: needsRecord({ id: row.id, category: row.category }),
-    californiaRegistered: row.data.sources.some((source) => source.source === "ca-registry-2026"),
+    californiaRegistered: row.data.sources.some(
+      (source) => source.source === "ca-registry-2025" || source.source === "ca-registry-2026",
+    ),
     retired: row.retired,
   };
 }

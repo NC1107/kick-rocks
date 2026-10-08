@@ -16,11 +16,12 @@ export type BrokerCategory = z.infer<typeof BrokerCategory>;
 export const ContactMethod = z.enum(["email", "form", "both", "unknown"]);
 export type ContactMethod = z.infer<typeof ContactMethod>;
 
+/** "ca-registry-2025" is no longer imported, but targets that left the dataset keep it in their stored sources. */
 export const DataSourceId = z.enum([
   "eraser",
+  "ca-registry-2025",
   "ca-registry-2026",
   "badbool",
-  "optery",
   "kickrocks",
   "kickrocks-companies",
 ]);
@@ -113,7 +114,7 @@ export const BROKER_DATASET_LICENSE = "CC-BY-NC-SA-4.0";
 
 /** Credit that has to travel with the generated file wherever it goes. */
 export const BROKER_DATASET_ATTRIBUTION =
-  "Contains data from the Big Ass Data Broker Opt-Out List by Yael Grauer (CC BY-NC-SA 4.0), the Optery Data Brokers Directory (CC BY-NC-SA 4.0), the Eraser broker list (MIT), and the California Data Broker Registry (public record).";
+  "Contains data from the Big Ass Data Broker Opt-Out List by Yael Grauer (CC BY-NC-SA 4.0), the Eraser broker list (MIT), and the California Data Broker Registry (public record).";
 
 export const BrokerDataset = z.object({
   generatedAt: z.iso.datetime(),
@@ -131,6 +132,20 @@ export function contactMethodFor(
   if (privacyEmail) return "email";
   if (optOutUrl) return "form";
   return "unknown";
+}
+
+/**
+ * A registry lists a rights page for every broker, and some give their front page. That is where a
+ * visitor starts looking, not a form that takes a request, so it must not make the target a form.
+ */
+export function rightsPageAsForm(url: string | null): string | null {
+  if (!url) return null;
+  try {
+    const { pathname, search, hash } = new URL(url);
+    return pathname === "/" && search === "" && hash === "" ? null : url;
+  } catch {
+    return url;
+  }
 }
 
 /** Strips scheme, credentials, port, path, and a leading www so two records for one site collide. */

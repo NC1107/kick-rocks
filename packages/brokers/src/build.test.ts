@@ -1,4 +1,9 @@
-import { needsRecord, normalizeDomain, RECORD_NOT_NEEDED } from "@kickrocks/shared";
+import {
+  needsRecord,
+  normalizeDomain,
+  RECORD_NOT_NEEDED,
+  rightsPageAsForm,
+} from "@kickrocks/shared";
 import { describe, expect, it } from "vitest";
 import { buildDataset, loadPinnedIds, pinNewIds } from "./build.js";
 import { readPinnedUpstream } from "./upstream.js";
@@ -12,7 +17,6 @@ describe("the generated broker dataset", () => {
   it("carries its license and attribution", () => {
     expect(dataset.license).toBe("CC-BY-NC-SA-4.0");
     expect(dataset.attribution).toMatch(/Yael Grauer/);
-    expect(dataset.attribution).toMatch(/Optery/);
   });
 
   it("has a valid hostname for every broker, so no site is listed twice under a broken domain", () => {
@@ -65,7 +69,7 @@ describe("the generated broker dataset", () => {
     expect(byId.get("smartbackgroundchecks")?.domain).toBe("smartbackgroundchecks.com");
   });
 
-  it("leaves Radaris out because the BADBOOL list dropped it when its domains were transferred", () => {
+  it("leaves Radaris out because the BADBOOL list dropped it", () => {
     expect(dataset.brokers.some((broker) => broker.domain === "radaris.com")).toBe(false);
   });
 
@@ -75,7 +79,6 @@ describe("the generated broker dataset", () => {
       "badbool",
       "eraser",
       "ca-registry-2026",
-      "optery",
     ]);
     expect(whitepages?.optOutUrl).toBe("https://www.whitepages.com/suppression_requests");
     expect(whitepages?.priority).toBe("crucial");
@@ -90,28 +93,36 @@ describe("the generated broker dataset", () => {
     });
     expect(byDomain.get("foursquare.com")?.privacyEmail).toBe("privacy@foursquare.com");
     expect(byDomain.get("nctue.com")?.privacyEmail).toBe("admin@nctue.com");
-    expect(byDomain.get("mailinglists.com")).toMatchObject({
+    expect(byDomain.get("mlxp.com")).toMatchObject({
       privacyEmail: "privacy@mailinglists.com",
       website: "https://mailinglists.com",
     });
-    expect(byDomain.has("mlxp.com")).toBe(false);
   });
 
-  it("uses no California registry contact that is a named person or on a foreign host", () => {
+  it("keeps the infinite-media-concepts id when mlxp.com is corrected, so open requests still resolve", () => {
+    const byId = new Map(dataset.brokers.map((broker) => [broker.id, broker]));
+    expect(byId.get("infinite-media-concepts")?.domain).toBe("mlxp.com");
+    expect(pinned["mlxp.com"]).toBe("infinite-media-concepts");
+  });
+
+  it("keeps plug-industries by its only official contact and sends nobody to a home page as a form", () => {
     const plug = dataset.brokers.find((broker) => broker.domain === "plug-industries.com");
     expect(plug?.sources.map((source) => source.source)).toEqual(["ca-registry-2026"]);
-    expect(plug?.privacyEmail).toBeNull();
+    expect(plug).toMatchObject({
+      privacyEmail: "blakehogan@plug-industries.com",
+      privacyRightsUrl: null,
+      contactMethod: "email",
+    });
   });
 
-  it("carries the Optery directory with its own license", () => {
-    const optery = dataset.brokers.filter((broker) =>
-      broker.sources.some((source) => source.source === "optery"),
+  it("never calls a registry rights page that is a bare home page a form", () => {
+    const homePageForms = dataset.brokers.filter(
+      (broker) =>
+        broker.contactMethod === "form" &&
+        broker.optOutUrl === null &&
+        rightsPageAsForm(broker.privacyRightsUrl) === null,
     );
-    expect(optery.length).toBeGreaterThan(500);
-    for (const broker of optery) {
-      const source = broker.sources.find((s) => s.source === "optery");
-      expect(source?.license, broker.id).toBe("CC-BY-NC-SA-4.0");
-    }
+    expect(homePageForms.map((broker) => broker.id)).toEqual([]);
   });
 
   it("fills a field BADBOOL lacks from Eraser", () => {

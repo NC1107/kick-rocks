@@ -85,6 +85,32 @@ describe("applyCorrections", () => {
       applyCorrections([[broker({ domain: "other.example" })]], parseCorrections(yaml)),
     ).toThrow(/match no imported record: acme.example/);
   });
+
+  it("refuses a correction that changes none of the records it matches", () => {
+    expect(() =>
+      applyCorrections(
+        [
+          [
+            broker({
+              privacyEmail: "privacy@acme.example",
+              privacyRightsUrl: "https://acme.example/ccpa",
+              contactMethod: "both",
+            }),
+          ],
+        ],
+        parseCorrections(yaml),
+      ),
+    ).toThrow(/change nothing.*acme.example/);
+  });
+
+  it("keeps a correction that still changes one of several lists", () => {
+    const fixed = broker({
+      privacyEmail: "privacy@acme.example",
+      privacyRightsUrl: "https://acme.example/ccpa",
+      contactMethod: "both",
+    });
+    expect(() => applyCorrections([[fixed], [broker({})]], parseCorrections(yaml))).not.toThrow();
+  });
 });
 
 describe("parseCorrections", () => {

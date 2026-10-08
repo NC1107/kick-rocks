@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { contactMethodFor, normalizeDomain, slugify } from "./broker.js";
+import { contactMethodFor, normalizeDomain, rightsPageAsForm, slugify } from "./broker.js";
 
 describe("normalizeDomain", () => {
   it("strips scheme, www, path, and case", () => {
@@ -24,6 +24,14 @@ describe("contactMethodFor", () => {
     expect(contactMethodFor("privacy@x.com", null)).toBe("email");
     expect(contactMethodFor(null, "https://x.com/optout")).toBe("form");
     expect(contactMethodFor(null, null)).toBe("unknown");
+  });
+
+  it("does not take a bare home page for a rights form", () => {
+    expect(rightsPageAsForm("https://x.com")).toBeNull();
+    expect(rightsPageAsForm("https://www.x.com/")).toBeNull();
+    expect(rightsPageAsForm(null)).toBeNull();
+    expect(rightsPageAsForm("https://x.com/ccpa")).toBe("https://x.com/ccpa");
+    expect(rightsPageAsForm("https://x.com/?optout=1")).toBe("https://x.com/?optout=1");
   });
 });
 

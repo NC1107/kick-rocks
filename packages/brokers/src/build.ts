@@ -18,7 +18,6 @@ import { parseBadboolReport } from "./import/badbool.js";
 import { parseCaRegistry } from "./import/ca-registry.js";
 import { parseCuratedBrokers } from "./import/curated.js";
 import { parseEraserBrokers } from "./import/eraser.js";
-import { parseOpteryBrokers } from "./import/optery.js";
 import { loadCompanyDataset } from "./index.js";
 import { mergeBrokers } from "./merge.js";
 import { readBundledRecipes, unpairedRecipeSenders } from "./recipe-senders.js";
@@ -29,7 +28,6 @@ const here = dirname(fileURLToPath(import.meta.url));
 const dataDir = resolve(here, "..", "data");
 const ERASER_PIN = "eraser.source.json";
 const CA_REGISTRY_PIN = "ca-registry.source.json";
-const OPTERY_PIN = "optery.source.json";
 const bundledRecipesDir = resolve(here, "..", "..", "recipes", "recipes");
 const outFile = resolve(dataDir, "generated", "brokers.json");
 export const IDS_FILE = resolve(dataDir, "ids.json");
@@ -46,7 +44,6 @@ export function buildDataset(
 ): BrokerDataset {
   readPinnedUpstream("BADBOOL-LICENSE.md");
   readPinnedUpstream("ERASER-LICENSE", { source: ERASER_PIN });
-  readPinnedUpstream("OPTERY-LICENSE.md", { source: OPTERY_PIN });
   const badbool = parseBadboolReport(readPinnedUpstream("BADBOOL-README.md")).brokers;
   const curated = parseCuratedBrokers(
     readFileSync(resolve(dataDir, "curated-brokers.yaml"), "utf8"),
@@ -57,14 +54,11 @@ export function buildDataset(
   const registry = parseCaRegistry(
     readPinnedUpstream("ca-registry-2026.csv", { source: CA_REGISTRY_PIN }),
   );
-  const optery = parseOpteryBrokers(
-    readPinnedUpstream("optery-data-brokers.json", { source: OPTERY_PIN }),
-  );
   const companyDomains = loadCompanyDataset().companies.map((company) => company.domain);
   const excluded = parseExclusions(readFileSync(resolve(dataDir, "excluded.yaml"), "utf8"));
   const imported = applyCorrections(
     dropExcluded(
-      [badbool, eraser, registry, optery],
+      [badbool, eraser, registry],
       new Set([...excluded.map((entry) => entry.domain), ...companyDomains]),
     ),
     parseCorrections(readFileSync(resolve(dataDir, "corrections.yaml"), "utf8")),

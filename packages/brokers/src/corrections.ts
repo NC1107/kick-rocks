@@ -1,4 +1,10 @@
-import { type Broker, contactMethodFor, normalizeDomain, WebUrl } from "@kickrocks/shared";
+import {
+  type Broker,
+  contactMethodFor,
+  normalizeDomain,
+  rightsPageAsForm,
+  WebUrl,
+} from "@kickrocks/shared";
 import { parse } from "yaml";
 import { z } from "zod";
 
@@ -48,25 +54,40 @@ function correct(broker: Broker, { set }: Correction): Broker {
     privacyEmail,
     optOutUrl,
     privacyRightsUrl,
-    contactMethod: contactMethodFor(privacyEmail, optOutUrl ?? privacyRightsUrl),
+    contactMethod: contactMethodFor(privacyEmail, optOutUrl ?? rightsPageAsForm(privacyRightsUrl)),
   };
+}
+
+function changesRecord(broker: Broker, correction: Correction): boolean {
+  const corrected = correct(broker, correction);
+  return (
+    corrected.domain !== broker.domain ||
+    corrected.website !== broker.website ||
+    corrected.privacyEmail !== broker.privacyEmail ||
+    corrected.optOutUrl !== broker.optOutUrl ||
+    corrected.privacyRightsUrl !== broker.privacyRightsUrl
+  );
 }
 
 /**
  * Applies hand-checked fixes to imported records before they merge, because an imported record
  * always wins over the curated list and an upstream list can be wrong for a long time. A correction
- * that matches no record is an error: the upstream list was fixed or dropped the broker, and the
- * correction is stale.
+ * is stale, and an error, when it matches no record (the upstream list dropped the broker) or when
+ * it changes none of the records it matches (the upstream list carries the fix now).
  */
 export function applyCorrections(
   lists: readonly (readonly Broker[])[],
   corrections: readonly Correction[],
 ): Broker[][] {
   const matched = new Set<Correction>();
+  const changed = new Set<Correction>();
   const corrected = lists.map((list) =>
     list.map((broker) => {
       const found = corrections.filter((correction) => correction.domain === broker.domain);
-      for (const correction of found) matched.add(correction);
+      for (const correction of found) {
+        matched.add(correction);
+        if (changesRecord(broker, correction)) changed.add(correction);
+      }
       return found.reduce(correct, broker);
     }),
   );
@@ -74,6 +95,14 @@ export function applyCorrections(
   if (stale.length > 0) {
     throw new Error(
       `corrections match no imported record: ${stale.map((c) => c.domain).join(", ")}`,
+    );
+  }
+  const redundant = corrections.filter(
+    (correction) => matched.has(correction) && !changed.has(correction),
+  );
+  if (redundant.length > 0) {
+    throw new Error(
+      `corrections change nothing because upstream already carries them: ${redundant.map((c) => c.domain).join(", ")}`,
     );
   }
   return corrected;

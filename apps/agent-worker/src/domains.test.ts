@@ -43,6 +43,12 @@ describe("allowedSitesFor", () => {
     expect(withinSites("https://app.privacyportal.test/other-shop/requests", sites)).toBe(false);
   });
 
+  it("does not trust the front page of another host as a privacy rights page", () => {
+    const sites = allowedSitesFor(target({ privacyRightsUrl: "https://www.other-host.test" }));
+    expect(sites.pages).toEqual([]);
+    expect(withinSites("https://other-host.test/optout-contact-info", sites)).toBe(false);
+  });
+
   it("trusts the website host as a whole when it differs from the domain", () => {
     expect(
       allowedSitesFor(target({ domain: "brand.test", website: "https://www.parent.test/" }))
