@@ -620,7 +620,8 @@ describeBrowser("the rules the code enforces", () => {
         "navigator.serviceWorker.getRegistrations().then((all) => all.length)",
       );
       expect(registrations).toBe(0);
-      await rm(profileDir, { recursive: true, force: true });
+      await context.close();
+      await rm(profileDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
     });
   });
 
