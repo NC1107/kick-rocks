@@ -1,5 +1,5 @@
 import { createRedactor } from "@kickrocks/recipes";
-import type { ProfileFields } from "@kickrocks/shared";
+import { type ProfileFields, US_STATES } from "@kickrocks/shared";
 
 type Redact = (text: string) => string;
 
@@ -57,6 +57,33 @@ function redactorFor(entries: [string, string][]): Redact {
   return (text) => redactors.reduce((current, redact) => redact(current), text);
 }
 
+/**
+ * A state is two letters, which the redactor ignores because a short value would match inside
+ * ordinary words. Here the code is matched only as a whole word in capitals, and the state's full
+ * name is hidden with it, since a page spells the same state both ways.
+ */
+function stateRedactor(entries: [string, string][]): Redact {
+  const rules = entries.flatMap(([name, value]): [RegExp, string][] => {
+    const text = value.trim();
+    const isCode = /^[A-Za-z]{2}$/.test(text);
+    if (name !== "state" && !(isCode && text === text.toUpperCase())) return [];
+    const state = US_STATES.find(
+      (candidate) =>
+        candidate.code === text.toUpperCase() ||
+        (name === "state" && candidate.name.toLowerCase() === text.toLowerCase()),
+    );
+    if (!state) return [];
+    const label = `{{${name}}}`;
+    const spelledOut = state.name.replace(/ /g, String.raw`\s+`);
+    return [
+      [new RegExp(`(?<![A-Za-z0-9])${state.code}(?![A-Za-z0-9])`, "g"), label],
+      [new RegExp(`(?<![A-Za-z0-9])${spelledOut}(?![A-Za-z0-9])`, "gi"), label],
+    ];
+  });
+  return (text) =>
+    rules.reduce((current, [pattern, label]) => current.replace(pattern, label), text);
+}
+
 type NamedValues = Record<string, string | undefined>;
 
 /**
@@ -104,5 +131,6 @@ export function createMask(fields: ProfileFields, hidden: readonly string[] = []
     ),
   );
   // The long spellings go first: a date such as 04/05/1990 must not lose its year to the birth year alone.
-  return (text) => plain(reformatted(text));
+  const states = stateRedactor(entries);
+  return (text) => states(plain(reformatted(text)));
 }

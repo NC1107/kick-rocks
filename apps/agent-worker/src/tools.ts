@@ -9,6 +9,7 @@ const Ref = z
   .regex(/^e\d{1,5}$/, "A ref looks like e12 and comes from the latest snapshot");
 
 export const NavigateArgs = z.object({ url: z.string().min(1).max(2000) });
+export const SnapshotArgs = z.object({ part: z.number().int().min(1).max(100).optional() });
 export const ClickArgs = z.object({ ref: Ref });
 /**
  * The model names a field and never supplies the text, so nothing it makes up, or a page talks it
@@ -74,8 +75,11 @@ export const TOOL_SPECS: ToolSpec[] = [
   {
     name: "snapshot",
     description:
-      "Read the current page again: headings, text, and the controls you can use, each with a ref.",
-    parameters: object({}, []),
+      "Read the current page again: headings, text, and the controls you can use, each with a ref. A long page is split into parts, and the first is shown. Pass part to read the next one, and read every part before you decide a control is not there.",
+    parameters: object(
+      { part: { type: "integer", description: "Which part of a long page to read, from 1." } },
+      [],
+    ),
   },
   {
     name: "click",

@@ -4,6 +4,7 @@ import {
   ClickArgs,
   ReportArgs,
   SelectArgs,
+  SnapshotArgs,
   TOOL_NAMES,
   TOOL_SPECS,
   TypeArgs,
@@ -53,6 +54,14 @@ describe("argument schemas", () => {
       ref: "e1",
       field: "email",
     });
+  });
+
+  it("reads a part of a long page by number, from 1", () => {
+    expect(SnapshotArgs.safeParse({}).success).toBe(true);
+    expect(SnapshotArgs.safeParse({ part: 3 }).success).toBe(true);
+    for (const part of [0, -1, 1.5, "2", 101]) {
+      expect(SnapshotArgs.safeParse({ part }).success, String(part)).toBe(false);
+    }
   });
 
   it("selects by field or by option, not both and not neither", () => {

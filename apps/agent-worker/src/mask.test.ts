@@ -22,9 +22,42 @@ describe("createMask", () => {
     );
   });
 
-  it("ignores case, and leaves values too short to be safe to replace", () => {
+  it("ignores case, and leaves a short value that is not a state alone", () => {
     expect(mask("JORDAN EXAMPLE")).toBe("{{full_name}}");
-    expect(mask("Austin, TX")).toBe("Austin, TX");
+    expect(createMask({ city: "Ox" })("Ox lives in Oxford")).toBe("Ox lives in Oxford");
+  });
+
+  describe("a state", () => {
+    it("hides the postal code as a whole word, and the full name with it", () => {
+      expect(mask("Austin, TX 78701")).toBe("Austin, {{state}} 78701");
+      expect(mask("Texas, the Lone Star State")).toBe("{{state}}, the Lone Star State");
+      expect(mask("state=TX&x=1")).toBe("state={{state}}&x=1");
+    });
+
+    it("leaves the same letters inside other words, and in lower case, alone", () => {
+      expect(mask("TXT messages, the NEXT TXN")).toBe("TXT messages, the NEXT TXN");
+      expect(mask("see tx notes")).toBe("see tx notes");
+    });
+
+    it("does not hide a state that is not the person's", () => {
+      expect(mask("Portland, OR and Ohio")).toBe("Portland, OR and Ohio");
+    });
+
+    it("hides a state the task has no field for, under the name the program gave it", () => {
+      const hidden = createMask({ full_name: "Jordan Example" }, ["Jordan Example", "CA"]);
+      expect(hidden("Moved from CA in 2019")).toBe("Moved from {{other_1}} in 2019");
+      expect(hidden("California")).toBe("{{other_1}}");
+    });
+
+    it("matches a state the profile stores as a full name", () => {
+      expect(createMask({ state: "Texas" })("Austin, TX and Texas")).toBe(
+        "Austin, {{state}} and {{state}}",
+      );
+    });
+
+    it("does not treat another two-letter value that is not a state code as a state", () => {
+      expect(createMask({ city: "Xx" }, ["Xx"])("Xx here")).toBe("Xx here");
+    });
   });
 
   it("hides a phone number and a date of birth however a page's input mask spells them", () => {

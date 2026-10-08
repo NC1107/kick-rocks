@@ -70,6 +70,10 @@ const PAGES: Record<string, string> = {
   "/sw-popup-open-first": "sw-popup-open-first.html",
   "/return-link": "return-link.html",
   "/onchange": "onchange.html",
+  "/late-captcha": "late-captcha.html",
+  "/cookie-banner": "cookie-banner.html",
+  "/long-form": "long-form.html",
+  "/detail-selects": "detail-selects.html",
 };
 
 function escapeHtml(text: string): string {

@@ -33,6 +33,16 @@ describe("buildSystemPrompt", () => {
     expect(prompt).toContain("CAPTCHA or bot check ends your run");
   });
 
+  it("tells the model how to read the rest of a long page and what to do about an overlay", () => {
+    expect(prompt).toContain("snapshot with part 2");
+    expect(prompt).toContain("Read every part before you decide");
+    expect(prompt).toContain("an overlay covers the page");
+  });
+
+  it("says that a dropdown asking for a detail of the person is answered by field or not at all", () => {
+    expect(prompt).toContain("a date of birth or a state, can only be answered with select");
+  });
+
   it("says none when the task carries no fields", () => {
     const bare = buildSystemPrompt({
       task,
