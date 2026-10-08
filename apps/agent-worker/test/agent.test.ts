@@ -740,6 +740,26 @@ describeBrowser("human checks", () => {
     expect((await fixtureState()).hits.map((hit) => hit.path)).toEqual(["/limited"]);
   });
 
+  it("stops when a search call made in the background answers 429", async () => {
+    const { outcome, provider } = await run(
+      [
+        navigate("/xhr-search"),
+        (v) => ({ calls: [["click", { ref: v.ref("Run search") }]] }),
+        navigate("/optout"),
+      ],
+      { task: agentTask({ payload: { purpose: "scan" } }) },
+    );
+    expect(outcome.report).toMatchObject({
+      kind: "fail",
+      report: {
+        retryable: true,
+        kind: "site",
+        site: { pushback: { kind: "rate_limited", status: 429, retryAfterSeconds: 180 } },
+      },
+    });
+    expect(provider.requests).toHaveLength(2);
+  });
+
   it("tells the server about a Cloudflare challenge, and does not try to pass it", async () => {
     const { outcome } = await run([navigate("/cf-challenge")]);
     expect(outcome.report).toMatchObject({

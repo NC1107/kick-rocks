@@ -16,6 +16,7 @@ const STATUS: Record<string, number> = {
   "/wall/blank": 403,
   "/boom": 500,
   "/limited": 429,
+  "/limited-redirect": 429,
   "/unavailable": 503,
 };
 
@@ -106,7 +107,8 @@ export async function startFixtureServer(): Promise<FixtureServer> {
       await sendFile(response, "/captcha/widget", 200);
       return;
     }
-    if (url.pathname === "/limited") response.setHeader("retry-after", "120");
+    if (url.pathname === "/limited" || url.pathname === "/limited-redirect")
+      response.setHeader("retry-after", "120");
     if (url.pathname === "/unavailable") response.setHeader("retry-after", "30");
     if (url.pathname === "/wall/cloudflare") {
       response.setHeader("cf-mitigated", "challenge");

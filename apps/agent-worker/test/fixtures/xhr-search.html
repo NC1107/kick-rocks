@@ -1,0 +1,9 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Search - Fixture Broker</title></head>
+<body>
+<h1>Search</h1>
+<button type="button" onclick="fetch('/limited').then((answer) => { document.getElementById('out').textContent = answer.ok ? 'found' : 'try later'; })">Run search</button>
+<p id="out"></p>
+</body>
+</html>

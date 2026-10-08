@@ -253,6 +253,15 @@ export function pushbackKindForStatus(status: number): PushbackKind | null {
 }
 
 /**
+ * Pushback in the answer to a background request (XHR or fetch). A 403 there is often a harmless
+ * auth check, so only a rate limit, an outage, or a bot-management challenge counts.
+ */
+export function backgroundPushbackKind(status: number, challenged: boolean): PushbackKind | null {
+  if (challenged) return "challenge";
+  return status === 429 || status === 503 ? pushbackKindForStatus(status) : null;
+}
+
+/**
  * Reads a Retry-After header, which is either a number of seconds or an HTTP date, as seconds from
  * now. Anything unreadable or in the past is ignored, and a huge value is cut to the longest one
  * believed.

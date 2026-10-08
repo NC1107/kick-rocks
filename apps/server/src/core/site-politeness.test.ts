@@ -456,6 +456,74 @@ describe("pushback", () => {
     });
     expect(status("a.test")?.consecutivePushback ?? 0).toBe(0);
   });
+
+  it("keeps a CAPTCHA block as pushback when the client sends only a crawl delay", async () => {
+    const a = site("a.test");
+    queueScan(a.id);
+    const claimed = claim() as ClaimedTask;
+    await ctx.call(API_ROUTES.workerTaskBlock, {
+      params: { id: claimed.id },
+      body: {
+        workerId: "worker-1",
+        reason: "captcha",
+        detail: "A CAPTCHA is on the page.",
+        site: { crawlDelaySeconds: 10 },
+      },
+    });
+    expect(status("a.test")).toMatchObject({
+      lastPushbackKind: "captcha",
+      consecutivePushback: 1,
+      crawlDelaySeconds: 10,
+    });
+  });
+
+  it("keeps a failure's implied 429 when the client sends only a crawl delay", async () => {
+    const a = site("a.test");
+    queueScan(a.id);
+    const claimed = claim() as ClaimedTask;
+    const response = await ctx.call(API_ROUTES.workerTaskFail, {
+      params: { id: claimed.id },
+      body: {
+        workerId: "worker-1",
+        error: "The site answered 429",
+        retryable: true,
+        kind: "site",
+        site: { crawlDelaySeconds: 10 },
+      },
+    });
+    expect(response.ok).toBe(true);
+    expect(taskRow(claimed.id).status).toBe("queued");
+    expect(status("a.test")).toMatchObject({ lastPushbackKind: "rate_limited" });
+  });
+
+  it("does not finish a scan that came back empty after the site pushed back", async () => {
+    const a = site("a.test");
+    queueScan(a.id);
+    const claimed = claim() as ClaimedTask;
+    await complete(claimed, { pushback: rateLimited(10 * 3600) }, { candidates: [] });
+
+    const row = taskRow(claimed.id);
+    expect(row.status).toBe("queued");
+    expect(row.attempts).toBe(0);
+    expect(row.runAfter).toBe(new Date(ctx.clock.now().getTime() + 10 * HOUR).toISOString());
+    expect(status("a.test")).toMatchObject({ consecutivePushback: 1, breaker: "closed" });
+    const scan = ctx.services.db.select().from(scans).all();
+    expect(scan.every((entry) => entry.finishedAt === null)).toBe(true);
+  });
+
+  it("finishes a scan that found a record even though the site pushed back later", async () => {
+    const a = site("a.test");
+    queueScan(a.id);
+    const claimed = claim() as ClaimedTask;
+    const record = {
+      recordUrl: "https://a.test/p/1",
+      name: "Jordan Example",
+      locations: ["Springfield, ST"],
+    };
+    await complete(claimed, { pushback: rateLimited() }, { candidates: [record] });
+    expect(taskRow(claimed.id).status).toBe("done");
+    expect(status("a.test")).toMatchObject({ consecutivePushback: 1 });
+  });
 });
 
 describe("the circuit breaker", () => {

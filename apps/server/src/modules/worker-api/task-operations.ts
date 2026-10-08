@@ -141,6 +141,55 @@ function showsSiteWorking(task: Task): boolean {
   return scan.candidates.length > 0 || scan.noResultsShown === true;
 }
 
+/**
+ * Whether a result a client is about to report is a scan that found nobody and never saw the
+ * site's own "no results" message. It reads the raw result because the task must not complete
+ * first: completing is what saves the scan as finished.
+ */
+function reportsUnconfirmedEmptyScan(task: Task, result: unknown): boolean {
+  const scan = task.kind === "agent" ? (result as { scan?: unknown } | null)?.scan : result;
+  if (task.kind !== "scan" && !(task.kind === "agent" && task.payload.purpose === "scan")) {
+    return false;
+  }
+  const { candidates, noResultsShown } = (scan ?? {}) as {
+    candidates?: unknown;
+    noResultsShown?: unknown;
+  };
+  return Array.isArray(candidates) && candidates.length === 0 && noResultsShown !== true;
+}
+
+/** What a client said of the site, with what the report itself implies filling in a missing pushback. */
+function withImplied(
+  site: SiteObservation | undefined,
+  implied: SiteObservation | undefined,
+): SiteObservation | undefined {
+  const pushback = site?.pushback ?? implied?.pushback;
+  if (site === undefined && pushback === undefined) return undefined;
+  return { ...site, ...(pushback === undefined ? {} : { pushback }) };
+}
+
+/** Holds a task back until its site's cooldown ends, without using an attempt. */
+function deferUntilCalm(
+  taskQueue: OperationServices["taskQueue"],
+  caller: Caller,
+  taskId: string,
+  workerId: string,
+  outcome: PushbackOutcome,
+  message: string,
+  usage: TaskUsage | undefined,
+): Task {
+  return taskQueue.defer(taskId, {
+    workerId,
+    until: new Date(outcome.cooldownUntil),
+    reason: `${message} The site is being left alone until ${outcome.cooldownUntil}.`.slice(
+      0,
+      2000,
+    ),
+    actor: caller.actor,
+    usage,
+  });
+}
+
 export function createTaskOperations(services: OperationServices, caller: Caller): TaskOperations {
   const { taskQueue, clock, politeness } = services;
 
@@ -196,8 +245,23 @@ export function createTaskOperations(services: OperationServices, caller: Caller
 
     complete(taskId, { workerId, result, usage, site }) {
       authorize(taskId);
-      observeBeforeTransition(taskId, site);
+      const outcome = observeBeforeTransition(taskId, site);
       return services.db.transaction(() => {
+        // An empty search after the site pushed back says nothing about the person, so the scan is
+        // not finished: the task waits out the cooldown and searches again.
+        if (outcome && reportsUnconfirmedEmptyScan(taskQueue.getOrThrow(taskId), result)) {
+          return summarize(
+            deferUntilCalm(
+              taskQueue,
+              caller,
+              taskId,
+              workerId,
+              outcome,
+              "The site pushed back before the search showed anything.",
+              usage,
+            ),
+          );
+        }
         const done = taskQueue.complete(taskId, { workerId, result, usage, actor: caller.actor });
         if (!site?.pushback && showsSiteWorking(done)) politeness.recordClean(done);
         return summarize(done);
@@ -206,7 +270,7 @@ export function createTaskOperations(services: OperationServices, caller: Caller
 
     block(taskId, { workerId, reason, detail, url, screenshot, usage, site }) {
       authorize(taskId);
-      const seen = site ?? impliedByBlock(reason);
+      const seen = withImplied(site, impliedByBlock(reason));
       observeBeforeTransition(taskId, seen);
       return services.db.transaction(() => {
         const blocked = taskQueue.block(taskId, {
@@ -233,22 +297,16 @@ export function createTaskOperations(services: OperationServices, caller: Caller
           },
         ]);
       }
-      const outcome = observeBeforeTransition(taskId, site ?? impliedByError(error, kind));
+      const outcome = observeBeforeTransition(
+        taskId,
+        withImplied(site, impliedByError(error, kind)),
+      );
       return services.db.transaction(() => {
         if (outcome) {
           // A site that pushes back is left alone until its cooldown ends: no retry on the usual
           // backoff, no attempt used, and no hand-off to an agent that would try again sooner.
           return summarize(
-            taskQueue.defer(taskId, {
-              workerId,
-              until: new Date(outcome.cooldownUntil),
-              reason: `${error} The site is being left alone until ${outcome.cooldownUntil}.`.slice(
-                0,
-                2000,
-              ),
-              actor: caller.actor,
-              usage,
-            }),
+            deferUntilCalm(taskQueue, caller, taskId, workerId, outcome, error, usage),
           );
         }
         return summarize(

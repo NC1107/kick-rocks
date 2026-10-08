@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>People search</title>
+</head>
+<body>
+
+<h1>Find a person</h1>
+<form id="search">
+  <label for="fn">First name</label><input id="fn" name="first" type="text">
+  <label for="ln">Last name</label><input id="ln" name="last" type="text">
+  <button type="submit">Search</button>
+</form>
+<div id="results"></div>
+<script>
+  document.getElementById("search").addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const answer = await fetch("/limited");
+    if (answer.ok) document.getElementById("results").textContent = "found";
+  });
+</script>
+
+</body>
+</html>

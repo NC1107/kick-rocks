@@ -59,6 +59,7 @@ const PAGES: Record<string, string> = {
   "/wandering": "wandering.html",
   "/nested": "nested.html",
   "/spa": "spa.html",
+  "/xhr-search": "xhr-search.html",
   "/details": "details.html",
   "/sw-register": "sw-register.html",
   "/sw-form": "sw-form.html",

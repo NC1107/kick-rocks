@@ -142,6 +142,32 @@ describeBrowser("what a run reports about a site that pushes back", () => {
     });
   });
 
+  it("reports a 429 that sends the browser on to a friendly 200 page as the site pushing back", async () => {
+    const outcome = await visit(
+      "/ps/index-limited-redirect",
+      {},
+      { fields: ["first_name", "last_name"], steps: [...searchAfterSubmit] },
+    );
+    expect(outcome).toMatchObject({
+      status: "blocked",
+      site: { pushback: { kind: "rate_limited", status: 429, retryAfterSeconds: 120 } },
+    });
+  });
+
+  it("reports a search call that answers 429 in the background", async () => {
+    const outcome = await visit(
+      "/ps/index-xhr-limited",
+      {},
+      { fields: ["first_name", "last_name"], steps: [...searchAfterSubmit] },
+    );
+    expect(outcome).toMatchObject({
+      status: "failed",
+      kind: "site",
+      retryable: true,
+      site: { pushback: { kind: "rate_limited", status: 429, retryAfterSeconds: 120 } },
+    });
+  });
+
   it("reports a 403 that answers the search submit as the site refusing the browser", async () => {
     const outcome = await visit(
       "/ps/index-forbidden",

@@ -1,5 +1,6 @@
 import { detectBlock, type Pace, sleepFor } from "@kickrocks/recipes";
 import {
+  backgroundPushbackKind,
   MAX_SCREENSHOT_BYTES,
   type ProfileFields,
   type Pushback,
@@ -19,6 +20,7 @@ import {
   refuseCurrentUrl,
   refuseNavigation,
   scopeOf,
+  withinSites,
 } from "./domains.js";
 import { type CdpChannel, guardFrameTargets } from "./frame-guard.js";
 import {
@@ -191,6 +193,7 @@ export class Toolbox {
     await this.guardNavigations();
     page.on("dialog", this.onDialog);
     page.on("popup", this.onPopup);
+    page.on("response", this.onBackgroundResponse);
   }
 
   async dispose(): Promise<void> {
@@ -199,6 +202,7 @@ export class Toolbox {
     const { page } = this.options;
     page.off("dialog", this.onDialog);
     page.off("popup", this.onPopup);
+    page.off("response", this.onBackgroundResponse);
     await page
       .context()
       .unroute(documentsOfOtherPages, this.routeOtherPage)
@@ -452,6 +456,18 @@ export class Toolbox {
     }
     this.refusedNavigations.push(reason);
     route.abort("aborted").catch(() => undefined);
+  };
+
+  /**
+   * Search calls a single-page site makes in the background never pass the document interception.
+   * A 403 is left out here because background ones are often harmless auth checks.
+   */
+  private readonly onBackgroundResponse = (response: Response): void => {
+    if (response.request().isNavigationRequest()) return;
+    if (!withinSites(response.url(), this.policy)) return;
+    const challenged = response.headers()["cf-mitigated"] === "challenge";
+    if (backgroundPushbackKind(response.status(), challenged) === null) return;
+    this.notePushback(response.status(), headersOf(response));
   };
 
   private readonly onDialog = (dialog: Dialog): void => {

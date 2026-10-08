@@ -117,6 +117,10 @@ function acceptDialogs(page: Page): () => void {
 
 function finish(ctx: RunContext, recipe: Recipe): RunOutcome<FormResult | ScanResult> {
   if (recipe.purpose === "scan") {
+    if (ctx.state.pushback !== undefined && ctx.state.candidates.length === 0) {
+      // An empty result after the site pushed back is not "nobody found", whatever page came last.
+      throw new RunFailure("site", "The site pushed back, so the search did not finish", true);
+    }
     return {
       status: "completed",
       result: {

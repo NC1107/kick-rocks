@@ -1,5 +1,6 @@
 import {
   type BlockedReason,
+  backgroundPushbackKind,
   type Candidate,
   isOnDomain,
   type ProfileFields,
@@ -31,6 +32,10 @@ export interface RunState {
   pushback: Pushback | undefined;
   /** The status of the newest page the main frame loaded, cleared once a step has judged it. */
   navigationStatus: number | null;
+  /** Whether the newest page the main frame loaded is itself the one that answered with pushback. */
+  pageRefused: boolean;
+  /** A background request answered with pushback, which ends the run at the next check. */
+  backgroundRefusal: number | undefined;
   /** The page showed that the site took the last submission; any later submit clears it. */
   proved: boolean;
 }
@@ -79,9 +84,11 @@ export function createContext(
     lastStatus: null,
     pushback: undefined,
     navigationStatus: null,
+    pageRefused: false,
+    backgroundRefusal: undefined,
     proved: false,
   };
-  const stop = watchNavigations(page, state);
+  const stop = watchNavigations(page, state, options.targetDomain ?? fallbackDomain);
   return {
     page,
     fields: usable,
@@ -100,33 +107,51 @@ export function createContext(
 
 /**
  * Reads every page the main frame loads, whatever started the load. A search that is rate limited
- * usually answers the submit, not the first visit, so looking only at `goto` would miss it.
+ * usually answers the submit, not the first visit, so looking only at `goto` would miss it. Search
+ * calls a single-page site makes in the background are read too, when they go to the target's own
+ * domain.
  */
-function watchNavigations(page: Page, state: RunState): () => void {
+function watchNavigations(page: Page, state: RunState, targetDomain: string): () => void {
   const onResponse = (response: Response): void => {
-    if (!response.request().isNavigationRequest()) return;
+    if (!response.request().isNavigationRequest()) {
+      noteBackgroundPushback(state, response, targetDomain);
+      return;
+    }
     if (response.frame() !== page.mainFrame()) return;
     state.navigationStatus = response.status();
-    notePushback(state, response);
+    state.pageRefused = notePushback(state, response) !== null;
   };
   page.on("response", onResponse);
   return () => page.off("response", onResponse);
 }
 
-/** Remembers a 429, 403, 503, or Cloudflare challenge, with the wait the site asked for. */
-export function notePushback(state: RunState, response: Response): void {
-  if (state.pushback) return;
+function noteBackgroundPushback(state: RunState, response: Response, targetDomain: string): void {
+  if (!isOnDomain(response.url(), targetDomain)) return;
+  const status = response.status();
+  const challenged = response.headers()["cf-mitigated"] === "challenge";
+  if (backgroundPushbackKind(status, challenged) === null) return;
+  notePushback(state, response);
+  state.backgroundRefusal ??= status;
+}
+
+/**
+ * Remembers a 429, 403, 503, or Cloudflare challenge, with the wait the site asked for, and
+ * returns what this response said whether or not an earlier one was remembered first.
+ */
+export function notePushback(state: RunState, response: Response): Pushback | null {
   const status = response.status();
   const headers = response.headers();
   const kind =
     headers["cf-mitigated"] === "challenge" ? "challenge" : pushbackKindForStatus(status);
-  if (kind === null) return;
+  if (kind === null) return null;
   const retryAfterSeconds = parseRetryAfter(headers["retry-after"], new Date());
-  state.pushback = {
+  const pushback: Pushback = {
     kind,
     status,
     ...(retryAfterSeconds === undefined ? {} : { retryAfterSeconds }),
   };
+  state.pushback ??= pushback;
+  return pushback;
 }
 
 export function hostOf(url: string): string {
@@ -147,6 +172,13 @@ export function render(ctx: RunContext, template: string): string {
 
 export function checkLive(ctx: RunContext): void {
   if (ctx.signal?.aborted) throw new RunAborted();
+  if (ctx.state.backgroundRefusal !== undefined) {
+    throw new RunFailure(
+      "site",
+      `The site answered ${ctx.state.backgroundRefusal} to a search call`,
+      true,
+    );
+  }
   if (Date.now() > ctx.deadline) {
     throw new RunFailure("site", "The run took longer than its time limit", true);
   }
@@ -242,7 +274,7 @@ export async function findBlock(ctx: RunContext): Promise<BlockFinding | null> {
     graceMs: ctx.timeouts.challengeGraceMs,
     signal: ctx.signal,
   });
-  if (finding?.pushback === "rate_limited" && ctx.state.pushback !== undefined) return null;
+  if (finding?.pushback === "rate_limited" && ctx.state.pageRefused) return null;
   return finding;
 }
 
