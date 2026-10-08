@@ -266,23 +266,34 @@ backup() {
   echo "Wrote $file (readable only by you). It contains the database key: keep it off shared and cloud storage."
 }
 
-# Takes one backup into DIR, then deletes all but the newest KEEP. Nothing is deleted unless the new
-# backup read back whole, so a run that fails leaves every earlier backup in place.
+# Takes one backup into DIR, then deletes all but the newest KEEP scheduled ones. Nothing is deleted
+# unless the new backup read back whole, so a run that fails leaves every earlier backup in place.
+# Scheduled archives have their own prefix so a folder of manual backups is never rotated away.
 scheduled_backup() {
-  local dir="$1" keep="$2" file stamp suffix n=0
+  local dir="$1" keep="$2" file stamp suffix old n=0
   suffix=".tgz${passphrase_file:+.enc}"
   (umask 077 && mkdir -p "$dir")
   stamp="$(date +%Y%m%d-%H%M%S)"
-  file="$dir/kickrocks-backup-$stamp$suffix"
-  while [ -e "$file" ]; do
-    n=$((n + 1))
-    file="$dir/kickrocks-backup-$stamp-$n$suffix"
+  # Name order has to be time order. The counter is fixed width, and it continues after the highest
+  # one left in this second, because the newest backup is never pruned and so is always still there.
+  for old in "$dir"/kickrocks-scheduled-"$stamp"-[0-9][0-9][0-9][0-9]*; do
+    [ -e "$old" ] || continue
+    old="${old##*-}"
+    old=$((10#${old:0:4}))
+    [ "$old" -le "$n" ] || n="$old"
   done
+  file="$(printf '%s/kickrocks-scheduled-%s-%04d%s' "$dir" "$stamp" "$((n + 1))" "$suffix")"
   backup "$file"
-  # Names sort by time, and a counter only follows a name taken in the same second.
-  find "$dir" -maxdepth 1 -type f -name "kickrocks-backup-*$suffix" -print | sort -r | tail -n +"$((keep + 1))" | while IFS= read -r old; do
-    rm -f "$old"
+  find "$dir" -maxdepth 1 -type f -name "kickrocks-scheduled-*$suffix" -print | LC_ALL=C sort -r | tail -n +"$((keep + 1))" | while IFS= read -r old; do
+    [ "$old" = "$file" ] || rm -f "$old"
   done
+}
+
+# Quoted for a POSIX shell, which is what cron runs the line with.
+shell_quote() {
+  local quote="'" escaped
+  escaped="${1//$quote/$quote\\$quote$quote}"
+  printf "'%s'" "$escaped"
 }
 
 # Replaces the data volume with a backup. The archive is unpacked into a scratch volume first, so a
@@ -359,6 +370,13 @@ restore() {
     exit 1
   fi
   swap_started=false
+  # The archive holds the marker of the backup before it, so the live one is put back: the person
+  # checking backup state right after a restore must not be told the backup is older than it is.
+  if [ "$had_previous" = true ]; then
+    docker run --rm -v "$previous":/live:ro -v "$volume":/to alpine \
+      sh -c 'if [ -f /live/last-backup ]; then cp -p /live/last-backup /to/last-backup; else rm -f /to/last-backup; fi' \
+      || echo "The restore worked, but the last backup time could not be carried over, so the About page may show an older one." >&2
+  fi
   [ "$had_previous" = false ] || docker volume rm -f "$previous" >/dev/null 2>&1 || true
   previous_volume=""
   echo "Restored $volume from $file."
@@ -471,8 +489,15 @@ case "${1:-}" in
     if [ "$schedule_once" = true ]; then
       scheduled_backup "$schedule_dir" "$schedule_keep"
     else
+      cron_env="PATH=$(shell_quote "$PATH")${DOCKER_HOST:+ DOCKER_HOST=$(shell_quote "$DOCKER_HOST")}"
+      cron_command="$(shell_quote "$PWD/install.sh") --schedule-backup $(shell_quote "$schedule_dir") --once --keep $schedule_keep${passphrase_file:+ --passphrase-file $(shell_quote "$passphrase_file")}"
+      case "$cron_env$cron_command" in
+        *%*) echo "Cron treats % as a line break, so a path or PATH containing it cannot go in a crontab line." >&2; exit 2 ;;
+      esac
+      # Cron opens the log before install.sh runs, so the folder has to exist already.
+      (umask 077 && mkdir -p "$schedule_dir")
       echo "Add this line with crontab -e to back up every night at 03:30 and keep the newest $schedule_keep:"
-      echo "30 3 * * * $PWD/install.sh --schedule-backup '$schedule_dir' --once --keep $schedule_keep${passphrase_file:+ --passphrase-file '$passphrase_file'}"
+      echo "30 3 * * * $cron_env $cron_command >> $(shell_quote "$schedule_dir/schedule.log") 2>&1"
     fi
     exit 0
     ;;

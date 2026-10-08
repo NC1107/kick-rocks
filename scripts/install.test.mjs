@@ -132,14 +132,22 @@ describe("install.sh backup and restore", () => {
 
   it("keeps the newest N scheduled backups and deletes older ones only after a good run", () => {
     const folder = join(dir, "scheduled");
+    const written = [];
     for (let i = 0; i < 4; i++) {
       const result = install(["--schedule-backup", folder, "--once", "--keep", "2"], {
         env: { FAKE_TAR: "ok" },
       });
       assert.equal(result.status, 0, result.stderr);
+      written.push(result.stdout.match(/Wrote (\S+)/)[1]);
     }
     const names = readdirSync(folder).sort();
-    assert.equal(names.length, 2);
+    assert.deepEqual(
+      names,
+      written
+        .slice(2)
+        .map((path) => path.split("/").pop())
+        .sort(),
+    );
     for (const name of names) execFileSync("tar", ["tzf", join(folder, name)]);
     const failed = install(["--schedule-backup", folder, "--once", "--keep", "1"], {
       env: { FAKE_TAR: "truncated" },
@@ -148,11 +156,59 @@ describe("install.sh backup and restore", () => {
     assert.deepEqual(readdirSync(folder).sort(), names);
   });
 
+  it("keeps the newest scheduled backup with --keep 1 when runs share a second", () => {
+    const folder = join(dir, "scheduled-one");
+    let last;
+    for (let i = 0; i < 12; i++) {
+      const result = install(["--schedule-backup", folder, "--once", "--keep", "1"], {
+        env: { FAKE_TAR: "ok", PATH: `${join(dir, "bin")}:${process.env.PATH}` },
+      });
+      assert.equal(result.status, 0, result.stderr);
+      last = result.stdout.match(/Wrote (\S+)/)[1];
+    }
+    assert.deepEqual(readdirSync(folder), [last.split("/").pop()]);
+  });
+
+  it("never rotates away a manual backup kept in the same folder", () => {
+    const folder = join(dir, "mixed");
+    mkdirSync(folder);
+    const manual = join(folder, "kickrocks-backup-20200101-000000.tgz");
+    writeFileSync(manual, "pre-upgrade backup");
+    for (let i = 0; i < 3; i++) {
+      install(["--schedule-backup", folder, "--once", "--keep", "1"], { env: { FAKE_TAR: "ok" } });
+    }
+    assert.equal(readFileSync(manual, "utf8"), "pre-upgrade backup");
+    assert.equal(readdirSync(folder).filter((n) => n.startsWith("kickrocks-scheduled-")).length, 1);
+  });
+
   it("prints a crontab line without running a backup when --once is absent", () => {
     const result = install(["--schedule-backup", join(dir, "nightly"), "--keep", "5"]);
     assert.equal(result.status, 0, result.stderr);
     assert.match(result.stdout, /30 3 \* \* \* .*--schedule-backup .*--once --keep 5/);
     assert.doesNotMatch(calls(), /tar czf/);
+  });
+
+  it("puts PATH, DOCKER_HOST, quoting and a log into the crontab line", () => {
+    const folder = join(dir, "with space");
+    const result = install(["--schedule-backup", folder], {
+      env: {
+        PATH: `/opt/odd bin:${join(dir, "bin")}:${process.env.PATH}`,
+        DOCKER_HOST: "unix:///run/user/1000/docker.sock",
+      },
+    });
+    assert.equal(result.status, 0, result.stderr);
+    const line = result.stdout.split("\n").find((l) => l.startsWith("30 3"));
+    assert.match(line, /^30 3 \* \* \* PATH='\/opt\/odd bin:/);
+    assert.match(line, / DOCKER_HOST='unix:\/\/\/run\/user\/1000\/docker.sock' /);
+    assert.match(line, / '[^']*\/install\.sh' --schedule-backup '[^']*with space' /);
+    assert.match(line, / >> '[^']*with space\/schedule\.log' 2>&1$/);
+    assert.equal(existsSync(folder), true);
+  });
+
+  it("refuses a crontab line that would hold a percent sign", () => {
+    const result = install(["--schedule-backup", join(dir, "50%off")]);
+    assert.equal(result.status, 2);
+    assert.doesNotMatch(result.stdout, /30 3/);
   });
 
   it("refuses to restore a truncated archive before touching any volume", () => {
@@ -276,6 +332,25 @@ describe("install.sh backup and restore", () => {
     const result = install(["--restore", archive], { input: "no\n" });
     assert.notEqual(result.status, 0);
     assert.doesNotMatch(calls(), /volume create scratch_kickrocks-data-restore/);
+  });
+
+  it("carries the live last-backup marker over a restore instead of the archive's", () => {
+    const result = install(["--restore", archive], { input: "restore\n" });
+    assert.equal(result.status, 0, result.stderr);
+    const log = calls();
+    assert.match(
+      log,
+      /-v scratch_kickrocks-data-previous-\d+:\/live:ro -v scratch_kickrocks-data:\/to alpine sh -c if \[ -f \/live\/last-backup \]/,
+    );
+    assert.ok(
+      log.search(/\/live\/last-backup/) > log.search(/-restore-\d+:\/from:ro/),
+      "the marker is put back after the swap",
+    );
+    assert.ok(
+      log.search(/\/live\/last-backup/) <
+        log.search(/volume rm -f scratch_kickrocks-data-previous/),
+      "and before the old copy is deleted",
+    );
   });
 
   it("restores through a scratch volume and swaps it in", () => {

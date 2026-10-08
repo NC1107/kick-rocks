@@ -38,7 +38,7 @@ The first person to open the app sets it, and until then the setup page is open 
 | `--backup [FILE]` | Writes the data volume to `FILE`, or to `~/kickrocks-backup-<date>.tgz`, or `.tgz.enc` with a passphrase. See [Backups](#backups-and-restore). |
 | `--restore FILE` | Replaces the data volume with a backup, after checking the archive and that its database opens with its key. See [Backups](#backups-and-restore). |
 | `--passphrase-file PATH` | With `--backup`, encrypts the archive with the passphrase in `PATH`. With `--restore`, opens an encrypted one. |
-| `--schedule-backup DIR [--once] [--keep N]` | With `--once`, takes one backup into `DIR` and keeps the newest `N` (7 by default). Without it, prints a crontab line that does this every night. |
+| `--schedule-backup DIR [--once] [--keep N]` | With `--once`, takes one backup into `DIR` and keeps the newest `N` (7 by default) of the `kickrocks-scheduled-*` files there. Without it, prints a crontab line that does this every night. |
 | `--uninstall` | Asks you to type `delete`, then removes the containers, volumes, and images. |
 | `--url` | Prints the address of the UI and exits. |
 
@@ -191,7 +191,7 @@ The key is generated on first start and the database is useless without it, so b
 
 The script stops everything, because a copy of a running database can be inconsistent, writes the archive, and starts back up whatever was running.
 The archive is readable only by you, and the script refuses to write it inside the repository.
-`kickrocks-backup*` is in `.gitignore` as a second guard.
+`kickrocks-backup*` and `kickrocks-scheduled*` are in `.gitignore` as a second guard.
 
 The archive holds the database and the key that decrypts it, so whoever has the file has your data.
 Keep it off shared folders and cloud storage, or encrypt it before it goes there.
@@ -211,8 +211,13 @@ Keep the passphrase somewhere other than next to the backup.
 
 `./install.sh --schedule-backup ~/kickrocks-backups` prints a crontab line.
 Add it with `crontab -e` and a backup is taken every night.
+The line carries your current `PATH` (and `DOCKER_HOST` when set), because cron starts with almost none, and it appends output to `schedule.log` in the folder.
+Only files named `kickrocks-scheduled-*` are rotated, so manual backups in the same folder are never deleted.
+A path containing `%` is refused, because cron turns it into a line break.
 Each run stops the stack for a moment, as a manual backup does.
 A run that fails deletes nothing, so the older backups stay.
+
+A restore keeps the live last-backup time rather than the one inside the archive.
 
 Every backup that reads back whole also tells the app, and the About page shows how long ago that was.
 It turns red when the last one is more than two days old, or when there has been none.
