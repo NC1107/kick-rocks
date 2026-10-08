@@ -16,7 +16,6 @@ import {
   type ScanRow,
   scans,
   type TargetRow,
-  type TaskRow,
   targets,
   taskArtifacts,
   tasks,
@@ -60,11 +59,11 @@ import type { AppServices } from "../services.js";
 import { jordanIdentities, makeBroker, makeCompany, makeRecipe } from "./builders.js";
 
 /** What the factories need; a test context satisfies it. */
-export interface Seeder {
+interface Seeder {
   services: AppServices;
 }
 
-export interface SeededProfile extends ProfileRow {
+interface SeededProfile extends ProfileRow {
   identities: Identity[];
 }
 
@@ -208,7 +207,7 @@ export function seedRecipe(
     .get();
 }
 
-export interface SeedRequestInput extends RequestPatch {
+interface SeedRequestInput extends RequestPatch {
   profileId: string;
   targetId: string;
   status?: RequestStatus;
@@ -257,7 +256,7 @@ export function seedCampaign({ services }: Seeder, profileId: string): CampaignR
     .get();
 }
 
-export interface SeedMessageInput {
+interface SeedMessageInput {
   mailboxId: string;
   requestId?: string | null;
   classification?: ReplyClassification;
@@ -308,7 +307,7 @@ export function seedMessage({ services }: Seeder, input: SeedMessageInput): Mess
     .get();
 }
 
-export interface SeedScanInput {
+interface SeedScanInput {
   profileId: string;
   targetId: string;
   taskId?: string | null;
@@ -335,7 +334,7 @@ export function seedScan({ services }: Seeder, input: SeedScanInput): ScanRow {
     .get();
 }
 
-export interface SeedMatchInput {
+interface SeedMatchInput {
   scanId: string;
   profileId: string;
   targetId: string;
@@ -373,7 +372,7 @@ const TINY_PNG = Buffer.from(
   "base64",
 );
 
-export interface SeedTaskInput<K extends TaskKind = TaskKind> {
+interface SeedTaskInput<K extends TaskKind = TaskKind> {
   kind: K;
   payload: TaskPayloadMap[K];
   /** Defaults to `queued`. */
@@ -475,5 +474,3 @@ export function leaseAs(
   if (!leased) throw new Error(`Task ${taskId} is ${task.status}, so it cannot be leased`);
   return leased;
 }
-
-export type { TaskRow };

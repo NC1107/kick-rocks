@@ -57,7 +57,7 @@ interface Link {
   url: string;
 }
 
-export interface BadboolSkip {
+interface BadboolSkip {
   name: string;
   reason: string;
 }

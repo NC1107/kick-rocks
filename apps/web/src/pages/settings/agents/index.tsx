@@ -10,7 +10,7 @@ export function Component() {
 
   return (
     <>
-      <SettingsHeader description="Connect Claude Code or another MCP client, and review recipes agents propose." />
+      <SettingsHeader description="Connect an MCP client, and review recipes agents propose." />
       <div className="flex flex-col gap-6">
         {settings.isPending ? (
           <Card aria-busy="true">

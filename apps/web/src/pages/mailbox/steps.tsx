@@ -23,7 +23,7 @@ import {
 
 type Change = (form: ConnectionForm) => void;
 
-export interface ProviderStepProps {
+interface ProviderStepProps {
   providers: readonly ProviderPreset[];
   form: ConnectionForm;
   onChoose: (preset: ProviderPreset) => void;
@@ -73,7 +73,7 @@ export function ProviderStep({ providers, form, onChoose, error }: ProviderStepP
   );
 }
 
-export interface AccountStepProps {
+interface AccountStepProps {
   preset: ProviderPreset;
   form: ConnectionForm;
   errors: FormErrors;
@@ -229,7 +229,7 @@ function Guidance({ preset }: { preset: ProviderPreset }) {
   );
 }
 
-export interface TestStepProps {
+interface TestStepProps {
   form: ConnectionForm;
   preset: ProviderPreset;
   result: MailboxTestResult | null;
@@ -335,7 +335,7 @@ function ProtocolRow({ name, testing, outcome, preset, extra }: ProtocolRowProps
   );
 }
 
-export interface SettingsStepProps {
+interface SettingsStepProps {
   form: ConnectionForm;
   preset: ProviderPreset;
   errors: FormErrors;

@@ -42,7 +42,7 @@ export function addEvent<T extends RequestEventType>(
   } as RequestEvent);
 }
 
-export interface NewRequest {
+interface NewRequest {
   profileId: string;
   targetId: string;
   channel: RequestChannel;
@@ -468,7 +468,7 @@ function seedRequests(store: MockStore, profileIndex: number, seeds: Seed[]): vo
 
 const LIVE_TASK = new Set(["queued", "leased", "blocked"]);
 
-export function detailOf(store: MockStore, request: StoredRequest): RequestDetail {
+function detailOf(store: MockStore, request: StoredRequest): RequestDetail {
   const { events, ...listItem } = request;
   const messages: MessageSummary[] = store.messages
     .filter((message) => message.requestId === request.id)

@@ -2,10 +2,7 @@ import type { AuthResult, AuthService } from "../../core/auth.js";
 import type { AppServices } from "../../services.js";
 import { createSessionStore, sessionTokenOf, setSessionCookie } from "./sessions.js";
 
-export type AuthDeps = Pick<
-  AppServices,
-  "config" | "db" | "clock" | "logger" | "settings" | "secrets"
->;
+type AuthDeps = Pick<AppServices, "config" | "db" | "clock" | "logger" | "settings" | "secrets">;
 
 const UNAUTHENTICATED: AuthResult = {
   ok: false,

@@ -1,7 +1,7 @@
 import { Skeleton } from "../../components/ui/index.js";
 import { cn } from "../../lib/cn.js";
 
-export interface LoadingColumn {
+interface LoadingColumn {
   /** Classes on the cell, so a column hidden on a phone is hidden while loading too. */
   className?: string;
   /** Width of the grey bar. */

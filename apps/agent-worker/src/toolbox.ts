@@ -34,7 +34,7 @@ export type ToolOutcome =
   | { kind: "result"; text: string; snapshot: boolean; isError: boolean }
   | { kind: "challenge"; finding: BlockFinding };
 
-export interface ToolboxOptions {
+interface ToolboxOptions {
   page: Page;
   fields: ProfileFields;
   policy: NavigationPolicy;

@@ -128,8 +128,8 @@ const IS_CHECKABLE_SOURCE = `(element) =>
 
 /** The page has the DOM types; this package is compiled without them. */
 type PageElement = object;
-export type FieldRule = { css: string; attr?: string | undefined; all?: boolean | undefined };
-export interface OptionInfo {
+type FieldRule = { css: string; attr?: string | undefined; all?: boolean | undefined };
+interface OptionInfo {
   value: string;
   label: string;
   disabled: boolean;

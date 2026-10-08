@@ -10,7 +10,7 @@ type Rules = Record<string, CandidateField>;
 type Row = Record<string, string[]>;
 
 /** Reads each rule inside every element the locator matches. */
-export async function readRows(items: Locator, rules: Rules): Promise<Row[]> {
+async function readRows(items: Locator, rules: Rules): Promise<Row[]> {
   return items.evaluateAll(READ_FIELDS, rules);
 }
 
@@ -26,7 +26,7 @@ function list(values: string[] | undefined): string[] | undefined {
   return values && values.length > 0 ? values : undefined;
 }
 
-export interface CandidateFields {
+interface CandidateFields {
   recordUrl: CandidateField;
   name: CandidateField;
   age?: CandidateField | undefined;

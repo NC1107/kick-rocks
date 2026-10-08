@@ -4,12 +4,7 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { z } from "zod";
 
-export const UPSTREAM_DIR = resolve(
-  dirname(fileURLToPath(import.meta.url)),
-  "..",
-  "data",
-  "upstream",
-);
+const UPSTREAM_DIR = resolve(dirname(fileURLToPath(import.meta.url)), "..", "data", "upstream");
 
 const PinnedUpstream = z.object({
   commit: z.string().regex(/^[0-9a-f]{40}$/),

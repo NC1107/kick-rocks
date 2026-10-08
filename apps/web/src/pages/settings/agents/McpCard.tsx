@@ -14,7 +14,7 @@ import {
   DescriptionList,
   useToast,
 } from "../../../components/ui/index.js";
-import { claudeCodeCommand } from "../model.js";
+import { MCP_TOKEN_PLACEHOLDER, mcpClientConfig } from "../model.js";
 
 export function McpCard({ mcp }: { mcp: SettingsView["mcp"] }) {
   const toast = useToast();
@@ -46,7 +46,7 @@ export function McpCard({ mcp }: { mcp: SettingsView["mcp"] }) {
     <Card>
       <CardHeader
         title="Agent access"
-        description="Let Claude Code or another MCP client pick up tasks, such as a blocked form, and report back."
+        description="Let an MCP client pick up tasks, such as a blocked form, and report back."
       />
       <div className="flex flex-col gap-5">
         <Checkbox
@@ -60,11 +60,11 @@ export function McpCard({ mcp }: { mcp: SettingsView["mcp"] }) {
         <DescriptionList
           items={[
             {
-              term: "Address",
+              term: "Endpoint URL",
               description: (
                 <span className="flex flex-wrap items-center gap-2">
                   <code className="break-all font-mono text-sm">{mcp.url}</code>
-                  <CopyButton value={mcp.url} label="Copy address" />
+                  <CopyButton value={mcp.url} label="Copy endpoint URL" />
                 </span>
               ),
             },
@@ -100,15 +100,14 @@ export function McpCard({ mcp }: { mcp: SettingsView["mcp"] }) {
         </div>
 
         <div>
-          <h3 className="mb-1 text-base font-semibold text-ink">Connect Claude Code</h3>
+          <h3 className="mb-1 text-base font-semibold text-ink">Client configuration</h3>
           <p className="mb-3 text-sm text-ink-muted">
-            Run this in a terminal.
+            Paste this into any MCP client that connects over HTTP.
             {token
               ? " It already holds the token you just created."
-              : " Replace <your-token> with a token from above."}{" "}
-            Any other MCP client needs the address and the same bearer token.
+              : ` Replace ${MCP_TOKEN_PLACEHOLDER} with a token from above.`}
           </p>
-          <CodeBlock title="bash" code={claudeCodeCommand(mcp.url, token)} />
+          <CodeBlock title="mcp.json" code={mcpClientConfig(mcp.url, token)} />
         </div>
       </div>
 

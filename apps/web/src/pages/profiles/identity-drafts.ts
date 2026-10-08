@@ -179,7 +179,7 @@ function nameValue(draft: IdentityDraft): PersonName {
 }
 
 /** The value of a draft as the API takes it. It may still be invalid; validateDrafts says why. */
-export function toInput(draft: IdentityDraft): unknown {
+function toInput(draft: IdentityDraft): unknown {
   const lifetime = {
     isPrimary: draft.isPrimary,
     validFrom: draft.validFrom || null,

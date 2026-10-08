@@ -6,7 +6,7 @@ import {
   TargetPriority,
 } from "@kickrocks/shared";
 
-export interface TargetFilters {
+interface TargetFilters {
   q: string;
   kind: TargetKind | "";
   category: TargetCategory | "";

@@ -120,7 +120,7 @@ export function TabList({ className, style, onScroll, ...rest }: ComponentProps<
   );
 }
 
-export interface TabProps extends Omit<ComponentProps<"button">, "value"> {
+interface TabProps extends Omit<ComponentProps<"button">, "value"> {
   value: string;
 }
 
@@ -160,7 +160,7 @@ export function Tab({ value, className, children, ...rest }: TabProps) {
   );
 }
 
-export interface TabPanelProps extends Omit<ComponentProps<"div">, "value"> {
+interface TabPanelProps extends Omit<ComponentProps<"div">, "value"> {
   value: string;
 }
 

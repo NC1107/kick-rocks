@@ -43,7 +43,7 @@ function filtersOf(query: Partial<TargetsQuery>): SQL[] {
   return conditions;
 }
 
-export interface TargetCatalog {
+interface TargetCatalog {
   list(query: TargetsQuery): Paged<TargetListItem>;
   facets(): TargetFacets;
   detail(id: string): TargetDetail;

@@ -346,7 +346,7 @@ function automationOf(target: TargetDetail, purpose: "scan" | "remove") {
   return active[0]?.health ?? null;
 }
 
-export function listItemOf(target: TargetDetail): TargetListItem {
+function listItemOf(target: TargetDetail): TargetListItem {
   return {
     ...summaryOf(target),
     automation: { scan: automationOf(target, "scan"), remove: automationOf(target, "remove") },

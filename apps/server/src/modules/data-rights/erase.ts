@@ -19,7 +19,7 @@ import type { SettingsStore } from "../../core/settings.js";
 import type { TaskQueue } from "../../core/task-queue.js";
 import { compactDatabase } from "./compact.js";
 
-export interface EraseDeps {
+interface EraseDeps {
   db: KickRocksDb;
   taskQueue: TaskQueue;
   settings: SettingsStore;

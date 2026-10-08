@@ -5,7 +5,7 @@ import { cn } from "../../lib/cn.js";
 import { Menu, type MenuItem } from "../ui/index.js";
 import { Skeleton } from "../ui/Skeleton.js";
 
-export function initialsOf(name: string): string {
+function initialsOf(name: string): string {
   const words = name.split(/\s+/).filter(Boolean);
   const first = words[0]?.[0] ?? "?";
   const last = words.length > 1 ? (words[words.length - 1]?.[0] ?? "") : "";

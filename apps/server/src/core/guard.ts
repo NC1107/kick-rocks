@@ -4,7 +4,7 @@ import type { AuthService } from "./auth.js";
 import type { HostPolicy } from "./hosts.js";
 import type { Secrets, TokenCheck } from "./secrets.js";
 
-export type GuardKind = "none" | "session" | "worker" | "mcp";
+type GuardKind = "none" | "session" | "worker" | "mcp";
 
 /** Higher is stricter. When two readings of a path disagree the stricter one wins. */
 const STRICTNESS: Record<GuardKind, number> = { none: 0, mcp: 1, worker: 1, session: 2 };
@@ -86,7 +86,7 @@ const MCP_DISABLED = {
   message: "The MCP endpoint is off. Enable it and create a token in Settings.",
 };
 
-export interface GuardServices {
+interface GuardServices {
   auth: AuthService;
   secrets: Secrets;
 }

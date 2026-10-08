@@ -3,9 +3,9 @@ import { resolve } from "node:path";
 import { LEASE_MS, WebUrl } from "@kickrocks/shared";
 import { z } from "zod";
 
-export const OLLAMA_BASE_URL = "http://localhost:11434/v1";
-export const ANTHROPIC_BASE_URL = "https://api.anthropic.com";
-export const ANTHROPIC_DEFAULT_MODEL = "claude-sonnet-4-6";
+const OLLAMA_BASE_URL = "http://localhost:11434/v1";
+const ANTHROPIC_BASE_URL = "https://api.anthropic.com";
+const ANTHROPIC_DEFAULT_MODEL = "claude-sonnet-4-6";
 
 const Price = z.coerce.number().nonnegative();
 

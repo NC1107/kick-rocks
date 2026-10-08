@@ -4,7 +4,7 @@ import { DEFAULT_SEND_GAP_MS } from "../config.js";
 import { QUOTA_WINDOW_MS } from "../core/mail-quota.js";
 import type { AppServices } from "../services.js";
 
-export interface GapRange {
+interface GapRange {
   min: number;
   max: number;
 }

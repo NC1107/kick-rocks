@@ -24,7 +24,7 @@ import {
   followConfirmationLinks,
 } from "./reply.js";
 
-export const INBOX_WORKER_ID = "server:inbox-poll";
+const INBOX_WORKER_ID = "server:inbox-poll";
 const LEASE_MS = 10 * 60 * 1000;
 const PAGE_LIMIT = 50;
 const MAX_PAGES_PER_RUN = 10;

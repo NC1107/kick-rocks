@@ -34,7 +34,7 @@ export function StatusPill({ status, className }: StatusPillProps) {
   return <Pill meta={REQUEST_STATUS_META[status]} className={className} />;
 }
 
-export interface TaskStatusPillProps {
+interface TaskStatusPillProps {
   status: TaskStatus;
   className?: string;
 }

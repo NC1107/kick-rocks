@@ -226,7 +226,7 @@ export interface TaskQueue {
   purgeArtifacts(cutoff: Date): number;
 }
 
-export interface TaskQueueDeps {
+interface TaskQueueDeps {
   db: KickRocksDb;
   clock: Clock;
   handlers: TaskHandlers;

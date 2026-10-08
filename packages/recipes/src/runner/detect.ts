@@ -15,7 +15,7 @@ export interface BlockFinding {
   transient: boolean;
 }
 
-export interface ChallengeSignals {
+interface ChallengeSignals {
   title: string;
   text: string;
   textLength: number;

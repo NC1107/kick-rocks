@@ -23,7 +23,7 @@ import type {
 } from "./types.js";
 
 /** Below this the message goes to the language model when one is configured, and to a person when not. */
-export const CONFIDENCE_THRESHOLD = 0.6;
+const CONFIDENCE_THRESHOLD = 0.6;
 /** What a reply can reach when nothing ties it to a request, so it always waits for a person. */
 const UNMATCHED_CAP = 0.55;
 /**
@@ -335,7 +335,7 @@ function round(value: number): number {
   return Math.round(value * 100) / 100;
 }
 
-export interface ReplyClassifierDeps {
+interface ReplyClassifierDeps {
   settings: Pick<SettingsStore, "get">;
   fetch?: LlmFetch;
   llmTimeoutMs?: number;

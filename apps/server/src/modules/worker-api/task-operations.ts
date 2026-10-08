@@ -18,7 +18,7 @@ import { decodeScreenshot } from "./screenshot.js";
  * Who is calling. The worker API and the MCP server do the same work on the same queue, and this
  * is the only difference between them: how a caller is recorded and which tasks it may touch.
  */
-export interface Caller {
+interface Caller {
   actor: RequestActor;
   /** Whether a task claimed by this kind of claimer is this caller's to report on. */
   owns(claimerKind: ClaimerKind | null): boolean;
@@ -40,7 +40,7 @@ export const MCP_CALLER: Caller = {
   mayReportRecipeFailure: false,
 };
 
-export interface ClaimRequest {
+interface ClaimRequest {
   workerId: string;
   kinds: readonly BrowserTaskKind[];
   leaseMs: number;
@@ -48,7 +48,7 @@ export interface ClaimRequest {
   claimerKind: ClaimerKind;
 }
 
-export interface TaskOperations {
+interface TaskOperations {
   claim(request: ClaimRequest): ClaimedTask | null;
   heartbeat(
     taskId: string,

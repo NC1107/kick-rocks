@@ -283,18 +283,18 @@ describe("claim_task", () => {
         fields: Record<string, string>;
         target: { id: string };
       };
-    }>(await connect(), "claim_task", { workerId: "claude" });
+    }>(await connect(), "claim_task", { workerId: "agent-1" });
     expect(task).toMatchObject({ kind: "agent", target: { id: target.id }, attempt: 1 });
     expect(task.instructions.length).toBeGreaterThan(50);
     expect(task.fields.first_name).toBe("Jordan");
     expect(Object.keys(task.fields)).not.toContain("dob");
 
     const row = ctx.services.taskQueue.getOrThrow(task.id);
-    expect(row).toMatchObject({ status: "leased", leaseOwner: "claude", claimerKind: "mcp" });
+    expect(row).toMatchObject({ status: "leased", leaseOwner: "agent-1", claimerKind: "mcp" });
   });
 
   it("answers null when nothing is waiting", async () => {
-    expect(await call(await connect(), "claim_task", { workerId: "claude" })).toEqual({
+    expect(await call(await connect(), "claim_task", { workerId: "agent-1" })).toEqual({
       task: null,
     });
   });
@@ -305,9 +305,9 @@ describe("claim_task", () => {
     seedRecipe(ctx, target.id, { purpose: "scan" });
     ctx.services.dispatch.enqueueScan(profile.id, target.id);
     const client = await connect();
-    expect(await call(client, "claim_task", { workerId: "claude" })).toEqual({ task: null });
+    expect(await call(client, "claim_task", { workerId: "agent-1" })).toEqual({ task: null });
     const asked = await call<{ task: { kind: string } | null }>(client, "claim_task", {
-      workerId: "claude",
+      workerId: "agent-1",
       kinds: ["scan"],
     });
     expect(asked.task?.kind).toBe("scan");
@@ -328,7 +328,7 @@ describe("claim_task", () => {
     });
     const { task } = await call<{
       task: { id: string; payload: { reason: string; blockedReason: string } };
-    }>(await connect(), "claim_task", { workerId: "claude", taskId: blocked.id });
+    }>(await connect(), "claim_task", { workerId: "agent-1", taskId: blocked.id });
     expect(task.id).not.toBe(blocked.id);
     expect(task.payload).toMatchObject({ reason: "blocked", blockedReason: "captcha" });
     expect(ctx.services.taskQueue.getOrThrow(blocked.id).status).toBe("cancelled");
@@ -337,7 +337,7 @@ describe("claim_task", () => {
 
   it("reports a task that does not exist", async () => {
     const error = await callError(await connect(), "claim_task", {
-      workerId: "claude",
+      workerId: "agent-1",
       taskId: "nope",
     });
     expect(error.code).toBe("task_not_found");
@@ -360,7 +360,7 @@ describe("claim_task", () => {
 });
 
 describe("working a task", () => {
-  async function claimed(client: Client, workerId = "claude") {
+  async function claimed(client: Client, workerId = "agent-1") {
     agentScanTask();
     const { task } = await call<{ task: { id: string } }>(client, "claim_task", { workerId });
     return task.id;
@@ -372,7 +372,7 @@ describe("working a task", () => {
     const before = ctx.services.taskQueue.getOrThrow(id).leaseExpiresAt as string;
     ctx.clock.advance(60_000);
     const { leaseExpiresAt } = await call<{ leaseExpiresAt: string }>(client, "heartbeat_task", {
-      workerId: "claude",
+      workerId: "agent-1",
       taskId: id,
     });
     expect(Date.parse(leaseExpiresAt)).toBeGreaterThan(Date.parse(before));
@@ -392,7 +392,7 @@ describe("working a task", () => {
     const { task } = await call<{
       task: { status: string; claimerKind: string; usage: { costUsd: number } };
     }>(client, "complete_task", {
-      workerId: "claude",
+      workerId: "agent-1",
       taskId: id,
       result: { purpose: "scan", scan: { candidates: [] } },
       usage: { inputTokens: 1200, outputTokens: 300, costUsd: 0.02 },
@@ -409,7 +409,7 @@ describe("working a task", () => {
     const id = await claimed(client);
     const missing = await client.callTool({
       name: "complete_task",
-      arguments: { workerId: "claude", taskId: id },
+      arguments: { workerId: "agent-1", taskId: id },
     });
     expect(missing.isError).toBe(true);
     const wrong = [
@@ -419,7 +419,7 @@ describe("working a task", () => {
     ];
     for (const result of wrong) {
       const error = await callError(client, "complete_task", {
-        workerId: "claude",
+        workerId: "agent-1",
         taskId: id,
         result,
       });
@@ -446,7 +446,7 @@ describe("working a task", () => {
     const { task } = await call<{
       task: { status: string; blockedReason: string; blockedUrl: string; hasScreenshot: boolean };
     }>(client, "block_task", {
-      workerId: "claude",
+      workerId: "agent-1",
       taskId: id,
       reason: "captcha",
       detail: "A CAPTCHA before the form",
@@ -474,7 +474,7 @@ describe("working a task", () => {
     for (const screenshot of bad) {
       const result = await client.callTool({
         name: "block_task",
-        arguments: { workerId: "claude", taskId: id, reason: "captcha", screenshot },
+        arguments: { workerId: "agent-1", taskId: id, reason: "captcha", screenshot },
       });
       expect(result.isError, JSON.stringify(screenshot)).toBe(true);
     }
@@ -487,7 +487,7 @@ describe("working a task", () => {
     const { task } = await call<{
       task: { status: string; failureKind: string; lastError: string };
     }>(client, "fail_task", {
-      workerId: "claude",
+      workerId: "agent-1",
       taskId: id,
       error: "The site timed out",
       retryable: true,
@@ -504,7 +504,7 @@ describe("working a task", () => {
     const client = await connect();
     const id = await claimed(client);
     const { task } = await call<{ task: { status: string } }>(client, "fail_task", {
-      workerId: "claude",
+      workerId: "agent-1",
       taskId: id,
       error: "The broker removed its form",
       retryable: false,
@@ -516,7 +516,7 @@ describe("working a task", () => {
     const client = await connect();
     const id = await claimed(client);
     const error = await callError(client, "fail_task", {
-      workerId: "claude",
+      workerId: "agent-1",
       taskId: id,
       error: "x",
       retryable: false,
@@ -532,13 +532,13 @@ describe("working a task", () => {
     const { task } = await call<{ task: { status: string; attempts: number } }>(
       client,
       "release_task",
-      { workerId: "claude", taskId: id, retryAfterMs: 60_000 },
+      { workerId: "agent-1", taskId: id, retryAfterMs: 60_000 },
     );
     expect(task).toMatchObject({ status: "queued", attempts: 0 });
-    expect(await call(client, "claim_task", { workerId: "claude" })).toEqual({ task: null });
+    expect(await call(client, "claim_task", { workerId: "agent-1" })).toEqual({ task: null });
     ctx.clock.advance(61_000);
     const again = await call<{ task: { id: string } | null }>(client, "claim_task", {
-      workerId: "claude",
+      workerId: "agent-1",
     });
     expect(again.task?.id).toBe(id);
   });

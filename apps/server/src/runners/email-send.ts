@@ -15,7 +15,7 @@ import { connectionOf, describeError } from "./connection.js";
 import { responseWindow } from "./deadlines.js";
 import { MailPacer } from "./pacing.js";
 
-export const EMAIL_WORKER_ID = "server:email-send";
+const EMAIL_WORKER_ID = "server:email-send";
 const LEASE_MS = 5 * 60 * 1000;
 
 type EmailTask = Task<"email_send">;

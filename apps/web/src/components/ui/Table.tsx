@@ -83,7 +83,7 @@ export function TableRow({ className, ...rest }: ComponentProps<"tr">) {
 
 type SortDirection = "asc" | "desc";
 
-export interface TableHeaderCellProps extends Omit<ComponentProps<"th">, "align"> {
+interface TableHeaderCellProps extends Omit<ComponentProps<"th">, "align"> {
   align?: "left" | "right";
   /** Makes the heading a button. Pass the current direction, or null when this column is not sorted. */
   sortDirection?: SortDirection | null;
@@ -136,7 +136,7 @@ export function TableHeaderCell({
   );
 }
 
-export interface TableCellProps extends Omit<ComponentProps<"td">, "align"> {
+interface TableCellProps extends Omit<ComponentProps<"td">, "align"> {
   align?: "left" | "right";
   /** Lets a long value such as an address wrap instead of stretching the table. */
   wrap?: boolean;
@@ -156,7 +156,7 @@ export function TableCell({ align = "left", wrap, className, ...rest }: TableCel
   );
 }
 
-export interface TableSkeletonProps {
+interface TableSkeletonProps {
   columns: number;
   rows?: number;
 }

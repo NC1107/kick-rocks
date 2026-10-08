@@ -30,7 +30,7 @@ type ClaimServices = Pick<
   "db" | "clock" | "targets" | "taskQueue" | "requests" | "legal" | "dispatch" | "settings"
 >;
 
-export interface ClaimOptions {
+interface ClaimOptions {
   workerId: string;
   kinds: readonly BrowserTaskKind[];
   leaseMs: number;
@@ -55,7 +55,7 @@ function isBrowserTask(task: Task): task is BrowserTask {
  * queued. Claiming it would submit a form the person has already stopped, so the claim cancels it
  * and moves on instead of failing it.
  */
-export class TaskObsoleteError extends Error {
+class TaskObsoleteError extends Error {
   override name = "TaskObsoleteError";
 }
 
@@ -251,7 +251,7 @@ function queuedRequest(services: ClaimServices, requestId: string): RequestRecor
 }
 
 /** Every value a profile holds, in the spellings a page would print them, for a worker to hide. */
-export function identityValues(identities: readonly Identity[]): string[] {
+function identityValues(identities: readonly Identity[]): string[] {
   const values = new Set<string>();
   const add = (value: string | undefined) => {
     if (value !== undefined && value.trim() !== "") values.add(value.trim());

@@ -5,7 +5,6 @@ export {
   type ButtonProps,
   type ButtonSize,
   type ButtonVariant,
-  buttonClass,
   LinkButton,
   type LinkButtonProps,
 } from "./Button.js";
@@ -21,7 +20,7 @@ export {
   type DialogProps,
 } from "./Dialog.js";
 export { EmptyState, type EmptyStateProps } from "./EmptyState.js";
-export { Field, type FieldProps, useFieldControl } from "./Field.js";
+export { Field, type FieldProps } from "./Field.js";
 export { IconButton, type IconButtonProps } from "./IconButton.js";
 export { Input, type InputProps } from "./Input.js";
 export { Menu, type MenuItem, type MenuProps, type MenuTriggerProps } from "./Menu.js";

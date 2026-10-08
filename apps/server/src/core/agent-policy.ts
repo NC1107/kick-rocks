@@ -13,7 +13,7 @@ type PolicyServices = Pick<AppServices, "db" | "settings">;
  *   when the person has said it may.
  * - `rejected`: the person looked at the recipe and turned it down, so the site is theirs to handle.
  */
-export type ModelStance = "allowed" | "unreviewed" | "rejected";
+type ModelStance = "allowed" | "unreviewed" | "rejected";
 
 export function modelStance({ db }: Pick<PolicyServices, "db">, task: Task<"agent">): ModelStance {
   if (task.targetId === null) return "allowed";

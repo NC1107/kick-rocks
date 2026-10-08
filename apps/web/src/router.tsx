@@ -41,7 +41,7 @@ const appRoutes: RouteObject[] = [
   { path: "*", lazy: () => import("./pages/not-found/index.js") },
 ];
 
-export const routes: RouteObject[] = [
+const routes: RouteObject[] = [
   {
     errorElement: <RouteError />,
     hydrateFallbackElement: <LoadingScreen />,

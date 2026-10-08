@@ -9,7 +9,7 @@ import {
   WebUrl,
 } from "@kickrocks/shared";
 
-export interface ScheduleField {
+interface ScheduleField {
   key: keyof ScheduleSettings;
   label: string;
   help: string;
@@ -73,7 +73,7 @@ export function draftOf(schedule: ScheduleSettings): ScheduleDraft {
   };
 }
 
-export interface ScheduleCheck {
+interface ScheduleCheck {
   errors: Partial<Record<keyof ScheduleSettings, string>>;
   /** Only the fields that differ from what is saved, so a save never resets one it did not touch. */
   patch: SchedulePatch;
@@ -120,9 +120,23 @@ export function workerState(lastSeenAt: string | null, now: number): WorkerState
   return now - new Date(lastSeenAt).getTime() <= WORKER_ONLINE_MS ? "online" : "offline";
 }
 
-/** The command that registers Kick Rocks with Claude Code. The token is shown only when it was just made. */
-export function claudeCodeCommand(url: string, token: string | null): string {
-  return `claude mcp add --transport http kickrocks ${url} --header "Authorization: Bearer ${token ?? "<your-token>"}"`;
+export const MCP_TOKEN_PLACEHOLDER = "<your-token>";
+
+/** The token is known only right after it is made, so every other time the config carries a placeholder. */
+export function mcpClientConfig(url: string, token: string | null): string {
+  return JSON.stringify(
+    {
+      mcpServers: {
+        kickrocks: {
+          type: "http",
+          url,
+          headers: { Authorization: `Bearer ${token ?? MCP_TOKEN_PLACEHOLDER}` },
+        },
+      },
+    },
+    null,
+    2,
+  );
 }
 
 function describeLocator(value: unknown): string | null {
@@ -199,7 +213,7 @@ export function checkPassword(draft: PasswordDraft): Partial<Record<keyof Passwo
   return errors;
 }
 
-export interface RetentionField {
+interface RetentionField {
   key: keyof RetentionSettings;
   label: string;
   help: string;

@@ -272,9 +272,9 @@ export function MailboxNotices({
   );
 }
 
-export const ACTIVITY_REQUEST_LIMIT = 6;
+const ACTIVITY_REQUEST_LIMIT = 6;
 
-export type ActivityGroup = {
+type ActivityGroup = {
   /** The newest event of the request, which is the one described. */
   latest: DashboardEvent;
   count: number;

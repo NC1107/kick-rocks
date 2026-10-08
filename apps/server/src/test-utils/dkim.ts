@@ -29,7 +29,7 @@ export function unsigned(
   ].join("\r\n");
 }
 
-export interface SignOptions {
+interface SignOptions {
   domain?: string;
   maxBodyLength?: number;
   /** The header names the signature covers; the signer's default list when omitted. */
@@ -62,7 +62,7 @@ export function servingKeysFor(...domains: string[]): DnsResolver {
 }
 
 /** A DKIM check that reports a signature from each of these domains that covers nothing that names a request. */
-export function verifiedBy(...domains: string[]): DkimCheck {
+function verifiedBy(...domains: string[]): DkimCheck {
   return async () =>
     domains.map((domain) => ({ domain, inReplyTo: [], references: [], subject: [] }));
 }

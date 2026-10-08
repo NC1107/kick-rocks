@@ -26,7 +26,7 @@ describe("MCP_TOOLS", () => {
 
   it("applies defaults to list and claim", () => {
     expect(MCP_TOOLS.list_tasks.input.parse({}).limit).toBe(25);
-    expect(MCP_TOOLS.claim_task.input.parse({ workerId: "claude-code" }).leaseMs).toBe(300_000);
+    expect(MCP_TOOLS.claim_task.input.parse({ workerId: "mcp-client" }).leaseMs).toBe(300_000);
   });
 
   it("only claims browser kinds", () => {

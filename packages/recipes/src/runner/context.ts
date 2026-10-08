@@ -40,7 +40,7 @@ export interface RunContext {
 }
 
 /** Fields the run may use: a blank value counts as missing, so it is never typed into a form. */
-export function usableFields(fields: ProfileFields): ProfileFields {
+function usableFields(fields: ProfileFields): ProfileFields {
   const usable: ProfileFields = {};
   for (const [name, value] of Object.entries(fields)) {
     if (typeof value === "string" && value.trim() !== "") {

@@ -303,14 +303,14 @@ describe("general settings", () => {
 });
 
 describe("agent settings", () => {
-  it("shows the command with a placeholder until a token exists", async () => {
+  it("shows the client config with a placeholder until a token exists", async () => {
     agents();
-    expect(await screen.findByText(/claude mcp add --transport http kickrocks/)).toBeVisible();
+    expect(await screen.findByText(/"mcpServers"/)).toBeVisible();
     expect(screen.getByText(/<your-token>/, { selector: "code" })).toBeVisible();
     expect(screen.getByText("Not created")).toBeVisible();
   });
 
-  it("shows a new token once and puts it in the command", async () => {
+  it("shows a new token once and puts it in the config", async () => {
     const { user, mock } = agents();
     await user.click(await screen.findByRole("button", { name: "Create a token" }));
     expect(await screen.findByText("Copy this token now")).toBeVisible();

@@ -14,7 +14,7 @@ export interface ResolvedAddress {
 
 export type HostResolver = (hostname: string) => Promise<ResolvedAddress[]>;
 
-export interface LinkFollowerOptions {
+interface LinkFollowerOptions {
   /** Hosts that may be reached although they resolve to a private or loopback address. */
   allowedPrivateHosts: readonly string[];
   /** Replaceable so a test can name a host without a DNS record. */

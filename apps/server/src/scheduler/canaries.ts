@@ -5,7 +5,7 @@ import type { AppServices } from "../services.js";
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 /** How often a recipe's page is checked for churn. */
-export const CANARY_INTERVAL_DAYS = 7;
+const CANARY_INTERVAL_DAYS = 7;
 
 /**
  * Canaries open real broker sites, so they wait until the person has set a password and turned

@@ -44,7 +44,7 @@ export interface MockContext<R extends RouteDef> {
   store: MockStore;
 }
 
-export type MockHandler<R extends RouteDef> = (
+type MockHandler<R extends RouteDef> = (
   context: MockContext<R>,
 ) => RouteResponse<R> | MockBinary | Promise<RouteResponse<R> | MockBinary>;
 

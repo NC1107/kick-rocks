@@ -21,7 +21,7 @@ export interface SentMail {
   mail: OutgoingMail;
 }
 
-export type DeliverableMessage = Partial<InboxMessage> & { folder?: string };
+type DeliverableMessage = Partial<InboxMessage> & { folder?: string };
 
 export interface FakeMailbox {
   /** The folders `listFolders` reports. Replace the array to change them. */
@@ -33,7 +33,7 @@ export interface FakeMailbox {
   deliver(message?: DeliverableMessage): InboxMessage;
 }
 
-export type ClassifyHandler = (
+type ClassifyHandler = (
   message: InboxMessage,
   context: ClassifyContext,
 ) => Partial<ClassificationResult> | null;
@@ -47,7 +47,7 @@ export interface ProgrammableClassifier extends ReplyClassifier {
   reset(): void;
 }
 
-export type FollowHandler = (
+type FollowHandler = (
   url: string,
   allowedDomains: readonly string[],
 ) => Partial<FollowResult> | null;

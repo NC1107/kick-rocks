@@ -88,7 +88,7 @@ export interface RequestsService {
   events(requestId: string): RequestEvent[];
 }
 
-export interface RequestsDeps {
+interface RequestsDeps {
   db: KickRocksDb;
   clock: Clock;
   taskQueue: TaskQueue;

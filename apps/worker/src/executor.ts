@@ -64,7 +64,7 @@ export interface Runners {
   runConfirmation: typeof runConfirmation;
 }
 
-export interface ExecutorOptions {
+interface ExecutorOptions {
   /** Opens a page in the browser that belongs to the person the task is for. */
   openPage: (profileId: string | null) => Promise<Page>;
   pace: "human" | "instant";

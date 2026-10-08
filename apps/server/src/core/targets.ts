@@ -37,13 +37,13 @@ export interface SyncResult {
 }
 
 /** Targets in `KICKROCKS_EXTRA_TARGETS`: fixtures and the additions of power users. */
-export const ExtraTargets = z.object({
+const ExtraTargets = z.object({
   brokers: z.array(Broker).default([]),
   companies: z.array(Company).default([]),
 });
-export type ExtraTargets = z.infer<typeof ExtraTargets>;
+type ExtraTargets = z.infer<typeof ExtraTargets>;
 
-export const EXTRA_DATASET_VERSION = "extra";
+const EXTRA_DATASET_VERSION = "extra";
 
 export interface TargetsService {
   /**
@@ -58,7 +58,7 @@ export interface TargetsService {
   summary(id: string): TargetSummary;
 }
 
-export interface TargetsDeps {
+interface TargetsDeps {
   db: KickRocksDb;
   clock: Clock;
   logger: Logger;
@@ -74,7 +74,7 @@ export function isPeopleSearchTarget(row: Pick<TargetRow, "id" | "kind" | "categ
   return row.kind === "broker" && needsRecord(row);
 }
 
-export function toTargetSummary(row: TargetRow): TargetSummary {
+function toTargetSummary(row: TargetRow): TargetSummary {
   return {
     id: row.id,
     kind: row.kind,

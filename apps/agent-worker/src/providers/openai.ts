@@ -11,9 +11,9 @@ import {
   type ToolCall,
 } from "../provider.js";
 
-export type TokenParam = "max_tokens" | "max_completion_tokens";
+type TokenParam = "max_tokens" | "max_completion_tokens";
 
-export interface OpenAiProviderOptions extends Partial<HttpOptions> {
+interface OpenAiProviderOptions extends Partial<HttpOptions> {
   baseUrl: string;
   model: string;
   apiKey: string | null;

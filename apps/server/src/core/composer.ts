@@ -57,7 +57,7 @@ export interface Composer {
   ): ComposedEmail;
 }
 
-export interface ComposerDeps {
+interface ComposerDeps {
   db: KickRocksDb;
   clock: Clock;
   legal: LegalApi;

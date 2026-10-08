@@ -18,10 +18,6 @@ import { sendDigest, sendDigestIfDue } from "./digest.js";
 import { pushNewAttention } from "./push.js";
 import { readState, updateState } from "./state.js";
 
-export { ChannelError, createNotificationChannels } from "./channels.js";
-export { sendDigest, sendDigestIfDue } from "./digest.js";
-export { pushNewAttention } from "./push.js";
-
 /** One scheduler pass: announce what is new, then send the digest when it is due. */
 export async function runNotifications(services: AppServices): Promise<void> {
   await pushNewAttention(services);

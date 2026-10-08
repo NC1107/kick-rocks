@@ -13,7 +13,7 @@ interface Group {
 }
 
 /** Failed tasks sorted by cause, biggest group first, so one fix or one click covers many. */
-export function groupFailures(items: readonly BlockedTaskItem[]): Group[] {
+function groupFailures(items: readonly BlockedTaskItem[]): Group[] {
   const groups = new Map<FailureGroup, BlockedTaskItem[]>();
   for (const item of items) {
     const { group } = describeFailure(item.task);

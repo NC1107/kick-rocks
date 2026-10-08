@@ -61,7 +61,7 @@ export interface ModelProvider {
  *   too long) or the setup (a parameter the model does not accept) is for the caller to tell, by
  *   `contextTooLong` and by whether the first request of a run was already refused.
  */
-export type ProviderErrorKind = "unavailable" | "config" | "rejected";
+type ProviderErrorKind = "unavailable" | "config" | "rejected";
 
 export class ProviderError extends Error {
   override name = "ProviderError";

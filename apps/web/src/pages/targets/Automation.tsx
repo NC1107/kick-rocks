@@ -2,7 +2,7 @@ import type { RecipeHealth } from "@kickrocks/shared";
 import { Badge } from "../../components/ui/index.js";
 import { RECIPE_HEALTH_LABELS, RECIPE_HEALTH_TONES } from "../../lib/labels.js";
 
-export const HEALTH_MEANINGS: Record<RecipeHealth | "none", string> = {
+const HEALTH_MEANINGS: Record<RecipeHealth | "none", string> = {
   none: "No approved recipe, so a person or an agent does this step.",
   unknown: "A recipe is approved but has not been run or checked yet.",
   healthy: "The recipe's last run or site check worked.",
