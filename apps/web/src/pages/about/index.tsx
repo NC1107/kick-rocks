@@ -169,8 +169,8 @@ function LimitsSection() {
           email on its side.
         </p>
         <p>
-          Many states have no privacy law. There the email rests on the broker's own published
-          privacy commitments, which it may not have.
+          Many states have no privacy law, so there the email rests on the company's own privacy
+          policy, and a broker may not have one.
         </p>
       </div>
     </Section>

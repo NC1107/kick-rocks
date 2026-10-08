@@ -39,7 +39,8 @@ Reverse proxy, backups, and updates are in [docs/self-hosting.md](docs/self-host
 Forms without a recipe become agent tasks.
 Any mcp client can work through them with a token from settings, or you can run the agent worker with a local model through ollama or with an `ANTHROPIC_API_KEY`.
 The agent worker masks your profile values, so its model only sees placeholders and the program types the real value.
-An mcp client doesn't get that, it sees the name and email the task allows and the pages it browses, and so does whoever hosts that client's model.
+An mcp client doesn't get that, it sees the fields the task needs and the pages it browses, and so does whoever hosts that client's model.
+That is your name, depending on the task your email, city and state, and for some removal forms your street address, zip or birth year.
 Setup is in [docs/agents.md](docs/agents.md), and which local model to run for your GPU is in [docs/agent-models.md](docs/agent-models.md).
 
 ## Where your data goes
@@ -49,11 +50,11 @@ This is everything that leaves your machine, as far as I know, and there is no t
 | Who | What they see | How to avoid it |
 |---|---|---|
 | Your mail provider | Every request you send, every reply, and the app password login. Kick rocks reads the folder you set for replies (the inbox by default) and keeps what it finds there, unrelated mail included. | Use a mailbox just for this, or point the reply folder at a label. |
-| Brokers and companies, by email | Your name and your email address, plus city and state for a site that has to find a record. Emails citing a state's law also say you live there. | Nothing, that is the request. A blind request to a broker that never had you still tells them your name and email. |
-| Broker sites, in the browser | Your home ip and a chrome profile that keeps its cookies for each person. | A proxy, set in settings or on the worker, which moves the traffic and doesn't make it anonymous. |
+| Brokers and companies, by email | Your name and your email address, plus city and state for a site that has to find a record. Emails citing a state's law also say you live there. Plus anything you approve sending when a broker replies asking for more to verify you. | Nothing, that is the request. A blind request to a broker that never had you still tells them your name and email. Decline a verification in review. |
+| Broker sites, in the browser | Your home ip and a chrome profile that keeps its cookies for each person. The name, city and state the worker types into searches, and on removal forms the fields the site asks for. For a few sites that includes street address, zip or birth year, and it can go to a form provider the site embeds. | A proxy, set in settings or on the worker, which moves the traffic and doesn't make it anonymous. |
 | Company sites, for confirmation links | A plain request from the server with no user agent, for the confirmation link of a company request that isn't a deletion. Broker links open in the browser instead. | Route that site through a proxy and the browser opens the link instead. |
 | The agent worker's model | Page text from the broker site, with your profile values masked. | Run a local model through ollama. A hosted one sees the page, including your listing and anything it shows about relatives. |
-| An mcp client and its model | The fields the task allows, usually your name and email and sometimes city and state, and every page the client browses. | Use the agent worker with a local model instead. |
+| An mcp client and its model | The fields the task needs: your name, depending on the task your email, city and state, and for some removal forms street address, zip or birth year. Every page the client browses too. | Use the agent worker with a local model instead. |
 | The reply classifier endpoint | The subject and up to 4000 characters of a reply, without the quoted text, only when the rules score it under 0.6. | Leave it unset and those replies wait in review, or use a model on your own machine. |
 | ntfy or telegram | How many things need you and a link to your kick rocks address, never a name or a broker. | Leave notifications off. |
 
@@ -63,7 +64,7 @@ This is not legal advice.
 A privacy law may not apply to a given business, and a request doesn't guarantee that anything gets deleted.
 A broker can add you back after it removes you, or get your details again from somewhere else, which is why it rescans.
 A request to a broker that never had you can create a new link between your name and your email on its side.
-About half the states have no privacy law, so there the email rests on the broker's own published privacy commitments, and a broker may not have any.
+Many states have no privacy law, so there the email rests on the company's own privacy policy, and a broker may not have one.
 
 ## Your data
 

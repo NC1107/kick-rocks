@@ -1,6 +1,7 @@
+import { outgoingMessageId } from "@kickrocks/shared";
 import { describe, expect, it } from "vitest";
 import { loadConfig } from "../config.js";
-import { noDkim } from "../test-utils/dkim.js";
+import { noDkim, signedAs } from "../test-utils/dkim.js";
 import { createMailServices } from "./index.js";
 
 const connection = {
@@ -63,9 +64,33 @@ describe("createMailServices", () => {
     };
     await mail.classifier.classify(message, { requests: [] });
     expect(reads).toBe(0);
+    const sent = outgoingMessageId("req-1", "example.com");
     await mail.classifier.classify(
-      { ...message, text: "Your data has been deleted." },
-      { requests: [] },
+      {
+        ...message,
+        inReplyTo: sent,
+        from: { name: null, address: "privacy@acme.test" },
+        verifyDkim: signedAs("acme.test", { inReplyTo: [sent] }),
+      },
+      {
+        requests: [
+          {
+            id: "req-1",
+            reference: "KR-7K3M9Q",
+            outgoingMessageId: sent,
+            status: "awaiting_reply",
+            channel: "email",
+            targetId: "acme",
+            targetName: "Acme Data",
+            targetDomain: "acme.test",
+            replyDomains: ["acme.test"],
+            curatedReplyDomains: [],
+            replyAddresses: [],
+            recordUrl: null,
+            awaitingConfirmation: null,
+          },
+        ],
+      },
     );
     expect(reads).toBe(1);
   });

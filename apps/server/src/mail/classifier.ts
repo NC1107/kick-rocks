@@ -462,7 +462,9 @@ export function createReplyClassifier(deps: ReplyClassifierDeps): ReplyClassifie
         };
       }
 
-      if (result.confidence >= CONFIDENCE_THRESHOLD) return result;
+      // Mail that matches no request is capped below the threshold and waits for a person either
+      // way, so sending it out would only leak unrelated mail to the model.
+      if (result.confidence >= CONFIDENCE_THRESHOLD || result.requestId === null) return result;
       return refineWithLlm(deps, message, body, result, via, trust, ownSiteTrust);
     },
   };

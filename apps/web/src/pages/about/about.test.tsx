@@ -83,7 +83,7 @@ describe("the about page", () => {
     expect(limits).toHaveTextContent(/does not guarantee/);
     expect(limits).toHaveTextContent(/add you back/);
     expect(limits).toHaveTextContent(/new link between your name and your email/);
-    expect(limits).toHaveTextContent(/own published privacy commitments/);
+    expect(limits).toHaveTextContent(/own privacy policy/);
   });
 
   it("says the broker list is not built when it is not", async () => {

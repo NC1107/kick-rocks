@@ -88,6 +88,22 @@ const verdict = (overrides: Record<string, unknown> = {}) => ({
 });
 
 describe("the language model fallback", () => {
+  it("never sends mail that matches no request, even when a rule pattern fires", async () => {
+    const { calls, fetchImpl } = fakeLlm(verdict());
+    const result = await classifierWith(LLM, fetchImpl).classify(
+      message({
+        inReplyTo: null,
+        from: { name: null, address: "clinic@doctor.test" },
+        subject: "Your appointment",
+        text: "Thank you for your message. We will review it within 3 business days. Ticket number 4411.",
+        verifyDkim: noDkim,
+      }),
+      { requests: [target] },
+    );
+    expect(result.requestId).toBeNull();
+    expect(calls).toHaveLength(0);
+  });
+
   it("is asked about a message the rules could not place, with a strict schema", async () => {
     const { calls, fetchImpl } = fakeLlm(verdict());
     const result = await classifierWith(LLM, fetchImpl).classify(message(), {
@@ -231,21 +247,6 @@ describe("the language model fallback", () => {
     );
     expect(result.requestId).toBeNull();
     expect(result.confidence).toBeLessThan(0.6);
-  });
-
-  it("can dismiss mail that matches no request as unrelated", async () => {
-    const { fetchImpl } = fakeLlm(verdict({ classification: "unrelated", confidence: 0.9 }));
-    const result = await classifierWith(LLM, fetchImpl).classify(
-      message({
-        inReplyTo: null,
-        subject: "Hello",
-        from: { name: null, address: "someone@else.test" },
-        text: "Your data has been deleted.",
-      }),
-      { requests: [target] },
-    );
-    expect(result).toMatchObject({ classification: "unrelated", requestId: null });
-    expect(result.confidence).toBeGreaterThanOrEqual(0.6);
   });
 
   it("keeps the rules' answer when the model is less sure than they were", async () => {

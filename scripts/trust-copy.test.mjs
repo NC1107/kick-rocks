@@ -42,6 +42,16 @@ describe("the README data flow", () => {
     assert.match(readme, /mcp client doesn't get that/);
   });
 
+  it("names the fields typed into broker sites and sent to an mcp client", () => {
+    const row = (who) => table.split("\n").find((line) => line.startsWith(`| ${who} |`));
+    for (const who of ["Broker sites, in the browser", "An mcp client and its model"]) {
+      assert.match(row(who), /street address, zip or birth year/, who);
+    }
+    assert.match(row("Broker sites, in the browser"), /form provider/);
+    assert.match(row("Brokers and companies, by email"), /asking for more to verify you/);
+    assert.match(readme, /street address, zip or birth year/);
+  });
+
   it("states the limits of a request", () => {
     const limits = section(readme, "Limits");
     for (const phrase of [
@@ -50,7 +60,7 @@ describe("the README data flow", () => {
       /doesn't guarantee/,
       /add you back/,
       /new link between your name and your email/,
-      /no privacy law/,
+      /Many states have no privacy law/,
     ]) {
       assert.match(limits, phrase);
     }
