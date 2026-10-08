@@ -94,7 +94,7 @@ It is rationed, never used in a gradient, never tints surfaces, and stays this d
 - **Bundling:** vendor the `.woff2` files into `apps/web/src/fonts/` with `OFL.txt`, declare them with `@font-face` in `index.css`, and let Vite fingerprint them.
   This adds no runtime dependency and passes the server's `default-src 'self'` CSP with no change.
   No Google Fonts, no CDN, no `@fontsource` runtime import from a third-party host.
-- **Files:** Plex Sans 400, 500, 600 (plus 400 italic for quoted mail) and Plex Mono 400, 500, 600, latin and latin-ext subsets, `font-display: swap`, with metric-matched local fallback faces and and a build-time preload of the Latin 400, 500 and 600 Sans files and the 600 Mono logo face.
+- **Files:** Plex Sans 400, 500, 600 (plus 400 italic for quoted mail) and Plex Mono 400, 500, 600, latin and latin-ext subsets, `font-display: swap`, with metric-matched local fallback faces and a build-time preload of the Latin 400, 500 and 600 Sans files and the 600 Mono logo face.
 - **Weights:** 400 body, 500 labels and nav, 600 titles and emphasis; never 700.
 - **Mono does real work**: request references, domains, email addresses, timestamps and dates in tables and timelines, all counts and numbers, section labels, column headers, keycaps, the version string, the wordmark, units ("of 150", "45 d").
 - All numbers use `font-variant-numeric: tabular-nums`.

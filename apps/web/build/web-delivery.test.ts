@@ -1,17 +1,20 @@
 import { randomBytes } from "node:crypto";
-import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { brotliDecompressSync, gunzipSync } from "node:zlib";
+import { build } from "vite";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import {
-  appLoaderSource,
-  entryChunks,
-  fontFiles,
-  precompressDirectory,
-  webDelivery,
-  withoutStartupTags,
-} from "./web-delivery.js";
+import { fontPreloads, precompressDirectory, webDelivery } from "./web-delivery.js";
 
 let dir: string;
 
@@ -48,9 +51,9 @@ describe("precompressDirectory", () => {
   });
 });
 
-describe("fontFiles", () => {
-  it("lists the Latin Plex Sans Regular, Medium and SemiBold faces and the Mono SemiBold logo face", () => {
-    const files = fontFiles(
+describe("fontPreloads", () => {
+  it("preloads the Latin Plex Sans Regular, Medium and SemiBold faces and the Mono SemiBold logo face, as anonymous CORS", () => {
+    const tags = fontPreloads(
       [
         "assets/IBMPlexSans-SemiBold-Latin1-CIhZjzyK.woff2",
         "assets/IBMPlexSans-Regular-Latin1-BUjEsRx4.woff2",
@@ -63,65 +66,13 @@ describe("fontFiles", () => {
       ],
       "/",
     );
-    expect(files).toEqual([
+    expect(tags.map((tag) => (tag.attrs as Record<string, string>).href)).toEqual([
       "/assets/IBMPlexMono-SemiBold-Latin1-ChfWfxA6.woff2",
       "/assets/IBMPlexSans-Medium-Latin1-B2CuUu4P.woff2",
       "/assets/IBMPlexSans-Regular-Latin1-BUjEsRx4.woff2",
       "/assets/IBMPlexSans-SemiBold-Latin1-CIhZjzyK.woff2",
     ]);
-  });
-});
-
-describe("entryChunks", () => {
-  it("returns the entry and every chunk it imports statically, each once", () => {
-    const bundle = {
-      "assets/index-a.js": {
-        type: "chunk",
-        fileName: "assets/index-a.js",
-        isEntry: true,
-        imports: ["assets/ui-b.js", "assets/zod-c.js"],
-      },
-      "assets/ui-b.js": { type: "chunk", fileName: "assets/ui-b.js", imports: ["assets/zod-c.js"] },
-      "assets/zod-c.js": { type: "chunk", fileName: "assets/zod-c.js", imports: [] },
-      "assets/page-d.js": { type: "chunk", fileName: "assets/page-d.js", imports: [] },
-      "assets/face.woff2": { type: "asset", fileName: "assets/face.woff2" },
-    };
-    expect(entryChunks(bundle)).toEqual({
-      entry: "assets/index-a.js",
-      preloads: ["assets/ui-b.js", "assets/zod-c.js"],
-    });
-  });
-});
-
-describe("the page startup", () => {
-  const page = [
-    "<head>",
-    '<script src="/theme-init.js"></script>',
-    '<script type="module" crossorigin src="/assets/index-a.js"></script>',
-    '<link rel="modulepreload" crossorigin href="/assets/ui-b.js">',
-    '<link rel="stylesheet" crossorigin href="/assets/index-a.css">',
-    "</head>",
-  ].join("\n");
-
-  it("leaves nothing in the page that is fetched before the first paint except the loader, the theme script and the styles", () => {
-    const stripped = withoutStartupTags(page);
-    expect(stripped).not.toMatch(/type="module"|modulepreload/);
-    expect(stripped).toContain('src="/theme-init.js"');
-    expect(stripped).toContain('rel="stylesheet"');
-  });
-
-  it("starts the app from a loader that waits for the first paint and falls back to a timer", () => {
-    const source = appLoaderSource({
-      entry: "/assets/index-a.js",
-      preloads: ["/assets/ui-b.js"],
-      fonts: ["/assets/face.woff2"],
-    });
-    expect(source).toContain('"/assets/index-a.js"');
-    expect(source).toContain('"/assets/ui-b.js"');
-    expect(source).toContain('"/assets/face.woff2"');
-    expect(source).toContain('type: "paint"');
-    expect(source).toMatch(/setTimeout\(start, \d+\)/);
-    expect(() => new Function(source)).not.toThrow();
+    expect(tags[0]?.attrs).toMatchObject({ rel: "preload", as: "font", crossorigin: "" });
   });
 });
 
@@ -141,4 +92,39 @@ describe("webDelivery", () => {
       "app-abc.js.gz",
     ]);
   });
+});
+
+describe("the built page", () => {
+  const webDir = fileURLToPath(new URL("..", import.meta.url));
+  let outDir: string;
+
+  afterEach(() => rmSync(outDir, { recursive: true, force: true }));
+
+  it("starts the app from files that exist in the build", async () => {
+    outDir = mkdtempSync(join(tmpdir(), "kickrocks-build-"));
+    await build({
+      root: webDir,
+      configFile: join(webDir, "vite.config.ts"),
+      logLevel: "silent",
+      build: { outDir, emptyOutDir: true },
+    });
+
+    const html = readFileSync(join(outDir, "index.html"), "utf8");
+    const referenced = (pattern: RegExp) =>
+      [...html.matchAll(pattern)].map((match) => match[1] ?? "");
+    const modules = referenced(/<script type="module"[^>]*src="([^"]+)"/g);
+    expect(modules).toHaveLength(1);
+    const files = [
+      ...modules,
+      ...referenced(/<link rel="modulepreload"[^>]*href="([^"]+)"/g),
+      ...referenced(/<link rel="stylesheet"[^>]*href="([^"]+)"/g),
+      ...referenced(/<link rel="preload"[^>]*href="([^"]+)"/g),
+    ];
+    expect(files.length).toBeGreaterThan(modules.length);
+    for (const file of files) {
+      expect(file).toMatch(/^\/assets\/[\w.-]+$/);
+      expect(existsSync(join(outDir, file)), file).toBe(true);
+    }
+    expect(files.filter((file) => file.endsWith(".woff2"))).toHaveLength(4);
+  }, 120_000);
 });

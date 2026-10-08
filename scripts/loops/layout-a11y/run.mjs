@@ -296,6 +296,53 @@ async function measureLayoutShift(browser, base) {
   return failing;
 }
 
+// A score can rise while the page the visitor can use arrives later, so the throttled time to the
+// route heading and the largest paint are recorded next to it. They are reported, not gated, since
+// they depend on the machine.
+async function measureRouteReady(browser, base, runs) {
+  const results = [];
+  for (const route of LIGHTHOUSE_ROUTES) {
+    const headingMs = [];
+    const largestPaintMs = [];
+    for (let i = 0; i < runs; i++) {
+      const context = await browser.newContext({
+        viewport: { width: 390, height: 844 },
+        hasTouch: true,
+      });
+      const page = await context.newPage();
+      await page.goto(`${base}/__mock/auth?mode=authed`);
+      const session = await context.newCDPSession(page);
+      await session.send("Network.enable");
+      await session.send("Network.emulateNetworkConditions", {
+        offline: false,
+        latency: 150,
+        downloadThroughput: (1.6 * 1024 * 1024) / 8,
+        uploadThroughput: (750 * 1024) / 8,
+      });
+      await session.send("Emulation.setCPUThrottlingRate", { rate: 4 });
+      await page.addInitScript(() => {
+        window.__lcp = 0;
+        new PerformanceObserver((list) => {
+          for (const e of list.getEntries()) window.__lcp = e.startTime;
+        }).observe({ type: "largest-contentful-paint", buffered: true });
+      });
+      await page.goto(base + route, { waitUntil: "commit" });
+      await page.locator("h1:visible").first().waitFor({ timeout: 60_000 });
+      headingMs.push(Math.round(await page.evaluate(() => performance.now())));
+      await page.waitForLoadState("load");
+      await page.waitForTimeout(500);
+      largestPaintMs.push(Math.round(await page.evaluate(() => window.__lcp)));
+      await context.close();
+    }
+    results.push({
+      route,
+      headingMs: Math.max(...headingMs),
+      largestPaintMs: Math.max(...largestPaintMs),
+    });
+  }
+  return results;
+}
+
 async function measureLighthouse(base, runs) {
   const lighthouse = (await import(requireFromRoot.resolve("lighthouse"))).default;
   const chromeLauncher = await import(requireFromRoot.resolve("chrome-launcher"));
@@ -380,6 +427,12 @@ async function main() {
     const shifts = await measureLayoutShift(browser, base);
     metrics.clsRoutesOverBudget = shifts.size;
     for (const [where, value] of shifts) failing.push(`cls ${where} ${value}`);
+
+    metrics.throttledRouteReady = await measureRouteReady(
+      browser,
+      base,
+      Number(option("lh-runs") ?? 2),
+    );
   } finally {
     await browser.close();
   }
