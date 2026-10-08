@@ -110,6 +110,9 @@ function WorkerRow({
               />
               <Row title="Name" trailing={<Value>{status.workerId}</Value>} />
               <Row title="Version" trailing={<Value>{status.version ?? "-"}</Value>} />
+              {status.model ? (
+                <Row title="Model" trailing={<Value>{status.model.name}</Value>} />
+              ) : null}
               {state === "online" ? (
                 <Row
                   title="Doing"

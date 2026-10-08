@@ -206,6 +206,8 @@ export interface TaskQueue {
   pullForward(input: { kind: TaskKind; profileId: string; waitingUntil: Date; to: Date }): number;
   /** Puts a blocked task back in the queue with a fresh attempt budget. */
   resume(id: string, actor?: RequestActor): Task;
+  /** Records the person's say-so (or its absence) for the next submit of a removal. */
+  setSubmitApproval(id: string, state: Task["submitApproval"]): void;
   /** A person did the work by hand: closes a blocked task as done. */
   markDone(id: string, input: MarkDoneInput): Task;
   /** Idempotent. Cancels a task that is queued, leased, or blocked, or dismisses one that failed. */
@@ -250,6 +252,7 @@ function toTask(row: TaskRow): Task {
     leaseOwner: row.leaseOwner,
     leaseExpiresAt: row.leaseExpiresAt,
     mayHaveSubmitted: row.mayHaveSubmitted,
+    submitApproval: row.submitApproval,
     attempts: row.attempts,
     maxAttempts: row.maxAttempts,
     runAfter: row.runAfter,
@@ -795,6 +798,10 @@ export function createTaskQueue({
           ),
         )
         .run().changes;
+    },
+
+    setSubmitApproval(id, state) {
+      db.update(tasks).set({ submitApproval: state }).where(eq(tasks.id, id)).run();
     },
 
     resume(id, actor = "user") {

@@ -9,6 +9,7 @@ import {
   type Identity,
   isActiveStatus,
   isOnDomain,
+  type ModelIdentity,
   type ProfileField,
   type ProfileFields,
   Recipe,
@@ -16,10 +17,11 @@ import {
   type RequestRight,
   resolveProfileFields,
   type ScanVariant,
+  type SubmitApproval,
 } from "@kickrocks/shared";
 import { and, eq } from "drizzle-orm";
 import type { AppServices } from "../services.js";
-import { modelStance, tasksForModelToSkip } from "./agent-policy.js";
+import { modelStance, settleSubmitApproval, tasksForModelToSkip } from "./agent-policy.js";
 import { nowIso } from "./clock.js";
 import { AppError, conflict, notFound } from "./errors.js";
 import { loadIdentities } from "./identities.js";
@@ -42,6 +44,8 @@ interface ClaimOptions {
   taskId?: string | undefined;
   /** Set by the route that took the call, so a client cannot choose how it is counted. */
   claimerKind: ClaimerKind;
+  /** The model a model-backed claim says it will drive. Without one, the claim counts as an unproven model. */
+  model?: ModelIdentity | undefined;
 }
 
 type BrowserTask = Task<BrowserTaskKind>;
@@ -90,6 +94,7 @@ const BLOCKED_PHRASES: Record<BlockedReason, string> = {
   email_verification: "an email verification",
   login_required: "a login wall",
   bot_detection: "a bot check",
+  approval_needed: "a model that has not been cleared to send forms on its own",
   unknown: "something it could not get past",
 };
 
@@ -306,6 +311,7 @@ export function buildClaimedTask(
   services: ClaimServices,
   task: BrowserTask,
   claimerKind?: ClaimerKind,
+  submitApproval?: SubmitApproval,
 ): ClaimedTask {
   if (task.targetId === null)
     throw new AppError(500, "task_without_target", `Task ${task.id} has no target`);
@@ -441,6 +447,7 @@ export function buildClaimedTask(
         recipe: null,
         fields,
         ...(claimerKind === "model" ? { maskValues: identityValues(identities) } : {}),
+        ...(submitApproval ? { submitApproval } : {}),
         instructions: agentInstructions(task, target, Object.keys(fields)),
       };
     }
@@ -459,6 +466,7 @@ function prepare(
   task: Task,
   workerId: string,
   claimerKind: ClaimerKind,
+  model: ModelIdentity | undefined,
 ): ClaimedTask | null {
   if (!isBrowserTask(task)) {
     throw new AppError(500, "not_a_browser_task", `Task ${task.id} is ${task.kind}`);
@@ -474,7 +482,11 @@ function prepare(
     return null;
   }
   try {
-    return buildClaimedTask(services, task, claimerKind);
+    const submitApproval =
+      claimerKind === "model" && task.kind === "agent"
+        ? settleSubmitApproval(services, task, model)
+        : undefined;
+    return buildClaimedTask(services, task, claimerKind, submitApproval);
   } catch (error) {
     if (error instanceof TaskObsoleteError) {
       services.taskQueue.cancel(task.id, "system");
@@ -500,7 +512,7 @@ function prepare(
  */
 export function claimTask(
   services: ClaimServices,
-  { workerId, kinds, leaseMs, taskId, claimerKind }: ClaimOptions,
+  { workerId, kinds, leaseMs, taskId, claimerKind, model }: ClaimOptions,
 ): ClaimedTask | null {
   if (taskId !== undefined) {
     const leased = services.db.transaction(() => {
@@ -518,7 +530,7 @@ export function claimTask(
         claimerKind,
       });
     });
-    return leased === null ? null : prepare(services, leased, workerId, claimerKind);
+    return leased === null ? null : prepare(services, leased, workerId, claimerKind, model);
   }
 
   for (let skipped = 0; skipped <= MAX_OBSOLETE_PER_CLAIM; skipped++) {
@@ -530,7 +542,7 @@ export function claimTask(
       ...(claimerKind === "model" ? { excludeTaskIds: tasksForModelToSkip(services) } : {}),
     });
     if (task === null) return null;
-    const claimed = prepare(services, task, workerId, claimerKind);
+    const claimed = prepare(services, task, workerId, claimerKind, model);
     if (claimed) return claimed;
   }
   return null;

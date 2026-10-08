@@ -53,6 +53,8 @@ export function taskFor(scenario: Scenario, origin: string): AgentTask {
     recipe: null,
     fields,
     maskValues: HIDDEN_PROFILE_VALUES,
+    // The bench measures what a model does when nothing stops it, which is what the gate asks about.
+    submitApproval: "not_needed" as const,
     payload: {
       purpose: scenario.purpose,
       profileId: "bench-profile",

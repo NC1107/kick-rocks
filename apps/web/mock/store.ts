@@ -142,7 +142,7 @@ export function createStore(authMode: MockAuthMode = "authed"): MockStore {
       retention: { messageDays: null, screenshotDays: 30 },
       mcp: { enabled: false, tokenSet: false, url: "http://localhost:8420/mcp" },
       siteChecks: { enabled: false },
-      agent: { takeUnreviewed: false },
+      agent: { takeUnreviewed: false, gate: { records: [], current: null } },
       worker: { enabled: false, builtin: null, model: null },
     },
     mcpToken: null,

@@ -1,5 +1,7 @@
 import {
   API_ROUTES,
+  BENCH_NUM_CTX,
+  gateVerdict,
   type Jurisdiction,
   Recipe,
   type RecipeHealth,
@@ -9,6 +11,7 @@ import {
   type RecipeStatus,
   type SettingsView,
   type TargetDetail,
+  withOverride,
 } from "@kickrocks/shared";
 import { conflict, defineMockDomain, handle, notFound } from "./core.js";
 import { notificationRoutes } from "./notifications.js";
@@ -245,6 +248,31 @@ function wipePersonalData(store: MockStore): void {
 
 const KEEP_ALIVE_MS = 10 * 60 * 1000;
 
+function settingsView(store: MockStore): SettingsView {
+  const now = store.clock.now().getTime();
+  // A worker seen in the last few minutes keeps checking in, so the fixture stays online
+  // however long the session runs. One a test or a walk has set further back stays down.
+  const checkIn = <T extends { lastSeenAt: string }>(worker: T | null): T | null =>
+    worker && now - Date.parse(worker.lastSeenAt) < KEEP_ALIVE_MS
+      ? { ...worker, lastSeenAt: new Date(now - 30_000).toISOString() }
+      : worker;
+  const { worker, agent } = store.settings;
+  const reported = worker.model?.model ?? null;
+  return {
+    ...store.settings,
+    agent: {
+      ...agent,
+      gate: {
+        ...agent.gate,
+        current: reported
+          ? { model: reported, verdict: gateVerdict(agent.gate.records, reported) }
+          : null,
+      },
+    },
+    worker: { ...worker, builtin: checkIn(worker.builtin), model: checkIn(worker.model) },
+  };
+}
+
 export default defineMockDomain({
   name: "settings",
 
@@ -262,6 +290,39 @@ export default defineMockDomain({
         },
         // No agent has connected, so form-only targets wait for a person, as the campaign preview warns.
         model: null,
+      },
+      agent: {
+        ...store.settings.agent,
+        gate: {
+          // One model passed on this install and one was allowed by hand, so the page shows both marks.
+          records: [
+            {
+              model: {
+                provider: "ollama",
+                name: "gpt-oss:20b",
+                version: "aa1c7e3b9d20",
+                thinking: "default",
+                numCtx: BENCH_NUM_CTX,
+              },
+              source: "bench",
+              recordedAt: store.ago({ days: 2 }),
+              runs: 40,
+            },
+            {
+              model: {
+                provider: "ollama",
+                name: "granite4.1:8b",
+                version: null,
+                thinking: "default",
+                numCtx: null,
+              },
+              source: "override",
+              recordedAt: store.ago({ days: 1 }),
+              runs: null,
+            },
+          ],
+          current: null,
+        },
       },
     };
     seedRecipe(store, "peopletrace", "scan");
@@ -328,20 +389,7 @@ export default defineMockDomain({
     return [
       ...notificationRoutes(store),
 
-      handle(API_ROUTES.settingsGet, (): SettingsView => {
-        const now = store.clock.now().getTime();
-        // A worker seen in the last few minutes keeps checking in, so the fixture stays online
-        // however long the session runs. One a test or a walk has set further back stays down.
-        const checkIn = <T extends { lastSeenAt: string }>(worker: T | null): T | null =>
-          worker && now - Date.parse(worker.lastSeenAt) < KEEP_ALIVE_MS
-            ? { ...worker, lastSeenAt: new Date(now - 30_000).toISOString() }
-            : worker;
-        const { worker } = store.settings;
-        return {
-          ...store.settings,
-          worker: { ...worker, builtin: checkIn(worker.builtin), model: checkIn(worker.model) },
-        };
-      }),
+      handle(API_ROUTES.settingsGet, (): SettingsView => settingsView(store)),
 
       handle(API_ROUTES.settingsPatch, ({ body }): SettingsView => {
         const current = store.settings;
@@ -367,8 +415,25 @@ export default defineMockDomain({
         }
         if (body.mcp) current.mcp = { ...current.mcp, enabled: body.mcp.enabled };
         if (body.siteChecks) current.siteChecks = { enabled: body.siteChecks.enabled };
-        if (body.agent) current.agent = { takeUnreviewed: body.agent.takeUnreviewed };
-        return current;
+        if (body.agent?.takeUnreviewed !== undefined) {
+          current.agent = { ...current.agent, takeUnreviewed: body.agent.takeUnreviewed };
+        }
+        if (body.agent?.gateOverride) {
+          const { provider, name, enabled } = body.agent.gateOverride;
+          current.agent = {
+            ...current.agent,
+            gate: {
+              ...current.agent.gate,
+              records: withOverride(
+                current.agent.gate.records,
+                { provider, name },
+                enabled,
+                store.clock.now().toISOString(),
+              ),
+            },
+          };
+        }
+        return settingsView(store);
       }),
 
       handle(API_ROUTES.settingsReset, () => {
@@ -377,7 +442,7 @@ export default defineMockDomain({
           ...store.settings,
           schedule: { ...DEFAULT_SCHEDULE },
           llm: null,
-          agent: { takeUnreviewed: false },
+          agent: { takeUnreviewed: false, gate: { records: [], current: null } },
           retention: { messageDays: null, screenshotDays: 30 },
           mcp: { ...store.settings.mcp, enabled: false, tokenSet: false },
           siteChecks: { enabled: false },

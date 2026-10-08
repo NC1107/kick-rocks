@@ -1,4 +1,5 @@
 import { loadAgentWorkerConfig, OLLAMA_BASE_URL } from "../src/config.js";
+import { describeModel } from "../src/model-identity.js";
 import type { ModelProvider } from "../src/provider.js";
 import { createProvider } from "../src/providers/index.js";
 import { type FakeKind, fakeModel } from "./fake-models.js";
@@ -154,6 +155,7 @@ export async function runBench(options: BenchOptions): Promise<BenchResults> {
   };
   return {
     model: options.model,
+    identity: options.agent && !options.fake ? await describeModel(config.provider) : null,
     startedAt,
     finishedAt: new Date().toISOString(),
     environment: {

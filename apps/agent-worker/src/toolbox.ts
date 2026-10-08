@@ -33,6 +33,7 @@ import {
   detailAskedFor,
   stateSpellings,
 } from "./stand-ins.js";
+import { CONTROL_LABEL, mayBeTheSubmit, SubmitNeedsApproval } from "./submit-approval.js";
 import {
   CheckArgs,
   ClickArgs,
@@ -65,6 +66,8 @@ interface ToolboxOptions {
   signal: AbortSignal;
   /** Awaited just before every click, which may be the one that submits a form. */
   onClick?: () => Promise<void>;
+  /** The click that may send the form stops the run until a person approves it. */
+  submitNeedsApproval?: boolean;
   /** How long a click, a fill or a choice may take before it counts as timed out. */
   actionTimeoutMs?: number;
   /** How long a whole-page bot check gets to clear by itself before it stops the run. */
@@ -205,6 +208,8 @@ export class Toolbox {
   private readonly redirectsToFollow: Set<string>;
   private readonly links = new Map<string, string | null>();
   private clickCount = 0;
+  /** Details typed, chosen or ticked so far, which turn a later button into a likely submit. */
+  private detailsEntered = 0;
   private installed = false;
   private cdp: CDPSession | null = null;
   /** The last document the page was let load, which its own address changes are measured against. */
@@ -398,7 +403,13 @@ export class Toolbox {
     try {
       outcome = await this.run(name, args);
     } catch (error) {
-      if (this.options.signal.aborted || error instanceof SubmitNotRecorded) throw error;
+      if (
+        this.options.signal.aborted ||
+        error instanceof SubmitNotRecorded ||
+        error instanceof SubmitNeedsApproval
+      ) {
+        throw error;
+      }
       outcome = failure(this.withNotes(this.explain(error)));
     }
     return outcome.kind === "result"
@@ -699,6 +710,7 @@ export class Toolbox {
     }
     const invented = await this.refuseInventedChoice(parsed.data.ref, target.locator);
     if (invented !== null) return invented;
+    await this.requireApprovalToSubmit(target);
     const stopped = await this.beforeSending();
     if (stopped !== null) return stopped;
     try {
@@ -715,6 +727,14 @@ export class Toolbox {
     }
     await this.settle();
     return this.readPage(`Clicked ${parsed.data.ref}.`);
+  }
+
+  private async requireApprovalToSubmit(target: { locator: Locator; info: ElementInfo }) {
+    if (!this.options.submitNeedsApproval) return;
+    const label = await target.locator.evaluate(fromSource<(el: unknown) => string>(CONTROL_LABEL));
+    if (mayBeTheSubmit({ ...target.info, label }, this.detailsEntered)) {
+      throw new SubmitNeedsApproval(label, this.options.page.url());
+    }
   }
 
   private async type(args: unknown): Promise<ToolOutcome> {
@@ -749,6 +769,7 @@ export class Toolbox {
 
     const stopped = await this.beforeEditing();
     if (stopped !== null) return stopped;
+    this.detailsEntered += 1;
     const { pace } = this.options;
     if (pace.typeDelayMs[1] > 0) {
       await target.locator.click({ timeout: this.actionTimeoutMs });
@@ -821,6 +842,7 @@ export class Toolbox {
     }
     const stopped = await this.beforeSending();
     if (stopped !== null) return stopped;
+    this.detailsEntered += 1;
     await target.locator.selectOption({ value: match.value }, { timeout: this.actionTimeoutMs });
     return (
       (await this.stopForChallenge()) ??
@@ -915,6 +937,7 @@ export class Toolbox {
     }
     const stopped = await this.beforeSending();
     if (stopped !== null) return stopped;
+    this.detailsEntered += 1;
     await target.locator.setChecked(parsed.data.checked, { timeout: this.actionTimeoutMs });
     return (
       (await this.stopForChallenge()) ??

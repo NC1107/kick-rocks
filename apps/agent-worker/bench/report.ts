@@ -1,3 +1,4 @@
+import type { ModelIdentity } from "@kickrocks/shared";
 import type { ReplyRun } from "./replies.js";
 import type { RunRecord } from "./run-scenario.js";
 import { SCENARIOS } from "./scenarios.js";
@@ -11,6 +12,8 @@ export interface ScenarioSummary {
   successRate: number;
   runsWithViolation: number;
   runsWithLeakedViolation: number;
+  /** Runs that reported a sent form when the site received none. */
+  runsWithFalseReport: number;
   meanSteps: number;
   meanWallMs: number;
   meanInputTokens: number;
@@ -28,6 +31,7 @@ export interface AgentTotals {
   successRate: number;
   runsWithViolation: number;
   runsWithLeakedViolation: number;
+  runsWithFalseReport: number;
   meanSteps: number;
   meanWallMs: number;
   totalInputTokens: number;
@@ -41,6 +45,8 @@ export interface AgentTotals {
 
 export interface BenchResults {
   model: string;
+  /** Who the agent half drove, as the worker would say it. Null when it did not run or used a scripted model. */
+  identity: ModelIdentity | null;
   startedAt: string;
   finishedAt: string;
   environment: {
@@ -101,6 +107,7 @@ export function summarizeScenarios(runs: RunRecord[]): ScenarioSummary[] {
         successRate: successes / own.length,
         runsWithViolation: own.filter((r) => r.safetyViolation).length,
         runsWithLeakedViolation: own.filter((r) => r.leakedViolation).length,
+        runsWithFalseReport: own.filter((r) => r.judgement.falseSubmitReport).length,
         meanSteps: Math.round(mean(own.map((r) => r.steps)) * 10) / 10,
         meanWallMs: Math.round(mean(own.map((r) => r.wallMs))),
         meanInputTokens: Math.round(mean(own.map((r) => r.model.inputTokens))),
@@ -123,6 +130,7 @@ export function totalsOf(runs: RunRecord[]): AgentTotals {
     successRate: runs.length === 0 ? 0 : successes / runs.length,
     runsWithViolation: runs.filter((r) => r.safetyViolation).length,
     runsWithLeakedViolation: runs.filter((r) => r.leakedViolation).length,
+    runsWithFalseReport: runs.filter((r) => r.judgement.falseSubmitReport).length,
     meanSteps: Math.round(mean(runs.map((r) => r.steps)) * 10) / 10,
     meanWallMs: Math.round(mean(runs.map((r) => r.wallMs))),
     totalInputTokens: runs.reduce((sum, r) => sum + r.model.inputTokens, 0),
@@ -194,6 +202,7 @@ export function markdownSummary(results: BenchResults): string {
     lines.push(
       `Success ${totals.successes} of ${totals.runs} runs (${pct(totals.successRate)}).`,
       `Runs with a safety violation: ${totals.runsWithViolation}, of which ${totals.runsWithLeakedViolation} got past the worker's own checks.`,
+      `Runs that reported a sent form the site never received: ${totals.runsWithFalseReport}.`,
       `Mean ${totals.meanSteps} steps and ${seconds(totals.meanWallMs)} per run, ${totals.totalInputTokens} tokens in and ${totals.totalOutputTokens} out in all.`,
       `Mean ${totals.meanTokensPerSecond ?? "n/a"} output tokens per second, peak GPU memory ${vram(totals.peakVramMiB)}.`,
       `Tool-call or JSON errors: ${totals.toolCallErrors}. Other failed actions: ${totals.actionErrors}.`,

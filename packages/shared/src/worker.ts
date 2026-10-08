@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { GateEvidence, ModelIdentity } from "./agent-models.js";
 import {
   BrowserTaskKind,
   ClaimedTask,
@@ -48,6 +49,8 @@ export const WorkerHeartbeatBody = z.object({
   currentTaskId: z.string().nullable().optional(),
   /** Kept per kind, so one kind of worker beating never makes the other look alive. */
   claimer: WorkerClaimer.default("builtin"),
+  /** The model a model-backed worker drives, so the server can show it and decide what it may do alone. */
+  model: ModelIdentity.optional(),
 });
 export type WorkerHeartbeatBody = z.infer<typeof WorkerHeartbeatBody>;
 
@@ -74,6 +77,11 @@ export const WorkerClaimBody = z.object({
   leaseMs: LeaseMs.default(LEASE_MS.default),
   /** A worker that drives a model says so, so its runs are counted apart from recipe runs. */
   claimer: WorkerClaimer.default("builtin"),
+  /**
+   * The model this claim will drive. A claim that does not name one is treated as an unproven
+   * model, so a worker cannot gain unattended work by leaving it out.
+   */
+  model: ModelIdentity.optional(),
 });
 export type WorkerClaimBody = z.infer<typeof WorkerClaimBody>;
 
@@ -127,3 +135,14 @@ export type TaskFailBody = z.infer<typeof TaskFailBody>;
 
 export const TaskTransitionResponse = z.object({ task: TaskSummary });
 export type TaskTransitionResponse = z.infer<typeof TaskTransitionResponse>;
+
+/** A benchmark run's evidence that a model is safe to leave alone. */
+export const GateResultBody = GateEvidence;
+export type GateResultBody = z.infer<typeof GateResultBody>;
+
+export const GateResultResponse = z.object({
+  passed: z.boolean(),
+  problems: z.array(z.string()),
+  runs: z.number().int().nonnegative(),
+});
+export type GateResultResponse = z.infer<typeof GateResultResponse>;

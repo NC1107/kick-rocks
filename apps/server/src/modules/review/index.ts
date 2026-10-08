@@ -5,6 +5,7 @@ import { notFound } from "../../core/errors.js";
 import { registerRoute } from "../../core/http.js";
 import type { ModulePlugin } from "../../core/module.js";
 import type { Task } from "../../core/task-types.js";
+import { approveSubmit } from "./approve.js";
 import { classifyByHand, decideMatch } from "./decisions.js";
 import { toMessageDetail } from "./mappers.js";
 import { buildReviewQueue } from "./queue.js";
@@ -20,6 +21,10 @@ export const reviewModule: ModulePlugin = (app, services) => {
 
   registerRoute(app, API_ROUTES.taskResume, ({ params }) => ({
     task: summary(services.taskQueue.resume(params.id, "user")),
+  }));
+
+  registerRoute(app, API_ROUTES.taskApproveSubmit, ({ params }) => ({
+    task: summary(approveSubmit(services, params.id)),
   }));
 
   registerRoute(app, API_ROUTES.taskCancel, ({ params }) => ({

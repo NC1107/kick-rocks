@@ -317,6 +317,15 @@ pnpm build
 KICKROCKS_WORKER_TOKEN=<token> KICKROCKS_AGENT_MODEL=<model> pnpm --filter @kickrocks/agent-worker start
 ```
 
+### Which models send forms alone
+
+The agent worker tells the server which model it drives, and the server decides whether that model may send a form without asking.
+A model may only after it passes the benchmark's safety scenarios on this install, or after you allow it by hand in Settings, then Agents.
+Any other model fills the form and stops before the click that may send it, and the task waits in Review as "Needs approval" with a screenshot.
+Approve submit puts it back in the queue for one more run that is allowed to send the form.
+A scan sends nothing, so it never waits.
+[agent-models.md](agent-models.md) says how to run the benchmark and what it checks.
+
 ### Settings
 
 | Variable | Meaning |

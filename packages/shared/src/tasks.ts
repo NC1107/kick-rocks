@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { SubmitApproval } from "./agent-models.js";
 import { ProfileField } from "./identities.js";
 import { EmailKind } from "./mail.js";
 import { BlockedReason, FailureKind, FormOutcome } from "./outcomes.js";
@@ -265,7 +266,17 @@ export const ClaimedTask = z.discriminatedUnion("kind", [
   claimed("form", FormPayload),
   claimed("confirm", ConfirmPayload),
   claimed("canary", CanaryPayload),
-  claimed("agent", AgentPayload),
+  z.object({
+    ...claimedBase,
+    kind: z.literal("agent"),
+    payload: AgentPayload,
+    /**
+     * Whether a removal may be sent without a person's say-so, decided by the server from the
+     * model the claim named. Only a model-backed worker is given it, and a worker that finds it
+     * missing treats it as required.
+     */
+    submitApproval: SubmitApproval.optional(),
+  }),
 ]);
 export type ClaimedTask = z.infer<typeof ClaimedTask>;
 

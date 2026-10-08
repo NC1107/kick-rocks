@@ -188,12 +188,16 @@ describeBrowser("the agent worker end to end", () => {
       workerId: "test-agent",
       kinds: ["agent"],
       claimer: "model",
+      model: { provider: "openai", name: "scripted-model", version: null, thinking: "default" },
     });
     expect(claim?.authorization).toBe("Bearer a-token-of-sixteen-chars");
     const beats = server.seen.filter((entry) => entry.path === "/api/worker/heartbeat");
     expect(beats.length).toBeGreaterThan(0);
     for (const beat of beats) {
-      expect(WorkerHeartbeatBody.parse(beat.body).claimer).toBe("model");
+      expect(WorkerHeartbeatBody.parse(beat.body)).toMatchObject({
+        claimer: "model",
+        model: { name: "scripted-model" },
+      });
     }
 
     const [complete] = server.transitions();

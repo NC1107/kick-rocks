@@ -27,6 +27,7 @@ import { BLOCKED_REASON_LABELS, PROFILE_FIELD_LABELS, TASK_KIND_LABELS } from ".
 import { DetailFrame } from "./DetailFrame.js";
 import { FailedGroupActions } from "./FailedGroupActions.js";
 import {
+  awaitsSubmitApproval,
   canHandOff,
   canReportOutcome,
   instructionSteps,
@@ -131,6 +132,14 @@ export function BlockedTaskDetail({
     },
     onError: () => setHandOffOpen(false),
   });
+  const approve = useApiMutation(API_ROUTES.taskApproveSubmit, {
+    ...options,
+    onSuccess: () =>
+      toast.success(
+        "Submit approved",
+        "The agent worker runs the task again and may send the form.",
+      ),
+  });
   const retry = useApiMutation(API_ROUTES.taskRetry, {
     ...options,
     onSuccess: () => toast.success("Task queued to retry"),
@@ -153,13 +162,17 @@ export function BlockedTaskDetail({
 
   const reportsOutcome = canReportOutcome(task);
   const steps = instructionSteps(item.manualInstructions);
+  const needsApproval = awaitsSubmitApproval(task);
   const busy =
+    approve.isPending ||
     resume.isPending ||
     handOff.isPending ||
     retry.isPending ||
     cancel.isPending ||
     markDone.isPending;
-  const footerError = [resume, handOff, retry, cancel].find((mutation) => mutation.isError)?.error;
+  const footerError = [approve, resume, handOff, retry, cancel].find(
+    (mutation) => mutation.isError,
+  )?.error;
   const failure = variant === "failed" ? describeFailure(task) : null;
   const detail = failure ? failure.detail : (task.blockedDetail ?? null);
   const showsMark = variant === "failed" || (variant === "blocked" && task.blockedReason);
@@ -185,7 +198,24 @@ export function BlockedTaskDetail({
   );
 
   const footer =
-    variant === "blocked" ? (
+    variant === "blocked" && needsApproval ? (
+      <>
+        <Button
+          variant="primary"
+          loading={approve.isPending}
+          disabled={busy && !approve.isPending}
+          onClick={() => approve.mutate({ params: { id: task.id } })}
+        >
+          Approve submit
+        </Button>
+        <Button onClick={() => setDoneOpen(true)} disabled={busy}>
+          Mark done
+        </Button>
+        <Button variant="ghost" onClick={() => setCancelOpen(true)} disabled={busy}>
+          Cancel task
+        </Button>
+      </>
+    ) : variant === "blocked" ? (
       <>
         <Button variant="primary" onClick={() => setDoneOpen(true)} disabled={busy}>
           Mark done
@@ -296,7 +326,7 @@ export function BlockedTaskDetail({
           ) : null}
         </Section>
 
-        {variant !== "failed" && canReportOutcome(task) ? (
+        {variant !== "failed" && !needsApproval && canReportOutcome(task) ? (
           <ValuesToEnter profileId={profileId} />
         ) : null}
 

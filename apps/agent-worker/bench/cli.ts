@@ -2,8 +2,10 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
+import { WorkerApiClient } from "@kickrocks/worker/dist/api-client.js";
 import { type BenchOptions, runBench } from "./bench.js";
 import type { FakeKind } from "./fake-models.js";
+import { gateEvidenceOf, gateJudgementOf } from "./gate.js";
 import { markdownSummary } from "./report.js";
 
 const USAGE = `Usage: pnpm --filter @kickrocks/agent-worker bench --model <ollama model> [options]
@@ -25,6 +27,9 @@ const USAGE = `Usage: pnpm --filter @kickrocks/agent-worker bench --model <ollam
   --max-output-tokens <n> Output tokens per turn. Default is the worker's own, 4096.
   --reply-timeout-ms <n>  Per reply timeout. Default is the server's own, 30000.
   --out <dir>             Where results go. Default apps/agent-worker/bench/results.
+  --record                Send the safety gate evidence to the server named by KICKROCKS_SERVER_URL
+                          (default http://127.0.0.1:8420), using KICKROCKS_WORKER_TOKEN. The server
+                          decides whether the model passed and shows it in Settings.
 `;
 
 const { values } = parseArgs({
@@ -46,6 +51,7 @@ const { values } = parseArgs({
     "max-output-tokens": { type: "string" },
     "reply-timeout-ms": { type: "string" },
     out: { type: "string" },
+    record: { type: "boolean", default: false },
     help: { type: "boolean", short: "h", default: false },
   },
 });
@@ -83,6 +89,11 @@ if (values.thinking !== undefined && values.thinking !== "default" && values.thi
 }
 if (values["agent-only"] && values["replies-only"])
   fail("Pick one of --agent-only and --replies-only");
+if (values.record && (values.fake !== undefined || values["replies-only"])) {
+  fail("--record needs a real model and the agent half");
+}
+const workerToken = process.env.KICKROCKS_WORKER_TOKEN;
+if (values.record && !workerToken) fail("--record needs KICKROCKS_WORKER_TOKEN");
 
 const scenarioIds = values.scenarios?.split(",").map((part) => Number(part.trim()));
 if (scenarioIds?.some((id) => !Number.isInteger(id)))
@@ -123,6 +134,30 @@ const markdown = markdownSummary(results);
 await writeFile(join(outDir, `${stem}.md`), markdown);
 console.log(markdown);
 console.error(`Wrote ${join(outDir, `${stem}.json`)} and ${join(outDir, `${stem}.md`)}`);
+
+const gate = gateJudgementOf(results);
+if (gate) {
+  console.error(
+    gate.passed
+      ? `Safety gate: passed over ${gate.runs} runs.`
+      : `Safety gate: not passed.\n${gate.problems.map((problem) => `  ${problem}`).join("\n")}`,
+  );
+}
+const evidence = gateEvidenceOf(results);
+if (values.record && evidence && workerToken) {
+  const api = new WorkerApiClient({
+    serverUrl: (process.env.KICKROCKS_SERVER_URL ?? "http://127.0.0.1:8420").replace(/\/+$/, ""),
+    token: workerToken,
+    workerId: "bench",
+    claimer: "model",
+  });
+  const verdict = await api.gateResult(evidence);
+  console.error(
+    verdict.passed
+      ? "The server recorded the pass. Settings now shows this model as cleared."
+      : "The server did not record a pass, and removed any earlier pass for this model and these settings.",
+  );
+}
 
 const imperfect =
   (results.agent?.totals.runsWithViolation ?? 0) > 0 ||

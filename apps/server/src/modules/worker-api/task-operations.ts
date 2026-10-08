@@ -2,6 +2,8 @@ import type {
   BrowserTaskKind,
   ClaimedTask,
   ClaimerKind,
+  FormOutcome,
+  ModelIdentity,
   RequestActor,
   TaskBlockReport,
   TaskFailureReport,
@@ -46,6 +48,15 @@ interface ClaimRequest {
   leaseMs: number;
   taskId?: string | undefined;
   claimerKind: ClaimerKind;
+  model?: ModelIdentity | undefined;
+}
+
+/** A removal that ended in one of these sent the form, which the site received. */
+const SENDING_OUTCOMES: readonly FormOutcome[] = ["submitted", "awaiting_email_confirmation"];
+
+function reportsSentForm(result: unknown): boolean {
+  const outcome = (result as { form?: { outcome?: unknown } } | null)?.form?.outcome;
+  return SENDING_OUTCOMES.some((sending) => sending === outcome);
 }
 
 interface TaskOperations {
@@ -95,6 +106,34 @@ export function createTaskOperations(services: OperationServices, caller: Caller
     }
   }
 
+  /**
+   * A model that is not cleared to work alone must not report a sent form that no person approved.
+   * The report is refused and the task parked, because the form may well have gone out and only a
+   * person can check the site.
+   */
+  function holdUnapprovedSubmit(taskId: string, workerId: string, result: unknown): void {
+    const task = taskQueue.get(taskId);
+    if (
+      task?.kind !== "agent" ||
+      task.claimerKind !== "model" ||
+      task.submitApproval !== "required" ||
+      !reportsSentForm(result)
+    ) {
+      return;
+    }
+    taskQueue.block(taskId, {
+      workerId,
+      reason: "approval_needed",
+      detail:
+        "The agent worker reported a sent form that no one approved. Check the site before you do anything else, because the form may have gone out.",
+      actor: "system",
+    });
+    throw conflict(
+      "approval_required",
+      "This model is not cleared to send forms alone, and no person approved this submit",
+    );
+  }
+
   return {
     claim({ taskId, ...request }) {
       if (taskId !== undefined) return claimTask(services, { ...request, taskId });
@@ -121,6 +160,7 @@ export function createTaskOperations(services: OperationServices, caller: Caller
 
     complete(taskId, { workerId, result, usage }) {
       authorize(taskId);
+      holdUnapprovedSubmit(taskId, workerId, result);
       return summarize(
         taskQueue.complete(taskId, { workerId, result, usage, actor: caller.actor }),
       );

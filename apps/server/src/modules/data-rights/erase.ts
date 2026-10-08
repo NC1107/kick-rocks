@@ -38,6 +38,7 @@ const SETTINGS_TO_FORGET: readonly SettingKey[] = [
   "notifications",
   "notifications.state",
   "agent.takeUnreviewed",
+  "agent.gate",
   "worker.status.builtin",
   "worker.status.model",
 ];

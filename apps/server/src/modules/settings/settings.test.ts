@@ -32,14 +32,14 @@ const patch = (body: Record<string, unknown>) =>
 describe("the agent worker's reach", () => {
   it("keeps unreviewed sites from the agent worker until the person allows them", async () => {
     const before = await ctx.call(API_ROUTES.settingsGet);
-    expect(before.ok && before.body.agent).toEqual({ takeUnreviewed: false });
+    expect(before.ok && before.body.agent.takeUnreviewed).toBe(false);
 
     const on = await patch({ agent: { takeUnreviewed: true } });
-    expect(on.ok && on.body.agent).toEqual({ takeUnreviewed: true });
+    expect(on.ok && on.body.agent.takeUnreviewed).toBe(true);
     expect(ctx.services.settings.get("agent.takeUnreviewed")).toBe(true);
 
     const off = await patch({ agent: { takeUnreviewed: false } });
-    expect(off.ok && off.body.agent).toEqual({ takeUnreviewed: false });
+    expect(off.ok && off.body.agent.takeUnreviewed).toBe(false);
   });
 
   it("rejects a value that is not a boolean, and leaves other settings alone when it changes", async () => {

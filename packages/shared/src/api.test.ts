@@ -55,6 +55,7 @@ const PLANNED = [
   "POST /tasks/:id/mark-done",
   "POST /tasks/:id/hand-off",
   "POST /tasks/:id/retry",
+  "POST /tasks/:id/approve-submit",
   "GET /tasks/:id/screenshot",
   "POST /matches/:id/decision",
   "GET /messages/:id",
@@ -74,6 +75,7 @@ const PLANNED = [
   "POST /notifications/digest/send",
   "POST /worker/heartbeat",
   "POST /worker/claim",
+  "POST /worker/gate-results",
   "POST /worker/tasks/:id/heartbeat",
   "POST /worker/tasks/:id/complete",
   "POST /worker/tasks/:id/release",
@@ -135,7 +137,7 @@ describe("API_ROUTES", () => {
         "worker-api",
       ]),
     );
-    expect(routesOfModule("worker-api")).toHaveLength(7);
+    expect(routesOfModule("worker-api")).toHaveLength(8);
   });
 
   it("lets the server mount routes in any order without shadowing", () => {

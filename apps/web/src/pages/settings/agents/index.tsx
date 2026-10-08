@@ -4,6 +4,7 @@ import { Button, Callout, RowGroup, Section, SkeletonText } from "../../../compo
 import { BodyRow, SETTINGS_WIDTH } from "../rows.js";
 import { SettingsHeader } from "../SettingsHeader.js";
 import { McpCard } from "./McpCard.js";
+import { ModelPresets } from "./ModelPresets.js";
 import { ProposedRecipes } from "./ProposedRecipes.js";
 
 export function Component() {
@@ -11,7 +12,7 @@ export function Component() {
 
   return (
     <>
-      <SettingsHeader description="Connect an MCP client and review its recipes" />
+      <SettingsHeader description="Local models, MCP clients, and recipes" />
       <div className={`${SETTINGS_WIDTH} flex flex-col gap-4`}>
         {settings.isPending ? (
           <Section label="Agent access">
@@ -35,7 +36,10 @@ export function Component() {
             {errorMessage(settings.error)}
           </Callout>
         ) : (
-          <McpCard mcp={settings.data.mcp} />
+          <>
+            <ModelPresets settings={settings.data} />
+            <McpCard mcp={settings.data.mcp} />
+          </>
         )}
         <ProposedRecipes />
       </div>

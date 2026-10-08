@@ -2,6 +2,7 @@
 export const STORAGE_KEYS = {
   theme: "kickrocks.theme",
   profileId: "kickrocks.profileId",
+  gpuSize: "kickrocks.gpuSize",
 } as const;
 
 export function readStorage(key: string): string | null {

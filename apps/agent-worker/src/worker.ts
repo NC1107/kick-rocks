@@ -6,6 +6,7 @@ import type { Page } from "playwright";
 import { runAgentTask } from "./agent.js";
 import type { AgentWorkerConfig } from "./config.js";
 import { type AgentExecutor, type LoopContext, runLoop } from "./loop.js";
+import { modelIdentitySource } from "./model-identity.js";
 import type { ModelProvider } from "./provider.js";
 import { createProvider } from "./providers/index.js";
 import { readAgentWorkerVersion } from "./version.js";
@@ -33,6 +34,7 @@ export async function runAgentWorker(options: AgentWorkerOptions): Promise<void>
     token: config.token,
     workerId: config.workerId,
     claimer: "model",
+    model: modelIdentitySource(config.provider, options.fetch ? { fetch: options.fetch } : {}),
     ...(options.fetch ? { fetch: options.fetch } : {}),
   });
   const provider = options.provider ?? createProvider(config.provider);

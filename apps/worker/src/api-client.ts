@@ -5,6 +5,9 @@ import {
   buildRoutePath,
   type ClaimedTask,
   type FailureKind,
+  type GateEvidence,
+  type GateResultResponse,
+  type ModelIdentity,
   type RouteBodyInput,
   type RouteDef,
   type RouteResponse,
@@ -44,6 +47,8 @@ interface WorkerApiClientOptions {
   workerId: string;
   /** Which kind of worker this is. The server counts the built-in one unless told otherwise. */
   claimer?: WorkerClaimer;
+  /** For a worker that drives a model: which one, asked again whenever the worker speaks. */
+  model?: () => Promise<ModelIdentity>;
   /** Replaced in tests. */
   fetch?: typeof fetch;
 }
@@ -56,16 +61,30 @@ export class WorkerApiClient {
     this.fetchImpl = options.fetch ?? fetch;
   }
 
-  heartbeat(
-    status: Omit<WorkerHeartbeatBody, "workerId" | "claimer">,
+  async heartbeat(
+    status: Omit<WorkerHeartbeatBody, "workerId" | "claimer" | "model">,
   ): Promise<WorkerHeartbeatResponse> {
     return this.call(API_ROUTES.workerHeartbeat, {
-      body: { workerId: this.options.workerId, ...this.claimer(), ...status },
+      body: {
+        workerId: this.options.workerId,
+        ...this.claimer(),
+        ...(await this.model()),
+        ...status,
+      },
     });
   }
 
   private claimer(): { claimer?: WorkerClaimer } {
     return this.options.claimer ? { claimer: this.options.claimer } : {};
+  }
+
+  private async model(): Promise<{ model?: ModelIdentity }> {
+    return this.options.model ? { model: await this.options.model() } : {};
+  }
+
+  /** Sends what a benchmark run measured, and learns whether it was enough to clear the model. */
+  gateResult(evidence: GateEvidence): Promise<GateResultResponse> {
+    return this.call(API_ROUTES.workerGateResult, { body: evidence });
   }
 
   /** Without `kinds` the server gives a worker the kinds a recipe can run, and never `agent`. */
@@ -74,6 +93,7 @@ export class WorkerApiClient {
       body: {
         workerId: this.options.workerId,
         ...this.claimer(),
+        ...(await this.model()),
         ...(kinds ? { kinds: [...kinds] } : {}),
         ...(leaseMs ? { leaseMs } : {}),
       },

@@ -325,6 +325,12 @@ export const tasks = sqliteTable(
      * this state is never retried: losing its lease holds it for a person.
      */
     mayHaveSubmitted: integer("may_have_submitted", { mode: "boolean" }).notNull().default(false),
+    /**
+     * For a removal claimed by a model that is not cleared to work alone: `required` until a
+     * person approves the submit, `granted` once they have, and `used` after the claim that took
+     * the approval, so the next attempt asks again. Null for every other claim.
+     */
+    submitApproval: text("submit_approval", { enum: ["required", "granted", "used"] }),
     attempts: integer("attempts").notNull().default(0),
     maxAttempts: integer("max_attempts").notNull(),
     runAfter: timestamp("run_after"),

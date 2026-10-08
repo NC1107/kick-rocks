@@ -8,6 +8,7 @@ export const BlockedReason = z.enum([
   "email_verification",
   "login_required",
   "bot_detection",
+  "approval_needed",
   "unknown",
 ]);
 export type BlockedReason = z.infer<typeof BlockedReason>;
