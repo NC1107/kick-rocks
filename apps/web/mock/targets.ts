@@ -322,12 +322,15 @@ function recipesFor(
   });
 }
 
-/** The health of the newest active recipe for a purpose, or null when the target has none. */
+/**
+ * The health of the newest active recipe for a purpose that is not broken, "broken" when every
+ * active one is, or null when the target has none. Mirrors the server's recipe pick.
+ */
 function automationOf(target: TargetDetail, purpose: "scan" | "remove") {
   const active = target.recipes
     .filter((recipe) => recipe.purpose === purpose && recipe.status === "active")
     .sort((a, b) => b.version - a.version);
-  return active[0]?.health ?? null;
+  return (active.find((recipe) => recipe.health !== "broken") ?? active[0])?.health ?? null;
 }
 
 /** Re-derives difficulty from the target's recipes as they are now, so an approval moves it at once. */

@@ -183,11 +183,23 @@ describe("difficulty follows recipe changes at once", () => {
     expect(ids(await listed({ difficulty: "hard" }))).toEqual(["form-ready"]);
   });
 
-  it("judges a target by its newest approved recipe", async () => {
+  it("judges a target by its newest recipe that is not broken, as dispatch picks it", async () => {
     seedTarget(ctx, { id: "form-ready", ...FORM });
     seedRecipe(ctx, "form-ready", { purpose: "remove", version: 1, health: "healthy" });
     seedRecipe(ctx, "form-ready", { purpose: "remove", version: 2, health: "broken" });
-    expect(ids(await listed({ difficulty: "hard" }))).toEqual(["form-ready"]);
+    expect(ids(await listed({ difficulty: "medium" }))).toEqual(["form-ready"]);
+    expect(ids(await listed({ difficulty: "hard" }))).toEqual([]);
+  });
+
+  it("moves it to hard only when every approved version is broken", async () => {
+    seedTarget(ctx, { id: "form-ready", ...FORM });
+    seedRecipe(ctx, "form-ready", { purpose: "remove", version: 1, health: "broken" });
+    seedRecipe(ctx, "form-ready", { purpose: "remove", version: 2, health: "broken" });
+    const result = await ctx.call(API_ROUTES.targetsGet, { params: { id: "form-ready" } });
+    expect(result.ok && result.body).toMatchObject({
+      difficulty: "hard",
+      difficultyReasons: ["form", "recipe_broken"],
+    });
   });
 });
 

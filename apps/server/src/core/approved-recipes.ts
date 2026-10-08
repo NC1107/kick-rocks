@@ -8,7 +8,8 @@ const ID_LIST_LIMIT = 200;
 export const NO_RECIPES: ApprovedRecipes = { scan: null, remove: null };
 
 /**
- * The health of each target's newest approved (active) recipe per purpose. A proposal or a rejected
+ * The health of each target's newest approved (active) recipe per purpose that is not broken, as the
+ * runtime picks it, or "broken" when every active recipe for the purpose is. A proposal or a rejected
  * recipe never runs, so it does not count. Read on every call so an approval or a health change
  * moves a target between difficulties at once.
  */
@@ -30,10 +31,12 @@ export function approvedRecipesOf(
     )
     .orderBy(asc(recipes.version))
     .all();
-  // Ascending by version, so the last row written for a purpose is the newest.
+  // Ascending by version, so a later usable row replaces an earlier one. A broken row only counts
+  // while nothing usable has been seen, which leaves "broken" for purposes where every version is.
   for (const row of rows) {
     const entry = result.get(row.targetId) ?? { scan: null, remove: null };
-    entry[row.purpose] = row.health;
+    if (row.health !== "broken") entry[row.purpose] = row.health;
+    else entry[row.purpose] ??= "broken";
     result.set(row.targetId, entry);
   }
   return result;

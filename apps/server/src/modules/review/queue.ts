@@ -5,6 +5,7 @@ import {
   isActiveStatus,
   type ReviewMessage,
   type ReviewQueue,
+  type TargetSummary,
   type TaskKind,
   type TaskSummary,
   type VerificationItem,
@@ -150,7 +151,8 @@ function verifications(services: AppServices, profileId: string | undefined): Ve
     )
     .orderBy(requests.updatedAt)
     .all();
-  return rows.flatMap(({ request, target }) => {
+  const summaries = services.targets.toSummaries(rows.map(({ target }) => target));
+  return rows.flatMap(({ request }, index) => {
     const message = services.db
       .select()
       .from(messages)
@@ -166,7 +168,7 @@ function verifications(services: AppServices, profileId: string | undefined): Ve
     if (!message) return [];
     return [
       {
-        request: { ...request, target: services.targets.toSummary(target) },
+        request: { ...request, target: summaries[index] as TargetSummary },
         message: toMessageSummary(message),
         requestedFields: message.requestedFields,
       },

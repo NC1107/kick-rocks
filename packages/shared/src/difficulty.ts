@@ -6,7 +6,7 @@ export type Difficulty = z.infer<typeof Difficulty>;
 
 /**
  * Short machine-readable codes for why a target landed where it did; the UI turns them into words.
- * - `email`: it takes requests at a privacy address on its own domain.
+ * - `email`: it takes requests at a privacy address that is not on a shared mail host.
  * - `no_record_needed`: a request can go out without finding a listing first.
  * - `form`: it takes requests through a web form.
  * - `recipe_ready`: an approved recipe exists for each step Kick Rocks runs, and none is broken.

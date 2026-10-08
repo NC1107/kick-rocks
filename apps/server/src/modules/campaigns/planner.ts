@@ -17,6 +17,7 @@ import {
   type SkipReason,
   type StateCode,
   type TargetPriority,
+  type TargetSummary,
 } from "@kickrocks/shared";
 import { and, desc, eq, inArray } from "drizzle-orm";
 import type { Clock } from "../../core/clock.js";
@@ -209,6 +210,9 @@ export function createCampaignPlanner({
     );
 
     const asOf = clock.now();
+    const summaries = new Map(
+      targetsService.toSummaries(rows).map((summary) => [summary.id, summary] as const),
+    );
     const plans = rows.map((row): Plan => {
       const skip = (reason: SkipReason, detail: string): Plan => ({
         kind: "skip",
@@ -226,7 +230,7 @@ export function createCampaignPlanner({
           `${row.name} already confirmed removal. It is asked again only if a re-scan finds you listed.`,
         );
       }
-      const summary = targetsService.toSummary(row);
+      const summary = summaries.get(row.id) as TargetSummary;
       if (summary.needsRecord && scanning.has(row.id)) {
         return skip("scan_in_progress", `A scan of ${row.name} is already running.`);
       }
