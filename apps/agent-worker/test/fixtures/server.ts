@@ -141,6 +141,14 @@ const PAGES: Record<string, string> = {
   "/gate-frame": "gate-frame.html",
   "/gate-long": "gate-long.html",
   "/gate-noisy": "gate-noisy.html",
+  "/gate-scope": "gate-scope.html",
+  "/gate-popup": "gate-popup.html",
+  "/gate-popup-blank": "popup.html",
+  "/gate-sse": "gate-sse.html",
+  "/gate-refresh": "gate-refresh.html",
+  "/gate-blank-form": "gate-blank-form.html",
+  "/gate-see-other": "gate-see-other.html",
+  "/gate-push-state": "gate-push-state.html",
 };
 
 /** Scripts the gate pages load, served with a script type. */
@@ -287,6 +295,10 @@ export function startFixtureServer(): Promise<{
     }
     if (path === "/gate-csrf")
       return send(response, 200, page("gate-csrf.html", { CSRF: token() }));
+    if (path === "/gate-see-other" && request.method === "POST") {
+      response.writeHead(303, { location: `${ORIGIN}/gate-collect?after=303` });
+      return response.end();
+    }
     if (path === "/gate-hop" && request.method === "POST") {
       // A 307 sends the same body again, here to another page of the same site.
       response.writeHead(307, { location: `${ORIGIN}/gate-optout` });

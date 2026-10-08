@@ -485,6 +485,73 @@ describeBrowser("the outgoing gate end to end with the real server", () => {
     });
   });
 
+  describe("a window the page opens", () => {
+    it("receives nothing the page posts through its handle", async () => {
+      const taskId = await startServer("/gate-popup");
+      await workOnce(taskId, [open("/gate-popup"), typeEmail, wait(2), giveBack]);
+      const paths = (await fixtureState()).hits.map((hit) => hit.path);
+      expect(paths).not.toContain("/gate-popup-post");
+      expect(paths).not.toContain("/gate-popup-beacon");
+      expect(paths).not.toContain("/gate-popup-blank");
+    });
+  });
+
+  describe("channels nobody had probed", () => {
+    it.each([
+      ["an event source", "/gate-sse"],
+      ["a meta refresh", "/gate-refresh"],
+      ["a form aimed at a new tab", "/gate-blank-form"],
+      ["a post that is answered with a 303", "/gate-see-other"],
+      ["a state change of the address bar", "/gate-push-state"],
+    ])("lets %s carry nothing of the email to the site", async (_, path) => {
+      const taskId = await startServer(path);
+      await workOnce(taskId, [open(path), typeEmail, wait(2), giveBack]);
+      const { hits, submissions } = await fixtureState();
+      const leaked = hits.filter((hit) =>
+        `${hit.path} ${hit.search} ${hit.body}`.toLowerCase().includes("jordan"),
+      );
+      expect(leaked).toEqual([]);
+      expect(submissions).toEqual([]);
+    });
+  });
+
+  describe("a radio group with long values", () => {
+    const chooseScope =
+      (label: string): Step =>
+      (v) => ({
+        calls: [["check", { ref: v.ref(label), checked: true }]],
+      });
+    const submit = (label: string): Step[] => [
+      open("/gate-scope"),
+      typeEmail,
+      chooseScope(label),
+      snap,
+      clickLabel("Submit request"),
+    ];
+
+    it("is not approved for another option of the group in the next run", async () => {
+      const taskId = await startServer("/gate-scope");
+      await workOnce(taskId, submit("Suppress marketing only"));
+      const held = rowsOf(taskId).filter((row) => row.kind === "held");
+      expect(JSON.stringify(held.map((row) => row.request))).not.toContain("served_token");
+      expect((await approveNext(taskId)).ok).toBe(true);
+      const after = await workOnce(taskId, [...submit("Share with partner brands"), giveBack]);
+      expect(after).toMatchObject({ status: "blocked", blockedReason: "approval_needed" });
+      expect((await fixtureState()).submissions).toEqual([]);
+    });
+
+    it("is sent when the next run picks the option the person saw", async () => {
+      const taskId = await startServer("/gate-scope");
+      await workOnce(taskId, submit("Suppress marketing only"));
+      expect((await approveNext(taskId)).ok).toBe(true);
+      const done = await workOnce(taskId, [...submit("Suppress marketing only"), report]);
+      expect(done.status).toBe("done");
+      const { submissions } = await fixtureState();
+      expect(submissions).toHaveLength(1);
+      expect(submissions[0]?.fields.scope).toBe("suppress_marketing_only_please");
+    });
+  });
+
   describe("the same-label second form", () => {
     it("is not approved by the approval of the first form", async () => {
       const taskId = await startServer();

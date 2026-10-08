@@ -419,6 +419,33 @@ describe("a send held for a person", () => {
     expect(rows.find((row) => row.kind === "released")?.spendsSendId).toBe(approved?.id);
   });
 
+  it("is not released as another long value of the same group the person chose from", async () => {
+    queueRemoval();
+    const scoped = (scope: string) =>
+      outgoing({
+        body: [
+          { path: "email", value: "{{email}}", class: "profile", fields: ["email"] },
+          { path: "scope", value: scope, class: "literal" },
+        ],
+      });
+    const first = (await claim(MODEL)) as AgentClaim;
+    await hold(first.id, scoped("suppress_marketing_only_please"), 0);
+    expect((await lapse(first.id)).ok).toBe(true);
+    expect((await approve(first.id)).ok).toBe(true);
+
+    const second = (await claim(MODEL)) as AgentClaim;
+    const approved = second.submitGate?.approved[0];
+    const other = await release(
+      second.id,
+      approved?.id ?? "",
+      scoped("share_with_partner_brands_ok"),
+    );
+    expect(other.status).toBe(409);
+    expect(
+      (await release(second.id, approved?.id ?? "", scoped("suppress_marketing_only_please"))).ok,
+    ).toBe(true);
+  });
+
   it("keeps a declined request out of the next run, which refuses it outright", async () => {
     queueRemoval();
     const first = (await claim(MODEL)) as AgentClaim;

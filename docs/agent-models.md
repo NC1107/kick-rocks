@@ -234,8 +234,11 @@ Getting the outcome wrong without sending anything, such as calling an empty sea
 
 - A value hidden by a transform of the page's own, such as its own hash or encryption, sent one character at a time in a GET to the target's own site.
   Bodies are all held after the run starts and other sites are refused, so only that channel is left.
+- A value the page scrambles with a transform the gate does not undo (reversed, ROT13, XOR, a salted hash), sent in the address of a GET, an image, a stylesheet or a font.
+  Such a GET has no body and no value the gate recognizes, so it is not held.
 - A GET with no contact detail in it, such as a search by name, or a one-click removal link.
-  Those are listed as lookups.
+  Those are listed as lookups, and so is a POST that carries only a name, city, state, ZIP or year before the run first types.
+- A redirect with status 307 or 308 of a request you released to another path of the target's own sites.
 - A host name that carries a value in the DNS lookup, before any request.
 - A site that needs a live connection.
 - A bot sensor on the target's own domain posts a body that holds none of your details we can read.

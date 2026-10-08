@@ -102,7 +102,8 @@ const CHANNEL_SIGNAL_HOST = "channel.kickrocks-gate.invalid";
 /**
  * Closes the doors the gate has no eyes on. The browser does not let DevTools block a WebSocket,
  * so the constructor itself is replaced by one that tells the gate and throws. WebRTC, WebTransport
- * and shared workers are removed, which a page reads as a browser without them.
+ * and shared workers are removed, which a page reads as a browser without them. `window.open`
+ * returns null, so a page never gets a handle on a window it could post through.
  */
 const CLOSE_CHANNELS = `(() => {
   const tell = (kind) => { try { fetch("http://${CHANNEL_SIGNAL_HOST}/" + kind, { mode: "no-cors" }).catch(() => undefined); } catch (_) {} };
@@ -111,6 +112,9 @@ const CLOSE_CHANNELS = `(() => {
     try { Object.defineProperty(globalThis, name, { value: stub, configurable: false, writable: false }); } catch (_) {}
   };
   for (const name of ["WebSocket", "WebSocketStream"]) stop(name);
+  if (typeof window !== "undefined") {
+    try { Object.defineProperty(window, "open", { value: () => null, configurable: false, writable: false }); } catch (_) {}
+  }
   for (const name of ["RTCPeerConnection", "webkitRTCPeerConnection", "RTCDataChannel", "WebTransport", "SharedWorker"]) {
     try { Object.defineProperty(globalThis, name, { value: undefined, configurable: false, writable: false }); } catch (_) {}
   }

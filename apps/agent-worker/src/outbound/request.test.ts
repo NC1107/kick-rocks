@@ -169,6 +169,22 @@ describe("canonicalize", () => {
     ]);
   });
 
+  it("never treats the options of a group as per-load tokens", () => {
+    const served = new ServedValues();
+    served.record(
+      '<input type="radio" name="scope" value="suppress_marketing_only_please"><input type="radio" name="scope" value="share_with_partner_brands_ok"><input type="hidden" name="ticket" value="k3J9xQ2mLw8TzP4vRb7YcN1d">',
+      "text/html",
+    );
+    served.record(
+      '{"records":["a1b2c3d4e5f6a7b8c9d0e1f2","f2e1d0c9b8a7f6e5d4c3b2a1"]}',
+      "application/json",
+    );
+    expect(served.has("scope", "suppress_marketing_only_please")).toBe(false);
+    expect(served.has("scope", "share_with_partner_brands_ok")).toBe(false);
+    expect(served.has("records", "a1b2c3d4e5f6a7b8c9d0e1f2")).toBe(false);
+    expect(served.has("ticket", "k3J9xQ2mLw8TzP4vRb7YcN1d")).toBe(true);
+  });
+
   it("reads the keys of a json answer as served values", () => {
     const served = new ServedValues();
     served.record('{"data":{"token":"abcdefghijklmnopqrstuvwx"}}', "application/json");

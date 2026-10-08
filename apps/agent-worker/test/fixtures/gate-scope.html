@@ -1,0 +1,14 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Opt out - Scope</title></head>
+<body>
+<h1>Remove your listing</h1>
+<form method="post" action="/gate-optout">
+  <label for="email">Email address</label>
+  <input id="email" name="email" type="email">
+  <label><input type="radio" name="scope" value="suppress_marketing_only_please"> Suppress marketing only</label>
+  <label><input type="radio" name="scope" value="share_with_partner_brands_ok"> Share with partner brands</label>
+  <button type="submit">Submit request</button>
+</form>
+</body>
+</html>

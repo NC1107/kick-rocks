@@ -60,6 +60,13 @@ describe("matchesApproved", () => {
     expect(matchesApproved(next, request())).toBe(false);
   });
 
+  it("refuses another long value of a group when neither was a served token", () => {
+    const pick = (value: string) => withBody([{ path: "scope", value, class: "literal" }]);
+    expect(
+      matchesApproved(pick("share_with_partner_brands_ok"), pick("suppress_marketing_only_please")),
+    ).toBe(false);
+  });
+
   it("refuses a short value passed off as a token", () => {
     const base = withBody([{ path: "share", value: "no", class: "served_token" }]);
     const next = withBody([{ path: "share", value: "yes", class: "served_token" }]);

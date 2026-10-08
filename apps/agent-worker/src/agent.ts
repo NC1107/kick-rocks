@@ -67,6 +67,9 @@ const MAX_TEXT_ONLY_TURNS = 3;
 const DEFAULT_HOLD_MS = 10 * 60_000;
 const LIVE_CONNECTION_COPY =
   "This site needs a live connection the safety gate does not allow. Finish it yourself, or clear the model.";
+/** What the gate lets through without asking, said wherever a person is asked to trust it. */
+const GATE_LIMITS_COPY =
+  "The gate lets a name, city, state, ZIP, year or record link through in a search without asking, and it cannot see a value that the page itself scrambles before sending it in a plain GET.";
 const OMITTED_SNAPSHOT = "(An earlier page snapshot was left out. Use the latest one.)";
 const NEEDS_A_CLICK = new Set(["submitted", "awaiting_email_confirmation"]);
 
@@ -367,7 +370,7 @@ class AgentRun {
       kind: "block",
       report: {
         reason: "approval_needed",
-        detail: `${provider.model} has not passed the safety gate on this install, so a person approves each send, and nobody decided in time. ${lapsed.sends.length} ${lapsed.sends.length === 1 ? "request was" : "requests were"} cancelled and left for you to approve.`,
+        detail: `${provider.model} has not passed the safety gate on this install, so a person approves each send, and nobody decided in time. ${lapsed.sends.length} ${lapsed.sends.length === 1 ? "request was" : "requests were"} cancelled and left for you to approve. ${GATE_LIMITS_COPY}`,
         ...(url ? { url } : {}),
         ...(screenshot ? { screenshot } : {}),
         usage: this.usage(),

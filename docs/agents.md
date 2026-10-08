@@ -328,6 +328,20 @@ Approve for the next run lets the next run send each held request once, if the p
 A scan sends nothing, so it never waits.
 Every agent task shows "What left the browser", which comes from the server's own record.
 An MCP client is not held by the safety gate.
+
+What the gate does not hold, so you know what you are trusting:
+
+- A search for a name, city, state, ZIP, year of birth or record link, sent as a GET or HEAD to the target's own sites, goes out without asking.
+  It is listed under "What left the browser" as a lookup.
+  Searches have to work for a removal to find the record, so this is on purpose.
+  Before the run first types, even a POST that carries only such values goes out as a lookup.
+- A page can scramble what the run typed with its own code (reversed, ROT13, a salted hash, or a character or two per keystroke) and put it in the address of a GET, an image or a stylesheet.
+  The gate reads many encodings and the common hashes, but it cannot undo every transform a page invents, and a GET with no body and no value it recognizes is not held.
+  Per-keystroke requests can give away about the first five characters of an email before the gate recognizes it.
+- A 307 or 308 redirect of a request you released sends the same body again, and it may land on a different path of the target's own sites without asking you a second time.
+  A redirect to another site is still refused.
+- The Referer header of a request to the target is not read.
+
 [agent-models.md](agent-models.md) says how to run the benchmark and what it checks.
 
 ### Settings

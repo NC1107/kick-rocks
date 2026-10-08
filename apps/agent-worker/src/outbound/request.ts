@@ -91,6 +91,9 @@ export class ServedValues {
       return;
     }
     for (const tag of body.match(/<input\b[^>]*>/gi) ?? []) {
+      // Only a hidden input carries a value the site generated. The values of a radio, a checkbox or
+      // a text input are choices the person made or could have made, so they are never tokens.
+      if (attribute(tag, "type").toLowerCase() !== "hidden") continue;
       this.note(attribute(tag, "name"), attribute(tag, "value"));
     }
     for (const tag of body.match(/<meta\b[^>]*>/gi) ?? []) {
@@ -106,8 +109,13 @@ export class ServedValues {
     }
   }
 
+  /**
+   * A name that was served with several values is a list of choices or records, not one token for
+   * this load, so a value counts as served only when it is the only one the page gave that name.
+   */
   has(name: string, value: string): boolean {
-    return this.byName.get(name)?.has(value) ?? false;
+    const known = this.byName.get(name);
+    return known?.size === 1 && known.has(value);
   }
 }
 

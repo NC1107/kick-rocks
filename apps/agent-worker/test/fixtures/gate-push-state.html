@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Opt out - push-state</title></head>
+<body>
+<h1>Remove your listing</h1>
+<form method="post" action="/gate-optout">
+  <label for="email">Email address</label>
+  <input id="email" name="email" type="email">
+  <button type="submit">Submit request</button>
+</form>
+<script>
+  const field = document.getElementById('email');
+  const value = () => encodeURIComponent(field.value);
+  field.addEventListener('change', () => {
+    history.pushState({}, '', '/gate-pushed?e=' + value());
+    history.replaceState({}, '', '/gate-pushed?again=' + value());
+  });
+</script>
+</body>
+</html>

@@ -599,6 +599,19 @@ export class Toolbox {
     return finding;
   }
 
+  /**
+   * A window the page opened is a target the gate's interception is not attached to, and it is
+   * closed only after the opener's script could already have used its handle. Whatever such a
+   * window requests is refused, whatever its type.
+   */
+  private isFromOtherPage(request: Request): boolean {
+    try {
+      return request.frame().page() !== this.options.page;
+    } catch {
+      return false;
+    }
+  }
+
   /** The first request of a new tab is made before the tab has a frame, so having none means it is not ours. */
   private isOurs(request: Request): boolean {
     try {
@@ -616,6 +629,10 @@ export class Toolbox {
   private readonly routeOtherPage = (route: Route): void => {
     const request = route.request();
     if (request.resourceType() !== "document") {
+      if (this.isFromOtherPage(request)) {
+        route.abort("aborted").catch(() => undefined);
+        return;
+      }
       route.fallback().catch(() => undefined);
       return;
     }
