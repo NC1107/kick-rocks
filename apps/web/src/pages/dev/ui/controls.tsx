@@ -168,8 +168,8 @@ export function Controls() {
           </Field>
           <Field label="Model" className="md:col-span-1">
             <Select mono defaultValue="a">
-              <option value="a">claude-sonnet-4-6</option>
-              <option value="b">claude-haiku-4-5</option>
+              <option value="a">model-large</option>
+              <option value="b">model-small</option>
             </Select>
           </Field>
           <Field label="Notes" className="md:col-span-2">

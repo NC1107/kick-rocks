@@ -282,7 +282,7 @@ KICKROCKS_AGENT_BASE_URL=http://host.docker.internal:11434/v1
 ```
 
 For the anthropic api, set the provider to `anthropic` and give it a key.
-The model defaults to `claude-sonnet-4-6` and `KICKROCKS_AGENT_MODEL` changes it.
+The model has a built-in default per provider, and `KICKROCKS_AGENT_MODEL` changes it.
 
 ```sh
 # .env, a hosted model

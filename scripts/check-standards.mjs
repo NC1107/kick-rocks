@@ -3,7 +3,7 @@ import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { pathToFileURL } from "node:url";
 
-const EM_DASH = "—";
+const EM_DASH = "\u2014";
 const BRAND = ["cla", "ude"].join("");
 
 // Pinned upstream data is copied verbatim and may contain anything.

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { findCommitViolations, findViolations, resolveRange } from "./check-standards.mjs";
 
-const dash = "—";
+const dash = "\u2014";
 const brand = ["Cla", "ude"].join("");
 
 function scan(files) {

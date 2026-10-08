@@ -4,7 +4,6 @@ export {
   type ButtonProps,
   type ButtonSize,
   type ButtonVariant,
-  buttonClass,
   LinkButton,
   type LinkButtonProps,
 } from "./Button.js";
