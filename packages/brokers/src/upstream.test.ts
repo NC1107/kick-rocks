@@ -54,6 +54,43 @@ describe("readPinnedUpstream", () => {
     expect(() => readPinnedUpstream("list.md", { dir, source: "pin.json" })).toThrow();
   });
 
+  it("accepts a plain download pinned by URL and retrieval date", () => {
+    const dir = fixture("a,b");
+    writeFileSync(
+      join(dir, "pin.json"),
+      JSON.stringify({
+        url: "https://example.com/list.csv",
+        retrievedAt: "2026-10-07",
+        files: {
+          "list.md": {
+            path: "list.csv",
+            sha256: createHash("sha256").update("a,b").digest("hex"),
+          },
+        },
+      }),
+    );
+    expect(readPinnedUpstream("list.md", { dir, source: "pin.json" })).toBe("a,b");
+  });
+
+  it("refuses a pin that names neither a commit nor a download", () => {
+    const dir = fixture("hello");
+    writeFileSync(
+      join(dir, "pin.json"),
+      JSON.stringify({ files: { "list.md": { path: "x", sha256: "a".repeat(64) } } }),
+    );
+    expect(() => readPinnedUpstream("list.md", { dir, source: "pin.json" })).toThrow();
+  });
+
+  it.each([
+    ["eraser-brokers.yaml", "eraser.source.json", /Eraser/i],
+    ["ERASER-LICENSE", "eraser.source.json", /MIT License/],
+    ["ca-registry-2026.csv", "ca-registry.source.json", /Data broker name/],
+    ["optery-data-brokers.json", "optery.source.json", /"title"/],
+    ["OPTERY-LICENSE.md", "optery.source.json", /NonCommercial-ShareAlike 4.0/],
+  ])("verifies the committed %s", (name, source, pattern) => {
+    expect(readPinnedUpstream(name, { source })).toMatch(pattern);
+  });
+
   it("verifies the committed BADBOOL README and license", () => {
     expect(readPinnedUpstream("BADBOOL-README.md")).toMatch(/Big Ass Data Broker Opt-Out List/);
     expect(readPinnedUpstream("BADBOOL-LICENSE.md")).toMatch(
