@@ -1,5 +1,5 @@
 import { createRedactor } from "@kickrocks/recipes";
-import { type ProfileFields, US_STATES } from "@kickrocks/shared";
+import { namedHiddenValues, type ProfileFields, US_STATES } from "@kickrocks/shared";
 
 type Redact = (text: string) => string;
 
@@ -43,7 +43,7 @@ const E164 = /^\+[1-9]\d{6,14}$/;
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
 /** Other spellings of a value that a page's input mask or layout may use instead of the stored one. */
-function variantsOf(name: string, value: string): string[] {
+export function variantsOf(name: string, value: string): string[] {
   if (name === "phone" || E164.test(value)) return phoneSpellings(value);
   if (name === "date_of_birth" || ISO_DATE.test(value)) return dateSpellings(value);
   return [];
@@ -138,25 +138,7 @@ function stateRedactor(entries: [string, string][]): Redact {
 
 type NamedValues = Record<string, string | undefined>;
 
-/**
- * Names the person's other values, the ones the task has no field for, so a page that shows one
- * reads {{other_3}} to the model and the program can still put the value back in what it reports.
- * A value the task's fields already hide keeps its field's name.
- */
-export function namedHiddenValues(
-  fields: ProfileFields,
-  hidden: readonly string[],
-): Record<string, string> {
-  const seen = new Set(Object.values(fields).map((value) => value?.trim().toLowerCase()));
-  const named: Record<string, string> = {};
-  for (const raw of hidden) {
-    const value = raw.trim();
-    if (value === "" || seen.has(value.toLowerCase())) continue;
-    seen.add(value.toLowerCase());
-    named[`other_${Object.keys(named).length + 1}`] = value;
-  }
-  return named;
-}
+export { namedHiddenValues };
 
 /** Puts the person's values back where a {{field}} placeholder stands, for text the model copied. */
 export function restoreFields(text: string, fields: NamedValues): string {

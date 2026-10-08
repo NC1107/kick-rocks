@@ -4,10 +4,28 @@ export interface CdpChannel {
   on(event: string, handler: (params: never) => void): void;
 }
 
+export interface TargetInfo {
+  targetId?: string;
+  type: string;
+  url?: string;
+}
+
 interface AttachedEvent {
   sessionId: string;
-  targetInfo: { type: string };
+  targetInfo: TargetInfo;
   waitingForDebugger: boolean;
+}
+
+/**
+ * The kinds of target the gate can read the requests of. A frame in a process of its own and a
+ * dedicated worker both have a DevTools session that can intercept what they load. Every other
+ * kind, a shared worker, a service worker, a prerendered page or one this program has never met,
+ * cannot be inspected, so it is never allowed to start.
+ */
+const GUARDABLE_TARGETS = new Set(["iframe", "worker"]);
+
+export function canGuard(type: string): boolean {
+  return GUARDABLE_TARGETS.has(type);
 }
 
 interface Pending {
@@ -79,15 +97,16 @@ class ChildChannel implements CdpChannel {
 }
 
 /**
- * Runs `guard` on every frame that lives in a process of its own, before the frame runs anything.
- * A frame of another site has its own request interception, so a guard on the page never sees
- * what that frame loads. Each new frame is held at its start, guarded, and only then let go. A
- * frame that could not be guarded is never let go, because an unguarded frame is the hole.
+ * Runs `guard` on every target that lives outside the page, before the target runs anything: a
+ * frame of another site has its own request interception, and so does a worker, so a guard on the
+ * page never sees what either loads. Each new target is held at its start, guarded, and only
+ * then let go. A target that could not be guarded, or that is of a kind that cannot be, is never
+ * let go, because an unguarded target is the hole.
  */
-export async function guardFrameTargets(
+export async function guardTargets(
   parent: CdpChannel,
-  guard: (frame: CdpChannel) => Promise<void>,
-  onFailure: (error: unknown) => void,
+  guard: (target: CdpChannel, info: TargetInfo) => Promise<void>,
+  onFailure: (error: unknown, info?: TargetInfo) => void,
 ): Promise<void> {
   const children = new Map<string, ChildChannel>();
 
@@ -103,23 +122,34 @@ export async function guardFrameTargets(
   }) as Handler);
 
   const adopt = async (event: AttachedEvent): Promise<void> => {
+    const { targetInfo } = event;
     const child = new ChildChannel(parent, event.sessionId);
     children.set(event.sessionId, child);
-    if (event.targetInfo.type === "iframe") {
-      try {
-        await guardFrameTargets(child, guard, onFailure);
-        await guard(child);
-      } catch (error) {
-        onFailure(error);
-        return;
+    if (!canGuard(targetInfo.type)) {
+      onFailure(
+        new Error(`A ${targetInfo.type || "target of an unknown kind"} cannot be checked`),
+        targetInfo,
+      );
+      if (targetInfo.targetId !== undefined) {
+        await parent
+          .send("Target.closeTarget", { targetId: targetInfo.targetId })
+          .catch(() => undefined);
       }
+      return;
+    }
+    try {
+      await guardTargets(child, guard, onFailure);
+      await guard(child, targetInfo);
+    } catch (error) {
+      onFailure(error, targetInfo);
+      return;
     }
     if (event.waitingForDebugger) {
       await child.send("Runtime.runIfWaitingForDebugger").catch(() => undefined);
     }
   };
   parent.on("Target.attachedToTarget", ((event: AttachedEvent) => {
-    adopt(event).catch(onFailure);
+    adopt(event).catch((error: unknown) => onFailure(error, event.targetInfo));
   }) as Handler);
 
   await parent.send("Target.setAutoAttach", {

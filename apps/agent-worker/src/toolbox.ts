@@ -8,13 +8,14 @@ import {
   parseRetryAfter,
   pushbackKindForStatus,
   type SiteObservation,
+  type SubmitGate,
   type TaskScreenshot,
   WebUrl,
 } from "@kickrocks/shared";
 import { bypassServiceWorkers } from "@kickrocks/worker/dist/browser.js";
 import { SubmitNotRecorded } from "@kickrocks/worker/dist/executor.js";
-import { describeError } from "@kickrocks/worker/dist/logger.js";
-import type { CDPSession, Dialog, Locator, Page, Request, Response, Route } from "playwright";
+import { describeError, type Logger, silentLogger } from "@kickrocks/worker/dist/logger.js";
+import type { Dialog, Locator, Page, Request, Response, Route } from "playwright";
 import {
   type NavigationPolicy,
   type PageScope,
@@ -23,7 +24,9 @@ import {
   scopeOf,
   withinSites,
 } from "./domains.js";
-import { type CdpChannel, guardFrameTargets } from "./frame-guard.js";
+import { ApprovalLapsed, type Box, OutboundGuard, UnguardedChannel } from "./outbound/guard.js";
+import { SendDesk, type SendsApi } from "./outbound/held.js";
+import type { PausedRequest } from "./outbound/request.js";
 import {
   formatSnapshot,
   fromSource,
@@ -39,16 +42,6 @@ import {
   detailAskedFor,
   stateSpellings,
 } from "./stand-ins.js";
-import {
-  type ApprovedControl,
-  CONTROL_KEY,
-  CONTROL_LABEL,
-  FilledForm,
-  isApprovedControl,
-  mayBeTheSubmit,
-  SubmitNeedsApproval,
-  shownControl,
-} from "./submit-approval.js";
 import {
   CheckArgs,
   ClickArgs,
@@ -80,30 +73,29 @@ interface ToolboxOptions {
   startUrls?: readonly string[];
   signal: AbortSignal;
   /**
-   * Awaited just before an action that may submit a form. While an approval is pending only the
-   * approved click is one, since every other action is held back from sending.
+   * Awaited just before an action that may submit a form, for a run whose sends are not held for
+   * a person. A held run learns exactly what left the browser from the gate instead.
    */
   onClick?: () => Promise<void>;
   /**
-   * Nothing the run does may send the form until a person approves the click that sends it. An
-   * approval that names no control leaves every send control held.
+   * How the outgoing gate treats this run. A held run has every send wait for a person, a
+   * recorded run writes each send down before it leaves, and a run without a gate only has its
+   * documents checked.
    */
-  submitNeedsApproval?: boolean;
-  /** With an approval, the one send control the run may click without stopping again. */
-  approvedSubmit?: ApprovedControl;
+  gate?: SubmitGate;
+  /** The server calls the gate makes. A gated run cannot start without them. */
+  sends?: SendsApi;
+  /** The person's other values, which a request is looked through for as well. */
+  maskValues?: readonly string[];
+  logger?: Logger;
+  /** Told how long a hold took, which the run's time budget does not count. */
+  onHeld?: (ms: number) => void;
+  /** The largest screenshot to send. A full-page one that is larger is cut down to what was acted on. */
+  maxScreenshotBytes?: number;
   /** How long a click, a fill or a choice may take before it counts as timed out. */
   actionTimeoutMs?: number;
   /** How long a whole-page bot check gets to clear by itself before it stops the run. */
   challengeGraceMs?: number;
-}
-
-interface PausedRequest {
-  requestId: string;
-  resourceType: string;
-  frameId?: string;
-  responseStatusCode?: number;
-  responseHeaders?: { name: string; value: string }[];
-  request: { url: string; urlFragment?: string; method?: string };
 }
 
 interface ElementInfo {
@@ -183,12 +175,6 @@ const CHOICE_DETAILS = `(el) => {
   return { choice: true, hint: hint.filter(Boolean).join(" ").replace(/[_-]+/g, " "), required, text: textOf(el), options };
 }`;
 
-interface ControlFacts {
-  key: string;
-  ticked: boolean;
-  text: string;
-}
-
 type ChoiceDetails =
   | { choice: false }
   | { choice: true; hint: string; required: boolean; text: string; options: DropdownOption[] };
@@ -205,6 +191,8 @@ const NON_TEXT_INPUTS = new Set([
   "range",
   "color",
 ]);
+
+const CLIP_MARGIN = 48;
 
 const DEFAULT_ACTION_TIMEOUT_MS = 8_000;
 const NAVIGATION_TIMEOUT_MS = 30_000;
@@ -246,17 +234,13 @@ export class Toolbox {
   private readonly redirectsToFollow: Set<string>;
   private readonly links = new Map<string, string | null>();
   private clickCount = 0;
-  /** Details typed, chosen or ticked so far, which turn a later button into a likely submit. */
-  private detailsEntered = 0;
-  /** Set while an action runs that must not send, when a request that sends something is refused. */
-  private watchingForSend = false;
-  private sendAttempted = false;
-  /** A form was submitted and its document request has not been seen yet. */
-  private formNavigationPending = false;
-  private readonly filled = new FilledForm();
-  private approvalSpent = false;
   private installed = false;
-  private cdp: CDPSession | null = null;
+  private guard: OutboundGuard | null = null;
+  private desk: SendDesk | null = null;
+  /** Where the run acted on the page, in page coordinates, for a screenshot too large to send whole. */
+  private readonly actedBoxes: Box[] = [];
+  /** How large the page was when the run last acted on it. */
+  private pageSize: { width: number; height: number } | null = null;
   /** The last document the page was let load, which its own address changes are measured against. */
   private admittedDocument: string | null = null;
   private pushback: Pushback | undefined;
@@ -284,6 +268,16 @@ export class Toolbox {
     return this.links.get(shown) ?? null;
   }
 
+  /** How many requests were let go to the target after a person approved them or the gate recorded them. */
+  get released(): number {
+    return this.desk?.released ?? 0;
+  }
+
+  /** Whether the outgoing gate holds every send for a person. */
+  get holdsSends(): boolean {
+    return this.options.gate?.mode === "hold";
+  }
+
   /**
    * How many clicks were made, counting those that timed out. A "submitted" result can be told from
    * one the model made up by it, and a run that has clicked may already have submitted its form.
@@ -299,13 +293,20 @@ export class Toolbox {
   async install(): Promise<void> {
     if (this.installed) return;
     this.installed = true;
-    const { page } = this.options;
+    const { page, gate, sends } = this.options;
+    if (gate !== undefined && sends === undefined) {
+      throw new Error("A gated run needs a way to reach the server, and none was given");
+    }
     await this.guardNavigations();
     page.on("dialog", this.onDialog);
     page.on("popup", this.onPopup);
     page.on("response", this.onBackgroundResponse);
   }
 
+  /**
+   * Ends the run's browser: the page is sent to a blank document with the gate still on, closed,
+   * and only then is the gate detached, so nothing a page does while it goes away is unguarded.
+   */
   async dispose(): Promise<void> {
     if (!this.installed) return;
     this.installed = false;
@@ -313,47 +314,78 @@ export class Toolbox {
     page.off("dialog", this.onDialog);
     page.off("popup", this.onPopup);
     page.off("response", this.onBackgroundResponse);
+    await this.guard?.close().catch(() => undefined);
+    this.guard = null;
     await page
       .context()
       .unroute(documentsOfOtherPages, this.routeOtherPage)
       .catch(() => undefined);
     page.context().off("page", this.bypassServiceWorkers);
-    await this.cdp?.detach().catch(() => undefined);
-    this.cdp = null;
   }
 
   /**
    * Stops every document the page loads, in its own frame or in a frame inside it, from coming off
    * the allowed domains, however it got there: a click, a script, a form aimed at a frame, or a
-   * redirect. This goes through the browser's request interception for documents only, because
-   * `page.route` never sees the later hops of a redirect, and a redirect is the usual way a page
-   * sends a visitor elsewhere. A new tab or window is another page of the same context, so its
-   * documents are all refused through a context route, and the tab is closed as soon as it opens.
-   * A frame of another site runs in its own process with its own request interception, so each
+   * redirect. This goes through the browser's request interception, because `page.route` never
+   * sees the later hops of a redirect, and a redirect is the usual way a page sends a visitor
+   * elsewhere. A new tab or window is another page of the same context, so its documents are all
+   * refused through a context route, and the tab is closed as soon as it opens. A frame of another
+   * site, and a worker, run in their own processes with their own request interception, so each
    * one is held at its start and given the same guard as the page before it can load anything.
    */
   private async guardNavigations(): Promise<void> {
-    const { page } = this.options;
+    const { page, gate, sends } = this.options;
     const context = page.context();
     await context.route(documentsOfOtherPages, this.routeOtherPage);
     context.on("page", this.bypassServiceWorkers);
-    const cdp = await context.newCDPSession(page);
-    this.cdp = cdp;
-    const { frameTree } = await cdp.send("Page.getFrameTree");
-    const channel: CdpChannel = {
-      send: (method, params) => cdp.send(method as never, params as never),
-      on: (event, handler) => cdp.on(event as never, handler as never),
-    };
-    await this.guardSession(channel, frameTree.frame.id);
-    await guardFrameTargets(
-      channel,
-      (frame) => this.guardSession(frame, ""),
-      (error) => {
-        this.refusedNavigations.push(
-          `A frame could not be checked and was held back: ${describeError(error)}`,
-        );
+    if (gate !== undefined && sends !== undefined) {
+      this.desk = new SendDesk({
+        api: sends,
+        gate,
+        logger: this.options.logger ?? silentLogger,
+        signal: this.options.signal,
+        capture: () => this.holdScreenshot(),
+        note: (text) => this.notes.push(text),
+        onHeld: (ms) => this.options.onHeld?.(ms),
+      });
+    }
+    const domains = [...this.policy.domains, ...this.policy.pages.map((scope) => scope.host)];
+    this.guard = new OutboundGuard({
+      page,
+      policy: this.policy,
+      gate: gate ?? null,
+      desk: this.desk,
+      fields: this.options.fields,
+      maskValues: this.options.maskValues ?? [],
+      mask: this.options.mask,
+      documents: {
+        refuse: (event, mainFrameId) => this.refuseDocument(event, mainFrameId),
+        answered: (event, mainFrameId) => this.documentAnswered(event, mainFrameId),
       },
-    );
+      storageOrigins: this.storageOrigins(domains),
+      cookieDomains: domains,
+      note: (text) => this.notes.push(text),
+      onProblem: (text) => this.refusedNavigations.push(text),
+    });
+    await this.guard.install();
+  }
+
+  /** The origins of the target's sites, as far as the policy and the start pages name them. */
+  private storageOrigins(domains: readonly string[]): string[] {
+    const origins = new Set<string>();
+    for (const url of this.options.startUrls ?? []) {
+      try {
+        origins.add(new URL(url).origin);
+      } catch {
+        // A start address that is not a URL has no origin to clear.
+      }
+    }
+    for (const domain of domains) {
+      origins.add(`https://${domain}`);
+      origins.add(`http://${domain}`);
+      origins.add(`https://www.${domain}`);
+    }
+    return [...origins];
   }
 
   private readonly bypassServiceWorkers = (page: Page): void => {
@@ -364,141 +396,37 @@ export class Toolbox {
     });
   };
 
-  /**
-   * Decides every document request of one DevTools session: the page's own, or a frame's. A
-   * service worker would answer a request before this interception saw it, so each session also
-   * bypasses service workers, and a frame in its own process has a session of its own.
-   */
-  private async guardSession(session: CdpChannel, mainFrameId: string): Promise<void> {
-    await session.send("Network.enable");
-    await session.send("Network.setBypassServiceWorker", { bypass: true });
-    if (this.options.submitNeedsApproval) {
-      await session.send("Page.enable");
-      session.on("Page.frameRequestedNavigation", (event: { reason: string }) => {
-        if (!this.watchingForSend || !event.reason.startsWith("formSubmission")) return;
-        this.sendAttempted = true;
-        this.formNavigationPending = true;
-      });
+  /** Whether a document may load; the gate asks before it looks at what the request carries. */
+  private refuseDocument(event: PausedRequest, mainFrameId: string): string | null {
+    const reason = refuseNavigation(
+      `${event.request.url}${event.request.urlFragment ?? ""}`,
+      this.policy,
+    );
+    if (reason === null) {
+      if (event.frameId === mainFrameId) this.admittedDocument = event.request.url;
+      return null;
     }
-    session.on("Fetch.requestPaused", (event: PausedRequest) => {
-      if (this.watchingForSend && this.sendsSomething(event)) {
-        this.sendAttempted = true;
-        session
-          .send("Fetch.failRequest", { requestId: event.requestId, errorReason: "Aborted" })
-          .catch(() => undefined);
-        return;
-      }
-      if (event.resourceType !== "Document") {
-        session
-          .send("Fetch.continueRequest", { requestId: event.requestId })
-          .catch(() => undefined);
-        return;
-      }
-      if (event.responseStatusCode !== undefined && event.frameId === mainFrameId) {
-        this.notePushback(event.responseStatusCode, event.responseHeaders);
-        this.followStartRedirect(
-          event.request.url,
-          event.responseStatusCode,
-          event.responseHeaders,
-        );
-      }
-      const reason =
-        event.responseStatusCode === undefined
-          ? refuseNavigation(`${event.request.url}${event.request.urlFragment ?? ""}`, this.policy)
-          : null;
-      if (reason === null) {
-        if (event.responseStatusCode === undefined && event.frameId === mainFrameId) {
-          this.admittedDocument = event.request.url;
-        }
-        session
-          .send("Fetch.continueRequest", { requestId: event.requestId })
-          .catch(() => undefined);
-        return;
-      }
-      this.refusedNavigations.push(reason);
-      // Aborted keeps the page where it is. A failure the browser reports as blocked would
-      // replace the page with an error page and lose what was typed into it.
-      session
-        .send("Fetch.failRequest", { requestId: event.requestId, errorReason: "Aborted" })
-        .catch(() => undefined);
-    });
-    await session.send("Fetch.enable", {
-      patterns: [
-        { urlPattern: "*", resourceType: "Document", requestStage: "Request" },
-        { urlPattern: "*", resourceType: "Document", requestStage: "Response" },
-        ...(this.options.submitNeedsApproval
-          ? [
-              { urlPattern: "*", resourceType: "XHR", requestStage: "Request" },
-              { urlPattern: "*", resourceType: "Fetch", requestStage: "Request" },
-              { urlPattern: "*", resourceType: "Ping", requestStage: "Request" },
-            ]
-          : []),
-      ],
-    });
+    this.refusedNavigations.push(reason);
+    return reason;
   }
 
-  /**
-   * A request that carries data, or the document a form was submitted for. A page reached by a
-   * link or a script is not a send, since reading a page is how a site is used.
-   */
-  private sendsSomething(event: PausedRequest): boolean {
-    const method = (event.request.method ?? "GET").toUpperCase();
-    if (method !== "GET" && method !== "HEAD") return true;
-    if (event.resourceType !== "Document" || event.responseStatusCode !== undefined) return false;
-    const fromForm = this.formNavigationPending;
-    this.formNavigationPending = false;
-    return fromForm;
+  private documentAnswered(event: PausedRequest, mainFrameId: string): void {
+    if (event.frameId !== mainFrameId || event.responseStatusCode === undefined) return;
+    this.notePushback(event.responseStatusCode, event.responseHeaders);
+    this.followStartRedirect(event.request.url, event.responseStatusCode, event.responseHeaders);
   }
 
-  /**
-   * Runs an action that a page may answer by sending the form: typing and moving on, a choice, a
-   * tick, or a click that is not the approved one. While an approval is pending nothing may go
-   * out, so a request or form submission it starts is cancelled, including one that a change or
-   * blur event starts after the action itself, and the run stops for a person.
-   */
-  private async withoutSending(action: () => Promise<void>): Promise<void> {
-    if (!this.options.submitNeedsApproval) {
-      await action();
-      return;
-    }
-    this.sendAttempted = false;
-    this.formNavigationPending = false;
-    this.watchingForSend = true;
+  /** The whole page as it stands, for a person deciding about a held send. */
+  private async holdScreenshot(): Promise<TaskScreenshot | undefined> {
+    const limit = this.options.maxScreenshotBytes ?? MAX_SCREENSHOT_BYTES;
     try {
-      await action();
-      await this.settle();
-    } finally {
-      this.watchingForSend = false;
-    }
-    if (this.sendAttempted) {
-      throw new SubmitNeedsApproval(
-        "",
-        this.options.page.url(),
-        "change",
-        this.filled.fingerprint(),
-      );
+      return await this.guard?.capture(limit, this.actedClip(), this.pageSize);
+    } catch {
+      // A hold without a picture is still a hold; the fields of the request are the record.
+      return undefined;
     }
   }
 
-  /**
-   * Reads what a control is called before the action on it, because the action may leave the page.
-   * Only a run held for approval keeps a fingerprint of the form, so any other reads nothing.
-   */
-  private async controlOf(locator: Locator): Promise<ControlFacts | null> {
-    if (!this.options.submitNeedsApproval) return null;
-    return locator
-      .evaluate(fromSource<(el: unknown) => ControlFacts>(CONTROL_KEY), undefined, {
-        timeout: this.actionTimeoutMs,
-      })
-      .catch(() => null);
-  }
-
-  /** Notes what the run put into a control, which the approval of a later submit is tied to. */
-  private recordFilled(control: ControlFacts | null, token: (facts: ControlFacts) => string): void {
-    if (control !== null) this.filled.record(control.key, token(control));
-  }
-
-  /** Trusts where a start page sends the visitor, once, and only that page. */
   /** What the site said so far that means slow down, for the server to pace the next visit. */
   siteObservation(): SiteObservation | undefined {
     return this.pushback ? { pushback: this.pushback } : undefined;
@@ -568,12 +496,14 @@ export class Toolbox {
   async execute(name: string, args: unknown): Promise<ToolOutcome> {
     let outcome: ToolOutcome;
     try {
+      await this.guard?.settled();
       outcome = await this.run(name, args);
     } catch (error) {
       if (
         this.options.signal.aborted ||
         error instanceof SubmitNotRecorded ||
-        error instanceof SubmitNeedsApproval
+        error instanceof ApprovalLapsed ||
+        error instanceof UnguardedChannel
       ) {
         throw error;
       }
@@ -584,21 +514,70 @@ export class Toolbox {
       : outcome;
   }
 
-  async screenshot(): Promise<TaskScreenshot | undefined> {
+  /** Waits until nothing the page tried to send is still waiting for a person. */
+  async settled(): Promise<void> {
+    await this.guard?.settled();
+  }
+
+  async screenshot(options: { fullPage?: boolean } = {}): Promise<TaskScreenshot | undefined> {
     const { page } = this.options;
+    const limit = this.options.maxScreenshotBytes ?? MAX_SCREENSHOT_BYTES;
+    const fullPage = options.fullPage ?? false;
     try {
-      const png = await page.screenshot({ type: "png", timeout: 10_000 });
-      if (png.length > 0 && png.length <= MAX_SCREENSHOT_BYTES) {
-        return { mime: "image/png", dataBase64: png.toString("base64") };
-      }
-      const jpeg = await page.screenshot({ type: "jpeg", quality: 55, timeout: 10_000 });
-      if (jpeg.length > 0 && jpeg.length <= MAX_SCREENSHOT_BYTES) {
-        return { mime: "image/jpeg", dataBase64: jpeg.toString("base64") };
-      }
+      const whole = await this.capture({ fullPage }, limit);
+      if (whole !== undefined || !fullPage) return whole;
+      // The whole page is too large to send, so the person gets what the run acted on.
+      const clip = this.actedClip();
+      if (clip === null) return await this.capture({ fullPage: false }, limit);
+      return await this.capture({ clip }, limit);
     } catch {
       // A page that cannot be captured is still worth reporting without the picture.
     }
+    void page;
     return undefined;
+  }
+
+  private async capture(
+    shot: { fullPage?: boolean; clip?: Box },
+    limit: number,
+  ): Promise<TaskScreenshot | undefined> {
+    const { page } = this.options;
+    const base = { timeout: 10_000, ...shot };
+    const png = await page.screenshot({ type: "png", ...base });
+    if (png.length > 0 && png.length <= limit) {
+      return { mime: "image/png", dataBase64: png.toString("base64") };
+    }
+    const jpeg = await page.screenshot({ type: "jpeg", quality: 55, ...base });
+    if (jpeg.length > 0 && jpeg.length <= limit) {
+      return { mime: "image/jpeg", dataBase64: jpeg.toString("base64") };
+    }
+    return undefined;
+  }
+
+  /** The smallest area holding every control the run acted on, with a margin around it. */
+  private actedClip(): Box | null {
+    if (this.actedBoxes.length === 0) return null;
+    const left = Math.min(...this.actedBoxes.map((box) => box.x));
+    const top = Math.min(...this.actedBoxes.map((box) => box.y));
+    const right = Math.max(...this.actedBoxes.map((box) => box.x + box.width));
+    const bottom = Math.max(...this.actedBoxes.map((box) => box.y + box.height));
+    const x = Math.max(0, left - CLIP_MARGIN);
+    const y = Math.max(0, top - CLIP_MARGIN);
+    return { x, y, width: right - x + CLIP_MARGIN, height: bottom - y + CLIP_MARGIN };
+  }
+
+  /** Notes where a control is on the page, since a screenshot too large to send is cut to these. */
+  private async markActed(locator: Locator): Promise<void> {
+    const box = await locator.boundingBox({ timeout: 1_000 }).catch(() => null);
+    if (box === null) return;
+    const read = await this.options.page
+      .evaluate<[number, number, number, number]>(
+        "[window.scrollX, window.scrollY, Math.max(document.documentElement.scrollWidth, innerWidth), Math.max(document.documentElement.scrollHeight, innerHeight)]",
+      )
+      .catch(() => null);
+    if (read === null) return;
+    this.pageSize = { width: read[2], height: read[3] };
+    this.actedBoxes.push({ ...box, x: box.x + read[0], y: box.y + read[1] });
   }
 
   /** The address a person should open to finish by hand, when the page is a web page. */
@@ -860,24 +839,18 @@ export class Toolbox {
 
   /**
    * Runs before anything that can send the form: a click, and also a choice or a tick, because a
-   * page may submit on change. It is counted before the action is made: one that times out may
-   * still have been delivered, and a form that was already submitted must never be submitted
-   * again by a retry. `mayBeSent` is false for an action that is held back from sending, because
-   * the server must not be told a form may be out when nothing could have sent it.
+   * page may submit on change. The page is marked as touched first, so from here every request
+   * with a body to the target's sites is a send. It is counted before the action is made: one that
+   * times out may still have been delivered, and a form that was already submitted must never be
+   * submitted again by a retry. A held run asks the gate what left the browser instead of
+   * telling the server about each click, and `countsAsClick` is false for typing, which alone
+   * must not let a run report a submission.
    */
-  private async beforeSending(mayBeSent: boolean): Promise<ToolOutcome | null> {
-    const stopped = await this.gate(mayBeSent);
-    if (stopped === null) this.clickCount += 1;
+  private async beforeAct(countsAsClick: boolean): Promise<ToolOutcome | null> {
+    this.guard?.touch();
+    const stopped = await this.gate(!this.holdsSends);
+    if (stopped === null && countsAsClick) this.clickCount += 1;
     return stopped;
-  }
-
-  /**
-   * Typing is not a click, but a page may submit on a field's change event, which fires when focus
-   * moves on. Where nothing is held back from sending it is recorded like a send without being
-   * counted as one, because typing alone must not let a run report a submission.
-   */
-  private async beforeEditing(): Promise<ToolOutcome | null> {
-    return this.gate(!this.options.submitNeedsApproval);
   }
 
   /**
@@ -893,6 +866,12 @@ export class Toolbox {
     return this.stopForChallenge();
   }
 
+  /** Lets the gate decide what the action made the page send, before the model is told anything. */
+  private async afterAct(): Promise<void> {
+    await this.guard?.settled();
+    await this.settle();
+  }
+
   private async click(args: unknown): Promise<ToolOutcome> {
     const parsed = ClickArgs.safeParse(args);
     if (!parsed.success) return failure("click needs a ref such as e12");
@@ -906,17 +885,17 @@ export class Toolbox {
     const choice = await this.choiceDetails(target.locator);
     const invented = this.refuseInventedChoice(parsed.data.ref, choice);
     if (invented !== null) return invented;
-    const sending = await this.requireApprovalToSubmit(target);
-    const stopped = await this.beforeSending(sending !== "held");
+    const stopped = await this.beforeAct(true);
     if (stopped !== null) return stopped;
-    const control = await this.controlOf(target.locator);
+    await this.markActed(target.locator);
     try {
-      const click = () => target.locator.click({ timeout: this.actionTimeoutMs });
-      if (sending === "held") await this.withoutSending(click);
-      else await click();
-      this.recordChoice(target.info.type, control, choice);
+      // A gated click does not wait for the page to answer, because a send the gate holds for a
+      // person has no answer until the person decides.
+      await target.locator.click({
+        timeout: this.actionTimeoutMs,
+        ...(this.guard?.gated ? { noWaitAfter: true } : {}),
+      });
     } catch (error) {
-      if (error instanceof SubmitNeedsApproval) throw error;
       if (this.options.signal.aborted || !/Timeout \d+ms exceeded/.test(describeError(error))) {
         throw error;
       }
@@ -926,49 +905,8 @@ export class Toolbox {
         ),
       );
     }
-    if (sending !== "held") await this.settle();
+    await this.afterAct();
     return this.readPage(`Clicked ${parsed.data.ref}.`);
-  }
-
-  /**
-   * While an approval is pending, the click the person approved is the only one that may send.
-   * Any other click that could is a stop, and one that could not is `held`, which means it runs
-   * where a request that sends something is cancelled.
-   */
-  private async requireApprovalToSubmit(target: {
-    locator: Locator;
-    info: ElementInfo;
-  }): Promise<"free" | "approved" | "held"> {
-    if (!this.options.submitNeedsApproval) return "free";
-    const label = await target.locator.evaluate(fromSource<(el: unknown) => string>(CONTROL_LABEL));
-    if (!mayBeTheSubmit({ ...target.info, label }, this.detailsEntered)) return "held";
-    const { approvedSubmit, page } = this.options;
-    const shown = shownControl(label, this.options.mask);
-    const fingerprint = this.filled.fingerprint();
-    if (
-      approvedSubmit !== undefined &&
-      !this.approvalSpent &&
-      isApprovedControl(approvedSubmit, page.url(), shown, fingerprint)
-    ) {
-      this.approvalSpent = true;
-      return "approved";
-    }
-    throw new SubmitNeedsApproval(shown, page.url(), "click", fingerprint);
-  }
-
-  /** What a click on a tick box, radio button or list option chose, for the fingerprint. */
-  private recordChoice(type: string, control: ControlFacts | null, choice: ChoiceDetails): void {
-    if (type === "radio") this.recordTicked(type, control, true);
-    else if (type === "checkbox") this.recordTicked(type, control, !control?.ticked);
-    else if (choice.choice && control !== null) {
-      this.filled.record(`choice|${choice.hint}`, normalize(choice.text));
-    }
-  }
-
-  private recordTicked(type: string, control: ControlFacts | null, ticked: boolean): void {
-    this.recordFilled(control, (facts) =>
-      type === "radio" ? `chose:${normalize(facts.text)}` : `ticked:${ticked}`,
-    );
   }
 
   private async type(args: unknown): Promise<ToolOutcome> {
@@ -1001,18 +939,13 @@ export class Toolbox {
       return failure(`${ref} is not visible to a person on the page now, so nothing was typed.`);
     }
 
-    const stopped = await this.beforeEditing();
+    const stopped = await this.beforeAct(false);
     if (stopped !== null) return stopped;
-    this.detailsEntered += 1;
-    const control = await this.controlOf(target.locator);
-    await this.withoutSending(async () => {
-      await this.enter(target.locator, value);
-      // Moving on is what fires a field's change event, so it happens here, where it is held.
-      if (this.options.submitNeedsApproval) {
-        await target.locator.blur({ timeout: this.actionTimeoutMs });
-      }
-    });
-    this.recordFilled(control, () => `typed:${field}`);
+    await this.markActed(target.locator);
+    await this.enter(target.locator, value);
+    // Moving on is what fires a field's change event, so it happens here, where the gate sees it.
+    if (this.guard?.gated) await target.locator.blur({ timeout: this.actionTimeoutMs });
+    await this.afterAct();
     return (await this.stopForChallenge()) ?? done(this.withNotes(`Typed ${field} into ${ref}.`));
   }
 
@@ -1086,18 +1019,11 @@ export class Toolbox {
         `No option of ${ref} matches the ${field} value. Options: ${shown}.${asked === null ? " Choose one with option if it is the right one." : ""}`,
       );
     }
-    const stopped = await this.beforeSending(!this.options.submitNeedsApproval);
+    const stopped = await this.beforeAct(false);
     if (stopped !== null) return stopped;
-    this.detailsEntered += 1;
-    const control = await this.controlOf(target.locator);
-    await this.withoutSending(() =>
-      target.locator
-        .selectOption({ value: match.value }, { timeout: this.actionTimeoutMs })
-        .then(() => undefined),
-    );
-    this.recordFilled(control, () =>
-      field === undefined ? `option:${normalize(match.label)}` : `field:${field}`,
-    );
+    await this.markActed(target.locator);
+    await target.locator.selectOption({ value: match.value }, { timeout: this.actionTimeoutMs });
+    await this.afterAct();
     return (
       (await this.stopForChallenge()) ??
       done(this.withNotes(`Selected ${JSON.stringify(match.label)} in ${ref}.`))
@@ -1183,14 +1109,11 @@ export class Toolbox {
       );
       if (invented !== null) return invented;
     }
-    const stopped = await this.beforeSending(!this.options.submitNeedsApproval);
+    const stopped = await this.beforeAct(false);
     if (stopped !== null) return stopped;
-    this.detailsEntered += 1;
-    const control = await this.controlOf(target.locator);
-    await this.withoutSending(() =>
-      target.locator.setChecked(parsed.data.checked, { timeout: this.actionTimeoutMs }),
-    );
-    this.recordTicked(target.info.type, control, parsed.data.checked);
+    await this.markActed(target.locator);
+    await target.locator.setChecked(parsed.data.checked, { timeout: this.actionTimeoutMs });
+    await this.afterAct();
     return (
       (await this.stopForChallenge()) ??
       done(this.withNotes(`${parsed.data.checked ? "Checked" : "Unchecked"} ${parsed.data.ref}.`))
@@ -1201,7 +1124,7 @@ export class Toolbox {
     const parsed = WaitArgs.safeParse(args);
     if (!parsed.success) return failure("wait takes seconds between 0.2 and 10");
     await sleepFor(parsed.data.seconds * 1000, this.options.signal);
-    await this.settle();
+    await this.afterAct();
     return this.readPage("");
   }
 }
