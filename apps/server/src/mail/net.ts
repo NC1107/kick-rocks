@@ -57,6 +57,63 @@ const ERROR_TEXT: Record<string, string> = {
   NONEXISTENT: "That folder does not exist on the server.",
 };
 
+const MAILBOX_PROBLEM_CODES = [
+  "ECONNREFUSED",
+  "ENOTFOUND",
+  "EAI_AGAIN",
+  "ETIMEDOUT",
+  "ECONNECTION",
+  "ESOCKET",
+  "ECONNRESET",
+  "EHOSTUNREACH",
+  "ENETUNREACH",
+  "ETLS",
+  "EAUTH",
+];
+
+/**
+ * Whether a stored failure message says the mailbox could not connect or log in. Failures recorded
+ * before sends were held for a bad mailbox kept only this sentence, so it is all there is to go on.
+ */
+export function isMailboxProblemMessage(message: string): boolean {
+  const sentences = MAILBOX_PROBLEM_CODES.map((code) => ERROR_TEXT[code]);
+  return sentences.some((sentence) => sentence !== undefined && message.startsWith(sentence));
+}
+
+/**
+ * Nodemailer and node report a certificate failure under a generic socket code, with only the
+ * OpenSSL wording in the message, so the message is what says which certificate problem it was.
+ */
+const CERTIFICATE_MESSAGES: ReadonlyArray<readonly [RegExp, string]> = [
+  [
+    /self[- ]signed certificate/i,
+    "The server's certificate is self-signed, so it cannot be trusted.",
+  ],
+  [/certificate has expired/i, "The server's certificate has expired."],
+  [
+    /unable to verify the (first|leaf) certificate|unable to get local issuer certificate|unable to verify the leaf signature/i,
+    "The server's certificate could not be verified.",
+  ],
+  [
+    /does not match certificate's altnames|hostname\/ip does not match/i,
+    "The server's certificate is for a different host name.",
+  ],
+];
+
+/** Error codes along the chain of causes, outermost first, since a wrapper can hide the real one. */
+function codesAlong(error: unknown): string[] {
+  const codes: string[] = [];
+  let current: unknown = error;
+  for (let depth = 0; depth < 5 && current instanceof Object; depth += 1) {
+    const record = current as Record<string, unknown>;
+    for (const value of [record.code, record.serverResponseCode]) {
+      if (typeof value === "string") codes.push(value.toUpperCase());
+    }
+    current = record.cause;
+  }
+  return codes;
+}
+
 /**
  * A short sentence for a person about why a mail connection failed. The password is removed from
  * whatever the library said, so a credential never reaches an error response or a log.
@@ -70,10 +127,13 @@ export function describeMailError(error: unknown, secrets: readonly string[] = [
           error.message,
         )?.[1]
       : undefined;
-  const codes = [socketCode, record.code, record.serverResponseCode]
-    .filter((value): value is string => typeof value === "string")
-    .map((value) => value.toUpperCase());
-  const known = codes.map((code) => ERROR_TEXT[code]).find(Boolean);
+  // The innermost code is the most specific, as a wrapper usually carries only a generic one.
+  const codes = [...(socketCode ? [socketCode.toUpperCase()] : []), ...codesAlong(error).reverse()];
+  const certificate =
+    error instanceof Error
+      ? CERTIFICATE_MESSAGES.find(([pattern]) => pattern.test(error.message))?.[1]
+      : undefined;
+  const known = certificate ?? codes.map((code) => ERROR_TEXT[code]).find(Boolean);
   const isAuth = codes.some((code) => AUTH_CODES.has(code)) || record.authenticationFailed === true;
   const serverText =
     typeof record.responseText === "string"

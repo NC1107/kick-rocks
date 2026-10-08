@@ -5,6 +5,7 @@ import { nowIso } from "../../core/clock.js";
 import { conflict, invalidRequest, notFound } from "../../core/errors.js";
 import { newId } from "../../core/ids.js";
 import { requireProfile } from "../../core/require-profile.js";
+import { isMailboxProblemMessage } from "../../mail/net.js";
 import { findProviderPreset } from "../../mail/presets.js";
 import type { MailConnection } from "../../mail/types.js";
 import type { AppServices } from "../../services.js";
@@ -144,6 +145,22 @@ export function clearSendHold(services: MailboxServices, mailbox: MailboxRow): v
   });
 }
 
+/**
+ * Sends that failed only because this mailbox could not log in or connect, from before such
+ * failures were held, would otherwise stay failed after the mailbox is fixed.
+ */
+function requeueMailboxFailures(services: MailboxServices, profileId: string): void {
+  for (const task of services.taskQueue.list({
+    kinds: ["email_send"],
+    profileId,
+    status: ["failed"],
+  })) {
+    if (task.lastError && isMailboxProblemMessage(task.lastError)) {
+      services.taskQueue.requeueFailed(task.id);
+    }
+  }
+}
+
 export function saveMailbox(
   services: MailboxServices,
   profileId: string,
@@ -167,7 +184,10 @@ export function saveMailbox(
   };
 
   // A fixed mailbox gets to try again at once instead of waiting out a pause its old settings earned.
-  if (existing) clearSendHold(services, existing);
+  if (existing) {
+    clearSendHold(services, existing);
+    requeueMailboxFailures(services, profileId);
+  }
   if (!existing) {
     return services.db
       .insert(mailboxes)

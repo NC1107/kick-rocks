@@ -354,7 +354,7 @@ describe("when sending fails", () => {
       };
     }
 
-    it.each(["ECONNECTION", "ETIMEDOUT", "EAUTH"])(
+    it.each(["ECONNREFUSED", "ENOTFOUND", "EAUTH"])(
       "pauses the whole mailbox on %s and spends no attempts",
       async (code) => {
         const requestsOpen = [openRequest().request, openRequest().request, openRequest().request];
@@ -384,6 +384,19 @@ describe("when sending fails", () => {
           ctx.services.db.select().from(mailboxes).where(eq(mailboxes.id, mailboxId)).get()
             ?.lastError,
         ).toBeNull();
+      },
+    );
+
+    it.each(["ECONNECTION", "ETIMEDOUT", "ESOCKET"])(
+      "pauses the mailbox on %s but spends an attempt, since the mail may have gone out",
+      async (code) => {
+        const { request } = openRequest();
+        breakTransport(code);
+
+        await runners.email.runDue();
+
+        expect(taskFor(request.id)).toMatchObject({ status: "queued", attempts: 1 });
+        expect(ctx.services.mailHolds.until(mailboxId)).not.toBeNull();
       },
     );
 
@@ -420,7 +433,7 @@ describe("when sending fails", () => {
 
     it("waits longer after each failure in a row", async () => {
       openRequest();
-      breakTransport("ECONNECTION");
+      breakTransport("ECONNREFUSED");
       await runners.email.runDue();
       const first = runners.email.pacer.waitUntil({ id: mailboxId, dailyCap: 30 });
       ctx.clock.advance(10 * MINUTE);
