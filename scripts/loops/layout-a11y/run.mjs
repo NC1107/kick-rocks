@@ -13,6 +13,7 @@ import net from "node:net";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { failingContrastPairsOf } from "./contrast.mjs";
+import { inspectPage } from "./inspect-page.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
 const webDir = join(root, "apps/web");
@@ -150,70 +151,6 @@ async function startProductionHost(apiPort) {
   });
   await server.listen({ port: 0, host: "127.0.0.1" });
   return { port: server.server.address().port, close: () => server.close() };
-}
-
-// Runs inside the page. Collects clipped boxes, truncated sentences and small tap targets.
-function inspectPage({ minTarget, checkTargets }) {
-  const signature = (el) => {
-    const classes = typeof el.className === "string" ? el.className.trim().split(/\s+/) : [];
-    return `${el.tagName.toLowerCase()}${classes.length ? `.${classes.slice(0, 4).join(".")}` : ""}`;
-  };
-  const describe = (el) => {
-    const label = el.getAttribute("aria-label") || el.textContent?.trim().slice(0, 28) || "";
-    return `${signature(el)} "${label}"`;
-  };
-  // Screen-reader-only text is clipped to a pixel on purpose.
-  const hiddenByDesign = (el) => el.closest(".sr-only") !== null;
-  const visible = (el) => {
-    const r = el.getBoundingClientRect();
-    const s = getComputedStyle(el);
-    return r.width > 0 && r.height > 0 && s.visibility !== "hidden" && s.display !== "none";
-  };
-  const overflow = [];
-  const ellipsised = [];
-  const small = [];
-  for (const el of document.body.querySelectorAll("*")) {
-    if (!visible(el) || hiddenByDesign(el)) continue;
-    const s = getComputedStyle(el);
-    const clipsX = s.overflowX === "hidden" || s.overflowX === "clip" || s.overflowX === "visible";
-    if (
-      el.scrollWidth > el.clientWidth + 1 &&
-      el.clientWidth > 0 &&
-      clipsX &&
-      s.display !== "inline"
-    ) {
-      const text = (el.textContent ?? "").trim().replace(/\s+/g, " ");
-      const truncating = s.textOverflow === "ellipsis" || s.webkitLineClamp !== "none";
-      if (truncating) {
-        if (text.split(" ").length >= 4) ellipsised.push(`${describe(el)}`);
-      } else if (s.overflowX !== "visible") {
-        overflow.push(describe(el));
-      }
-    }
-    if (s.webkitLineClamp !== "none" && el.scrollHeight > el.clientHeight + 1) {
-      const text = (el.textContent ?? "").trim().replace(/\s+/g, " ");
-      if (text.split(" ").length >= 4) ellipsised.push(describe(el));
-    }
-  }
-  const doc = document.documentElement;
-  if (doc.scrollWidth > doc.clientWidth + 1) overflow.push("document horizontal scroll");
-  if (checkTargets) {
-    const selector =
-      "a[href], button, input:not([type=hidden]), select, textarea, summary, [role=button], [role=tab], [role=menuitem], [role=checkbox], [role=switch]";
-    for (const el of document.body.querySelectorAll(selector)) {
-      if (!visible(el) || el.closest("[hidden], [inert]")) continue;
-      const s = getComputedStyle(el);
-      if (el.tagName === "A" && s.display === "inline") continue;
-      if (hiddenByDesign(el)) continue;
-      const r = el.getBoundingClientRect();
-      // A label wrapping the control is the real hit area for a checkbox or radio.
-      const hit = el.closest("label")?.getBoundingClientRect() ?? r;
-      const w = Math.max(r.width, hit.width);
-      const h = Math.max(r.height, hit.height);
-      if (w < minTarget || h < minTarget) small.push(signature(el));
-    }
-  }
-  return { overflow, ellipsised, small };
 }
 
 async function measureSweep(browser, base, axeSource, shotsDir) {

@@ -25,7 +25,7 @@ export function ThemeToggle({ className }: { className?: string }) {
               aria-label={label}
               onClick={() => setPreference(value)}
               className={cn(
-                "inline-flex size-6 items-center justify-center rounded-xs transition-colors duration-100 max-sm:size-11",
+                "inline-flex size-6 items-center justify-center rounded-xs transition-colors duration-100 max-sm:size-11 pointer-coarse:size-11",
                 selected ? "bg-active text-ink" : "text-ink-3 hover:bg-hover hover:text-ink",
               )}
             >

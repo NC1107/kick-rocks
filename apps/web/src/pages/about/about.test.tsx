@@ -19,6 +19,17 @@ describe("the about page", () => {
     expect(screen.getByText(/Copyright NC1107/)).toBeInTheDocument();
   });
 
+  it("holds a placeholder row per data source and the license while the details load", () => {
+    renderPage(<AboutPage />, { withProfile: false });
+    const sources = screen
+      .getByRole("heading", { name: "Data sources" })
+      .closest("section") as HTMLElement;
+    expect(sources.querySelectorAll("[aria-busy] > div")).toHaveLength(6);
+    expect(
+      screen.getByRole("link", { name: /PolyForm Noncommercial 1\.0\.0/ }),
+    ).toBeInTheDocument();
+  });
+
   it("lists every data source with its license and how many entries use it", async () => {
     renderPage(<AboutPage />, { withProfile: false });
     const sources = (await screen.findByRole("heading", { name: "Data sources" })).closest(

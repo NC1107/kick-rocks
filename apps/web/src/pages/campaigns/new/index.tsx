@@ -379,7 +379,7 @@ function Builder({ profile }: { profile: ProfileSummary }) {
               >
                 <summary
                   ref={pickerSummary}
-                  className="flex min-h-9 max-sm:min-h-11 cursor-pointer list-none items-center justify-between gap-3 rounded-md px-3.5 text-ui text-ink transition-colors duration-100 hover:bg-hover [&::-webkit-details-marker]:hidden"
+                  className="flex min-h-9 max-sm:min-h-11 pointer-coarse:min-h-11 cursor-pointer list-none items-center justify-between gap-3 rounded-md px-3.5 text-ui text-ink transition-colors duration-100 hover:bg-hover [&::-webkit-details-marker]:hidden"
                 >
                   <span>Search and pick targets</span>
                   <ChevronDown

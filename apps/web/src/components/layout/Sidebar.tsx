@@ -48,7 +48,7 @@ function NavRow({
       onClick={onNavigate}
       className={({ isActive }) =>
         cn(
-          "marked group flex h-8 items-center gap-2.5 rounded-sm px-2.5 text-ui font-medium transition-colors duration-100 focus-visible:-outline-offset-2 max-sm:h-11",
+          "marked group flex h-8 items-center gap-2.5 rounded-sm px-2.5 text-ui font-medium transition-colors duration-100 focus-visible:-outline-offset-2 max-sm:h-11 pointer-coarse:h-11",
           isActive ? "bg-accent-soft text-accent-text" : "text-ink-2 hover:bg-hover hover:text-ink",
         )
       }

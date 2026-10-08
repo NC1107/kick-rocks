@@ -45,7 +45,7 @@ function ProfileRow({
         <span className="flex min-w-0 items-center gap-2">
           <Link
             to={`/profiles/${profile.id}`}
-            className="min-w-0 truncate rounded-xs text-ui font-medium text-ink after:absolute after:inset-0 after:content-['']"
+            className="min-w-0 break-words rounded-xs text-ui font-medium text-ink after:absolute after:inset-0 after:content-['']"
           >
             {profile.displayName}
           </Link>
@@ -72,7 +72,7 @@ function ProfileRow({
         ) : (
           <Link
             to={`/profiles/${profile.id}/mailbox`}
-            className="rounded-xs text-accent-text underline underline-offset-2 max-sm:flex max-sm:min-h-11 max-sm:items-center"
+            className="rounded-xs text-accent-text underline underline-offset-2 max-sm:flex max-sm:min-h-11 max-sm:items-center pointer-coarse:flex pointer-coarse:min-h-11 pointer-coarse:items-center"
           >
             Connect mailbox
           </Link>
@@ -121,7 +121,7 @@ export function Component() {
       <PageHeader
         title="Profiles"
         description="Who requests are sent for"
-        actions={profiles.length > 0 ? newProfile : undefined}
+        actions={query.data && profiles.length === 0 ? undefined : newProfile}
       />
       {query.error ? (
         <Callout

@@ -83,7 +83,10 @@ export function RequestsSection({ dashboard }: { dashboard: Dashboard }) {
       label="Requests"
       count={formatCount(dashboard.total)}
       actions={
-        <TextLink to="/requests" className="max-sm:inline-flex max-sm:min-h-11 max-sm:items-center">
+        <TextLink
+          to="/requests"
+          className="max-sm:inline-flex max-sm:min-h-11 max-sm:items-center pointer-coarse:inline-flex pointer-coarse:min-h-11 pointer-coarse:items-center"
+        >
           All requests
         </TextLink>
       }
@@ -107,7 +110,7 @@ export function RequestsSection({ dashboard }: { dashboard: Dashboard }) {
                   <li key={status}>
                     <Link
                       to={`/requests?status=${status}`}
-                      className="-mx-2 flex h-8 items-center justify-between gap-3 rounded-sm px-2 transition-colors duration-100 hover:bg-hover max-sm:h-auto max-sm:min-h-11"
+                      className="-mx-2 flex h-8 items-center justify-between gap-3 rounded-sm px-2 transition-colors duration-100 hover:bg-hover max-sm:h-auto max-sm:min-h-11 pointer-coarse:h-auto pointer-coarse:min-h-11"
                     >
                       <StatusMark status={status} />
                       <span className="font-mono text-meta text-ink-2 tabular-nums">
@@ -117,7 +120,9 @@ export function RequestsSection({ dashboard }: { dashboard: Dashboard }) {
                   </li>
                 ))}
                 {present.length === 0 ? (
-                  <li className="flex h-8 items-center text-ink-3 max-sm:min-h-11">-</li>
+                  <li className="flex h-8 items-center text-ink-3 max-sm:min-h-11 pointer-coarse:min-h-11">
+                    -
+                  </li>
                 ) : null}
               </ul>
             </section>
@@ -342,7 +347,7 @@ export function ActivitySection({ events }: { events: readonly DashboardEvent[] 
               <p className="flex flex-wrap items-center gap-x-3 text-meta text-ink-3">
                 <Link
                   to={`/requests/${event.requestId}`}
-                  className="min-w-0 break-words rounded-xs text-ink-2 hover:text-accent-text hover:underline max-sm:after:absolute max-sm:after:inset-0 max-sm:after:content-['']"
+                  className="min-w-0 break-words rounded-xs text-ink-2 hover:text-accent-text hover:underline max-sm:after:absolute max-sm:after:inset-0 max-sm:after:content-[''] pointer-coarse:after:absolute pointer-coarse:after:inset-0 pointer-coarse:after:content-['']"
                 >
                   {event.targetName}
                 </Link>

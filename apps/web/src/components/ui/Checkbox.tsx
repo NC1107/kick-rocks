@@ -59,7 +59,9 @@ export function Checkbox({
       htmlFor={id}
       className={cn(
         "flex cursor-pointer items-start gap-2.5 has-disabled:cursor-not-allowed has-disabled:opacity-60",
-        description ? "max-sm:py-1.5" : "max-sm:min-h-11 max-sm:items-center",
+        description
+          ? "max-sm:py-1.5 pointer-coarse:py-1.5"
+          : "max-sm:min-h-11 max-sm:items-center pointer-coarse:min-h-11 pointer-coarse:items-center",
         className,
       )}
     >
