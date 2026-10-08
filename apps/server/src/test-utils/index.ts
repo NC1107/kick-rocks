@@ -6,3 +6,4 @@ export * from "./fake-legal.js";
 export * from "./fake-mail.js";
 export * from "./integration.js";
 export * from "./seed.js";
+export * from "./smtp-socket.js";

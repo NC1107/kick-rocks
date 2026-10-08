@@ -75,6 +75,35 @@ describe("describeMailError", () => {
     expect(describeMailError(error)).toMatch(/self-signed/);
   });
 
+  it("explains a self-signed certificate as nodemailer reports it, under a generic socket code", () => {
+    const error = Object.assign(new Error("self-signed certificate"), {
+      code: "ESOCKET",
+      command: "CONN",
+    });
+    expect(describeMailError(error)).toBe(
+      "The server's certificate is self-signed, so it cannot be trusted.",
+    );
+  });
+
+  it.each([
+    ["certificate has expired", /has expired/],
+    ["self signed certificate in certificate chain", /self-signed/],
+    ["unable to verify the first certificate", /could not be verified/],
+    ["unable to get local issuer certificate", /could not be verified/],
+    ["Hostname/IP does not match certificate's altnames: x", /different host name/],
+  ])("explains the certificate failure %s", (message, expected) => {
+    const error = Object.assign(new Error(message), { code: "ESOCKET" });
+    expect(describeMailError(error)).toMatch(expected);
+  });
+
+  it("reads a certificate code from a nested cause", () => {
+    const error = Object.assign(new Error("Connection failed"), {
+      code: "ECONNECTION",
+      cause: Object.assign(new Error("boom"), { code: "DEPTH_ZERO_SELF_SIGNED_CERT" }),
+    });
+    expect(describeMailError(error)).toMatch(/self-signed/);
+  });
+
   it("removes the password wherever it appears", () => {
     const error = new Error("LOGIN jordan s3cr3t-app-pass failed: s3cr3t-app-pass");
     const text = describeMailError(error, ["s3cr3t-app-pass"]);

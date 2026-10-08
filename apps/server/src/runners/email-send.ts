@@ -17,8 +17,17 @@ import { MailPacer } from "./pacing.js";
 
 const EMAIL_WORKER_ID = "server:email-send";
 const LEASE_MS = 5 * 60 * 1000;
+/**
+ * One pass handles a bounded number of tasks for a bounded time. The scheduler runs its other jobs
+ * in the same loop, so a pass that waited on every slow server in turn would starve them.
+ */
+const PASS_MAX_TASKS = 20;
+const PASS_MAX_MS = 60 * 1000;
 
 type EmailTask = Task<"email_send">;
+
+/** Replies that say the login is not accepted, which no other message through the same mailbox can fix. */
+const MAILBOX_RESPONSE_CODES = new Set([421, 530, 534, 535, 538]);
 
 const MAILBOX_ERROR_CODES = new Set([
   "ECONNECTION",
@@ -35,7 +44,10 @@ const MAILBOX_ERROR_CODES = new Set([
 /** The server could not be reached or would not let the mailbox in, which says nothing about the request. */
 export function isMailboxProblem(error: unknown): boolean {
   const { responseCode, code } = error as { responseCode?: unknown; code?: unknown };
-  return responseCode === 421 || (typeof code === "string" && MAILBOX_ERROR_CODES.has(code));
+  return (
+    (typeof responseCode === "number" && MAILBOX_RESPONSE_CODES.has(responseCode)) ||
+    (typeof code === "string" && MAILBOX_ERROR_CODES.has(code))
+  );
 }
 
 /** SMTP says a 5xx answer will not change by asking again, and a bad address is the same. */
@@ -69,11 +81,20 @@ export class EmailRunner {
     this.pacer = new MailPacer(services, random, services.config.sendGapMs);
   }
 
-  /** Sends every task that is due and returns how many went out. */
+  /**
+   * Sends the tasks that are due, up to the pass budget, and returns how many went out. A mailbox
+   * that fails to connect or log in is held by the first task, so the claim skips the rest of its
+   * tasks and the slow server is tried once per pass.
+   */
   async runDue(): Promise<number> {
-    const { taskQueue } = this.services;
+    const { taskQueue, clock } = this.services;
+    const deadline = clock.now().getTime() + PASS_MAX_MS;
     let sent = 0;
-    for (;;) {
+    for (
+      let handled = 0;
+      handled < PASS_MAX_TASKS && clock.now().getTime() < deadline;
+      handled += 1
+    ) {
       const task = taskQueue.claim({
         workerId: EMAIL_WORKER_ID,
         kinds: ["email_send"],

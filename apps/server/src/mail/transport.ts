@@ -30,26 +30,58 @@ export class InvalidOutgoingMailError extends Error {
   override name = "InvalidOutgoingMailError";
 }
 
-/** A send the server refused. The text is safe to show and never contains the app password. */
-export class MailSendError extends Error {
+/** What the library says about why a send failed, kept so callers can tell a bad mailbox from a bad request. */
+export interface MailSendFailure {
+  code?: string | undefined;
+  responseCode?: number | undefined;
+  command?: string | undefined;
+}
+
+/**
+ * A send the server refused. The text is safe to show and never contains the app password, which
+ * is why the original error is not kept as the cause: only its machine-readable fields are.
+ */
+export class MailSendError extends Error implements MailSendFailure {
   override name = "MailSendError";
+  readonly code: string | undefined;
+  readonly responseCode: number | undefined;
+  readonly command: string | undefined;
+
   constructor(
     message: string,
     /** True when trying again later could work, as for a timeout or a 4xx reply. */
     readonly transient: boolean,
+    failure: MailSendFailure = {},
   ) {
     super(message);
+    this.code = failure.code;
+    this.responseCode = failure.responseCode;
+    this.command = failure.command;
   }
+}
+
+function failureOf(error: unknown): MailSendFailure {
+  const record = (error ?? {}) as Record<string, unknown>;
+  return {
+    code: typeof record.code === "string" ? record.code : undefined,
+    responseCode: typeof record.responseCode === "number" ? record.responseCode : undefined,
+    command: typeof record.command === "string" ? record.command : undefined,
+  };
 }
 
 /** Hosts that may be reached without TLS besides this machine. */
 interface MailTransportOptions {
   plaintextHosts?: readonly string[];
+  /** Shortened by tests that wait for a server that never answers. */
+  timeouts?: { connectionMs: number; socketMs: number };
 }
 
 export function transportOptions(
   connection: MailConnection,
-  { plaintextHosts = [] }: MailTransportOptions = {},
+  {
+    plaintextHosts = [],
+    timeouts = { connectionMs: CONNECTION_TIMEOUT_MS, socketMs: SOCKET_TIMEOUT_MS },
+  }: MailTransportOptions = {},
 ): SMTPTransport.Options {
   const local = isTrustedPlaintextHost(connection.smtpHost, plaintextHosts);
   return {
@@ -61,9 +93,9 @@ export function transportOptions(
     // relay is on this machine or named by the operator, as with Proton Bridge and the test mail server.
     requireTLS: !connection.smtpSecure && !local,
     ...(local ? { tls: { rejectUnauthorized: false } } : {}),
-    connectionTimeout: CONNECTION_TIMEOUT_MS,
-    greetingTimeout: CONNECTION_TIMEOUT_MS,
-    socketTimeout: SOCKET_TIMEOUT_MS,
+    connectionTimeout: timeouts.connectionMs,
+    greetingTimeout: timeouts.connectionMs,
+    socketTimeout: timeouts.socketMs,
     disableFileAccess: true,
     disableUrlAccess: true,
   };
@@ -129,7 +161,11 @@ export function createMailTransport(
         return { messageId: info.messageId || messageId, accepted, rejected };
       } catch (error) {
         if (error instanceof MailSendError) throw error;
-        throw new MailSendError(describeMailError(error, secrets), isTransient(error));
+        throw new MailSendError(
+          describeMailError(error, secrets),
+          isTransient(error),
+          failureOf(error),
+        );
       } finally {
         transporter.close();
       }
