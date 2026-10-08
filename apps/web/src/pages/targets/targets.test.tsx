@@ -157,8 +157,10 @@ describe("the targets page", () => {
     await user.click(screen.getByRole("button", { name: "Select all 61 matching" }));
     await user.click(within(list[0] as HTMLElement).getByRole("checkbox"));
     expect(screen.getByRole("status")).toHaveTextContent("49 selected");
+    // The live region repeats a toast's text for screen readers, so the visible card is found by its region.
+    const notifications = screen.getByRole("region", { name: "Notifications" });
     expect(
-      await screen.findByText("Selection narrowed to the 49 targets on this page"),
+      await within(notifications).findByText("Selection narrowed to the 49 targets on this page"),
     ).toBeVisible();
   });
 
