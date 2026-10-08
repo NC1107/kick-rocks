@@ -287,6 +287,36 @@ describe("the agent claim loop", () => {
     return api;
   }
 
+  it("spaces out the tries of a result it reports while stopping instead of making them at once", async () => {
+    const controller = new AbortController();
+    const api = fakeApi([agentTask()]);
+    const stamps: number[] = [];
+    api.complete.mockImplementation(async () => {
+      stamps.push(Date.now());
+      throw new TypeError("fetch failed");
+    });
+    const executor: AgentExecutor = async () => {
+      controller.abort();
+      return { kind: "complete", result: {}, usage: {} };
+    };
+    const finished = runLoop({
+      api,
+      executor,
+      signal: controller.signal,
+      logger: silentLogger,
+      workerId: "test-agent",
+      pollMs: 5,
+      leaseMs: 60_000,
+      timing: { ...FAST, shutdownGraceMs: 1_000, reportRetryMs: 40, maxBackoffMs: 200 },
+    });
+    await finished;
+    expect(stamps).toHaveLength(3);
+    expect(stamps.map((at, i) => at - (stamps[i - 1] ?? at)).slice(1)).toEqual([
+      expect.toSatisfy((gap: number) => gap >= 35),
+      expect.toSatisfy((gap: number) => gap >= 70),
+    ]);
+  });
+
   it("closes the browser and releases the task when a run ignores the shutdown", async () => {
     const api = await stalledShutdown({ kind: "fail", report: { error: "x", retryable: true } });
     expect(api.release).toHaveBeenCalled();

@@ -422,6 +422,38 @@ describe("the claim loop", () => {
       expect(client.complete).toHaveBeenCalledTimes(3);
     });
 
+    it("spaces out the tries of a result it reports while stopping instead of making them at once", async () => {
+      const { controller, context } = setup();
+      const { client } = fakeClient([formTask()]);
+      const stamps: number[] = [];
+      client.complete.mockImplementation(async () => {
+        stamps.push(Date.now());
+        throw new TypeError("fetch failed");
+      });
+      await runClaimLoop(
+        context({
+          client,
+          executor: async () => {
+            controller.abort();
+            return { kind: "complete", result: {}, usage: {} };
+          },
+          timing: {
+            leaseHeartbeatMs: 15,
+            idleHeartbeatMs: 10_000,
+            shutdownGraceMs: 1_000,
+            maxBackoffMs: 200,
+            reportAttempts: 3,
+            reportRetryMs: 40,
+          },
+        }),
+      );
+      expect(stamps).toHaveLength(3);
+      expect(stamps.map((at, i) => at - (stamps[i - 1] ?? at)).slice(1)).toEqual([
+        expect.toSatisfy((gap: number) => gap >= 35),
+        expect.toSatisfy((gap: number) => gap >= 70),
+      ]);
+    });
+
     it("does not try again when the server refuses the report", async () => {
       const client = await report({ kind: "block", report: { reason: "captcha" } }, (c) =>
         c.block.mockRejectedValue(new WorkerApiError(404, "task_not_found", "gone")),

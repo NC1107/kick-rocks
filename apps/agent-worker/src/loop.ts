@@ -345,6 +345,7 @@ class Loop {
     // bounded tries and the lease expiring puts the task right.
     const mustLand = isFinal(report);
     let triesAfterShutdown = 0;
+    let shutdownAt: number | undefined;
     let pause = this.timing.reportRetryMs;
     for (let tries = 1; ; tries++) {
       try {
@@ -359,7 +360,10 @@ class Loop {
           });
           return;
         }
-        if (this.ctx.signal.aborted) triesAfterShutdown += 1;
+        if (this.ctx.signal.aborted) {
+          triesAfterShutdown += 1;
+          shutdownAt ??= Date.now();
+        }
         const unbounded = mustLand && unreachable(error);
         const exhausted = (unbounded ? triesAfterShutdown : tries) >= this.timing.reportAttempts;
         if (!transient(error) || exhausted) {
@@ -369,7 +373,10 @@ class Loop {
         logger.warn("reporting failed, trying again", { ...log, error: describeError(error) });
         // The lease timer is stopped by now, so this is the only sign that the worker is alive.
         await this.beat(true, task.id);
-        await sleepFor(pause, this.ctx.signal);
+        // The abort that stops the worker must not also end the pacing, or every try lands in the
+        // same instant and the server gets no time to come back before the grace runs out.
+        if (shutdownAt === undefined) await sleepFor(pause, this.ctx.signal);
+        else await sleepFor(Math.min(pause, shutdownAt + this.timing.shutdownGraceMs - Date.now()));
         pause = Math.min(pause * 2, this.timing.maxBackoffMs);
       }
     }

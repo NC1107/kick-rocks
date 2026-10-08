@@ -1,3 +1,4 @@
+import { randomFillSync } from "node:crypto";
 import { closeSync, openSync, rmSync, statfsSync, statSync, writeSync } from "node:fs";
 import { join } from "node:path";
 
@@ -10,7 +11,8 @@ export const RESERVE_BYTES = 8 * 1024 * 1024;
 /** The reserve is only laid down where the disk keeps room for itself afterwards. */
 const SPARE_BYTES = 2 * RESERVE_BYTES;
 
-const CHUNK = Buffer.alloc(1024 * 1024);
+/** Random, because zeros take almost no real space on a compressing filesystem such as btrfs or ZFS. */
+const CHUNK = randomFillSync(Buffer.alloc(1024 * 1024));
 
 /** SQLite reports a full disk as SQLITE_FULL, which the query layer may wrap in an error of its own. */
 export function isDiskFull(error: unknown): boolean {
@@ -29,7 +31,7 @@ export interface DiskReserve {
 }
 
 /**
- * A file of nothing that is deleted when the disk fills. SQLite needs a little room even to
+ * A file of incompressible bytes that is deleted when the disk fills. SQLite needs a little room even to
  * record that it has none, and without it a full disk also stops polls, leases and the error
  * shown to the person, not only the writes that filled it.
  */

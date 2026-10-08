@@ -146,9 +146,10 @@ backup() {
   # The archive is built beside its destination and renamed only once it reads back whole, so a
   # failed run never replaces a good backup with a broken one.
   partial_file="$file.partial"
+  # The disk reserve is 8 MB of random bytes that mean nothing outside the volume it guards.
   # tar runs as root inside the container because it must read the key, but the archive is written
   # by this shell, so it belongs to the invoking user and no one else can read it.
-  if ! (umask 077 && docker run --rm -v "$volume":/data:ro alpine tar czf - -C /data . >"$partial_file") || ! archive_is_intact "$partial_file"; then
+  if ! (umask 077 && docker run --rm -v "$volume":/data:ro alpine tar czf - --exclude ./.disk-reserve -C /data . >"$partial_file") || ! archive_is_intact "$partial_file"; then
     echo "The backup did not complete, so nothing was written to $file." >&2
     exit 1
   fi
