@@ -1,6 +1,6 @@
 import { type KickRocksDb, mailboxes, outgoingMail } from "@kickrocks/db";
 import type { EmailKind } from "@kickrocks/shared";
-import { and, count, desc, eq, gt, lte } from "drizzle-orm";
+import { and, count, desc, eq, gt } from "drizzle-orm";
 import { type Clock, nowIso } from "./clock.js";
 import { notFound } from "./errors.js";
 import { newId } from "./ids.js";
@@ -34,21 +34,23 @@ export interface MailQuota {
 }
 
 export function createMailQuota(db: KickRocksDb, clock: Clock): MailQuota {
-  // A send stamped by a clock that ran ahead and was put right is not in the past yet, and
-  // counting it would hold the cap and the gap shut until that moment arrives.
-  const notAfterNow = () => lte(outgoingMail.sentAt, nowIso(clock));
+  // No send can have happened after now, so a stamp ahead of it came from a clock that ran ahead
+  // and was put right. It counts as sent now, which keeps the cap and the gap as tight as they were.
+  function clampFuture() {
+    db.update(outgoingMail)
+      .set({ sentAt: nowIso(clock) })
+      .where(gt(outgoingMail.sentAt, nowIso(clock)))
+      .run();
+  }
 
   function sentSince(mailboxId: string, since: Date): number {
+    clampFuture();
     return (
       db
         .select({ n: count() })
         .from(outgoingMail)
         .where(
-          and(
-            eq(outgoingMail.mailboxId, mailboxId),
-            gt(outgoingMail.sentAt, since.toISOString()),
-            notAfterNow(),
-          ),
+          and(eq(outgoingMail.mailboxId, mailboxId), gt(outgoingMail.sentAt, since.toISOString())),
         )
         .get()?.n ?? 0
     );
@@ -72,10 +74,11 @@ export function createMailQuota(db: KickRocksDb, clock: Clock): MailQuota {
     },
 
     lastSentAt(mailboxId) {
+      clampFuture();
       const row = db
         .select({ sentAt: outgoingMail.sentAt })
         .from(outgoingMail)
-        .where(and(eq(outgoingMail.mailboxId, mailboxId), notAfterNow()))
+        .where(eq(outgoingMail.mailboxId, mailboxId))
         .orderBy(desc(outgoingMail.sentAt))
         .limit(1)
         .get();

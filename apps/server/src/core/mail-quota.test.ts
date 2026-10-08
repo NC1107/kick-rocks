@@ -82,12 +82,14 @@ describe("mailQuota", () => {
     expect(quota().lastSentAt(mailboxId)?.toISOString()).toBe(ctx.clock.now().toISOString());
   });
 
-  it("does not hold the gap open for a send stamped by a clock that ran ahead", () => {
+  it("counts a send stamped by a clock that ran ahead as sent when the clock was put right", () => {
     const realNow = ctx.clock.now();
     ctx.clock.advance(3 * DAY);
     send();
     ctx.clock.set(realNow);
-    expect(quota().lastSentAt(mailboxId)).toBeNull();
+    expect(quota().lastSentAt(mailboxId)?.toISOString()).toBe(realNow.toISOString());
+    expect(quota().remaining(mailboxId)).toBe(4);
+    ctx.clock.advance(DAY);
     expect(quota().remaining(mailboxId)).toBe(5);
   });
 

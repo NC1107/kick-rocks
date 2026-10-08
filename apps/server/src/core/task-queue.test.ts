@@ -1,3 +1,4 @@
+import { LEASE_MS } from "@kickrocks/shared";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { DAY, MINUTE, SECOND } from "../test-utils/clock.js";
 import {
@@ -666,12 +667,18 @@ describe("reapExpiredLeases", () => {
     });
   });
 
-  it("reaps a lease stamped by a clock that ran ahead and was put right", async () => {
+  it("shortens a lease stamped by a clock that ran ahead, then reaps it once that time passes", async () => {
     queue.enqueue({ kind: "email_send", payload: emailPayload() });
     const realNow = ctx.clock.now();
     ctx.clock.advance(3 * DAY);
     const task = claimOne();
     ctx.clock.set(realNow);
+    expect(queue.reapExpiredLeases()).toEqual([]);
+    expect(queue.getOrThrow(task.id)).toMatchObject({
+      status: "leased",
+      leaseExpiresAt: new Date(realNow.getTime() + LEASE_MS.max).toISOString(),
+    });
+    ctx.clock.advance(LEASE_MS.max);
     const [reaped] = queue.reapExpiredLeases();
     expect(reaped).toMatchObject({ id: task.id, status: "queued" });
   });

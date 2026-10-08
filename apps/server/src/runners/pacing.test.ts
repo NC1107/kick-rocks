@@ -21,7 +21,7 @@ afterEach(async () => {
 });
 
 describe("MailPacer", () => {
-  it("does not wait on the daily cap for sends stamped by a clock that ran ahead", () => {
+  it("keeps a send stamped by a clock that ran ahead counting against the cap until a day after the correction", () => {
     const profile = seedProfile(ctx);
     const mailbox = seedMailbox(ctx, profile.id, { dailyCap: 1 });
     const requestId = seedRequest(ctx, { profileId: profile.id, targetId: seedTarget(ctx).id }).id;
@@ -35,6 +35,8 @@ describe("MailPacer", () => {
     });
     ctx.clock.set(realNow);
 
-    expect(new MailPacer(ctx.services, () => 0).waitUntil(mailbox)).toBeNull();
+    expect(new MailPacer(ctx.services, () => 0).waitUntil(mailbox)).toEqual(
+      new Date(realNow.getTime() + DAY),
+    );
   });
 });

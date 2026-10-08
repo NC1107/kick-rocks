@@ -1,5 +1,5 @@
 import { type MailboxRow, mailboxes, outgoingMail } from "@kickrocks/db";
-import { and, asc, eq, gt, lte } from "drizzle-orm";
+import { and, asc, eq, gt } from "drizzle-orm";
 import { DEFAULT_SEND_GAP_MS } from "../config.js";
 import { QUOTA_WINDOW_MS } from "../core/mail-quota.js";
 import type { AppServices } from "../services.js";
@@ -77,7 +77,6 @@ export class MailPacer {
         and(
           eq(outgoingMail.mailboxId, mailbox.id),
           gt(outgoingMail.sentAt, windowStart.toISOString()),
-          lte(outgoingMail.sentAt, this.services.clock.now().toISOString()),
         ),
       )
       .orderBy(asc(outgoingMail.sentAt))

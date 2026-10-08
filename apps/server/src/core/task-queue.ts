@@ -552,21 +552,28 @@ export function createTaskQueue({
     return { ...task, leaseOwner: row.leaseOwner };
   }
 
+  /**
+   * A lease further out than any claim can ask for was stamped by a clock that ran ahead and has
+   * since been put right. It is shortened rather than reaped, so a live holder keeps its task until
+   * its next heartbeat and a dead one is recovered within an hour instead of days.
+   */
+  function clampLeases(tx: Pick<Tx, "update">, now: string) {
+    tx.update(tasks)
+      .set({ leaseExpiresAt: new Date(Date.parse(now) + LEASE_MS.max).toISOString() })
+      .where(
+        and(
+          eq(tasks.status, "leased"),
+          gt(tasks.leaseExpiresAt, new Date(Date.parse(now) + LEASE_MS.max).toISOString()),
+        ),
+      )
+      .run();
+  }
+
   function expiredLeases(tx: Pick<Tx, "select">, now: string): TaskRow[] {
     return tx
       .select()
       .from(tasks)
-      .where(
-        and(
-          eq(tasks.status, "leased"),
-          // A lease further out than any claim can ask for was stamped by a clock that ran ahead
-          // and has since been put right, so waiting it out would strand the task for days.
-          or(
-            lte(tasks.leaseExpiresAt, now),
-            gt(tasks.leaseExpiresAt, new Date(Date.parse(now) + LEASE_MS.max).toISOString()),
-          ),
-        ),
-      )
+      .where(and(eq(tasks.status, "leased"), lte(tasks.leaseExpiresAt, now)))
       .orderBy(asc(sql`rowid`))
       .all();
   }
@@ -654,6 +661,7 @@ export function createTaskQueue({
       const now = nowIso(clock);
       return db.transaction(
         (tx) => {
+          clampLeases(tx, now);
           for (const expired of expiredLeases(tx, now)) expireLease(tx, expired, now);
           const candidates = tx
             .select()
@@ -1056,6 +1064,7 @@ export function createTaskQueue({
 
     reapExpiredLeases() {
       const now = nowIso(clock);
+      clampLeases(db, now);
       const expired = expiredLeases(db, now);
       // One transaction each, so a handler that throws for one task leaves the others recovered.
       return expired.map((row) => db.transaction((tx) => expireLease(tx, row, now)));

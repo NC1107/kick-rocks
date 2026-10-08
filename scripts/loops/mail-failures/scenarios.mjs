@@ -236,7 +236,7 @@ async function clockJump(world) {
   });
   const before = world.fake.delivered.length;
   await startCampaign(world.instance, world.profileId, ["fx-norecord"]);
-  const sentAgain = await until(() => world.fake.delivered.length > before, 45_000);
+  const sentAgain = await until(() => world.fake.delivered.length > before, 90_000);
   const [lease] = await sqlRows(
     world,
     "select max(lease_expires_at) as at from tasks where status = 'leased'",
