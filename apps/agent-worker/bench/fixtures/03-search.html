@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Find a person - Neighborlist</title><link rel="stylesheet" href="/site.css"></head>
+<body>
+<header class="site"><a class="brand" href="/">Neighborlist</a><nav><a href="/people">People search</a><a href="/phone">Reverse phone</a><a href="/address">Address lookup</a></nav></header>
+<main>
+  <h1>People search</h1>
+  <p class="lede">Search public records by name and location.</p>
+  <form method="get" action="/results">
+    <label for="first">First name</label>
+    <input id="first" name="first" type="text" required>
+    <label for="last">Last name</label>
+    <input id="last" name="last" type="text" required>
+    <label for="city">City</label>
+    <input id="city" name="city" type="text">
+    <label for="state">State</label>
+    <input id="state" name="state" type="text">
+    <button class="primary" type="submit">Search</button>
+  </form>
+</main>
+<footer class="site"><a href="/terms">Terms</a><a href="/privacy">Privacy</a><a href="/optout">Do not sell my information</a></footer>
+</body>
+</html>

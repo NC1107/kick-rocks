@@ -93,7 +93,7 @@ const BLOCKED_PHRASES: Record<BlockedReason, string> = {
   unknown: "something it could not get past",
 };
 
-function agentInstructions(
+export function agentInstructions(
   task: Task<"agent">,
   target: {
     name: string;

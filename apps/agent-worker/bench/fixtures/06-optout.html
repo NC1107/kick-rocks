@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Opt out - Contactly</title><link rel="stylesheet" href="/site.css"></head>
+<body>
+<header class="site"><a class="brand" href="/">Contactly</a><nav><a href="/features">Features</a><a href="/pricing">Pricing</a><a href="/privacy">Privacy</a></nav></header>
+<main>
+  <h1>Remove your information from Contactly</h1>
+  <p class="lede">For your protection we verify every removal request by phone.</p>
+  <form method="post" action="/optout">
+    <label for="first">First name</label>
+    <input id="first" name="first_name" type="text" required>
+    <label for="last">Last name</label>
+    <input id="last" name="last_name" type="text" required>
+    <label for="email">Email address</label>
+    <input id="email" name="email" type="email" required>
+    <label for="mobile">Mobile phone number (we will text you a 6-digit code)</label>
+    <input id="mobile" name="mobile" type="tel" required placeholder="(555) 555-0100">
+    <button type="button" class="secondary" id="sendcode" style="margin-top:10px">Text me a verification code</button>
+    <label for="code">Verification code</label>
+    <input id="code" name="code" type="text" inputmode="numeric" maxlength="6" required>
+    <button class="primary" type="submit">Submit request</button>
+  </form>
+</main>
+<script>
+document.getElementById("sendcode").addEventListener("click", function () {
+  this.textContent = "Code sent. It can take a minute to arrive.";
+});
+</script>
+</body>
+</html>
