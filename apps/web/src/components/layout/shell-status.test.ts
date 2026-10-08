@@ -1,6 +1,13 @@
 import type { SettingsView } from "@kickrocks/shared";
 import { describe, expect, it } from "vitest";
-import { inboxChip, mostUrgent, sendsChip, sitesChip, workerChip } from "./shell-status.js";
+import {
+  inboxChip,
+  mostUrgent,
+  sendsChip,
+  sitesChip,
+  versionLabel,
+  workerChip,
+} from "./shell-status.js";
 
 const NOW = Date.parse("2026-10-07T12:00:00Z");
 
@@ -70,5 +77,14 @@ describe("shell status chips", () => {
       { id: "sites", tone: "attention", label: "Cooling down", value: "1 site" } as const,
     ];
     expect(mostUrgent(chips)?.id).toBe("sites");
+  });
+});
+
+describe("versionLabel", () => {
+  it("puts a v on a release number only", () => {
+    expect(versionLabel("0.3.1")).toBe("v0.3.1");
+    expect(versionLabel("0.3.1-4-gabc123")).toBe("v0.3.1-4-gabc123");
+    expect(versionLabel("71c1711-dirty")).toBe("71c1711-dirty");
+    expect(versionLabel("71c1711")).toBe("71c1711");
   });
 });

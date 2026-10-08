@@ -28,6 +28,10 @@ ENV NODE_ENV=production \
     KICKROCKS_PORT=8420 \
     KICKROCKS_WEB_DIST=/app/web
 WORKDIR /app
+# After the heavy layers, so a new commit does not invalidate them. The build context has no .git,
+# so install.sh passes the version in.
+ARG KICKROCKS_VERSION=
+ENV KICKROCKS_VERSION=$KICKROCKS_VERSION
 COPY --from=build /out/server /app/server
 COPY --from=build /app/apps/web/dist /app/web
 COPY --from=build /app/packages/brokers/data/generated /app/server/node_modules/@kickrocks/brokers/data/generated

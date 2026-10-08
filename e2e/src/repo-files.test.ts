@@ -104,7 +104,7 @@ describe("docs/self-hosting.md", () => {
   it("stops everything before it copies the database, and says how to restore and what -v does", () => {
     const backup = selfHosting.indexOf("tar czf");
     expect(selfHosting.lastIndexOf("docker compose stop", backup)).toBeGreaterThan(-1);
-    expect(selfHosting).toContain("tar xzf");
+    expect(selfHosting).toContain("./install.sh --restore");
     expect(selfHosting).toContain("down -v");
   });
 
@@ -303,8 +303,9 @@ case "$*" in
   "compose version") ;;
   "volume inspect "*) ;;
   *"config") echo "name: kr" ;;
+  *"ps -a -q") echo abc123 ;;
   *"ps --services --status running") printf '%s' "$FAKE_RUNNING" ;;
-  "run "*) echo data ;;
+  "run "*"tar czf"*) cat "$FAKE_ARCHIVE" ;;
 esac
 `;
 
@@ -320,6 +321,12 @@ esac
         chmodSync(join(bin, "docker"), 0o755);
         const log = join(dir, "log");
         writeFileSync(log, "");
+        const data = join(dir, "data");
+        mkdirSync(data);
+        writeFileSync(join(data, "kickrocks.db"), "db");
+        writeFileSync(join(data, "db.key"), "key");
+        const archive = join(dir, "archive.tgz");
+        execFileSync("tar", ["czf", archive, "-C", data, "."]);
         let failed = false;
         try {
           execFileSync("bash", [join(repo, "install.sh"), ...args], {
@@ -330,6 +337,7 @@ esac
               ...process.env,
               PATH: `${bin}:${process.env.PATH}`,
               FAKE_LOG: log,
+              FAKE_ARCHIVE: archive,
               FAKE_RUNNING: options.running ?? "",
             },
           });
