@@ -83,7 +83,43 @@ describe("the targets page", () => {
   it("filters by type from the facets and starts from the address bar", async () => {
     renderPage(<TargetsPage />, { path: "/targets", route: "/targets?kind=company" });
     await waitFor(() => expect(screen.getByText(/1-32 of 32/)).toBeVisible());
-    expect(screen.getByLabelText("Type")).toHaveValue("company");
+    expect(screen.getByRole("list", { name: "Active filters" })).toHaveTextContent("Type: Company");
+    expect(screen.getByRole("button", { name: "Filters, 1 active" })).toBeVisible();
+  });
+
+  it("holds every filter in one popup and applies each as it changes", async () => {
+    const { user } = renderPage(<TargetsPage />, { path: "/targets", route: "/targets" });
+    await rows();
+    expect(screen.queryByLabelText("Priority")).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Filters" }));
+    for (const name of ["Type", "Category", "Contact", "Needs", "Priority"])
+      expect(screen.getByLabelText(name)).toBeVisible();
+    await user.selectOptions(screen.getByLabelText("Type"), "company");
+    await waitFor(() => expect(screen.getByText(/1-32 of 32/)).toBeVisible());
+    expect(screen.getByRole("button", { name: "Filters, 1 active" })).toBeVisible();
+  });
+
+  it("clears every filter from the popup but keeps the search", async () => {
+    const { user } = renderPage(<TargetsPage />, {
+      path: "/targets",
+      route: "/targets?kind=company&q=a",
+    });
+    await user.click(await screen.findByRole("button", { name: "Filters, 1 active" }));
+    await user.click(screen.getByRole("button", { name: "Clear all" }));
+    expect(screen.queryByRole("list", { name: "Active filters" })).not.toBeInTheDocument();
+    expect(screen.getByRole("searchbox", { name: "Search" })).toHaveValue("a");
+    expect(screen.getByRole("button", { name: "Clear all" })).toBeDisabled();
+  });
+
+  it("removes a filter from its tag without opening the popup", async () => {
+    const { user } = renderPage(<TargetsPage />, {
+      path: "/targets",
+      route: "/targets?kind=company",
+    });
+    await waitFor(() => expect(screen.getByText(/1-32 of 32/)).toBeVisible());
+    await user.click(screen.getByRole("button", { name: "Remove Type: Company" }));
+    await waitFor(() => expect(screen.getByText(/1-50 of 61/)).toBeVisible());
+    expect(screen.getByRole("button", { name: "Filters" })).toBeVisible();
   });
 
   it("shows an empty state with a way out when nothing matches", async () => {

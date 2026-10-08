@@ -33,6 +33,15 @@ export {
 } from "./Dialog.js";
 export { EmptyState, type EmptyStateProps } from "./EmptyState.js";
 export { Field, type FieldProps, useFieldControl } from "./Field.js";
+export {
+  type ActiveTag,
+  activeFilterTags,
+  type FilterGroup,
+  type FilterOption,
+  Filters,
+  type FiltersProps,
+  FilterTags,
+} from "./Filters.js";
 export { Hatch } from "./Hatch.js";
 export { ICON_SIZES, Icon, type IconProps, type IconSize } from "./Icon.js";
 export { IconButton, type IconButtonProps } from "./IconButton.js";

@@ -7,15 +7,18 @@ import { errorMessage, useApiQuery } from "../../api/index.js";
 import { RequireProfile } from "../../components/layout/RequireProfile.js";
 import {
   Alert,
+  activeFilterTags,
   Button,
   EmptyState,
   Field,
+  type FilterGroup,
+  Filters,
+  FilterTags,
   Input,
   LinkButton,
   PageHeader,
   Pagination,
   RelativeTime,
-  Select,
   StatusMark,
   Table,
   TableBody,
@@ -26,7 +29,6 @@ import {
   TableRow,
   TableSkeletonRows,
   TableToolbar,
-  Tag,
 } from "../../components/ui/index.js";
 import { pluralize } from "../../lib/format.js";
 import { CHANNEL_LABELS } from "../../lib/labels.js";
@@ -87,6 +89,53 @@ function Requests({ profileId }: { profileId: string }) {
     setParams({}, { replace: true });
   };
 
+  const clearMenuFilters = () =>
+    setParams(
+      (current) => {
+        const next = new URLSearchParams(current);
+        for (const key of ["status", "channel", "targetId", "page"]) next.delete(key);
+        return next;
+      },
+      { replace: true },
+    );
+
+  const groups: FilterGroup[] = [
+    {
+      id: "status",
+      label: "Status",
+      value: filters.status,
+      allLabel: "Any status",
+      options: RequestStatus.options.map((status) => ({
+        value: status,
+        label: REQUEST_STATUS_META[status].label,
+      })),
+      onChange: (value) => setFilter("status", value),
+    },
+    {
+      id: "channel",
+      label: "Channel",
+      value: filters.channel,
+      allLabel: "Any channel",
+      options: [
+        { value: "email", label: CHANNEL_LABELS.email },
+        { value: "form", label: CHANNEL_LABELS.form },
+      ],
+      onChange: (value) => setFilter("channel", value),
+    },
+  ];
+  const tags = [
+    ...activeFilterTags(groups),
+    ...(filters.targetId
+      ? [
+          {
+            id: "targetId",
+            label: `Target: ${target.data?.name ?? filters.targetId}`,
+            onRemove: () => setFilter("targetId", ""),
+          },
+        ]
+      : []),
+  ];
+
   useEffect(() => setSearch(filters.q), [filters.q]);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: only the typed text starts a search
@@ -113,7 +162,7 @@ function Requests({ profileId }: { profileId: string }) {
 
       <TableToolbar count={list.data ? pluralize(list.data.total, "request") : undefined}>
         <search aria-label="Filter requests" className="contents">
-          <Field label="Search" hideLabel className="w-full sm:w-70">
+          <Field label="Search" hideLabel className="min-w-0 flex-1 sm:w-70 sm:flex-none">
             <Input
               type="search"
               value={search}
@@ -123,56 +172,14 @@ function Requests({ profileId }: { profileId: string }) {
               leading={<Search aria-hidden="true" />}
             />
           </Field>
-          <Field
-            label="Status"
-            hideLabel
-            className="max-sm:min-w-0 max-sm:flex-1 max-sm:basis-2/5 sm:w-52"
-          >
-            <Select
-              aria-label="Status"
-              value={filters.status}
-              onChange={(event) => setFilter("status", event.target.value)}
-            >
-              <option value="">Status: all</option>
-              {RequestStatus.options.map((status) => (
-                <option key={status} value={status}>
-                  Status: {REQUEST_STATUS_META[status].label}
-                </option>
-              ))}
-            </Select>
-          </Field>
-          <Field
-            label="Channel"
-            hideLabel
-            className="max-sm:min-w-0 max-sm:flex-1 max-sm:basis-2/5 sm:w-44"
-          >
-            <Select
-              aria-label="Channel"
-              value={filters.channel}
-              onChange={(event) => setFilter("channel", event.target.value)}
-            >
-              <option value="">Channel: any</option>
-              <option value="email">Channel: {CHANNEL_LABELS.email}</option>
-              <option value="form">Channel: {CHANNEL_LABELS.form}</option>
-            </Select>
-          </Field>
-          {filtered && items.length > 0 ? (
-            <Button variant="ghost" onClick={clearFilters}>
-              Clear filters
-            </Button>
-          ) : null}
+          <Filters
+            groups={groups}
+            onClear={clearMenuFilters}
+            extraActive={filters.targetId ? 1 : 0}
+          />
         </search>
       </TableToolbar>
-
-      {filters.targetId ? (
-        <p className="mb-2.5 flex flex-wrap items-center gap-2 text-meta text-ink-2">
-          Showing requests to
-          <Tag>{target.data?.name ?? filters.targetId}</Tag>
-          <Button size="sm" variant="ghost" onClick={() => setFilter("targetId", "")}>
-            Show all targets
-          </Button>
-        </p>
-      ) : null}
+      <FilterTags tags={tags} />
 
       {list.isError ? (
         <Alert

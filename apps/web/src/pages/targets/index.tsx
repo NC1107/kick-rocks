@@ -5,15 +5,19 @@ import { useSearchParams } from "react-router";
 import { errorMessage, useApiQuery } from "../../api/index.js";
 import {
   Alert,
+  activeFilterTags,
   Button,
   Checkbox,
   EmptyState,
   Field,
+  type FilterGroup,
+  type FilterOption,
+  Filters,
+  FilterTags,
   Input,
   LinkButton,
   PageHeader,
   Pagination,
-  Select,
   Table,
   TableBody,
   TableCell,
@@ -33,26 +37,27 @@ import {
   TARGET_KIND_LABELS,
 } from "../../lib/labels.js";
 import { AutomationLegend, HealthMark } from "./Automation.js";
-import { type FilterKey, hasFilters, readFilters, TARGETS_PAGE_SIZE, toQuery } from "./filters.js";
+import {
+  FILTER_KEYS,
+  type FilterKey,
+  hasFilters,
+  readFilters,
+  TARGETS_PAGE_SIZE,
+  toQuery,
+} from "./filters.js";
 import { LoadingRows } from "./LoadingRows.js";
 import { Priority } from "./Priority.js";
 import { RequirementBadges } from "./RequirementBadges.js";
 
-/** Every option repeats the facet name, so the closed select reads "Type: Company". */
-function FacetOptions({
-  facet,
-  labels,
-  name,
-}: {
-  facet: TargetFacets[keyof TargetFacets] | undefined;
-  labels: Record<string, string>;
-  name: string;
-}) {
-  return (facet ?? []).map((entry) => (
-    <option key={entry.value} value={entry.value}>
-      {name}: {labels[entry.value] ?? entry.value} ({formatCount(entry.count)})
-    </option>
-  ));
+function facetOptions(
+  facet: TargetFacets[keyof TargetFacets] | undefined,
+  labels: Record<string, string>,
+): FilterOption[] {
+  return (facet ?? []).map((entry) => ({
+    value: entry.value,
+    label: labels[entry.value] ?? entry.value,
+    count: entry.count,
+  }));
 }
 
 const SEARCH_DELAY_MS = 250;
@@ -92,6 +97,59 @@ export function Component() {
     setSearch("");
     setParams({}, { replace: true });
   };
+
+  const clearFacetFilters = () =>
+    setParams(
+      (current) => {
+        const next = new URLSearchParams(current);
+        for (const key of FILTER_KEYS) if (key !== "q") next.delete(key);
+        next.delete("page");
+        return next;
+      },
+      { replace: true },
+    );
+
+  const facetGroup = (
+    key: Exclude<FilterKey, "q">,
+    label: string,
+    allLabel: string,
+    options: FilterOption[],
+  ): FilterGroup => ({
+    id: key,
+    label,
+    value: filters[key],
+    options,
+    allLabel,
+    onChange: (value) => setFilter(key, value),
+  });
+
+  const groups = [
+    facetGroup("kind", "Type", "All types", facetOptions(facets.data?.kind, TARGET_KIND_LABELS)),
+    facetGroup(
+      "category",
+      "Category",
+      "All categories",
+      facetOptions(facets.data?.category, TARGET_CATEGORY_LABELS),
+    ),
+    facetGroup(
+      "contactMethod",
+      "Contact",
+      "Any contact method",
+      facetOptions(facets.data?.contactMethod, CONTACT_METHOD_LABELS),
+    ),
+    facetGroup(
+      "requirement",
+      "Needs",
+      "Any requirement",
+      facetOptions(facets.data?.requirement, REQUIREMENT_LABELS),
+    ),
+    facetGroup(
+      "priority",
+      "Priority",
+      "Any priority",
+      facetOptions(facets.data?.priority, PRIORITY_LABELS),
+    ),
+  ];
 
   // The address bar is the source of truth, so the box follows it when a filter is cleared or the
   // back button changes it.
@@ -144,7 +202,7 @@ export function Component() {
 
       <search aria-label="Filter targets">
         <TableToolbar count={list.data ? `${formatCount(list.data.total)} targets` : undefined}>
-          <Field label="Search" hideLabel className="w-full sm:w-48">
+          <Field label="Search" hideLabel className="min-w-0 flex-1 sm:w-64 sm:flex-none">
             <Input
               type="search"
               value={search}
@@ -154,79 +212,10 @@ export function Component() {
               leading={<Search aria-hidden="true" />}
             />
           </Field>
-          <Field label="Type" hideLabel className="w-[calc(50%-0.25rem)] sm:w-30">
-            <Select
-              aria-label="Type"
-              value={filters.kind}
-              onChange={(event) => setFilter("kind", event.target.value)}
-            >
-              <option value="">Type: all</option>
-              <FacetOptions facet={facets.data?.kind} labels={TARGET_KIND_LABELS} name="Type" />
-            </Select>
-          </Field>
-          <Field label="Category" hideLabel className="w-[calc(50%-0.25rem)] sm:w-37">
-            <Select
-              aria-label="Category"
-              value={filters.category}
-              onChange={(event) => setFilter("category", event.target.value)}
-            >
-              <option value="">Category: all</option>
-              <FacetOptions
-                facet={facets.data?.category}
-                labels={TARGET_CATEGORY_LABELS}
-                name="Category"
-              />
-            </Select>
-          </Field>
-          <Field label="Contact method" hideLabel className="w-[calc(50%-0.25rem)] sm:w-35">
-            <Select
-              aria-label="Contact method"
-              value={filters.contactMethod}
-              onChange={(event) => setFilter("contactMethod", event.target.value)}
-            >
-              <option value="">Contact: all</option>
-              <FacetOptions
-                facet={facets.data?.contactMethod}
-                labels={CONTACT_METHOD_LABELS}
-                name="Contact"
-              />
-            </Select>
-          </Field>
-          <Field label="Requirement" hideLabel className="w-[calc(50%-0.25rem)] sm:w-28">
-            <Select
-              aria-label="Requirement"
-              value={filters.requirement}
-              onChange={(event) => setFilter("requirement", event.target.value)}
-            >
-              <option value="">Needs: all</option>
-              <FacetOptions
-                facet={facets.data?.requirement}
-                labels={REQUIREMENT_LABELS}
-                name="Needs"
-              />
-            </Select>
-          </Field>
-          <Field label="Priority" hideLabel className="w-[calc(50%-0.25rem)] sm:w-33">
-            <Select
-              aria-label="Priority"
-              value={filters.priority}
-              onChange={(event) => setFilter("priority", event.target.value)}
-            >
-              <option value="">Priority: all</option>
-              <FacetOptions
-                facet={facets.data?.priority}
-                labels={PRIORITY_LABELS}
-                name="Priority"
-              />
-            </Select>
-          </Field>
-          {filtered && items.length > 0 ? (
-            <Button variant="ghost" onClick={clearFilters}>
-              Clear filters
-            </Button>
-          ) : null}
+          <Filters groups={groups} onClear={clearFacetFilters} />
         </TableToolbar>
       </search>
+      <FilterTags tags={activeFilterTags(groups)} />
 
       {selected.size > 0 ? (
         <div
