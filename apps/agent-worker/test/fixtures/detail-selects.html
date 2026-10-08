@@ -6,7 +6,7 @@
 <p>Most of our members live in Austin, TX, and the rest across Texas and Oregon (OR).</p>
 <form method="post" action="/optout">
   <label for="month">Month</label>
-  <select id="month" name="dob_month">
+  <select id="month" name="dob_month" required>
     <option value="">Month</option>
     <option value="1">January</option><option value="2">February</option><option value="3">March</option>
     <option value="4">April</option><option value="5">May</option><option value="6">June</option>
@@ -19,6 +19,17 @@
     <option value="TX">Texas</option>
     <option value="CA">California</option>
     <option value="OR">Oregon</option>
+  </select>
+  <label for="city">City (optional)</label>
+  <select id="city" name="city">
+    <option value="">Choose a city</option>
+    <option value="Austin">Austin</option>
+    <option value="Dallas">Dallas</option>
+  </select>
+  <select name="zipCode">
+    <option value="">Choose</option>
+    <option value="78701">78701</option>
+    <option value="10001">10001</option>
   </select>
   <label for="topic">What is this about</label>
   <select id="topic" name="topic">

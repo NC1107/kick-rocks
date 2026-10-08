@@ -528,7 +528,6 @@ describe("agent tasks", () => {
         "77001",
         "1990-04-05",
         "1990",
-        "TX",
       ]),
     );
     expect(Object.keys(forModel?.fields ?? {})).not.toContain("street");
@@ -558,9 +557,17 @@ describe("agent tasks", () => {
     });
   });
 
-  it("gives a removal the state too, because a form asks for it far more often than a recipe says", () => {
-    expect(agentClaim("remove")?.fields.state).toBe("TX");
-    expect(agentClaim("remove")?.instructions).toMatch(/Identifiers you may use: .*state/);
+  it("asks the legal package for nothing beyond its own set, so a removal carries no state of its own accord", () => {
+    const asked: unknown[] = [];
+    const identifiersFor = ctx.services.legal.identifiersFor.bind(ctx.services.legal);
+    ctx.services.legal.identifiersFor = (target, identities, purpose, requested, asOf) => {
+      asked.push(requested ?? []);
+      return identifiersFor(target, identities, purpose, requested, asOf);
+    };
+    const task = agentClaim("remove");
+    expect(asked).toEqual([[]]);
+    expect(task?.fields).not.toHaveProperty("state");
+    expect(task?.instructions).not.toMatch(/Identifiers you may use: .*state/);
   });
 
   it("gives a removal the record URL as a value it may paste", () => {

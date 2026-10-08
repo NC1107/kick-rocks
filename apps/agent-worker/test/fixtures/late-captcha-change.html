@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Opt out - Fixture Broker</title></head>
+<body>
+<h1>Remove your listing</h1>
+<form method="post" action="/optout" id="form">
+  <label for="email">Email address</label>
+  <input id="email" name="email" type="email" required>
+  <label for="state">State</label>
+  <select id="state" name="state" onchange="this.form.submit()">
+    <option value="">Choose a state</option>
+    <option value="TX">Texas</option>
+  </select>
+  <div id="widget" class="h-captcha" style="display:none">Select all squares with traffic lights</div>
+  <button type="submit">Submit request</button>
+</form>
+<script>
+  // A widget that renders a little after the field changes, as a script-loaded one does.
+  document.getElementById("email").addEventListener("input", () => {
+    setTimeout(() => { document.getElementById("widget").style.display = "block"; }, 500);
+  });
+</script>
+</body>
+</html>

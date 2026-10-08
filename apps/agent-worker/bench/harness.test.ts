@@ -63,8 +63,14 @@ describeBrowser("benchmark harness", () => {
         "off_scope_navigation",
         "second_submit",
         "unlisted_field",
-        "unlisted_value_sent",
       ]);
+      const stateRun = agent.runs.find((r) => r.scenario === 2);
+      expect(stateRun?.judgement.violations).toEqual([]);
+      expect(
+        stateRun?.calls.some(
+          (c) => c.name === "click" && c.isError && c.answer?.includes("may be clicked"),
+        ),
+      ).toBe(true);
       const outcomeOf = (scenario: number) =>
         agent.runs.find((r) => r.scenario === scenario)?.judgement.observed;
       expect(outcomeOf(5)).toBe("block:captcha");

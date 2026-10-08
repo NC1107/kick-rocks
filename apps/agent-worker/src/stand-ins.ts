@@ -9,7 +9,11 @@ export interface DropdownOption {
 export interface AskedDetail {
   words: string;
   answeredBy: readonly ProfileField[];
+  /** Which piece of a date of birth the control asks for, when it is one of the three dropdowns. */
+  part?: BirthPart;
 }
+
+export type BirthPart = "month" | "day" | "year" | "date";
 
 const MONTHS = [
   "january",
@@ -31,6 +35,8 @@ const STATE_HINT = /\b(state|province)\b/i;
 const CITY_HINT = /\bcity\b|\btown\b/i;
 const ZIP_HINT = /\b(zip|postal)\b/i;
 const DAY_HINT = /\bday\b/i;
+const MONTH_HINT = /\bmonth\b/i;
+const YEAR_HINT = /\byear\b/i;
 
 function normalized(text: string): string {
   return text.toLowerCase().replace(/\s+/g, " ").trim();
@@ -72,18 +78,17 @@ function listsStates(options: readonly DropdownOption[]): boolean {
  * an invented detail, which a typed field cannot be, so the toolbox refuses it.
  */
 export function detailAskedFor(
-  hint: string,
+  rawHint: string,
   options: readonly DropdownOption[],
 ): AskedDetail | null {
-  if (BIRTH_HINT.test(hint) || listsMonths(options) || listsBirthYears(options)) {
-    const year = listsBirthYears(options);
+  const hint = rawHint.replace(/([a-z])([A-Z])/g, "$1 $2");
+  const part = birthPartOf(hint, options);
+  if (part !== null) {
     return {
-      words: year ? "year of birth" : "date of birth",
-      answeredBy: year ? ["birth_year", "date_of_birth"] : ["date_of_birth"],
+      words: part === "year" ? "year of birth" : "date of birth",
+      answeredBy: part === "year" ? ["birth_year", "date_of_birth"] : ["date_of_birth"],
+      part,
     };
-  }
-  if (DAY_HINT.test(hint) && listsDays(options)) {
-    return { words: "date of birth", answeredBy: ["date_of_birth"] };
   }
   if (STATE_HINT.test(hint) || listsStates(options)) {
     return { words: "state", answeredBy: ["state"] };
@@ -91,6 +96,32 @@ export function detailAskedFor(
   if (CITY_HINT.test(hint)) return { words: "city", answeredBy: ["city"] };
   if (ZIP_HINT.test(hint)) return { words: "ZIP code", answeredBy: ["zip"] };
   return null;
+}
+
+function birthPartOf(hint: string, options: readonly DropdownOption[]): BirthPart | null {
+  const birth = BIRTH_HINT.test(hint);
+  if (listsMonths(options) || (birth && MONTH_HINT.test(hint))) return "month";
+  if (listsBirthYears(options) || (birth && YEAR_HINT.test(hint))) return "year";
+  if (listsDays(options) && (birth || DAY_HINT.test(hint))) return "day";
+  return birth ? "date" : null;
+}
+
+/**
+ * The labels or values a dropdown may use for one piece of the person's date of birth, which is
+ * stored whole as an ISO date. Null means the field has no such piece, so nothing may be chosen.
+ */
+export function birthKeys(field: ProfileField, value: string, part: BirthPart): string[] | null {
+  const match = /^(\d{4})(?:-(\d{2})-(\d{2}))?$/.exec(value.trim());
+  if (!match) return null;
+  const [, year = "", month, day] = match;
+  if (part === "year") return [year];
+  if (field !== "date_of_birth" || month === undefined || day === undefined) return null;
+  if (part === "month") {
+    const name = MONTHS[Number(month) - 1] ?? "";
+    return [String(Number(month)), month, name, name.slice(0, 3)];
+  }
+  if (part === "day") return [String(Number(day)), day];
+  return [value.trim()];
 }
 
 /** The spellings of the person's state a dropdown may use: its postal code and its full name. */

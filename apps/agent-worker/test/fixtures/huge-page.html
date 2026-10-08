@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Huge page - Fixture Broker</title></head>
+<body>
+<h1>Directory</h1>
+<div id="rows"></div>
+<form method="post" action="/optout">
+  <label for="email">Email address</label>
+  <input id="email" name="email" type="email">
+</form>
+<script>
+  const rows = document.getElementById("rows");
+  for (let i = 0; i < 3100; i++) {
+    const p = document.createElement("p");
+    p.textContent = `Row ${i}`;
+    rows.appendChild(p);
+  }
+</script>
+</body>
+</html>

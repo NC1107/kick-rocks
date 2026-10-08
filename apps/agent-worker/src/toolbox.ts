@@ -28,6 +28,7 @@ import {
 } from "./snapshot.js";
 import {
   type AskedDetail,
+  birthKeys,
   type DropdownOption,
   detailAskedFor,
   stateSpellings,
@@ -104,7 +105,56 @@ const SELECT_DETAILS = `(el) => {
   const named = (el.getAttribute("aria-labelledby") || "").split(/\\s+/).map((id) => { const t = document.getElementById(id); return t ? clean(t.textContent) : ""; });
   const hint = [el.getAttribute("aria-label"), ...Array.from(el.labels || []).map((l) => clean(l.textContent)), ...named, el.getAttribute("name"), el.id, el.getAttribute("autocomplete")]
     .filter(Boolean).join(" ").replace(/[_-]+/g, " ");
-  return { hint, options: Array.from(el.options).map((o) => ({ value: o.value, label: clean(o.textContent) })) };
+  const required = Boolean(el.required) || el.getAttribute("aria-required") === "true";
+  return { hint, required, options: Array.from(el.options).map((o) => ({ value: o.value, label: clean(o.textContent) })) };
+}`;
+
+/**
+ * The same facts for a choice made by clicking: an option of a custom list, a menu item, or a radio
+ * button. The words come from the list's own name, the control that opens it, or the group's legend.
+ */
+const CHOICE_DETAILS = `(el) => {
+  const clean = (text) => (text || "").replace(/\\s+/g, " ").trim();
+  const namesOf = (node) => {
+    const labelled = (node.getAttribute("aria-labelledby") || "").split(/\\s+/).map((id) => { const t = document.getElementById(id); return t ? clean(t.textContent) : ""; });
+    return [node.getAttribute("aria-label"), node.getAttribute("title"), node.getAttribute("name"), node.id, ...Array.from(node.labels || []).map((l) => clean(l.textContent)), ...labelled];
+  };
+  const textOf = (node) => {
+    if (node.tagName === "INPUT") return clean(Array.from(node.labels || []).map((l) => l.textContent).join(" ")) || node.value;
+    return clean(node.textContent);
+  };
+  const role = (el.getAttribute("role") || "").toLowerCase();
+  const radio = el.tagName === "INPUT" && (el.type || "").toLowerCase() === "radio";
+  const optionRole = ["option", "menuitem", "menuitemradio", "radio"].includes(role);
+  const group = (el.parentElement || el).closest(radio ? '[role="radiogroup"], fieldset' : '[role="listbox"], [role="menu"], [role="radiogroup"]');
+  const inList = Boolean(group) && !["BUTTON", "A", "SUMMARY"].includes(el.tagName);
+  if (!radio && !optionRole && !inList) return { choice: false };
+  const hint = [];
+  const peers = [];
+  let required = false;
+  if (radio && el.name) {
+    for (const input of document.querySelectorAll('input[type="radio"]')) if (input.name === el.name && input.form === el.form) peers.push(input);
+    hint.push(el.name);
+  } else {
+    const host = group || el.parentElement || el;
+    for (const node of host.querySelectorAll('[role="option"], [role="menuitem"], [role="menuitemradio"], [role="radio"], li')) peers.push(node);
+  }
+  if (group) {
+    hint.push(...namesOf(group));
+    const legend = group.querySelector("legend");
+    if (legend) hint.push(clean(legend.textContent));
+    required = group.getAttribute("aria-required") === "true";
+    if (group.id) {
+      const points = (node) => ((node.getAttribute("aria-controls") || "") + " " + (node.getAttribute("aria-owns") || "")).split(/\\s+/).includes(group.id);
+      const opener = Array.from(document.querySelectorAll("[aria-controls], [aria-owns]")).find(points);
+      if (opener) {
+        hint.push(...namesOf(opener), clean(opener.textContent));
+        required = required || Boolean(opener.required) || opener.getAttribute("aria-required") === "true";
+      }
+    }
+  }
+  const options = peers.slice(0, 400).map((node) => ({ value: node.getAttribute("data-value") || textOf(node), label: textOf(node) }));
+  return { choice: true, hint: hint.filter(Boolean).join(" ").replace(/[_-]+/g, " "), required, text: textOf(el), options };
 }`;
 
 const NON_TEXT_INPUTS = new Set([
@@ -520,7 +570,7 @@ export class Toolbox {
   private async snapshot(args: unknown): Promise<ToolOutcome> {
     const parsed = SnapshotArgs.safeParse(args);
     if (!parsed.success) return failure("snapshot takes an optional part number from 1");
-    return this.readPage("", parsed.data.part);
+    return this.readPage("", parsed.data.part ?? undefined);
   }
 
   private async snapshotText(part: number): Promise<string> {
@@ -609,9 +659,10 @@ export class Toolbox {
    * still have been delivered, and a form that was already submitted must never be submitted
    * again by a retry.
    */
-  private async beforeSending(): Promise<void> {
-    await this.beforeAction();
-    this.clickCount += 1;
+  private async beforeSending(): Promise<ToolOutcome | null> {
+    const stopped = await this.gate();
+    if (stopped === null) this.clickCount += 1;
+    return stopped;
   }
 
   /**
@@ -619,13 +670,21 @@ export class Toolbox {
    * moves on. It is recorded like a send without being counted as one, because typing alone must
    * not let a run report a submission.
    */
-  private async beforeEditing(): Promise<void> {
-    await this.beforeAction();
+  private async beforeEditing(): Promise<ToolOutcome | null> {
+    return this.gate();
   }
 
-  private async beforeAction(): Promise<void> {
+  /**
+   * Every action starts here. A widget can render a while after the last action returned, so the
+   * page is looked at before the server hears of the action, and again after, because that round
+   * trip is long enough for a widget to appear in.
+   */
+  private async gate(): Promise<ToolOutcome | null> {
+    const early = await this.stopForChallenge();
+    if (early !== null) return early;
     await this.options.onClick?.();
     if (this.options.signal.aborted) throw new Error("The run was stopped before the action");
+    return this.stopForChallenge();
   }
 
   private async click(args: unknown): Promise<ToolOutcome> {
@@ -638,9 +697,10 @@ export class Toolbox {
         "File upload controls cannot be used. If the site needs a document, report blocked with id_upload.",
       );
     }
-    const stopped = await this.stopForChallenge();
+    const invented = await this.refuseInventedChoice(parsed.data.ref, target.locator);
+    if (invented !== null) return invented;
+    const stopped = await this.beforeSending();
     if (stopped !== null) return stopped;
-    await this.beforeSending();
     try {
       await target.locator.click({ timeout: this.actionTimeoutMs });
     } catch (error) {
@@ -687,7 +747,8 @@ export class Toolbox {
       return failure(`${ref} is not visible to a person on the page now, so nothing was typed.`);
     }
 
-    await this.beforeEditing();
+    const stopped = await this.beforeEditing();
+    if (stopped !== null) return stopped;
     const { pace } = this.options;
     if (pace.typeDelayMs[1] > 0) {
       await target.locator.click({ timeout: this.actionTimeoutMs });
@@ -726,12 +787,21 @@ export class Toolbox {
     if (!(await this.visibleToPerson(target.locator))) {
       return failure(`${ref} is not visible to a person on the page now, so nothing was chosen.`);
     }
-    const { hint, options } = await target.locator.evaluate(
-      fromSource<(el: unknown) => { hint: string; options: DropdownOption[] }>(SELECT_DETAILS),
+    const { hint, options, required } = await target.locator.evaluate(
+      fromSource<(el: unknown) => { hint: string; options: DropdownOption[]; required: boolean }>(
+        SELECT_DETAILS,
+      ),
     );
     const asked = detailAskedFor(hint, options);
-    if (asked !== null && field === undefined) return failure(this.standInRefusal(ref, asked));
-    const keys = (field === "state" ? stateSpellings(wanted) : [wanted]).map(normalize);
+    if (asked !== null && field === undefined) {
+      return failure(this.standInRefusal(ref, asked, required, "select"));
+    }
+    const keys = this.keysFor(field, wanted, asked);
+    if (keys === null) {
+      return failure(
+        `${ref} asks for the ${asked?.part} of the date of birth, which ${field} does not hold.`,
+      );
+    }
     const match =
       options.find((o) => keys.includes(normalize(o.label)) || keys.includes(normalize(o.value))) ??
       options.find((o) =>
@@ -749,7 +819,8 @@ export class Toolbox {
         `No option of ${ref} matches the ${field} value. Options: ${shown}.${asked === null ? " Choose one with option if it is the right one." : ""}`,
       );
     }
-    await this.beforeSending();
+    const stopped = await this.beforeSending();
+    if (stopped !== null) return stopped;
     await target.locator.selectOption({ value: match.value }, { timeout: this.actionTimeoutMs });
     return (
       (await this.stopForChallenge()) ??
@@ -757,11 +828,72 @@ export class Toolbox {
     );
   }
 
-  private standInRefusal(ref: string, asked: AskedDetail): string {
+  /**
+   * What a choice for a field is written as, normalized. A state goes by its code and its name, and
+   * a date of birth by the piece the control asks for, since a stored date is one value and the
+   * page splits it. Null means the field holds nothing of what the control asks for.
+   */
+  private keysFor(
+    field: ProfileField | undefined,
+    value: string,
+    asked: AskedDetail | null,
+  ): string[] | null {
+    if (field === "state") return stateSpellings(value).map(normalize);
+    if ((field === "date_of_birth" || field === "birth_year") && asked?.part !== undefined) {
+      return birthKeys(field, value, asked.part)?.map(normalize) ?? null;
+    }
+    return [normalize(value)];
+  }
+
+  private standInRefusal(
+    ref: string,
+    asked: AskedDetail,
+    required: boolean,
+    via: "select" | "click",
+  ): string {
     const given = asked.answeredBy.find((name) => this.hasField(name));
-    return given === undefined
-      ? `${ref} asks for the person's ${asked.words}, which this task does not include, so no option may be chosen. Do not guess. Report blocked with reason unknown and name the ${asked.words}.`
-      : `${ref} asks for the person's ${asked.words}. Choose it with select and field ${given}, not with option, so the program picks the person's own value.`;
+    if (given === undefined) {
+      return required
+        ? `${ref} asks for the person's ${asked.words}, which this task does not include, so no option may be chosen. Do not guess. Report blocked with reason unknown and name the ${asked.words}.`
+        : `${ref} asks for the person's ${asked.words}, which this task does not include, so no option may be chosen. It is optional: leave it unset and carry on with the rest of the form.`;
+    }
+    if (via === "select") {
+      return `${ref} asks for the person's ${asked.words}. Choose it with select and field ${given}, not with option, so the program picks the person's own value.`;
+    }
+    return given === "state"
+      ? `${ref} is a choice of the person's ${asked.words}, and only the option that reads {{state}} may be clicked.`
+      : `${ref} is a choice of the person's ${asked.words}, and this option is not the person's own, so it was not clicked. If no option of the list shows the person's value, ${required ? `report blocked with reason unknown and name the ${asked.words}` : "leave it unset"}.`;
+  }
+
+  /**
+   * A choice made by clicking, in a custom list or a radio group, would let the model pick a state
+   * or a date of birth that no field of the task holds. It is allowed only when the option shows
+   * the value of a field the task has for that detail.
+   */
+  private async refuseInventedChoice(ref: string, locator: Locator): Promise<ToolOutcome | null> {
+    const found = await locator.evaluate(
+      fromSource<
+        (el: unknown) =>
+          | { choice: false }
+          | {
+              choice: true;
+              hint: string;
+              required: boolean;
+              text: string;
+              options: DropdownOption[];
+            }
+      >(CHOICE_DETAILS),
+    );
+    if (!found.choice) return null;
+    const asked = detailAskedFor(found.hint, found.options);
+    if (asked === null) return null;
+    const chosen = normalize(found.text);
+    const showsOwnValue = asked.answeredBy.some((name) => {
+      const value = this.options.fields[name];
+      if (value === undefined || value === "") return false;
+      return this.keysFor(name, value, asked)?.includes(chosen) ?? false;
+    });
+    return showsOwnValue ? null : failure(this.standInRefusal(ref, asked, found.required, "click"));
   }
 
   private hasField(name: ProfileField): boolean {
@@ -777,7 +909,12 @@ export class Toolbox {
     if (target.info.type !== "checkbox" && target.info.type !== "radio") {
       return failure(`${parsed.data.ref} is not a checkbox or radio button. Use click.`);
     }
-    await this.beforeSending();
+    if (target.info.type === "radio") {
+      const invented = await this.refuseInventedChoice(parsed.data.ref, target.locator);
+      if (invented !== null) return invented;
+    }
+    const stopped = await this.beforeSending();
+    if (stopped !== null) return stopped;
     await target.locator.setChecked(parsed.data.checked, { timeout: this.actionTimeoutMs });
     return (
       (await this.stopForChallenge()) ??

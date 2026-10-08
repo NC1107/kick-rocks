@@ -29,7 +29,7 @@ export function buildSystemPrompt({ task, sites, fieldNames, maxSteps }: PromptC
     "Rules the program enforces. Breaking one does not work, it only wastes steps:",
     `- You may open only these domains (with their subdomains) and pages: ${describeSites(sites)}. A path ending in * covers the pages under it. A link that leaves them is blocked and the page stays where it is.`,
     "- Only the task's fields can be typed. Password, payment and file upload controls cannot be used.",
-    "- A dropdown that asks for a detail of the person, such as a date of birth or a state, can only be answered with select and the task's field for it. If the task has no such field, you cannot answer it: stop with report status blocked.",
+    "- A dropdown that asks for a detail of the person, such as a date of birth or a state, can only be answered with select and the task's field for it. A custom list or a radio group that asks for one only accepts a click on the option that shows the person's own value. If the task has no such field, you cannot answer it: stop with report status blocked when the control is required, and leave it unset when it is optional.",
     "- A CAPTCHA or bot check ends your run for a person the moment it shows. Never try to get past one.",
     `- You have at most ${maxSteps} tool calls and a time limit. Finish with report before they run out.`,
     "",

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { type DropdownOption, detailAskedFor, stateSpellings } from "./stand-ins.js";
+import { birthKeys, type DropdownOption, detailAskedFor, stateSpellings } from "./stand-ins.js";
 
 const options = (...labels: string[]): DropdownOption[] =>
   labels.map((label) => ({ value: label, label }));
@@ -57,6 +57,38 @@ describe("detailAskedFor", () => {
   it("leaves a dropdown about the request itself alone", () => {
     expect(detailAskedFor("What is this about", options("Sale of my data", "Deletion"))).toBeNull();
     expect(detailAskedFor("Statement type", options("a"))).toBeNull();
+  });
+});
+
+describe("a field name written in camel case", () => {
+  it("is read word by word, so birthYear, dobMonth, cityName and zipCode are known", () => {
+    expect(detailAskedFor("birthYear", options("a"))?.part).toBe("year");
+    expect(detailAskedFor("dobMonth", options("a"))?.part).toBe("month");
+    expect(detailAskedFor("cityName", options("a"))?.answeredBy).toEqual(["city"]);
+    expect(detailAskedFor("zipCode", options("a"))?.answeredBy).toEqual(["zip"]);
+  });
+});
+
+describe("which part of a date of birth a dropdown asks for", () => {
+  it("is the month, the day or the year by the choices", () => {
+    expect(detailAskedFor("Month", MONTHS)?.part).toBe("month");
+    expect(detailAskedFor("Day", range(1, 31))?.part).toBe("day");
+    expect(detailAskedFor("Year", range(1920, 2008))?.part).toBe("year");
+    expect(detailAskedFor("Date of birth", options("a", "b"))?.part).toBe("date");
+  });
+});
+
+describe("birthKeys", () => {
+  it("gives the labels a month, day or year dropdown may use for the stored date", () => {
+    expect(birthKeys("date_of_birth", "1990-04-05", "month")).toEqual(["4", "04", "april", "apr"]);
+    expect(birthKeys("date_of_birth", "1990-04-05", "day")).toEqual(["5", "05"]);
+    expect(birthKeys("date_of_birth", "1990-04-05", "year")).toEqual(["1990"]);
+    expect(birthKeys("birth_year", "1990", "year")).toEqual(["1990"]);
+  });
+
+  it("gives nothing for a part the field does not hold", () => {
+    expect(birthKeys("birth_year", "1990", "month")).toBeNull();
+    expect(birthKeys("date_of_birth", "not a date", "year")).toBeNull();
   });
 });
 

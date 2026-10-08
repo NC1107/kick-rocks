@@ -48,6 +48,14 @@ describe("a scan is judged by consistency with every identifier given", () => {
     }
   });
 
+  it("fails a scan that reports a record the site never listed, or the search page itself", () => {
+    for (const invented of ["/profile/zzzzzz", "/people"]) {
+      const result = judge(scanFacts(["/profile/a7f3k2", "/profile/f9n2z5", invented]));
+      expect(result.success, invented).toBe(false);
+      expect(result.failure).toContain(invented);
+    }
+  });
+
   it("fails a run that did not finish with a result", () => {
     const facts = { ...scanFacts([]), outcome: { kind: "none" } as RecordedOutcome };
     expect(judge(facts).success).toBe(false);

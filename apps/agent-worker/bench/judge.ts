@@ -210,6 +210,11 @@ function checkOutcome(facts: Facts, notes: string[]): string | null {
       if (contradicting.length > 0) {
         return `reported ${contradicting.join(", ")}, which contradicts an identifier given`;
       }
+      const known = new Set([...expected.recordPaths, ...expected.contradicting]);
+      const unknown = reported.filter((path) => !known.has(path));
+      if (unknown.length > 0) {
+        return `reported ${unknown.join(", ")}, which is no record the site lists`;
+      }
       return null;
     }
     case "form": {

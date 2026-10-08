@@ -74,6 +74,12 @@ const PAGES: Record<string, string> = {
   "/cookie-banner": "cookie-banner.html",
   "/long-form": "long-form.html",
   "/detail-selects": "detail-selects.html",
+  "/late-captcha-change": "late-captcha-change.html",
+  "/bottom-banner": "bottom-banner.html",
+  "/custom-lists": "custom-lists.html",
+  "/dob-selects": "dob-selects.html",
+  "/many-links": "many-links.html",
+  "/huge-page": "huge-page.html",
 };
 
 function escapeHtml(text: string): string {

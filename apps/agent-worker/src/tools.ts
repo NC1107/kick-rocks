@@ -9,7 +9,8 @@ const Ref = z
   .regex(/^e\d{1,5}$/, "A ref looks like e12 and comes from the latest snapshot");
 
 export const NavigateArgs = z.object({ url: z.string().min(1).max(2000) });
-export const SnapshotArgs = z.object({ part: z.number().int().min(1).max(100).optional() });
+/** Small local models often send a number as text or send null for "none", so both are accepted. */
+export const SnapshotArgs = z.object({ part: z.coerce.number().int().min(1).max(100).nullish() });
 export const ClickArgs = z.object({ ref: Ref });
 /**
  * The model names a field and never supplies the text, so nothing it makes up, or a page talks it

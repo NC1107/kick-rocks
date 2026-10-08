@@ -93,9 +93,6 @@ const BLOCKED_PHRASES: Record<BlockedReason, string> = {
   unknown: "something it could not get past",
 };
 
-/** What an agent may be given beyond the legal minimum for a purpose. */
-const AGENT_EXTRA_FIELDS: readonly ProfileField[] = ["state"];
-
 export function agentInstructions(
   task: Task<"agent">,
   target: {
@@ -412,13 +409,11 @@ export function buildClaimedTask(
           : null;
       requireOnTargetSite(task.payload.recordUrl, target.domain);
       const purpose = task.payload.purpose === "scan" ? "scan" : "remove";
-      // A removal form asks for a state far more often than a recipe could predict, and a state
-      // alone points to no one, so an agent may always be given it.
       const allowed = services.legal.identifiersFor(
         target,
         identities,
         purpose,
-        AGENT_EXTRA_FIELDS,
+        undefined,
         services.clock.now(),
       );
       // The legal package decides which identifiers may be disclosed. Resolving that same set again

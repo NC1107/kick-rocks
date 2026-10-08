@@ -41,6 +41,9 @@ describe("buildSystemPrompt", () => {
 
   it("says that a dropdown asking for a detail of the person is answered by field or not at all", () => {
     expect(prompt).toContain("a date of birth or a state, can only be answered with select");
+    expect(prompt).toContain(
+      "blocked when the control is required, and leave it unset when it is optional",
+    );
   });
 
   it("says none when the task carries no fields", () => {

@@ -166,7 +166,8 @@ A scan task reports the records it found, and a removal task reports how the for
 The form outcomes are `submitted`, `awaiting_email_confirmation`, `not_found`, and `already_removed`.
 A removal at a site that offers to look up an earlier request looks it up first, and reports `already_removed` when the site says so, instead of sending a new request.
 A scan reports every record that is consistent with all the identifiers in `fields`, and none that contradicts one, such as a different city or an age that does not fit the birth year.
-A removal or scan task always carries the person's `state` when the profile has one, because forms ask for it far more often than a recipe could predict, and it is masked like any other value.
+A task carries only the identifiers the legal package releases for its target and purpose, so a removal at a blind-request target gets a name and an email, and the state only where the target keeps a record to match.
+A dropdown that asks for a detail the task does not carry is refused, so the missing state is reported as blocked instead of guessed.
 `confirmationFrom` is accepted only when it is the target's own organization (the same organizational domain as the target's domain, over the public suffix list) or a sister domain the dataset curates for that target in `replyDomains`.
 Any other value is dropped, including another broker's domain and platforms such as paypal.com, and a shared mail host is never accepted.
 A dropped sender means no confirmation email will be matched to the request, so name the sender only when the page names it.
@@ -378,14 +379,21 @@ The worker does not rely on the model to follow them.
   The same check runs again right before the program types or selects, so a control that is hidden after the snapshot is left alone.
   This catches the usual honeypot patterns.
   A control covered by a full-page overlay, such as a cookie banner with a backdrop or a notice, is left out too, and the snapshot starts with a line that says how many controls the overlay hides.
+  The overlay is found once per snapshot, by testing a few points of the window and looking for a fixed or absolute layer that covers 90 percent of it, so a long page is not scrolled control by control.
   The overlay's own buttons are listed, so the model can dismiss it, and the controls behind it are offered again on the next snapshot.
 - A long page is split into parts of about 12,000 characters, so a form after a lot of content is still reachable.
   The end of a snapshot says when there is another part, and `snapshot` with `part` reads it.
   Every part is masked the same way as the first.
+  A control keeps its ref across parts and snapshots for as long as it stays on the page, and a ref is never given to another control, so a ref read in an earlier part still names the same control.
+  A page of more than 3,000 items is cut off, and the last part says so.
 - A dropdown that stands in for a detail of the person can only be answered with the task's field.
   A date of birth (its month, day and year dropdowns, found by their labels or by the shape of their choices), a state, a city and a ZIP code are the details checked.
   `select` with `option` is refused for such a dropdown.
-  The refusal points to the task's field when it has one, and says to stop and report what is missing when it has not, so an invented date of birth or state cannot go through a dropdown that a text field would have refused.
+  A date of birth split over month, day and year dropdowns is answered piece by piece: `select` with `date_of_birth` picks the month by its number or name, and the day or the year as numbers, and `birth_year` answers a year dropdown.
+  The same check covers a choice made by `click` in a custom list (a listbox, a menu or `role="option"` items) and by `check` on a radio button: the click goes through only when the option shows the value of a field the task holds for that detail, and it is refused otherwise.
+  The refusal points to the task's field when it has one.
+  When the task has none, it says to stop and report what is missing if the control is required, and to leave the control unset if it is optional, so an invented date of birth or state cannot go through a dropdown that a text field would have refused.
+  Field and control names written in camel case, such as `birthYear` or `zipCode`, are read word by word.
 - Every answer the model reads is masked once, at the last step, so no path skips it.
   That covers the snapshot, dropdown options, dialog text and error messages.
   The model sees `{{first_name}}` where the page shows the person's first name, for each field of the task.
@@ -394,7 +402,10 @@ The worker does not rely on the model to follow them.
   The server gives that list only to a model worker that claims as one, never to an mcp client.
   Phone numbers and dates of birth are also masked in the common US formats that an input mask produces.
   A value written in a way the program does not know, such as a nickname the page derived from the name, is not masked.
-  A state is masked as a whole word, in capitals for the postal code, and with its full name, so `Austin, TX` reads `Austin, {{state}}` and a page that prints `Texas` reads `{{state}}`.
+  A state's full name is masked as a whole word, so a page that prints `Texas` reads `{{state}}`, except as the end of another state's name (`West Virginia` stays as it is for a Virginian).
+  Its postal code is masked only where it reads as a state: after a comma or a masked city, before a ZIP code, after the word `state` or an equals sign, and as a whole option of a list.
+  A bare `OK`, `IN`, `OR` or `ME` elsewhere is an ordinary word and stays.
+  In the path and query of an address the code is masked in any case, because a slug such as `austin-tx` or a query such as `?state=tx` writes it in lower case.
   A state list therefore shows the person's own state as `{{state}}`, which the model can pick without knowing which state it is.
   Other values of one or two characters are not masked.
 - For a scan, the model reports each candidate with the masked text and link it read.
@@ -406,7 +417,7 @@ The worker does not rely on the model to follow them.
 - A visible captcha or a whole-page bot check ends the run at once.
   The task is blocked with the reason, the page address, and a screenshot, and the model is not asked again.
   A bot check page that clears by itself gets a few seconds first.
-  The page is checked after every `type`, `select` and `check`, and again right before every click, so a widget that only appears once an address is typed stops the run before the form can be submitted.
+  The page is checked before and after every `type`, `select`, `check` and click, and once more after the server has been told of the action and right before the browser acts, so a widget that renders a moment after an address is typed stops the run before a choice or a click can send the form.
 - A `complete` result must match the shared schema for the task's own purpose.
   A scan candidate must be on the target's domains, and a removal reported as `submitted` or `awaiting_email_confirmation` needs at least one click.
   A result that fails these goes back to the model as an error.
