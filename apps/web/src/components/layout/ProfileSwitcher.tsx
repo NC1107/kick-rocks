@@ -84,12 +84,8 @@ export function ProfileSwitcher({
             {profile ? initialsOf(profile.displayName) : "?"}
           </span>
           <span className="flex min-w-0 flex-1 flex-col">
-            <span className="truncate text-ui leading-4 font-medium text-ink">
-              {name}
-            </span>
-            <span className="truncate font-mono text-label leading-3.5 text-ink-3">
-              {detail}
-            </span>
+            <span className="truncate text-ui leading-4 font-medium text-ink">{name}</span>
+            <span className="truncate font-mono text-label leading-3.5 text-ink-3">{detail}</span>
           </span>
           <ChevronsUpDown aria-hidden="true" className="size-4 shrink-0 text-ink-3" />
         </button>
