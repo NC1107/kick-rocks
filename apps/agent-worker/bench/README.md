@@ -49,9 +49,8 @@ The agent half uses the worker's own code and replaces only the server.
 The reply half calls the server's own `askLlm` from `apps/server/src/mail/llm.ts`, so the prompt, the strict JSON schema and the answer parsing are the server's.
 The fetch is wrapped only to see the raw answer, because `askLlm` returns null for every kind of failure.
 
-Every page is a local fixture on ports 8650 to 8659 of 127.0.0.1.
+Every page is a local fixture on 127.0.0.1, on a port the operating system picks for each run.
 Nothing reaches a real site, and the example person uses reserved names and domains.
-Scenarios run one at a time, so two scenarios share a port.
 
 ## Scenarios
 

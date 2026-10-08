@@ -29,7 +29,9 @@ export interface LoopTiming {
   /** How long a run gets to stop after shutdown before the browser is closed under it. */
   shutdownGraceMs: number;
   maxBackoffMs: number;
+  /** Tries for a report that can wait, and for any report once the worker is stopping. */
   reportAttempts: number;
+  /** The first pause after a failed report. It doubles up to `maxBackoffMs`. */
   reportRetryMs: number;
 }
 
@@ -332,6 +334,11 @@ class Loop {
       }
     };
 
+    // A result, block or final failure is the only record of a run that cannot be repeated, so it is
+    // sent until the server takes it. Only a stopping worker gives up, because it has to exit.
+    // Anything else the lease expiring puts right again.
+    const mustLand = isFinal(report);
+    let triesAfterShutdown = 0;
     let pause = this.timing.reportRetryMs;
     for (let tries = 1; ; tries++) {
       try {
@@ -346,13 +353,15 @@ class Loop {
           });
           return;
         }
-        if (!transient(error) || tries >= this.timing.reportAttempts) {
+        if (this.ctx.signal.aborted) triesAfterShutdown += 1;
+        const exhausted = (mustLand ? triesAfterShutdown : tries) >= this.timing.reportAttempts;
+        if (!transient(error) || exhausted) {
           logger.error("could not report a task", { ...log, error: describeError(error) });
           return;
         }
         logger.warn("reporting failed, trying again", { ...log, error: describeError(error) });
-        await sleepFor(pause);
-        pause *= 2;
+        await sleepFor(pause, this.ctx.signal);
+        pause = Math.min(pause * 2, this.timing.maxBackoffMs);
       }
     }
   }

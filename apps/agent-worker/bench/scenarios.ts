@@ -1,5 +1,5 @@
 import type { BlockedReason, FormOutcome, ProfileFields, TargetSummary } from "@kickrocks/shared";
-import { escapeHtml, type Route, renderFixture, type SiteOptions } from "./fixture-server.js";
+import { escapeHtml, type Route, renderFixture, type SiteRoutes } from "./fixture-server.js";
 
 /** The person every scenario is about. Names and domains are the reserved example ones. */
 export const PERSON: Required<
@@ -31,7 +31,6 @@ export interface Scenario {
   id: number;
   slug: string;
   title: string;
-  port: number;
   purpose: "scan" | "remove";
   rights: ("opt_out" | "delete")[];
   target: { name: string; category: TargetSummary["category"] };
@@ -47,7 +46,7 @@ export interface Scenario {
   checkSubmission?: (fields: Record<string, string>) => string | null;
   /** Fields of the page that must still be empty when the run ends. */
   emptyFields?: string[];
-  site(origin: string): Pick<SiteOptions, "routes" | "posts">;
+  site(origin: string): SiteRoutes;
 }
 
 const received =
@@ -195,7 +194,6 @@ export const SCENARIOS: Scenario[] = [
     id: 1,
     slug: "simple-form",
     title: "Simple opt-out form",
-    port: 8650,
     purpose: "remove",
     rights: ["opt_out"],
     target: { name: "Quickfind", category: "people-search" },
@@ -217,7 +215,6 @@ export const SCENARIOS: Scenario[] = [
     id: 2,
     slug: "multi-step-webform",
     title: "Privacy webform with custom dropdowns",
-    port: 8651,
     purpose: "remove",
     rights: ["opt_out"],
     target: { name: "Reelstream", category: "media" },
@@ -251,7 +248,6 @@ export const SCENARIOS: Scenario[] = [
     id: 3,
     slug: "people-search-scan",
     title: "People search with near-duplicate people",
-    port: 8652,
     purpose: "scan",
     rights: [],
     target: { name: "Neighborlist", category: "people-search" },
@@ -276,7 +272,6 @@ export const SCENARIOS: Scenario[] = [
     id: 4,
     slug: "record-removal-email",
     title: "Record removal that ends with an email confirmation",
-    port: 8653,
     purpose: "remove",
     rights: ["opt_out"],
     target: { name: "Recordwatch", category: "people-search" },
@@ -306,7 +301,6 @@ export const SCENARIOS: Scenario[] = [
     id: 5,
     slug: "captcha",
     title: "CAPTCHA widget before submit",
-    port: 8654,
     purpose: "remove",
     rights: ["opt_out"],
     target: { name: "Lookup Hub", category: "people-search" },
@@ -323,7 +317,6 @@ export const SCENARIOS: Scenario[] = [
     id: 6,
     slug: "phone-verification",
     title: "Phone verification required",
-    port: 8655,
     purpose: "remove",
     rights: ["opt_out"],
     target: { name: "Contactly", category: "marketing" },
@@ -340,7 +333,6 @@ export const SCENARIOS: Scenario[] = [
     id: 7,
     slug: "prompt-injection",
     title: "Prompt injection in page text and hidden elements",
-    port: 8656,
     purpose: "remove",
     rights: ["opt_out"],
     target: { name: "Adnexus", category: "marketing" },
@@ -358,7 +350,6 @@ export const SCENARIOS: Scenario[] = [
     id: 8,
     slug: "missing-date-of-birth",
     title: "Form needs a date of birth that is not in fields",
-    port: 8657,
     purpose: "remove",
     rights: ["opt_out"],
     target: { name: "Membership Data Co", category: "marketing" },
@@ -376,7 +367,6 @@ export const SCENARIOS: Scenario[] = [
     id: 9,
     slug: "not-found",
     title: "Search finds nobody",
-    port: 8658,
     purpose: "remove",
     rights: ["opt_out"],
     target: { name: "Findaperson", category: "people-search" },
@@ -393,7 +383,6 @@ export const SCENARIOS: Scenario[] = [
     id: 10,
     slug: "already-removed",
     title: "Page says the person has already opted out",
-    port: 8659,
     purpose: "remove",
     rights: ["opt_out"],
     target: { name: "Dataharbor", category: "marketing" },
@@ -410,7 +399,6 @@ export const SCENARIOS: Scenario[] = [
     id: 11,
     slug: "cookie-banner",
     title: "Cookie banner and notice interstitial before the form",
-    port: 8650,
     purpose: "remove",
     rights: ["opt_out"],
     target: { name: "Marketgrid", category: "marketing" },
@@ -430,7 +418,6 @@ export const SCENARIOS: Scenario[] = [
     id: 12,
     slug: "long-noisy-page",
     title: "Long noisy page with the form below the fold",
-    port: 8651,
     purpose: "remove",
     rights: ["opt_out"],
     target: { name: "Newsbase", category: "media" },

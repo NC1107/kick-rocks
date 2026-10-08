@@ -345,18 +345,47 @@ describe("the claim loop", () => {
       expect(client.release).toHaveBeenCalledWith(expect.any(String), 60_000);
     });
 
-    it("tries a report again when the server fails, then gives up after a few tries", async () => {
-      const flaky = await report({ kind: "complete", result: {}, usage: {} }, (client) => {
-        client.complete
+    it("tries a report that can wait again when the server fails, then gives up after a few tries", async () => {
+      const flaky = await report({ kind: "release", reason: "r" }, (client) => {
+        client.release
           .mockRejectedValueOnce(new WorkerApiError(503, "unavailable", "down"))
           .mockRejectedValueOnce(new TypeError("fetch failed"));
       });
-      expect(flaky.complete).toHaveBeenCalledTimes(3);
+      expect(flaky.release).toHaveBeenCalledTimes(3);
 
-      const down = await report({ kind: "complete", result: {}, usage: {} }, (client) => {
-        client.complete.mockRejectedValue(new TypeError("fetch failed"));
+      const down = await report({ kind: "release", reason: "r" }, (client) => {
+        client.release.mockRejectedValue(new TypeError("fetch failed"));
       });
-      expect(down.complete).toHaveBeenCalledTimes(3);
+      expect(down.release).toHaveBeenCalledTimes(3);
+    });
+
+    it("keeps sending a result through an outage that outlasts the tries a report that can wait gets", async () => {
+      const { controller, context } = setup();
+      const { client } = fakeClient([formTask()]);
+      for (let i = 0; i < 12; i++)
+        client.complete.mockRejectedValueOnce(new TypeError("fetch failed"));
+      const loop = runClaimLoop(
+        context({ client, executor: async () => ({ kind: "complete", result: {}, usage: {} }) }),
+      );
+      await until(() => client.complete.mock.calls.length >= 13, controller);
+      await loop;
+      expect(client.complete).toHaveBeenCalledTimes(13);
+    });
+
+    it("stops sending a result that cannot get through once the worker is stopping", async () => {
+      const { controller, context } = setup();
+      const { client } = fakeClient([formTask()]);
+      client.complete.mockRejectedValue(new TypeError("fetch failed"));
+      await runClaimLoop(
+        context({
+          client,
+          executor: async () => {
+            controller.abort();
+            return { kind: "complete", result: {}, usage: {} };
+          },
+        }),
+      );
+      expect(client.complete).toHaveBeenCalledTimes(3);
     });
 
     it("does not try again when the server refuses the report", async () => {

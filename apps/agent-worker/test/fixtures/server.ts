@@ -1,15 +1,36 @@
 import { readFileSync } from "node:fs";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
+import type { AddressInfo } from "node:net";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-/** Parallel checkouts on one machine set KICKROCKS_FIXTURE_PORT so their fixture sites do not collide. */
-export const FIXTURE_PORT = Number(process.env.KICKROCKS_FIXTURE_PORT ?? 8631);
+/**
+ * The global setup lets the operating system pick the fixture site's port and publishes it here before any test
+ * file loads, so no test depends on a port being free. It is 0 only in the setup process, which never reads it.
+ */
+export const FIXTURE_PORT_ENV = "KICKROCKS_FIXTURE_PORT";
+export const FIXTURE_PORT = Number(process.env[FIXTURE_PORT_ENV] ?? 0);
+
+export interface FixtureOrigins {
+  origin: string;
+  offsite: string;
+  other: string;
+}
+
+export function originsOf(port: number): FixtureOrigins {
+  return {
+    origin: `http://127.0.0.1:${port}`,
+    offsite: `http://localhost:${port}`,
+    other: `http://other.test:${port}`,
+  };
+}
+
+const own = originsOf(FIXTURE_PORT);
 /** The target's domain in tests. `localhost` is another host name for the same server, so it plays an unrelated site. */
-export const ORIGIN = `http://127.0.0.1:${FIXTURE_PORT}`;
-export const OFFSITE = `http://localhost:${FIXTURE_PORT}`;
+export const ORIGIN = own.origin;
+export const OFFSITE = own.offsite;
 /** A third host, which the test browser maps to this server, for tests where two hosts are allowed and a third is not. */
-export const OTHER = `http://other.test:${FIXTURE_PORT}`;
+export const OTHER = own.other;
 
 /** How long the slow form's endpoint keeps a visitor waiting after it has taken the submission. */
 const SLOW_RESPONSE_MS = 3_000;
@@ -93,8 +114,18 @@ function escapeHtml(text: string): string {
   return text.replace(/[&<>"]/g, (c) => `&#${c.charCodeAt(0)};`);
 }
 
-function page(file: string, extra: Record<string, string> = {}): string {
-  const values: Record<string, string> = { ORIGIN, OFFSITE, OTHER, GREETING: "", ...extra };
+function renderPage(
+  hosts: FixtureOrigins,
+  file: string,
+  extra: Record<string, string> = {},
+): string {
+  const values: Record<string, string> = {
+    ORIGIN: hosts.origin,
+    OFFSITE: hosts.offsite,
+    OTHER: hosts.other,
+    GREETING: "",
+    ...extra,
+  };
   return readFileSync(join(here, file), "utf8").replace(
     /\{\{(\w+)\}\}/g,
     (_, key: string) => values[key] ?? "",
@@ -121,14 +152,17 @@ function send(response: ServerResponse, status: number, body: string, type = "te
 }
 
 /** A tiny broker site, served from `127.0.0.1` so `localhost` can stand in for a different domain. */
-export function startFixtureServer(port: number = FIXTURE_PORT): Promise<{
+export function startFixtureServer(): Promise<{
   server: Server;
+  port: number;
   close: () => Promise<void>;
 }> {
   const state: FixtureState = { submissions: [], hits: [] };
 
   const server = createServer(async (request, response) => {
-    const url = new URL(request.url ?? "/", ORIGIN);
+    const hosts = originsOf((server.address() as AddressInfo).port);
+    const page = (file: string, extra?: Record<string, string>) => renderPage(hosts, file, extra);
+    const url = new URL(request.url ?? "/", hosts.origin);
     const host = (request.headers.host ?? "").split(":")[0] ?? "";
     const path = url.pathname;
 
@@ -142,12 +176,14 @@ export function startFixtureServer(port: number = FIXTURE_PORT): Promise<{
 
     if (path === "/hop307") {
       // A 307 keeps the method and the body, so a form posted here is posted again at the target.
-      response.writeHead(307, { location: `${OTHER}/collect` });
+      response.writeHead(307, { location: `${hosts.other}/collect` });
       return response.end();
     }
     if (path === "/hop302") {
       const name = url.searchParams.get("name") ?? "";
-      response.writeHead(302, { location: `${OTHER}/collect?name=${encodeURIComponent(name)}` });
+      response.writeHead(302, {
+        location: `${hosts.other}/collect?name=${encodeURIComponent(name)}`,
+      });
       return response.end();
     }
     if (request.method === "POST") {
@@ -166,11 +202,11 @@ export function startFixtureServer(port: number = FIXTURE_PORT): Promise<{
     }
     if (path === "/sw.js") return send(response, 200, page("sw.js"), "text/javascript");
     if (path === "/redirect") {
-      response.writeHead(302, { location: `${OFFSITE}/offsite` });
+      response.writeHead(302, { location: `${hosts.offsite}/offsite` });
       return response.end();
     }
     if (path === "/go") {
-      response.writeHead(302, { location: `${ORIGIN}/forms/a/start` });
+      response.writeHead(302, { location: `${hosts.origin}/forms/a/start` });
       return response.end();
     }
     if (path.startsWith("/forms/a/")) return send(response, 200, page("form-a.html"));
@@ -192,9 +228,10 @@ export function startFixtureServer(port: number = FIXTURE_PORT): Promise<{
 
   return new Promise((resolve, reject) => {
     server.once("error", reject);
-    server.listen(port, "127.0.0.1", () => {
+    server.listen(0, "127.0.0.1", () => {
       resolve({
         server,
+        port: (server.address() as AddressInfo).port,
         close: () =>
           new Promise<void>((done) => {
             server.closeAllConnections();

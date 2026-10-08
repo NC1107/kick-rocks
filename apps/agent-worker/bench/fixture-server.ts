@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import { createServer, type IncomingMessage, type Server } from "node:http";
+import type { AddressInfo } from "node:net";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -67,25 +68,27 @@ async function readForm(request: IncomingMessage): Promise<Record<string, string
   return Object.fromEntries(new URLSearchParams(Buffer.concat(chunks).toString("utf8")));
 }
 
-export interface SiteOptions {
-  port: number;
+export interface SiteRoutes {
   /** Paths to the fixture or function that answers a GET. */
   routes: Record<string, Route>;
   /** What a POST to a path answers. A path with no entry answers 404 and is not recorded as a submission. */
   posts: Record<string, Route>;
 }
 
-/** One fixture broker site on a fixed local port. */
-export function startSite(options: SiteOptions): Promise<FixtureSite> {
-  const origin = `http://${IN_SCOPE_HOST}:${options.port}`;
-  const evilOrigin = `http://${EVIL_HOST}:${options.port}`;
+/**
+ * One fixture broker site on a port the operating system picks, so no run depends on a port being free.
+ * The routes are built once the port is known because they embed the site's own address.
+ */
+export async function startSite(build: (origin: string) => SiteRoutes): Promise<FixtureSite> {
   const state: FixtureState = { submissions: [], hits: [] };
-  const getRoutes = options.routes;
-  const postRoutes = options.posts;
-  const vars = { ORIGIN: origin, EVIL: evilOrigin };
+  let origin = "";
+  let evilOrigin = "";
+  let getRoutes: Record<string, Route> = {};
+  let postRoutes: Record<string, Route> = {};
+  const vars = (): Record<string, string> => ({ ORIGIN: origin, EVIL: evilOrigin });
 
   const answer = (route: Route, request: FixtureRequest): Required<FixtureReply> => {
-    const reply = typeof route === "string" ? renderFixture(route, vars) : route(request);
+    const reply = typeof route === "string" ? renderFixture(route, vars()) : route(request);
     if (typeof reply === "string") {
       return { status: 200, type: "text/html", body: reply };
     }
@@ -107,7 +110,7 @@ export function startSite(options: SiteOptions): Promise<FixtureSite> {
     state.hits.push({ host, path });
     if (host !== IN_SCOPE_HOST) return send(landedOffScope());
     if (path === "/site.css") {
-      return send({ status: 200, type: "text/css", body: renderFixture("site.css", vars) });
+      return send({ status: 200, type: "text/css", body: renderFixture("site.css", vars()) });
     }
     const form = incoming.method === "POST" ? await readForm(incoming) : {};
     const request: FixtureRequest = { url, method: incoming.method ?? "GET", host, form };
@@ -122,25 +125,28 @@ export function startSite(options: SiteOptions): Promise<FixtureSite> {
     return send(answer(route, request));
   });
 
-  return new Promise((resolve, reject) => {
+  await new Promise<void>((resolve, reject) => {
     server.once("error", reject);
-    server.listen(options.port, IN_SCOPE_HOST, () => {
-      resolve({
-        origin,
-        evilOrigin,
-        state,
-        reset() {
-          state.submissions = [];
-          state.hits = [];
-        },
-        close: () =>
-          new Promise<void>((done) => {
-            server.closeAllConnections();
-            server.close(() => done());
-          }),
-      });
-    });
+    server.listen(0, IN_SCOPE_HOST, resolve);
   });
+  const { port } = server.address() as AddressInfo;
+  origin = `http://${IN_SCOPE_HOST}:${port}`;
+  evilOrigin = `http://${EVIL_HOST}:${port}`;
+  ({ routes: getRoutes, posts: postRoutes } = build(origin));
+  return {
+    origin,
+    evilOrigin,
+    state,
+    reset() {
+      state.submissions = [];
+      state.hits = [];
+    },
+    close: () =>
+      new Promise<void>((done) => {
+        server.closeAllConnections();
+        server.close(() => done());
+      }),
+  };
 }
 
 /** An exact path wins; a key ending in /* answers every path under that prefix. */

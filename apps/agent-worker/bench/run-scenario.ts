@@ -133,10 +133,7 @@ export async function runScenarioOnce(
   deps: RunDeps,
 ): Promise<RunRecord> {
   const { config } = deps;
-  const site = await startSite({
-    port: scenario.port,
-    ...scenario.site(`http://127.0.0.1:${scenario.port}`),
-  });
+  const site = await startSite((origin) => scenario.site(origin));
   const profileDir = await mkdtemp(join(tmpdir(), "kickrocks-bench-"));
   const browsers = createProfileBrowsers(
     {

@@ -185,6 +185,17 @@ describe("the agent claim loop", () => {
     expect(api.block).toHaveBeenCalledTimes(1);
   });
 
+  it("keeps sending a result through an outage that outlasts the tries a report that can wait gets", async () => {
+    const api = fakeApi([agentTask()]);
+    for (let i = 0; i < 12; i++) api.complete.mockRejectedValueOnce(new TypeError("fetch failed"));
+    await drive(
+      api,
+      async () => ({ kind: "complete", result: {}, usage: {} }) as never,
+      () => api.complete.mock.calls.length >= 13,
+    );
+    expect(api.complete).toHaveBeenCalledTimes(13);
+  });
+
   it("does not retry a report for a task that is no longer ours", async () => {
     const api = fakeApi([agentTask()]);
     api.fail.mockRejectedValue(new WorkerApiError(409, "lease_not_held", "gone"));
