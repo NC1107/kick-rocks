@@ -36,11 +36,13 @@ The first person to open the app sets it, and until then the setup page is open 
 | `--start` | Starts the stopped containers again and checks `COMPOSE_PROFILES`. |
 | `--stop` | Stops every container, including the agent worker, and keeps all data. |
 | `--backup [FILE]` | Writes the data volume to `FILE`, or to `~/kickrocks-backup-<date>.tgz`. See [Backups](#backups-and-restore). |
+| `--restore FILE` | Replaces the data volume with a backup, after checking the archive. See [Backups](#backups-and-restore). |
 | `--uninstall` | Asks you to type `delete`, then removes the containers, volumes, and images. |
 | `--url` | Prints the address of the UI and exits. |
 
 `--stop` and `--start` are shortcuts for `docker compose stop` and `docker compose up -d --wait`.
 `--uninstall` is `docker compose --profile worker --profile agent down --volumes --rmi all --remove-orphans`.
+The images are tagged with the compose project name, so it only reaches the ones this checkout built.
 It deletes the database and its key for good, so back up first if you might want your data again.
 It leaves the folder and `.env` alone, so delete the folder when you are done.
 
@@ -129,6 +131,9 @@ The worker runs a headed chrome under xvfb on your home connection.
 It claims scan, form, confirm, and canary tasks over the worker api with `KICKROCKS_WORKER_TOKEN`, and it never touches the database.
 Its chrome profile lives in the `kickrocks-chrome` volume, with one folder per kick rocks profile, so cookies and logins survive restarts and brokers can't link two people.
 The container drops every capability, because the browser opens pages from broker sites and links from email.
+Chrome runs with its own sandbox turned off (`--no-sandbox`), because docker's default seccomp profile blocks the user namespaces the sandbox needs.
+So the container is the only sandbox, which is why it runs as an unprivileged user with no capabilities and `no-new-privileges`.
+The agent worker is set up the same way.
 On shutdown it gets 30 seconds to finish or release its task before docker kills it.
 
 `apps/worker/README.md` lists every worker setting.
@@ -189,21 +194,30 @@ The archive is readable only by you, and the script refuses to write it inside t
 The archive holds the database and the key that decrypts it, so whoever has the file has your data.
 Keep it off shared folders and cloud storage, or encrypt it before it goes there.
 
-By hand, the same thing is:
+A backup is built next to its destination as a `.partial` file, and it only replaces the real file once it reads back whole.
+So a run that fails halfway leaves the backup you already had alone.
+
+By hand, the same thing is below.
+It looks up the volume name first, because the prefix is the compose project name, which is `kick-rocks` unless you set `COMPOSE_PROJECT_NAME`.
 
 ```sh
+volume="$(docker compose config | sed -n 's/^name: //p')_kickrocks-data"
 docker compose stop
-(umask 077 && docker run --rm -v kick-rocks_kickrocks-data:/data:ro alpine tar czf - -C /data . > ~/kickrocks-backup.tgz)
+(umask 077 && docker run --rm -v "$volume":/data:ro alpine tar czf - -C /data . > ~/kickrocks-backup.tgz)
 docker compose start
 ```
 
-To restore, stop everything, put the archive back, and start it again.
+To restore, give the script the archive.
 
 ```sh
-docker compose stop
-docker run --rm -i -v kick-rocks_kickrocks-data:/data alpine sh -c "rm -rf /data/* /data/.[!.]* && tar xzf - -C /data" < ~/kickrocks-backup.tgz
-docker compose start
+./install.sh --restore ~/kickrocks-backup-<date>.tgz
 ```
+
+It checks that the file is a complete archive with the database and its key in it, and then asks you to type `restore`.
+It stops everything and unpacks the archive into a scratch volume, so a file that unpacks badly is caught before your current data is touched.
+Only then does it copy the current data aside and swap the backup in, and it starts back up whatever was running.
+If the swap fails it puts the previous data back.
+On a new machine there is no volume yet, and the script creates it.
 
 `docker compose down -v` and `./install.sh --uninstall` delete the volumes, and with them the database and its key.
 Never add `-v` unless you mean to start over.
@@ -212,7 +226,7 @@ If you'd rather have a plain folder on disk, swap the volume for a bind mount in
 
 ### Forgot the password
 
-There is no email reset, because nothing here talks to an outside service.
+There is no email reset, because the app has no way to send itself a reset link.
 Run this on the machine that hosts it:
 
 ```sh
@@ -221,6 +235,17 @@ docker compose exec server node /app/server/dist/main.js reset-password
 
 It clears the password and every signed-in session, and the next visit to the app asks for a new password.
 Your profiles, requests, and mailbox setup stay as they were.
+
+## If a broker asks for ID
+
+Some brokers want proof of who you are before they delete anything, usually a copy of an id or a utility bill.
+Kick Rocks never uploads either of those for you, and the agent worker is told to stop when it hits that step.
+The task goes to the review queue with a screenshot, so you can see what they asked for.
+
+Whether to send it is up to you.
+I think the usual advice is to ask what they actually need first, since a lot of them accept less than they ask for, like a redacted id with only your name and address showing.
+If you do send something, it's going to a company that sells people's data, so I'd give them as little as they'll take.
+Nothing here is legal advice, and the rules differ by state and by broker.
 
 ## Your data
 
@@ -235,6 +260,29 @@ Your profiles, requests, and mailbox setup stay as they were.
   It keeps your sign-in password, the broker list, and the recipes.
 
 Requests that were already sent can't be recalled, and nothing here reaches into your mailbox, so delete the replies there yourself if you want them gone.
+
+## Testing against a local mail server
+
+To try the mail path without a real provider, run greenmail on the compose network.
+It accepts mail for every address and never relays it.
+
+```sh
+docker run -d --name greenmail --network kick-rocks_default \
+  -e GREENMAIL_OPTS="-Dgreenmail.setup.test.smtp -Dgreenmail.setup.test.imap -Dgreenmail.hostname=0.0.0.0 -Dgreenmail.auth.disabled" \
+  greenmail/standalone:2.1.5
+```
+
+Then put these in `.env` and run `docker compose up -d`.
+
+```sh
+KICKROCKS_PLAINTEXT_MAIL_HOSTS=greenmail
+KICKROCKS_SEND_GAP_MS=0
+```
+
+The first lets the server reach a mailbox without TLS, and the second turns off the pause between sends.
+In Settings, connect a mailbox with host `greenmail`, smtp port 3025 and imap port 3143, and any password.
+The network is called `<project>_default`, so change `kick-rocks` if you set `COMPOSE_PROJECT_NAME`.
+Take both lines out of `.env` again before you use a real mailbox, since a real provider should always be reached over TLS.
 
 ## Updating and logs
 

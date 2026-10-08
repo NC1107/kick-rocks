@@ -32,6 +32,7 @@ Open the address it prints and set a password right away, the first person to op
 Then make a profile, connect your mailbox, and start a campaign.
 Outlook.com doesn't work yet since microsoft turned off app passwords for it.
 
+It's on port 8420 unless you set `KICKROCKS_HOST_PORT` in `.env`.
 Reverse proxy, backups, and updates are in [docs/self-hosting.md](docs/self-hosting.md).
 
 ## Agents
