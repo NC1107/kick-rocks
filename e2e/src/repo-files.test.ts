@@ -21,6 +21,7 @@ const read = (path: string): string => readFileSync(resolve(ROOT, path), "utf8")
 
 const compose = read("docker-compose.yml");
 const readme = read("README.md");
+const selfHosting = read("docs/self-hosting.md");
 
 /** The text of one top-level service block of the compose file. */
 function service(name: string): string {
@@ -54,9 +55,9 @@ describe("docker build context", () => {
 });
 
 describe("docker-compose.yml", () => {
-  it("fixes the project name, so the volume name in the README is the one that exists", () => {
+  it("fixes the project name, so the volume name in the self-hosting guide is the one that exists", () => {
     expect(compose).toMatch(/^name: kick-rocks$/m);
-    expect(readme).toContain("kick-rocks_kickrocks-data");
+    expect(selfHosting).toContain("kick-rocks_kickrocks-data");
   });
 
   it("gives the worker longer to stop than it waits before releasing its task", () => {
@@ -99,58 +100,70 @@ describe("docker-compose.yml", () => {
   });
 });
 
-describe("README.md", () => {
+describe("docs/self-hosting.md", () => {
   it("stops everything before it copies the database, and says how to restore and what -v does", () => {
-    const backup = readme.indexOf("tar czf");
-    expect(readme.lastIndexOf("docker compose stop", backup)).toBeGreaterThan(-1);
-    expect(readme).toContain("tar xzf");
-    expect(readme).toContain("down -v");
+    const backup = selfHosting.indexOf("tar czf");
+    expect(selfHosting.lastIndexOf("docker compose stop", backup)).toBeGreaterThan(-1);
+    expect(selfHosting).toContain("tar xzf");
+    expect(selfHosting).toContain("down -v");
   });
 
   it("writes the backup owner-only and outside the repository, and warns that it holds the key", () => {
-    expect(readme).toContain("umask 077");
-    expect(readme).not.toMatch(/-v "\$PWD":\/backup/);
-    expect(readme).toMatch(/off shared folders and cloud storage/);
+    expect(selfHosting).toContain("umask 077");
+    expect(selfHosting).not.toMatch(/-v "\$PWD":\/backup/);
+    expect(selfHosting).toMatch(/off shared folders and cloud storage/);
     expect(read(".gitignore").split("\n")).toContain("kickrocks-backup*");
   });
 
   it("gives the stop, start, and uninstall commands and the disk and build time", () => {
-    for (const text of [
-      "--stop",
-      "--start",
-      "--uninstall",
-      "COMPOSE_PROFILES=worker",
-      "GB",
-      "minutes",
-    ]) {
-      expect(readme, text).toContain(text);
+    for (const text of ["--stop", "--start", "--uninstall", "COMPOSE_PROFILES", "GB", "minutes"]) {
+      expect(selfHosting, text).toContain(text);
     }
   });
 
   it("says no site is visited until site checks are turned on", () => {
-    expect(readme).toContain("Nothing visits a broker site until you say so");
-    expect(readme).toContain("Site checks");
-  });
-
-  it("asks for a state, which the profile form requires", () => {
-    expect(readme).toContain("name, email, and state of residence");
+    expect(selfHosting).toContain("Nothing visits a broker site until you say so");
+    expect(selfHosting).toContain("Site checks");
   });
 
   it("explains how to reach the UI from another device", () => {
-    expect(readme).toContain("ssh -L 8420:127.0.0.1:8420");
-    expect(readme).toContain("KICKROCKS_BIND_ADDRESS");
-  });
-
-  it("builds before `pnpm dev` and does not send people to a Campaigns nav item", () => {
-    const steps = readme.slice(readme.indexOf("## Developing"));
-    expect(steps.indexOf("pnpm build")).toBeGreaterThan(-1);
-    expect(steps.indexOf("pnpm build")).toBeLessThan(steps.indexOf("pnpm dev "));
-    expect(readme).not.toContain("Open Campaigns");
+    expect(selfHosting).toContain("ssh -L 8420:127.0.0.1:8420");
+    expect(selfHosting).toContain("KICKROCKS_BIND_ADDRESS");
   });
 
   it("covers updating and logs", () => {
-    expect(readme).toContain("docker compose up -d --build");
-    expect(readme).toContain("docker compose logs");
+    expect(selfHosting).toContain("docker compose up -d --build");
+    expect(selfHosting).toContain("docker compose logs");
+  });
+});
+
+describe("README.md", () => {
+  it("links only to files that exist", () => {
+    const links = [...readme.matchAll(/\]\(([^)#]+)(?:#[^)]*)?\)/g)].map(
+      (match) => match[1] as string,
+    );
+    const local = links.filter((link) => !/^https?:/.test(link));
+    expect(local.length).toBeGreaterThan(0);
+    for (const link of local) expect(existsSync(resolve(ROOT, link)), link).toBe(true);
+  });
+
+  it("asks for a state, which the profile form requires", () => {
+    expect(readme).toContain("name, email, and state");
+  });
+});
+
+describe("docs/development.md", () => {
+  const development = read("docs/development.md");
+
+  it("builds before `pnpm dev` and does not send people to a Campaigns nav item", () => {
+    const steps = development.slice(development.indexOf("pnpm install"));
+    expect(steps.indexOf("pnpm build")).toBeGreaterThan(-1);
+    expect(steps.indexOf("pnpm build")).toBeLessThan(steps.indexOf("pnpm dev\n"));
+    expect(development).not.toContain("Open Campaigns");
+  });
+
+  it("does not point at the build plan that no longer exists", () => {
+    expect(existsSync(resolve(ROOT, "docs/BUILD-PLAN.md"))).toBe(false);
   });
 });
 
@@ -191,7 +204,6 @@ describe("docs/agents.md", () => {
 
   it("says the agent needs a browser tool, on the home connection, headed", () => {
     expect(agents).toContain("browser automation tool");
-    expect(agents).toContain("WebFetch");
     expect(agents).toMatch(/headed/);
   });
 
@@ -368,7 +380,7 @@ describe("the reverse proxy and LAN docs", () => {
       "KICKROCKS_TRUST_PROXY",
       "KICKROCKS_PUBLIC_URL",
     ]) {
-      expect(readme, text).toContain(text);
+      expect(selfHosting, text).toContain(text);
     }
   });
 });

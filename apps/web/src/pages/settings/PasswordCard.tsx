@@ -81,7 +81,8 @@ export function PasswordCard() {
         </RowGroup>
         <GroupNote>
           The password does not encrypt your data. That uses a key stored next to the database, so
-          back up the whole kickrocks-data volume, key included. The README has the commands.
+          back up the whole kickrocks-data volume, key included. docs/self-hosting.md has the
+          commands.
         </GroupNote>
         {change.isError && Object.keys(serverErrors).length === 0 ? (
           <Alert intent="danger" title="Could not change the password" className="mt-3">
