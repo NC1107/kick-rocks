@@ -19,6 +19,7 @@ import { conflict, defineMockDomain, handle, invalid, notFound } from "./core.js
 import { fakeScreenshotPng } from "./png.js";
 import { addEvent, buildRequest, makeTask } from "./requests.js";
 import type { MockStore } from "./store.js";
+import { selectedByFilter } from "./targets.js";
 
 const MANUAL_INSTRUCTIONS: Record<BlockedReason, string> = {
   captcha:
@@ -538,9 +539,11 @@ export default defineMockDomain({
         const targets =
           "preset" in body
             ? store.targets.filter((target) => target.needsRecord)
-            : body.targetIds
-                .map((id) => store.targets.find((target) => target.id === id))
-                .filter((target) => target !== undefined);
+            : "filter" in body
+              ? selectedByFilter(store, body.filter)
+              : body.targetIds
+                  .map((id) => store.targets.find((target) => target.id === id))
+                  .filter((target) => target !== undefined);
         const items: TargetOutcome[] = targets.map((target) => {
           const running = store.scans.some(
             (scan) =>

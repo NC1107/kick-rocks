@@ -22,6 +22,7 @@ import { and, desc, eq, inArray } from "drizzle-orm";
 import type { Clock } from "../../core/clock.js";
 import { conflict, notFound } from "../../core/errors.js";
 import { describeMissingScanFields, missingScanFields } from "../../core/scan-readiness.js";
+import { selectByFilter } from "../../core/target-selection.js";
 import { isPeopleSearchTarget, type TargetsService } from "../../core/targets.js";
 import type { TaskQueue } from "../../core/task-queue.js";
 
@@ -86,7 +87,7 @@ export function createCampaignPlanner({
   needsRecord,
 }: CampaignPlannerDeps): CampaignPlanner {
   // A people-search site starts from a scan, not from an email, so it is not an email broker here.
-  const PRESET_MEMBERS: Record<CampaignPreset, (row: TargetRow) => boolean> = {
+  const PRESET_MEMBERS: Record<Exclude<CampaignPreset, "easy">, (row: TargetRow) => boolean> = {
     companies: (row) => row.kind === "company",
     email_brokers: (row) => row.kind === "broker" && row.privacyEmail !== null && !needsRecord(row),
     people_search: isPeopleSearchTarget,
@@ -95,7 +96,12 @@ export function createCampaignPlanner({
 
   function presetTargets(preset: CampaignPreset): TargetRow[] {
     const live = db.select().from(targets).where(eq(targets.retired, false)).all();
-    const selected = live.filter((row) => PRESET_MEMBERS[preset](row));
+    const assessments = preset === "easy" ? targetsService.assess(live) : null;
+    const isMember =
+      preset === "easy"
+        ? (row: TargetRow) => assessments?.get(row.id)?.difficulty === "easy"
+        : PRESET_MEMBERS[preset];
+    const selected = live.filter(isMember);
     return selected.sort(
       (a, b) =>
         PRIORITY_RANK[a.priority] - PRIORITY_RANK[b.priority] ||
@@ -156,7 +162,7 @@ export function createCampaignPlanner({
     selection: CampaignSelection,
     rights: RequestRight[],
   ): RequestRight[] {
-    return row.kind === "company" && "preset" in selection ? ["opt_out"] : rights;
+    return row.kind === "company" && !("targetIds" in selection) ? ["opt_out"] : rights;
   }
 
   function plan(
@@ -175,7 +181,9 @@ export function createCampaignPlanner({
     const rows =
       "preset" in selection
         ? presetTargets(selection.preset)
-        : explicitTargets(selection.targetIds);
+        : "filter" in selection
+          ? selectByFilter(targetsService, selection.filter)
+          : explicitTargets(selection.targetIds);
 
     const history = new Map<string, { active: boolean; confirmed: boolean }>();
     if (rows.length > 0) {

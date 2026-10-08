@@ -1,19 +1,24 @@
 import {
   API_ROUTES,
+  type ApprovedRecipes,
   type BrokerCategory,
   type CompanyCategory,
   type ContactMethod,
+  classifyDifficulty,
+  MAX_SELECTED_TARGETS,
   needsRecord,
   type Requirement,
   slugify,
   type TargetDetail,
   type TargetFacets,
+  type TargetFilter,
   type TargetListItem,
   type TargetPriority,
   type TargetRecipe,
   type TargetSummary,
 } from "@kickrocks/shared";
-import { defineMockDomain, handle, notFound } from "./core.js";
+import { defineMockDomain, handle, notFound, selectionTooLarge } from "./core.js";
+import type { MockStore } from "./store.js";
 
 /*
  * Fictional brokers and companies on the reserved .example domain: nothing here names a real
@@ -317,7 +322,26 @@ function recipesFor(
   });
 }
 
-export function summaryOf(target: TargetDetail): TargetSummary {
+/** The health of the newest active recipe for a purpose, or null when the target has none. */
+function automationOf(target: TargetDetail, purpose: "scan" | "remove") {
+  const active = target.recipes
+    .filter((recipe) => recipe.purpose === purpose && recipe.status === "active")
+    .sort((a, b) => b.version - a.version);
+  return active[0]?.health ?? null;
+}
+
+/** Re-derives difficulty from the target's recipes as they are now, so an approval moves it at once. */
+export function assessed(target: TargetDetail): TargetDetail {
+  const recipes: ApprovedRecipes = {
+    scan: automationOf(target, "scan"),
+    remove: automationOf(target, "remove"),
+  };
+  const { difficulty, reasons } = classifyDifficulty({ ...target, recipes });
+  return { ...target, difficulty, difficultyReasons: reasons };
+}
+
+export function summaryOf(detail: TargetDetail): TargetSummary {
+  const target = assessed(detail);
   return {
     id: target.id,
     kind: target.kind,
@@ -335,15 +359,9 @@ export function summaryOf(target: TargetDetail): TargetSummary {
     needsRecord: target.needsRecord,
     californiaRegistered: target.californiaRegistered,
     retired: target.retired,
+    difficulty: target.difficulty,
+    difficultyReasons: target.difficultyReasons,
   };
-}
-
-/** The health of the newest active recipe for a purpose, or null when the target has none. */
-function automationOf(target: TargetDetail, purpose: "scan" | "remove") {
-  const active = target.recipes
-    .filter((recipe) => recipe.purpose === purpose && recipe.status === "active")
-    .sort((a, b) => b.version - a.version);
-  return active[0]?.health ?? null;
 }
 
 export function listItemOf(target: TargetDetail): TargetListItem {
@@ -352,6 +370,43 @@ export function listItemOf(target: TargetDetail): TargetListItem {
     automation: { scan: automationOf(target, "scan"), remove: automationOf(target, "remove") },
   };
 }
+
+/** The live targets a list filter matches, in list order; also what a filter selection selects. */
+export function filterTargets(
+  targets: readonly TargetDetail[],
+  filter: TargetFilter,
+): TargetDetail[] {
+  const needle = filter.q?.toLowerCase();
+  return targets
+    .map(assessed)
+    .filter((target) => (filter.kind ? target.kind === filter.kind : true))
+    .filter((target) => (filter.category ? target.category === filter.category : true))
+    .filter((target) =>
+      filter.contactMethod ? target.contactMethod === filter.contactMethod : true,
+    )
+    .filter((target) =>
+      filter.requirement ? target.requirements.includes(filter.requirement) : true,
+    )
+    .filter((target) => (filter.priority ? target.priority === filter.priority : true))
+    .filter((target) => (filter.difficulty ? target.difficulty === filter.difficulty : true))
+    .filter((target) =>
+      needle ? `${target.name} ${target.domain}`.toLowerCase().includes(needle) : true,
+    )
+    .sort(
+      (a, b) =>
+        PRIORITY_ORDER[a.priority] - PRIORITY_ORDER[b.priority] || a.name.localeCompare(b.name),
+    );
+}
+
+export function selectedByFilter(store: MockStore, filter: TargetFilter): TargetDetail[] {
+  const matching = filterTargets(store.targets, filter);
+  if (matching.length > MAX_SELECTED_TARGETS) {
+    throw selectionTooLarge(matching.length, MAX_SELECTED_TARGETS);
+  }
+  return matching;
+}
+
+const DIFFICULTIES = ["easy", "medium", "hard"] as const;
 
 const PRIORITY_ORDER: Record<TargetPriority, number> = { crucial: 0, high: 1, normal: 2 };
 
@@ -386,6 +441,8 @@ export default defineMockDomain({
         needsRecord: needsRecord({ id, category }),
         californiaRegistered: category === "registered-broker",
         retired: false,
+        difficulty: "hard",
+        difficultyReasons: [],
         ...contactFields(domain, seed.contact),
         searchUrl:
           category === "people-search" || category === "background-check"
@@ -402,13 +459,13 @@ export default defineMockDomain({
         verifiedAt: null,
         recipes: recipesFor(id, seed.recipes),
       };
-      store.targets.push(detail);
+      store.targets.push(assessed(detail));
     }
 
     for (const seed of COMPANIES) {
       const id = slugify(seed.name);
       const domain = `${id.replace(/-/g, "")}.example`;
-      store.targets.push({
+      const company: TargetDetail = {
         id,
         kind: "company",
         name: seed.name,
@@ -422,6 +479,8 @@ export default defineMockDomain({
         needsRecord: false,
         californiaRegistered: false,
         retired: false,
+        difficulty: "hard",
+        difficultyReasons: [],
         ...contactFields(domain, seed.contact),
         searchUrl: null,
         region: "us",
@@ -430,30 +489,14 @@ export default defineMockDomain({
         sources: [{ source: "kickrocks-companies", license: "PolyForm-Noncommercial-1.0.0" }],
         verifiedAt: "2026-09-14",
         recipes: [],
-      });
+      };
+      store.targets.push(assessed(company));
     }
   },
 
   routes: (store) => [
     handle(API_ROUTES.targetsList, ({ query }) => {
-      const needle = query.q?.toLowerCase();
-      const matches = store.targets
-        .filter((target) => (query.kind ? target.kind === query.kind : true))
-        .filter((target) => (query.category ? target.category === query.category : true))
-        .filter((target) =>
-          query.contactMethod ? target.contactMethod === query.contactMethod : true,
-        )
-        .filter((target) =>
-          query.requirement ? target.requirements.includes(query.requirement) : true,
-        )
-        .filter((target) => (query.priority ? target.priority === query.priority : true))
-        .filter((target) =>
-          needle ? `${target.name} ${target.domain}`.toLowerCase().includes(needle) : true,
-        )
-        .sort(
-          (a, b) =>
-            PRIORITY_ORDER[a.priority] - PRIORITY_ORDER[b.priority] || a.name.localeCompare(b.name),
-        );
+      const matches = filterTargets(store.targets, query);
       const start = (query.page - 1) * query.pageSize;
       return {
         items: matches.slice(start, start + query.pageSize).map(listItemOf),
@@ -471,13 +514,17 @@ export default defineMockDomain({
         contactMethod: facet(store.targets.map((target) => target.contactMethod)),
         requirement: facet(store.targets.flatMap((target) => target.requirements)),
         priority: facet(store.targets.map((target) => target.priority)),
+        difficulty: DIFFICULTIES.map((value) => ({
+          value,
+          count: store.targets.filter((target) => assessed(target).difficulty === value).length,
+        })),
       }),
     ),
 
     handle(API_ROUTES.targetsGet, ({ params }) => {
       const target = store.targets.find((candidate) => candidate.id === params.id);
       if (!target) throw notFound("That target");
-      return target;
+      return assessed(target);
     }),
   ],
 });

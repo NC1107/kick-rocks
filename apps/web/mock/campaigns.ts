@@ -15,6 +15,7 @@ import { defineMockDomain, handle, notFound } from "./core.js";
 import { buildRequest } from "./requests.js";
 import { createScan } from "./review.js";
 import type { MockStore } from "./store.js";
+import { assessed, selectedByFilter } from "./targets.js";
 
 function targetsFor(store: MockStore, selection: CampaignSelection): TargetDetail[] {
   if ("targetIds" in selection) {
@@ -24,7 +25,10 @@ function targetsFor(store: MockStore, selection: CampaignSelection): TargetDetai
       return target;
     });
   }
+  if ("filter" in selection) return selectedByFilter(store, selection.filter);
   switch (selection.preset) {
+    case "easy":
+      return store.targets.filter((target) => assessed(target).difficulty === "easy");
     case "companies":
       return store.targets.filter((target) => target.kind === "company");
     case "email_brokers":

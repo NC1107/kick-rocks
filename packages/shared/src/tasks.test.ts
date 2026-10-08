@@ -283,6 +283,8 @@ describe("ClaimedTask", () => {
     priority: "crucial",
     needsRecord: true,
     californiaRegistered: false,
+    difficulty: "easy",
+    difficultyReasons: ["email", "no_record_needed"],
     retired: false,
   };
   const base = {

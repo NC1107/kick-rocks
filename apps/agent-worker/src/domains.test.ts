@@ -18,6 +18,8 @@ const target = (overrides: Partial<TargetSummary> = {}): TargetSummary => ({
   priority: "normal",
   needsRecord: false,
   californiaRegistered: false,
+  difficulty: "easy",
+  difficultyReasons: ["email", "no_record_needed"],
   retired: false,
   ...overrides,
 });
