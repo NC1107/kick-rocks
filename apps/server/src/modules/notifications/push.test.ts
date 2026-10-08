@@ -124,6 +124,43 @@ describe("what triggers a push", () => {
     expect(bodies()[0]).toBe("1 recipe is broken. Open http://kickrocks.test/settings/recipes");
   });
 
+  it("announces browser work that waits while no worker has reported for minutes", async () => {
+    ctx.services.settings.set("worker.status.builtin", {
+      workerId: "w1",
+      version: null,
+      lastSeenAt: new Date(ctx.services.clock.now().getTime() - 10 * MINUTE).toISOString(),
+      busy: false,
+      currentTaskId: null,
+    });
+    seedTask(ctx, {
+      kind: "scan",
+      payload: { profileId, targetId, recipeId: null, variant: null },
+      profileId,
+      targetId,
+    });
+    await pushNewAttention(ctx.services);
+    expect(bodies()[0]).toBe(
+      "The worker is offline and browser work is waiting. Open http://kickrocks.test/settings/agents",
+    );
+  });
+
+  it("stays quiet about the worker when it reported lately or nothing waits", async () => {
+    ctx.services.settings.set("worker.status.builtin", {
+      workerId: "w1",
+      version: null,
+      lastSeenAt: ctx.services.clock.now().toISOString(),
+      busy: false,
+      currentTaskId: null,
+    });
+    seedTask(ctx, {
+      kind: "scan",
+      payload: { profileId, targetId, recipeId: null, variant: null },
+      profileId,
+      targetId,
+    });
+    expect(await pushNewAttention(ctx.services)).toBe("idle");
+  });
+
   it("groups everything new into one message", async () => {
     blockTask();
     blockTask();

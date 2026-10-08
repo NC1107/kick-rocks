@@ -8,6 +8,7 @@ export const NotificationCategory = z.enum([
   "match",
   "mailbox",
   "recipe",
+  "worker",
 ]);
 export type NotificationCategory = z.infer<typeof NotificationCategory>;
 
@@ -17,6 +18,7 @@ export const NOTIFICATION_CATEGORY_LABELS: Record<NotificationCategory, string> 
   match: "A listing needs your decision",
   mailbox: "Your mailbox fails",
   recipe: "A recipe breaks",
+  worker: "The worker is offline while work waits",
 };
 
 const ntfyTopic = z
