@@ -190,7 +190,9 @@ describe("connecting a mailbox", () => {
     await chooseProvider(user, /^Gmail/);
     await signIn(user);
     await runTest(user);
-    expect(await screen.findByText(/Checking for \d+s/)).toBeVisible();
+    const counter = await screen.findByText(/Checking for \d+s/);
+    expect(counter).toBeVisible();
+    expect(counter).not.toHaveAttribute("role");
   });
 
   it("explains a refused connection for Proton Mail Bridge", async () => {

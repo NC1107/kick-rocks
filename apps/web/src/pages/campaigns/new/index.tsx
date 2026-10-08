@@ -9,7 +9,7 @@ import {
 } from "@kickrocks/shared";
 import { skipToken } from "@tanstack/react-query";
 import { ChevronDown } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
 import { errorMessage, useApiMutation, useApiQuery } from "../../../api/index.js";
 import { RequireProfile } from "../../../components/layout/RequireProfile.js";
@@ -117,11 +117,15 @@ function describeFilter(filter: TargetFilter): string {
   return parts.length > 0 ? parts.join(", ") : "Every target";
 }
 
-function noveltyMeta(items: CampaignPreview["items"]): string {
+function noveltyMeta(items: CampaignPreview["items"]): ReactNode {
   const { fresh, handled } = countNovelty(items);
-  return handled > 0
-    ? `${formatCount(fresh)} new, ${formatCount(handled)} already handled`
-    : `${formatCount(fresh)} new`;
+  if (handled === 0) return `${formatCount(fresh)} new`;
+  return (
+    <>
+      <span className="whitespace-nowrap">{formatCount(fresh)} new,</span>{" "}
+      <span className="whitespace-nowrap">{formatCount(handled)} already handled</span>
+    </>
+  );
 }
 
 export function Component() {

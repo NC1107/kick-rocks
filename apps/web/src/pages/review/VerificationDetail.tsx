@@ -139,8 +139,9 @@ export function VerificationDetail({ item }: { item: VerificationItem }) {
             </RowGroup>
           )}
           <p className="mt-1.5 text-caption text-ink-3">
-            Unticked details stay private. Only details from your profile can be sent from here, so
-            anything else they asked for, like a copy of an ID, is up to you.
+            Unticked details stay private. Kick Rocks only sends details from your profile. If they
+            also want something else, like a copy of an ID, you can reply to them yourself or leave
+            it out.
           </p>
         </Section>
 

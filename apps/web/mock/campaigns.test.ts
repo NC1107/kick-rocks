@@ -48,9 +48,19 @@ describe("campaign handlers", () => {
 
     const optOut = await preview(["opt_out"]);
     expect(optOut).toContain("the right to opt out of the sale or sharing");
-    expect(optOut).not.toContain("delete it");
+    expect(optOut).not.toContain("delete the personal information you hold about me.");
+    expect(optOut).toContain("does not need identity verification for an opt-out");
     const both = await preview(["opt_out", "delete"]);
-    expect(both).toContain("the right to ask you to delete it");
+    expect(both).toContain(
+      "the right to ask you to delete the personal information you hold about me",
+    );
+    const deleteOnly = await preview(["delete"]);
+    expect(deleteOnly).toContain(
+      "the right to ask you to delete the personal information you hold about me",
+    );
+    expect(deleteOnly).not.toContain("delete it");
+    expect(deleteOnly).not.toContain("identity verification for an opt-out");
+    expect(deleteOnly).toContain("If you need to verify me before deleting");
   });
 
   it("selects every easy target with the easy preset and the same ones by filter", async () => {

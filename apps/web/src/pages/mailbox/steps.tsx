@@ -275,9 +275,7 @@ export function TestStep({ form, preset, result, testing, failure, onTest }: Tes
           {result ? "Test again" : "Test connection"}
         </Button>
         {testing ? (
-          <span role="status" className="font-mono text-meta text-ink-3">
-            Checking for {elapsed}s
-          </span>
+          <span className="font-mono text-meta text-ink-3">Checking for {elapsed}s</span>
         ) : null}
       </div>
       {failure ? <Callout intent="danger">{failure}</Callout> : null}

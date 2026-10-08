@@ -122,7 +122,7 @@ function outcomeFor(store: MockStore, profileId: string, target: TargetDetail): 
 
 const RIGHT_BASIS: Record<RequestRight, string> = {
   opt_out: "the right to opt out of the sale or sharing of my personal information",
-  delete: "the right to ask you to delete it",
+  delete: "the right to ask you to delete the personal information you hold about me",
 };
 
 const RIGHT_PHRASES: Record<RequestRight, string> = {
@@ -142,6 +142,10 @@ function sampleEmail(
     profile?.state === "CA"
       ? `Under the California Consumer Privacy Act, I have ${rights.map((right) => RIGHT_BASIS[right]).join(" and ")}.`
       : "I am asking you to honor the privacy commitments in your published privacy policy.";
+  const optOutOnly = rights.every((right) => right === "opt_out");
+  const verification = optOutOnly
+    ? "This request does not need identity verification for an opt-out."
+    : "If you need to verify me before deleting, tell me which detail you need and why.";
   const asks = rights.map((right) => RIGHT_PHRASES[right]).join(" and ");
   return {
     subject: `Privacy request KR-7H3K2M for ${target.name}`,
@@ -152,7 +156,7 @@ function sampleEmail(
       "",
       basis,
       "",
-      "This request does not need identity verification for an opt-out. Please confirm in writing when it is done, and keep the reference KR-7H3K2M in your reply.",
+      `${verification} Please confirm in writing when it is done, and keep the reference KR-7H3K2M in your reply.`,
       "",
       `${name}`,
       profile?.primaryEmail ?? "",
