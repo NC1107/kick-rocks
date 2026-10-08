@@ -1,3 +1,5 @@
+import { resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import {
   needsRecord,
   normalizeDomain,
@@ -6,6 +8,7 @@ import {
 } from "@kickrocks/shared";
 import { describe, expect, it } from "vitest";
 import { buildDataset, loadPinnedIds, pinNewIds } from "./build.js";
+import { readBundledRecipes } from "./recipe-senders.js";
 import { readPinnedUpstream } from "./upstream.js";
 
 const HOSTNAME = /^(?=.{1,253}$)([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/;
@@ -25,6 +28,32 @@ describe("the generated broker dataset", () => {
     for (const broker of dataset.brokers) {
       expect(normalizeDomain(broker.domain), broker.id).toBe(broker.domain);
     }
+  });
+
+  it("plans a scan for every broker that has a scan recipe, so a verified recipe is never left unused", () => {
+    const recipesDir = resolve(
+      fileURLToPath(import.meta.url),
+      "..",
+      "..",
+      "..",
+      "recipes",
+      "recipes",
+    );
+    const scanned = new Set(
+      readBundledRecipes(recipesDir)
+        .filter((recipe) => recipe.purpose === "scan")
+        .flatMap((recipe) => [recipe.brokerId, ...recipe.alsoFor]),
+    );
+    const unplanned = dataset.brokers
+      .filter((broker) => scanned.has(broker.id) && !needsRecord(broker))
+      .map((broker) => `${broker.id} (${broker.category})`);
+    // Fix with a category entry in data/corrections.yaml, or add the id to RECORD_NOT_NEEDED.
+    expect(unplanned).toEqual([]);
+  });
+
+  it("does not flag a free opt-out as paid when its recipe needs no payment", () => {
+    const spokeo = dataset.brokers.find((broker) => broker.id === "spokeo");
+    expect(spokeo?.requirements).not.toContain("paid");
   });
 
   it("uses one id per domain and one domain per id", () => {
