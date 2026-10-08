@@ -23,7 +23,6 @@ import {
   launchTestBrowser,
   resetFixture,
   type Step,
-  type Turn,
   scripted,
 } from "./support.js";
 
@@ -312,7 +311,9 @@ describeBrowser("the outgoing gate end to end with the real server", () => {
       const taskId = await startServer();
       const first = await firstLapse(taskId);
       expect(first).toMatchObject({ status: "blocked", blockedReason: "approval_needed" });
-      expect(first.blockedDetail).toContain("splits into short pieces or pieces that equal a name, place or domain");
+      expect(first.blockedDetail).toContain(
+        "splits into short pieces or pieces that equal a name, place or domain",
+      );
       expect((await fixtureState()).submissions).toEqual([]);
       const waiting = rowsOf(taskId).filter((row) => row.status === "awaiting_next_run");
       expect(waiting).toHaveLength(1);
@@ -809,26 +810,28 @@ describeBrowser("the outgoing gate end to end with the real server", () => {
     it("opens no new tab for a form aimed at one, so the post is never made and nothing is asked", async () => {
       const taskId = await startServer("/gate-vectors#blank");
       let transcript = "";
-      let opened = 0;
-      let stillOpen = -1;
+      let after = 0;
+      let before = 0;
       const done = await workOnce(taskId, [
+        open("/gate-vectors#blank"),
         () => {
-          runContext?.on("page", () => (opened += 1));
-          return open("/gate-vectors#blank") as Turn;
+          before = runContext?.pages().length ?? 0;
+          return { calls: [["snapshot", {}]] };
         },
         typeEmail,
         wait(2),
+        wait(2),
         (view) => {
           transcript = view.transcript;
-          stillOpen = (runContext?.pages() ?? []).filter((page) => !page.isClosed()).length;
+          after = runContext?.pages().length ?? 0;
           return giveBack;
         },
       ]);
       // The script appends its form just before submitting it, so the field is proof it ran that far.
       expect(transcript).toContain(`textbox "e"`);
-      // The submit did ask for a tab, and only the run's own page is left open once it is closed.
-      expect(opened).toBeGreaterThan(0);
-      expect(stillOpen).toBe(1);
+      // The refused tab is reported, so the submit did ask for one, and no page is left beside the ones the run began with.
+      expect(transcript).toContain("Blocked a navigation: A new tab or window cannot be opened");
+      expect(after).toBe(before);
       await expectNothingArrived();
       expect(done.status).toBe("queued");
       expect(rowsOf(taskId).filter((row) => row.kind === "held")).toEqual([]);

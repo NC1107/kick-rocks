@@ -130,13 +130,17 @@ describe("ValueDetector", () => {
 
     // A known limit, listed in docs/agents.md: the halves of an address are not the address.
     it("does not put an email split at the @ back together, so the halves pass as a name lookup", () => {
-      const halves = ["jordan.example", "example.com"];
-      expect(detector.scan(halves)).toMatchObject({ contact: false, lookup: true });
+      const named = new ValueDetector({
+        first_name: "Jordan",
+        last_name: "Example",
+        email: "jordan@example.com",
+      });
+      expect(named.scan(["jordan", "example.com"])).toMatchObject({ contact: false, lookup: true });
     });
 
     it("holds the same halves when the names are hidden from the page", () => {
-      const hidden = new ValueDetector({ email: FIELDS.email }, ["Jordan", "Example"]);
-      expect(hidden.scan(["jordan.example", "example.com"]).contact).toBe(true);
+      const hidden = new ValueDetector({ email: "jordan@example.com" }, ["Jordan", "Example"]);
+      expect(hidden.scan(["jordan", "example.com"]).contact).toBe(true);
     });
 
     it("finds a name joined in the ways a page joins one", () => {
