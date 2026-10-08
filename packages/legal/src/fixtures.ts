@@ -19,6 +19,8 @@ export function makeTarget(overrides: Partial<TargetSummary> = {}): TargetSummar
     priority: "normal",
     needsRecord: false,
     californiaRegistered: false,
+    difficulty: "easy",
+    difficultyReasons: ["email", "no_record_needed"],
     retired: false,
     ...overrides,
   };
@@ -46,6 +48,8 @@ export const CA_REGISTERED = makeTarget({
   category: "registered-broker",
   domain: "registry-only.example.com",
   californiaRegistered: true,
+  difficulty: "easy",
+  difficultyReasons: ["email", "no_record_needed"],
 });
 
 /** A person with every identity kind, so a test can see what a purpose leaves out. */

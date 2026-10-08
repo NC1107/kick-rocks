@@ -302,6 +302,17 @@ describe("campaign and scan selections", () => {
     ).toBe(false);
   });
 
+  it("takes a target filter as a selection, and nothing beside it", () => {
+    const body = (selection: unknown) => CampaignBody.safeParse({ selection, rights: ["opt_out"] });
+    expect(body({ filter: { difficulty: "easy", kind: "company", q: "acme" } }).success).toBe(true);
+    expect(body({ filter: {} }).success).toBe(true);
+    expect(body({ preset: "easy" }).success).toBe(true);
+    expect(body({ filter: { difficulty: "trivial" } }).success).toBe(false);
+    expect(body({ filter: { page: 2 } }).success).toBe(false);
+    expect(body({ filter: {}, preset: "easy" }).success).toBe(false);
+    expect(ScanStartBody.safeParse({ filter: { category: "people-search" } }).success).toBe(true);
+  });
+
   it("limits scans to the people_search preset", () => {
     expect(ScanStartBody.safeParse({ preset: "people_search" }).success).toBe(true);
     expect(ScanStartBody.safeParse({ preset: "companies" }).success).toBe(false);

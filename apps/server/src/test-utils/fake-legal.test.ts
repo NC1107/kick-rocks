@@ -1,4 +1,4 @@
-import { type Identity, Jurisdiction, LegalBasis } from "@kickrocks/shared";
+import { type DifficultyReason, type Identity, Jurisdiction, LegalBasis } from "@kickrocks/shared";
 import { describe, expect, it } from "vitest";
 import { jordanIdentities } from "./builders.js";
 import { createFakeLegal, FAKE_STATUTE } from "./fake-legal.js";
@@ -24,6 +24,8 @@ const target = {
   priority: "normal" as const,
   needsRecord: false,
   californiaRegistered: false,
+  difficulty: "easy" as const,
+  difficultyReasons: ["email", "no_record_needed"] as DifficultyReason[],
   retired: false,
 };
 

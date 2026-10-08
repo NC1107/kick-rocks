@@ -1,11 +1,18 @@
 import { matches, scans, targets, tasks } from "@kickrocks/db";
-import { API_ROUTES, needsRecord, type ScanSummary, type TargetOutcome } from "@kickrocks/shared";
+import {
+  API_ROUTES,
+  needsRecord,
+  type ScanStartBody,
+  type ScanSummary,
+  type TargetOutcome,
+} from "@kickrocks/shared";
 import { count, desc, eq, inArray, sql } from "drizzle-orm";
 import { notFound } from "../../core/errors.js";
 import { registerRoute } from "../../core/http.js";
 import type { ModulePlugin } from "../../core/module.js";
 import { requireProfile } from "../../core/require-profile.js";
 import { describeMissingScanFields, missingScanFields } from "../../core/scan-readiness.js";
+import { selectByFilter } from "../../core/target-selection.js";
 import { isPeopleSearchTarget } from "../../core/targets.js";
 import type { AppServices } from "../../services.js";
 
@@ -25,10 +32,8 @@ const skipped = (
 });
 
 /** The targets a scan request names, checked up front so one unknown id fails the whole request. */
-function targetsToScan(
-  services: AppServices,
-  selection: { targetIds: string[] } | { preset: string },
-) {
+function targetsToScan(services: AppServices, selection: ScanStartBody) {
+  if ("filter" in selection) return selectByFilter(services.targets, selection.filter);
   if ("preset" in selection) {
     return services.db
       .select()

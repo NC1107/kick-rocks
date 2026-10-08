@@ -37,6 +37,8 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - name: Install Chromium for the recipe runner tests
+        # apt mirrors on the runner occasionally hang; fail fast so a retry is cheap instead of a stalled deploy.
+        timeout-minutes: 10
         run: pnpm --filter @kickrocks/recipes exec playwright install --with-deps chromium
       - name: Wait for GreenMail
         run: timeout 60 bash -c 'until nc -z localhost 3025 && nc -z localhost 3143; do sleep 1; done'

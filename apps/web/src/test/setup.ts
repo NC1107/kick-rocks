@@ -1,6 +1,10 @@
 import "@testing-library/jest-dom/vitest";
-import { cleanup } from "@testing-library/react";
+import { cleanup, configure } from "@testing-library/react";
 import { afterEach } from "vitest";
+
+// The default one second for findBy queries is shorter than a mock round trip on a loaded CI runner,
+// which made page tests fail there while passing everywhere else. A real hang still fails, just later.
+configure({ asyncUtilTimeout: 5000 });
 
 afterEach(() => {
   cleanup();

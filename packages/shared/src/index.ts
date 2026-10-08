@@ -4,6 +4,8 @@ export * from "./broker.js";
 export * from "./campaigns.js";
 export * from "./dashboard.js";
 export * from "./data-rights.js";
+export * from "./difficulty.js";
+export * from "./difficulty-rules.js";
 export * from "./errors.js";
 export * from "./fold.js";
 export * from "./geography.js";

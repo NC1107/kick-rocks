@@ -319,6 +319,9 @@ export default defineMockDomain({
       )
         throw conflict("Only a recipe waiting for review can be decided.");
       recipe.status = status;
+      const target = store.targets.find((candidate) => candidate.id === recipe.targetId);
+      const listed = target?.recipes.find((candidate) => candidate.id === recipe.id);
+      if (listed) listed.status = status;
       return recipe;
     };
 

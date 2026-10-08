@@ -1,6 +1,5 @@
 import { z } from "zod";
 import { AuthState, ChangePasswordBody, LoginBody, Ok, SetupBody } from "./auth.js";
-import { BrokerCategory, ContactMethod, Requirement, TargetPriority } from "./broker.js";
 import { CampaignBody, CampaignCreated, CampaignPreview } from "./campaigns.js";
 import { Dashboard } from "./dashboard.js";
 import { ProfileExport, ResetBody } from "./data-rights.js";
@@ -41,7 +40,7 @@ import {
 import { MatchDecisionBody, MessageClassificationBody, ReviewQueue } from "./review.js";
 import { Match, ScanStartBody, ScanStartResult, ScanSummary } from "./scans.js";
 import { DataSourceInfo, SettingsPatch, SettingsView } from "./settings.js";
-import { CompanyCategory, TargetDetail, TargetKind, TargetListItem } from "./targets.js";
+import { TargetDetail, TargetFilter, TargetListItem } from "./targets.js";
 import {
   SCREENSHOT_BODY_LIMIT_BYTES,
   SCREENSHOT_MIME_TYPES,
@@ -220,14 +219,7 @@ const IdParam = z.object({ id: z.string().min(1) });
 const Count = z.number().int().nonnegative();
 const Facet = z.array(z.object({ value: z.string(), count: Count }));
 
-export const TargetsQuery = PageQuery.extend({
-  kind: TargetKind.optional(),
-  category: z.union([BrokerCategory, CompanyCategory]).optional(),
-  contactMethod: ContactMethod.optional(),
-  requirement: Requirement.optional(),
-  priority: TargetPriority.optional(),
-  q: z.string().trim().max(100).optional(),
-});
+export const TargetsQuery = PageQuery.extend(TargetFilter.shape);
 export type TargetsQuery = z.infer<typeof TargetsQuery>;
 
 export const TargetFacets = z.object({
@@ -236,6 +228,7 @@ export const TargetFacets = z.object({
   contactMethod: Facet,
   requirement: Facet,
   priority: Facet,
+  difficulty: Facet,
 });
 export type TargetFacets = z.infer<typeof TargetFacets>;
 
