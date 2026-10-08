@@ -27,7 +27,7 @@ export function routeKey(
 }
 
 /** Marks every cached answer for these routes stale, so mounted pages refetch them. */
-export function invalidateRoutes(
+function invalidateRoutes(
   client: QueryClient,
   ...routes: readonly Pick<RouteDef, "method" | "path">[]
 ): Promise<unknown> {
@@ -36,7 +36,7 @@ export function invalidateRoutes(
   );
 }
 
-export interface QueryExtras<Data = unknown> {
+interface QueryExtras<Data = unknown> {
   enabled?: boolean;
   /** Milliseconds before a cached answer counts as stale. */
   staleTime?: number;
@@ -46,7 +46,7 @@ export interface QueryExtras<Data = unknown> {
   keepPrevious?: boolean;
 }
 
-export type QueryOptionsFor<R extends Anyroute> = RouteArgs<R> & QueryExtras<RouteResponse<R>>;
+type QueryOptionsFor<R extends Anyroute> = RouteArgs<R> & QueryExtras<RouteResponse<R>>;
 
 /**
  * Reads one GET route into the react-query cache. Pass the route and its params and query; pass
@@ -86,7 +86,7 @@ export function useApiQuery<R extends Anyroute>(
   });
 }
 
-export interface MutationExtras<R extends Anyroute> {
+interface MutationExtras<R extends Anyroute> {
   /** Routes whose cached answers go stale after this succeeds, so lists and counts refresh. */
   invalidates?: readonly Pick<RouteDef, "method" | "path">[];
   onSuccess?: (data: RouteResponse<R>, variables: RouteArgs<R>) => void | Promise<void>;

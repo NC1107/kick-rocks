@@ -12,7 +12,7 @@ import { defineMockDomain, handle, MockHttpError, notFound } from "./core.js";
 import type { MockStore } from "./store.js";
 
 /** Fake people only: every name, address, and number here is invented, on reserved example domains. */
-export function summarize(profile: ProfileDetail): ProfileSummary {
+function summarize(profile: ProfileDetail): ProfileSummary {
   const { identities: _identities, mailbox: _mailbox, ...summary } = profile;
   return summary;
 }

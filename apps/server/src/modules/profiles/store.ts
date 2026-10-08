@@ -22,7 +22,7 @@ import { newId } from "../../core/ids.js";
 import type { MailHolds } from "../../core/mail-holds.js";
 import { toMailbox } from "../mailbox/service.js";
 
-export interface ProfileStore {
+interface ProfileStore {
   list(): ProfileSummary[];
   get(id: string): ProfileDetail;
   create(input: {

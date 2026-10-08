@@ -14,7 +14,7 @@ import {
   Section,
   useToast,
 } from "../../../components/ui/index.js";
-import { claudeCodeCommand } from "../model.js";
+import { MCP_TOKEN_PLACEHOLDER, mcpClientConfig } from "../model.js";
 import { BodyRow, GroupFooter, Value } from "../rows.js";
 
 export function McpCard({ mcp }: { mcp: SettingsView["mcp"] }) {
@@ -87,15 +87,14 @@ export function McpCard({ mcp }: { mcp: SettingsView["mcp"] }) {
         ) : null}
       </Section>
 
-      <Section label="Connect Claude Code">
+      <Section label="Client configuration">
         <p className="mb-2 text-meta text-ink-3">
-          Run this in a terminal.
+          Paste this into any MCP client that connects over HTTP.
           {token
             ? " It already holds the token you just created."
-            : " Replace <your-token> with a token from above."}{" "}
-          Other MCP clients need the address and the same bearer token.
+            : ` Replace ${MCP_TOKEN_PLACEHOLDER} with a token from above.`}
         </p>
-        <CodeBlock title="bash" code={claudeCodeCommand(mcp.url, token)} />
+        <CodeBlock title="mcp.json" code={mcpClientConfig(mcp.url, token)} />
       </Section>
 
       <ConfirmDialog

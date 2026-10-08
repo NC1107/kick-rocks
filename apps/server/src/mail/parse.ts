@@ -34,7 +34,7 @@ function unfolded(line: string): string {
 }
 
 /** A delivery status report, or a mail from a mailer daemon, which is how servers say "bounced". */
-export function detectBounce(parsed: ParsedMail, headers: Record<string, string>): boolean {
+function detectBounce(parsed: ParsedMail, headers: Record<string, string>): boolean {
   const contentType = (headers["content-type"] ?? "").toLowerCase();
   if (contentType.includes("multipart/report") && contentType.includes("delivery-status")) {
     return true;
@@ -48,7 +48,7 @@ export function detectBounce(parsed: ParsedMail, headers: Record<string, string>
 }
 
 /** The `Auto-Submitted` header says a machine sent the mail, unless its value is "no". */
-export function detectAutoSubmitted(headers: Record<string, string>): boolean {
+function detectAutoSubmitted(headers: Record<string, string>): boolean {
   const value = headers["auto-submitted"];
   return value !== undefined && value.trim().toLowerCase() !== "no";
 }
@@ -57,7 +57,7 @@ function validDate(value: Date | undefined | null): Date | null {
   return value && !Number.isNaN(value.getTime()) ? value : null;
 }
 
-export interface ParseInput {
+interface ParseInput {
   uid: number;
   source: Buffer;
   /** The server's arrival time, used when the message has no usable Date header. */

@@ -6,7 +6,7 @@ import { RunAborted, RunFailure, toFailure } from "./errors.js";
 import type { RunnerOptions } from "./options.js";
 import { pageText } from "./text.js";
 
-export interface RunConfirmationInput extends RunnerOptions {
+interface RunConfirmationInput extends RunnerOptions {
   page: Page;
   /** The link from the broker's email. */
   url: string;

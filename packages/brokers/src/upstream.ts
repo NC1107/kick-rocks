@@ -4,12 +4,7 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { z } from "zod";
 
-export const UPSTREAM_DIR = resolve(
-  dirname(fileURLToPath(import.meta.url)),
-  "..",
-  "data",
-  "upstream",
-);
+const UPSTREAM_DIR = resolve(dirname(fileURLToPath(import.meta.url)), "..", "data", "upstream");
 
 const PinnedFiles = z.record(
   z.string(),

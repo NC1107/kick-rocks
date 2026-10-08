@@ -63,7 +63,7 @@ export function makeCompany(overrides: Partial<Company> = {}): Company {
   };
 }
 
-export interface RecipeOverrides {
+interface RecipeOverrides {
   brokerId: string;
   purpose?: RecipePurpose;
   version?: number;

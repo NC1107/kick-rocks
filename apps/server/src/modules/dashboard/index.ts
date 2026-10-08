@@ -19,7 +19,7 @@ import { buildReviewQueue } from "../review/queue.js";
 // the others out and the count agrees with the request's own timeline.
 const RECENT_REQUESTS = 20;
 
-export function buildDashboard(services: AppServices, profileId: string): Dashboard {
+function buildDashboard(services: AppServices, profileId: string): Dashboard {
   const { db, mailQuota } = services;
   const profile = db
     .select({ id: profiles.id })

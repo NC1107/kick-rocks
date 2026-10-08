@@ -1,6 +1,6 @@
 import { NotificationsPatch, type NotificationsView, WebUrl } from "@kickrocks/shared";
 
-export const DEFAULT_NTFY_SERVER = "https://ntfy.sh";
+const DEFAULT_NTFY_SERVER = "https://ntfy.sh";
 
 export const WEEKDAYS = [
   "Sunday",

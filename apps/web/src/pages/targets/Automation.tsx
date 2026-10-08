@@ -4,7 +4,7 @@ import { cn } from "../../lib/cn.js";
 import { RECIPE_HEALTH_LABELS } from "../../lib/labels.js";
 import type { StatusShape } from "../../lib/status.js";
 
-export const HEALTH_MEANINGS: Record<RecipeHealth | "none", string> = {
+const HEALTH_MEANINGS: Record<RecipeHealth | "none", string> = {
   none: "No approved recipe, so a person or an agent does this step.",
   unknown: "A recipe is approved but has not been run or checked yet.",
   healthy: "The recipe's last run or site check worked.",

@@ -8,7 +8,7 @@ import {
 } from "@kickrocks/shared";
 
 /** How a target in a campaign is reached: an email, a web form, or a scan that finds the record first. */
-export type CampaignChannel = "email" | "form" | "scan";
+type CampaignChannel = "email" | "form" | "scan";
 
 /**
  * The channel the server will pick for a target: a site that needs a record starts from a scan,
@@ -64,7 +64,7 @@ export function countByChannel(
   return counts;
 }
 
-export interface SkipGroup {
+interface SkipGroup {
   reason: SkipReason;
   items: TargetOutcome[];
 }

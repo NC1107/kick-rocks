@@ -120,7 +120,7 @@ export function TabList({ className, style, onScroll, ...rest }: ComponentProps<
   );
 }
 
-export interface TabProps extends Omit<ComponentProps<"button">, "value"> {
+interface TabProps extends Omit<ComponentProps<"button">, "value"> {
   value: string;
   /** Shown as a mono number after the label, in the label's own color and never in a chip. */
   count?: number;
@@ -171,7 +171,7 @@ export function Tab({ value, count, className, children, ...rest }: TabProps) {
   );
 }
 
-export interface TabPanelProps extends Omit<ComponentProps<"div">, "value"> {
+interface TabPanelProps extends Omit<ComponentProps<"div">, "value"> {
   value: string;
 }
 

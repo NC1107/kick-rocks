@@ -7,7 +7,7 @@ import type { RequestRight, Statute } from "@kickrocks/shared";
  * `citable` is false for a law whose coverage is too narrow to claim for a business whose size is
  * unknown to this tool.
  */
-export interface StatuteTraits {
+interface StatuteTraits {
   deleteScope: "all" | "provided";
   citable: boolean;
   /**
@@ -69,7 +69,7 @@ const GENERAL_BROKER_NOTE =
  * Each entry cites the primary source it was read from; the dates they were checked are in the
  * package README.
  */
-export const STATUTE_ENTRIES: readonly StatuteEntry[] = [
+const STATUTE_ENTRIES: readonly StatuteEntry[] = [
   comprehensive(
     {
       id: "ca-ccpa",

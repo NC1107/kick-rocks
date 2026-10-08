@@ -3,7 +3,7 @@ import { CopyButton } from "./CopyButton.js";
 
 export interface CodeBlockProps {
   code: string;
-  /** Shown in the header, such as "bash" or "claude_desktop_config.json". */
+  /** Shown in the header, such as "bash" or "mcp.json". */
   title?: string;
   /** Wrap long lines instead of scrolling sideways. Off for commands, which should stay one line. */
   wrap?: boolean;

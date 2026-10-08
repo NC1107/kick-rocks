@@ -8,13 +8,10 @@ import type { LlmFetch } from "./llm.js";
 import { createMailTransport } from "./transport.js";
 import type { MailServices } from "./types.js";
 
-export { MailFetchError } from "./inbox.js";
-export { findProviderPreset, PROVIDER_PRESETS } from "./presets.js";
-export { InvalidOutgoingMailError, MailSendError } from "./transport.js";
 export type * from "./types.js";
 
 /** Replacements for the network, so a test can point the mail services at local fixtures. */
-export interface MailServiceDeps {
+interface MailServiceDeps {
   /** Used for the language model fallback. */
   fetch?: LlmFetch;
   /** Used by the link follower to find a host's addresses. */

@@ -83,7 +83,7 @@ const SINGULAR: Record<IdentityKind, string> = {
   dob: "date of birth",
 };
 
-export interface IdentitiesEditorProps {
+interface IdentitiesEditorProps {
   drafts: readonly IdentityDraft[];
   onChange: (drafts: IdentityDraft[]) => void;
   errors: DraftErrors;

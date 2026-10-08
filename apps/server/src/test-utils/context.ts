@@ -28,7 +28,7 @@ export const TEST_MCP_TOKEN = "test-mcp-token-0123456789abcdef";
 /** The smallest argon2id settings the library accepts, so signing in a hundred times is not a load test. */
 const CHEAP_PASSWORD_COST = { timeCost: 1, memoryCost: 1024, parallelism: 1 };
 
-export interface TestContextOptions {
+interface TestContextOptions {
   /** The fake clock's starting time. */
   now?: Date | string;
   /** Extra environment for the server config, such as KICKROCKS_EXTRA_TARGETS. */

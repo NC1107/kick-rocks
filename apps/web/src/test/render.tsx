@@ -9,7 +9,7 @@ import { CurrentProfileProvider } from "../api/current-profile.js";
 import { createQueryClient } from "../api/query-client.js";
 import { ToastProvider } from "../components/ui/index.js";
 
-export interface RenderPageOptions {
+interface RenderPageOptions {
   /** Where the router starts, such as "/requests/req_0001". Defaults to "/". */
   route?: string;
   /** The path pattern the page sits at, so its `:params` resolve. Defaults to the whole app. */
@@ -21,7 +21,7 @@ export interface RenderPageOptions {
   withProfile?: boolean;
 }
 
-export interface RenderedPage extends RenderResult {
+interface RenderedPage extends RenderResult {
   mock: MockApp;
   user: UserEvent;
 }

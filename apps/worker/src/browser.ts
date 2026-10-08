@@ -50,7 +50,7 @@ function processIsAlive(pid: number): boolean {
   }
 }
 
-export interface LockCheck {
+interface LockCheck {
   hostname?: string;
   isAlive?: (pid: number) => boolean;
 }
@@ -109,7 +109,7 @@ export const BROWSER_CONTEXT_OPTIONS = {
 const SERVICE_WORKER_STORAGE = [join("Default", "Service Worker"), "Service Worker"];
 
 /** Deletes every service worker a profile remembers, so none can answer a request in this run. */
-export function clearServiceWorkerStorage(profileDir: string): void {
+function clearServiceWorkerStorage(profileDir: string): void {
   for (const path of SERVICE_WORKER_STORAGE) {
     rmSync(join(profileDir, path), { recursive: true, force: true });
   }
@@ -269,7 +269,7 @@ function scopeName(profileId: string | null): string {
  * One persistent Chrome per Kick Rocks profile. Cookies and storage are what let a broker tie two
  * visits together, so the people on one instance must never share them. Browsers start on first use.
  */
-export interface ProfileBrowsers {
+interface ProfileBrowsers {
   newPage(profileId: string | null): Promise<Page>;
   /**
    * Forgets every profile that is not in the list: closes its browser and deletes its cookies,

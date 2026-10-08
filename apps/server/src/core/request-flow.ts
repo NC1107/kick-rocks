@@ -19,7 +19,7 @@ import type { RequestPatch, RequestsService } from "./requests.js";
 import type { TargetsService } from "./targets.js";
 import type { EnqueueResult } from "./task-queue.js";
 
-export interface OpenRequestInput {
+interface OpenRequestInput {
   profileId: string;
   targetId: string;
   rights: RequestRight[];
@@ -30,13 +30,13 @@ export interface OpenRequestInput {
   actor: RequestActor;
 }
 
-export interface OpenedRequest {
+interface OpenedRequest {
   /** The request, already in `queued`. */
   request: RequestRecord;
   dispatch: EnqueueResult;
 }
 
-export interface RequeueInput {
+interface RequeueInput {
   actor: RequestActor;
   /** Why it is going out again, which the timeline shows. */
   reason: RequestEventPayloads["queued"]["reason"];
@@ -72,7 +72,7 @@ export interface RequestFlow {
 
 export type Requests = RequestsService & RequestFlow;
 
-export interface RequestFlowDeps {
+interface RequestFlowDeps {
   db: KickRocksDb;
   clock: Clock;
   legal: LegalApi;

@@ -24,7 +24,7 @@ import { DetailFrame } from "./DetailFrame.js";
 import { REVIEW_INVALIDATES } from "./model.js";
 
 /** A failed scan stops mattering once a later scan of the same site worked. */
-export function withoutSupersededFailures(scans: readonly ScanSummary[]): ScanSummary[] {
+function withoutSupersededFailures(scans: readonly ScanSummary[]): ScanSummary[] {
   return scans.filter(
     (scan) =>
       scan.error === null ||

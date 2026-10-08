@@ -29,7 +29,7 @@ const SIZES: Record<ButtonSize, string> = {
   lg: "h-control-lg px-4 text-ui",
 };
 
-export function buttonClass(variant: ButtonVariant = "secondary", size: ButtonSize = "md") {
+function buttonClass(variant: ButtonVariant = "secondary", size: ButtonSize = "md") {
   return cn(BASE, VARIANTS[variant], SIZES[size]);
 }
 

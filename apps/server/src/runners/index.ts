@@ -9,7 +9,7 @@ export interface Runners {
   runDue(): Promise<{ polled: number; sent: number }>;
 }
 
-export interface RunnerOptions {
+interface RunnerOptions {
   /** Where the jitter between sends comes from. Tests pass a fixed one. */
   random?: () => number;
 }

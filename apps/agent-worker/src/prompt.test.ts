@@ -44,7 +44,7 @@ describe("buildSystemPrompt", () => {
   });
 
   it("never contains the em dash", () => {
-    expect(prompt).not.toContain("—");
+    expect(prompt).not.toContain("\u2014");
   });
 });
 

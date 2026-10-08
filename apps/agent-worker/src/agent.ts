@@ -26,7 +26,7 @@ import { ReportArgs, TOOL_SPECS } from "./tools.js";
 
 type AgentTask = Extract<ClaimedTask, { kind: "agent" }>;
 
-export interface AgentRunOptions {
+interface AgentRunOptions {
   task: AgentTask;
   page: Page;
   provider: ModelProvider;

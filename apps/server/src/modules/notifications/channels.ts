@@ -18,7 +18,7 @@ export interface NotificationChannels {
   telegram(config: TelegramSettings, message: PushMessage): Promise<void>;
 }
 
-export interface ChannelDeps {
+interface ChannelDeps {
   fetch?: typeof fetch;
   /** Replaced in tests; the Bot API lives at one address. */
   telegramBaseUrl?: string;

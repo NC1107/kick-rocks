@@ -17,7 +17,7 @@ import type { AppServices } from "../../services.js";
 import { toMatch, toMessageSummary } from "./mappers.js";
 
 /** Days a task that failed for good stays in the queue. */
-export const FAILED_WINDOW_DAYS = 30;
+const FAILED_WINDOW_DAYS = 30;
 const MESSAGE_LIMIT = 200;
 
 /** Tasks a person can do something about. A poll or a canary has no request and nothing to retry by hand. */

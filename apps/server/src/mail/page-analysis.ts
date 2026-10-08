@@ -1,6 +1,6 @@
 import { Parser } from "htmlparser2";
 
-export interface PageAnalysis {
+interface PageAnalysis {
   /** A human check (CAPTCHA or an interstitial) stands between the visitor and the page. */
   challenge: boolean;
   /** The page says the link has expired or is not valid. */

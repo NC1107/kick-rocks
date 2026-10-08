@@ -2,7 +2,7 @@ import { useEffect, useRef } from "react";
 import { type Blocker, useBlocker } from "react-router";
 import { ConfirmDialog } from "../../components/ui/index.js";
 
-export interface UnsavedChanges {
+interface UnsavedChanges {
   blocker: Blocker;
   /** Lets the next navigation through, for a page that leaves on purpose right after saving or deleting. */
   allowLeaving: () => void;

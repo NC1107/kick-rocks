@@ -1,7 +1,7 @@
 import { describe, it } from "vitest";
 
 /** What an integration test needs from outside the process. */
-export type IntegrationNeed = "greenmail";
+type IntegrationNeed = "greenmail";
 
 const NEEDS: Record<IntegrationNeed, { variable: string; what: string }> = {
   greenmail: {

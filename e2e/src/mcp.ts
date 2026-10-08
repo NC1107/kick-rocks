@@ -2,7 +2,7 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { STACK } from "./stack.js";
 
-/** An MCP client the way Claude Code or any agent connects: streamable HTTP with the bearer token. */
+/** An MCP client the way any agent connects: streamable HTTP with the bearer token. */
 export async function connectMcp(token: string): Promise<Client> {
   const transport = new StreamableHTTPClientTransport(new URL(`${STACK.serverUrl}/mcp`), {
     requestInit: { headers: { authorization: `Bearer ${token}` } },

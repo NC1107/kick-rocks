@@ -9,7 +9,6 @@ const Ref = z
   .regex(/^e\d{1,5}$/, "A ref looks like e12 and comes from the latest snapshot");
 
 export const NavigateArgs = z.object({ url: z.string().min(1).max(2000) });
-export const SnapshotArgs = z.object({});
 export const ClickArgs = z.object({ ref: Ref });
 /**
  * The model names a field and never supplies the text, so nothing it makes up, or a page talks it
@@ -57,7 +56,6 @@ export const TOOL_NAMES = [
   "wait",
   "report",
 ] as const;
-export type ToolName = (typeof TOOL_NAMES)[number];
 
 const ref = { type: "string", description: "A ref such as e12 from the latest snapshot." };
 const fieldNames = ProfileField.options;

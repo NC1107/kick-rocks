@@ -40,6 +40,7 @@ import {
   type StatusShape,
   TASK_STATUS_META,
 } from "../../../lib/status.js";
+import { mcpClientConfig } from "../../settings/model.js";
 import { Panel, Specimen } from "./parts.js";
 
 const ALL_STATUSES = Object.keys(REQUEST_STATUS_META) as RequestStatus[];
@@ -460,10 +461,8 @@ export function DataDisplay() {
 
       <Panel title="Code and copy">
         <CodeBlock
-          title="bash"
-          code={
-            'claude mcp add --transport http kickrocks http://localhost:8420/mcp \\\n  --header "Authorization: Bearer krmcp_example"'
-          }
+          title="mcp.json"
+          code={mcpClientConfig("http://localhost:8420/mcp", "krmcp_example")}
         />
         <Specimen label="Copy">
           <CopyButton value="KR-7H3K2M" label="Copy reference" />

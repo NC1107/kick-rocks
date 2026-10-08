@@ -30,7 +30,7 @@ const ACTION_OUTCOMES = {
   mark_no_record: "no_record",
 } as const satisfies Partial<Record<RequestAction, RequestStatus>>;
 
-export interface RequestsApi {
+interface RequestsApi {
   list(profileId: string, query: RequestsQuery): Paged<RequestListItem>;
   detail(id: string): RequestDetail;
   act(id: string, action: RequestAction): RequestDetail;

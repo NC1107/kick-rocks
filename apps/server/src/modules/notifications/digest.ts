@@ -121,7 +121,7 @@ function totalsLine(services: AppServices, profileId: string): string {
     .join(", ");
 }
 
-export interface DigestContent {
+interface DigestContent {
   subject: string;
   text: string;
 }

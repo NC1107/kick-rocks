@@ -15,21 +15,21 @@ import type { AppServices } from "../../services.js";
 import { behaviour } from "./behaviour.js";
 
 /** Open proposals one broker and purpose may hold, so an agent cannot bury the review queue. */
-export const MAX_PENDING_PER_TARGET_PURPOSE = 5;
+const MAX_PENDING_PER_TARGET_PURPOSE = 5;
 
-export interface RecipeListFilter {
+interface RecipeListFilter {
   status?: RecipeStatus | undefined;
   source?: RecipeSource | undefined;
   targetId?: string | undefined;
   purpose?: RecipePurpose | undefined;
 }
 
-export interface ProposalInput {
+interface ProposalInput {
   recipe: Recipe;
   notes?: string | undefined;
 }
 
-export interface RecipeStore {
+interface RecipeStore {
   list(filter?: RecipeListFilter): RecipeRecord[];
   get(id: string): RecipeRecord;
   /** Stores a proposal for review, numbered by the server. It never runs until a person approves it. */

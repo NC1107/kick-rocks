@@ -10,7 +10,7 @@ const RESOLVED_COOLDOWN_MS = HOUR_MS;
 /** After a channel refused a message, the next try waits this long so a dead server is not hammered. */
 const RETRY_AFTER_FAILURE_MS = 5 * 60 * 1000;
 
-export type PushOutcome = "unconfigured" | "idle" | "waiting" | "limited" | "sent" | "failed";
+type PushOutcome = "unconfigured" | "idle" | "waiting" | "limited" | "sent" | "failed";
 
 const PHRASES: Record<NotificationCategory, (count: number) => string> = {
   blocked_task: (n) => (n === 1 ? "1 task is blocked" : `${n} tasks are blocked`),
@@ -29,7 +29,7 @@ const ORDER: readonly NotificationCategory[] = [
   "recipe",
 ];
 
-export function hasChannel(settings: NotificationSettings): boolean {
+function hasChannel(settings: NotificationSettings): boolean {
   return settings.ntfy !== null || settings.telegram !== null;
 }
 
@@ -44,7 +44,7 @@ function destinationOf(items: readonly AttentionItem[]): string {
  * The words of a push. It states how many items need attention and links to the app, and never
  * names a broker, a person, or an address, because it crosses a third-party server.
  */
-export function describeAttention(items: readonly AttentionItem[], appUrl: string): PushMessage {
+function describeAttention(items: readonly AttentionItem[], appUrl: string): PushMessage {
   const counts = new Map<NotificationCategory, number>();
   for (const { category } of items) counts.set(category, (counts.get(category) ?? 0) + 1);
   const phrases = ORDER.flatMap((category) => {

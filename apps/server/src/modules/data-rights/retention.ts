@@ -5,14 +5,14 @@ import type { SettingsStore } from "../../core/settings.js";
 import type { TaskQueue } from "../../core/task-queue.js";
 import { compactDatabase } from "./compact.js";
 
-export interface RetentionDeps {
+interface RetentionDeps {
   db: KickRocksDb;
   clock: Clock;
   settings: SettingsStore;
   taskQueue: TaskQueue;
 }
 
-export interface RetentionResult {
+interface RetentionResult {
   screenshots: number;
   messages: number;
 }
@@ -73,7 +73,7 @@ function hasMeaningfulFreeSpace(db: KickRocksDb): boolean {
   );
 }
 
-export interface RetentionOptions {
+interface RetentionOptions {
   /**
    * `always` compacts whenever something was removed, for a person who just changed a window and
    * expects the old bytes gone now. `when-worthwhile` is for the scheduled run.

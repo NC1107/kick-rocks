@@ -5,7 +5,7 @@ import type { AppServices } from "../services.js";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-export interface ResponseWindow {
+interface ResponseWindow {
   /** When the broker's answer is due under the legal basis the request cited. */
   dueAt: string;
   /** When silence is worth a follow-up: the due date, or the person's own wait if that is longer. */

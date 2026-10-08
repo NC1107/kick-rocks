@@ -63,7 +63,7 @@ const OFFLINE_LABELS: Record<(typeof OFFLINE_REQUIREMENTS)[number], string> = {
 
 const PRIORITY_RANK: Record<TargetPriority, number> = { crucial: 0, high: 1, normal: 2 };
 
-export interface CampaignPlannerDeps {
+interface CampaignPlannerDeps {
   db: KickRocksDb;
   clock: Clock;
   legal: LegalApi;
@@ -72,7 +72,7 @@ export interface CampaignPlannerDeps {
   needsRecord: (target: { id: string; category: TargetRow["category"] }) => boolean;
 }
 
-export interface CampaignPlanner {
+interface CampaignPlanner {
   plan(profileId: string, selection: CampaignSelection, rights: RequestRight[]): CampaignPlan;
 }
 

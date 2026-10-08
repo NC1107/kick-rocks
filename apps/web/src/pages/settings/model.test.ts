@@ -4,9 +4,9 @@ import {
   checkLlm,
   checkPassword,
   checkSchedule,
-  claudeCodeCommand,
   describeStep,
   draftOf,
+  mcpClientConfig,
   workerState,
 } from "./model.js";
 
@@ -98,14 +98,15 @@ describe("workerState", () => {
   });
 });
 
-describe("claudeCodeCommand", () => {
+describe("mcpClientConfig", () => {
   it("holds a placeholder until a token has just been made", () => {
-    expect(claudeCodeCommand("http://localhost:8420/mcp", null)).toBe(
-      'claude mcp add --transport http kickrocks http://localhost:8420/mcp --header "Authorization: Bearer <your-token>"',
-    );
-    expect(claudeCodeCommand("http://localhost:8420/mcp", "krmcp_abc")).toContain(
-      "Bearer krmcp_abc",
-    );
+    const url = "http://localhost:8420/mcp";
+    expect(JSON.parse(mcpClientConfig(url, null))).toEqual({
+      mcpServers: {
+        kickrocks: { type: "http", url, headers: { Authorization: "Bearer <your-token>" } },
+      },
+    });
+    expect(mcpClientConfig(url, "krmcp_abc")).toContain("Bearer krmcp_abc");
   });
 });
 

@@ -2,9 +2,9 @@ import { StateCode, US_STATES } from "@kickrocks/shared";
 import { Input, Select } from "../../components/ui/index.js";
 import { FieldRow } from "../settings/rows.js";
 
-export const DISPLAY_NAME_MAX = 80;
+const DISPLAY_NAME_MAX = 80;
 
-export interface DetailsValue {
+interface DetailsValue {
   displayName: string;
   state: string;
 }
@@ -29,7 +29,7 @@ export function validateDetails(
   return errors;
 }
 
-export interface DetailsFieldsProps {
+interface DetailsFieldsProps {
   value: DetailsValue;
   onChange: (value: DetailsValue) => void;
   errors: DetailsErrors;

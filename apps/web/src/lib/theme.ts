@@ -23,7 +23,7 @@ function applyToDocument(next: ThemePreference) {
   else root.setAttribute("data-theme", next);
 }
 
-export function setThemePreference(next: ThemePreference): void {
+function setThemePreference(next: ThemePreference): void {
   preference = next;
   writeStorage(STORAGE_KEYS.theme, next === "system" ? null : next);
   applyToDocument(next);
@@ -45,7 +45,7 @@ function resolve(): "light" | "dark" {
   return globalThis.matchMedia?.("(prefers-color-scheme: dark)").matches ? "dark" : "light";
 }
 
-export interface ThemeState {
+interface ThemeState {
   preference: ThemePreference;
   /** What is on screen, which differs from the preference when it is "system". */
   resolved: "light" | "dark";

@@ -43,7 +43,7 @@ export class MailSendError extends Error {
 }
 
 /** Hosts that may be reached without TLS besides this machine. */
-export interface MailTransportOptions {
+interface MailTransportOptions {
   plaintextHosts?: readonly string[];
 }
 

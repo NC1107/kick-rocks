@@ -7,7 +7,7 @@ import { advanceOverdueRequests } from "./overdue.js";
 import { enqueueDueInboxPolls } from "./polls.js";
 import { enqueueDueRescans } from "./rescans.js";
 
-export interface SchedulerOptions {
+interface SchedulerOptions {
   runners?: Runners;
   /** How often the loop wakes. Sends are paced in seconds, so this is short. */
   tickMs?: number;

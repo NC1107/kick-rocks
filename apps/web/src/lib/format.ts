@@ -12,7 +12,7 @@ const RELATIVE_STEPS: readonly [Intl.RelativeTimeFormatUnit, number][] = [
   ["minute", MINUTE],
 ];
 
-export interface FormatOptions {
+interface FormatOptions {
   locale?: string | undefined;
 }
 

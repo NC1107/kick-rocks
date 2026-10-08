@@ -62,6 +62,14 @@ const LINE: Rgb = [214, 217, 224];
 const PANEL: Rgb = [244, 245, 248];
 const ACCENT: Rgb = [66, 99, 214];
 
+function drawChallengeBox(canvas: Canvas): void {
+  canvas.rect(380, 164, 280, 90, PANEL);
+  canvas.outline(380, 164, 280, 90, LINE, 1);
+  canvas.outline(398, 192, 32, 32, [150, 156, 170], 2);
+  canvas.rect(446, 202, 120, 10, INK);
+  canvas.rect(590, 180, 52, 52, ACCENT);
+}
+
 /** A generic web page with a challenge box in the middle: enough to stand in for a screenshot. */
 export function fakeScreenshotPng(): Uint8Array {
   const canvas = new Canvas([255, 255, 255]);
@@ -89,12 +97,7 @@ export function fakeScreenshotPng(): Uint8Array {
   canvas.rect(48, 232, 120, 8, TEXT);
   canvas.outline(48, 248, 300, 34, LINE, 1);
 
-  // The challenge box that parked the task.
-  canvas.rect(380, 164, 280, 90, PANEL);
-  canvas.outline(380, 164, 280, 90, LINE, 1);
-  canvas.outline(398, 192, 32, 32, [150, 156, 170], 2);
-  canvas.rect(446, 202, 120, 10, INK);
-  canvas.rect(590, 180, 52, 52, ACCENT);
+  drawChallengeBox(canvas);
 
   canvas.rect(48, 312, 150, 38, ACCENT);
 
