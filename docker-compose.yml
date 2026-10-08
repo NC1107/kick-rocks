@@ -2,9 +2,16 @@ name: kick-rocks
 
 services:
   server:
-    build: .
-    image: kickrocks/server:dev
+    # No image name, so compose tags the build with the project name and two checkouts never share
+    # a tag. A fixed name let the uninstall in one checkout delete another's images.
+    build:
+      context: .
+      args:
+        KICKROCKS_VERSION: ${KICKROCKS_VERSION:-}
     restart: unless-stopped
+    # Shutdown closes the scheduler and any send in flight, and Docker's default 10 seconds ends it
+    # before they finish.
+    stop_grace_period: 30s
     ports:
       # Loopback by default, because the first-run setup page is open until a password is set.
       - "${KICKROCKS_BIND_ADDRESS:-127.0.0.1}:${KICKROCKS_HOST_PORT:-8420}:8420"
@@ -22,6 +29,9 @@ services:
       KICKROCKS_PUBLIC_URL: ${KICKROCKS_PUBLIC_URL:-}
       KICKROCKS_TRUST_PROXY: ${KICKROCKS_TRUST_PROXY:-}
       KICKROCKS_ALLOWED_HOSTS: ${KICKROCKS_ALLOWED_HOSTS:-}
+      # For testing against a local mail server. A real provider must keep TLS and the default pacing.
+      KICKROCKS_PLAINTEXT_MAIL_HOSTS: ${KICKROCKS_PLAINTEXT_MAIL_HOSTS:-}
+      KICKROCKS_SEND_GAP_MS: ${KICKROCKS_SEND_GAP_MS:-}
     # The workers wait for this, so they do not log failed heartbeats while the server starts.
     # The request goes to loopback inside the container, which the host check always accepts.
     healthcheck:
@@ -43,7 +53,6 @@ services:
     build:
       context: .
       dockerfile: apps/worker/Dockerfile
-    image: kickrocks/worker:dev
     restart: unless-stopped
     depends_on:
       server:
@@ -79,7 +88,6 @@ services:
     build:
       context: .
       dockerfile: apps/agent-worker/Dockerfile
-    image: kickrocks/agent-worker:dev
     restart: unless-stopped
     depends_on:
       server:
