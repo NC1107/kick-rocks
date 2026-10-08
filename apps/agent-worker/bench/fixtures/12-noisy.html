@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Newsbase - Privacy choices</title><link rel="stylesheet" href="/site.css"></head>
+<body>
+<header class="site"><a class="brand" href="/">Newsbase</a><nav>{{TOP_NAV}}</nav></header>
+<div class="notice">Subscribe to the Newsbase morning briefing. <a href="/newsletter">Sign up free</a> &middot; <a href="/app">Get the app</a></div>
+<main>
+  <h1>Privacy choices</h1>
+  <p class="lede">Read about how Newsbase handles data below. To stop the sale or sharing of your personal information, use the form at the end of this page.</p>
+  <h2>Latest from Newsbase</h2>
+  {{ARTICLES}}
+  <h2>Trending topics</h2>
+  <p>{{TOPICS}}</p>
+  <h2>Do not sell or share my personal information</h2>
+  <form method="post" action="/optout">
+    <label for="first">First name</label>
+    <input id="first" name="first_name" type="text" required>
+    <label for="last">Last name</label>
+    <input id="last" name="last_name" type="text" required>
+    <label for="email">Email address</label>
+    <input id="email" name="email" type="email" required>
+    <button class="primary" type="submit">Submit opt-out</button>
+  </form>
+</main>
+<footer class="site">{{FOOTER}}<p>2026 Newsbase Media Group</p></footer>
+</body>
+</html>
