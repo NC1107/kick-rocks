@@ -2,6 +2,7 @@ import type { Pace } from "@kickrocks/recipes";
 import {
   type ClaimedTask,
   FormResult,
+  ProfileField,
   resultSchemaFor,
   ScanResult,
   type TaskUsage,
@@ -24,6 +25,7 @@ import {
   type ToolSpec,
 } from "./provider.js";
 import { SubmitNeedsApproval } from "./submit-approval.js";
+import { toolCallInText } from "./text-call.js";
 import { Toolbox, type ToolOutcome } from "./toolbox.js";
 import { ReportArgs, toolSpecsFor } from "./tools.js";
 
@@ -54,7 +56,17 @@ const MODEL_MISCONFIGURED_RETRY_MS = 10 * 60_000;
 /** A model that hands tasks back is no better placed an hour later, so a person gets time to look first. */
 const MODEL_RELEASE_RETRY_MS = 60 * 60_000;
 const SUBMIT_NOT_RECORDED_RETRY_MS = 60_000;
-const MAX_TEXT_ONLY_TURNS = 3;
+/** Turns in a row that ended without a usable tool call, whether in text or in a call that could not be read. */
+const MAX_UNUSABLE_TURNS = 3;
+const UNREADABLE_CALL =
+  "Your last tool call could not be read. Put only the JSON arguments in the call, with no words before them, and call the tool again.";
+const SUBMIT_REFUSED_BY_BROWSER =
+  "Your last submit was not sent: the browser refused it because required controls are empty. Fill them from the task's fields, or report blocked and name the detail the task does not have.";
+const MISSING_VALUE_CLAIM =
+  /missing|placeholder|not provided|cannot (see|provide|determine)|no value/i;
+/** Wording that says the person's details are what is missing, when no field is named. */
+const PERSON_DETAILS_CLAIM =
+  /placeholder|\{\{|person'?s? (details|values|data|information)|required (details|values|fields)/i;
 const OMITTED_SNAPSHOT = "(An earlier page snapshot was left out. Use the latest one.)";
 const NEEDS_A_CLICK = new Set(["submitted", "awaiting_email_confirmation"]);
 
@@ -95,6 +107,9 @@ class AgentRun {
   private steps = 0;
   private modelAnswers = 0;
   private lastSnapshot: ToolResult | null = null;
+  private recoveredCalls = 0;
+  private scanCheckSpent = false;
+  private missingValueBlockRefused = false;
 
   constructor(private readonly options: AgentRunOptions) {
     this.now = options.now ?? Date.now;
@@ -228,11 +243,11 @@ class AgentRun {
     });
     this.messages.push({
       role: "user",
-      text: this.mask(buildOpeningMessage(startUrlFor(task))),
+      text: this.mask(buildOpeningMessage(startUrlFor(task), task.payload.purpose)),
     });
     await this.toolbox.install();
     try {
-      let textOnlyTurns = 0;
+      let unusableTurns = 0;
       for (;;) {
         if (signal.aborted) return this.release("the worker is shutting down");
         if (this.options.page.isClosed()) {
@@ -259,20 +274,26 @@ class AgentRun {
           if (signal.aborted) return this.release("the worker is shutting down");
           if (modelSignal.aborted)
             return this.fail("The agent ran out of time waiting for the model");
+          if (error instanceof ProviderError && error.malformedToolCall) {
+            unusableTurns += 1;
+            if (unusableTurns >= MAX_UNUSABLE_TURNS) {
+              return this.fail("The model kept sending tool calls that could not be read");
+            }
+            this.messages.push({ role: "user", text: UNREADABLE_CALL });
+            continue;
+          }
           return this.providerFailure(error);
         }
         this.modelAnswers += 1;
         this.inputTokens += response.usage.inputTokens;
         this.outputTokens += response.usage.outputTokens;
-        this.messages.push({
-          role: "assistant",
-          text: response.text,
-          toolCalls: response.toolCalls,
-        });
+        const calls =
+          response.toolCalls.length > 0 ? response.toolCalls : this.recoverCallFromText(response);
+        this.messages.push({ role: "assistant", text: response.text, toolCalls: calls });
 
-        if (response.toolCalls.length === 0) {
-          textOnlyTurns += 1;
-          if (textOnlyTurns >= MAX_TEXT_ONLY_TURNS) {
+        if (calls.length === 0) {
+          unusableTurns += 1;
+          if (unusableTurns >= MAX_UNUSABLE_TURNS) {
             return this.fail("The model kept answering in text instead of using the tools");
           }
           this.messages.push({
@@ -281,9 +302,9 @@ class AgentRun {
           });
           continue;
         }
-        textOnlyTurns = 0;
+        unusableTurns = 0;
 
-        const ended = await this.handleCalls(response.toolCalls);
+        const ended = await this.handleCalls(calls);
         if (ended !== null) return ended;
       }
     } catch (error) {
@@ -301,6 +322,18 @@ class AgentRun {
     } finally {
       await this.toolbox.dispose();
     }
+  }
+
+  /** A call the model wrote out as text is still its call, so it runs instead of being nudged. */
+  private recoverCallFromText(response: { text: string }): ToolCall[] {
+    const recovered = toolCallInText(
+      response.text,
+      this.tools.map((tool) => tool.name),
+      `text_call_${this.recoveredCalls + 1}`,
+    );
+    if (recovered === null) return [];
+    this.recoveredCalls += 1;
+    return [recovered];
   }
 
   /** Parks the task with a picture of the filled form, which is what the person approves or declines. */
@@ -443,6 +476,11 @@ class AgentRun {
         return { kind: "complete", result: checked.result, usage: this.usage() };
       }
       case "blocked": {
+        const refusal = this.refuseMissingValueClaim(report.detail);
+        if (refusal !== null) {
+          answer(refusal, true);
+          return null;
+        }
         const screenshot = await this.toolbox.screenshot();
         const url = this.toolbox.blockedUrl();
         return {
@@ -474,6 +512,23 @@ class AgentRun {
     }
   }
 
+  /**
+   * The program holds every value of the task and types it on the model's say, so a block whose
+   * only claim is that those values are missing rests on a misreading. It is sent back once with
+   * that said, and a second block goes through, because the model may know something else.
+   */
+  private refuseMissingValueClaim(detail: string): string | null {
+    if (this.missingValueBlockRefused || !MISSING_VALUE_CLAIM.test(detail)) return null;
+    const mentioned = ProfileField.options.filter((name) =>
+      new RegExp(`(?<![a-z])(?:${name}|${name.replaceAll("_", " ")})(?![a-z])`, "i").test(detail),
+    );
+    if (mentioned.some((name) => !this.fieldNames.includes(name))) return null;
+    if (mentioned.length === 0 && !PERSON_DETAILS_CLAIM.test(detail)) return null;
+    this.missingValueBlockRefused = true;
+    const held = (mentioned.length > 0 ? mentioned : this.fieldNames).join(", ");
+    return `The program holds ${held} and types them when you name the field. A placeholder such as {{city}} on a page is the person's own value. Carry on. If something else stops you, report blocked again and name it.`;
+  }
+
   /** The result must fit the task's own purpose and be backed by what the run did. */
   private checkResult(raw: unknown): { result: unknown } | { error: string } {
     const { task } = this.options;
@@ -492,6 +547,9 @@ class AgentRun {
       return {
         error: `The outcome ${result.form.outcome} needs the form to have been submitted, and nothing has been clicked. Do the work, or report failed.`,
       };
+    }
+    if (NEEDS_A_CLICK.has(result.form.outcome) && this.toolbox.submitRefused) {
+      return { error: SUBMIT_REFUSED_BY_BROWSER };
     }
     // Text copied from the page can echo the person's own details, and the server keeps it.
     const form = FormResult.parse({
@@ -538,7 +596,33 @@ class AgentRun {
     if (!restored.success) {
       return { error: `A candidate was not valid: ${describeIssues(restored.error)}` };
     }
+    const question = this.questionScanReport(restored.data.candidates.map((c) => c.recordUrl));
+    if (question !== null) return { error: question };
     return { result: { purpose: "scan", scan: restored.data } };
+  }
+
+  /**
+   * The first report is held against what check_record already found: a record that fits and is
+   * missing, one that contradicts and is in, one that was never opened to decide. The model may
+   * overrule the check by sending the same report again.
+   */
+  private questionScanReport(reported: string[]): string | null {
+    if (this.scanCheckSpent) return null;
+    const { missing, contradicting, unopened } = this.toolbox.scanVerdictsAgainst(reported);
+    const clauses = [
+      missing.length > 0
+        ? `check_record found these fit and they are missing: ${missing.join(", ")}`
+        : null,
+      contradicting.length > 0
+        ? `these contradict the person and are in your report: ${contradicting.join(", ")}`
+        : null,
+      unopened.length > 0 ? `these were never opened: ${unopened.join(", ")}` : null,
+    ].filter((clause): clause is string => clause !== null);
+    if (clauses.length === 0) return null;
+    this.scanCheckSpent = true;
+    return this.mask(
+      `Before you finish: ${clauses.join("; ")}. Fix the candidates and report again. If you are sure, send the same report again.`,
+    );
   }
 }
 

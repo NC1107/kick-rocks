@@ -362,7 +362,9 @@ describeBrowser("the rules the code enforces", () => {
     ]);
     const refused = provider.requests[2]?.messages.at(-1);
     expect(refused?.role === "tool" && refused.results[0]?.isError).toBe(true);
-    expect(refused?.role === "tool" && refused.results[0]?.content).toContain("no phone value");
+    expect(refused?.role === "tool" && refused.results[0]?.content).toContain(
+      "phone is not a field of this task",
+    );
     expect(firstNameLine(provider)).not.toContain("value=");
   });
 
@@ -896,26 +898,24 @@ describeBrowser("the final report", () => {
 
   it("rebuilds scan candidates from what the page really showed, not from the masked text the model copied", async () => {
     const task = agentTask({ payload: { purpose: "scan" } });
-    const { outcome, provider } = await run(
-      [
-        navigate("/search"),
-        (v) => ({
-          calls: [
-            [
-              "report",
-              {
-                status: "complete",
-                result: {
-                  purpose: "scan",
-                  scan: { candidates: [candidateFromSnapshot(v, 0), candidateFromSnapshot(v, 1)] },
-                },
-              },
-            ],
-          ],
-        }),
+    // The page's own comparison calls the second record a different person, which is a reason to ask once.
+    const reportBoth: Step = (v) => ({
+      calls: [
+        [
+          "report",
+          {
+            status: "complete",
+            result: {
+              purpose: "scan",
+              scan: { candidates: [candidateFromSnapshot(v, 0), candidateFromSnapshot(v, 1)] },
+            },
+          },
+        ],
       ],
-      { task },
-    );
+    });
+    const { outcome, provider } = await run([navigate("/search"), reportBoth, reportBoth], {
+      task,
+    });
     const seen = provider.requests[1]?.messages.at(-1);
     const snapshot = seen?.role === "tool" ? (seen.results[0]?.content ?? "") : "";
     expect(snapshot).toContain("{{first_name}} {{last_name}}");
@@ -1904,5 +1904,281 @@ describeBrowser("everything the profile holds, not only what the task uses", () 
       { task: agentTask({ payload: { purpose: "scan" } }) },
     );
     expect(snapshotOf(provider)).toContain("Houston");
+  });
+});
+
+/** A model that answers from a script, except that a step which is an error is thrown, as an endpoint would. */
+function withErrors(steps: (Step | ProviderError)[]): ScriptedProvider {
+  const inner = scripted(steps.filter((step): step is Step => !(step instanceof ProviderError)));
+  const requests: ScriptedProvider["requests"] = [];
+  let turn = 0;
+  return {
+    ...inner,
+    requests,
+    async complete(request) {
+      const step = steps[turn];
+      turn += 1;
+      requests.push({ ...request, messages: structuredClone(request.messages) });
+      if (step instanceof ProviderError) throw step;
+      return inner.complete(request);
+    },
+  };
+}
+
+const UNREADABLE = new ProviderError(
+  "The model endpoint answered 500: error parsing tool call: raw='I will click it'",
+  "unavailable",
+  500,
+  false,
+  true,
+);
+
+describeBrowser("a tool call the endpoint could not read", () => {
+  it("tells the model what to change and carries on", async () => {
+    const provider = withErrors([
+      UNREADABLE,
+      navigate("/optout"),
+      { calls: [["report", { status: "release" }]] },
+    ]);
+    const { outcome } = await run([], { provider });
+    expect(outcome.report.kind).toBe("release");
+    expect(outcome.report).toMatchObject({ reason: expect.any(String) });
+    const told = provider.requests[1]?.messages.at(-1);
+    expect(told).toEqual({
+      role: "user",
+      text: "Your last tool call could not be read. Put only the JSON arguments in the call, with no words before them, and call the tool again.",
+    });
+  });
+
+  it("does not hand the task back as an outage, and gives up after three in a row", async () => {
+    const provider = withErrors([UNREADABLE, UNREADABLE, UNREADABLE]);
+    const { outcome } = await run([], { provider });
+    expect(provider.requests).toHaveLength(3);
+    expect(outcome.report).toMatchObject({
+      kind: "fail",
+      report: {
+        error: "The model kept sending tool calls that could not be read",
+        retryable: false,
+      },
+    });
+  });
+
+  it("counts together with text-only turns, and a call that ran starts the count again", async () => {
+    const mixed = withErrors([{ text: "hm" }, UNREADABLE, { text: "hm" }]);
+    expect((await run([], { provider: mixed })).outcome.report.kind).toBe("fail");
+    const recovered = withErrors([
+      UNREADABLE,
+      { text: "hm" },
+      navigate("/optout"),
+      UNREADABLE,
+      { text: "hm" },
+      { calls: [["report", { status: "release" }]] },
+    ]);
+    expect((await run([], { provider: recovered })).outcome.report.kind).toBe("release");
+  });
+
+  it("still releases the task when the endpoint is really down", async () => {
+    const provider = withErrors([new ProviderError("down", "unavailable", 500)]);
+    expect((await run([], { provider })).outcome.report).toMatchObject({ kind: "release" });
+  });
+});
+
+describeBrowser("a tool call written out as text", () => {
+  const call = (name: string, args: unknown) => JSON.stringify({ name, arguments: args });
+
+  it("runs the one call the text holds instead of nudging", async () => {
+    const { outcome, provider } = await run([
+      { text: call("navigate", { url: `${ORIGIN}/optout` }) },
+      { calls: [["report", { status: "release" }]] },
+    ]);
+    const answer = provider.requests[1]?.messages.at(-1);
+    expect(answer?.role === "tool" && answer.results[0]?.content).toContain("Remove your listing");
+    expect(
+      provider.requests[1]?.messages.some(
+        (m) => m.role === "user" && m.text.includes("Use one of the tools"),
+      ),
+    ).toBe(false);
+    expect(outcome.steps).toBe(2);
+  });
+
+  it("reads a call inside tool_call tags, with words around it", async () => {
+    const { outcome } = await run([
+      {
+        text: `Opening the page.\n<tool_call>\n${call("navigate", { url: `${ORIGIN}/optout` })}\n</tool_call>`,
+      },
+      {
+        text: `<tool_call>${call("report", { status: "release", reason: "text call" })}</tool_call>`,
+      },
+    ]);
+    expect(outcome.report).toMatchObject({ kind: "release", reason: "text call" });
+  });
+
+  it("leaves a name the task was not offered, and two calls, to the nudge", async () => {
+    const { outcome, provider } = await run([
+      { text: call("check_record", {}) },
+      { text: `${call("snapshot", {})} ${call("snapshot", {})}` },
+      { text: call("rm", { path: "/" }) },
+    ]);
+    expect(provider.requests).toHaveLength(3);
+    expect(outcome.report).toMatchObject({ kind: "fail" });
+    expect(outcome.steps).toBe(0);
+  });
+});
+
+describeBrowser("a scan report held against the worker's comparison", () => {
+  const scanTask = () => agentTask({ payload: { purpose: "scan" } });
+  const report = (paths: string[]): Step => ({
+    calls: [
+      [
+        "report",
+        {
+          status: "complete",
+          result: {
+            purpose: "scan",
+            scan: {
+              candidates: paths.map((path) => ({
+                recordUrl: `${ORIGIN}${path}`,
+                name: "Someone",
+                locations: [],
+              })),
+            },
+          },
+        },
+      ],
+    ],
+  });
+  const lastAnswer = (provider: ScriptedProvider, index: number) => {
+    const message = provider.requests[index]?.messages.at(-1);
+    return message?.role === "tool" ? (message.results[0]?.content ?? "") : "";
+  };
+
+  it("refuses the first report that leaves out a fit, and takes the same report the second time", async () => {
+    const same = report(["/people/r1", "/people/r2"]);
+    const { outcome, provider } = await run([navigate("/scan-cards"), same, same], {
+      task: scanTask(),
+    });
+    expect(lastAnswer(provider, 2)).toBe(
+      `Before you finish: check_record found these fit and they are missing: ${ORIGIN}/people/r3; these were never opened: ${ORIGIN}/people/r5. Fix the candidates and report again. If you are sure, send the same report again.`,
+    );
+    expect(outcome.report.kind).toBe("complete");
+  });
+
+  it("refuses a report that includes a record the comparison called a different person", async () => {
+    const wrong = report(["/people/r1", "/people/r2", "/people/r3", "/people/r4", "/people/r5"]);
+    const { provider } = await run([navigate("/scan-cards"), wrong, wrong], { task: scanTask() });
+    const answer = lastAnswer(provider, 2);
+    expect(answer).toContain(
+      `these contradict the person and are in your report: ${ORIGIN}/people/r4`,
+    );
+    expect(answer).not.toContain("check_record found these fit");
+    expect(answer).toContain(`these were never opened: ${ORIGIN}/people/r5`);
+  });
+
+  it("lets a report through the first time when it follows what was found", async () => {
+    const { outcome, provider } = await run(
+      [
+        navigate("/scan-cards"),
+        navigate("/people/r5"),
+        { calls: [["check_record", {}]] },
+        report(["/people/r1", "/people/r2", "/people/r3", "/people/r5"]),
+      ],
+      { task: scanTask() },
+    );
+    expect(provider.requests).toHaveLength(4);
+    expect(outcome.report.kind).toBe("complete");
+  });
+
+  it("asks about a scan only once, even when the second report is different", async () => {
+    const { outcome } = await run([navigate("/scan-cards"), report([]), report(["/people/r4"])], {
+      task: scanTask(),
+    });
+    expect(outcome.report.kind).toBe("complete");
+  });
+});
+
+describeBrowser("a submit the browser refused", () => {
+  const submitted = {
+    calls: [["report", { status: "complete", result: removed }]],
+  } satisfies Step;
+
+  it("does not accept submitted while the last submit was refused, and takes a block that names the detail", async () => {
+    const { outcome, provider } = await run([
+      navigate("/optout"),
+      (v) => ({ calls: [["click", { ref: v.ref("Submit request") }]] }),
+      submitted,
+      {
+        calls: [
+          [
+            "report",
+            { status: "blocked", reason: "unknown", detail: "The form needs a date of birth." },
+          ],
+        ],
+      },
+    ]);
+    const click = provider.requests[2]?.messages.at(-1);
+    expect(click?.role === "tool" && click.results[0]?.content).toContain(
+      "The browser did not send the form, because these required controls are empty or invalid:",
+    );
+    const refused = provider.requests[3]?.messages.at(-1);
+    expect(refused?.role === "tool" && refused.results[0]).toMatchObject({
+      isError: true,
+      content:
+        "Your last submit was not sent: the browser refused it because required controls are empty. Fill them from the task's fields, or report blocked and name the detail the task does not have.",
+    });
+    expect(outcome.report).toMatchObject({ kind: "block", report: { reason: "unknown" } });
+    expect((await fixtureState()).submissions).toEqual([]);
+  });
+
+  it("accepts submitted once the form has been filled and sent", async () => {
+    const { outcome } = await run([
+      navigate("/optout"),
+      (v) => ({ calls: [["click", { ref: v.ref("Submit request") }]] }),
+      ...fillForm.slice(1),
+      { calls: [["report", { status: "complete", result: removed }]] },
+    ]);
+    expect(outcome.report.kind).toBe("complete");
+    expect((await fixtureState()).submissions).toHaveLength(1);
+  });
+});
+
+describeBrowser("a block that only says the task's own values are missing", () => {
+  const block = (detail: string, reason = "unknown"): Step => ({
+    calls: [["report", { status: "blocked", reason, detail }]],
+  });
+  const claim = "Missing required person details: first_name, last_name, email.";
+
+  it("is sent back once, naming the fields the program holds, and the same block then goes through", async () => {
+    const { outcome, provider } = await run([navigate("/optout"), block(claim), block(claim)]);
+    const answer = provider.requests[2]?.messages.at(-1);
+    expect(answer?.role === "tool" && answer.results[0]).toMatchObject({
+      isError: true,
+      content:
+        "The program holds first_name, last_name, email and types them when you name the field. A placeholder such as {{city}} on a page is the person's own value. Carry on. If something else stops you, report blocked again and name it.",
+    });
+    expect(outcome.report).toMatchObject({ kind: "block", report: { reason: "unknown" } });
+  });
+
+  it("is sent back when the fields are written as words, or when the page's placeholders are the complaint", async () => {
+    const words = await run([
+      block("The search needs the first name and the state, which are missing."),
+      block("x"),
+    ]);
+    expect(words.outcome.report.kind).toBe("block");
+    expect(words.provider.requests).toHaveLength(2);
+    const placeholders = await run([
+      block("The search results contain placeholder values."),
+      block("x"),
+    ]);
+    expect(placeholders.provider.requests).toHaveLength(2);
+  });
+
+  it("goes through at once when it names a detail the task does not have, or something else entirely", async () => {
+    const dob = await run([block("Missing date_of_birth, which the form requires.")]);
+    expect(dob.provider.requests).toHaveLength(1);
+    expect(dob.outcome.report.kind).toBe("block");
+    const other = await run([block("A login is required to see the results.", "login_required")]);
+    expect(other.provider.requests).toHaveLength(1);
+    const mixed = await run([block("Missing first_name and the phone number.")]);
+    expect(mixed.provider.requests).toHaveLength(1);
   });
 });

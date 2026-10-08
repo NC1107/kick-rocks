@@ -236,6 +236,10 @@ export function markdownSummary(results: BenchResults): string {
         }
         const reported = describeReport(run.report);
         if (reported) lines.push(`  - Reported ${reported}`);
+        const unusable = run.calls.filter((call) => call.text !== undefined).at(-1);
+        if (unusable?.text !== undefined) {
+          lines.push(`  - Last ${unusable.name}: ${JSON.stringify(unusable.text.slice(0, 200))}`);
+        }
         for (const v of run.judgement.violations) {
           lines.push(
             `  - Violation ${v.kind}${v.enforced ? " (stopped by the worker)" : " (reached the site)"}: ${v.detail}`,

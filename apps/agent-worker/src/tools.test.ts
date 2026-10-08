@@ -3,6 +3,7 @@ import {
   CheckArgs,
   CheckRecordArgs,
   ClickArgs,
+  fieldOfPlaceholder,
   ReportArgs,
   SelectArgs,
   SnapshotArgs,
@@ -111,6 +112,37 @@ describe("argument schemas", () => {
       ref: "e1",
       field: "state",
     });
+  });
+
+  it("takes null or an empty string for the option or the field a model has none of", () => {
+    expect(SelectArgs.parse({ ref: "e1", field: null, option: "Texas" })).toEqual({
+      ref: "e1",
+      option: "Texas",
+    });
+    expect(SelectArgs.parse({ ref: "e1", field: "", option: "Texas" })).toEqual({
+      ref: "e1",
+      option: "Texas",
+    });
+    expect(SelectArgs.parse({ ref: "e1", field: "state", option: "" })).toEqual({
+      ref: "e1",
+      field: "state",
+    });
+    expect(SelectArgs.safeParse({ ref: "e1", field: null, option: null }).success).toBe(false);
+  });
+
+  it("reads an option written as a field's placeholder as that field", () => {
+    expect(fieldOfPlaceholder("{{state}}")).toBe("state");
+    expect(fieldOfPlaceholder(" {{birth_year}} ")).toBe("birth_year");
+    expect(fieldOfPlaceholder("{{nonsense}}")).toBeUndefined();
+    expect(fieldOfPlaceholder("Texas {{state}}")).toBeUndefined();
+    expect(fieldOfPlaceholder(undefined)).toBeUndefined();
+  });
+
+  it("reads a ref of an empty string or none as no ref", () => {
+    for (const ref of ["", " ", "none", "None", "null"]) {
+      expect(CheckRecordArgs.parse({ ref }).ref).toBeUndefined();
+    }
+    expect(CheckRecordArgs.parse({ ref: "e12" }).ref).toBe("e12");
   });
 
   it("checks a record by the ref of its link, or by none for the page being read", () => {

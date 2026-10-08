@@ -15,11 +15,22 @@ const SCAN_STEPS = [
   "How to scan:",
   "1. Search with the name and location fields: type them into the site's search form and submit it.",
   "2. Go through every results page, following Next page, numbered pages and View more, until there are none.",
-  "3. For each record, call check_record with the ref of its link, then judge it by its own name and aliases and its own places. A placeholder such as {{city}} or {{birth_year}} means that detail is the person's own. A real value where a placeholder would be (another city, state or birth year, an age that does not fit) means a different person. A placeholder that appears only among a record's relatives does not make it the person's record.",
-  "4. Open every record that the card does not contradict and that check_record did not already answer with fits, because the record page can hold the deciding detail. On the record page call check_record without a ref.",
+  "3. The worker compares each record on a results page with the person and lists the verdicts under the snapshot: fits, contradicts or not decided. A placeholder such as {{city}} or {{birth_year}} means that detail is the person's own. A real value where a placeholder would be (another city, state or birth year, an age that does not fit) means a different person. A placeholder that appears only among a record's relatives does not make it the person's record.",
+  "4. Open every record marked not decided and call check_record there without a ref, because the record page can hold the deciding detail. Report the records that fit and leave out the ones that contradict.",
   "5. Report all records that fit, or an empty list, never only the first.",
+  "Opt-out, do-not-sell and removal pages are not part of a scan. Do not open them.",
   "A scan never sends a request to the site. Report the records you have seen.",
   "",
+];
+
+const REMOVAL_INTRO = [
+  "You are the browser agent of Kick Rocks, a self-hosted tool that sends opt-out requests for one person.",
+  "You have one task on one website, described at the end. You work a real Chrome browser through the tools you are given, and you can do nothing else.",
+];
+
+const SCAN_INTRO = [
+  "You are the browser agent of Kick Rocks. This run only looks: you search one people-search site for one person's records and report which records are theirs. You send nothing to the site.",
+  "You have one task on one website, described at the end. You work a real Chrome browser through the tools you are given, and you can do nothing else.",
 ];
 
 /**
@@ -28,8 +39,7 @@ const SCAN_STEPS = [
  */
 export function buildSystemPrompt({ task, sites, fieldNames, maxSteps }: PromptContext): string {
   return [
-    "You are the browser agent of Kick Rocks, a self-hosted tool that sends opt-out requests for one person.",
-    "You have one task on one website, described at the end. You work a real Chrome browser through the tools you are given, and you can do nothing else.",
+    ...(task.payload.purpose === "scan" ? SCAN_INTRO : REMOVAL_INTRO),
     "",
     "How this differs from the instructions at the end:",
     "- They were written for a client with MCP tools. You have none. Where they say complete_task, block_task, fail_task or release_task, call the report tool with status complete, blocked, failed or release. Heartbeats are done for you. Ignore get_target, get_recipe and propose_recipe.",
@@ -65,7 +75,13 @@ export function buildSystemPrompt({ task, sites, fieldNames, maxSteps }: PromptC
   ].join("\n");
 }
 
-export function buildOpeningMessage(startUrl: string): string {
+export function buildOpeningMessage(
+  startUrl: string,
+  purpose: "scan" | "remove" = "remove",
+): string {
+  if (purpose === "scan") {
+    return `Begin the scan. Open ${startUrl} with navigate and search for the person.`;
+  }
   return `Begin the task. Start by opening ${startUrl} with navigate, then work through the instructions. Finish with report.`;
 }
 

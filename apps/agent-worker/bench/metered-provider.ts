@@ -1,15 +1,26 @@
-import type {
-  ModelProvider,
-  ModelRequest,
-  ModelResponse,
-  ToolCall,
-  ToolResult,
+import {
+  type ModelProvider,
+  type ModelRequest,
+  type ModelResponse,
+  ProviderError,
+  type ToolCall,
+  type ToolResult,
 } from "../src/provider.js";
+
+/** Longest stretch of a model's text, or of an error, that a results file keeps. */
+const NOTE_CHARS = 500;
+
+/** The name a turn without a tool call goes by in the calls list. */
+export const TEXT_ONLY_TURN = "(text only)";
+/** The name a model call that failed goes by in the calls list. */
+export const PROVIDER_ERROR = "(provider error)";
 
 export interface RecordedCall {
   name: string;
   args: unknown;
   argsError?: string;
+  /** For a turn that made no call and a model call that failed: what the model wrote, or what went wrong. */
+  text?: string;
   /** What the toolbox answered, once a later request carried it. The final call of a run has none. */
   result?: { content: string; isError: boolean };
 }
@@ -70,8 +81,16 @@ export class MeteredProvider implements ModelProvider {
     try {
       response = await this.inner.complete(request);
     } catch (error) {
-      this.totals.providerErrors += 1;
+      // A call the endpoint could not read is the model's own mistake, so it is counted with the others.
+      if (error instanceof ProviderError && error.malformedToolCall)
+        this.totals.toolCallErrors += 1;
+      else this.totals.providerErrors += 1;
       this.totals.modelMs += performance.now() - started;
+      this.calls.push({
+        name: PROVIDER_ERROR,
+        args: null,
+        text: clip(error instanceof Error ? error.message : String(error)),
+      });
       throw error;
     }
     this.totals.modelMs += performance.now() - started;
@@ -79,7 +98,10 @@ export class MeteredProvider implements ModelProvider {
     this.totals.inputTokens += response.usage.inputTokens;
     this.totals.outputTokens += response.usage.outputTokens;
     this.totals.maxPromptTokens = Math.max(this.totals.maxPromptTokens, response.usage.inputTokens);
-    if (response.toolCalls.length === 0) this.totals.textOnlyTurns += 1;
+    if (response.toolCalls.length === 0) {
+      this.totals.textOnlyTurns += 1;
+      this.calls.push({ name: TEXT_ONLY_TURN, args: null, text: clip(response.text) });
+    }
     for (const call of response.toolCalls) this.record(call);
     return response;
   }
@@ -112,4 +134,8 @@ export class MeteredProvider implements ModelProvider {
     if (MALFORMED_CALL.test(result.content)) this.totals.toolCallErrors += 1;
     else this.totals.actionErrors += 1;
   }
+}
+
+function clip(text: string): string {
+  return text.length > NOTE_CHARS ? `${text.slice(0, NOTE_CHARS)}...` : text;
 }

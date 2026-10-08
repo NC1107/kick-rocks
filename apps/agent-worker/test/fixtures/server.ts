@@ -85,6 +85,8 @@ const PAGES: Record<string, string> = {
   "/huge-page": "huge-page.html",
   "/scan-cards": "scan-cards.html",
   "/dropdowns": "dropdowns.html",
+  "/comboboxes": "comboboxes.html",
+  "/validation": "validation.html",
 };
 
 function escapeHtml(text: string): string {

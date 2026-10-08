@@ -499,3 +499,192 @@ describeBrowser("the person's state", () => {
     expect(text).not.toContain("Texas");
   });
 });
+
+describeBrowser("a form the browser refuses to send", () => {
+  const REFUSED =
+    "The browser did not send the form, because these required controls are empty or invalid:";
+
+  it("clicks anyway and leads the answer with the controls that block the form, at most five", async () => {
+    await open("/validation");
+    const outcome = await toolbox.execute("click", { ref: await refOf("Send checked form") });
+    const text = textOf(outcome);
+    expect(text.startsWith(REFUSED)).toBe(true);
+    const listed = text
+      .split("\n")
+      .filter((line) => /^\[e\d+\] "/.test(line) && line.includes(": "));
+    expect(listed).toHaveLength(5);
+    expect(listed[0]).toMatch(/^\[e\d+\] "Nickname": .+/);
+    expect(listed.join("\n")).toContain('"Age"');
+    expect(listed.join("\n")).toContain('"Personal"');
+    expect(listed.filter((line) => line.includes('"Business"'))).toHaveLength(0);
+    expect(toolbox.clicks).toBe(1);
+    expect(toolbox.submitRefused).toBe(true);
+    expect((await fixtureState()).submissions).toEqual([]);
+  });
+
+  it("forgets the refusal when the next page is requested", async () => {
+    await open("/validation");
+    await toolbox.execute("click", { ref: await refOf("Send checked form") });
+    expect(toolbox.submitRefused).toBe(true);
+    await toolbox.execute("navigate", { url: `${ORIGIN}/optout` });
+    expect(toolbox.submitRefused).toBe(false);
+  });
+
+  it("forgets the refusal when the form is valid at the next submit", async () => {
+    await open("/optout", { ...PERSON, last_name: "Example" });
+    const submit = await refOf("Submit request");
+    await toolbox.execute("click", { ref: submit });
+    expect(toolbox.submitRefused).toBe(true);
+    await toolbox.execute("type", { ref: await refOf("First name"), field: "first_name" });
+    await toolbox.execute("type", { ref: await refOf("Last name"), field: "last_name" });
+    await toolbox.execute("type", { ref: await refOf("Email address"), field: "email" });
+    const second = await toolbox.execute("click", { ref: submit });
+    expect(textOf(second)).not.toContain("The browser did not send");
+    expect(toolbox.submitRefused).toBe(false);
+  });
+
+  it("says nothing of a form without validation, a control that skips it, or a button that is not a submit", async () => {
+    await open("/validation");
+    for (const label of ["Send unchecked form", "Send skipping the check", "Plain button"]) {
+      const text = textOf(await toolbox.execute("click", { ref: await refOf(label) }));
+      expect(text).not.toContain("The browser did not send");
+      await toolbox.execute("navigate", { url: `${ORIGIN}/validation` });
+    }
+    expect(toolbox.submitRefused).toBe(false);
+  });
+});
+
+describeBrowser("a page that did not change", () => {
+  it("says so after a click that changed nothing, and not after one that did", async () => {
+    await open("/dropdowns");
+    const plan = await refOf("Pick a plan");
+    const nothing = "Nothing on the page changed. Doing the same again will not help.";
+    expect(textOf(await toolbox.execute("click", { ref: plan }))).toContain(nothing);
+    await toolbox.execute("navigate", { url: `${ORIGIN}/optout` });
+    const changed = await toolbox.execute("click", { ref: await refOf("I agree to the terms") });
+    expect(textOf(changed)).not.toContain(nothing);
+  });
+
+  it("says so after a wait on a page that stayed as it was, but not after a navigation or a snapshot", async () => {
+    await open("/dropdowns");
+    const nothing = "Nothing on the page changed";
+    expect(textOf(await toolbox.execute("snapshot", {}))).not.toContain(nothing);
+    expect(textOf(await toolbox.execute("navigate", { url: `${ORIGIN}/dropdowns` }))).not.toContain(
+      nothing,
+    );
+    expect(textOf(await toolbox.execute("wait", { seconds: 0.2 }))).toContain(nothing);
+  });
+});
+
+describeBrowser("select on a custom combobox", () => {
+  async function picked(): Promise<string> {
+    return page.evaluate(`document.getElementById("picked").textContent`);
+  }
+
+  it("opens a list found through aria-controls and clicks the option that is the person's own", async () => {
+    await open("/comboboxes");
+    const outcome = await toolbox.execute("select", {
+      ref: await refOf("State"),
+      field: "state",
+    });
+    expect(outcome.kind === "result" && outcome.isError).toBe(false);
+    expect(textOf(outcome)).toMatch(/^Selected "\{\{state\}\}" in e\d+\.$/);
+    expect(await picked()).toBe("Texas;");
+    expect(toolbox.clicks).toBe(2);
+  });
+
+  it("reads an option written as the placeholder of a field the task has as that field", async () => {
+    await open("/comboboxes");
+    const outcome = await toolbox.execute("select", {
+      ref: await refOf("State"),
+      option: "{{state}}",
+    });
+    expect(outcome.kind === "result" && outcome.isError).toBe(false);
+    expect(await picked()).toBe("Texas;");
+  });
+
+  it("refuses an option that is not the person's own state, as a click would", async () => {
+    await open("/comboboxes");
+    const outcome = await toolbox.execute("select", {
+      ref: await refOf("State"),
+      option: "Alabama",
+    });
+    expect(outcome.kind === "result" && outcome.isError).toBe(true);
+    expect(textOf(outcome)).toContain("only the option that reads {{state}} may be clicked");
+    expect(await picked()).toBe("");
+  });
+
+  it("finds the options of a button that names no list, and chooses what is not about the person", async () => {
+    await open("/comboboxes");
+    const outcome = await toolbox.execute("select", {
+      ref: await refOf("Kind of request"),
+      option: "Opt out",
+    });
+    expect(textOf(outcome)).toMatch(/^Selected "Opt out" in e\d+\.$/);
+    expect(await picked()).toBe("Opt out;");
+  });
+
+  it("lists what the list holds when nothing matches", async () => {
+    await open("/comboboxes");
+    const outcome = await toolbox.execute("select", {
+      ref: await refOf("Kind of request"),
+      option: "Archive",
+    });
+    expect(outcome.kind === "result" && outcome.isError).toBe(true);
+    expect(textOf(outcome)).toContain('has no option "Archive". Options: "Delete", "Opt out"');
+  });
+
+  it("does not close a list that is already open", async () => {
+    await open("/comboboxes");
+    await toolbox.execute("click", { ref: await refOf("Kind of request") });
+    const outcome = await toolbox.execute("select", {
+      ref: await refOf("Kind of request"),
+      option: "Delete",
+    });
+    expect(textOf(outcome)).toMatch(/^Selected "Delete"/);
+    expect(await picked()).toBe("Delete;");
+  });
+
+  it("says what an element is when it is not a list", async () => {
+    await open("/comboboxes");
+    const outcome = await toolbox.execute("select", {
+      ref: await refOf("Search"),
+      option: "Texas",
+    });
+    expect(outcome.kind === "result" && outcome.isError).toBe(true);
+    expect(textOf(outcome)).toMatch(/^e\d+ is a button "Search", not a list of options\.$/);
+  });
+});
+
+describeBrowser("a field the task does not have", () => {
+  const ADVICE =
+    "If the form requires a detail the task does not have, do not guess: report blocked with reason unknown and name the detail.";
+
+  it("is named, with the fields the task has, when type asks for it", async () => {
+    await open("/optout");
+    const outcome = await toolbox.execute("type", {
+      ref: await refOf("First name"),
+      field: "date_of_birth_month",
+    });
+    expect(outcome.kind === "result" && outcome.isError).toBe(true);
+    expect(textOf(outcome)).toBe(
+      `date_of_birth_month is not a field of this task. Its fields are: first_name, email, state. ${ADVICE}`,
+    );
+  });
+
+  it("is named the same way when select asks for it, and for a real field the task holds no value for", async () => {
+    await open("/optout");
+    const state = await refOf("State");
+    const invented = await toolbox.execute("select", { ref: state, field: "date_of_birth_month" });
+    expect(textOf(invented)).toContain("date_of_birth_month is not a field of this task.");
+    const empty = await toolbox.execute("select", { ref: state, field: "phone" });
+    expect(textOf(empty)).toContain("phone is not a field of this task.");
+    expect(textOf(empty)).toContain(ADVICE);
+  });
+
+  it("still answers a bad call that names no field with the general message", async () => {
+    await open("/optout");
+    const outcome = await toolbox.execute("select", { ref: await refOf("State") });
+    expect(textOf(outcome)).toBe("select needs a ref and either field or option");
+  });
+});

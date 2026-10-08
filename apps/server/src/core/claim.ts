@@ -122,7 +122,7 @@ export function agentInstructions(
         target.website);
   const goal =
     purpose === "scan"
-      ? `Find every listing of this person on ${target.name}. Search the site with the identifiers in "fields", and report every record that is consistent with all of the identifiers in "fields": leave out a record that contradicts one of them, such as a different city, or an age or birth year that does not fit. Report all the records that fit, or an empty list when none does, never only the first. Do not submit any opt-out or removal form.`
+      ? `Find every listing of this person on ${target.name}. Search the site with the identifiers in "fields", and report every record that is consistent with all of the identifiers in "fields": leave out a record that contradicts one of them, such as a different city, or an age or birth year that does not fit. Report all the records that fit, or an empty list when none does, never only the first.`
       : `Remove this person from ${target.name}${recordUrl ? ` (record: ${recordUrl})` : ""}. First, if the site offers to look up the status of an earlier request, do that with the task's fields. If it says the person is already removed or opted out, send nothing and finish with already_removed. Otherwise find the site's opt-out or removal page, complete it using only the identifiers in "fields", and submit it once.`;
   const why =
     reason === "recipe_failed"

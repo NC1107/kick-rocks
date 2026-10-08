@@ -216,29 +216,97 @@ export function compareRecord(
   return { verdict, lines, decision: nameOk && placeOk && birthOk ? "fits" : "undecided" };
 }
 
+export interface RecordJudgement {
+  /** One line per identifier, never a value. */
+  lines: string[];
+  decision: "fits" | "contradicts" | "undecided";
+  /** Which identifiers contradict the person, in words that carry no value. */
+  clashes: string[];
+}
+
 /**
- * The answer for the model: one verdict per identifier, never a value. On a record page nothing
- * more can be learned by looking further, so what the page leaves out does not hold a record back
- * when nothing it does show contradicts the person.
+ * On a record page nothing more can be learned by looking further, so what the page leaves out
+ * does not hold a record back when nothing it does show contradicts the person.
  */
+export function judgeRecord(
+  record: RecordText,
+  fields: ProfileFields,
+  year: number,
+  onRecordPage: boolean,
+): RecordJudgement {
+  const { verdict, lines, decision } = compareRecord(record, fields, year);
+  const clashes = [
+    verdict.name === "differs" ? "name differs" : null,
+    verdict.place === "absent" ? "place differs" : null,
+    verdict.birthYear === "differs" ? "birth year differs" : null,
+    verdict.age === "does not fit" ? "age does not fit" : null,
+  ].filter((clash): clash is string => clash !== null);
+  if (decision === "contradicts") return { lines, decision, clashes };
+  const fits =
+    decision === "fits" || (onRecordPage && (verdict.name ?? "matches").startsWith("matches"));
+  return { lines, decision: fits ? "fits" : "undecided", clashes };
+}
+
+export const VERDICT_ENDINGS = {
+  fits: "fits: report it",
+  contradicts: "contradicts: leave it out",
+  undecided: "not decided: open the record page",
+} as const;
+
+/** The answer for the model: one verdict per identifier, never a value. */
 export function describeRecordCheck(
   record: RecordText,
   fields: ProfileFields,
   year: number,
   onRecordPage: boolean,
 ): string {
-  const { verdict, lines, decision } = compareRecord(record, fields, year);
-  const final =
-    decision === "contradicts"
-      ? "contradicts: leave it out"
-      : decision === "fits" || (onRecordPage && (verdict.name ?? "matches").startsWith("matches"))
-        ? "fits: report it"
-        : "not decided: open the record page";
-  return [...(lines.length > 0 ? lines : ["nothing to compare"]), final].join("\n");
+  const { lines, decision } = judgeRecord(record, fields, year, onRecordPage);
+  return [...(lines.length > 0 ? lines : ["nothing to compare"]), VERDICT_ENDINGS[decision]].join(
+    "\n",
+  );
 }
 
-/** Reads a card or a record page in the page, as text, for {@link describeRecordCheck}. */
-export const READ_RECORD_TEXT = `(el, mode) => {
+/**
+ * Whether a card or page names anybody: a heading, a line that reads as a name, or the person.
+ * A footer link's card names nobody, and what it says is no verdict on a record.
+ */
+export function namesSomebody(record: RecordText, fields: ProfileFields): boolean {
+  if (record.heading.trim() !== "") return true;
+  const { main } = partsOf(record.text);
+  const name = personName(fields);
+  return main.some((unit) => looksLikeName(unit) || (name !== null && nameIn(unit, name)));
+}
+
+/** A link on a results page with the card around it, as the page script reads it. */
+export interface CardText extends RecordText {
+  ref: string;
+  href: string;
+  /** What the link itself says, which names the record when its card has no heading. */
+  linkText: string;
+}
+
+/**
+ * The cards of a results page that are records: those with a heading or a link that reads as a
+ * name, once for each address, since a card often links its record twice.
+ */
+export function recordCards(found: readonly CardText[]): CardText[] {
+  const byAddress = new Map<string, CardText>();
+  for (const card of found) {
+    if (card.heading.trim() === "" && !looksLikeName(card.linkText)) continue;
+    const address = card.href.split("#")[0] ?? card.href;
+    const kept = byAddress.get(address);
+    if (kept === undefined || (kept.heading.trim() === "" && card.heading.trim() !== "")) {
+      byAddress.set(address, card);
+    }
+  }
+  return Array.from(byAddress.values());
+}
+
+/**
+ * Finds the card around a link: the article, list item or row it is in, and for a page that uses
+ * none of them, the widest box that holds this link and no other link to a record of the same kind.
+ */
+const FIND_CARD = `
   const clean = (text) => (text || "").replace(/\\s+/g, " ").trim();
   const kindOf = (a) => {
     try {
@@ -252,20 +320,68 @@ export const READ_RECORD_TEXT = `(el, mode) => {
     if (a.path === b.path) return a.search !== b.search;
     return a.count >= 2 && a.count === b.count && a.first === b.first;
   };
+  const cardOf = (el, anchors, kinds) => {
+    const marked = el.closest("article, li, tr");
+    if (marked) return marked;
+    const mine = kinds.get(el);
+    const others = anchors.filter((a) => a !== el && another(mine, kinds.get(a)));
+    let root = el;
+    while (root.parentElement && root.parentElement !== document.body && !others.some((a) => root.parentElement.contains(a))) {
+      root = root.parentElement;
+    }
+    return root;
+  };
+  const anchorsOfPage = () => {
+    const anchors = Array.from(document.querySelectorAll("a[href]"));
+    return { anchors, kinds: new Map(anchors.map((a) => [a, kindOf(a)])) };
+  };
+  const HEADINGS = "h1, h2, h3, h4, h5, h6";
+`;
+
+/** Reads a card or a record page in the page, as text, for {@link describeRecordCheck}. */
+export const READ_RECORD_TEXT = `(el, mode) => {
+  ${FIND_CARD}
   let root;
   if (mode === "page") {
     root = document.querySelector("main") || document.body;
   } else {
-    root = el.closest("article, li, tr");
-    if (!root) {
-      const mine = kindOf(el);
-      const others = Array.from(document.querySelectorAll("a[href]")).filter((a) => a !== el && another(mine, kindOf(a)));
-      root = el;
-      while (root.parentElement && root.parentElement !== document.body && !others.some((a) => root.parentElement.contains(a))) {
-        root = root.parentElement;
-      }
-    }
+    const { anchors, kinds } = anchorsOfPage();
+    root = cardOf(el, anchors, kinds);
   }
-  const heading = root.querySelector("h1, h2, h3, h4, h5, h6");
-  return { heading: heading ? clean(heading.textContent) : "", text: (root.innerText || "").slice(0, 6000) };
+  const heading = root.querySelector(HEADINGS);
+  return {
+    href: mode === "page" ? location.href : el.href,
+    heading: heading ? clean(heading.textContent) : "",
+    text: (root.innerText || "").slice(0, 6000),
+  };
 }`;
+
+/**
+ * Reads every link outside the header, navigation and footer with the card around it, once for
+ * each card. The ref is the one the latest snapshot gave the link, so a card is named as the model sees it.
+ */
+export const READ_RECORD_CARDS = `(() => {
+  ${FIND_CARD}
+  const { anchors, kinds } = anchorsOfPage();
+  const here = location.href.split("#")[0];
+  const cards = new Map();
+  for (const a of anchors) {
+    if (a.closest("header, nav, footer")) continue;
+    if (!/^https?:$/.test(a.protocol) || a.href.split("#")[0] === here) continue;
+    const ref = a.getAttribute("data-kr-ref");
+    if (!ref) continue;
+    const root = cardOf(a, anchors, kinds);
+    const heading = root.querySelector(HEADINGS);
+    const inHeading = Boolean(heading && heading.contains(a));
+    const kept = cards.get(root);
+    if (kept && (kept.inHeading || !inHeading)) continue;
+    cards.set(root, { ref, href: a.href, linkText: clean(a.textContent), inHeading, root, heading });
+  }
+  return Array.from(cards.values()).map((card) => ({
+    ref: card.ref,
+    href: card.href,
+    linkText: card.linkText,
+    heading: card.heading ? clean(card.heading.textContent) : "",
+    text: (card.root.innerText || "").slice(0, 6000),
+  }));
+})()`;

@@ -155,7 +155,22 @@ describe("the language model fallback", () => {
     const prompt = messages[0]?.content ?? "";
     for (const field of ProfileField.options) expect(prompt).toContain(field);
     expect(prompt).toContain(
-      "a utility bill, a Social Security number or an account number is not a profile field",
+      "a utility bill, a Social Security number or an account number is not one of these names",
+    );
+    expect(prompt).toContain(
+      'Example: "please reply with your street address" gives ["street"]; "send a copy of your driver\'s license" gives [].',
+    );
+    expect(prompt).not.toContain("The profile fields are:");
+  });
+
+  it("asks for the rationale before the class, in the schema and in the prompt", async () => {
+    expect(LLM_RESPONSE_SCHEMA.schema.required[0]).toBe("rationale");
+    expect(Object.keys(LLM_RESPONSE_SCHEMA.schema.properties)[0]).toBe("rationale");
+    const { calls, fetchImpl } = fakeLlm(verdict());
+    await classifierWith(LLM, fetchImpl).classify(message(), { requests: [target] });
+    const messages = (calls[0] as Call).body.messages as Array<{ role: string; content: string }>;
+    expect(messages[0]?.content).toContain(
+      "Write the rationale first: what the sender says they did or asks for, in one sentence. Then choose the class.",
     );
   });
 
@@ -165,7 +180,8 @@ describe("the language model fallback", () => {
     const messages = (calls[0] as Call).body.messages as Array<{ role: string; content: string }>;
     const prompt = messages[0]?.content ?? "";
     expect(prompt).toContain('"Case 12345 opened, status New" is auto_ack');
-    expect(prompt).toContain("is never unrelated, including a rejection or a pointer to a form");
+    expect(prompt).toContain("Choose it only when no class above fits.");
+    expect(prompt).not.toContain("is never unrelated");
     expect(prompt).toContain('"Thanks." is unknown');
     expect(prompt).toContain('"FYI" with a signature is unknown');
   });

@@ -94,15 +94,15 @@ describeBrowser("check_record on a result card", () => {
     const answer = textOf(
       await toolbox.execute("check_record", { ref: await cardRef("{{first_name}} A") }),
     );
-    expect(answer).toBe(
-      [
-        "name: matches",
-        "place: found in current or past places",
-        "birth year: matches",
-        "age: not shown",
-        "fits: report it",
-      ].join("\n"),
-    );
+    expect(answer.split("\n").slice(0, -1)).toEqual([
+      `record: ${ORIGIN}/people/r1`,
+      "name: matches",
+      "place: found in current or past places",
+      "birth year: matches",
+      "age: not shown",
+      "fits: report it",
+    ]);
+    expect(answer.split("\n").at(-1)).toMatch(/^So far: fits \S+\/people\/r1/);
   });
 
   it("says a card contradicts when the birth year and place differ", async () => {
@@ -112,7 +112,7 @@ describeBrowser("check_record on a result card", () => {
     );
     expect(answer).toContain("place: absent");
     expect(answer).toContain("birth year: differs");
-    expect(answer.endsWith("contradicts: leave it out")).toBe(true);
+    expect(answer).toContain("\ncontradicts: leave it out\nSo far:");
   });
 
   it("counts a name that only an alias carries, and one that only a relative list carries, apart", async () => {
@@ -121,7 +121,7 @@ describeBrowser("check_record on a result card", () => {
     expect(alias).toContain("name: matches as an alias");
     const relative = textOf(await toolbox.execute("check_record", { ref: await cardRef("Sam") }));
     expect(relative).toContain("name: differs");
-    expect(relative.endsWith("contradicts: leave it out")).toBe(true);
+    expect(relative).toContain("\ncontradicts: leave it out\nSo far:");
   });
 
   it("sends a card that shows nothing to decide with to the record page", async () => {
@@ -131,7 +131,7 @@ describeBrowser("check_record on a result card", () => {
     );
     expect(answer).toContain("name: matches");
     expect(answer).toContain("place: not shown");
-    expect(answer.endsWith("not decided: open the record page")).toBe(true);
+    expect(answer).toContain("\nnot decided: open the record page\nSo far:");
   });
 
   it("never prints a value of the person", async () => {
@@ -233,5 +233,97 @@ describeBrowser("custom dropdowns and tabs in the snapshot", () => {
   it("ends a page of one part with a note that it is the whole page", async () => {
     await open("/dropdowns");
     expect((await snapshot()).split("\n").at(-2)).toBe("(end of page)");
+  });
+});
+
+describeBrowser("the comparison of a results page", () => {
+  const HEADER = "Kick Rocks compared the records on this page with the person (no values shown):";
+
+  async function block(): Promise<string[]> {
+    const text = await snapshot();
+    const after = text.split("</page>\n")[1] ?? "";
+    return after.split("\n").filter((line) => line !== "");
+  }
+
+  it("lists a verdict for each record under the snapshot, with its ref and link and no value", async () => {
+    await open("/scan-cards");
+    const lines = await block();
+    expect(lines[0]).toBe(HEADER);
+    const cards = lines.slice(1, -1);
+    expect(cards).toHaveLength(5);
+    const at = (id: string) => cards.find((line) => line.includes(`/people/${id}:`));
+    expect(at("r1")).toMatch(new RegExp(`^\\[e\\d+\\] -> ${ORIGIN}/people/r1: fits$`));
+    expect(at("r2")).toMatch(/: contradicts \(place differs, birth year differs\)$/);
+    expect(at("r3")).toMatch(/: not decided, open it and call check_record there$/);
+    expect(at("r4")).toMatch(/: contradicts \(name differs\)$/);
+    expect(at("r5")).toMatch(/: not decided, open it and call check_record there$/);
+    for (const value of Object.values(PERSON))
+      expect(lines.join("\n")).not.toContain(value as string);
+  });
+
+  it("ends with what has been learned so far", async () => {
+    await open("/scan-cards");
+    const lines = await block();
+    expect(lines.at(-1)).toBe(
+      `So far: fits ${ORIGIN}/people/r1; not decided ${ORIGIN}/people/r3, ${ORIGIN}/people/r5; results pages seen /scan-cards.`,
+    );
+  });
+
+  it("leaves out the header, the footer and a page with a single record", async () => {
+    await open("/scan-cards");
+    expect((await block()).join("\n")).not.toContain("/search");
+    expect((await block()).join("\n")).not.toContain("/privacy");
+    await toolbox.execute("navigate", { url: `${ORIGIN}/people/r1` });
+    expect(await block()).toEqual([]);
+  });
+
+  it("is not given to a removal", async () => {
+    await open("/scan-cards", "remove");
+    expect(await block()).toEqual([]);
+  });
+
+  it("lets the record page overrule its card, and keeps that when the results are read again", async () => {
+    await open("/scan-cards");
+    await toolbox.execute("navigate", { url: `${ORIGIN}/people/r5` });
+    const answer = textOf(await toolbox.execute("check_record", {}));
+    expect(answer.split("\n")[0]).toBe(`record: ${ORIGIN}/people/r5`);
+    expect(answer).toContain("\nfits: report it\n");
+    expect(answer.split("\n").at(-1)).toBe(
+      `So far: fits ${ORIGIN}/people/r1, ${ORIGIN}/people/r5; not decided ${ORIGIN}/people/r3; results pages seen /scan-cards.`,
+    );
+    const again = await toolbox.execute("navigate", { url: `${ORIGIN}/scan-cards` });
+    const lines = (textOf(again).split("</page>\n")[1]?.split("\n") ?? []).filter(Boolean);
+    expect(lines.find((line) => line.includes("/people/r5:"))).toMatch(/not decided/);
+    expect(lines.at(-1)).toContain(`fits ${ORIGIN}/people/r1, ${ORIGIN}/people/r5`);
+  });
+
+  it("reads a ref of an empty string or none as no ref", async () => {
+    await open("/scan-cards");
+    await toolbox.execute("navigate", { url: `${ORIGIN}/people/r5` });
+    for (const ref of ["", "none", "None", null]) {
+      const answer = textOf(await toolbox.execute("check_record", { ref }));
+      expect(answer.split("\n")[0]).toBe(`record: ${ORIGIN}/people/r5`);
+    }
+  });
+
+  it("says a footer link is not a record link, instead of a verdict", async () => {
+    await open("/scan-cards");
+    const outcome = await toolbox.execute("check_record", { ref: await linkRef("/privacy") });
+    expect(outcome.kind === "result" && outcome.isError).toBe(true);
+    expect(textOf(outcome)).toMatch(
+      /^e\d+ is not a record link\. On a record page call check_record without a ref\.$/,
+    );
+  });
+
+  it("holds the report against it only once, and itemizes what is wrong", async () => {
+    await open("/scan-cards");
+    const verdicts = toolbox.scanVerdictsAgainst([`${ORIGIN}/people/r4`]);
+    expect(verdicts).toEqual({
+      missing: [`${ORIGIN}/people/r1`],
+      contradicting: [`${ORIGIN}/people/r4`],
+      unopened: [`${ORIGIN}/people/r3`, `${ORIGIN}/people/r5`],
+    });
+    await toolbox.execute("navigate", { url: `${ORIGIN}/people/r5` });
+    expect(toolbox.scanVerdictsAgainst([]).unopened).toEqual([`${ORIGIN}/people/r3`]);
   });
 });

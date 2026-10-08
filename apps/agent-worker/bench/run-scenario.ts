@@ -21,6 +21,7 @@ export interface SavedCall {
   name: string;
   args: unknown;
   argsError?: string;
+  text?: string;
   isError?: boolean;
   answer?: string;
 }
@@ -36,6 +37,7 @@ export function saveCalls(calls: readonly RecordedCall[]): SavedCall[] {
     name: call.name,
     args: call.args,
     ...(call.argsError === undefined ? {} : { argsError: call.argsError }),
+    ...(call.text === undefined ? {} : { text: call.text }),
     ...(call.result === undefined
       ? {}
       : { isError: call.result.isError, answer: clip(call.result.content, SAVED_ANSWER_CHARS) }),
@@ -86,6 +88,8 @@ export interface RunDeps {
 class StubApi {
   outcome: RecordedOutcome = { kind: "none" };
   mayHaveSubmitted = false;
+  /** Why the worker released the task, which the claim API does not carry. */
+  releaseReason = "released";
   private handedOut = false;
 
   constructor(
@@ -116,7 +120,7 @@ class StubApi {
     return {};
   };
   release = async (_id: string) => {
-    this.record({ kind: "release", reason: "released" });
+    this.record({ kind: "release", reason: this.releaseReason });
     return {};
   };
 
@@ -185,6 +189,7 @@ export async function runScenarioOnce(
             ...(progress ? { onMayHaveSubmitted: progress.mayHaveSubmitted } : {}),
           });
           steps = outcome.steps;
+          if (outcome.report.kind === "release") stub.releaseReason = outcome.report.reason;
           if (emptyFields.length > 0 && !page.isClosed()) {
             filledProbeFields = await page
               .evaluate<string[]>(

@@ -17,11 +17,14 @@ export const ClickArgs = z.object({ ref: Ref });
  * into, can be typed into a form.
  */
 export const TypeArgs = z.object({ ref: Ref, field: ProfileField });
+/** A model that has no option or no field to give sends an empty string or null for it, which means it gave none. */
+const ABSENT = (value: unknown) => (value === null || value === "" ? undefined : value);
+
 export const SelectArgs = z
   .object({
     ref: Ref,
-    field: ProfileField.optional(),
-    option: z.string().min(1).max(200).optional(),
+    field: z.preprocess(ABSENT, ProfileField.optional()),
+    option: z.preprocess(ABSENT, z.string().min(1).max(200).optional()),
   })
   .refine((args) => args.field !== undefined || args.option !== undefined, {
     message: "Give field or option",
@@ -30,8 +33,24 @@ export const SelectArgs = z
   .transform(({ ref, field, option }) =>
     field === undefined ? { ref, option } : { ref, field },
   ) as z.ZodType<{ ref: string; field?: ProfileField; option?: string }>;
+
+/**
+ * The field a model means when it writes an option as the placeholder the page showed it, such as
+ * {{state}}. It copies what it read, and what it read stands for the person's own value.
+ */
+export function fieldOfPlaceholder(option: string | undefined): ProfileField | undefined {
+  const name = /^\{\{(\w+)\}\}$/.exec(option?.trim() ?? "")?.[1];
+  const field = ProfileField.safeParse(name);
+  return field.success ? field.data : undefined;
+}
 /** Without a ref the record page being read is checked, which is what a model on a record page wants. */
-export const CheckRecordArgs = z.object({ ref: Ref.nullish() });
+export const CheckRecordArgs = z.object({
+  ref: z.preprocess(
+    (value) =>
+      typeof value === "string" && /^(|none|null)$/i.test(value.trim()) ? undefined : value,
+    Ref.nullish(),
+  ),
+});
 export const CheckArgs = z.object({ ref: Ref, checked: z.boolean().default(true) });
 export const WaitArgs = z.object({
   seconds: z.number().min(0.2).max(MAX_WAIT_SECONDS).default(2),
@@ -188,7 +207,7 @@ export function toolSpecsFor({ fieldNames, purpose }: ToolContext): ToolSpec[] {
     {
       name: "check_record",
       description:
-        "Compare a record with the person's details. Give the ref of a record link from the latest snapshot to read its card, or no ref to read the record page you are on. It tells you per identifier whether it matches, differs or is not shown, never the values, and ends with fits: report it, contradicts: leave it out, or not decided: open the record page.",
+        "Compare a record with the person's details. Give the ref of a record link from the latest snapshot to read its card, or no ref to read the record page you are on. It starts with the record link it judged, tells you per identifier whether it matches, differs or is not shown, never the values, and ends with fits: report it, contradicts: leave it out, or not decided: open the record page.",
       parameters: object(
         {
           ref: {

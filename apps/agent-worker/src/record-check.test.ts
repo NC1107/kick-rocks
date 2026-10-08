@@ -1,6 +1,12 @@
 import type { ProfileFields } from "@kickrocks/shared";
 import { describe, expect, it } from "vitest";
-import { describeRecordCheck } from "./record-check.js";
+import {
+  type CardText,
+  describeRecordCheck,
+  judgeRecord,
+  namesSomebody,
+  recordCards,
+} from "./record-check.js";
 
 const YEAR = 2026;
 const PERSON: ProfileFields = {
@@ -188,5 +194,65 @@ describe("the last line", () => {
     const answer = check("Jordan A Example", "Age 36\nAustin, TX\nBorn 1990");
     for (const value of ["Jordan", "Example", "Austin", "TX", "1990"])
       expect(answer).not.toContain(value);
+  });
+});
+
+describe("judgeRecord", () => {
+  it("names what clashes without a value", () => {
+    const judged = judgeRecord(
+      { heading: "Jordan Example", text: "Jordan Example\nBorn 1961 Dallas, TX" },
+      PERSON,
+      YEAR,
+      false,
+    );
+    expect(judged.decision).toBe("contradicts");
+    expect(judged.clashes).toEqual(["place differs", "birth year differs"]);
+    expect(JSON.stringify(judged)).not.toMatch(/1990|Austin/);
+  });
+
+  it("calls a record page that shows the name and contradicts nothing a fit, and its card not decided", () => {
+    const record = { heading: "Jordan Example", text: "Jordan Example\nNothing else here" };
+    expect(judgeRecord(record, PERSON, YEAR, true).decision).toBe("fits");
+    expect(judgeRecord(record, PERSON, YEAR, false).decision).toBe("undecided");
+  });
+});
+
+describe("namesSomebody", () => {
+  it("is true for a heading, a line that reads as a name, or the person, and false for a footer link", () => {
+    expect(namesSomebody({ heading: "Results", text: "" }, PERSON)).toBe(true);
+    expect(namesSomebody({ heading: "", text: "Sam Smith\nAustin, TX" }, PERSON)).toBe(true);
+    expect(namesSomebody({ heading: "", text: "jordan example" }, PERSON)).toBe(true);
+    expect(namesSomebody({ heading: "", text: "Privacy policy" }, PERSON)).toBe(false);
+    expect(namesSomebody({ heading: "", text: "Terms" }, PERSON)).toBe(false);
+  });
+});
+
+describe("recordCards", () => {
+  const card = (over: Partial<CardText>): CardText => ({
+    ref: "e1",
+    href: "https://a.test/p/1",
+    heading: "",
+    text: "",
+    linkText: "",
+    ...over,
+  });
+
+  it("keeps a card with a heading or a link that reads as a name, and drops the rest", () => {
+    const kept = recordCards([
+      card({ ref: "e1", href: "https://a.test/p/1", heading: "Jordan Example" }),
+      card({ ref: "e2", href: "https://a.test/p/2", linkText: "Dana Example" }),
+      card({ ref: "e3", href: "https://a.test/p/3", linkText: "Next page" }),
+      card({ ref: "e4", href: "https://a.test/p/4", linkText: "Austin, TX" }),
+    ]);
+    expect(kept.map((c) => c.ref)).toEqual(["e1", "e2"]);
+  });
+
+  it("merges cards by address, preferring the one with a heading, and ignores a fragment", () => {
+    const kept = recordCards([
+      card({ ref: "e1", href: "https://a.test/p/1", linkText: "Jordan Example" }),
+      card({ ref: "e2", href: "https://a.test/p/1#top", heading: "Jordan Example" }),
+      card({ ref: "e3", href: "https://a.test/p/2", heading: "Sam Smith" }),
+    ]);
+    expect(kept.map((c) => c.ref)).toEqual(["e2", "e3"]);
   });
 });

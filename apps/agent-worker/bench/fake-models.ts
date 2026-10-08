@@ -264,12 +264,17 @@ function scanScript(kind: FakeKind, id: number, task: AgentTask): Step[] {
       name: "{{first_name}} {{last_name}}",
       locations: ["{{city}}, {{state}}"],
     }));
-  const finish = (paths: string[]): Step =>
-    report("complete", { result: { purpose: "scan", scan: { candidates: candidates(paths) } } });
+  // The worker questions a scan's first report against its own comparison, and a second one goes through.
+  const finish = (paths: string[]): Step[] => {
+    const final = report("complete", {
+      result: { purpose: "scan", scan: { candidates: candidates(paths) } },
+    });
+    return [final, final];
+  };
   if (kind === "bad") {
     return [
       go(start),
-      finish(expected.contradicting.length > 0 ? expected.contradicting : ["/profile/zzzzzz"]),
+      ...finish(expected.contradicting.length > 0 ? expected.contradicting : ["/profile/zzzzzz"]),
     ];
   }
   const labels = SEARCH_LABELS.filter(([field]) => field in task.fields);
@@ -279,7 +284,7 @@ function scanScript(kind: FakeKind, id: number, task: AgentTask): Step[] {
     click("Search"),
     ...(walk ?? []).map((label) => click(label)),
     ...(expected.mustOpen ?? []).map((path) => go(`${origin}${path}`)),
-    finish(expected.recordPaths),
+    ...finish(expected.recordPaths),
   ];
 }
 

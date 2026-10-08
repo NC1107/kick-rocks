@@ -72,6 +72,12 @@ describe("buildSystemPrompt", () => {
     expect(scan).toContain("following Next page, numbered pages and View more");
     expect(scan).toContain("check_record");
     expect(scan).toContain(
+      "The worker compares each record on a results page with the person and lists the verdicts under the snapshot",
+    );
+    expect(scan).toContain(
+      "Open every record marked not decided and call check_record there without a ref",
+    );
+    expect(scan).toContain(
       "A placeholder such as {{city}} or {{birth_year}} means that detail is the person's own.",
     );
     expect(scan).toContain("only among a record's relatives does not make it the person's record");
@@ -82,6 +88,25 @@ describe("buildSystemPrompt", () => {
     expect(scan.indexOf("How to scan:")).toBeLessThan(scan.indexOf("Instructions for this task"));
     expect(prompt).not.toContain("How to scan:");
     expect(scan).not.toContain("\u2014");
+  });
+
+  it("opens a scan as a look and not as a sender of opt-out requests, and keeps it off opt-out pages", () => {
+    const scan = buildSystemPrompt({
+      task: agentTask({ payload: { purpose: "scan" } }),
+      sites: allowedSitesFor(TARGET),
+      fieldNames: ["first_name"],
+      maxSteps: 25,
+    });
+    expect(scan.startsWith("You are the browser agent of Kick Rocks. This run only looks:")).toBe(
+      true,
+    );
+    expect(scan).toContain("You send nothing to the site.");
+    expect(scan).not.toContain("sends opt-out requests");
+    expect(scan).toContain(
+      "Opt-out, do-not-sell and removal pages are not part of a scan. Do not open them.",
+    );
+    expect(prompt).toContain("a self-hosted tool that sends opt-out requests for one person");
+    expect(prompt).not.toContain("Opt-out, do-not-sell and removal pages are not part of a scan");
   });
 
   it("says none when the task carries no fields", () => {
@@ -149,5 +174,14 @@ describe("startUrlFor", () => {
 describe("buildOpeningMessage", () => {
   it("points at the start page", () => {
     expect(buildOpeningMessage("https://example.test/")).toContain("https://example.test/");
+  });
+
+  it("begins a scan by searching, and a removal by working through the instructions", () => {
+    expect(buildOpeningMessage("https://example.test/s", "scan")).toBe(
+      "Begin the scan. Open https://example.test/s with navigate and search for the person.",
+    );
+    expect(buildOpeningMessage("https://example.test/", "remove")).toContain(
+      "work through the instructions",
+    );
   });
 });

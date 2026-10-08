@@ -623,7 +623,7 @@ describe("agent tasks", () => {
   it("states the task, the rules, and the exact result shape for a scan", () => {
     const text = agentClaim("scan")?.instructions ?? "";
     expect(text).toContain("Example Broker");
-    expect(text).toContain("Do not submit any opt-out");
+    expect(text).not.toContain("opt-out or removal form");
     expect(text).toContain("block_task");
     expect(text).toContain("CAPTCHA");
     expect(text).toContain("complete_task");

@@ -2,8 +2,11 @@ import { existsSync } from "node:fs";
 import { findInstalledChrome } from "@kickrocks/worker/dist/browser.js";
 import { chromium } from "playwright";
 import { describe, expect, it } from "vitest";
+import { loadAgentWorkerConfig } from "../src/config.js";
 import { runBench } from "./bench.js";
+import { scripted } from "./fake-models.js";
 import type { BenchResults } from "./report.js";
+import { runScenarioOnce } from "./run-scenario.js";
 import { DEV_SCENARIOS, HELDOUT_REPLY_CASES, HELDOUT_SCENARIOS } from "./splits.js";
 
 const browserAvailable =
@@ -68,6 +71,30 @@ describeBrowser("benchmark harness", () => {
     },
     TWO_MINUTES * 2,
   );
+
+  it("keeps the reason the worker gave when it handed a task back, and the text of a turn without a call", async () => {
+    const config = loadAgentWorkerConfig({
+      KICKROCKS_WORKER_TOKEN: "benchmark-worker-token",
+      KICKROCKS_AGENT_PROVIDER: "openai",
+      KICKROCKS_AGENT_MODEL: "fake",
+      KICKROCKS_AGENT_BASE_URL: "http://127.0.0.1:9/v1",
+    });
+    const record = await runScenarioOnce(DEV_SCENARIOS[0] as (typeof DEV_SCENARIOS)[number], 1, {
+      config,
+      pace: "instant",
+      provider: () =>
+        scripted("releasing", [
+          { text: "I am not sure what to do." },
+          { calls: [["report", { status: "release", reason: "nothing on the page fits" }]] },
+        ]),
+    });
+    expect(record.report).toEqual({ kind: "release", reason: "nothing on the page fits" });
+    expect(record.calls[0]).toEqual({
+      name: "(text only)",
+      args: null,
+      text: "I am not sure what to do.",
+    });
+  });
 
   it("refuses a scenario that belongs to the other set", async () => {
     await expect(
