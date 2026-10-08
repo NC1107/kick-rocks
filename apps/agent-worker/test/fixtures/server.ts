@@ -123,6 +123,7 @@ const PAGES: Record<string, string> = {
   "/gate-delayed-submit": "gate-delayed-submit.html",
   "/gate-get": "gate-get.html",
   "/gate-worker": "gate-worker.html",
+  "/gate-hop": "gate-hop.html",
   "/gate-encode": "gate-encode.html",
   "/gate-custom": "gate-custom.html",
   "/gate-step1": "gate-step1.html",
@@ -286,6 +287,11 @@ export function startFixtureServer(): Promise<{
     }
     if (path === "/gate-csrf")
       return send(response, 200, page("gate-csrf.html", { CSRF: token() }));
+    if (path === "/gate-hop" && request.method === "POST") {
+      // A 307 sends the same body again, here to another page of the same site.
+      response.writeHead(307, { location: `${ORIGIN}/gate-optout` });
+      return response.end();
+    }
     if (request.method === "POST") {
       state.submissions.push({ path, host, fields: parseForm(body) });
       if (path === "/slow") await new Promise((done) => setTimeout(done, SLOW_RESPONSE_MS));

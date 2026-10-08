@@ -300,6 +300,27 @@ describeBrowser("what the page stored or set", () => {
   });
 });
 
+describeBrowser("a redirect that sends the same body again", () => {
+  it("is part of the release that was approved, and is not asked about a second time", async () => {
+    const sends = new FakeSends(() => "send");
+    await run([open("/gate-hop"), typeEmail, clickSubmit, giveBack], {
+      sends,
+      gate: { holdMs: 5_000 },
+    });
+    const state = await fixtureState();
+    expect(state.submissions.map((submission) => submission.path)).toEqual(["/gate-optout"]);
+    expect(sends.held).toHaveLength(1);
+    expect(sends.held[0]?.request.path).toBe("/gate-hop");
+    expect(sends.releases).toHaveLength(1);
+  });
+
+  it("is never followed when nobody approved the first request", async () => {
+    await run([open("/gate-hop"), typeEmail, clickSubmit], { sends: NOBODY() });
+    const posted = (await fixtureState()).hits.filter((hit) => hit.method === "POST");
+    expect(posted).toEqual([]);
+  });
+});
+
 describeBrowser("a send after the run has ended", () => {
   it("never reaches the site from a pagehide beacon or a late timer", async () => {
     await run([open("/gate-beacon"), typeEmail, { calls: [["report", { status: "release" }]] }], {

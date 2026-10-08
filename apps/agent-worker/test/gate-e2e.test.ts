@@ -412,6 +412,79 @@ describeBrowser("the outgoing gate end to end with the real server", () => {
     });
   });
 
+  describe("channels the page can use besides a form", () => {
+    it("holds a post made by a blob worker, and sends it once when the person says send", async () => {
+      const taskId = await startServer("/gate-worker");
+      const answered = answerHolds(taskId, ["send"]);
+      await workOnce(taskId, [open("/gate-worker"), typeEmail, wait(2), giveBack], {
+        holdMs: ANSWER_MS,
+      });
+      await answered;
+      const posts = (await fixtureState()).hits.filter((hit) => hit.path === "/gate-worker-post");
+      expect(posts).toHaveLength(1);
+      expect(releasedOf(taskId)).toHaveLength(1);
+    });
+
+    it("sends nothing through a nested worker, a shared worker or a service worker", async () => {
+      const nested = await startServer("/gate-worker-nested");
+      await workOnce(nested, [open("/gate-worker-nested"), typeEmail, wait(2), giveBack]);
+      expect((await fixtureState()).hits.map((hit) => hit.path)).not.toContain("/gate-inner-post");
+      await ctx.app.close();
+      await ctx.close();
+      await resetFixture();
+      const shared = await startServer("/gate-shared");
+      await workOnce(shared, [open("/gate-shared"), typeEmail, wait(2), giveBack]);
+      const paths = (await fixtureState()).hits.map((hit) => hit.path);
+      expect(paths).not.toContain("/gate-shared-post");
+      expect(paths).not.toContain("/sw.js");
+    });
+
+    it("refuses a value however the page packs it, and holds the unpacked ones", async () => {
+      const taskId = await startServer("/gate-encode");
+      await workOnce(taskId, [open("/gate-encode"), typeEmail, wait(2), giveBack]);
+      const paths = (await fixtureState()).hits.map((hit) => hit.path);
+      expect(paths).not.toContain("/gate-gzip-post");
+      expect(paths).not.toContain("/gate-pixel");
+      const rows = rowsOf(taskId);
+      expect(rows.filter((row) => row.kind === "refused").map((row) => row.reason)).toContain(
+        "third_party_value",
+      );
+      expect(JSON.stringify(rows.map((row) => row.request))).not.toContain("jordan@example.com");
+    });
+
+    it("holds a form navigation and a location change that carry the email", async () => {
+      const taskId = await startServer("/gate-nav");
+      await workOnce(taskId, [
+        open("/gate-nav"),
+        typeEmail,
+        (v) => ({ calls: [["click", { ref: v.ref("Go to results") }]] }),
+      ]);
+      expect((await fixtureState()).hits.map((hit) => hit.path)).not.toContain("/gate-collect");
+      const held = rowsOf(taskId).filter((row) => row.kind === "held");
+      expect(held).toHaveLength(1);
+      expect(held[0]?.request).toMatchObject({
+        method: "GET",
+        path: "/gate-collect",
+        isDocument: true,
+      });
+    });
+
+    it("follows a redirect that sends the same body again as part of the one release", async () => {
+      const taskId = await startServer("/gate-hop");
+      const answered = answerHolds(taskId, ["send"]);
+      const done = await workOnce(
+        taskId,
+        [open("/gate-hop"), typeEmail, snap, clickLabel("Submit request"), report],
+        { holdMs: ANSWER_MS },
+      );
+      await answered;
+      expect(done.status).toBe("done");
+      const { submissions } = await fixtureState();
+      expect(submissions.map((submission) => submission.path)).toEqual(["/gate-optout"]);
+      expect(rowsOf(taskId).filter((row) => row.kind === "held")).toHaveLength(1);
+    });
+  });
+
   describe("the same-label second form", () => {
     it("is not approved by the approval of the first form", async () => {
       const taskId = await startServer();
