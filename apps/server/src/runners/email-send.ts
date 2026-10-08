@@ -83,12 +83,19 @@ function domainOf(address: string): string {
  */
 export class EmailRunner {
   readonly pacer: MailPacer;
+  /** Sends that have not yet offered a message body, so a shutdown can tell which ones sent nothing. */
+  private readonly beforeData = new Set<string>();
 
   constructor(
     private readonly services: AppServices,
     random: () => number,
   ) {
     this.pacer = new MailPacer(services, random, services.config.sendGapMs);
+  }
+
+  /** A send that is still connecting or logging in has put nothing on the wire that could be delivered. */
+  sentNothingYet(taskId: string): boolean {
+    return this.beforeData.has(taskId);
   }
 
   /**
@@ -162,8 +169,11 @@ export class EmailRunner {
       return false;
     }
 
+    this.beforeData.add(task.id);
     try {
-      const result = await mail.transport(connectionOf(mailbox)).send(outgoing);
+      const result = await mail
+        .transport(connectionOf(mailbox))
+        .send(outgoing, { onData: () => this.beforeData.delete(task.id) });
       if (result.accepted.length === 0) {
         throw Object.assign(new Error("The mail server rejected the address"), {
           responseCode: 550,
@@ -181,6 +191,8 @@ export class EmailRunner {
         kind: permanent ? "site" : "network",
       });
       return false;
+    } finally {
+      this.beforeData.delete(task.id);
     }
 
     this.services.mailHolds.clear(mailbox.id);

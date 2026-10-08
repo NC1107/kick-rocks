@@ -372,6 +372,40 @@ describe("the claim loop", () => {
       expect(client.complete).toHaveBeenCalledTimes(13);
     });
 
+    it("gives up on a result the server keeps answering with an error and claims the next task", async () => {
+      const { controller, context } = setup();
+      const { client } = fakeClient([formTask(), { ...formTask(), id: "second" }]);
+      client.complete.mockRejectedValue(new WorkerApiError(500, "internal", "boom"));
+      const loop = runClaimLoop(context({ client }));
+      await until(() => client.complete.mock.calls.some(([id]) => id === "second"), controller);
+      await loop;
+      expect(client.complete.mock.calls.filter(([id]) => id !== "second")).toHaveLength(3);
+    });
+
+    it("keeps telling the server it is alive while a result waits for the server to come back", async () => {
+      const { controller, context } = setup();
+      const { client } = fakeClient([formTask()]);
+      for (let i = 0; i < 12; i++)
+        client.complete.mockRejectedValueOnce(new TypeError("fetch failed"));
+      const loop = runClaimLoop(
+        context({
+          client,
+          timing: {
+            leaseHeartbeatMs: 15,
+            idleHeartbeatMs: 1,
+            shutdownGraceMs: 80,
+            maxBackoffMs: 20,
+            reportAttempts: 3,
+            reportRetryMs: 5,
+          },
+        }),
+      );
+      await until(() => client.complete.mock.calls.length >= 13, controller);
+      await loop;
+      const busyBeats = client.heartbeat.mock.calls.filter(([beat]) => beat.busy);
+      expect(busyBeats.length).toBeGreaterThan(3);
+    });
+
     it("stops sending a result that cannot get through once the worker is stopping", async () => {
       const { controller, context } = setup();
       const { client } = fakeClient([formTask()]);

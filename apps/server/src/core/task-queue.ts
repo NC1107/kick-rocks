@@ -533,7 +533,10 @@ export function createTaskQueue({
           tx,
           row,
           {
-            error: "The lease expired",
+            error:
+              row.kind === "email_send"
+                ? "The send was interrupted and may or may not have been delivered"
+                : "The lease expired",
             retryable: true,
             delayMs: Math.max(retryDelayMs(row.attempts), lapsedHolderGraceMs),
             kind: "internal",

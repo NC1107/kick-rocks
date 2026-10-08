@@ -42,9 +42,17 @@ export interface SendResult {
   rejected: string[];
 }
 
+export interface SendHooks {
+  /**
+   * Called once the server has agreed to take the message and the body is about to go out. A send
+   * that fails before this proves nothing was delivered, and one that fails after it may have been.
+   */
+  onData?: (() => void) | undefined;
+}
+
 export interface MailTransport {
   verify(): Promise<VerifyResult>;
-  send(mail: OutgoingMail): Promise<SendResult>;
+  send(mail: OutgoingMail, hooks?: SendHooks): Promise<SendResult>;
 }
 
 export interface InboxMessage {

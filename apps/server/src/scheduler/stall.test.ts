@@ -37,16 +37,17 @@ afterEach(async () => {
   vi.restoreAllMocks();
 });
 
-/** A transport whose send never answers until the test lets it, like an SMTP host that went silent. */
-function stallSends() {
+/** A transport whose send never answers until the test lets it, like an SMTP host that went silent after taking the body, or one that never got past the greeting. */
+function stallSends({ reachData = true }: { reachData?: boolean } = {}) {
   let release: () => void = () => {};
   let sends = 0;
   const started = new Promise<void>((resolve) => {
     vi.spyOn(ctx.services.mail, "transport").mockReturnValue({
       verify: () => Promise.resolve({ ok: true, smtp: true, imap: true }) as never,
-      send: () =>
+      send: (_mail, hooks) =>
         new Promise((resolveSend) => {
           sends += 1;
+          if (reachData) hooks?.onData?.();
           release = () =>
             resolveSend({
               messageId: "<m@example.com>",
@@ -252,6 +253,24 @@ describe("stopping while a send never answers", () => {
       status: "leased",
       leaseOwner: "server:email-send",
       attempts: 1,
+    });
+    expect(ctx.services.requests.getOrThrow(request.id).status).toBe("queued");
+    stalled.release();
+  });
+
+  it("hands back the attempt of a send that never got past connecting", async () => {
+    const stalled = stallSends({ reachData: false });
+    const request = queueSend();
+    void scheduler.tick();
+    await stalled.started;
+    const [leased] = ctx.services.taskQueue.list({ status: "leased" });
+
+    await scheduler.stop({ graceMs: 50 });
+
+    expect(ctx.services.taskQueue.getOrThrow(leased?.id ?? "")).toMatchObject({
+      status: "queued",
+      leaseOwner: null,
+      attempts: 0,
     });
     expect(ctx.services.requests.getOrThrow(request.id).status).toBe("queued");
     stalled.release();

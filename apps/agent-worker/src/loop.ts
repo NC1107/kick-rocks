@@ -79,6 +79,11 @@ function transient(error: unknown): boolean {
   return !(error instanceof WorkerApiError) || error.status >= 500;
 }
 
+/** The server could not be reached, so nothing was judged: no answer came, or a proxy said it is down. */
+function unreachable(error: unknown): boolean {
+  return !(error instanceof WorkerApiError) || [502, 503, 504].includes(error.status);
+}
+
 /**
  * A result, a block or a failure that will not be retried says what happened and stays, however
  * the run was stopped: a removal that clicked is held for a person by the run itself, and handing
@@ -335,8 +340,9 @@ class Loop {
     };
 
     // A result, block or final failure is the only record of a run that cannot be repeated, so it is
-    // sent until the server takes it. Only a stopping worker gives up, because it has to exit.
-    // Anything else the lease expiring puts right again.
+    // sent for as long as the server cannot be reached. Only a stopping worker gives up, because it
+    // has to exit. A server that answers with an error would answer the same again, so that gets the
+    // bounded tries and the lease expiring puts the task right.
     const mustLand = isFinal(report);
     let triesAfterShutdown = 0;
     let pause = this.timing.reportRetryMs;
@@ -354,12 +360,15 @@ class Loop {
           return;
         }
         if (this.ctx.signal.aborted) triesAfterShutdown += 1;
-        const exhausted = (mustLand ? triesAfterShutdown : tries) >= this.timing.reportAttempts;
+        const unbounded = mustLand && unreachable(error);
+        const exhausted = (unbounded ? triesAfterShutdown : tries) >= this.timing.reportAttempts;
         if (!transient(error) || exhausted) {
           logger.error("could not report a task", { ...log, error: describeError(error) });
           return;
         }
         logger.warn("reporting failed, trying again", { ...log, error: describeError(error) });
+        // The lease timer is stopped by now, so this is the only sign that the worker is alive.
+        await this.beat(true, task.id);
         await sleepFor(pause, this.ctx.signal);
         pause = Math.min(pause * 2, this.timing.maxBackoffMs);
       }

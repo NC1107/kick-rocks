@@ -661,9 +661,17 @@ describe("reapExpiredLeases", () => {
       id: task.id,
       status: "queued",
       leaseOwner: "worker-1",
-      lastError: "The lease expired",
+      lastError: "The send was interrupted and may or may not have been delivered",
       runAfter: new Date(ctx.clock.now().getTime() + DEFAULT_LAPSED_HOLDER_GRACE_MS).toISOString(),
     });
+  });
+
+  it("keeps the plain reason for a task that is not a send", async () => {
+    queue.enqueue({ kind: "inbox_poll", payload: pollPayload() });
+    const task = queue.claim({ workerId: "worker-1", kinds: ["inbox_poll"], leaseMs: 5 * MINUTE });
+    ctx.clock.advance(5 * MINUTE);
+    queue.reapExpiredLeases();
+    expect(queue.getOrThrow(task?.id ?? "").lastError).toBe("The lease expired");
   });
 
   it("lets a late worker be rejected once someone else took over", async () => {
@@ -694,7 +702,9 @@ describe("reapExpiredLeases", () => {
     ctx.clock.advance(DAY);
     const [reaped] = queue.reapExpiredLeases();
     expect(reaped?.status).toBe("failed");
-    expect(seen).toEqual(["system:The lease expired"]);
+    expect(seen).toEqual([
+      "system:The send was interrupted and may or may not have been delivered",
+    ]);
   });
 
   describe("when the expiry used up the last attempt", () => {
@@ -707,7 +717,7 @@ describe("reapExpiredLeases", () => {
         id: task.id,
         status: "failed",
         leaseOwner: "worker-1",
-        lastError: "The lease expired",
+        lastError: "The send was interrupted and may or may not have been delivered",
       });
       return task;
     };
@@ -1098,7 +1108,7 @@ describe("expired leases", () => {
     ).toBeNull();
     expect(queue.getOrThrow(stuck.id)).toMatchObject({
       status: "queued",
-      lastError: "The lease expired",
+      lastError: "The send was interrupted and may or may not have been delivered",
     });
     ctx.clock.advance(DEFAULT_LAPSED_HOLDER_GRACE_MS);
     const next = queue.claim({ workerId: "worker-2", kinds: ["email_send"], leaseMs: MINUTE });

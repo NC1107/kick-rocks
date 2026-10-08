@@ -17,7 +17,10 @@ const FAST: Partial<LoopTiming> = {
 function fakeApi(tasks: (ClaimedTask | null | Error)[]) {
   const queue = [...tasks];
   const api = {
-    heartbeat: vi.fn(async () => ({ ok: true as const, serverTime: "2026-10-07T00:00:00.000Z" })),
+    heartbeat: vi.fn<AgentApi["heartbeat"]>(async () => ({
+      ok: true as const,
+      serverTime: "2026-10-07T00:00:00.000Z",
+    })),
     claim: vi.fn(async () => {
       const next = queue.shift();
       if (next instanceof Error) throw next;
@@ -194,6 +197,38 @@ describe("the agent claim loop", () => {
       () => api.complete.mock.calls.length >= 13,
     );
     expect(api.complete).toHaveBeenCalledTimes(13);
+  });
+
+  it("gives up on a result the server keeps answering with an error and claims the next task", async () => {
+    const api = fakeApi([agentTask(), { ...agentTask(), id: "second" }]);
+    api.complete.mockRejectedValue(new WorkerApiError(500, "internal", "boom"));
+    await drive(
+      api,
+      async () => ({ kind: "complete", result: {}, usage: {} }) as never,
+      () => api.complete.mock.calls.some(([id]) => id === "second"),
+    );
+    expect(api.complete.mock.calls.filter(([id]) => id !== "second")).toHaveLength(3);
+  });
+
+  it("keeps telling the server it is alive while a result waits for the server to come back", async () => {
+    const api = fakeApi([agentTask()]);
+    for (let i = 0; i < 12; i++) api.complete.mockRejectedValueOnce(new TypeError("fetch failed"));
+    const controller = new AbortController();
+    const finished = runLoop({
+      api,
+      executor: async () => ({ kind: "complete", result: {}, usage: {} }) as never,
+      signal: controller.signal,
+      logger: silentLogger,
+      workerId: "test-agent",
+      pollMs: 5,
+      leaseMs: 60_000,
+      timing: { ...FAST, idleHeartbeatMs: 1, reportRetryMs: 5 },
+    });
+    await vi.waitUntil(() => api.complete.mock.calls.length >= 13, { timeout: 5_000, interval: 5 });
+    controller.abort();
+    await finished;
+    const busyBeats = api.heartbeat.mock.calls.filter(([beat]) => beat.busy);
+    expect(busyBeats.length).toBeGreaterThan(3);
   });
 
   it("does not retry a report for a task that is no longer ours", async () => {
