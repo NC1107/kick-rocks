@@ -203,7 +203,7 @@ export function Menu({
                   item.onSelect();
                 }}
                 className={cn(
-                  "flex min-h-control w-full items-center gap-2.5 rounded-sm px-2.5 py-1.5 text-left text-ui hover:bg-popover-hover focus-visible:bg-popover-hover focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50 [&_svg]:size-4",
+                  "flex min-h-control w-full items-center gap-2.5 rounded-sm px-2.5 py-1.5 text-left text-ui hover:bg-popover-hover focus-visible:bg-popover-hover focus-visible:-outline-offset-2 disabled:cursor-not-allowed disabled:opacity-50 [&_svg]:size-4",
                   item.destructive ? "text-danger-text" : "text-ink",
                 )}
               >

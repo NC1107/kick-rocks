@@ -33,25 +33,25 @@ It is rationed, never used in a gradient, never tints surfaces, and stays this d
 | `--kr-active` | `#27272A` | pressed, toggle off, meter track |
 | `--kr-field` | `#0F0F10` | inputs and selects, darker than the surface so they read as inset |
 | `--kr-popover` | `#2B2B31` | menus, popovers, tooltips |
-| `--kr-popover-hover` | `#38383F` | menu item hover |
+| `--kr-popover-hover` | `#303037` | menu item hover, 1.07:1 against the popover, so a focused menu item also takes an inset 2px focus ring |
 | `--kr-line` | `#27272A` | hairlines, row dividers |
 | `--kr-line-popover` | `#45454E` | popover and dialog edge |
 | `--kr-line-strong` | `#6B6B75` | control edges, 3.2:1 on surface |
 | `--kr-ink` | `#EDEDEF` | primary text |
-| `--kr-ink-2` | `#ABABB0` | secondary text, 7.4:1 on surface |
-| `--kr-ink-3` | `#8A8A96` | muted text, labels, 5.0:1 on surface and 4.6:1 on hover |
+| `--kr-ink-2` | `#BEBEC4` | secondary text, 9.2:1 on surface and at least 7.1:1 on every layer |
+| `--kr-ink-3` | `#9898A4` | muted text, labels, 6.0:1 on surface and at least 4.6:1 on every layer (lowest on popover hover) |
 | `--kr-accent-fill` | `#5557E0` | primary fill, white text at 5.5:1 |
 | `--kr-accent-fill-hover` | `#6466E8` | primary hover |
 | `--kr-accent-on` | `#FFFFFF` | text on the fill |
-| `--kr-accent-text` | `#818CF8` | links, active nav label and icon, 5.7:1 on surface |
+| `--kr-accent-text` | `#8F98F9` | links, active nav label and icon, 6.5:1 on surface and at least 5.0:1 on every layer |
 | `--kr-accent-soft` | `#1C1C2D` | active nav and selection wash (accent at 12% on canvas) |
 | `--kr-focus` | `#818CF8` | 2px focus outline |
 | `--kr-positive` | `#22C55E` | dot and shape fill |
-| `--kr-positive-text` | `#4ADE80` | positive text, 9.8:1 |
+| `--kr-positive-text` | `#4ADE80` | positive text, 9.8:1 on surface and at least 7.5:1 on every layer |
 | `--kr-attention` | `#F59E0B` | dot and shape fill |
-| `--kr-attention-text` | `#FBBF24` | attention text, 10.2:1 |
+| `--kr-attention-text` | `#FBBF24` | attention text, 10.2:1 on surface and at least 7.8:1 on every layer |
 | `--kr-danger` | `#EF4444` | dot, outlined danger button edge |
-| `--kr-danger-text` | `#F87171` | danger text, 6.2:1 |
+| `--kr-danger-text` | `#FA8080` | danger text, 6.9:1 on surface and at least 5.3:1 on every layer |
 | `--kr-danger-wash-text` | `#FCA5A5` | text on a danger wash |
 | `--kr-danger-solid` / `--kr-danger-on` | `#DC2626` / `#FFFFFF` | the confirm dialog's final button in both schemes, white on red at 4.8:1 |
 | `--kr-scrim` | `rgba(0,0,0,0.55)` | dialog backdrop |
@@ -74,15 +74,15 @@ It is rationed, never used in a gradient, never tints surfaces, and stays this d
 | `--kr-line-strong` | `#858A8F` | 3.5:1 on white |
 | `--kr-ink` | `#1B1E22` | 16.7:1 on white |
 | `--kr-ink-2` | `#474D55` | 8.5:1 on white, a real step above ink-3 |
-| `--kr-ink-3` | `#666D76` | 5.2:1 on white and 4.6:1 on the rail |
+| `--kr-ink-3` | `#5D646D` | 6.0:1 on white and at least 4.9:1 on every layer, 5.3:1 on the rail |
 | `--kr-accent-fill` | `#4648D4` | `#5557E0` darkened, white text at 6.7:1 |
 | `--kr-accent-fill-hover` | `#3B3DC0` | |
 | `--kr-accent-on` | `#FFFFFF` | |
 | `--kr-accent-text` | `#4648D4` | 6.7:1 on white |
 | `--kr-accent-soft` | `#ECECFC` | accent text on it at 5.7:1 |
 | `--kr-focus` | `#4648D4` | |
-| `--kr-positive` / `-text` | `#16A34A` / `#15803D` | text 5.0:1 |
-| `--kr-attention` / `-text` | `#D97706` / `#B45309` | text 5.0:1 |
+| `--kr-positive` / `-text` | `#16A34A` / `#146C37` | text 6.5:1 on white and at least 5.3:1 on every layer |
+| `--kr-attention` / `-text` | `#D97706` / `#9A4A08` | text 6.3:1 on white and at least 5.1:1 on every layer |
 | `--kr-danger` / `-text` | `#DC2626` / `#B91C1C` | text 6.5:1 |
 | `--kr-scrim` | `rgba(15,17,19,0.45)` | |
 

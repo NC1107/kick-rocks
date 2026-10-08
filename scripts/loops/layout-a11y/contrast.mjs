@@ -29,6 +29,11 @@ const TONES = [
 ];
 const TONE_WASH_ALPHA = 0.12;
 const TONE_LAYERS = ["surface", "canvas", "rail", "hover", "accent-soft"];
+const MIN_HOVER_STEP = 1.05;
+const HOVER_STEPS = [
+  { layer: "hover", base: "surface" },
+  { layer: "popover-hover", base: "popover" },
+];
 const LINE_LAYERS = ["surface", "canvas", "frame", "field"];
 
 const channels = (hex) => [1, 3, 5].map((i) => Number.parseInt(hex.slice(i, i + 2), 16));
@@ -66,7 +71,8 @@ export function readThemeTokens(css) {
     dark[name] = channels(b);
   }
   const lightBlock = css.match(/:root\[data-theme="light"\]\s*\{[^}]*\}/)?.[0] ?? "";
-  Object.assign(dark, readRgbChannels(css.slice(css.indexOf(":root {"))));
+  const darkBlock = css.match(/:root\s*\{[^}]*\}/)?.[0] ?? "";
+  Object.assign(dark, readRgbChannels(darkBlock));
   Object.assign(light, readRgbChannels(lightBlock));
   return { light, dark };
 }
@@ -89,6 +95,11 @@ export function failingContrastPairs(css) {
           failing.push(`${theme} tone-${tone.name} ${tone.ink} on ${layer} ${ratio.toFixed(2)}`);
         }
       }
+    }
+    for (const { layer, base } of HOVER_STEPS) {
+      const ratio = contrastRatio(t[layer], t[base]);
+      if (ratio < MIN_HOVER_STEP)
+        failing.push(`${theme} ${layer} against ${base} ${ratio.toFixed(2)}`);
     }
     for (const layer of LINE_LAYERS) {
       const ratio = contrastRatio(t["line-strong"], t[layer]);
