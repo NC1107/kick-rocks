@@ -1,3 +1,5 @@
+import { resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import {
   needsRecord,
   normalizeDomain,
@@ -6,8 +8,10 @@ import {
 } from "@kickrocks/shared";
 import { describe, expect, it } from "vitest";
 import { buildDataset, loadPinnedIds, pinNewIds } from "./build.js";
+import { readBundledRecipes } from "./recipe-senders.js";
 import { readPinnedUpstream } from "./upstream.js";
 
+const recipesDir = resolve(fileURLToPath(import.meta.url), "..", "..", "..", "recipes", "recipes");
 const HOSTNAME = /^(?=.{1,253}$)([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/;
 
 describe("the generated broker dataset", () => {
@@ -25,6 +29,48 @@ describe("the generated broker dataset", () => {
     for (const broker of dataset.brokers) {
       expect(normalizeDomain(broker.domain), broker.id).toBe(broker.domain);
     }
+  });
+
+  it("plans a scan for every broker that has a scan recipe, so a verified recipe is never left unused", () => {
+    const scanned = new Set(
+      readBundledRecipes(recipesDir)
+        .filter((recipe) => recipe.purpose === "scan")
+        .flatMap((recipe) => [recipe.brokerId, ...recipe.alsoFor]),
+    );
+    const unplanned = dataset.brokers
+      .filter((broker) => scanned.has(broker.id) && !needsRecord(broker))
+      .map((broker) => `${broker.id} (${broker.category})`);
+    // Fix with a category entry in data/corrections.yaml, or add the id to RECORD_NOT_NEEDED.
+    expect(unplanned).toEqual([]);
+  });
+
+  it("does not flag a broker with a remove recipe as paid, since the money-bag marker is about access", () => {
+    const removable = new Set(
+      readBundledRecipes(recipesDir)
+        .filter((recipe) => recipe.purpose === "remove")
+        .flatMap((recipe) => [recipe.brokerId, ...recipe.alsoFor]),
+    );
+    const flagged = dataset.brokers
+      .filter((broker) => removable.has(broker.id) && broker.requirements.includes("paid"))
+      .map((broker) => broker.id);
+    expect(flagged).toEqual([]);
+  });
+
+  it("does not flag a BADBOOL entry as paid from the money-bag marker alone", () => {
+    const flagged = dataset.brokers
+      .filter((broker) => broker.sources.some((source) => source.source === "badbool"))
+      .filter((broker) => broker.requirements.includes("paid"))
+      .map((broker) => broker.id);
+    expect(flagged).toEqual([]);
+  });
+
+  it("files sites with no findable listing outside people search, so a scan-first removal does not stall", () => {
+    for (const domain of ["acxiom.com", "zoominfo.com", "classmates.com"]) {
+      const broker = dataset.brokers.find((candidate) => candidate.domain === domain);
+      expect(broker?.category, domain).toBe("marketing");
+      expect(broker && needsRecord(broker), domain).toBe(false);
+    }
+    expect(dataset.brokers.find((b) => b.domain === "facecheck.id")?.category).toBe("requires-id");
   });
 
   it("uses one id per domain and one domain per id", () => {

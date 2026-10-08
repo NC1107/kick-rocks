@@ -63,6 +63,7 @@ export function buildDataset(
       new Set([...excluded.map((entry) => entry.domain), ...companyDomains]),
     ),
     parseCorrections(readFileSync(resolve(dataDir, "corrections.yaml"), "utf8")),
+    (lists) => mergeBrokers([...lists, curated], { pinnedIds }),
   );
   const brokers = applyOwnerGroups(
     applyReplyDomains(

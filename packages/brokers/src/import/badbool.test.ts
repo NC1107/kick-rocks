@@ -1,4 +1,4 @@
-import { Broker, needsRecord, normalizeDomain } from "@kickrocks/shared";
+import { Broker, normalizeDomain } from "@kickrocks/shared";
 import { describe, expect, it } from "vitest";
 import { readPinnedUpstream } from "../upstream.js";
 import { parseBadbool, parseBadboolReport } from "./badbool.js";
@@ -39,17 +39,21 @@ describe("parseBadbool markers", () => {
     expect(parseOne("### Alpha\n[Find](https://alpha.example/)\n").priority).toBe("normal");
   });
 
-  it("maps phone, id, and paid markers to requirements, in any order, with no space after the first", () => {
+  it("maps phone and id markers to requirements, in any order, with no space after the first", () => {
     const broker = parseOne(
       "### \u{1F490}\u{1F4DE} \u{1F4B0} \u{1F3AB} Alpha\n[Find](https://alpha.example/)\n",
     );
     expect(broker.name).toBe("Alpha");
     expect(broker.priority).toBe("crucial");
-    expect(broker.requirements).toEqual(
-      expect.arrayContaining(["phone_call", "paid", "id_upload"]),
-    );
+    expect(broker.requirements).toEqual(expect.arrayContaining(["phone_call", "id_upload"]));
     expect(broker.requiresId).toBe(true);
     expect(broker.category).toBe("requires-id");
+  });
+
+  it("does not read the money-bag marker as a charge for removal", () => {
+    const broker = parseOne("### \u{1F4B0} Alpha\n[Find](https://alpha.example/)\n");
+    expect(broker.name).toBe("Alpha");
+    expect(broker.requirements).not.toContain("paid");
   });
 
   it("does not leave marker characters in the name or the id", () => {
@@ -193,7 +197,6 @@ function order(requirement: string): number {
     "id_upload",
     "captcha",
     "account",
-    "paid",
     "record_url",
     "postal_mail",
     "fax",
@@ -290,12 +293,12 @@ describe("the pinned BADBOOL README", () => {
   it("reads the crucial sites with their links", () => {
     const spokeo = byDomain.get("spokeo.com");
     expect(spokeo?.priority).toBe("crucial");
-    expect(spokeo?.requirements).toEqual(expect.arrayContaining(["paid", "record_url"]));
+    expect(spokeo?.requirements).toEqual(expect.arrayContaining(["record_url"]));
     expect(spokeo?.optOutUrl).toBe("https://www.spokeo.com/optout");
     expect(spokeo?.searchUrl).toBe("https://www.spokeo.com/search");
 
     const whitepages = byDomain.get("whitepages.com");
-    expect(whitepages?.requirements).toEqual(expect.arrayContaining(["phone_call", "paid"]));
+    expect(whitepages?.requirements).toEqual(expect.arrayContaining(["phone_call"]));
 
     const checkpeople = byDomain.get("checkpeople.com");
     expect(checkpeople?.optOutUrl).toBe("https://checkpeople.com/opt-out");
@@ -316,14 +319,6 @@ describe("the pinned BADBOOL README", () => {
     expect(byDomain.get("pimeyes.com")?.requiresId).toBe(true);
     expect(byDomain.get("pimeyes.com")?.requirements).toContain("id_upload");
     expect(byDomain.get("pimeyes.com")?.category).toBe("requires-id");
-  });
-
-  it("does not file sites with no findable listing as people search", () => {
-    for (const domain of ["acxiom.com", "zoominfo.com", "classmates.com"]) {
-      const broker = byDomain.get(domain);
-      expect(broker?.category, domain).toBe("marketing");
-      expect(broker && needsRecord(broker), domain).toBe(false);
-    }
   });
 
   it("does not use the Austrian and German address for Acxiom", () => {

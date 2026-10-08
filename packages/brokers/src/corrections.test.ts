@@ -6,6 +6,7 @@ import {
   parseCorrections,
   parseExclusions,
 } from "./corrections.js";
+import { mergeBrokers } from "./merge.js";
 
 function broker(overrides: Partial<Broker>): Broker {
   return {
@@ -78,6 +79,62 @@ describe("applyCorrections", () => {
       privacyEmail: null,
       contactMethod: "unknown",
     });
+  });
+
+  it("moves a record to another category and drops a requirement its pages disprove", () => {
+    const corrections = parseCorrections(`corrections:
+  - domain: acme.example
+    set: { category: people-search, remove_requirements: [paid] }
+    source_urls: [https://acme.example/optout]
+    checked: 2026-10-07
+    note: The opt-out is free.
+`);
+    const [[fixed]] = applyCorrections(
+      [[broker({ category: "registered-broker", requirements: ["paid", "record_url"] })]],
+      corrections,
+    );
+    expect(fixed).toMatchObject({ category: "people-search", requirements: ["record_url"] });
+  });
+
+  it("refuses a requirement correction that the record already satisfies", () => {
+    const corrections = parseCorrections(`corrections:
+  - domain: acme.example
+    set: { remove_requirements: [paid] }
+    source_urls: [https://acme.example/optout]
+    checked: 2026-10-07
+    note: The opt-out is free.
+`);
+    expect(() => applyCorrections([[broker({})]], corrections)).toThrow(/change nothing/);
+  });
+
+  it("refuses a category that the merge already takes from another list", () => {
+    const corrections = parseCorrections(`corrections:
+  - domain: acme.example
+    set: { category: people-search }
+    source_urls: [https://acme.example/optout]
+    checked: 2026-10-07
+    note: It is a people search site.
+`);
+    const merge = (lists: readonly (readonly Broker[])[]) => mergeBrokers([...lists], {});
+    const registry = broker({ category: "registered-broker" });
+    const eraser = broker({ category: "people-search" });
+    expect(() => applyCorrections([[registry], [eraser]], corrections, merge)).toThrow(
+      /another list carries them: acme.example/,
+    );
+    expect(() => applyCorrections([[registry]], corrections, merge)).not.toThrow();
+  });
+
+  it("refuses a requirement removal that no matched record still carries", () => {
+    const corrections = parseCorrections(`corrections:
+  - domain: acme.example
+    set: { remove_requirements: [paid, captcha] }
+    source_urls: [https://acme.example/optout]
+    checked: 2026-10-07
+    note: The opt-out is free and has no captcha.
+`);
+    expect(() => applyCorrections([[broker({ requirements: ["paid"] })]], corrections)).toThrow(
+      /acme.example \(captcha\)/,
+    );
   });
 
   it("refuses a correction that matches no record", () => {
