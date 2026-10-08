@@ -1,6 +1,7 @@
 import { screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { createMockApp, type MockApp } from "../../../../mock/app.js";
+import { assessed } from "../../../../mock/targets.js";
 import { renderPage } from "../../../test/render.js";
 import { Component as NewCampaignPage } from "./index.js";
 
@@ -113,6 +114,93 @@ describe("the campaign builder", () => {
     expect(await screen.findByText("2 targets selected")).toBeVisible();
     const preview = await screen.findByRole("region", { name: "Preview" });
     expect(await within(preview).findByText("First targets · 1")).toBeVisible();
+  });
+
+  it("offers the easy ones first, with how many there are", async () => {
+    const { user, mock } = open();
+    const easy = mock.store.targets.filter((target) => assessed(target).difficulty === "easy");
+    const radios = await screen.findAllByRole("radio");
+    expect(radios[0]).toHaveAccessibleName(/Easy ones/);
+    const row = radios[0]?.closest("label");
+    await waitFor(() => expect(row).toHaveTextContent(`${easy.length} targets`));
+    await user.click(radios[0] as HTMLElement);
+    const preview = await screen.findByRole("region", { name: "Preview" });
+    const counts = within(preview).getByRole("region", { name: "Counts by channel" });
+    await waitFor(() =>
+      expect(within(counts).getByText("email").nextElementSibling).not.toHaveTextContent(/^0$/),
+    );
+    expect(within(counts).getByText("agent or you").nextElementSibling).toHaveTextContent(/^0$/);
+  });
+
+  it("picks single targets right on the page, with search", async () => {
+    const { user } = open();
+    await user.click(await screen.findByText("Search and pick targets"));
+    await user.type(await screen.findByRole("searchbox", { name: "Search targets" }), "pawprint");
+    const box = await screen.findByRole("checkbox", { name: "Pick Pawprint Pet Supply" });
+    await user.click(box);
+    expect(await screen.findByText("1 target selected")).toBeVisible();
+    expect(screen.getByRole("checkbox", { name: "Pick Pawprint Pet Supply" })).toBeChecked();
+    const preview = await screen.findByRole("region", { name: "Preview" });
+    expect(await within(preview).findByText("First targets · 1")).toBeVisible();
+    await user.click(screen.getByRole("checkbox", { name: "Pick Pawprint Pet Supply" }));
+    await waitFor(() => expect(screen.queryByText("1 target selected")).not.toBeInTheDocument());
+  });
+
+  it("replaces the picked targets when a group is chosen", async () => {
+    const { user } = open("/campaigns/new?targets=larkspur-bank");
+    expect(await screen.findByText("1 target selected")).toBeVisible();
+    await user.click(screen.getByRole("radio", { name: /Everyday companies/ }));
+    await waitFor(() => expect(screen.queryByText("1 target selected")).not.toBeInTheDocument());
+    expect(screen.getByRole("radio", { name: /Everyday companies/ })).toBeChecked();
+  });
+
+  it("starts from a filter handed over by the targets page", async () => {
+    const filter = encodeURIComponent('{"difficulty":"easy"}');
+    open(`/campaigns/new?filter=${filter}`);
+    expect(await screen.findByText(/\d+ targets match your filters/)).toBeVisible();
+    expect(screen.getByText("Difficulty: Easy")).toBeVisible();
+    const preview = await screen.findByRole("region", { name: "Preview" });
+    expect(await within(preview).findByText(/First targets · \d+/)).toBeVisible();
+  });
+
+  it("shows the server's cap message when a filter matches too many targets", async () => {
+    const message =
+      "That filter matches 6200 targets, and one request takes at most 5000. Narrow the filter and try again.";
+    const mock = createMockApp();
+    const handle = mock.handle.bind(mock);
+    mock.handle = async (request) =>
+      /campaigns\/preview/.test(request.url)
+        ? {
+            status: 422,
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ error: "selection_too_large", message }),
+          }
+        : handle(request);
+    open("/campaigns/new?filter=%7B%7D", mock);
+    expect(await screen.findByText(message)).toBeVisible();
+  });
+
+  it("warns before sending that form-only requests will wait for a person", async () => {
+    const { user } = open();
+    await user.click(await screen.findByRole("radio", { name: /^Everything/ }));
+    const notice = await screen.findByRole("alert");
+    expect(notice).toHaveTextContent(/\d+ requests will wait for you/);
+    expect(notice).toHaveTextContent("no agent has connected");
+  });
+
+  it("does not warn once an agent worker has been seen", async () => {
+    const mock = createMockApp();
+    mock.store.settings.worker.model = {
+      workerId: "agent-home",
+      version: "agent-0.1.0",
+      lastSeenAt: new Date().toISOString(),
+      busy: false,
+      currentTaskId: null,
+    };
+    const { user } = open("/campaigns/new", mock);
+    await user.click(await screen.findByRole("radio", { name: /^Everything/ }));
+    await screen.findByText(/First targets/);
+    expect(screen.queryByText(/will wait for you/)).not.toBeInTheDocument();
   });
 
   it("shows the size of the chosen group beside it", async () => {

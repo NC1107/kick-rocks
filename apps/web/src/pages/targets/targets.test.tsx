@@ -1,8 +1,9 @@
+import type { TargetDetail } from "@kickrocks/shared";
 import { screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { createMockApp, type MockApp } from "../../../mock/app.js";
 import { renderPage } from "../../test/render.js";
-import { readFilters, toQuery } from "./filters.js";
+import { readFilters, toFilter, toQuery } from "./filters.js";
 import { Component as TargetsPage } from "./index.js";
 
 /** Routes matching `pattern` answer 403, a client error, so the query client does not retry and wait. */
@@ -99,6 +100,127 @@ describe("the targets page", () => {
     expect(screen.getByRole("button", { name: "Filters, 1 active" })).toBeVisible();
   });
 
+  it("filters by difficulty with facet counts in the popup", async () => {
+    const { user } = renderPage(<TargetsPage />, { path: "/targets", route: "/targets" });
+    await rows();
+    await user.click(screen.getByRole("button", { name: "Filters" }));
+    const select = screen.getByLabelText("Difficulty");
+    const options = within(select)
+      .getAllByRole("option")
+      .map((option) => option.textContent);
+    expect(options).toEqual([
+      "Any difficulty",
+      expect.stringMatching(/^Easy \(\d+\)$/),
+      expect.stringMatching(/^Medium \(\d+\)$/),
+      expect.stringMatching(/^Hard \(\d+\)$/),
+    ]);
+    await user.selectOptions(select, "easy");
+    await waitFor(async () => {
+      const list = await rows();
+      expect(list.length).toBeGreaterThan(0);
+      for (const row of list) expect(within(row).getByText("easy")).toBeVisible();
+    });
+    expect(screen.getByRole("list", { name: "Active filters" })).toHaveTextContent(
+      "Difficulty: Easy",
+    );
+  });
+
+  it("tags every row with its difficulty", async () => {
+    renderPage(<TargetsPage />, { path: "/targets", route: "/targets" });
+    const list = await rows();
+    const findRecord = list.find((row) => within(row).queryByRole("link", { name: "FindRecord" }));
+    expect(within(findRecord as HTMLElement).getByText("hard")).toBeVisible();
+    for (const row of list) {
+      expect(within(row).getByText(/^(easy|medium|hard)$/)).toBeVisible();
+    }
+  });
+
+  it("offers to select everything that matches once the whole page is selected", async () => {
+    const { user } = renderPage(<TargetsPage />, { path: "/targets", route: "/targets" });
+    await rows();
+    expect(
+      screen.queryByRole("button", { name: /Select all .* matching/ }),
+    ).not.toBeInTheDocument();
+    await user.click(screen.getByRole("checkbox", { name: "Select all targets on this page" }));
+    expect(screen.getByRole("status")).toHaveTextContent("50 selected");
+    await user.click(screen.getByRole("button", { name: "Select all 61 matching" }));
+    expect(screen.getByRole("status")).toHaveTextContent("All 61 matching selected");
+    const link = screen.getByRole("link", { name: "Ask these to remove my data" });
+    expect(link).toHaveAttribute("href", `/campaigns/new?filter=${encodeURIComponent("{}")}`);
+  });
+
+  it("carries the filter it is under, not a list of ids", async () => {
+    const mock = createMockApp();
+    const company = mock.store.targets.find((target) => target.kind === "company");
+    for (let index = 0; index < 20; index += 1) {
+      mock.store.targets.push({
+        ...(company as TargetDetail),
+        id: `extra-${index}`,
+        name: `Extra ${index}`,
+      });
+    }
+    const { user } = renderPage(<TargetsPage />, {
+      path: "/targets",
+      route: "/targets?kind=company",
+      mock,
+    });
+    await rows();
+    await user.click(screen.getByRole("checkbox", { name: "Select all targets on this page" }));
+    await user.click(screen.getByRole("button", { name: "Select all 52 matching" }));
+    const link = screen.getByRole("link", { name: "Ask these to remove my data" });
+    expect(link).toHaveAttribute(
+      "href",
+      `/campaigns/new?filter=${encodeURIComponent('{"kind":"company"}')}`,
+    );
+  });
+
+  it("drops the all-matching selection when the filter changes", async () => {
+    const { user } = renderPage(<TargetsPage />, { path: "/targets", route: "/targets" });
+    await rows();
+    await user.click(screen.getByRole("checkbox", { name: "Select all targets on this page" }));
+    await user.click(screen.getByRole("button", { name: "Select all 61 matching" }));
+    await user.click(screen.getByRole("button", { name: "Filters" }));
+    await user.selectOptions(screen.getByLabelText("Type"), "company");
+    await waitFor(() => expect(screen.getByText(/1-32 of 32/)).toBeVisible());
+    expect(screen.queryByText(/matching selected/)).not.toBeInTheDocument();
+  });
+
+  it("scans every matching target by filter after a confirmation", async () => {
+    const { user, mock } = renderPage(<TargetsPage />, { path: "/targets", route: "/targets" });
+    await rows();
+    await user.click(screen.getByRole("checkbox", { name: "Select all targets on this page" }));
+    await user.click(screen.getByRole("button", { name: "Select all 61 matching" }));
+    const before = mock.store.scans.length;
+    await user.click(screen.getByRole("button", { name: "Scan these" }));
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByText("Scan 61 matching targets?")).toBeVisible();
+    await user.click(within(dialog).getByRole("button", { name: "Start scans" }));
+    await waitFor(() => expect(mock.store.scans.length).toBeGreaterThan(before));
+  });
+
+  it("shows the server's cap message plainly when the selection is too large", async () => {
+    const mock = createMockApp();
+    const handle = mock.handle.bind(mock);
+    const message =
+      "That filter matches 6200 targets, and one request takes at most 5000. Narrow the filter and try again.";
+    mock.handle = async (request) =>
+      /\/scans/.test(request.url) && request.method === "POST"
+        ? {
+            status: 422,
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ error: "selection_too_large", message }),
+          }
+        : handle(request);
+    const { user } = renderPage(<TargetsPage />, { path: "/targets", route: "/targets", mock });
+    await rows();
+    await user.click(screen.getByRole("checkbox", { name: "Select all targets on this page" }));
+    await user.click(screen.getByRole("button", { name: "Select all 61 matching" }));
+    await user.click(screen.getByRole("button", { name: "Scan these" }));
+    const dialog = await screen.findByRole("dialog");
+    await user.click(within(dialog).getByRole("button", { name: "Start scans" }));
+    expect(await screen.findByText(message)).toBeVisible();
+  });
+
   it("clears every filter from the popup but keeps the search", async () => {
     const { user } = renderPage(<TargetsPage />, {
       path: "/targets",
@@ -168,5 +290,19 @@ describe("target filters", () => {
       q: "spo",
       priority: "high",
     });
+  });
+});
+
+describe("the selection filter", () => {
+  it("is the list filter without paging", () => {
+    expect(toFilter(readFilters(new URLSearchParams("difficulty=easy&q=a&page=3")))).toEqual({
+      q: "a",
+      difficulty: "easy",
+    });
+  });
+
+  it("reads difficulty from the address bar and drops a value that is not one", () => {
+    expect(readFilters(new URLSearchParams("difficulty=medium")).difficulty).toBe("medium");
+    expect(readFilters(new URLSearchParams("difficulty=trivial")).difficulty).toBe("");
   });
 });

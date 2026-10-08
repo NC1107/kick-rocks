@@ -1,8 +1,8 @@
 import type { CampaignPreview, RenderedEmail } from "@kickrocks/shared";
 import { ChevronDown } from "lucide-react";
-import { RowGroup, Section, Skeleton } from "../../../components/ui/index.js";
+import { Alert, RowGroup, Section, Skeleton } from "../../../components/ui/index.js";
 import { cn } from "../../../lib/cn.js";
-import { formatCount } from "../../../lib/format.js";
+import { formatCount, pluralize } from "../../../lib/format.js";
 import { SKIP_REASON_LABELS } from "../../../lib/labels.js";
 import { advisories, type ChannelCounts, groupSkipped } from "../channels.js";
 
@@ -190,5 +190,20 @@ export function EmailPreview({
         </pre>
       </div>
     </Section>
+  );
+}
+
+/**
+ * Web forms no approved recipe can fill in. With no agent worker connected they sit in Review
+ * until the person does them, so the person hears it before sending, not after.
+ */
+export function WaitingForPersonNotice({ count }: { count: number }) {
+  if (count === 0) return null;
+  return (
+    <Alert intent="warning" title={`${pluralize(count, "request")} will wait for you`}>
+      {count === 1 ? "It is a web form" : "They are web forms"} with no approved recipe, and no
+      agent has connected to fill {count === 1 ? "it" : "them"} in. {count === 1 ? "It" : "They"}{" "}
+      will sit in Review until you do {count === 1 ? "it" : "them"} by hand or connect an agent.
+    </Alert>
   );
 }

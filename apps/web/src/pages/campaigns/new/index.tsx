@@ -4,8 +4,10 @@ import {
   type CampaignPreset,
   type ProfileSummary,
   type RequestRight,
+  type TargetFilter,
 } from "@kickrocks/shared";
 import { skipToken } from "@tanstack/react-query";
+import { ChevronDown } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
 import { errorMessage, useApiMutation, useApiQuery } from "../../../api/index.js";
@@ -24,8 +26,23 @@ import {
   useToast,
 } from "../../../components/ui/index.js";
 import { formatCount, pluralize } from "../../../lib/format.js";
-import { RIGHT_LABELS } from "../../../lib/labels.js";
-import { channelOf, countByChannel, outcomeChannel, parseTargetIds } from "../channels.js";
+import {
+  CONTACT_METHOD_LABELS,
+  DIFFICULTY_LABELS,
+  PRIORITY_LABELS,
+  REQUIREMENT_LABELS,
+  RIGHT_LABELS,
+  TARGET_CATEGORY_LABELS,
+  TARGET_KIND_LABELS,
+} from "../../../lib/labels.js";
+import {
+  channelOf,
+  countByChannel,
+  outcomeChannel,
+  parseFilterParam,
+  parseTargetIds,
+  waitingForPerson,
+} from "../channels.js";
 import {
   AdvisoryList,
   CHANNEL_LABELS,
@@ -33,10 +50,17 @@ import {
   EmailPreview,
   FirstTargets,
   SkippedList,
+  WaitingForPersonNotice,
 } from "./PreviewPanel.js";
+import { TargetPicker } from "./TargetPicker.js";
 import { useAllTargets } from "./use-all-targets.js";
 
 const PRESET_OPTIONS: readonly RadioOption<CampaignPreset>[] = [
+  {
+    value: "easy",
+    label: "Easy ones",
+    description: "Email requests Kick Rocks sends on its own. Nothing asked of you.",
+  },
   {
     value: "email_brokers",
     label: "Data brokers with an email address",
@@ -71,7 +95,25 @@ const RIGHT_TOKENS: Record<RequestRight, string> = {
 
 const RIGHT_ORDER: readonly RequestRight[] = ["opt_out", "delete"];
 
-type Choice = { kind: "preset"; preset: CampaignPreset } | { kind: "targets" } | null;
+type Choice =
+  | { kind: "preset"; preset: CampaignPreset }
+  | { kind: "targets" }
+  | { kind: "filter"; filter: TargetFilter }
+  | null;
+
+/** The filter in words, such as "Type: Data broker, Difficulty: Easy", for the row that stands for it. */
+function describeFilter(filter: TargetFilter): string {
+  const parts = [
+    filter.q ? `Search: ${filter.q}` : null,
+    filter.kind ? `Type: ${TARGET_KIND_LABELS[filter.kind]}` : null,
+    filter.category ? `Category: ${TARGET_CATEGORY_LABELS[filter.category]}` : null,
+    filter.contactMethod ? `Contact: ${CONTACT_METHOD_LABELS[filter.contactMethod]}` : null,
+    filter.requirement ? `Needs: ${REQUIREMENT_LABELS[filter.requirement]}` : null,
+    filter.priority ? `Priority: ${PRIORITY_LABELS[filter.priority]}` : null,
+    filter.difficulty ? `Difficulty: ${DIFFICULTY_LABELS[filter.difficulty]}` : null,
+  ].filter(Boolean);
+  return parts.length > 0 ? parts.join(", ") : "Every target";
+}
 
 export function Component() {
   return <RequireProfile>{(profile) => <Builder profile={profile} />}</RequireProfile>;
@@ -86,15 +128,30 @@ function Builder({ profile }: { profile: ProfileSummary }) {
   const [preset, setPreset] = useState<CampaignPreset | null>(null);
   const [rights, setRights] = useState<readonly RequestRight[]>(["opt_out"]);
   const [confirming, setConfirming] = useState(false);
+  const [pickerOpen, setPickerOpen] = useState(() => targetIds.length > 0);
 
-  const choice: Choice =
-    targetIds.length > 0 ? { kind: "targets" } : preset ? { kind: "preset", preset } : null;
+  const filter = useMemo(() => parseFilterParam(params.get("filter")), [params]);
+  const choice: Choice = filter
+    ? { kind: "filter", filter }
+    : targetIds.length > 0
+      ? { kind: "targets" }
+      : preset
+        ? { kind: "preset", preset }
+        : null;
   const allTargets = useAllTargets();
+  const facets = useApiQuery(API_ROUTES.targetsFacets, { staleTime: 60_000 });
+  const settings = useApiQuery(API_ROUTES.settingsGet);
+  const easyCount = facets.data?.difficulty.find((entry) => entry.value === "easy")?.count;
 
   const body: CampaignBody | null =
     choice && rights.length > 0
       ? {
-          selection: choice.kind === "targets" ? { targetIds } : { preset: choice.preset },
+          selection:
+            choice.kind === "filter"
+              ? { filter: choice.filter }
+              : choice.kind === "targets"
+                ? { targetIds }
+                : { preset: choice.preset },
           rights: [...rights],
         }
       : null;
@@ -150,6 +207,9 @@ function Builder({ profile }: { profile: ProfileSummary }) {
   });
   const canSend = body !== null && work > 0 && !preview.isPending;
   const noMailbox = !profile.mailboxConnected;
+  // Settings still loading counts as an agent seen, so the notice never flashes and goes away.
+  const agentSeen = settings.data ? settings.data.worker.model !== null : true;
+  const waiting = counts ? waitingForPerson(counts, agentSeen) : 0;
   const recipient = useApiQuery(
     API_ROUTES.targetsGet,
     firstRequest ? { params: { id: firstRequest.targetId } } : skipToken,
@@ -160,14 +220,28 @@ function Builder({ profile }: { profile: ProfileSummary }) {
       RIGHT_ORDER.filter((candidate) => (candidate === right ? on : current.includes(candidate))),
     );
 
-  const clearTargets = () =>
+  const setTargetIds = (ids: readonly string[]) =>
     setParams(
       (current) => {
         const next = new URLSearchParams(current);
-        next.delete("targets");
+        next.delete("filter");
+        if (ids.length > 0) next.set("targets", ids.map(encodeURIComponent).join(","));
+        else next.delete("targets");
         return next;
       },
       { replace: true },
+    );
+
+  const chooseGroup = (next: CampaignPreset) => {
+    setTargetIds([]);
+    setPreset(next);
+  };
+
+  const toggleTarget = (id: string, on: boolean) =>
+    setTargetIds(
+      on
+        ? [...targetIds.filter((existing) => existing !== id), id]
+        : targetIds.filter((existing) => existing !== id),
     );
 
   const selectedNames = targetIds
@@ -190,11 +264,13 @@ function Builder({ profile }: { profile: ProfileSummary }) {
   const presetOptions = useMemo(
     () =>
       PRESET_OPTIONS.map((option) =>
-        option.value === preset && result
+        option.value === preset && result && choice?.kind === "preset"
           ? { ...option, meta: pluralize(result.items.length, "target") }
-          : option,
+          : option.value === "easy" && easyCount !== undefined
+            ? { ...option, meta: pluralize(easyCount, "target") }
+            : option,
       ),
-    [preset, result],
+    [preset, result, choice?.kind, easyCount],
   );
 
   const summary = canSend
@@ -240,13 +316,18 @@ function Builder({ profile }: { profile: ProfileSummary }) {
       <div className="grid gap-x-8 gap-y-5 pb-5 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
         <div className="flex max-w-120 flex-col gap-4">
           <Section label="Who">
-            {targetIds.length > 0 ? (
+            {choice?.kind === "filter" ? (
               <RowGroup>
                 <Row
-                  title={`${pluralize(targetIds.length, "target")} selected`}
-                  description={`${selectedNames}${targetIds.length > 4 ? `, and ${targetIds.length - 4} more` : ""}`}
+                  title={
+                    result
+                      ? `${pluralize(result.items.length, "target")} match your filters`
+                      : "Targets matching your filters"
+                  }
+                  description={describeFilter(choice.filter)}
+                  trailingBelowOnPhone
                   trailing={
-                    <Button size="sm" onClick={clearTargets}>
+                    <Button size="sm" onClick={() => setTargetIds([])}>
                       Choose a group instead
                     </Button>
                   }
@@ -257,12 +338,50 @@ function Builder({ profile }: { profile: ProfileSummary }) {
                 legend="Group of targets"
                 hideLegend
                 rows
-                value={preset}
-                onValueChange={setPreset}
+                value={choice?.kind === "targets" ? null : preset}
+                onValueChange={chooseGroup}
                 options={presetOptions}
               />
             )}
           </Section>
+
+          {choice?.kind === "filter" ? null : (
+            <Section
+              label="Or pick targets"
+              {...(targetIds.length > 0 ? { count: targetIds.length } : {})}
+            >
+              {targetIds.length > 0 ? (
+                <RowGroup className="mb-2.5">
+                  <Row
+                    title={`${pluralize(targetIds.length, "target")} selected`}
+                    description={`${selectedNames}${targetIds.length > 4 ? `, and ${targetIds.length - 4} more` : ""}`}
+                    trailingBelowOnPhone
+                    trailing={
+                      <Button size="sm" onClick={() => setTargetIds([])}>
+                        Clear targets
+                      </Button>
+                    }
+                  />
+                </RowGroup>
+              ) : null}
+              <details
+                open={pickerOpen}
+                onToggle={(event) => setPickerOpen(event.currentTarget.open)}
+                className="group rounded-md border border-line bg-surface"
+              >
+                <summary className="flex min-h-9 cursor-pointer list-none items-center justify-between gap-3 rounded-md px-3.5 text-ui text-ink transition-colors duration-100 hover:bg-hover [&::-webkit-details-marker]:hidden">
+                  <span>Search and pick targets</span>
+                  <ChevronDown
+                    aria-hidden="true"
+                    className="size-4 text-ink-3 transition-transform group-open:rotate-180"
+                  />
+                </summary>
+                <div className="border-t border-line p-3">
+                  <TargetPicker selectedIds={targetIds} onToggle={toggleTarget} />
+                </div>
+              </details>
+            </Section>
+          )}
 
           <Section label="Ask for">
             <fieldset className="m-0 min-w-0 border-0 p-0">
@@ -280,10 +399,10 @@ function Builder({ profile }: { profile: ProfileSummary }) {
                 ))}
               </RowGroup>
             </fieldset>
-            {targetIds.length === 0 ? (
+            {choice?.kind !== "targets" && choice?.kind !== "filter" ? (
               <p className="mt-2 text-meta text-ink-3">
                 Group campaigns only ask companies to stop selling. To ask for deletion, pick
-                targets on the Targets page.
+                targets below.
               </p>
             ) : null}
             {rights.length === 0 ? (
@@ -321,11 +440,12 @@ function Builder({ profile }: { profile: ProfileSummary }) {
             <>
               {work === 0 ? (
                 <Alert intent="info" title="Nothing to send">
-                  {targetIds.length > 0
+                  {choice?.kind !== "preset"
                     ? "Every target you selected is skipped. Read the reasons below or choose a group instead."
                     : "Every target in this group is skipped. Pick another group or read the reasons below."}
                 </Alert>
               ) : null}
+              <WaitingForPersonNotice count={waiting} />
               <FirstTargets targets={firstTargets} />
               {result.sampleEmail ? (
                 <EmailPreview
@@ -356,7 +476,7 @@ function Builder({ profile }: { profile: ProfileSummary }) {
           ) : (
             <span className="text-ink-3">
               {body === null
-                ? targetIds.length > 0
+                ? choice
                   ? "Choose at least one right to see a preview."
                   : "Pick a group and at least one right to see a preview."
                 : "Nothing to send yet."}

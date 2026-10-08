@@ -29,11 +29,21 @@ const agents = (mock = createMockApp()) =>
 const bundled = (mock = createMockApp()) =>
   renderPage(<RecipesPage />, { path: "/settings/recipes", route: "/settings/recipes", mock });
 
+const AGENT_WORKER = {
+  workerId: "agent-home",
+  version: "agent-0.1.0",
+  lastSeenAt: new Date().toISOString(),
+  busy: true,
+  currentTaskId: null,
+};
+
 const field = (label: RegExp | string) => screen.findByLabelText(label);
 
 describe("general settings", () => {
   it("shows the saved schedule and the worker's state", async () => {
-    general();
+    const mock = createMockApp();
+    mock.store.settings.worker.model = AGENT_WORKER;
+    general(mock);
     expect(await field(/Check inbox every/)).toHaveValue(15);
     expect(screen.getByLabelText(/Follow-ups/)).toHaveValue(2);
     expect(await screen.findByText("Recipe worker")).toBeVisible();
@@ -44,7 +54,7 @@ describe("general settings", () => {
   it("shows each worker's own state, so a down agent worker is not hidden by a live recipe worker", async () => {
     const mock = createMockApp();
     mock.store.settings.worker.model = {
-      ...(mock.store.settings.worker.model as NonNullable<typeof mock.store.settings.worker.model>),
+      ...AGENT_WORKER,
       lastSeenAt: new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString(),
     };
     general(mock);
