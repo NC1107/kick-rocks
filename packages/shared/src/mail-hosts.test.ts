@@ -4,6 +4,9 @@ import { isSharedMailHost, withoutSharedHosts } from "./mail-hosts.js";
 describe("isSharedMailHost", () => {
   it.each([
     "gmx.de",
+    "mailbox.org",
+    "protonmail.ch",
+    "fastmail.fm",
     "web.de",
     "yahoo.co.uk",
     "yahoo.fr",
