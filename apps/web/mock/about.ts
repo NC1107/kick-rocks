@@ -6,7 +6,13 @@ export default defineMockDomain({
   name: "about",
 
   routes: (store) => [
-    handle(API_ROUTES.health, () => ({ ok: true as const, version: "0.1.0-mock" })),
+    handle(API_ROUTES.health, () => ({
+      ok: true,
+      version: "0.1.0-mock",
+      scheduler: { lastPassAt: null },
+      database: { writable: true },
+      disk: { freeBytes: null },
+    })),
 
     handle(API_ROUTES.status, () => ({
       profiles: store.profiles.length,

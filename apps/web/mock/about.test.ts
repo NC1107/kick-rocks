@@ -8,7 +8,7 @@ describe("about handlers", () => {
   it("answers the health check to anyone, with a version", async () => {
     const response = await call({ path: "/health" });
     expect(response.status).toBe(200);
-    expect(response.json).toEqual({ ok: true, version: "0.1.0-mock" });
+    expect(response.json).toMatchObject({ ok: true, version: "0.1.0-mock" });
   });
 
   it("counts profiles and targets from the store", async () => {

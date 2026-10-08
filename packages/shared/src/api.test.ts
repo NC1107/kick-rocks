@@ -345,7 +345,13 @@ describe("toApiIssues", () => {
 describe("the health and status routes", () => {
   it("tell an anonymous caller only that the server is up", () => {
     expect(API_ROUTES.health.auth).toBe("none");
-    expect(Object.keys(API_ROUTES.health.response.shape).sort()).toEqual(["ok", "version"]);
+    expect(Object.keys(API_ROUTES.health.response.shape).sort()).toEqual([
+      "database",
+      "disk",
+      "ok",
+      "scheduler",
+      "version",
+    ]);
   });
 
   it("keep the counts behind the session", () => {
