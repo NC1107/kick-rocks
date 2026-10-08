@@ -238,6 +238,11 @@ export interface TaskQueue {
   pullForward(input: { kind: TaskKind; profileId: string; waitingUntil: Date; to: Date }): number;
   /** Puts a blocked task back in the queue with a fresh attempt budget. */
   resume(id: string, actor?: RequestActor): Task;
+  /**
+   * Puts a failed task back in the queue, due now, with a fresh attempt budget. For a failure that
+   * was not about the task itself, such as a mailbox whose login has since been fixed.
+   */
+  requeueFailed(id: string, actor?: RequestActor): Task;
   /** Records the person's say-so (or its absence) for the next submit of a removal. */
   setSubmitApproval(id: string, state: Task["submitApproval"]): void;
   /** A person did the work by hand: closes a blocked task as done. */
@@ -906,6 +911,34 @@ export function createTaskQueue({
 
     setSubmitApproval(id, state) {
       db.update(tasks).set({ submitApproval: state }).where(eq(tasks.id, id)).run();
+    },
+
+    requeueFailed(id, actor = "system") {
+      const now = nowIso(clock);
+      return db.transaction((tx) => {
+        const row = loadRow(tx, id);
+        if (row.status !== "failed") {
+          throw conflict("invalid_task_state", `Task ${id} is ${row.status}, not failed`);
+        }
+        const task = toTask(
+          tx
+            .update(tasks)
+            .set({
+              status: "queued",
+              leaseOwner: null,
+              failureKind: null,
+              failureStep: null,
+              attempts: 0,
+              runAfter: null,
+              updatedAt: now,
+            })
+            .where(eq(tasks.id, id))
+            .returning()
+            .get(),
+        );
+        emit(tx, "resumed", task, actor);
+        return task;
+      });
     },
 
     resume(id, actor = "user") {

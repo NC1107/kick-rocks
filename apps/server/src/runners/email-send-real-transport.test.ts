@@ -1,4 +1,5 @@
 import { mailboxes } from "@kickrocks/db";
+import { API_ROUTES } from "@kickrocks/shared";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createMailTransport } from "../mail/transport.js";
@@ -40,6 +41,24 @@ afterEach(async () => {
   await smtp.close();
   await ctx.close();
 });
+
+const saveMailbox = () =>
+  ctx.call(API_ROUTES.mailboxSave, {
+    params: { id: profileId },
+    body: {
+      provider: "fastmail",
+      address: "jordan@example.com",
+      username: "jordan@example.com",
+      password: "fixed-app-password",
+      smtpHost: "127.0.0.1",
+      smtpPort: smtp.port,
+      smtpSecure: false,
+      imapHost: "127.0.0.1",
+      imapPort: 1,
+      replyFolder: "INBOX",
+      dailyCap: 30,
+    },
+  });
 
 function openRequest() {
   const target = seedTarget(ctx);
@@ -155,5 +174,39 @@ describe("the email runner against the real transport", () => {
 
       expect(await runners.email.runDue()).toBe(1);
     });
+  });
+
+  it("requeues the sends a revoked password failed once the mailbox is saved again", async () => {
+    const request = openRequest();
+    const claimed = ctx.services.taskQueue.claim({
+      workerId: "server:email-send",
+      kinds: ["email_send"],
+      leaseMs: MINUTE,
+    });
+    ctx.services.taskQueue.fail(claimed?.id ?? "", {
+      workerId: "server:email-send",
+      error: "The server rejected the username or app password. The server said: 535 5.7.8",
+      retryable: false,
+      kind: "network",
+      actor: "system",
+    });
+    expect(taskFor(request.id)?.status).toBe("failed");
+
+    const saved = await saveMailbox();
+    expect(saved.ok, JSON.stringify(saved)).toBe(true);
+
+    expect(taskFor(request.id)).toMatchObject({ status: "queued", attempts: 0 });
+    expect(await runners.email.runDue()).toBe(1);
+  });
+
+  it("leaves a send the broker refused failed when the mailbox is saved again", async () => {
+    const request = openRequest();
+    smtp.behave("rcpt_550");
+    await runners.email.runDue();
+    expect(taskFor(request.id)?.status).toBe("failed");
+
+    await saveMailbox();
+
+    expect(taskFor(request.id)?.status).toBe("failed");
   });
 });
