@@ -61,6 +61,31 @@ describe("the about page", () => {
     expect(card).toHaveTextContent(/same license/);
   });
 
+  it("names the Eraser list and its MIT license in the attribution", async () => {
+    renderPage(<AboutPage />, { withProfile: false });
+    const card = (await screen.findByRole("heading", { name: "Attribution" })).closest(
+      "section",
+    ) as HTMLElement;
+    expect(within(card).getByRole("link", { name: /Eraser/ })).toHaveAttribute(
+      "href",
+      "https://github.com/drumandbytes/eraser",
+    );
+    expect(card).toHaveTextContent(/MIT license/);
+  });
+
+  it("states the limits of what a request can do", async () => {
+    renderPage(<AboutPage />, { withProfile: false });
+    const limits = (await screen.findByRole("heading", { name: "Limits" })).closest(
+      "section",
+    ) as HTMLElement;
+    expect(limits).toHaveTextContent(/not legal advice/);
+    expect(limits).toHaveTextContent(/may not apply to a given business/);
+    expect(limits).toHaveTextContent(/does not guarantee/);
+    expect(limits).toHaveTextContent(/add you back/);
+    expect(limits).toHaveTextContent(/new link between your name and your email/);
+    expect(limits).toHaveTextContent(/own privacy policy/);
+  });
+
   it("says the broker list is not built when it is not", async () => {
     const mock = createMockApp();
     const handle = mock.handle.bind(mock);

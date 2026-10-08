@@ -18,10 +18,11 @@ A worker cannot skip the gate by being a different kind of client, and a pushbac
   Retrying one immediately usually makes it worse, so Kick Rocks treats it as pushback and waits.
 - Retry-After is defined as either a number of seconds or an HTTP date ([RFC 9110, section 10.2.3](https://www.rfc-editor.org/rfc/rfc9110#field.retry-after)).
 - Mitigation timeouts on the rule side range from seconds to a day, so a cooldown measured in hours is long enough to outlast one.
-- Challenge and VPN reputation: common bot-management practice scores datacenter and VPN ranges are scored as riskier than residential ones, which is why a proxy is optional and warned about in Settings.
+- Challenge and VPN reputation: common bot-management practice scores datacenter and VPN ranges as riskier than residential ones, which is why a proxy is optional and warned about in Settings.
 
 These sources describe what sites do, and they are the reason for the defaults below.
 Kick Rocks does not try to get past a challenge: it detects it and leaves the site alone.
+The one thing it does about automation is start Chrome like a person's own browser (see "Looking like one consistent person"), and that is not a way past a check.
 
 ## The gate
 
@@ -121,7 +122,9 @@ A probe that ends without telling anything about the site leaves the breaker hal
 - No rotation of user agents or fingerprints, and no stealth plugins.
 - Human pacing in both workers: typing rhythm with hesitations, a pause before each action, a dwell of about one to three seconds on a freshly opened page, and a small scroll as a reader would make.
 - Pages load normally: no blocking of images, scripts, or fonts, which looks automated.
-- Chrome starts with the automation flag hidden, so `navigator.webdriver` is false as it is in a person's own browser.
+- Chrome starts without the automation flag, so `navigator.webdriver` is false as it is in a person's own browser.
+  That makes the visitor match what the site would see from the person, and it is not an attempt to pass a bot check.
+  A challenge still stops the task, and nothing here tries to solve one.
 - The worker never fetches robots.txt: a request from Node's HTTP client has a different TLS fingerprint and headers than the browser it sits beside, and no visitor looks at it before a search.
   The gap floor above is what spaces visits.
 - Every page the main frame loads is read for pushback, whatever started it, so a 429 that answers the search submit is handled like one that answers the first visit.
