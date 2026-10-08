@@ -717,6 +717,52 @@ describeBrowser("human checks", () => {
     expect(outcome.report.report.screenshot).toBeDefined();
   });
 
+  it("tells the server when the site answered 429, so the task waits out the cooldown", async () => {
+    const { outcome } = await run([
+      navigate("/limited"),
+      {
+        calls: [
+          [
+            "report",
+            { status: "failed", error: "The site said too many requests", retryable: true },
+          ],
+        ],
+      },
+    ]);
+    expect(outcome.report).toMatchObject({
+      kind: "fail",
+      report: {
+        site: { pushback: { kind: "rate_limited", status: 429, retryAfterSeconds: 180 } },
+      },
+    });
+  });
+
+  it("tells the server about a Cloudflare challenge, and does not try to pass it", async () => {
+    const { outcome } = await run([navigate("/cf-challenge")]);
+    expect(outcome.report).toMatchObject({
+      kind: "block",
+      report: { reason: "bot_detection", site: { pushback: { kind: "challenge", status: 403 } } },
+    });
+  });
+
+  it("reports a CAPTCHA page that loaded normally as pushback of its own kind", async () => {
+    const { outcome } = await run([navigate("/captcha")]);
+    expect(outcome.report).toMatchObject({
+      kind: "block",
+      report: { site: { pushback: { kind: "captcha" } } },
+    });
+  });
+
+  it("says nothing about a site that answered normally", async () => {
+    const { outcome } = await run([
+      navigate("/optout"),
+      {
+        calls: [["report", { status: "complete", result: removed }]],
+      },
+    ]);
+    expect(outcome.report).not.toHaveProperty("site");
+  });
+
   it("blocks when a click lands on a CAPTCHA", async () => {
     const { outcome } = await run([
       navigate("/optout"),

@@ -51,7 +51,7 @@ export async function runAgentWorker(options: AgentWorkerOptions): Promise<void>
   const executor: AgentExecutor = async (task, runSignal, progress) => {
     let page: Page;
     try {
-      page = await browsers.newPage(task.profileId ?? null);
+      page = await browsers.newPage(task.profileId ?? null, task.proxyUrl ?? null);
     } catch (error) {
       logger.error("could not open a browser page", { error: describeError(error) });
       return {

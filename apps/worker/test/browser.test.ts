@@ -224,6 +224,52 @@ describe("one browser per Kick Rocks profile", () => {
     expect(dirs).toEqual([join(dir, "kickrocks", "shared")]);
   });
 
+  describe("a proxy the person chose for a site", () => {
+    function proxiedLauncher() {
+      const proxies: (string | null | undefined)[] = [];
+      const launch = vi.fn(async (opened: { proxyServer?: string | null }) => {
+        proxies.push(opened.proxyServer);
+        const page = {};
+        return {
+          on: vi.fn(),
+          pages: () => [page],
+          newPage: async () => page,
+          close: async () => undefined,
+        } as never;
+      });
+      return { proxies, launch };
+    }
+
+    it("keeps the same browser, cookies and all, while the route does not change", async () => {
+      const { launch } = proxiedLauncher();
+      const browsers = createProfileBrowsers(settings(), silentLogger, launch);
+      await browsers.newPage("p-one", "http://10.0.0.100:8888");
+      await browsers.newPage("p-one", "http://10.0.0.100:8888");
+      expect(launch).toHaveBeenCalledTimes(1);
+    });
+
+    it("restarts that profile's browser when the route changes, on the same user data folder", async () => {
+      const { proxies, launch } = proxiedLauncher();
+      const browsers = createProfileBrowsers(settings(), silentLogger, launch);
+      await browsers.newPage("p-one", null);
+      await browsers.newPage("p-one", "http://10.0.0.100:8888");
+      await browsers.newPage("p-one", null);
+      expect(proxies).toEqual([null, "http://10.0.0.100:8888", null]);
+    });
+
+    it("never overrides a proxy the worker was started with", async () => {
+      const { proxies, launch } = proxiedLauncher();
+      const browsers = createProfileBrowsers(
+        { ...settings(), proxyServer: "http://egress-filter:3128" },
+        silentLogger,
+        launch,
+      );
+      await browsers.newPage("p-one", "http://10.0.0.100:8888");
+      await browsers.newPage("p-one", null);
+      expect(proxies).toEqual(["http://egress-filter:3128"]);
+    });
+  });
+
   describe("when profiles are deleted", () => {
     const folder = (name: string) => join(dir, "kickrocks", name);
 

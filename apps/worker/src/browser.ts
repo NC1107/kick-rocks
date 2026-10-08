@@ -270,7 +270,12 @@ function scopeName(profileId: string | null): string {
  * visits together, so the people on one instance must never share them. Browsers start on first use.
  */
 export interface ProfileBrowsers {
-  newPage(profileId: string | null): Promise<Page>;
+  /**
+   * A page in the person's browser. A proxy given here is used for the page's traffic unless the
+   * worker was started with a proxy of its own, which always wins because it is the operator's
+   * safety filter. Changing proxy restarts that profile's browser, so it happens between tasks.
+   */
+  newPage(profileId: string | null, proxy?: string | null): Promise<Page>;
   /**
    * Forgets every profile that is not in the list: closes its browser and deletes its cookies,
    * history and cached pages. A profile that was deleted must not leave a record of its visits
@@ -285,28 +290,36 @@ export function createProfileBrowsers(
   logger: Logger,
   launch: BrowserLauncher = launchPersistentChrome,
 ): ProfileBrowsers {
-  const sessions = new Map<string, BrowserSession>();
+  const sessions = new Map<string, { session: BrowserSession; proxy: string | null }>();
 
-  function sessionFor(profileId: string | null): BrowserSession {
+  async function sessionFor(profileId: string | null, requested: string | null) {
     const scope = scopeName(profileId);
-    let session = sessions.get(scope);
-    if (!session) {
-      const profileDir = join(settings.profileDir, "kickrocks", scope);
-      mkdirSync(profileDir, { recursive: true });
-      session = createBrowserSession({ ...settings, profileDir }, logger, launch);
-      sessions.set(scope, session);
+    const proxy = settings.proxyServer ?? requested;
+    const open = sessions.get(scope);
+    if (open && open.proxy === proxy) return open.session;
+    if (open) {
+      sessions.delete(scope);
+      await open.session.close();
     }
+    const profileDir = join(settings.profileDir, "kickrocks", scope);
+    mkdirSync(profileDir, { recursive: true });
+    const session = createBrowserSession(
+      { ...settings, profileDir, proxyServer: proxy },
+      logger,
+      launch,
+    );
+    sessions.set(scope, { session, proxy });
     return session;
   }
 
   return {
-    newPage: (profileId) => sessionFor(profileId).newPage(),
+    newPage: async (profileId, proxy = null) => (await sessionFor(profileId, proxy)).newPage(),
     async keepOnly(profileIds) {
       const kept = new Set([SHARED_SCOPE, ...profileIds.map(scopeName)]);
-      for (const [scope, session] of [...sessions]) {
+      for (const [scope, open] of [...sessions]) {
         if (kept.has(scope)) continue;
         sessions.delete(scope);
-        await session.close();
+        await open.session.close();
       }
       const root = join(settings.profileDir, "kickrocks");
       const onDisk = existsSync(root) ? readdirSync(root) : [];
@@ -318,7 +331,7 @@ export function createProfileBrowsers(
     async close() {
       const open = [...sessions.values()];
       sessions.clear();
-      await Promise.all(open.map((session) => session.close()));
+      await Promise.all(open.map(({ session }) => session.close()));
     },
   };
 }

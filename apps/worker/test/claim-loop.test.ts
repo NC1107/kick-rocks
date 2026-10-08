@@ -81,6 +81,7 @@ describe("the claim loop", () => {
       expect.stringMatching(/^task-/),
       { outcome: "submitted" },
       { durationMs: 12 },
+      undefined,
     );
   });
 
@@ -208,6 +209,7 @@ describe("the claim loop", () => {
       expect.stringMatching(/^task-/),
       { outcome: "submitted" },
       {},
+      undefined,
     );
   });
 

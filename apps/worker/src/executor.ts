@@ -16,6 +16,7 @@ import {
   type ProfileFields,
   type Recipe,
   ScanResult,
+  type SiteObservation,
   type TaskBlockReport,
   type TaskFailureReport,
   type TaskUsage,
@@ -24,10 +25,11 @@ import {
 import type { Page } from "playwright";
 import type { z } from "zod";
 import { describeError, type Logger } from "./logger.js";
+import { type CrawlDelayReader, createCrawlDelayReader } from "./robots.js";
 
 /** What to tell the server about a task after running it. */
 export type TaskReport =
-  | { kind: "complete"; result: unknown; usage: TaskUsage }
+  | { kind: "complete"; result: unknown; usage: TaskUsage; site?: SiteObservation }
   | { kind: "block"; report: TaskBlockReport }
   | { kind: "fail"; report: Omit<TaskFailureReport, "kind"> & { kind?: TaskFailureReport["kind"] } }
   /** Hand the task back without costing it an attempt. */
@@ -65,12 +67,16 @@ export interface Runners {
 }
 
 export interface ExecutorOptions {
-  /** Opens a page in the browser that belongs to the person the task is for. */
-  openPage: (profileId: string | null) => Promise<Page>;
+  /**
+   * Opens a page in the browser that belongs to the person the task is for, reaching the web
+   * through `proxy` when the person routed this site through one.
+   */
+  openPage: (profileId: string | null, proxy: string | null) => Promise<Page>;
   pace: "human" | "instant";
   allowHttp: boolean;
   logger: Logger;
   runners?: Runners;
+  crawlDelays?: CrawlDelayReader;
   now?: () => number;
 }
 
@@ -105,11 +111,12 @@ function report<R>(
   usage: TaskUsage,
   signal: AbortSignal,
 ): TaskReport {
+  const site = outcome.site ? { site: outcome.site } : {};
   switch (outcome.status) {
     case "completed": {
       const parsed = schema.safeParse(outcome.result);
       return parsed.success
-        ? { kind: "complete", result: parsed.data, usage }
+        ? { kind: "complete", result: parsed.data, usage, ...site }
         : internal("The run produced a result that does not match its schema", false);
     }
     case "blocked": {
@@ -123,6 +130,7 @@ function report<R>(
           ...(url ? { url } : {}),
           ...(screenshot ? { screenshot } : {}),
           usage,
+          ...site,
         },
       };
     }
@@ -136,6 +144,7 @@ function report<R>(
           kind: outcome.kind,
           ...(outcome.step === undefined ? {} : { step: outcome.step }),
           usage,
+          ...site,
         },
       };
   }
@@ -163,6 +172,7 @@ function fieldsFor(task: ClaimedTask, recipe: Recipe): ProfileFields {
 export function createExecutor(options: ExecutorOptions): TaskExecutor {
   const runners = options.runners ?? DEFAULT_RUNNERS;
   const now = options.now ?? Date.now;
+  const crawlDelays = options.crawlDelays ?? createCrawlDelayReader(options.logger);
   const pace: Pace = options.pace === "instant" ? INSTANT_PACE : HUMAN_PACE;
 
   return async (task, signal, progress) => {
@@ -186,7 +196,7 @@ export function createExecutor(options: ExecutorOptions): TaskExecutor {
 
     let page: Page;
     try {
-      page = await options.openPage(task.profileId ?? null);
+      page = await options.openPage(task.profileId ?? null, task.proxyUrl ?? null);
     } catch (error) {
       options.logger.error("could not open a browser page", { error: describeError(error) });
       return {
@@ -198,14 +208,19 @@ export function createExecutor(options: ExecutorOptions): TaskExecutor {
 
     const started = now();
     const usage = (): TaskUsage => ({ durationMs: Math.max(0, now() - started) });
-    const shared = {
-      page,
-      pace,
-      signal,
-      allowHttp: options.allowHttp,
-      targetDomain: task.target.domain,
-    };
     try {
+      const crawlDelaySeconds =
+        task.kind === "scan" && recipe
+          ? await crawlDelays.read(page, new URL(recipe.entryUrl).origin)
+          : undefined;
+      const shared = {
+        page,
+        pace,
+        signal,
+        allowHttp: options.allowHttp,
+        targetDomain: task.target.domain,
+        ...(crawlDelaySeconds === undefined ? {} : { crawlDelaySeconds }),
+      };
       switch (task.kind) {
         case "scan": {
           const outcome = await runners.runRecipe({
