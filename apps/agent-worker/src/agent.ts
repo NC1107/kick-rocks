@@ -22,6 +22,7 @@ import {
   type ToolCall,
   type ToolResult,
 } from "./provider.js";
+import { SubmitNeedsApproval } from "./submit-approval.js";
 import { Toolbox, type ToolOutcome } from "./toolbox.js";
 import { ReportArgs, TOOL_SPECS } from "./tools.js";
 
@@ -67,6 +68,15 @@ function describeIssues(error: z.ZodError): string {
     .join("; ");
 }
 
+/**
+ * A task that does not say is treated as needing approval, so a missing field never opens the
+ * gate. An approval does not either: that run is still held, and may click only the control the
+ * person looked at. A granted approval that names none holds every control.
+ */
+function needsApprovalToSubmit(task: AgentTask): boolean {
+  return task.payload.purpose === "remove" && task.submitApproval !== "not_needed";
+}
+
 class AgentRun {
   private readonly started: number;
   private readonly now: () => number;
@@ -104,6 +114,8 @@ class AgentRun {
       ...(task.payload.purpose === "remove" && options.onMayHaveSubmitted
         ? { onClick: options.onMayHaveSubmitted }
         : {}),
+      submitNeedsApproval: needsApprovalToSubmit(task),
+      ...(task.approvedSubmit ? { approvedSubmit: task.approvedSubmit } : {}),
       ...(options.actionTimeoutMs === undefined
         ? {}
         : { actionTimeoutMs: options.actionTimeoutMs }),
@@ -277,6 +289,7 @@ class AgentRun {
       }
     } catch (error) {
       if (signal.aborted) return this.release("the worker is shutting down");
+      if (error instanceof SubmitNeedsApproval) return this.stopForApproval(error);
       if (error instanceof SubmitNotRecorded) {
         logger.warn("the server could not record a possible submission, so nothing was clicked", {
           taskId: task.id,
@@ -289,6 +302,42 @@ class AgentRun {
     } finally {
       await this.toolbox.dispose();
     }
+  }
+
+  /** Parks the task with a picture of the filled form, which is what the person approves or declines. */
+  private async stopForApproval(stop: SubmitNeedsApproval): Promise<TaskReport> {
+    const { task, logger, provider } = this.options;
+    logger.info("a removal run stopped before a click that may send the form", {
+      taskId: task.id,
+      model: provider.model,
+    });
+    const screenshot = await this.toolbox.screenshot();
+    const url = this.toolbox.blockedUrl() ?? stop.pageUrl;
+    if (stop.via === "change") {
+      return {
+        kind: "block",
+        report: {
+          reason: "unknown",
+          detail: `Typing, choosing an option or ticking a box tried to send the form by itself, and the request was cancelled, so nothing went out. ${provider.model} has not passed the safety gate on this install, so a person finishes this one.`,
+          url,
+          ...(screenshot ? { screenshot } : {}),
+          usage: this.usage(),
+        },
+      };
+    }
+    const shown = stop.label;
+    return {
+      kind: "block",
+      report: {
+        reason: "approval_needed",
+        detail: `Stopped before clicking ${shown ? `"${shown}"` : "a button"}, which may send the form. Nothing has been sent. ${provider.model} has not passed the safety gate on this install, so a person approves each submit.`,
+        url,
+        control: shown,
+        fingerprint: stop.fingerprint,
+        ...(screenshot ? { screenshot } : {}),
+        usage: this.usage(),
+      },
+    };
   }
 
   private providerFailure(error: unknown): TaskReport {

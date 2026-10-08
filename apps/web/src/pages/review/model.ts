@@ -66,6 +66,27 @@ export function canHandOff(task: Pick<TaskSummary, "kind">): boolean {
   return task.kind === "scan" || task.kind === "form" || task.kind === "agent";
 }
 
+/** A model stopped before sending a form because it has not passed the safety gate here. */
+export function awaitsSubmitApproval(
+  task: Pick<TaskSummary, "kind" | "status" | "blockedReason">,
+): boolean {
+  return (
+    task.kind === "agent" && task.status === "blocked" && task.blockedReason === "approval_needed"
+  );
+}
+
+/**
+ * A model reported a sent form that no one approved. The form may be out, so the person checks the
+ * site, and running the task again could send it twice.
+ */
+export function sentWithoutApproval(
+  task: Pick<TaskSummary, "kind" | "status" | "blockedReason">,
+): boolean {
+  return (
+    task.kind === "agent" && task.status === "blocked" && task.blockedReason === "unapproved_submit"
+  );
+}
+
 /** A person can report how a removal ended only for tasks that belong to a request. */
 export function canReportOutcome(task: Pick<TaskSummary, "kind" | "requestId">): boolean {
   return (task.kind === "form" || task.kind === "agent") && task.requestId !== null;

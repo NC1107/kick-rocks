@@ -15,7 +15,7 @@ import {
   useToast,
 } from "../../../components/ui/index.js";
 import { MCP_TOKEN_PLACEHOLDER, mcpClientConfig } from "../model.js";
-import { BodyRow, GroupFooter, Value } from "../rows.js";
+import { BodyRow, GroupFooter, GroupNote, Value } from "../rows.js";
 
 export function McpCard({ mcp }: { mcp: SettingsView["mcp"] }) {
   const toast = useToast();
@@ -76,6 +76,9 @@ export function McpCard({ mcp }: { mcp: SettingsView["mcp"] }) {
             </Button>
           </GroupFooter>
         </RowGroup>
+        <GroupNote>
+          An MCP client is not held by the safety gate, so it can send a form without asking you.
+        </GroupNote>
         {token ? (
           <Callout intent="success" title="Copy this token now" className="mt-3">
             <p>It is shown once and cannot be looked up later.</p>

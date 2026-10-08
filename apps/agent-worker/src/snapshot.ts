@@ -11,6 +11,7 @@ export type SnapshotItem =
   | { t: "heading"; level: number; text: string }
   | { t: "text"; text: string }
   | { t: "frame"; host: string }
+  | { t: "overlay"; hidden: number }
   | {
       t: "control";
       ref: string;
@@ -29,7 +30,11 @@ export interface RawSnapshot {
   title: string;
   url: string;
   items: SnapshotItem[];
+  /** Set when the page held more than {@link MAX_SNAPSHOT_ITEMS} items and the rest was not read. */
+  truncated?: boolean;
 }
+
+export const MAX_SNAPSHOT_ITEMS = 3000;
 
 export const REF_ATTRIBUTE = "data-kr-ref";
 
@@ -73,8 +78,17 @@ export const REACHABLE = `(el) => {
 export const READ_SNAPSHOT = `(() => {
   const MAX_TEXT = 300;
   const MAX_OPTIONS = 80;
-  const MAX_ITEMS = 600;
-  for (const el of document.querySelectorAll("[data-kr-ref]")) el.removeAttribute("data-kr-ref");
+  const MAX_ITEMS = ${MAX_SNAPSHOT_ITEMS};
+  const earlier = new Map();
+  let highest = window.__krHighestRef || 0;
+  for (const el of document.querySelectorAll("[data-kr-ref]")) {
+    const ref = el.getAttribute("data-kr-ref");
+    if (!earlier.has(ref)) earlier.set(ref, el);
+    highest = Math.max(highest, Number(ref.slice(1)) || 0);
+    el.removeAttribute("data-kr-ref");
+  }
+  const reused = new Map(Array.from(earlier, ([ref, el]) => [el, ref]));
+  const taken = new Set();
   const startX = window.scrollX;
   const startY = window.scrollY;
   const reachable = ${REACHABLE};
@@ -102,9 +116,46 @@ export const READ_SNAPSHOT = `(() => {
     if (style.display === "none" || style.visibility === "hidden" || style.visibility === "collapse") return false;
     return true;
   };
+  let covered = 0;
+  const stackLevel = (el) => {
+    let level = 0;
+    for (let walker = el; walker && walker !== document.documentElement; walker = walker.parentElement) {
+      level = Math.max(level, parseInt(getComputedStyle(walker).zIndex, 10) || 0);
+    }
+    return level;
+  };
+  // The layers that cover most of the window, found once: a point is hit-tested, then its
+  // ancestors are walked up to a fixed or absolute box of that size. Testing every control would
+  // scroll it into view, which is slow on a long page and looks like nothing a person does.
+  const overlays = [];
+  for (const [x, y] of [[0.5, 0.5], [0.2, 0.2], [0.8, 0.2], [0.2, 0.8], [0.8, 0.8]]) {
+    const hit = document.elementFromPoint(window.innerWidth * x, window.innerHeight * y);
+    for (let walker = hit; walker && walker !== document.body && walker !== document.documentElement; walker = walker.parentElement) {
+      const position = getComputedStyle(walker).position;
+      if (position !== "fixed" && position !== "absolute") continue;
+      const area = walker.getBoundingClientRect();
+      if (area.width < window.innerWidth * 0.9 || area.height < window.innerHeight * 0.9) continue;
+      if (stackLevel(walker) > 0 && !overlays.includes(walker)) overlays.push(walker);
+      break;
+    }
+  }
+  const aboveOverlay = (el, overlay) => {
+    for (let walker = el; walker && walker !== document.documentElement; walker = walker.parentElement) {
+      if (getComputedStyle(walker).position !== "fixed") continue;
+      const own = stackLevel(walker);
+      const under = stackLevel(overlay);
+      return own > under || (own === under && Boolean(overlay.compareDocumentPosition(walker) & Node.DOCUMENT_POSITION_FOLLOWING));
+    }
+    return false;
+  };
+  const coveredByOverlay = (el) => overlays.some((overlay) => !overlay.contains(el) && !aboveOverlay(el, overlay));
   const controlVisible = (el) => {
     if (!shown(el) || !rectOk(el)) return false;
     if (Number(getComputedStyle(el).opacity) <= 0.01) return false;
+    if (coveredByOverlay(el)) {
+      covered += 1;
+      return false;
+    }
     return !needsReach(el) || reachable(el);
   };
 
@@ -131,7 +182,6 @@ export const READ_SNAPSHOT = `(() => {
     return clean(el.getAttribute("placeholder")) || clean(el.getAttribute("title")) || clean(el.getAttribute("name")) || "";
   };
 
-  let n = 0;
   let suppress = 0;
   const items = [];
   let buffer = [];
@@ -143,8 +193,12 @@ export const READ_SNAPSHOT = `(() => {
   };
   const control = (el, role, extra) => {
     flush();
-    n += 1;
-    const ref = "e" + n;
+    let ref = reused.get(el);
+    if (ref === undefined || taken.has(ref)) {
+      highest += 1;
+      ref = "e" + highest;
+    }
+    taken.add(ref);
     el.setAttribute("data-kr-ref", ref);
     items.push(Object.assign({ t: "control", ref, role, name: clip(nameOf(el), 120) }, extra,
       el.disabled ? { disabled: true } : {}, el.required || el.getAttribute("aria-required") === "true" ? { required: true } : {}));
@@ -192,8 +246,12 @@ export const READ_SNAPSHOT = `(() => {
     return false;
   };
 
+  let truncated = false;
   const walk = (node) => {
-    if (items.length >= MAX_ITEMS) return;
+    if (items.length >= MAX_ITEMS) {
+      if (node.nodeType === 1 ? !SKIP.has(node.tagName.toUpperCase()) : node.nodeType === 3 && node.nodeValue.trim()) truncated = true;
+      return;
+    }
     if (node.nodeType === 3) {
       const text = node.nodeValue;
       if (suppress === 0 && text && text.trim()) buffer.push(text);
@@ -242,14 +300,19 @@ export const READ_SNAPSHOT = `(() => {
 
   walk(document.body || document.documentElement);
   flush();
+  if (covered > 0) items.unshift({ t: "overlay", hidden: covered });
+  window.__krHighestRef = highest;
   window.scrollTo(startX, startY);
-  return { title: document.title, url: location.href, items };
+  return { title: document.title, url: location.href, items, truncated };
 })()`;
 
 interface SnapshotOptions {
   /** Hides a value the person owns from the text. Left out, the text is shown as the page has it. */
   mask?: (text: string) => string;
+  /** The most characters one part may hold. */
   maxChars?: number;
+  /** Which part of a long page to show, counted from 1. */
+  part?: number;
 }
 
 const DEFAULT_SNAPSHOT_CHARS = 12_000;
@@ -266,6 +329,8 @@ function line(item: SnapshotItem, mask: (text: string) => string): string {
       return `text ${quote(mask(item.text))}`;
     case "frame":
       return `embedded frame from ${item.host} (its content cannot be read or used)`;
+    case "overlay":
+      return `A full-page overlay, such as a cookie banner or a notice, covers the page and ${item.hidden} control${item.hidden === 1 ? "" : "s"} behind it cannot be used. Dismiss it first with one of its own buttons listed below, then call snapshot.`;
     case "control": {
       const parts = [`[${item.ref}] ${item.role} ${quote(mask(item.name))}`];
       if (item.href !== undefined) parts.push(`-> ${mask(item.href)}`);
@@ -286,27 +351,57 @@ function line(item: SnapshotItem, mask: (text: string) => string): string {
   }
 }
 
-/** The text the model reads, cut at a budget so a long page cannot fill its context. */
+/** Splits the lines into parts that each fit the budget, never cutting a line in two. */
+function partition(lines: string[], budget: number): string[][] {
+  const parts: string[][] = [[]];
+  let used = 0;
+  for (const text of lines) {
+    const current = parts[parts.length - 1] as string[];
+    if (current.length > 0 && used + text.length + 1 > budget) {
+      parts.push([text]);
+      used = text.length + 1;
+    } else {
+      current.push(text);
+      used += text.length + 1;
+    }
+  }
+  return parts;
+}
+
+/**
+ * The text the model reads. A page longer than the budget is split into parts of that size, and
+ * the model asks for each one in turn, so no control is out of reach and no single answer can
+ * fill its context.
+ */
 export function formatSnapshot(raw: RawSnapshot, options: SnapshotOptions = {}): string {
   const budget = options.maxChars ?? DEFAULT_SNAPSHOT_CHARS;
   const mask = options.mask ?? ((text: string) => text);
   const header = [`url: ${mask(raw.url)}`, `title: ${quote(mask(raw.title))}`];
-  const lines: string[] = [];
-  let used = header.join("\n").length;
-  let omitted = 0;
-  for (const item of raw.items) {
-    const text = line(item, mask);
-    if (used + text.length + 1 > budget) {
-      omitted += 1;
-      continue;
-    }
-    used += text.length + 1;
-    lines.push(text);
+  const parts = partition(
+    raw.items.map((item) => line(item, mask)),
+    Math.max(1, budget - header.join("\n").length),
+  );
+  const wanted = options.part ?? 1;
+  const shown = parts[wanted - 1];
+  if (shown === undefined) {
+    return [
+      ...header,
+      `(there is no part ${wanted}: the page has ${parts.length} part${parts.length === 1 ? "" : "s"})`,
+    ].join("\n");
   }
   const controls = raw.items.filter((item) => item.t === "control").length;
-  const footer =
-    omitted > 0
-      ? [`(${omitted} more items left out because the page is long; ${controls} controls in total)`]
-      : [];
-  return [...header, ...lines, ...footer].join("\n");
+  const footer: string[] = [];
+  if (parts.length > 1) {
+    footer.push(
+      wanted < parts.length
+        ? `(part ${wanted} of ${parts.length}; the page is long, so call snapshot with part ${wanted + 1} to read on; ${controls} controls in total)`
+        : `(part ${wanted} of ${parts.length}, the last; ${controls} controls in total)`,
+    );
+  }
+  if (raw.truncated && wanted === parts.length) {
+    footer.push(
+      `(the page was cut off after ${MAX_SNAPSHOT_ITEMS} items, so what comes after them could not be read, and a form that is not listed here may still be on the page)`,
+    );
+  }
+  return [...header, ...shown, ...footer].join("\n");
 }

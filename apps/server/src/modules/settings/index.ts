@@ -4,13 +4,16 @@ import {
   DataSourceId,
   type DataSourceInfo,
   EgressSettings,
+  gateVerdict,
   RetentionSettings,
   ScanningSettings,
   ScheduleSettings,
   type SettingsPatch,
   type SettingsView,
+  withOverride,
 } from "@kickrocks/shared";
 import { sql } from "drizzle-orm";
+import { nowIso } from "../../core/clock.js";
 import { createEgressRouter } from "../../core/egress.js";
 import { invalidRequest } from "../../core/errors.js";
 import { registerRoute } from "../../core/http.js";
@@ -24,6 +27,8 @@ function viewOf(services: AppServices): SettingsView {
   const llm = settings.get("llm");
   const egress = settings.get("egress");
   const router = createEgressRouter(services);
+  const records = settings.get("agent.gate").records;
+  const reported = settings.get("worker.status.model")?.model ?? null;
   return {
     schedule: settings.get("schedule"),
     retention: settings.get("retention"),
@@ -39,7 +44,13 @@ function viewOf(services: AppServices): SettingsView {
       url: `${config.publicUrl}/mcp`,
     },
     siteChecks: { enabled: settings.get("siteChecks.enabled") },
-    agent: { takeUnreviewed: settings.get("agent.takeUnreviewed") },
+    agent: {
+      takeUnreviewed: settings.get("agent.takeUnreviewed"),
+      gate: {
+        records,
+        current: reported ? { model: reported, verdict: gateVerdict(records, reported) } : null,
+      },
+    },
     worker: {
       enabled: config.workerToken !== null,
       builtin: settings.get("worker.status.builtin"),
@@ -56,7 +67,7 @@ function sameOrigin(a: string, b: string): boolean {
   }
 }
 
-function applyPatch({ settings }: AppServices, patch: SettingsPatch): void {
+function applyPatch({ settings, clock }: AppServices, patch: SettingsPatch): void {
   if (patch.schedule) {
     settings.set(
       "schedule",
@@ -103,7 +114,20 @@ function applyPatch({ settings }: AppServices, patch: SettingsPatch): void {
   }
   if (patch.mcp) settings.set("mcp.enabled", patch.mcp.enabled);
   if (patch.siteChecks) settings.set("siteChecks.enabled", patch.siteChecks.enabled);
-  if (patch.agent) settings.set("agent.takeUnreviewed", patch.agent.takeUnreviewed);
+  if (patch.agent?.takeUnreviewed !== undefined) {
+    settings.set("agent.takeUnreviewed", patch.agent.takeUnreviewed);
+  }
+  if (patch.agent?.gateOverride) {
+    const { provider, name, enabled } = patch.agent.gateOverride;
+    settings.set("agent.gate", {
+      records: withOverride(
+        settings.get("agent.gate").records,
+        { provider, name },
+        enabled,
+        nowIso(clock),
+      ),
+    });
+  }
 }
 
 /** How many live targets list each source, counting a target once however it lists it. */

@@ -68,6 +68,7 @@ describe("SETTING_SCHEMAS", () => {
         "egress",
         "siteChecks.enabled",
         "agent.takeUnreviewed",
+        "agent.gate",
         "worker.status.builtin",
         "worker.status.model",
         "notifications",

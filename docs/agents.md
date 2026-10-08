@@ -164,6 +164,10 @@ A scan task reports the records it found, and a removal task reports how the for
 ```
 
 The form outcomes are `submitted`, `awaiting_email_confirmation`, `not_found`, and `already_removed`.
+A removal at a site that offers to look up an earlier request looks it up first, and reports `already_removed` when the site says so, instead of sending a new request.
+A scan reports every record that is consistent with all the identifiers in `fields`, and none that contradicts one, such as a different city or an age that does not fit the birth year.
+A task carries only the identifiers the legal package releases for its target and purpose, so a removal at a blind-request target gets a name and an email, and the state only where the target keeps a record to match.
+A dropdown that asks for a detail the task does not carry is refused, so the missing state is reported as blocked instead of guessed.
 `confirmationFrom` is accepted only when it is the target's own organization (the same organizational domain as the target's domain, over the public suffix list) or a sister domain the dataset curates for that target in `replyDomains`.
 Any other value is dropped, including another broker's domain and platforms such as paypal.com, and a shared mail host is never accepted.
 A dropped sender means no confirmation email will be matched to the request, so name the sender only when the page names it.
@@ -258,6 +262,7 @@ A canary that cannot find a selector marks the recipe broken, and work for that 
 An mcp client is one way to take agent tasks.
 The agent worker is another: a small program that claims the same tasks itself, drives its own chrome, and asks a model what to do next.
 The model can be a local one through ollama or any openai-compatible endpoint, or a hosted one through the anthropic api.
+Which local model to run for your GPU, what to expect from it, and the check it should pass before it runs unattended are in [agent-models.md](agent-models.md).
 It lives in `apps/agent-worker` and talks to the server through the worker API, so it needs `KICKROCKS_WORKER_TOKEN` and not an mcp token.
 
 It claims only `agent` tasks, and it says it is a model when it claims, so kick rocks counts its runs apart from recipe runs and from mcp clients.
@@ -270,15 +275,27 @@ With docker, set the provider and model in `.env` and add `agent` to `COMPOSE_PR
 A `--profile` flag on the command line replaces `COMPOSE_PROFILES`, so use the variable and not the flag, and later `docker compose up -d --build` updates keep the agent worker.
 The settings are listed in `.env.example`.
 
-For a local model through ollama, the provider is `openai`, because ollama serves an openai-compatible endpoint, and the base URL points at it.
-There is no `ollama` value for the provider.
+For a local model through ollama, the provider is `ollama`.
+It talks to ollama's native api, which is the one that sets the context window.
+Ollama's own default is 4096 tokens, and a conversation longer than that is cut short at the front without any error, so the provider asks for 16384 on every request.
+`KICKROCKS_AGENT_NUM_CTX` changes that, and 12000 is the least that holds the largest page snapshot plus the conversation around it.
 
 ```sh
 # .env, a local model on the same machine
 COMPOSE_PROFILES=worker,agent
-KICKROCKS_AGENT_PROVIDER=openai
+KICKROCKS_AGENT_PROVIDER=ollama
 KICKROCKS_AGENT_MODEL=<an ollama model that supports tool calling>
-KICKROCKS_AGENT_BASE_URL=http://host.docker.internal:11434/v1
+KICKROCKS_AGENT_BASE_URL=http://host.docker.internal:11434
+```
+
+Any other server that speaks the openai chat completions protocol uses the `openai` provider with its address, including ollama's own `/v1` endpoint.
+That endpoint has no context setting, so with it the context is whatever ollama loaded the model with, and `OLLAMA_CONTEXT_LENGTH=16384` on the ollama server is how to raise it.
+
+```sh
+# .env, any openai-compatible server
+KICKROCKS_AGENT_PROVIDER=openai
+KICKROCKS_AGENT_MODEL=<model name>
+KICKROCKS_AGENT_BASE_URL=http://host.docker.internal:8080/v1
 ```
 
 For the anthropic api, set the provider to `anthropic` and give it a key.
@@ -300,20 +317,33 @@ pnpm build
 KICKROCKS_WORKER_TOKEN=<token> KICKROCKS_AGENT_MODEL=<model> pnpm --filter @kickrocks/agent-worker start
 ```
 
+### Which models send forms alone
+
+The agent worker tells the server which model it drives, and the server decides whether that model may send a form without asking.
+A model may only after it passes the benchmark's safety gate on this install, or after you allow it by hand in Settings, then Agents.
+Any other model fills the form and stops before the click that may send it, and the task waits in Review as "Needs approval" with a screenshot.
+Approve submit puts it back in the queue for one more run, which fills the form again from the start.
+That run may click only the control you saw in the screenshot, on the same site, if it fills the form the same way, and it stops again at any other control or any other fill.
+A scan sends nothing, so it never waits.
+An MCP client is not held by the safety gate.
+[agent-models.md](agent-models.md) says how to run the benchmark and what it checks.
+
 ### Settings
 
 | Variable | Meaning |
 |---|---|
-| `KICKROCKS_AGENT_PROVIDER` | `openai` for ollama or any openai-compatible endpoint (the default), or `anthropic`. |
-| `KICKROCKS_AGENT_MODEL` | The model name. Required for `openai`, and it must support tool calling. Optional for `anthropic`. |
-| `KICKROCKS_AGENT_BASE_URL` | The endpoint. Defaults to `http://localhost:11434/v1` for `openai` and `https://api.anthropic.com` for `anthropic`. |
+| `KICKROCKS_AGENT_PROVIDER` | `ollama` for ollama's native api, `openai` for any openai-compatible endpoint (the default), or `anthropic`. |
+| `KICKROCKS_AGENT_MODEL` | The model name. Required for `ollama` and `openai`, and it must support tool calling. Optional for `anthropic`. |
+| `KICKROCKS_AGENT_BASE_URL` | The endpoint. Defaults to `http://localhost:11434` for `ollama`, `http://localhost:11434/v1` for `openai`, and `https://api.anthropic.com` for `anthropic`. An `ollama` address with a trailing `/v1` is accepted and the `/v1` is dropped. |
 | `KICKROCKS_AGENT_API_KEY` | A key for the endpoint. ollama needs none. For `anthropic` it falls back to `ANTHROPIC_API_KEY`. |
+| `KICKROCKS_AGENT_NUM_CTX` | The `ollama` provider's context window in tokens. Default 16384, minimum 2048. |
+| `KICKROCKS_AGENT_THINKING` | `default` leaves a thinking model as it is. `off` asks it not to think, so its output cap goes to the answer: `ollama` sends `think: false`, and `openai` sends `reasoning_effort: none`, which ollama's endpoint takes and a hosted api may refuse. A model that cannot turn thinking off, such as gpt-oss, ignores it. |
 | `KICKROCKS_AGENT_WORKER_ID` | Names this worker to the server. Defaults to the host name plus `-agent`. Compose passes it to the worker as `KICKROCKS_WORKER_ID`. |
 | `KICKROCKS_AGENT_MAX_STEPS` | Tool calls one task may use. Default 40. |
 | `KICKROCKS_AGENT_MAX_MINUTES` | Wall time one task may use. Default 10. |
 | `KICKROCKS_AGENT_MAX_TOTAL_TOKENS` | Optional token budget for one task. |
 | `KICKROCKS_AGENT_INPUT_USD_PER_MTOK`, `KICKROCKS_AGENT_OUTPUT_USD_PER_MTOK` | Prices per million tokens. A cost is reported only when both are set. |
-| `KICKROCKS_AGENT_MAX_OUTPUT_TOKENS` | The most the model may write in one turn. Default 2048. |
+| `KICKROCKS_AGENT_MAX_OUTPUT_TOKENS` | The most the model may write in one turn. Default 4096, because a thinking model spends much of a turn on thinking before it calls a tool, and one that runs out of tokens first answers with nothing. |
 | `KICKROCKS_AGENT_TOKEN_PARAM` | What an openai-compatible endpoint calls that limit: `max_tokens` (the default) or `max_completion_tokens`. Reasoning models from openai need the second. With the default, a model that refuses `max_tokens` or a temperature of 0 gets one retry with `max_completion_tokens` and no temperature. |
 
 The browser settings are the same as the built-in worker's: `KICKROCKS_WORKER_HEADLESS`, `KICKROCKS_WORKER_PACE`, `KICKROCKS_CHROME_EXECUTABLE`, and the rest of `apps/worker/README.md`, apart from the proxy, which the agent worker does not read.
@@ -329,10 +359,10 @@ It gets eight, and each one is checked in code before it touches the page.
 | Tool | What it does |
 |---|---|
 | `navigate` | Opens a page on one of the target's domains. |
-| `snapshot` | Reads the page again as a short list of headings, text, and controls with refs. |
+| `snapshot` | Reads the page again as a short list of headings, text, and controls with refs. A page longer than 12,000 characters is split into parts, and `part` reads the next one. |
 | `click` | Clicks a control by ref. |
 | `type` | Types one of the task's fields into a text control. The model names the field and the program supplies the value. |
-| `select` | Picks a dropdown option, either the one that matches a task field or one the snapshot shows. |
+| `select` | Picks a dropdown option, either the one that matches a task field or, for a dropdown that asks nothing about the person, one the snapshot shows. |
 | `check` | Ticks or unticks a checkbox or radio button. |
 | `wait` | Waits up to ten seconds and reads the page. |
 | `report` | Finishes with `complete`, `blocked`, `failed`, or `release`. |
@@ -360,7 +390,22 @@ The worker does not rely on the model to follow them.
 - A text field, textarea or dropdown is offered only if a person could use it: at least 4 by 4 pixels, not clipped away by a wrapper or a clip rule, within the page's width, and on top at its centre once scrolled into view.
   The same check runs again right before the program types or selects, so a control that is hidden after the snapshot is left alone.
   This catches the usual honeypot patterns.
-  A field covered by a pop-up or cookie banner is left out for the same reason, and shows up again once the banner is gone.
+  A control covered by a full-page overlay, such as a cookie banner with a backdrop or a notice, is left out too, and the snapshot starts with a line that says how many controls the overlay hides.
+  The overlay is found once per snapshot, by testing a few points of the window and looking for a fixed or absolute layer that covers 90 percent of it, so a long page is not scrolled control by control.
+  The overlay's own buttons are listed, so the model can dismiss it, and the controls behind it are offered again on the next snapshot.
+- A long page is split into parts of about 12,000 characters, so a form after a lot of content is still reachable.
+  The end of a snapshot says when there is another part, and `snapshot` with `part` reads it.
+  Every part is masked the same way as the first.
+  A control keeps its ref across parts and snapshots for as long as it stays on the page, and a ref is never given to another control, so a ref read in an earlier part still names the same control.
+  A page of more than 3,000 items is cut off, and the last part says so.
+- A dropdown that stands in for a detail of the person can only be answered with the task's field.
+  A date of birth (its month, day and year dropdowns, found by their labels or by the shape of their choices), a state, a city and a ZIP code are the details checked.
+  `select` with `option` is refused for such a dropdown.
+  A date of birth split over month, day and year dropdowns is answered piece by piece: `select` with `date_of_birth` picks the month by its number or name, and the day or the year as numbers, and `birth_year` answers a year dropdown.
+  The same check covers a choice made by `click` in a custom list (a listbox, a menu or `role="option"` items) and by `check` on a radio button: the click goes through only when the option shows the value of a field the task holds for that detail, and it is refused otherwise.
+  The refusal points to the task's field when it has one.
+  When the task has none, it says to stop and report what is missing if the control is required, and to leave the control unset if it is optional, so an invented date of birth or state cannot go through a dropdown that a text field would have refused.
+  Field and control names written in camel case, such as `birthYear` or `zipCode`, are read word by word.
 - Every answer the model reads is masked once, at the last step, so no path skips it.
   That covers the snapshot, dropdown options, dialog text and error messages.
   The model sees `{{first_name}}` where the page shows the person's first name, for each field of the task.
@@ -369,7 +414,12 @@ The worker does not rely on the model to follow them.
   The server gives that list only to a model worker that claims as one, never to an mcp client.
   Phone numbers and dates of birth are also masked in the common US formats that an input mask produces.
   A value written in a way the program does not know, such as a nickname the page derived from the name, is not masked.
-  Values of one or two characters, such as a two-letter state, are not masked.
+  A state's full name is masked as a whole word, so a page that prints `Texas` reads `{{state}}`, except as the end of another state's name (`West Virginia` stays as it is for a Virginian).
+  Its postal code is masked only where it reads as a state: after a comma or a masked city, before a ZIP code, after the word `state` or an equals sign, and as a whole option of a list.
+  A bare `OK`, `IN`, `OR` or `ME` elsewhere is an ordinary word and stays.
+  In the path and query of an address the code is masked in any case, because a slug such as `austin-tx` or a query such as `?state=tx` writes it in lower case.
+  A state list therefore shows the person's own state as `{{state}}`, which the model can pick without knowing which state it is.
+  Other values of one or two characters are not masked.
 - For a scan, the model reports each candidate with the masked text and link it read.
   The program matches each link to one the page really showed and fills the real values back into the text before the server stores it, and it rejects an address that no page showed.
   The task's instructions and the first message are masked the same way, so the model reads `{{record_url}}` where the server wrote the record address.
@@ -379,6 +429,7 @@ The worker does not rely on the model to follow them.
 - A visible captcha or a whole-page bot check ends the run at once.
   The task is blocked with the reason, the page address, and a screenshot, and the model is not asked again.
   A bot check page that clears by itself gets a few seconds first.
+  The page is checked before and after every `type`, `select`, `check` and click, and once more after the server has been told of the action and right before the browser acts, so a widget that renders a moment after an address is typed stops the run before a choice or a click can send the form.
 - A `complete` result must match the shared schema for the task's own purpose.
   A scan candidate must be on the target's domains, and a removal reported as `submitted` or `awaiting_email_confirmation` needs at least one click.
   A result that fails these goes back to the model as an error.
@@ -454,6 +505,7 @@ Use a local model when even that is too much.
   A form inside an iframe, such as a third-party form vendor, shows up as an embedded frame it cannot use, and the model should block the task.
 - A small model may misread a page.
   Recipes remain the primary path, and an agent run is worth checking the first few times.
+  [agent-models.md](agent-models.md) has the benchmark results and which tasks a local model handles.
 
 ## Running the built-in worker and an agent together
 

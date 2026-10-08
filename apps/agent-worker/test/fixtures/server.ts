@@ -71,6 +71,22 @@ const PAGES: Record<string, string> = {
   "/sw-popup-open-first": "sw-popup-open-first.html",
   "/return-link": "return-link.html",
   "/onchange": "onchange.html",
+  "/onchange-select": "onchange-select.html",
+  "/onchange-check": "onchange-check.html",
+  "/onchange-fetch": "onchange-fetch.html",
+  "/save-link": "save-link.html",
+  "/icon-submit": "icon-submit.html",
+  "/long-label": "long-label.html",
+  "/late-captcha": "late-captcha.html",
+  "/cookie-banner": "cookie-banner.html",
+  "/long-form": "long-form.html",
+  "/detail-selects": "detail-selects.html",
+  "/late-captcha-change": "late-captcha-change.html",
+  "/bottom-banner": "bottom-banner.html",
+  "/custom-lists": "custom-lists.html",
+  "/dob-selects": "dob-selects.html",
+  "/many-links": "many-links.html",
+  "/huge-page": "huge-page.html",
 };
 
 function escapeHtml(text: string): string {

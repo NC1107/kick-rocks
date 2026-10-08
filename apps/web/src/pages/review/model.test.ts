@@ -9,6 +9,7 @@ import {
   instructionSteps,
   parseTab,
   pickEntry,
+  sentWithoutApproval,
   tabCounts,
 } from "./model.js";
 
@@ -65,6 +66,15 @@ describe("what a person can do with a task", () => {
     expect(canHandOff({ kind: "form" })).toBe(true);
     expect(canHandOff({ kind: "email_send" })).toBe(false);
     expect(canHandOff({ kind: "confirm" })).toBe(false);
+  });
+
+  it("treats a form reported sent without an approval as one to check, not to run again", () => {
+    const blocked = { kind: "agent", status: "blocked" } as const;
+    expect(sentWithoutApproval({ ...blocked, blockedReason: "unapproved_submit" })).toBe(true);
+    expect(sentWithoutApproval({ ...blocked, blockedReason: "approval_needed" })).toBe(false);
+    expect(
+      sentWithoutApproval({ kind: "form", status: "blocked", blockedReason: "unapproved_submit" }),
+    ).toBe(false);
   });
 
   it("reports a removal outcome only for a task that belongs to a request", () => {

@@ -537,8 +537,8 @@ describe("agent tasks", () => {
     expect(Object.keys(forModel?.fields ?? {})).not.toContain("street");
   });
 
-  it("keeps that list from a client that is not a model worker, which may use fewer values", () => {
-    expect(agentClaim("scan", {}, "builtin")).not.toHaveProperty("maskValues");
+  it("keeps that list from an MCP client, which may use fewer values, but not from a worker that only leaves out that it drives a model", () => {
+    expect(agentClaim("scan", {}, "builtin")).toHaveProperty("maskValues");
     expect(agentClaim("scan", {}, "mcp")).not.toHaveProperty("maskValues");
   });
 
@@ -559,6 +559,19 @@ describe("agent tasks", () => {
       full_name: "Jordan Q Example",
       email: "jordan@example.com",
     });
+  });
+
+  it("asks the legal package for nothing beyond its own set, so a removal carries no state of its own accord", () => {
+    const asked: unknown[] = [];
+    const identifiersFor = ctx.services.legal.identifiersFor.bind(ctx.services.legal);
+    ctx.services.legal.identifiersFor = (target, identities, purpose, requested, asOf) => {
+      asked.push(requested ?? []);
+      return identifiersFor(target, identities, purpose, requested, asOf);
+    };
+    const task = agentClaim("remove");
+    expect(asked).toEqual([[]]);
+    expect(task?.fields).not.toHaveProperty("state");
+    expect(task?.instructions).not.toMatch(/Identifiers you may use: .*state/);
   });
 
   it("gives a removal the record URL as a value it may paste", () => {
@@ -639,6 +652,21 @@ describe("agent tasks", () => {
     expect(text).toContain("awaiting_email_confirmation");
     expect(text).toContain("confirmationFrom");
     expect(text).toContain("Never submit a form more than once");
+  });
+
+  it("tells a removal to look up an existing request first and stop at already_removed", () => {
+    const text = agentClaim("remove")?.instructions ?? "";
+    expect(text).toContain("look up or check the status of an existing request");
+    expect(text).toContain("before you start a new one");
+    expect(text).toContain("outcome already_removed");
+    expect(agentClaim("scan")?.instructions).not.toContain("existing request");
+  });
+
+  it("asks a scan for the records consistent with every identifier, not every possible match", () => {
+    const text = agentClaim("scan")?.instructions ?? "";
+    expect(text).toContain("consistent with all of the identifiers");
+    expect(text).toContain("contradicts one of them");
+    expect(text).not.toContain("could be them");
   });
 
   it("says where to start and how to look the target up, which an agent cannot guess", () => {

@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Opt out - Fixture Broker</title>
+<style>
+  .backdrop { position: fixed; inset: 0; background: rgba(10, 18, 34, .55); z-index: 900; }
+  .banner { position: fixed; left: 0; right: 0; bottom: 0; z-index: 901; background: #fff; padding: 16px; }
+</style></head>
+<body>
+<h1>Remove your listing</h1>
+<form method="post" action="/optout">
+  <label for="first">First name</label>
+  <input id="first" name="first_name" required>
+  <label for="email">Email address</label>
+  <input id="email" name="email" type="email" required>
+  <button type="submit">Submit request</button>
+</form>
+<div class="backdrop" id="backdrop"></div>
+<div class="banner" id="banner" role="dialog" aria-label="Cookie preferences">
+  <p>We use cookies to improve your experience.</p>
+  <button type="button" id="reject">Reject non-essential</button>
+  <button type="button" id="accept">Accept all cookies</button>
+</div>
+<script>
+  const dismiss = () => { document.getElementById("banner").remove(); document.getElementById("backdrop").remove(); };
+  document.getElementById("accept").addEventListener("click", dismiss);
+  document.getElementById("reject").addEventListener("click", dismiss);
+</script>
+</body>
+</html>

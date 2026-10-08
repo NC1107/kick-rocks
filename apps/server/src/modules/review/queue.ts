@@ -38,6 +38,10 @@ const MANUAL_INSTRUCTIONS: Record<BlockedReason, string> = {
     "The site wants you to sign in first. Create or use an account, finish the removal, then mark the task done.",
   bot_detection:
     "The site blocked the automated browser. Open the page in your own browser and finish the removal.",
+  approval_needed:
+    "Check the filled form in the screenshot. Approve the submit, or finish it yourself and mark it done.",
+  unapproved_submit:
+    "Open the site and check whether the form went out. If it did, mark the task done. If not, finish the removal yourself.",
   unknown: "Open the page and finish the removal by hand, then mark the task done.",
 };
 

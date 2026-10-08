@@ -632,6 +632,22 @@ describe("reset instance", () => {
       digestLastSentAt: "2026-01-01T00:00:00.000Z",
     });
     store.set("agent.takeUnreviewed", true);
+    store.set("agent.gate", {
+      records: [
+        {
+          model: {
+            provider: "ollama",
+            name: "gpt-oss:20b",
+            version: null,
+            thinking: "default",
+            numCtx: null,
+          },
+          source: "override",
+          recordedAt: ctx.clock.now().toISOString(),
+          runs: null,
+        },
+      ],
+    });
     for (const key of ["worker.status.builtin", "worker.status.model"] as const) {
       store.set(key, {
         workerId: "w",

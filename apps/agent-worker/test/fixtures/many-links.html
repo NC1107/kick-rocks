@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Results - Fixture Broker</title></head>
+<body>
+<h1>Results</h1>
+<div id="results"></div>
+<script>
+  const results = document.getElementById("results");
+  for (let i = 0; i < 300; i++) {
+    const link = document.createElement("a");
+    link.href = `/people/${i}`;
+    link.textContent = `Person ${i}`;
+    const row = document.createElement("p");
+    row.appendChild(link);
+    results.appendChild(row);
+  }
+</script>
+</body>
+</html>

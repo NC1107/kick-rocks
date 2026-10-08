@@ -795,6 +795,41 @@ describeBrowser("human checks", () => {
     expect(outcome.report.kind).toBe("block");
   });
 
+  it("blocks the task when typing makes a CAPTCHA appear, and never lets the form be submitted", async () => {
+    const { outcome, provider } = await run([
+      navigate("/late-captcha"),
+      (v) => ({ calls: [["type", { ref: v.ref("Email address"), field: "email" }]] }),
+      (v) => ({ calls: [["click", { ref: v.ref("Submit request") }]] }),
+    ]);
+    expect(provider.requests).toHaveLength(2);
+    expect(outcome.report.kind).toBe("block");
+    if (outcome.report.kind !== "block") return;
+    expect(outcome.report.report.reason).toBe("captcha");
+    expect((await fixtureState()).submissions).toEqual([]);
+  });
+
+  it("gets past a cookie banner by dismissing it, then fills and submits the form", async () => {
+    const { outcome, provider } = await run([
+      navigate("/cookie-banner"),
+      (v) => ({ calls: [["click", { ref: v.ref("Accept all cookies") }]] }),
+      (v) => ({
+        calls: [
+          ["type", { ref: v.ref("First name"), field: "first_name" }],
+          ["type", { ref: v.ref("Email address"), field: "email" }],
+        ],
+      }),
+      (v) => ({ calls: [["click", { ref: v.ref("Submit request") }]] }),
+      { calls: [["report", { status: "complete", result: removed }]] },
+    ]);
+    expect(provider.requests[1]?.messages.at(-1)).toMatchObject({ role: "tool" });
+    expect(
+      provider.requests[1]?.messages.flatMap((m) => (m.role === "tool" ? m.results : [])).at(0)
+        ?.content,
+    ).toContain("A full-page overlay");
+    expect(outcome.report.kind).toBe("complete");
+    expect((await fixtureState()).submissions).toHaveLength(1);
+  });
+
   it("blocks for a person when the model reports a check it found, and attaches the page and a picture", async () => {
     const { outcome } = await run([
       navigate("/login"),
@@ -1199,7 +1234,8 @@ describeBrowser("budgets and a misbehaving model", () => {
     const page = provider.requests[1]?.messages.at(-1);
     const content = page?.role === "tool" ? (page.results[0]?.content ?? "") : "";
     expect(content.length).toBeLessThan(14_000);
-    expect(content).toContain("more items left out");
+    expect(content).toContain("part 1 of");
+    expect(content).toContain("call snapshot with part 2");
   });
 });
 

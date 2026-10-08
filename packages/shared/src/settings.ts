@@ -1,4 +1,11 @@
 import { z } from "zod";
+import {
+  GateRecord,
+  GateStore,
+  GateVerdict,
+  ModelIdentity,
+  ModelProviderKind,
+} from "./agent-models.js";
 import { DataSourceId } from "./broker.js";
 import { NotificationSettings, NotificationState } from "./notifications.js";
 import { EgressPatch, EgressSettings, ScanningPatch, ScanningSettings } from "./scanning.js";
@@ -70,6 +77,8 @@ export const WorkerStatus = z.object({
   lastSeenAt: z.iso.datetime(),
   busy: z.boolean(),
   currentTaskId: z.string().nullable(),
+  /** The model a model-backed worker drives, as it last said. */
+  model: ModelIdentity.nullable().optional(),
 });
 export type WorkerStatus = z.infer<typeof WorkerStatus>;
 
@@ -86,6 +95,8 @@ export const SETTING_SCHEMAS = {
   egress: EgressSettings.default(EgressSettings.parse({})),
   /** Whether the agent worker may take sites whose bundled recipe is still waiting for the person's review. */
   "agent.takeUnreviewed": z.boolean().default(false),
+  /** Which models may take agent tasks unattended, and why. */
+  "agent.gate": GateStore.default({ records: [] }),
   "worker.status.builtin": WorkerStatus.nullable().default(null),
   "worker.status.model": WorkerStatus.nullable().default(null),
   notifications: NotificationSettings.default(NotificationSettings.parse({})),
@@ -115,6 +126,11 @@ export const SettingsView = z.object({
   agent: z.object({
     /** Lets the agent worker take a site whose bundled recipe has not been approved yet. */
     takeUnreviewed: z.boolean(),
+    gate: z.object({
+      records: z.array(GateRecord),
+      /** The model the agent worker last said it drives, and whether it may send forms unattended. */
+      current: z.object({ model: ModelIdentity, verdict: GateVerdict }).nullable(),
+    }),
   }),
   worker: z.object({
     /** False when KICKROCKS_WORKER_TOKEN is unset and the worker API is switched off. */
@@ -143,7 +159,19 @@ export const SettingsPatch = z.object({
     .optional(),
   mcp: z.object({ enabled: z.boolean() }).optional(),
   siteChecks: z.object({ enabled: z.boolean() }).optional(),
-  agent: z.object({ takeUnreviewed: z.boolean() }).optional(),
+  agent: z
+    .object({
+      takeUnreviewed: z.boolean().optional(),
+      /** Allows a model to send forms unattended without a benchmark pass, or takes the allowance back. */
+      gateOverride: z
+        .object({
+          provider: ModelProviderKind,
+          name: z.string().min(1).max(200),
+          enabled: z.boolean(),
+        })
+        .optional(),
+    })
+    .optional(),
 });
 export type SettingsPatch = z.infer<typeof SettingsPatch>;
 

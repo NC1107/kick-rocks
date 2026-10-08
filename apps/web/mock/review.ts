@@ -35,6 +35,10 @@ const MANUAL_INSTRUCTIONS: Record<BlockedReason, string> = {
     "The site wants you to sign in first. Create or use an account, finish the removal, then mark the task done.",
   bot_detection:
     "The site blocked the automated browser. Open the page in your own browser and finish the removal.",
+  approval_needed:
+    "Check the filled form in the screenshot. Approve the submit, or finish it yourself and mark it done.",
+  unapproved_submit:
+    "Open the site and check whether the form went out. If it did, mark the task done. If not, finish the removal yourself.",
   unknown: "Open the page and finish the removal by hand, then mark the task done.",
 };
 
@@ -265,6 +269,63 @@ export default defineMockDomain({
       });
     }
 
+    const waiting = store.requests.find(
+      (request) => request.targetId === "quillnote" && request.profileId === jordan.id,
+    );
+    const quillnote = store.targets.find((target) => target.id === "quillnote");
+    if (waiting && quillnote) {
+      const task = makeTask(
+        store,
+        {
+          kind: "agent",
+          status: "blocked",
+          profileId: jordan.id,
+          targetId: quillnote.id,
+          targetName: quillnote.name,
+          requestId: waiting.id,
+          blockedReason: "approval_needed",
+          blockedDetail:
+            'Stopped before clicking "Submit request", which may send the form. qwen3:14b has not passed the safety gate on this install, so a person approves each submit.',
+          blockedUrl: quillnote.optOutUrl,
+          hasScreenshot: true,
+        },
+        { minutes: 40 },
+      );
+      task.claimerKind = "model";
+      store.blockedInfo.set(task.id, {
+        url: quillnote.optOutUrl,
+        manualInstructions: MANUAL_INSTRUCTIONS.approval_needed,
+      });
+    }
+
+    const sentRequest = store.requests.find(
+      (request) => request.targetId === "harbor-consumer-data" && request.profileId === jordan.id,
+    );
+    const harbor = store.targets.find((target) => target.id === "harbor-consumer-data");
+    if (sentRequest && harbor) {
+      const task = makeTask(
+        store,
+        {
+          kind: "agent",
+          status: "blocked",
+          profileId: jordan.id,
+          targetId: harbor.id,
+          targetName: harbor.name,
+          requestId: sentRequest.id,
+          blockedReason: "unapproved_submit",
+          blockedDetail:
+            "The agent worker reported a sent form that no one approved, so the form may already have been submitted. Check the site before you do anything else.",
+          blockedUrl: harbor.optOutUrl,
+        },
+        { hours: 3 },
+      );
+      task.claimerKind = "model";
+      store.blockedInfo.set(task.id, {
+        url: harbor.optOutUrl,
+        manualInstructions: MANUAL_INSTRUCTIONS.unapproved_submit,
+      });
+    }
+
     const lookup = createScan(store, jordan.id, "namelookup", {
       finished: true,
       startedAgo: { hours: 30 },
@@ -396,6 +457,21 @@ export default defineMockDomain({
       handle(API_ROUTES.taskResume, ({ params }) => {
         const task = taskOf(params.id);
         if (task.status !== "blocked") throw conflict("Only a blocked task can be resumed.");
+        touch(task, "queued");
+        const request = requestOf(task);
+        if (request) addEvent(store, request, "task_resumed", "user", task.updatedAt, ref(task));
+        return { task };
+      }),
+
+      handle(API_ROUTES.taskApproveSubmit, ({ params }) => {
+        const task = taskOf(params.id);
+        if (
+          task.kind !== "agent" ||
+          task.status !== "blocked" ||
+          task.blockedReason !== "approval_needed"
+        ) {
+          throw conflict("That task is not waiting for a submit approval.");
+        }
         touch(task, "queued");
         const request = requestOf(task);
         if (request) addEvent(store, request, "task_resumed", "user", task.updatedAt, ref(task));

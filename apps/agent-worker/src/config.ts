@@ -3,7 +3,12 @@ import { resolve } from "node:path";
 import { LEASE_MS, WebUrl } from "@kickrocks/shared";
 import { z } from "zod";
 
-const OLLAMA_BASE_URL = "http://localhost:11434/v1";
+/** Ollama's native address, for the ollama provider. */
+const OLLAMA_NATIVE_URL = "http://localhost:11434";
+/** The same server's OpenAI-compatible address, for the openai provider. */
+export const OLLAMA_BASE_URL = `${OLLAMA_NATIVE_URL}/v1`;
+/** Ollama's own default is 4096, which cuts an agent's conversation short without any error. */
+const OLLAMA_DEFAULT_NUM_CTX = 16_384;
 const ANTHROPIC_BASE_URL = "https://api.anthropic.com";
 const ANTHROPIC_DEFAULT_MODEL = "claude-sonnet-4-6";
 
@@ -23,14 +28,27 @@ const Env = z.object({
     .max(LEASE_MS.max)
     .default(LEASE_MS.default),
 
-  /** `openai` is any OpenAI-compatible chat completions endpoint, which is what Ollama serves. */
-  KICKROCKS_AGENT_PROVIDER: z.enum(["openai", "anthropic"]).default("openai"),
+  /**
+   * `openai` is any OpenAI-compatible chat completions endpoint. `ollama` is Ollama's native API,
+   * which is the one that sets the context size, so prefer it for Ollama.
+   */
+  KICKROCKS_AGENT_PROVIDER: z.enum(["openai", "ollama", "anthropic"]).default("openai"),
   KICKROCKS_AGENT_MODEL: z.string().min(1).optional(),
   KICKROCKS_AGENT_BASE_URL: WebUrl.optional(),
   /** Ollama needs none. Anthropic reads ANTHROPIC_API_KEY when this is unset. */
   KICKROCKS_AGENT_API_KEY: z.string().min(1).optional(),
   ANTHROPIC_API_KEY: z.string().min(1).optional(),
-  KICKROCKS_AGENT_MAX_OUTPUT_TOKENS: z.coerce.number().int().min(256).max(32_000).default(2048),
+  /** Per model turn. A thinking model spends much of it on thinking before its first tool call. */
+  KICKROCKS_AGENT_MAX_OUTPUT_TOKENS: z.coerce.number().int().min(256).max(32_000).default(4096),
+  /** The ollama provider's context window in tokens. */
+  KICKROCKS_AGENT_NUM_CTX: z.coerce
+    .number()
+    .int()
+    .min(2048)
+    .max(1_048_576)
+    .default(OLLAMA_DEFAULT_NUM_CTX),
+  /** `off` asks a model that can think not to, so its output cap goes to the answer. */
+  KICKROCKS_AGENT_THINKING: z.enum(["default", "off"]).default("default"),
   /** What an OpenAI-compatible endpoint calls the output limit. OpenAI's reasoning models need max_completion_tokens. */
   KICKROCKS_AGENT_TOKEN_PARAM: z
     .enum(["max_tokens", "max_completion_tokens"])
@@ -56,13 +74,16 @@ const Env = z.object({
 export const AGENT_ENV_KEYS: string[] = Object.keys(Env.shape);
 
 export interface ProviderConfig {
-  kind: "openai" | "anthropic";
+  kind: "openai" | "ollama" | "anthropic";
   model: string;
   baseUrl: string;
   apiKey: string | null;
   maxOutputTokens: number;
   /** Only the openai provider reads this. */
   tokenParam: "max_tokens" | "max_completion_tokens";
+  /** Only the ollama provider reads this. */
+  numCtx: number;
+  thinking: "default" | "off";
 }
 
 export interface Pricing {
@@ -99,8 +120,16 @@ function withoutEmpty(env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
   return Object.fromEntries(Object.entries(env).filter(([, value]) => value !== ""));
 }
 
+function sharedSettings(parsed: z.infer<typeof Env>) {
+  return {
+    maxOutputTokens: parsed.KICKROCKS_AGENT_MAX_OUTPUT_TOKENS,
+    tokenParam: parsed.KICKROCKS_AGENT_TOKEN_PARAM,
+    numCtx: parsed.KICKROCKS_AGENT_NUM_CTX,
+    thinking: parsed.KICKROCKS_AGENT_THINKING,
+  };
+}
+
 function providerFrom(parsed: z.infer<typeof Env>): ProviderConfig {
-  const maxOutputTokens = parsed.KICKROCKS_AGENT_MAX_OUTPUT_TOKENS;
   if (parsed.KICKROCKS_AGENT_PROVIDER === "anthropic") {
     const apiKey = parsed.KICKROCKS_AGENT_API_KEY ?? parsed.ANTHROPIC_API_KEY;
     if (!apiKey) {
@@ -118,8 +147,7 @@ function providerFrom(parsed: z.infer<typeof Env>): ProviderConfig {
       model: parsed.KICKROCKS_AGENT_MODEL ?? ANTHROPIC_DEFAULT_MODEL,
       baseUrl: (parsed.KICKROCKS_AGENT_BASE_URL ?? ANTHROPIC_BASE_URL).replace(/\/+$/, ""),
       apiKey,
-      maxOutputTokens,
-      tokenParam: parsed.KICKROCKS_AGENT_TOKEN_PARAM,
+      ...sharedSettings(parsed),
     };
   }
   if (!parsed.KICKROCKS_AGENT_MODEL) {
@@ -127,19 +155,29 @@ function providerFrom(parsed: z.infer<typeof Env>): ProviderConfig {
       {
         code: "custom",
         path: ["KICKROCKS_AGENT_MODEL"],
-        message:
-          "The openai provider needs KICKROCKS_AGENT_MODEL, such as the name of an Ollama model that supports tools",
+        message: `The ${parsed.KICKROCKS_AGENT_PROVIDER} provider needs KICKROCKS_AGENT_MODEL, such as the name of an Ollama model that supports tools`,
         input: undefined,
       },
     ]);
+  }
+  if (parsed.KICKROCKS_AGENT_PROVIDER === "ollama") {
+    return {
+      kind: "ollama",
+      model: parsed.KICKROCKS_AGENT_MODEL,
+      // The native API has no /v1, but the address of the same server is easy to paste with one.
+      baseUrl: (parsed.KICKROCKS_AGENT_BASE_URL ?? OLLAMA_NATIVE_URL)
+        .replace(/\/+$/, "")
+        .replace(/\/v1$/, ""),
+      apiKey: parsed.KICKROCKS_AGENT_API_KEY ?? null,
+      ...sharedSettings(parsed),
+    };
   }
   return {
     kind: "openai",
     model: parsed.KICKROCKS_AGENT_MODEL,
     baseUrl: (parsed.KICKROCKS_AGENT_BASE_URL ?? OLLAMA_BASE_URL).replace(/\/+$/, ""),
     apiKey: parsed.KICKROCKS_AGENT_API_KEY ?? null,
-    maxOutputTokens,
-    tokenParam: parsed.KICKROCKS_AGENT_TOKEN_PARAM,
+    ...sharedSettings(parsed),
   };
 }
 

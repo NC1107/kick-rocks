@@ -3,6 +3,8 @@ import type {
   BrowserTaskKind,
   ClaimedTask,
   ClaimerKind,
+  FormOutcome,
+  ModelIdentity,
   RequestActor,
   SiteObservation,
   TaskBlockReport,
@@ -50,6 +52,15 @@ interface ClaimRequest {
   leaseMs: number;
   taskId?: string | undefined;
   claimerKind: ClaimerKind;
+  model?: ModelIdentity | undefined;
+}
+
+/** A removal that ended in one of these sent the form, which the site received. */
+const SENDING_OUTCOMES: readonly FormOutcome[] = ["submitted", "awaiting_email_confirmation"];
+
+function reportsSentForm(result: unknown): boolean {
+  const outcome = (result as { form?: { outcome?: unknown } } | null)?.form?.outcome;
+  return SENDING_OUTCOMES.some((sending) => sending === outcome);
 }
 
 interface TaskOperations {
@@ -222,6 +233,56 @@ export function createTaskOperations(services: OperationServices, caller: Caller
     return services.db.transaction(() => politeness.observe(taskQueue.getOrThrow(taskId), site));
   }
 
+  /**
+   * An agent that is not cleared to work alone must not report a sent form that no person approved.
+   * The report is refused and the task parked, because the form may well have gone out and only a
+   * person can check the site.
+   */
+  function holdUnapprovedSubmit(taskId: string, workerId: string, result: unknown): void {
+    const task = taskQueue.get(taskId);
+    if (task?.kind !== "agent" || task.submitApproval !== "required" || !reportsSentForm(result)) {
+      return;
+    }
+    taskQueue.block(taskId, {
+      workerId,
+      // Not approval_needed: that reason offers Approve submit, and the form may already be out.
+      reason: "unapproved_submit",
+      detail:
+        "The agent worker reported a sent form that no one approved, so the form may already have been submitted. Check the site before you do anything else.",
+      actor: "system",
+    });
+    throw conflict(
+      "approval_required",
+      "This model is not cleared to send forms alone, and no person approved this submit",
+    );
+  }
+
+  /**
+   * Approving runs the form again, so a run that may already have sent it cannot ask for that.
+   * Whether the person approved the send decides which reason says so.
+   */
+  function reasonToReport(taskId: string, reason: BlockedReason): BlockedReason {
+    const task = taskQueue.get(taskId);
+    if (reason !== "approval_needed" || !task?.mayHaveSubmitted) return reason;
+    return task.submitApproval === "required" ? "unapproved_submit" : "unknown";
+  }
+
+  /**
+   * Only a model-backed run held back by the gate can ask for an approval. An MCP client, a
+   * built-in run or a model that was cleared has none to ask for, and an approval it asked for
+   * would unlock a run with no limits. A run that already spent an approval can stop again.
+   */
+  function refuseUnearnedApprovalStop(taskId: string, reason: BlockedReason): void {
+    if (reason !== "approval_needed" && reason !== "unapproved_submit") return;
+    const task = taskQueue.get(taskId);
+    const held = task?.submitApproval === "required" || task?.submitApproval === "used";
+    if (task?.kind === "agent" && task.claimerKind === "model" && held) return;
+    throw conflict(
+      "approval_not_applicable",
+      "Only a model-backed run that needs a person's approval to submit can report this reason",
+    );
+  }
+
   return {
     claim({ taskId, ...request }) {
       if (taskId !== undefined) return claimTask(services, { ...request, taskId });
@@ -249,6 +310,7 @@ export function createTaskOperations(services: OperationServices, caller: Caller
     complete(taskId, { workerId, result, usage, site }) {
       authorize(taskId);
       const outcome = observeBeforeTransition(taskId, site);
+      holdUnapprovedSubmit(taskId, workerId, result);
       return services.db.transaction(() => {
         // An empty search after the site pushed back says nothing about the person, so the scan is
         // not finished: the task waits out the cooldown and searches again.
@@ -271,16 +333,19 @@ export function createTaskOperations(services: OperationServices, caller: Caller
       });
     },
 
-    block(taskId, { workerId, reason, detail, url, screenshot, usage, site }) {
+    block(taskId, { workerId, reason, detail, url, control, fingerprint, screenshot, usage, site }) {
       authorize(taskId);
+      refuseUnearnedApprovalStop(taskId, reason);
       const seen = withImplied(site, impliedByBlock(reason));
       observeBeforeTransition(taskId, seen);
       return services.db.transaction(() => {
         const blocked = taskQueue.block(taskId, {
           workerId,
-          reason,
+          reason: reasonToReport(taskId, reason),
           detail,
           url,
+          control,
+          fingerprint,
           screenshot: screenshot ? decodeScreenshot(screenshot) : undefined,
           usage,
           actor: caller.actor,

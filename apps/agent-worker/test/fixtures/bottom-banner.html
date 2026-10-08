@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Opt out - Fixture Broker</title>
+<style>
+  .decoration { position: fixed; inset: 0; z-index: -1; background: #f4f4f4; }
+  .banner { position: fixed; left: 0; right: 0; bottom: 0; height: 64px; z-index: 900; background: #fff; padding: 8px 16px; }
+</style></head>
+<body>
+<div class="decoration"></div>
+<h1>Remove your listing</h1>
+<form method="post" action="/optout">
+  <label for="first">First name</label>
+  <input id="first" name="first_name" required>
+  <button type="submit">Submit request</button>
+</form>
+<div class="banner" role="dialog" aria-label="Cookie preferences">
+  <span>We use cookies.</span>
+  <button type="button">Got it</button>
+</div>
+</body>
+</html>

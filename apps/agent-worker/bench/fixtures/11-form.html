@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Do not sell my information - Marketgrid</title><link rel="stylesheet" href="/site.css">
+<style>
+.consent-backdrop { position: fixed; inset: 0; background: rgba(10, 18, 34, .55); z-index: 900; }
+.consent { position: fixed; left: 0; right: 0; bottom: 0; z-index: 901; background: #fff; padding: 22px 32px; border-top: 3px solid #1a56db; display: flex; gap: 24px; align-items: center; flex-wrap: wrap; }
+.consent p { margin: 0; flex: 1 1 420px; font-size: 14px; }
+.consent button { margin: 0; }
+</style></head>
+<body>
+<header class="site"><a class="brand" href="/">Marketgrid</a><nav><a href="/brands">Brands</a><a href="/shoppers">Shoppers</a><a href="/privacy">Privacy</a></nav></header>
+<main>
+  <h1>Do not sell or share my personal information</h1>
+  <p class="lede">Complete this form to opt out of the sale and sharing of your personal information by Marketgrid.</p>
+  <form method="post" action="/optout">
+    <label for="first">First name</label>
+    <input id="first" name="first_name" type="text" required>
+    <label for="last">Last name</label>
+    <input id="last" name="last_name" type="text" required>
+    <label for="email">Email address</label>
+    <input id="email" name="email" type="email" required>
+    <button class="primary" type="submit">Submit request</button>
+  </form>
+</main>
+<div class="consent-backdrop" id="backdrop"></div>
+<div class="consent" id="consent" role="dialog" aria-label="Cookie preferences">
+  <p>We use cookies to personalise content, measure ads and improve your experience. You can accept all cookies or reject the non-essential ones.</p>
+  <button class="secondary" type="button" id="reject">Reject non-essential</button>
+  <button class="primary" type="button" id="accept">Accept all cookies</button>
+</div>
+<script>
+function dismiss() { document.getElementById("consent").remove(); document.getElementById("backdrop").remove(); }
+document.getElementById("accept").addEventListener("click", dismiss);
+document.getElementById("reject").addEventListener("click", dismiss);
+</script>
+</body>
+</html>

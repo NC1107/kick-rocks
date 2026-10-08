@@ -36,6 +36,20 @@
       "when": 1791428939634,
       "tag": "0004_visits_outlive_tasks",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1791470601009,
+      "tag": "0005_task_submit_approval",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1791470601596,
+      "tag": "0006_task_submit_stop",
+      "breakpoints": true
     }
   ]
 }

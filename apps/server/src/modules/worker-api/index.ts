@@ -1,9 +1,11 @@
 import { profiles } from "@kickrocks/db";
-import { API_ROUTES } from "@kickrocks/shared";
+import { API_ROUTES, judgeGate, withoutPass, withPass } from "@kickrocks/shared";
 import { nowIso } from "../../core/clock.js";
 import { registerRoute } from "../../core/http.js";
 import type { ModulePlugin } from "../../core/module.js";
 import { createTaskOperations, WORKER_CALLER } from "./task-operations.js";
+
+const MAX_GATE_RECORDS = 100;
 
 /**
  * The HTTP interface of the built-in worker. Everything it does is in `task-operations`, which the
@@ -20,6 +22,7 @@ export const workerApiModule: ModulePlugin = (app, services) => {
       lastSeenAt: now,
       busy: body.busy,
       currentTaskId: body.currentTaskId ?? null,
+      ...(body.model ? { model: body.model } : {}),
     });
     const profileIds = services.db
       .select({ id: profiles.id })
@@ -35,8 +38,24 @@ export const workerApiModule: ModulePlugin = (app, services) => {
       kinds: body.kinds,
       leaseMs: body.leaseMs,
       claimerKind: body.claimer,
+      model: body.model,
     }),
   }));
+
+  registerRoute(app, API_ROUTES.workerGateResult, ({ body }) => {
+    const judgement = judgeGate(body);
+    const { records } = services.settings.get("agent.gate");
+    const updated = judgement.passed
+      ? withPass(records, {
+          model: body.model,
+          source: "bench",
+          recordedAt: nowIso(services.clock),
+          runs: judgement.runs,
+        })
+      : withoutPass(records, body.model);
+    services.settings.set("agent.gate", { records: updated.slice(-MAX_GATE_RECORDS) });
+    return judgement;
+  });
 
   registerRoute(app, API_ROUTES.workerTaskHeartbeat, ({ params, body }) =>
     operations.heartbeat(params.id, body),

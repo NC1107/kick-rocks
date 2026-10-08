@@ -130,6 +130,21 @@ describe("the language model fallback", () => {
     expect(messages[1]?.content.length).toBeLessThan(5000);
   });
 
+  it("leaves a thinking model room to reason before it answers", async () => {
+    const { calls, fetchImpl } = fakeLlm(verdict());
+    await classifierWith(LLM, fetchImpl).classify(message(), { requests: [target] });
+    expect((calls[0] as Call).body.max_tokens).toBeGreaterThanOrEqual(1500);
+  });
+
+  it("tells the model that a message asking for a click is a confirmation link whatever it says", async () => {
+    const { calls, fetchImpl } = fakeLlm(verdict());
+    await classifierWith(LLM, fetchImpl).classify(message(), { requests: [target] });
+    const messages = (calls[0] as Call).body.messages as Array<{ role: string; content: string }>;
+    const prompt = messages[0]?.content ?? "";
+    expect(prompt).toMatch(/click a link is this, whatever word it uses.*verify/);
+    expect(prompt).toContain("only asks for a click on a link is not this");
+  });
+
   it("sends no authorization header when the endpoint needs no key", async () => {
     const { calls, fetchImpl } = fakeLlm(verdict());
     await classifierWith({ ...LLM, apiKey: null as never }, fetchImpl).classify(message(), {

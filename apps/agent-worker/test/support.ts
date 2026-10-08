@@ -85,6 +85,7 @@ export function agentTask(
     target: TARGET,
     recipe: null,
     fields: PERSON,
+    submitApproval: "not_needed",
     instructions:
       "Task: Remove this person from Fixture Broker. Complete the opt-out form using only the identifiers in fields.",
     payload: {

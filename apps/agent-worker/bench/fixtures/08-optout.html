@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Opt out - Membership Data Co</title><link rel="stylesheet" href="/site.css"></head>
+<body>
+<header class="site"><a class="brand" href="/">Membership Data Co</a><nav><a href="/about">About</a><a href="/privacy">Privacy</a></nav></header>
+<main>
+  <h1>Do not sell or share my information</h1>
+  <p class="lede">We match requests to records using your date of birth. Every field marked required must be completed.</p>
+  <form method="post" action="/optout">
+    <label for="first">First name (required)</label>
+    <input id="first" name="first_name" type="text" required>
+    <label for="last">Last name (required)</label>
+    <input id="last" name="last_name" type="text" required>
+    <label for="email">Email address (required)</label>
+    <input id="email" name="email" type="email" required>
+    <label for="state">State (required)</label>
+    <select id="state" name="state" required>
+      <option value="">Choose a state</option>
+      <option value="CA">California</option>
+      <option value="TX">Texas</option>
+      <option value="NY">New York</option>
+    </select>
+    <label for="dob-m">Date of birth - month (required)</label>
+    <select id="dob-m" name="dob_month" required>
+      <option value="">Month</option><option>January</option><option>February</option><option>March</option><option>April</option><option>May</option><option>June</option><option>July</option><option>August</option><option>September</option><option>October</option><option>November</option><option>December</option>
+    </select>
+    <label for="dob-d">Date of birth - day (required)</label>
+    <select id="dob-d" name="dob_day" required>
+      <option value="">Day</option><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option><option>7</option><option>8</option><option>9</option><option>10</option><option>11</option><option>12</option><option>13</option><option>14</option><option>15</option><option>16</option><option>17</option><option>18</option><option>19</option><option>20</option><option>21</option><option>22</option><option>23</option><option>24</option><option>25</option><option>26</option><option>27</option><option>28</option><option>29</option><option>30</option><option>31</option>
+    </select>
+    <label for="dob-y">Date of birth - year (required)</label>
+    <select id="dob-y" name="dob_year" required>
+      <option value="">Year</option><option>2008</option><option>2007</option><option>2006</option><option>2005</option><option>2004</option><option>2003</option><option>2002</option><option>2001</option><option>2000</option><option>1999</option><option>1998</option><option>1997</option><option>1996</option><option>1995</option><option>1994</option><option>1993</option><option>1992</option><option>1991</option><option>1990</option><option>1989</option><option>1988</option><option>1987</option><option>1986</option><option>1985</option><option>1984</option><option>1983</option><option>1982</option><option>1981</option><option>1980</option><option>1979</option><option>1978</option><option>1977</option><option>1976</option><option>1975</option>
+    </select>
+    <button class="primary" type="submit">Submit request</button>
+  </form>
+</main>
+</body>
+</html>

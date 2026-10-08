@@ -19,6 +19,8 @@ interface OpenAiProviderOptions extends Partial<HttpOptions> {
   apiKey: string | null;
   /** The name this endpoint gives the output limit. OpenAI's reasoning models want max_completion_tokens. */
   tokenParam?: TokenParam;
+  /** Off sends reasoning_effort none, which Ollama's endpoint takes. A hosted API that rejects it should stay on default. */
+  thinking?: "default" | "off";
 }
 
 /** What a reasoning model says when it is sent max_tokens or a fixed temperature. */
@@ -122,6 +124,7 @@ export function createOpenAiProvider(options: OpenAiProviderOptions): ModelProvi
             })),
             tool_choice: "auto",
             ...(sendTemperature ? { temperature: 0 } : {}),
+            ...(options.thinking === "off" ? { reasoning_effort: "none" } : {}),
             [tokenParam]: request.maxOutputTokens,
             stream: false,
           },

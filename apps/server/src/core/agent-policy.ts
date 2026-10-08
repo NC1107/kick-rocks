@@ -1,10 +1,17 @@
 import { recipes } from "@kickrocks/db";
-import type { RecipeStatus } from "@kickrocks/shared";
+import {
+  type ClaimerKind,
+  type GateVerdict,
+  gateVerdict,
+  type ModelIdentity,
+  type RecipeStatus,
+  type SubmitApproval,
+} from "@kickrocks/shared";
 import { and, eq } from "drizzle-orm";
 import type { AppServices } from "../services.js";
 import type { Task } from "./task-types.js";
 
-type PolicyServices = Pick<AppServices, "db" | "settings">;
+type PolicyServices = Pick<AppServices, "db" | "settings" | "taskQueue">;
 
 /**
  * What a recipe for the task's site says about letting a language model work it unattended.
@@ -36,9 +43,7 @@ export function modelStance({ db }: Pick<PolicyServices, "db">, task: Task<"agen
  * take. A task a person handed over from a site whose recipe they rejected is one: the built-in
  * worker would only block it again, undoing the hand-off, so it waits for a connected client.
  */
-export function tasksForModelToSkip(
-  services: PolicyServices & Pick<AppServices, "taskQueue">,
-): string[] {
+export function tasksForModelToSkip(services: PolicyServices): string[] {
   const takeUnreviewed = services.settings.get("agent.takeUnreviewed");
   return services.taskQueue
     .list({ kinds: ["agent"], status: "queued" })
@@ -48,4 +53,39 @@ export function tasksForModelToSkip(
       return stance === "rejected" && (task as Task<"agent">).payload.reason === "blocked";
     })
     .map((task) => task.id);
+}
+
+/** Whether the model a claim named may take agent tasks unattended, by what this install has on record. */
+export function modelGate(
+  { settings }: Pick<PolicyServices, "settings">,
+  model: ModelIdentity | undefined,
+): GateVerdict {
+  return gateVerdict(settings.get("agent.gate").records, model ?? null);
+}
+
+/**
+ * What a model-backed claim may do about submitting a removal, and the state to keep on the task.
+ * A scan sends nothing. A model that is not cleared needs a person's approval for the submit, and
+ * an approval is spent by the one claim that takes it, so the next attempt asks again.
+ */
+export function settleSubmitApproval(
+  services: Pick<PolicyServices, "settings" | "taskQueue">,
+  task: Task<"agent">,
+  claimerKind: ClaimerKind,
+  model: ModelIdentity | undefined,
+): SubmitApproval {
+  const { taskQueue } = services;
+  // A claim that does not say it drives a model is unproven whatever model it names, since the
+  // worker API cannot tell which model is really behind it.
+  const named = claimerKind === "model" ? model : undefined;
+  if (task.payload.purpose !== "remove" || modelGate(services, named).unattended) {
+    taskQueue.setSubmitApproval(task.id, null);
+    return "not_needed";
+  }
+  if (task.submitApproval === "granted") {
+    taskQueue.setSubmitApproval(task.id, "used");
+    return "granted";
+  }
+  taskQueue.setSubmitApproval(task.id, "required");
+  return "required";
 }

@@ -93,7 +93,7 @@ describe("the review queue on a phone after a decision", () => {
 describe("the review queue", () => {
   it("lists everything waiting under a labelled group and opens the first item", async () => {
     open();
-    expect(await screen.findByRole("heading", { name: "Blocked · 3" })).toBeVisible();
+    expect(await screen.findByRole("heading", { name: "Blocked · 5" })).toBeVisible();
     expect(screen.getByRole("heading", { name: "Records · 3" })).toBeVisible();
     expect(screen.getByRole("heading", { name: "Details asked · 2" })).toBeVisible();
     expect(screen.getByRole("heading", { name: "Unsorted mail · 2" })).toBeVisible();
@@ -205,6 +205,43 @@ describe("the review queue", () => {
     await waitFor(() => expect(list.getByRole("button", { current: true })).toHaveFocus());
   });
 
+  it("lets the person approve the submit a model stopped before, and nothing else", async () => {
+    const { user, mock } = open("blocked");
+    const task = await openItem(user, /Quillnote\s*Stopped before/, /Quillnote,/);
+    expect(task.getByText("Needs approval")).toBeVisible();
+    expect(task.getByRole("img", { name: /where the task stopped/ })).toBeVisible();
+    expect(task.queryByRole("button", { name: "Resume" })).not.toBeInTheDocument();
+    expect(task.queryByRole("button", { name: "Hand to an agent" })).not.toBeInTheDocument();
+    expect(task.queryByText("Details to type in")).not.toBeInTheDocument();
+
+    await user.click(task.getByRole("button", { name: "Approve submit" }));
+
+    await waitFor(() =>
+      expect(
+        mock.store.tasks.find(
+          (candidate) => candidate.kind === "agent" && candidate.targetId === "quillnote",
+        )?.status,
+      ).toBe("queued"),
+    );
+  });
+
+  it("offers only Mark done and Cancel for a form that went out without an approval", async () => {
+    const { user } = open("blocked");
+    const task = await openItem(
+      user,
+      /Harbor Consumer Data\s*The agent worker/,
+      /Harbor Consumer Data,/,
+    );
+    expect(task.getByText("Sent without approval")).toBeVisible();
+    expect(task.getByRole("button", { name: "Mark done" })).toBeVisible();
+    expect(task.getByRole("button", { name: "Cancel task" })).toBeVisible();
+    expect(task.queryByRole("button", { name: "Resume" })).not.toBeInTheDocument();
+    expect(task.queryByRole("button", { name: "Hand to an agent" })).not.toBeInTheDocument();
+    expect(task.queryByRole("button", { name: "Approve submit" })).not.toBeInTheDocument();
+    expect(task.queryByText("Details to type in")).not.toBeInTheDocument();
+    expect(task.getAllByText(/may already have been submitted/)).toHaveLength(1);
+  });
+
   it("resumes a task", async () => {
     const { user, mock } = open("blocked");
     const task = await openItem(user, /HomeRecords\s*The site/, /HomeRecords, Submit form/);
@@ -227,7 +264,11 @@ describe("the review queue", () => {
     await user.click(task.getByRole("button", { name: "Hand to an agent" }));
     const dialog = within(await screen.findByRole("dialog"));
     expect(dialog.getByText(/AI assistant you connected/)).toBeVisible();
-    expect(mock.store.tasks.some((candidate) => candidate.kind === "agent")).toBe(false);
+    expect(
+      mock.store.tasks.some(
+        (candidate) => candidate.kind === "agent" && candidate.status === "queued",
+      ),
+    ).toBe(false);
     await user.click(dialog.getByRole("button", { name: "Hand to an agent" }));
     await waitFor(() =>
       expect(

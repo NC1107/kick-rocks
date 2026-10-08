@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { type Message, type ModelRequest, ProviderError, type ToolSpec } from "../provider.js";
 import { createAnthropicProvider } from "./anthropic.js";
 import { createProvider } from "./index.js";
+import { createOllamaProvider } from "./ollama.js";
 import { createOpenAiProvider } from "./openai.js";
 
 interface Recorded {
@@ -134,6 +135,15 @@ describe("the OpenAI-compatible provider", () => {
       toolCalls: [{ id: "call_9", name: "click", args: { ref: "e3" } }],
       usage: { inputTokens: 120, outputTokens: 30 },
     });
+  });
+
+  it("asks an Ollama endpoint for no thinking only when thinking is off", async () => {
+    const { fetch, calls } = fakeFetch([{ body: completion }, { body: completion }]);
+    const options = { baseUrl: "http://h/v1", model: "qwen3:8b", apiKey: null, fetch };
+    await createOpenAiProvider(options).complete(request());
+    await createOpenAiProvider({ ...options, thinking: "off" }).complete(request());
+    expect(calls[0]?.body).not.toHaveProperty("reasoning_effort");
+    expect(calls[1]?.body.reasoning_effort).toBe("none");
   });
 
   it("sends a bearer key when one is set", async () => {
@@ -285,6 +295,8 @@ describe("the Anthropic provider", () => {
         apiKey: "k",
         maxOutputTokens: 1,
         tokenParam: "max_tokens",
+        numCtx: 16_384,
+        thinking: "default",
       }).name,
     ).toBe("anthropic");
     const openai = createProvider({
@@ -294,8 +306,147 @@ describe("the Anthropic provider", () => {
       apiKey: null,
       maxOutputTokens: 1,
       tokenParam: "max_tokens",
+      numCtx: 16_384,
+      thinking: "default",
     });
     expect(openai).toMatchObject({ name: "openai", model: "llama" });
+    const ollama = createProvider({
+      kind: "ollama",
+      model: "llama",
+      baseUrl: "http://localhost:11434",
+      apiKey: null,
+      maxOutputTokens: 1,
+      tokenParam: "max_tokens",
+      numCtx: 16_384,
+      thinking: "default",
+    });
+    expect(ollama).toMatchObject({ name: "ollama", model: "llama" });
+  });
+});
+
+describe("the ollama provider", () => {
+  const completion = {
+    message: {
+      role: "assistant",
+      content: "",
+      thinking: "I should click it",
+      tool_calls: [{ id: "call_x1", function: { name: "click", arguments: { ref: "e3" } } }],
+    },
+    prompt_eval_count: 900,
+    eval_count: 40,
+  };
+
+  function make(answers: Answer[], thinking: "default" | "off" = "default", numCtx = 16_384) {
+    const { fetch, calls } = fakeFetch(answers);
+    const provider = createOllamaProvider({
+      baseUrl: "http://localhost:11434",
+      model: "gpt-oss:20b",
+      apiKey: null,
+      numCtx,
+      thinking,
+      fetch,
+    });
+    return { provider, calls };
+  }
+
+  it("posts to the native chat API with the context size on every request", async () => {
+    const { provider, calls } = make([{ body: completion }]);
+    const response = await provider.complete(request());
+
+    expect(calls[0]?.url).toBe("http://localhost:11434/api/chat");
+    expect(calls[0]?.headers).not.toHaveProperty("authorization");
+    expect(calls[0]?.body).toMatchObject({
+      model: "gpt-oss:20b",
+      stream: false,
+      options: { num_ctx: 16_384, num_predict: 512, temperature: 0 },
+      tools: [
+        {
+          type: "function",
+          function: { name: "click", description: "Click", parameters: TOOLS[0]?.parameters },
+        },
+      ],
+    });
+    expect(calls[0]?.body).not.toHaveProperty("think");
+    expect(response).toEqual({
+      text: "",
+      toolCalls: [{ id: "call_x1", name: "click", args: { ref: "e3" } }],
+      usage: { inputTokens: 900, outputTokens: 40 },
+    });
+  });
+
+  it("maps the whole conversation, with arguments as objects and results named by tool", async () => {
+    const { provider, calls } = make([{ body: completion }]);
+    await provider.complete(request());
+    expect(calls[0]?.body.messages).toEqual([
+      { role: "system", content: "You are an agent" },
+      { role: "user", content: "Begin" },
+      {
+        role: "assistant",
+        content: "Opening it",
+        tool_calls: [
+          { id: "c1", function: { name: "click", arguments: { ref: "e1" } } },
+          { id: "c2", function: { name: "click", arguments: { ref: "e2" } } },
+        ],
+      },
+      { role: "tool", tool_name: "click", content: "ok" },
+      { role: "tool", tool_name: "click", content: "no such control" },
+    ]);
+  });
+
+  it("takes the context size from its settings", async () => {
+    const { provider, calls } = make([{ body: completion }], "default", 32_768);
+    await provider.complete(request());
+    expect(calls[0]?.body.options).toMatchObject({ num_ctx: 32_768 });
+  });
+
+  it("turns thinking off only when asked to", async () => {
+    const { provider, calls } = make([{ body: completion }], "off");
+    await provider.complete(request());
+    expect(calls[0]?.body.think).toBe(false);
+  });
+
+  it("copes with a call that has no id, string arguments or bad JSON", async () => {
+    const { provider } = make([
+      {
+        body: {
+          message: {
+            content: "ok",
+            tool_calls: [
+              { function: { name: "snapshot", arguments: "" } },
+              { function: { name: "click", arguments: '{"ref":"e1"}' } },
+              { function: { name: "click", arguments: "{nope" } },
+            ],
+          },
+        },
+      },
+    ]);
+    const response = await provider.complete(request());
+    expect(response.toolCalls.map((call) => call.id)).toEqual(["call_1", "call_2", "call_3"]);
+    expect(response.toolCalls[1]?.args).toEqual({ ref: "e1" });
+    expect(response.toolCalls[2]?.argsError).toBe("The tool arguments were not valid JSON");
+  });
+
+  it("classifies a missing model as a configuration problem and a bare error as a refusal", async () => {
+    const missing = make([{ status: 404, body: { error: "model 'x' not found" } }]);
+    await expect(missing.provider.complete(request())).rejects.toMatchObject({ kind: "config" });
+    const refused = make([{ status: 400, body: { error: "invalid request" } }]);
+    await expect(refused.provider.complete(request())).rejects.toMatchObject({
+      kind: "rejected",
+    });
+  });
+
+  it("fails as an endpoint problem when the answer has no message", async () => {
+    const { fetch } = fakeFetch([{ body: { done: true } }]);
+    const provider = createOllamaProvider({
+      baseUrl: "http://h",
+      model: "m",
+      apiKey: null,
+      numCtx: 16_384,
+      thinking: "default",
+      fetch,
+      retries: 0,
+    });
+    await expect(provider.complete(request())).rejects.toMatchObject({ kind: "unavailable" });
   });
 });
 

@@ -49,6 +49,8 @@ import {
   TaskSummary,
 } from "./tasks.js";
 import {
+  GateResultBody,
+  GateResultResponse,
   TaskBlockBody,
   TaskCompleteBody,
   TaskFailBody,
@@ -557,6 +559,14 @@ export const API_ROUTES = {
     params: IdParam,
     response: z.object({ task: TaskSummary }),
   }),
+  taskApproveSubmit: defineRoute({
+    method: "POST",
+    path: "/tasks/:id/approve-submit",
+    module: "review",
+    auth: "session",
+    params: IdParam,
+    response: z.object({ task: TaskSummary }),
+  }),
   taskCancel: defineRoute({
     method: "POST",
     path: "/tasks/:id/cancel",
@@ -754,6 +764,14 @@ export const API_ROUTES = {
     auth: "worker",
     body: WorkerClaimBody,
     response: WorkerClaimResponse,
+  }),
+  workerGateResult: defineRoute({
+    method: "POST",
+    path: "/worker/gate-results",
+    module: "worker-api",
+    auth: "worker",
+    body: GateResultBody,
+    response: GateResultResponse,
   }),
   workerTaskHeartbeat: defineRoute({
     method: "POST",

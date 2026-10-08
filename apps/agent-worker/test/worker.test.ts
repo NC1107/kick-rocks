@@ -111,6 +111,8 @@ function config(): AgentWorkerConfig {
       apiKey: null,
       maxOutputTokens: 1024,
       tokenParam: "max_tokens",
+      numCtx: 16_384,
+      thinking: "default",
     },
     pricing: { inputUsdPerMtok: 1, outputUsdPerMtok: 2 },
     limits: { maxSteps: 30, maxMs: 60_000, maxTotalTokens: null },
@@ -187,12 +189,16 @@ describeBrowser("the agent worker end to end", () => {
       workerId: "test-agent",
       kinds: ["agent"],
       claimer: "model",
+      model: { provider: "openai", name: "scripted-model", version: null, thinking: "default" },
     });
     expect(claim?.authorization).toBe("Bearer a-token-of-sixteen-chars");
     const beats = server.seen.filter((entry) => entry.path === "/api/worker/heartbeat");
     expect(beats.length).toBeGreaterThan(0);
     for (const beat of beats) {
-      expect(WorkerHeartbeatBody.parse(beat.body).claimer).toBe("model");
+      expect(WorkerHeartbeatBody.parse(beat.body)).toMatchObject({
+        claimer: "model",
+        model: { name: "scripted-model" },
+      });
     }
 
     const [complete] = server.transitions();
@@ -218,6 +224,37 @@ describeBrowser("the agent worker end to end", () => {
       last_name: "Example",
       email: "jordan.example@example.com",
     });
+  });
+
+  it("stops a removal that needs approval at the send button without saying a form may have gone out", async () => {
+    const task = agentTask({ submitApproval: "required" });
+    const server = fakeServer(task);
+    await runOnce(server, [
+      { calls: [["navigate", { url: `${ORIGIN}/optout` }]] },
+      (v) => ({
+        calls: [
+          ["type", { ref: v.ref("First name"), field: "first_name" }],
+          ["type", { ref: v.ref("Last name"), field: "last_name" }],
+          ["type", { ref: v.ref("Email address"), field: "email" }],
+        ],
+      }),
+      (v) => ({ calls: [["click", { ref: v.ref("Submit request") }]] }),
+    ]);
+
+    const flagged = server.seen.filter(
+      (entry) =>
+        entry.path === `/api/worker/tasks/${task.id}/heartbeat` &&
+        (entry.body as { mayHaveSubmitted?: boolean }).mayHaveSubmitted === true,
+    );
+    expect(flagged).toHaveLength(0);
+    const [block] = server.transitions();
+    expect(block?.path).toBe(`/api/worker/tasks/${task.id}/block`);
+    expect(TaskBlockBody.parse(block?.body)).toMatchObject({
+      reason: "approval_needed",
+      control: "Submit request",
+      fingerprint: expect.stringMatching(/^[0-9a-f]{32}$/),
+    });
+    expect((await fixtureState()).submissions).toHaveLength(0);
   });
 
   it("blocks the task with a screenshot when the page shows a CAPTCHA", async () => {

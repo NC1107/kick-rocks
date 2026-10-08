@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Request form - Fixture Broker</title></head>
+<body>
+<h1>Tell us about yourself</h1>
+<div id="picked"></div>
+<p id="state-title">State</p>
+<div role="listbox" aria-labelledby="state-title" id="states">
+  <div role="option" tabindex="-1">Alabama</div>
+  <div role="option" tabindex="-1">Ohio</div>
+  <div role="option" tabindex="-1">Texas</div>
+  <div role="option" tabindex="-1">TX</div>
+</div>
+<div role="listbox" aria-label="Year of birth" id="years"></div>
+<div role="listbox" aria-label="Account type" id="types">
+  <div role="option" tabindex="-1">Personal</div>
+  <div role="option" tabindex="-1">Business</div>
+</div>
+<button type="button" role="combobox" aria-controls="cities" aria-expanded="true" aria-label="City">Choose</button>
+<div role="listbox" id="cities">
+  <div role="option" tabindex="-1">Dallas</div>
+</div>
+<fieldset>
+  <legend>Your state</legend>
+  <label><input type="radio" name="region" value="OH"> Ohio</label>
+  <label><input type="radio" name="region" value="TX"> Texas</label>
+</fieldset>
+<button type="button" id="done">Done</button>
+<script>
+  const years = document.getElementById("years");
+  for (let year = 1930; year <= 2005; year++) {
+    const item = document.createElement("div");
+    item.setAttribute("role", "option");
+    item.tabIndex = -1;
+    item.textContent = String(year);
+    years.appendChild(item);
+  }
+  document.addEventListener("click", (event) => {
+    const option = event.target.closest("[role=option]");
+    if (option) document.getElementById("picked").textContent += `${option.textContent};`;
+  });
+</script>
+</body>
+</html>

@@ -30,6 +30,67 @@ describe("settings and recipe handlers", () => {
     ).toBeNull();
   });
 
+  it("seeds a pass and an override, and lets an override be turned on and off", async () => {
+    const view = (await call({ path: "/settings" })).json;
+    expect(view.agent.gate.records.map((record: { source: string }) => record.source)).toEqual([
+      "bench",
+      "override",
+    ]);
+    expect(view.agent.gate.current).toBeNull();
+
+    const on = await call({
+      method: "PATCH",
+      path: "/settings",
+      body: {
+        agent: { gateOverride: { provider: "ollama", name: "qwen3:14b", enabled: true } },
+      },
+    });
+    expect(on.json.agent.gate.records).toHaveLength(3);
+    expect(on.json.agent.takeUnreviewed).toBe(false);
+    const off = await call({
+      method: "PATCH",
+      path: "/settings",
+      body: {
+        agent: { gateOverride: { provider: "ollama", name: "qwen3:14b", enabled: false } },
+      },
+    });
+    expect(off.json.agent.gate.records).toHaveLength(2);
+  });
+
+  it("judges the model the agent worker reports against the records", async () => {
+    const { store } = app;
+    store.settings.worker.model = {
+      workerId: "agent-home",
+      version: null,
+      lastSeenAt: new Date().toISOString(),
+      busy: false,
+      currentTaskId: null,
+      model: {
+        provider: "ollama",
+        name: "gpt-oss:20b",
+        version: "aa1c7e3b9d20",
+        thinking: "default",
+        numCtx: 16384,
+      },
+    };
+    const { current } = (await call({ path: "/settings" })).json.agent.gate;
+    expect(current.verdict).toMatchObject({ state: "passed", unattended: true });
+  });
+
+  it("approves a submit only for a task that stopped for one", async () => {
+    const { store } = app;
+    const waiting = store.tasks.find((task) => task.blockedReason === "approval_needed");
+    const other = store.tasks.find(
+      (task) => task.status === "blocked" && task.blockedReason !== "approval_needed",
+    );
+    expect(waiting).toBeDefined();
+    expect(
+      (await call({ method: "POST", path: `/tasks/${other?.id}/approve-submit` })).status,
+    ).toBe(409);
+    const approved = await call({ method: "POST", path: `/tasks/${waiting?.id}/approve-submit` });
+    expect(approved.json.task).toMatchObject({ status: "queued", blockedReason: null });
+  });
+
   it("approves and rejects proposed recipes", async () => {
     const pending = await call({ path: "/recipes?status=pending_review" });
     expect(pending.json.recipes.length).toBeGreaterThanOrEqual(2);

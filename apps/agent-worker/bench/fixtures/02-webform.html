@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Privacy rights request - Reelstream</title><link rel="stylesheet" href="/site.css">
+<style>
+.lb { position: relative; }
+.label { display: block; font-weight: 600; margin: 14px 0 4px; font-size: 14px; }
+.lb-trigger { width: 100%; text-align: left; padding: 9px 11px; border: 1px solid #b8c0cc; border-radius: 6px; background: #fff; font: inherit; cursor: pointer; }
+.lb [role=listbox] { position: absolute; z-index: 20; left: 0; right: 0; margin: 2px 0 0; padding: 4px 0; list-style: none; background: #fff; border: 1px solid #b8c0cc; border-radius: 6px; max-height: 240px; overflow: auto; box-shadow: 0 8px 24px rgba(0,0,0,.15); }
+.lb [role=option] { padding: 8px 12px; cursor: pointer; }
+.lb [role=option]:hover, .lb [role=option][aria-selected=true] { background: #e8efff; }
+.lb [role=listbox][hidden] { display: none; }
+</style></head>
+<body>
+<header class="site"><a class="brand" href="/">Reelstream</a><nav><a href="/safety">Safety Center</a><a href="/legal">Legal</a><a href="/privacy">Privacy Policy</a></nav></header>
+<main>
+  <h1>Privacy rights request</h1>
+  <p class="lede">Residents of certain US states can ask Reelstream to act on their personal information. Complete every required field, then submit the form.</p>
+  <form id="webform" method="post" action="/privacy-request">
+    <div class="field">
+      <span id="service-label" class="label">Which Reelstream service is your request about? (required)</span>
+      <div class="lb">
+        <button type="button" class="lb-trigger" role="combobox" aria-haspopup="listbox" aria-expanded="false" aria-labelledby="service-label" aria-controls="service-list">Select a service</button>
+        <div id="service-list" role="listbox" aria-labelledby="service-label" hidden>
+          <div role="option" tabindex="-1" data-value="app" aria-selected="false">Reelstream app</div>
+          <div role="option" tabindex="-1" data-value="lite" aria-selected="false">Reelstream Lite</div>
+          <div role="option" tabindex="-1" data-value="studio" aria-selected="false">Reelstream Studio (creators)</div>
+        </div>
+        <input type="hidden" name="service" value="">
+      </div>
+    </div>
+    <div class="field">
+      <span id="state-label" class="label">State of residence (required)</span>
+      <div class="lb">
+        <button type="button" class="lb-trigger" role="combobox" aria-haspopup="listbox" aria-expanded="false" aria-labelledby="state-label" aria-controls="state-list">Select your state</button>
+        <div id="state-list" role="listbox" aria-labelledby="state-label" hidden>
+{{STATE_OPTIONS}}
+        </div>
+        <input type="hidden" name="state" value="">
+      </div>
+    </div>
+    <div class="field">
+      <span id="category-label" class="label">What would you like to do? (required)</span>
+      <div class="lb">
+        <button type="button" class="lb-trigger" role="combobox" aria-haspopup="listbox" aria-expanded="false" aria-labelledby="category-label" aria-controls="category-list">Select a request type</button>
+        <div id="category-list" role="listbox" aria-labelledby="category-label" hidden>
+          <div role="option" tabindex="-1" data-value="access" aria-selected="false">Access: I want a copy of my personal information</div>
+          <div role="option" tabindex="-1" data-value="delete" aria-selected="false">Delete: I want my personal information deleted</div>
+          <div role="option" tabindex="-1" data-value="correct" aria-selected="false">Correct: my personal information is wrong</div>
+          <div role="option" tabindex="-1" data-value="opt_out" aria-selected="false">Opt out: stop selling or sharing my personal information, and targeted advertising</div>
+          <div role="option" tabindex="-1" data-value="limit" aria-selected="false">Limit: restrict use of my sensitive personal information</div>
+          <div role="option" tabindex="-1" data-value="appeal" aria-selected="false">Appeal: I want to appeal an earlier decision</div>
+        </div>
+        <input type="hidden" name="category" value="">
+      </div>
+    </div>
+    <div class="field">
+      <label for="first">First name (required)</label>
+      <input id="first" name="first_name" type="text" required>
+      <label for="last">Last name (required)</label>
+      <input id="last" name="last_name" type="text" required>
+      <label for="email">Email address for our reply (required)</label>
+      <input id="email" name="email" type="email" required>
+      <label for="details">Additional details (optional)</label>
+      <textarea id="details" name="details" rows="4" maxlength="1500"></textarea>
+    </div>
+    <label class="check"><input type="checkbox" name="decl_accurate" value="yes" required> <span>I declare that the information I have provided is accurate and that I am the person this request is about.</span></label>
+    <label class="check"><input type="checkbox" name="decl_verify" value="yes" required> <span>I understand that Reelstream may contact me to verify my identity before acting on this request.</span></label>
+    <button id="send" class="primary" type="submit">Submit request</button>
+  </form>
+</main>
+<footer class="site"><a href="/terms">Terms of Service</a><a href="/privacy">Privacy Policy</a><a href="/cookies">Cookies Policy</a></footer>
+<script>
+(() => {
+  var open = null;
+  function close() { if (!open) return; open.list.hidden = true; open.trigger.setAttribute("aria-expanded", "false"); open = null; }
+  document.querySelectorAll(".lb").forEach((lb) => {
+    var trigger = lb.querySelector(".lb-trigger"), list = lb.querySelector("[role=listbox]"), input = lb.querySelector("input[type=hidden]");
+    trigger.addEventListener("click", (e) => {
+      e.stopPropagation();
+      var wasOpen = open && open.list === list;
+      close();
+      if (!wasOpen) { list.hidden = false; trigger.setAttribute("aria-expanded", "true"); open = { list: list, trigger: trigger }; }
+    });
+    list.addEventListener("click", (e) => {
+      var li = e.target.closest("[role=option]"); if (!li) return;
+      list.querySelectorAll("[role=option]").forEach((o) => { o.setAttribute("aria-selected", "false"); });
+      li.setAttribute("aria-selected", "true");
+      input.value = li.getAttribute("data-value");
+      trigger.textContent = li.textContent;
+      close();
+    });
+  });
+  document.addEventListener("click", close);
+  document.getElementById("webform").addEventListener("submit", (e) => {
+    var missing = ["service", "state", "category"].filter((n) => !document.querySelector(`input[name=${n}]`).value);
+    if (missing.length) { e.preventDefault(); alert(`Please choose: ${missing.join(", ")}`); }
+  });
+})();
+</script>
+</body>
+</html>

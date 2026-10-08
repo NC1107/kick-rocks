@@ -1,5 +1,5 @@
 import { createRedactor } from "@kickrocks/recipes";
-import type { ProfileFields } from "@kickrocks/shared";
+import { type ProfileFields, US_STATES } from "@kickrocks/shared";
 
 type Redact = (text: string) => string;
 
@@ -57,6 +57,85 @@ function redactorFor(entries: [string, string][]): Redact {
   return (text) => redactors.reduce((current, redact) => redact(current), text);
 }
 
+const NOT_ALNUM_BEFORE = "(?<![A-Za-z0-9])";
+const NOT_ALNUM_AFTER = "(?![A-Za-z0-9])";
+
+/**
+ * Where a bare capital code can only be a state: after a comma or a masked city, before a ZIP,
+ * after the word state or an equals sign, and as a whole choice of a list. Anywhere else it is
+ * an ordinary word such as OK, IN, OR or ME, which a button or a heading uses.
+ */
+function addressContexts(code: string): RegExp[] {
+  const zip = String.raw`\s*,?\s*(?:\d{5}(?:-\d{4})?|\{\{zip\}\})`;
+  const choice = String.raw`(?<=options: "|" \| "|\b(?:option|menuitem|radio) "|value=")${code}(?=["]|\s+[-–:]\s)`;
+  return [
+    new RegExp(String.raw`(?<=,\s*)${code}${NOT_ALNUM_AFTER}`, "g"),
+    new RegExp(String.raw`(?<=\{\{city\}\},?\s*)${code}${NOT_ALNUM_AFTER}`, "g"),
+    new RegExp(`${NOT_ALNUM_BEFORE}${code}(?=${zip})`, "g"),
+    new RegExp(String.raw`(?<=[Ss][Tt][Aa][Tt][Ee]:?\s+)${code}${NOT_ALNUM_AFTER}`, "g"),
+    new RegExp(`(?<==)${code}${NOT_ALNUM_AFTER}`, "g"),
+    new RegExp(choice, "g"),
+  ];
+}
+
+/**
+ * The path and query of an address are read in any case, because a site writes the state in lower
+ * case there (a slug ending in -tx, ?state=tx) and no ordinary word is spelled that way. The host
+ * is left alone: it is not where a state is, and a code such as id would hit id.me.
+ */
+function hideInAddresses(text: string, code: string, label: string): string {
+  const inAddress = new RegExp(
+    `(?:${NOT_ALNUM_BEFORE}|(?<=%2[Cc]))${code}${NOT_ALNUM_AFTER}`,
+    "gi",
+  );
+  return text.replace(
+    /(https?:\/\/[^/\s"?#]*)([^\s"]*)/g,
+    (_, host: string, rest: string) => `${host}${rest.replace(inAddress, label)}`,
+  );
+}
+
+/** The names another state ends with: "West " in front of Virginia makes it a different state. */
+function prefixesOf(name: string): string[] {
+  return US_STATES.filter((other) =>
+    other.name.toLowerCase().endsWith(` ${name.toLowerCase()}`),
+  ).map((other) => other.name.slice(0, other.name.length - name.length).trim());
+}
+
+/**
+ * A state is two letters, which the redactor ignores because a short value would match inside
+ * ordinary words. Its full name is hidden wherever it stands, since a page spells the same state
+ * both ways, but the code only where it reads as a state.
+ */
+function stateRedactor(entries: [string, string][]): Redact {
+  const steps = entries.flatMap(([name, value]): Redact[] => {
+    const text = value.trim();
+    const isCode = /^[A-Za-z]{2}$/.test(text);
+    if (name !== "state" && !(isCode && text === text.toUpperCase())) return [];
+    const state = US_STATES.find(
+      (candidate) =>
+        candidate.code === text.toUpperCase() ||
+        (name === "state" && candidate.name.toLowerCase() === text.toLowerCase()),
+    );
+    if (!state) return [];
+    const label = `{{${name}}}`;
+    const spelledOut = state.name.replace(/ /g, String.raw`\s+`);
+    const notPartOfAnother = prefixesOf(state.name)
+      .map((prefix) => String.raw`(?<!\b${prefix.replace(/ /g, String.raw`\s+`)}\s+)`)
+      .join("");
+    const fullName = new RegExp(
+      `${NOT_ALNUM_BEFORE}${notPartOfAnother}${spelledOut}${NOT_ALNUM_AFTER}`,
+      "gi",
+    );
+    const contexts = addressContexts(state.code);
+    return [
+      (text) => text.replace(fullName, label),
+      (text) => contexts.reduce((current, pattern) => current.replace(pattern, label), text),
+      (text) => hideInAddresses(text, state.code, label),
+    ];
+  });
+  return (text) => steps.reduce((current, step) => step(current), text);
+}
+
 type NamedValues = Record<string, string | undefined>;
 
 /**
@@ -104,5 +183,6 @@ export function createMask(fields: ProfileFields, hidden: readonly string[] = []
     ),
   );
   // The long spellings go first: a date such as 04/05/1990 must not lose its year to the birth year alone.
-  return (text) => plain(reformatted(text));
+  const states = stateRedactor(entries);
+  return (text) => states(plain(reformatted(text)));
 }

@@ -39,7 +39,7 @@ Reverse proxy, backups, and updates are in [docs/self-hosting.md](docs/self-host
 Forms without a recipe become agent tasks.
 Any mcp client can work through them with a token from settings, or you can run the agent worker with a local model through ollama or with an `ANTHROPIC_API_KEY`.
 The model only sees your profile values as placeholders.
-Setup is in [docs/agents.md](docs/agents.md).
+Setup is in [docs/agents.md](docs/agents.md), and which local model to run for your GPU is in [docs/agent-models.md](docs/agent-models.md).
 
 ## Your data
 
