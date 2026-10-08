@@ -170,6 +170,9 @@ describe("the review queue", () => {
       "src",
       expect.stringMatching(/\/api\/tasks\/tsk_\d+\/screenshot$/),
     );
+    expect(task.getByAltText("The page where the task stopped").closest("a")).toHaveClass(
+      "aspect-4/3",
+    );
     const steps = task.getAllByRole("listitem");
     expect(steps.length).toBeGreaterThanOrEqual(2);
     expect(task.getByRole("link", { name: /Open the page/ })).toHaveAttribute("target", "_blank");
