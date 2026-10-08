@@ -1,15 +1,26 @@
 import { describe, expect, it } from "vitest";
 import {
   CheckArgs,
+  CheckRecordArgs,
   ClickArgs,
   ReportArgs,
   SelectArgs,
   SnapshotArgs,
   TOOL_NAMES,
-  TOOL_SPECS,
   TypeArgs,
+  toolSpecsFor,
   WaitArgs,
 } from "./tools.js";
+
+const FIELDS = ["first_name", "last_name", "city", "state"];
+const TOOL_SPECS = toolSpecsFor({ fieldNames: FIELDS, purpose: "remove" });
+const SCAN_SPECS = toolSpecsFor({ fieldNames: FIELDS, purpose: "scan" });
+
+function fieldEnum(specs: typeof TOOL_SPECS, name: string): string[] {
+  const spec = specs.find((candidate) => candidate.name === name);
+  if (!spec) throw new Error(`no ${name} tool`);
+  return (spec.parameters as { properties: { field: { enum: string[] } } }).properties.field.enum;
+}
 
 function typeProperties(): Record<string, unknown> {
   const spec = TOOL_SPECS.find((candidate) => candidate.name === "type");
@@ -30,11 +41,34 @@ describe("tool specs", () => {
     expect(Object.keys(typeProperties())).toEqual(["ref", "field"]);
   });
 
-  it("limits the type tool to the profile fields", () => {
+  it("limits the type and select tools to this task's fields", () => {
     const field = typeProperties().field as { enum: string[] };
-    expect(field.enum).toContain("first_name");
-    expect(field.enum).toContain("record_url");
-    expect(field.enum).not.toContain("password");
+    expect(field.enum).toEqual(FIELDS);
+    expect(fieldEnum(TOOL_SPECS, "select")).toEqual(FIELDS);
+    expect(field.enum).not.toContain("phone");
+  });
+
+  it("falls back to every profile field when the task has none, so the schema stays valid", () => {
+    const bare = toolSpecsFor({ fieldNames: [], purpose: "remove" });
+    expect(fieldEnum(bare, "type")).toContain("first_name");
+  });
+
+  it("gives only a scan the check_record tool, before report", () => {
+    expect(TOOL_SPECS.map((spec) => spec.name)).not.toContain("check_record");
+    expect(SCAN_SPECS.map((spec) => spec.name)).toEqual([
+      ...TOOL_NAMES.filter((name) => name !== "report"),
+      "check_record",
+      "report",
+    ]);
+  });
+
+  it("says in the report tool what each blocked reason means", () => {
+    const report = TOOL_SPECS.find((spec) => spec.name === "report");
+    expect(report?.description).toContain("phone_verification: the site asks for a phone number");
+    expect(report?.description).toContain("id_upload: it asks for an ID or a document");
+    expect(report?.description).toContain("login_required: an account or sign-in");
+    expect(report?.description).toContain("email_verification: a code or link sent by email");
+    expect(report?.description).toContain("unknown: anything else, naming what it needs");
   });
 });
 
@@ -69,13 +103,21 @@ describe("argument schemas", () => {
     expect(SnapshotArgs.parse({ part: null }).part).toBeNull();
   });
 
-  it("selects by field or by option, not both and not neither", () => {
+  it("selects by field or by option, and by the field when both are sent", () => {
     expect(SelectArgs.safeParse({ ref: "e1", field: "state" }).success).toBe(true);
     expect(SelectArgs.safeParse({ ref: "e1", option: "Texas" }).success).toBe(true);
     expect(SelectArgs.safeParse({ ref: "e1" }).success).toBe(false);
-    expect(SelectArgs.safeParse({ ref: "e1", field: "state", option: "Texas" }).success).toBe(
-      false,
-    );
+    expect(SelectArgs.parse({ ref: "e1", field: "state", option: "Texas" })).toEqual({
+      ref: "e1",
+      field: "state",
+    });
+  });
+
+  it("checks a record by the ref of its link, or by none for the page being read", () => {
+    expect(CheckRecordArgs.safeParse({}).success).toBe(true);
+    expect(CheckRecordArgs.safeParse({ ref: null }).success).toBe(true);
+    expect(CheckRecordArgs.safeParse({ ref: "e4" }).success).toBe(true);
+    expect(CheckRecordArgs.safeParse({ ref: "#card" }).success).toBe(false);
   });
 
   it("defaults check to ticking and wait to two seconds, and bounds the wait", () => {

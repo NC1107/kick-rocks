@@ -83,6 +83,8 @@ const PAGES: Record<string, string> = {
   "/dob-selects": "dob-selects.html",
   "/many-links": "many-links.html",
   "/huge-page": "huge-page.html",
+  "/scan-cards": "scan-cards.html",
+  "/dropdowns": "dropdowns.html",
 };
 
 function escapeHtml(text: string): string {

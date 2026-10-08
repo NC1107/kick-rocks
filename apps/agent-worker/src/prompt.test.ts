@@ -35,7 +35,10 @@ describe("buildSystemPrompt", () => {
 
   it("tells the model how to read the rest of a long page and what to do about an overlay", () => {
     expect(prompt).toContain("snapshot with part 2");
-    expect(prompt).toContain("Read every part before you decide");
+    expect(prompt).toContain(
+      "Read the next part only when the snapshot says there is another part",
+    );
+    expect(prompt).toContain("(end of page)");
     expect(prompt).toContain("an overlay covers the page");
   });
 
@@ -44,6 +47,41 @@ describe("buildSystemPrompt", () => {
     expect(prompt).toContain(
       "blocked when the control is required, and leave it unset when it is optional",
     );
+  });
+
+  it("overrides the MCP wording about where the values are, so a model never blocks on a hidden value", () => {
+    expect(prompt).toContain("The program holds the value of every field listed above.");
+    expect(prompt).toContain('Where the instructions say the values are in "fields"');
+    expect(prompt).toContain("Never block, fail or release because you cannot see a value.");
+  });
+
+  it("leaves the choices that are not about the person to the model", () => {
+    expect(prompt).toContain(
+      "A choice that is not about the person, such as which product or which kind of request, is yours to make from what the task asks for.",
+    );
+  });
+
+  it("explains how to scan, only for a scan", () => {
+    const scan = buildSystemPrompt({
+      task: agentTask({ payload: { purpose: "scan" } }),
+      sites: allowedSitesFor(TARGET),
+      fieldNames: ["first_name"],
+      maxSteps: 25,
+    });
+    expect(scan).toContain("How to scan:");
+    expect(scan).toContain("following Next page, numbered pages and View more");
+    expect(scan).toContain("check_record");
+    expect(scan).toContain(
+      "A placeholder such as {{city}} or {{birth_year}} means that detail is the person's own.",
+    );
+    expect(scan).toContain("only among a record's relatives does not make it the person's record");
+    expect(scan).toContain("never only the first");
+    expect(scan).toContain(
+      "A scan never sends a request to the site. Report the records you have seen.",
+    );
+    expect(scan.indexOf("How to scan:")).toBeLessThan(scan.indexOf("Instructions for this task"));
+    expect(prompt).not.toContain("How to scan:");
+    expect(scan).not.toContain("\u2014");
   });
 
   it("says none when the task carries no fields", () => {

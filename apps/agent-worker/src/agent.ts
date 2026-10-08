@@ -13,6 +13,7 @@ import type { z } from "zod";
 import type { AgentLimits, Pricing } from "./config.js";
 import { type AllowedSites, allowedSitesFor, describeSites, withinSites } from "./domains.js";
 import { createMask, namedHiddenValues, restoreFields } from "./mask.js";
+import { hintFor, repairReport } from "./near-miss.js";
 import { buildOpeningMessage, buildSystemPrompt, startUrlFor } from "./prompt.js";
 import {
   type Message,
@@ -20,10 +21,11 @@ import {
   ProviderError,
   type ToolCall,
   type ToolResult,
+  type ToolSpec,
 } from "./provider.js";
 import { SubmitNeedsApproval } from "./submit-approval.js";
 import { Toolbox, type ToolOutcome } from "./toolbox.js";
-import { ReportArgs, TOOL_SPECS } from "./tools.js";
+import { ReportArgs, toolSpecsFor } from "./tools.js";
 
 type AgentTask = Extract<ClaimedTask, { kind: "agent" }>;
 
@@ -63,7 +65,7 @@ function clip(text: string, length: number): string {
 function describeIssues(error: z.ZodError): string {
   return error.issues
     .slice(0, 5)
-    .map((issue) => `${issue.path.join(".") || "result"}: ${issue.message}`)
+    .map((issue) => `${issue.path.join(".") || "result"}: ${hintFor(issue.path, issue.message)}`)
     .join("; ");
 }
 
@@ -86,6 +88,7 @@ class AgentRun {
   /** What every placeholder the model may have copied stands for. */
   private readonly known: Record<string, string | undefined>;
   private readonly toolbox: Toolbox;
+  private readonly tools: ToolSpec[];
   private readonly messages: Message[] = [];
   private inputTokens = 0;
   private outputTokens = 0;
@@ -103,9 +106,11 @@ class AgentRun {
       .map(([name]) => name);
     this.mask = createMask(task.fields, task.maskValues);
     this.known = { ...task.fields, ...namedHiddenValues(task.fields, task.maskValues ?? []) };
+    this.tools = toolSpecsFor({ fieldNames: this.fieldNames, purpose: task.payload.purpose });
     this.toolbox = new Toolbox({
       page: options.page,
       fields: task.fields,
+      purpose: task.payload.purpose,
       policy: { ...this.sites, allowHttp: options.allowHttp },
       startUrls: [startUrlFor(task)],
       pace: options.pace,
@@ -246,7 +251,7 @@ class AgentRun {
           response = await provider.complete({
             system,
             messages: this.messages,
-            tools: TOOL_SPECS,
+            tools: this.tools,
             maxOutputTokens: this.options.maxOutputTokens,
             signal: modelSignal,
           });
@@ -422,7 +427,7 @@ class AgentRun {
     call: ToolCall,
     answer: (content: string, isError: boolean) => void,
   ): Promise<TaskReport | null> {
-    const parsed = ReportArgs.safeParse(call.args);
+    const parsed = ReportArgs.safeParse(repairReport(call.args));
     if (!parsed.success) {
       answer(`The report was not valid: ${describeIssues(parsed.error)}`, true);
       return null;

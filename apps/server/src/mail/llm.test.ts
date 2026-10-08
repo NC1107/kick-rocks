@@ -1,4 +1,4 @@
-import { outgoingMessageId } from "@kickrocks/shared";
+import { outgoingMessageId, ProfileField } from "@kickrocks/shared";
 import { describe, expect, it } from "vitest";
 import { noDkim, signedAs } from "../test-utils/dkim.js";
 import { createReplyClassifier } from "./classifier.js";
@@ -143,6 +143,31 @@ describe("the language model fallback", () => {
     const prompt = messages[0]?.content ?? "";
     expect(prompt).toMatch(/click a link is this, whatever word it uses.*verify/);
     expect(prompt).toContain("only asks for a click on a link is not this");
+  });
+
+  it("bounds requested_fields by the number of profile fields and names them in the prompt", async () => {
+    expect(LLM_RESPONSE_SCHEMA.schema.properties.requested_fields.maxItems).toBe(
+      ProfileField.options.length,
+    );
+    const { calls, fetchImpl } = fakeLlm(verdict());
+    await classifierWith(LLM, fetchImpl).classify(message(), { requests: [target] });
+    const messages = (calls[0] as Call).body.messages as Array<{ role: string; content: string }>;
+    const prompt = messages[0]?.content ?? "";
+    for (const field of ProfileField.options) expect(prompt).toContain(field);
+    expect(prompt).toContain(
+      "a utility bill, a Social Security number or an account number is not a profile field",
+    );
+  });
+
+  it("separates the confusable classes with a rule and an example each", async () => {
+    const { calls, fetchImpl } = fakeLlm(verdict());
+    await classifierWith(LLM, fetchImpl).classify(message(), { requests: [target] });
+    const messages = (calls[0] as Call).body.messages as Array<{ role: string; content: string }>;
+    const prompt = messages[0]?.content ?? "";
+    expect(prompt).toContain('"Case 12345 opened, status New" is auto_ack');
+    expect(prompt).toContain("is never unrelated, including a rejection or a pointer to a form");
+    expect(prompt).toContain('"Thanks." is unknown');
+    expect(prompt).toContain('"FYI" with a signature is unknown');
   });
 
   it("sends no authorization header when the endpoint needs no key", async () => {

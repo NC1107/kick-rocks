@@ -61,7 +61,81 @@ describe("formatSnapshot", () => {
       '[e5] button "Submit" disabled',
       '[e6] link "Privacy" -> https://example.test/privacy',
       "embedded frame from pay.example.test (its content cannot be read or used)",
+      "(end of page)",
     ]);
+  });
+
+  it("puts the link of a heading on the heading line, and says the page ends when it is one part", () => {
+    const out = formatSnapshot(
+      {
+        ...RAW,
+        items: [
+          {
+            t: "heading",
+            level: 3,
+            text: "{{first_name}} {{last_name}}",
+            link: {
+              t: "control",
+              ref: "e5",
+              role: "link",
+              name: "{{first_name}} {{last_name}}",
+              href: "https://example.test/p/1",
+            },
+          },
+          {
+            t: "heading",
+            level: 3,
+            text: "Report for Sam",
+            link: {
+              t: "control",
+              ref: "e6",
+              role: "link",
+              name: "Sam",
+              href: "https://example.test/p/2",
+            },
+          },
+        ],
+      },
+      { mask: identity },
+    ).split("\n");
+    expect(out).toContain(
+      'heading(3) [e5] link "{{first_name}} {{last_name}}" -> https://example.test/p/1',
+    );
+    expect(out).toContain(
+      'heading(3) "Report for Sam" [e6] link "Sam" -> https://example.test/p/2',
+    );
+    expect(out.at(-1)).toBe("(end of page)");
+  });
+
+  it("shows a custom dropdown's choice and state, and marks a selected option", () => {
+    const out = formatSnapshot(
+      {
+        ...RAW,
+        items: [
+          {
+            t: "control",
+            ref: "e1",
+            role: "combobox",
+            name: "Kind",
+            value: "Delete",
+            expanded: false,
+          },
+          { t: "control", ref: "e2", role: "option", name: "Free", selected: true },
+          { t: "control", ref: "e3", role: "tab", name: "Overview" },
+        ],
+      },
+      { mask: identity },
+    );
+    expect(out).toContain('[e1] combobox "Kind" (collapsed) value="Delete"');
+    expect(out).toContain('[e2] option "Free" (selected)');
+    expect(out).toContain('[e3] tab "Overview"');
+    expect(out).not.toContain('"Overview" (selected)');
+  });
+
+  it("does not claim the end of a page that was cut off", () => {
+    const out = formatSnapshot({ ...RAW, truncated: true }, { mask: identity });
+    expect(out).not.toContain("(end of page)");
+    expect(out).toContain("the page was cut off");
   });
 
   it("masks values through the function it is given, in every place text appears", () => {

@@ -18,6 +18,7 @@ import {
   scopeOf,
 } from "./domains.js";
 import { type CdpChannel, guardFrameTargets } from "./frame-guard.js";
+import { describeRecordCheck, READ_RECORD_TEXT, type RecordText } from "./record-check.js";
 import {
   formatSnapshot,
   fromSource,
@@ -42,6 +43,7 @@ import {
 } from "./submit-approval.js";
 import {
   CheckArgs,
+  CheckRecordArgs,
   ClickArgs,
   NavigateArgs,
   SelectArgs,
@@ -60,6 +62,8 @@ export type ToolOutcome =
 interface ToolboxOptions {
   page: Page;
   fields: ProfileFields;
+  /** A scan only reads: it compares records and never sends a request to the site. */
+  purpose?: "scan" | "remove";
   policy: NavigationPolicy;
   pace: Pace;
   /** Hides the person's values from everything the model reads. Applied once, to each answer. */
@@ -167,6 +171,32 @@ const CHOICE_DETAILS = `(el) => {
   const options = peers.slice(0, 400).map((node) => ({ value: node.getAttribute("data-value") || textOf(node), label: textOf(node) }));
   return { choice: true, hint: hint.filter(Boolean).join(" ").replace(/[_-]+/g, " "), required, text: textOf(el), options };
 }`;
+
+/**
+ * What a click would send: the words on the control, and the action and method of the form it
+ * belongs to. A link that only opens a page is not a send, so it has neither.
+ */
+const SEND_DETAILS = `(el) => {
+  const clean = (text) => (text || "").replace(/\\s+/g, " ").trim();
+  const tag = el.tagName.toLowerCase();
+  const type = (el.getAttribute("type") || "").toLowerCase();
+  const role = (el.getAttribute("role") || "").toLowerCase();
+  const button = tag === "button" || role === "button" || (tag === "input" && ["submit", "button", "image"].includes(type));
+  const submits = tag === "input" || tag === "button" ? type !== "button" && type !== "reset" : false;
+  const form = el.form || el.closest("form");
+  const words = tag === "input" ? el.value : el.textContent;
+  return {
+    button,
+    submits: submits && Boolean(form),
+    label: clean(el.getAttribute("aria-label") || words || el.getAttribute("title") || ""),
+    action: form ? (form.getAttribute("action") || "") : "",
+    method: form ? (form.getAttribute("method") || "get").toLowerCase() : "",
+  };
+}`;
+
+const REMOVAL_WORDS = /remov|opt[\s_-]?out|delet|suppress|unlock|do[\s_-]?not[\s_-]?sell/i;
+const READ_ONLY_REFUSAL =
+  "A scan never sends a request to the site. Report the records you have seen.";
 
 const NON_TEXT_INPUTS = new Set([
   "checkbox",
@@ -596,6 +626,10 @@ export class Toolbox {
         return this.check(args);
       case "wait":
         return this.wait(args);
+      case "check_record":
+        return this.options.purpose === "scan"
+          ? this.checkRecord(args)
+          : failure(`There is no tool named ${name}`);
       default:
         return failure(`There is no tool named ${name}`);
     }
@@ -651,7 +685,10 @@ export class Toolbox {
     }
     const addresses = [
       raw.url,
-      ...raw.items.flatMap((item) => (item.t === "control" && item.href ? [item.href] : [])),
+      ...raw.items.flatMap((item) => {
+        const control = item.t === "heading" ? item.link : item;
+        return control?.t === "control" && control.href ? [control.href] : [];
+      }),
     ];
     for (const address of addresses) {
       const shown = mask(address);
@@ -763,6 +800,7 @@ export class Toolbox {
         "File upload controls cannot be used. If the site needs a document, report blocked with id_upload.",
       );
     }
+    if (await this.sendsInAScan(target.locator)) return failure(READ_ONLY_REFUSAL);
     const invented = await this.refuseInventedChoice(parsed.data.ref, target.locator);
     if (invented !== null) return invented;
     await this.requireApprovalToSubmit(target);
@@ -788,6 +826,51 @@ export class Toolbox {
     }
     await this.settle();
     return this.readPage(`Clicked ${parsed.data.ref}.`);
+  }
+
+  /**
+   * A scan has nothing to send, so a button that asks for a removal, or one that would post a form
+   * which does, is refused whatever the page says about it. A search form is not one of them.
+   */
+  private async sendsInAScan(locator: Locator): Promise<boolean> {
+    if (this.options.purpose !== "scan") return false;
+    const send = await locator.evaluate(
+      fromSource<
+        (el: unknown) => {
+          button: boolean;
+          submits: boolean;
+          label: string;
+          action: string;
+          method: string;
+        }
+      >(SEND_DETAILS),
+    );
+    if (!send.button) return false;
+    if (REMOVAL_WORDS.test(send.label)) return true;
+    return send.submits && send.method === "post" && REMOVAL_WORDS.test(send.action);
+  }
+
+  private async checkRecord(args: unknown): Promise<ToolOutcome> {
+    const parsed = CheckRecordArgs.safeParse(args);
+    if (!parsed.success) return failure("check_record takes the ref of a record link, or none");
+    const ref = parsed.data.ref ?? null;
+    const reader = fromSource<(el: unknown, mode: string) => RecordText>(READ_RECORD_TEXT);
+    let record: RecordText;
+    if (ref === null) {
+      const problem = this.currentUrlProblem();
+      if (problem !== null) return failure(`The page is not usable: ${problem}`);
+      record = await this.options.page.locator("body").evaluate(reader, "page");
+    } else {
+      const target = await this.resolve(ref);
+      if ("kind" in target) return target;
+      if (target.info.tag !== "a") {
+        return failure(`${ref} is not a link. Give the ref of a record link.`);
+      }
+      record = await target.locator.evaluate(reader, "card");
+    }
+    return done(
+      describeRecordCheck(record, this.options.fields, new Date().getFullYear(), ref === null),
+    );
   }
 
   private async requireApprovalToSubmit(target: { locator: Locator; info: ElementInfo }) {

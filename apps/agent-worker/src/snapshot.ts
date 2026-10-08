@@ -7,24 +7,36 @@ export function fromSource<F>(source: string): F {
   return new Function(`return (${source});`)() as F;
 }
 
+export interface SnapshotControl {
+  t: "control";
+  ref: string;
+  role: string;
+  name: string;
+  value?: string;
+  checked?: boolean;
+  /** Whether a list, a menu or a tab is the chosen one, for a custom control that marks it so. */
+  selected?: boolean;
+  /** Whether the list a custom dropdown opens is showing. */
+  expanded?: boolean;
+  disabled?: boolean;
+  required?: boolean;
+  href?: string;
+  options?: string[];
+  inputType?: string;
+}
+
 export type SnapshotItem =
-  | { t: "heading"; level: number; text: string }
+  | {
+      t: "heading";
+      level: number;
+      text: string;
+      /** A link inside the heading, which a card uses for the name of a record. */
+      link?: SnapshotControl;
+    }
   | { t: "text"; text: string }
   | { t: "frame"; host: string }
   | { t: "overlay"; hidden: number }
-  | {
-      t: "control";
-      ref: string;
-      role: string;
-      name: string;
-      value?: string;
-      checked?: boolean;
-      disabled?: boolean;
-      required?: boolean;
-      href?: string;
-      options?: string[];
-      inputType?: string;
-    };
+  | SnapshotControl;
 
 export interface RawSnapshot {
   title: string;
@@ -159,7 +171,7 @@ export const READ_SNAPSHOT = `(() => {
     return !needsReach(el) || reachable(el);
   };
 
-  const nameOf = (el) => {
+  const labelOf = (el) => {
     const label = el.getAttribute("aria-label");
     if (label && clean(label)) return clean(label);
     const by = el.getAttribute("aria-labelledby");
@@ -171,6 +183,11 @@ export const READ_SNAPSHOT = `(() => {
       const text = Array.from(el.labels).map((l) => clean(l.textContent)).join(" ");
       if (text) return text;
     }
+    return "";
+  };
+  const nameOf = (el) => {
+    const labelled = labelOf(el);
+    if (labelled) return labelled;
     const tag = el.tagName;
     if (tag === "INPUT" && BUTTON_INPUTS.has((el.type || "").toLowerCase())) {
       return clean(el.value) || clean(el.getAttribute("alt")) || (el.type || "");
@@ -191,8 +208,7 @@ export const READ_SNAPSHOT = `(() => {
     buffer = [];
     if (text) items.push({ t: "text", text: clip(text, MAX_TEXT) });
   };
-  const control = (el, role, extra) => {
-    flush();
+  const register = (el, role, extra) => {
     let ref = reused.get(el);
     if (ref === undefined || taken.has(ref)) {
       highest += 1;
@@ -200,8 +216,26 @@ export const READ_SNAPSHOT = `(() => {
     }
     taken.add(ref);
     el.setAttribute("data-kr-ref", ref);
-    items.push(Object.assign({ t: "control", ref, role, name: clip(nameOf(el), 120) }, extra,
-      el.disabled ? { disabled: true } : {}, el.required || el.getAttribute("aria-required") === "true" ? { required: true } : {}));
+    return Object.assign({ t: "control", ref, role, name: clip(nameOf(el), 120) }, extra,
+      el.disabled ? { disabled: true } : {}, el.required || el.getAttribute("aria-required") === "true" ? { required: true } : {});
+  };
+  const control = (el, role, extra) => {
+    flush();
+    items.push(register(el, role, extra));
+  };
+  const SELECTABLE = new Set(["option", "menuitem", "tab"]);
+  const expandedState = (el) => {
+    const state = el.getAttribute("aria-expanded");
+    return state === "true" ? { expanded: true } : state === "false" ? { expanded: false } : {};
+  };
+  const selectedState = (el) => (el.getAttribute("aria-selected") === "true" ? { selected: true } : {});
+  const isDropdownButton = (el, role) =>
+    role === "combobox" || (el.getAttribute("aria-haspopup") || "").toLowerCase() === "listbox";
+  // A custom dropdown shows what was chosen as the text of its button, so a name taken from a
+  // label would otherwise hide it.
+  const dropdownExtra = (el) => {
+    const own = clean(el.textContent);
+    return Object.assign(labelOf(el) && own ? { value: clip(own, 120) } : {}, expandedState(el));
   };
 
   const describe = (el) => {
@@ -217,7 +251,12 @@ export const READ_SNAPSHOT = `(() => {
       control(el, role === "button" ? "button" : "link", { href: el.href });
       return true;
     }
-    if (tag === "BUTTON" || tag === "SUMMARY") { control(el, "button", {}); return true; }
+    if (tag === "BUTTON" || tag === "SUMMARY") {
+      if (isDropdownButton(el, role)) control(el, "combobox", dropdownExtra(el));
+      else if (SELECTABLE.has(role)) control(el, role, selectedState(el));
+      else control(el, "button", {});
+      return true;
+    }
     if (tag === "SELECT") {
       const options = Array.from(el.options).slice(0, MAX_OPTIONS).map((o) => clip(clean(o.textContent), 60));
       const selected = el.selectedOptions && el.selectedOptions[0];
@@ -239,7 +278,13 @@ export const READ_SNAPSHOT = `(() => {
       control(el, "textbox", { value: clean(el.textContent), inputType: "contenteditable" }); return true;
     }
     if (ROLES.has(role)) {
-      const extra = role === "checkbox" || role === "radio" || role === "switch" ? { checked: el.getAttribute("aria-checked") === "true" } : {};
+      const extra = role === "checkbox" || role === "radio" || role === "switch"
+        ? { checked: el.getAttribute("aria-checked") === "true" }
+        : role === "combobox"
+          ? dropdownExtra(el)
+          : SELECTABLE.has(role)
+            ? selectedState(el)
+            : {};
       control(el, role, extra);
       return true;
     }
@@ -273,7 +318,13 @@ export const READ_SNAPSHOT = `(() => {
     if (/^H[1-6]$/.test(el.tagName)) {
       flush();
       const text = clean(el.textContent);
-      if (text) items.push({ t: "heading", level: Number(el.tagName[1]), text: clip(text, MAX_TEXT) });
+      if (!text) return;
+      const anchor = el.querySelector("a[href]");
+      const href = anchor ? anchor.getAttribute("href") : null;
+      const link = anchor && href !== null && !/^\\s*javascript:/i.test(href) && controlVisible(anchor)
+        ? register(anchor, "link", { href: anchor.href })
+        : null;
+      items.push(Object.assign({ t: "heading", level: Number(el.tagName[1]), text: clip(text, MAX_TEXT) }, link ? { link } : {}));
       return;
     }
     const interactive = el.matches("a, button, summary, select, textarea, input, [contenteditable], [role]");
@@ -321,33 +372,42 @@ function quote(text: string): string {
   return JSON.stringify(text);
 }
 
+function controlLine(item: SnapshotControl, mask: (text: string) => string): string {
+  const parts = [`[${item.ref}] ${item.role} ${quote(mask(item.name))}`];
+  if (item.href !== undefined) parts.push(`-> ${mask(item.href)}`);
+  if (item.checked !== undefined) parts.push(item.checked ? "(checked)" : "(unchecked)");
+  if (item.selected) parts.push("(selected)");
+  if (item.expanded !== undefined) parts.push(item.expanded ? "(expanded)" : "(collapsed)");
+  if (item.required) parts.push("required");
+  if (item.disabled) parts.push("disabled");
+  if (item.inputType && item.inputType !== "text") parts.push(`type=${item.inputType}`);
+  if (item.value !== undefined && item.value !== "") {
+    parts.push(
+      item.inputType === "password" ? "value=(hidden)" : `value=${quote(mask(item.value))}`,
+    );
+  }
+  if (item.options) {
+    parts.push(`options: ${item.options.map((o) => quote(mask(o))).join(" | ")}`);
+  }
+  return parts.join(" ");
+}
+
 function line(item: SnapshotItem, mask: (text: string) => string): string {
   switch (item.t) {
-    case "heading":
-      return `heading(${item.level}) ${quote(mask(item.text))}`;
+    case "heading": {
+      if (item.link === undefined) return `heading(${item.level}) ${quote(mask(item.text))}`;
+      // A heading that is only the link is shown by the link alone, so the name is not said twice.
+      const same = item.link.name === item.text;
+      return `heading(${item.level}) ${same ? "" : `${quote(mask(item.text))} `}${controlLine(item.link, mask)}`;
+    }
     case "text":
       return `text ${quote(mask(item.text))}`;
     case "frame":
       return `embedded frame from ${item.host} (its content cannot be read or used)`;
     case "overlay":
       return `A full-page overlay, such as a cookie banner or a notice, covers the page and ${item.hidden} control${item.hidden === 1 ? "" : "s"} behind it cannot be used. Dismiss it first with one of its own buttons listed below, then call snapshot.`;
-    case "control": {
-      const parts = [`[${item.ref}] ${item.role} ${quote(mask(item.name))}`];
-      if (item.href !== undefined) parts.push(`-> ${mask(item.href)}`);
-      if (item.checked !== undefined) parts.push(item.checked ? "(checked)" : "(unchecked)");
-      if (item.required) parts.push("required");
-      if (item.disabled) parts.push("disabled");
-      if (item.inputType && item.inputType !== "text") parts.push(`type=${item.inputType}`);
-      if (item.value !== undefined && item.value !== "") {
-        parts.push(
-          item.inputType === "password" ? "value=(hidden)" : `value=${quote(mask(item.value))}`,
-        );
-      }
-      if (item.options) {
-        parts.push(`options: ${item.options.map((o) => quote(mask(o))).join(" | ")}`);
-      }
-      return parts.join(" ");
-    }
+    case "control":
+      return controlLine(item, mask);
   }
 }
 
@@ -389,7 +449,9 @@ export function formatSnapshot(raw: RawSnapshot, options: SnapshotOptions = {}):
       `(there is no part ${wanted}: the page has ${parts.length} part${parts.length === 1 ? "" : "s"})`,
     ].join("\n");
   }
-  const controls = raw.items.filter((item) => item.t === "control").length;
+  const controls = raw.items.filter(
+    (item) => item.t === "control" || (item.t === "heading" && item.link !== undefined),
+  ).length;
   const footer: string[] = [];
   if (parts.length > 1) {
     footer.push(
@@ -398,6 +460,7 @@ export function formatSnapshot(raw: RawSnapshot, options: SnapshotOptions = {}):
         : `(part ${wanted} of ${parts.length}, the last; ${controls} controls in total)`,
     );
   }
+  if (parts.length === 1 && !raw.truncated) footer.push("(end of page)");
   if (raw.truncated && wanted === parts.length) {
     footer.push(
       `(the page was cut off after ${MAX_SNAPSHOT_ITEMS} items, so what comes after them could not be read, and a form that is not listed here may still be on the page)`,
