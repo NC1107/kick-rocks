@@ -563,12 +563,12 @@ describe("housekeeping", () => {
     expect(requestOf(request.id).status).toBe("awaiting_reply");
   });
 
-  it("never runs two passes at once", async () => {
-    const first = scheduler.tick();
-    const second = scheduler.tick();
-    expect(second).toBe(first);
-    await first;
-    expect(scheduler.tick()).not.toBe(first);
+  it("never runs two passes of a lane at once", async () => {
+    const reaps = vi.spyOn(ctx.services.taskQueue, "reapExpiredLeases");
+    await Promise.all([scheduler.tick(), scheduler.tick()]);
+    expect(reaps).toHaveBeenCalledTimes(1);
+    await scheduler.tick();
+    expect(reaps).toHaveBeenCalledTimes(2);
   });
 
   it("starts on a timer and stops, waiting for a pass in progress", async () => {

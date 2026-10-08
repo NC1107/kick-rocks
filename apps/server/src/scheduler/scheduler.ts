@@ -19,12 +19,23 @@ interface SchedulerOptions {
 }
 
 export interface Scheduler {
-  /** One pass of everything that is due. Passes never overlap: one that arrives during another is skipped. */
+  /**
+   * One pass of everything that is due: maintenance, then the runners. Neither lane overlaps
+   * itself. A maintenance pass that arrives during another waits for it, while a runner pass that
+   * arrives during a long send is skipped, so a send that never answers never holds up the rest.
+   */
   tick(): Promise<void>;
   start(): void;
-  /** Stops waking and waits for a pass in progress to finish. */
-  stop(): Promise<void>;
+  /**
+   * Stops waking and waits for the passes in progress. A pass still running after `graceMs` is
+   * left behind and the leases its runners hold are handed back, so shutdown is bounded and the
+   * unfinished sends come due again at once instead of after their lease runs out.
+   */
+  stop(options?: { graceMs?: number }): Promise<void>;
 }
+
+/** Leases of the in-process runners, which share this prefix and are returned when shutdown gives up on them. */
+const RUNNER_LEASE_PREFIX = "server:";
 
 /**
  * The loop that keeps Kick Rocks working unattended. Every job reads time from the injected
@@ -42,7 +53,6 @@ export function createScheduler(
 ): Scheduler {
   const lastRun = new Map<string, number>();
   let timer: NodeJS.Timeout | null = null;
-  let inFlight: Promise<void> | null = null;
 
   const due = (job: string, everyMs: number): boolean => {
     const now = services.clock.now().getTime();
@@ -61,7 +71,23 @@ export function createScheduler(
     }
   };
 
-  async function pass(): Promise<void> {
+  /** Runs `body` one at a time. */
+  const lane = (body: () => Promise<void>) => {
+    let inFlight: Promise<void> | null = null;
+    return {
+      busy: () => inFlight !== null,
+      run(): Promise<void> {
+        inFlight ??= body().finally(() => {
+          inFlight = null;
+        });
+        return inFlight;
+      },
+      settled: () => inFlight ?? Promise.resolve(),
+    };
+  };
+
+  /** Everything except sending. It only touches the database, so no network host can stall it. */
+  const maintenance = lane(async () => {
     await job("reap-leases", () => services.taskQueue.reapExpiredLeases());
     if (due("housekeeping", housekeepingMs)) {
       await job("inbox-polls", () => enqueueDueInboxPolls(services));
@@ -75,29 +101,55 @@ export function createScheduler(
     if (due("retention", retentionMs)) {
       await job("retention", () => applyRetention(services, { compact: "when-worthwhile" }));
     }
-    await job("runners", () => runners.runDue());
-  }
+    services.liveness.markPass();
+  });
+
+  /** Polls and sends wait on mail servers, so they get a lane of their own. */
+  const sending = lane(() => job("runners", () => runners.runDue()));
+
+  const releaseRunnerLeases = (): void => {
+    for (const task of services.taskQueue.list({ status: "leased" })) {
+      if (!task.leaseOwner?.startsWith(RUNNER_LEASE_PREFIX)) continue;
+      services.taskQueue.release(task.id, { workerId: task.leaseOwner });
+    }
+  };
 
   const scheduler: Scheduler = {
-    tick() {
-      if (inFlight) return inFlight;
-      inFlight = pass().finally(() => {
-        inFlight = null;
-      });
-      return inFlight;
+    async tick() {
+      await maintenance.run();
+      if (!sending.busy()) await sending.run();
     },
 
     start() {
       if (timer) return;
+      services.liveness.expectScheduler();
       timer = setInterval(() => void scheduler.tick(), tickMs);
       timer.unref();
       void scheduler.tick();
     },
 
-    async stop() {
+    async stop({ graceMs } = {}) {
       if (timer) clearInterval(timer);
       timer = null;
-      await inFlight;
+      const settled = Promise.all([maintenance.settled(), sending.settled()]);
+      if (graceMs === undefined) {
+        await settled;
+        return;
+      }
+      let giveUp: NodeJS.Timeout | undefined;
+      const outcome = await Promise.race([
+        settled.then(() => "settled" as const),
+        new Promise<"late">((resolve) => {
+          giveUp = setTimeout(() => resolve("late"), graceMs);
+        }),
+      ]);
+      clearTimeout(giveUp);
+      if (outcome === "late") {
+        services.logger.warn(
+          "a scheduler pass did not finish in time, so its leases are handed back",
+        );
+        releaseRunnerLeases();
+      }
     },
   };
   return scheduler;

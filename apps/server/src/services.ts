@@ -13,6 +13,7 @@ import type { AuthService } from "./core/auth.js";
 import { type Clock, systemClock } from "./core/clock.js";
 import { type Composer, createComposer } from "./core/composer.js";
 import { createDispatch, type Dispatch } from "./core/dispatch.js";
+import { createLiveness, type Liveness } from "./core/liveness.js";
 import { createLogger, type Logger } from "./core/logger.js";
 import { createMailHolds, type MailHolds } from "./core/mail-holds.js";
 import { createMailQuota, type MailQuota } from "./core/mail-quota.js";
@@ -67,6 +68,8 @@ export interface AppServices {
   mailQuota: MailQuota;
   /** Mailboxes sending is paused for, shared by the email runner and the mailbox settings. */
   mailHolds: MailHolds;
+  /** Whether the scheduler is still turning over, which the health check reports. */
+  liveness: Liveness;
   /** Steps that run once after the targets are synced, in `buildApp`. */
   startup: Startup;
   secrets: Secrets;
@@ -180,6 +183,7 @@ export function createServices(
     composer: createComposer({ db, clock, legal, targets }),
     mailQuota: createMailQuota(db, clock),
     mailHolds: createMailHolds(clock),
+    liveness: createLiveness(clock),
     startup: createStartup(),
     secrets,
     mail: overrides.mail ?? createMailServices(config, settings),

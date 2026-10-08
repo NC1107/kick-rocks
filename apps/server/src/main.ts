@@ -5,6 +5,9 @@ import { packageVersion } from "./core/version.js";
 import { resetPassword } from "./reset-password.js";
 import { createServices } from "./services.js";
 
+/** Just under Docker's ten seconds, for a close that hangs on something other than the scheduler. */
+const SHUTDOWN_BACKSTOP_MS = 9_000;
+
 async function main() {
   const config = loadConfig();
   const database = openAppDatabase(config);
@@ -30,6 +33,11 @@ async function main() {
 
   const shutdown = async (signal: string) => {
     app.server.log.info({ signal }, "shutting down");
+    const backstop = setTimeout(() => {
+      app.server.log.error("shutdown did not finish in time, so the process exits anyway");
+      process.exit(1);
+    }, SHUTDOWN_BACKSTOP_MS);
+    backstop.unref();
     await app.close();
     process.exit(0);
   };
