@@ -525,7 +525,9 @@ function Builder({ profile }: { profile: ProfileSummary }) {
               .map((channel) => (
                 <div key={channel} className="flex justify-between gap-6">
                   <dt className="text-ink-2 first-letter:uppercase">{CHANNEL_LABELS[channel]}</dt>
-                  <dd className="m-0 font-mono text-ink tabular-nums">{formatCount(counts[channel])}</dd>
+                  <dd className="m-0 font-mono text-ink tabular-nums">
+                    {formatCount(counts[channel])}
+                  </dd>
                 </div>
               ))}
             <div className="mt-1 flex justify-between gap-6 border-t border-line pt-2">
