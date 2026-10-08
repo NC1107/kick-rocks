@@ -1,11 +1,16 @@
-import { API_ROUTES, type DataSource, type Requirement } from "@kickrocks/shared";
+import {
+  API_ROUTES,
+  DATA_SOURCE_DETAILS,
+  type DataSource,
+  type Requirement,
+} from "@kickrocks/shared";
 import { skipToken } from "@tanstack/react-query";
 import { useParams } from "react-router";
 import { errorMessage, useApiQuery } from "../../../api/index.js";
 import { useBreadcrumbTail } from "../../../components/layout/breadcrumb-context.js";
 import {
-  Alert,
   Button,
+  Callout,
   DescriptionList,
   EmptyState,
   ExternalLinkText,
@@ -56,15 +61,6 @@ const LICENSE_LABELS: Record<DataSource["license"], string> = {
   "PolyForm-Noncommercial-1.0.0": "PolyForm Noncommercial 1.0.0",
 };
 
-const SOURCE_LABELS: Record<DataSource["source"], string> = {
-  eraser: "Eraser broker list",
-  "ca-registry-2025": "California Data Broker Registry 2025",
-  "ca-registry-2026": "California Data Broker Registry 2026",
-  badbool: "Big Ass Data Broker Opt-Out List",
-  kickrocks: "Kick Rocks broker data",
-  "kickrocks-companies": "Kick Rocks company list",
-};
-
 function Missing() {
   return <span className="text-ink-3">Not listed</span>;
 }
@@ -101,7 +97,7 @@ export function Component() {
     ) : (
       <>
         <PageHeader title="Target" back={{ to: "/targets", label: "Targets" }} />
-        <Alert
+        <Callout
           intent="danger"
           title="Could not load this target"
           action={
@@ -111,7 +107,7 @@ export function Component() {
           }
         >
           {errorMessage(query.error)}
-        </Alert>
+        </Callout>
       </>
     );
   }
@@ -144,14 +140,14 @@ export function Component() {
 
       <div className="flex max-w-180 flex-col gap-4">
         {target.retired ? (
-          <Alert intent="warning" title="No longer in the dataset">
+          <Callout intent="warning" title="No longer in the dataset">
             Nothing new is sent to this target, and its history stays.
-          </Alert>
+          </Callout>
         ) : null}
         {unsupported && !target.retired ? (
-          <Alert intent="info" title="No way to contact them on file">
+          <Callout intent="info" title="No way to contact them on file">
             A campaign skips this target until the dataset has an email address or a form for it.
-          </Alert>
+          </Callout>
         ) : null}
 
         <Section label="Details">
@@ -333,7 +329,9 @@ export function Component() {
                   key={`${source.source}-${source.upstreamId ?? ""}`}
                   className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 px-3.5 py-2.5"
                 >
-                  <span className="text-ui text-ink">{SOURCE_LABELS[source.source]}</span>
+                  <span className="text-ui text-ink">
+                    {DATA_SOURCE_DETAILS[source.source].name}
+                  </span>
                   <Tag>{LICENSE_LABELS[source.license]}</Tag>
                 </div>
               ))}

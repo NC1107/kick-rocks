@@ -10,7 +10,11 @@ Kick Rocks is a self-hosted tool that sends those requests from the user's own m
 ## Context
 
 Research gathered in October 2026 shapes this design.
-Only 26 to 38 percent of California-registered brokers respond to opt-out or deletion requests (van Kempen et al., arXiv:2607.04552, preprint, Table 1), 37 percent demand identity verification for opt-outs (Gueorguieva et al., arXiv:2605.21376, preprint), while arXiv:2607.04552 (Table 5) finds 22 percent non-compliant and 39 percent potentially non-compliant on opt-out verification, 22 percent put a captcha in the flow (arXiv:2605.21376), and 75 to 80 percent could be reached through a web form (arXiv:2607.04552).
+Only 26 to 38 percent of California-registered brokers respond to opt-out or deletion requests (van Kempen et al., arXiv:2607.04552, preprint, Table 1).
+37 percent demand identity verification for opt-outs (Gueorguieva et al., arXiv:2605.21376, preprint).
+22 percent are non-compliant and 39 percent potentially non-compliant on opt-out verification (arXiv:2607.04552, Table 5).
+22 percent put a captcha in the flow (arXiv:2605.21376).
+75 to 80 percent could be reached through a web form (arXiv:2607.04552).
 California's DROP platform handles registered brokers for California residents: brokers must process its requests from 2026-08-01, within 45 days, and within 30 days from 2027-01-01 (AB 883).
 So the gap is everyone else, plus people-search sites and ordinary companies.
 Self-hosted mail servers cannot deliver reliably from residential IPs, so the tool sends from the user's existing mailbox instead.
@@ -21,7 +25,7 @@ Datacenter IPs trip bot management on people-search sites, so the browser runs o
 ### Must Have
 
 - Multiple profiles per instance, each with its own connected mailbox.
-- Mailbox connection over SMTP and IMAP with an app password. Presets cover gmail, Google Workspace, fastmail, icloud, Yahoo, Proton Mail Bridge, mailbox.org, and Zoho, and any other provider can be entered by hand.
+- Mailbox connection over SMTP and IMAP with an app password. Presets cover gmail, google workspace, fastmail, icloud, yahoo, proton mail bridge, mailbox.org, and zoho, and any other provider can be entered by hand.
 - Broker dataset covering marketing brokers, people-search sites, and background-check companies, imported from sources whose licenses allow noncommercial redistribution (see ADR-008) and extendable by users.
 - Company dataset for "stop selling my data" requests to ordinary consumer companies.
 - Request templates that cite the legal basis for the user's state, or a policy-based request where no statute applies.
@@ -88,9 +92,11 @@ Screens are onboarding, profiles, mailbox connection, broker and company lists, 
 It has the REST api modules for the web UI (`auth`, `profiles`, `mailbox`, `targets`, `campaigns`, `requests`, `scans`, `review`, `recipes`, `settings`, `notifications`, `data-rights`, `dashboard`), the `worker-api` and `mcp` modules that expose the task queue, and `mail` (SMTP sending, IMAP polling, reply classification, confirmation links), `scheduler`, and the task queue itself in `core`.
 
 **apps/worker**: Node process that runs chrome through playwright on the host's network.
-The model-driven `apps/agent-worker` is a second, optional claimer described in ADR-012.
-It claims `scan`, `form`, and `confirm` tasks, executes the matching recipe step by step, detects captchas and verification walls, and either completes the task or marks it blocked with a screenshot and the reason.
+It claims `scan`, `form`, `confirm`, and `canary` tasks, executes the matching recipe step by step, detects captchas and verification walls, and either completes the task or marks it blocked with a screenshot and the reason.
 When no recipe exists or a recipe fails, the server re-queues the task as an `agent` task for an mcp client or the agent worker to pick up.
+
+**apps/agent-worker**: the model-driven agent worker is a second, optional claimer described in ADR-012.
+It claims only `agent` tasks.
 
 **packages/db**: Drizzle schema and migrations over `better-sqlite3-multiple-ciphers` with sqlcipher encryption.
 
@@ -195,7 +201,7 @@ The cost is writing mail handling and the form runner ourselves rather than inhe
 
 ### ADR-001: Bring your own mailbox instead of a mail server
 
-Context: one shared sending domain would be flagged once many users send similar mail, and residential mail servers cannot deliver to gmail or Microsoft.
+Context: one shared sending domain would be flagged once many users send similar mail, and residential mail servers cannot deliver to gmail or microsoft.
 Decision: each profile connects an existing mailbox over SMTP and IMAP with an app password; the tool never runs an MTA.
 Consequences: deliverability inherits the provider's reputation, requests are unambiguously from the data subject, Outlook.com waits for OAuth, and the tool must respect provider daily caps.
 

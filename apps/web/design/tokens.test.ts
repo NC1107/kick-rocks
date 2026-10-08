@@ -19,10 +19,7 @@ function readTokens(block: string): Record<string, { light: string; dark: string
 }
 
 const root = css.slice(css.indexOf(":root {"), css.indexOf("@media (prefers-color-scheme: light)"));
-const cyanStart = css.indexOf(':root[data-accent="cyan"]');
-const cyan = css.slice(cyanStart, css.indexOf("}", cyanStart));
 const base = readTokens(root);
-const cyanTokens = readTokens(cyan);
 
 function luminance(hex: string): number {
   const channels = [1, 3, 5].map((at) => {
@@ -92,10 +89,6 @@ describe("color tokens", () => {
     expect(ratio(base, scheme, "ink-2", "ink-3")).toBeGreaterThanOrEqual(1.4);
   });
 
-  const ACCENTS = [
-    ["indigo", base],
-    ["cyan", { ...base, ...cyanTokens }],
-  ] as const;
   const FILL_PAIRS = [
     ["accent-on", "accent-fill"],
     ["accent-on", "accent-fill-hover"],
@@ -103,36 +96,15 @@ describe("color tokens", () => {
     ["danger-on", "danger-solid-hover"],
   ] as const;
 
-  describe.each(ACCENTS)("text on a filled surface with the %s accent", (_name, tokens) => {
-    it.each(SCHEMES)("stays readable (%s)", (scheme) => {
-      for (const [text, fill] of FILL_PAIRS) {
-        expect(ratio(tokens, scheme, text, fill), `${text} on ${fill}`).toBeGreaterThanOrEqual(4.5);
-      }
-    });
+  it.each(SCHEMES)("keeps text on a filled surface readable (%s)", (scheme) => {
+    for (const [text, fill] of FILL_PAIRS) {
+      expect(ratio(base, scheme, text, fill), `${text} on ${fill}`).toBeGreaterThanOrEqual(4.5);
+    }
   });
 
   it.each(SCHEMES)("gives controls and the focus ring a 3:1 edge (%s)", (scheme) => {
     expect(ratio(base, scheme, "line-strong", "surface")).toBeGreaterThanOrEqual(3);
     expect(ratio(base, scheme, "focus", "surface")).toBeGreaterThanOrEqual(3);
     expect(ratio(base, scheme, "focus", "canvas")).toBeGreaterThanOrEqual(3);
-  });
-
-  it.each(SCHEMES)("keeps the cyan fallback as readable as indigo (%s)", (scheme) => {
-    const merged = { ...base, ...cyanTokens };
-    expect(ratio(merged, scheme, "accent-text", "surface")).toBeGreaterThanOrEqual(4.5);
-    expect(ratio(merged, scheme, "accent-text", "accent-soft")).toBeGreaterThanOrEqual(4.5);
-    expect(ratio(merged, scheme, "accent-on", "accent-fill")).toBeGreaterThanOrEqual(4.5);
-    expect(ratio(merged, scheme, "focus", "surface")).toBeGreaterThanOrEqual(3);
-  });
-
-  it("changes only the accent roles in the cyan fallback", () => {
-    expect(Object.keys(cyanTokens).sort()).toEqual([
-      "accent-fill",
-      "accent-fill-hover",
-      "accent-on",
-      "accent-soft",
-      "accent-text",
-      "focus",
-    ]);
   });
 });

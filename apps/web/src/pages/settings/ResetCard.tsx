@@ -4,8 +4,8 @@ import { type FormEvent, useState } from "react";
 import { useNavigate } from "react-router";
 import { errorMessage, useApiMutation } from "../../api/index.js";
 import {
-  Alert,
   Button,
+  Callout,
   Dialog,
   Field,
   Input,
@@ -94,9 +94,9 @@ export function ResetCard() {
           </Field>
         </form>
         {reset.error ? (
-          <Alert intent="danger" title="Could not delete" className="mt-3">
+          <Callout intent="danger" title="Could not delete" className="mt-3">
             {errorMessage(reset.error)}
-          </Alert>
+          </Callout>
         ) : null}
       </Dialog>
     </Section>

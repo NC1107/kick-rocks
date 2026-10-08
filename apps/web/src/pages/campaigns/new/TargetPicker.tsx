@@ -3,8 +3,8 @@ import { Search } from "lucide-react";
 import { useEffect, useState } from "react";
 import { errorMessage, useApiQuery } from "../../../api/index.js";
 import {
-  Alert,
   Button,
+  Callout,
   Field,
   Input,
   Pagination,
@@ -65,7 +65,7 @@ export function TargetPicker({
         />
       </Field>
       {list.isError ? (
-        <Alert
+        <Callout
           intent="danger"
           title="Could not load targets"
           action={
@@ -75,7 +75,7 @@ export function TargetPicker({
           }
         >
           {errorMessage(list.error)}
-        </Alert>
+        </Callout>
       ) : list.data && items.length === 0 ? (
         <p className="px-1 text-ui text-ink-2">No targets match that search.</p>
       ) : (

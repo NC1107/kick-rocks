@@ -7,7 +7,7 @@ import {
   reviewAttention,
   tellEvents,
 } from "@kickrocks/shared";
-import { count, eq, sql } from "drizzle-orm";
+import { count, eq, inArray, sql } from "drizzle-orm";
 import { notFound } from "../../core/errors.js";
 import { registerRoute } from "../../core/http.js";
 import type { ModulePlugin } from "../../core/module.js";
@@ -48,42 +48,65 @@ function buildDashboard(services: AppServices, profileId: string): Dashboard {
   // The review page is where these totals lead, so they come from the same queue it lists.
   const queue = buildReviewQueue(services, profileId);
 
-  const events = db
+  const timeline = db
     .select({
       id: requestEvents.id,
       requestId: requestEvents.requestId,
       type: requestEvents.type,
-      actor: requestEvents.actor,
-      payload: requestEvents.payload,
       createdAt: requestEvents.createdAt,
-      requestReference: requests.reference,
-      targetName: targets.name,
-      target: targets,
     })
     .from(requestEvents)
     .innerJoin(requests, eq(requests.id, requestEvents.requestId))
-    .innerJoin(targets, eq(targets.id, requests.targetId))
     .where(eq(requests.profileId, profileId))
     .orderBy(requestEvents.createdAt, sql`${requestEvents}.rowid`)
     .all();
 
-  const byRequest = new Map<string, typeof events>();
-  for (const event of events) {
+  const byRequest = new Map<string, typeof timeline>();
+  for (const event of timeline) {
     const group = byRequest.get(event.requestId);
     if (group) group.push(event);
     else byRequest.set(event.requestId, [event]);
   }
-  const recentEvents = [...byRequest.values()]
+  const recent = [...byRequest.values()]
     .flatMap((all) => {
       const told = tellEvents(all);
       const latest = told.at(-1);
       return latest ? [{ latest, eventCount: told.length }] : [];
     })
     .sort((a, b) => b.latest.createdAt.localeCompare(a.latest.createdAt))
-    .slice(0, RECENT_REQUESTS)
-    .map(({ latest: { target, ...row }, eventCount }) =>
-      DashboardEvent.parse(withTrustedConfirmationSenders({ ...row, eventCount }, target)),
-    );
+    .slice(0, RECENT_REQUESTS);
+
+  const rows = recent.length
+    ? db
+        .select({
+          id: requestEvents.id,
+          requestId: requestEvents.requestId,
+          type: requestEvents.type,
+          actor: requestEvents.actor,
+          payload: requestEvents.payload,
+          createdAt: requestEvents.createdAt,
+          requestReference: requests.reference,
+          targetName: targets.name,
+          target: targets,
+        })
+        .from(requestEvents)
+        .innerJoin(requests, eq(requests.id, requestEvents.requestId))
+        .innerJoin(targets, eq(targets.id, requests.targetId))
+        .where(
+          inArray(
+            requestEvents.id,
+            recent.map(({ latest }) => latest.id),
+          ),
+        )
+        .all()
+    : [];
+  const rowById = new Map(rows.map((row) => [row.id, row]));
+  const recentEvents = recent.flatMap(({ latest, eventCount }) => {
+    const row = rowById.get(latest.id);
+    if (!row) return [];
+    const { target, ...event } = row;
+    return [DashboardEvent.parse(withTrustedConfirmationSenders({ ...event, eventCount }, target))];
+  });
 
   return {
     profileId,

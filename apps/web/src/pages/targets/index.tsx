@@ -5,9 +5,9 @@ import { useSearchParams } from "react-router";
 import { useCurrentProfile } from "../../api/current-profile.js";
 import { errorMessage, useApiMutation, useApiQuery } from "../../api/index.js";
 import {
-  Alert,
   activeFilterTags,
   Button,
+  Callout,
   Checkbox,
   ConfirmDialog,
   EmptyState,
@@ -336,13 +336,13 @@ export function Component() {
         </div>
       ) : null}
       {scan.isError ? (
-        <Alert intent="danger" title="Could not scan these targets" className="mb-2.5">
+        <Callout intent="danger" title="Could not scan these targets" className="mb-2.5">
           {errorMessage(scan.error)}
-        </Alert>
+        </Callout>
       ) : null}
 
       {list.isError ? (
-        <Alert
+        <Callout
           intent="danger"
           title="Could not load targets"
           action={
@@ -352,7 +352,7 @@ export function Component() {
           }
         >
           {errorMessage(list.error)}
-        </Alert>
+        </Callout>
       ) : list.data && items.length === 0 ? (
         <EmptyState
           title={filtered ? "No targets match these filters." : "No targets yet."}

@@ -13,8 +13,8 @@ import { Link, useNavigate, useSearchParams } from "react-router";
 import { errorMessage, useApiMutation, useApiQuery } from "../../../api/index.js";
 import { RequireProfile } from "../../../components/layout/RequireProfile.js";
 import {
-  Alert,
   Button,
+  Callout,
   Checkbox,
   ConfirmDialog,
   PageHeader,
@@ -305,7 +305,7 @@ function Builder({ profile }: { profile: ProfileSummary }) {
       />
 
       {noMailbox ? (
-        <Alert
+        <Callout
           intent="warning"
           title="No mailbox connected"
           className="mb-4"
@@ -319,7 +319,7 @@ function Builder({ profile }: { profile: ProfileSummary }) {
           }
         >
           Email requests are skipped until this profile has a mailbox to send from.
-        </Alert>
+        </Callout>
       ) : null}
 
       <div className="grid gap-x-8 gap-y-5 pb-5 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
@@ -428,7 +428,7 @@ function Builder({ profile }: { profile: ProfileSummary }) {
         <section aria-label="Preview" className="flex min-w-0 flex-col gap-4">
           <Section label="Would send">
             {preview.isError ? (
-              <Alert
+              <Callout
                 intent="danger"
                 title="Could not build the preview"
                 action={
@@ -443,7 +443,7 @@ function Builder({ profile }: { profile: ProfileSummary }) {
                 }
               >
                 {errorMessage(preview.error)}
-              </Alert>
+              </Callout>
             ) : (
               <ChannelReadout counts={counts} loading={body !== null && !result} />
             )}
@@ -451,11 +451,11 @@ function Builder({ profile }: { profile: ProfileSummary }) {
           {result && counts ? (
             <>
               {work === 0 ? (
-                <Alert intent="info" title="Nothing to send">
+                <Callout intent="info" title="Nothing to send">
                   {choice?.kind !== "preset"
                     ? "Every target you selected is skipped. Read the reasons below or choose a group instead."
                     : "Every target in this group is skipped. Pick another group or read the reasons below."}
-                </Alert>
+                </Callout>
               ) : null}
               <WaitingForPersonNotice count={waiting} />
               <FirstTargets targets={firstTargets} />

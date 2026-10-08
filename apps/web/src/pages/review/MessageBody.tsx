@@ -1,20 +1,20 @@
 import { API_ROUTES } from "@kickrocks/shared";
 import { useState } from "react";
 import { errorMessage, useApiQuery } from "../../api/index.js";
-import { Alert, Button, SkeletonText } from "../../components/ui/index.js";
+import { Button, Callout, SkeletonText } from "../../components/ui/index.js";
 
 function FullText({ messageId }: { messageId: string }) {
   const query = useApiQuery(API_ROUTES.messageGet, { params: { id: messageId } });
   if (query.isPending) return <SkeletonText lines={4} />;
   if (query.isError) {
     return (
-      <Alert intent="danger" title="Could not load the message">
+      <Callout intent="danger" title="Could not load the message">
         {errorMessage(query.error)}
-      </Alert>
+      </Callout>
     );
   }
   return (
-    <pre className="m-0 whitespace-pre-wrap break-words rounded-md bg-sunken p-3 font-sans text-base text-ink">
+    <pre className="m-0 whitespace-pre-wrap break-words rounded-md bg-hover p-3 font-sans text-ui text-ink">
       {query.data.text ?? "This message has no text."}
     </pre>
   );
@@ -41,7 +41,7 @@ export function MessageBody({ messageId, snippet }: { messageId: string; snippet
           <FullText messageId={messageId} />
         </div>
       ) : snippet ? (
-        <p className="break-words text-base text-ink">{snippet}</p>
+        <p className="break-words text-ui text-ink">{snippet}</p>
       ) : null}
       {toggle}
     </div>

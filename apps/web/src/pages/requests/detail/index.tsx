@@ -14,8 +14,8 @@ import { Link, useParams } from "react-router";
 import { errorMessage, useApiMutation, useApiQuery } from "../../../api/index.js";
 import { useBreadcrumbTail } from "../../../components/layout/breadcrumb-context.js";
 import {
-  Alert,
   Button,
+  Callout,
   ConfirmDialog,
   EmptyState,
   ExternalLinkText,
@@ -179,7 +179,7 @@ export function Component() {
     return (
       <>
         <PageHeader title="Request" back={{ to: "/requests", label: "Requests" }} />
-        <Alert
+        <Callout
           intent="danger"
           title="Could not load this request"
           action={
@@ -189,7 +189,7 @@ export function Component() {
           }
         >
           {errorMessage(query.error)}
-        </Alert>
+        </Callout>
       </>
     );
   }
@@ -290,7 +290,7 @@ function Detail({ request }: { request: RequestDetail }) {
       <div className="flex max-w-3xl flex-col gap-5">
         {act.isError ? <InlineError>{errorMessage(act.error)}</InlineError> : null}
         {request.status === "needs_verification" ? (
-          <Alert
+          <Callout
             intent="warning"
             title="The target asked for more details"
             action={
@@ -300,10 +300,10 @@ function Detail({ request }: { request: RequestDetail }) {
             }
           >
             Nothing goes out until you choose which details to share.
-          </Alert>
+          </Callout>
         ) : null}
         {waitingAgent ? (
-          <Alert
+          <Callout
             intent="warning"
             title="Waiting for an agent"
             action={
@@ -319,10 +319,10 @@ function Detail({ request }: { request: RequestDetail }) {
           >
             There are no saved steps for this target, so an agent you connect in Settings takes the
             form. Open the page and finish it yourself, then mark the task done in Review.
-          </Alert>
+          </Callout>
         ) : null}
         {blocked ? (
-          <Alert
+          <Callout
             intent="warning"
             title="A task is waiting for you"
             action={
@@ -334,13 +334,13 @@ function Detail({ request }: { request: RequestDetail }) {
             {blocked.blockedReason
               ? `It stopped for you: ${BLOCKED_REASON_LABELS[blocked.blockedReason]}.`
               : "It stopped and needs a person."}
-          </Alert>
+          </Callout>
         ) : null}
         {request.awaitingConfirmationSince ? (
-          <Alert intent="info" title="Waiting for a confirmation email">
+          <Callout intent="info" title="Waiting for a confirmation email">
             The form was submitted <RelativeTime iso={request.awaitingConfirmationSince} />. The
             link is followed when the email arrives.
-          </Alert>
+          </Callout>
         ) : null}
 
         <Section label="Summary">

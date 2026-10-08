@@ -44,7 +44,7 @@ export function findViolations(files, readFile) {
         violations.push(`${file}:${index + 1}: em dash`);
       }
       if (checkBrand && line.toLowerCase().includes(BRAND)) {
-        violations.push(`${file}:${index + 1}: mention outside the allowlist`);
+        violations.push(`${file}:${index + 1}: "${BRAND}" outside the allowlist`);
       }
     });
   }

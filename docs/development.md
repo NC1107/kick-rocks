@@ -29,16 +29,17 @@ pnpm dev
 | `pnpm dev` | The server on 8420 and the web app on 5173, which proxies `/api` to the server. |
 | `pnpm dev:worker` | The browser worker with a headed chrome. Set `KICKROCKS_WORKER_TOKEN` first, and give the server the same value. |
 | `pnpm --filter @kickrocks/web dev:mock` | The web app alone, with `/api` answered by the in-memory mock in `apps/web/mock`. Starts signed in, and the mock password is `kickrocks-mock`. |
-| `pnpm test` | Every package's vitest suite. |
+| `pnpm test` | Every package's vitest suite, then the node tests for the standards script. |
 | `pnpm lint` | `biome check .` for formatting and lint rules. `pnpm lint:fix` applies the safe fixes. |
+| `pnpm standards` | Rejects em dashes, attribution trailers in commit messages, and the AI vendor brand name outside the agent-worker provider code. |
 | `pnpm typecheck` | `tsc` in every package. |
 | `pnpm build` | Builds every package and app. |
 | `pnpm data:build` | Builds the shared package, then the broker dataset. See [The dataset](#the-dataset). |
 | `pnpm e2e` | The full flow against a local docker stack. See [End-to-end tests](#end-to-end-tests). |
 
-CI runs lint, `data:build`, typecheck, test, and build, in that order, with greenmail as a service and chromium installed.
+CI runs lint, `standards`, `data:build`, typecheck, test, and build, in that order, with greenmail as a service and chromium installed.
 It also builds all three docker images, so a missing package in a Dockerfile fails before it reaches an install.
-Run the same five commands before you commit.
+Run the same six commands before you commit.
 
 The server reads its settings from the environment, not from `.env`.
 The settings that only matter outside docker are in [self-hosting.md](self-hosting.md#settings).
@@ -244,6 +245,7 @@ To add a state registry, write an importer next to `src/import/ca-registry.ts`, 
 - Comments explain why, never how.
   If code needs a comment to explain how it works, refactor it.
 - Don't use the em dash anywhere: code, comments, docs, ui copy, test names.
+- `pnpm standards` also rejects attribution trailers in commit messages and the AI vendor brand name anywhere outside the agent-worker provider code, and it names the offending word and line.
 - ui copy is plain and short, with no exclamation marks and no emoji.
 - Long markdown puts each sentence on its own line.
 - Never submit a form on a real broker or company site from a test or a script.

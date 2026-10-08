@@ -1,6 +1,6 @@
 import { API_ROUTES, type SettingsView } from "@kickrocks/shared";
 import { errorMessage, useApiMutation } from "../../api/index.js";
-import { Alert, Checkbox, RowGroup, Section, useToast } from "../../components/ui/index.js";
+import { Callout, Checkbox, RowGroup, Section, useToast } from "../../components/ui/index.js";
 import { BodyRow, GroupNote } from "./rows.js";
 
 export function SiteChecksCard({ siteChecks }: { siteChecks: SettingsView["siteChecks"] }) {
@@ -28,9 +28,9 @@ export function SiteChecksCard({ siteChecks }: { siteChecks: SettingsView["siteC
       </RowGroup>
       <GroupNote>It runs from your home connection and never submits a removal.</GroupNote>
       {toggle.isError ? (
-        <Alert intent="danger" title="Could not change site checks" className="mt-3">
+        <Callout intent="danger" title="Could not change site checks" className="mt-3">
           {errorMessage(toggle.error)}
-        </Alert>
+        </Callout>
       ) : null}
     </Section>
   );

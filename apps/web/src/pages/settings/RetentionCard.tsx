@@ -1,7 +1,7 @@
 import { API_ROUTES, type RetentionSettings } from "@kickrocks/shared";
 import { useEffect, useState } from "react";
 import { errorMessage, useApiMutation } from "../../api/index.js";
-import { Alert, Button, RowGroup, Section, Select, useToast } from "../../components/ui/index.js";
+import { Button, Callout, RowGroup, Section, Select, useToast } from "../../components/ui/index.js";
 import {
   clearsData,
   describeDays,
@@ -79,9 +79,9 @@ export function RetentionCard({ retention }: { retention: RetentionSettings }) {
         </RowGroup>
         <GroupNote>A shorter window deletes older data when you save.</GroupNote>
         {save.isError ? (
-          <Alert intent="danger" title="Could not save retention" className="mt-3">
+          <Callout intent="danger" title="Could not save retention" className="mt-3">
             {errorMessage(save.error)}
-          </Alert>
+          </Callout>
         ) : null}
       </Section>
     </form>

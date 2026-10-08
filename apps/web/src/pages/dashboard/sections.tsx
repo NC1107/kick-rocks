@@ -1,7 +1,7 @@
 import type { Dashboard, DashboardEvent, RequestStatus } from "@kickrocks/shared";
 import { Link } from "react-router";
 import {
-  Alert,
+  Callout,
   EmptyState,
   LinkButton,
   Meter,
@@ -261,7 +261,7 @@ export function MailboxNotices({
   if (!dashboard.mailbox) {
     if (!showMissing) return null;
     return (
-      <Alert
+      <Callout
         intent="warning"
         title="No mailbox connected"
         action={
@@ -271,12 +271,12 @@ export function MailboxNotices({
         }
       >
         Requests wait in the queue until one is connected.
-      </Alert>
+      </Callout>
     );
   }
   if (!dashboard.mailbox.lastError) return null;
   return (
-    <Alert
+    <Callout
       intent="danger"
       title="The mailbox is not working"
       action={
@@ -286,7 +286,7 @@ export function MailboxNotices({
       }
     >
       {dashboard.mailbox.lastError}
-    </Alert>
+    </Callout>
   );
 }
 

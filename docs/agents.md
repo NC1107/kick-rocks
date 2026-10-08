@@ -33,7 +33,7 @@ The agent does the browsing itself, so it needs three more things.
 
 ## Connect a client
 
-1. Open Settings, then Agents, and turn on the mcp endpoint.
+1. Open Settings, then Agents, and turn on "Allow agents to connect" under Agent access.
 2. Create a token.
    It is shown once and only its hash is stored, so copy it now.
    Creating a new token replaces the old one, and every client using the old token stops working.
@@ -46,7 +46,7 @@ Most clients take a JSON config along these lines, though the key names differ a
 ```json
 {
   "mcpServers": {
-    "kick-rocks": {
+    "kickrocks": {
       "type": "http",
       "url": "http://localhost:8420/mcp",
       "headers": { "Authorization": "Bearer <token>" }
@@ -282,7 +282,7 @@ KICKROCKS_AGENT_BASE_URL=http://host.docker.internal:11434/v1
 ```
 
 For the anthropic api, set the provider to `anthropic` and give it a key.
-The model has a built-in default per provider, and `KICKROCKS_AGENT_MODEL` changes it.
+The anthropic provider has a built-in default model, and `KICKROCKS_AGENT_MODEL` overrides it.
 
 ```sh
 # .env, a hosted model
@@ -411,7 +411,7 @@ The agent worker claims the tasks no approved recipe covers, with two exceptions
   Finish it by hand, or hand it to an agent yourself.
   A task you hand over stays in the queue for a connected agent, and the agent worker leaves it alone.
 - A site whose bundled recipe is still waiting for your review stays in the queue, for a connected agent or for you.
-  Turn on "Let the agent worker take unreviewed sites" under Workers in Settings to let the model take those too.
+  Turn on "Let the agent worker take unreviewed targets" under Workers in Settings to let the model take those too.
   The setting is off by default.
 
 A connected mcp client is not held back by either rule, because you connected it on purpose.

@@ -7,8 +7,8 @@ import {
 import { useState } from "react";
 import { errorMessage, useApiMutation, useApiQuery } from "../../api/index.js";
 import {
-  Alert,
   Button,
+  Callout,
   Checkbox,
   ConfirmDialog,
   RelativeTime,
@@ -142,14 +142,14 @@ export function VerificationDetail({ item }: { item: VerificationItem }) {
         </Section>
 
         {send.isError ? (
-          <Alert intent="danger" title="Could not send the details">
+          <Callout intent="danger" title="Could not send the details">
             {errorMessage(send.error)}
-          </Alert>
+          </Callout>
         ) : null}
         {decline.isError ? (
-          <Alert intent="danger" title="Could not cancel the request">
+          <Callout intent="danger" title="Could not cancel the request">
             {errorMessage(decline.error)}
-          </Alert>
+          </Callout>
         ) : null}
       </DetailFrame>
 

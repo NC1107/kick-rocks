@@ -1,7 +1,7 @@
 import { API_ROUTES, MIN_PASSWORD_LENGTH } from "@kickrocks/shared";
 import { useState } from "react";
 import { errorMessage, useApiMutation } from "../../api/index.js";
-import { Alert, Button, Input, RowGroup, Section, useToast } from "../../components/ui/index.js";
+import { Button, Callout, Input, RowGroup, Section, useToast } from "../../components/ui/index.js";
 import {
   checkPassword,
   type PasswordDraft as Draft,
@@ -85,9 +85,9 @@ export function PasswordCard() {
           commands.
         </GroupNote>
         {change.isError && Object.keys(serverErrors).length === 0 ? (
-          <Alert intent="danger" title="Could not change the password" className="mt-3">
+          <Callout intent="danger" title="Could not change the password" className="mt-3">
             {errorMessage(change.error)}
-          </Alert>
+          </Callout>
         ) : null}
       </Section>
     </form>

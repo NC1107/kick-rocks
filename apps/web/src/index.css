@@ -177,11 +177,7 @@
   --kr-line-popover: light-dark(#c9ced5, #45454e);
   --kr-line-strong: light-dark(#858a8f, #6b6b75);
 
-  /*
-   * Text. Never pure white on dark. ink-3 is the quietest text that still passes 4.5:1 on every
-   * layer it sits on, including the hover fill and the light rail, which is why it sits a step
-   * lighter in dark and darker in light than the first draft of the spec.
-   */
+  /* Text. Never pure white on dark. ink-3 passes 4.5:1 on every layer, including hover and the light rail. */
   --kr-ink: light-dark(#1b1e22, #ededef);
   --kr-ink-2: light-dark(#474d55, #ababb0);
   --kr-ink-3: light-dark(#666d76, #8a8a96);
@@ -204,7 +200,6 @@
   --kr-danger-wash-text: light-dark(#b91c1c, #fca5a5);
   /* The one filled danger surface, for a confirm dialog's final button */
   --kr-danger-solid: #dc2626;
-  /* White whatever the accent is: the cyan accent-on is near-black, which fails on this red */
   --kr-danger-on: #ffffff;
   --kr-danger-solid-hover: #b91c1c;
 
@@ -264,19 +259,6 @@
   color-scheme: dark;
 }
 
-/*
- * The cyan accent is the fallback if indigo reads as generic in a side-by-side render. The roles
- * are what make the swap this small. Only the component gallery sets it.
- */
-:root[data-accent="cyan"] {
-  --kr-accent-fill: light-dark(#1b6f91, #58b4d8);
-  --kr-accent-fill-hover: light-dark(#165a77, #70c2e2);
-  --kr-accent-on: light-dark(#ffffff, #070e12);
-  --kr-accent-text: light-dark(#1b6f91, #58b4d8);
-  --kr-accent-soft: light-dark(#dae9f2, #1d2b33);
-  --kr-focus: light-dark(#1b6f91, #58b4d8);
-}
-
 /* Phone: larger touch targets and a tighter gutter. Flips at the same width as Tailwind's max-sm. */
 @media (width < 40rem) {
   :root {
@@ -329,10 +311,8 @@
     "IBM Plex Mono", ui-monospace, "SF Mono", "Cascadia Mono", "Roboto Mono", Menlo, Consolas,
     "Liberation Mono", monospace;
 
-  /*
-   * The type scale. The first block is the named scale; the numeric block repeats it under
-   * Tailwind's own names so existing text-sm and text-base still land on a step.
-   */
+  /* The type scale. Tailwind's numeric sizes are removed, so text-sm does not exist. */
+  --text-*: initial;
   --text-label: 0.6875rem;
   --text-label--line-height: 0.875rem;
   --text-caption: 0.75rem;
@@ -349,21 +329,6 @@
   --text-title--line-height: 1.75rem;
   --text-numeral: 1.75rem;
   --text-numeral--line-height: 2rem;
-
-  --text-xs: 0.75rem;
-  --text-xs--line-height: 1rem;
-  --text-sm: 0.8125rem;
-  --text-sm--line-height: 1.125rem;
-  --text-base: 0.875rem;
-  --text-base--line-height: 1.25rem;
-  --text-lg: 0.9375rem;
-  --text-lg--line-height: 1.375rem;
-  --text-xl: 1.125rem;
-  --text-xl--line-height: 1.5rem;
-  --text-2xl: 1.375rem;
-  --text-2xl--line-height: 1.75rem;
-  --text-3xl: 1.75rem;
-  --text-3xl--line-height: 2rem;
 
   /* Radius follows role: tags and keycaps, controls, groups and callouts, floating layers */
   --radius-xs: 0.25rem;
@@ -432,19 +397,6 @@
   --color-tone-ink: var(--tone-ink);
   --color-tone-dot: var(--tone-dot);
   --color-tone-line: var(--tone-line);
-
-  /* Names pages used before the redesign. Each points at the token that replaced it. */
-  --color-raised: var(--kr-popover);
-  --color-sunken: var(--kr-hover);
-  --color-sidebar: var(--kr-rail);
-  --color-ink-muted: var(--kr-ink-2);
-  --color-ink-faint: var(--kr-ink-3);
-  --color-accent: var(--kr-accent-fill);
-  --color-accent-hover: var(--kr-accent-fill-hover);
-  --color-accent-ink: var(--kr-accent-on);
-  --color-accent-soft-ink: var(--kr-accent-text);
-  --color-danger-hover: var(--kr-danger-solid-hover);
-  --color-danger-ink: var(--kr-danger-on);
   --color-danger-on: var(--kr-danger-on);
 }
 

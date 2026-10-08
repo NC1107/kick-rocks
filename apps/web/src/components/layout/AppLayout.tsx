@@ -17,7 +17,7 @@ function Breadcrumb() {
   const trail = breadcrumbTrail(pathname, useBreadcrumbTailValue());
   return (
     <nav aria-label="Breadcrumb" className="min-w-0 overflow-hidden">
-      <ol className="m-0 flex min-w-0 list-none items-center gap-1.5 overflow-hidden whitespace-nowrap p-0 text-sm">
+      <ol className="m-0 flex min-w-0 list-none items-center gap-1.5 overflow-hidden whitespace-nowrap p-0 text-meta">
         {trail.map((crumb, index) => {
           const last = index === trail.length - 1;
           const label = (

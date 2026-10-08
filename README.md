@@ -48,7 +48,7 @@ Everything lives in one sqlcipher-encrypted sqlite file.
 
 ## Developing
 
-Node 22 and pnpm 10, then `pnpm install`, `pnpm data:build`, and `pnpm dev`.
+Node 22 and pnpm 10, then `pnpm install`, `pnpm data:build`, `pnpm build`, and `pnpm dev`.
 Checks and architecture are in [docs/development.md](docs/development.md).
 
 ## License

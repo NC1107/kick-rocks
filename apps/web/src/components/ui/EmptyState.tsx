@@ -1,10 +1,7 @@
-import type { LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
 import { cn } from "../../lib/cn.js";
 
 export interface EmptyStateProps {
-  /** Accepted for pages written before the redesign. An empty state draws no icon. */
-  icon?: LucideIcon;
   /** The one plain sentence: "Nothing needs you." */
   title: string;
   /** A second, quieter line when the sentence alone would leave the person stuck. */

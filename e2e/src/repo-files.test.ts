@@ -152,6 +152,15 @@ describe("README.md", () => {
   });
 });
 
+describe("README developing steps", () => {
+  it("builds before `pnpm dev`, because every package is consumed through its dist", () => {
+    const line = readme.split("\n").find((l) => l.includes("`pnpm install`")) ?? "";
+    expect(line.indexOf("`pnpm data:build`")).toBeGreaterThan(line.indexOf("`pnpm install`"));
+    expect(line.indexOf("`pnpm build`")).toBeGreaterThan(line.indexOf("`pnpm data:build`"));
+    expect(line.indexOf("`pnpm dev`")).toBeGreaterThan(line.indexOf("`pnpm build`"));
+  });
+});
+
 describe("docs/development.md", () => {
   const development = read("docs/development.md");
 

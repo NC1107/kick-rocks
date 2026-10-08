@@ -2,8 +2,8 @@ import { API_ROUTES, type LlmSettingsView } from "@kickrocks/shared";
 import { useEffect, useState } from "react";
 import { errorMessage, useApiMutation } from "../../api/index.js";
 import {
-  Alert,
   Button,
+  Callout,
   ConfirmDialog,
   Input,
   RowGroup,
@@ -131,9 +131,9 @@ export function LlmCard({ llm }: { llm: LlmSettingsView | null }) {
             Classifies replies the rules cannot place. Any OpenAI-compatible endpoint works.
           </GroupNote>
           {save.isError && Object.keys(serverErrors).length === 0 ? (
-            <Alert intent="danger" title="Could not save the language model" className="mt-3">
+            <Callout intent="danger" title="Could not save the language model" className="mt-3">
               {errorMessage(save.error)}
-            </Alert>
+            </Callout>
           ) : null}
         </Section>
       </form>

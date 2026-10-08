@@ -1,4 +1,3 @@
-export { Alert, type AlertProps } from "./Alert.js";
 export {
   Button,
   type ButtonProps,
@@ -10,9 +9,6 @@ export {
 export { Callout, type CalloutProps } from "./Callout.js";
 export {
   Card,
-  CardFooter,
-  CardHeader,
-  type CardHeaderProps,
   type CardProps,
   Row,
   RowGroup,

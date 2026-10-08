@@ -6,9 +6,9 @@ import { useSearchParams } from "react-router";
 import { errorMessage, useApiQuery } from "../../api/index.js";
 import { RequireProfile } from "../../components/layout/RequireProfile.js";
 import {
-  Alert,
   activeFilterTags,
   Button,
+  Callout,
   EmptyState,
   Field,
   type FilterGroup,
@@ -186,7 +186,7 @@ function Requests({ profileId }: { profileId: string }) {
       <FilterTags tags={tags} emptyFocusRef={filtersButton} />
 
       {list.isError ? (
-        <Alert
+        <Callout
           intent="danger"
           title="Could not load requests"
           action={
@@ -196,7 +196,7 @@ function Requests({ profileId }: { profileId: string }) {
           }
         >
           {errorMessage(list.error)}
-        </Alert>
+        </Callout>
       ) : list.data && items.length === 0 ? (
         filtered ? (
           <EmptyState

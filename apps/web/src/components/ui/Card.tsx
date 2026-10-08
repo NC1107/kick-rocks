@@ -26,48 +26,6 @@ export function Card({ padding = "md", className, ...rest }: CardProps) {
   );
 }
 
-export interface CardHeaderProps {
-  title: ReactNode;
-  description?: ReactNode;
-  actions?: ReactNode;
-  /** The heading level, so a card inside a page section keeps the outline in order. */
-  as?: "h2" | "h3" | "h4";
-  className?: string;
-}
-
-/** The title block pages used inside a Card before Section. */
-export function CardHeader({
-  title,
-  description,
-  actions,
-  as: Heading = "h2",
-  className,
-}: CardHeaderProps) {
-  return (
-    <div
-      className={cn("mb-4 flex flex-wrap items-start justify-between gap-x-4 gap-y-2", className)}
-    >
-      <div className="min-w-0">
-        <Heading className="text-lg font-semibold text-ink">{title}</Heading>
-        {description ? <p className="mt-0.5 text-sm text-ink-2">{description}</p> : null}
-      </div>
-      {actions ? <div className="flex shrink-0 items-center gap-2">{actions}</div> : null}
-    </div>
-  );
-}
-
-export function CardFooter({ className, ...rest }: ComponentProps<"div">) {
-  return (
-    <div
-      className={cn(
-        "mt-5 flex flex-wrap items-center justify-end gap-2 border-t border-line pt-4",
-        className,
-      )}
-      {...rest}
-    />
-  );
-}
-
 export interface SectionProps {
   /** What the group holds, in sentence case. It is shown in uppercase mono. */
   label: string;

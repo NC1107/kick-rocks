@@ -1,11 +1,10 @@
 # Kick Rocks design language
 
-
 This is the spec for the web UI in `apps/web`.
 The direction in one line: a quiet instrument panel for one person's privacy, with tonal dark layers, one rationed accent, monospace for every number and identifier, and rows instead of cards.
 `apps/web/src/index.css` holds the token values, and a change to a token starts here.
 
-### 3.1 Color
+## Color
 
 Rules.
 - Dark is the reference theme and the default when the OS gives no preference.
@@ -22,8 +21,6 @@ Rules.
 **Accent choice.**
 The accent is indigo `#5557E0`.
 It is rationed, never used in a gradient, never tints surfaces, and stays this darkened hex rather than Tailwind's `#6366F1`.
-A cyan accent is defined under `data-accent="cyan"` in `index.css` and is used only by the component gallery.
-The roles make the swap five values.
 
 **Dark tokens.**
 
@@ -90,12 +87,7 @@ The roles make the swap five values.
 | `--kr-danger` / `-text` | `#DC2626` / `#B91C1C` | text 6.5:1 |
 | `--kr-scrim` | `rgba(15,17,19,0.45)` | |
 
-**Cyan fallback** (swap only these five).
-Dark: `accent-fill #58B4D8`, `accent-on #070E12`, `accent-text #58B4D8`, `accent-soft #1D2B33`, `focus #58B4D8`.
-Light: `accent-fill #1B6F91`, `accent-on #FFFFFF`, `accent-text #1B6F91`, `accent-soft #DAE9F2`, `focus #1B6F91`.
-
-
-### 3.2 Typography
+## Typography
 
 - **Families:** IBM Plex Sans for prose and controls, IBM Plex Mono for data.
 - Inter is not an option.
@@ -124,7 +116,7 @@ Light: `accent-fill #1B6F91`, `accent-on #FFFFFF`, `accent-text #1B6F91`, `accen
 - Phone keeps the same scale; the title drops to 20 and inputs stay 16px to stop iOS zoom.
 - Nothing below 11px, and 11px only for uppercase labels.
 
-### 3.3 Spacing, radius, borders, elevation
+## Spacing, radius, borders, elevation
 
 - **Spacing scale:** 2, 4, 6, 8, 10, 12, 14, 16, 20, 24, 32, 48.
   14 is a real step, and 10/6/14 are the named rhythm insets.
@@ -142,14 +134,14 @@ Light: `accent-fill #1B6F91`, `accent-on #FFFFFF`, `accent-text #1B6F91`, `accen
 - **Focus vs selection:** focus is a 2px `--kr-focus` outline with 2px offset; selection is `accent-soft` fill plus a 3px left marker.
   They must never look alike.
 
-### 3.4 Density
+## Density
 
 - Compact by default: 14px UI text, 36px rows, 34px controls on desktop.
 - Targets and Requests show 50 rows per page.
 - Settings are rows with values on the right, not stacked forms.
 - No per-field help text unless the field is genuinely ambiguous.
 
-### 3.5 Layout and navigation
+## Layout and navigation
 
 - **Rail** (`--kr-rail`, 216px, 1px right border): 22px mark plus mono wordmark at the top, profile switcher, then two nav groups (work: Dashboard, Review, Requests, Targets; setup: Profiles, Settings), with About and the mono version pinned at the bottom.
 - Put Review second, because it is where the person acts.
@@ -170,7 +162,7 @@ Light: `accent-fill #1B6F91`, `accent-on #FFFFFF`, `accent-text #1B6F91`, `accen
 - **Phone (under 640px):** 52px top bar with menu, mark and the most urgent status dot; the rail becomes a drawer; lists drill down to a detail page with back.
   Layout follows width, never platform.
 
-### 3.6 Signature components
+## Signature components
 
 **Status mark**.
 - A 10px shape plus a plain word, with no pill background and no lucide icon.
@@ -275,7 +267,7 @@ Light: `accent-fill #1B6F91`, `accent-on #FFFFFF`, `accent-text #1B6F91`, `accen
 **Placeholder hatching**.
 - Missing screenshots in Review (blocked tasks) and missing target logos use a 45-degree hatch of `ink-3` at 8% instead of a grey block.
 
-### 3.7 Icons
+## Icons
 
 - Keep `lucide-react` , but set `strokeWidth={1.5}` everywhere through one wrapper.
 - Sizes: 16 in rows, buttons and nav; 20 in the header bar and empty states; 14 only inline in text.
@@ -284,7 +276,7 @@ Light: `accent-fill #1B6F91`, `accent-on #FFFFFF`, `accent-text #1B6F91`, `accen
 - Icons that stay: nav, row-leading tiles in row groups, toolbar actions, external-link and copy affordances.
 - The logo mark is a 22px rounded-square tile (`xs` 5px radius) in `accent-fill` with the pebble in `accent-on`, beside a mono 14px/600 `Kick Rocks` wordmark with +0.02em tracking.
 
-### 3.8 Motion
+## Motion
 
 | Token | Duration | Curve | Use |
 |---|---|---|---|
@@ -299,7 +291,7 @@ Light: `accent-fill #1B6F91`, `accent-on #FFFFFF`, `accent-text #1B6F91`, `accen
 - Theme switching is instant.
 - A global reduced-motion block stops every animation.
 
-### 3.9 Empty and error states
+## Empty and error states
 
 - Empty: one sentence in 14px `ink-2`, left-aligned at the top of where the content would be, plus at most one text link or secondary button.
   No centered icon, no card, no title plus description.
@@ -311,7 +303,7 @@ Light: `accent-fill #1B6F91`, `accent-on #FFFFFF`, `accent-text #1B6F91`, `accen
 - Toasts are only for confirming something the person just did; errors never toast.
 - Route errors and 404s show a plain sentence and a link home, never a raw exception string.
 
-### 3.10 Copy
+## Copy
 
 - Sentence case everywhere, including buttons and tabs .
 - Page subtitles 8 words or fewer, or none: `Dashboard  where requests stand`, `Requests  every request for Jordan`, `Targets  932 brokers and companies`.

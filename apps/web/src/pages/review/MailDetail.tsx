@@ -3,8 +3,8 @@ import { skipToken } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { errorMessage, useApiMutation, useApiQuery } from "../../api/index.js";
 import {
-  Alert,
   Button,
+  Callout,
   ConfirmDialog,
   ExternalLinkText,
   Field,
@@ -51,9 +51,9 @@ function MailText({ message }: { message: ReviewMessage }) {
   const full = useApiQuery(API_ROUTES.messageGet, { params: { id: message.id } });
   if (full.isError) {
     return (
-      <Alert intent="danger" title="Could not load the message">
+      <Callout intent="danger" title="Could not load the message">
         {errorMessage(full.error)}
-      </Alert>
+      </Callout>
     );
   }
   const text = full.data ? (full.data.text ?? "This message has no text.") : message.snippet;

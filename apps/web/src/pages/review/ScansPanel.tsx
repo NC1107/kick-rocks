@@ -2,8 +2,8 @@ import { API_ROUTES, type ScanSummary } from "@kickrocks/shared";
 import { useState } from "react";
 import { errorMessage, useApiMutation, useApiQuery } from "../../api/index.js";
 import {
-  Alert,
   Button,
+  Callout,
   Dialog,
   EmptyState,
   RelativeTime,
@@ -90,7 +90,7 @@ export function ScansPanel({ profileId }: { profileId: string }) {
         }
       >
         {scans.isError ? (
-          <Alert
+          <Callout
             intent="danger"
             title="Could not load scans"
             action={
@@ -100,7 +100,7 @@ export function ScansPanel({ profileId }: { profileId: string }) {
             }
           >
             {errorMessage(scans.error)}
-          </Alert>
+          </Callout>
         ) : scans.data && items.length === 0 ? (
           <EmptyState title="No scans yet." />
         ) : (

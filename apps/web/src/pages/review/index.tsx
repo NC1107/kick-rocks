@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useSyncExternalStore } from "r
 import { useSearchParams } from "react-router";
 import { errorMessage, useApiQuery } from "../../api/index.js";
 import { RequireProfile } from "../../components/layout/RequireProfile.js";
-import { Alert, Button, PageHeader, Skeleton, SkeletonText } from "../../components/ui/index.js";
+import { Button, Callout, PageHeader, Skeleton, SkeletonText } from "../../components/ui/index.js";
 import { cn } from "../../lib/cn.js";
 import { describeFailure } from "../../lib/failures.js";
 import { BlockedTaskDetail } from "./BlockedTaskDetail.js";
@@ -72,7 +72,7 @@ function Review({ profileId }: { profileId: string }) {
       {queue.isPending ? (
         <Loading />
       ) : queue.isError ? (
-        <Alert
+        <Callout
           intent="danger"
           title="Could not load the review queue"
           action={
@@ -82,7 +82,7 @@ function Review({ profileId }: { profileId: string }) {
           }
         >
           {errorMessage(queue.error)}
-        </Alert>
+        </Callout>
       ) : (
         <Queue queue={queue.data} profileId={profileId} />
       )}

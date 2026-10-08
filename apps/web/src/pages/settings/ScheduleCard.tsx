@@ -1,7 +1,7 @@
 import { API_ROUTES, type ScheduleSettings } from "@kickrocks/shared";
 import { useEffect, useState } from "react";
 import { errorMessage, useApiMutation } from "../../api/index.js";
-import { Alert, Button, Input, RowGroup, Section, useToast } from "../../components/ui/index.js";
+import { Button, Callout, Input, RowGroup, Section, useToast } from "../../components/ui/index.js";
 import { checkSchedule, draftOf, SCHEDULE_FIELDS, type ScheduleDraft } from "./model.js";
 import { FieldRow, GroupFooter } from "./rows.js";
 
@@ -77,9 +77,9 @@ export function ScheduleCard({ schedule }: { schedule: ScheduleSettings }) {
           </GroupFooter>
         </RowGroup>
         {save.isError && Object.keys(serverErrors).length === 0 ? (
-          <Alert intent="danger" title="Could not save the schedule" className="mt-3">
+          <Callout intent="danger" title="Could not save the schedule" className="mt-3">
             {errorMessage(save.error)}
-          </Alert>
+          </Callout>
         ) : null}
       </Section>
     </form>

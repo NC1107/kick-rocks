@@ -2,8 +2,8 @@ import { API_ROUTES, type Dashboard } from "@kickrocks/shared";
 import { errorMessage, useApiQuery } from "../../api/index.js";
 import { RequireProfile } from "../../components/layout/RequireProfile.js";
 import {
-  Alert,
   Button,
+  Callout,
   EmptyState,
   LinkButton,
   PageHeader,
@@ -58,7 +58,7 @@ function DashboardView({ profileId }: { profileId: string }) {
     return (
       <>
         {header}
-        <Alert
+        <Callout
           intent="danger"
           title="Could not load the dashboard"
           action={
@@ -68,7 +68,7 @@ function DashboardView({ profileId }: { profileId: string }) {
           }
         >
           {errorMessage(query.error)}
-        </Alert>
+        </Callout>
       </>
     );
   }
