@@ -6,7 +6,6 @@ The direction in one line: a quiet instrument panel for one person's privacy, wi
 
 ## Color
 
-Rules.
 - Dark is the reference theme and the default when the OS gives no preference.
 - Light ships too, because the app supports both schemes and follows the OS setting.
 - One accent, split into four roles: `accent-fill` (primary button, selected tab underline, active nav tab), `accent-on` (text on the fill), `accent-text` (links and accent glyphs), `accent-soft` (active nav and selection wash).
@@ -54,7 +53,7 @@ It is rationed, never used in a gradient, never tints surfaces, and stays this d
 | `--kr-danger` | `#EF4444` | dot, outlined danger button edge |
 | `--kr-danger-text` | `#F87171` | danger text, 6.2:1 |
 | `--kr-danger-wash-text` | `#FCA5A5` | text on a danger wash |
-| `--kr-danger-solid` / `--kr-danger-on` | `#DC2626` / `#FFFFFF` | the confirm dialog's final button in both schemes and with either accent, white on red at 4.8:1 |
+| `--kr-danger-solid` / `--kr-danger-on` | `#DC2626` / `#FFFFFF` | the confirm dialog's final button in both schemes, white on red at 4.8:1 |
 | `--kr-scrim` | `rgba(0,0,0,0.55)` | dialog backdrop |
 
 **Light tokens** (cool slate, with muted text lifted for AA).

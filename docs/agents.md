@@ -277,7 +277,7 @@ There is no `ollama` value for the provider.
 # .env, a local model on the same machine
 COMPOSE_PROFILES=worker,agent
 KICKROCKS_AGENT_PROVIDER=openai
-KICKROCKS_AGENT_MODEL=<an Ollama model that supports tool calling>
+KICKROCKS_AGENT_MODEL=<an ollama model that supports tool calling>
 KICKROCKS_AGENT_BASE_URL=http://host.docker.internal:11434/v1
 ```
 
@@ -307,7 +307,7 @@ KICKROCKS_WORKER_TOKEN=<token> KICKROCKS_AGENT_MODEL=<model> pnpm --filter @kick
 | `KICKROCKS_AGENT_PROVIDER` | `openai` for ollama or any openai-compatible endpoint (the default), or `anthropic`. |
 | `KICKROCKS_AGENT_MODEL` | The model name. Required for `openai`, and it must support tool calling. Optional for `anthropic`. |
 | `KICKROCKS_AGENT_BASE_URL` | The endpoint. Defaults to `http://localhost:11434/v1` for `openai` and `https://api.anthropic.com` for `anthropic`. |
-| `KICKROCKS_AGENT_API_KEY` | A key for the endpoint. Ollama needs none. For `anthropic` it falls back to `ANTHROPIC_API_KEY`. |
+| `KICKROCKS_AGENT_API_KEY` | A key for the endpoint. ollama needs none. For `anthropic` it falls back to `ANTHROPIC_API_KEY`. |
 | `KICKROCKS_AGENT_WORKER_ID` | Names this worker to the server. Defaults to the host name plus `-agent`. Compose passes it to the worker as `KICKROCKS_WORKER_ID`. |
 | `KICKROCKS_AGENT_MAX_STEPS` | Tool calls one task may use. Default 40. |
 | `KICKROCKS_AGENT_MAX_MINUTES` | Wall time one task may use. Default 10. |

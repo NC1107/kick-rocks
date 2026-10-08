@@ -44,7 +44,7 @@ Datacenter IPs trip bot management on people-search sites, so the browser runs o
 
 - API-key and local-model workers that consume the same task queue the mcp server exposes (shipped as the agent worker, see ADR-012).
 - Push notifications over ntfy or telegram when a task blocks.
-- Outlook.com support through OAuth.
+- outlook.com support through OAuth.
 - GDPR templates and EU broker data.
 - A daily or weekly email digest of status changes, sent from the person's own mailbox to itself.
 
@@ -71,12 +71,12 @@ A TypeScript monorepo with three runtime processes and a shared encrypted sqlite
 ```
 +-------------+      +-----------------------------+      +-------------------+
 |  apps/web   | <--> |  apps/server                | <--> |  apps/worker      |
-|  React UI   | HTTP |  API, scheduler, mail,      | task |  Chrome + recipes |
+|  react UI   | HTTP |  API, scheduler, mail,      | task |  chrome + recipes |
 |             |      |  task queue, MCP server     | queue|  + agent fallback |
 +-------------+      +-------------+---------------+      +-------------------+
                                    |
                                    v
-                          encrypted SQLite (data volume)
+                          encrypted sqlite (data volume)
 ```
 
 The server owns all state.
@@ -85,7 +85,7 @@ That boundary is what lets an mcp client act as a worker too.
 
 ### Components
 
-**apps/web**: React and vite single-page app served by the server in production.
+**apps/web**: react and vite single-page app served by the server in production.
 Screens are onboarding, profiles, mailbox connection, broker and company lists, request timeline, match confirmation queue, blocked-task queue, and settings.
 
 **apps/server**: Node and fastify.
@@ -98,7 +98,7 @@ When no recipe exists or a recipe fails, the server re-queues the task as an `ag
 **apps/agent-worker**: the model-driven agent worker is a second, optional claimer described in ADR-012.
 It claims only `agent` tasks.
 
-**packages/db**: Drizzle schema and migrations over `better-sqlite3-multiple-ciphers` with sqlcipher encryption.
+**packages/db**: drizzle schema and migrations over `better-sqlite3-multiple-ciphers` with sqlcipher encryption.
 
 **packages/shared**: zod schemas and types shared by server, worker, web, and mcp clients, including the task and recipe formats.
 
@@ -182,7 +182,7 @@ The costs are a weaker story for the web UI, two languages once react is added, 
 
 ### Option C: TypeScript monorepo (proposed)
 
-Playwright and stagehand are TypeScript-native, the UI and server share types, and one toolchain builds one docker image.
+playwright and stagehand are TypeScript-native, the UI and server share types, and one toolchain builds one docker image.
 The cost is writing mail handling and the form runner ourselves rather than inheriting them.
 
 ## Trade-off Matrix
@@ -203,7 +203,7 @@ The cost is writing mail handling and the form runner ourselves rather than inhe
 
 Context: one shared sending domain would be flagged once many users send similar mail, and residential mail servers cannot deliver to gmail or microsoft.
 Decision: each profile connects an existing mailbox over SMTP and IMAP with an app password; the tool never runs an MTA.
-Consequences: deliverability inherits the provider's reputation, requests are unambiguously from the data subject, Outlook.com waits for OAuth, and the tool must respect provider daily caps.
+Consequences: deliverability inherits the provider's reputation, requests are unambiguously from the data subject, outlook.com waits for OAuth, and the tool must respect provider daily caps.
 
 ### ADR-002: Browser runs on the user's machine
 
@@ -235,10 +235,10 @@ Context: sending a full profile to brokers that may never have had the person cr
 Decision: blind emails to marketing brokers carry name and email only; more identifiers are released only when a broker asks, and only after the user approves.
 Consequences: lower match rates at some brokers in exchange for less data handed out.
 
-### ADR-007: Whole-database encryption with SQLCipher
+### ADR-007: Whole-database encryption with sqlcipher
 
 Context: the database holds names, addresses, dates of birth, and mail credentials, and the host is a home machine.
-Decision: SQLite is encrypted with sqlcipher through `better-sqlite3-multiple-ciphers`.
+Decision: sqlite is encrypted with sqlcipher through `better-sqlite3-multiple-ciphers`.
 The key is 32 random bytes generated on first start and stored in a key file in the data volume with owner-only permissions, so the scheduler can run unattended.
 A passphrase mode that wraps that key and requires unlocking after a restart is a possible future option and is not built.
 Consequences: a stolen database file is useless without the key file; the key file and the database must be backed up together.
@@ -260,11 +260,11 @@ Context: the project may be used and changed freely but not sold.
 Decision: PolyForm Noncommercial 1.0.0 for the code and authored data.
 Consequences: bundled third-party data must allow noncommercial redistribution, and the dataset file carries its own license per ADR-008.
 
-### ADR-010: Playwright, with Stagehand evaluated for the agent fallback
+### ADR-010: playwright, with stagehand evaluated for the agent fallback
 
 Context: the deterministic path needs a stable driver; the agent path needs act, extract, and observe primitives.
-Decision: Playwright drives recipes.
-Stagehand is evaluated for the agent fallback behind the task queue once real tasks exist to test against.
+Decision: playwright drives recipes.
+stagehand is evaluated for the agent fallback behind the task queue once real tasks exist to test against.
 Superseded for the agent fallback by ADR-012.
 Consequences: no premature dependency on an agent framework, and the agent surface can be swapped per worker.
 
@@ -280,7 +280,7 @@ A worker or runner that held a lease on deleted work gets a not found answer, an
 ### ADR-012: A model-driven agent worker as an optional second claimer
 
 Context: ADR-003 lets any client claim agent tasks over mcp, but that needs an mcp client to be running, and some people want a local model to take over when a recipe is missing.
-Decision: `apps/agent-worker` is a separate program that claims only `agent` tasks through the worker API, drives its own chrome with its own profile, and asks a model (ollama or any OpenAI-compatible endpoint, or the anthropic API) for the next step.
+Decision: `apps/agent-worker` is a separate program that claims only `agent` tasks through the worker API, drives its own chrome with its own profile, and asks a model (ollama or any openai-compatible endpoint, or the anthropic API) for the next step.
 The model never sees profile values: it names a profile field and the program types the value, and everything the model reads is masked to placeholders such as `{{first_name}}`.
 The program types only on the broker's own domains and pages, a step, time, and token budget bounds each task, and a captcha or verification wall stops the task for the person as in ADR-005.
 It starts only with the `agent` compose profile and a configured model, so a default install never runs it.

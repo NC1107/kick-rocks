@@ -156,6 +156,7 @@ It also behaves like the real server where a UI can notice: 401 when signed out,
 | `mock/requests.ts` | `/profiles/:id/requests`, `/requests/*` |
 | `mock/review.ts` | `/review`, `/tasks/*`, `/matches/*`, `/messages/*`, `/profiles/:id/scans` |
 | `mock/settings.ts` | `/settings*` except data sources, `/recipes*` |
+| `mock/notifications.ts` | `/notifications*`, mounted through the settings domain |
 
 To add or change a handler, edit the file for its domain.
 A handler is typed from the route, so the compiler tells you the response shape:
