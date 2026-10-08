@@ -25,7 +25,7 @@ export interface ConnectionForm {
 }
 
 const DEFAULT_REPLY_FOLDER = "INBOX";
-const MAX_DAILY_CAP = 2000;
+export const MAX_DAILY_CAP = 2000;
 
 /** A blank form, starting from the profile's own email address, which is usually the mailbox to use. */
 export function emptyForm(address = ""): ConnectionForm {

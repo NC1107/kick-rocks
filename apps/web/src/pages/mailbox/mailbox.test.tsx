@@ -113,6 +113,37 @@ describe("connecting a mailbox", () => {
     expect(await screen.findByRole("button", { name: "Test connection" })).toBeInTheDocument();
   });
 
+  it("keeps the server settings a working toggle for another provider", async () => {
+    const { user } = open("riley");
+    await chooseProvider(user, /^Other provider/);
+    const toggle = await screen.findByRole("button", { name: "Server settings" });
+    expect(toggle).toBeEnabled();
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+    await user.click(toggle);
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByLabelText("Sending host (SMTP)")).toBeNull();
+  });
+
+  it("reopens collapsed server settings when a field in them is invalid", async () => {
+    const { user } = open("riley");
+    await chooseProvider(user, /^Other provider/);
+    await signIn(user);
+    await user.click(await screen.findByRole("button", { name: "Server settings" }));
+    expect(screen.queryByLabelText("Sending host (SMTP)")).toBeNull();
+    await user.click(screen.getByRole("button", { name: "Continue" }));
+    expect(await screen.findByLabelText("Sending host (SMTP)")).toBeInvalid();
+  });
+
+  it("exposes the secure-connection choice as a checked state", async () => {
+    const { user } = open("riley");
+    await chooseProvider(user, /^Gmail/);
+    await user.click(await screen.findByRole("button", { name: "Server settings" }));
+    const secure = screen.getByRole("checkbox", { name: /Secure from the first byte/ });
+    expect(secure).toBeChecked();
+    await user.click(secure);
+    expect(secure).not.toBeChecked();
+  });
+
   it("rejects a port outside the range", async () => {
     const { user } = open("riley");
     await chooseProvider(user, /^Gmail/);
@@ -152,6 +183,16 @@ describe("connecting a mailbox", () => {
     expect(within(imap).getByText("Login failed: invalid credentials.")).toBeInTheDocument();
     expect(within(imap).getByText(/Use an app password/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Continue" })).toBeDisabled();
+  });
+
+  it("shows how long the connection test has been running", async () => {
+    const { user } = open("riley", createMockApp({ latencyMs: 400 }));
+    await chooseProvider(user, /^Gmail/);
+    await signIn(user);
+    await runTest(user);
+    const counter = await screen.findByText(/Checking for \d+s/);
+    expect(counter).toBeVisible();
+    expect(counter).not.toHaveAttribute("role");
   });
 
   it("explains a refused connection for Proton Mail Bridge", async () => {
@@ -210,6 +251,7 @@ describe("connecting a mailbox", () => {
     await user.selectOptions(folder, "INBOX");
     const cap = screen.getByLabelText("Daily limit");
     expect(cap).toHaveValue(100);
+    expect(cap).toHaveAttribute("max", "2000");
     await user.clear(cap);
     await user.type(cap, "60");
     await user.click(screen.getByRole("button", { name: "Save mailbox" }));

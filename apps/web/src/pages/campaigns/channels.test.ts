@@ -4,6 +4,7 @@ import {
   advisories,
   channelOf,
   countByChannel,
+  countNovelty,
   groupSkipped,
   outcomeChannel,
   parseFilterParam,
@@ -167,5 +168,19 @@ describe("waitingForPerson", () => {
 
   it("stays quiet once an agent has been seen", () => {
     expect(waitingForPerson(counts, true)).toBe(0);
+  });
+});
+
+describe("countNovelty", () => {
+  it("counts what starts as new and only already-in-hand skips as handled", () => {
+    const items = [
+      outcome("a", "request_created"),
+      outcome("b", "scan_started"),
+      outcome("c", "skipped", "already_active"),
+      outcome("d", "skipped", "already_confirmed"),
+      outcome("e", "skipped", "scan_in_progress"),
+      outcome("f", "skipped", "no_mailbox"),
+    ];
+    expect(countNovelty(items)).toEqual({ fresh: 2, handled: 3 });
   });
 });

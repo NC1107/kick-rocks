@@ -141,6 +141,20 @@ describe("the request page", () => {
     expect(screen.getByText("A task is waiting for you")).toBeVisible();
   });
 
+  it("names the overflow menu when no primary action stands beside it", async () => {
+    const { user } = open(byTarget("clearcheck"));
+    const trigger = await screen.findByRole("button", { name: "More actions" });
+    expect(trigger).toHaveTextContent("More actions");
+    await user.click(trigger);
+    expect(await screen.findByRole("menuitem", { name: "Cancel request" })).toBeVisible();
+  });
+
+  it("keeps the overflow menu an icon beside a primary action", async () => {
+    open(byTarget("cardinal-insights"));
+    const trigger = await screen.findByRole("button", { name: "More actions" });
+    expect(trigger).not.toHaveTextContent("More actions");
+  });
+
   it("lists replies and tasks", async () => {
     open(byTarget("clearcheck"));
     await screen.findByRole("heading", { name: /^Replies/ });

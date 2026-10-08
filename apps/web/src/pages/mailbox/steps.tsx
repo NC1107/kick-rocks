@@ -1,6 +1,6 @@
 import type { MailboxTestResult, MailFolder, ProviderPreset } from "@kickrocks/shared";
 import { ChevronDown } from "lucide-react";
-import { type ReactNode, useState } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 import {
   Button,
   Callout,
@@ -21,6 +21,7 @@ import {
   type FormErrors,
   folderChoices,
   hintForError,
+  MAX_DAILY_CAP,
   setAddress,
 } from "./connection.js";
 
@@ -91,12 +92,16 @@ export function AccountStep({
   onChange,
   hasSavedPassword,
 }: AccountStepProps) {
-  const [showServers, setShowServers] = useState(false);
   const generic = preset.id === "other";
+  const [serversOpen, setServersOpen] = useState(generic);
   const serverErrors = Boolean(
     errors.username || errors.smtpHost || errors.smtpPort || errors.imapHost || errors.imapPort,
   );
-  const serversOpen = showServers || generic || serverErrors;
+  // Each failed Continue reopens the section, because a hidden field that blocks it has to be seen.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: a new errors object is the trigger
+  useEffect(() => {
+    if (serverErrors) setServersOpen(true);
+  }, [errors]);
   const passwordLabel = preset.appPasswordUrl || generic ? "App password" : "Password";
   const set = (change: Partial<ConnectionForm>) => onChange({ ...form, ...change });
 
@@ -136,9 +141,8 @@ export function AccountStep({
           type="button"
           aria-expanded={serversOpen}
           aria-controls="server-settings"
-          disabled={generic}
-          onClick={() => setShowServers((open) => !open)}
-          className="-ml-1 mb-1.5 inline-flex items-center gap-1 rounded-sm px-1 text-meta font-medium text-ink-2 hover:text-ink disabled:cursor-default disabled:hover:text-ink-2"
+          onClick={() => setServersOpen((open) => !open)}
+          className="-ml-1 mb-1.5 inline-flex items-center gap-1 rounded-sm px-1 text-meta font-medium text-ink-2 hover:text-ink"
         >
           <ChevronDown
             aria-hidden="true"
@@ -242,7 +246,21 @@ interface TestStepProps {
   onTest: () => void;
 }
 
+/** Seconds since `active` last turned on, so a slow connection test shows it is still working. */
+function useElapsedSeconds(active: boolean): number {
+  const [seconds, setSeconds] = useState(0);
+  useEffect(() => {
+    if (!active) return;
+    const startedAt = Date.now();
+    setSeconds(0);
+    const timer = setInterval(() => setSeconds(Math.floor((Date.now() - startedAt) / 1000)), 1000);
+    return () => clearInterval(timer);
+  }, [active]);
+  return seconds;
+}
+
 export function TestStep({ form, preset, result, testing, failure, onTest }: TestStepProps) {
+  const elapsed = useElapsedSeconds(testing);
   return (
     <div className="flex flex-col gap-4">
       <p className="text-ui text-ink-2">
@@ -252,10 +270,13 @@ export function TestStep({ form, preset, result, testing, failure, onTest }: Tes
         <strong className="font-mono text-meta font-medium text-ink">{form.imapHost}</strong> to
         read replies. Nothing is sent.
       </p>
-      <div>
+      <div className="flex flex-wrap items-center gap-3">
         <Button variant={result ? "secondary" : "primary"} onClick={onTest} loading={testing}>
           {result ? "Test again" : "Test connection"}
         </Button>
+        {testing ? (
+          <span className="font-mono text-meta text-ink-3">Checking for {elapsed}s</span>
+        ) : null}
       </div>
       {failure ? <Callout intent="danger">{failure}</Callout> : null}
       <RowGroup role="list" aria-label="Connection results" aria-live="polite">
@@ -393,6 +414,7 @@ export function SettingsStep({
             type="number"
             inputMode="numeric"
             min={1}
+            max={MAX_DAILY_CAP}
             step={1}
             unit="/day"
             value={form.dailyCap}

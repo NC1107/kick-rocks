@@ -23,7 +23,13 @@ interface ScheduleField {
 export const SCHEDULE_FIELDS: readonly ScheduleField[] = [
   { key: "pollMinutes", label: "Check inbox every", unit: "min", min: 1, max: 1440 },
   { key: "noResponseDays", label: "Wait for a reply", unit: "d", min: 1, max: 365 },
-  { key: "maxFollowUps", label: "Follow-ups", help: "0 turns them off", min: 0, max: 10 },
+  {
+    key: "maxFollowUps",
+    label: "Follow-ups per request",
+    help: "0 turns them off",
+    min: 0,
+    max: 10,
+  },
   {
     key: "peopleSearchRescanDays",
     label: "Rescan people-search sites every",

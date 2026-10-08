@@ -103,7 +103,7 @@ export function RadioGroup<V extends string>({
               ) : null}
             </span>
             {option.meta ? (
-              <span className="shrink-0 font-mono text-meta text-ink-3 tabular-nums">
+              <span className="max-w-[45%] shrink-0 text-right font-mono text-meta text-ink-3 tabular-nums">
                 {option.meta}
               </span>
             ) : null}

@@ -2,13 +2,14 @@ import {
   API_ROUTES,
   type CampaignBody,
   type CampaignPreset,
+  type CampaignPreview,
   type ProfileSummary,
   type RequestRight,
   type TargetFilter,
 } from "@kickrocks/shared";
 import { skipToken } from "@tanstack/react-query";
 import { ChevronDown } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
 import { errorMessage, useApiMutation, useApiQuery } from "../../../api/index.js";
 import { RequireProfile } from "../../../components/layout/RequireProfile.js";
@@ -38,6 +39,7 @@ import {
 import {
   channelOf,
   countByChannel,
+  countNovelty,
   outcomeChannel,
   parseFilterParam,
   parseTargetIds,
@@ -113,6 +115,17 @@ function describeFilter(filter: TargetFilter): string {
     filter.difficulty ? `Difficulty: ${DIFFICULTY_LABELS[filter.difficulty]}` : null,
   ].filter(Boolean);
   return parts.length > 0 ? parts.join(", ") : "Every target";
+}
+
+function noveltyMeta(items: CampaignPreview["items"]): ReactNode {
+  const { fresh, handled } = countNovelty(items);
+  if (handled === 0) return `${formatCount(fresh)} new`;
+  return (
+    <>
+      <span className="whitespace-nowrap">{formatCount(fresh)} new,</span>{" "}
+      <span className="whitespace-nowrap">{formatCount(handled)} already handled</span>
+    </>
+  );
 }
 
 export function Component() {
@@ -274,7 +287,7 @@ function Builder({ profile }: { profile: ProfileSummary }) {
     () =>
       PRESET_OPTIONS.map((option) =>
         option.value === preset && result && choice?.kind === "preset"
-          ? { ...option, meta: pluralize(result.items.length, "target") }
+          ? { ...option, meta: noveltyMeta(result.items) }
           : option.value === "easy" && easyCount !== undefined
             ? { ...option, meta: pluralize(easyCount, "target") }
             : option,
@@ -510,19 +523,21 @@ function Builder({ profile }: { profile: ProfileSummary }) {
         onConfirm={() => body && create.mutate({ params: { id: profile.id }, body })}
       >
         {counts ? (
-          <dl className="m-0 flex flex-col gap-1 font-mono text-meta">
+          <dl className="m-0 flex flex-col gap-1 text-ui">
             {(["email", "form", "manual", "scan"] as const)
               .filter((channel) => counts[channel] > 0)
               .map((channel) => (
                 <div key={channel} className="flex justify-between gap-6">
-                  <dt className="text-ink-2">{CHANNEL_LABELS[channel]}</dt>
-                  <dd className="m-0 text-ink tabular-nums">{formatCount(counts[channel])}</dd>
+                  <dt className="text-ink-2 first-letter:uppercase">{CHANNEL_LABELS[channel]}</dt>
+                  <dd className="m-0 font-mono text-ink tabular-nums">
+                    {formatCount(counts[channel])}
+                  </dd>
                 </div>
               ))}
             <div className="mt-1 flex justify-between gap-6 border-t border-line pt-2">
-              <dt className="text-ink-2">asking for</dt>
-              <dd className="m-0 text-ink">
-                {rights.map((right) => RIGHT_TOKENS[right]).join(", ")}
+              <dt className="text-ink-2">Asking for</dt>
+              <dd className="m-0 text-right text-ink">
+                {rights.map((right) => RIGHT_LABELS[right]).join(", ")}
               </dd>
             </div>
           </dl>

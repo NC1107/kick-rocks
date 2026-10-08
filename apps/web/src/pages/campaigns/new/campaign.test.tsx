@@ -60,6 +60,21 @@ describe("the campaign builder", () => {
     expect(within(preview).getByText(/Privacy request KR-/)).toBeVisible();
   });
 
+  it("labels the confirm dialog rows in plain words", async () => {
+    const { user } = open();
+    await user.click(
+      await screen.findByRole("radio", { name: /Data brokers with an email address/ }),
+    );
+    const send = within(screen.getByTestId("send-bar")).getByRole("button", {
+      name: "Send requests",
+    });
+    await waitFor(() => expect(send).toBeEnabled());
+    await user.click(send);
+    const dialog = within(await screen.findByRole("dialog"));
+    expect(dialog.getByText("Asking for")).toBeVisible();
+    expect(dialog.getByText("Opt out of sale")).toBeVisible();
+  });
+
   it("lists why targets were skipped, grouped by reason", async () => {
     const { user } = open();
     await user.click(await screen.findByRole("radio", { name: /Everything/ }));
@@ -230,11 +245,11 @@ describe("the campaign builder", () => {
     expect(screen.getByRole("button", { name: "Send requests" })).toBeDisabled();
   });
 
-  it("shows the size of the chosen group beside it", async () => {
+  it("says how many targets in the chosen group are new and how many are already handled", async () => {
     const { user } = open();
     await user.click(await screen.findByRole("radio", { name: /Everyday companies/ }));
     const row = screen.getByRole("radio", { name: /Everyday companies/ }).closest("label");
-    await waitFor(() => expect(row).toHaveTextContent(/\d+ targets/));
+    await waitFor(() => expect(row).toHaveTextContent(/\d+ new, \d+ already handled/));
   });
 
   it("summarizes the send in the bar once there is something to send", async () => {
