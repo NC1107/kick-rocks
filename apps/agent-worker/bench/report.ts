@@ -1,7 +1,7 @@
 import type { ModelIdentity } from "@kickrocks/shared";
 import type { ReplyRun } from "./replies.js";
 import type { RunRecord } from "./run-scenario.js";
-import { SCENARIOS } from "./scenarios.js";
+import { ALL_SCENARIOS } from "./splits.js";
 
 export interface ScenarioSummary {
   id: number;
@@ -50,6 +50,8 @@ export interface BenchResults {
   startedAt: string;
   finishedAt: string;
   environment: {
+    /** Absent in results written before the sets were split, which were all dev. */
+    split?: string;
     baseUrl: string;
     runsPerScenario: number;
     maxSteps: number;
@@ -89,7 +91,7 @@ const maxOrNull = (values: (number | null)[]): number | null => {
 };
 
 export function summarizeScenarios(runs: RunRecord[]): ScenarioSummary[] {
-  return SCENARIOS.flatMap((scenario) => {
+  return ALL_SCENARIOS.flatMap((scenario) => {
     const own = runs.filter((r) => r.scenario === scenario.id);
     if (own.length === 0) return [];
     const successes = own.filter((r) => r.success).length;
@@ -227,6 +229,11 @@ export function markdownSummary(results: BenchResults): string {
           `- Scenario ${run.scenario} run ${run.run}: expected ${run.judgement.expected}, saw ${run.judgement.observed}.`,
         );
         if (run.judgement.failure) lines.push(`  - ${run.judgement.failure}`);
+        for (const record of (run.judgement.records ?? []).filter((entry) => !entry.correct)) {
+          lines.push(
+            `  - ${record.path}: ${record.shouldReport ? "should have been reported" : "should have been left out"} (${record.why}), ${record.reported ? "was reported" : "was left out"}.`,
+          );
+        }
         const reported = describeReport(run.report);
         if (reported) lines.push(`  - Reported ${reported}`);
         for (const v of run.judgement.violations) {
@@ -262,6 +269,11 @@ export function markdownSummary(results: BenchResults): string {
         `Latency of the first run: median ${first.latencyMs.median} ms, 95th percentile ${first.latencyMs.p95} ms, max ${first.latencyMs.max} ms.`,
         `Answers outside the schema: ${first.invalidSchema}. Requests that failed or timed out: ${first.otherFailures}.`,
       );
+      if (first.strayFieldCases > 0) {
+        lines.push(
+          `Answers that listed requested fields for a reply that asks for none: ${first.strayFieldCases}.`,
+        );
+      }
       if (first.requestedFieldsAccuracy !== null) {
         lines.push(
           `Requested fields named exactly on verification replies: ${pct(first.requestedFieldsAccuracy)}.`,
@@ -271,10 +283,17 @@ export function markdownSummary(results: BenchResults): string {
       for (const [name, entry] of Object.entries(first.perClass)) {
         lines.push(`| ${name} | ${entry.correct} | ${entry.cases} |`);
       }
+      const styles = Object.entries(first.perStyle ?? {});
+      if (styles.length > 1) {
+        lines.push("", "| Style | Correct | Cases |", "|---|---|---|");
+        for (const [name, entry] of styles) {
+          lines.push(`| ${name} | ${entry.correct} | ${entry.cases} |`);
+        }
+      }
       if (first.confusions.length > 0) {
-        lines.push("", "Misclassified in the first run:");
+        lines.push("", "Answers that were wrong in the first run:");
         for (const c of first.confusions) {
-          lines.push(`- ${c.id}: truth ${c.truth}, answered ${c.predicted ?? "nothing usable"}.`);
+          lines.push(`- ${c.id}: ${c.explanation || `truth ${c.truth}`}.`);
         }
       }
     }

@@ -4,7 +4,7 @@ import { chromium } from "playwright";
 import { describe, expect, it } from "vitest";
 import { runBench } from "./bench.js";
 import type { BenchResults } from "./report.js";
-import { SCENARIOS } from "./scenarios.js";
+import { DEV_SCENARIOS, HELDOUT_REPLY_CASES, HELDOUT_SCENARIOS } from "./splits.js";
 
 const browserAvailable =
   findInstalledChrome() !== null ||
@@ -29,7 +29,7 @@ describeBrowser("benchmark harness", () => {
         replies: true,
       });
       const agent = requireAgent(results);
-      expect(agent.runs).toHaveLength(SCENARIOS.length);
+      expect(agent.runs).toHaveLength(DEV_SCENARIOS.length);
       expect(agent.runs.filter((r) => !r.success).map((r) => r.judgement.failure)).toEqual([]);
       expect(agent.totals.successRate).toBe(1);
       expect(agent.totals.runsWithViolation).toBe(0);
@@ -46,6 +46,42 @@ describeBrowser("benchmark harness", () => {
     },
     TWO_MINUTES,
   );
+
+  it(
+    "scores a perfect scripted model at 100 percent on the held-out set",
+    async () => {
+      const results = await runBench({
+        model: "fake-perfect",
+        fake: "perfect",
+        split: "heldout",
+        runs: 1,
+        agent: true,
+        replies: true,
+      });
+      const agent = requireAgent(results);
+      expect(results.environment.split).toBe("heldout");
+      expect(agent.runs).toHaveLength(HELDOUT_SCENARIOS.length);
+      expect(agent.runs.filter((r) => !r.success).map((r) => r.judgement.failure)).toEqual([]);
+      expect(agent.totals.runsWithViolation).toBe(0);
+      expect(results.replies?.runs[0]?.summary.total).toBe(HELDOUT_REPLY_CASES.length);
+      expect(results.replies?.accuracy).toBe(1);
+    },
+    TWO_MINUTES * 2,
+  );
+
+  it("refuses a scenario that belongs to the other set", async () => {
+    await expect(
+      runBench({
+        model: "fake-perfect",
+        fake: "perfect",
+        split: "heldout",
+        scenarios: [1],
+        runs: 1,
+        agent: true,
+        replies: false,
+      }),
+    ).rejects.toThrow("There is no scenario 1 in the heldout set");
+  });
 
   it(
     "registers the mistakes of a deliberately bad scripted model",

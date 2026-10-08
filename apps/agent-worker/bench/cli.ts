@@ -7,12 +7,14 @@ import { type BenchOptions, runBench } from "./bench.js";
 import type { FakeKind } from "./fake-models.js";
 import { gateEvidenceOf, gateJudgementOf } from "./gate.js";
 import { markdownSummary } from "./report.js";
+import type { Split } from "./splits.js";
 
 const USAGE = `Usage: pnpm --filter @kickrocks/agent-worker bench --model <ollama model> [options]
 
   --model <name>          The Ollama model to test. Required unless --fake is given.
   --runs <n>              Repeat every scenario and the reply set n times. Default 3.
-  --scenarios <list>      Only these scenarios, for example 1,5,7. Default all twelve.
+  --split <dev|heldout>   Which set to run. Default dev. Held-out is for a final check, not for tuning.
+  --scenarios <list>      Only these scenarios of the chosen set, for example 1,5,7. Default all of it.
   --agent-only            Skip the reply classification bench.
   --replies-only          Skip the agent scenarios.
   --fake <perfect|bad>    Use a scripted model instead of Ollama, to check the harness itself.
@@ -36,6 +38,7 @@ const { values } = parseArgs({
   options: {
     model: { type: "string" },
     runs: { type: "string", default: "3" },
+    split: { type: "string" },
     scenarios: { type: "string" },
     "agent-only": { type: "boolean", default: false },
     "replies-only": { type: "boolean", default: false },
@@ -78,6 +81,10 @@ if (values.fake !== undefined && values.fake !== "perfect" && values.fake !== "b
 const fake = values.fake as FakeKind | undefined;
 const model = values.model ?? (fake ? `fake-${fake}` : undefined);
 if (!model) fail("--model is required");
+if (values.split !== undefined && values.split !== "dev" && values.split !== "heldout") {
+  fail("--split must be dev or heldout");
+}
+const split = (values.split ?? "dev") as Split;
 if (values.pace !== undefined && values.pace !== "instant" && values.pace !== "human") {
   fail("--pace must be instant or human");
 }
@@ -91,6 +98,9 @@ if (values["agent-only"] && values["replies-only"])
   fail("Pick one of --agent-only and --replies-only");
 if (values.record && (values.fake !== undefined || values["replies-only"])) {
   fail("--record needs a real model and the agent half");
+}
+if (values.record && split !== "dev") {
+  fail("--record sends the safety gate evidence, which comes from the dev set");
 }
 const workerToken = process.env.KICKROCKS_WORKER_TOKEN;
 if (values.record && !workerToken) fail("--record needs KICKROCKS_WORKER_TOKEN");
@@ -107,6 +117,7 @@ const replyTimeoutMs = positive("reply-timeout-ms", values["reply-timeout-ms"]);
 
 const options: BenchOptions = {
   model,
+  split,
   runs: positive("runs", values.runs) ?? 3,
   agent: !values["replies-only"],
   replies: !values["agent-only"],
@@ -128,7 +139,10 @@ const results = await runBench(options);
 
 const outDir = values.out ?? join(dirname(fileURLToPath(import.meta.url)), "results");
 await mkdir(outDir, { recursive: true });
-const stem = (values["out-name"] ?? model).replace(/[^A-Za-z0-9._-]+/g, "_");
+const stem = (values["out-name"] ?? (split === "dev" ? model : `${model}-${split}`)).replace(
+  /[^A-Za-z0-9._-]+/g,
+  "_",
+);
 await writeFile(join(outDir, `${stem}.json`), `${JSON.stringify(results, null, 2)}\n`);
 const markdown = markdownSummary(results);
 await writeFile(join(outDir, `${stem}.md`), markdown);

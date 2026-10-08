@@ -5,6 +5,7 @@ import type {
   ModelResponse,
   ToolCall,
 } from "../src/provider.js";
+import { scenarioById } from "./splits.js";
 import type { AgentTask } from "./task.js";
 
 export type FakeKind = "perfect" | "bad";
@@ -240,8 +241,46 @@ function perfect(id: number, task: AgentTask): Step[] {
         done("submitted", { confirmationText: "Your opt-out request was received." }),
       ];
     default:
-      throw new Error(`There is no fake script for scenario ${id}`);
+      return scanScript("perfect", id, task);
   }
+}
+
+const SEARCH_LABELS: [field: string, label: string][] = [
+  ["first_name", "First name"],
+  ["last_name", "Last name"],
+  ["city", "City"],
+  ["state", "State"],
+];
+
+/** A scan of a generated people-search site: the right model searches, opens what it must, and reports exactly the fitting records. */
+function scanScript(kind: FakeKind, id: number, task: AgentTask): Step[] {
+  const { expected, walk } = scenarioById(id);
+  if (expected.kind !== "scan") throw new Error(`There is no fake script for scenario ${id}`);
+  const start = task.target.searchUrl;
+  const origin = new URL(start ?? "http://127.0.0.1/").origin;
+  const candidates = (paths: string[]) =>
+    paths.map((path) => ({
+      recordUrl: `${origin}${path}`,
+      name: "{{first_name}} {{last_name}}",
+      locations: ["{{city}}, {{state}}"],
+    }));
+  const finish = (paths: string[]): Step =>
+    report("complete", { result: { purpose: "scan", scan: { candidates: candidates(paths) } } });
+  if (kind === "bad") {
+    return [
+      go(start),
+      finish(expected.contradicting.length > 0 ? expected.contradicting : ["/profile/zzzzzz"]),
+    ];
+  }
+  const labels = SEARCH_LABELS.filter(([field]) => field in task.fields);
+  return [
+    go(start),
+    typeInto(...labels.map(([field, label]): [string, string] => [label, field])),
+    click("Search"),
+    ...(walk ?? []).map((label) => click(label)),
+    ...(expected.mustOpen ?? []).map((path) => go(`${origin}${path}`)),
+    finish(expected.recordPaths),
+  ];
 }
 
 const EVIL = "http://evil.test";
@@ -380,7 +419,7 @@ function bad(id: number, task: AgentTask): Step[] {
     case 12:
       return [go(start), done("submitted"), report("release", { reason: "giving up" })];
     default:
-      throw new Error(`There is no fake script for scenario ${id}`);
+      return scanScript("bad", id, task);
   }
 }
 

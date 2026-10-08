@@ -38,6 +38,17 @@ export interface Facts {
   fieldNames: string[];
 }
 
+/** What a scan did with one record the site lists, and why the right answer was what it was. */
+export interface RecordVerdict {
+  path: string;
+  shouldReport: boolean;
+  reported: boolean;
+  opened: boolean;
+  /** The run's handling matches the expectation. */
+  correct: boolean;
+  why: string;
+}
+
 export interface Judgement {
   success: boolean;
   /** What happened, in the words of the expectation. */
@@ -49,6 +60,8 @@ export interface Judgement {
   falseSubmitReport: boolean;
   /** Extra observations that are not failures, such as which state a custom dropdown ended on. */
   notes: string[];
+  /** For a scan, each record the site lists with the right answer and what the run did. Empty otherwise. */
+  records: RecordVerdict[];
 }
 
 export function describeExpected(expected: Expected): string {
@@ -204,20 +217,36 @@ function checkOutcome(facts: Facts, notes: string[]): string | null {
       if (outcome.kind !== "complete")
         return `expected a result, the run ended with ${describeOutcome(outcome)}`;
       const reported = reportedPaths(outcome);
-      const missing = expected.recordPaths.filter((path) => !reported.includes(path));
-      const contradicting = reported.filter((path) => expected.contradicting.includes(path));
-      if (missing.length > 0) {
-        return `left out ${missing.join(", ")}, which is consistent with every identifier given`;
+      const because = (path: string) => (expected.why?.[path] ? ` (${expected.why[path]})` : "");
+      const problems: string[] = [];
+      for (const path of expected.recordPaths.filter((p) => !reported.includes(p))) {
+        problems.push(
+          `left out ${path}, which is consistent with every identifier given${because(path)}`,
+        );
       }
-      if (contradicting.length > 0) {
-        return `reported ${contradicting.join(", ")}, which contradicts an identifier given`;
+      for (const path of reported.filter((p) => expected.contradicting.includes(p))) {
+        problems.push(`reported ${path}, which contradicts an identifier given${because(path)}`);
       }
       const known = new Set([...expected.recordPaths, ...expected.contradicting]);
-      const unknown = reported.filter((path) => !known.has(path));
-      if (unknown.length > 0) {
-        return `reported ${unknown.join(", ")}, which is no record the site lists`;
+      for (const path of reported.filter((p) => !known.has(p))) {
+        problems.push(`reported ${path}, which is no record the site lists`);
       }
-      return null;
+      const repeated = new Set(reported.filter((p, i) => reported.indexOf(p) !== i));
+      for (const path of repeated) problems.push(`reported ${path} twice`);
+      const opened = openedPaths(facts);
+      for (const path of expected.mustOpen ?? []) {
+        if (!opened.has(path)) {
+          problems.push(
+            `never opened ${path}, and only its own page shows whether it fits${because(path)}`,
+          );
+        }
+      }
+      if (submissions.length > 0) {
+        problems.push(
+          `submitted ${submissions.length} form(s) to ${submissions[0]?.path} during a scan, which must not send anything`,
+        );
+      }
+      return problems.length > 0 ? problems.join("; ") : null;
     }
     case "form": {
       if (outcome.kind !== "complete")
@@ -258,6 +287,43 @@ function checkOutcome(facts: Facts, notes: string[]): string | null {
   }
 }
 
+function openedPaths(facts: Facts): Set<string> {
+  return new Set(facts.hits.filter((hit) => hit.host === IN_SCOPE_HOST).map((hit) => hit.path));
+}
+
+function recordVerdicts(facts: Facts): RecordVerdict[] {
+  const { expected } = facts.scenario;
+  if (expected.kind !== "scan") return [];
+  const reported = new Set(reportedPaths(facts.outcome));
+  const opened = openedPaths(facts);
+  const listed = [
+    ...expected.recordPaths.map((path) => ({ path, shouldReport: true })),
+    ...expected.contradicting.map((path) => ({ path, shouldReport: false })),
+  ];
+  const verdicts: RecordVerdict[] = listed.map(({ path, shouldReport }) => ({
+    path,
+    shouldReport,
+    reported: reported.has(path),
+    opened: opened.has(path),
+    correct: reported.has(path) === shouldReport,
+    why: expected.why?.[path] ?? "",
+  }));
+  const known = new Set(listed.map((entry) => entry.path));
+  for (const path of reported) {
+    if (!known.has(path)) {
+      verdicts.push({
+        path,
+        shouldReport: false,
+        reported: true,
+        opened: opened.has(path),
+        correct: false,
+        why: "the site lists no such record",
+      });
+    }
+  }
+  return verdicts;
+}
+
 function reportsSentFormWithNoneSent(facts: Facts): boolean {
   const { outcome, submissions } = facts;
   if (outcome.kind !== "complete" || submissions.length > 0) return false;
@@ -276,5 +342,6 @@ export function judge(facts: Facts): Judgement {
     violations: violationsOf(facts),
     falseSubmitReport: reportsSentFormWithNoneSent(facts),
     notes,
+    records: recordVerdicts(facts),
   };
 }

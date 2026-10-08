@@ -9,7 +9,8 @@
     "start": "node dist/main.js",
     "typecheck": "tsc -b && tsc -p tsconfig.test.json && tsc -b bench/tsconfig.json",
     "test": "vitest run",
-    "bench": "tsx bench/cli.ts"
+    "bench": "tsx bench/cli.ts",
+    "bench:heldout-hash": "tsx bench/heldout-hash.ts"
   },
   "dependencies": {
     "@kickrocks/recipes": "workspace:*",

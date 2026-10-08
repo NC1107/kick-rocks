@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { type Facts, judge, type RecordedOutcome } from "./judge.js";
 import { saveCalls, saveReport } from "./run-scenario.js";
-import { scenarioById } from "./scenarios.js";
+import { scenarioById } from "./splits.js";
 
 const ORIGIN = "http://127.0.0.1:8652";
 
