@@ -3,6 +3,7 @@ import { SubmitApproval } from "./agent-models.js";
 import { ProfileField } from "./identities.js";
 import { EmailKind } from "./mail.js";
 import { BlockedReason, FailureKind, FormOutcome } from "./outcomes.js";
+import { SubmitGate } from "./outgoing.js";
 import { Recipe } from "./recipe.js";
 import { RequestRight } from "./rights.js";
 import { ProxyUrl, SiteObservation } from "./scanning.js";
@@ -273,19 +274,6 @@ function claimed<K extends BrowserTaskKind>(kind: K, payload: (typeof TASK_PAYLO
   return z.object({ ...claimedBase, kind: z.literal(kind), payload });
 }
 
-/**
- * The send control a person looked at before approving a submit, so the approved run is held to
- * it: the page's origin, what the control said with the person's values hidden (empty for a control
- * with no words), and a fingerprint of the form as it was filled, so a run that fills it
- * differently is stopped again.
- */
-export const ApprovedSubmit = z.object({
-  origin: z.string().max(300),
-  control: z.string().max(200),
-  fingerprint: z.string().min(1).max(128),
-});
-export type ApprovedSubmit = z.infer<typeof ApprovedSubmit>;
-
 /** What a worker or agent receives when it claims a task. */
 export const ClaimedTask = z.discriminatedUnion("kind", [
   claimed("scan", ScanPayload),
@@ -302,8 +290,8 @@ export const ClaimedTask = z.discriminatedUnion("kind", [
      * missing treats it as required.
      */
     submitApproval: SubmitApproval.optional(),
-    /** With a granted approval: the only send control that run may click without stopping again. */
-    approvedSubmit: ApprovedSubmit.optional(),
+    /** How the run's outgoing requests are gated: held for a person, or only recorded. */
+    submitGate: SubmitGate.optional(),
   }),
 ]);
 export type ClaimedTask = z.infer<typeof ClaimedTask>;
@@ -378,10 +366,6 @@ export const TaskBlockReport = z.object({
   detail: z.string().max(2000).optional(),
   /** The page the person should open to finish by hand, which is where the run got stuck. */
   url: WebUrl.optional(),
-  /** For a stop before a send control: what the control says, which an approval is tied to. */
-  control: z.string().max(200).optional(),
-  /** For a stop before a send control: a hash of the filled form, which an approval is tied to as well. */
-  fingerprint: z.string().min(1).max(128).optional(),
   screenshot: TaskScreenshot.optional(),
   usage: TaskUsage.optional(),
   /** What the run saw of the site, which paces the next visit. */
