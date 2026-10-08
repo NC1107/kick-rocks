@@ -3,7 +3,9 @@ import {
   type Candidate,
   isOnDomain,
   type ProfileFields,
+  type Pushback,
   renderTemplate,
+  type SiteObservation,
   TemplateError,
 } from "@kickrocks/shared";
 import type { Page } from "playwright";
@@ -21,6 +23,10 @@ export interface RunState {
   extractedRecordUrl: string | undefined;
   awaitingEmailFrom: string | undefined;
   lastStatus: number | null;
+  /** What the site did that says to slow down, the first time it did it in this run. */
+  pushback: Pushback | undefined;
+  /** When the last page load began, for the robots.txt crawl delay. */
+  lastNavigationAt: number | null;
   /** The page showed that the site took the last submission; any later submit clears it. */
   proved: boolean;
 }
@@ -36,6 +42,7 @@ export interface RunContext {
   redact: (text: string) => string;
   onSubmit: (() => void | Promise<void>) | undefined;
   deadline: number;
+  crawlDelaySeconds: number | undefined;
   state: RunState;
 }
 
@@ -69,12 +76,15 @@ export function createContext(
     redact: createRedactor(usable),
     onSubmit: options.onSubmit,
     deadline: Date.now() + timeouts.runMs,
+    crawlDelaySeconds: options.crawlDelaySeconds,
     state: {
       candidates: [],
       confirmationText: undefined,
       extractedRecordUrl: undefined,
       awaitingEmailFrom: undefined,
       lastStatus: null,
+      pushback: undefined,
+      lastNavigationAt: null,
       proved: false,
     },
   };
@@ -167,7 +177,24 @@ export async function blocked(
 }
 
 export async function blockedBy(ctx: RunContext, finding: BlockFinding) {
+  ctx.state.pushback ??= { kind: finding.pushback };
   return blocked(ctx, finding.reason, finding.detail);
+}
+
+/** What the run saw of the site, for the server to pace the next visit. Undefined when nothing stands out. */
+export function siteObservation(ctx: RunContext): SiteObservation | undefined {
+  const { pushback } = ctx.state;
+  if (pushback === undefined && ctx.crawlDelaySeconds === undefined) return undefined;
+  return {
+    ...(pushback ? { pushback } : {}),
+    ...(ctx.crawlDelaySeconds === undefined ? {} : { crawlDelaySeconds: ctx.crawlDelaySeconds }),
+  };
+}
+
+/** Adds what the run saw of the site to however the run ended. */
+export function withSite<R>(ctx: RunContext, outcome: RunOutcome<R>): RunOutcome<R> {
+  const site = siteObservation(ctx);
+  return site === undefined ? outcome : { ...outcome, site };
 }
 
 /** Looks for a human check and ends the run for a person when there is one. */

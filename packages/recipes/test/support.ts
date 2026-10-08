@@ -77,7 +77,12 @@ export interface RecipeSpec {
   entry: string;
   fields?: ProfileField[];
   steps: unknown[];
-  canary?: { url?: string; selectors?: unknown[]; steps?: unknown[] };
+  canary?: {
+    url?: string;
+    selectors?: unknown[];
+    entrySelectors?: unknown[];
+    steps?: unknown[];
+  };
 }
 
 /**
@@ -115,6 +120,7 @@ export function makeRecipe(spec: RecipeSpec): Recipe {
     canary: {
       url: `${spec.origin}${spec.canary?.url ?? spec.entry}`,
       selectors: (spec.canary?.selectors ?? [{ css: "body" }]) as never,
+      entrySelectors: (spec.canary?.entrySelectors ?? []) as never,
       steps: (spec.canary?.steps ?? []) as never,
     },
   };

@@ -1,9 +1,10 @@
 import { type ConfirmResult, isOnDomain } from "@kickrocks/shared";
 import type { Page } from "playwright";
 import type { RunOutcome } from "../types.js";
-import { createContext, guard, type RunContext } from "./context.js";
+import { createContext, guard, type RunContext, withSite } from "./context.js";
 import { RunAborted, RunFailure, toFailure } from "./errors.js";
 import type { RunnerOptions } from "./options.js";
+import { notePushback } from "./steps.js";
 import { pageText } from "./text.js";
 
 export interface RunConfirmationInput extends RunnerOptions {
@@ -79,6 +80,13 @@ export async function runConfirmation(
   input: RunConfirmationInput,
 ): Promise<RunOutcome<ConfirmResult>> {
   const ctx: RunContext = createContext(input.page, {}, input.targetDomain, input);
+  return withSite(ctx, await confirmationOutcome(ctx, input));
+}
+
+async function confirmationOutcome(
+  ctx: RunContext,
+  input: RunConfirmationInput,
+): Promise<RunOutcome<ConfirmResult>> {
   const { page, url } = input;
   const schemeOk = /^https:/i.test(url) || (ctx.allowHttp && /^http:/i.test(url));
   if (!schemeOk || !isOnDomain(url, ctx.targetDomain)) {
@@ -95,6 +103,7 @@ export async function runConfirmation(
       timeout: ctx.timeouts.navigationMs,
     });
     await page.waitForLoadState("load", { timeout: 5000 }).catch(() => undefined);
+    if (response) notePushback(ctx, response);
     const stopped = await guard(ctx);
     if (stopped) return stopped;
     const status = response?.status() ?? 0;

@@ -1,0 +1,174 @@
+import type { Browser, Page } from "playwright";
+import { afterAll, afterEach, beforeAll, beforeEach, expect, it } from "vitest";
+import { INSTANT_PACE, runConfirmation, runRecipe } from "../src/index.js";
+import { type FixtureServer, startFixtureServer } from "./fixture-server.js";
+import {
+  describeBrowser,
+  FAST,
+  JORDAN,
+  launchTestBrowser,
+  makeRecipe,
+  type RecipeSpec,
+} from "./support.js";
+
+let server: FixtureServer;
+let browser: Browser;
+let page: Page;
+
+beforeAll(async () => {
+  server = await startFixtureServer();
+  browser = await launchTestBrowser();
+});
+
+afterAll(async () => {
+  await browser?.close();
+  await server?.close();
+});
+
+beforeEach(async () => {
+  page = await (await browser.newContext()).newPage();
+  server.hits.length = 0;
+});
+
+afterEach(async () => {
+  await page.context().close();
+});
+
+type Extra = Partial<Parameters<typeof runRecipe>[0]>;
+
+function visit(entry: string, extra: Extra = {}, spec: Partial<RecipeSpec> = {}) {
+  return runRecipe({
+    page,
+    recipe: makeRecipe({
+      origin: server.origin,
+      purpose: "scan",
+      entry,
+      steps: [
+        {
+          kind: "extract_candidates",
+          item: { css: ".result" },
+          fields: { recordUrl: { css: "a", attr: "href" }, name: { css: "h3" } },
+        },
+      ],
+      ...spec,
+    }),
+    fields: JORDAN,
+    targetDomain: "127.0.0.1",
+    ...FAST,
+    ...extra,
+  });
+}
+
+describeBrowser("what a run reports about a site that pushes back", () => {
+  it("reports a 429 with the wait the site asked for", async () => {
+    const outcome = await visit("/limited");
+    expect(outcome).toMatchObject({
+      status: "failed",
+      kind: "site",
+      retryable: true,
+      site: { pushback: { kind: "rate_limited", status: 429, retryAfterSeconds: 120 } },
+    });
+  });
+
+  it("reports a 503 with its Retry-After", async () => {
+    const outcome = await visit("/unavailable");
+    expect(outcome).toMatchObject({
+      status: "failed",
+      site: { pushback: { kind: "unavailable", status: 503, retryAfterSeconds: 30 } },
+    });
+  });
+
+  it("reports a bare 403 as the site refusing the browser", async () => {
+    const outcome = await visit("/wall/blank");
+    expect(outcome).toMatchObject({
+      status: "blocked",
+      reason: "bot_detection",
+      site: { pushback: { kind: "forbidden", status: 403 } },
+    });
+  });
+
+  it("reports a Cloudflare interstitial as a challenge, not as an ordinary 403", async () => {
+    const outcome = await visit("/wall/cloudflare");
+    expect(outcome).toMatchObject({
+      status: "blocked",
+      reason: "bot_detection",
+      site: { pushback: { kind: "challenge", status: 403 } },
+    });
+  });
+
+  it("reports a CAPTCHA on a page that loaded fine", async () => {
+    const outcome = await visit("/captcha/recaptcha");
+    expect(outcome).toMatchObject({
+      status: "blocked",
+      reason: "captcha",
+      site: { pushback: { kind: "captcha" } },
+    });
+  });
+
+  it("reports an access-denied page that answered 200", async () => {
+    const outcome = await visit("/wall/denied-ok");
+    expect(outcome).toMatchObject({
+      status: "blocked",
+      reason: "bot_detection",
+      site: { pushback: { kind: "access_denied" } },
+    });
+  });
+
+  it("reports pushback on a confirmation link too", async () => {
+    const outcome = await runConfirmation({
+      page,
+      url: `${server.origin}/limited`,
+      targetDomain: "127.0.0.1",
+      ...FAST,
+    });
+    expect(outcome).toMatchObject({
+      status: "failed",
+      site: { pushback: { kind: "rate_limited", retryAfterSeconds: 120 } },
+    });
+  });
+
+  it("says nothing about a site that answered normally", async () => {
+    const outcome = await visit("/ps/index");
+    expect(outcome.status).toBe("completed");
+    expect(outcome).not.toHaveProperty("site");
+  });
+});
+
+describeBrowser("how a run paces itself", () => {
+  it("leaves the robots.txt crawl delay between two page loads and reports it", async () => {
+    const started = Date.now();
+    const outcome = await visit(
+      "/ps/index",
+      { crawlDelaySeconds: 1 },
+      {
+        steps: [
+          { kind: "goto", url: `${server.origin}/ps/search?first=John&last=Smith` },
+          { kind: "goto", url: `${server.origin}/ps/index` },
+          {
+            kind: "extract_candidates",
+            item: { css: ".result" },
+            fields: { recordUrl: { css: "a", attr: "href" }, name: { css: "h3" } },
+          },
+        ],
+      },
+    );
+    expect(Date.now() - started).toBeGreaterThanOrEqual(1900);
+    expect(outcome).toMatchObject({ status: "completed", site: { crawlDelaySeconds: 1 } });
+    expect(server.hits.filter((hit) => hit.startsWith("GET /ps/"))).toHaveLength(3);
+  });
+
+  it("looks at a page before acting on it", async () => {
+    const started = Date.now();
+    const outcome = await visit("/ps/index", {
+      pace: { ...INSTANT_PACE, dwellMs: [400, 400], scrollPx: [200, 200] },
+    });
+    expect(outcome.status).toBe("completed");
+    expect(Date.now() - started).toBeGreaterThanOrEqual(400);
+  });
+
+  it("does not wait at all at the instant pace", async () => {
+    const started = Date.now();
+    await visit("/ps/index");
+    expect(Date.now() - started).toBeLessThan(2000);
+  });
+});

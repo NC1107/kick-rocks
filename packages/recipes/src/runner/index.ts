@@ -10,7 +10,7 @@ import {
 } from "@kickrocks/shared";
 import type { Page } from "playwright";
 import type { RecipeResultFor, RunCanaryInput, RunOutcome, RunRecipeInput } from "../types.js";
-import { blockedBy, createContext, guard, hostOf, type RunContext } from "./context.js";
+import { blockedBy, createContext, guard, hostOf, type RunContext, withSite } from "./context.js";
 import { detectBlockAfterGrace } from "./detect.js";
 import { isClosedError, RunAborted, RunFailure, toFailure } from "./errors.js";
 import { describeSelector, existsWithin } from "./locate.js";
@@ -135,8 +135,15 @@ function finish(ctx: RunContext, recipe: Recipe): RunOutcome<FormResult | ScanRe
 export async function runRecipe<P extends RecipePurpose>(
   input: RunRecipeInput<P> & RunnerOptions,
 ): Promise<RunOutcome<RecipeResultFor<P>>> {
-  const { page, recipe, fields } = input;
-  const ctx = createContext(page, fields, hostOf(recipe.entryUrl), input);
+  const ctx = createContext(input.page, input.fields, hostOf(input.recipe.entryUrl), input);
+  return withSite(ctx, await recipeOutcome(ctx, input));
+}
+
+async function recipeOutcome<P extends RecipePurpose>(
+  ctx: RunContext,
+  input: RunRecipeInput<P> & RunnerOptions,
+): Promise<RunOutcome<RecipeResultFor<P>>> {
+  const { page, recipe } = input;
   const missing = missingFields(recipe, ctx.fields);
   if (missing.length > 0) {
     return failed(ctx, new RunFailure("internal", describeMissing(missing), false));
@@ -162,32 +169,30 @@ export async function runRecipe<P extends RecipePurpose>(
 }
 
 /**
- * Opens a recipe's canary page, runs its search steps, and checks that every selector is still
- * there. It never submits anything and never uses a profile field. A page that shows a human check
- * is reported as blocked, because the selectors cannot be judged behind it.
+ * Loads the page at a recipe's entry address and checks that it still looks as the recipe expects.
+ * It never types into a form, never searches, never submits anything, and never uses a profile
+ * field, so a health check costs the site one ordinary page view. Only the selectors the recipe
+ * lists as `entrySelectors` can be judged on that page; without any, the check is that the page
+ * loads and is not a bot check. A page that shows a human check is reported as blocked.
  */
 export async function runCanary(
   input: RunCanaryInput & RunnerOptions,
 ): Promise<RunOutcome<CanaryResult>> {
+  const ctx = createContext(input.page, {}, hostOf(input.recipe.entryUrl), input);
+  return withSite(ctx, await canaryOutcome(ctx, input));
+}
+
+async function canaryOutcome(
+  ctx: RunContext,
+  input: RunCanaryInput & RunnerOptions,
+): Promise<RunOutcome<CanaryResult>> {
   const { page, recipe } = input;
-  const ctx = createContext(page, {}, hostOf(recipe.entryUrl), input);
   const stopDialogs = acceptDialogs(page);
   try {
-    const stopped = await openPage(ctx, recipe.canary.url);
+    const stopped = await openPage(ctx, recipe.entryUrl);
     if (stopped) return stopped as RunOutcome<CanaryResult>;
-    for (const [index, step] of recipe.canary.steps.entries()) {
-      try {
-        const ended = await runStep(ctx, step as RecipeStep, index);
-        if (ended) return ended as RunOutcome<CanaryResult>;
-      } catch (error) {
-        if (error instanceof RunFailure && error.kind === "recipe" && "target" in step) {
-          return canaryResult(ctx, [describeSelector(step.target)]);
-        }
-        throw error;
-      }
-    }
     const checks = await Promise.all(
-      recipe.canary.selectors.map(async (selector) => ({
+      recipe.canary.entrySelectors.map(async (selector) => ({
         selector,
         found: await existsWithin(page, selector, {
           timeoutMs: ctx.timeouts.stepMs,

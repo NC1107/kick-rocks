@@ -13,6 +13,10 @@ export interface Pace {
   hesitationMs: Range;
   /** A pause before each click, selection, or field. */
   actionPauseMs: Range;
+  /** How long a person looks at a page that has just loaded before touching it. */
+  dwellMs?: Range;
+  /** How far a person scrolls down while reading, in pixels. A maximum of 0 does not scroll. */
+  scrollPx?: Range;
   /** Multiplier on the `pause` steps a recipe asks for; 0 skips them. */
   pauseScale: number;
   random: () => number;
@@ -38,6 +42,8 @@ export const HUMAN_PACE: Pace = {
   hesitationChance: 0.04,
   hesitationMs: [180, 450],
   actionPauseMs: [250, 900],
+  dwellMs: [1200, 3200],
+  scrollPx: [120, 520],
   pauseScale: 1,
   random: Math.random,
   sleep: sleepFor,
@@ -48,6 +54,8 @@ export const INSTANT_PACE: Pace = {
   hesitationChance: 0,
   hesitationMs: [0, 0],
   actionPauseMs: [0, 0],
+  dwellMs: [0, 0],
+  scrollPx: [0, 0],
   pauseScale: 0,
   random: Math.random,
   sleep: sleepFor,

@@ -1,4 +1,4 @@
-import type { BlockedReason } from "@kickrocks/shared";
+import type { BlockedReason, PushbackKind } from "@kickrocks/shared";
 import type { Frame, Page } from "playwright";
 import { RunAborted } from "./errors.js";
 import { sleepFor } from "./pacing.js";
@@ -13,6 +13,8 @@ export interface BlockFinding {
    * it gets a grace period before it counts. A widget in a form never clears without a person.
    */
   transient: boolean;
+  /** What this tells the server about the site: it is challenging or refusing the browser. */
+  pushback: Extract<PushbackKind, "challenge" | "captcha" | "access_denied">;
 }
 
 export interface ChallengeSignals {
@@ -43,6 +45,10 @@ const INTERSTITIAL_TEXT = [
 ];
 
 const SHORT_PAGE_CHARS = 2500;
+
+/** A page that says it refused you, as opposed to one that asks you to prove something. */
+const ACCESS_DENIED =
+  /\b(access (to this (page|site|website) )?(has been )?denied|you have been blocked|access to this (page|site|website) (has been )?blocked)\b/i;
 
 const WIDGET_LABELS: Record<string, string> = {
   recaptcha: "reCAPTCHA",
@@ -82,6 +88,7 @@ export function classifySignals(
       reason: "bot_detection",
       detail: `The site is showing a bot check ("${interstitial}").`,
       transient: true,
+      pushback: ACCESS_DENIED.test(`${main.title} ${main.text}`) ? "access_denied" : "challenge",
     };
   }
   const widgets = [main, ...frames].flatMap((signals) => signals.widgets);
@@ -91,6 +98,7 @@ export function classifySignals(
       reason: "captcha",
       detail: `${WIDGET_LABELS[first] ?? "A CAPTCHA"} is on the page and needs a person.`,
       transient: false,
+      pushback: "captcha",
     };
   }
   return null;
