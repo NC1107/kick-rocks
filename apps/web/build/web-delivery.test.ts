@@ -1,10 +1,10 @@
 import { randomBytes } from "node:crypto";
 import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import { brotliDecompressSync, gunzipSync } from "node:zlib";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { fontPreloads, precompressDirectory } from "./web-delivery.js";
+import { fontPreloads, precompressDirectory, webDelivery } from "./web-delivery.js";
 
 let dir: string;
 
@@ -42,11 +42,13 @@ describe("precompressDirectory", () => {
 });
 
 describe("fontPreloads", () => {
-  it("preloads only the Latin Regular and SemiBold Plex Sans faces, as anonymous CORS", () => {
+  it("preloads the Latin Plex Sans Regular, Medium and SemiBold faces and the Mono SemiBold logo face, as anonymous CORS", () => {
     const tags = fontPreloads(
       [
         "assets/IBMPlexSans-SemiBold-Latin1-CIhZjzyK.woff2",
         "assets/IBMPlexSans-Regular-Latin1-BUjEsRx4.woff2",
+        "assets/IBMPlexSans-Medium-Latin1-B2CuUu4P.woff2",
+        "assets/IBMPlexMono-SemiBold-Latin1-ChfWfxA6.woff2",
         "assets/IBMPlexSans-Regular-Latin2-DVrf9P05.woff2",
         "assets/IBMPlexSans-Italic-Latin1-D6ilVweT.woff2",
         "assets/IBMPlexMono-Regular-Latin1-DYPusg7z.woff2",
@@ -55,9 +57,29 @@ describe("fontPreloads", () => {
       "/",
     );
     expect(tags.map((tag) => (tag.attrs as Record<string, string>).href)).toEqual([
+      "/assets/IBMPlexMono-SemiBold-Latin1-ChfWfxA6.woff2",
+      "/assets/IBMPlexSans-Medium-Latin1-B2CuUu4P.woff2",
       "/assets/IBMPlexSans-Regular-Latin1-BUjEsRx4.woff2",
       "/assets/IBMPlexSans-SemiBold-Latin1-CIhZjzyK.woff2",
     ]);
     expect(tags[0]?.attrs).toMatchObject({ rel: "preload", as: "font", crossorigin: "" });
+  });
+});
+
+describe("webDelivery", () => {
+  it("compresses the build under the Vite root, not the working directory", () => {
+    writeFileSync(join(dir, "assets", "app-abc.js"), "export const answer = 42;\n".repeat(200));
+    const plugin = webDelivery();
+    const configResolved = plugin.configResolved as (config: unknown) => void;
+    const closeBundle = plugin.closeBundle as unknown as { handler: () => void };
+
+    configResolved({ root: join(dir, ".."), build: { outDir: basename(dir) }, base: "/" });
+    closeBundle.handler();
+
+    expect(readdirSync(join(dir, "assets")).sort()).toEqual([
+      "app-abc.js",
+      "app-abc.js.br",
+      "app-abc.js.gz",
+    ]);
   });
 });

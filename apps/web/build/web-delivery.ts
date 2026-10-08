@@ -1,5 +1,5 @@
 import { readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
-import { extname, join } from "node:path";
+import { extname, join, resolve } from "node:path";
 import { brotliCompressSync, constants, gzipSync } from "node:zlib";
 import type { HtmlTagDescriptor, Plugin } from "vite";
 
@@ -8,8 +8,12 @@ const COMPRESSIBLE = new Set([".js", ".css", ".html", ".svg", ".json", ".webmani
 /** Below this a second file costs more in round trips and disk than the bytes it would save. */
 const MIN_BYTES = 1024;
 
-/** The faces the first screen is set in; the rest load when a page asks for them. */
-const ABOVE_THE_FOLD_FONT = /IBMPlexSans-(Regular|SemiBold)-Latin1-[\w-]+\.woff2$/;
+/**
+ * The Latin faces the signed-in first screens are set in: Sans body, nav and headings, and the Mono
+ * logo. The browser finds a face only after the CSS loads, so each one left out swaps in late.
+ */
+const ABOVE_THE_FOLD_FONT =
+  /(IBMPlexSans-(Regular|Medium|SemiBold)|IBMPlexMono-SemiBold)-Latin1-[\w-]+\.woff2$/;
 
 function* filesUnder(dir: string): Generator<string> {
   for (const name of readdirSync(dir)) {
@@ -75,7 +79,8 @@ export function webDelivery(): Plugin {
     name: "kickrocks-web-delivery",
     apply: "build",
     configResolved(config) {
-      outDir = config.build.outDir;
+      // Vite leaves outDir relative, and the build can start from any directory.
+      outDir = resolve(config.root, config.build.outDir);
       base = config.base;
     },
     transformIndexHtml: {
