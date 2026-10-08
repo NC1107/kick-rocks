@@ -8,10 +8,20 @@ const TABS = [
 ] as const;
 
 /** The heading and section tabs both settings pages share, so the two read as one place. */
-export function SettingsHeader({ description }: { description: string }) {
+export function SettingsHeader({
+  section,
+  description,
+}: {
+  section: (typeof TABS)[number]["label"];
+  description: string;
+}) {
   return (
     <>
-      <PageHeader title="Settings" description={description} />
+      <PageHeader
+        title="Settings"
+        documentTitle={`${section} - Settings`}
+        description={description}
+      />
       <div className="mb-5">
         <LinkTabs items={TABS} label="Settings sections" />
       </div>

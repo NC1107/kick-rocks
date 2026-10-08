@@ -5,6 +5,8 @@ import { usePageTitle } from "../../lib/use-page-title.js";
 
 export interface PageHeaderProps {
   title: string;
+  /** The tab title when the heading alone would repeat across pages. Defaults to the heading. */
+  documentTitle?: string;
   /** Eight words or fewer, or leave it out. */
   description?: ReactNode;
   /** Buttons that act on the whole page. The main one goes last. */
@@ -14,8 +16,8 @@ export interface PageHeaderProps {
 }
 
 /** The top of every page. It also sets the browser tab title, so a page never has to. */
-export function PageHeader({ title, description, actions, back }: PageHeaderProps) {
-  usePageTitle(title);
+export function PageHeader({ title, documentTitle, description, actions, back }: PageHeaderProps) {
+  usePageTitle(documentTitle ?? title);
   return (
     <header className="mb-5 border-b border-line pb-3">
       {back ? (

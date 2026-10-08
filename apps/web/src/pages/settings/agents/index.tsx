@@ -12,7 +12,7 @@ export function Component() {
 
   return (
     <>
-      <SettingsHeader description="Local models, MCP clients, and recipes" />
+      <SettingsHeader section="Agents" description="Local models, MCP clients, and recipes" />
       <div className={`${SETTINGS_WIDTH} flex flex-col gap-4`}>
         {settings.isPending ? (
           <Section label="Agent access">

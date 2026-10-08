@@ -29,6 +29,20 @@ const agents = (mock = createMockApp()) =>
 const bundled = (mock = createMockApp()) =>
   renderPage(<RecipesPage />, { path: "/settings/recipes", route: "/settings/recipes", mock });
 
+describe("the settings tab titles", () => {
+  it("gives each section its own title", async () => {
+    agents();
+    await screen.findByRole("heading", { name: "Settings", level: 1 });
+    expect(document.title).toBe("Agents - Settings - Kick Rocks");
+  });
+
+  it("titles the general section on its own", async () => {
+    general();
+    await screen.findByRole("heading", { name: "Settings", level: 1 });
+    expect(document.title).toBe("General - Settings - Kick Rocks");
+  });
+});
+
 const AGENT_WORKER = {
   workerId: "agent-home",
   version: "agent-0.1.0",

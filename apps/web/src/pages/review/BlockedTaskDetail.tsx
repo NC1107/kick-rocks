@@ -39,12 +39,13 @@ import {
 function Screenshot({ taskId }: { taskId: string }) {
   const [failed, setFailed] = useState(false);
   if (failed) return <Hatch className="px-3 py-8">The screenshot could not be loaded.</Hatch>;
+  // The task stores no image size, so the box is reserved up front and the sections below stay put.
   return (
     <a
       href={screenshotUrl(taskId)}
       target="_blank"
       rel="noopener noreferrer"
-      className="block max-h-72 overflow-auto rounded-sm border border-line bg-canvas"
+      className="block aspect-4/3 max-h-72 overflow-auto rounded-sm border border-line bg-canvas"
     >
       <img
         src={screenshotUrl(taskId)}
