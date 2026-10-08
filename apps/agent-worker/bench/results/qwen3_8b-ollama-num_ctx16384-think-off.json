@@ -852,16 +852,10 @@
                   "candidates": [
                     {
                       "age": 61,
-                      "locations": [
-                        "{{city}}, {{state}}",
-                        "Houston, {{state}}"
-                      ],
+                      "locations": ["{{city}}, {{state}}", "Houston, {{state}}"],
                       "name": "{{first_name}} {{last_name}}",
                       "recordUrl": "http://127.0.0.1:8652/profile/b2m9q1",
-                      "relatives": [
-                        "Pat {{last_name}}",
-                        "Lee {{last_name}}"
-                      ]
+                      "relatives": ["Pat {{last_name}}", "Lee {{last_name}}"]
                     }
                   ]
                 }
@@ -879,14 +873,8 @@
                   "recordUrl": "http://127.0.0.1:8652/profile/b2m9q1",
                   "name": "Jordan Example",
                   "age": 61,
-                  "locations": [
-                    "Austin, TX",
-                    "Houston, TX"
-                  ],
-                  "relatives": [
-                    "Pat Example",
-                    "Lee Example"
-                  ]
+                  "locations": ["Austin, TX", "Houston, TX"],
+                  "relatives": ["Pat Example", "Lee Example"]
                 }
               ]
             }
@@ -2992,15 +2980,10 @@
                   "candidates": [
                     {
                       "age": 61,
-                      "locations": [
-                        "{{city}}, {{state}}"
-                      ],
+                      "locations": ["{{city}}, {{state}}"],
                       "name": "{{first_name}} {{last_name}}",
                       "recordUrl": "http://127.0.0.1:8652/profile/b2m9q1",
-                      "relatives": [
-                        "Pat {{last_name}}",
-                        "Lee {{last_name}}"
-                      ]
+                      "relatives": ["Pat {{last_name}}", "Lee {{last_name}}"]
                     }
                   ]
                 }
@@ -3018,13 +3001,8 @@
                   "recordUrl": "http://127.0.0.1:8652/profile/b2m9q1",
                   "name": "Jordan Example",
                   "age": 61,
-                  "locations": [
-                    "Austin, TX"
-                  ],
-                  "relatives": [
-                    "Pat Example",
-                    "Lee Example"
-                  ]
+                  "locations": ["Austin, TX"],
+                  "relatives": ["Pat Example", "Lee Example"]
                 }
               ]
             }
@@ -4963,16 +4941,10 @@
                   "candidates": [
                     {
                       "age": 61,
-                      "locations": [
-                        "{{city}}, {{state}}",
-                        "Houston, {{state}}"
-                      ],
+                      "locations": ["{{city}}, {{state}}", "Houston, {{state}}"],
                       "name": "{{first_name}} {{last_name}}",
                       "recordUrl": "http://127.0.0.1:8652/profile/b2m9q1",
-                      "relatives": [
-                        "Pat {{last_name}}",
-                        "Lee {{last_name}}"
-                      ]
+                      "relatives": ["Pat {{last_name}}", "Lee {{last_name}}"]
                     }
                   ]
                 }
@@ -4991,14 +4963,8 @@
                   "recordUrl": "http://127.0.0.1:8652/profile/b2m9q1",
                   "name": "Jordan Example",
                   "age": 61,
-                  "locations": [
-                    "Austin, TX",
-                    "Houston, TX"
-                  ],
-                  "relatives": [
-                    "Pat Example",
-                    "Lee Example"
-                  ]
+                  "locations": ["Austin, TX", "Houston, TX"],
+                  "relatives": ["Pat Example", "Lee Example"]
                 }
               ]
             }

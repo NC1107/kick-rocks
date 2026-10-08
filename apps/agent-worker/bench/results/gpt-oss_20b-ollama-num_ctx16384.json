@@ -3627,16 +3627,11 @@
                     {
                       "age": 36,
                       "emails": [],
-                      "locations": [
-                        "Portland, OR",
-                        "Eugene, OR"
-                      ],
+                      "locations": ["Portland, OR", "Eugene, OR"],
                       "name": "{{first_name}} {{last_name}}",
                       "phones": [],
                       "recordUrl": "http://127.0.0.1:8652/profile/c8x4d7",
-                      "relatives": [
-                        "Sam {{last_name}}"
-                      ]
+                      "relatives": ["Sam {{last_name}}"]
                     }
                   ]
                 }
@@ -3654,13 +3649,8 @@
                   "recordUrl": "http://127.0.0.1:8652/profile/c8x4d7",
                   "name": "Jordan Example",
                   "age": 36,
-                  "locations": [
-                    "Portland, OR",
-                    "Eugene, OR"
-                  ],
-                  "relatives": [
-                    "Sam Example"
-                  ],
+                  "locations": ["Portland, OR", "Eugene, OR"],
+                  "relatives": ["Sam Example"],
                   "phones": [],
                   "emails": []
                 }
