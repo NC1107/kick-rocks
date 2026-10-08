@@ -14,6 +14,7 @@ import { parseCuratedBrokers } from "./import/curated.js";
 import { parseEraserBrokers } from "./import/eraser.js";
 import { loadCompanyDataset } from "./index.js";
 import { mergeBrokers } from "./merge.js";
+import { applyOwnerGroups } from "./owner-groups.js";
 import { readBundledRecipes, unpairedRecipeSenders } from "./recipe-senders.js";
 import { applyReplyDomains } from "./reply-domains.js";
 import { readPinnedUpstream } from "./upstream.js";
@@ -42,9 +43,12 @@ export function buildDataset(
   );
   const eraser = parseEraserBrokers(readFileSync(resolve(upstream, "eraser-brokers.yaml"), "utf8"));
   const registry = parseCaRegistry(readFileSync(resolve(upstream, "ca-registry-2025.csv"), "utf8"));
-  const brokers = applyReplyDomains(
-    mergeBrokers([badbool, eraser, registry, curated], { pinnedIds }),
-    readFileSync(resolve(dataDir, "reply-domains.yaml"), "utf8"),
+  const brokers = applyOwnerGroups(
+    applyReplyDomains(
+      mergeBrokers([badbool, eraser, registry, curated], { pinnedIds }),
+      readFileSync(resolve(dataDir, "reply-domains.yaml"), "utf8"),
+    ),
+    readFileSync(resolve(dataDir, "owner-groups.yaml"), "utf8"),
   );
   const unpaired = unpairedRecipeSenders(brokers, readBundledRecipes(bundledRecipesDir));
   if (unpaired.length > 0) throw new Error(unpaired.join("\n"));
