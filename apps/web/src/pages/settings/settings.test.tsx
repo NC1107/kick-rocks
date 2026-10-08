@@ -166,6 +166,15 @@ describe("general settings", () => {
     await waitFor(() => expect(mock.store.settings.llm).toBeNull());
   });
 
+  it("says the reply text goes to the language model address, and recommends a local one", async () => {
+    general();
+    const note = await screen.findByText(/Classifies replies the rules cannot place/);
+    expect(note).toHaveTextContent(
+      /subject and the first part of the reply text are sent to this address/,
+    );
+    expect(note).toHaveTextContent(/on your own machine/);
+  });
+
   it("rejects a language model address that is not a web address", async () => {
     const { user, mock } = general();
     await user.type(await field("Base URL"), "javascript:alert(1)");

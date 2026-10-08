@@ -128,7 +128,10 @@ export function LlmCard({ llm }: { llm: LlmSettingsView | null }) {
             </GroupFooter>
           </RowGroup>
           <GroupNote>
-            Classifies replies the rules cannot place. Any OpenAI-compatible endpoint works.
+            Classifies replies the rules cannot place. Any OpenAI-compatible endpoint works. The
+            subject and the first part of the reply text are sent to this address, and a reply can
+            quote your name or ask for details like your address, so a model on your own machine is
+            the safer pick.
           </GroupNote>
           {save.isError && Object.keys(serverErrors).length === 0 ? (
             <Callout intent="danger" title="Could not save the language model" className="mt-3">
