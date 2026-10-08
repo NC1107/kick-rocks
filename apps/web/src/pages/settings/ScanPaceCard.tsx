@@ -61,6 +61,7 @@ export function ScanPaceCard({
   const dirty =
     JSON.stringify([pace, route]) !==
     JSON.stringify([scanningDraftOf(scanning), egressDraftOf(egress)]);
+  const canSave = dirty || scanning.timeZone === null;
   const sisterNotes = egress.domains
     .map((domain) => ({ domain, sisters: coverage[domain] ?? [] }))
     .filter((note) => note.sisters.length > 0);
@@ -72,7 +73,7 @@ export function ScanPaceCard({
       onSubmit={(event) => {
         event.preventDefault();
         setSubmitted(true);
-        if (hasErrors || !dirty) return;
+        if (hasErrors || !canSave) return;
         save.mutate({
           body: {
             ...(Object.keys(paceCheck.patch).length > 0 ? { scanning: paceCheck.patch } : {}),
@@ -178,14 +179,15 @@ export function ScanPaceCard({
             >
               Reset
             </Button>
-            <Button type="submit" variant="primary" loading={save.isPending} disabled={!dirty}>
+            <Button type="submit" variant="primary" loading={save.isPending} disabled={!canSave}>
               Save
             </Button>
           </GroupFooter>
         </RowGroup>
         {scanning.timeZone === null ? (
           <GroupNote>
-            Quiet hours use {pace.timeZone.trim() || "your browser's time zone"} until you save.
+            Quiet hours follow the server's clock until you save. Save to use{" "}
+            {pace.timeZone.trim() || "your browser's time zone"}.
           </GroupNote>
         ) : null}
         {sisterNotes.map((note) => (

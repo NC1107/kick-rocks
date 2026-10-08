@@ -203,7 +203,8 @@ export function buildMockQueue(store: MockStore, profileId: string | undefined):
           targetId: target.id,
           targetName: target.name,
           waiting: {
-            reason: "site_cooldown" as const,
+            reason:
+              site.breaker === "open" ? ("site_breaker" as const) : ("site_cooldown" as const),
             domain: site.domain,
             until: site.coolingDownUntil,
           },

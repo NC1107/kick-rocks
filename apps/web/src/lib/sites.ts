@@ -48,7 +48,7 @@ export function describeCooldown(
 ): string {
   const noun = site.lastPushbackKind ? PUSHBACK_NOUNS[site.lastPushbackKind] : UNKNOWN_NOUN;
   if (site.breaker === "half_open") {
-    return `Paused after repeated ${noun.plural}; next visit is a careful try`;
+    return `Paused after repeated ${noun.plural}. Next visit is a careful try.`;
   }
   if (site.breaker === "open") {
     const count = site.consecutivePushback;

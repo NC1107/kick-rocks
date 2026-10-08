@@ -35,7 +35,7 @@ It is never failed, and the review queue says it is waiting for a site.
 - **An hourly cap overall.** All sites together get at most a fixed number of starts in a rolling hour.
 - **A daily cap overall.** All sites together get at most a fixed number of starts in a rolling 24 hours.
 - **Quiet hours.** No browser task starts between the quiet start and end hours (23:00 to 07:00 by default), read on the clock of the time zone set next to them in Settings.
-  The zone defaults to the server's own, which is UTC in a container, so `install.sh` writes the host's zone to `TZ` in `.env` and Settings offers the browser's zone on first save.
+  The zone defaults to the server's own, which is UTC in a container, so `install.sh` writes the host's zone to `TZ` in `.env` and Settings offers the browser's zone to save.
   The browser worker reads the same `TZ`, so Chrome reports the zone of the address it connects from.
   The hourly pace alone would run around the clock at an even cadence, which no person does, and bot vendors see the whole pattern across sites.
 - **No active cooldown or breaker.** See the next section.

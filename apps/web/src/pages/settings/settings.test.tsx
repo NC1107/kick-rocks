@@ -108,7 +108,7 @@ describe("general settings", () => {
     const heading = await screen.findByRole("heading", { name: "Sites cooling down" });
     const region = within(heading.closest("section") as HTMLElement);
     expect(await region.findByText("Paused after 3 bot checks in a row.")).toBeVisible();
-    expect(region.getByText(/Paused after repeated CAPTCHAs;/)).toBeVisible();
+    expect(region.getByText(/Paused after repeated CAPTCHAs\. Next visit/)).toBeVisible();
     expect(region.getByText("Left alone after a rate limit.")).toBeVisible();
     expect(region.getByText("Paused")).toBeVisible();
     expect(region.getByText("Trying one visit")).toBeVisible();
