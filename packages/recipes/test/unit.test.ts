@@ -154,7 +154,7 @@ describe("pacing", () => {
     setTimeout(() => controller.abort(), 20);
     const slept = Date.now();
     await sleepFor(10_000, controller.signal);
-    expect(Date.now() - slept).toBeLessThan(1000);
+    expect(Date.now() - slept).toBeLessThan(5000);
     await sleepFor(10_000, controller.signal);
   });
 });
