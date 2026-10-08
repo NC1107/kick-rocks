@@ -118,8 +118,8 @@ describeBrowser("what a run reports about a site that pushes back", () => {
     const outcome = await runConfirmation({
       page,
       url: `${server.origin}/limited`,
-      targetDomain: "127.0.0.1",
       ...FAST,
+      targetDomain: "127.0.0.1",
     });
     expect(outcome).toMatchObject({
       status: "failed",

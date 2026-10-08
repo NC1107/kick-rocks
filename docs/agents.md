@@ -438,3 +438,12 @@ The worker API uses `KICKROCKS_WORKER_TOKEN` and the MCP endpoint uses its own t
 | `lease_expired` | The lease ran out before the heartbeat. Report what you finished, or stop working on the task. |
 | `invalid_result` | The result does not match the task. The `issues` say which part. |
 | `invalid_screenshot` | The screenshot is not valid base64 of a PNG or JPEG of at most 8 MB. |
+
+## Pacing and pushback
+
+The server gates every browser claim, for MCP clients as much as for workers.
+A `claim_task` that finds only gated tasks returns no task, and a claim by id for a waiting task fails with `site_waiting` and says when to ask again.
+Report what you see of the site: `complete_task`, `block_task`, and `fail_task` take an optional `site` with a `pushback` (kind, status, retryAfterSeconds).
+A `block_task` for a CAPTCHA or bot check counts as pushback even without it.
+A failure that carries pushback is not retried and not given to anyone else, so do not claim the task again before its cooldown ends.
+See `docs/scanning.md`.

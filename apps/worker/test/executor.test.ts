@@ -3,6 +3,7 @@ import { MAX_SCREENSHOT_BYTES } from "@kickrocks/shared";
 import type { Page } from "playwright";
 import { describe, expect, it, vi } from "vitest";
 import { createExecutor, type Runners, type TaskExecutor } from "../src/executor.js";
+import type { CrawlDelayReader } from "../src/robots.js";
 import { recipeFor, silentLogger, task } from "./support.js";
 
 const ORIGIN = "http://127.0.0.1:9999";
@@ -429,9 +430,12 @@ describe("telling the server what the site did", () => {
 });
 
 describe("respecting a site's crawl delay", () => {
-  function withReader(read: ReturnType<typeof vi.fn>) {
+  function withReader(read: CrawlDelayReader["read"]) {
     const page = fakePage();
-    const run = vi.fn(async () => ({ status: "completed", result: { candidates: [] } }));
+    const run = vi.fn(async (..._args: unknown[]) => ({
+      status: "completed",
+      result: { candidates: [] },
+    }));
     const executor = createExecutor({
       openPage: vi.fn(async () => page as unknown as Page),
       pace: "instant",
@@ -444,7 +448,7 @@ describe("respecting a site's crawl delay", () => {
   }
 
   it("reads the delay for a scan and hands it to the run", async () => {
-    const read = vi.fn(async () => 8);
+    const read = vi.fn<CrawlDelayReader["read"]>(async () => 8);
     const { executor, run } = withReader(read);
     await executor(scanTask(), live);
     expect(read).toHaveBeenCalledWith(expect.anything(), ORIGIN);
@@ -452,7 +456,7 @@ describe("respecting a site's crawl delay", () => {
   });
 
   it("does not read robots.txt for a removal, which loads no search page", async () => {
-    const read = vi.fn(async () => 8);
+    const read = vi.fn<CrawlDelayReader["read"]>(async () => 8);
     const { executor, run } = withReader(read);
     await executor(formTask(), live);
     expect(read).not.toHaveBeenCalled();

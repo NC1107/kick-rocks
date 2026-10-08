@@ -61,3 +61,16 @@ The compose file mounts the Chrome profile at `/profile` and gives the container
 
 Logs carry ids, kinds, and outcomes, never the fields of a task, which hold the person's details.
 Error messages from a run have those values replaced by the name of the field.
+
+## Politeness
+
+The server decides when a task may start, so the worker never paces itself against a site on its own.
+What the worker adds is observation and manners.
+See `docs/scanning.md` for the rules and the defaults.
+
+- Every report carries what the run saw of the site: a 429, 403, or 503 with its Retry-After, a Cloudflare challenge, a CAPTCHA, or an access-denied page, and the robots.txt Crawl-delay.
+- A scan reads robots.txt once a day per site and leaves the Crawl-delay between page loads.
+- A run dwells on a freshly opened page and scrolls a little before acting, and it never blocks images, scripts, or fonts.
+- A canary loads only the recipe entry page and checks its `entrySelectors`.
+- When the person routes a site through a proxy in Settings, the task names it and the worker restarts that profile browser with it between tasks.
+  A proxy set with `KICKROCKS_WORKER_PROXY` always wins, because it is the operator safety filter.
