@@ -19,6 +19,7 @@
     "test:scripts": "node --test scripts/check-standards.test.mjs scripts/install.test.mjs scripts/trust-copy.test.mjs",
     "standards": "node scripts/check-standards.mjs",
     "data:build": "pnpm --filter @kickrocks/shared build && pnpm --filter @kickrocks/brokers build:data",
+    "loop:backup-drill": "node scripts/loops/backup-drill/run.mjs",
     "e2e": "pnpm --filter @kickrocks/e2e e2e"
   },
   "devDependencies": {
