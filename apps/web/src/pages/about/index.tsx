@@ -46,15 +46,10 @@ function InstanceSection() {
     <Section label="Kick Rocks">
       {health.isPending || status.isPending ? (
         <RowGroup aria-busy="true">
-          {[0, 1, 2, 3].map((key) => (
-            <div
-              key={key}
-              className={`flex min-h-[2.3125rem] items-center px-3.5 py-2${
-                key === 1 ? " max-sm:min-h-[4.0625rem]" : ""
-              }`}
-            >
+          {["Version", "Broker list", "Company list", "Profiles"].map((label) => (
+            <FactRow key={label} label={label}>
               <Skeleton className="h-3.5 w-1/2" />
-            </div>
+            </FactRow>
           ))}
           <LicenseRow />
         </RowGroup>

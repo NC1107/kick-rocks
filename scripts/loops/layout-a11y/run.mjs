@@ -236,6 +236,20 @@ async function fetchOk(url) {
 }
 
 // Fonts and images arrive late on a slow link, which is when a page with no reserved space jumps.
+async function renderedPlexFace(context, page) {
+  const session = await context.newCDPSession(page);
+  await session.send("DOM.enable");
+  await session.send("CSS.enable");
+  const { root } = await session.send("DOM.getDocument");
+  const { nodeId } = await session.send("DOM.querySelector", {
+    nodeId: root.nodeId,
+    selector: "h1",
+  });
+  if (!nodeId) return false;
+  const { fonts } = await session.send("CSS.getPlatformFontsForNode", { nodeId });
+  return fonts.some((font) => font.familyName.startsWith("IBM Plex"));
+}
+
 async function measureLayoutShift(browser, base) {
   const failing = new Map();
   const routes = [
@@ -248,10 +262,11 @@ async function measureLayoutShift(browser, base) {
     "/settings",
     "/about",
   ];
-  for (const width of [390, 1280]) {
+  for (const width of [390, 768, 1280]) {
     for (const route of routes) {
       const context = await browser.newContext({
         viewport: { width, height: width > 600 ? 900 : 844 },
+        hasTouch: TOUCH_WIDTHS.includes(width),
       });
       await context.route(
         /\.(woff2|png|jpg|webp|svg)(\?|$)|\/api\/.*(screenshot|image)/,
@@ -272,6 +287,9 @@ async function measureLayoutShift(browser, base) {
       await page.waitForTimeout(1200);
       const cls = await page.evaluate(() => window.__cls);
       if (cls > CLS_BUDGET) failing.set(`${route} @${width}`, Number(cls.toFixed(3)));
+      // A page that never paints the brand font has no font swap to shift, so that cannot pass.
+      const rendered = await renderedPlexFace(context, page);
+      if (!rendered) failing.set(`${route} @${width} never rendered IBM Plex`, 0);
       await context.close();
     }
   }

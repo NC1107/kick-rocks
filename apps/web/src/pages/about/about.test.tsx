@@ -19,6 +19,13 @@ describe("the about page", () => {
     expect(screen.getByText(/Copyright NC1107/)).toBeInTheDocument();
   });
 
+  it("holds the instance fact rows themselves while the details load, so their height comes from one place", () => {
+    renderPage(<AboutPage />, { withProfile: false });
+    for (const label of ["Version", "Broker list", "Company list", "Profiles"]) {
+      expect(screen.getByText(label).parentElement).toHaveClass("min-h-row");
+    }
+  });
+
   it("holds a placeholder row per data source and the license while the details load", () => {
     renderPage(<AboutPage />, { withProfile: false });
     const sources = screen

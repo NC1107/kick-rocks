@@ -8,9 +8,11 @@ const css = readFileSync(
   "utf8",
 );
 
-test("web fonts never swap in late, because a swap re-wraps text and shifts the page", () => {
-  assert.doesNotMatch(css, /font-display:\s*swap/);
-  assert.match(css, /font-display:\s*optional/);
+test("every web font face swaps in, so a slow link still ends up in the brand font", () => {
+  const faces = css.match(/@font-face\s*{[^}]*url\([^}]*}/g) ?? [];
+  assert.ok(faces.length > 0);
+  for (const face of faces) assert.match(face, /font-display:\s*swap/);
+  assert.doesNotMatch(css, /font-display:\s*(optional|block)/);
 });
 
 for (const kind of ["Sans", "Mono"]) {
@@ -24,3 +26,11 @@ for (const kind of ["Sans", "Mono"]) {
     assert.ok(css.includes(`"IBM Plex ${kind}", "IBM Plex ${kind} Fallback"`));
   });
 }
+
+test("the Sans fallback has a face per weight, so a medium or semibold label keeps its width", () => {
+  const weights = [...css.matchAll(/font-family: "IBM Plex Sans Fallback";\s*font-weight: (\d+)/g)];
+  assert.deepEqual(
+    weights.map((m) => m[1]),
+    ["400", "500", "600"],
+  );
+});
