@@ -1,6 +1,6 @@
 
-> @kickrocks/agent-worker@0.0.0 bench /home/npc/Documents/projects/opt-out/.claude/worktrees/wf_bd6927e1-a88-1/apps/agent-worker
-> tsx bench/cli.ts --model llama3.2:3b --runs 3 --split dev --out /home/npc/Documents/projects/opt-out/.claude/worktrees/wf_bd6927e1-a88-1/apps/agent-worker/bench/results/tuning/baseline --out-name llama3.2_3b-dev --replies-only
+> @kickrocks/agent-worker@0.0.0 bench <worktree>/apps/agent-worker
+> tsx bench/cli.ts --model llama3.2:3b --runs 3 --split dev --out <worktree>/apps/agent-worker/bench/results/tuning/baseline --out-name llama3.2_3b-dev --replies-only
 
 warm-up took 2824 ms
 replies run 1: accuracy 79.2%, invalid JSON 0.0%, median 474 ms
@@ -76,4 +76,4 @@ Answers that were wrong in the first run:
 - dev-unknown-2: answered unrelated, expected unknown because a forward with no context.
 
 
-Wrote /home/npc/Documents/projects/opt-out/.claude/worktrees/wf_bd6927e1-a88-1/apps/agent-worker/bench/results/tuning/baseline/llama3.2_3b-dev.json and /home/npc/Documents/projects/opt-out/.claude/worktrees/wf_bd6927e1-a88-1/apps/agent-worker/bench/results/tuning/baseline/llama3.2_3b-dev.md
+Wrote <worktree>/apps/agent-worker/bench/results/tuning/baseline/llama3.2_3b-dev.json and <worktree>/apps/agent-worker/bench/results/tuning/baseline/llama3.2_3b-dev.md

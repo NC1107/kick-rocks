@@ -505,9 +505,7 @@
                     {
                       "age": 36,
                       "emails": [],
-                      "locations": [
-                        "Round Rock, {{state}}"
-                      ],
+                      "locations": ["Round Rock, {{state}}"],
                       "name": "{{first_name}} {{last_name}}",
                       "phones": [],
                       "recordUrl": "http://127.0.0.1:8651/profile/h3d4n9",
@@ -529,9 +527,7 @@
                   "recordUrl": "http://127.0.0.1:8651/profile/h3d4n9",
                   "name": "Jordan Sample",
                   "age": 36,
-                  "locations": [
-                    "Round Rock, TX"
-                  ],
+                  "locations": ["Round Rock, TX"],
                   "relatives": [],
                   "phones": [],
                   "emails": []
@@ -685,20 +681,12 @@
                   "candidates": [
                     {
                       "age": 38,
-                      "emails": [
-                        "none listed"
-                      ],
-                      "locations": [
-                        "Aurora, {{state}}"
-                      ],
+                      "emails": ["none listed"],
+                      "locations": ["Aurora, {{state}}"],
                       "name": "{{first_name}} {{last_name}}",
-                      "phones": [
-                        "none listed"
-                      ],
+                      "phones": ["none listed"],
                       "recordUrl": "http://127.0.0.1:8652/profile/b4m7v5",
-                      "relatives": [
-                        "none listed"
-                      ]
+                      "relatives": ["none listed"]
                     }
                   ]
                 }
@@ -717,18 +705,10 @@
                   "recordUrl": "http://127.0.0.1:8652/profile/b4m7v5",
                   "name": "Bex Testcase",
                   "age": 38,
-                  "locations": [
-                    "Aurora, CO"
-                  ],
-                  "relatives": [
-                    "none listed"
-                  ],
-                  "phones": [
-                    "none listed"
-                  ],
-                  "emails": [
-                    "none listed"
-                  ]
+                  "locations": ["Aurora, CO"],
+                  "relatives": ["none listed"],
+                  "phones": ["none listed"],
+                  "emails": ["none listed"]
                 }
               ]
             }
@@ -888,9 +868,7 @@
                     {
                       "age": 36,
                       "emails": [],
-                      "locations": [
-                        "Seattle, WA"
-                      ],
+                      "locations": ["Seattle, WA"],
                       "name": "{{first_name}} {{last_name}}",
                       "phones": [],
                       "recordUrl": "http://127.0.0.1:8653/profile/c6u5f9",
@@ -912,9 +890,7 @@
                   "recordUrl": "http://127.0.0.1:8653/profile/c6u5f9",
                   "name": "Jordan Example",
                   "age": 36,
-                  "locations": [
-                    "Seattle, WA"
-                  ],
+                  "locations": ["Seattle, WA"],
                   "relatives": [],
                   "phones": [],
                   "emails": []
@@ -1093,9 +1069,7 @@
                     {
                       "age": 29,
                       "emails": [],
-                      "locations": [
-                        "{{city}}, {{state}}"
-                      ],
+                      "locations": ["{{city}}, {{state}}"],
                       "name": "{{first_name}} {{last_name}}",
                       "phones": [],
                       "recordUrl": "http://127.0.0.1:8654/profile/d6a3n5",
@@ -1117,9 +1091,7 @@
                   "recordUrl": "http://127.0.0.1:8654/profile/d6a3n5",
                   "name": "Jordan Example",
                   "age": 29,
-                  "locations": [
-                    "Austin, TX"
-                  ],
+                  "locations": ["Austin, TX"],
                   "relatives": [],
                   "phones": [],
                   "emails": []
@@ -1274,16 +1246,11 @@
                     {
                       "age": 36,
                       "emails": [],
-                      "locations": [
-                        "Seattle, {{state}}",
-                        "Tacoma, {{state}}"
-                      ],
+                      "locations": ["Seattle, {{state}}", "Tacoma, {{state}}"],
                       "name": "{{first_name}} {{last_name}}",
                       "phones": [],
                       "recordUrl": "http://127.0.0.1:8655/profile/p3f2t5",
-                      "relatives": [
-                        "Pat {{last_name}} ({{city}}, {{state}})"
-                      ]
+                      "relatives": ["Pat {{last_name}} ({{city}}, {{state}})"]
                     }
                   ]
                 }
@@ -1301,13 +1268,8 @@
                   "recordUrl": "http://127.0.0.1:8655/profile/p3f2t5",
                   "name": "Jordan Example",
                   "age": 36,
-                  "locations": [
-                    "Seattle, WA",
-                    "Tacoma, WA"
-                  ],
-                  "relatives": [
-                    "Pat Example (Spokane, WA)"
-                  ],
+                  "locations": ["Seattle, WA", "Tacoma, WA"],
+                  "relatives": ["Pat Example (Spokane, WA)"],
                   "phones": [],
                   "emails": []
                 }
@@ -1690,9 +1652,7 @@
                     {
                       "age": 36,
                       "emails": [],
-                      "locations": [
-                        "Dallas, {{state}}"
-                      ],
+                      "locations": ["Dallas, {{state}}"],
                       "name": "{{first_name}} {{last_name}}",
                       "phones": [],
                       "recordUrl": "http://127.0.0.1:8657/profile/t01a1b",
@@ -1714,9 +1674,7 @@
                   "recordUrl": "http://127.0.0.1:8657/profile/t01a1b",
                   "name": "Jordan Example",
                   "age": 36,
-                  "locations": [
-                    "Dallas, TX"
-                  ],
+                  "locations": ["Dallas, TX"],
                   "relatives": [],
                   "phones": [],
                   "emails": []
@@ -1887,9 +1845,7 @@
                     {
                       "age": 36,
                       "emails": [],
-                      "locations": [
-                        "{{city}}, {{state}}"
-                      ],
+                      "locations": ["{{city}}, {{state}}"],
                       "name": "{{first_name}} {{last_name}}",
                       "phones": [],
                       "recordUrl": "http://127.0.0.1:8658/profile/l1r6s4",
@@ -1911,9 +1867,7 @@
                   "recordUrl": "http://127.0.0.1:8658/profile/l1r6s4",
                   "name": "Jordan Example",
                   "age": 36,
-                  "locations": [
-                    "Austin, TX"
-                  ],
+                  "locations": ["Austin, TX"],
                   "relatives": [],
                   "phones": [],
                   "emails": []
@@ -2076,9 +2030,7 @@
                     {
                       "age": 36,
                       "emails": [],
-                      "locations": [
-                        "Houston, {{state}}"
-                      ],
+                      "locations": ["Houston, {{state}}"],
                       "name": "{{first_name}} {{last_name}}",
                       "phones": [],
                       "recordUrl": "http://127.0.0.1:8659/profile/u5c1d3",
@@ -2100,9 +2052,7 @@
                   "recordUrl": "http://127.0.0.1:8659/profile/u5c1d3",
                   "name": "Jordan Example",
                   "age": 36,
-                  "locations": [
-                    "Houston, TX"
-                  ],
+                  "locations": ["Houston, TX"],
                   "relatives": [],
                   "phones": [],
                   "emails": []
@@ -2257,9 +2207,7 @@
                     {
                       "age": 36,
                       "emails": [],
-                      "locations": [
-                        "{{city}}, {{state}}"
-                      ],
+                      "locations": ["{{city}}, {{state}}"],
                       "name": "{{first_name}} Eastman",
                       "phones": [],
                       "recordUrl": "http://127.0.0.1:8650/profile/i4h2j5",
@@ -2281,9 +2229,7 @@
                   "recordUrl": "http://127.0.0.1:8650/profile/i4h2j5",
                   "name": "Jordan Eastman",
                   "age": 36,
-                  "locations": [
-                    "Austin, TX"
-                  ],
+                  "locations": ["Austin, TX"],
                   "relatives": [],
                   "phones": [],
                   "emails": []
@@ -2438,9 +2384,7 @@
                     {
                       "age": 36,
                       "emails": [],
-                      "locations": [
-                        "{{city}}, GA."
-                      ],
+                      "locations": ["{{city}}, GA."],
                       "name": "{{first_name}} {{last_name}}",
                       "phones": [],
                       "recordUrl": "http://127.0.0.1:8651/profile/z3n4p7",
@@ -2462,9 +2406,7 @@
                   "recordUrl": "http://127.0.0.1:8651/profile/z3n4p7",
                   "name": "Jordan Example",
                   "age": 36,
-                  "locations": [
-                    "Austin, GA."
-                  ],
+                  "locations": ["Austin, GA."],
                   "relatives": [],
                   "phones": [],
                   "emails": []
@@ -2603,20 +2545,12 @@
                   "candidates": [
                     {
                       "age": 44,
-                      "emails": [
-                        "none listed"
-                      ],
-                      "locations": [
-                        "Reno, NV"
-                      ],
+                      "emails": ["none listed"],
+                      "locations": ["Reno, NV"],
                       "name": "{{first_name}} {{last_name}}",
-                      "phones": [
-                        "none listed"
-                      ],
+                      "phones": ["none listed"],
                       "recordUrl": "http://127.0.0.1:8652/profile/e1s5t9",
-                      "relatives": [
-                        "none listed"
-                      ]
+                      "relatives": ["none listed"]
                     }
                   ]
                 }
@@ -2634,18 +2568,10 @@
                   "recordUrl": "http://127.0.0.1:8652/profile/e1s5t9",
                   "name": "Jordan Example",
                   "age": 44,
-                  "locations": [
-                    "Reno, NV"
-                  ],
-                  "relatives": [
-                    "none listed"
-                  ],
-                  "phones": [
-                    "none listed"
-                  ],
-                  "emails": [
-                    "none listed"
-                  ]
+                  "locations": ["Reno, NV"],
+                  "relatives": ["none listed"],
+                  "phones": ["none listed"],
+                  "emails": ["none listed"]
                 }
               ]
             }
@@ -2780,9 +2706,7 @@
                     {
                       "age": 36,
                       "emails": [],
-                      "locations": [
-                        "Columbus, OH"
-                      ],
+                      "locations": ["Columbus, OH"],
                       "name": "{{first_name}} {{last_name}}",
                       "phones": [],
                       "recordUrl": "http://127.0.0.1:8653/profile/o1w8x3",
@@ -2805,9 +2729,7 @@
                   "recordUrl": "http://127.0.0.1:8653/profile/o1w8x3",
                   "name": "Jordan Example",
                   "age": 36,
-                  "locations": [
-                    "Columbus, OH"
-                  ],
+                  "locations": ["Columbus, OH"],
                   "relatives": [],
                   "phones": [],
                   "emails": []
@@ -2994,9 +2916,7 @@
                     {
                       "age": 36,
                       "emails": [],
-                      "locations": [
-                        "Dallas, {{state}}"
-                      ],
+                      "locations": ["Dallas, {{state}}"],
                       "name": "{{first_name}} {{last_name}}",
                       "phones": [],
                       "recordUrl": "http://127.0.0.1:8654/profile/y1a3b7",
@@ -3018,9 +2938,7 @@
                   "recordUrl": "http://127.0.0.1:8654/profile/y1a3b7",
                   "name": "Jordan Example",
                   "age": 36,
-                  "locations": [
-                    "Dallas, TX"
-                  ],
+                  "locations": ["Dallas, TX"],
                   "relatives": [],
                   "phones": [],
                   "emails": []
@@ -3596,9 +3514,7 @@
                     {
                       "age": 36,
                       "emails": [],
-                      "locations": [
-                        "Round Rock, {{state}}"
-                      ],
+                      "locations": ["Round Rock, {{state}}"],
                       "name": "{{first_name}} {{last_name}}",
                       "phones": [],
                       "recordUrl": "http://127.0.0.1:8651/profile/h3d4n9",
@@ -3620,9 +3536,7 @@
                   "recordUrl": "http://127.0.0.1:8651/profile/h3d4n9",
                   "name": "Jordan Sample",
                   "age": 36,
-                  "locations": [
-                    "Round Rock, TX"
-                  ],
+                  "locations": ["Round Rock, TX"],
                   "relatives": [],
                   "phones": [],
                   "emails": []
@@ -3776,20 +3690,12 @@
                   "candidates": [
                     {
                       "age": 38,
-                      "emails": [
-                        "none listed"
-                      ],
-                      "locations": [
-                        "Aurora, {{state}}"
-                      ],
+                      "emails": ["none listed"],
+                      "locations": ["Aurora, {{state}}"],
                       "name": "{{first_name}} {{last_name}}",
-                      "phones": [
-                        "none listed"
-                      ],
+                      "phones": ["none listed"],
                       "recordUrl": "http://127.0.0.1:8652/profile/b4m7v5",
-                      "relatives": [
-                        "none listed"
-                      ]
+                      "relatives": ["none listed"]
                     }
                   ]
                 }
@@ -3808,18 +3714,10 @@
                   "recordUrl": "http://127.0.0.1:8652/profile/b4m7v5",
                   "name": "Bex Testcase",
                   "age": 38,
-                  "locations": [
-                    "Aurora, CO"
-                  ],
-                  "relatives": [
-                    "none listed"
-                  ],
-                  "phones": [
-                    "none listed"
-                  ],
-                  "emails": [
-                    "none listed"
-                  ]
+                  "locations": ["Aurora, CO"],
+                  "relatives": ["none listed"],
+                  "phones": ["none listed"],
+                  "emails": ["none listed"]
                 }
               ]
             }
@@ -3979,9 +3877,7 @@
                     {
                       "age": 36,
                       "emails": [],
-                      "locations": [
-                        "Seattle, WA"
-                      ],
+                      "locations": ["Seattle, WA"],
                       "name": "{{first_name}} {{last_name}}",
                       "phones": [],
                       "recordUrl": "http://127.0.0.1:8653/profile/c6u5f9",
@@ -4003,9 +3899,7 @@
                   "recordUrl": "http://127.0.0.1:8653/profile/c6u5f9",
                   "name": "Jordan Example",
                   "age": 36,
-                  "locations": [
-                    "Seattle, WA"
-                  ],
+                  "locations": ["Seattle, WA"],
                   "relatives": [],
                   "phones": [],
                   "emails": []
@@ -4184,9 +4078,7 @@
                     {
                       "age": 29,
                       "emails": [],
-                      "locations": [
-                        "{{city}}, {{state}}"
-                      ],
+                      "locations": ["{{city}}, {{state}}"],
                       "name": "{{first_name}} {{last_name}}",
                       "phones": [],
                       "recordUrl": "http://127.0.0.1:8654/profile/d6a3n5",
@@ -4208,9 +4100,7 @@
                   "recordUrl": "http://127.0.0.1:8654/profile/d6a3n5",
                   "name": "Jordan Example",
                   "age": 29,
-                  "locations": [
-                    "Austin, TX"
-                  ],
+                  "locations": ["Austin, TX"],
                   "relatives": [],
                   "phones": [],
                   "emails": []
@@ -4365,16 +4255,11 @@
                     {
                       "age": 36,
                       "emails": [],
-                      "locations": [
-                        "Seattle, {{state}}",
-                        "Tacoma, {{state}}"
-                      ],
+                      "locations": ["Seattle, {{state}}", "Tacoma, {{state}}"],
                       "name": "{{first_name}} {{last_name}}",
                       "phones": [],
                       "recordUrl": "http://127.0.0.1:8655/profile/p3f2t5",
-                      "relatives": [
-                        "Pat {{last_name}} ({{city}}, {{state}})"
-                      ]
+                      "relatives": ["Pat {{last_name}} ({{city}}, {{state}})"]
                     }
                   ]
                 }
@@ -4392,13 +4277,8 @@
                   "recordUrl": "http://127.0.0.1:8655/profile/p3f2t5",
                   "name": "Jordan Example",
                   "age": 36,
-                  "locations": [
-                    "Seattle, WA",
-                    "Tacoma, WA"
-                  ],
-                  "relatives": [
-                    "Pat Example (Spokane, WA)"
-                  ],
+                  "locations": ["Seattle, WA", "Tacoma, WA"],
+                  "relatives": ["Pat Example (Spokane, WA)"],
                   "phones": [],
                   "emails": []
                 }
@@ -4780,20 +4660,12 @@
                   "candidates": [
                     {
                       "age": 36,
-                      "emails": [
-                        "none listed"
-                      ],
-                      "locations": [
-                        "Dallas, {{state}}"
-                      ],
+                      "emails": ["none listed"],
+                      "locations": ["Dallas, {{state}}"],
                       "name": "{{first_name}} {{last_name}}",
-                      "phones": [
-                        "none listed"
-                      ],
+                      "phones": ["none listed"],
                       "recordUrl": "http://127.0.0.1:8657/profile/t01a1b",
-                      "relatives": [
-                        "none listed"
-                      ]
+                      "relatives": ["none listed"]
                     }
                   ]
                 }
@@ -4812,18 +4684,10 @@
                   "recordUrl": "http://127.0.0.1:8657/profile/t01a1b",
                   "name": "Jordan Example",
                   "age": 36,
-                  "locations": [
-                    "Dallas, TX"
-                  ],
-                  "relatives": [
-                    "none listed"
-                  ],
-                  "phones": [
-                    "none listed"
-                  ],
-                  "emails": [
-                    "none listed"
-                  ]
+                  "locations": ["Dallas, TX"],
+                  "relatives": ["none listed"],
+                  "phones": ["none listed"],
+                  "emails": ["none listed"]
                 }
               ]
             }
@@ -4991,9 +4855,7 @@
                     {
                       "age": 36,
                       "emails": [],
-                      "locations": [
-                        "{{city}}, {{state}}"
-                      ],
+                      "locations": ["{{city}}, {{state}}"],
                       "name": "{{first_name}} {{last_name}}",
                       "phones": [],
                       "recordUrl": "http://127.0.0.1:8658/profile/l1r6s4",
@@ -5015,9 +4877,7 @@
                   "recordUrl": "http://127.0.0.1:8658/profile/l1r6s4",
                   "name": "Jordan Example",
                   "age": 36,
-                  "locations": [
-                    "Austin, TX"
-                  ],
+                  "locations": ["Austin, TX"],
                   "relatives": [],
                   "phones": [],
                   "emails": []
@@ -5179,20 +5039,12 @@
                   "candidates": [
                     {
                       "age": 36,
-                      "emails": [
-                        "none listed"
-                      ],
-                      "locations": [
-                        "Houston, {{state}}"
-                      ],
+                      "emails": ["none listed"],
+                      "locations": ["Houston, {{state}}"],
                       "name": "{{first_name}} {{last_name}}",
-                      "phones": [
-                        "none listed"
-                      ],
+                      "phones": ["none listed"],
                       "recordUrl": "http://127.0.0.1:8659/profile/u5c1d3",
-                      "relatives": [
-                        "none listed"
-                      ]
+                      "relatives": ["none listed"]
                     }
                   ]
                 }
@@ -5211,18 +5063,10 @@
                   "recordUrl": "http://127.0.0.1:8659/profile/u5c1d3",
                   "name": "Jordan Example",
                   "age": 36,
-                  "locations": [
-                    "Houston, TX"
-                  ],
-                  "relatives": [
-                    "none listed"
-                  ],
-                  "phones": [
-                    "none listed"
-                  ],
-                  "emails": [
-                    "none listed"
-                  ]
+                  "locations": ["Houston, TX"],
+                  "relatives": ["none listed"],
+                  "phones": ["none listed"],
+                  "emails": ["none listed"]
                 }
               ]
             }
@@ -5374,9 +5218,7 @@
                     {
                       "age": 36,
                       "emails": [],
-                      "locations": [
-                        "{{city}}, {{state}}"
-                      ],
+                      "locations": ["{{city}}, {{state}}"],
                       "name": "{{first_name}} Eastman",
                       "phones": [],
                       "recordUrl": "http://127.0.0.1:8650/profile/i4h2j5",
@@ -5398,9 +5240,7 @@
                   "recordUrl": "http://127.0.0.1:8650/profile/i4h2j5",
                   "name": "Jordan Eastman",
                   "age": 36,
-                  "locations": [
-                    "Austin, TX"
-                  ],
+                  "locations": ["Austin, TX"],
                   "relatives": [],
                   "phones": [],
                   "emails": []
@@ -5554,9 +5394,7 @@
                     {
                       "age": 36,
                       "emails": [],
-                      "locations": [
-                        "{{city}}, GA."
-                      ],
+                      "locations": ["{{city}}, GA."],
                       "name": "{{first_name}} {{last_name}}",
                       "phones": [],
                       "recordUrl": "http://127.0.0.1:8651/profile/z3n4p7",
@@ -5579,9 +5417,7 @@
                   "recordUrl": "http://127.0.0.1:8651/profile/z3n4p7",
                   "name": "Jordan Example",
                   "age": 36,
-                  "locations": [
-                    "Austin, GA."
-                  ],
+                  "locations": ["Austin, GA."],
                   "relatives": [],
                   "phones": [],
                   "emails": []
@@ -5719,20 +5555,12 @@
                   "candidates": [
                     {
                       "age": 44,
-                      "emails": [
-                        "none listed"
-                      ],
-                      "locations": [
-                        "Reno, NV"
-                      ],
+                      "emails": ["none listed"],
+                      "locations": ["Reno, NV"],
                       "name": "{{first_name}} {{last_name}}",
-                      "phones": [
-                        "none listed"
-                      ],
+                      "phones": ["none listed"],
                       "recordUrl": "http://127.0.0.1:8652/profile/e1s5t9",
-                      "relatives": [
-                        "none listed"
-                      ]
+                      "relatives": ["none listed"]
                     }
                   ]
                 }
@@ -5751,18 +5579,10 @@
                   "recordUrl": "http://127.0.0.1:8652/profile/e1s5t9",
                   "name": "Jordan Example",
                   "age": 44,
-                  "locations": [
-                    "Reno, NV"
-                  ],
-                  "relatives": [
-                    "none listed"
-                  ],
-                  "phones": [
-                    "none listed"
-                  ],
-                  "emails": [
-                    "none listed"
-                  ]
+                  "locations": ["Reno, NV"],
+                  "relatives": ["none listed"],
+                  "phones": ["none listed"],
+                  "emails": ["none listed"]
                 }
               ]
             }
@@ -5898,9 +5718,7 @@
                     {
                       "age": 36,
                       "emails": [],
-                      "locations": [
-                        "Columbus, OH"
-                      ],
+                      "locations": ["Columbus, OH"],
                       "name": "{{first_name}} {{last_name}}",
                       "phones": [],
                       "recordUrl": "http://127.0.0.1:8653/profile/o1w8x3",
@@ -5922,9 +5740,7 @@
                   "recordUrl": "http://127.0.0.1:8653/profile/o1w8x3",
                   "name": "Jordan Example",
                   "age": 36,
-                  "locations": [
-                    "Columbus, OH"
-                  ],
+                  "locations": ["Columbus, OH"],
                   "relatives": [],
                   "phones": [],
                   "emails": []
@@ -6111,9 +5927,7 @@
                     {
                       "age": 36,
                       "emails": [],
-                      "locations": [
-                        "Dallas, {{state}}"
-                      ],
+                      "locations": ["Dallas, {{state}}"],
                       "name": "{{first_name}} {{last_name}}",
                       "phones": [],
                       "recordUrl": "http://127.0.0.1:8654/profile/y1a3b7",
@@ -6135,9 +5949,7 @@
                   "recordUrl": "http://127.0.0.1:8654/profile/y1a3b7",
                   "name": "Jordan Example",
                   "age": 36,
-                  "locations": [
-                    "Dallas, TX"
-                  ],
+                  "locations": ["Dallas, TX"],
                   "relatives": [],
                   "phones": [],
                   "emails": []
@@ -6698,20 +6510,12 @@
                   "candidates": [
                     {
                       "age": 36,
-                      "emails": [
-                        "none listed"
-                      ],
-                      "locations": [
-                        "Round Rock, {{state}}"
-                      ],
+                      "emails": ["none listed"],
+                      "locations": ["Round Rock, {{state}}"],
                       "name": "{{first_name}} {{last_name}}",
-                      "phones": [
-                        "none listed"
-                      ],
+                      "phones": ["none listed"],
                       "recordUrl": "http://127.0.0.1:8651/profile/h3d4n9",
-                      "relatives": [
-                        "none listed"
-                      ]
+                      "relatives": ["none listed"]
                     }
                   ]
                 }
@@ -6730,18 +6534,10 @@
                   "recordUrl": "http://127.0.0.1:8651/profile/h3d4n9",
                   "name": "Jordan Sample",
                   "age": 36,
-                  "locations": [
-                    "Round Rock, TX"
-                  ],
-                  "relatives": [
-                    "none listed"
-                  ],
-                  "phones": [
-                    "none listed"
-                  ],
-                  "emails": [
-                    "none listed"
-                  ]
+                  "locations": ["Round Rock, TX"],
+                  "relatives": ["none listed"],
+                  "phones": ["none listed"],
+                  "emails": ["none listed"]
                 }
               ]
             }
@@ -6892,20 +6688,12 @@
                   "candidates": [
                     {
                       "age": 38,
-                      "emails": [
-                        "none listed"
-                      ],
-                      "locations": [
-                        "Aurora, {{state}}"
-                      ],
+                      "emails": ["none listed"],
+                      "locations": ["Aurora, {{state}}"],
                       "name": "{{first_name}} {{last_name}}",
-                      "phones": [
-                        "none listed"
-                      ],
+                      "phones": ["none listed"],
                       "recordUrl": "http://127.0.0.1:8652/profile/b4m7v5",
-                      "relatives": [
-                        "none listed"
-                      ]
+                      "relatives": ["none listed"]
                     }
                   ]
                 }
@@ -6924,18 +6712,10 @@
                   "recordUrl": "http://127.0.0.1:8652/profile/b4m7v5",
                   "name": "Bex Testcase",
                   "age": 38,
-                  "locations": [
-                    "Aurora, CO"
-                  ],
-                  "relatives": [
-                    "none listed"
-                  ],
-                  "phones": [
-                    "none listed"
-                  ],
-                  "emails": [
-                    "none listed"
-                  ]
+                  "locations": ["Aurora, CO"],
+                  "relatives": ["none listed"],
+                  "phones": ["none listed"],
+                  "emails": ["none listed"]
                 }
               ]
             }
@@ -7095,9 +6875,7 @@
                     {
                       "age": 36,
                       "emails": [],
-                      "locations": [
-                        "Seattle, WA"
-                      ],
+                      "locations": ["Seattle, WA"],
                       "name": "{{first_name}} {{last_name}}",
                       "phones": [],
                       "recordUrl": "http://127.0.0.1:8653/profile/c6u5f9",
@@ -7119,9 +6897,7 @@
                   "recordUrl": "http://127.0.0.1:8653/profile/c6u5f9",
                   "name": "Jordan Example",
                   "age": 36,
-                  "locations": [
-                    "Seattle, WA"
-                  ],
+                  "locations": ["Seattle, WA"],
                   "relatives": [],
                   "phones": [],
                   "emails": []
@@ -7300,9 +7076,7 @@
                     {
                       "age": 29,
                       "emails": [],
-                      "locations": [
-                        "{{city}}, {{state}}"
-                      ],
+                      "locations": ["{{city}}, {{state}}"],
                       "name": "{{first_name}} {{last_name}}",
                       "phones": [],
                       "recordUrl": "http://127.0.0.1:8654/profile/d6a3n5",
@@ -7324,9 +7098,7 @@
                   "recordUrl": "http://127.0.0.1:8654/profile/d6a3n5",
                   "name": "Jordan Example",
                   "age": 29,
-                  "locations": [
-                    "Austin, TX"
-                  ],
+                  "locations": ["Austin, TX"],
                   "relatives": [],
                   "phones": [],
                   "emails": []
@@ -7481,16 +7253,11 @@
                     {
                       "age": 36,
                       "emails": [],
-                      "locations": [
-                        "Seattle, {{state}}",
-                        "Tacoma, {{state}}"
-                      ],
+                      "locations": ["Seattle, {{state}}", "Tacoma, {{state}}"],
                       "name": "{{first_name}} {{last_name}}",
                       "phones": [],
                       "recordUrl": "http://127.0.0.1:8655/profile/p3f2t5",
-                      "relatives": [
-                        "Pat {{last_name}} ({{city}}, {{state}})"
-                      ]
+                      "relatives": ["Pat {{last_name}} ({{city}}, {{state}})"]
                     }
                   ]
                 }
@@ -7508,13 +7275,8 @@
                   "recordUrl": "http://127.0.0.1:8655/profile/p3f2t5",
                   "name": "Jordan Example",
                   "age": 36,
-                  "locations": [
-                    "Seattle, WA",
-                    "Tacoma, WA"
-                  ],
-                  "relatives": [
-                    "Pat Example (Spokane, WA)"
-                  ],
+                  "locations": ["Seattle, WA", "Tacoma, WA"],
+                  "relatives": ["Pat Example (Spokane, WA)"],
                   "phones": [],
                   "emails": []
                 }
@@ -7896,20 +7658,12 @@
                   "candidates": [
                     {
                       "age": 36,
-                      "emails": [
-                        "none listed"
-                      ],
-                      "locations": [
-                        "Dallas, {{state}}"
-                      ],
+                      "emails": ["none listed"],
+                      "locations": ["Dallas, {{state}}"],
                       "name": "{{first_name}} {{last_name}}",
-                      "phones": [
-                        "none listed"
-                      ],
+                      "phones": ["none listed"],
                       "recordUrl": "http://127.0.0.1:8657/profile/t01a1b",
-                      "relatives": [
-                        "none listed"
-                      ]
+                      "relatives": ["none listed"]
                     }
                   ]
                 }
@@ -7928,18 +7682,10 @@
                   "recordUrl": "http://127.0.0.1:8657/profile/t01a1b",
                   "name": "Jordan Example",
                   "age": 36,
-                  "locations": [
-                    "Dallas, TX"
-                  ],
-                  "relatives": [
-                    "none listed"
-                  ],
-                  "phones": [
-                    "none listed"
-                  ],
-                  "emails": [
-                    "none listed"
-                  ]
+                  "locations": ["Dallas, TX"],
+                  "relatives": ["none listed"],
+                  "phones": ["none listed"],
+                  "emails": ["none listed"]
                 }
               ]
             }
@@ -8107,9 +7853,7 @@
                     {
                       "age": 36,
                       "emails": [],
-                      "locations": [
-                        "{{city}}, {{state}}"
-                      ],
+                      "locations": ["{{city}}, {{state}}"],
                       "name": "{{first_name}} {{last_name}}",
                       "phones": [],
                       "recordUrl": "http://127.0.0.1:8658/profile/l1r6s4",
@@ -8131,9 +7875,7 @@
                   "recordUrl": "http://127.0.0.1:8658/profile/l1r6s4",
                   "name": "Jordan Example",
                   "age": 36,
-                  "locations": [
-                    "Austin, TX"
-                  ],
+                  "locations": ["Austin, TX"],
                   "relatives": [],
                   "phones": [],
                   "emails": []
@@ -8296,9 +8038,7 @@
                     {
                       "age": 36,
                       "emails": [],
-                      "locations": [
-                        "Houston, {{state}}"
-                      ],
+                      "locations": ["Houston, {{state}}"],
                       "name": "{{first_name}} {{last_name}}",
                       "phones": [],
                       "recordUrl": "http://127.0.0.1:8659/profile/u5c1d3",
@@ -8320,9 +8060,7 @@
                   "recordUrl": "http://127.0.0.1:8659/profile/u5c1d3",
                   "name": "Jordan Example",
                   "age": 36,
-                  "locations": [
-                    "Houston, TX"
-                  ],
+                  "locations": ["Houston, TX"],
                   "relatives": [],
                   "phones": [],
                   "emails": []
@@ -8477,9 +8215,7 @@
                     {
                       "age": 36,
                       "emails": [],
-                      "locations": [
-                        "{{city}}, {{state}}"
-                      ],
+                      "locations": ["{{city}}, {{state}}"],
                       "name": "{{first_name}} Eastman",
                       "phones": [],
                       "recordUrl": "http://127.0.0.1:8650/profile/i4h2j5",
@@ -8501,9 +8237,7 @@
                   "recordUrl": "http://127.0.0.1:8650/profile/i4h2j5",
                   "name": "Jordan Eastman",
                   "age": 36,
-                  "locations": [
-                    "Austin, TX"
-                  ],
+                  "locations": ["Austin, TX"],
                   "relatives": [],
                   "phones": [],
                   "emails": []
@@ -8658,9 +8392,7 @@
                     {
                       "age": 36,
                       "emails": [],
-                      "locations": [
-                        "{{city}}, GA."
-                      ],
+                      "locations": ["{{city}}, GA."],
                       "name": "{{first_name}} {{last_name}}",
                       "phones": [],
                       "recordUrl": "http://127.0.0.1:8651/profile/z3n4p7",
@@ -8682,9 +8414,7 @@
                   "recordUrl": "http://127.0.0.1:8651/profile/z3n4p7",
                   "name": "Jordan Example",
                   "age": 36,
-                  "locations": [
-                    "Austin, GA."
-                  ],
+                  "locations": ["Austin, GA."],
                   "relatives": [],
                   "phones": [],
                   "emails": []
@@ -8822,20 +8552,12 @@
                   "candidates": [
                     {
                       "age": 44,
-                      "emails": [
-                        "none listed"
-                      ],
-                      "locations": [
-                        "Reno, NV"
-                      ],
+                      "emails": ["none listed"],
+                      "locations": ["Reno, NV"],
                       "name": "{{first_name}} {{last_name}}",
-                      "phones": [
-                        "none listed"
-                      ],
+                      "phones": ["none listed"],
                       "recordUrl": "http://127.0.0.1:8652/profile/e1s5t9",
-                      "relatives": [
-                        "none listed"
-                      ]
+                      "relatives": ["none listed"]
                     }
                   ]
                 }
@@ -8854,18 +8576,10 @@
                   "recordUrl": "http://127.0.0.1:8652/profile/e1s5t9",
                   "name": "Jordan Example",
                   "age": 44,
-                  "locations": [
-                    "Reno, NV"
-                  ],
-                  "relatives": [
-                    "none listed"
-                  ],
-                  "phones": [
-                    "none listed"
-                  ],
-                  "emails": [
-                    "none listed"
-                  ]
+                  "locations": ["Reno, NV"],
+                  "relatives": ["none listed"],
+                  "phones": ["none listed"],
+                  "emails": ["none listed"]
                 }
               ]
             }
@@ -9001,9 +8715,7 @@
                     {
                       "age": 36,
                       "emails": [],
-                      "locations": [
-                        "Columbus, OH"
-                      ],
+                      "locations": ["Columbus, OH"],
                       "name": "{{first_name}} {{last_name}}",
                       "phones": [],
                       "recordUrl": "http://127.0.0.1:8653/profile/o1w8x3",
@@ -9025,9 +8737,7 @@
                   "recordUrl": "http://127.0.0.1:8653/profile/o1w8x3",
                   "name": "Jordan Example",
                   "age": 36,
-                  "locations": [
-                    "Columbus, OH"
-                  ],
+                  "locations": ["Columbus, OH"],
                   "relatives": [],
                   "phones": [],
                   "emails": []
@@ -9214,9 +8924,7 @@
                     {
                       "age": 36,
                       "emails": [],
-                      "locations": [
-                        "Dallas, {{state}}"
-                      ],
+                      "locations": ["Dallas, {{state}}"],
                       "name": "{{first_name}} {{last_name}}",
                       "phones": [],
                       "recordUrl": "http://127.0.0.1:8654/profile/y1a3b7",
@@ -9238,9 +8946,7 @@
                   "recordUrl": "http://127.0.0.1:8654/profile/y1a3b7",
                   "name": "Jordan Example",
                   "age": 36,
-                  "locations": [
-                    "Dallas, TX"
-                  ],
+                  "locations": ["Dallas, TX"],
                   "relatives": [],
                   "phones": [],
                   "emails": []

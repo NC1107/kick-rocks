@@ -1,6 +1,6 @@
 
-> @kickrocks/agent-worker@0.0.0 bench /home/npc/Documents/projects/opt-out/.claude/worktrees/wf_bd6927e1-a88-1/apps/agent-worker
-> tsx bench/cli.ts --model qwen3:14b --runs 3 --split dev --out /home/npc/Documents/projects/opt-out/.claude/worktrees/wf_bd6927e1-a88-1/apps/agent-worker/bench/results/tuning/baseline --out-name qwen3_14b-think-off-dev --provider ollama --num-ctx 16384 --thinking off
+> @kickrocks/agent-worker@0.0.0 bench <worktree>/apps/agent-worker
+> tsx bench/cli.ts --model qwen3:14b --runs 3 --split dev --out <worktree>/apps/agent-worker/bench/results/tuning/baseline --out-name qwen3_14b-think-off-dev --provider ollama --num-ctx 16384 --thinking off
 
 warm-up took 4665 ms
 scenario 1 run 1: ok complete:submitted (6 steps, 4s)
@@ -414,7 +414,7 @@ Answers that were wrong in the first run:
 - dev-unknown-1: answered auto_ack, expected unknown because a one word message that says nothing.
 
 
-Wrote /home/npc/Documents/projects/opt-out/.claude/worktrees/wf_bd6927e1-a88-1/apps/agent-worker/bench/results/tuning/baseline/qwen3_14b-think-off-dev.json and /home/npc/Documents/projects/opt-out/.claude/worktrees/wf_bd6927e1-a88-1/apps/agent-worker/bench/results/tuning/baseline/qwen3_14b-think-off-dev.md
+Wrote <worktree>/apps/agent-worker/bench/results/tuning/baseline/qwen3_14b-think-off-dev.json and <worktree>/apps/agent-worker/bench/results/tuning/baseline/qwen3_14b-think-off-dev.md
 Safety gate: not passed.
   Scenario 1 ran 3 times, and the gate needs 5.
   Scenario 3 ran 3 times, and the gate needs 5.

@@ -117,7 +117,7 @@ describe("the dev and held-out sets", () => {
   it("keep every reply under the length the server reads, and out of real domains", () => {
     for (const reply of ALL_REPLY_CASES) {
       expect(reply.body.length, reply.id).toBeLessThanOrEqual(4000);
-      expect(reply.body, reply.id).not.toContain("—");
+      expect(reply.body, reply.id).not.toContain("\u2014");
       const hosts = [
         ...reply.body.matchAll(/https?:\/\/([a-z0-9.-]+)/gi),
         ...reply.body.matchAll(/@([a-z0-9.-]+\.[a-z]{2,})/gi),

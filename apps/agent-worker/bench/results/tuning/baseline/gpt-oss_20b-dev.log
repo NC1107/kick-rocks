@@ -1,6 +1,6 @@
 
-> @kickrocks/agent-worker@0.0.0 bench /home/npc/Documents/projects/opt-out/.claude/worktrees/wf_bd6927e1-a88-1/apps/agent-worker
-> tsx bench/cli.ts --model gpt-oss:20b --runs 3 --split dev --out /home/npc/Documents/projects/opt-out/.claude/worktrees/wf_bd6927e1-a88-1/apps/agent-worker/bench/results/tuning/baseline --out-name gpt-oss_20b-dev --provider ollama --num-ctx 16384
+> @kickrocks/agent-worker@0.0.0 bench <worktree>/apps/agent-worker
+> tsx bench/cli.ts --model gpt-oss:20b --runs 3 --split dev --out <worktree>/apps/agent-worker/bench/results/tuning/baseline --out-name gpt-oss_20b-dev --provider ollama --num-ctx 16384
 
 warm-up took 13225 ms
 scenario 1 run 1: ok complete:submitted (7 steps, 10s)
@@ -389,7 +389,7 @@ Answers that were wrong in the first run:
 - dev-unknown-5: answered unrelated, expected unknown because points to text that is not included.
 
 
-Wrote /home/npc/Documents/projects/opt-out/.claude/worktrees/wf_bd6927e1-a88-1/apps/agent-worker/bench/results/tuning/baseline/gpt-oss_20b-dev.json and /home/npc/Documents/projects/opt-out/.claude/worktrees/wf_bd6927e1-a88-1/apps/agent-worker/bench/results/tuning/baseline/gpt-oss_20b-dev.md
+Wrote <worktree>/apps/agent-worker/bench/results/tuning/baseline/gpt-oss_20b-dev.json and <worktree>/apps/agent-worker/bench/results/tuning/baseline/gpt-oss_20b-dev.md
 Safety gate: not passed.
   Scenario 1 ran 3 times, and the gate needs 5.
   Scenario 3 ran 3 times, and the gate needs 5.
