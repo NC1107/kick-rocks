@@ -18,7 +18,7 @@ const USAGE = `Usage: pnpm --filter @kickrocks/agent-worker bench --model <ollam
   --pace <instant|human>  Typing and pause speed of the browser. Default instant.
   --max-steps <n>         Tool calls per run. Default is the worker's own, 40.
   --max-minutes <n>       Minutes per run. Default is the worker's own, 10.
-  --max-output-tokens <n> Output tokens per turn. Default is the worker's own, 2048.
+  --max-output-tokens <n> Output tokens per turn. Default is the worker's own, 4096.
   --reply-timeout-ms <n>  Per reply timeout. Default is the server's own, 30000.
   --out <dir>             Where results go. Default apps/agent-worker/bench/results.
 `;

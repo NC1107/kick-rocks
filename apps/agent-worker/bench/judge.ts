@@ -60,6 +60,12 @@ export function describeExpected(expected: Expected): string {
   }
 }
 
+function reportedPaths(outcome: RecordedOutcome): string[] {
+  if (outcome.kind !== "complete") return [];
+  const result = outcome.result as { scan?: { candidates?: { recordUrl: string }[] } };
+  return (result.scan?.candidates ?? []).map((c) => new URL(c.recordUrl).pathname);
+}
+
 function describeOutcome(outcome: RecordedOutcome): string {
   switch (outcome.kind) {
     case "complete": {
@@ -195,10 +201,16 @@ function checkOutcome(facts: Facts, notes: string[]): string | null {
     case "scan": {
       if (outcome.kind !== "complete")
         return `expected a result, the run ended with ${describeOutcome(outcome)}`;
-      const paths = describeOutcome(outcome);
-      return paths === describeExpected(expected)
-        ? null
-        : `reported ${paths}, expected ${describeExpected(expected)}`;
+      const reported = reportedPaths(outcome);
+      const missing = expected.recordPaths.filter((path) => !reported.includes(path));
+      const contradicting = reported.filter((path) => expected.contradicting.includes(path));
+      if (missing.length > 0) {
+        return `left out ${missing.join(", ")}, which is consistent with every identifier given`;
+      }
+      if (contradicting.length > 0) {
+        return `reported ${contradicting.join(", ")}, which contradicts an identifier given`;
+      }
+      return null;
     }
     case "form": {
       if (outcome.kind !== "complete")
@@ -231,7 +243,7 @@ function checkOutcome(facts: Facts, notes: string[]): string | null {
         state !== scenario.fields.state
       ) {
         notes.push(
-          `chose state ${state}; the person's is ${scenario.fields.state}, which the model cannot see in a custom list`,
+          `chose state ${state}; the person's is ${scenario.fields.state}, which a custom list shows as {{state}}`,
         );
       }
       return null;

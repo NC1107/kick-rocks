@@ -28,6 +28,8 @@ export function targetFor(scenario: Scenario, origin: string): TargetSummary {
     priority: "normal",
     needsRecord: scenario.paths.record !== undefined,
     californiaRegistered: false,
+    difficulty: "medium",
+    difficultyReasons: [],
     retired: false,
   };
 }

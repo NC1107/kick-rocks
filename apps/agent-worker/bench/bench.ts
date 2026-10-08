@@ -3,6 +3,7 @@ import type { ModelProvider } from "../src/provider.js";
 import { createProvider } from "../src/providers/index.js";
 import { type FakeKind, fakeModel } from "./fake-models.js";
 import { readVramMiB } from "./gpu.js";
+import { ollamaStatus } from "./ollama.js";
 import { fakeReplyFetch, type ReplyRun, runReplyBench } from "./replies.js";
 import { type BenchResults, summarizeReplies, summarizeScenarios, totalsOf } from "./report.js";
 import { type RunRecord, runScenarioOnce } from "./run-scenario.js";
@@ -22,29 +23,6 @@ export interface BenchOptions {
   replies: boolean;
   replyTimeoutMs?: number;
   log?: (line: string) => void;
-}
-
-function rootOf(baseUrl: string): string {
-  return baseUrl.replace(/\/v1\/?$/, "");
-}
-
-/** What Ollama reports about the loaded model, which says whether the context was cut short. */
-async function ollamaStatus(
-  baseUrl: string,
-  model: string,
-): Promise<{ contextLength: number | null; sizeVram: number | null }> {
-  try {
-    const response = await fetch(`${rootOf(baseUrl)}/api/ps`, {
-      signal: AbortSignal.timeout(5000),
-    });
-    const body = (await response.json()) as {
-      models?: { name?: string; model?: string; context_length?: number; size_vram?: number }[];
-    };
-    const loaded = body.models?.find((m) => m.name === model || m.model === model);
-    return { contextLength: loaded?.context_length ?? null, sizeVram: loaded?.size_vram ?? null };
-  } catch {
-    return { contextLength: null, sizeVram: null };
-  }
 }
 
 /** One short request, so the weights are in memory before the first timed run. */
@@ -99,6 +77,9 @@ export async function runBench(options: BenchOptions): Promise<BenchResults> {
   const pace = options.pace ?? "instant";
 
   if (!options.fake) await warmUp(baseUrl, options.model, log);
+  const loadedAtStart = options.fake
+    ? { contextLength: null, sizeVram: null }
+    : await ollamaStatus(baseUrl, options.model);
 
   const agentRuns: RunRecord[] = [];
   if (options.agent) {
@@ -137,9 +118,14 @@ export async function runBench(options: BenchOptions): Promise<BenchResults> {
     }
   }
 
-  const status = options.fake
+  // A model can be unloaded by the time the runs end, so the reading taken after the warm-up is the fallback.
+  const loadedAtEnd = options.fake
     ? { contextLength: null, sizeVram: null }
     : await ollamaStatus(baseUrl, options.model);
+  const status = {
+    contextLength: loadedAtEnd.contextLength ?? loadedAtStart.contextLength,
+    sizeVram: loadedAtEnd.sizeVram ?? loadedAtStart.sizeVram,
+  };
   return {
     model: options.model,
     startedAt,

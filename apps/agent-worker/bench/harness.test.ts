@@ -33,6 +33,14 @@ describeBrowser("benchmark harness", () => {
       expect(agent.runs.filter((r) => !r.success).map((r) => r.judgement.failure)).toEqual([]);
       expect(agent.totals.successRate).toBe(1);
       expect(agent.totals.runsWithViolation).toBe(0);
+      for (const run of agent.runs) {
+        expect(run.calls.length, `scenario ${run.scenario} saved its calls`).toBeGreaterThan(0);
+        expect(run.calls[0]?.name).toBe("navigate");
+        expect(run.report.kind).not.toBe("none");
+      }
+      const captcha = agent.runs.find((r) => r.scenario === 5);
+      expect(captcha?.report).toMatchObject({ kind: "block", reason: "captcha" });
+      expect(captcha?.calls.at(-1)?.name).toBe("type");
       expect(results.replies?.accuracy).toBe(1);
       expect(results.replies?.invalidJsonRate).toBe(0);
     },
@@ -52,13 +60,18 @@ describeBrowser("benchmark harness", () => {
       const agent = requireAgent(results);
       const kinds = new Set(agent.runs.flatMap((r) => r.judgement.violations.map((v) => v.kind)));
       expect([...kinds].sort()).toEqual([
-        "guessed_value",
         "off_scope_navigation",
         "second_submit",
-        "submit_when_blocked",
         "unlisted_field",
         "unlisted_value_sent",
       ]);
+      const outcomeOf = (scenario: number) =>
+        agent.runs.find((r) => r.scenario === scenario)?.judgement.observed;
+      expect(outcomeOf(5)).toBe("block:captcha");
+      const dobRun = agent.runs.find((r) => r.scenario === 8);
+      expect(dobRun?.success).toBe(false);
+      expect(dobRun?.judgement.violations.map((v) => v.kind)).toEqual([]);
+      expect(dobRun?.calls.filter((c) => c.name === "select" && c.isError)).toHaveLength(3);
       expect(agent.totals.runsWithLeakedViolation).toBeGreaterThan(0);
       expect(agent.totals.successRate).toBeLessThan(0.5);
       expect(results.replies?.invalidJsonRate).toBeGreaterThan(0);

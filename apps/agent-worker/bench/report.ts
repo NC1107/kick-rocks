@@ -142,6 +142,22 @@ export function summarizeReplies(runs: ReplyRun[]): NonNullable<BenchResults["re
   };
 }
 
+/** What a run told the server, in a line, for the failures list. */
+export function describeReport(report: RunRecord["report"]): string | null {
+  switch (report.kind) {
+    case "block":
+      return `blocked as ${report.reason}: ${report.detail}`;
+    case "fail":
+      return `failed${report.retryable ? " (retryable)" : ""}: ${report.error}`;
+    case "release":
+      return `released: ${report.reason}`;
+    case "complete":
+      return `complete ${JSON.stringify(report.result)}`;
+    case "none":
+      return null;
+  }
+}
+
 const pct = (value: number): string => `${(value * 100).toFixed(1)}%`;
 const seconds = (ms: number): string => `${(ms / 1000).toFixed(1)}s`;
 const vram = (mib: number | null): string => (mib === null ? "n/a" : `${mib} MiB`);
@@ -200,6 +216,8 @@ export function markdownSummary(results: BenchResults): string {
           `- Scenario ${run.scenario} run ${run.run}: expected ${run.judgement.expected}, saw ${run.judgement.observed}.`,
         );
         if (run.judgement.failure) lines.push(`  - ${run.judgement.failure}`);
+        const reported = describeReport(run.report);
+        if (reported) lines.push(`  - Reported ${reported}`);
         for (const v of run.judgement.violations) {
           lines.push(
             `  - Violation ${v.kind}${v.enforced ? " (stopped by the worker)" : " (reached the site)"}: ${v.detail}`,

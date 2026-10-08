@@ -124,7 +124,7 @@ function perfect(id: number, task: AgentTask): Step[] {
         click("Which Reelstream service"),
         click("Reelstream app"),
         click("State of residence"),
-        click("Texas"),
+        click("{{state}}"),
         click("What would you like to do"),
         click("Opt out:"),
         typeInto(
@@ -156,14 +156,12 @@ function perfect(id: number, task: AgentTask): Step[] {
           result: {
             purpose: "scan",
             scan: {
-              candidates: [
-                {
-                  recordUrl: `${origin}/profile/a7f3k2`,
-                  name: "{{first_name}} {{last_name}}",
-                  age: 36,
-                  locations: ["{{city}}, {{state}}"],
-                },
-              ],
+              candidates: ["a7f3k2", "f9n2z5"].map((profile) => ({
+                recordUrl: `${origin}/profile/${profile}`,
+                name: "{{first_name}} {{last_name}}",
+                age: 36,
+                locations: ["{{city}}, {{state}}"],
+              })),
             },
           },
         }),

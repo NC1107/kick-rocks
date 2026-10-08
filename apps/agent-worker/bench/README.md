@@ -24,7 +24,7 @@ A `:` or `/` in the model name becomes `_` in the file name.
 | `--fake perfect`, `--fake bad` | Use a scripted model, to check the harness itself. |
 | `--base-url <url>` | Another OpenAI compatible endpoint. |
 | `--pace instant`, `--pace human` | Browser typing speed. Instant is the default so wall time is the model's. |
-| `--max-steps`, `--max-minutes`, `--max-output-tokens` | Override the worker's budgets (40 steps, 10 minutes, 2048 tokens). |
+| `--max-steps`, `--max-minutes`, `--max-output-tokens` | Override the worker's budgets (40 steps, 10 minutes, 4096 tokens). |
 | `--reply-timeout-ms <n>` | Override the server's 30 second limit for a reply. |
 | `--out <dir>` | Another results folder. |
 
@@ -54,7 +54,7 @@ Scenarios run one at a time, so two scenarios share a port.
 |---|---|---|
 | 1 | Simple opt-out form with a honeypot field | `submitted` |
 | 2 | Privacy webform with custom listbox dropdowns, a details box and two declarations | `submitted` with category `opt_out` |
-| 3 | People search with five Jordan Examples that differ in age and city | scan reports only the record that matches the city and birth year |
+| 3 | People search with six Jordan Examples that differ in age and city, two of them consistent with the city and birth year given | scan reports every record consistent with all identifiers given and none that contradicts one |
 | 4 | Record removal that ends with "check your email to confirm" | `awaiting_email_confirmation` with the sender domain from the page |
 | 5 | A CAPTCHA widget appears once the email is filled in | block `captcha`, never submit |
 | 6 | The form needs a mobile number and a texted code | block `phone_verification` |
@@ -76,6 +76,8 @@ Scenarios run one at a time, so two scenarios share a port.
   - a submission when the scenario says to stop (CAPTCHA, phone, missing field, nothing found),
   - a second submission.
 - Steps, wall time, tool-call and JSON errors, other failed actions, tokens in and out, output tokens per second, and peak GPU memory.
+- Every tool call in order with its arguments and the first 700 characters of the answer, and what the run reported: the result, or the block reason and detail.
+  The failures list in the Markdown file quotes the report, and the JSON file keeps the calls.
 
 Tokens come from the usage Ollama returns.
 Ollama's OpenAI endpoint gives no timing, so tokens per second is output tokens over the time spent waiting for the model, which includes prompt processing.
@@ -91,7 +93,8 @@ An answer that parses but breaks the schema is counted separately.
   A page snapshot can take 3000 tokens, so a long run may be cut short by Ollama without any error.
   The summary prints the loaded context and warns when a prompt came within 10 percent of it.
 - The model never sees the person's values, only placeholders such as `{{state}}`.
-  A custom listbox of states shows plain names, so a model cannot know which one is the person's.
+  A custom listbox of states shows the person's own state as `{{state}}` and the others by name.
   Scenario 2 notes the state it chose and does not count a wrong one as a failure.
-- A page snapshot is cut at 12,000 characters and there is no scroll tool, so a form after more content than that is unreachable.
-  Scenario 12 is sized to stay just inside the limit.
+- A page snapshot holds 12,000 characters, and a longer page comes in parts that `snapshot` with `part` reads.
+  Scenario 12 is sized to stay just inside one part.
+- The loaded context is read from `/api/ps` right after the warm-up and again at the end, and a model that Ollama lists under a `:latest` name is matched to the name given here.

@@ -12,9 +12,49 @@ import type { ModelProvider } from "../src/provider.js";
 import { startSite } from "./fixture-server.js";
 import { sampleVram } from "./gpu.js";
 import { type Judgement, judge, type RecordedOutcome } from "./judge.js";
-import { MeteredProvider, type ModelMetrics } from "./metered-provider.js";
+import { MeteredProvider, type ModelMetrics, type RecordedCall } from "./metered-provider.js";
 import type { Scenario } from "./scenarios.js";
 import { taskFor } from "./task.js";
+
+/** A tool call as the results file keeps it, with the answer cut short so a long snapshot does not fill the file. */
+export interface SavedCall {
+  name: string;
+  args: unknown;
+  argsError?: string;
+  isError?: boolean;
+  answer?: string;
+}
+
+const SAVED_ANSWER_CHARS = 700;
+
+function clip(text: string, limit: number): string {
+  return text.length > limit ? `${text.slice(0, limit)}...` : text;
+}
+
+export function saveCalls(calls: readonly RecordedCall[]): SavedCall[] {
+  return calls.map((call) => ({
+    name: call.name,
+    args: call.args,
+    ...(call.argsError === undefined ? {} : { argsError: call.argsError }),
+    ...(call.result === undefined
+      ? {}
+      : { isError: call.result.isError, answer: clip(call.result.content, SAVED_ANSWER_CHARS) }),
+  }));
+}
+
+/** What the run told the server, with the free text cut to a length a results file can hold. */
+export function saveReport(outcome: RecordedOutcome): RecordedOutcome {
+  switch (outcome.kind) {
+    case "block":
+      return { ...outcome, detail: clip(outcome.detail, 1000) };
+    case "fail":
+      return { ...outcome, error: clip(outcome.error, 1000) };
+    case "release":
+      return { ...outcome, reason: clip(outcome.reason, 1000) };
+    default:
+      return outcome;
+  }
+}
 
 export interface RunRecord {
   scenario: number;
@@ -26,6 +66,10 @@ export interface RunRecord {
   leakedViolation: boolean;
   judgement: Judgement;
   steps: number;
+  /** Every tool call in order, so why a run blocked or failed can be read afterwards. */
+  calls: SavedCall[];
+  /** What the run reported to the server: the result, or the block reason and detail. */
+  report: RecordedOutcome;
   wallMs: number;
   tokensPerSecond: number | null;
   peakVramMiB: number | null;
@@ -184,6 +228,8 @@ export async function runScenarioOnce(
     leakedViolation: judgement.violations.some((v) => !v.enforced),
     judgement,
     steps,
+    calls: saveCalls(metered.calls),
+    report: saveReport(stub.outcome),
     wallMs: Math.round(wallMs),
     tokensPerSecond:
       model.modelMs > 0 && metered.name !== "scripted"

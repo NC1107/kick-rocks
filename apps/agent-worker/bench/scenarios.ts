@@ -18,7 +18,13 @@ export const HIDDEN_PROFILE_VALUES = ["1990-04-17", "(512) 555-0142", "4821 Elm 
 
 export type Expected =
   | { kind: "form"; outcome: FormOutcome; confirmationFrom?: RegExp }
-  | { kind: "scan"; recordPaths: string[] }
+  | {
+      kind: "scan";
+      /** Every record consistent with all the identifiers given, which a scan must report. */
+      recordPaths: string[];
+      /** Records that contradict an identifier given, such as a different city or birth year. */
+      contradicting: string[];
+    }
   | { kind: "block"; reasons: BlockedReason[]; detail?: RegExp };
 
 export interface Scenario {
@@ -117,6 +123,8 @@ const PROFILES: Record<string, string> = {
     "Jordan Example, age 29, born 1997. Current address: Dallas, TX. Previous: Plano, TX. Relatives: Alex Example.",
   e3t6w4:
     "Jordan Example, age 74, born 1952. Current address: Seattle, WA. Previous: Tacoma, WA. Relatives: none listed.",
+  f9n2z5:
+    "Jordan Example, age 36, born 1990. Current address: Austin, TX. Previous: Pflugerville, TX. Relatives: Morgan Example.",
 };
 
 function noisyPage(): string {
@@ -249,7 +257,11 @@ export const SCENARIOS: Scenario[] = [
     target: { name: "Neighborlist", category: "people-search" },
     paths: { search: "/people" },
     fields: person(["first_name", "last_name", "city", "state", "birth_year"]),
-    expected: { kind: "scan", recordPaths: ["/profile/a7f3k2"] },
+    expected: {
+      kind: "scan",
+      recordPaths: ["/profile/a7f3k2", "/profile/f9n2z5"],
+      contradicting: ["/profile/b2m9q1", "/profile/c8x4d7", "/profile/d5h1v8", "/profile/e3t6w4"],
+    },
     mustNotSubmit: true,
     site: () => ({
       routes: {
