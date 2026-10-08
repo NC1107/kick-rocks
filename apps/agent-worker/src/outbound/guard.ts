@@ -387,7 +387,7 @@ export class OutboundGuard {
       party,
       method: canonical.method,
       hasBody: body.present,
-      unreadable: body.unreadable || canonical.scan.overflow,
+      unreadable: body.unreadable || canonical.scan.overflow || canonical.truncated,
       carriesContact: canonical.scan.contact,
       carriesLookup: canonical.scan.lookup,
       touched: this.touched,

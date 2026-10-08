@@ -23,6 +23,10 @@ describe("the gate limits in the agent guide", () => {
     const guide = read("docs/agents.md");
     expect(guide).toContain("A page can send a value split into pieces");
     expect(guide).toContain("at least the first five characters of an email");
+    expect(guide).toContain(
+      "Any other piece goes out in a plain GET without asking, whatever its length",
+    );
+    expect(guide).toContain("all but the last character");
   });
 });
 

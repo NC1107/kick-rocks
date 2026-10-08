@@ -162,6 +162,7 @@ export function isTokenShaped(value: string): boolean {
 }
 
 function valuesMatch(candidate: OutgoingValue, approved: OutgoingValue): boolean {
+  if (!sameFields(candidate.fields, approved.fields)) return false;
   if (candidate.value === approved.value) return true;
   return (
     candidate.class === "served_token" &&
@@ -169,6 +170,15 @@ function valuesMatch(candidate: OutgoingValue, approved: OutgoingValue): boolean
     isTokenShaped(candidate.value) &&
     isTokenShaped(approved.value)
   );
+}
+
+function sameFields(
+  candidate: readonly CarriedField[] | undefined,
+  approved: readonly CarriedField[] | undefined,
+): boolean {
+  const left = [...(candidate ?? [])].sort();
+  const right = [...(approved ?? [])].sort();
+  return left.length === right.length && left.every((field, index) => field === right[index]);
 }
 
 function sameValues(candidate: readonly OutgoingValue[], approved: readonly OutgoingValue[]) {
@@ -218,6 +228,7 @@ function sameRequestShape(candidate: OutgoingRequest, approved: OutgoingRequest)
     candidate.target.type === approved.target.type &&
     candidate.target.frameOrigin === approved.target.frameOrigin &&
     candidate.bodyKind === approved.bodyKind &&
+    sameFields(candidate.carries, approved.carries) &&
     sameValues(candidate.query, approved.query) &&
     sameValues(candidate.body, approved.body) &&
     sameValues(candidate.headers, approved.headers)

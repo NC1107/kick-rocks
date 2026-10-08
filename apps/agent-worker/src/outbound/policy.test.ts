@@ -61,6 +61,13 @@ describe("the outgoing rules", () => {
     });
   });
 
+  it("refuses a request with no body that was cut short and carries a contact value (U)", () => {
+    expect(decide(facts({ carriesContact: true, unreadable: true }))).toMatchObject({
+      action: "refuse",
+      rule: "U",
+    });
+  });
+
   describe("for another site", () => {
     const third = (change: Partial<Facts>) => facts({ party: "third", ...change });
 

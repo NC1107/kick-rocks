@@ -63,6 +63,8 @@ export interface Canonical {
   body: BodyRead;
   method: string;
   url: string;
+  /** Part of the request is missing from the record, so a person cannot have read all of it. */
+  truncated: boolean;
 }
 
 /**
@@ -170,12 +172,21 @@ interface Leaf {
   value: string;
 }
 
-function jsonLeaves(value: unknown, path: string, out: Leaf[]): void {
-  if (out.length >= MAX_ENTRIES * 2) return;
-  if (typeof value === "string") out.push({ path, value });
+interface JsonLeaves {
+  leaves: Leaf[];
+  capped: boolean;
+}
+
+function jsonLeaves(value: unknown, path: string, out: JsonLeaves): void {
+  if (out.leaves.length >= MAX_ENTRIES * 2) {
+    out.capped = true;
+    return;
+  }
+  const leaves = out.leaves;
+  if (typeof value === "string") leaves.push({ path, value });
   else if (typeof value === "number" || typeof value === "boolean") {
-    out.push({ path, value: String(value) });
-  } else if (value === null) out.push({ path, value: "null" });
+    leaves.push({ path, value: String(value) });
+  } else if (value === null) leaves.push({ path, value: "null" });
   else if (Array.isArray(value)) {
     value.forEach((item, index) => {
       jsonLeaves(item, `${path}[${index}]`, out);
@@ -222,6 +233,8 @@ function multipartLeaves(bytes: Buffer, boundary: string): Leaf[] | null {
 interface Shaped {
   kind: OutgoingRequest["bodyKind"];
   leaves: Leaf[];
+  /** The JSON held more leaves than are read. */
+  capped?: boolean;
 }
 
 function shapeBody(body: BodyRead, contentType: string, encoding: string): Shaped {
@@ -252,9 +265,9 @@ function shapeBody(body: BodyRead, contentType: string, encoding: string): Shape
   const text = plain.toString("utf8");
   if (type.includes("json") || /^\s*[[{]/.test(text)) {
     try {
-      const leaves: Leaf[] = [];
-      jsonLeaves(JSON.parse(text), "", leaves);
-      return { kind: "json", leaves };
+      const found: JsonLeaves = { leaves: [], capped: false };
+      jsonLeaves(JSON.parse(text), "", found);
+      return { kind: "json", leaves: found.leaves, capped: found.capped };
     } catch {
       // Not JSON after all: it is shown as the text it is.
     }
@@ -267,7 +280,7 @@ function lastKey(path: string): string {
   return key.slice(key.lastIndexOf(".") + 1);
 }
 
-function clip(text: string): string {
+function clipText(text: string): string {
   return text.length > MAX_VALUE_CHARS ? text.slice(0, MAX_VALUE_CHARS) : text;
 }
 
@@ -294,6 +307,12 @@ export function canonicalize(input: CanonicalizeInput): Canonical {
   const headers = event.request.headers ?? {};
   const contentType = header(headers, "content-type");
   const encoding = header(headers, "content-encoding");
+
+  let truncated = false;
+  const clip = (text: string): string => {
+    if (text.length > MAX_VALUE_CHARS) truncated = true;
+    return clipText(text);
+  };
 
   const carried = new Set<CarriedField>();
   const noteScan = (scan: Scan): Scan => {
@@ -323,12 +342,14 @@ export function canonicalize(input: CanonicalizeInput): Canonical {
     return { path, value: clip(mask(raw)), class: "literal" };
   };
 
-  const scanEach = (leaves: readonly Leaf[]): OutgoingValue[] =>
-    leaves
+  const scanEach = (leaves: readonly Leaf[]): OutgoingValue[] => {
+    if (leaves.length > MAX_ENTRIES) truncated = true;
+    return leaves
       .slice(0, MAX_ENTRIES)
       .map((leaf) =>
         leafOf(leaf.path, leaf.value, noteScan(detector.scan([leaf.path, leaf.value]))),
       );
+  };
 
   const query = scanEach([...url.searchParams].map(([path, value]) => ({ path, value })));
   const searchScan = noteScan(detector.scan([url.search, safeDecode(url.search)]));
@@ -349,6 +370,7 @@ export function canonicalize(input: CanonicalizeInput): Canonical {
 
   const shaped = shapeBody(body, contentType, encoding);
   const bodyValues = scanEach(shaped.leaves);
+  if (shaped.capped === true) truncated = true;
   const rawBody: (string | { data: Buffer; contentEncoding?: string })[] =
     body.bytes === null
       ? []
@@ -359,12 +381,18 @@ export function canonicalize(input: CanonicalizeInput): Canonical {
   for (const [name, value] of Object.entries(headers)) {
     const lower = name.toLowerCase();
     if (lower === "cookie" || (lower === "referer" && party === "target")) continue;
-    if (headerValues.length >= MAX_HEADERS) break;
+    if (headerValues.length >= MAX_HEADERS) {
+      truncated = true;
+      break;
+    }
     const scan = noteScan(detector.scan([lower, value]));
     if (scan.fields.length > 0) headerValues.push(leafOf(lower, value, scan));
   }
   for (const cookie of cookies) {
-    if (headerValues.length >= MAX_HEADERS) break;
+    if (headerValues.length >= MAX_HEADERS) {
+      truncated = true;
+      break;
+    }
     const scan = noteScan(detector.scan([cookie.name, cookie.value]));
     if (scan.fields.length > 0)
       headerValues.push(leafOf(`cookie:${cookie.name}`, cookie.value, scan));
@@ -402,7 +430,7 @@ export function canonicalize(input: CanonicalizeInput): Canonical {
     lookup: fields.some((field) => !isContactField(field)),
     overflow,
   };
-  return { request, scan, body, method, url: event.request.url };
+  return { request, scan, body, method, url: event.request.url, truncated };
 }
 
 function safeDecode(text: string): string {

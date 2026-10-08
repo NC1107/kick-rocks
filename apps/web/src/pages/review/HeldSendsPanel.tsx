@@ -47,11 +47,7 @@ function Badges({ badges }: { badges: readonly Badge[] }) {
   return (
     <>
       {badges.map((badge) => (
-        <Tag
-          key={badge.text}
-          tone={badge.tone}
-          className="h-auto max-w-full whitespace-normal py-px text-left"
-        >
+        <Tag key={badge.text} tone={badge.tone} wrap>
           {badge.text}
         </Tag>
       ))}

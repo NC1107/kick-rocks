@@ -38,6 +38,18 @@ function request(overrides: Partial<OutgoingRequest> = {}): OutgoingRequest {
 const withBody = (body: OutgoingValue[]) => request({ body });
 
 describe("matchesApproved", () => {
+  it("refuses a request that also carries a value the approved one did not", () => {
+    const next = request({ carries: ["email", "phone"] });
+    expect(matchesApproved(next, request())).toBe(false);
+  });
+
+  it("refuses a value that holds more fields than the approved one", () => {
+    const note = (fields: OutgoingValue["fields"]) =>
+      request({ body: [{ path: "note", value: "x", class: "profile", fields }] });
+    expect(matchesApproved(note(["email", "phone"]), note(["email"]))).toBe(false);
+    expect(matchesApproved(note(["phone", "email"]), note(["email", "phone"]))).toBe(true);
+  });
+
   it("accepts the same request", () => {
     expect(matchesApproved(request(), request())).toBe(true);
   });

@@ -55,8 +55,9 @@ export function decide(facts: Facts): Verdict {
     }
     return { action: "continue", rule: facts.touched && facts.hasBody ? "R2-challenge" : "pass" };
   }
-  // What a person cannot read in full they cannot approve, so it is never held.
-  if (facts.hasBody && facts.unreadable && (facts.carriesContact || facts.touched)) {
+  // What a person cannot read in full they cannot approve, so it is never held. A request with no
+  // body can still be cut short, by more fields than are shown.
+  if (facts.unreadable && (facts.carriesContact || (facts.hasBody && facts.touched))) {
     return { action: "refuse", rule: "U", reason: "unreadable_body" };
   }
   if (facts.carriesContact) return { action: "send", rule: "R1" };

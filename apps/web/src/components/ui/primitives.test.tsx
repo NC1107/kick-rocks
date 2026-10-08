@@ -184,4 +184,18 @@ describe("small primitives", () => {
     expect(screen.getByRole("alert")).toHaveTextContent("Could not reach the server.");
     expect(screen.getByText("Nothing needs you.")).toBeVisible();
   });
+
+  it("lets a wrapping tag break its label, where a plain one never does", () => {
+    render(
+      <>
+        <Tag>plain</Tag>
+        <Tag wrap>wrapping</Tag>
+      </>,
+    );
+    expect(screen.getByText("plain").className).toContain("whitespace-nowrap");
+    const wrapping = screen.getByText("wrapping").className;
+    expect(wrapping).toContain("whitespace-normal");
+    expect(wrapping).not.toContain("whitespace-nowrap");
+    expect(wrapping).not.toContain("shrink-0");
+  });
 });

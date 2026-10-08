@@ -54,6 +54,34 @@ function canonical(
   });
 }
 
+describe("canonicalize marks a request that was cut short", () => {
+  const form = (pairs: string[]) =>
+    canonical(
+      paused({ headers: { "content-type": "application/x-www-form-urlencoded" } }),
+      bodyOf(pairs.join("&")),
+    );
+
+  it("when the body holds more fields than are listed", () => {
+    const padding = Array.from({ length: 400 }, (_, index) => `f${index}=1`);
+    expect(form(padding).truncated).toBe(false);
+    expect(form([...padding, "phone=5125550142"]).truncated).toBe(true);
+  });
+
+  it("when a value is longer than is kept", () => {
+    expect(form([`note=${"a".repeat(4000)}`]).truncated).toBe(false);
+    expect(form([`note=${"a".repeat(4001)}`]).truncated).toBe(true);
+  });
+
+  it("when a JSON body holds more leaves than are read", () => {
+    const leaves = Object.fromEntries(Array.from({ length: 900 }, (_, index) => [`k${index}`, 1]));
+    const result = canonical(
+      paused({ headers: { "content-type": "application/json" } }),
+      bodyOf(JSON.stringify(leaves)),
+    );
+    expect(result.truncated).toBe(true);
+  });
+});
+
 describe("canonicalize places other than a value", () => {
   const EMAIL = "jordan.example@example.com";
   const hex = Buffer.from(EMAIL).toString("hex");

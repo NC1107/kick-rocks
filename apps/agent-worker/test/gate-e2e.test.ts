@@ -312,7 +312,7 @@ describeBrowser("the outgoing gate end to end with the real server", () => {
       const first = await firstLapse(taskId);
       expect(first).toMatchObject({ status: "blocked", blockedReason: "approval_needed" });
       expect(first.blockedDetail).toContain(
-        "splits into short pieces or pieces that equal a name, place or domain",
+        "only the whole value, the first six or more characters of an email, the value backwards and a common hash are recognized",
       );
       expect((await fixtureState()).submissions).toEqual([]);
       const waiting = rowsOf(taskId).filter((row) => row.status === "awaiting_next_run");
@@ -672,6 +672,30 @@ describeBrowser("the outgoing gate end to end with the real server", () => {
       ]);
       expect(after).toMatchObject({ status: "blocked", blockedReason: "approval_needed" });
       expect((await fixtureState()).submissions).toEqual([]);
+    });
+  });
+
+  describe("a request with more fields than are listed", () => {
+    it("is not sent on an approval of the shorter one when the next run adds a phone past the listed fields", async () => {
+      const taskId = await startServer("/gate-overflow");
+      await workOnce(taskId, [
+        open("/gate-overflow"),
+        typeEmail,
+        snap,
+        clickLabel("Submit request"),
+      ]);
+      expect((await approveNext(taskId)).ok).toBe(true);
+      const after = await workOnce(taskId, [
+        open("/gate-overflow#phone"),
+        typeEmail,
+        (v) => ({ calls: [["type", { ref: v.ref("Phone number"), field: "phone" }]] }),
+        snap,
+        clickLabel("Submit request"),
+        giveBack,
+      ]);
+      expect(after.status).not.toBe("done");
+      expect((await fixtureState()).submissions).toEqual([]);
+      expect(rowsOf(taskId).some((row) => row.kind === "refused")).toBe(true);
     });
   });
 

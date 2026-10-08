@@ -127,6 +127,7 @@ const PAGES: Record<string, string> = {
   "/gate-hop": "gate-hop.html",
   "/gate-encode": "gate-encode.html",
   "/gate-custom": "gate-custom.html",
+  "/gate-overflow": "gate-overflow.html",
   "/gate-step1": "gate-step1.html",
   "/gate-ws": "gate-ws.html",
   "/gate-probes": "gate-probes.html",
