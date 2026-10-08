@@ -3,6 +3,7 @@ import {
   type BlockedReason,
   type ClaimerKind,
   type FailureKind,
+  LEASE_MS,
   LIVE_TASK_STATUSES,
   MAX_SCREENSHOT_BYTES,
   manualResultSchemaFor,
@@ -19,7 +20,7 @@ import {
   type TaskWaiting,
   toTaskResult,
 } from "@kickrocks/shared";
-import { and, asc, desc, eq, inArray, isNull, lte, notInArray, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gt, inArray, isNull, lte, notInArray, or, sql } from "drizzle-orm";
 import type { z } from "zod";
 import { type Clock, nowIso } from "./clock.js";
 import { AppError, conflict, notFound } from "./errors.js";
@@ -555,7 +556,17 @@ export function createTaskQueue({
     return tx
       .select()
       .from(tasks)
-      .where(and(eq(tasks.status, "leased"), lte(tasks.leaseExpiresAt, now)))
+      .where(
+        and(
+          eq(tasks.status, "leased"),
+          // A lease further out than any claim can ask for was stamped by a clock that ran ahead
+          // and has since been put right, so waiting it out would strand the task for days.
+          or(
+            lte(tasks.leaseExpiresAt, now),
+            gt(tasks.leaseExpiresAt, new Date(Date.parse(now) + LEASE_MS.max).toISOString()),
+          ),
+        ),
+      )
       .orderBy(asc(sql`rowid`))
       .all();
   }

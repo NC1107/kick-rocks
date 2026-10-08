@@ -1,6 +1,6 @@
 import { type KickRocksDb, mailboxes, outgoingMail } from "@kickrocks/db";
 import type { EmailKind } from "@kickrocks/shared";
-import { and, count, desc, eq, gt } from "drizzle-orm";
+import { and, count, desc, eq, gt, lte } from "drizzle-orm";
 import { type Clock, nowIso } from "./clock.js";
 import { notFound } from "./errors.js";
 import { newId } from "./ids.js";
@@ -34,13 +34,21 @@ export interface MailQuota {
 }
 
 export function createMailQuota(db: KickRocksDb, clock: Clock): MailQuota {
+  // A send stamped by a clock that ran ahead and was put right is not in the past yet, and
+  // counting it would hold the cap and the gap shut until that moment arrives.
+  const notAfterNow = () => lte(outgoingMail.sentAt, nowIso(clock));
+
   function sentSince(mailboxId: string, since: Date): number {
     return (
       db
         .select({ n: count() })
         .from(outgoingMail)
         .where(
-          and(eq(outgoingMail.mailboxId, mailboxId), gt(outgoingMail.sentAt, since.toISOString())),
+          and(
+            eq(outgoingMail.mailboxId, mailboxId),
+            gt(outgoingMail.sentAt, since.toISOString()),
+            notAfterNow(),
+          ),
         )
         .get()?.n ?? 0
     );
@@ -67,7 +75,7 @@ export function createMailQuota(db: KickRocksDb, clock: Clock): MailQuota {
       const row = db
         .select({ sentAt: outgoingMail.sentAt })
         .from(outgoingMail)
-        .where(eq(outgoingMail.mailboxId, mailboxId))
+        .where(and(eq(outgoingMail.mailboxId, mailboxId), notAfterNow()))
         .orderBy(desc(outgoingMail.sentAt))
         .limit(1)
         .get();

@@ -666,6 +666,16 @@ describe("reapExpiredLeases", () => {
     });
   });
 
+  it("reaps a lease stamped by a clock that ran ahead and was put right", async () => {
+    queue.enqueue({ kind: "email_send", payload: emailPayload() });
+    const realNow = ctx.clock.now();
+    ctx.clock.advance(3 * DAY);
+    const task = claimOne();
+    ctx.clock.set(realNow);
+    const [reaped] = queue.reapExpiredLeases();
+    expect(reaped).toMatchObject({ id: task.id, status: "queued" });
+  });
+
   it("keeps the plain reason for a task that is not a send", async () => {
     queue.enqueue({ kind: "inbox_poll", payload: pollPayload() });
     const task = queue.claim({ workerId: "worker-1", kinds: ["inbox_poll"], leaseMs: 5 * MINUTE });
