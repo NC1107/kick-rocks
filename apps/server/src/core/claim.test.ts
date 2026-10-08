@@ -528,6 +528,7 @@ describe("agent tasks", () => {
         "77001",
         "1990-04-05",
         "1990",
+        "TX",
       ]),
     );
     expect(Object.keys(forModel?.fields ?? {})).not.toContain("street");
@@ -555,6 +556,11 @@ describe("agent tasks", () => {
       full_name: "Jordan Q Example",
       email: "jordan@example.com",
     });
+  });
+
+  it("gives a removal the state too, because a form asks for it far more often than a recipe says", () => {
+    expect(agentClaim("remove")?.fields.state).toBe("TX");
+    expect(agentClaim("remove")?.instructions).toMatch(/Identifiers you may use: .*state/);
   });
 
   it("gives a removal the record URL as a value it may paste", () => {
@@ -626,6 +632,21 @@ describe("agent tasks", () => {
     expect(text).toContain("awaiting_email_confirmation");
     expect(text).toContain("confirmationFrom");
     expect(text).toContain("Never submit a form more than once");
+  });
+
+  it("tells a removal to look up an existing request first and stop at already_removed", () => {
+    const text = agentClaim("remove")?.instructions ?? "";
+    expect(text).toContain("look up or check the status of an existing request");
+    expect(text).toContain("before you start a new one");
+    expect(text).toContain("outcome already_removed");
+    expect(agentClaim("scan")?.instructions).not.toContain("existing request");
+  });
+
+  it("asks a scan for the records consistent with every identifier, not every possible match", () => {
+    const text = agentClaim("scan")?.instructions ?? "";
+    expect(text).toContain("consistent with all of the identifiers");
+    expect(text).toContain("contradicts one of them");
+    expect(text).not.toContain("could be them");
   });
 
   it("says where to start and how to look the target up, which an agent cannot guess", () => {

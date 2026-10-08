@@ -287,6 +287,7 @@ describe("claim_task", () => {
     expect(task).toMatchObject({ kind: "agent", target: { id: target.id }, attempt: 1 });
     expect(task.instructions.length).toBeGreaterThan(50);
     expect(task.fields.first_name).toBe("Jordan");
+    expect(task.fields.state).toBe("TX");
     expect(Object.keys(task.fields)).not.toContain("dob");
 
     const row = ctx.services.taskQueue.getOrThrow(task.id);
