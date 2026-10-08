@@ -21,7 +21,7 @@ export function Component() {
 
   return (
     <>
-      <SettingsHeader description="Schedule, workers, privacy laws, and password" />
+      <SettingsHeader section="General" description="Schedule, workers, privacy laws, and password" />
       <div className={SETTINGS_WIDTH}>
         {settings.isPending ? (
           <div aria-busy="true">

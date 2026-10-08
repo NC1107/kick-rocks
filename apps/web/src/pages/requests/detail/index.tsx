@@ -44,6 +44,7 @@ import {
   RIGHT_LABELS,
   TASK_KIND_LABELS,
 } from "../../../lib/labels.js";
+import { REQUEST_STATUS_META } from "../../../lib/status.js";
 import { MessageBody } from "../../review/MessageBody.js";
 import { detailRefreshInterval } from "../polling.js";
 import { Timeline } from "./Timeline.js";
@@ -258,6 +259,7 @@ function Detail({ request }: { request: RequestDetail }) {
     <>
       <PageHeader
         title={target.name}
+        documentTitle={`${target.name}, ${REQUEST_STATUS_META[request.status].label}`}
         description={
           <span className="flex flex-wrap items-center gap-x-4 gap-y-1">
             <StatusMark status={request.status} />

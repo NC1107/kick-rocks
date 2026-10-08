@@ -20,7 +20,7 @@ export function Component() {
 
   return (
     <>
-      <SettingsHeader description="Push and digest email when something needs you" />
+      <SettingsHeader section="Notifications" description="Push and digest email when something needs you" />
       <div className={SETTINGS_WIDTH}>
         {settings.isPending ? (
           <div aria-busy="true">

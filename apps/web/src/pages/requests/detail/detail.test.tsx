@@ -49,6 +49,12 @@ describe("the request page", () => {
     expect(screen.queryByText(/by Kick Rocks/)).not.toBeInTheDocument();
   });
 
+  it("puts the broker and the request status in the tab title", async () => {
+    open(byTarget("cardinal-insights"));
+    await screen.findByRole("heading", { name: "Cardinal Insights", level: 1 });
+    expect(document.title).toBe("Cardinal Insights, Awaiting reply - Kick Rocks");
+  });
+
   it("joins several rights into one sentence with only the first capitalised", async () => {
     const mock = failing(/never/);
     const request = mock.store.requests.find(

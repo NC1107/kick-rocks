@@ -34,7 +34,7 @@ export function Component() {
 
   return (
     <>
-      <SettingsHeader description="Check bundled steps before they run on your details" />
+      <SettingsHeader section="Recipes" description="Check bundled steps before they run on your details" />
       <div className={SETTINGS_WIDTH}>
         <Section
           label="Bundled recipes to check"
