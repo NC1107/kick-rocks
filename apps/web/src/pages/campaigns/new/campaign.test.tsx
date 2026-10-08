@@ -60,6 +60,21 @@ describe("the campaign builder", () => {
     expect(within(preview).getByText(/Privacy request KR-/)).toBeVisible();
   });
 
+  it("labels the confirm dialog rows in plain words", async () => {
+    const { user } = open();
+    await user.click(
+      await screen.findByRole("radio", { name: /Data brokers with an email address/ }),
+    );
+    const send = within(screen.getByTestId("send-bar")).getByRole("button", {
+      name: "Send requests",
+    });
+    await waitFor(() => expect(send).toBeEnabled());
+    await user.click(send);
+    const dialog = within(await screen.findByRole("dialog"));
+    expect(dialog.getByText("Asking for")).toBeVisible();
+    expect(dialog.getByText("Opt out of sale")).toBeVisible();
+  });
+
   it("lists why targets were skipped, grouped by reason", async () => {
     const { user } = open();
     await user.click(await screen.findByRole("radio", { name: /Everything/ }));

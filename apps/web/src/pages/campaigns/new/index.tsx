@@ -519,19 +519,19 @@ function Builder({ profile }: { profile: ProfileSummary }) {
         onConfirm={() => body && create.mutate({ params: { id: profile.id }, body })}
       >
         {counts ? (
-          <dl className="m-0 flex flex-col gap-1 font-mono text-meta">
+          <dl className="m-0 flex flex-col gap-1 text-ui">
             {(["email", "form", "manual", "scan"] as const)
               .filter((channel) => counts[channel] > 0)
               .map((channel) => (
                 <div key={channel} className="flex justify-between gap-6">
-                  <dt className="text-ink-2">{CHANNEL_LABELS[channel]}</dt>
-                  <dd className="m-0 text-ink tabular-nums">{formatCount(counts[channel])}</dd>
+                  <dt className="text-ink-2 first-letter:uppercase">{CHANNEL_LABELS[channel]}</dt>
+                  <dd className="m-0 font-mono text-ink tabular-nums">{formatCount(counts[channel])}</dd>
                 </div>
               ))}
             <div className="mt-1 flex justify-between gap-6 border-t border-line pt-2">
-              <dt className="text-ink-2">asking for</dt>
-              <dd className="m-0 text-ink">
-                {rights.map((right) => RIGHT_TOKENS[right]).join(", ")}
+              <dt className="text-ink-2">Asking for</dt>
+              <dd className="m-0 text-right text-ink">
+                {rights.map((right) => RIGHT_LABELS[right]).join(", ")}
               </dd>
             </div>
           </dl>
