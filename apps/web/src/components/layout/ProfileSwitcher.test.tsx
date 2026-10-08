@@ -11,4 +11,16 @@ describe("the profile switcher", () => {
     await user.click(await screen.findByRole("menuitemradio", { name: /Riley/ }));
     expect(onSwitch).toHaveBeenCalledTimes(1);
   });
+
+  it("names the button with everything it shows, so voice control can click it", async () => {
+    renderPage(<ProfileSwitcher />);
+    const button = await screen.findByRole("button", { name: /Switch profile/ });
+    const visible = Array.from(button.querySelectorAll("span:not([aria-hidden])"))
+      .filter((span) => span.children.length === 0)
+      .map((span) => span.textContent ?? "");
+    expect(visible).toHaveLength(2);
+    for (const text of visible) {
+      expect(button.getAttribute("aria-label")).toContain(text);
+    }
+  });
 });
