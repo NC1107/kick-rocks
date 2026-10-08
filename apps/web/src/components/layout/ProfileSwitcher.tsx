@@ -60,7 +60,7 @@ export function ProfileSwitcher({
     },
   ];
 
-  // Voice control matches what is on screen, so the name has to start with the visible text.
+  // No aria-label: voice control matches the visible text, so the name must come from the content.
   const name = profile?.displayName ?? "No profile yet";
   const detail = profile ? (profile.primaryEmail ?? "No email") : "Add one to begin";
 
@@ -74,7 +74,6 @@ export function ProfileSwitcher({
         <button
           type="button"
           {...triggerProps}
-          aria-label={`${name} ${detail}. Switch profile`}
           className="flex h-10 w-full items-center gap-2.5 rounded-sm border border-line bg-surface px-2 text-left transition-colors duration-100 hover:bg-hover max-sm:h-12"
         >
           <span
@@ -87,6 +86,7 @@ export function ProfileSwitcher({
             <span className="truncate text-ui leading-4 font-medium text-ink">{name}</span>
             <span className="truncate font-mono text-label leading-3.5 text-ink-3">{detail}</span>
           </span>
+          <span className="sr-only">{profile ? "Switch profile" : "Choose a profile"}</span>
           <ChevronsUpDown aria-hidden="true" className="size-4 shrink-0 text-ink-3" />
         </button>
       )}

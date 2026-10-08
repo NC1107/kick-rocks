@@ -12,15 +12,18 @@ describe("the profile switcher", () => {
     expect(onSwitch).toHaveBeenCalledTimes(1);
   });
 
-  it("names the button with everything it shows, so voice control can click it", async () => {
+  it("names the button from its content, so the accessible name holds everything it shows", async () => {
     renderPage(<ProfileSwitcher />);
     const button = await screen.findByRole("button", { name: /Switch profile/ });
-    const visible = Array.from(button.querySelectorAll("span:not([aria-hidden])"))
+    expect(button).not.toHaveAttribute("aria-label");
+    const name = button.textContent ?? "";
+    const visible = Array.from(button.querySelectorAll("span:not([aria-hidden]):not(.sr-only)"))
       .filter((span) => span.children.length === 0)
       .map((span) => span.textContent ?? "");
     expect(visible).toHaveLength(2);
     for (const text of visible) {
-      expect(button.getAttribute("aria-label")).toContain(text);
+      expect(screen.getByRole("button", { name: new RegExp(text) })).toBe(button);
     }
+    expect(name).toContain("Switch profile");
   });
 });
