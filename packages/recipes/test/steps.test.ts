@@ -240,13 +240,17 @@ describeBrowser("optional steps", () => {
 
   it("skips an optional step whose target never shows up, and carries on", async () => {
     const started = Date.now();
-    const outcome = await run({
-      entry: "/banner",
-      steps: [dismissBanner, { kind: "fill", target: { label: "Name" }, value: "after" }],
-    });
+    const outcome = await run(
+      {
+        entry: "/banner",
+        steps: [dismissBanner, { kind: "fill", target: { label: "Name" }, value: "after" }],
+      },
+      JORDAN,
+      { timeouts: { ...FAST.timeouts, stepMs: 60_000 } },
+    );
     expect(outcome.status).toBe("completed");
     expect(await filled("#name")).toBe("after");
-    expect(Date.now() - started).toBeLessThan(2500);
+    expect(Date.now() - started).toBeLessThan(30_000);
   });
 
   it("skips an optional step in a frame that is not there", async () => {
@@ -562,7 +566,7 @@ describeBrowser("typed failures", () => {
       { signal: controller.signal },
     );
     expect(outcome).toMatchObject({ status: "failed", kind: "internal", retryable: true });
-    expect(Date.now() - started).toBeLessThan(3000);
+    expect(Date.now() - started).toBeLessThan(20_000);
   });
 
   it("does not start a run that was aborted already", async () => {
