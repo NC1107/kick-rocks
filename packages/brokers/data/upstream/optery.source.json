@@ -1,0 +1,19 @@
+{
+  "name": "Optery Data Brokers Directory",
+  "author": "Optery, Inc.",
+  "repository": "https://github.com/optery/optery-data-brokers-directory",
+  "branch": "master",
+  "commit": "b32a893b1e903d6d7961b5a526bea5f3e8a5af9e",
+  "committedAt": "2026-04-21T13:43:26Z",
+  "license": "CC-BY-NC-SA-4.0",
+  "files": {
+    "optery-data-brokers.json": {
+      "path": "data/data-brokers.json",
+      "sha256": "06da91cca1e3d814455af531a1e45681eeea3d4090cac6d05d2aa0e8b0f221a6"
+    },
+    "OPTERY-LICENSE.md": {
+      "path": "LICENSE.md",
+      "sha256": "fde208f2e657f11344af74f6cdb670d749dcd299324980b5a804c2799898fb2d"
+    }
+  }
+}
