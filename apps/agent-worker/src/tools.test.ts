@@ -92,7 +92,8 @@ describe("tool specs", () => {
 
   it("keeps the properties of a removal's report in the order they always had", () => {
     const report = TOOL_SPECS.find((spec) => spec.name === "report");
-    const properties = (report?.parameters as { properties: Record<string, unknown> }).properties;
+    if (!report) throw new Error("no report tool");
+    const properties = (report.parameters as { properties: Record<string, unknown> }).properties;
     expect(Object.keys(properties)).toEqual([
       "status",
       "result",
