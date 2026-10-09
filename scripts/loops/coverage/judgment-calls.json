@@ -38,5 +38,15 @@
     "check": "scan_not_planned",
     "id": "whitepages",
     "reason": "Removal needs a phone call, which Kick Rocks cannot place, and the pinned Eraser note records that its only email bounced on 2026-08-20. With the bounced registry address no longer backfilled there is no channel it can send, so skipping it as unsupported is the honest plan, and scanning for a listing it cannot remove would only mislead."
+  },
+  {
+    "check": "email_evidence",
+    "id": "lender-feed",
+    "reason": "The pinned note says the broker's own reply offers email to arrange a phone call, so email stays a working channel and the refusal is not recorded."
+  },
+  {
+    "check": "email_evidence",
+    "id": "seamless-contacts",
+    "reason": "The pinned note says the address ignores an initial request but accepts a follow-up email reply, so the registry address stays as the way to follow up when the portal cannot be used."
   }
 ]

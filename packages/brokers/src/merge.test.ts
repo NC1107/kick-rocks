@@ -1,6 +1,7 @@
 import type { Broker } from "@kickrocks/shared";
 import { describe, expect, it } from "vitest";
-import { mergeBrokers, withholdEmailEraserRefused } from "./merge.js";
+import type { EmailRefusal } from "./corrections.js";
+import { mergeBrokers, unusedRefusals, withholdRefusedEmail } from "./merge.js";
 
 function broker(overrides: Partial<Broker> & Pick<Broker, "id" | "domain">): Broker {
   return {
@@ -120,43 +121,58 @@ describe("mergeBrokers", () => {
   });
 });
 
-describe("withholdEmailEraserRefused", () => {
+describe("withholdRefusedEmail", () => {
   const eraser = (overrides: Partial<Broker> = {}) =>
     broker({
       id: "x",
       domain: "x.test",
       optOutUrl: "https://x.test/form",
-      notes: "Reply says email is not processed.",
+      notes: "Hard bounce of old@x.test.",
       contactMethod: "form",
       sources: [{ source: "eraser", license: "MIT", upstreamId: "x" }],
       ...overrides,
     });
-  const registry = () =>
+  const registry = (privacyEmail = "privacy@x.test") =>
     broker({
       id: "x-inc",
       domain: "x.test",
-      privacyEmail: "privacy@x.test",
+      privacyEmail,
       contactMethod: "email",
       sources: [{ source: "ca-registry-2026", license: "public-record" }],
     });
+  const refusal = (overrides: Partial<EmailRefusal> = {}): EmailRefusal => ({
+    domain: "x.test",
+    source_urls: ["https://x.test/reply"],
+    checked: "2026-10-08",
+    note: "Reply says email is not processed.",
+    ...overrides,
+  });
 
-  it("keeps the registry address out of a record Eraser lists with no email, a form and a note", () => {
-    const merged = mergeBrokers(withholdEmailEraserRefused([[eraser()], [registry()]]));
+  it("keeps every other list's address out of a domain whose email was refused", () => {
+    const merged = mergeBrokers(withholdRefusedEmail([[eraser()], [registry()]], [refusal()]));
     expect(merged[0]?.privacyEmail).toBeNull();
     expect(merged[0]?.contactMethod).toBe("form");
   });
 
-  it("lets a correction that gives the Eraser record an email stand", () => {
-    const corrected = eraser({ privacyEmail: "legal@x.test", contactMethod: "both" });
-    const merged = mergeBrokers(withholdEmailEraserRefused([[corrected], [registry()]]));
-    expect(merged[0]?.privacyEmail).toBe("legal@x.test");
+  it("does not infer a refusal from an Eraser record that has no email, a form and a note", () => {
+    const merged = mergeBrokers(withholdRefusedEmail([[eraser()], [registry()]], []));
+    expect(merged[0]?.privacyEmail).toBe("privacy@x.test");
   });
 
-  it.each([
-    ["no note", { notes: null }],
-    ["no form", { optOutUrl: null }],
-  ])("backfills the registry address when Eraser has %s", (_name, overrides) => {
-    const merged = mergeBrokers(withholdEmailEraserRefused([[eraser(overrides)], [registry()]]));
-    expect(merged[0]?.privacyEmail).toBe("privacy@x.test");
+  it("withholds only the bounced address and keeps one that was never tried", () => {
+    const bounced = refusal({ address: "old@x.test" });
+    const untried = mergeBrokers(withholdRefusedEmail([[eraser()], [registry()]], [bounced]));
+    expect(untried[0]?.privacyEmail).toBe("privacy@x.test");
+    const same = mergeBrokers(
+      withholdRefusedEmail([[eraser()], [registry("Old@x.test")]], [bounced]),
+    );
+    expect(same[0]?.privacyEmail).toBeNull();
+  });
+
+  it("reports a refusal whose address no list carries any more", () => {
+    const lists = [[eraser()], [registry()]];
+    expect(unusedRefusals(lists, [refusal()])).toEqual([]);
+    expect(unusedRefusals(lists, [refusal({ address: "old@x.test" })])).toHaveLength(1);
+    expect(unusedRefusals([[eraser()]], [refusal()])).toHaveLength(1);
   });
 });

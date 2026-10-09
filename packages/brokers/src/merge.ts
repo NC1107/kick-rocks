@@ -4,6 +4,7 @@ import {
   rightsPageAsForm,
   type TargetPriority,
 } from "@kickrocks/shared";
+import type { EmailRefusal } from "./corrections.js";
 
 const PRIORITY_RANK: Record<TargetPriority, number> = { crucial: 2, high: 1, normal: 0 };
 
@@ -44,29 +45,30 @@ function mergePair(primary: Broker, secondary: Broker): Broker {
   };
 }
 
-/**
- * A pinned Eraser record with no email, an opt-out URL and a note is a deliberate "do not email":
- * the note records a reply, a bounce or the form being the required path. Another list's address
- * for the same domain must not come back through the merge and send the request where the note
- * says it goes nowhere. A correction that re-adds an email to the Eraser record, with its source,
- * is the way to say otherwise.
- */
-export function withholdEmailEraserRefused(lists: readonly (readonly Broker[])[]): Broker[][] {
-  const refused = new Set(
-    lists
-      .flat()
-      .filter(
-        (broker) =>
-          broker.sources.some((source) => source.source === "eraser") &&
-          broker.privacyEmail === null &&
-          broker.optOutUrl !== null &&
-          broker.notes !== null,
-      )
-      .map((broker) => broker.domain),
+function refusedBy(refusals: readonly EmailRefusal[], broker: Broker): boolean {
+  const address = broker.privacyEmail?.toLowerCase();
+  return (
+    address !== undefined &&
+    refusals.some(
+      (refusal) =>
+        refusal.domain === broker.domain &&
+        (refusal.address === undefined || refusal.address === address),
+    )
   );
+}
+
+/**
+ * Drops the addresses a hand-checked refusal rules out, so a list that still carries one cannot
+ * send the request where the broker said it goes nowhere. A refusal never rests on a note being
+ * present: an address that merely differs from a bounced one was never tried and stays.
+ */
+export function withholdRefusedEmail(
+  lists: readonly (readonly Broker[])[],
+  refusals: readonly EmailRefusal[],
+): Broker[][] {
   return lists.map((list) =>
     list.map((broker) => {
-      if (!refused.has(broker.domain) || broker.privacyEmail === null) return broker;
+      if (!refusedBy(refusals, broker)) return broker;
       return {
         ...broker,
         privacyEmail: null,
@@ -77,6 +79,15 @@ export function withholdEmailEraserRefused(lists: readonly (readonly Broker[])[]
       };
     }),
   );
+}
+
+/** Refusals that withhold no address, because the lists no longer carry the address they rule out. */
+export function unusedRefusals(
+  lists: readonly (readonly Broker[])[],
+  refusals: readonly EmailRefusal[],
+): EmailRefusal[] {
+  const all = lists.flat();
+  return refusals.filter((refusal) => !all.some((broker) => refusedBy([refusal], broker)));
 }
 
 export interface MergeOptions {

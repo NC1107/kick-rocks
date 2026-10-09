@@ -13,6 +13,7 @@ import {
   applyCorrections,
   dropExcluded,
   parseCorrections,
+  parseEmailRefusals,
   parseExclusions,
 } from "./corrections.js";
 import { parseBadboolReport } from "./import/badbool.js";
@@ -20,7 +21,7 @@ import { parseCaRegistry } from "./import/ca-registry.js";
 import { parseCuratedBrokers } from "./import/curated.js";
 import { parseEraserBrokers } from "./import/eraser.js";
 import { loadCompanyDataset } from "./index.js";
-import { mergeBrokers, withholdEmailEraserRefused } from "./merge.js";
+import { mergeBrokers, unusedRefusals, withholdRefusedEmail } from "./merge.js";
 import { applyOwnerGroups } from "./owner-groups.js";
 import { readBundledRecipes, unpairedRecipeSenders } from "./recipe-senders.js";
 import { applyReplyDomains } from "./reply-domains.js";
@@ -58,16 +59,24 @@ export function buildDataset(
   );
   const companyDomains = loadCompanyDataset().companies.map((company) => company.domain);
   const excluded = parseExclusions(readFileSync(resolve(dataDir, "excluded.yaml"), "utf8"));
+  const correctionsYaml = readFileSync(resolve(dataDir, "corrections.yaml"), "utf8");
+  const refusals = parseEmailRefusals(correctionsYaml);
   const mergeImported = (lists: readonly (readonly Broker[])[]) =>
-    mergeBrokers(withholdEmailEraserRefused([...lists, curated]), { pinnedIds });
+    mergeBrokers(withholdRefusedEmail([...lists, curated], refusals), { pinnedIds });
   const imported = applyCorrections(
     dropExcluded(
       [badbool, eraser, registry],
       new Set([...excluded.map((entry) => entry.domain), ...companyDomains]),
     ),
-    parseCorrections(readFileSync(resolve(dataDir, "corrections.yaml"), "utf8")),
+    parseCorrections(correctionsYaml),
     mergeImported,
   );
+  const idle = unusedRefusals([...imported, curated], refusals);
+  if (idle.length > 0) {
+    throw new Error(
+      `email refusals withhold no address because the lists no longer carry it: ${idle.map((r) => r.domain).join(", ")}`,
+    );
+  }
   const brokers = applyOwnerGroups(
     applyReplyDomains(
       mergeImported(imported),

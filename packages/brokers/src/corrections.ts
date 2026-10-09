@@ -33,6 +33,31 @@ export type Correction = z.infer<typeof Correction>;
 
 const CorrectionsFile = z.object({ corrections: z.array(Correction) });
 
+const EmailRefusal = z.object({
+  domain: z.string().min(1),
+  /** Set when one mailbox bounced, so only that address is withheld and the rest stay untried. */
+  address: z.email().optional(),
+  source_urls: z.array(WebUrl).min(1),
+  checked: z.iso.date(),
+  note: z.string().min(1),
+});
+export type EmailRefusal = z.infer<typeof EmailRefusal>;
+
+export function parseEmailRefusals(yamlText: string): EmailRefusal[] {
+  const { email_refused } = z
+    .object({ email_refused: z.array(EmailRefusal) })
+    .parse(parse(yamlText));
+  for (const { domain, address } of email_refused) {
+    if (normalizeDomain(domain) !== domain) {
+      throw new Error(`email refusal ${domain} is not in its normal form`);
+    }
+    if (address !== undefined && address !== address.toLowerCase()) {
+      throw new Error(`email refusal ${domain} names an address that is not lower case`);
+    }
+  }
+  return email_refused;
+}
+
 export function parseCorrections(yamlText: string): Correction[] {
   const { corrections } = CorrectionsFile.parse(parse(yamlText));
   for (const correction of corrections) {

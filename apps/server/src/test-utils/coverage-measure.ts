@@ -2,6 +2,7 @@ import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { loadEmailRefusals } from "@kickrocks/brokers";
 import { type TargetRow, targets } from "@kickrocks/db";
 import { loadRecipes } from "@kickrocks/recipes";
 import {
@@ -22,7 +23,12 @@ import { createFakeMail } from "./fake-mail.js";
 import { seedMailbox, seedProfile } from "./seed.js";
 
 /** One of the ways the dataset and the planner can disagree with the evidence kept beside them. */
-export type CheckName = "flag_vs_recipe" | "email_evidence" | "scan_not_planned" | "owner_group";
+export type CheckName =
+  | "flag_vs_recipe"
+  | "email_evidence"
+  | "scan_not_planned"
+  | "owner_group"
+  | "refusal_scope";
 
 export interface Contradiction {
   check: CheckName;
@@ -287,6 +293,45 @@ function emailContradictions(rows: TargetRow[], plans: Plan[]): Contradiction[] 
   });
 }
 
+/**
+ * A refusal withholds every other list's address unless it names one. The note it rests on must
+ * agree: a bounce of one address must scope the refusal to that address, and a named address must
+ * be one the note mentions, so an address that was never tried is never withheld on its say-so.
+ */
+function refusalScopeContradictions(rows: TargetRow[]): Contradiction[] {
+  return loadEmailRefusals().flatMap((refusal) => {
+    const row = rows.find((candidate) => candidate.domain === refusal.domain);
+    const notes = row?.data.notes ?? "";
+    if (refusal.address !== undefined) {
+      return notes.toLowerCase().includes(refusal.address)
+        ? []
+        : [
+            {
+              check: "refusal_scope" as const,
+              id: row?.id ?? refusal.domain,
+              detail: `the refusal withholds ${refusal.address}, which the note does not name`,
+            },
+          ];
+    }
+    const bounce = sentencesOf(notes).find(
+      (sentence) =>
+        BOUNCE.test(sentence) &&
+        !TRANSIENT.test(sentence) &&
+        !FORM_ONLY_REPLY.some((pattern) => pattern.test(sentence)) &&
+        (sentence.match(EMAIL_IN_TEXT) ?? []).length > 0,
+    );
+    return bounce
+      ? [
+          {
+            check: "refusal_scope" as const,
+            id: row?.id ?? refusal.domain,
+            detail: `the note bounces one named address but the refusal withholds all: ${bounce.slice(0, 160)}`,
+          },
+        ]
+      : [];
+  });
+}
+
 function scanContradictions(
   rows: TargetRow[],
   plans: Plan[],
@@ -382,6 +427,7 @@ export function measureCoverage(): CoverageResult {
       ...emailContradictions(world.rows, nonCa),
       ...scanContradictions(world.rows, nonCa, recipes),
       ...ownerGroupContradictions(world.rows, nonCa),
+      ...refusalScopeContradictions(world.rows),
     ];
     const calls = readJudgmentCalls();
     const key = (item: { check: string; id: string }) => `${item.check}:${item.id}`;
@@ -393,6 +439,7 @@ export function measureCoverage(): CoverageResult {
       email_evidence: 0,
       scan_not_planned: 0,
       owner_group: 0,
+      refusal_scope: 0,
     };
     for (const item of open) byCheck[item.check] += 1;
     return {

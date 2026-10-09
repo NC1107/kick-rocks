@@ -10,8 +10,10 @@ import {
   type CompanyDataset,
   CompanyDataset as CompanyDatasetSchema,
 } from "@kickrocks/shared";
+import { type EmailRefusal, parseEmailRefusals } from "./corrections.js";
 
 export { alignsWithAny, isTrustedConfirmationDomain } from "./confirmation-sender.js";
+export type { EmailRefusal } from "./corrections.js";
 export { type BadboolReport, parseBadbool, parseBadboolReport } from "./import/badbool.js";
 export { parseCaRegistry } from "./import/ca-registry.js";
 export { parseCuratedBrokers } from "./import/curated.js";
@@ -40,6 +42,18 @@ export function loadBrokerDataset(): BrokerDataset {
   }
   cached = BrokerDatasetSchema.parse(JSON.parse(readFileSync(generatedFile, "utf8")));
   return cached;
+}
+
+const correctionsFile = resolve(
+  dirname(fileURLToPath(import.meta.url)),
+  "..",
+  "data",
+  "corrections.yaml",
+);
+
+/** The addresses and channels a hand-checked note ruled out; the build has already applied them. */
+export function loadEmailRefusals(): EmailRefusal[] {
+  return parseEmailRefusals(readFileSync(correctionsFile, "utf8"));
 }
 
 export function loadBrokers(): Broker[] {

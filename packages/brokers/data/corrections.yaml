@@ -108,3 +108,449 @@ corrections:
       - https://github.com/drumandbytes/eraser/blob/29bd7bb60a96cfb87eb84e65fd4f0a434860511e/data/brokers.yaml
     checked: 2026-10-08
     note: 'Eraser lists legal@lightcast.io for it, and its note says the privacy request form is the required removal path instead of email, as a user report and not a reply from the broker. The 2026 California registry lists an address as well. The correction clears the address on both lists, so the request goes to the opt-out form.'
+
+  - domain: mobilewalla.com
+    set:
+      opt_out_url: null
+    source_urls:
+      - https://github.com/drumandbytes/eraser/blob/29bd7bb60a96cfb87eb84e65fd4f0a434860511e/data/brokers.yaml
+    checked: 2026-10-08
+    note: 'The pinned Eraser note records that the opt-out form takes only a mobile advertising or device identifier, which Kick Rocks does not hold, so the form route is one the agent can never complete. With no channel left the planner skips the broker as unsupported instead of queueing a form task.'
+  - domain: outlogic.io
+    set:
+      opt_out_url: null
+    source_urls:
+      - https://github.com/drumandbytes/eraser/blob/29bd7bb60a96cfb87eb84e65fd4f0a434860511e/data/brokers.yaml
+    checked: 2026-10-08
+    note: 'The pinned Eraser note records that the opt-out form takes only a mobile advertising or device identifier, which Kick Rocks does not hold, so the form route is one the agent can never complete. With no channel left the planner skips the broker as unsupported instead of queueing a form task.'
+  - domain: collectivedata.io
+    set:
+      opt_out_url: null
+    source_urls:
+      - https://github.com/drumandbytes/eraser/blob/29bd7bb60a96cfb87eb84e65fd4f0a434860511e/data/brokers.yaml
+    checked: 2026-10-08
+    note: 'The pinned Eraser note records that the opt-out form takes only a mobile advertising or device identifier, which Kick Rocks does not hold, so the form route is one the agent can never complete. With no channel left the planner skips the broker as unsupported instead of queueing a form task.'
+  - domain: groundtruth.com
+    set:
+      opt_out_url: null
+    source_urls:
+      - https://github.com/drumandbytes/eraser/blob/29bd7bb60a96cfb87eb84e65fd4f0a434860511e/data/brokers.yaml
+    checked: 2026-10-08
+    note: 'The pinned Eraser note records that the opt-out form takes only a mobile advertising or device identifier, which Kick Rocks does not hold, so the form route is one the agent can never complete. With no channel left the planner skips the broker as unsupported instead of queueing a form task.'
+  - domain: irys.us
+    set:
+      opt_out_url: null
+    source_urls:
+      - https://github.com/drumandbytes/eraser/blob/29bd7bb60a96cfb87eb84e65fd4f0a434860511e/data/brokers.yaml
+    checked: 2026-10-08
+    note: 'The pinned Eraser note records that the opt-out form takes only a mobile advertising or device identifier, which Kick Rocks does not hold, so the form route is one the agent can never complete. With no channel left the planner skips the broker as unsupported instead of queueing a form task.'
+
+# A broker whose own reply, or a hard bounce, says email is not the way in. The addresses another list
+# carries for the domain are withheld from the merge, so the request goes to the form instead.
+# Without `address` every address is withheld, which is right when the broker refused email as a channel.
+# With `address` only that address is withheld, which is right when one mailbox bounced and the rest
+# were never tried. `pnpm data:build` fails when an entry withholds nothing, so drop it once it is moot.
+email_refused:
+  - domain: nielsen.com
+    source_urls:
+      - https://github.com/drumandbytes/eraser/blob/29bd7bb60a96cfb87eb84e65fd4f0a434860511e/data/brokers.yaml
+    checked: 2026-10-08
+    note: 'The pinned Eraser note records a reply that sends privacy requests to a form, portal or phone line instead of email, so another list''s address would send the request where the broker said it is not handled.'
+
+  - domain: adept-id.com
+    source_urls:
+      - https://github.com/drumandbytes/eraser/blob/29bd7bb60a96cfb87eb84e65fd4f0a434860511e/data/brokers.yaml
+    checked: 2026-10-08
+    note: 'The pinned Eraser note records a reply that sends privacy requests to a form, portal or phone line instead of email, so another list''s address would send the request where the broker said it is not handled.'
+
+  - domain: finsum.com
+    source_urls:
+      - https://github.com/drumandbytes/eraser/blob/29bd7bb60a96cfb87eb84e65fd4f0a434860511e/data/brokers.yaml
+    checked: 2026-10-08
+    note: 'The pinned Eraser note records a reply that sends privacy requests to a form, portal or phone line instead of email, so another list''s address would send the request where the broker said it is not handled.'
+
+  - domain: affinity.solutions
+    source_urls:
+      - https://github.com/drumandbytes/eraser/blob/29bd7bb60a96cfb87eb84e65fd4f0a434860511e/data/brokers.yaml
+    checked: 2026-10-08
+    note: 'The pinned Eraser note records a reply that sends privacy requests to a form, portal or phone line instead of email, so another list''s address would send the request where the broker said it is not handled.'
+
+  - domain: corp.narvar.com
+    source_urls:
+      - https://github.com/drumandbytes/eraser/blob/29bd7bb60a96cfb87eb84e65fd4f0a434860511e/data/brokers.yaml
+    checked: 2026-10-08
+    note: 'The pinned Eraser note records a reply that sends privacy requests to a form, portal or phone line instead of email, so another list''s address would send the request where the broker said it is not handled.'
+
+  - domain: buildertrend.com
+    source_urls:
+      - https://github.com/drumandbytes/eraser/blob/29bd7bb60a96cfb87eb84e65fd4f0a434860511e/data/brokers.yaml
+    checked: 2026-10-08
+    note: 'The pinned Eraser note records a reply that sends privacy requests to a form, portal or phone line instead of email, so another list''s address would send the request where the broker said it is not handled.'
+
+  - domain: hightouch.com
+    source_urls:
+      - https://github.com/drumandbytes/eraser/blob/29bd7bb60a96cfb87eb84e65fd4f0a434860511e/data/brokers.yaml
+    checked: 2026-10-08
+    note: 'The pinned Eraser note records a reply that sends privacy requests to a form, portal or phone line instead of email, so another list''s address would send the request where the broker said it is not handled.'
+
+  - domain: searchpublicrecords.com
+    source_urls:
+      - https://github.com/drumandbytes/eraser/blob/29bd7bb60a96cfb87eb84e65fd4f0a434860511e/data/brokers.yaml
+    checked: 2026-10-08
+    note: 'The pinned Eraser note records a reply that sends privacy requests to a form, portal or phone line instead of email, so another list''s address would send the request where the broker said it is not handled.'
+
+  - domain: costar.com
+    source_urls:
+      - https://github.com/drumandbytes/eraser/blob/29bd7bb60a96cfb87eb84e65fd4f0a434860511e/data/brokers.yaml
+    checked: 2026-10-08
+    note: 'The pinned Eraser note records a reply that sends privacy requests to a form, portal or phone line instead of email, so another list''s address would send the request where the broker said it is not handled.'
+
+  - domain: datonics.com
+    source_urls:
+      - https://github.com/drumandbytes/eraser/blob/29bd7bb60a96cfb87eb84e65fd4f0a434860511e/data/brokers.yaml
+    checked: 2026-10-08
+    note: 'The pinned Eraser note records a reply that sends privacy requests to a form, portal or phone line instead of email, so another list''s address would send the request where the broker said it is not handled.'
+
+  - domain: deeprootanalytics.com
+    source_urls:
+      - https://github.com/drumandbytes/eraser/blob/29bd7bb60a96cfb87eb84e65fd4f0a434860511e/data/brokers.yaml
+    checked: 2026-10-08
+    note: 'The pinned Eraser note records a reply that sends privacy requests to a form, portal or phone line instead of email, so another list''s address would send the request where the broker said it is not handled.'
+
+  - domain: famousbirthdays.com
+    source_urls:
+      - https://github.com/drumandbytes/eraser/blob/29bd7bb60a96cfb87eb84e65fd4f0a434860511e/data/brokers.yaml
+    checked: 2026-10-08
+    note: 'The pinned Eraser note records a reply that sends privacy requests to a form, portal or phone line instead of email, so another list''s address would send the request where the broker said it is not handled.'
+
+  - domain: fullcontact.com
+    source_urls:
+      - https://github.com/drumandbytes/eraser/blob/29bd7bb60a96cfb87eb84e65fd4f0a434860511e/data/brokers.yaml
+    checked: 2026-10-08
+    note: 'The pinned Eraser note records a reply that sends privacy requests to a form, portal or phone line instead of email, so another list''s address would send the request where the broker said it is not handled.'
+
+  - domain: growbots.com
+    source_urls:
+      - https://github.com/drumandbytes/eraser/blob/29bd7bb60a96cfb87eb84e65fd4f0a434860511e/data/brokers.yaml
+    checked: 2026-10-08
+    note: 'The pinned Eraser note records a reply that sends privacy requests to a form, portal or phone line instead of email, so another list''s address would send the request where the broker said it is not handled.'
+
+  - domain: inmarket.com
+    source_urls:
+      - https://github.com/drumandbytes/eraser/blob/29bd7bb60a96cfb87eb84e65fd4f0a434860511e/data/brokers.yaml
+    checked: 2026-10-08
+    note: 'The pinned Eraser note records a reply that sends privacy requests to a form, portal or phone line instead of email, so another list''s address would send the request where the broker said it is not handled.'
+
+  - domain: intentiq.com
+    source_urls:
+      - https://github.com/drumandbytes/eraser/blob/29bd7bb60a96cfb87eb84e65fd4f0a434860511e/data/brokers.yaml
+    checked: 2026-10-08
+    note: 'The pinned Eraser note records a reply that sends privacy requests to a form, portal or phone line instead of email, so another list''s address would send the request where the broker said it is not handled.'
+
+  - domain: jmr-media.com
+    source_urls:
+      - https://github.com/drumandbytes/eraser/blob/29bd7bb60a96cfb87eb84e65fd4f0a434860511e/data/brokers.yaml
+    checked: 2026-10-08
+    note: 'The pinned Eraser note records a reply that sends privacy requests to a form, portal or phone line instead of email, so another list''s address would send the request where the broker said it is not handled.'
+
+  - domain: kargo.com
+    source_urls:
+      - https://github.com/drumandbytes/eraser/blob/29bd7bb60a96cfb87eb84e65fd4f0a434860511e/data/brokers.yaml
+    checked: 2026-10-08
+    note: 'The pinned Eraser note records a reply that sends privacy requests to a form, portal or phone line instead of email, so another list''s address would send the request where the broker said it is not handled.'
+
+  - domain: koddi.com
+    source_urls:
+      - https://github.com/drumandbytes/eraser/blob/29bd7bb60a96cfb87eb84e65fd4f0a434860511e/data/brokers.yaml
+    checked: 2026-10-08
+    note: 'The pinned Eraser note records a reply that sends privacy requests to a form, portal or phone line instead of email, so another list''s address would send the request where the broker said it is not handled.'
+
+  - domain: leadpost.com
+    source_urls:
+      - https://github.com/drumandbytes/eraser/blob/29bd7bb60a96cfb87eb84e65fd4f0a434860511e/data/brokers.yaml
+    checked: 2026-10-08
+    note: 'The pinned Eraser note records a reply that sends privacy requests to a form, portal or phone line instead of email, so another list''s address would send the request where the broker said it is not handled.'
+
+  - domain: lookify.io
+    source_urls:
+      - https://github.com/drumandbytes/eraser/blob/29bd7bb60a96cfb87eb84e65fd4f0a434860511e/data/brokers.yaml
+    checked: 2026-10-08
+    note: 'The pinned Eraser note records a reply that sends privacy requests to a form, portal or phone line instead of email, so another list''s address would send the request where the broker said it is not handled.'
+
+  - domain: maxmind.com
+    source_urls:
+      - https://github.com/drumandbytes/eraser/blob/29bd7bb60a96cfb87eb84e65fd4f0a434860511e/data/brokers.yaml
+    checked: 2026-10-08
+    note: 'The pinned Eraser note records a reply that sends privacy requests to a form, portal or phone line instead of email, so another list''s address would send the request where the broker said it is not handled.'
+
+  - domain: messagedigital.com
+    source_urls:
+      - https://github.com/drumandbytes/eraser/blob/29bd7bb60a96cfb87eb84e65fd4f0a434860511e/data/brokers.yaml
+    checked: 2026-10-08
+    note: 'The pinned Eraser note records a reply that sends privacy requests to a form, portal or phone line instead of email, so another list''s address would send the request where the broker said it is not handled.'
+
+  - domain: publicdatacheck.com
+    source_urls:
+      - https://github.com/drumandbytes/eraser/blob/29bd7bb60a96cfb87eb84e65fd4f0a434860511e/data/brokers.yaml
+    checked: 2026-10-08
+    note: 'The pinned Eraser note records a reply that sends privacy requests to a form, portal or phone line instead of email, so another list''s address would send the request where the broker said it is not handled.'
+
+  - domain: nextroll.com
+    source_urls:
+      - https://github.com/drumandbytes/eraser/blob/29bd7bb60a96cfb87eb84e65fd4f0a434860511e/data/brokers.yaml
+    checked: 2026-10-08
+    note: 'The pinned Eraser note records a reply that sends privacy requests to a form, portal or phone line instead of email, so another list''s address would send the request where the broker said it is not handled.'
+
+  - domain: nexxen.com
+    source_urls:
+      - https://github.com/drumandbytes/eraser/blob/29bd7bb60a96cfb87eb84e65fd4f0a434860511e/data/brokers.yaml
+    checked: 2026-10-08
+    note: 'The pinned Eraser note records a reply that sends privacy requests to a form, portal or phone line instead of email, so another list''s address would send the request where the broker said it is not handled.'
+
+  - domain: peoplewhiz.com
+    source_urls:
+      - https://github.com/drumandbytes/eraser/blob/29bd7bb60a96cfb87eb84e65fd4f0a434860511e/data/brokers.yaml
+    checked: 2026-10-08
+    note: 'The pinned Eraser note records a reply that sends privacy requests to a form, portal or phone line instead of email, so another list''s address would send the request where the broker said it is not handled.'
+
+  - domain: pmg.com
+    source_urls:
+      - https://github.com/drumandbytes/eraser/blob/29bd7bb60a96cfb87eb84e65fd4f0a434860511e/data/brokers.yaml
+    checked: 2026-10-08
+    note: 'The pinned Eraser note records a reply that sends privacy requests to a form, portal or phone line instead of email, so another list''s address would send the request where the broker said it is not handled.'
+
+  - domain: popacta.com
+    source_urls:
+      - https://github.com/drumandbytes/eraser/blob/29bd7bb60a96cfb87eb84e65fd4f0a434860511e/data/brokers.yaml
+    checked: 2026-10-08
+    note: 'The pinned Eraser note records a reply that sends privacy requests to a form, portal or phone line instead of email, so another list''s address would send the request where the broker said it is not handled.'
+
+  - domain: privaterecords.net
+    source_urls:
+      - https://github.com/drumandbytes/eraser/blob/29bd7bb60a96cfb87eb84e65fd4f0a434860511e/data/brokers.yaml
+    checked: 2026-10-08
+    note: 'The pinned Eraser note records a reply that sends privacy requests to a form, portal or phone line instead of email, so another list''s address would send the request where the broker said it is not handled.'
+
+  - domain: revenuebase.ai
+    source_urls:
+      - https://github.com/drumandbytes/eraser/blob/29bd7bb60a96cfb87eb84e65fd4f0a434860511e/data/brokers.yaml
+    checked: 2026-10-08
+    note: 'The pinned Eraser note records a reply that sends privacy requests to a form, portal or phone line instead of email, so another list''s address would send the request where the broker said it is not handled.'
+
+  - domain: samba.tv
+    source_urls:
+      - https://github.com/drumandbytes/eraser/blob/29bd7bb60a96cfb87eb84e65fd4f0a434860511e/data/brokers.yaml
+    checked: 2026-10-08
+    note: 'The pinned Eraser note records a reply that sends privacy requests to a form, portal or phone line instead of email, so another list''s address would send the request where the broker said it is not handled.'
+
+  - domain: kidslivesafe.com
+    source_urls:
+      - https://github.com/drumandbytes/eraser/blob/29bd7bb60a96cfb87eb84e65fd4f0a434860511e/data/brokers.yaml
+    checked: 2026-10-08
+    note: 'The pinned Eraser note records a reply that sends privacy requests to a form, portal or phone line instead of email, so another list''s address would send the request where the broker said it is not handled.'
+
+  - domain: semasio.com
+    source_urls:
+      - https://github.com/drumandbytes/eraser/blob/29bd7bb60a96cfb87eb84e65fd4f0a434860511e/data/brokers.yaml
+    checked: 2026-10-08
+    note: 'The pinned Eraser note records a reply that sends privacy requests to a form, portal or phone line instead of email, so another list''s address would send the request where the broker said it is not handled.'
+
+  - domain: similarweb.com
+    source_urls:
+      - https://github.com/drumandbytes/eraser/blob/29bd7bb60a96cfb87eb84e65fd4f0a434860511e/data/brokers.yaml
+    checked: 2026-10-08
+    note: 'The pinned Eraser note records a reply that sends privacy requests to a form, portal or phone line instead of email, so another list''s address would send the request where the broker said it is not handled.'
+
+  - domain: spydialer.com
+    source_urls:
+      - https://github.com/drumandbytes/eraser/blob/29bd7bb60a96cfb87eb84e65fd4f0a434860511e/data/brokers.yaml
+    checked: 2026-10-08
+    note: 'The pinned Eraser note records a reply that sends privacy requests to a form, portal or phone line instead of email, so another list''s address would send the request where the broker said it is not handled.'
+
+  - domain: steppingblocks.com
+    source_urls:
+      - https://github.com/drumandbytes/eraser/blob/29bd7bb60a96cfb87eb84e65fd4f0a434860511e/data/brokers.yaml
+    checked: 2026-10-08
+    note: 'The pinned Eraser note records a reply that sends privacy requests to a form, portal or phone line instead of email, so another list''s address would send the request where the broker said it is not handled.'
+
+  - domain: swoop.com
+    source_urls:
+      - https://github.com/drumandbytes/eraser/blob/29bd7bb60a96cfb87eb84e65fd4f0a434860511e/data/brokers.yaml
+    checked: 2026-10-08
+    note: 'The pinned Eraser note records a reply that sends privacy requests to a form, portal or phone line instead of email, so another list''s address would send the request where the broker said it is not handled.'
+
+  - domain: amplemarket.com
+    source_urls:
+      - https://github.com/drumandbytes/eraser/blob/29bd7bb60a96cfb87eb84e65fd4f0a434860511e/data/brokers.yaml
+    checked: 2026-10-08
+    note: 'The pinned Eraser note records a reply that sends privacy requests to a form, portal or phone line instead of email, so another list''s address would send the request where the broker said it is not handled.'
+
+  - domain: thedatagroup.com
+    source_urls:
+      - https://github.com/drumandbytes/eraser/blob/29bd7bb60a96cfb87eb84e65fd4f0a434860511e/data/brokers.yaml
+    checked: 2026-10-08
+    note: 'The pinned Eraser note records a reply that sends privacy requests to a form, portal or phone line instead of email, so another list''s address would send the request where the broker said it is not handled.'
+
+  - domain: tunnldata.com
+    source_urls:
+      - https://github.com/drumandbytes/eraser/blob/29bd7bb60a96cfb87eb84e65fd4f0a434860511e/data/brokers.yaml
+    checked: 2026-10-08
+    note: 'The pinned Eraser note records a reply that sends privacy requests to a form, portal or phone line instead of email, so another list''s address would send the request where the broker said it is not handled.'
+
+  - domain: videoamp.com
+    source_urls:
+      - https://github.com/drumandbytes/eraser/blob/29bd7bb60a96cfb87eb84e65fd4f0a434860511e/data/brokers.yaml
+    checked: 2026-10-08
+    note: 'The pinned Eraser note records a reply that sends privacy requests to a form, portal or phone line instead of email, so another list''s address would send the request where the broker said it is not handled.'
+
+  - domain: visitiq.io
+    source_urls:
+      - https://github.com/drumandbytes/eraser/blob/29bd7bb60a96cfb87eb84e65fd4f0a434860511e/data/brokers.yaml
+    checked: 2026-10-08
+    note: 'The pinned Eraser note records a reply that sends privacy requests to a form, portal or phone line instead of email, so another list''s address would send the request where the broker said it is not handled.'
+
+  - domain: weinform.org
+    source_urls:
+      - https://github.com/drumandbytes/eraser/blob/29bd7bb60a96cfb87eb84e65fd4f0a434860511e/data/brokers.yaml
+    checked: 2026-10-08
+    note: 'The pinned Eraser note records a reply that sends privacy requests to a form, portal or phone line instead of email, so another list''s address would send the request where the broker said it is not handled.'
+
+  - domain: wiland.com
+    source_urls:
+      - https://github.com/drumandbytes/eraser/blob/29bd7bb60a96cfb87eb84e65fd4f0a434860511e/data/brokers.yaml
+    checked: 2026-10-08
+    note: 'The pinned Eraser note records a reply that sends privacy requests to a form, portal or phone line instead of email, so another list''s address would send the request where the broker said it is not handled.'
+
+  - domain: seekout.com
+    source_urls:
+      - https://github.com/drumandbytes/eraser/blob/29bd7bb60a96cfb87eb84e65fd4f0a434860511e/data/brokers.yaml
+    checked: 2026-10-08
+    note: 'The pinned Eraser note records a reply that sends privacy requests to a form, portal or phone line instead of email, so another list''s address would send the request where the broker said it is not handled.'
+
+  - domain: whitepages.com
+    source_urls:
+      - https://github.com/drumandbytes/eraser/blob/29bd7bb60a96cfb87eb84e65fd4f0a434860511e/data/brokers.yaml
+    checked: 2026-10-08
+    note: 'The pinned Eraser note records a bounce and says no working email was found for the broker, so another list''s address is not a known-good route.'
+
+  - domain: truepeoplesearch.com
+    source_urls:
+      - https://github.com/drumandbytes/eraser/blob/29bd7bb60a96cfb87eb84e65fd4f0a434860511e/data/brokers.yaml
+    checked: 2026-10-08
+    note: 'The pinned Eraser note records a bounce and says no working email was found for the broker, so another list''s address is not a known-good route.'
+
+  - domain: analytics-iq.com
+    source_urls:
+      - https://github.com/drumandbytes/eraser/blob/29bd7bb60a96cfb87eb84e65fd4f0a434860511e/data/brokers.yaml
+    checked: 2026-10-08
+    note: 'The pinned Eraser note records a bounce and says no working email was found for the broker, so another list''s address is not a known-good route.'
+
+  - domain: edvisors.com
+    source_urls:
+      - https://github.com/drumandbytes/eraser/blob/29bd7bb60a96cfb87eb84e65fd4f0a434860511e/data/brokers.yaml
+    checked: 2026-10-08
+    note: 'The pinned Eraser note records a bounce and says no working email was found for the broker, so another list''s address is not a known-good route.'
+
+  - domain: exactdata.com
+    source_urls:
+      - https://github.com/drumandbytes/eraser/blob/29bd7bb60a96cfb87eb84e65fd4f0a434860511e/data/brokers.yaml
+    checked: 2026-10-08
+    note: 'The pinned Eraser note records a bounce and says no working email was found for the broker, so another list''s address is not a known-good route.'
+
+  - domain: greatlakeslists.com
+    source_urls:
+      - https://github.com/drumandbytes/eraser/blob/29bd7bb60a96cfb87eb84e65fd4f0a434860511e/data/brokers.yaml
+    checked: 2026-10-08
+    note: 'The pinned Eraser note records a bounce and says no working email was found for the broker, so another list''s address is not a known-good route.'
+
+  - domain: azerion.com
+    source_urls:
+      - https://github.com/drumandbytes/eraser/blob/29bd7bb60a96cfb87eb84e65fd4f0a434860511e/data/brokers.yaml
+    checked: 2026-10-08
+    note: 'The pinned Eraser note records a reply that the broker holds only device or cookie identifiers and cannot act on a request that carries a name or email address, so an emailed request is never matched.'
+
+  - domain: magnite.com
+    source_urls:
+      - https://github.com/drumandbytes/eraser/blob/29bd7bb60a96cfb87eb84e65fd4f0a434860511e/data/brokers.yaml
+    checked: 2026-10-08
+    note: 'The pinned Eraser note records a reply that the broker holds only device or cookie identifiers and cannot act on a request that carries a name or email address, so an emailed request is never matched.'
+
+  - domain: pubmatic.com
+    source_urls:
+      - https://github.com/drumandbytes/eraser/blob/29bd7bb60a96cfb87eb84e65fd4f0a434860511e/data/brokers.yaml
+    checked: 2026-10-08
+    note: 'The pinned Eraser note records a reply that the broker holds only device or cookie identifiers and cannot act on a request that carries a name or email address, so an emailed request is never matched.'
+
+  - domain: pulsepoint.com
+    source_urls:
+      - https://github.com/drumandbytes/eraser/blob/29bd7bb60a96cfb87eb84e65fd4f0a434860511e/data/brokers.yaml
+    checked: 2026-10-08
+    note: 'The pinned Eraser note records a reply that the broker holds only device or cookie identifiers and cannot act on a request that carries a name or email address, so an emailed request is never matched.'
+
+  - domain: quadrant.io
+    source_urls:
+      - https://github.com/drumandbytes/eraser/blob/29bd7bb60a96cfb87eb84e65fd4f0a434860511e/data/brokers.yaml
+    checked: 2026-10-08
+    note: 'The pinned Eraser note records a reply that the broker holds only device or cookie identifiers and cannot act on a request that carries a name or email address, so an emailed request is never matched.'
+
+  - domain: perion.com
+    source_urls:
+      - https://github.com/drumandbytes/eraser/blob/29bd7bb60a96cfb87eb84e65fd4f0a434860511e/data/brokers.yaml
+    checked: 2026-10-08
+    note: 'The pinned Eraser note records a reply that the broker holds only device or cookie identifiers and cannot act on a request that carries a name or email address, so an emailed request is never matched.'
+
+  - domain: stackadapt.com
+    source_urls:
+      - https://github.com/drumandbytes/eraser/blob/29bd7bb60a96cfb87eb84e65fd4f0a434860511e/data/brokers.yaml
+    checked: 2026-10-08
+    note: 'The pinned Eraser note records a reply that the broker holds only device or cookie identifiers and cannot act on a request that carries a name or email address, so an emailed request is never matched.'
+
+  - domain: vistarmedia.com
+    source_urls:
+      - https://github.com/drumandbytes/eraser/blob/29bd7bb60a96cfb87eb84e65fd4f0a434860511e/data/brokers.yaml
+    checked: 2026-10-08
+    note: 'The pinned Eraser note records a reply that the broker holds only device or cookie identifiers and cannot act on a request that carries a name or email address, so an emailed request is never matched.'
+
+  - domain: rampedup.io
+    address: privacy@rampedup.io
+    source_urls:
+      - https://github.com/drumandbytes/eraser/blob/29bd7bb60a96cfb87eb84e65fd4f0a434860511e/data/brokers.yaml
+    checked: 2026-10-08
+    note: 'The pinned Eraser note records that privacy@rampedup.io hard-bounced on 2026-08-21, and the 2026 registry lists the same address.'
+
+  - domain: paramountdirectmarketing.com
+    address: ccpa@paramountdirectmarketing.com
+    source_urls:
+      - https://github.com/drumandbytes/eraser/blob/29bd7bb60a96cfb87eb84e65fd4f0a434860511e/data/brokers.yaml
+    checked: 2026-10-08
+    note: 'The pinned Eraser note records that ccpa@paramountdirectmarketing.com hard-bounced on 2026-08-21, and the 2026 registry lists the same address.'
+
+  - domain: mobilewalla.com
+    source_urls:
+      - https://github.com/drumandbytes/eraser/blob/29bd7bb60a96cfb87eb84e65fd4f0a434860511e/data/brokers.yaml
+    checked: 2026-10-08
+    note: 'The pinned Eraser note records that the broker matches only a mobile advertising or device identifier, so an emailed request with a name and address is never matched.'
+
+  - domain: outlogic.io
+    source_urls:
+      - https://github.com/drumandbytes/eraser/blob/29bd7bb60a96cfb87eb84e65fd4f0a434860511e/data/brokers.yaml
+    checked: 2026-10-08
+    note: 'The pinned Eraser note records that the broker matches only a mobile advertising or device identifier, so an emailed request with a name and address is never matched.'
+
+  - domain: collectivedata.io
+    source_urls:
+      - https://github.com/drumandbytes/eraser/blob/29bd7bb60a96cfb87eb84e65fd4f0a434860511e/data/brokers.yaml
+    checked: 2026-10-08
+    note: 'The pinned Eraser note records that the broker matches only a mobile advertising or device identifier, so an emailed request with a name and address is never matched.'
+
+  - domain: groundtruth.com
+    source_urls:
+      - https://github.com/drumandbytes/eraser/blob/29bd7bb60a96cfb87eb84e65fd4f0a434860511e/data/brokers.yaml
+    checked: 2026-10-08
+    note: 'The pinned Eraser note records that the broker matches only a mobile advertising or device identifier, so an emailed request with a name and address is never matched.'
+
+  - domain: irys.us
+    source_urls:
+      - https://github.com/drumandbytes/eraser/blob/29bd7bb60a96cfb87eb84e65fd4f0a434860511e/data/brokers.yaml
+    checked: 2026-10-08
+    note: 'The pinned Eraser note records that the broker matches only a mobile advertising or device identifier, so an emailed request with a name and address is never matched.'

@@ -4,6 +4,7 @@ import {
   applyCorrections,
   dropExcluded,
   parseCorrections,
+  parseEmailRefusals,
   parseExclusions,
 } from "./corrections.js";
 import { mergeBrokers } from "./merge.js";
@@ -210,5 +211,37 @@ describe("exclusions", () => {
 
   it("requires a reason, a source and a check date", () => {
     expect(() => parseExclusions("excluded:\n  - domain: gone.example\n")).toThrow();
+  });
+});
+
+describe("parseEmailRefusals", () => {
+  const entry = (extra = "") => `email_refused:
+  - domain: acme.example
+${extra}    source_urls: [https://acme.example/reply]
+    checked: 2026-10-08
+    note: Reply says email is not processed.
+`;
+
+  it("reads a refusal with and without an address", () => {
+    expect(parseEmailRefusals(entry())).toHaveLength(1);
+    expect(parseEmailRefusals(entry("    address: old@acme.example\n"))[0]?.address).toBe(
+      "old@acme.example",
+    );
+  });
+
+  it("rejects an address that is not lower case, because merged addresses are compared lower case", () => {
+    expect(() => parseEmailRefusals(entry("    address: Old@acme.example\n"))).toThrow(
+      /not lower case/,
+    );
+  });
+
+  it("rejects a domain that is not in its normal form", () => {
+    expect(() => parseEmailRefusals(entry().replace("acme.example", "WWW.Acme.example"))).toThrow(
+      /normal form/,
+    );
+  });
+
+  it("is ignored by parseCorrections, which reads the same file", () => {
+    expect(parseCorrections(`${yaml}\n${entry()}`)).toHaveLength(1);
   });
 });
