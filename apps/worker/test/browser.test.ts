@@ -4,6 +4,7 @@ import {
   mkdirSync,
   mkdtempSync,
   readdirSync,
+  readFileSync,
   rmSync,
   symlinkSync,
   writeFileSync,
@@ -12,6 +13,7 @@ import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import type { BrowserContext } from "playwright";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   type BrowserSession,
@@ -24,6 +26,7 @@ import {
   launchPersistentChrome,
   ProxyConflictError,
   timezoneOption,
+  turnOffPreloading,
 } from "../src/browser.js";
 import { describeBrowser, silentLogger } from "./support.js";
 
@@ -134,6 +137,68 @@ describe("the arguments Chrome starts with", () => {
   it("adds the sandbox switch only when asked", () => {
     expect(chromeArgs({ noSandbox: true })).toContain("--no-sandbox");
     expect(chromeArgs({ noSandbox: false })).not.toContain("--no-sandbox");
+  });
+});
+
+/** What Chrome itself reports for the setting, which is what it will act on. */
+async function reportedPredictionOption(context: BrowserContext): Promise<unknown> {
+  const page = context.pages()[0] ?? (await context.newPage());
+  await page.goto("chrome://prefs-internals");
+  const text = String(await page.evaluate("document.body.innerText"));
+  const prefs = JSON.parse(text.slice(text.indexOf("{"))) as {
+    net?: { network_prediction_options?: { value?: unknown } };
+  };
+  return prefs.net?.network_prediction_options?.value;
+}
+
+describe("turning preloading off in a profile", () => {
+  const read = (profile: string) =>
+    JSON.parse(readFileSync(join(profile, "Default", "Preferences"), "utf8"));
+
+  it("writes the setting into a profile that has never run", () => {
+    turnOffPreloading(dir);
+    expect(read(dir)).toEqual({ net: { network_prediction_options: 2 } });
+  });
+
+  it("changes the setting a person turned on and keeps every other setting", () => {
+    mkdirSync(join(dir, "Default"), { recursive: true });
+    writeFileSync(
+      join(dir, "Default", "Preferences"),
+      JSON.stringify({ net: { network_prediction_options: 0, other: 1 }, homepage: "x" }),
+    );
+    turnOffPreloading(dir);
+    expect(read(dir)).toEqual({
+      net: { network_prediction_options: 2, other: 1 },
+      homepage: "x",
+    });
+  });
+
+  it("replaces a settings file that cannot be read", () => {
+    mkdirSync(join(dir, "Default"), { recursive: true });
+    writeFileSync(join(dir, "Default", "Preferences"), "{not json");
+    turnOffPreloading(dir);
+    expect(read(dir)).toEqual({ net: { network_prediction_options: 2 } });
+  });
+});
+
+describeBrowser("the browser that makes every request of a run", () => {
+  it("starts with preloading off, however the profile was left", async () => {
+    mkdirSync(join(dir, "Default"), { recursive: true });
+    writeFileSync(
+      join(dir, "Default", "Preferences"),
+      JSON.stringify({ net: { network_prediction_options: 0 } }),
+    );
+    const context = await launchPersistentChrome({
+      profileDir: dir,
+      headless: true,
+      noSandbox: false,
+      executablePath: null,
+    });
+    try {
+      expect(await reportedPredictionOption(context)).toBe(2);
+    } finally {
+      await context.close();
+    }
   });
 });
 

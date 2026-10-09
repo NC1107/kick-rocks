@@ -1,5 +1,14 @@
 import { createHash } from "node:crypto";
-import { existsSync, lstatSync, mkdirSync, readdirSync, readlinkSync, rmSync } from "node:fs";
+import {
+  existsSync,
+  lstatSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  readlinkSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { hostname } from "node:os";
 import { join } from "node:path";
 import { isValidTimeZone } from "@kickrocks/shared";
@@ -195,12 +204,43 @@ export function chromeArgs(settings: Pick<BrowserSettings, "noSandbox" | "proxyS
   ];
 }
 
+/**
+ * Chrome's "no preloading" setting. A speculation rule, whether in a page, a document rule or a
+ * Speculation-Rules header, is prefetched and prerendered by Chrome's own prefetch service, which
+ * never reaches the request gate, so a link carrying a value would be fetched with the full
+ * Referer and cookie jar and no record. There is no command-line switch with the same reach, so
+ * the setting is written into the profile.
+ */
+export const NETWORK_PREDICTION_OPTIONS = 2;
+
+/** Writes the no-preloading setting into the profile Chrome is about to open, keeping its other settings. */
+export function turnOffPreloading(profileDir: string): void {
+  const file = join(profileDir, "Default", "Preferences");
+  let preferences: Record<string, unknown> = {};
+  try {
+    const parsed: unknown = JSON.parse(readFileSync(file, "utf8"));
+    if (parsed !== null && typeof parsed === "object" && !Array.isArray(parsed)) {
+      preferences = parsed as Record<string, unknown>;
+    }
+  } catch {
+    // A profile that has never run has no settings yet, and one that cannot be read is replaced.
+  }
+  const net = preferences.net;
+  preferences.net = {
+    ...(net !== null && typeof net === "object" && !Array.isArray(net) ? net : {}),
+    network_prediction_options: NETWORK_PREDICTION_OPTIONS,
+  };
+  mkdirSync(join(profileDir, "Default"), { recursive: true });
+  writeFileSync(file, JSON.stringify(preferences));
+}
+
 export const launchPersistentChrome = async (
   settings: BrowserSettings,
   guardOptions: TabGuardOptions = {},
 ): Promise<BrowserContext> => {
   clearStaleProfileLock(settings.profileDir);
   clearServiceWorkerStorage(settings.profileDir);
+  turnOffPreloading(settings.profileDir);
   forgetDevToolsEndpoint(settings.profileDir);
   const executablePath = settings.executablePath ?? findInstalledChrome();
   try {

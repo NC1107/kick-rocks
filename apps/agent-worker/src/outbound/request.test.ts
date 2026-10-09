@@ -627,4 +627,46 @@ describe("canonicalize reads the parts the page chooses", () => {
     expect(part("12345")).toBe(`[file id.png, 5 bytes, sha256 ${digest}]`);
     expect(part("12346")).not.toBe(part("12345"));
   });
+
+  describe("a file part", () => {
+    const upload = (content: Buffer) => {
+      const boundary = "xyz";
+      const text = Buffer.concat([
+        Buffer.from(
+          `--${boundary}\r\nContent-Disposition: form-data; name="doc"; filename="doc.bin"\r\n\r\n`,
+          "latin1",
+        ),
+        content,
+        Buffer.from(`\r\n--${boundary}--\r\n`, "latin1"),
+      ]);
+      return canonical(
+        paused({ headers: { "content-type": `multipart/form-data; boundary=${boundary}` } }),
+        bodyOf(text),
+      );
+    };
+
+    it("is unpacked, so an email inside a gzipped Blob is found", () => {
+      const result = upload(gzipSync(Buffer.from("jordan.example@example.com")));
+      expect(result.scan.fields).toContain("email");
+      expect(result.scan.contact).toBe(true);
+      expect(result.unreadable).toBe(false);
+    });
+
+    it("is unreadable when its bytes are not text, so it is refused after touch", () => {
+      const result = upload(
+        Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0xff]),
+      );
+      expect(result.unreadable).toBe(true);
+      expect(result.scan.overflow).toBe(true);
+    });
+
+    it("is unreadable when its compression is damaged", () => {
+      const packed = gzipSync(Buffer.from("jordan.example@example.com"));
+      expect(upload(packed.subarray(0, packed.length - 6)).unreadable).toBe(true);
+    });
+
+    it("stays readable when it is plain text", () => {
+      expect(upload(Buffer.from("hello there")).unreadable).toBe(false);
+    });
+  });
 });

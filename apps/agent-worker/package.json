@@ -8,6 +8,7 @@
     "dev": "tsx watch src/main.ts",
     "start": "node dist/main.js",
     "typecheck": "tsc -b && tsc -p tsconfig.test.json && tsc -b bench/tsconfig.json",
+    "pretest": "pnpm --filter \"@kickrocks/agent-worker^...\" --filter \"@kickrocks/server...\" build",
     "test": "vitest run",
     "bench": "tsx bench/cli.ts"
   },

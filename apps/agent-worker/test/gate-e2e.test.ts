@@ -569,6 +569,48 @@ describeBrowser("the outgoing gate end to end with the real server", () => {
     });
   });
 
+  describe("the browser's own preloading, which makes requests outside the request gate", () => {
+    it("runs in a Chrome whose preloading setting is off", async () => {
+      const own = browser.contexts()[0];
+      const page = own?.pages()[0] ?? (await own?.newPage());
+      await page?.goto("chrome://prefs-internals");
+      const text = String(await page?.evaluate("document.body.innerText"));
+      const prefs = JSON.parse(text.slice(text.indexOf("{")));
+      expect(prefs.net.network_prediction_options.value).toBe(2);
+    });
+
+    it.each([
+      ["list rules that prefetch the address with the email at once", "/gate-spec-prefetch"],
+      ["list rules that prerender the address with the email at once", "/gate-spec-prerender"],
+    ])("sends nothing for %s", async (_, path) => {
+      const taskId = await startServer(path);
+      await workOnce(taskId, [open(path), typeEmail, wait(2), giveBack]);
+      const { hits, submissions } = await fixtureState();
+      expect(hits.filter((hit) => hit.path === "/gate-landing")).toEqual([]);
+      expect(submissions).toEqual([]);
+    });
+
+    it.each([
+      ["document rules like a WordPress site ships", "/gate-spec-document"],
+      ["a Speculation-Rules header", "/gate-spec-header"],
+    ])("sends nothing for %s and holds the click on a link with the email", async (_, path) => {
+      const taskId = await startServer(path);
+      await workOnce(taskId, [
+        open(path),
+        typeEmail,
+        wait(2),
+        snap,
+        clickLabel("Continue"),
+        wait(1),
+        giveBack,
+      ]);
+      const { hits, submissions } = await fixtureState();
+      expect(hits.filter((hit) => hit.path === "/gate-landing")).toEqual([]);
+      expect(submissions).toEqual([]);
+      expect(rowsOf(taskId).filter((row) => row.kind === "held")).toHaveLength(1);
+    });
+  });
+
   describe("what the browser attaches after the gate has read a request", () => {
     it("cuts the Referer of a later load to the site address after the page wrote the email into its own address", async () => {
       const taskId = await startServer("/gate-referer");

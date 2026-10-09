@@ -211,6 +211,8 @@ export async function readBody(
 interface Leaf {
   path: string;
   value: string;
+  /** The bytes of a file part, which are read through the decoder because the shown value is only their digest. */
+  file?: Buffer;
 }
 
 function jsonLeaves(value: unknown, path: string, leaves: Leaf[]): void {
@@ -240,6 +242,15 @@ function isPrintable(bytes: Buffer): boolean {
   return odd / Math.max(1, text.length) <= 0.02;
 }
 
+/** A file part the gate can read as text, once any compression is undone. Anything else may hide a value. */
+function isReadableFile(content: Buffer): boolean {
+  try {
+    return isPrintable(unpack(content));
+  } catch {
+    return false;
+  }
+}
+
 function multipartLeaves(bytes: Buffer, boundary: string): Leaf[] | null {
   const text = bytes.toString("latin1");
   const parts = text.split(`--${boundary}`).slice(1);
@@ -252,13 +263,15 @@ function multipartLeaves(bytes: Buffer, boundary: string): Leaf[] | null {
     const content = Buffer.from(part.slice(split + 4).replace(/\r\n$/, ""), "latin1");
     const name = /name="([^"]*)"/i.exec(head)?.[1] ?? "";
     const file = /filename="([^"]*)"/i.exec(head)?.[1];
-    leaves.push({
-      path: name,
-      value:
-        file !== undefined
-          ? `[file ${file}, ${content.length} bytes, sha256 ${sha256(content)}]`
-          : content.toString("utf8"),
-    });
+    leaves.push(
+      file !== undefined
+        ? {
+            path: name,
+            value: `[file ${file}, ${content.length} bytes, sha256 ${sha256(content)}]`,
+            file: content,
+          }
+        : { path: name, value: content.toString("utf8") },
+    );
   }
   return leaves;
 }
@@ -386,7 +399,14 @@ export function canonicalize(input: CanonicalizeInput): Canonical {
     if (leaves.length > MAX_ENTRIES) truncated = true;
     const shown: OutgoingValue[] = [];
     leaves.forEach((leaf, index) => {
-      const scan = noteScan(detector.scan([leaf.path, leaf.value]));
+      const scan = noteScan(
+        detector.scan(
+          leaf.file === undefined
+            ? [leaf.path, leaf.value]
+            : [leaf.path, leaf.value, { data: leaf.file }],
+        ),
+      );
+      if (leaf.file !== undefined && !isReadableFile(leaf.file)) unreadable = true;
       if (index < MAX_ENTRIES) shown.push(leafOf(leaf.path, leaf.value, scan));
     });
     return shown;

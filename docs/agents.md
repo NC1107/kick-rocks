@@ -370,6 +370,12 @@ What the gate does not hold, so you know what you are trusting:
   The same check covers a send approved for the next run.
   A cookie the page sets in the instant between that second look and the release is not seen.
 - Chrome starts with the Reporting API and Network Error Logging switched off, because they send reports to addresses a site names, from outside the request inspection.
+- Preloading is off in every Chrome the gate drives, through the profile setting that is Chrome's "no preloading" choice.
+  A speculation rule is prefetched and prerendered by Chrome's own prefetch service, whether it is a list of addresses in the page, a document rule like the one WordPress ships, or a `Speculation-Rules` header.
+  Those requests never reach the request gate, so a link that carries a value would be fetched with the full Referer and cookie jar and leave no record.
+  No command-line switch of Chrome 154 stops them (the feature names tried were checked against the browser and none had an effect), so the setting is written into the profile on every launch and a test reads it back from Chrome.
+- A file in a multipart body is read like any other part: unpacked if it is compressed, and searched for your values.
+  A file that is not text once unpacked, such as an image or a document, cannot be read, so the request counts as unreadable and is refused after the page has been touched.
 
 [agent-models.md](agent-models.md) says how to run the benchmark and what it checks.
 

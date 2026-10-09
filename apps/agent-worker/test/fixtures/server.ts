@@ -166,6 +166,10 @@ const PAGES: Record<string, string> = {
   "/gate-auth": "gate-auth.html",
   "/gate-keepalive": "gate-keepalive.html",
   "/gate-ka-frame": "gate-ka-frame.html",
+  "/gate-landing": "gate-landing.html",
+  "/gate-spec-prefetch": "gate-spec-prefetch.html",
+  "/gate-spec-prerender": "gate-spec-prerender.html",
+  "/gate-spec-document": "gate-spec-document.html",
 };
 
 /** Scripts the gate pages load, served with a script type. */
@@ -316,6 +320,25 @@ export function startFixtureServer(): Promise<{
     }
     if (path in SCRIPTS) {
       return send(response, 200, page(SCRIPTS[path] ?? ""), "text/javascript");
+    }
+    if (path === "/gate-spec-header") {
+      // Chrome reads this header itself, so the rules arrive with the document and no script is involved.
+      response.writeHead(200, {
+        "content-type": "text/html; charset=utf-8",
+        "speculation-rules": '"/gate-spec-rules.json"',
+      });
+      return response.end(page("gate-spec-header.html"));
+    }
+    if (path === "/gate-spec-rules.json") {
+      return send(
+        response,
+        200,
+        JSON.stringify({
+          prefetch: [{ where: { href_matches: "/*" }, eagerness: "immediate" }],
+          prerender: [{ where: { href_matches: "/*" }, eagerness: "immediate" }],
+        }),
+        "application/speculationrules+json",
+      );
     }
     if (path === "/gate-csrf")
       return send(response, 200, page("gate-csrf.html", { CSRF: token() }));
