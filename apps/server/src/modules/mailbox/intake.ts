@@ -36,13 +36,6 @@ export function setCompanyMail(services: Mailboxes, mailbox: MailboxRow, company
   return view(services, update(services, mailbox.id, { companyMail }));
 }
 
-export function dismissIntakeNotice(services: Mailboxes, mailbox: MailboxRow) {
-  return view(
-    services,
-    update(services, mailbox.id, { intakeNoticeSeenAt: nowIso(services.clock) }),
-  );
-}
-
 /**
  * The tag is random per mailbox because every broker sees it: a fixed word would tell each of them
  * a tool is sending the request. It is kept once chosen, so turning the address on again does not

@@ -11,6 +11,7 @@ import {
   FailureKind,
   type Identity,
   IdentityKind,
+  IgnoreRule,
   LIVE_TASK_STATUSES,
   MatchDecision,
   type MatchFields,
@@ -118,13 +119,18 @@ export const mailboxes = sqliteTable(
     replyAliasVerifiedAt: timestamp("reply_alias_verified_at"),
     lastPollScanned: integer("last_poll_scanned").notNull().default(0),
     lastPollKept: integer("last_poll_kept").notNull().default(0),
-    /** `pending` until the first poll after the intake gate removed what it would now have ignored. */
-    intakeCleanup: text("intake_cleanup", { enum: ["pending", "done"] })
+    /**
+     * `pending` until the first poll after the intake gate has listed the stored mail it would not
+     * have taken in, `review` while that list waits for the person, `done` once they decided.
+     */
+    intakeCleanup: text("intake_cleanup", { enum: ["pending", "review", "done"] })
       .notNull()
       .default("done"),
     intakeCleanupRemoved: integer("intake_cleanup_removed"),
     intakeCleanupAt: timestamp("intake_cleanup_at"),
-    intakeNoticeSeenAt: timestamp("intake_notice_seen_at"),
+    /** The end of the week in which mail the gate passed over is listed. Null for a mailbox made after the upgrade. */
+    intakeShadowUntil: timestamp("intake_shadow_until"),
+    intakeShadowDismissedAt: timestamp("intake_shadow_dismissed_at"),
     createdAt: timestamp("created_at").notNull(),
   },
   (t) => [uniqueIndex("mailboxes_profile_idx").on(t.profileId)],
@@ -329,6 +335,8 @@ export const messages = sqliteTable(
     reviewed: integer("reviewed", { mode: "boolean" }).notNull().default(false),
     /** Why the intake gate took the message in. Null for mail stored before the gate existed. */
     admittedBy: text("admitted_by", { enum: values(MessageAdmission.options) }),
+    /** Listed for the person to confirm removal of, which is the only way the cleanup removes it. */
+    cleanupCandidate: integer("cleanup_candidate", { mode: "boolean" }).notNull().default(false),
     createdAt: timestamp("created_at").notNull(),
   },
   (t) => [
@@ -336,6 +344,57 @@ export const messages = sqliteTable(
     index("messages_request_idx").on(t.requestId),
     index("messages_review_idx").on(t.reviewed, t.classification),
   ],
+);
+
+/**
+ * Mail the person confirmed for removal, kept for a while so it can be taken back. It holds
+ * everything the message did, so restoring it puts back the same message.
+ */
+export const ignoredMessages = sqliteTable(
+  "ignored_messages",
+  {
+    id: id(),
+    mailboxId: text("mailbox_id")
+      .notNull()
+      .references(() => mailboxes.id, { onDelete: "cascade" }),
+    imapUid: integer("imap_uid").notNull(),
+    uidValidity: integer("uid_validity").notNull(),
+    messageIdHeader: text("message_id_header"),
+    inReplyTo: text("in_reply_to"),
+    fromAddress: text("from_address").notNull(),
+    subject: text("subject").notNull(),
+    receivedAt: timestamp("received_at").notNull(),
+    classification: text("classification", { enum: values(ReplyClassification.options) }).notNull(),
+    confidence: real("confidence").notNull(),
+    rationale: text("rationale"),
+    links: text("links", { mode: "json" }).$type<string[]>().notNull(),
+    snippet: text("snippet"),
+    text: text("text"),
+    ignoredAt: timestamp("ignored_at").notNull(),
+  },
+  (t) => [index("ignored_messages_mailbox_idx").on(t.mailboxId, t.ignoredAt)],
+);
+
+/**
+ * Mail the gate passed over that the rules before it would have kept, listed for a week after the
+ * upgrade. Only who, what and when are kept: the message itself stays in the person's mailbox.
+ */
+export const intakeShadow = sqliteTable(
+  "intake_shadow",
+  {
+    id: id(),
+    mailboxId: text("mailbox_id")
+      .notNull()
+      .references(() => mailboxes.id, { onDelete: "cascade" }),
+    imapUid: integer("imap_uid").notNull(),
+    uidValidity: integer("uid_validity").notNull(),
+    fromAddress: text("from_address").notNull(),
+    subject: text("subject").notNull(),
+    receivedAt: timestamp("received_at").notNull(),
+    rule: text("rule", { enum: values(IgnoreRule.options) }).notNull(),
+    createdAt: timestamp("created_at").notNull(),
+  },
+  (t) => [uniqueIndex("intake_shadow_uid_idx").on(t.mailboxId, t.uidValidity, t.imapUid)],
 );
 
 export const tasks = sqliteTable(

@@ -35,7 +35,6 @@ import {
   validateConnection,
   validateSettings,
 } from "./connection.js";
-import { IntakeNotice } from "./intake-notice.js";
 import { IntakeSection } from "./intake-section.js";
 import { MailboxFacts, SendPauseAlert, useProviderLabel } from "./mailbox-card.js";
 import { AccountStep, ProviderStep, SettingsStep, TestStep } from "./steps.js";
@@ -190,7 +189,6 @@ function ConnectedMailbox({ profile, onEdit }: { profile: ProfileDetail; onEdit:
         </Callout>
       ) : null}
       <SendPauseAlert mailbox={mailbox} />
-      <IntakeNotice profileId={profile.id} mailbox={mailbox} className="mb-3" />
       {poll.error ? (
         <Callout intent="danger" className="mb-3">
           {errorMessage(poll.error)}

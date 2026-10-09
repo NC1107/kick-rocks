@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { noDkim } from "../test-utils/dkim.js";
 import {
   bodySearchTerms,
+  couldBeAReply,
   type HeaderVerdict,
   type IntakeContext,
   type IntakeInput,
@@ -11,6 +12,7 @@ import {
   readPlanFor,
   triageBody,
   triageHeaders,
+  unreadRule,
 } from "./intake.js";
 import type { ClassifierRequest, InboxMessage, MessageHeaders } from "./types.js";
 
@@ -189,7 +191,7 @@ describe("R3: delivery reports", () => {
       text: "Delivery to nobody@elsewhere.test failed",
       originalMessageIds: ["<unrelated@elsewhere.test>"],
     });
-    expect(triageBody(message, context())).toEqual({ verdict: "ignore" });
+    expect(triageBody(message, context())).toEqual({ verdict: "ignore", rule: "bounce_not_ours" });
   });
 
   it("admits a report whose failed recipient is the contact of a recent email request", () => {
@@ -208,7 +210,7 @@ describe("R3: delivery reports", () => {
       text: "Final-Recipient: rfc822; privacy@spokeo.com",
     });
     const old = context([request({ sentAt: "2026-08-01T00:00:00.000Z" })]);
-    expect(triageBody(message, old)).toEqual({ verdict: "ignore" });
+    expect(triageBody(message, old)).toEqual({ verdict: "ignore", rule: "bounce_not_ours" });
   });
 });
 
@@ -250,7 +252,7 @@ describe("R4: a confirmation a form is waiting for", () => {
       headers: BULK,
       text: "Save 20% on background reports this week.",
     });
-    expect(triageBody(message, ctx)).toEqual({ verdict: "ignore" });
+    expect(triageBody(message, ctx)).toEqual({ verdict: "ignore", rule: "bulk_no_privacy" });
   });
 });
 
@@ -281,7 +283,7 @@ describe("R5: the reply alias", () => {
       headers: BULK,
       text: "Big sale on shoes",
     } as Partial<InboxMessage>);
-    expect(triageBody(message, ctx)).toEqual({ verdict: "ignore" });
+    expect(triageBody(message, ctx)).toEqual({ verdict: "ignore", rule: "bulk_no_privacy" });
   });
 
   it("admits alias mail that is bulk but is about an opt-out request", () => {
@@ -327,6 +329,7 @@ describe("R6 and R7: a broker the person has a request with", () => {
     const bulk = { from: { name: null, address: "deals@spokeo.com" }, headers: BULK };
     expect(triageBody(full({ ...bulk, text: "Search anyone, 50% off" }), context())).toEqual({
       verdict: "ignore",
+      rule: "bulk_no_privacy",
     });
     expect(
       triageBody(full({ ...bulk, text: "Your opt-out request was received." }), context()),
@@ -368,7 +371,10 @@ describe("R8: a company the person has a request with", () => {
       subject: "Confirm your new email address",
       text: "Please confirm your email address. Verify your identity to continue.",
     });
-    expect(triageBody(message, context())).toEqual({ verdict: "ignore" });
+    expect(triageBody(message, context())).toEqual({
+      verdict: "ignore",
+      rule: "company_not_privacy",
+    });
   });
 
   it("admits mail with privacy wording", () => {
@@ -443,7 +449,7 @@ describe("R9: a stranger", () => {
 
   it("ignores mail that names the target without that wording", () => {
     const message = full({ ...stranger, text: "Remember to buy Spokeo gift cards for the party." });
-    expect(triageBody(message, context())).toEqual({ verdict: "ignore" });
+    expect(triageBody(message, context())).toEqual({ verdict: "ignore", rule: "not_named" });
   });
 
   it("ignores mail that names a target with no open request", () => {
@@ -451,7 +457,7 @@ describe("R9: a stranger", () => {
       ...stranger,
       text: "Whitepages should delete my personal information.",
     });
-    expect(triageBody(message, context())).toEqual({ verdict: "ignore" });
+    expect(triageBody(message, context())).toEqual({ verdict: "ignore", rule: "not_named" });
   });
 
   it("admits a body that carries our reference even when it is bulk", () => {
@@ -469,7 +475,7 @@ describe("R9: a stranger", () => {
     );
     expect(
       triageBody(full({ ...stranger, headers: BULK, text: "KR-ZZZZZZ is not ours" }), context()),
-    ).toEqual({ verdict: "ignore" });
+    ).toEqual({ verdict: "ignore", rule: "stranger_bulk" });
   });
 });
 
@@ -567,6 +573,53 @@ describe("what a server that matches whole words needs to be asked", () => {
       triageBody(full({ ...bulk, text: "Your listing has been removed." }), context()),
     ).toEqual({
       verdict: "ignore",
+      rule: "bulk_no_privacy",
     });
+  });
+});
+
+describe("why a message was passed over, and whether it could have been a reply", () => {
+  const closed = context([request({ open: false, status: "confirmed" }), AMAZON]);
+
+  it("blames a finished request, not a stranger, when its sender was passed over", () => {
+    const h = fromSender("support@spokeo.com");
+    expect(unreadRule(h, "unknown", closed)).toBe("finished_request");
+    expect(unreadRule(h, "bulk_other", closed)).toBe("finished_request");
+    expect(triageBody(full({ from: h.from, text: "Hello again" }), closed)).toEqual({
+      verdict: "ignore",
+      rule: "finished_request",
+    });
+  });
+
+  it("names the rule for mail a server search found nothing in", () => {
+    const h = fromSender("news@elsewhere.test");
+    expect(unreadRule(h, "unknown", context())).toBe("not_named");
+    expect(unreadRule(h, "bulk_other", context())).toBe("stranger_bulk");
+    expect(unreadRule(h, "company", context())).toBe("company_not_privacy");
+    expect(unreadRule(h, "bulk_target", context())).toBe("bulk_no_privacy");
+    expect(unreadRule(h, "alias_bulk", context())).toBe("bulk_no_privacy");
+  });
+
+  it("gives no rule for mail we sent ourselves", () => {
+    const own = full({ messageId: OUR_ID, subject: "Data deletion request" });
+    expect(triageBody(own, context())).toEqual({ verdict: "ignore", rule: null });
+  });
+
+  it("counts mail from a sender of any request, a named company or privacy wording", () => {
+    expect(couldBeAReply(fromSender("deals@spokeo.com"), null, closed)).toBe(true);
+    expect(couldBeAReply(headers({ subject: "Your Amazon order" }), null, context())).toBe(true);
+    expect(couldBeAReply(headers({ subject: "Please delete your data" }), null, context())).toBe(
+      true,
+    );
+    expect(
+      couldBeAReply(headers(), full({ text: "We removed your listing as asked." }), context()),
+    ).toBe(true);
+  });
+
+  it("does not count mail that ties to nothing", () => {
+    expect(couldBeAReply(headers({ subject: "Lunch on friday?" }), null, context())).toBe(false);
+    expect(
+      couldBeAReply(headers(), full({ text: "Weekly digest of cat pictures" }), context()),
+    ).toBe(false);
   });
 });

@@ -75,8 +75,8 @@ describe("0007_mail_intake", () => {
     const rows = sqlite
       .prepare(
         `SELECT id, company_mail, reply_alias, reply_alias_verified_at, last_poll_scanned,
-                last_poll_kept, intake_cleanup, intake_cleanup_removed, intake_cleanup_at,
-                intake_notice_seen_at FROM mailboxes ORDER BY id`,
+                last_poll_kept, intake_cleanup, intake_cleanup_removed, intake_cleanup_at
+         FROM mailboxes ORDER BY id`,
       )
       .all();
     expect(rows).toEqual([
@@ -90,7 +90,6 @@ describe("0007_mail_intake", () => {
         intake_cleanup: "pending",
         intake_cleanup_removed: null,
         intake_cleanup_at: null,
-        intake_notice_seen_at: null,
       },
       {
         id: "m-without",
@@ -102,7 +101,6 @@ describe("0007_mail_intake", () => {
         intake_cleanup: "done",
         intake_cleanup_removed: null,
         intake_cleanup_at: null,
-        intake_notice_seen_at: null,
       },
     ]);
     expect(sqlite.prepare("SELECT admitted_by, subject FROM messages").all()).toEqual([
@@ -129,6 +127,65 @@ describe("0007_mail_intake", () => {
     }>;
     expect(indexes).toContainEqual(
       expect.objectContaining({ name: "intake_senders_value_idx", unique: 1 }),
+    );
+  });
+});
+
+describe("0008_mail_intake_confirm", () => {
+  it("opens a week of the passed-over report for every mailbox that existed, and keeps their data", () => {
+    migrate(drizzle(sqlite), { migrationsFolder: migrationsBefore("0008_mail_intake_confirm") });
+    seed();
+    const before = Date.now();
+
+    migrate(drizzle(sqlite), { migrationsFolder: FULL });
+
+    const rows = sqlite
+      .prepare(
+        "SELECT id, intake_cleanup, intake_shadow_until, intake_shadow_dismissed_at FROM mailboxes ORDER BY id",
+      )
+      .all() as Array<{
+      id: string;
+      intake_cleanup: string;
+      intake_shadow_until: string;
+      intake_shadow_dismissed_at: string | null;
+    }>;
+    expect(rows.map((row) => [row.id, row.intake_cleanup, row.intake_shadow_dismissed_at])).toEqual(
+      [
+        ["m-with", "done", null],
+        ["m-without", "done", null],
+      ],
+    );
+    for (const row of rows) {
+      const until = Date.parse(row.intake_shadow_until);
+      expect(until - before).toBeGreaterThan(6.9 * 24 * 60 * 60 * 1000);
+      expect(until - before).toBeLessThan(7.1 * 24 * 60 * 60 * 1000);
+    }
+    expect(sqlite.prepare("SELECT subject, cleanup_candidate FROM messages").all()).toEqual([
+      { subject: "Hello", cleanup_candidate: 0 },
+    ]);
+    const mailboxColumns = sqlite.prepare("PRAGMA table_info(mailboxes)").all() as Array<{
+      name: string;
+    }>;
+    expect(mailboxColumns.map((column) => column.name)).not.toContain("intake_notice_seen_at");
+  });
+
+  it("creates the ignored list and the passed-over list, each tied to its mailbox", () => {
+    migrate(drizzle(sqlite), { migrationsFolder: FULL });
+    for (const table of ["ignored_messages", "intake_shadow"]) {
+      const keys = sqlite.prepare(`PRAGMA foreign_key_list(${table})`).all() as Array<{
+        table: string;
+        on_delete: string;
+      }>;
+      expect(keys).toContainEqual(
+        expect.objectContaining({ table: "mailboxes", on_delete: "CASCADE" }),
+      );
+    }
+    const indexes = sqlite.prepare("PRAGMA index_list(intake_shadow)").all() as Array<{
+      name: string;
+      unique: number;
+    }>;
+    expect(indexes).toContainEqual(
+      expect.objectContaining({ name: "intake_shadow_uid_idx", unique: 1 }),
     );
   });
 });

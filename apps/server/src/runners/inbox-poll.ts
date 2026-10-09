@@ -1,5 +1,6 @@
 import {
   intakeSenders,
+  intakeShadow,
   type MailboxRow,
   type MessageRow,
   mailboxes,
@@ -26,6 +27,7 @@ import {
 } from "../core/targets.js";
 import type { Task } from "../core/task-types.js";
 import {
+  type BodyReason,
   type HeaderVerdict,
   headersOf,
   type IntakeContext,
@@ -37,6 +39,7 @@ import {
   senderTargetIds,
   triageBody,
   triageHeaders,
+  unreadRule,
 } from "../mail/intake.js";
 import type {
   ClassificationResult,
@@ -47,7 +50,8 @@ import type {
 } from "../mail/types.js";
 import type { AppServices } from "../services.js";
 import { connectionOf, describeError } from "./connection.js";
-import { cleanUpStoredMail } from "./intake-cleanup.js";
+import { listCleanupCandidates } from "./intake-cleanup.js";
+import { notePassedOver } from "./intake-shadow.js";
 import {
   applyReply,
   awaitingConfirmationOf,
@@ -94,6 +98,14 @@ interface PollTotals {
   skipped: number;
   needsReview: number;
   pages: number;
+}
+
+/** A message whose body is read only if the server finds one of the terms in it. */
+interface Gated {
+  uid: number;
+  scope: SearchScope;
+  terms: string[];
+  reason: BodyReason;
 }
 
 interface Admitted {
@@ -213,7 +225,7 @@ export class InboxRunner {
 
     return inbox.withFolder(mailbox.replyFolder, async (session) => {
       if (mailbox.intakeCleanup === "pending") {
-        await cleanUpStoredMail(this.services, mailbox, session, this.intake(mailbox));
+        await listCleanupCandidates(this.services, mailbox, session, this.intake(mailbox));
       }
       if (rescan) await this.rescan(session, mailbox, rescan, totals);
 
@@ -294,7 +306,8 @@ export class InboxRunner {
 
     const admittedBy = new Map<number, MessageAdmission | null>();
     const toRead: number[] = [];
-    const gated: Array<{ uid: number; scope: SearchScope; terms: string[] }> = [];
+    const gated: Gated[] = [];
+    const headersByUid = new Map(fresh.map((h) => [h.uid, h]));
     for (const h of fresh) {
       let verdict: HeaderVerdict;
       try {
@@ -311,11 +324,34 @@ export class InboxRunner {
       else if (verdict.verdict === "needs_body") {
         const plan = readPlanFor(h, verdict, ctx);
         if (plan.read === "now") toRead.push(h.uid);
-        else gated.push({ uid: h.uid, scope: plan.scope, terms: plan.terms });
+        else {
+          gated.push({
+            uid: h.uid,
+            scope: plan.scope,
+            terms: plan.terms,
+            reason: verdict.reasons[0] as BodyReason,
+          });
+        }
       }
     }
 
-    toRead.push(...(await this.searchHits(session, gated)));
+    const hits = await this.searchHits(session, gated);
+    toRead.push(...hits);
+    const unread = new Set(hits);
+    for (const entry of gated) {
+      const h = headersByUid.get(entry.uid);
+      if (h && !unread.has(entry.uid)) {
+        notePassedOver(
+          this.services,
+          mailbox,
+          uidValidity,
+          h,
+          null,
+          unreadRule(h, entry.reason, ctx),
+          ctx,
+        );
+      }
+    }
 
     const wanted = [...admittedBy.keys(), ...toRead];
     if (wanted.length === 0) return [];
@@ -329,6 +365,17 @@ export class InboxRunner {
       try {
         const verdict = triageBody(message, ctx);
         if (verdict.verdict === "admit") admitted.push({ message, by: verdict.by });
+        else if (verdict.rule !== null) {
+          notePassedOver(
+            this.services,
+            mailbox,
+            uidValidity,
+            headersOf(message),
+            message,
+            verdict.rule,
+            ctx,
+          );
+        }
       } catch (error) {
         this.services.logger.error(
           { mailboxId: mailbox.id, uid: message.uid, err: describeError(error) },
@@ -341,10 +388,7 @@ export class InboxRunner {
   }
 
   /** The search-gated messages worth a download: those the server found a term in, or all when it cannot search. */
-  private async searchHits(
-    session: InboxSession,
-    gated: Array<{ uid: number; scope: SearchScope; terms: string[] }>,
-  ): Promise<number[]> {
+  private async searchHits(session: InboxSession, gated: Gated[]): Promise<number[]> {
     const hits: number[] = [];
     for (const scope of new Set(gated.map((entry) => entry.scope))) {
       const group = gated.filter((entry) => entry.scope === scope);
@@ -375,7 +419,7 @@ export class InboxRunner {
     );
   }
 
-  private intake(mailbox: MailboxRow, requests?: ClassifierRequest[]): IntakeContext {
+  intake(mailbox: MailboxRow, requests?: ClassifierRequest[]): IntakeContext {
     const { db, clock } = this.services;
     return intakeContext({
       requests: requests ?? this.classifierRequests(mailbox.profileId),
@@ -456,6 +500,16 @@ export class InboxRunner {
     });
     if (!message) return null;
     await this.ingest(mailbox, uidValidity, message, "person");
+    this.services.db
+      .delete(intakeShadow)
+      .where(
+        and(
+          eq(intakeShadow.mailboxId, mailbox.id),
+          eq(intakeShadow.uidValidity, uidValidity),
+          eq(intakeShadow.imapUid, uid),
+        ),
+      )
+      .run();
     return (
       this.services.db
         .select()
@@ -572,9 +626,19 @@ export class InboxRunner {
     // Only positive evidence that mail is a newsletter or an ad lets it go; anything else a
     // sender or wording rule let in waits for a person, since a reply the rules do not recognise
     // is still a reply.
-    if (soft && nothingKnown && isBulkWithoutPrivacyWording(message, ctx)) return "skipped";
-    const unmatched =
-      soft && classified.requestId === null && classified.classification === "unrelated";
+    if (soft && nothingKnown && isBulkWithoutPrivacyWording(message, ctx)) {
+      notePassedOver(
+        this.services,
+        mailbox,
+        uidValidity,
+        headersOf(message),
+        message,
+        "bulk_no_privacy",
+        ctx,
+      );
+      return "skipped";
+    }
+    const unmatched = soft && classified.requestId === null && isNoise(classified);
     const request = classified.requestId
       ? (context.find((candidate) => candidate.id === classified.requestId) ?? null)
       : null;

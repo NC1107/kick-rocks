@@ -2,6 +2,7 @@ import { reuseRecentScans } from "../core/scan-reuse.js";
 import { applyRetention } from "../modules/data-rights/index.js";
 import { runNotifications } from "../modules/notifications/index.js";
 import { type Runners, runnersOf } from "../runners/index.js";
+import { purgeExpiredIntake } from "../runners/intake-cleanup.js";
 import type { AppServices } from "../services.js";
 import { enqueueDueCanaries } from "./canaries.js";
 import { advanceOverdueRequests } from "./overdue.js";
@@ -99,6 +100,7 @@ export function createScheduler(
       await job("rescans", () => enqueueDueRescans(services));
       await job("scan-reuse", () => reuseRecentScans(services));
       await job("site-visits", () => services.politeness.prune());
+      await job("intake-purge", () => purgeExpiredIntake(services));
       await job("canaries", () => enqueueDueCanaries(services));
     }
     if (due("retention", retentionMs)) {

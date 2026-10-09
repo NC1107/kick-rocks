@@ -327,6 +327,8 @@ export const REQUEST_EVENT_PAYLOADS = {
     classification: ReplyClassification,
     confidence: z.number().min(0).max(1),
     correlation: z.enum(["message_id", "reference", "sender_domain", "manual"]).nullable(),
+    /** The request had already finished, so the reply was recorded and changed nothing. */
+    late: z.boolean().optional(),
   }),
   link_followed: z.object({ url: WebUrl, finalUrl: WebUrl.nullable(), ok: z.boolean() }),
   status_changed: z.object({ from: RequestStatus, to: RequestStatus }),

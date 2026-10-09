@@ -50,37 +50,105 @@ describe("what Kick Rocks takes in", () => {
   });
 });
 
-describe("the notice about removed mail", () => {
-  it("shows once after the cleanup removed mail and can be dismissed", async () => {
+describe("the list of stored mail to remove", () => {
+  function storeNoise(subject: string, id = crypto.randomUUID()) {
+    ctx.services.db
+      .insert(messages)
+      .values({
+        id,
+        mailboxId,
+        imapUid: Math.floor(Math.random() * 1_000_000),
+        uidValidity: 1,
+        fromAddress: "news@letters.test",
+        subject,
+        receivedAt: ctx.clock.now().toISOString(),
+        classification: "unrelated",
+        confidence: 0.8,
+        links: [],
+        reviewed: true,
+        cleanupCandidate: true,
+        createdAt: ctx.clock.now().toISOString(),
+      })
+      .run();
+    return id;
+  }
+  const setState = (intakeCleanup: "pending" | "review" | "done") =>
     ctx.services.db
       .update(mailboxes)
-      .set({ intakeCleanupRemoved: 111, intakeCleanupAt: ctx.clock.now().toISOString() })
+      .set({ intakeCleanup })
       .where(eq(mailboxes.id, mailboxId))
       .run();
-    const shown = await ctx.call(API_ROUTES.mailboxIntake, {
-      params: { id: profileId },
-      body: { companyMail: "privacy_only" },
-    });
-    expect(shown).toMatchObject({ ok: true, body: { intakeNotice: { removed: 111 } } });
 
-    const dismissed = await ctx.call(API_ROUTES.mailboxNoticeDismiss, {
-      params: { id: profileId },
+  it("shows what a confirmation would remove and removes nothing by showing it", async () => {
+    setState("review");
+    storeNoise("Summer sale");
+
+    const shown = await ctx.call(API_ROUTES.intakeCleanup, { params: { id: profileId } });
+
+    expect(shown).toMatchObject({
+      ok: true,
+      body: {
+        state: "review",
+        items: [{ fromAddress: "news@letters.test", subject: "Summer sale" }],
+      },
     });
-    expect(dismissed).toMatchObject({ ok: true, body: { intakeNotice: null } });
-    expect(row()?.intakeNoticeSeenAt).not.toBeNull();
+    expect(ctx.services.db.select().from(messages).all()).toHaveLength(1);
   });
 
-  it("is not shown when the cleanup removed nothing or has not run yet", async () => {
-    ctx.services.db
-      .update(mailboxes)
-      .set({ intakeCleanup: "pending", intakeCleanupRemoved: 5 })
-      .where(eq(mailboxes.id, mailboxId))
-      .run();
-    const pending = await ctx.call(API_ROUTES.mailboxIntake, {
+  it("shows no list before the first check has made one, and none after the decision", async () => {
+    storeNoise("Summer sale");
+    for (const state of ["pending", "done"] as const) {
+      setState(state);
+      const shown = await ctx.call(API_ROUTES.intakeCleanup, { params: { id: profileId } });
+      expect(shown).toMatchObject({ ok: true, body: { state, items: [] } });
+    }
+  });
+
+  it("moves the listed mail to the ignored list when confirmed, and the person can take it back", async () => {
+    setState("review");
+    const id = storeNoise("Summer sale");
+
+    const confirmed = await ctx.call(API_ROUTES.intakeCleanupConfirm, {
       params: { id: profileId },
-      body: { companyMail: "privacy_only" },
     });
-    expect(pending).toMatchObject({ ok: true, body: { intakeNotice: null } });
+    expect(confirmed).toMatchObject({ ok: true, body: { removed: 1 } });
+    expect(ctx.services.db.select().from(messages).all()).toEqual([]);
+    const ignored = await ctx.call(API_ROUTES.intakeIgnored, { params: { id: profileId } });
+    expect(ignored).toMatchObject({ ok: true, body: { items: [{ id, subject: "Summer sale" }] } });
+
+    const taken = await ctx.call(API_ROUTES.intakeIgnoredTakeIn, {
+      params: { id: profileId, messageId: id },
+    });
+    expect(taken).toMatchObject({
+      ok: true,
+      body: { id, subject: "Summer sale", reviewed: false, admittedBy: "person" },
+    });
+    const after = await ctx.call(API_ROUTES.intakeIgnored, { params: { id: profileId } });
+    expect(after).toMatchObject({ ok: true, body: { items: [] } });
+  });
+
+  it("refuses to confirm when no list is waiting", async () => {
+    setState("done");
+    const refused = await ctx.call(API_ROUTES.intakeCleanupConfirm, { params: { id: profileId } });
+    expect(refused).toMatchObject({ ok: false, status: 409 });
+  });
+
+  it("keeps everything when the person says so", async () => {
+    setState("review");
+    storeNoise("Summer sale");
+
+    const kept = await ctx.call(API_ROUTES.intakeCleanupKeep, { params: { id: profileId } });
+
+    expect(kept).toMatchObject({ ok: true });
+    expect(ctx.services.db.select().from(messages).all()).toHaveLength(1);
+    expect(row()).toMatchObject({ intakeCleanup: "done", intakeCleanupRemoved: 0 });
+  });
+
+  it("does not take back a message that is not in the list", async () => {
+    const missing = await ctx.call(API_ROUTES.intakeIgnoredTakeIn, {
+      params: { id: profileId, messageId: "nothing" },
+    });
+    expect(missing).toMatchObject({ ok: false, status: 404 });
   });
 });
 

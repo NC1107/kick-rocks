@@ -453,25 +453,91 @@ describe("what Kick Rocks takes in", () => {
     ).toBeInTheDocument();
     expect(screen.getByText(/Replies to the mail Kick Rocks sent/)).toBeInTheDocument();
     expect(
-      screen.getByText("Everything else stays in your mailbox and nothing about it is saved."),
-    ).toBeInTheDocument();
+      screen.getByText(/Everything else stays in your mailbox and is not saved\./),
+    ).toBeVisible();
+    expect(
+      await screen.findByText(/the first week, when the sender, subject and date/),
+    ).toBeVisible();
     expect(screen.getByTestId("last-check")).toHaveTextContent(
       "Last check looked at 143 new messages and kept 4.",
     );
   });
 
-  it("tells the person once what the cleanup removed, and stays gone after dismissing it", async () => {
-    const mock = createMockApp();
-    const { user, profile } = open("jordan", mock);
-    const notice = await screen.findByText(/It removed 111 messages it had saved/);
-    expect(notice).toHaveTextContent("Kick Rocks only deleted its own copy");
-    expect(screen.getByRole("link", { name: "See what Kick Rocks takes in" })).toHaveAttribute(
-      "href",
-      `/profiles/${profile.id}/mailbox#intake`,
+  it("lists the saved mail it would remove and removes nothing until the person confirms", async () => {
+    const { user } = open("jordan");
+    const preview = within(await screen.findByTestId("cleanup-preview"));
+    expect(screen.getByRole("heading", { name: /Saved mail to remove · 12/ })).toBeVisible();
+    expect(preview.getByText("Your order has shipped")).toBeVisible();
+    expect(preview.getByText("orders@shop-example.test", { exact: false })).toBeVisible();
+    expect(preview.getByText(/Nothing is removed until you confirm/)).toBeVisible();
+    expect(preview.getAllByText(/example\.test/).length).toBeGreaterThan(0);
+    expect(screen.getByRole("heading", { name: /Ignored · 0/ })).toBeVisible();
+    expect(screen.getByText("Nothing ignored.")).toBeVisible();
+
+    await user.click(preview.getByRole("button", { name: "Show all 12" }));
+    expect(preview.getByText("Receipt for your payment")).toBeVisible();
+
+    await user.click(preview.getByRole("button", { name: "Confirm removal of 12" }));
+
+    await waitFor(() => expect(screen.queryByTestId("cleanup-preview")).toBeNull());
+    expect(await screen.findByRole("heading", { name: /Ignored · 12/ })).toBeVisible();
+    const ignored = within(screen.getByTestId("ignored-mail"));
+    expect(ignored.getAllByText(/Kept until/)).toHaveLength(12);
+    expect(screen.getByText(/deletes its copy 30 days after you confirmed/)).toBeVisible();
+  });
+
+  it("keeps everything when the person says so", async () => {
+    const { user } = open("jordan");
+    const preview = within(await screen.findByTestId("cleanup-preview"));
+    await user.click(preview.getByRole("button", { name: "Keep all" }));
+    await waitFor(() => expect(screen.queryByTestId("cleanup-preview")).toBeNull());
+    expect(screen.getByText("Nothing ignored.")).toBeVisible();
+  });
+
+  it("takes a message back out of the ignored list", async () => {
+    const { user } = open("jordan");
+    await user.click(
+      within(await screen.findByTestId("cleanup-preview")).getByRole("button", {
+        name: /Confirm removal/,
+      }),
     );
-    await user.click(screen.getByRole("button", { name: "Dismiss" }));
-    await waitFor(() => expect(screen.queryByText(/It removed 111 messages/)).toBeNull());
-    expect(mock.store.profiles[0]?.mailbox?.intakeNotice).toBeNull();
+    const ignored = within(await screen.findByTestId("ignored-mail"));
+    await user.click(ignored.getByRole("button", { name: "Take in Your order has shipped" }));
+    await waitFor(() => expect(ignored.queryByText("Your order has shipped")).toBeNull());
+    expect(await screen.findByRole("heading", { name: /Ignored · 11/ })).toBeVisible();
+  });
+
+  it("reports what the new rules passed over this week, with the rule, and lets the person take it in", async () => {
+    const { user } = open("jordan");
+    const report = within(await screen.findByTestId("shadow-report"));
+    expect(screen.getByRole("heading", { name: /Passed over this week · 4/ })).toBeVisible();
+    expect(report.getByText("Your privacy request: next steps")).toBeVisible();
+    expect(report.getByText("support@datasafe-support.net", { exact: false })).toBeVisible();
+    expect(report.getByText("From a target whose request is finished")).toBeVisible();
+    expect(report.getByText("Bulk mail that says nothing about privacy")).toBeVisible();
+    expect(report.getByText("Company mail that is not about privacy")).toBeVisible();
+    expect(report.getByText("Names no target with an open request")).toBeVisible();
+    expect(report.getByText(/Kick Rocks notes only the sender, subject and date/)).toBeVisible();
+
+    await user.click(
+      report.getByRole("button", { name: "Take in Your privacy request: next steps" }),
+    );
+
+    await waitFor(() => expect(report.queryByText("Your privacy request: next steps")).toBeNull());
+    expect(await screen.findByRole("heading", { name: /Passed over this week · 3/ })).toBeVisible();
+  });
+
+  it("closes the passed-over report for good when dismissed, and stops mentioning it", async () => {
+    const { user } = open("jordan");
+    const report = within(await screen.findByTestId("shadow-report"));
+    await user.click(report.getByRole("button", { name: "Dismiss report" }));
+    await waitFor(() => expect(screen.queryByTestId("shadow-report")).toBeNull());
+    await waitFor(() =>
+      expect(screen.queryByText(/the first week, when the sender, subject and date/)).toBeNull(),
+    );
+    expect(
+      screen.getByText(/Everything else stays in your mailbox and is not saved\./),
+    ).toBeVisible();
   });
 
   it("switches company mail between privacy-only and everything but ads", async () => {

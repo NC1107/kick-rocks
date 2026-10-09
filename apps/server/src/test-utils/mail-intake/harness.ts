@@ -54,7 +54,7 @@ export interface IntakeReport {
   extra: {
     stored: number;
     shownInReview: number;
-    /** Request mail that waited in Review although it could have been applied without a person. */
+    /** Request mail that waited in Review although it could have been applied or recorded without a person. */
     needlessReview: number;
     /** Messages the classifier sent to the language model. */
     modelCalls: number;
@@ -231,7 +231,11 @@ function judge(
   if (row.requestId !== expectedId || row.classification !== expectedClass) {
     problems.push({ problem: "misrouted", detail: describeRow(row) });
   }
-  return { problems, needlessReview: !row.reviewed && problems.length === 0 };
+  // A broker asking for identifying details is the person's to answer even when the request is
+  // over, so it is not a review a rule could have saved.
+  const asksPerson =
+    row.classification === "verification_required" && row.requestedFields.length > 0;
+  return { problems, needlessReview: !row.reviewed && problems.length === 0 && !asksPerson };
 }
 
 export async function runIntake(

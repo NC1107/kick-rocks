@@ -1,3 +1,4 @@
+import type { MailboxRow, MessageRow } from "@kickrocks/db";
 import { API_ROUTES, type MailboxTestResult } from "@kickrocks/shared";
 import { AppError } from "../../core/errors.js";
 import { registerRoute } from "../../core/http.js";
@@ -6,11 +7,23 @@ import { requireProfile } from "../../core/require-profile.js";
 import { PROVIDER_PRESETS } from "../../mail/presets.js";
 import { connectionOf } from "../../runners/connection.js";
 import { InboxRunner } from "../../runners/inbox-poll.js";
+import {
+  confirmCleanup,
+  keepStoredMail,
+  listIgnored,
+  previewCleanup,
+  takeInIgnored,
+} from "../../runners/intake-cleanup.js";
+import {
+  dismissShadow,
+  forgetShadowLine,
+  readShadow,
+  requireShadowLine,
+} from "../../runners/intake-shadow.js";
 import { toMessageSummary } from "../review/mappers.js";
 import {
   addIntakeSender,
   disableReplyAlias,
-  dismissIntakeNotice,
   enableReplyAlias,
   listIntakeSenders,
   removeIntakeSender,
@@ -32,6 +45,26 @@ function failureText(error: unknown): string {
 }
 
 export const mailboxModule: ModulePlugin = (app, services) => {
+  async function takeInMessage(
+    mailbox: MailboxRow,
+    message: { uid: number; uidValidity: number },
+  ): Promise<MessageRow> {
+    let row: MessageRow | null;
+    try {
+      row = await new InboxRunner(services).takeIn(mailbox, message);
+    } catch (error) {
+      throw new AppError(502, "mailbox_unreachable", failureText(error));
+    }
+    if (!row) {
+      throw new AppError(
+        409,
+        "message_gone",
+        "That message is no longer in the folder, so search again",
+      );
+    }
+    return row;
+  }
+
   registerRoute(app, API_ROUTES.mailProviders, () => ({ providers: [...PROVIDER_PRESETS] }));
 
   registerRoute(app, API_ROUTES.mailboxTest, async ({ params, body }) => {
@@ -79,9 +112,58 @@ export const mailboxModule: ModulePlugin = (app, services) => {
     setCompanyMail(services, requireMailbox(services, params.id), body.companyMail),
   );
 
-  registerRoute(app, API_ROUTES.mailboxNoticeDismiss, ({ params }) =>
-    dismissIntakeNotice(services, requireMailbox(services, params.id)),
+  registerRoute(app, API_ROUTES.intakeCleanup, ({ params }) => {
+    const mailbox = requireMailbox(services, params.id);
+    return previewCleanup(services, mailbox, new InboxRunner(services).intake(mailbox));
+  });
+
+  registerRoute(app, API_ROUTES.intakeCleanupConfirm, ({ params }) => {
+    const mailbox = requireMailbox(services, params.id);
+    const removed = confirmCleanup(services, mailbox, new InboxRunner(services).intake(mailbox));
+    return { removed };
+  });
+
+  registerRoute(app, API_ROUTES.intakeCleanupKeep, ({ params }) => {
+    keepStoredMail(services, requireMailbox(services, params.id));
+    return { ok: true as const };
+  });
+
+  registerRoute(app, API_ROUTES.intakeIgnored, ({ params }) =>
+    listIgnored(services, requireMailbox(services, params.id)),
   );
+
+  registerRoute(app, API_ROUTES.intakeIgnoredTakeIn, ({ params }) =>
+    toMessageSummary(
+      takeInIgnored(services, requireMailbox(services, params.id), params.messageId),
+    ),
+  );
+
+  registerRoute(app, API_ROUTES.intakeShadow, ({ params }) =>
+    readShadow(services, requireMailbox(services, params.id)),
+  );
+
+  registerRoute(app, API_ROUTES.intakeShadowDismiss, ({ params }) => {
+    dismissShadow(services, requireMailbox(services, params.id));
+    return { ok: true as const };
+  });
+
+  registerRoute(app, API_ROUTES.intakeShadowTakeIn, async ({ params }) => {
+    const mailbox = requireMailbox(services, params.id);
+    const line = requireShadowLine(services, mailbox, params.shadowId);
+    try {
+      const row = await takeInMessage(mailbox, {
+        uid: line.imapUid,
+        uidValidity: line.uidValidity,
+      });
+      return toMessageSummary(row);
+    } catch (error) {
+      // A message that is gone from the mailbox can never be taken in, so it leaves the list.
+      if (error instanceof AppError && error.code === "message_gone") {
+        forgetShadowLine(services, line.id);
+      }
+      throw error;
+    }
+  });
 
   registerRoute(app, API_ROUTES.mailboxAliasEnable, ({ params }) =>
     enableReplyAlias(services, requireMailbox(services, params.id)),
@@ -115,20 +197,7 @@ export const mailboxModule: ModulePlugin = (app, services) => {
 
   registerRoute(app, API_ROUTES.mailboxTakeIn, async ({ params, body }) => {
     const mailbox = requireMailbox(services, params.id);
-    let row: Awaited<ReturnType<InboxRunner["takeIn"]>>;
-    try {
-      row = await new InboxRunner(services).takeIn(mailbox, body);
-    } catch (error) {
-      throw new AppError(502, "mailbox_unreachable", failureText(error));
-    }
-    if (!row) {
-      throw new AppError(
-        409,
-        "message_gone",
-        "That message is no longer in the folder, so search again",
-      );
-    }
-    return toMessageSummary(row);
+    return toMessageSummary(await takeInMessage(mailbox, body));
   });
 
   registerRoute(app, API_ROUTES.mailboxFolders, async ({ params }) => {

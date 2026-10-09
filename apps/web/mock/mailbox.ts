@@ -1,11 +1,16 @@
 import {
   API_ROUTES,
   type FoundMessage,
+  IGNORED_KEEP_DAYS,
+  type IgnoredMessage,
+  type IntakeCleanup,
   type IntakeSender,
   type Mailbox,
   type MailFolder,
+  type MailLine,
   type MessageSummary,
   type ProviderPreset,
+  type ShadowLine,
 } from "@kickrocks/shared";
 import { defineMockDomain, handle, MockHttpError, notFound } from "./core.js";
 import type { MockStore } from "./store.js";
@@ -189,6 +194,28 @@ interface Findable {
   fromAddress: string;
 }
 
+/** What the mock inbox holds for the three lists a person confirms, takes back or checks. */
+interface IntakeLists {
+  cleanup: { state: IntakeCleanup["state"]; items: MailLine[]; removed: number | null };
+  ignored: IgnoredMessage[];
+  shadow: { active: boolean; until: string; items: ShadowLine[] };
+}
+
+const SAVED_NOISE: Array<[string, string, number]> = [
+  ["Your order has shipped", "orders@shop-example.test", 3],
+  ["Summer sale: 40% off everything", "deals@news.shop-example.test", 5],
+  ["Security alert: new sign-in", "alerts@bank-example.test", 6],
+  ["Your weekly digest", "digest@letters-example.test", 8],
+  ["Confirm your new email address", "accounts@store-example.test", 9],
+  ["Invoice for September", "billing@cloud-example.test", 11],
+  ["Meeting moved to Thursday", "calendar@work-example.test", 12],
+  ["New message from a neighbour", "notify@neighbours-example.test", 14],
+  ["Your statement is ready", "statements@bank-example.test", 17],
+  ["Track your parcel", "tracking@post-example.test", 19],
+  ["We miss you", "hello@news.store-example.test", 21],
+  ["Receipt for your payment", "receipts@pay-example.test", 24],
+];
+
 export default defineMockDomain({
   name: "mailbox",
 
@@ -216,7 +243,6 @@ export default defineMockDomain({
       replyAliasVerified: false,
       lastPollScanned: 143,
       lastPollKept: 4,
-      intakeNotice: { removed: 111 },
       createdAt: store.ago({ days: 90 }),
     };
     jordan.mailbox = mailbox;
@@ -224,6 +250,53 @@ export default defineMockDomain({
   },
 
   routes: (store) => {
+    const lists: IntakeLists = {
+      cleanup: {
+        state: "review",
+        items: SAVED_NOISE.map(([subject, fromAddress, days], index) => ({
+          id: `noise-${index}`,
+          fromAddress,
+          subject,
+          receivedAt: store.ago({ days }),
+        })),
+        removed: null,
+      },
+      ignored: [],
+      shadow: {
+        active: true,
+        until: new Date(store.clock.now().getTime() + 5 * 86_400_000).toISOString(),
+        items: [
+          {
+            id: "shadow-1",
+            fromAddress: "support@datasafe-support.net",
+            subject: "Your privacy request: next steps",
+            receivedAt: store.ago({ days: 1 }),
+            rule: "finished_request",
+          },
+          {
+            id: "shadow-2",
+            fromAddress: "deals@news.peoplefinder-example.test",
+            subject: "Records removed from your profile",
+            receivedAt: store.ago({ days: 2 }),
+            rule: "bulk_no_privacy",
+          },
+          {
+            id: "shadow-3",
+            fromAddress: "orders@shop-example.test",
+            subject: "About your data on our site",
+            receivedAt: store.ago({ days: 3 }),
+            rule: "company_not_privacy",
+          },
+          {
+            id: "shadow-4",
+            fromAddress: "someone@elsewhere-example.test",
+            subject: "Please delete your data",
+            receivedAt: store.ago({ days: 4 }),
+            rule: "not_named",
+          },
+        ],
+      },
+    };
     const senders: IntakeSender[] = [];
     const findable: Findable[] = [
       {
@@ -251,11 +324,16 @@ export default defineMockDomain({
         },
       },
     ];
-    return routesFor(store, senders, findable);
+    return routesFor(store, senders, findable, lists);
   },
 });
 
-function routesFor(store: MockStore, senders: IntakeSender[], findable: Findable[]) {
+function routesFor(
+  store: MockStore,
+  senders: IntakeSender[],
+  findable: Findable[],
+  lists: IntakeLists,
+) {
   return [
     handle(API_ROUTES.mailProviders, () => ({ providers: PROVIDERS })),
 
@@ -320,7 +398,6 @@ function routesFor(store: MockStore, senders: IntakeSender[], findable: Findable
         replyAliasVerified: profile.mailbox?.replyAliasVerified ?? false,
         lastPollScanned: profile.mailbox?.lastPollScanned ?? 0,
         lastPollKept: profile.mailbox?.lastPollKept ?? 0,
-        intakeNotice: profile.mailbox?.intakeNotice ?? null,
         createdAt: profile.mailbox?.createdAt ?? store.clock.now().toISOString(),
       };
       profile.mailbox = mailbox;
@@ -380,10 +457,71 @@ function routesFor(store: MockStore, senders: IntakeSender[], findable: Findable
       return mailbox;
     }),
 
-    handle(API_ROUTES.mailboxNoticeDismiss, ({ params }) => {
+    handle(API_ROUTES.intakeCleanup, ({ params }) => {
+      mailboxOf(store, params.id);
+      return {
+        state: lists.cleanup.state,
+        items: lists.cleanup.state === "review" ? lists.cleanup.items : [],
+        removed: lists.cleanup.removed,
+      };
+    }),
+
+    handle(API_ROUTES.intakeCleanupConfirm, ({ params }) => {
+      mailboxOf(store, params.id);
+      if (lists.cleanup.state !== "review") {
+        throw new MockHttpError(409, "nothing_to_confirm", "There is no list waiting.");
+      }
+      const keptUntil = new Date(
+        store.clock.now().getTime() + IGNORED_KEEP_DAYS * 86_400_000,
+      ).toISOString();
+      lists.ignored.push(...lists.cleanup.items.map((item) => ({ ...item, keptUntil })));
+      const removed = lists.cleanup.items.length;
+      lists.cleanup = { state: "done", items: [], removed };
+      return { removed };
+    }),
+
+    handle(API_ROUTES.intakeCleanupKeep, ({ params }) => {
+      mailboxOf(store, params.id);
+      lists.cleanup = { state: "done", items: [], removed: 0 };
+      return { ok: true as const };
+    }),
+
+    handle(API_ROUTES.intakeIgnored, ({ params }) => {
+      mailboxOf(store, params.id);
+      return { items: [...lists.ignored] };
+    }),
+
+    handle(API_ROUTES.intakeIgnoredTakeIn, ({ params }) => {
       const mailbox = mailboxOf(store, params.id);
-      mailbox.intakeNotice = null;
-      return mailbox;
+      const index = lists.ignored.findIndex((item) => item.id === params.messageId);
+      const item = lists.ignored[index];
+      if (!item) throw notFound("That message");
+      lists.ignored.splice(index, 1);
+      return takenIn(store, mailbox.id, item);
+    }),
+
+    handle(API_ROUTES.intakeShadow, ({ params }) => {
+      mailboxOf(store, params.id);
+      return {
+        active: lists.shadow.active,
+        until: lists.shadow.until,
+        items: lists.shadow.active ? [...lists.shadow.items] : [],
+      };
+    }),
+
+    handle(API_ROUTES.intakeShadowTakeIn, ({ params }) => {
+      const mailbox = mailboxOf(store, params.id);
+      const index = lists.shadow.items.findIndex((item) => item.id === params.shadowId);
+      const item = lists.shadow.items[index];
+      if (!item) throw notFound("That message");
+      lists.shadow.items.splice(index, 1);
+      return takenIn(store, mailbox.id, item);
+    }),
+
+    handle(API_ROUTES.intakeShadowDismiss, ({ params }) => {
+      mailboxOf(store, params.id);
+      lists.shadow = { ...lists.shadow, active: false, items: [] };
+      return { ok: true as const };
     }),
 
     // An address that starts with "drop" stands for a provider that discards the tag, so the
@@ -477,4 +615,24 @@ function routesFor(store: MockStore, senders: IntakeSender[], findable: Findable
       return message;
     }),
   ];
+}
+
+/** A message the person took in by hand, as it would appear in Review. */
+function takenIn(store: MockStore, mailboxId: string, line: MailLine): MessageSummary {
+  return {
+    id: store.nextId("msg"),
+    mailboxId,
+    requestId: null,
+    fromAddress: line.fromAddress,
+    subject: line.subject,
+    receivedAt: line.receivedAt ?? store.clock.now().toISOString(),
+    classification: "unknown",
+    confidence: 0.2,
+    rationale: "Taken in by hand",
+    links: [],
+    requestedFields: [],
+    snippet: null,
+    reviewed: false,
+    admittedBy: "person",
+  };
 }

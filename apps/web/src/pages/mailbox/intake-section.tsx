@@ -21,14 +21,17 @@ import {
 } from "../../components/ui/index.js";
 import { ADMISSION_REASON } from "../../lib/admission.js";
 import { BodyRow, FieldRow, GroupNote } from "../settings/rows.js";
+import { CleanupPreview, IgnoredMail, ShadowReport } from "./intake-review.js";
 
 const RULES = [
   "Replies to the mail Kick Rocks sent for your requests.",
   "Mail that names the reference of one of your requests.",
   "Bounce messages for mail Kick Rocks sent.",
   "The confirmation email a form you submitted is waiting for.",
-  "Mail from the brokers and companies you have an open request with. For a company, only mail about privacy requests unless you choose otherwise below.",
-  "Mail sent to your Kick Rocks reply address, once you turn it on.",
+  "Mail from brokers you have an open request with, except newsletters and ads that say nothing about privacy.",
+  "Mail from companies you have an open request with. Only mail about privacy, unless you choose otherwise below.",
+  "Mail from anyone that names one of those targets and talks about your data.",
+  "Mail sent to your reply address, once you turn it on, except newsletters and ads.",
   "Mail from senders you add below.",
 ] as const;
 
@@ -55,6 +58,8 @@ interface IntakeSectionProps {
 /** What Kick Rocks takes in from the mailbox, with the controls that change it. */
 export function IntakeSection({ profileId, mailbox, provider }: IntakeSectionProps) {
   const { hash } = useLocation();
+  const shadowActive =
+    useApiQuery(API_ROUTES.intakeShadow, { params: { id: profileId } }).data?.active ?? false;
   // The link from the notice and from Settings names this section, but the page renders after the jump.
   useEffect(() => {
     if (hash === "#intake") document.getElementById("intake")?.scrollIntoView?.({ block: "start" });
@@ -70,7 +75,10 @@ export function IntakeSection({ profileId, mailbox, provider }: IntakeSectionPro
               ))}
             </ul>
             <p className="mt-3 text-meta font-medium text-ink">
-              Everything else stays in your mailbox and nothing about it is saved.
+              Everything else stays in your mailbox and is not saved.
+              {shadowActive
+                ? " The exception is the first week, when the sender, subject and date of passed-over mail that could be a reply are listed below."
+                : ""}
             </p>
           </BodyRow>
           <BodyRow>
@@ -81,10 +89,13 @@ export function IntakeSection({ profileId, mailbox, provider }: IntakeSectionPro
           </BodyRow>
         </RowGroup>
       </Section>
+      <CleanupPreview profileId={profileId} />
+      <ShadowReport profileId={profileId} />
       <CompanyMailSetting profileId={profileId} mailbox={mailbox} />
       {provider?.plusAddressing ? <ReplyAddress profileId={profileId} mailbox={mailbox} /> : null}
       <AlwaysTakeIn profileId={profileId} />
       <FindMissingReply profileId={profileId} />
+      <IgnoredMail profileId={profileId} showEmpty />
     </div>
   );
 }
@@ -104,9 +115,8 @@ function CompanyMailSetting({ profileId, mailbox }: { profileId: string; mailbox
         options={COMPANY_MAIL_OPTIONS.map((option) => ({ ...option }))}
       />
       <GroupNote>
-        Mail from brokers you have an open request with is taken in, except newsletters and ads that
-        do not mention your request. Companies also send order and account mail, which is why they
-        get this choice.
+        Companies also send order and account mail, which is why they get this choice. Newsletters
+        and ads that say nothing about privacy are never taken in.
       </GroupNote>
       {save.error ? (
         <Callout intent="danger" className="mt-2">
@@ -280,8 +290,8 @@ function AlwaysTakeIn({ profileId }: { profileId: string }) {
         </BodyRow>
       </RowGroup>
       <GroupNote>
-        Mail from these senders is taken in, except newsletters and ads that do not mention your
-        request. It never makes a link in the mail trusted, and it never vouches for who sent it.
+        Mail from these senders is taken in, except newsletters and ads that say nothing about
+        privacy. It never makes a link in the mail trusted, and it never vouches for who sent it.
       </GroupNote>
       {add.error ? (
         <Callout intent="danger" className="mt-2">

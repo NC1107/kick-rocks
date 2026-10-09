@@ -48,12 +48,6 @@ export function toMailbox(row: MailboxRow, sendPausedUntil: Date | null): Mailbo
     replyAliasVerified: row.replyAlias !== null && row.replyAliasVerifiedAt !== null,
     lastPollScanned: row.lastPollScanned,
     lastPollKept: row.lastPollKept,
-    intakeNotice:
-      row.intakeCleanup === "done" &&
-      row.intakeNoticeSeenAt === null &&
-      (row.intakeCleanupRemoved ?? 0) > 0
-        ? { removed: row.intakeCleanupRemoved as number }
-        : null,
     createdAt: row.createdAt,
   };
 }

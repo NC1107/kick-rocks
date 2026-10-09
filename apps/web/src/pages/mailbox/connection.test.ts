@@ -90,7 +90,6 @@ describe("presets and addresses", () => {
       replyAliasVerified: false,
       lastPollScanned: 0,
       lastPollKept: 0,
-      intakeNotice: null,
       createdAt: "2026-01-01T00:00:00.000Z",
     } satisfies Mailbox;
     const form = formFromMailbox(mailbox);

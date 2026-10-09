@@ -199,11 +199,68 @@ export const Mailbox = z.object({
   /** What the last check looked at and kept, as counts only. */
   lastPollScanned: z.number().int().nonnegative(),
   lastPollKept: z.number().int().nonnegative(),
-  /** Set once, after the first poll that removed mail the gate would not have taken in. */
-  intakeNotice: z.object({ removed: z.number().int().positive() }).nullable(),
   createdAt: z.iso.datetime(),
 });
 export type Mailbox = z.infer<typeof Mailbox>;
+
+/** Why the intake gate passed over a message. */
+export const IgnoreRule = z.enum([
+  "bulk_no_privacy",
+  "company_not_privacy",
+  "finished_request",
+  "not_named",
+  "stranger_bulk",
+  "bounce_not_ours",
+  "no_wording_found",
+]);
+export type IgnoreRule = z.infer<typeof IgnoreRule>;
+
+/** How long a message the person confirmed for removal can still be taken back. */
+export const IGNORED_KEEP_DAYS = 30;
+/** How long after the upgrade the report of passed-over mail is shown. */
+export const SHADOW_DAYS = 7;
+
+/** A stored message as a person recognises it: who sent it, what it said, when. */
+export const MailLine = z.object({
+  id: z.string(),
+  fromAddress: z.string(),
+  subject: z.string(),
+  receivedAt: z.iso.datetime().nullable(),
+});
+export type MailLine = z.infer<typeof MailLine>;
+
+/**
+ * The one-time removal of mail stored before the intake gate. It waits for the person: nothing is
+ * removed until they confirm, and `items` is exactly what a confirmation would remove right now.
+ */
+export const IntakeCleanup = z.object({
+  state: z.enum(["pending", "review", "done"]),
+  items: z.array(MailLine),
+  /** How many were removed by the confirmation; null until then. */
+  removed: z.number().int().nonnegative().nullable(),
+});
+export type IntakeCleanup = z.infer<typeof IntakeCleanup>;
+
+export const IgnoredMessage = MailLine.extend({
+  /** The day after which Kick Rocks deletes its copy for good. */
+  keptUntil: z.iso.datetime(),
+});
+export type IgnoredMessage = z.infer<typeof IgnoredMessage>;
+
+export const IntakeIgnored = z.object({ items: z.array(IgnoredMessage) });
+export type IntakeIgnored = z.infer<typeof IntakeIgnored>;
+
+export const ShadowLine = MailLine.extend({ rule: IgnoreRule });
+export type ShadowLine = z.infer<typeof ShadowLine>;
+
+/** Mail the new rules passed over that the old rules, which kept everything, would have taken in. */
+export const IntakeShadow = z.object({
+  /** False once the week is over or the person dismissed the report. */
+  active: z.boolean(),
+  until: z.iso.datetime().nullable(),
+  items: z.array(ShadowLine),
+});
+export type IntakeShadow = z.infer<typeof IntakeShadow>;
 
 export const IntakeSettingsBody = z.object({ companyMail: CompanyMail });
 export type IntakeSettingsBody = z.infer<typeof IntakeSettingsBody>;

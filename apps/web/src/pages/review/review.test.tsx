@@ -426,12 +426,13 @@ describe("the review queue", () => {
     ).toBeVisible();
   });
 
-  it("tells the person once what the cleanup removed, and can be dismissed from here", async () => {
-    const { user, mock } = open("mail");
-    expect(await screen.findByText(/It removed 111 messages it had saved/)).toBeVisible();
-    await user.click(screen.getByRole("button", { name: "Dismiss" }));
-    await waitFor(() => expect(screen.queryByText(/It removed 111 messages/)).toBeNull());
-    expect(mock.store.profiles[0]?.mailbox?.intakeNotice).toBeNull();
+  it("shows the saved mail it would remove, and removes it only when the person confirms", async () => {
+    const { user } = open("mail");
+    const preview = within(await screen.findByTestId("cleanup-preview"));
+    expect(screen.getByRole("heading", { name: /Saved mail to remove · 12/ })).toBeVisible();
+    expect(preview.getByText("Your order has shipped")).toBeVisible();
+    await user.click(preview.getByRole("button", { name: "Confirm removal of 12" }));
+    await waitFor(() => expect(screen.queryByTestId("cleanup-preview")).toBeNull());
   });
 
   it("lets a person attach unmatched mail to a request", async () => {

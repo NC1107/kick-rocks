@@ -1,4 +1,11 @@
-import { type MailboxRow, mailboxes, messages, requestEvents } from "@kickrocks/db";
+import {
+  ignoredMessages,
+  type MailboxRow,
+  mailboxes,
+  messages,
+  requestEvents,
+} from "@kickrocks/db";
+import { IGNORED_KEEP_DAYS, outgoingMessageId } from "@kickrocks/shared";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { InboxMessage, InboxSession } from "../mail/types.js";
@@ -10,7 +17,16 @@ import {
   seedTarget,
   type TestContext,
 } from "../test-utils/index.js";
+import { InboxRunner } from "./inbox-poll.js";
 import { createRunners, type Runners } from "./index.js";
+import {
+  confirmCleanup,
+  keepStoredMail,
+  listIgnored,
+  previewCleanup,
+  purgeExpiredIntake,
+  takeInIgnored,
+} from "./intake-cleanup.js";
 
 const ADDRESS = "jordan@example.com";
 
@@ -56,7 +72,7 @@ function legacy(
   delivered: Partial<InboxMessage>,
   stored: {
     requestId?: string | null;
-    classification?: "auto_ack" | "unrelated" | "completed" | "unknown";
+    classification?: "auto_ack" | "unrelated" | "completed" | "unknown" | "bounce";
     text?: string;
     uid?: number;
     reviewed?: boolean;
@@ -141,21 +157,55 @@ async function poll() {
   await runners.inbox.runDue();
 }
 
+const intake = () => new InboxRunner(ctx.services).intake(mailboxRow());
+const preview = () => previewCleanup(ctx.services, mailboxRow(), intake());
+const confirm = () => confirmCleanup(ctx.services, mailboxRow(), intake());
+const ignored = () => listIgnored(ctx.services, mailboxRow()).items;
+const subjects = (lines: Array<{ subject: string }>) => lines.map((line) => line.subject).sort();
+const ids = (list: Array<{ id: string }>) => list.map((row) => row.id).sort();
+
 describe("the one-time cleanup of stored mail", () => {
-  it("removes mail that no request holds, together with its timeline entries", async () => {
+  it("lists what it would remove and removes nothing until the person confirms", async () => {
     await openRequest(AMAZON);
     const sale = legacy({ subject: "Summer sale", from: from("news@letters.test"), headers: BULK });
     const bank = legacy({ subject: "Security alert", from: from("alerts@bank.test") });
+    const eventsBefore = ctx.services.db.select().from(requestEvents).all().length;
 
     await poll();
+
+    expect(mailboxRow().intakeCleanup).toBe("review");
+    expect(rows()).toHaveLength(2);
+    expect(ctx.services.db.select().from(requestEvents).all()).toHaveLength(eventsBefore);
+    expect(ignored()).toEqual([]);
+    expect(preview()).toMatchObject({ state: "review", removed: null });
+    expect(subjects(preview().items)).toEqual(["Security alert", "Summer sale"]);
+    expect(
+      preview()
+        .items.map((item) => item.fromAddress)
+        .sort(),
+    ).toEqual(["alerts@bank.test", "news@letters.test"]);
+
+    expect(confirm()).toBe(2);
 
     expect(rows()).toHaveLength(0);
     for (const id of [sale, bank]) expect(eventsAbout(id)).toEqual([]);
     expect(mailboxRow()).toMatchObject({ intakeCleanup: "done", intakeCleanupRemoved: 2 });
     expect(mailboxRow().intakeCleanupAt).not.toBeNull();
+    expect(subjects(ignored())).toEqual(["Security alert", "Summer sale"]);
   });
 
-  it("never removes mail a request holds, even when it looks like marketing", async () => {
+  it("keeps the list across polls and asks again only when the person has not answered", async () => {
+    await openRequest(SPOKEO);
+    legacy({ subject: "Sale", from: from("news@letters.test"), headers: BULK });
+    await poll();
+    await poll();
+
+    expect(mailboxRow().intakeCleanup).toBe("review");
+    expect(preview().items).toHaveLength(1);
+    expect(rows()).toHaveLength(1);
+  });
+
+  it("never lists mail a request holds, even when it looks like marketing", async () => {
     const amazon = await openRequest(AMAZON);
     const marketing = legacy(
       { subject: "Deals just for you", from: from("deals@amazon.test"), headers: BULK },
@@ -164,12 +214,13 @@ describe("the one-time cleanup of stored mail", () => {
 
     await poll();
 
+    expect(preview().items).toEqual([]);
     expect(rows().map((row) => row.id)).toEqual([marketing]);
     expect(eventsAbout(marketing)).not.toEqual([]);
-    expect(mailboxRow()).toMatchObject({ intakeCleanupRemoved: 0 });
+    expect(mailboxRow()).toMatchObject({ intakeCleanup: "done", intakeCleanupRemoved: 0 });
   });
 
-  it("keeps an acknowledgement and an unreviewed reply bound to a request that has since closed", async () => {
+  it("never lists an acknowledgement or an unreviewed reply bound to a request that has since closed", async () => {
     const spokeo = await openRequest(SPOKEO);
     const ack = legacy(
       { subject: "We got it", from: from("noreply@spokeo.test") },
@@ -183,17 +234,13 @@ describe("the one-time cleanup of stored mail", () => {
 
     await poll();
 
-    expect(
-      rows()
-        .map((row) => row.id)
-        .sort(),
-    ).toEqual([ack, waiting].sort());
+    expect(preview().items).toEqual([]);
+    expect(ids(rows())).toEqual([ack, waiting].sort());
     expect(eventsAbout(ack)).not.toEqual([]);
     expect(eventsAbout(waiting)).not.toEqual([]);
-    expect(mailboxRow()).toMatchObject({ intakeCleanupRemoved: 0 });
   });
 
-  it("keeps unbound mail that is unreviewed, and unbound mail that is tied to a request even with the server copy", async () => {
+  it("never lists unbound mail that is unreviewed, or that is tied to a request even with the server copy", async () => {
     const spokeo = await openRequest(SPOKEO);
     const unreviewed = legacy(
       { subject: "Summer sale", from: from("news@letters.test"), headers: BULK },
@@ -213,14 +260,32 @@ describe("the one-time cleanup of stored mail", () => {
 
     await poll();
 
-    expect(
-      rows()
-        .map((row) => row.id)
-        .sort(),
-    ).toEqual([unreviewed, quoting, fromClosedTarget].sort());
+    expect(preview().items).toEqual([]);
+    expect(ids(rows())).toEqual([unreviewed, quoting, fromClosedTarget].sort());
   });
 
-  it("keeps what the person acted on and what changed a request", async () => {
+  it("never lists a bounce, or a message with one of our own ids", async () => {
+    const spokeo = await openRequest(SPOKEO);
+    const bounce = legacy(
+      { subject: "Undeliverable", from: from("mailer-daemon@example.net") },
+      { classification: "bounce", reviewed: true },
+    );
+    const ours = legacy({
+      subject: "Copy of what we sent",
+      from: from("jordan@example.com"),
+      messageId: outgoingMessageId(spokeo.id, "example.com", 7),
+    });
+    const sale = legacy({ subject: "Summer sale", from: from("news@letters.test"), headers: BULK });
+
+    await poll();
+
+    expect(preview().items.map((item) => item.id)).toEqual([sale]);
+    expect(confirm()).toBe(1);
+    expect(ids(rows())).toEqual([bounce, ours].sort());
+    expect(ignored().map((item) => item.id)).toEqual([sale]);
+  });
+
+  it("never lists what the person acted on or what changed a request", async () => {
     const spokeo = await openRequest(SPOKEO);
     const acted = legacy(
       { subject: "Deals", from: from("deals@spokeo.test"), headers: BULK },
@@ -243,11 +308,8 @@ describe("the one-time cleanup of stored mail", () => {
 
     await poll();
 
-    expect(
-      rows()
-        .map((row) => row.id)
-        .sort(),
-    ).toEqual([acted, decided].sort());
+    expect(preview().items).toEqual([]);
+    expect(ids(rows())).toEqual([acted, decided].sort());
     expect(mailboxRow()).toMatchObject({ intakeCleanup: "done", intakeCleanupRemoved: 0 });
   });
 
@@ -277,44 +339,78 @@ describe("the one-time cleanup of stored mail", () => {
       from: from("news@letters.test"),
       text: "Everything must go",
     });
-    const fromTarget = legacy({
+    legacy({
       uid: 901,
       subject: "Deals",
       from: from("deals@spokeo.test"),
       text: "Search anyone",
     });
-    const namesTarget = legacy({
+    legacy({
       uid: 902,
       subject: "Fwd",
       from: from("friend@elsewhere.test"),
       text: "Look at what Spokeo has on me",
     });
-    const bound = legacy({
-      uid: 903,
-      subject: `Re: ${spokeo.reference}`,
-      from: from("x@y.test"),
-    });
+    legacy({ uid: 903, subject: `Re: ${spokeo.reference}`, from: from("x@y.test") });
 
     await poll();
 
-    expect(
-      rows()
-        .map((row) => row.id)
-        .sort(),
-    ).toEqual([fromTarget, namesTarget, bound].sort());
-    expect(rows().find((row) => row.id === stranger)).toBeUndefined();
-    expect(rows().find((row) => row.id === bound)?.admittedBy).toBe("reference");
+    expect(preview().items.map((item) => item.id)).toEqual([stranger]);
+    expect(rows().find((row) => row.subject.startsWith("Re: KR"))?.admittedBy).toBe("reference");
+  });
+
+  it("removes only what still qualifies when the person confirms", async () => {
+    const spokeo = await openRequest(SPOKEO);
+    const taken = legacy({ subject: "Offer", from: from("news@letters.test"), headers: BULK });
+    const stays = legacy({
+      subject: "Other offer",
+      from: from("news@letters.test"),
+      headers: BULK,
+    });
+    await poll();
+    expect(preview().items).toHaveLength(2);
+
+    ctx.services.db
+      .update(messages)
+      .set({ requestId: spokeo.id })
+      .where(eq(messages.id, taken))
+      .run();
+
+    expect(preview().items.map((item) => item.id)).toEqual([stays]);
+    expect(confirm()).toBe(1);
+    expect(rows().map((row) => row.id)).toEqual([taken]);
+    expect(rows()[0]?.cleanupCandidate).toBe(false);
+  });
+
+  it("changes nothing when the person keeps everything", async () => {
+    await openRequest(SPOKEO);
+    legacy({ subject: "Sale", from: from("news@letters.test"), headers: BULK });
+    await poll();
+
+    keepStoredMail(ctx.services, mailboxRow());
+
+    expect(rows()).toHaveLength(1);
+    expect(rows()[0]?.cleanupCandidate).toBe(false);
+    expect(ignored()).toEqual([]);
+    expect(mailboxRow()).toMatchObject({ intakeCleanup: "done", intakeCleanupRemoved: 0 });
+    expect(() => confirm()).toThrow(/no list/i);
+  });
+
+  it("refuses to confirm a list that was never made", async () => {
+    await openRequest(SPOKEO);
+    expect(() => confirm()).toThrow(/no list/i);
   });
 
   it("does nothing the second time", async () => {
     await openRequest(SPOKEO);
     legacy({ subject: "Sale", from: from("news@letters.test"), headers: BULK });
     await poll();
+    confirm();
     expect(mailboxRow().intakeCleanupRemoved).toBe(1);
 
     legacy({ subject: "Another sale", from: from("news@letters.test"), headers: BULK });
     await poll();
-    expect(mailboxRow().intakeCleanupRemoved).toBe(1);
+    expect(mailboxRow()).toMatchObject({ intakeCleanup: "done", intakeCleanupRemoved: 1 });
     expect(rows().map((row) => row.subject)).toEqual(["Another sale"]);
   });
 
@@ -340,5 +436,94 @@ describe("the one-time cleanup of stored mail", () => {
     await poll();
     expect(headerCalls).toBe(0);
     expect(mailboxRow()).toMatchObject({ intakeCleanup: "done", intakeCleanupRemoved: 0 });
+  });
+});
+
+describe("the ignored list", () => {
+  async function removeOne() {
+    await openRequest(SPOKEO);
+    const id = legacy({
+      subject: "Summer sale",
+      from: from("news@letters.test"),
+      headers: BULK,
+      text: "Everything must go",
+    });
+    await poll();
+    confirm();
+    return id;
+  }
+
+  it("keeps a removed message for 30 days with the day it goes", async () => {
+    const id = await removeOne();
+    const [item] = ignored();
+
+    expect(item).toMatchObject({
+      id,
+      fromAddress: "news@letters.test",
+      subject: "Summer sale",
+    });
+    expect(Date.parse(item?.keptUntil as string) - ctx.clock.now().getTime()).toBe(
+      IGNORED_KEEP_DAYS * 24 * 60 * 60 * 1000,
+    );
+  });
+
+  it("takes a message back as an unread item in Review", async () => {
+    const id = await removeOne();
+
+    const restored = takeInIgnored(ctx.services, mailboxRow(), id);
+
+    expect(restored).toMatchObject({
+      id,
+      reviewed: false,
+      requestId: null,
+      admittedBy: "person",
+      subject: "Summer sale",
+      text: "Everything must go",
+    });
+    expect(ignored()).toEqual([]);
+    expect(rows().map((row) => row.id)).toEqual([id]);
+  });
+
+  it("does not store a message twice when it was stored again meanwhile", async () => {
+    const id = await removeOne();
+    const copy = ctx.services.db.select().from(ignoredMessages).get();
+    ctx.services.db
+      .insert(messages)
+      .values({
+        id: crypto.randomUUID(),
+        mailboxId,
+        imapUid: copy?.imapUid as number,
+        uidValidity: copy?.uidValidity as number,
+        fromAddress: "news@letters.test",
+        subject: "Summer sale",
+        receivedAt: ctx.clock.now().toISOString(),
+        classification: "unrelated",
+        confidence: 0.5,
+        links: [],
+        createdAt: ctx.clock.now().toISOString(),
+      })
+      .run();
+
+    expect(takeInIgnored(ctx.services, mailboxRow(), id).id).not.toBe(id);
+    expect(rows()).toHaveLength(1);
+    expect(ignored()).toEqual([]);
+  });
+
+  it("drops a message after 30 days and refuses to take it back", async () => {
+    const id = await removeOne();
+    ctx.clock.advance((IGNORED_KEEP_DAYS * 24 * 60 + 1) * MINUTE);
+
+    expect(ignored()).toEqual([]);
+    expect(() => takeInIgnored(ctx.services, mailboxRow(), id)).toThrow(/no longer kept/i);
+    expect(purgeExpiredIntake(ctx.services)).toBe(1);
+    expect(ctx.services.db.select().from(ignoredMessages).all()).toEqual([]);
+  });
+
+  it("purges only what is past its time", async () => {
+    await removeOne();
+    ctx.clock.advance((IGNORED_KEEP_DAYS * 24 * 60 - 5) * MINUTE);
+
+    expect(purgeExpiredIntake(ctx.services)).toBe(0);
+    expect(ignored()).toHaveLength(1);
   });
 });

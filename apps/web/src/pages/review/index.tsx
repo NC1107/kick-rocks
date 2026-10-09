@@ -7,7 +7,7 @@ import { RequireProfile } from "../../components/layout/RequireProfile.js";
 import { Button, Callout, PageHeader, Skeleton, SkeletonText } from "../../components/ui/index.js";
 import { cn } from "../../lib/cn.js";
 import { describeFailure } from "../../lib/failures.js";
-import { IntakeNotice } from "../mailbox/intake-notice.js";
+import { CleanupPreview } from "../mailbox/intake-review.js";
 import { BlockedTaskDetail } from "./BlockedTaskDetail.js";
 import { shortcutAllowed } from "./keys.js";
 import { MailDetail } from "./MailDetail.js";
@@ -63,14 +63,13 @@ function Loading() {
 function Review({ profileId }: { profileId: string }) {
   const [params] = useSearchParams();
   const queue = useApiQuery(API_ROUTES.reviewQueue, { query: { profileId } });
-  const profile = useApiQuery(API_ROUTES.profilesGet, { params: { id: profileId } });
   const drilled = params.has("item");
 
   return (
     <>
       <div className={cn(drilled && "max-lg:hidden")}>
         <PageHeader title="Review" description="Everything waiting on you" />
-        <IntakeNotice profileId={profileId} mailbox={profile.data?.mailbox} className="mb-4" />
+        <CleanupPreview profileId={profileId} rows={3} className="mb-4" />
       </div>
       {queue.isPending ? (
         <Loading />

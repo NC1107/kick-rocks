@@ -1,5 +1,6 @@
 import {
   type CompanyMail,
+  type IgnoreRule,
   type MessageAdmission,
   parseOutgoingMessageId,
   parseReferences,
@@ -66,7 +67,10 @@ export type HeaderVerdict =
   | { verdict: "needs_body"; reasons: BodyReason[] }
   | { verdict: "ignore" };
 
-export type BodyVerdict = { verdict: "admit"; by: MessageAdmission } | { verdict: "ignore" };
+export type BodyVerdict =
+  | { verdict: "admit"; by: MessageAdmission }
+  /** `rule` is null for mail Kick Rocks sent itself, which is never passed over, only not a reply. */
+  | { verdict: "ignore"; rule: IgnoreRule | null };
 
 const admit = (by: MessageAdmission): { verdict: "admit"; by: MessageAdmission } => ({
   verdict: "admit",
@@ -74,6 +78,7 @@ const admit = (by: MessageAdmission): { verdict: "admit"; by: MessageAdmission }
 });
 const needsBody = (...reasons: BodyReason[]): HeaderVerdict => ({ verdict: "needs_body", reasons });
 const IGNORE = { verdict: "ignore" } as const;
+const ignoredBy = (rule: IgnoreRule): BodyVerdict => ({ verdict: "ignore", rule });
 
 const BODY_CHARS_READ = 3_000;
 const BOUNCE_WINDOW_MS = 14 * 24 * 60 * 60 * 1000;
@@ -319,12 +324,13 @@ export function triageBody(message: InboxMessage, ctx: IntakeContext): BodyVerdi
   const skip = new Set<BodyReason>();
   for (;;) {
     const verdict = triageHeaders(h, ctx, skip);
-    if (verdict.verdict !== "needs_body") return verdict;
+    if (verdict.verdict === "admit") return verdict;
+    if (verdict.verdict === "ignore") return { verdict: "ignore", rule: null };
     const [reason] = verdict.reasons as [BodyReason];
     const text = readableText(message);
     switch (reason) {
       case "delivery_report":
-        return reportsOurMail(message, ctx) ? admit("bounce") : IGNORE;
+        return reportsOurMail(message, ctx) ? admit("bounce") : ignoredBy("bounce_not_ours");
       case "awaiting": {
         const links = extractLinks(message.html, message.text);
         if (matchAwaitingConfirmation(message, ctx.window, links, text)) {
@@ -334,19 +340,64 @@ export function triageBody(message: InboxMessage, ctx: IntakeContext): BodyVerdi
         continue;
       }
       case "alias_bulk":
-        return REQUEST_PHRASE.test(text) ? admit("alias") : IGNORE;
+        return REQUEST_PHRASE.test(text) ? admit("alias") : ignoredBy("bulk_no_privacy");
       case "bulk_target":
-        return bulkTargetPhrase(h, ctx).test(text) ? admit("target_sender") : IGNORE;
+        return bulkTargetPhrase(h, ctx).test(text)
+          ? admit("target_sender")
+          : ignoredBy("bulk_no_privacy");
       case "company":
-        return PRIVACY_TOPIC.test(text) ? admit("target_sender") : IGNORE;
+        return PRIVACY_TOPIC.test(text) ? admit("target_sender") : ignoredBy("company_not_privacy");
       case "unknown":
         return namesOpenTarget(text, ctx) && PRIVACY_TOPIC.test(text)
           ? admit("named_target")
-          : IGNORE;
+          : ignoredBy(unmatchedRule("not_named", h, ctx));
       case "bulk_other":
-        return IGNORE;
+        return ignoredBy(unmatchedRule("stranger_bulk", h, ctx));
     }
   }
+}
+
+/**
+ * Mail from a sender whose request is finished is passed over because nobody is waiting on it, not
+ * because the sender is a stranger, and a person reading why should be told so.
+ */
+export function unmatchedRule(
+  rule: Extract<IgnoreRule, "not_named" | "stranger_bulk" | "no_wording_found">,
+  h: MessageHeaders,
+  ctx: IntakeContext,
+): IgnoreRule {
+  return isFromAnyTarget(h, ctx) ? "finished_request" : rule;
+}
+
+/** Why a message whose body a server-side search found nothing in was never downloaded. */
+export function unreadRule(h: MessageHeaders, reason: BodyReason, ctx: IntakeContext): IgnoreRule {
+  switch (reason) {
+    case "company":
+      return "company_not_privacy";
+    case "bulk_target":
+    case "alias_bulk":
+      return "bulk_no_privacy";
+    case "bulk_other":
+      return unmatchedRule("stranger_bulk", h, ctx);
+    case "unknown":
+      return unmatchedRule("not_named", h, ctx);
+    default:
+      return unmatchedRule("no_wording_found", h, ctx);
+  }
+}
+
+/**
+ * Whether a message the gate passed over could still be a reply. The rules before the gate kept
+ * every message, so what is worth showing a person is only what ties to a request: its sender, a
+ * company it names, or privacy wording. Judged on the headers alone when the body was not read.
+ */
+export function couldBeAReply(
+  h: MessageHeaders,
+  message: InboxMessage | null,
+  ctx: IntakeContext,
+): boolean {
+  const text = message ? readableText(message) : h.subject;
+  return isFromAnyTarget(h, ctx) || namesAnyTarget(text, ctx) || PRIVACY_TOPIC.test(text);
 }
 
 /**

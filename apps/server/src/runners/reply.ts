@@ -2,6 +2,7 @@ import { requestEvents, type TargetRow, targets } from "@kickrocks/db";
 import {
   canTransition,
   isOnDomain,
+  isTerminalStatus,
   pushbackKindForStatus,
   REPLY_OUTCOMES,
   type ReplyClassification,
@@ -21,6 +22,16 @@ import { describeError } from "./connection.js";
 export const CONFIDENCE_THRESHOLD = 0.6;
 
 const MAX_LINKS_TRIED = 3;
+
+/** The answers that ask for a move of the request, as opposed to those that only record. */
+const OUTCOME_REPLIES: Partial<Record<ReplyClassification, true>> = {
+  bounce: true,
+  needs_form: true,
+  verification_required: true,
+  completed: true,
+  no_record: true,
+  rejected: true,
+};
 
 /** What became of the confirmation links in a message, decided before the database is touched. */
 type LinkOutcome =
@@ -151,6 +162,7 @@ interface ApplyReplyInput {
 export function applyReply(services: AppServices, input: ApplyReplyInput): AppliedReply {
   const { requests } = services;
   const { request, classification, actor } = input;
+  const late = arrivesAfterTheEnd(services, input);
   requests.addEvent(request.id, {
     type: "classified",
     actor,
@@ -159,8 +171,17 @@ export function applyReply(services: AppServices, input: ApplyReplyInput): Appli
       classification,
       confidence: input.confidence,
       correlation: input.correlation,
+      ...(late ? { late: true } : {}),
     },
   });
+  // The timeline now says what the reply was and that it changed nothing, which is all there is
+  // to do with an answer to a request that is already over. A broker asking the person for
+  // identifying details is the exception: that is a new ask, and only the person can answer it.
+  if (late) {
+    return {
+      needsReview: classification === "verification_required" && input.requestedFields.length > 0,
+    };
+  }
 
   switch (classification) {
     case "bounce":
@@ -188,6 +209,20 @@ export function applyReply(services: AppServices, input: ApplyReplyInput): Appli
       };
     }
   }
+}
+
+/**
+ * Whether a reply that says something about the outcome reaches a request that is already
+ * finished, so no move it asks for can happen. A request that is merely in an awkward status, such
+ * as a rejected one that is asked for ID, is not finished, and its reply is new information.
+ */
+function arrivesAfterTheEnd(
+  services: AppServices,
+  { request, classification }: ApplyReplyInput,
+): boolean {
+  if (!(classification in OUTCOME_REPLIES)) return false;
+  const current = services.requests.getOrThrow(request.id).status;
+  return isTerminalStatus(current) && REPLY_OUTCOMES[classification] !== current;
 }
 
 /**

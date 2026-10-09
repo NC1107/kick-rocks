@@ -65,6 +65,22 @@ describe("describeEvent", () => {
     );
   });
 
+  it("says when a reply arrived after the request was finished", () => {
+    expect(
+      describeEvent(
+        event("classified", {
+          messageId: "m2",
+          classification: "rejected",
+          confidence: 0.85,
+          correlation: "reference",
+          late: true,
+        }),
+      ),
+    ).toBe(
+      "Classified the reply as rejected, 85 percent sure. The request was already finished, so nothing changed.",
+    );
+  });
+
   it("tells an email from a form, and a follow-up from a first send", () => {
     expect(describeEvent(event("sent"))).toBe("Sent the email.");
     expect(
