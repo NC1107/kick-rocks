@@ -4,9 +4,9 @@ import { type Facts, judge, type RecordedOutcome } from "./judge.js";
 import { judgeReply } from "./replies.js";
 import { REPLY_CASES } from "./reply-cases.js";
 import type { Scenario } from "./scenarios.js";
-import { ALL_SCENARIOS, DEV_REPLY_CASES, HELDOUT_REPLY_CASES } from "./splits.js";
+import { ALL_SCENARIOS, DEV_REPLY_CASES, HELDOUT_REPLY_CASES, STRESS_SCENARIOS } from "./splits.js";
 
-const SCANS = ALL_SCENARIOS.filter((s) => s.expected.kind === "scan");
+const SCANS = [...ALL_SCENARIOS, ...STRESS_SCENARIOS].filter((s) => s.expected.kind === "scan");
 
 function scanOf(scenario: Scenario) {
   if (scenario.expected.kind !== "scan") throw new Error("not a scan");
@@ -218,7 +218,10 @@ describe("the fixture sites serve what the expectations name", () => {
       });
       try {
         const { recordPaths, contradicting } = scanOf(scenario);
-        const pages = [`${site.origin}/search`, `${site.origin}/results`];
+        const pages = [
+          `${site.origin}${scenario.paths.search ?? "/search"}`,
+          `${site.origin}${scenario.paths.results ?? "/results"}`,
+        ];
         for (let n = 2; n <= 5; n++) pages.push(`${site.origin}/results/${n}`);
         const text = (await Promise.all(pages.map(async (url) => (await fetch(url)).text()))).join(
           "\n",

@@ -7,7 +7,12 @@ import { runBench } from "./bench.js";
 import { scripted } from "./fake-models.js";
 import type { BenchResults } from "./report.js";
 import { runScenarioOnce } from "./run-scenario.js";
-import { DEV_SCENARIOS, HELDOUT_REPLY_CASES, HELDOUT_SCENARIOS } from "./splits.js";
+import {
+  DEV_SCENARIOS,
+  HELDOUT_REPLY_CASES,
+  HELDOUT_SCENARIOS,
+  STRESS_SCENARIOS,
+} from "./splits.js";
 
 const browserAvailable =
   findInstalledChrome() !== null ||
@@ -47,7 +52,7 @@ describeBrowser("benchmark harness", () => {
       expect(results.replies?.accuracy).toBe(1);
       expect(results.replies?.invalidJsonRate).toBe(0);
     },
-    TWO_MINUTES,
+    TWO_MINUTES * 2,
   );
 
   it(
@@ -68,6 +73,48 @@ describeBrowser("benchmark harness", () => {
       expect(agent.totals.runsWithViolation).toBe(0);
       expect(results.replies?.runs[0]?.summary.total).toBe(HELDOUT_REPLY_CASES.length);
       expect(results.replies?.accuracy).toBe(1);
+    },
+    TWO_MINUTES * 2,
+  );
+
+  it(
+    "scores a perfect scripted model at 100 percent on the stress set, which has no replies",
+    async () => {
+      const results = await runBench({
+        model: "fake-perfect",
+        fake: "perfect",
+        split: "stress",
+        runs: 1,
+        agent: true,
+        replies: false,
+      });
+      const agent = requireAgent(results);
+      expect(agent.runs).toHaveLength(STRESS_SCENARIOS.length);
+      expect(agent.runs.filter((r) => !r.success).map((r) => r.judgement.failure)).toEqual([]);
+      expect(agent.totals.runsWithViolation).toBe(0);
+    },
+    TWO_MINUTES,
+  );
+
+  it(
+    "scores the worker's checks on their own: a model that reports nothing still gets every dev and held-out scan right",
+    async () => {
+      for (const split of ["dev", "heldout"] as const) {
+        const results = await runBench({
+          model: "fake-checker",
+          fake: "checker",
+          split,
+          runs: 1,
+          agent: true,
+          replies: false,
+        });
+        const agent = requireAgent(results);
+        expect(agent.runs.length, split).toBeGreaterThan(0);
+        expect(
+          agent.runs.filter((r) => !r.success).map((r) => `${r.scenario}: ${r.judgement.failure}`),
+          split,
+        ).toEqual([]);
+      }
     },
     TWO_MINUTES * 2,
   );

@@ -42,7 +42,7 @@ export interface Scenario {
   rights: ("opt_out" | "delete")[];
   target: { name: string; category: TargetSummary["category"] };
   /** Paths on the fixture site, which become the target's addresses. */
-  paths: { optOut?: string; search?: string; record?: string };
+  paths: { optOut?: string; search?: string; record?: string; results?: string };
   fields: ProfileFields;
   /** Controls a careful run clicks, in order, to see every record, such as Next page. Only the scripted models read it. */
   walk?: string[];

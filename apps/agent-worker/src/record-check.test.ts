@@ -218,10 +218,112 @@ describe("judgeRecord", () => {
     expect(JSON.stringify(judged)).not.toMatch(/1990|Austin/);
   });
 
-  it("calls a record page that shows the name and contradicts nothing a fit, and its card not decided", () => {
-    const record = { heading: "Jordan Example", text: "Jordan Example\nNothing else here" };
+  it("calls a record page a fit when it shows the name and one identifier that matches, and its card not decided", () => {
+    const record = { heading: "Jordan Example", text: "Jordan Example\nLives in Austin, TX" };
     expect(judgeRecord(record, PERSON, YEAR, true).decision).toBe("fits");
     expect(judgeRecord(record, PERSON, YEAR, false).decision).toBe("undecided");
+  });
+
+  it("leaves a record page undecided when it confirms none of the identifiers compared", () => {
+    const record = { heading: "Jordan Example", text: "Jordan Example\nNothing else here" };
+    expect(judgeRecord(record, PERSON, YEAR, true).decision).toBe("undecided");
+  });
+
+  it("calls a record page a fit on the name alone when the person has nothing else to compare", () => {
+    const record = { heading: "Jordan Example", text: "Jordan Example\nNothing else here" };
+    const named = { first_name: "Jordan", last_name: "Example" };
+    expect(judgeRecord(record, named, YEAR, true).decision).toBe("fits");
+  });
+});
+
+describe("a card that shows less detail", () => {
+  it("does not contradict the person when it shows only the matching state", () => {
+    const answer = check("Jordan Example", "Jordan Example\nTX\nAge 36");
+    expect(answer).toContain("place: not shown");
+    expect(answer).not.toContain("contradicts");
+  });
+
+  it("contradicts the person when it shows a different state", () => {
+    expect(check("Jordan Example", "Jordan Example\nCA")).toContain("place: absent");
+    expect(check("Jordan Example", "Jordan Example\nLives in California")).toContain(
+      "place: absent",
+    );
+  });
+
+  it("contradicts the person when it shows another city in the person's state", () => {
+    expect(check("Jordan Example", "Jordan Example\nDallas, TX")).toContain("place: absent");
+    expect(check("Jordan Example", "Jordan Example\nDallas TX 75201")).toContain("place: absent");
+  });
+
+  it("finds the place without a comma", () => {
+    expect(check("Jordan Example", "Jordan Example\nLives in Austin TX 78701")).toContain(
+      "place: found in current or past places",
+    );
+  });
+
+  it("does not take a credential for a state", () => {
+    expect(check("Jordan Example", "Jordan Example\nJordan Example MD")).toContain(
+      "place: not shown",
+    );
+  });
+
+  it("leaves a last initial or a cut-off last name undecided instead of different", () => {
+    for (const heading of ["Jordan E.", "Jordan E", "Jordan Exam", "J. Example"]) {
+      const answer = check(heading, `${heading}\nAustin, TX`);
+      expect(answer, heading).toContain("name: not shown");
+      expect(answer, heading).not.toContain("contradicts");
+    }
+  });
+
+  it("still contradicts a last initial or a name that is not the person's", () => {
+    expect(check("Jordan K.", "Jordan K.\nAustin, TX")).toContain("name: differs");
+    expect(check("Jordan Examples", "Jordan Examples\nAustin, TX")).toContain("name: differs");
+  });
+});
+
+describe("a record page with other people on it", () => {
+  const person = { ...PERSON, birth_year: "1990" };
+
+  it("does not read the age or the city of relatives listed on the lines under the label", () => {
+    const text = "Jordan Example\nPossible relatives\nSam Example\nAustin, TX\nAge 61";
+    const answer = check("Jordan Example", text, person, true);
+    expect(answer).toContain("place: not shown");
+    expect(answer).toContain("age: not shown");
+  });
+
+  it("leaves a page undecided when only another person's city is in its sidebar", () => {
+    const text = "Jordan Example\nPeople also viewed\nSam Example\nAustin, TX\nAge 36";
+    const judged = judgeRecord({ heading: "Jordan Example", text }, person, YEAR, true);
+    expect(judged.decision).toBe("undecided");
+  });
+
+  it("keeps the record's own age after a list of relatives who carry their details on their own lines", () => {
+    const text =
+      "Jordan Example\nRelatives:\nSam Example - Dallas, TX, age 61\nAge: 36\nCurrent address: Austin, TX";
+    const answer = check("Jordan Example", text, person, true);
+    expect(answer).toContain("age: fits");
+    expect(answer).toContain("place: found in current or past places");
+    expect(answer).toContain("fits: include it in your report");
+  });
+
+  it("gives a relative's age and city on the lines under a bare name to the relative", () => {
+    const text = "Jordan Example\nRelatives\nSam Example\nDallas, TX\nAge 61\nAge: 36\nAustin, TX";
+    const answer = check("Jordan Example", text, person, true);
+    expect(answer).toContain("age: fits");
+  });
+
+  it("reads another city of the person's state written with the state's name", () => {
+    expect(check("Jordan Example", "Jordan Example\nRound Rock, Texas 78664")).toContain(
+      "place: absent",
+    );
+  });
+
+  it("reads a state shown beside an age", () => {
+    expect(check("Jordan E.", "Jordan E.\nCA | (36)")).toContain("place: absent");
+  });
+
+  it("reads an age written in brackets", () => {
+    expect(check("Jordan Example", "Jordan Example (36)\nAustin, TX")).toContain("age: fits");
   });
 });
 

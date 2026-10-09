@@ -1,5 +1,5 @@
 
-> @kickrocks/agent-worker@0.0.0 bench /home/npc/Documents/projects/opt-out/.claude/worktrees/wf_bd6927e1-a88-1/apps/agent-worker
+> @kickrocks/agent-worker@0.0.0 bench apps/agent-worker
 > tsx bench/cli.ts --runs 3 --split heldout --out bench/results/tuning/final-heldout --out-name gpt-oss_20b-heldout --model gpt-oss:20b --provider ollama --num-ctx 16384
 
 warm-up took 8109 ms

@@ -180,10 +180,42 @@ describe("the language model fallback", () => {
     const messages = (calls[0] as Call).body.messages as Array<{ role: string; content: string }>;
     const prompt = messages[0]?.content ?? "";
     expect(prompt).toContain('"Case 12345 opened, status New" is auto_ack');
-    expect(prompt).toContain("Choose it only when no class above fits.");
     expect(prompt).not.toContain("is never unrelated");
-    expect(prompt).toContain('"Thanks." is unknown');
-    expect(prompt).toContain('"FYI" with a signature is unknown');
+  });
+
+  it("keeps an unrelated answer on a reply to one of our requests below the review threshold", async () => {
+    const { fetchImpl } = fakeLlm(verdict({ classification: "unrelated", confidence: 0.95 }));
+    const result = await classifierWith(LLM, fetchImpl).classify(message(), {
+      requests: [target],
+    });
+    expect(result).toMatchObject({ requestId: "req-1", classification: "unrelated" });
+    expect(result.confidence).toBeLessThan(0.6);
+  });
+
+  it("keeps an unrelated answer on mail that matches no request as confident as the model said", async () => {
+    const { fetchImpl } = fakeLlm(verdict({ classification: "unrelated", confidence: 0.95 }));
+    const result = await classifierWith(LLM, fetchImpl).classify(
+      message({ inReplyTo: null, from: { name: null, address: "news@shop.test" } }),
+      { requests: [target] },
+    );
+    expect(result).toMatchObject({ requestId: null, classification: "unrelated" });
+    expect(result.confidence).toBeGreaterThanOrEqual(0.6);
+  });
+
+  it("makes unknown the fallback and unrelated limited to other business, without text from the dev reply sets", async () => {
+    const { calls, fetchImpl } = fakeLlm(verdict());
+    await classifierWith(LLM, fetchImpl).classify(message(), { requests: [target] });
+    const messages = (calls[0] as Call).body.messages as Array<{ role: string; content: string }>;
+    const prompt = messages[0]?.content ?? "";
+    expect(prompt).toContain(
+      "When you cannot tell what the mail is about, or no class fits, choose unknown.",
+    );
+    expect(prompt).not.toContain("Choose it only when no class above fits");
+    expect(prompt).toContain("A short or empty reply to our request is unknown, not unrelated");
+    expect(prompt.indexOf("- unknown:")).toBeLessThan(prompt.indexOf("- unrelated:"));
+    for (const devText of ["I am out of the office until Monday", '"Thanks."', '"FYI"']) {
+      expect(prompt).not.toContain(devText);
+    }
   });
 
   it("gives each class that small models miss a generic example, and keeps a form link apart from a confirmation link", async () => {
@@ -192,8 +224,10 @@ describe("the language model fallback", () => {
     const messages = (calls[0] as Call).body.messages as Array<{ role: string; content: string }>;
     const prompt = messages[0]?.content ?? "";
     expect(prompt).toContain('"Delivery has failed to these recipients" or "Undeliverable: ..."');
-    expect(prompt).toContain('"I am out of the office until Monday"');
-    expect(prompt).toContain('"This mailbox is not monitored; your message was received"');
+    expect(prompt).toContain(
+      "\"I'm away from my desk until the 14th and will reply when I'm back\"",
+    );
+    expect(prompt).toContain('"This inbox is unattended; we received your message"');
     expect(prompt).toContain('"We are unable to act on your request because ..."');
     expect(prompt).toContain('"Please submit your request through our online privacy form at ..."');
     expect(prompt).toContain("only a link that confirms the request we already sent");

@@ -491,18 +491,13 @@
                   "recordUrl": "http://127.0.0.1:8651/profile/h1b3k7",
                   "name": "Jordan Example",
                   "age": 36,
-                  "locations": [
-                    "Austin, TX"
-                  ]
+                  "locations": ["Austin, TX"]
                 },
                 {
                   "recordUrl": "http://127.0.0.1:8651/profile/h4f7p1",
                   "name": "Jordan Sample",
                   "age": 35,
-                  "locations": [
-                    "Austin, TX",
-                    "San Marcos, TX"
-                  ]
+                  "locations": ["Austin, TX", "San Marcos, TX"]
                 }
               ]
             }
@@ -641,26 +636,19 @@
                   "recordUrl": "http://127.0.0.1:8652/profile/b2j9t6",
                   "name": "Bex Testcase",
                   "age": 38,
-                  "locations": [
-                    "Denver, CO"
-                  ]
+                  "locations": ["Denver, CO"]
                 },
                 {
                   "recordUrl": "http://127.0.0.1:8652/profile/b1h5s2",
                   "name": "Rebecca Testcase",
                   "age": 38,
-                  "locations": [
-                    "Denver, CO"
-                  ]
+                  "locations": ["Denver, CO"]
                 },
                 {
                   "recordUrl": "http://127.0.0.1:8652/profile/b3k3u1",
                   "name": "Bex M. Testcase",
                   "age": 38,
-                  "locations": [
-                    "Denver, CO",
-                    "Lakewood, CO"
-                  ]
+                  "locations": ["Denver, CO", "Lakewood, CO"]
                 }
               ]
             }
@@ -807,24 +795,18 @@
                   "recordUrl": "http://127.0.0.1:8653/profile/c2q8b3",
                   "name": "Jordan Example",
                   "age": 36,
-                  "locations": [
-                    "Austin, TX"
-                  ]
+                  "locations": ["Austin, TX"]
                 },
                 {
                   "recordUrl": "http://127.0.0.1:8653/profile/c1p4a8",
                   "name": "Jordan Example",
-                  "locations": [
-                    "Austin, TX"
-                  ]
+                  "locations": ["Austin, TX"]
                 },
                 {
                   "recordUrl": "http://127.0.0.1:8653/profile/c3r2c7",
                   "name": "Jordan Example",
                   "age": 35,
-                  "locations": [
-                    "Austin, TX"
-                  ]
+                  "locations": ["Austin, TX"]
                 }
               ]
             }
@@ -986,17 +968,13 @@
                   "recordUrl": "http://127.0.0.1:8654/profile/d4y5k6",
                   "name": "Jordan Example",
                   "age": 35,
-                  "locations": [
-                    "Austin, TX"
-                  ]
+                  "locations": ["Austin, TX"]
                 },
                 {
                   "recordUrl": "http://127.0.0.1:8654/profile/d2w6h8",
                   "name": "Jordan Example",
                   "age": 36,
-                  "locations": [
-                    "Austin, TX"
-                  ]
+                  "locations": ["Austin, TX"]
                 }
               ]
             }
@@ -1134,18 +1112,13 @@
                   "recordUrl": "http://127.0.0.1:8655/profile/p2e8s1",
                   "name": "Jordan Example",
                   "age": 36,
-                  "locations": [
-                    "Spokane, WA"
-                  ]
+                  "locations": ["Spokane, WA"]
                 },
                 {
                   "recordUrl": "http://127.0.0.1:8655/profile/p1d4r7",
                   "name": "Jordan Example",
                   "age": 36,
-                  "locations": [
-                    "Boise, ID",
-                    "Spokane, WA"
-                  ]
+                  "locations": ["Boise, ID", "Spokane, WA"]
                 }
               ]
             }
@@ -1292,24 +1265,15 @@
                   "recordUrl": "http://127.0.0.1:8656/profile/k1j3w6",
                   "name": "Jordan Example",
                   "age": 36,
-                  "locations": [
-                    "Austin, TX"
-                  ],
-                  "relatives": [
-                    "Pat Example"
-                  ]
+                  "locations": ["Austin, TX"],
+                  "relatives": ["Pat Example"]
                 },
                 {
                   "recordUrl": "http://127.0.0.1:8656/profile/k5q1a3",
                   "name": "Jordan Example",
                   "age": 36,
-                  "locations": [
-                    "Austin, TX",
-                    "Lakeway, TX"
-                  ],
-                  "relatives": [
-                    "Sam Example"
-                  ]
+                  "locations": ["Austin, TX", "Lakeway, TX"],
+                  "relatives": ["Sam Example"]
                 }
               ]
             }
@@ -1555,18 +1519,13 @@
                   "recordUrl": "http://127.0.0.1:8657/profile/t06f6g",
                   "name": "Jordan Example",
                   "age": 36,
-                  "locations": [
-                    "Austin, TX",
-                    "Kyle, TX"
-                  ]
+                  "locations": ["Austin, TX", "Kyle, TX"]
                 },
                 {
                   "recordUrl": "http://127.0.0.1:8657/profile/t13p4q",
                   "name": "Jordan Example",
                   "age": 36,
-                  "locations": [
-                    "Austin, TX"
-                  ]
+                  "locations": ["Austin, TX"]
                 }
               ]
             }
@@ -1721,9 +1680,7 @@
             "name": "report",
             "args": {
               "status": "complete",
-              "records": [
-                "http://127.0.0.1:8658/profile/l1r6s4"
-              ]
+              "records": ["http://127.0.0.1:8658/profile/l1r6s4"]
             },
             "isError": true,
             "answer": "Before you finish: the worker found these fit and they are missing: http://127.0.0.1:8658/profile/l5v1w8, http://127.0.0.1:8658/profile/l6w2x9. Report again. The worker's verdicts apply to the next report: a record it marked fits is added and one it marked contradicts is left out. Your choice stands only for records it could not decide."
@@ -1750,27 +1707,19 @@
                   "recordUrl": "http://127.0.0.1:8658/profile/l1r6s4",
                   "name": "Jordan Example",
                   "age": 36,
-                  "locations": [
-                    "Austin, TX"
-                  ]
+                  "locations": ["Austin, TX"]
                 },
                 {
                   "recordUrl": "http://127.0.0.1:8658/profile/l5v1w8",
                   "name": "Jordan Example",
                   "age": 35,
-                  "locations": [
-                    "Austin, TX",
-                    "Buda, TX"
-                  ]
+                  "locations": ["Austin, TX", "Buda, TX"]
                 },
                 {
                   "recordUrl": "http://127.0.0.1:8658/profile/l6w2x9",
                   "name": "Jordan Example",
                   "age": 36,
-                  "locations": [
-                    "Austin, TX",
-                    "Manor, TX"
-                  ]
+                  "locations": ["Austin, TX", "Manor, TX"]
                 }
               ]
             }
@@ -2199,26 +2148,19 @@
                 {
                   "recordUrl": "http://127.0.0.1:8651/profile/z5q3r6",
                   "name": "Jordan Example",
-                  "locations": [
-                    "Austin, TX"
-                  ]
+                  "locations": ["Austin, TX"]
                 },
                 {
                   "recordUrl": "http://127.0.0.1:8651/profile/z1k4m8",
                   "name": "Jordan Example",
                   "age": 36,
-                  "locations": [
-                    "Austin, TX"
-                  ]
+                  "locations": ["Austin, TX"]
                 },
                 {
                   "recordUrl": "http://127.0.0.1:8651/profile/z4p8q2",
                   "name": "Jordan Example",
                   "age": 36,
-                  "locations": [
-                    "Austin, TX",
-                    "Pflugerville, TX"
-                  ]
+                  "locations": ["Austin, TX", "Pflugerville, TX"]
                 }
               ]
             }
@@ -2631,26 +2573,19 @@
                   "recordUrl": "http://127.0.0.1:8654/profile/y2b4c8",
                   "name": "Jordan Example",
                   "age": 36,
-                  "locations": [
-                    "Austin, TX"
-                  ]
+                  "locations": ["Austin, TX"]
                 },
                 {
                   "recordUrl": "http://127.0.0.1:8654/profile/y6f8g3",
                   "name": "Jordan Example",
                   "age": 35,
-                  "locations": [
-                    "Austin, TX",
-                    "Dripping Springs, TX"
-                  ]
+                  "locations": ["Austin, TX", "Dripping Springs, TX"]
                 },
                 {
                   "recordUrl": "http://127.0.0.1:8654/profile/y9j2k6",
                   "name": "Jordan Example",
                   "age": 36,
-                  "locations": [
-                    "Austin, TX"
-                  ]
+                  "locations": ["Austin, TX"]
                 }
               ]
             }
@@ -2789,18 +2724,13 @@
                   "recordUrl": "http://127.0.0.1:8655/profile/j1m4n8",
                   "name": "Jordan Example",
                   "age": 36,
-                  "locations": [
-                    "Austin, TX"
-                  ]
+                  "locations": ["Austin, TX"]
                 },
                 {
                   "recordUrl": "http://127.0.0.1:8655/profile/j3p6q1",
                   "name": "Jordan Example",
                   "age": 36,
-                  "locations": [
-                    "Austin, TX",
-                    "Round Rock, TX"
-                  ]
+                  "locations": ["Austin, TX", "Round Rock, TX"]
                 }
               ]
             }
@@ -2938,18 +2868,13 @@
                   "recordUrl": "http://127.0.0.1:8651/profile/h1b3k7",
                   "name": "Jordan Example",
                   "age": 36,
-                  "locations": [
-                    "Austin, TX"
-                  ]
+                  "locations": ["Austin, TX"]
                 },
                 {
                   "recordUrl": "http://127.0.0.1:8651/profile/h4f7p1",
                   "name": "Jordan Sample",
                   "age": 35,
-                  "locations": [
-                    "Austin, TX",
-                    "San Marcos, TX"
-                  ]
+                  "locations": ["Austin, TX", "San Marcos, TX"]
                 }
               ]
             }
@@ -3088,26 +3013,19 @@
                   "recordUrl": "http://127.0.0.1:8652/profile/b2j9t6",
                   "name": "Bex Testcase",
                   "age": 38,
-                  "locations": [
-                    "Denver, CO"
-                  ]
+                  "locations": ["Denver, CO"]
                 },
                 {
                   "recordUrl": "http://127.0.0.1:8652/profile/b1h5s2",
                   "name": "Rebecca Testcase",
                   "age": 38,
-                  "locations": [
-                    "Denver, CO"
-                  ]
+                  "locations": ["Denver, CO"]
                 },
                 {
                   "recordUrl": "http://127.0.0.1:8652/profile/b3k3u1",
                   "name": "Bex M. Testcase",
                   "age": 38,
-                  "locations": [
-                    "Denver, CO",
-                    "Lakewood, CO"
-                  ]
+                  "locations": ["Denver, CO", "Lakewood, CO"]
                 }
               ]
             }
@@ -3263,24 +3181,18 @@
                   "recordUrl": "http://127.0.0.1:8653/profile/c2q8b3",
                   "name": "Jordan Example",
                   "age": 36,
-                  "locations": [
-                    "Austin, TX"
-                  ]
+                  "locations": ["Austin, TX"]
                 },
                 {
                   "recordUrl": "http://127.0.0.1:8653/profile/c1p4a8",
                   "name": "Jordan Example",
-                  "locations": [
-                    "Austin, TX"
-                  ]
+                  "locations": ["Austin, TX"]
                 },
                 {
                   "recordUrl": "http://127.0.0.1:8653/profile/c3r2c7",
                   "name": "Jordan Example",
                   "age": 35,
-                  "locations": [
-                    "Austin, TX"
-                  ]
+                  "locations": ["Austin, TX"]
                 }
               ]
             }
@@ -3442,17 +3354,13 @@
                   "recordUrl": "http://127.0.0.1:8654/profile/d4y5k6",
                   "name": "Jordan Example",
                   "age": 35,
-                  "locations": [
-                    "Austin, TX"
-                  ]
+                  "locations": ["Austin, TX"]
                 },
                 {
                   "recordUrl": "http://127.0.0.1:8654/profile/d2w6h8",
                   "name": "Jordan Example",
                   "age": 36,
-                  "locations": [
-                    "Austin, TX"
-                  ]
+                  "locations": ["Austin, TX"]
                 }
               ]
             }
@@ -3590,18 +3498,13 @@
                   "recordUrl": "http://127.0.0.1:8655/profile/p2e8s1",
                   "name": "Jordan Example",
                   "age": 36,
-                  "locations": [
-                    "Spokane, WA"
-                  ]
+                  "locations": ["Spokane, WA"]
                 },
                 {
                   "recordUrl": "http://127.0.0.1:8655/profile/p1d4r7",
                   "name": "Jordan Example",
                   "age": 36,
-                  "locations": [
-                    "Boise, ID",
-                    "Spokane, WA"
-                  ]
+                  "locations": ["Boise, ID", "Spokane, WA"]
                 }
               ]
             }
@@ -3739,24 +3642,15 @@
                   "recordUrl": "http://127.0.0.1:8656/profile/k1j3w6",
                   "name": "Jordan Example",
                   "age": 36,
-                  "locations": [
-                    "Austin, TX"
-                  ],
-                  "relatives": [
-                    "Pat Example"
-                  ]
+                  "locations": ["Austin, TX"],
+                  "relatives": ["Pat Example"]
                 },
                 {
                   "recordUrl": "http://127.0.0.1:8656/profile/k5q1a3",
                   "name": "Jordan Example",
                   "age": 36,
-                  "locations": [
-                    "Austin, TX",
-                    "Lakeway, TX"
-                  ],
-                  "relatives": [
-                    "Sam Example"
-                  ]
+                  "locations": ["Austin, TX", "Lakeway, TX"],
+                  "relatives": ["Sam Example"]
                 }
               ]
             }
@@ -4011,18 +3905,13 @@
                   "recordUrl": "http://127.0.0.1:8657/profile/t06f6g",
                   "name": "Jordan Example",
                   "age": 36,
-                  "locations": [
-                    "Austin, TX",
-                    "Kyle, TX"
-                  ]
+                  "locations": ["Austin, TX", "Kyle, TX"]
                 },
                 {
                   "recordUrl": "http://127.0.0.1:8657/profile/t13p4q",
                   "name": "Jordan Example",
                   "age": 36,
-                  "locations": [
-                    "Austin, TX"
-                  ]
+                  "locations": ["Austin, TX"]
                 }
               ]
             }
@@ -4177,9 +4066,7 @@
             "name": "report",
             "args": {
               "status": "complete",
-              "records": [
-                "http://127.0.0.1:8658/profile/l1r6s4"
-              ]
+              "records": ["http://127.0.0.1:8658/profile/l1r6s4"]
             },
             "isError": true,
             "answer": "Before you finish: the worker found these fit and they are missing: http://127.0.0.1:8658/profile/l5v1w8, http://127.0.0.1:8658/profile/l6w2x9. Report again. The worker's verdicts apply to the next report: a record it marked fits is added and one it marked contradicts is left out. Your choice stands only for records it could not decide."
@@ -4206,27 +4093,19 @@
                   "recordUrl": "http://127.0.0.1:8658/profile/l1r6s4",
                   "name": "Jordan Example",
                   "age": 36,
-                  "locations": [
-                    "Austin, TX"
-                  ]
+                  "locations": ["Austin, TX"]
                 },
                 {
                   "recordUrl": "http://127.0.0.1:8658/profile/l5v1w8",
                   "name": "Jordan Example",
                   "age": 35,
-                  "locations": [
-                    "Austin, TX",
-                    "Buda, TX"
-                  ]
+                  "locations": ["Austin, TX", "Buda, TX"]
                 },
                 {
                   "recordUrl": "http://127.0.0.1:8658/profile/l6w2x9",
                   "name": "Jordan Example",
                   "age": 36,
-                  "locations": [
-                    "Austin, TX",
-                    "Manor, TX"
-                  ]
+                  "locations": ["Austin, TX", "Manor, TX"]
                 }
               ]
             }
@@ -4637,26 +4516,19 @@
                 {
                   "recordUrl": "http://127.0.0.1:8651/profile/z5q3r6",
                   "name": "Jordan Example",
-                  "locations": [
-                    "Austin, TX"
-                  ]
+                  "locations": ["Austin, TX"]
                 },
                 {
                   "recordUrl": "http://127.0.0.1:8651/profile/z1k4m8",
                   "name": "Jordan Example",
                   "age": 36,
-                  "locations": [
-                    "Austin, TX"
-                  ]
+                  "locations": ["Austin, TX"]
                 },
                 {
                   "recordUrl": "http://127.0.0.1:8651/profile/z4p8q2",
                   "name": "Jordan Example",
                   "age": 36,
-                  "locations": [
-                    "Austin, TX",
-                    "Pflugerville, TX"
-                  ]
+                  "locations": ["Austin, TX", "Pflugerville, TX"]
                 }
               ]
             }
@@ -5069,26 +4941,19 @@
                   "recordUrl": "http://127.0.0.1:8654/profile/y2b4c8",
                   "name": "Jordan Example",
                   "age": 36,
-                  "locations": [
-                    "Austin, TX"
-                  ]
+                  "locations": ["Austin, TX"]
                 },
                 {
                   "recordUrl": "http://127.0.0.1:8654/profile/y6f8g3",
                   "name": "Jordan Example",
                   "age": 35,
-                  "locations": [
-                    "Austin, TX",
-                    "Dripping Springs, TX"
-                  ]
+                  "locations": ["Austin, TX", "Dripping Springs, TX"]
                 },
                 {
                   "recordUrl": "http://127.0.0.1:8654/profile/y9j2k6",
                   "name": "Jordan Example",
                   "age": 36,
-                  "locations": [
-                    "Austin, TX"
-                  ]
+                  "locations": ["Austin, TX"]
                 }
               ]
             }
@@ -5218,18 +5083,13 @@
                   "recordUrl": "http://127.0.0.1:8655/profile/j1m4n8",
                   "name": "Jordan Example",
                   "age": 36,
-                  "locations": [
-                    "Austin, TX"
-                  ]
+                  "locations": ["Austin, TX"]
                 },
                 {
                   "recordUrl": "http://127.0.0.1:8655/profile/j3p6q1",
                   "name": "Jordan Example",
                   "age": 36,
-                  "locations": [
-                    "Austin, TX",
-                    "Round Rock, TX"
-                  ]
+                  "locations": ["Austin, TX", "Round Rock, TX"]
                 }
               ]
             }
@@ -5367,18 +5227,13 @@
                   "recordUrl": "http://127.0.0.1:8651/profile/h1b3k7",
                   "name": "Jordan Example",
                   "age": 36,
-                  "locations": [
-                    "Austin, TX"
-                  ]
+                  "locations": ["Austin, TX"]
                 },
                 {
                   "recordUrl": "http://127.0.0.1:8651/profile/h4f7p1",
                   "name": "Jordan Sample",
                   "age": 35,
-                  "locations": [
-                    "Austin, TX",
-                    "San Marcos, TX"
-                  ]
+                  "locations": ["Austin, TX", "San Marcos, TX"]
                 }
               ]
             }
@@ -5526,26 +5381,19 @@
                   "recordUrl": "http://127.0.0.1:8652/profile/b2j9t6",
                   "name": "Bex Testcase",
                   "age": 38,
-                  "locations": [
-                    "Denver, CO"
-                  ]
+                  "locations": ["Denver, CO"]
                 },
                 {
                   "recordUrl": "http://127.0.0.1:8652/profile/b1h5s2",
                   "name": "Rebecca Testcase",
                   "age": 38,
-                  "locations": [
-                    "Denver, CO"
-                  ]
+                  "locations": ["Denver, CO"]
                 },
                 {
                   "recordUrl": "http://127.0.0.1:8652/profile/b3k3u1",
                   "name": "Bex M. Testcase",
                   "age": 38,
-                  "locations": [
-                    "Denver, CO",
-                    "Lakewood, CO"
-                  ]
+                  "locations": ["Denver, CO", "Lakewood, CO"]
                 }
               ]
             }
@@ -5692,24 +5540,18 @@
                   "recordUrl": "http://127.0.0.1:8653/profile/c2q8b3",
                   "name": "Jordan Example",
                   "age": 36,
-                  "locations": [
-                    "Austin, TX"
-                  ]
+                  "locations": ["Austin, TX"]
                 },
                 {
                   "recordUrl": "http://127.0.0.1:8653/profile/c1p4a8",
                   "name": "Jordan Example",
-                  "locations": [
-                    "Austin, TX"
-                  ]
+                  "locations": ["Austin, TX"]
                 },
                 {
                   "recordUrl": "http://127.0.0.1:8653/profile/c3r2c7",
                   "name": "Jordan Example",
                   "age": 35,
-                  "locations": [
-                    "Austin, TX"
-                  ]
+                  "locations": ["Austin, TX"]
                 }
               ]
             }
@@ -5871,17 +5713,13 @@
                   "recordUrl": "http://127.0.0.1:8654/profile/d4y5k6",
                   "name": "Jordan Example",
                   "age": 35,
-                  "locations": [
-                    "Austin, TX"
-                  ]
+                  "locations": ["Austin, TX"]
                 },
                 {
                   "recordUrl": "http://127.0.0.1:8654/profile/d2w6h8",
                   "name": "Jordan Example",
                   "age": 36,
-                  "locations": [
-                    "Austin, TX"
-                  ]
+                  "locations": ["Austin, TX"]
                 }
               ]
             }
@@ -6019,18 +5857,13 @@
                   "recordUrl": "http://127.0.0.1:8655/profile/p2e8s1",
                   "name": "Jordan Example",
                   "age": 36,
-                  "locations": [
-                    "Spokane, WA"
-                  ]
+                  "locations": ["Spokane, WA"]
                 },
                 {
                   "recordUrl": "http://127.0.0.1:8655/profile/p1d4r7",
                   "name": "Jordan Example",
                   "age": 36,
-                  "locations": [
-                    "Boise, ID",
-                    "Spokane, WA"
-                  ]
+                  "locations": ["Boise, ID", "Spokane, WA"]
                 }
               ]
             }
@@ -6168,24 +6001,15 @@
                   "recordUrl": "http://127.0.0.1:8656/profile/k1j3w6",
                   "name": "Jordan Example",
                   "age": 36,
-                  "locations": [
-                    "Austin, TX"
-                  ],
-                  "relatives": [
-                    "Pat Example"
-                  ]
+                  "locations": ["Austin, TX"],
+                  "relatives": ["Pat Example"]
                 },
                 {
                   "recordUrl": "http://127.0.0.1:8656/profile/k5q1a3",
                   "name": "Jordan Example",
                   "age": 36,
-                  "locations": [
-                    "Austin, TX",
-                    "Lakeway, TX"
-                  ],
-                  "relatives": [
-                    "Sam Example"
-                  ]
+                  "locations": ["Austin, TX", "Lakeway, TX"],
+                  "relatives": ["Sam Example"]
                 }
               ]
             }
@@ -6440,18 +6264,13 @@
                   "recordUrl": "http://127.0.0.1:8657/profile/t06f6g",
                   "name": "Jordan Example",
                   "age": 36,
-                  "locations": [
-                    "Austin, TX",
-                    "Kyle, TX"
-                  ]
+                  "locations": ["Austin, TX", "Kyle, TX"]
                 },
                 {
                   "recordUrl": "http://127.0.0.1:8657/profile/t13p4q",
                   "name": "Jordan Example",
                   "age": 36,
-                  "locations": [
-                    "Austin, TX"
-                  ]
+                  "locations": ["Austin, TX"]
                 }
               ]
             }
@@ -6606,9 +6425,7 @@
             "name": "report",
             "args": {
               "status": "complete",
-              "records": [
-                "http://127.0.0.1:8658/profile/l1r6s4"
-              ]
+              "records": ["http://127.0.0.1:8658/profile/l1r6s4"]
             },
             "isError": true,
             "answer": "Before you finish: the worker found these fit and they are missing: http://127.0.0.1:8658/profile/l5v1w8, http://127.0.0.1:8658/profile/l6w2x9. Report again. The worker's verdicts apply to the next report: a record it marked fits is added and one it marked contradicts is left out. Your choice stands only for records it could not decide."
@@ -6635,27 +6452,19 @@
                   "recordUrl": "http://127.0.0.1:8658/profile/l1r6s4",
                   "name": "Jordan Example",
                   "age": 36,
-                  "locations": [
-                    "Austin, TX"
-                  ]
+                  "locations": ["Austin, TX"]
                 },
                 {
                   "recordUrl": "http://127.0.0.1:8658/profile/l5v1w8",
                   "name": "Jordan Example",
                   "age": 35,
-                  "locations": [
-                    "Austin, TX",
-                    "Buda, TX"
-                  ]
+                  "locations": ["Austin, TX", "Buda, TX"]
                 },
                 {
                   "recordUrl": "http://127.0.0.1:8658/profile/l6w2x9",
                   "name": "Jordan Example",
                   "age": 36,
-                  "locations": [
-                    "Austin, TX",
-                    "Manor, TX"
-                  ]
+                  "locations": ["Austin, TX", "Manor, TX"]
                 }
               ]
             }
@@ -7084,26 +6893,19 @@
                 {
                   "recordUrl": "http://127.0.0.1:8651/profile/z5q3r6",
                   "name": "Jordan Example",
-                  "locations": [
-                    "Austin, TX"
-                  ]
+                  "locations": ["Austin, TX"]
                 },
                 {
                   "recordUrl": "http://127.0.0.1:8651/profile/z1k4m8",
                   "name": "Jordan Example",
                   "age": 36,
-                  "locations": [
-                    "Austin, TX"
-                  ]
+                  "locations": ["Austin, TX"]
                 },
                 {
                   "recordUrl": "http://127.0.0.1:8651/profile/z4p8q2",
                   "name": "Jordan Example",
                   "age": 36,
-                  "locations": [
-                    "Austin, TX",
-                    "Pflugerville, TX"
-                  ]
+                  "locations": ["Austin, TX", "Pflugerville, TX"]
                 }
               ]
             }
@@ -7525,26 +7327,19 @@
                   "recordUrl": "http://127.0.0.1:8654/profile/y2b4c8",
                   "name": "Jordan Example",
                   "age": 36,
-                  "locations": [
-                    "Austin, TX"
-                  ]
+                  "locations": ["Austin, TX"]
                 },
                 {
                   "recordUrl": "http://127.0.0.1:8654/profile/y6f8g3",
                   "name": "Jordan Example",
                   "age": 35,
-                  "locations": [
-                    "Austin, TX",
-                    "Dripping Springs, TX"
-                  ]
+                  "locations": ["Austin, TX", "Dripping Springs, TX"]
                 },
                 {
                   "recordUrl": "http://127.0.0.1:8654/profile/y9j2k6",
                   "name": "Jordan Example",
                   "age": 36,
-                  "locations": [
-                    "Austin, TX"
-                  ]
+                  "locations": ["Austin, TX"]
                 }
               ]
             }
@@ -7674,18 +7469,13 @@
                   "recordUrl": "http://127.0.0.1:8655/profile/j1m4n8",
                   "name": "Jordan Example",
                   "age": 36,
-                  "locations": [
-                    "Austin, TX"
-                  ]
+                  "locations": ["Austin, TX"]
                 },
                 {
                   "recordUrl": "http://127.0.0.1:8655/profile/j3p6q1",
                   "name": "Jordan Example",
                   "age": 36,
-                  "locations": [
-                    "Austin, TX",
-                    "Round Rock, TX"
-                  ]
+                  "locations": ["Austin, TX", "Round Rock, TX"]
                 }
               ]
             }

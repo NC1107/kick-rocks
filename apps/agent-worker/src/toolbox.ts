@@ -345,7 +345,10 @@ interface Verdict {
 
 const NOTHING_CHANGED = "Nothing on the page changed. Doing the same again will not help.";
 const MAX_COMPARED_LINES = 60;
-const MAX_RECORDS_OPENED = 30;
+/** Record pages opened in one go; the rest wait for the next call, so a site is not hit in a burst. */
+const MAX_RECORDS_OPENED = 12;
+/** A person reads a record before the next, so each visit a scan makes by itself waits a few seconds. */
+const RECORD_VISIT_GAP_MS = [1500, 4000] as const;
 
 function withoutFragment(address: string): string {
   return address.split("#")[0] ?? address;
@@ -478,7 +481,8 @@ export class Toolbox {
   /**
    * Held against a scan's report: the records the worker found to fit that it leaves out, the
    * ones that contradict the person that it includes, and the ones the worker could not decide
-   * even after trying to read their own page.
+   * even after trying to read their own page. Only a record's own page can overrule the model,
+   * since a card shows less than the page and may leave out what would have fitted.
    */
   scanVerdictsAgainst(reported: readonly string[]): {
     missing: string[];
@@ -492,7 +496,7 @@ export class Toolbox {
         .filter((v) => v.decision === "fits" && !included.has(v.address))
         .map((v) => v.address),
       contradicting: known
-        .filter((v) => v.decision === "contradicts" && included.has(v.address))
+        .filter((v) => v.decision === "contradicts" && v.fromRecordPage && included.has(v.address))
         .map((v) => v.address),
       unopened: this.pendingRecords(),
     };
@@ -559,11 +563,14 @@ export class Toolbox {
       page?.heading ??
       card?.heading ??
       "";
-    const details = detailsOf({
-      heading,
-      linkText: card?.linkText ?? "",
-      text: page?.text ?? card?.text ?? "",
-    });
+    const details = detailsOf(
+      {
+        heading,
+        linkText: card?.linkText ?? "",
+        text: page?.text ?? card?.text ?? "",
+      },
+      [...this.policy.domains, ...this.policy.pages.map((scope) => scope.host)],
+    );
     const name = details.name || address.split("/").filter(Boolean).at(-1) || address;
     return { ...details, name, recordUrl: address };
   }
@@ -935,6 +942,13 @@ export class Toolbox {
       default:
         return failure(`There is no tool named ${name}`);
     }
+  }
+
+  private async readingPause(): Promise<void> {
+    const { pace, signal } = this.options;
+    if (pace.pauseScale === 0) return;
+    const [min, max] = RECORD_VISIT_GAP_MS;
+    await pace.sleep(Math.round(min + (max - min) * pace.random()), signal);
   }
 
   private async settle(): Promise<void> {
@@ -1506,6 +1520,7 @@ export class Toolbox {
     if (problem !== null) return failure(`The page is not usable: ${problem}`);
     const here = withoutFragment(this.options.page.url());
     const cards = await this.recordCardsOfPage();
+    if (cards.length === 1 && !this.isKnownRecord(here)) return this.lonelyRecord(cards[0]);
     if (cards.length < 2 || this.isKnownRecord(here))
       return this.checkRecordPage(here, cards.length);
     if (ref === null) return this.decideRecords(cards);
@@ -1520,6 +1535,18 @@ export class Toolbox {
       );
     }
     return this.checkCard(card);
+  }
+
+  /** A page with one record link may be a search with a single result, and a results page has no verdict of its own. */
+  private lonelyRecord(card: CardText | undefined): ToolOutcome {
+    const link = card === undefined ? "" : ` [${card.ref}] -> ${card.href}`;
+    return done(
+      [
+        `This page lists one record${link} and is not a record page.`,
+        "Open that record, then call check_record on its page.",
+        ...this.progress(),
+      ].join("\n"),
+    );
   }
 
   private alreadyDecided(address: string): ToolOutcome {
@@ -1615,10 +1642,22 @@ export class Toolbox {
     );
   }
 
-  /** Records a scan that is about to finish has not had decided, for the worker to open before it answers. */
-  async openUnreadRecords(): Promise<ToolOutcome | null> {
-    const pending = this.pendingRecords();
-    if (this.options.purpose !== "scan" || pending.length === 0) return null;
+  /**
+   * Records a scan that is about to finish has not had decided, and records the report includes
+   * that only their card contradicts, for the worker to open before it answers. A card shows less
+   * than the page, so a card alone does not overrule a report; the record's own page does.
+   */
+  async openUnreadRecords(reported: readonly string[] = []): Promise<ToolOutcome | null> {
+    if (this.options.purpose !== "scan") return null;
+    const included = new Set(reported.map(withoutFragment));
+    const doubted = Array.from(this.verdicts)
+      .filter(
+        ([address, verdict]) =>
+          verdict.decision === "contradicts" && !verdict.fromRecordPage && included.has(address),
+      )
+      .map(([address]) => address);
+    const pending = [...this.pendingRecords(), ...doubted];
+    if (pending.length === 0) return null;
     return this.readRecordPages(pending, this.options.page.url());
   }
 
@@ -1651,6 +1690,7 @@ export class Toolbox {
       if (this.currentUrlProblem() !== null) continue;
       this.visited.add(address);
       this.opened.add(withoutFragment(page.url()));
+      await this.readingPause();
       const record = await this.readCurrentPage();
       const judged = judgeRecord(record, fields, year, true);
       this.noteVerdict(address, judged.decision, true, judged.clashes);

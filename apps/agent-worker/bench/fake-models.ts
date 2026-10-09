@@ -8,7 +8,11 @@ import type {
 import { scenarioById } from "./splits.js";
 import type { AgentTask } from "./task.js";
 
-export type FakeKind = "perfect" | "bad";
+/**
+ * `checker` is a model that decides nothing: it reports no records, and what the report holds after
+ * the worker has applied its own verdicts is the worker's checker on its own.
+ */
+export type FakeKind = "perfect" | "bad" | "checker";
 
 type CallSpec = [name: string, args?: unknown];
 
@@ -240,6 +244,45 @@ function perfect(id: number, task: AgentTask): Step[] {
         click("Submit opt-out"),
         done("submitted", { confirmationText: "Your opt-out request was received." }),
       ];
+    case 211:
+      return [
+        go(start),
+        typeInto(["Email address", "email"]),
+        click("Look up"),
+        done("already_removed", { confirmationText: "on our do-not-contact list" }),
+      ];
+    case 212:
+      return [
+        go(start),
+        typeInto(
+          ["First name", "first_name"],
+          ["Last name", "last_name"],
+          ["Email address", "email"],
+        ),
+        (v) => ({ calls: [["type", { ref: v.ref("Confirm email address"), field: "email" }]] }),
+        (v) => ({ calls: [["check", { ref: v.ref("Consumer") }]] }),
+        (v) => ({
+          calls: [["select", { ref: v.ref("Reason for your request"), option: "Privacy request" }]],
+        }),
+        click("Send request"),
+        done("submitted", { confirmationText: "Your privacy request was received." }),
+      ];
+    case 213:
+      return [
+        go(start),
+        blocked(
+          "unknown",
+          "The form requires an invoice number, which is not one of the task's fields.",
+        ),
+      ];
+    case 214:
+      return [
+        go(start),
+        typeInto(...NAME_EMAIL),
+        (v) => ({ calls: [["check", { ref: v.ref("This request is about me") }]] }),
+        click("Send opt-out"),
+        done("submitted", { confirmationText: "Your opt-out request was received." }),
+      ];
     default:
       return scanScript("perfect", id, task);
   }
@@ -270,6 +313,15 @@ function scanScript(kind: FakeKind, id: number, task: AgentTask): Step[] {
     ];
   }
   const labels = SEARCH_LABELS.filter(([field]) => field in task.fields);
+  if (kind === "checker") {
+    return [
+      go(start),
+      typeInto(...labels.map(([field, label]): [string, string] => [label, field])),
+      click("Search"),
+      ...(walk ?? []).map((label) => click(label)),
+      ...finish([]),
+    ];
+  }
   return [
     go(start),
     typeInto(...labels.map(([field, label]): [string, string] => [label, field])),
@@ -421,6 +473,11 @@ function bad(id: number, task: AgentTask): Step[] {
 }
 
 export function fakeModel(kind: FakeKind, scenarioId: number, task: AgentTask): ModelProvider {
-  const steps = kind === "perfect" ? perfect(scenarioId, task) : bad(scenarioId, task);
+  const steps =
+    kind === "perfect"
+      ? perfect(scenarioId, task)
+      : kind === "checker"
+        ? scanScript("checker", scenarioId, task)
+        : bad(scenarioId, task);
   return scripted(`fake-${kind}`, steps);
 }

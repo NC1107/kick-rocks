@@ -333,14 +333,64 @@ describeBrowser("the comparison of a results page", () => {
 
   it("holds the report against it only once, and itemizes what is wrong", async () => {
     await open("/scan-cards");
+    // A card alone does not overrule a report; the record's own page does.
     const verdicts = toolbox.scanVerdictsAgainst([`${ORIGIN}/people/r4`]);
     expect(verdicts).toEqual({
       missing: [`${ORIGIN}/people/r1`],
-      contradicting: [`${ORIGIN}/people/r4`],
+      contradicting: [],
       unopened: [`${ORIGIN}/people/r3`, `${ORIGIN}/people/r5`],
     });
     await toolbox.execute("navigate", { url: `${ORIGIN}/people/r5` });
     expect(toolbox.scanVerdictsAgainst([]).unopened).toEqual([`${ORIGIN}/people/r3`]);
+  });
+});
+
+describeBrowser("check_record on a results page with one record", () => {
+  it("says the page lists one record and to open it, and gives no verdict on the results page", async () => {
+    await open("/scan-single");
+    const answer = textOf(await toolbox.execute("check_record", {}));
+    expect(answer).toContain("This page lists one record");
+    expect(answer).toContain(`${ORIGIN}/people/r1`);
+    expect(answer).not.toMatch(/fits: include it|contradicts: leave it out/);
+  });
+});
+
+describeBrowser("a scan that opens record pages on its own", () => {
+  it("waits a few seconds between the pages it opens at a human pace, and not at an instant one", async () => {
+    const pauses: number[] = [];
+    const human = {
+      ...INSTANT_PACE,
+      pauseScale: 1,
+      random: () => 0,
+      sleep: async (ms: number) => {
+        pauses.push(ms);
+      },
+    };
+    page = await context.newPage();
+    toolbox = new Toolbox({
+      page,
+      fields: PERSON,
+      purpose: "scan",
+      policy: { domains: ["127.0.0.1"], pages: [], allowHttp: true },
+      pace: human,
+      mask: createMask(PERSON),
+      signal: new AbortController().signal,
+      challengeGraceMs: 100,
+    });
+    await toolbox.install();
+    await toolbox.execute("navigate", { url: `${ORIGIN}/scan-cards` });
+    await toolbox.execute("check_record", {});
+    expect(pauses.filter((ms) => ms >= 1500).length).toBeGreaterThanOrEqual(2);
+  });
+});
+
+describeBrowser("a report that includes a record only its card contradicts", () => {
+  it("opens that record's own page, and lets the page overrule the report", async () => {
+    await open("/scan-cards");
+    const r4 = `${ORIGIN}/people/r4`;
+    expect(toolbox.scanVerdictsAgainst([r4]).contradicting).toEqual([]);
+    await toolbox.openUnreadRecords([r4]);
+    expect(toolbox.scanVerdictsAgainst([r4]).contradicting).toEqual([r4]);
   });
 });
 

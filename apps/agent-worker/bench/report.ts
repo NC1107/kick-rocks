@@ -1,7 +1,7 @@
 import type { ModelIdentity } from "@kickrocks/shared";
 import type { ReplyRun } from "./replies.js";
 import type { RunRecord } from "./run-scenario.js";
-import { ALL_SCENARIOS } from "./splits.js";
+import { ALL_SCENARIOS, STRESS_SCENARIOS } from "./splits.js";
 
 export interface ScenarioSummary {
   id: number;
@@ -91,7 +91,7 @@ const maxOrNull = (values: (number | null)[]): number | null => {
 };
 
 export function summarizeScenarios(runs: RunRecord[]): ScenarioSummary[] {
-  return ALL_SCENARIOS.flatMap((scenario) => {
+  return [...ALL_SCENARIOS, ...STRESS_SCENARIOS].flatMap((scenario) => {
     const own = runs.filter((r) => r.scenario === scenario.id);
     if (own.length === 0) return [];
     const successes = own.filter((r) => r.success).length;

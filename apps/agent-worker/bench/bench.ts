@@ -102,7 +102,9 @@ export async function runBench(options: BenchOptions): Promise<BenchResults> {
         if (!found) throw new Error(`There is no scenario ${id} in the ${split} set`);
         return found;
       })
-    : inSplit;
+    : options.fake === "checker"
+      ? inSplit.filter((s) => s.purpose === "scan")
+      : inSplit;
   const pace = options.pace ?? "instant";
 
   if (!options.fake) await warmUp(baseUrl, options, log);
@@ -138,7 +140,9 @@ export async function runBench(options: BenchOptions): Promise<BenchResults> {
       const reply = await runReplyBench({
         settings: { baseUrl, model: options.model, apiKey: null },
         cases: replyCasesFor(split),
-        ...(options.fake ? { fetchImpl: fakeReplyFetch(options.fake, replyCasesFor(split)) } : {}),
+        ...(options.fake === "perfect" || options.fake === "bad"
+          ? { fetchImpl: fakeReplyFetch(options.fake, replyCasesFor(split)) }
+          : {}),
         ...(options.replyTimeoutMs ? { timeoutMs: options.replyTimeoutMs } : {}),
       });
       replyRuns.push(reply);

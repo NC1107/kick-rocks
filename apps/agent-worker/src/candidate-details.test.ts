@@ -74,4 +74,35 @@ describe("the details of a candidate", () => {
     });
     expect(details.locations).toEqual(["Reno, NV"]);
   });
+
+  it("takes the relatives who are listed with their own cities, and not the cities", () => {
+    const details = detailsOf({
+      heading: "Jordan Example",
+      linkText: "",
+      text: "Jordan Example\nRelatives\nSam Example - New Braunfels, TX\nCasey Example\nAustin, TX\nAge 70\nBorn 1990",
+    });
+    expect(details.relatives).toEqual(["Sam Example", "Casey Example"]);
+    expect(details.locations).toEqual([]);
+  });
+
+  it("leaves out the people, phones and emails of a block about other people", () => {
+    const details = detailsOf({
+      heading: "Jordan Example",
+      linkText: "",
+      text: "Jordan Example\nAge 36 · Austin, TX\nPhone (512) 555-0100\nPeople also viewed\nSam Other\nDallas, TX\n(214) 555-0199\nSam@other.test",
+    });
+    expect(details.locations).toEqual(["Austin, TX"]);
+    expect(details.phones).toEqual(["(512) 555-0100"]);
+    expect(details.emails).toEqual([]);
+    expect(details.relatives).toEqual([]);
+  });
+
+  it("drops an email address on the site's own domain", () => {
+    const text =
+      "Jordan Example\njordan@mail.test\nQuestions: help@people-finder.test\nsupport@eu.people-finder.test";
+    const details = detailsOf({ heading: "Jordan Example", linkText: "", text }, [
+      "people-finder.test",
+    ]);
+    expect(details.emails).toEqual(["jordan@mail.test"]);
+  });
 });

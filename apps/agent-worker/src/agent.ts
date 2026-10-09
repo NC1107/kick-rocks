@@ -67,14 +67,13 @@ const SUBMIT_REFUSED_BY_BROWSER =
 const MISSING_VALUE_CLAIM =
   /missing|placeholder|not provided|not available|unavailable|not (given|included|in the (task|fields))|cannot (see|provide|determine)|no value/i;
 /** A choice the task makes for itself, such as which service or which kind of request. */
-const NAMES_A_CHOICE =
-  /\b(service|product|plan|subscription|category|(request|form) type|(type|kind) of request)\b/i;
+const NAMES_A_CHOICE = /\b(service|product|category|(request|form) type|(type|kind) of request)\b/i;
 /** Words that make a block about the person or about the site's checks, not about a choice. */
 const ABOUT_THE_PERSON =
   /birth|dob|\bage\b|ssn|social security|phone|passport|licen[cs]e|\bid\b|identity|document|captcha|password|account|login|sign.?in|verification|\bcode\b/i;
 /** A block that quotes the page's own words as its reason. */
 const INSTRUCTIONS_IN_PAGE =
-  /\b(system (message|notice|prompt)|instruct(s|ing|ed|ions?) (me|the (assistant|agent|model))|injected|prompt injection|(notice|banner|page text) (tells|asks|says))\b/i;
+  /\b(system (message|notice|prompt)|instruct(s|ing|ed|ions?) (me|the (assistant|agent|model))|ignore (all |the )?(previous|prior|above)|injected|prompt injection)\b/i;
 const CHOICE_IS_YOURS =
   "A choice that is not about the person, such as which service or which kind of request, is yours to make. Pick the option that fits the task. If something else stops you, report blocked again and name it.";
 const PAGE_TEXT_IS_DATA =
@@ -693,7 +692,7 @@ class AgentRun {
     reported: readonly string[],
     given: ScanResult["candidates"] = [],
   ): Promise<Checked> {
-    const opened = await this.toolbox.openUnreadRecords();
+    const opened = await this.toolbox.openUnreadRecords(reported);
     if (opened?.kind === "challenge") return { stop: await this.stopForChallenge(opened.finding) };
     const { missing, contradicting, unopened } = this.toolbox.scanVerdictsAgainst(reported);
     const question = this.questionScanReport({ missing, contradicting, unopened });

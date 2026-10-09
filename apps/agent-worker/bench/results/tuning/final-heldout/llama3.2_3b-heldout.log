@@ -1,5 +1,5 @@
 
-> @kickrocks/agent-worker@0.0.0 bench /home/npc/Documents/projects/opt-out/.claude/worktrees/wf_bd6927e1-a88-1/apps/agent-worker
+> @kickrocks/agent-worker@0.0.0 bench apps/agent-worker
 > tsx bench/cli.ts --runs 3 --split heldout --out bench/results/tuning/final-heldout --out-name llama3.2_3b-heldout --model llama3.2:3b --provider ollama --num-ctx 16384 --replies-only
 
 warm-up took 962 ms

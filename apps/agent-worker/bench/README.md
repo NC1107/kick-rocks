@@ -20,10 +20,10 @@ A `:` or `/` in the model name becomes `_` in the file name.
 |---|---|
 | `--model <name>` | The Ollama model. Required unless `--fake` is given. |
 | `--runs <n>` | Repeats every scenario and the reply set. Default 3. |
-| `--split dev`, `--split heldout` | Which set to run. Default dev. See "Dev and held-out sets". `--record` needs the dev set. |
+| `--split dev`, `--split heldout`, `--split stress` | Which set to run. Default dev. See "Dev and held-out sets" and "The stress set". `--record` needs the dev set. |
 | `--scenarios 1,5,7` | Only these agent scenarios of the chosen set. |
 | `--agent-only`, `--replies-only` | Run one half. |
-| `--fake perfect`, `--fake bad` | Use a scripted model, to check the harness itself. |
+| `--fake perfect`, `--fake bad`, `--fake checker` | Use a scripted model, to check the harness itself. Checker reports no records, so a scan result is the worker's own comparison with no model behind it. |
 | `--base-url <url>` | Another OpenAI compatible endpoint. |
 | `--provider openai`, `--provider ollama` | The worker's provider for the agent half. Default openai. The reply half always uses the OpenAI compatible endpoint. |
 | `--num-ctx <n>` | The ollama provider's context window. Default is the worker's own, 16384. |
@@ -35,7 +35,7 @@ A `:` or `/` in the model name becomes `_` in the file name.
 | `--out <dir>` | Another results folder. |
 | `--record` | Sends the safety gate evidence to the server named by `KICKROCKS_SERVER_URL`, using `KICKROCKS_WORKER_TOKEN`. The server decides whether the model passed and shows it in Settings. |
 
-`pnpm --filter @kickrocks/agent-worker test` also runs `bench/harness.test.ts`, which checks the harness with both fake models.
+`pnpm --filter @kickrocks/agent-worker test` also runs `bench/harness.test.ts`, which checks the harness with the fake models.
 
 ## What is real
 
@@ -105,6 +105,27 @@ Do not read them while tuning, and do not run `--split heldout` until the change
 `splits.test.ts` fails when the files and the record differ, so a change to the held-out set shows up in review.
 After a deliberate change, run `pnpm --filter @kickrocks/agent-worker exec tsx bench/heldout-hash.ts --write` and say why in the commit.
 The page builder in `scan-kit.ts` is shared with the dev set and is not part of the digest.
+Because the dev and held-out scans share that builder, a held-out scan success says the worker reads that builder's markup and wording, and not that it reads a real site.
+The stress set below uses a second builder for that reason.
+
+## The stress set
+
+`--split stress` runs scenarios 201 to 207 and 211 to 214.
+It has no replies.
+It is not a held-out set: it was written after the worker's comparison and refusals were tuned, by people who had seen them, so a pass cannot be called unseen.
+It says how far those reach on markup and wording the dev and held-out sets do not print.
+
+- Scans 201 to 207 come from `alt-kit.ts`, which shares no markup with `scan-kit.ts`.
+  Results are boxes, headline blocks or plain paragraphs and not articles, a record lives under `/view/<name>-<id>`, and a place is written `Austin TX`, `Austin, Texas 78701` or as a state alone.
+  An age is `Age: 36`, `(36)` or `36 years old`, a name is cut to `Jordan E.`, and a record page lists relatives with their own cities, a sidebar of other people, or a definition list.
+  One scenario lists a single result.
+- Removals 211 to 214 word the same situations as the dev set differently: a lookup that says an address is on a suppression list, a form with a repeated email, a role and a reason to choose, a form that wants an invoice number the person does not have, and instructions placed in a label, a hint and an image description.
+  They cover the status lookup, the refusals of a missing value or a choice, the form status line, a select the task makes for itself, and injection in other places.
+
+`--fake checker` runs the scans of any set with no model: it reports no records, twice, so the result is the worker's own comparison and what it opens.
+Run it to see how much of a scan result belongs to the worker and how much to the model.
+The checker alone gets every dev and held-out scan and stress scans 201 to 205 and 207 right, and not 206, where a lone result on the results page is left for the model to open.
+`harness.test.ts` keeps that result.
 
 ## What a run records
 
