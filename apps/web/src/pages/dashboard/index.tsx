@@ -11,6 +11,7 @@ import {
 } from "../../components/ui/index.js";
 import {
   CheckForRepliesButton,
+  checkFailedOnMailbox,
   ReplyCheckResult,
   useReplyCheck,
 } from "../mailbox/check-for-replies.js";
@@ -98,16 +99,33 @@ function DashboardView({
     <>
       {header}
       <ReplyCheckResult check={check} className="mb-5" />
-      <DashboardBody dashboard={query.data} profileId={profileId} />
+      <DashboardBody
+        dashboard={query.data}
+        profileId={profileId}
+        checkReportsError={checkFailedOnMailbox(check)}
+      />
     </>
   );
 }
 
-function DashboardBody({ dashboard, profileId }: { dashboard: Dashboard; profileId: string }) {
+function DashboardBody({
+  dashboard,
+  profileId,
+  checkReportsError,
+}: {
+  dashboard: Dashboard;
+  profileId: string;
+  checkReportsError: boolean;
+}) {
   const fresh = dashboard.total === 0;
   return (
     <div className="flex flex-col gap-5">
-      <MailboxNotices dashboard={dashboard} profileId={profileId} showMissing={!fresh} />
+      <MailboxNotices
+        dashboard={dashboard}
+        profileId={profileId}
+        showMissing={!fresh}
+        checkReportsError={checkReportsError}
+      />
       {fresh ? (
         <EmptyState
           title="No requests yet."

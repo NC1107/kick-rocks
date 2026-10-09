@@ -96,6 +96,27 @@ describe("checking for replies on the request page", () => {
     );
   }, 10_000);
 
+  it("shows a failed mailbox once on the dashboard, not as the result and as the standing notice", async () => {
+    const mock = createMockApp();
+    const advance = skewClock(mock);
+    const { jordan } = waitingRequest(mock);
+    if (jordan.mailbox) {
+      jordan.mailbox.replyFolder = "Broken";
+      jordan.mailbox.lastError = "IMAP login failed. Check the app password.";
+    }
+    const { user } = renderPage(<DashboardPage />, { mock });
+    expect(await screen.findByText("The mailbox is not working")).toBeVisible();
+
+    await user.click(await screen.findByRole("button", CHECK));
+    advance(3_000);
+
+    expect(
+      await screen.findByText("Could not check the mailbox", {}, { timeout: 4000 }),
+    ).toBeVisible();
+    expect(screen.queryByText("The mailbox is not working")).toBeNull();
+    expect(screen.getAllByText(/IMAP login failed/)).toHaveLength(1);
+  }, 10_000);
+
   it("names the request a reply belongs to when it is not the one on the page", async () => {
     const mock = createMockApp();
     const advance = skewClock(mock);

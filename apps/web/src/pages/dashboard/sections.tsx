@@ -252,10 +252,13 @@ export function MailboxNotices({
   dashboard,
   profileId,
   showMissing,
+  checkReportsError = false,
 }: {
   dashboard: Dashboard;
   profileId: string;
   showMissing: boolean;
+  /** The result of a check run on this page already shows the mailbox error, so it is not shown twice. */
+  checkReportsError?: boolean;
 }) {
   const manage = `/profiles/${profileId}/mailbox`;
   if (!dashboard.mailbox) {
@@ -274,7 +277,7 @@ export function MailboxNotices({
       </Callout>
     );
   }
-  if (!dashboard.mailbox.lastError) return null;
+  if (!dashboard.mailbox.lastError || checkReportsError) return null;
   return (
     <Callout
       intent="danger"
