@@ -10,7 +10,8 @@ export type SmtpBehavior =
   | "silent"
   | "drop_after_data"
   | "drop_mid_body"
-  | "stall_after_data";
+  | "stall_after_data"
+  | "reject_after_data";
 
 export interface SmtpSocketFake {
   readonly port: number;
@@ -73,6 +74,10 @@ export async function startSmtpSocketFake(
             return;
           }
           if (mode === "stall_after_data") return;
+          if (mode === "reject_after_data") {
+            socket.write("554 5.7.1 message refused\r\n");
+            continue;
+          }
           socket.write("250 2.0.0 queued\r\n");
           continue;
         }

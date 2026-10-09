@@ -206,6 +206,41 @@ describe("the email runner against the real transport", () => {
     expect(ctx.services.requests.getOrThrow(request.id).status).toBe("awaiting_reply");
   });
 
+  it("clears the offered marker together with the failure when the server refuses the mail after the whole body", async () => {
+    smtp.behave("reject_after_data");
+    const request = openRequest();
+    const markerOf = () =>
+      ctx.services.db.select().from(tasks).where(eq(tasks.requestId, request.id)).get()
+        ?.unconfirmedMessageId;
+
+    await runners.email.runDue();
+
+    expect(markerOf()).toBeNull();
+    expect(taskFor(request.id)).toMatchObject({ status: "failed" });
+    expect(ctx.services.requests.getOrThrow(request.id).status).toBe("queued");
+  });
+
+  it("mails a refused message again, not counts it as sent, when the failure could not be written", async () => {
+    smtp.behave("reject_after_data");
+    const request = openRequest();
+    const fail = vi.spyOn(ctx.services.taskQueue, "fail").mockImplementation(() => {
+      throw new Error("database or disk is full");
+    });
+
+    await expect(runners.email.runDue()).rejects.toThrow("disk is full");
+    fail.mockRestore();
+    smtp.behave("accept");
+    for (let round = 0; round < 2; round += 1) {
+      ctx.clock.advance(HOUR);
+      await runners.email.runDue();
+    }
+
+    expect(smtp.received).toHaveLength(2);
+    expect(ctx.services.requests.getOrThrow(request.id).status).toBe("awaiting_reply");
+    const sent = ctx.services.requests.events(request.id).find((event) => event.type === "sent");
+    expect(sent?.payload).not.toHaveProperty("unconfirmed");
+  });
+
   it("settles a mail offered before the process died even when the dataset has dropped the address", async () => {
     const request = openRequest();
     ctx.services.db

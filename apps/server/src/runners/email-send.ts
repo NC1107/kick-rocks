@@ -87,6 +87,8 @@ export class EmailRunner {
   private readonly beforeData = new Set<string>();
   /** Mail that was offered to a server and not yet recorded, kept here too because a full disk refuses the database marker. */
   private readonly offered = new Map<string, string>();
+  /** Sends the server answered with a refusal, whose database marker may outlive the failure if that could not be written. */
+  private readonly refused = new Set<string>();
 
   constructor(
     private readonly services: AppServices,
@@ -202,7 +204,7 @@ export class EmailRunner {
           composed.to,
         );
       }
-      this.clearOffered(task.id);
+      this.refused.add(task.id);
       if (isMailboxProblem(error)) {
         this.holdMailbox(task, request, mailbox.id, error);
         return false;
@@ -237,6 +239,7 @@ export class EmailRunner {
   }
 
   private markOffered(taskId: string, messageId: string): void {
+    this.refused.delete(taskId);
     this.offered.set(taskId, messageId);
     try {
       this.services.db
@@ -255,6 +258,7 @@ export class EmailRunner {
       .from(tasks)
       .where(eq(tasks.id, taskId))
       .get();
+    if (this.refused.has(taskId)) return null;
     return this.offered.get(taskId) ?? row?.id ?? null;
   }
 
@@ -269,6 +273,19 @@ export class EmailRunner {
     } catch (error) {
       this.services.logger.warn({ err: describeError(error) }, "could not clear the offered mail");
     }
+  }
+
+  /**
+   * The server answered, so the mail is not in doubt any more. The marker goes in the same
+   * transaction as the outcome that follows, because a marker that outlives a refusal would make
+   * the next start count a refused mail as sent.
+   */
+  private clearMarkerInTransaction(taskId: string): void {
+    this.services.db
+      .update(tasks)
+      .set({ unconfirmedMessageId: null })
+      .where(eq(tasks.id, taskId))
+      .run();
   }
 
   /**
@@ -324,9 +341,11 @@ export class EmailRunner {
   ): boolean {
     const mailboxId = this.mailboxIdOf(request);
     if (!mailboxId) {
+      // The mail may be delivered, so its marker stays for whoever can still match it.
       this.fail(task, request, new Error("The mailbox is gone"), {
         retryable: false,
         kind: "internal",
+        keepMarker: true,
       });
       return false;
     }
@@ -381,6 +400,7 @@ export class EmailRunner {
     const until = this.services.mailHolds.hold(mailboxId);
     const neverSent = error instanceof MailSendError ? error.neverSent : provesNeverSent(error);
     db.transaction(() => {
+      this.clearMarkerInTransaction(task.id);
       db.update(mailboxes)
         .set({ lastSendError: `Sending is paused: ${describeError(error)}` })
         .where(eq(mailboxes.id, mailboxId))
@@ -392,6 +412,8 @@ export class EmailRunner {
         }
       } else this.fail(task, request, error, { retryable: true, kind: "network" });
     });
+    this.offered.delete(task.id);
+    this.refused.delete(task.id);
   }
 
   private buildMail(
@@ -513,11 +535,12 @@ export class EmailRunner {
     task: EmailTask,
     request: RequestRecord,
     error: unknown,
-    how: { retryable: boolean; kind: "internal" | "network" | "site" },
+    how: { retryable: boolean; kind: "internal" | "network" | "site"; keepMarker?: boolean },
   ): void {
     const { db, taskQueue, requests } = this.services;
     const message = error instanceof AppError ? error.message : describeError(error);
     db.transaction(() => {
+      if (!how.keepMarker) this.clearMarkerInTransaction(task.id);
       requests.addEvent(request.id, {
         type: "send_failed",
         actor: "system",
@@ -537,6 +560,10 @@ export class EmailRunner {
         this.returnToVerification(request.id, task.payload.inReplyTo);
       }
     });
+    if (!how.keepMarker) {
+      this.offered.delete(task.id);
+      this.refused.delete(task.id);
+    }
   }
 
   /** The person still owes the broker an answer, so the request goes back to where they can give it. */
