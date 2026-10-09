@@ -28,6 +28,7 @@ import {
 import type { Task } from "../core/task-types.js";
 import {
   type BodyReason,
+  couldBeAReply,
   type HeaderVerdict,
   headersOf,
   type IntakeContext,
@@ -35,6 +36,7 @@ import {
   isBulkWithoutPrivacyWording,
   isSoftAdmission,
   readPlanFor,
+  replySearchTerms,
   type SearchScope,
   senderTargetIds,
   triageBody,
@@ -51,7 +53,7 @@ import type {
 import type { AppServices } from "../services.js";
 import { connectionOf, describeError } from "./connection.js";
 import { listCleanupCandidates } from "./intake-cleanup.js";
-import { notePassedOver } from "./intake-shadow.js";
+import { notePassedOver, recordPassedOver, shadowActive } from "./intake-shadow.js";
 import {
   applyReply,
   awaitingConfirmationOf,
@@ -338,18 +340,22 @@ export class InboxRunner {
     const hits = await this.searchHits(session, gated);
     toRead.push(...hits);
     const unread = new Set(hits);
-    for (const entry of gated) {
+    const passedOver = gated.filter((entry) => !unread.has(entry.uid));
+    const mentionsReplyWording = await this.bodiesThatCouldBeReplies(
+      session,
+      mailbox,
+      passedOver,
+      headersByUid,
+      ctx,
+    );
+    for (const entry of passedOver) {
       const h = headersByUid.get(entry.uid);
-      if (h && !unread.has(entry.uid)) {
-        notePassedOver(
-          this.services,
-          mailbox,
-          uidValidity,
-          h,
-          null,
-          unreadRule(h, entry.reason, ctx),
-          ctx,
-        );
+      if (!h) continue;
+      const rule = unreadRule(h, entry.reason, ctx);
+      if (mentionsReplyWording.has(entry.uid)) {
+        recordPassedOver(this.services, mailbox, uidValidity, h, rule);
+      } else {
+        notePassedOver(this.services, mailbox, uidValidity, h, null, rule, ctx);
       }
     }
 
@@ -385,6 +391,33 @@ export class InboxRunner {
       }
     }
     return admitted;
+  }
+
+  /**
+   * The search-gated messages with no hit whose bodies still name a target or use privacy wording,
+   * which the narrower gate search did not look for. Only asked while the passed-over report is
+   * running, and mail sent to the reply alias is always counted since it is very likely a reply.
+   */
+  private async bodiesThatCouldBeReplies(
+    session: InboxSession,
+    mailbox: MailboxRow,
+    passedOver: Gated[],
+    headersByUid: Map<number, MessageHeaders>,
+    ctx: IntakeContext,
+  ): Promise<Set<number>> {
+    const found = new Set<number>();
+    if (!shadowActive(this.services, mailbox)) return found;
+    const undecided: number[] = [];
+    for (const entry of passedOver) {
+      const h = headersByUid.get(entry.uid);
+      if (!h || couldBeAReply(h, null, ctx)) continue;
+      if (entry.reason === "alias_bulk") found.add(entry.uid);
+      else undecided.push(entry.uid);
+    }
+    if (undecided.length === 0) return found;
+    const hits = await session.searchBodies(undecided, replySearchTerms(ctx));
+    for (const uid of hits ?? []) found.add(uid);
+    return found;
   }
 
   /** The search-gated messages worth a download: those the server found a term in, or all when it cannot search. */

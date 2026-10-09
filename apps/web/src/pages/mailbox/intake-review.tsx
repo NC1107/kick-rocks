@@ -43,7 +43,7 @@ export function CleanupPreview({
     invalidates,
     onSuccess: ({ removed }) =>
       toast.success(
-        `Removed ${removed} ${pluralize(removed, "message")}`,
+        `Removed ${pluralize(removed, "message")}`,
         `They stay in Ignored for ${IGNORED_KEEP_DAYS} days.`,
       ),
   });

@@ -105,10 +105,11 @@ describe("a reply to a request that is already over", () => {
       expect(result.late).toBe(true);
     });
 
-    it(`handles a verification reply that asks for nothing on a ${status} request`, () => {
+    it(`leaves a verification reply that asks for nothing a profile covers for the person on a ${status} request`, () => {
       const result = reply(requestIn(status), "verification_required");
 
-      expect(result.outcome.needsReview).toBe(false);
+      expect(result.outcome.needsReview).toBe(true);
+      expect(result.status).toBe(status);
       expect(result.late).toBe(true);
     });
   }

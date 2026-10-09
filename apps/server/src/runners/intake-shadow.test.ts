@@ -142,6 +142,28 @@ describe("the report of mail the new rules passed over", () => {
     expect(line?.receivedAt).toBe(sale.date?.toISOString());
   });
 
+  it("lists bulk mail from a stranger whose body, not subject, names a target", async () => {
+    await sentRequest(SPOKEO);
+    openShadowWindow();
+    deliver({
+      subject: "Your request has been completed",
+      from: from("no-reply@vendor.test"),
+      headers: BULK,
+      text: "Spokeo has deleted your personal data.",
+    });
+    deliver({
+      subject: "Your request has been completed",
+      from: from("no-reply@other.test"),
+      headers: BULK,
+      text: "Thanks for shopping with us.",
+    });
+
+    await poll();
+
+    expect(stored()).toEqual([]);
+    expect(lines().map((line) => line.fromAddress)).toEqual(["no-reply@vendor.test"]);
+  });
+
   it("names a finished request as the reason when its sender is passed over", async () => {
     const spokeo = await sentRequest(SPOKEO);
     ctx.services.requests.transition(spokeo.id, "confirmed", { actor: "system" });

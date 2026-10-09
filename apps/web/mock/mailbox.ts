@@ -276,7 +276,7 @@ export default defineMockDomain({
           {
             id: "shadow-2",
             fromAddress: "deals@news.peoplefinder-example.test",
-            subject: "Records removed from your profile",
+            subject: "Weekly deals from your favourite stores",
             receivedAt: store.ago({ days: 2 }),
             rule: "bulk_no_privacy",
           },
@@ -619,7 +619,7 @@ function routesFor(
 
 /** A message the person took in by hand, as it would appear in Review. */
 function takenIn(store: MockStore, mailboxId: string, line: MailLine): MessageSummary {
-  return {
+  const message: MessageSummary = {
     id: store.nextId("msg"),
     mailboxId,
     requestId: null,
@@ -635,4 +635,6 @@ function takenIn(store: MockStore, mailboxId: string, line: MailLine): MessageSu
     reviewed: false,
     admittedBy: "person",
   };
+  store.messages.push({ ...message, requestReference: null, targetName: null });
+  return message;
 }

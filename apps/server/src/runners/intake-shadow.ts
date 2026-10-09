@@ -37,6 +37,17 @@ export function notePassedOver(
   ctx: IntakeContext,
 ): void {
   if (!shadowActive(services, mailbox) || !couldBeAReply(h, message, ctx)) return;
+  recordPassedOver(services, mailbox, uidValidity, h, rule);
+}
+
+/** Notes a message already known to be worth showing, without judging it again. */
+export function recordPassedOver(
+  services: Services,
+  mailbox: MailboxRow,
+  uidValidity: number,
+  h: MessageHeaders,
+  rule: IgnoreRule,
+): void {
   const at = nowIso(services.clock);
   services.db
     .insert(intakeShadow)

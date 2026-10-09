@@ -176,11 +176,10 @@ export function applyReply(services: AppServices, input: ApplyReplyInput): Appli
   });
   // The timeline now says what the reply was and that it changed nothing, which is all there is
   // to do with an answer to a request that is already over. A broker asking the person for
-  // identifying details is the exception: that is a new ask, and only the person can answer it.
+  // anything is the exception, whether or not a profile field covers it, because only the person
+  // can answer.
   if (late) {
-    return {
-      needsReview: classification === "verification_required" && input.requestedFields.length > 0,
-    };
+    return { needsReview: classification === "verification_required" };
   }
 
   switch (classification) {

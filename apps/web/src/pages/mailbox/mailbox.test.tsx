@@ -480,6 +480,7 @@ describe("what Kick Rocks takes in", () => {
     await user.click(preview.getByRole("button", { name: "Confirm removal of 12" }));
 
     await waitFor(() => expect(screen.queryByTestId("cleanup-preview")).toBeNull());
+    expect(await screen.findByText("Removed 12 messages")).toBeInTheDocument();
     expect(await screen.findByRole("heading", { name: /Ignored · 12/ })).toBeVisible();
     const ignored = within(screen.getByTestId("ignored-mail"));
     expect(ignored.getAllByText(/Kept until/)).toHaveLength(12);

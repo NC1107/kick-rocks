@@ -462,6 +462,14 @@ export function bodySearchTerms(ctx: IntakeContext): string[] {
 }
 
 /**
+ * What a search should look for to find a body that could be a reply: a target's name or domain,
+ * one of our references, or privacy wording. Looser than the rules on purpose.
+ */
+export function replySearchTerms(ctx: IntakeContext): string[] {
+  return [...new Set([...bodySearchTerms(ctx), ...PRIVACY_TERMS])];
+}
+
+/**
  * Bulk mail from a broker is judged on everything a broker's answer can say, since a "no records"
  * or "listing removed" notice often goes out through a mailing service. A company's bulk mail
  * needs the narrower request wording, since it sends plenty of marketing.
