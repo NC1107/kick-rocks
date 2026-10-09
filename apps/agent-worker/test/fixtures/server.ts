@@ -53,6 +53,10 @@ export interface Hit {
   body: string;
   /** The Authorization header the request came with, so a test sees whether a login went out. */
   authorization: string;
+  /** The Referer the request came with, so a test sees which address the page revealed. */
+  referer: string;
+  /** The Cookie header the request came with, so a test sees which cookies went out. */
+  cookie: string;
 }
 
 export interface FixtureState {
@@ -138,6 +142,8 @@ const PAGES: Record<string, string> = {
   "/gate-seed": "gate-seed.html",
   "/gate-storage": "gate-storage.html",
   "/gate-cookie": "gate-cookie.html",
+  "/gate-cookie-hold": "gate-cookie-hold.html",
+  "/gate-referer": "gate-referer.html",
   "/gate-third": "gate-third.html",
   "/gate-beacon": "gate-beacon.html",
   "/gate-worker-nested": "gate-worker-nested.html",
@@ -281,6 +287,8 @@ export function startFixtureServer(): Promise<{
         search: url.search.slice(1),
         body,
         authorization: request.headers.authorization ?? "",
+        referer: request.headers.referer ?? "",
+        cookie: request.headers.cookie ?? "",
       });
     }
 

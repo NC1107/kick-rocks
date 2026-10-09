@@ -559,6 +559,63 @@ describeBrowser("the outgoing gate end to end with the real server", () => {
     });
   });
 
+  describe("what the browser attaches after the gate has read a request", () => {
+    it("cuts the Referer of a later load to the site address after the page wrote the email into its own address", async () => {
+      const taskId = await startServer("/gate-referer");
+      await workOnce(taskId, [open("/gate-referer"), typeEmail, wait(2), giveBack]);
+      const { hits } = await fixtureState();
+      const pixel = hits.filter((hit) => hit.path === "/gate-pixel");
+      expect(pixel).toHaveLength(1);
+      expect(pixel[0]?.referer).toBe(`${ORIGIN}/`);
+      expect(
+        hits
+          .map((hit) => hit.referer)
+          .join(" ")
+          .toLowerCase(),
+      ).not.toContain("jordan");
+      const noted = rowsOf(taskId).filter(
+        (row) => row.kind === "guard_event" && row.reason === "referer_cut",
+      );
+      expect(noted.length).toBeGreaterThan(0);
+    });
+
+    it("refuses an approved send when the page set a cookie while it was held", async () => {
+      const taskId = await startServer("/gate-cookie-hold");
+      const answered = (async () => {
+        await vi.waitUntil(
+          () => rowsOf(taskId).some((row) => row.kind === "held" && row.status === "pending_live"),
+          { timeout: 60_000, interval: 25 },
+        );
+        await vi.waitUntil(
+          async () => (await runContext?.cookies())?.some((cookie) => cookie.name === "late"),
+          { timeout: 30_000, interval: 25 },
+        );
+        const held = rowsOf(taskId).find((row) => row.kind === "held");
+        expect((await decideRow(taskId, held?.id ?? "", "send")).status).toBe(200);
+      })();
+      await workOnce(
+        taskId,
+        [
+          open("/gate-cookie-hold"),
+          typeEmail,
+          snap,
+          clickLabel("Submit request"),
+          wait(1),
+          giveBack,
+        ],
+        { holdMs: ANSWER_MS },
+      );
+      await answered;
+      const { hits, submissions } = await fixtureState();
+      expect(submissions).toEqual([]);
+      expect(hits.filter((hit) => hit.cookie.includes("late"))).toEqual([]);
+      expect(
+        rowsOf(taskId).some((row) => row.kind === "refused" && row.reason === "cookies_changed"),
+      ).toBe(true);
+      expect(releasedOf(taskId).every((row) => row.status !== "sent")).toBe(true);
+    });
+  });
+
   describe("a radio group with long values", () => {
     const chooseScope =
       (label: string): Step =>

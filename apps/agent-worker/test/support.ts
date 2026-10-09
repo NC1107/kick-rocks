@@ -1,6 +1,6 @@
 import { existsSync } from "node:fs";
 import type { ClaimedTask, ProfileFields, TargetSummary, TaskSummary } from "@kickrocks/shared";
-import { findInstalledChrome } from "@kickrocks/worker/dist/browser.js";
+import { DISABLED_FEATURES, findInstalledChrome } from "@kickrocks/worker/dist/browser.js";
 import { silentLogger } from "@kickrocks/worker/dist/logger.js";
 import { type Browser, chromium } from "playwright";
 import { describe } from "vitest";
@@ -34,7 +34,10 @@ export function launchTestBrowser(): Promise<Browser> {
   const executablePath = process.env.KICKROCKS_CHROME_EXECUTABLE ?? findInstalledChrome();
   return chromium.launch({
     headless: true,
-    args: [`--host-resolver-rules=MAP other.test 127.0.0.1`, "--disable-features=Prerender2"],
+    args: [
+      `--host-resolver-rules=MAP other.test 127.0.0.1`,
+      `--disable-features=${DISABLED_FEATURES.join(",")}`,
+    ],
     ...(executablePath ? { executablePath } : {}),
   });
 }

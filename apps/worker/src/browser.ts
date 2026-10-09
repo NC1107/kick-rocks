@@ -175,12 +175,16 @@ export async function clearServiceWorkers(context: BrowserContext): Promise<void
  * Over a proxy, WebRTC would otherwise let a page read the home address from STUN candidates,
  * because UDP does not go through an http proxy.
  */
+export const DISABLED_FEATURES = ["Prerender2", "Reporting", "NetworkErrorLogging"] as const;
+
 export function chromeArgs(settings: Pick<BrowserSettings, "noSandbox" | "proxyServer">): string[] {
   return [
     "--remote-debugging-port=0",
     "--disable-blink-features=AutomationControlled",
-    // A prerendered page loads in a target the request gate has no session on.
-    "--disable-features=Prerender2",
+    // A prerendered page loads in a target the request gate has no session on. The browser's
+    // Reporting API and Network Error Logging send reports to endpoints a site names, from the
+    // network service and later than the request, outside the request inspection.
+    `--disable-features=${DISABLED_FEATURES.join(",")}`,
     ...(settings.noSandbox ? ["--no-sandbox"] : []),
     ...(settings.proxyServer
       ? [

@@ -10,6 +10,7 @@ import {
   type Canonical,
   type Cookie,
   canonicalize,
+  headersWithShortReferer,
   MAX_BODY_BYTES,
   type PausedRequest,
   readBody,
@@ -122,6 +123,14 @@ const CLOSE_CHANNELS = `(() => {
     try { Object.defineProperty(globalThis, name, { value: undefined, configurable: false, writable: false }); } catch (_) {}
   }
 })();`;
+
+/** Whether two readings of a jar hold the same cookies. A jar that could not be read is never the same. */
+function sameCookies(shown: readonly Cookie[] | null, now: readonly Cookie[] | null): boolean {
+  if (shown === null || now === null) return false;
+  const key = (cookies: readonly Cookie[]): string =>
+    JSON.stringify(cookies.map((cookie) => [cookie.name, cookie.value]).sort());
+  return key(shown) === key(now);
+}
 
 function hostOf(url: string): string {
   try {
@@ -314,9 +323,16 @@ export class OutboundGuard {
     });
   }
 
-  private resume(session: CdpChannel, event: PausedRequest): Promise<boolean> {
+  private resume(
+    session: CdpChannel,
+    event: PausedRequest,
+    headers: { name: string; value: string }[] | null = null,
+  ): Promise<boolean> {
     return session
-      .send("Fetch.continueRequest", { requestId: event.requestId })
+      .send("Fetch.continueRequest", {
+        requestId: event.requestId,
+        ...(headers === null ? {} : { headers }),
+      })
       .then(() => true)
       .catch(() => false);
   }
@@ -370,6 +386,7 @@ export class OutboundGuard {
       return;
     }
     const party = withinSites(url, policy) ? "target" : "third";
+    const headers = party === "target" ? headersWithShortReferer(event.request.headers) : null;
     const body = await readBody(
       event,
       async (requestId) =>
@@ -416,17 +433,26 @@ export class OutboundGuard {
       await this.failRequest(session, event);
       return;
     }
+    if (canonical.refererCarries.length > 0) {
+      desk.log({
+        kind: "guard_event",
+        request: {
+          note: `The Referer of a request to ${describeRequest(canonical.request)} held ${canonical.refererCarries.map((field) => `{{${field}}}`).join(", ")} and was cut to the site address`,
+        },
+        reason: "referer_cut",
+      });
+    }
     if (this.continuesReleasedSend(event, canonical, party)) {
-      await this.resume(session, event);
+      await this.resume(session, event, headers);
       return;
     }
     switch (verdict.action) {
       case "continue":
-        await this.resume(session, event);
+        await this.resume(session, event, headers);
         return;
       case "lookup":
         desk.log({ kind: "lookup", request: canonical.request });
-        await this.resume(session, event);
+        await this.resume(session, event, headers);
         return;
       case "refuse":
         desk.log({ kind: "refused", request: canonical.request, reason: verdict.reason });
@@ -434,7 +460,7 @@ export class OutboundGuard {
         await this.failRequest(session, event);
         return;
       case "send":
-        await this.send(session, event, canonical);
+        await this.send(session, event, canonical, { headers, cookies });
         return;
     }
   }
@@ -498,19 +524,35 @@ export class OutboundGuard {
     session: CdpChannel,
     event: PausedRequest,
     canonical: Canonical,
+    shown: { headers: { name: string; value: string }[] | null; cookies: Cookie[] | null },
   ): Promise<void> {
     const { desk } = this.options;
     if (desk === null) return;
     const outcome = await desk.decide(canonical.request);
     if (outcome.kind === "release") {
       const networkId = event.networkId ?? event.requestId;
+      // The browser attaches its cookie jar when the request is continued, so a cookie the page set
+      // while the request was held would leave with an approval given for the cookies that were shown.
+      const unchanged = sameCookies(
+        shown.cookies,
+        await this.cookiesFor(session, event.request.url),
+      );
+      if (!unchanged) {
+        desk.log({ kind: "refused", request: canonical.request, reason: "cookies_changed" });
+        this.options.note(
+          `${describeRequest(canonical.request)} was blocked, because the page changed its cookies after you saw the request. Ask again to review it.`,
+        );
+        await desk.withdrawn(outcome.heldId, outcome.releaseId).catch(() => undefined);
+        await this.failRequest(session, event);
+        return;
+      }
       this.releases.set(networkId, {
         releaseId: outcome.releaseId,
         digest: canonical.request.bodyDigest,
         method: canonical.method,
         url: canonical.url,
       });
-      const letGo = await this.resume(session, event);
+      const letGo = await this.resume(session, event, shown.headers);
       if (!letGo) {
         await desk.withdrawn(outcome.heldId, outcome.releaseId).catch(() => undefined);
         this.releases.delete(networkId);

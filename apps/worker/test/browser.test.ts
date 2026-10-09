@@ -117,7 +117,18 @@ describe("the arguments Chrome starts with", () => {
   });
 
   it("turns off prerendering, which loads a page in a target nothing inspects", () => {
-    expect(chromeArgs({ noSandbox: false })).toContain("--disable-features=Prerender2");
+    expect(chromeArgs({ noSandbox: false })).toContain(
+      "--disable-features=Prerender2,Reporting,NetworkErrorLogging",
+    );
+  });
+
+  it("turns off the Reporting API and Network Error Logging, which send reports outside the request gate", () => {
+    const switches = chromeArgs({ noSandbox: false }).filter((arg) =>
+      arg.startsWith("--disable-features="),
+    );
+    expect(switches).toHaveLength(1);
+    const features = switches[0]?.slice("--disable-features=".length).split(",");
+    expect(features).toEqual(expect.arrayContaining(["Reporting", "NetworkErrorLogging"]));
   });
 
   it("adds the sandbox switch only when asked", () => {

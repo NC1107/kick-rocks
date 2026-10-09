@@ -7,6 +7,7 @@ import { ValueDetector } from "./detector.js";
 import {
   type BodyRead,
   canonicalize,
+  headersWithShortReferer,
   type PausedRequest,
   readBody,
   ServedValues,
@@ -308,7 +309,7 @@ describe("canonicalize", () => {
     expect(request.bodyKind).toBe("none");
   });
 
-  it("does not read the Referer of a request to the target, which only repeats an address it admitted", () => {
+  it("does not hold a request for the Referer of a request to the target, but records what it held", () => {
     const withReferer = (party: "target" | "third") =>
       canonicalize({
         event: paused({
@@ -324,7 +325,35 @@ describe("canonicalize", () => {
         served: new ServedValues(),
       });
     expect(withReferer("target").scan.contact).toBe(false);
+    expect(withReferer("target").refererCarries).toEqual(["email", "first_name"]);
     expect(withReferer("third").scan.contact).toBe(true);
+    expect(withReferer("third").refererCarries).toEqual([]);
+  });
+
+  describe("the Referer a request to the target leaves with", () => {
+    it("is cut to scheme, host and port with a trailing slash", () => {
+      expect(
+        headersWithShortReferer({
+          Accept: "*/*",
+          Referer: "https://broker.test:8443/page?e=jordan#top",
+        }),
+      ).toEqual([
+        { name: "Accept", value: "*/*" },
+        { name: "Referer", value: "https://broker.test:8443/" },
+      ]);
+    });
+
+    it("needs no change when it already is only the site address, or is absent", () => {
+      expect(headersWithShortReferer({ referer: "https://broker.test/" })).toBeNull();
+      expect(headersWithShortReferer({ accept: "*/*" })).toBeNull();
+      expect(headersWithShortReferer(undefined)).toBeNull();
+    });
+
+    it("is dropped when it names no web address", () => {
+      expect(headersWithShortReferer({ referer: "about:blank", accept: "*/*" })).toEqual([
+        { name: "accept", value: "*/*" },
+      ]);
+    });
   });
 
   it("hashes the raw body for the digest, and says how large it was", () => {

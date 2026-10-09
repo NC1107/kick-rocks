@@ -196,6 +196,7 @@ const REFUSAL_TEXT: Record<string, string> = {
   unreadable_body: "Blocked: the body could not be read, so it cannot be approved",
   url_credentials: "Blocked: the address held a username or password",
   method_not_allowed: "Blocked: the request used a method a browser form does not use",
+  cookies_changed: "Blocked: the page changed its cookies after you saw the request",
   declined: "Blocked: you declined this request earlier",
   after_run: "Blocked: the page sent it after the run was over",
   websocket: "Blocked: a live connection",

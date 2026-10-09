@@ -72,6 +72,11 @@ export interface Canonical {
   urlCredentials: boolean;
   /** Some part of the request could not be read in full, so what it carries is unknown. */
   unreadable: boolean;
+  /**
+   * What the Referer of a request to the target holds. It never leaves, because the gate cuts it to
+   * the site address, so it takes no part in the decision and is only recorded.
+   */
+  refererCarries: CarriedField[];
 }
 
 /**
@@ -131,6 +136,35 @@ export class ServedValues {
 function attribute(tag: string, name: string): string {
   const match = new RegExp(`\\b${name}\\s*=\\s*("([^"]*)"|'([^']*)'|([^\\s>]+))`, "i").exec(tag);
   return match ? (match[2] ?? match[3] ?? match[4] ?? "") : "";
+}
+
+/** The address a Referer is cut to: scheme, host and port with a trailing slash, or null when it names none. */
+export function refererOrigin(referer: string): string | null {
+  try {
+    const { protocol, origin } = new URL(referer);
+    return protocol === "http:" || protocol === "https:" ? `${origin}/` : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * The headers to continue a request to the target with, or null when they need no change. A page
+ * can write what the run typed into its own address with the history api, and every later load
+ * would carry that address in the Referer, so only the site's address goes out.
+ */
+export function headersWithShortReferer(
+  headers: Record<string, string> | undefined,
+): { name: string; value: string }[] | null {
+  const entries = Object.entries(headers ?? {});
+  const found = entries.find(([name]) => name.toLowerCase() === "referer");
+  if (found === undefined) return null;
+  const origin = refererOrigin(found[1]);
+  if (origin === found[1]) return null;
+  return entries
+    .filter(([name]) => name.toLowerCase() !== "referer")
+    .concat(origin === null ? [] : [["Referer", origin]])
+    .map(([name, value]) => ({ name, value }));
 }
 
 function header(headers: Record<string, string> | undefined, name: string): string {
@@ -391,6 +425,10 @@ export function canonicalize(input: CanonicalizeInput): Canonical {
       : [{ data: body.bytes, ...(encoding === "" ? {} : { contentEncoding: encoding }) }];
   noteScan(detector.scan(rawBody));
 
+  const refererScan =
+    party === "target"
+      ? detector.scan([header(headers, "referer")])
+      : { fields: [] as CarriedField[] };
   const headerValues: OutgoingValue[] = [];
   const showHeader = (path: string, value: string, scan: Scan): void => {
     if (scan.fields.length === 0) return;
@@ -449,6 +487,7 @@ export function canonicalize(input: CanonicalizeInput): Canonical {
     truncated,
     unreadable,
     urlCredentials,
+    refererCarries: [...refererScan.fields].sort(),
   };
 }
 

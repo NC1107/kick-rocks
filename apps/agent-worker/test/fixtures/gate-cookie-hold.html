@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Opt out - Cookie during a hold</title></head>
+<body>
+<h1>Remove your listing</h1>
+<form method="post" action="/gate-optout">
+  <label for="email">Email address</label>
+  <input id="email" name="email" type="email">
+  <button type="submit">Submit request</button>
+</form>
+<script>
+  // The request is held by the gate when this runs, so the cookie is set after it was read.
+  document.querySelector('form').addEventListener('submit', () => {
+    setTimeout(() => { document.cookie = 'late=1; path=/'; }, 600);
+  });
+</script>
+</body>
+</html>

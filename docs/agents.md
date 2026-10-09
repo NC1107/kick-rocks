@@ -359,7 +359,15 @@ What the gate does not hold, so you know what you are trusting:
   A redirect to another site is still refused.
 - A host name that carries a value, such as a label of a subdomain, is looked up in DNS before the gate sees the request.
   The gate holds or refuses the request itself, but the lookup has already told a DNS server the name.
-- The Referer header of a request to the target is not read.
+- The Referer header of a request to the target is cut to the site address (scheme, host and port) before the request leaves.
+  A page can write what the run typed into its own address with `history.pushState` or `replaceState`, and every later load would carry that address in its Referer.
+  The gate reads the Referer as it was, records a note when it held one of your values, and does not hold the request for it, because the value never leaves.
+- The cookies of a send are read again just before it is released.
+  The browser attaches its cookie jar when the request is let go, so a cookie the page sets while a send is held would otherwise leave with an approval given for the cookies you were shown.
+  If the set or any value changed, the send is refused, logged, and the run is told.
+  The same check covers a send approved for the next run.
+  A cookie the page sets in the instant between that second look and the release is not seen.
+- Chrome starts with the Reporting API and Network Error Logging switched off, because they send reports to addresses a site names, from outside the request inspection.
 
 [agent-models.md](agent-models.md) says how to run the benchmark and what it checks.
 
