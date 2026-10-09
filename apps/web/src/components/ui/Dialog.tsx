@@ -3,6 +3,7 @@ import { type ReactNode, useEffect, useId, useRef } from "react";
 import { cn } from "../../lib/cn.js";
 import { Button } from "./Button.js";
 import { IconButton } from "./IconButton.js";
+import { announceOverlayOpen } from "./Tooltip.js";
 
 export interface DialogProps {
   open: boolean;
@@ -44,6 +45,7 @@ export function Dialog({
     if (!dialog) return;
     if (open && !dialog.open) {
       dialog.showModal();
+      announceOverlayOpen();
       const first = dialog.querySelector<HTMLElement>(
         "[data-autofocus], input:not([type=hidden]), select, textarea",
       );

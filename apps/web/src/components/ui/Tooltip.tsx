@@ -16,6 +16,32 @@ export interface TooltipProps {
   /** Milliseconds before it shows. Focus shows it at once, so keyboard users never wait. */
   delayMs?: number;
   className?: string | undefined;
+  /**
+   * A tap opens the tooltip only when the trigger has no action of its own. A button, link or
+   * menu trigger is detected and never opens it; set this for a button that does nothing but
+   * stand for a status and so needs the tap to explain itself.
+   */
+  hintOnTap?: boolean;
+}
+
+const OVERLAY_OPEN = "kr:overlay-open";
+const ACTIONABLE =
+  "button, a[href], summary, input, select, textarea, [role=button], [aria-haspopup]";
+// Touch browsers replay mouse events after a tap, which would show the tooltip a tap must not.
+const TOUCH_ECHO_MS = 700;
+
+/** A menu, popover, sheet or dialog calls this as it opens so no tooltip is left on top of it. */
+export function announceOverlayOpen() {
+  window.dispatchEvent(new Event(OVERLAY_OPEN));
+}
+
+// A tap, or an overlay handing focus back to its trigger after a tap, is not keyboard focus and must not show the tooltip.
+function isKeyboardFocus(target: EventTarget): boolean {
+  try {
+    return (target as Element).matches(":focus-visible");
+  } catch {
+    return true;
+  }
 }
 
 interface Placement {
@@ -31,18 +57,27 @@ const EDGE = 8;
  * never carries information the page lacks: the text it shows is also the trigger's description.
  * It renders in a portal, so a table's or a dialog's overflow cannot clip it.
  */
-export function Tooltip({ content, children, delayMs = 600, className }: TooltipProps) {
+export function Tooltip({
+  content,
+  children,
+  delayMs = 600,
+  className,
+  hintOnTap = false,
+}: TooltipProps) {
   const id = useId();
   const triggerRef = useRef<HTMLSpanElement>(null);
   const bubbleRef = useRef<HTMLSpanElement>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const openRef = useRef(false);
   const touchWasOpen = useRef<boolean | null>(null);
+  const lastTouchAt = useRef(Number.NEGATIVE_INFINITY);
   const [open, setOpen] = useState(false);
   const [placement, setPlacement] = useState<Placement | null>(null);
 
   const show = useCallback((wait: number) => {
     clearTimeout(timer.current);
+    // The tooltip would sit on top of the popup the trigger has open, and nothing else closes it again.
+    if (triggerRef.current?.querySelector('[aria-expanded="true"]')) return;
     timer.current = setTimeout(() => setOpen(true), wait);
   }, []);
   const hide = useCallback(() => {
@@ -52,6 +87,10 @@ export function Tooltip({ content, children, delayMs = 600, className }: Tooltip
   }, []);
 
   useEffect(() => () => clearTimeout(timer.current), []);
+  useEffect(() => {
+    window.addEventListener(OVERLAY_OPEN, hide);
+    return () => window.removeEventListener(OVERLAY_OPEN, hide);
+  }, [hide]);
   openRef.current = open;
 
   useEffect(() => {
@@ -70,6 +109,8 @@ export function Tooltip({ content, children, delayMs = 600, className }: Tooltip
       document.removeEventListener("pointerdown", onOutside);
     };
   }, [open, hide]);
+
+  const touchEcho = () => performance.now() - lastTouchAt.current < TOUCH_ECHO_MS;
 
   useLayoutEffect(() => {
     if (!open) return;
@@ -90,13 +131,23 @@ export function Tooltip({ content, children, delayMs = 600, className }: Tooltip
       <span
         ref={triggerRef}
         aria-describedby={open ? id : undefined}
-        onMouseEnter={() => show(delayMs)}
+        onMouseEnter={() => {
+          if (!touchEcho()) show(delayMs);
+        }}
         onMouseLeave={hide}
-        onFocus={() => show(0)}
+        onFocus={(event) => {
+          if (isKeyboardFocus(event.target)) show(0);
+        }}
         onBlur={hide}
         onPointerDown={(event) => {
           if (event.pointerType === "touch") {
-            touchWasOpen.current = openRef.current;
+            lastTouchAt.current = performance.now();
+            const hasOwnAction =
+              !hintOnTap && (event.target as Element).closest(ACTIONABLE) !== null;
+            if (hasOwnAction) {
+              touchWasOpen.current = null;
+              hide();
+            } else touchWasOpen.current = openRef.current;
             return;
           }
           hide();

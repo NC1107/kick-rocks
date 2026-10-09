@@ -78,7 +78,7 @@ export function UrgentStatusMark({ chips }: { chips: readonly StatusChip[] }) {
   const chip = mostUrgent(chips);
   if (!chip) return null;
   return (
-    <Tooltip content={chipText(chip)}>
+    <Tooltip content={chipText(chip)} hintOnTap>
       <button
         type="button"
         aria-label={chipText(chip)}

@@ -88,4 +88,4 @@ export { Tag, type TagProps } from "./Tag.js";
 export { Textarea } from "./Textarea.js";
 export { ExternalLinkText, TextLink } from "./TextLink.js";
 export { type ToastOptions, ToastProvider, useToast } from "./Toast.js";
-export { Tooltip, type TooltipProps } from "./Tooltip.js";
+export { announceOverlayOpen, Tooltip, type TooltipProps } from "./Tooltip.js";
