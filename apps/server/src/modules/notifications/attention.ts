@@ -14,17 +14,28 @@ export interface AttentionItem {
 /** Longer than a worker restart or a slow heartbeat, short enough that the person hears the same hour. */
 const WORKER_SILENT_MS = 5 * 60 * 1000;
 
+/** When any worker last checked in, or null when none ever has. */
+export function workerLastSeen(services: AppServices): Date | null {
+  const seen = (["builtin", "model"] as const).flatMap((claimer) => {
+    const at = services.settings.get(`worker.status.${claimer}`)?.lastSeenAt;
+    return at ? [Date.parse(at)] : [];
+  });
+  return seen.length > 0 ? new Date(Math.max(...seen)) : null;
+}
+
+/** Whether a worker that has run before has gone quiet, whether or not any browser work is waiting. */
+export function workerWentQuiet(services: AppServices): Date | null {
+  const seen = workerLastSeen(services);
+  if (seen === null || services.config.workerToken === null) return null;
+  return services.clock.now().getTime() - seen.getTime() > WORKER_SILENT_MS ? seen : null;
+}
+
 /** Browser work only moves when a worker is polling, so work waiting on a silent worker never ends by itself. */
 function workerOfflineWithWorkWaiting(services: AppServices): boolean {
-  const { config, settings, taskQueue, clock } = services;
+  const { config, taskQueue, clock } = services;
   if (config.workerToken === null) return false;
   if (taskQueue.list({ status: "queued", kinds: BROWSER_TASK_KINDS }).length === 0) return false;
-  const newest = Math.max(
-    ...(["builtin", "model"] as const).map((claimer) => {
-      const seen = settings.get(`worker.status.${claimer}`)?.lastSeenAt;
-      return seen ? Date.parse(seen) : Number.NEGATIVE_INFINITY;
-    }),
-  );
+  const newest = workerLastSeen(services)?.getTime() ?? Number.NEGATIVE_INFINITY;
   return clock.now().getTime() - newest > WORKER_SILENT_MS;
 }
 

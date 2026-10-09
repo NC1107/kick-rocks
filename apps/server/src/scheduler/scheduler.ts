@@ -5,6 +5,7 @@ import { runNotifications } from "../modules/notifications/index.js";
 import { type Runners, runnersOf } from "../runners/index.js";
 import type { AppServices } from "../services.js";
 import { enqueueDueCanaries } from "./canaries.js";
+import { createHeartbeat, HEARTBEAT_EVERY_MS, type Heartbeat } from "./heartbeat.js";
 import { advanceOverdueRequests } from "./overdue.js";
 import { enqueueDueInboxPolls } from "./polls.js";
 import { enqueueDueRescans } from "./rescans.js";
@@ -17,6 +18,8 @@ interface SchedulerOptions {
   housekeepingMs?: number;
   /** The most often old artifacts are deleted. */
   retentionMs?: number;
+  /** Replaced in tests; by default built from the heartbeat address in the configuration. */
+  heartbeat?: Heartbeat | null;
 }
 
 export interface Scheduler {
@@ -51,6 +54,7 @@ export function createScheduler(
     tickMs = 5_000,
     housekeepingMs = 60_000,
     retentionMs = 60 * 60 * 1000,
+    heartbeat = createHeartbeat(services.config, services.logger),
   }: SchedulerOptions = {},
 ): Scheduler {
   const lastRun = new Map<string, number>();
@@ -136,6 +140,9 @@ export function createScheduler(
   const scheduler: Scheduler = {
     async tick() {
       await maintenance.run();
+      // After the maintenance pass and not before, so a scheduler stuck in it stops pinging.
+      if (heartbeat && due("heartbeat", HEARTBEAT_EVERY_MS))
+        await job("heartbeat", () => heartbeat.ping());
       await Promise.all([sending, notifying].filter((l) => !l.busy()).map((l) => l.run()));
     },
 

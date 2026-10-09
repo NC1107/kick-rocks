@@ -19,6 +19,7 @@ import { connectionOf, describeError } from "../../runners/connection.js";
 import { isMailboxProblem } from "../../runners/email-send.js";
 import type { AppServices } from "../../services.js";
 import { buildReviewQueue } from "../review/queue.js";
+import { workerWentQuiet } from "./attention.js";
 import { readState, updateState } from "./state.js";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -103,7 +104,16 @@ function attentionLines(services: AppServices, profileId: string): string[] {
     [a.agentTasks, "Tasks waiting for an agent"],
     [a.unreviewedMessages, "Replies to review"],
   ];
-  return lines.filter(([count]) => count > 0).map(([count, text]) => `${text}: ${count}`);
+  return [
+    ...lines.filter(([count]) => count > 0).map(([count, text]) => `${text}: ${count}`),
+    ...workerLines(services),
+  ];
+}
+
+/** Silence is news even when no browser work is waiting, because nothing else would say the worker stopped. */
+function workerLines(services: AppServices): string[] {
+  const quietSince = workerWentQuiet(services);
+  return quietSince ? [`The browser worker was last seen at ${quietSince.toISOString()}`] : [];
 }
 
 function totalsLine(services: AppServices, profileId: string): string {

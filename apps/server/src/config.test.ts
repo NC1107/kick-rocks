@@ -45,6 +45,14 @@ describe("loadConfig", () => {
     });
   });
 
+  it("reads the heartbeat address, and refuses one that is not a web address", () => {
+    expect(loadConfig({}).heartbeatUrl).toBeNull();
+    expect(loadConfig({ KICKROCKS_HEARTBEAT_URL: "https://hc-ping.com/abc" }).heartbeatUrl).toBe(
+      "https://hc-ping.com/abc",
+    );
+    expect(() => loadConfig({ KICKROCKS_HEARTBEAT_URL: "ftp://example.com/x" })).toThrow();
+  });
+
   it("reads the hosts the link follower may reach on a private address", () => {
     expect(
       loadConfig({

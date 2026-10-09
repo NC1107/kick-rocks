@@ -644,3 +644,27 @@ describe("requests are untouched by an idle scheduler", () => {
     });
   });
 });
+
+describe("the dead-man's-switch heartbeat", () => {
+  const heartbeatScheduler = (ping: () => Promise<void>) =>
+    createScheduler(ctx.services, {
+      runners: createRunners(ctx.services, { random: () => 0 }),
+      housekeepingMs: 0,
+      retentionMs: 0,
+      heartbeat: { ping },
+    });
+
+  it("pings at the end of a pass, and no more than once a minute", async () => {
+    const pings: number[] = [];
+    const beating = heartbeatScheduler(async () => {
+      pings.push(ctx.clock.now().getTime());
+    });
+    await beating.tick();
+    await beating.tick();
+    expect(pings).toHaveLength(1);
+    ctx.clock.advance(MINUTE);
+    await beating.tick();
+    expect(pings).toHaveLength(2);
+    await beating.stop();
+  });
+});

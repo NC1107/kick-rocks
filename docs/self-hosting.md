@@ -81,6 +81,7 @@ The compose file sets the container's own values for the data directory, host, a
 | `KICKROCKS_PORT` | `8420` | The port the server listens on. |
 | `KICKROCKS_WEB_DIST` | unset | A built web app for the server to serve. Set in the image. |
 | `KICKROCKS_SCHEDULER` | `on` | `off` stops the scheduler. Tests use it. |
+| `KICKROCKS_HEARTBEAT_URL` | unset | A dead-man's-switch address the scheduler requests once a minute. See [Knowing when the server stops](#knowing-when-the-server-stops). |
 | `KICKROCKS_EXTRA_TARGETS` | unset | A JSON file of extra brokers and companies. |
 | `KICKROCKS_EXTRA_RECIPES` | unset | A directory of extra recipe files. |
 | `KICKROCKS_SEND_GAP_MS` | `20000-60000` | The pause between two sends from one mailbox, as `<ms>` or `<min>-<max>`. Leave it unset for real mail. |
@@ -233,6 +234,16 @@ It turns red when the last one is more than two days old, or when there has been
 
 A backup is built next to its destination as a `.partial` file, and it only replaces the real file once it reads back whole.
 So a run that fails halfway leaves the backup you already had alone.
+
+### Knowing when the server stops
+
+The server is what sends every notice, so nothing in the app can tell you that the server itself has been down for a day.
+Set `KICKROCKS_HEARTBEAT_URL` in `.env` to the ping address of an outside monitor, such as a [healthchecks.io](https://healthchecks.io) check or an Uptime Kuma push monitor.
+The scheduler requests that address once a minute, at the end of a pass, so a server that stops or a scheduler that gets stuck stops pinging.
+Give the monitor a grace period of a few minutes, and let it alert you by whatever way you trust, because that alert is the one that does not depend on this machine.
+The address is a secret in most services, so it is never written to the log, and a monitor that is down never slows the scheduler.
+
+The daily or weekly digest also reports a browser worker that has run before and then gone quiet, even when no browser work is waiting.
 
 By hand, the same thing is below.
 It looks up the volume name first, because the prefix is the compose project name, which is `kick-rocks` unless you set `COMPOSE_PROJECT_NAME`.

@@ -15,6 +15,7 @@ const Env = z.object({
     .string()
     .min(16, "KICKROCKS_WORKER_TOKEN must be at least 16 characters")
     .optional(),
+  KICKROCKS_HEARTBEAT_URL: WebUrl.optional(),
   KICKROCKS_EXTRA_TARGETS: z.string().optional(),
   KICKROCKS_EXTRA_RECIPES: z.string().optional(),
   KICKROCKS_ALLOWED_HOSTS: z.string().optional(),
@@ -42,6 +43,12 @@ export interface Config {
   publicUrl: string;
   /** Null switches the worker API off. */
   workerToken: string | null;
+  /**
+   * A dead-man's-switch address (healthchecks.io, Uptime Kuma push) that the scheduler requests once
+   * a minute. It is the only thing that can tell the person the server itself has stopped, because
+   * the server is what sends every notice. Null switches it off.
+   */
+  heartbeatUrl: string | null;
   /** A JSON file of extra brokers and companies, for fixtures and power users. */
   extraTargetsPath: string | null;
   /** A directory of extra recipe files. */
@@ -147,6 +154,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
       "",
     ),
     workerToken: parsed.KICKROCKS_WORKER_TOKEN ?? null,
+    heartbeatUrl: parsed.KICKROCKS_HEARTBEAT_URL ?? null,
     extraTargetsPath: pathOrNull(parsed.KICKROCKS_EXTRA_TARGETS),
     extraRecipesDir: pathOrNull(parsed.KICKROCKS_EXTRA_RECIPES),
     allowedHosts: hostList(parsed.KICKROCKS_ALLOWED_HOSTS),

@@ -332,3 +332,33 @@ describe("sendDigestIfDue", () => {
     expect(ctx.mail.sent).toHaveLength(2);
   });
 });
+
+describe("the browser worker in the digest", () => {
+  const seen = (iso: string) =>
+    ctx.services.settings.set("worker.status.builtin", {
+      workerId: "w1",
+      version: "test",
+      lastSeenAt: iso,
+      busy: false,
+      currentTaskId: null,
+    });
+
+  it("reports a worker that has gone quiet even when nothing else changed", () => {
+    seen(new Date(ctx.clock.now().getTime() - 2 * HOUR).toISOString());
+    const digest = buildDigest(
+      ctx.services,
+      { id: profileId, displayName: "Jordan Example" },
+      new Date(ctx.clock.now().getTime() - DAY),
+      ctx.clock.now(),
+    );
+    expect(digest?.text).toContain("The browser worker was last seen at");
+  });
+
+  it("says nothing about a worker that is checking in, or one that never ran", () => {
+    const window = [new Date(ctx.clock.now().getTime() - DAY), ctx.clock.now()] as const;
+    const profile = { id: profileId, displayName: "Jordan Example" };
+    expect(buildDigest(ctx.services, profile, ...window)).toBeNull();
+    seen(new Date(ctx.clock.now().getTime() - MINUTE).toISOString());
+    expect(buildDigest(ctx.services, profile, ...window)).toBeNull();
+  });
+});
