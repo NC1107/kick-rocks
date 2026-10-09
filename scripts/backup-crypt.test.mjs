@@ -36,6 +36,24 @@ describe("backup-crypt", () => {
     assert.ok((await collect(decrypt(pieces, "correct horse"))).equals(plain));
   });
 
+  it("reports a header that asks for an absurd cost as damaged instead of running out of memory", async () => {
+    const file = await seal(Buffer.from("data"));
+    for (const [log2N, r, p] of [
+      [22, 255, 1],
+      [17, 33, 1],
+      [17, 8, 17],
+      [17, 0, 1],
+      [17, 8, 0],
+      [22, 32, 1],
+    ]) {
+      const crafted = Buffer.from(file);
+      crafted[5] = log2N;
+      crafted[6] = r;
+      crafted[7] = p;
+      await assert.rejects(open(crafted), { exitCode: EXIT_DAMAGED }, `${log2N}/${r}/${p}`);
+    }
+  });
+
   it("says a wrong passphrase is wrong, apart from a damaged file", async () => {
     const file = await seal(Buffer.from("data"));
     await assert.rejects(open(file, "wrong"), { exitCode: EXIT_WRONG_PASSPHRASE });

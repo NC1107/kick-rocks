@@ -171,6 +171,21 @@ describe("the generated broker dataset", () => {
     expect(homePageForms.map((broker) => broker.id)).toEqual([]);
   });
 
+  it("never calls a broker a form when it has no opt-out form to send a request to", () => {
+    const phantomForms = dataset.brokers.filter(
+      (broker) => broker.contactMethod === "form" && broker.optOutUrl === null,
+    );
+    expect(phantomForms.map((broker) => broker.id)).toEqual([]);
+  });
+
+  it("marks the brokers that match only a device identifier as having no route for a name", () => {
+    for (const domain of ["mobilewalla.com", "outlogic.io", "groundtruth.com", "irys.us"]) {
+      const broker = dataset.brokers.find((candidate) => candidate.domain === domain);
+      expect(broker, domain).toMatchObject({ contactMethod: "unknown" });
+      expect(broker?.requirements, domain).toContain("device_id");
+    }
+  });
+
   it("fills a field BADBOOL lacks from Eraser", () => {
     const intelius = dataset.brokers.find((broker) => broker.domain === "intelius.com");
     expect(intelius?.privacyEmail).not.toBeNull();

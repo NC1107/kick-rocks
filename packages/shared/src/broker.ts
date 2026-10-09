@@ -45,6 +45,8 @@ export const Requirement = z.enum([
   "record_url",
   "postal_mail",
   "fax",
+  /** The broker matches only a mobile advertising or device identifier, which Kick Rocks does not hold. */
+  "device_id",
 ]);
 export type Requirement = z.infer<typeof Requirement>;
 
@@ -142,6 +144,22 @@ export function contactMethodFor(
   if (privacyEmail) return "email";
   if (optOutUrl) return "form";
   return "unknown";
+}
+
+/**
+ * How a request can reach the broker. A broker that matches only a device identifier has no form
+ * that takes a name and address, whatever pages it lists, so a rights page must not make it one.
+ */
+export function contactMethodOfRecord(record: {
+  privacyEmail: string | null;
+  optOutUrl: string | null;
+  privacyRightsUrl: string | null;
+  requirements: readonly Requirement[];
+}): ContactMethod {
+  const form = record.requirements.includes("device_id")
+    ? null
+    : (record.optOutUrl ?? rightsPageAsForm(record.privacyRightsUrl));
+  return contactMethodFor(record.privacyEmail, form);
 }
 
 /**

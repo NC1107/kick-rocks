@@ -323,6 +323,8 @@ export const REQUEST_EVENT_PAYLOADS = {
     unconfirmed: z.boolean().optional(),
     /** Set when the mailbox's Sent folder showed the mail after a restore, so it was not sent again. */
     foundInSent: z.boolean().optional(),
+    /** Set when the send record kept across the restore showed it, so it was not sent again. */
+    foundInJournal: z.boolean().optional(),
   }),
   send_failed: z.object({ error: z.string(), willRetry: z.boolean() }),
   reply_received: z.object({ messageId: z.string(), from: z.string(), subject: z.string() }),

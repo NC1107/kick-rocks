@@ -144,6 +144,31 @@ describe("what triggers a push", () => {
     );
   });
 
+  it("announces a worker that has been silent for a day even when no browser work waits", async () => {
+    ctx.services.settings.set("worker.status.builtin", {
+      workerId: "w1",
+      version: null,
+      lastSeenAt: new Date(ctx.services.clock.now().getTime() - 25 * HOUR).toISOString(),
+      busy: false,
+      currentTaskId: null,
+    });
+    await pushNewAttention(ctx.services);
+    expect(bodies()[0]).toBe(
+      "The worker has not reported for over a day. Open http://kickrocks.test/settings/agents",
+    );
+  });
+
+  it("stays quiet about an idle worker that was seen within the day", async () => {
+    ctx.services.settings.set("worker.status.builtin", {
+      workerId: "w1",
+      version: null,
+      lastSeenAt: new Date(ctx.services.clock.now().getTime() - 3 * HOUR).toISOString(),
+      busy: false,
+      currentTaskId: null,
+    });
+    expect(await pushNewAttention(ctx.services)).toBe("idle");
+  });
+
   it("stays quiet about the worker when it reported lately or nothing waits", async () => {
     ctx.services.settings.set("worker.status.builtin", {
       workerId: "w1",

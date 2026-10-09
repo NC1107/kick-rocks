@@ -212,6 +212,11 @@ export interface TaskQueue {
   block(id: string, input: BlockInput): Task;
   fail(id: string, input: FailInput): Task;
   /**
+   * Holds a queued removal for a person, because it may already have been sent by an instance whose
+   * record of it was lost. Resuming it from Review is the person saying to send it again.
+   */
+  holdQueuedForPerson(id: string, input: { detail: string; actor: RequestActor }): Task;
+  /**
    * Returns a leased task to the queue as if it had not been claimed: no event, and the attempt
    * is not counted. For a worker that is shutting down, or an email deferred by a send cap.
    */
@@ -792,6 +797,33 @@ export function createTaskQueue({
               leaseExpiresAt: null,
               finishedBy: workerId,
               usage: addUsage(row.usage, usage),
+              updatedAt: now,
+            })
+            .where(eq(tasks.id, id))
+            .returning()
+            .get(),
+        );
+        emit(tx, "blocked", task, actor);
+        return task;
+      });
+    },
+
+    holdQueuedForPerson(id, { detail, actor }) {
+      const now = nowIso(clock);
+      return db.transaction((tx) => {
+        const row = loadRow(tx, id);
+        if (row.status !== "queued") {
+          throw conflict("invalid_task_state", `Task ${id} is ${row.status}, not queued`);
+        }
+        const task = toTask(
+          tx
+            .update(tasks)
+            .set({
+              status: "blocked",
+              blockedReason: "unknown",
+              blockedDetail: detail,
+              blockedUrl: null,
+              mayHaveSubmitted: true,
               updatedAt: now,
             })
             .where(eq(tasks.id, id))

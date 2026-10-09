@@ -112,38 +112,43 @@ corrections:
   - domain: mobilewalla.com
     set:
       opt_out_url: null
+      add_requirements: [device_id]
     source_urls:
       - https://github.com/drumandbytes/eraser/blob/29bd7bb60a96cfb87eb84e65fd4f0a434860511e/data/brokers.yaml
     checked: 2026-10-08
-    note: 'The pinned Eraser note records that the opt-out form takes only a mobile advertising or device identifier, which Kick Rocks does not hold, so the form route is one the agent can never complete. With no channel left the planner skips the broker as unsupported instead of queueing a form task.'
+    note: 'The pinned Eraser note records that the opt-out form takes only a mobile advertising or device identifier, which Kick Rocks does not hold, so the form route is one the agent can never complete. The device_id flag makes the planner skip the broker as unsupported, and keeps a rights page from making it a form.'
   - domain: outlogic.io
     set:
       opt_out_url: null
+      add_requirements: [device_id]
     source_urls:
       - https://github.com/drumandbytes/eraser/blob/29bd7bb60a96cfb87eb84e65fd4f0a434860511e/data/brokers.yaml
     checked: 2026-10-08
-    note: 'The pinned Eraser note records that the opt-out form takes only a mobile advertising or device identifier, which Kick Rocks does not hold, so the form route is one the agent can never complete. With no channel left the planner skips the broker as unsupported instead of queueing a form task.'
+    note: 'The pinned Eraser note records that the opt-out form takes only a mobile advertising or device identifier, which Kick Rocks does not hold, so the form route is one the agent can never complete. The device_id flag makes the planner skip the broker as unsupported, and keeps a rights page from making it a form.'
   - domain: collectivedata.io
     set:
       opt_out_url: null
+      add_requirements: [device_id]
     source_urls:
       - https://github.com/drumandbytes/eraser/blob/29bd7bb60a96cfb87eb84e65fd4f0a434860511e/data/brokers.yaml
     checked: 2026-10-08
-    note: 'The pinned Eraser note records that the opt-out form takes only a mobile advertising or device identifier, which Kick Rocks does not hold, so the form route is one the agent can never complete. With no channel left the planner skips the broker as unsupported instead of queueing a form task.'
+    note: 'The pinned Eraser note records that the opt-out form takes only a mobile advertising or device identifier, which Kick Rocks does not hold, so the form route is one the agent can never complete. The device_id flag makes the planner skip the broker as unsupported, and keeps a rights page from making it a form.'
   - domain: groundtruth.com
     set:
       opt_out_url: null
+      add_requirements: [device_id]
     source_urls:
       - https://github.com/drumandbytes/eraser/blob/29bd7bb60a96cfb87eb84e65fd4f0a434860511e/data/brokers.yaml
     checked: 2026-10-08
-    note: 'The pinned Eraser note records that the opt-out form takes only a mobile advertising or device identifier, which Kick Rocks does not hold, so the form route is one the agent can never complete. With no channel left the planner skips the broker as unsupported instead of queueing a form task.'
+    note: 'The pinned Eraser note records that the opt-out form takes only a mobile advertising or device identifier, which Kick Rocks does not hold, so the form route is one the agent can never complete. The device_id flag makes the planner skip the broker as unsupported, and keeps a rights page from making it a form.'
   - domain: irys.us
     set:
       opt_out_url: null
+      add_requirements: [device_id]
     source_urls:
       - https://github.com/drumandbytes/eraser/blob/29bd7bb60a96cfb87eb84e65fd4f0a434860511e/data/brokers.yaml
     checked: 2026-10-08
-    note: 'The pinned Eraser note records that the opt-out form takes only a mobile advertising or device identifier, which Kick Rocks does not hold, so the form route is one the agent can never complete. With no channel left the planner skips the broker as unsupported instead of queueing a form task.'
+    note: 'The pinned Eraser note records that the opt-out form takes only a mobile advertising or device identifier, which Kick Rocks does not hold, so the form route is one the agent can never complete. The device_id flag makes the planner skip the broker as unsupported, and keeps a rights page from making it a form.'
 
 # A broker whose own reply, or a hard bounce, says email is not the way in. The addresses another list
 # carries for the domain are withheld from the merge, so the request goes to the form instead.

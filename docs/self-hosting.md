@@ -243,7 +243,9 @@ The scheduler requests that address once a minute, at the end of a pass, so a se
 Give the monitor a grace period of a few minutes, and let it alert you by whatever way you trust, because that alert is the one that does not depend on this machine.
 The address is a secret in most services, so it is never written to the log, and a monitor that is down never slows the scheduler.
 
-The daily or weekly digest also reports a browser worker that has run before and then gone quiet, even when no browser work is waiting.
+The scheduler keeps running when the browser worker dies, so it stops pinging once a configured worker that has reported before has been silent for more than an hour.
+The monitor then raises the alarm for you.
+The same worker silence is pushed once after 24 hours even when no browser work is waiting, and the daily or weekly digest also reports it.
 
 By hand, the same thing is below.
 It looks up the volume name first, because the prefix is the compose project name, which is `kick-rocks` unless you set `COMPOSE_PROJECT_NAME`.
@@ -272,11 +274,18 @@ If putting it back fails too, it keeps the copy, tells you its name and the comm
 On a new machine there is no volume yet, and the script creates it.
 
 A restore brings back the requests as they were when the backup was taken.
-Mail sent after that is not in the restored database, so the request would be queued and mailed to the broker a second time.
-The script therefore leaves a `restored-at` marker in the volume, and the server sends nothing while it is there.
-It looks in the Sent folder of each mailbox with queued mail for the Message-ID that mail would carry, and records every match as sent.
-When every mailbox has been checked it lifts the hold by itself.
-If a mailbox cannot be reached or has no Sent folder, the hold stays and a banner says so, and sending resumes only after you confirm in the app.
+Anything sent after that is not in the restored database, so the request would be queued and sent to the broker a second time.
+Every backup therefore carries a `backup-taken-at` file, and the server writes each email and each submitted form to an append-only `sent-journal` in the data volume.
+A restore copies the journal from the volume it replaces into the restored one, and leaves a `journal-carried` marker to say it did.
+The script also leaves a `restored-at` marker, and the server sends nothing while it is there: no email, and no web form, confirmation link or agent removal.
+Scans still run.
+It settles everything the journal shows went out after the backup, and records it as sent instead of sending it again.
+When the journal did not come from the replaced volume, for example on a new machine or after a backup from an older version, it reads the Sent folder of each mailbox with queued mail instead.
+That folder is trusted only when it shows a mail the restored database knows was sent, because some providers, such as iCloud, and many self-hosted servers do not file mail sent over SMTP in it.
+A mailbox that fails that test, has no Sent folder, or has never sent anything keeps the hold, and the banner says why.
+Web forms and agent removals that were queued at the backup have no Sent folder to check, so any the journal does not show are moved to Review with a note that they may have been submitted after the backup.
+When every mailbox has been settled the server lifts the hold by itself.
+If it cannot, sending resumes only after you confirm in the app.
 A request created after the backup is not in the restored data at all, so create it again only after checking that the Sent folder holds no mail for that broker.
 
 `docker compose down -v` and `./install.sh --uninstall` delete the volumes, and with them the database and its key.

@@ -1,6 +1,7 @@
 import { removeStaleMigrationCopies } from "../core/migration-copies.js";
 import { reuseRecentScans } from "../core/scan-reuse.js";
 import { applyRetention } from "../modules/data-rights/index.js";
+import { WORKER_HEARTBEAT_GRACE_MS, workerQuietForMs } from "../modules/notifications/attention.js";
 import { runNotifications } from "../modules/notifications/index.js";
 import { type Runners, runnersOf } from "../runners/index.js";
 import type { AppServices } from "../services.js";
@@ -41,6 +42,15 @@ export interface Scheduler {
 
 /** Leases of the in-process runners, which share this prefix and are returned when shutdown gives up on them. */
 const RUNNER_LEASE_PREFIX = "server:";
+
+/**
+ * The scheduler keeps running when the worker dies, so its pings alone would hide a dead worker.
+ * Withholding them hands the alarm to the outside service, which is the one that still works when
+ * this server cannot reach the person.
+ */
+function workerIsLongGone(services: AppServices): boolean {
+  return (workerQuietForMs(services) ?? 0) > WORKER_HEARTBEAT_GRACE_MS;
+}
 
 /**
  * The loop that keeps Kick Rocks working unattended. Every job reads time from the injected
@@ -141,8 +151,9 @@ export function createScheduler(
     async tick() {
       await maintenance.run();
       // After the maintenance pass and not before, so a scheduler stuck in it stops pinging.
-      if (heartbeat && due("heartbeat", HEARTBEAT_EVERY_MS))
+      if (heartbeat && due("heartbeat", HEARTBEAT_EVERY_MS) && !workerIsLongGone(services)) {
         await job("heartbeat", () => heartbeat.ping());
+      }
       await Promise.all([sending, notifying].filter((l) => !l.busy()).map((l) => l.run()));
     },
 

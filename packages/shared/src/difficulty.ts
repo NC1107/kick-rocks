@@ -12,7 +12,7 @@ export type Difficulty = z.infer<typeof Difficulty>;
  * - `recipe_ready`: an approved recipe exists for each step Kick Rocks runs, and none is broken.
  * - `needs_record`: a listing must be found before it can be removed.
  * - `needs_phone`, `needs_id`, `needs_payment`, `needs_account`, `captcha`, `needs_mail`,
- *   `needs_fax`: the site makes the person do this part.
+ *   `needs_fax`, `needs_device_id`: the site makes the person do this part.
  * - `no_recipe`: a form with no approved recipe, so an agent or the person has to fill it in.
  * - `recipe_broken`: the approved recipe is failing against the live site.
  * - `email_shared`: its only address is on a shared mail host such as gmail.com, which proves nothing about who replies.
@@ -31,6 +31,7 @@ export const DifficultyReason = z.enum([
   "captcha",
   "needs_mail",
   "needs_fax",
+  "needs_device_id",
   "no_recipe",
   "recipe_broken",
   "email_shared",

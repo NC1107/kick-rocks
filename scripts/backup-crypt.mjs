@@ -30,6 +30,10 @@ const TAG_BYTES = 16;
 export const CHUNK_BYTES = 1024 * 1024;
 const SCRYPT = { log2N: 17, r: 8, p: 1 };
 const SCRYPT_MAX_LOG2N = 22;
+const SCRYPT_MAX_R = 32;
+const SCRYPT_MAX_P = 16;
+// A fixed ceiling, because a limit worked out from the header's own numbers limits nothing.
+const SCRYPT_MAX_BYTES = 2 ** 30;
 
 export const EXIT_WRONG_PASSPHRASE = 2;
 export const EXIT_DAMAGED = 3;
@@ -53,16 +57,23 @@ export function passphraseFrom(text) {
 
 function deriveKeys(passphrase, header) {
   const log2N = header[5];
-  if (log2N > SCRYPT_MAX_LOG2N)
-    throw new CryptError("The backup asks for more memory than is allowed.", EXIT_DAMAGED);
   const r = header[6];
   const p = header[7];
+  const outOfBounds =
+    log2N > SCRYPT_MAX_LOG2N ||
+    r < 1 ||
+    r > SCRYPT_MAX_R ||
+    p < 1 ||
+    p > SCRYPT_MAX_P ||
+    128 * r * (2 ** log2N + p + 1) > SCRYPT_MAX_BYTES;
+  if (outOfBounds)
+    throw new CryptError("The backup is damaged: its header is not valid.", EXIT_DAMAGED);
   const salt = header.subarray(8, 24);
   const master = scryptSync(passphrase, salt, 32, {
     N: 2 ** log2N,
     r,
     p,
-    maxmem: 256 * 2 ** 20 + 128 * r * 2 ** log2N,
+    maxmem: SCRYPT_MAX_BYTES + 2 ** 20,
   });
   return {
     encryption: Buffer.from(hkdfSync("sha256", master, salt, "kickrocks-backup encryption", 32)),

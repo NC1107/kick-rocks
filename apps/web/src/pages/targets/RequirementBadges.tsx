@@ -11,6 +11,7 @@ export const HUMAN_STEPS: ReadonlySet<Requirement> = new Set([
   "paid",
   "postal_mail",
   "fax",
+  "device_id",
 ]);
 
 /** Only what the person has to do gets a tag. Everything the automation handles stays quiet. */

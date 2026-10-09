@@ -1,9 +1,4 @@
-import {
-  type Broker,
-  contactMethodFor,
-  rightsPageAsForm,
-  type TargetPriority,
-} from "@kickrocks/shared";
+import { type Broker, contactMethodOfRecord, type TargetPriority } from "@kickrocks/shared";
 import type { EmailRefusal } from "./corrections.js";
 
 const PRIORITY_RANK: Record<TargetPriority, number> = { crucial: 2, high: 1, normal: 0 };
@@ -21,6 +16,7 @@ function mergePair(primary: Broker, secondary: Broker): Broker {
   const optOutUrl = primary.optOutUrl ?? secondary.optOutUrl;
   const privacyRightsUrl = primary.privacyRightsUrl ?? secondary.privacyRightsUrl;
   const category = primary.category === "registered-broker" ? secondary.category : primary.category;
+  const requirements = Array.from(new Set([...primary.requirements, ...secondary.requirements]));
   const notes = [primary.notes, secondary.notes].filter(Boolean).join(" | ") || null;
   return {
     ...primary,
@@ -30,9 +26,14 @@ function mergePair(primary: Broker, secondary: Broker): Broker {
     optOutUrl,
     privacyRightsUrl,
     searchUrl: primary.searchUrl ?? secondary.searchUrl,
-    contactMethod: contactMethodFor(privacyEmail, optOutUrl ?? rightsPageAsForm(privacyRightsUrl)),
+    contactMethod: contactMethodOfRecord({
+      privacyEmail,
+      optOutUrl,
+      privacyRightsUrl,
+      requirements,
+    }),
     requiresId: primary.requiresId || secondary.requiresId,
-    requirements: Array.from(new Set([...primary.requirements, ...secondary.requirements])),
+    requirements,
     priority: higherPriority(primary.priority, secondary.priority),
     regulatedBy: Array.from(new Set([...primary.regulatedBy, ...secondary.regulatedBy])),
     collectsMinors: primary.collectsMinors ?? secondary.collectsMinors,
@@ -72,10 +73,7 @@ export function withholdRefusedEmail(
       return {
         ...broker,
         privacyEmail: null,
-        contactMethod: contactMethodFor(
-          null,
-          broker.optOutUrl ?? rightsPageAsForm(broker.privacyRightsUrl),
-        ),
+        contactMethod: contactMethodOfRecord({ ...broker, privacyEmail: null }),
       };
     }),
   );

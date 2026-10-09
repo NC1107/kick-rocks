@@ -23,6 +23,9 @@ export function registerConfirmHandlers(services: AppServices): void {
         ok: confirmed,
       },
     });
+    if (confirmed) {
+      services.sentJournal.append({ requestId: request.id, ref: task.id, channel: "confirm" });
+    }
     if (confirmed && request.awaitingConfirmationSince !== null) {
       services.requests.update(request.id, { awaitingConfirmationSince: null });
     }

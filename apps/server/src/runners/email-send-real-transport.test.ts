@@ -1,5 +1,5 @@
 import { mailboxes, targets, tasks } from "@kickrocks/db";
-import { API_ROUTES } from "@kickrocks/shared";
+import { API_ROUTES, outgoingMessageId } from "@kickrocks/shared";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createMailTransport } from "../mail/transport.js";
@@ -413,5 +413,81 @@ describe("the email runner against the real transport", () => {
     await saveMailbox();
 
     expect(taskFor(request.id)?.status).toBe("failed");
+  });
+
+  describe("a send cut off after its whole body, with a Sent folder that records sends", () => {
+    const sentFolder = { path: "Sent", name: "Sent", specialUse: "\\Sent" };
+    const domain = "example.com";
+    const fileInSent = (requestId: string, sequence: number) =>
+      ctx.mail.mailbox("jordan@example.com").deliver({
+        folder: "Sent",
+        messageId: outgoingMessageId(requestId, domain, sequence),
+        from: { name: null, address: "jordan@example.com" },
+        to: ["privacy@broker.test"],
+      });
+
+    /** A send made earlier and filed in Sent, which is how the folder shows that it records sends. */
+    async function proveSentFolderKeepsSends() {
+      const mail = ctx.mail.mailbox("jordan@example.com");
+      mail.folders = [...mail.folders, sentFolder];
+      const earlier = openRequest();
+      await runners.email.runDue();
+      fileInSent(earlier.id, 0);
+      ctx.clock.advance(HOUR);
+      smtp.behave("drop_after_data");
+    }
+
+    beforeEach(() => {
+      runners = createRunners(ctx.services, { random: () => 0, sentLookupWaitMs: 0 });
+    });
+
+    it("records the send as confirmed when the folder holds it", async () => {
+      await proveSentFolderKeepsSends();
+      const request = openRequest();
+      fileInSent(request.id, 0);
+
+      await runners.email.runDue();
+
+      expect(taskFor(request.id)).toMatchObject({ status: "done" });
+      const sent = ctx.services.requests.events(request.id).find((event) => event.type === "sent");
+      expect(sent?.payload).not.toHaveProperty("unconfirmed");
+    });
+
+    it("sends again, and does not call it sent, when the folder does not hold it", async () => {
+      await proveSentFolderKeepsSends();
+      const request = openRequest();
+
+      await runners.email.runDue();
+
+      expect(ctx.services.requests.getOrThrow(request.id).status).toBe("queued");
+      expect(ctx.services.requests.events(request.id).some((event) => event.type === "sent")).toBe(
+        false,
+      );
+      expect(
+        ctx.services.db.select().from(tasks).where(eq(tasks.requestId, request.id)).get()
+          ?.unconfirmedMessageId,
+      ).toBeNull();
+
+      smtp.behave("accept");
+      ctx.clock.advance(HOUR);
+      await runners.email.runDue();
+      expect(ctx.services.requests.getOrThrow(request.id).status).toBe("awaiting_reply");
+      const sent = ctx.services.requests.events(request.id).find((event) => event.type === "sent");
+      expect(sent?.payload).not.toHaveProperty("unconfirmed");
+    });
+
+    it("keeps the old rule on a mailbox whose folder has never held a send", async () => {
+      const mail = ctx.mail.mailbox("jordan@example.com");
+      mail.folders = [...mail.folders, sentFolder];
+      smtp.behave("drop_after_data");
+      const request = openRequest();
+
+      await runners.email.runDue();
+
+      expect(taskFor(request.id)).toMatchObject({ status: "done" });
+      expect(
+        ctx.services.requests.events(request.id).find((event) => event.type === "sent"),
+      ).toMatchObject({ payload: { unconfirmed: true } });
+    });
   });
 });

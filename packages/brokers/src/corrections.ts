@@ -1,10 +1,9 @@
 import {
   type Broker,
   BrokerCategory,
-  contactMethodFor,
+  contactMethodOfRecord,
   normalizeDomain,
   Requirement,
-  rightsPageAsForm,
   WebUrl,
 } from "@kickrocks/shared";
 import { parse } from "yaml";
@@ -23,6 +22,8 @@ const Correction = z.object({
       category: BrokerCategory.optional(),
       /** Flags the broker's own pages disprove. Only removal is allowed, so a flag is never invented. */
       remove_requirements: z.array(Requirement).min(1).optional(),
+      /** Flags the broker's own pages prove and no list carries. */
+      add_requirements: z.array(Requirement).min(1).optional(),
     })
     .refine((fields) => Object.keys(fields).length > 0, "a correction must set a field"),
   source_urls: z.array(WebUrl).min(1),
@@ -77,6 +78,12 @@ function correct(broker: Broker, { set }: Correction): Broker {
   const optOutUrl = set.opt_out_url === undefined ? broker.optOutUrl : set.opt_out_url;
   const privacyRightsUrl =
     set.privacy_rights_url === undefined ? broker.privacyRightsUrl : set.privacy_rights_url;
+  const requirements = [
+    ...broker.requirements.filter((requirement) => !set.remove_requirements?.includes(requirement)),
+    ...(set.add_requirements ?? []).filter(
+      (requirement) => !broker.requirements.includes(requirement),
+    ),
+  ];
   return {
     ...broker,
     domain: set.domain ?? broker.domain,
@@ -85,10 +92,13 @@ function correct(broker: Broker, { set }: Correction): Broker {
     optOutUrl,
     privacyRightsUrl,
     category: set.category ?? broker.category,
-    requirements: broker.requirements.filter(
-      (requirement) => !set.remove_requirements?.includes(requirement),
-    ),
-    contactMethod: contactMethodFor(privacyEmail, optOutUrl ?? rightsPageAsForm(privacyRightsUrl)),
+    requirements,
+    contactMethod: contactMethodOfRecord({
+      privacyEmail,
+      optOutUrl,
+      privacyRightsUrl,
+      requirements,
+    }),
   };
 }
 
@@ -101,7 +111,8 @@ function changesRecord(broker: Broker, correction: Correction): boolean {
     corrected.optOutUrl !== broker.optOutUrl ||
     corrected.privacyRightsUrl !== broker.privacyRightsUrl ||
     corrected.category !== broker.category ||
-    corrected.requirements.length !== broker.requirements.length
+    corrected.requirements.length !== broker.requirements.length ||
+    corrected.contactMethod !== broker.contactMethod
   );
 }
 

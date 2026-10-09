@@ -51,6 +51,7 @@ describe("easy", () => {
     ["captcha", "captcha"],
     ["postal_mail", "needs_mail"],
     ["fax", "needs_fax"],
+    ["device_id", "needs_device_id"],
   ] as const)("is hard when the site needs the person for %s", (requirement, reason) => {
     expect(classifyDifficulty(target({ requirements: [requirement] }))).toEqual({
       difficulty: "hard",

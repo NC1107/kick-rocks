@@ -13,10 +13,12 @@ export interface Runners {
 interface RunnerOptions {
   /** Where the jitter between sends comes from. Tests pass a fixed one. */
   random?: () => number;
+  /** How long to wait between looks in the Sent folder for a send that was cut off. */
+  sentLookupWaitMs?: number;
 }
 
 export function createRunners(services: AppServices, options: RunnerOptions = {}): Runners {
-  const email = new EmailRunner(services, options.random ?? Math.random);
+  const email = new EmailRunner(services, options.random ?? Math.random, options.sentLookupWaitMs);
   const inbox = new InboxRunner(services);
   return {
     email,

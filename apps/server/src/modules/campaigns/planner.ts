@@ -52,13 +52,14 @@ export interface CampaignPlan {
  * payment. Everything else a site asks for (a CAPTCHA, an account, an ID upload) ends up in the
  * review queue for a person to do.
  */
-const OFFLINE_REQUIREMENTS = ["postal_mail", "fax", "phone_call", "paid"] as const;
+const OFFLINE_REQUIREMENTS = ["postal_mail", "fax", "phone_call", "paid", "device_id"] as const;
 
 const OFFLINE_LABELS: Record<(typeof OFFLINE_REQUIREMENTS)[number], string> = {
   postal_mail: "a letter in the post",
   fax: "a fax",
   phone_call: "a phone call",
   paid: "a payment",
+  device_id: "a mobile advertising ID",
 };
 
 const PRIORITY_RANK: Record<TargetPriority, number> = { crucial: 0, high: 1, normal: 2 };

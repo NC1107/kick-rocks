@@ -1,15 +1,14 @@
-import { type MailboxRow, mailboxes, outgoingMail } from "@kickrocks/db";
+import { type MailboxRow, mailboxes, outgoingMail, tasks } from "@kickrocks/db";
 import { outgoingMessageId, parseOutgoingMessageId, type RequestRecord } from "@kickrocks/shared";
 import { count, eq } from "drizzle-orm";
+import type { JournalEntry } from "../core/sent-journal.js";
 import type { Task } from "../core/task-types.js";
 import type { InboxMessage } from "../mail/types.js";
 import type { AppServices } from "../services.js";
-import { connectionOf, describeError } from "./connection.js";
+import { describeError } from "./connection.js";
 import type { EmailRunner, FoundSend } from "./email-send.js";
+import { viewSentFolder } from "./sent-folder.js";
 
-const SENT_FLAG = "\\Sent";
-const PAGE_LIMIT = 200;
-const MAX_PAGES = 25;
 /** Mail sent after the backup can only be newer than the oldest send the restored queue still holds. */
 const LOOKBACK_MS = 24 * 60 * 60 * 1000;
 
@@ -24,19 +23,24 @@ interface Pending {
 }
 
 /**
- * After a restore, looks in each mailbox's Sent folder for mail the restored database never saw,
- * so a request that looks unsent is not mailed to the broker a second time. A message carries its
- * request and its place in that request's sends in its Message-ID, so the check needs no
- * guesswork: the next send for a request is either in the folder or it is not.
+ * After a restore, finds the mail the restored database never saw, so a request that looks unsent
+ * is not mailed to the broker a second time. A message carries its request and its place in that
+ * request's sends in its Message-ID, so the check needs no guesswork: the next send for a request
+ * is either on record or it is not.
  *
- * Sending resumes once every mailbox with queued mail has been read. A mailbox that cannot be read
- * leaves the hold in place with the reason, because guessing wrong sends a broker a second copy.
+ * The send journal is read first. When it came from the instance that was replaced it holds every
+ * send made after the backup, and nothing else is needed. Otherwise each mailbox's Sent folder is
+ * read, and trusted only when it shows a send the database knows was made, because a folder that
+ * does not file SMTP submissions looks the same when empty as one that was never used.
+ *
+ * Sending resumes once every mailbox with queued mail has been settled. A mailbox that cannot be
+ * settled leaves the hold in place with the reason, because guessing wrong sends a broker a second copy.
  */
 export async function reconcileAfterRestore(
   services: AppServices,
   email: EmailRunner,
 ): Promise<void> {
-  const { restoreGate: gate, taskQueue, db, logger } = services;
+  const { restoreGate: gate, taskQueue, db, logger, sentJournal } = services;
   if (!gate.checkDue()) return;
 
   const pending: Pending[] = [];
@@ -58,25 +62,42 @@ export async function reconcileAfterRestore(
     pending.push({ task, request, mailbox, next });
   }
 
-  const problems: string[] = [];
-  const byMailbox = new Map<string, Pending[]>();
+  const journal = sentJournal.entries();
+  const unsettled: Pending[] = [];
   for (const item of pending) {
-    byMailbox.set(item.mailbox.id, [...(byMailbox.get(item.mailbox.id) ?? []), item]);
+    const found = sequenceFrom(journalSends(journal, item), item);
+    if (found) email.settleFromRecord(item.task, item.request, item.mailbox.id, found, "journal");
+    else unsettled.push(item);
   }
-  for (const items of byMailbox.values()) {
-    const mailbox = (items[0] as Pending).mailbox;
-    try {
-      const sent = await readSentFolder(services, mailbox, items);
-      for (const item of items) {
-        const found = sequenceFrom(sent, item);
-        if (found) {
-          email.settleFromSentFolder(item.task, item.request, mailbox.id, found);
+
+  const problems: string[] = [];
+  if (!sentJournal.coversTheGap()) {
+    const byMailbox = new Map<string, Pending[]>();
+    for (const item of unsettled) {
+      byMailbox.set(item.mailbox.id, [...(byMailbox.get(item.mailbox.id) ?? []), item]);
+    }
+    for (const items of byMailbox.values()) {
+      const mailbox = (items[0] as Pending).mailbox;
+      try {
+        const oldest = Math.min(...items.map((item) => Date.parse(item.task.createdAt)));
+        const view = await viewSentFolder(services, mailbox, new Date(oldest - LOOKBACK_MS));
+        if (!view.kept) {
+          problems.push(`${mailbox.address}: ${view.reason}.`);
+          continue;
         }
+        for (const item of items) {
+          const found = sequenceFrom(folderSends(view.messages, item), item);
+          if (found) {
+            email.settleFromRecord(item.task, item.request, mailbox.id, found, "sent_folder");
+          } else {
+            clearUnconfirmedMarker(services, item.task.id);
+          }
+        }
+      } catch (error) {
+        const reason = describeError(error);
+        logger.warn({ mailboxId: mailbox.id, err: reason }, "could not check the Sent folder");
+        problems.push(`${mailbox.address}: ${reason}`);
       }
-    } catch (error) {
-      const reason = describeError(error);
-      logger.warn({ mailboxId: mailbox.id, err: reason }, "could not check the Sent folder");
-      problems.push(`${mailbox.address}: ${reason}`);
     }
   }
 
@@ -88,47 +109,48 @@ export async function reconcileAfterRestore(
   gate.release("checked");
 }
 
-async function readSentFolder(
-  services: AppServices,
-  mailbox: MailboxRow,
-  items: readonly Pending[],
-): Promise<InboxMessage[]> {
-  const inbox = services.mail.inbox(connectionOf(mailbox));
-  const folders = await inbox.listFolders();
-  const sent = folders.find((folder) => folder.specialUse === SENT_FLAG);
-  if (!sent) throw new Error("the mailbox reports no Sent folder to check");
-  const oldest = Math.min(...items.map((item) => Date.parse(item.task.createdAt)));
-  const since = new Date(oldest - LOOKBACK_MS);
-  const messages: InboxMessage[] = [];
-  let afterUid: number | null = null;
-  let uidValidity: number | null = null;
-  for (let page = 0; page < MAX_PAGES; page += 1) {
-    const result = await inbox.fetchSince(sent.path, afterUid, uidValidity, {
-      since,
-      limit: PAGE_LIMIT,
-    });
-    messages.push(...result.messages);
-    uidValidity = result.uidValidity;
-    if (!result.hasMore) return messages;
-    afterUid = result.messages.at(-1)?.uid ?? afterUid;
-  }
-  throw new Error("the Sent folder holds more recent mail than could be read");
+/** A trusted folder that lacks the send proves the offered mail never arrived, so it is sent normally. */
+function clearUnconfirmedMarker(services: AppServices, taskId: string): void {
+  services.db.update(tasks).set({ unconfirmedMessageId: null }).where(eq(tasks.id, taskId)).run();
 }
 
-/** The sends of this request in the folder from the one the queue was about to make, with nothing missing between. */
-function sequenceFrom(sent: readonly InboxMessage[], { request, mailbox, next }: Pending) {
-  const bySequence = new Map<number, InboxMessage>();
-  for (const message of sent) {
-    const parsed = message.messageId ? parseOutgoingMessageId(message.messageId) : null;
-    if (parsed?.requestId === request.id && parsed.domain === domainOf(mailbox.address)) {
-      bySequence.set(parsed.sequence, message);
-    }
+interface RecordedSend {
+  messageId: string;
+  recipient: string;
+}
+
+function journalSends(journal: readonly JournalEntry[], { request, mailbox }: Pending) {
+  return journal.flatMap((entry): RecordedSend[] =>
+    entry.channel === "email" &&
+    entry.requestId === request.id &&
+    parseOutgoingMessageId(entry.ref)?.domain === domainOf(mailbox.address)
+      ? [{ messageId: entry.ref, recipient: entry.recipient ?? "" }]
+      : [],
+  );
+}
+
+function folderSends(sent: readonly InboxMessage[], { request, mailbox }: Pending) {
+  return sent.flatMap((message): RecordedSend[] =>
+    message.messageId &&
+    parseOutgoingMessageId(message.messageId)?.requestId === request.id &&
+    parseOutgoingMessageId(message.messageId)?.domain === domainOf(mailbox.address)
+      ? [{ messageId: message.messageId, recipient: message.to[0] ?? "" }]
+      : [],
+  );
+}
+
+/** The sends of this request from the one the queue was about to make, with nothing missing between. */
+function sequenceFrom(sends: readonly RecordedSend[], { request, mailbox, next }: Pending) {
+  const bySequence = new Map<number, RecordedSend>();
+  for (const send of sends) {
+    const parsed = parseOutgoingMessageId(send.messageId);
+    if (parsed) bySequence.set(parsed.sequence, send);
   }
   const found: FoundSend = { messageIds: [], recipients: [] };
   for (let sequence = next; bySequence.has(sequence); sequence += 1) {
-    const message = bySequence.get(sequence) as InboxMessage;
+    const send = bySequence.get(sequence) as RecordedSend;
     found.messageIds.push(outgoingMessageId(request.id, domainOf(mailbox.address), sequence));
-    found.recipients.push(message.to[0] ?? "");
+    found.recipients.push(send.recipient);
   }
   return found.messageIds.length > 0 ? found : null;
 }

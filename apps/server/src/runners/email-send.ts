@@ -1,3 +1,4 @@
+import { setTimeout as sleep } from "node:timers/promises";
 import { mailboxes, messages, outgoingMail, tasks } from "@kickrocks/db";
 import {
   canTransition,
@@ -16,6 +17,7 @@ import type { AppServices } from "../services.js";
 import { connectionOf, describeError } from "./connection.js";
 import { responseWindow } from "./deadlines.js";
 import { MailPacer } from "./pacing.js";
+import { viewSentFolder } from "./sent-folder.js";
 
 const EMAIL_WORKER_ID = "server:email-send";
 const LEASE_MS = 5 * 60 * 1000;
@@ -25,6 +27,14 @@ const LEASE_MS = 5 * 60 * 1000;
  */
 const PASS_MAX_TASKS = 20;
 const PASS_MAX_MS = 60 * 1000;
+/**
+ * The Sent copy of a mail is filed a moment after the send, so a mail missing from a folder that
+ * keeps SMTP sends is looked for a few times before it is called lost.
+ */
+const SENT_LOOKUP_TRIES = 3;
+const SENT_LOOKUP_WAIT_MS = 5_000;
+/** The mail went out within the last moments, so the folder is read from a little before that. */
+const SENT_LOOKUP_SPAN_MS = 60 * 60 * 1000;
 const HOLDER_STATUSES = new Set<Task["status"]>(["leased", "queued", "failed"]);
 
 type EmailTask = Task<"email_send">;
@@ -100,6 +110,7 @@ export class EmailRunner {
   constructor(
     private readonly services: AppServices,
     random: () => number,
+    private readonly sentLookupWaitMs: number = SENT_LOOKUP_WAIT_MS,
   ) {
     this.pacer = new MailPacer(services, random, services.config.sendGapMs);
   }
@@ -298,29 +309,76 @@ export class EmailRunner {
   }
 
   /**
-   * A mail whose whole body went out without an answer may be delivered, and mailing a broker twice
-   * costs the person more than a request that goes unanswered, which a follow-up already covers. So
-   * it is counted as sent and the timeline says the server did not confirm it. The mailbox is left
-   * alone because the person has nothing to fix there.
+   * A mail whose whole body went out without an answer may be delivered. A Sent folder that records
+   * SMTP sends settles it: the mail is there and counts as sent, or it is not and is tried again.
+   * Without such a folder, mailing a broker twice costs the person more than a request that goes
+   * unanswered, which a follow-up already covers, so it is counted as sent and the timeline says the
+   * server did not confirm it. The mailbox is left alone because the person has nothing to fix there.
    */
-  private settleUnconfirmed(
+  private async settleUnconfirmed(
     task: EmailTask,
     request: RequestRecord,
     mailboxId: string,
     messageId: string,
     cause: string,
     recipient: string | null,
-  ): boolean {
+  ): Promise<boolean> {
+    const filed = await this.lookInSentFolder(mailboxId, messageId);
+    if (filed === "absent") {
+      this.services.logger.warn(
+        { requestId: request.id, cause },
+        "a send was cut off before the mail server answered and is not in the Sent folder, so it is tried again",
+      );
+      this.fail(
+        task,
+        request,
+        new Error(
+          "The connection dropped before the mail server confirmed the mail, and it is not in the Sent folder",
+        ),
+        { retryable: true, kind: "network" },
+      );
+      return false;
+    }
     this.services.logger.warn(
-      { requestId: request.id, cause },
+      { requestId: request.id, cause, inSentFolder: filed === "found" },
       "a send was cut off before the mail server answered, so it is counted as sent",
     );
     const recorded = this.recordSend(task, request.id, mailboxId, messageId, {
-      unconfirmed: true,
+      unconfirmed: filed === "unknown",
       recipient,
     });
     this.clearOffered(task.id);
     return recorded;
+  }
+
+  /**
+   * Whether the Sent folder shows the mail, when that folder is known to record SMTP sends. A
+   * folder that cannot be read or trusted says nothing, and then the mail counts as sent, because
+   * mailing a broker twice costs the person more than a request that waits for its follow-up.
+   */
+  private async lookInSentFolder(
+    mailboxId: string,
+    messageId: string,
+  ): Promise<"found" | "absent" | "unknown"> {
+    const { db, clock, logger } = this.services;
+    const mailbox = db.select().from(mailboxes).where(eq(mailboxes.id, mailboxId)).get();
+    if (!mailbox) return "unknown";
+    try {
+      for (let attempt = 1; attempt <= SENT_LOOKUP_TRIES; attempt += 1) {
+        const since = new Date(clock.now().getTime() - SENT_LOOKUP_SPAN_MS);
+        const view = await viewSentFolder(this.services, mailbox, since);
+        if (!view.kept) return "unknown";
+        if (view.messages.some((message) => message.messageId?.includes(messageId))) return "found";
+        if (attempt < SENT_LOOKUP_TRIES) await sleep(this.sentLookupWaitMs);
+      }
+      return "absent";
+    } catch (error) {
+      logger.warn(
+        { err: describeError(error) },
+        "could not look in the Sent folder for a cut-off send",
+      );
+      return "unknown";
+    }
   }
 
   /**
@@ -347,7 +405,7 @@ export class EmailRunner {
     task: EmailTask,
     request: RequestRecord,
     messageId: string,
-  ): boolean {
+  ): Promise<boolean> {
     const mailboxId = this.mailboxIdOf(request);
     if (!mailboxId) {
       // The mail may be delivered, so its marker stays for whoever can still match it.
@@ -356,7 +414,7 @@ export class EmailRunner {
         kind: "internal",
         keepMarker: true,
       });
-      return false;
+      return Promise.resolve(false);
     }
     return this.settleUnconfirmed(
       task,
@@ -492,15 +550,16 @@ export class EmailRunner {
   }
 
   /**
-   * Records mail the Sent folder shows went out after the backup this database was restored from.
+   * Records mail that the send journal or the Sent folder shows went out after the backup this database was restored from.
    * The first is the send the queued task was going to make, so the task is closed without sending.
    * Any later one was a follow-up the old instance sent on its own, and only its fact and count are kept.
    */
-  settleFromSentFolder(
+  settleFromRecord(
     task: EmailTask,
     request: RequestRecord,
     mailboxId: string,
     found: FoundSend,
+    source: "sent_folder" | "journal",
   ): void {
     const { db, taskQueue, requests, mailQuota } = this.services;
     db.transaction(() => {
@@ -516,7 +575,13 @@ export class EmailRunner {
         const current = requests.getOrThrow(request.id);
         const sentEvent = {
           type: "sent" as const,
-          payload: { channel: "email" as const, kind, messageId, mailboxId, foundInSent: true },
+          payload: {
+            channel: "email" as const,
+            kind,
+            messageId,
+            mailboxId,
+            ...(source === "journal" ? { foundInJournal: true } : { foundInSent: true }),
+          },
         };
         if (index === 0 && current.status === "queued") {
           this.advanceToAwaitingReply(current, kind, mailboxId, messageId, sentEvent);
@@ -561,6 +626,7 @@ export class EmailRunner {
         return false;
       }
       mailQuota.record({ mailboxId, requestId, kind, messageId, recipient });
+      this.services.sentJournal.append({ requestId, ref: messageId, channel: "email", recipient });
       const current = requests.getOrThrow(requestId);
       const live = taskQueue.getOrThrow(task.id);
       const sentEvent = {

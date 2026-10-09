@@ -116,6 +116,8 @@ type OperationServices = Pick<
   | "settings"
   | "politeness"
   | "taskSends"
+  | "restoreGate"
+  | "sentJournal"
   | "logger"
 >;
 
@@ -461,9 +463,12 @@ export function createTaskOperations(services: OperationServices, caller: Caller
 
     releaseSend(taskId, sendId, { workerId, request }) {
       authorize(taskId);
-      return {
-        releaseId: services.taskSends.release(taskId, workerId, sendId, request),
-      };
+      const releaseId = services.taskSends.release(taskId, workerId, sendId, request);
+      const { requestId } = taskQueue.getOrThrow(taskId);
+      if (requestId !== null) {
+        services.sentJournal.append({ requestId, ref: releaseId, channel: "agent" });
+      }
+      return { releaseId };
     },
 
     sendResult(taskId, sendId, { status, error }) {

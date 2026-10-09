@@ -23,9 +23,16 @@ export interface RestoreGate {
   checkDue(): boolean;
   /** Records that a check ran, and why it could not finish, so the person is told. */
   checked(problem: string | null): void;
-  /** Lifts the hold, because every mailbox was checked or a person said to go on. */
+  /**
+   * Lifts the hold, because every mailbox was checked or a person said to go on. The hold stays
+   * until every settler has run, so work that must not start unsettled never gets the chance to.
+   */
   release(reason: "checked" | "confirmed"): void;
+  /** Registers what has to be done to the work that was queued at the restore before it may start. */
+  onRelease(settle: (restoredAt: Date) => void): void;
 }
+
+const MAX_DATE_MS = 8.64e15;
 
 type GateDeps = { dataDir: string; clock: Clock; logger: Logger };
 
@@ -35,6 +42,7 @@ export function createRestoreGate({ dataDir, clock, logger }: GateDeps): Restore
   let lastCheckAt: number | null = null;
   // A marker that cannot be removed must not trap the server in a hold nobody can lift.
   let lifted = false;
+  const settlers: Array<(restoredAt: Date) => void> = [];
 
   const restoredAt = (): string | null => {
     if (lifted) return null;
@@ -60,7 +68,17 @@ export function createRestoreGate({ dataDir, clock, logger }: GateDeps): Restore
       lastCheckAt = clock.now().getTime();
       problem = next;
     },
+    onRelease(settle) {
+      settlers.push(settle);
+    },
     release(reason) {
+      const at = restoredAt();
+      if (at !== null) {
+        const stamp = Date.parse(at);
+        // A marker with no readable time cannot say which work predates the restore, so all of it does.
+        const cutoff = stamp > 0 ? new Date(stamp) : new Date(MAX_DATE_MS);
+        for (const settle of settlers) settle(cutoff);
+      }
       lifted = true;
       problem = null;
       try {

@@ -466,6 +466,32 @@ describe("install.sh backup and restore", () => {
     });
   });
 
+  it("writes the time the data was copied into the archive, after the services stopped and before tar reads", () => {
+    install(["--backup", join(dir, "stamped.tgz")], { env: { FAKE_TAR: "ok" } });
+    const log = calls();
+    assert.match(log, /TAKEN_AT=\d{4}-\d\d-\d\dT[\d:]+Z .*\/data\/backup-taken-at/);
+    assert.ok(log.search(/\/data\/backup-taken-at/) < log.search(/alpine tar czf/));
+  });
+
+  it("carries the live send journal over a restore and marks that it did", () => {
+    const result = install(["--restore", archive], { input: "restore\n" });
+    assert.equal(result.status, 0, result.stderr);
+    const log = calls();
+    assert.match(
+      log,
+      /-v scratch_kickrocks-data-previous-\d+:\/live:ro .* \/live\/sent-journal .*journal-carried/,
+    );
+    assert.ok(
+      log.search(/\/live\/sent-journal/) > log.search(/-restore-\d+:\/from:ro/),
+      "the journal is carried after the swap",
+    );
+    assert.ok(
+      log.search(/\/live\/sent-journal/) <
+        log.search(/volume rm -f scratch_kickrocks-data-previous/),
+      "and before the old copy is deleted",
+    );
+  });
+
   it("leaves the rollback copy of the database out of a backup", () => {
     install(["--backup", join(dir, "nocopy.tgz")], { env: { FAKE_TAR: "ok" } });
     assert.match(calls(), /--exclude \.\/\.disk-reserve --exclude \.\/kickrocks\.db\.before-\* /);

@@ -97,6 +97,34 @@ describe("applyCorrections", () => {
     expect(fixed).toMatchObject({ category: "people-search", requirements: ["record_url"] });
   });
 
+  it("adds a requirement, and a device-only broker with a rights page is no longer a form", () => {
+    const corrections = parseCorrections(`corrections:
+  - domain: acme.example
+    set: { opt_out_url: null, add_requirements: [device_id] }
+    source_urls: [https://acme.example/privacy]
+    checked: 2026-10-07
+    note: The form takes only a device identifier.
+`);
+    const [[fixed]] = applyCorrections(
+      [
+        [
+          broker({
+            privacyEmail: null,
+            optOutUrl: "https://acme.example/optout",
+            privacyRightsUrl: "https://acme.example/privacy/rights",
+            contactMethod: "form",
+          }),
+        ],
+      ],
+      corrections,
+    );
+    expect(fixed).toMatchObject({
+      optOutUrl: null,
+      requirements: ["device_id"],
+      contactMethod: "unknown",
+    });
+  });
+
   it("refuses a requirement correction that the record already satisfies", () => {
     const corrections = parseCorrections(`corrections:
   - domain: acme.example

@@ -17,7 +17,7 @@ describe("the restore banner", () => {
     mock.store.health = "restore";
     renderPage(<RestoreBanner />, { mock, withProfile: false });
     expect(await screen.findByText("Sending is paused after the restore")).toBeInTheDocument();
-    expect(screen.getByText(/Checking each mailbox's Sent folder/)).toBeInTheDocument();
+    expect(screen.getByText(/Checking what went out after the backup/)).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Resume sending" })).not.toBeInTheDocument();
   });
 

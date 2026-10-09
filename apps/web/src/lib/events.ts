@@ -59,12 +59,19 @@ export function describeEvent(event: RequestEvent): string {
     case "queued":
       return QUEUED_REASONS[event.payload.reason];
     case "sent": {
-      const { channel, kind, unconfirmed, foundInSent } = event.payload;
-      if (channel === "form") return "Submitted the web form.";
+      const { channel, kind, unconfirmed, foundInSent, foundInJournal } = event.payload;
+      if (channel === "form") {
+        return foundInJournal
+          ? "Submitted the web form after the backup was taken. The send record showed it after the restore, so it was not submitted again."
+          : "Submitted the web form.";
+      }
       const sent =
         kind === "initial" ? "Sent the email" : `Sent the ${lower(EMAIL_KIND_LABELS[kind])}`;
       if (foundInSent) {
         return `${sent} after the backup was taken. The Sent folder showed it after the restore, so it was not sent again.`;
+      }
+      if (foundInJournal) {
+        return `${sent} after the backup was taken. The send record showed it after the restore, so it was not sent again.`;
       }
       return unconfirmed
         ? `${sent}, but the mail server did not confirm it. It will not be sent again.`

@@ -16,6 +16,7 @@ import { fileURLToPath } from "node:url";
 import Database from "better-sqlite3";
 import { drizzle } from "drizzle-orm/better-sqlite3";
 import { migrate } from "drizzle-orm/better-sqlite3/migrator";
+import { readMigrationFiles } from "drizzle-orm/migrator";
 import * as schema from "./schema.js";
 
 const KEY_BYTES = 32;
@@ -196,6 +197,38 @@ function writeRollbackCopy(sqlite: Database.Database, dbPath: string, tag: strin
   }
 }
 
+/**
+ * A migration that a feature branch applied under an earlier timestamp than the one it has on main
+ * is already in the database, but drizzle only compares timestamps, so it would run again and fail
+ * on the tables it made. The rest still have to be applied, so they run without it, and its row is
+ * then given the timestamp it has now.
+ */
+function adoptEarlierAppliedMigrations(sqlite: Database.Database, folder: string): void {
+  const last = lastAppliedMigration(sqlite);
+  if (last === null) return;
+  const applied = sqlite
+    .prepare("select hash, created_at as createdAt from __drizzle_migrations")
+    .all() as { hash: string; createdAt: number }[];
+  const migrations = readMigrationFiles({ migrationsFolder: folder });
+  const early = migrations.filter((migration) =>
+    applied.some((row) => row.hash === migration.hash && row.createdAt < migration.folderMillis),
+  );
+  if (early.length === 0) return;
+  const skipped = new Set(early.map((migration) => migration.hash));
+  const record = sqlite.prepare(
+    "insert into __drizzle_migrations (hash, created_at) values (?, ?)",
+  );
+  const retime = sqlite.prepare("update __drizzle_migrations set created_at = ? where hash = ?");
+  sqlite.transaction(() => {
+    for (const migration of migrations) {
+      if (skipped.has(migration.hash) || migration.folderMillis <= last) continue;
+      for (const statement of migration.sql) sqlite.exec(statement);
+      record.run(migration.hash, migration.folderMillis);
+    }
+    for (const migration of early) retime.run(migration.folderMillis, migration.hash);
+  })();
+}
+
 export function openDatabase(options: OpenDatabaseOptions): OpenedDatabase {
   assertKeyPresentForExistingDatabase(options);
   const keyHex = loadOrCreateKey(options.keyPath);
@@ -219,6 +252,7 @@ export function openDatabase(options: OpenDatabaseOptions): OpenedDatabase {
   const db = drizzle(sqlite, { schema });
   const folder = options.migrationsFolder ?? migrationsFolder;
   guardMigrations(sqlite, options, folder);
+  adoptEarlierAppliedMigrations(sqlite, folder);
   migrate(db, { migrationsFolder: folder });
   return {
     db,

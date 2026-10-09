@@ -3,6 +3,9 @@ import { BROWSER_TASK_KINDS, type NotificationCategory } from "@kickrocks/shared
 import { and, eq, isNotNull, or } from "drizzle-orm";
 import type { AppServices } from "../../services.js";
 
+export const WORKER_OFFLINE_KEY = "worker:offline";
+export const WORKER_ABSENT_KEY = "worker:absent";
+
 export interface AttentionItem {
   category: NotificationCategory;
   /** Stable for as long as the item stays open, so it is announced once. */
@@ -14,6 +17,12 @@ export interface AttentionItem {
 /** Longer than a worker restart or a slow heartbeat, short enough that the person hears the same hour. */
 const WORKER_SILENT_MS = 5 * 60 * 1000;
 
+/** A day of silence is worth a push even when no browser work happens to be waiting. */
+export const WORKER_ABSENT_MS = 24 * 60 * 60 * 1000;
+
+/** How long the worker may be quiet before the dead-man's-switch stops being told that all is well. */
+export const WORKER_HEARTBEAT_GRACE_MS = 60 * 60 * 1000;
+
 /** When any worker last checked in, or null when none ever has. */
 export function workerLastSeen(services: AppServices): Date | null {
   const seen = (["builtin", "model"] as const).flatMap((claimer) => {
@@ -21,6 +30,13 @@ export function workerLastSeen(services: AppServices): Date | null {
     return at ? [Date.parse(at)] : [];
   });
   return seen.length > 0 ? new Date(Math.max(...seen)) : null;
+}
+
+/** How long a worker that has run before has been quiet, or null when it is not, or no worker is set up. */
+export function workerQuietForMs(services: AppServices): number | null {
+  const seen = workerLastSeen(services);
+  if (seen === null || services.config.workerToken === null) return null;
+  return services.clock.now().getTime() - seen.getTime();
 }
 
 /** Whether a worker that has run before has gone quiet, whether or not any browser work is waiting. */
@@ -85,7 +101,9 @@ export function collectAttention(services: AppServices): AttentionItem[] {
     items.push({ category: "recipe", key: `recipe:${row.id}`, path: "/settings/recipes" });
   }
   if (workerOfflineWithWorkWaiting(services)) {
-    items.push({ category: "worker", key: "worker:offline", path: "/settings/agents" });
+    items.push({ category: "worker", key: WORKER_OFFLINE_KEY, path: "/settings/agents" });
+  } else if ((workerQuietForMs(services) ?? 0) > WORKER_ABSENT_MS) {
+    items.push({ category: "worker", key: WORKER_ABSENT_KEY, path: "/settings/agents" });
   }
   return items;
 }

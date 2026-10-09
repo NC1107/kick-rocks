@@ -53,6 +53,8 @@ const REQUIREMENT_HELP: Record<Requirement, string> = {
   record_url: "It removes one record at a time, so it first scans for your record.",
   postal_mail: "It accepts requests by post. Nothing sends mail for you.",
   fax: "It accepts requests by fax. Nothing sends faxes for you.",
+  device_id:
+    "It matches only a mobile advertising ID, so a request with your name and address is never matched.",
 };
 
 const LICENSE_LABELS: Record<DataSource["license"], string> = {

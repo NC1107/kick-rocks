@@ -295,6 +295,13 @@ record_verified_backup() {
     || echo "The backup is good, but the app could not be told about it, so it may still call the backup old." >&2
 }
 
+# The archive carries the moment the data was copied, because the server has to know which sends
+# came after it. The services are stopped by now, so no send can fall between this time and the copy.
+record_backup_time() {
+  docker run --rm -v "$1":/data -e "TAKEN_AT=$(date -u +%Y-%m-%dT%H:%M:%SZ)" alpine \
+    sh -c 'echo "$TAKEN_AT" > /data/backup-taken-at && chown 1000:1000 /data/backup-taken-at'
+}
+
 # The server holds every send until it has looked in the mailbox's Sent folder for mail that went
 # out after the backup was taken, because the restored database never saw those sends and would
 # mail the same broker again. The server user owns the file so it can remove it once it is satisfied.
@@ -302,6 +309,22 @@ record_restore() {
   docker run --rm -v "$1":/data -e "RESTORED_AT=$(date -u +%Y-%m-%dT%H:%M:%SZ)" alpine \
     sh -c 'echo "$RESTORED_AT" > /data/restored-at && chown 1000:1000 /data/restored-at' \
     || echo "The restore worked, but the server could not be told to check for mail sent since the backup. Look in the mailbox's Sent folder before requests go out again." >&2
+}
+
+# Every send the replaced instance made is in its journal, including the ones after the backup that the
+# restored database never saw. The archive only holds the journal as it was then, so the live one is
+# carried over, and a marker says so: without it the server must not take the journal for complete.
+# The marker is cleared first because the archive may hold one from an earlier restore.
+carry_send_journal() {
+  local volume="$1" previous="$2"
+  if [ -z "$previous" ]; then
+    docker run --rm -v "$volume":/to alpine rm -f /to/journal-carried \
+      || echo "The restore worked, but the server may take the send journal for complete when it is not." >&2
+    return
+  fi
+  docker run --rm -v "$previous":/live:ro -v "$volume":/to alpine \
+    sh -c 'rm -f /to/journal-carried; if [ -f /live/sent-journal ]; then cp -p /live/sent-journal /to/sent-journal && chown 1000:1000 /to/sent-journal && touch /to/journal-carried && chown 1000:1000 /to/journal-carried; fi' \
+    || echo "The restore worked, but the record of what was sent since the backup could not be carried over, so the server will look in the Sent folder instead." >&2
 }
 
 backup() {
@@ -316,6 +339,7 @@ backup() {
     ensure_server_image || { echo "Could not build the server image that encrypts the backup, so nothing was written." >&2; exit 1; }
   fi
   stop_for_copy
+  record_backup_time "$volume" || { echo "Could not note when the backup was taken, so nothing was written to $file." >&2; exit 1; }
   # The archive is built beside its destination and renamed only once it reads back whole, so a
   # failed run never replaces a good backup with a broken one.
   partial_file="$file.partial"
@@ -453,6 +477,7 @@ restore() {
       sh -c 'if [ -f /live/last-backup ]; then cp -p /live/last-backup /to/last-backup; else rm -f /to/last-backup; fi' \
       || echo "The restore worked, but the last backup time could not be carried over, so the About page may show an older one." >&2
   fi
+  carry_send_journal "$volume" "$([ "$had_previous" = true ] && echo "$previous")"
   [ "$had_previous" = false ] || docker volume rm -f "$previous" >/dev/null 2>&1 || true
   previous_volume=""
   record_restore "$volume"

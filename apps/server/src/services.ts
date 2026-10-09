@@ -22,7 +22,9 @@ import { createRecipeHealth, type RecipeHealthService } from "./core/recipe-heal
 import { createRequestFlow, type Requests } from "./core/request-flow.js";
 import { createRequestsService } from "./core/requests.js";
 import { createRestoreGate, type RestoreGate } from "./core/restore-gate.js";
+import { settleBrowserWorkAfterRestore } from "./core/restore-settle.js";
 import { createSecrets, type Secrets } from "./core/secrets.js";
+import { createSentJournal, type SentJournal } from "./core/sent-journal.js";
 import { createSettingsStore, type SettingsStore } from "./core/settings.js";
 import { createSitePoliteness, type SitePoliteness } from "./core/site-politeness.js";
 import { createStartup, type Startup } from "./core/startup.js";
@@ -75,6 +77,8 @@ export interface AppServices {
   mailHolds: MailHolds;
   /** Holds sends after a restore until the mail sent since the backup has been accounted for. */
   restoreGate: RestoreGate;
+  /** Every send, outside the database, so a restore can tell which requests went out after its backup. */
+  sentJournal: SentJournal;
   /** Whether the scheduler is still turning over, which the health check reports. */
   liveness: Liveness;
   /** Room held back for the writes that report a full disk. */
@@ -176,6 +180,7 @@ export function createServices(
   };
   registerTaskAudit(taskHandlers, requests);
 
+  const restoreGate = createRestoreGate({ dataDir: config.dataDir, clock, logger });
   const services: AppServices = {
     config,
     db,
@@ -193,7 +198,8 @@ export function createServices(
     composer: createComposer({ db, clock, legal, targets }),
     mailQuota: createMailQuota(db, clock),
     mailHolds: createMailHolds(clock),
-    restoreGate: createRestoreGate({ dataDir: config.dataDir, clock, logger }),
+    restoreGate,
+    sentJournal: createSentJournal({ dataDir: config.dataDir, clock, logger }),
     liveness: createLiveness(clock),
     diskReserve: createDiskReserve(config.dataDir, logger),
     startup: createStartup(),
@@ -205,6 +211,7 @@ export function createServices(
     notificationChannels: overrides.notificationChannels ?? createNotificationChannels(),
   };
 
+  restoreGate.onRelease((restoredAt) => settleBrowserWorkAfterRestore(services, restoredAt));
   registerHandlers(services);
   registerRunners(services);
   return services;

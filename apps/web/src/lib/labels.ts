@@ -72,6 +72,7 @@ export const REQUIREMENT_LABELS: Record<Requirement, string> = {
   record_url: "Record URL",
   postal_mail: "Postal mail",
   fax: "Fax",
+  device_id: "Device ID only",
 };
 
 export const PRIORITY_LABELS: Record<TargetPriority, string> = {
@@ -105,6 +106,8 @@ export const DIFFICULTY_REASON_LABELS: Record<DifficultyReason, string> = {
   captcha: "It shows a CAPTCHA that only you can solve.",
   needs_mail: "It only accepts requests by post.",
   needs_fax: "It only accepts requests by fax.",
+  needs_device_id:
+    "It matches only a mobile advertising ID, which no name or address request can use.",
   no_recipe: "No approved recipe fills in its form, so an agent or you have to.",
   recipe_broken: "Its approved recipe is failing against the live site.",
   email_shared:

@@ -518,6 +518,7 @@ describe("skip reasons", () => {
     ["fax", "a fax"],
     ["phone_call", "a phone call"],
     ["paid", "a payment"],
+    ["device_id", "a mobile advertising ID"],
   ] as const)("unsupported_channel: a form behind %s and no email", async (requirement, label) => {
     const { profile } = setup();
     seedTarget(ctx, {

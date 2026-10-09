@@ -667,4 +667,38 @@ describe("the dead-man's-switch heartbeat", () => {
     expect(pings).toHaveLength(2);
     await beating.stop();
   });
+
+  const workerSeen = (agoMs: number) =>
+    ctx.services.settings.set("worker.status.builtin", {
+      workerId: "w1",
+      version: null,
+      lastSeenAt: new Date(ctx.clock.now().getTime() - agoMs).toISOString(),
+      busy: false,
+      currentTaskId: null,
+    });
+
+  it("stops pinging once a worker that has run before has been silent for over an hour", async () => {
+    const pings: number[] = [];
+    const beating = heartbeatScheduler(async () => {
+      pings.push(ctx.clock.now().getTime());
+    });
+    workerSeen(30 * MINUTE);
+    await beating.tick();
+    expect(pings).toHaveLength(1);
+    workerSeen(2 * 60 * MINUTE);
+    ctx.clock.advance(MINUTE);
+    await beating.tick();
+    expect(pings).toHaveLength(1);
+    await beating.stop();
+  });
+
+  it("keeps pinging when no worker has ever reported", async () => {
+    const pings: number[] = [];
+    const beating = heartbeatScheduler(async () => {
+      pings.push(ctx.clock.now().getTime());
+    });
+    await beating.tick();
+    expect(pings).toHaveLength(1);
+    await beating.stop();
+  });
 });

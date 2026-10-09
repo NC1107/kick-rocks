@@ -155,6 +155,45 @@ describe("openDatabase across builds", () => {
     expect(readFileSync(paths().dbPath).equals(bytes)).toBe(true);
   });
 
+  it("opens a database that a branch migrated with the task_sends migration under an earlier timestamp", () => {
+    const folder = join(dir, "migrations-branch");
+    mkdirSync(join(folder, "meta"), { recursive: true });
+    const journal = JSON.parse(readFileSync(join(drizzleFolder, "meta", "_journal.json"), "utf8"));
+    const shared = journal.entries.slice(0, 7);
+    const branchEntry = {
+      ...journal.entries[10],
+      idx: 7,
+      when: 1791476590826,
+      tag: "0007_task_sends",
+    };
+    writeFileSync(
+      join(folder, "meta", "_journal.json"),
+      JSON.stringify({ ...journal, entries: [...shared, branchEntry] }),
+    );
+    for (const entry of shared) {
+      cpSync(join(drizzleFolder, `${entry.tag}.sql`), join(folder, `${entry.tag}.sql`));
+    }
+    cpSync(join(drizzleFolder, "0010_task_sends.sql"), join(folder, "0007_task_sends.sql"));
+    openDatabase({ ...paths(), migrationsFolder: folder }).close();
+
+    const opened = openDatabase(paths());
+    const rows = opened.db.$client
+      .prepare("select created_at as createdAt from __drizzle_migrations order by created_at")
+      .all() as { createdAt: number }[];
+    expect(rows.map((row) => row.createdAt)).toEqual(
+      journal.entries.map((entry: { when: number }) => entry.when),
+    );
+    expect(
+      opened.db.$client
+        .prepare(
+          "select count(*) as n from pragma_table_info('outgoing_mail') where name = 'recipient'",
+        )
+        .get(),
+    ).toEqual({ n: 1 });
+    opened.close();
+    openDatabase(paths()).close();
+  });
+
   it("keeps a copy of the database before pending migrations run", () => {
     const older = openDatabase({ ...paths(), migrationsFolder: foldersCutAt(2) });
     older.db

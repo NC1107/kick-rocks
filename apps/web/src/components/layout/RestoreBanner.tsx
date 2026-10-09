@@ -9,8 +9,9 @@ const IDLE_REFRESH_MS = 120_000;
 
 /**
  * Shown while the server holds every send after a restore. A restored database does not know about
- * mail sent after its backup, so the server first looks in each mailbox's Sent folder, and only a
- * person who has looked for themselves can tell it to go on when that check cannot finish.
+ * what was sent after its backup, so the server first reads its send record and each mailbox's Sent
+ * folder, and only a person who has looked for themselves can tell it to go on when that check
+ * cannot finish.
  */
 export function RestoreBanner() {
   const [confirming, setConfirming] = useState(false);
@@ -42,13 +43,15 @@ export function RestoreBanner() {
       >
         {held.problem ? (
           <>
-            The Sent folder could not be checked: {held.problem}. The restored data does not know
-            about mail sent after the backup, so resuming can email a broker a second time.
+            What was sent since the backup could not be checked: {held.problem}. The restored data
+            does not know about mail sent after the backup, so resuming can email a broker a second
+            time.
           </>
         ) : (
           <>
-            Checking each mailbox's Sent folder for mail that went out after the backup, so no
-            broker is emailed twice. Sending resumes by itself when that is done.
+            Checking what went out after the backup, from the send record and each mailbox's Sent
+            folder, so no broker is emailed twice. Web forms and agent runs wait too. Sending
+            resumes by itself when that is done.
           </>
         )}
         {since}
@@ -57,7 +60,7 @@ export function RestoreBanner() {
         open={confirming}
         onClose={() => setConfirming(false)}
         title="Resume sending?"
-        description="Look in your Sent folder first. Requests that already went out will be emailed again."
+        description="Look in your Sent folder first. Requests that already went out will be emailed again. Web forms that were waiting go to Review, and nothing submits them until you say so."
         confirmLabel="Resume sending"
         onConfirm={() => resume.mutate({ body: { confirm: true } })}
         loading={resume.isPending}

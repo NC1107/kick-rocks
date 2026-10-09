@@ -1,6 +1,6 @@
 import type { NotificationCategory, NotificationSettings, PushChannel } from "@kickrocks/shared";
 import type { AppServices } from "../../services.js";
-import { type AttentionItem, collectAttention } from "./attention.js";
+import { type AttentionItem, collectAttention, WORKER_OFFLINE_KEY } from "./attention.js";
 import type { PushMessage } from "./channels.js";
 import { readState, updateState } from "./state.js";
 
@@ -21,6 +21,8 @@ const PHRASES: Record<NotificationCategory, (count: number) => string> = {
   recipe: (n) => (n === 1 ? "1 recipe is broken" : `${n} recipes are broken`),
   worker: () => "The worker is offline and browser work is waiting",
 };
+
+const WORKER_ABSENT_PHRASE = "The worker has not reported for over a day";
 
 const ORDER: readonly NotificationCategory[] = [
   "blocked_task",
@@ -49,9 +51,12 @@ function destinationOf(items: readonly AttentionItem[]): string {
 function describeAttention(items: readonly AttentionItem[], appUrl: string): PushMessage {
   const counts = new Map<NotificationCategory, number>();
   for (const { category } of items) counts.set(category, (counts.get(category) ?? 0) + 1);
+  const workerWaiting = items.some((item) => item.key === WORKER_OFFLINE_KEY);
   const phrases = ORDER.flatMap((category) => {
     const count = counts.get(category);
-    return count ? [PHRASES[category](count)] : [];
+    if (!count) return [];
+    if (category === "worker" && !workerWaiting) return [WORKER_ABSENT_PHRASE];
+    return [PHRASES[category](count)];
   });
   const url = `${appUrl}${destinationOf(items)}`;
   return {

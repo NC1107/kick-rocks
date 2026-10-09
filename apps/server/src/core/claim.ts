@@ -44,6 +44,7 @@ type ClaimServices = Pick<
   | "settings"
   | "politeness"
   | "taskSends"
+  | "restoreGate"
   | "logger"
 >;
 
@@ -64,6 +65,15 @@ interface ClaimOptions {
 }
 
 type BrowserTask = Task<BrowserTaskKind>;
+
+/**
+ * Whether running the task can put a request in front of a broker: a form, a confirmation link, or
+ * an agent that removes. A scan only reads, so it runs while sending is held.
+ */
+export function sendsToBroker(task: Task): boolean {
+  if (task.kind === "form" || task.kind === "confirm") return true;
+  return task.kind === "agent" && task.payload.purpose !== "scan";
+}
 
 function isBrowserTask(task: Task): task is BrowserTask {
   return (BROWSER_TASK_KINDS as readonly string[]).includes(task.kind);
@@ -641,15 +651,29 @@ function tasksRoutedAwayFromMcp(
  * it was queued is cancelled and skipped. If the claim cannot be built the task is failed on the
  * spot rather than left leased to a caller that never received it.
  */
+function queuedAgentSendIds(services: ClaimServices): string[] {
+  return services.taskQueue
+    .list({ kinds: ["agent"], status: "queued" })
+    .filter(sendsToBroker)
+    .map((task) => task.id);
+}
+
 export function claimTask(
   services: ClaimServices,
   { workerId, kinds, leaseMs, taskId, claimerKind, model }: ClaimOptions,
 ): ClaimedTask | null {
   reuseRecentScans(services);
+  const holding = services.restoreGate.holding();
   if (taskId !== undefined) {
     const leased = services.db.transaction(() => {
       const current = services.taskQueue.get(taskId);
       if (!current) throw notFound(`Task ${taskId} not found`, "task_not_found");
+      if (holding && sendsToBroker(current)) {
+        throw conflict(
+          "restore_hold",
+          "Sending is held after a restore, because the restored data may not know what the earlier instance already sent.",
+        );
+      }
       if (
         claimerKind === "mcp" &&
         tasksRoutedAwayFromMcp(services, BROWSER_TASK_KINDS).includes(taskId)
@@ -678,14 +702,20 @@ export function claimTask(
     return prepare(services, leased, workerId, claimerKind, model);
   }
 
+  const takeable = holding ? kinds.filter((kind) => kind !== "form" && kind !== "confirm") : kinds;
+  if (takeable.length === 0) return null;
   for (let skipped = 0; skipped <= MAX_OBSOLETE_PER_CLAIM; skipped++) {
+    const excludeTaskIds = [
+      ...(claimerKind === "model" ? tasksForModelToSkip(services) : []),
+      ...(claimerKind === "mcp" ? tasksRoutedAwayFromMcp(services, kinds) : []),
+      ...(holding ? queuedAgentSendIds(services) : []),
+    ];
     const task = services.taskQueue.claim({
       workerId,
-      kinds,
+      kinds: takeable,
       leaseMs,
       claimerKind,
-      ...(claimerKind === "model" ? { excludeTaskIds: tasksForModelToSkip(services) } : {}),
-      ...(claimerKind === "mcp" ? { excludeTaskIds: tasksRoutedAwayFromMcp(services, kinds) } : {}),
+      ...(excludeTaskIds.length > 0 ? { excludeTaskIds } : {}),
     });
     if (task === null) return null;
     const claimed = prepare(services, task, workerId, claimerKind, model);

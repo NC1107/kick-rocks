@@ -63,6 +63,9 @@ function applyRemoval(
     return;
   }
 
+  if (task.kind === "form") {
+    services.sentJournal.append({ requestId: request.id, ref: task.id, channel: "form" });
+  }
   const now = services.clock.now();
   const window = responseWindow(services, request, now);
   const waiting = outcome === "awaiting_email_confirmation";

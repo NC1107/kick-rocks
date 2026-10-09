@@ -29,6 +29,7 @@ const PERSON_NEEDED: ReadonlyArray<readonly [Requirement, DifficultyReason]> = [
   ["captcha", "captcha"],
   ["postal_mail", "needs_mail"],
   ["fax", "needs_fax"],
+  ["device_id", "needs_device_id"],
 ];
 
 function personNeededReasons(input: DifficultyInput): DifficultyReason[] {
