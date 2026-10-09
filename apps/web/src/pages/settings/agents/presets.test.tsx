@@ -146,8 +146,28 @@ describe("the safety gate", () => {
       screen.getByRole("heading", { name: "Safety gate" }).closest("section") as HTMLElement,
     );
     expect(gate.getByText("Not cleared")).toBeVisible();
-    expect(gate.getByText(/stops, and the task waits in Review/)).toBeVisible();
+    expect(
+      gate.getByText(
+        /every body sent to the site once the run starts typing, waits for you in Review/,
+      ),
+    ).toBeVisible();
     expect(screen.getByText(/--thinking off/)).toBeVisible();
+  });
+
+  it("lets the person choose how long a held send waits, and lists what the gate cannot see", async () => {
+    const { user, mock } = agents();
+    await pickGpu(user, "12 GB");
+    const hold = await screen.findByRole("combobox", { name: "Wait for me" });
+    expect(hold).toHaveValue("10");
+    await user.selectOptions(hold, "0");
+    await waitFor(() => expect(mock.store.settings.agent.approvalHoldMinutes).toBe(0));
+    const limits = within(
+      screen
+        .getByRole("heading", { name: "What the gate cannot see" })
+        .closest("section") as HTMLElement,
+    );
+    expect(limits.getByText(/Sites that need a live connection\./)).toBeVisible();
+    expect(limits.getByText(/Bot sensors\./)).toBeVisible();
   });
 
   it("calls a pass for another build out of date once the worker reports the running build", async () => {

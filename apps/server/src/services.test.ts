@@ -60,6 +60,7 @@ describe("createServices with no overrides", () => {
           "targets",
           "taskHandlers",
           "taskQueue",
+          "taskSends",
         ].sort(),
       );
       expect(typeof services.requests.open).toBe("function");

@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Opt out - Navigations</title></head>
+<body>
+<h1>Find your listing</h1>
+<label for="email">Email address</label>
+<input id="email" name="email" type="email">
+<button type="button" onclick="location.href = '/gate-collect?via=location&email=' + encodeURIComponent(document.getElementById('email').value)">Go to results</button>
+<form method="get" action="/gate-collect">
+  <input type="hidden" name="via" value="getform">
+  <label for="getemail">Email for the lookup form</label>
+  <input id="getemail" name="email" type="email">
+  <button type="submit">Search by email</button>
+</form>
+<form method="get" action="/gate-search">
+  <label for="first">First name</label>
+  <input id="first" name="first">
+  <label for="last">Last name</label>
+  <input id="last" name="last">
+  <label for="city">City</label>
+  <input id="city" name="city">
+  <button type="submit">Search by name</button>
+</form>
+</body>
+</html>

@@ -1,6 +1,13 @@
-import { existsSync } from "node:fs";
+import { existsSync, mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import type { ClaimedTask, ProfileFields, TargetSummary, TaskSummary } from "@kickrocks/shared";
-import { findInstalledChrome } from "@kickrocks/worker/dist/browser.js";
+import {
+  chromeArgs,
+  findInstalledChrome,
+  NO_SIGNAL_HANDLERS,
+  turnOffPreloading,
+} from "@kickrocks/worker/dist/browser.js";
 import { silentLogger } from "@kickrocks/worker/dist/logger.js";
 import { type Browser, chromium } from "playwright";
 import { describe } from "vitest";
@@ -30,13 +37,29 @@ export const describeBrowser = describe.skipIf(
   !browserAvailable && process.env.KICKROCKS_REQUIRE_INTEGRATION !== "1",
 );
 
-export function launchTestBrowser(): Promise<Browser> {
+/**
+ * A Chrome started the way production starts it: its own profile with preloading turned off and
+ * the same switches. Playwright's plain launch uses a profile of its own that a setting cannot
+ * be written into, so the browser comes from a persistent context and closing it removes the profile.
+ */
+export async function launchTestBrowser(): Promise<Browser> {
   const executablePath = process.env.KICKROCKS_CHROME_EXECUTABLE ?? findInstalledChrome();
-  return chromium.launch({
+  const profileDir = mkdtempSync(join(tmpdir(), "kickrocks-chrome-"));
+  turnOffPreloading(profileDir);
+  const context = await chromium.launchPersistentContext(profileDir, {
     headless: true,
-    args: [`--host-resolver-rules=MAP other.test 127.0.0.1`],
+    ...NO_SIGNAL_HANDLERS,
+    args: [`--host-resolver-rules=MAP other.test 127.0.0.1`, ...chromeArgs({ noSandbox: false })],
     ...(executablePath ? { executablePath } : {}),
   });
+  const browser = context.browser();
+  if (browser === null) throw new Error("the test browser has no browser to hand out");
+  const close = browser.close.bind(browser);
+  browser.close = async (options) => {
+    await close(options);
+    rmSync(profileDir, { recursive: true, force: true });
+  };
+  return browser;
 }
 
 export const TARGET: TargetSummary = {

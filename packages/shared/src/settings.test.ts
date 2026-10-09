@@ -69,6 +69,7 @@ describe("SETTING_SCHEMAS", () => {
         "siteChecks.enabled",
         "agent.takeUnreviewed",
         "agent.gate",
+        "agent.approvalHoldMinutes",
         "worker.status.builtin",
         "worker.status.model",
         "notifications",

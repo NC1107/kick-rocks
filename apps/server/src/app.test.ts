@@ -122,7 +122,9 @@ describe("GET /api/health", () => {
 describe("a write when the disk is full", () => {
   it("answers 507 with a message that names the disk, not a bare 500", async () => {
     const { $client } = ctx.services.db;
-    $client.pragma(`max_page_count = ${$client.pragma("page_count", { simple: true })}`);
+    // A few pages of room, since the filler table itself needs one and the database has none to spare.
+    const pageCount = Number($client.pragma("page_count", { simple: true }));
+    $client.pragma(`max_page_count = ${pageCount + 4}`);
     $client.exec("CREATE TABLE filler (blob BLOB)");
     // Taking up every page the file may still grow by is what a nearly full disk looks like to SQLite.
     for (const size of [16384, 512, 8]) {

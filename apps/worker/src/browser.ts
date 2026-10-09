@@ -1,5 +1,14 @@
 import { createHash } from "node:crypto";
-import { existsSync, lstatSync, mkdirSync, readdirSync, readlinkSync, rmSync } from "node:fs";
+import {
+  existsSync,
+  lstatSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  readlinkSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { hostname } from "node:os";
 import { join } from "node:path";
 import { isValidTimeZone } from "@kickrocks/shared";
@@ -89,6 +98,11 @@ export interface BrowserSettings {
   proxyServer?: string | null;
   /** A specific binary; otherwise the installed Chrome, otherwise Playwright's Chromium. */
   executablePath: string | null;
+  /**
+   * Never lets a shared worker start. A shared worker has no DevTools session a page's request
+   * interception could reach, so a run whose requests are all inspected cannot allow one.
+   */
+  blockSharedWorkers?: boolean;
 }
 
 export type BrowserLauncher = (settings: BrowserSettings) => Promise<BrowserContext>;
@@ -170,10 +184,24 @@ export async function clearServiceWorkers(context: BrowserContext): Promise<void
  * Over a proxy, WebRTC would otherwise let a page read the home address from STUN candidates,
  * because UDP does not go through an http proxy.
  */
+export const DISABLED_FEATURES = [
+  "Prerender2",
+  "Reporting",
+  "NetworkErrorLogging",
+  "FedCm",
+  "WebPayments",
+] as const;
+
 export function chromeArgs(settings: Pick<BrowserSettings, "noSandbox" | "proxyServer">): string[] {
   return [
     "--remote-debugging-port=0",
     "--disable-blink-features=AutomationControlled",
+    // A prerendered page loads in a target the request gate has no session on. The browser's
+    // Reporting API and Network Error Logging send reports to endpoints a site names, from the
+    // network service and later than the request, outside the request inspection. FedCM fetches
+    // its config and PaymentRequest fetches its method manifest from the browser process, from an
+    // address the page names, and neither is paused by request interception.
+    `--disable-features=${DISABLED_FEATURES.join(",")}`,
     ...(settings.noSandbox ? ["--no-sandbox"] : []),
     ...(settings.proxyServer
       ? [
@@ -184,12 +212,54 @@ export function chromeArgs(settings: Pick<BrowserSettings, "noSandbox" | "proxyS
   ];
 }
 
+/**
+ * Chrome's "no preloading" setting. A speculation rule, whether in a page, a document rule or a
+ * Speculation-Rules header, is prefetched and prerendered by Chrome's own prefetch service, which
+ * never reaches the request gate, so a link carrying a value would be fetched with the full
+ * Referer and cookie jar and no record. There is no command-line switch with the same reach, so
+ * the setting is written into the profile.
+ */
+export const NETWORK_PREDICTION_OPTIONS = 2;
+
+/** Writes the no-preloading setting into the profile Chrome is about to open, keeping its other settings. */
+export function turnOffPreloading(profileDir: string): void {
+  const file = join(profileDir, "Default", "Preferences");
+  let preferences: Record<string, unknown> = {};
+  try {
+    const parsed: unknown = JSON.parse(readFileSync(file, "utf8"));
+    if (parsed !== null && typeof parsed === "object" && !Array.isArray(parsed)) {
+      preferences = parsed as Record<string, unknown>;
+    }
+  } catch {
+    // A profile that has never run has no settings yet, and one that cannot be read is replaced.
+  }
+  const net = preferences.net;
+  preferences.net = {
+    ...(net !== null && typeof net === "object" && !Array.isArray(net) ? net : {}),
+    network_prediction_options: NETWORK_PREDICTION_OPTIONS,
+  };
+  mkdirSync(join(profileDir, "Default"), { recursive: true });
+  writeFileSync(file, JSON.stringify(preferences));
+}
+
+/**
+ * Playwright closes the browser the moment it receives SIGINT, SIGTERM or SIGHUP, before the
+ * worker can fail what the request gate still holds. Chrome sends a paused keepalive request when
+ * the browser goes away, so the worker handles the signals itself and closes the gate first.
+ */
+export const NO_SIGNAL_HANDLERS = {
+  handleSIGINT: false,
+  handleSIGTERM: false,
+  handleSIGHUP: false,
+} as const;
+
 export const launchPersistentChrome = async (
   settings: BrowserSettings,
   guardOptions: TabGuardOptions = {},
 ): Promise<BrowserContext> => {
   clearStaleProfileLock(settings.profileDir);
   clearServiceWorkerStorage(settings.profileDir);
+  turnOffPreloading(settings.profileDir);
   forgetDevToolsEndpoint(settings.profileDir);
   const executablePath = settings.executablePath ?? findInstalledChrome();
   try {
@@ -200,10 +270,14 @@ export const launchPersistentChrome = async (
       ...(settings.proxyServer ? { proxy: { server: settings.proxyServer } } : {}),
       ...BROWSER_CONTEXT_OPTIONS,
       ...timezoneOption(),
+      ...NO_SIGNAL_HANDLERS,
     });
     bypassOnEveryPage(context);
     try {
-      const guard = await bypassServiceWorkersBeforeTabsRun(settings.profileDir, guardOptions);
+      const guard = await bypassServiceWorkersBeforeTabsRun(settings.profileDir, {
+        ...(settings.blockSharedWorkers ? { blockSharedWorkers: true } : {}),
+        ...guardOptions,
+      });
       tabGuards.set(context, guard);
       context.on("close", () => guard.close());
     } catch (error) {

@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Opt out - Heavy page</title></head>
+<body>
+<canvas id="noise" width="900" height="3200"></canvas>
+<h1>Remove your listing</h1>
+<form method="post" action="/gate-optout">
+  <label for="email">Email address</label>
+  <input id="email" name="email" type="email">
+  <button type="submit">Submit request</button>
+</form>
+<script>
+  const canvas = document.getElementById('noise');
+  const context = canvas.getContext('2d');
+  const image = context.createImageData(canvas.width, canvas.height);
+  for (let offset = 0; offset < image.data.length; offset += 65536) {
+    crypto.getRandomValues(image.data.subarray(offset, Math.min(offset + 65536, image.data.length)));
+  }
+  for (let i = 3; i < image.data.length; i += 4) image.data[i] = 255;
+  context.putImageData(image, 0, 0);
+</script>
+</body>
+</html>

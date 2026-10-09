@@ -1,0 +1,557 @@
+import { createHash } from "node:crypto";
+import {
+  type CarriedField,
+  isContactField,
+  OUTGOING_LIMITS,
+  type OutgoingRequest,
+  type OutgoingValue,
+} from "@kickrocks/shared";
+import { unpack } from "./decode.js";
+import type { Scan, ValueDetector } from "./detector.js";
+import { METHODS_ALLOWED } from "./policy.js";
+
+/** The largest body that is read and shown. A larger one is held back as unreadable. */
+export const MAX_BODY_BYTES = 2 * 1024 * 1024;
+/** What is shown is cut to what the server accepts, and everything is scanned whatever is shown. */
+const MAX_VALUE_CHARS = OUTGOING_LIMITS.value;
+const MAX_ENTRIES = OUTGOING_LIMITS.entries;
+const MAX_HEADERS = OUTGOING_LIMITS.headers;
+
+export interface PostDataEntry {
+  bytes?: string;
+}
+
+/** The part of a paused request the gate reads, in the shape the DevTools protocol reports it. */
+export interface PausedRequest {
+  requestId: string;
+  networkId?: string;
+  resourceType: string;
+  frameId?: string;
+  responseStatusCode?: number;
+  responseHeaders?: { name: string; value: string }[];
+  request: {
+    url: string;
+    urlFragment?: string;
+    method?: string;
+    headers?: Record<string, string>;
+    postData?: string;
+    hasPostData?: boolean;
+    postDataEntries?: PostDataEntry[];
+  };
+}
+
+export interface BodyRead {
+  bytes: Buffer | null;
+  /** The request has a body, whether or not it could be read. */
+  present: boolean;
+  /** The body is a stream, a file, a blob or larger than the limit, so what it holds is unknown. */
+  unreadable: boolean;
+}
+
+export interface Cookie {
+  name: string;
+  value: string;
+}
+
+export interface TargetContext {
+  type: string;
+  frameOrigin: string;
+  topLevel: boolean;
+}
+
+/** A request as the gate classifies it: the record to store, and what it was found to carry. */
+export interface Canonical {
+  request: OutgoingRequest;
+  scan: Scan;
+  body: BodyRead;
+  method: string;
+  url: string;
+  /** Part of the request is missing from the record, so a person cannot have read all of it. */
+  truncated: boolean;
+  /** The address carries a username or password, which the browser sends as Basic after a 401. */
+  urlCredentials: boolean;
+  /** Some part of the request could not be read in full, so what it carries is unknown. */
+  unreadable: boolean;
+  /**
+   * What the Referer of a request to the target holds. It never leaves, because the gate cuts it to
+   * the site address, so it takes no part in the decision and is only recorded.
+   */
+  refererCarries: CarriedField[];
+}
+
+/**
+ * Values a site put in a page it served, by field name. A token that the site itself generated for
+ * this load is expected to differ the next time, and the person approving does not need to see it.
+ */
+export class ServedValues {
+  private readonly byName = new Map<string, Set<string>>();
+
+  private note(name: string, value: string): void {
+    if (name === "" || value === "" || value.length > MAX_VALUE_CHARS) return;
+    const known = this.byName.get(name) ?? new Set<string>();
+    if (known.size >= 50) return;
+    known.add(value);
+    this.byName.set(name, known);
+  }
+
+  /** Reads the fields a page or an API answer holds: inputs, meta tags and JSON keys. */
+  record(body: string, contentType: string): void {
+    if (/json/i.test(contentType)) {
+      try {
+        this.recordJson(JSON.parse(body), "");
+      } catch {
+        // An answer that is not JSON has no keys to read.
+      }
+      return;
+    }
+    for (const tag of body.match(/<input\b[^>]*>/gi) ?? []) {
+      // Only a hidden input carries a value the site generated. The values of a radio, a checkbox or
+      // a text input are choices the person made or could have made, so they are never tokens.
+      if (attribute(tag, "type").toLowerCase() !== "hidden") continue;
+      this.note(attribute(tag, "name"), attribute(tag, "value"));
+    }
+    for (const tag of body.match(/<meta\b[^>]*>/gi) ?? []) {
+      this.note(attribute(tag, "name"), attribute(tag, "content"));
+    }
+  }
+
+  private recordJson(value: unknown, key: string): void {
+    if (typeof value === "string") this.note(key, value);
+    else if (Array.isArray(value)) for (const item of value) this.recordJson(item, key);
+    else if (value !== null && typeof value === "object") {
+      for (const [name, item] of Object.entries(value)) this.recordJson(item, name);
+    }
+  }
+
+  /**
+   * A name that was served with several values is a list of choices or records, not one token for
+   * this load, so a value counts as served only when it is the only one the page gave that name.
+   */
+  has(name: string, value: string): boolean {
+    const known = this.byName.get(name);
+    return known?.size === 1 && known.has(value);
+  }
+}
+
+function attribute(tag: string, name: string): string {
+  const match = new RegExp(`\\b${name}\\s*=\\s*("([^"]*)"|'([^']*)'|([^\\s>]+))`, "i").exec(tag);
+  return match ? (match[2] ?? match[3] ?? match[4] ?? "") : "";
+}
+
+/** The address a Referer is cut to: scheme, host and port with a trailing slash, or null when it names none. */
+export function refererOrigin(referer: string): string | null {
+  try {
+    const { protocol, origin } = new URL(referer);
+    return protocol === "http:" || protocol === "https:" ? `${origin}/` : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * The headers to continue a request to the target with, or null when they need no change. A page
+ * can write what the run typed into its own address with the history api, and every later load
+ * would carry that address in the Referer, so only the site's address goes out.
+ */
+export function headersWithShortReferer(
+  headers: Record<string, string> | undefined,
+): { name: string; value: string }[] | null {
+  const entries = Object.entries(headers ?? {});
+  const found = entries.find(([name]) => name.toLowerCase() === "referer");
+  if (found === undefined) return null;
+  const origin = refererOrigin(found[1]);
+  if (origin === found[1]) return null;
+  return entries
+    .filter(([name]) => name.toLowerCase() !== "referer")
+    .concat(origin === null ? [] : [["Referer", origin]])
+    .map(([name, value]) => ({ name, value }));
+}
+
+function header(headers: Record<string, string> | undefined, name: string): string {
+  for (const [key, value] of Object.entries(headers ?? {})) {
+    if (key.toLowerCase() === name) return value;
+  }
+  return "";
+}
+
+export function sha256(bytes: Buffer | null): string {
+  return bytes === null || bytes.length === 0
+    ? ""
+    : createHash("sha256").update(bytes).digest("hex");
+}
+
+/** Reads the body of a paused request completely, or says it could not. */
+export async function readBody(
+  event: PausedRequest,
+  fetchPostData: (requestId: string) => Promise<{ postData: string; base64Encoded?: boolean }>,
+): Promise<BodyRead> {
+  const { request } = event;
+  const entries = request.postDataEntries;
+  if (Array.isArray(entries) && entries.length > 0) {
+    if (entries.some((entry) => typeof entry.bytes !== "string")) {
+      return { bytes: null, present: true, unreadable: true };
+    }
+    const bytes = Buffer.concat(entries.map((entry) => Buffer.from(entry.bytes ?? "", "base64")));
+    return { bytes, present: true, unreadable: bytes.length > MAX_BODY_BYTES };
+  }
+  if (typeof request.postData === "string") {
+    const bytes = Buffer.from(request.postData, "utf8");
+    return { bytes, present: true, unreadable: bytes.length > MAX_BODY_BYTES };
+  }
+  if (request.hasPostData !== true) return { bytes: null, present: false, unreadable: false };
+  try {
+    const answer = await fetchPostData(event.networkId ?? event.requestId);
+    const bytes = Buffer.from(answer.postData, answer.base64Encoded ? "base64" : "utf8");
+    return { bytes, present: true, unreadable: bytes.length > MAX_BODY_BYTES };
+  } catch {
+    return { bytes: null, present: true, unreadable: true };
+  }
+}
+
+interface Leaf {
+  path: string;
+  value: string;
+  /** The bytes of a file part, which are read through the decoder because the shown value is only their digest. */
+  file?: Buffer;
+}
+
+function jsonLeaves(value: unknown, path: string, leaves: Leaf[]): void {
+  if (typeof value === "string") leaves.push({ path, value });
+  else if (typeof value === "number" || typeof value === "boolean") {
+    leaves.push({ path, value: String(value) });
+  } else if (value === null) leaves.push({ path, value: "null" });
+  else if (Array.isArray(value)) {
+    value.forEach((item, index) => {
+      jsonLeaves(item, `${path}[${index}]`, leaves);
+    });
+  } else if (typeof value === "object") {
+    for (const [key, item] of Object.entries(value)) {
+      jsonLeaves(item, path === "" ? key : `${path}.${key}`, leaves);
+    }
+  }
+}
+
+function isPrintable(bytes: Buffer): boolean {
+  const text = bytes.toString("utf8");
+  if (text.includes("�")) return false;
+  let odd = 0;
+  for (const character of text) {
+    const code = character.codePointAt(0) ?? 0;
+    if (code < 32 && code !== 9 && code !== 10 && code !== 13) odd += 1;
+  }
+  return odd / Math.max(1, text.length) <= 0.02;
+}
+
+/** A file part the gate can read as text, once any compression is undone. Anything else may hide a value. */
+function isReadableFile(content: Buffer): boolean {
+  try {
+    return isPrintable(unpack(content));
+  } catch {
+    return false;
+  }
+}
+
+/** Header lines of a part that a person is shown through its leaf: its name, filename and type. */
+const SHOWN_PART_HEADER = /^content-(disposition|type)\s*:/i;
+
+function multipartLeaves(
+  bytes: Buffer,
+  boundary: string,
+): { leaves: Leaf[]; hidden: boolean } | null {
+  const text = bytes.toString("latin1");
+  const [preamble = "", ...parts] = text.split(`--${boundary}`);
+  const leaves: Leaf[] = [];
+  let hidden = preamble.trim() !== "";
+  for (const part of parts) {
+    if (part.startsWith("--")) {
+      hidden ||= part.slice(2).trim() !== "";
+      break;
+    }
+    const split = part.indexOf("\r\n\r\n");
+    if (split < 0) return null;
+    const head = part.slice(0, split);
+    hidden ||= head
+      .split("\r\n")
+      .some((line) => line.trim() !== "" && !SHOWN_PART_HEADER.test(line));
+    const content = Buffer.from(part.slice(split + 4).replace(/\r\n$/, ""), "latin1");
+    const name = /name="([^"]*)"/i.exec(head)?.[1] ?? "";
+    const file = /filename="([^"]*)"/i.exec(head)?.[1];
+    leaves.push(
+      file !== undefined
+        ? {
+            path: name,
+            value: `[file ${file}, ${content.length} bytes, sha256 ${sha256(content)}]`,
+            file: content,
+          }
+        : { path: name, value: content.toString("utf8") },
+    );
+  }
+  return { leaves, hidden };
+}
+
+/** Whether a JSON text repeats a key in one object, where parsing keeps only the last value. */
+function hasDuplicateKeys(text: string): boolean {
+  const scopes: (Set<string> | null)[] = [];
+  const token = /"(?:[^"\\]|\\.)*"|[{}[\]]/g;
+  for (let match = token.exec(text); match !== null; match = token.exec(text)) {
+    const [found] = match;
+    if (found === "{") scopes.push(new Set());
+    else if (found === "[") scopes.push(null);
+    else if (found === "}" || found === "]") scopes.pop();
+    else if (/^\s*:/.test(text.slice(token.lastIndex))) {
+      const keys = scopes[scopes.length - 1];
+      const key = JSON.parse(found) as string;
+      if (keys?.has(key)) return true;
+      keys?.add(key);
+    }
+  }
+  return false;
+}
+
+interface Shaped {
+  kind: OutgoingRequest["bodyKind"];
+  leaves: Leaf[];
+  /** Bytes that are scanned but have no leaf, so a person is not shown all of them. */
+  hidden?: boolean;
+}
+
+function shapeBody(body: BodyRead, contentType: string, encoding: string): Shaped {
+  if (!body.present) return { kind: "none", leaves: [] };
+  if (body.bytes === null || body.unreadable) return { kind: "opaque", leaves: [] };
+  let plain: Buffer;
+  try {
+    plain = unpack(body.bytes, encoding);
+  } catch {
+    return { kind: "opaque", leaves: [] };
+  }
+  if (plain.length === 0) return { kind: "none", leaves: [] };
+  const type = contentType.toLowerCase();
+  if (type.includes("application/x-www-form-urlencoded")) {
+    const leaves = [...new URLSearchParams(plain.toString("utf8"))].map(([path, value]) => ({
+      path,
+      value,
+    }));
+    return { kind: "form", leaves };
+  }
+  if (type.includes("multipart/form-data")) {
+    const boundary = /boundary=("([^"]+)"|[^;\s]+)/i.exec(contentType);
+    const name = boundary?.[2] ?? boundary?.[1];
+    const parsed = name ? multipartLeaves(plain, name) : null;
+    return parsed === null
+      ? { kind: "opaque", leaves: [] }
+      : { kind: "multipart", leaves: parsed.leaves, hidden: parsed.hidden };
+  }
+  if (!isPrintable(plain)) return { kind: "opaque", leaves: [] };
+  const text = plain.toString("utf8");
+  if (type.includes("json") || /^\s*[[{]/.test(text)) {
+    try {
+      const leaves: Leaf[] = [];
+      jsonLeaves(JSON.parse(text), "", leaves);
+      return { kind: "json", leaves, hidden: hasDuplicateKeys(text) };
+    } catch {
+      // Not JSON after all: it is shown as the text it is.
+    }
+  }
+  return { kind: "text", leaves: [{ path: "", value: text }] };
+}
+
+function lastKey(path: string): string {
+  const key = path.replace(/\[\d+\]/g, "");
+  return key.slice(key.lastIndexOf(".") + 1);
+}
+
+export interface CanonicalizeInput {
+  event: PausedRequest;
+  body: BodyRead;
+  /** Null when the cookies the browser would attach could not be read. */
+  cookies: readonly Cookie[] | null;
+  target: TargetContext;
+  party: "target" | "third";
+  detector: ValueDetector;
+  mask: (text: string) => string;
+  served: ServedValues;
+}
+
+/**
+ * Turns a paused request into the record a person reads and the server stores: where it goes, what
+ * shape its body has, and each name and value in it with the person's own values replaced by their
+ * placeholders. It also says what the request carries, whatever the packing.
+ */
+export function canonicalize(input: CanonicalizeInput): Canonical {
+  const { event, body, cookies, target, party, detector, mask, served } = input;
+  const url = new URL(event.request.url);
+  const method = (event.request.method ?? "GET").toUpperCase();
+  const headers = event.request.headers ?? {};
+  const contentType = header(headers, "content-type");
+  const encoding = header(headers, "content-encoding");
+
+  let truncated = false;
+  const clipTo =
+    (limit: number) =>
+    (text: string): string => {
+      if (text.length <= limit) return text;
+      truncated = true;
+      return text.slice(0, limit);
+    };
+  const clip = clipTo(OUTGOING_LIMITS.value);
+  const clipPath = clipTo(OUTGOING_LIMITS.valuePath);
+
+  const carried = new Set<CarriedField>();
+  let unreadable = body.unreadable || cookies === null;
+  const noteScan = (scan: Scan): Scan => {
+    for (const field of scan.fields) carried.add(field);
+    if (scan.overflow) unreadable = true;
+    return scan;
+  };
+
+  const leafOf = (path: string, raw: string, scan: Scan): OutgoingValue => {
+    const shown = shownLeaf(path, raw, scan);
+    return { ...shown, path: clipPath(shown.path) };
+  };
+
+  const shownLeaf = (path: string, raw: string, scan: Scan): OutgoingValue => {
+    const named = detector.scan([path]);
+    if (named.fields.length > 0) {
+      const hidden = mask(path);
+      return {
+        path: hidden === path ? `{{${named.fields.join("+")}}} (encoded)` : hidden,
+        value: clip(mask(raw)),
+        class: "profile",
+        fields: [...new Set([...scan.fields, ...named.fields])].sort() as CarriedField[],
+      };
+    }
+    if (scan.fields.length > 0) {
+      const whole = detector.fieldOfWhole(raw);
+      const masked = whole === null ? mask(raw) : `{{${whole}}}`;
+      const shown = masked === raw ? `{{${scan.fields.join("+")}}} (encoded)` : masked;
+      return { path, value: clip(shown), class: "profile", fields: scan.fields };
+    }
+    const name = lastKey(path);
+    if (served.has(name, raw)) return { path, value: clip(raw), class: "served_token" };
+    return { path, value: clip(mask(raw)), class: "literal" };
+  };
+
+  const scanEach = (leaves: readonly Leaf[]): OutgoingValue[] => {
+    if (leaves.length > MAX_ENTRIES) truncated = true;
+    const shown: OutgoingValue[] = [];
+    leaves.forEach((leaf, index) => {
+      const scan = noteScan(
+        detector.scan(
+          leaf.file === undefined
+            ? [leaf.path, leaf.value]
+            : [leaf.path, leaf.value, { data: leaf.file }],
+        ),
+      );
+      if (leaf.file !== undefined && !isReadableFile(leaf.file)) unreadable = true;
+      if (index < MAX_ENTRIES) shown.push(leafOf(leaf.path, leaf.value, scan));
+    });
+    return shown;
+  };
+
+  const query = scanEach([...url.searchParams].map(([path, value]) => ({ path, value })));
+  noteScan(detector.scan([url.search, safeDecode(url.search)]));
+  const segments = url.pathname.split("/").filter((segment) => segment !== "");
+  noteScan(detector.scan([...segments.map((segment) => safeDecode(segment)), url.pathname]));
+  const pathShown = url.pathname
+    .split("/")
+    .map((segment) => {
+      const masked = mask(segment);
+      if (masked !== segment || segment === "") return masked;
+      const found = detector.scan([safeDecode(segment), segment]).fields;
+      return found.length > 0 ? `{{${found.join("+")}}} (encoded)` : segment;
+    })
+    .join("/");
+  const hostScan = noteScan(detector.scan([url.hostname]));
+  const urlCredentials = url.username !== "" || url.password !== "";
+  noteScan(
+    detector.scan([
+      url.username,
+      safeDecode(url.username),
+      url.password,
+      safeDecode(url.password),
+      ...(METHODS_ALLOWED.has(method) ? [] : [method]),
+    ]),
+  );
+
+  const shaped = shapeBody(body, contentType, encoding);
+  const bodyValues = scanEach(shaped.leaves);
+  if (shaped.hidden) truncated = true;
+  const rawBody: (string | { data: Buffer; contentEncoding?: string })[] =
+    body.bytes === null
+      ? []
+      : [{ data: body.bytes, ...(encoding === "" ? {} : { contentEncoding: encoding }) }];
+  noteScan(detector.scan(rawBody));
+
+  const refererScan =
+    party === "target"
+      ? detector.scan([header(headers, "referer")])
+      : { fields: [] as CarriedField[] };
+  const headerValues: OutgoingValue[] = [];
+  const showHeader = (path: string, value: string, scan: Scan): void => {
+    if (scan.fields.length === 0) return;
+    if (headerValues.length >= MAX_HEADERS) truncated = true;
+    else headerValues.push(leafOf(path, value, scan));
+  };
+  for (const [name, value] of Object.entries(headers)) {
+    const lower = name.toLowerCase();
+    if (lower === "cookie" || (lower === "referer" && party === "target")) continue;
+    showHeader(lower, value, noteScan(detector.scan([lower, value])));
+  }
+  for (const cookie of cookies ?? []) {
+    showHeader(
+      `cookie:${cookie.name}`,
+      cookie.value,
+      noteScan(detector.scan([cookie.name, cookie.value])),
+    );
+  }
+
+  const hostMasked = mask(url.host);
+  const hostShown =
+    hostScan.fields.length > 0 && hostMasked === url.host
+      ? `{{${hostScan.fields.join("+")}}} (encoded)`
+      : hostMasked;
+
+  const fields = [...carried].sort();
+  const request: OutgoingRequest = {
+    method: clipTo(OUTGOING_LIMITS.method)(mask(method)),
+    scheme: url.protocol.replace(":", ""),
+    host: clipTo(OUTGOING_LIMITS.host)(hostShown),
+    path: clipTo(OUTGOING_LIMITS.path)(mask(pathShown)),
+    resourceType: event.resourceType,
+    isDocument: event.resourceType === "Document",
+    target,
+    party,
+    bodyKind: shaped.kind,
+    query,
+    body: bodyValues,
+    headers: headerValues,
+    bodyBytes: body.bytes?.length ?? 0,
+    bodyDigest: sha256(body.bytes),
+    carries: fields,
+  };
+  const scan: Scan = {
+    fields,
+    contact: fields.some((field) => isContactField(field)),
+    lookup: fields.some((field) => !isContactField(field)),
+    overflow: unreadable,
+  };
+  return {
+    request,
+    scan,
+    body,
+    method,
+    url: event.request.url,
+    truncated,
+    unreadable,
+    urlCredentials,
+    refererCarries: [...refererScan.fields].sort(),
+  };
+}
+
+function safeDecode(text: string): string {
+  try {
+    return decodeURIComponent(text);
+  } catch {
+    return text;
+  }
+}

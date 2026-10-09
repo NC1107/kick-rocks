@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Opt out - Encodings</title></head>
+<body>
+<h1>Remove your listing</h1>
+<form method="post" action="/gate-optout">
+  <label for="email">Email address</label>
+  <input id="email" name="email" type="email">
+  <button type="submit">Submit request</button>
+</form>
+<script>
+  const field = document.getElementById('email');
+  const hex = (buffer) => Array.from(new Uint8Array(buffer), (b) => b.toString(16).padStart(2, '0')).join('');
+  field.addEventListener('change', async () => {
+    const value = field.value;
+    new Image().src = '/gate-collect?via=base64&e=' + encodeURIComponent(btoa(value));
+    const packed = await new Response(
+      new Blob([JSON.stringify({ email: value })]).stream().pipeThrough(new CompressionStream('gzip')),
+    ).arrayBuffer();
+    fetch('/gate-gzip-post', { method: 'POST', headers: { 'Content-Encoding': 'gzip', 'Content-Type': 'application/json' }, body: packed });
+    const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value.trim().toLowerCase()));
+    new Image().src = '{{OTHER}}/gate-pixel?em=' + hex(digest);
+  });
+</script>
+</body>
+</html>

@@ -71,6 +71,13 @@
       "when": 1791513752730,
       "tag": "0009_outgoing_mail_recipient",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1791520969184,
+      "tag": "0010_task_sends",
+      "breakpoints": true
     }
   ]
 }

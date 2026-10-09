@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Opt out - Keepalive</title></head>
+<body>
+<h1>Remove your listing</h1>
+<form method="post" action="/gate-optout">
+  <label for="email">Email address</label>
+  <input id="email" name="email" type="email">
+  <button type="submit">Submit request</button>
+</form>
+<script>
+  const field = document.getElementById('email');
+  const which = location.hash.slice(1);
+  const body = (value) => 'e=' + encodeURIComponent(value);
+
+  const vectors = {
+    // The frame is of another site, so it runs in its own process and session. The page removes it
+    // right after the beacon, and the browser sends a keepalive request still paused as its session goes.
+    frame(value) {
+      const frame = document.createElement('iframe');
+      frame.title = 'Partner frame';
+      frame.src = '{{OFFSITE}}/gate-ka-frame';
+      frame.addEventListener('load', () => {
+        frame.contentWindow.postMessage(value, '*');
+        setTimeout(() => frame.remove(), 150);
+      });
+      document.body.append(frame);
+    },
+    fetch(value) {
+      setTimeout(() => fetch('/gate-v-ka-fetch', { method: 'POST', body: body(value), keepalive: true }), 400);
+    },
+    pagehide(value) {
+      addEventListener('pagehide', () => fetch('/gate-v-ka-pagehide', { method: 'POST', body: body(value), keepalive: true }));
+    },
+    // A Request object carries the flag, so the call itself does not.
+    request(value) {
+      setTimeout(() => fetch(new Request('/gate-v-ka-request', { method: 'POST', body: body(value), keepalive: true })), 400);
+    },
+    // A frame made on the spot has a window of its own, which is where a page would look for a fetch the gate had not replaced.
+    freshframe(value) {
+      setTimeout(() => {
+        const frame = document.createElement('iframe');
+        document.body.append(frame);
+        frame.contentWindow.fetch('/gate-v-ka-freshframe', { method: 'POST', body: body(value), keepalive: true });
+      }, 400);
+    },
+    later(value) {
+      setTimeout(() => {
+        if (typeof fetchLater === 'function') fetchLater('/gate-v-ka-later', { method: 'POST', body: body(value) });
+      }, 400);
+    },
+    beacon(value) {
+      setTimeout(() => navigator.sendBeacon('/gate-v-ka-beacon', body(value)), 400);
+    },
+  };
+
+  field.addEventListener('change', () => vectors[which]?.(field.value));
+</script>
+</body>
+</html>

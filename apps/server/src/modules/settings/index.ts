@@ -46,6 +46,7 @@ function viewOf(services: AppServices): SettingsView {
     siteChecks: { enabled: settings.get("siteChecks.enabled") },
     agent: {
       takeUnreviewed: settings.get("agent.takeUnreviewed"),
+      approvalHoldMinutes: settings.get("agent.approvalHoldMinutes"),
       gate: {
         records,
         current: reported ? { model: reported, verdict: gateVerdict(records, reported) } : null,
@@ -116,6 +117,9 @@ function applyPatch({ settings, clock }: AppServices, patch: SettingsPatch): voi
   if (patch.siteChecks) settings.set("siteChecks.enabled", patch.siteChecks.enabled);
   if (patch.agent?.takeUnreviewed !== undefined) {
     settings.set("agent.takeUnreviewed", patch.agent.takeUnreviewed);
+  }
+  if (patch.agent?.approvalHoldMinutes !== undefined) {
+    settings.set("agent.approvalHoldMinutes", patch.agent.approvalHoldMinutes);
   }
   if (patch.agent?.gateOverride) {
     const { provider, name, enabled } = patch.agent.gateOverride;

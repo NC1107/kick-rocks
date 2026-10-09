@@ -78,6 +78,11 @@ export function screenshotUrl(taskId: string): string {
   return routeUrl(API_ROUTES.taskScreenshot, { params: { id: taskId } });
 }
 
+/** Where to point an <img> at the picture the worker took of the page when it held a request. */
+export function sendScreenshotUrl(taskId: string, sendId: string): string {
+  return routeUrl(API_ROUTES.taskSendScreenshot, { params: { id: taskId, sendId } });
+}
+
 async function readJson(response: Response): Promise<unknown> {
   const type = response.headers.get("content-type") ?? "";
   if (!type.includes("json")) return undefined;

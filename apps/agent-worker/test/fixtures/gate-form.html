@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Opt out - Gate Broker</title></head>
+<body>
+<h1>Remove your listing</h1>
+<form method="post" action="/gate-optout">
+  <label for="first">First name</label>
+  <input id="first" name="first_name">
+  <label for="last">Last name</label>
+  <input id="last" name="last_name">
+  <label for="email">Email address</label>
+  <input id="email" name="email" type="email">
+  <label for="kind">Request type</label>
+  <select id="kind" name="kind">
+    <option value="">Choose one</option>
+    <option value="delete">Delete my data</option>
+    <option value="access">Access my data</option>
+  </select>
+  <label><input type="checkbox" name="offers" value="yes"> Send me offers</label>
+  <input type="hidden" id="share" name="share" value="no">
+  <div role="checkbox" aria-checked="false" tabindex="0" id="sharebox"
+       onclick="this.setAttribute('aria-checked', this.getAttribute('aria-checked') === 'true' ? 'false' : 'true'); document.getElementById('share').value = this.getAttribute('aria-checked') === 'true' ? 'yes' : 'no';">Share my details with partners</div>
+  <input type="hidden" id="scope" name="scope" value="this-site">
+  <button type="button" id="mode" onclick="document.getElementById('scope').value = 'partners';">Include partner brands</button>
+  <button type="submit" name="action" value="optout">Submit request</button>
+  <button type="submit" name="action" value="copy">Send a copy</button>
+</form>
+<form method="post" action="/gate-newsletter">
+  <input type="hidden" name="list" value="partners">
+  <button type="submit" name="action" value="newsletter">Submit request</button>
+</form>
+</body>
+</html>

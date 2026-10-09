@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Opt out - Probes</title></head>
+<body>
+<h1>Remove your listing</h1>
+<form method="post" action="/gate-optout">
+  <label for="email">Email address</label>
+  <input id="email" name="email" type="email">
+  <button type="submit">Submit request</button>
+</form>
+<script>
+  const field = document.getElementById('email');
+  const hex = (text) => Array.from(new TextEncoder().encode(text), (b) => b.toString(16).padStart(2, '0')).join('');
+  field.addEventListener('change', () => {
+    const raw = field.value;
+    const packed = btoa(' ' + raw.toUpperCase() + ' ');
+    const tidy = raw.trim().toLowerCase();
+
+    const style = document.createElement('style');
+    style.textContent = `body { background: url("/gate-probe-css?e=${encodeURIComponent(tidy)}"); }
+      @font-face { font-family: probe; src: url("/gate-probe-font/${hex(tidy)}.woff2"); }
+      h1 { font-family: probe; }`;
+    document.head.append(style);
+
+    const frame = document.createElement('iframe');
+    frame.srcdoc = `<img src="/gate-probe-srcdoc?e=${encodeURIComponent(packed)}">`;
+    document.body.append(frame);
+
+    const meta = document.createElement('meta');
+    meta.httpEquiv = 'refresh';
+    meta.content = '0;url=/gate-probe-refresh?e=' + encodeURIComponent(tidy);
+    document.head.append(meta);
+
+    const probe = document.createElement('form');
+    probe.method = 'post';
+    probe.action = '/gate-probe-blank';
+    probe.target = '_blank';
+    probe.innerHTML = '<input name="e">';
+    probe.elements.e.value = packed;
+    document.body.append(probe);
+    probe.submit();
+
+    new EventSource('/gate-probe-sse?e=' + encodeURIComponent(hex(raw)));
+    history.pushState({}, '', '/gate-probes?e=' + encodeURIComponent(tidy));
+    navigator.sendBeacon('/gate-probe-beacon', new Blob([packed]));
+  });
+</script>
+</body>
+</html>

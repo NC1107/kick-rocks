@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Opt out - Custom controls</title></head>
+<body>
+<h1>Remove your listing</h1>
+<form method="post" action="/gate-optout">
+  <label for="email">Email address</label>
+  <input id="email" name="email" type="email">
+  <input type="hidden" id="share" name="share" value="no">
+  <input type="hidden" id="scope" name="scope" value="this-site">
+  <input type="hidden" id="alerts" name="alerts" value="off">
+  <input type="hidden" id="pinned" name="pinned" value="no">
+  <input type="hidden" id="synced" name="synced" value="no">
+  <input type="hidden" id="tab" name="tab" value="basic">
+  <div role="checkbox" aria-checked="false" tabindex="0"
+       onclick="this.setAttribute('aria-checked', 'true'); document.getElementById('share').value = 'yes'">Share my details with partners</div>
+  <button type="button" onclick="document.getElementById('scope').value = 'partners'">Include partner brands</button>
+  <div role="switch" aria-checked="false" tabindex="0"
+       onclick="this.setAttribute('aria-checked', 'true'); document.getElementById('alerts').value = 'on'">Send me alerts</div>
+  <button type="button" aria-pressed="false"
+          onclick="this.setAttribute('aria-pressed', 'true'); document.getElementById('pinned').value = 'yes'">Pin my listing</button>
+  <span role="button" tabindex="0"
+        onclick="document.getElementById('synced').value = 'yes'">Sync my other accounts</span>
+  <div role="tab" aria-selected="false" tabindex="0"
+       onclick="this.setAttribute('aria-selected', 'true'); document.getElementById('tab').value = 'advanced'">Advanced options</div>
+  <button type="submit">Submit request</button>
+</form>
+</body>
+</html>

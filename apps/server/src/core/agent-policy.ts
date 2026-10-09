@@ -6,6 +6,7 @@ import {
   type ModelIdentity,
   type RecipeStatus,
   type SubmitApproval,
+  type SubmitGate,
 } from "@kickrocks/shared";
 import { and, eq } from "drizzle-orm";
 import type { AppServices } from "../services.js";
@@ -63,29 +64,47 @@ export function modelGate(
   return gateVerdict(settings.get("agent.gate").records, model ?? null);
 }
 
+/** What an agent claim is told about its outgoing requests, and the state kept on the task. */
+interface SettledGate {
+  approval: SubmitApproval | undefined;
+  gate: SubmitGate | undefined;
+}
+
 /**
- * What a model-backed claim may do about submitting a removal, and the state to keep on the task.
- * A scan sends nothing. A model that is not cleared needs a person's approval for the submit, and
- * an approval is spent by the one claim that takes it, so the next attempt asks again.
+ * What a claim may do about sending a removal, and the state to keep on the task. A scan sends
+ * nothing. A model that is not cleared has every send held for a person, with whatever the person
+ * approved for this run. A cleared model sends alone, and each send is logged first. An MCP client
+ * drives a browser of its own, which this gate cannot see, so it is held to nothing and anything
+ * a person approved for a model run lapses with the hand-off.
  */
-export function settleSubmitApproval(
-  services: Pick<PolicyServices, "settings" | "taskQueue">,
+export function settleSubmitGate(
+  services: Pick<PolicyServices, "settings" | "taskQueue"> & Pick<AppServices, "taskSends">,
   task: Task<"agent">,
   claimerKind: ClaimerKind,
   model: ModelIdentity | undefined,
-): SubmitApproval {
-  const { taskQueue } = services;
+): SettledGate {
+  const { taskQueue, taskSends } = services;
+  const clear = (approval: SubmitApproval | undefined): SettledGate => {
+    taskQueue.setSubmitApproval(task.id, null);
+    taskSends.endRun(task.id);
+    return { approval, gate: undefined };
+  };
+  if (claimerKind === "mcp") return clear(undefined);
+  if (task.payload.purpose !== "remove") return clear("not_needed");
   // A claim that does not say it drives a model is unproven whatever model it names, since the
   // worker API cannot tell which model is really behind it.
   const named = claimerKind === "model" ? model : undefined;
-  if (task.payload.purpose !== "remove" || modelGate(services, named).unattended) {
-    taskQueue.setSubmitApproval(task.id, null);
-    return "not_needed";
-  }
-  if (task.submitApproval === "granted") {
-    taskQueue.setSubmitApproval(task.id, "used");
-    return "granted";
+  if (modelGate(services, named).unattended) {
+    const settled = clear("not_needed");
+    taskSends.startRun(task.id, task.attempts);
+    return {
+      ...settled,
+      gate: { mode: "record", holdMs: 0, approved: [], declined: [] },
+    };
   }
   taskQueue.setSubmitApproval(task.id, "required");
-  return "required";
+  const holdMs = services.settings.get("agent.approvalHoldMinutes") * 60_000;
+  const { approved, declined } = taskSends.gateFor(task.id);
+  taskSends.startRun(task.id, task.attempts);
+  return { approval: "required", gate: { mode: "hold", holdMs, approved, declined } };
 }

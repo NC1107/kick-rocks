@@ -19,6 +19,7 @@ import {
 import { conflict, defineMockDomain, handle, invalid, notFound } from "./core.js";
 import { fakeScreenshotPng } from "./png.js";
 import { addEvent, buildRequest, makeTask } from "./requests.js";
+import { approveHeld, liveHold, sendRoutes, twoStepLapse, unapprovedRelease } from "./sends.js";
 import type { MockStore } from "./store.js";
 import { selectedByFilter } from "./targets.js";
 
@@ -36,11 +37,14 @@ const MANUAL_INSTRUCTIONS: Record<BlockedReason, string> = {
   bot_detection:
     "The site blocked the automated browser. Open the page in your own browser and finish the removal.",
   approval_needed:
-    "Check the filled form in the screenshot. Approve the submit, or finish it yourself and mark it done.",
+    "Look at the requests the run held back. Approve them for the next run, or finish it yourself and mark it done.",
   unapproved_submit:
     "Open the site and check whether the form went out. If it did, mark the task done. If not, finish the removal yourself.",
   unknown: "Open the page and finish the removal by hand, then mark the task done.",
 };
+
+const LIVE_HOLD_INSTRUCTIONS =
+  "The run is waiting for you. Look at what the page is about to send, then send it, hold it back, or finish by hand.";
 
 const AGENT_INSTRUCTIONS =
   "No agent has taken this yet, and the recipe worker will not run it. Connect an agent in Settings, or open the page and finish the job yourself, then mark it done.";
@@ -164,7 +168,9 @@ export function buildMockQueue(store: MockStore, profileId: string | undefined):
           ? FAILED_INSTRUCTIONS
           : task.status === "queued"
             ? AGENT_INSTRUCTIONS
-            : MANUAL_INSTRUCTIONS.unknown),
+            : task.status === "leased"
+              ? LIVE_HOLD_INSTRUCTIONS
+              : MANUAL_INSTRUCTIONS.unknown),
     };
   };
   const cutoff = store.ago({ days: FAILED_WINDOW_DAYS });
@@ -217,7 +223,14 @@ export function buildMockQueue(store: MockStore, profileId: string | undefined):
     });
   return {
     blockedTasks: store.tasks
-      .filter((task) => task.status === "blocked")
+      .filter(
+        (task) =>
+          task.status === "blocked" ||
+          (task.status === "leased" &&
+            store.sends
+              .get(task.id)
+              ?.rows.some((row) => row.kind === "held" && row.status === "pending_live")),
+      )
       .filter(inScope)
       .map(toItem),
     matches: store.matches.filter(inScope).filter((match) => match.decision === "pending"),
@@ -285,7 +298,7 @@ export default defineMockDomain({
           requestId: waiting.id,
           blockedReason: "approval_needed",
           blockedDetail:
-            'Stopped before clicking "Submit request", which may send the form. qwen3:14b has not passed the safety gate on this install, so a person approves each submit.',
+            "qwen3:14b has not passed the safety gate on this install, so a person approves each send, and nobody decided in time. 1 request was cancelled and left for you to approve.",
           blockedUrl: quillnote.optOutUrl,
           hasScreenshot: true,
         },
@@ -296,6 +309,10 @@ export default defineMockDomain({
         url: quillnote.optOutUrl,
         manualInstructions: MANUAL_INSTRUCTIONS.approval_needed,
       });
+      store.sends.set(
+        task.id,
+        twoStepLapse(store, new URL(quillnote.optOutUrl ?? "https://quillnote.example").host),
+      );
     }
 
     const sentRequest = store.requests.find(
@@ -324,6 +341,38 @@ export default defineMockDomain({
         url: harbor.optOutUrl,
         manualInstructions: MANUAL_INSTRUCTIONS.unapproved_submit,
       });
+      store.sends.set(
+        task.id,
+        unapprovedRelease(store, new URL(harbor.optOutUrl ?? "https://harbor.example").host),
+      );
+    }
+
+    const waitingOnYou = store.requests.find(
+      (request) => request.targetId === "cardinal-insights" && request.profileId === jordan.id,
+    );
+    const cardinal = store.targets.find((target) => target.id === "cardinal-insights");
+    if (waitingOnYou && cardinal) {
+      const task = makeTask(
+        store,
+        {
+          kind: "agent",
+          status: "leased",
+          profileId: jordan.id,
+          targetId: cardinal.id,
+          targetName: cardinal.name,
+          requestId: waitingOnYou.id,
+        },
+        { minutes: 1 },
+      );
+      task.claimerKind = "model";
+      store.blockedInfo.set(task.id, {
+        url: cardinal.optOutUrl,
+        manualInstructions: LIVE_HOLD_INSTRUCTIONS,
+      });
+      store.sends.set(
+        task.id,
+        liveHold(store, new URL(cardinal.optOutUrl ?? "https://cardinal.example").host),
+      );
     }
 
     const lookup = createScan(store, jordan.id, "namelookup", {
@@ -452,6 +501,7 @@ export default defineMockDomain({
     const ref = (task: TaskSummary) => ({ taskId: task.id, kind: task.kind });
 
     return [
+      ...sendRoutes(store),
       handle(API_ROUTES.reviewQueue, ({ query }) => buildMockQueue(store, query.profileId)),
 
       handle(API_ROUTES.taskResume, ({ params }) => {
@@ -463,7 +513,7 @@ export default defineMockDomain({
         return { task };
       }),
 
-      handle(API_ROUTES.taskApproveSubmit, ({ params }) => {
+      handle(API_ROUTES.taskApproveSubmit, ({ params, body }) => {
         const task = taskOf(params.id);
         if (
           task.kind !== "agent" ||
@@ -472,6 +522,7 @@ export default defineMockDomain({
         ) {
           throw conflict("That task is not waiting for a submit approval.");
         }
+        approveHeld(store, task.id, body.declineSendIds);
         touch(task, "queued");
         const request = requestOf(task);
         if (request) addEvent(store, request, "task_resumed", "user", task.updatedAt, ref(task));

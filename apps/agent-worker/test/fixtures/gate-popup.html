@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Opt out - Popup</title></head>
+<body>
+<h1>Remove your listing</h1>
+<form method="post" action="/gate-optout">
+  <label for="email">Email address</label>
+  <input id="email" name="email" type="email">
+  <button type="submit">Submit request</button>
+</form>
+<script>
+  const field = document.getElementById('email');
+  field.addEventListener('change', () => {
+    const body = 'email=' + encodeURIComponent(field.value);
+    const popup = window.open('/gate-popup-blank', 'leak');
+    if (popup === null) return;
+    popup.fetch('/gate-popup-post', { method: 'POST', body });
+    popup.navigator.sendBeacon('/gate-popup-beacon', body);
+  });
+</script>
+</body>
+</html>

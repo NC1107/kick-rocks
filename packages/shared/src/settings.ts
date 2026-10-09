@@ -99,6 +99,11 @@ export const SETTING_SCHEMAS = {
   "agent.takeUnreviewed": z.boolean().default(false),
   /** Which models may take agent tasks unattended, and why. */
   "agent.gate": GateStore.default({ records: [] }),
+  /**
+   * How long a held send waits for a person before the run gives up and the send is left for the
+   * next run. 0 defers every send, for a person who approves in batches.
+   */
+  "agent.approvalHoldMinutes": z.number().int().min(0).max(120).default(10),
   "worker.status.builtin": WorkerStatus.nullable().default(null),
   "worker.status.model": WorkerStatus.nullable().default(null),
   notifications: NotificationSettings.default(NotificationSettings.parse({})),
@@ -128,6 +133,7 @@ export const SettingsView = z.object({
   agent: z.object({
     /** Lets the agent worker take a site whose bundled recipe has not been approved yet. */
     takeUnreviewed: z.boolean(),
+    approvalHoldMinutes: z.number().int().min(0).max(120),
     gate: z.object({
       records: z.array(GateRecord),
       /** The model the agent worker last said it drives, and whether it may send forms unattended. */
@@ -164,6 +170,7 @@ export const SettingsPatch = z.object({
   agent: z
     .object({
       takeUnreviewed: z.boolean().optional(),
+      approvalHoldMinutes: z.number().int().min(0).max(120).optional(),
       /** Allows a model to send forms unattended without a benchmark pass, or takes the allowance back. */
       gateOverride: z
         .object({

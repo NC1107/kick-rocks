@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Opt out - Credentials</title></head>
+<body>
+<h1>Remove your listing</h1>
+<script>
+  const ask = (url, user, password) => {
+    const request = new XMLHttpRequest();
+    request.open('GET', url, true, user, password);
+    request.send();
+  };
+  setTimeout(() => {
+    ask('http://jordan:secret@127.0.0.1:{{PORT}}/gate-auth-inline');
+    ask('http://127.0.0.1:{{PORT}}/gate-auth-args', 'jordan', 'secret');
+  }, 200);
+</script>
+</body>
+</html>

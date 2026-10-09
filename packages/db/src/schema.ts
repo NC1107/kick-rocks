@@ -29,6 +29,9 @@ import {
   type RequestRight,
   RequestStatus,
   type Requirement,
+  SendKind,
+  type SendRequest,
+  SendStatus,
   SettingKey,
   StateCode,
   TargetCategory,
@@ -41,6 +44,7 @@ import {
 } from "@kickrocks/shared";
 import { sql } from "drizzle-orm";
 import {
+  type AnySQLiteColumn,
   blob,
   index,
   integer,
@@ -335,21 +339,11 @@ export const tasks = sqliteTable(
      */
     mayHaveSubmitted: integer("may_have_submitted", { mode: "boolean" }).notNull().default(false),
     /**
-     * For a removal claimed by a model that is not cleared to work alone: `required` until a
-     * person approves the submit, `granted` once they have, and `used` after the claim that took
-     * the approval, so the next attempt asks again. Null for every other claim.
+     * "required" on a removal claimed by a model that is not cleared to work alone, and null on
+     * every other claim. It is the gate's state for the lease; whether a send was approved or
+     * spent is read from the task's rows in `task_sends`.
      */
-    submitApproval: text("submit_approval", { enum: ["required", "granted", "used"] }),
-    /**
-     * The send control a model stopped before, as the page origin, the control's words (empty for
-     * a control with none) and a fingerprint of the filled form. An approval of the submit carries
-     * it to the next claim, which may click only that control on a form filled the same way.
-     */
-    submitStop: text("submit_stop", { mode: "json" }).$type<{
-      origin: string;
-      control: string;
-      fingerprint: string;
-    } | null>(),
+    submitApproval: text("submit_approval", { enum: ["required"] }),
     attempts: integer("attempts").notNull().default(0),
     maxAttempts: integer("max_attempts").notNull(),
     runAfter: timestamp("run_after"),
@@ -390,13 +384,51 @@ export const taskArtifacts = sqliteTable(
     taskId: text("task_id")
       .notNull()
       .references(() => tasks.id, { onDelete: "cascade" }),
-    kind: text("kind", { enum: ["screenshot"] }).notNull(),
+    /** A `send_screenshot` is the page as it stood when the gate held a request. */
+    kind: text("kind", { enum: ["screenshot", "send_screenshot"] }).notNull(),
     mime: text("mime").notNull(),
     /** Stored in the database rather than on disk so screenshots are encrypted at rest. */
     data: blob("data", { mode: "buffer" }).notNull(),
     createdAt: timestamp("created_at").notNull(),
   },
   (t) => [index("task_artifacts_task_idx").on(t.taskId)],
+);
+
+/**
+ * What an agent run's browser sent, one row for each thing the outgoing gate decided: lookups it
+ * let through, requests it refused, requests it held for a person, requests it released, and
+ * notes about the run itself. A request is stored with the person's values replaced by their
+ * placeholders. The held rows are the approvals: a live decision, or one for the next run.
+ */
+export const taskSends = sqliteTable(
+  "task_sends",
+  {
+    id: id(),
+    taskId: text("task_id")
+      .notNull()
+      .references(() => tasks.id, { onDelete: "cascade" }),
+    attempt: integer("attempt").notNull(),
+    /** Orders a task's rows across all of its runs. */
+    seq: integer("seq").notNull(),
+    kind: text("kind", { enum: values(SendKind.options) }).notNull(),
+    status: text("status", { enum: values(SendStatus.options) }).notNull(),
+    request: text("request", { mode: "json" }).$type<SendRequest>().notNull(),
+    /** Why a request was refused, or what a guard event was. */
+    reason: text("reason"),
+    /** For a release that spent an approval given for the next run, that approval. */
+    spendsSendId: text("spends_send_id").references((): AnySQLiteColumn => taskSends.id),
+    screenshotArtifactId: text("screenshot_artifact_id").references(() => taskArtifacts.id, {
+      onDelete: "set null",
+    }),
+    expiresAt: timestamp("expires_at"),
+    decidedBy: text("decided_by"),
+    decidedAt: timestamp("decided_at"),
+    releasedAt: timestamp("released_at"),
+    responseStatus: integer("response_status"),
+    responseError: text("response_error"),
+    createdAt: timestamp("created_at").notNull(),
+  },
+  (t) => [index("task_sends_task_idx").on(t.taskId, t.attempt, t.seq)],
 );
 
 export const scans = sqliteTable(
@@ -535,6 +567,7 @@ export type RequestEventRow = typeof requestEvents.$inferSelect;
 export type OutgoingMailRow = typeof outgoingMail.$inferSelect;
 export type MessageRow = typeof messages.$inferSelect;
 export type TaskRow = typeof tasks.$inferSelect;
+export type TaskSendRow = typeof taskSends.$inferSelect;
 export type TaskArtifactRow = typeof taskArtifacts.$inferSelect;
 export type ScanRow = typeof scans.$inferSelect;
 export type SiteVisitRow = typeof siteVisits.$inferSelect;

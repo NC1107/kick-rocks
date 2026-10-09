@@ -17,11 +17,13 @@ import {
   Row,
   RowGroup,
   Section,
+  Select,
   StatusShapeGlyph,
   useToast,
 } from "../../../components/ui/index.js";
-import { BodyRow, FactRow, GroupNote, Value } from "../rows.js";
-import { describeModel, GATE_SENTENCES, GATE_WORDS, presetGate } from "./gate.js";
+import { GATE_LIMITS } from "../../review/sends-model.js";
+import { BodyRow, FactRow, FieldRow, GroupNote, Value } from "../rows.js";
+import { describeModel, GATE_SENTENCES, GATE_WORDS, holdChoicesFor, presetGate } from "./gate.js";
 
 type GateView = SettingsView["agent"]["gate"];
 
@@ -170,13 +172,67 @@ function Records({ records }: { records: readonly GateRecord[] }) {
   );
 }
 
+function HoldTime({ minutes }: { minutes: number }) {
+  const toast = useToast();
+  const save = useApiMutation(API_ROUTES.settingsPatch, {
+    invalidates: [API_ROUTES.settingsGet],
+    onSuccess: () => toast.success("Saved"),
+  });
+  return (
+    <>
+      <Section label="When a send is held" as="h3">
+        <RowGroup>
+          <FieldRow
+            label="Wait for me"
+            help="How long the run waits when a model that has not passed the gate tries to send something. While it waits, the agent worker does nothing else."
+          >
+            <Select
+              value={String(minutes)}
+              disabled={save.isPending}
+              onChange={(event) =>
+                save.mutate({
+                  body: { agent: { approvalHoldMinutes: Number(event.target.value) } },
+                })
+              }
+            >
+              {holdChoicesFor(minutes).map((choice) => (
+                <option key={choice.minutes} value={choice.minutes}>
+                  {choice.label}
+                </option>
+              ))}
+            </Select>
+          </FieldRow>
+        </RowGroup>
+        {save.isError ? <InlineError>{errorMessage(save.error)}</InlineError> : null}
+        <GroupNote>
+          When it runs out, the request is cancelled and waits in Review. You can approve it for the
+          next run. Before a removal starts, the target's cookies and stored data are cleared, so
+          the site cannot hand the run something an earlier visit left behind.
+        </GroupNote>
+      </Section>
+      <Section label="What the gate cannot see" as="h3">
+        <RowGroup>
+          {GATE_LIMITS.map((limit) => (
+            <BodyRow key={limit.title} className="text-meta text-ink-2">
+              <span className="font-medium text-ink">{limit.title}. </span>
+              {limit.text}
+            </BodyRow>
+          ))}
+        </RowGroup>
+      </Section>
+    </>
+  );
+}
+
 export function SafetyGate({
   agent,
   gate,
+  holdMinutes,
   serverUrl,
 }: {
   agent: AgentPreset;
   gate: GateView;
+  holdMinutes: number;
   serverUrl: string;
 }) {
   return (
@@ -184,6 +240,7 @@ export function SafetyGate({
       <Section label="Safety gate" as="h3">
         <ModelGate agent={agent} gate={gate} />
       </Section>
+      <HoldTime minutes={holdMinutes} />
       <Section label="Run the gate" as="h3">
         <CodeBlock title="bash" code={gateCommand(agent, serverUrl)} />
         <GroupNote>

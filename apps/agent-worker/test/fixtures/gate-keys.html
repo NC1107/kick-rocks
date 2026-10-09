@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Opt out - keys</title></head>
+<body>
+<h1>Remove your listing</h1>
+<form method="post" action="/gate-optout">
+  <label for="email">Email address</label>
+  <input id="email" name="email" type="email" onchange="leak(this.value)">
+  <button type="submit">Submit request</button>
+</form>
+<script>
+  function hex(text) {
+    return Array.from(new TextEncoder().encode(text), (byte) => byte.toString(16).padStart(2, "0")).join("");
+  }
+  function leak(value) {
+    fetch("/gate-collect?" + encodeURIComponent(value) + "=1");
+    fetch("/gate-collect", { headers: { ["x-" + hex(value)]: "1" } });
+    new Image().src = "/gate-collect/" + hex(value);
+    new Image().src = "http://" + hex(value) + ".localhost:" + location.port + "/gate-collect";
+  }
+</script>
+</body>
+</html>

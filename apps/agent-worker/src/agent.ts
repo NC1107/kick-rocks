@@ -5,6 +5,7 @@ import {
   resultSchemaFor,
   ScanResult,
   type SiteObservation,
+  type SubmitGate,
   type TaskUsage,
 } from "@kickrocks/shared";
 import { SubmitNotRecorded, type TaskReport } from "@kickrocks/worker/dist/executor.js";
@@ -14,6 +15,8 @@ import type { z } from "zod";
 import type { AgentLimits, Pricing } from "./config.js";
 import { type AllowedSites, allowedSitesFor, describeSites, withinSites } from "./domains.js";
 import { createMask, namedHiddenValues, restoreFields } from "./mask.js";
+import { ApprovalLapsed, UnguardedChannel } from "./outbound/guard.js";
+import type { SendsApi } from "./outbound/held.js";
 import { buildOpeningMessage, buildSystemPrompt, startUrlFor } from "./prompt.js";
 import {
   type Message,
@@ -22,7 +25,6 @@ import {
   type ToolCall,
   type ToolResult,
 } from "./provider.js";
-import { SubmitNeedsApproval } from "./submit-approval.js";
 import { Toolbox, type ToolOutcome } from "./toolbox.js";
 import { ReportArgs, TOOL_SPECS } from "./tools.js";
 
@@ -42,8 +44,21 @@ interface AgentRunOptions {
   now?: () => number;
   challengeGraceMs?: number;
   actionTimeoutMs?: number;
-  /** Awaited before each click of a removal run, so the server knows the form may be submitted. */
+  /**
+   * Awaited before each click of a removal run whose sends are not held, so the server knows the
+   * form may be submitted. A held run needs no flag: the server hears of every send itself.
+   */
   onMayHaveSubmitted?: () => Promise<void>;
+  /**
+   * Hands the worker the way to end this run's browser page with the gate still on, so a shutdown
+   * that has to close the browser can close the gate first. Returns how to take it back.
+   */
+  registerClose?: (close: () => Promise<void>) => () => void;
+  /** How the gate talks to the server. A removal run with a gate cannot start without it. */
+  sends?: SendsApi;
+  /** Shortens how long a send waits for a person, which only a test or a batch run wants. */
+  holdMsCap?: number;
+  maxScreenshotBytes?: number;
 }
 
 /** A model that is down is not the task's fault, so the task goes back unchanged, later. */
@@ -54,6 +69,12 @@ const MODEL_MISCONFIGURED_RETRY_MS = 10 * 60_000;
 const MODEL_RELEASE_RETRY_MS = 60 * 60_000;
 const SUBMIT_NOT_RECORDED_RETRY_MS = 60_000;
 const MAX_TEXT_ONLY_TURNS = 3;
+const DEFAULT_HOLD_MS = 10 * 60_000;
+const LIVE_CONNECTION_COPY =
+  "This site needs a live connection the safety gate does not allow. Finish it yourself, or clear the model.";
+/** What the gate lets through without asking, said wherever a person is asked to trust it. */
+const GATE_LIMITS_COPY =
+  "The gate lets a name, city, state, ZIP, year or record link through in a search without asking, and it cannot see a value that the page itself scrambles, or splits into pieces, before sending it in a plain GET (it recognizes the whole value, the value backwards, a common hash, and any run of six or more characters in a row from an email, phone, street, date of birth or hidden value, but not a run that is only a name, place or common domain, and not a piece of five characters or fewer, so a short piece of a value goes out without asking), and it cannot stop a host name that carries a value from reaching a DNS server. It does not try to stop a target site that builds its own page to smuggle your details to its own servers through a channel the browser opens outside request inspection, such as a DNS lookup or any such channel Chrome has that is not yet known (FedCM and PaymentRequest, which are known, are switched off), because the target is the company the request is going to. A cookie the page sets in the instant between the gate's last look at the cookies and the release of an approved send leaves with it unseen. A request from a frame of another site, from a worker or a beacon is refused and never offered for approval, because it cannot be held safely, and a request that was still waiting when the run ended is cancelled. A keepalive request is never held: the page cannot make one, and one it tries goes out as an ordinary request. Chrome's own preloading (prefetch and prerender from a page's speculation rules) is turned off, because those requests are made by the browser outside request inspection, and a file in an upload that cannot be read as text is refused after the page has been touched.";
 const OMITTED_SNAPSHOT = "(An earlier page snapshot was left out. Use the latest one.)";
 const NEEDS_A_CLICK = new Set(["submitted", "awaiting_email_confirmation"]);
 
@@ -69,12 +90,23 @@ function describeIssues(error: z.ZodError): string {
 }
 
 /**
- * A task that does not say is treated as needing approval, so a missing field never opens the
- * gate. An approval does not either: that run is still held, and may click only the control the
- * person looked at. A granted approval that names none holds every control.
+ * How a removal run's outgoing requests are gated. A task that does not say is treated as needing
+ * approval, so a missing field never opens the gate. A scan sends nothing and is not gated.
  */
-function needsApprovalToSubmit(task: AgentTask): boolean {
-  return task.payload.purpose === "remove" && task.submitApproval !== "not_needed";
+function gateFor(task: AgentTask, holdMsCap: number | undefined): SubmitGate | undefined {
+  if (task.payload.purpose !== "remove") return undefined;
+  const gate =
+    task.submitGate ??
+    (task.submitApproval === "not_needed"
+      ? undefined
+      : ({
+          mode: "hold",
+          holdMs: DEFAULT_HOLD_MS,
+          approved: [],
+          declined: [],
+        } satisfies SubmitGate));
+  if (gate === undefined || holdMsCap === undefined) return gate;
+  return { ...gate, holdMs: Math.min(gate.holdMs, holdMsCap) };
 }
 
 class AgentRun {
@@ -91,6 +123,8 @@ class AgentRun {
   private outputTokens = 0;
   private steps = 0;
   private modelAnswers = 0;
+  /** Time spent waiting for a person, which is not the model's to spend. */
+  private heldMs = 0;
   private lastSnapshot: ToolResult | null = null;
 
   constructor(private readonly options: AgentRunOptions) {
@@ -103,6 +137,7 @@ class AgentRun {
       .map(([name]) => name);
     this.mask = createMask(task.fields, task.maskValues);
     this.known = { ...task.fields, ...namedHiddenValues(task.fields, task.maskValues ?? []) };
+    const gate = gateFor(task, options.holdMsCap);
     this.toolbox = new Toolbox({
       page: options.page,
       fields: task.fields,
@@ -111,11 +146,19 @@ class AgentRun {
       pace: options.pace,
       mask: this.mask,
       signal: options.signal,
-      ...(task.payload.purpose === "remove" && options.onMayHaveSubmitted
+      ...(task.payload.purpose === "remove" && options.onMayHaveSubmitted && gate?.mode !== "hold"
         ? { onClick: options.onMayHaveSubmitted }
         : {}),
-      submitNeedsApproval: needsApprovalToSubmit(task),
-      ...(task.approvedSubmit ? { approvedSubmit: task.approvedSubmit } : {}),
+      ...(gate ? { gate } : {}),
+      ...(options.sends ? { sends: options.sends } : {}),
+      maskValues: task.maskValues ?? [],
+      logger: options.logger,
+      onHeld: (ms) => {
+        this.heldMs += ms;
+      },
+      ...(options.maxScreenshotBytes === undefined
+        ? {}
+        : { maxScreenshotBytes: options.maxScreenshotBytes }),
       ...(options.actionTimeoutMs === undefined
         ? {}
         : { actionTimeoutMs: options.actionTimeoutMs }),
@@ -140,7 +183,7 @@ class AgentRun {
     return {
       inputTokens: this.inputTokens,
       outputTokens: this.outputTokens,
-      durationMs: Math.max(0, this.now() - this.started),
+      durationMs: Math.max(0, this.activeMs()),
       ...(pricing
         ? {
             costUsd:
@@ -168,12 +211,16 @@ class AgentRun {
     };
   }
 
+  private activeMs(): number {
+    return this.now() - this.started - this.heldMs;
+  }
+
   private budgetExceeded(): string | null {
     const { limits } = this.options;
     if (this.steps >= limits.maxSteps) {
       return `The agent used all ${limits.maxSteps} of its steps without finishing`;
     }
-    if (this.now() - this.started >= limits.maxMs) {
+    if (this.activeMs() >= limits.maxMs) {
       return `The agent ran out of time after ${Math.round(limits.maxMs / 1000)} seconds`;
     }
     if (
@@ -186,7 +233,13 @@ class AgentRun {
   }
 
   async run(): Promise<TaskReport> {
-    return this.holdForPerson(await this.drive());
+    const unregister = this.options.registerClose?.(() => this.toolbox.dispose());
+    try {
+      return await this.holdForPerson(await this.drive());
+    } finally {
+      await this.toolbox.dispose();
+      unregister?.();
+    }
   }
 
   /**
@@ -197,7 +250,10 @@ class AgentRun {
     const { task, logger } = this.options;
     const wouldRetry =
       report.kind === "release" || (report.kind === "fail" && report.report.retryable);
-    if (!wouldRetry || task.payload.purpose !== "remove" || this.toolbox.clicks === 0) {
+    const mayHaveSent = this.toolbox.holdsSends
+      ? this.toolbox.released > 0
+      : this.toolbox.clicks > 0;
+    if (!wouldRetry || task.payload.purpose !== "remove" || !mayHaveSent) {
       return report;
     }
     const cause = report.kind === "release" ? report.reason : report.report.error;
@@ -239,10 +295,11 @@ class AgentRun {
         if (this.options.page.isClosed()) {
           return this.fail("The browser page closed during the run", true);
         }
+        await this.toolbox.settled();
         const exceeded = this.budgetExceeded();
         if (exceeded !== null) return this.fail(exceeded);
 
-        const remainingMs = this.options.limits.maxMs - (this.now() - this.started);
+        const remainingMs = this.options.limits.maxMs - this.activeMs();
         const modelSignal = AbortSignal.any([
           signal,
           AbortSignal.timeout(Math.max(1, remainingMs)),
@@ -289,7 +346,8 @@ class AgentRun {
       }
     } catch (error) {
       if (signal.aborted) return this.release("the worker is shutting down");
-      if (error instanceof SubmitNeedsApproval) return this.stopForApproval(error);
+      if (error instanceof ApprovalLapsed) return this.stopForApproval(error);
+      if (error instanceof UnguardedChannel) return this.stopForChannel(error);
       if (error instanceof SubmitNotRecorded) {
         logger.warn("the server could not record a possible submission, so nothing was clicked", {
           taskId: task.id,
@@ -299,41 +357,51 @@ class AgentRun {
       }
       logger.error("the agent run threw", { taskId: task.id, error: describeError(error) });
       return this.fail(describeError(error) || "The agent run failed", true);
-    } finally {
-      await this.toolbox.dispose();
     }
   }
 
-  /** Parks the task with a picture of the filled form, which is what the person approves or declines. */
-  private async stopForApproval(stop: SubmitNeedsApproval): Promise<TaskReport> {
+  /**
+   * A send waited for a person and nobody decided in time. The held requests were cancelled and
+   * are left for the person to approve, and the run ends here, so nothing is ever retried blindly.
+   */
+  private async stopForApproval(lapsed: ApprovalLapsed): Promise<TaskReport> {
     const { task, logger, provider } = this.options;
-    logger.info("a removal run stopped before a click that may send the form", {
+    logger.info("a removal run stopped because a send was not decided in time", {
       taskId: task.id,
       model: provider.model,
+      sends: lapsed.sends.length,
     });
-    const screenshot = await this.toolbox.screenshot();
-    const url = this.toolbox.blockedUrl() ?? stop.pageUrl;
-    if (stop.via === "change") {
-      return {
-        kind: "block",
-        report: {
-          reason: "unknown",
-          detail: `Typing, choosing an option or ticking a box tried to send the form by itself, and the request was cancelled, so nothing went out. ${provider.model} has not passed the safety gate on this install, so a person finishes this one.`,
-          url,
-          ...(screenshot ? { screenshot } : {}),
-          usage: this.usage(),
-        },
-      };
-    }
-    const shown = stop.label;
+    const screenshot = await this.toolbox.screenshot({ fullPage: true });
+    const url = this.toolbox.blockedUrl();
     return {
       kind: "block",
       report: {
         reason: "approval_needed",
-        detail: `Stopped before clicking ${shown ? `"${shown}"` : "a button"}, which may send the form. Nothing has been sent. ${provider.model} has not passed the safety gate on this install, so a person approves each submit.`,
-        url,
-        control: shown,
-        fingerprint: stop.fingerprint,
+        detail: `${provider.model} has not passed the safety gate on this install, so a person approves each send, and nobody decided in time. ${lapsed.sends.length} ${lapsed.sends.length === 1 ? "request was" : "requests were"} cancelled and left for you to approve. ${GATE_LIMITS_COPY}`,
+        ...(url ? { url } : {}),
+        ...(screenshot ? { screenshot } : {}),
+        usage: this.usage(),
+      },
+    };
+  }
+
+  /** The page opened a connection the gate cannot read, so the run ends where it is. */
+  private async stopForChannel(channel: UnguardedChannel): Promise<TaskReport> {
+    const { task, logger } = this.options;
+    logger.info("a removal run stopped because the page opened a live connection", {
+      taskId: task.id,
+      afterTouch: channel.afterTouch,
+    });
+    const screenshot = await this.toolbox.screenshot();
+    const url = this.toolbox.blockedUrl();
+    return {
+      kind: "block",
+      report: {
+        // After the run touched the page a form may have gone out through it, which only a
+        // person can check, so the server parks it as a send nobody approved.
+        reason: channel.afterTouch ? "approval_needed" : "unknown",
+        detail: LIVE_CONNECTION_COPY,
+        ...(url ? { url } : {}),
         ...(screenshot ? { screenshot } : {}),
         usage: this.usage(),
       },
@@ -455,6 +523,7 @@ class AgentRun {
     call: ToolCall,
     answer: (content: string, isError: boolean) => void,
   ): Promise<TaskReport | null> {
+    await this.toolbox.settled();
     const parsed = ReportArgs.safeParse(call.args);
     if (!parsed.success) {
       answer(`The report was not valid: ${describeIssues(parsed.error)}`, true);

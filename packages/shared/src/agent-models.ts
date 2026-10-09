@@ -176,7 +176,7 @@ export function withOverride(
 }
 
 /** What a task does when its model is not cleared: a removal stops at the click that may send the form. */
-export const SubmitApproval = z.enum(["not_needed", "required", "granted"]);
+export const SubmitApproval = z.enum(["not_needed", "required"]);
 export type SubmitApproval = z.infer<typeof SubmitApproval>;
 
 export function modelLabel(model: Pick<ModelIdentity, "name" | "version">): string {

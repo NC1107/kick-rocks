@@ -117,6 +117,7 @@ describeBrowser("a human check that renders after the action returned", () => {
     let told = 0;
     await open("/late-captcha?on=none");
     await toolbox.dispose();
+    page = await context.newPage();
     toolbox = new Toolbox({
       page,
       fields: PERSON,
@@ -131,6 +132,7 @@ describeBrowser("a human check that renders after the action returned", () => {
       },
     });
     await toolbox.install();
+    await toolbox.execute("navigate", { url: `${ORIGIN}/late-captcha?on=none` });
     const submit = await refOf("Submit request");
     const outcome = await toolbox.execute("click", { ref: submit });
     expect(told).toBe(1);

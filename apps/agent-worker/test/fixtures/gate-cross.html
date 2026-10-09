@@ -1,0 +1,14 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Opt out - Other hosts</title></head>
+<body>
+<h1>Remove your listing</h1>
+<iframe title="Partner frame" src="{{OFFSITE}}/gate-frame" style="width:240px;height:60px"></iframe>
+<form method="post" action="/gate-optout">
+  <label for="email">Email address</label>
+  <input id="email" name="email" type="email"
+         onchange="fetch('{{OTHER}}/gate-collect', { method: 'POST', mode: 'no-cors', body: 'email=' + encodeURIComponent(this.value) })">
+  <button type="submit">Submit request</button>
+</form>
+</body>
+</html>

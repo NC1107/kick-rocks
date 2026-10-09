@@ -61,6 +61,13 @@ const PLANNED = [
   "POST /tasks/:id/retry",
   "POST /tasks/:id/approve-submit",
   "GET /tasks/:id/screenshot",
+  "GET /tasks/:id/sends",
+  "GET /tasks/:id/sends/:sendId/screenshot",
+  "POST /tasks/:id/sends/:sendId/decision",
+  "GET /worker/tasks/:id/sends/:sendId/decision",
+  "POST /worker/tasks/:id/sends",
+  "POST /worker/tasks/:id/sends/:sendId/release",
+  "POST /worker/tasks/:id/sends/:sendId/result",
   "POST /matches/:id/decision",
   "GET /messages/:id",
   "POST /messages/:id/classification",
@@ -142,7 +149,7 @@ describe("API_ROUTES", () => {
         "worker-api",
       ]),
     );
-    expect(routesOfModule("worker-api")).toHaveLength(8);
+    expect(routesOfModule("worker-api")).toHaveLength(12);
   });
 
   it("lets the server mount routes in any order without shadowing", () => {
@@ -153,10 +160,11 @@ describe("API_ROUTES", () => {
 });
 
 describe("body limits", () => {
-  it("only the screenshot upload may exceed the server default", () => {
+  it("only a request that carries a screenshot may exceed the server default", () => {
     const limited = routes.filter(([, route]) => "bodyLimit" in route).map(([name]) => name);
-    expect(limited).toEqual(["workerTaskBlock"]);
+    expect(limited).toEqual(["workerTaskBlock", "workerSends"]);
     expect(API_ROUTES.workerTaskBlock.bodyLimit).toBeGreaterThan(8 * 1024 * 1024);
+    expect(API_ROUTES.workerSends.bodyLimit).toBeGreaterThan(8 * 1024 * 1024);
   });
 });
 

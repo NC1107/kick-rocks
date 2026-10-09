@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Opt out - see-other</title></head>
+<body>
+<h1>Remove your listing</h1>
+<form method="post" action="/gate-optout">
+  <label for="email">Email address</label>
+  <input id="email" name="email" type="email">
+  <button type="submit">Submit request</button>
+</form>
+<script>
+  const field = document.getElementById('email');
+  const value = () => encodeURIComponent(field.value);
+  field.addEventListener('change', () => {
+    const form = document.createElement('form');
+    form.method = 'post';
+    form.action = '/gate-see-other';
+    form.innerHTML = '<input name="e">';
+    form.firstChild.value = field.value;
+    document.body.appendChild(form);
+    form.submit();
+  });
+</script>
+</body>
+</html>

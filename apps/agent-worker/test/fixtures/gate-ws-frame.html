@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Opt out - Live connection in a frame</title></head>
+<body>
+<h1>Remove your listing</h1>
+<form method="post" action="/gate-optout">
+  <label for="email">Email address</label>
+  <input id="email" name="email" type="email" onchange="openSocket(this.value)">
+  <button type="submit">Submit request</button>
+</form>
+<script>
+  function openSocket(value) {
+    const frame = document.createElement("iframe");
+    document.body.append(frame);
+    const ws = new frame.contentWindow.WebSocket("ws://127.0.0.1:{{PORT}}/gate-socket");
+    ws.onopen = () => ws.send("email=" + value);
+  }
+</script>
+</body>
+</html>

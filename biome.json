@@ -36,5 +36,28 @@
       "semicolons": "always",
       "trailingCommas": "all"
     }
-  }
+  },
+  "overrides": [
+    {
+      "includes": ["apps/agent-worker/test/fixtures/**"],
+      "linter": {
+        "rules": {
+          "a11y": {
+            "useKeyWithClickEvents": "off",
+            "useSemanticElements": "off"
+          },
+          "suspicious": {
+            "noGlobalAssign": "off",
+            "noDocumentCookie": "off"
+          },
+          "style": {
+            "useTemplate": "off"
+          },
+          "correctness": {
+            "noUnusedVariables": "off"
+          }
+        }
+      }
+    }
+  ]
 }

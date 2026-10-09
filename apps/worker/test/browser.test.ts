@@ -4,6 +4,7 @@ import {
   mkdirSync,
   mkdtempSync,
   readdirSync,
+  readFileSync,
   rmSync,
   symlinkSync,
   writeFileSync,
@@ -12,6 +13,7 @@ import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import type { BrowserContext } from "playwright";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   type BrowserSession,
@@ -24,6 +26,7 @@ import {
   launchPersistentChrome,
   ProxyConflictError,
   timezoneOption,
+  turnOffPreloading,
 } from "../src/browser.js";
 import { describeBrowser, silentLogger } from "./support.js";
 
@@ -116,9 +119,144 @@ describe("the arguments Chrome starts with", () => {
     );
   });
 
+  it("turns off prerendering, which loads a page in a target nothing inspects", () => {
+    expect(chromeArgs({ noSandbox: false })).toContain(
+      "--disable-features=Prerender2,Reporting,NetworkErrorLogging,FedCm,WebPayments",
+    );
+  });
+
+  it("turns off the Reporting API and Network Error Logging, which send reports outside the request gate", () => {
+    const switches = chromeArgs({ noSandbox: false }).filter((arg) =>
+      arg.startsWith("--disable-features="),
+    );
+    expect(switches).toHaveLength(1);
+    const features = switches[0]?.slice("--disable-features=".length).split(",");
+    expect(features).toEqual(expect.arrayContaining(["Reporting", "NetworkErrorLogging"]));
+  });
+
+  it("turns off FedCM and PaymentRequest, which fetch an address the page names from the browser process", () => {
+    const switches = chromeArgs({ noSandbox: false }).filter((arg) =>
+      arg.startsWith("--disable-features="),
+    );
+    const features = switches[0]?.slice("--disable-features=".length).split(",");
+    expect(features).toEqual(expect.arrayContaining(["FedCm", "WebPayments"]));
+  });
+
   it("adds the sandbox switch only when asked", () => {
     expect(chromeArgs({ noSandbox: true })).toContain("--no-sandbox");
     expect(chromeArgs({ noSandbox: false })).not.toContain("--no-sandbox");
+  });
+});
+
+/** What Chrome itself reports for the setting, which is what it will act on. */
+async function reportedPredictionOption(context: BrowserContext): Promise<unknown> {
+  const page = context.pages()[0] ?? (await context.newPage());
+  await page.goto("chrome://prefs-internals");
+  const text = String(await page.evaluate("document.body.innerText"));
+  const prefs = JSON.parse(text.slice(text.indexOf("{"))) as {
+    net?: { network_prediction_options?: { value?: unknown } };
+  };
+  return prefs.net?.network_prediction_options?.value;
+}
+
+describe("turning preloading off in a profile", () => {
+  const read = (profile: string) =>
+    JSON.parse(readFileSync(join(profile, "Default", "Preferences"), "utf8"));
+
+  it("writes the setting into a profile that has never run", () => {
+    turnOffPreloading(dir);
+    expect(read(dir)).toEqual({ net: { network_prediction_options: 2 } });
+  });
+
+  it("changes the setting a person turned on and keeps every other setting", () => {
+    mkdirSync(join(dir, "Default"), { recursive: true });
+    writeFileSync(
+      join(dir, "Default", "Preferences"),
+      JSON.stringify({ net: { network_prediction_options: 0, other: 1 }, homepage: "x" }),
+    );
+    turnOffPreloading(dir);
+    expect(read(dir)).toEqual({
+      net: { network_prediction_options: 2, other: 1 },
+      homepage: "x",
+    });
+  });
+
+  it("replaces a settings file that cannot be read", () => {
+    mkdirSync(join(dir, "Default"), { recursive: true });
+    writeFileSync(join(dir, "Default", "Preferences"), "{not json");
+    turnOffPreloading(dir);
+    expect(read(dir)).toEqual({ net: { network_prediction_options: 2 } });
+  });
+});
+
+describeBrowser("the browser that makes every request of a run", () => {
+  it("starts with preloading off, however the profile was left", async () => {
+    mkdirSync(join(dir, "Default"), { recursive: true });
+    writeFileSync(
+      join(dir, "Default", "Preferences"),
+      JSON.stringify({ net: { network_prediction_options: 0 } }),
+    );
+    const context = await launchPersistentChrome({
+      profileDir: dir,
+      headless: true,
+      noSandbox: false,
+      executablePath: null,
+    });
+    try {
+      expect(await reportedPredictionOption(context)).toBe(2);
+    } finally {
+      await context.close();
+    }
+  });
+});
+
+describeBrowser("the fetches Chrome makes outside request inspection", () => {
+  let site: Server;
+  let origin: string;
+  const asked: string[] = [];
+
+  beforeAll(async () => {
+    site = createServer((request, response) => {
+      asked.push(request.url ?? "");
+      response.writeHead(200, { "content-type": "text/html", "access-control-allow-origin": "*" });
+      response.end("<!doctype html><title>Page</title>");
+    });
+    await new Promise<void>((resolve) => site.listen(0, "127.0.0.1", resolve));
+    origin = `http://127.0.0.1:${(site.address() as AddressInfo).port}`;
+  });
+
+  afterAll(async () => {
+    site.closeAllConnections();
+    await new Promise<void>((resolve) => site.close(() => resolve()));
+  });
+
+  it("never fetches the config a page names for a federated login, and has no PaymentRequest to fetch a payment manifest", async () => {
+    asked.length = 0;
+    const profileDir = join(dir, "profile-outside");
+    mkdirSync(profileDir, { recursive: true });
+    const context = await launchPersistentChrome({
+      profileDir,
+      headless: true,
+      noSandbox: false,
+      executablePath: null,
+    });
+    try {
+      const page = context.pages()[0] ?? (await context.newPage());
+      await page.goto(`${origin}/`);
+      const config = JSON.stringify(`${origin}/fedcm-config.json?e=jordan@example.com`);
+      const outcome = (await page.evaluate(`(async () => {
+        const login = await navigator.credentials
+          .get({ identity: { providers: [{ configURL: ${config}, clientId: "x" }] } })
+          .then(() => "answered")
+          .catch((error) => error.name);
+        return { login, payments: typeof PaymentRequest };
+      })()`)) as { payments: string };
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      expect(outcome.payments).toBe("undefined");
+      expect(asked.filter((url) => url !== "/" && url !== "/favicon.ico")).toEqual([]);
+    } finally {
+      await context.close();
+    }
   });
 });
 
@@ -138,6 +276,66 @@ describeBrowser("the browser a broker page sees", () => {
     } finally {
       await context.close();
     }
+  });
+});
+
+describeBrowser("shared workers in a browser whose requests are all inspected", () => {
+  let site: Server;
+  let origin: string;
+  const asked: string[] = [];
+
+  beforeAll(async () => {
+    site = createServer((request, response) => {
+      asked.push(request.url ?? "");
+      if (request.url === "/shared.js") {
+        response.writeHead(200, { "content-type": "text/javascript" });
+        response.end(
+          "onconnect = (e) => { fetch('/from-shared-worker', { method: 'POST', body: 'x' }); };",
+        );
+        return;
+      }
+      response.writeHead(200, { "content-type": "text/html" });
+      response.end(
+        "<!doctype html><title>Shared</title><script>new SharedWorker('/shared.js').port.start()</script>",
+      );
+    });
+    await new Promise<void>((resolve) => site.listen(0, "127.0.0.1", resolve));
+    origin = `http://127.0.0.1:${(site.address() as AddressInfo).port}`;
+  });
+
+  afterAll(async () => {
+    site.closeAllConnections();
+    await new Promise<void>((resolve) => site.close(() => resolve()));
+  });
+
+  async function visit(blockSharedWorkers: boolean): Promise<void> {
+    asked.length = 0;
+    const profileDir = join(dir, `profile-${blockSharedWorkers}`);
+    mkdirSync(profileDir, { recursive: true });
+    const context = await launchPersistentChrome({
+      profileDir,
+      headless: true,
+      noSandbox: false,
+      executablePath: null,
+      blockSharedWorkers,
+    });
+    try {
+      const page = await context.newPage();
+      await page.goto(origin);
+      await page.waitForTimeout(1_000);
+    } finally {
+      await context.close();
+    }
+  }
+
+  it("runs one when nothing stops it, which is what the next test rules out", async () => {
+    await visit(false);
+    expect(asked).toContain("/from-shared-worker");
+  });
+
+  it("never lets one run when asked, so what it would send is never sent", async () => {
+    await visit(true);
+    expect(asked).not.toContain("/from-shared-worker");
   });
 });
 

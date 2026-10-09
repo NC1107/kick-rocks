@@ -27,9 +27,7 @@ interface TaskBase {
   /** A removal run said it has clicked, so its form may be submitted and the task is never retried. */
   mayHaveSubmitted: boolean;
   /** See `tasks.submitApproval` in the schema. */
-  submitApproval: "required" | "granted" | "used" | null;
-  /** See `tasks.submitStop` in the schema. */
-  submitStop: { origin: string; control: string; fingerprint: string } | null;
+  submitApproval: "required" | null;
   /** How many times the task has been claimed, less the times it was handed back unstarted. */
   attempts: number;
   maxAttempts: number;

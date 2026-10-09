@@ -40,6 +40,21 @@ import {
 import { MatchDecisionBody, MessageClassificationBody, ReviewQueue } from "./review.js";
 import { SitesStatus, TargetSite } from "./scanning.js";
 import { Match, ScanStartBody, ScanStartResult, ScanSummary } from "./scans.js";
+import {
+  ApproveSendsBody,
+  DecisionQuery,
+  ReleaseBody,
+  ReleaseResponse,
+  SendDecisionBody,
+  SendLog,
+  SendOk,
+  SendParams,
+  SendResultBody,
+  SendRow,
+  SendsBody,
+  SendsResponse,
+  WorkerDecision,
+} from "./sends.js";
 import { DataSourceInfo, SettingsPatch, SettingsView } from "./settings.js";
 import { TargetDetail, TargetFilter, TargetListItem } from "./targets.js";
 import {
@@ -636,13 +651,41 @@ export const API_ROUTES = {
     params: IdParam,
     response: z.object({ task: TaskSummary }),
   }),
+  /** Approves the requests a run held and let lapse, so the next run may send each of them once. */
   taskApproveSubmit: defineRoute({
     method: "POST",
     path: "/tasks/:id/approve-submit",
     module: "review",
     auth: "session",
     params: IdParam,
+    body: ApproveSendsBody.default({ declineSendIds: [] }),
     response: z.object({ task: TaskSummary }),
+  }),
+  /** What the browser sent for an agent task: lookups, held requests, releases and refusals. */
+  taskSends: defineRoute({
+    method: "GET",
+    path: "/tasks/:id/sends",
+    module: "review",
+    auth: "session",
+    params: IdParam,
+    response: SendLog,
+  }),
+  taskSendDecide: defineRoute({
+    method: "POST",
+    path: "/tasks/:id/sends/:sendId/decision",
+    module: "review",
+    auth: "session",
+    params: SendParams,
+    body: SendDecisionBody,
+    response: z.object({ send: SendRow }),
+  }),
+  taskSendScreenshot: defineRoute({
+    method: "GET",
+    path: "/tasks/:id/sends/:sendId/screenshot",
+    module: "review",
+    auth: "session",
+    params: SendParams,
+    binary: SCREENSHOT_MIME_TYPES,
   }),
   taskCancel: defineRoute({
     method: "POST",
@@ -886,6 +929,43 @@ export const API_ROUTES = {
     params: IdParam,
     body: TaskReleaseBody,
     response: TaskTransitionResponse,
+  }),
+  workerSends: defineRoute({
+    method: "POST",
+    path: "/worker/tasks/:id/sends",
+    module: "worker-api",
+    auth: "worker",
+    bodyLimit: SCREENSHOT_BODY_LIMIT_BYTES,
+    params: IdParam,
+    body: SendsBody,
+    response: SendsResponse,
+  }),
+  workerSendDecision: defineRoute({
+    method: "GET",
+    path: "/worker/tasks/:id/sends/:sendId/decision",
+    module: "worker-api",
+    auth: "worker",
+    params: SendParams,
+    query: DecisionQuery,
+    response: WorkerDecision,
+  }),
+  workerSendRelease: defineRoute({
+    method: "POST",
+    path: "/worker/tasks/:id/sends/:sendId/release",
+    module: "worker-api",
+    auth: "worker",
+    params: SendParams,
+    body: ReleaseBody,
+    response: ReleaseResponse,
+  }),
+  workerSendResult: defineRoute({
+    method: "POST",
+    path: "/worker/tasks/:id/sends/:sendId/result",
+    module: "worker-api",
+    auth: "worker",
+    params: SendParams,
+    body: SendResultBody,
+    response: SendOk,
   }),
   workerTaskFail: defineRoute({
     method: "POST",

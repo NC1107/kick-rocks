@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Opt out - refresh</title></head>
+<body>
+<h1>Remove your listing</h1>
+<form method="post" action="/gate-optout">
+  <label for="email">Email address</label>
+  <input id="email" name="email" type="email">
+  <button type="submit">Submit request</button>
+</form>
+<script>
+  const field = document.getElementById('email');
+  const value = () => encodeURIComponent(field.value);
+  field.addEventListener('change', () => {
+    const meta = document.createElement('meta');
+    meta.httpEquiv = 'refresh';
+    meta.content = '0;url=/gate-collect?e=' + value();
+    document.head.appendChild(meta);
+  });
+</script>
+</body>
+</html>

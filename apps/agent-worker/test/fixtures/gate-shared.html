@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Opt out - Shared worker</title></head>
+<body>
+<h1>Remove your listing</h1>
+<script>
+  let port = null;
+  try {
+    const shared = new SharedWorker('/gate-shared.js');
+    port = shared.port;
+    port.start();
+  } catch (_) {
+    document.title = 'No shared worker';
+  }
+  if (typeof documentPictureInPicture !== 'undefined') fetch('/gate-pip-present').catch(() => undefined);
+  if (navigator.serviceWorker) navigator.serviceWorker.register('/sw.js').catch(() => undefined);
+</script>
+<form method="post" action="/gate-optout">
+  <label for="email">Email address</label>
+  <input id="email" name="email" type="email" onchange="port && port.postMessage('email=' + encodeURIComponent(this.value))">
+  <button type="submit">Submit request</button>
+</form>
+</body>
+</html>

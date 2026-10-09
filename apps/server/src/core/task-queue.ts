@@ -126,10 +126,6 @@ export interface BlockInput {
   detail?: string | undefined;
   /** The page where the run got stuck. */
   url?: string | undefined;
-  /** What the send control the run stopped before says, which a later approval is tied to. */
-  control?: string | undefined;
-  /** A hash of the form as the run filled it, which a later approval is tied to as well. */
-  fingerprint?: string | undefined;
   screenshot?: { mime: (typeof SCREENSHOT_MIME_TYPES)[number]; data: Buffer } | undefined;
   actor: RequestActor;
   usage?: TaskUsage | undefined;
@@ -244,7 +240,7 @@ export interface TaskQueue {
    * was not about the task itself, such as a mailbox whose login has since been fixed.
    */
   requeueFailed(id: string, actor?: RequestActor): Task;
-  /** Records the person's say-so (or its absence) for the next submit of a removal. */
+  /** Records whether the outgoing gate holds this task's sends for a person. */
   setSubmitApproval(id: string, state: Task["submitApproval"]): void;
   /** A person did the work by hand: closes a blocked task as done. */
   markDone(id: string, input: MarkDoneInput): Task;
@@ -293,7 +289,6 @@ function toTask(row: TaskRow): Task {
     leaseExpiresAt: row.leaseExpiresAt,
     mayHaveSubmitted: row.mayHaveSubmitted,
     submitApproval: row.submitApproval,
-    submitStop: row.submitStop ?? null,
     attempts: row.attempts,
     maxAttempts: row.maxAttempts,
     runAfter: row.runAfter,
@@ -315,21 +310,6 @@ const asKind = <K extends TaskKind>(task: Task): Task<K> => task as Task<K>;
 const addMs = (iso: string, ms: number) => new Date(Date.parse(iso) + ms).toISOString();
 
 /** Adds up what each attempt cost, so a task that took three tries reports all three. */
-/**
- * What an approval of the submit is tied to. An unlabeled control is stored with empty words and
- * compared exactly, so an icon-only button is as bounded as a labeled one. A stop without the
- * fingerprint of the filled form is not stored, since nothing could hold the next run to it.
- */
-function stopFor(
-  reason: BlockedReason,
-  url: string | undefined,
-  control: string | undefined,
-  fingerprint: string | undefined,
-): TaskRow["submitStop"] {
-  if (reason !== "approval_needed" || !url || !fingerprint) return null;
-  return { origin: new URL(url).origin, control: control ?? "", fingerprint };
-}
-
 function addUsage(current: TaskUsage | null, extra: TaskUsage | undefined): TaskUsage | null {
   if (!extra) return current;
   const total: TaskUsage = { ...(current ?? {}) };
@@ -776,7 +756,7 @@ export function createTaskQueue({
       });
     },
 
-    block(id, { workerId, reason, detail, url, control, fingerprint, screenshot, actor, usage }) {
+    block(id, { workerId, reason, detail, url, screenshot, actor, usage }) {
       const now = nowIso(clock);
       if (screenshot) {
         if (screenshot.data.byteLength > MAX_SCREENSHOT_BYTES) {
@@ -808,7 +788,6 @@ export function createTaskQueue({
               blockedReason: reason,
               blockedDetail: withSubmissionNote(row, detail),
               blockedUrl: url ?? null,
-              submitStop: stopFor(reason, url, control, fingerprint),
               leaseOwner: null,
               leaseExpiresAt: null,
               finishedBy: workerId,

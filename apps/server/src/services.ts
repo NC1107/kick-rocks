@@ -30,6 +30,7 @@ import { createTargetsService, type TargetSources, type TargetsService } from ".
 import { registerTaskAudit } from "./core/task-audit.js";
 import { createTaskHandlers, type TaskHandlers } from "./core/task-handlers.js";
 import { createTaskQueue, type TaskQueue } from "./core/task-queue.js";
+import { createTaskSends, type TaskSends } from "./core/task-sends.js";
 import { registerHandlers } from "./handlers/index.js";
 import { createMailServices } from "./mail/index.js";
 import type { MailServices } from "./mail/types.js";
@@ -56,6 +57,8 @@ export interface AppServices {
   logger: Logger;
   settings: SettingsStore;
   taskQueue: TaskQueue;
+  /** What an agent run's browser sent, and the approvals of what it held. */
+  taskSends: TaskSends;
   /** Which browser tasks may start now, shared by the queue, the status routes, and the scheduler. */
   politeness: SitePoliteness;
   taskHandlers: TaskHandlers;
@@ -180,6 +183,7 @@ export function createServices(
     logger,
     settings,
     taskQueue,
+    taskSends: createTaskSends({ db, clock }),
     politeness,
     taskHandlers,
     requests,

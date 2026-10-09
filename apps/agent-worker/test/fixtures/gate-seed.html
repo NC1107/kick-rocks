@@ -1,0 +1,13 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Seed</title></head>
+<body>
+<script>
+  const reversed = (text) => Array.from(text).reverse().join('');
+  const email = new URLSearchParams(location.search).get('email') || '';
+  localStorage.setItem('seed', reversed(email));
+  document.cookie = 'seed=' + encodeURIComponent(reversed(email)) + '; path=/; max-age=3600';
+  document.title = 'Seeded';
+</script>
+</body>
+</html>
