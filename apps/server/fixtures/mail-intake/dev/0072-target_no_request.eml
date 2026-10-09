@@ -1,0 +1,36 @@
+DKIM-Signature: v=1; a=ed25519-sha256; c=relaxed/relaxed; d=em.bestbuy.com;
+ h=Content-Type: MIME-Version: List-Unsubscribe: Reply-To: Message-ID:
+ Date: Subject: To: From; q=dns/txt; s=kr; t=1790713260;
+ bh=BZLgpKQ5xTY65Svou8+0zAhEZHN2Mwj1sxvUJvNUr4s=;
+ b=DaTlfmutICbKe4qfyPot0GQvDkw1Te/nGvB8+Z7e8DA5OZ9E0AUtuCfrWzBq8M/3HX8tv8ciA
+ o1rWq4rCZttAw==
+Return-Path: <bounce-273031@bounce.em.bestbuy.com>
+Received: from mail.em.bestbuy.com (mail.em.bestbuy.com [203.0.113.24]) by mx.example.com with ESMTPS id d8a8d7e70b for <jordan@example.com>; Tue, 29 Sep 2026 20:21:00 +0000
+From: Best Buy <bestbuy@em.bestbuy.com>
+To: jordan@example.com
+Subject: Your order is ready for pickup
+Date: Tue, 29 Sep 2026 20:21:00 +0000
+Message-ID: <8a5b13726645fb66a6cc0b5a@em.bestbuy.com>
+Reply-To: no-reply@em.bestbuy.com
+List-Unsubscribe: <https://em.bestbuy.com/unsubscribe?u=61eefed772263490>, <mailto:unsubscribe-61eefed7@em.bestbuy.com>
+List-Unsubscribe-Post: List-Unsubscribe=One-Click
+Precedence: bulk
+X-Mailer: Salesforce Marketing Cloud
+MIME-Version: 1.0
+Content-Type: multipart/alternative; boundary="----=_Part_a92c9b346b1a"
+
+------=_Part_a92c9b346b1a
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+Your order is ready for pickup
+
+Shop now: https://em.bestbuy.com/offers?ref=f96ff11a
+
+You are receiving this email because you have an account with Best Buy. To stop receiving these emails, unsubscribe: https://em.bestbuy.com/unsubscribe
+------=_Part_a92c9b346b1a
+Content-Type: text/html; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+<html><body style="font-family:Arial,sans-serif"><h2>Your order is ready for pickup</h2><p><a href="https://em.bestbuy.com/offers?ref=f96ff11a">Shop now</a></p><p style="font-size:11px">You are receiving this email because you have an account with Best Buy. To stop receiving these emails, unsubscribe: https://em.bestbuy.com/unsubscribe</p></body></html>
+------=_Part_a92c9b346b1a--

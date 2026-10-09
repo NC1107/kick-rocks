@@ -1,0 +1,24 @@
+DKIM-Signature: v=1; a=ed25519-sha256; c=relaxed/relaxed; d=spokeo.com;
+ h=Content-Transfer-Encoding: Content-Type: MIME-Version: Reply-To:
+ Message-ID: Date: Subject: To: From; q=dns/txt; s=kr; t=1791379440;
+ bh=7p9gxUygdVkcz1geePtI9jQ8cPAcljvAxQmBy0B22zI=;
+ b=EMkBVBoO9rv1e9SgZVqAeWXoaWrhTviBKjaTDdOmZGHwvSJ544GcH2WD0sn4HuoTGpXKtBvyR
+ E3JPE7gXkHcDg==
+Return-Path: <bounce-83545@spokeo.com>
+Received: from mail.spokeo.com (mail.spokeo.com [203.0.113.20]) by mx.example.com with ESMTPS id 8f0b392fa7 for <jordan@example.com>; Wed, 07 Oct 2026 13:24:00 +0000
+From: Spokeo Privacy <dsar@spokeo.com>
+To: jordan@example.com
+Subject: Update on request KR-7K3M9Q
+Date: Wed, 07 Oct 2026 13:24:00 +0000
+Message-ID: <8aeed6ba791083d6a7714048@spokeo.com>
+Reply-To: privacy@spokeo.com
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+Hello Jordan,
+
+There is no matching record on file for jordan@example.com, so there is nothing for us to remove.
+
+Regards,
+Spokeo Privacy Team

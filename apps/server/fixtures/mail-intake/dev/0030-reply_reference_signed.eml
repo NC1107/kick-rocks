@@ -1,0 +1,23 @@
+DKIM-Signature: v=1; a=ed25519-sha256; c=relaxed/relaxed; d=netflix.com;
+ h=Content-Transfer-Encoding: Content-Type: MIME-Version: Message-ID: Date:
+ Subject: To: From; q=dns/txt; s=kr; t=1790527680;
+ bh=/dcBamKkaH+PG780gtBHrLsqDNtS3ZSGHfh54Le6tiM=;
+ b=Rj6g8yn5T8F8DuUM494/73zdj9uQh4RzU53/+0i18jAnmEIcXsD3qaHzmr8IAVDtcz3JoNkmw
+ rt59s7H06TQDg==
+Return-Path: <bounce-09197@netflix.com>
+Received: from mail.netflix.com (mail.netflix.com [203.0.113.21]) by mx.example.com with ESMTPS id bd1cd572f5 for <jordan@example.com>; Sun, 27 Sep 2026 16:48:00 +0000
+From: Netflix Privacy <privacy@netflix.com>
+To: jordan@example.com
+Subject: Update on request KR-9M3XW5
+Date: Sun, 27 Sep 2026 16:48:00 +0000
+Message-ID: <2d0af8516c4d522fb9676395@netflix.com>
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+Dear Jordan Example,
+
+After searching our database, we were unable to locate a profile for Jordan Example.
+
+Regards,
+Netflix Privacy Team

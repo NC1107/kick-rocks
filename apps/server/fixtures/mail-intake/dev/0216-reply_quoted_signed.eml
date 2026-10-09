@@ -1,0 +1,37 @@
+DKIM-Signature: v=1; a=ed25519-sha256; c=relaxed/relaxed; d=whitepages.com;
+ h=Content-Transfer-Encoding: Content-Type: MIME-Version: References:
+ In-Reply-To: Message-ID: Date: Subject: To: From; q=dns/txt; s=kr;
+ t=1791370740; bh=qBhIeBOe3cIcQg7PZod3y1HwpLQ7p2tEQmxcdIdsVmA=;
+ b=K4oFtzbkAdkEBZ3J5jCvaO5tmC7hSSYczwB1h7iwlPSCVSR5crZ4UZBsjo+ICu7sxFUvRQjUd
+ EljR8HW8LoBAQ==
+Return-Path: <bounce-00350@whitepages.com>
+Received: from mail.whitepages.com (mail.whitepages.com [203.0.113.24]) by mx.example.com with ESMTPS id d8a8d7e70b for <jordan@example.com>; Wed, 07 Oct 2026 10:59:00 +0000
+From: Whitepages Privacy <privacy@whitepages.com>
+To: jordan@example.com
+Subject: Re: Opt-out request KR-2D8RV6
+Date: Wed, 07 Oct 2026 10:59:00 +0000
+Message-ID: <1cae516d0371ea4a4d6e7b45@whitepages.com>
+In-Reply-To: <kr.f5e7222d-f35f-4fd2-8cb3-cd34debb2730.0@example.com>
+References: <kr.f5e7222d-f35f-4fd2-8cb3-cd34debb2730.0@example.com>
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+Hi Jordan,
+
+Your request has been denied: the information you asked about comes from public records that are exempt from deletion.
+
+Regards,
+Whitepages Privacy Team
+
+On Tue, 22 Sep 2026 at 09:40 Jordan Example <jordan@example.com> wrote:
+> Subject: Opt-out request KR-2D8RV6
+>
+> To the privacy team at Whitepages,
+>
+> I am asking you to remove my listing and stop selling my information.
+> Name: Jordan Example
+> Email: jordan@example.com
+> Please confirm once this is done.
+>
+> Reference: KR-2D8RV6

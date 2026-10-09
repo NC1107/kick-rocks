@@ -1,0 +1,23 @@
+DKIM-Signature: v=1; a=ed25519-sha256; c=relaxed/relaxed; d=amazon.com;
+ h=Content-Transfer-Encoding: Content-Type: MIME-Version: Message-ID: Date:
+ Subject: To: From; q=dns/txt; s=kr; t=1790709780;
+ bh=B29x52mnCGfgj9PxKQmVwoRoVrGv28N+hbQgz1YSBxQ=;
+ b=JOY6kSNAbPTIog+XuzJwDQRnW/2AVWAFlMud5p1+0IG89/bkxIVNvzhiYtQeq3wFZMdeFt5OS
+ 3E0D2ISCUp/Dw==
+Return-Path: <0100c830cd06f072460e1a30-f49947a8@bounces.amazon.com>
+Received: from mail.amazon.com (mail.amazon.com [203.0.113.20]) by mx.example.com with ESMTPS id 8f0b392fa7 for <jordan@example.com>; Tue, 29 Sep 2026 19:23:00 +0000
+From: Amazon <shipment-tracking@amazon.com>
+To: jordan@example.com
+Subject: Your return label for cast iron skillet
+Date: Tue, 29 Sep 2026 19:23:00 +0000
+Message-ID: <25295788f1edd099abf97c6f@amazon.com>
+Auto-Submitted: auto-generated
+X-Mailer: Transactional Mailer
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+Your request to return cast iron skillet has been received. Print the label below and drop it off at any carrier location.
+
+Order #030-5743288-4603088
+https://amazon.com/returns/030-5743288-4603088

@@ -1,0 +1,30 @@
+Return-Path: <bounce-975351@bounce.utility-co.example>
+Received: from mail.utility-co.example (mail.utility-co.example [203.0.113.28]) by mx.example.com with ESMTPS id 0ec5770b9c for <jordan@example.com>; Mon, 05 Oct 2026 00:34:00 +0000
+From: Lone Star Power <billing@utility-co.example>
+To: jordan@example.com
+Subject: Usage alert for your account
+Date: Mon, 05 Oct 2026 00:34:00 +0000
+Message-ID: <fd0364b2191fb9e51261451d@utility-co.example>
+Reply-To: no-reply@utility-co.example
+List-Unsubscribe: <https://utility-co.example/unsubscribe?u=1e60ff8505b63a8d>, <mailto:unsubscribe-1e60ff85@utility-co.example>
+List-Unsubscribe-Post: List-Unsubscribe=One-Click
+Precedence: bulk
+X-Mailer: Mailchimp Mailer
+MIME-Version: 1.0
+Content-Type: multipart/alternative; boundary="----=_Part_eb54dfb6236a"
+
+------=_Part_eb54dfb6236a
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+Usage alert for your account
+
+Shop now: https://utility-co.example/offers?ref=ceab27d6
+
+You are receiving this email because you have an account with Lone Star Power. To stop receiving these emails, unsubscribe: https://utility-co.example/unsubscribe
+------=_Part_eb54dfb6236a
+Content-Type: text/html; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+<html><body style="font-family:Arial,sans-serif"><h2>Usage alert for your account</h2><p><a href="https://utility-co.example/offers?ref=ceab27d6">Shop now</a></p><p style="font-size:11px">You are receiving this email because you have an account with Lone Star Power. To stop receiving these emails, unsubscribe: https://utility-co.example/unsubscribe</p></body></html>
+------=_Part_eb54dfb6236a--

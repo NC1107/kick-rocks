@@ -1,0 +1,36 @@
+DKIM-Signature: v=1; a=ed25519-sha256; c=relaxed/relaxed; d=linkedin.com;
+ h=Content-Type: MIME-Version: List-Unsubscribe: Reply-To: Message-ID:
+ Date: Subject: To: From; q=dns/txt; s=kr; t=1790716500;
+ bh=iySN8V0P8gZlnIPn9d3cxc0WAiFwyHU4/+ODLet32m0=;
+ b=9eyF+gV3RL+QoZGpFdh1lnVBXbSxNVUB+7xYTfyzoSuvoK/h7oEoyu2xftcjB4T5AomeMw/xi
+ JgKJnrmgktGBQ==
+Return-Path: <bounce-755997@bounce.linkedin.com>
+Received: from mail.linkedin.com (mail.linkedin.com [203.0.113.22]) by mx.example.com with ESMTPS id 1c80d904fc for <jordan@example.com>; Tue, 29 Sep 2026 21:15:00 +0000
+From: LinkedIn <jobs-listings@linkedin.com>
+To: jordan@example.com
+Subject: Your weekly digest
+Date: Tue, 29 Sep 2026 21:15:00 +0000
+Message-ID: <8f4c663b5ba6cfcf2e670997@linkedin.com>
+Reply-To: no-reply@linkedin.com
+List-Unsubscribe: <https://linkedin.com/unsubscribe?u=2b78649c051c3023>, <mailto:unsubscribe-2b78649c@linkedin.com>
+List-Unsubscribe-Post: List-Unsubscribe=One-Click
+Precedence: bulk
+X-Mailer: SendGrid
+MIME-Version: 1.0
+Content-Type: multipart/alternative; boundary="----=_Part_9580d1958715"
+
+------=_Part_9580d1958715
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+Your weekly digest
+
+Shop now: https://linkedin.com/offers?ref=6e87550e
+
+You are receiving this email because you have an account with LinkedIn. To stop receiving these emails, unsubscribe: https://linkedin.com/unsubscribe
+------=_Part_9580d1958715
+Content-Type: text/html; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+<html><body style="font-family:Arial,sans-serif"><h2>Your weekly digest</h2><p><a href="https://linkedin.com/offers?ref=6e87550e">Shop now</a></p><p style="font-size:11px">You are receiving this email because you have an account with LinkedIn. To stop receiving these emails, unsubscribe: https://linkedin.com/unsubscribe</p></body></html>
+------=_Part_9580d1958715--

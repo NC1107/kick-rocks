@@ -1,0 +1,30 @@
+Return-Path: <bounce-764585@bounce.airline-news.example>
+Received: from mail.airline-news.example (mail.airline-news.example [203.0.113.30]) by mx.example.com with ESMTPS id a1788aa909 for <jordan@example.com>; Sat, 26 Sep 2026 13:20:00 +0000
+From: Skyline Air <offers@airline-news.example>
+To: jordan@example.com
+Subject: Fares from $79 this fall
+Date: Sat, 26 Sep 2026 13:20:00 +0000
+Message-ID: <e8a67204e79ab5439895bd54@airline-news.example>
+Reply-To: no-reply@airline-news.example
+List-Unsubscribe: <https://airline-news.example/unsubscribe?u=961fe4ed5d07b22d>, <mailto:unsubscribe-961fe4ed@airline-news.example>
+List-Unsubscribe-Post: List-Unsubscribe=One-Click
+Precedence: bulk
+X-Mailer: Salesforce Marketing Cloud
+MIME-Version: 1.0
+Content-Type: multipart/alternative; boundary="----=_Part_e518f6607eb0"
+
+------=_Part_e518f6607eb0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+Fares from $79 this fall
+
+Shop now: https://airline-news.example/offers?ref=973aa847
+
+You are receiving this email because you have an account with Skyline Air. To stop receiving these emails, unsubscribe: https://airline-news.example/unsubscribe
+------=_Part_e518f6607eb0
+Content-Type: text/html; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+<html><body style="font-family:Arial,sans-serif"><h2>Fares from $79 this fall</h2><p><a href="https://airline-news.example/offers?ref=973aa847">Shop now</a></p><p style="font-size:11px">You are receiving this email because you have an account with Skyline Air. To stop receiving these emails, unsubscribe: https://airline-news.example/unsubscribe</p></body></html>
+------=_Part_e518f6607eb0--

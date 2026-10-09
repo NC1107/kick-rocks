@@ -1,0 +1,30 @@
+Return-Path: <bounce-734667@bounce.northwind-outfitters.example>
+Received: from mail.northwind-outfitters.example (mail.northwind-outfitters.example [203.0.113.38]) by mx.example.com with ESMTPS id 7dbb038581 for <jordan@example.com>; Wed, 30 Sep 2026 09:02:00 +0000
+From: Northwind Outfitters <hello@northwind-outfitters.example>
+To: jordan+kickrocks@example.com
+Subject: Weekend deals are here
+Date: Wed, 30 Sep 2026 09:02:00 +0000
+Message-ID: <92b3ef19b331dbd12e3ff813@northwind-outfitters.example>
+Reply-To: no-reply@northwind-outfitters.example
+List-Unsubscribe: <https://northwind-outfitters.example/unsubscribe?u=f5c6bc90b3d25c84>, <mailto:unsubscribe-f5c6bc90@northwind-outfitters.example>
+List-Unsubscribe-Post: List-Unsubscribe=One-Click
+Precedence: bulk
+X-Mailer: Braze
+MIME-Version: 1.0
+Content-Type: multipart/alternative; boundary="----=_Part_1726925efab5"
+
+------=_Part_1726925efab5
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+Weekend deals are here
+
+Shop now: https://northwind-outfitters.example/offers?ref=90ce28d8
+
+You are receiving this email because you have an account with Northwind Outfitters. To stop receiving these emails, unsubscribe: https://northwind-outfitters.example/unsubscribe
+------=_Part_1726925efab5
+Content-Type: text/html; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+<html><body style="font-family:Arial,sans-serif"><h2>Weekend deals are here</h2><p><a href="https://northwind-outfitters.example/offers?ref=90ce28d8">Shop now</a></p><p style="font-size:11px">You are receiving this email because you have an account with Northwind Outfitters. To stop receiving these emails, unsubscribe: https://northwind-outfitters.example/unsubscribe</p></body></html>
+------=_Part_1726925efab5--

@@ -1,0 +1,35 @@
+DKIM-Signature: v=1; a=ed25519-sha256; c=relaxed/relaxed; d=substack.com;
+ h=Content-Type: MIME-Version: List-Unsubscribe: List-Id: Message-ID: Date:
+ Subject: To: From; q=dns/txt; s=kr; t=1790641500;
+ bh=s5Ru3aX/Z23Ukb3cq1/jg0lyiWIMRaf190GAGWRBbg8=;
+ b=mtAThHBLQjcwDluN1dm34a1Kr3mwFrkgI+W5DgdvuP1bC9qTTC8QVc9PIpWth/6wiBWP++lpn
+ tcFF/T45wVDCQ==
+Return-Path: <bounce-61114@substack.com>
+Received: from mail.substack.com (mail.substack.com [203.0.113.22]) by mx.example.com with ESMTPS id 1c80d904fc for <jordan@example.com>; Tue, 29 Sep 2026 00:25:00 +0000
+From: The Weekly Ledger <ledger@substack.com>
+To: jordan@example.com
+Subject: What the rate cut means for renters
+Date: Tue, 29 Sep 2026 00:25:00 +0000
+Message-ID: <6a31fbfdf160bd7bb61eacb3@substack.com>
+List-Id: <ledger.substack.com>
+List-Unsubscribe: <https://substack.com/unsubscribe?e=ed1e90df1784>
+Precedence: list
+MIME-Version: 1.0
+Content-Type: multipart/alternative; boundary="----=_Part_9580d1958715"
+
+------=_Part_9580d1958715
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+What the rate cut means for renters
+
+This week we look at what changed, what did not, and what to read next.
+Read online: https://substack.com/p/173b3b
+
+You are subscribed as jordan@example.com. Unsubscribe: https://substack.com/unsubscribe
+------=_Part_9580d1958715
+Content-Type: text/html; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+<html><body style="font-family:Arial,sans-serif"><h1>What the rate cut means for renters</h1><p>This week we look at what changed.</p></body></html>
+------=_Part_9580d1958715--

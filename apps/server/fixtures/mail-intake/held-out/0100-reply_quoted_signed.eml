@@ -1,0 +1,39 @@
+DKIM-Signature: v=1; a=ed25519-sha256; c=relaxed/relaxed;
+ d=beenverified.com; h=Content-Transfer-Encoding: Content-Type:
+ MIME-Version: References: In-Reply-To: Reply-To: Message-ID: Date:
+ Subject: To: From; q=dns/txt; s=kr; t=1791064200;
+ bh=WWGimOoj56QISV0Nm+zCJMuIMbtxhhg8Uv1bnhdp3iw=;
+ b=zHhjEznB9aITCNLI44xDbb+nxCatcQlzuk7h+gSbIUMmpwsvTNTUXXP+tRV+MEWHij+lSEAOD
+ UyVtKb1qkYTAw==
+Return-Path: <bounce-42985@beenverified.com>
+Received: from mail.beenverified.com (mail.beenverified.com [203.0.113.26]) by mx.example.com with ESMTPS id f4801b00e3 for <jordan@example.com>; Sat, 03 Oct 2026 21:50:00 +0000
+From: BeenVerified Privacy <privacyteam@beenverified.com>
+To: jordan@example.com
+Subject: Re: Opt-out request KR-5P1CJ4
+Date: Sat, 03 Oct 2026 21:50:00 +0000
+Message-ID: <3c9632e53233fd0f400e8cb2@beenverified.com>
+Reply-To: privacy@beenverified.com
+In-Reply-To: <kr.f47f42cf-9ef0-44bd-8054-6b505f24b617.0@example.com>
+References: <kr.f47f42cf-9ef0-44bd-8054-6b505f24b617.0@example.com>
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+Hello,
+
+Your opt-out request has been processed and your information has been suppressed.
+
+Regards,
+BeenVerified Privacy Team
+
+On Tue, 22 Sep 2026 at 10:15 Jordan Example <jordan@example.com> wrote:
+> Subject: Opt-out request KR-5P1CJ4
+>
+> To the privacy team at BeenVerified,
+>
+> I am asking you to remove my listing and stop selling my information.
+> Name: Jordan Example
+> Email: jordan@example.com
+> Please confirm once this is done.
+>
+> Reference: KR-5P1CJ4

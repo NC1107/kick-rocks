@@ -1,0 +1,35 @@
+DKIM-Signature: v=1; a=ed25519-sha256; c=relaxed/relaxed;
+ d=gardening-club.example; h=Content-Type: MIME-Version: List-Unsubscribe:
+ List-Id: Message-ID: Date: Subject: To: From; q=dns/txt; s=kr;
+ t=1791118080; bh=R+aLxAdWMDPFpnJ5COYTrXEc0MfLqtbPIkPLi2Q12bE=;
+ b=KplGG3RToBmEX9d10P0az5JYg9lQvrTEgJryQQZoWr7ui3BTgid+FN5TpoqR987x20CgbkIS1
+ i2kma0gecLzCA==
+Return-Path: <bounce-89554@gardening-club.example>
+Received: from mail.gardening-club.example (mail.gardening-club.example [203.0.113.32]) by mx.example.com with ESMTPS id 59c1836d02 for <jordan@example.com>; Sun, 04 Oct 2026 12:48:00 +0000
+From: Gardening Club <news@gardening-club.example>
+To: jordan@example.com
+Subject: Composting basics
+Date: Sun, 04 Oct 2026 12:48:00 +0000
+Message-ID: <b2c88a5df0ea7eadb9d86c6e@gardening-club.example>
+List-Id: <news.gardening-club.example>
+List-Unsubscribe: <https://gardening-club.example/unsubscribe?e=543f74cc9535>
+Precedence: list
+MIME-Version: 1.0
+Content-Type: multipart/alternative; boundary="----=_Part_403ee1b28097"
+
+------=_Part_403ee1b28097
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+Composting basics
+
+This week we look at what changed, what did not, and what to read next.
+Read online: https://gardening-club.example/p/22dec0
+
+You are subscribed as jordan@example.com. Unsubscribe: https://gardening-club.example/unsubscribe
+------=_Part_403ee1b28097
+Content-Type: text/html; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+<html><body style="font-family:Arial,sans-serif"><h1>Composting basics</h1><p>This week we look at what changed.</p></body></html>
+------=_Part_403ee1b28097--

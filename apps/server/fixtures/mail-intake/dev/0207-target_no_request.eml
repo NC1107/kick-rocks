@@ -1,0 +1,30 @@
+Return-Path: <bounce-734601@bounce.walmart.com>
+Received: from mail.walmart.com (mail.walmart.com [203.0.113.21]) by mx.example.com with ESMTPS id bd1cd572f5 for <jordan@example.com>; Tue, 06 Oct 2026 17:59:00 +0000
+From: Walmart <help@walmart.com>
+To: jordan@example.com
+Subject: Your pickup order is ready
+Date: Tue, 06 Oct 2026 17:59:00 +0000
+Message-ID: <44b99dd033bfe73d1d194f60@walmart.com>
+Reply-To: no-reply@walmart.com
+List-Unsubscribe: <https://walmart.com/unsubscribe?u=877efbaa286152cf>, <mailto:unsubscribe-877efbaa@walmart.com>
+List-Unsubscribe-Post: List-Unsubscribe=One-Click
+Precedence: bulk
+X-Mailer: SendGrid
+MIME-Version: 1.0
+Content-Type: multipart/alternative; boundary="----=_Part_de00e43001a2"
+
+------=_Part_de00e43001a2
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+Your pickup order is ready
+
+Shop now: https://walmart.com/offers?ref=fd968921
+
+You are receiving this email because you have an account with Walmart. To stop receiving these emails, unsubscribe: https://walmart.com/unsubscribe
+------=_Part_de00e43001a2
+Content-Type: text/html; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+<html><body style="font-family:Arial,sans-serif"><h2>Your pickup order is ready</h2><p><a href="https://walmart.com/offers?ref=fd968921">Shop now</a></p><p style="font-size:11px">You are receiving this email because you have an account with Walmart. To stop receiving these emails, unsubscribe: https://walmart.com/unsubscribe</p></body></html>
+------=_Part_de00e43001a2--

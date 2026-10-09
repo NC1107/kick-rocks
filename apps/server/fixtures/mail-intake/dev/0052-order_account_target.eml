@@ -1,0 +1,22 @@
+DKIM-Signature: v=1; a=ed25519-sha256; c=relaxed/relaxed; d=netflix.com;
+ h=Content-Transfer-Encoding: Content-Type: MIME-Version: Message-ID: Date:
+ Subject: To: From; q=dns/txt; s=kr; t=1790619720;
+ bh=UbrIbrWSIl+GA8NFZxNMHilofXDsnJx6rC6cyScjudE=;
+ b=3DUYi4gqWB0tUOi+HqvCs2nBUYyRELfxaP1SatGCcZ/7AkuJkHSV1yjkOBfGyAbGJT3oes357
+ LdOFbWCfRLfCg==
+Return-Path: <0100425f47b5cb0085ea357f-57e97c2b@bounces.netflix.com>
+Received: from mail.account.netflix.com (mail.account.netflix.com [203.0.113.29]) by mx.example.com with ESMTPS id 0e7c3490cb for <jordan@example.com>; Mon, 28 Sep 2026 18:22:00 +0000
+From: Netflix <info@account.netflix.com>
+To: jordan@example.com
+Subject: Netflix: update your payment method
+Date: Mon, 28 Sep 2026 18:22:00 +0000
+Message-ID: <ed3474e77b35e4319e4afa2f@account.netflix.com>
+X-Mailer: Transactional Mailer
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+Hi Jordan,
+
+We noticed a sign-in to your account from a new device. If this was you, there is nothing to do. If not, please verify your identity and change your password: https://netflix.com/account/security
+

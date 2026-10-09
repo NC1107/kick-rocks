@@ -1,0 +1,37 @@
+DKIM-Signature: v=1; a=ed25519-sha256; c=relaxed/relaxed; d=netflix.com;
+ h=Content-Transfer-Encoding: Content-Type: MIME-Version: References:
+ In-Reply-To: Message-ID: Date: Subject: To: From; q=dns/txt; s=kr;
+ t=1791063900; bh=bDV3LoWO4saTdx82DMF0oS1SuMKiZTLoVSS/mAh96QU=;
+ b=uABGDiDJyqJmo+hG8Ev8L3U9BElBEhTIFYeTPV8yKk/ZIzDIbl8TNMjwYbb96GkESLS/Wdqdm
+ lrVTs6pKtpvCA==
+Return-Path: <bounce-29631@netflix.com>
+Received: from mail.netflix.com (mail.netflix.com [203.0.113.21]) by mx.example.com with ESMTPS id bd1cd572f5 for <jordan@example.com>; Sat, 03 Oct 2026 21:45:00 +0000
+From: Netflix Privacy <privacyteam@netflix.com>
+To: jordan@example.com
+Subject: Re: Data deletion request KR-9M3XW5
+Date: Sat, 03 Oct 2026 21:45:00 +0000
+Message-ID: <a26046c7404c7f3c5409ed6e@netflix.com>
+In-Reply-To: <kr.4ee04ccf-34d5-4d6c-86bd-5dcbc01dd277.0@example.com>
+References: <kr.4ee04ccf-34d5-4d6c-86bd-5dcbc01dd277.0@example.com>
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+Hello,
+
+There is no matching record on file for jordan@example.com, so there is nothing for us to remove.
+
+Regards,
+Netflix Privacy Team
+
+On Mon, 21 Sep 2026 at 14:20 Jordan Example <jordan@example.com> wrote:
+> Subject: Data deletion request KR-9M3XW5
+>
+> To the privacy team at Netflix,
+>
+> I am asking you to delete my personal data.
+> Name: Jordan Example
+> Email: jordan@example.com
+> Please confirm once this is done.
+>
+> Reference: KR-9M3XW5

@@ -23,7 +23,7 @@ import type {
 } from "./types.js";
 
 /** Below this the message goes to the language model when one is configured, and to a person when not. */
-const CONFIDENCE_THRESHOLD = 0.6;
+export const CONFIDENCE_THRESHOLD = 0.6;
 /** What a reply can reach when nothing ties it to a request, so it always waits for a person. */
 const UNMATCHED_CAP = 0.55;
 /**

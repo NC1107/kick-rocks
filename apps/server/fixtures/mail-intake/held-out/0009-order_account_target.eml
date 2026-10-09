@@ -1,0 +1,22 @@
+Return-Path: <0100aff62bbd52188bd4e206-eea93d94@bounces.amazon.com>
+Received: from mail.amazon.com (mail.amazon.com [203.0.113.20]) by mx.example.com with ESMTPS id 8f0b392fa7 for <jordan@example.com>; Sun, 27 Sep 2026 06:24:00 +0000
+From: Amazon <shipment-tracking@amazon.com>
+To: jordan@example.com
+Subject: Your refund for LED light bulbs has been processed
+Date: Sun, 27 Sep 2026 06:24:00 +0000
+Message-ID: <67d274ec606d4fada7bd8c58@amazon.com>
+Auto-Submitted: auto-generated
+X-Mailer: Transactional Mailer
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+Hello Jordan,
+
+Your order has been processed and will ship soon.
+
+Order #330-1968198-0874431
+Item: LED light bulbs
+Total: USD 14.95
+
+Track your package: https://amazon.com/gp/your-account/order-details?orderID=330-1968198-0874431

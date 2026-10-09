@@ -1,0 +1,36 @@
+DKIM-Signature: v=1; a=ed25519-sha256; c=relaxed/relaxed;
+ d=airline-news.example; h=Content-Type: MIME-Version: List-Unsubscribe:
+ Reply-To: Message-ID: Date: Subject: To: From; q=dns/txt; s=kr;
+ t=1790998020; bh=/5KrCott1E4dli2zxIu5Ozx/CXyl09hv1PB97uqCtCo=;
+ b=UwrIpgHKIgxEI8tL8QE9l/uZkHtb5/OBPosnR3IXWI+8E0U5J7TH4dmMCjUC/YOk+gvF0dsos
+ enkljJSolloCA==
+Return-Path: <bounce-156997@bounce.airline-news.example>
+Received: from mail.airline-news.example (mail.airline-news.example [203.0.113.30]) by mx.example.com with ESMTPS id a1788aa909 for <jordan@example.com>; Sat, 03 Oct 2026 03:27:00 +0000
+From: Skyline Air <offers@airline-news.example>
+To: jordan@example.com
+Subject: Check in now for your flight
+Date: Sat, 03 Oct 2026 03:27:00 +0000
+Message-ID: <5780e0bf5f428a9a3448389a@airline-news.example>
+Reply-To: no-reply@airline-news.example
+List-Unsubscribe: <https://airline-news.example/unsubscribe?u=2c2a8d5ba0ce481c>, <mailto:unsubscribe-2c2a8d5b@airline-news.example>
+List-Unsubscribe-Post: List-Unsubscribe=One-Click
+Precedence: bulk
+X-Mailer: Mailchimp Mailer
+MIME-Version: 1.0
+Content-Type: multipart/alternative; boundary="----=_Part_e518f6607eb0"
+
+------=_Part_e518f6607eb0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+Check in now for your flight
+
+Shop now: https://airline-news.example/offers?ref=d24cca41
+
+You are receiving this email because you have an account with Skyline Air. To stop receiving these emails, unsubscribe: https://airline-news.example/unsubscribe
+------=_Part_e518f6607eb0
+Content-Type: text/html; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+<html><body style="font-family:Arial,sans-serif"><h2>Check in now for your flight</h2><p><a href="https://airline-news.example/offers?ref=d24cca41">Shop now</a></p><p style="font-size:11px">You are receiving this email because you have an account with Skyline Air. To stop receiving these emails, unsubscribe: https://airline-news.example/unsubscribe</p></body></html>
+------=_Part_e518f6607eb0--

@@ -1,0 +1,30 @@
+Return-Path: <bounce-260133@bounce.sunnytravel.example>
+Received: from mail.sunnytravel.example (mail.sunnytravel.example [203.0.113.29]) by mx.example.com with ESMTPS id 0e7c3490cb for <jordan@example.com>; Sun, 04 Oct 2026 10:59:00 +0000
+From: Sunny Travel <hello@sunnytravel.example>
+To: jordan+kickrocks@example.com
+Subject: New this week
+Date: Sun, 04 Oct 2026 10:59:00 +0000
+Message-ID: <b3b6b06e704dda1413e08830@sunnytravel.example>
+Reply-To: no-reply@sunnytravel.example
+List-Unsubscribe: <https://sunnytravel.example/unsubscribe?u=dad26041cb808e70>, <mailto:unsubscribe-dad26041@sunnytravel.example>
+List-Unsubscribe-Post: List-Unsubscribe=One-Click
+Precedence: bulk
+X-Mailer: SendGrid
+MIME-Version: 1.0
+Content-Type: multipart/alternative; boundary="----=_Part_f6c642991df4"
+
+------=_Part_f6c642991df4
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+New this week
+
+Shop now: https://sunnytravel.example/offers?ref=2ee4a5cb
+
+You are receiving this email because you have an account with Sunny Travel. To stop receiving these emails, unsubscribe: https://sunnytravel.example/unsubscribe
+------=_Part_f6c642991df4
+Content-Type: text/html; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+<html><body style="font-family:Arial,sans-serif"><h2>New this week</h2><p><a href="https://sunnytravel.example/offers?ref=2ee4a5cb">Shop now</a></p><p style="font-size:11px">You are receiving this email because you have an account with Sunny Travel. To stop receiving these emails, unsubscribe: https://sunnytravel.example/unsubscribe</p></body></html>
+------=_Part_f6c642991df4--

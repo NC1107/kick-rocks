@@ -1,0 +1,23 @@
+DKIM-Signature: v=1; a=ed25519-sha256; c=relaxed/relaxed; d=amazon.com;
+ h=Content-Transfer-Encoding: Content-Type: MIME-Version: Message-ID: Date:
+ Subject: To: From; q=dns/txt; s=kr; t=1790672520;
+ bh=qHFNXDh/3ylVSab61HaeSe48UUhQlNHn8eIP2A/lBzk=;
+ b=f39ZPx+5c1GTmx7uRLJjrzKVvgu2TXl+0rYFjzf+KHOGgj39EcQ9rApFvsDvTbKdDdKAUuRn9
+ lrNIyPEsHRGAg==
+Return-Path: <010067ed35143299f7d3f4c3-50e1620c@bounces.amazon.com>
+Received: from mail.amazon.com (mail.amazon.com [203.0.113.20]) by mx.example.com with ESMTPS id 8f0b392fa7 for <jordan@example.com>; Tue, 29 Sep 2026 09:02:00 +0000
+From: Amazon <order-update@amazon.com>
+To: jordan@example.com
+Subject: Your Amazon.com order of LED light bulbs has shipped
+Date: Tue, 29 Sep 2026 09:02:00 +0000
+Message-ID: <20a18de549a38d9a716838bf@amazon.com>
+Auto-Submitted: auto-generated
+X-Mailer: Transactional Mailer
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+Your request to return LED light bulbs has been received. Print the label below and drop it off at any carrier location.
+
+Order #787-0091836-5728080
+https://amazon.com/returns/787-0091836-5728080

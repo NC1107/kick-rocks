@@ -19,7 +19,9 @@
     "test:scripts": "node --test scripts/check-standards.test.mjs scripts/install.test.mjs scripts/trust-copy.test.mjs",
     "standards": "node scripts/check-standards.mjs",
     "data:build": "pnpm --filter @kickrocks/shared build && pnpm --filter @kickrocks/brokers build:data",
-    "e2e": "pnpm --filter @kickrocks/e2e e2e"
+    "e2e": "pnpm --filter @kickrocks/e2e e2e",
+    "bench:replies": "pnpm --filter @kickrocks/server bench:replies",
+    "bench:replies:python": "pnpm --filter @kickrocks/server bench:replies:python"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.3.0",

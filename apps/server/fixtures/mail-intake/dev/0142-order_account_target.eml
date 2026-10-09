@@ -1,0 +1,17 @@
+Return-Path: <01001cbca7757eb96ff9dd06-072bd03b@bounces.amazon.com>
+Received: from mail.amazon.com (mail.amazon.com [203.0.113.20]) by mx.example.com with ESMTPS id 8f0b392fa7 for <jordan@example.com>; Sat, 03 Oct 2026 12:15:00 +0000
+From: Amazon <account-update@amazon.com>
+To: jordan@example.com
+Subject: Sign-in attempt from a new device
+Date: Sat, 03 Oct 2026 12:15:00 +0000
+Message-ID: <80119df89a33a47dbaf5c317@amazon.com>
+Auto-Submitted: auto-generated
+X-Mailer: Transactional Mailer
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+Hi Jordan,
+
+We noticed a sign-in to your account from a new device. If this was you, there is nothing to do. If not, please verify your identity and change your password: https://amazon.com/account/security
+

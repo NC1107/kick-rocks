@@ -11,6 +11,7 @@
       "!**/dist",
       "!**/node_modules",
       "!.claude",
+      "!apps/server/fixtures/mail-intake",
       "!packages/brokers/data/upstream",
       "!packages/brokers/data/generated"
     ]
