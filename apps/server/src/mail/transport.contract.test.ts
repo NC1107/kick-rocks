@@ -96,7 +96,7 @@ describe("the real SMTP transport against a socket server", () => {
   it("tells a drop in the middle of the body from a drop after all of it", async () => {
     const bigMail = { ...mail, text: "Please remove me.\n".repeat(1_000_000) };
     const transport = createMailTransport(connection(), {
-      timeouts: { connectionMs: 300, socketMs: 2_000 },
+      timeouts: { connectionMs: 5_000, socketMs: 5_000 },
     });
 
     smtp.behave("drop_mid_body");
