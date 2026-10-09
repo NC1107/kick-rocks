@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 import {
   BROKER_DATASET_ATTRIBUTION,
   BROKER_DATASET_LICENSE,
+  type Broker,
   type BrokerDataset,
   BrokerDataset as BrokerDatasetSchema,
 } from "@kickrocks/shared";
@@ -19,7 +20,7 @@ import { parseCaRegistry } from "./import/ca-registry.js";
 import { parseCuratedBrokers } from "./import/curated.js";
 import { parseEraserBrokers } from "./import/eraser.js";
 import { loadCompanyDataset } from "./index.js";
-import { mergeBrokers } from "./merge.js";
+import { mergeBrokers, withholdEmailEraserRefused } from "./merge.js";
 import { applyOwnerGroups } from "./owner-groups.js";
 import { readBundledRecipes, unpairedRecipeSenders } from "./recipe-senders.js";
 import { applyReplyDomains } from "./reply-domains.js";
@@ -57,17 +58,19 @@ export function buildDataset(
   );
   const companyDomains = loadCompanyDataset().companies.map((company) => company.domain);
   const excluded = parseExclusions(readFileSync(resolve(dataDir, "excluded.yaml"), "utf8"));
+  const mergeImported = (lists: readonly (readonly Broker[])[]) =>
+    mergeBrokers(withholdEmailEraserRefused([...lists, curated]), { pinnedIds });
   const imported = applyCorrections(
     dropExcluded(
       [badbool, eraser, registry],
       new Set([...excluded.map((entry) => entry.domain), ...companyDomains]),
     ),
     parseCorrections(readFileSync(resolve(dataDir, "corrections.yaml"), "utf8")),
-    (lists) => mergeBrokers([...lists, curated], { pinnedIds }),
+    mergeImported,
   );
   const brokers = applyOwnerGroups(
     applyReplyDomains(
-      mergeBrokers([...imported, curated], { pinnedIds }),
+      mergeImported(imported),
       readFileSync(resolve(dataDir, "reply-domains.yaml"), "utf8"),
     ),
     readFileSync(resolve(dataDir, "owner-groups.yaml"), "utf8"),

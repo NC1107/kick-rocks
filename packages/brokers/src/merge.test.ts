@@ -1,6 +1,6 @@
 import type { Broker } from "@kickrocks/shared";
 import { describe, expect, it } from "vitest";
-import { mergeBrokers } from "./merge.js";
+import { mergeBrokers, withholdEmailEraserRefused } from "./merge.js";
 
 function broker(overrides: Partial<Broker> & Pick<Broker, "id" | "domain">): Broker {
   return {
@@ -117,5 +117,46 @@ describe("mergeBrokers", () => {
       const fresh = broker({ id: "fresh", domain: "fresh.example" });
       expect(mergeBrokers([[fresh]], { pinnedIds })[0]?.id).toBe("fresh");
     });
+  });
+});
+
+describe("withholdEmailEraserRefused", () => {
+  const eraser = (overrides: Partial<Broker> = {}) =>
+    broker({
+      id: "x",
+      domain: "x.test",
+      optOutUrl: "https://x.test/form",
+      notes: "Reply says email is not processed.",
+      contactMethod: "form",
+      sources: [{ source: "eraser", license: "MIT", upstreamId: "x" }],
+      ...overrides,
+    });
+  const registry = () =>
+    broker({
+      id: "x-inc",
+      domain: "x.test",
+      privacyEmail: "privacy@x.test",
+      contactMethod: "email",
+      sources: [{ source: "ca-registry-2026", license: "public-record" }],
+    });
+
+  it("keeps the registry address out of a record Eraser lists with no email, a form and a note", () => {
+    const merged = mergeBrokers(withholdEmailEraserRefused([[eraser()], [registry()]]));
+    expect(merged[0]?.privacyEmail).toBeNull();
+    expect(merged[0]?.contactMethod).toBe("form");
+  });
+
+  it("lets a correction that gives the Eraser record an email stand", () => {
+    const corrected = eraser({ privacyEmail: "legal@x.test", contactMethod: "both" });
+    const merged = mergeBrokers(withholdEmailEraserRefused([[corrected], [registry()]]));
+    expect(merged[0]?.privacyEmail).toBe("legal@x.test");
+  });
+
+  it.each([
+    ["no note", { notes: null }],
+    ["no form", { optOutUrl: null }],
+  ])("backfills the registry address when Eraser has %s", (_name, overrides) => {
+    const merged = mergeBrokers(withholdEmailEraserRefused([[eraser(overrides)], [registry()]]));
+    expect(merged[0]?.privacyEmail).toBe("privacy@x.test");
   });
 });

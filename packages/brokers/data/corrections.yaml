@@ -100,3 +100,11 @@ corrections:
       - https://facecheck.id/Face-Search/RemoveMyPhotos
     checked: 2026-10-08
     note: 'BADBOOL files it under people search without an ID marker. Removal means uploading an image and a driver''s license, an ID card or a selfie, so it belongs with the sites that ask for ID.'
+
+  - domain: lightcast.io
+    set:
+      email: null
+    source_urls:
+      - https://github.com/drumandbytes/eraser/blob/29bd7bb60a96cfb87eb84e65fd4f0a434860511e/data/brokers.yaml
+    checked: 2026-10-08
+    note: 'Eraser lists legal@lightcast.io for it, and its note says the privacy request form is the required removal path instead of email, as a user report and not a reply from the broker. The 2026 California registry lists an address as well. The correction clears the address on both lists, so the request goes to the opt-out form.'

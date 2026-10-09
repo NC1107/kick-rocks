@@ -44,6 +44,41 @@ function mergePair(primary: Broker, secondary: Broker): Broker {
   };
 }
 
+/**
+ * A pinned Eraser record with no email, an opt-out URL and a note is a deliberate "do not email":
+ * the note records a reply, a bounce or the form being the required path. Another list's address
+ * for the same domain must not come back through the merge and send the request where the note
+ * says it goes nowhere. A correction that re-adds an email to the Eraser record, with its source,
+ * is the way to say otherwise.
+ */
+export function withholdEmailEraserRefused(lists: readonly (readonly Broker[])[]): Broker[][] {
+  const refused = new Set(
+    lists
+      .flat()
+      .filter(
+        (broker) =>
+          broker.sources.some((source) => source.source === "eraser") &&
+          broker.privacyEmail === null &&
+          broker.optOutUrl !== null &&
+          broker.notes !== null,
+      )
+      .map((broker) => broker.domain),
+  );
+  return lists.map((list) =>
+    list.map((broker) => {
+      if (!refused.has(broker.domain) || broker.privacyEmail === null) return broker;
+      return {
+        ...broker,
+        privacyEmail: null,
+        contactMethod: contactMethodFor(
+          null,
+          broker.optOutUrl ?? rightsPageAsForm(broker.privacyRightsUrl),
+        ),
+      };
+    }),
+  );
+}
+
 export interface MergeOptions {
   /**
    * Domain to id, committed in `data/ids.json`. Recipes and requests refer to a broker by id, so an
