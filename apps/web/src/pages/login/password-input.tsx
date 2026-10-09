@@ -15,7 +15,7 @@ export function PasswordInput(props: Omit<ComponentProps<typeof Input>, "type" |
           size="sm"
           aria-pressed={shown}
           onClick={() => setShown((value) => !value)}
-          className="size-7"
+          className="size-7 max-sm:size-11 pointer-coarse:size-11"
         >
           {shown ? <EyeOff /> : <Eye />}
         </IconButton>

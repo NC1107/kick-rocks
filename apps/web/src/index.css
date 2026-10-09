@@ -13,6 +13,51 @@
  * and meter fills. Every other color means state: positive, attention, danger, or neutral.
  */
 
+/*
+ * Stand-ins for the Plex faces while they load. size-adjust matches the average glyph width of each
+ * weight and the ascent and descent overrides match the line box, so text keeps its wrapping and
+ * height when the real face swaps in. Plex Sans is wider than Arial at every weight, so one shared
+ * adjustment would push a header action onto a new line only after the swap.
+ */
+@font-face {
+  font-family: "IBM Plex Sans Fallback";
+  font-weight: 400;
+  src: local("Arial"), local("Liberation Sans"), local("Helvetica");
+  size-adjust: 100.6%;
+  ascent-override: 100.9%;
+  descent-override: 27.1%;
+  line-gap-override: 0%;
+}
+
+@font-face {
+  font-family: "IBM Plex Sans Fallback";
+  font-weight: 500;
+  src: local("Arial"), local("Liberation Sans"), local("Helvetica");
+  size-adjust: 102.7%;
+  ascent-override: 100.9%;
+  descent-override: 27.1%;
+  line-gap-override: 0%;
+}
+
+@font-face {
+  font-family: "IBM Plex Sans Fallback";
+  font-weight: 600;
+  src: local("Arial Bold"), local("Liberation Sans Bold"), local("Helvetica Bold");
+  size-adjust: 97.4%;
+  ascent-override: 100.9%;
+  descent-override: 27.1%;
+  line-gap-override: 0%;
+}
+
+@font-face {
+  font-family: "IBM Plex Mono Fallback";
+  src: local("Courier New"), local("Liberation Mono"), local("Courier");
+  size-adjust: 100%;
+  ascent-override: 102.5%;
+  descent-override: 27.5%;
+  line-gap-override: 0%;
+}
+
 /* The fonts are vendored, so the page's CSP never has to name a font host. */
 @font-face {
   font-family: "IBM Plex Sans";
@@ -167,7 +212,7 @@
   /* Inset in dark, so a field reads as a hole in the surface rather than a raised plate */
   --kr-field: light-dark(#ffffff, #0f0f10);
   --kr-popover: light-dark(#ffffff, #2b2b31);
-  --kr-popover-hover: light-dark(#f0f2f4, #38383f);
+  --kr-popover-hover: light-dark(#f0f2f4, #303037);
   --kr-scrim: light-dark(rgb(15 17 19 / 0.45), rgb(0 0 0 / 0.55));
   /* The edge shade that tells a scrolling table there is more beyond it */
   --kr-shade: light-dark(rgb(15 17 19 / 0.12), rgb(0 0 0 / 0.4));
@@ -179,24 +224,24 @@
 
   /* Text. Never pure white on dark. ink-3 passes 4.5:1 on every layer, including hover and the light rail. */
   --kr-ink: light-dark(#1b1e22, #ededef);
-  --kr-ink-2: light-dark(#474d55, #ababb0);
-  --kr-ink-3: light-dark(#666d76, #8a8a96);
+  --kr-ink-2: light-dark(#474d55, #bebec4);
+  --kr-ink-3: light-dark(#5d646d, #9898a4);
 
   /* Accent roles: fill (buttons, markers), on (text on the fill), text (links), soft (washes) */
   --kr-accent-fill: light-dark(#4648d4, #5557e0);
   --kr-accent-fill-hover: light-dark(#3b3dc0, #6466e8);
   --kr-accent-on: #ffffff;
-  --kr-accent-text: light-dark(#4648d4, #818cf8);
+  --kr-accent-text: light-dark(#4648d4, #8f98f9);
   --kr-accent-soft: light-dark(#ececfc, #1c1c2d);
   --kr-focus: light-dark(#4648d4, #818cf8);
 
   /* State families: a shape fill, and a text color that passes AA on the surface */
   --kr-positive: light-dark(#16a34a, #22c55e);
-  --kr-positive-text: light-dark(#15803d, #4ade80);
+  --kr-positive-text: light-dark(#146c37, #4ade80);
   --kr-attention: light-dark(#d97706, #f59e0b);
-  --kr-attention-text: light-dark(#b45309, #fbbf24);
+  --kr-attention-text: light-dark(#9a4a08, #fbbf24);
   --kr-danger: light-dark(#dc2626, #ef4444);
-  --kr-danger-text: light-dark(#b91c1c, #f87171);
+  --kr-danger-text: light-dark(#b91c1c, #fa8080);
   --kr-danger-wash-text: light-dark(#b91c1c, #fca5a5);
   /* The one filled danger surface, for a confirm dialog's final button */
   --kr-danger-solid: #dc2626;
@@ -259,15 +304,21 @@
   color-scheme: dark;
 }
 
-/* Phone: larger touch targets and a tighter gutter. Flips at the same width as Tailwind's max-sm. */
+/* Phone: a tighter gutter and a taller bar. Flips at the same width as Tailwind's max-sm. */
 @media (width < 40rem) {
   :root {
     --kr-gutter: 1rem;
+    --kr-bar-h: 3.25rem;
+  }
+}
+
+/* Touch, at any width: a tablet is held like a phone, so its controls and rows take 44px too. */
+@media (width < 40rem), (pointer: coarse) {
+  :root {
     --kr-control-sm: 2.75rem;
     --kr-control-h: 2.75rem;
     --kr-control-lg: 2.75rem;
     --kr-row-h: 2.75rem;
-    --kr-bar-h: 3.25rem;
   }
 }
 
@@ -305,11 +356,11 @@
   --color-current: currentColor;
 
   --font-sans:
-    "IBM Plex Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue",
-    Arial, sans-serif;
+    "IBM Plex Sans", "IBM Plex Sans Fallback", ui-sans-serif, system-ui, -apple-system, "Segoe UI",
+    Roboto, "Helvetica Neue", Arial, sans-serif;
   --font-mono:
-    "IBM Plex Mono", ui-monospace, "SF Mono", "Cascadia Mono", "Roboto Mono", Menlo, Consolas,
-    "Liberation Mono", monospace;
+    "IBM Plex Mono", "IBM Plex Mono Fallback", ui-monospace, "SF Mono", "Cascadia Mono",
+    "Roboto Mono", Menlo, Consolas, "Liberation Mono", monospace;
 
   /* The type scale. Tailwind's numeric sizes are removed, so text-sm does not exist. */
   --text-*: initial;

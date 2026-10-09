@@ -1,6 +1,8 @@
-import type { ReviewQueue } from "@kickrocks/shared";
-import { describe, expect, it } from "vitest";
-import { reviewCount } from "./session.js";
+import { API_ROUTES, type ReviewQueue } from "@kickrocks/shared";
+import { describe, expect, it, vi } from "vitest";
+import { routeKey } from "./hooks.js";
+import { createQueryClient } from "./query-client.js";
+import { prefetchAuthState, reviewCount } from "./session.js";
 
 describe("reviewCount", () => {
   it("adds every tab: blocked tasks, pending matches, verifications, failed tasks, and messages", () => {
@@ -26,5 +28,22 @@ describe("reviewCount", () => {
         messages: [],
       }),
     ).toBe(0);
+  });
+});
+
+describe("prefetchAuthState", () => {
+  it("fills the cache the auth gate reads, so the gate does not wait for its own request", async () => {
+    const fetchMock = vi.fn(async () =>
+      Response.json({ setupRequired: false, authenticated: true }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const client = createQueryClient();
+    await prefetchAuthState(client);
+    expect(client.getQueryData(routeKey(API_ROUTES.authState))).toEqual({
+      setupRequired: false,
+      authenticated: true,
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    vi.unstubAllGlobals();
   });
 });

@@ -18,6 +18,7 @@ export {
 export { createQueryClient } from "./query-client.js";
 export { useReviewCount } from "./review.js";
 export {
+  prefetchAuthState,
   useAuthState,
   useLogin,
   useLogout,

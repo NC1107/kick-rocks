@@ -1,4 +1,9 @@
-import { API_ROUTES, type DataSourceInfo, type InstanceHealth } from "@kickrocks/shared";
+import {
+  API_ROUTES,
+  DataSourceId,
+  type DataSourceInfo,
+  type InstanceHealth,
+} from "@kickrocks/shared";
 import { errorMessage, useApiQuery, useInstanceHealth } from "../../api/index.js";
 import {
   Button,
@@ -9,7 +14,6 @@ import {
   RowGroup,
   Section,
   Skeleton,
-  SkeletonText,
   Tag,
 } from "../../components/ui/index.js";
 import {
@@ -19,7 +23,7 @@ import {
   formatRelative,
   pluralize,
 } from "../../lib/format.js";
-import { BodyRow, FactRow, SETTINGS_WIDTH } from "../settings/rows.js";
+import { FactRow, SETTINGS_WIDTH } from "../settings/rows.js";
 
 const POLYFORM_URL = "https://polyformproject.org/licenses/noncommercial/1.0.0/";
 const CC_BY_NC_SA_URL = "https://creativecommons.org/licenses/by-nc-sa/4.0/";
@@ -47,10 +51,13 @@ function InstanceSection() {
   return (
     <Section label="Kick Rocks">
       {health.isPending || status.isPending ? (
-        <RowGroup>
-          <BodyRow>
-            <SkeletonText lines={4} />
-          </BodyRow>
+        <RowGroup aria-busy="true">
+          {["Version", "Broker list", "Company list", "Profiles"].map((label) => (
+            <FactRow key={label} label={label}>
+              <Skeleton className="h-3.5 w-1/2" />
+            </FactRow>
+          ))}
+          <LicenseRow />
         </RowGroup>
       ) : (
         <>
@@ -101,16 +108,22 @@ function InstanceSection() {
                 </FactRow>
               </>
             ) : null}
-            <FactRow label="License" mono={false}>
-              <ExternalLinkText href={POLYFORM_URL}>PolyForm Noncommercial 1.0.0</ExternalLinkText>
-              <span className="block text-ink-3">
-                Free to use and change for yourself, not to sell. Copyright NC1107.
-              </span>
-            </FactRow>
+            <LicenseRow />
           </RowGroup>
         </>
       )}
     </Section>
+  );
+}
+
+function LicenseRow() {
+  return (
+    <FactRow label="License" mono={false}>
+      <ExternalLinkText href={POLYFORM_URL}>PolyForm Noncommercial 1.0.0</ExternalLinkText>
+      <span className="block text-ink-3">
+        Free to use and change for yourself, not to sell. Copyright NC1107.
+      </span>
+    </FactRow>
   );
 }
 
@@ -174,9 +187,9 @@ function SourcesSection() {
     <Section label="Data sources" {...(query.data ? { count: query.data.sources.length } : {})}>
       {query.isPending ? (
         <RowGroup aria-busy="true">
-          {[0, 1, 2].map((key) => (
-            <div key={key} className="px-3.5 py-3">
-              <Skeleton className="h-8 w-full" />
+          {DataSourceId.options.map((id) => (
+            <div key={id} className="px-3.5 py-3">
+              <Skeleton className="h-[1.875rem] w-full max-sm:h-[3.75rem]" />
             </div>
           ))}
         </RowGroup>

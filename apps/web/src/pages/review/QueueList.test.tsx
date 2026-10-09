@@ -50,3 +50,25 @@ describe("the waiting group in the queue list", () => {
     expect(screen.getByText("+138 more")).toBeVisible();
   });
 });
+
+describe("the reason on a queue entry", () => {
+  it("wraps so a long sentence is never cut off with an ellipsis", () => {
+    const reason = "The removal form asks for a photo of a government ID before it will continue";
+    render(
+      <QueueList
+        entries={[
+          {
+            key: "blocked:tsk_1",
+            kind: "blocked",
+            item: { task: { id: "tsk_1", targetName: "Broker", blockedDetail: reason } },
+          } as never,
+        ]}
+        waiting={[]}
+        waitingTotal={0}
+        selectedKey={null}
+        onSelect={() => {}}
+      />,
+    );
+    expect(screen.getByText(reason, { exact: false }).className).not.toContain("truncate");
+  });
+});

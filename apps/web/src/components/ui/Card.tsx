@@ -88,6 +88,8 @@ interface RowBase {
   trailing?: ReactNode;
   /** On a phone, drops the trailing value under the text so a wide one cannot squeeze the title. */
   trailingBelowOnPhone?: boolean;
+  /** For a description that is a sentence the person has to read whole, so it wraps instead of ending in an ellipsis. */
+  wrapDescription?: boolean;
   selected?: boolean;
   /** Lets a list of rows act as one tab stop: only the selected row stays at 0. */
   tabIndex?: number;
@@ -112,6 +114,7 @@ export function Row({
   description,
   trailing,
   trailingBelowOnPhone,
+  wrapDescription,
   selected,
   to,
   onClick,
@@ -139,7 +142,7 @@ export function Row({
           <span
             className={cn(
               "text-meta text-ink-3",
-              trailingBelowOnPhone ? "sm:truncate" : "truncate",
+              !wrapDescription && (trailingBelowOnPhone ? "sm:truncate" : "truncate"),
             )}
           >
             {description}

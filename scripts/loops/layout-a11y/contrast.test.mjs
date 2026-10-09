@@ -1,0 +1,61 @@
+import assert from "node:assert/strict";
+import { test } from "node:test";
+import { contrastRatio, failingContrastPairs, readThemeTokens } from "./contrast.mjs";
+
+const css = (inkLight, { darkPositive = "128 128 128", popoverHover = "#111111" } = {}) => `
+:root {
+  --kr-frame: light-dark(#ffffff, #000000);
+  --kr-rail: light-dark(#ffffff, #000000);
+  --kr-canvas: light-dark(#ffffff, #000000);
+  --kr-surface: light-dark(#ffffff, #000000);
+  --kr-hover: light-dark(#f0f0f0, #111111);
+  --kr-active: light-dark(#ffffff, #000000);
+  --kr-field: light-dark(#ffffff, #000000);
+  --kr-popover: light-dark(#ffffff, #000000);
+  --kr-popover-hover: light-dark(#f0f0f0, ${popoverHover});
+  --kr-accent-soft: light-dark(#ffffff, #000000);
+  --kr-line-strong: light-dark(#000000, #ffffff);
+  --kr-ink: light-dark(${inkLight}, #ffffff);
+  --kr-ink-2: light-dark(#000000, #ffffff);
+  --kr-ink-3: light-dark(#000000, #ffffff);
+  --kr-accent-text: light-dark(#000000, #ffffff);
+  --kr-positive-text: light-dark(#000000, #ffffff);
+  --kr-attention-text: light-dark(#000000, #ffffff);
+  --kr-danger-text: light-dark(#000000, #ffffff);
+  --kr-neutral-rgb: 128 128 128;
+  --kr-positive-rgb: ${darkPositive};
+  --kr-attention-rgb: 128 128 128;
+  --kr-danger-rgb: 128 128 128;
+}
+:root[data-theme="light"] {
+  --kr-neutral-rgb: 128 128 128;
+  --kr-positive-rgb: 128 128 128;
+  --kr-attention-rgb: 128 128 128;
+  --kr-danger-rgb: 128 128 128;
+}`;
+
+test("black on white is 21:1", () => {
+  assert.equal(contrastRatio([0, 0, 0], [255, 255, 255]).toFixed(1), "21.0");
+});
+
+test("a text token that is too faint on its surfaces is reported", () => {
+  assert.deepEqual(failingContrastPairs(css("#000000")), []);
+  assert.ok(failingContrastPairs(css("#bbbbbb")).some((line) => line.startsWith("light ink on")));
+});
+
+test("dark tone washes use the dark channels, not the later light ones", () => {
+  const tokens = readThemeTokens(css("#000000", { darkPositive: "34 197 94" }));
+  assert.deepEqual(tokens.dark["positive-rgb"], [34, 197, 94]);
+  assert.deepEqual(tokens.light["positive-rgb"], [128, 128, 128]);
+});
+
+test("a popover hover layer that blends into the popover is reported", () => {
+  const pairs = failingContrastPairs(css("#000000", { popoverHover: "#010101" }));
+  assert.ok(pairs.some((line) => line.startsWith("dark popover-hover against popover")));
+});
+
+test("the shipped theme tokens have no failing contrast pair", async () => {
+  const { failingContrastPairsOf } = await import("./contrast.mjs");
+  const cssPath = new URL("../../../apps/web/src/index.css", import.meta.url);
+  assert.deepEqual(failingContrastPairsOf(cssPath), []);
+});

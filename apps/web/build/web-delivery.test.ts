@@ -1,8 +1,18 @@
 import { randomBytes } from "node:crypto";
-import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { brotliDecompressSync, gunzipSync } from "node:zlib";
+import { build } from "vite";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { fontPreloads, precompressDirectory, webDelivery } from "./web-delivery.js";
 
@@ -82,4 +92,39 @@ describe("webDelivery", () => {
       "app-abc.js.gz",
     ]);
   });
+});
+
+describe("the built page", () => {
+  const webDir = fileURLToPath(new URL("..", import.meta.url));
+  let outDir: string;
+
+  afterEach(() => rmSync(outDir, { recursive: true, force: true }));
+
+  it("starts the app from files that exist in the build", async () => {
+    outDir = mkdtempSync(join(tmpdir(), "kickrocks-build-"));
+    await build({
+      root: webDir,
+      configFile: join(webDir, "vite.config.ts"),
+      logLevel: "silent",
+      build: { outDir, emptyOutDir: true },
+    });
+
+    const html = readFileSync(join(outDir, "index.html"), "utf8");
+    const referenced = (pattern: RegExp) =>
+      [...html.matchAll(pattern)].map((match) => match[1] ?? "");
+    const modules = referenced(/<script type="module"[^>]*src="([^"]+)"/g);
+    expect(modules).toHaveLength(1);
+    const files = [
+      ...modules,
+      ...referenced(/<link rel="modulepreload"[^>]*href="([^"]+)"/g),
+      ...referenced(/<link rel="stylesheet"[^>]*href="([^"]+)"/g),
+      ...referenced(/<link rel="preload"[^>]*href="([^"]+)"/g),
+    ];
+    expect(files.length).toBeGreaterThan(modules.length);
+    for (const file of files) {
+      expect(file).toMatch(/^\/assets\/[\w.-]+$/);
+      expect(existsSync(join(outDir, file)), file).toBe(true);
+    }
+    expect(files.filter((file) => file.endsWith(".woff2"))).toHaveLength(4);
+  }, 120_000);
 });

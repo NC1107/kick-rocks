@@ -18,7 +18,7 @@ export function SelectCell({
     <TableCell className="w-10 pr-0 max-sm:p-0">
       <label
         htmlFor={id}
-        className="relative flex cursor-pointer items-center justify-center max-sm:min-h-11 max-sm:min-w-11"
+        className="relative flex cursor-pointer items-center justify-center max-sm:min-h-11 max-sm:min-w-11 pointer-coarse:min-h-11 pointer-coarse:min-w-11"
       >
         <Checkbox
           id={id}

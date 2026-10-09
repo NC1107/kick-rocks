@@ -40,6 +40,11 @@ describe("the profiles list", () => {
     expect(screen.getByText("Loading")).toBeInTheDocument();
   });
 
+  it("keeps the New profile button in place while the list loads so the header does not grow", () => {
+    renderPage(<ProfilesPage />);
+    expect(screen.getByRole("link", { name: "New profile" })).toBeInTheDocument();
+  });
+
   it("asks before deleting, then removes the profile and says so", async () => {
     const { user, mock } = renderPage(<ProfilesPage />);
     const row = await screen.findByRole("listitem", { name: /Riley Sample/ });
