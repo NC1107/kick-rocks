@@ -1157,6 +1157,30 @@ describe("messages", () => {
       });
     });
 
+    it("moves the request to the opt-out page, not a token link, when the person says a confirmation message wanted the form", async () => {
+      const { request, target } = await awaitingRequest({
+        contactMethod: "both",
+        optOutUrl: "https://broker.test/optout",
+      });
+      const message = seedMessage(ctx, {
+        mailboxId,
+        requestId: request.id,
+        links: [`https://${target.domain}/confirm?token=abc`],
+      });
+      await classify(message.id, { classification: "needs_form" });
+      expect(ctx.services.requests.getOrThrow(request.id).channel).toBe("form");
+      const switched = ctx.services.requests
+        .events(request.id)
+        .find((event) => event.type === "channel_switched");
+      expect(switched).toMatchObject({ payload: { reason: "needs_form", formUrl: null } });
+      const detail = await ctx.call(API_ROUTES.requestsGet, { params: { id: request.id } });
+      expect(detail.ok && detail.body.formRequest).toMatchObject({
+        state: "on_form_route",
+        url: "https://broker.test/optout",
+        fromReply: false,
+      });
+    });
+
     it("follows the link in a company's message the person says is a confirmation", async () => {
       const { request, target } = await awaitingRequest({ kind: "company" });
       const link = `https://${target.domain}/confirm?t=1`;

@@ -10,6 +10,7 @@ import {
   withoutSharedHosts,
 } from "@kickrocks/shared";
 import type { SettingsStore } from "../core/settings.js";
+import { FORM_LINK_HINT } from "./form-link.js";
 import { askLlm, type LlmFetch } from "./llm.js";
 import { CLASS_PRIORITY, matchSignals, requestedFieldsIn, type Signal } from "./reply-rules.js";
 import { extractLinks, type MailLink, stripQuoted } from "./reply-text.js";
@@ -174,10 +175,6 @@ function usableLinks(links: MailLink[], request: ClassifierRequest): MailLink[] 
     .sort((a, b) => rank(b) - rank(a))
     .slice(0, MAX_LINKS);
 }
-
-/** Words in a link or its text that say it leads to a place where a request is made. */
-const FORM_LINK_HINT =
-  /form|portal|privacy[-_ ]?(?:request|rights|choices|cent(?:er|re)|portal)|request[-_ ]?(?:cent(?:er|re)|portal)|opt-?out|do[-_ ]?not[-_ ]?sell|one-?trust|trust-?arc|ccpa|dsar|data[-_ ]?subject|ticket|submit/i;
 
 /**
  * The links in a reply that lead to the place it sends the request to. They must sit on the

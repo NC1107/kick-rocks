@@ -1182,6 +1182,56 @@ describe("a reply that sends the request somewhere else", () => {
     expect(result.classification).toBe("auto_ack");
   });
 
+  const closings: Array<[string, string, string]> = [
+    [
+      "a completed request with a phone number for questions",
+      "Your request has been completed and your data has been deleted. If you have questions, please call 1-800-555-0100.",
+      "completed",
+    ],
+    [
+      "a completed request with a link for another request",
+      "Your data has been deleted. To make another request in the future, visit https://acme.test/privacy.",
+      "completed",
+    ],
+    [
+      "no record found with a phone number",
+      "We could not find any record of you in our systems. If you think this is a mistake, please call us at 800-555-0100.",
+      "no_record",
+    ],
+    [
+      "a confirmation link opened with please",
+      "Please open the following link to confirm your request: https://acme.test/confirm?t=abc",
+      "confirmation_link",
+    ],
+    [
+      "a confirmation link under please use",
+      "Please use the link below to confirm your request: https://acme.test/confirm?t=abc",
+      "confirmation_link",
+    ],
+    [
+      "an acknowledgement that offers a phone number",
+      "Thank you for contacting us. We have received your request and will respond within 45 days. If you have any questions, please call us at 1-800-555-0100.",
+      "auto_ack",
+    ],
+    [
+      "an acknowledgement that offers a help center",
+      "Thank you for contacting us. We have received your request and will respond within 45 days. For more help, please visit our help center at https://acme.test/help.",
+      "auto_ack",
+    ],
+  ];
+
+  it.each(closings)("keeps %s as %s, not a redirect", async (_name, text, expected) => {
+    const result = await classify(text);
+    expect(result.classification).toBe(expected);
+  });
+
+  it("does not let a redirect beat a finished request when both say the same strength", async () => {
+    const result = await classify(
+      "Your request has been completed. Requests must be submitted through our web form.",
+    );
+    expect(result.classification).toBe("completed");
+  });
+
   it("does not take a request for identity documents by post for a redirect", async () => {
     const result = await classify(
       "Thank you for contacting us. To verify your identity, send a copy of your driver's license by postal mail.",

@@ -1,4 +1,4 @@
-import { tellEvents } from "@kickrocks/shared";
+import { type MessageSummary, tellEvents } from "@kickrocks/shared";
 import { screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { createMockApp, type MockApp } from "../../../../mock/app.js";
@@ -163,7 +163,7 @@ describe("the request page", () => {
   });
 
   describe("when a reply asked for the web form", () => {
-    function askedForForm() {
+    function askedForForm(overrides: Partial<MessageSummary> = {}) {
       const mock = failing(/never/);
       const request = mock.store.requests.find(
         (candidate) => candidate.targetId === "cardinal-insights",
@@ -174,7 +174,9 @@ describe("the request page", () => {
       if (!message) throw new Error("fixture");
       message.requestId = request.id;
       message.classification = "needs_form";
+      message.confidence = 0.9;
       message.links = ["https://cardinal-insights.example/privacy-requests"];
+      Object.assign(message, overrides);
       return {
         request,
         message,
@@ -192,6 +194,20 @@ describe("the request page", () => {
       expect(
         screen.getByRole("link", { name: /cardinal-insights\.example\/privacy-requests/ }),
       ).toBeVisible();
+    });
+
+    it("asks the person to confirm an unsure reply instead of claiming the form route", async () => {
+      const { message } = askedForForm({ confidence: 0.4 });
+      expect(await screen.findByText(/may want its web form/)).toBeVisible();
+      expect(screen.getByText(/waiting for you to confirm/)).toBeVisible();
+      expect(screen.queryByRole("link", { name: /privacy-requests/ })).not.toBeInTheDocument();
+      expect(message.classification).toBe("needs_form");
+    });
+
+    it("says there is no form to reach, and shows no confirmation link, after a hand correction", async () => {
+      askedForForm({ links: ["https://cardinal-insights.example/privacy/confirm?token=mock"] });
+      expect(await screen.findByText(/no web form we can reach/)).toBeVisible();
+      expect(screen.queryByRole("link", { name: /token=mock/ })).not.toBeInTheDocument();
     });
 
     it("lets the person correct what the reply was", async () => {

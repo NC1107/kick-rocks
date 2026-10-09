@@ -38,17 +38,28 @@ function firstMatch(rule: Rule, text: string): RegExpExecArray | null {
 }
 
 /**
- * The other ways a company says a request has to be made: a form or portal, a ticket system, a
- * phone line, the post, or just a web address. Mail is only named as "postal mail" so that a
- * request to mail a copy of an ID is not taken for a redirect.
+ * The places a company can name that are plainly somewhere to make a request: a form, a portal, a
+ * request center, a ticket system. A bare address or phone number is not here because every
+ * closing line that offers help carries one.
  */
-const OTHER_CHANNEL = [
+const NAMED_CHANNEL = [
   `web ?forms?`,
-  `(?:online|web|webform|privacy|request|opt[- ]?out|data|support|help|rights|consumer)[ -]?(?:forms?|portals?|cent(?:er|re)s?|pages?|sites?|websites?|desk)`,
+  `(?:online|web|webform|privacy|request|opt[- ]?out|rights)[ -]?(?:forms?|portals?|cent(?:er|re)s?)`,
   `portals?`,
   `privacy request`,
   `one ?trust|trust ?arc|truste`,
   `tickets?(?: system)?`,
+].join("|");
+
+/**
+ * Everything a company can say a request has to go through, including a phone line, the post or a
+ * web address. It only counts next to wording that makes it a requirement ("must", "only"), where
+ * mail is named as "postal mail" so a request to mail a copy of an ID is not taken for a redirect.
+ */
+const REQUIRED_CHANNEL = [
+  NAMED_CHANNEL,
+  `(?:data|support|help|consumer)[ -]?(?:forms?|portals?|cent(?:er|re)s?|pages?|sites?|websites?|desk)`,
+  `(?:online|web|privacy|request|opt[- ]?out|rights)[ -]?(?:pages?|sites?|websites?|desk)`,
   `toll[- ]free`,
   `tele?phone`,
   `phone`,
@@ -93,7 +104,7 @@ const RULES: Rule[] = [
     label: "asks to use an online form",
     ignoreNegation: true,
     pattern:
-      /\bplease\b.{0,30}\b(use|submit|complete|visit|go to|fill out|fill in)\b.{0,30}\b(our|the|this)\b.{0,25}\b(online |web |privacy |opt[- ]?out |request )*(form|portal|webform|page|center|centre)\b|\b(use|submit|complete|fill out) (our|the) (online |web )?(opt[- ]?out |privacy (request )?)?(form|portal)\b/i,
+      /\bplease\b.{0,30}\b(use|submit|complete|visit|go to|fill out|fill in)\b.{0,30}\b(our|the|this)\b.{0,25}\b(?:(?:online |web |privacy |opt[- ]?out |request )*(?:form|portal|webform)|(?:request |opt[- ]?out )(?:page|center|centre))\b|\b(use|submit|complete|fill out) (our|the) (online |web )?(opt[- ]?out |privacy (request )?)?(form|portal)\b/i,
   },
   {
     classification: "needs_form",
@@ -102,10 +113,10 @@ const RULES: Rule[] = [
     ignoreNegation: true,
     pattern: new RegExp(
       [
-        String.raw`\brequests?\b${NO_STOP}{0,60}\b(?:must|should|can only|may only|need to|have to|are required to|only)\b${NO_STOP}{0,60}\b(?:submitted|made|sent|filed|received|accepted|processed|through|via|by|at|using|on)\b${NO_STOP}{0,80}\b(?:${OTHER_CHANNEL})`,
-        String.raw`\b(?:must|should|need to|have to|are required to|can only|may only|only)\b${NO_STOP}{0,40}\b(?:submit|make|send|file|lodge|exercise)\b${NO_STOP}{0,40}\b(?:requests?|submissions?)\b${NO_STOP}{0,80}\b(?:${OTHER_CHANNEL})`,
-        String.raw`\bto (?:submit|make|file|exercise|start|initiate)\b${NO_STOP}{0,60}\b(?:requests?|rights)\b${NO_STOP}{0,100}\b(?:${OTHER_CHANNEL})`,
-        String.raw`\b(?:please|kindly)\b${NO_STOP}{0,40}\b(?:use|submit|complete|visit|go to|fill|file|make|send|access|call|log ?in|open|create|raise)\b${NO_STOP}{0,60}\b(?:${OTHER_CHANNEL})`,
+        String.raw`\brequests?\b${NO_STOP}{0,60}\b(?:must|should|can only|may only|need to|have to|are required to|only)\b${NO_STOP}{0,60}\b(?:submitted|made|sent|filed|received|accepted|processed|through|via|by|at|using|on)\b${NO_STOP}{0,80}\b(?:${REQUIRED_CHANNEL})`,
+        String.raw`\b(?:must|should|need to|have to|are required to|can only|may only|only)\b${NO_STOP}{0,40}\b(?:submit|make|send|file|lodge|exercise)\b${NO_STOP}{0,40}\b(?:requests?|submissions?)\b${NO_STOP}{0,80}\b(?:${REQUIRED_CHANNEL})`,
+        String.raw`\bto (?:submit|make|file|exercise|start|initiate)\b${NO_STOP}{0,60}\b(?:requests?|rights)\b${NO_STOP}{0,100}\b(?:${NAMED_CHANNEL})`,
+        String.raw`\b(?:please|kindly)\b${NO_STOP}{0,40}\b(?:use|submit|complete|visit|go to|fill|file|make|send|access|call|log ?in|open|create|raise)\b${NO_STOP}{0,60}\b(?:${NAMED_CHANNEL})`,
         String.raw`\be-?mail(?:ed)? requests\b${NO_STOP}{0,30}\b(?:not|cannot|can't)\b${NO_STOP}{0,30}\b(?:accepted|processed|honou?red|handled)\b`,
       ].join("|"),
       "i",
@@ -162,15 +173,18 @@ const BOUNCE_SUBJECT =
 
 const AUTO_PRECEDENCE = /^(auto_reply|auto-reply|bulk|junk)$/i;
 
-/** Which kind of mail wins when two rules match with the same strength. */
+/**
+ * Which kind of mail wins when two rules match with the same strength. A redirect comes after a
+ * finished, missing or confirmable request because it is the loosest wording of them.
+ */
 export const CLASS_PRIORITY: readonly ReplyClassification[] = [
   "bounce",
   "verification_required",
-  "needs_form",
   "no_record",
-  "rejected",
   "completed",
   "confirmation_link",
+  "needs_form",
+  "rejected",
   "auto_ack",
   "unknown",
   "unrelated",

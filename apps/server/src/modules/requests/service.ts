@@ -22,8 +22,10 @@ import { nowIso } from "../../core/clock.js";
 import { conflict, invalidRequest, notFound } from "../../core/errors.js";
 import { loadIdentities } from "../../core/identities.js";
 import { likePattern } from "../../core/like.js";
-import { withTrustedConfirmationSenders } from "../../core/targets.js";
+import { curatedReplyDomainsOfRow, withTrustedConfirmationSenders } from "../../core/targets.js";
+import { formLinkAmong } from "../../mail/form-link.js";
 import { phoneNumberIn } from "../../mail/reply-text.js";
+import { CONFIDENCE_THRESHOLD } from "../../runners/reply.js";
 import type { AppServices } from "../../services.js";
 
 const ACTION_OUTCOMES = {
@@ -43,21 +45,58 @@ interface RequestsApi {
 export function createRequestsApi(services: AppServices): RequestsApi {
   const { db, requests, targets: targetsService, taskQueue, dispatch } = services;
 
-  /** The latest reply that asked for the web form, while the request is still open. */
+  /**
+   * What the latest reply that asked for the web form came to, while the request is still open.
+   * The link and phone number are only offered once the reply was applied or a person confirmed it,
+   * because an unsigned reply can name anything.
+   */
   function formRequestOf(
     record: RequestRecord,
     rows: readonly (typeof messages.$inferSelect)[],
-    optOutUrl: string | null,
+    target: typeof targets.$inferSelect | undefined,
   ): FormRequest | null {
     if (!isActiveStatus(record.status)) return null;
     const asked = rows.filter((row) => row.classification === "needs_form").at(-1);
     if (!asked) return null;
-    const fromReply = asked.links[0] ?? null;
+    const optOutUrl = target?.optOutUrl ?? null;
+    if (asked.confidence < CONFIDENCE_THRESHOLD) {
+      return {
+        messageId: asked.id,
+        state: "unconfirmed",
+        url: null,
+        fromReply: false,
+        phone: null,
+      };
+    }
+    const domains = target ? [target.domain, ...curatedReplyDomainsOfRow(target)] : [];
+    const phone = asked.text ? phoneNumberIn(asked.text) : null;
+    if (record.channel === "form") {
+      const switched = requests
+        .events(record.id)
+        .filter(
+          (event) => event.type === "channel_switched" && event.payload.reason === "needs_form",
+        )
+        .at(-1);
+      if (!switched) return null;
+      const stored =
+        switched.type === "channel_switched" && switched.payload.formUrl
+          ? formLinkAmong([switched.payload.formUrl], domains)
+          : null;
+      return {
+        messageId: asked.id,
+        state: "on_form_route",
+        url: stored ?? optOutUrl,
+        fromReply: stored !== null,
+        phone,
+      };
+    }
+    const fromReply = formLinkAmong(asked.links, domains);
     return {
       messageId: asked.id,
+      state: "no_form_channel",
       url: fromReply ?? optOutUrl,
       fromReply: fromReply !== null,
-      phone: asked.text ? phoneNumberIn(asked.text) : null,
+      phone,
     };
   }
 
@@ -74,7 +113,7 @@ export function createRequestsApi(services: AppServices): RequestsApi {
       .all();
     return {
       ...record,
-      formRequest: formRequestOf(record, replies, target?.optOutUrl ?? null),
+      formRequest: formRequestOf(record, replies, target),
       target: targetsService.summary(record.targetId),
       events: requests
         .events(id)

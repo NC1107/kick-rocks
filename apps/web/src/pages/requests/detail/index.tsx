@@ -1,5 +1,6 @@
 import {
   API_ROUTES,
+  type FormRequest,
   isActiveStatus,
   type RequestAction,
   type RequestDetail,
@@ -49,6 +50,19 @@ import { MessageBody } from "../../review/MessageBody.js";
 import { detailRefreshInterval } from "../polling.js";
 import { ReplyCorrection } from "./ReplyCorrection.js";
 import { Timeline } from "./Timeline.js";
+
+const FORM_REQUEST_LEAD: Record<FormRequest["state"], string> = {
+  on_form_route:
+    "Their reply says this request has to be made another way, so it is on the form route instead of email.",
+  unconfirmed:
+    "Their reply may say this request has to be made another way. It is waiting for you to confirm what it says before anything changes.",
+  no_form_channel:
+    "Their reply says this request has to be made another way, and there is no web form we can reach for them. You have to make it yourself.",
+};
+
+function formRequestTitle(state: FormRequest["state"], name: string): string {
+  return state === "unconfirmed" ? `${name} may want its web form` : `${name} wants its web form`;
+}
 
 /** What each action says when it is done, in the verb of the button that started it. */
 const ACTION_DONE: Record<RequestAction, string> = {
@@ -313,15 +327,20 @@ function Detail({ request }: { request: RequestDetail }) {
           </Callout>
         ) : null}
         {request.formRequest ? (
-          <Callout intent="warning" title={`${target.name} wants its web form`}>
+          <Callout
+            intent="warning"
+            title={formRequestTitle(request.formRequest.state, target.name)}
+          >
             <p>
-              Their reply says this request has to be made another way, so it is on the form route
-              instead of email.
+              {FORM_REQUEST_LEAD[request.formRequest.state]}
               {request.formRequest.url ? (
                 <>
                   {" "}
                   {request.formRequest.fromReply ? "The link they gave: " : "Their opt-out page: "}
-                  <ExternalLinkText href={request.formRequest.url} className="break-all">
+                  <ExternalLinkText
+                    href={request.formRequest.url}
+                    className="[overflow-wrap:anywhere]"
+                  >
                     {request.formRequest.url}
                   </ExternalLinkText>
                 </>

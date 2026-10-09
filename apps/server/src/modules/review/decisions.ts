@@ -147,7 +147,7 @@ export async function classifyByHand(
         actor: "user",
         link,
         requestedFields: row.requestedFields,
-        formLink: body.classification === "needs_form" ? (row.links[0] ?? null) : null,
+        formLinks: body.classification === "needs_form" ? row.links : [],
       });
     }
     return toMessageSummary(updated);
