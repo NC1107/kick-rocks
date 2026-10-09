@@ -297,12 +297,14 @@ async function measureLayoutShift(browser, base) {
 }
 
 // A score can rise while the page the visitor can use arrives later, so the throttled time to the
-// route heading and the largest paint are recorded next to it. They are reported, not gated, since
-// they depend on the machine.
+// route heading, to the data behind it and the largest paint are recorded next to it. They are
+// reported, not gated, since they depend on the machine. The heading shows with skeletons under it
+// before any data arrives, so "data" is the moment no skeleton or busy region is left.
 async function measureRouteReady(browser, base, runs) {
   const results = [];
   for (const route of LIGHTHOUSE_ROUTES) {
     const headingMs = [];
+    const dataMs = [];
     const largestPaintMs = [];
     for (let i = 0; i < runs; i++) {
       const context = await browser.newContext({
@@ -329,6 +331,12 @@ async function measureRouteReady(browser, base, runs) {
       await page.goto(base + route, { waitUntil: "commit" });
       await page.locator("h1:visible").first().waitFor({ timeout: 60_000 });
       headingMs.push(Math.round(await page.evaluate(() => performance.now())));
+      await page.waitForFunction(
+        () => document.querySelectorAll('[aria-busy="true"], .animate-pulse-soft').length === 0,
+        null,
+        { timeout: 60_000, polling: "raf" },
+      );
+      dataMs.push(Math.round(await page.evaluate(() => performance.now())));
       await page.waitForLoadState("load");
       await page.waitForTimeout(500);
       largestPaintMs.push(Math.round(await page.evaluate(() => window.__lcp)));
@@ -337,6 +345,7 @@ async function measureRouteReady(browser, base, runs) {
     results.push({
       route,
       headingMs: Math.max(...headingMs),
+      dataMs: Math.max(...dataMs),
       largestPaintMs: Math.max(...largestPaintMs),
     });
   }

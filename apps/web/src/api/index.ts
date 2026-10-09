@@ -4,6 +4,7 @@ export {
 } from "./client.js";
 export {
   CurrentProfileProvider,
+  prefetchProfiles,
   useCurrentProfile,
 } from "./current-profile.js";
 export {

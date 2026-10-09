@@ -9,6 +9,8 @@
     <title>Kick Rocks</title>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <script src="/theme-init.js"></script>
+    <!-- Starts the sign-in check while the bundle downloads. Without a crossorigin value the preload is not reused. -->
+    <link rel="preload" as="fetch" crossorigin href="/api/auth/state" />
   </head>
   <body>
     <div id="root"><div class="grid min-h-dvh place-items-center px-gutter"><div class="flex flex-col items-center gap-4 text-ink-2"><span class="inline-flex items-center gap-2"><svg viewBox="0 0 32 32" aria-hidden="true" class="size-[22px] shrink-0"><rect width="32" height="32" rx="7.3" class="fill-accent-fill"></rect><path d="M12.5 13 17.5 8.5 23.5 11 25.5 17.5 21.5 23.5 14.5 23 10 18.5Z" stroke-linejoin="round" stroke-width="1.6" class="fill-accent-on stroke-accent-on"></path><path d="M17.5 8.5 19 15.5 25.5 17.5M19 15.5 14.5 23" fill="none" stroke-width="1.2" class="stroke-accent-fill" stroke-linejoin="round" stroke-linecap="round" opacity=".45"></path><path d="M4.5 14h4.5M3.5 18.5h5.5M5.5 23h3.5" class="stroke-accent-on" stroke-width="1.8" stroke-linecap="round" opacity=".65"></path></svg><span class="font-mono text-ui font-semibold tracking-[0.02em] text-ink">Kick Rocks</span></span><span role="status" class="inline-flex"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true" class="animate-spin text-current size-6"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-opacity="0.22" stroke-width="3"></circle><path d="M21 12a9 9 0 0 0-9-9" stroke="currentColor" stroke-width="3" stroke-linecap="round"></path></svg><span class="sr-only">Loading Kick Rocks</span></span></div></div></div>

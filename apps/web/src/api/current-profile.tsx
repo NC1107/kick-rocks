@@ -1,8 +1,10 @@
 import { API_ROUTES, type ProfileSummary } from "@kickrocks/shared";
+import type { QueryClient } from "@tanstack/react-query";
 import { createContext, type ReactNode, useCallback, useContext, useMemo, useState } from "react";
 import { readStorage, STORAGE_KEYS, writeStorage } from "../lib/storage.js";
+import { callRoute } from "./client.js";
 import type { ApiRequestError } from "./errors.js";
-import { useApiQuery } from "./hooks.js";
+import { routeKey, useApiQuery } from "./hooks.js";
 
 interface CurrentProfileState {
   /** The profile every profile-scoped page works on; null while loading or when none exist. */
@@ -15,6 +17,19 @@ interface CurrentProfileState {
 }
 
 const CurrentProfileContext = createContext<CurrentProfileState | null>(null);
+
+/**
+ * Starts the profile list request before React renders, so a returning visitor's first screen is
+ * not waiting for the sign-in check to finish before it asks. A browser that remembers a profile
+ * has signed in before; one that has not is not asked, so a first visit sees no failed request.
+ */
+export function prefetchProfiles(client: QueryClient): void {
+  if (readStorage(STORAGE_KEYS.profileId) === null) return;
+  void client.prefetchQuery({
+    queryKey: routeKey(API_ROUTES.profilesList),
+    queryFn: ({ signal }) => callRoute(API_ROUTES.profilesList, { signal }),
+  });
+}
 
 /**
  * Keeps the current profile id in localStorage. When the stored id no longer exists, such as after
