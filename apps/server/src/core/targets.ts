@@ -38,6 +38,8 @@ export interface SyncResult {
   added: number;
   updated: number;
   retired: number;
+  /** Targets that had an email address and no longer do, whose open email requests need another route. */
+  lostEmail: string[];
   total: number;
 }
 
@@ -289,7 +291,13 @@ export function createTargetsService({
             .map((row) => [row.id, row]),
         );
         const wanted = new Set(desired.map((entry) => entry.values.id));
-        const result: SyncResult = { added: 0, updated: 0, retired: 0, total: desired.length };
+        const result: SyncResult = {
+          added: 0,
+          updated: 0,
+          retired: 0,
+          lostEmail: [],
+          total: desired.length,
+        };
 
         // Retire first so a record that moved to a new id can take over the old one's domain.
         for (const row of existing.values()) {
@@ -313,6 +321,7 @@ export function createTargetsService({
             current.datasetVersion === version &&
             JSON.stringify(current.data) === JSON.stringify(values.data);
           if (unchanged) continue;
+          if (current.privacyEmail && !values.privacyEmail) result.lostEmail.push(values.id);
           tx.update(targets)
             .set({ ...values, datasetVersion: version, retired: false })
             .where(eq(targets.id, values.id))

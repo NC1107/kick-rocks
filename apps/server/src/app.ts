@@ -9,6 +9,7 @@ import Fastify, {
   type FastifyRequest,
 } from "fastify";
 import type { Config } from "./config.js";
+import { moveRequestsToFormAfterEmailLoss } from "./core/email-loss.js";
 import { registerGuards } from "./core/guard.js";
 import { registerHealth } from "./core/health.js";
 import { createHostPolicy } from "./core/hosts.js";
@@ -82,7 +83,8 @@ export async function buildApp({ services, database, version }: AppContext): Pro
   registerGuards(server, services, createHostPolicy(config));
 
   // Modules may register startup steps that store rows pointing at targets, so the targets come first.
-  services.targets.sync();
+  const synced = services.targets.sync();
+  moveRequestsToFormAfterEmailLoss(services, synced.lostEmail);
 
   await server.register(async (scope) => registerHealth(scope, services, version), {
     prefix: "/api",

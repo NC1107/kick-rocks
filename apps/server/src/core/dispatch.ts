@@ -16,6 +16,7 @@ import { type Clock, nowIso } from "./clock.js";
 import { conflict, notFound } from "./errors.js";
 import { loadIdentities } from "./identities.js";
 import { newId } from "./ids.js";
+import { firstRecipient } from "./recipients.js";
 import type { RequestsService } from "./requests.js";
 import { requireProfile } from "./require-profile.js";
 import { scanSearchKey } from "./scan-reuse.js";
@@ -303,7 +304,7 @@ export function createDispatch({
           if (!mailbox) {
             throw conflict("mailbox_required", "Connect a mailbox before sending an email request");
           }
-          if (!targetRow.privacyEmail) {
+          if (!targetRow.privacyEmail && (kind === "initial" || !firstRecipient(db, request.id))) {
             throw conflict("no_email_address", `${target.name} has no email address to send to`);
           }
           const payload = {

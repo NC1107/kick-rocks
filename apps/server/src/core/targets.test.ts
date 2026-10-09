@@ -64,7 +64,7 @@ describe("sync", () => {
       brokers: brokers([makeBroker({ id: "b1" }), makeBroker({ id: "b2" })]),
       companies: companies([makeCompany({ id: "c1" })]),
     }).sync();
-    expect(result).toEqual({ added: 3, updated: 0, retired: 0, total: 3 });
+    expect(result).toEqual({ added: 3, updated: 0, retired: 0, lostEmail: [], total: 3 });
     expect(
       rows()
         .map((r) => [r.id, r.kind, r.datasetVersion, r.retired])
@@ -129,7 +129,13 @@ describe("sync", () => {
     const targetsService = service(sources);
     targetsService.sync();
     const before = rows();
-    expect(targetsService.sync()).toEqual({ added: 0, updated: 0, retired: 0, total: 2 });
+    expect(targetsService.sync()).toEqual({
+      added: 0,
+      updated: 0,
+      retired: 0,
+      lostEmail: [],
+      total: 2,
+    });
     expect(rows()).toEqual(before);
   });
 
@@ -165,6 +171,23 @@ describe("sync", () => {
     expect(result.retired).toBe(1);
     expect(rows().find((r) => r.id === "gone")?.retired).toBe(true);
     expect(rows().find((r) => r.id === "keep")?.retired).toBe(false);
+  });
+
+  it("reports a target whose update took its email address away, and not one that gained or kept one", () => {
+    const withEmail = (id: string, privacyEmail: string | null) =>
+      makeBroker({ id, domain: `${id}.example`, privacyEmail });
+    service({
+      brokers: brokers([
+        withEmail("loses", "a@loses.example"),
+        withEmail("keeps", "a@keeps.example"),
+      ]),
+      companies: null,
+    }).sync();
+    const result = service({
+      brokers: brokers([withEmail("loses", null), withEmail("keeps", "b@keeps.example")], "v2"),
+      companies: null,
+    }).sync();
+    expect(result.lostEmail).toEqual(["loses"]);
   });
 
   it("keeps the detail of a target retired from the 2025 registry readable", async () => {

@@ -136,6 +136,12 @@ export class EmailRunner {
       return false;
     }
 
+    // Settled before composing, because composing can throw once the dataset has changed, and then
+    // the Message-ID of mail that may already be delivered would never be recorded.
+    if (earlier) {
+      return this.settleEarlierAttempt(task, request, earlier);
+    }
+
     let composed: ReturnType<typeof composer.requestEmail>;
     try {
       composed = composer.requestEmail(request, task.payload.kind, {
@@ -173,16 +179,6 @@ export class EmailRunner {
       return false;
     }
 
-    if (earlier) {
-      return this.settleUnconfirmed(
-        task,
-        request,
-        composed.mailboxId,
-        earlier,
-        "an earlier attempt",
-      );
-    }
-
     this.beforeData.add(task.id);
     try {
       const result = await mail.transport(connectionOf(mailbox)).send(outgoing, {
@@ -203,6 +199,7 @@ export class EmailRunner {
           composed.mailboxId,
           outgoing.messageId,
           describeError(error),
+          composed.to,
         );
       }
       this.clearOffered(task.id);
@@ -226,7 +223,9 @@ export class EmailRunner {
       .set({ lastSendError: null })
       .where(eq(mailboxes.id, mailbox.id))
       .run();
-    const recorded = this.recordSend(task, request.id, composed.mailboxId, outgoing.messageId);
+    const recorded = this.recordSend(task, request.id, composed.mailboxId, outgoing.messageId, {
+      recipient: composed.to,
+    });
     this.clearOffered(task.id);
     return recorded;
   }
@@ -284,12 +283,16 @@ export class EmailRunner {
     mailboxId: string,
     messageId: string,
     cause: string,
+    recipient: string | null,
   ): boolean {
     this.services.logger.warn(
       { requestId: request.id, cause },
       "a send was cut off before the mail server answered, so it is counted as sent",
     );
-    const recorded = this.recordSend(task, request.id, mailboxId, messageId, { unconfirmed: true });
+    const recorded = this.recordSend(task, request.id, mailboxId, messageId, {
+      unconfirmed: true,
+      recipient,
+    });
     this.clearOffered(task.id);
     return recorded;
   }
@@ -303,12 +306,57 @@ export class EmailRunner {
     request: RequestRecord,
     messageId: string,
   ): void {
+    const mailboxId = this.mailboxIdOf(request);
+    if (mailboxId) {
+      this.recordSend(task, request.id, mailboxId, messageId, {
+        unconfirmed: true,
+        recipient: this.intendedRecipient(task, request),
+      });
+    }
+    this.clearOffered(task.id);
+  }
+
+  /** A process that died with its mail on the wire is settled as the cut-off send it was. */
+  private settleEarlierAttempt(
+    task: EmailTask,
+    request: RequestRecord,
+    messageId: string,
+  ): boolean {
+    const mailboxId = this.mailboxIdOf(request);
+    if (!mailboxId) {
+      this.fail(task, request, new Error("The mailbox is gone"), {
+        retryable: false,
+        kind: "internal",
+      });
+      return false;
+    }
+    return this.settleUnconfirmed(
+      task,
+      request,
+      mailboxId,
+      messageId,
+      "an earlier attempt",
+      this.intendedRecipient(task, request),
+    );
+  }
+
+  /** Where the lost attempt was addressed, when it can still be told; a follow-up falls back to the dataset otherwise. */
+  private intendedRecipient(task: EmailTask, request: RequestRecord): string | null {
+    try {
+      return this.services.composer.requestEmail(request, task.payload.kind, {
+        requestedFields: task.payload.fields,
+      }).to;
+    } catch {
+      return null;
+    }
+  }
+
+  private mailboxIdOf(request: RequestRecord): string | null {
     const { db } = this.services;
     const mailbox = request.mailboxId
       ? db.select().from(mailboxes).where(eq(mailboxes.id, request.mailboxId)).get()
       : db.select().from(mailboxes).where(eq(mailboxes.profileId, request.profileId)).get();
-    if (mailbox) this.recordSend(task, request.id, mailbox.id, messageId, { unconfirmed: true });
-    this.clearOffered(task.id);
+    return mailbox?.id ?? null;
   }
 
   private cancelUnlessFinished(taskId: string): void {
@@ -385,7 +433,10 @@ export class EmailRunner {
     requestId: string,
     mailboxId: string,
     messageId: string,
-    { unconfirmed = false }: { unconfirmed?: boolean } = {},
+    {
+      unconfirmed = false,
+      recipient = null,
+    }: { unconfirmed?: boolean; recipient?: string | null } = {},
   ): boolean {
     const { db, taskQueue, requests, mailQuota, clock } = this.services;
     const kind: EmailKind = task.payload.kind;
@@ -397,7 +448,7 @@ export class EmailRunner {
         );
         return false;
       }
-      mailQuota.record({ mailboxId, requestId, kind, messageId });
+      mailQuota.record({ mailboxId, requestId, kind, messageId, recipient });
       const current = requests.getOrThrow(requestId);
       const live = taskQueue.getOrThrow(task.id);
       const sentEvent = {

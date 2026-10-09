@@ -13,6 +13,7 @@ import { eq } from "drizzle-orm";
 import { type Clock, nowIso } from "./clock.js";
 import { conflict, notFound } from "./errors.js";
 import { loadIdentities } from "./identities.js";
+import { firstRecipient } from "./recipients.js";
 import type { TargetsService } from "./targets.js";
 
 /** What an email is composed from, which a preview can build before any request exists. */
@@ -26,7 +27,9 @@ export type ComposableRequest = Pick<
   | "sentAt"
   | "followUps"
   | "mailboxId"
->;
+> &
+  /** Absent on a preview, which has no request yet and so no earlier recipient. */
+  Partial<Pick<RequestRecord, "id">>;
 
 export interface ComposeOptions {
   /** For a verification reply: the identifiers the person approved. */
@@ -84,7 +87,9 @@ export function createComposer({ db, clock, legal, targets }: ComposerDeps): Com
         throw conflict("mailbox_required", "Connect a mailbox before sending an email request");
 
       const row = targets.getOrThrow(request.targetId);
-      if (!row.privacyEmail) {
+      const earlier = kind === "initial" || !request.id ? null : firstRecipient(db, request.id);
+      const to = earlier ?? row.privacyEmail;
+      if (!to) {
         throw conflict("no_email_address", `${row.name} has no email address to send to`);
       }
       const target = targets.toSummary(row);
@@ -136,7 +141,7 @@ export function createComposer({ db, clock, legal, targets }: ComposerDeps): Com
       return {
         email: legal.renderRequestEmail(input),
         input,
-        to: row.privacyEmail,
+        to,
         mailboxId: mailbox.id,
       };
     },

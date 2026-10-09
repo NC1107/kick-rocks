@@ -256,6 +256,11 @@ export const outgoingMail = sqliteTable(
       .references(() => requests.id, { onDelete: "cascade" }),
     kind: text("kind", { enum: values(EmailKind.options) }).notNull(),
     messageId: text("message_id").notNull(),
+    /**
+     * Where the mail went. A follow-up and a verification reply go back to this address, because the
+     * dataset can lose or change the broker's address after the first send. Null for mail sent before it was recorded.
+     */
+    recipient: text("recipient"),
     sentAt: timestamp("sent_at").notNull(),
   },
   (t) => [

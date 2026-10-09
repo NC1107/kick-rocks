@@ -559,6 +559,39 @@ describe("follow-ups and verification replies", () => {
     expect(requestOf(request.id)).toMatchObject({ status: "awaiting_reply", followUps: 0 });
   });
 
+  it("sends a follow-up and a verification reply to the address the first mail went to after the dataset dropped it", async () => {
+    const { request, target } = await sentRequest();
+    ctx.services.db.update(targets).set({ privacyEmail: null }).run();
+
+    ctx.services.requests.requeue(request.id, {
+      actor: "system",
+      reason: "follow_up",
+      kind: "follow_up",
+    });
+    await runners.email.runDue();
+    ctx.clock.advance(HOUR);
+    ctx.services.db
+      .update(requests)
+      .set({ status: "needs_verification" })
+      .where(eq(requests.id, request.id))
+      .run();
+    ctx.services.requests.requeue(request.id, {
+      actor: "user",
+      reason: "verification_reply",
+      kind: "verification_reply",
+      fields: ["phone"],
+      inReplyTo: "<broker-1@broker.test>",
+    });
+    await runners.email.runDue();
+
+    expect(ctx.mail.sent.map((entry) => entry.mail.to)).toEqual([
+      target.privacyEmail,
+      target.privacyEmail,
+      target.privacyEmail,
+    ]);
+    expect(requestOf(request.id).status).toBe("awaiting_reply");
+  });
+
   it("puts a verification reply that cannot be composed back where the person can answer it", async () => {
     const { request } = await sentRequest();
     ctx.services.db
@@ -574,6 +607,7 @@ describe("follow-ups and verification replies", () => {
       inReplyTo: "<broker-1@broker.test>",
     });
     ctx.services.db.update(targets).set({ privacyEmail: null }).run();
+    ctx.services.db.update(outgoingMail).set({ recipient: null }).run();
 
     await runners.email.runDue();
 

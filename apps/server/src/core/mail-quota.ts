@@ -13,6 +13,8 @@ export interface SentMail {
   requestId: string;
   kind: EmailKind;
   messageId: string;
+  /** The address the mail went to, so a later follow-up can go to the same one. */
+  recipient?: string | null;
 }
 
 /**

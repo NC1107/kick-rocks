@@ -1,0 +1,1 @@
+ALTER TABLE `outgoing_mail` ADD `recipient` text;

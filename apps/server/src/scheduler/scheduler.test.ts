@@ -115,6 +115,17 @@ describe("an unanswered email request over time", () => {
     ]);
   });
 
+  it("is still followed up at the address it was sent to after the dataset drops the address", async () => {
+    const { request, target } = await sendRequest();
+    ctx.services.db.update(targets).set({ privacyEmail: null }).run();
+    ctx.clock.set(new Date(ctx.clock.now().getTime() + 45 * DAY));
+
+    await scheduler.tick();
+
+    expect(requestOf(request.id)).toMatchObject({ status: "awaiting_reply", followUps: 1 });
+    expect(sentTo(request.id)[1]?.mail.to).toBe(target.privacyEmail);
+  });
+
   it("is not followed up when the person allows no follow-ups", async () => {
     setSchedule({ maxFollowUps: 0 });
     const { request } = await sendRequest();

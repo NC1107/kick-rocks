@@ -2,6 +2,7 @@ import { mailboxes, type RequestRow, requests, type TargetRow, targets } from "@
 import { canTransition } from "@kickrocks/shared";
 import { and, eq, inArray, isNotNull, lte, sql } from "drizzle-orm";
 import { AppError } from "../core/errors.js";
+import { firstRecipient } from "../core/recipients.js";
 import type { AppServices } from "../services.js";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -82,7 +83,8 @@ function canFollowUp(
   maxFollowUps: number,
 ): boolean {
   if (request.channel !== "email" || request.followUps >= maxFollowUps) return false;
-  if (target.retired || !target.privacyEmail) return false;
+  if (target.retired) return false;
+  if (!firstRecipient(services.db, request.id) && !target.privacyEmail) return false;
   const mailbox = services.db
     .select({ id: mailboxes.id })
     .from(mailboxes)

@@ -1,4 +1,4 @@
-import { mailboxes, tasks } from "@kickrocks/db";
+import { mailboxes, targets, tasks } from "@kickrocks/db";
 import { API_ROUTES } from "@kickrocks/shared";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -204,6 +204,25 @@ describe("the email runner against the real transport", () => {
     expect(smtp.received).toHaveLength(0);
     expect(taskFor(request.id)).toMatchObject({ status: "done" });
     expect(ctx.services.requests.getOrThrow(request.id).status).toBe("awaiting_reply");
+  });
+
+  it("settles a mail offered before the process died even when the dataset has dropped the address", async () => {
+    const request = openRequest();
+    ctx.services.db
+      .update(tasks)
+      .set({ unconfirmedMessageId: "<kr.before-restart@x.test>" })
+      .where(eq(tasks.requestId, request.id))
+      .run();
+    ctx.services.db.update(targets).set({ privacyEmail: null }).run();
+
+    await runners.email.runDue();
+
+    expect(smtp.received).toHaveLength(0);
+    expect(taskFor(request.id)).toMatchObject({ status: "done" });
+    expect(ctx.services.requests.getOrThrow(request.id)).toMatchObject({
+      status: "awaiting_reply",
+      outgoingMessageId: "<kr.before-restart@x.test>",
+    });
   });
 
   it("keeps the fact of a mail offered before the process died after the person changed the request", async () => {
