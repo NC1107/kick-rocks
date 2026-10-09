@@ -1,6 +1,7 @@
 import { type MailboxRow, mailboxes, messages, requests, targets } from "@kickrocks/db";
 import {
   MESSAGE_TEXT_MAX_CHARS,
+  POLL_MATCHED_REQUESTS_MAX,
   ProfileField,
   parseOutgoingMessageId,
   type RequestStatus,
@@ -52,7 +53,15 @@ interface PollTotals {
   stored: number;
   skipped: number;
   needsReview: number;
+  /** New messages that belong to a request. */
+  matched: number;
+  matchedRequestIds: string[];
   pages: number;
+}
+
+interface Ingested {
+  kind: "skipped" | "stored" | "needs_review";
+  requestId: string | null;
 }
 
 /** Mail that is certain to be nothing to act on, which needs no look from a person. */
@@ -100,7 +109,15 @@ export class InboxRunner {
       return;
     }
 
-    const totals: PollTotals = { fetched: 0, stored: 0, skipped: 0, needsReview: 0, pages: 0 };
+    const totals: PollTotals = {
+      fetched: 0,
+      stored: 0,
+      skipped: 0,
+      needsReview: 0,
+      matched: 0,
+      matchedRequestIds: [],
+      pages: 0,
+    };
     let more = false;
     try {
       more = await this.readFolder(mailbox, totals);
@@ -192,10 +209,19 @@ export class InboxRunner {
   ): Promise<void> {
     try {
       const outcome = await this.ingest(mailbox, uidValidity, message);
-      if (outcome === "skipped") totals.skipped += 1;
+      if (outcome.kind === "skipped") totals.skipped += 1;
       else {
         totals.stored += 1;
-        if (outcome === "needs_review") totals.needsReview += 1;
+        if (outcome.kind === "needs_review") totals.needsReview += 1;
+        if (outcome.requestId) {
+          totals.matched += 1;
+          if (
+            totals.matchedRequestIds.length < POLL_MATCHED_REQUESTS_MAX &&
+            !totals.matchedRequestIds.includes(outcome.requestId)
+          ) {
+            totals.matchedRequestIds.push(outcome.requestId);
+          }
+        }
       }
     } catch (error) {
       // One message that cannot be stored must not stop the rest of the folder from being read.
@@ -223,7 +249,7 @@ export class InboxRunner {
     mailbox: MailboxRow,
     uidValidity: number,
     message: InboxMessage,
-  ): Promise<"skipped" | "stored" | "needs_review"> {
+  ): Promise<Ingested> {
     const { db, clock } = this.services;
     const seen = db
       .select({ id: messages.id })
@@ -236,12 +262,13 @@ export class InboxRunner {
         ),
       )
       .get();
-    if (seen) return "skipped";
+    const skipped: Ingested = { kind: "skipped", requestId: null };
+    if (seen) return skipped;
     // A renumbered folder presents every old message under a new uid, and applying it again would
     // undo what later mail and the person's own answers have since done.
-    if (message.messageId && this.alreadyStored(mailbox.id, message.messageId)) return "skipped";
+    if (message.messageId && this.alreadyStored(mailbox.id, message.messageId)) return skipped;
     // Our own sent mail turns up in an "all mail" folder, and is not a reply to anything.
-    if (message.messageId && parseOutgoingMessageId(message.messageId)) return "skipped";
+    if (message.messageId && parseOutgoingMessageId(message.messageId)) return skipped;
 
     const context = this.classifierRequests(mailbox.profileId);
     const classified = await this.classify(message, context);
@@ -295,7 +322,7 @@ export class InboxRunner {
         requestedFields: fields,
         reviewed,
       });
-      return reviewed ? "stored" : "needs_review";
+      return { kind: reviewed ? "stored" : "needs_review", requestId: requestRecord?.id ?? null };
     });
   }
 

@@ -22,6 +22,7 @@ import {
   useToast,
 } from "../../components/ui/index.js";
 import { cn } from "../../lib/cn.js";
+import { CheckForRepliesButton, ReplyCheckResult, useReplyCheck } from "./check-for-replies.js";
 import {
   applyPreset,
   type ConnectionForm,
@@ -146,10 +147,7 @@ function ConnectedMailbox({ profile, onEdit }: { profile: ProfileDetail; onEdit:
   const mailbox = profile.mailbox;
   const label = useProviderLabel(mailbox?.provider);
 
-  const poll = useApiMutation(API_ROUTES.mailboxPoll, {
-    invalidates: [API_ROUTES.profilesGet],
-    onSuccess: () => toast.success("Queued", "Kick Rocks is checking the inbox now."),
-  });
+  const check = useReplyCheck(profile.id);
   const disconnect = useApiMutation(API_ROUTES.mailboxDelete, {
     invalidates: [API_ROUTES.profilesGet, API_ROUTES.profilesList, API_ROUTES.dashboardGet],
     onSuccess: () => {
@@ -174,12 +172,7 @@ function ConnectedMailbox({ profile, onEdit }: { profile: ProfileDetail; onEdit:
             {failed ? "Last check failed" : "Connected"}
           </span>
         </div>
-        <Button
-          loading={poll.isPending}
-          onClick={() => poll.mutate({ params: { id: profile.id } })}
-        >
-          Check inbox now
-        </Button>
+        <CheckForRepliesButton check={check} />
       </div>
       {mailbox.lastError ? (
         <Callout intent="warning" title="The last check failed" className="mb-3">
@@ -187,11 +180,7 @@ function ConnectedMailbox({ profile, onEdit }: { profile: ProfileDetail; onEdit:
         </Callout>
       ) : null}
       <SendPauseAlert mailbox={mailbox} />
-      {poll.error ? (
-        <Callout intent="danger" className="mb-3">
-          {errorMessage(poll.error)}
-        </Callout>
-      ) : null}
+      <ReplyCheckResult check={check} className="mb-3" />
       <MailboxFacts mailbox={mailbox} providerLabel={label} hideAddress />
       <div className="mt-4 flex flex-wrap items-center justify-end gap-2">
         <Button variant="danger" onClick={() => setDisconnecting(true)}>

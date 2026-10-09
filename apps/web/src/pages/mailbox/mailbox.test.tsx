@@ -364,16 +364,17 @@ describe("a connected mailbox", () => {
     expect(screen.queryByText("Sending is paused")).toBeNull();
   });
 
-  it("checks the inbox on request", async () => {
+  it("checks the inbox on request and says what it found", async () => {
     const mock = createMockApp();
     const seen = instrument(mock);
     const { user, profile } = open("jordan", mock);
-    await user.click(await screen.findByRole("button", { name: "Check inbox now" }));
-    expect(await screen.findByText("Queued")).toBeInTheDocument();
+    await user.click(await screen.findByRole("button", { name: "Check for replies" }));
+    expect(await screen.findByRole("button", { name: "Checking" })).toBeDisabled();
+    expect(await screen.findByText("1 new reply", {}, { timeout: 6000 })).toBeInTheDocument();
     expect(seen.some((request) => request.url === `/api/profiles/${profile.id}/mailbox/poll`)).toBe(
       true,
     );
-  });
+  }, 10_000);
 
   it("disconnects after a confirmation", async () => {
     const { user, mock } = open("jordan");

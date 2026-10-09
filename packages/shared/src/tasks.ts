@@ -355,6 +355,31 @@ export const TaskSummary = z.object({
 });
 export type TaskSummary = z.infer<typeof TaskSummary>;
 
+/** The most requests a finished check names, so a large backlog cannot bloat the answer. */
+export const POLL_MATCHED_REQUESTS_MAX = 20;
+
+/** How a "check for replies" ended, in the counts a person reads: what arrived, what it matched, what needs them. */
+export const MailboxPollOutcome = z.discriminatedUnion("state", [
+  z.object({
+    state: z.literal("done"),
+    /** Messages read for the first time. */
+    newMessages: z.number().int().nonnegative(),
+    /** New messages that belong to a request. */
+    matched: z.number().int().nonnegative(),
+    needsReview: z.number().int().nonnegative(),
+    matchedRequestIds: z.array(z.string()).max(POLL_MATCHED_REQUESTS_MAX),
+  }),
+  z.object({ state: z.literal("failed"), error: z.string() }),
+]);
+export type MailboxPollOutcome = z.infer<typeof MailboxPollOutcome>;
+
+/** A check on a mailbox: the task that does it, and how it ended once it has. */
+export const MailboxPoll = z.object({
+  task: TaskSummary,
+  outcome: MailboxPollOutcome.nullable(),
+});
+export type MailboxPoll = z.infer<typeof MailboxPoll>;
+
 export const SCREENSHOT_MIME_TYPES = ["image/png", "image/jpeg"] as const;
 
 /** Largest screenshot accepted, in bytes of the decoded image. */
