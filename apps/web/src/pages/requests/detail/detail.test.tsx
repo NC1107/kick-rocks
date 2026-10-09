@@ -1,4 +1,4 @@
-import { tellEvents } from "@kickrocks/shared";
+import { type MessageSummary, tellEvents } from "@kickrocks/shared";
 import { screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { createMockApp, type MockApp } from "../../../../mock/app.js";
@@ -160,6 +160,65 @@ describe("the request page", () => {
     await screen.findByRole("heading", { name: /^Replies/ });
     expect(screen.getByText("Verification required")).toBeVisible();
     expect(screen.getByRole("heading", { name: /^Tasks/ })).toBeVisible();
+  });
+
+  describe("when a reply asked for the web form", () => {
+    function askedForForm(overrides: Partial<MessageSummary> = {}) {
+      const mock = failing(/never/);
+      const request = mock.store.requests.find(
+        (candidate) => candidate.targetId === "cardinal-insights",
+      );
+      const reply = mock.store.messages.find((message) => message.requestId === request?.id);
+      if (!request) throw new Error("fixture");
+      const message = reply ?? mock.store.messages[0];
+      if (!message) throw new Error("fixture");
+      message.requestId = request.id;
+      message.classification = "needs_form";
+      message.confidence = 0.9;
+      message.links = ["https://cardinal-insights.example/privacy-requests"];
+      Object.assign(message, overrides);
+      return {
+        request,
+        message,
+        ...renderPage(<RequestDetailPage />, {
+          path: "/requests/:id",
+          route: `/requests/${request.id}`,
+          mock,
+        }),
+      };
+    }
+
+    it("says plainly that the company wants its web form, with the link", async () => {
+      askedForForm();
+      expect(await screen.findByText(/wants its web form/)).toBeVisible();
+      expect(
+        screen.getByRole("link", { name: /cardinal-insights\.example\/privacy-requests/ }),
+      ).toBeVisible();
+    });
+
+    it("asks the person to confirm an unsure reply instead of claiming the form route", async () => {
+      const { message } = askedForForm({ confidence: 0.4 });
+      expect(await screen.findByText(/may want its web form/)).toBeVisible();
+      expect(screen.getByText(/waiting for you to confirm/)).toBeVisible();
+      expect(screen.queryByRole("link", { name: /privacy-requests/ })).not.toBeInTheDocument();
+      expect(message.classification).toBe("needs_form");
+    });
+
+    it("says there is no form to reach, and shows no confirmation link, after a hand correction", async () => {
+      askedForForm({ links: ["https://cardinal-insights.example/privacy/confirm?token=mock"] });
+      expect(await screen.findByText(/no web form we can reach/)).toBeVisible();
+      expect(screen.queryByRole("link", { name: /token=mock/ })).not.toBeInTheDocument();
+    });
+
+    it("lets the person correct what the reply was", async () => {
+      const { user, message } = askedForForm();
+      await screen.findByText(/wants its web form/);
+      await user.click(screen.getAllByRole("button", { name: "Correct this" })[0] as HTMLElement);
+      await user.selectOptions(screen.getByLabelText("What this reply is"), "auto_ack");
+      await user.click(screen.getByRole("button", { name: "Apply" }));
+      await waitFor(() => expect(message.classification).toBe("auto_ack"));
+      await waitFor(() => expect(screen.queryByText(/wants its web form/)).not.toBeInTheDocument());
+    });
   });
 
   it("says when the request does not exist", async () => {

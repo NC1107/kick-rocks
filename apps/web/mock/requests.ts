@@ -3,6 +3,7 @@ import {
   availableActions,
   type BlockedReason,
   generateReference,
+  isActiveStatus,
   type MessageSummary,
   outgoingMessageId,
   type ReplyClassification,
@@ -503,6 +504,33 @@ function seedRequests(store: MockStore, profileIndex: number, seeds: Seed[]): vo
 
 const LIVE_TASK = new Set(["queued", "leased", "blocked"]);
 
+const MOCK_FORM_LINK = /form|portal|privacy-request/i;
+
+/** Mirrors the server: a link and phone number are only offered once the reply was applied or confirmed. */
+function formRequestOf(
+  request: StoredRequest,
+  messages: readonly MessageSummary[],
+  events: readonly StoredRequest["events"][number][],
+): RequestDetail["formRequest"] {
+  const asked = messages.filter((message) => message.classification === "needs_form").at(-1);
+  if (!asked || !isActiveStatus(request.status)) return null;
+  if (asked.confidence < 0.6) {
+    return { messageId: asked.id, state: "unconfirmed", url: null, fromReply: false, phone: null };
+  }
+  const switched = events.some(
+    (event) => event.type === "channel_switched" && event.payload.reason === "needs_form",
+  );
+  if (request.channel === "form" && !switched) return null;
+  const link = asked.links.find((url) => MOCK_FORM_LINK.test(url)) ?? null;
+  return {
+    messageId: asked.id,
+    state: request.channel === "form" ? "on_form_route" : "no_form_channel",
+    url: link ?? request.target.optOutUrl,
+    fromReply: link !== null,
+    phone: null,
+  };
+}
+
 function detailOf(store: MockStore, request: StoredRequest): RequestDetail {
   const { events, ...listItem } = request;
   const messages: MessageSummary[] = store.messages
@@ -512,6 +540,7 @@ function detailOf(store: MockStore, request: StoredRequest): RequestDetail {
   return {
     ...listItem,
     events: [...events].sort((a, b) => a.createdAt.localeCompare(b.createdAt)),
+    formRequest: formRequestOf(request, messages, events),
     messages,
     tasks,
     actions: availableActions(request, { hasLiveTask: tasks.some((t) => LIVE_TASK.has(t.status)) }),

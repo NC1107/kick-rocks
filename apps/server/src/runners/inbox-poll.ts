@@ -286,6 +286,7 @@ export class InboxRunner {
             actor: "system",
             link,
             requestedFields: fields,
+            formLinks: classified.classification === "needs_form" ? classified.links : [],
           }).needsReview;
         }
       }

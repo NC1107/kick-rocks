@@ -1,5 +1,6 @@
 import {
   API_ROUTES,
+  type FormRequest,
   isActiveStatus,
   type RequestAction,
   type RequestDetail,
@@ -47,7 +48,21 @@ import {
 import { REQUEST_STATUS_META } from "../../../lib/status.js";
 import { MessageBody } from "../../review/MessageBody.js";
 import { detailRefreshInterval } from "../polling.js";
+import { ReplyCorrection } from "./ReplyCorrection.js";
 import { Timeline } from "./Timeline.js";
+
+const FORM_REQUEST_LEAD: Record<FormRequest["state"], string> = {
+  on_form_route:
+    "Their reply says this request has to be made another way, so it is on the form route instead of email.",
+  unconfirmed:
+    "Their reply may say this request has to be made another way. It is waiting for you to confirm what it says before anything changes.",
+  no_form_channel:
+    "Their reply says this request has to be made another way, and there is no web form we can reach for them. You have to make it yourself.",
+};
+
+function formRequestTitle(state: FormRequest["state"], name: string): string {
+  return state === "unconfirmed" ? `${name} may want its web form` : `${name} wants its web form`;
+}
 
 /** What each action says when it is done, in the verb of the button that started it. */
 const ACTION_DONE: Record<RequestAction, string> = {
@@ -311,6 +326,34 @@ function Detail({ request }: { request: RequestDetail }) {
             Nothing goes out until you choose which details to share.
           </Callout>
         ) : null}
+        {request.formRequest ? (
+          <Callout
+            intent="warning"
+            title={formRequestTitle(request.formRequest.state, target.name)}
+          >
+            <p>
+              {FORM_REQUEST_LEAD[request.formRequest.state]}
+              {request.formRequest.url ? (
+                <>
+                  {" "}
+                  {request.formRequest.fromReply ? "The link they gave: " : "Their opt-out page: "}
+                  <ExternalLinkText
+                    href={request.formRequest.url}
+                    className="[overflow-wrap:anywhere]"
+                  >
+                    {request.formRequest.url}
+                  </ExternalLinkText>
+                </>
+              ) : null}
+            </p>
+            {request.formRequest.phone ? (
+              <p className="mt-1">
+                They also take requests by phone:{" "}
+                <span className="font-mono">{request.formRequest.phone}</span>
+              </p>
+            ) : null}
+          </Callout>
+        ) : null}
         {waitingAgent ? (
           <Callout
             intent="warning"
@@ -449,6 +492,9 @@ function Detail({ request }: { request: RequestDetail }) {
                   </p>
                   <div className="mt-2">
                     <MessageBody messageId={message.id} snippet={message.snippet} />
+                  </div>
+                  <div className="mt-2">
+                    <ReplyCorrection message={message} />
                   </div>
                 </div>
               ))}

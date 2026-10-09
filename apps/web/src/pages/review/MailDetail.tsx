@@ -21,7 +21,7 @@ import { shortcutAllowed } from "./keys.js";
 import { REVIEW_INVALIDATES } from "./model.js";
 
 /** What choosing each answer does, since a few of them settle the request. */
-const CLASSIFICATION_HELP: Partial<Record<ReplyClassification, string>> = {
+export const CLASSIFICATION_HELP: Partial<Record<ReplyClassification, string>> = {
   bounce: "The email did not arrive. The request is marked bounced.",
   auto_ack: "A receipt only. Nothing changes.",
   confirmation_link: "Kick Rocks follows the link in it.",
@@ -33,10 +33,14 @@ const CLASSIFICATION_HELP: Partial<Record<ReplyClassification, string>> = {
   unrelated: "Not about any request. Nothing changes.",
 };
 
-const CHOICES = ReplyClassification.options.filter((option) => option !== "unknown");
+export const CHOICES = ReplyClassification.options.filter((option) => option !== "unknown");
 
 /** Choices that end the request, so the person is asked before one is applied. */
-const SETTLES: ReadonlySet<ReplyClassification> = new Set(["completed", "no_record", "rejected"]);
+export const SETTLES: ReadonlySet<ReplyClassification> = new Set([
+  "completed",
+  "no_record",
+  "rejected",
+]);
 
 /** The answers a person gives most often, so keys 1 to 4 reach them without opening the list. */
 export const QUICK_PICKS: readonly ReplyClassification[] = [

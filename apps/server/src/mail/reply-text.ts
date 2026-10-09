@@ -53,6 +53,15 @@ function parseWebUrl(raw: string): string | null {
   }
 }
 
+const MAX_LABEL_CHARS = 40;
+
+/** Plain-text mail writes a link as `label<https://...>`, so the words just before the bracket are its text. */
+function wordsBeforeAngleLink(text: string, index: number): string {
+  if (text[index - 1] !== "<") return "";
+  const before = text.slice(Math.max(0, index - 1 - MAX_LABEL_CHARS), index - 1);
+  return before.split("\n").pop() ?? "";
+}
+
 /**
  * Every web link in a message, from the anchors of the HTML body (parsed, not matched with a
  * regular expression) and from addresses written out in the text. A link inside a quoted section
@@ -100,8 +109,16 @@ export function extractLinks(html: string | null, text: string): MailLink[] {
     parser.end();
   }
 
-  for (const match of stripQuoted(text).matchAll(URL_IN_TEXT)) {
-    add(match[0].replace(TRAILING_PUNCTUATION, ""), "");
+  const body = stripQuoted(text);
+  for (const match of body.matchAll(URL_IN_TEXT)) {
+    add(match[0].replace(TRAILING_PUNCTUATION, ""), wordsBeforeAngleLink(body, match.index));
   }
   return Array.from(found.values());
+}
+
+const PHONE_NUMBER = /(?:\+?1[\s.-]?)?\(?\d{3}\)?[\s.-]\d{3}[\s.-]\d{4}\b/;
+
+/** The first phone number in what the sender wrote, as written, or null when there is none. */
+export function phoneNumberIn(text: string): string | null {
+  return PHONE_NUMBER.exec(stripQuoted(text))?.[0].trim() ?? null;
 }

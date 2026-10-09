@@ -12,8 +12,9 @@ import {
 import { and, eq } from "drizzle-orm";
 import { proxyForTarget } from "../core/egress.js";
 import { AppError } from "../core/errors.js";
-import { isTrustedConfirmationSender } from "../core/targets.js";
+import { curatedReplyDomainsOfRow, isTrustedConfirmationSender } from "../core/targets.js";
 import type { Task } from "../core/task-types.js";
+import { formLinkAmong } from "../mail/form-link.js";
 import type { AppServices } from "../services.js";
 import { describeError } from "./connection.js";
 
@@ -141,6 +142,8 @@ interface ApplyReplyInput {
   actor: Extract<RequestActor, "system" | "user">;
   link: LinkOutcome | null;
   requestedFields: readonly string[];
+  /** The links of a needs_form reply. The form among them is picked and checked here, whatever stored them. */
+  formLinks?: readonly string[];
 }
 
 /**
@@ -240,6 +243,17 @@ function applyBounce(services: AppServices, input: ApplyReplyInput): boolean {
   return placed;
 }
 
+/** The form page among the reply's links, only when it is on the target's own domain or a curated sister domain. */
+function ownFormLink(
+  services: AppServices,
+  request: RequestRecord,
+  { formLinks }: ApplyReplyInput,
+): string | null {
+  const target = services.db.select().from(targets).where(eq(targets.id, request.targetId)).get();
+  if (!target) return null;
+  return formLinkAmong(formLinks ?? [], [target.domain, ...curatedReplyDomainsOfRow(target)]);
+}
+
 /** A target with a form can be reached there when the mail channel is dead or was refused. */
 function hasFormChannel(services: AppServices, targetId: string): boolean {
   const target = services.targets.getOrThrow(targetId);
@@ -277,7 +291,12 @@ function moveAndSwitch(
       events: [
         {
           type: "channel_switched",
-          payload: { from: "email", to: "form", reason },
+          payload: {
+            from: "email",
+            to: "form",
+            reason,
+            ...(reason === "needs_form" ? { formUrl: ownFormLink(services, current, input) } : {}),
+          },
         },
       ],
     });
