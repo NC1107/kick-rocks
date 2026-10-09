@@ -1,0 +1,17 @@
+{
+  "baseModel": {
+    "id": "answerdotai/ModernBERT-base",
+    "revision": "8949b909ec900327062f0ebf497f51aef5e6f0c8"
+  },
+  "seed": 13,
+  "epochs": 6,
+  "folds": 5,
+  "batchSize": 8,
+  "learningRate": 0.00003,
+  "maxLen": 384,
+  "threads": 4,
+  "device": "cpu",
+  "precisionTarget": 0.95,
+  "minAnswers": 30,
+  "heldoutFloor": 0.9
+}

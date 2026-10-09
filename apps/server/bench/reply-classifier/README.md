@@ -25,7 +25,8 @@ The report gives accuracy per source for that reason.
 - `--model name` picks the Ollama model for candidates a and b.
 - `--sources tuning` or `--sources intake` limits the data.
 - `--split dev` leaves held-out unread, which is the mode for tuning.
-- `pnpm bench:replies:python` creates the uv environment under `python/.venv` that candidates c and d need.
+- `pnpm bench:replies:python` creates the uv environment under `python/.venv` that candidate d needs.
+- Candidates c use the reply model recipe in `apps/server/reply-model`, so they need its environment: `pnpm --filter @kickrocks/server reply-model:env`.
   It is gitignored, and nothing is installed system-wide.
 
 The GPU is shared.
@@ -41,7 +42,11 @@ Candidates run one after another, and each unloads its model when it is done.
   It skips itself when Ollama returns no logprobs for the model.
 - `c-encoder-gpu` and `c-encoder-cpu`: rules, then an encoder (ModernBERT-base by default, `REPLY_ENCODER` to change) fine-tuned on the dev split only.
   Temperature is fit on out-of-fold dev logits, and the dev figures are the out-of-fold answers.
-  The trained model is cached under `python/.cache/`, keyed by the training items.
+  The trained model is cached under `python/.cache/`, keyed by the training items and the recipe.
+  Training and serving are the server's own `reply-model/model.py`, and the input text is the server's `encoderText`.
+- `c-encoder-node`: the same pipeline with the shipped model, an ONNX release run by the server's own host in its child process.
+  Dev answers are the release's out-of-fold answers from `dev-oof.json`, and held-out goes through the runtime.
+  It reads the release from `REPLY_MODEL_RELEASE_DIR` (default `apps/server/reply-model/dist`) and is skipped when there is none.
 - `d-nli-gpu` and `d-nli-cpu`: rules, then a zero-shot NLI model (`REPLY_NLI_MODEL`; deberta-v3-large-zeroshot-v2.0 on the GPU and deberta-v3-base-zeroshot-v2.0 on the CPU by default) that treats each class as a hypothesis.
 - `e-jev`: rules, then Jev from TypeSafe over `POST https://api.typesafe.ai/v1/systemone` with one Choice question.
   It runs only when `TYPESAFE_API_KEY` is set and is reported as skipped otherwise.

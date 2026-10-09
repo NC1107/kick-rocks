@@ -230,8 +230,11 @@ describe("spot checks", () => {
 });
 
 describe("what Review starts from", () => {
-  const queue = async () =>
-    (await ctx.call(API_ROUTES.reviewQueue, { query: { profileId } })).body.messages;
+  const queue = async () => {
+    const response = await ctx.call(API_ROUTES.reviewQueue, { query: { profileId } });
+    if (!response.ok) throw new Error("the queue did not load");
+    return response.body.messages;
+  };
 
   it("is the model's guess, with its confidence", async () => {
     const sent = message();
@@ -318,7 +321,7 @@ describe("the export of labelled replies", () => {
       result({
         ...modelAnswer("no_record", 0.88),
         prediction: {
-          ...(modelAnswer("no_record", 0.88).prediction as never),
+          ...(modelAnswer("no_record", 0.88).prediction as ClassificationResult["prediction"]),
           inputSha256: inputSha256(input),
         },
       }),
@@ -352,7 +355,9 @@ describe("the export of labelled replies", () => {
 
 describe("the settings", () => {
   it("shows the reply model's state and defaults", async () => {
-    const view = (await ctx.call(API_ROUTES.settingsGet)).body.replyModel;
+    const response = await ctx.call(API_ROUTES.settingsGet);
+    if (!response.ok) throw new Error("settings did not load");
+    const view = response.body.replyModel;
     expect(view).toMatchObject({
       status: { state: "not_installed", reason: null, version: null },
       threshold: null,

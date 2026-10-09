@@ -23,3 +23,8 @@ kickrocks-scheduled*
 apps/server/bench/reply-classifier/python/.venv/
 apps/server/bench/reply-classifier/python/.cache/
 apps/server/bench/reply-classifier/python/__pycache__/
+apps/server/reply-model/.venv
+apps/server/reply-model/.cache/
+apps/server/reply-model/work/
+apps/server/reply-model/dist/
+apps/server/reply-model/__pycache__/

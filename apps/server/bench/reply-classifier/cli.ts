@@ -2,7 +2,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
-import { encoderCandidate } from "./candidates/encoder.js";
+import { encoderCandidate, encoderNodeCandidate } from "./candidates/encoder.js";
 import { jevCandidate } from "./candidates/jev.js";
 import { labelScoringCandidate } from "./candidates/label-scoring.js";
 import { nliCandidate } from "./candidates/nli.js";
@@ -19,7 +19,7 @@ const RESULTS_DIR = join(dirname(fileURLToPath(import.meta.url)), "results");
 const USAGE = `pnpm bench:replies [options]
 
   --candidates a,b   Comma separated ids to run. Default: all.
-                     rules, a-rules-llm, b-label-scoring, c-encoder-gpu, c-encoder-cpu,
+                     rules, a-rules-llm, b-label-scoring, c-encoder-gpu, c-encoder-cpu, c-encoder-node,
                      d-nli-gpu, d-nli-cpu, e-jev
   --sources x,y      tuning, intake. Default: both.
   --split s          dev or both. Default: both. Held-out is only for checking a
@@ -49,6 +49,7 @@ function registry(model: string | undefined, thinkingOff: boolean): Candidate[] 
     labelScoringCandidate(common),
     encoderCandidate({ device: "cuda", log }),
     encoderCandidate({ device: "cpu", log }),
+    encoderNodeCandidate({ log }),
     nliCandidate({ device: "cuda", log }),
     nliCandidate({ device: "cpu", log }),
     jevCandidate(),

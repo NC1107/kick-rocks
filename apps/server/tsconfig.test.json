@@ -8,6 +8,6 @@
     "noEmit": true,
     "rootDir": "."
   },
-  "include": ["src", "bench", "vitest.config.ts"],
+  "include": ["src", "bench", "reply-model", "vitest.config.ts"],
   "exclude": []
 }

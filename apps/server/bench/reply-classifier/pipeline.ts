@@ -1,9 +1,9 @@
 import { outgoingMessageId, type ReplyClassification } from "@kickrocks/shared";
 import { createReplyClassifier } from "../../src/mail/classifier.js";
-import { inputOf } from "../../src/mail/reply-model/input.js";
-import { RULES_THRESHOLD } from "../../src/mail/thresholds.js";
 import { parseInboxMessage } from "../../src/mail/parse.js";
+import { inputOf } from "../../src/mail/reply-model/input.js";
 import { extractLinks } from "../../src/mail/reply-text.js";
+import { RULES_THRESHOLD } from "../../src/mail/thresholds.js";
 import type {
   ClassificationResult,
   ClassifierRequest,
