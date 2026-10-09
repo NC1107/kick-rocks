@@ -185,10 +185,40 @@ describe("saving a mailbox", () => {
 });
 
 describe("mailbox polling and folders", () => {
-  it("queues an inbox poll and records when it ran", async () => {
-    const response = await call({ method: "POST", path: `/profiles/${jordan().id}/mailbox/poll` });
+  const poll = (profileId: string) =>
+    call({ method: "POST", path: `/profiles/${profileId}/mailbox/poll` });
+
+  it("starts a check that is running, with no outcome yet", async () => {
+    const response = await poll(jordan().id);
     expect(response.status).toBe(200);
-    expect(response.json.task).toMatchObject({ kind: "inbox_poll", status: "queued" });
+    expect(response.json.task).toMatchObject({ kind: "inbox_poll", status: "leased" });
+    expect(response.json.outcome).toBeNull();
+  });
+
+  it("joins the check that is running instead of starting another", async () => {
+    const first = await poll(jordan().id);
+    const second = await poll(jordan().id);
+    expect(second.json.task.id).toBe(first.json.task.id);
+  });
+
+  it("ends a check with counts, and refuses another inside half a minute", async () => {
+    let offset = 0;
+    app.store.clock.now = () => new Date(Date.now() + offset);
+    const first = await poll(jordan().id);
+    offset += 3_000;
+
+    const followed = await call({
+      path: `/profiles/${jordan().id}/mailbox/polls/${first.json.task.id}`,
+    });
+    expect(followed.json.task.status).toBe("done");
+    expect(followed.json.outcome).toMatchObject({ state: "done", matched: 1, newMessages: 1 });
+
+    const soon = await poll(jordan().id);
+    expect(soon.status).toBe(429);
+    expect(soon.json.message).toMatch(/^Checked \d+ seconds? ago\. Try again in \d+ seconds?\.$/);
+
+    offset += 30_000;
+    expect((await poll(jordan().id)).status).toBe(200);
   });
 
   it("answers 409 for a profile with no mailbox", async () => {

@@ -4,6 +4,7 @@ import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createMailServices } from "../../mail/index.js";
 import type { MailConnection } from "../../mail/types.js";
+import { createRunners } from "../../runners/index.js";
 import {
   createTestContext,
   describeIntegration,
@@ -323,7 +324,7 @@ describe("PUT /profiles/:id/mailbox", () => {
     expect(ctx.services.db.select().from(mailboxes).all()).toHaveLength(1);
   });
 
-  it("keeps the poll cursor when only a setting that does not move it changes", async () => {
+  it("keeps the poll cursor but forgets the failed check when only a setting that does not move it changes", async () => {
     const profile = seedProfile(ctx);
     seedMailbox(ctx, profile.id, {
       ...{
@@ -343,7 +344,7 @@ describe("PUT /profiles/:id/mailbox", () => {
     });
     expect(result).toMatchObject({
       ok: true,
-      body: { lastPolledAt: "2026-10-01T00:00:00.000Z", lastError: null },
+      body: { lastPolledAt: null, lastError: null },
     });
     expect(storedRow(profile.id)).toMatchObject({ uidValidity: 42, lastPollUid: 17 });
   });
@@ -438,6 +439,120 @@ describe("POST /profiles/:id/mailbox/poll", () => {
     expect(ctx.services.taskQueue.get(first.body.task.id)?.payload).toEqual({
       mailboxId: mailbox.id,
     });
+  });
+
+  it("has no outcome while the check waits", async () => {
+    const profile = seedProfile(ctx);
+    seedMailbox(ctx, profile.id);
+    expect(await ctx.call(API_ROUTES.mailboxPoll, { params: { id: profile.id } })).toMatchObject({
+      body: { outcome: null },
+    });
+  });
+
+  it("reports what a finished check found, and lets the page follow it by id", async () => {
+    const profile = seedProfile(ctx);
+    seedMailbox(ctx, profile.id, { address: "jordan@example.com" });
+    ctx.mail.mailbox("jordan@example.com").deliver({ subject: "Newsletter" });
+    const started = await ctx.call(API_ROUTES.mailboxPoll, { params: { id: profile.id } });
+    if (!started.ok) throw new Error("the poll should start");
+    await createRunners(ctx.services).inbox.runDue();
+
+    const followed = await ctx.call(API_ROUTES.mailboxPollGet, {
+      params: { id: profile.id, taskId: started.body.task.id },
+    });
+    expect(followed).toMatchObject({
+      ok: true,
+      body: {
+        task: { id: started.body.task.id, status: "done" },
+        outcome: { state: "done", newMessages: 1, matched: 0, matchedRequestIds: [] },
+      },
+    });
+  });
+
+  it("reports the mailbox error of a check that failed", async () => {
+    const profile = seedProfile(ctx);
+    seedMailbox(ctx, profile.id);
+    const started = await ctx.call(API_ROUTES.mailboxPoll, { params: { id: profile.id } });
+    if (!started.ok) throw new Error("the poll should start");
+    ctx.mail.services.inbox = () => ({
+      listFolders: async () => [],
+      fetchSince: async () => {
+        throw new Error("IMAP login failed");
+      },
+    });
+    await createRunners(ctx.services).inbox.runDue();
+
+    expect(
+      await ctx.call(API_ROUTES.mailboxPollGet, {
+        params: { id: profile.id, taskId: started.body.task.id },
+      }),
+    ).toMatchObject({
+      body: {
+        task: { status: "failed" },
+        outcome: { state: "failed", error: "IMAP login failed" },
+      },
+    });
+  });
+
+  it("says plainly when the mailbox was read under half a minute ago, then allows it again", async () => {
+    const profile = seedProfile(ctx);
+    seedMailbox(ctx, profile.id);
+    const first = await ctx.call(API_ROUTES.mailboxPoll, { params: { id: profile.id } });
+    if (!first.ok) throw new Error("the poll should start");
+    await createRunners(ctx.services).inbox.runDue();
+    ctx.clock.advance(8_000);
+
+    expect(await ctx.call(API_ROUTES.mailboxPoll, { params: { id: profile.id } })).toMatchObject({
+      ok: false,
+      status: 429,
+      body: {
+        error: "poll_too_soon",
+        message: "Checked 8 seconds ago. Try again in 22 seconds.",
+        retryAfterSeconds: 22,
+      },
+    });
+    expect(ctx.services.taskQueue.list({ status: "queued", kinds: ["inbox_poll"] })).toHaveLength(
+      0,
+    );
+
+    ctx.clock.advance(22_000);
+    const again = await ctx.call(API_ROUTES.mailboxPoll, { params: { id: profile.id } });
+    expect(again).toMatchObject({ ok: true, body: { task: { status: "queued" } } });
+    if (again.ok) expect(again.body.task.id).not.toBe(first.body.task.id);
+  });
+
+  it("lets a mailbox saved after a failed check be checked at once", async () => {
+    const profile = seedProfile(ctx);
+    seedMailbox(ctx, profile.id, { ...SAME_SERVERS });
+    const first = await ctx.call(API_ROUTES.mailboxPoll, { params: { id: profile.id } });
+    if (!first.ok) throw new Error("the poll should start");
+    await createRunners(ctx.services).inbox.runDue();
+    ctx.services.db.update(mailboxes).set({ lastError: "Login failed" }).run();
+    ctx.clock.advance(5_000);
+    const { password: _unused, ...withoutPassword } = NEW_MAILBOX;
+    await ctx.call(API_ROUTES.mailboxSave, { params: { id: profile.id }, body: withoutPassword });
+
+    expect(await ctx.call(API_ROUTES.mailboxPoll, { params: { id: profile.id } })).toMatchObject({
+      ok: true,
+    });
+  });
+
+  it("returns the check still running instead of refusing a tap inside the gap", async () => {
+    const profile = seedProfile(ctx);
+    seedMailbox(ctx, profile.id);
+    const first = await ctx.call(API_ROUTES.mailboxPoll, { params: { id: profile.id } });
+    ctx.clock.advance(5_000);
+    const second = await ctx.call(API_ROUTES.mailboxPoll, { params: { id: profile.id } });
+    if (!(first.ok && second.ok)) throw new Error("both taps should succeed");
+    expect(second.body.task.id).toBe(first.body.task.id);
+  });
+
+  it("does not follow a task that is not a check on this mailbox", async () => {
+    const profile = seedProfile(ctx);
+    seedMailbox(ctx, profile.id);
+    expect(
+      await ctx.call(API_ROUTES.mailboxPollGet, { params: { id: profile.id, taskId: "missing" } }),
+    ).toMatchObject({ ok: false, status: 404, body: { error: "poll_not_found" } });
   });
 
   it("asks for a mailbox first", async () => {

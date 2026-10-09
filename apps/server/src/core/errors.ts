@@ -12,6 +12,7 @@ export class AppError extends Error {
     readonly code: string,
     message: string,
     readonly issues?: ApiIssue[],
+    readonly retryAfterSeconds?: number,
   ) {
     super(message);
   }

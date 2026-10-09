@@ -16,7 +16,7 @@ export interface CalloutProps {
   children?: ReactNode;
   /** A button or link that resolves the notice, such as "Try again". */
   action?: ReactNode;
-  className?: string;
+  className?: string | undefined;
 }
 
 /**

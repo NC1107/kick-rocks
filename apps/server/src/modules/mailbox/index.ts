@@ -5,6 +5,7 @@ import type { ModulePlugin } from "../../core/module.js";
 import { requireProfile } from "../../core/require-profile.js";
 import { PROVIDER_PRESETS } from "../../mail/presets.js";
 import { connectionOf } from "../../runners/connection.js";
+import { findPoll, startManualPoll } from "./poll.js";
 import {
   clearSendHold,
   connectionForTest,
@@ -56,13 +57,13 @@ export const mailboxModule: ModulePlugin = (app, services) => {
     return { ok: true as const };
   });
 
-  registerRoute(app, API_ROUTES.mailboxPoll, ({ params }) => {
-    const mailbox = requireMailbox(services, params.id);
-    const { task } = services.dispatch.enqueueInboxPoll(mailbox.id);
-    const [summary] = services.taskQueue.summarize([task]);
-    if (!summary) throw new AppError(500, "internal_error", "The poll was queued but not found");
-    return { task: summary };
-  });
+  registerRoute(app, API_ROUTES.mailboxPoll, ({ params }) =>
+    startManualPoll(services, requireMailbox(services, params.id)),
+  );
+
+  registerRoute(app, API_ROUTES.mailboxPollGet, ({ params }) =>
+    findPoll(services, requireMailbox(services, params.id), params.taskId),
+  );
 
   registerRoute(app, API_ROUTES.mailboxFolders, async ({ params }) => {
     const mailbox = requireMailbox(services, params.id);

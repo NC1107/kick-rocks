@@ -17,6 +17,7 @@ export class MockHttpError extends Error {
     readonly code: string,
     message: string,
     readonly issues?: readonly ApiIssue[],
+    readonly retryAfterSeconds?: number,
   ) {
     super(message);
   }

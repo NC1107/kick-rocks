@@ -10,6 +10,11 @@ import {
   Skeleton,
 } from "../../components/ui/index.js";
 import {
+  CheckForRepliesButton,
+  ReplyCheckResult,
+  useReplyCheck,
+} from "../mailbox/check-for-replies.js";
+import {
   ActivitySection,
   AttentionSection,
   MailboxNotices,
@@ -20,10 +25,23 @@ import {
 const REFRESH_MS = 30_000;
 
 export function Component() {
-  return <RequireProfile>{(profile) => <DashboardView profileId={profile.id} />}</RequireProfile>;
+  return (
+    <RequireProfile>
+      {(profile) => (
+        <DashboardView profileId={profile.id} mailboxConnected={profile.mailboxConnected} />
+      )}
+    </RequireProfile>
+  );
 }
 
-function DashboardView({ profileId }: { profileId: string }) {
+function DashboardView({
+  profileId,
+  mailboxConnected,
+}: {
+  profileId: string;
+  mailboxConnected: boolean;
+}) {
+  const check = useReplyCheck(profileId);
   const query = useApiQuery(API_ROUTES.dashboardGet, {
     params: { id: profileId },
     refetchInterval: REFRESH_MS,
@@ -36,11 +54,14 @@ function DashboardView({ profileId }: { profileId: string }) {
       title="Dashboard"
       description="Where requests stand"
       actions={
-        fresh ? undefined : (
-          <LinkButton to="/campaigns/new" variant="primary">
-            New campaign
-          </LinkButton>
-        )
+        <>
+          {mailboxConnected && !fresh ? <CheckForRepliesButton check={check} /> : null}
+          {fresh ? null : (
+            <LinkButton to="/campaigns/new" variant="primary">
+              New campaign
+            </LinkButton>
+          )}
+        </>
       }
     />
   );
@@ -76,6 +97,7 @@ function DashboardView({ profileId }: { profileId: string }) {
   return (
     <>
       {header}
+      <ReplyCheckResult check={check} className="mb-5" />
       <DashboardBody dashboard={query.data} profileId={profileId} />
     </>
   );

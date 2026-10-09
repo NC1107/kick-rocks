@@ -113,10 +113,16 @@ function isDiskFull(error: unknown): boolean {
 export function installErrorHandling(app: FastifyInstance): void {
   app.setErrorHandler((error, request, reply) => {
     if (error instanceof AppError) {
+      if (error.retryAfterSeconds !== undefined) {
+        void reply.header("Retry-After", String(error.retryAfterSeconds));
+      }
       return reply.code(error.status).send({
         error: error.code,
         message: error.message,
         ...(error.issues ? { issues: error.issues } : {}),
+        ...(error.retryAfterSeconds !== undefined
+          ? { retryAfterSeconds: error.retryAfterSeconds }
+          : {}),
       });
     }
     const status = (error as { statusCode?: number }).statusCode;

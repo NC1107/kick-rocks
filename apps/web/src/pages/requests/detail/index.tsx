@@ -12,7 +12,12 @@ import { skipToken } from "@tanstack/react-query";
 import { MoreHorizontal } from "lucide-react";
 import { type ReactNode, useState } from "react";
 import { Link, useParams } from "react-router";
-import { errorMessage, useApiMutation, useApiQuery } from "../../../api/index.js";
+import {
+  errorMessage,
+  useApiMutation,
+  useApiQuery,
+  useCurrentProfile,
+} from "../../../api/index.js";
 import { useBreadcrumbTail } from "../../../components/layout/breadcrumb-context.js";
 import {
   Button,
@@ -46,6 +51,11 @@ import {
   TASK_KIND_LABELS,
 } from "../../../lib/labels.js";
 import { REQUEST_STATUS_META } from "../../../lib/status.js";
+import {
+  CheckForRepliesButton,
+  ReplyCheckResult,
+  useReplyCheck,
+} from "../../mailbox/check-for-replies.js";
 import { MessageBody } from "../../review/MessageBody.js";
 import { detailRefreshInterval } from "../polling.js";
 import { ReplyCorrection } from "./ReplyCorrection.js";
@@ -231,6 +241,10 @@ function Detail({ request }: { request: RequestDetail }) {
     onError: () => setConfirming(null),
   });
 
+  const check = useReplyCheck(request.profileId);
+  const { profiles } = useCurrentProfile();
+  const canCheck = profiles.find((profile) => profile.id === request.profileId)?.mailboxConnected;
+
   const [retryError, setRetryError] = useState<string | null>(null);
   const retry = useApiMutation(API_ROUTES.taskRetry, {
     invalidates: [
@@ -284,6 +298,7 @@ function Detail({ request }: { request: RequestDetail }) {
         back={{ to: "/requests", label: "Requests" }}
         actions={
           <>
+            {canCheck ? <CheckForRepliesButton check={check} /> : null}
             {menuItems.length > 0 ? (
               <Menu
                 align="end"
@@ -312,6 +327,7 @@ function Detail({ request }: { request: RequestDetail }) {
       />
 
       <div className="flex max-w-3xl flex-col gap-5">
+        <ReplyCheckResult check={check} here={request.id} />
         {act.isError ? <InlineError>{errorMessage(act.error)}</InlineError> : null}
         {request.status === "needs_verification" ? (
           <Callout

@@ -103,6 +103,24 @@ describe("storing and applying replies", () => {
     ]);
   });
 
+  it("counts the messages that belong to a request, and names the request once", async () => {
+    const { request } = await sentRequest();
+    answer("Update one", request.id, "auto_ack");
+    answer("Update two", request.id, "auto_ack");
+    answer("Newsletter", null, "unrelated");
+    deliver("Update one");
+    deliver("Update two");
+    deliver("Newsletter");
+
+    const task = await poll();
+
+    expect(task.result).toMatchObject({
+      stored: 3,
+      matched: 2,
+      matchedRequestIds: [request.id],
+    });
+  });
+
   it.each([
     ["no_record", "no_record"],
     ["rejected", "rejected"],

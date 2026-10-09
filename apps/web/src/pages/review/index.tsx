@@ -7,6 +7,11 @@ import { RequireProfile } from "../../components/layout/RequireProfile.js";
 import { Button, Callout, PageHeader, Skeleton, SkeletonText } from "../../components/ui/index.js";
 import { cn } from "../../lib/cn.js";
 import { describeFailure } from "../../lib/failures.js";
+import {
+  CheckForRepliesButton,
+  ReplyCheckResult,
+  useReplyCheck,
+} from "../mailbox/check-for-replies.js";
 import { BlockedTaskDetail } from "./BlockedTaskDetail.js";
 import { shortcutAllowed } from "./keys.js";
 import { MailDetail } from "./MailDetail.js";
@@ -38,7 +43,11 @@ function focusEntry(key: string) {
 }
 
 export function Component() {
-  return <RequireProfile>{(profile) => <Review profileId={profile.id} />}</RequireProfile>;
+  return (
+    <RequireProfile>
+      {(profile) => <Review profileId={profile.id} mailboxConnected={profile.mailboxConnected} />}
+    </RequireProfile>
+  );
 }
 
 function Loading() {
@@ -59,15 +68,21 @@ function Loading() {
   );
 }
 
-function Review({ profileId }: { profileId: string }) {
+function Review({ profileId, mailboxConnected }: { profileId: string; mailboxConnected: boolean }) {
   const [params] = useSearchParams();
+  const check = useReplyCheck(profileId);
   const queue = useApiQuery(API_ROUTES.reviewQueue, { query: { profileId } });
   const drilled = params.has("item");
 
   return (
     <>
       <div className={cn(drilled && "max-lg:hidden")}>
-        <PageHeader title="Review" description="Everything waiting on you" />
+        <PageHeader
+          title="Review"
+          description="Everything waiting on you"
+          actions={mailboxConnected ? <CheckForRepliesButton check={check} /> : undefined}
+        />
+        <ReplyCheckResult check={check} className="mb-5" />
       </div>
       {queue.isPending ? (
         <Loading />

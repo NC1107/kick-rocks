@@ -43,6 +43,7 @@ import { Match, ScanStartBody, ScanStartResult, ScanSummary } from "./scans.js";
 import { DataSourceInfo, SettingsPatch, SettingsView } from "./settings.js";
 import { TargetDetail, TargetFilter, TargetListItem } from "./targets.js";
 import {
+  MailboxPoll,
   SCREENSHOT_BODY_LIMIT_BYTES,
   SCREENSHOT_MIME_TYPES,
   TaskMarkDoneBody,
@@ -103,6 +104,8 @@ export const ApiError = z.object({
   error: z.string(),
   message: z.string().optional(),
   issues: z.array(ApiIssue).optional(),
+  /** Set on an answer that asks the caller to wait: the whole seconds until trying again can work. */
+  retryAfterSeconds: z.number().int().positive().optional(),
 });
 export type ApiError = z.infer<typeof ApiError>;
 
@@ -440,7 +443,15 @@ export const API_ROUTES = {
     module: "mailbox",
     auth: "session",
     params: IdParam,
-    response: z.object({ task: TaskSummary }),
+    response: MailboxPoll,
+  }),
+  mailboxPollGet: defineRoute({
+    method: "GET",
+    path: "/profiles/:id/mailbox/polls/:taskId",
+    module: "mailbox",
+    auth: "session",
+    params: z.object({ id: z.string().min(1), taskId: z.string().min(1) }),
+    response: MailboxPoll,
   }),
   mailboxFolders: defineRoute({
     method: "GET",

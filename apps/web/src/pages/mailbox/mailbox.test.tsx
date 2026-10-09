@@ -2,6 +2,7 @@ import { screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { createMockApp } from "../../../mock/app.js";
 import { renderPage } from "../../test/render.js";
+import { skewClock } from "../../test/skew-clock.js";
 import { instrument } from "../profiles/test-support.js";
 import { Component as MailboxPage } from "./index.js";
 
@@ -364,16 +365,36 @@ describe("a connected mailbox", () => {
     expect(screen.queryByText("Sending is paused")).toBeNull();
   });
 
-  it("checks the inbox on request", async () => {
+  it("checks the inbox on request and says what it found", async () => {
     const mock = createMockApp();
     const seen = instrument(mock);
     const { user, profile } = open("jordan", mock);
-    await user.click(await screen.findByRole("button", { name: "Check inbox now" }));
-    expect(await screen.findByText("Queued")).toBeInTheDocument();
+    await user.click(await screen.findByRole("button", { name: "Check for replies" }));
+    expect(
+      await screen.findByRole("button", { name: "Check for replies", busy: true }),
+    ).toBeDisabled();
+    expect(await screen.findByText("1 new reply", {}, { timeout: 6000 })).toBeInTheDocument();
     expect(seen.some((request) => request.url === `/api/profiles/${profile.id}/mailbox/poll`)).toBe(
       true,
     );
-  });
+  }, 10_000);
+
+  it("shows a failed check once, without a link to the page it is on", async () => {
+    const mock = createMockApp();
+    const advance = skewClock(mock);
+    const mailbox = mock.store.profiles[0]?.mailbox;
+    if (mailbox) mailbox.replyFolder = "Broken";
+    const { user } = open("jordan", mock);
+    await user.click(await screen.findByRole("button", { name: "Check for replies" }));
+    advance(3_000);
+
+    expect(
+      await screen.findByText("Could not check the mailbox", {}, { timeout: 4000 }),
+    ).toBeVisible();
+    expect(await screen.findAllByText(/IMAP login failed/)).toHaveLength(1);
+    expect(screen.queryByRole("link", { name: "Fix the mailbox" })).toBeNull();
+    expect(screen.queryByText("The last check failed")).toBeNull();
+  }, 10_000);
 
   it("disconnects after a confirmation", async () => {
     const { user, mock } = open("jordan");

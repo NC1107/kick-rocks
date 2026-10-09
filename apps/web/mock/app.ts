@@ -63,6 +63,9 @@ function errorResponse(error: MockHttpError): MockResponse {
     error: error.code,
     message: error.message,
     ...(error.issues ? { issues: error.issues } : {}),
+    ...(error.retryAfterSeconds !== undefined
+      ? { retryAfterSeconds: error.retryAfterSeconds }
+      : {}),
   });
 }
 

@@ -37,6 +37,7 @@ const PLANNED = [
   "DELETE /profiles/:id/mailbox",
   "POST /profiles/:id/mailbox/poll",
   "GET /profiles/:id/mailbox/folders",
+  "GET /profiles/:id/mailbox/polls/:taskId",
   "GET /targets",
   "GET /targets/facets",
   "GET /targets/:id",
