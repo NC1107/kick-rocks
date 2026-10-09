@@ -257,6 +257,64 @@ describe("ValueDetector", () => {
     expect(detector.scan([{ data: gzipSync(huge), contentEncoding: "gzip" }]).overflow).toBe(true);
   });
 
+  describe("a limit on reading is never a way past the gate", () => {
+    const encoded = Buffer.from(email).toString("base64");
+    const decoys = (count: number) =>
+      Array.from({ length: count }, (_, index) => `decoytoken${index}`).join(".");
+
+    it("decodes a base64 email after 64 decoy tokens", () => {
+      expect(detector.scan([`${decoys(64)}.${encoded}`]).fields).toContain("email");
+      expect(detector.scan([`${decoys(5000)}.${encoded}`]).fields).toContain("email");
+    });
+
+    it("decodes a hex email after 64 decoy tokens", () => {
+      const hex = Buffer.from(email).toString("hex");
+      expect(detector.scan([`${decoys(64)}.${hex}`]).fields).toContain("email");
+    });
+
+    it("decodes a token longer than 200000 characters", () => {
+      const long = Buffer.from(`${email}${" ".repeat(150_000)}`).toString("base64");
+      expect(long.length).toBeGreaterThan(200_000);
+      expect(detector.scan([long]).fields).toContain("email");
+    });
+
+    it("reads an email that is one percent-encoding layer past the depth it unpacks", () => {
+      const wrap = (layers: number) =>
+        Array.from({ length: layers }).reduce<string>((text) => encodeURIComponent(text), email);
+      const within = detector.scan([wrap(3)]);
+      expect(within.fields).toContain("email");
+      expect(within.overflow).toBe(false);
+      expect(detector.scan([wrap(4)]).overflow).toBe(true);
+    });
+
+    it("cannot open a body packed one layer past the depth it unpacks", () => {
+      const pack = (layers: number) =>
+        Array.from({ length: layers }).reduce<Buffer>(
+          (bytes) => gzipSync(bytes),
+          Buffer.from(email),
+        );
+      expect(detector.scan([{ data: pack(3) }]).fields).toContain("email");
+      expect(detector.scan([{ data: pack(4) }]).overflow).toBe(true);
+    });
+
+    it("reports a hidden layer that unpacks past the size limit", () => {
+      const bomb = gzipSync(Buffer.alloc(9 * 1024 * 1024, 97)).toString("base64");
+      expect(detector.scan([`x=${bomb}`]).overflow).toBe(true);
+    });
+
+    it("reports a JSON document whose values are not all read", () => {
+      const leaves = Array.from({ length: 2001 }, (_, index) => `v${index}`);
+      const scan = detector.scan([JSON.stringify([...leaves, encoded])]);
+      expect(scan.fields.includes("email") || scan.overflow).toBe(true);
+    });
+
+    it("reports a JSON document nested too deeply to walk", () => {
+      const deep = `${"[".repeat(5000)}"${encoded}"${"]".repeat(5000)}`;
+      const scan = detector.scan([deep]);
+      expect(scan.fields.includes("email") || scan.overflow).toBe(true);
+    });
+  });
+
   it("has nothing to find for a task that holds no value", () => {
     expect(new ValueDetector({}).isEmpty).toBe(true);
   });

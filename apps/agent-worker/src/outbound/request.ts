@@ -10,6 +10,7 @@ import type { Scan, ValueDetector } from "./detector.js";
 
 /** The largest body that is read and shown. A larger one is held back as unreadable. */
 export const MAX_BODY_BYTES = 2 * 1024 * 1024;
+/** What is shown of one value, a path or a header list. Everything is scanned whatever is shown. */
 const MAX_VALUE_CHARS = 4000;
 const MAX_ENTRIES = 400;
 const MAX_HEADERS = 100;
@@ -65,6 +66,8 @@ export interface Canonical {
   url: string;
   /** Part of the request is missing from the record, so a person cannot have read all of it. */
   truncated: boolean;
+  /** Some part of the request could not be read in full, so what it carries is unknown. */
+  unreadable: boolean;
 }
 
 /**
@@ -172,28 +175,18 @@ interface Leaf {
   value: string;
 }
 
-interface JsonLeaves {
-  leaves: Leaf[];
-  capped: boolean;
-}
-
-function jsonLeaves(value: unknown, path: string, out: JsonLeaves): void {
-  if (out.leaves.length >= MAX_ENTRIES * 2) {
-    out.capped = true;
-    return;
-  }
-  const leaves = out.leaves;
+function jsonLeaves(value: unknown, path: string, leaves: Leaf[]): void {
   if (typeof value === "string") leaves.push({ path, value });
   else if (typeof value === "number" || typeof value === "boolean") {
     leaves.push({ path, value: String(value) });
   } else if (value === null) leaves.push({ path, value: "null" });
   else if (Array.isArray(value)) {
     value.forEach((item, index) => {
-      jsonLeaves(item, `${path}[${index}]`, out);
+      jsonLeaves(item, `${path}[${index}]`, leaves);
     });
   } else if (typeof value === "object") {
     for (const [key, item] of Object.entries(value)) {
-      jsonLeaves(item, path === "" ? key : `${path}.${key}`, out);
+      jsonLeaves(item, path === "" ? key : `${path}.${key}`, leaves);
     }
   }
 }
@@ -233,8 +226,6 @@ function multipartLeaves(bytes: Buffer, boundary: string): Leaf[] | null {
 interface Shaped {
   kind: OutgoingRequest["bodyKind"];
   leaves: Leaf[];
-  /** The JSON held more leaves than are read. */
-  capped?: boolean;
 }
 
 function shapeBody(body: BodyRead, contentType: string, encoding: string): Shaped {
@@ -265,9 +256,9 @@ function shapeBody(body: BodyRead, contentType: string, encoding: string): Shape
   const text = plain.toString("utf8");
   if (type.includes("json") || /^\s*[[{]/.test(text)) {
     try {
-      const found: JsonLeaves = { leaves: [], capped: false };
-      jsonLeaves(JSON.parse(text), "", found);
-      return { kind: "json", leaves: found.leaves, capped: found.capped };
+      const leaves: Leaf[] = [];
+      jsonLeaves(JSON.parse(text), "", leaves);
+      return { kind: "json", leaves };
     } catch {
       // Not JSON after all: it is shown as the text it is.
     }
@@ -287,7 +278,8 @@ function clipText(text: string): string {
 export interface CanonicalizeInput {
   event: PausedRequest;
   body: BodyRead;
-  cookies: readonly Cookie[];
+  /** Null when the cookies the browser would attach could not be read. */
+  cookies: readonly Cookie[] | null;
   target: TargetContext;
   party: "target" | "third";
   detector: ValueDetector;
@@ -315,8 +307,10 @@ export function canonicalize(input: CanonicalizeInput): Canonical {
   };
 
   const carried = new Set<CarriedField>();
+  let unreadable = body.unreadable || cookies === null;
   const noteScan = (scan: Scan): Scan => {
     for (const field of scan.fields) carried.add(field);
+    if (scan.overflow) unreadable = true;
     return scan;
   };
 
@@ -344,19 +338,18 @@ export function canonicalize(input: CanonicalizeInput): Canonical {
 
   const scanEach = (leaves: readonly Leaf[]): OutgoingValue[] => {
     if (leaves.length > MAX_ENTRIES) truncated = true;
-    return leaves
-      .slice(0, MAX_ENTRIES)
-      .map((leaf) =>
-        leafOf(leaf.path, leaf.value, noteScan(detector.scan([leaf.path, leaf.value]))),
-      );
+    const shown: OutgoingValue[] = [];
+    leaves.forEach((leaf, index) => {
+      const scan = noteScan(detector.scan([leaf.path, leaf.value]));
+      if (index < MAX_ENTRIES) shown.push(leafOf(leaf.path, leaf.value, scan));
+    });
+    return shown;
   };
 
   const query = scanEach([...url.searchParams].map(([path, value]) => ({ path, value })));
-  const searchScan = noteScan(detector.scan([url.search, safeDecode(url.search)]));
+  noteScan(detector.scan([url.search, safeDecode(url.search)]));
   const segments = url.pathname.split("/").filter((segment) => segment !== "");
-  const pathScan = noteScan(
-    detector.scan([...segments.map((segment) => safeDecode(segment)), url.pathname]),
-  );
+  noteScan(detector.scan([...segments.map((segment) => safeDecode(segment)), url.pathname]));
   const pathShown = url.pathname
     .split("/")
     .map((segment) => {
@@ -370,32 +363,29 @@ export function canonicalize(input: CanonicalizeInput): Canonical {
 
   const shaped = shapeBody(body, contentType, encoding);
   const bodyValues = scanEach(shaped.leaves);
-  if (shaped.capped === true) truncated = true;
   const rawBody: (string | { data: Buffer; contentEncoding?: string })[] =
     body.bytes === null
       ? []
       : [{ data: body.bytes, ...(encoding === "" ? {} : { contentEncoding: encoding }) }];
-  const rawScan = noteScan(detector.scan(rawBody));
+  noteScan(detector.scan(rawBody));
 
   const headerValues: OutgoingValue[] = [];
+  const showHeader = (path: string, value: string, scan: Scan): void => {
+    if (scan.fields.length === 0) return;
+    if (headerValues.length >= MAX_HEADERS) truncated = true;
+    else headerValues.push(leafOf(path, value, scan));
+  };
   for (const [name, value] of Object.entries(headers)) {
     const lower = name.toLowerCase();
     if (lower === "cookie" || (lower === "referer" && party === "target")) continue;
-    if (headerValues.length >= MAX_HEADERS) {
-      truncated = true;
-      break;
-    }
-    const scan = noteScan(detector.scan([lower, value]));
-    if (scan.fields.length > 0) headerValues.push(leafOf(lower, value, scan));
+    showHeader(lower, value, noteScan(detector.scan([lower, value])));
   }
-  for (const cookie of cookies) {
-    if (headerValues.length >= MAX_HEADERS) {
-      truncated = true;
-      break;
-    }
-    const scan = noteScan(detector.scan([cookie.name, cookie.value]));
-    if (scan.fields.length > 0)
-      headerValues.push(leafOf(`cookie:${cookie.name}`, cookie.value, scan));
+  for (const cookie of cookies ?? []) {
+    showHeader(
+      `cookie:${cookie.name}`,
+      cookie.value,
+      noteScan(detector.scan([cookie.name, cookie.value])),
+    );
   }
 
   const hostMasked = mask(url.host);
@@ -405,8 +395,6 @@ export function canonicalize(input: CanonicalizeInput): Canonical {
       : hostMasked;
 
   const fields = [...carried].sort();
-  const overflow =
-    rawScan.overflow || pathScan.overflow || hostScan.overflow || searchScan.overflow;
   const request: OutgoingRequest = {
     method,
     scheme: url.protocol.replace(":", ""),
@@ -428,9 +416,9 @@ export function canonicalize(input: CanonicalizeInput): Canonical {
     fields,
     contact: fields.some((field) => isContactField(field)),
     lookup: fields.some((field) => !isContactField(field)),
-    overflow,
+    overflow: unreadable,
   };
-  return { request, scan, body, method, url: event.request.url, truncated };
+  return { request, scan, body, method, url: event.request.url, truncated, unreadable };
 }
 
 function safeDecode(text: string): string {

@@ -887,6 +887,35 @@ describeBrowser("the outgoing gate end to end with the real server", () => {
       expect(carriedBy(taskId, `/gate-v-${vector}`)).toContain("email");
     });
 
+    it("refuses an image GET that follows 101 cookies, the last of which holds the email", async () => {
+      const taskId = await startServer("/gate-vectors#cookies");
+      const done = await workOnce(taskId, [
+        open("/gate-vectors#cookies"),
+        typeEmail,
+        wait(2),
+        snap,
+        giveBack,
+      ]);
+      expect(done.status).not.toBe("done");
+      await expectNothingArrived();
+      const rows = rowsOf(taskId).filter(
+        (row) => "path" in row.request && row.request.path === "/gate-v-cookies",
+      );
+      expect(rows.length).toBeGreaterThan(0);
+      expect(rows.every((row) => row.kind === "refused")).toBe(true);
+    });
+
+    it("stops for approval, as the email, when it is base64 after 64 decoy tokens", async () => {
+      const { taskId, done } = await stopsForApproval("tokens", [
+        typeEmail,
+        wait(2),
+        snap,
+        giveBack,
+      ]);
+      expect(done).toMatchObject({ status: "blocked", blockedReason: "approval_needed" });
+      expect(carriedBy(taskId, "/gate-v-tokens")).toContain("email");
+    });
+
     // The gate does not put the halves back together, but the domain half holds a run of the address.
     it("stops for approval, as an email, when the value is sent split at the @ into two fields", async () => {
       const { taskId, done } = await stopsForApproval("split", [

@@ -376,3 +376,137 @@ describe("readBody", () => {
     expect(await readBody(paused({ method: "GET" }), never)).toMatchObject({ present: false });
   });
 });
+
+describe("canonicalize scans everything just past each limit it shows", () => {
+  const EMAIL = "jordan.example@example.com";
+  const target = { type: "page", frameOrigin: "https://broker.test", topLevel: true } as const;
+  const none: BodyRead = { bytes: null, present: false, unreadable: false };
+  const run = (
+    request: PausedRequest,
+    body: BodyRead = none,
+    cookies: { name: string; value: string }[] | null = [],
+    party: "target" | "third" = "target",
+  ) =>
+    canonicalize({
+      event: request,
+      body,
+      cookies,
+      target,
+      party,
+      detector,
+      mask,
+      served: new ServedValues(),
+    });
+  const get = (url: string, headers: Record<string, string> = {}) =>
+    paused({ url, method: "GET", headers });
+  const decoys = (count: number) => Array.from({ length: count }, (_, index) => `d${index}`);
+
+  it("finds an email in the 101st cookie that carries something", () => {
+    const cookies = [
+      ...decoys(100).map((name) => ({ name, value: "Jordan" })),
+      { name: "last", value: EMAIL },
+    ];
+    const result = run(get("https://broker.test/pixel.gif"), none, cookies);
+    expect(result.scan.contact).toBe(true);
+    expect(result.request.carries).toContain("email");
+    expect(result.request.headers).toHaveLength(100);
+    expect(result.truncated).toBe(true);
+  });
+
+  it("finds an email in the 101st header that carries something", () => {
+    const headers = Object.fromEntries([
+      ...decoys(100).map((name) => [`x-${name}`, "Jordan"]),
+      ["x-last", EMAIL],
+    ]);
+    const result = run(get("https://broker.test/pixel.gif", headers));
+    expect(result.scan.contact).toBe(true);
+    expect(result.truncated).toBe(true);
+  });
+
+  it("finds an email in the first cookie past 100 that carries something, with plain ones between", () => {
+    const cookies = [
+      ...decoys(100).map((name) => ({ name, value: "Jordan" })),
+      ...decoys(50).map((name) => ({ name: `p${name}`, value: "1" })),
+      { name: "last", value: EMAIL },
+    ];
+    expect(run(get("https://broker.test/p"), none, cookies).scan.contact).toBe(true);
+  });
+
+  it("finds an email in the 401st query pair", () => {
+    const pairs = [...decoys(400).map((name) => `${name}=1`), `last=${EMAIL}`];
+    const result = run(get(`https://broker.test/s?${pairs.join("&")}`));
+    expect(result.scan.contact).toBe(true);
+    expect(result.truncated).toBe(true);
+  });
+
+  it("finds an email in the 401st form field and the 801st JSON leaf", () => {
+    const form = run(
+      paused({ headers: { "content-type": "application/x-www-form-urlencoded" } }),
+      bodyOf([...decoys(400).map((name) => `${name}=1`), `last=${EMAIL}`].join("&")),
+    );
+    expect(form.scan.contact).toBe(true);
+    expect(form.truncated).toBe(true);
+    const leaves = Object.fromEntries([...decoys(800).map((name) => [name, 1]), ["last", EMAIL]]);
+    const json = run(
+      paused({ headers: { "content-type": "application/json" } }),
+      bodyOf(JSON.stringify(leaves)),
+    );
+    expect(json.scan.contact).toBe(true);
+    expect(json.truncated).toBe(true);
+  });
+
+  it("finds an email after the 4000th character of a value", () => {
+    const result = run(
+      paused({ headers: { "content-type": "application/x-www-form-urlencoded" } }),
+      bodyOf(`note=${"a".repeat(4000)}${EMAIL}`),
+    );
+    expect(result.scan.contact).toBe(true);
+    expect(result.truncated).toBe(true);
+  });
+
+  it("finds an email in a path longer than is shown", () => {
+    const result = run(get(`https://broker.test/${"a".repeat(4001)}/${EMAIL}`));
+    expect(result.scan.contact).toBe(true);
+    expect(result.truncated).toBe(true);
+  });
+
+  it("is unreadable when the cookies could not be read", () => {
+    expect(run(get("https://broker.test/p"), none, null).unreadable).toBe(true);
+    expect(run(get("https://broker.test/p"), none, []).unreadable).toBe(false);
+  });
+
+  it("is unreadable when a body is larger than is read", () => {
+    expect(
+      run(paused(), { bytes: Buffer.alloc(1), present: true, unreadable: true }).unreadable,
+    ).toBe(true);
+  });
+
+  describe("when a query value, a header or a cookie is packed past what is unpacked", () => {
+    const layers = (count: number) =>
+      Array.from({ length: count }).reduce<Buffer>((bytes) => gzipSync(bytes), Buffer.from(EMAIL));
+    const packed = layers(4).toString("base64url");
+
+    it("is unreadable for a query value", () => {
+      expect(run(get(`https://broker.test/s?x=${packed}`)).unreadable).toBe(true);
+    });
+
+    it("is unreadable for a header value", () => {
+      expect(run(get("https://broker.test/s", { "x-token": packed })).unreadable).toBe(true);
+    });
+
+    it("is unreadable for a cookie value", () => {
+      expect(
+        run(get("https://broker.test/s"), none, [{ name: "t", value: packed }]).unreadable,
+      ).toBe(true);
+    });
+
+    it("is unreadable for a body field", () => {
+      expect(
+        run(
+          paused({ headers: { "content-type": "application/x-www-form-urlencoded" } }),
+          bodyOf(`x=${packed}`),
+        ).unreadable,
+      ).toBe(true);
+    });
+  });
+});

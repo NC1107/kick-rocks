@@ -6,6 +6,7 @@ const base: Facts = {
   method: "GET",
   hasBody: false,
   unreadable: false,
+  truncated: false,
   carriesContact: false,
   carriesLookup: false,
   touched: false,
@@ -123,5 +124,31 @@ describe("the hosts of human checks", () => {
     "not a url",
   ])("do not know %s", (url) => {
     expect(isChallengeHost(url)).toBe(false);
+  });
+});
+
+describe("a request cut short fails closed", () => {
+  const refused = { action: "refuse", rule: "U", reason: "unreadable_body" };
+
+  it.each([
+    ["unreadable", { unreadable: true }],
+    ["truncated", { truncated: true }],
+  ] as const)(
+    "refuses a bodiless GET to the target after the run touched the page when it is %s",
+    (_, cut) => {
+      expect(decide(facts({ touched: true, ...cut }))).toMatchObject(refused);
+      expect(decide(facts({ touched: true, method: "HEAD", ...cut }))).toMatchObject(refused);
+    },
+  );
+
+  it("refuses an unreadable request that carries a lookup value before the run touched anything", () => {
+    expect(decide(facts({ unreadable: true, carriesLookup: true }))).toMatchObject(refused);
+  });
+
+  it("refuses an unreadable request to a third party whatever it carries", () => {
+    expect(decide(facts({ party: "third", unreadable: true }))).toMatchObject(refused);
+    expect(decide(facts({ party: "third", unreadable: true, challengeHost: true }))).toMatchObject(
+      refused,
+    );
   });
 });

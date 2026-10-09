@@ -1,7 +1,7 @@
 import * as zlib from "node:zlib";
 import { brotliDecompressSync, gunzipSync, inflateRawSync, inflateSync } from "node:zlib";
 
-/** How many layers of encoding a value may be wrapped in before the rest is not looked at. */
+/** How many layers of encoding a value is unpacked through. A request with one more counts as unreadable. */
 const MAX_DEPTH = 3;
 /** How many readings of one request are tried before it counts as one that cannot be read. */
 const MAX_VARIANTS = 600;
@@ -9,8 +9,6 @@ const MAX_VARIANTS = 600;
 const MAX_TOTAL_CHARS = 16_000_000;
 /** A packed body that grows past this when unpacked is treated as a bomb. */
 const MAX_UNPACKED_BYTES = 8 * 1024 * 1024;
-const MAX_ENCODED_TOKENS = 64;
-const MAX_TOKEN_LENGTH = 200_000;
 
 const NAMED_ENTITIES: Record<string, string> = {
   amp: "&",
@@ -67,17 +65,26 @@ function unescapeJson(text: string): string {
     .replace(/\\\//g, "/");
 }
 
-function jsonLeaves(value: unknown, out: string[], limit = 2000): void {
-  if (out.length >= limit) return;
+function jsonLeaves(value: unknown, out: string[]): void {
   if (typeof value === "string") out.push(value);
   else if (typeof value === "number" || typeof value === "boolean") out.push(String(value));
-  else if (Array.isArray(value)) for (const item of value) jsonLeaves(item, out, limit);
+  else if (Array.isArray(value)) for (const item of value) jsonLeaves(item, out);
   else if (value !== null && typeof value === "object") {
     for (const [key, item] of Object.entries(value)) {
       out.push(key);
-      jsonLeaves(item, out, limit);
+      jsonLeaves(item, out);
     }
   }
+}
+
+/** A packed value that goes deeper than is unpacked, so what is inside it is unknown. */
+class TooManyLayers extends Error {}
+
+/** The unpacked size went past the limit, which a guess at a hidden layer may not ignore. */
+function isTooLarge(error: unknown): boolean {
+  return (
+    error instanceof TooManyLayers || (error as { code?: string }).code === "ERR_BUFFER_TOO_LARGE"
+  );
 }
 
 function looksTextual(bytes: Buffer): boolean {
@@ -123,7 +130,8 @@ function unpackOnce(bytes: Buffer, encoding: string): Buffer {
     case "deflate":
       try {
         return inflateSync(bytes, limit);
-      } catch {
+      } catch (error) {
+        if (isTooLarge(error)) throw error;
         return inflateRawSync(bytes, limit);
       }
     case "br":
@@ -149,18 +157,20 @@ export function unpack(bytes: Buffer, contentEncoding?: string): Buffer {
     .filter((name) => name !== "" && name !== "identity")
     .reverse();
   for (const name of declared) data = unpackOnce(data, name);
-  for (let layer = 0; layer < MAX_DEPTH; layer++) {
+  for (let layer = 0; ; layer++) {
+    if (!isGzip(data) && !isZstd(data) && !isZlib(data)) return data;
+    if (layer >= MAX_DEPTH) throw new TooManyLayers("packed deeper than is unpacked");
     if (isGzip(data)) data = unpackOnce(data, "gzip");
     else if (isZstd(data)) data = unpackOnce(data, "zstd");
-    else if (isZlib(data)) {
+    else {
       try {
         data = unpackOnce(data, "deflate");
-      } catch {
+      } catch (error) {
+        if (isTooLarge(error)) throw error;
         return data;
       }
-    } else break;
+    }
   }
-  return data;
 }
 
 /** The text of some bytes, with the Latin-1 reading added when UTF-8 could not read them. */
@@ -170,12 +180,7 @@ function textsOf(bytes: Buffer): string[] {
 }
 
 function encodedTokens(text: string, pattern: RegExp): string[] {
-  const found: string[] = [];
-  for (const match of text.matchAll(pattern)) {
-    if (found.length >= MAX_ENCODED_TOKENS) break;
-    if (match[0].length <= MAX_TOKEN_LENGTH) found.push(match[0]);
-  }
-  return found;
+  return [...text.matchAll(pattern)].map((match) => match[0]);
 }
 
 /**
@@ -202,18 +207,27 @@ function decodedTokens(text: string): Buffer[] {
   return buffers;
 }
 
-function derive(text: string): Input[] {
+function derive(text: string, state: { overflow: boolean }): Input[] {
   const derived: Input[] = [];
   if (/%[0-9a-f]{2}/i.test(text)) derived.push(percentDecode(text));
   if (text.includes("+")) derived.push(percentDecode(text.replace(/\+/g, " ")));
   const trimmed = text.trimStart();
   if (/^[[{"]/.test(trimmed)) {
+    let parsed: unknown;
     try {
-      const leaves: string[] = [];
-      jsonLeaves(JSON.parse(text), leaves);
-      derived.push(...leaves);
+      parsed = JSON.parse(text);
     } catch {
       // Not JSON, or cut short: the text itself is still read below.
+    }
+    if (parsed !== undefined) {
+      const leaves: string[] = [];
+      try {
+        jsonLeaves(parsed, leaves);
+      } catch {
+        // Nested too deeply to walk, so the values inside are not all read.
+        state.overflow = true;
+      }
+      for (const leaf of leaves) derived.push(leaf);
     }
   }
   if (/\\u[0-9a-f]{4}|\\\//i.test(text)) derived.push(unescapeJson(text));
@@ -231,7 +245,7 @@ export function readAll(inputs: readonly Packaged[]): Reading {
   const seen = new Set<string>();
   const texts: string[] = [];
   let chars = 0;
-  let overflow = false;
+  const state = { overflow: false };
   const queue: { data: Input; depth: number; contentEncoding?: string | undefined }[] = inputs.map(
     (input) => ({ ...input, depth: 0 }),
   );
@@ -245,25 +259,28 @@ export function readAll(inputs: readonly Packaged[]): Reading {
       try {
         const bytes = unpack(item.data, item.contentEncoding);
         strings = textsOf(bytes);
-      } catch {
-        // Only what the page itself sent has to be readable; a guess at a hidden layer need not be.
-        if (item.depth === 0) overflow = true;
+      } catch (error) {
+        // A guess at a hidden layer may be noise, but a layer too large or too deep to open is not.
+        if (item.depth === 0 || isTooLarge(error)) state.overflow = true;
         continue;
       }
     }
     for (const text of strings) {
       if (seen.has(text)) continue;
       if (texts.length >= MAX_VARIANTS || chars + text.length > MAX_TOTAL_CHARS) {
-        overflow = true;
+        state.overflow = true;
         break;
       }
       seen.add(text);
       texts.push(text);
       chars += text.length;
+      const derived = derive(text, state);
       if (item.depth < MAX_DEPTH) {
-        for (const next of derive(text)) queue.push({ data: next, depth: item.depth + 1 });
+        for (const next of derived) queue.push({ data: next, depth: item.depth + 1 });
+      } else if (derived.some((next) => typeof next !== "string" || !seen.has(next))) {
+        state.overflow = true;
       }
     }
   }
-  return { texts, overflow };
+  return { texts, overflow: state.overflow };
 }

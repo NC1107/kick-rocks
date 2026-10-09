@@ -77,6 +77,15 @@
     reversed(value) {
       new Image().src = '/gate-v-reversed?e=' + q(Array.from(value).reverse().join(''));
     },
+    cookies(value) {
+      for (let index = 0; index < 100; index += 1) document.cookie = `d${index}=jordan; path=/`;
+      document.cookie = `last=${q(value)}; path=/`;
+      new Image().src = '/gate-v-cookies?x=1';
+    },
+    tokens(value) {
+      const decoys = Array.from({ length: 64 }, (_, index) => `decoytoken${index}`).join('.');
+      new Image().src = `/gate-v-tokens?e=${decoys}.${btoa(value)}`;
+    },
     async sha256(value) {
       const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value));
       new Image().src = '/gate-v-sha256?e=' + hex(digest);

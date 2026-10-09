@@ -92,6 +92,9 @@ interface SessionContext {
 
 const QUIET_MS = 150;
 const MAX_QUIET_ROUNDS = 6;
+const MIN_CLOSE_ROUNDS = 4;
+/** How long closing waits for requests still being decided before it reports them as unguarded. */
+const CLOSE_WAIT_MS = 15_000;
 
 /**
  * The address a page asks for when it tries to open a live connection. It never resolves: the
@@ -365,7 +368,7 @@ export class OutboundGuard {
           base64Encoded?: boolean;
         },
     );
-    const cookies = party === "target" ? await this.cookiesFor(session, url) : [];
+    const cookies = await this.cookiesFor(session, url);
     const canonical = canonicalize({
       event,
       body,
@@ -381,13 +384,14 @@ export class OutboundGuard {
       ctx.type === "page" &&
       event.frameId === ctx.mainFrameId
     ) {
-      if (canonical.scan.fields.length > 0) this.touch();
+      if (canonical.scan.fields.length > 0 || canonical.unreadable) this.touch();
     }
     const verdict = decide({
       party,
       method: canonical.method,
       hasBody: body.present,
-      unreadable: body.unreadable || canonical.scan.overflow || canonical.truncated,
+      unreadable: canonical.unreadable,
+      truncated: canonical.truncated,
       carriesContact: canonical.scan.contact,
       carriesLookup: canonical.scan.lookup,
       touched: this.touched,
@@ -442,14 +446,15 @@ export class OutboundGuard {
     };
   }
 
-  private async cookiesFor(session: CdpChannel, url: string): Promise<Cookie[]> {
+  /** Null when the browser would not say which cookies it attaches, so they cannot be read. */
+  private async cookiesFor(session: CdpChannel, url: string): Promise<Cookie[] | null> {
     try {
       const answer = (await session.send("Network.getCookies", { urls: [url] })) as {
         cookies: Cookie[];
       };
       return answer.cookies;
     } catch {
-      return [];
+      return null;
     }
   }
 
@@ -622,10 +627,18 @@ export class OutboundGuard {
     await page.goto("about:blank", { timeout: 5_000 }).catch(() => undefined);
     // What a page sends as it goes away reaches the gate a moment after it is gone, and the
     // browser lets go of whatever is still paused when the page closes.
-    for (let round = 0; round < 4; round++) {
+    const deadline = Date.now() + CLOSE_WAIT_MS;
+    for (let round = 0; round < MIN_CLOSE_ROUNDS || this.handling.size > 0; round++) {
       await new Promise((resolve) => setTimeout(resolve, QUIET_MS));
       if (this.handling.size === 0) break;
-      await Promise.allSettled([...this.handling]);
+      if (Date.now() >= deadline) {
+        this.recordProblem("close", undefined);
+        break;
+      }
+      await Promise.race([
+        Promise.allSettled([...this.handling]),
+        new Promise((resolve) => setTimeout(resolve, QUIET_MS)),
+      ]);
     }
     await desk?.drain().catch(() => undefined);
     await page.close().catch(() => undefined);

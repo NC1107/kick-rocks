@@ -32,8 +32,10 @@ export interface Facts {
   method: string;
   /** The request has a body, whether or not it could be read. */
   hasBody: boolean;
-  /** The request could not be read in full. */
+  /** Some part of the request could not be read, so what it carries is unknown. */
   unreadable: boolean;
+  /** Part of the request is not shown to a person, so they cannot read all of it. */
+  truncated: boolean;
   carriesContact: boolean;
   carriesLookup: boolean;
   touched: boolean;
@@ -47,6 +49,7 @@ export interface Facts {
 export function decide(facts: Facts): Verdict {
   const carriesSomething = facts.carriesContact || facts.carriesLookup;
   if (facts.party === "third") {
+    if (facts.unreadable) return { action: "refuse", rule: "U", reason: "unreadable_body" };
     if (carriesSomething) {
       return { action: "refuse", rule: "R1-third", reason: "third_party_value" };
     }
@@ -55,9 +58,14 @@ export function decide(facts: Facts): Verdict {
     }
     return { action: "continue", rule: facts.touched && facts.hasBody ? "R2-challenge" : "pass" };
   }
-  // What a person cannot read in full they cannot approve, so it is never held. A request with no
-  // body can still be cut short, by more fields than are shown.
-  if (facts.unreadable && (facts.carriesContact || (facts.hasBody && facts.touched))) {
+  // What a person cannot read in full they cannot approve, so it is never held, and what the gate
+  // could not read in full may hold anything. After the run has touched the page that covers every
+  // request to the target, whatever its method or body.
+  const cutShort = facts.unreadable || facts.truncated;
+  if (
+    cutShort &&
+    (facts.touched || facts.carriesContact || (facts.unreadable && carriesSomething))
+  ) {
     return { action: "refuse", rule: "U", reason: "unreadable_body" };
   }
   if (facts.carriesContact) return { action: "send", rule: "R1" };
