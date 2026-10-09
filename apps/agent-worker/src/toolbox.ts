@@ -236,6 +236,7 @@ export class Toolbox {
   private clickCount = 0;
   private installed = false;
   private guard: OutboundGuard | null = null;
+  private disposing: Promise<void> | null = null;
   private desk: SendDesk | null = null;
   /** Where the run acted on the page, in page coordinates, for a screenshot too large to send whole. */
   private readonly actedBoxes: Box[] = [];
@@ -307,7 +308,12 @@ export class Toolbox {
    * Ends the run's browser: the page is sent to a blank document with the gate still on, closed,
    * and only then is the gate detached, so nothing a page does while it goes away is unguarded.
    */
-  async dispose(): Promise<void> {
+  dispose(): Promise<void> {
+    this.disposing ??= this.release();
+    return this.disposing;
+  }
+
+  private async release(): Promise<void> {
     if (!this.installed) return;
     this.installed = false;
     const { page } = this.options;

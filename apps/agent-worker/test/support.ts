@@ -5,6 +5,7 @@ import type { ClaimedTask, ProfileFields, TargetSummary, TaskSummary } from "@ki
 import {
   chromeArgs,
   findInstalledChrome,
+  NO_SIGNAL_HANDLERS,
   turnOffPreloading,
 } from "@kickrocks/worker/dist/browser.js";
 import { silentLogger } from "@kickrocks/worker/dist/logger.js";
@@ -47,6 +48,7 @@ export async function launchTestBrowser(): Promise<Browser> {
   turnOffPreloading(profileDir);
   const context = await chromium.launchPersistentContext(profileDir, {
     headless: true,
+    ...NO_SIGNAL_HANDLERS,
     args: [`--host-resolver-rules=MAP other.test 127.0.0.1`, ...chromeArgs({ noSandbox: false })],
     ...(executablePath ? { executablePath } : {}),
   });

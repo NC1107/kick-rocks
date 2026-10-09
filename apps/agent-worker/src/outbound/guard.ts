@@ -104,15 +104,40 @@ const CLOSE_WAIT_MS = 15_000;
  * gate sees the request before it leaves the browser and fails it, so it only tells the gate.
  */
 const CHANNEL_SIGNAL_HOST = "channel.kickrocks-gate.invalid";
+const KEEPALIVE_SIGNAL = "keepalive";
 
 /**
  * Closes the doors the gate has no eyes on. The browser does not let DevTools block a WebSocket,
  * so the constructor itself is replaced by one that tells the gate and throws. WebRTC, WebTransport
  * and shared workers are removed, which a page reads as a browser without them. `window.open`
  * returns null, so a page never gets a handle on a window it could post through.
+ *
+ * Chrome does not say on a paused request whether it is a keepalive fetch, and it sends a paused
+ * keepalive request when DevTools disconnects, where it cancels an ordinary one. So the page is
+ * never allowed to make one: `fetch` drops the flag and tells the gate, which then sees an
+ * ordinary request it can hold, and `fetchLater` is removed.
  */
 const CLOSE_CHANNELS = `(() => {
-  const tell = (kind) => { try { fetch("http://${CHANNEL_SIGNAL_HOST}/" + kind, { mode: "no-cors" }).catch(() => undefined); } catch (_) {} };
+  const nativeFetch = globalThis.fetch;
+  const tell = (kind) => { try { nativeFetch.call(globalThis, "http://${CHANNEL_SIGNAL_HOST}/" + kind, { mode: "no-cors" }).catch(() => undefined); } catch (_) {} };
+  if (typeof nativeFetch === "function") {
+    const ordinary = function fetch(input, init) {
+      let lowered = false;
+      let nextInit = init;
+      if (init !== undefined && init !== null && init.keepalive) {
+        nextInit = Object.assign({}, init, { keepalive: false });
+        lowered = true;
+      }
+      let nextInput = input;
+      if (input !== null && typeof input === "object" && input.keepalive === true) {
+        try { nextInput = new Request(input, { keepalive: false }); lowered = true; } catch (_) { return Promise.reject(new TypeError("Failed to fetch")); }
+      }
+      if (lowered) tell("${KEEPALIVE_SIGNAL}");
+      return nativeFetch.call(this, nextInput, nextInit);
+    };
+    try { Object.defineProperty(globalThis, "fetch", { value: ordinary, configurable: false, writable: true }); } catch (_) {}
+  }
+  try { Object.defineProperty(globalThis, "fetchLater", { value: undefined, configurable: false, writable: false }); } catch (_) {}
   const stop = (name) => {
     const stub = function () { tell("live connection"); throw new DOMException("Blocked by the safety gate", "SecurityError"); };
     try { Object.defineProperty(globalThis, name, { value: stub, configurable: false, writable: false }); } catch (_) {}
@@ -137,6 +162,14 @@ function sameCookies(shown: readonly Cookie[] | null, now: readonly Cookie[] | n
 function hostOf(url: string): string {
   try {
     return new URL(url).hostname;
+  } catch {
+    return "";
+  }
+}
+
+function pathOf(url: string): string {
+  try {
+    return new URL(url).pathname;
   } catch {
     return "";
   }
@@ -452,7 +485,8 @@ export class OutboundGuard {
     if (desk === null) return;
     const url = event.request.url;
     if (hostOf(url) === CHANNEL_SIGNAL_HOST) {
-      this.onWebSocket(true);
+      if (pathOf(url) === `/${KEEPALIVE_SIGNAL}`) this.onKeepalive();
+      else this.onWebSocket(true);
       await this.failRequest(session, event);
       return;
     }
@@ -707,6 +741,17 @@ export class OutboundGuard {
       kind: "guard_event",
       request: { note: "The page opened a WebSocket, which is blocked" },
       reason: afterTouch && !caught ? "unguarded:websocket" : "websocket",
+    });
+  }
+
+  /** The page asked for a keepalive request, which was made an ordinary one that the gate can hold. */
+  private onKeepalive(): void {
+    this.options.desk?.log({
+      kind: "guard_event",
+      request: {
+        note: "The page asked for a request that outlives it (keepalive), which was made an ordinary request",
+      },
+      reason: "keepalive",
     });
   }
 

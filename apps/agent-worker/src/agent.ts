@@ -49,6 +49,11 @@ interface AgentRunOptions {
    * form may be submitted. A held run needs no flag: the server hears of every send itself.
    */
   onMayHaveSubmitted?: () => Promise<void>;
+  /**
+   * Hands the worker the way to end this run's browser page with the gate still on, so a shutdown
+   * that has to close the browser can close the gate first. Returns how to take it back.
+   */
+  registerClose?: (close: () => Promise<void>) => () => void;
   /** How the gate talks to the server. A removal run with a gate cannot start without it. */
   sends?: SendsApi;
   /** Shortens how long a send waits for a person, which only a test or a batch run wants. */
@@ -69,7 +74,7 @@ const LIVE_CONNECTION_COPY =
   "This site needs a live connection the safety gate does not allow. Finish it yourself, or clear the model.";
 /** What the gate lets through without asking, said wherever a person is asked to trust it. */
 const GATE_LIMITS_COPY =
-  "The gate lets a name, city, state, ZIP, year or record link through in a search without asking, and it cannot see a value that the page itself scrambles, or splits into pieces, before sending it in a plain GET (it recognizes the whole value, the value backwards, a common hash, and any run of six or more characters in a row from an email, phone, street, date of birth or hidden value, but not a run that is only a name, place or common domain, and not a piece of five characters or fewer, so a short piece of a value goes out without asking), and it cannot stop a host name that carries a value from reaching a DNS server. It does not try to stop a target site that builds its own page to smuggle your details to its own servers through a channel the browser opens outside request inspection, such as a DNS lookup, because the target is the company the request is going to. A cookie the page sets in the instant between the gate's last look at the cookies and the release of an approved send leaves with it unseen. A request from a frame of another site, from a worker or a beacon is refused and never offered for approval, because it cannot be held safely, and a request that was still waiting when the run ended is cancelled. Chrome's own preloading (prefetch and prerender from a page's speculation rules) is turned off, because those requests are made by the browser outside request inspection, and a file in an upload that cannot be read as text is refused after the page has been touched.";
+  "The gate lets a name, city, state, ZIP, year or record link through in a search without asking, and it cannot see a value that the page itself scrambles, or splits into pieces, before sending it in a plain GET (it recognizes the whole value, the value backwards, a common hash, and any run of six or more characters in a row from an email, phone, street, date of birth or hidden value, but not a run that is only a name, place or common domain, and not a piece of five characters or fewer, so a short piece of a value goes out without asking), and it cannot stop a host name that carries a value from reaching a DNS server. It does not try to stop a target site that builds its own page to smuggle your details to its own servers through a channel the browser opens outside request inspection, such as a DNS lookup or any such channel Chrome has that is not yet known (FedCM and PaymentRequest, which are known, are switched off), because the target is the company the request is going to. A cookie the page sets in the instant between the gate's last look at the cookies and the release of an approved send leaves with it unseen. A request from a frame of another site, from a worker or a beacon is refused and never offered for approval, because it cannot be held safely, and a request that was still waiting when the run ended is cancelled. A keepalive request is never held: the page cannot make one, and one it tries goes out as an ordinary request. Chrome's own preloading (prefetch and prerender from a page's speculation rules) is turned off, because those requests are made by the browser outside request inspection, and a file in an upload that cannot be read as text is refused after the page has been touched.";
 const OMITTED_SNAPSHOT = "(An earlier page snapshot was left out. Use the latest one.)";
 const NEEDS_A_CLICK = new Set(["submitted", "awaiting_email_confirmation"]);
 
@@ -228,10 +233,12 @@ class AgentRun {
   }
 
   async run(): Promise<TaskReport> {
+    const unregister = this.options.registerClose?.(() => this.toolbox.dispose());
     try {
       return await this.holdForPerson(await this.drive());
     } finally {
       await this.toolbox.dispose();
+      unregister?.();
     }
   }
 

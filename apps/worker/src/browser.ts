@@ -184,7 +184,13 @@ export async function clearServiceWorkers(context: BrowserContext): Promise<void
  * Over a proxy, WebRTC would otherwise let a page read the home address from STUN candidates,
  * because UDP does not go through an http proxy.
  */
-export const DISABLED_FEATURES = ["Prerender2", "Reporting", "NetworkErrorLogging"] as const;
+export const DISABLED_FEATURES = [
+  "Prerender2",
+  "Reporting",
+  "NetworkErrorLogging",
+  "FedCm",
+  "WebPayments",
+] as const;
 
 export function chromeArgs(settings: Pick<BrowserSettings, "noSandbox" | "proxyServer">): string[] {
   return [
@@ -192,7 +198,9 @@ export function chromeArgs(settings: Pick<BrowserSettings, "noSandbox" | "proxyS
     "--disable-blink-features=AutomationControlled",
     // A prerendered page loads in a target the request gate has no session on. The browser's
     // Reporting API and Network Error Logging send reports to endpoints a site names, from the
-    // network service and later than the request, outside the request inspection.
+    // network service and later than the request, outside the request inspection. FedCM fetches
+    // its config and PaymentRequest fetches its method manifest from the browser process, from an
+    // address the page names, and neither is paused by request interception.
     `--disable-features=${DISABLED_FEATURES.join(",")}`,
     ...(settings.noSandbox ? ["--no-sandbox"] : []),
     ...(settings.proxyServer
@@ -234,6 +242,17 @@ export function turnOffPreloading(profileDir: string): void {
   writeFileSync(file, JSON.stringify(preferences));
 }
 
+/**
+ * Playwright closes the browser the moment it receives SIGINT, SIGTERM or SIGHUP, before the
+ * worker can fail what the request gate still holds. Chrome sends a paused keepalive request when
+ * the browser goes away, so the worker handles the signals itself and closes the gate first.
+ */
+export const NO_SIGNAL_HANDLERS = {
+  handleSIGINT: false,
+  handleSIGTERM: false,
+  handleSIGHUP: false,
+} as const;
+
 export const launchPersistentChrome = async (
   settings: BrowserSettings,
   guardOptions: TabGuardOptions = {},
@@ -251,6 +270,7 @@ export const launchPersistentChrome = async (
       ...(settings.proxyServer ? { proxy: { server: settings.proxyServer } } : {}),
       ...BROWSER_CONTEXT_OPTIONS,
       ...timezoneOption(),
+      ...NO_SIGNAL_HANDLERS,
     });
     bypassOnEveryPage(context);
     try {

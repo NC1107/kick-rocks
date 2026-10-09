@@ -70,6 +70,13 @@ export async function runAgentWorker(options: AgentWorkerOptions): Promise<void>
   );
   const pace: Pace = config.pace === "instant" ? INSTANT_PACE : HUMAN_PACE;
 
+  const closers = new Set<() => Promise<void>>();
+  /** The browser closes only after every gate has failed what it still holds. */
+  const closeGatesThenBrowsers = async (): Promise<void> => {
+    await Promise.allSettled([...closers].map((close) => close()));
+    await browsers.close();
+  };
+
   const executor: AgentExecutor = async (task, runSignal, progress) => {
     let page: Page;
     try {
@@ -100,6 +107,10 @@ export async function runAgentWorker(options: AgentWorkerOptions): Promise<void>
         maxOutputTokens: config.provider.maxOutputTokens,
         signal: runSignal,
         logger,
+        registerClose: (close) => {
+          closers.add(close);
+          return () => closers.delete(close);
+        },
         ...(progress ? { onMayHaveSubmitted: progress.mayHaveSubmitted } : {}),
         sends: sendsFor(api, task.id, task.attempt),
         ...(options.holdMsCap === undefined ? {} : { holdMsCap: options.holdMsCap }),
@@ -143,11 +154,11 @@ export async function runAgentWorker(options: AgentWorkerOptions): Promise<void>
       pollMs: config.pollMs,
       leaseMs: config.leaseMs,
       version: `agent-${readAgentWorkerVersion()}`,
-      forceStop: () => browsers.close(),
+      forceStop: closeGatesThenBrowsers,
       keepProfiles: (profileIds) => browsers.keepOnly(profileIds),
       ...(options.timing ? { timing: options.timing } : {}),
     });
   } finally {
-    await browsers.close();
+    await closeGatesThenBrowsers();
   }
 }

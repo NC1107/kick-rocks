@@ -240,6 +240,7 @@ Getting the outcome wrong without sending anything, such as calling an empty sea
   Those are listed as lookups, and so is a POST that carries only a name, city, state, ZIP or year before the run first types.
 - A redirect with status 307 or 308 of a request you released to another path of the target's own sites.
 - A host name that carries a value in the DNS lookup, before any request.
+- Any other fetch Chrome makes by itself outside request inspection, from an address a page names. FedCM and PaymentRequest are switched off for this reason, and no other is known on Chrome 154.
 - A site that needs a live connection.
 - A bot sensor on the target's own domain posts a body that holds none of your details we can read.
   It is held, and if you decline it the site may reject the form.

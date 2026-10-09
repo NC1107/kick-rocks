@@ -1189,13 +1189,26 @@ describeBrowser("the outgoing gate end to end with the real server", () => {
       const taskId = await startServer("/gate-keepalive#pagehide");
       await workOnce(taskId, [open("/gate-keepalive#pagehide"), typeEmail, giveBack]);
       await nothingArrived();
+    });
+
+    for (const vector of ["request", "freshframe", "later"]) {
+      it(`makes a keepalive request of the ${vector} kind an ordinary one, so ending the run sends nothing`, async () => {
+        const taskId = await startServer(`/gate-keepalive#${vector}`);
+        await workOnce(taskId, [open(`/gate-keepalive#${vector}`), typeEmail, wait(2), giveBack], {
+          holdMs: ANSWER_MS,
+        });
+        await nothingArrived();
+      });
+    }
+
+    it("logs a keepalive fetch that was made an ordinary request", async () => {
+      const taskId = await startServer("/gate-keepalive#fetch");
+      await workOnce(taskId, [open("/gate-keepalive#fetch"), typeEmail, wait(2), giveBack], {
+        holdMs: ANSWER_MS,
+      });
+      await nothingArrived();
       expect(
-        rowsOf(taskId).some(
-          (row) =>
-            row.kind === "refused" &&
-            "path" in row.request &&
-            row.request.path === "/gate-v-ka-pagehide",
-        ),
+        rowsOf(taskId).some((row) => row.kind === "guard_event" && row.reason === "keepalive"),
       ).toBe(true);
     });
 

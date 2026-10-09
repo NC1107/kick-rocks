@@ -326,8 +326,14 @@ That holds for the model's own actions and for the page's ordinary behavior: for
 Nothing that carries your data goes to any third party after the run starts filling the page.
 Anything the gate cannot read in full is refused, never held for approval.
 Anything the gate cannot hold safely is refused too: a request from a frame of another site or from a worker, and a beacon, because the browser sends such a request when its frame or page goes away, whatever is still deciding about it.
+A keepalive request is never held either.
+Chrome does not say on a paused request that it is a keepalive one, and it sends such a request when the worker's DevTools connection ends, where it cancels an ordinary one.
+So the page cannot make one: `fetch` ignores the keepalive flag, whether it is in the options or on a `Request`, and `fetchLater` does not exist, in the page, in every frame and in every worker.
+A keepalive request the page tried to make goes out as an ordinary request, which the gate holds or refuses, and it is logged.
+The worker also closes the gate before it closes Chrome when it gets SIGINT, SIGTERM or SIGHUP, and a worker that is killed outright leaves nothing in Chrome's hands but requests it cancels.
 Every request still waiting for a decision is cancelled before the page closes, navigates away or the run stops, and a call to the server that takes more than a few seconds counts as a refusal.
 The gate does not try to stop a target site that deliberately engineers its own page to smuggle your details to its own servers through channels the browser creates outside request inspection, such as DNS lookups.
+Other channels of that kind may exist besides the ones named here, and the browser features that open the ones known to Chrome 154 are switched off (see the list below).
 The target is the company the request is going to, so it is trusted with what you approve to send it.
 
 The agent worker tells the server which model it drives, and the server decides whether that model may send a form without asking.
@@ -370,6 +376,10 @@ What the gate does not hold, so you know what you are trusting:
   The same check covers a send approved for the next run.
   A cookie the page sets in the instant between that second look and the release is not seen.
 - Chrome starts with the Reporting API and Network Error Logging switched off, because they send reports to addresses a site names, from outside the request inspection.
+- Chrome also starts with FedCM and PaymentRequest switched off.
+  FedCM fetches the config of a login provider, and PaymentRequest fetches the manifest of a payment method, from the browser process and from an address the page names, so neither request reaches the request gate.
+  Both were checked on Chrome 154: the fetch reached a server without the gate seeing it, and with the feature off it did not.
+  A page reads a browser without them as one that does not have them.
 - Preloading is off in every Chrome the gate drives, through the profile setting that is Chrome's "no preloading" choice.
   A speculation rule is prefetched and prerendered by Chrome's own prefetch service, whether it is a list of addresses in the page, a document rule like the one WordPress ships, or a `Speculation-Rules` header.
   Those requests never reach the request gate, so a link that carries a value would be fetched with the full Referer and cookie jar and leave no record.

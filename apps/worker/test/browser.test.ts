@@ -121,7 +121,7 @@ describe("the arguments Chrome starts with", () => {
 
   it("turns off prerendering, which loads a page in a target nothing inspects", () => {
     expect(chromeArgs({ noSandbox: false })).toContain(
-      "--disable-features=Prerender2,Reporting,NetworkErrorLogging",
+      "--disable-features=Prerender2,Reporting,NetworkErrorLogging,FedCm,WebPayments",
     );
   });
 
@@ -132,6 +132,14 @@ describe("the arguments Chrome starts with", () => {
     expect(switches).toHaveLength(1);
     const features = switches[0]?.slice("--disable-features=".length).split(",");
     expect(features).toEqual(expect.arrayContaining(["Reporting", "NetworkErrorLogging"]));
+  });
+
+  it("turns off FedCM and PaymentRequest, which fetch an address the page names from the browser process", () => {
+    const switches = chromeArgs({ noSandbox: false }).filter((arg) =>
+      arg.startsWith("--disable-features="),
+    );
+    const features = switches[0]?.slice("--disable-features=".length).split(",");
+    expect(features).toEqual(expect.arrayContaining(["FedCm", "WebPayments"]));
   });
 
   it("adds the sandbox switch only when asked", () => {
@@ -196,6 +204,56 @@ describeBrowser("the browser that makes every request of a run", () => {
     });
     try {
       expect(await reportedPredictionOption(context)).toBe(2);
+    } finally {
+      await context.close();
+    }
+  });
+});
+
+describeBrowser("the fetches Chrome makes outside request inspection", () => {
+  let site: Server;
+  let origin: string;
+  const asked: string[] = [];
+
+  beforeAll(async () => {
+    site = createServer((request, response) => {
+      asked.push(request.url ?? "");
+      response.writeHead(200, { "content-type": "text/html", "access-control-allow-origin": "*" });
+      response.end("<!doctype html><title>Page</title>");
+    });
+    await new Promise<void>((resolve) => site.listen(0, "127.0.0.1", resolve));
+    origin = `http://127.0.0.1:${(site.address() as AddressInfo).port}`;
+  });
+
+  afterAll(async () => {
+    site.closeAllConnections();
+    await new Promise<void>((resolve) => site.close(() => resolve()));
+  });
+
+  it("never fetches the config a page names for a federated login, and has no PaymentRequest to fetch a payment manifest", async () => {
+    asked.length = 0;
+    const profileDir = join(dir, "profile-outside");
+    mkdirSync(profileDir, { recursive: true });
+    const context = await launchPersistentChrome({
+      profileDir,
+      headless: true,
+      noSandbox: false,
+      executablePath: null,
+    });
+    try {
+      const page = context.pages()[0] ?? (await context.newPage());
+      await page.goto(`${origin}/`);
+      const config = JSON.stringify(`${origin}/fedcm-config.json?e=jordan@example.com`);
+      const outcome = (await page.evaluate(`(async () => {
+        const login = await navigator.credentials
+          .get({ identity: { providers: [{ configURL: ${config}, clientId: "x" }] } })
+          .then(() => "answered")
+          .catch((error) => error.name);
+        return { login, payments: typeof PaymentRequest };
+      })()`)) as { payments: string };
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      expect(outcome.payments).toBe("undefined");
+      expect(asked.filter((url) => url !== "/" && url !== "/favicon.ico")).toEqual([]);
     } finally {
       await context.close();
     }
