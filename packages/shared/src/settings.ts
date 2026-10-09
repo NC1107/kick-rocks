@@ -8,6 +8,12 @@ import {
 } from "./agent-models.js";
 import { DataSourceId } from "./broker.js";
 import { NotificationSettings, NotificationState } from "./notifications.js";
+import {
+  ReplyModelPatch,
+  ReplyModelSettings,
+  ReplyModelState,
+  ReplyModelView,
+} from "./reply-model.js";
 import { EgressPatch, EgressSettings, ScanningPatch, ScanningSettings } from "./scanning.js";
 import { WebUrl } from "./url.js";
 
@@ -92,6 +98,8 @@ export const SETTING_SCHEMAS = {
   "siteChecks.enabled": z.boolean().default(false),
   schedule: ScheduleSettings.default(ScheduleSettings.parse({})),
   llm: LlmSettings.nullable().default(null),
+  replyModel: ReplyModelSettings.default(ReplyModelSettings.parse({})),
+  "replyModel.state": ReplyModelState.default(ReplyModelState.parse({})),
   retention: RetentionSettings.default(RetentionSettings.parse({})),
   scanning: ScanningSettings.default(ScanningSettings.parse({})),
   egress: EgressSettings.default(EgressSettings.parse({})),
@@ -117,6 +125,7 @@ export const SettingKey = z.enum(Object.keys(SETTING_SCHEMAS) as [SettingKey, ..
 export const SettingsView = z.object({
   schedule: ScheduleSettings,
   llm: LlmSettingsView.nullable(),
+  replyModel: ReplyModelView,
   retention: RetentionSettings,
   scanning: ScanningSettings,
   egress: EgressSettings,
@@ -165,6 +174,7 @@ export const SettingsPatch = z.object({
     })
     .nullable()
     .optional(),
+  replyModel: ReplyModelPatch.optional(),
   mcp: z.object({ enabled: z.boolean() }).optional(),
   siteChecks: z.object({ enabled: z.boolean() }).optional(),
   agent: z

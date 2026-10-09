@@ -5,6 +5,7 @@ import { createDkimVerifier, type DkimVerifierOptions, loadDkimTestKeys } from "
 import { createInboxSource } from "./inbox.js";
 import { createLinkFollower, type HostResolver } from "./link-follower.js";
 import type { LlmFetch } from "./llm.js";
+import type { ReplyModelHost } from "./reply-model/types.js";
 import { createMailTransport } from "./transport.js";
 import type { MailServices } from "./types.js";
 
@@ -18,6 +19,10 @@ interface MailServiceDeps {
   resolve?: HostResolver;
   /** Replacements for DNS and the clock of DKIM verification. */
   dkim?: DkimVerifierOptions;
+  /** The local reply model the classifier asks for replies the rules cannot place. */
+  model?: ReplyModelHost;
+  /** Hears why the reply model could not answer, once per reason. */
+  logModel?: (reason: string) => void;
 }
 
 /**
@@ -44,6 +49,8 @@ export function createMailServices(
     classifier: createReplyClassifier({
       settings,
       ...(deps.fetch ? { fetch: deps.fetch } : {}),
+      ...(deps.model ? { model: deps.model } : {}),
+      ...(deps.logModel ? { log: deps.logModel } : {}),
     }),
     linkFollower: createLinkFollower({
       allowedPrivateHosts: config.linkFollower.allowedPrivateHosts,

@@ -2,6 +2,8 @@ import type {
   MailFolder,
   ProfileField,
   ReplyClassification,
+  ReplySource,
+  ReplySuggestion,
   RequestChannel,
   RequestStatus,
 } from "@kickrocks/shared";
@@ -197,12 +199,26 @@ export interface ClassifyContext {
   requests: ClassifierRequest[];
 }
 
+/** What the stages behind a classification said, kept so a person's answer can be compared with it. */
+export interface ReplyPrediction {
+  rules: { label: ReplyClassification; confidence: number };
+  /** Null when the reply model did not run or could not answer. */
+  model: {
+    version: string;
+    label: ReplyClassification;
+    confidence: number;
+    probabilities: Record<ReplyClassification, number>;
+  } | null;
+  /** The digest of the text the model read, so a later check can tell the mail has not changed. */
+  inputSha256: string | null;
+}
+
 export interface ClassificationResult {
   /** The request this reply belongs to, or null when it could not be matched. */
   requestId: string | null;
   correlation: "message_id" | "reference" | "sender_domain" | null;
   classification: ReplyClassification;
-  /** 0 to 1. Below 0.6 the message goes to a person unless an LLM is configured. */
+  /** 0 to 1. Whether it is acted on depends on `apply`, which knows which stage answered. */
   confidence: number;
   rationale: string;
   /** Links worth following, already limited to the target's own domain and any sender it expects. */
@@ -212,6 +228,19 @@ export interface ClassificationResult {
    * person approves some of them before anything is sent. Empty for every other classification.
    */
   requestedFields: ProfileField[];
+  /**
+   * The stage that gave the answer that was applied, or else the one whose guess sits in
+   * `suggestion`. `rules` when nothing but the rules had a say.
+   */
+  source: ReplySource;
+  /** Whether `classification` is acted on. Decided here, because only the classifier knows the source. */
+  apply: boolean;
+  /**
+   * What Review starts from when the answer is not applied: the reply model's or the language
+   * model's guess. A spot check is listed here too, but it must not be preselected.
+   */
+  suggestion: ReplySuggestion | null;
+  prediction: ReplyPrediction;
 }
 
 export interface ReplyClassifier {

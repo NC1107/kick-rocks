@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { CONFIDENCE_THRESHOLD } from "../../src/mail/classifier.js";
+import { RULES_THRESHOLD } from "../../src/mail/thresholds.js";
 import { tuningItems } from "./corpus.js";
 import { runRulesFirst, runRulesOnly } from "./pipeline.js";
 import type { ModelInput, ReplyModel } from "./types.js";
@@ -22,13 +22,13 @@ describe("rules first", () => {
     const rules = await runRulesOnly(items);
     const model = countingModel();
     const outcomes = await runRulesFirst(items, model);
-    const unsure = rules.filter((outcome) => outcome.confidence < CONFIDENCE_THRESHOLD).length;
+    const unsure = rules.filter((outcome) => outcome.confidence < RULES_THRESHOLD).length;
     expect(model.seen).toHaveLength(unsure);
     expect(unsure).toBeGreaterThan(0);
     expect(unsure).toBeLessThan(items.length);
     for (const [index, outcome] of outcomes.entries()) {
       const before = rules[index];
-      if (before && before.confidence >= CONFIDENCE_THRESHOLD) {
+      if (before && before.confidence >= RULES_THRESHOLD) {
         expect(outcome).toMatchObject({ via: "rules", label: before.label });
       }
     }

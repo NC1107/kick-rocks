@@ -15,6 +15,7 @@
   "dependencies": {
     "@fastify/cookie": "^11.1.2",
     "@fastify/static": "^10.1.5",
+    "@huggingface/tokenizers": "0.2.0",
     "@kickrocks/brokers": "workspace:*",
     "@kickrocks/db": "workspace:*",
     "@kickrocks/legal": "workspace:*",
@@ -29,6 +30,7 @@
     "mailauth": "^7.1.1",
     "mailparser": "^3.9.36",
     "nodemailer": "^10.0.15",
+    "onnxruntime-node": "1.30.0",
     "pino": "^10.4.0",
     "zod": "^4.6.5"
   },

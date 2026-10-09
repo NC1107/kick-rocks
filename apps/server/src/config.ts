@@ -18,6 +18,7 @@ const Env = z.object({
   KICKROCKS_HEARTBEAT_URL: WebUrl.optional(),
   KICKROCKS_EXTRA_TARGETS: z.string().optional(),
   KICKROCKS_EXTRA_RECIPES: z.string().optional(),
+  KICKROCKS_REPLY_MODEL_DIR: z.string().optional(),
   KICKROCKS_ALLOWED_HOSTS: z.string().optional(),
   KICKROCKS_TRUST_PROXY: z.string().default("off"),
   KICKROCKS_SCHEDULER: z.enum(["on", "off"]).default("on"),
@@ -53,6 +54,8 @@ export interface Config {
   extraTargetsPath: string | null;
   /** A directory of extra recipe files. */
   extraRecipesDir: string | null;
+  /** Where the reply model release sits: its manifest and model files. Null when none is installed. */
+  replyModelDir: string | null;
   /**
    * Hostnames besides loopback, IP addresses, and the public URL that the server accepts in a
    * request's Host header, for a name that reaches it through a proxy or the local network.
@@ -157,6 +160,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     heartbeatUrl: parsed.KICKROCKS_HEARTBEAT_URL ?? null,
     extraTargetsPath: pathOrNull(parsed.KICKROCKS_EXTRA_TARGETS),
     extraRecipesDir: pathOrNull(parsed.KICKROCKS_EXTRA_RECIPES),
+    replyModelDir: pathOrNull(parsed.KICKROCKS_REPLY_MODEL_DIR),
     allowedHosts: hostList(parsed.KICKROCKS_ALLOWED_HOSTS),
     trustProxy: proxyTrust(parsed.KICKROCKS_TRUST_PROXY),
     schedulerEnabled: parsed.KICKROCKS_SCHEDULER === "on",

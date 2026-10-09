@@ -1,4 +1,4 @@
-import { mailboxes, messages, requests, targets, tasks } from "@kickrocks/db";
+import { mailboxes, messages, replyPredictions, requests, targets, tasks } from "@kickrocks/db";
 import { isOnDomain, outgoingMessageId, type ReplyClassification } from "@kickrocks/shared";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -917,5 +917,67 @@ describe("what a poll reads", () => {
     expect(
       ctx.services.db.select().from(requests).where(eq(requests.id, request.id)).get()?.status,
     ).toBe("queued");
+  });
+});
+
+describe("what the machine made of a message", () => {
+  const predictions = () => ctx.services.db.select().from(replyPredictions).all();
+
+  it("is kept with the message, in the same transaction", async () => {
+    const { request } = await sentRequest();
+    answer("All done", request.id, "completed", {
+      source: "model",
+      prediction: {
+        rules: { label: "unknown", confidence: 0.2 },
+        model: {
+          version: "v1",
+          label: "completed",
+          confidence: 0.97,
+          probabilities: { completed: 0.97 } as never,
+        },
+        inputSha256: "b".repeat(64),
+      },
+    });
+    deliver("All done");
+    await poll();
+    expect(predictions()).toEqual([
+      expect.objectContaining({
+        messageId: stored()[0]?.id,
+        source: "model",
+        modelLabel: "completed",
+        autoApplied: true,
+        spotCheck: false,
+      }),
+    ]);
+  });
+
+  it("leaves a spot check in Review and does not apply it", async () => {
+    const { request } = await sentRequest();
+    answer("All done", request.id, "unknown", {
+      confidence: 0.2,
+      apply: false,
+      source: "model",
+      suggestion: {
+        classification: "completed",
+        confidence: 0.99,
+        source: "model",
+        spotCheck: true,
+      },
+    });
+    deliver("All done");
+    const task = await poll();
+    expect(requestOf(request.id).status).toBe("awaiting_reply");
+    expect(stored()[0]).toMatchObject({ reviewed: false });
+    expect(task.result).toMatchObject({ needsReview: 1 });
+    expect(predictions()[0]).toMatchObject({ spotCheck: true, autoApplied: false });
+  });
+
+  it("applies what the classifier says to apply, whatever the confidence", async () => {
+    const { request } = await sentRequest();
+    answer("All done", request.id, "completed", { confidence: 0.95, apply: false });
+    deliver("All done");
+    await poll();
+    expect(requestOf(request.id).status).toBe("awaiting_reply");
+    expect(stored()[0]?.reviewed).toBe(false);
   });
 });

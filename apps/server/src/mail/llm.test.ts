@@ -111,10 +111,17 @@ describe("the language model fallback", () => {
     });
 
     expect(result).toMatchObject({
-      classification: "completed",
-      confidence: 0.85,
+      classification: "unknown",
       requestId: "req-1",
+      source: "llm",
+      apply: false,
       rationale: "Model: They say it is done",
+      suggestion: {
+        classification: "completed",
+        confidence: 0.85,
+        source: "llm",
+        spotCheck: false,
+      },
     });
     expect(calls).toHaveLength(1);
     const call = calls[0] as Call;
@@ -170,14 +177,14 @@ describe("the language model fallback", () => {
     expect(prompt).toContain("Thank you for contacting us. Individuals must submit");
   });
 
-  it("returns the form link on the target's site when the model calls a reply needs_form", async () => {
-    const { fetchImpl } = fakeLlm(verdict({ classification: "needs_form", confidence: 0.9 }));
+  it("never applies its own answer, however sure it is", async () => {
+    const { fetchImpl } = fakeLlm(verdict({ classification: "needs_form", confidence: 1 }));
     const result = await classifierWith(LLM, fetchImpl).classify(
       message({ text: "Hmm. Our form is at https://acme.test/privacy-form if you want it." }),
       { requests: [target] },
     );
-    expect(result.classification).toBe("needs_form");
-    expect(result.links).toEqual(["https://acme.test/privacy-form"]);
+    expect(result).toMatchObject({ classification: "unknown", apply: false });
+    expect(result.suggestion).toMatchObject({ classification: "needs_form", source: "llm" });
   });
 
   it("sends no authorization header when the endpoint needs no key", async () => {
@@ -220,17 +227,15 @@ describe("the language model fallback", () => {
     expect((await broken.classify(message(), { requests: [target] })).confidence).toBeLessThan(0.6);
   });
 
-  it("returns the identifiers it says were asked for when the message needs verification", async () => {
+  it("does not hand the identifiers it names to a request, because it only suggests", async () => {
     const { fetchImpl } = fakeLlm(
       verdict({ classification: "verification_required", requested_fields: ["phone", "zip"] }),
     );
     const result = await classifierWith(LLM, fetchImpl).classify(message(), {
       requests: [target],
     });
-    expect(result).toMatchObject({
-      classification: "verification_required",
-      requestedFields: ["phone", "zip"],
-    });
+    expect(result).toMatchObject({ classification: "unknown", requestedFields: [], apply: false });
+    expect(result.suggestion?.classification).toBe("verification_required");
   });
 
   it("returns no identifiers for any other class", async () => {
@@ -250,6 +255,7 @@ describe("the language model fallback", () => {
     });
     expect(result.classification).toBe("unknown");
     expect(result.links).toEqual([]);
+    expect(result.suggestion).toBeNull();
     expect(result.confidence).toBeLessThan(0.6);
   });
 
@@ -274,6 +280,7 @@ describe("the language model fallback", () => {
       requests: [target],
     });
     expect(result.classification).toBe("unknown");
+    expect(result.apply).toBe(false);
   });
 
   it("accepts an answer the model wrapped in a code fence", async () => {
@@ -288,7 +295,7 @@ describe("the language model fallback", () => {
     const result = await classifierWith(LLM, fetchImpl).classify(message(), {
       requests: [target],
     });
-    expect(result.classification).toBe("completed");
+    expect(result.suggestion?.classification).toBe("completed");
   });
 
   describe.each([

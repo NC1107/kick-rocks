@@ -1,5 +1,6 @@
 import type { MailFolder } from "@kickrocks/shared";
 import type { Clock } from "../core/clock.js";
+import { RULES_THRESHOLD } from "../mail/thresholds.js";
 import type {
   ClassificationResult,
   ClassifyContext,
@@ -79,7 +80,17 @@ const UNMATCHED: ClassificationResult = {
   rationale: "No fake classifier handler matched",
   links: [],
   requestedFields: [],
+  source: "rules",
+  apply: false,
+  suggestion: null,
+  prediction: { rules: { label: "unknown", confidence: 0 }, model: null, inputSha256: null },
 };
+
+/** A programmed answer is applied when it is as sure as the rules need to be, unless the test says otherwise. */
+function withApply(answer: Partial<ClassificationResult>): ClassificationResult {
+  const merged = { ...UNMATCHED, ...answer };
+  return { ...merged, apply: answer.apply ?? merged.confidence >= RULES_THRESHOLD };
+}
 
 function createClassifier(): ProgrammableClassifier {
   let handlers: ClassifyHandler[] = [];
@@ -107,7 +118,7 @@ function createClassifier(): ProgrammableClassifier {
       classifier.calls.push({ message, context });
       for (const handler of handlers) {
         const answer = handler(message, context);
-        if (answer) return { ...UNMATCHED, ...answer };
+        if (answer) return withApply(answer);
       }
       return UNMATCHED;
     },

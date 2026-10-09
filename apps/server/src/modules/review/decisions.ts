@@ -129,6 +129,7 @@ export async function classifyByHand(
       .where(eq(messages.id, messageId))
       .returning()
       .get();
+    services.replyPredictions.decide(messageId, body.classification);
     if (request) {
       const current = services.requests.getOrThrow(request.id);
       if (row.requestId !== request.id) {

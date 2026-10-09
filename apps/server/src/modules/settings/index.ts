@@ -5,6 +5,7 @@ import {
   type DataSourceInfo,
   EgressSettings,
   gateVerdict,
+  ReplyModelSettings,
   RetentionSettings,
   ScanningSettings,
   ScheduleSettings,
@@ -38,6 +39,7 @@ function viewOf(services: AppServices): SettingsView {
       egress.domains.map((domain) => [domain, router.sistersOf(domain)]),
     ),
     llm: llm ? { baseUrl: llm.baseUrl, model: llm.model, apiKeySet: llm.apiKey !== null } : null,
+    replyModel: services.replyPredictions.view(services.replyModel.status()),
     mcp: {
       enabled: settings.get("mcp.enabled"),
       tokenSet: settings.get("mcp.tokenHash") !== null,
@@ -68,7 +70,10 @@ function sameOrigin(a: string, b: string): boolean {
   }
 }
 
-function applyPatch({ settings, clock }: AppServices, patch: SettingsPatch): void {
+function applyPatch(
+  { settings, clock, replyPredictions }: AppServices,
+  patch: SettingsPatch,
+): void {
   if (patch.schedule) {
     settings.set(
       "schedule",
@@ -113,6 +118,17 @@ function applyPatch({ settings, clock }: AppServices, patch: SettingsPatch): voi
     const kept = apiKey === undefined ? (stored?.apiKey ?? null) : apiKey;
     settings.set("llm", { baseUrl, model, apiKey: kept });
   }
+  if (patch.replyModel) {
+    const { spotCheckPercent, threshold, resume } = patch.replyModel;
+    settings.set(
+      "replyModel",
+      ReplyModelSettings.parse({
+        ...settings.get("replyModel"),
+        ...definedOnly({ spotCheckPercent, threshold }),
+      }),
+    );
+    if (resume) replyPredictions.resume();
+  }
   if (patch.mcp) settings.set("mcp.enabled", patch.mcp.enabled);
   if (patch.siteChecks) settings.set("siteChecks.enabled", patch.siteChecks.enabled);
   if (patch.agent?.takeUnreviewed !== undefined) {
@@ -155,6 +171,14 @@ export const settingsModule: ModulePlugin = (app, services) => {
     // A shorter window should take effect now, not at the scheduler's next pass.
     if (body.retention) applyRetention(services);
     return viewOf(services);
+  });
+
+  registerRoute(app, API_ROUTES.replyModelLabels, ({ reply }) => {
+    reply.header("content-disposition", 'attachment; filename="kickrocks-reply-labels.jsonl"');
+    return {
+      contentType: "application/x-ndjson",
+      data: Buffer.from(services.replyPredictions.exportLabels(), "utf8"),
+    };
   });
 
   registerRoute(app, API_ROUTES.settingsSites, () => services.politeness.status());

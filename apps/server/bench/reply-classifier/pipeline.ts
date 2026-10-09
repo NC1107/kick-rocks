@@ -1,7 +1,9 @@
 import { outgoingMessageId, type ReplyClassification } from "@kickrocks/shared";
-import { CONFIDENCE_THRESHOLD, createReplyClassifier } from "../../src/mail/classifier.js";
+import { createReplyClassifier } from "../../src/mail/classifier.js";
+import { inputOf } from "../../src/mail/reply-model/input.js";
+import { RULES_THRESHOLD } from "../../src/mail/thresholds.js";
 import { parseInboxMessage } from "../../src/mail/parse.js";
-import { extractLinks, stripQuoted } from "../../src/mail/reply-text.js";
+import { extractLinks } from "../../src/mail/reply-text.js";
 import type {
   ClassificationResult,
   ClassifierRequest,
@@ -12,7 +14,6 @@ import type { Item, ModelInput, Outcome, ReplyModel } from "./types.js";
 const REQUEST_ID = "bench-request";
 const REFERENCE = "KR-7K3M9Q";
 const MAILBOX_DOMAIN = "bench.example";
-const MAX_BODY_CHARS = 50_000;
 
 function hostOf(url: string): string | null {
   try {
@@ -100,7 +101,7 @@ export async function prepare(items: readonly Item[]): Promise<PreparedItem[]> {
 }
 
 export function modelInputOf(message: InboxMessage): ModelInput {
-  return { subject: message.subject, body: stripQuoted(message.text).slice(0, MAX_BODY_CHARS) };
+  return inputOf(message);
 }
 
 const rulesOnly = createReplyClassifier({ settings: { get: () => null as never } });
@@ -143,7 +144,7 @@ export async function runRulesFirst(
   for (const prepared of await prepare(items)) {
     const start = now();
     const rules = await rulesStage(prepared);
-    if (!modelOnly && rules.confidence >= CONFIDENCE_THRESHOLD) {
+    if (!modelOnly && rules.confidence >= RULES_THRESHOLD) {
       outcomes.push({
         label: rules.classification,
         confidence: rules.confidence,
@@ -168,7 +169,7 @@ export async function runRulesFirst(
   return outcomes;
 }
 
-/** The existing classifier end to end, with its language model step pointed at the given settings. */
+/** The shipped classifier end to end, with its language model step pointed at the given settings. */
 export async function runProduction(
   items: readonly Item[],
   llm: { baseUrl: string; model: string; apiKey: string | null },
@@ -196,11 +197,12 @@ export async function runProduction(
     const start = now();
     const result = await classifier.classify(prepared.message, { requests: [prepared.request] });
     const latencyMs = now() - start;
-    const viaModel = result.rationale.startsWith("Model:");
+    // The shipped step only suggests, so its suggestion stands in for an answer to measure its quality.
+    const guess = result.source === "llm" ? result.suggestion : null;
     outcomes.push({
-      label: result.classification,
-      confidence: result.confidence,
-      via: viaModel ? "model" : "rules",
+      label: guess?.classification ?? result.classification,
+      confidence: guess?.confidence ?? result.confidence,
+      via: guess ? "model" : "rules",
       latencyMs,
       modelLatencyMs: spentInModel > 0 ? spentInModel : null,
     });

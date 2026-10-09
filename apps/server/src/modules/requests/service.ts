@@ -25,7 +25,7 @@ import { likePattern } from "../../core/like.js";
 import { curatedReplyDomainsOfRow, withTrustedConfirmationSenders } from "../../core/targets.js";
 import { formLinkAmong } from "../../mail/form-link.js";
 import { phoneNumberIn } from "../../mail/reply-text.js";
-import { CONFIDENCE_THRESHOLD } from "../../runners/reply.js";
+import { RULES_THRESHOLD } from "../../mail/thresholds.js";
 import type { AppServices } from "../../services.js";
 
 const ACTION_OUTCOMES = {
@@ -59,7 +59,7 @@ export function createRequestsApi(services: AppServices): RequestsApi {
     const asked = rows.filter((row) => row.classification === "needs_form").at(-1);
     if (!asked) return null;
     const optOutUrl = target?.optOutUrl ?? null;
-    if (asked.confidence < CONFIDENCE_THRESHOLD) {
+    if (asked.confidence < RULES_THRESHOLD) {
       return {
         messageId: asked.id,
         state: "unconfirmed",
