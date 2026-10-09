@@ -60,6 +60,7 @@ A route or hook can only be added before the app is ready, so tests that need on
   A scan returns headers only.
   The session also has `headers(uids)`, `searchBodies(uids, terms)` (a case-insensitive substring search over the text), `search({ since, until, from, text, messageId, limit })` and `fetchMessages(uids)`.
 - `mailbox.searchSupported = false` makes both searches answer as a server that refuses SEARCH.
+  `mailbox.wholeWordSearch = true` makes body searches match whole words only, as Gmail and iCloud do, so a stem such as `delet` finds nothing.
   `mailbox.fetched` lists every UID whose full message was downloaded, and `mailbox.bodySearches` every body search made, so a test can see what the intake gate cost.
 - `mailbox.acceptsPlusAddresses` (on by default) decides whether mail sent through the fake transport to `name+tag@domain` reaches the mailbox, which is how the reply address test is checked.
 - `mail.classifier.when(subjectOrRegex, result)` or `.program(handler)` decides what the classifier answers.

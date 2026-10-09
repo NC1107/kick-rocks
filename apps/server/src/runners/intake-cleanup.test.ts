@@ -59,6 +59,7 @@ function legacy(
     classification?: "auto_ack" | "unrelated" | "completed" | "unknown";
     text?: string;
     uid?: number;
+    reviewed?: boolean;
   } = {},
 ) {
   const message =
@@ -86,7 +87,8 @@ function legacy(
       requestedFields: [],
       snippet: null,
       text: stored.text ?? delivered.text ?? "",
-      reviewed: false,
+      reviewed:
+        stored.reviewed ?? ["unrelated", "auto_ack"].includes(stored.classification ?? "unrelated"),
       createdAt: ctx.clock.now().toISOString(),
     })
     .run();
@@ -140,24 +142,82 @@ async function poll() {
 }
 
 describe("the one-time cleanup of stored mail", () => {
-  it("removes marketing attached as an acknowledgement, together with its timeline entries", async () => {
-    const amazon = await openRequest(AMAZON);
-    const marketing = legacy(
-      { subject: "Deals just for you", from: from("deals@amazon.test"), headers: BULK },
-      { requestId: amazon.id, classification: "auto_ack" },
-    );
-    const order = legacy(
-      { subject: "Your order", from: from("orders@amazon.test") },
-      { requestId: amazon.id, classification: "auto_ack" },
-    );
+  it("removes mail that no request holds, together with its timeline entries", async () => {
+    await openRequest(AMAZON);
+    const sale = legacy({ subject: "Summer sale", from: from("news@letters.test"), headers: BULK });
     const bank = legacy({ subject: "Security alert", from: from("alerts@bank.test") });
 
     await poll();
 
     expect(rows()).toHaveLength(0);
-    for (const id of [marketing, order, bank]) expect(eventsAbout(id)).toEqual([]);
-    expect(mailboxRow()).toMatchObject({ intakeCleanup: "done", intakeCleanupRemoved: 3 });
+    for (const id of [sale, bank]) expect(eventsAbout(id)).toEqual([]);
+    expect(mailboxRow()).toMatchObject({ intakeCleanup: "done", intakeCleanupRemoved: 2 });
     expect(mailboxRow().intakeCleanupAt).not.toBeNull();
+  });
+
+  it("never removes mail a request holds, even when it looks like marketing", async () => {
+    const amazon = await openRequest(AMAZON);
+    const marketing = legacy(
+      { subject: "Deals just for you", from: from("deals@amazon.test"), headers: BULK },
+      { requestId: amazon.id, classification: "auto_ack" },
+    );
+
+    await poll();
+
+    expect(rows().map((row) => row.id)).toEqual([marketing]);
+    expect(eventsAbout(marketing)).not.toEqual([]);
+    expect(mailboxRow()).toMatchObject({ intakeCleanupRemoved: 0 });
+  });
+
+  it("keeps an acknowledgement and an unreviewed reply bound to a request that has since closed", async () => {
+    const spokeo = await openRequest(SPOKEO);
+    const ack = legacy(
+      { subject: "We got it", from: from("noreply@spokeo.test") },
+      { requestId: spokeo.id, classification: "auto_ack" },
+    );
+    const waiting = legacy(
+      { subject: "Re: your request", from: from("someone@elsewhere.test") },
+      { requestId: spokeo.id, classification: "unknown" },
+    );
+    ctx.services.requests.transition(spokeo.id, "confirmed", { actor: "system" });
+
+    await poll();
+
+    expect(
+      rows()
+        .map((row) => row.id)
+        .sort(),
+    ).toEqual([ack, waiting].sort());
+    expect(eventsAbout(ack)).not.toEqual([]);
+    expect(eventsAbout(waiting)).not.toEqual([]);
+    expect(mailboxRow()).toMatchObject({ intakeCleanupRemoved: 0 });
+  });
+
+  it("keeps unbound mail that is unreviewed, and unbound mail that is tied to a request even with the server copy", async () => {
+    const spokeo = await openRequest(SPOKEO);
+    const unreviewed = legacy(
+      { subject: "Summer sale", from: from("news@letters.test"), headers: BULK },
+      { reviewed: false },
+    );
+    const quoting = legacy({
+      subject: "Fwd",
+      from: from("friend@elsewhere.test"),
+      text: `About ${spokeo.reference}`,
+    });
+    ctx.services.requests.transition(spokeo.id, "confirmed", { actor: "system" });
+    const fromClosedTarget = legacy({
+      subject: "Hello again",
+      from: from("help@spokeo.test"),
+      text: "Hi",
+    });
+
+    await poll();
+
+    expect(
+      rows()
+        .map((row) => row.id)
+        .sort(),
+    ).toEqual([unreviewed, quoting, fromClosedTarget].sort());
   });
 
   it("keeps what the person acted on and what changed a request", async () => {

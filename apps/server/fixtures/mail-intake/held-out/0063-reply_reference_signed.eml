@@ -1,0 +1,23 @@
+DKIM-Signature: v=1; a=ed25519-sha256; c=relaxed/relaxed; d=radaris.com;
+ h=Content-Transfer-Encoding: Content-Type: MIME-Version: Message-ID: Date:
+ Subject: To: From; q=dns/txt; s=kr; t=1790819100;
+ bh=JlnJYQmmnIM55PlHMoNoGHAFMszS35kRzuFxVuC4EoY=;
+ b=scIMIohJQJr1LTEO2+mrdvRYxeaHR8MbqKkehf/0lp1r1Ihe+1XuKOf1fEqx9vw5zgIVaMCdT
+ oTt2JXc33FlDA==
+Return-Path: <bounce-85744@radaris.com>
+Received: from mail.radaris.com (mail.radaris.com [203.0.113.21]) by mx.example.com with ESMTPS id bd1cd572f5 for <jordan@example.com>; Thu, 01 Oct 2026 01:45:00 +0000
+From: Radaris Privacy <privacy@radaris.com>
+To: jordan@example.com
+Subject: Your privacy request KR-8N6BF3
+Date: Thu, 01 Oct 2026 01:45:00 +0000
+Message-ID: <6f0d0de081fa863335e1cea9@radaris.com>
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+Hi Jordan,
+
+Good news: the record you asked us to delete has been deleted from our systems.
+
+Sincerely,
+Data Subject Requests, Radaris

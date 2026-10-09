@@ -19,7 +19,7 @@ export function MailIntakeCard() {
           description={
             profile.mailboxConnected
               ? "Which mail from your inbox Kick Rocks keeps, the reply address, and a way to find a reply it missed."
-              : "Connect a mailbox first. Kick Rocks keeps only mail about your requests, and nothing about the rest."
+              : "Connect a mailbox first. Kick Rocks keeps only mail about your requests and, if you choose, other mail from those companies."
           }
         >
           <LinkButton to={profile.mailboxConnected ? `${mailbox}#intake` : mailbox}>

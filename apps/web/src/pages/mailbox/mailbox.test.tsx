@@ -496,7 +496,7 @@ describe("what Kick Rocks takes in", () => {
       ),
     ).toBeInTheDocument();
     expect(mock.store.profiles[0]?.mailbox).toMatchObject({
-      replyAlias: "jordan+kickrocks@example.com",
+      replyAlias: "jordan+p7x3a1@example.com",
       replyAliasVerified: true,
     });
     await user.click(screen.getByRole("checkbox", { name: /reply to a separate address/ }));

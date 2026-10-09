@@ -240,13 +240,18 @@ export function matchAwaitingConfirmation(
   return null;
 }
 
-function correlateBySender(message: InboxMessage, requests: ClassifierRequest[]): Match | null {
+function correlateBySender(
+  message: InboxMessage,
+  requests: ClassifierRequest[],
+  senderTargetIds: readonly string[],
+): Match | null {
   const host = senderHost(message);
   const candidates = requests.filter(
     (request) =>
       request.open &&
       (withoutSharedHosts(request.replyDomains).some((domain) => onDomain(host, domain)) ||
-        fromReplyAddress(message, request)),
+        fromReplyAddress(message, request) ||
+        senderTargetIds.includes(request.targetId)),
   );
   if (candidates.length === 1)
     return { request: candidates[0] as ClassifierRequest, via: "sender_domain" };
@@ -382,7 +387,7 @@ export function createReplyClassifier(deps: ReplyClassifierDeps): ReplyClassifie
             confidence: Math.max(awaiting.signal.confidence, AWAITING_CONFIRMATION_FLOOR),
           });
         } else {
-          match = correlateBySender(message, requests);
+          match = correlateBySender(message, requests, context.senderTargetIds ?? []);
           bySenderOnly = match !== null;
           if (match) {
             const signal = confirmationSignal(

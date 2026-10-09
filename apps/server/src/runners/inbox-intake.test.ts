@@ -1,4 +1,4 @@
-import { mailboxes, messages, requestEvents, requests } from "@kickrocks/db";
+import { intakeSenders, mailboxes, messages, requestEvents, requests } from "@kickrocks/db";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createReplyClassifier } from "../mail/classifier.js";
@@ -156,7 +156,7 @@ describe("what the poll lets in", () => {
     ).toEqual(["reference", "target_sender", "thread"]);
   });
 
-  it("does not store mail let in on its sender or wording that turns out to be about nothing", async () => {
+  it("keeps mail let in on its sender or wording for review when nothing recognises it", async () => {
     await sentRequest(SPOKEO);
     deliver({
       subject: "A tip",
@@ -165,8 +165,110 @@ describe("what the poll lets in", () => {
     });
     deliver({ subject: "Thanks", from: from("noreply@spokeo.test"), text: "Cheers!" });
     const task = await poll();
-    expect(stored().map((row) => row.admittedBy)).toEqual(["target_sender"]);
-    expect(task.result).toMatchObject({ scanned: 2, kept: 1, ignored: 1 });
+    expect(stored().map((row) => [row.admittedBy, row.reviewed])).toEqual([
+      ["named_target", false],
+      ["target_sender", false],
+    ]);
+    expect(task.result).toMatchObject({ scanned: 2, kept: 2, ignored: 0, needsReview: 2 });
+  });
+
+  it("lets go of a sender-admitted newsletter only when it says nothing about privacy", async () => {
+    const request = await sentRequest(SPOKEO);
+    const entry = ctx.services.db.insert(intakeSenders);
+    entry
+      .values({
+        id: crypto.randomUUID(),
+        mailboxId,
+        targetId: request.targetId,
+        kind: "domain",
+        value: "datasafe-support.net",
+        createdAt: ctx.clock.now().toISOString(),
+      })
+      .run();
+    deliver({
+      subject: "Spring offers",
+      from: from("promo@datasafe-support.net"),
+      headers: BULK,
+      text: "Save big this week.",
+    });
+    deliver({
+      subject: "Your listing",
+      from: from("promo@datasafe-support.net"),
+      headers: BULK,
+      text: "We removed your listing.",
+    });
+    await poll();
+    expect(stored().map((row) => row.subject)).toEqual(["Your listing"]);
+  });
+
+  it("binds mail from a sender the person added to that target's request", async () => {
+    const request = await sentRequest(SPOKEO);
+    ctx.services.db
+      .insert(intakeSenders)
+      .values({
+        id: crypto.randomUUID(),
+        mailboxId,
+        targetId: request.targetId,
+        kind: "domain",
+        value: "datasafe-support.net",
+        createdAt: ctx.clock.now().toISOString(),
+      })
+      .run();
+    deliver({
+      subject: "Regarding your account",
+      from: from("team@datasafe-support.net"),
+      text: "We are looking into it and will write soon.",
+    });
+    await poll();
+    expect(stored()).toHaveLength(1);
+    expect(stored()[0]).toMatchObject({
+      admittedBy: "target_sender",
+      requestId: request.id,
+      reviewed: false,
+    });
+  });
+
+  it("reads a broker's bulk-mailed answer that says there are no records", async () => {
+    const request = await sentRequest(SPOKEO);
+    deliver({
+      subject: "Update on your listing",
+      from: from("updates@spokeo.test"),
+      headers: BULK,
+      text: "We found no records matching your information.",
+    });
+    deliver({
+      subject: "Update on your listing",
+      from: from("hello@email.spokeo.test"),
+      text: "Your listing has been suppressed.",
+    });
+    await poll();
+    expect(stored().map((row) => row.admittedBy)).toEqual(["target_sender", "target_sender"]);
+    expect(stored().every((row) => row.requestId === request.id)).toBe(true);
+  });
+
+  it("still finds company mail and bulk reference mail on a server that matches whole words only", async () => {
+    box().wholeWordSearch = true;
+    const spokeo = await sentRequest(SPOKEO);
+    await sentRequest(AMAZON);
+    deliver({
+      subject: "Update",
+      from: from("help@amazon.test"),
+      text: "We have deleted your records.",
+    });
+    deliver({
+      subject: "Case update",
+      from: from("noreply@mailer.example"),
+      headers: BULK,
+      text: `Reference ${spokeo.reference}: done.`,
+    });
+    deliver({
+      subject: "Weekly digest",
+      from: from("news@letters.test"),
+      headers: BULK,
+      text: "Nothing to see.",
+    });
+    await poll();
+    expect(stored().map((row) => row.subject)).toEqual(["Update", "Case update"]);
   });
 
   it("sends mail that names an open target with a decision to Review, capped", async () => {

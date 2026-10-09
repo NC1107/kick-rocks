@@ -1,16 +1,16 @@
-Return-Path: <account@beenverified.com>
-Received: from mail.beenverified.com (mail.beenverified.com [203.0.113.26]) by mx.example.com with ESMTPS id f4801b00e3 for <jordan@example.com>; Wed, 07 Oct 2026 00:13:00 +0000
-From: BeenVerified <account@beenverified.com>
+Return-Path: <account@radaris.com>
+Received: from mail.radaris.com (mail.radaris.com [203.0.113.21]) by mx.example.com with ESMTPS id bd1cd572f5 for <jordan@example.com>; Tue, 06 Oct 2026 04:36:00 +0000
+From: Radaris <account@radaris.com>
 To: jordan@example.com
-Subject: Welcome back to your account
-Date: Wed, 07 Oct 2026 00:13:00 +0000
-Message-ID: <3dac5d2f8dfd4fbb94ccd625@beenverified.com>
+Subject: Your account settings were updated
+Date: Tue, 06 Oct 2026 04:36:00 +0000
+Message-ID: <b13ce5822e61a74d2b65c388@radaris.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
 
 Hello Jordan,
 
-Something changed on your BeenVerified account. If this was you, no action is needed.
+Something changed on your Radaris account. If this was you, no action is needed.
 
-The BeenVerified team
+The Radaris team

@@ -27,11 +27,14 @@ import {
 import type { Task } from "../core/task-types.js";
 import {
   type HeaderVerdict,
+  headersOf,
   type IntakeContext,
   intakeContext,
+  isBulkWithoutPrivacyWording,
   isSoftAdmission,
   readPlanFor,
   type SearchScope,
+  senderTargetIds,
   triageBody,
   triageHeaders,
 } from "../mail/intake.js";
@@ -372,10 +375,10 @@ export class InboxRunner {
     );
   }
 
-  private intake(mailbox: MailboxRow): IntakeContext {
+  private intake(mailbox: MailboxRow, requests?: ClassifierRequest[]): IntakeContext {
     const { db, clock } = this.services;
     return intakeContext({
-      requests: this.classifierRequests(mailbox.profileId),
+      requests: requests ?? this.classifierRequests(mailbox.profileId),
       verifiedAlias: mailbox.replyAliasVerifiedAt ? mailbox.replyAlias : null,
       companyMail: mailbox.companyMail,
       personSenders: db
@@ -555,16 +558,23 @@ export class InboxRunner {
     const context = this.classifierRequests(mailbox.profileId).map((request) =>
       this.openAtAdmission.has(request.id) ? { ...request, open: true } : request,
     );
-    const classified = await this.classify(message, context);
-    // Mail let in on its sender or its wording alone, and found to be about nothing, is not worth keeping.
-    if (
-      by !== null &&
-      isSoftAdmission(by) &&
-      classified.requestId === null &&
-      classified.classification === "unrelated"
-    ) {
-      return "skipped";
-    }
+    const soft = by !== null && isSoftAdmission(by);
+    const ctx = this.intake(mailbox, context);
+    const classified = await this.classify(
+      message,
+      context,
+      soft ? senderTargetIds(headersOf(message), ctx) : [],
+    );
+    // A failed classification is "unknown" with no request, and must not cost the person a message.
+    const nothingKnown =
+      classified.classification === "unrelated" ||
+      (classified.classification === "unknown" && classified.requestId !== null);
+    // Only positive evidence that mail is a newsletter or an ad lets it go; anything else a
+    // sender or wording rule let in waits for a person, since a reply the rules do not recognise
+    // is still a reply.
+    if (soft && nothingKnown && isBulkWithoutPrivacyWording(message, ctx)) return "skipped";
+    const unmatched =
+      soft && classified.requestId === null && classified.classification === "unrelated";
     const request = classified.requestId
       ? (context.find((candidate) => candidate.id === classified.requestId) ?? null)
       : null;
@@ -582,7 +592,7 @@ export class InboxRunner {
     return db.transaction(() => {
       const id = newId();
       const fields = requestedFields.success ? requestedFields.data : [];
-      let reviewed = confident && isNoise(classified);
+      let reviewed = confident && isNoise(classified) && !unmatched;
       if (requestRecord) {
         // The request may have moved while the network calls ran, so it is read again.
         const current = this.services.requests.getOrThrow(requestRecord.id);
@@ -665,9 +675,10 @@ export class InboxRunner {
   private async classify(
     message: InboxMessage,
     requests: ClassifierRequest[],
+    senderTargetIds: string[],
   ): Promise<ClassificationResult> {
     try {
-      return await this.services.mail.classifier.classify(message, { requests });
+      return await this.services.mail.classifier.classify(message, { requests, senderTargetIds });
     } catch (error) {
       return {
         requestId: null,

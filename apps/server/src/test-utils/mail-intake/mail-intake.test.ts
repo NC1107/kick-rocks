@@ -5,17 +5,20 @@ import { simpleParser } from "mailparser";
 import { afterAll, describe, expect, it } from "vitest";
 import type { ClassificationResult, ReplyClassifier } from "../../mail/types.js";
 import { type CorpusSet, FIXTURES_DIR, loadCorpus, loadLabels } from "./corpus.js";
-import { generateCorpus } from "./generate.js";
+import { DEV_ONLY_CATEGORIES, generateCorpus } from "./generate.js";
 import { type IntakeReport, runIntake } from "./harness.js";
 import { REQUESTS } from "./world.js";
 
 const SETS: CorpusSet[] = ["dev", "held-out"];
 
 describe("the synthetic mixed inbox", () => {
-  it("holds at least 300 messages, split 60 to 40 between dev and held-out", () => {
-    const dev = loadLabels("dev").length;
+  it("holds at least 300 messages, split 60 to 40 between dev and held-out outside the dev-only categories", () => {
+    const sharedDev = loadLabels("dev").filter(
+      (label) => !DEV_ONLY_CATEGORIES.includes(label.category),
+    ).length;
+    const dev = sharedDev;
     const heldOut = loadLabels("held-out").length;
-    expect(dev + heldOut).toBeGreaterThanOrEqual(300);
+    expect(loadLabels("dev").length + heldOut).toBeGreaterThanOrEqual(300);
     expect(dev / (dev + heldOut)).toBeGreaterThan(0.58);
     expect(dev / (dev + heldOut)).toBeLessThan(0.62);
   });
@@ -23,7 +26,10 @@ describe("the synthetic mixed inbox", () => {
   it("puts every category in both sets and keeps ignore and request mail in both", () => {
     const [dev, heldOut] = SETS.map((set) => loadLabels(set));
     const categories = (labels: typeof dev) => new Set(labels?.map((label) => label.category));
-    expect(categories(heldOut)).toEqual(categories(dev));
+    expect(categories(heldOut)).toEqual(
+      new Set([...categories(dev)].filter((name) => !DEV_ONLY_CATEGORIES.includes(name))),
+    );
+    expect(DEV_ONLY_CATEGORIES.length).toBeGreaterThan(0);
     for (const labels of [dev, heldOut]) {
       expect(labels?.some((label) => label.outcome === "ignore")).toBe(true);
       expect(labels?.some((label) => label.outcome === "auto")).toBe(true);
@@ -140,11 +146,17 @@ describe("the intake harness", () => {
     const report = await runIntake("dev", { classifier: () => blind });
     expect(report.metrics.falsePositives).toBe(0);
     const labels = loadLabels("dev");
-    const review = labels.filter((l) => l.outcome === "review").length;
-    const auto = labels.filter((l) => l.outcome === "auto").length;
-    // Mail let in on its sender alone is dropped when the classifier calls it unrelated, so it counts as missed.
-    expect(report.metrics.falseNegatives).toBeGreaterThanOrEqual(review);
-    expect(report.metrics.falseNegatives + report.metrics.misrouted).toBe(review + auto);
+    const verdictOf = (file: string) => report.extra.verdicts[file] ?? "ignored";
+    const lost = (label: (typeof labels)[number]) =>
+      verdictOf(label.file) === "ignored" ||
+      (label.outcome === "review" && verdictOf(label.file).endsWith("handled"));
+    const wanted = labels.filter((label) => label.outcome !== "ignore");
+    // Nothing is attached or applied, so applied mail that was kept is misrouted, and review mail is
+    // missed only when it was dropped or filed as handled instead of waiting unattached in Review.
+    expect(report.metrics.falseNegatives).toBe(wanted.filter(lost).length);
+    expect(report.metrics.misrouted).toBe(
+      wanted.filter((label) => label.outcome === "auto" && !lost(label)).length,
+    );
   }, 120_000);
 
   it("keeps nothing of the mail it ignores, and misses and misroutes nothing", async () => {

@@ -493,17 +493,80 @@ describe("senders the person asked to take in", () => {
 });
 
 describe("bodySearchTerms", () => {
-  it("holds the reference marker and each open target's name and domain once", () => {
-    expect(bodySearchTerms(context())).toEqual([
-      "KR-",
-      "Spokeo",
-      "spokeo.com",
-      "Amazon",
-      "amazon.com",
-    ]);
+  it("holds the reference of every request in the window and each open target's name and domain once", () => {
+    const terms = bodySearchTerms(context());
+    expect(terms).toEqual(expect.arrayContaining(["Spokeo", "spokeo.com", "Amazon", "amazon.com"]));
+    expect(terms.filter((term) => /^KR-[A-Z0-9]{6}$/.test(term))).toHaveLength(2);
+    expect(terms).not.toContain("KR-");
   });
 
-  it("leaves closed requests out", () => {
-    expect(bodySearchTerms(context([request({ open: false })]))).toEqual(["KR-"]);
+  it("keeps the reference of a closed request, whose late reply still binds", () => {
+    expect(bodySearchTerms(context([request({ open: false })]))).toEqual([request().reference]);
+  });
+});
+
+describe("what a server that matches whole words needs to be asked", () => {
+  const terms = (plan: ReturnType<typeof readPlanFor>) =>
+    plan.read === "if_found" ? plan.terms : [];
+  const company = (subject: string) =>
+    readPlanFor(fromSender("help@amazon.com", { subject }), needs("company") as never, context());
+
+  it("spells out each form of the verbs the wording rules take a stem of", () => {
+    expect(terms(company("Update"))).toEqual(
+      expect.arrayContaining([
+        "removed",
+        "deleted",
+        "erased",
+        "suppressed",
+        "records",
+        "removing",
+        "deletes",
+      ]),
+    );
+  });
+
+  it("holds no fragment that only a substring search would find", () => {
+    for (const term of terms(company("Update"))) expect(term).not.toMatch(/^(remov|delet|KR-)$/);
+  });
+
+  it("judges a broker's bulk mail on privacy wording, and a company's on the narrower request wording", () => {
+    const bulk = { extra: BULK };
+    const broker = readPlanFor(
+      fromSender("updates@spokeo.com", { subject: "Update", ...bulk }),
+      needs("bulk_target") as never,
+      context(),
+    );
+    const other = readPlanFor(
+      fromSender("updates@amazon.com", { subject: "Update", ...bulk }),
+      needs("bulk_target") as never,
+      context(),
+    );
+    expect(broker).toMatchObject({ read: "if_found", scope: "privacy" });
+    expect(terms(broker)).toContain("records");
+    expect(other).toMatchObject({ read: "if_found", scope: "request" });
+    expect(terms(other)).not.toContain("records");
+  });
+
+  it("admits a broker's bulk answer that says nothing was found or the listing was removed", () => {
+    const bulk = { from: { name: null, address: "updates@spokeo.com" }, headers: BULK };
+    for (const text of [
+      "We found no records matching your information.",
+      "Your listing has been removed.",
+      "Your profile was suppressed.",
+    ]) {
+      expect(triageBody(full({ ...bulk, text }), context())).toEqual({
+        verdict: "admit",
+        by: "target_sender",
+      });
+    }
+  });
+
+  it("still ignores a company's bulk mail unless it is about the request", () => {
+    const bulk = { from: { name: null, address: "deals@amazon.com" }, headers: BULK };
+    expect(
+      triageBody(full({ ...bulk, text: "Your listing has been removed." }), context()),
+    ).toEqual({
+      verdict: "ignore",
+    });
   });
 });

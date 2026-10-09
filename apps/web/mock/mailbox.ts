@@ -391,7 +391,7 @@ function routesFor(store: MockStore, senders: IntakeSender[], findable: Findable
     handle(API_ROUTES.mailboxAliasEnable, ({ params }) => {
       const mailbox = mailboxOf(store, params.id);
       const at = mailbox.address.lastIndexOf("@");
-      mailbox.replyAlias = `${mailbox.address.slice(0, at)}+kickrocks${mailbox.address.slice(at)}`;
+      mailbox.replyAlias = `${mailbox.address.slice(0, at)}+p7x3a1${mailbox.address.slice(at)}`;
       const dropped = mailbox.address.startsWith("drop");
       mailbox.replyAliasVerified = !dropped;
       return {

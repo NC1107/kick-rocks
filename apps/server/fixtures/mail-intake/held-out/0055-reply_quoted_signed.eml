@@ -1,25 +1,26 @@
 DKIM-Signature: v=1; a=ed25519-sha256; c=relaxed/relaxed; d=whitepages.com;
  h=Content-Transfer-Encoding: Content-Type: MIME-Version: References:
- In-Reply-To: Message-ID: Date: Subject: To: From; q=dns/txt; s=kr;
- t=1790782980; bh=V2Az+9bbpLdMzcrzi0hNnpJjFYC+aJ0AbMS4S6REeXY=;
- b=n2FWzISCtliMp85623MrVSsOKEt/LJzfS+OgBqIMUFfGhevOFJJbWgQeJZeQB/aTcSjeYuz3l
- 1PCImzsvnwpCw==
-Return-Path: <bounce-36645@whitepages.com>
-Received: from mail.whitepages.com (mail.whitepages.com [203.0.113.24]) by mx.example.com with ESMTPS id d8a8d7e70b for <jordan@example.com>; Wed, 30 Sep 2026 15:43:00 +0000
-From: Whitepages Privacy <privacy@whitepages.com>
+ In-Reply-To: Reply-To: Message-ID: Date: Subject: To: From; q=dns/txt;
+ s=kr; t=1790750880; bh=KkbCWfDqFOdDDQJRHDqKCw5tp+QKBqlXnh0m1k+ybfI=;
+ b=ek7eKwXPGJUe5K15RfneGdfkTY+nghMZNRxRy+/aJZc9vBDZmDggIfzS1SrvZk2WnIWV/O19X
+ dn2NUcCwJ+wDg==
+Return-Path: <bounce-84985@whitepages.com>
+Received: from mail.whitepages.com (mail.whitepages.com [203.0.113.24]) by mx.example.com with ESMTPS id d8a8d7e70b for <jordan@example.com>; Wed, 30 Sep 2026 06:48:00 +0000
+From: Whitepages Privacy <dsar@whitepages.com>
 To: jordan@example.com
 Subject: Re: Opt-out request KR-2D8RV6
-Date: Wed, 30 Sep 2026 15:43:00 +0000
-Message-ID: <de312853bf0ab3dec254fc05@whitepages.com>
+Date: Wed, 30 Sep 2026 06:48:00 +0000
+Message-ID: <921d8a5b190e33e139bf3a92@whitepages.com>
+Reply-To: privacy@whitepages.com
 In-Reply-To: <kr.f5e7222d-f35f-4fd2-8cb3-cd34debb2730.0@example.com>
 References: <kr.f5e7222d-f35f-4fd2-8cb3-cd34debb2730.0@example.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
 
-Dear Jordan Example,
+Hello,
 
-We have removed the listing associated with jordan@example.com from Whitepages. It can take up to 72 hours to disappear from search results.
+We do not accept requests by email. Please use our online form at https://whitepages.com/optout to submit your request.
 
 Sincerely,
 Data Subject Requests, Whitepages

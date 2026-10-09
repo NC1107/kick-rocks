@@ -37,6 +37,8 @@ export interface FakeMailbox {
   deliver(message?: DeliverableMessage): InboxMessage;
   /** Makes `searchBodies` and `search` answer as a server that refuses SEARCH. */
   searchSupported: boolean;
+  /** Makes body searches match whole words only, as Gmail's and iCloud's word indexes do. */
+  wholeWordSearch: boolean;
   /** Whether mail sent to `name+tag@domain` through the fake transport reaches this mailbox. */
   acceptsPlusAddresses: boolean;
   /** Every UID whose full message was fetched, in order, so a test can see what was downloaded. */
@@ -166,6 +168,7 @@ class ScriptedMailbox implements FakeMailbox {
   ];
   uidValidity = 1;
   searchSupported = true;
+  wholeWordSearch = false;
   acceptsPlusAddresses = true;
   readonly fetched: number[] = [];
   readonly bodySearches: Array<{ uids: number[]; terms: string[] }> = [];
@@ -242,6 +245,12 @@ class ScriptedMailbox implements FakeMailbox {
     return (this.byFolder.get(folder) ?? []).sort((a, b) => a.uid - b.uid);
   }
 
+  private bodyHas(body: string, term: string): boolean {
+    if (!this.wholeWordSearch) return body.includes(term);
+    const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    return new RegExp(`(?<![\\p{L}\\p{N}])${escaped}(?![\\p{L}\\p{N}])`, "u").test(body);
+  }
+
   session(folder: string): InboxSession {
     const held = (uids: readonly number[]) =>
       this.inFolder(folder).filter((message) => uids.includes(message.uid));
@@ -258,7 +267,7 @@ class ScriptedMailbox implements FakeMailbox {
           held(uids)
             .filter((message) => {
               const body = `${message.text}\n${message.html ?? ""}`.toLowerCase();
-              return wanted.some((term) => body.includes(term));
+              return wanted.some((term) => this.bodyHas(body, term));
             })
             .map((message) => message.uid),
         );

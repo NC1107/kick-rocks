@@ -251,6 +251,12 @@ export interface ClassifierRequest {
 
 export interface ClassifyContext {
   requests: ClassifierRequest[];
+  /**
+   * Targets the message was let in for by its sender alone, such as one the person asked to always
+   * take in mail from. With no stronger match, the message binds to the open request for one of
+   * them, so it is reviewed against that request instead of being lost.
+   */
+  senderTargetIds?: string[];
 }
 
 export interface ClassificationResult {

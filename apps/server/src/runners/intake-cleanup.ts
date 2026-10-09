@@ -10,7 +10,7 @@ import { and, eq, inArray, isNull, sql } from "drizzle-orm";
 import {
   bindsToRequest,
   type IntakeContext,
-  isFromOpenTarget,
+  isFromAnyTarget,
   namesAnyTarget,
   triageBody,
   triageHeaders,
@@ -22,7 +22,7 @@ const HEADER_CHUNK = 200;
 /** Classes that mean a message changed nothing about a request, so only their record remains to remove. */
 const CHANGED_NOTHING = new Set(["auto_ack", "unrelated", "unknown"]);
 
-type Verdict = { keep: MessageAdmission } | { retain: true } | { drop: true };
+type Verdict = { keep: MessageAdmission } | { drop: true };
 
 /** What the gate can say about a message whose server copy is gone: only what was stored. */
 function storedHeaders(row: MessageRow): MessageHeaders {
@@ -69,26 +69,24 @@ function judge(row: MessageRow, h: MessageHeaders, ctx: IntakeContext): Verdict 
 }
 
 /**
- * Without the server's copy the headers are unknown, so a message is dropped only when nothing
- * about it could tie it to a request: not bound, not from a target, not a bounce, not naming one.
+ * Whether anything about a message could tie it to a request: a bounce, a sender or a name of any
+ * request in the window, or one of our references or Message-IDs. Judged on what was stored, as
+ * the server's copy may hold more but never less.
  */
-function judgeFromStored(row: MessageRow, ctx: IntakeContext): Verdict {
-  const h = storedHeaders(row);
-  const verdict = judge(row, h, ctx);
-  if ("keep" in verdict) return verdict;
+function tiedToRequest(row: MessageRow, h: MessageHeaders, ctx: IntakeContext): boolean {
   const text = `${row.subject}\n${row.text ?? ""}`;
-  const tied =
+  return (
     row.classification === "bounce" ||
-    isFromOpenTarget(h, ctx) ||
+    isFromAnyTarget(h, ctx) ||
     bindsToRequest(`${text}\n${row.inReplyTo ?? ""}`, ctx) ||
-    namesAnyTarget(text, ctx);
-  return tied ? { retain: true } : verdict;
+    namesAnyTarget(text, ctx)
+  );
 }
 
 /**
  * Removes the stored copies of mail the intake gate would not have taken in, once per mailbox.
- * A message is removed only when it changed nothing and the person never acted on it, and its
- * timeline entry goes with it. The mail itself stays in the person's mailbox.
+ * A message is removed only when no request holds it, nothing ties it to one, it changed nothing,
+ * and the person has looked at it or never needed to, and its timeline entry goes with it. The mail itself stays in the person's mailbox.
  */
 export async function cleanUpStoredMail(
   services: AppServices,
@@ -114,10 +112,16 @@ export async function cleanUpStoredMail(
   let removed = 0;
   for (const row of candidates) {
     const h = row.uidValidity === current ? found.get(row.imapUid) : undefined;
-    const verdict = h ? judge(row, h, ctx) : judgeFromStored(row, ctx);
+    const headers = h ?? storedHeaders(row);
+    const verdict = judge(row, headers, ctx);
     if ("keep" in verdict) {
       db.update(messages).set({ admittedBy: verdict.keep }).where(eq(messages.id, row.id)).run();
-    } else if ("drop" in verdict && changedNothing(services, row)) {
+    } else if (
+      row.requestId === null &&
+      row.reviewed &&
+      !tiedToRequest(row, headers, ctx) &&
+      changedNothing(services, row)
+    ) {
       removeWithTimeline(services, row);
       removed += 1;
     }
@@ -143,7 +147,7 @@ function eventsAbout(services: AppServices, messageId: string) {
 }
 
 function changedNothing(services: AppServices, row: MessageRow): boolean {
-  if (row.requestId !== null && !CHANGED_NOTHING.has(row.classification)) return false;
+  if (!CHANGED_NOTHING.has(row.classification)) return false;
   return eventsAbout(services, row.id).every((event) => {
     if (event.actor === "user") return false;
     if (event.type === "reply_received") return true;

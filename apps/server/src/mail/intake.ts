@@ -96,7 +96,7 @@ const PRIVACY_MAILBOX =
 const REQUEST_PHRASE =
   /\b(opt[- ]?out|removal|remove request|deletion|privacy request|data request|your request to (remove|delete|opt[- ]?out)|ccpa|cpra|gdpr|dsar|data subject|right to (delete|know|erasure))\b/i;
 const PRIVACY_TOPIC = new RegExp(
-  `${REQUEST_PHRASE.source}|\\b(remove|delete|erase|suppress)\\w* (your|my|the)? ?(data|information|listing|profile|record|personal)\\b|\\bpersonal (data|information)\\b|\\byour data\\b|\\bno (matching )?records?\\b|\\bdo not sell\\b|\\bprivacy (team|office|rights)\\b`,
+  `${REQUEST_PHRASE.source}|\\b(remove|delete|erase|suppress)\\w* (your|my|the)? ?(data|information|listing|profile|records?|personal)\\b|\\b(listing|profile|records?|information|data)\\b[^.\\n]{0,40}\\b(removed|deleted|erased|suppressed)\\b|\\bpersonal (data|information)\\b|\\byour data\\b|\\bno (matching )?records?\\b|\\bdo not sell\\b|\\bprivacy (team|office|rights)\\b`,
   "i",
 );
 
@@ -164,13 +164,16 @@ function ticketDeskOf(sender: string, request: ClassifierRequest): boolean {
   );
 }
 
-function personSenderOf(h: MessageHeaders, ctx: IntakeContext): boolean {
+function personSendersFor(h: MessageHeaders, ctx: IntakeContext): PersonSender[] {
   const address = h.from.address.toLowerCase();
   const sender = host(h);
-  return ctx.personSenders.some((entry) =>
+  return ctx.personSenders.filter((entry) =>
     entry.kind === "address" ? entry.value === address : onDomain(sender, entry.value),
   );
 }
+
+const personSenderOf = (h: MessageHeaders, ctx: IntakeContext) =>
+  personSendersFor(h, ctx).length > 0;
 
 function isTargetSender(h: MessageHeaders, request: ClassifierRequest): boolean {
   const sender = host(h);
@@ -333,7 +336,7 @@ export function triageBody(message: InboxMessage, ctx: IntakeContext): BodyVerdi
       case "alias_bulk":
         return REQUEST_PHRASE.test(text) ? admit("alias") : IGNORE;
       case "bulk_target":
-        return REQUEST_PHRASE.test(text) ? admit("target_sender") : IGNORE;
+        return bulkTargetPhrase(h, ctx).test(text) ? admit("target_sender") : IGNORE;
       case "company":
         return PRIVACY_TOPIC.test(text) ? admit("target_sender") : IGNORE;
       case "unknown":
@@ -347,8 +350,10 @@ export function triageBody(message: InboxMessage, ctx: IntakeContext): BodyVerdi
 }
 
 /**
- * Substrings that every text the wording rules match must contain, so a server-side search that
- * finds none of them proves the rules would find nothing. Looser than the rules on purpose.
+ * Whole words and phrases that every text the wording rules match must contain, so a server-side
+ * search that finds none of them proves the rules would find nothing. Servers that index words
+ * (Gmail, iCloud) never match a fragment, so each form a rule's stem can take is spelled out.
+ * Looser than the rules on purpose.
  */
 const REQUEST_TERMS = [
   "opt-out",
@@ -369,31 +374,52 @@ const REQUEST_TERMS = [
 ];
 const PRIVACY_TERMS = [
   ...REQUEST_TERMS,
-  "remov",
-  "delet",
-  "erase",
-  "suppress",
+  ...["remove", "delete", "erase", "suppress"].flatMap((verb) => verbForms(verb)),
+  "erasure",
+  "suppression",
   "personal",
   "your data",
   "record",
+  "records",
   "do not sell",
   "privacy team",
   "privacy office",
   "privacy rights",
 ];
-const REFERENCE_TERM = "KR-";
+
+function verbForms(verb: string): string[] {
+  const stem = verb.endsWith("e") ? verb.slice(0, -1) : verb;
+  return [verb, `${verb}s`, `${stem}ed`, `${stem}ing`];
+}
+
+/** The references of every request in the window, which are whole words no server has to split. */
+function referenceTerms(ctx: IntakeContext): string[] {
+  return [...new Set(ctx.window.map((request) => request.reference))];
+}
 
 /**
  * What a server-side search should look for in bodies to find the messages an open target's name
- * or domain, or our reference marker, appears in.
+ * or domain, or one of our references, appears in.
  */
 export function bodySearchTerms(ctx: IntakeContext): string[] {
-  const terms = new Set<string>([REFERENCE_TERM]);
+  const terms = new Set<string>(referenceTerms(ctx));
   for (const request of ctx.open) {
     terms.add(request.targetName);
     terms.add(request.targetDomain.toLowerCase());
   }
   return [...terms].filter((term) => term.trim() !== "");
+}
+
+/**
+ * Bulk mail from a broker is judged on everything a broker's answer can say, since a "no records"
+ * or "listing removed" notice often goes out through a mailing service. A company's bulk mail
+ * needs the narrower request wording, since it sends plenty of marketing.
+ */
+function bulkTargetPhrase(h: MessageHeaders, ctx: IntakeContext): RegExp {
+  const fromBroker = ctx.open.some(
+    (request) => request.targetKind === "broker" && isTargetSender(h, request),
+  );
+  return fromBroker ? PRIVACY_TOPIC : REQUEST_PHRASE;
 }
 
 export type SearchScope = "references" | "request" | "privacy" | "named";
@@ -413,16 +439,26 @@ export function readPlanFor(
   const [reason] = verdict.reasons as [BodyReason];
   switch (reason) {
     case "bulk_other":
-      return { read: "if_found", scope: "references", terms: [REFERENCE_TERM] };
+      return { read: "if_found", scope: "references", terms: referenceTerms(ctx) };
     case "alias_bulk":
-    case "bulk_target":
       return REQUEST_PHRASE.test(h.subject)
         ? { read: "now" }
-        : { read: "if_found", scope: "request", terms: [REFERENCE_TERM, ...REQUEST_TERMS] };
+        : { read: "if_found", scope: "request", terms: [...referenceTerms(ctx), ...REQUEST_TERMS] };
+    case "bulk_target": {
+      const phrase = bulkTargetPhrase(h, ctx);
+      if (phrase.test(h.subject)) return { read: "now" };
+      return phrase === PRIVACY_TOPIC
+        ? { read: "if_found", scope: "privacy", terms: [...referenceTerms(ctx), ...PRIVACY_TERMS] }
+        : { read: "if_found", scope: "request", terms: [...referenceTerms(ctx), ...REQUEST_TERMS] };
+    }
     case "company":
       return PRIVACY_TOPIC.test(h.subject)
         ? { read: "now" }
-        : { read: "if_found", scope: "privacy", terms: [REFERENCE_TERM, ...PRIVACY_TERMS] };
+        : {
+            read: "if_found",
+            scope: "privacy",
+            terms: [...referenceTerms(ctx), ...PRIVACY_TERMS],
+          };
     case "unknown":
       return namesOpenTarget(h.subject, ctx)
         ? { read: "now" }
@@ -432,14 +468,37 @@ export function readPlanFor(
   }
 }
 
-/** Whether a message that was admitted only on soft evidence may be dropped when it matches nothing. */
+/** Whether a message was admitted on its sender or its wording alone, without a link to a request. */
 export function isSoftAdmission(by: MessageAdmission): boolean {
   return by === "target_sender" || by === "named_target";
 }
 
-/** Whether the sender belongs to a target the person has an open request with. */
-export function isFromOpenTarget(h: MessageHeaders, ctx: IntakeContext): boolean {
-  return ctx.open.some((request) => isTargetSender(h, request)) || personSenderOf(h, ctx);
+/**
+ * The targets a message was let in for by its sender alone: the person's own sender rules and the
+ * target-sender rules, so the classifier can bind it to a request the wording does not name.
+ */
+export function senderTargetIds(h: MessageHeaders, ctx: IntakeContext): string[] {
+  return [
+    ...new Set([
+      ...personSendersFor(h, ctx).map((entry) => entry.targetId),
+      ...ctx.open
+        .filter((request) => isTargetSender(h, request))
+        .map((request) => request.targetId),
+    ]),
+  ];
+}
+
+/**
+ * Whether mail let in on soft evidence is positively not about a request: it is bulk mail and
+ * says nothing about privacy. Anything less certain is kept for a person to look at.
+ */
+export function isBulkWithoutPrivacyWording(message: InboxMessage, ctx: IntakeContext): boolean {
+  return isBulk(headersOf(message), ctx) && !PRIVACY_TOPIC.test(readableText(message));
+}
+
+/** Whether the sender belongs to a target the person has any request with, open or finished. */
+export function isFromAnyTarget(h: MessageHeaders, ctx: IntakeContext): boolean {
+  return ctx.window.some((request) => isTargetSender(h, request)) || personSenderOf(h, ctx);
 }
 
 /** Whether a text names any target the person has a request with, open or finished. */

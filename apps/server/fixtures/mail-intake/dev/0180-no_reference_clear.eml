@@ -1,17 +1,24 @@
-Return-Path: <bounce-01610@radaris.com>
-Received: from mail.radaris.com (mail.radaris.com [203.0.113.21]) by mx.example.com with ESMTPS id bd1cd572f5 for <jordan@example.com>; Mon, 05 Oct 2026 14:54:00 +0000
-From: Radaris Privacy <privacy@radaris.com>
+DKIM-Signature: v=1; a=ed25519-sha256; c=relaxed/relaxed; d=whitepages.com;
+ h=Content-Transfer-Encoding: Content-Type: MIME-Version: Reply-To:
+ Message-ID: Date: Subject: To: From; q=dns/txt; s=kr; t=1791145620;
+ bh=VoarrR4T+Ld1+u+nLP8hVN4BbwrxpuiXRKbEDN1n6p4=;
+ b=IdEQQlmiLJ/mTDLrGS/zrN6tzQQKpd86DA5jS8KaKaCZJUqwSUaknMq5C5F3o5FE9E8wiChQT
+ 07ApOoYBjruDQ==
+Return-Path: <bounce-42313@whitepages.com>
+Received: from mail.whitepages.com (mail.whitepages.com [203.0.113.24]) by mx.example.com with ESMTPS id d8a8d7e70b for <jordan@example.com>; Sun, 04 Oct 2026 20:27:00 +0000
+From: Whitepages Privacy <support@whitepages.com>
 To: jordan@example.com
-Subject: Re: your request
-Date: Mon, 05 Oct 2026 14:54:00 +0000
-Message-ID: <ef60763e7e2d2ed94b78518c@radaris.com>
+Subject: Regarding your message
+Date: Sun, 04 Oct 2026 20:27:00 +0000
+Message-ID: <b40c838eca255a7d8f0f8051@whitepages.com>
+Reply-To: privacy@whitepages.com
 MIME-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
 
-Dear Jordan Example,
+Hello Jordan,
 
-To act on your opt-out request for Jordan Example, please provide your date of birth and current street address.
+Regarding your request to delete Jordan Example's data: we are unable to process it because the data is exempt from deletion.
 
-Regards,
-Radaris Privacy Team
+Thank you,
+Customer Care, Whitepages

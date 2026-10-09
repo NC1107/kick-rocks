@@ -104,8 +104,9 @@ function CompanyMailSetting({ profileId, mailbox }: { profileId: string; mailbox
         options={COMPANY_MAIL_OPTIONS.map((option) => ({ ...option }))}
       />
       <GroupNote>
-        A broker you have a request with is always taken in. Companies also send order and account
-        mail, which is why they get this choice.
+        Mail from brokers you have an open request with is taken in, except newsletters and ads that
+        do not mention your request. Companies also send order and account mail, which is why they
+        get this choice.
       </GroupNote>
       {save.error ? (
         <Callout intent="danger" className="mt-2">
@@ -127,8 +128,6 @@ function ReplyAddress({ profileId, mailbox }: { profileId: string; mailbox: Mail
     onSuccess: () => setProblem(null),
   });
   const on = mailbox.replyAlias !== null;
-  const at = mailbox.address.lastIndexOf("@");
-  const proposed = `${mailbox.address.slice(0, at)}+kickrocks${mailbox.address.slice(at)}`;
 
   return (
     <Section label="Reply address" as="h3">
@@ -138,9 +137,16 @@ function ReplyAddress({ profileId, mailbox }: { profileId: string; mailbox: Mail
             label="Ask brokers to reply to a separate address"
             description={
               <>
-                Requests are still sent from your address. Replies go to{" "}
-                <span className="font-mono">{mailbox.replyAlias ?? proposed}</span>, which lands in
-                this same mailbox. Kick Rocks sends a test mail to prove it does before using it.
+                Requests are still sent from your address.{" "}
+                {mailbox.replyAlias ? (
+                  <>
+                    Replies go to <span className="font-mono">{mailbox.replyAlias}</span>
+                  </>
+                ) : (
+                  "Replies go to a tagged form of your address"
+                )}
+                , which lands in this same mailbox. Brokers will see this address. Kick Rocks sends
+                a test mail to prove it works before using it.
               </>
             }
             checked={on}
@@ -274,8 +280,8 @@ function AlwaysTakeIn({ profileId }: { profileId: string }) {
         </BodyRow>
       </RowGroup>
       <GroupNote>
-        Mail from these senders is taken in and matched to that company. It never makes a link in
-        the mail trusted, and it never vouches for who sent it.
+        Mail from these senders is taken in, except newsletters and ads that do not mention your
+        request. It never makes a link in the mail trusted, and it never vouches for who sent it.
       </GroupNote>
       {add.error ? (
         <Callout intent="danger" className="mt-2">

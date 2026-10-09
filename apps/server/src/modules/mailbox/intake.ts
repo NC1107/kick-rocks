@@ -1,3 +1,4 @@
+import { randomBytes } from "node:crypto";
 import { intakeSenders, type MailboxRow, mailboxes, targets } from "@kickrocks/db";
 import {
   type CompanyMail,
@@ -15,7 +16,6 @@ import { connectionOf } from "../../runners/connection.js";
 import type { AppServices } from "../../services.js";
 import { toMailbox } from "./service.js";
 
-const ALIAS_TAG = "kickrocks";
 /** How long a test mail is given to show up, which is a mailbox's own delivery delay. */
 const ALIAS_PROBE_ATTEMPTS = 6;
 const ALIAS_PROBE_DELAY_MS = 1_500;
@@ -43,9 +43,16 @@ export function dismissIntakeNotice(services: Mailboxes, mailbox: MailboxRow) {
   );
 }
 
-export function aliasFor(address: string): string {
+/**
+ * The tag is random per mailbox because every broker sees it: a fixed word would tell each of them
+ * a tool is sending the request. It is kept once chosen, so turning the address on again does not
+ * strand replies sent to the earlier one.
+ */
+export function aliasFor(address: string, current: string | null = null): string {
   const at = address.lastIndexOf("@");
-  return `${address.slice(0, at)}+${ALIAS_TAG}${address.slice(at)}`;
+  const own = `${address.slice(0, at)}+`;
+  if (current?.startsWith(own) && current.endsWith(address.slice(at))) return current;
+  return `${own}p${randomBytes(3).toString("hex")}${address.slice(at)}`;
 }
 
 export function disableReplyAlias(services: Mailboxes, mailbox: MailboxRow) {
@@ -75,7 +82,7 @@ export async function enableReplyAlias(
       "This mail provider does not deliver plus addresses to your mailbox",
     );
   }
-  const alias = aliasFor(mailbox.address);
+  const alias = aliasFor(mailbox.address, mailbox.replyAlias);
   const saved = update(services, mailbox.id, { replyAlias: alias, replyAliasVerifiedAt: null });
   const connection = connectionOf(saved);
   const domain = mailbox.address.slice(mailbox.address.lastIndexOf("@") + 1);

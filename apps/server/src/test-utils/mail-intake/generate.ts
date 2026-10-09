@@ -83,6 +83,11 @@ interface Draft {
 interface Category {
   name: string;
   count: number;
+  /**
+   * Written after the held-out set was frozen, and shaped by the rules it was tuned against, so
+   * every message goes to dev and the frozen set stays what it was.
+   */
+  devOnly?: true;
   make(rng: Rng, index: number): Draft;
 }
 
@@ -1066,6 +1071,7 @@ function bounceDraft(
 
 const espConfirmation: Category = {
   name: "esp_confirmation",
+  devOnly: true,
   count: 10,
   make(rng, index) {
     const request = requestOf("intelius");
@@ -1122,6 +1128,7 @@ const COMPANY_REPLIES: ReadonlyArray<readonly [ReplyKind, string]> = [
 ];
 const companyPrivacyReply: Category = {
   name: "company_privacy_reply",
+  devOnly: true,
   count: 10,
   make(rng, index) {
     const [kind, body] = COMPANY_REPLIES[index % COMPANY_REPLIES.length] as readonly [
@@ -1155,6 +1162,7 @@ const BROKER_ACCOUNT_SUBJECTS = [
 ];
 const brokerAccountMail: Category = {
   name: "broker_account_mail",
+  devOnly: true,
   count: 10,
   make(rng, index) {
     const request = requestFor(index, ["spokeo", "whitepages", "beenverified", "radaris"]);
@@ -1176,6 +1184,7 @@ const brokerAccountMail: Category = {
 
 const aliasMail: Category = {
   name: "alias_mail",
+  devOnly: true,
   count: 10,
   make(rng, index) {
     const request = requestFor(index, ["spokeo", "whitepages", "beenverified", "radaris"]);
@@ -1202,6 +1211,7 @@ const aliasMail: Category = {
 
 const aliasMarketing: Category = {
   name: "alias_marketing",
+  devOnly: true,
   count: 6,
   make(rng) {
     const [brand, domain] = pick(rng, [
@@ -1221,6 +1231,7 @@ const aliasMarketing: Category = {
 
 const bounceHeadersOnly: Category = {
   name: "bounce_headers_only",
+  devOnly: true,
   count: 10,
   make(rng, index) {
     const request = requestFor(index, ["spokeo", "whitepages", "beenverified", "radaris"]);
@@ -1272,6 +1283,11 @@ const CATEGORIES: readonly Category[] = [
   bounceHeadersOnly,
 ];
 
+/** The categories kept out of the frozen held-out set. */
+export const DEV_ONLY_CATEGORIES: readonly string[] = CATEGORIES.filter(
+  (category) => category.devOnly,
+).map((category) => category.name);
+
 interface Built {
   draft: Draft;
   raw: string;
@@ -1284,7 +1300,7 @@ export async function generateCorpus(root = FIXTURES): Promise<{ dev: number; he
     const rng = seeded(1000 + position);
     for (let index = 0; index < category.count; index += 1) {
       const draft = category.make(rng, index);
-      const set = goesToDev(index) ? "dev" : "held-out";
+      const set = category.devOnly || goesToDev(index) ? "dev" : "held-out";
       sets[set].push({ draft, raw: await sign(serialize(draft), draft) });
     }
   }

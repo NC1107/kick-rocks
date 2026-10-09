@@ -86,6 +86,15 @@ describe("the notice about removed mail", () => {
 
 describe("the reply address", () => {
   const mailbox = () => ctx.mail.mailbox("jordan@example.com");
+  const NEUTRAL_ALIAS = /^jordan\+p[0-9a-f]{6}@example\.com$/;
+
+  it("never carries the name of the tool, and stays the same when turned on again", async () => {
+    await enableReplyAlias(ctx.services, row() as never, { attempts: 1, delayMs: 0 });
+    const first = row()?.replyAlias;
+    expect(first).not.toMatch(/kick|rocks/i);
+    await enableReplyAlias(ctx.services, row() as never, { attempts: 1, delayMs: 0 });
+    expect(row()?.replyAlias).toBe(first);
+  });
 
   it("counts only after a test mail sent to it is found in the mailbox", async () => {
     const result = await ctx.call(API_ROUTES.mailboxAliasEnable, { params: { id: profileId } });
@@ -94,11 +103,11 @@ describe("the reply address", () => {
       body: {
         verified: true,
         problem: null,
-        mailbox: { replyAlias: "jordan+kickrocks@example.com", replyAliasVerified: true },
+        mailbox: { replyAlias: expect.stringMatching(NEUTRAL_ALIAS), replyAliasVerified: true },
       },
     });
     expect(ctx.mail.sent.at(-1)?.mail).toMatchObject({
-      to: "jordan+kickrocks@example.com",
+      to: row()?.replyAlias,
       from: { address: "jordan@example.com" },
     });
     expect(row()?.replyAliasVerifiedAt).not.toBeNull();
@@ -113,7 +122,7 @@ describe("the reply address", () => {
     expect(result.verified).toBe(false);
     expect(result.problem).toMatch(/did not arrive/);
     expect(result.mailbox).toMatchObject({
-      replyAlias: "jordan+kickrocks@example.com",
+      replyAlias: expect.stringMatching(NEUTRAL_ALIAS),
       replyAliasVerified: false,
     });
     expect(row()?.replyAliasVerifiedAt).toBeNull();
