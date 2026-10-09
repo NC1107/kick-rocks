@@ -13,7 +13,11 @@ import {
 import { JsonlProcess } from "./jsonl-process.js";
 import { deviceLabel, pythonScript, venvPython } from "./python.js";
 
-export const DEFAULT_NLI_MODEL = "MoritzLaurer/deberta-v3-large-zeroshot-v2.0";
+/** The large model on the GPU, and the base one on the CPU, where the large one needs seconds per reply. */
+export const DEFAULT_NLI_MODELS = {
+  cuda: "MoritzLaurer/deberta-v3-large-zeroshot-v2.0",
+  cpu: "MoritzLaurer/deberta-v3-base-zeroshot-v2.0",
+} as const;
 const NEED_MIB = 3000;
 
 /** One claim per class, each phrased so the email can entail it. */
@@ -54,7 +58,7 @@ export interface NliOptions {
 
 /** (d) A zero-shot natural language inference model: each class is a hypothesis the email may entail. */
 export function nliCandidate(options: NliOptions): Candidate {
-  const name = options.model ?? process.env.REPLY_NLI_MODEL ?? DEFAULT_NLI_MODEL;
+  const name = options.model ?? process.env.REPLY_NLI_MODEL ?? DEFAULT_NLI_MODELS[options.device];
   let child: JsonlProcess | null = null;
   const hypotheses = LABELS.map((label) => HYPOTHESES[label]);
   const model: ReplyModel = {
