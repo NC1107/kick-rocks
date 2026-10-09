@@ -20,6 +20,7 @@ export const PROVIDER_PRESETS: readonly ProviderPreset[] = [
     notes:
       "Turn on 2-Step Verification, then create an app password. Gmail allows about 500 messages a day. IMAP is always on.",
     defaultDailyCap: 100,
+    plusAddressing: true,
     ...SUPPORTED,
   },
   {
@@ -34,6 +35,7 @@ export const PROVIDER_PRESETS: readonly ProviderPreset[] = [
     notes:
       "Your administrator must allow app passwords and IMAP for your account. Workspace allows about 2,000 messages a day.",
     defaultDailyCap: 150,
+    plusAddressing: true,
     ...SUPPORTED,
   },
   {
@@ -48,6 +50,7 @@ export const PROVIDER_PRESETS: readonly ProviderPreset[] = [
     notes:
       "Create an app password with access to mail (IMAP, POP, and SMTP). Basic plans cannot use IMAP or SMTP.",
     defaultDailyCap: 150,
+    plusAddressing: true,
     ...SUPPORTED,
   },
   {
@@ -62,6 +65,7 @@ export const PROVIDER_PRESETS: readonly ProviderPreset[] = [
     notes:
       "Create an app-specific password under Sign-In and Security. Use your full iCloud address as the username.",
     defaultDailyCap: 100,
+    plusAddressing: true,
     ...SUPPORTED,
   },
   {
@@ -75,6 +79,7 @@ export const PROVIDER_PRESETS: readonly ProviderPreset[] = [
     appPasswordUrl: "https://login.yahoo.com/account/security/app-passwords",
     notes: "Generate an app password for a custom app. Yahoo does not publish its sending limit.",
     defaultDailyCap: 80,
+    plusAddressing: false,
     ...SUPPORTED,
   },
   {
@@ -89,6 +94,7 @@ export const PROVIDER_PRESETS: readonly ProviderPreset[] = [
     notes:
       "Bridge must be running and reachable from this server. Use the username and password Bridge shows, not your Proton login. Bridge uses a self-signed certificate, which is accepted only for a local address. Bridge needs a paid Proton plan.",
     defaultDailyCap: 100,
+    plusAddressing: true,
     ...SUPPORTED,
   },
   {
@@ -103,6 +109,7 @@ export const PROVIDER_PRESETS: readonly ProviderPreset[] = [
     notes:
       "Sign in, open All settings, then Security, then Email app-passwords, and create one. A new account cannot send to outside addresses until its first payment arrives.",
     defaultDailyCap: 100,
+    plusAddressing: false,
     ...SUPPORTED,
   },
   {
@@ -117,6 +124,7 @@ export const PROVIDER_PRESETS: readonly ProviderPreset[] = [
     notes:
       "Enable IMAP access in Zoho Mail settings and create an application-specific password. Paid organization accounts on your own domain use imappro.zoho.com and smtppro.zoho.com, and accounts in other regions use their own hosts, such as smtp.zoho.eu, so pick Other provider for those.",
     defaultDailyCap: 100,
+    plusAddressing: false,
     ...SUPPORTED,
   },
   {
@@ -131,6 +139,7 @@ export const PROVIDER_PRESETS: readonly ProviderPreset[] = [
     notes:
       "Enter your provider's SMTP and IMAP hosts, which its help pages list. SMTP port 465 uses TLS from the start and port 587 upgrades with STARTTLS. IMAP port 993 uses TLS from the start.",
     defaultDailyCap: 50,
+    plusAddressing: false,
     ...SUPPORTED,
   },
   {
@@ -144,6 +153,7 @@ export const PROVIDER_PRESETS: readonly ProviderPreset[] = [
     appPasswordUrl: null,
     notes: "",
     defaultDailyCap: 50,
+    plusAddressing: true,
     supported: false,
     unsupportedReason:
       "Outlook.com, Hotmail, and Live accept IMAP and SMTP sign-in only through OAuth, which is not supported yet. Use another mailbox for now.",

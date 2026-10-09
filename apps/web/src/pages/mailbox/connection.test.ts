@@ -28,6 +28,7 @@ const GMAIL: ProviderPreset = {
   defaultDailyCap: 100,
   supported: true,
   unsupportedReason: null,
+  plusAddressing: true,
 };
 
 const BRIDGE: ProviderPreset = {
@@ -84,6 +85,12 @@ describe("presets and addresses", () => {
       lastPolledAt: null,
       lastError: null,
       sendPausedUntil: null,
+      companyMail: "privacy_only",
+      replyAlias: null,
+      replyAliasVerified: false,
+      lastPollScanned: 0,
+      lastPollKept: 0,
+      intakeNotice: null,
       createdAt: "2026-01-01T00:00:00.000Z",
     } satisfies Mailbox;
     const form = formFromMailbox(mailbox);

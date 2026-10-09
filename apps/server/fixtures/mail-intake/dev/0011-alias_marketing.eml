@@ -1,0 +1,30 @@
+Return-Path: <bounce-036105@bounce.brightstream.example>
+Received: from mail.brightstream.example (mail.brightstream.example [203.0.113.30]) by mx.example.com with ESMTPS id a1788aa909 for <jordan@example.com>; Sat, 26 Sep 2026 14:02:00 +0000
+From: Bright Streaming <hello@brightstream.example>
+To: jordan+kickrocks@example.com
+Subject: Your cart is waiting
+Date: Sat, 26 Sep 2026 14:02:00 +0000
+Message-ID: <4c7e506b8cd622af6ccd5bb0@brightstream.example>
+Reply-To: no-reply@brightstream.example
+List-Unsubscribe: <https://brightstream.example/unsubscribe?u=8bbf1a8d13f9eb94>, <mailto:unsubscribe-8bbf1a8d@brightstream.example>
+List-Unsubscribe-Post: List-Unsubscribe=One-Click
+Precedence: bulk
+X-Mailer: SendGrid
+MIME-Version: 1.0
+Content-Type: multipart/alternative; boundary="----=_Part_e518f6607eb0"
+
+------=_Part_e518f6607eb0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+Your cart is waiting
+
+Shop now: https://brightstream.example/offers?ref=c50cda59
+
+You are receiving this email because you have an account with Bright Streaming. To stop receiving these emails, unsubscribe: https://brightstream.example/unsubscribe
+------=_Part_e518f6607eb0
+Content-Type: text/html; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+<html><body style="font-family:Arial,sans-serif"><h2>Your cart is waiting</h2><p><a href="https://brightstream.example/offers?ref=c50cda59">Shop now</a></p><p style="font-size:11px">You are receiving this email because you have an account with Bright Streaming. To stop receiving these emails, unsubscribe: https://brightstream.example/unsubscribe</p></body></html>
+------=_Part_e518f6607eb0--

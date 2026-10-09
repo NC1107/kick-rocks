@@ -416,6 +416,24 @@ describe("the review queue", () => {
     );
   });
 
+  it("says why a message is in the queue", async () => {
+    open("mail");
+    const message = await card("Your recent message");
+    expect(
+      await message.findByText(
+        "Why it is here: It is from a company or broker you have a request with.",
+      ),
+    ).toBeVisible();
+  });
+
+  it("tells the person once what the cleanup removed, and can be dismissed from here", async () => {
+    const { user, mock } = open("mail");
+    expect(await screen.findByText(/It removed 111 messages it had saved/)).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "Dismiss" }));
+    await waitFor(() => expect(screen.queryByText(/It removed 111 messages/)).toBeNull());
+    expect(mock.store.profiles[0]?.mailbox?.intakeNotice).toBeNull();
+  });
+
   it("lets a person attach unmatched mail to a request", async () => {
     const { user, mock } = open("mail");
     const message = await card("Your recent message");

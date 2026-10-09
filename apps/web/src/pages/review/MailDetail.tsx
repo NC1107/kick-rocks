@@ -14,6 +14,7 @@ import {
   SkeletonText,
   useToast,
 } from "../../components/ui/index.js";
+import { ADMISSION_REASON } from "../../lib/admission.js";
 import { formatDateTime } from "../../lib/format.js";
 import { CLASSIFICATION_LABELS } from "../../lib/labels.js";
 import { DetailFrame } from "./DetailFrame.js";
@@ -215,6 +216,12 @@ export function MailDetail({ message, profileId }: { message: ReviewMessage; pro
         ) : null}
 
         {message.rationale ? <p className="text-ui text-ink-2">{message.rationale}</p> : null}
+
+        {message.admittedBy ? (
+          <p className="text-ui text-ink-2">
+            Why it is here: {ADMISSION_REASON[message.admittedBy]}.
+          </p>
+        ) : null}
 
         <MailText message={message} />
 

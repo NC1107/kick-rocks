@@ -1,0 +1,509 @@
+import { outgoingMessageId } from "@kickrocks/shared";
+import { describe, expect, it } from "vitest";
+import { noDkim } from "../test-utils/dkim.js";
+import {
+  bodySearchTerms,
+  type HeaderVerdict,
+  type IntakeContext,
+  type IntakeInput,
+  intakeContext,
+  type PersonSender,
+  readPlanFor,
+  triageBody,
+  triageHeaders,
+} from "./intake.js";
+import type { ClassifierRequest, InboxMessage, MessageHeaders } from "./types.js";
+
+const NOW = new Date("2026-10-08T12:00:00Z");
+const OUR_ID = outgoingMessageId("req-spokeo", "example.com");
+
+function request(overrides: Partial<ClassifierRequest> = {}): ClassifierRequest {
+  return {
+    id: "req-spokeo",
+    open: true,
+    targetKind: "broker",
+    contactAddress: "privacy@spokeo.com",
+    sentAt: "2026-10-05T12:00:00.000Z",
+    reference: "KR-7K3M9Q",
+    outgoingMessageId: OUR_ID,
+    status: "awaiting_reply",
+    channel: "email",
+    targetId: "spokeo",
+    targetName: "Spokeo",
+    targetDomain: "spokeo.com",
+    replyDomains: ["spokeo.com"],
+    curatedReplyDomains: [],
+    replyAddresses: [],
+    recordUrl: null,
+    awaitingConfirmation: null,
+    ...overrides,
+  };
+}
+
+const AMAZON = request({
+  id: "req-amazon",
+  reference: "KR-4H7TQ2",
+  outgoingMessageId: outgoingMessageId("req-amazon", "example.com"),
+  targetKind: "company",
+  targetId: "amazon",
+  targetName: "Amazon",
+  targetDomain: "amazon.com",
+  replyDomains: ["amazon.com"],
+  contactAddress: "privacy@amazon.com",
+});
+
+function context(
+  requests: ClassifierRequest[] = [request(), AMAZON],
+  extra: Partial<IntakeInput> = {},
+): IntakeContext {
+  return intakeContext({
+    requests,
+    verifiedAlias: null,
+    companyMail: "privacy_only",
+    personSenders: [],
+    now: NOW,
+    ...extra,
+  });
+}
+
+function headers(overrides: Partial<MessageHeaders> & { extra?: Record<string, string> } = {}) {
+  const { extra, ...rest } = overrides;
+  return {
+    uid: 1,
+    messageId: "<m1@elsewhere.test>",
+    inReplyTo: null,
+    references: [],
+    from: { name: null, address: "someone@elsewhere.test" },
+    recipients: ["jordan@example.com"],
+    subject: "Hello",
+    date: NOW,
+    isDeliveryReport: false,
+    headers: { ...extra },
+    ...rest,
+  } satisfies MessageHeaders;
+}
+
+function fromSender(address: string, rest: Parameters<typeof headers>[0] = {}) {
+  return headers({ from: { name: null, address }, ...rest });
+}
+
+function full(message: Partial<InboxMessage> = {}): InboxMessage {
+  return {
+    uid: 1,
+    messageId: "<m1@elsewhere.test>",
+    inReplyTo: null,
+    references: [],
+    from: { name: null, address: "someone@elsewhere.test" },
+    to: ["jordan@example.com"],
+    subject: "Hello",
+    date: NOW,
+    text: "",
+    html: null,
+    isBounce: false,
+    autoSubmitted: false,
+    headers: {},
+    originalMessageIds: [],
+    verifyDkim: noDkim,
+    ...message,
+  };
+}
+
+const verdictOf = (h: MessageHeaders, ctx = context()) => triageHeaders(h, ctx);
+const admitted = (by: string): HeaderVerdict => ({ verdict: "admit", by }) as HeaderVerdict;
+const needs = (...reasons: string[]): HeaderVerdict =>
+  ({ verdict: "needs_body", reasons }) as HeaderVerdict;
+const IGNORE: HeaderVerdict = { verdict: "ignore" };
+
+const BULK = { "list-unsubscribe": "<mailto:unsub@x.test>" };
+
+describe("R0 and R1: threads", () => {
+  it.each<[string, MessageHeaders, HeaderVerdict]>([
+    ["mail we sent ourselves", headers({ messageId: OUR_ID }), IGNORE],
+    ["a reply to our Message-ID", headers({ inReplyTo: OUR_ID }), admitted("thread")],
+    [
+      "a reply whose References hold our id",
+      headers({ references: ["<x@y.test>", OUR_ID] }),
+      admitted("thread"),
+    ],
+    [
+      "a reply to the stored id of a request",
+      headers({ inReplyTo: "<custom@host.test>" }),
+      admitted("thread"),
+    ],
+    [
+      "a reply to someone else's mail",
+      headers({ inReplyTo: "<other@elsewhere.test>" }),
+      needs("unknown"),
+    ],
+    [
+      "a reply to an id made for a request we do not have",
+      headers({ inReplyTo: outgoingMessageId("someone-else", "example.com") }),
+      needs("unknown"),
+    ],
+  ])("%s", (name, h, expected) => {
+    const ctx = context([
+      request({ outgoingMessageId: name.includes("stored") ? "<custom@host.test>" : OUR_ID }),
+      AMAZON,
+    ]);
+    expect(verdictOf(h, ctx)).toEqual(expected);
+  });
+});
+
+describe("R2: our reference in the subject", () => {
+  it.each<[string, string, HeaderVerdict]>([
+    ["the reference", "Re: Opt-out request KR-7K3M9Q", admitted("reference")],
+    ["a reference spelled with look-alike letters", "Re: kr-7k3m9q", admitted("reference")],
+    ["a reference with O, I and L for 0 and 1", "Re: KR-A0lB1C", admitted("reference")],
+    ["a KR code that is not ours", "Re: KR-ZZZZZZ", needs("unknown")],
+  ])("%s", (_name, subject, expected) => {
+    const ctx = context([request(), request({ id: "req-b", reference: "KR-A01B1C" })]);
+    expect(verdictOf(headers({ subject }), ctx)).toEqual(expected);
+  });
+
+  it("binds to a request that is already closed", () => {
+    const ctx = context([request({ open: false, status: "confirmed" })]);
+    expect(verdictOf(headers({ subject: "Re: KR-7K3M9Q" }), ctx)).toEqual(admitted("reference"));
+  });
+});
+
+describe("R3: delivery reports", () => {
+  const report = fromSender("mailer-daemon@mail.example.com", { isDeliveryReport: true });
+
+  it("is read before it is decided", () => {
+    expect(verdictOf(report)).toEqual(needs("delivery_report"));
+  });
+
+  it("admits a report whose original is only in the attached part", () => {
+    const message = full({
+      isBounce: true,
+      from: report.from,
+      originalMessageIds: [OUR_ID],
+    });
+    expect(triageBody(message, context())).toEqual({ verdict: "admit", by: "bounce" });
+  });
+
+  it("ignores a stray bounce that is about nothing of ours", () => {
+    const message = full({
+      isBounce: true,
+      from: report.from,
+      text: "Delivery to nobody@elsewhere.test failed",
+      originalMessageIds: ["<unrelated@elsewhere.test>"],
+    });
+    expect(triageBody(message, context())).toEqual({ verdict: "ignore" });
+  });
+
+  it("admits a report whose failed recipient is the contact of a recent email request", () => {
+    const message = full({
+      isBounce: true,
+      from: report.from,
+      text: "Final-Recipient: rfc822; privacy@spokeo.com\nAction: failed",
+    });
+    expect(triageBody(message, context())).toEqual({ verdict: "admit", by: "bounce" });
+  });
+
+  it("does not admit a failed recipient from a request sent long ago", () => {
+    const message = full({
+      isBounce: true,
+      from: report.from,
+      text: "Final-Recipient: rfc822; privacy@spokeo.com",
+    });
+    const old = context([request({ sentAt: "2026-08-01T00:00:00.000Z" })]);
+    expect(triageBody(message, old)).toEqual({ verdict: "ignore" });
+  });
+});
+
+describe("R4: a confirmation a form is waiting for", () => {
+  const waiting = request({
+    id: "req-intelius",
+    reference: "KR-3T9ZH7",
+    outgoingMessageId: null,
+    targetId: "intelius",
+    targetName: "Intelius",
+    targetDomain: "intelius.com",
+    replyDomains: ["intelius.com"],
+    channel: "form",
+    awaitingConfirmation: {
+      fromDomains: ["intelius.com"],
+      linkTextPattern: null,
+      since: "2026-10-07T10:00:00.000Z",
+    },
+  });
+  const ctx = context([waiting]);
+  const confirmation = fromSender("noreply@intelius.com", { extra: BULK });
+
+  it("reads mail from the expected domain even when it carries bulk headers", () => {
+    expect(verdictOf(confirmation, ctx)).toEqual(needs("awaiting"));
+  });
+
+  it("admits it when it asks to confirm and links to the broker", () => {
+    const message = full({
+      from: confirmation.from,
+      headers: BULK,
+      text: "Please confirm your opt-out request: https://intelius.com/optout/confirm?t=abc",
+    });
+    expect(triageBody(message, ctx)).toEqual({ verdict: "admit", by: "awaiting_confirmation" });
+  });
+
+  it("falls through to the sender rules when it is not a confirmation", () => {
+    const message = full({
+      from: confirmation.from,
+      headers: BULK,
+      text: "Save 20% on background reports this week.",
+    });
+    expect(triageBody(message, ctx)).toEqual({ verdict: "ignore" });
+  });
+});
+
+describe("R5: the reply alias", () => {
+  const ctx = context([request(), AMAZON], { verifiedAlias: "jordan+kickrocks@example.com" });
+
+  it.each<[string, MessageHeaders, HeaderVerdict]>([
+    ["to the alias", headers({ recipients: ["jordan+kickrocks@example.com"] }), admitted("alias")],
+    [
+      "in Delivered-To or Cc",
+      headers({ recipients: ["jordan@example.com", "jordan+kickrocks@example.com"] }),
+      admitted("alias"),
+    ],
+    [
+      "to the alias but bulk",
+      headers({ recipients: ["jordan+kickrocks@example.com"], extra: BULK }),
+      needs("alias_bulk"),
+    ],
+    ["to the plain address", headers(), needs("unknown")],
+  ])("%s", (_name, h, expected) => {
+    expect(verdictOf(h, ctx)).toEqual(expected);
+  });
+
+  it("ignores alias mail that is bulk and has no request wording", () => {
+    const message = full({
+      recipients: undefined,
+      to: ["jordan+kickrocks@example.com"],
+      headers: BULK,
+      text: "Big sale on shoes",
+    } as Partial<InboxMessage>);
+    expect(triageBody(message, ctx)).toEqual({ verdict: "ignore" });
+  });
+
+  it("admits alias mail that is bulk but is about an opt-out request", () => {
+    const message = full({
+      to: ["jordan+kickrocks@example.com"],
+      headers: BULK,
+      text: "Your opt-out request has been processed.",
+    });
+    expect(triageBody(message, ctx)).toEqual({ verdict: "admit", by: "alias" });
+  });
+
+  it("does not use an alias that was never verified", () => {
+    const unverified = context([request()], { verifiedAlias: null });
+    expect(
+      verdictOf(headers({ recipients: ["jordan+kickrocks@example.com"] }), unverified),
+    ).toEqual(needs("unknown"));
+  });
+});
+
+describe("R6 and R7: a broker the person has a request with", () => {
+  it("admits plain mail from the broker", () => {
+    expect(verdictOf(fromSender("support@spokeo.com"))).toEqual(admitted("target_sender"));
+  });
+
+  it("admits mail from a sister domain the target lists", () => {
+    const ctx = context([request({ replyDomains: ["spokeo.com", "spokeo-support.com"] })]);
+    expect(verdictOf(fromSender("help@spokeo-support.com"), ctx)).toEqual(
+      admitted("target_sender"),
+    );
+  });
+
+  it("reads broker bulk mail before deciding", () => {
+    expect(verdictOf(fromSender("deals@spokeo.com", { extra: BULK }))).toEqual(
+      needs("bulk_target"),
+    );
+  });
+
+  it("treats a marketing subdomain of the broker as bulk", () => {
+    expect(verdictOf(fromSender("hello@email.spokeo.com"))).toEqual(needs("bulk_target"));
+  });
+
+  it("ignores broker bulk unless it is about the request", () => {
+    const bulk = { from: { name: null, address: "deals@spokeo.com" }, headers: BULK };
+    expect(triageBody(full({ ...bulk, text: "Search anyone, 50% off" }), context())).toEqual({
+      verdict: "ignore",
+    });
+    expect(
+      triageBody(full({ ...bulk, text: "Your opt-out request was received." }), context()),
+    ).toEqual({ verdict: "admit", by: "target_sender" });
+  });
+
+  it("ignores the same broker when its only request is already confirmed", () => {
+    const ctx = context([request({ open: false, status: "confirmed" })]);
+    expect(verdictOf(fromSender("support@spokeo.com"), ctx)).toEqual(needs("unknown"));
+    expect(
+      readPlanFor(fromSender("support@spokeo.com"), needs("unknown") as never, ctx),
+    ).toMatchObject({
+      read: "if_found",
+    });
+  });
+
+  it("does not count Auto-Submitted against a message", () => {
+    expect(
+      verdictOf(fromSender("support@spokeo.com", { extra: { "auto-submitted": "auto-replied" } })),
+    ).toEqual(admitted("target_sender"));
+  });
+
+  it("counts a ticket desk host named for the target as the target", () => {
+    expect(verdictOf(fromSender("support@spokeo.zendesk.com"))).toEqual(admitted("target_sender"));
+    expect(verdictOf(fromSender("support@otherco.zendesk.com"))).toEqual(needs("unknown"));
+  });
+});
+
+describe("R8: a company the person has a request with", () => {
+  const orderMail = fromSender("orders@amazon.com", { subject: "Your order has shipped" });
+
+  it("reads order mail before deciding", () => {
+    expect(verdictOf(orderMail)).toEqual(needs("company"));
+  });
+
+  it("ignores order and account mail, even a link to confirm a new address", () => {
+    const message = full({
+      from: orderMail.from,
+      subject: "Confirm your new email address",
+      text: "Please confirm your email address. Verify your identity to continue.",
+    });
+    expect(triageBody(message, context())).toEqual({ verdict: "ignore" });
+  });
+
+  it("admits mail with privacy wording", () => {
+    const message = full({
+      from: orderMail.from,
+      subject: "About your data",
+      text: "We have started to delete your personal data as you asked.",
+    });
+    expect(triageBody(message, context())).toEqual({ verdict: "admit", by: "target_sender" });
+  });
+
+  it("admits mail from the exact privacy contact without reading it", () => {
+    expect(verdictOf(fromSender("privacy@amazon.com"))).toEqual(admitted("target_sender"));
+  });
+
+  it("admits mail from a privacy-style mailbox", () => {
+    expect(verdictOf(fromSender("dsar@amazon.com"))).toEqual(admitted("target_sender"));
+    expect(verdictOf(fromSender("privacy-team@amazon.com"))).toEqual(admitted("target_sender"));
+  });
+
+  it("admits everything but bulk when the person chose all company mail", () => {
+    const ctx = context([request(), AMAZON], { companyMail: "all" });
+    expect(verdictOf(orderMail, ctx)).toEqual(admitted("target_sender"));
+    expect(verdictOf(fromSender("deals@amazon.com", { extra: BULK }), ctx)).toEqual(
+      needs("bulk_target"),
+    );
+  });
+
+  it("never counts a public mail host as a company sender, except an exact reply address", () => {
+    const gmail = request({
+      id: "req-gmail",
+      targetKind: "company",
+      targetId: "someco",
+      targetName: "Someco",
+      targetDomain: "someco.com",
+      replyDomains: ["gmail.com", "someco.com"],
+      replyAddresses: ["someco.privacy@gmail.com"],
+      contactAddress: "someco.privacy@gmail.com",
+    });
+    const ctx = context([gmail]);
+    expect(verdictOf(fromSender("random.person@gmail.com"), ctx)).toEqual(needs("unknown"));
+    expect(verdictOf(fromSender("someco.privacy@gmail.com"), ctx)).toEqual(
+      admitted("target_sender"),
+    );
+  });
+});
+
+describe("R9: a stranger", () => {
+  const stranger = { from: { name: null, address: "friend@elsewhere.test" } };
+
+  it("waits for the server's search before reading anything", () => {
+    const h = fromSender("friend@elsewhere.test");
+    expect(readPlanFor(h, needs("unknown") as never, context())).toEqual({
+      read: "if_found",
+      scope: "named",
+      terms: bodySearchTerms(context()),
+    });
+  });
+
+  it("reads at once when the subject names an open target", () => {
+    const h = fromSender("friend@elsewhere.test", { subject: "About Spokeo" });
+    expect(readPlanFor(h, needs("unknown") as never, context())).toEqual({ read: "now" });
+  });
+
+  it("admits mail that names an open target with privacy wording", () => {
+    const message = full({
+      ...stranger,
+      text: "I contacted Spokeo and asked them to remove my information from their listing.",
+    });
+    expect(triageBody(message, context())).toEqual({ verdict: "admit", by: "named_target" });
+  });
+
+  it("ignores mail that names the target without that wording", () => {
+    const message = full({ ...stranger, text: "Remember to buy Spokeo gift cards for the party." });
+    expect(triageBody(message, context())).toEqual({ verdict: "ignore" });
+  });
+
+  it("ignores mail that names a target with no open request", () => {
+    const message = full({
+      ...stranger,
+      text: "Whitepages should delete my personal information.",
+    });
+    expect(triageBody(message, context())).toEqual({ verdict: "ignore" });
+  });
+
+  it("admits a body that carries our reference even when it is bulk", () => {
+    const message = full({
+      ...stranger,
+      headers: BULK,
+      text: "Receipt for case KR-7K3M9Q",
+    });
+    expect(triageBody(message, context())).toEqual({ verdict: "admit", by: "reference" });
+  });
+
+  it("ignores bulk mail from a stranger that holds no reference", () => {
+    expect(verdictOf(fromSender("news@elsewhere.test", { extra: BULK }))).toEqual(
+      needs("bulk_other"),
+    );
+    expect(
+      triageBody(full({ ...stranger, headers: BULK, text: "KR-ZZZZZZ is not ours" }), context()),
+    ).toEqual({ verdict: "ignore" });
+  });
+});
+
+describe("senders the person asked to take in", () => {
+  const people: PersonSender[] = [
+    { targetId: "spokeo", kind: "domain", value: "reports.example.org" },
+    { targetId: "amazon", kind: "address", value: "help@partner.test" },
+  ];
+  const ctx = context([request(), AMAZON], { personSenders: people });
+
+  it("admits a listed domain and a listed address", () => {
+    expect(verdictOf(fromSender("a@reports.example.org", { extra: BULK }), ctx)).toEqual(
+      admitted("target_sender"),
+    );
+    expect(verdictOf(fromSender("help@partner.test"), ctx)).toEqual(admitted("target_sender"));
+  });
+
+  it("does not admit another address on the same host", () => {
+    expect(verdictOf(fromSender("other@partner.test"), ctx)).toEqual(needs("unknown"));
+  });
+});
+
+describe("bodySearchTerms", () => {
+  it("holds the reference marker and each open target's name and domain once", () => {
+    expect(bodySearchTerms(context())).toEqual([
+      "KR-",
+      "Spokeo",
+      "spokeo.com",
+      "Amazon",
+      "amazon.com",
+    ]);
+  });
+
+  it("leaves closed requests out", () => {
+    expect(bodySearchTerms(context([request({ open: false })]))).toEqual(["KR-"]);
+  });
+});

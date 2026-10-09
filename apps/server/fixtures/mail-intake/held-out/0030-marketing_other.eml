@@ -1,36 +1,36 @@
-DKIM-Signature: v=1; a=ed25519-sha256; c=relaxed/relaxed; d=github.com;
+DKIM-Signature: v=1; a=ed25519-sha256; c=relaxed/relaxed; d=uber.com;
  h=Content-Type: MIME-Version: List-Unsubscribe: Reply-To: Message-ID:
- Date: Subject: To: From; q=dns/txt; s=kr; t=1790593260;
- bh=O255VDwEXsZ/2iggMUw0lUYbVYluNKXMJloQkFtHriU=;
- b=+qe5nZW6GqemijOs+j3UFmFRm42OM38gve1eYWKAsnftc0L40YNdo/HqXSkTGLsjA8o7PCwyD
- m8Ge3K90GFPCQ==
-Return-Path: <bounce-555870@bounce.github.com>
-Received: from mail.github.com (mail.github.com [203.0.113.20]) by mx.example.com with ESMTPS id 8f0b392fa7 for <jordan@example.com>; Mon, 28 Sep 2026 11:01:00 +0000
-From: GitHub <noreply@github.com>
+ Date: Subject: To: From; q=dns/txt; s=kr; t=1790582580;
+ bh=nOas+P3Q/qBJGZMWGywlfZ/xdY5f/bxczduEhsUBLv8=;
+ b=KlwYSIAlchAB+QbV1pqKJ7YaAJDW0l9+IJnk2xW58nJy/GmRDMzr1F9UJKmXA925eJpa7iOY4
+ pOgijKz9v8gCQ==
+Return-Path: <bounce-988080@bounce.uber.com>
+Received: from mail.uber.com (mail.uber.com [203.0.113.18]) by mx.example.com with ESMTPS id 08be646bd3 for <jordan@example.com>; Mon, 28 Sep 2026 08:03:00 +0000
+From: Uber <uber@uber.com>
 To: jordan@example.com
-Subject: Your GitHub security digest
-Date: Mon, 28 Sep 2026 11:01:00 +0000
-Message-ID: <93d96490c7c2a583448aad60@github.com>
-Reply-To: no-reply@github.com
-List-Unsubscribe: <https://github.com/unsubscribe?u=f9dfe3d6f3afead4>, <mailto:unsubscribe-f9dfe3d6@github.com>
+Subject: Try Uber Eats today
+Date: Mon, 28 Sep 2026 08:03:00 +0000
+Message-ID: <b3375226dc200d2d675f0007@uber.com>
+Reply-To: no-reply@uber.com
+List-Unsubscribe: <https://uber.com/unsubscribe?u=993f056d6bbef00b>, <mailto:unsubscribe-993f056d@uber.com>
 List-Unsubscribe-Post: List-Unsubscribe=One-Click
 Precedence: bulk
-X-Mailer: SendGrid
+X-Mailer: Salesforce Marketing Cloud
 MIME-Version: 1.0
-Content-Type: multipart/alternative; boundary="----=_Part_9484a7b65097"
+Content-Type: multipart/alternative; boundary="----=_Part_d7233eae0a9a"
 
-------=_Part_9484a7b65097
+------=_Part_d7233eae0a9a
 Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
 
-Your GitHub security digest
+Try Uber Eats today
 
-Shop now: https://github.com/offers?ref=f2035a56
+Shop now: https://uber.com/offers?ref=8a49dbe1
 
-You are receiving this email because you have an account with GitHub. To stop receiving these emails, unsubscribe: https://github.com/unsubscribe
-------=_Part_9484a7b65097
+You are receiving this email because you have an account with Uber. To stop receiving these emails, unsubscribe: https://uber.com/unsubscribe
+------=_Part_d7233eae0a9a
 Content-Type: text/html; charset=utf-8
 Content-Transfer-Encoding: 7bit
 
-<html><body style="font-family:Arial,sans-serif"><h2>Your GitHub security digest</h2><p><a href="https://github.com/offers?ref=f2035a56">Shop now</a></p><p style="font-size:11px">You are receiving this email because you have an account with GitHub. To stop receiving these emails, unsubscribe: https://github.com/unsubscribe</p></body></html>
-------=_Part_9484a7b65097--
+<html><body style="font-family:Arial,sans-serif"><h2>Try Uber Eats today</h2><p><a href="https://uber.com/offers?ref=8a49dbe1">Shop now</a></p><p style="font-size:11px">You are receiving this email because you have an account with Uber. To stop receiving these emails, unsubscribe: https://uber.com/unsubscribe</p></body></html>
+------=_Part_d7233eae0a9a--

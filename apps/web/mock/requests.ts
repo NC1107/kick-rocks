@@ -288,6 +288,7 @@ export function buildRequest(store: MockStore, input: NewRequest): StoredRequest
       requestedFields: reply.classification === "verification_required" ? ["date_of_birth"] : [],
       snippet: reply.text,
       reviewed: true,
+      admittedBy: "reference",
       requestReference: reference,
       targetName: target.name,
     };

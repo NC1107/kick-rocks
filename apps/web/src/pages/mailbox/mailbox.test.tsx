@@ -444,3 +444,118 @@ describe("loading and failing", () => {
     expect(screen.getByRole("button", { name: "Try again" })).toBeInTheDocument();
   });
 });
+
+describe("what Kick Rocks takes in", () => {
+  it("lists the rules, says what happens to everything else, and reports the last check", async () => {
+    open("jordan");
+    expect(
+      await screen.findByRole("heading", { name: "What Kick Rocks takes in", level: 2 }),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/Replies to the mail Kick Rocks sent/)).toBeInTheDocument();
+    expect(
+      screen.getByText("Everything else stays in your mailbox and nothing about it is saved."),
+    ).toBeInTheDocument();
+    expect(screen.getByTestId("last-check")).toHaveTextContent(
+      "Last check looked at 143 new messages and kept 4.",
+    );
+  });
+
+  it("tells the person once what the cleanup removed, and stays gone after dismissing it", async () => {
+    const mock = createMockApp();
+    const { user, profile } = open("jordan", mock);
+    const notice = await screen.findByText(/It removed 111 messages it had saved/);
+    expect(notice).toHaveTextContent("Kick Rocks only deleted its own copy");
+    expect(screen.getByRole("link", { name: "See what Kick Rocks takes in" })).toHaveAttribute(
+      "href",
+      `/profiles/${profile.id}/mailbox#intake`,
+    );
+    await user.click(screen.getByRole("button", { name: "Dismiss" }));
+    await waitFor(() => expect(screen.queryByText(/It removed 111 messages/)).toBeNull());
+    expect(mock.store.profiles[0]?.mailbox?.intakeNotice).toBeNull();
+  });
+
+  it("switches company mail between privacy-only and everything but ads", async () => {
+    const mock = createMockApp();
+    const { user } = open("jordan", mock);
+    const privacy = await screen.findByRole("radio", { name: /Only mail about privacy requests/ });
+    expect(privacy).toBeChecked();
+    await user.click(screen.getByRole("radio", { name: /Everything except newsletters and ads/ }));
+    await waitFor(() => expect(mock.store.profiles[0]?.mailbox?.companyMail).toBe("all"));
+    expect(
+      screen.getByRole("radio", { name: /Everything except newsletters and ads/ }),
+    ).toBeChecked();
+  });
+
+  it("turns on the reply address only after the test mail arrived", async () => {
+    const mock = createMockApp();
+    const { user } = open("jordan", mock);
+    await user.click(await screen.findByRole("checkbox", { name: /reply to a separate address/ }));
+    expect(
+      await screen.findByText(
+        /The test mail arrived, so replies to this address reach the mailbox/,
+      ),
+    ).toBeInTheDocument();
+    expect(mock.store.profiles[0]?.mailbox).toMatchObject({
+      replyAlias: "jordan+kickrocks@example.com",
+      replyAliasVerified: true,
+    });
+    await user.click(screen.getByRole("checkbox", { name: /reply to a separate address/ }));
+    await waitFor(() => expect(mock.store.profiles[0]?.mailbox?.replyAlias).toBeNull());
+  });
+
+  it("says so, and offers another test, when the test mail did not arrive", async () => {
+    const mock = createMockApp();
+    const mailbox = mock.store.profiles[0]?.mailbox;
+    if (mailbox) mailbox.address = "dropped@example.com";
+    const { user } = open("jordan", mock);
+    await user.click(await screen.findByRole("checkbox", { name: /reply to a separate address/ }));
+    expect(await screen.findByText("The address is not in use yet")).toBeInTheDocument();
+    expect(screen.getByText(/did not arrive in this mailbox/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Send a test" })).toBeInTheDocument();
+  });
+
+  it("adds and removes a sender to always take in", async () => {
+    const mock = createMockApp();
+    const { user } = open("jordan", mock);
+    expect(await screen.findByText("No senders added.")).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByLabelText("Company or broker")).not.toBeDisabled());
+    await user.type(screen.getByLabelText("Domain or address"), "Reports.Example.org");
+    await user.click(screen.getByRole("button", { name: "Add sender" }));
+    expect(await screen.findByText("reports.example.org")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Remove reports.example.org" }));
+    await waitFor(() => expect(screen.queryByText("reports.example.org")).toBeNull());
+    expect(screen.getByText("No senders added.")).toBeInTheDocument();
+  });
+
+  it("finds a missing reply, takes it in, and offers to always take in mail from that sender", async () => {
+    const mock = createMockApp();
+    const { user } = open("jordan", mock);
+    await user.type(
+      await screen.findByLabelText("Sender, domain or reference"),
+      "datasafe-support.net",
+    );
+    await user.click(screen.getByRole("button", { name: "Search mailbox" }));
+
+    expect(await screen.findByText("Your privacy request")).toBeInTheDocument();
+    expect(screen.getByText("Weekly product news")).toBeInTheDocument();
+    expect(screen.getAllByText("Kick Rocks would leave it in your mailbox.")).toHaveLength(2);
+
+    await user.click(screen.getByRole("button", { name: "Take in Your privacy request" }));
+    expect(await screen.findByText("Taken in")).toBeInTheDocument();
+    const always = await screen.findByRole("button", {
+      name: /Always take in mail from datasafe-support\.net for /,
+    });
+    await waitFor(() => expect(always).toBeEnabled());
+    await user.click(always);
+    expect(
+      await screen.findByText(/Mail from datasafe-support\.net will be taken in for/),
+    ).toBeInTheDocument();
+  });
+
+  it("says when nothing matched", async () => {
+    const { user } = open("jordan");
+    await user.type(await screen.findByLabelText("Sender, domain or reference"), "nobody.test");
+    await user.click(screen.getByRole("button", { name: "Search mailbox" }));
+    expect(await screen.findByText("No messages matched in that period.")).toBeInTheDocument();
+  });
+});

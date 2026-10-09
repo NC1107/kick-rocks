@@ -235,9 +235,17 @@ function checkVariant(identities: readonly Identity[], variant: ScanVariant | nu
  * polls, so a form must never be given some other address from the profile, or the request would
  * wait forever for a reply no one reads.
  */
-function mailboxAddress(services: ClaimServices, request: RequestRecord): string {
+function mailboxAddress(
+  services: ClaimServices,
+  request: RequestRecord,
+  acceptsAlias = false,
+): string {
   const row = services.db
-    .select({ address: mailboxes.address })
+    .select({
+      address: mailboxes.address,
+      alias: mailboxes.replyAlias,
+      aliasVerifiedAt: mailboxes.replyAliasVerifiedAt,
+    })
     .from(mailboxes)
     .where(
       request.mailboxId
@@ -251,7 +259,9 @@ function mailboxAddress(services: ClaimServices, request: RequestRecord): string
       "The request has no mailbox to receive the confirmation email",
     );
   }
-  return row.address;
+  // The alias keeps a broker's marketing apart from the person's own mail, but only a form that
+  // does not use the address to identify the person may be given it.
+  return acceptsAlias && row.alias && row.aliasVerifiedAt ? row.alias : row.address;
 }
 
 function withMailboxEmail(
@@ -259,9 +269,10 @@ function withMailboxEmail(
   declared: boolean,
   services: ClaimServices,
   request: RequestRecord,
+  acceptsAlias = false,
 ): ProfileFields {
   if (!declared) return fields;
-  return { ...fields, email: mailboxAddress(services, request) };
+  return { ...fields, email: mailboxAddress(services, request, acceptsAlias) };
 }
 
 /** A removal runs only for a request that is still queued, as it was when the task was made. */
@@ -383,6 +394,7 @@ export function buildClaimedTask(
           recipe?.fields.includes("email") ?? false,
           services,
           request,
+          recipe?.acceptsAlias ?? false,
         ),
         instructions: recipeInstructions(task, target.name, recipe),
       };

@@ -14,6 +14,7 @@ import {
   LIVE_TASK_STATUSES,
   MatchDecision,
   type MatchFields,
+  MessageAdmission,
   type ProfileField,
   PushbackKind,
   type Recipe,
@@ -107,9 +108,44 @@ export const mailboxes = sqliteTable(
     lastPollUid: integer("last_poll_uid"),
     lastPolledAt: timestamp("last_polled_at"),
     lastError: text("last_error"),
+    /** Whether mail from a company the person has a request with is taken in only when it is about privacy. */
+    companyMail: text("company_mail", { enum: ["privacy_only", "all"] })
+      .notNull()
+      .default("privacy_only"),
+    /** The plus address replies may be sent to, once the person opted in. */
+    replyAlias: text("reply_alias"),
+    /** Set only after a test mail sent to the alias was found in this mailbox. */
+    replyAliasVerifiedAt: timestamp("reply_alias_verified_at"),
+    lastPollScanned: integer("last_poll_scanned").notNull().default(0),
+    lastPollKept: integer("last_poll_kept").notNull().default(0),
+    /** `pending` until the first poll after the intake gate removed what it would now have ignored. */
+    intakeCleanup: text("intake_cleanup", { enum: ["pending", "done"] })
+      .notNull()
+      .default("done"),
+    intakeCleanupRemoved: integer("intake_cleanup_removed"),
+    intakeCleanupAt: timestamp("intake_cleanup_at"),
+    intakeNoticeSeenAt: timestamp("intake_notice_seen_at"),
     createdAt: timestamp("created_at").notNull(),
   },
   (t) => [uniqueIndex("mailboxes_profile_idx").on(t.profileId)],
+);
+
+/** Senders the person asked Kick Rocks to always take in, for one target. */
+export const intakeSenders = sqliteTable(
+  "intake_senders",
+  {
+    id: id(),
+    mailboxId: text("mailbox_id")
+      .notNull()
+      .references(() => mailboxes.id, { onDelete: "cascade" }),
+    targetId: text("target_id")
+      .notNull()
+      .references(() => targets.id),
+    kind: text("kind", { enum: ["domain", "address"] }).notNull(),
+    value: text("value").notNull(),
+    createdAt: timestamp("created_at").notNull(),
+  },
+  (t) => [uniqueIndex("intake_senders_value_idx").on(t.mailboxId, t.value)],
 );
 
 export const targets = sqliteTable(
@@ -291,6 +327,8 @@ export const messages = sqliteTable(
     text: text("text"),
     /** A person looked at it, or it needed no look. Unreviewed low-confidence mail fills the review queue. */
     reviewed: integer("reviewed", { mode: "boolean" }).notNull().default(false),
+    /** Why the intake gate took the message in. Null for mail stored before the gate existed. */
+    admittedBy: text("admitted_by", { enum: values(MessageAdmission.options) }),
     createdAt: timestamp("created_at").notNull(),
   },
   (t) => [

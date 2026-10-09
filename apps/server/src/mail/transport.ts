@@ -23,6 +23,7 @@ const OutgoingMailSchema = z.object({
     .regex(/^<[^<>\s]+>$/)
     .optional(),
   references: z.array(z.string().regex(/^<[^<>\s]+>$/)).optional(),
+  replyTo: z.email().optional(),
 });
 
 /** A send that cannot succeed however often it is retried, because the mail itself is malformed. */
@@ -187,7 +188,7 @@ export function createMailTransport(
           `The outgoing mail is invalid: ${issue?.path.join(".") ?? "mail"} ${issue?.message ?? ""}`.trim(),
         );
       }
-      const { from, to, subject, text, messageId, inReplyTo, references } = parsed.data;
+      const { from, to, subject, text, messageId, inReplyTo, references, replyTo } = parsed.data;
 
       const transporter = createTransport(transportOptions(connection, options));
       try {
@@ -201,6 +202,7 @@ export function createMailTransport(
           messageId,
           ...(inReplyTo ? { inReplyTo } : {}),
           ...(references?.length ? { references } : {}),
+          ...(replyTo ? { replyTo } : {}),
         });
         const accepted = addressList(info.accepted);
         const rejected = addressList(info.rejected);

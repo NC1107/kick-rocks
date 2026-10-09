@@ -137,4 +137,84 @@ describe("parseInboxMessage", () => {
     const message = await parse(["From: a@acme.test", "Subject: Big", "", "a".repeat(500_000)]);
     expect(message.text.length).toBeLessThanOrEqual(200_000);
   });
+
+  describe("the originals a report attaches", () => {
+    const OUR = "<kr.req-1.0@example.com>";
+    const report = (partType: string, original: string[]) => [
+      "From: Mail Delivery Subsystem <mailer-daemon@mx.example.net>",
+      "To: jordan@example.com",
+      "Subject: Delivery Status Notification (Delay)",
+      "Message-ID: <report-1@mx.example.net>",
+      'Content-Type: multipart/report; report-type=delivery-status; boundary="b1"',
+      "",
+      "--b1",
+      "Content-Type: text/plain",
+      "",
+      "Delivery is delayed.",
+      "--b1",
+      `Content-Type: ${partType}`,
+      "",
+      ...original,
+      "--b1--",
+      "",
+    ];
+
+    it("reads the ids from an attached message/rfc822", async () => {
+      const message = await parse(
+        report("message/rfc822", [
+          "From: jordan@example.com",
+          `Message-ID: ${OUR}`,
+          "In-Reply-To: <earlier@broker.test>",
+          "References: <a@broker.test>",
+          " <b@broker.test>",
+          "Subject: Opt-out",
+          "",
+          "Please remove me.",
+        ]),
+      );
+      expect(message.originalMessageIds).toEqual([
+        OUR,
+        "<earlier@broker.test>",
+        "<a@broker.test>",
+        "<b@broker.test>",
+      ]);
+    });
+
+    it("reads the ids from attached text/rfc822-headers", async () => {
+      const message = await parse(
+        report("text/rfc822-headers", ["From: jordan@example.com", `Message-ID: ${OUR}`]),
+      );
+      expect(message.originalMessageIds).toEqual([OUR]);
+    });
+
+    it("leaves a body line that looks like a header alone", async () => {
+      const message = await parse(
+        report("message/rfc822", [
+          "From: jordan@example.com",
+          "Subject: Opt-out",
+          "",
+          "Message-ID: <in-the-body@example.com>",
+        ]),
+      );
+      expect(message.originalMessageIds).toEqual([]);
+    });
+
+    it("keeps no more ids than the cap and reads no further than the size cap", async () => {
+      const many = Array.from({ length: 40 }, (_, index) => `<id-${index}@broker.test>`);
+      const crowded = await parse(
+        report("message/rfc822", ["From: a@b.test", `References: ${many.join(" ")}`, "", "x"]),
+      );
+      expect(crowded.originalMessageIds).toHaveLength(20);
+
+      const padded = await parse(
+        report("text/rfc822-headers", [`X-Padding: ${"a".repeat(70_000)}`, `Message-ID: ${OUR}`]),
+      );
+      expect(padded.originalMessageIds).toEqual([]);
+    });
+
+    it("is empty for an ordinary message", async () => {
+      const message = await parse(["From: a@acme.test", "Subject: Hi", "", "Body"]);
+      expect(message.originalMessageIds).toEqual([]);
+    });
+  });
 });

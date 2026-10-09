@@ -40,6 +40,7 @@ import {
   FIXTURE_DKIM_SELECTOR,
   fixtureDkimKey,
   MAILBOX_ADDRESS,
+  MAILBOX_ALIAS,
   PERSON_NAME,
   type RequestKey,
   requestOf,
@@ -75,6 +76,8 @@ interface Draft {
   contentType?: string;
   messageId: string;
   signAs?: string;
+  /** Who the mail is addressed to; the mailbox itself unless set. */
+  to?: string;
 }
 
 interface Category {
@@ -106,7 +109,7 @@ function serialize(draft: Draft): string {
     `Received: from mail.${fromDomain} (mail.${fromDomain} [203.0.113.${(fromDomain.length % 200) + 10}]) by mx.example.com with ESMTPS id ${hex(seeded(draft.messageId.length), 10)} for <${MAILBOX_ADDRESS}>; ${rfcDate(draft.date)}`,
   );
   lines.push(`From: ${address(draft.from.name, draft.from.address)}`);
-  lines.push(`To: ${MAILBOX_ADDRESS}`);
+  lines.push(`To: ${draft.to ?? MAILBOX_ADDRESS}`);
   lines.push(`Subject: ${draft.subject}`);
   lines.push(`Date: ${rfcDate(draft.date)}`);
   lines.push(`Message-ID: ${draft.messageId}`);
@@ -1025,6 +1028,7 @@ function bounceDraft(
   originalMessageId: string,
   originalHeader: string,
   delay = false,
+  originalAs: "message/rfc822" | "text/rfc822-headers" = "message/rfc822",
 ): Draft {
   const reason = pick(rng, BOUNCE_REASONS);
   const draft = base(
@@ -1044,9 +1048,9 @@ function bounceDraft(
       body: `Reporting-MTA: dns; googlemail.com\r\nFinal-Recipient: rfc822; ${failedRecipient}\r\nAction: ${delay ? "delayed" : "failed"}\r\nStatus: ${delay ? "4.4.1" : "5.1.1"}\r\nDiagnostic-Code: smtp; ${reason}`,
     },
     {
-      type: "message/rfc822",
+      type: originalAs,
       extra: "",
-      body: `Message-ID: ${originalMessageId}\r\nFrom: ${MAILBOX_ADDRESS}\r\nTo: ${failedRecipient}\r\n${originalHeader}\r\nDate: Mon, 21 Sep 2026 14:05:00 +0000\r\n\r\n(original message body omitted)`,
+      body: `Message-ID: ${originalMessageId}\r\nFrom: ${MAILBOX_ADDRESS}\r\nTo: ${failedRecipient}\r\n${originalHeader}\r\nDate: Mon, 21 Sep 2026 14:05:00 +0000${originalAs === "message/rfc822" ? "\r\n\r\n(original message body omitted)" : ""}`,
     },
   ];
   draft.contentType = "multipart/report; report-type=delivery-status";
@@ -1057,6 +1061,187 @@ function bounceDraft(
   ];
   return draft;
 }
+
+// ---- categories added after the first measurements ----------------------------------------
+
+const espConfirmation: Category = {
+  name: "esp_confirmation",
+  count: 10,
+  make(rng, index) {
+    const request = requestOf("intelius");
+    const target = targetOf(request.targetId);
+    const link = `https://${target.domain}/optout/confirm?token=${hex(rng, 28)}`;
+    const draft = base(
+      rng,
+      { name: target.name, address: `noreply@${target.domain}` },
+      pick(rng, [
+        "Confirm your opt-out request",
+        "One more step to finish your removal",
+        "Please verify your email to complete your opt-out",
+      ]),
+      `Hello,\n\nTo complete your removal from ${target.name}, please confirm your email address by clicking the link below.\n\n${link}\n\nIf you did not make this request, ignore this message.`,
+    );
+    draft.category = "esp_confirmation";
+    draft.outcome = index < 8 ? "auto" : "review";
+    draft.request = request.key;
+    draft.classification = "confirmation_link";
+    draft.date = new Date(Math.max(draft.date.getTime(), Date.parse(request.sentAt) + 600_000));
+    draft.parts = [
+      plain(draft.parts[0]?.body ?? ""),
+      html(
+        `<p>Please confirm your email address.</p><p><a href="${link}">Confirm my request</a></p>`,
+      ),
+    ];
+    draft.headers = bulkHeaders(rng, target.domain);
+    if (index < 8) draft.signAs = target.domain;
+    return draft;
+  },
+};
+
+const COMPANY_REPLIES: ReadonlyArray<readonly [ReplyKind, string]> = [
+  [
+    "auto_ack",
+    "We have received your request to delete your personal data. Your case number is {ticket}. We will respond within 30 days.",
+  ],
+  [
+    "auto_ack",
+    "Thank you for your data deletion request. Our privacy team will review it and write again within 30 days. Case {ticket}.",
+  ],
+  [
+    "auto_ack",
+    "Your data request has been logged under case {ticket}. We will contact you if we need anything else.",
+  ],
+  [
+    "completed",
+    "We have completed your request. The personal data associated with {email} has been deleted from our systems.",
+  ],
+  [
+    "completed",
+    "Your data deletion request is complete. Your personal information has been erased, except what the law requires us to keep.",
+  ],
+];
+const companyPrivacyReply: Category = {
+  name: "company_privacy_reply",
+  count: 10,
+  make(rng, index) {
+    const [kind, body] = COMPANY_REPLIES[index % COMPANY_REPLIES.length] as readonly [
+      ReplyKind,
+      string,
+    ];
+    const request = requestOf(index % 2 === 0 ? "amazon" : "netflix");
+    const target = targetOf(request.targetId);
+    const draft = replyDraft(rng, "company_privacy_reply", kind, request, {
+      quote: false,
+      threaded: false,
+      subject: "plain",
+      signed: false,
+      from: { name: `${target.name} Privacy`, address: `no-reply@${target.domain}` },
+      outcome: kind === "auto_ack" ? "auto" : "review",
+    });
+    draft.parts = [
+      plain(
+        `${pick(rng, FIRST_LINE_GREETINGS)}\n\n${fill(body, { ticket: `#${digits(rng, 6)}`, email: MAILBOX_ADDRESS })}\n\n${target.name} Privacy Team`,
+      ),
+    ];
+    return draft;
+  },
+};
+
+const BROKER_ACCOUNT_SUBJECTS = [
+  "Your account settings were updated",
+  "Welcome back to your account",
+  "A new sign-in to your account",
+  "Your saved searches",
+];
+const brokerAccountMail: Category = {
+  name: "broker_account_mail",
+  count: 10,
+  make(rng, index) {
+    const request = requestFor(index, ["spokeo", "whitepages", "beenverified", "radaris"]);
+    const target = targetOf(request.targetId);
+    const draft = base(
+      rng,
+      { name: target.name, address: `account@${target.domain}` },
+      pick(rng, BROKER_ACCOUNT_SUBJECTS),
+      `Hello ${PERSON_NAME.split(" ")[0]},\n\nSomething changed on your ${target.name} account. If this was you, no action is needed.\n\nThe ${target.name} team`,
+    );
+    draft.category = "broker_account_mail";
+    draft.outcome = "review";
+    draft.request = request.key;
+    draft.classification = "unknown";
+    draft.date = new Date(Math.max(draft.date.getTime(), Date.parse(request.sentAt) + 3600_000));
+    return draft;
+  },
+};
+
+const aliasMail: Category = {
+  name: "alias_mail",
+  count: 10,
+  make(rng, index) {
+    const request = requestFor(index, ["spokeo", "whitepages", "beenverified", "radaris"]);
+    const outsourced = pick(rng, [
+      "datasafe-support.net",
+      "privacyops.example",
+      "optout-desk.example",
+    ]);
+    const draft = base(
+      rng,
+      { name: "Privacy Operations", address: `team@${outsourced}` },
+      pick(rng, ["Your privacy request", "Request update", "Regarding your request"]),
+      `Hello,\n\nYour privacy request has been completed and your information has been removed. No further action is needed.\n\nPrivacy Operations`,
+    );
+    draft.category = "alias_mail";
+    draft.outcome = "review";
+    draft.request = request.key;
+    draft.classification = "completed";
+    draft.to = MAILBOX_ALIAS;
+    draft.date = new Date(Math.max(draft.date.getTime(), Date.parse(request.sentAt) + 3600_000));
+    return draft;
+  },
+};
+
+const aliasMarketing: Category = {
+  name: "alias_marketing",
+  count: 6,
+  make(rng) {
+    const [brand, domain] = pick(rng, [
+      ["Sunny Travel", "sunnytravel.example"],
+      ["Northwind Outfitters", "northwind-outfitters.example"],
+      ["Bright Streaming", "brightstream.example"],
+    ] as const);
+    const headline = pick(rng, ["Weekend deals are here", "Your cart is waiting", "New this week"]);
+    const draft = base(rng, { name: brand, address: `hello@${domain}` }, headline, "");
+    draft.category = "alias_marketing";
+    draft.parts = marketingBody(rng, brand, domain, headline);
+    draft.headers = bulkHeaders(rng, domain);
+    draft.to = MAILBOX_ALIAS;
+    return draft;
+  },
+};
+
+const bounceHeadersOnly: Category = {
+  name: "bounce_headers_only",
+  count: 10,
+  make(rng, index) {
+    const request = requestFor(index, ["spokeo", "whitepages", "beenverified", "radaris"]);
+    const target = targetOf(request.targetId);
+    const draft = bounceDraft(
+      rng,
+      "Delivery Status Notification (Failure)",
+      target.privacyEmail,
+      request.outgoingMessageId,
+      `Subject: ${requestSubject(request)}`,
+      false,
+      "text/rfc822-headers",
+    );
+    draft.category = "bounce_headers_only";
+    draft.outcome = "review";
+    draft.request = request.key;
+    draft.classification = "bounce";
+    draft.date = new Date(Math.max(draft.date.getTime(), Date.parse(request.sentAt) + 120_000));
+    return draft;
+  },
+};
 
 const CATEGORIES: readonly Category[] = [
   marketingTarget,
@@ -1079,6 +1264,12 @@ const CATEGORIES: readonly Category[] = [
   confirmationLink,
   autoresponder,
   bounces,
+  espConfirmation,
+  companyPrivacyReply,
+  brokerAccountMail,
+  aliasMail,
+  aliasMarketing,
+  bounceHeadersOnly,
 ];
 
 interface Built {

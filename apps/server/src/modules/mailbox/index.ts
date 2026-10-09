@@ -5,6 +5,17 @@ import type { ModulePlugin } from "../../core/module.js";
 import { requireProfile } from "../../core/require-profile.js";
 import { PROVIDER_PRESETS } from "../../mail/presets.js";
 import { connectionOf } from "../../runners/connection.js";
+import { InboxRunner } from "../../runners/inbox-poll.js";
+import { toMessageSummary } from "../review/mappers.js";
+import {
+  addIntakeSender,
+  disableReplyAlias,
+  dismissIntakeNotice,
+  enableReplyAlias,
+  listIntakeSenders,
+  removeIntakeSender,
+  setCompanyMail,
+} from "./intake.js";
 import {
   clearSendHold,
   connectionForTest,
@@ -62,6 +73,62 @@ export const mailboxModule: ModulePlugin = (app, services) => {
     const [summary] = services.taskQueue.summarize([task]);
     if (!summary) throw new AppError(500, "internal_error", "The poll was queued but not found");
     return { task: summary };
+  });
+
+  registerRoute(app, API_ROUTES.mailboxIntake, ({ params, body }) =>
+    setCompanyMail(services, requireMailbox(services, params.id), body.companyMail),
+  );
+
+  registerRoute(app, API_ROUTES.mailboxNoticeDismiss, ({ params }) =>
+    dismissIntakeNotice(services, requireMailbox(services, params.id)),
+  );
+
+  registerRoute(app, API_ROUTES.mailboxAliasEnable, ({ params }) =>
+    enableReplyAlias(services, requireMailbox(services, params.id)),
+  );
+
+  registerRoute(app, API_ROUTES.mailboxAliasDisable, ({ params }) =>
+    disableReplyAlias(services, requireMailbox(services, params.id)),
+  );
+
+  registerRoute(app, API_ROUTES.intakeSendersList, ({ params }) => ({
+    senders: listIntakeSenders(services, requireMailbox(services, params.id)),
+  }));
+
+  registerRoute(app, API_ROUTES.intakeSenderAdd, ({ params, body }) =>
+    addIntakeSender(services, requireMailbox(services, params.id), body),
+  );
+
+  registerRoute(app, API_ROUTES.intakeSenderRemove, ({ params }) => {
+    removeIntakeSender(services, requireMailbox(services, params.id), params.senderId);
+    return { ok: true as const };
+  });
+
+  registerRoute(app, API_ROUTES.mailboxFind, async ({ params, body }) => {
+    const mailbox = requireMailbox(services, params.id);
+    try {
+      return await new InboxRunner(services).find(mailbox, body);
+    } catch (error) {
+      throw new AppError(502, "mailbox_unreachable", failureText(error));
+    }
+  });
+
+  registerRoute(app, API_ROUTES.mailboxTakeIn, async ({ params, body }) => {
+    const mailbox = requireMailbox(services, params.id);
+    let row: Awaited<ReturnType<InboxRunner["takeIn"]>>;
+    try {
+      row = await new InboxRunner(services).takeIn(mailbox, body);
+    } catch (error) {
+      throw new AppError(502, "mailbox_unreachable", failureText(error));
+    }
+    if (!row) {
+      throw new AppError(
+        409,
+        "message_gone",
+        "That message is no longer in the folder, so search again",
+      );
+    }
+    return toMessageSummary(row);
   });
 
   registerRoute(app, API_ROUTES.mailboxFolders, async ({ params }) => {

@@ -19,7 +19,8 @@ async function main(): Promise<void> {
     `${result.set}: ${result.total} messages (${result.ignoreMail} to ignore, ${result.requestMail} about a request)`,
   );
   console.log(JSON.stringify(result.metrics));
-  console.log(JSON.stringify(result.extra));
+  const { verdicts: _verdicts, ...extra } = result.extra;
+  console.log(JSON.stringify(extra));
   console.table(
     result.categories.map(
       ({ category, total, falsePositives, falseNegatives, storedIgnored, misrouted }) => ({

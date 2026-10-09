@@ -1,36 +1,36 @@
-DKIM-Signature: v=1; a=ed25519-sha256; c=relaxed/relaxed; d=github.com;
- h=Content-Type: MIME-Version: List-Unsubscribe: Reply-To: Message-ID:
- Date: Subject: To: From; q=dns/txt; s=kr; t=1791010200;
- bh=5o+t9YL4Je2Ad+u51qENQWXzpuoe7w2F8TCsmiRH0AQ=;
- b=rtxrlsJTIgQcmRDhOGR2j9bv2+08XW60X9zb2If+Tn5AxlAGS8iSfQMvKBI1ZkV/ZTl7lF9yN
- wuvAwzwcqyvAA==
-Return-Path: <bounce-533520@bounce.github.com>
-Received: from mail.github.com (mail.github.com [203.0.113.20]) by mx.example.com with ESMTPS id 8f0b392fa7 for <jordan@example.com>; Sat, 03 Oct 2026 06:50:00 +0000
-From: GitHub <noreply@github.com>
+DKIM-Signature: v=1; a=ed25519-sha256; c=relaxed/relaxed;
+ d=mail.instacart.com; h=Content-Type: MIME-Version: List-Unsubscribe:
+ Reply-To: Message-ID: Date: Subject: To: From; q=dns/txt; s=kr;
+ t=1790861640; bh=aPfmsBBAj903Loi/JuHP5bc+Vi2R+hbYJQAipDMBXpA=;
+ b=kQOEEKYVwxICpnE0s5D3WHhIE7T6+qQB8TyU+Wkc5P1FgRLAnubnq0FnMkFU6Pd/Ik96PC9Wg
+ bTvqKFac3LaCg==
+Return-Path: <bounce-570796@bounce.mail.instacart.com>
+Received: from mail.mail.instacart.com (mail.mail.instacart.com [203.0.113.28]) by mx.example.com with ESMTPS id 0ec5770b9c for <jordan@example.com>; Thu, 01 Oct 2026 13:34:00 +0000
+From: Instacart <hello@mail.instacart.com>
 To: jordan@example.com
-Subject: Your GitHub security digest
-Date: Sat, 03 Oct 2026 06:50:00 +0000
-Message-ID: <c18ff2c3f2cf83a872908bcd@github.com>
-Reply-To: no-reply@github.com
-List-Unsubscribe: <https://github.com/unsubscribe?u=990308225c8bdb4f>, <mailto:unsubscribe-99030822@github.com>
+Subject: $10 off your next order
+Date: Thu, 01 Oct 2026 13:34:00 +0000
+Message-ID: <2f8bbf682d78deb533247c0e@mail.instacart.com>
+Reply-To: no-reply@mail.instacart.com
+List-Unsubscribe: <https://mail.instacart.com/unsubscribe?u=65eb89880e3f0720>, <mailto:unsubscribe-65eb8988@mail.instacart.com>
 List-Unsubscribe-Post: List-Unsubscribe=One-Click
 Precedence: bulk
-X-Mailer: Mailchimp Mailer
+X-Mailer: SendGrid
 MIME-Version: 1.0
-Content-Type: multipart/alternative; boundary="----=_Part_9484a7b65097"
+Content-Type: multipart/alternative; boundary="----=_Part_eb54dfb6236a"
 
-------=_Part_9484a7b65097
+------=_Part_eb54dfb6236a
 Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
 
-Your GitHub security digest
+$10 off your next order
 
-Shop now: https://github.com/offers?ref=a9703ab0
+Shop now: https://mail.instacart.com/offers?ref=b9ab7730
 
-You are receiving this email because you have an account with GitHub. To stop receiving these emails, unsubscribe: https://github.com/unsubscribe
-------=_Part_9484a7b65097
+You are receiving this email because you have an account with Instacart. To stop receiving these emails, unsubscribe: https://mail.instacart.com/unsubscribe
+------=_Part_eb54dfb6236a
 Content-Type: text/html; charset=utf-8
 Content-Transfer-Encoding: 7bit
 
-<html><body style="font-family:Arial,sans-serif"><h2>Your GitHub security digest</h2><p><a href="https://github.com/offers?ref=a9703ab0">Shop now</a></p><p style="font-size:11px">You are receiving this email because you have an account with GitHub. To stop receiving these emails, unsubscribe: https://github.com/unsubscribe</p></body></html>
-------=_Part_9484a7b65097--
+<html><body style="font-family:Arial,sans-serif"><h2>$10 off your next order</h2><p><a href="https://mail.instacart.com/offers?ref=b9ab7730">Shop now</a></p><p style="font-size:11px">You are receiving this email because you have an account with Instacart. To stop receiving these emails, unsubscribe: https://mail.instacart.com/unsubscribe</p></body></html>
+------=_Part_eb54dfb6236a--

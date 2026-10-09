@@ -111,7 +111,7 @@ describe("POST /profiles/:id/mailbox/test", () => {
     const profile = seedProfile(ctx);
     ctx.services.mail.inbox = () => ({
       listFolders: () => Promise.reject(new Error("Login failed")),
-      fetchSince: () => Promise.reject(new Error("unused")),
+      withFolder: () => Promise.reject(new Error("unused")),
     });
     const result = await ctx.call(API_ROUTES.mailboxTest, {
       params: { id: profile.id },
@@ -491,7 +491,7 @@ describe("GET /profiles/:id/mailbox/folders", () => {
     seedMailbox(ctx, profile.id);
     ctx.services.mail.inbox = () => ({
       listFolders: () => Promise.reject(new Error("The server refused the connection.")),
-      fetchSince: () => Promise.reject(new Error("unused")),
+      withFolder: () => Promise.reject(new Error("unused")),
     });
     expect(await ctx.call(API_ROUTES.mailboxFolders, { params: { id: profile.id } })).toMatchObject(
       {

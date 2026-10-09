@@ -74,7 +74,14 @@ export const EmailSendPayload = z
     message: "A verification reply names the approved fields, and no other email does",
     path: ["fields"],
   });
-export const InboxPollPayload = z.object({ mailboxId: id });
+export const InboxPollPayload = z.object({
+  mailboxId: id,
+  /**
+   * Looks again at mail that arrived shortly before a request began to expect it, which a cursor
+   * that had already passed it would otherwise never show. Limited to the senders of one target.
+   */
+  rescan: z.object({ since: z.iso.datetime(), targetId: id }).optional(),
+});
 
 /**
  * A scan can search under a past name or address, since listings are keyed by old names and

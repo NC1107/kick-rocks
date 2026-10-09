@@ -19,7 +19,7 @@ describe("createMailServices", () => {
   it("builds a transport and an inbox for each connection", () => {
     const mail = createMailServices(loadConfig({}), { get: () => null } as never);
     expect(Object.keys(mail.transport(connection)).sort()).toEqual(["send", "verify"]);
-    expect(Object.keys(mail.inbox(connection)).sort()).toEqual(["fetchSince", "listFolders"]);
+    expect(Object.keys(mail.inbox(connection)).sort()).toEqual(["listFolders", "withFolder"]);
   });
 
   it("gives the link follower the configured private hosts", async () => {
@@ -60,6 +60,7 @@ describe("createMailServices", () => {
       isBounce: false,
       autoSubmitted: false,
       headers: {},
+      originalMessageIds: [],
       verifyDkim: noDkim,
     };
     await mail.classifier.classify(message, { requests: [] });
@@ -76,6 +77,10 @@ describe("createMailServices", () => {
         requests: [
           {
             id: "req-1",
+            open: true,
+            targetKind: "broker",
+            contactAddress: null,
+            sentAt: null,
             reference: "KR-7K3M9Q",
             outgoingMessageId: sent,
             status: "awaiting_reply",

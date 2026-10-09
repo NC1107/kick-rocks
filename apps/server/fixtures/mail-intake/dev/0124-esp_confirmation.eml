@@ -1,0 +1,32 @@
+Return-Path: <bounce-040902@bounce.intelius.com>
+Received: from mail.intelius.com (mail.intelius.com [203.0.113.22]) by mx.example.com with ESMTPS id 1c80d904fc for <jordan@example.com>; Fri, 02 Oct 2026 12:10:00 +0000
+From: Intelius <noreply@intelius.com>
+To: jordan@example.com
+Subject: Confirm your opt-out request
+Date: Fri, 02 Oct 2026 12:10:00 +0000
+Message-ID: <8074f29af94f5f5fafac1490@intelius.com>
+Reply-To: no-reply@intelius.com
+List-Unsubscribe: <https://intelius.com/unsubscribe?u=a69ef861642d1476>, <mailto:unsubscribe-a69ef861@intelius.com>
+List-Unsubscribe-Post: List-Unsubscribe=One-Click
+Precedence: bulk
+X-Mailer: Salesforce Marketing Cloud
+MIME-Version: 1.0
+Content-Type: multipart/alternative; boundary="----=_Part_9580d1958715"
+
+------=_Part_9580d1958715
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+Hello,
+
+To complete your removal from Intelius, please confirm your email address by clicking the link below.
+
+https://intelius.com/optout/confirm?token=4560c168914c8c40eb0c94ef66c9
+
+If you did not make this request, ignore this message.
+------=_Part_9580d1958715
+Content-Type: text/html; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+<html><body style="font-family:Arial,sans-serif"><p>Please confirm your email address.</p><p><a href="https://intelius.com/optout/confirm?token=4560c168914c8c40eb0c94ef66c9">Confirm my request</a></p></body></html>
+------=_Part_9580d1958715--

@@ -333,7 +333,7 @@ describe("inbox polls", () => {
     const inbox = ctx.mail.services.inbox;
     ctx.mail.services.inbox = () => ({
       listFolders: async () => [],
-      fetchSince: async () => {
+      withFolder: async () => {
         throw new Error("IMAP is down");
       },
     });

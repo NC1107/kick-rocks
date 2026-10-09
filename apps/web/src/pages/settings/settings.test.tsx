@@ -43,6 +43,16 @@ describe("the settings tab titles", () => {
   });
 });
 
+describe("the way to mail intake", () => {
+  it("links to the section on the profile's mailbox page", async () => {
+    const mock = createMockApp();
+    general(mock);
+    const link = await screen.findByRole("link", { name: "Open" });
+    expect(link).toHaveAttribute("href", `/profiles/${mock.store.profiles[0]?.id}/mailbox#intake`);
+    expect(screen.getByText("What Kick Rocks takes in")).toBeInTheDocument();
+  });
+});
+
 const AGENT_WORKER = {
   workerId: "agent-home",
   version: "agent-0.1.0",

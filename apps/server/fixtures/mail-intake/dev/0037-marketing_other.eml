@@ -1,30 +1,36 @@
-Return-Path: <bounce-155956@bounce.github.com>
-Received: from mail.github.com (mail.github.com [203.0.113.20]) by mx.example.com with ESMTPS id 8f0b392fa7 for <jordan@example.com>; Mon, 28 Sep 2026 06:18:00 +0000
-From: GitHub <noreply@github.com>
+DKIM-Signature: v=1; a=ed25519-sha256; c=relaxed/relaxed;
+ d=utility-co.example; h=Content-Type: MIME-Version: List-Unsubscribe:
+ Reply-To: Message-ID: Date: Subject: To: From; q=dns/txt; s=kr;
+ t=1790540640; bh=kQ44NaASwEbZNdv1cXVAX+5q4IrG1jVgA5k7V3uXSqM=;
+ b=I4xn/tj7Y12HOPex3fEY7CSZBVZ0IdqvEWwvbMBYjkuwi1USLmyDeYTKs3Sq437YoDaemjhil
+ NBT7QC8k2XZDQ==
+Return-Path: <bounce-473020@bounce.utility-co.example>
+Received: from mail.utility-co.example (mail.utility-co.example [203.0.113.28]) by mx.example.com with ESMTPS id 0ec5770b9c for <jordan@example.com>; Sun, 27 Sep 2026 20:24:00 +0000
+From: Lone Star Power <billing@utility-co.example>
 To: jordan@example.com
-Subject: [example/repo] Pull request #214: tighten retry logic
-Date: Mon, 28 Sep 2026 06:18:00 +0000
-Message-ID: <1028b5091d27594299db98a5@github.com>
-Reply-To: no-reply@github.com
-List-Unsubscribe: <https://github.com/unsubscribe?u=207873f99333fab3>, <mailto:unsubscribe-207873f9@github.com>
+Subject: Usage alert for your account
+Date: Sun, 27 Sep 2026 20:24:00 +0000
+Message-ID: <ed74cf08edc45886ffe3a8a6@utility-co.example>
+Reply-To: no-reply@utility-co.example
+List-Unsubscribe: <https://utility-co.example/unsubscribe?u=c977d7a9bf4500db>, <mailto:unsubscribe-c977d7a9@utility-co.example>
 List-Unsubscribe-Post: List-Unsubscribe=One-Click
 Precedence: bulk
-X-Mailer: Salesforce Marketing Cloud
+X-Mailer: Braze
 MIME-Version: 1.0
-Content-Type: multipart/alternative; boundary="----=_Part_9484a7b65097"
+Content-Type: multipart/alternative; boundary="----=_Part_eb54dfb6236a"
 
-------=_Part_9484a7b65097
+------=_Part_eb54dfb6236a
 Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
 
-[example/repo] Pull request #214: tighten retry logic
+Usage alert for your account
 
-Shop now: https://github.com/offers?ref=1a3d79b9
+Shop now: https://utility-co.example/offers?ref=e9eb0c8a
 
-You are receiving this email because you have an account with GitHub. To stop receiving these emails, unsubscribe: https://github.com/unsubscribe
-------=_Part_9484a7b65097
+You are receiving this email because you have an account with Lone Star Power. To stop receiving these emails, unsubscribe: https://utility-co.example/unsubscribe
+------=_Part_eb54dfb6236a
 Content-Type: text/html; charset=utf-8
 Content-Transfer-Encoding: 7bit
 
-<html><body style="font-family:Arial,sans-serif"><h2>[example/repo] Pull request #214: tighten retry logic</h2><p><a href="https://github.com/offers?ref=1a3d79b9">Shop now</a></p><p style="font-size:11px">You are receiving this email because you have an account with GitHub. To stop receiving these emails, unsubscribe: https://github.com/unsubscribe</p></body></html>
-------=_Part_9484a7b65097--
+<html><body style="font-family:Arial,sans-serif"><h2>Usage alert for your account</h2><p><a href="https://utility-co.example/offers?ref=e9eb0c8a">Shop now</a></p><p style="font-size:11px">You are receiving this email because you have an account with Lone Star Power. To stop receiving these emails, unsubscribe: https://utility-co.example/unsubscribe</p></body></html>
+------=_Part_eb54dfb6236a--

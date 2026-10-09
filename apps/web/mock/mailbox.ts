@@ -1,4 +1,12 @@
-import { API_ROUTES, type Mailbox, type MailFolder, type ProviderPreset } from "@kickrocks/shared";
+import {
+  API_ROUTES,
+  type FoundMessage,
+  type IntakeSender,
+  type Mailbox,
+  type MailFolder,
+  type MessageSummary,
+  type ProviderPreset,
+} from "@kickrocks/shared";
 import { defineMockDomain, handle, MockHttpError, notFound } from "./core.js";
 import type { MockStore } from "./store.js";
 
@@ -18,6 +26,7 @@ const PROVIDERS: ProviderPreset[] = [
     notes:
       "Needs two-step verification on, then an app password. Gmail allows about 500 messages a day.",
     defaultDailyCap: 100,
+    plusAddressing: true,
     ...SUPPORTED,
   },
   {
@@ -31,6 +40,7 @@ const PROVIDERS: ProviderPreset[] = [
     appPasswordUrl: "https://myaccount.google.com/apppasswords",
     notes: "Your administrator must allow app passwords for your account.",
     defaultDailyCap: 100,
+    plusAddressing: true,
     ...SUPPORTED,
   },
   {
@@ -44,6 +54,7 @@ const PROVIDERS: ProviderPreset[] = [
     appPasswordUrl: "https://app.fastmail.com/settings/security/devicekeys",
     notes: "Create an app password with mail access for IMAP and SMTP.",
     defaultDailyCap: 150,
+    plusAddressing: true,
     ...SUPPORTED,
   },
   {
@@ -57,6 +68,7 @@ const PROVIDERS: ProviderPreset[] = [
     appPasswordUrl: "https://account.apple.com/account/manage",
     notes: "Use an app-specific password. Your iCloud address is the username.",
     defaultDailyCap: 100,
+    plusAddressing: true,
     ...SUPPORTED,
   },
   {
@@ -70,6 +82,7 @@ const PROVIDERS: ProviderPreset[] = [
     appPasswordUrl: "https://login.yahoo.com/account/security/app-passwords",
     notes: "Generate an app password for a custom app.",
     defaultDailyCap: 80,
+    plusAddressing: false,
     ...SUPPORTED,
   },
   {
@@ -84,6 +97,7 @@ const PROVIDERS: ProviderPreset[] = [
     notes:
       "Bridge must be running on the same machine. Use the bridge password it shows, not your Proton password.",
     defaultDailyCap: 100,
+    plusAddressing: true,
     ...SUPPORTED,
   },
   {
@@ -98,6 +112,7 @@ const PROVIDERS: ProviderPreset[] = [
     notes:
       "Turn on two-factor sign-in, then create an app password with access to mail in your account settings.",
     defaultDailyCap: 100,
+    plusAddressing: false,
     ...SUPPORTED,
   },
   {
@@ -112,6 +127,7 @@ const PROVIDERS: ProviderPreset[] = [
     notes:
       "Enable IMAP access in the mail settings first. Accounts outside the US use a regional host such as zoho.eu.",
     defaultDailyCap: 50,
+    plusAddressing: false,
     ...SUPPORTED,
   },
   {
@@ -126,6 +142,7 @@ const PROVIDERS: ProviderPreset[] = [
     notes:
       "Enter your provider's SMTP and IMAP hosts. Most providers publish them in their help pages.",
     defaultDailyCap: 50,
+    plusAddressing: false,
     ...SUPPORTED,
   },
   {
@@ -139,6 +156,7 @@ const PROVIDERS: ProviderPreset[] = [
     appPasswordUrl: null,
     notes: "",
     defaultDailyCap: 50,
+    plusAddressing: true,
     supported: false,
     unsupportedReason:
       "Outlook.com, Hotmail, and Live accept IMAP and SMTP sign-in only through OAuth, which is not supported yet. Use another mailbox for now.",
@@ -157,6 +175,18 @@ function profileOf(store: MockStore, id: string) {
   const profile = store.profiles.find((candidate) => candidate.id === id);
   if (!profile) throw notFound("That profile");
   return profile;
+}
+
+function mailboxOf(store: MockStore, profileId: string): Mailbox {
+  const profile = profileOf(store, profileId);
+  if (!profile.mailbox) throw new MockHttpError(409, "conflict", "Connect a mailbox first.");
+  return profile.mailbox;
+}
+
+/** A message the mock search can find. "Take in" stores it, as the server would. */
+interface Findable {
+  found: FoundMessage;
+  fromAddress: string;
 }
 
 export default defineMockDomain({
@@ -181,13 +211,52 @@ export default defineMockDomain({
       lastPolledAt: store.ago({ minutes: 6 }),
       lastError: null,
       sendPausedUntil: null,
+      companyMail: "privacy_only",
+      replyAlias: null,
+      replyAliasVerified: false,
+      lastPollScanned: 143,
+      lastPollKept: 4,
+      intakeNotice: { removed: 111 },
       createdAt: store.ago({ days: 90 }),
     };
     jordan.mailbox = mailbox;
     jordan.mailboxConnected = true;
   },
 
-  routes: (store) => [
+  routes: (store) => {
+    const senders: IntakeSender[] = [];
+    const findable: Findable[] = [
+      {
+        fromAddress: "help@datasafe-support.net",
+        found: {
+          uid: 4101,
+          uidValidity: 1,
+          fromAddress: "help@datasafe-support.net",
+          subject: "Your privacy request",
+          receivedAt: store.ago({ days: 2 }),
+          stored: false,
+          admittedBy: null,
+        },
+      },
+      {
+        fromAddress: "help@datasafe-support.net",
+        found: {
+          uid: 4102,
+          uidValidity: 1,
+          fromAddress: "help@datasafe-support.net",
+          subject: "Weekly product news",
+          receivedAt: store.ago({ days: 4 }),
+          stored: false,
+          admittedBy: null,
+        },
+      },
+    ];
+    return routesFor(store, senders, findable);
+  },
+});
+
+function routesFor(store: MockStore, senders: IntakeSender[], findable: Findable[]) {
+  return [
     handle(API_ROUTES.mailProviders, () => ({ providers: PROVIDERS })),
 
     // Each password below fails a different way, so every failure state can be seen:
@@ -246,6 +315,12 @@ export default defineMockDomain({
         lastPolledAt: profile.mailbox?.lastPolledAt ?? null,
         lastError: null,
         sendPausedUntil: null,
+        companyMail: profile.mailbox?.companyMail ?? "privacy_only",
+        replyAlias: profile.mailbox?.replyAlias ?? null,
+        replyAliasVerified: profile.mailbox?.replyAliasVerified ?? false,
+        lastPollScanned: profile.mailbox?.lastPollScanned ?? 0,
+        lastPollKept: profile.mailbox?.lastPollKept ?? 0,
+        intakeNotice: profile.mailbox?.intakeNotice ?? null,
         createdAt: profile.mailbox?.createdAt ?? store.clock.now().toISOString(),
       };
       profile.mailbox = mailbox;
@@ -298,5 +373,108 @@ export default defineMockDomain({
       if (!profile.mailbox) throw new MockHttpError(409, "conflict", "Connect a mailbox first.");
       return { folders: FOLDERS };
     }),
-  ],
-});
+
+    handle(API_ROUTES.mailboxIntake, ({ params, body }) => {
+      const mailbox = mailboxOf(store, params.id);
+      mailbox.companyMail = body.companyMail;
+      return mailbox;
+    }),
+
+    handle(API_ROUTES.mailboxNoticeDismiss, ({ params }) => {
+      const mailbox = mailboxOf(store, params.id);
+      mailbox.intakeNotice = null;
+      return mailbox;
+    }),
+
+    // An address that starts with "drop" stands for a provider that discards the tag, so the
+    // failed test can be seen.
+    handle(API_ROUTES.mailboxAliasEnable, ({ params }) => {
+      const mailbox = mailboxOf(store, params.id);
+      const at = mailbox.address.lastIndexOf("@");
+      mailbox.replyAlias = `${mailbox.address.slice(0, at)}+kickrocks${mailbox.address.slice(at)}`;
+      const dropped = mailbox.address.startsWith("drop");
+      mailbox.replyAliasVerified = !dropped;
+      return {
+        mailbox,
+        verified: !dropped,
+        problem: dropped
+          ? "The test mail did not arrive in this mailbox, so replies sent to the address would be lost"
+          : null,
+      };
+    }),
+
+    handle(API_ROUTES.mailboxAliasDisable, ({ params }) => {
+      const mailbox = mailboxOf(store, params.id);
+      mailbox.replyAlias = null;
+      mailbox.replyAliasVerified = false;
+      return mailbox;
+    }),
+
+    handle(API_ROUTES.intakeSendersList, ({ params }) => {
+      mailboxOf(store, params.id);
+      return { senders: [...senders] };
+    }),
+
+    handle(API_ROUTES.intakeSenderAdd, ({ params, body }) => {
+      mailboxOf(store, params.id);
+      const target = store.targets.find((candidate) => candidate.id === body.targetId);
+      if (!target) throw notFound("That target");
+      const value = body.value.trim().toLowerCase();
+      const existing = senders.find((sender) => sender.value === value);
+      if (existing) return existing;
+      const sender: IntakeSender = {
+        id: store.nextId("snd"),
+        targetId: target.id,
+        targetName: target.name,
+        kind: value.includes("@") ? "address" : "domain",
+        value,
+      };
+      senders.push(sender);
+      return sender;
+    }),
+
+    handle(API_ROUTES.intakeSenderRemove, ({ params }) => {
+      mailboxOf(store, params.id);
+      const index = senders.findIndex((sender) => sender.id === params.senderId);
+      if (index === -1) throw notFound("That sender");
+      senders.splice(index, 1);
+      return { ok: true as const };
+    }),
+
+    handle(API_ROUTES.mailboxFind, ({ params, body }) => {
+      mailboxOf(store, params.id);
+      const query = body.query.trim().toLowerCase();
+      return {
+        searched: true,
+        messages: findable
+          .filter(({ fromAddress }) => fromAddress.includes(query))
+          .map(({ found }) => found),
+      };
+    }),
+
+    handle(API_ROUTES.mailboxTakeIn, ({ params, body }) => {
+      const mailbox = mailboxOf(store, params.id);
+      const hit = findable.find(({ found }) => found.uid === body.uid);
+      if (!hit) throw new MockHttpError(409, "message_gone", "That message is no longer there.");
+      hit.found.stored = true;
+      hit.found.admittedBy = "person";
+      const message: MessageSummary = {
+        id: store.nextId("msg"),
+        mailboxId: mailbox.id,
+        requestId: null,
+        fromAddress: hit.fromAddress,
+        subject: hit.found.subject,
+        receivedAt: hit.found.receivedAt ?? store.clock.now().toISOString(),
+        classification: "unknown",
+        confidence: 0.2,
+        rationale: "Taken in by hand",
+        links: [],
+        requestedFields: [],
+        snippet: null,
+        reviewed: false,
+        admittedBy: "person",
+      };
+      return message;
+    }),
+  ];
+}

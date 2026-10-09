@@ -140,7 +140,32 @@ describe("the intake harness", () => {
     const report = await runIntake("dev", { classifier: () => blind });
     expect(report.metrics.falsePositives).toBe(0);
     const labels = loadLabels("dev");
-    expect(report.metrics.falseNegatives).toBe(labels.filter((l) => l.outcome === "review").length);
-    expect(report.metrics.misrouted).toBe(labels.filter((l) => l.outcome === "auto").length);
+    const review = labels.filter((l) => l.outcome === "review").length;
+    const auto = labels.filter((l) => l.outcome === "auto").length;
+    // Mail let in on its sender alone is dropped when the classifier calls it unrelated, so it counts as missed.
+    expect(report.metrics.falseNegatives).toBeGreaterThanOrEqual(review);
+    expect(report.metrics.falseNegatives + report.metrics.misrouted).toBe(review + auto);
   }, 120_000);
+
+  it("keeps nothing of the mail it ignores, and misses and misroutes nothing", async () => {
+    const report = await ranDev();
+    expect(report.metrics).toEqual({
+      falsePositives: 0,
+      falseNegatives: 0,
+      storedIgnored: 0,
+      misrouted: 0,
+    });
+  }, 120_000);
+
+  it("downloads almost none of the mail it ends up ignoring when the server can search", async () => {
+    const report = await ranDev();
+    expect(report.extra.downloadedIgnored).toBeLessThanOrEqual(10);
+  }, 120_000);
+
+  it("reaches the same verdict for every message when the server refuses SEARCH", async () => {
+    const report = await ranDev();
+    const without = await runIntake("dev", { searchSupported: false });
+    expect(without.metrics).toEqual(report.metrics);
+    expect(without.extra.verdicts).toEqual(report.extra.verdicts);
+  }, 240_000);
 });

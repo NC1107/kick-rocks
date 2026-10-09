@@ -12,6 +12,7 @@ import { type CorpusMessage, type CorpusSet, loadCorpus } from "./corpus.js";
 import {
   dkimTestKeys,
   MAILBOX_ADDRESS,
+  MAILBOX_ALIAS,
   MAILBOX_CREATED,
   REQUESTS,
   requestOf,
@@ -57,6 +58,10 @@ export interface IntakeReport {
     needlessReview: number;
     /** Messages the classifier sent to the language model. */
     modelCalls: number;
+    /** Bodies downloaded for messages that ended up ignored. Near zero when the server can search. */
+    downloadedIgnored: number;
+    /** Each message's end state, by file, so two runs can be compared for identical verdicts. */
+    verdicts: Record<string, string>;
   };
   categories: CategoryReport[];
   failures: Failure[];
@@ -100,7 +105,11 @@ function seedWorld(ctx: TestContext): { requestIds: Map<string, string>; mailbox
   // A poll never reads before the mailbox existed, so the mailbox predates every request.
   ctx.services.db
     .update(mailboxes)
-    .set({ createdAt: MAILBOX_CREATED })
+    .set({
+      createdAt: MAILBOX_CREATED,
+      replyAlias: MAILBOX_ALIAS,
+      replyAliasVerifiedAt: MAILBOX_CREATED,
+    })
     .where(eq(mailboxes.id, mailbox.id))
     .run();
   for (const target of TARGETS) {
@@ -227,7 +236,11 @@ function judge(
 
 export async function runIntake(
   set: CorpusSet = "dev",
-  options: { classifier?: (ctx: TestContext, model: typeof fetch) => ReplyClassifier } = {},
+  options: {
+    classifier?: (ctx: TestContext, model: typeof fetch) => ReplyClassifier;
+    /** False simulates a mail server that refuses SEARCH. */
+    searchSupported?: boolean;
+  } = {},
 ): Promise<IntakeReport> {
   const corpus = loadCorpus(set);
   const ctx = await createTestContext({ now: WORLD_NOW });
@@ -246,12 +259,15 @@ export async function runIntake(
     const { requestIds, mailboxId } = seedWorld(ctx);
     const fixture: Fixture = { ctx, requestIds, modelCalls: model.calls };
     const messageIds = await deliverCorpus(ctx, corpus);
+    ctx.mail.mailbox(MAILBOX_ADDRESS).searchSupported = options.searchSupported ?? true;
 
     const runners = createRunners(ctx.services, { random: () => 0 });
     ctx.services.dispatch.enqueueInboxPoll(mailboxId);
     await runners.inbox.runDue();
 
-    return report(set, corpus, messageIds, fixture, mailboxId);
+    return report(set, corpus, messageIds, fixture, mailboxId, [
+      ...ctx.mail.mailbox(MAILBOX_ADDRESS).fetched,
+    ]);
   } finally {
     await ctx.close();
   }
@@ -263,6 +279,7 @@ function report(
   messageIds: Map<string, string>,
   { ctx, requestIds, modelCalls }: Fixture,
   mailboxId: string,
+  fetchedUids: number[],
 ): IntakeReport {
   const rows = ctx.services.db
     .select()
@@ -275,8 +292,11 @@ function report(
   const perCategory = new Map<string, CategoryReport>();
   const failures: Failure[] = [];
   let needlessReview = 0;
+  let downloadedIgnored = 0;
+  const verdicts: Record<string, string> = {};
+  const fetched = new Set(fetchedUids);
 
-  for (const label of corpus) {
+  for (const [index, label] of corpus.entries()) {
     const category =
       perCategory.get(label.category) ??
       ({
@@ -293,6 +313,8 @@ function report(
     const messageId = messageIds.get(label.file);
     const row = messageId ? byMessageId.get(messageId) : undefined;
     const verdict = judge(label, row, requestIds);
+    verdicts[label.file] = row ? describeRow(row) : "ignored";
+    if (!row && fetched.has(index + 1)) downloadedIgnored += 1;
     if (verdict.needlessReview) needlessReview += 1;
     for (const { problem, detail } of verdict.problems) {
       metrics[problem] += 1;
@@ -312,6 +334,8 @@ function report(
       shownInReview: rows.filter((row) => !row.reviewed).length,
       needlessReview,
       modelCalls: modelCalls(),
+      downloadedIgnored,
+      verdicts,
     },
     categories: [...perCategory.values()],
     failures,

@@ -1,0 +1,18 @@
+Return-Path: <0100f089a5d4fccb753bd573-4a92c855@bounces.netflix.com>
+Received: from mail.account.netflix.com (mail.account.netflix.com [203.0.113.29]) by mx.example.com with ESMTPS id 0e7c3490cb for <jordan@example.com>; Sun, 04 Oct 2026 16:05:00 +0000
+From: Netflix <info@account.netflix.com>
+To: jordan@example.com
+Subject: Your Netflix payment was declined
+Date: Sun, 04 Oct 2026 16:05:00 +0000
+Message-ID: <f14f8973c68ab3b925968177@account.netflix.com>
+Auto-Submitted: auto-generated
+X-Mailer: Transactional Mailer
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+Hi,
+
+Please confirm your new email address by clicking the link: https://netflix.com/account/confirm-email?token=f767a0d37c233de8b09a
+
+If you did not make this change, contact support.

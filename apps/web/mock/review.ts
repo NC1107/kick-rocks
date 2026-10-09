@@ -398,6 +398,7 @@ export default defineMockDomain({
         snippet:
           "Thanks for reaching out. A member of our team will look into this and get back to you when we can.",
         reviewed: false,
+        admittedBy: "target_sender",
         requestReference: null,
         targetName: null,
       },
@@ -414,6 +415,7 @@ export default defineMockDomain({
         snippet:
           "Before we can process your request we need you to confirm the address on file. Use the link below.",
         reviewed: false,
+        admittedBy: "thread",
         requestReference:
           store.requests.find((request) => request.targetId === "cardinal-insights")?.reference ??
           null,

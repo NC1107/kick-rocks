@@ -4,6 +4,8 @@ import { outgoingMessageId } from "@kickrocks/shared";
 /** The person the synthetic inbox belongs to. Nothing here is a real address. */
 export const MAILBOX_ADDRESS = "jordan@example.com";
 export const PERSON_NAME = "Jordan Example";
+/** The reply address the person turned on, which mail can be addressed to. */
+export const MAILBOX_ALIAS = "jordan+kickrocks@example.com";
 
 /** The moment the harness runs at; every fixture message is dated before it. */
 export const WORLD_NOW = "2026-10-08T12:00:00.000Z";
