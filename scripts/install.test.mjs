@@ -45,6 +45,23 @@ case "$1 $2" in
   "compose build") [ "$FAKE_BUILD" != fail ] || exit 1; exit 0 ;;
 esac
 case "$*" in
+  *"/backup-crypt.mjs"*)
+    script=""; pass=""; mode=""
+    while [ "$#" -gt 0 ]; do
+      case "$1" in
+        -v)
+          case "$2" in
+            *:/passphrase:ro) pass="\${2%:/passphrase:ro}" ;;
+            *:/backup-crypt.mjs:ro) script="\${2%:/backup-crypt.mjs:ro}" ;;
+          esac
+          shift ;;
+        /backup-crypt.mjs) mode="$2" ;;
+      esac
+      shift
+    done
+    exec node "$script" "$mode" "$pass" ;;
+esac
+case "$*" in
   *"ps -a -q"*) [ -n "$FAKE_NO_CONTAINERS" ] || echo abc123 ;;
   *"ps --services"*) if [ -n "$FAKE_STOPPED" ]; then echo; elif [ -z "$FAKE_NO_CONTAINERS" ]; then echo server; fi ;;
   "compose run"*) case "$FAKE_OPENS" in fail) exit 3 ;; broken) exit 1 ;; esac ;;
@@ -321,11 +338,143 @@ describe("install.sh backup and restore", () => {
         input: "restore\n",
       });
       assert.equal(mistaken.status, 1);
+      assert.match(mistaken.stderr, /passphrase does not open/);
+      assert.doesNotMatch(mistaken.stderr, /or the passphrase is wrong/);
       assert.doesNotMatch(calls(), /volume create/);
       const bare = install(["--restore", target], { input: "restore\n" });
       assert.equal(bare.status, 1);
       assert.match(bare.stderr, /is encrypted/);
     });
+  });
+
+  describe("with a passphrase, in the formats it can meet", () => {
+    let passphrase;
+    before(() => {
+      passphrase = join(dir, "formats-pass.txt");
+      writeFileSync(passphrase, "correct passphrase\n", { mode: 0o600 });
+    });
+
+    it("says the encrypted backup is encrypted and does not tell the person to hide the backup itself", () => {
+      const result = install(["--backup", join(dir, "msg.bin"), "--passphrase-file", passphrase], {
+        env: { FAKE_TAR: "ok" },
+      });
+      assert.equal(result.status, 0, result.stderr);
+      assert.match(result.stdout, /encrypted/);
+      assert.match(result.stdout, /passphrase file apart from the backup/);
+      assert.doesNotMatch(result.stdout, /shared and cloud storage/);
+    });
+
+    it("never calls openssl to make or open an encrypted backup", () => {
+      const shims = join(dir, "no-openssl");
+      mkdirSync(shims, { recursive: true });
+      writeFileSync(
+        join(shims, "openssl"),
+        `#!/bin/sh\necho "$*" >> ${join(dir, "openssl.log")}\nexit 1\n`,
+      );
+      chmodSync(join(shims, "openssl"), 0o755);
+      const env = { PATH: `${shims}:${join(dir, "bin")}:${process.env.PATH}` };
+      const target = join(dir, "no-openssl.bin");
+      const made = install(["--backup", target, "--passphrase-file", passphrase], {
+        env: { FAKE_TAR: "ok", ...env },
+      });
+      assert.equal(made.status, 0, made.stderr);
+      const restored = install(["--restore", target, "--passphrase-file", passphrase], {
+        input: "restore\n",
+        env,
+      });
+      assert.equal(restored.status, 0, restored.stderr);
+      assert.equal(existsSync(join(dir, "openssl.log")), false);
+    });
+
+    it("still restores a backup that an older version wrote with openssl", () => {
+      const legacy = join(dir, "legacy.enc");
+      execFileSync("openssl", [
+        "enc",
+        "-aes-256-cbc",
+        "-pbkdf2",
+        "-iter",
+        "600000",
+        "-salt",
+        "-pass",
+        `file:${passphrase}`,
+        "-in",
+        archive,
+        "-out",
+        legacy,
+      ]);
+      const restored = install(["--restore", legacy, "--passphrase-file", passphrase], {
+        input: "restore\n",
+      });
+      assert.equal(restored.status, 0, restored.stderr);
+    });
+
+    it("refuses an openssl backup with the wrong passphrase, without changing anything", () => {
+      const legacy = join(dir, "legacy2.enc");
+      execFileSync("openssl", [
+        "enc",
+        "-aes-256-cbc",
+        "-pbkdf2",
+        "-iter",
+        "600000",
+        "-salt",
+        "-pass",
+        `file:${passphrase}`,
+        "-in",
+        archive,
+        "-out",
+        legacy,
+      ]);
+      const wrongFile = join(dir, "formats-wrong.txt");
+      writeFileSync(wrongFile, "not it\n");
+      const result = install(["--restore", legacy, "--passphrase-file", wrongFile], {
+        input: "restore\n",
+      });
+      assert.equal(result.status, 1);
+      assert.doesNotMatch(calls(), /volume create/);
+    });
+
+    it("refuses a passphrase file whose first line is blank", () => {
+      const blank = join(dir, "blank-first.txt");
+      writeFileSync(blank, "\nsecret\n");
+      const result = install(["--backup", join(dir, "blank.bin"), "--passphrase-file", blank], {
+        env: { FAKE_TAR: "ok" },
+      });
+      assert.equal(result.status, 1);
+      assert.match(result.stderr, /first line .* is empty/);
+      assert.equal(existsSync(join(dir, "blank.bin")), false);
+    });
+
+    it("rotates plaintext and encrypted scheduled backups together", () => {
+      const folder = join(dir, "switched");
+      for (const extra of [
+        [],
+        [],
+        ["--passphrase-file", passphrase],
+        ["--passphrase-file", passphrase],
+      ]) {
+        const result = install(["--schedule-backup", folder, "--once", "--keep", "2", ...extra], {
+          env: { FAKE_TAR: "ok" },
+        });
+        assert.equal(result.status, 0, result.stderr);
+      }
+      const left = readdirSync(folder).sort();
+      assert.equal(left.length, 2);
+      assert.ok(
+        left.every((name) => name.endsWith(".tgz.enc")),
+        left.join(" "),
+      );
+    });
+  });
+
+  it("leaves the rollback copy of the database out of a backup", () => {
+    install(["--backup", join(dir, "nocopy.tgz")], { env: { FAKE_TAR: "ok" } });
+    assert.match(calls(), /--exclude \.\/\.disk-reserve --exclude \.\/kickrocks\.db\.before-\* /);
+  });
+
+  it("marks a restore, so the server holds sends until it has checked what went out since", () => {
+    const result = install(["--restore", archive], { input: "restore\n" });
+    assert.equal(result.status, 0, result.stderr);
+    assert.match(calls(), /RESTORED_AT=\d{4}-\d\d-\d\dT[\d:]+Z .*\/data\/restored-at/);
   });
 
   it("changes nothing unless the person types restore", () => {

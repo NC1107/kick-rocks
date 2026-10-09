@@ -9,6 +9,7 @@
 #   ./install.sh --schedule-backup DIR [--keep N]   print the crontab line for a daily backup into DIR
 #   ./install.sh --schedule-backup DIR --once [--keep N]   take one backup into DIR now and keep the newest N
 #   Add --passphrase-file PATH to either to encrypt the backup, or to open an encrypted one.
+#   The passphrase is the first line of that file.
 #   ./install.sh --uninstall  delete the containers, the data volume, the browser profile and the images
 #   ./install.sh --url        print the address of the UI
 #
@@ -81,6 +82,7 @@ backup_hint() {
   echo "Your data and its key live in one docker volume. Back it up with:"
   echo "  ./install.sh --backup"
   echo "Keep that file off shared and cloud storage: it holds the key to everything in it."
+  echo "Add --passphrase-file PATH to encrypt it, and keep that file apart from the backup."
 }
 
 # What the EXIT trap tidies up. Set by backup and restore, which both stop the services first.
@@ -142,7 +144,8 @@ parse_archive_args() {
         [ -n "${2:-}" ] || { echo "--passphrase-file needs a path." >&2; exit 2; }
         passphrase_file="$(absolute_path "$2")"
         [ -s "$passphrase_file" ] || { echo "The passphrase file $passphrase_file is missing or empty." >&2; exit 1; }
-        command -v openssl >/dev/null || { echo "A passphrase needs openssl, which is not installed." >&2; exit 1; }
+        # Only the first line is the passphrase, so a blank one would encrypt with no passphrase at all.
+        [ -n "$(head -n 1 "$passphrase_file" | tr -d '\r')" ] || { echo "The first line of the passphrase file $passphrase_file is empty." >&2; exit 1; }
         shift 2
         ;;
       *)
@@ -153,33 +156,82 @@ parse_archive_args() {
   done
 }
 
-openssl_cipher=(openssl enc -aes-256-cbc -pbkdf2 -iter 600000 -salt)
+# Backups before the authenticated format were written by openssl and are still read. The digest is
+# pinned because OpenSSL and LibreSSL have not always agreed on a default, and the iteration count
+# is not stored in those files, so it must never change here.
+legacy_openssl_decrypt=(openssl enc -d -aes-256-cbc -pbkdf2 -iter 600000 -md sha256 -salt)
+
+server_image() {
+  printf '%s-server\n' "$(docker compose config | sed -n 's/^name: //p')"
+}
+
+# Encrypts or decrypts stdin with the server image, which has node and no other tool that encrypts,
+# so the host needs nothing installed. It runs as root because the passphrase file is readable only
+# by its owner, and with no network because nothing it does needs one.
+crypt() {
+  docker run --rm -i --user 0 --network none --entrypoint node \
+    -v "$passphrase_file":/passphrase:ro -v "$PWD/scripts/backup-crypt.mjs":/backup-crypt.mjs:ro \
+    "$(server_image)" /backup-crypt.mjs "$1" /passphrase
+}
+
+# plain, legacy (openssl) or krbk (this script's format), told apart by what a file starts with.
+archive_format() {
+  local magic
+  magic="$(head -c 8 "$1" 2>/dev/null | LC_ALL=C tr -d '\0')"
+  case "$magic" in
+    Salted__*) echo legacy ;;
+    KRBK*) echo krbk ;;
+    *) echo plain ;;
+  esac
+}
 
 # The archive as a plain gzip tar on stdout, decrypting first when a passphrase was given.
 read_archive() {
-  if [ -n "$passphrase_file" ]; then
-    "${openssl_cipher[@]}" -d -pass "file:$passphrase_file" -in "$1"
-  else
+  if [ -z "$passphrase_file" ]; then
     cat "$1"
+    return
   fi
+  case "$(archive_format "$1")" in
+    legacy)
+      command -v openssl >/dev/null || { echo "This backup was written with openssl, which is not installed." >&2; return 1; }
+      "${legacy_openssl_decrypt[@]}" -pass "file:$passphrase_file" -in "$1"
+      ;;
+    krbk) crypt decrypt <"$1" ;;
+    *) cat "$1" ;;
+  esac
 }
 
 encrypt_if_asked() {
   if [ -n "$passphrase_file" ]; then
-    "${openssl_cipher[@]}" -pass "file:$passphrase_file"
+    crypt encrypt
   else
     cat
   fi
 }
 
-# openssl marks its output with this, so an encrypted archive is told apart from a plain one.
 is_encrypted_archive() {
-  head -c 8 "$1" 2>/dev/null | grep -aq '^Salted__'
+  [ "$(archive_format "$1")" != plain ]
+}
+
+# Says why an archive could not be used, as far as the format lets it be told.
+explain_unusable_archive() {
+  local file="$1" status=0
+  if [ "$(archive_format "$file")" = krbk ] && [ -n "$passphrase_file" ]; then
+    read_archive "$file" >/dev/null 2>&1 || status=$?
+    case "$status" in
+      2) echo "The passphrase does not open $file, so nothing was changed." >&2; return ;;
+      3) echo "$file is damaged or has been altered, so nothing was changed." >&2; return ;;
+    esac
+  elif [ "$(archive_format "$file")" = legacy ]; then
+    echo "$file is not a complete Kick Rocks backup, it is damaged, or the passphrase is wrong, so nothing was changed." >&2
+    return
+  fi
+  echo "$file is not a complete Kick Rocks backup, so nothing was changed." >&2
 }
 
 # Whether an archive is a readable gzip tar that holds the database and its key.
 # A truncated download or a half-written file fails the listing, and so does an archive of something else.
-# A wrong passphrase decrypts to noise, which fails here too.
+# A wrong passphrase on an openssl backup decrypts to noise, which fails here too.
 archive_is_intact() {
   local listing
   listing="$(read_archive "$1" 2>/dev/null | tar tz 2>/dev/null)" || return 1
@@ -243,6 +295,15 @@ record_verified_backup() {
     || echo "The backup is good, but the app could not be told about it, so it may still call the backup old." >&2
 }
 
+# The server holds every send until it has looked in the mailbox's Sent folder for mail that went
+# out after the backup was taken, because the restored database never saw those sends and would
+# mail the same broker again. The server user owns the file so it can remove it once it is satisfied.
+record_restore() {
+  docker run --rm -v "$1":/data -e "RESTORED_AT=$(date -u +%Y-%m-%dT%H:%M:%SZ)" alpine \
+    sh -c 'echo "$RESTORED_AT" > /data/restored-at && chown 1000:1000 /data/restored-at' \
+    || echo "The restore worked, but the server could not be told to check for mail sent since the backup. Look in the mailbox's Sent folder before requests go out again." >&2
+}
+
 backup() {
   local file volume
   file="$(absolute_path "${1:-$HOME/kickrocks-backup-$(date +%Y%m%d-%H%M%S).tgz${passphrase_file:+.enc}}")"
@@ -251,20 +312,28 @@ backup() {
   case "$(cd "$(dirname "$file")" && pwd)/" in
     "$PWD"/*) echo "Refusing to write the backup inside the repository: it holds the database key." >&2; exit 1 ;;
   esac
+  if [ -n "$passphrase_file" ]; then
+    ensure_server_image || { echo "Could not build the server image that encrypts the backup, so nothing was written." >&2; exit 1; }
+  fi
   stop_for_copy
   # The archive is built beside its destination and renamed only once it reads back whole, so a
   # failed run never replaces a good backup with a broken one.
   partial_file="$file.partial"
-  # The disk reserve is 8 MB of random bytes that mean nothing outside the volume it guards.
+  # The disk reserve is 8 MB of random bytes that mean nothing outside the volume it guards. A
+  # rollback copy of the database is a second, stale database that a restore would bring back.
   # tar runs as root inside the container because it must read the key, but the archive is written
   # by this shell, so it belongs to the invoking user and no one else can read it.
-  if ! (umask 077 && docker run --rm -v "$volume":/data:ro alpine tar czf - --exclude ./.disk-reserve -C /data . | encrypt_if_asked >"$partial_file") || ! archive_is_intact "$partial_file"; then
+  if ! (umask 077 && docker run --rm -v "$volume":/data:ro alpine tar czf - --exclude ./.disk-reserve --exclude './kickrocks.db.before-*' -C /data . | encrypt_if_asked >"$partial_file") || ! archive_is_intact "$partial_file"; then
     echo "The backup did not complete, so nothing was written to $file." >&2
     exit 1
   fi
   mv -f "$partial_file" "$file"
   record_verified_backup "$volume"
-  echo "Wrote $file (readable only by you). It contains the database key: keep it off shared and cloud storage."
+  if [ -n "$passphrase_file" ]; then
+    echo "Wrote $file (readable only by you, encrypted). Keep the passphrase file apart from the backup: whoever has both has the database key."
+  else
+    echo "Wrote $file (readable only by you). It contains the database key: keep it off shared and cloud storage."
+  fi
 }
 
 # Takes one backup into DIR, then deletes all but the newest KEEP scheduled ones. Nothing is deleted
@@ -285,7 +354,10 @@ scheduled_backup() {
   done
   file="$(printf '%s/kickrocks-scheduled-%s-%04d%s' "$dir" "$stamp" "$((n + 1))" "$suffix")"
   backup "$file"
-  find "$dir" -maxdepth 1 -type f -name "kickrocks-scheduled-*$suffix" -print | LC_ALL=C sort -r | tail -n +"$((keep + 1))" | while IFS= read -r old; do
+  # Both kinds are rotated together, so adding or dropping a passphrase never strands the old
+  # backups, which hold the database key, outside the count. The name carries the time, and the
+  # suffix would only be compared after the time is equal.
+  find "$dir" -maxdepth 1 -type f \( -name 'kickrocks-scheduled-*.tgz' -o -name 'kickrocks-scheduled-*.tgz.enc' \) -print | LC_ALL=C sort -r | tail -n +"$((keep + 1))" | while IFS= read -r old; do
     [ "$old" = "$file" ] || rm -f "$old"
   done
 }
@@ -309,7 +381,10 @@ restore() {
     echo "$file is encrypted. Add --passphrase-file PATH with its passphrase." >&2
     exit 1
   fi
-  archive_is_intact "$file" || { echo "$file is not a complete Kick Rocks backup, or the passphrase is wrong, so nothing was changed." >&2; exit 1; }
+  if [ -n "$passphrase_file" ] && [ "$(archive_format "$file")" = krbk ]; then
+    ensure_server_image || { echo "Could not build the server image that opens the backup, so nothing was changed." >&2; exit 1; }
+  fi
+  archive_is_intact "$file" || { explain_unusable_archive "$file"; exit 1; }
   volume="$(data_volume)"
   restore_volume="$volume"
   scratch="$volume-restore-$$"
@@ -380,6 +455,7 @@ restore() {
   fi
   [ "$had_previous" = false ] || docker volume rm -f "$previous" >/dev/null 2>&1 || true
   previous_volume=""
+  record_restore "$volume"
   echo "Restored $volume from $file."
   if [ "${#was_running[@]}" -eq 0 ]; then
     echo "Nothing was running, so nothing was started. Run ./install.sh to bring it up."

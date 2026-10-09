@@ -202,10 +202,18 @@ To have the script encrypt it, add `--passphrase-file` with the path of a file t
 ./install.sh --backup --passphrase-file ~/kickrocks-passphrase.txt
 ```
 
-The archive is then encrypted with AES-256 through `openssl`, with a key derived from the passphrase, and the default name ends in `.tgz.enc`.
+The passphrase is the first line of that file, and a file whose first line is blank is refused.
+The archive is then encrypted and authenticated with AES-256-GCM, with a key derived from the passphrase by scrypt, and the default name ends in `.tgz.enc`.
+The cost of the key derivation is stored in the file, so it can change later without locking out old backups.
+It runs inside the server image, which has node and nothing else that encrypts, so the host needs no tool installed.
+A wrong passphrase is reported as a wrong passphrase, and a damaged or altered file as damaged.
 A passphrase that is lost cannot be recovered, and neither can the backup.
 Restoring needs the same file: `./install.sh --restore FILE --passphrase-file PATH`.
-Keep the passphrase somewhere other than next to the backup.
+Backups that an older version encrypted with `openssl` still restore the same way, and that needs `openssl` on the host.
+Keep the passphrase file apart from the backup: whoever has both has the database key.
+
+A backup never includes the rollback copy of the database that a migration leaves beside it, because that copy is a second full database.
+The server deletes that copy once a verified backup newer than the migration exists, or after 14 days.
 
 ### Scheduled backups
 
@@ -213,6 +221,7 @@ Keep the passphrase somewhere other than next to the backup.
 Add it with `crontab -e` and a backup is taken every night.
 The line carries your current `PATH` (and `DOCKER_HOST` when set), because cron starts with almost none, and it appends output to `schedule.log` in the folder.
 Only files named `kickrocks-scheduled-*` are rotated, so manual backups in the same folder are never deleted.
+Plain `.tgz` and encrypted `.tgz.enc` backups are counted together, so adding or removing a passphrase never leaves old backups outside the rotation.
 A path containing `%` is refused, because cron turns it into a line break.
 Each run stops the stack for a moment, as a manual backup does.
 A run that fails deletes nothing, so the older backups stay.
@@ -250,6 +259,13 @@ Only then does it copy the current data aside and swap the backup in, and it sta
 If the swap fails it puts the previous data back.
 If putting it back fails too, it keeps the copy, tells you its name and the command that restores it, and leaves everything stopped.
 On a new machine there is no volume yet, and the script creates it.
+
+A restore brings back the requests as they were when the backup was taken.
+Mail sent after that is not in the restored database, so the request would be queued and mailed to the broker a second time.
+The script therefore leaves a `restored-at` marker in the volume, and the server sends nothing while it is there.
+It looks in the Sent folder of each mailbox with queued mail for the Message-ID that mail would carry, and records every match as sent.
+When every mailbox has been checked it lifts the hold by itself.
+If a mailbox cannot be reached or has no Sent folder, the hold stays and a banner says so, and sending resumes only after you confirm in the app.
 
 `docker compose down -v` and `./install.sh --uninstall` delete the volumes, and with them the database and its key.
 Never add `-v` unless you mean to start over.
