@@ -282,6 +282,23 @@ export const InstanceHealth = z.object({
 });
 export type InstanceHealth = z.infer<typeof InstanceHealth>;
 
+/**
+ * Whether sending is held because the database was restored from a backup. The backup does not
+ * know about mail sent after it was taken, so the server holds every send until it has checked
+ * the mailbox for that mail or the person has said to go on.
+ */
+export const RestoreState = z.object({
+  holding: z.boolean(),
+  /** When the restore happened, or null when sending is not held. */
+  restoredAt: z.string().nullable(),
+  /** Why the server could not finish checking, when it could not. A person can then resume by hand. */
+  problem: z.string().nullable(),
+});
+export type RestoreState = z.infer<typeof RestoreState>;
+
+export const RestoreResumeBody = z.object({ confirm: z.literal(true) });
+export type RestoreResumeBody = z.infer<typeof RestoreResumeBody>;
+
 export const API_ROUTES = {
   /**
    * Open to anyone, so it says only whether the server can do its job, never what it holds or why
@@ -310,6 +327,23 @@ export const API_ROUTES = {
       targets: z.object({ brokers: Count, companies: Count }),
       health: InstanceHealth,
     }),
+  }),
+
+  restoreState: defineRoute({
+    method: "GET",
+    path: "/restore",
+    module: "core",
+    auth: "session",
+    response: RestoreState,
+  }),
+  /** Lets held sends go out without waiting for the Sent folder check, for a person who has looked for themselves. */
+  restoreResume: defineRoute({
+    method: "POST",
+    path: "/restore/resume",
+    module: "core",
+    auth: "session",
+    body: RestoreResumeBody,
+    response: RestoreState,
   }),
 
   authState: defineRoute({

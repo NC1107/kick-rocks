@@ -56,3 +56,25 @@ describe("about handlers", () => {
     expect((await call({ path: "/settings/data-sources" })).status).toBe(401);
   });
 });
+
+describe("restore handlers", () => {
+  it("reports no hold by default", async () => {
+    const { json } = await call({ path: "/restore" });
+    expect(json).toEqual({ holding: false, restoredAt: null, problem: null });
+  });
+
+  it("holds with a reason when the mailbox could not be checked, and lets a person resume", async () => {
+    app.store.health = "restore_problem";
+    expect((await call({ path: "/restore" })).json).toMatchObject({
+      holding: true,
+      problem: expect.stringContaining("Sent folder"),
+    });
+    const resumed = await call({
+      method: "POST",
+      path: "/restore/resume",
+      body: { confirm: true },
+    });
+    expect(resumed.json.holding).toBe(false);
+    expect(app.store.health).toBe("ok");
+  });
+});

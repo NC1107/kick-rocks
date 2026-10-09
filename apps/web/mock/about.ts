@@ -1,5 +1,18 @@
 import { API_ROUTES, DATA_SOURCE_DETAILS, DataSourceId } from "@kickrocks/shared";
 import { defineMockDomain, handle, MockReply } from "./core.js";
+import type { MockStore } from "./store.js";
+
+function restoreState(store: MockStore) {
+  const holding = store.health === "restore" || store.health === "restore_problem";
+  return {
+    holding,
+    restoredAt: holding ? store.ago({ minutes: 4 }) : null,
+    problem:
+      store.health === "restore_problem"
+        ? "jordan@example.com: the mailbox reports no Sent folder to check"
+        : null,
+  };
+}
 
 /** What the About page reads: the server's version and counts, and where the data comes from. */
 export default defineMockDomain({
@@ -37,6 +50,13 @@ export default defineMockDomain({
         backup: { lastVerifiedAt: store.ago({ hours: 5 }), stale: false },
       },
     })),
+
+    handle(API_ROUTES.restoreState, () => restoreState(store)),
+
+    handle(API_ROUTES.restoreResume, () => {
+      if (store.health === "restore" || store.health === "restore_problem") store.health = "ok";
+      return restoreState(store);
+    }),
 
     handle(API_ROUTES.settingsDataSources, () => ({
       sources: DataSourceId.options.map((id) => ({

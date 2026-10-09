@@ -21,6 +21,7 @@ import { createMailQuota, type MailQuota } from "./core/mail-quota.js";
 import { createRecipeHealth, type RecipeHealthService } from "./core/recipe-health.js";
 import { createRequestFlow, type Requests } from "./core/request-flow.js";
 import { createRequestsService } from "./core/requests.js";
+import { createRestoreGate, type RestoreGate } from "./core/restore-gate.js";
 import { createSecrets, type Secrets } from "./core/secrets.js";
 import { createSettingsStore, type SettingsStore } from "./core/settings.js";
 import { createSitePoliteness, type SitePoliteness } from "./core/site-politeness.js";
@@ -69,6 +70,8 @@ export interface AppServices {
   mailQuota: MailQuota;
   /** Mailboxes sending is paused for, shared by the email runner and the mailbox settings. */
   mailHolds: MailHolds;
+  /** Holds sends after a restore until the mail sent since the backup has been accounted for. */
+  restoreGate: RestoreGate;
   /** Whether the scheduler is still turning over, which the health check reports. */
   liveness: Liveness;
   /** Room held back for the writes that report a full disk. */
@@ -186,6 +189,7 @@ export function createServices(
     composer: createComposer({ db, clock, legal, targets }),
     mailQuota: createMailQuota(db, clock),
     mailHolds: createMailHolds(clock),
+    restoreGate: createRestoreGate({ dataDir: config.dataDir, clock, logger }),
     liveness: createLiveness(clock),
     diskReserve: createDiskReserve(config.dataDir, logger),
     startup: createStartup(),

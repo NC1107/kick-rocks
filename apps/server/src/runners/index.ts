@@ -1,6 +1,7 @@
 import type { AppServices } from "../services.js";
 import { EmailRunner } from "./email-send.js";
 import { InboxRunner } from "./inbox-poll.js";
+import { reconcileAfterRestore } from "./restore-reconcile.js";
 
 export interface Runners {
   email: EmailRunner;
@@ -22,6 +23,7 @@ export function createRunners(services: AppServices, options: RunnerOptions = {}
     inbox,
     async runDue() {
       const polled = await inbox.runDue();
+      await reconcileAfterRestore(services, email);
       const sent = await email.runDue();
       return { polled, sent };
     },

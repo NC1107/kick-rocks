@@ -48,7 +48,14 @@ export function freshMockNotifications(): MockNotifications {
 }
 
 export type MockAuthMode = "authed" | "login" | "setup";
-export type MockHealthState = "ok" | "scheduler" | "sending" | "database" | "disk";
+export type MockHealthState =
+  | "ok"
+  | "scheduler"
+  | "sending"
+  | "database"
+  | "disk"
+  | "restore"
+  | "restore_problem";
 
 export interface MockAuthState {
   setupRequired: boolean;

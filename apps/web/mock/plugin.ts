@@ -16,6 +16,8 @@ const HEALTH_STATES: readonly MockHealthState[] = [
   "sending",
   "database",
   "disk",
+  "restore",
+  "restore_problem",
 ];
 const AUTH_MODES: readonly MockAuthMode[] = ["authed", "login", "setup"];
 

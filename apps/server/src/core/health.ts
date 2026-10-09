@@ -8,7 +8,10 @@ import type { AppServices } from "../services.js";
 import { nowIso } from "./clock.js";
 import { registerRoute } from "./http.js";
 
-type HealthDeps = Pick<AppServices, "db" | "config" | "clock" | "liveness" | "logger">;
+type HealthDeps = Pick<
+  AppServices,
+  "db" | "config" | "clock" | "liveness" | "logger" | "restoreGate"
+>;
 
 /**
  * Commits and removes a row, so a locked file or a read-only volume shows up here and not in the
@@ -114,6 +117,13 @@ export function registerHealth(app: FastifyInstance, services: HealthDeps, versi
     // A failing check must reach the container healthcheck as a status, not only in the body.
     if (!body.ok) reply.code(503).send(API_ROUTES.health.response.parse(body));
     return body;
+  });
+
+  registerRoute(app, API_ROUTES.restoreState, () => services.restoreGate.state());
+
+  registerRoute(app, API_ROUTES.restoreResume, () => {
+    services.restoreGate.release("confirmed");
+    return services.restoreGate.state();
   });
 
   registerRoute(app, API_ROUTES.status, () => {

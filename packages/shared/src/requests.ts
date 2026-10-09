@@ -321,6 +321,8 @@ export const REQUEST_EVENT_PAYLOADS = {
     mailboxId: z.string().nullable(),
     /** Set when the mail server never answered after the whole mail went out, so it may or may not have been delivered. */
     unconfirmed: z.boolean().optional(),
+    /** Set when the mailbox's Sent folder showed the mail after a restore, so it was not sent again. */
+    foundInSent: z.boolean().optional(),
   }),
   send_failed: z.object({ error: z.string(), willRetry: z.boolean() }),
   reply_received: z.object({ messageId: z.string(), from: z.string(), subject: z.string() }),

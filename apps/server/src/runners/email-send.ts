@@ -3,6 +3,7 @@ import {
   canTransition,
   type EmailKind,
   outgoingMessageId,
+  type RequestEventDraft,
   type RequestRecord,
 } from "@kickrocks/shared";
 import { and, count, eq } from "drizzle-orm";
@@ -27,6 +28,12 @@ const PASS_MAX_MS = 60 * 1000;
 const HOLDER_STATUSES = new Set<Task["status"]>(["leased", "queued", "failed"]);
 
 type EmailTask = Task<"email_send">;
+
+/** Mail the Sent folder holds for a request, in the order it went out, starting at the send the queue was about to make. */
+export interface FoundSend {
+  messageIds: string[];
+  recipients: string[];
+}
 
 /** Replies that say the login is not accepted, which no other message through the same mailbox can fix. */
 const MAILBOX_RESPONSE_CODES = new Set([421, 530, 534, 535, 538]);
@@ -109,6 +116,8 @@ export class EmailRunner {
    */
   async runDue(): Promise<number> {
     const { taskQueue, clock } = this.services;
+    // Mail sent since the backup the data came from is unknown to this database, so sending now could repeat it.
+    if (this.services.restoreGate.holding()) return 0;
     const deadline = clock.now().getTime() + PASS_MAX_MS;
     let sent = 0;
     for (
@@ -450,6 +459,87 @@ export class EmailRunner {
     };
   }
 
+  /** A queued request whose mail went out: sent, then waiting for the broker, with the dates that wait ends. */
+  private advanceToAwaitingReply(
+    current: RequestRecord,
+    kind: EmailKind,
+    mailboxId: string,
+    messageId: string,
+    sentEvent: RequestEventDraft,
+  ): void {
+    const { requests, clock } = this.services;
+    const now = clock.now();
+    const window = responseWindow(this.services, current, now);
+    const first: RequestPatch = {
+      mailboxId,
+      lastError: null,
+      outgoingMessageId: kind === "initial" ? messageId : (current.outgoingMessageId ?? messageId),
+      ...(kind === "initial" ? { sentAt: now.toISOString(), followUps: 0 } : {}),
+      ...(kind === "follow_up" ? { followUps: current.followUps + 1 } : {}),
+    };
+    requests.transition(current.id, "sent", { actor: "system", event: sentEvent, patch: first });
+    if (kind === "follow_up") {
+      requests.addEvent(current.id, {
+        type: "follow_up_sent",
+        actor: "system",
+        payload: { messageId, number: current.followUps + 1 },
+      });
+    }
+    requests.transition(current.id, "awaiting_reply", {
+      actor: "system",
+      patch: { dueAt: window.dueAt, followUpAt: window.followUpAt },
+    });
+  }
+
+  /**
+   * Records mail the Sent folder shows went out after the backup this database was restored from.
+   * The first is the send the queued task was going to make, so the task is closed without sending.
+   * Any later one was a follow-up the old instance sent on its own, and only its fact and count are kept.
+   */
+  settleFromSentFolder(
+    task: EmailTask,
+    request: RequestRecord,
+    mailboxId: string,
+    found: FoundSend,
+  ): void {
+    const { db, taskQueue, requests, mailQuota } = this.services;
+    db.transaction(() => {
+      found.messageIds.forEach((messageId, index) => {
+        const kind: EmailKind = index === 0 ? task.payload.kind : "follow_up";
+        mailQuota.record({
+          mailboxId,
+          requestId: request.id,
+          kind,
+          messageId,
+          recipient: found.recipients[index] ?? null,
+        });
+        const current = requests.getOrThrow(request.id);
+        const sentEvent = {
+          type: "sent" as const,
+          payload: { channel: "email" as const, kind, messageId, mailboxId, foundInSent: true },
+        };
+        if (index === 0 && current.status === "queued") {
+          this.advanceToAwaitingReply(current, kind, mailboxId, messageId, sentEvent);
+          return;
+        }
+        requests.addEvent(request.id, { ...sentEvent, actor: "system" });
+        if (kind === "follow_up") {
+          requests.update(request.id, { followUps: current.followUps + 1 });
+          requests.addEvent(request.id, {
+            type: "follow_up_sent",
+            actor: "system",
+            payload: { messageId, number: current.followUps + 1 },
+          });
+        }
+      });
+      taskQueue.cancel(task.id, "system");
+    });
+  }
+
+  mailboxIdFor(request: RequestRecord): string | null {
+    return this.mailboxIdOf(request);
+  }
+
   private recordSend(
     task: EmailTask,
     requestId: string,
@@ -460,7 +550,7 @@ export class EmailRunner {
       recipient = null,
     }: { unconfirmed?: boolean; recipient?: string | null } = {},
   ): boolean {
-    const { db, taskQueue, requests, mailQuota, clock } = this.services;
+    const { db, taskQueue, requests, mailQuota } = this.services;
     const kind: EmailKind = task.payload.kind;
     return db.transaction(() => {
       if (!requests.get(requestId) || !taskQueue.get(task.id)) {
@@ -500,28 +590,7 @@ export class EmailRunner {
         return true;
       }
 
-      const now = clock.now();
-      const window = responseWindow(this.services, current, now);
-      const first: RequestPatch = {
-        mailboxId,
-        lastError: null,
-        outgoingMessageId:
-          kind === "initial" ? messageId : (current.outgoingMessageId ?? messageId),
-        ...(kind === "initial" ? { sentAt: now.toISOString(), followUps: 0 } : {}),
-        ...(kind === "follow_up" ? { followUps: current.followUps + 1 } : {}),
-      };
-      requests.transition(requestId, "sent", { actor: "system", event: sentEvent, patch: first });
-      if (kind === "follow_up") {
-        requests.addEvent(requestId, {
-          type: "follow_up_sent",
-          actor: "system",
-          payload: { messageId, number: current.followUps + 1 },
-        });
-      }
-      requests.transition(requestId, "awaiting_reply", {
-        actor: "system",
-        patch: { dueAt: window.dueAt, followUpAt: window.followUpAt },
-      });
+      this.advanceToAwaitingReply(current, kind, mailboxId, messageId, sentEvent);
       taskQueue.complete(task.id, {
         workerId: EMAIL_WORKER_ID,
         actor: "system",

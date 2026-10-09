@@ -7,6 +7,7 @@ import { breadcrumbTrail } from "./breadcrumb.js";
 import { BreadcrumbTailProvider, useBreadcrumbTailValue } from "./breadcrumb-context.js";
 import { Drawer } from "./Drawer.js";
 import { LogoMark } from "./Logo.js";
+import { RestoreBanner } from "./RestoreBanner.js";
 import { RouteAnnouncer } from "./RouteAnnouncer.js";
 import { StatusChips, UrgentStatusMark, useShellStatus } from "./ShellStatus.js";
 import { SidebarContent } from "./Sidebar.js";
@@ -112,6 +113,7 @@ export function AppLayout() {
           <HeaderBar />
           <PhoneBar onOpenMenu={() => setDrawerOpen(true)} />
           <main id="main" className="min-w-0 px-gutter py-5">
+            <RestoreBanner />
             <Outlet />
           </main>
         </div>

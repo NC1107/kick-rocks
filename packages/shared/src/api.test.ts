@@ -19,6 +19,8 @@ import { ScanStartBody } from "./scans.js";
 const PLANNED = [
   "GET /health",
   "GET /status",
+  "GET /restore",
+  "POST /restore/resume",
   "GET /auth/state",
   "POST /auth/setup",
   "POST /auth/login",
