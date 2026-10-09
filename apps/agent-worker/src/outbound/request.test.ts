@@ -203,6 +203,32 @@ describe("canonicalize", () => {
     ]);
   });
 
+  it("marks a multipart body with bytes outside its parts as cut short", () => {
+    const boundary = "xyz";
+    const type = { "content-type": `multipart/form-data; boundary=${boundary}` };
+    const part = ["--xyz", 'Content-Disposition: form-data; name="a"', "", "1"];
+    const build = (before: string[], inside: string[], after: string[]) =>
+      [...before, ...part.slice(0, 2), ...inside, ...part.slice(2), "--xyz--", ...after].join(
+        "\r\n",
+      );
+    const truncatedOf = (text: string) =>
+      canonical(paused({ headers: type }), bodyOf(text)).truncated;
+    expect(truncatedOf(build([], [], [""]))).toBe(false);
+    expect(truncatedOf(build(["preamble"], [], [""]))).toBe(true);
+    expect(truncatedOf(build([], [], ["epilogue"]))).toBe(true);
+    expect(truncatedOf(build([], ["X-Extra: jordan.example@example.com"], [""]))).toBe(true);
+    expect(truncatedOf(build([], ["Content-Type: text/plain"], [""]))).toBe(false);
+  });
+
+  it("marks a JSON body that repeats a key as cut short", () => {
+    const type = { "content-type": "application/json" };
+    const truncatedOf = (text: string) =>
+      canonical(paused({ headers: type }), bodyOf(text)).truncated;
+    expect(truncatedOf('{"a":"jordan.example@example.com","a":"x"}')).toBe(true);
+    expect(truncatedOf('{"a":{"b":1},"c":{"b":2},"d":[{"b":1},{"b":2}]}')).toBe(false);
+    expect(truncatedOf('{"a":"x:y","b":"a"}')).toBe(false);
+  });
+
   it("finds a value in a packed body and shows it as encoded", () => {
     const packed = gzipSync(Buffer.from("email=jordan.example%40example.com"));
     const { request, scan } = canonical(

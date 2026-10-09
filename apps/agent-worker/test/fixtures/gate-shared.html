@@ -12,6 +12,7 @@
   } catch (_) {
     document.title = 'No shared worker';
   }
+  if (typeof documentPictureInPicture !== 'undefined') fetch('/gate-pip-present').catch(() => undefined);
   if (navigator.serviceWorker) navigator.serviceWorker.register('/sw.js').catch(() => undefined);
 </script>
 <form method="post" action="/gate-optout">

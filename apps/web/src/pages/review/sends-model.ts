@@ -11,11 +11,23 @@ import { PROFILE_FIELD_LABELS } from "../../lib/labels.js";
 export const GATE_LIMITS: readonly { title: string; text: string }[] = [
   {
     title: "A value the page disguises itself",
-    text: "Bodies are all held after the run touched the page, and other sites are refused, so a value hidden by a transform of the page's own (its own hash, or one character per request) could only travel in a GET to the target's own site.",
+    text: "Bodies are all held after the run touched the page, and other sites are refused. A value the page scrambles with a transform of its own could still travel in a GET to the target's own site, because a GET with nothing the gate recognizes is not held.",
+  },
+  {
+    title: "A value cut into pieces",
+    text: "A piece of 5 characters or fewer goes out in a plain GET, and so does a value cut into such pieces, across any number of requests. The gate does not put pieces back together.",
+  },
+  {
+    title: "The first characters of what is typed",
+    text: "Per-keystroke requests can give away the first 5 characters of an email address, phone number, street or date of birth before the gate recognizes the value.",
   },
   {
     title: "Searches that carry no contact detail",
-    text: "A GET with only a name, city, state, ZIP or year, and a removal link with nothing of yours in it, are not held. They are listed under What left the browser as lookups.",
+    text: "A GET with only a name, city, state, ZIP or year, and a removal link with nothing of yours in it, are not held. Before the run first types, a POST with only such values is not held either. They are listed under What left the browser as lookups.",
+  },
+  {
+    title: "Cookies set at the last moment",
+    text: "Cookies are read again just before a send is released. A cookie the page sets in the instant between that look and the release is not seen.",
   },
   {
     title: "Names that leak through DNS",
@@ -23,7 +35,7 @@ export const GATE_LIMITS: readonly { title: string; text: string }[] = [
   },
   {
     title: "Sites that need a live connection",
-    text: "A WebSocket, WebRTC, WebTransport or a shared worker is blocked, not read. A site that needs one cannot be finished by a model that has not passed the gate.",
+    text: "A WebSocket, WebRTC, WebTransport or a shared worker is blocked, not read. So are keepalive requests, beacons, and requests from frames or workers that cannot be held. A site that needs one cannot be finished by a model that has not passed the gate.",
   },
   {
     title: "Bot sensors",
@@ -227,16 +239,19 @@ export interface LogSummary {
   released: number;
   /** A channel the gate cannot read was used, so a form may have gone out. */
   unguarded: boolean;
+  /** Lookups that carried a name, city, state, ZIP or year. */
+  lookups: number;
   /** Nothing carrying the person's details left the browser. */
   nothingLeft: boolean;
 }
 
 export function summarize(log: Pick<SendLog, "sends">): LogSummary {
   const released = log.sends.filter((row) => row.kind === "released").length;
+  const lookups = log.sends.filter((row) => row.kind === "lookup").length;
   const unguarded = log.sends.some(
     (row) => row.kind === "guard_event" && row.reason?.startsWith("unguarded:") === true,
   );
-  return { released, unguarded, nothingLeft: released === 0 && !unguarded };
+  return { released, unguarded, lookups, nothingLeft: released === 0 && !unguarded };
 }
 
 /** What a person reads for a row of the log: a short title and the line under it. */

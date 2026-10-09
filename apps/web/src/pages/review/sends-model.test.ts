@@ -187,6 +187,7 @@ describe("the log of what left the browser", () => {
     expect(summarize({ sends: [row()] })).toEqual({
       released: 0,
       unguarded: false,
+      lookups: 0,
       nothingLeft: true,
     });
   });
@@ -204,6 +205,11 @@ describe("the log of what left the browser", () => {
       nothingLeft: false,
     });
     expect(summarize({ sends: [escaped] })).toMatchObject({ unguarded: true, nothingLeft: false });
+  });
+
+  it("counts lookups apart from releases", () => {
+    const lookup = row({ kind: "lookup", request: request({ method: "GET", carries: ["city"] }) });
+    expect(summarize({ sends: [lookup, lookup] })).toMatchObject({ lookups: 2, released: 0 });
   });
 
   it("describes a row in words without the person's values", () => {

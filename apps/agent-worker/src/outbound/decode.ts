@@ -90,10 +90,19 @@ class CorruptLayer extends Error {
   }
 }
 
-/** The unpacked size went past the limit, which a guess at a hidden layer may not ignore. */
+/** This Node cannot open a zstd layer, so a layer that is one stays closed. */
+class ZstdUnavailable extends Error {
+  constructor() {
+    super("zstd is not available");
+  }
+}
+
+/** The layer is too large to open, or cannot be opened here, which a guess at a hidden layer may not ignore. */
 function isTooLarge(error: unknown): boolean {
   return (
-    error instanceof TooManyLayers || (error as { code?: string }).code === "ERR_BUFFER_TOO_LARGE"
+    error instanceof TooManyLayers ||
+    error instanceof ZstdUnavailable ||
+    (error as { code?: string }).code === "ERR_BUFFER_TOO_LARGE"
   );
 }
 
@@ -170,7 +179,7 @@ function unpackOnce(bytes: Buffer, encoding: string): Buffer {
     case "br":
       return brotliDecompressSync(bytes, limit);
     case "zstd":
-      if (zstdDecompress === undefined) throw new Error("zstd is not available");
+      if (zstdDecompress === undefined) throw new ZstdUnavailable();
       return zstdDecompress(bytes, limit);
     default:
       return bytes;

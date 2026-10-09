@@ -94,7 +94,10 @@ export function decide(facts: Facts): Verdict {
   // What a person cannot read in full they cannot approve, so it is never held, and what the gate
   // could not read in full may hold anything. After the run has touched the page that covers every
   // request to the target, whatever its method or body.
-  const cutShort = facts.unreadable || facts.truncated || (facts.touched && facts.opaqueBody);
+  const cutShort =
+    facts.unreadable ||
+    facts.truncated ||
+    (facts.opaqueBody && (facts.touched || facts.carriesContact));
   if (
     cutShort &&
     (facts.touched || facts.carriesContact || (facts.unreadable && carriesSomething))

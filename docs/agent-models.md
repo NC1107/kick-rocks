@@ -232,12 +232,14 @@ Getting the outcome wrong without sending anything, such as calling an empty sea
 
 ### What the gate cannot see
 
-- A value hidden by a transform of the page's own, such as its own hash or encryption, sent one character at a time in a GET to the target's own site.
-  Bodies are all held after the run starts and other sites are refused, so only that channel is left.
-- A value the page scrambles with a transform the gate does not undo (reversed, ROT13, XOR, a salted hash), sent in the address of a GET, an image, a stylesheet or a font.
+- A value the page scrambles with a transform the gate does not undo (ROT13, XOR, a salted hash, or its own hash), sent in the address of a GET, an image, a stylesheet or a font to the target's own site.
   Such a GET has no body and no value the gate recognizes, so it is not held.
+- A value cut into pieces of 5 characters or fewer, which goes out in plain GETs whatever the number of requests.
+- The first 5 characters of a typed email, phone number, street or date of birth, which per-keystroke requests can give away before the gate recognizes the value.
 - A GET with no contact detail in it, such as a search by name, or a one-click removal link.
   Those are listed as lookups, and so is a POST that carries only a name, city, state, ZIP or year before the run first types.
+- A cookie the page sets in the instant between the last look at the cookies and the release of a send.
+- Keepalive requests, beacons and requests from frames or workers that cannot be held are refused, not read.
 - A redirect with status 307 or 308 of a request you released to another path of the target's own sites.
 - A host name that carries a value in the DNS lookup, before any request.
 - Any other fetch Chrome makes by itself outside request inspection, from an address a page names. FedCM and PaymentRequest are switched off for this reason, and no other is known on Chrome 154.

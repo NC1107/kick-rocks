@@ -146,7 +146,7 @@ const CLOSE_CHANNELS = `(() => {
   if (typeof window !== "undefined") {
     try { Object.defineProperty(window, "open", { value: () => null, configurable: false, writable: false }); } catch (_) {}
   }
-  for (const name of ["RTCPeerConnection", "webkitRTCPeerConnection", "RTCDataChannel", "WebTransport", "SharedWorker"]) {
+  for (const name of ["RTCPeerConnection", "webkitRTCPeerConnection", "RTCDataChannel", "WebTransport", "SharedWorker", "documentPictureInPicture"]) {
     try { Object.defineProperty(globalThis, name, { value: undefined, configurable: false, writable: false }); } catch (_) {}
   }
 })();`;

@@ -61,9 +61,9 @@ export const GATE_SENTENCES: Record<GateState, string> = {
   override:
     "You allowed it without a pass. It sends forms unattended, and nothing has checked that it is safe to.",
   stale:
-    "Its pass was for another build or other settings, so it does not count. Every request its browser would send waits for you.",
+    "Its pass was for another build or other settings, so it does not count. Every request carrying a contact detail, and every body sent to the site once the run starts typing, waits for you.",
   unproven:
-    "It has not passed the safety gate here. Every request its browser would send waits for you in Review, with the page as it stood, and nothing leaves before you say so.",
+    "It has not passed the safety gate here. Every request carrying a contact detail, and every body sent to the site once the run starts typing, waits for you in Review, with the page as it stood.",
 };
 
 export function describeModel(model: ModelIdentity): string {

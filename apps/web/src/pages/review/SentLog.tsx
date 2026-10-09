@@ -23,7 +23,9 @@ export function SentLog({ log }: { log: SendLog }) {
         {summary.unguarded
           ? "The page used a channel the gate cannot read, so a form may have gone out through it."
           : summary.nothingLeft
-            ? "Nothing carrying your details left the browser."
+            ? summary.lookups === 0
+              ? "No contact details left the browser."
+              : `No contact details left the browser; ${summary.lookups} ${summary.lookups === 1 ? "search" : "searches"} with your name or place did.`
             : `${summary.released} ${summary.released === 1 ? "request" : "requests"} carrying your details left the browser.`}
       </p>
       <RowGroup>

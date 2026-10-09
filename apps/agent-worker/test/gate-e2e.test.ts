@@ -463,6 +463,7 @@ describeBrowser("the outgoing gate end to end with the real server", () => {
       const paths = (await fixtureState()).hits.map((hit) => hit.path);
       expect(paths).not.toContain("/gate-shared-post");
       expect(paths).not.toContain("/sw.js");
+      expect(paths).not.toContain("/gate-pip-present");
     });
 
     it("sends nothing through a stylesheet, a font, a srcdoc frame, a refresh, a blank-target form, an event stream or a beacon, and refuses the beacon instead of holding it", async () => {

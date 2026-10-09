@@ -188,5 +188,9 @@ describe("a request the gate refuses by its shape", () => {
       reason: "unreadable_body",
     });
     expect(decide(facts(opaque))).not.toMatchObject({ action: "refuse" });
+    expect(decide(facts({ ...opaque, carriesContact: true }))).toMatchObject({
+      action: "refuse",
+      reason: "unreadable_body",
+    });
   });
 });

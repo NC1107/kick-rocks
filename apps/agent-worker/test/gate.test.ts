@@ -410,7 +410,13 @@ describeBrowser("a send from a worker", () => {
       sends: NOBODY(),
     });
     expect(
-      submissionsOf(await fixtureState(), "/gate-shared-post", "/gate-shared.js", "/sw.js"),
+      submissionsOf(
+        await fixtureState(),
+        "/gate-shared-post",
+        "/gate-shared.js",
+        "/sw.js",
+        "/gate-pip-present",
+      ),
     ).toEqual([]);
     expect(sends.releases).toEqual([]);
     expect(outcome.report.kind).toBe("release");

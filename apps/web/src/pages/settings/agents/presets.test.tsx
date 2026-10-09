@@ -147,7 +147,9 @@ describe("the safety gate", () => {
     );
     expect(gate.getByText("Not cleared")).toBeVisible();
     expect(
-      gate.getByText(/Every request its browser would send waits for you in Review/),
+      gate.getByText(
+        /every body sent to the site once the run starts typing, waits for you in Review/,
+      ),
     ).toBeVisible();
     expect(screen.getByText(/--thinking off/)).toBeVisible();
   });

@@ -251,15 +251,28 @@ function isReadableFile(content: Buffer): boolean {
   }
 }
 
-function multipartLeaves(bytes: Buffer, boundary: string): Leaf[] | null {
+/** Header lines of a part that a person is shown through its leaf: its name, filename and type. */
+const SHOWN_PART_HEADER = /^content-(disposition|type)\s*:/i;
+
+function multipartLeaves(
+  bytes: Buffer,
+  boundary: string,
+): { leaves: Leaf[]; hidden: boolean } | null {
   const text = bytes.toString("latin1");
-  const parts = text.split(`--${boundary}`).slice(1);
+  const [preamble = "", ...parts] = text.split(`--${boundary}`);
   const leaves: Leaf[] = [];
+  let hidden = preamble.trim() !== "";
   for (const part of parts) {
-    if (part.startsWith("--")) break;
+    if (part.startsWith("--")) {
+      hidden ||= part.slice(2).trim() !== "";
+      break;
+    }
     const split = part.indexOf("\r\n\r\n");
     if (split < 0) return null;
     const head = part.slice(0, split);
+    hidden ||= head
+      .split("\r\n")
+      .some((line) => line.trim() !== "" && !SHOWN_PART_HEADER.test(line));
     const content = Buffer.from(part.slice(split + 4).replace(/\r\n$/, ""), "latin1");
     const name = /name="([^"]*)"/i.exec(head)?.[1] ?? "";
     const file = /filename="([^"]*)"/i.exec(head)?.[1];
@@ -273,12 +286,33 @@ function multipartLeaves(bytes: Buffer, boundary: string): Leaf[] | null {
         : { path: name, value: content.toString("utf8") },
     );
   }
-  return leaves;
+  return { leaves, hidden };
+}
+
+/** Whether a JSON text repeats a key in one object, where parsing keeps only the last value. */
+function hasDuplicateKeys(text: string): boolean {
+  const scopes: (Set<string> | null)[] = [];
+  const token = /"(?:[^"\\]|\\.)*"|[{}[\]]/g;
+  for (let match = token.exec(text); match !== null; match = token.exec(text)) {
+    const [found] = match;
+    if (found === "{") scopes.push(new Set());
+    else if (found === "[") scopes.push(null);
+    else if (found === "}" || found === "]") scopes.pop();
+    else if (/^\s*:/.test(text.slice(token.lastIndex))) {
+      const keys = scopes[scopes.length - 1];
+      const key = JSON.parse(found) as string;
+      if (keys?.has(key)) return true;
+      keys?.add(key);
+    }
+  }
+  return false;
 }
 
 interface Shaped {
   kind: OutgoingRequest["bodyKind"];
   leaves: Leaf[];
+  /** Bytes that are scanned but have no leaf, so a person is not shown all of them. */
+  hidden?: boolean;
 }
 
 function shapeBody(body: BodyRead, contentType: string, encoding: string): Shaped {
@@ -302,8 +336,10 @@ function shapeBody(body: BodyRead, contentType: string, encoding: string): Shape
   if (type.includes("multipart/form-data")) {
     const boundary = /boundary=("([^"]+)"|[^;\s]+)/i.exec(contentType);
     const name = boundary?.[2] ?? boundary?.[1];
-    const leaves = name ? multipartLeaves(plain, name) : null;
-    return leaves === null ? { kind: "opaque", leaves: [] } : { kind: "multipart", leaves };
+    const parsed = name ? multipartLeaves(plain, name) : null;
+    return parsed === null
+      ? { kind: "opaque", leaves: [] }
+      : { kind: "multipart", leaves: parsed.leaves, hidden: parsed.hidden };
   }
   if (!isPrintable(plain)) return { kind: "opaque", leaves: [] };
   const text = plain.toString("utf8");
@@ -311,7 +347,7 @@ function shapeBody(body: BodyRead, contentType: string, encoding: string): Shape
     try {
       const leaves: Leaf[] = [];
       jsonLeaves(JSON.parse(text), "", leaves);
-      return { kind: "json", leaves };
+      return { kind: "json", leaves, hidden: hasDuplicateKeys(text) };
     } catch {
       // Not JSON after all: it is shown as the text it is.
     }
@@ -439,6 +475,7 @@ export function canonicalize(input: CanonicalizeInput): Canonical {
 
   const shaped = shapeBody(body, contentType, encoding);
   const bodyValues = scanEach(shaped.leaves);
+  if (shaped.hidden) truncated = true;
   const rawBody: (string | { data: Buffer; contentEncoding?: string })[] =
     body.bytes === null
       ? []
