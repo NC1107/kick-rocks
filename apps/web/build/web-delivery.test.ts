@@ -118,7 +118,10 @@ describe("the built page", () => {
       ...modules,
       ...referenced(/<link rel="modulepreload"[^>]*href="([^"]+)"/g),
       ...referenced(/<link rel="stylesheet"[^>]*href="([^"]+)"/g),
-      ...referenced(/<link rel="preload"[^>]*href="([^"]+)"/g),
+      // The sign-in check is preloaded as an API request, which is not a file of the build.
+      ...referenced(/<link rel="preload"[^>]*href="([^"]+)"/g).filter(
+        (href) => href !== "/api/auth/state",
+      ),
     ];
     expect(files.length).toBeGreaterThan(modules.length);
     for (const file of files) {

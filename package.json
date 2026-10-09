@@ -16,7 +16,7 @@
     "lint:fix": "biome check --write .",
     "typecheck": "pnpm -r typecheck",
     "test": "pnpm -r test && pnpm test:scripts",
-    "test:scripts": "node --test scripts/check-standards.test.mjs scripts/install.test.mjs scripts/backup-crypt.test.mjs scripts/trust-copy.test.mjs scripts/fonts.test.mjs scripts/loops/layout-a11y/contrast.test.mjs scripts/loops/layout-a11y/inspect-page.test.mjs",
+    "test:scripts": "node --test scripts/check-standards.test.mjs scripts/install.test.mjs scripts/backup-crypt.test.mjs scripts/trust-copy.test.mjs scripts/fonts.test.mjs scripts/index-html.test.mjs scripts/loops/layout-a11y/contrast.test.mjs scripts/loops/layout-a11y/inspect-page.test.mjs",
     "standards": "node scripts/check-standards.mjs",
     "data:build": "pnpm --filter @kickrocks/shared build && pnpm --filter @kickrocks/brokers build:data",
     "loop:backup-drill": "node scripts/loops/backup-drill/run.mjs",
