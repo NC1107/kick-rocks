@@ -25,6 +25,7 @@ const USAGE = `pnpm bench:replies [options]
   --split s          dev or both. Default: both. Held-out is only for checking a
                      finished result, never for tuning, so "dev" leaves it unread.
   --model name       Ollama model for candidates a and b. Default: granite4.1:8b.
+  --no-reasoning     Ask candidate a to skip reasoning (reasoning_effort none). Candidate b always does.
   --out dir          Where to write the JSON and Markdown report. Default: bench/reply-classifier/results.
   --help
 `;
@@ -33,7 +34,7 @@ function log(message: string): void {
   console.error(message);
 }
 
-function registry(model: string | undefined): Candidate[] {
+function registry(model: string | undefined, thinkingOff: boolean): Candidate[] {
   const common = { log, ...(model ? { model } : {}) };
   return [
     {
@@ -44,7 +45,7 @@ function registry(model: string | undefined): Candidate[] {
       runAll: (items: Item[]) => runRulesOnly(items),
       async dispose() {},
     },
-    productionCandidate(common),
+    productionCandidate({ ...common, thinkingOff }),
     labelScoringCandidate(common),
     encoderCandidate({ device: "cuda", log }),
     encoderCandidate({ device: "cpu", log }),
@@ -91,6 +92,7 @@ async function main(): Promise<void> {
       sources: { type: "string" },
       split: { type: "string", default: "both" },
       model: { type: "string" },
+      "no-reasoning": { type: "boolean", default: false },
       out: { type: "string", default: RESULTS_DIR },
       help: { type: "boolean", default: false },
     },
@@ -104,7 +106,7 @@ async function main(): Promise<void> {
   const splits = values.split as string;
   if (!["dev", "both"].includes(splits)) throw new Error(`Unknown split "${splits}"`);
 
-  const all = registry(values.model);
+  const all = registry(values.model, values["no-reasoning"] ?? false);
   const wanted = values.candidates?.split(",");
   const chosen = wanted ? all.filter((candidate) => wanted.includes(candidate.id)) : all;
   for (const id of wanted ?? []) {

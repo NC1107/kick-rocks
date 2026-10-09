@@ -173,13 +173,26 @@ export async function runProduction(
   items: readonly Item[],
   llm: { baseUrl: string; model: string; apiKey: string | null },
   timeoutMs: number,
+  fetchImpl?: typeof fetch,
 ): Promise<Outcome[]> {
+  const send = fetchImpl ?? fetch;
+  let spentInModel = 0;
+  const timedFetch: typeof fetch = async (input, init) => {
+    const started = now();
+    try {
+      return await send(input, init);
+    } finally {
+      spentInModel += now() - started;
+    }
+  };
   const classifier = createReplyClassifier({
     settings: { get: () => llm as never },
     llmTimeoutMs: timeoutMs,
+    fetch: timedFetch,
   });
   const outcomes: Outcome[] = [];
   for (const prepared of await prepare(items)) {
+    spentInModel = 0;
     const start = now();
     const result = await classifier.classify(prepared.message, { requests: [prepared.request] });
     const latencyMs = now() - start;
@@ -189,7 +202,7 @@ export async function runProduction(
       confidence: result.confidence,
       via: viaModel ? "model" : "rules",
       latencyMs,
-      modelLatencyMs: null,
+      modelLatencyMs: spentInModel > 0 ? spentInModel : null,
     });
   }
   return outcomes;

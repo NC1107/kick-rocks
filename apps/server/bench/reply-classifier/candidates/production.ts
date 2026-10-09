@@ -8,8 +8,15 @@ export interface ProductionOptions {
   model?: string;
   /** Memory the model needs on the GPU, so the wait for a free card is long enough. */
   needMiB?: number;
+  /** Turns reasoning off for models that think by default, so the run measures the answer and not the wait. */
+  thinkingOff?: boolean;
   log: (message: string) => void;
 }
+
+const withoutReasoning: typeof fetch = (input, init) => {
+  const body = typeof init?.body === "string" ? JSON.parse(init.body) : {};
+  return fetch(input, { ...init, body: JSON.stringify({ ...body, reasoning_effort: "none" }) });
+};
 
 /** (a) The classifier as shipped: rules, then the language model step through its own interface. */
 export function productionCandidate(options: ProductionOptions): Candidate {
@@ -28,6 +35,7 @@ export function productionCandidate(options: ProductionOptions): Candidate {
         items,
         { baseUrl: `${OLLAMA_URL}/v1`, model, apiKey: null },
         LLM_TIMEOUT_MS,
+        options.thinkingOff ? withoutReasoning : undefined,
       );
     },
     async dispose() {
