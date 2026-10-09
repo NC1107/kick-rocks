@@ -86,12 +86,27 @@ async function lastPolledAt(): Promise<string | null> {
   return dashboard.mailbox?.lastPolledAt ?? null;
 }
 
+/** The server refuses a manual check right after a read, so a scheduled poll that just ran has to be waited out. */
+async function startPoll() {
+  for (;;) {
+    const result = await world.api.try(API_ROUTES.mailboxPoll, {
+      params: { id: world.profileId },
+    });
+    if (result.ok) return result.body;
+    const wait = result.body.retryAfterSeconds;
+    if (result.status !== 429 || result.body.error !== "poll_too_soon" || wait === undefined) {
+      throw new Error(
+        `POST /profiles/:id/mailbox/poll answered ${result.status}: ${JSON.stringify(result.body)}`,
+      );
+    }
+    await new Promise((resolve) => setTimeout(resolve, wait * 1000));
+  }
+}
+
 /** Runs one mailbox poll through the API, as the "check now" button does, and waits for it to finish. */
 export async function pollNow(): Promise<void> {
   const before = await lastPolledAt();
-  const { task } = await world.api.call(API_ROUTES.mailboxPoll, {
-    params: { id: world.profileId },
-  });
+  const { task } = await startPoll();
   await eventually(
     async () => {
       const after = await lastPolledAt();
