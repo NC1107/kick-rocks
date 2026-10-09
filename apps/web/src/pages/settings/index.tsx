@@ -4,6 +4,7 @@ import { Button, Callout, RowGroup, Section, SkeletonText } from "../../componen
 import { JurisdictionsCard } from "./JurisdictionsCard.js";
 import { LlmCard } from "./LlmCard.js";
 import { PasswordCard } from "./PasswordCard.js";
+import { ReplyModelCard } from "./ReplyModelCard.js";
 import { ResetCard } from "./ResetCard.js";
 import { RetentionCard } from "./RetentionCard.js";
 import { BodyRow, SETTINGS_WIDTH } from "./rows.js";
@@ -64,6 +65,7 @@ export function Component() {
               agent={settings.data.agent}
               now={settings.dataUpdatedAt}
             />
+            <ReplyModelCard model={settings.data.replyModel} />
             <LlmCard llm={settings.data.llm} />
             <JurisdictionsCard />
             <RetentionCard retention={settings.data.retention} />

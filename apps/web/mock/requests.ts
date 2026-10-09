@@ -291,6 +291,7 @@ export function buildRequest(store: MockStore, input: NewRequest): StoredRequest
       reviewed: true,
       requestReference: reference,
       targetName: target.name,
+      suggestion: null,
     };
     store.messages.push(message);
     addEvent(store, request, "reply_received", "system", receivedAt, {
@@ -535,7 +536,10 @@ function detailOf(store: MockStore, request: StoredRequest): RequestDetail {
   const { events, ...listItem } = request;
   const messages: MessageSummary[] = store.messages
     .filter((message) => message.requestId === request.id)
-    .map(({ requestReference: _reference, targetName: _name, ...message }) => message);
+    .map(
+      ({ requestReference: _reference, targetName: _name, suggestion: _suggestion, ...message }) =>
+        message,
+    );
   const tasks = store.tasks.filter((task) => task.requestId === request.id);
   return {
     ...listItem,

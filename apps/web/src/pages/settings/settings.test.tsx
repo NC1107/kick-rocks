@@ -182,7 +182,7 @@ describe("general settings", () => {
 
   it("says the reply text goes to the language model address, and recommends a local one", async () => {
     general();
-    const note = await screen.findByText(/Classifies replies the rules cannot place/);
+    const note = await screen.findByText(/Used only when the reply model is not available/);
     expect(note).toHaveTextContent(
       /subject and the first part of the reply text are sent to this address/,
     );
@@ -524,5 +524,56 @@ describe("bundled recipes to check", () => {
   it("says when the bundled recipes cannot load", async () => {
     bundled(failing(/\/api\/recipes/));
     expect(await screen.findByText("Could not load bundled recipes")).toBeVisible();
+  });
+});
+
+describe("the reply model card", () => {
+  it("shows the model's state, where it applies answers, and how the spot checks went", async () => {
+    general();
+    expect(await screen.findByText("Loaded, version v1")).toBeVisible();
+    expect(screen.getByText("96.1% or more")).toBeVisible();
+    expect(screen.getByText(/13 of 14, 20 needed to judge/)).toBeVisible();
+  });
+
+  it("saves the share of answers held for spot checks", async () => {
+    const { user, mock } = general();
+    const share = await field(/Spot checks$/);
+    await user.clear(share);
+    await user.type(share, "25");
+    await user.click(screen.getByRole("button", { name: "Save reply model" }));
+    await waitFor(() => expect(mock.store.settings.replyModel.spotCheckPercent).toBe(25));
+  });
+
+  it("says why answers stopped being applied and lets the person resume", async () => {
+    const mock = createMockApp();
+    mock.store.settings.replyModel.paused = {
+      at: "2026-10-01T00:00:00.000Z",
+      reason: "Spot checks agreed 17 times out of 20",
+    };
+    const { user } = general(mock);
+    expect(await screen.findByText(/Spot checks agreed 17 times out of 20/)).toBeVisible();
+    expect(screen.getByText("Paused")).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "Apply again" }));
+    await waitFor(() => expect(mock.store.settings.replyModel.paused).toBeNull());
+  });
+
+  it("says when no model is installed", async () => {
+    const mock = createMockApp();
+    mock.store.settings.replyModel.status = {
+      state: "not_installed",
+      reason: null,
+      version: null,
+      threshold: null,
+    };
+    mock.store.settings.replyModel.threshold = null;
+    general(mock);
+    expect(await screen.findByText("Not installed")).toBeVisible();
+    expect(screen.getByText("Not applying")).toBeVisible();
+  });
+
+  it("offers the labelled replies for download", async () => {
+    general();
+    const link = await screen.findByRole("link", { name: "Download" });
+    expect(link).toHaveAttribute("href", "/api/reply-model/labels");
   });
 });
