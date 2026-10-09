@@ -30,7 +30,7 @@ A reply that changes nothing, such as an acknowledgement, is applied either way.
 
 - `pnpm loop:mail-intake` measures the dev set and prints four numbers plus a table per category.
 - `pnpm loop:mail-intake -- --verbose` lists every message that counted against a number.
-- `pnpm loop:mail-intake -- --held-out` measures the held-out set.
+- `pnpm loop:mail-intake -- --held-out` (or `--split heldout`) measures the held-out set.
 - `pnpm --filter @kickrocks/server loop:mail-intake:generate` rewrites the corpus.
   The generator is deterministic, and a test fails when the committed files differ from its output.
 

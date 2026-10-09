@@ -8,7 +8,9 @@ import { runIntake } from "./harness.js";
  */
 async function main(): Promise<void> {
   const args = process.argv.slice(2);
-  const set: CorpusSet = args.includes("--held-out") ? "held-out" : "dev";
+  const splitIndex = args.indexOf("--split");
+  const split = splitIndex === -1 ? null : args[splitIndex + 1];
+  const set: CorpusSet = args.includes("--held-out") || split === "heldout" ? "held-out" : "dev";
   const verbose = args.includes("--verbose");
   const outIndex = args.indexOf("--out");
   const out = outIndex === -1 ? null : args[outIndex + 1];
