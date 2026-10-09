@@ -1143,7 +1143,35 @@ describe("a reply that sends the request somewhere else", () => {
       "a request to open a ticket",
       "Thanks for contacting Acme privacy. Please open a ticket in our help center to continue.",
     ],
+    [
+      "a restriction to the online request form",
+      "Thank you for contacting Acme.\n\nTo protect your privacy, we can only act on requests made through our online request form (https://acme.test/privacy-form) or by phone at 888-555-0177.",
+    ],
+    [
+      "an acceptance through the web form only",
+      "Hello and thank you for contacting us.\n\nWe accept opt-out and deletion requests through our web form only (https://acme.test/start) or through our toll free number.",
+    ],
+    [
+      "a note that email is not a valid way to make a request",
+      "Thanks for writing. Email is not a valid way to submit a request, so please follow the steps on our site.",
+    ],
   ];
+
+  it("is needs_form when an automatic reply carries the redirect", async () => {
+    const result = await classify(
+      "Thank you for contacting us. Requests must be submitted through our web form at https://acme.test/privacy-requests.",
+      { subject: "Auto-reply: Opt-out request KR-7K3M9Q", autoSubmitted: true },
+    );
+    expect(result.classification).toBe("needs_form");
+  });
+
+  it("is still an acknowledgement when an automatic reply only says the person is away", async () => {
+    const result = await classify("I am out of the office until Monday.", {
+      subject: "Automatic reply: Opt-out request KR-7K3M9Q",
+      autoSubmitted: true,
+    });
+    expect(result.classification).toBe("auto_ack");
+  });
 
   it.each(redirects)("is needs_form for %s, not an acknowledgement", async (_name, text) => {
     const result = await classify(text);
