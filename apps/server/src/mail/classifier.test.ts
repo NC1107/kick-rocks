@@ -1101,3 +1101,97 @@ describe("a target whose own domain is a shared platform", () => {
     expect(result.confidence).toBeGreaterThanOrEqual(0.6);
   });
 });
+
+describe("a reply that sends the request somewhere else", () => {
+  const PANERA = [
+    "Thank you for contacting us.",
+    "",
+    "As described in our Privacy Policy<https://www.acme.test/legal/your-privacy.html>, individuals who have a right to exercise their privacy rights under applicable law in the state where they legally reside must submit their requests by: (1) completing our web form<https://www.acme.test/privacy-requests> or (2) calling 1-888-555-0142.",
+  ].join("\n");
+
+  const redirects: Array<[string, string]> = [
+    ["a thank-you, a policy link, a web form and a phone number", PANERA],
+    [
+      "a privacy request center link",
+      "Hello,\n\nThank you for your request. Requests to delete or opt out must be submitted through our Privacy Request Center at https://privacy.acme.test/request.",
+    ],
+    [
+      "a OneTrust portal",
+      "Thanks for reaching out. To submit a request, please visit our OneTrust privacy portal at https://acme.test/onetrust-portal.",
+    ],
+    [
+      "a plea to use the request form",
+      "We have received your email. Please use our privacy request form at https://acme.test/forms/privacy so we can verify and process it.",
+    ],
+    [
+      "a refusal of email requests",
+      "Thank you for contacting Acme. We are unable to process requests received by email.",
+    ],
+    [
+      "a ticket system",
+      "Your message was received. Privacy requests can only be filed through our support ticket system.",
+    ],
+    [
+      "a phone-only instruction",
+      "Thank you for writing. Requests may only be made by calling our toll-free line at 1-800-555-0100.",
+    ],
+    [
+      "a TrustArc form",
+      "Thank you for your message. To exercise your rights, complete the TrustArc form on our website.",
+    ],
+    [
+      "a request to open a ticket",
+      "Thanks for contacting Acme privacy. Please open a ticket in our help center to continue.",
+    ],
+  ];
+
+  it.each(redirects)("is needs_form for %s, not an acknowledgement", async (_name, text) => {
+    const result = await classify(text);
+    expect(result.classification).toBe("needs_form");
+    expect(result.confidence).toBeGreaterThanOrEqual(0.6);
+    expect(result.requestId).toBe("req-1");
+  });
+
+  it("returns the form link from the reply and leaves the policy link out", async () => {
+    const result = await classify(PANERA);
+    expect(result.links).toEqual(["https://www.acme.test/privacy-requests"]);
+  });
+
+  it("ignores a form link on a domain the target does not own", async () => {
+    const result = await classify(
+      "Thank you for contacting us. Requests must be submitted through our web form at https://evil.test/form.",
+    );
+    expect(result.classification).toBe("needs_form");
+    expect(result.links).toEqual([]);
+  });
+
+  it("accepts a form link on a curated sister domain", async () => {
+    const sister = request({ curatedReplyDomains: ["acmeprivacy.test"] });
+    const result = await classify(
+      "Thank you for contacting us. Requests must be submitted through our web form at https://acmeprivacy.test/form.",
+      {},
+      [sister],
+    );
+    expect(result.links).toEqual(["https://acmeprivacy.test/form"]);
+  });
+
+  it("still takes a plain acknowledgement for one", async () => {
+    const result = await classify(
+      "Thank you for contacting Acme. We have received your request and will respond within 10 business days.",
+    );
+    expect(result.classification).toBe("auto_ack");
+  });
+
+  it("does not take a request for identity documents by post for a redirect", async () => {
+    const result = await classify(
+      "Thank you for contacting us. To verify your identity, send a copy of your driver's license by postal mail.",
+    );
+    expect(result.classification).toBe("verification_required");
+  });
+
+  it("sends an unsigned redirect to a person instead of treating it as an acknowledgement", async () => {
+    const result = await classify(PANERA, { verifyDkim: noDkim });
+    expect(result.classification).toBe("needs_form");
+    expect(result.confidence).toBeLessThan(0.6);
+  });
+});

@@ -162,6 +162,49 @@ describe("the request page", () => {
     expect(screen.getByRole("heading", { name: /^Tasks/ })).toBeVisible();
   });
 
+  describe("when a reply asked for the web form", () => {
+    function askedForForm() {
+      const mock = failing(/never/);
+      const request = mock.store.requests.find(
+        (candidate) => candidate.targetId === "cardinal-insights",
+      );
+      const reply = mock.store.messages.find((message) => message.requestId === request?.id);
+      if (!request) throw new Error("fixture");
+      const message = reply ?? mock.store.messages[0];
+      if (!message) throw new Error("fixture");
+      message.requestId = request.id;
+      message.classification = "needs_form";
+      message.links = ["https://cardinal-insights.example/privacy-requests"];
+      return {
+        request,
+        message,
+        ...renderPage(<RequestDetailPage />, {
+          path: "/requests/:id",
+          route: `/requests/${request.id}`,
+          mock,
+        }),
+      };
+    }
+
+    it("says plainly that the company wants its web form, with the link", async () => {
+      askedForForm();
+      expect(await screen.findByText(/wants its web form/)).toBeVisible();
+      expect(
+        screen.getByRole("link", { name: /cardinal-insights\.example\/privacy-requests/ }),
+      ).toBeVisible();
+    });
+
+    it("lets the person correct what the reply was", async () => {
+      const { user, message } = askedForForm();
+      await screen.findByText(/wants its web form/);
+      await user.click(screen.getAllByRole("button", { name: "Correct this" })[0] as HTMLElement);
+      await user.selectOptions(screen.getByLabelText("What this reply is"), "auto_ack");
+      await user.click(screen.getByRole("button", { name: "Apply" }));
+      await waitFor(() => expect(message.classification).toBe("auto_ack"));
+      await waitFor(() => expect(screen.queryByText(/wants its web form/)).not.toBeInTheDocument());
+    });
+  });
+
   it("says when the request does not exist", async () => {
     open(() => "req_9999");
     expect(await screen.findByText("Request not found.")).toBeVisible();

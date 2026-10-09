@@ -161,6 +161,25 @@ describe("the language model fallback", () => {
     expect(prompt).toContain("only asks for a click on a link is not this");
   });
 
+  it("tells the model that a request to use another channel is needs_form even after a thank-you", async () => {
+    const { calls, fetchImpl } = fakeLlm(verdict());
+    await classifierWith(LLM, fetchImpl).classify(message(), { requests: [target] });
+    const messages = (calls[0] as Call).body.messages as Array<{ role: string; content: string }>;
+    const prompt = messages[0]?.content ?? "";
+    expect(prompt).toMatch(/needs_form:.*portal.*phone.*opens with thanks.*wins over auto_ack/);
+    expect(prompt).toContain("Thank you for contacting us. Individuals must submit");
+  });
+
+  it("returns the form link on the target's site when the model calls a reply needs_form", async () => {
+    const { fetchImpl } = fakeLlm(verdict({ classification: "needs_form", confidence: 0.9 }));
+    const result = await classifierWith(LLM, fetchImpl).classify(
+      message({ text: "Hmm. Our form is at https://acme.test/privacy-form if you want it." }),
+      { requests: [target] },
+    );
+    expect(result.classification).toBe("needs_form");
+    expect(result.links).toEqual(["https://acme.test/privacy-form"]);
+  });
+
   it("sends no authorization header when the endpoint needs no key", async () => {
     const { calls, fetchImpl } = fakeLlm(verdict());
     await classifierWith({ ...LLM, apiKey: null as never }, fetchImpl).classify(message(), {

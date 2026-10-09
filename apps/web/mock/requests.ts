@@ -3,6 +3,7 @@ import {
   availableActions,
   type BlockedReason,
   generateReference,
+  isActiveStatus,
   type MessageSummary,
   outgoingMessageId,
   type ReplyClassification,
@@ -509,9 +510,19 @@ function detailOf(store: MockStore, request: StoredRequest): RequestDetail {
     .filter((message) => message.requestId === request.id)
     .map(({ requestReference: _reference, targetName: _name, ...message }) => message);
   const tasks = store.tasks.filter((task) => task.requestId === request.id);
+  const asked = messages.filter((message) => message.classification === "needs_form").at(-1);
+  const formAsk = asked
+    ? {
+        messageId: asked.id,
+        url: asked.links[0] ?? request.target.optOutUrl,
+        fromReply: asked.links.length > 0,
+        phone: null,
+      }
+    : null;
   return {
     ...listItem,
     events: [...events].sort((a, b) => a.createdAt.localeCompare(b.createdAt)),
+    formRequest: isActiveStatus(request.status) && formAsk ? formAsk : null,
     messages,
     tasks,
     actions: availableActions(request, { hasLiveTask: tasks.some((t) => LIVE_TASK.has(t.status)) }),

@@ -12,7 +12,7 @@ import {
 import { and, eq } from "drizzle-orm";
 import { proxyForTarget } from "../core/egress.js";
 import { AppError } from "../core/errors.js";
-import { isTrustedConfirmationSender } from "../core/targets.js";
+import { curatedReplyDomainsOfRow, isTrustedConfirmationSender } from "../core/targets.js";
 import type { Task } from "../core/task-types.js";
 import type { AppServices } from "../services.js";
 import { describeError } from "./connection.js";
@@ -141,6 +141,8 @@ interface ApplyReplyInput {
   actor: Extract<RequestActor, "system" | "user">;
   link: LinkOutcome | null;
   requestedFields: readonly string[];
+  /** The form page a needs_form reply named. It is checked again here, whatever stored it. */
+  formLink?: string | null;
 }
 
 /**
@@ -240,6 +242,19 @@ function applyBounce(services: AppServices, input: ApplyReplyInput): boolean {
   return placed;
 }
 
+/** The reply's form link, only when it is a web address on the target's own domain or a curated sister domain. */
+function ownFormLink(
+  services: AppServices,
+  request: RequestRecord,
+  { formLink }: ApplyReplyInput,
+): string | null {
+  if (!formLink || !WebUrl.safeParse(formLink).success) return null;
+  const target = services.db.select().from(targets).where(eq(targets.id, request.targetId)).get();
+  if (!target) return null;
+  const domains = [target.domain, ...curatedReplyDomainsOfRow(target)];
+  return domains.some((domain) => isOnDomain(formLink, domain)) ? formLink : null;
+}
+
 /** A target with a form can be reached there when the mail channel is dead or was refused. */
 function hasFormChannel(services: AppServices, targetId: string): boolean {
   const target = services.targets.getOrThrow(targetId);
@@ -277,7 +292,12 @@ function moveAndSwitch(
       events: [
         {
           type: "channel_switched",
-          payload: { from: "email", to: "form", reason },
+          payload: {
+            from: "email",
+            to: "form",
+            reason,
+            ...(reason === "needs_form" ? { formUrl: ownFormLink(services, current, input) } : {}),
+          },
         },
       ],
     });

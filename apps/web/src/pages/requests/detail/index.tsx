@@ -47,6 +47,7 @@ import {
 import { REQUEST_STATUS_META } from "../../../lib/status.js";
 import { MessageBody } from "../../review/MessageBody.js";
 import { detailRefreshInterval } from "../polling.js";
+import { ReplyCorrection } from "./ReplyCorrection.js";
 import { Timeline } from "./Timeline.js";
 
 /** What each action says when it is done, in the verb of the button that started it. */
@@ -311,6 +312,29 @@ function Detail({ request }: { request: RequestDetail }) {
             Nothing goes out until you choose which details to share.
           </Callout>
         ) : null}
+        {request.formRequest ? (
+          <Callout intent="warning" title={`${target.name} wants its web form`}>
+            <p>
+              Their reply says this request has to be made another way, so it is on the form route
+              instead of email.
+              {request.formRequest.url ? (
+                <>
+                  {" "}
+                  {request.formRequest.fromReply ? "The link they gave: " : "Their opt-out page: "}
+                  <ExternalLinkText href={request.formRequest.url} className="break-all">
+                    {request.formRequest.url}
+                  </ExternalLinkText>
+                </>
+              ) : null}
+            </p>
+            {request.formRequest.phone ? (
+              <p className="mt-1">
+                They also take requests by phone:{" "}
+                <span className="font-mono">{request.formRequest.phone}</span>
+              </p>
+            ) : null}
+          </Callout>
+        ) : null}
         {waitingAgent ? (
           <Callout
             intent="warning"
@@ -449,6 +473,9 @@ function Detail({ request }: { request: RequestDetail }) {
                   </p>
                   <div className="mt-2">
                     <MessageBody messageId={message.id} snippet={message.snippet} />
+                  </div>
+                  <div className="mt-2">
+                    <ReplyCorrection message={message} />
                   </div>
                 </div>
               ))}

@@ -626,6 +626,29 @@ describe("switching channel", () => {
     ).toMatchObject({ payload: { reason: "needs_form" } });
   });
 
+  it("records the form link from the reply when it is on the broker's own domain", async () => {
+    const { request, target } = await sentRequest({ contactMethod: "both" });
+    const link = `https://www.${target.domain}/privacy-requests`;
+    answer("Use our form", request.id, "needs_form", { links: [link] });
+    deliver("Use our form");
+    await poll();
+    expect(requestOf(request.id)).toMatchObject({ status: "queued", channel: "form" });
+    expect(
+      ctx.services.requests.events(request.id).find((event) => event.type === "channel_switched"),
+    ).toMatchObject({ payload: { reason: "needs_form", formUrl: link } });
+  });
+
+  it("does not record a form link on a domain the broker does not own", async () => {
+    const { request } = await sentRequest({ contactMethod: "both" });
+    answer("Use our form", request.id, "needs_form", { links: ["https://evil.test/form"] });
+    deliver("Use our form");
+    await poll();
+    expect(requestOf(request.id)).toMatchObject({ status: "queued", channel: "form" });
+    expect(
+      ctx.services.requests.events(request.id).find((event) => event.type === "channel_switched"),
+    ).toMatchObject({ payload: { reason: "needs_form", formUrl: null } });
+  });
+
   it("asks a person when a broker wants its form and has none we can use", async () => {
     const { request } = await sentRequest({ contactMethod: "email", optOutUrl: null });
     answer("Use our form", request.id, "needs_form");

@@ -175,6 +175,26 @@ function usableLinks(links: MailLink[], request: ClassifierRequest): MailLink[] 
     .slice(0, MAX_LINKS);
 }
 
+/** Words in a link or its text that say it leads to a place where a request is made. */
+const FORM_LINK_HINT =
+  /form|portal|privacy[-_ ]?(?:request|rights|choices|cent(?:er|re)|portal)|request[-_ ]?(?:cent(?:er|re)|portal)|opt-?out|do[-_ ]?not[-_ ]?sell|one-?trust|trust-?arc|ccpa|dsar|data[-_ ]?subject|ticket|submit/i;
+
+/**
+ * The links in a reply that lead to the place it sends the request to. They must sit on the
+ * target's own site or one of its curated sister domains, and say what they are, so the policy
+ * link in the same sentence is left out.
+ */
+function formLinksOf(links: MailLink[], request: ClassifierRequest): string[] {
+  const domains = [...linkDomainsOf(request), ...request.curatedReplyDomains];
+  return links
+    .filter((link) => domains.some((domain) => isOnDomain(link.url, domain)))
+    .filter((link) => !STATIC_ASSET.test(new URL(link.url).pathname))
+    .filter((link) => !BOILERPLATE_LINK_TEXT.test(link.text))
+    .filter((link) => FORM_LINK_HINT.test(link.url) || FORM_LINK_HINT.test(link.text))
+    .slice(0, MAX_LINKS)
+    .map((link) => link.url);
+}
+
 function confirmationSignal(
   text: string,
   links: MailLink[],
@@ -402,6 +422,7 @@ export function createReplyClassifier(deps: ReplyClassifierDeps): ReplyClassifie
           ? "unsigned"
           : senderTrust(message, matched.request, linkDomainsOf(matched.request), false),
       );
+      const formLinks = match ? formLinksOf(allLinks, match.request) : [];
       const requestId = match?.request.id ?? null;
 
       signals.sort(
@@ -436,7 +457,7 @@ export function createReplyClassifier(deps: ReplyClassifierDeps): ReplyClassifie
           classification: top.classification,
           confidence: round(capped.confidence),
           rationale: `${top.rationale}${rival ? ", though other wording points elsewhere" : ""}; ${describeCorrelation(via)}${capped.reason ? `; ${capped.reason}` : ""}`,
-          links,
+          links: top.classification === "needs_form" ? formLinks : links,
           requestedFields:
             top.classification === "verification_required" ? requestedFieldsIn(body) : [],
         };
@@ -465,7 +486,16 @@ export function createReplyClassifier(deps: ReplyClassifierDeps): ReplyClassifie
       // Mail that matches no request is capped below the threshold and waits for a person either
       // way, so sending it out would only leak unrelated mail to the model.
       if (result.confidence >= CONFIDENCE_THRESHOLD || result.requestId === null) return result;
-      return refineWithLlm(deps, message, body, result, via, trust, ownSiteTrust);
+      return refineWithLlm(
+        deps,
+        message,
+        body,
+        result,
+        via,
+        { links, formLinks },
+        trust,
+        ownSiteTrust,
+      );
     },
   };
 }
@@ -476,6 +506,7 @@ async function refineWithLlm(
   body: string,
   current: ClassificationResult,
   via: Correlation | null,
+  found: { links: string[]; formLinks: string[] },
   trust: () => Promise<SenderTrust>,
   ownSiteTrust: () => Promise<SenderTrust>,
 ): Promise<ClassificationResult> {
@@ -495,7 +526,7 @@ async function refineWithLlm(
 
   // The model may name a confirmation, but it cannot supply the link: only links on the request's
   // own sites were ever collected, so with none the claim has nothing to act on.
-  const unsupported = answer.classification === "confirmation_link" && current.links.length === 0;
+  const unsupported = answer.classification === "confirmation_link" && found.links.length === 0;
   const classification: ReplyClassification = unsupported ? "unknown" : answer.classification;
   const capped = await capFor(
     classification,
@@ -510,6 +541,7 @@ async function refineWithLlm(
     ...current,
     classification,
     confidence,
+    links: classification === "needs_form" ? found.formLinks : found.links,
     rationale: `Model: ${answer.rationale || "no reason given"}${capped.reason ? `; ${capped.reason}` : ""}`,
     requestedFields: classification === "verification_required" ? answer.requested_fields : [],
   };

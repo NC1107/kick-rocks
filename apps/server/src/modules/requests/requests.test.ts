@@ -237,6 +237,50 @@ describe("GET /requests/:id", () => {
     expect(detail.messages.map((message) => message.id)).toEqual([earlier.id, later.id]);
   });
 
+  describe("when a reply said the request has to be made on the web form", () => {
+    const asked = (extra: Partial<Parameters<typeof seedMessage>[1]> = {}) => {
+      const { profile, mailbox } = setup();
+      const request = seedRequest(ctx, { profileId: profile.id, targetId: "broker" });
+      seedMessage(ctx, {
+        mailboxId: mailbox.id,
+        requestId: request.id,
+        classification: "needs_form",
+        text: "Thank you for contacting us. Requests must be made by web form or by calling 1-888-555-0142.",
+        ...extra,
+      });
+      return request;
+    };
+
+    it("offers the link from the reply and the phone number", async () => {
+      const request = asked({ links: ["https://broker.test/privacy-requests"] });
+      const detail = await detailOf(request.id);
+      expect(detail.formRequest).toMatchObject({
+        url: "https://broker.test/privacy-requests",
+        fromReply: true,
+        phone: "1-888-555-0142",
+      });
+    });
+
+    it("falls back to the target's opt-out page when the reply gave no link", async () => {
+      const detail = await detailOf(asked().id);
+      expect(detail.formRequest).toMatchObject({
+        url: "https://broker.test/optout",
+        fromReply: false,
+      });
+    });
+
+    it("is absent once the request is closed", async () => {
+      const closed = asked();
+      await act(closed.id, "cancel");
+      expect((await detailOf(closed.id)).formRequest).toBeNull();
+    });
+
+    it("is absent when the reply was corrected to something else", async () => {
+      const request = asked({ classification: "auto_ack" });
+      expect((await detailOf(request.id)).formRequest).toBeNull();
+    });
+  });
+
   it("does not put message text or other stored fields on the page", async () => {
     const { profile, mailbox } = setup();
     const request = seedRequest(ctx, { profileId: profile.id, targetId: "broker" });

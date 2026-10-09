@@ -1,6 +1,8 @@
 import { messages, profiles, requests as requestsTable, targets } from "@kickrocks/db";
 import {
   availableActions,
+  type FormRequest,
+  isActiveStatus,
   MessageSummary,
   type Paged,
   type ProfileField,
@@ -21,6 +23,7 @@ import { conflict, invalidRequest, notFound } from "../../core/errors.js";
 import { loadIdentities } from "../../core/identities.js";
 import { likePattern } from "../../core/like.js";
 import { withTrustedConfirmationSenders } from "../../core/targets.js";
+import { phoneNumberIn } from "../../mail/reply-text.js";
 import type { AppServices } from "../../services.js";
 
 const ACTION_OUTCOMES = {
@@ -40,24 +43,43 @@ interface RequestsApi {
 export function createRequestsApi(services: AppServices): RequestsApi {
   const { db, requests, targets: targetsService, taskQueue, dispatch } = services;
 
+  /** The latest reply that asked for the web form, while the request is still open. */
+  function formRequestOf(
+    record: RequestRecord,
+    rows: readonly (typeof messages.$inferSelect)[],
+    optOutUrl: string | null,
+  ): FormRequest | null {
+    if (!isActiveStatus(record.status)) return null;
+    const asked = rows.filter((row) => row.classification === "needs_form").at(-1);
+    if (!asked) return null;
+    const fromReply = asked.links[0] ?? null;
+    return {
+      messageId: asked.id,
+      url: fromReply ?? optOutUrl,
+      fromReply: fromReply !== null,
+      phone: asked.text ? phoneNumberIn(asked.text) : null,
+    };
+  }
+
   function detail(id: string): RequestDetail {
     const record = requests.get(id);
     if (!record) throw notFound(`Request ${id} not found`, "request_not_found");
     const tasks = taskQueue.list({ requestId: id });
     const target = db.select().from(targets).where(eq(targets.id, record.targetId)).get();
+    const replies = db
+      .select()
+      .from(messages)
+      .where(eq(messages.requestId, id))
+      .orderBy(asc(messages.receivedAt), asc(sql`rowid`))
+      .all();
     return {
       ...record,
+      formRequest: formRequestOf(record, replies, target?.optOutUrl ?? null),
       target: targetsService.summary(record.targetId),
       events: requests
         .events(id)
         .map((event) => (target ? withTrustedConfirmationSenders(event, target) : event)),
-      messages: db
-        .select()
-        .from(messages)
-        .where(eq(messages.requestId, id))
-        .orderBy(asc(messages.receivedAt), asc(sql`rowid`))
-        .all()
-        .map((row) => MessageSummary.parse(row)),
+      messages: replies.map((row) => MessageSummary.parse(row)),
       tasks: taskQueue.summarize(tasks),
       actions: availableActions(record, { hasLiveTask: taskQueue.hasLiveTask(id) }),
     };

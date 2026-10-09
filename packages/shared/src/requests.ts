@@ -335,6 +335,8 @@ export const REQUEST_EVENT_PAYLOADS = {
     from: RequestChannel,
     to: RequestChannel,
     reason: z.enum(["bounce", "needs_form", "user"]),
+    /** The page the target's reply named, when it was on a domain the target owns. */
+    formUrl: WebUrl.nullable().optional(),
   }),
   awaiting_confirmation: z.object({
     fromDomains: z.array(z.string()),
@@ -424,7 +426,21 @@ export type RequestEvent = z.infer<typeof RequestEvent>;
 export const RequestListItem = RequestRecord.extend({ target: TargetSummary });
 export type RequestListItem = z.infer<typeof RequestListItem>;
 
+/** What a target's reply said about making the request another way, for the person to act on. */
+export const FormRequest = z.object({
+  messageId: z.string(),
+  /** The link in the reply, or the target's known opt-out page when the reply gave none. */
+  url: WebUrl.nullable(),
+  /** Whether `url` came from the reply itself. */
+  fromReply: z.boolean(),
+  /** A phone number the reply offers instead, as written. */
+  phone: z.string().nullable(),
+});
+export type FormRequest = z.infer<typeof FormRequest>;
+
 export const RequestDetail = RequestListItem.extend({
+  /** Set while the request is active and the target has said it wants its web form. */
+  formRequest: FormRequest.nullable(),
   events: z.array(RequestEvent),
   messages: z.array(MessageSummary),
   tasks: z.array(TaskSummary),

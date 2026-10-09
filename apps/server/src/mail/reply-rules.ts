@@ -37,6 +37,31 @@ function firstMatch(rule: Rule, text: string): RegExpExecArray | null {
   return null;
 }
 
+/**
+ * The other ways a company says a request has to be made: a form or portal, a ticket system, a
+ * phone line, the post, or just a web address. Mail is only named as "postal mail" so that a
+ * request to mail a copy of an ID is not taken for a redirect.
+ */
+const OTHER_CHANNEL = [
+  `web ?forms?`,
+  `(?:online|web|webform|privacy|request|opt[- ]?out|data|support|help|rights|consumer)[ -]?(?:forms?|portals?|cent(?:er|re)s?|pages?|sites?|websites?|desk)`,
+  `portals?`,
+  `privacy request`,
+  `one ?trust|trust ?arc|truste`,
+  `tickets?(?: system)?`,
+  `toll[- ]free`,
+  `tele?phone`,
+  `phone`,
+  `calling`,
+  `call(?: us| our| the| [a-z]+ at)?`,
+  `(?:postal|regular|physical|snail) mail`,
+  `by (?:post|letter)`,
+  `https?://`,
+  String.raw`www\.`,
+  String.raw`\(?\d{3}\)?[ .-]\d{3}[ .-]\d{4}`,
+].join("|");
+const NO_STOP = `[^.!?]`;
+
 const RULES: Rule[] = [
   {
     classification: "verification_required",
@@ -69,6 +94,22 @@ const RULES: Rule[] = [
     ignoreNegation: true,
     pattern:
       /\bplease\b.{0,30}\b(use|submit|complete|visit|go to|fill out|fill in)\b.{0,30}\b(our|the|this)\b.{0,25}\b(online |web |privacy |opt[- ]?out |request )*(form|portal|webform|page|center|centre)\b|\b(use|submit|complete|fill out) (our|the) (online |web )?(opt[- ]?out |privacy (request )?)?(form|portal)\b/i,
+  },
+  {
+    classification: "needs_form",
+    confidence: 0.9,
+    label: "says requests must be made another way",
+    ignoreNegation: true,
+    pattern: new RegExp(
+      [
+        String.raw`\brequests?\b${NO_STOP}{0,60}\b(?:must|should|can only|may only|need to|have to|are required to|only)\b${NO_STOP}{0,60}\b(?:submitted|made|sent|filed|received|accepted|processed|through|via|by|at|using|on)\b${NO_STOP}{0,80}\b(?:${OTHER_CHANNEL})`,
+        String.raw`\b(?:must|should|need to|have to|are required to|can only|may only|only)\b${NO_STOP}{0,40}\b(?:submit|make|send|file|lodge|exercise)\b${NO_STOP}{0,40}\b(?:requests?|submissions?)\b${NO_STOP}{0,80}\b(?:${OTHER_CHANNEL})`,
+        String.raw`\bto (?:submit|make|file|exercise|start|initiate)\b${NO_STOP}{0,60}\b(?:requests?|rights)\b${NO_STOP}{0,100}\b(?:${OTHER_CHANNEL})`,
+        String.raw`\b(?:please|kindly)\b${NO_STOP}{0,40}\b(?:use|submit|complete|visit|go to|fill|file|make|send|access|call|log ?in|open|create|raise)\b${NO_STOP}{0,60}\b(?:${OTHER_CHANNEL})`,
+        String.raw`\be-?mail(?:ed)? requests\b${NO_STOP}{0,30}\b(?:not|cannot|can't)\b${NO_STOP}{0,30}\b(?:accepted|processed|honou?red|handled)\b`,
+      ].join("|"),
+      "i",
+    ),
   },
   {
     classification: "no_record",
@@ -202,12 +243,19 @@ export function matchSignals({ message, body }: RuleInput): Signal[] {
     }
   }
 
+  // A thank-you or an acknowledgement does not make a reply an acknowledgement when it goes on to
+  // say the request has to be made somewhere else.
+  const redirects = signals.some((signal) => signal.classification === "needs_form");
+  if (redirects) {
+    signals.splice(0, signals.length, ...signals.filter((s) => s.classification !== "auto_ack"));
+  }
+
   const precedence = message.headers.precedence ?? "";
   const machine =
     message.autoSubmitted ||
     "x-autoreply" in message.headers ||
     AUTO_PRECEDENCE.test(precedence.trim());
-  if (machine && !signals.some((signal) => signal.classification === "auto_ack")) {
+  if (machine && !redirects && !signals.some((signal) => signal.classification === "auto_ack")) {
     signals.push({
       classification: "auto_ack",
       confidence: 0.7,
