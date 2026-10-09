@@ -118,6 +118,44 @@ describe("Tooltip", () => {
     expect(screen.queryByRole("tooltip")).toBeNull();
   });
 
+  it("does not show for focus a tap or a closing overlay hands back", async () => {
+    render(
+      <Tooltip content="More actions">
+        <button type="button">Open</button>
+      </Tooltip>,
+    );
+    const button = screen.getByRole("button", { name: "Open" });
+    await new Promise((resolve) => setTimeout(resolve, 700));
+    button.focus();
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(button).toHaveFocus();
+    expect(screen.queryByRole("tooltip")).toBeNull();
+  });
+
+  it("stays hidden while the trigger's menu is open, even on a re-hover", async () => {
+    const user = userEvent.setup();
+    render(
+      <Menu
+        items={[{ id: "a", label: "Mark as confirmed", onSelect: () => {} }]}
+        trigger={(props) => (
+          <Tooltip content="More actions" delayMs={10}>
+            <button type="button" {...props}>
+              More
+            </button>
+          </Tooltip>
+        )}
+      />,
+    );
+    const button = screen.getByRole("button", { name: "More" });
+    const wrapper = button.parentElement as Element;
+    await user.click(button);
+    expect(await screen.findByRole("menu")).toBeVisible();
+    fireEvent.mouseLeave(wrapper);
+    fireEvent.mouseEnter(wrapper);
+    await new Promise((resolve) => setTimeout(resolve, 60));
+    expect(screen.queryByRole("tooltip")).toBeNull();
+  });
+
   it("closes when a menu opens", async () => {
     const user = userEvent.setup();
     render(

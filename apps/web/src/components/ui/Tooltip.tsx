@@ -27,12 +27,21 @@ export interface TooltipProps {
 const OVERLAY_OPEN = "kr:overlay-open";
 const ACTIONABLE =
   "button, a[href], summary, input, select, textarea, [role=button], [aria-haspopup]";
-// Touch browsers focus a tapped button and replay mouse events after the tap, both of which would show the tooltip a tap must not.
+// Touch browsers replay mouse events after a tap, which would show the tooltip a tap must not.
 const TOUCH_ECHO_MS = 700;
 
 /** A menu, popover, sheet or dialog calls this as it opens so no tooltip is left on top of it. */
 export function announceOverlayOpen() {
   window.dispatchEvent(new Event(OVERLAY_OPEN));
+}
+
+// A tap, or an overlay handing focus back to its trigger after a tap, is not keyboard focus and must not show the tooltip.
+function isKeyboardFocus(target: EventTarget): boolean {
+  try {
+    return (target as Element).matches(":focus-visible");
+  } catch {
+    return true;
+  }
 }
 
 interface Placement {
@@ -67,6 +76,8 @@ export function Tooltip({
 
   const show = useCallback((wait: number) => {
     clearTimeout(timer.current);
+    // The tooltip would sit on top of the popup the trigger has open, and nothing else closes it again.
+    if (triggerRef.current?.querySelector('[aria-expanded="true"]')) return;
     timer.current = setTimeout(() => setOpen(true), wait);
   }, []);
   const hide = useCallback(() => {
@@ -124,8 +135,8 @@ export function Tooltip({
           if (!touchEcho()) show(delayMs);
         }}
         onMouseLeave={hide}
-        onFocus={() => {
-          if (!touchEcho()) show(0);
+        onFocus={(event) => {
+          if (isKeyboardFocus(event.target)) show(0);
         }}
         onBlur={hide}
         onPointerDown={(event) => {
