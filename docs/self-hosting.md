@@ -277,6 +277,7 @@ The script therefore leaves a `restored-at` marker in the volume, and the server
 It looks in the Sent folder of each mailbox with queued mail for the Message-ID that mail would carry, and records every match as sent.
 When every mailbox has been checked it lifts the hold by itself.
 If a mailbox cannot be reached or has no Sent folder, the hold stays and a banner says so, and sending resumes only after you confirm in the app.
+A request created after the backup is not in the restored data at all, so create it again only after checking that the Sent folder holds no mail for that broker.
 
 `docker compose down -v` and `./install.sh --uninstall` delete the volumes, and with them the database and its key.
 Never add `-v` unless you mean to start over.
