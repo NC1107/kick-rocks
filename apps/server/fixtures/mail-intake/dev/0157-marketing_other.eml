@@ -1,0 +1,30 @@
+Return-Path: <bounce-926721@bounce.gymfit.example>
+Received: from mail.gymfit.example (mail.gymfit.example [203.0.113.24]) by mx.example.com with ESMTPS id d8a8d7e70b for <jordan@example.com>; Sun, 04 Oct 2026 09:25:00 +0000
+From: Gymfit <team@gymfit.example>
+To: jordan@example.com
+Subject: We saved your spot
+Date: Sun, 04 Oct 2026 09:25:00 +0000
+Message-ID: <e5e8c3e864846fc73f50a224@gymfit.example>
+Reply-To: no-reply@gymfit.example
+List-Unsubscribe: <https://gymfit.example/unsubscribe?u=fe8d7e87c767ba27>, <mailto:unsubscribe-fe8d7e87@gymfit.example>
+List-Unsubscribe-Post: List-Unsubscribe=One-Click
+Precedence: bulk
+X-Mailer: SendGrid
+MIME-Version: 1.0
+Content-Type: multipart/alternative; boundary="----=_Part_a92c9b346b1a"
+
+------=_Part_a92c9b346b1a
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+We saved your spot
+
+Shop now: https://gymfit.example/offers?ref=80dfe42d
+
+You are receiving this email because you have an account with Gymfit. To stop receiving these emails, unsubscribe: https://gymfit.example/unsubscribe
+------=_Part_a92c9b346b1a
+Content-Type: text/html; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+<html><body style="font-family:Arial,sans-serif"><h2>We saved your spot</h2><p><a href="https://gymfit.example/offers?ref=80dfe42d">Shop now</a></p><p style="font-size:11px">You are receiving this email because you have an account with Gymfit. To stop receiving these emails, unsubscribe: https://gymfit.example/unsubscribe</p></body></html>
+------=_Part_a92c9b346b1a--

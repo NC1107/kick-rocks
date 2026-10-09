@@ -1,0 +1,22 @@
+DKIM-Signature: v=1; a=ed25519-sha256; c=relaxed/relaxed; d=paypal.com;
+ h=Content-Transfer-Encoding: Content-Type: MIME-Version: Message-ID: Date:
+ Subject: To: From; q=dns/txt; s=kr; t=1790833800;
+ bh=YwTlPkXZAjqiaUpKusdg3+PrixQvfQdD9AiddchDnrE=;
+ b=hEx3+bbtYjXLl3lL9e3ie6EyyGq/a4b/djUM1DBIgSjmdblITwK/S1m1qaxrEPWfhct7NQiEk
+ Y90HgFz3DFNAQ==
+Return-Path: <service@paypal.com>
+Received: from mail.paypal.com (mail.paypal.com [203.0.113.20]) by mx.example.com with ESMTPS id 8f0b392fa7 for <jordan@example.com>; Thu, 01 Oct 2026 05:50:00 +0000
+From: PayPal <service@paypal.com>
+To: jordan@example.com
+Subject: Confirm your identity to restore access
+Date: Thu, 01 Oct 2026 05:50:00 +0000
+Message-ID: <6a1afc0e1fd64a576de467bb@paypal.com>
+Auto-Submitted: auto-generated
+X-Priority: 1
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+A purchase of USD 676.76 was attempted. Please confirm whether this was you, and we will remove the hold.
+
+https://paypal.com/alerts/083ce98441508034e8878108

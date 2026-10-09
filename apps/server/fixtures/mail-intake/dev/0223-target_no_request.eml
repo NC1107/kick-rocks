@@ -1,0 +1,30 @@
+Return-Path: <bounce-048720@bounce.em.bestbuy.com>
+Received: from mail.em.bestbuy.com (mail.em.bestbuy.com [203.0.113.24]) by mx.example.com with ESMTPS id d8a8d7e70b for <jordan@example.com>; Wed, 07 Oct 2026 16:19:00 +0000
+From: Best Buy <bestbuy@em.bestbuy.com>
+To: jordan@example.com
+Subject: Your order is ready for pickup
+Date: Wed, 07 Oct 2026 16:19:00 +0000
+Message-ID: <f22d12eb73092a355d451365@em.bestbuy.com>
+Reply-To: no-reply@em.bestbuy.com
+List-Unsubscribe: <https://em.bestbuy.com/unsubscribe?u=56adedcb97938169>, <mailto:unsubscribe-56adedcb@em.bestbuy.com>
+List-Unsubscribe-Post: List-Unsubscribe=One-Click
+Precedence: bulk
+X-Mailer: Braze
+MIME-Version: 1.0
+Content-Type: multipart/alternative; boundary="----=_Part_a92c9b346b1a"
+
+------=_Part_a92c9b346b1a
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+Your order is ready for pickup
+
+Shop now: https://em.bestbuy.com/offers?ref=38e8a483
+
+You are receiving this email because you have an account with Best Buy. To stop receiving these emails, unsubscribe: https://em.bestbuy.com/unsubscribe
+------=_Part_a92c9b346b1a
+Content-Type: text/html; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+<html><body style="font-family:Arial,sans-serif"><h2>Your order is ready for pickup</h2><p><a href="https://em.bestbuy.com/offers?ref=38e8a483">Shop now</a></p><p style="font-size:11px">You are receiving this email because you have an account with Best Buy. To stop receiving these emails, unsubscribe: https://em.bestbuy.com/unsubscribe</p></body></html>
+------=_Part_a92c9b346b1a--

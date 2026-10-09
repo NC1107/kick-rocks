@@ -1,0 +1,36 @@
+DKIM-Signature: v=1; a=ed25519-sha256; c=relaxed/relaxed;
+ d=utility-co.example; h=Content-Type: MIME-Version: List-Unsubscribe:
+ Reply-To: Message-ID: Date: Subject: To: From; q=dns/txt; s=kr;
+ t=1791351600; bh=0srgE/2fbBgG/j8MYYcXJi2FRdgmNtptbnttI0ZLTjU=;
+ b=5UCaDBQrHBz3zh3fP9louS9qpxOe0KWC7NY5U8jfWBLvqH1uLbNJKYJD+mIutD8UuDQ1Ksnq+
+ aTnIa2As8OWAg==
+Return-Path: <bounce-298650@bounce.utility-co.example>
+Received: from mail.utility-co.example (mail.utility-co.example [203.0.113.28]) by mx.example.com with ESMTPS id 0ec5770b9c for <jordan@example.com>; Wed, 07 Oct 2026 05:40:00 +0000
+From: Lone Star Power <billing@utility-co.example>
+To: jordan@example.com
+Subject: Usage alert for your account
+Date: Wed, 07 Oct 2026 05:40:00 +0000
+Message-ID: <08ad267e6684544357d34ffe@utility-co.example>
+Reply-To: no-reply@utility-co.example
+List-Unsubscribe: <https://utility-co.example/unsubscribe?u=6454c85ac91ecc84>, <mailto:unsubscribe-6454c85a@utility-co.example>
+List-Unsubscribe-Post: List-Unsubscribe=One-Click
+Precedence: bulk
+X-Mailer: Mailchimp Mailer
+MIME-Version: 1.0
+Content-Type: multipart/alternative; boundary="----=_Part_eb54dfb6236a"
+
+------=_Part_eb54dfb6236a
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+Usage alert for your account
+
+Shop now: https://utility-co.example/offers?ref=4944fc7d
+
+You are receiving this email because you have an account with Lone Star Power. To stop receiving these emails, unsubscribe: https://utility-co.example/unsubscribe
+------=_Part_eb54dfb6236a
+Content-Type: text/html; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+<html><body style="font-family:Arial,sans-serif"><h2>Usage alert for your account</h2><p><a href="https://utility-co.example/offers?ref=4944fc7d">Shop now</a></p><p style="font-size:11px">You are receiving this email because you have an account with Lone Star Power. To stop receiving these emails, unsubscribe: https://utility-co.example/unsubscribe</p></body></html>
+------=_Part_eb54dfb6236a--

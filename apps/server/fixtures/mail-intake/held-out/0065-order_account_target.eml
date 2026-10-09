@@ -1,0 +1,23 @@
+DKIM-Signature: v=1; a=ed25519-sha256; c=relaxed/relaxed; d=amazon.com;
+ h=Content-Transfer-Encoding: Content-Type: MIME-Version: Message-ID: Date:
+ Subject: To: From; q=dns/txt; s=kr; t=1790754840;
+ bh=jsgUL7SKZFLYwqYUyMiiKYHu0l9l6h/mV8dlt/iSZl8=;
+ b=3qQpVl5yUNyn3Ytd9MOg6wbU+73mkwJGdQs5QK6seHPy6nBfKPXB/2UVJ2e8+tGwooUepL7qE
+ txJRHuzJnDyAQ==
+Return-Path: <0100bdae996e198ce3e4c604-0e6899ff@bounces.amazon.com>
+Received: from mail.amazon.com (mail.amazon.com [203.0.113.20]) by mx.example.com with ESMTPS id 8f0b392fa7 for <jordan@example.com>; Wed, 30 Sep 2026 07:54:00 +0000
+From: Amazon <auto-confirm@amazon.com>
+To: jordan@example.com
+Subject: Arriving tomorrow: USB-C charging cable
+Date: Wed, 30 Sep 2026 07:54:00 +0000
+Message-ID: <68cd97bbe528c0754499ec24@amazon.com>
+Auto-Submitted: auto-generated
+X-Mailer: Transactional Mailer
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+Your request to return USB-C charging cable has been received. Print the label below and drop it off at any carrier location.
+
+Order #841-7366145-2904555
+https://amazon.com/returns/841-7366145-2904555

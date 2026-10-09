@@ -1,0 +1,36 @@
+DKIM-Signature: v=1; a=ed25519-sha256; c=relaxed/relaxed; d=uber.com;
+ h=Content-Type: MIME-Version: List-Unsubscribe: Reply-To: Message-ID:
+ Date: Subject: To: From; q=dns/txt; s=kr; t=1790481600;
+ bh=Ys5Uxmf0R7G16cGnfJEMfl2G96QN4O14o48DMv4R6CQ=;
+ b=q185ts1n106bXxrAKkg19pegPYRn43dZ1RpB2f3vp2bFvdOHTqXZPMvNUWJDhUYntGrJkgw/w
+ RipLOHRzWMeBQ==
+Return-Path: <bounce-346119@bounce.uber.com>
+Received: from mail.uber.com (mail.uber.com [203.0.113.18]) by mx.example.com with ESMTPS id 08be646bd3 for <jordan@example.com>; Sun, 27 Sep 2026 04:00:00 +0000
+From: Uber <uber@uber.com>
+To: jordan@example.com
+Subject: Try Uber Eats today
+Date: Sun, 27 Sep 2026 04:00:00 +0000
+Message-ID: <ea4eb44ff42637a972b2b15f@uber.com>
+Reply-To: no-reply@uber.com
+List-Unsubscribe: <https://uber.com/unsubscribe?u=af950fb7e2e1f977>, <mailto:unsubscribe-af950fb7@uber.com>
+List-Unsubscribe-Post: List-Unsubscribe=One-Click
+Precedence: bulk
+X-Mailer: Mailchimp Mailer
+MIME-Version: 1.0
+Content-Type: multipart/alternative; boundary="----=_Part_d7233eae0a9a"
+
+------=_Part_d7233eae0a9a
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+Try Uber Eats today
+
+Shop now: https://uber.com/offers?ref=077c7d8f
+
+You are receiving this email because you have an account with Uber. To stop receiving these emails, unsubscribe: https://uber.com/unsubscribe
+------=_Part_d7233eae0a9a
+Content-Type: text/html; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+<html><body style="font-family:Arial,sans-serif"><h2>Try Uber Eats today</h2><p><a href="https://uber.com/offers?ref=077c7d8f">Shop now</a></p><p style="font-size:11px">You are receiving this email because you have an account with Uber. To stop receiving these emails, unsubscribe: https://uber.com/unsubscribe</p></body></html>
+------=_Part_d7233eae0a9a--

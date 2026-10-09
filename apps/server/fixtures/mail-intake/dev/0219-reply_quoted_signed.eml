@@ -1,0 +1,38 @@
+DKIM-Signature: v=1; a=ed25519-sha256; c=relaxed/relaxed; d=netflix.com;
+ h=Content-Transfer-Encoding: Content-Type: MIME-Version: References:
+ In-Reply-To: Reply-To: Message-ID: Date: Subject: To: From; q=dns/txt;
+ s=kr; t=1791378000; bh=8D7ZCDcXy+cUhSsJpcZi7ASPLdsocHTCY3kRjonVBY8=;
+ b=v7FdfgPfaUFZi1KejSj/dqzEx0xbgbhlESjsIQpgFONip0Yh7H9ktNzfoT0ikZJ7xksk2prCp
+ izn8m3X97hUDA==
+Return-Path: <bounce-69471@netflix.com>
+Received: from mail.netflix.com (mail.netflix.com [203.0.113.21]) by mx.example.com with ESMTPS id bd1cd572f5 for <jordan@example.com>; Wed, 07 Oct 2026 13:00:00 +0000
+From: Netflix Privacy <no-reply@netflix.com>
+To: jordan@example.com
+Subject: Re: Data deletion request KR-9M3XW5
+Date: Wed, 07 Oct 2026 13:00:00 +0000
+Message-ID: <e9e863ae4a57656cd7b7dd16@netflix.com>
+Reply-To: privacy@netflix.com
+In-Reply-To: <kr.4ee04ccf-34d5-4d6c-86bd-5dcbc01dd277.0@example.com>
+References: <kr.4ee04ccf-34d5-4d6c-86bd-5dcbc01dd277.0@example.com>
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+Hello Jordan,
+
+Requests must be submitted through our privacy portal at https://netflix.com/privacy-center. Please complete the form there.
+
+Sincerely,
+Data Subject Requests, Netflix
+
+On Mon, 21 Sep 2026 at 14:20 Jordan Example <jordan@example.com> wrote:
+> Subject: Data deletion request KR-9M3XW5
+>
+> To the privacy team at Netflix,
+>
+> I am asking you to delete my personal data.
+> Name: Jordan Example
+> Email: jordan@example.com
+> Please confirm once this is done.
+>
+> Reference: KR-9M3XW5

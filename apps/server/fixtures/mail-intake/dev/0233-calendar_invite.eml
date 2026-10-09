@@ -1,0 +1,42 @@
+DKIM-Signature: v=1; a=ed25519-sha256; c=relaxed/relaxed; d=google.com;
+ h=Content-Type: MIME-Version: Message-ID: Date: Subject: To: From;
+ q=dns/txt; s=kr; t=1791438720;
+ bh=m6LVv3CxIPL03THJKVAwoRsMQtclFAZgpUp0Z1EXwQg=;
+ b=WMrTc7ANPgJ5HwUhq42Th1gVta4+gwWEN3znH0cvWkxg9q4qBkJTvkEy3y1gECEi5Pn9cH4vU
+ pOa6XsdPrVEBA==
+Return-Path: <calendar-notification@google.com>
+Received: from mail.google.com (mail.google.com [203.0.113.20]) by mx.example.com with ESMTPS id 8f0b392fa7 for <jordan@example.com>; Thu, 08 Oct 2026 05:52:00 +0000
+From: Marcus Chen <calendar-notification@google.com>
+To: jordan@example.com
+Subject: Invitation: Car service @ Sat, 24 Oct 2026
+Date: Thu, 08 Oct 2026 05:52:00 +0000
+Message-ID: <632f390088e634bcaeae6e42@google.com>
+Auto-Submitted: auto-generated
+MIME-Version: 1.0
+Content-Type: multipart/alternative; boundary="----=_Part_9484a7b65097"
+
+------=_Part_9484a7b65097
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+Marcus Chen has invited you to Car service.
+When: Sat, 24 Oct 2026 06:00:00 GMT
+Join: https://meet.example.com/f80-a47b
+------=_Part_9484a7b65097
+Content-Type: text/calendar; charset=utf-8; method=REQUEST
+Content-Transfer-Encoding: 7bit
+
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Synthetic Calendar//EN
+METHOD:REQUEST
+BEGIN:VEVENT
+UID:7443148d8b16c3af@example.com
+DTSTAMP:20261024T060000Z
+DTSTART:20261024T060000Z
+SUMMARY:Car service
+ORGANIZER;CN=Marcus Chen:mailto:marcus@chenfamily.example
+ATTENDEE;RSVP=TRUE:mailto:jordan@example.com
+END:VEVENT
+END:VCALENDAR
+------=_Part_9484a7b65097--

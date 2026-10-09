@@ -1,0 +1,37 @@
+DKIM-Signature: v=1; a=ed25519-sha256; c=relaxed/relaxed; d=spokeo.com;
+ h=Content-Transfer-Encoding: Content-Type: MIME-Version: References:
+ In-Reply-To: Message-ID: Date: Subject: To: From; q=dns/txt; s=kr;
+ t=1791375900; bh=GHFuyzIk+uDs2XUEGzqkYuwUapXyGdjzUTp92d8vGtM=;
+ b=S6e4GVEfkVF80MYML3jmSiN84ToRqX9YkIuNJCqDZK5qmNM+yAEelENRPML1hYkawNb3U8s0b
+ phDsVu0F8UUAw==
+Return-Path: <bounce-04856@spokeo.com>
+Received: from mail.spokeo.com (mail.spokeo.com [203.0.113.20]) by mx.example.com with ESMTPS id 8f0b392fa7 for <jordan@example.com>; Wed, 07 Oct 2026 12:25:00 +0000
+From: Spokeo Privacy <no-reply@spokeo.com>
+To: jordan@example.com
+Subject: Re: Opt-out request KR-7K3M9Q
+Date: Wed, 07 Oct 2026 12:25:00 +0000
+Message-ID: <3b52ba3dcaa854ee59a5d5be@spokeo.com>
+In-Reply-To: <kr.440c0efc-6245-48af-8c53-c4864f28f92f.0@example.com>
+References: <kr.440c0efc-6245-48af-8c53-c4864f28f92f.0@example.com>
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+Hi Jordan,
+
+We have removed the listing associated with jordan@example.com from Spokeo. It can take up to 72 hours to disappear from search results.
+
+Regards,
+Spokeo Privacy Team
+
+On Tue, 22 Sep 2026 at 09:10 Jordan Example <jordan@example.com> wrote:
+> Subject: Opt-out request KR-7K3M9Q
+>
+> To the privacy team at Spokeo,
+>
+> I am asking you to remove my listing and stop selling my information.
+> Name: Jordan Example
+> Email: jordan@example.com
+> Please confirm once this is done.
+>
+> Reference: KR-7K3M9Q

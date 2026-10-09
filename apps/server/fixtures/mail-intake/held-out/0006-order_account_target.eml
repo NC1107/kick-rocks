@@ -1,0 +1,22 @@
+DKIM-Signature: v=1; a=ed25519-sha256; c=relaxed/relaxed; d=amazon.com;
+ h=Content-Transfer-Encoding: Content-Type: MIME-Version: Message-ID: Date:
+ Subject: To: From; q=dns/txt; s=kr; t=1790480160;
+ bh=CrofHYg7Q53YEHBXJKKuYMgVLTLl95rO1uBuXgt6048=;
+ b=FX76VFZrIFdTyaMXhKuzfcbnhq365e5OpxRQBSqExZvcKGdq/B3rCbinXTyMUKLgvYs9ZoRAE
+ FKUSbvcR/MMBA==
+Return-Path: <0100f94874aed4db833b7ccb-7f30ea53@bounces.amazon.com>
+Received: from mail.amazon.com (mail.amazon.com [203.0.113.20]) by mx.example.com with ESMTPS id 8f0b392fa7 for <jordan@example.com>; Sun, 27 Sep 2026 03:36:00 +0000
+From: Amazon <account-update@amazon.com>
+To: jordan@example.com
+Subject: Sign-in attempt from a new device
+Date: Sun, 27 Sep 2026 03:36:00 +0000
+Message-ID: <a078a9e19ce7548e01ec6a60@amazon.com>
+X-Mailer: Transactional Mailer
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+Hello Jordan,
+
+Your payment method on file could not be charged. Please confirm your billing details to keep your membership active: https://amazon.com/account/billing
+

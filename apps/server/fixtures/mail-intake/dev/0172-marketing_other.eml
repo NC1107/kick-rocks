@@ -1,0 +1,36 @@
+DKIM-Signature: v=1; a=ed25519-sha256; c=relaxed/relaxed;
+ d=shopify-mail.com; h=Content-Type: MIME-Version: List-Unsubscribe:
+ Reply-To: Message-ID: Date: Subject: To: From; q=dns/txt; s=kr;
+ t=1791184080; bh=tQJjmv5iGa6kN1y7Ej6tzRejwUKl2lMrV3STaz6RNe4=;
+ b=CUvnVdmq8Df0WP9Zzuln7nMNsDXRrwkvwKXlslfDHUQ+f/VR4HULwwLczGZOAnMk4QOvcNhFO
+ buENZxuMCDQDw==
+Return-Path: <bounce-716416@bounce.shopify-mail.com>
+Received: from mail.shopify-mail.com (mail.shopify-mail.com [203.0.113.26]) by mx.example.com with ESMTPS id f4801b00e3 for <jordan@example.com>; Mon, 05 Oct 2026 07:08:00 +0000
+From: Brightside Coffee <orders@shopify-mail.com>
+To: jordan@example.com
+Subject: Your beans are on the way
+Date: Mon, 05 Oct 2026 07:08:00 +0000
+Message-ID: <266cfde7b1b070d21103b972@shopify-mail.com>
+Reply-To: no-reply@shopify-mail.com
+List-Unsubscribe: <https://shopify-mail.com/unsubscribe?u=41d1e04aa7426210>, <mailto:unsubscribe-41d1e04a@shopify-mail.com>
+List-Unsubscribe-Post: List-Unsubscribe=One-Click
+Precedence: bulk
+X-Mailer: Salesforce Marketing Cloud
+MIME-Version: 1.0
+Content-Type: multipart/alternative; boundary="----=_Part_74cf9d0e425a"
+
+------=_Part_74cf9d0e425a
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+Your beans are on the way
+
+Shop now: https://shopify-mail.com/offers?ref=95b23916
+
+You are receiving this email because you have an account with Brightside Coffee. To stop receiving these emails, unsubscribe: https://shopify-mail.com/unsubscribe
+------=_Part_74cf9d0e425a
+Content-Type: text/html; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+<html><body style="font-family:Arial,sans-serif"><h2>Your beans are on the way</h2><p><a href="https://shopify-mail.com/offers?ref=95b23916">Shop now</a></p><p style="font-size:11px">You are receiving this email because you have an account with Brightside Coffee. To stop receiving these emails, unsubscribe: https://shopify-mail.com/unsubscribe</p></body></html>
+------=_Part_74cf9d0e425a--

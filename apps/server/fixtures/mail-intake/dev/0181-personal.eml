@@ -1,0 +1,22 @@
+DKIM-Signature: v=1; a=ed25519-sha256; c=relaxed/relaxed; d=gmail.com;
+ h=Content-Transfer-Encoding: Content-Type: MIME-Version: References:
+ In-Reply-To: Message-ID: Date: Subject: To: From; q=dns/txt; s=kr;
+ t=1791216900; bh=9Lnd8no/fAnWZip8B8vPHs1o7+E0OqT94FLiJfWlc98=;
+ b=T1sbbb3zZld79gI64rN96XIqDoUN8CULTlZb7n5Gi/Qvvsvq/cdsPyXho+oz+HUBUynaMRyw/
+ HaTs4IGfvrHDw==
+Return-Path: <linda.example55@gmail.com>
+Received: from mail.gmail.com (mail.gmail.com [203.0.113.19]) by mx.example.com with ESMTPS id ff42dd9fc3 for <jordan@example.com>; Mon, 05 Oct 2026 16:15:00 +0000
+From: Mom <linda.example55@gmail.com>
+To: jordan@example.com
+Subject: Re: remove me from the group chat lol
+Date: Mon, 05 Oct 2026 16:15:00 +0000
+Message-ID: <b45f1954d61fa622d79eb432@gmail.com>
+In-Reply-To: <367ef845949d303505f8@mail.example.com>
+References: <367ef845949d303505f8@mail.example.com>
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+Can you remove my number from the group chat? I keep getting pinged. Thanks a lot!
+
+Mom

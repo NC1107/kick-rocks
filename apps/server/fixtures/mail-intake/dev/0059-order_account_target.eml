@@ -1,0 +1,23 @@
+DKIM-Signature: v=1; a=ed25519-sha256; c=relaxed/relaxed; d=amazon.com;
+ h=Content-Transfer-Encoding: Content-Type: MIME-Version: Message-ID: Date:
+ Subject: To: From; q=dns/txt; s=kr; t=1790652960;
+ bh=H5PSN5eNmhZUn3Jk1r046UUUC393DYQWS5AA3DSFUE8=;
+ b=ZNbn7ftArkvSunBtVAtCN3GuAd6hSSm5SSwb5vgjYgW0rVouhXBsEucwusXyreflxqIQZbrIV
+ hJR8but04+ZBQ==
+Return-Path: <01008eafcac321a15676d400-faee5864@bounces.amazon.com>
+Received: from mail.amazon.com (mail.amazon.com [203.0.113.20]) by mx.example.com with ESMTPS id 8f0b392fa7 for <jordan@example.com>; Tue, 29 Sep 2026 03:36:00 +0000
+From: Amazon <shipment-tracking@amazon.com>
+To: jordan@example.com
+Subject: Your Amazon.com order of stainless steel water bottle has shipped
+Date: Tue, 29 Sep 2026 03:36:00 +0000
+Message-ID: <3a70b355b1fd639019ce303e@amazon.com>
+X-Mailer: Transactional Mailer
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+Hello,
+
+Your refund of USD 31.06 for stainless steel water bottle has been processed. It may take 3-5 business days to appear on your statement.
+
+Order #273-4644081-0552682

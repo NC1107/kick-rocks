@@ -1,0 +1,22 @@
+DKIM-Signature: v=1; a=ed25519-sha256; c=relaxed/relaxed; d=gmail.com;
+ h=Content-Transfer-Encoding: Content-Type: MIME-Version: References:
+ In-Reply-To: Message-ID: Date: Subject: To: From; q=dns/txt; s=kr;
+ t=1790596320; bh=YCOJWFBOCv4RgOqy6b0z7/cdLa9l/fLxMsY84/9vPPk=;
+ b=uZFz882U7tieMMrReG/yj7XT5n6vN8IF9qMs4Bcp7CD0twZ0FU/tVMjEAVdv1ahcnD4E2Tk7X
+ giH32Uc+TiJAg==
+Return-Path: <linda.example55@gmail.com>
+Received: from mail.gmail.com (mail.gmail.com [203.0.113.19]) by mx.example.com with ESMTPS id ff42dd9fc3 for <jordan@example.com>; Mon, 28 Sep 2026 11:52:00 +0000
+From: Mom <linda.example55@gmail.com>
+To: jordan@example.com
+Subject: Re: Re: moving boxes
+Date: Mon, 28 Sep 2026 11:52:00 +0000
+Message-ID: <6820044954c802ffda3b2edc@gmail.com>
+In-Reply-To: <6ec14f03b09980359f34@mail.example.com>
+References: <6ec14f03b09980359f34@mail.example.com>
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+Happy birthday! Dinner is on me this weekend. Pick a place and send it over.
+
+Mom

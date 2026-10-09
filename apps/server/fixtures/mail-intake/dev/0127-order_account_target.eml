@@ -1,0 +1,22 @@
+DKIM-Signature: v=1; a=ed25519-sha256; c=relaxed/relaxed; d=amazon.com;
+ h=Content-Transfer-Encoding: Content-Type: MIME-Version: Message-ID: Date:
+ Subject: To: From; q=dns/txt; s=kr; t=1790958000;
+ bh=1rM3ppSjSivI2j+tweLVRhBdnRAgcno8qjQwgbaqLSQ=;
+ b=+witTDETYNZ+PO/I7zFGNjJ1RqL5Erho1iwYEqwA/5+/pgrf4sN7AWmc6oQ9wuQtMnX+7tt10
+ OhhkPPIZacCBw==
+Return-Path: <01007c598b680b3455edca8a-4a17322a@bounces.amazon.com>
+Received: from mail.amazon.com (mail.amazon.com [203.0.113.20]) by mx.example.com with ESMTPS id 8f0b392fa7 for <jordan@example.com>; Fri, 02 Oct 2026 16:20:00 +0000
+From: Amazon <shipment-tracking@amazon.com>
+To: jordan@example.com
+Subject: Your Amazon.com order of stainless steel water bottle has shipped
+Date: Fri, 02 Oct 2026 16:20:00 +0000
+Message-ID: <89dc41a28668cf61637c27b8@amazon.com>
+X-Mailer: Transactional Mailer
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+Your request to return stainless steel water bottle has been received. Print the label below and drop it off at any carrier location.
+
+Order #247-1133227-0850067
+https://amazon.com/returns/247-1133227-0850067

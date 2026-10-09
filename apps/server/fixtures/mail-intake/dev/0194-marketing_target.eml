@@ -1,0 +1,36 @@
+DKIM-Signature: v=1; a=ed25519-sha256; c=relaxed/relaxed; d=amazon.com;
+ h=Content-Type: MIME-Version: List-Unsubscribe: Reply-To: Message-ID:
+ Date: Subject: To: From; q=dns/txt; s=kr; t=1791255840;
+ bh=KUNjGLsRpwswwlHD7jvXbqISvkT90k223sp/ieYWnCM=;
+ b=VcqyavegmtdrnoN/0bdgf39/Z02iWQf5n4f27zuFXJ6kxo8qp570fCxpqEkVcsDkCv8iu1XCR
+ gvAXP4FHjQyCQ==
+Return-Path: <bounce-880194@bounce.amazon.com>
+Received: from mail.amazon.com (mail.amazon.com [203.0.113.20]) by mx.example.com with ESMTPS id 8f0b392fa7 for <jordan@example.com>; Tue, 06 Oct 2026 03:04:00 +0000
+From: Amazon <deals-recommendations@amazon.com>
+To: jordan@example.com
+Subject: Your Prime Day picks are waiting
+Date: Tue, 06 Oct 2026 03:04:00 +0000
+Message-ID: <706ada666d204a0b44de91e5@amazon.com>
+Reply-To: no-reply@amazon.com
+List-Unsubscribe: <https://amazon.com/unsubscribe?u=fe1beb7287e677e8>, <mailto:unsubscribe-fe1beb72@amazon.com>
+List-Unsubscribe-Post: List-Unsubscribe=One-Click
+Precedence: bulk
+X-Mailer: Mailchimp Mailer
+MIME-Version: 1.0
+Content-Type: multipart/alternative; boundary="----=_Part_9484a7b65097"
+
+------=_Part_9484a7b65097
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+Your Prime Day picks are waiting
+
+Shop now: https://amazon.com/offers?ref=62141128
+
+You are receiving this email because you have an account with Amazon. To stop receiving these emails, unsubscribe: https://amazon.com/unsubscribe
+------=_Part_9484a7b65097
+Content-Type: text/html; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+<html><body style="font-family:Arial,sans-serif"><h2>Your Prime Day picks are waiting</h2><p><a href="https://amazon.com/offers?ref=62141128">Shop now</a></p><p style="font-size:11px">You are receiving this email because you have an account with Amazon. To stop receiving these emails, unsubscribe: https://amazon.com/unsubscribe</p></body></html>
+------=_Part_9484a7b65097--

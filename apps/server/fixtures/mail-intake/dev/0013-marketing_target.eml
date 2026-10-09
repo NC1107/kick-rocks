@@ -1,0 +1,36 @@
+DKIM-Signature: v=1; a=ed25519-sha256; c=relaxed/relaxed; d=netflix.com;
+ h=Content-Type: MIME-Version: List-Unsubscribe: Reply-To: Message-ID:
+ Date: Subject: To: From; q=dns/txt; s=kr; t=1790445660;
+ bh=FN7eCKDDKe1QTPzyCN6I0W3q81/kMDx2FCUFcyUrlcw=;
+ b=11WKBZT5OQ2cKoLNrJ+PGoOhFBHPcnkOwPpjHBdbXJ5Xwbj7BlvEf+T2kNMLkOifahSiIoy+j
+ 2j1XjEFVM5RAg==
+Return-Path: <bounce-149003@bounce.netflix.com>
+Received: from mail.mailer.netflix.com (mail.mailer.netflix.com [203.0.113.28]) by mx.example.com with ESMTPS id 0ec5770b9c for <jordan@example.com>; Sat, 26 Sep 2026 18:01:00 +0000
+From: Netflix <info@mailer.netflix.com>
+To: jordan@example.com
+Subject: Season finale tonight
+Date: Sat, 26 Sep 2026 18:01:00 +0000
+Message-ID: <e50d8c986ef3e45de8d869f8@mailer.netflix.com>
+Reply-To: no-reply@netflix.com
+List-Unsubscribe: <https://netflix.com/unsubscribe?u=5d429df5bf59e3b0>, <mailto:unsubscribe-5d429df5@netflix.com>
+List-Unsubscribe-Post: List-Unsubscribe=One-Click
+Precedence: bulk
+X-Mailer: Braze
+MIME-Version: 1.0
+Content-Type: multipart/alternative; boundary="----=_Part_eb54dfb6236a"
+
+------=_Part_eb54dfb6236a
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+Season finale tonight
+
+Shop now: https://netflix.com/offers?ref=de0c0ad3
+
+You are receiving this email because you have an account with Netflix. To stop receiving these emails, unsubscribe: https://netflix.com/unsubscribe
+------=_Part_eb54dfb6236a
+Content-Type: text/html; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+<html><body style="font-family:Arial,sans-serif"><h2>Season finale tonight</h2><p><a href="https://netflix.com/offers?ref=de0c0ad3">Shop now</a></p><p style="font-size:11px">You are receiving this email because you have an account with Netflix. To stop receiving these emails, unsubscribe: https://netflix.com/unsubscribe</p></body></html>
+------=_Part_eb54dfb6236a--

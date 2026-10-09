@@ -1,0 +1,30 @@
+Return-Path: <bounce-0018@beenverified.com>
+Received: from mail.beenverified.com (mail.beenverified.com [203.0.113.26]) by mx.example.com with ESMTPS id f4801b00e3 for <jordan@example.com>; Tue, 06 Oct 2026 23:57:00 +0000
+From: BeenVerified <noreply@beenverified.com>
+To: jordan@example.com
+Subject: Confirm your opt-out request KR-5P1CJ4
+Date: Tue, 06 Oct 2026 23:57:00 +0000
+Message-ID: <5440a0f06d8d6c31dcb9865e@beenverified.com>
+Auto-Submitted: auto-generated
+MIME-Version: 1.0
+Content-Type: multipart/alternative; boundary="----=_Part_74cf9d0e425a"
+
+------=_Part_74cf9d0e425a
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+Hello,
+
+We received a request to remove your information from BeenVerified. To complete your removal, please confirm your email address by clicking the link below.
+
+https://beenverified.com/optout/confirm?token=3e19ef0dd526df8be3ec42a5b2a3
+
+If you did not make this request, ignore this message.
+
+BeenVerified Privacy Team
+------=_Part_74cf9d0e425a
+Content-Type: text/html; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+<html><body style="font-family:Arial,sans-serif"><p>To complete your removal, please confirm your email address.</p><p><a href="https://beenverified.com/optout/confirm?token=3e19ef0dd526df8be3ec42a5b2a3">Confirm my request</a></p></body></html>
+------=_Part_74cf9d0e425a--

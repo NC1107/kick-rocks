@@ -20,3 +20,6 @@ apps/agent-worker/.chrome-profile-agent/
 kickrocks-backup*
 kickrocks-scheduled*
 .loop-runs/
+apps/server/bench/reply-classifier/python/.venv/
+apps/server/bench/reply-classifier/python/.cache/
+apps/server/bench/reply-classifier/python/__pycache__/

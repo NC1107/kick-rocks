@@ -1,0 +1,28 @@
+DKIM-Signature: v=1; a=ed25519-sha256; c=relaxed/relaxed; d=amazon.com;
+ h=Content-Transfer-Encoding: Content-Type: MIME-Version: Message-ID: Date:
+ Subject: To: From; q=dns/txt; s=kr; t=1791046740;
+ bh=WH4ZszaJDJaG1x8OkT3NawlbjtsfoskAvidK/0AlUu8=;
+ b=Gr7yuKwE9bb3iIidnAE05DsIQI+8Y/vBmHkhUnLld6bdQZdkcJAMhWvG4luF75YzLpNYKPn02
+ b8XrsXG7zJQDw==
+Return-Path: <0100c89e0a9c1002713b3c5a-49c59692@bounces.amazon.com>
+Received: from mail.amazon.com (mail.amazon.com [203.0.113.20]) by mx.example.com with ESMTPS id 8f0b392fa7 for <jordan@example.com>; Sat, 03 Oct 2026 16:59:00 +0000
+From: Amazon <shipment-tracking@amazon.com>
+To: jordan@example.com
+Subject: Order confirmation: stainless steel water bottle
+Date: Sat, 03 Oct 2026 16:59:00 +0000
+Message-ID: <0199b8318de79f00c9216f63@amazon.com>
+Auto-Submitted: auto-generated
+X-Mailer: Transactional Mailer
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+Hello Jordan,
+
+Your order has been processed and will ship soon.
+
+Order #192-7690812-2973301
+Item: stainless steel water bottle
+Total: USD 10.90
+
+Track your package: https://amazon.com/gp/your-account/order-details?orderID=192-7690812-2973301

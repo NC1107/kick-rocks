@@ -8,7 +8,9 @@
     "dev": "tsx watch src/main.ts",
     "start": "node dist/main.js",
     "typecheck": "tsc -b && tsc -p tsconfig.test.json",
-    "test": "vitest run"
+    "test": "vitest run",
+    "bench:replies": "tsx bench/reply-classifier/cli.ts",
+    "bench:replies:python": "uv venv --python 3.12 bench/reply-classifier/python/.venv && uv pip install --python bench/reply-classifier/python/.venv/bin/python -r bench/reply-classifier/python/requirements.in"
   },
   "dependencies": {
     "@fastify/cookie": "^11.1.2",
