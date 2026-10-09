@@ -101,18 +101,59 @@ export class SendDesk {
     this.flushTimer = undefined;
     const items = this.buffer.splice(0);
     if (items.length > 0) {
-      this.flushing = this.flushing.then(() =>
-        this.options.api.registerSends(items).then(
-          () => undefined,
-          (error: unknown) => {
-            this.options.logger.warn("could not record what the gate decided", {
-              error: describeError(error),
-            });
-          },
-        ),
-      );
+      this.flushing = this.flushing.then(() => this.record(items));
     }
     return this.flushing;
+  }
+
+  /**
+   * A batch the server rejects is tried again one row at a time, so a single row it will not take
+   * costs that row and not the twenty beside it. What was lost is written down as a guard event.
+   */
+  private async record(items: SendRegistration[]): Promise<void> {
+    const { api, logger } = this.options;
+    try {
+      await api.registerSends(items);
+      return;
+    } catch (error) {
+      logger.warn("could not record what the gate decided as a batch", {
+        error: describeError(error),
+        rows: items.length,
+      });
+      if (items.length === 1) {
+        this.lostRows(items);
+        return;
+      }
+    }
+    const lost: SendRegistration[] = [];
+    for (const item of items) {
+      try {
+        await api.registerSends([item]);
+      } catch (error) {
+        lost.push(item);
+        logger.warn("could not record one decision of the gate", {
+          error: describeError(error),
+          kind: item.kind,
+        });
+      }
+    }
+    this.lostRows(lost);
+  }
+
+  /** The note that says so is never counted itself, or a server that is down would be told about forever. */
+  private lostRows(items: readonly SendRegistration[]): void {
+    const notes = items.filter(
+      (item) => item.kind === "guard_event" && item.reason === "unrecorded",
+    ).length;
+    const lost = items.length - notes;
+    if (lost === 0) return;
+    this.log({
+      kind: "guard_event",
+      request: {
+        note: `${lost} decision${lost === 1 ? "" : "s"} of the gate could not be recorded`,
+      },
+      reason: "unrecorded",
+    });
   }
 
   /** Reports how a released request ended, without making the page wait for it. */

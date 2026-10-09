@@ -291,7 +291,17 @@ export class OutboundGuard {
         .finally(() => this.handling.delete(handling));
       this.handling.add(handling);
     });
+    // A challenge is never answered, so credentials can neither be asked for nor sent after a 401.
+    session.on("Fetch.authRequired", (event: { requestId: string }) => {
+      session
+        .send("Fetch.continueWithAuth", {
+          requestId: event.requestId,
+          authChallengeResponse: { response: "CancelAuth" },
+        })
+        .catch(() => undefined);
+    });
     await session.send("Fetch.enable", {
+      handleAuthRequests: true,
       patterns: this.gated
         ? [
             { urlPattern: "*", requestStage: "Request" },
@@ -392,6 +402,8 @@ export class OutboundGuard {
       hasBody: body.present,
       unreadable: canonical.unreadable,
       truncated: canonical.truncated,
+      opaqueBody: canonical.request.bodyKind === "opaque",
+      urlCredentials: canonical.urlCredentials,
       carriesContact: canonical.scan.contact,
       carriesLookup: canonical.scan.lookup,
       touched: this.touched,
@@ -431,6 +443,12 @@ export class OutboundGuard {
     const label = describeRequest(canonical.request);
     if (reason === "unreadable_body") {
       return `${label} could not be read, so it cannot be approved and was blocked. A person has to finish this by hand.`;
+    }
+    if (reason === "url_credentials") {
+      return `${label} was blocked, because its address holds a username or password.`;
+    }
+    if (reason === "method_not_allowed") {
+      return `${label} was blocked, because its method is not one a browser form or fetch uses.`;
     }
     return `A request to ${label} was blocked, because it is not to this site or it carries your details.`;
   }

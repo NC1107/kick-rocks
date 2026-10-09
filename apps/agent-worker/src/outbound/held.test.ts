@@ -168,3 +168,35 @@ describe("the desk that holds a send", () => {
     expect(held[0]).toBeGreaterThanOrEqual(300);
   });
 });
+
+describe("recording what the gate decided", () => {
+  it("loses only the row the server rejects, and writes down that it did", async () => {
+    const sends = new FakeSends(() => "nobody");
+    const accepted: string[] = [];
+    const api = Object.assign(Object.create(sends) as FakeSends, {
+      async registerSends(items: Parameters<FakeSends["registerSends"]>[0]) {
+        if (items.some((item) => item.kind === "refused" && item.reason === "bad")) {
+          throw new Error("rejected");
+        }
+        for (const item of items)
+          accepted.push(`${item.kind}:${"reason" in item ? item.reason : ""}`);
+        return sends.registerSends(items);
+      },
+    });
+    const instance = new SendDesk({
+      api,
+      gate: { mode: "hold", holdMs: 0, approved: [], declined: [] },
+      logger: silentLogger,
+      signal: new AbortController().signal,
+      capture: async () => undefined,
+      note: () => undefined,
+      onHeld: () => undefined,
+    });
+    instance.log({ kind: "lookup", request: request({ method: "GET" }) });
+    instance.log({ kind: "refused", request: request(), reason: "bad" });
+    instance.log({ kind: "lookup", request: request({ method: "GET" }) });
+    await instance.flush();
+    await instance.flush();
+    expect(accepted).toEqual(["lookup:", "lookup:", "guard_event:unrecorded"]);
+  });
+});

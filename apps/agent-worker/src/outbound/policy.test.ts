@@ -7,6 +7,8 @@ const base: Facts = {
   hasBody: false,
   unreadable: false,
   truncated: false,
+  opaqueBody: false,
+  urlCredentials: false,
   carriesContact: false,
   carriesLookup: false,
   touched: false,
@@ -150,5 +152,41 @@ describe("a request cut short fails closed", () => {
     expect(decide(facts({ party: "third", unreadable: true, challengeHost: true }))).toMatchObject(
       refused,
     );
+  });
+});
+
+describe("a request the gate refuses by its shape", () => {
+  it("refuses a username or password in the address, for any party and any method", () => {
+    for (const party of ["target", "third"] as const) {
+      expect(decide(facts({ party, urlCredentials: true }))).toMatchObject({
+        action: "refuse",
+        reason: "url_credentials",
+      });
+    }
+  });
+
+  it.each(["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "post"])(
+    "lets %s through",
+    (method) => {
+      expect(decide(facts({ method })).action).not.toBe("refuse");
+    },
+  );
+
+  it.each(["PROPFIND", "TRACE", "JORDANEXAMPLE", ""])("refuses the method %j", (method) => {
+    for (const party of ["target", "third"] as const) {
+      expect(decide(facts({ party, method }))).toMatchObject({
+        action: "refuse",
+        reason: "method_not_allowed",
+      });
+    }
+  });
+
+  it("refuses a body it could not open once the run touched the page, and holds none", () => {
+    const opaque = { method: "POST", hasBody: true, opaqueBody: true } as const;
+    expect(decide(facts({ touched: true, ...opaque }))).toMatchObject({
+      action: "refuse",
+      reason: "unreadable_body",
+    });
+    expect(decide(facts(opaque))).not.toMatchObject({ action: "refuse" });
   });
 });

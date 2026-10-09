@@ -2,18 +2,20 @@ import { createHash } from "node:crypto";
 import {
   type CarriedField,
   isContactField,
+  OUTGOING_LIMITS,
   type OutgoingRequest,
   type OutgoingValue,
 } from "@kickrocks/shared";
 import { unpack } from "./decode.js";
 import type { Scan, ValueDetector } from "./detector.js";
+import { METHODS_ALLOWED } from "./policy.js";
 
 /** The largest body that is read and shown. A larger one is held back as unreadable. */
 export const MAX_BODY_BYTES = 2 * 1024 * 1024;
-/** What is shown of one value, a path or a header list. Everything is scanned whatever is shown. */
-const MAX_VALUE_CHARS = 4000;
-const MAX_ENTRIES = 400;
-const MAX_HEADERS = 100;
+/** What is shown is cut to what the server accepts, and everything is scanned whatever is shown. */
+const MAX_VALUE_CHARS = OUTGOING_LIMITS.value;
+const MAX_ENTRIES = OUTGOING_LIMITS.entries;
+const MAX_HEADERS = OUTGOING_LIMITS.headers;
 
 export interface PostDataEntry {
   bytes?: string;
@@ -66,6 +68,8 @@ export interface Canonical {
   url: string;
   /** Part of the request is missing from the record, so a person cannot have read all of it. */
   truncated: boolean;
+  /** The address carries a username or password, which the browser sends as Basic after a 401. */
+  urlCredentials: boolean;
   /** Some part of the request could not be read in full, so what it carries is unknown. */
   unreadable: boolean;
 }
@@ -217,7 +221,9 @@ function multipartLeaves(bytes: Buffer, boundary: string): Leaf[] | null {
     leaves.push({
       path: name,
       value:
-        file !== undefined ? `[file ${file}, ${content.length} bytes]` : content.toString("utf8"),
+        file !== undefined
+          ? `[file ${file}, ${content.length} bytes, sha256 ${sha256(content)}]`
+          : content.toString("utf8"),
     });
   }
   return leaves;
@@ -271,10 +277,6 @@ function lastKey(path: string): string {
   return key.slice(key.lastIndexOf(".") + 1);
 }
 
-function clipText(text: string): string {
-  return text.length > MAX_VALUE_CHARS ? text.slice(0, MAX_VALUE_CHARS) : text;
-}
-
 export interface CanonicalizeInput {
   event: PausedRequest;
   body: BodyRead;
@@ -301,10 +303,15 @@ export function canonicalize(input: CanonicalizeInput): Canonical {
   const encoding = header(headers, "content-encoding");
 
   let truncated = false;
-  const clip = (text: string): string => {
-    if (text.length > MAX_VALUE_CHARS) truncated = true;
-    return clipText(text);
-  };
+  const clipTo =
+    (limit: number) =>
+    (text: string): string => {
+      if (text.length <= limit) return text;
+      truncated = true;
+      return text.slice(0, limit);
+    };
+  const clip = clipTo(OUTGOING_LIMITS.value);
+  const clipPath = clipTo(OUTGOING_LIMITS.valuePath);
 
   const carried = new Set<CarriedField>();
   let unreadable = body.unreadable || cookies === null;
@@ -315,6 +322,11 @@ export function canonicalize(input: CanonicalizeInput): Canonical {
   };
 
   const leafOf = (path: string, raw: string, scan: Scan): OutgoingValue => {
+    const shown = shownLeaf(path, raw, scan);
+    return { ...shown, path: clipPath(shown.path) };
+  };
+
+  const shownLeaf = (path: string, raw: string, scan: Scan): OutgoingValue => {
     const named = detector.scan([path]);
     if (named.fields.length > 0) {
       const hidden = mask(path);
@@ -360,6 +372,16 @@ export function canonicalize(input: CanonicalizeInput): Canonical {
     })
     .join("/");
   const hostScan = noteScan(detector.scan([url.hostname]));
+  const urlCredentials = url.username !== "" || url.password !== "";
+  noteScan(
+    detector.scan([
+      url.username,
+      safeDecode(url.username),
+      url.password,
+      safeDecode(url.password),
+      ...(METHODS_ALLOWED.has(method) ? [] : [method]),
+    ]),
+  );
 
   const shaped = shapeBody(body, contentType, encoding);
   const bodyValues = scanEach(shaped.leaves);
@@ -396,10 +418,10 @@ export function canonicalize(input: CanonicalizeInput): Canonical {
 
   const fields = [...carried].sort();
   const request: OutgoingRequest = {
-    method,
+    method: clipTo(OUTGOING_LIMITS.method)(mask(method)),
     scheme: url.protocol.replace(":", ""),
-    host: hostShown,
-    path: clip(mask(pathShown)),
+    host: clipTo(OUTGOING_LIMITS.host)(hostShown),
+    path: clipTo(OUTGOING_LIMITS.path)(mask(pathShown)),
     resourceType: event.resourceType,
     isDocument: event.resourceType === "Document",
     target,
@@ -418,7 +440,16 @@ export function canonicalize(input: CanonicalizeInput): Canonical {
     lookup: fields.some((field) => !isContactField(field)),
     overflow: unreadable,
   };
-  return { request, scan, body, method, url: event.request.url, truncated, unreadable };
+  return {
+    request,
+    scan,
+    body,
+    method,
+    url: event.request.url,
+    truncated,
+    unreadable,
+    urlCredentials,
+  };
 }
 
 function safeDecode(text: string): string {

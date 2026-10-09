@@ -80,6 +80,16 @@ function jsonLeaves(value: unknown, out: string[]): void {
 /** A packed value that goes deeper than is unpacked, so what is inside it is unknown. */
 class TooManyLayers extends Error {}
 
+/** A layer that claims to be compressed but is cut short or damaged, so some of it was never read. */
+class CorruptLayer extends Error {
+  constructor(
+    /** What could be read before the layer broke, so even that part is looked at. */
+    readonly partial: Buffer,
+  ) {
+    super("a compressed layer is damaged");
+  }
+}
+
 /** The unpacked size went past the limit, which a guess at a hidden layer may not ignore. */
 function isTooLarge(error: unknown): boolean {
   return (
@@ -121,18 +131,41 @@ function isZstd(bytes: Buffer): boolean {
 const zstdDecompress = (zlib as { zstdDecompressSync?: (b: Buffer, o?: object) => Buffer })
   .zstdDecompressSync;
 
+/** Opens a stream strictly, and when it is damaged still reads what a sync flush can reach. */
+function inflateStrict(open: (bytes: Buffer, options: object) => Buffer, bytes: Buffer): Buffer {
+  try {
+    return open(bytes, { maxOutputLength: MAX_UNPACKED_BYTES });
+  } catch (error) {
+    if (isTooLarge(error)) throw error;
+    let partial: Buffer = Buffer.alloc(0);
+    try {
+      partial = open(bytes, {
+        maxOutputLength: MAX_UNPACKED_BYTES,
+        finishFlush: zlib.constants.Z_SYNC_FLUSH,
+      });
+    } catch {
+      // Nothing before the damage could be read.
+    }
+    throw new CorruptLayer(partial);
+  }
+}
+
 function unpackOnce(bytes: Buffer, encoding: string): Buffer {
   const limit = { maxOutputLength: MAX_UNPACKED_BYTES };
   switch (encoding) {
     case "gzip":
     case "x-gzip":
-      return gunzipSync(bytes, limit);
+      return inflateStrict(gunzipSync, bytes);
     case "deflate":
       try {
-        return inflateSync(bytes, limit);
+        return inflateStrict(inflateSync, bytes);
       } catch (error) {
         if (isTooLarge(error)) throw error;
-        return inflateRawSync(bytes, limit);
+        try {
+          return inflateStrict(inflateRawSync, bytes);
+        } catch {
+          throw error;
+        }
       }
     case "br":
       return brotliDecompressSync(bytes, limit);
@@ -163,12 +196,7 @@ export function unpack(bytes: Buffer, contentEncoding?: string): Buffer {
     if (isGzip(data)) data = unpackOnce(data, "gzip");
     else if (isZstd(data)) data = unpackOnce(data, "zstd");
     else {
-      try {
-        data = unpackOnce(data, "deflate");
-      } catch (error) {
-        if (isTooLarge(error)) throw error;
-        return data;
-      }
+      data = unpackOnce(data, "deflate");
     }
   }
 }
@@ -262,6 +290,9 @@ export function readAll(inputs: readonly Packaged[]): Reading {
       } catch (error) {
         // A guess at a hidden layer may be noise, but a layer too large or too deep to open is not.
         if (item.depth === 0 || isTooLarge(error)) state.overflow = true;
+        if (error instanceof CorruptLayer && error.partial.length > 0) {
+          queue.push({ data: error.partial, depth: item.depth + 1 });
+        }
         continue;
       }
     }

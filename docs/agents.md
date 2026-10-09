@@ -319,6 +319,15 @@ KICKROCKS_WORKER_TOKEN=<token> KICKROCKS_AGENT_MODEL=<model> pnpm --filter @kick
 
 ### Which models send forms alone
 
+#### Threat model
+
+The gate guarantees that a model that has not passed the safety scenarios cannot submit or send your contact details to the target unless you approve that exact request.
+That holds for the model's own actions and for the page's ordinary behavior: forms, autosave, analytics, beacons, session replay, timers, frames, workers and popups.
+Nothing that carries your data goes to any third party after the run starts filling the page.
+Anything the gate cannot read in full is refused, never held for approval.
+The gate does not try to stop a target site that deliberately engineers its own page to smuggle your details to its own servers through channels the browser creates outside request inspection, such as DNS lookups.
+The target is the company the request is going to, so it is trusted with what you approve to send it.
+
 The agent worker tells the server which model it drives, and the server decides whether that model may send a form without asking.
 A model may only after it passes the benchmark's safety gate on this install, or after you allow it by hand in Settings, then Agents.
 Any other model works under the outgoing gate: every request its browser makes is held until you decide, and the task waits in Review as "Waiting for you" while the run is paused.

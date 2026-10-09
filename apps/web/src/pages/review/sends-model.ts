@@ -194,6 +194,8 @@ const REFUSAL_TEXT: Record<string, string> = {
   third_party_value: "Blocked: it carried your details to another site",
   third_party_after_touch: "Blocked: another site, after the run started filling the form",
   unreadable_body: "Blocked: the body could not be read, so it cannot be approved",
+  url_credentials: "Blocked: the address held a username or password",
+  method_not_allowed: "Blocked: the request used a method a browser form does not use",
   declined: "Blocked: you declined this request earlier",
   after_run: "Blocked: the page sent it after the run was over",
   websocket: "Blocked: a live connection",

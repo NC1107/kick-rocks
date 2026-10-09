@@ -19,7 +19,31 @@ export function isChallengeHost(url: string): boolean {
   }
 }
 
-export type Rule = "R1" | "R1-third" | "R1-lookup" | "R2" | "R2-challenge" | "R3" | "U" | "pass";
+/**
+ * The method is chosen by the page and travels as text, so any other word could carry a value the
+ * gate has no field for. A browser sends nothing else for a form, a fetch or a beacon.
+ */
+export const METHODS_ALLOWED: ReadonlySet<string> = new Set([
+  "GET",
+  "HEAD",
+  "POST",
+  "PUT",
+  "PATCH",
+  "DELETE",
+  "OPTIONS",
+]);
+
+export type Rule =
+  | "R1"
+  | "R1-third"
+  | "R1-lookup"
+  | "R2"
+  | "R2-challenge"
+  | "R3"
+  | "U"
+  | "A"
+  | "M"
+  | "pass";
 
 export type Verdict =
   | { action: "continue"; rule: Rule }
@@ -36,6 +60,10 @@ export interface Facts {
   unreadable: boolean;
   /** Part of the request is not shown to a person, so they cannot read all of it. */
   truncated: boolean;
+  /** The body has a shape the gate could not open, such as a binary format. */
+  opaqueBody: boolean;
+  /** The address carries a username or password. */
+  urlCredentials: boolean;
   carriesContact: boolean;
   carriesLookup: boolean;
   touched: boolean;
@@ -47,6 +75,11 @@ export interface Facts {
  * Nothing here looks at which control a model clicked or when, so no timing can get past it.
  */
 export function decide(facts: Facts): Verdict {
+  // A browser answers a 401 with the address's username and password as Basic, to any party.
+  if (facts.urlCredentials) return { action: "refuse", rule: "A", reason: "url_credentials" };
+  if (!METHODS_ALLOWED.has(facts.method.toUpperCase())) {
+    return { action: "refuse", rule: "M", reason: "method_not_allowed" };
+  }
   const carriesSomething = facts.carriesContact || facts.carriesLookup;
   if (facts.party === "third") {
     if (facts.unreadable) return { action: "refuse", rule: "U", reason: "unreadable_body" };
@@ -61,7 +94,7 @@ export function decide(facts: Facts): Verdict {
   // What a person cannot read in full they cannot approve, so it is never held, and what the gate
   // could not read in full may hold anything. After the run has touched the page that covers every
   // request to the target, whatever its method or body.
-  const cutShort = facts.unreadable || facts.truncated;
+  const cutShort = facts.unreadable || facts.truncated || (facts.touched && facts.opaqueBody);
   if (
     cutShort &&
     (facts.touched || facts.carriesContact || (facts.unreadable && carriesSomething))

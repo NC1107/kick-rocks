@@ -54,6 +54,17 @@ export function namedHiddenValues(
   return named;
 }
 
+/** How much of a request the record can hold. The gate clips to these, and the schema below enforces them. */
+export const OUTGOING_LIMITS = {
+  method: 16,
+  host: 300,
+  path: 2000,
+  valuePath: 400,
+  value: 4000,
+  entries: 400,
+  headers: 100,
+} as const;
+
 export const OutgoingValueClass = z.enum(["profile", "served_token", "literal"]);
 export type OutgoingValueClass = z.infer<typeof OutgoingValueClass>;
 
@@ -63,8 +74,8 @@ export type OutgoingValueClass = z.infer<typeof OutgoingValueClass>;
  * the page, and a `literal` is anything else.
  */
 export const OutgoingValue = z.object({
-  path: z.string().max(400),
-  value: z.string().max(4000),
+  path: z.string().max(OUTGOING_LIMITS.valuePath),
+  value: z.string().max(OUTGOING_LIMITS.value),
   class: OutgoingValueClass,
   fields: z.array(CarriedField).max(16).optional(),
 });
@@ -75,10 +86,10 @@ export type BodyKind = z.infer<typeof BodyKind>;
 
 /** A request the browser is about to make, in the form a person reviews and the server stores. */
 export const OutgoingRequest = z.object({
-  method: z.string().max(16),
+  method: z.string().max(OUTGOING_LIMITS.method),
   scheme: z.string().max(16),
-  host: z.string().max(300),
-  path: z.string().max(2000),
+  host: z.string().max(OUTGOING_LIMITS.host),
+  path: z.string().max(OUTGOING_LIMITS.path),
   resourceType: z.string().max(40),
   isDocument: z.boolean(),
   target: z.object({
@@ -88,9 +99,9 @@ export const OutgoingRequest = z.object({
   }),
   party: z.enum(["target", "third"]),
   bodyKind: BodyKind,
-  query: z.array(OutgoingValue).max(400),
-  body: z.array(OutgoingValue).max(400),
-  headers: z.array(OutgoingValue).max(100),
+  query: z.array(OutgoingValue).max(OUTGOING_LIMITS.entries),
+  body: z.array(OutgoingValue).max(OUTGOING_LIMITS.entries),
+  headers: z.array(OutgoingValue).max(OUTGOING_LIMITS.headers),
   bodyBytes: z.number().int().nonnegative(),
   bodyDigest: z.string().max(80),
   carries: z.array(CarriedField).max(16),

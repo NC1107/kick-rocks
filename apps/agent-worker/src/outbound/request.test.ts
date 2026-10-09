@@ -1,4 +1,6 @@
+import { createHash } from "node:crypto";
 import { gzipSync } from "node:zlib";
+import { OutgoingRequest } from "@kickrocks/shared";
 import { describe, expect, it } from "vitest";
 import { createMask } from "../mask.js";
 import { ValueDetector } from "./detector.js";
@@ -508,5 +510,92 @@ describe("canonicalize scans everything just past each limit it shows", () => {
         ).unreadable,
       ).toBe(true);
     });
+  });
+});
+
+describe("canonicalize keeps the record inside what the server accepts", () => {
+  const long = "a".repeat(2500);
+
+  it("clips a request path to the schema and says it was cut", () => {
+    const result = canonical(paused({ url: `https://broker.test/${long}`, method: "GET" }), {
+      bytes: null,
+      present: false,
+      unreadable: false,
+    });
+    expect(result.request.path).toHaveLength(2000);
+    expect(result.truncated).toBe(true);
+    expect(OutgoingRequest.safeParse(result.request).success).toBe(true);
+  });
+
+  it("clips the path of every value, in a body, a query and a cookie", () => {
+    const body = canonical(
+      paused({
+        url: `https://broker.test/api?${"q".repeat(500)}=1`,
+        headers: { "content-type": "application/json" },
+      }),
+      bodyOf(JSON.stringify({ [`k${"k".repeat(500)}`]: "v" })),
+    );
+    expect(body.truncated).toBe(true);
+    expect(OutgoingRequest.safeParse(body.request).success).toBe(true);
+    const cookie = canonicalize({
+      event: paused({ method: "GET" }),
+      body: { bytes: null, present: false, unreadable: false },
+      cookies: [{ name: "c".repeat(500), value: FIELDS.email }],
+      target: { type: "page", frameOrigin: "https://broker.test", topLevel: true },
+      party: "target",
+      detector,
+      mask,
+      served: new ServedValues(),
+    });
+    expect(OutgoingRequest.safeParse(cookie.request).success).toBe(true);
+  });
+});
+
+describe("canonicalize reads the parts the page chooses", () => {
+  const none = { bytes: null, present: false, unreadable: false };
+
+  it("flags a username or password in the address and scans both", () => {
+    const plain = canonical(paused({ url: "https://broker.test/x", method: "GET" }), none);
+    expect(plain.urlCredentials).toBe(false);
+    const user = canonical(
+      paused({
+        url: `https://${encodeURIComponent(FIELDS.email)}:pw@broker.test/x`,
+        method: "GET",
+      }),
+      none,
+    );
+    expect(user.urlCredentials).toBe(true);
+    expect(user.scan.contact).toBe(true);
+    expect(JSON.stringify(user.request)).not.toContain(FIELDS.email);
+  });
+
+  it("scans a method that is not a standard one", () => {
+    const result = canonical(paused({ method: "jordan.example@example.com" }), none);
+    expect(result.scan.contact).toBe(true);
+    expect(result.request.method).toBe("{{email}}");
+    const long = canonical(paused({ method: "LONGMETHODNAME".repeat(3) }), none);
+    expect(long.request.method).toHaveLength(16);
+    expect(long.truncated).toBe(true);
+  });
+
+  it("shows a file part with a digest of its bytes, so a different file of the same size differs", () => {
+    const part = (content: string) => {
+      const boundary = "xyz";
+      const text = [
+        `--${boundary}`,
+        'Content-Disposition: form-data; name="id"; filename="id.png"',
+        "",
+        content,
+        `--${boundary}--`,
+        "",
+      ].join("\r\n");
+      return canonical(
+        paused({ headers: { "content-type": `multipart/form-data; boundary=${boundary}` } }),
+        bodyOf(text),
+      ).request.body[0]?.value;
+    };
+    const digest = createHash("sha256").update("12345").digest("hex");
+    expect(part("12345")).toBe(`[file id.png, 5 bytes, sha256 ${digest}]`);
+    expect(part("12346")).not.toBe(part("12345"));
   });
 });

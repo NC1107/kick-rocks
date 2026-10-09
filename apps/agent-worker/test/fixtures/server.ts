@@ -51,6 +51,8 @@ export interface Hit {
   search: string;
   /** The raw body of a request that had one, so a test sees what a POST carried. */
   body: string;
+  /** The Authorization header the request came with, so a test sees whether a login went out. */
+  authorization: string;
 }
 
 export interface FixtureState {
@@ -155,6 +157,7 @@ const PAGES: Record<string, string> = {
   "/gate-push-state": "gate-push-state.html",
   "/gate-vectors": "gate-vectors.html",
   "/gate-mutate": "gate-mutate.html",
+  "/gate-auth": "gate-auth.html",
 };
 
 /** Scripts the gate pages load, served with a script type. */
@@ -277,6 +280,7 @@ export function startFixtureServer(): Promise<{
         method: request.method ?? "GET",
         search: url.search.slice(1),
         body,
+        authorization: request.headers.authorization ?? "",
       });
     }
 
@@ -290,6 +294,10 @@ export function startFixtureServer(): Promise<{
       response.writeHead(302, {
         location: `${hosts.other}/collect?name=${encodeURIComponent(name)}`,
       });
+      return response.end();
+    }
+    if (path.startsWith("/gate-auth-")) {
+      response.writeHead(401, { "www-authenticate": 'Basic realm="account"' });
       return response.end();
     }
     if (path === "/gate-collect") {
