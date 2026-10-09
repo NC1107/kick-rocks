@@ -8,13 +8,20 @@ import {
   readFileSync,
   rmSync,
   statSync,
+  utimesSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { loadOrCreateKey, openDatabase, removePreMigrationCopies } from "./open.js";
+import {
+  loadOrCreateKey,
+  openDatabase,
+  removePreMigrationCopies,
+  removeStalePreMigrationCopies,
+  type StaleCopyPolicy,
+} from "./open.js";
 import { profiles } from "./schema.js";
 
 let dir: string;
@@ -187,6 +194,55 @@ describe("openDatabase across builds", () => {
     removePreMigrationCopies(paths().dbPath);
     expect(copies()).toEqual([]);
     expect(existsSync(paths().dbPath)).toBe(true);
+  });
+
+  describe("removing a stale copy", () => {
+    const madeAt = new Date("2026-10-01T00:00:00Z");
+    const day = 24 * 60 * 60 * 1000;
+
+    function copyMadeAt(when: Date) {
+      openDatabase({ ...paths(), migrationsFolder: foldersCutAt(2) }).close();
+      openDatabase(paths()).close();
+      const [copy] = copies();
+      utimesSync(join(dir, copy as string), when, when);
+    }
+
+    const policy = (over: Partial<StaleCopyPolicy>): StaleCopyPolicy => ({
+      now: new Date(madeAt.getTime() + day),
+      verifiedBackupAt: null,
+      maxAgeMs: 14 * day,
+      ...over,
+    });
+
+    it("keeps a young copy that no backup has replaced", () => {
+      copyMadeAt(madeAt);
+      expect(removeStalePreMigrationCopies(paths().dbPath, policy({}))).toBe(0);
+      expect(copies()).toHaveLength(1);
+    });
+
+    it("removes the copy once a verified backup is newer than the migration", () => {
+      copyMadeAt(madeAt);
+      const backup = new Date(madeAt.getTime() + 1000);
+      expect(
+        removeStalePreMigrationCopies(paths().dbPath, policy({ verifiedBackupAt: backup })),
+      ).toBe(1);
+      expect(copies()).toEqual([]);
+    });
+
+    it("keeps the copy when the only backup is older than the migration", () => {
+      copyMadeAt(madeAt);
+      const backup = new Date(madeAt.getTime() - day);
+      expect(
+        removeStalePreMigrationCopies(paths().dbPath, policy({ verifiedBackupAt: backup })),
+      ).toBe(0);
+    });
+
+    it("removes the copy after the fixed age even with no backup", () => {
+      copyMadeAt(madeAt);
+      const later = new Date(madeAt.getTime() + 15 * day);
+      expect(removeStalePreMigrationCopies(paths().dbPath, policy({ now: later }))).toBe(1);
+      expect(existsSync(paths().dbPath)).toBe(true);
+    });
   });
 
   it("makes no copy when nothing is pending", () => {

@@ -519,6 +519,7 @@ describe("columns that record what happened to a request and a task", () => {
         requestId: "r1",
         kind: "initial",
         messageId: "<o1@x.test>",
+        recipient: null,
         sentAt: NOW,
       });
     });

@@ -139,6 +139,36 @@ export function removePreMigrationCopies(dbPath: string): void {
   for (const copy of preMigrationCopies(dbPath)) rmSync(copy, { force: true });
 }
 
+export interface StaleCopyPolicy {
+  now: Date;
+  /** When the last backup that read back whole was made, or null when there is none. */
+  verifiedBackupAt: Date | null;
+  /** A copy older than this goes even without a newer backup. */
+  maxAgeMs: number;
+}
+
+/**
+ * A rollback copy is a second full database, so it is kept only while it can still help: until a
+ * verified backup made after the migration exists, or until it is old enough that a failed
+ * migration would have shown by now. Returns how many were removed.
+ */
+export function removeStalePreMigrationCopies(
+  dbPath: string,
+  { now, verifiedBackupAt, maxAgeMs }: StaleCopyPolicy,
+): number {
+  let removed = 0;
+  for (const copy of preMigrationCopies(dbPath)) {
+    if (copy.endsWith(".partial")) continue;
+    const madeAt = statSync(copy).mtime;
+    const backedUp = verifiedBackupAt !== null && verifiedBackupAt > madeAt;
+    if (backedUp || now.getTime() - madeAt.getTime() > maxAgeMs) {
+      rmSync(copy, { force: true });
+      removed += 1;
+    }
+  }
+  return removed;
+}
+
 /**
  * The copy is written under a temporary name and renamed, so a copy cut short by a full disk never
  * carries the name of a good one. Only the newest copy is kept, since each is a full database.

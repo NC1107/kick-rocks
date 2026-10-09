@@ -44,7 +44,7 @@ export const BACKUP_MARKER = "last-backup";
 /** A daily scheduled backup plus a missed day, so one failed run does not raise the alarm. */
 export const BACKUP_STALE_AFTER_MS = 48 * 60 * 60 * 1000;
 
-function lastVerifiedBackup(dataDir: string): string | null {
+export function lastVerifiedBackup(dataDir: string): string | null {
   try {
     const at = new Date(readFileSync(join(dataDir, BACKUP_MARKER), "utf8").trim());
     return Number.isNaN(at.getTime()) ? null : at.toISOString();

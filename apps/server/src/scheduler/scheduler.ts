@@ -1,3 +1,4 @@
+import { removeStaleMigrationCopies } from "../core/migration-copies.js";
 import { reuseRecentScans } from "../core/scan-reuse.js";
 import { applyRetention } from "../modules/data-rights/index.js";
 import { runNotifications } from "../modules/notifications/index.js";
@@ -104,6 +105,7 @@ export function createScheduler(
     }
     if (due("retention", retentionMs)) {
       await job("retention", () => applyRetention(services, { compact: "when-worthwhile" }));
+      await job("migration-copies", () => removeStaleMigrationCopies(services));
     }
     services.liveness.markPass();
   });
