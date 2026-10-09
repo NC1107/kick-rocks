@@ -4,7 +4,7 @@ import type { BrowserContext, CDPSession, Page } from "playwright";
 import { type NavigationPolicy, withinSites } from "../domains.js";
 import { type CdpChannel, guardTargets, type TargetInfo } from "../target-guard.js";
 import { ValueDetector } from "./detector.js";
-import { describeRequest, type SendDesk } from "./held.js";
+import { bounded, CALL_TIMEOUT_MS, describeRequest, type SendDesk } from "./held.js";
 import { decide, isChallengeHost } from "./policy.js";
 import {
   type Canonical,
@@ -54,6 +54,8 @@ export interface DocumentHooks {
 
 export interface GuardOptions {
   page: Page;
+  /** Aborts when the run is stopped, which refuses every request still waiting for an answer. */
+  signal: AbortSignal;
   policy: NavigationPolicy;
   gate: SubmitGate | null;
   desk: SendDesk | null;
@@ -170,9 +172,16 @@ export class OutboundGuard {
     { releaseId: string; digest: string; method: string; url: string }
   >();
   private readonly responses = new Map<string, { url: string; type: string }>();
+  /**
+   * Every request that was paused and has not been answered, by session and request id. Chrome
+   * sends a keepalive request that is still paused when its session detaches, so none may be
+   * left paused when the page, a frame or the browser goes away.
+   */
+  private readonly unanswered = new Map<CdpChannel, Map<string, string>>();
 
   constructor(private readonly options: GuardOptions) {
     this.detector = new ValueDetector(options.fields, options.maskValues, options.cookieDomains);
+    options.signal.addEventListener("abort", () => void this.refuseUnanswered(), { once: true });
   }
 
   get gated(): boolean {
@@ -288,8 +297,22 @@ export class OutboundGuard {
         ctx.origins.set(event.frame.id, originOf(event.frame.url));
       });
     }
+    if (ctx.type === "page" && this.gated) {
+      // A keepalive request outlives the document that made it, and a paused fetch does not say
+      // whether it is one, so nothing but the navigation itself stays paused while the page is replaced.
+      session.on(
+        "Page.frameStartedNavigating",
+        (event: { frameId: string; navigationType: string }) => {
+          if (event.frameId !== ctx.mainFrameId || event.navigationType.endsWith("ameDocument")) {
+            return;
+          }
+          void this.refuseUnanswered(session, (type) => type !== "Document");
+        },
+      );
+    }
     session.on("Fetch.requestPaused", (event: PausedRequest) => {
       this.activity += 1;
+      this.track(session, event);
       // A request still paused when its session goes away is let go by the browser, so every
       // one is tracked until it has been decided, and closing waits for them.
       const handling: Promise<void> = this.onPaused(session, ctx, event)
@@ -323,24 +346,77 @@ export class OutboundGuard {
     });
   }
 
-  private resume(
+  /** Fails whatever is still paused, for a caller that is about to leave the page. */
+  async refuseHeld(): Promise<void> {
+    await this.refuseUnanswered();
+  }
+
+  private track(session: CdpChannel, event: PausedRequest): void {
+    let ids = this.unanswered.get(session);
+    if (ids === undefined) {
+      ids = new Map();
+      this.unanswered.set(session, ids);
+    }
+    ids.set(event.requestId, event.resourceType);
+  }
+
+  /** True once, for the caller that answers the request first. A late answer finds it gone. */
+  private claim(session: CdpChannel, requestId: string): boolean {
+    return this.unanswered.get(session)?.delete(requestId) ?? false;
+  }
+
+  /** A call the gate waits on, which never takes longer than a few seconds. */
+  private ask(session: CdpChannel, method: string, params?: object): Promise<unknown> {
+    return bounded(session.send(method, params), CALL_TIMEOUT_MS, method);
+  }
+
+  /**
+   * Fails the requests that are paused and unanswered, so none is left for the browser to send
+   * when a session detaches. Answers that arrive afterwards find nothing to answer.
+   */
+  private async refuseUnanswered(
+    only?: CdpChannel,
+    which: (resourceType: string) => boolean = () => true,
+  ): Promise<void> {
+    const failing: Promise<unknown>[] = [];
+    for (const [session, ids] of this.unanswered) {
+      if (only !== undefined && session !== only) continue;
+      for (const [requestId, resourceType] of ids) {
+        if (!which(resourceType)) continue;
+        ids.delete(requestId);
+        failing.push(
+          this.ask(session, "Fetch.failRequest", { requestId, errorReason: "Aborted" }).catch(
+            () => undefined,
+          ),
+        );
+      }
+    }
+    await Promise.all(failing);
+  }
+
+  private async resume(
     session: CdpChannel,
     event: PausedRequest,
     headers: { name: string; value: string }[] | null = null,
   ): Promise<boolean> {
-    return session
-      .send("Fetch.continueRequest", {
+    if (!this.claim(session, event.requestId)) return false;
+    try {
+      await this.ask(session, "Fetch.continueRequest", {
         requestId: event.requestId,
         ...(headers === null ? {} : { headers }),
-      })
-      .then(() => true)
-      .catch(() => false);
+      });
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   private async failRequest(session: CdpChannel, event: PausedRequest): Promise<void> {
-    await session
-      .send("Fetch.failRequest", { requestId: event.requestId, errorReason: "Aborted" })
-      .catch(() => undefined);
+    if (!this.claim(session, event.requestId)) return;
+    await this.ask(session, "Fetch.failRequest", {
+      requestId: event.requestId,
+      errorReason: "Aborted",
+    }).catch(() => undefined);
   }
 
   private async onPaused(
@@ -390,7 +466,7 @@ export class OutboundGuard {
     const body = await readBody(
       event,
       async (requestId) =>
-        (await session.send("Network.getRequestPostData", { requestId })) as {
+        (await this.ask(session, "Network.getRequestPostData", { requestId })) as {
           postData: string;
           base64Encoded?: boolean;
         },
@@ -460,9 +536,30 @@ export class OutboundGuard {
         await this.failRequest(session, event);
         return;
       case "send":
+        if (ctx.type !== "page" || event.resourceType === "Ping") {
+          await this.refuseUnholdable(session, event, canonical);
+          return;
+        }
         await this.send(session, event, canonical, { headers, cookies });
         return;
     }
+  }
+
+  /**
+   * A request of a frame or a worker, or a beacon, may be sent by the browser the moment its
+   * session detaches, which a page can cause by removing the frame, so holding it for a person
+   * would not hold it.
+   */
+  private async refuseUnholdable(
+    session: CdpChannel,
+    event: PausedRequest,
+    canonical: Canonical,
+  ): Promise<void> {
+    this.options.desk?.log({ kind: "refused", request: canonical.request, reason: "not_holdable" });
+    this.options.note(
+      `${describeRequest(canonical.request)} was refused, because it could not be held safely for your approval. A person has to finish this by hand.`,
+    );
+    await this.failRequest(session, event);
   }
 
   private refusalNote(reason: string, canonical: Canonical): string {
@@ -493,7 +590,7 @@ export class OutboundGuard {
   /** Null when the browser would not say which cookies it attaches, so they cannot be read. */
   private async cookiesFor(session: CdpChannel, url: string): Promise<Cookie[] | null> {
     try {
-      const answer = (await session.send("Network.getCookies", { urls: [url] })) as {
+      const answer = (await this.ask(session, "Network.getCookies", { urls: [url] })) as {
         cookies: Cookie[];
       };
       return answer.cookies;
@@ -684,6 +781,7 @@ export class OutboundGuard {
     this.closing = true;
     this.options.desk?.stop();
     const { page, desk } = this.options;
+    await this.refuseUnanswered();
     await page.goto("about:blank", { timeout: 5_000 }).catch(() => undefined);
     // What a page sends as it goes away reaches the gate a moment after it is gone, and the
     // browser lets go of whatever is still paused when the page closes.
@@ -700,7 +798,9 @@ export class OutboundGuard {
         new Promise((resolve) => setTimeout(resolve, QUIET_MS)),
       ]);
     }
+    await this.refuseUnanswered();
     await desk?.drain().catch(() => undefined);
+    await this.refuseUnanswered();
     await page.close().catch(() => undefined);
     await this.cdp?.detach().catch(() => undefined);
     this.cdp = null;

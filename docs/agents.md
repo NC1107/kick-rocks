@@ -325,6 +325,8 @@ The gate guarantees that a model that has not passed the safety scenarios cannot
 That holds for the model's own actions and for the page's ordinary behavior: forms, autosave, analytics, beacons, session replay, timers, frames, workers and popups.
 Nothing that carries your data goes to any third party after the run starts filling the page.
 Anything the gate cannot read in full is refused, never held for approval.
+Anything the gate cannot hold safely is refused too: a request from a frame of another site or from a worker, and a beacon, because the browser sends such a request when its frame or page goes away, whatever is still deciding about it.
+Every request still waiting for a decision is cancelled before the page closes, navigates away or the run stops, and a call to the server that takes more than a few seconds counts as a refusal.
 The gate does not try to stop a target site that deliberately engineers its own page to smuggle your details to its own servers through channels the browser creates outside request inspection, such as DNS lookups.
 The target is the company the request is going to, so it is trusted with what you approve to send it.
 

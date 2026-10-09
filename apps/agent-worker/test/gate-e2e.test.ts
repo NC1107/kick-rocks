@@ -465,7 +465,7 @@ describeBrowser("the outgoing gate end to end with the real server", () => {
       expect(paths).not.toContain("/sw.js");
     });
 
-    it("sends nothing through a stylesheet, a font, a srcdoc frame, a refresh, a blank-target form, an event stream or a beacon", async () => {
+    it("sends nothing through a stylesheet, a font, a srcdoc frame, a refresh, a blank-target form, an event stream or a beacon, and refuses the beacon instead of holding it", async () => {
       const taskId = await startServer("/gate-probes");
       await workOnce(taskId, [open("/gate-probes"), typeEmail, wait(2), giveBack]);
       const probes = (await fixtureState()).hits.filter((hit) =>
@@ -475,9 +475,19 @@ describeBrowser("the outgoing gate end to end with the real server", () => {
       const heldPaths = rowsOf(taskId)
         .filter((row) => row.kind === "held")
         .map((row) => ("path" in row.request ? row.request.path : ""));
-      for (const probe of ["css", "font", "srcdoc", "refresh", "sse", "beacon"]) {
+      for (const probe of ["css", "font", "srcdoc", "refresh", "sse"]) {
         expect(heldPaths.some((path) => path.includes(`/gate-probe-${probe}`))).toBe(true);
       }
+      expect(heldPaths.some((path) => path.includes("/gate-probe-beacon"))).toBe(false);
+      expect(
+        rowsOf(taskId).some(
+          (row) =>
+            row.kind === "refused" &&
+            row.reason === "not_holdable" &&
+            "path" in row.request &&
+            row.request.path.includes("/gate-probe-beacon"),
+        ),
+      ).toBe(true);
       expect(JSON.stringify(rowsOf(taskId).map((row) => row.request))).not.toContain(
         "jordan@example.com",
       );
@@ -1094,6 +1104,65 @@ describeBrowser("the outgoing gate end to end with the real server", () => {
       expect(shot?.data.length).toBeLessThanOrEqual(400_000);
       const height = shot?.mime === "image/png" ? pngHeight(shot.data) : 0;
       expect(height).toBeLessThan(1_200);
+    });
+  });
+
+  describe("a request the browser sends when its session goes away", () => {
+    const refusedNotHoldable = (taskId: string, path: string) =>
+      rowsOf(taskId).filter(
+        (row) =>
+          row.kind === "refused" &&
+          row.reason === "not_holdable" &&
+          "path" in row.request &&
+          row.request.path === path,
+      );
+
+    async function nothingArrived(): Promise<void> {
+      await new Promise((resolve) => setTimeout(resolve, 1_500));
+      const { hits, submissions } = await fixtureState();
+      expect(hits.filter((hit) => hit.path.startsWith("/gate-v-ka-"))).toEqual([]);
+      expect(submissions).toEqual([]);
+    }
+
+    it("refuses a beacon of a cross-site frame at once, so removing the frame sends nothing", async () => {
+      const taskId = await startServer("/gate-keepalive#frame", true);
+      await workOnce(taskId, [open("/gate-keepalive#frame"), typeEmail, wait(2), giveBack], {
+        holdMs: ANSWER_MS,
+      });
+      await nothingArrived();
+      expect(refusedNotHoldable(taskId, "/gate-v-ka-frame").length).toBeGreaterThan(0);
+      expect(rowsOf(taskId).filter((row) => row.kind === "held")).toEqual([]);
+    });
+
+    it("refuses a beacon of the top page instead of holding it", async () => {
+      const taskId = await startServer("/gate-keepalive#beacon");
+      await workOnce(taskId, [open("/gate-keepalive#beacon"), typeEmail, wait(2), giveBack], {
+        holdMs: ANSWER_MS,
+      });
+      await nothingArrived();
+      expect(refusedNotHoldable(taskId, "/gate-v-ka-beacon").length).toBeGreaterThan(0);
+    });
+
+    it("sends nothing from a keepalive fetch the top page makes as the run closes", async () => {
+      const taskId = await startServer("/gate-keepalive#pagehide");
+      await workOnce(taskId, [open("/gate-keepalive#pagehide"), typeEmail, giveBack]);
+      await nothingArrived();
+      expect(
+        rowsOf(taskId).some(
+          (row) =>
+            row.kind === "refused" &&
+            "path" in row.request &&
+            row.request.path === "/gate-v-ka-pagehide",
+        ),
+      ).toBe(true);
+    });
+
+    it("sends nothing from a keepalive fetch that was still waiting for a person when the run ended", async () => {
+      const taskId = await startServer("/gate-keepalive#fetch");
+      await workOnce(taskId, [open("/gate-keepalive#fetch"), typeEmail, wait(2), giveBack], {
+        holdMs: ANSWER_MS,
+      });
+      await nothingArrived();
     });
   });
 });

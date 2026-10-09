@@ -199,6 +199,7 @@ const REFUSAL_TEXT: Record<string, string> = {
   cookies_changed: "Blocked: the page changed its cookies after you saw the request",
   declined: "Blocked: you declined this request earlier",
   after_run: "Blocked: the page sent it after the run was over",
+  not_holdable: "Blocked: it could not be held safely for your approval",
   websocket: "Blocked: a live connection",
 };
 

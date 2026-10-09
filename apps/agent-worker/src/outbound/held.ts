@@ -33,6 +33,30 @@ const FLUSH_MS = 200;
 const FLUSH_AT = 20;
 const SETTLE_MS = 15_000;
 const HOLD_GRACE_MS = 2_000;
+/** A call the gate waits on that takes longer than this is answered as a refusal. */
+export const CALL_TIMEOUT_MS = 4_000;
+/** A screenshot of a large page is slow to take, and a missing one only costs the person a picture. */
+const SCREENSHOT_TIMEOUT_FACTOR = 2.5;
+
+/** A call to the server that did not answer in time. */
+export class CallTimedOut extends Error {
+  override name = "CallTimedOut";
+}
+
+/** Resolves with the call, or rejects when it takes longer than `ms`, so a slow peer never holds a request open. */
+export async function bounded<T>(call: Promise<T>, ms: number, what: string): Promise<T> {
+  let timer: NodeJS.Timeout | undefined;
+  try {
+    return await Promise.race([
+      call,
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(() => reject(new CallTimedOut(`${what} took longer than ${ms} ms`)), ms);
+      }),
+    ]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
 
 interface DeskOptions {
   api: SendsApi;
@@ -46,6 +70,8 @@ interface DeskOptions {
   /** Called with the time one hold took, which the run does not count against its budget. */
   onHeld: (ms: number) => void;
   now?: () => number;
+  /** How long a call to the server may take before it counts as a refusal. */
+  callTimeoutMs?: number;
 }
 
 function mismatch(error: unknown): boolean {
@@ -71,12 +97,18 @@ export class SendDesk {
   private pending = 0;
   private idle: (() => void)[] = [];
   private readonly now: () => number;
+  private readonly callMs: number;
   private readonly results = new Set<Promise<void>>();
   private readonly stopper = new AbortController();
   private releasedCount = 0;
 
   constructor(private readonly options: DeskOptions) {
     this.now = options.now ?? Date.now;
+    this.callMs = options.callTimeoutMs ?? CALL_TIMEOUT_MS;
+  }
+
+  private call<T>(what: string, call: Promise<T>, extraMs = 0): Promise<T> {
+    return bounded(call, this.callMs + extraMs, what);
   }
 
   get mode(): SubmitGate["mode"] {
@@ -113,14 +145,14 @@ export class SendDesk {
   private async record(items: SendRegistration[]): Promise<void> {
     const { api, logger } = this.options;
     try {
-      await api.registerSends(items);
+      await this.call("recording what the gate decided", api.registerSends(items));
       return;
     } catch (error) {
       logger.warn("could not record what the gate decided as a batch", {
         error: describeError(error),
         rows: items.length,
       });
-      if (items.length === 1) {
+      if (items.length === 1 || error instanceof CallTimedOut) {
         this.lostRows(items);
         return;
       }
@@ -128,9 +160,13 @@ export class SendDesk {
     const lost: SendRegistration[] = [];
     for (const item of items) {
       try {
-        await api.registerSends([item]);
+        await this.call("recording one decision of the gate", api.registerSends([item]));
       } catch (error) {
         lost.push(item);
+        if (error instanceof CallTimedOut) {
+          lost.push(...items.slice(items.indexOf(item) + 1));
+          break;
+        }
         logger.warn("could not record one decision of the gate", {
           error: describeError(error),
           kind: item.kind,
@@ -161,7 +197,10 @@ export class SendDesk {
     releaseId: string,
     outcome: { status: number | null; error?: string | undefined },
   ): void {
-    const sent = this.options.api.sendResult(releaseId, outcome).catch((error: unknown) => {
+    const sent = this.call(
+      "reporting how a send ended",
+      this.options.api.sendResult(releaseId, outcome),
+    ).catch((error: unknown) => {
       this.options.logger.warn("could not record how a send ended", {
         error: describeError(error),
       });
@@ -232,14 +271,20 @@ export class SendDesk {
       };
     }
     if (gate.mode === "record") {
-      const [sent] = await api.registerSends([{ kind: "released", request }]);
+      const [sent] = await this.call(
+        "recording a send",
+        api.registerSends([{ kind: "released", request }]),
+      );
       if (sent === undefined) throw new Error("the server did not record the send");
       return { kind: "release", releaseId: sent.id };
     }
     const earlier = this.unspentApproval(request);
     if (earlier !== undefined) {
       try {
-        const { releaseId } = await api.releaseSend(earlier.id, request);
+        const { releaseId } = await this.call(
+          "asking the server to release a send",
+          api.releaseSend(earlier.id, request),
+        );
         this.spent.add(earlier.id);
         this.options.note(`A person approved ${label} earlier, and it was sent.`);
         return { kind: "release", releaseId };
@@ -259,15 +304,18 @@ export class SendDesk {
 
   private async holdLive(request: OutgoingRequest, label: string): Promise<SendOutcome> {
     const { api, gate } = this.options;
-    const screenshot = gate.holdMs > 0 ? await this.options.capture() : undefined;
-    const [held] = await api.registerSends([
-      {
-        kind: "held",
-        request,
-        holdMs: gate.holdMs,
-        ...(screenshot ? { screenshot } : {}),
-      },
-    ]);
+    const screenshot = gate.holdMs > 0 ? await this.screenshot() : undefined;
+    const [held] = await this.call(
+      "holding a send",
+      api.registerSends([
+        {
+          kind: "held",
+          request,
+          holdMs: gate.holdMs,
+          ...(screenshot ? { screenshot } : {}),
+        },
+      ]),
+    );
     if (held === undefined) throw new Error("the server did not record the held request");
     this.options.note(`The page tried to send your details to ${label}. It was held back.`);
     if (held.status !== "pending_live") {
@@ -284,7 +332,12 @@ export class SendDesk {
       }
       const left = limit - (this.now() - startedAt);
       if (left <= 0) return { kind: "lapse", note: `${label} was left for a later run` };
-      const answer = await api.awaitDecision(held.id, Math.min(POLL_MS, left), stop);
+      const wait = Math.min(POLL_MS, left);
+      const answer = await this.call(
+        "waiting for a decision",
+        api.awaitDecision(held.id, wait, stop),
+        wait,
+      );
       if (answer.status === "send") return this.release(held.id, request, label);
       if (answer.status === "dont_send") {
         return { kind: "refuse", note: `A person declined ${label}. Do not try it again.` };
@@ -301,7 +354,10 @@ export class SendDesk {
     label: string,
   ): Promise<SendOutcome> {
     try {
-      const { releaseId } = await this.options.api.releaseSend(heldId, request);
+      const { releaseId } = await this.call(
+        "asking the server to release a send",
+        this.options.api.releaseSend(heldId, request),
+      );
       this.options.note(`A person approved ${label}, and it was sent.`);
       return { kind: "release", releaseId, heldId };
     } catch (error) {
@@ -313,7 +369,23 @@ export class SendDesk {
   /** The page took a held request back before it could be let go. */
   async withdrawn(heldId: string | undefined, releaseId: string): Promise<void> {
     const outcome = { status: null, error: "withdrawn by the page" };
-    await this.options.api.sendResult(releaseId, outcome);
-    if (heldId !== undefined) await this.options.api.sendResult(heldId, outcome);
+    const { api } = this.options;
+    await this.call("reporting a withdrawn send", api.sendResult(releaseId, outcome));
+    if (heldId !== undefined) {
+      await this.call("reporting a withdrawn hold", api.sendResult(heldId, outcome));
+    }
+  }
+
+  /** The picture for the person, or none when taking it takes too long. */
+  private async screenshot(): Promise<TaskScreenshot | undefined> {
+    try {
+      return await this.call(
+        "taking the screenshot",
+        this.options.capture(),
+        this.callMs * (SCREENSHOT_TIMEOUT_FACTOR - 1),
+      );
+    } catch {
+      return undefined;
+    }
   }
 }

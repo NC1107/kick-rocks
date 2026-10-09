@@ -164,6 +164,8 @@ const PAGES: Record<string, string> = {
   "/gate-vectors": "gate-vectors.html",
   "/gate-mutate": "gate-mutate.html",
   "/gate-auth": "gate-auth.html",
+  "/gate-keepalive": "gate-keepalive.html",
+  "/gate-ka-frame": "gate-ka-frame.html",
 };
 
 /** Scripts the gate pages load, served with a script type. */

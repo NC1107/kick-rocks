@@ -43,6 +43,7 @@ async function run(
     task?: ReturnType<typeof agentTask>;
     holdMsCap?: number;
     maxScreenshotBytes?: number;
+    signal?: AbortSignal;
   } = {},
 ): Promise<{ outcome: AgentOutcome; sends: FakeSends }> {
   const sends = options.sends ?? new FakeSends(() => "nobody");
@@ -59,7 +60,7 @@ async function run(
     pace: INSTANT_PACE,
     allowHttp: true,
     maxOutputTokens: 1024,
-    signal: new AbortController().signal,
+    signal: options.signal ?? new AbortController().signal,
     logger: silentLogger,
     challengeGraceMs: 200,
     sends,
@@ -256,7 +257,7 @@ describeBrowser("a request to somewhere other than the target", () => {
     expect(sends.held.some((held) => held.request.party === "third")).toBe(false);
   });
 
-  it("holds the post of a frame in a process of its own, in that frame's own session", async () => {
+  it("refuses the post of a frame in a process of its own, which cannot be held safely", async () => {
     const task = agentTask({ target: { ...TARGET, website: OFFSITE } });
     const { sends } = await run([open("/gate-cross"), typeEmail, wait(3)], {
       sends: NOBODY(),
@@ -264,10 +265,16 @@ describeBrowser("a request to somewhere other than the target", () => {
     });
     const state = await fixtureState();
     expect(submissionsOf(state, "/gate-frame-post")).toEqual([]);
-    const held = sends.held.find((entry) => entry.request.path === "/gate-frame-post");
-    expect(held?.request.target.type).toBe("iframe");
-    expect(held?.request.target.topLevel).toBe(false);
-    expect(held?.request.target.frameOrigin).toContain("localhost");
+    expect(sends.held.some((entry) => entry.request.path === "/gate-frame-post")).toBe(false);
+    const refused = sends.registered.find(
+      (item) =>
+        item.kind === "refused" &&
+        item.reason === "not_holdable" &&
+        "path" in item.request &&
+        item.request.path === "/gate-frame-post",
+    );
+    expect(refused && "target" in refused.request && refused.request.target.type).toBe("iframe");
+    expect(refused && "target" in refused.request && refused.request.target.topLevel).toBe(false);
   });
 
   it("refuses an image from another site once the run has typed", async () => {
@@ -328,6 +335,51 @@ describeBrowser("a send after the run has ended", () => {
     });
     await new Promise((resolve) => setTimeout(resolve, 1_500));
     expect(submissionsOf(await fixtureState(), "/gate-beacon-post", "/gate-late-post")).toEqual([]);
+  });
+});
+
+/** A server that takes a registration and never answers it, the way a stuck one does. */
+class StuckSends extends FakeSends {
+  readonly asked: Promise<void>;
+  private ask: () => void = () => undefined;
+
+  constructor() {
+    super(() => "send");
+    this.asked = new Promise((resolve) => {
+      this.ask = resolve;
+    });
+  }
+
+  override async registerSends(items: Parameters<FakeSends["registerSends"]>[0]) {
+    if (!items.some((item) => item.kind === "held")) return super.registerSends(items);
+    this.ask();
+    return new Promise<never>(() => undefined);
+  }
+}
+
+describeBrowser("a keepalive send while the server is slow", () => {
+  it("is cancelled before the page closes when the run is stopped during the wait", async () => {
+    const sends = new StuckSends();
+    const controller = new AbortController();
+    sends.asked.then(() => controller.abort());
+    const started = Date.now();
+    await run([open("/gate-keepalive#fetch"), typeEmail, wait(10)], {
+      sends,
+      signal: controller.signal,
+      gate: { holdMs: 30_000 },
+    });
+    expect(Date.now() - started).toBeLessThan(25_000);
+    await new Promise((resolve) => setTimeout(resolve, 1_500));
+    expect(submissionsOf(await fixtureState(), "/gate-v-ka-fetch")).toEqual([]);
+    expect(sends.releases).toEqual([]);
+  });
+
+  it("is refused once the server has not answered in a few seconds", async () => {
+    const sends = new StuckSends();
+    await run([open("/gate-keepalive#fetch"), typeEmail, wait(1), giveBack], { sends });
+    await new Promise((resolve) => setTimeout(resolve, 1_500));
+    expect(submissionsOf(await fixtureState(), "/gate-v-ka-fetch")).toEqual([]);
+    expect(sends.releases).toEqual([]);
   });
 });
 

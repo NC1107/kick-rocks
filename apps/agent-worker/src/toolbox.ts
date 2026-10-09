@@ -352,6 +352,7 @@ export class Toolbox {
     const domains = [...this.policy.domains, ...this.policy.pages.map((scope) => scope.host)];
     this.guard = new OutboundGuard({
       page,
+      signal: this.options.signal,
       policy: this.policy,
       gate: gate ?? null,
       desk: this.desk,
@@ -819,6 +820,7 @@ export class Toolbox {
     const address = this.realAddress(parsed.data.url);
     const reason = refuseNavigation(address, this.policy);
     if (reason !== null) return failure(`Refused: ${reason}.`);
+    await this.guard?.refuseHeld();
     const response = await this.options.page.goto(address, {
       waitUntil: "domcontentloaded",
       timeout: NAVIGATION_TIMEOUT_MS,

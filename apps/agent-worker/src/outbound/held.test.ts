@@ -25,6 +25,8 @@ function request(overrides: Partial<OutgoingRequest> = {}): OutgoingRequest {
   };
 }
 
+const never = <T>(): Promise<T> => new Promise<T>(() => undefined);
+
 function desk(
   sends: FakeSends,
   gate: Partial<{
@@ -44,6 +46,7 @@ function desk(
     capture: async () => undefined,
     note: (text) => notes.push(text),
     onHeld: (ms) => held.push(ms),
+    callTimeoutMs: 60,
   });
   return { instance, notes, held };
 }
@@ -136,6 +139,45 @@ describe("the desk that holds a send", () => {
     };
     const { instance } = desk(sends);
     expect(await instance.decide(request())).toMatchObject({ kind: "refuse" });
+  });
+
+  it("refuses when the server never answers the registration of a hold", async () => {
+    const sends = new FakeSends(() => "send");
+    sends.registerSends = never;
+    const { instance } = desk(sends);
+    expect(await instance.decide(request())).toMatchObject({ kind: "refuse" });
+    expect(instance.released).toBe(0);
+    expect(instance.waiting).toBe(0);
+  });
+
+  it("refuses when the server never answers the release of an approved send", async () => {
+    const sends = new FakeSends(() => "send");
+    sends.releaseSend = never;
+    const { instance } = desk(sends);
+    expect(await instance.decide(request())).toMatchObject({ kind: "refuse" });
+    expect(instance.released).toBe(0);
+  });
+
+  it("refuses when the server never answers a wait for the decision", async () => {
+    const sends = new FakeSends(() => "nobody");
+    sends.awaitDecision = never;
+    const { instance } = desk(sends, { holdMs: 100 });
+    expect(await instance.decide(request())).toMatchObject({ kind: "refuse" });
+  });
+
+  it("holds a send without a picture when taking it never ends", async () => {
+    const sends = new FakeSends(() => "send");
+    const instance = new SendDesk({
+      api: sends,
+      gate: { mode: "hold", holdMs: 400, approved: [], declined: [] },
+      logger: silentLogger,
+      signal: new AbortController().signal,
+      capture: never,
+      note: () => undefined,
+      onHeld: () => undefined,
+      callTimeoutMs: 20,
+    });
+    expect(await instance.decide(request())).toMatchObject({ kind: "release" });
   });
 
   it("stops waiting for a person once the run is over", async () => {
