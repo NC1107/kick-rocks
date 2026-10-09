@@ -1,6 +1,17 @@
 import { randomBytes } from "node:crypto";
-import { chmodSync, existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
-import { dirname, resolve } from "node:path";
+import {
+  chmodSync,
+  copyFileSync,
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  renameSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from "node:fs";
+import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import Database from "better-sqlite3";
 import { drizzle } from "drizzle-orm/better-sqlite3";
@@ -18,6 +29,8 @@ export type DbHandle = Pick<KickRocksDb, "select" | "insert" | "update" | "delet
 export interface OpenDatabaseOptions {
   dbPath: string;
   keyPath: string;
+  /** Only tests point this elsewhere, to stand in for an older or newer build. */
+  migrationsFolder?: string;
 }
 
 export interface OpenedDatabase {
@@ -70,6 +83,89 @@ function assertKeyPresentForExistingDatabase(options: OpenDatabaseOptions): void
   }
 }
 
+interface JournalEntry {
+  tag: string;
+  when: number;
+}
+
+function readJournal(folder: string): JournalEntry[] {
+  const journal = JSON.parse(readFileSync(resolve(folder, "meta", "_journal.json"), "utf8"));
+  return journal.entries;
+}
+
+function lastAppliedMigration(sqlite: Database.Database): number | null {
+  const table = sqlite
+    .prepare("select 1 from sqlite_master where type = 'table' and name = '__drizzle_migrations'")
+    .get();
+  if (!table) return null;
+  const row = sqlite.prepare("select max(created_at) as last from __drizzle_migrations").get() as {
+    last: number | null;
+  };
+  return row.last;
+}
+
+/**
+ * Migrations only move forward, so a database a newer build has already migrated would be read by
+ * code that does not know its shape. Pending migrations get a copy first because they cannot be undone.
+ */
+function guardMigrations(sqlite: Database.Database, options: OpenDatabaseOptions, folder: string) {
+  const applied = lastAppliedMigration(sqlite);
+  if (applied === null) return;
+  const entries = readJournal(folder);
+  const newest = entries.at(-1)?.when ?? 0;
+  if (applied > newest) {
+    sqlite.close();
+    throw new Error(
+      `${options.dbPath} was migrated by a newer build of Kick Rocks than this one. Update Kick Rocks, or restore a backup made by this version.`,
+    );
+  }
+  const pending = entries.find((entry) => entry.when > applied);
+  if (!pending) return;
+  writeRollbackCopy(sqlite, options.dbPath, pending.tag);
+}
+
+function preMigrationCopies(dbPath: string): string[] {
+  const prefix = `${basename(dbPath)}.before-`;
+  return readdirSync(dirname(dbPath))
+    .filter((file) => file.startsWith(prefix))
+    .map((file) => join(dirname(dbPath), file));
+}
+
+/**
+ * A rollback copy holds everything the database held, so it must not outlive a deletion: erasing
+ * data has to take these with it, or the bytes a VACUUM removed stay readable in the copy.
+ */
+export function removePreMigrationCopies(dbPath: string): void {
+  for (const copy of preMigrationCopies(dbPath)) rmSync(copy, { force: true });
+}
+
+/**
+ * The copy is written under a temporary name and renamed, so a copy cut short by a full disk never
+ * carries the name of a good one. Only the newest copy is kept, since each is a full database.
+ */
+function writeRollbackCopy(sqlite: Database.Database, dbPath: string, tag: string): void {
+  const [checkpoint] = sqlite.pragma("wal_checkpoint(TRUNCATE)") as { busy: number }[];
+  if (checkpoint?.busy) {
+    sqlite.close();
+    throw new Error(
+      `${dbPath} is in use by another process, so a copy to roll back to cannot be made before migrating`,
+    );
+  }
+  const final = `${dbPath}.before-${tag}`;
+  const partial = `${final}.partial`;
+  try {
+    copyFileSync(dbPath, partial);
+    renameSync(partial, final);
+  } catch (error) {
+    rmSync(partial, { force: true });
+    sqlite.close();
+    throw error;
+  }
+  for (const older of preMigrationCopies(dbPath)) {
+    if (older !== final) rmSync(older, { force: true });
+  }
+}
+
 export function openDatabase(options: OpenDatabaseOptions): OpenedDatabase {
   assertKeyPresentForExistingDatabase(options);
   const keyHex = loadOrCreateKey(options.keyPath);
@@ -91,7 +187,9 @@ export function openDatabase(options: OpenDatabaseOptions): OpenedDatabase {
   sqlite.pragma("journal_mode = WAL");
   sqlite.pragma("foreign_keys = ON");
   const db = drizzle(sqlite, { schema });
-  migrate(db, { migrationsFolder });
+  const folder = options.migrationsFolder ?? migrationsFolder;
+  guardMigrations(sqlite, options, folder);
+  migrate(db, { migrationsFolder: folder });
   return {
     db,
     close: () => sqlite.close(),

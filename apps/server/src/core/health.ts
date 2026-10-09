@@ -1,4 +1,5 @@
-import { statfsSync } from "node:fs";
+import { readFileSync, statfsSync } from "node:fs";
+import { join } from "node:path";
 import { profiles, targets } from "@kickrocks/db";
 import { API_ROUTES, type InstanceHealth } from "@kickrocks/shared";
 import { and, count, eq, sql } from "drizzle-orm";
@@ -37,6 +38,21 @@ function freeDiskBytes(dataDir: string): number | null {
   }
 }
 
+/** The file install.sh leaves in the data directory after a backup that read back whole. */
+export const BACKUP_MARKER = "last-backup";
+
+/** A daily scheduled backup plus a missed day, so one failed run does not raise the alarm. */
+export const BACKUP_STALE_AFTER_MS = 48 * 60 * 60 * 1000;
+
+function lastVerifiedBackup(dataDir: string): string | null {
+  try {
+    const at = new Date(readFileSync(join(dataDir, BACKUP_MARKER), "utf8").trim());
+    return Number.isNaN(at.getTime()) ? null : at.toISOString();
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Below this a write may still fit, as SQLite takes small ones into the last pages of a full
  * file, so the write probe alone would stay green until the disk was already out of room.
@@ -69,6 +85,10 @@ export function registerHealth(app: FastifyInstance, services: HealthDeps, versi
   const inspect = (): { ok: boolean; health: InstanceHealth } => {
     const scheduler = liveness.scheduler();
     const { writable, freeBytes } = probe();
+    const lastVerifiedAt = lastVerifiedBackup(services.config.dataDir);
+    const backupAge = lastVerifiedAt
+      ? services.clock.now().getTime() - new Date(lastVerifiedAt).getTime()
+      : null;
     const low = freeBytes !== null && freeBytes < DISK_FLOOR_BYTES;
     return {
       ok: writable && !low && !scheduler.stalled && !scheduler.sendingStalled,
@@ -81,6 +101,10 @@ export function registerHealth(app: FastifyInstance, services: HealthDeps, versi
         },
         database: { writable },
         disk: { freeBytes, low },
+        backup: {
+          lastVerifiedAt,
+          stale: backupAge === null || backupAge > BACKUP_STALE_AFTER_MS,
+        },
       },
     };
   };

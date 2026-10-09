@@ -34,6 +34,7 @@ export default defineMockDomain({
           freeBytes: store.health === "disk" ? 18 * 1024 * 1024 : 41 * 1024 ** 3,
           low: store.health === "disk",
         },
+        backup: { lastVerifiedAt: store.ago({ hours: 5 }), stale: false },
       },
     })),
 

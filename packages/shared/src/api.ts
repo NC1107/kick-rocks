@@ -273,6 +273,12 @@ export const InstanceHealth = z.object({
     /** Whether that is too little to keep running safely. */
     low: z.boolean(),
   }),
+  backup: z.object({
+    /** When install.sh last wrote a backup that read back whole, or null when none has. */
+    lastVerifiedAt: z.string().nullable(),
+    /** Whether that is missing or too old to count on. */
+    stale: z.boolean(),
+  }),
 });
 export type InstanceHealth = z.infer<typeof InstanceHealth>;
 

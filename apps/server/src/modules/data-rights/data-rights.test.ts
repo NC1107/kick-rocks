@@ -1,3 +1,5 @@
+import { existsSync, readdirSync, writeFileSync } from "node:fs";
+import { basename, dirname, join } from "node:path";
 import {
   campaigns,
   identities,
@@ -874,6 +876,21 @@ describe("retention", () => {
     expect(count(taskArtifacts)).toBe(0);
   });
 
+  it("removes the copies kept before a migration even when the purge skips compacting", () => {
+    const profile = seedProfile(ctx);
+    const mailbox = seedMailbox(ctx, profile.id);
+    seedOldMessage({ mailboxId: mailbox.id, reviewed: true }, 40);
+    setRetention({ messageDays: 30, screenshotDays: 30 });
+    const dbPath = ctx.services.config.dbPath;
+    const copy = join(dirname(dbPath), `${basename(dbPath)}.before-0001_test`);
+    writeFileSync(copy, "old bytes");
+    applyRetention(ctx.services, { compact: "when-worthwhile" });
+    expect(existsSync(copy)).toBe(false);
+    expect(
+      readdirSync(dirname(ctx.services.config.dbPath)).some((f) => f.includes(".before-")),
+    ).toBe(false);
+  });
+
   it("does not compact on the scheduled path when the purge freed almost nothing", () => {
     const profile = seedProfile(ctx);
     const mailbox = seedMailbox(ctx, profile.id);
@@ -917,5 +934,32 @@ describe("retention", () => {
     await scheduler.tick();
     await scheduler.stop();
     expect(ctx.services.taskQueue.screenshot(old.id)).toBeNull();
+  });
+});
+
+describe("copies kept before a migration", () => {
+  const confirmed = { confirm: RESET_CONFIRMATION } as const;
+
+  function plantCopy(): string {
+    const dbPath = ctx.services.config.dbPath;
+    const copy = join(dirname(dbPath), `${basename(dbPath)}.before-0001_test`);
+    writeFileSync(copy, "old bytes");
+    return copy;
+  }
+
+  it("goes with a reset", async () => {
+    seedFullProfile();
+    const copy = plantCopy();
+    await ctx.call(API_ROUTES.settingsReset, { body: confirmed });
+    expect(existsSync(copy)).toBe(false);
+    expect(existsSync(ctx.services.config.dbPath)).toBe(true);
+  });
+
+  it("goes with a profile delete", async () => {
+    const seeded = seedFullProfile();
+    const copy = plantCopy();
+    const result = await ctx.call(API_ROUTES.profilesDelete, { params: { id: seeded.profile.id } });
+    expect(result.ok).toBe(true);
+    expect(existsSync(copy)).toBe(false);
   });
 });

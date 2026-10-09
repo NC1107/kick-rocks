@@ -120,6 +120,26 @@ describe("the about page", () => {
     },
   );
 
+  it("shows how fresh the last verified backup is, and says so when there is none", async () => {
+    const mock = createMockApp();
+    const { unmount } = renderPage(<AboutPage />, { mock, withProfile: false });
+    expect(await screen.findByText(/Last verified backup 5 hours ago/)).toBeInTheDocument();
+    unmount();
+    const bare = createMockApp();
+    const handle = bare.handle.bind(bare);
+    bare.handle = async (request) => {
+      const response = await handle(request);
+      if (request.url === "/api/status" && typeof response.body === "string") {
+        const status = JSON.parse(response.body);
+        status.health.backup = { lastVerifiedAt: null, stale: true };
+        return { ...response, body: JSON.stringify(status) };
+      }
+      return response;
+    };
+    renderPage(<AboutPage />, { mock: bare, withProfile: false });
+    expect(await screen.findByText(/No verified backup yet/)).toBeInTheDocument();
+  });
+
   it("shows no warning when the instance is well", async () => {
     renderPage(<AboutPage />, { withProfile: false });
     await screen.findByText("0.1.0-mock");

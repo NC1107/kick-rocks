@@ -19,8 +19,9 @@
     "test:scripts": "node --test scripts/check-standards.test.mjs scripts/install.test.mjs scripts/trust-copy.test.mjs",
     "standards": "node scripts/check-standards.mjs",
     "data:build": "pnpm --filter @kickrocks/shared build && pnpm --filter @kickrocks/brokers build:data",
-    "e2e": "pnpm --filter @kickrocks/e2e e2e",
-    "loop:coverage": "pnpm --filter @kickrocks/server exec tsx ../../scripts/loops/coverage/run.mts"
+    "loop:backup-drill": "node scripts/loops/backup-drill/run.mjs",
+    "loop:coverage": "pnpm --filter @kickrocks/server exec tsx ../../scripts/loops/coverage/run.mts",
+    "e2e": "pnpm --filter @kickrocks/e2e e2e"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.3.0",

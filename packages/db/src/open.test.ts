@@ -1,8 +1,20 @@
-import { chmodSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
+import {
+  chmodSync,
+  cpSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { loadOrCreateKey, openDatabase } from "./open.js";
+import { loadOrCreateKey, openDatabase, removePreMigrationCopies } from "./open.js";
 import { profiles } from "./schema.js";
 
 let dir: string;
@@ -106,5 +118,80 @@ describe("openDatabase", () => {
     const bytes = readFileSync(dbPath);
     expect(bytes.includes("PLAINTEXT-MARKER")).toBe(false);
     expect(bytes.subarray(0, 15).toString("latin1")).not.toBe("SQLite format 3");
+  });
+});
+
+describe("openDatabase across builds", () => {
+  const drizzleFolder = resolve(dirname(fileURLToPath(import.meta.url)), "..", "drizzle");
+
+  function foldersCutAt(count: number): string {
+    const folder = join(dir, `migrations-${count}`);
+    mkdirSync(join(folder, "meta"), { recursive: true });
+    const journal = JSON.parse(readFileSync(join(drizzleFolder, "meta", "_journal.json"), "utf8"));
+    const entries = journal.entries.slice(0, count);
+    writeFileSync(join(folder, "meta", "_journal.json"), JSON.stringify({ ...journal, entries }));
+    for (const entry of entries) {
+      cpSync(join(drizzleFolder, `${entry.tag}.sql`), join(folder, `${entry.tag}.sql`));
+    }
+    return folder;
+  }
+
+  const paths = () => ({ dbPath: join(dir, "kickrocks.db"), keyPath: join(dir, "db.key") });
+  const copies = () => readdirSync(dir).filter((file) => file.includes(".before-"));
+
+  it("refuses a database that a newer build migrated, and leaves it alone", () => {
+    openDatabase(paths()).close();
+    const bytes = readFileSync(paths().dbPath);
+    expect(() => openDatabase({ ...paths(), migrationsFolder: foldersCutAt(2) })).toThrow(
+      /newer build/,
+    );
+    expect(readFileSync(paths().dbPath).equals(bytes)).toBe(true);
+  });
+
+  it("keeps a copy of the database before pending migrations run", () => {
+    const older = openDatabase({ ...paths(), migrationsFolder: foldersCutAt(2) });
+    older.db
+      .insert(profiles)
+      .values(profile("p1", "Nick", "TX"))
+      .run();
+    older.close();
+    expect(copies()).toEqual([]);
+    openDatabase(paths()).close();
+    const [copy] = copies();
+    expect(copy).toMatch(/^kickrocks\.db\.before-0002_/);
+    expect(existsSync(join(dir, copy as string))).toBe(true);
+    const old = openDatabase({
+      dbPath: join(dir, copy as string),
+      keyPath: paths().keyPath,
+      migrationsFolder: foldersCutAt(2),
+    });
+    expect(old.db.select().from(profiles).all()).toHaveLength(1);
+    old.close();
+  });
+
+  it("keeps only the newest copy, and no partial file", () => {
+    openDatabase({ ...paths(), migrationsFolder: foldersCutAt(1) }).close();
+    openDatabase({ ...paths(), migrationsFolder: foldersCutAt(2) }).close();
+    expect(copies()).toHaveLength(1);
+    openDatabase(paths()).close();
+    const left = copies();
+    expect(left).toHaveLength(1);
+    expect(left[0]).toMatch(/^kickrocks\.db\.before-0002_/);
+    expect(left.some((file) => file.endsWith(".partial"))).toBe(false);
+  });
+
+  it("removes every copy on request", () => {
+    openDatabase({ ...paths(), migrationsFolder: foldersCutAt(2) }).close();
+    openDatabase(paths()).close();
+    expect(copies()).toHaveLength(1);
+    removePreMigrationCopies(paths().dbPath);
+    expect(copies()).toEqual([]);
+    expect(existsSync(paths().dbPath)).toBe(true);
+  });
+
+  it("makes no copy when nothing is pending", () => {
+    openDatabase(paths()).close();
+    openDatabase(paths()).close();
+    expect(copies()).toEqual([]);
   });
 });

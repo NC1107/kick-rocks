@@ -6,6 +6,9 @@
 #   ./install.sh --start      start the stopped containers again
 #   ./install.sh --backup [FILE]   write the data volume to FILE, readable only by you
 #   ./install.sh --restore FILE    replace the data volume with the contents of a backup FILE
+#   ./install.sh --schedule-backup DIR [--keep N]   print the crontab line for a daily backup into DIR
+#   ./install.sh --schedule-backup DIR --once [--keep N]   take one backup into DIR now and keep the newest N
+#   Add --passphrase-file PATH to either to encrypt the backup, or to open an encrypted one.
 #   ./install.sh --uninstall  delete the containers, the data volume, the browser profile and the images
 #   ./install.sh --url        print the address of the UI
 #
@@ -114,7 +117,8 @@ stop_for_copy() {
   trap finish EXIT
   # On a new machine the project has no containers, and compose reports that as an error.
   [ -n "$(docker compose "${ALL_PROFILES[@]}" ps -a -q)" ] || return 0
-  mapfile -t was_running < <(docker compose "${ALL_PROFILES[@]}" ps --services --status running)
+  # Compose prints a blank line when nothing runs, which would otherwise become a service named "".
+  mapfile -t was_running < <(docker compose "${ALL_PROFILES[@]}" ps --services --status running | sed '/^$/d')
   docker compose "${ALL_PROFILES[@]}" stop
 }
 
@@ -125,18 +129,123 @@ absolute_path() {
   esac
 }
 
+passphrase_file=""
+
+# Reads the passphrase option that --backup and --restore share, leaving the file argument in
+# archive_arg.
+archive_arg=""
+parse_archive_args() {
+  archive_arg=""
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      --passphrase-file)
+        [ -n "${2:-}" ] || { echo "--passphrase-file needs a path." >&2; exit 2; }
+        passphrase_file="$(absolute_path "$2")"
+        [ -s "$passphrase_file" ] || { echo "The passphrase file $passphrase_file is missing or empty." >&2; exit 1; }
+        command -v openssl >/dev/null || { echo "A passphrase needs openssl, which is not installed." >&2; exit 1; }
+        shift 2
+        ;;
+      *)
+        archive_arg="$1"
+        shift
+        ;;
+    esac
+  done
+}
+
+openssl_cipher=(openssl enc -aes-256-cbc -pbkdf2 -iter 600000 -salt)
+
+# The archive as a plain gzip tar on stdout, decrypting first when a passphrase was given.
+read_archive() {
+  if [ -n "$passphrase_file" ]; then
+    "${openssl_cipher[@]}" -d -pass "file:$passphrase_file" -in "$1"
+  else
+    cat "$1"
+  fi
+}
+
+encrypt_if_asked() {
+  if [ -n "$passphrase_file" ]; then
+    "${openssl_cipher[@]}" -pass "file:$passphrase_file"
+  else
+    cat
+  fi
+}
+
+# openssl marks its output with this, so an encrypted archive is told apart from a plain one.
+is_encrypted_archive() {
+  head -c 8 "$1" 2>/dev/null | grep -aq '^Salted__'
+}
+
 # Whether an archive is a readable gzip tar that holds the database and its key.
 # A truncated download or a half-written file fails the listing, and so does an archive of something else.
+# A wrong passphrase decrypts to noise, which fails here too.
 archive_is_intact() {
   local listing
-  listing="$(tar tzf "$1" 2>/dev/null)" || return 1
+  listing="$(read_archive "$1" 2>/dev/null | tar tz 2>/dev/null)" || return 1
   printf '%s\n' "$listing" | grep -qx '\./kickrocks\.db' || return 1
   printf '%s\n' "$listing" | grep -qx '\./db\.key'
 }
 
+# Exit status of the database check when the database is there but does not open with its key.
+# Anything else non-zero means the check could not run, which says nothing about the backup.
+readonly DATABASE_UNUSABLE=3
+
+# Builds the server image with its output on screen when this machine does not have it yet, so the
+# check never spends minutes building it out of sight.
+ensure_server_image() {
+  local project
+  project="$(docker compose config | sed -n 's/^name: //p')"
+  docker image inspect "$project-server" >/dev/null 2>&1 && return 0
+  echo "Building the server image first, which the check of the backup needs. This takes a few minutes."
+  docker compose build server
+}
+
+# Whether the unpacked data in VOLUME opens with the key beside it. An archive can list whole and
+# still hold a database that no key opens, and restoring it would swap good data for unusable data.
+# It runs in the server image because that is the build that has to open the restored database.
+# The volume is mounted read-only and the files are opened from a copy, because opening a WAL
+# database creates side files, and root-owned ones in the volume that gets swapped in would make
+# every later write by the server fail.
+volume_database_opens() {
+  local script
+  script='
+    const fs = require("fs");
+    const Database = require("better-sqlite3");
+    const unusable = () => process.exit(Number(process.env.DATABASE_UNUSABLE));
+    try {
+      fs.mkdirSync("/tmp/check");
+      for (const name of fs.readdirSync("/check")) {
+        if (/^(kickrocks\.db(-wal)?|db\.key)$/.test(name)) fs.copyFileSync("/check/" + name, "/tmp/check/" + name);
+      }
+      const key = fs.readFileSync("/tmp/check/db.key", "utf8").trim();
+      if (!/^[0-9a-f]{64}$/i.test(key)) unusable();
+      const db = new Database("/tmp/check/kickrocks.db", { fileMustExist: true });
+      db.pragma("cipher=\u0027sqlcipher\u0027");
+      db.pragma("legacy=4");
+      db.pragma("key=\"x\u0027" + key + "\u0027\"");
+      db.prepare("select count(*) from sqlite_master").get();
+      if (db.pragma("quick_check", { simple: true }) !== "ok") unusable();
+    } catch {
+      unusable();
+    }
+  '
+  docker compose run --rm --no-deps -T --user 0 --workdir /app/server/node_modules/@kickrocks/db \
+    -e "DATABASE_UNUSABLE=$DATABASE_UNUSABLE" -v "$1":/check:ro \
+    --entrypoint node server -e "$script" >/dev/null
+}
+
+# The server reads this file to show how old the last good backup is. It is written only after the
+# archive read back whole, and it is the server user's, so the server can always read it back.
+record_verified_backup() {
+  docker run --rm -v "$1":/data -e "VERIFIED_AT=$(date -u +%Y-%m-%dT%H:%M:%SZ)" alpine \
+    sh -c 'echo "$VERIFIED_AT" > /data/last-backup && chown 1000:1000 /data/last-backup' \
+    || echo "The backup is good, but the app could not be told about it, so it may still call the backup old." >&2
+}
+
 backup() {
   local file volume
-  file="$(absolute_path "${1:-$HOME/kickrocks-backup-$(date +%Y%m%d-%H%M%S).tgz}")"
+  file="$(absolute_path "${1:-$HOME/kickrocks-backup-$(date +%Y%m%d-%H%M%S).tgz${passphrase_file:+.enc}}")"
   volume="$(data_volume)"
   docker volume inspect "$volume" >/dev/null 2>&1 || { echo "No data volume named $volume yet." >&2; exit 1; }
   case "$(cd "$(dirname "$file")" && pwd)/" in
@@ -148,23 +257,58 @@ backup() {
   partial_file="$file.partial"
   # tar runs as root inside the container because it must read the key, but the archive is written
   # by this shell, so it belongs to the invoking user and no one else can read it.
-  if ! (umask 077 && docker run --rm -v "$volume":/data:ro alpine tar czf - -C /data . >"$partial_file") || ! archive_is_intact "$partial_file"; then
+  if ! (umask 077 && docker run --rm -v "$volume":/data:ro alpine tar czf - -C /data . | encrypt_if_asked >"$partial_file") || ! archive_is_intact "$partial_file"; then
     echo "The backup did not complete, so nothing was written to $file." >&2
     exit 1
   fi
   mv -f "$partial_file" "$file"
+  record_verified_backup "$volume"
   echo "Wrote $file (readable only by you). It contains the database key: keep it off shared and cloud storage."
+}
+
+# Takes one backup into DIR, then deletes all but the newest KEEP scheduled ones. Nothing is deleted
+# unless the new backup read back whole, so a run that fails leaves every earlier backup in place.
+# Scheduled archives have their own prefix so a folder of manual backups is never rotated away.
+scheduled_backup() {
+  local dir="$1" keep="$2" file stamp suffix old n=0
+  suffix=".tgz${passphrase_file:+.enc}"
+  (umask 077 && mkdir -p "$dir")
+  stamp="$(date +%Y%m%d-%H%M%S)"
+  # Name order has to be time order. The counter is fixed width, and it continues after the highest
+  # one left in this second, because the newest backup is never pruned and so is always still there.
+  for old in "$dir"/kickrocks-scheduled-"$stamp"-[0-9][0-9][0-9][0-9]*; do
+    [ -e "$old" ] || continue
+    old="${old##*-}"
+    old=$((10#${old:0:4}))
+    [ "$old" -le "$n" ] || n="$old"
+  done
+  file="$(printf '%s/kickrocks-scheduled-%s-%04d%s' "$dir" "$stamp" "$((n + 1))" "$suffix")"
+  backup "$file"
+  find "$dir" -maxdepth 1 -type f -name "kickrocks-scheduled-*$suffix" -print | LC_ALL=C sort -r | tail -n +"$((keep + 1))" | while IFS= read -r old; do
+    [ "$old" = "$file" ] || rm -f "$old"
+  done
+}
+
+# Quoted for a POSIX shell, which is what cron runs the line with.
+shell_quote() {
+  local quote="'" escaped
+  escaped="${1//$quote/$quote\\$quote$quote}"
+  printf "'%s'" "$escaped"
 }
 
 # Replaces the data volume with a backup. The archive is unpacked into a scratch volume first, so a
 # bad archive is found before the live data is touched, and the old data is put back if the swap fails.
 # The copy of the old data is the only way back, so it is deleted only once the restore is known good.
 restore() {
-  local file volume scratch previous answer had_previous=false
+  local file volume scratch previous answer opens had_previous=false
   [ -n "${1:-}" ] || { echo "Usage: ./install.sh --restore FILE" >&2; exit 2; }
   file="$(absolute_path "$1")"
   [ -f "$file" ] || { echo "No such file: $file" >&2; exit 1; }
-  archive_is_intact "$file" || { echo "$file is not a complete Kick Rocks backup, so nothing was changed." >&2; exit 1; }
+  if is_encrypted_archive "$file" && [ -z "$passphrase_file" ]; then
+    echo "$file is encrypted. Add --passphrase-file PATH with its passphrase." >&2
+    exit 1
+  fi
+  archive_is_intact "$file" || { echo "$file is not a complete Kick Rocks backup, or the passphrase is wrong, so nothing was changed." >&2; exit 1; }
   volume="$(data_volume)"
   restore_volume="$volume"
   scratch="$volume-restore-$$"
@@ -175,8 +319,18 @@ restore() {
   stop_for_copy
   scratch_volumes=("$scratch")
   docker volume create "$scratch" >/dev/null
-  if ! docker run --rm -i -v "$scratch":/data alpine sh -c 'tar xzf - -C /data && test -s /data/kickrocks.db && test -s /data/db.key' <"$file"; then
+  if ! read_archive "$file" | docker run --rm -i -v "$scratch":/data alpine sh -c 'tar xzf - -C /data && test -s /data/kickrocks.db && test -s /data/db.key'; then
     echo "The archive could not be unpacked, so nothing was changed." >&2
+    exit 1
+  fi
+  ensure_server_image || { echo "Could not build the server image to check the backup with, so nothing was changed. Run ./install.sh once and try again." >&2; exit 1; }
+  opens=0
+  volume_database_opens "$scratch" || opens=$?
+  if [ "$opens" -eq "$DATABASE_UNUSABLE" ]; then
+    echo "The database in the archive does not open with the key in it, so nothing was changed." >&2
+    exit 1
+  elif [ "$opens" -ne 0 ]; then
+    echo "The check of the backup could not run (docker exited with $opens), so nothing was changed. The backup itself may be fine." >&2
     exit 1
   fi
   if docker volume inspect "$volume" >/dev/null 2>&1; then
@@ -216,6 +370,13 @@ restore() {
     exit 1
   fi
   swap_started=false
+  # The archive holds the marker of the backup before it, so the live one is put back: the person
+  # checking backup state right after a restore must not be told the backup is older than it is.
+  if [ "$had_previous" = true ]; then
+    docker run --rm -v "$previous":/live:ro -v "$volume":/to alpine \
+      sh -c 'if [ -f /live/last-backup ]; then cp -p /live/last-backup /to/last-backup; else rm -f /to/last-backup; fi' \
+      || echo "The restore worked, but the last backup time could not be carried over, so the About page may show an older one." >&2
+  fi
   [ "$had_previous" = false ] || docker volume rm -f "$previous" >/dev/null 2>&1 || true
   previous_volume=""
   echo "Restored $volume from $file."
@@ -297,11 +458,53 @@ case "${1:-}" in
     exit 0
     ;;
   --backup)
-    backup "${2:-}"
+    shift
+    parse_archive_args "$@"
+    backup "$archive_arg"
+    exit 0
+    ;;
+  --schedule-backup)
+    shift
+    schedule_dir=""
+    schedule_keep=7
+    schedule_once=false
+    schedule_rest=()
+    while [ "$#" -gt 0 ]; do
+      case "$1" in
+        --once) schedule_once=true; shift ;;
+        --keep)
+          case "${2:-}" in
+            ''|*[!0-9]*|0) echo "--keep needs a number of backups to keep, 1 or more." >&2; exit 2 ;;
+          esac
+          schedule_keep="$2"
+          shift 2
+          ;;
+        --passphrase-file) schedule_rest+=("$1" "${2:-}"); shift 2 || shift ;;
+        *) schedule_dir="$1"; shift ;;
+      esac
+    done
+    [ -n "$schedule_dir" ] || { echo "--schedule-backup needs the folder to write backups to." >&2; exit 2; }
+    parse_archive_args "${schedule_rest[@]+"${schedule_rest[@]}"}"
+    schedule_dir="$(absolute_path "$schedule_dir")"
+    if [ "$schedule_once" = true ]; then
+      scheduled_backup "$schedule_dir" "$schedule_keep"
+    else
+      cron_env="PATH=$(shell_quote "$PATH")${DOCKER_HOST:+ DOCKER_HOST=$(shell_quote "$DOCKER_HOST")}"
+      cron_command="$(shell_quote "$PWD/install.sh") --schedule-backup $(shell_quote "$schedule_dir") --once --keep $schedule_keep${passphrase_file:+ --passphrase-file $(shell_quote "$passphrase_file")}"
+      case "$cron_env$cron_command" in
+        *%*) echo "Cron treats % as a line break, so a path or PATH containing it cannot go in a crontab line." >&2; exit 2 ;;
+      esac
+      # Cron opens the log before install.sh runs, so the folder has to exist already.
+      (umask 077 && mkdir -p "$schedule_dir")
+      echo "Add this line with crontab -e to back up every night at 03:30 and keep the newest $schedule_keep:"
+      echo "30 3 * * * $cron_env $cron_command >> $(shell_quote "$schedule_dir/schedule.log") 2>&1"
+    fi
     exit 0
     ;;
   --restore)
-    restore "${2:-}"
+    shift
+    parse_archive_args "$@"
+    restore "$archive_arg"
     exit 0
     ;;
   --uninstall)

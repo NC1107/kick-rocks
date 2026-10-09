@@ -1,4 +1,4 @@
-import { type KickRocksDb, messages, requests } from "@kickrocks/db";
+import { type KickRocksDb, messages, removePreMigrationCopies, requests } from "@kickrocks/db";
 import { and, eq, isNotNull, isNull, lt, notInArray, or, sql } from "drizzle-orm";
 import type { Clock } from "../../core/clock.js";
 import type { SettingsStore } from "../../core/settings.js";
@@ -94,5 +94,6 @@ export function applyRetention(
   };
   const removed = result.screenshots > 0 || result.messages > 0;
   if (removed && (compact === "always" || hasMeaningfulFreeSpace(db))) compactDatabase(db);
+  else if (removed) removePreMigrationCopies(db.$client.name);
   return result;
 }
