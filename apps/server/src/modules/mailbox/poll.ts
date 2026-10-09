@@ -27,6 +27,7 @@ function outcomeOf(task: PollTask): MailboxPollOutcome | null {
     return {
       state: "done",
       newMessages: count(result.stored),
+      scanned: count(result.scanned),
       matched: count(result.matched),
       needsReview: count(result.needsReview),
       matchedRequestIds: Array.isArray(result.matchedRequestIds)

@@ -20,6 +20,7 @@ import {
   Select,
 } from "../../components/ui/index.js";
 import { ADMISSION_REASON } from "../../lib/admission.js";
+import { pluralize } from "../../lib/format.js";
 import { BodyRow, FieldRow, GroupNote } from "../settings/rows.js";
 import { CleanupPreview, IgnoredMail, ShadowReport } from "./intake-review.js";
 
@@ -81,12 +82,14 @@ export function IntakeSection({ profileId, mailbox, provider }: IntakeSectionPro
                 : ""}
             </p>
           </BodyRow>
-          <BodyRow>
-            <p className="text-meta text-ink-2" data-testid="last-check">
-              Last check looked at {mailbox.lastPollScanned} new messages and kept{" "}
-              {mailbox.lastPollKept}.
-            </p>
-          </BodyRow>
+          {mailbox.lastPolledAt ? (
+            <BodyRow>
+              <p className="text-meta text-ink-2" data-testid="last-check">
+                Last check looked at {pluralize(mailbox.lastPollScanned, "new message")} and kept{" "}
+                {mailbox.lastPollKept}.
+              </p>
+            </BodyRow>
+          ) : null}
         </RowGroup>
       </Section>
       <CleanupPreview profileId={profileId} />

@@ -11,6 +11,7 @@ import {
 import {
   type FindMissingReplyBody,
   type FoundMessage,
+  isSharedMailHost,
   MESSAGE_TEXT_MAX_CHARS,
   type MessageAdmission,
   POLL_MATCHED_REQUESTS_MAX,
@@ -21,6 +22,7 @@ import {
 } from "@kickrocks/shared";
 import { and, eq, gte, inArray, isNotNull, min, ne, or } from "drizzle-orm";
 import { newId } from "../core/ids.js";
+import { firstRecipients } from "../core/recipients.js";
 import {
   curatedReplyDomainsOfRow,
   replyAddressesOfRow,
@@ -245,9 +247,10 @@ export class InboxRunner {
       for (let page = 0; page < MAX_PAGES_PER_RUN; page += 1) {
         const result = await session.scan(afterUid, uidValidity, { since, limit: PAGE_LIMIT });
         totals.pages += 1;
-        totals.scanned += result.messages.length;
-        const admitted = await this.admit(session, mailbox, result.uidValidity, result.messages);
-        totals.ignored += result.messages.length - admitted.length;
+        const fresh = this.unseen(mailbox.id, result.uidValidity, result.messages);
+        totals.scanned += fresh.length;
+        const admitted = await this.admit(session, mailbox, result.uidValidity, fresh);
+        totals.ignored += fresh.length - admitted.length;
         for (const { message, by } of admitted) {
           await this.ingestSafely(mailbox, result.uidValidity, message, by, totals);
         }
@@ -293,16 +296,26 @@ export class InboxRunner {
     });
     if (!uids || uids.length === 0) return;
     const found = await session.headers(uids);
-    totals.scanned += found.length;
-    const admitted = await this.admit(session, mailbox, mailbox.uidValidity, found);
-    totals.ignored += found.length - admitted.length;
+    const fresh = this.unseen(mailbox.id, mailbox.uidValidity, found);
+    totals.scanned += fresh.length;
+    const admitted = await this.admit(session, mailbox, mailbox.uidValidity, fresh);
+    totals.ignored += fresh.length - admitted.length;
     for (const { message, by } of admitted) {
       await this.ingestSafely(mailbox, mailbox.uidValidity, message, by, totals);
     }
   }
 
+  /** The headers of mail Kick Rocks has not judged yet, which are the only ones a check should count. */
+  private unseen(
+    mailboxId: string,
+    uidValidity: number,
+    headers: MessageHeaders[],
+  ): MessageHeaders[] {
+    return headers.filter((h) => !this.alreadyKnown(mailboxId, uidValidity, h));
+  }
+
   /**
-   * Decides which of a page of messages concern a request, downloading as few as it can. Headers
+   * Decides which of a page of fresh messages concern a request, downloading as few as it can. Headers
    * settle most; a server-side search narrows the rest; whatever is left is read here and judged
    * on its text. A message the gate cannot judge is kept for a person rather than lost.
    */
@@ -310,9 +323,8 @@ export class InboxRunner {
     session: InboxSession,
     mailbox: MailboxRow,
     uidValidity: number,
-    headers: MessageHeaders[],
+    fresh: MessageHeaders[],
   ): Promise<Admitted[]> {
-    const fresh = headers.filter((h) => !this.alreadyKnown(mailbox.id, uidValidity, h));
     if (fresh.length === 0) return [];
     const ctx = this.intake(mailbox);
     this.openAtAdmission = new Set(ctx.open.map((request) => request.id));
@@ -826,29 +838,44 @@ export class InboxRunner {
         ),
       )
       .all();
-    return rows.map(({ request, target }) => ({
-      id: request.id,
-      open: OUTSTANDING.includes(request.status) || request.awaitingConfirmationSince !== null,
-      targetKind: target.kind,
-      contactAddress: target.privacyEmail,
-      sentAt: request.sentAt,
-      reference: request.reference,
-      outgoingMessageId: request.outgoingMessageId,
-      status: request.status,
-      channel: request.channel,
-      targetId: target.id,
-      targetName: target.name,
-      targetDomain: target.domain,
-      replyDomains: replyDomainsOfRow(target),
-      curatedReplyDomains: curatedReplyDomainsOfRow(target),
-      replyAddresses: replyAddressesOfRow(target),
-      recordUrl: request.recordUrl,
-      awaitingConfirmation: request.awaitingConfirmationSince
-        ? {
-            ...awaitingConfirmationOf(this.services, request.id, target),
-            since: request.awaitingConfirmationSince,
-          }
-        : null,
-    }));
+    const recipients = firstRecipients(
+      db,
+      rows.map(({ request }) => request.id),
+    );
+    return rows.map(({ request, target }) => {
+      const mailed = recipients.get(request.id) ?? null;
+      const mailedHost = mailed?.split("@").pop()?.toLowerCase() ?? "";
+      return {
+        id: request.id,
+        open: OUTSTANDING.includes(request.status) || request.awaitingConfirmationSince !== null,
+        targetKind: target.kind,
+        contactAddress: mailed ?? target.privacyEmail,
+        sentAt: request.sentAt,
+        reference: request.reference,
+        outgoingMessageId: request.outgoingMessageId,
+        status: request.status,
+        channel: request.channel,
+        targetId: target.id,
+        targetName: target.name,
+        targetDomain: target.domain,
+        replyDomains: [
+          ...new Set([
+            ...replyDomainsOfRow(target),
+            ...(mailedHost && !isSharedMailHost(mailedHost) ? [mailedHost] : []),
+          ]),
+        ],
+        curatedReplyDomains: curatedReplyDomainsOfRow(target),
+        replyAddresses: [
+          ...new Set([...replyAddressesOfRow(target), ...(mailed ? [mailed.toLowerCase()] : [])]),
+        ],
+        recordUrl: request.recordUrl,
+        awaitingConfirmation: request.awaitingConfirmationSince
+          ? {
+              ...awaitingConfirmationOf(this.services, request.id, target),
+              since: request.awaitingConfirmationSince,
+            }
+          : null,
+      };
+    });
   }
 }

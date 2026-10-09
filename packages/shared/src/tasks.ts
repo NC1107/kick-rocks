@@ -359,6 +359,8 @@ export const MailboxPollOutcome = z.discriminatedUnion("state", [
     state: z.literal("done"),
     /** Messages read for the first time. */
     newMessages: z.number().int().nonnegative(),
+    /** New messages the check judged, including those it did not keep. Zero means the folder had nothing new. */
+    scanned: z.number().int().nonnegative(),
     /** New messages that belong to a request. */
     matched: z.number().int().nonnegative(),
     needsReview: z.number().int().nonnegative(),

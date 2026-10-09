@@ -471,7 +471,7 @@ describe("POST /profiles/:id/mailbox/poll", () => {
       ok: true,
       body: {
         task: { id: started.body.task.id, status: "done" },
-        outcome: { state: "done", newMessages: 1, matched: 0, matchedRequestIds: [] },
+        outcome: { state: "done", newMessages: 1, scanned: 1, matched: 0, matchedRequestIds: [] },
       },
     });
   });

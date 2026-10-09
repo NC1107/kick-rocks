@@ -184,7 +184,7 @@ function titleOf(outcome: Extract<MailboxPollOutcome, { state: "done" }>): strin
       "new messages",
     );
   }
-  return outcome.newMessages === 0 ? "No new mail" : "No new replies";
+  return outcome.scanned === 0 ? "No new mail" : "No new replies";
 }
 
 /**

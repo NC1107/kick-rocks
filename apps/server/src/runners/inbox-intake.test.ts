@@ -1,4 +1,11 @@
-import { intakeSenders, mailboxes, messages, requestEvents, requests } from "@kickrocks/db";
+import {
+  intakeSenders,
+  mailboxes,
+  messages,
+  requestEvents,
+  requests,
+  targets,
+} from "@kickrocks/db";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createReplyClassifier } from "../mail/classifier.js";
@@ -336,6 +343,78 @@ describe("what the poll lets in", () => {
     await poll();
     expect(stored().map((row) => [row.subject, row.admittedBy])).toEqual(withSearch);
     expect(withSearch).toEqual([["Case", "reference"]]);
+  });
+});
+
+describe("mail from the address a request was really sent to", () => {
+  const VENDOR = {
+    kind: "broker",
+    id: "vendor",
+    name: "Vendor Records",
+    domain: "vendor-records.test",
+    privacyEmail: "optout@vendor-privacy.test",
+  } as const;
+
+  const dropAddress = (address: string | null) =>
+    ctx.services.db
+      .update(targets)
+      .set({ privacyEmail: address })
+      .where(eq(targets.id, VENDOR.id))
+      .run();
+
+  it("still counts as the target's after the dataset drops or changes that address", async () => {
+    await sentRequest(VENDOR);
+    dropAddress(null);
+    deliver({
+      subject: "Ticket 88231 received",
+      from: from("optout@vendor-privacy.test"),
+      text: "We received your request. Your personal information will be deleted within 45 days.",
+    });
+    await poll();
+    expect(stored()).toHaveLength(1);
+
+    dropAddress("legal@elsewhere.test");
+    deliver({
+      subject: "Ticket 88232 received",
+      from: from("optout@vendor-privacy.test"),
+      text: "We received your request. Your personal information will be deleted within 45 days.",
+    });
+    await poll();
+    expect(stored()).toHaveLength(2);
+  });
+
+  it("still settles a bounce that names it without the original headers", async () => {
+    await sentRequest(VENDOR);
+    dropAddress(null);
+    deliver({
+      subject: "Undelivered Mail Returned to Sender",
+      from: from("mailer-daemon@example.com"),
+      text: "Delivery failed.\nFinal-Recipient: rfc822; optout@vendor-privacy.test\nStatus: 5.1.1",
+    });
+    await poll();
+    expect(stored()).toHaveLength(1);
+  });
+});
+
+describe("what a check reports", () => {
+  it("counts only mail it had not judged, so a rescan after a send does not recount stored mail", async () => {
+    const request = await sentRequest(SPOKEO);
+    for (let i = 0; i < 3; i += 1) {
+      deliver({
+        subject: `Your Spokeo request ${request.reference}`,
+        from: from("privacy@spokeo.test"),
+        text: "We are working on it.",
+      });
+    }
+    await poll();
+    expect(stored()).toHaveLength(3);
+
+    const task = await poll({
+      since: new Date(ctx.clock.now().getTime() - 60 * MINUTE).toISOString(),
+      targetId: SPOKEO.id,
+    });
+    expect(task.result).toMatchObject({ scanned: 0, kept: 0, ignored: 0 });
+    expect(mailboxRow()).toMatchObject({ lastPollScanned: 0, lastPollKept: 0 });
   });
 });
 

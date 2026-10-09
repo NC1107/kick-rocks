@@ -248,6 +248,7 @@ function describePoll(store: MockStore, poll: MockPoll): MailboxPoll {
         : {
             state: "done",
             newMessages: matched.length,
+            scanned: matched.length,
             matched: matched.length,
             needsReview: 0,
             matchedRequestIds: matched,
