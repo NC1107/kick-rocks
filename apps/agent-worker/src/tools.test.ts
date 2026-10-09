@@ -80,9 +80,28 @@ describe("tool specs", () => {
     expect(removal.description).toContain("status complete needs result in the exact shape");
   });
 
-  it("tells navigate that a path on the current site works", () => {
-    const navigate = TOOL_SPECS.find((spec) => spec.name === "navigate");
-    expect(navigate?.description).toContain("A path starting with / opens that page");
+  it("tells a scan's navigate that a path on the current site works, and leaves a removal's wording alone", () => {
+    const scan = SCAN_SPECS.find((spec) => spec.name === "navigate");
+    expect(scan?.description).toContain("A path starting with / opens that page");
+    const removal = TOOL_SPECS.find((spec) => spec.name === "navigate");
+    expect(removal?.description).toBe(
+      "Open a page of the target's own site. Addresses on other domains are refused. Returns the page snapshot.",
+    );
+    expect(JSON.stringify(removal?.parameters)).toContain('"description":"A full https address."');
+  });
+
+  it("keeps the properties of a removal's report in the order they always had", () => {
+    const report = TOOL_SPECS.find((spec) => spec.name === "report");
+    const properties = (report?.parameters as { properties: Record<string, unknown> }).properties;
+    expect(Object.keys(properties)).toEqual([
+      "status",
+      "result",
+      "reason",
+      "detail",
+      "error",
+      "failureKind",
+      "retryable",
+    ]);
   });
 
   it("says in the report tool what each blocked reason means", () => {

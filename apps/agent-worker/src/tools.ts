@@ -160,15 +160,43 @@ function reportSpec(purpose: "scan" | "remove"): ToolSpec {
     parameters: {
       type: "object",
       properties: {
-        ...REPORT_PROPERTIES,
+        status: REPORT_PROPERTIES.status,
         result: {
           type: "object",
           description: "For complete: the result object from the instructions.",
         },
+        reason: REPORT_PROPERTIES.reason,
+        detail: REPORT_PROPERTIES.detail,
+        error: REPORT_PROPERTIES.error,
+        failureKind: REPORT_PROPERTIES.failureKind,
+        retryable: REPORT_PROPERTIES.retryable,
       },
       required: ["status"],
       additionalProperties: false,
     },
+  };
+}
+
+/**
+ * A scan is told that a path works, since it follows links by their short form. A removal keeps
+ * the wording it had, because small models read more than a hint into a changed tool description.
+ */
+function navigateSpec(purpose: "scan" | "remove"): ToolSpec {
+  const scan = purpose === "scan";
+  return {
+    name: "navigate",
+    description: `Open a page of the target's own site. Addresses on other domains are refused. ${scan ? "A path starting with / opens that page of the current site. " : ""}Returns the page snapshot.`,
+    parameters: object(
+      {
+        url: {
+          type: "string",
+          description: scan
+            ? "A full https address, or a path starting with / on the current site."
+            : "A full https address.",
+        },
+      },
+      ["url"],
+    ),
   };
 }
 
@@ -185,20 +213,7 @@ export interface ToolContext {
 export function toolSpecsFor({ fieldNames, purpose }: ToolContext): ToolSpec[] {
   const names: readonly string[] = fieldNames.length > 0 ? fieldNames : ProfileField.options;
   const specs: ToolSpec[] = [
-    {
-      name: "navigate",
-      description:
-        "Open a page of the target's own site. Addresses on other domains are refused. A path starting with / opens that page of the current site. Returns the page snapshot.",
-      parameters: object(
-        {
-          url: {
-            type: "string",
-            description: "A full https address, or a path starting with / on the current site.",
-          },
-        },
-        ["url"],
-      ),
-    },
+    navigateSpec(purpose),
     {
       name: "snapshot",
       description:
