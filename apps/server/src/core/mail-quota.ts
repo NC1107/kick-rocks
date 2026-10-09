@@ -34,7 +34,17 @@ export interface MailQuota {
 }
 
 export function createMailQuota(db: KickRocksDb, clock: Clock): MailQuota {
+  // No send can have happened after now, so a stamp ahead of it came from a clock that ran ahead
+  // and was put right. It counts as sent now, which keeps the cap and the gap as tight as they were.
+  function clampFuture() {
+    db.update(outgoingMail)
+      .set({ sentAt: nowIso(clock) })
+      .where(gt(outgoingMail.sentAt, nowIso(clock)))
+      .run();
+  }
+
   function sentSince(mailboxId: string, since: Date): number {
+    clampFuture();
     return (
       db
         .select({ n: count() })
@@ -64,6 +74,7 @@ export function createMailQuota(db: KickRocksDb, clock: Clock): MailQuota {
     },
 
     lastSentAt(mailboxId) {
+      clampFuture();
       const row = db
         .select({ sentAt: outgoingMail.sentAt })
         .from(outgoingMail)

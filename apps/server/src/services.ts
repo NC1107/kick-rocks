@@ -12,6 +12,7 @@ import type { Config } from "./config.js";
 import type { AuthService } from "./core/auth.js";
 import { type Clock, systemClock } from "./core/clock.js";
 import { type Composer, createComposer } from "./core/composer.js";
+import { createDiskReserve, type DiskReserve } from "./core/disk-reserve.js";
 import { createDispatch, type Dispatch } from "./core/dispatch.js";
 import { createLiveness, type Liveness } from "./core/liveness.js";
 import { createLogger, type Logger } from "./core/logger.js";
@@ -70,6 +71,8 @@ export interface AppServices {
   mailHolds: MailHolds;
   /** Whether the scheduler is still turning over, which the health check reports. */
   liveness: Liveness;
+  /** Room held back for the writes that report a full disk. */
+  diskReserve: DiskReserve;
   /** Steps that run once after the targets are synced, in `buildApp`. */
   startup: Startup;
   secrets: Secrets;
@@ -184,6 +187,7 @@ export function createServices(
     mailQuota: createMailQuota(db, clock),
     mailHolds: createMailHolds(clock),
     liveness: createLiveness(clock),
+    diskReserve: createDiskReserve(config.dataDir, logger),
     startup: createStartup(),
     secrets,
     mail: overrides.mail ?? createMailServices(config, settings),

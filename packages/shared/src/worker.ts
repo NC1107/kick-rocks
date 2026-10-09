@@ -48,6 +48,8 @@ export const WorkerHeartbeatBody = z.object({
   version: z.string().max(50).optional(),
   busy: z.boolean(),
   currentTaskId: z.string().nullable().optional(),
+  /** The run is over but the server has not taken its report, so a worker that looks busy is really stuck. */
+  resultPending: z.boolean().optional(),
   /** Kept per kind, so one kind of worker beating never makes the other look alive. */
   claimer: WorkerClaimer.default("builtin"),
   /** The model a model-backed worker drives, so the server can show it and decide what it may do alone. */

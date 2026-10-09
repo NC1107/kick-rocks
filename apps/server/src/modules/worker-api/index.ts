@@ -22,6 +22,7 @@ export const workerApiModule: ModulePlugin = (app, services) => {
       lastSeenAt: now,
       busy: body.busy,
       currentTaskId: body.currentTaskId ?? null,
+      ...(body.resultPending ? { resultPending: true } : {}),
       ...(body.model ? { model: body.model } : {}),
     });
     const profileIds = services.db

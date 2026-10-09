@@ -19,6 +19,7 @@ const PHRASES: Record<NotificationCategory, (count: number) => string> = {
   match: (n) => (n === 1 ? "1 listing needs a decision" : `${n} listings need a decision`),
   mailbox: (n) => (n === 1 ? "1 mailbox error" : `${n} mailbox errors`),
   recipe: (n) => (n === 1 ? "1 recipe is broken" : `${n} recipes are broken`),
+  worker: () => "The worker is offline and browser work is waiting",
 };
 
 const ORDER: readonly NotificationCategory[] = [
@@ -27,6 +28,7 @@ const ORDER: readonly NotificationCategory[] = [
   "match",
   "mailbox",
   "recipe",
+  "worker",
 ];
 
 function hasChannel(settings: NotificationSettings): boolean {

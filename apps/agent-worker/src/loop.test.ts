@@ -1,5 +1,5 @@
 import type { ClaimedTask } from "@kickrocks/shared";
-import { WorkerApiError } from "@kickrocks/worker/dist/api-client.js";
+import { ServerUnreachableError, WorkerApiError } from "@kickrocks/worker/dist/api-client.js";
 import { SubmitNotRecorded, type TaskReport } from "@kickrocks/worker/dist/executor.js";
 import { describe, expect, it, vi } from "vitest";
 import { agentTask, silentLogger, summary } from "../test/support.js";
@@ -17,7 +17,10 @@ const FAST: Partial<LoopTiming> = {
 function fakeApi(tasks: (ClaimedTask | null | Error)[]) {
   const queue = [...tasks];
   const api = {
-    heartbeat: vi.fn(async () => ({ ok: true as const, serverTime: "2026-10-07T00:00:00.000Z" })),
+    heartbeat: vi.fn<AgentApi["heartbeat"]>(async () => ({
+      ok: true as const,
+      serverTime: "2026-10-07T00:00:00.000Z",
+    })),
     claim: vi.fn(async () => {
       const next = queue.shift();
       if (next instanceof Error) throw next;
@@ -187,13 +190,80 @@ describe("the agent claim loop", () => {
 
   it("keeps sending a result through an outage that outlasts the tries a report that can wait gets", async () => {
     const api = fakeApi([agentTask()]);
-    for (let i = 0; i < 12; i++) api.complete.mockRejectedValueOnce(new TypeError("fetch failed"));
+    for (let i = 0; i < 12; i++)
+      api.complete.mockRejectedValueOnce(new ServerUnreachableError("fetch failed"));
     await drive(
       api,
       async () => ({ kind: "complete", result: {}, usage: {} }) as never,
       () => api.complete.mock.calls.length >= 13,
     );
     expect(api.complete).toHaveBeenCalledTimes(13);
+  });
+
+  it("gives up on a result the server keeps answering with an error and claims the next task", async () => {
+    const api = fakeApi([agentTask(), { ...agentTask(), id: "second" }]);
+    api.complete.mockRejectedValue(new WorkerApiError(500, "internal", "boom"));
+    await drive(
+      api,
+      async () => ({ kind: "complete", result: {}, usage: {} }) as never,
+      () => api.complete.mock.calls.some(([id]) => id === "second"),
+    );
+    expect(api.complete.mock.calls.filter(([id]) => id !== "second")).toHaveLength(3);
+  });
+
+  it.each([
+    [
+      "a result that cannot be serialised",
+      () => new TypeError("Do not know how to serialize a BigInt"),
+    ],
+    ["an answer that breaks the contract", () => new Error("invalid response")],
+  ])(
+    "gives up on a result that fails with %s and claims the next task",
+    async (_name, makeError) => {
+      const api = fakeApi([agentTask(), { ...agentTask(), id: "second" }]);
+      api.complete.mockRejectedValue(makeError());
+      await drive(
+        api,
+        async () => ({ kind: "complete", result: {}, usage: {} }) as never,
+        () => api.complete.mock.calls.some(([id]) => id === "second"),
+      );
+      expect(api.complete.mock.calls.filter(([id]) => id !== "second")).toHaveLength(3);
+    },
+  );
+
+  it("says a finished run is waiting to be delivered while the server cannot take it", async () => {
+    const api = fakeApi([agentTask()]);
+    for (let i = 0; i < 4; i++)
+      api.complete.mockRejectedValueOnce(new ServerUnreachableError("fetch failed"));
+    await drive(
+      api,
+      async () => ({ kind: "complete", result: {}, usage: {} }) as never,
+      () => api.complete.mock.calls.length >= 5,
+    );
+    const pending = api.heartbeat.mock.calls.filter(([beat]) => beat.resultPending);
+    expect(pending.length).toBeGreaterThan(0);
+  });
+
+  it("keeps telling the server it is alive while a result waits for the server to come back", async () => {
+    const api = fakeApi([agentTask()]);
+    for (let i = 0; i < 12; i++)
+      api.complete.mockRejectedValueOnce(new ServerUnreachableError("fetch failed"));
+    const controller = new AbortController();
+    const finished = runLoop({
+      api,
+      executor: async () => ({ kind: "complete", result: {}, usage: {} }) as never,
+      signal: controller.signal,
+      logger: silentLogger,
+      workerId: "test-agent",
+      pollMs: 5,
+      leaseMs: 60_000,
+      timing: { ...FAST, idleHeartbeatMs: 1, reportRetryMs: 5 },
+    });
+    await vi.waitUntil(() => api.complete.mock.calls.length >= 13, { timeout: 5_000, interval: 5 });
+    controller.abort();
+    await finished;
+    const busyBeats = api.heartbeat.mock.calls.filter(([beat]) => beat.busy);
+    expect(busyBeats.length).toBeGreaterThan(3);
   });
 
   it("does not retry a report for a task that is no longer ours", async () => {
@@ -252,6 +322,36 @@ describe("the agent claim loop", () => {
     return api;
   }
 
+  it("spaces out the tries of a result it reports while stopping instead of making them at once", async () => {
+    const controller = new AbortController();
+    const api = fakeApi([agentTask()]);
+    const stamps: number[] = [];
+    api.complete.mockImplementation(async () => {
+      stamps.push(Date.now());
+      throw new ServerUnreachableError("fetch failed");
+    });
+    const executor: AgentExecutor = async () => {
+      controller.abort();
+      return { kind: "complete", result: {}, usage: {} };
+    };
+    const finished = runLoop({
+      api,
+      executor,
+      signal: controller.signal,
+      logger: silentLogger,
+      workerId: "test-agent",
+      pollMs: 5,
+      leaseMs: 60_000,
+      timing: { ...FAST, shutdownGraceMs: 1_000, reportRetryMs: 40, maxBackoffMs: 200 },
+    });
+    await finished;
+    expect(stamps).toHaveLength(3);
+    expect(stamps.map((at, i) => at - (stamps[i - 1] ?? at)).slice(1)).toEqual([
+      expect.toSatisfy((gap: number) => gap >= 35),
+      expect.toSatisfy((gap: number) => gap >= 70),
+    ]);
+  });
+
   it("closes the browser and releases the task when a run ignores the shutdown", async () => {
     const api = await stalledShutdown({ kind: "fail", report: { error: "x", retryable: true } });
     expect(api.release).toHaveBeenCalled();
@@ -309,7 +409,7 @@ describe("the agent claim loop", () => {
 
   it.each([
     ["a 503", () => new WorkerApiError(503, "unavailable", "down")],
-    ["a network error", () => new TypeError("fetch failed")],
+    ["a network error", () => new ServerUnreachableError("fetch failed")],
     ["a lease that is no longer ours", () => new WorkerApiError(409, "lease_not_held", "taken")],
     ["a lease that lapsed", () => new WorkerApiError(409, "lease_expired", "lapsed")],
   ])("does not let the run click when the flagged heartbeat meets %s", async (_name, makeError) => {

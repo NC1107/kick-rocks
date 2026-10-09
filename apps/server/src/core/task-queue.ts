@@ -3,6 +3,7 @@ import {
   type BlockedReason,
   type ClaimerKind,
   type FailureKind,
+  LEASE_MS,
   LIVE_TASK_STATUSES,
   MAX_SCREENSHOT_BYTES,
   manualResultSchemaFor,
@@ -19,7 +20,7 @@ import {
   type TaskWaiting,
   toTaskResult,
 } from "@kickrocks/shared";
-import { and, asc, desc, eq, inArray, isNull, lte, notInArray, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gt, inArray, isNull, lte, notInArray, or, sql } from "drizzle-orm";
 import type { z } from "zod";
 import { type Clock, nowIso } from "./clock.js";
 import { AppError, conflict, notFound } from "./errors.js";
@@ -533,7 +534,10 @@ export function createTaskQueue({
           tx,
           row,
           {
-            error: "The lease expired",
+            error:
+              row.kind === "email_send"
+                ? "The send was interrupted and may or may not have been delivered"
+                : "The lease expired",
             retryable: true,
             delayMs: Math.max(retryDelayMs(row.attempts), lapsedHolderGraceMs),
             kind: "internal",
@@ -546,6 +550,23 @@ export function createTaskQueue({
         );
     tx.update(tasks).set({ leaseOwner: row.leaseOwner }).where(eq(tasks.id, row.id)).run();
     return { ...task, leaseOwner: row.leaseOwner };
+  }
+
+  /**
+   * A lease further out than any claim can ask for was stamped by a clock that ran ahead and has
+   * since been put right. It is shortened rather than reaped, so a live holder keeps its task until
+   * its next heartbeat and a dead one is recovered within an hour instead of days.
+   */
+  function clampLeases(tx: Pick<Tx, "update">, now: string) {
+    tx.update(tasks)
+      .set({ leaseExpiresAt: new Date(Date.parse(now) + LEASE_MS.max).toISOString() })
+      .where(
+        and(
+          eq(tasks.status, "leased"),
+          gt(tasks.leaseExpiresAt, new Date(Date.parse(now) + LEASE_MS.max).toISOString()),
+        ),
+      )
+      .run();
   }
 
   function expiredLeases(tx: Pick<Tx, "select">, now: string): TaskRow[] {
@@ -640,6 +661,7 @@ export function createTaskQueue({
       const now = nowIso(clock);
       return db.transaction(
         (tx) => {
+          clampLeases(tx, now);
           for (const expired of expiredLeases(tx, now)) expireLease(tx, expired, now);
           const candidates = tx
             .select()
@@ -1042,6 +1064,7 @@ export function createTaskQueue({
 
     reapExpiredLeases() {
       const now = nowIso(clock);
+      clampLeases(db, now);
       const expired = expiredLeases(db, now);
       // One transaction each, so a handler that throws for one task leaves the others recovered.
       return expired.map((row) => db.transaction((tx) => expireLease(tx, row, now)));

@@ -42,9 +42,22 @@ export interface SendResult {
   rejected: string[];
 }
 
+export interface SendHooks {
+  /**
+   * Called once the server has agreed to take the message and the body is about to go out. A send
+   * that fails before this proves nothing was delivered.
+   */
+  onData?: (() => void) | undefined;
+  /**
+   * Called once the whole body has been handed to the connection. A server queues nothing before
+   * the closing line, so only a send that fails after this may have been delivered.
+   */
+  onBodyEnd?: (() => void) | undefined;
+}
+
 export interface MailTransport {
   verify(): Promise<VerifyResult>;
-  send(mail: OutgoingMail): Promise<SendResult>;
+  send(mail: OutgoingMail, hooks?: SendHooks): Promise<SendResult>;
 }
 
 export interface InboxMessage {

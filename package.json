@@ -22,6 +22,7 @@
     "loop:backup-drill": "node scripts/loops/backup-drill/run.mjs",
     "loop:coverage": "pnpm --filter @kickrocks/server exec tsx ../../scripts/loops/coverage/run.mts",
     "loop:layout-a11y": "node scripts/loops/layout-a11y/run.mjs",
+    "loop:mail-failures": "node scripts/loops/mail-failures/run.mjs",
     "e2e": "pnpm --filter @kickrocks/e2e e2e"
   },
   "devDependencies": {

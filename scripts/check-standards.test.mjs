@@ -1,6 +1,11 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { findCommitViolations, findViolations, resolveRange } from "./check-standards.mjs";
+import {
+  findCommitViolations,
+  findJournalViolations,
+  findViolations,
+  resolveRange,
+} from "./check-standards.mjs";
 
 const dash = "\u2014";
 const brand = ["Cla", "ude"].join("");
@@ -85,5 +90,32 @@ describe("resolveRange", () => {
       resolveRange({}, () => false),
       "HEAD^!",
     );
+  });
+});
+
+describe("findJournalViolations", () => {
+  const entry = (idx, when, tag = `000${idx}_m`) => ({ idx, when, tag });
+  const base = { entries: [entry(0, 10), entry(1, 20)] };
+
+  it("passes a migration stamped after the base branch", () => {
+    assert.deepEqual(findJournalViolations({ entries: [...base.entries, entry(2, 30)] }, base), []);
+  });
+
+  it("flags a new migration stamped before the newest one on the base branch", () => {
+    const violations = findJournalViolations({ entries: [...base.entries, entry(2, 15)] }, base);
+    assert.equal(violations.length, 2);
+    assert.match(violations.join("\n"), /0002_m is not stamped later than the newest migration/);
+  });
+
+  it("flags a gap in idx", () => {
+    const violations = findJournalViolations(
+      { entries: [entry(0, 10), entry(2, 20)] },
+      { entries: [] },
+    );
+    assert.match(violations[0], /expected 1/);
+  });
+
+  it("does not hold a migration already on the base branch to the newest stamp", () => {
+    assert.deepEqual(findJournalViolations(base, base), []);
   });
 });

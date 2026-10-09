@@ -40,6 +40,7 @@ describe("createServices with no overrides", () => {
           "composer",
           "config",
           "db",
+          "diskReserve",
           "dispatch",
           "legal",
           "liveness",

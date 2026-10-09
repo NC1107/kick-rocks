@@ -93,6 +93,34 @@ describe("the real SMTP transport against a socket server", () => {
     expect(error).toMatchObject({ code: "ETIMEDOUT", neverSent: false });
   });
 
+  it("tells a drop in the middle of the body from a drop after all of it", async () => {
+    const bigMail = { ...mail, text: "Please remove me.\n".repeat(1_000_000) };
+    const transport = createMailTransport(connection(), {
+      timeouts: { connectionMs: 300, socketMs: 2_000 },
+    });
+
+    smtp.behave("drop_mid_body");
+    const midBody: string[] = [];
+    await transport
+      .send(bigMail, {
+        onData: () => midBody.push("data"),
+        onBodyEnd: () => midBody.push("end"),
+      })
+      .catch(() => undefined);
+    expect(midBody).toEqual(["data"]);
+    expect(smtp.received).toEqual([]);
+
+    smtp.behave("drop_after_data");
+    const afterBody: string[] = [];
+    await transport
+      .send(mail, {
+        onData: () => afterBody.push("data"),
+        onBodyEnd: () => afterBody.push("end"),
+      })
+      .catch(() => undefined);
+    expect(afterBody).toEqual(["data", "end"]);
+  });
+
   it("delivers when the server accepts", async () => {
     smtp.behave("accept");
     const result = await createMailTransport(connection()).send(mail);

@@ -107,6 +107,8 @@ export const mailboxes = sqliteTable(
     lastPollUid: integer("last_poll_uid"),
     lastPolledAt: timestamp("last_polled_at"),
     lastError: text("last_error"),
+    /** Kept apart from the poll error so a send that works cannot hide a poll that fails, or the reverse. */
+    lastSendError: text("last_send_error"),
     createdAt: timestamp("created_at").notNull(),
   },
   (t) => [uniqueIndex("mailboxes_profile_idx").on(t.profileId)],
@@ -350,6 +352,12 @@ export const tasks = sqliteTable(
     lastError: text("last_error"),
     failureKind: text("failure_kind", { enum: values(FailureKind.options) }),
     failureStep: integer("failure_step"),
+    /**
+     * The Message-ID of a mail whose body was offered to the SMTP server but not yet recorded as
+     * sent. A lease lost with this set means the mail may be delivered, so it is counted as sent
+     * instead of mailed again.
+     */
+    unconfirmedMessageId: text("unconfirmed_message_id"),
     /** The worker that last ended its lease on the task. */
     finishedBy: text("finished_by"),
     /** Who claimed it: the built-in worker, an MCP client, or a model. Set by the claiming route. */

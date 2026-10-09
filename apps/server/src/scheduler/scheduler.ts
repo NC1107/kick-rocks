@@ -30,7 +30,7 @@ export interface Scheduler {
   /**
    * Stops waking and waits for the passes in progress. A pass still running after `graceMs` is
    * left behind and its poll leases are handed back, so shutdown is bounded. A send cut off
-   * mid-flight keeps its lease and its attempt, because it may already have been delivered.
+   * after its body went out keeps its lease and its attempt, because it may already have been delivered.
    */
   stop(options?: { graceMs?: number }): Promise<void>;
 }
@@ -68,6 +68,7 @@ export function createScheduler(
     try {
       await run();
     } catch (error) {
+      services.diskReserve.releaseOnFull(error);
       services.logger.error({ job: name, err: error }, "scheduler job failed");
     }
   };
@@ -123,9 +124,9 @@ export function createScheduler(
   const releaseRunnerLeases = (): void => {
     for (const task of services.taskQueue.list({ status: "leased" })) {
       if (!task.leaseOwner?.startsWith(RUNNER_LEASE_PREFIX)) continue;
-      // A send cut off mid-flight may already have delivered, and releasing it would forget the
-      // attempt. The reaper keeps the attempt and backs off, so the retry limit still holds.
-      if (task.kind === "email_send") continue;
+      // A send cut off after its body went out may already have delivered, and releasing it would
+      // forget the attempt. The reaper keeps that attempt and backs off, so the retry limit holds.
+      if (task.kind === "email_send" && !runners.email.sentNothingYet(task.id)) continue;
       services.taskQueue.release(task.id, { workerId: task.leaseOwner });
     }
   };
@@ -139,8 +140,12 @@ export function createScheduler(
     start() {
       if (timer) return;
       services.liveness.expectScheduler();
-      timer = setInterval(() => void scheduler.tick(), tickMs);
+      timer = setInterval(() => {
+        services.diskReserve.arm();
+        void scheduler.tick();
+      }, tickMs);
       timer.unref();
+      services.diskReserve.arm();
       void scheduler.tick();
     },
 

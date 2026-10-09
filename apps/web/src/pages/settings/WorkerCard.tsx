@@ -114,10 +114,7 @@ function WorkerRow({
                 <Row title="Model" trailing={<Value>{status.model.name}</Value>} />
               ) : null}
               {state === "online" ? (
-                <Row
-                  title="Doing"
-                  trailing={<Value>{status.busy ? "Working on a task" : "Waiting for work"}</Value>}
-                />
+                <Row title="Doing" trailing={<Value>{doing(status)}</Value>} />
               ) : null}
             </>
           ) : null}
@@ -157,4 +154,9 @@ export function WorkerCard({
       ))}
     </div>
   );
+}
+
+function doing(status: WorkerStatus): string {
+  if (status.resultPending) return "Sending a result the server has not taken";
+  return status.busy ? "Working on a task" : "Waiting for work";
 }

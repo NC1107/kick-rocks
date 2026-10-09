@@ -19,3 +19,4 @@ e2e/.dkim/
 apps/agent-worker/.chrome-profile-agent/
 kickrocks-backup*
 kickrocks-scheduled*
+.loop-runs/

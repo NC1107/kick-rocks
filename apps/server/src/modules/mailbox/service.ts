@@ -25,6 +25,13 @@ export function requireMailbox(services: MailboxServices, profileId: string): Ma
   return mailbox;
 }
 
+/** The one problem the person is shown: a failed send wins because it stops requests, a failed poll only delays replies. */
+export function mailboxProblem(
+  row: Pick<MailboxRow, "lastError" | "lastSendError">,
+): string | null {
+  return row.lastSendError ?? row.lastError;
+}
+
 /** The mailbox as the client may see it: everything except the app password. */
 export function toMailbox(row: MailboxRow, sendPausedUntil: Date | null): Mailbox {
   return {
@@ -41,7 +48,7 @@ export function toMailbox(row: MailboxRow, sendPausedUntil: Date | null): Mailbo
     replyFolder: row.replyFolder,
     dailyCap: row.dailyCap,
     lastPolledAt: row.lastPolledAt,
-    lastError: row.lastError,
+    lastError: mailboxProblem(row),
     sendPausedUntil: sendPausedUntil?.toISOString() ?? null,
     createdAt: row.createdAt,
   };
@@ -206,6 +213,7 @@ export function saveMailbox(
       ...(keepCursor && !existing.lastError ? {} : { lastPolledAt: null }),
       // A fixed setting is a chance to try again, so an old failure is not shown against new settings.
       lastError: null,
+      lastSendError: null,
     })
     .where(eq(mailboxes.id, existing.id))
     .returning()

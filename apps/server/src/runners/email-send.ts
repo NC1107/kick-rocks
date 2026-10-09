@@ -1,4 +1,4 @@
-import { mailboxes, messages, outgoingMail } from "@kickrocks/db";
+import { mailboxes, messages, outgoingMail, tasks } from "@kickrocks/db";
 import {
   canTransition,
   type EmailKind,
@@ -83,12 +83,21 @@ function domainOf(address: string): string {
  */
 export class EmailRunner {
   readonly pacer: MailPacer;
+  /** Sends that have not yet offered a message body, so a shutdown can tell which ones sent nothing. */
+  private readonly beforeData = new Set<string>();
+  /** Mail that was offered to a server and not yet recorded, kept here too because a full disk refuses the database marker. */
+  private readonly offered = new Map<string, string>();
 
   constructor(
     private readonly services: AppServices,
     random: () => number,
   ) {
     this.pacer = new MailPacer(services, random, services.config.sendGapMs);
+  }
+
+  /** A send that is still connecting or logging in has put nothing on the wire that could be delivered. */
+  sentNothingYet(taskId: string): boolean {
+    return this.beforeData.has(taskId);
   }
 
   /**
@@ -120,8 +129,10 @@ export class EmailRunner {
   private async process(task: EmailTask): Promise<boolean> {
     const { taskQueue, requests, composer, mail, logger } = this.services;
     const request = requests.get(task.payload.requestId);
+    const earlier = this.offeredEarlier(task.id);
     if (request?.status !== "queued") {
-      taskQueue.cancel(task.id, "system");
+      if (request && earlier) this.recordOfferedBeforeChange(task, request, earlier);
+      this.cancelUnlessFinished(task.id);
       return false;
     }
 
@@ -162,8 +173,22 @@ export class EmailRunner {
       return false;
     }
 
+    if (earlier) {
+      return this.settleUnconfirmed(
+        task,
+        request,
+        composed.mailboxId,
+        earlier,
+        "an earlier attempt",
+      );
+    }
+
+    this.beforeData.add(task.id);
     try {
-      const result = await mail.transport(connectionOf(mailbox)).send(outgoing);
+      const result = await mail.transport(connectionOf(mailbox)).send(outgoing, {
+        onData: () => this.beforeData.delete(task.id),
+        onBodyEnd: () => this.markOffered(task.id, outgoing.messageId),
+      });
       if (result.accepted.length === 0) {
         throw Object.assign(new Error("The mail server rejected the address"), {
           responseCode: 550,
@@ -171,6 +196,16 @@ export class EmailRunner {
       }
     } catch (error) {
       logger.warn({ requestId: request.id, err: describeError(error) }, "email send failed");
+      if (this.cutOffAfterOffer(task.id, error)) {
+        return this.settleUnconfirmed(
+          task,
+          request,
+          composed.mailboxId,
+          outgoing.messageId,
+          describeError(error),
+        );
+      }
+      this.clearOffered(task.id);
       if (isMailboxProblem(error)) {
         this.holdMailbox(task, request, mailbox.id, error);
         return false;
@@ -181,15 +216,106 @@ export class EmailRunner {
         kind: permanent ? "site" : "network",
       });
       return false;
+    } finally {
+      this.beforeData.delete(task.id);
     }
 
     this.services.mailHolds.clear(mailbox.id);
     this.services.db
       .update(mailboxes)
-      .set({ lastError: null })
+      .set({ lastSendError: null })
       .where(eq(mailboxes.id, mailbox.id))
       .run();
-    return this.recordSend(task, request.id, composed.mailboxId, outgoing.messageId);
+    const recorded = this.recordSend(task, request.id, composed.mailboxId, outgoing.messageId);
+    this.clearOffered(task.id);
+    return recorded;
+  }
+
+  /** A reply or a refusal settles the send either way, so only a silent end leaves it unknown. */
+  private cutOffAfterOffer(taskId: string, error: unknown): boolean {
+    if (!this.offered.has(taskId) || this.beforeData.has(taskId)) return false;
+    return typeof (error as { responseCode?: unknown }).responseCode !== "number";
+  }
+
+  private markOffered(taskId: string, messageId: string): void {
+    this.offered.set(taskId, messageId);
+    try {
+      this.services.db
+        .update(tasks)
+        .set({ unconfirmedMessageId: messageId })
+        .where(eq(tasks.id, taskId))
+        .run();
+    } catch (error) {
+      this.services.logger.warn({ err: describeError(error) }, "could not note the offered mail");
+    }
+  }
+
+  private offeredEarlier(taskId: string): string | null {
+    const row = this.services.db
+      .select({ id: tasks.unconfirmedMessageId })
+      .from(tasks)
+      .where(eq(tasks.id, taskId))
+      .get();
+    return this.offered.get(taskId) ?? row?.id ?? null;
+  }
+
+  private clearOffered(taskId: string): void {
+    this.offered.delete(taskId);
+    try {
+      this.services.db
+        .update(tasks)
+        .set({ unconfirmedMessageId: null })
+        .where(eq(tasks.id, taskId))
+        .run();
+    } catch (error) {
+      this.services.logger.warn({ err: describeError(error) }, "could not clear the offered mail");
+    }
+  }
+
+  /**
+   * A mail whose whole body went out without an answer may be delivered, and mailing a broker twice
+   * costs the person more than a request that goes unanswered, which a follow-up already covers. So
+   * it is counted as sent and the timeline says the server did not confirm it. The mailbox is left
+   * alone because the person has nothing to fix there.
+   */
+  private settleUnconfirmed(
+    task: EmailTask,
+    request: RequestRecord,
+    mailboxId: string,
+    messageId: string,
+    cause: string,
+  ): boolean {
+    this.services.logger.warn(
+      { requestId: request.id, cause },
+      "a send was cut off before the mail server answered, so it is counted as sent",
+    );
+    const recorded = this.recordSend(task, request.id, mailboxId, messageId, { unconfirmed: true });
+    this.clearOffered(task.id);
+    return recorded;
+  }
+
+  /**
+   * The person changed the request after the process died with its mail on the wire. The mail may
+   * be delivered, and a broker reply to it can only be matched if the Message-ID is on record.
+   */
+  private recordOfferedBeforeChange(
+    task: EmailTask,
+    request: RequestRecord,
+    messageId: string,
+  ): void {
+    const { db } = this.services;
+    const mailbox = request.mailboxId
+      ? db.select().from(mailboxes).where(eq(mailboxes.id, request.mailboxId)).get()
+      : db.select().from(mailboxes).where(eq(mailboxes.profileId, request.profileId)).get();
+    if (mailbox) this.recordSend(task, request.id, mailbox.id, messageId, { unconfirmed: true });
+    this.clearOffered(task.id);
+  }
+
+  private cancelUnlessFinished(taskId: string): void {
+    const live = this.services.taskQueue.get(taskId);
+    if (live && live.status !== "done" && live.status !== "cancelled") {
+      this.services.taskQueue.cancel(taskId, "system");
+    }
   }
 
   /**
@@ -208,7 +334,7 @@ export class EmailRunner {
     const neverSent = error instanceof MailSendError ? error.neverSent : provesNeverSent(error);
     db.transaction(() => {
       db.update(mailboxes)
-        .set({ lastError: `Sending is paused: ${describeError(error)}` })
+        .set({ lastSendError: `Sending is paused: ${describeError(error)}` })
         .where(eq(mailboxes.id, mailboxId))
         .run();
       // A send that outlived its lease was already requeued by the reaper, and only a live lease can be released.
@@ -259,6 +385,7 @@ export class EmailRunner {
     requestId: string,
     mailboxId: string,
     messageId: string,
+    { unconfirmed = false }: { unconfirmed?: boolean } = {},
   ): boolean {
     const { db, taskQueue, requests, mailQuota, clock } = this.services;
     const kind: EmailKind = task.payload.kind;
@@ -275,7 +402,13 @@ export class EmailRunner {
       const live = taskQueue.getOrThrow(task.id);
       const sentEvent = {
         type: "sent" as const,
-        payload: { channel: "email" as const, kind, messageId, mailboxId },
+        payload: {
+          channel: "email" as const,
+          kind,
+          messageId,
+          mailboxId,
+          ...(unconfirmed ? { unconfirmed } : {}),
+        },
       };
       // A send can outlast its lease, which puts the task back in the queue (or fails it) but keeps
       // us as its last holder, and finishing it as that holder is what stops the next pass mailing it again.

@@ -1,8 +1,14 @@
-import { createTransport } from "nodemailer";
+import { createTransport, type Transporter } from "nodemailer";
 import type SMTPTransport from "nodemailer/lib/smtp-transport";
 import { z } from "zod";
 import { describeMailError, isTrustedPlaintextHost } from "./net.js";
-import type { MailConnection, MailTransport, OutgoingMail, SendResult } from "./types.js";
+import type {
+  MailConnection,
+  MailTransport,
+  OutgoingMail,
+  SendHooks,
+  SendResult,
+} from "./types.js";
 
 const CONNECTION_TIMEOUT_MS = 15_000;
 const SOCKET_TIMEOUT_MS = 60_000;
@@ -150,6 +156,35 @@ export function transportOptions(
   };
 }
 
+/**
+ * The SMTP connection starts reading the message only once the server has answered DATA, so the
+ * first reader of the message stream marks the start of the body. The source stream ends as soon as
+ * the connection's own encoder has taken everything, which can be long before the socket has, so
+ * the whole body counts as handed over only when that encoder, which appends the closing line, has
+ * been drained into the socket.
+ */
+function announceBody(transporter: Transporter, hooks: SendHooks): void {
+  transporter.use("stream", (mail, done) => {
+    const createReadStream = mail.message.createReadStream.bind(mail.message);
+    mail.message.createReadStream = () => {
+      const stream = createReadStream();
+      const announce = (event: string | symbol) => {
+        if (event !== "data") return;
+        stream.off("newListener", announce);
+        hooks.onData?.();
+      };
+      stream.on("newListener", announce);
+      const pipe = stream.pipe.bind(stream);
+      stream.pipe = ((destination: NodeJS.WritableStream, options?: { end?: boolean }) => {
+        destination.once("end", () => hooks.onBodyEnd?.());
+        return pipe(destination, options);
+      }) as typeof stream.pipe;
+      return stream;
+    };
+    done();
+  });
+}
+
 function addressList(list: ReadonlyArray<string | { address: string }>): string[] {
   return list.map((entry) => (typeof entry === "string" ? entry : entry.address));
 }
@@ -179,7 +214,7 @@ export function createMailTransport(
       }
     },
 
-    async send(mail: OutgoingMail): Promise<SendResult> {
+    async send(mail: OutgoingMail, hooks: SendHooks = {}): Promise<SendResult> {
       const parsed = OutgoingMailSchema.safeParse(mail);
       if (!parsed.success) {
         const issue = parsed.error.issues[0];
@@ -190,6 +225,7 @@ export function createMailTransport(
       const { from, to, subject, text, messageId, inReplyTo, references } = parsed.data;
 
       const transporter = createTransport(transportOptions(connection, options));
+      if (hooks.onData || hooks.onBodyEnd) announceBody(transporter, hooks);
       try {
         // Plain text only: a reply is matched by Message-ID and reference, so the mail needs no
         // tracking pixel, no tracked link, and no HTML part.

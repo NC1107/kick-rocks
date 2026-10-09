@@ -13,6 +13,7 @@ import { registerRoute } from "../../core/http.js";
 import type { ModulePlugin } from "../../core/module.js";
 import { withTrustedConfirmationSenders } from "../../core/targets.js";
 import type { AppServices } from "../../services.js";
+import { mailboxProblem } from "../mailbox/service.js";
 import { buildReviewQueue } from "../review/queue.js";
 
 // One newest told event per request, with the count of told events, so a noisy request cannot push
@@ -124,7 +125,7 @@ function buildDashboard(services: AppServices, profileId: string): Dashboard {
       ? {
           address: mailbox.address,
           lastPolledAt: mailbox.lastPolledAt,
-          lastError: mailbox.lastError,
+          lastError: mailboxProblem(mailbox),
         }
       : null,
     recentEvents,

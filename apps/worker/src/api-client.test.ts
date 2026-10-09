@@ -2,7 +2,7 @@ import { createServer, type IncomingMessage, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import type { ClaimedTask, TaskSummary } from "@kickrocks/shared";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { WorkerApiClient, WorkerApiError } from "./api-client.js";
+import { ServerUnreachableError, WorkerApiClient, WorkerApiError } from "./api-client.js";
 
 interface Seen {
   method: string;
@@ -232,5 +232,55 @@ describe("WorkerApiClient", () => {
       .heartbeat({ busy: false })
       .catch((e: unknown) => e);
     expect(error).toMatchObject({ status: 502, code: "unknown_error" });
+  });
+  describe("what counts as the server being unreachable", () => {
+    it("is a refused connection", async () => {
+      const closed = createServer();
+      await new Promise<void>((resolve) => closed.listen(0, "127.0.0.1", resolve));
+      const { port } = closed.address() as AddressInfo;
+      await new Promise<void>((resolve) => closed.close(() => resolve()));
+      const lost = new WorkerApiClient({
+        serverUrl: `http://127.0.0.1:${port}`,
+        token: "secret-token-1234567",
+        workerId: "worker-1",
+      });
+      await expect(lost.heartbeat({ busy: false })).rejects.toBeInstanceOf(ServerUnreachableError);
+    });
+
+    it("is an answer that is not json, as a proxy error page is", async () => {
+      server.removeAllListeners("request");
+      server.on("request", (_request, response) => {
+        response.writeHead(500, { "content-type": "text/html" });
+        response.end("<html>proxy error</html>");
+      });
+      await expect(client().heartbeat({ busy: false })).rejects.toBeInstanceOf(
+        ServerUnreachableError,
+      );
+    });
+
+    it("is not an error the server answered with", async () => {
+      reply = { status: 500, body: { error: "internal", message: "boom" } };
+      const error = await client()
+        .complete("t1", {})
+        .catch((e: unknown) => e);
+      expect(error).toBeInstanceOf(WorkerApiError);
+      expect(error).not.toBeInstanceOf(ServerUnreachableError);
+    });
+
+    it("is not a body that cannot be serialised or an answer that breaks the contract", async () => {
+      const unserialisable = await client()
+        .complete("t1", { count: 1n })
+        .catch((e: unknown) => e);
+      expect(unserialisable).toBeInstanceOf(TypeError);
+      expect(unserialisable).not.toBeInstanceOf(ServerUnreachableError);
+      expect(seen).toHaveLength(0);
+
+      reply.body = { task: { id: "t1", kind: "email_send" } };
+      const broken = await client()
+        .claim()
+        .catch((e: unknown) => e);
+      expect(broken).not.toBeInstanceOf(ServerUnreachableError);
+      expect(broken).toBeInstanceOf(Error);
+    });
   });
 });
