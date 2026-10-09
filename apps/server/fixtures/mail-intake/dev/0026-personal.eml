@@ -1,0 +1,20 @@
+DKIM-Signature: v=1; a=ed25519-sha256; c=relaxed/relaxed; d=gmail.com;
+ h=Content-Transfer-Encoding: Content-Type: MIME-Version: Message-ID: Date:
+ Subject: To: From; q=dns/txt; s=kr; t=1790510460;
+ bh=2X88kIVsXdPpVYupypFeDjZMHJ4j6Knhl3yaEx/9HUE=;
+ b=WhaybIX2yQGtH2ayc8KaEJRCtB9StXgALbmZAwzGDmRhpQutMuX4im7JHD5eRsV1MIYLtraCy
+ bWatCsFwRf+CQ==
+Return-Path: <sam.rivera82@gmail.com>
+Received: from mail.gmail.com (mail.gmail.com [203.0.113.19]) by mx.example.com with ESMTPS id ff42dd9fc3 for <jordan@example.com>; Sun, 27 Sep 2026 12:01:00 +0000
+From: Sam Rivera <sam.rivera82@gmail.com>
+To: jordan@example.com
+Subject: Confirm: are you still coming Sunday
+Date: Sun, 27 Sep 2026 12:01:00 +0000
+Message-ID: <c9970771e66268ecd95cdecb@gmail.com>
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+Can you remove my number from the group chat? I keep getting pinged. Thanks a lot!
+
+Sam

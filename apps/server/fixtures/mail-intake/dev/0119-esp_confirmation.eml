@@ -1,0 +1,38 @@
+DKIM-Signature: v=1; a=ed25519-sha256; c=relaxed/relaxed; d=intelius.com;
+ h=Content-Type: MIME-Version: List-Unsubscribe: Reply-To: Message-ID:
+ Date: Subject: To: From; q=dns/txt; s=kr; t=1790897280;
+ bh=W0xLbvDOz6HyhQkZs4Kgc4fwBFWejjpZfhkWPJdr4nA=;
+ b=VuU2LCwDY1/GPx9NhyoD4CcriUPJB4B+wsLy4uGOUdb4ngbd48zj8608WHUpjTz+QmuuJMid1
+ HanAPEGNUsQDw==
+Return-Path: <bounce-747421@bounce.intelius.com>
+Received: from mail.intelius.com (mail.intelius.com [203.0.113.22]) by mx.example.com with ESMTPS id 1c80d904fc for <jordan@example.com>; Thu, 01 Oct 2026 23:28:00 +0000
+From: Intelius <noreply@intelius.com>
+To: jordan@example.com
+Subject: Confirm your opt-out request
+Date: Thu, 01 Oct 2026 23:28:00 +0000
+Message-ID: <71cc82bf852381b1e96af967@intelius.com>
+Reply-To: no-reply@intelius.com
+List-Unsubscribe: <https://intelius.com/unsubscribe?u=271c7ef7161f4917>, <mailto:unsubscribe-271c7ef7@intelius.com>
+List-Unsubscribe-Post: List-Unsubscribe=One-Click
+Precedence: bulk
+X-Mailer: SendGrid
+MIME-Version: 1.0
+Content-Type: multipart/alternative; boundary="----=_Part_9580d1958715"
+
+------=_Part_9580d1958715
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+Hello,
+
+To complete your removal from Intelius, please confirm your email address by clicking the link below.
+
+https://intelius.com/optout/confirm?token=bb30940429e86c4d55dbc3550dff
+
+If you did not make this request, ignore this message.
+------=_Part_9580d1958715
+Content-Type: text/html; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+<html><body style="font-family:Arial,sans-serif"><p>Please confirm your email address.</p><p><a href="https://intelius.com/optout/confirm?token=bb30940429e86c4d55dbc3550dff">Confirm my request</a></p></body></html>
+------=_Part_9580d1958715--

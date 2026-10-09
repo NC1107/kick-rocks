@@ -547,6 +547,25 @@ describe("the review queue", () => {
     );
   });
 
+  it("says why a message is in the queue", async () => {
+    open("mail");
+    const message = await card("Your recent message");
+    expect(
+      await message.findByText(
+        "Why it is here: It is from a company or broker you have a request with.",
+      ),
+    ).toBeVisible();
+  });
+
+  it("shows the saved mail it would remove, and removes it only when the person confirms", async () => {
+    const { user } = open("mail");
+    const preview = within(await screen.findByTestId("cleanup-preview"));
+    expect(screen.getByRole("heading", { name: /Saved mail to remove · 12/ })).toBeVisible();
+    expect(preview.getByText("Your order has shipped")).toBeVisible();
+    await user.click(preview.getByRole("button", { name: "Confirm removal of 12" }));
+    await waitFor(() => expect(screen.queryByTestId("cleanup-preview")).toBeNull());
+  });
+
   it("lets a person attach unmatched mail to a request", async () => {
     const { user, mock } = open("mail");
     const message = await card("Your recent message");

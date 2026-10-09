@@ -1,0 +1,38 @@
+DKIM-Signature: v=1; a=ed25519-sha256; c=relaxed/relaxed; d=spokeo.com;
+ h=Content-Transfer-Encoding: Content-Type: MIME-Version: References:
+ In-Reply-To: Reply-To: Message-ID: Date: Subject: To: From; q=dns/txt;
+ s=kr; t=1791095520; bh=/gk0w6O/R/CYztCoE5VeoQ4W1656O5T1e6yqxUWJo4k=;
+ b=MqT2vkHs5tiXQwJ+pmJffjau6JLDGR9GQ44Jf4Zna1rb1dZqRoKQWWcj67mJnHRrw5zSqZCCl
+ bo5JAM1Zv1UDw==
+Return-Path: <bounce-88527@spokeo.com>
+Received: from mail.spokeo.com (mail.spokeo.com [203.0.113.20]) by mx.example.com with ESMTPS id 8f0b392fa7 for <jordan@example.com>; Sun, 04 Oct 2026 06:32:00 +0000
+From: Spokeo Privacy <no-reply@spokeo.com>
+To: jordan@example.com
+Subject: Re: Opt-out request KR-7K3M9Q
+Date: Sun, 04 Oct 2026 06:32:00 +0000
+Message-ID: <43e230992b0bf06796d7193e@spokeo.com>
+Reply-To: privacy@spokeo.com
+In-Reply-To: <kr.440c0efc-6245-48af-8c53-c4864f28f92f.0@example.com>
+References: <kr.440c0efc-6245-48af-8c53-c4864f28f92f.0@example.com>
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+Hello,
+
+Good news: the record you asked us to delete has been deleted from our systems.
+
+Sincerely,
+Data Subject Requests, Spokeo
+
+On Tue, 22 Sep 2026 at 09:10 Jordan Example <jordan@example.com> wrote:
+> Subject: Opt-out request KR-7K3M9Q
+>
+> To the privacy team at Spokeo,
+>
+> I am asking you to remove my listing and stop selling my information.
+> Name: Jordan Example
+> Email: jordan@example.com
+> Please confirm once this is done.
+>
+> Reference: KR-7K3M9Q

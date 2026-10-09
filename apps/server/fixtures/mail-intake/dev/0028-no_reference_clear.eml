@@ -1,0 +1,24 @@
+DKIM-Signature: v=1; a=ed25519-sha256; c=relaxed/relaxed; d=intelius.com;
+ h=Content-Transfer-Encoding: Content-Type: MIME-Version: Reply-To:
+ Message-ID: Date: Subject: To: From; q=dns/txt; s=kr; t=1790512260;
+ bh=2i27AZNofCyStjDcQliAyAdC70m40pqGcbPQ0Jyf2Us=;
+ b=pxzyj7F9igH2/4A8sPb8k81+N6RnsvnJq34ZOL3FhITKiqR4fmdmwYZBA88r4oH/BhnmR8B63
+ Z5xqi8VSYT0Aw==
+Return-Path: <bounce-85133@intelius.com>
+Received: from mail.intelius.com (mail.intelius.com [203.0.113.22]) by mx.example.com with ESMTPS id 1c80d904fc for <jordan@example.com>; Sun, 27 Sep 2026 12:31:00 +0000
+From: Intelius Privacy <support@intelius.com>
+To: jordan@example.com
+Subject: Re: your request
+Date: Sun, 27 Sep 2026 12:31:00 +0000
+Message-ID: <3d24ca3b10d10894dba0efa5@intelius.com>
+Reply-To: privacy@intelius.com
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+Hi Jordan,
+
+Thanks for your note about removing Jordan Example. We do not accept requests by email, please use our online form at https://intelius.com/optout.
+
+Regards,
+Intelius Privacy Team

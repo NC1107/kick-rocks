@@ -41,6 +41,7 @@ import {
   validateConnection,
   validateSettings,
 } from "./connection.js";
+import { IntakeSection } from "./intake-section.js";
 import { MailboxFacts, SendPauseAlert, useProviderLabel } from "./mailbox-card.js";
 import { AccountStep, ProviderStep, SettingsStep, TestStep } from "./steps.js";
 
@@ -151,6 +152,7 @@ function ConnectedMailbox({ profile, onEdit }: { profile: ProfileDetail; onEdit:
   const [disconnecting, setDisconnecting] = useState(false);
   const mailbox = profile.mailbox;
   const label = useProviderLabel(mailbox?.provider);
+  const providers = useApiQuery(API_ROUTES.mailProviders, { staleTime: 5 * 60_000 });
 
   const check = useReplyCheck(profile.id);
   const disconnect = useApiMutation(API_ROUTES.mailboxDelete, {
@@ -195,6 +197,11 @@ function ConnectedMailbox({ profile, onEdit }: { profile: ProfileDetail; onEdit:
           Edit connection
         </Button>
       </div>
+      <IntakeSection
+        profileId={profile.id}
+        mailbox={mailbox}
+        provider={providers.data?.providers.find((candidate) => candidate.id === mailbox.provider)}
+      />
       <ConfirmDialog
         open={disconnecting}
         onClose={() => {

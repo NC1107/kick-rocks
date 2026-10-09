@@ -1,0 +1,22 @@
+DKIM-Signature: v=1; a=ed25519-sha256; c=relaxed/relaxed; d=paypal.com;
+ h=Content-Transfer-Encoding: Content-Type: MIME-Version: Message-ID: Date:
+ Subject: To: From; q=dns/txt; s=kr; t=1791055800;
+ bh=NyjMkYoc5OEvd0Md/YJnFg97Zj4AD5IU8H+1qF+iMzI=;
+ b=tHJdGI1pUXYbAM/QWGDv0AaVfO6IawkYqWPSUT1N7mSXOyg54YzMVTFGVj/UR0Y6lrG9+uiSI
+ 7pxCmZHAjoNBg==
+Return-Path: <service@paypal.com>
+Received: from mail.paypal.com (mail.paypal.com [203.0.113.20]) by mx.example.com with ESMTPS id 8f0b392fa7 for <jordan@example.com>; Sat, 03 Oct 2026 19:30:00 +0000
+From: PayPal <service@paypal.com>
+To: jordan@example.com
+Subject: Confirm your identity to restore access
+Date: Sat, 03 Oct 2026 19:30:00 +0000
+Message-ID: <20e0e24b0d55478c6aebe8bc@paypal.com>
+Auto-Submitted: auto-generated
+X-Priority: 1
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+To keep your account safe we need you to confirm your identity. Click the link below to continue. This link expires in 24 hours.
+
+https://paypal.com/verify?t=6fee6b6b3b97e01061bc87be

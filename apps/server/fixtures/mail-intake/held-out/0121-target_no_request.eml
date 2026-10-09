@@ -1,0 +1,36 @@
+DKIM-Signature: v=1; a=ed25519-sha256; c=relaxed/relaxed; d=em.bestbuy.com;
+ h=Content-Type: MIME-Version: List-Unsubscribe: Reply-To: Message-ID:
+ Date: Subject: To: From; q=dns/txt; s=kr; t=1791339120;
+ bh=RSA/c5+naEf2aznBcBD4Bb0Pyi1AYITGacOTwfCur6I=;
+ b=9tKuu7AOxFnH7FcNoDrC13lvB7KxafkERBdAJHR2gMnEd03NRZafZqGESEU27xkDu+xFskubi
+ 8TV3/ZocHkKDQ==
+Return-Path: <bounce-321554@bounce.em.bestbuy.com>
+Received: from mail.em.bestbuy.com (mail.em.bestbuy.com [203.0.113.24]) by mx.example.com with ESMTPS id d8a8d7e70b for <jordan@example.com>; Wed, 07 Oct 2026 02:12:00 +0000
+From: Best Buy <bestbuy@em.bestbuy.com>
+To: jordan@example.com
+Subject: Trade in and save
+Date: Wed, 07 Oct 2026 02:12:00 +0000
+Message-ID: <4b2c66792e31afe1375ee37a@em.bestbuy.com>
+Reply-To: no-reply@em.bestbuy.com
+List-Unsubscribe: <https://em.bestbuy.com/unsubscribe?u=59a0f040c5359409>, <mailto:unsubscribe-59a0f040@em.bestbuy.com>
+List-Unsubscribe-Post: List-Unsubscribe=One-Click
+Precedence: bulk
+X-Mailer: Braze
+MIME-Version: 1.0
+Content-Type: multipart/alternative; boundary="----=_Part_a92c9b346b1a"
+
+------=_Part_a92c9b346b1a
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+Trade in and save
+
+Shop now: https://em.bestbuy.com/offers?ref=8c041f80
+
+You are receiving this email because you have an account with Best Buy. To stop receiving these emails, unsubscribe: https://em.bestbuy.com/unsubscribe
+------=_Part_a92c9b346b1a
+Content-Type: text/html; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+<html><body style="font-family:Arial,sans-serif"><h2>Trade in and save</h2><p><a href="https://em.bestbuy.com/offers?ref=8c041f80">Shop now</a></p><p style="font-size:11px">You are receiving this email because you have an account with Best Buy. To stop receiving these emails, unsubscribe: https://em.bestbuy.com/unsubscribe</p></body></html>
+------=_Part_a92c9b346b1a--

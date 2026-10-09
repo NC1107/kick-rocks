@@ -1,0 +1,36 @@
+DKIM-Signature: v=1; a=ed25519-sha256; c=relaxed/relaxed;
+ d=beenverified.com; h=Content-Type: MIME-Version: Message-ID: Date:
+ Subject: To: From; q=dns/txt; s=kr; t=1791182280;
+ bh=vZ9uBEnrPy4a5inbhM8t3lAduhqi7LiVmC/AF2rWOo8=;
+ b=cydoOUw6aW6iZ3J1ZtY7DZXOxC+hXbucv1j3kl7yD/M3XmxJ2toISvxa2C7/+AQ7zb9u0csIB
+ XakOyMjwVXfCg==
+Return-Path: <bounce-6732@beenverified.com>
+Received: from mail.beenverified.com (mail.beenverified.com [203.0.113.26]) by mx.example.com with ESMTPS id f4801b00e3 for <jordan@example.com>; Mon, 05 Oct 2026 06:38:00 +0000
+From: BeenVerified <no-reply@beenverified.com>
+To: jordan@example.com
+Subject: Confirm your opt-out request KR-5P1CJ4
+Date: Mon, 05 Oct 2026 06:38:00 +0000
+Message-ID: <f307ff743a0516a702a48894@beenverified.com>
+Auto-Submitted: auto-generated
+MIME-Version: 1.0
+Content-Type: multipart/alternative; boundary="----=_Part_74cf9d0e425a"
+
+------=_Part_74cf9d0e425a
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+Hello,
+
+We received a request to remove your information from BeenVerified. To complete your removal, please confirm your email address by clicking the link below.
+
+https://beenverified.com/optout/confirm?token=d3bf8936901f0345a3c4c07bc956
+
+If you did not make this request, ignore this message.
+
+BeenVerified Privacy Team
+------=_Part_74cf9d0e425a
+Content-Type: text/html; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+<html><body style="font-family:Arial,sans-serif"><p>To complete your removal, please confirm your email address.</p><p><a href="https://beenverified.com/optout/confirm?token=d3bf8936901f0345a3c4c07bc956">Confirm my request</a></p></body></html>
+------=_Part_74cf9d0e425a--

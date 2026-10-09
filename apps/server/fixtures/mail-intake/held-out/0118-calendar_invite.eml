@@ -1,0 +1,35 @@
+Return-Path: <tbecker@icloud.com>
+Received: from mail.icloud.com (mail.icloud.com [203.0.113.20]) by mx.example.com with ESMTPS id 8f0b392fa7 for <jordan@example.com>; Tue, 06 Oct 2026 19:56:00 +0000
+From: Tom Becker <tbecker@icloud.com>
+To: jordan@example.com
+Subject: Invitation: Team offsite @ Tue, 13 Oct 2026
+Date: Tue, 06 Oct 2026 19:56:00 +0000
+Message-ID: <f36645d1bf9192f8b9b2b01f@icloud.com>
+MIME-Version: 1.0
+Content-Type: multipart/alternative; boundary="----=_Part_9484a7b65097"
+
+------=_Part_9484a7b65097
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+Tom Becker has invited you to Team offsite.
+When: Tue, 13 Oct 2026 06:00:00 GMT
+Join: https://meet.example.com/900-e2c0
+------=_Part_9484a7b65097
+Content-Type: text/calendar; charset=utf-8; method=REQUEST
+Content-Transfer-Encoding: 7bit
+
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Synthetic Calendar//EN
+METHOD:REQUEST
+BEGIN:VEVENT
+UID:4fdfeb97ee3b71c8@example.com
+DTSTAMP:20261013T060000Z
+DTSTART:20261013T060000Z
+SUMMARY:Team offsite
+ORGANIZER;CN=Tom Becker:mailto:tbecker@icloud.com
+ATTENDEE;RSVP=TRUE:mailto:jordan@example.com
+END:VEVENT
+END:VCALENDAR
+------=_Part_9484a7b65097--

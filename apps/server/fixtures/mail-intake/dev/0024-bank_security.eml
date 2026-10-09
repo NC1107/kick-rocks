@@ -1,0 +1,22 @@
+DKIM-Signature: v=1; a=ed25519-sha256; c=relaxed/relaxed; d=paypal.com;
+ h=Content-Transfer-Encoding: Content-Type: MIME-Version: Message-ID: Date:
+ Subject: To: From; q=dns/txt; s=kr; t=1790490060;
+ bh=n3RILNcMCetzrOXvQvu5dXOegZkHSQJXzx0XmDe3uVw=;
+ b=72+JC/0L9THApInqZnIbidTJIm0/iaJzbPWKTEB7l1+X+x2YoX2SOt36HRhXKlFrgszIkIMTG
+ paKqYtYTddOBQ==
+Return-Path: <service@paypal.com>
+Received: from mail.paypal.com (mail.paypal.com [203.0.113.20]) by mx.example.com with ESMTPS id 8f0b392fa7 for <jordan@example.com>; Sun, 27 Sep 2026 06:21:00 +0000
+From: PayPal <service@paypal.com>
+To: jordan@example.com
+Subject: Action required: verify your email address
+Date: Sun, 27 Sep 2026 06:21:00 +0000
+Message-ID: <e047713f4b39269b1dba67b4@paypal.com>
+Auto-Submitted: auto-generated
+X-Priority: 1
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+To keep your account safe we need you to confirm your identity. Click the link below to continue. This link expires in 24 hours.
+
+https://paypal.com/verify?t=43c190f5afcd25f3f26ef0a9

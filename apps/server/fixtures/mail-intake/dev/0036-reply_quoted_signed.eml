@@ -1,0 +1,37 @@
+DKIM-Signature: v=1; a=ed25519-sha256; c=relaxed/relaxed; d=amazon.com;
+ h=Content-Transfer-Encoding: Content-Type: MIME-Version: References:
+ In-Reply-To: Message-ID: Date: Subject: To: From; q=dns/txt; s=kr;
+ t=1790538300; bh=no4FyuV6lIWVXSy1bDpKcfomd9Vd24tWMBkaUj4kr1A=;
+ b=3J/ZRcXdIMFMVSpT+//tM3GG5pqCBXVcN3+OkofIAZj6LME5LPDhWMQ5fCchQXOFsoR7ED6do
+ bdnY9vnAbGEBQ==
+Return-Path: <bounce-69536@amazon.com>
+Received: from mail.amazon.com (mail.amazon.com [203.0.113.20]) by mx.example.com with ESMTPS id 8f0b392fa7 for <jordan@example.com>; Sun, 27 Sep 2026 19:45:00 +0000
+From: Amazon Privacy <dsar@amazon.com>
+To: jordan@example.com
+Subject: Re: Data deletion request KR-4H7TQ2
+Date: Sun, 27 Sep 2026 19:45:00 +0000
+Message-ID: <cda18eeeedfe908e131dd0ee@amazon.com>
+In-Reply-To: <kr.9d1ff446-92b0-44a8-8da8-ab9e4b94978b.0@example.com>
+References: <kr.9d1ff446-92b0-44a8-8da8-ab9e4b94978b.0@example.com>
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+Hi Jordan,
+
+We have completed your request. Your profile has been removed and will no longer appear on Amazon.
+
+Thank you,
+Customer Care, Amazon
+
+On Mon, 21 Sep 2026 at 14:05 Jordan Example <jordan@example.com> wrote:
+> Subject: Data deletion request KR-4H7TQ2
+>
+> To the privacy team at Amazon,
+>
+> I am asking you to delete my personal data.
+> Name: Jordan Example
+> Email: jordan@example.com
+> Please confirm once this is done.
+>
+> Reference: KR-4H7TQ2

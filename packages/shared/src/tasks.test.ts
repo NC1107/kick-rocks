@@ -482,3 +482,19 @@ describe("TaskSummary", () => {
     expect(TaskSummary.safeParse({ ...summary, claimerKind: "robot" }).success).toBe(false);
   });
 });
+
+describe("the inbox poll payload", () => {
+  it("accepts a rescan of one target from a time, and nothing else", () => {
+    const rescan = { since: "2026-10-08T11:45:00.000Z", targetId: "spokeo" };
+    expect(parseTaskPayload("inbox_poll", { mailboxId: "m1", rescan })).toEqual({
+      mailboxId: "m1",
+      rescan,
+    });
+    expect(() =>
+      parseTaskPayload("inbox_poll", {
+        mailboxId: "m1",
+        rescan: { since: "yesterday", targetId: "x" },
+      }),
+    ).toThrow();
+  });
+});

@@ -1,0 +1,36 @@
+DKIM-Signature: v=1; a=ed25519-sha256; c=relaxed/relaxed; d=spokeo.com;
+ h=Content-Type: MIME-Version: List-Unsubscribe: Reply-To: Message-ID:
+ Date: Subject: To: From; q=dns/txt; s=kr; t=1791151740;
+ bh=1OLAWG3ewD1D2IWWQ/jkYuwzju5o6p3URe42FvRr21I=;
+ b=bPKjOSn9q9r8IubnjcL3VMXq0ckjurekFb8Fi046CH6jkAXzT1RyHfMGY3BzuoAA4+AsMPHnO
+ ZgCtdhNujwsAQ==
+Return-Path: <bounce-252506@bounce.spokeo.com>
+Received: from mail.spokeo.com (mail.spokeo.com [203.0.113.20]) by mx.example.com with ESMTPS id 8f0b392fa7 for <jordan@example.com>; Sun, 04 Oct 2026 22:09:00 +0000
+From: Spokeo <news@spokeo.com>
+To: jordan@example.com
+Subject: We miss you: come back for 50% off
+Date: Sun, 04 Oct 2026 22:09:00 +0000
+Message-ID: <3a09f8ebbc86b72be775bd6c@spokeo.com>
+Reply-To: no-reply@spokeo.com
+List-Unsubscribe: <https://spokeo.com/unsubscribe?u=717312fe62097f7d>, <mailto:unsubscribe-717312fe@spokeo.com>
+List-Unsubscribe-Post: List-Unsubscribe=One-Click
+Precedence: bulk
+X-Mailer: SendGrid
+MIME-Version: 1.0
+Content-Type: multipart/alternative; boundary="----=_Part_9484a7b65097"
+
+------=_Part_9484a7b65097
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+We miss you: come back for 50% off
+
+Shop now: https://spokeo.com/offers?ref=4d8b06f4
+
+You are receiving this email because you have an account with Spokeo. To stop receiving these emails, unsubscribe: https://spokeo.com/unsubscribe
+------=_Part_9484a7b65097
+Content-Type: text/html; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+<html><body style="font-family:Arial,sans-serif"><h2>We miss you: come back for 50% off</h2><p><a href="https://spokeo.com/offers?ref=4d8b06f4">Shop now</a></p><p style="font-size:11px">You are receiving this email because you have an account with Spokeo. To stop receiving these emails, unsubscribe: https://spokeo.com/unsubscribe</p></body></html>
+------=_Part_9484a7b65097--

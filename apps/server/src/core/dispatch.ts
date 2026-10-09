@@ -81,8 +81,11 @@ export interface Dispatch {
   enqueueConfirm(requestId: string, url: string): EnqueueResult;
   /** A canary health check for a recipe, one at a time. */
   enqueueCanary(recipeId: string): EnqueueResult;
-  /** An inbox poll for a mailbox, one at a time, whoever asks. */
-  enqueueInboxPoll(mailboxId: string): EnqueueResult;
+  /**
+   * An inbox poll for a mailbox, one at a time, whoever asks. With `rescan` the poll first looks
+   * again, from the given time, at mail from one target that a cursor had already passed.
+   */
+  enqueueInboxPoll(mailboxId: string, rescan?: { since: string; targetId: string }): EnqueueResult;
   /** Whether removal at this target starts from a scan that finds the person's record URL. */
   needsRecord: typeof targetNeedsRecord;
 }
@@ -516,7 +519,7 @@ export function createDispatch({
       });
     },
 
-    enqueueInboxPoll(mailboxId) {
+    enqueueInboxPoll(mailboxId, rescan) {
       const mailbox = db
         .select({ profileId: mailboxes.profileId })
         .from(mailboxes)
@@ -525,9 +528,11 @@ export function createDispatch({
       if (!mailbox) throw notFound(`Mailbox ${mailboxId} not found`, "mailbox_not_found");
       return taskQueue.enqueue({
         kind: "inbox_poll",
-        payload: { mailboxId },
+        payload: rescan ? { mailboxId, rescan } : { mailboxId },
         profileId: mailbox.profileId,
-        dedupeKey: `inbox_poll:${mailboxId}`,
+        dedupeKey: rescan
+          ? `inbox_poll:${mailboxId}:rescan:${rescan.targetId}`
+          : `inbox_poll:${mailboxId}`,
       });
     },
   };

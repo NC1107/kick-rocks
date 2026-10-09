@@ -1,0 +1,41 @@
+Return-Path: <>
+Received: from mail.googlemail.com (mail.googlemail.com [203.0.113.24]) by mx.example.com with ESMTPS id d8a8d7e70b for <jordan@example.com>; Thu, 01 Oct 2026 01:24:00 +0000
+From: Mail Delivery Subsystem <mailer-daemon@googlemail.com>
+To: jordan@example.com
+Subject: Delivery Status Notification (Failure)
+Date: Thu, 01 Oct 2026 01:24:00 +0000
+Message-ID: <58c1e1bbf1808083862a9353@googlemail.com>
+Auto-Submitted: auto-replied
+X-Failed-Recipients: privacy@whitepages.com
+MIME-Version: 1.0
+Content-Type: multipart/report; report-type=delivery-status; boundary="----=_Part_a92c9b346b1a"
+
+------=_Part_a92c9b346b1a
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+Delivery to the following recipient failed permanently:
+
+    privacy@whitepages.com
+
+The response was:
+552 5.2.2 The recipient's mailbox is full.
+------=_Part_a92c9b346b1a
+Content-Type: message/delivery-status
+
+Reporting-MTA: dns; googlemail.com
+Final-Recipient: rfc822; privacy@whitepages.com
+Action: failed
+Status: 5.1.1
+Diagnostic-Code: smtp; 552 5.2.2 The recipient's mailbox is full.
+------=_Part_a92c9b346b1a
+Content-Type: message/rfc822
+
+Message-ID: <kr.f5e7222d-f35f-4fd2-8cb3-cd34debb2730.0@example.com>
+From: jordan@example.com
+To: privacy@whitepages.com
+Subject: Opt-out request KR-2D8RV6
+Date: Mon, 21 Sep 2026 14:05:00 +0000
+
+(original message body omitted)
+------=_Part_a92c9b346b1a--

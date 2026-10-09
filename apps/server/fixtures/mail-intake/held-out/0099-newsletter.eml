@@ -1,0 +1,35 @@
+DKIM-Signature: v=1; a=ed25519-sha256; c=relaxed/relaxed; d=substack.com;
+ h=Content-Type: MIME-Version: List-Unsubscribe: List-Id: Message-ID: Date:
+ Subject: To: From; q=dns/txt; s=kr; t=1791177540;
+ bh=Pm43rWD3BcPR8AQDJV/jR4oaQipLJGlJnYs9F1/xk1c=;
+ b=yZiZQgiV3bVJJEEhhYglx6xrUpYIfo9h9WewVjA/8Gta8Usn4qU2rIhRC7r0aVZECFL22iguK
+ SVhZWd1b2/sBA==
+Return-Path: <bounce-54111@substack.com>
+Received: from mail.substack.com (mail.substack.com [203.0.113.22]) by mx.example.com with ESMTPS id 1c80d904fc for <jordan@example.com>; Mon, 05 Oct 2026 05:19:00 +0000
+From: The Weekly Ledger <ledger@substack.com>
+To: jordan@example.com
+Subject: Five charts on housing
+Date: Mon, 05 Oct 2026 05:19:00 +0000
+Message-ID: <dc73953d999294a6529fe4d9@substack.com>
+List-Id: <ledger.substack.com>
+List-Unsubscribe: <https://substack.com/unsubscribe?e=604a30845450>
+Precedence: list
+MIME-Version: 1.0
+Content-Type: multipart/alternative; boundary="----=_Part_9580d1958715"
+
+------=_Part_9580d1958715
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+Five charts on housing
+
+This week we look at what changed, what did not, and what to read next.
+Read online: https://substack.com/p/4d6dca
+
+You are subscribed as jordan@example.com. Unsubscribe: https://substack.com/unsubscribe
+------=_Part_9580d1958715
+Content-Type: text/html; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+<html><body style="font-family:Arial,sans-serif"><h1>Five charts on housing</h1><p>This week we look at what changed.</p></body></html>
+------=_Part_9580d1958715--

@@ -1,17 +1,21 @@
 import type { MailFolder } from "@kickrocks/shared";
 import type { Clock } from "../core/clock.js";
+import { headersOf } from "../mail/intake.js";
 import type {
   ClassificationResult,
   ClassifyContext,
-  FetchOptions,
-  FetchResult,
+  FolderSearch,
   FollowResult,
   InboxMessage,
+  InboxSession,
   LinkFollower,
   MailConnection,
   MailServices,
+  MessageHeaders,
   OutgoingMail,
   ReplyClassifier,
+  ScanOptions,
+  ScanResult,
   VerifyResult,
 } from "../mail/types.js";
 import { noDkim } from "./dkim.js";
@@ -31,6 +35,16 @@ export interface FakeMailbox {
   resetUidValidity(next?: number): void;
   /** Puts a message in a folder, filling in anything the test does not care about. */
   deliver(message?: DeliverableMessage): InboxMessage;
+  /** Makes `searchBodies` and `search` answer as a server that refuses SEARCH. */
+  searchSupported: boolean;
+  /** Makes body searches match whole words only, as Gmail's and iCloud's word indexes do. */
+  wholeWordSearch: boolean;
+  /** Whether mail sent to `name+tag@domain` through the fake transport reaches this mailbox. */
+  acceptsPlusAddresses: boolean;
+  /** Every UID whose full message was fetched, in order, so a test can see what was downloaded. */
+  readonly fetched: number[];
+  /** Every body search made: the UIDs asked about and the terms. */
+  readonly bodySearches: Array<{ uids: number[]; terms: string[] }>;
 }
 
 type ClassifyHandler = (
@@ -153,6 +167,11 @@ class ScriptedMailbox implements FakeMailbox {
     { path: "Junk", name: "Junk", specialUse: "\\Junk" },
   ];
   uidValidity = 1;
+  searchSupported = true;
+  wholeWordSearch = false;
+  acceptsPlusAddresses = true;
+  readonly fetched: number[] = [];
+  readonly bodySearches: Array<{ uids: number[]; terms: string[] }> = [];
   private readonly byFolder = new Map<string, InboxMessage[]>();
   private nextUid = new Map<string, number>();
 
@@ -189,6 +208,7 @@ class ScriptedMailbox implements FakeMailbox {
       isBounce: false,
       autoSubmitted: false,
       headers: {},
+      originalMessageIds: [],
       verifyDkim: noDkim,
       ...overrides,
     };
@@ -196,28 +216,91 @@ class ScriptedMailbox implements FakeMailbox {
     return message;
   }
 
-  fetchSince(
+  scan(
     folder: string,
     afterUid: number | null,
     uidValidity: number | null,
-    { since, limit }: FetchOptions = { since: null, limit: Number.POSITIVE_INFINITY },
-  ): FetchResult {
+    { since, limit }: ScanOptions = { since: null, limit: Number.POSITIVE_INFINITY },
+  ): ScanResult {
     const reset = uidValidity !== null && uidValidity !== this.uidValidity;
     const floor = reset ? 0 : (afterUid ?? 0);
-    const inFolder = (this.byFolder.get(folder) ?? []).sort((a, b) => a.uid - b.uid);
+    const inFolder = this.inFolder(folder);
     const matching = inFolder.filter(
       (message) =>
         message.uid > floor &&
         (since === null || message.date === null || message.date.getTime() >= since.getTime()),
     );
-    const messages = matching.slice(0, limit);
+    const page = matching.slice(0, limit);
     return {
       uidValidity: this.uidValidity,
       reset,
-      messages,
-      hasMore: matching.length > messages.length,
+      messages: page.map(headersOf),
+      hasMore: matching.length > page.length,
       highestUid:
         inFolder.length === 0 ? null : (inFolder[inFolder.length - 1] as InboxMessage).uid,
+    };
+  }
+
+  private inFolder(folder: string): InboxMessage[] {
+    return (this.byFolder.get(folder) ?? []).sort((a, b) => a.uid - b.uid);
+  }
+
+  private bodyHas(body: string, term: string): boolean {
+    if (!this.wholeWordSearch) return body.includes(term);
+    const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    return new RegExp(`(?<![\\p{L}\\p{N}])${escaped}(?![\\p{L}\\p{N}])`, "u").test(body);
+  }
+
+  session(folder: string): InboxSession {
+    const held = (uids: readonly number[]) =>
+      this.inFolder(folder).filter((message) => uids.includes(message.uid));
+    return {
+      uidValidity: () => this.uidValidity,
+      scan: async (afterUid, uidValidity, options) =>
+        this.scan(folder, afterUid, uidValidity, options),
+      headers: async (uids): Promise<MessageHeaders[]> => held(uids).map(headersOf),
+      searchBodies: async (uids, terms) => {
+        this.bodySearches.push({ uids: [...uids], terms: [...terms] });
+        if (!this.searchSupported) return null;
+        const wanted = terms.map((term) => term.toLowerCase());
+        return new Set(
+          held(uids)
+            .filter((message) => {
+              const body = `${message.text}\n${message.html ?? ""}`.toLowerCase();
+              return wanted.some((term) => this.bodyHas(body, term));
+            })
+            .map((message) => message.uid),
+        );
+      },
+      search: async (query: FolderSearch) => {
+        if (!this.searchSupported) return null;
+        const from = (query.from ?? []).map((entry) => entry.toLowerCase());
+        const text = (query.text ?? []).map((entry) => entry.toLowerCase());
+        return this.inFolder(folder)
+          .filter((message) => {
+            if (message.date && message.date.getTime() < query.since.getTime()) return false;
+            if (query.until && message.date && message.date.getTime() >= query.until.getTime()) {
+              return false;
+            }
+            if (query.messageId && message.messageId !== query.messageId) return false;
+            const sender = message.from.address.toLowerCase();
+            const fromOk =
+              from.length === 0 ||
+              from.some(
+                (entry) =>
+                  sender === entry || sender.endsWith(`@${entry}`) || sender.endsWith(`.${entry}`),
+              );
+            const haystack = `${message.subject}\n${message.text}`.toLowerCase();
+            const textOk = text.length === 0 || text.some((term) => haystack.includes(term));
+            return fromOk && textOk;
+          })
+          .slice(0, query.limit)
+          .map((message) => message.uid);
+      },
+      fetchMessages: async (uids) => {
+        this.fetched.push(...uids);
+        return held(uids);
+      },
     };
   }
 }
@@ -257,6 +340,17 @@ export function createFakeMail(clock: Clock): FakeMail {
             throw error;
           }
           fake.sent.push({ connection, mail });
+          const plus = /^(.+)\+[^@]+@(.+)$/.exec(mail.to);
+          const target = plus ? mailboxFor(`${plus[1]}@${plus[2]}`) : undefined;
+          if (target?.acceptsPlusAddresses) {
+            target.deliver({
+              messageId: mail.messageId,
+              to: [mail.to],
+              from: { name: mail.from.name, address: mail.from.address },
+              subject: mail.subject,
+              text: mail.text,
+            });
+          }
           return { messageId: mail.messageId, accepted: [mail.to], rejected: [] };
         },
       }),
@@ -264,8 +358,7 @@ export function createFakeMail(clock: Clock): FakeMail {
         const mailbox = mailboxFor(connection.address);
         return {
           listFolders: async () => mailbox.folders,
-          fetchSince: async (folder, afterUid, uidValidity, options) =>
-            mailbox.fetchSince(folder, afterUid, uidValidity, options),
+          withFolder: async (folder, work) => work(mailbox.session(folder)),
         };
       },
       classifier,

@@ -112,7 +112,7 @@ describe("POST /profiles/:id/mailbox/test", () => {
     const profile = seedProfile(ctx);
     ctx.services.mail.inbox = () => ({
       listFolders: () => Promise.reject(new Error("Login failed")),
-      fetchSince: () => Promise.reject(new Error("unused")),
+      withFolder: () => Promise.reject(new Error("unused")),
     });
     const result = await ctx.call(API_ROUTES.mailboxTest, {
       params: { id: profile.id },
@@ -451,8 +451,15 @@ describe("POST /profiles/:id/mailbox/poll", () => {
 
   it("reports what a finished check found, and lets the page follow it by id", async () => {
     const profile = seedProfile(ctx);
-    seedMailbox(ctx, profile.id, { address: "jordan@example.com" });
-    ctx.mail.mailbox("jordan@example.com").deliver({ subject: "Newsletter" });
+    const mailbox = seedMailbox(ctx, profile.id, { address: "jordan@example.com" });
+    // Mail to a verified reply address is always taken in, so the count does not depend on the intake rules.
+    const alias = "jordan+kickrocks@example.com";
+    ctx.services.db
+      .update(mailboxes)
+      .set({ replyAlias: alias, replyAliasVerifiedAt: ctx.clock.now().toISOString() })
+      .where(eq(mailboxes.id, mailbox.id))
+      .run();
+    ctx.mail.mailbox("jordan@example.com").deliver({ subject: "Newsletter", to: [alias] });
     const started = await ctx.call(API_ROUTES.mailboxPoll, { params: { id: profile.id } });
     if (!started.ok) throw new Error("the poll should start");
     await createRunners(ctx.services).inbox.runDue();
@@ -476,7 +483,7 @@ describe("POST /profiles/:id/mailbox/poll", () => {
     if (!started.ok) throw new Error("the poll should start");
     ctx.mail.services.inbox = () => ({
       listFolders: async () => [],
-      fetchSince: async () => {
+      withFolder: async () => {
         throw new Error("IMAP login failed");
       },
     });
@@ -606,7 +613,7 @@ describe("GET /profiles/:id/mailbox/folders", () => {
     seedMailbox(ctx, profile.id);
     ctx.services.mail.inbox = () => ({
       listFolders: () => Promise.reject(new Error("The server refused the connection.")),
-      fetchSince: () => Promise.reject(new Error("unused")),
+      withFolder: () => Promise.reject(new Error("unused")),
     });
     expect(await ctx.call(API_ROUTES.mailboxFolders, { params: { id: profile.id } })).toMatchObject(
       {

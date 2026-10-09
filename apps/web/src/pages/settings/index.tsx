@@ -3,6 +3,7 @@ import { errorMessage, useApiQuery } from "../../api/index.js";
 import { Button, Callout, RowGroup, Section, SkeletonText } from "../../components/ui/index.js";
 import { JurisdictionsCard } from "./JurisdictionsCard.js";
 import { LlmCard } from "./LlmCard.js";
+import { MailIntakeCard } from "./MailIntakeCard.js";
 import { PasswordCard } from "./PasswordCard.js";
 import { ResetCard } from "./ResetCard.js";
 import { RetentionCard } from "./RetentionCard.js";
@@ -64,6 +65,7 @@ export function Component() {
               agent={settings.data.agent}
               now={settings.dataUpdatedAt}
             />
+            <MailIntakeCard />
             <LlmCard llm={settings.data.llm} />
             <JurisdictionsCard />
             <RetentionCard retention={settings.data.retention} />

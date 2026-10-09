@@ -1,0 +1,22 @@
+DKIM-Signature: v=1; a=ed25519-sha256; c=relaxed/relaxed; d=netflix.com;
+ h=Content-Transfer-Encoding: Content-Type: MIME-Version: Message-ID: Date:
+ Subject: To: From; q=dns/txt; s=kr; t=1790974020;
+ bh=NqptgQpYwGMU6ojmprx6FBqXqtQJ7dBxXurXPYUitMo=;
+ b=oBV9hR2ThNET8Hi92tvaebcOf/5mS0nHVw1MfRcnQFy5VvG7pYH3KIixHXPu8LCiEeqNPEhBK
+ HZxV5B3wGuvDw==
+Return-Path: <01001ecd93c689caf9191d8a-3f8ec74d@bounces.netflix.com>
+Received: from mail.account.netflix.com (mail.account.netflix.com [203.0.113.29]) by mx.example.com with ESMTPS id 0e7c3490cb for <jordan@example.com>; Fri, 02 Oct 2026 20:47:00 +0000
+From: Netflix <info@account.netflix.com>
+To: jordan@example.com
+Subject: New sign-in to your Netflix account
+Date: Fri, 02 Oct 2026 20:47:00 +0000
+Message-ID: <7acaf6bd7751d9291deb9b3b@account.netflix.com>
+X-Mailer: Transactional Mailer
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+Hello Jordan,
+
+Your payment method on file could not be charged. Please confirm your billing details to keep your membership active: https://netflix.com/account/billing
+

@@ -22,6 +22,10 @@ const classifier = createReplyClassifier({ settings: { get: () => null as never 
 function request(overrides: Partial<ClassifierRequest> = {}): ClassifierRequest {
   return {
     id: "req-1",
+    open: true,
+    targetKind: "broker",
+    contactAddress: null,
+    sentAt: null,
     reference: "KR-7K3M9Q",
     outgoingMessageId: outgoingMessageId("req-1", "example.com"),
     status: "awaiting_reply",
@@ -75,6 +79,7 @@ function message(overrides: Partial<InboxMessage> = {}): InboxMessage {
     isBounce: false,
     autoSubmitted: false,
     headers: {},
+    originalMessageIds: [],
     verifyDkim: noDkim,
     ...overrides,
   };
@@ -326,7 +331,7 @@ describe("classes", () => {
       "auto_ack",
       "Thank you for contacting Acme Data. We have received your request and will respond within 10 business days.",
     ],
-    ["auto_ack", "Your ticket number is 48213."],
+    ["auto_ack", "Your ticket has been created."],
   ];
 
   it.each(cases)("recognizes %s", async (expected, text) => {
@@ -1243,5 +1248,109 @@ describe("a reply that sends the request somewhere else", () => {
     const result = await classify(PANERA, { verifyDkim: noDkim });
     expect(result.classification).toBe("needs_form");
     expect(result.confidence).toBeLessThan(0.6);
+  });
+});
+
+describe("what an acknowledgement can and cannot outrank", () => {
+  it("does not treat bulk or junk precedence as an automatic reply", async () => {
+    for (const precedence of ["bulk", "junk", "list"]) {
+      const result = await classify("Our spring sale starts today.", {
+        headers: { precedence },
+      });
+      expect(result.classification, precedence).not.toBe("auto_ack");
+    }
+    const reply = await classify("Thank you.", { headers: { precedence: "auto_reply" } });
+    expect(reply.classification).toBe("auto_ack");
+  });
+
+  it("reads a ticket number alone as nothing, and a ticket that was created as an acknowledgement", async () => {
+    expect((await classify("Your ticket number is 48213.")).classification).not.toBe("auto_ack");
+    expect((await classify("Your ticket has been created.")).classification).toBe("auto_ack");
+  });
+
+  it("sends a request for information with a ticket footer to a person as verification_required", async () => {
+    const result = await classify(
+      [
+        "To locate your record we need additional information. Please provide your full name and date of birth.",
+        "",
+        "Ticket #12345 - we will respond within 3 business days.",
+      ].join("\n"),
+    );
+    expect(result).toMatchObject({ requestId: "req-1", classification: "verification_required" });
+    expect(result.requestedFields).toEqual(expect.arrayContaining(["full_name", "date_of_birth"]));
+  });
+
+  it("lets an acknowledgement lose to a rival that changes the request, with the ambiguity penalty", async () => {
+    const clean = await classify(
+      "We need additional information. Please provide your date of birth.",
+    );
+    const mixed = await classify(
+      "We need additional information. Please provide your date of birth. Thank you for contacting us.",
+    );
+    expect(mixed.classification).toBe("verification_required");
+    expect(mixed.confidence).toBeLessThan(clean.confidence);
+  });
+
+  it("finds the request a delay notice is about in the original it attaches", async () => {
+    const result = await classify(
+      "Delivery has been delayed. We will continue to try for 2 days.",
+      {
+        inReplyTo: null,
+        isBounce: true,
+        from: { name: null, address: "mailer-daemon@example.com" },
+        subject: "Delivery Status Notification (Delay)",
+        originalMessageIds: [outgoingMessageId("req-1", "example.com", 0)],
+      },
+    );
+    expect(result).toMatchObject({
+      requestId: "req-1",
+      correlation: "message_id",
+      classification: "auto_ack",
+    });
+  });
+});
+
+describe("mail that shares a sender with a request but is not about it", () => {
+  const accountMail = {
+    inReplyTo: null,
+    subject: "Confirm your new email address",
+    html: '<p>Please confirm your email address to finish the change.</p><a href="https://acme.test/account/confirm?token=abc">Confirm email address</a>',
+  };
+
+  it("caps a confirmation link reached only by the sender when the request is not waiting for one", async () => {
+    const result = await classify("", accountMail);
+    expect(result.requestId).toBe("req-1");
+    expect(result.correlation).toBe("sender_domain");
+    expect(result.confidence).toBeLessThan(0.6);
+  });
+
+  it("still follows a confirmation link for a request that is waiting for one", async () => {
+    const result = await classify("", accountMail, [
+      request({
+        awaitingConfirmation: {
+          fromDomains: [],
+          linkTextPattern: null,
+          since: "2026-10-01T10:00:00.000Z",
+        },
+      }),
+    ]);
+    expect(result.classification).toBe("confirmation_link");
+    expect(result.confidence).toBeGreaterThanOrEqual(0.6);
+  });
+
+  it("does not match a sender to a request that is no longer open", async () => {
+    const result = await classify(
+      "Your account has a new offer.",
+      { inReplyTo: null, subject: "A new offer" },
+      [request({ open: false, status: "confirmed" })],
+    );
+    expect(result.requestId).toBeNull();
+  });
+
+  it("still binds a closed request by the reference it quotes", async () => {
+    const result = await classify("Your data has been deleted.", {}, [
+      request({ open: false, status: "confirmed" }),
+    ]);
+    expect(result).toMatchObject({ requestId: "req-1", correlation: "message_id" });
   });
 });

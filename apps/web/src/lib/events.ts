@@ -82,8 +82,9 @@ export function describeEvent(event: RequestEvent): string {
     case "reply_received":
       return `Reply received from ${event.payload.from}.`;
     case "classified": {
-      const { classification, confidence } = event.payload;
-      return `Classified the reply as ${lower(CLASSIFICATION_LABELS[classification])}, ${Math.round(confidence * 100)} percent sure.`;
+      const { classification, confidence, late } = event.payload;
+      const sentence = `Classified the reply as ${lower(CLASSIFICATION_LABELS[classification])}, ${Math.round(confidence * 100)} percent sure.`;
+      return late ? `${sentence} The request was already finished, so nothing changed.` : sentence;
     }
     case "link_followed":
       return event.payload.ok

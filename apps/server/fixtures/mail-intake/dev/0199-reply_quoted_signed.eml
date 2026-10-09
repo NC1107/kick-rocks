@@ -1,0 +1,38 @@
+DKIM-Signature: v=1; a=ed25519-sha256; c=relaxed/relaxed; d=amazon.com;
+ h=Content-Transfer-Encoding: Content-Type: MIME-Version: References:
+ In-Reply-To: Message-ID: Date: Subject: To: From; q=dns/txt; s=kr;
+ t=1791223620; bh=xIVIW7um+UlKiacyXSxwfwyNHDWT2a3lcmdhk00UErs=;
+ b=qlKWQ4qnvwCJCQ+3l/0c+pwIhFwnMW89TtdqmmkSsK3UJAsVgu3RMWK2BeiCw6os1uhZwKnDo
+ wJ7HBFSzOr8Ag==
+Return-Path: <bounce-29837@amazon.com>
+Received: from mail.amazon.com (mail.amazon.com [203.0.113.20]) by mx.example.com with ESMTPS id 8f0b392fa7 for <jordan@example.com>; Mon, 05 Oct 2026 18:07:00 +0000
+From: Amazon Privacy <no-reply@amazon.com>
+To: jordan@example.com
+Subject: Re: Data deletion request KR-4H7TQ2
+Date: Mon, 05 Oct 2026 18:07:00 +0000
+Message-ID: <494d899d44e022370a20ea0a@amazon.com>
+In-Reply-To: <kr.9d1ff446-92b0-44a8-8da8-ab9e4b94978b.0@example.com>
+References: <kr.9d1ff446-92b0-44a8-8da8-ab9e4b94978b.0@example.com>
+Auto-Submitted: auto-replied
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+Hi Jordan,
+
+This is an automatic reply. We received your message and our privacy team will review it within 5 business days.
+
+Regards,
+Amazon Privacy Team
+
+On Mon, 21 Sep 2026 at 14:05 Jordan Example <jordan@example.com> wrote:
+> Subject: Data deletion request KR-4H7TQ2
+>
+> To the privacy team at Amazon,
+>
+> I am asking you to delete my personal data.
+> Name: Jordan Example
+> Email: jordan@example.com
+> Please confirm once this is done.
+>
+> Reference: KR-4H7TQ2

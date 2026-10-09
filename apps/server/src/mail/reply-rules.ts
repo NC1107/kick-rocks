@@ -158,7 +158,7 @@ const RULES: Rule[] = [
     label: "acknowledges receipt",
     ignoreNegation: true,
     pattern:
-      /\b(we|i)( have|'ve|'ve| just)? (received|got) your (request|message|e-?mail|inquiry|enquiry|submission)\b|\bthank you for (contacting|submitting|reaching out|your (request|submission|e-?mail|message|inquiry))\b|\b(ticket|case|request|reference) (number|id|no\.?|#)\b|\byour (ticket|case) (has been|was) (created|opened|logged)\b|\b(will|shall) (respond|reply|get back|review|be in touch|process)\b|\bwithin \d+ (business |working |calendar )?(days|hours)\b/i,
+      /\b(we|i)( have|'ve|'ve| just)? (received|got) your (request|message|e-?mail|inquiry|enquiry|submission)\b|\bthank you for (contacting|submitting|reaching out|your (request|submission|e-?mail|message|inquiry))\b|\byour (ticket|case) (has been|was) (created|opened|logged)\b|\b(will|shall) (respond|reply|get back|review|be in touch|process)\b|\bwithin \d+ (business |working |calendar )?(days|hours)\b/i,
   },
 ];
 
@@ -171,7 +171,8 @@ const DELAY_NOTICE =
 const BOUNCE_SUBJECT =
   /\b(undeliverable|undelivered mail|delivery status notification|mail delivery (failed|failure|subsystem)|returned mail|delivery failure|failure notice|could not be delivered|message not delivered|address not found)\b/i;
 
-const AUTO_PRECEDENCE = /^(auto_reply|auto-reply|bulk|junk)$/i;
+/** Bulk and junk mail is sent to many people, so it is not an automatic reply to this one. */
+const AUTO_PRECEDENCE = /^(auto_reply|auto-reply)$/i;
 
 /**
  * Which kind of mail wins when two rules match with the same strength. A redirect comes after a

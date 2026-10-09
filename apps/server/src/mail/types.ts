@@ -34,6 +34,11 @@ export interface OutgoingMail {
   messageId: string;
   inReplyTo?: string | undefined;
   references?: string[] | undefined;
+  /**
+   * Where replies should go instead of the sender, set only to a reply address the mailbox proved
+   * it receives. From stays the mailbox itself, so the broker sees mail that aligns with it.
+   */
+  replyTo?: string | undefined;
 }
 
 export interface SendResult {
@@ -78,6 +83,11 @@ export interface InboxMessage {
   /** Header names are lower case. */
   headers: Record<string, string>;
   /**
+   * Message-IDs read from the original a delivery report or a quote attaches (`message/rfc822` or
+   * `text/rfc822-headers`), which is where a bounce says which mail it is about.
+   */
+  originalMessageIds: string[];
+  /**
    * Verifies the message's DKIM signatures when asked, because doing so costs DNS lookups that
    * most messages never need.
    */
@@ -99,18 +109,38 @@ export interface VerifiedSignature {
 /** The verified signatures whose d= could align with one of `domains`. Empty when none qualified or verification could not finish. */
 export type DkimCheck = (domains: readonly string[]) => Promise<VerifiedSignature[]>;
 
-export interface FetchOptions {
+export interface ScanOptions {
   /**
    * Only messages dated on or after this day (IMAP SINCE). The first poll of a mailbox passes the
    * mailbox's creation time or the oldest outstanding send, so years of old mail are never
-   * downloaded and classified, and a UIDVALIDITY reset does not bring them back either.
+   * looked at, and a UIDVALIDITY reset does not bring them back either.
    */
   since: Date | null;
   /** The most messages one call returns, oldest first, so a poll has a bounded cost. */
   limit: number;
 }
 
-export interface FetchResult {
+/**
+ * What a message's headers say, which is all the intake gate needs to decide about most mail.
+ * Nothing here is the body, so reading it costs a kilobyte or two per message.
+ */
+export interface MessageHeaders {
+  uid: number;
+  messageId: string | null;
+  inReplyTo: string | null;
+  references: string[];
+  from: { name: string | null; address: string };
+  /** Every address the mail was sent to: To, Cc, Delivered-To and X-Original-To. */
+  recipients: string[];
+  subject: string;
+  date: Date | null;
+  /** A delivery status report, a mail from a mailer daemon, or one that names failed recipients. */
+  isDeliveryReport: boolean;
+  /** Header names are lower case. */
+  headers: Record<string, string>;
+}
+
+export interface ScanResult {
   /** The folder's current UIDVALIDITY. */
   uidValidity: number;
   /**
@@ -118,34 +148,73 @@ export interface FetchResult {
    * meaningless, so the caller stores the new value and reads from `since`.
    */
   reset: boolean;
-  messages: InboxMessage[];
+  messages: MessageHeaders[];
   /** More matching messages wait beyond `limit`, so the caller polls again soon. */
   hasMore: boolean;
   /**
    * The highest UID the folder holds, null when it is empty. When `hasMore` is false the caller
    * stores this as its cursor, so messages that were skipped for being older than `since` are
-   * never fetched again. When `hasMore` is true the cursor is the UID of the last message returned.
+   * never looked at again. When `hasMore` is true the cursor is the UID of the last message returned.
    */
   highestUid: number | null;
 }
 
-export interface InboxSource {
-  listFolders(): Promise<MailFolder[]>;
-  /**
-   * Messages in a folder with a UID above `afterUid` (every message when null), dated on or after
-   * `options.since`, oldest first, at most `options.limit`.
-   */
-  fetchSince(
-    folder: string,
+/** A server-side search over a folder, used to look for mail a cursor had already passed. */
+export interface FolderSearch {
+  since: Date;
+  /** Only messages dated before this day. */
+  until?: Date;
+  /** The Message-ID header must be exactly this, which proves a particular mail arrived. */
+  messageId?: string;
+  /** Sender domains or addresses; a message from any of them matches. */
+  from?: string[];
+  /** Text that must appear in the message body or headers; any of them matches. */
+  text?: string[];
+  limit: number;
+}
+
+/** One login on one folder. Everything a poll does to a mailbox happens inside one of these. */
+export interface InboxSession {
+  /** The folder's current UIDVALIDITY, which says whether the UIDs stored earlier still mean anything. */
+  uidValidity(): number;
+  /** Headers of the messages with a UID above `afterUid` (all when null), oldest first. */
+  scan(
     afterUid: number | null,
     uidValidity: number | null,
-    options: FetchOptions,
-  ): Promise<FetchResult>;
+    options: ScanOptions,
+  ): Promise<ScanResult>;
+  /** Headers of specific messages, in the folder's current numbering. Messages that are gone are left out. */
+  headers(uids: readonly number[]): Promise<MessageHeaders[]>;
+  /**
+   * Asks the server which of `uids` contain any of `terms` in their body. Null when the server
+   * refused or timed out, in which case the caller downloads the messages instead and decides
+   * locally, at more cost but with the same outcome.
+   */
+  searchBodies(uids: readonly number[], terms: readonly string[]): Promise<Set<number> | null>;
+  /** UIDs matching a search, newest last. Null when the server cannot search. */
+  search(query: FolderSearch): Promise<number[] | null>;
+  /** The full messages, parsed. Only called for mail the gate admits or has to read to decide. */
+  fetchMessages(uids: readonly number[]): Promise<InboxMessage[]>;
+}
+
+export interface InboxSource {
+  listFolders(): Promise<MailFolder[]>;
+  /** Logs in once, runs `work` on the folder, and logs out. */
+  withFolder<T>(folder: string, work: (session: InboxSession) => Promise<T>): Promise<T>;
 }
 
 /** An outstanding request a reply might belong to. */
 export interface ClassifierRequest {
   id: string;
+  /**
+   * Whether an answer is still expected or a confirmation awaited. Closed requests stay in the
+   * context so a late reply that quotes them still binds, but a sender alone never matches one.
+   */
+  open: boolean;
+  targetKind: "broker" | "company";
+  /** The address a request is sent to, which a bounce names as the failed recipient. */
+  contactAddress: string | null;
+  sentAt: string | null;
   reference: string;
   outgoingMessageId: string | null;
   status: RequestStatus;
@@ -195,6 +264,12 @@ export interface ClassifierRequest {
 
 export interface ClassifyContext {
   requests: ClassifierRequest[];
+  /**
+   * Targets the message was let in for by its sender alone, such as one the person asked to always
+   * take in mail from. With no stronger match, the message binds to the open request for one of
+   * them, so it is reviewed against that request instead of being lost.
+   */
+  senderTargetIds?: string[];
 }
 
 export interface ClassificationResult {

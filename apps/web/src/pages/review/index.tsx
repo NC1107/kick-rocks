@@ -12,6 +12,7 @@ import {
   ReplyCheckResult,
   useReplyCheck,
 } from "../mailbox/check-for-replies.js";
+import { CleanupPreview } from "../mailbox/intake-review.js";
 import { BlockedTaskDetail } from "./BlockedTaskDetail.js";
 import { shortcutAllowed } from "./keys.js";
 import { MailDetail } from "./MailDetail.js";
@@ -83,6 +84,7 @@ function Review({ profileId, mailboxConnected }: { profileId: string; mailboxCon
           actions={mailboxConnected ? <CheckForRepliesButton check={check} /> : undefined}
         />
         <ReplyCheckResult check={check} className="mb-5" />
+        <CleanupPreview profileId={profileId} rows={3} className="mb-4" />
       </div>
       {queue.isPending ? (
         <Loading />

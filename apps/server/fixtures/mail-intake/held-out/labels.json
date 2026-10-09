@@ -1,0 +1,947 @@
+[
+  {
+    "file": "0001-no_reference_clear.eml",
+    "category": "no_reference_clear",
+    "outcome": "review",
+    "request": "beenverified",
+    "classification": "verification_required"
+  },
+  {
+    "file": "0002-marketing_target.eml",
+    "category": "marketing_target",
+    "outcome": "ignore",
+    "request": null,
+    "classification": null
+  },
+  {
+    "file": "0003-marketing_target.eml",
+    "category": "marketing_target",
+    "outcome": "ignore",
+    "request": null,
+    "classification": null
+  },
+  {
+    "file": "0004-no_reference_clear.eml",
+    "category": "no_reference_clear",
+    "outcome": "auto",
+    "request": "spokeo",
+    "classification": "auto_ack"
+  },
+  {
+    "file": "0005-marketing_target.eml",
+    "category": "marketing_target",
+    "outcome": "ignore",
+    "request": null,
+    "classification": null
+  },
+  {
+    "file": "0006-order_account_target.eml",
+    "category": "order_account_target",
+    "outcome": "ignore",
+    "request": null,
+    "classification": null
+  },
+  {
+    "file": "0007-no_reference_clear.eml",
+    "category": "no_reference_clear",
+    "outcome": "auto",
+    "request": "beenverified",
+    "classification": "auto_ack"
+  },
+  {
+    "file": "0008-confirmation_link.eml",
+    "category": "confirmation_link",
+    "outcome": "auto",
+    "request": "whitepages",
+    "classification": "confirmation_link"
+  },
+  {
+    "file": "0009-order_account_target.eml",
+    "category": "order_account_target",
+    "outcome": "ignore",
+    "request": null,
+    "classification": null
+  },
+  {
+    "file": "0010-stray_automatic.eml",
+    "category": "stray_automatic",
+    "outcome": "ignore",
+    "request": null,
+    "classification": null
+  },
+  {
+    "file": "0011-no_reference_clear.eml",
+    "category": "no_reference_clear",
+    "outcome": "review",
+    "request": "spokeo",
+    "classification": "completed"
+  },
+  {
+    "file": "0012-target_no_request.eml",
+    "category": "target_no_request",
+    "outcome": "ignore",
+    "request": null,
+    "classification": null
+  },
+  {
+    "file": "0013-bounce.eml",
+    "category": "bounce",
+    "outcome": "review",
+    "request": "beenverified",
+    "classification": "bounce"
+  },
+  {
+    "file": "0014-reply_reference_unsigned.eml",
+    "category": "reply_reference_unsigned",
+    "outcome": "review",
+    "request": "amazon",
+    "classification": "rejected"
+  },
+  {
+    "file": "0015-target_no_request.eml",
+    "category": "target_no_request",
+    "outcome": "ignore",
+    "request": null,
+    "classification": null
+  },
+  {
+    "file": "0016-calendar_invite.eml",
+    "category": "calendar_invite",
+    "outcome": "ignore",
+    "request": null,
+    "classification": null
+  },
+  {
+    "file": "0017-autoresponder.eml",
+    "category": "autoresponder",
+    "outcome": "auto",
+    "request": "beenverified",
+    "classification": "auto_ack"
+  },
+  {
+    "file": "0018-confirmation_link.eml",
+    "category": "confirmation_link",
+    "outcome": "review",
+    "request": "intelius",
+    "classification": "confirmation_link"
+  },
+  {
+    "file": "0019-personal.eml",
+    "category": "personal",
+    "outcome": "ignore",
+    "request": null,
+    "classification": null
+  },
+  {
+    "file": "0020-newsletter.eml",
+    "category": "newsletter",
+    "outcome": "ignore",
+    "request": null,
+    "classification": null
+  },
+  {
+    "file": "0021-no_reference_clear.eml",
+    "category": "no_reference_clear",
+    "outcome": "review",
+    "request": "beenverified",
+    "classification": "completed"
+  },
+  {
+    "file": "0022-personal.eml",
+    "category": "personal",
+    "outcome": "ignore",
+    "request": null,
+    "classification": null
+  },
+  {
+    "file": "0023-confirmation_link.eml",
+    "category": "confirmation_link",
+    "outcome": "auto",
+    "request": "intelius",
+    "classification": "confirmation_link"
+  },
+  {
+    "file": "0024-marketing_target.eml",
+    "category": "marketing_target",
+    "outcome": "ignore",
+    "request": null,
+    "classification": null
+  },
+  {
+    "file": "0025-personal.eml",
+    "category": "personal",
+    "outcome": "ignore",
+    "request": null,
+    "classification": null
+  },
+  {
+    "file": "0026-order_account_target.eml",
+    "category": "order_account_target",
+    "outcome": "ignore",
+    "request": null,
+    "classification": null
+  },
+  {
+    "file": "0027-marketing_target.eml",
+    "category": "marketing_target",
+    "outcome": "ignore",
+    "request": null,
+    "classification": null
+  },
+  {
+    "file": "0028-marketing_other.eml",
+    "category": "marketing_other",
+    "outcome": "ignore",
+    "request": null,
+    "classification": null
+  },
+  {
+    "file": "0029-order_account_target.eml",
+    "category": "order_account_target",
+    "outcome": "ignore",
+    "request": null,
+    "classification": null
+  },
+  {
+    "file": "0030-marketing_other.eml",
+    "category": "marketing_other",
+    "outcome": "ignore",
+    "request": null,
+    "classification": null
+  },
+  {
+    "file": "0031-reply_reference_signed.eml",
+    "category": "reply_reference_signed",
+    "outcome": "auto",
+    "request": "netflix",
+    "classification": "auto_ack"
+  },
+  {
+    "file": "0032-personal.eml",
+    "category": "personal",
+    "outcome": "ignore",
+    "request": null,
+    "classification": null
+  },
+  {
+    "file": "0033-ticket_system.eml",
+    "category": "ticket_system",
+    "outcome": "review",
+    "request": "beenverified",
+    "classification": "verification_required"
+  },
+  {
+    "file": "0034-personal.eml",
+    "category": "personal",
+    "outcome": "ignore",
+    "request": null,
+    "classification": null
+  },
+  {
+    "file": "0035-order_account_target.eml",
+    "category": "order_account_target",
+    "outcome": "ignore",
+    "request": null,
+    "classification": null
+  },
+  {
+    "file": "0036-order_account_target.eml",
+    "category": "order_account_target",
+    "outcome": "ignore",
+    "request": null,
+    "classification": null
+  },
+  {
+    "file": "0037-bank_security.eml",
+    "category": "bank_security",
+    "outcome": "ignore",
+    "request": null,
+    "classification": null
+  },
+  {
+    "file": "0038-target_no_request.eml",
+    "category": "target_no_request",
+    "outcome": "ignore",
+    "request": null,
+    "classification": null
+  },
+  {
+    "file": "0039-ticket_system.eml",
+    "category": "ticket_system",
+    "outcome": "auto",
+    "request": "whitepages",
+    "classification": "auto_ack"
+  },
+  {
+    "file": "0040-newsletter.eml",
+    "category": "newsletter",
+    "outcome": "ignore",
+    "request": null,
+    "classification": null
+  },
+  {
+    "file": "0041-confirmation_link.eml",
+    "category": "confirmation_link",
+    "outcome": "auto",
+    "request": "intelius",
+    "classification": "confirmation_link"
+  },
+  {
+    "file": "0042-personal.eml",
+    "category": "personal",
+    "outcome": "ignore",
+    "request": null,
+    "classification": null
+  },
+  {
+    "file": "0043-unknown_sender_clear.eml",
+    "category": "unknown_sender_clear",
+    "outcome": "review",
+    "request": "spokeo",
+    "classification": "completed"
+  },
+  {
+    "file": "0044-bank_security.eml",
+    "category": "bank_security",
+    "outcome": "ignore",
+    "request": null,
+    "classification": null
+  },
+  {
+    "file": "0045-marketing_target.eml",
+    "category": "marketing_target",
+    "outcome": "ignore",
+    "request": null,
+    "classification": null
+  },
+  {
+    "file": "0046-reply_reference_signed.eml",
+    "category": "reply_reference_signed",
+    "outcome": "auto",
+    "request": "beenverified",
+    "classification": "verification_required"
+  },
+  {
+    "file": "0047-ticket_system.eml",
+    "category": "ticket_system",
+    "outcome": "auto",
+    "request": "beenverified",
+    "classification": "auto_ack"
+  },
+  {
+    "file": "0048-target_no_request.eml",
+    "category": "target_no_request",
+    "outcome": "ignore",
+    "request": null,
+    "classification": null
+  },
+  {
+    "file": "0049-newsletter.eml",
+    "category": "newsletter",
+    "outcome": "ignore",
+    "request": null,
+    "classification": null
+  },
+  {
+    "file": "0050-order_account_target.eml",
+    "category": "order_account_target",
+    "outcome": "ignore",
+    "request": null,
+    "classification": null
+  },
+  {
+    "file": "0051-bank_security.eml",
+    "category": "bank_security",
+    "outcome": "ignore",
+    "request": null,
+    "classification": null
+  },
+  {
+    "file": "0052-personal.eml",
+    "category": "personal",
+    "outcome": "ignore",
+    "request": null,
+    "classification": null
+  },
+  {
+    "file": "0053-reply_reference_unsigned.eml",
+    "category": "reply_reference_unsigned",
+    "outcome": "auto",
+    "request": "radaris",
+    "classification": "auto_ack"
+  },
+  {
+    "file": "0054-reply_quoted_unsigned.eml",
+    "category": "reply_quoted_unsigned",
+    "outcome": "auto",
+    "request": "beenverified",
+    "classification": "auto_ack"
+  },
+  {
+    "file": "0055-reply_quoted_signed.eml",
+    "category": "reply_quoted_signed",
+    "outcome": "auto",
+    "request": "whitepages",
+    "classification": "needs_form"
+  },
+  {
+    "file": "0056-reply_reference_unsigned.eml",
+    "category": "reply_reference_unsigned",
+    "outcome": "review",
+    "request": "beenverified",
+    "classification": "no_record"
+  },
+  {
+    "file": "0057-newsletter.eml",
+    "category": "newsletter",
+    "outcome": "ignore",
+    "request": null,
+    "classification": null
+  },
+  {
+    "file": "0058-reply_quoted_signed.eml",
+    "category": "reply_quoted_signed",
+    "outcome": "auto",
+    "request": "radaris",
+    "classification": "rejected"
+  },
+  {
+    "file": "0059-order_account_target.eml",
+    "category": "order_account_target",
+    "outcome": "ignore",
+    "request": null,
+    "classification": null
+  },
+  {
+    "file": "0060-newsletter.eml",
+    "category": "newsletter",
+    "outcome": "ignore",
+    "request": null,
+    "classification": null
+  },
+  {
+    "file": "0061-reply_quoted_signed.eml",
+    "category": "reply_quoted_signed",
+    "outcome": "auto",
+    "request": "whitepages",
+    "classification": "completed"
+  },
+  {
+    "file": "0062-reply_quoted_unsigned.eml",
+    "category": "reply_quoted_unsigned",
+    "outcome": "review",
+    "request": "beenverified",
+    "classification": "completed"
+  },
+  {
+    "file": "0063-reply_reference_signed.eml",
+    "category": "reply_reference_signed",
+    "outcome": "auto",
+    "request": "radaris",
+    "classification": "completed"
+  },
+  {
+    "file": "0064-reply_quoted_signed.eml",
+    "category": "reply_quoted_signed",
+    "outcome": "auto",
+    "request": "radaris",
+    "classification": "auto_ack"
+  },
+  {
+    "file": "0065-reply_quoted_signed.eml",
+    "category": "reply_quoted_signed",
+    "outcome": "auto",
+    "request": "amazon",
+    "classification": "no_record"
+  },
+  {
+    "file": "0066-ticket_system.eml",
+    "category": "ticket_system",
+    "outcome": "review",
+    "request": "spokeo",
+    "classification": "completed"
+  },
+  {
+    "file": "0067-marketing_other.eml",
+    "category": "marketing_other",
+    "outcome": "ignore",
+    "request": null,
+    "classification": null
+  },
+  {
+    "file": "0068-bank_security.eml",
+    "category": "bank_security",
+    "outcome": "ignore",
+    "request": null,
+    "classification": null
+  },
+  {
+    "file": "0069-marketing_target.eml",
+    "category": "marketing_target",
+    "outcome": "ignore",
+    "request": null,
+    "classification": null
+  },
+  {
+    "file": "0070-reply_reference_unsigned.eml",
+    "category": "reply_reference_unsigned",
+    "outcome": "review",
+    "request": "whitepages",
+    "classification": "needs_form"
+  },
+  {
+    "file": "0071-reply_reference_signed.eml",
+    "category": "reply_reference_signed",
+    "outcome": "auto",
+    "request": "whitepages",
+    "classification": "completed"
+  },
+  {
+    "file": "0072-marketing_other.eml",
+    "category": "marketing_other",
+    "outcome": "ignore",
+    "request": null,
+    "classification": null
+  },
+  {
+    "file": "0073-marketing_other.eml",
+    "category": "marketing_other",
+    "outcome": "ignore",
+    "request": null,
+    "classification": null
+  },
+  {
+    "file": "0074-reply_quoted_unsigned.eml",
+    "category": "reply_quoted_unsigned",
+    "outcome": "review",
+    "request": "whitepages",
+    "classification": "no_record"
+  },
+  {
+    "file": "0075-confirmation_link.eml",
+    "category": "confirmation_link",
+    "outcome": "auto",
+    "request": "intelius",
+    "classification": "confirmation_link"
+  },
+  {
+    "file": "0076-stray_automatic.eml",
+    "category": "stray_automatic",
+    "outcome": "ignore",
+    "request": null,
+    "classification": null
+  },
+  {
+    "file": "0077-calendar_invite.eml",
+    "category": "calendar_invite",
+    "outcome": "ignore",
+    "request": null,
+    "classification": null
+  },
+  {
+    "file": "0078-calendar_invite.eml",
+    "category": "calendar_invite",
+    "outcome": "ignore",
+    "request": null,
+    "classification": null
+  },
+  {
+    "file": "0079-marketing_other.eml",
+    "category": "marketing_other",
+    "outcome": "ignore",
+    "request": null,
+    "classification": null
+  },
+  {
+    "file": "0080-marketing_other.eml",
+    "category": "marketing_other",
+    "outcome": "ignore",
+    "request": null,
+    "classification": null
+  },
+  {
+    "file": "0081-reply_quoted_signed.eml",
+    "category": "reply_quoted_signed",
+    "outcome": "auto",
+    "request": "amazon",
+    "classification": "verification_required"
+  },
+  {
+    "file": "0082-order_account_target.eml",
+    "category": "order_account_target",
+    "outcome": "ignore",
+    "request": null,
+    "classification": null
+  },
+  {
+    "file": "0083-reply_quoted_signed.eml",
+    "category": "reply_quoted_signed",
+    "outcome": "auto",
+    "request": "netflix",
+    "classification": "verification_required"
+  },
+  {
+    "file": "0084-ticket_system.eml",
+    "category": "ticket_system",
+    "outcome": "review",
+    "request": "whitepages",
+    "classification": "no_record"
+  },
+  {
+    "file": "0085-bounce.eml",
+    "category": "bounce",
+    "outcome": "review",
+    "request": "whitepages",
+    "classification": "bounce"
+  },
+  {
+    "file": "0086-reply_quoted_unsigned.eml",
+    "category": "reply_quoted_unsigned",
+    "outcome": "review",
+    "request": "spokeo",
+    "classification": "verification_required"
+  },
+  {
+    "file": "0087-personal.eml",
+    "category": "personal",
+    "outcome": "ignore",
+    "request": null,
+    "classification": null
+  },
+  {
+    "file": "0088-reply_quoted_signed.eml",
+    "category": "reply_quoted_signed",
+    "outcome": "auto",
+    "request": "beenverified",
+    "classification": "completed"
+  },
+  {
+    "file": "0089-sister_domain.eml",
+    "category": "sister_domain",
+    "outcome": "auto",
+    "request": "spokeo",
+    "classification": "completed"
+  },
+  {
+    "file": "0090-personal.eml",
+    "category": "personal",
+    "outcome": "ignore",
+    "request": null,
+    "classification": null
+  },
+  {
+    "file": "0091-newsletter.eml",
+    "category": "newsletter",
+    "outcome": "ignore",
+    "request": null,
+    "classification": null
+  },
+  {
+    "file": "0092-marketing_target.eml",
+    "category": "marketing_target",
+    "outcome": "ignore",
+    "request": null,
+    "classification": null
+  },
+  {
+    "file": "0093-bank_security.eml",
+    "category": "bank_security",
+    "outcome": "ignore",
+    "request": null,
+    "classification": null
+  },
+  {
+    "file": "0094-order_account_target.eml",
+    "category": "order_account_target",
+    "outcome": "ignore",
+    "request": null,
+    "classification": null
+  },
+  {
+    "file": "0095-marketing_other.eml",
+    "category": "marketing_other",
+    "outcome": "ignore",
+    "request": null,
+    "classification": null
+  },
+  {
+    "file": "0096-marketing_other.eml",
+    "category": "marketing_other",
+    "outcome": "ignore",
+    "request": null,
+    "classification": null
+  },
+  {
+    "file": "0097-marketing_target.eml",
+    "category": "marketing_target",
+    "outcome": "ignore",
+    "request": null,
+    "classification": null
+  },
+  {
+    "file": "0098-autoresponder.eml",
+    "category": "autoresponder",
+    "outcome": "auto",
+    "request": "spokeo",
+    "classification": "auto_ack"
+  },
+  {
+    "file": "0099-newsletter.eml",
+    "category": "newsletter",
+    "outcome": "ignore",
+    "request": null,
+    "classification": null
+  },
+  {
+    "file": "0100-order_account_target.eml",
+    "category": "order_account_target",
+    "outcome": "ignore",
+    "request": null,
+    "classification": null
+  },
+  {
+    "file": "0101-confirmation_link.eml",
+    "category": "confirmation_link",
+    "outcome": "auto",
+    "request": "beenverified",
+    "classification": "confirmation_link"
+  },
+  {
+    "file": "0102-no_reference_clear.eml",
+    "category": "no_reference_clear",
+    "outcome": "review",
+    "request": "spokeo",
+    "classification": "no_record"
+  },
+  {
+    "file": "0103-autoresponder.eml",
+    "category": "autoresponder",
+    "outcome": "auto",
+    "request": "beenverified",
+    "classification": "auto_ack"
+  },
+  {
+    "file": "0104-reply_quoted_unsigned.eml",
+    "category": "reply_quoted_unsigned",
+    "outcome": "review",
+    "request": "radaris",
+    "classification": "rejected"
+  },
+  {
+    "file": "0105-reply_reference_unsigned.eml",
+    "category": "reply_reference_unsigned",
+    "outcome": "review",
+    "request": "radaris",
+    "classification": "completed"
+  },
+  {
+    "file": "0106-reply_quoted_signed.eml",
+    "category": "reply_quoted_signed",
+    "outcome": "auto",
+    "request": "netflix",
+    "classification": "completed"
+  },
+  {
+    "file": "0107-sister_domain.eml",
+    "category": "sister_domain",
+    "outcome": "auto",
+    "request": "spokeo",
+    "classification": "no_record"
+  },
+  {
+    "file": "0108-stray_automatic.eml",
+    "category": "stray_automatic",
+    "outcome": "ignore",
+    "request": null,
+    "classification": null
+  },
+  {
+    "file": "0109-marketing_target.eml",
+    "category": "marketing_target",
+    "outcome": "ignore",
+    "request": null,
+    "classification": null
+  },
+  {
+    "file": "0110-sister_domain.eml",
+    "category": "sister_domain",
+    "outcome": "auto",
+    "request": "spokeo",
+    "classification": "verification_required"
+  },
+  {
+    "file": "0111-stray_automatic.eml",
+    "category": "stray_automatic",
+    "outcome": "ignore",
+    "request": null,
+    "classification": null
+  },
+  {
+    "file": "0112-ticket_system.eml",
+    "category": "ticket_system",
+    "outcome": "auto",
+    "request": "radaris",
+    "classification": "auto_ack"
+  },
+  {
+    "file": "0113-target_no_request.eml",
+    "category": "target_no_request",
+    "outcome": "ignore",
+    "request": null,
+    "classification": null
+  },
+  {
+    "file": "0114-autoresponder.eml",
+    "category": "autoresponder",
+    "outcome": "auto",
+    "request": "spokeo",
+    "classification": "auto_ack"
+  },
+  {
+    "file": "0115-marketing_target.eml",
+    "category": "marketing_target",
+    "outcome": "ignore",
+    "request": null,
+    "classification": null
+  },
+  {
+    "file": "0116-reply_quoted_signed.eml",
+    "category": "reply_quoted_signed",
+    "outcome": "auto",
+    "request": "beenverified",
+    "classification": "verification_required"
+  },
+  {
+    "file": "0117-reply_reference_unsigned.eml",
+    "category": "reply_reference_unsigned",
+    "outcome": "review",
+    "request": "netflix",
+    "classification": "completed"
+  },
+  {
+    "file": "0118-calendar_invite.eml",
+    "category": "calendar_invite",
+    "outcome": "ignore",
+    "request": null,
+    "classification": null
+  },
+  {
+    "file": "0119-unknown_sender_clear.eml",
+    "category": "unknown_sender_clear",
+    "outcome": "review",
+    "request": "beenverified",
+    "classification": "no_record"
+  },
+  {
+    "file": "0120-reply_quoted_signed.eml",
+    "category": "reply_quoted_signed",
+    "outcome": "auto",
+    "request": "spokeo",
+    "classification": "no_record"
+  },
+  {
+    "file": "0121-target_no_request.eml",
+    "category": "target_no_request",
+    "outcome": "ignore",
+    "request": null,
+    "classification": null
+  },
+  {
+    "file": "0122-marketing_target.eml",
+    "category": "marketing_target",
+    "outcome": "ignore",
+    "request": null,
+    "classification": null
+  },
+  {
+    "file": "0123-marketing_other.eml",
+    "category": "marketing_other",
+    "outcome": "ignore",
+    "request": null,
+    "classification": null
+  },
+  {
+    "file": "0124-order_account_target.eml",
+    "category": "order_account_target",
+    "outcome": "ignore",
+    "request": null,
+    "classification": null
+  },
+  {
+    "file": "0125-newsletter.eml",
+    "category": "newsletter",
+    "outcome": "ignore",
+    "request": null,
+    "classification": null
+  },
+  {
+    "file": "0126-marketing_other.eml",
+    "category": "marketing_other",
+    "outcome": "ignore",
+    "request": null,
+    "classification": null
+  },
+  {
+    "file": "0127-marketing_other.eml",
+    "category": "marketing_other",
+    "outcome": "ignore",
+    "request": null,
+    "classification": null
+  },
+  {
+    "file": "0128-reply_quoted_signed.eml",
+    "category": "reply_quoted_signed",
+    "outcome": "auto",
+    "request": "spokeo",
+    "classification": "completed"
+  },
+  {
+    "file": "0129-reply_reference_signed.eml",
+    "category": "reply_reference_signed",
+    "outcome": "auto",
+    "request": "spokeo",
+    "classification": "no_record"
+  },
+  {
+    "file": "0130-sister_domain.eml",
+    "category": "sister_domain",
+    "outcome": "review",
+    "request": "spokeo",
+    "classification": "completed"
+  },
+  {
+    "file": "0131-reply_quoted_unsigned.eml",
+    "category": "reply_quoted_unsigned",
+    "outcome": "review",
+    "request": "amazon",
+    "classification": "completed"
+  },
+  {
+    "file": "0132-bounce.eml",
+    "category": "bounce",
+    "outcome": "review",
+    "request": "spokeo",
+    "classification": "bounce"
+  },
+  {
+    "file": "0133-bank_security.eml",
+    "category": "bank_security",
+    "outcome": "ignore",
+    "request": null,
+    "classification": null
+  },
+  {
+    "file": "0134-bounce.eml",
+    "category": "bounce",
+    "outcome": "auto",
+    "request": "radaris",
+    "classification": "auto_ack"
+  },
+  {
+    "file": "0135-personal.eml",
+    "category": "personal",
+    "outcome": "ignore",
+    "request": null,
+    "classification": null
+  }
+]

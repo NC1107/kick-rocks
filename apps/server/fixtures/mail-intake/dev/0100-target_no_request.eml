@@ -1,0 +1,36 @@
+DKIM-Signature: v=1; a=ed25519-sha256; c=relaxed/relaxed; d=mylife.com;
+ h=Content-Type: MIME-Version: List-Unsubscribe: Reply-To: Message-ID:
+ Date: Subject: To: From; q=dns/txt; s=kr; t=1790817720;
+ bh=EetQvo2xf1qXl6w7krcifL96qe7GUza0UrXQsC+q0oo=;
+ b=SYgoyk0qp5v0Bk/e3F1AVFxj2eSAm4aw2wak28l3JStpG91x5LosOF2rmb6dIaNwK70QCn6dK
+ XiZFREq3tJEBQ==
+Return-Path: <bounce-847722@bounce.mylife.com>
+Received: from mail.mylife.com (mail.mylife.com [203.0.113.20]) by mx.example.com with ESMTPS id 8f0b392fa7 for <jordan@example.com>; Thu, 01 Oct 2026 01:22:00 +0000
+From: MyLife <alerts@mylife.com>
+To: jordan@example.com
+Subject: Your reputation score changed
+Date: Thu, 01 Oct 2026 01:22:00 +0000
+Message-ID: <7c4e7f3c8f7408d05a842fb4@mylife.com>
+Reply-To: no-reply@mylife.com
+List-Unsubscribe: <https://mylife.com/unsubscribe?u=ec9d6a71356daae2>, <mailto:unsubscribe-ec9d6a71@mylife.com>
+List-Unsubscribe-Post: List-Unsubscribe=One-Click
+Precedence: bulk
+X-Mailer: SendGrid
+MIME-Version: 1.0
+Content-Type: multipart/alternative; boundary="----=_Part_9484a7b65097"
+
+------=_Part_9484a7b65097
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+Your reputation score changed
+
+Shop now: https://mylife.com/offers?ref=aad0d7a5
+
+You are receiving this email because you have an account with MyLife. To stop receiving these emails, unsubscribe: https://mylife.com/unsubscribe
+------=_Part_9484a7b65097
+Content-Type: text/html; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+<html><body style="font-family:Arial,sans-serif"><h2>Your reputation score changed</h2><p><a href="https://mylife.com/offers?ref=aad0d7a5">Shop now</a></p><p style="font-size:11px">You are receiving this email because you have an account with MyLife. To stop receiving these emails, unsubscribe: https://mylife.com/unsubscribe</p></body></html>
+------=_Part_9484a7b65097--

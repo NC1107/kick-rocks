@@ -1,0 +1,30 @@
+Return-Path: <bounce-571914@bounce.netflix.com>
+Received: from mail.mailer.netflix.com (mail.mailer.netflix.com [203.0.113.28]) by mx.example.com with ESMTPS id 0ec5770b9c for <jordan@example.com>; Sat, 26 Sep 2026 16:07:00 +0000
+From: Netflix <info@mailer.netflix.com>
+To: jordan@example.com
+Subject: Because you watched a documentary
+Date: Sat, 26 Sep 2026 16:07:00 +0000
+Message-ID: <5a5af559ceb420395ea9aa50@mailer.netflix.com>
+Reply-To: no-reply@netflix.com
+List-Unsubscribe: <https://netflix.com/unsubscribe?u=fce0e56cb16ae213>, <mailto:unsubscribe-fce0e56c@netflix.com>
+List-Unsubscribe-Post: List-Unsubscribe=One-Click
+Precedence: bulk
+X-Mailer: Salesforce Marketing Cloud
+MIME-Version: 1.0
+Content-Type: multipart/alternative; boundary="----=_Part_eb54dfb6236a"
+
+------=_Part_eb54dfb6236a
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+Because you watched a documentary
+
+Shop now: https://netflix.com/offers?ref=2b0c060b
+
+You are receiving this email because you have an account with Netflix. To stop receiving these emails, unsubscribe: https://netflix.com/unsubscribe
+------=_Part_eb54dfb6236a
+Content-Type: text/html; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+<html><body style="font-family:Arial,sans-serif"><h2>Because you watched a documentary</h2><p><a href="https://netflix.com/offers?ref=2b0c060b">Shop now</a></p><p style="font-size:11px">You are receiving this email because you have an account with Netflix. To stop receiving these emails, unsubscribe: https://netflix.com/unsubscribe</p></body></html>
+------=_Part_eb54dfb6236a--

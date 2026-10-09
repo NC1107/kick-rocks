@@ -1,0 +1,36 @@
+DKIM-Signature: v=1; a=ed25519-sha256; c=relaxed/relaxed; d=spokeo.com;
+ h=Content-Type: MIME-Version: Message-ID: Date: Subject: To: From;
+ q=dns/txt; s=kr; t=1790483100;
+ bh=jSSYRxtZg6zDFfqjsRhjT9OCv1uWVjB4VSTcaaW+iPo=;
+ b=sejv1N+65MnX/Q2Nq2TIdi9L1GoXxx2aR221FJVIvCYYmOmJCmy85ZsjSzwQajblVN4QMtEdG
+ 707TW0hMa2iAw==
+Return-Path: <bounce-9642@spokeo.com>
+Received: from mail.spokeo.com (mail.spokeo.com [203.0.113.20]) by mx.example.com with ESMTPS id 8f0b392fa7 for <jordan@example.com>; Sun, 27 Sep 2026 04:25:00 +0000
+From: Spokeo <privacy@spokeo.com>
+To: jordan@example.com
+Subject: Confirm your opt-out request KR-7K3M9Q
+Date: Sun, 27 Sep 2026 04:25:00 +0000
+Message-ID: <da35d35ff645f4a0743fba9d@spokeo.com>
+Auto-Submitted: auto-generated
+MIME-Version: 1.0
+Content-Type: multipart/alternative; boundary="----=_Part_9484a7b65097"
+
+------=_Part_9484a7b65097
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+Hello,
+
+We received a request to remove your information from Spokeo. To complete your removal, please confirm your email address by clicking the link below.
+
+https://spokeo.com/optout/confirm?token=5547a555e9b017e8b7e6e840a426
+
+If you did not make this request, ignore this message.
+
+Spokeo Privacy Team
+------=_Part_9484a7b65097
+Content-Type: text/html; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+<html><body style="font-family:Arial,sans-serif"><p>To complete your removal, please confirm your email address.</p><p><a href="https://spokeo.com/optout/confirm?token=5547a555e9b017e8b7e6e840a426">Confirm my request</a></p></body></html>
+------=_Part_9484a7b65097--

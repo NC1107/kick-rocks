@@ -43,6 +43,31 @@ describe("the settings tab titles", () => {
   });
 });
 
+describe("the way to mail intake", () => {
+  it("links to the section on the profile's mailbox page", async () => {
+    const mock = createMockApp();
+    general(mock);
+    const link = await screen.findByRole("link", { name: "Open" });
+    expect(link).toHaveAttribute("href", `/profiles/${mock.store.profiles[0]?.id}/mailbox#intake`);
+    expect(screen.getByText("What Kick Rocks takes in")).toBeInTheDocument();
+  });
+
+  it("shows the saved mail it would remove, and the ignored list once the person confirmed", async () => {
+    const { user } = general();
+    const preview = within(await screen.findByTestId("cleanup-preview"));
+    expect(screen.getByRole("heading", { name: /Saved mail to remove · 12/ })).toBeVisible();
+    expect(preview.getByText("Security alert: new sign-in")).toBeVisible();
+    expect(screen.queryByTestId("ignored-mail")).toBeNull();
+
+    await user.click(preview.getByRole("button", { name: "Confirm removal of 12" }));
+
+    const ignored = within(await screen.findByTestId("ignored-mail"));
+    expect(ignored.getByText("Security alert: new sign-in")).toBeVisible();
+    await user.click(ignored.getByRole("button", { name: "Take in Security alert: new sign-in" }));
+    await waitFor(() => expect(ignored.queryByText("Security alert: new sign-in")).toBeNull());
+  });
+});
+
 const AGENT_WORKER = {
   workerId: "agent-home",
   version: "agent-0.1.0",

@@ -1,0 +1,24 @@
+DKIM-Signature: v=1; a=ed25519-sha256; c=relaxed/relaxed; d=amazon.com;
+ h=Content-Transfer-Encoding: Content-Type: MIME-Version: Message-ID: Date:
+ Subject: To: From; q=dns/txt; s=kr; t=1790451840;
+ bh=FYhkTRqVYHPX2rQ6UEiQOnTccgtEQhoCQHFio3db8Rg=;
+ b=ATQK9ZxmwW2h0dPJxxX37fUNcwpYNWgawNzcCLzUh6HN36b5uWwteFexeLyTXI/YtaCXeuM8q
+ kAlWHmy+kpICw==
+Return-Path: <0100f50c62b32a9e9346756a-54823fc7@bounces.amazon.com>
+Received: from mail.amazon.com (mail.amazon.com [203.0.113.20]) by mx.example.com with ESMTPS id 8f0b392fa7 for <jordan@example.com>; Sat, 26 Sep 2026 19:44:00 +0000
+From: Amazon <order-update@amazon.com>
+To: jordan@example.com
+Subject: Review your recent purchase: phone stand
+Date: Sat, 26 Sep 2026 19:44:00 +0000
+Message-ID: <88d015da4af1cda17e8811b7@amazon.com>
+Auto-Submitted: auto-generated
+X-Mailer: Transactional Mailer
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+Hello,
+
+Your refund of USD 119.51 for phone stand has been processed. It may take 3-5 business days to appear on your statement.
+
+Order #933-2797361-6416296

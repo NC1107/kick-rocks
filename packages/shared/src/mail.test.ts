@@ -3,6 +3,7 @@ import {
   formatReference,
   generateReference,
   MailboxInput,
+  MessageAdmission,
   outgoingMessageId,
   parseOutgoingMessageId,
   parseReferences,
@@ -140,5 +141,20 @@ describe("MailboxInput", () => {
   it("bounds the daily cap", () => {
     expect(MailboxInput.safeParse({ ...input, dailyCap: 0 }).success).toBe(false);
     expect(MailboxInput.safeParse({ ...input, dailyCap: 5000 }).success).toBe(false);
+  });
+});
+
+describe("the mailbox view of mail intake", () => {
+  it("lists every reason a message is taken in", () => {
+    expect(MessageAdmission.options).toEqual([
+      "thread",
+      "reference",
+      "alias",
+      "bounce",
+      "awaiting_confirmation",
+      "target_sender",
+      "named_target",
+      "person",
+    ]);
   });
 });

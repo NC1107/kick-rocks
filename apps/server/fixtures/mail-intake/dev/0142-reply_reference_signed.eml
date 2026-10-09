@@ -1,0 +1,24 @@
+DKIM-Signature: v=1; a=ed25519-sha256; c=relaxed/relaxed;
+ d=beenverified.com; h=Content-Transfer-Encoding: Content-Type:
+ MIME-Version: Reply-To: Message-ID: Date: Subject: To: From; q=dns/txt;
+ s=kr; t=1790979120; bh=zS6cK5RYN50E+MZMKb+4fcSWmeFeAhg2FmTdI8hD+XI=;
+ b=e12cojao6Y6gEyfmKPlNRzqSZVlKJP2hyXZCO5HHfesw/BGlIuoT4Y8Gqg4iafmL3JPaDEEk9
+ lz9ugnMuUXaAA==
+Return-Path: <bounce-20944@beenverified.com>
+Received: from mail.beenverified.com (mail.beenverified.com [203.0.113.26]) by mx.example.com with ESMTPS id f4801b00e3 for <jordan@example.com>; Fri, 02 Oct 2026 22:12:00 +0000
+From: BeenVerified Privacy <privacyteam@beenverified.com>
+To: jordan@example.com
+Subject: Update on request KR-5P1CJ4
+Date: Fri, 02 Oct 2026 22:12:00 +0000
+Message-ID: <e48dac452f66f59d8aca852a@beenverified.com>
+Reply-To: privacy@beenverified.com
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+Hello,
+
+We have removed the listing associated with jordan@example.com from BeenVerified. It can take up to 72 hours to disappear from search results.
+
+Regards,
+BeenVerified Privacy Team
