@@ -46,8 +46,7 @@ export function describePoll(services: PollServices, task: PollTask): MailboxPol
   return { task: summary, outcome: outcomeOf(task) };
 }
 
-function secondsText(ms: number): string {
-  const seconds = Math.max(1, Math.ceil(ms / 1000));
+function secondsText(seconds: number): string {
   return seconds === 1 ? "1 second" : `${seconds} seconds`;
 }
 
@@ -64,10 +63,15 @@ export function startManualPoll(services: PollServices, mailbox: MailboxRow): Ma
   if (mailbox.lastPolledAt) {
     const since = services.clock.now().getTime() - Date.parse(mailbox.lastPolledAt);
     if (since >= 0 && since < MANUAL_POLL_GAP_MS) {
+      // The elapsed time rounds down and the wait rounds up, so the two always add to the gap.
+      const ago = Math.floor(since / 1000);
+      const wait = MANUAL_POLL_GAP_MS / 1000 - ago;
       throw new AppError(
         429,
         "poll_too_soon",
-        `Checked ${secondsText(since)} ago. Try again in ${secondsText(MANUAL_POLL_GAP_MS - since)}.`,
+        `Checked ${secondsText(ago)} ago. Try again in ${secondsText(wait)}.`,
+        undefined,
+        wait,
       );
     }
   }

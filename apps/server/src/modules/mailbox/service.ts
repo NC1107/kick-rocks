@@ -200,7 +200,10 @@ export function saveMailbox(
     .update(mailboxes)
     .set({
       ...fields,
-      ...(keepCursor ? {} : { uidValidity: null, lastPollUid: null, lastPolledAt: null }),
+      ...(keepCursor ? {} : { uidValidity: null, lastPollUid: null }),
+      // A mailbox that failed its last check and is saved again gets the next check at once, not
+      // after the gap that follows a failed one.
+      ...(keepCursor && !existing.lastError ? {} : { lastPolledAt: null }),
       // A fixed setting is a chance to try again, so an old failure is not shown against new settings.
       lastError: null,
     })

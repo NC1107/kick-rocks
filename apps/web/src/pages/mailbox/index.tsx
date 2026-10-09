@@ -22,7 +22,12 @@ import {
   useToast,
 } from "../../components/ui/index.js";
 import { cn } from "../../lib/cn.js";
-import { CheckForRepliesButton, ReplyCheckResult, useReplyCheck } from "./check-for-replies.js";
+import {
+  CheckForRepliesButton,
+  checkFailedOnMailbox,
+  ReplyCheckResult,
+  useReplyCheck,
+} from "./check-for-replies.js";
 import {
   applyPreset,
   type ConnectionForm,
@@ -174,13 +179,13 @@ function ConnectedMailbox({ profile, onEdit }: { profile: ProfileDetail; onEdit:
         </div>
         <CheckForRepliesButton check={check} />
       </div>
-      {mailbox.lastError ? (
+      {mailbox.lastError && !checkFailedOnMailbox(check) ? (
         <Callout intent="warning" title="The last check failed" className="mb-3">
           {mailbox.lastError}
         </Callout>
       ) : null}
       <SendPauseAlert mailbox={mailbox} />
-      <ReplyCheckResult check={check} className="mb-3" />
+      <ReplyCheckResult check={check} onMailboxPage className="mb-3" />
       <MailboxFacts mailbox={mailbox} providerLabel={label} hideAddress />
       <div className="mt-4 flex flex-wrap items-center justify-end gap-2">
         <Button variant="danger" onClick={() => setDisconnecting(true)}>

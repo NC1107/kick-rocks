@@ -183,18 +183,21 @@ function describePoll(store: MockStore, poll: MockPoll): MailboxPoll {
   const profile = profileOf(store, poll.profileId);
   const finished = pollIsFinished(store, poll);
   const broken = profile.mailbox?.replyFolder === "Broken";
+  const error = "IMAP login failed. Check the app password.";
   const status = !finished ? ("leased" as const) : broken ? ("failed" as const) : ("done" as const);
   const updatedAt = finished
     ? new Date(poll.startedAt + MOCK_POLL_RUNS_MS).toISOString()
     : poll.createdAt;
-  if (finished && profile.mailbox) profile.mailbox.lastPolledAt = updatedAt;
+  if (finished && profile.mailbox) {
+    profile.mailbox.lastPolledAt = updatedAt;
+    profile.mailbox.lastError = broken ? error : null;
+  }
   const waiting = store.requests.find(
     (request) =>
       request.profileId === profile.id &&
       (request.status === "awaiting_reply" || request.status === "sent"),
   );
   const matched = poll.reply && waiting ? [waiting.id] : [];
-  const error = "IMAP login failed. Check the app password.";
   return {
     task: {
       id: poll.id,
@@ -326,7 +329,7 @@ export default defineMockDomain({
           id: profile.mailbox?.id ?? store.nextId("mbx"),
           profileId: profile.id,
           ...fields,
-          lastPolledAt: profile.mailbox?.lastPolledAt ?? null,
+          lastPolledAt: null,
           lastError: null,
           sendPausedUntil: null,
           createdAt: profile.mailbox?.createdAt ?? store.clock.now().toISOString(),
@@ -355,12 +358,14 @@ export default defineMockDomain({
         const now = store.clock.now().getTime();
         const since = mailbox.lastPolledAt ? now - Date.parse(mailbox.lastPolledAt) : Infinity;
         if (since >= 0 && since < MANUAL_POLL_GAP_MS) {
-          const ago = Math.max(1, Math.ceil(since / 1000));
-          const wait = Math.max(1, Math.ceil((MANUAL_POLL_GAP_MS - since) / 1000));
+          const ago = Math.floor(since / 1000);
+          const wait = MANUAL_POLL_GAP_MS / 1000 - ago;
           throw new MockHttpError(
             429,
             "poll_too_soon",
             `Checked ${ago} ${ago === 1 ? "second" : "seconds"} ago. Try again in ${wait} ${wait === 1 ? "second" : "seconds"}.`,
+            undefined,
+            wait,
           );
         }
         const poll: MockPoll = {

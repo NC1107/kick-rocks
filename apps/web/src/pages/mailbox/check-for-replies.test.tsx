@@ -2,6 +2,7 @@ import { screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { createMockApp, type MockApp } from "../../../mock/app.js";
 import { renderPage } from "../../test/render.js";
+import { skewClock } from "../../test/skew-clock.js";
 import { Component as DashboardPage } from "../dashboard/index.js";
 import { Component as RequestDetailPage } from "../requests/detail/index.js";
 import { Component as ReviewPage } from "../review/index.js";
@@ -14,15 +15,6 @@ function waitingRequest(mock: MockApp) {
   );
   if (!jordan || !request) throw new Error("fixture request missing");
   return { jordan, request };
-}
-
-/** Moves the mock's clock, so a check ends without the test waiting out its real duration. */
-function skewClock(mock: MockApp) {
-  let offset = 0;
-  mock.store.clock.now = () => new Date(Date.now() + offset);
-  return (ms: number) => {
-    offset += ms;
-  };
 }
 
 function openRequest(mock = createMockApp()) {
@@ -44,7 +36,9 @@ describe("checking for replies on the request page", () => {
     const { user } = openRequest(mock);
 
     await user.click(await screen.findByRole("button", CHECK));
-    expect(await screen.findByRole("button", { name: "Checking" })).toBeDisabled();
+    expect(
+      await screen.findByRole("button", { name: "Check for replies", busy: true }),
+    ).toBeDisabled();
     advance(3_000);
 
     expect(await screen.findByText("1 new reply", {}, { timeout: 4000 })).toBeInTheDocument();
@@ -64,10 +58,10 @@ describe("checking for replies on the request page", () => {
     advance(40_000);
     await user.click(screen.getByRole("button", CHECK));
     advance(3_000);
-    expect(await screen.findByText("No new replies", {}, { timeout: 4000 })).toBeInTheDocument();
+    expect(await screen.findByText("No new mail", {}, { timeout: 4000 })).toBeInTheDocument();
   }, 15_000);
 
-  it("tells the person to wait when a check ran moments ago", async () => {
+  it("keeps the last result and counts the wait when a check ran moments ago", async () => {
     const mock = createMockApp();
     const advance = skewClock(mock);
     const { user } = openRequest(mock);
@@ -77,9 +71,9 @@ describe("checking for replies on the request page", () => {
     await screen.findByText("1 new reply", {}, { timeout: 4000 });
     await user.click(screen.getByRole("button", CHECK));
 
-    expect(
-      await screen.findByText(/^Checked \d+ seconds? ago\. Try again in \d+ seconds?\.$/),
-    ).toBeVisible();
+    expect(await screen.findByText(/^Try again in \d+ seconds?\.$/)).toBeVisible();
+    expect(screen.getByText("1 new reply")).toBeVisible();
+    expect(screen.getByRole("button", CHECK)).toBeDisabled();
   }, 10_000);
 
   it("shows the mailbox error with a way to fix it", async () => {
@@ -100,6 +94,29 @@ describe("checking for replies on the request page", () => {
       "href",
       `/profiles/${jordan.id}/mailbox`,
     );
+  }, 10_000);
+
+  it("names the request a reply belongs to when it is not the one on the page", async () => {
+    const mock = createMockApp();
+    const advance = skewClock(mock);
+    const { jordan, request } = waitingRequest(mock);
+    const other = mock.store.requests.find(
+      (candidate) => candidate.profileId === jordan.id && candidate.id !== request.id,
+    );
+    if (!other) throw new Error("fixture request missing");
+    const page = renderPage(<RequestDetailPage />, {
+      mock,
+      path: "/requests/:id",
+      route: `/requests/${other.id}`,
+    });
+
+    await page.user.click(await screen.findByRole("button", CHECK));
+    advance(3_000);
+
+    expect(
+      await screen.findByText(`1 new reply, for ${request.target.name}`, {}, { timeout: 4000 }),
+    ).toBeVisible();
+    expect(screen.getByText("It is on that request's timeline.")).toBeVisible();
   }, 10_000);
 
   it("has no button for a profile without a mailbox", async () => {
@@ -127,7 +144,7 @@ describe("checking for replies elsewhere", () => {
     await user.click(await screen.findByRole("button", CHECK));
     advance(3_000);
 
-    expect(await screen.findByText("1 new reply", {}, { timeout: 4000 })).toBeVisible();
+    expect(await screen.findByText(/^1 new reply, for /, {}, { timeout: 4000 })).toBeVisible();
     expect(screen.getByRole("link", { name: "Open the request" })).toHaveAttribute(
       "href",
       `/requests/${request.id}`,

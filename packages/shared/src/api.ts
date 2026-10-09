@@ -104,6 +104,8 @@ export const ApiError = z.object({
   error: z.string(),
   message: z.string().optional(),
   issues: z.array(ApiIssue).optional(),
+  /** Set on an answer that asks the caller to wait: the whole seconds until trying again can work. */
+  retryAfterSeconds: z.number().int().positive().optional(),
 });
 export type ApiError = z.infer<typeof ApiError>;
 

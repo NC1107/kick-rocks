@@ -324,7 +324,7 @@ describe("PUT /profiles/:id/mailbox", () => {
     expect(ctx.services.db.select().from(mailboxes).all()).toHaveLength(1);
   });
 
-  it("keeps the poll cursor when only a setting that does not move it changes", async () => {
+  it("keeps the poll cursor but forgets the failed check when only a setting that does not move it changes", async () => {
     const profile = seedProfile(ctx);
     seedMailbox(ctx, profile.id, {
       ...{
@@ -344,7 +344,7 @@ describe("PUT /profiles/:id/mailbox", () => {
     });
     expect(result).toMatchObject({
       ok: true,
-      body: { lastPolledAt: "2026-10-01T00:00:00.000Z", lastError: null },
+      body: { lastPolledAt: null, lastError: null },
     });
     expect(storedRow(profile.id)).toMatchObject({ uidValidity: 42, lastPollUid: 17 });
   });
@@ -508,6 +508,7 @@ describe("POST /profiles/:id/mailbox/poll", () => {
       body: {
         error: "poll_too_soon",
         message: "Checked 8 seconds ago. Try again in 22 seconds.",
+        retryAfterSeconds: 22,
       },
     });
     expect(ctx.services.taskQueue.list({ status: "queued", kinds: ["inbox_poll"] })).toHaveLength(
@@ -518,6 +519,22 @@ describe("POST /profiles/:id/mailbox/poll", () => {
     const again = await ctx.call(API_ROUTES.mailboxPoll, { params: { id: profile.id } });
     expect(again).toMatchObject({ ok: true, body: { task: { status: "queued" } } });
     if (again.ok) expect(again.body.task.id).not.toBe(first.body.task.id);
+  });
+
+  it("lets a mailbox saved after a failed check be checked at once", async () => {
+    const profile = seedProfile(ctx);
+    seedMailbox(ctx, profile.id, { ...SAME_SERVERS });
+    const first = await ctx.call(API_ROUTES.mailboxPoll, { params: { id: profile.id } });
+    if (!first.ok) throw new Error("the poll should start");
+    await createRunners(ctx.services).inbox.runDue();
+    ctx.services.db.update(mailboxes).set({ lastError: "Login failed" }).run();
+    ctx.clock.advance(5_000);
+    const { password: _unused, ...withoutPassword } = NEW_MAILBOX;
+    await ctx.call(API_ROUTES.mailboxSave, { params: { id: profile.id }, body: withoutPassword });
+
+    expect(await ctx.call(API_ROUTES.mailboxPoll, { params: { id: profile.id } })).toMatchObject({
+      ok: true,
+    });
   });
 
   it("returns the check still running instead of refusing a tap inside the gap", async () => {
