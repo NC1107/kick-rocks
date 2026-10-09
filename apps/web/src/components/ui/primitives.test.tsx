@@ -7,6 +7,7 @@ import {
   Callout,
   EmptyState,
   Kbd,
+  Menu,
   Meter,
   Row,
   RowGroup,
@@ -67,20 +68,21 @@ describe("Tooltip", () => {
     expect(screen.queryByRole("tooltip")).toBeNull();
   });
 
-  it("opens on a touch tap, closes on a second tap and on a tap elsewhere", async () => {
+  const tap = (target: Element) => {
+    fireEvent.pointerDown(target, { pointerType: "touch" });
+    fireEvent.click(target);
+  };
+
+  it("opens on a touch tap of a status mark, closes on a second tap and on a tap elsewhere", async () => {
     render(
       <>
         <Tooltip content="Cooling down 3 sites">
-          <button type="button">Mark</button>
+          <span>Mark</span>
         </Tooltip>
         <p>Elsewhere</p>
       </>,
     );
-    const mark = screen.getByRole("button", { name: "Mark" });
-    const tap = (target: Element) => {
-      fireEvent.pointerDown(target, { pointerType: "touch" });
-      fireEvent.click(target);
-    };
+    const mark = screen.getByText("Mark");
     tap(mark);
     expect(await screen.findByRole("tooltip")).toHaveTextContent("Cooling down 3 sites");
     tap(mark);
@@ -88,6 +90,52 @@ describe("Tooltip", () => {
     tap(mark);
     expect(await screen.findByRole("tooltip")).toBeVisible();
     fireEvent.pointerDown(screen.getByText("Elsewhere"), { pointerType: "touch" });
+    expect(screen.queryByRole("tooltip")).toBeNull();
+  });
+
+  it("opens on a tap of a button that only stands for a status when hintOnTap is set", async () => {
+    render(
+      <Tooltip content="Needs a look" hintOnTap>
+        <button type="button">Status</button>
+      </Tooltip>,
+    );
+    tap(screen.getByRole("button", { name: "Status" }));
+    expect(await screen.findByRole("tooltip")).toHaveTextContent("Needs a look");
+  });
+
+  it("never opens on a tap of a button, nor from the focus and mouse events a tap replays", async () => {
+    render(
+      <Tooltip content="More actions">
+        <button type="button">Open</button>
+      </Tooltip>,
+    );
+    const button = screen.getByRole("button", { name: "Open" });
+    fireEvent.pointerDown(button, { pointerType: "touch" });
+    fireEvent.focus(button);
+    fireEvent.mouseEnter(button.parentElement as Element);
+    fireEvent.click(button);
+    await new Promise((resolve) => setTimeout(resolve, 700));
+    expect(screen.queryByRole("tooltip")).toBeNull();
+  });
+
+  it("closes when a menu opens", async () => {
+    const user = userEvent.setup();
+    render(
+      <Menu
+        items={[{ id: "a", label: "Mark as confirmed", onSelect: () => {} }]}
+        trigger={(props) => (
+          <Tooltip content="More actions">
+            <button type="button" {...props}>
+              More
+            </button>
+          </Tooltip>
+        )}
+      />,
+    );
+    await user.tab();
+    expect(await screen.findByRole("tooltip")).toBeVisible();
+    await user.keyboard("{ArrowDown}");
+    expect(await screen.findByRole("menu")).toBeVisible();
     expect(screen.queryByRole("tooltip")).toBeNull();
   });
 });

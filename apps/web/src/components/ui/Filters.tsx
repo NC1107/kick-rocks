@@ -15,6 +15,7 @@ import { Button } from "./Button.js";
 import { IconButton } from "./IconButton.js";
 import { Select } from "./Select.js";
 import { Tag } from "./Tag.js";
+import { announceOverlayOpen } from "./Tooltip.js";
 
 export interface FilterOption {
   value: string;
@@ -129,6 +130,7 @@ export function Filters({
       const root = rootRef.current?.getBoundingClientRect();
       setFlipped(root !== undefined && root.left + panel.offsetWidth > window.innerWidth - GUTTER);
     }
+    announceOverlayOpen();
     focusFirstSelect();
   }, [open, focusFirstSelect]);
 

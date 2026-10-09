@@ -11,6 +11,7 @@ import {
   useState,
 } from "react";
 import { cn } from "../../lib/cn.js";
+import { announceOverlayOpen } from "./Tooltip.js";
 
 export interface MenuItem {
   id: string;
@@ -97,6 +98,10 @@ export function Menu({
     };
     document.addEventListener("pointerdown", onPointer);
     return () => document.removeEventListener("pointerdown", onPointer);
+  }, [open]);
+
+  useEffect(() => {
+    if (open) announceOverlayOpen();
   }, [open]);
 
   useEffect(() => {
