@@ -99,6 +99,8 @@ export interface SitePoliteness {
   recordClean(task: TaskForGate, handle?: DbHandle): void;
   status(): SitesStatus;
   siteStatus(domain: string): SiteStatus | null;
+  /** When quiet hours end, if they are on right now; null otherwise. Says whether the zone is still the server's own. */
+  quietNow(): { until: string; zoneUnset: boolean } | null;
   /** Deletes visits older than the caps look back. Returns how many were removed. */
   prune(): number;
   settings(): ScanningSettings;
@@ -438,6 +440,12 @@ export function createSitePoliteness({
         { consecutivePushback: 0, breaker: "closed", coolingDownUntil: null },
         now,
       );
+    },
+
+    quietNow() {
+      const config = settingsStore.get("scanning");
+      const until = quietHoursEnd(clock.now(), config);
+      return until ? { until: until.toISOString(), zoneUnset: config.timeZone === null } : null;
     },
 
     siteStatus(domain) {

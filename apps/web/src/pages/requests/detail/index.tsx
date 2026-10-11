@@ -67,7 +67,7 @@ const FORM_REQUEST_LEAD: Record<FormRequest["state"], string> = {
   on_form_route:
     "Their reply says this request has to be made another way, so it is on the form route instead of email.",
   unconfirmed:
-    "Their reply may say this request has to be made another way. It is waiting for you to confirm what it says before anything changes.",
+    "Their reply may say to use a web form or phone. Confirm and the request moves to the form route.",
   no_form_channel:
     "Their reply says this request has to be made another way, and there is no web form we can reach for them. You have to make it yourself.",
 };
@@ -239,6 +239,15 @@ function Detail({ request }: { request: RequestDetail }) {
   });
 
   const check = useReplyCheck(request.profileId, request.id);
+  const switchToForm = useApiMutation(API_ROUTES.messageClassify, {
+    invalidates: [
+      API_ROUTES.requestsGet,
+      API_ROUTES.requestsList,
+      API_ROUTES.dashboardGet,
+      API_ROUTES.reviewQueue,
+    ],
+    onSuccess: () => toast.success("Moved to the web form"),
+  });
   const { profiles } = useCurrentProfile();
   const owner = profiles.find((profile) => profile.id === request.profileId);
   const canCheck = owner?.mailboxConnected;
@@ -333,30 +342,27 @@ function Detail({ request }: { request: RequestDetail }) {
       <div className="flex max-w-3xl flex-col gap-5">
         <ReplyCheckResult check={check} here={request.id} recordedOnTimeline />
         {act.isError ? <InlineError>{errorMessage(act.error)}</InlineError> : null}
-        {showLatest ? (
-          <Section label="Latest reply">
-            <RowGroup>
-              <ReplyCard message={latestReply} requestId={request.id} />
-            </RowGroup>
-          </Section>
-        ) : null}
-        {request.status === "needs_verification" ? (
-          <Callout
-            intent="warning"
-            title="The target asked for more details"
-            action={
-              <LinkButton size="sm" to={paths.review(`details:${request.id}`)}>
-                Review what to send
-              </LinkButton>
-            }
-          >
-            Nothing goes out until you choose which details to share.
-          </Callout>
-        ) : null}
         {request.formRequest ? (
           <Callout
             intent="warning"
             title={formRequestTitle(request.formRequest.state, target.name)}
+            action={
+              request.formRequest.state === "unconfirmed" ? (
+                <Button
+                  size="sm"
+                  loading={switchToForm.isPending}
+                  onClick={() =>
+                    request.formRequest &&
+                    switchToForm.mutate({
+                      params: { id: request.formRequest.messageId },
+                      body: { classification: "needs_form" },
+                    })
+                  }
+                >
+                  Yes, use the form
+                </Button>
+              ) : undefined
+            }
           >
             <p>
               {FORM_REQUEST_LEAD[request.formRequest.state]}
@@ -379,6 +385,26 @@ function Detail({ request }: { request: RequestDetail }) {
                 <span className="font-mono">{request.formRequest.phone}</span>
               </p>
             ) : null}
+          </Callout>
+        ) : null}
+        {showLatest ? (
+          <Section label="Latest reply">
+            <RowGroup>
+              <ReplyCard message={latestReply} requestId={request.id} />
+            </RowGroup>
+          </Section>
+        ) : null}
+        {request.status === "needs_verification" ? (
+          <Callout
+            intent="warning"
+            title="The target asked for more details"
+            action={
+              <LinkButton size="sm" to={paths.review(`details:${request.id}`)}>
+                Review what to send
+              </LinkButton>
+            }
+          >
+            Nothing goes out until you choose which details to share.
           </Callout>
         ) : null}
         {waitingAgent ? (

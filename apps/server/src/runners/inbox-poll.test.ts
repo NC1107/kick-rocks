@@ -105,6 +105,8 @@ describe("a check started from a request page", () => {
   it("counts what it found, and records on the page's request only", async () => {
     const first = await sentRequest();
     const second = await sentRequest({ name: "Second Broker" });
+    // Each first send queues a look-back poll of its own, which must not be the one to find the mail.
+    await runners.inbox.runDue();
     answer("Update", second.request.id, "auto_ack");
     deliver("Update");
 

@@ -91,14 +91,13 @@ export function scanHoldOf(store: MockStore, scan: ScanSummary): ScanHold | null
       until: site.coolingDownUntil,
     };
   }
-  const { timeZone, quietStartHour, quietEndHour } = store.settings.scanning;
-  const now = store.clock.now();
-  if (isQuietHour(clockIn(now, timeZone).hour, quietStartHour, quietEndHour)) {
+  const quiet = quietNow(store);
+  if (quiet) {
     return {
       reason: "quiet_hours",
       ...(target ? { domain: target.domain } : {}),
-      until: nextHourIn(now, quietEndHour, timeZone).toISOString(),
-      ...(timeZone === null
+      until: quiet.until,
+      ...(quiet.zoneUnset
         ? {
             serverClock: true,
             detail: "Quiet hours are read on the server clock because no time zone is set.",
@@ -107,6 +106,17 @@ export function scanHoldOf(store: MockStore, scan: ScanSummary): ScanHold | null
     };
   }
   return null;
+}
+
+/** When quiet hours end, if they are on right now, and whether the zone is still the server's own. */
+export function quietNow(store: MockStore): { until: string; zoneUnset: boolean } | null {
+  const { timeZone, quietStartHour, quietEndHour } = store.settings.scanning;
+  const now = store.clock.now();
+  if (!isQuietHour(clockIn(now, timeZone).hour, quietStartHour, quietEndHour)) return null;
+  return {
+    until: nextHourIn(now, quietEndHour, timeZone).toISOString(),
+    zoneUnset: timeZone === null,
+  };
 }
 
 export function createScan(
@@ -730,7 +740,7 @@ export default defineMockDomain({
         message.classification = body.classification;
         message.confidence = 1;
         message.reviewed = true;
-        message.rationale = "Classified by you.";
+        message.rationale = "Classified by hand";
         if (body.requestId) {
           const request = store.requests.find((candidate) => candidate.id === body.requestId);
           if (!request) throw notFound("That request");

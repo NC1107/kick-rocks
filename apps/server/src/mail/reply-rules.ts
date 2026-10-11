@@ -191,8 +191,14 @@ export const CLASS_PRIORITY: readonly ReplyClassification[] = [
   "unrelated",
 ];
 
+/** The parts of a message the rules read, so a stored reply can be judged without rebuilding the whole mail. */
+export type RuleMessage = Pick<
+  InboxMessage,
+  "subject" | "from" | "isBounce" | "autoSubmitted" | "headers"
+>;
+
 interface RuleInput {
-  message: InboxMessage;
+  message: RuleMessage;
   /** What the sender wrote, without the quoted request. */
   body: string;
 }

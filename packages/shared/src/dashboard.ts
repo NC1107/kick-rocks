@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { Reference } from "./mail.js";
 import { RequestStatus, requestEventSchema } from "./requests.js";
-import { ScanHoldReason } from "./scans.js";
+import { ScanHoldReason, ScanReadiness } from "./scans.js";
 
 export const DashboardEvent = requestEventSchema({
   requestReference: Reference,
@@ -58,6 +58,10 @@ export const Dashboard = z.object({
     queued: z.number().int().nonnegative(),
     held: z.number().int().nonnegative(),
     byReason: z.partialRecord(ScanHoldReason, ScanHoldGroup),
+  }),
+  /** What stops scans from starting: missing profile details, sites that need an agent or a review, quiet hours. */
+  scanning: ScanReadiness.extend({
+    quiet: z.object({ until: z.iso.datetime(), zoneUnset: z.boolean() }).nullable(),
   }),
   recentEvents: z.array(DashboardEvent),
 });

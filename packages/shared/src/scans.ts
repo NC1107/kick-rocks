@@ -56,6 +56,21 @@ export const ScanHold = z.object({
 });
 export type ScanHold = z.infer<typeof ScanHold>;
 
+/** What a profile can be scanned on, so a scan that cannot run is explained before it is started. */
+export const ScanReadiness = z.object({
+  /** People-search sites a worker can scan for this profile now. */
+  ready: z.number().int().nonnegative(),
+  /** Sites with no scripted search, which wait for a connected agent. */
+  noRecipe: z.number().int().nonnegative(),
+  /** Sites whose scripted search waits for the person's review before the built-in worker runs it. */
+  recipeNeedsReview: z.number().int().nonnegative(),
+  /** Sites the profile lacks details for. */
+  needsDetails: z.number().int().nonnegative(),
+  /** What to add, in the profile's terms; null when nothing is missing. */
+  missing: z.string().nullable(),
+});
+export type ScanReadiness = z.infer<typeof ScanReadiness>;
+
 export const ScanSummary = z.object({
   id: z.string(),
   profileId: z.string(),

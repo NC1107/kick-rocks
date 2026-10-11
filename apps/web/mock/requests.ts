@@ -563,14 +563,32 @@ const LIVE_TASK = new Set(["queued", "leased", "blocked"]);
 
 const MOCK_FORM_LINK = /form|portal|privacy-request/i;
 
+const MOCK_FORM_WORDING = /web ?form|online form|call (us )?(at )?\d|by phone/i;
+
+/** Mirrors the server: a reply filed as an acknowledgement that sends the person to a form or phone. */
+function misfiledFormRequestOf(messages: readonly MessageSummary[]): RequestDetail["formRequest"] {
+  const misfiled = messages
+    .filter(
+      (message) =>
+        ["auto_ack", "unknown", "unrelated"].includes(message.classification) &&
+        message.rationale !== "Classified by hand" &&
+        MOCK_FORM_WORDING.test(message.snippet ?? ""),
+    )
+    .at(-1);
+  return misfiled
+    ? { messageId: misfiled.id, state: "unconfirmed", url: null, fromReply: false, phone: null }
+    : null;
+}
+
 /** Mirrors the server: a link and phone number are only offered once the reply was applied or confirmed. */
 function formRequestOf(
   request: StoredRequest,
   messages: readonly MessageSummary[],
   events: readonly StoredRequest["events"][number][],
 ): RequestDetail["formRequest"] {
+  if (!isActiveStatus(request.status)) return null;
   const asked = messages.filter((message) => message.classification === "needs_form").at(-1);
-  if (!asked || !isActiveStatus(request.status)) return null;
+  if (!asked) return misfiledFormRequestOf(messages);
   if (asked.confidence < 0.6) {
     return { messageId: asked.id, state: "unconfirmed", url: null, fromReply: false, phone: null };
   }

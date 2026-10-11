@@ -7,11 +7,13 @@ import {
   type ScanHold,
   type ScanHoldGroup,
   type ScanHoldReason,
+  type ScanReadiness,
   tellEvents,
 } from "@kickrocks/shared";
 
 import { defineMockDomain, handle, notFound } from "./core.js";
-import { buildMockQueue, scanHoldOf } from "./review.js";
+import { buildMockQueue, quietNow, scanHoldOf } from "./review.js";
+import type { MockStore } from "./store.js";
 
 const DAY = 86_400_000;
 
@@ -30,6 +32,36 @@ function summarizeHeld(holds: readonly ScanHold[]): Partial<Record<ScanHoldReaso
     };
   }
   return byReason;
+}
+
+/** Mirrors the server: what a profile can be scanned on now, from its address and each site's recipes. */
+function scanReadiness(store: MockStore, profileId: string): ScanReadiness {
+  const profile = store.profiles.find((candidate) => candidate.id === profileId);
+  const hasPlace = profile?.identities.some(
+    (identity) => identity.kind === "address" && Boolean(identity.value.city),
+  );
+  const sites = store.targets.filter((target) => target.needsRecord && !target.retired);
+  if (!hasPlace) {
+    return {
+      ready: 0,
+      noRecipe: 0,
+      recipeNeedsReview: 0,
+      needsDetails: sites.length,
+      missing: "a current address with city and state",
+    };
+  }
+  const counts = { ready: 0, noRecipe: 0, recipeNeedsReview: 0, needsDetails: 0 };
+  for (const site of sites) {
+    const scanRecipes = site.recipes.filter((recipe) => recipe.purpose === "scan");
+    const usable = scanRecipes.some(
+      (recipe) => recipe.status === "active" && recipe.health !== "broken",
+    );
+    if (usable) counts.ready += 1;
+    else if (scanRecipes.some((recipe) => recipe.status === "pending_review")) {
+      counts.recipeNeedsReview += 1;
+    } else counts.noRecipe += 1;
+  }
+  return { ...counts, missing: null };
 }
 
 export default defineMockDomain({
@@ -102,6 +134,10 @@ export default defineMockDomain({
           const holds = queued.flatMap((scan) => scanHoldOf(store, scan) ?? []);
           return { queued: queued.length, held: holds.length, byReason: summarizeHeld(holds) };
         })(),
+        scanning: {
+          ...scanReadiness(store, profile.id),
+          quiet: quietNow(store),
+        },
         recentEvents,
       };
     }),

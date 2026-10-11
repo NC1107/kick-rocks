@@ -13,7 +13,7 @@ import { and, count, eq, inArray, sql } from "drizzle-orm";
 import { notFound } from "../../core/errors.js";
 import { registerRoute } from "../../core/http.js";
 import type { ModulePlugin } from "../../core/module.js";
-import { scanHold } from "../../core/scan-readiness.js";
+import { profileScanReadiness, scanHold } from "../../core/scan-readiness.js";
 import { withTrustedConfirmationSenders } from "../../core/targets.js";
 import type { AppServices } from "../../services.js";
 import { mailboxProblem } from "../mailbox/service.js";
@@ -171,6 +171,10 @@ function buildDashboard(services: AppServices, profileId: string): Dashboard {
         }
       : null,
     scans: summarizeScans(services, profileId),
+    scanning: {
+      ...profileScanReadiness(services, profileId),
+      quiet: services.politeness.quietNow(),
+    },
     recentEvents,
   };
 }

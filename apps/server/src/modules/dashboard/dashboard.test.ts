@@ -69,6 +69,14 @@ describe("GET /profiles/:id/dashboard", () => {
       sending: null,
       mailbox: null,
       scans: { queued: 0, held: 0, byReason: {} },
+      scanning: {
+        ready: 0,
+        noRecipe: 0,
+        recipeNeedsReview: 0,
+        needsDetails: 0,
+        missing: null,
+        quiet: null,
+      },
       recentEvents: [],
     });
   });
