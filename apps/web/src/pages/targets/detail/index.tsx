@@ -11,6 +11,7 @@ import { useBreadcrumbTail } from "../../../components/layout/breadcrumb-context
 import {
   Button,
   Callout,
+  DataList,
   DescriptionList,
   EmptyState,
   ExternalLinkText,
@@ -19,12 +20,6 @@ import {
   RowGroup,
   Section,
   SkeletonText,
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeaderCell,
-  TableRow,
   Tag,
 } from "../../../components/ui/index.js";
 import { formatDate } from "../../../lib/format.js";
@@ -130,11 +125,8 @@ export function Component() {
               View requests
             </LinkButton>
             {target.retired ? null : (
-              <LinkButton
-                to={`/campaigns/new?targets=${encodeURIComponent(target.id)}`}
-                variant="primary"
-              >
-                Ask to remove my data
+              <LinkButton to={`/targets/${encodeURIComponent(target.id)}/remove`} variant="primary">
+                Remove my data
               </LinkButton>
             )}
           </>
@@ -291,36 +283,45 @@ export function Component() {
               description="Requests go by email where possible. Form tasks wait for an agent or for you in Review."
             />
           ) : (
-            <Table label="Recipes for this target">
-              <TableHead>
-                <tr>
-                  <TableHeaderCell>Purpose</TableHeaderCell>
-                  <TableHeaderCell className="hidden sm:table-cell">Version</TableHeaderCell>
-                  <TableHeaderCell className="hidden sm:table-cell">Source</TableHeaderCell>
-                  <TableHeaderCell>Status</TableHeaderCell>
-                  <TableHeaderCell>Health</TableHeaderCell>
-                </tr>
-              </TableHead>
-              <TableBody>
-                {target.recipes.map((recipe) => (
-                  <TableRow key={recipe.id}>
-                    <TableCell>{recipe.purpose === "scan" ? "Scan" : "Removal"}</TableCell>
-                    <TableCell mono className="hidden sm:table-cell">
-                      v{recipe.version}
-                    </TableCell>
-                    <TableCell className="hidden capitalize text-ink-2 sm:table-cell">
-                      {recipe.source}
-                    </TableCell>
-                    <TableCell className="text-ink-2">
-                      {RECIPE_STATUS_LABELS[recipe.status]}
-                    </TableCell>
-                    <TableCell>
-                      <HealthMark health={recipe.health} />
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+            <DataList
+              label="Recipes for this target"
+              items={target.recipes}
+              getKey={(recipe) => recipe.id}
+              identityHeader="Purpose"
+              identity={(recipe) => ({ title: recipe.purpose === "scan" ? "Scan" : "Removal" })}
+              tags={(recipe) => (
+                <>
+                  <span>v{recipe.version}</span>
+                  <span>{RECIPE_STATUS_LABELS[recipe.status]}</span>
+                  <HealthMark health={recipe.health} />
+                </>
+              )}
+              columns={[
+                {
+                  id: "version",
+                  header: "Version",
+                  mono: true,
+                  cell: (recipe) => <>v{recipe.version}</>,
+                },
+                {
+                  id: "source",
+                  header: "Source",
+                  cell: (recipe) => <span className="capitalize text-ink-2">{recipe.source}</span>,
+                },
+                {
+                  id: "status",
+                  header: "Status",
+                  cell: (recipe) => (
+                    <span className="text-ink-2">{RECIPE_STATUS_LABELS[recipe.status]}</span>
+                  ),
+                },
+                {
+                  id: "health",
+                  header: "Health",
+                  cell: (recipe) => <HealthMark health={recipe.health} />,
+                },
+              ]}
+            />
           )}
         </Section>
 

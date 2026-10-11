@@ -8,8 +8,8 @@ import {
   activeFilterTags,
   Button,
   Callout,
-  Checkbox,
   ConfirmDialog,
+  DataList,
   EmptyState,
   Field,
   type FilterGroup,
@@ -19,14 +19,6 @@ import {
   Input,
   LinkButton,
   PageHeader,
-  Pagination,
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeaderCell,
-  TableIdentity,
-  TableRow,
   TableToolbar,
   Tag,
   useToast,
@@ -40,6 +32,7 @@ import {
   TARGET_CATEGORY_LABELS,
   TARGET_KIND_LABELS,
 } from "../../lib/labels.js";
+import { useWide } from "../../lib/use-wide.js";
 import { AutomationLegend, HealthMark } from "./Automation.js";
 import { Difficulty } from "./Difficulty.js";
 import {
@@ -51,10 +44,8 @@ import {
   toFilter,
   toQuery,
 } from "./filters.js";
-import { LoadingRows } from "./LoadingRows.js";
 import { Priority } from "./Priority.js";
 import { RequirementBadges } from "./RequirementBadges.js";
-import { SelectCell } from "./SelectCell.js";
 import { useMatchingTargets } from "./use-matching-targets.js";
 
 function facetOptions(
@@ -71,6 +62,7 @@ function facetOptions(
 const SEARCH_DELAY_MS = 250;
 
 export function Component() {
+  const wide = useWide();
   const filtersButton = useRef<HTMLButtonElement>(null);
   const clearSelectionButton = useRef<HTMLButtonElement>(null);
   const [params, setParams] = useSearchParams();
@@ -254,7 +246,58 @@ export function Component() {
     ? `/campaigns/new?filter=${encodeURIComponent(filterKey)}`
     : `/campaigns/new?targets=${[...selected].map(encodeURIComponent).join(",")}`;
   const filtered = hasFilters(filters);
-  const resultCount = list.data ? `${formatCount(list.data.total)} targets` : undefined;
+  const resultCount = list.data ? pluralize(list.data.total, "target") : undefined;
+
+  const selectionBar =
+    allMatching || selected.size > 0 ? (
+      <div
+        role="status"
+        className={
+          wide
+            ? "mb-2.5 flex flex-wrap items-center justify-between gap-x-3 gap-y-2 rounded-md border border-line bg-accent-soft px-3.5 py-2 text-ui text-ink"
+            : "sticky bottom-0 z-10 -mx-gutter mt-3 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-2 border-t border-line bg-accent-soft px-gutter py-2.5 text-ui text-ink"
+        }
+      >
+        <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
+          <span className="font-mono text-meta tabular-nums">
+            {allMatching
+              ? `All ${formatCount(total)} matching selected`
+              : `${formatCount(selected.size)} selected`}
+          </span>
+          {offerAllMatching ? (
+            <Button size="sm" variant="ghost" className="-ml-2.5" onClick={selectAllMatching}>
+              Select all {formatCount(total)} matching
+            </Button>
+          ) : null}
+        </span>
+        <span className="flex flex-wrap items-center gap-2 max-lg:contents">
+          <Button
+            ref={clearSelectionButton}
+            size="sm"
+            variant="ghost"
+            className="-ml-2.5 max-lg:col-start-2 max-lg:row-start-1 max-lg:ml-0"
+            onClick={clearSelection}
+          >
+            Clear selection
+          </Button>
+          {allMatching ? (
+            <Button
+              size="sm"
+              disabled={!profile || !scannable}
+              onClick={() => {
+                scan.reset();
+                setConfirmingScan(true);
+              }}
+            >
+              Scan these
+            </Button>
+          ) : null}
+          <LinkButton size="sm" variant="primary" to={campaignLink} className="max-lg:col-span-2">
+            Ask these to remove my data
+          </LinkButton>
+        </span>
+      </div>
+    ) : null;
 
   return (
     <>
@@ -269,7 +312,7 @@ export function Component() {
       />
 
       <search aria-label="Filter targets">
-        <TableToolbar count={resultCount}>
+        <TableToolbar>
           <Field label="Search" hideLabel className="min-w-0 flex-1 sm:w-70 sm:flex-initial">
             <Input
               type="search"
@@ -290,51 +333,7 @@ export function Component() {
       </search>
       <FilterTags tags={activeFilterTags(groups)} emptyFocusRef={filtersButton} />
 
-      {allMatching || selected.size > 0 ? (
-        <div
-          role="status"
-          className="mb-2.5 flex flex-wrap items-center justify-between gap-x-3 gap-y-2 rounded-md border border-line bg-accent-soft px-3.5 py-2 text-ui text-ink"
-        >
-          <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
-            <span className="font-mono text-meta tabular-nums">
-              {allMatching
-                ? `All ${formatCount(total)} matching selected`
-                : `${formatCount(selected.size)} selected`}
-            </span>
-            {offerAllMatching ? (
-              <Button size="sm" variant="ghost" className="-ml-2.5" onClick={selectAllMatching}>
-                Select all {formatCount(total)} matching
-              </Button>
-            ) : null}
-          </span>
-          <span className="flex flex-wrap items-center gap-2 max-sm:w-full">
-            <Button
-              ref={clearSelectionButton}
-              size="sm"
-              variant="ghost"
-              className="-ml-2.5"
-              onClick={clearSelection}
-            >
-              Clear selection
-            </Button>
-            {allMatching ? (
-              <Button
-                size="sm"
-                disabled={!profile || !scannable}
-                onClick={() => {
-                  scan.reset();
-                  setConfirmingScan(true);
-                }}
-              >
-                Scan these
-              </Button>
-            ) : null}
-            <LinkButton size="sm" variant="primary" to={campaignLink} className="max-sm:w-full">
-              Ask these to remove my data
-            </LinkButton>
-          </span>
-        </div>
-      ) : null}
+      {wide ? selectionBar : null}
       {scan.isError ? (
         <Callout intent="danger" title="Could not scan these targets" className="mb-2.5">
           {errorMessage(scan.error)}
@@ -366,103 +365,100 @@ export function Component() {
         />
       ) : (
         <>
-          <AutomationLegend />
-          <Table label="Targets" aria-busy={list.isPlaceholderData || undefined}>
-            <TableHead>
-              <tr>
-                <TableHeaderCell className="w-10 pr-0 max-sm:p-0">
-                  <label
-                    htmlFor="select-page"
-                    className="flex cursor-pointer items-center justify-center max-sm:min-h-11 max-sm:min-w-11 pointer-coarse:min-h-11 pointer-coarse:min-w-11"
-                  >
-                    <Checkbox
-                      id="select-page"
-                      aria-label="Select all targets on this page"
-                      checked={allSelected}
-                      indeterminate={someSelected && !allSelected}
-                      disabled={selectable.length === 0}
-                      onChange={(event) => togglePage(event.target.checked)}
-                    />
-                  </label>
-                </TableHeaderCell>
-                <TableHeaderCell>Target</TableHeaderCell>
-                <TableHeaderCell className="hidden xl:table-cell">Category</TableHeaderCell>
-                <TableHeaderCell>Priority</TableHeaderCell>
-                <TableHeaderCell className="hidden sm:table-cell">Difficulty</TableHeaderCell>
-                <TableHeaderCell className="hidden md:table-cell">Contact</TableHeaderCell>
-                <TableHeaderCell className="hidden lg:table-cell">Needs</TableHeaderCell>
-                <TableHeaderCell className="hidden lg:table-cell">Scan</TableHeaderCell>
-                <TableHeaderCell className="hidden lg:table-cell">Removal</TableHeaderCell>
-              </tr>
-            </TableHead>
-            <TableBody>
-              {list.isPending ? (
-                <LoadingRows
-                  columns={[
-                    { bar: "w-4" },
-                    { bar: "w-40" },
-                    { className: "hidden xl:table-cell", bar: "w-20" },
-                    {},
-                    { className: "hidden sm:table-cell" },
-                    { className: "hidden md:table-cell", bar: "w-20" },
-                    { className: "hidden lg:table-cell", bar: "w-24" },
-                    { className: "hidden lg:table-cell" },
-                    { className: "hidden lg:table-cell" },
-                  ]}
-                />
-              ) : (
-                items.map((item) => (
-                  <TableRow key={item.id} selected={isChecked(item.id) && !item.retired}>
-                    <SelectCell
-                      id={`select-${item.id}`}
-                      label={`Select ${item.name}`}
-                      checked={isChecked(item.id) && !item.retired}
-                      disabled={item.retired}
-                      onChange={(on) => toggle(item.id, on)}
-                    />
-                    <TableCell className="max-w-64 min-w-40">
-                      <TableIdentity
-                        title={item.name}
-                        to={`/targets/${encodeURIComponent(item.id)}`}
-                        {...(item.retired ? { badge: <Tag>Retired</Tag> } : {})}
-                        meta={item.domain}
-                      />
-                    </TableCell>
-                    <TableCell className="hidden text-ink-2 xl:table-cell">
-                      {TARGET_CATEGORY_LABELS[item.category]}
-                    </TableCell>
-                    <TableCell>
-                      <Priority priority={item.priority} />
-                    </TableCell>
-                    <TableCell className="hidden sm:table-cell">
-                      <Difficulty difficulty={item.difficulty} />
-                    </TableCell>
-                    <TableCell className="hidden text-ink-2 md:table-cell">
-                      {CONTACT_METHOD_LABELS[item.contactMethod]}
-                    </TableCell>
-                    <TableCell className="hidden lg:table-cell">
-                      <RequirementBadges requirements={item.requirements} max={2} />
-                    </TableCell>
-                    <TableCell className="hidden lg:table-cell">
-                      <HealthMark health={item.automation.scan} />
-                    </TableCell>
-                    <TableCell className="hidden lg:table-cell">
-                      <HealthMark health={item.automation.remove} />
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-          {list.data ? (
-            <Pagination
-              page={list.data.page}
-              pageSize={TARGETS_PAGE_SIZE}
-              total={list.data.total}
-              onPageChange={setPage}
-              noun="targets"
-            />
-          ) : null}
+          {wide ? <AutomationLegend /> : null}
+          <DataList
+            label="Targets"
+            items={items}
+            getKey={(item) => item.id}
+            identityHeader="Target"
+            identity={(item) => ({
+              title: item.name,
+              meta: item.domain,
+              to: `/targets/${encodeURIComponent(item.id)}`,
+              ...(item.retired ? { badge: <Tag>Retired</Tag> } : {}),
+            })}
+            tags={(item) => (
+              <>
+                <Tag
+                  {...(item.priority === "crucial" ? { className: "font-semibold text-ink" } : {})}
+                >
+                  {PRIORITY_LABELS[item.priority].toLowerCase()}
+                </Tag>
+                <Tag>{DIFFICULTY_LABELS[item.difficulty].toLowerCase()}</Tag>
+              </>
+            )}
+            columns={[
+              {
+                id: "category",
+                header: "Category",
+                className: "hidden xl:table-cell",
+                cell: (item) => (
+                  <span className="text-ink-2">{TARGET_CATEGORY_LABELS[item.category]}</span>
+                ),
+              },
+              {
+                id: "priority",
+                header: "Priority",
+                cell: (item) => <Priority priority={item.priority} />,
+              },
+              {
+                id: "difficulty",
+                header: "Difficulty",
+                cell: (item) => <Difficulty difficulty={item.difficulty} />,
+              },
+              {
+                id: "contact",
+                header: "Contact",
+                cell: (item) => (
+                  <span className="text-ink-2">{CONTACT_METHOD_LABELS[item.contactMethod]}</span>
+                ),
+              },
+              {
+                id: "needs",
+                header: "Needs",
+                cell: (item) => <RequirementBadges requirements={item.requirements} max={2} />,
+              },
+              {
+                id: "scan",
+                header: "Scan",
+                cell: (item) => <HealthMark health={item.automation.scan} />,
+              },
+              {
+                id: "removal",
+                header: "Removal",
+                cell: (item) => <HealthMark health={item.automation.remove} />,
+              },
+            ]}
+            selection={{
+              idPrefix: "select",
+              isChecked: (item) => isChecked(item.id) && !item.retired,
+              isDisabled: (item) => item.retired,
+              onToggle: (item, on) => toggle(item.id, on),
+              label: (item) => `Select ${item.name}`,
+              all: {
+                label: "Select all targets on this page",
+                checked: allSelected,
+                indeterminate: someSelected && !allSelected,
+                disabled: selectable.length === 0,
+                onChange: togglePage,
+              },
+            }}
+            loading={list.isPending}
+            busy={list.isPlaceholderData}
+            count={resultCount}
+            pager={
+              list.data
+                ? {
+                    page: list.data.page,
+                    pageSize: TARGETS_PAGE_SIZE,
+                    total: list.data.total,
+                    onPageChange: setPage,
+                    noun: "targets",
+                  }
+                : undefined
+            }
+          />
+          {wide ? null : selectionBar}
         </>
       )}
 

@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
@@ -113,6 +114,58 @@ describe("the generated broker dataset", () => {
     expect(pinned["radaris.com"]).toBe("radaris");
     expect(byId.get("clustrmaps")?.domain).toBe("clustrmaps.com");
     expect(byId.get("smartbackgroundchecks")?.domain).toBe("smartbackgroundchecks.com");
+  });
+
+  it("lists no site that BADBOOL names only as a resource, so a nonprofit or help page is never asked to remove anyone", () => {
+    const readme = readFileSync(
+      resolve(fileURLToPath(import.meta.url), "..", "..", "data", "upstream", "BADBOOL-README.md"),
+      "utf8",
+    );
+    const sections = readme.split(/^## /m).slice(1);
+    const resourceText = sections
+      .filter((section) => !section.startsWith("People Search Sites"))
+      .join("\n");
+    const resourceDomains = new Set(
+      [...resourceText.matchAll(/https?:\/\/([a-z0-9.-]+)/gi)].map((match) =>
+        normalizeDomain(match[1] ?? ""),
+      ),
+    );
+    const registrable = (domain: string) => domain.split(".").slice(-2).join(".");
+    const resourceRoots = new Set([...resourceDomains].map(registrable));
+    const companies = JSON.parse(
+      readFileSync(
+        resolve(fileURLToPath(import.meta.url), "..", "..", "data", "companies.json"),
+        "utf8",
+      ),
+    ) as { companies: { id: string; domain: string }[] };
+    const listed = [
+      ...dataset.brokers.map((broker) => ({ id: broker.id, domain: broker.domain })),
+      ...companies.companies,
+    ];
+    // For-profit holders of personal data that BADBOOL links for their own opt-out or freeze page.
+    const holders = new Set([
+      "equifax.com",
+      "experian.com",
+      "innovis.com",
+      "transunion.com",
+      "google.com",
+      "microsoft.com",
+    ]);
+    const clashes = listed
+      .filter((target) => resourceRoots.has(registrable(target.domain)))
+      .filter((target) => !holders.has(registrable(target.domain)))
+      .map((target) => `${target.id} ${target.domain}`);
+    expect(clashes).toEqual([]);
+  });
+
+  it("keeps Men Stopping Violence because its domain now runs a people-search directory under the name of a closed nonprofit", () => {
+    // BADBOOL files it under People Search Sites, and Optery and Redact describe the same listings.
+    // Checked 2026-10-11 against those write-ups, since the site itself refuses datacenter traffic.
+    const broker = dataset.brokers.find(
+      (candidate) => candidate.domain === "menstoppingviolence.org",
+    );
+    expect(broker?.category).toBe("people-search");
+    expect(broker?.sources.map((source) => source.source)).toEqual(["badbool"]);
   });
 
   it("leaves Radaris out because the BADBOOL list dropped it", () => {

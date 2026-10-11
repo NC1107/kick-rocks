@@ -4,17 +4,10 @@ import { errorMessage, useApiMutation, useApiQuery } from "../../api/index.js";
 import {
   Button,
   Callout,
+  DataList,
   Dialog,
   EmptyState,
   RelativeTime,
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeaderCell,
-  TableIdentity,
-  TableRow,
-  TableSkeletonRows,
   TaskStatusMark,
   useToast,
 } from "../../components/ui/index.js";
@@ -104,48 +97,50 @@ export function ScansPanel({ profileId }: { profileId: string }) {
         ) : scans.data && items.length === 0 ? (
           <EmptyState title="No scans yet." />
         ) : (
-          <Table label="Scans table">
-            <TableHead>
-              <tr>
-                <TableHeaderCell>Site</TableHeaderCell>
-                <TableHeaderCell>Status</TableHeaderCell>
-                <TableHeaderCell className="hidden md:table-cell">Result</TableHeaderCell>
-              </tr>
-            </TableHead>
-            <TableBody>
-              {scans.isPending ? (
-                <TableSkeletonRows columns={3} rows={4} />
-              ) : (
-                items.map((scan) => (
-                  <TableRow key={scan.id}>
-                    <TableCell wrap className="w-full min-w-0 py-1">
-                      <TableIdentity
-                        title={scan.targetName}
-                        meta={
-                          <>
-                            Started <RelativeTime iso={scan.startedAt} />
-                          </>
-                        }
-                      />
-                      <span className="block pb-1 text-meta text-ink-3 md:hidden">
-                        {errorText(scan) ?? matchSummary(scan)}
-                      </span>
-                    </TableCell>
-                    <TableCell className="align-top md:align-middle">
-                      {scan.taskStatus ? <TaskStatusMark status={scan.taskStatus} /> : null}
-                    </TableCell>
-                    <TableCell wrap className="hidden min-w-56 text-meta md:table-cell">
-                      {scan.error ? (
-                        <span className="text-danger-text">{errorText(scan)}</span>
-                      ) : (
-                        <span className="text-ink-2">{matchSummary(scan)}</span>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
+          <DataList
+            label="Recent scans"
+            items={items}
+            getKey={(scan) => scan.id}
+            identityHeader="Site"
+            identity={(scan) => ({
+              title: scan.targetName,
+              meta: (
+                <>
+                  Started <RelativeTime iso={scan.startedAt} />
+                </>
+              ),
+            })}
+            tags={(scan) => (
+              <>
+                {scan.taskStatus ? <TaskStatusMark status={scan.taskStatus} /> : null}
+                <span className={scan.error ? "text-danger-text" : undefined}>
+                  {errorText(scan) ?? matchSummary(scan)}
+                </span>
+              </>
+            )}
+            columns={[
+              {
+                id: "status",
+                header: "Status",
+                cell: (scan) =>
+                  scan.taskStatus ? <TaskStatusMark status={scan.taskStatus} /> : null,
+              },
+              {
+                id: "result",
+                header: "Result",
+                wrap: true,
+                className: "min-w-56 text-meta",
+                cell: (scan) =>
+                  scan.error ? (
+                    <span className="text-danger-text">{errorText(scan)}</span>
+                  ) : (
+                    <span className="text-ink-2">{matchSummary(scan)}</span>
+                  ),
+              },
+            ]}
+            loading={scans.isPending}
+            count={pluralize(items.length, "scan")}
+          />
         )}
       </DetailFrame>
 

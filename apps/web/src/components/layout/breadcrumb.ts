@@ -35,6 +35,15 @@ export function breadcrumbTrail(pathname: string, tail?: Crumb): Crumb[] {
         ? [{ label: "Requests", to: "/requests" }, leaf("Request")]
         : [{ label: "Requests" }];
     case "targets":
+      if (second && third === "remove") {
+        return [
+          { label: "Targets", to: "/targets" },
+          tail
+            ? { ...tail, to: `/targets/${second}` }
+            : { label: "Target", to: `/targets/${second}` },
+          { label: "Remove my data" },
+        ];
+      }
       return second
         ? [{ label: "Targets", to: "/targets" }, leaf("Target")]
         : [{ label: "Targets" }];

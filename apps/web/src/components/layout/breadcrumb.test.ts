@@ -27,6 +27,14 @@ describe("breadcrumbTrail", () => {
     ]);
   });
 
+  it("puts the remove screen under its target", () => {
+    expect(breadcrumbTrail("/targets/spokeo/remove", { label: "Spokeo" })).toEqual([
+      { label: "Targets", to: "/targets" },
+      { label: "Spokeo", to: "/targets/spokeo" },
+      { label: "Remove my data" },
+    ]);
+  });
+
   it("nests the settings sub-pages", () => {
     expect(breadcrumbTrail("/settings/agents")).toEqual([
       { label: "Settings", to: "/settings" },

@@ -1,12 +1,13 @@
 import { API_ROUTES, type ReviewQueue } from "@kickrocks/shared";
 import { ChevronLeft } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { useSearchParams } from "react-router";
 import { errorMessage, useApiQuery } from "../../api/index.js";
 import { RequireProfile } from "../../components/layout/RequireProfile.js";
 import { Button, Callout, PageHeader, Skeleton, SkeletonText } from "../../components/ui/index.js";
 import { cn } from "../../lib/cn.js";
 import { describeFailure } from "../../lib/failures.js";
+import { useWide } from "../../lib/use-wide.js";
 import {
   CheckForRepliesButton,
   ReplyCheckResult,
@@ -23,21 +24,6 @@ import { ScansPanel } from "./ScansPanel.js";
 import { VerificationDetail } from "./VerificationDetail.js";
 
 const DETAIL_ID = "review-detail";
-const WIDE = "(min-width: 1024px)";
-
-/** Whether the list and the item sit side by side, which is also when one is always selected. */
-function useWide(): boolean {
-  return useSyncExternalStore(
-    (notify) => {
-      const query = window.matchMedia(WIDE);
-      query.addEventListener("change", notify);
-      return () => query.removeEventListener("change", notify);
-    },
-    () => window.matchMedia(WIDE).matches,
-    () => true,
-  );
-}
-
 /** Selection and focus travel together, so Enter or Space acts on the row that looks selected. */
 function focusEntry(key: string) {
   document.querySelector<HTMLElement>(`[data-entry="${key}"] > :is(a, button)`)?.focus();

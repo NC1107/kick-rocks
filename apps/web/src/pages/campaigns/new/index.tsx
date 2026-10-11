@@ -45,6 +45,7 @@ import {
   parseTargetIds,
   waitingForPerson,
 } from "../channels.js";
+import { RIGHT_HELP, RIGHT_ORDER, RIGHT_TOKENS } from "../rights.js";
 import {
   AdvisoryList,
   CHANNEL_LABELS,
@@ -84,18 +85,6 @@ const PRESET_OPTIONS: readonly RadioOption<CampaignPreset>[] = [
     description: "Every target.",
   },
 ];
-
-const RIGHT_HELP: Record<RequestRight, string> = {
-  opt_out: "Stop selling or sharing my data.",
-  delete: "Erase what they hold. Companies may close accounts.",
-};
-
-const RIGHT_TOKENS: Record<RequestRight, string> = {
-  opt_out: "opt-out",
-  delete: "delete",
-};
-
-const RIGHT_ORDER: readonly RequestRight[] = ["opt_out", "delete"];
 
 type Choice =
   | { kind: "preset"; preset: CampaignPreset }

@@ -27,7 +27,8 @@ afterEach(() => {
 if (!window.matchMedia) {
   window.matchMedia = (query: string) =>
     ({
-      matches: false,
+      // Tests see a desktop, so lists render as tables; a phone test stubs matchMedia itself.
+      matches: query === "(min-width: 1024px)",
       media: query,
       onchange: null,
       addEventListener: () => {},

@@ -9,6 +9,7 @@ import {
   activeFilterTags,
   Button,
   Callout,
+  DataList,
   EmptyState,
   Field,
   type FilterGroup,
@@ -17,17 +18,8 @@ import {
   Input,
   LinkButton,
   PageHeader,
-  Pagination,
   RelativeTime,
   StatusMark,
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeaderCell,
-  TableIdentity,
-  TableRow,
-  TableSkeletonRows,
   TableToolbar,
 } from "../../components/ui/index.js";
 import { pluralize } from "../../lib/format.js";
@@ -162,7 +154,7 @@ function Requests({ profileId }: { profileId: string }) {
         }
       />
 
-      <TableToolbar count={resultCount}>
+      <TableToolbar>
         <search aria-label="Filter requests" className="contents">
           <Field label="Search" hideLabel className="min-w-0 flex-1 sm:w-70 sm:flex-initial">
             <Input
@@ -210,64 +202,74 @@ function Requests({ profileId }: { profileId: string }) {
           />
         )
       ) : (
-        <>
-          <Table label="Requests" aria-busy={list.isPlaceholderData || undefined}>
-            <TableHead>
-              <tr>
-                <TableHeaderCell>Target</TableHeaderCell>
-                <TableHeaderCell>Status</TableHeaderCell>
-                <TableHeaderCell>Asked</TableHeaderCell>
-                <TableHeaderCell>Channel</TableHeaderCell>
-                <TableHeaderCell align="right">Sent</TableHeaderCell>
-                <TableHeaderCell align="right">Due</TableHeaderCell>
-              </tr>
-            </TableHead>
-            <TableBody>
-              {list.isPending ? (
-                <TableSkeletonRows columns={6} rows={8} />
-              ) : (
-                items.map((item) => (
-                  <TableRow key={item.id}>
-                    <TableCell className="h-auto max-w-72 min-w-52">
-                      <TableIdentity
-                        title={item.target.name}
-                        to={`/requests/${encodeURIComponent(item.id)}`}
-                        meta={item.reference}
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <StatusMark status={item.status} />
-                    </TableCell>
-                    <TableCell mono className="text-ink-2">
-                      {item.rights.map((right) => RIGHT_TOKENS[right]).join(" \u00b7 ")}
-                    </TableCell>
-                    <TableCell className="text-ink-2">{CHANNEL_LABELS[item.channel]}</TableCell>
-                    <TimeCell iso={item.sentAt} />
-                    <TimeCell iso={item.dueAt} />
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-          {list.data ? (
-            <Pagination
-              page={list.data.page}
-              pageSize={REQUESTS_PAGE_SIZE}
-              total={list.data.total}
-              onPageChange={setPage}
-              noun="requests"
-            />
-          ) : null}
-        </>
+        <DataList
+          label="Requests"
+          items={items}
+          getKey={(item) => item.id}
+          identityHeader="Target"
+          identity={(item) => ({
+            title: item.target.name,
+            meta: item.reference,
+            to: `/requests/${encodeURIComponent(item.id)}`,
+          })}
+          tags={(item) => (
+            <>
+              <StatusMark status={item.status} />
+              <span>{item.rights.map((right) => RIGHT_TOKENS[right]).join(" · ")}</span>
+              <span>{CHANNEL_LABELS[item.channel]}</span>
+              {item.dueAt ? (
+                <span>
+                  due <RelativeTime iso={item.dueAt} />
+                </span>
+              ) : null}
+            </>
+          )}
+          columns={[
+            { id: "status", header: "Status", cell: (item) => <StatusMark status={item.status} /> },
+            {
+              id: "asked",
+              header: "Asked",
+              mono: true,
+              cell: (item) => (
+                <span className="text-ink-2">
+                  {item.rights.map((right) => RIGHT_TOKENS[right]).join(" · ")}
+                </span>
+              ),
+            },
+            {
+              id: "channel",
+              header: "Channel",
+              cell: (item) => <span className="text-ink-2">{CHANNEL_LABELS[item.channel]}</span>,
+            },
+            { id: "sent", header: "Sent", kind: "date", cell: (item) => timeOrDash(item.sentAt) },
+            { id: "due", header: "Due", kind: "date", cell: (item) => timeOrDash(item.dueAt) },
+          ]}
+          loading={list.isPending}
+          busy={list.isPlaceholderData}
+          count={resultCount}
+          pager={
+            list.data
+              ? {
+                  page: list.data.page,
+                  pageSize: REQUESTS_PAGE_SIZE,
+                  total: list.data.total,
+                  onPageChange: setPage,
+                  noun: "requests",
+                }
+              : undefined
+          }
+        />
       )}
     </>
   );
 }
 
-function TimeCell({ iso }: { iso: string | null }) {
-  return (
-    <TableCell mono align="right" className="text-ink-2">
-      {iso ? <RelativeTime iso={iso} /> : <span className="text-ink-3">-</span>}
-    </TableCell>
+function timeOrDash(iso: string | null) {
+  return iso ? (
+    <span className="text-ink-2">
+      <RelativeTime iso={iso} />
+    </span>
+  ) : (
+    <span className="text-ink-3">-</span>
   );
 }
