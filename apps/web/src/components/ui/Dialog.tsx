@@ -17,6 +17,8 @@ export interface DialogProps {
   size?: "sm" | "md" | "lg";
   /** Set false while a request is in flight, so a stray Escape cannot hide it. */
   dismissible?: boolean;
+  /** Sits against the bottom edge on a phone, for a short list of choices. */
+  sheet?: boolean;
 }
 
 const SIZES = { sm: "max-w-sm", md: "max-w-lg", lg: "max-w-2xl" } as const;
@@ -35,6 +37,7 @@ export function Dialog({
   footer,
   size = "md",
   dismissible = true,
+  sheet = false,
 }: DialogProps) {
   const ref = useRef<HTMLDialogElement>(null);
   const titleId = useId();
@@ -72,6 +75,8 @@ export function Dialog({
       className={cn(
         "m-auto max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] overflow-hidden rounded-lg border border-line-popover bg-popover p-0 text-ink shadow-dialog backdrop:animate-fade backdrop:bg-scrim open:animate-settle",
         SIZES[size],
+        sheet &&
+          "max-sm:mx-0 max-sm:mt-auto max-sm:mb-0 max-sm:w-full max-sm:max-w-none max-sm:rounded-b-none max-sm:border-x-0 max-sm:border-b-0",
       )}
     >
       <div className="flex max-h-[calc(100dvh-2rem)] flex-col">

@@ -13,7 +13,13 @@ import {
 
 import { defineMockDomain, handle, notFound } from "./core.js";
 import { buildMockListings, summarizeMockListings } from "./listings.js";
-import { buildMockQueue, quietNow, scanHoldOf, scanReadiness } from "./review.js";
+import {
+  buildMockNeedsYou,
+  buildMockQueue,
+  quietNow,
+  scanHoldOf,
+  scanReadiness,
+} from "./review.js";
 
 const DAY = 86_400_000;
 
@@ -83,7 +89,11 @@ export default defineMockDomain({
         profileId: profile.id,
         total: requests.length,
         counts,
-        attention: { ...reviewAttention(queue), ...agentAssignment(queue) },
+        attention: {
+          ...reviewAttention(queue),
+          ...agentAssignment(queue),
+          needsYou: buildMockNeedsYou(store, profile.id).counts,
+        },
         sending: profile.mailbox
           ? {
               sent,

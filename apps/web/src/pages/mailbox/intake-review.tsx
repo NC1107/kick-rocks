@@ -1,7 +1,7 @@
 import { API_ROUTES, IGNORED_KEEP_DAYS, type MailLine } from "@kickrocks/shared";
 import { useState } from "react";
 import { errorMessage, useApiMutation, useApiQuery } from "../../api/index.js";
-import { Button, Callout, RowGroup, Section, useToast } from "../../components/ui/index.js";
+import { Button, Callout, Dialog, RowGroup, Section, useToast } from "../../components/ui/index.js";
 import { IGNORE_RULE_REASON } from "../../lib/admission.js";
 import { formatDate, pluralize } from "../../lib/format.js";
 import { BodyRow, GroupNote } from "../settings/rows.js";
@@ -30,13 +30,17 @@ export function CleanupPreview({
   profileId,
   className,
   rows = PREVIEW_ROWS,
+  compact = false,
 }: {
   profileId: string;
   className?: string;
   rows?: number;
+  /** One line with a Review button that opens the list, for a page that has other work to show. */
+  compact?: boolean;
 }) {
   const toast = useToast();
   const [showAll, setShowAll] = useState(false);
+  const [reviewing, setReviewing] = useState(false);
   const cleanup = useApiQuery(API_ROUTES.intakeCleanup, { params: { id: profileId } });
   const invalidates = [API_ROUTES.intakeCleanup, API_ROUTES.intakeIgnored, API_ROUTES.reviewQueue];
   const confirm = useApiMutation(API_ROUTES.intakeCleanupConfirm, {
@@ -55,13 +59,12 @@ export function CleanupPreview({
   const shown = showAll ? data.items : data.items.slice(0, rows);
   const busy = confirm.isPending || keep.isPending;
 
-  return (
-    <Section label="Saved mail to remove" count={count} {...(className ? { className } : {})}>
+  const list = (
+    <>
       <RowGroup data-testid="cleanup-preview">
         <BodyRow>
           <p className="text-meta text-ink-2">
-            Kick Rocks saved these before it started choosing what to keep. None is tied to a
-            request. Nothing is removed until you confirm. The mail stays in your mailbox.
+            Saved before sorting started. Nothing is removed until you confirm.
           </p>
         </BodyRow>
         {shown.map((line) => (
@@ -100,7 +103,32 @@ export function CleanupPreview({
           {errorMessage(confirm.error ?? keep.error)}
         </Callout>
       ) : null}
-    </Section>
+    </>
+  );
+
+  if (!compact) {
+    return (
+      <Section label="Saved mail to remove" count={count} {...(className ? { className } : {})}>
+        {list}
+      </Section>
+    );
+  }
+  return (
+    <div className={className}>
+      <div className="flex items-center justify-between gap-3 rounded-md border border-line bg-surface py-1.5 pr-2 pl-3.5">
+        <p className="m-0 min-w-0 text-ui text-ink">{pluralize(count, "saved email")} to remove</p>
+        <Button size="sm" onClick={() => setReviewing(true)}>
+          Review
+        </Button>
+      </div>
+      <Dialog
+        open={reviewing}
+        onClose={() => setReviewing(false)}
+        title={`Saved mail to remove · ${count}`}
+      >
+        {reviewing ? list : null}
+      </Dialog>
+    </div>
   );
 }
 

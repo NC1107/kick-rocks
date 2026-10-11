@@ -1,4 +1,4 @@
-import { NotificationSettings, parseOutgoingMessageId } from "@kickrocks/shared";
+import { API_ROUTES, NotificationSettings, parseOutgoingMessageId } from "@kickrocks/shared";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   createTestContext,
@@ -14,6 +14,7 @@ import {
   seedTask,
   type TestContext,
 } from "../../test-utils/index.js";
+import { collectAttention } from "./attention.js";
 import {
   buildDigest,
   digestIsDue,
@@ -155,7 +156,7 @@ describe("the digest mail", () => {
     await sendDigest(ctx.services);
     const { mail } = ctx.mail.sent[0] as (typeof ctx.mail.sent)[number];
     expect(mail.subject).toBe("Kick Rocks digest: 0 status changes, 1 thing needs you");
-    expect(mail.text).toContain("Needs you\n- Replies to review: 1");
+    expect(mail.text).toContain("Needs you\n- Mail to sort: 1");
     expect(mail.text).toContain("Open http://kickrocks.test/review");
   });
 
@@ -407,8 +408,37 @@ describe("agent tasks in the digest", () => {
     );
 
     expect(digest?.text).toContain(
-      "Tasks waiting for an agent: 2 (1 assigned to nick-pc-agent, 1 for any agent)",
+      "Waiting on agents: 2 (1 assigned to nick-pc-agent, 1 for any agent)",
     );
-    expect(digest?.text).toContain("Agent tasks you took for yourself: 1");
+    expect(digest?.text).toContain("To do now: 1");
+    expect(digest?.text).not.toContain("took for yourself");
+  });
+});
+
+describe("a snoozed item", () => {
+  it("stays out of the digest and the push list until it comes back", async () => {
+    const request = seedRequest(ctx, { profileId, targetId, channel: "form" });
+    const task = seedTask(ctx, {
+      kind: "form",
+      status: "blocked",
+      payload: { requestId: request.id, targetId, recipeId: null, recordUrl: null },
+      profileId,
+      targetId,
+      requestId: request.id,
+      blockedReason: "captcha",
+    });
+    const window = [new Date(ctx.clock.now().getTime() - DAY), ctx.clock.now()] as const;
+    const profile = { id: profileId, displayName: "Jordan Example" };
+    expect(buildDigest(ctx.services, profile, ...window)?.text).toContain("To do now: 1");
+    expect(collectAttention(ctx.services).map((item) => item.key)).toContain(`task:${task.id}`);
+
+    const snoozed = await ctx.call(API_ROUTES.needsYouSnooze, {
+      params: { kind: "task", id: task.id },
+      body: { until: new Date(ctx.clock.now().getTime() + 2 * HOUR).toISOString() },
+    });
+    expect(snoozed.ok).toBe(true);
+
+    expect(buildDigest(ctx.services, profile, ...window)).toBeNull();
+    expect(collectAttention(ctx.services).map((item) => item.key)).not.toContain(`task:${task.id}`);
   });
 });

@@ -1,7 +1,11 @@
 import {
   API_ROUTES,
+  assembleNeedsYou,
   type BlockedReason,
   type BlockedTaskItem,
+  candidateOfMatch,
+  candidateOfTask,
+  candidateOfVerification,
   canTransition,
   clockIn,
   FORM_OUTCOMES,
@@ -10,6 +14,12 @@ import {
   type Match,
   type MessageSummary,
   manualResultSchemaFor,
+  NEEDS_YOU_MAX_SNOOZE_DAYS,
+  type NeedsYouCandidate,
+  type NeedsYouMark,
+  type NeedsYouQueue,
+  type NeedsYouRef,
+  needsYouKey,
   nextHourIn,
   preferenceBlocks,
   type ReviewMessage,
@@ -31,23 +41,15 @@ import type { MockStore } from "./store.js";
 import { selectedByFilter } from "./targets.js";
 
 const MANUAL_INSTRUCTIONS: Record<BlockedReason, string> = {
-  captcha:
-    "Open the page, solve the CAPTCHA, and submit the form yourself. Then mark the task done.",
-  phone_verification:
-    "The site texts a code to a phone. Open the page, finish the check with your phone, then mark the task done.",
-  id_upload:
-    "The site wants a photo of ID. Kick Rocks never uploads ID for you. Decide whether to send it, then mark the task done or cancel it.",
-  email_verification:
-    "Check your inbox for the site's message, follow its link, then mark the task done.",
-  login_required:
-    "The site wants you to sign in first. Create or use an account, finish the removal, then mark the task done.",
-  bot_detection:
-    "The site blocked the automated browser. Open the page in your own browser and finish the removal.",
-  approval_needed:
-    "Look at the requests the run held back. Approve them for the next run, or finish it yourself and mark it done.",
-  unapproved_submit:
-    "Open the site and check whether the form went out. If it did, mark the task done. If not, finish the removal yourself.",
-  unknown: "Open the page and finish the removal by hand, then mark the task done.",
+  captcha: "Solve the CAPTCHA on the page, then mark it done.",
+  phone_verification: "Finish the phone check on the page, then mark it done.",
+  id_upload: "The site wants ID. Kick Rocks never uploads it for you.",
+  email_verification: "Follow the link in the site's email, then mark it done.",
+  login_required: "Sign in on the page and finish the removal, then mark it done.",
+  bot_detection: "Finish the removal in your own browser, then mark it done.",
+  approval_needed: "Approve what the run held back, or finish it yourself.",
+  unapproved_submit: "Check whether the form went out, then mark it done.",
+  unknown: "Finish the removal by hand, then mark it done.",
 };
 
 const LIVE_HOLD_INSTRUCTIONS =
@@ -354,6 +356,37 @@ export function buildMockQueue(store: MockStore, profileId: string | undefined):
   };
 }
 
+/** The Needs you queue, assembled by the same shared function the server uses. */
+export function buildMockNeedsYou(store: MockStore, profileId: string | undefined): NeedsYouQueue {
+  const review = buildMockQueue(store, profileId);
+  const holdOf = (taskId: string) => {
+    const held = (store.sends.get(taskId)?.rows ?? []).filter(
+      (row) => row.kind === "held" && row.status === "pending_live",
+    );
+    const expiries = held.flatMap((row) => (row.expiresAt ? [row.expiresAt] : [])).sort();
+    const starts = held.map((row) => row.createdAt).sort();
+    return { expiresAt: expiries[0] ?? null, since: starts[0] ?? null };
+  };
+  const candidates: NeedsYouCandidate[] = [
+    ...review.blockedTasks.flatMap(
+      (item) =>
+        candidateOfTask(item, item.task.status === "leased" ? holdOf(item.task.id) : null) ?? [],
+    ),
+    ...review.agentTasks
+      .filter((item) => item.task.assignment?.to.kind === "person")
+      .flatMap((item) => candidateOfTask(item, null) ?? []),
+    ...review.matches.map((match) => {
+      const scan = store.scans.find((candidate) => candidate.id === match.scanId);
+      return candidateOfMatch(
+        match,
+        scan?.finishedAt ?? scan?.startedAt ?? store.ago({ hours: 1 }),
+      );
+    }),
+    ...review.verifications.map(candidateOfVerification),
+  ];
+  return assembleNeedsYou(candidates, store.needsYouMarks, store.clock.now());
+}
+
 export default defineMockDomain({
   name: "review",
 
@@ -431,13 +464,13 @@ export default defineMockDomain({
           blockedReason: "unapproved_submit",
           blockedDetail:
             "The agent worker reported a sent form that no one approved, so the form may already have been submitted. Check the site before you do anything else.",
-          blockedUrl: harbor.optOutUrl,
+          blockedUrl: harbor.optOutUrl ?? `https://www.${harbor.domain}/privacy`,
         },
         { hours: 3 },
       );
       task.claimerKind = "model";
       store.blockedInfo.set(task.id, {
-        url: harbor.optOutUrl,
+        url: harbor.optOutUrl ?? `https://www.${harbor.domain}/privacy`,
         manualInstructions: MANUAL_INSTRUCTIONS.unapproved_submit,
       });
       store.sends.set(
@@ -472,6 +505,67 @@ export default defineMockDomain({
         task.id,
         liveHold(store, new URL(cardinal.optOutUrl ?? "https://cardinal.example").host),
       );
+    }
+
+    // The rest of the reasons a run stops for a person, so every kind of card has an example.
+    const stops: [string, BlockedReason, string, number][] = [
+      ["audiencegrid", "email_verification", "The site says it emailed a link to confirm.", 5],
+      ["lumen-data-partners", "login_required", "The removal form needs an account first.", 7],
+      ["alder-finch", "bot_detection", "The site blocked the automated browser.", 9],
+    ];
+    for (const [targetId, reason, detail, hours] of stops) {
+      const request = store.requests.find(
+        (candidate) => candidate.targetId === targetId && candidate.profileId === jordan.id,
+      );
+      const target = store.targets.find((candidate) => candidate.id === targetId);
+      if (!request || !target) continue;
+      const url = target.optOutUrl ?? `https://www.${target.domain}/privacy`;
+      const task = makeTask(
+        store,
+        {
+          kind: "form",
+          status: "blocked",
+          profileId: jordan.id,
+          targetId: target.id,
+          targetName: target.name,
+          requestId: request.id,
+          blockedReason: reason,
+          blockedDetail: detail,
+          blockedUrl: url,
+        },
+        { hours },
+      );
+      store.blockedInfo.set(task.id, {
+        url,
+        manualInstructions: MANUAL_INSTRUCTIONS[reason],
+      });
+    }
+
+    const kept = store.requests.find(
+      (candidate) =>
+        candidate.targetId === "corner-basket-market" && candidate.profileId === jordan.id,
+    );
+    const keptTarget = store.targets.find((candidate) => candidate.id === "corner-basket-market");
+    if (kept && keptTarget) {
+      const task = makeTask(
+        store,
+        {
+          kind: "agent",
+          status: "queued",
+          profileId: jordan.id,
+          targetId: keptTarget.id,
+          targetName: keptTarget.name,
+          requestId: kept.id,
+          blockedUrl: keptTarget.optOutUrl ?? `https://www.${keptTarget.domain}/privacy`,
+        },
+        { hours: 2 },
+      );
+      task.assignment = {
+        to: { kind: "person" },
+        at: store.ago({ hours: 2 }),
+        by: "user",
+        fallback: "any",
+      };
     }
 
     const lookup = createScan(store, jordan.id, "namelookup", {
@@ -656,6 +750,7 @@ export default defineMockDomain({
     const touch = (task: TaskSummary, status: TaskSummary["status"]) => {
       task.status = status;
       task.updatedAt = store.clock.now().toISOString();
+      settle(`task:${task.id}`);
       if (status !== "blocked") {
         task.blockedReason = null;
         task.blockedDetail = null;
@@ -667,9 +762,91 @@ export default defineMockDomain({
       store.requests.find((candidate) => candidate.id === task.requestId);
     const ref = (task: TaskSummary) => ({ taskId: task.id, kind: task.kind });
 
+    /** The item a mark is about: unknown ones are missing, finished ones are conflicts. */
+    const waiting = (kind: NeedsYouRef, id: string) => {
+      const exists =
+        kind === "task"
+          ? store.tasks.some((task) => task.id === id)
+          : kind === "match"
+            ? store.matches.some((match) => match.id === id)
+            : store.requests.some((request) => request.id === id);
+      if (!exists) throw notFound("That item");
+      const key = needsYouKey(kind, id);
+      const queue = buildMockNeedsYou(store, undefined);
+      const item = queue.items.find((entry) => entry.key === key);
+      if (!item && !queue.snoozed.some((entry) => entry.key === key)) {
+        throw conflict("That item no longer needs you.");
+      }
+      return { key, hold: item?.kind === "hold" };
+    };
+    const requestIdOf = (kind: NeedsYouRef, id: string): string | null =>
+      kind === "details"
+        ? id
+        : kind === "task"
+          ? (store.tasks.find((task) => task.id === id)?.requestId ?? null)
+          : null;
+    const mark = (key: string, change: Partial<Omit<NeedsYouMark, "key">>): NeedsYouMark => {
+      const current = store.needsYouMarks.get(key);
+      const next = {
+        snoozedUntil: current?.snoozedUntil ?? null,
+        openedAt: current?.openedAt ?? null,
+        tries: current?.tries ?? 0,
+        lastTriedAt: current?.lastTriedAt ?? null,
+        ...change,
+        updatedAt: store.clock.now().toISOString(),
+      };
+      store.needsYouMarks.set(key, next);
+      const { updatedAt: _updatedAt, ...shown } = next;
+      return { key, ...shown };
+    };
+    /** A resolved item takes its "I opened the page" with it. */
+    const settle = (key: string) => {
+      const current = store.needsYouMarks.get(key);
+      if (current?.openedAt) {
+        store.needsYouMarks.set(key, { ...current, openedAt: null });
+      }
+    };
+
     return [
       ...sendRoutes(store),
       handle(API_ROUTES.reviewQueue, ({ query }) => buildMockQueue(store, query.profileId)),
+
+      handle(API_ROUTES.needsYouGet, ({ query }) => buildMockNeedsYou(store, query.profileId)),
+
+      handle(API_ROUTES.needsYouSnooze, ({ params, body }) => {
+        const until = new Date(body.until).getTime();
+        const now = store.clock.now().getTime();
+        if (until <= now) throw invalid("Snooze until a time in the future.", ["body", "until"]);
+        if (until > now + NEEDS_YOU_MAX_SNOOZE_DAYS * 24 * 60 * 60 * 1000) {
+          throw invalid("Snooze for at most 30 days.", ["body", "until"]);
+        }
+        const key = waiting(params.kind, params.id);
+        if (key.hold) throw conflict("A held request cannot be snoozed.");
+        return mark(key.key, { snoozedUntil: new Date(until).toISOString() });
+      }),
+
+      handle(API_ROUTES.needsYouUnsnooze, ({ params }) =>
+        mark(waiting(params.kind, params.id).key, { snoozedUntil: null }),
+      ),
+
+      handle(API_ROUTES.needsYouOpened, ({ params }) =>
+        mark(waiting(params.kind, params.id).key, { openedAt: store.clock.now().toISOString() }),
+      ),
+
+      handle(API_ROUTES.needsYouNotYet, ({ params, body }) => {
+        const { key } = waiting(params.kind, params.id);
+        const at = store.clock.now().toISOString();
+        const requestId = requestIdOf(params.kind, params.id);
+        const request = store.requests.find((candidate) => candidate.id === requestId);
+        if (request) {
+          addEvent(store, request, "user_action", "user", at, {
+            action: "not_yet",
+            note: body.note ?? null,
+          });
+        }
+        const current = store.needsYouMarks.get(key);
+        return mark(key, { tries: (current?.tries ?? 0) + 1, lastTriedAt: at, openedAt: null });
+      }),
 
       handle(API_ROUTES.taskResume, ({ params }) => {
         const task = taskOf(params.id);
@@ -820,6 +997,7 @@ export default defineMockDomain({
         if (match.decision !== "pending") throw conflict("That match was already decided.");
         match.decision = body.decision;
         match.decidedAt = store.clock.now().toISOString();
+        settle(`match:${match.id}`);
         if (body.decision === "mine") {
           const request = buildRequest(store, {
             profileId: match.profileId,

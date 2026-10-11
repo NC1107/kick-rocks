@@ -131,7 +131,7 @@ export function TabList({ className, style, onScroll, ...rest }: ComponentProps<
 interface TabProps extends Omit<ComponentProps<"button">, "value"> {
   value: string;
   /** Shown as a mono number after the label, in the label's own color and never in a chip. */
-  count?: number;
+  count?: number | undefined;
 }
 
 function TabCount({ count }: { count: number }) {
@@ -203,7 +203,7 @@ export interface LinkTab {
   label: ReactNode;
   /** Match only this exact path, so a parent route's tab is not active on its children. */
   end?: boolean;
-  count?: number;
+  count?: number | undefined;
 }
 
 /**

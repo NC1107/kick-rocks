@@ -195,15 +195,35 @@ It is rationed, never used in a gradient, never tints surfaces, and stays this d
   Scan and Removal are two status marks, not four tags.
 - Requests columns: Target (name plus mono reference), Status (mark), Asked (`opt-out`, `delete` as mono tokens joined by a middle dot), Channel, Sent, Due.
 
-**Review queue**.
-- Split pane on desktop (at 1024px and up): a 360px list on the left grouped under mono section labels by kind (`BLOCKED · 3`, `RECORDS · 3`, `DETAILS ASKED · 2`, `UNSORTED MAIL · 2`, `FAILED · 1`), and the selected item on the right.
-- The left list's group labels stand in for tabs, so every waiting item is visible in one place.
+**Review**.
+- A tab row sits under the title on every review route: `Needs you · 8`, `Mail · 4`, `Agents · 2`, `Problems · 1`, `Scans`.
+  Counts show only when there is something to count.
+- `/review` is the focused Needs you queue, and the other tabs are the list-and-detail layout.
+- The list pages are a split pane on desktop (at 1024px and up): a 360px list on the left, grouped under mono section labels by kind (`UNSORTED MAIL · 4`, `PROBLEMS · 1`, `WAITING FOR AN AGENT · 2`), and the selected row on the right.
 - List rows: 44px, title (target or sender) in 14/500, one line of reason in 13px `ink-3`, mono age on the right, status shape on the left.
+- The saved-mail preview and Check for replies sit in the Mail list column, so the pane height never depends on them and the decision footer stays on screen.
 - Detail pane: the facts as a compact definition list, the message body in 15px reading text with a 2px left rule for quoted mail, and the decision controls in a footer bar pinned to the bottom of the pane.
 - Keyboard: `j` and `k` move, `Enter` opens, `1` to `4` pick a classification, shown as mono keycaps in the footer.
-- One filled primary per item; the alternative ("Send nothing and cancel") is a secondary button; the disabled primary is `--kr-disabled` fill with a `line-popover` edge and `ink-3` text, not a washed accent.
-- Phone: the list is the page and an item drills down to the detail with back.
-- After a decision the next item is selected automatically, with a toast only for confirmation ("Sent date of birth to ClearCheck").
+- One filled primary per item, and the disabled primary is `--kr-disabled` fill with a `line-popover` edge and `ink-3` text, not a washed accent.
+- Phone: the list is the page and a row drills down to the detail with back.
+
+**Needs you card**.
+- One card at a time, at most 640px wide and left-aligned, with the same parts for every kind: a top bar, a header, up to three steps, chips, a 72px screenshot, and the action bar.
+- The top bar holds previous and next (44px touch targets), `3 of 8` in mono, a 6px meter, and a `...` menu.
+  Progress is the number done this sitting plus one, over the number done plus the number left.
+- The header is the target name, one attention tag of at most two words, and `~2 min` and the age in mono on the right.
+  A `TRIED 1x` tag follows once the person has said Not yet.
+- Steps are at most five words each.
+  A hint is one sentence of at most eight words.
+- Chips show a label and a masked value.
+  The first tap copies the value and reveals it, and it stays shown while the item is open.
+- The action bar has one filled primary and at most one ghost button.
+  On a phone it sticks to the bottom, full width, with safe-area padding.
+  On desktop it sits in the card footer beside the keycaps.
+- Items are ordered by how long they take: a live hold first, then quick, a few minutes, longer, with untried items ahead of ones marked Not yet.
+- After the person opens a page, the action bar becomes `Did it work?` with Yes, Not yet and Skip.
+- At 1280 the card has a 280px Up next list beside it.
+  On a phone the same list opens as a sheet from the menu.
 
 **Campaign builder**.
 - Two columns on desktop: choices on the left (max 480px), the live preview on the right, so the half of the screen that would be empty shows the result.

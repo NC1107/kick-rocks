@@ -299,7 +299,12 @@ export const RequestRecord = z.object({
 export type RequestRecord = z.infer<typeof RequestRecord>;
 
 /** What a person did by hand, as recorded on the timeline. */
-export const UserAction = z.enum([...RequestAction.options, "verification_reply", "retry_task"]);
+export const UserAction = z.enum([
+  ...RequestAction.options,
+  "verification_reply",
+  "retry_task",
+  "not_yet",
+]);
 export type UserAction = z.infer<typeof UserAction>;
 
 const TaskRef = { taskId: z.string(), kind: TaskKind };

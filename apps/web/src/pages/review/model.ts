@@ -2,100 +2,40 @@ import {
   API_ROUTES,
   type BlockedTaskItem,
   type FormOutcome,
-  type Match,
   type ReviewMessage,
   type ReviewQueue,
   type TaskSummary,
-  type VerificationItem,
 } from "@kickrocks/shared";
 import { describeFailure, type FailureGroup } from "../../lib/failures.js";
-
-export const REVIEW_TABS = [
-  "blocked",
-  "yours",
-  "matches",
-  "verifications",
-  "mail",
-  "failed",
-  "agents",
-  "scans",
-] as const;
-export type ReviewTab = (typeof REVIEW_TABS)[number];
-
-export function parseTab(value: string | null): ReviewTab | null {
-  return REVIEW_TABS.find((tab) => tab === value) ?? null;
-}
-
-/** Tabs that hold something for the person, in the order they are worth looking at. */
-const WORTH_OPENING: readonly Exclude<ReviewTab, "scans">[] = [
-  "blocked",
-  "yours",
-  "matches",
-  "verifications",
-  "mail",
-  "failed",
-  "agents",
-];
+import type { ReviewSection } from "../../lib/paths.js";
 
 /** Queued agent tasks the person took for themselves, which no agent will claim. */
 export const isYours = (item: BlockedTaskItem): boolean =>
   item.task.assignment?.to.kind === "person";
 
-export function tabCounts(queue: ReviewQueue): Record<Exclude<ReviewTab, "scans">, number> {
-  const yours = queue.agentTasks.filter(isYours).length;
+/** How many items each Review page lists, for the number beside its tab. */
+export function sectionCounts(queue: ReviewQueue): Record<ReviewSection, number> {
   return {
-    blocked: queue.blockedTasks.length,
-    yours,
-    matches: queue.matches.length,
-    verifications: queue.verifications.length,
     mail: queue.messages.length,
-    failed: queue.failedTasks.length,
-    agents: queue.agentTasks.length - yours,
+    agents: queue.agentTasks.filter((item) => !isYours(item)).length,
+    problems: queue.failedTasks.length,
   };
-}
-
-/** The tab to open when the address names none: the first one with something waiting. */
-export function firstBusyTab(queue: ReviewQueue): ReviewTab {
-  const counts = tabCounts(queue);
-  return WORTH_OPENING.find((tab) => counts[tab] > 0) ?? "blocked";
 }
 
 /** Routes whose answers change when a task, match, or message is dealt with. */
 export const REVIEW_INVALIDATES = [
   API_ROUTES.reviewQueue,
+  API_ROUTES.needsYouGet,
   API_ROUTES.requestsList,
   API_ROUTES.requestsGet,
   API_ROUTES.dashboardGet,
   API_ROUTES.scansList,
-  API_ROUTES.listingsList,
-  API_ROUTES.listingsGet,
   API_ROUTES.agentsList,
 ] as const;
 
 /** Task kinds an agent can take over, which is every kind that drives a website. */
 export function canHandOff(task: Pick<TaskSummary, "kind">): boolean {
   return task.kind === "scan" || task.kind === "form" || task.kind === "agent";
-}
-
-/** A model stopped before sending a form because it has not passed the safety gate here. */
-export function awaitsSubmitApproval(
-  task: Pick<TaskSummary, "kind" | "status" | "blockedReason">,
-): boolean {
-  return (
-    task.kind === "agent" && task.status === "blocked" && task.blockedReason === "approval_needed"
-  );
-}
-
-/**
- * A model reported a sent form that no one approved. The form may be out, so the person checks the
- * site, and running the task again could send it twice.
- */
-export function sentWithoutApproval(
-  task: Pick<TaskSummary, "kind" | "status" | "blockedReason">,
-): boolean {
-  return (
-    task.kind === "agent" && task.status === "blocked" && task.blockedReason === "unapproved_submit"
-  );
 }
 
 /** A person can report how a removal ended only for tasks that belong to a request. */
@@ -118,36 +58,25 @@ export const OUTCOME_CHOICES: readonly { value: FormOutcome; label: string; hint
   },
 ];
 
-/**
- * Breaks instructions into steps: one per line when the text has lines, otherwise one per
- * sentence, with any "1." numbering removed so the list supplies its own.
- */
-export function instructionSteps(text: string): string[] {
-  const lines = text
-    .split(/\r?\n/)
-    .map((line) => line.replace(/^\s*(?:\d+[.)]|[-*])\s+/, "").trim())
-    .filter(Boolean);
-  const steps = lines.length > 1 ? lines : (lines[0] ?? "").split(/(?<=[.!?])\s+/);
-  return steps.map((step) => step.trim()).filter(Boolean);
-}
+/** What the list pages group their rows by. */
+export type ReviewKind = "mail" | "failed" | "agents";
 
-export type ReviewKind = Exclude<ReviewTab, "scans">;
-
-/** Section labels in the list, in the order the sections appear. */
+/** Group labels in the list, in the order the groups appear. */
 export const KIND_LABELS: Record<ReviewKind, string> = {
-  blocked: "Blocked",
-  yours: "Yours to do",
-  matches: "Records",
-  verifications: "Details asked",
   mail: "Unsorted mail",
-  failed: "Failed",
+  failed: "Problems",
   agents: "Waiting for an agent",
 };
 
+/** Which kinds of row each list page holds. */
+export const SECTION_KINDS: Record<ReviewSection, readonly ReviewKind[]> = {
+  mail: ["mail"],
+  agents: ["agents"],
+  problems: ["failed"],
+};
+
 export type QueueEntry =
-  | { kind: "blocked" | "failed" | "agents" | "yours"; key: string; item: BlockedTaskItem }
-  | { kind: "matches"; key: string; match: Match }
-  | { kind: "verifications"; key: string; item: VerificationItem }
+  | { kind: "failed" | "agents"; key: string; item: BlockedTaskItem }
   | { kind: "mail"; key: string; message: ReviewMessage };
 
 /** Failed tasks sorted by cause, biggest group first, so one fix or one click covers many. */
@@ -162,95 +91,31 @@ export function sortFailures(items: readonly BlockedTaskItem[]): BlockedTaskItem
     .flatMap(([, grouped]) => grouped);
 }
 
-/** Every waiting item as one flat list, grouped by kind in the order of KIND_LABELS. */
+/** Every row the list pages show as one flat list, grouped by kind in the order of KIND_LABELS. */
 export function buildEntries(queue: ReviewQueue): QueueEntry[] {
   return [
-    ...queue.blockedTasks.map(
-      (item): QueueEntry => ({
-        kind: "blocked",
-        key: `blocked:${item.task.id}`,
-        item,
-      }),
-    ),
-    ...queue.agentTasks.filter(isYours).map(
-      (item): QueueEntry => ({
-        kind: "yours",
-        key: `yours:${item.task.id}`,
-        item,
-      }),
-    ),
-    ...queue.matches.map(
-      (match): QueueEntry => ({
-        kind: "matches",
-        key: `match:${match.id}`,
-        match,
-      }),
-    ),
-    ...queue.verifications.map(
-      (item): QueueEntry => ({
-        kind: "verifications",
-        key: `details:${item.request.id}`,
-        item,
-      }),
-    ),
     ...queue.messages.map(
-      (message): QueueEntry => ({
-        kind: "mail",
-        key: `mail:${message.id}`,
-        message,
-      }),
+      (message): QueueEntry => ({ kind: "mail", key: `mail:${message.id}`, message }),
     ),
     ...sortFailures(queue.failedTasks).map(
-      (item): QueueEntry => ({
-        kind: "failed",
-        key: `failed:${item.task.id}`,
-        item,
-      }),
+      (item): QueueEntry => ({ kind: "failed", key: `failed:${item.task.id}`, item }),
     ),
     ...queue.agentTasks
       .filter((item) => !isYours(item))
-      .map(
-        (item): QueueEntry => ({
-          kind: "agents",
-          key: `agent:${item.task.id}`,
-          item,
-        }),
-      ),
+      .map((item): QueueEntry => ({ kind: "agents", key: `agent:${item.task.id}`, item })),
   ];
 }
 
-const TASK_KEY = /^(?:blocked|yours|agent):(.+)$/;
-
 /**
- * The task a key names, whichever section holds it. Handing a task to oneself or back to an agent
- * moves it between sections, and the person is still looking at that task.
- */
-function sameTaskEntry(entries: readonly QueueEntry[], key: string): QueueEntry | undefined {
-  const taskId = TASK_KEY.exec(key)?.[1];
-  if (!taskId) return undefined;
-  return entries.find(
-    (entry) =>
-      (entry.kind === "blocked" || entry.kind === "yours" || entry.kind === "agents") &&
-      entry.item.task.id === taskId,
-  );
-}
-
-/**
- * The entry the address points at: a named item, else the first of a named group, else the first
- * of all. A task that changed section stays selected. When the named item is gone, the one that
- * now sits at its old position, so deciding an item moves on to the next.
+ * The entry the address points at: the named item, else the one now at its old position, so
+ * dealing with an item moves on to the next.
  */
 export function pickEntry(
   entries: readonly QueueEntry[],
-  { item, tab, lastIndex }: { item: string | null; tab: string | null; lastIndex: number },
+  { item, lastIndex }: { item: string | null; lastIndex: number },
 ): QueueEntry | null {
-  if (item) {
-    const named = entries.find((entry) => entry.key === item) ?? sameTaskEntry(entries, item);
-    if (named) return named;
-  } else if (tab) {
-    const first = entries.find((entry) => entry.kind === tab);
-    if (first) return first;
-  }
+  const named = item ? entries.find((entry) => entry.key === item) : undefined;
+  if (named) return named;
   return entries[Math.min(Math.max(lastIndex, 0), entries.length - 1)] ?? null;
 }
 

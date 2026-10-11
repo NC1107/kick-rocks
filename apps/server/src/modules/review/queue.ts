@@ -34,24 +34,17 @@ const WAITING_LIMIT = 100;
 /** Tasks a person can do something about. A poll or a canary has no request and nothing to retry by hand. */
 const ACTIONABLE_FAILURES: readonly TaskKind[] = ["scan", "form", "agent", "confirm", "email_send"];
 
+/** One line each: the web app writes its own copy, and these are for MCP and API clients. */
 const MANUAL_INSTRUCTIONS: Record<BlockedReason, string> = {
-  captcha:
-    "Open the page, solve the CAPTCHA, and submit the form yourself. Then mark the task done.",
-  phone_verification:
-    "The site texts a code to a phone. Open the page, finish the check with your phone, then mark the task done.",
-  id_upload:
-    "The site wants a photo of ID. Kick Rocks never uploads ID for you. Decide whether to send it, then mark the task done or cancel it.",
-  email_verification:
-    "Check your inbox for the site's message, follow its link, then mark the task done.",
-  login_required:
-    "The site wants you to sign in first. Create or use an account, finish the removal, then mark the task done.",
-  bot_detection:
-    "The site blocked the automated browser. Open the page in your own browser and finish the removal.",
-  approval_needed:
-    "Look at the requests the run held back. Approve them for the next run, or finish it yourself and mark it done.",
-  unapproved_submit:
-    "Open the site and check whether the form went out. If it did, mark the task done. If not, finish the removal yourself.",
-  unknown: "Open the page and finish the removal by hand, then mark the task done.",
+  captcha: "Solve the CAPTCHA on the page, then mark it done.",
+  phone_verification: "Finish the phone check on the page, then mark it done.",
+  id_upload: "The site wants ID. Kick Rocks never uploads it for you.",
+  email_verification: "Follow the link in the site's email, then mark it done.",
+  login_required: "Sign in on the page and finish the removal, then mark it done.",
+  bot_detection: "Finish the removal in your own browser, then mark it done.",
+  approval_needed: "Approve what the run held back, or finish it yourself.",
+  unapproved_submit: "Check whether the form went out, then mark it done.",
+  unknown: "Finish the removal by hand, then mark it done.",
 };
 
 const LIVE_HOLD_INSTRUCTIONS =
@@ -99,7 +92,7 @@ function toItem(services: AppServices, task: Task, summary: TaskSummary): Blocke
   };
 }
 
-function items(services: AppServices, list: readonly Task[]): BlockedTaskItem[] {
+export function items(services: AppServices, list: readonly Task[]): BlockedTaskItem[] {
   const summaries = services.taskQueue.summarize(list);
   return list.map((task, index) => toItem(services, task, summaries[index] as TaskSummary));
 }
@@ -152,7 +145,7 @@ function failedTasks(services: AppServices, profileId: string | undefined): Bloc
   return items(services, open);
 }
 
-function pendingMatches(services: AppServices, profileId: string | undefined) {
+export function pendingMatches(services: AppServices, profileId: string | undefined) {
   return services.db
     .select({ match: matches, targetName: targets.name })
     .from(matches)
@@ -168,7 +161,10 @@ function pendingMatches(services: AppServices, profileId: string | undefined) {
     .map(({ match, targetName }) => toMatch(match, targetName));
 }
 
-function verifications(services: AppServices, profileId: string | undefined): VerificationItem[] {
+export function verifications(
+  services: AppServices,
+  profileId: string | undefined,
+): VerificationItem[] {
   const rows = services.db
     .select({ request: requests, target: targets })
     .from(requests)
@@ -267,7 +263,7 @@ function waitingTasks(
  * Runs that are holding a request for a person right now. They are leased, not blocked, and the
  * person is the one the run is waiting for, so they head the list of what needs attention.
  */
-function heldLive(services: AppServices, profileId: string | undefined): Task[] {
+export function heldLive(services: AppServices, profileId: string | undefined): Task[] {
   return services.taskQueue
     .list({ status: "leased", kinds: ["agent"], profileId })
     .filter((task) => services.taskSends.hasLiveHold(task.id));

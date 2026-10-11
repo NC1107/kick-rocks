@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { ListingsSummary } from "./listings.js";
 import { Reference } from "./mail.js";
+import { NeedsYouCounts } from "./needs-you.js";
 import { RequestStatus, requestEventSchema } from "./requests.js";
 import { ScanHoldReason, ScanReadiness } from "./scans.js";
 
@@ -43,6 +44,8 @@ export const Dashboard = z.object({
     /** Of `agentTasks`, how many are assigned to a named agent, and which agents. */
     assignedAgentTasks: Count,
     agentAssignees: z.array(z.string()),
+    /** What the focused "Needs you" queue holds, the same numbers `GET /needs-you` gives. */
+    needsYou: NeedsYouCounts,
   }),
   /** Mail sent in the last 24 hours against the mailbox cap; null without a mailbox. */
   sending: z

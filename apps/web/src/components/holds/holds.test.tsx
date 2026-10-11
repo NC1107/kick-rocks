@@ -181,7 +181,7 @@ describe("paths", () => {
 
   it("sends a blocked task to Review and a running one to its request", () => {
     expect(taskPath({ id: "t1", kind: "form", status: "blocked", requestId: "r1" })).toBe(
-      "/review?item=blocked%3At1",
+      "/review?item=task%3At1",
     );
     expect(taskPath({ id: "t1", kind: "form", status: "leased", requestId: "r1" })).toBe(
       "/requests/r1",

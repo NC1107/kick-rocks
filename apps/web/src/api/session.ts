@@ -1,4 +1,4 @@
-import { API_ROUTES, type AuthState, type ReviewQueue, reviewAttention } from "@kickrocks/shared";
+import { API_ROUTES, type AuthState } from "@kickrocks/shared";
 import { type QueryClient, useQueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
 import { callRoute, onUnauthorized } from "./client.js";
@@ -62,14 +62,4 @@ export function useSetup() {
 export function useLogout() {
   const endSession = useEndSession();
   return useApiMutation(API_ROUTES.authLogout, { onSuccess: () => endSession() });
-}
-
-/** The number on the Review badge: everything waiting on a person. */
-export function reviewCount(
-  queue: Pick<
-    ReviewQueue,
-    "blockedTasks" | "matches" | "verifications" | "failedTasks" | "agentTasks" | "messages"
-  >,
-) {
-  return Object.values(reviewAttention(queue)).reduce((sum, n) => sum + n, 0);
 }
