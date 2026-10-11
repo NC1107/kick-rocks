@@ -1,5 +1,6 @@
 import { Check } from "lucide-react";
 import {
+  type CSSProperties,
   Fragment,
   type KeyboardEvent,
   type ReactNode,
@@ -10,8 +11,17 @@ import {
   useRef,
   useState,
 } from "react";
+import { createPortal } from "react-dom";
 import { cn } from "../../lib/cn.js";
 import { announceOverlayOpen } from "./Tooltip.js";
+
+const GAP = 4;
+const EDGE = 8;
+
+/** A modal dialog sits in the top layer, which only its own content can rise above. */
+function popoverHost(from: Element | null): Element {
+  return from?.closest("dialog") ?? document.body;
+}
 
 export interface MenuItem {
   id: string;
@@ -70,21 +80,43 @@ export function Menu({
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const id = useId();
-  const [flipped, setFlipped] = useState(false);
+  const [placement, setPlacement] = useState<CSSProperties | null>(null);
 
-  // A panel that would leave the screen swaps sides before it paints, so a right-aligned menu
-  // on a trigger near the left edge stays readable.
+  // The panel is fixed to the screen and set apart from its row, so a box that clips its content
+  // cannot cut it off. It sits under the trigger when it fits, above it when it does not, and
+  // never leaves the screen sideways.
+  const place = useCallback(() => {
+    const trigger = triggerRef.current?.getBoundingClientRect();
+    const panel = panelRef.current;
+    if (!(trigger && panel)) return;
+    const { width, height } = panel.getBoundingClientRect();
+    const wanted = align === "end" ? trigger.right - width : trigger.left;
+    const left = Math.min(Math.max(EDGE, wanted), window.innerWidth - width - EDGE);
+    const room = window.innerHeight - EDGE;
+    const below = trigger.bottom + GAP + height <= room;
+    const above = trigger.top - GAP - height >= EDGE;
+    const top = below || !above ? trigger.bottom + GAP : trigger.top - GAP - height;
+    setPlacement({
+      left,
+      top,
+      minWidth: trigger.width,
+      maxHeight: below || above ? undefined : room - top,
+    });
+  }, [align]);
+
   useLayoutEffect(() => {
     if (!open) {
-      setFlipped(false);
+      setPlacement(null);
       return;
     }
-    const rect = panelRef.current?.getBoundingClientRect();
-    if (!rect) return;
-    const gutter = 16;
-    const spills = align === "end" ? rect.left < gutter : rect.right > window.innerWidth - gutter;
-    setFlipped(spills);
-  }, [open, align]);
+    place();
+    window.addEventListener("resize", place);
+    window.addEventListener("scroll", place, true);
+    return () => {
+      window.removeEventListener("resize", place);
+      window.removeEventListener("scroll", place, true);
+    };
+  }, [open, place]);
 
   const close = useCallback((returnFocus: boolean) => {
     setOpen(false);
@@ -94,7 +126,10 @@ export function Menu({
   useEffect(() => {
     if (!open) return;
     const onPointer = (event: PointerEvent) => {
-      if (!rootRef.current?.contains(event.target as Node)) setOpen(false);
+      const target = event.target as Node;
+      if (!(rootRef.current?.contains(target) || panelRef.current?.contains(target))) {
+        setOpen(false);
+      }
     };
     document.addEventListener("pointerdown", onPointer);
     return () => document.removeEventListener("pointerdown", onPointer);
@@ -179,59 +214,66 @@ export function Menu({
   return (
     <div ref={rootRef} className={cn("relative", className)}>
       {trigger(triggerProps, open)}
-      {open ? (
-        <div
-          ref={panelRef}
-          id={id}
-          role="menu"
-          aria-label={heading}
-          onKeyDown={onPanelKeyDown}
-          className={cn(
-            "absolute z-30 mt-1 min-w-full max-w-[calc(100vw-2rem)] rounded-lg border border-line-popover bg-popover p-1 shadow-pop",
-            (align === "end") !== flipped ? "right-0" : "left-0",
-            panelClassName,
-          )}
-        >
-          {heading ? <p className="px-2.5 pt-1.5 pb-1 text-caption text-ink-3">{heading}</p> : null}
-          {items.map((item) => (
-            <Fragment key={item.id}>
-              {item.separatorBefore ? <hr className="mx-1 my-1 border-line-popover" /> : null}
-              <button
-                type="button"
-                {...(item.selected === undefined
-                  ? { role: "menuitem" }
-                  : { role: "menuitemradio", "aria-checked": item.selected })}
-                disabled={item.disabled}
-                tabIndex={-1}
-                onClick={() => {
-                  close(true);
-                  item.onSelect();
-                }}
-                className={cn(
-                  "flex min-h-control w-full items-center gap-2.5 rounded-sm px-2.5 py-1.5 text-left text-ui hover:bg-popover-hover focus-visible:bg-popover-hover focus-visible:-outline-offset-2 disabled:cursor-not-allowed disabled:opacity-50 [&_svg]:size-4",
-                  item.destructive ? "text-danger-text" : "text-ink",
-                )}
-              >
-                {item.icon ? <span className="text-ink-3">{item.icon}</span> : null}
-                <span className="flex min-w-0 flex-1 flex-col">
-                  <span className="truncate">{item.label}</span>
-                  {item.description ? (
-                    <span
-                      className={cn(
-                        "truncate text-meta text-ink-3",
-                        item.descriptionMono && "font-mono text-caption",
-                      )}
-                    >
-                      {item.description}
+      {open
+        ? createPortal(
+            <div
+              ref={panelRef}
+              id={id}
+              role="menu"
+              aria-label={heading}
+              onKeyDown={onPanelKeyDown}
+              style={placement ?? { left: 0, top: 0, visibility: "hidden" }}
+              className={cn(
+                "fixed z-50 max-w-[calc(100vw-1rem)] overflow-y-auto rounded-lg border border-line-popover bg-popover p-1 shadow-pop",
+                panelClassName,
+              )}
+            >
+              {heading ? (
+                <p className="px-2.5 pt-1.5 pb-1 text-caption text-ink-3">{heading}</p>
+              ) : null}
+              {items.map((item) => (
+                <Fragment key={item.id}>
+                  {item.separatorBefore ? <hr className="mx-1 my-1 border-line-popover" /> : null}
+                  <button
+                    type="button"
+                    {...(item.selected === undefined
+                      ? { role: "menuitem" }
+                      : { role: "menuitemradio", "aria-checked": item.selected })}
+                    disabled={item.disabled}
+                    tabIndex={-1}
+                    onClick={() => {
+                      close(true);
+                      item.onSelect();
+                    }}
+                    className={cn(
+                      "flex min-h-control w-full items-center gap-2.5 rounded-sm px-2.5 py-1.5 text-left text-ui hover:bg-popover-hover focus-visible:bg-popover-hover focus-visible:-outline-offset-2 disabled:cursor-not-allowed disabled:opacity-50 [&_svg]:size-4",
+                      item.destructive ? "text-danger-text" : "text-ink",
+                    )}
+                  >
+                    {item.icon ? <span className="text-ink-3">{item.icon}</span> : null}
+                    <span className="flex min-w-0 flex-1 flex-col">
+                      <span className="truncate">{item.label}</span>
+                      {item.description ? (
+                        <span
+                          className={cn(
+                            "truncate text-meta text-ink-3",
+                            item.descriptionMono && "font-mono text-caption",
+                          )}
+                        >
+                          {item.description}
+                        </span>
+                      ) : null}
                     </span>
-                  ) : null}
-                </span>
-                {item.selected ? <Check aria-hidden="true" className="text-accent-text" /> : null}
-              </button>
-            </Fragment>
-          ))}{" "}
-        </div>
-      ) : null}
+                    {item.selected ? (
+                      <Check aria-hidden="true" className="text-accent-text" />
+                    ) : null}
+                  </button>
+                </Fragment>
+              ))}
+            </div>,
+            popoverHost(rootRef.current),
+          )
+        : null}
     </div>
   );
 }

@@ -551,3 +551,26 @@ describe("bundled recipes to check", () => {
     expect(await screen.findByText("Could not load bundled recipes")).toBeVisible();
   });
 });
+
+describe("the index of sections on the general page", () => {
+  it("lists every card the page renders, and nothing it does not", async () => {
+    general();
+    const picker = await screen.findByRole("combobox", { name: "Jump to a section" });
+    const cards = document.querySelector("[id=schedule]")?.parentElement;
+    const anchors = [...(cards?.children ?? [])].map((child) => child.id);
+    expect(anchors.every(Boolean)).toBe(true);
+    const listed = within(picker)
+      .getAllByRole("option")
+      .map((option) => (option as HTMLOptionElement).value)
+      .filter(Boolean);
+    expect(listed).toEqual(anchors);
+    expect(anchors).toContain("mail-intake");
+  });
+
+  it("takes a phone to a section from the picker", async () => {
+    const { user } = general();
+    const picker = await screen.findByRole("combobox", { name: "Jump to a section" });
+    await user.selectOptions(picker, "mail-intake");
+    await waitFor(() => expect(picker).toHaveValue("mail-intake"));
+  });
+});

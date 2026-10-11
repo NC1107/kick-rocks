@@ -1,8 +1,15 @@
 import { API_ROUTES } from "@kickrocks/shared";
 import { type ReactNode, useEffect } from "react";
-import { useLocation } from "react-router";
+import { useLocation, useNavigate } from "react-router";
 import { errorMessage, useApiQuery } from "../../api/index.js";
-import { Button, Callout, RowGroup, Section, SkeletonText } from "../../components/ui/index.js";
+import {
+  Button,
+  Callout,
+  RowGroup,
+  Section,
+  Select,
+  SkeletonText,
+} from "../../components/ui/index.js";
 import type { SettingsSection } from "../../lib/paths.js";
 import { JurisdictionsCard } from "./JurisdictionsCard.js";
 import { LlmCard } from "./LlmCard.js";
@@ -20,7 +27,7 @@ import { WorkerCard } from "./WorkerCard.js";
 
 const WORKER_POLL_MS = 15_000;
 
-const SECTION_NAMES: Record<SettingsSection, string> = {
+export const SECTION_NAMES: Record<SettingsSection, string> = {
   schedule: "Schedule",
   "site-checks": "Site checks",
   "scan-pace": "Pace",
@@ -43,22 +50,42 @@ function Anchor({ id, children }: { id: SettingsSection; children: ReactNode }) 
   );
 }
 
-/** One tap from any section to any other, since the page is far longer than a phone screen. */
+/** A page far longer than a phone screen needs an index: a picker on a phone, a labelled row of links above it. */
 function JumpList() {
+  const navigate = useNavigate();
+  const { hash } = useLocation();
+  const entries = Object.entries(SECTION_NAMES);
   return (
-    <nav
-      aria-label="Jump to a section"
-      className="sticky top-(--kr-bar-h) z-10 -mx-(--kr-gutter) mb-4 flex gap-1 overflow-x-auto border-b border-line bg-canvas px-gutter [scrollbar-width:none]"
-    >
-      {Object.entries(SECTION_NAMES).map(([id, name]) => (
-        <a
-          key={id}
-          href={`#${id}`}
-          className="inline-flex min-h-11 shrink-0 items-center rounded-xs px-2 text-meta text-ink-3 transition-colors duration-100 hover:text-ink focus-visible:-outline-offset-2"
-        >
-          {name}
-        </a>
-      ))}
+    <nav aria-label="On this page" className="mb-4">
+      <Select
+        aria-label="Jump to a section"
+        value={entries.some(([id]) => `#${id}` === hash) ? hash.slice(1) : ""}
+        onChange={(event) => navigate({ hash: event.target.value })}
+        className="sm:hidden"
+      >
+        <option value="" disabled>
+          Jump to a section
+        </option>
+        {entries.map(([id, name]) => (
+          <option key={id} value={id}>
+            {name}
+          </option>
+        ))}
+      </Select>
+      <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1 max-sm:hidden">
+        <span className="font-mono text-caption tracking-[0.04em] text-ink-3 uppercase">
+          On this page
+        </span>
+        {entries.map(([id, name]) => (
+          <a
+            key={id}
+            href={`#${id}`}
+            className="rounded-xs text-meta text-ink-2 underline-offset-2 transition-colors duration-100 hover:text-accent-text hover:underline focus-visible:-outline-offset-2"
+          >
+            {name}
+          </a>
+        ))}
+      </div>
     </nav>
   );
 }
