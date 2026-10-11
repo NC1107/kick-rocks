@@ -1,0 +1,327 @@
+{
+  "version": "v1",
+  "modelSha256": "207d07ab86849df1d24f16cc084ea30ed08eaf642c23309ae0662203b8321257",
+  "tolerance": 0.0001,
+  "cases": [
+    {
+      "text": "Subject: Re: Opt-out request\n\nWe have removed your listing and it will disappear from search results within three days.",
+      "label": "completed",
+      "probabilities": {
+        "bounce": 0.0000026038982419664947,
+        "auto_ack": 0.00008214820552852423,
+        "confirmation_link": 0.0000022605050068387485,
+        "verification_required": 0.0000191551703488685,
+        "completed": 0.9987472025860912,
+        "no_record": 0.000019021389469811405,
+        "rejected": 0.0008700210737208534,
+        "needs_form": 0.000015074485152460648,
+        "unrelated": 0.00008294537550456426,
+        "unknown": 0.0001595673109348898
+      }
+    },
+    {
+      "text": "Subject: Your privacy request\n\nWe searched our systems and found no record that matches the name and address you gave us.",
+      "label": "no_record",
+      "probabilities": {
+        "bounce": 2.9186590335293263e-7,
+        "auto_ack": 9.799277160113236e-8,
+        "confirmation_link": 0.00000492753369763114,
+        "verification_required": 0.000017232794581087782,
+        "completed": 0.000016801301288853675,
+        "no_record": 0.9999041200480056,
+        "rejected": 0.000028367161259748642,
+        "needs_form": 0.000021155063244809743,
+        "unrelated": 2.7362895023767474e-7,
+        "unknown": 0.000006732610296948583
+      }
+    },
+    {
+      "text": "Subject: Re: Deletion request\n\nTo continue we need a copy of a government-issued photo ID and a recent utility bill that shows your address.",
+      "label": "verification_required",
+      "probabilities": {
+        "bounce": 0.0000017813799266047875,
+        "auto_ack": 4.906031563835977e-7,
+        "confirmation_link": 0.0000021655310614446743,
+        "verification_required": 0.9955666741707638,
+        "completed": 0.0000073881466099815795,
+        "no_record": 0.0004576335005349563,
+        "rejected": 0.0008919288573774477,
+        "needs_form": 0.00013800673424049504,
+        "unrelated": 0.0026632620581346004,
+        "unknown": 0.00027066901819424534
+      }
+    },
+    {
+      "text": "Subject: Please confirm your request\n\nSomeone asked us to remove this address from our lists. If that was you, click the link below to confirm.",
+      "label": "verification_required",
+      "probabilities": {
+        "bounce": 0.0005097386474333609,
+        "auto_ack": 0.0075756274913654255,
+        "confirmation_link": 0.023249125527928183,
+        "verification_required": 0.8964295235696138,
+        "completed": 0.004308277814437891,
+        "no_record": 0.004242179828382939,
+        "rejected": 0.013372395204964612,
+        "needs_form": 0.004162739441238156,
+        "unrelated": 0.004733216389861446,
+        "unknown": 0.041417176084774264
+      }
+    },
+    {
+      "text": "Subject: Re: Data request\n\nRequests can only be made through the form on our privacy page. Messages sent to this address are not read.",
+      "label": "needs_form",
+      "probabilities": {
+        "bounce": 0.000004702766416080565,
+        "auto_ack": 0.000024997854479037678,
+        "confirmation_link": 0.00002415366728813698,
+        "verification_required": 0.00007578175932729374,
+        "completed": 0.0004889990522807646,
+        "no_record": 0.0006187663805107063,
+        "rejected": 0.0016930774059023897,
+        "needs_form": 0.9969819257876811,
+        "unrelated": 0.0000045816250431493215,
+        "unknown": 0.00008301370107128161
+      }
+    },
+    {
+      "text": "Subject: Case 20931 received\n\nThanks for writing. Your message has been logged and a specialist will answer within five business days.",
+      "label": "auto_ack",
+      "probabilities": {
+        "bounce": 0.000019147289253542686,
+        "auto_ack": 0.7976520073664817,
+        "confirmation_link": 0.0000013045851437205434,
+        "verification_required": 0.00020670842873739511,
+        "completed": 0.00003882802185515416,
+        "no_record": 0.0000035120096597413685,
+        "rejected": 0.000008593161298071622,
+        "needs_form": 0.000035935999028659685,
+        "unrelated": 0.18504065216241528,
+        "unknown": 0.016993310976126635
+      }
+    },
+    {
+      "text": "Subject: Automatic reply\n\nI am out of the office until the 14th and will reply when I return.",
+      "label": "unrelated",
+      "probabilities": {
+        "bounce": 0.000030937395946667684,
+        "auto_ack": 0.13293717585256817,
+        "confirmation_link": 0.000010480096375805992,
+        "verification_required": 0.00017328152011377639,
+        "completed": 0.00020140621087280316,
+        "no_record": 0.000017837335216271447,
+        "rejected": 0.00008694995362347008,
+        "needs_form": 0.000041762977418270883,
+        "unrelated": 0.8380368139626942,
+        "unknown": 0.028463354695170397
+      }
+    },
+    {
+      "text": "Subject: Re: Opt-out request\n\nWe are unable to honor this request because the information you asked us to remove is held under a legal obligation.",
+      "label": "rejected",
+      "probabilities": {
+        "bounce": 8.369792950771987e-7,
+        "auto_ack": 3.457184602953622e-7,
+        "confirmation_link": 0.0000021482651752361374,
+        "verification_required": 0.000024384090470612957,
+        "completed": 0.0005668592753118761,
+        "no_record": 0.00006006029126238139,
+        "rejected": 0.9991845969149745,
+        "needs_form": 0.0001197789010904382,
+        "unrelated": 0.000003789922786124005,
+        "unknown": 0.000037199641173491844
+      }
+    },
+    {
+      "text": "Subject: Mail delivery failed\n\nThe message to privacy@broker.example could not be delivered. The mailbox is full.",
+      "label": "unknown",
+      "probabilities": {
+        "bounce": 0.003444502284246599,
+        "auto_ack": 0.028456154350451828,
+        "confirmation_link": 0.00006383599943033111,
+        "verification_required": 0.00023593120984310038,
+        "completed": 0.0029771369325453214,
+        "no_record": 0.00027335619525038963,
+        "rejected": 0.062027698867066244,
+        "needs_form": 0.0016995064089830926,
+        "unrelated": 0.10107868419005192,
+        "unknown": 0.7997431935621312
+      }
+    },
+    {
+      "text": "Subject: 40% off all summer sandals\n\nOur biggest sale of the year ends Sunday. Shop now and get free shipping on every order.",
+      "label": "unrelated",
+      "probabilities": {
+        "bounce": 3.2884455953730613e-7,
+        "auto_ack": 0.0000012537464512162583,
+        "confirmation_link": 2.43439283516246e-8,
+        "verification_required": 0.000010972991821103217,
+        "completed": 6.637905981129439e-7,
+        "no_record": 1.36813226812745e-7,
+        "rejected": 3.0853907008157234e-7,
+        "needs_form": 2.7033644038342953e-8,
+        "unrelated": 0.9999819994892302,
+        "unknown": 0.000004284407470627133
+      }
+    },
+    {
+      "text": "Subject: Re: Opt-out request\n\nThanks, we will look into it.",
+      "label": "unknown",
+      "probabilities": {
+        "bounce": 0.000037835706765429065,
+        "auto_ack": 0.014039146638221237,
+        "confirmation_link": 0.000051572498463253665,
+        "verification_required": 0.000022926350039274425,
+        "completed": 0.07372382120838199,
+        "no_record": 0.007140024422822185,
+        "rejected": 0.01705122270322818,
+        "needs_form": 0.002761075515364772,
+        "unrelated": 0.00032001960087197593,
+        "unknown": 0.8848523553558417
+      }
+    },
+    {
+      "text": "Subject: Re: Your request\n\nYour data has been deleted from our systems and a confirmation has been sent to your registered address.",
+      "label": "completed",
+      "probabilities": {
+        "bounce": 0.000005637765871441667,
+        "auto_ack": 0.0001585702657800584,
+        "confirmation_link": 0.000001271053493441517,
+        "verification_required": 0.000004286878883736685,
+        "completed": 0.9991094779717731,
+        "no_record": 0.00003189140240600631,
+        "rejected": 0.0004437358887155509,
+        "needs_form": 0.00003184119326325795,
+        "unrelated": 0.00007631406267207096,
+        "unknown": 0.0001369735171413341
+      }
+    },
+    {
+      "text": "Subject: Re: Deletion request\n\nWe do not hold any personal information about you, so there is nothing for us to delete.",
+      "label": "no_record",
+      "probabilities": {
+        "bounce": 1.0152895973044632e-7,
+        "auto_ack": 1.9164934300037846e-8,
+        "confirmation_link": 6.592599755858831e-8,
+        "verification_required": 1.5470651909792623e-7,
+        "completed": 0.00003139963308527913,
+        "no_record": 0.9998430445756081,
+        "rejected": 0.0001019363769470161,
+        "needs_form": 0.0000047472314469507004,
+        "unrelated": 3.789965111959917e-7,
+        "unknown": 0.000018151859990800885
+      }
+    },
+    {
+      "text": "Subject: Re: Opt-out request\n\nPlease reply with your date of birth and the last four digits of your phone number so that we can find your account.",
+      "label": "verification_required",
+      "probabilities": {
+        "bounce": 1.9017360481646607e-8,
+        "auto_ack": 8.477519399762749e-8,
+        "confirmation_link": 2.7891095988698213e-7,
+        "verification_required": 0.9999813228981237,
+        "completed": 5.457816895088097e-8,
+        "no_record": 0.00001226961277538518,
+        "rejected": 8.036404578008323e-7,
+        "needs_form": 0.000003287371566897105,
+        "unrelated": 3.5093105107467223e-7,
+        "unknown": 0.0000015282643418891578
+      }
+    },
+    {
+      "text": "Subject: Verify your opt-out\n\nTo finish removing your information, follow the link in this message within 48 hours.",
+      "label": "auto_ack",
+      "probabilities": {
+        "bounce": 0.00008431534878640871,
+        "auto_ack": 0.9102652871294661,
+        "confirmation_link": 0.0037499646866264564,
+        "verification_required": 0.04685369673524777,
+        "completed": 0.005275179947274257,
+        "no_record": 0.000019413534473082642,
+        "rejected": 0.006096782288479962,
+        "needs_form": 0.0011502525210499211,
+        "unrelated": 0.01661794340002669,
+        "unknown": 0.009887164408569587
+      }
+    },
+    {
+      "text": "Subject: Re: Your request\n\nWe only accept deletion requests submitted through our online portal or by calling our toll free line.",
+      "label": "rejected",
+      "probabilities": {
+        "bounce": 0.000024319271215927804,
+        "auto_ack": 0.0003168544157797945,
+        "confirmation_link": 0.00010806698625056413,
+        "verification_required": 0.002060437795441518,
+        "completed": 0.027195380488619848,
+        "no_record": 0.0018446370118427905,
+        "rejected": 0.7572780285592301,
+        "needs_form": 0.2102340622473053,
+        "unrelated": 0.000042235395718894906,
+        "unknown": 0.0008959778285952077
+      }
+    },
+    {
+      "text": "Subject: Invitation\n\nJoin us on Thursday for the neighbourhood barbecue. Bring a dish to share and a folding chair.",
+      "label": "unrelated",
+      "probabilities": {
+        "bounce": 0.00027054348898008525,
+        "auto_ack": 0.06094585689345315,
+        "confirmation_link": 0.0000687228596038934,
+        "verification_required": 0.006791623737159235,
+        "completed": 0.00024570466139375695,
+        "no_record": 0.002211987270333624,
+        "rejected": 0.005967466853880265,
+        "needs_form": 0.0007226443331942251,
+        "unrelated": 0.8010069204307719,
+        "unknown": 0.12176852947122986
+      }
+    },
+    {
+      "text": "Subject: Re: Request KR-7K3M9Q\n\nYour request is complete. You will no longer be contacted by us and your profile has been suppressed.",
+      "label": "completed",
+      "probabilities": {
+        "bounce": 3.513819814841808e-7,
+        "auto_ack": 0.000003633940753324013,
+        "confirmation_link": 0.0000052405594746213686,
+        "verification_required": 0.000006583522270734822,
+        "completed": 0.999076636675547,
+        "no_record": 0.0001659376141614966,
+        "rejected": 0.0005998489788807779,
+        "needs_form": 0.000002704248732113211,
+        "unrelated": 3.1355680323391403e-7,
+        "unknown": 0.00013874952139535988
+      }
+    },
+    {
+      "text": "Subject: Re: Opt-out\n\nUnfortunately we could not verify that you are a resident of the state named in your request, so we have declined it.",
+      "label": "rejected",
+      "probabilities": {
+        "bounce": 0.000006991002694033198,
+        "auto_ack": 0.000012876899126452008,
+        "confirmation_link": 0.00009747765720976854,
+        "verification_required": 0.0005882327305528164,
+        "completed": 0.0002622958086457143,
+        "no_record": 0.0014552330467797415,
+        "rejected": 0.9940891003270849,
+        "needs_form": 0.0008853818208967367,
+        "unrelated": 0.00006137091258588523,
+        "unknown": 0.002541039794423885
+      }
+    },
+    {
+      "text": "Subject: Re: Opt-out request\n\nThis is an automated acknowledgement. Your reference number is 88431. We aim to respond within 45 days.",
+      "label": "auto_ack",
+      "probabilities": {
+        "bounce": 0.00005094428572240709,
+        "auto_ack": 0.9273873061158732,
+        "confirmation_link": 0.00006732330987487444,
+        "verification_required": 0.006819800226021321,
+        "completed": 0.0002491045568904414,
+        "no_record": 0.000019962570727870545,
+        "rejected": 0.0021381431066615293,
+        "needs_form": 0.0006766690477301066,
+        "unrelated": 0.05268081222399187,
+        "unknown": 0.009909934556506496
+      }
+    }
+  ]
+}
