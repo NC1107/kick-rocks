@@ -6,6 +6,7 @@ import {
   Button,
   Callout,
   CopyButton,
+  EntityLink,
   ExternalLinkText,
   InlineError,
   Section,
@@ -96,9 +97,7 @@ export function AgentPanel({ task, pageUrl, events = [], layout }: AgentPanelPro
       {state.kind === "working" && heldNow ? (
         <p className="text-attention-text">
           A request is waiting for your approval.{" "}
-          <TextLink to={`/review?item=${encodeURIComponent(`blocked:${task.id}`)}`}>
-            Open in Review
-          </TextLink>
+          <EntityLink to={{ kind: "review", key: `blocked:${task.id}`, label: "Open in Review" }} />
         </p>
       ) : null}
       {state.kind === "working" ? (
