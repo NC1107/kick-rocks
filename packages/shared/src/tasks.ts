@@ -2,6 +2,7 @@ import { z } from "zod";
 import { SubmitApproval } from "./agent-models.js";
 import { ProfileField } from "./identities.js";
 import { EmailKind } from "./mail.js";
+import { AgeSpan } from "./match-score.js";
 import { BlockedReason, FailureKind, FormOutcome } from "./outcomes.js";
 import { SubmitGate } from "./outgoing.js";
 import { Recipe } from "./recipe.js";
@@ -147,6 +148,9 @@ export const Candidate = z.object({
   recordUrl: WebUrl,
   name: z.string().min(1),
   age: z.number().int().nonnegative().optional(),
+  /** Set instead of `age` when the card gives several ages, such as "Ages 42-47" or "In their 40s". */
+  ageRange: AgeSpan.optional(),
+  birthYear: z.number().int().optional(),
   locations: z.array(z.string()),
   relatives: z.array(z.string()).optional(),
   phones: z.array(z.string()).optional(),

@@ -113,6 +113,7 @@ export default defineMockDomain({
         isPrimary: true,
         ...NO_DATES,
       },
+      { kind: "dob", value: { date: "2001-03-02" }, isPrimary: true, ...NO_DATES },
     ]);
 
     seedProfile(

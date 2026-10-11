@@ -1,4 +1,11 @@
-import { Candidate, type CandidateField, normalizeRecordUrl } from "@kickrocks/shared";
+import {
+  ageFieldsOf,
+  Candidate,
+  type CandidateField,
+  normalizeRecordUrl,
+  parseAgeText,
+  parseBirthYear,
+} from "@kickrocks/shared";
 import type { Locator } from "playwright";
 import { READ_FIELDS } from "./page-scripts.js";
 import { webUrlFrom } from "./text.js";
@@ -14,12 +21,16 @@ async function readRows(items: Locator, rules: Rules): Promise<Row[]> {
   return items.evaluateAll(READ_FIELDS, rules);
 }
 
-/** The first whole number in the text, so "John Smith, 45 (born 1980)" reads as 45. */
-export function ageFrom(values: string[] | undefined): number | undefined {
-  const digits = /\d+/.exec(values?.[0] ?? "");
-  if (!digits) return undefined;
-  const years = Number.parseInt(digits[0], 10);
-  return years >= 0 && years <= 130 ? years : undefined;
+/** The age a card states, so "John Smith, 45 (born 1980)" reads as 45 and "Ages 42-47" as a range. */
+export function ageFields(
+  values: string[] | undefined,
+): Pick<Candidate, "age" | "ageRange" | "birthYear"> {
+  const text = values?.[0] ?? "";
+  const birthYear = parseBirthYear(text);
+  return {
+    ...ageFieldsOf(parseAgeText(text)),
+    ...(birthYear === null ? {} : { birthYear }),
+  };
 }
 
 function list(values: string[] | undefined): string[] | undefined {
@@ -60,11 +71,10 @@ export async function extractCandidates(
     if (recordUrl === null || !name) continue;
     const key = normalizeRecordUrl(recordUrl);
     if (key === null || seen.has(key)) continue;
-    const years = ageFrom(row.age);
     const parsed = Candidate.safeParse({
       recordUrl,
       name,
-      ...(years === undefined ? {} : { age: years }),
+      ...ageFields(row.age),
       locations: row.locations ?? [],
       ...(list(row.relatives) ? { relatives: list(row.relatives) } : {}),
       ...(list(row.phones) ? { phones: list(row.phones) } : {}),

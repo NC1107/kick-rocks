@@ -95,7 +95,7 @@ describe("the review queue", () => {
   it("lists everything waiting under a labelled group and opens the first item", async () => {
     open();
     expect(await screen.findByRole("heading", { name: "Blocked · 6" })).toBeVisible();
-    expect(screen.getByRole("heading", { name: "Records · 3" })).toBeVisible();
+    expect(screen.getByRole("heading", { name: "Records · 4" })).toBeVisible();
     expect(screen.getByRole("heading", { name: "Details asked · 2" })).toBeVisible();
     expect(screen.getByRole("heading", { name: "Unsorted mail · 4" })).toBeVisible();
     expect(screen.getByRole("heading", { name: "Failed · 1" })).toBeVisible();
@@ -459,6 +459,22 @@ describe("the review queue", () => {
       );
       expect(request?.rights).toEqual(["opt_out"]);
     });
+  });
+
+  it("shows the band and the reasons on the row and in the open record", async () => {
+    const { user } = open("matches");
+    const list = within(await screen.findByRole("navigation", { name: "Review queue" }));
+    const row = await list.findByRole("button", { name: /^Jordan Example\s*Found/ });
+    expect(row).toHaveTextContent("Unlikely");
+    expect(row).toHaveTextContent("Age 62, you are 36");
+    expect(
+      await list.findByRole("button", { name: /^Jordan Q Example\s*Found.*Phone matches/ }),
+    ).toHaveTextContent("Likely");
+
+    await user.click(row);
+    const pane = within(await screen.findByRole("region", { name: /Jordan Example on/ }));
+    expect(pane.getByText("Unlikely")).toBeVisible();
+    expect(pane.getByText("Age 62, you are 36")).toBeVisible();
   });
 
   it("marks a record as not the person", async () => {

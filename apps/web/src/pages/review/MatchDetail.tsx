@@ -15,6 +15,7 @@ import {
 } from "../../components/ui/index.js";
 import { RIGHT_LABELS } from "../../lib/labels.js";
 import { DetailFrame } from "./DetailFrame.js";
+import { MatchFit } from "./MatchFit.js";
 import { REVIEW_INVALIDATES } from "./model.js";
 
 const RIGHT_ORDER: readonly RequestRight[] = ["opt_out", "delete"];
@@ -38,6 +39,11 @@ function facts(fields: Match["fields"], recordUrl: string): DescriptionItem[] {
       ),
     },
   ];
+}
+
+function ageNote(fields: Match["fields"]): string {
+  if (fields.age !== undefined) return `, age ${fields.age}`;
+  return fields.ageRange ? `, age ${fields.ageRange.low}-${fields.ageRange.high}` : "";
 }
 
 export function MatchDetail({ match }: { match: Match }) {
@@ -70,7 +76,7 @@ export function MatchDetail({ match }: { match: Match }) {
           <>
             Found on{" "}
             <EntityLink to={{ kind: "target", id: match.targetId, name: match.targetName }} />
-            {fields.age !== undefined ? `, age ${fields.age}` : ""}
+            {ageNote(fields)}
           </>
         }
         error={decide.isError && !open ? errorMessage(decide.error) : undefined}
@@ -94,6 +100,7 @@ export function MatchDetail({ match }: { match: Match }) {
           </>
         }
       >
+        {match.assessment ? <MatchFit assessment={match.assessment} /> : null}
         <DescriptionList items={facts(fields, match.recordUrl)} />
       </DetailFrame>
 

@@ -1,4 +1,11 @@
-import { type ProfileFields, US_STATES } from "@kickrocks/shared";
+import {
+  ageGap,
+  ageSpanInYear,
+  agesInText,
+  type ProfileFields,
+  US_STATES,
+  WEAK_AGE_GAP,
+} from "@kickrocks/shared";
 import { readsAsPagination } from "./pagination.js";
 import { CITY_PATTERN } from "./place-pattern.js";
 
@@ -347,61 +354,28 @@ function placeVerdict(main: string, fields: ProfileFields): Verdict["place"] {
 
 const BORN =
   /\b(?:born|b\.|birth year|dob|date of birth)\W{0,3}(?:in\s+)?(?:[A-Za-z]+\.?\s+)?(?:\d{1,2}[/-])?(?:\d{1,2},?\s+)?((?:19|20)\d{2})\b/i;
-const AGE_WORD = /\bag(?:e|es|ed)\s*:?\s*(\d{1,3})(?:\s*(?:-|\u2013|\u2014|to)\s*(\d{1,3}))?\b/gi;
-const AGE_YEARS = /\b(\d{1,3})\s*(?:years?\s*old|yrs?\b|y\/?o\b)/gi;
-const AGE_PARENS = /\((\d{2,3})\)(?!\s*\d{3}[\s.-]\d{4})/g;
-const AGE_DECADE = /\b([1-9])0['\u2019]?s\b/gi;
-const AGE_AFTER_NAME = /^\p{Lu}[\p{L}.'-]*(?:\s+\p{Lu}[\p{L}.'-]*){0,4},\s*(\d{2,3})\s*$/gmu;
 /** A page that says in words that it has no age has not hidden one from the parser. */
 const AGE_ABSENT =
   /\bag(?:e|es|ed)\s*:?\s*(?:is\s+)?(?:not\s+(?:listed|shown|available|provided|known)|unknown|n\/a|withheld|unavailable|hidden)\b/gi;
 /** Something that looks like an age or a birth year and that no pattern above could read. */
 const AGE_LIKE = /\bag(?:e|es|ed)\b|\by\/?o\b|\byears?\s*old\b|\b(?:19\d{2}|200\d)\b/i;
 
-interface AgeSpan {
-  low: number;
-  high: number;
-}
-
-/** Every age the text states, as a span: "46", "42-47", "Ages 40 to 44" and "In their 40s" are all spans. */
-function agesShown(text: string): AgeSpan[] {
-  const spans: AgeSpan[] = [];
-  const add = (low: number, high: number) => {
-    if (low <= high && high <= 120) spans.push({ low, high });
-  };
-  for (const match of text.matchAll(AGE_WORD)) {
-    const low = Number(match[1]);
-    add(low, match[2] === undefined ? low : Number(match[2]));
-  }
-  for (const pattern of [AGE_YEARS, AGE_PARENS, AGE_AFTER_NAME]) {
-    for (const match of text.matchAll(pattern)) add(Number(match[1]), Number(match[1]));
-  }
-  for (const match of text.matchAll(AGE_DECADE)) {
-    const low = Number(match[1]) * 10;
-    add(low, low + 9);
-  }
-  return spans;
-}
-
-/**
- * A page goes stale by a year or two, so a single age just outside the ages the birth year gives
- * is not held to contradict the person. It is left unclear for the model, and it does not fit.
- */
-const STALE_AGE_YEARS = 2;
-
-function ageVerdict(text: string, age: number, birthYearShown: boolean): Verdict["age"] {
-  const shown = agesShown(text);
+function ageVerdict(
+  text: string,
+  year: number,
+  born: number,
+  birthYearShown: boolean,
+): Verdict["age"] {
+  const shown = agesInText(text);
   if (shown.length === 0)
     return !birthYearShown && AGE_LIKE.test(text.replace(AGE_ABSENT, " "))
       ? "unclear"
       : "not shown";
-  const fitsSpan = (span: AgeSpan) => span.low <= age && span.high >= age - 1;
-  if (shown.some(fitsSpan)) return "fits";
-  const nearlyFits = (span: AgeSpan) =>
-    span.low === span.high &&
-    span.low >= age - 1 - STALE_AGE_YEARS &&
-    span.low <= age + STALE_AGE_YEARS;
-  return shown.some(nearlyFits) ? "unclear" : "does not fit";
+  const own = ageSpanInYear(born, year);
+  const nearest = Math.min(...shown.map((span) => ageGap(span, own)));
+  if (nearest === 0) return "fits";
+  // A page goes stale by a few years, so only an age past the scorer's tolerance contradicts.
+  return nearest <= WEAK_AGE_GAP ? "unclear" : "does not fit";
 }
 
 function birthYearOf(fields: ProfileFields): number | null {
@@ -449,7 +423,7 @@ export function compareRecord(
     const shown = BORN.exec(mainText)?.[1];
     verdict.birthYear =
       shown === undefined ? "not shown" : Number(shown) === born ? "matches" : "differs";
-    verdict.age = ageVerdict(mainText, year - born, shown !== undefined);
+    verdict.age = ageVerdict(mainText, year, born, shown !== undefined);
   }
 
   const lines: string[] = [];

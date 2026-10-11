@@ -2177,6 +2177,7 @@ describeBrowser("a scan report held against the worker's comparison", () => {
     expect(candidates[0]).toEqual({
       recordUrl: `${ORIGIN}/people/r1`,
       name: "Jordan A Example",
+      birthYear: 1990,
       locations: ["Austin, TX"],
       relatives: ["Dana Example", "Pat Example"],
     });

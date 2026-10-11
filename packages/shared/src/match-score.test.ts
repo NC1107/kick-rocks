@@ -102,6 +102,23 @@ describe("age", () => {
     expect(weightOf(result, "age")).toBe("contradicts");
   });
 
+  it("reads an age range as a range from a card", () => {
+    const sameAge = { ...profile, birth: "1977-05-05" };
+    const inRange = scoreCandidate(
+      { ...candidate, ageRange: parseAgeText("Ages 42-47") ?? undefined },
+      sameAge,
+      TODAY,
+    );
+    expect(weightOf(inRange, "age")).toBe("strong");
+    const decade = scoreCandidate(
+      { ...candidate, ageRange: parseAgeText("In their 40s") ?? undefined },
+      { ...profile, birth: "1977-05-05" },
+      TODAY,
+    );
+    expect(weightOf(decade, "age")).toBe("weak");
+    expect(decade.reasons.some((reason) => reason.weight === "contradicts")).toBe(false);
+  });
+
   it("parses the ways a card states an age", () => {
     expect(parseAgeText("Age 47")).toEqual({ low: 47, high: 47 });
     expect(parseAgeText("Ages 42-47")).toEqual({ low: 42, high: 47 });
@@ -171,8 +188,130 @@ describe("names", () => {
     expect(result.band).toBe("maybe");
   });
 
-  it("says nothing about a name that is not the person's", () => {
-    expect(scoreCandidate({ ...candidate, name: "Sam Smith" }, profile, TODAY).reasons).toEqual([]);
+  it("says nothing about a different first name over the same last name", () => {
+    expect(scoreCandidate({ ...candidate, name: "Sam Conn" }, profile, TODAY).reasons).toEqual([]);
+  });
+
+  it("holds a different last name weakly against and keeps it from being likely", () => {
+    const result = scoreCandidate(
+      { name: "Jane Doe", age: 25, phones: ["5555550123"] },
+      profile,
+      TODAY,
+    );
+    expect(result.reasons[0]).toMatchObject({
+      kind: "name",
+      weight: "weak_against",
+      via: "different",
+    });
+    expect(describeReasons(result.reasons)).toContain("Different name");
+    expect(result.score).toBeGreaterThanOrEqual(70);
+    expect(result.band).toBe("maybe");
+  });
+
+  it("says nothing when the candidate has no usable name", () => {
+    expect(scoreCandidate({ name: "Conn" }, profile, TODAY).reasons).toEqual([]);
+  });
+
+  describe("apostrophes, several-word and hyphenated last names", () => {
+    const against = (name: { first: string; middle?: string; last: string }, shown: string) =>
+      scoreCandidate({ name: shown }, { names: [name] }, TODAY).reasons[0];
+
+    it("matches O'Brien with and without a middle name", () => {
+      const own = { first: "Sean", middle: "Patrick", last: "O'Brien" };
+      for (const shown of [
+        "Sean O'Brien",
+        "Sean Patrick O'Brien",
+        "Sean P. O\u2019Brien",
+        "OBrien, Sean",
+      ]) {
+        expect(against(own, shown), shown).toMatchObject({ weight: "strong" });
+      }
+      expect(against({ first: "Sean", last: "O'Brien" }, "Sean P. O'Brien")).toMatchObject({
+        weight: "strong",
+      });
+      expect(against(own, "Sean Q. O'Brien")).toMatchObject({
+        weight: "weak_against",
+        via: "middle",
+      });
+    });
+
+    it("matches De La Cruz with and without a middle name", () => {
+      const own = { first: "Maria", last: "De La Cruz" };
+      expect(against(own, "Maria De La Cruz")).toMatchObject({ weight: "strong" });
+      expect(against(own, "Maria L De La Cruz")).toMatchObject({ weight: "strong" });
+      expect(against({ ...own, middle: "Luisa" }, "Maria L De La Cruz")).toMatchObject({
+        weight: "strong",
+      });
+      expect(against({ ...own, middle: "Luisa" }, "Maria R De La Cruz")).toMatchObject({
+        weight: "weak_against",
+        via: "middle",
+      });
+    });
+
+    it("matches a hyphenated last name written with a hyphen or a space", () => {
+      const own = { first: "Anna", middle: "Beth", last: "Smith-Jones" };
+      for (const shown of ["Anna Smith-Jones", "Anna Beth Smith Jones", "Anna B. Smith-Jones"]) {
+        expect(against(own, shown), shown).toMatchObject({ weight: "strong" });
+      }
+      expect(against({ first: "Anna", last: "Smith-Jones" }, "Anna Smith")).toMatchObject({
+        via: "different",
+      });
+    });
+  });
+});
+
+describe("search fields alone", () => {
+  it("keeps a name with the same state or city and no age at maybe", () => {
+    const state = scoreCandidate({ ...candidate, locations: ["Salisbury, MD"] }, profile, TODAY);
+    const city = scoreCandidate({ ...candidate, locations: ["Baltimore, MD"] }, profile, TODAY);
+    expect(state.score).toBeGreaterThanOrEqual(70);
+    expect(city.score).toBeGreaterThanOrEqual(70);
+    expect(state.band).toBe("maybe");
+    expect(city.band).toBe("maybe");
+  });
+
+  it("keeps a weak age from carrying a record to likely", () => {
+    const result = scoreCandidate(
+      { ...candidate, age: 29, locations: ["Baltimore, MD"] },
+      profile,
+      TODAY,
+    );
+    expect(result.band).toBe("maybe");
+  });
+
+  it("lets a phone or a strong age carry it", () => {
+    const place = { locations: ["Baltimore, MD"] };
+    expect(
+      scoreCandidate({ ...candidate, ...place, phones: ["5555550123"] }, profile, TODAY).band,
+    ).toBe("likely");
+    expect(scoreCandidate({ ...candidate, ...place, age: 25 }, profile, TODAY).band).toBe("likely");
+  });
+});
+
+describe("band edges", () => {
+  const own: ScoreProfile = {
+    names: [{ first: "Nick", last: "Conn" }],
+    birth: "2001-03-02",
+    states: ["MD"],
+  };
+  const score = (shown: Parameters<typeof scoreCandidate>[0]) => scoreCandidate(shown, own, TODAY);
+
+  it("is unlikely at exactly 30 and maybe just above", () => {
+    const edge = score({ name: "Nick Conn", age: 33 });
+    expect(edge.score).toBe(30);
+    expect(edge.band).toBe("unlikely");
+    const above = score({ name: "Nick Conn", age: 33, locations: ["Salisbury, MD"] });
+    expect(above.score).toBe(35);
+    expect(above.band).toBe("maybe");
+  });
+
+  it("is likely at exactly 70 and maybe just below", () => {
+    const edge = score({ name: "Nick", age: 25, locations: ["Salisbury, MD"] });
+    expect(edge.score).toBe(70);
+    expect(edge.band).toBe("likely");
+    const below = score({ name: "Nick", age: 25, locations: ["Austin, TX"] });
+    expect(below.score).toBe(65);
+    expect(below.band).toBe("maybe");
   });
 });
 
@@ -222,6 +361,29 @@ describe("no data", () => {
       TODAY,
     );
     expect(result.band).toBe("maybe");
+  });
+});
+
+describe("place formats", () => {
+  it("reads a trailing ZIP code and a full state name", () => {
+    for (const place of [
+      "Baltimore, MD 21201",
+      "Baltimore, MD 21201-1234",
+      "Baltimore, Maryland",
+      "Baltimore, Maryland 21201",
+    ]) {
+      const result = scoreCandidate({ ...candidate, locations: [place] }, profile, TODAY);
+      expect(describeReasons(result.reasons), place).toContain("Lives in Baltimore, MD");
+    }
+  });
+
+  it("ignores a region that is not a state", () => {
+    const result = scoreCandidate(
+      { ...candidate, locations: ["Toronto, Ontario"] },
+      profile,
+      TODAY,
+    );
+    expect(weightOf(result, "place")).toBeUndefined();
   });
 });
 

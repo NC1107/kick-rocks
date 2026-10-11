@@ -135,8 +135,6 @@ export function createProfileStore(deps: {
     }
   };
 
-  const today = () => nowIso(clock).slice(0, 10);
-
   const touch = (id: string) =>
     db
       .update(profiles)
@@ -192,7 +190,7 @@ export function createProfileStore(deps: {
           })
           .where(eq(profiles.id, id))
           .run();
-        rescorePendingMatches(db, id, today());
+        rescorePendingMatches(db, id);
       });
       return detail(requireRow(id));
     },
@@ -202,7 +200,7 @@ export function createProfileStore(deps: {
         requireRow(id);
         writeIdentities(id, inputs);
         touch(id);
-        rescorePendingMatches(db, id, today());
+        rescorePendingMatches(db, id);
       });
       return detail(requireRow(id));
     },

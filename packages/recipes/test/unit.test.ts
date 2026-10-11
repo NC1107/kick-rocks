@@ -11,7 +11,7 @@ import {
   sleepFor,
 } from "../src/index.js";
 import { toFailure } from "../src/runner/errors.js";
-import { ageFrom } from "../src/runner/extract.js";
+import { ageFields } from "../src/runner/extract.js";
 import { keyDelay, typesByKey } from "../src/runner/pacing.js";
 
 const quiet = { title: "Privacy", text: "Opt out here", textLength: 12, widgets: [], markers: [] };
@@ -215,23 +215,28 @@ describe("defaults", () => {
   });
 });
 
-describe("ageFrom", () => {
+describe("ageFields", () => {
   it("takes the first whole number in the text", () => {
-    expect(ageFrom(["Age - 77"])).toBe(77);
-    expect(ageFrom(["John Smith, 45 (born 1980)"])).toBe(45);
-    expect(ageFrom(["Age 5, lived at 1234 Main St"])).toBe(5);
-    expect(ageFrom(["102"])).toBe(102);
+    expect(ageFields(["Age - 77"])).toEqual({ age: 77 });
+    expect(ageFields(["John Smith, 45 (born 1980)"])).toEqual({ age: 45, birthYear: 1980 });
+    expect(ageFields(["Age 5, lived at 1234 Main St"])).toEqual({ age: 5 });
+    expect(ageFields(["102"])).toEqual({ age: 102 });
   });
 
-  it("is undefined without a number or with an impossible one", () => {
-    expect(ageFrom(undefined)).toBeUndefined();
-    expect(ageFrom([])).toBeUndefined();
-    expect(ageFrom(["Age unknown"])).toBeUndefined();
-    expect(ageFrom(["Since 1980"])).toBeUndefined();
-    expect(ageFrom(["131"])).toBeUndefined();
+  it("keeps a range as a range and a decade as its ten years", () => {
+    expect(ageFields(["Ages 42-47"])).toEqual({ ageRange: { low: 42, high: 47 } });
+    expect(ageFields(["In their 40s"])).toEqual({ ageRange: { low: 40, high: 49 } });
+  });
+
+  it("is empty without a number or with an impossible one", () => {
+    expect(ageFields(undefined)).toEqual({});
+    expect(ageFields([])).toEqual({});
+    expect(ageFields(["Age unknown"])).toEqual({});
+    expect(ageFields(["Since 1980"])).toEqual({});
+    expect(ageFields(["131"])).toEqual({});
   });
 
   it("reads only the first value", () => {
-    expect(ageFrom(["no age", "44"])).toBeUndefined();
+    expect(ageFields(["no age", "44"])).toEqual({});
   });
 });
