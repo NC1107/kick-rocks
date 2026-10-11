@@ -105,7 +105,12 @@ function buildSite(
       return {
         ...toMatch(row, target.name),
         request: request
-          ? { id: request.id, status: request.status, reference: request.reference }
+          ? {
+              id: request.id,
+              status: request.status,
+              reference: request.reference,
+              updatedAt: request.updatedAt,
+            }
           : null,
       };
     })
@@ -156,7 +161,7 @@ function buildSite(
   const rescanDays =
     preference.rescanDays ?? services.settings.get("schedule").peopleSearchRescanDays;
   const next =
-    lastStarted && blocked === null
+    lastStarted && blocked === null && preference.autoRescan
       ? nextRescanAt(
           profileId,
           services.politeness.domainOf(target.id) ?? target.id,

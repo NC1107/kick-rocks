@@ -12,7 +12,9 @@ import {
   Section,
   Select,
   Tag,
+  TextLink,
 } from "../../components/ui/index.js";
+import { paths } from "../../lib/paths.js";
 import { GroupNote } from "../settings/rows.js";
 import {
   addDraft,
@@ -64,13 +66,22 @@ interface AddressSectionProps {
   errors: DraftErrors;
   disabled?: boolean | undefined;
   today: string;
+  /** Offers the way to the listings, on a profile that has been saved and can be scanned. */
+  listingsLink?: boolean | undefined;
 }
 
 /**
  * Addresses take far more room than any other identity, so a saved one folds to a summary and
  * opens only when edited. Folding saves nothing: the card's single Save still replaces the list.
  */
-export function AddressSection({ drafts, onChange, errors, disabled, today }: AddressSectionProps) {
+export function AddressSection({
+  drafts,
+  onChange,
+  errors,
+  disabled,
+  today,
+  listingsLink,
+}: AddressSectionProps) {
   const [open, setOpen] = useState<ReadonlySet<string>>(new Set());
   const [fresh, setFresh] = useState<ReadonlySet<string>>(new Set());
   const [checked, setChecked] = useState<Record<string, Record<string, string>>>({});
@@ -187,6 +198,11 @@ export function AddressSection({ drafts, onChange, errors, disabled, today }: Ad
           : "Scans and requests need a current address. "}
         Past addresses are searched only when a scan includes them.
       </GroupNote>
+      {listingsLink ? (
+        <p className="mt-1 text-caption">
+          <TextLink to={paths.listings()}>See where you're listed</TextLink>
+        </p>
+      ) : null}
     </Section>
   );
 }

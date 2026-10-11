@@ -335,6 +335,14 @@ describe("rescans follow the preferences", () => {
     expect(enqueueDueRescans(ctx.services)).toBe(1);
   });
 
+  it("rescans a site only when asked if it is set that way, and shows no next date", async () => {
+    const target = await scannedLongAgo(400);
+    await prefer(target.id, { mode: "auto", autoRescan: false });
+    expect(enqueueDueRescans(ctx.services)).toBe(0);
+    const row = (await list()).items.find((item) => item.targetId === target.id);
+    expect(row?.nextRescanAt).toBeNull();
+  });
+
   it("never rescans a skipped site", async () => {
     const target = await scannedLongAgo(400);
     await prefer(target.id, { mode: "skipped" });

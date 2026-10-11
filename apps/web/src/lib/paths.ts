@@ -65,6 +65,9 @@ export const paths = {
   profile: (id: string) => `/profiles/${part(id)}`,
   mailbox: (profileId: string) => `/profiles/${part(profileId)}/mailbox`,
   target: (id: string) => `/targets/${part(id)}`,
+  /** The listings view, optionally opened on one of its filters. */
+  listings: (show?: string) =>
+    show ? `/targets/listings?show=${part(show)}` : "/targets/listings",
   targetRemove: (id: string) => `/targets/${part(id)}/remove`,
   request: (id: string) => `/requests/${part(id)}`,
   requests: (filters: RequestsFilters = {}) => {

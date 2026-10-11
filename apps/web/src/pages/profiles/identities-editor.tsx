@@ -90,6 +90,8 @@ interface IdentitiesEditorProps {
   disabled?: boolean;
   /** Today as YYYY-MM-DD, the latest a birth date can be. */
   today: string;
+  /** Links from the address rule to where the profile is listed. */
+  listingsLink?: boolean;
 }
 
 /**
@@ -103,6 +105,7 @@ export function IdentitiesEditor({
   errors,
   disabled,
   today,
+  listingsLink,
 }: IdentitiesEditorProps) {
   return (
     <div className="flex flex-col gap-4">
@@ -121,6 +124,7 @@ export function IdentitiesEditor({
               errors={errors}
               disabled={disabled}
               today={today}
+              listingsLink={listingsLink}
             />
           );
         }

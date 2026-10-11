@@ -68,6 +68,8 @@ export const ScanPreference = z.object({
   pausedUntil: z.iso.date().nullable(),
   /** Null means the global setting. */
   rescanDays: z.number().int().min(30).max(365).nullable(),
+  /** False means this site is rescanned only when the person asks. */
+  autoRescan: z.boolean(),
   includePastAddresses: z.boolean(),
 });
 export type ScanPreference = z.infer<typeof ScanPreference>;
@@ -76,6 +78,7 @@ export const DEFAULT_SCAN_PREFERENCE: ScanPreference = {
   mode: "auto",
   pausedUntil: null,
   rescanDays: null,
+  autoRescan: true,
   includePastAddresses: false,
 };
 
@@ -83,6 +86,7 @@ export const ScanPreferenceBody = z.object({
   mode: ScanMode,
   pausedUntil: z.iso.date().nullable().optional(),
   rescanDays: RescanDays.nullable().optional(),
+  autoRescan: z.boolean().optional(),
   includePastAddresses: z.boolean().optional(),
 });
 export type ScanPreferenceBody = z.infer<typeof ScanPreferenceBody>;
@@ -91,6 +95,8 @@ export const ListingRequest = z.object({
   id: z.string(),
   status: RequestStatus,
   reference: Reference,
+  /** When the request last changed, which for a confirmed removal is when it was confirmed. */
+  updatedAt: z.iso.datetime(),
 });
 export type ListingRequest = z.infer<typeof ListingRequest>;
 
@@ -200,8 +206,9 @@ export interface ListingScanFacts {
 
 /**
  * Where one site stands, from what is already stored. A choice the person made comes first, then
- * what needs their answer, then work in flight, then what the removals say, and last what the
- * newest finished scan found. A scan withdrawn by a pause or skip never searched, so it says
+ * what needs their answer, then what the removals say, then work in flight, and last what the
+ * newest finished scan found. A removal outranks a scan in flight because a routine rescan should
+ * not hide that a record is being removed or is gone. A scan withdrawn by a pause or skip never searched, so it says
  * nothing about whether the person is listed.
  */
 export function deriveListingStatus(input: {
@@ -217,12 +224,6 @@ export function deriveListingStatus(input: {
   if (records.some((record) => record.decision === "pending")) return "to_confirm";
   if (preferenceBlocks(preference, today) === "site_paused") return "paused";
 
-  const latest = input.scans[0];
-  if (latest && (latest.taskStatus === "queued" || latest.taskStatus === "blocked")) {
-    return "waiting";
-  }
-  if (latest && latest.taskStatus === "leased") return "scanning";
-
   const mine = records.filter((record) => record.decision === "mine");
   if (mine.length > 0) {
     const requests = mine.flatMap((record) => (record.request ? [record.request] : []));
@@ -232,6 +233,12 @@ export function deriveListingStatus(input: {
     if (allSettled) return "removed";
     return input.relisted ? "relisted" : "yours";
   }
+
+  const latest = input.scans[0];
+  if (latest && (latest.taskStatus === "queued" || latest.taskStatus === "blocked")) {
+    return "waiting";
+  }
+  if (latest && latest.taskStatus === "leased") return "scanning";
 
   const finished = input.scans.find(
     (scan) => scan.finishedAt !== null && scan.taskStatus !== "cancelled",

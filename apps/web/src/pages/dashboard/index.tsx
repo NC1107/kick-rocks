@@ -21,6 +21,7 @@ import {
   ActivitySection,
   AttentionSection,
   attentionItems,
+  ListingsSection,
   MailboxNotices,
   RequestsSection,
   ScansSection,
@@ -141,6 +142,7 @@ function DashboardBody({
           {attentionItems(dashboard.attention).length > 0 ? (
             <AttentionSection attention={dashboard.attention} />
           ) : null}
+          <ListingsSection listings={dashboard.listings} profileId={profileId} />
           <ScansSection scans={dashboard.scans} profileId={profileId} />
           <EmptyState
             title="No requests yet."
@@ -169,6 +171,7 @@ function DashboardBody({
       ) : (
         <>
           <AttentionSection attention={dashboard.attention} />
+          <ListingsSection listings={dashboard.listings} profileId={profileId} />
           <ScansSection scans={dashboard.scans} profileId={profileId} />
           <RequestsSection dashboard={dashboard} />
           <SendingSection dashboard={dashboard} />

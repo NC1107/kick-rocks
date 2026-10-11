@@ -2,12 +2,16 @@ import {
   type Dashboard,
   type DashboardEvent,
   describeAgentTasks,
+  type ListingStatus,
   type RequestStatus,
   type ScanHoldReason,
 } from "@kickrocks/shared";
+import { ScanSearch } from "lucide-react";
+import { useState } from "react";
 import { Link } from "react-router";
 import { HoldReason } from "../../components/holds/HoldReason.js";
 import {
+  Button,
   Callout,
   Count,
   EmptyState,
@@ -22,11 +26,14 @@ import {
   StatusMark,
   TextLink,
 } from "../../components/ui/index.js";
+import { cn } from "../../lib/cn.js";
 import { describeEvent } from "../../lib/events.js";
-import { formatCount } from "../../lib/format.js";
+import { formatCount, formatShortDate } from "../../lib/format.js";
+import { chipCount } from "../../lib/listings.js";
 import { paths } from "../../lib/paths.js";
 import { EventRow } from "../requests/EventRow.js";
 import { eventShape } from "../requests/event-shape.js";
+import { ScanDialog } from "../targets/listings/scanning.js";
 
 /** The three questions a person has about their requests, each answered by some statuses. */
 export const STATUS_GROUPS: readonly {
@@ -247,6 +254,102 @@ export function AttentionSection({ attention }: { attention: Dashboard["attentio
   );
 }
 
+const LISTING_TILES: readonly {
+  chip: string;
+  label: string;
+  statuses: readonly ListingStatus[];
+  tone: "plain" | "attention";
+}[] = [
+  { chip: "needs_you", label: "To confirm", statuses: ["to_confirm"], tone: "attention" },
+  { chip: "yours", label: "Being removed", statuses: ["yours", "relisted"], tone: "plain" },
+  { chip: "removed", label: "Removed", statuses: ["removed"], tone: "plain" },
+  {
+    chip: "not_found",
+    label: "Not found",
+    statuses: ["not_found", "not_you", "unclear"],
+    tone: "plain",
+  },
+  { chip: "waiting", label: "Waiting", statuses: ["waiting", "scanning"], tone: "plain" },
+  { chip: "not_scanned", label: "Not scanned yet", statuses: ["not_scanned"], tone: "plain" },
+];
+
+/**
+ * Where the person is listed, at a glance, and the one button that starts a scan of every site. A
+ * scan needs no campaign, so this is the way in on a phone, where the header holds only the main
+ * action.
+ */
+export function ListingsSection({
+  listings,
+  profileId,
+}: {
+  listings: Dashboard["listings"];
+  profileId: string;
+}) {
+  const [scanning, setScanning] = useState(false);
+  return (
+    <Section
+      label="Where you're listed"
+      actions={
+        <TextLink
+          to={paths.listings()}
+          className="max-sm:inline-flex max-sm:min-h-11 max-sm:items-center pointer-coarse:inline-flex pointer-coarse:min-h-11 pointer-coarse:items-center"
+        >
+          All sites
+        </TextLink>
+      }
+    >
+      <div className="grid grid-cols-3 gap-px overflow-hidden rounded-md border border-line bg-line">
+        {LISTING_TILES.map((tile) => {
+          const value = chipCount(listings.counts, tile.statuses);
+          return (
+            <Link
+              key={tile.chip}
+              to={paths.listings(tile.chip)}
+              className="marked flex min-h-16 flex-col justify-between gap-1 bg-surface px-3 py-2 transition-colors duration-100 hover:bg-hover focus-visible:-outline-offset-2"
+            >
+              <span className="text-eyebrow text-ink-3">{tile.label}</span>
+              <span
+                className={cn(
+                  "font-mono text-numeral tabular-nums",
+                  value > 0 && tile.tone === "attention" ? "text-attention-text" : "text-ink",
+                )}
+              >
+                {formatCount(value)}
+              </span>
+            </Link>
+          );
+        })}
+      </div>
+      <div className="mt-2.5 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+        <p className="min-w-0 font-mono text-caption text-ink-3">
+          {listings.lastScanAt ? (
+            <>
+              Last scan <RelativeTime iso={listings.lastScanAt} />
+            </>
+          ) : (
+            "Never scanned"
+          )}
+          {listings.nextRescanAt ? `, next rescan ${formatShortDate(listings.nextRescanAt)}` : ""}
+        </p>
+        <Button onClick={() => setScanning(true)}>
+          <ScanSearch aria-hidden="true" />
+          Scan all sites
+        </Button>
+      </div>
+      {scanning ? (
+        <ScanDialog
+          open
+          onClose={() => setScanning(false)}
+          profileId={profileId}
+          selection={{ preset: "people_search" }}
+          title="Scan every people-search site?"
+          description="Kick Rocks opens each site in the worker's browser, one after another, and searches for this person. Nothing is removed until you confirm a record. Paused and skipped sites are left out."
+        />
+      ) : null}
+    </Section>
+  );
+}
+
 /** Queued scans that something is holding back, with the reason, so a quiet worker is explained. */
 export function ScansSection({
   scans,
@@ -265,7 +368,7 @@ export function ScansSection({
       count={formatCount(scans.held)}
       actions={
         <TextLink
-          to={paths.review("scans")}
+          to={paths.listings()}
           className="max-sm:inline-flex max-sm:min-h-11 max-sm:items-center pointer-coarse:inline-flex pointer-coarse:min-h-11 pointer-coarse:items-center"
         >
           All scans

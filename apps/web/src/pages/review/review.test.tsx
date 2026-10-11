@@ -1,5 +1,6 @@
 import { screen, waitFor, within } from "@testing-library/react";
 import type { UserEvent } from "@testing-library/user-event";
+import { Route, Routes } from "react-router";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { applyAgentPreset } from "../../../mock/agents.js";
 import { createMockApp, type MockApp } from "../../../mock/app.js";
@@ -727,24 +728,18 @@ describe("the review queue", () => {
     await waitFor(() => expect(mock.store.tasks.length).toBe(before + 1));
   });
 
-  it("starts a scan of the people-search sites and lists recent scans", async () => {
-    const { user, mock } = open("scans");
-    expect(await screen.findByRole("region", { name: "Scans" })).toBeVisible();
-    const before = mock.store.scans.length;
-    await user.click(screen.getByRole("button", { name: "Scan all" }));
-    expect(mock.store.scans.length).toBe(before);
-    await user.click(await screen.findByRole("button", { name: "Start scans" }));
-    await waitFor(() => expect(mock.store.scans.length).toBeGreaterThan(before));
+  it("sends the old scans address to where you're listed", async () => {
+    renderPage(
+      <Routes>
+        <Route path="/review" element={<ReviewPage />} />
+        <Route path="/targets/listings" element={<p>Listings page</p>} />
+      </Routes>,
+      { route: "/review?item=scans" },
+    );
+    expect(await screen.findByText("Listings page")).toBeVisible();
   });
 
-  it("lists scans as rows because the pane beside the queue is narrow", async () => {
-    open("scans");
-    const list = await screen.findByRole("list", { name: "Recent scans" });
-    expect(within(list).getAllByRole("listitem").length).toBeGreaterThan(0);
-    expect(screen.queryByRole("table", { name: "Recent scans" })).not.toBeInTheDocument();
-  });
-
-  it("says so in one line when nothing is waiting, and shows the scans", async () => {
+  it("says so in one line when nothing is waiting, and links to where you're listed", async () => {
     const mock = failing(/never/);
     mock.store.tasks = [];
     mock.store.matches = [];
@@ -753,8 +748,9 @@ describe("the review queue", () => {
       (request) => request.status !== "needs_verification",
     );
     open(undefined, mock);
-    expect(await screen.findByText("Nothing needs you.")).toBeVisible();
-    expect(await screen.findByRole("region", { name: "Scans" })).toBeVisible();
+    expect((await screen.findAllByText("Nothing needs you.")).length).toBeGreaterThan(0);
+    const links = await screen.findAllByRole("link", { name: /Where you're listed/ });
+    expect(links[0]).toHaveAttribute("href", "/targets/listings");
   });
 
   it("says when the queue cannot load", async () => {

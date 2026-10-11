@@ -11,6 +11,7 @@ import {
   type MessageSummary,
   manualResultSchemaFor,
   nextHourIn,
+  preferenceBlocks,
   type ReviewMessage,
   type ReviewQueue,
   type ScanHold,
@@ -219,12 +220,13 @@ export function createScan(
   return scan;
 }
 
-function seedMatch(
+export function seedMockMatch(
   store: MockStore,
   scan: ScanSummary,
   recordUrl: string,
   fields: Match["fields"],
   decision: Match["decision"] = "pending",
+  requestId: string | null = null,
 ): void {
   store.matches.push({
     id: store.nextId("mtc"),
@@ -236,7 +238,7 @@ function seedMatch(
     fields,
     decision,
     decidedAt: decision === "pending" ? null : store.ago({ hours: 2 }),
-    requestId: null,
+    requestId,
   });
   recountScan(store, scan.id);
 }
@@ -477,7 +479,7 @@ export default defineMockDomain({
       startedAgo: { hours: 30 },
     });
     if (lookup) {
-      seedMatch(store, lookup, "https://www.namelookup.example/p/jordan-q-example-ca-30219", {
+      seedMockMatch(store, lookup, "https://www.namelookup.example/p/jordan-q-example-ca-30219", {
         name: "Jordan Q Example",
         age: 35,
         locations: ["Sampleton, CA", "Testville, CA"],
@@ -485,13 +487,13 @@ export default defineMockDomain({
         phones: ["(555) 555-0123"],
         emails: ["j***@example.com"],
       });
-      seedMatch(store, lookup, "https://www.namelookup.example/p/jordan-example-tx-88120", {
+      seedMockMatch(store, lookup, "https://www.namelookup.example/p/jordan-example-tx-88120", {
         name: "Jordan Example",
         age: 62,
         locations: ["Exampleburg, TX"],
         relatives: ["Pat Example"],
       });
-      seedMatch(
+      seedMockMatch(
         store,
         lookup,
         "https://www.namelookup.example/p/j-example-ca-10442",
@@ -505,7 +507,7 @@ export default defineMockDomain({
       startedAgo: { hours: 26 },
     });
     if (cityfile) {
-      seedMatch(
+      seedMockMatch(
         store,
         cityfile,
         "https://www.cityfiledirectory.example/people/jordan-example/9918",
@@ -874,7 +876,33 @@ export default defineMockDomain({
                   .map((id) => store.targets.find((target) => target.id === id))
                   .filter((target) => target !== undefined);
         const readiness = scanReadiness(store, profile.id);
+        const named = "targetIds" in body;
+        const pastAddresses = profile.identities.filter(
+          (identity) =>
+            identity.kind === "address" &&
+            identity.validTo !== null &&
+            identity.validTo < store.clock.now().toISOString().slice(0, 10),
+        ).length;
         const items: TargetOutcome[] = targets.map((target) => {
+          const preference = store.scanPreferences.get(`${profile.id}:${target.id}`);
+          const blocked =
+            preference &&
+            preferenceBlocks(preference, store.clock.now().toISOString().slice(0, 10));
+          const dropped = blocked && !(named && blocked === "site_paused") ? blocked : null;
+          if (dropped) {
+            return {
+              targetId: target.id,
+              targetName: target.name,
+              outcome: "skipped",
+              requestId: null,
+              scanId: null,
+              reason: dropped,
+              detail:
+                dropped === "site_skipped"
+                  ? `You skipped ${target.name} for this profile. Unskip it to scan it.`
+                  : `You paused ${target.name} for this profile.`,
+            };
+          }
           if (readiness.needsDetails > 0) {
             return {
               targetId: target.id,
@@ -908,6 +936,18 @@ export default defineMockDomain({
             finished: false,
             startedAgo: { hours: 0 },
           });
+          const includePast =
+            body.addresses === "all" ||
+            (body.addresses === undefined && preference?.includePastAddresses);
+          if (includePast) {
+            for (let index = 0; index < pastAddresses; index += 1) {
+              createScan(store, profile.id, target.id, {
+                taskStatus: "queued",
+                finished: false,
+                startedAgo: { hours: 0 },
+              });
+            }
+          }
           return {
             targetId: target.id,
             targetName: target.name,

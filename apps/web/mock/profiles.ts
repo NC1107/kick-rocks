@@ -258,6 +258,13 @@ export default defineMockDomain({
         matches: store.matches
           .filter((match) => match.profileId === profile.id)
           .map(({ profileId: _profileId, targetName: _targetName, ...match }) => match),
+        scanPreferences: [...store.scanPreferences]
+          .filter(([key]) => key.startsWith(`${profile.id}:`))
+          .map(([key, preference]) => ({
+            ...preference,
+            targetId: key.slice(profile.id.length + 1),
+            updatedAt: store.clock.now().toISOString(),
+          })),
       };
     }),
 

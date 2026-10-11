@@ -158,6 +158,7 @@ export function exportProfile(
       mode: row.mode,
       pausedUntil: row.pausedUntil,
       rescanDays: row.rescanDays,
+      autoRescan: row.autoRescan,
       includePastAddresses: row.includePastAddresses,
       updatedAt: row.updatedAt,
     })),

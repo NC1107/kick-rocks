@@ -34,6 +34,7 @@ function toPreference(row: typeof scanPreferences.$inferSelect): ScanPreference 
     mode: row.mode,
     pausedUntil: row.pausedUntil,
     rescanDays: row.rescanDays,
+    autoRescan: row.autoRescan,
     includePastAddresses: row.includePastAddresses,
   };
 }
@@ -98,6 +99,7 @@ export function createScanPreferences(deps: {
         mode: body.mode,
         pausedUntil: body.mode === "paused" ? (body.pausedUntil ?? null) : null,
         rescanDays: body.rescanDays === undefined ? current.rescanDays : body.rescanDays,
+        autoRescan: body.autoRescan ?? current.autoRescan,
         includePastAddresses: body.includePastAddresses ?? current.includePastAddresses,
       };
       db.transaction(() => {

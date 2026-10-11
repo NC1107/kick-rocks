@@ -12,6 +12,7 @@ import {
 } from "@kickrocks/shared";
 
 import { defineMockDomain, handle, notFound } from "./core.js";
+import { buildMockListings, summarizeMockListings } from "./listings.js";
 import { buildMockQueue, quietNow, scanHoldOf, scanReadiness } from "./review.js";
 
 const DAY = 86_400_000;
@@ -108,6 +109,7 @@ export default defineMockDomain({
           ...scanReadiness(store, profile.id),
           quiet: quietNow(store),
         },
+        listings: summarizeMockListings(buildMockListings(store, profile.id)),
         recentEvents,
       };
     }),

@@ -71,6 +71,11 @@ export function shortRelative(iso: string, now = Date.now()): string {
   return wrap(`${Math.round(days / 365)}y`);
 }
 
+/** "Nov 3": a day without its year, for a date near enough to need none. */
+export function formatShortDate(iso: string, { locale }: FormatOptions = {}): string {
+  return new Intl.DateTimeFormat(locale, { month: "short", day: "numeric" }).format(new Date(iso));
+}
+
 export function formatCount(value: number, { locale }: FormatOptions = {}): string {
   return new Intl.NumberFormat(locale).format(value);
 }

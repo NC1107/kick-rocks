@@ -4,6 +4,7 @@ CREATE TABLE `scan_preferences` (
 	`mode` text DEFAULT 'auto' NOT NULL,
 	`paused_until` text,
 	`rescan_days` integer,
+	`auto_rescan` integer DEFAULT true NOT NULL,
 	`include_past_addresses` integer DEFAULT false NOT NULL,
 	`updated_at` text NOT NULL,
 	PRIMARY KEY(`profile_id`, `target_id`),

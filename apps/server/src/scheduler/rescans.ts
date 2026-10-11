@@ -58,7 +58,7 @@ export function enqueueDueRescans(services: AppServices): number {
   for (const pair of last) {
     if (!pair.startedAt) continue;
     const preference = services.scanPreferences.get(pair.profileId, pair.targetId);
-    if (preferenceBlocks(preference, today)) continue;
+    if (preferenceBlocks(preference, today) || !preference.autoRescan) continue;
     const siteKey = services.politeness.domainOf(pair.targetId) ?? pair.targetId;
     const days = preference.rescanDays ?? peopleSearchRescanDays;
     if (Date.parse(nextRescanAt(pair.profileId, siteKey, pair.startedAt, days)) > now) continue;

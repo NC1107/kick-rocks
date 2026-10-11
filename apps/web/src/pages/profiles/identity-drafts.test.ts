@@ -2,6 +2,7 @@ import type { Identity } from "@kickrocks/shared";
 import { describe, expect, it } from "vitest";
 import {
   addDraft,
+  dayBefore,
   defaultDisplayName,
   emptyDraft,
   hasErrors,
@@ -10,12 +11,18 @@ import {
   makePrimary,
   normalizePhone,
   normalizePrimaries,
+  openEndedAddresses,
+  recordMoveOut,
   removeDraft,
+  rowErrors,
+  scanAddressKey,
   serverErrors,
   snapshot,
   startingDrafts,
+  tidyAddressDraft,
   toDrafts,
   toInputs,
+  unusableScanAddress,
   updateDraft,
   validateDrafts,
 } from "./identity-drafts.js";
@@ -319,5 +326,81 @@ describe("helpers", () => {
 
   it("formats today in local time", () => {
     expect(localToday(new Date(2026, 0, 5, 23, 59))).toBe("2026-01-05");
+  });
+});
+
+describe("addresses that are folded, added and moved out of", () => {
+  const address = (patch: Partial<IdentityDraft>): IdentityDraft => ({
+    ...emptyDraft("address"),
+    street: "1 Main St",
+    city: "Sampleton",
+    state: "CA",
+    zip: "90000",
+    ...patch,
+  });
+
+  it("tidies a unit typed into the street, either way round", () => {
+    expect(
+      tidyAddressDraft(address({ street: "500 Real Road Apt 12", unit: "Apt 12" })),
+    ).toMatchObject({
+      street: "500 Real Road",
+      unit: "Apt 12",
+    });
+    expect(tidyAddressDraft(address({ street: "500 Real Road #12" }))).toMatchObject({
+      street: "500 Real Road",
+      unit: "#12",
+    });
+    expect(tidyAddressDraft(address({ street: "Highway 12" })).street).toBe("Highway 12");
+  });
+
+  it("saves the unit once even when the draft still holds it twice", () => {
+    const [input] = toInputs([address({ street: "500 Real Road Apt 12", unit: "Apt 12" })]);
+    expect(input).toMatchObject({ value: { street: "500 Real Road", unit: "Apt 12" } });
+  });
+
+  it("finds the address scans use, as the server does", () => {
+    const today = "2026-10-11";
+    const current = address({ key: "a", isPrimary: true, validFrom: "2022-01-01" });
+    const past = address({ key: "b", validFrom: "2015-01-01", validTo: "2020-01-01" });
+    expect(scanAddressKey([past, current], today)).toBe("a");
+    const moved = { ...current, validTo: "2024-01-01" };
+    expect(scanAddressKey([past, moved], today)).toBeNull();
+    expect(unusableScanAddress([past, moved], today)?.key).toBe("a");
+    expect(unusableScanAddress([past, current], today)).toBeNull();
+  });
+
+  it("offers the addresses with no move-out date as ones that may have been left", () => {
+    const today = "2026-10-11";
+    const drafts = [
+      address({ key: "a", isPrimary: true }),
+      address({ key: "b", validTo: "2020-01-01" }),
+      address({ key: "c" }),
+    ];
+    expect(openEndedAddresses(drafts, "c", today).map((draft) => draft.key)).toEqual(["a"]);
+  });
+
+  it("dates a move-out the day before the new address starts", () => {
+    expect(dayBefore("2026-09-01")).toBe("2026-08-31");
+    expect(dayBefore("2026-01-01")).toBe("2025-12-31");
+  });
+
+  it("makes the new address the one for scans once it is the only current one", () => {
+    const drafts = [address({ key: "old", isPrimary: true }), address({ key: "new" })];
+    const next = recordMoveOut(drafts, "old", "2026-08-31", "new");
+    expect(next.find((draft) => draft.key === "old")?.validTo).toBe("2026-08-31");
+    expect(next.find((draft) => draft.key === "new")?.isPrimary).toBe(true);
+    const three = [...drafts, address({ key: "other" })];
+    expect(
+      recordMoveOut(three, "old", "2026-08-31", "new").find((d) => d.key === "new")?.isPrimary,
+    ).toBe(false);
+  });
+
+  it("keeps only one row's errors, without its row number", () => {
+    const errors = {
+      fields: { "2.value.city": "Required", "3.value.zip": "x" },
+      sections: {},
+      general: [],
+    };
+    expect(rowErrors(errors, 2)).toEqual({ "value.city": "Required" });
   });
 });

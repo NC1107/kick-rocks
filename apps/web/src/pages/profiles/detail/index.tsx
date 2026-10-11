@@ -176,7 +176,7 @@ function ProfileEditor({ profile }: { profile: ProfileDetail }) {
               />
             ) : null}
             {scans.data && current?.id === profile.id ? (
-              <CountLink value={scans.data.total} label="Scans" to={paths.review("scans")} />
+              <CountLink value={scans.data.total} label="Scans" to={paths.listings()} />
             ) : null}
           </>
         }
@@ -362,6 +362,7 @@ function IdentitiesCard({
           errors={errors}
           disabled={replace.isPending}
           today={today}
+          listingsLink
         />
         {failure ? (
           <Callout intent="danger" title="Could not save identities" className="mt-4">

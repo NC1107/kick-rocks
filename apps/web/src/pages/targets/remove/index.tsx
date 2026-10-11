@@ -8,7 +8,7 @@ import {
 } from "@kickrocks/shared";
 import { skipToken } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router";
+import { Navigate, useNavigate, useParams } from "react-router";
 import { errorMessage, useApiMutation, useApiQuery } from "../../../api/index.js";
 import { useBreadcrumbTail } from "../../../components/layout/breadcrumb-context.js";
 import { RequireProfile } from "../../../components/layout/RequireProfile.js";
@@ -46,6 +46,10 @@ export function Component() {
         actions={<LinkButton to="/targets">Back to targets</LinkButton>}
       />
     );
+  }
+  // A site that removes one record at a time starts from finding it, which its own page does.
+  if (target.data.needsRecord) {
+    return <Navigate to={`${paths.target(target.data.id)}#your-listing`} replace />;
   }
   return (
     <RequireProfile>
@@ -87,24 +91,15 @@ function Remove({ target, profile }: { target: TargetDetail; profile: ProfileSum
   }, [bodyKey, profile.id]);
 
   const outcome = preview.data?.items[0];
-  const scanFirst = outcome?.outcome === "scan_started";
-  const formTask = !scanFirst && target.contactMethod === "form";
+  const formTask = target.contactMethod === "form";
 
   const create = useApiMutation(API_ROUTES.campaignsCreate, {
-    invalidates: [
-      API_ROUTES.requestsList,
-      API_ROUTES.dashboardGet,
-      API_ROUTES.reviewQueue,
-      API_ROUTES.scansList,
-    ],
-    onSuccess: (result) => {
+    invalidates: [API_ROUTES.requestsList, API_ROUTES.dashboardGet, API_ROUTES.reviewQueue],
+    onSuccess: () => {
       setConfirming(false);
-      const scan = result.counts.scan_started > 0;
-      toast.success(
-        scan ? "Scan started" : formTask ? "Form task added" : "Request queued to send",
-      );
+      toast.success(formTask ? "Form task added" : "Request queued to send");
       // Replaced, so back from the result returns to the target and not to a form that has already gone.
-      navigate(scan ? "/review" : "/requests", { replace: true });
+      navigate("/requests", { replace: true });
     },
     onError: () => setConfirming(false),
   });
@@ -122,7 +117,7 @@ function Remove({ target, profile }: { target: TargetDetail; profile: ProfileSum
   const agentSeen = settings.data ? settings.data.worker.model !== null : true;
   const needsId = target.requirements.includes("id_upload") && rights.includes("delete");
 
-  const sendLabel = scanFirst ? "Start scan" : formTask ? "Create request" : "Send request";
+  const sendLabel = formTask ? "Create request" : "Send request";
 
   const toggleRight = (right: RequestRight, on: boolean) =>
     setRights((current) =>
@@ -151,12 +146,6 @@ function Remove({ target, profile }: { target: TargetDetail; profile: ProfileSum
             }
           >
             The email is skipped until this profile has a mailbox to send from.
-          </Callout>
-        ) : null}
-        {scanFirst ? (
-          <Callout intent="info" title="Scanned first">
-            Kick Rocks searches {target.name} for {profile.displayName} first. You confirm the
-            record in Review, then the request goes.
           </Callout>
         ) : null}
         {formOnly ? (
@@ -245,19 +234,11 @@ function Remove({ target, profile }: { target: TargetDetail; profile: ProfileSum
       <ConfirmDialog
         open={confirming}
         onClose={() => setConfirming(false)}
-        title={
-          scanFirst
-            ? `Scan ${target.name}?`
-            : formTask
-              ? `Ask ${target.name} through its form?`
-              : `Send to ${target.name}?`
-        }
+        title={formTask ? `Ask ${target.name} through its form?` : `Send to ${target.name}?`}
         description={
-          scanFirst
-            ? "Nothing is sent yet. You confirm the record it finds in Review, then the request goes."
-            : formTask
-              ? "This adds a form task to Review. Nothing is emailed, and you can stop it before it is filled in."
-              : "The email goes out within your daily limit. You can stop it until it has gone."
+          formTask
+            ? "This adds a form task to Review. Nothing is emailed, and you can stop it before it is filled in."
+            : "The email goes out within your daily limit. You can stop it until it has gone."
         }
         confirmLabel={sendLabel}
         loading={create.isPending}

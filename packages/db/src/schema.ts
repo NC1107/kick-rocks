@@ -730,6 +730,8 @@ export const scanPreferences = sqliteTable(
     pausedUntil: text("paused_until"),
     /** Days between automatic rescans of this site; null follows the global setting. */
     rescanDays: integer("rescan_days"),
+    /** False means rescan this site only when the person asks. */
+    autoRescan: integer("auto_rescan", { mode: "boolean" }).notNull().default(true),
     includePastAddresses: integer("include_past_addresses", { mode: "boolean" })
       .notNull()
       .default(false),

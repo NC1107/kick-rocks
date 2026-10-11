@@ -232,6 +232,8 @@ export const SKIP_REASON_LABELS: Record<SkipReason, string> = {
   unsupported_channel: "Needs mail, fax, or a call",
   missing_profile_details: "Needs more profile details",
   covered_by_platform: "Covered by a state platform",
+  site_paused: "Paused for this profile",
+  site_skipped: "Skipped for this profile",
 };
 
 export const REQUEST_ACTION_LABELS: Record<RequestAction, string> = {
