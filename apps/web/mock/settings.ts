@@ -16,7 +16,7 @@ import {
   type WorkerStatus,
   withOverride,
 } from "@kickrocks/shared";
-import { conflict, defineMockDomain, handle, notFound } from "./core.js";
+import { conflict, defineMockDomain, handle, MockHttpError, notFound } from "./core.js";
 import { notificationRoutes } from "./notifications.js";
 import { freshMockNotifications, type MockStore } from "./store.js";
 
@@ -514,6 +514,47 @@ export default defineMockDomain({
         if (body.agent?.approvalHoldMinutes !== undefined) {
           current.agent = { ...current.agent, approvalHoldMinutes: body.agent.approvalHoldMinutes };
         }
+        if (body.agent?.model === null) {
+          current.agent = { ...current.agent, model: null };
+        } else if (body.agent?.model) {
+          const chosen = body.agent.model;
+          const status = current.worker.model;
+          const listed = status?.ollama?.models.find((entry) => entry.name === chosen.name);
+          if (!(status && listed)) {
+            throw new MockHttpError(
+              409,
+              "model_not_installed",
+              `The agent worker's Ollama does not list ${chosen.name}`,
+            );
+          }
+          current.agent = { ...current.agent, model: chosen };
+          if (status.accepts?.includes("agentModel")) {
+            // The worker takes the choice at its next idle check-in; the mock does it at once.
+            current.worker.model = {
+              ...status,
+              model: {
+                provider: "ollama",
+                name: chosen.name,
+                version: listed.digest,
+                thinking: chosen.thinking,
+                numCtx: chosen.numCtx,
+              },
+              agentModelState: "applied",
+            };
+          }
+        }
+        if (body.agent?.gpuMemoryGb) {
+          const answers = body.agent.gpuMemoryGb;
+          current.agent = {
+            ...current.agent,
+            gpuMemoryGb: {
+              worker:
+                answers.worker === undefined ? current.agent.gpuMemoryGb.worker : answers.worker,
+              server:
+                answers.server === undefined ? current.agent.gpuMemoryGb.server : answers.server,
+            },
+          };
+        }
         if (body.agent?.gateOverride) {
           const { provider, name, enabled } = body.agent.gateOverride;
           current.agent = {
@@ -541,6 +582,8 @@ export default defineMockDomain({
           agent: {
             takeUnreviewed: false,
             approvalHoldMinutes: 10,
+            model: null,
+            gpuMemoryGb: { worker: null, server: null },
             gate: { records: [], current: null },
           },
           retention: { messageDays: null, screenshotDays: 30 },

@@ -16,6 +16,7 @@ x-fixture-hosts: &fixture-hosts
   - fixture-agent.test
   - fixture-link.test
   - fixture-linkjs.test
+  - fixture-ollama.test
 
 services:
   greenmail:

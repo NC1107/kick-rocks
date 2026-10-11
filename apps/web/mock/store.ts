@@ -13,6 +13,7 @@ import {
   type TargetDetail,
   type TaskSummary,
 } from "@kickrocks/shared";
+import type { MockOllamaHost } from "./agent-setup.js";
 import type { MockAgent } from "./agents.js";
 import type { MockSends } from "./sends.js";
 
@@ -104,6 +105,8 @@ export interface MockStore {
   sites: SiteStatus[];
   recipes: RecipeRecord[];
   settings: SettingsView;
+  /** Which Ollama servers answer on the mock network, by `host:port`. Any other address refuses. */
+  agentNetwork: Record<string, MockOllamaHost>;
   /** The last MCP token minted, kept only so the mock can say a token is set. */
   mcpToken: string | null;
   notifications: MockNotifications;
@@ -180,10 +183,13 @@ export function createStore(authMode: MockAuthMode = "authed"): MockStore {
       agent: {
         takeUnreviewed: false,
         approvalHoldMinutes: 10,
+        model: null,
+        gpuMemoryGb: { worker: null, server: null },
         gate: { records: [], current: null },
       },
       worker: { enabled: false, builtin: null, model: null },
     },
+    agentNetwork: {},
     mcpToken: null,
     notifications: freshMockNotifications(),
     nextId(prefix) {

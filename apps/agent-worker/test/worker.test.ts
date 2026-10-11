@@ -13,7 +13,7 @@ import {
 import { ProxyConflictError } from "@kickrocks/worker/dist/browser.js";
 import type { Browser } from "playwright";
 import { afterAll, afterEach, beforeAll, beforeEach, expect, it, vi } from "vitest";
-import type { AgentWorkerConfig } from "../src/config.js";
+import type { AgentWorkerConfig, ProviderConfig } from "../src/config.js";
 import { ProviderError } from "../src/provider.js";
 import { runAgentWorker } from "../src/worker.js";
 import { ORIGIN } from "./fixtures/server.js";
@@ -37,7 +37,20 @@ interface Seen {
   submissionsSoFar: number;
 }
 
-function fakeServer(task: ReturnType<typeof agentTask> | null, profileIds?: string[]) {
+interface ServerExtras {
+  /** What the heartbeat answer offers as the model the person chose. */
+  agentModel?: { name: string; thinking: "default" | "off"; numCtx: number } | null;
+  /** The models the worker's Ollama lists, answered at {@link OLLAMA_HOST}. */
+  ollamaModels?: { name: string; digest: string }[];
+}
+
+const OLLAMA_HOST = "ollama.test:11434";
+
+function fakeServer(
+  task: ReturnType<typeof agentTask> | null,
+  profileIds?: string[],
+  extras: ServerExtras = {},
+) {
   const seen: Seen[] = [];
   let given = false;
   const json = (body: unknown) =>
@@ -49,7 +62,12 @@ function fakeServer(task: ReturnType<typeof agentTask> | null, profileIds?: stri
     const url = new URL(
       typeof input === "string" ? input : input instanceof URL ? input.href : input.url,
     );
-    const headers = init?.headers as Record<string, string>;
+    if (url.host === OLLAMA_HOST) {
+      if (url.pathname === "/api/version") return json({ version: "0.12.0" });
+      if (url.pathname === "/api/tags") return json({ models: extras.ollamaModels ?? [] });
+      return json({ models: [] });
+    }
+    const headers = (init?.headers ?? {}) as Record<string, string>;
     seen.push({
       path: url.pathname,
       authorization: headers.authorization ?? null,
@@ -57,7 +75,12 @@ function fakeServer(task: ReturnType<typeof agentTask> | null, profileIds?: stri
       submissionsSoFar: (await fixtureState()).submissions.length,
     });
     if (url.pathname === "/api/worker/heartbeat") {
-      return json({ ok: true, serverTime: "2026-10-07T00:00:00.000Z", profileIds });
+      return json({
+        ok: true,
+        serverTime: "2026-10-07T00:00:00.000Z",
+        profileIds,
+        ...(extras.agentModel !== undefined ? { agentModel: extras.agentModel } : {}),
+      });
     }
     if (url.pathname === "/api/worker/claim") {
       const next = !given ? task : null;
@@ -108,7 +131,7 @@ afterEach(() => {
   rmSync(profileDir, { recursive: true, force: true });
 });
 
-function config(): AgentWorkerConfig {
+function config(provider: Partial<ProviderConfig> = {}): AgentWorkerConfig {
   return {
     serverUrl: "http://server.test",
     token: "a-token-of-sixteen-chars",
@@ -124,6 +147,7 @@ function config(): AgentWorkerConfig {
       tokenParam: "max_tokens",
       numCtx: 16_384,
       thinking: "default",
+      ...provider,
     },
     pricing: { inputUsdPerMtok: 1, outputUsdPerMtok: 2 },
     limits: { maxSteps: 30, maxMs: 60_000, maxTotalTokens: null },
@@ -136,6 +160,16 @@ function config(): AgentWorkerConfig {
     logLevel: "error",
   };
 }
+
+const TEST_HOST = {
+  hostname: "test-host",
+  platform: "linux",
+  arch: "x64",
+  cpuCores: 8,
+  memoryBytes: 32 * 1024 ** 3,
+  gpus: [{ vendor: "nvidia" as const, name: "Test GPU", memoryBytes: 16 * 1024 ** 3 }],
+  gpuProbe: "ok" as const,
+};
 
 async function runOnce(
   server: ReturnType<typeof fakeServer>,
@@ -152,15 +186,20 @@ async function runOnce(
 function startWorker(
   server: ReturnType<typeof fakeServer>,
   steps: Step[],
-  options: { launcher?: () => Promise<never>; provider?: ReturnType<typeof scripted> } = {},
+  options: {
+    launcher?: () => Promise<never>;
+    provider?: ReturnType<typeof scripted>;
+    config?: AgentWorkerConfig;
+  } = {},
 ) {
   const controller = new AbortController();
   const provider = options.provider ?? scripted(steps);
   const finished = runAgentWorker({
-    config: config(),
+    config: options.config ?? config(),
     signal: controller.signal,
     logger: silentLogger,
     provider,
+    probeHost: async () => TEST_HOST,
     fetch: server.fetch,
     launcher: options.launcher ?? (() => browser.newContext()),
     timing: {
@@ -387,5 +426,101 @@ describeBrowser("the agent worker end to end", () => {
     controller.abort();
     await finished;
     expect(existsSync(kept)).toBe(true);
+  });
+});
+
+const OLLAMA_CONFIG: Partial<ProviderConfig> = {
+  kind: "ollama",
+  model: "qwen3:8b",
+  baseUrl: `http://${OLLAMA_HOST}`,
+  numCtx: 8192,
+};
+const CHOICE = { name: "gpt-oss:20b", thinking: "default" as const, numCtx: 16_384 };
+const INSTALLED = [
+  { name: "qwen3:8b", digest: "digest-qwen" },
+  { name: "gpt-oss:20b", digest: "digest-gpt-oss" },
+];
+
+const claims = (server: ReturnType<typeof fakeServer>) =>
+  server.seen
+    .filter((entry) => entry.path === "/api/worker/claim")
+    .map((entry) => WorkerClaimBody.parse(entry.body));
+const beats = (server: ReturnType<typeof fakeServer>) =>
+  server.seen
+    .filter((entry) => entry.path === "/api/worker/heartbeat")
+    .map((entry) => WorkerHeartbeatBody.parse(entry.body));
+
+describeBrowser("the agent worker and the model the server offers", () => {
+  it("tells the server about its machine and its Ollama, and that it takes a model", async () => {
+    const server = fakeServer(null, undefined, { ollamaModels: INSTALLED });
+    const { finished, controller } = startWorker(server, [], {
+      config: config(OLLAMA_CONFIG),
+    });
+    await vi.waitUntil(() => claims(server).length > 0, { timeout: 10_000, interval: 20 });
+    controller.abort();
+    await finished;
+
+    const [first] = beats(server);
+    expect(first).toMatchObject({
+      host: { hostname: "test-host", gpuProbe: "ok" },
+      ollama: {
+        baseUrl: `http://${OLLAMA_HOST}`,
+        reachable: true,
+        version: "0.12.0",
+        models: [{ name: "qwen3:8b", digest: "digest-qwen" }, { name: "gpt-oss:20b" }],
+      },
+      accepts: ["agentModel"],
+      model: { name: "qwen3:8b", version: "digest-qwen" },
+    });
+  });
+
+  it("switches to an installed model between claims, and the next claim carries its identity", async () => {
+    const server = fakeServer(null, undefined, { ollamaModels: INSTALLED, agentModel: CHOICE });
+    const { finished, controller } = startWorker(server, [], { config: config(OLLAMA_CONFIG) });
+    await vi.waitUntil(() => claims(server).some((claim) => claim.model?.name === "gpt-oss:20b"), {
+      timeout: 10_000,
+      interval: 20,
+    });
+    controller.abort();
+    await finished;
+
+    expect(claims(server).at(-1)?.model).toEqual({
+      provider: "ollama",
+      name: "gpt-oss:20b",
+      version: "digest-gpt-oss",
+      thinking: "default",
+      numCtx: 16_384,
+    });
+    expect(beats(server).some((beat) => beat.agentModelState === "applied")).toBe(true);
+  });
+
+  it("keeps its own model and says so when the chosen one is not installed", async () => {
+    const server = fakeServer(null, undefined, {
+      ollamaModels: [INSTALLED[0] as (typeof INSTALLED)[number]],
+      agentModel: CHOICE,
+    });
+    const { finished, controller } = startWorker(server, [], { config: config(OLLAMA_CONFIG) });
+    await vi.waitUntil(
+      () => beats(server).some((beat) => beat.agentModelState === "not_installed"),
+      { timeout: 10_000, interval: 20 },
+    );
+    controller.abort();
+    await finished;
+    expect(claims(server).every((claim) => claim.model?.name === "qwen3:8b")).toBe(true);
+  });
+
+  it.each(["openai", "anthropic"] as const)("never switches a %s worker", async (kind) => {
+    const server = fakeServer(null, undefined, { agentModel: CHOICE });
+    const { finished, controller } = startWorker(server, [], {
+      config: config({ kind, model: "hosted-model", apiKey: "k" }),
+    });
+    await vi.waitUntil(
+      () => beats(server).some((beat) => beat.agentModelState === "unsupported_provider"),
+      { timeout: 10_000, interval: 20 },
+    );
+    controller.abort();
+    await finished;
+    expect(claims(server).every((claim) => claim.model?.name === "hosted-model")).toBe(true);
+    expect(beats(server).every((beat) => beat.ollama === undefined)).toBe(true);
   });
 });

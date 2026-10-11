@@ -43,6 +43,8 @@ const SETTINGS_TO_FORGET: readonly SettingKey[] = [
   "agent.takeUnreviewed",
   "agent.gate",
   "agent.approvalHoldMinutes",
+  "agent.model",
+  "agent.gpuMemoryGb",
 ];
 
 /** Tasks that carry no personal data and belong to the recipes, so a reset leaves them alone. */

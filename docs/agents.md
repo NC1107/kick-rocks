@@ -33,7 +33,7 @@ The agent does the browsing itself, so it needs three more things.
 
 ## Connect a client
 
-1. Open Settings, then Agents, and turn on "Allow agents to connect" under Agent access.
+1. Open Settings, then Agents, open "Set up" on the Agent access row, and turn on "Allow agents to connect".
 2. Create a token.
    It is shown once and only its hash is stored, so copy it now.
    Creating a new token replaces the old one, and every client using the old token stops working.
@@ -547,6 +547,16 @@ A connected mcp client is not held back by either rule, because you connected it
 
 Settings shows a row for the recipe worker and one for the agent worker.
 Each has its own state, so an agent worker that is down is never hidden by a recipe worker that is up.
+
+### What the agent worker tells the server about its machine
+
+With each heartbeat the agent worker reports its host name, platform, CPU cores and memory, the GPUs `nvidia-smi` or `rocm-smi` lists, and, when its provider is ollama, which models its Ollama has installed and loaded.
+That is what lets Settings, then Agents, recommend a model.
+The worker never sends keys, and the Ollama address it reports has any credentials removed.
+It also lets the server offer the model chosen on that screen, and the worker takes it only between tasks, only for the ollama provider, and only if the model is installed.
+The address, the provider and the keys always stay the worker's own.
+The server probes the address saved for the reply model, an Ollama address the worker reports on your network, and, only while no reply model is set, four usual local addresses.
+It scans nothing else.
 
 ### Browser data of deleted profiles
 

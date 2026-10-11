@@ -95,6 +95,8 @@ export interface AppServices {
   passwords: PasswordHasher;
   /** How a push reaches ntfy or Telegram, replaced in tests with a local server. */
   notificationChannels: NotificationChannels;
+  /** How the server looks for an Ollama on the network, replaced in tests with a stand-in. */
+  probeFetch: typeof fetch;
 }
 
 /** Replacements for the pieces tests and tools need to control. */
@@ -107,6 +109,7 @@ export interface ServiceOverrides {
   legal?: LegalApi;
   auth?: AuthService;
   notificationChannels?: NotificationChannels;
+  probeFetch?: typeof fetch;
   targetSources?: TargetSources;
   /** Cheaper argon2 settings so a test that signs in many times stays fast. Never set outside tests. */
   passwordCost?: PasswordCost;
@@ -213,6 +216,7 @@ export function createServices(
     passwords: createPasswordHasher(overrides.passwordCost),
     auth: overrides.auth ?? createAuthService({ config, db, clock, logger, settings, secrets }),
     notificationChannels: overrides.notificationChannels ?? createNotificationChannels(),
+    probeFetch: overrides.probeFetch ?? fetch,
   };
 
   restoreGate.onRelease((restoredAt) => settleBrowserWorkAfterRestore(services, restoredAt));

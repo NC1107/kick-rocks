@@ -1,11 +1,29 @@
 import { profiles } from "@kickrocks/db";
-import { API_ROUTES, judgeGate, withoutPass, withPass } from "@kickrocks/shared";
+import {
+  API_ROUTES,
+  judgeGate,
+  type WorkerHeartbeatBody,
+  type WorkerInventory,
+  withoutPass,
+  withPass,
+} from "@kickrocks/shared";
 import { nowIso } from "../../core/clock.js";
 import { registerRoute } from "../../core/http.js";
 import type { ModulePlugin } from "../../core/module.js";
 import { createTaskOperations, WORKER_CALLER } from "./task-operations.js";
 
 const MAX_GATE_RECORDS = 100;
+
+function inventoryOf(body: WorkerHeartbeatBody): WorkerInventory | null {
+  const { host, ollama, accepts, agentModelState } = body;
+  const inventory: WorkerInventory = {
+    ...(host ? { host } : {}),
+    ...(ollama ? { ollama } : {}),
+    ...(accepts ? { accepts } : {}),
+    ...(agentModelState ? { agentModelState } : {}),
+  };
+  return Object.keys(inventory).length > 0 ? inventory : null;
+}
 
 /**
  * The HTTP interface of the built-in worker. Everything it does is in `task-operations`, which the
@@ -24,13 +42,19 @@ export const workerApiModule: ModulePlugin = (app, services) => {
       currentTaskId: body.currentTaskId ?? null,
       resultPending: body.resultPending ?? false,
       model: body.model ?? null,
+      inventory: inventoryOf(body),
     });
     const profileIds = services.db
       .select({ id: profiles.id })
       .from(profiles)
       .all()
       .map((row) => row.id);
-    return { ok: true as const, serverTime: now, profileIds };
+    return {
+      ok: true as const,
+      serverTime: now,
+      profileIds,
+      agentModel: services.settings.get("agent.model"),
+    };
   });
 
   registerRoute(app, API_ROUTES.workerClaim, ({ body }) => ({

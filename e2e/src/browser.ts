@@ -26,7 +26,7 @@ export interface ScreenReport {
   problems: string[];
 }
 
-async function signIn(page: Page, password: string): Promise<void> {
+export async function signIn(page: Page, password: string): Promise<void> {
   await page.goto(`${STACK.serverUrl}/login`);
   await page.getByLabel("Password", { exact: true }).fill(password);
   await page.getByRole("button", { name: "Sign in" }).click();

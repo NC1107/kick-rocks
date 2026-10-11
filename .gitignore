@@ -16,6 +16,7 @@ coverage/
 packages/brokers/data/generated/
 apps/worker/.chrome-profile/
 e2e/.dkim/
+e2e/.shots/
 apps/agent-worker/.chrome-profile-agent/
 kickrocks-backup*
 kickrocks-scheduled*

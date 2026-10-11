@@ -1,5 +1,6 @@
 import type { IncomingMessage } from "node:http";
 import type { Plugin, ViteDevServer } from "vite";
+import type * as AgentSetupModule from "./agent-setup.js";
 import type { AgentPreset } from "./agents.js";
 import type { MockApp, MockRequest } from "./app.js";
 import type { MockAuthMode, MockHealthState } from "./store.js";
@@ -52,6 +53,8 @@ async function readBody(request: IncomingMessage): Promise<string | undefined> {
  * session to a state, for testing the auth gate. GET /__mock/health?state=ok|scheduler|sending|database|disk
  * makes the health check report that problem. GET /__mock/agents?preset=none|one|several sets
  * which agent workers and MCP clients have connected, and queues agent tasks on two requests.
+ * ?setup=none|small6|gpu16|gpu16-uncleared|gpu16-old-worker|gpu16-hosted sets what Settings, Agents
+ * detects. Either or both may be given.
  */
 export function kickRocksMock(options: KickRocksMockOptions = {}): Plugin {
   const settings = readOptions(options);
@@ -106,16 +109,25 @@ export function kickRocksMock(options: KickRocksMockOptions = {}): Plugin {
               }
               app.store.health = state;
             } else if (path.pathname === "/__mock/agents") {
+              const preset = path.searchParams.get("preset");
+              const setup = path.searchParams.get("setup");
               const agentsModule = (await server.ssrLoadModule(
                 "/mock/agents.ts",
               )) as typeof import("./agents.js");
-              const preset = path.searchParams.get("preset") as AgentPreset | null;
-              if (!preset || !agentsModule.AGENT_PRESETS.includes(preset)) {
+              const setups = (await server.ssrLoadModule(
+                "/mock/agent-setup.ts",
+              )) as typeof AgentSetupModule;
+              const knownSetup = setups.AGENT_SETUPS.find((name) => name === setup);
+              const knownPreset = agentsModule.AGENT_PRESETS.find((name) => name === preset);
+              if ((setup && !knownSetup) || (preset && !knownPreset) || !(setup || preset)) {
                 response.statusCode = 400;
-                response.end(`preset must be ${agentsModule.AGENT_PRESETS.join(", ")}`);
+                response.end(
+                  `setup must be ${setups.AGENT_SETUPS.join(", ")} and preset ${agentsModule.AGENT_PRESETS.join(", ")}`,
+                );
                 return;
               }
-              agentsModule.applyAgentPreset(app.store, preset);
+              if (knownSetup) setups.applyAgentSetup(app.store, knownSetup);
+              if (knownPreset) agentsModule.applyAgentPreset(app.store, knownPreset as AgentPreset);
             } else {
               response.statusCode = 404;
               response.end("unknown mock control");

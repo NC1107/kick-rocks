@@ -3,7 +3,13 @@ import { ServerUnreachableError, WorkerApiError } from "@kickrocks/worker/dist/a
 import { SubmitNotRecorded, type TaskReport } from "@kickrocks/worker/dist/executor.js";
 import { describe, expect, it, vi } from "vitest";
 import { agentTask, silentLogger, summary } from "../test/support.js";
-import { type AgentApi, type AgentExecutor, type LoopTiming, runLoop } from "./loop.js";
+import {
+  type AgentApi,
+  type AgentExecutor,
+  type LoopContext,
+  type LoopTiming,
+  runLoop,
+} from "./loop.js";
 
 const FAST: Partial<LoopTiming> = {
   leaseHeartbeatMs: 20,
@@ -39,7 +45,12 @@ async function drive(
   api: AgentApi,
   executor: AgentExecutor,
   until: () => boolean,
-  extra: { forceStop?: () => Promise<void>; signal?: AbortController } = {},
+  extra: {
+    forceStop?: () => Promise<void>;
+    signal?: AbortController;
+    takeAgentModel?: LoopContext["takeAgentModel"];
+    agentModelState?: LoopContext["agentModelState"];
+  } = {},
 ): Promise<void> {
   const controller = extra.signal ?? new AbortController();
   const finished = runLoop({
@@ -52,6 +63,8 @@ async function drive(
     leaseMs: 60_000,
     timing: FAST,
     ...(extra.forceStop ? { forceStop: extra.forceStop } : {}),
+    ...(extra.takeAgentModel ? { takeAgentModel: extra.takeAgentModel } : {}),
+    ...(extra.agentModelState ? { agentModelState: extra.agentModelState } : {}),
   });
   await vi.waitUntil(until, { timeout: 5_000, interval: 5 });
   controller.abort();
@@ -544,5 +557,94 @@ describe("the agent claim loop", () => {
     other.abort();
     await done;
     expect(quiet).not.toHaveBeenCalled();
+  });
+});
+
+describe("taking the model the person chose on the server", () => {
+  const choice = { name: "gpt-oss:20b", thinking: "default" as const, numCtx: 16_384 };
+
+  it("offers the choice on an idle heartbeat, and beats again at once when it changed something", async () => {
+    const api = fakeApi([null, null]);
+    api.heartbeat.mockResolvedValueOnce({
+      ok: true as const,
+      serverTime: "2026-10-07T00:00:00.000Z",
+      agentModel: choice,
+    });
+    const take = vi.fn(async () => true);
+    await drive(
+      api,
+      async () => ({ kind: "release", reason: "x" }),
+      () => api.heartbeat.mock.calls.length >= 2,
+      { takeAgentModel: take },
+    );
+    expect(take).toHaveBeenCalledWith(choice);
+    expect(api.heartbeat.mock.calls.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it("does not beat a second time when nothing changed", async () => {
+    const api = fakeApi([null, null, null]);
+    api.heartbeat.mockResolvedValue({
+      ok: true as const,
+      serverTime: "2026-10-07T00:00:00.000Z",
+      agentModel: choice,
+    });
+    const take = vi.fn(async () => false);
+    await drive(
+      api,
+      async () => ({ kind: "release", reason: "x" }),
+      () => api.claim.mock.calls.length >= 3,
+      { takeAgentModel: take },
+    );
+    expect(api.heartbeat).toHaveBeenCalledTimes(1);
+    expect(take).toHaveBeenCalledTimes(1);
+  });
+
+  it("never offers it while a task is running, so a task keeps the model it was claimed with", async () => {
+    const api = fakeApi([agentTask()]);
+    api.heartbeat.mockResolvedValue({
+      ok: true as const,
+      serverTime: "2026-10-07T00:00:00.000Z",
+      agentModel: choice,
+    });
+    const take = vi.fn(async () => false);
+    const offeredDuringRun: number[] = [];
+    const executor: AgentExecutor = async () => {
+      await vi.waitUntil(() => api.taskHeartbeat.mock.calls.length >= 2, {
+        timeout: 2000,
+        interval: 5,
+      });
+      offeredDuringRun.push(take.mock.calls.length);
+      return { kind: "release", reason: "done" };
+    };
+    const before = take.mock.calls.length;
+    await drive(api, executor, () => api.release.mock.calls.length > 0, { takeAgentModel: take });
+    expect(offeredDuringRun[0]).toBe(before + 1);
+  });
+
+  it("offers nothing when the server says nothing, as an older server does", async () => {
+    const api = fakeApi([null]);
+    const take = vi.fn(async () => true);
+    await drive(
+      api,
+      async () => ({ kind: "release", reason: "x" }),
+      () => api.claim.mock.calls.length >= 1,
+      { takeAgentModel: take },
+    );
+    expect(take).not.toHaveBeenCalled();
+  });
+
+  it("reports what became of the last choice with the next heartbeat", async () => {
+    const api = fakeApi([null, null]);
+    await drive(
+      api,
+      async () => ({ kind: "release", reason: "x" }),
+      () => api.heartbeat.mock.calls.length >= 1,
+      { agentModelState: () => "not_installed" },
+    );
+    expect(api.heartbeat).toHaveBeenCalledWith({
+      busy: false,
+      currentTaskId: null,
+      agentModelState: "not_installed",
+    });
   });
 });

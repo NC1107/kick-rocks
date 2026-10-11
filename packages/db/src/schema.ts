@@ -45,6 +45,7 @@ import {
   TaskKind,
   TaskStatus,
   type TaskUsage,
+  type WorkerInventory,
 } from "@kickrocks/shared";
 import { sql } from "drizzle-orm";
 import {
@@ -544,6 +545,8 @@ export const claimers = sqliteTable(
     kind: text("kind", { enum: ["builtin", "model", "mcp"] }).notNull(),
     workerId: text("worker_id").notNull(),
     model: text("model", { mode: "json" }).$type<ModelIdentity>(),
+    /** The machine and Ollama a model worker last reported, which the setup screen reads. */
+    inventory: text("inventory", { mode: "json" }).$type<WorkerInventory>(),
     version: text("version"),
     busy: integer("busy", { mode: "boolean" }).notNull().default(false),
     currentTaskId: text("current_task_id"),
