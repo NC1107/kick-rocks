@@ -16,6 +16,7 @@ import {
   fallbackSentence,
   lapsedText,
   presenceLine,
+  presenceWord,
   runNowRefusal,
   sendingLine,
   targetOf,
@@ -37,6 +38,7 @@ function agent(overrides: Partial<AgentRow> = {}): AgentRow {
     },
     gate: { state: "unproven", unattended: false, record: null },
     lastSeenAt: minutesAgo(0),
+    lastClaimAt: minutesAgo(0),
     online: true,
     busy: false,
     currentTargetName: null,
@@ -219,6 +221,41 @@ describe("the callout for a task", () => {
     expect(state.lines).toEqual(["MCP clients take work when they call claim_task."]);
   });
 
+  it("says when an MCP client that has not asked for work will lose the task", () => {
+    const mcp = agent({
+      kind: "mcp",
+      workerId: "desk-client",
+      gate: null,
+      model: null,
+      lastClaimAt: null,
+    });
+    const state = calloutState(
+      task({ assignment: assignment({ kind: "mcp", workerId: "desk-client" }) }),
+      response(mcp),
+      NOW,
+    );
+    expect(state.lines[1]).toMatch(
+      /^Not asked for work yet\. From \d\d:\d\d any agent may take it\.$/,
+    );
+  });
+
+  it("shows the restore hold instead of promising a quick start", () => {
+    const state = calloutState(
+      task({ assignment: assignment(model), requestId: "req-1" }),
+      response(agent()),
+      NOW,
+      true,
+    );
+    expect(state.lines.at(-1)).toMatch(/^Sending is held after a restore/);
+  });
+
+  it("uses one pair of presence words per kind of agent", () => {
+    expect(presenceWord(agent())).toBe("Online");
+    expect(presenceWord(agent({ online: false }))).toBe("Offline");
+    expect(presenceWord(agent({ kind: "mcp", online: true }))).toBe("Active");
+    expect(presenceWord(agent({ kind: "mcp", online: false }))).toBe("Idle");
+  });
+
   it("says who is working on a leased task, and that it cannot be changed", () => {
     const state = calloutState(
       task({ status: "leased", assignment: assignment(model) }),
@@ -227,7 +264,7 @@ describe("the callout for a task", () => {
     );
     expect(state.kind).toBe("working");
     expect(state.title).toBe("nick-pc-agent is working on it");
-    expect(state.lines[0]).toMatch(/^Started /);
+    expect(state.lines).toEqual([]);
   });
 
   it("finds the worker on an unassigned leased task by what it is busy with", () => {

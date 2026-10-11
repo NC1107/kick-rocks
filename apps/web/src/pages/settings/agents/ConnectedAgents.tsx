@@ -9,7 +9,13 @@ import {
   SkeletonText,
 } from "../../../components/ui/index.js";
 import { useNow } from "../../../lib/use-now.js";
-import { modelLine, NO_AGENTS_TEXT, presenceLine, sendingLine } from "../../assign/model.js";
+import {
+  modelLine,
+  NO_AGENTS_TEXT,
+  presenceLine,
+  presenceWord,
+  sendingLine,
+} from "../../assign/model.js";
 import { BodyRow, GroupNote, Value } from "../rows.js";
 
 function describe(row: AgentRow, now: number): string {
@@ -70,7 +76,7 @@ export function ConnectedAgents() {
               title={<span className="font-mono">{row.workerId}</span>}
               description={describe(row, now)}
               wrapDescription
-              trailing={<Value>{row.online ? (row.busy ? "Busy" : "Online") : "Offline"}</Value>}
+              trailing={<Value>{row.online && row.busy ? "Busy" : presenceWord(row)}</Value>}
             />
           ))
         )}

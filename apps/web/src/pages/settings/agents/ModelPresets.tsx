@@ -154,7 +154,8 @@ export function ModelPresets({ settings }: { settings: SettingsView }) {
           <Section label="Agent worker settings" as="h3">
             <CodeBlock title=".env" code={agentEnvLines(agent).join("\n")} />
             <GroupNote>
-              From a checkout, leave the base URL out and ollama's own address is used.
+              From a checkout, leave the base URL out and ollama's own address is used. Keep the
+              worker id stable, because tasks you assign to an agent are kept under that name.
             </GroupNote>
           </Section>
           <SafetyGate

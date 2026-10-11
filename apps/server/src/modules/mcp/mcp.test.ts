@@ -822,6 +822,18 @@ describe("who the server has heard from", () => {
     expect(rows.map((row) => row.workerId).sort()).toEqual(["desk-client", "other-client"]);
   });
 
+  it("counts only a claim for agent tasks as the client being available to take one", async () => {
+    const client = await connect();
+    await callError(client, "claim_task", { workerId: "desk-client", taskId: "missing" });
+    await call(client, "claim_task", { workerId: "desk-client", kinds: ["scan"] });
+    expect(ctx.services.claimers.lastSeenAt("mcp", "desk-client")).not.toBeNull();
+    expect(ctx.services.claimers.lastAvailableAt("mcp", "desk-client")).toBeNull();
+    await call(client, "claim_task", { workerId: "desk-client" });
+    expect(ctx.services.claimers.lastAvailableAt("mcp", "desk-client")).toBe(
+      ctx.clock.now().toISOString(),
+    );
+  });
+
   it("shows list_tasks who a task is assigned to", async () => {
     const { profile, target } = agentScanTask();
     const task = ctx.services.taskQueue.list({ kinds: ["agent"], status: "queued" })[0];

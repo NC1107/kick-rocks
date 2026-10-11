@@ -30,6 +30,7 @@ import {
   modelLine,
   NO_AGENTS_TEXT,
   presenceLine,
+  presenceWord,
   sendingLine,
   targetOf,
   workerIdOf,
@@ -190,8 +191,7 @@ function agentOption(row: AgentRow, now: number): RadioOption<Choice> {
     value: agentChoice(row),
     label: row.workerId,
     disabled: refusal !== null,
-    meta:
-      row.kind === "model" ? (row.online ? "Online" : "Offline") : row.online ? "Active" : "Idle",
+    meta: presenceWord(row),
     description: (
       <Lines>
         {[

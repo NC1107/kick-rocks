@@ -29,8 +29,10 @@ describe("the connected agents", () => {
     expect(await connected.findByText("nick-pc-agent")).toBeVisible();
     expect(connected.getByText("laptop-agent")).toBeVisible();
     expect(connected.getByText("desk-client")).toBeVisible();
-    expect(connected.getAllByText("Online")).toHaveLength(2);
-    expect(connected.getAllByText("Offline")).toHaveLength(2);
+    expect(connected.getAllByText("Online")).toHaveLength(1);
+    expect(connected.getAllByText("Offline")).toHaveLength(1);
+    expect(connected.getAllByText("Active")).toHaveLength(1);
+    expect(connected.getAllByText("Idle")).toHaveLength(1);
     expect(
       connected.getAllByText(/Drives its own browser\. Kick Rocks cannot hold what it sends\./),
     ).toHaveLength(2);

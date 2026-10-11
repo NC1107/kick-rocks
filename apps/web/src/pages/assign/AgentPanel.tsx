@@ -48,7 +48,8 @@ export function AgentPanel({ task, pageUrl, events = [], layout }: AgentPanelPro
   const toast = useToast();
   const now = useNow();
   const agents = useAgents({});
-  const state = calloutState(task, agents.data, now);
+  const restore = useApiQuery(API_ROUTES.restoreState, { refetchInterval: 15_000 });
+  const state = calloutState(task, agents.data, now, restore.data?.holding ?? false);
   const [picking, setPicking] = useState(false);
   const [finishing, setFinishing] = useState(false);
 

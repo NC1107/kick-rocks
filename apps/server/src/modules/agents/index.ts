@@ -51,6 +51,7 @@ function listAgents(services: AppServices, taskId: string | undefined): AgentsRe
         model: row.model,
         gate: kind === "model" ? gateVerdict(records, row.model) : null,
         lastSeenAt: row.lastSeenAt,
+        lastClaimAt: kind === "model" ? row.lastSeenAt : row.lastClaimAt,
         online,
         busy,
         currentTargetName: busy ? targetNameOf(services, working) : null,

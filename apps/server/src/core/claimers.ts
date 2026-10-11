@@ -27,22 +27,29 @@ export interface WorkerBeat {
  */
 export interface Claimers {
   beat(beat: WorkerBeat): void;
-  /** Notes an MCP client's call, writing at most once per {@link CLAIMER_TOUCH_MS} for each id. */
-  sawMcp(workerId: string): void;
+  /**
+   * Notes an MCP client's call, writing at most once per {@link CLAIMER_TOUCH_MS} for each id.
+   * `askedForWork` marks a claim_task call for agent tasks, which is the only call that shows the
+   * client would take an assigned one.
+   */
+  sawMcp(workerId: string, options?: { askedForWork?: boolean }): void;
   /** The worker of this kind that reported last, in the shape the settings view and health read. */
   latestWorker(kind: "builtin" | "model"): WorkerStatus | null;
   /** Agent workers and MCP clients seen within {@link AGENT_LISTED_MS}, newest first. */
   listAgents(): ClaimerRow[];
   lastSeenAt(kind: "model" | "mcp", workerId: string): string | null;
+  /** When an assignment to this agent last had a taker: its last beat, or an MCP client's last claim. */
+  lastAvailableAt(kind: "model" | "mcp", workerId: string): string | null;
   prune(): number;
 }
 
 export function createClaimers(db: KickRocksDb, clock: Clock): Claimers {
   const lastMcpWrite = new Map<string, number>();
+  const lastClaimWrite = new Map<string, number>();
 
-  function upsert(row: Omit<ClaimerRow, "firstSeenAt">): void {
+  function upsert(row: Omit<ClaimerRow, "firstSeenAt" | "lastClaimAt">): void {
     db.insert(claimers)
-      .values({ ...row, firstSeenAt: row.lastSeenAt })
+      .values({ ...row, firstSeenAt: row.lastSeenAt, lastClaimAt: null })
       .onConflictDoUpdate({
         target: [claimers.kind, claimers.workerId],
         set: {
@@ -71,10 +78,15 @@ export function createClaimers(db: KickRocksDb, clock: Clock): Claimers {
       });
     },
 
-    sawMcp(workerId) {
+    sawMcp(workerId, { askedForWork = false } = {}) {
       const now = clock.now().getTime();
+      const claimWrite = lastClaimWrite.get(workerId);
+      const claimDue =
+        askedForWork &&
+        (claimWrite === undefined || now < claimWrite || now - claimWrite >= CLAIMER_TOUCH_MS);
       const last = lastMcpWrite.get(workerId);
-      if (last !== undefined && now >= last && now - last < CLAIMER_TOUCH_MS) return;
+      const seenDue = last === undefined || now < last || now - last >= CLAIMER_TOUCH_MS;
+      if (!seenDue && !claimDue) return;
       lastMcpWrite.set(workerId, now);
       upsert({
         kind: "mcp",
@@ -86,6 +98,13 @@ export function createClaimers(db: KickRocksDb, clock: Clock): Claimers {
         resultPending: false,
         lastSeenAt: nowIso(clock),
       });
+      if (claimDue) {
+        lastClaimWrite.set(workerId, now);
+        db.update(claimers)
+          .set({ lastClaimAt: nowIso(clock) })
+          .where(and(eq(claimers.kind, "mcp"), eq(claimers.workerId, workerId)))
+          .run();
+      }
     },
 
     latestWorker(kind) {
@@ -126,6 +145,16 @@ export function createClaimers(db: KickRocksDb, clock: Clock): Claimers {
           .where(and(eq(claimers.kind, kind), eq(claimers.workerId, workerId)))
           .get()?.at ?? null
       );
+    },
+
+    lastAvailableAt(kind, workerId) {
+      const row = db
+        .select({ seen: claimers.lastSeenAt, claimed: claimers.lastClaimAt })
+        .from(claimers)
+        .where(and(eq(claimers.kind, kind), eq(claimers.workerId, workerId)))
+        .get();
+      if (!row) return null;
+      return kind === "model" ? row.seen : row.claimed;
     },
 
     prune() {

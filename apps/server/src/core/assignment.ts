@@ -153,7 +153,7 @@ export function assignmentFallbackAt(
   if (assignment.to.kind === "person") return null;
   return fallbackAt(
     assignment,
-    services.claimers.lastSeenAt(assignment.to.kind, assignment.to.workerId),
+    services.claimers.lastAvailableAt(assignment.to.kind, assignment.to.workerId),
   );
 }
 

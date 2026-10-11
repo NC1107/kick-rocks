@@ -129,12 +129,14 @@ function rowsOf(store: MockStore, task: TaskSummary | null): AgentRow[] {
   return store.agents.map((agent) => {
     const online = agent.seenAgoMs <= (agent.kind === "model" ? WORKER_ONLINE_MS : MCP_ACTIVE_MS);
     const target = store.targets.find((candidate) => candidate.id === agent.busyWithTargetId);
+    const seen = new Date(now - agent.seenAgoMs).toISOString();
     return {
       kind: agent.kind,
       workerId: agent.workerId,
       model: agent.model,
       gate: agent.kind === "model" ? gateVerdict(records, agent.model) : null,
-      lastSeenAt: new Date(now - agent.seenAgoMs).toISOString(),
+      lastSeenAt: seen,
+      lastClaimAt: seen,
       online,
       busy: online && agent.busyWithTargetId !== null,
       currentTargetName: online ? (target?.name ?? null) : null,

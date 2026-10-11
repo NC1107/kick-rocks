@@ -4,11 +4,13 @@ import {
   ASSIGNMENT_GRACE_MS,
   type AssignBody,
   fallbackAt,
+  MCP_ACTIVE_MS,
   type RequestEvent,
   type TaskAssignment,
   type TaskSummary,
 } from "@kickrocks/shared";
-import { formatTime, pluralize } from "../../lib/format.js";
+import { pluralize } from "../../lib/format.js";
+import { clockTime } from "../requests/format.js";
 import { describeModel, GATE_WORDS } from "../settings/agents/gate.js";
 
 export const GRACE_MINUTES = ASSIGNMENT_GRACE_MS / 60_000;
@@ -80,7 +82,7 @@ export function seenText(row: AgentRow, now: number): string {
   return row.online ? "Online" : `Seen ${elapsedText(row.lastSeenAt, now)} ago`;
 }
 
-/** What is worth saying about an agent's presence beyond the Online or Offline mark beside it. */
+/** What is worth saying about an agent's presence beyond the presence mark beside it. */
 export function presenceLine(row: AgentRow, now: number): string | null {
   const busy = row.busy ? `Busy with ${row.currentTargetName ?? "a task"}` : null;
   if (row.kind === "mcp") return [seenText(row, now), busy].filter(Boolean).join(". ");
@@ -105,7 +107,7 @@ export function fallbackTime(
   agents: AgentsResponse | undefined,
 ): string {
   const row = assignment.to.kind === "person" ? null : findAgent(agents, assignment.to);
-  return fallbackAt(assignment, row?.lastSeenAt ?? null);
+  return fallbackAt(assignment, row?.lastClaimAt ?? null);
 }
 
 export function fallbackWords(assignment: TaskAssignment): string {
@@ -131,7 +133,7 @@ export function assignmentLine(
   const row = findAgent(agents, assignment.to);
   const known = agents !== undefined;
   if (!known || row?.online) return `Assigned to ${workerId}`;
-  const from = formatTime(fallbackTime(assignment, agents));
+  const from = clockTime(fallbackTime(assignment, agents));
   const stale = Date.parse(fallbackTime(assignment, agents)) <= now;
   const next = assignment.fallback === "person" ? "back to you" : "any agent";
   return stale ? `${workerId} offline` : `${workerId} offline, ${next} from ${from}`;
@@ -169,11 +171,24 @@ function holderOf(task: TaskSummary, agents: AgentsResponse | undefined): AgentR
   );
 }
 
+const RESTORE_HOLD_LINE = "Sending is held after a restore, so it waits until that clears.";
+
+function askedRecently(row: AgentRow | null, now: number): boolean {
+  return row?.lastClaimAt != null && now - Date.parse(row.lastClaimAt) <= MCP_ACTIVE_MS;
+}
+
+/** The mark beside an agent: workers are online or offline, an MCP client that calls only when it has time is active or idle. */
+export function presenceWord(row: AgentRow): string {
+  if (row.kind === "model") return row.online ? "Online" : "Offline";
+  return row.online ? "Active" : "Idle";
+}
+
 /** What the request page's Agent callout says for a queued or running agent task. */
 export function calloutState(
   task: TaskSummary,
   agents: AgentsResponse | undefined,
   now: number,
+  sendsHeld = false,
 ): CalloutState {
   const nobodyConnected = agents !== undefined && agents.agents.length === 0;
   const base = {
@@ -195,7 +210,7 @@ export function calloutState(
       kind: "working",
       agent: holder,
       title: name ? `${name} is working on it` : "An agent is working on it",
-      lines: [`Started ${formatTime(task.updatedAt)}.`],
+      lines: [],
     };
   }
 
@@ -220,7 +235,7 @@ export function calloutState(
         needsAttention: true,
         title: `Assigned to ${workerId}, offline`,
         lines: [
-          `${quiet} From ${formatTime(fallbackTime(assignment, agents))} ${fallbackWords(assignment)}.`,
+          `${quiet} From ${clockTime(fallbackTime(assignment, agents))} ${fallbackWords(assignment)}.`,
         ],
       };
     }
@@ -229,9 +244,16 @@ export function calloutState(
     if (row?.busy) {
       lines.push(`Busy with ${row.currentTargetName ?? "another task"}. Takes this next.`);
     } else if (kind === "model") {
-      lines.push("Takes it within a few seconds.");
+      lines.push(
+        sendsHeld && task.requestId !== null ? RESTORE_HOLD_LINE : "Takes it within a few seconds.",
+      );
     } else {
       lines.push("MCP clients take work when they call claim_task.");
+      if (!askedRecently(row, now)) {
+        lines.push(
+          `Not asked for work ${row?.lastClaimAt ? `for ${elapsedText(row.lastClaimAt, now)}` : "yet"}. From ${clockTime(fallbackTime(assignment, agents))} ${fallbackWords(assignment)}.`,
+        );
+      }
     }
     return {
       ...common,
@@ -276,7 +298,7 @@ export function runNowRefusal(error: { code: string; message: string; body?: unk
   const seconds = (error.body as { retryAfterSeconds?: unknown } | undefined)?.retryAfterSeconds;
   if (error.code === "site_waiting" && typeof seconds === "number") {
     const at = new Date(Date.now() + seconds * 1000).toISOString();
-    return `Kick Rocks is spacing out visits to this site. It can start from ${formatTime(at)}.`;
+    return `Kick Rocks is spacing out visits to this site. It can start from ${clockTime(at)}.`;
   }
   if (error.code === "restore_hold") {
     return "Sending is held after a restore. Run now works again once Kick Rocks has accounted for the mail sent since the backup.";

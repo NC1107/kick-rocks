@@ -551,6 +551,11 @@ export const claimers = sqliteTable(
     resultPending: integer("result_pending", { mode: "boolean" }).notNull().default(false),
     firstSeenAt: timestamp("first_seen_at").notNull(),
     lastSeenAt: timestamp("last_seen_at").notNull(),
+    /**
+     * When an MCP client last asked for agent work with claim_task. Any other call proves it is
+     * there but not that it would take a task, so a task assigned to it lapses from this time.
+     */
+    lastClaimAt: timestamp("last_claim_at"),
   },
   (t) => [
     primaryKey({ columns: [t.kind, t.workerId] }),

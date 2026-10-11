@@ -82,6 +82,13 @@ function failure(error: { code: string; message?: string; issues?: unknown }): C
   };
 }
 
+/** A claim_task call that is open to any agent task, which is what an assignment waits for. */
+function asksForAgentWork(tool: McpToolName, input: unknown): boolean {
+  if (tool !== "claim_task") return false;
+  const { taskId, kinds } = input as { taskId?: unknown; kinds?: readonly string[] };
+  return taskId === undefined && (kinds?.includes("agent") ?? false);
+}
+
 /**
  * Builds an MCP server for one request. Every tool takes and returns the shared schemas, so what
  * an agent sees is the same contract the worker API keeps. A problem the agent can act on, such
@@ -110,7 +117,9 @@ export function createMcpServer(services: AppServices, version: string): McpServ
       },
       (async (input: unknown): Promise<CallToolResult> => {
         const caller = (input as { workerId?: unknown } | undefined)?.workerId;
-        if (typeof caller === "string") services.claimers.sawMcp(caller);
+        if (typeof caller === "string") {
+          services.claimers.sawMcp(caller, { askedForWork: asksForAgentWork(name, input) });
+        }
         try {
           const output = tool.output.parse(handler(input)) as Record<string, unknown>;
           return {

@@ -41,6 +41,11 @@ export const AgentRow = z.object({
   /** Whether the model may send alone. Null for an MCP client, which the gate cannot see. */
   gate: GateVerdict.nullable(),
   lastSeenAt: z.iso.datetime(),
+  /**
+   * When an assignment to it last had a taker: an agent worker's last beat, or the last time an
+   * MCP client asked for work with claim_task. Null until an MCP client has.
+   */
+  lastClaimAt: z.iso.datetime().nullable(),
   /** A worker beat within {@link WORKER_ONLINE_MS}, or an MCP client called within {@link MCP_ACTIVE_MS}. */
   online: z.boolean(),
   busy: z.boolean(),

@@ -677,7 +677,10 @@ function queuedAgentSendIds(services: ClaimServices): string[] {
     .map((task) => task.id);
 }
 
-/** Claiming a task by id must not take it from the agent, or the person, it was assigned to. */
+/**
+ * Claiming a task by id must not take it from the agent, or the person, it was assigned to. A
+ * blocked task keeps its assignment, so the hand-off that claiming it starts is refused too.
+ */
 function refuseIfAssignedElsewhere(task: Task, workerId: string, claimerKind: ClaimerKind): void {
   const { assignment } = task;
   if (assignment === null) return;
@@ -711,7 +714,9 @@ export function claimTask(
           "Sending is held after a restore, because the restored data may not know what the earlier instance already sent.",
         );
       }
-      if (current.status === "queued") refuseIfAssignedElsewhere(current, workerId, claimerKind);
+      if (current.status === "queued" || current.status === "blocked") {
+        refuseIfAssignedElsewhere(current, workerId, claimerKind);
+      }
       if (
         claimerKind === "mcp" &&
         tasksRoutedAwayFromMcp(services, BROWSER_TASK_KINDS).includes(taskId)

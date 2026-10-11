@@ -1370,6 +1370,22 @@ describe("claiming a task by id that was assigned", () => {
     );
   });
 
+  it("refuses another client for a blocked task, which keeps its assignment", () => {
+    const task = agentTask({ kind: "mcp", workerId: "desk-client" });
+    byId(task.id, "desk-client");
+    ctx.services.taskQueue.block(task.id, {
+      workerId: "desk-client",
+      reason: "captcha",
+      detail: "reCAPTCHA",
+      actor: "worker",
+    });
+    expect(ctx.services.taskQueue.getOrThrow(task.id).status).toBe("blocked");
+    expect(() => byId(task.id, "someone-else")).toThrow(
+      expect.objectContaining({ code: "task_assigned" }),
+    );
+    expect(ctx.services.taskQueue.getOrThrow(task.id).status).toBe("blocked");
+  });
+
   it("lets the assignee take it", () => {
     const task = agentTask({ kind: "mcp", workerId: "desk-client" });
     expect(byId(task.id, "desk-client")?.id).toBe(task.id);
