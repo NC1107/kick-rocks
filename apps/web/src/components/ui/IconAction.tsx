@@ -1,4 +1,5 @@
 import type { LucideIcon } from "lucide-react";
+import type { ComponentProps } from "react";
 import { Link } from "react-router";
 import { cn } from "../../lib/cn.js";
 import type { ButtonSize } from "./Button.js";
@@ -7,7 +8,12 @@ import { IconButton, type IconButtonVariant, iconButtonClass } from "./IconButto
 import { type FromState, useCurrentPage } from "./PageBack.js";
 import { Tooltip } from "./Tooltip.js";
 
-export interface IconActionProps {
+type ButtonPassthrough = Omit<
+  ComponentProps<"button">,
+  "aria-label" | "children" | "className" | "disabled" | "onClick" | "type"
+>;
+
+export interface IconActionProps extends ButtonPassthrough {
   /** Names the action for screen readers and shows as its tooltip. */
   label: string;
   icon: LucideIcon;
@@ -45,6 +51,7 @@ export function IconAction({
   disabled = false,
   badge,
   labelFrom,
+  ...rest
 }: IconActionProps) {
   const from = useCurrentPage();
   const spread = labelFrom ? LABEL_FROM[labelFrom] : null;
@@ -92,6 +99,7 @@ export function IconAction({
       disabled={disabled}
       onClick={onClick}
       className={className}
+      {...rest}
     >
       {content}
     </IconButton>

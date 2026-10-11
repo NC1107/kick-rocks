@@ -33,7 +33,7 @@ describe("the requests page", () => {
   it("lists the current profile's requests with status, reference, and channel", async () => {
     open();
     const list = await rows();
-    expect(list.length).toBe(33);
+    expect(list.length).toBe(34);
     const first = within(list[0] as HTMLElement);
     expect(first.getByText(/^KR-/)).toBeVisible();
     expect(first.getAllByText(/Email|Web form/).length).toBeGreaterThan(0);
@@ -54,7 +54,7 @@ describe("the requests page", () => {
   it("counts the requests in the toolbar", async () => {
     open();
     await rows();
-    expect(await screen.findByText("33 requests")).toBeVisible();
+    expect(await screen.findByText("34 requests")).toBeVisible();
   });
 
   it("filters by status from the address bar", async () => {

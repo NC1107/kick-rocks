@@ -272,3 +272,10 @@ export const AGENT_REASON_LABELS: Record<AgentReason, string> = {
   recipe_failed: "The saved steps stopped working",
   blocked: "Handed over after a human check",
 };
+
+/** The short code for a legal basis: "CCPA" for ca-ccpa, "MODPA" for md-modpa. */
+export function legalBasisCode(id: string): string {
+  if (id === "policy") return "Policy";
+  const [, ...rest] = id.split("-");
+  return (rest.length > 0 ? rest.join("") : id).toUpperCase();
+}

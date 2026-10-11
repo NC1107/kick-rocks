@@ -9,9 +9,9 @@ import {
   tellEvents,
 } from "@kickrocks/shared";
 import { skipToken } from "@tanstack/react-query";
-import { MoreHorizontal } from "lucide-react";
-import { type ReactNode, useState } from "react";
-import { Link, useParams } from "react-router";
+import { Globe, Mail, MoreHorizontal } from "lucide-react";
+import { useState } from "react";
+import { useParams } from "react-router";
 import {
   errorMessage,
   useApiMutation,
@@ -23,9 +23,13 @@ import {
   Button,
   Callout,
   ConfirmDialog,
+  CopyButton,
   EmptyState,
+  EntityLink,
+  EntityRow,
   ExternalLinkText,
-  IconButton,
+  FactList,
+  IconAction,
   InlineError,
   LinkButton,
   Menu,
@@ -36,29 +40,28 @@ import {
   Section,
   Skeleton,
   StatusMark,
-  Tag,
   TaskStatusMark,
   useToast,
 } from "../../../components/ui/index.js";
-import { cn } from "../../../lib/cn.js";
-import { formatDate, formatDateTime } from "../../../lib/format.js";
+import { formatDate } from "../../../lib/format.js";
 import {
   BLOCKED_REASON_LABELS,
   CHANNEL_LABELS,
-  CLASSIFICATION_LABELS,
+  legalBasisCode,
   REQUEST_ACTION_LABELS,
   RIGHT_LABELS,
   TASK_KIND_LABELS,
 } from "../../../lib/labels.js";
+import { paths, taskPath } from "../../../lib/paths.js";
 import { REQUEST_STATUS_META } from "../../../lib/status.js";
 import {
-  CheckForRepliesButton,
+  CheckForRepliesAction,
   ReplyCheckResult,
   useReplyCheck,
 } from "../../mailbox/check-for-replies.js";
-import { MessageBody } from "../../review/MessageBody.js";
+import { RIGHT_TOKENS } from "../format.js";
 import { detailRefreshInterval } from "../polling.js";
-import { ReplyCorrection } from "./ReplyCorrection.js";
+import { ReplyCard } from "./ReplyCard.js";
 import { Timeline } from "./Timeline.js";
 
 const FORM_REQUEST_LEAD: Record<FormRequest["state"], string> = {
@@ -112,7 +115,7 @@ function Loading() {
   return (
     <div aria-busy="true">
       <span className="sr-only">Loading request</span>
-      <PageHeader title="Request" back={{ to: "/requests", label: "Requests" }} />
+      <PageHeader title="Request" />
       <div className="flex max-w-3xl flex-col gap-5">
         <Section label="Summary">
           <RowGroup>
@@ -130,50 +133,44 @@ function Loading() {
   );
 }
 
-function Facts({
-  items,
-}: {
-  items: readonly { term: string; value: ReactNode; mono?: boolean }[];
-}) {
+function TaskRow({ task, requestId }: { task: TaskSummary; requestId: string }) {
+  // A task that only belongs to this request has nowhere else to open, so it is not a link.
+  const here = taskPath(task) === paths.request(requestId);
   return (
-    <dl className="m-0 divide-y divide-line overflow-hidden rounded-md border border-line bg-surface">
-      {items.map((item) => (
-        <div
-          key={item.term}
-          className="grid min-h-row items-baseline gap-x-6 px-3.5 py-2 sm:grid-cols-[9rem_minmax(0,1fr)]"
-        >
-          <dt className="text-meta text-ink-3">{item.term}</dt>
-          <dd
-            className={cn(
-              "m-0 min-w-0 break-words text-ui text-ink",
-              item.mono && "font-mono text-meta",
-            )}
-          >
-            {item.value}
-          </dd>
-        </div>
-      ))}
-    </dl>
+    <EntityRow
+      to={{ kind: "task", task: here ? { ...task, requestId: null } : task }}
+      title={TASK_KIND_LABELS[task.kind]}
+      meta={
+        <>
+          Updated <RelativeTime iso={task.updatedAt} />
+          {task.attempts > 1 ? `, attempt ${task.attempts} of ${task.maxAttempts}` : ""}
+          {task.status === "blocked" && task.blockedReason
+            ? `. Stopped for you: ${BLOCKED_REASON_LABELS[task.blockedReason]}`
+            : ""}
+        </>
+      }
+      trailing={<TaskStatusMark status={task.status} />}
+    />
   );
 }
 
-function TaskRow({ task }: { task: TaskSummary }) {
+/** Created, sent, due and follow-ups on one wrapping mono line, since each is a few characters. */
+function Timing({ request }: { request: RequestDetail }) {
+  const parts = [
+    `Created ${formatDate(request.createdAt)}`,
+    request.sentAt ? `Sent ${formatDate(request.sentAt)}` : "Not sent yet",
+    request.dueAt ? `Due ${formatDate(request.dueAt)}` : null,
+    request.followUps > 0 ? `Follow-ups ${request.followUps}` : null,
+  ].filter((part): part is string => part !== null);
   return (
-    <div className="flex min-h-row flex-wrap items-center justify-between gap-x-4 gap-y-1.5 px-3.5 py-2">
-      <div className="min-w-0">
-        <p className="text-ui font-medium text-ink">{TASK_KIND_LABELS[task.kind]}</p>
-        <p className="text-meta text-ink-3">
-          Updated <RelativeTime iso={task.updatedAt} />
-          {task.attempts > 1 ? `, attempt ${task.attempts} of ${task.maxAttempts}` : ""}
-        </p>
-        {task.status === "blocked" && task.blockedReason ? (
-          <p className="text-meta text-ink-3">
-            Stopped for you: {BLOCKED_REASON_LABELS[task.blockedReason]}
-          </p>
-        ) : null}
-      </div>
-      <TaskStatusMark status={task.status} />
-    </div>
+    <>
+      {parts.map((part, index) => (
+        <span key={part} className="whitespace-nowrap">
+          {index > 0 ? " \u00b7 " : ""}
+          {part}
+        </span>
+      ))}
+    </>
   );
 }
 
@@ -198,13 +195,13 @@ export function Component() {
         <EmptyState
           title="Request not found."
           description="It may belong to a profile that was deleted."
-          actions={<LinkButton to="/requests">Back to requests</LinkButton>}
+          actions={<LinkButton to={paths.requests()}>Back to requests</LinkButton>}
         />
       );
     }
     return (
       <>
-        <PageHeader title="Request" back={{ to: "/requests", label: "Requests" }} />
+        <PageHeader title="Request" />
         <Callout
           intent="danger"
           title="Could not load this request"
@@ -241,9 +238,15 @@ function Detail({ request }: { request: RequestDetail }) {
     onError: () => setConfirming(null),
   });
 
-  const check = useReplyCheck(request.profileId);
+  const check = useReplyCheck(request.profileId, request.id);
   const { profiles } = useCurrentProfile();
-  const canCheck = profiles.find((profile) => profile.id === request.profileId)?.mailboxConnected;
+  const owner = profiles.find((profile) => profile.id === request.profileId);
+  const canCheck = owner?.mailboxConnected;
+  const ownerDetail = useApiQuery(
+    API_ROUTES.profilesGet,
+    request.mailboxId ? { params: { id: request.profileId } } : skipToken,
+  );
+  const mailbox = ownerDetail.data?.mailbox ?? null;
 
   const [retryError, setRetryError] = useState<string | null>(null);
   const retry = useApiMutation(API_ROUTES.taskRetry, {
@@ -267,6 +270,9 @@ function Detail({ request }: { request: RequestDetail }) {
     API_ROUTES.targetsGet,
     can("resend") ? { params: { id: request.target.id } } : skipToken,
   );
+  const latestReply = request.messages.at(-1);
+  const showLatest = latestReply !== undefined && latestReply.classification !== "completed";
+  const earlierReplies = showLatest ? request.messages.slice(0, -1) : request.messages;
   const waitingAgent = request.tasks.find(
     (task) => task.kind === "agent" && task.status === "queued",
   );
@@ -283,6 +289,11 @@ function Detail({ request }: { request: RequestDetail }) {
   const statute = jurisdictions.data?.jurisdictions
     .flatMap((jurisdiction) => jurisdiction.statutes)
     .find((candidate) => candidate.id === request.legalBasis);
+  const basisName =
+    request.legalBasis === "policy" ? "Their own privacy policy" : (statute?.name ?? null);
+  const ChannelGlyph = request.channel === "email" ? Mail : Globe;
+  const channelHint =
+    request.channel === "email" ? "Sent as an email" : "Submitted through their web form";
 
   return (
     <>
@@ -292,29 +303,22 @@ function Detail({ request }: { request: RequestDetail }) {
         description={
           <span className="flex flex-wrap items-center gap-x-4 gap-y-1">
             <StatusMark status={request.status} />
-            <span className="font-mono text-meta">{request.reference}</span>
+            <span className="inline-flex items-center gap-1 font-mono text-meta">
+              {request.reference}
+              <CopyButton iconOnly value={request.reference} label="Copy reference" />
+            </span>
           </span>
         }
-        back={{ to: "/requests", label: "Requests" }}
         actions={
           <>
-            {canCheck ? <CheckForRepliesButton check={check} /> : null}
+            {canCheck ? <CheckForRepliesAction check={check} /> : null}
             {menuItems.length > 0 ? (
               <Menu
                 align="end"
                 items={menuItems}
-                trigger={(props) =>
-                  can("resend") ? (
-                    <IconButton label="More actions" variant="secondary" {...props}>
-                      <MoreHorizontal />
-                    </IconButton>
-                  ) : (
-                    <Button variant="secondary" {...props}>
-                      <MoreHorizontal aria-hidden="true" />
-                      More actions
-                    </Button>
-                  )
-                }
+                trigger={(props) => (
+                  <IconAction label="More actions" icon={MoreHorizontal} {...props} />
+                )}
               />
             ) : null}
             {can("resend") ? (
@@ -327,14 +331,21 @@ function Detail({ request }: { request: RequestDetail }) {
       />
 
       <div className="flex max-w-3xl flex-col gap-5">
-        <ReplyCheckResult check={check} here={request.id} />
+        <ReplyCheckResult check={check} here={request.id} recordedOnTimeline />
         {act.isError ? <InlineError>{errorMessage(act.error)}</InlineError> : null}
+        {showLatest ? (
+          <Section label="Latest reply">
+            <RowGroup>
+              <ReplyCard message={latestReply} requestId={request.id} />
+            </RowGroup>
+          </Section>
+        ) : null}
         {request.status === "needs_verification" ? (
           <Callout
             intent="warning"
             title="The target asked for more details"
             action={
-              <LinkButton size="sm" to="/review?tab=verifications">
+              <LinkButton size="sm" to={paths.review(`details:${request.id}`)}>
                 Review what to send
               </LinkButton>
             }
@@ -379,7 +390,7 @@ function Detail({ request }: { request: RequestDetail }) {
                 {target.optOutUrl ? (
                   <ExternalLinkText href={target.optOutUrl}>Open the opt-out page</ExternalLinkText>
                 ) : null}
-                <LinkButton size="sm" to="/review?tab=agents">
+                <LinkButton size="sm" to={paths.review(`agent:${waitingAgent.id}`)}>
                   Do it myself
                 </LinkButton>
               </span>
@@ -394,7 +405,7 @@ function Detail({ request }: { request: RequestDetail }) {
             intent="warning"
             title="A task is waiting for you"
             action={
-              <LinkButton size="sm" to="/review?tab=blocked">
+              <LinkButton size="sm" to={paths.review(`blocked:${blocked.id}`)}>
                 Open in Review
               </LinkButton>
             }
@@ -411,56 +422,114 @@ function Detail({ request }: { request: RequestDetail }) {
           </Callout>
         ) : null}
 
+        {earlierReplies.length > 0 ? (
+          <Section label={showLatest ? "Earlier replies" : "Replies"} count={earlierReplies.length}>
+            <RowGroup>
+              {earlierReplies.map((message) => (
+                <ReplyCard key={message.id} message={message} requestId={request.id} />
+              ))}
+            </RowGroup>
+          </Section>
+        ) : showLatest ? null : (
+          <Section label="Replies" count={0}>
+            <p className="py-1 text-ui text-ink-2">No replies yet.</p>
+          </Section>
+        )}
+
         <Section label="Summary">
-          <Facts
+          <FactList
+            dense
             items={[
               {
                 term: "Target",
+                value: <EntityLink to={{ kind: "target", id: target.id, name: target.name }} />,
+              },
+              ...(owner
+                ? [
+                    {
+                      term: "For",
+                      value: (
+                        <EntityLink
+                          to={{ kind: "profile", id: owner.id, name: owner.displayName }}
+                        />
+                      ),
+                    },
+                  ]
+                : []),
+              ...(mailbox
+                ? [
+                    {
+                      term: "From",
+                      value: (
+                        <EntityLink
+                          to={{
+                            kind: "mailbox",
+                            profileId: mailbox.profileId,
+                            address: mailbox.address,
+                          }}
+                        />
+                      ),
+                    },
+                  ]
+                : []),
+              ...(request.campaignId
+                ? [
+                    {
+                      term: "Campaign",
+                      value: (
+                        <EntityLink
+                          to={{
+                            kind: "campaign",
+                            id: request.campaignId,
+                            label: "All requests in it",
+                          }}
+                        />
+                      ),
+                    },
+                  ]
+                : []),
+              {
+                term: "Channel",
+                hint: channelHint,
                 value: (
-                  <Link
-                    to={`/targets/${encodeURIComponent(target.id)}`}
-                    className="rounded-xs text-accent-text underline decoration-accent-text/40 underline-offset-2 hover:decoration-accent-text"
-                  >
-                    {target.name}
-                  </Link>
+                  <span className="inline-flex items-center gap-1.5">
+                    <ChannelGlyph aria-hidden="true" className="size-4 text-ink-2" />
+                    <span className="sr-only">{CHANNEL_LABELS[request.channel]}</span>
+                  </span>
                 ),
               },
-              { term: "Channel", value: CHANNEL_LABELS[request.channel] },
               {
                 term: "Asked for",
-                value: request.rights
-                  .map((right, index) =>
-                    index === 0
-                      ? RIGHT_LABELS[right]
-                      : RIGHT_LABELS[right].replace(/^./, (first) => first.toLowerCase()),
-                  )
-                  .join(" and "),
+                mono: true,
+                value: (
+                  <>
+                    <span aria-hidden="true">
+                      {request.rights.map((right) => RIGHT_TOKENS[right]).join(" \u00b7 ")}
+                    </span>
+                    <span className="sr-only">
+                      {request.rights
+                        .map((right, index) =>
+                          index === 0
+                            ? RIGHT_LABELS[right]
+                            : RIGHT_LABELS[right].replace(/^./, (first) => first.toLowerCase()),
+                        )
+                        .join(" and ")}
+                    </span>
+                  </>
+                ),
               },
               {
                 term: "Legal basis",
-                value:
-                  request.legalBasis === "policy"
-                    ? "Their own privacy policy"
-                    : (statute?.name ?? request.legalBasis),
-              },
-              {
-                term: "Created",
                 mono: true,
+                ...(basisName ? { hint: basisName } : {}),
                 value: (
-                  <time dateTime={request.createdAt}>{formatDateTime(request.createdAt)}</time>
+                  <>
+                    {legalBasisCode(request.legalBasis)}
+                    {basisName ? <span className="sr-only">, {basisName}</span> : null}
+                  </>
                 ),
               },
-              {
-                term: "Sent",
-                mono: Boolean(request.sentAt),
-                value: request.sentAt ? formatDateTime(request.sentAt) : "Not sent yet",
-              },
-              {
-                term: "Reply due",
-                mono: Boolean(request.dueAt),
-                value: request.dueAt ? formatDate(request.dueAt) : "Not set",
-              },
-              { term: "Follow-ups sent", mono: true, value: String(request.followUps) },
+              { term: "Timing", mono: true, value: <Timing request={request} /> },
               ...(request.recordUrl
                 ? [
                     {
@@ -489,42 +558,13 @@ function Detail({ request }: { request: RequestDetail }) {
           />
         </Section>
 
-        <Section label="Replies" count={request.messages.length}>
-          {request.messages.length === 0 ? (
-            <p className="py-1 text-ui text-ink-2">No replies yet.</p>
-          ) : (
-            <RowGroup>
-              {request.messages.map((message) => (
-                <div key={message.id} className="px-3.5 py-3">
-                  <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
-                    <p className="min-w-0 break-words text-ui font-medium text-ink">
-                      {message.subject}
-                    </p>
-                    <Tag>{CLASSIFICATION_LABELS[message.classification]}</Tag>
-                  </div>
-                  <p className="break-words font-mono text-caption text-ink-3">
-                    {message.fromAddress},{" "}
-                    <time dateTime={message.receivedAt}>{formatDateTime(message.receivedAt)}</time>
-                  </p>
-                  <div className="mt-2">
-                    <MessageBody messageId={message.id} snippet={message.snippet} />
-                  </div>
-                  <div className="mt-2">
-                    <ReplyCorrection message={message} />
-                  </div>
-                </div>
-              ))}
-            </RowGroup>
-          )}
-        </Section>
-
         <Section label="Tasks" count={request.tasks.length}>
           {request.tasks.length === 0 ? (
             <p className="py-1 text-ui text-ink-2">No tasks for this request yet.</p>
           ) : (
             <RowGroup>
               {request.tasks.map((task) => (
-                <TaskRow key={task.id} task={task} />
+                <TaskRow key={task.id} task={task} requestId={request.id} />
               ))}
             </RowGroup>
           )}

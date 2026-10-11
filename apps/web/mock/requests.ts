@@ -444,19 +444,6 @@ const JORDAN_REQUESTS: Seed[] = [
     recordUrl: "https://www.peopletrace.example/person/jordan-example-ca-4821",
   },
   { target: "northgate-wireless", status: "confirmed", daysAgo: 29, rights: OPT_OUT },
-  {
-    // An automatic reply that says the request must go through a web form or by phone. Nothing
-    // reads it as such, so the request looks like any other that is waiting.
-    target: "rye-street-bakery-cafe",
-    status: "awaiting_reply",
-    daysAgo: 6,
-    rights: DELETE,
-    legalBasis: "md-modpa",
-    noteReply: {
-      classification: "auto_ack",
-      text: "Thanks for contacting us. We cannot take privacy requests by email. Please submit your request through our web form or call 1-800-555-0142.",
-    },
-  },
   { target: "cardinal-insights", status: "awaiting_reply", daysAgo: 12, rights: BOTH },
   { target: "truesegment", status: "awaiting_reply", daysAgo: 11, rights: BOTH },
   { target: "summit-mutual", status: "awaiting_reply", daysAgo: 11, rights: OPT_OUT },
@@ -473,6 +460,19 @@ const JORDAN_REQUESTS: Seed[] = [
       reason: "captcha",
       detail: "A reCAPTCHA appeared before the removal form could be submitted.",
       screenshot: true,
+    },
+  },
+  {
+    // An automatic reply that says the request must go through a web form or by phone. Nothing
+    // reads it as such, so the request looks like any other that is waiting.
+    target: "rye-street-bakery-cafe",
+    status: "awaiting_reply",
+    daysAgo: 6,
+    rights: DELETE,
+    legalBasis: "md-modpa",
+    noteReply: {
+      classification: "auto_ack",
+      text: "Thanks for contacting us. We cannot take privacy requests by email. Please submit your request through our web form or call 1-800-555-0142.",
     },
   },
   { target: "tidewater-card-services", status: "draft", daysAgo: 1, rights: BOTH },

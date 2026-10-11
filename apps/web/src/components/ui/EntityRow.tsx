@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { cn } from "../../lib/cn.js";
-import { EntityLink, type EntityRef } from "./EntityLink.js";
+import { EntityLink, type EntityRef, resolveEntity } from "./EntityLink.js";
 
 export interface EntityRowProps {
   to: EntityRef;
@@ -34,6 +34,7 @@ export function EntityRow({
   selected = false,
   className,
 }: EntityRowProps) {
+  const interactive = onSelect !== undefined || resolveEntity(to, undefined).href !== null;
   const body = (
     <>
       {mark ? <span className="flex shrink-0 items-center">{mark}</span> : null}
@@ -74,5 +75,5 @@ export function EntityRow({
       </button>
     );
   }
-  return <div className={cn(ROW_CLASS, "hover:bg-hover", className)}>{body}</div>;
+  return <div className={cn(ROW_CLASS, interactive && "hover:bg-hover", className)}>{body}</div>;
 }
