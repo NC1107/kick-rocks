@@ -1,9 +1,9 @@
 import { screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import { createMockApp } from "../../../mock/app.js";
-import { renderPage } from "../../test/render.js";
+import { createMockApp } from "../../../../mock/app.js";
+import { renderPage } from "../../../test/render.js";
 import { Component as ProfilesPage } from "./index.js";
-import { instrument } from "./test-support.js";
+import { instrument } from "../../profiles/test-support.js";
 
 describe("the profiles list", () => {
   it("lists every profile with its state, email, and mailbox status", async () => {

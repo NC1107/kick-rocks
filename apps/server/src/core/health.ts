@@ -7,6 +7,7 @@ import type { FastifyInstance } from "fastify";
 import type { AppServices } from "../services.js";
 import { nowIso } from "./clock.js";
 import { registerRoute } from "./http.js";
+import { buildDate } from "./version.js";
 
 type HealthDeps = Pick<
   AppServices,
@@ -139,6 +140,7 @@ export function registerHealth(app: FastifyInstance, services: HealthDeps, versi
       profiles: profileCount,
       brokers: { available: brokers > 0, total: brokers },
       targets: { brokers, companies: countKind("company") },
+      builtAt: buildDate(),
       health: inspect().health,
     };
   });

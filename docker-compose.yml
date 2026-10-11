@@ -8,6 +8,7 @@ services:
       context: .
       args:
         KICKROCKS_VERSION: ${KICKROCKS_VERSION:-}
+        KICKROCKS_BUILD_DATE: ${KICKROCKS_BUILD_DATE:-}
     restart: unless-stopped
     # Shutdown closes the scheduler and any send in flight, and Docker's default 10 seconds ends it
     # before they finish.

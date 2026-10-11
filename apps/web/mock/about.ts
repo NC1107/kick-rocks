@@ -35,6 +35,7 @@ export default defineMockDomain({
         brokers: store.targets.filter((target) => target.kind === "broker").length,
         companies: store.targets.filter((target) => target.kind === "company").length,
       },
+      builtAt: store.ago({ days: 2 }),
       health: {
         scheduler: {
           lastPassAt: store.ago({ minutes: store.health === "scheduler" ? 42 : 1 }),

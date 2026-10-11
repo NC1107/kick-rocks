@@ -1,4 +1,4 @@
-import { createBrowserRouter, Outlet, type RouteObject } from "react-router";
+import { createBrowserRouter, Navigate, Outlet, type RouteObject } from "react-router";
 import { AppLayout } from "./components/layout/AppLayout.js";
 import { AuthGate, LoadingScreen, PublicGate } from "./components/layout/AuthGate.js";
 import { PublicLayout } from "./components/layout/PublicLayout.js";
@@ -11,13 +11,13 @@ import { ToastProvider } from "./components/ui/index.js";
  * complete, so adding a page to an existing route never touches it.
  *
  * Directory rule: a route's page lives where its URL says, inside its area.
- *   /profiles -> pages/profiles      /profiles/new -> pages/profiles/new
+ *   /settings/profiles -> pages/settings/profiles      /profiles/new -> pages/profiles/new
  *   /profiles/:id -> pages/profiles/detail      /profiles/:id/mailbox -> pages/mailbox
  */
 
 const appRoutes: RouteObject[] = [
   { index: true, lazy: () => import("./pages/dashboard/index.js") },
-  { path: "profiles", lazy: () => import("./pages/profiles/index.js") },
+  { path: "profiles", element: <Navigate to="/settings/profiles" replace /> },
   { path: "profiles/new", lazy: () => import("./pages/profiles/new/index.js") },
   { path: "profiles/:id", lazy: () => import("./pages/profiles/detail/index.js") },
   { path: "profiles/:id/mailbox", lazy: () => import("./pages/mailbox/index.js") },
@@ -35,7 +35,9 @@ const appRoutes: RouteObject[] = [
     path: "settings/notifications",
     lazy: () => import("./pages/settings/notifications/index.js"),
   },
-  { path: "about", lazy: () => import("./pages/about/index.js") },
+  { path: "settings/profiles", lazy: () => import("./pages/settings/profiles/index.js") },
+  { path: "settings/about", lazy: () => import("./pages/settings/about/index.js") },
+  { path: "about", element: <Navigate to="/settings/about" replace /> },
   // A living style guide for the components, only in development.
   ...(import.meta.env.DEV
     ? [{ path: "dev/ui", lazy: () => import("./pages/dev/ui/index.js") }]

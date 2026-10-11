@@ -1,7 +1,8 @@
 import { API_ROUTES, type ProfileSummary } from "@kickrocks/shared";
 import { Mail, MailPlus, Star, Trash2 } from "lucide-react";
 import { useState } from "react";
-import { errorMessage, useApiMutation, useApiQuery, useCurrentProfile } from "../../api/index.js";
+import { Link } from "react-router";
+import { errorMessage, useApiMutation, useApiQuery, useCurrentProfile } from "../../../api/index.js";
 import {
   Button,
   Callout,
@@ -11,14 +12,14 @@ import {
   IconAction,
   IconButton,
   LinkButton,
-  PageHeader,
   RelativeTime,
   RowGroup,
   Section,
   Skeleton,
   Tag,
   useToast,
-} from "../../components/ui/index.js";
+} from "../../../components/ui/index.js";
+import { SettingsHeader } from "../SettingsHeader.js";
 
 function ProfileRow({
   profile,
@@ -113,8 +114,8 @@ export function Component() {
 
   return (
     <>
-      <PageHeader
-        title="Profiles"
+      <SettingsHeader
+        section="Profiles"
         description="Who requests are sent for"
         hideDescriptionOnPhone
         actions={query.data && profiles.length === 0 ? undefined : newProfile}

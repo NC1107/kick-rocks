@@ -83,6 +83,13 @@ jobs:
             dockerfile: apps/worker/Dockerfile
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      # The build context has no .git, so the image learns its commit here. Without these build
+      # arguments the server fell back to package.json and every published image read 0.0.0.
+      - name: Read the commit stamp
+        id: stamp
+        run: |
+          echo "version=$(git rev-parse --short=7 HEAD)" >> "$GITHUB_OUTPUT"
+          echo "date=$(git log -1 --format=%cI)" >> "$GITHUB_OUTPUT"
       - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
         with:
           registry: ghcr.io
@@ -94,6 +101,9 @@ jobs:
           context: .
           file: ${{ matrix.dockerfile }}
           push: true
+          build-args: |
+            KICKROCKS_VERSION=${{ steps.stamp.outputs.version }}
+            KICKROCKS_BUILD_DATE=${{ steps.stamp.outputs.date }}
           labels: |
             org.opencontainers.image.revision=${{ github.sha }}
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}

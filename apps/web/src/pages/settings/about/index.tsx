@@ -4,41 +4,44 @@ import {
   type DataSourceInfo,
   type InstanceHealth,
 } from "@kickrocks/shared";
-import { errorMessage, useApiQuery, useInstanceHealth } from "../../api/index.js";
+import { errorMessage, useApiQuery, useInstanceHealth } from "../../../api/index.js";
 import {
   Button,
   Callout,
   ExternalLinkText,
-  PageHeader,
   Row,
   RowGroup,
   Section,
   Skeleton,
   Tag,
-} from "../../components/ui/index.js";
+} from "../../../components/ui/index.js";
+import { versionLabel } from "../../../components/layout/shell-status.js";
 import {
   formatCount,
   formatDate,
   formatDateTime,
   formatRelative,
   pluralize,
-} from "../../lib/format.js";
-import { FactRow, SETTINGS_WIDTH } from "../settings/rows.js";
+} from "../../../lib/format.js";
+import { FactRow, SETTINGS_WIDTH } from "../rows.js";
+import { SettingsHeader } from "../SettingsHeader.js";
 
 const POLYFORM_URL = "https://polyformproject.org/licenses/noncommercial/1.0.0/";
 const CC_BY_NC_SA_URL = "https://creativecommons.org/licenses/by-nc-sa/4.0/";
+const REPO_URL = "https://github.com/NC1107/kick-rocks";
+const ISSUES_URL = `${REPO_URL}/issues`;
 const ERASER_URL = "https://github.com/drumandbytes/eraser";
 const BADBOOL_URL = "https://github.com/yaelwrites/Big-Ass-Data-Broker-Opt-Out-List";
 
 export function Component() {
   return (
     <>
-      <PageHeader title="About" description="Version, data sources, and licenses" />
+      <SettingsHeader section="About" description="Version, data sources, and licenses" />
       <div className={`${SETTINGS_WIDTH} flex flex-col gap-4`}>
         <InstanceSection />
         <SourcesSection />
-        <LimitsSection />
-        <AttributionSection />
+        <LicensesSection />
+        <LinksSection />
       </div>
     </>
   );
@@ -49,15 +52,14 @@ function InstanceSection() {
   const status = useApiQuery(API_ROUTES.status);
 
   return (
-    <Section label="Kick Rocks">
+    <Section label="Version">
       {health.isPending || status.isPending ? (
         <RowGroup aria-busy="true">
-          {["Version", "Broker list", "Company list", "Profiles"].map((label) => (
+          {["Version", "Built", "Broker list", "Backup"].map((label) => (
             <FactRow key={label} label={label}>
               <Skeleton className="h-3.5 w-1/2" />
             </FactRow>
           ))}
-          <LicenseRow />
         </RowGroup>
       ) : (
         <>
@@ -87,9 +89,14 @@ function InstanceSection() {
             </Callout>
           ) : null}
           <RowGroup>
-            {health.data ? <FactRow label="Version">{health.data.version}</FactRow> : null}
+            {health.data ? (
+              <FactRow label="Version">{versionLabel(health.data.version)}</FactRow>
+            ) : null}
             {status.data ? (
               <>
+                <FactRow label="Built">
+                  {status.data.builtAt ? formatDate(status.data.builtAt) : "Not recorded"}
+                </FactRow>
                 <FactRow label="Broker list" mono={status.data.brokers.available}>
                   {status.data.brokers.available
                     ? `${pluralize(status.data.targets.brokers, "broker")}${
@@ -99,16 +106,11 @@ function InstanceSection() {
                       }`
                     : "Not built yet. Run pnpm data:build, then restart the server."}
                 </FactRow>
-                <FactRow label="Company list">
-                  {pluralize(status.data.targets.companies, "company", "companies")}
-                </FactRow>
-                <FactRow label="Profiles">{formatCount(status.data.profiles)}</FactRow>
                 <FactRow label="Backup" mono={false}>
                   <BackupFreshness backup={status.data.health.backup} />
                 </FactRow>
               </>
             ) : null}
-            <LicenseRow />
           </RowGroup>
         </>
       )}
@@ -116,14 +118,18 @@ function InstanceSection() {
   );
 }
 
-function LicenseRow() {
+function LinksSection() {
   return (
-    <FactRow label="License" mono={false}>
-      <ExternalLinkText href={POLYFORM_URL}>PolyForm Noncommercial 1.0.0</ExternalLinkText>
-      <span className="block text-ink-3">
-        Free to use and change for yourself, not to sell. Copyright NC1107.
-      </span>
-    </FactRow>
+    <Section label="Links">
+      <RowGroup>
+        <FactRow label="Source code" mono={false}>
+          <ExternalLinkText href={REPO_URL}>github.com/NC1107/kick-rocks</ExternalLinkText>
+        </FactRow>
+        <FactRow label="Problems" mono={false}>
+          <ExternalLinkText href={ISSUES_URL}>Report an issue</ExternalLinkText>
+        </FactRow>
+      </RowGroup>
+    </Section>
   );
 }
 
@@ -233,53 +239,30 @@ function SourceRow({ source }: { source: DataSourceInfo }) {
   );
 }
 
-function LimitsSection() {
+function LicensesSection() {
   return (
-    <Section label="Limits">
+    <Section label="Licenses">
       <div className="flex max-w-prose flex-col gap-3 text-body text-ink">
         <p>
-          This is not legal advice. A privacy law may not apply to a given business, and a request
-          does not guarantee that anything gets deleted.
+          Kick Rocks is under{" "}
+          <ExternalLinkText href={POLYFORM_URL}>PolyForm Noncommercial 1.0.0</ExternalLinkText>.
+          Free to use and change for yourself, not to sell. Copyright NC1107.
         </p>
-        <p>
-          A broker can add you back after it removes you, or get your details again from somewhere
-          else. That is why the rescans exist.
-        </p>
-        <p>
-          A request to a broker that never had you can create a new link between your name and your
-          email on its side.
-        </p>
-        <p>
-          Many states have no privacy law, so there the email rests on the company's own privacy
-          policy, and a broker may not have one.
-        </p>
-      </div>
-    </Section>
-  );
-}
-
-function AttributionSection() {
-  return (
-    <Section label="Attribution">
-      <div className="flex max-w-prose flex-col gap-3 text-body text-ink">
         <p>
           The broker list includes entries from the{" "}
           <ExternalLinkText href={BADBOOL_URL}>Big Ass Data Broker Opt-Out List</ExternalLinkText>{" "}
-          by Yael Grauer, under the Creative Commons Attribution-NonCommercial-ShareAlike 4.0
-          license (<ExternalLinkText href={CC_BY_NC_SA_URL}>CC BY-NC-SA 4.0</ExternalLinkText>).
-        </p>
-        <p>
-          Kick Rocks converted those entries into its own format and added fields to them. The
-          resulting broker list is shared under the same license, separately from the application
-          code.
+          by Yael Grauer, under{" "}
+          <ExternalLinkText href={CC_BY_NC_SA_URL}>CC BY-NC-SA 4.0</ExternalLinkText>, converted to
+          Kick Rocks's format with added fields. The resulting list is shared under the same
+          license, separately from the application code.
         </p>
         <p>
           It also includes entries from the{" "}
           <ExternalLinkText href={ERASER_URL}>Eraser</ExternalLinkText> broker list, under the MIT
-          license. The MIT license text stays with the copy of that list in the repository.
+          license. The license text stays with the copy of that list in the repository.
         </p>
         <p className="text-ink-2">
-          Contacts in the company list were checked against each company's own privacy page.
+          This is not legal advice, and a request does not guarantee that anything gets deleted.
         </p>
       </div>
     </Section>

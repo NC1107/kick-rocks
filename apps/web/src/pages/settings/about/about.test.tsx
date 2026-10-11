@@ -1,8 +1,8 @@
 import { screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import { createMockApp } from "../../../mock/app.js";
-import { renderPage } from "../../test/render.js";
-import { instrument } from "../profiles/test-support.js";
+import { createMockApp } from "../../../../mock/app.js";
+import { renderPage } from "../../../test/render.js";
+import { instrument } from "../../profiles/test-support.js";
 import { Component as AboutPage } from "./index.js";
 
 describe("the about page", () => {

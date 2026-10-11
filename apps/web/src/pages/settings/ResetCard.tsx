@@ -29,7 +29,7 @@ export function ResetCard() {
       // Every cached answer is about data that no longer exists.
       await client.invalidateQueries();
       toast.success("Everything was deleted", "Kick Rocks is empty. Add a profile to start again.");
-      navigate("/profiles");
+      navigate("/settings/profiles");
     },
   });
 

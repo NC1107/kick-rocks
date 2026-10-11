@@ -78,7 +78,7 @@ export function Component() {
             title="That profile does not exist"
             description="It may have been deleted."
             actions={
-              <LinkButton to="/profiles" variant="primary">
+              <LinkButton to="/settings/profiles" variant="primary">
                 Back to profiles
               </LinkButton>
             }
