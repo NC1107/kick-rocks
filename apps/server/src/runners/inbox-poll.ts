@@ -24,6 +24,7 @@ import { and, eq, gte, inArray, isNotNull, min, ne, or } from "drizzle-orm";
 import { newId } from "../core/ids.js";
 import { firstRecipients } from "../core/recipients.js";
 import {
+  brandsOfRow,
   curatedReplyDomainsOfRow,
   replyAddressesOfRow,
   replyDomainsOfRow,
@@ -882,6 +883,7 @@ export class InboxRunner {
           ]),
         ],
         curatedReplyDomains: curatedReplyDomainsOfRow(target),
+        brands: brandsOfRow(target),
         replyAddresses: [
           ...new Set([...replyAddressesOfRow(target), ...(mailed ? [mailed.toLowerCase()] : [])]),
         ],

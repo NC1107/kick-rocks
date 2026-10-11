@@ -20,6 +20,7 @@ import type { ModelAnswer, ModelResult, ReplyModelHost } from "./reply-model/typ
 import { CLASS_PRIORITY, matchSignals, requestedFieldsIn, type Signal } from "./reply-rules.js";
 import { extractLinks, type MailLink, stripQuoted } from "./reply-text.js";
 import { type SenderTrust, senderTrust } from "./sender-auth.js";
+import { namesRequest } from "./target-names.js";
 import { modelThreshold, RULES_THRESHOLD } from "./thresholds.js";
 import type {
   ClassificationResult,
@@ -38,6 +39,11 @@ const UNMATCHED_CAP = 0.55;
  * but a confirmation link, also covers a quote of this request.
  */
 const UNVERIFIED_CAP = 0.55;
+/**
+ * What a reply that is not threaded to our message and never names the request it would change can
+ * reach, so a sender or a guess alone never moves a request.
+ */
+const UNNAMED_CAP = 0.55;
 /** The floor the contract gives a confirmation email that matches a waiting form submission. */
 const AWAITING_CONFIRMATION_FLOOR = 0.8;
 const AMBIGUITY_PENALTY = 0.15;
@@ -452,6 +458,7 @@ export function createReplyClassifier(deps: ReplyClassifierDeps): ReplyClassifie
       let match =
         correlateByMessageId(message, requests) ?? correlateByReference(message, requests);
       let bySenderOnly = false;
+      let boundByWaitingForm = false;
       const signals = matchSignals({ message, body });
 
       if (match) {
@@ -465,6 +472,7 @@ export function createReplyClassifier(deps: ReplyClassifierDeps): ReplyClassifie
         const awaiting = matchAwaitingConfirmation(message, requests, allLinks, text);
         if (awaiting) {
           match = awaiting.match;
+          boundByWaitingForm = true;
           signals.push({
             ...awaiting.signal,
             confidence: Math.max(awaiting.signal.confidence, AWAITING_CONFIRMATION_FLOOR),
@@ -482,6 +490,17 @@ export function createReplyClassifier(deps: ReplyClassifierDeps): ReplyClassifie
           }
         }
       }
+
+      const unnamed =
+        match !== null &&
+        match.via === "sender_domain" &&
+        !boundByWaitingForm &&
+        !namesRequest(match.request, {
+          subject: message.subject,
+          fromName: message.from.name,
+          fromAddress: message.from.address,
+          body,
+        });
 
       const links = match ? usableLinks(allLinks, match.request).map((link) => link.url) : [];
       const via = match?.via ?? null;
@@ -536,13 +555,14 @@ export function createReplyClassifier(deps: ReplyClassifierDeps): ReplyClassifie
         // A link in mail that only shares a sender with a request, such as an order or account
         // mail from a company, is not the confirmation of that request, so none is followed.
         const unbound = unboundConfirmation(top.classification);
-        const confidence = unbound ? Math.min(capped.confidence, UNMATCHED_CAP) : capped.confidence;
+        const named = unnamed ? Math.min(capped.confidence, UNNAMED_CAP) : capped.confidence;
+        const confidence = unbound ? Math.min(named, UNMATCHED_CAP) : named;
         result = {
           requestId,
           correlation: via,
           classification: top.classification,
           confidence: round(confidence),
-          rationale: `${top.rationale}${rival ? ", though other wording points elsewhere" : ""}; ${describeCorrelation(via)}${capped.reason ? `; ${capped.reason}` : ""}${unbound ? "; the request is not waiting for a confirmation" : ""}`,
+          rationale: `${top.rationale}${rival ? ", though other wording points elsewhere" : ""}; ${describeCorrelation(via)}${capped.reason ? `; ${capped.reason}` : ""}${unnamed ? "; it does not name this request" : ""}${unbound ? "; the request is not waiting for a confirmation" : ""}`,
           links: top.classification === "needs_form" ? formLinks : links,
           requestedFields:
             top.classification === "verification_required" ? requestedFieldsIn(body) : [],
@@ -579,7 +599,7 @@ export function createReplyClassifier(deps: ReplyClassifierDeps): ReplyClassifie
         ...extra,
       });
 
-      if (rules.confidence >= RULES_THRESHOLD) return settled({ apply: true });
+      if (rules.confidence >= RULES_THRESHOLD && !unnamed) return settled({ apply: true });
 
       const input = inputOf(message);
       const sha = inputSha256(input);
@@ -621,7 +641,13 @@ export function createReplyClassifier(deps: ReplyClassifierDeps): ReplyClassifie
         const overrulesRules =
           CHANGES_REQUEST.has(rules.classification) && rules.classification !== label;
 
-        if (requestId === null || unsupported || overrulesRules || confidence < threshold) {
+        if (
+          requestId === null ||
+          unnamed ||
+          unsupported ||
+          overrulesRules ||
+          confidence < threshold
+        ) {
           return settled({ source: "model", suggestion: guess(false), prediction });
         }
         // While the server has stopped applying model answers, every answer that would have been

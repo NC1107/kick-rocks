@@ -363,3 +363,59 @@ describe("when the reply model cannot answer", () => {
     expect(reasons).toEqual(["The reply model failed: boom"]);
   });
 });
+
+describe("mail that neither answers ours nor names the request", () => {
+  const ACK = "Your ticket has been created.";
+  const fromVendor = (text: string, overrides: Partial<InboxMessage> = {}) =>
+    message({
+      from: { name: "Support Desk", address: "desk@vendor.test" },
+      inReplyTo: null,
+      verifyDkim: noDkim,
+      text,
+      ...overrides,
+    });
+  const asked = (setup: Setup, mail: InboxMessage) =>
+    classifierWith(setup).classify(mail, { requests: [request], senderTargetIds: ["acme"] });
+
+  it("is never applied on the model's word, however sure it is", async () => {
+    const result = await asked({ model: host(answer("auto_ack", 0.999)) }, fromVendor(VAGUE));
+    expect(result).toMatchObject({
+      requestId: "req-1",
+      apply: false,
+      source: "model",
+      suggestion: { classification: "auto_ack", source: "model" },
+    });
+  });
+
+  it("is applied on the model's word once it names the target", async () => {
+    const named = fromVendor(`${VAGUE}\n\nAcme Data Privacy Team`);
+    const result = await asked({ model: host(answer("auto_ack", 0.999)) }, named);
+    expect(result).toMatchObject({ requestId: "req-1", apply: true, source: "model" });
+  });
+
+  it("is never applied on the rules' word", async () => {
+    const result = await asked({}, fromVendor(ACK));
+    expect(result).toMatchObject({
+      requestId: "req-1",
+      classification: "auto_ack",
+      apply: false,
+      confidence: 0.55,
+    });
+    expect(result.rationale).toContain("does not name this request");
+  });
+
+  it("is applied on the rules' word once the sender name is the target's", async () => {
+    const named = fromVendor(ACK, { from: { name: "Acme Data", address: "desk@vendor.test" } });
+    expect(await asked({}, named)).toMatchObject({ classification: "auto_ack", apply: true });
+  });
+
+  it("is applied when it is threaded to our message, whoever sent it", async () => {
+    const threaded = fromVendor(ACK, { inReplyTo: request.outgoingMessageId });
+    expect(await asked({}, threaded)).toMatchObject({ classification: "auto_ack", apply: true });
+  });
+
+  it("is applied when it comes from the target's own domain", async () => {
+    const own = fromVendor(ACK, { from: { name: null, address: "desk@acme.test" } });
+    expect(await asked({}, own)).toMatchObject({ classification: "auto_ack", apply: true });
+  });
+});

@@ -10,6 +10,7 @@ import {
   describeIntegration,
   seedMailbox,
   seedProfile,
+  seedRequest,
   seedTarget,
   type TestContext,
 } from "../../test-utils/index.js";
@@ -501,14 +502,18 @@ describe("POST /profiles/:id/mailbox/poll", () => {
   it("reports what a finished check found, and lets the page follow it by id", async () => {
     const profile = seedProfile(ctx);
     const mailbox = seedMailbox(ctx, profile.id, { address: "jordan@example.com" });
-    // Mail to a verified reply address is always taken in, so the count does not depend on the intake rules.
+    // Mail to a verified reply address is taken in when it names an open target, so the count does not depend on the other intake rules.
+    const target = seedTarget(ctx);
+    seedRequest(ctx, { profileId: profile.id, targetId: target.id, status: "awaiting_reply" });
     const alias = "jordan+kickrocks@example.com";
     ctx.services.db
       .update(mailboxes)
       .set({ replyAlias: alias, replyAliasVerifiedAt: ctx.clock.now().toISOString() })
       .where(eq(mailboxes.id, mailbox.id))
       .run();
-    ctx.mail.mailbox("jordan@example.com").deliver({ subject: "Newsletter", to: [alias] });
+    ctx.mail
+      .mailbox("jordan@example.com")
+      .deliver({ subject: `News from ${target.name}`, to: [alias] });
     const started = await ctx.call(API_ROUTES.mailboxPoll, { params: { id: profile.id } });
     if (!started.ok) throw new Error("the poll should start");
     await createRunners(ctx.services).inbox.runDue();
