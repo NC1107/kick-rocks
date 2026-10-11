@@ -56,7 +56,7 @@ function InstanceSection() {
     <Section label="Kick Rocks">
       {health.isPending || status.isPending ? (
         <RowGroup aria-busy="true">
-          {["Version", "Built", "Broker list", "Backup"].map((label) => (
+          {["Version", "Commit date", "Broker list", "Backup"].map((label) => (
             <FactRow key={label} label={label}>
               <Skeleton className="h-3.5 w-1/2" />
             </FactRow>
@@ -96,8 +96,8 @@ function InstanceSection() {
             ) : null}
             {status.data ? (
               <>
-                <FactRow label="Built">
-                  {status.data.builtAt ? formatDate(status.data.builtAt) : "Not recorded"}
+                <FactRow label="Commit date">
+                  {status.data.committedAt ? formatDate(status.data.committedAt) : "Not recorded"}
                 </FactRow>
                 <FactRow label="Broker list" mono={status.data.brokers.available}>
                   {status.data.brokers.available

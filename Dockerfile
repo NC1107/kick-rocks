@@ -31,9 +31,9 @@ WORKDIR /app
 # After the heavy layers, so a new commit does not invalidate them. The build context has no .git,
 # so install.sh and the CI publish job pass the stamp in.
 ARG KICKROCKS_VERSION=
-ARG KICKROCKS_BUILD_DATE=
+ARG KICKROCKS_COMMIT_DATE=
 ENV KICKROCKS_VERSION=$KICKROCKS_VERSION \
-    KICKROCKS_BUILD_DATE=$KICKROCKS_BUILD_DATE
+    KICKROCKS_COMMIT_DATE=$KICKROCKS_COMMIT_DATE
 COPY --from=build /out/server /app/server
 COPY --from=build /app/apps/web/dist /app/web
 COPY --from=build /app/packages/brokers/data/generated /app/server/node_modules/@kickrocks/brokers/data/generated

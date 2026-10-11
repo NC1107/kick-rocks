@@ -353,7 +353,7 @@ export const API_ROUTES = {
       }),
       targets: z.object({ brokers: Count, companies: Count }),
       /** When the commit this image was built from was made, or null for an unstamped build. */
-      builtAt: z.string().nullable(),
+      committedAt: z.string().nullable(),
       health: InstanceHealth,
     }),
   }),

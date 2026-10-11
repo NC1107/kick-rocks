@@ -635,9 +635,9 @@ if [ -z "${KICKROCKS_VERSION:-}" ]; then
   KICKROCKS_VERSION="$(git describe --tags --always --dirty 2>/dev/null || true)"
   export KICKROCKS_VERSION
 fi
-if [ -z "${KICKROCKS_BUILD_DATE:-}" ]; then
-  KICKROCKS_BUILD_DATE="$(git log -1 --format=%cI 2>/dev/null || true)"
-  export KICKROCKS_BUILD_DATE
+if [ -z "${KICKROCKS_COMMIT_DATE:-}" ]; then
+  KICKROCKS_COMMIT_DATE="$(git log -1 --format=%cI 2>/dev/null || true)"
+  export KICKROCKS_COMMIT_DATE
 fi
 
 docker compose up -d --build --wait --wait-timeout 180 || {

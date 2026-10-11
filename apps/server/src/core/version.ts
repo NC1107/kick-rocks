@@ -3,8 +3,8 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 /** The commit date the image build stamped, or null for a build that was not stamped. */
-export function buildDate(env: NodeJS.ProcessEnv = process.env): string | null {
-  const stamped = env.KICKROCKS_BUILD_DATE?.trim();
+export function commitDate(env: NodeJS.ProcessEnv = process.env): string | null {
+  const stamped = env.KICKROCKS_COMMIT_DATE?.trim();
   return stamped && !Number.isNaN(Date.parse(stamped)) ? new Date(stamped).toISOString() : null;
 }
 

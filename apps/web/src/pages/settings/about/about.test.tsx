@@ -10,7 +10,7 @@ describe("the about page", () => {
     renderPage(<AboutPage />, { withProfile: false });
     expect(await screen.findByText("v0.1.0-mock")).toBeInTheDocument();
     expect(screen.getByText(/29 brokers, built/)).toBeInTheDocument();
-    expect(screen.getByText("Built")).toBeInTheDocument();
+    expect(screen.getByText("Commit date")).toBeInTheDocument();
     expect(screen.getByText("Backup")).toBeInTheDocument();
     const license = screen.getByRole("link", { name: /PolyForm Noncommercial 1\.0\.0/ });
     expect(license).toHaveAttribute(
@@ -22,7 +22,7 @@ describe("the about page", () => {
 
   it("holds the instance fact rows themselves while the details load, so their height comes from one place", () => {
     renderPage(<AboutPage />, { withProfile: false });
-    for (const label of ["Version", "Built", "Broker list", "Backup"]) {
+    for (const label of ["Version", "Commit date", "Broker list", "Backup"]) {
       expect(screen.getByText(label).parentElement).toHaveClass("min-h-row");
     }
   });

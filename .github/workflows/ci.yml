@@ -103,7 +103,7 @@ jobs:
           push: true
           build-args: |
             KICKROCKS_VERSION=${{ steps.stamp.outputs.version }}
-            KICKROCKS_BUILD_DATE=${{ steps.stamp.outputs.date }}
+            KICKROCKS_COMMIT_DATE=${{ steps.stamp.outputs.date }}
           labels: |
             org.opencontainers.image.revision=${{ github.sha }}
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}

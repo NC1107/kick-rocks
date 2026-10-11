@@ -21,7 +21,9 @@ RUN pnpm --filter "@kickrocks/worker..." build
 RUN pnpm --filter @kickrocks/worker --prod deploy --legacy /out/worker
 
 FROM node:22-bookworm-slim AS runtime
+ARG KICKROCKS_VERSION=
 ENV NODE_ENV=production \
+    KICKROCKS_VERSION=$KICKROCKS_VERSION \
     PLAYWRIGHT_BROWSERS_PATH=/ms-playwright \
     DISPLAY=:99 \
     KICKROCKS_CHROME_PROFILE=/profile \

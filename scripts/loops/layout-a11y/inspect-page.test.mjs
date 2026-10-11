@@ -70,3 +70,10 @@ test("a table that fits its frame is not reported", async () => {
   );
   assert.deepEqual(overflow, []);
 });
+
+test("a tab strip that opens with the current tab off screen is reported", async () => {
+  const strip = (scroll) =>
+    `<nav id="n" style="overflow-x:auto;width:200px;white-space:nowrap"><a href="#">One</a><a href="#" style="margin-left:300px" aria-current="page">Two</a></nav><script>document.getElementById("n").scrollLeft=${scroll}</script>`;
+  assert.equal((await inspect(strip(0))).overflow.length, 1);
+  assert.deepEqual((await inspect(strip(200))).overflow, []);
+});
