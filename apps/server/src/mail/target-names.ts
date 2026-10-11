@@ -1,4 +1,5 @@
 import { isOnDomain, registrableDomain, withoutSharedHosts } from "@kickrocks/shared";
+import { COMMON_WORDS } from "./common-words.js";
 import type { ClassifierRequest } from "./types.js";
 
 /** What names a request in a piece of mail, kept apart from the request so each rule sees one set. */
@@ -129,25 +130,36 @@ const GENERIC_WORDS = new Set([
 ]);
 
 const MIN_NAME_LENGTH = 3;
+const MIN_EXACT_LENGTH = 2;
+/** A name of only generic words is kept whole when it runs this long, as "USA People Search" does. */
+const MIN_GENERIC_NAME_WORDS = 3;
+/** Between fields of one text, so a name cannot run from the end of one into the start of the next. */
+const FIELD_BREAK = "\u0000";
 
-/** Lowercase with accents folded, so "Équifax" and "equifax" are one word. */
+/** Lowercase with accents folded and apostrophes dropped, so "Équifax" and "Macy’s" are "equifax" and "macys". */
 export function fold(text: string): string {
   return text
     .normalize("NFKD")
     .replace(/\p{M}+/gu, "")
-    .toLowerCase();
+    .toLowerCase()
+    .replace(/['’ʼ`´]/g, "");
 }
 
 const wordsOf = (text: string) => fold(text).match(/[a-z0-9]+/g) ?? [];
 
+/** "and" is how "&" is read aloud, so neither is part of a name. */
+const nameWordsOf = (text: string) => wordsOf(text).filter((word) => word !== "and");
+
+const isNumeric = (words: string[]) => words.every((word) => /^[0-9]+$/.test(word));
+
 /** "Chase (JPMorgan Chase)" is two names, and a leading "The" is no part of one. */
-function partsOf(candidate: string): string[] {
+function partsOf(candidate: string): string[][] {
   return candidate
     .split(/[()]/)
-    .map((part) => wordsOf(part))
+    .map((part) => nameWordsOf(part))
     .map((words) => (words[0] === "the" ? words.slice(1) : words))
     .filter((words) => words.length > 0)
-    .map((words) => words.join(" "));
+    .map(withoutEndings);
 }
 
 function withoutEndings(words: string[]): string[] {
@@ -158,51 +170,108 @@ function withoutEndings(words: string[]): string[] {
 
 const labelOf = (domain: string) => registrableDomain(domain).split(".")[0] ?? "";
 
+const isCommon = (words: string[]) => words.length === 1 && COMMON_WORDS.has(words[0] as string);
+
 /**
- * The names a target answers to: its own, the lead label of each of its domains and its owner
- * group, and any curated alias. A name made only of generic words is left out.
+ * The names a target answers to: its own, the lead of it that its domain spells, its owner group,
+ * and any curated alias. A bare word is kept only when it is not one anybody uses in everyday
+ * writing, since "here" or "start" in a mail says nothing about who wrote it.
  */
 export function namesOf(request: NamedRequest): string[] {
-  const own = withoutSharedHosts([request.targetDomain, ...request.curatedReplyDomains]);
   const brands = request.brands ?? [];
-  const derived = [
-    request.targetName,
-    ...own.map(labelOf),
-    ...brands.filter((brand) => brand.includes(".")).map(labelOf),
-  ];
-  // An alias is entered by hand because the target is known to answer to it, so it is kept even
-  // when its words are common.
-  const curated = brands.filter((brand) => !brand.includes("."));
+  const labels = new Set(
+    withoutSharedHosts([request.targetDomain, ...request.curatedReplyDomains]).map(labelOf),
+  );
   const names = new Set<string>();
-  const add = (part: string, keepGeneric: boolean) => {
-    const words = withoutEndings(part.split(" "));
-    if (!keepGeneric && words.every((word) => GENERIC_WORDS.has(word))) return;
-    const name = words.join(" ");
-    if (name.replaceAll(" ", "").length >= MIN_NAME_LENGTH) names.add(name);
+  const add = (words: string[], { curated }: { curated: boolean }) => {
+    if (isNumeric(words)) return;
+    if (!curated && isCommon(words)) return;
+    if (!curated && words.every((word) => GENERIC_WORDS.has(word))) {
+      if (words.length < MIN_GENERIC_NAME_WORDS) return;
+    }
+    if (words.join("").length >= MIN_NAME_LENGTH) names.add(words.join(" "));
   };
-  for (const part of derived.flatMap(partsOf)) add(part, false);
-  for (const part of curated.flatMap(partsOf)) add(part, true);
+  for (const words of partsOf(request.targetName)) {
+    add(words, { curated: false });
+    for (let length = 1; length < words.length; length++) {
+      const lead = words.slice(0, length);
+      if (labels.has(lead.join(""))) add(lead, { curated: false });
+    }
+  }
+  for (const brand of brands) {
+    if (brand.includes(".")) add([labelOf(brand)], { curated: false });
+    else for (const words of partsOf(brand)) add(words, { curated: true });
+  }
   return [...names];
+}
+
+const shortExact = (text: string) => text.replace(/[^A-Za-z0-9]/g, "").length;
+
+/**
+ * Names too short to match as folded words, kept as written and matched with their case, so "HP"
+ * or "H&M" counts but a stray "hp" does not. Only the target's own name and curated aliases.
+ */
+export function exactNamesOf(request: NamedRequest): string[] {
+  const written = [request.targetName, ...(request.brands ?? []).filter((b) => !b.includes("."))];
+  return [
+    ...new Set(
+      written
+        .flatMap((name) => name.split(/[()]/))
+        .map((part) => part.trim())
+        .filter(
+          (part) => shortExact(part) >= MIN_EXACT_LENGTH && shortExact(part) < MIN_NAME_LENGTH,
+        ),
+    ),
+  ];
 }
 
 const escapeRegex = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
-/** Whole words only; the words of a name may run together or be split by a dash or dot. */
-function nameExpression(name: string): RegExp {
-  const words = name.split(" ").map(escapeRegex);
-  return new RegExp(`(?<![a-z0-9])${words.join("[\\s._-]*")}(?![a-z0-9])`);
+/** Between two words of a name: nothing, a space, a dash or dot, an ampersand, or "and". */
+const WORD_BREAK = "(?:[\\s._-]*|\\s*&\\s*|[\\s._-]*and[\\s._-]*)";
+/** A name this short, as "AT&T" is, would otherwise match two ordinary words with a space between. */
+const SHORT_NAME_LETTERS = 4;
+const TIGHT_BREAK = "(?:\\s*&\\s*)?";
+
+/** Whole words only; the words of a name may run together or be split by a dash, dot or "&". */
+function nameExpression(name: string): string {
+  const words = name.split(" ");
+  const gap = name.replaceAll(" ", "").length <= SHORT_NAME_LETTERS ? TIGHT_BREAK : WORD_BREAK;
+  const pattern = words.map(escapeRegex).join(gap);
+  return `(?<![a-z0-9])${pattern}(?![a-z0-9])`;
 }
 
-function domainExpression(domain: string): RegExp {
-  return new RegExp(`(?<![a-z0-9-])${escapeRegex(domain)}(?![a-z0-9-])`);
+function domainExpression(domain: string): string {
+  return `(?<![a-z0-9-])${escapeRegex(domain)}(?![a-z0-9-])`;
 }
 
-const compiled = new WeakMap<object, RegExp[]>();
+function exactExpression(name: string): string {
+  const pattern = escapeRegex(name.replace(/\s+/g, " "))
+    .replace(/&/g, "\\s*&\\s*")
+    .replace(/ /g, "\\s+");
+  return `(?<![A-Za-z0-9])${pattern}(?![A-Za-z0-9])`;
+}
 
-function expressionsOf(request: NamedRequest): RegExp[] {
+interface Matchers {
+  folded: RegExp | null;
+  exact: RegExp | null;
+}
+
+const compiled = new WeakMap<object, Matchers>();
+
+const alternation = (patterns: string[], flags = "") =>
+  patterns.length === 0 ? null : new RegExp(patterns.join("|"), flags);
+
+function matchersOf(request: NamedRequest): Matchers {
   let found = compiled.get(request);
   if (!found) {
-    found = [...namesOf(request).map(nameExpression), ...domainsOf(request).map(domainExpression)];
+    found = {
+      folded: alternation([
+        ...namesOf(request).map(nameExpression),
+        ...domainsOf(request).map(domainExpression),
+      ]),
+      exact: alternation(exactNamesOf(request).map(exactExpression)),
+    };
     compiled.set(request, found);
   }
   return found;
@@ -234,11 +303,26 @@ export function addressIsTarget(address: string, request: NamedRequest): boolean
   );
 }
 
+/** Text prepared once for matching against many requests, so it is folded once, not once per request. */
+export interface Searchable {
+  raw: string;
+  folded: string;
+}
+
+export function searchable(...fields: (string | null)[]): Searchable {
+  const raw = fields.map((field) => field ?? "").join(FIELD_BREAK);
+  return { raw, folded: fold(raw) };
+}
+
+/** Whether a prepared text names the target or one of its domains as a whole word. */
+export function mentionsIn(request: NamedRequest, text: Searchable): boolean {
+  const { folded, exact } = matchersOf(request);
+  return Boolean(folded?.test(text.folded) || exact?.test(text.raw));
+}
+
 /** Whether a text names the target or one of its domains as a whole word. */
 export function mentionsTarget(request: NamedRequest, text: string): boolean {
-  if (text === "") return false;
-  const folded = fold(text);
-  return expressionsOf(request).some((expression) => expression.test(folded));
+  return text !== "" && mentionsIn(request, searchable(text));
 }
 
 /**
@@ -246,11 +330,13 @@ export function mentionsTarget(request: NamedRequest, text: string): boolean {
  * or the domain it was sent from. A company that was written to answers under its own name at
  * least once, so mail that never does is not trusted to be about the request.
  */
-export function namesRequest(request: NamedRequest, mail: Naming): boolean {
-  return (
-    addressIsTarget(mail.fromAddress, request) ||
-    mentionsTarget(request, mail.subject) ||
-    mentionsTarget(request, mail.fromName ?? "") ||
-    mentionsTarget(request, mail.body)
-  );
+export function namesRequest(
+  request: NamedRequest,
+  mail: Naming,
+  prepared: Searchable = preparedNaming(mail),
+): boolean {
+  return addressIsTarget(mail.fromAddress, request) || mentionsIn(request, prepared);
 }
+
+export const preparedNaming = (mail: Naming): Searchable =>
+  searchable(mail.subject, mail.fromName, mail.body);

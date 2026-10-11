@@ -447,8 +447,7 @@ export class InboxRunner {
     for (const entry of passedOver) {
       const h = headersByUid.get(entry.uid);
       if (!h || couldBeAReply(h, null, ctx)) continue;
-      if (entry.reason === "alias_bulk") found.add(entry.uid);
-      else undecided.push(entry.uid);
+      undecided.push(entry.uid);
     }
     if (undecided.length === 0) return found;
     const hits = await session.searchBodies(undecided, replySearchTerms(ctx));

@@ -733,6 +733,48 @@ describe("the name gate", () => {
     expect(unreadRule(headers({ recipients: [alias] }), "alias_unnamed", gated)).toBe("not_named");
   });
 
+  it("keeps a reply signed with a name that has an apostrophe or an ampersand", () => {
+    const macys = request({
+      id: "req-macys",
+      targetKind: "company",
+      targetId: "macys",
+      targetName: "Macy's",
+      targetDomain: "macys.com",
+      replyDomains: ["macys.com"],
+    });
+    const nobles = request({
+      id: "req-bn",
+      targetKind: "company",
+      targetId: "bn",
+      targetName: "Barnes & Noble",
+      targetDomain: "barnesandnoble.com",
+      replyDomains: ["barnesandnoble.com"],
+    });
+    const ctx = context([macys, nobles], { verifiedAlias: alias });
+    for (const signature of ["Macy's Privacy", "Macy\u2019s Privacy", "Barnes and Noble Privacy"]) {
+      const message = full({ ...vendor, to: [alias], text: `${done}\n\n${signature}` });
+      expect(triageBody(message, ctx)).toEqual({ verdict: "admit", by: "alias" });
+    }
+  });
+
+  it("does not take in unrelated mail that holds an everyday word of a target's domain", () => {
+    const here = request({
+      id: "req-here",
+      targetKind: "company",
+      targetId: "here",
+      targetName: "HERE North America LLC",
+      targetDomain: "here.com",
+      replyDomains: ["here.com"],
+    });
+    const ctx = context([here], { verifiedAlias: alias });
+    const message = full({
+      ...vendor,
+      to: [alias],
+      text: "Click here to review your account.",
+    });
+    expect(triageBody(message, ctx)).toEqual({ verdict: "ignore", rule: "not_named" });
+  });
+
   it("does not count a name inside a longer word", () => {
     const message = full({ ...vendor, to: [alias], text: `${done}\n\nSpokeoish Privacy Team` });
     expect(triageBody(message, gated)).toEqual({ verdict: "ignore", rule: "not_named" });

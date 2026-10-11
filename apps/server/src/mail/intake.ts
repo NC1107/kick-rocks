@@ -11,9 +11,12 @@ import { extractLinks, stripQuoted } from "./reply-text.js";
 import {
   addressIsTarget,
   domainsOf,
+  mentionsIn,
   mentionsTarget,
   namesOf,
   namesRequest,
+  preparedNaming,
+  searchable,
 } from "./target-names.js";
 import type { ClassifierRequest, InboxMessage, MessageHeaders } from "./types.js";
 
@@ -278,7 +281,8 @@ function namingOf(message: InboxMessage): Parameters<typeof namesRequest>[1] {
 
 function namesOpenRequest(message: InboxMessage, ctx: IntakeContext): boolean {
   const naming = namingOf(message);
-  return ctx.open.some((request) => namesRequest(request, naming));
+  const prepared = preparedNaming(naming);
+  return ctx.open.some((request) => namesRequest(request, naming, prepared));
 }
 
 function reportsOurMail(message: InboxMessage, ctx: IntakeContext): boolean {
@@ -472,6 +476,8 @@ export function bodySearchTerms(ctx: IntakeContext): string[] {
   const terms = new Set<string>(referenceTerms(ctx));
   for (const request of ctx.open) {
     terms.add(request.targetName);
+    terms.add(request.targetName.replaceAll("&", "and"));
+    terms.add(request.targetName.replace(/['’ʼ`´]/g, ""));
     for (const name of namesOf(request)) {
       terms.add(name);
       terms.add(name.replaceAll(" ", ""));
@@ -584,7 +590,8 @@ export function isFromAnyTarget(h: MessageHeaders, ctx: IntakeContext): boolean 
 
 /** Whether a text names any target the person has a request with, open or finished. */
 export function namesAnyTarget(text: string, ctx: IntakeContext): boolean {
-  return ctx.window.some((request) => mentionsTarget(request, text));
+  const prepared = searchable(text);
+  return ctx.window.some((request) => mentionsIn(request, prepared));
 }
 
 /** Whether a text holds one of our references or Message-IDs, which bind it to a request. */

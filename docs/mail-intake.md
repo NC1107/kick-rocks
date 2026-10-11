@@ -20,13 +20,19 @@ They bind through the Message-ID of the original message, not through a name.
 A target is known by these names:
 
 - Its own name, without a legal ending such as Inc or LLC.
-- The lead label of its domain and of each curated sister domain, so `peopleconnect.us` names PeopleConnect for Intelius.
+- The lead of that name when the target's domain spells it, so `equifax.com` names "Equifax Information Services" as Equifax.
 - The label of its owner group from `owner-groups.yaml`.
 - Its aliases from `aliases.yaml`, each with the source that shows the broker answering under that name.
 
+A domain label is not a name by itself, since `here.com` or `retention.com` would make "click here" and "data retention" name the target.
+The domain still counts as a whole, so a mention of `here.com` or mail from it names the target.
+
 Matching is by whole word, ignoring case and accents.
-The words of a name may run together or be split by a space, a dash or a dot.
-A name made only of words many targets share, such as "Data Solutions Group", is left out, and so is a name shorter than three letters.
+Apostrophes are dropped on both sides, so "Macy's" and "Macys" are the same.
+The words of a name may run together or be split by a space, a dash, a dot, an ampersand or "and", so "Barnes & Noble", "Barnes and Noble" and "BarnesNoble" are the same.
+A name that is one common English word, such as "Target" or "Chase", is left out, and so is a number.
+A name made only of words many targets share is left out unless it runs to three words, as "USA People Search" does, and so is a name shorter than three letters.
+A name of two letters, such as "HP" or "H&M", is matched as written, with its capitals.
 A target left with no name is still tied by its domain.
 Only an alias is kept when its words are common, because it is entered by hand for a target that is known to use it.
 
@@ -43,6 +49,8 @@ Mail from a target's own domain keeps its existing rules, which already leave ou
 
 Mail that is tied to no open request is not taken in.
 While the report of passed-over mail is shown, it is listed with the reason "Names no open request", so the person can take it in by hand.
+Once the report is closed or its week has ended, such mail to the reply address is dropped and not kept anywhere.
+The only way to find it then is the search for a missing reply.
 
 ## What happens to mail that is taken in without a name
 
