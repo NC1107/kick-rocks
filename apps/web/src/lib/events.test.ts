@@ -15,6 +15,7 @@ const PAYLOADS: Record<RequestEventType, unknown> = {
   sent: { channel: "email", kind: "initial", messageId: "<kr.r1.0@example.test>", mailboxId: "m1" },
   send_failed: { error: "535 bad credentials", willRetry: false },
   reply_received: { messageId: "m2", from: "privacy@broker.test", subject: "Re: KR-ABC234" },
+  mailbox_checked: { newMessages: 0, matched: 0 },
   classified: {
     messageId: "m2",
     classification: "completed",
@@ -63,6 +64,31 @@ describe("describeEvent", () => {
     expect(describeEvent(event("status_changed"))).toBe(
       "Status changed from Awaiting reply to Confirmed.",
     );
+  });
+
+  it("says when a reply arrived after the request was finished", () => {
+    expect(
+      describeEvent(
+        event("classified", {
+          messageId: "m2",
+          classification: "rejected",
+          confidence: 0.85,
+          correlation: "reference",
+          late: true,
+        }),
+      ),
+    ).toBe(
+      "Classified the reply as rejected, 85 percent sure. The request was already finished, so nothing changed.",
+    );
+  });
+
+  it("says what a mailbox check found, in the words of the check itself", () => {
+    const checked = (newMessages: number, matched: number) =>
+      describeEvent(event("mailbox_checked", { newMessages, matched }));
+    expect(checked(0, 0)).toBe("Checked the mailbox: nothing new.");
+    expect(checked(1, 1)).toBe("Checked the mailbox: 1 new reply.");
+    expect(checked(3, 2)).toBe("Checked the mailbox: 2 new replies.");
+    expect(checked(2, 0)).toBe("Checked the mailbox: 2 new messages, none for a request.");
   });
 
   it("tells an email from a form, and a follow-up from a first send", () => {

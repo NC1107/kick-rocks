@@ -166,6 +166,7 @@ export const REQUEST_EVENT_LABELS: Record<RequestEventType, string> = {
   sent: "Sent",
   send_failed: "Send failed",
   reply_received: "Reply received",
+  mailbox_checked: "Mailbox checked",
   classified: "Reply classified",
   link_followed: "Confirmation link followed",
   status_changed: "Status changed",
@@ -271,3 +272,10 @@ export const AGENT_REASON_LABELS: Record<AgentReason, string> = {
   recipe_failed: "The saved steps stopped working",
   blocked: "Handed over after a human check",
 };
+
+/** The short code for a legal basis: "CCPA" for ca-ccpa, "MODPA" for md-modpa. */
+export function legalBasisCode(id: string): string {
+  if (id === "policy") return "Policy";
+  const [, ...rest] = id.split("-");
+  return (rest.length > 0 ? rest.join("") : id).toUpperCase();
+}

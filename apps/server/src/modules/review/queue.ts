@@ -203,6 +203,7 @@ function unreviewedMessages(services: AppServices, profileId: string | undefined
       reference: requests.reference,
       targetName: targets.name,
       prediction: replyPredictions,
+      targetId: targets.id,
     })
     .from(messages)
     .innerJoin(mailboxes, eq(messages.mailboxId, mailboxes.id))
@@ -215,10 +216,11 @@ function unreviewedMessages(services: AppServices, profileId: string | undefined
     .orderBy(desc(messages.receivedAt), desc(sql`${messages}.rowid`))
     .limit(MESSAGE_LIMIT)
     .all();
-  return rows.map(({ message, reference, targetName, prediction }) => ({
+  return rows.map(({ message, reference, targetName, targetId, prediction }) => ({
     ...toMessageSummary(message),
     requestReference: reference,
     targetName,
+    targetId,
     suggestion: suggestionOf(prediction),
   }));
 }

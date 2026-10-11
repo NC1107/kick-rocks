@@ -1,5 +1,7 @@
 import { z } from "zod";
 import { FilterSelection, TargetOutcome } from "./campaigns.js";
+import { ProfileField } from "./identities.js";
+import { WaitReason } from "./scanning.js";
 import { MAX_SELECTED_TARGETS } from "./targets.js";
 import { Candidate, TaskStatus } from "./tasks.js";
 import { WebUrl } from "./url.js";
@@ -26,6 +28,43 @@ export const Match = z.object({
 });
 export type Match = z.infer<typeof Match>;
 
+/** Why a scan that has not started is still queued: the site is being given time, or nothing can run it yet. */
+export const ScanHoldReason = z.union([
+  WaitReason,
+  z.enum(["missing_fields", "no_recipe", "recipe_unapproved", "agent_required"]),
+]);
+export type ScanHoldReason = z.infer<typeof ScanHoldReason>;
+
+export const ScanHold = z.object({
+  reason: ScanHoldReason,
+  /** When the hold ends by itself. Left out when it needs a person or an agent. */
+  until: z.iso.datetime().optional(),
+  /** A sentence for a person, such as what the profile is missing. */
+  detail: z.string().optional(),
+  /** The profile details a scan of the site needs and the profile lacks. */
+  fields: z.array(ProfileField).optional(),
+  /** The site being given time, for the reasons that are about one site. */
+  domain: z.string().optional(),
+  /** Set when quiet hours are read on the server's own clock because no time zone is chosen. */
+  serverClock: z.boolean().optional(),
+});
+export type ScanHold = z.infer<typeof ScanHold>;
+
+/** What a profile can be scanned on, so a scan that cannot run is explained before it is started. */
+export const ScanReadiness = z.object({
+  /** People-search sites a worker can scan for this profile now. */
+  ready: z.number().int().nonnegative(),
+  /** Sites with no scripted search, which wait for a connected agent. */
+  noRecipe: z.number().int().nonnegative(),
+  /** Sites whose scripted search waits for the person's review before the built-in worker runs it. */
+  recipeNeedsReview: z.number().int().nonnegative(),
+  /** Sites the profile lacks details for. */
+  needsDetails: z.number().int().nonnegative(),
+  /** What to add, in the profile's terms; null when nothing is missing. */
+  missing: z.string().nullable(),
+});
+export type ScanReadiness = z.infer<typeof ScanReadiness>;
+
 export const ScanSummary = z.object({
   id: z.string(),
   profileId: z.string(),
@@ -42,6 +81,8 @@ export const ScanSummary = z.object({
     not_mine: z.number().int().nonnegative(),
   }),
   error: z.string().nullable(),
+  /** Set while the scan is queued and something holds it back. */
+  hold: ScanHold.nullable(),
 });
 export type ScanSummary = z.infer<typeof ScanSummary>;
 

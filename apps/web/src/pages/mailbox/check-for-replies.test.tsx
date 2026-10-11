@@ -41,9 +41,12 @@ describe("checking for replies on the request page", () => {
     ).toBeDisabled();
     advance(3_000);
 
-    expect(await screen.findByText("1 new reply", {}, { timeout: 4000 })).toBeInTheDocument();
+    expect(
+      await screen.findByText("Checked the mailbox: 1 new reply.", {}, { timeout: 4000 }),
+    ).toBeInTheDocument();
     expect(screen.getByRole("button", CHECK)).toBeEnabled();
     expect(screen.queryByRole("link", { name: "Open the request" })).toBeNull();
+    expect(screen.queryByText("1 new reply")).toBeNull();
   }, 10_000);
 
   it("says plainly that nothing new came in", async () => {
@@ -53,12 +56,15 @@ describe("checking for replies on the request page", () => {
 
     await user.click(await screen.findByRole("button", CHECK));
     advance(3_000);
-    await screen.findByText("1 new reply", {}, { timeout: 4000 });
+    await screen.findByText("Checked the mailbox: 1 new reply.", {}, { timeout: 4000 });
 
     advance(40_000);
     await user.click(screen.getByRole("button", CHECK));
     advance(3_000);
-    expect(await screen.findByText("No new mail", {}, { timeout: 4000 })).toBeInTheDocument();
+    expect(
+      await screen.findByText("Checked the mailbox: nothing new.", {}, { timeout: 4000 }),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("No new mail")).toBeNull();
   }, 15_000);
 
   it("keeps the last result and counts the wait when a check ran moments ago", async () => {
@@ -68,11 +74,11 @@ describe("checking for replies on the request page", () => {
 
     await user.click(await screen.findByRole("button", CHECK));
     advance(3_000);
-    await screen.findByText("1 new reply", {}, { timeout: 4000 });
+    await screen.findByText("Checked the mailbox: 1 new reply.", {}, { timeout: 4000 });
     await user.click(screen.getByRole("button", CHECK));
 
     expect(await screen.findByText(/^Try again in \d+ seconds?\.$/)).toBeVisible();
-    expect(screen.getByText("1 new reply")).toBeVisible();
+    expect(screen.getByText("Checked the mailbox: 1 new reply.")).toBeVisible();
     expect(screen.getByRole("button", CHECK)).toBeDisabled();
   }, 10_000);
 

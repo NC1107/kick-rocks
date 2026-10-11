@@ -75,6 +75,7 @@ function ReplyModelSection({
           ) : null}
           <Button
             variant="secondary"
+            aria-label={inUse ? "In use as the language model" : "Use as the language model"}
             loading={use.isPending}
             disabled={inUse}
             onClick={() =>
@@ -89,7 +90,7 @@ function ReplyModelSection({
               })
             }
           >
-            {inUse ? "In use as the language model" : "Use as the language model"}
+            {inUse ? "In use" : "Use"}
           </Button>
         </BodyRow>
       </RowGroup>

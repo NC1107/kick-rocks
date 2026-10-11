@@ -66,3 +66,20 @@ describe("provider presets", () => {
     expect(JSON.stringify(PROVIDER_PRESETS)).not.toContain("\u2014");
   });
 });
+
+describe("plus addressing", () => {
+  it("is on for the providers that deliver name+tag to the same mailbox, and off for the rest", () => {
+    const on = PROVIDER_PRESETS.filter((preset) => preset.plusAddressing).map(
+      (preset) => preset.id,
+    );
+    expect(on).toEqual([
+      "gmail",
+      "google-workspace",
+      "fastmail",
+      "icloud",
+      "proton-bridge",
+      "outlook",
+    ]);
+    expect(findProviderPreset("yahoo")?.plusAddressing).toBe(false);
+  });
+});

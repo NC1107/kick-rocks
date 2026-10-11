@@ -118,12 +118,13 @@ export function LlmCard({ llm }: { llm: LlmSettingsView | null }) {
                 </Button>
               ) : null}
               <Button
+                aria-label="Save language model"
                 type="submit"
                 variant="primary"
                 loading={save.isPending && !removing}
                 disabled={!dirty}
               >
-                Save language model
+                Save
               </Button>
             </GroupFooter>
           </RowGroup>

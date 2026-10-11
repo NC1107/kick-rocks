@@ -9,15 +9,21 @@ import {
   useRef,
   useState,
 } from "react";
+import { Link } from "react-router";
+import { EntityLink, type EntityRef } from "./EntityLink.js";
 import { IconButton } from "./IconButton.js";
 
 /** A toast confirms or notes something. Failures and warnings stay on the thing that has them. */
 export type ToastIntent = "info" | "success";
 
+/** Where a toast leads: the thing it names, or a page with its own words. */
+export type ToastAction = EntityRef | { to: string; label: string };
+
 export interface ToastOptions {
   intent?: ToastIntent;
   title: string;
   description?: string | undefined;
+  action?: ToastAction | undefined;
   /** Milliseconds before it goes away. 0 keeps it until dismissed. */
   durationMs?: number;
 }
@@ -27,13 +33,16 @@ interface ToastItem {
   intent: ToastIntent;
   title: string;
   description: string | undefined;
+  action: ToastAction | undefined;
   durationMs: number;
 }
 
+type ToastExtras = Pick<ToastOptions, "action" | "durationMs">;
+
 interface ToastApi {
   toast: (options: ToastOptions) => void;
-  success: (title: string, description?: string) => void;
-  info: (title: string, description?: string) => void;
+  success: (title: string, description?: string, extras?: ToastExtras) => void;
+  info: (title: string, description?: string, extras?: ToastExtras) => void;
 }
 
 const ToastContext = createContext<ToastApi | null>(null);
@@ -73,6 +82,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
         intent,
         title: options.title,
         description: options.description,
+        action: options.action,
         durationMs: options.durationMs ?? DEFAULT_MS,
       };
       setItems((current) => [...current, item].slice(-MAX_VISIBLE));
@@ -81,8 +91,8 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     };
     return {
       toast: (options) => push(options.intent ?? "info", options),
-      success: (title, description) => push("success", { title, description }),
-      info: (title, description) => push("info", { title, description }),
+      success: (title, description, extras) => push("success", { title, description, ...extras }),
+      info: (title, description, extras) => push("info", { title, description, ...extras }),
     };
   }, []);
 
@@ -130,15 +140,31 @@ function ToastCard({ item, onDismiss }: { item: ToastItem; onDismiss: (id: numbe
         <Icon aria-hidden="true" className="size-4 text-tone-dot" />
       </span>
       <div className="min-w-0 flex-1 pt-[calc((var(--kr-control-sm)-1.25rem)/2)] pb-1.5">
-        <p className="text-ui font-medium text-ink max-sm:truncate">{item.title}</p>
+        <p className="text-ui font-medium text-ink max-sm:line-clamp-3">{item.title}</p>
         {item.description ? (
           <p className="mt-0.5 text-meta text-ink-2 max-sm:hidden">{item.description}</p>
         ) : null}
       </div>
+      {item.action ? <ToastActionLink action={item.action} /> : null}
       <IconButton label="Dismiss" size="sm" onClick={() => onDismiss(item.id)}>
         <X />
       </IconButton>
     </div>
+  );
+}
+
+function ToastActionLink({ action }: { action: ToastAction }) {
+  const className =
+    "flex h-(--kr-control-sm) max-w-32 shrink-0 items-center truncate text-meta whitespace-nowrap";
+  return "kind" in action ? (
+    <EntityLink to={action} className={className} />
+  ) : (
+    <Link
+      to={action.to}
+      className={`${className} rounded-xs text-accent-text underline decoration-accent-text/40 underline-offset-2 focus-visible:-outline-offset-2`}
+    >
+      {action.label}
+    </Link>
   );
 }
 

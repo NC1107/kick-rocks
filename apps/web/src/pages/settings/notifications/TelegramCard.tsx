@@ -93,12 +93,13 @@ export function TelegramCard({ telegram }: { telegram: NotificationsView["telegr
               ) : null}
               {test.button}
               <Button
+                aria-label="Save Telegram"
                 type="submit"
                 variant="primary"
                 loading={save.isPending && !removing}
                 disabled={!dirty}
               >
-                Save Telegram
+                Save
               </Button>
             </GroupFooter>
           </RowGroup>

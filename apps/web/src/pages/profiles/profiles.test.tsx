@@ -11,12 +11,28 @@ describe("the profiles list", () => {
     const jordan = await screen.findByRole("listitem", { name: /Jordan Example/ });
     expect(within(jordan).getByText("CA")).toBeInTheDocument();
     expect(within(jordan).getByText("jordan@example.com")).toBeInTheDocument();
-    expect(within(jordan).getByText("Mailbox connected")).toBeInTheDocument();
+    expect(within(jordan).getByRole("link", { name: "Mailbox connected" })).toHaveAttribute(
+      "href",
+      expect.stringMatching(/\/profiles\/prf_\d+\/mailbox$/),
+    );
     const riley = screen.getByRole("listitem", { name: /Riley Sample/ });
     expect(within(riley).getByRole("link", { name: "Connect mailbox" })).toHaveAttribute(
       "href",
       expect.stringMatching(/\/profiles\/prf_\d+\/mailbox$/),
     );
+  });
+
+  it("keeps each action in the same place on every row", async () => {
+    renderPage(<ProfilesPage />);
+    await screen.findByRole("listitem", { name: /Jordan Example/ });
+    const actionNames = screen.getAllByRole("listitem").map(
+      (row) =>
+        within(row)
+          .queryAllByRole("link", { name: /mailbox/i })
+          .concat(within(row).queryAllByRole("img", { name: "Current profile" }))
+          .concat(within(row).queryAllByRole("button", { name: /Make current|Delete/ })).length,
+    );
+    expect(new Set(actionNames).size).toBe(1);
   });
 
   it("marks the current profile and switches to another", async () => {

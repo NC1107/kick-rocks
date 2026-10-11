@@ -8,6 +8,7 @@ import {
   normalizeRecordUrl,
 } from "@kickrocks/shared";
 import { and, eq } from "drizzle-orm";
+import { CLASSIFIED_BY_HAND } from "../../core/classified-by-hand.js";
 import { conflict, notFound } from "../../core/errors.js";
 import { applyReply, followConfirmationLinks } from "../../runners/reply.js";
 import type { AppServices } from "../../services.js";
@@ -122,7 +123,7 @@ export async function classifyByHand(
       .set({
         classification: body.classification,
         confidence: 1,
-        rationale: "Classified by hand",
+        rationale: CLASSIFIED_BY_HAND,
         requestId,
         reviewed: true,
       })

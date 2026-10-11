@@ -6,7 +6,6 @@ import {
   prefetchProfiles,
   useUnauthorizedListener,
 } from "./api/index.js";
-import { ToastProvider } from "./components/ui/index.js";
 import { router } from "./router.js";
 
 const queryClient = createQueryClient();
@@ -22,10 +21,8 @@ function SessionWatcher() {
 export function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <ToastProvider>
-        <SessionWatcher />
-        <RouterProvider router={router} />
-      </ToastProvider>
+      <SessionWatcher />
+      <RouterProvider router={router} />
     </QueryClientProvider>
   );
 }

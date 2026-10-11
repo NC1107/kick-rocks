@@ -1,7 +1,7 @@
 {
-  "version": "",
+  "version": "v1",
   "url": "",
-  "tarSha256": "",
-  "dataSha256": "",
-  "threshold": 0
+  "tarSha256": "2794971b0858f9950d1a225c1da6e11268dec585616a0415e3409af96aea6eac",
+  "dataSha256": "8bd16d12310007186de5ed16839bc1d6e740a67bfa9b3e35756e8f74102e8ba1",
+  "threshold": 0.7482661399942754
 }

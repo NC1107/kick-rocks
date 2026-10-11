@@ -9,17 +9,21 @@ import {
   PageHeader,
   Skeleton,
 } from "../../components/ui/index.js";
+import { paths } from "../../lib/paths.js";
 import {
-  CheckForRepliesButton,
+  CheckForRepliesAction,
   checkFailedOnMailbox,
   ReplyCheckResult,
   useReplyCheck,
 } from "../mailbox/check-for-replies.js";
+import { ScanNotice } from "../review/ScanNotice.js";
 import {
   ActivitySection,
   AttentionSection,
+  attentionItems,
   MailboxNotices,
   RequestsSection,
+  ScansSection,
   SendingSection,
 } from "./sections.js";
 
@@ -53,10 +57,11 @@ function DashboardView({
   const header = (
     <PageHeader
       title="Dashboard"
-      description="Where requests stand"
       actions={
         <>
-          {mailboxConnected && !fresh ? <CheckForRepliesButton check={check} /> : null}
+          {mailboxConnected && !fresh ? (
+            <CheckForRepliesAction check={check} labelFrom="sm" />
+          ) : null}
           {fresh ? null : (
             <LinkButton to="/campaigns/new" variant="primary">
               New campaign
@@ -120,6 +125,11 @@ function DashboardBody({
   const fresh = dashboard.total === 0;
   return (
     <div className="flex flex-col gap-5">
+      <ScanNotice
+        scanning={dashboard.scanning}
+        profileId={profileId}
+        queuedHeld={dashboard.scans.held}
+      />
       <MailboxNotices
         dashboard={dashboard}
         profileId={profileId}
@@ -127,29 +137,39 @@ function DashboardBody({
         checkReportsError={checkReportsError}
       />
       {fresh ? (
-        <EmptyState
-          title="No requests yet."
-          description={
-            dashboard.mailbox
-              ? "Start a campaign to send opt-out and deletion requests."
-              : "Connect a mailbox, then start a campaign."
-          }
-          actions={
-            <>
-              {dashboard.mailbox ? null : (
-                <LinkButton to={`/profiles/${profileId}/mailbox`} variant="primary">
-                  Connect a mailbox
+        <>
+          {attentionItems(dashboard.attention).length > 0 ? (
+            <AttentionSection attention={dashboard.attention} />
+          ) : null}
+          <ScansSection scans={dashboard.scans} profileId={profileId} />
+          <EmptyState
+            title="No requests yet."
+            description={
+              dashboard.mailbox
+                ? "Start a campaign to send opt-out and deletion requests."
+                : "Connect a mailbox, then start a campaign."
+            }
+            actions={
+              <>
+                {dashboard.mailbox ? null : (
+                  <LinkButton to={paths.mailbox(profileId)} variant="primary">
+                    Connect a mailbox
+                  </LinkButton>
+                )}
+                <LinkButton
+                  to="/campaigns/new"
+                  variant={dashboard.mailbox ? "primary" : "secondary"}
+                >
+                  Start a campaign
                 </LinkButton>
-              )}
-              <LinkButton to="/campaigns/new" variant={dashboard.mailbox ? "primary" : "secondary"}>
-                Start a campaign
-              </LinkButton>
-            </>
-          }
-        />
+              </>
+            }
+          />
+        </>
       ) : (
         <>
           <AttentionSection attention={dashboard.attention} />
+          <ScansSection scans={dashboard.scans} profileId={profileId} />
           <RequestsSection dashboard={dashboard} />
           <SendingSection dashboard={dashboard} />
           <ActivitySection events={dashboard.recentEvents} />

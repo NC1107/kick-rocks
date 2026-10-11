@@ -11,6 +11,7 @@ import {
   Callout,
   Checkbox,
   ConfirmDialog,
+  EntityLink,
   RelativeTime,
   RowGroup,
   Section,
@@ -18,6 +19,7 @@ import {
   useToast,
 } from "../../components/ui/index.js";
 import { PROFILE_FIELD_LABELS } from "../../lib/labels.js";
+import { paths } from "../../lib/paths.js";
 import { DetailFrame } from "./DetailFrame.js";
 import { REVIEW_INVALIDATES } from "./model.js";
 
@@ -33,14 +35,16 @@ export function VerificationDetail({ item }: { item: VerificationItem }) {
         asOf: new Date().toISOString().slice(0, 10),
       })
     : null;
-  const profileLink = `/profiles/${encodeURIComponent(request.profileId)}`;
+  const profileLink = paths.profile(request.profileId);
 
   const send = useApiMutation(API_ROUTES.requestsVerification, {
     invalidates: REVIEW_INVALIDATES,
     onSuccess: (_result, variables) => {
       setConfirming(null);
       const sent = variables.body.fields.map((field) => PROFILE_FIELD_LABELS[field].toLowerCase());
-      toast.success(`Sending ${sent.join(", ")} to ${request.target.name}`);
+      toast.success(`Sending ${sent.join(", ")} to ${request.target.name}`, undefined, {
+        action: { kind: "request", id: request.id, reference: request.reference },
+      });
     },
     onError: () => setConfirming(null),
   });
@@ -48,7 +52,9 @@ export function VerificationDetail({ item }: { item: VerificationItem }) {
     invalidates: REVIEW_INVALIDATES,
     onSuccess: () => {
       setConfirming(null);
-      toast.success("Request cancelled", "Nothing was sent to them.");
+      toast.success("Request cancelled", "Nothing was sent to them.", {
+        action: { kind: "request", id: request.id, reference: request.reference },
+      });
     },
     onError: () => setConfirming(null),
   });
@@ -72,10 +78,10 @@ export function VerificationDetail({ item }: { item: VerificationItem }) {
         disabled={fields.length === 0}
         onClick={() => setConfirming("send")}
       >
-        Send selected details
+        Send
       </Button>
       <Button variant="secondary" onClick={() => setConfirming("decline")}>
-        Send nothing and cancel
+        Cancel request
       </Button>
       {fields.length === 0 && item.requestedFields.length > 0 ? (
         <span className="text-meta text-ink-3">Tick at least one detail to send.</span>
@@ -87,14 +93,17 @@ export function VerificationDetail({ item }: { item: VerificationItem }) {
     <>
       <DetailFrame
         label={`${request.target.name} asked for more details`}
-        title={request.target.name}
+        title={
+          <EntityLink
+            to={{ kind: "target", id: request.target.id, name: request.target.name }}
+            variant="quiet"
+          />
+        }
         meta={
           <>
             Request{" "}
-            <TextLink to={`/requests/${encodeURIComponent(request.id)}`} className="font-mono">
-              {request.reference}
-            </TextLink>
-            , they replied <RelativeTime iso={message.receivedAt} />
+            <EntityLink to={{ kind: "request", id: request.id, reference: request.reference }} />,
+            they replied <RelativeTime iso={message.receivedAt} />
           </>
         }
         footer={footer}

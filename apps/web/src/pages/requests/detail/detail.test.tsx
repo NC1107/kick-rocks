@@ -9,6 +9,7 @@ import {
 } from "../../../components/layout/breadcrumb-context.js";
 import { renderPage } from "../../../test/render.js";
 import { Component as RequestDetailPage } from "./index.js";
+import { correctionPicks, mentionsFormOrPhone } from "./ReplyCard.js";
 import { groupEvents, newestFirst, retryableFailure } from "./Timeline.js";
 
 /** Routes matching `pattern` answer 403, a client error, so the query client does not retry and wait. */
@@ -136,15 +137,15 @@ describe("the request page", () => {
     expect(await screen.findByText("The target asked for more details")).toBeVisible();
     expect(screen.getByRole("link", { name: "Review what to send" })).toHaveAttribute(
       "href",
-      "/review?tab=verifications",
+      expect.stringMatching(/^\/review\?item=details%3Areq_\d+$/),
     );
     expect(screen.getByText("A task is waiting for you")).toBeVisible();
   });
 
-  it("names the overflow menu when no primary action stands beside it", async () => {
+  it("keeps the overflow menu an icon even when no primary action stands beside it", async () => {
     const { user } = open(byTarget("clearcheck"));
     const trigger = await screen.findByRole("button", { name: "More actions" });
-    expect(trigger).toHaveTextContent("More actions");
+    expect(trigger).not.toHaveTextContent("More actions");
     await user.click(trigger);
     expect(await screen.findByRole("menuitem", { name: "Cancel request" })).toBeVisible();
   });
@@ -155,11 +156,56 @@ describe("the request page", () => {
     expect(trigger).not.toHaveTextContent("More actions");
   });
 
-  it("lists replies and tasks", async () => {
+  it("lists replies and tasks, with the newest reply under the header when it is not a final answer", async () => {
     open(byTarget("clearcheck"));
-    await screen.findByRole("heading", { name: /^Replies/ });
+    await screen.findByRole("heading", { name: /^Latest reply/ });
     expect(screen.getByText("Verification required")).toBeVisible();
     expect(screen.getByRole("heading", { name: /^Tasks/ })).toBeVisible();
+  });
+
+  it("lists a final answer under Replies instead of repeating it at the top", async () => {
+    open(byTarget("audiencegrid"));
+    await screen.findByRole("heading", { name: /^Replies/ });
+    expect(screen.queryByRole("heading", { name: /^Latest reply/ })).toBeNull();
+  });
+
+  it("puts the replies above the summary", async () => {
+    open(byTarget("audiencegrid"));
+    const replies = await screen.findByRole("heading", { name: /^Replies/ });
+    const summary = screen.getByRole("heading", { name: "Summary" });
+    expect(
+      replies.compareDocumentPosition(summary) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
+  it("links the request to its profile, its mailbox and its target", async () => {
+    open(byTarget("cardinal-insights"));
+    await screen.findByRole("heading", { name: "Cardinal Insights", level: 1 });
+    expect(await screen.findByRole("link", { name: "Jordan Example" })).toHaveAttribute(
+      "href",
+      expect.stringMatching(/^\/profiles\/prf_/),
+    );
+    expect(await screen.findByRole("link", { name: "jordan@example.com" })).toHaveAttribute(
+      "href",
+      expect.stringMatching(/^\/profiles\/prf_.*\/mailbox$/),
+    );
+    expect(screen.getByRole("link", { name: "Cardinal Insights" })).toHaveAttribute(
+      "href",
+      "/targets/cardinal-insights",
+    );
+  });
+
+  it("shows the legal basis as its short code", async () => {
+    open(byTarget("maplewood-cinemas"));
+    await screen.findByRole("heading", { name: "Maplewood Cinemas", level: 1 });
+    expect(screen.getByText("MODPA")).toBeVisible();
+  });
+
+  it("opens a blocked task at its Review item", async () => {
+    open(byTarget("clearcheck"));
+    await screen.findByRole("heading", { name: /^Tasks/ });
+    const link = await screen.findByRole("link", { name: "Submit form" });
+    expect(link).toHaveAttribute("href", expect.stringMatching(/^\/review\?item=blocked%3Atsk_/));
   });
 
   describe("when a reply asked for the web form", () => {
@@ -199,9 +245,26 @@ describe("the request page", () => {
     it("asks the person to confirm an unsure reply instead of claiming the form route", async () => {
       const { message } = askedForForm({ confidence: 0.4 });
       expect(await screen.findByText(/may want its web form/)).toBeVisible();
-      expect(screen.getByText(/waiting for you to confirm/)).toBeVisible();
+      expect(screen.getByText(/Confirm and the request moves to the form route/)).toBeVisible();
       expect(screen.queryByRole("link", { name: /privacy-requests/ })).not.toBeInTheDocument();
       expect(message.classification).toBe("needs_form");
+    });
+
+    it("offers a one-tap confirm above the latest reply for an acknowledgement that sends them to a form", async () => {
+      const { user, message } = askedForForm({
+        classification: "auto_ack",
+        confidence: 0.9,
+        rationale: null,
+        snippet:
+          "Thanks for contacting us. We cannot take privacy requests by email. Please use our web form.",
+      });
+      const callout = await screen.findByText(/may want its web form/);
+      const latest = screen.getByText("Latest reply");
+      expect(
+        callout.compareDocumentPosition(latest) & Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy();
+      await user.click(screen.getByRole("button", { name: "Yes, use the form" }));
+      await waitFor(() => expect(message.classification).toBe("needs_form"));
     });
 
     it("says there is no form to reach, and shows no confirmation link, after a hand correction", async () => {
@@ -213,9 +276,10 @@ describe("the request page", () => {
     it("lets the person correct what the reply was", async () => {
       const { user, message } = askedForForm();
       await screen.findByText(/wants its web form/);
-      await user.click(screen.getAllByRole("button", { name: "Correct this" })[0] as HTMLElement);
-      await user.selectOptions(screen.getByLabelText("What this reply is"), "auto_ack");
-      await user.click(screen.getByRole("button", { name: "Apply" }));
+      await user.click(
+        screen.getAllByRole("button", { name: /Change what this reply is/ })[0] as HTMLElement,
+      );
+      await user.click(await screen.findByRole("menuitem", { name: /Automatic reply/ }));
       await waitFor(() => expect(message.classification).toBe("auto_ack"));
       await waitFor(() => expect(screen.queryByText(/wants its web form/)).not.toBeInTheDocument());
     });
@@ -347,5 +411,63 @@ describe("the request page chrome", () => {
       { path: "/requests/:id", route: `/requests/${request.id}`, mock },
     );
     await waitFor(() => expect(screen.getByTestId("trail")).toHaveTextContent(request.target.name));
+  });
+});
+
+describe("correcting a reply", () => {
+  it("offers the web form first when the reply talks about a form or a phone call", () => {
+    const text = "Please submit your request through our web form or call 1-800-555-0142.";
+    expect(mentionsFormOrPhone(text)).toBe(true);
+    expect(correctionPicks("auto_ack", text)[0]).toBe("needs_form");
+    expect(correctionPicks("auto_ack", text)).not.toContain("auto_ack");
+  });
+
+  it("offers only the usual answers when the reply says nothing about another route", () => {
+    expect(mentionsFormOrPhone("We received your request and will reply in 45 days.")).toBe(false);
+    expect(correctionPicks("unknown", "We received your request.")).not.toContain("needs_form");
+  });
+
+  it("puts the misread receipt next to the actions, with the web form first in the menu", async () => {
+    const { user } = open(byTarget("maplewood-cinemas"));
+    await screen.findByRole("heading", { name: /^Latest reply/ });
+    expect(screen.queryByText(/wants its web form/)).toBeNull();
+    await user.click(
+      screen.getAllByRole("button", { name: /Change what this reply is/ })[0] as HTMLElement,
+    );
+    const items = await screen.findAllByRole("menuitem");
+    expect(items[0]).toHaveTextContent("Needs web form");
+    expect(items.at(-1)).toHaveTextContent("Other...");
+  });
+
+  it("applies the web form answer and then says the target wants its form", async () => {
+    const { user, mock } = open(byTarget("maplewood-cinemas"));
+    await screen.findByRole("heading", { name: /^Latest reply/ });
+    await user.click(
+      screen.getAllByRole("button", { name: /Change what this reply is/ })[0] as HTMLElement,
+    );
+    await user.click(await screen.findByRole("menuitem", { name: /Needs web form/ }));
+    await waitFor(() =>
+      expect(
+        mock.store.messages.find((message) =>
+          message.fromAddress.endsWith("maplewoodcinemas.example"),
+        )?.classification,
+      ).toBe("needs_form"),
+    );
+    expect(await screen.findByText(/wants its web form/)).toBeVisible();
+  });
+
+  it("asks before marking a reply as a final answer", async () => {
+    const { user, mock } = open(byTarget("maplewood-cinemas"));
+    await screen.findByRole("heading", { name: /^Latest reply/ });
+    await user.click(
+      screen.getAllByRole("button", { name: /Change what this reply is/ })[0] as HTMLElement,
+    );
+    await user.click(await screen.findByRole("menuitem", { name: /Completed/ }));
+    const dialog = await screen.findByRole("dialog");
+    const cafe = (message: { fromAddress: string }) =>
+      message.fromAddress.endsWith("maplewoodcinemas.example");
+    expect(mock.store.messages.find(cafe)?.classification).toBe("auto_ack");
+    await user.click(within(dialog).getByRole("button", { name: "Classify" }));
+    await waitFor(() => expect(mock.store.messages.find(cafe)?.classification).toBe("completed"));
   });
 });

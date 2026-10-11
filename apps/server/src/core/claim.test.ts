@@ -238,6 +238,46 @@ describe("form tasks", () => {
       expect(claim(["form"])?.fields.email).toBe("removals@mailbox.example.org");
     });
 
+    describe("the reply alias", () => {
+      function aliasedForm(acceptsAlias: boolean | undefined, verified = true) {
+        seedMailbox(ctx, profileId, {
+          address: "removals@mailbox.example.org",
+          replyAlias: "removals+kickrocks@mailbox.example.org",
+          replyAliasVerifiedAt: verified ? ctx.clock.now().toISOString() : null,
+        });
+        const target = seedTarget(ctx, { contactMethod: "form", domain: "spokeo.test" });
+        seedRecipe(ctx, target.id, {
+          purpose: "remove",
+          ...(acceptsAlias === undefined ? {} : { definition: { acceptsAlias } }),
+        });
+        const request = seedRequest(ctx, {
+          profileId,
+          targetId: target.id,
+          status: "queued",
+          channel: "form",
+          recordUrl: "https://spokeo.test/p/9",
+        });
+        ctx.services.dispatch.dispatchRequest(request.id);
+        return claim(["form"])?.fields.email;
+      }
+
+      it("fills a form that declares it accepts one", () => {
+        expect(aliasedForm(true)).toBe("removals+kickrocks@mailbox.example.org");
+      });
+
+      it("is never used by a form that says it does not accept one", () => {
+        expect(aliasedForm(false)).toBe("removals@mailbox.example.org");
+      });
+
+      it("is never assumed for a form that says nothing", () => {
+        expect(aliasedForm(undefined)).toBe("removals@mailbox.example.org");
+      });
+
+      it("is not used before the mailbox proved it receives it", () => {
+        expect(aliasedForm(true, false)).toBe("removals@mailbox.example.org");
+      });
+    });
+
     it("fails the task when the mailbox was disconnected after the request was queued", () => {
       const mailbox = seedMailbox(ctx, profileId);
       const { request } = formTask();

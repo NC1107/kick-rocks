@@ -10,6 +10,7 @@ Nothing here comes from a real mailbox.
   Look at these freely while changing the classifier.
 - `held-out/` holds the other 40 percent, split by category the same way.
   Run it with `--held-out` only to check a finished change, never to tune one.
+- Categories written after the first measurements go to `dev/` only, so `held-out/` stays the set frozen before any tuning.
 - Each folder has numbered `.eml` files, oldest first, and a `labels.json` with what should happen to each.
 
 ## Labels
@@ -29,7 +30,7 @@ A reply that changes nothing, such as an acknowledgement, is applied either way.
 
 - `pnpm loop:mail-intake` measures the dev set and prints four numbers plus a table per category.
 - `pnpm loop:mail-intake -- --verbose` lists every message that counted against a number.
-- `pnpm loop:mail-intake -- --held-out` measures the held-out set.
+- `pnpm loop:mail-intake -- --held-out` (or `--split heldout`) measures the held-out set.
 - `pnpm --filter @kickrocks/server loop:mail-intake:generate` rewrites the corpus.
   The generator is deterministic, and a test fails when the committed files differ from its output.
 

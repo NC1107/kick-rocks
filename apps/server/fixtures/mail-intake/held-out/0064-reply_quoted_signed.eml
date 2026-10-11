@@ -1,26 +1,26 @@
 DKIM-Signature: v=1; a=ed25519-sha256; c=relaxed/relaxed; d=radaris.com;
  h=Content-Transfer-Encoding: Content-Type: MIME-Version: References:
- In-Reply-To: Reply-To: Message-ID: Date: Subject: To: From; q=dns/txt;
- s=kr; t=1790754720; bh=ISzPgiuaoU6WZf5ozGi8MHz1DO9uBY+eVRXJR6MLvuY=;
- b=rFajMqhDFy2n8Jwz2y9Z+0lNi1HcTmuIxIfWKH0g8YCaixSiUWhD/CqSjW52AC7MFiczDaEq4
- uct9gYd9u6NDQ==
-Return-Path: <bounce-33296@radaris.com>
-Received: from mail.radaris.com (mail.radaris.com [203.0.113.21]) by mx.example.com with ESMTPS id bd1cd572f5 for <jordan@example.com>; Wed, 30 Sep 2026 07:52:00 +0000
-From: Radaris Privacy <privacyteam@radaris.com>
+ In-Reply-To: Message-ID: Date: Subject: To: From; q=dns/txt; s=kr;
+ t=1790820840; bh=/JfTXveCnzPko/XBeqJAXQd9zCpiFyaz0EH01X3CU3Y=;
+ b=dfb4WQqpmA/dItMKElCiLXtX9KK9zbkuz5YC1fJ7TL14JOb11qYOQQaeXXq4xpibsljOKC4D6
+ p54liHGLC8CDw==
+Return-Path: <bounce-33209@radaris.com>
+Received: from mail.radaris.com (mail.radaris.com [203.0.113.21]) by mx.example.com with ESMTPS id bd1cd572f5 for <jordan@example.com>; Thu, 01 Oct 2026 02:14:00 +0000
+From: Radaris Privacy <support@radaris.com>
 To: jordan@example.com
 Subject: Re: Opt-out request KR-8N6BF3
-Date: Wed, 30 Sep 2026 07:52:00 +0000
-Message-ID: <16807dc260230d13d609c9c8@radaris.com>
-Reply-To: privacy@radaris.com
+Date: Thu, 01 Oct 2026 02:14:00 +0000
+Message-ID: <e21c2d9c217b643e46c5f975@radaris.com>
 In-Reply-To: <kr.012dbe4c-7555-4a77-8221-adf648311fb1.0@example.com>
 References: <kr.012dbe4c-7555-4a77-8221-adf648311fb1.0@example.com>
+Auto-Submitted: auto-replied
 MIME-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
 
-Hello,
+Hi Jordan,
 
-Your request has been denied: the information you asked about comes from public records that are exempt from deletion.
+Thank you for contacting Radaris. We have received your request and will respond within 10 business days. Your ticket number is #549230.
 
 Regards,
 Radaris Privacy Team

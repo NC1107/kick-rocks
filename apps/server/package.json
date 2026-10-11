@@ -14,7 +14,9 @@
     "reply-model:env": "uv venv --python 3.12 reply-model/.venv && uv pip install --require-hashes --python reply-model/.venv/bin/python -r reply-model/requirements.lock",
     "reply-model:build": "tsx reply-model/build.ts",
     "reply-model:verify": "tsx reply-model/verify.ts",
-    "reply-model:check-data": "tsx reply-model/check-data.ts"
+    "reply-model:check-data": "tsx reply-model/check-data.ts",
+    "loop:mail-intake": "tsx src/test-utils/mail-intake/cli.ts",
+    "loop:mail-intake:generate": "tsx src/test-utils/mail-intake/generate.ts"
   },
   "dependencies": {
     "@fastify/cookie": "^11.1.2",

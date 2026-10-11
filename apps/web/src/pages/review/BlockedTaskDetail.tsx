@@ -7,6 +7,7 @@ import {
   ConfirmDialog,
   CopyButton,
   Dialog,
+  EntityLink,
   ExternalLinkText,
   Field,
   Hatch,
@@ -24,6 +25,7 @@ import {
 } from "../../components/ui/index.js";
 import { describeFailure } from "../../lib/failures.js";
 import { BLOCKED_REASON_LABELS, PROFILE_FIELD_LABELS, TASK_KIND_LABELS } from "../../lib/labels.js";
+import { paths } from "../../lib/paths.js";
 import { DetailFrame } from "./DetailFrame.js";
 import { FailedGroupActions } from "./FailedGroupActions.js";
 import { HeldSendsPanel } from "./HeldSendsPanel.js";
@@ -190,6 +192,7 @@ export function BlockedTaskDetail({
   const footerError = [approve, resume, handOff, retry, cancel].find(
     (mutation) => mutation.isError,
   )?.error;
+  const target = task.targetName ? { id: task.targetId, name: task.targetName } : undefined;
   const failure = variant === "failed" ? describeFailure(task) : null;
   const detail = failure ? failure.detail : (task.blockedDetail ?? null);
   const showsMark =
@@ -202,13 +205,9 @@ export function BlockedTaskDetail({
       {item.requestReference ? (
         <>
           {" for request "}
-          {task.requestId ? (
-            <TextLink to={`/requests/${encodeURIComponent(task.requestId)}`} className="font-mono">
-              {item.requestReference}
-            </TextLink>
-          ) : (
-            <span className="font-mono">{item.requestReference}</span>
-          )}
+          <EntityLink
+            to={{ kind: "request", id: task.requestId, reference: item.requestReference }}
+          />
         </>
       ) : null}
       {", updated "}
@@ -286,7 +285,8 @@ export function BlockedTaskDetail({
         </Button>
         {agentAccessOff ? (
           <span className="text-meta text-ink-3">
-            Agent access is off. <TextLink to="/settings">Turn it on in Settings</TextLink>
+            Agent access is off.{" "}
+            <TextLink to={paths.settings("agents")}>Turn it on in Settings</TextLink>
           </span>
         ) : null}
       </>
@@ -319,7 +319,16 @@ export function BlockedTaskDetail({
     <>
       <DetailFrame
         label={`${task.targetName ?? "Task"}, ${TASK_KIND_LABELS[task.kind]}`}
-        title={task.targetName ?? "Unknown target"}
+        title={
+          task.targetName ? (
+            <EntityLink
+              to={{ kind: "target", id: task.targetId, name: task.targetName }}
+              variant="quiet"
+            />
+          ) : (
+            "Unknown target"
+          )
+        }
         meta={meta}
         footer={footer}
         error={footerError ? errorMessage(footerError) : undefined}
@@ -343,6 +352,7 @@ export function BlockedTaskDetail({
         {log ? (
           <HeldSendsPanel
             taskId={task.id}
+            target={target}
             log={log}
             declined={declined}
             onDeclinedChange={setDeclined}
@@ -371,7 +381,7 @@ export function BlockedTaskDetail({
           {variant === "agent" ? (
             <p className="mt-2 text-meta text-ink-3">
               An agent is an AI assistant you connect over MCP in{" "}
-              <TextLink to="/settings">Settings</TextLink>.
+              <TextLink to={paths.settings("agents")}>Settings</TextLink>.
             </p>
           ) : null}
           {item.url || failure?.needsProfile ? (
@@ -382,9 +392,7 @@ export function BlockedTaskDetail({
                 </ExternalLinkText>
               ) : null}
               {failure?.needsProfile ? (
-                <TextLink to={`/profiles/${encodeURIComponent(profileId)}`}>
-                  Open the profile to add it
-                </TextLink>
+                <TextLink to={paths.profile(profileId)}>Open the profile to add it</TextLink>
               ) : null}
             </p>
           ) : null}
@@ -394,7 +402,7 @@ export function BlockedTaskDetail({
           <ValuesToEnter profileId={profileId} />
         ) : null}
 
-        {log ? <SentLog log={log} /> : null}
+        {log ? <SentLog log={log} target={target} /> : null}
 
         {variant === "failed" && siblings.length > 1 ? (
           <FailedGroupActions items={siblings} label={failure?.label ?? ""} />
@@ -412,7 +420,7 @@ export function BlockedTaskDetail({
       >
         <p className="text-ui text-ink-2">
           Nothing happens until one is connected.{" "}
-          <TextLink to="/settings">Connect one in Settings</TextLink>.
+          <TextLink to={paths.settings("agents")}>Connect one in Settings</TextLink>.
         </p>
       </ConfirmDialog>
 

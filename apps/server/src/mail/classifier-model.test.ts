@@ -7,6 +7,10 @@ import type { ClassifierRequest, InboxMessage } from "./types.js";
 
 const request: ClassifierRequest = {
   id: "req-1",
+  open: true,
+  targetKind: "broker",
+  contactAddress: null,
+  sentAt: null,
   reference: "KR-7K3M9Q",
   outgoingMessageId: outgoingMessageId("req-1", "example.com"),
   status: "awaiting_reply",
@@ -39,6 +43,7 @@ function message(overrides: Partial<InboxMessage> = {}): InboxMessage {
     isBounce: false,
     autoSubmitted: false,
     headers: {},
+    originalMessageIds: [],
     verifyDkim: noDkim,
     ...overrides,
   };

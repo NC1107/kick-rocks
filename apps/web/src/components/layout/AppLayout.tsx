@@ -2,6 +2,7 @@ import { Menu } from "lucide-react";
 import { Fragment, useEffect, useState } from "react";
 import { Link, Outlet, useLocation } from "react-router";
 import { CurrentProfileProvider } from "../../api/index.js";
+import { cn } from "../../lib/cn.js";
 import { IconButton, Tag } from "../ui/index.js";
 import { breadcrumbTrail } from "./breadcrumb.js";
 import { BreadcrumbTailProvider, useBreadcrumbTailValue } from "./breadcrumb-context.js";
@@ -65,6 +66,18 @@ function HeaderBar() {
   );
 }
 
+/** The name of the page, since the phone bar has no trail and sub-pages lead back by link alone. */
+function PhoneTitle() {
+  const { pathname } = useLocation();
+  const crumb = breadcrumbTrail(pathname, useBreadcrumbTailValue()).at(-1);
+  if (!crumb) return null;
+  return (
+    <p className={cn("min-w-0 truncate text-ui font-medium text-ink", crumb.mono && "font-mono")}>
+      {crumb.label}
+    </p>
+  );
+}
+
 function PhoneBar({ onOpenMenu }: { onOpenMenu: () => void }) {
   const chips = useShellStatus();
   return (
@@ -73,7 +86,8 @@ function PhoneBar({ onOpenMenu }: { onOpenMenu: () => void }) {
         <Menu />
       </IconButton>
       <LogoMark />
-      <div className="ml-auto flex items-center gap-2">
+      <PhoneTitle />
+      <div className="ml-auto flex shrink-0 items-center gap-2">
         {IS_MOCK ? <Tag>Mock</Tag> : null}
         <UrgentStatusMark chips={chips} />
       </div>

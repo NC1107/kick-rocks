@@ -452,31 +452,16 @@ describeBrowser("a live connection", () => {
 });
 
 describeBrowser("what the page puts in an address or a method", () => {
-  it("refuses an address with a username and password and answers every challenge with a cancel", async () => {
-    const answered: unknown[] = [];
-    const original = context.newCDPSession.bind(context);
-    context.newCDPSession = async (target) => {
-      const session = await original(target);
-      const send = session.send.bind(session) as (
-        method: string,
-        params?: object,
-      ) => Promise<unknown>;
-      (session as { send: typeof send }).send = (method, params) => {
-        if (method === "Fetch.continueWithAuth") answered.push(params);
-        return send(method, params);
-      };
-      return session;
-    };
+  it("refuses an address with a username and password and never sends credentials after a challenge", async () => {
     const { sends } = await run([open("/gate-auth"), wait(2), open("/gate-auth-wall"), wait(1)], {
       sends: NOBODY(),
     });
     const { hits } = await fixtureState();
     const authHits = hits.filter((hit) => hit.path.startsWith("/gate-auth-"));
+    // Playwright's own interception can be the session Chrome hands a challenge to, so what is
+    // checked is the outcome: the wall was asked once and nothing carried credentials.
+    expect(authHits.map((hit) => hit.path)).toEqual(["/gate-auth-wall"]);
     expect(authHits.filter((hit) => hit.authorization !== "")).toEqual([]);
-    expect(authHits.map((hit) => hit.path)).not.toContain("/gate-auth-inline");
     expect(sends.refusals.map((refusal) => refusal.reason)).toContain("url_credentials");
-    expect(answered).toContainEqual(
-      expect.objectContaining({ authChallengeResponse: { response: "CancelAuth" } }),
-    );
   });
 });

@@ -1,20 +1,18 @@
-Return-Path: <01006d1453dce5aeb6dcf8f0-9b2ec2af@bounces.amazon.com>
-Received: from mail.amazon.com (mail.amazon.com [203.0.113.20]) by mx.example.com with ESMTPS id 8f0b392fa7 for <jordan@example.com>; Sat, 03 Oct 2026 11:58:00 +0000
-From: Amazon <shipment-tracking@amazon.com>
+Return-Path: <0100f089a5d4fccb753bd573-4a92c855@bounces.netflix.com>
+Received: from mail.account.netflix.com (mail.account.netflix.com [203.0.113.29]) by mx.example.com with ESMTPS id 0e7c3490cb for <jordan@example.com>; Sun, 04 Oct 2026 16:05:00 +0000
+From: Netflix <info@account.netflix.com>
 To: jordan@example.com
-Subject: Order confirmation: stainless steel water bottle
-Date: Sat, 03 Oct 2026 11:58:00 +0000
-Message-ID: <faf28676e3e513670724245d@amazon.com>
+Subject: Your Netflix payment was declined
+Date: Sun, 04 Oct 2026 16:05:00 +0000
+Message-ID: <f14f8973c68ab3b925968177@account.netflix.com>
+Auto-Submitted: auto-generated
 X-Mailer: Transactional Mailer
 MIME-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
 
-Hi Jordan,
+Hi,
 
-Your package has been delivered. If you have not received it, please contact customer service.
+Please confirm your new email address by clicking the link: https://netflix.com/account/confirm-email?token=f767a0d37c233de8b09a
 
-Order #695-8631065-8654795
-stainless steel water bottle
-
-Thank you for shopping with us.
+If you did not make this change, contact support.

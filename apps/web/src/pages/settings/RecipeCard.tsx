@@ -1,11 +1,11 @@
 import { API_ROUTES, type Recipe, type RecipeRecord } from "@kickrocks/shared";
 import { ChevronDown } from "lucide-react";
 import { type ReactNode, useState } from "react";
-import { Link } from "react-router";
 import { errorMessage, useApiMutation } from "../../api/index.js";
 import {
   Button,
   ConfirmDialog,
+  EntityLink,
   InlineError,
   RowGroup,
   StatusShapeGlyph,
@@ -70,13 +70,11 @@ export function RecipeCard({
       <RowGroup role="region" aria-label={`${recipe.targetName} ${purpose} recipe`}>
         <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-1 px-3.5 py-2.5">
           <div className="min-w-0">
-            <h3 className="break-words text-ui font-medium text-ink">
-              <Link
-                to={`/targets/${encodeURIComponent(recipe.targetId)}`}
-                className="rounded-xs hover:text-accent-text hover:underline"
-              >
-                {recipe.targetName}
-              </Link>
+            <h3 className="break-words text-ui font-medium text-ink [&_a]:text-ink [&_a:hover]:text-accent-text">
+              <EntityLink
+                to={{ kind: "target", id: recipe.targetId, name: recipe.targetName }}
+                variant="quiet"
+              />
             </h3>
             <p className="text-meta text-ink-3">{copy.origin(purpose, recipe)}</p>
           </div>

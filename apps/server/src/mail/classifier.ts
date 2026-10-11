@@ -71,11 +71,11 @@ const ACTIVE_STATUSES = new Set([
   "no_response",
 ]);
 
-function senderHost(message: InboxMessage): string {
+export function senderHost(message: InboxMessage): string {
   return (message.from.address.split("@").pop() ?? "").toLowerCase();
 }
 
-function onDomain(host: string, domain: string): boolean {
+export function onDomain(host: string, domain: string): boolean {
   return host !== "" && isOnDomain(`https://${host}/`, domain);
 }
 
@@ -105,7 +105,7 @@ function domainsOf(request: ClassifierRequest): string[] {
  * shared host, such as google.com, gets none for its own domain, since anyone on the host can
  * send as it.
  */
-function senderDomainsOf(request: ClassifierRequest): string[] {
+export function senderDomainsOf(request: ClassifierRequest): string[] {
   return withoutSharedHosts(linkDomainsOf(request));
 }
 
@@ -121,8 +121,11 @@ function correlateByMessageId(message: InboxMessage, requests: ClassifierRequest
   const headerIds = [message.inReplyTo, ...[...message.references].reverse()].filter(
     (id): id is string => Boolean(id),
   );
-  // A bounce report quotes the failed message, so our Message-ID can sit in its text rather than its headers.
-  const quotedIds = message.isBounce ? (message.text.match(OUTGOING_ID_IN_TEXT) ?? []) : [];
+  // A bounce report quotes the failed message, so our Message-ID can sit in its text or in the
+  // original it attaches rather than in its own headers.
+  const quotedIds = message.isBounce
+    ? [...message.originalMessageIds, ...(message.text.match(OUTGOING_ID_IN_TEXT) ?? [])]
+    : [];
   for (const id of [...headerIds, ...quotedIds]) {
     const wanted = bareId(id);
     const parsed = parseOutgoingMessageId(id);
@@ -225,7 +228,7 @@ function byWaitingSince(a: ClassifierRequest, b: ClassifierRequest): number {
  * matched by who sent it: the oldest request still waiting for that sender, unless the message
  * names the record one of them is for.
  */
-function matchAwaitingConfirmation(
+export function matchAwaitingConfirmation(
   message: InboxMessage,
   requests: ClassifierRequest[],
   links: MailLink[],
@@ -259,12 +262,18 @@ function matchAwaitingConfirmation(
   return null;
 }
 
-function correlateBySender(message: InboxMessage, requests: ClassifierRequest[]): Match | null {
+function correlateBySender(
+  message: InboxMessage,
+  requests: ClassifierRequest[],
+  senderTargetIds: readonly string[],
+): Match | null {
   const host = senderHost(message);
   const candidates = requests.filter(
     (request) =>
-      withoutSharedHosts(request.replyDomains).some((domain) => onDomain(host, domain)) ||
-      fromReplyAddress(message, request),
+      request.open &&
+      (withoutSharedHosts(request.replyDomains).some((domain) => onDomain(host, domain)) ||
+        fromReplyAddress(message, request) ||
+        senderTargetIds.includes(request.targetId)),
   );
   if (candidates.length === 1)
     return { request: candidates[0] as ClassifierRequest, via: "sender_domain" };
@@ -442,6 +451,7 @@ export function createReplyClassifier(deps: ReplyClassifierDeps): ReplyClassifie
 
       let match =
         correlateByMessageId(message, requests) ?? correlateByReference(message, requests);
+      let bySenderOnly = false;
       const signals = matchSignals({ message, body });
 
       if (match) {
@@ -460,7 +470,8 @@ export function createReplyClassifier(deps: ReplyClassifierDeps): ReplyClassifie
             confidence: Math.max(awaiting.signal.confidence, AWAITING_CONFIRMATION_FLOOR),
           });
         } else {
-          match = correlateBySender(message, requests);
+          match = correlateBySender(message, requests, context.senderTargetIds ?? []);
+          bySenderOnly = match !== null;
           if (match) {
             const signal = confirmationSignal(
               text,
@@ -493,33 +504,45 @@ export function createReplyClassifier(deps: ReplyClassifierDeps): ReplyClassifie
           b.confidence - a.confidence ||
           CLASS_PRIORITY.indexOf(a.classification) - CLASS_PRIORITY.indexOf(b.classification),
       );
-      const top = signals[0];
+      // An acknowledgement footer must not hide a message that asks for something or decides something.
+      const changing = signals.find(
+        (signal) =>
+          CHANGES_REQUEST.has(signal.classification) && signal.confidence >= RULES_THRESHOLD,
+      );
+      const top = signals[0]?.classification === "auto_ack" && changing ? changing : signals[0];
+
+      const unboundConfirmation = (classification: ReplyClassification) =>
+        bySenderOnly &&
+        classification === "confirmation_link" &&
+        match?.request.awaitingConfirmation === null;
 
       let result: RulesResult;
       if (top) {
         const rival = signals.some(
           (signal) =>
             signal.classification !== top.classification &&
-            signal.classification !== "auto_ack" &&
+            (signal.classification !== "auto_ack" || top !== signals[0]) &&
             signal.confidence >= RULES_THRESHOLD,
         );
-        const confidence = rival
-          ? Math.max(0.3, top.confidence - AMBIGUITY_PENALTY)
-          : top.confidence;
+        const ranked = rival ? Math.max(0.3, top.confidence - AMBIGUITY_PENALTY) : top.confidence;
         // A confirmation that matched a waiting form keeps the contract's floor even with a rival signal.
         const floored =
           top.classification === "confirmation_link" &&
           via === "sender_domain" &&
           match?.request.awaitingConfirmation
-            ? Math.max(confidence, AWAITING_CONFIRMATION_FLOOR)
-            : confidence;
+            ? Math.max(ranked, AWAITING_CONFIRMATION_FLOOR)
+            : ranked;
         const capped = await capFor(top.classification, via, floored, trust, ownSiteTrust);
+        // A link in mail that only shares a sender with a request, such as an order or account
+        // mail from a company, is not the confirmation of that request, so none is followed.
+        const unbound = unboundConfirmation(top.classification);
+        const confidence = unbound ? Math.min(capped.confidence, UNMATCHED_CAP) : capped.confidence;
         result = {
           requestId,
           correlation: via,
           classification: top.classification,
-          confidence: round(capped.confidence),
-          rationale: `${top.rationale}${rival ? ", though other wording points elsewhere" : ""}; ${describeCorrelation(via)}${capped.reason ? `; ${capped.reason}` : ""}`,
+          confidence: round(confidence),
+          rationale: `${top.rationale}${rival ? ", though other wording points elsewhere" : ""}; ${describeCorrelation(via)}${capped.reason ? `; ${capped.reason}` : ""}${unbound ? "; the request is not waiting for a confirmation" : ""}`,
           links: top.classification === "needs_form" ? formLinks : links,
           requestedFields:
             top.classification === "verification_required" ? requestedFieldsIn(body) : [],
@@ -577,6 +600,9 @@ export function createReplyClassifier(deps: ReplyClassifierDeps): ReplyClassifie
         const unsupported = answer.label === "confirmation_link" && links.length === 0;
         const label: ReplyClassification = unsupported ? "unknown" : answer.label;
         const capped = await capFor(label, via, answer.confidence, trust, ownSiteTrust);
+        const confidence = unboundConfirmation(label)
+          ? Math.min(capped.confidence, UNMATCHED_CAP)
+          : capped.confidence;
         const settings = replyModelSettings(deps.settings);
         const threshold = modelThreshold(answer.manifestThreshold, settings.threshold);
         const prediction = predictionOf(rules, answer, sha);
@@ -590,7 +616,7 @@ export function createReplyClassifier(deps: ReplyClassifierDeps): ReplyClassifie
                 spotCheck,
               };
 
-        if (requestId === null || unsupported || capped.confidence < threshold) {
+        if (requestId === null || unsupported || confidence < threshold) {
           return settled({ source: "model", suggestion: guess(false), prediction });
         }
         // While the server has stopped applying model answers, every answer that would have been
@@ -604,7 +630,7 @@ export function createReplyClassifier(deps: ReplyClassifierDeps): ReplyClassifie
           requestId,
           correlation: via,
           classification: label,
-          confidence: round(capped.confidence),
+          confidence: round(confidence),
           rationale: `Reply model: ${describeLabel(label)} at ${percent(answer.confidence)}; ${describeCorrelation(via)}${capped.reason ? `; ${capped.reason}` : ""}`,
           links: label === "needs_form" ? formLinks : links,
           requestedFields: label === "verification_required" ? requestedFieldsIn(body) : [],

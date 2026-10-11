@@ -1,6 +1,7 @@
 import { type DbHandle, recipes, type TargetRow } from "@kickrocks/db";
 import { FORM_OUTCOMES, type FormResult, type RequestActor } from "@kickrocks/shared";
 import { eq } from "drizzle-orm";
+import { requestRescan } from "../core/rescan.js";
 import { isTrustedConfirmationSender } from "../core/targets.js";
 import type { Task } from "../core/task-types.js";
 import { responseWindow } from "../runners/deadlines.js";
@@ -84,6 +85,9 @@ function applyRemoval(
       awaitingConfirmationSince: waiting ? now.toISOString() : null,
     },
   });
+  if (waiting && request.mailboxId) {
+    requestRescan(services, request.mailboxId, request.targetId, now);
+  }
   if (waiting && result) {
     const recipeId = task.kind === "form" ? task.payload.recipeId : null;
     services.requests.addEvent(request.id, {

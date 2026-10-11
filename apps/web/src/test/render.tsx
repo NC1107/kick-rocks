@@ -2,7 +2,7 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { type RenderResult, render } from "@testing-library/react";
 import userEvent, { type UserEvent } from "@testing-library/user-event";
 import type { ReactElement } from "react";
-import { createMemoryRouter, RouterProvider } from "react-router";
+import { createMemoryRouter, Outlet, RouterProvider } from "react-router";
 import { vi } from "vitest";
 import { createMockApp, type MockApp, type MockAppOptions } from "../../mock/app.js";
 import { CurrentProfileProvider } from "../api/current-profile.js";
@@ -59,17 +59,25 @@ export function renderPage(ui: ReactElement, options: RenderPageOptions = {}): R
   // A data router, like the app's, so pages can block navigation while there are unsaved edits.
   const router = createMemoryRouter(
     [
-      { path: options.path ?? "*", element: page },
-      { path: "/away", element: <p>Away page</p> },
-      { path: "*", element: null },
+      {
+        // Inside the router, like the app's, so a toast can link to a page.
+        element: (
+          <ToastProvider>
+            <Outlet />
+          </ToastProvider>
+        ),
+        children: [
+          { path: options.path ?? "*", element: page },
+          { path: "/away", element: <p>Away page</p> },
+          { path: "*", element: null },
+        ],
+      },
     ],
     { initialEntries: [options.route ?? "/"] },
   );
   const result = render(
     <QueryClientProvider client={queryClient}>
-      <ToastProvider>
-        <RouterProvider router={router} />
-      </ToastProvider>
+      <RouterProvider router={router} />
     </QueryClientProvider>,
   );
   return { ...result, mock, user: userEvent.setup() };

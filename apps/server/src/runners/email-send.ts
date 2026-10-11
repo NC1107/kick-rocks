@@ -10,6 +10,7 @@ import {
 import { and, count, eq } from "drizzle-orm";
 import { AppError } from "../core/errors.js";
 import type { RequestPatch } from "../core/requests.js";
+import { requestRescan } from "../core/rescan.js";
 import type { Task } from "../core/task-types.js";
 import { MailSendError, provesNeverSent } from "../mail/transport.js";
 import type { OutgoingMail } from "../mail/types.js";
@@ -195,7 +196,13 @@ export class EmailRunner {
 
     let outgoing: OutgoingMail;
     try {
-      outgoing = this.buildMail(request, task, composed, mailbox.address);
+      outgoing = this.buildMail(
+        request,
+        task,
+        composed,
+        mailbox.address,
+        mailbox.replyAliasVerifiedAt ? mailbox.replyAlias : null,
+      );
     } catch (error) {
       this.fail(task, request, error, { retryable: false, kind: "internal" });
       return false;
@@ -492,6 +499,7 @@ export class EmailRunner {
       input: { sender: { name: string | null; address: string } };
     },
     mailboxAddress: string,
+    replyAlias: string | null,
   ): OutgoingMail {
     const { db } = this.services;
     const previousSends =
@@ -514,6 +522,7 @@ export class EmailRunner {
       messageId: outgoingMessageId(request.id, domainOf(mailboxAddress), previousSends),
       ...(inReplyTo ? { inReplyTo } : {}),
       ...(references.length > 0 ? { references } : {}),
+      ...(replyAlias ? { replyTo: replyAlias } : {}),
     };
   }
 
@@ -615,7 +624,7 @@ export class EmailRunner {
       recipient = null,
     }: { unconfirmed?: boolean; recipient?: string | null } = {},
   ): boolean {
-    const { db, taskQueue, requests, mailQuota } = this.services;
+    const { db, taskQueue, requests, mailQuota, clock } = this.services;
     const kind: EmailKind = task.payload.kind;
     return db.transaction(() => {
       if (!requests.get(requestId) || !taskQueue.get(task.id)) {
@@ -662,6 +671,9 @@ export class EmailRunner {
         actor: "system",
         result: { messageId, kind },
       });
+      if (kind === "initial") {
+        requestRescan(this.services, mailboxId, current.targetId, clock.now());
+      }
       return true;
     });
   }

@@ -58,7 +58,7 @@ export function McpCard({ mcp }: { mcp: SettingsView["mcp"] }) {
           <BodyRow>
             <div className="flex items-center justify-between gap-3">
               <span className="text-ui font-medium text-ink">Address</span>
-              <CopyButton value={mcp.url} label="Copy address" />
+              <CopyButton value={mcp.url} label="Copy address" iconOnly />
             </div>
             <Value className="mt-0.5 block break-all">{mcp.url}</Value>
           </BodyRow>

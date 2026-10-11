@@ -82,6 +82,8 @@ interface RowBase {
   /** A small mark in place of the icon tile, such as a status shape. */
   leading?: ReactNode;
   title: ReactNode;
+  /** For a title that is a sentence the person has to read whole, so it wraps instead of ending in an ellipsis. */
+  wrapTitle?: boolean;
   /** One line, 13px. Longer text belongs in a tooltip or a detail view. */
   description?: ReactNode;
   /** A value or control at the trailing edge. */
@@ -111,6 +113,7 @@ export function Row({
   icon,
   leading,
   title,
+  wrapTitle,
   description,
   trailing,
   trailingBelowOnPhone,
@@ -137,7 +140,9 @@ export function Row({
         </span>
       ) : null}
       <span className="flex min-w-0 flex-1 flex-col">
-        <span className="truncate text-ui font-medium text-ink">{title}</span>
+        <span className={cn("text-ui font-medium text-ink", !wrapTitle && "truncate")}>
+          {title}
+        </span>
         {description ? (
           <span
             className={cn(

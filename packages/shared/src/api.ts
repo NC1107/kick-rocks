@@ -5,6 +5,14 @@ import { Dashboard } from "./dashboard.js";
 import { ProfileExport, ResetBody } from "./data-rights.js";
 import { Jurisdiction } from "./legal.js";
 import {
+  FindMissingReplyBody,
+  FindMissingReplyResult,
+  IntakeCleanup,
+  IntakeIgnored,
+  IntakeSender,
+  IntakeSenderBody,
+  IntakeSettingsBody,
+  IntakeShadow,
   Mailbox,
   MailboxInput,
   MailboxTestBody,
@@ -13,6 +21,8 @@ import {
   MessageDetail,
   MessageSummary,
   ProviderPreset,
+  ReplyAliasResult,
+  TakeInBody,
 } from "./mail.js";
 import {
   DigestSendResult,
@@ -38,7 +48,7 @@ import {
   VerificationReplyBody,
 } from "./requests.js";
 import { MatchDecisionBody, MessageClassificationBody, ReviewQueue } from "./review.js";
-import { SitesStatus, TargetSite } from "./scanning.js";
+import { SitesView, TargetSite } from "./scanning.js";
 import { Match, ScanStartBody, ScanStartResult, ScanSummary } from "./scans.js";
 import {
   ApproveSendsBody,
@@ -59,6 +69,7 @@ import { DataSourceInfo, SettingsPatch, SettingsView } from "./settings.js";
 import { TargetDetail, TargetFilter, TargetListItem } from "./targets.js";
 import {
   MailboxPoll,
+  MailboxPollBody,
   SCREENSHOT_BODY_LIMIT_BYTES,
   SCREENSHOT_MIME_TYPES,
   TaskMarkDoneBody,
@@ -257,6 +268,7 @@ export const RequestsQuery = PageQuery.extend({
   status: csv(RequestStatus).optional(),
   channel: RequestChannel.optional(),
   targetId: z.string().min(1).optional(),
+  campaignId: z.string().min(1).optional(),
   q: z.string().trim().max(100).optional(),
 });
 export type RequestsQuery = z.infer<typeof RequestsQuery>;
@@ -498,6 +510,7 @@ export const API_ROUTES = {
     module: "mailbox",
     auth: "session",
     params: IdParam,
+    body: MailboxPollBody.optional(),
     response: MailboxPoll,
   }),
   mailboxPollGet: defineRoute({
@@ -507,6 +520,138 @@ export const API_ROUTES = {
     auth: "session",
     params: z.object({ id: z.string().min(1), taskId: z.string().min(1) }),
     response: MailboxPoll,
+  }),
+  mailboxIntake: defineRoute({
+    method: "PUT",
+    path: "/profiles/:id/mailbox/intake",
+    module: "mailbox",
+    auth: "session",
+    params: IdParam,
+    body: IntakeSettingsBody,
+    response: Mailbox,
+  }),
+  intakeCleanup: defineRoute({
+    method: "GET",
+    path: "/profiles/:id/mailbox/cleanup",
+    module: "mailbox",
+    auth: "session",
+    params: IdParam,
+    response: IntakeCleanup,
+  }),
+  intakeCleanupConfirm: defineRoute({
+    method: "POST",
+    path: "/profiles/:id/mailbox/cleanup/confirm",
+    module: "mailbox",
+    auth: "session",
+    params: IdParam,
+    response: z.object({ removed: z.number().int().nonnegative() }),
+  }),
+  intakeCleanupKeep: defineRoute({
+    method: "POST",
+    path: "/profiles/:id/mailbox/cleanup/keep",
+    module: "mailbox",
+    auth: "session",
+    params: IdParam,
+    response: Ok,
+  }),
+  intakeIgnored: defineRoute({
+    method: "GET",
+    path: "/profiles/:id/mailbox/ignored",
+    module: "mailbox",
+    auth: "session",
+    params: IdParam,
+    response: IntakeIgnored,
+  }),
+  intakeIgnoredTakeIn: defineRoute({
+    method: "POST",
+    path: "/profiles/:id/mailbox/ignored/:messageId/take-in",
+    module: "mailbox",
+    auth: "session",
+    params: z.object({ id: z.string().min(1), messageId: z.string().min(1) }),
+    response: MessageSummary,
+  }),
+  intakeShadow: defineRoute({
+    method: "GET",
+    path: "/profiles/:id/mailbox/shadow",
+    module: "mailbox",
+    auth: "session",
+    params: IdParam,
+    response: IntakeShadow,
+  }),
+  intakeShadowTakeIn: defineRoute({
+    method: "POST",
+    path: "/profiles/:id/mailbox/shadow/:shadowId/take-in",
+    module: "mailbox",
+    auth: "session",
+    params: z.object({ id: z.string().min(1), shadowId: z.string().min(1) }),
+    response: MessageSummary,
+  }),
+  intakeShadowDismiss: defineRoute({
+    method: "POST",
+    path: "/profiles/:id/mailbox/shadow/dismiss",
+    module: "mailbox",
+    auth: "session",
+    params: IdParam,
+    response: Ok,
+  }),
+  mailboxAliasEnable: defineRoute({
+    method: "POST",
+    path: "/profiles/:id/mailbox/alias",
+    module: "mailbox",
+    auth: "session",
+    params: IdParam,
+    response: ReplyAliasResult,
+  }),
+  mailboxAliasDisable: defineRoute({
+    method: "DELETE",
+    path: "/profiles/:id/mailbox/alias",
+    module: "mailbox",
+    auth: "session",
+    params: IdParam,
+    response: Mailbox,
+  }),
+  intakeSendersList: defineRoute({
+    method: "GET",
+    path: "/profiles/:id/mailbox/senders",
+    module: "mailbox",
+    auth: "session",
+    params: IdParam,
+    response: z.object({ senders: z.array(IntakeSender) }),
+  }),
+  intakeSenderAdd: defineRoute({
+    method: "POST",
+    path: "/profiles/:id/mailbox/senders",
+    module: "mailbox",
+    auth: "session",
+    params: IdParam,
+    body: IntakeSenderBody,
+    response: IntakeSender,
+  }),
+  intakeSenderRemove: defineRoute({
+    method: "DELETE",
+    path: "/profiles/:id/mailbox/senders/:senderId",
+    module: "mailbox",
+    auth: "session",
+    params: z.object({ id: z.string().min(1), senderId: z.string().min(1) }),
+    response: Ok,
+  }),
+  mailboxFind: defineRoute({
+    method: "POST",
+    path: "/profiles/:id/mailbox/find",
+    module: "mailbox",
+    auth: "session",
+    params: IdParam,
+    body: FindMissingReplyBody,
+    response: FindMissingReplyResult,
+  }),
+  mailboxTakeIn: defineRoute({
+    method: "POST",
+    path: "/profiles/:id/mailbox/take-in",
+    module: "mailbox",
+    auth: "session",
+    params: IdParam,
+    body: TakeInBody,
+    response: MessageSummary,
   }),
   mailboxFolders: defineRoute({
     method: "GET",
@@ -575,6 +720,15 @@ export const API_ROUTES = {
     module: "requests",
     auth: "session",
     params: IdParam,
+    query: RequestsQuery,
+    response: pageOf(RequestListItem),
+  }),
+  /** Every profile's requests, for a person who runs more than one. */
+  requestsListAll: defineRoute({
+    method: "GET",
+    path: "/requests",
+    module: "requests",
+    auth: "session",
     query: RequestsQuery,
     response: pageOf(RequestListItem),
   }),
@@ -874,7 +1028,7 @@ export const API_ROUTES = {
     path: "/settings/sites",
     module: "settings",
     auth: "session",
-    response: SitesStatus,
+    response: SitesView,
   }),
 
   workerHeartbeat: defineRoute({

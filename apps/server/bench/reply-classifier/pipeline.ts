@@ -37,6 +37,10 @@ function requestFor(message: InboxMessage): ClassifierRequest {
   const domains = [...new Set([senderHost, ...linkHosts].filter((host) => host !== ""))];
   return {
     id: REQUEST_ID,
+    open: true,
+    targetKind: "broker",
+    contactAddress: null,
+    sentAt: null,
     reference: REFERENCE,
     outgoingMessageId: outgoingMessageId(REQUEST_ID, MAILBOX_DOMAIN),
     status: "awaiting_reply",
@@ -71,6 +75,7 @@ async function messageFor(item: Item, uid: number): Promise<InboxMessage> {
           isBounce: false,
           autoSubmitted: false,
           headers: {},
+          originalMessageIds: [],
           verifyDkim: async () => [],
         };
   const domain = base.from.address.split("@").pop()?.toLowerCase() ?? "";

@@ -1,7 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
-import { Menu, type MenuItem } from "./Menu.js";
+import { Menu, type MenuItem, type MenuTriggerProps } from "./Menu.js";
 
 function setup(items: MenuItem[]) {
   const user = userEvent.setup();
@@ -96,5 +96,58 @@ describe("Menu", () => {
     ]);
     await user.click(trigger);
     expect(screen.getByRole("menuitemradio", { name: "Sam" })).toHaveFocus();
+  });
+});
+
+describe("Menu placement", () => {
+  const rectOf = (rect: Partial<DOMRect>) => ({
+    x: 0,
+    y: 0,
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    width: 0,
+    height: 0,
+    toJSON: () => ({}),
+    ...rect,
+  });
+
+  const trigger = (props: MenuTriggerProps) => (
+    <button type="button" {...props}>
+      Actions
+    </button>
+  );
+
+  it("is not clipped by a box that hides overflow around its trigger", async () => {
+    const user = userEvent.setup();
+    render(
+      <div data-testid="clip" className="overflow-hidden">
+        <Menu items={items()} trigger={trigger} />
+      </div>,
+    );
+    await user.click(screen.getByRole("button", { name: "Actions" }));
+    expect(screen.getByTestId("clip")).not.toContainElement(screen.getByRole("menu"));
+  });
+
+  it("keeps every item on the screen, above the trigger when there is no room below", async () => {
+    const user = userEvent.setup();
+    const spy = vi
+      .spyOn(HTMLElement.prototype, "getBoundingClientRect")
+      .mockImplementation(function (this: HTMLElement) {
+        if (this.getAttribute("role") === "menu") return rectOf({ width: 200, height: 240 });
+        return rectOf({ top: 700, bottom: 730, left: 300, right: 360, width: 60, height: 30 });
+      });
+    try {
+      render(<Menu items={items()} trigger={trigger} />);
+      await user.click(screen.getByRole("button", { name: "Actions" }));
+      const menu = screen.getByRole("menu");
+      const top = Number.parseFloat(menu.style.top);
+      expect(top).toBeGreaterThanOrEqual(0);
+      expect(top + 240).toBeLessThanOrEqual(window.innerHeight);
+      expect(Number.parseFloat(menu.style.left) + 200).toBeLessThanOrEqual(window.innerWidth);
+    } finally {
+      spy.mockRestore();
+    }
   });
 });

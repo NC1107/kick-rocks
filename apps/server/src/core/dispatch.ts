@@ -50,6 +50,11 @@ export interface FallbackReason {
  * into tasks with one agreed dedupe key each, so no two modules disagree about what counts as the
  * same work. The key names the work, not the kind of task doing it.
  */
+export interface InboxPollOptions {
+  rescan?: { since: string; targetId: string };
+  requestId?: string;
+}
+
 export interface Dispatch {
   /**
    * Queues the work for a request in the `queued` status, read from the database rather than
@@ -81,8 +86,13 @@ export interface Dispatch {
   enqueueConfirm(requestId: string, url: string): EnqueueResult;
   /** A canary health check for a recipe, one at a time. */
   enqueueCanary(recipeId: string): EnqueueResult;
-  /** An inbox poll for a mailbox, one at a time, whoever asks. */
-  enqueueInboxPoll(mailboxId: string): EnqueueResult;
+  /**
+   * An inbox poll for a mailbox, one at a time, whoever asks. With `rescan` the poll first looks
+   * again, from the given time, at mail from one target that a cursor had already passed.
+   * `requestId` names the request page the person started it from, so that request's timeline
+   * records the check.
+   */
+  enqueueInboxPoll(mailboxId: string, options?: InboxPollOptions): EnqueueResult;
   /** Whether removal at this target starts from a scan that finds the person's record URL. */
   needsRecord: typeof targetNeedsRecord;
 }
@@ -516,7 +526,7 @@ export function createDispatch({
       });
     },
 
-    enqueueInboxPoll(mailboxId) {
+    enqueueInboxPoll(mailboxId, options) {
       const mailbox = db
         .select({ profileId: mailboxes.profileId })
         .from(mailboxes)
@@ -525,9 +535,11 @@ export function createDispatch({
       if (!mailbox) throw notFound(`Mailbox ${mailboxId} not found`, "mailbox_not_found");
       return taskQueue.enqueue({
         kind: "inbox_poll",
-        payload: { mailboxId },
+        payload: { mailboxId, ...options },
         profileId: mailbox.profileId,
-        dedupeKey: `inbox_poll:${mailboxId}`,
+        dedupeKey: options?.rescan
+          ? `inbox_poll:${mailboxId}:rescan:${options.rescan.targetId}`
+          : `inbox_poll:${mailboxId}`,
       });
     },
   };

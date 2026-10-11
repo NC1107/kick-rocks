@@ -18,15 +18,20 @@ import {
   type VerificationReplyBody,
 } from "@kickrocks/shared";
 import { and, asc, desc, eq, inArray, type SQL, sql } from "drizzle-orm";
+import { CLASSIFIED_BY_HAND } from "../../core/classified-by-hand.js";
 import { nowIso } from "../../core/clock.js";
 import { conflict, invalidRequest, notFound } from "../../core/errors.js";
 import { loadIdentities } from "../../core/identities.js";
 import { likePattern } from "../../core/like.js";
 import { curatedReplyDomainsOfRow, withTrustedConfirmationSenders } from "../../core/targets.js";
 import { formLinkAmong } from "../../mail/form-link.js";
-import { phoneNumberIn } from "../../mail/reply-text.js";
+import { matchSignals } from "../../mail/reply-rules.js";
+import { phoneNumberIn, stripQuoted } from "../../mail/reply-text.js";
 import { RULES_THRESHOLD } from "../../mail/thresholds.js";
 import type { AppServices } from "../../services.js";
+
+/** Classifications that mean no decision and no redirect, so a redirect hidden in one is a misfiling. */
+const MISFILED_AS: ReadonlySet<string> = new Set(["auto_ack", "unknown", "unrelated"]);
 
 const ACTION_OUTCOMES = {
   cancel: "cancelled",
@@ -36,7 +41,8 @@ const ACTION_OUTCOMES = {
 } as const satisfies Partial<Record<RequestAction, RequestStatus>>;
 
 interface RequestsApi {
-  list(profileId: string, query: RequestsQuery): Paged<RequestListItem>;
+  /** One profile's requests, or every profile's when `profileId` is null. */
+  list(profileId: string | null, query: RequestsQuery): Paged<RequestListItem>;
   detail(id: string): RequestDetail;
   act(id: string, action: RequestAction): RequestDetail;
   replyToVerification(id: string, body: VerificationReplyBody): RequestDetail;
@@ -44,6 +50,43 @@ interface RequestsApi {
 
 export function createRequestsApi(services: AppServices): RequestsApi {
   const { db, requests, targets: targetsService, taskQueue, dispatch } = services;
+
+  /**
+   * A reply filed as an acknowledgement before the rules learned to spot a redirect to a form still
+   * reads as one. Reading its stored text again with today's rules lets the person confirm it in
+   * one tap. A later acknowledgement from the same site does not hide it, and a reply a person
+   * classified is never read again.
+   */
+  function readAsFormRequest(rows: readonly (typeof messages.$inferSelect)[]): FormRequest | null {
+    const misfiled = rows
+      .filter(
+        (row) =>
+          row.text !== null &&
+          row.rationale !== CLASSIFIED_BY_HAND &&
+          MISFILED_AS.has(row.classification),
+      )
+      .reverse()
+      .find((row) =>
+        matchSignals({
+          message: {
+            subject: row.subject,
+            from: { name: null, address: row.fromAddress },
+            isBounce: false,
+            autoSubmitted: false,
+            headers: {},
+          },
+          body: stripQuoted(row.text ?? ""),
+        }).some((signal) => signal.classification === "needs_form"),
+      );
+    if (!misfiled) return null;
+    return {
+      messageId: misfiled.id,
+      state: "unconfirmed",
+      url: null,
+      fromReply: false,
+      phone: null,
+    };
+  }
 
   /**
    * What the latest reply that asked for the web form came to, while the request is still open.
@@ -57,7 +100,7 @@ export function createRequestsApi(services: AppServices): RequestsApi {
   ): FormRequest | null {
     if (!isActiveStatus(record.status)) return null;
     const asked = rows.filter((row) => row.classification === "needs_form").at(-1);
-    if (!asked) return null;
+    if (!asked) return readAsFormRequest(rows);
     const optOutUrl = target?.optOutUrl ?? null;
     if (asked.confidence < RULES_THRESHOLD) {
       return {
@@ -148,17 +191,20 @@ export function createRequestsApi(services: AppServices): RequestsApi {
 
   return {
     list(profileId, query) {
-      const profileExists = db
-        .select({ id: profiles.id })
-        .from(profiles)
-        .where(eq(profiles.id, profileId))
-        .get();
-      if (!profileExists) throw notFound(`Profile ${profileId} not found`, "profile_not_found");
-
-      const conditions: SQL[] = [eq(requestsTable.profileId, profileId)];
+      const conditions: SQL[] = [];
+      if (profileId !== null) {
+        const profileExists = db
+          .select({ id: profiles.id })
+          .from(profiles)
+          .where(eq(profiles.id, profileId))
+          .get();
+        if (!profileExists) throw notFound(`Profile ${profileId} not found`, "profile_not_found");
+        conditions.push(eq(requestsTable.profileId, profileId));
+      }
       if (query.status?.length) conditions.push(inArray(requestsTable.status, query.status));
       if (query.channel) conditions.push(eq(requestsTable.channel, query.channel));
       if (query.targetId) conditions.push(eq(requestsTable.targetId, query.targetId));
+      if (query.campaignId) conditions.push(eq(requestsTable.campaignId, query.campaignId));
       if (query.q) {
         const pattern = likePattern(query.q);
         conditions.push(

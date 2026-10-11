@@ -73,6 +73,7 @@ describe("URL fields that are rendered or opened", () => {
       requestedFields: [],
       snippet: null,
       reviewed: false,
+      admittedBy: null,
     };
     expect(MessageSummary.safeParse(message).success).toBe(true);
     expect(MessageSummary.safeParse({ ...message, links: [evil] }).success).toBe(false);

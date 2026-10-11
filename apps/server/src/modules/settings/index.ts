@@ -1,3 +1,4 @@
+import { targets } from "@kickrocks/db";
 import {
   API_ROUTES,
   DATA_SOURCE_DETAILS,
@@ -11,15 +12,17 @@ import {
   ScheduleSettings,
   type SettingsPatch,
   type SettingsView,
+  type WorkerStatus,
   withOverride,
 } from "@kickrocks/shared";
-import { sql } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { nowIso } from "../../core/clock.js";
 import { createEgressRouter } from "../../core/egress.js";
 import { invalidRequest } from "../../core/errors.js";
 import { registerRoute } from "../../core/http.js";
 import type { ModulePlugin } from "../../core/module.js";
 import { definedOnly } from "../../core/objects.js";
+import { ownerKeyOfRow } from "../../core/site-politeness.js";
 import type { AppServices } from "../../services.js";
 import { applyRetention } from "../data-rights/index.js";
 
@@ -56,9 +59,54 @@ function viewOf(services: AppServices): SettingsView {
     },
     worker: {
       enabled: config.workerToken !== null,
-      builtin: settings.get("worker.status.builtin"),
-      model: settings.get("worker.status.model"),
+      builtin: withCurrentTask(services, settings.get("worker.status.builtin")),
+      model: withCurrentTask(services, settings.get("worker.status.model")),
     },
+  };
+}
+
+/**
+ * The first live target counted under each domain the settings page mentions: the sites that
+ * were visited, the ones routed through a proxy, and the sister sites that route also covers.
+ */
+function targetsByDomain(
+  services: AppServices,
+  items: readonly { domain: string }[],
+): Record<string, string> {
+  const router = createEgressRouter(services);
+  const routed = services.settings.get("egress").domains;
+  const wanted = new Set([
+    ...items.map((site) => site.domain),
+    ...routed,
+    ...routed.flatMap((domain) => router.sistersOf(domain)),
+  ]);
+  const found: Record<string, string> = {};
+  const rows = services.db
+    .select({ id: targets.id, domain: targets.domain, data: targets.data })
+    .from(targets)
+    .where(eq(targets.retired, false))
+    .orderBy(targets.id)
+    .all();
+  for (const row of rows) {
+    for (const key of [row.domain, ownerKeyOfRow(row)]) {
+      if (wanted.has(key) && found[key] === undefined) found[key] = row.id;
+    }
+  }
+  return found;
+}
+
+function withCurrentTask(
+  { taskQueue }: AppServices,
+  status: WorkerStatus | null,
+): WorkerStatus | null {
+  if (status === null || status.currentTaskId === null) return status;
+  const task = taskQueue.get(status.currentTaskId);
+  const [summary] = task ? taskQueue.summarize([task]) : [];
+  if (!summary) return status;
+  const { id, kind, status: taskStatus, requestId, targetId, targetName } = summary;
+  return {
+    ...status,
+    currentTask: { id, kind, status: taskStatus, requestId, targetId, targetName },
   };
 }
 
@@ -181,7 +229,10 @@ export const settingsModule: ModulePlugin = (app, services) => {
     };
   });
 
-  registerRoute(app, API_ROUTES.settingsSites, () => services.politeness.status());
+  registerRoute(app, API_ROUTES.settingsSites, () => {
+    const status = services.politeness.status();
+    return { ...status, targets: targetsByDomain(services, status.items) };
+  });
 
   registerRoute(app, API_ROUTES.settingsMcpToken, ({ reply }) => {
     reply.header("cache-control", "no-store");

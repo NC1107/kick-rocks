@@ -3,13 +3,18 @@ import {
   type BlockedReason,
   type BlockedTaskItem,
   canTransition,
+  clockIn,
   FORM_OUTCOMES,
   isActiveStatus,
+  isQuietHour,
   type Match,
   type MessageSummary,
   manualResultSchemaFor,
+  nextHourIn,
   type ReviewMessage,
   type ReviewQueue,
+  type ScanHold,
+  type ScanReadiness,
   type ScanSummary,
   type TargetOutcome,
   type TaskSummary,
@@ -59,6 +64,7 @@ function toSummary(message: ReviewMessage): MessageSummary {
   const {
     requestReference: _reference,
     targetName: _name,
+    targetId: _target,
     suggestion: _suggestion,
     ...rest
   } = message;
@@ -75,6 +81,79 @@ function recountScan(store: MockStore, scanId: string): void {
     not_mine: own.filter((match) => match.decision === "not_mine").length,
   };
   scan.candidateCount = own.length;
+}
+
+/**
+ * Why a queued scan is not moving, from the same facts the server weighs: a site being left alone,
+ * quiet hours on a clock nobody set, or a profile too thin to search with.
+ */
+export function scanHoldOf(store: MockStore, scan: ScanSummary): ScanHold | null {
+  if (scan.taskStatus !== "queued") return null;
+  const target = store.targets.find((candidate) => candidate.id === scan.targetId);
+  const site = store.sites.find((candidate) => candidate.domain === target?.domain);
+  if (site?.coolingDownUntil) {
+    return {
+      reason: site.breaker === "open" ? "site_breaker" : "site_cooldown",
+      domain: site.domain,
+      until: site.coolingDownUntil,
+    };
+  }
+  const quiet = quietNow(store);
+  if (quiet) {
+    return {
+      reason: "quiet_hours",
+      ...(target ? { domain: target.domain } : {}),
+      until: quiet.until,
+      ...(quiet.zoneUnset
+        ? {
+            serverClock: true,
+            detail: "Quiet hours are read on the server clock because no time zone is set.",
+          }
+        : {}),
+    };
+  }
+  return null;
+}
+
+/** When quiet hours end, if they are on right now, and whether the zone is still the server's own. */
+export function quietNow(store: MockStore): { until: string; zoneUnset: boolean } | null {
+  const { timeZone, quietStartHour, quietEndHour } = store.settings.scanning;
+  const now = store.clock.now();
+  if (!isQuietHour(clockIn(now, timeZone).hour, quietStartHour, quietEndHour)) return null;
+  return {
+    until: nextHourIn(now, quietEndHour, timeZone).toISOString(),
+    zoneUnset: timeZone === null,
+  };
+}
+
+/** Mirrors the server: what a profile can be scanned on now, from its address and each site's recipes. */
+export function scanReadiness(store: MockStore, profileId: string): ScanReadiness {
+  const profile = store.profiles.find((candidate) => candidate.id === profileId);
+  const hasPlace = profile?.identities.some(
+    (identity) => identity.kind === "address" && Boolean(identity.value.city),
+  );
+  const sites = store.targets.filter((target) => target.needsRecord && !target.retired);
+  if (!hasPlace) {
+    return {
+      ready: 0,
+      noRecipe: 0,
+      recipeNeedsReview: 0,
+      needsDetails: sites.length,
+      missing: "a current address with city and state",
+    };
+  }
+  const counts = { ready: 0, noRecipe: 0, recipeNeedsReview: 0, needsDetails: 0 };
+  for (const site of sites) {
+    const scanRecipes = site.recipes.filter((recipe) => recipe.purpose === "scan");
+    const usable = scanRecipes.some(
+      (recipe) => recipe.status === "active" && recipe.health !== "broken",
+    );
+    if (usable) counts.ready += 1;
+    else if (scanRecipes.some((recipe) => recipe.status === "pending_review")) {
+      counts.recipeNeedsReview += 1;
+    } else counts.noRecipe += 1;
+  }
+  return { ...counts, missing: null };
 }
 
 export function createScan(
@@ -126,6 +205,7 @@ export function createScan(
     candidateCount: 0,
     matchCounts: { pending: 0, mine: 0, not_mine: 0 },
     error: fields.error ?? null,
+    hold: null,
   };
   store.scans.push(scan);
   return scan;
@@ -452,9 +532,11 @@ export default defineMockDomain({
         snippet:
           "Thanks for reaching out. A member of our team will look into this and get back to you when we can.",
         reviewed: false,
+        admittedBy: "target_sender",
         requestReference: null,
         targetName: null,
         suggestion: null,
+        targetId: null,
       },
       {
         requestId:
@@ -469,6 +551,7 @@ export default defineMockDomain({
         snippet:
           "Before we can process your request we need you to confirm the address on file. Use the link below.",
         reviewed: false,
+        admittedBy: "thread",
         requestReference:
           store.requests.find((request) => request.targetId === "cardinal-insights")?.reference ??
           null,
@@ -479,6 +562,7 @@ export default defineMockDomain({
           source: "model",
           spotCheck: false,
         },
+        targetId: targetNames.has("cardinal-insights") ? "cardinal-insights" : null,
       },
       {
         requestId:
@@ -495,6 +579,7 @@ export default defineMockDomain({
         snippet:
           "We looked and there is nothing on file under the name and address you gave, so there is nothing to remove.",
         reviewed: false,
+        admittedBy: "reference",
         requestReference:
           store.requests.find((request) => request.targetId === "truesegment")?.reference ??
           store.requests[0]?.reference ??
@@ -506,6 +591,7 @@ export default defineMockDomain({
           source: "model",
           spotCheck: false,
         },
+        targetId: targetNames.has("truesegment") ? "truesegment" : null,
       },
       {
         requestId: null,
@@ -519,6 +605,7 @@ export default defineMockDomain({
         snippet:
           "Your message has been logged and a specialist will reply within two business days.",
         reviewed: false,
+        admittedBy: "target_sender",
         requestReference: null,
         targetName: null,
         suggestion: {
@@ -527,16 +614,22 @@ export default defineMockDomain({
           source: "model",
           spotCheck: true,
         },
+        targetId: null,
       },
     ];
     const mailboxId = jordan.mailbox?.id ?? "mbx_none";
     unclassified.forEach((message, index) => {
-      store.messages.push({
-        ...message,
-        id: store.nextId("msg"),
-        mailboxId,
-        receivedAt: store.ago({ hours: 5 + index * 9 }),
-      });
+      const id = store.nextId("msg");
+      const receivedAt = store.ago({ hours: 5 + index * 9 });
+      store.messages.push({ ...message, id, mailboxId, receivedAt });
+      const request = store.requests.find((candidate) => candidate.id === message.requestId);
+      if (request) {
+        addEvent(store, request, "reply_received", "system", receivedAt, {
+          messageId: id,
+          from: message.fromAddress,
+          subject: message.subject,
+        });
+      }
     });
   },
 
@@ -743,13 +836,14 @@ export default defineMockDomain({
         message.classification = body.classification;
         message.confidence = 1;
         message.reviewed = true;
-        message.rationale = "Classified by you.";
+        message.rationale = "Classified by hand";
         if (body.requestId) {
           const request = store.requests.find((candidate) => candidate.id === body.requestId);
           if (!request) throw notFound("That request");
           message.requestId = request.id;
           message.requestReference = request.reference;
           message.targetName = request.target.name;
+          message.targetId = request.targetId;
         }
         return toSummary(message);
       }),
@@ -765,7 +859,19 @@ export default defineMockDomain({
               : body.targetIds
                   .map((id) => store.targets.find((target) => target.id === id))
                   .filter((target) => target !== undefined);
+        const readiness = scanReadiness(store, profile.id);
         const items: TargetOutcome[] = targets.map((target) => {
+          if (readiness.needsDetails > 0) {
+            return {
+              targetId: target.id,
+              targetName: target.name,
+              outcome: "skipped",
+              requestId: null,
+              scanId: null,
+              reason: "missing_profile_details",
+              detail: `Add ${readiness.missing} to this profile to scan ${target.name}.`,
+            };
+          }
           const running = store.scans.some(
             (scan) =>
               scan.profileId === profile.id &&
@@ -807,7 +913,10 @@ export default defineMockDomain({
           .sort((a, b) => b.startedAt.localeCompare(a.startedAt));
         const start = (query.page - 1) * query.pageSize;
         return {
-          items: rows.slice(start, start + query.pageSize),
+          items: rows.slice(start, start + query.pageSize).map((scan) => ({
+            ...scan,
+            hold: scanHoldOf(store, scan),
+          })),
           total: rows.length,
           page: query.page,
           pageSize: query.pageSize,

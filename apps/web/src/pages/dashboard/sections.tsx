@@ -1,8 +1,11 @@
-import type { Dashboard, DashboardEvent, RequestStatus } from "@kickrocks/shared";
+import type { Dashboard, DashboardEvent, RequestStatus, ScanHoldReason } from "@kickrocks/shared";
 import { Link } from "react-router";
+import { HoldReason } from "../../components/holds/HoldReason.js";
 import {
   Callout,
+  Count,
   EmptyState,
+  EntityLink,
   LinkButton,
   Meter,
   MonoEmails,
@@ -13,9 +16,9 @@ import {
   StatusMark,
   TextLink,
 } from "../../components/ui/index.js";
-import { cn } from "../../lib/cn.js";
 import { describeEvent } from "../../lib/events.js";
 import { formatCount } from "../../lib/format.js";
+import { paths } from "../../lib/paths.js";
 import { EventRow } from "../requests/EventRow.js";
 import { eventShape } from "../requests/event-shape.js";
 
@@ -84,7 +87,7 @@ export function RequestsSection({ dashboard }: { dashboard: Dashboard }) {
       count={formatCount(dashboard.total)}
       actions={
         <TextLink
-          to="/requests"
+          to={paths.requests()}
           className="max-sm:inline-flex max-sm:min-h-11 max-sm:items-center pointer-coarse:inline-flex pointer-coarse:min-h-11 pointer-coarse:items-center"
         >
           All requests
@@ -109,7 +112,7 @@ export function RequestsSection({ dashboard }: { dashboard: Dashboard }) {
                 {present.map((status) => (
                   <li key={status}>
                     <Link
-                      to={`/requests?status=${status}`}
+                      to={paths.requests({ status })}
                       className="-mx-2 flex h-8 items-center justify-between gap-3 rounded-sm px-2 transition-colors duration-100 hover:bg-hover max-sm:h-auto max-sm:min-h-11 pointer-coarse:h-auto pointer-coarse:min-h-11"
                     >
                       <StatusMark status={status} />
@@ -135,6 +138,8 @@ export function RequestsSection({ dashboard }: { dashboard: Dashboard }) {
 
 interface AttentionItem {
   count: number;
+  /** The Review group that holds these, so the row opens the list they are in. */
+  tab: string;
   title: string;
   detail: string;
   /** Failures take the danger color; everything else that waits on the person takes attention. */
@@ -145,26 +150,31 @@ export function attentionItems(attention: Dashboard["attention"]): AttentionItem
   return [
     {
       count: attention.blockedTasks,
+      tab: "blocked",
       title: attention.blockedTasks === 1 ? "Blocked task" : "Blocked tasks",
       detail: "A target needs you to finish a step.",
     },
     {
       count: attention.pendingMatches,
+      tab: "matches",
       title: attention.pendingMatches === 1 ? "Record to confirm" : "Records to confirm",
       detail: "Say whether a record the scan found is you.",
     },
     {
       count: attention.needsVerification,
+      tab: "verifications",
       title: "Targets asking for details",
       detail: "Approve what to send in reply.",
     },
     {
       count: attention.unreviewedMessages,
+      tab: "mail",
       title: attention.unreviewedMessages === 1 ? "Reply to sort" : "Replies to sort",
       detail: "Mail that could not be classified.",
     },
     {
       count: attention.agentTasks,
+      tab: "agents",
       title:
         attention.agentTasks === 1 ? "Task waiting for an agent" : "Tasks waiting for an agent",
       detail:
@@ -174,6 +184,7 @@ export function attentionItems(attention: Dashboard["attention"]): AttentionItem
     },
     {
       count: attention.failedTasks,
+      tab: "failed",
       title: attention.failedTasks === 1 ? "Failed task" : "Failed tasks",
       detail:
         attention.failedTasks === 1
@@ -196,23 +207,79 @@ export function AttentionSection({ attention }: { attention: Dashboard["attentio
           {items.map((item) => (
             <Row
               key={item.title}
-              to="/review"
+              to={paths.reviewTab(item.tab)}
               title={item.title}
-              description={item.detail}
+              description={<span className="max-sm:hidden">{item.detail}</span>}
               trailing={
-                <span
-                  className={cn(
-                    "font-mono text-ui font-medium tabular-nums",
-                    item.failed ? "text-danger-text" : "text-attention-text",
-                  )}
-                >
-                  {formatCount(item.count)}
-                </span>
+                <Count
+                  value={item.count}
+                  tone={item.failed ? "danger" : "attention"}
+                  label={item.title.toLowerCase()}
+                  className="text-ui font-medium"
+                />
               }
             />
           ))}
         </RowGroup>
       )}
+    </Section>
+  );
+}
+
+/** Queued scans that something is holding back, with the reason, so a quiet worker is explained. */
+export function ScansSection({
+  scans,
+  profileId,
+}: {
+  scans: Dashboard["scans"];
+  profileId: string;
+}) {
+  const groups = Object.entries(scans.byReason).flatMap(([reason, group]) =>
+    group ? [{ reason: reason as ScanHoldReason, group }] : [],
+  );
+  if (scans.held === 0) return null;
+  return (
+    <Section
+      label="Scans held"
+      count={formatCount(scans.held)}
+      actions={
+        <TextLink
+          to={paths.review("scans")}
+          className="max-sm:inline-flex max-sm:min-h-11 max-sm:items-center pointer-coarse:inline-flex pointer-coarse:min-h-11 pointer-coarse:items-center"
+        >
+          All scans
+        </TextLink>
+      }
+    >
+      <RowGroup>
+        {groups.map(({ reason, group }) => (
+          <Row
+            key={reason}
+            title={
+              <HoldReason
+                hold={{
+                  reason,
+                  ...(group.until ? { until: group.until } : {}),
+                  ...(group.serverClock ? { serverClock: true } : {}),
+                }}
+                profileId={profileId}
+                compact
+              />
+            }
+            wrapTitle
+            trailing={
+              group.count > 1 ? (
+                <Count
+                  value={group.count}
+                  tone="attention"
+                  label={group.count === 1 ? "scan" : "scans"}
+                  className="text-ui font-medium"
+                />
+              ) : undefined
+            }
+          />
+        ))}
+      </RowGroup>
     </Section>
   );
 }
@@ -232,7 +299,11 @@ export function SendingSection({ dashboard }: { dashboard: Dashboard }) {
         />
         <p className="mt-2 flex flex-wrap gap-x-5 gap-y-0.5 text-meta text-ink-3">
           <span className="font-mono tabular-nums">{formatCount(sending.remaining)} left</span>
-          <span className="break-all font-mono">{mailbox.address}</span>
+          <EntityLink
+            to={{ kind: "mailbox", profileId: dashboard.profileId, address: mailbox.address }}
+            variant="quiet"
+            className="break-all"
+          />
           <span>
             {mailbox.lastPolledAt ? (
               <>
@@ -265,7 +336,7 @@ export function MailboxNotices({
   /** The result of a check run on this page already shows the mailbox error, so it is not shown twice. */
   checkReportsError?: boolean;
 }) {
-  const manage = `/profiles/${profileId}/mailbox`;
+  const manage = paths.mailbox(profileId);
   if (!dashboard.mailbox) {
     if (!showMissing) return null;
     return (
@@ -348,14 +419,27 @@ export function ActivitySection({ events }: { events: readonly DashboardEvent[] 
                 <MonoEmails text={describeEvent(event)} />
               </p>
               <p className="flex flex-wrap items-center gap-x-3 text-meta text-ink-3">
-                <Link
-                  to={`/requests/${event.requestId}`}
-                  className="min-w-0 break-words rounded-xs text-ink-2 hover:text-accent-text hover:underline max-sm:after:absolute max-sm:after:inset-0 max-sm:after:content-[''] pointer-coarse:after:absolute pointer-coarse:after:inset-0 pointer-coarse:after:content-['']"
-                >
-                  {event.targetName}
-                </Link>
-                <span className="font-mono">{event.requestReference}</span>
-                {count > 1 ? <span className="font-mono">{count} events</span> : null}
+                <EntityLink
+                  to={{ kind: "target", id: event.targetId, name: event.targetName }}
+                  variant="quiet"
+                  className="relative min-w-0 break-words"
+                />
+                <EntityLink
+                  to={{
+                    kind: "request",
+                    id: event.requestId,
+                    reference: event.requestReference,
+                  }}
+                  variant="row"
+                />
+                {count > 1 ? (
+                  <span className="inline-flex items-baseline gap-1">
+                    <Count value={count} label="events" />
+                    <span aria-hidden="true" className="text-caption">
+                      events
+                    </span>
+                  </span>
+                ) : null}
               </p>
             </EventRow>
           ))}

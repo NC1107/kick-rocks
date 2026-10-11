@@ -22,6 +22,7 @@ export const ReviewMessage = MessageSummary.extend({
   targetName: z.string().nullable(),
   /** What the reply model or the rules made of it. Null when nothing guessed. */
   suggestion: ReplySuggestion.nullable(),
+  targetId: z.string().nullable(),
 });
 export type ReviewMessage = z.infer<typeof ReviewMessage>;
 

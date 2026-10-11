@@ -3,11 +3,13 @@ import { outgoingMessageId } from "@kickrocks/shared";
 import { createTransport } from "nodemailer";
 import { expect, it } from "vitest";
 import { KEY_RECORD, signed, unsigned } from "../test-utils/dkim.js";
+import { scanFolder } from "../test-utils/inbox.js";
+import { defineInboxContract } from "../test-utils/inbox-contract.js";
 import { describeIntegration } from "../test-utils/index.js";
 import { createDkimVerifier } from "./dkim.js";
 import { createInboxSource } from "./inbox.js";
 import { createMailTransport, InvalidOutgoingMailError, MailSendError } from "./transport.js";
-import type { InboxMessage, MailConnection } from "./types.js";
+import type { InboxMessage, InboxSource, MailConnection, ScanResult } from "./types.js";
 
 const host = process.env.GREENMAIL_HOST ?? "localhost";
 const smtpPort = Number(process.env.GREENMAIL_SMTP_PORT ?? 3025);
@@ -56,11 +58,21 @@ async function deliverPlain(to: string, subject: string, extra = ""): Promise<vo
   );
 }
 
+/** Reads a folder the way a poll does: headers first, then the full text of every message. */
+async function readFolder(
+  inbox: InboxSource,
+): Promise<{ scan: ScanResult; messages: InboxMessage[] }> {
+  return inbox.withFolder("INBOX", async (session) => {
+    const scan = await session.scan(null, null, { since: null, limit: 100 });
+    return { scan, messages: await session.fetchMessages(scan.messages.map((h) => h.uid)) };
+  });
+}
+
 async function fetchAll(connection: MailConnection, expected: number): Promise<InboxMessage[]> {
   const inbox = createInboxSource(connection);
   for (let attempt = 0; attempt < 20; attempt += 1) {
-    const result = await inbox.fetchSince("INBOX", null, null, { since: null, limit: 100 });
-    if (result.messages.length >= expected) return result.messages;
+    const { messages } = await readFolder(inbox);
+    if (messages.length >= expected) return messages;
     await new Promise((resolve) => setTimeout(resolve, 150));
   }
   throw new Error(`Only fewer than ${expected} messages arrived`);
@@ -160,14 +172,14 @@ describeIntegration("greenmail", "mail over a real SMTP and IMAP server", () => 
     await fetchAll(connection, 3);
     const inbox = createInboxSource(connection);
 
-    const first = await inbox.fetchSince("INBOX", null, null, { since: null, limit: 2 });
+    const first = await scanFolder(inbox, "INBOX", null, null, { since: null, limit: 2 });
     expect(first.messages.map((m) => m.subject)).toEqual(["one", "two"]);
     expect(first.hasMore).toBe(true);
     expect(first.reset).toBe(false);
     expect(first.highestUid).toBe(3);
 
     const cursor = first.messages[1]?.uid ?? 0;
-    const rest = await inbox.fetchSince("INBOX", cursor, first.uidValidity, {
+    const rest = await scanFolder(inbox, "INBOX", cursor, first.uidValidity, {
       since: null,
       limit: 2,
     });
@@ -175,7 +187,7 @@ describeIntegration("greenmail", "mail over a real SMTP and IMAP server", () => 
     expect(rest.hasMore).toBe(false);
     expect(rest.highestUid).toBe(3);
 
-    const nothing = await inbox.fetchSince("INBOX", 3, first.uidValidity, {
+    const nothing = await scanFolder(inbox, "INBOX", 3, first.uidValidity, {
       since: null,
       limit: 2,
     });
@@ -191,7 +203,7 @@ describeIntegration("greenmail", "mail over a real SMTP and IMAP server", () => 
     const inbox = createInboxSource(connection);
 
     const tomorrow = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000);
-    const result = await inbox.fetchSince("INBOX", null, null, { since: tomorrow, limit: 10 });
+    const result = await scanFolder(inbox, "INBOX", null, null, { since: tomorrow, limit: 10 });
     expect(result.messages).toEqual([]);
     expect(result.hasMore).toBe(false);
     expect(result.highestUid).toBe(1);
@@ -202,10 +214,10 @@ describeIntegration("greenmail", "mail over a real SMTP and IMAP server", () => 
     await deliverPlain(connection.address, "kept");
     await fetchAll(connection, 1);
     const inbox = createInboxSource(connection);
-    const current = (await inbox.fetchSince("INBOX", null, null, { since: null, limit: 10 }))
+    const current = (await scanFolder(inbox, "INBOX", null, null, { since: null, limit: 10 }))
       .uidValidity;
 
-    const result = await inbox.fetchSince("INBOX", 999, current + 7, { since: null, limit: 10 });
+    const result = await scanFolder(inbox, "INBOX", 999, current + 7, { since: null, limit: 10 });
     expect(result.reset).toBe(true);
     expect(result.uidValidity).toBe(current);
     expect(result.messages.map((m) => m.subject)).toEqual(["kept"]);
@@ -281,8 +293,7 @@ describeIntegration("greenmail", "mail over a real SMTP and IMAP server", () => 
     const inbox = createInboxSource(connection, { dkim });
     let messages: InboxMessage[] = [];
     for (let attempt = 0; attempt < 20 && messages.length < 2; attempt += 1) {
-      const result = await inbox.fetchSince("INBOX", null, null, { since: null, limit: 100 });
-      messages = result.messages;
+      messages = (await readFolder(inbox)).messages;
       if (messages.length < 2) await new Promise((resolve) => setTimeout(resolve, 150));
     }
     const signers = await Promise.all(
@@ -297,7 +308,7 @@ describeIntegration("greenmail", "mail over a real SMTP and IMAP server", () => 
     const connection = freshMailbox();
     await deliverPlain(connection.address, "Hello");
     await expect(
-      createInboxSource(connection).fetchSince("No such folder", null, null, {
+      scanFolder(createInboxSource(connection), "No such folder", null, null, {
         since: null,
         limit: 5,
       }),
@@ -311,5 +322,38 @@ describeIntegration("greenmail", "mail over a real SMTP and IMAP server", () => 
       .catch((caught: unknown) => caught);
     expect((error as Error).message).toMatch(/refused the connection/);
     expect((error as Error).message).not.toContain(connection.password);
+  });
+});
+
+describeIntegration("greenmail", "the inbox contract over a real IMAP server", () => {
+  defineInboxContract(() => {
+    const connection = freshMailbox();
+    const source = createInboxSource(connection);
+    return {
+      source,
+      deliver: ({ subject, text, from = "Privacy Team <privacy@broker.test>", headers = [] }) =>
+        deliverRaw(
+          connection.address,
+          [
+            `From: ${from}`,
+            `To: ${connection.address}`,
+            `Subject: ${subject}`,
+            `Message-ID: <${randomBytes(6).toString("hex")}@broker.test>`,
+            `Date: ${new Date().toUTCString()}`,
+            "Content-Type: text/plain; charset=utf-8",
+            ...headers,
+            "",
+            text,
+          ].join("\r\n"),
+        ),
+      settle: async (count) => {
+        for (let attempt = 0; attempt < 20; attempt += 1) {
+          const scan = await scanFolder(source, "INBOX", null, null, { since: null, limit: 100 });
+          if (scan.messages.length >= count) return;
+          await new Promise((resolve) => setTimeout(resolve, 150));
+        }
+        throw new Error(`Fewer than ${count} messages arrived`);
+      },
+    };
   });
 });

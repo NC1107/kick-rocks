@@ -32,20 +32,20 @@ export async function readSentFolder(
   const folders = await inbox.listFolders();
   const sent = folders.find((folder) => folder.specialUse === SENT_FLAG);
   if (!sent) throw new Error("the mailbox reports no Sent folder to check");
-  const messages: InboxMessage[] = [];
-  let afterUid: number | null = null;
-  let uidValidity: number | null = null;
-  for (let page = 0; page < MAX_PAGES; page += 1) {
-    const result = await inbox.fetchSince(sent.path, afterUid, uidValidity, {
-      since,
-      limit: PAGE_LIMIT,
-    });
-    messages.push(...result.messages);
-    uidValidity = result.uidValidity;
-    if (!result.hasMore) return messages;
-    afterUid = result.messages.at(-1)?.uid ?? afterUid;
-  }
-  throw new Error("the Sent folder holds more recent mail than could be read");
+  return inbox.withFolder(sent.path, async (session) => {
+    const messages: InboxMessage[] = [];
+    let afterUid: number | null = null;
+    let uidValidity: number | null = null;
+    for (let page = 0; page < MAX_PAGES; page += 1) {
+      const result = await session.scan(afterUid, uidValidity, { since, limit: PAGE_LIMIT });
+      const uids = result.messages.map((message) => message.uid);
+      if (uids.length > 0) messages.push(...(await session.fetchMessages(uids)));
+      uidValidity = result.uidValidity;
+      if (!result.hasMore) return messages;
+      afterUid = uids.at(-1) ?? afterUid;
+    }
+    throw new Error("the Sent folder holds more recent mail than could be read");
+  });
 }
 
 /**

@@ -14,6 +14,8 @@ import {
 } from "react";
 import { Link } from "react-router";
 import { cn } from "../../lib/cn.js";
+import { type EntityRef, resolveEntity } from "./EntityLink.js";
+import { type FromState, useCurrentPage } from "./PageBack.js";
 import { Skeleton } from "./Skeleton.js";
 
 export interface TableProps extends ComponentProps<"table"> {
@@ -231,6 +233,34 @@ export function TableRowActions({ className, ...rest }: ComponentProps<"div">) {
   );
 }
 
+/** The name in a row, as a link whose box stretches over the row and remembers the page it was on. */
+function RowLink({
+  to,
+  className,
+  children,
+}: {
+  to: string | EntityRef;
+  className?: string;
+  children: ReactNode;
+}) {
+  const from = useCurrentPage();
+  const href = typeof to === "string" ? to : resolveEntity(to, undefined).href;
+  if (!href) return <span className={className}>{children}</span>;
+  const state: FromState = { from };
+  return (
+    <Link
+      to={href}
+      state={state}
+      className={cn(
+        "rounded-xs after:absolute after:inset-0 hover:underline focus-visible:underline",
+        className,
+      )}
+    >
+      {children}
+    </Link>
+  );
+}
+
 /** A name with its mono reference or domain underneath: the one place a row may run to 52px. */
 export function TableIdentity({
   title,
@@ -242,7 +272,7 @@ export function TableIdentity({
   title: ReactNode;
   meta?: ReactNode;
   /** Makes the name a link. It stays ink and is underlined only on hover or focus. */
-  to?: string;
+  to?: string | EntityRef;
   /** A tag after the name, such as Retired. */
   badge?: ReactNode;
   className?: string;
@@ -253,12 +283,9 @@ export function TableIdentity({
         {to ? (
           // The link truncates itself so its focus ring is not clipped by a truncating parent, and its
           // ::after stretches over the row so the whole row opens the record.
-          <Link
-            to={to}
-            className="min-w-0 max-w-full truncate rounded-xs after:absolute after:inset-0 hover:underline focus-visible:underline"
-          >
+          <RowLink to={to} className="min-w-0 max-w-full truncate">
             {title}
-          </Link>
+          </RowLink>
         ) : (
           <span className="min-w-0 truncate">{title}</span>
         )}
@@ -280,7 +307,7 @@ export function TableToolbar({
   children?: ReactNode;
 }) {
   return (
-    <div className={cn("mb-2.5 flex items-center gap-2", className)}>
+    <div className={cn("mb-2.5 flex items-center gap-2 max-sm:flex-wrap", className)}>
       {children}
       {count ? (
         <span className="ml-auto shrink-0 whitespace-nowrap font-mono text-meta text-ink-3 tabular-nums max-sm:hidden">

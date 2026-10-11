@@ -56,6 +56,7 @@ export const RequestEventType = z.enum([
   "sent",
   "send_failed",
   "reply_received",
+  "mailbox_checked",
   "classified",
   "link_followed",
   "status_changed",
@@ -328,11 +329,19 @@ export const REQUEST_EVENT_PAYLOADS = {
   }),
   send_failed: z.object({ error: z.string(), willRetry: z.boolean() }),
   reply_received: z.object({ messageId: z.string(), from: z.string(), subject: z.string() }),
+  /** A check of the mailbox the person started from this request, whatever it found. */
+  mailbox_checked: z.object({
+    newMessages: z.number().int().nonnegative(),
+    /** New messages that belong to a request, which may be another one. */
+    matched: z.number().int().nonnegative(),
+  }),
   classified: z.object({
     messageId: z.string(),
     classification: ReplyClassification,
     confidence: z.number().min(0).max(1),
     correlation: z.enum(["message_id", "reference", "sender_domain", "manual"]).nullable(),
+    /** The request had already finished, so the reply was recorded and changed nothing. */
+    late: z.boolean().optional(),
   }),
   link_followed: z.object({ url: WebUrl, finalUrl: WebUrl.nullable(), ok: z.boolean() }),
   status_changed: z.object({ from: RequestStatus, to: RequestStatus }),
@@ -407,6 +416,7 @@ export function requestEventSchema<E extends z.ZodRawShape>(extra: E) {
     eventOf("sent", P.sent),
     eventOf("send_failed", P.send_failed),
     eventOf("reply_received", P.reply_received),
+    eventOf("mailbox_checked", P.mailbox_checked),
     eventOf("classified", P.classified),
     eventOf("link_followed", P.link_followed),
     eventOf("status_changed", P.status_changed),

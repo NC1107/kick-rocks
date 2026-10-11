@@ -12,7 +12,7 @@ import {
   retentionDraftOf,
   retentionPatchOf,
 } from "./model.js";
-import { FieldRow, GroupFooter, GroupNote } from "./rows.js";
+import { FieldRow, GroupFooter, GroupNote, ResetAction } from "./rows.js";
 
 export function RetentionCard({ retention }: { retention: RetentionSettings }) {
   const toast = useToast();
@@ -66,14 +66,18 @@ export function RetentionCard({ retention }: { retention: RetentionSettings }) {
             </FieldRow>
           ))}
           <GroupFooter>
-            <Button
+            <ResetAction
               disabled={!dirty || save.isPending}
               onClick={() => setDraft(retentionDraftOf(retention))}
+            />
+            <Button
+              aria-label="Save retention"
+              type="submit"
+              variant="primary"
+              loading={save.isPending}
+              disabled={!dirty}
             >
-              Reset
-            </Button>
-            <Button type="submit" variant="primary" loading={save.isPending} disabled={!dirty}>
-              Save retention
+              Save
             </Button>
           </GroupFooter>
         </RowGroup>

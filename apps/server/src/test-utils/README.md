@@ -56,7 +56,13 @@ A route or hook can only be added before the app is ready, so tests that need on
   `mail.failNextSend(error?)` makes the next send throw, and `mail.verifyResult` sets what `verify` answers.
 - `mail.mailbox(address).deliver({ subject, text, from, inReplyTo, ... })` puts a message in the scripted inbox.
   Pass `folder` for something other than `INBOX`, and `mailbox.resetUidValidity()` to simulate a renumbered folder.
-  `fetchSince(folder, afterUid, uidValidity, { since, limit })` honors both options, oldest first, and reports `hasMore` and `highestUid`.
+  `mail.inbox(connection).withFolder(folder, work)` gives `work` a session whose `scan(afterUid, uidValidity, { since, limit })` honors both options, oldest first, and reports `hasMore` and `highestUid`.
+  A scan returns headers only.
+  The session also has `headers(uids)`, `searchBodies(uids, terms)` (a case-insensitive substring search over the text), `search({ since, until, from, text, messageId, limit })` and `fetchMessages(uids)`.
+- `mailbox.searchSupported = false` makes both searches answer as a server that refuses SEARCH.
+  `mailbox.wholeWordSearch = true` makes body searches match whole words only, as Gmail and iCloud do, so a stem such as `delet` finds nothing.
+  `mailbox.fetched` lists every UID whose full message was downloaded, and `mailbox.bodySearches` every body search made, so a test can see what the intake gate cost.
+- `mailbox.acceptsPlusAddresses` (on by default) decides whether mail sent through the fake transport to `name+tag@domain` reaches the mailbox, which is how the reply address test is checked.
 - `mail.classifier.when(subjectOrRegex, result)` or `.program(handler)` decides what the classifier answers.
   The newest handler wins, and a handler returns `null` to pass.
   Unprogrammed mail classifies as `unknown` with confidence 0.

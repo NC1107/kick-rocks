@@ -23,7 +23,9 @@ export function DetailFrame({ label, title, meta, children, footer, error }: Det
   return (
     <section aria-label={label} className="flex min-h-0 min-w-0 flex-1 flex-col">
       <div className="min-h-0 flex-1 px-4 py-4 sm:px-5 lg:overflow-y-auto">
-        <h2 className="break-words text-heading font-semibold text-ink">{title}</h2>
+        <h2 className="break-words text-heading font-semibold text-ink [&_a]:text-ink [&_a:hover]:text-accent-text">
+          {title}
+        </h2>
         {meta ? <p className="mt-0.5 break-words text-meta text-ink-3">{meta}</p> : null}
         {children ? <div className="mt-4 flex flex-col gap-4">{children}</div> : null}
       </div>
