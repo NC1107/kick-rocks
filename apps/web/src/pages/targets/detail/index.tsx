@@ -11,6 +11,7 @@ import { useParams } from "react-router";
 import { errorMessage, useApiQuery, useCurrentProfile } from "../../../api/index.js";
 import { useBreadcrumbTail } from "../../../components/layout/breadcrumb-context.js";
 import {
+  BreakableAddress,
   Button,
   Callout,
   CopyButton,
@@ -263,9 +264,13 @@ function TargetView({ target }: { target: TargetDetail }) {
               {
                 term: "Privacy email",
                 value: target.privacyEmail ? (
-                  <span className="inline-flex flex-wrap items-center gap-x-1">
-                    <span className={`${MONO} break-all`}>{target.privacyEmail}</span>
-                    <CopyButton iconOnly value={target.privacyEmail} label="Copy privacy email" />
+                  <span className="inline-flex max-w-full items-start gap-x-1">
+                    <span className={`${MONO} min-w-0`}>
+                      <BreakableAddress text={target.privacyEmail} />
+                    </span>
+                    <span className="-my-1 shrink-0">
+                      <CopyButton iconOnly value={target.privacyEmail} label="Copy privacy email" />
+                    </span>
                   </span>
                 ) : (
                   <Missing />
@@ -307,12 +312,19 @@ function TargetView({ target }: { target: TargetDetail }) {
                 : []),
               {
                 term: "Region",
-                mono: true,
-                value: `${target.region.toUpperCase()}, ${
-                  target.verifiedAt
-                    ? `contacts checked ${formatDate(target.verifiedAt)}`
-                    : "contacts not checked yet"
-                }`,
+                value: (
+                  <>
+                    <span className={MONO}>{target.region.toUpperCase()}</span>
+                    {target.verifiedAt ? (
+                      <>
+                        , contacts checked{" "}
+                        <span className={MONO}>{formatDate(target.verifiedAt)}</span>
+                      </>
+                    ) : (
+                      ", contacts not checked yet"
+                    )}
+                  </>
+                ),
               },
             ]}
           />

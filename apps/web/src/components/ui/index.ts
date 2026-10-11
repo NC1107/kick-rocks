@@ -61,7 +61,7 @@ export { Input, type InputProps } from "./Input.js";
 export { Kbd } from "./Kbd.js";
 export { Menu, type MenuItem, type MenuProps, type MenuTriggerProps } from "./Menu.js";
 export { Meter, type MeterProps } from "./Meter.js";
-export { MonoEmails } from "./MonoEmails.js";
+export { BreakableAddress, MonoEmails } from "./MonoEmails.js";
 export { type BackTarget, PageBack, useBackTarget, useCurrentPage } from "./PageBack.js";
 export { PageHeader, type PageHeaderProps } from "./PageHeader.js";
 export { Pagination, type PaginationProps } from "./Pagination.js";

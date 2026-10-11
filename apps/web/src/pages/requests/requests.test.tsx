@@ -39,6 +39,16 @@ describe("the requests page", () => {
     expect(first.getAllByText(/Email|Web form/).length).toBeGreaterThan(0);
   });
 
+  it("shows a due date under the status only for a request still waiting", async () => {
+    open();
+    const list = await rows();
+    const finished = list.filter((row) => within(row).queryByText("Confirmed"));
+    expect(finished.length).toBeGreaterThan(0);
+    for (const row of finished) expect(row.textContent).not.toMatch(/due /);
+    const waiting = list.filter((row) => within(row).queryByText("Awaiting reply"));
+    expect(waiting.some((row) => /due /.test(row.textContent ?? ""))).toBe(true);
+  });
+
   it("prints what each request asked for as mono tokens, and a dash for a missing date", async () => {
     open();
     const list = await rows();

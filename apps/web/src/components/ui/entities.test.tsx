@@ -5,6 +5,7 @@ import { MemoryRouter, Route, Routes, useLocation } from "react-router";
 import { describe, expect, it } from "vitest";
 import { paths, taskPath } from "../../lib/paths.js";
 import {
+  BreakableAddress,
   Count,
   CountLink,
   EntityLink,
@@ -267,5 +268,13 @@ describe("PageBack", () => {
       </MemoryRouter>,
     );
     expect(screen.getByRole("link", { name: /Dashboard/ })).toHaveAttribute("href", "/");
+  });
+});
+
+describe("BreakableAddress", () => {
+  it("offers a break after the @ and each dot, and keeps the text whole", () => {
+    const { container } = render(<BreakableAddress text="privacy@maplewood.example" />);
+    expect(container.textContent).toBe("privacy@maplewood.example");
+    expect(container.querySelectorAll("wbr")).toHaveLength(2);
   });
 });

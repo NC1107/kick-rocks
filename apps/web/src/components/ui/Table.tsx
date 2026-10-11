@@ -307,7 +307,7 @@ export function TableToolbar({
   children?: ReactNode;
 }) {
   return (
-    <div className={cn("mb-2.5 flex items-center gap-2", className)}>
+    <div className={cn("mb-2.5 flex items-center gap-2 max-sm:flex-wrap", className)}>
       {children}
       {count ? (
         <span className="ml-auto shrink-0 whitespace-nowrap font-mono text-meta text-ink-3 tabular-nums max-sm:hidden">

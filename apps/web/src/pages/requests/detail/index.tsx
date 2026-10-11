@@ -10,7 +10,7 @@ import {
 } from "@kickrocks/shared";
 import { skipToken } from "@tanstack/react-query";
 import { Globe, Mail, MoreHorizontal } from "lucide-react";
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { useParams } from "react-router";
 import {
   errorMessage,
@@ -165,10 +165,12 @@ function Timing({ request }: { request: RequestDetail }) {
   return (
     <>
       {parts.map((part, index) => (
-        <span key={part} className="whitespace-nowrap">
-          {part}
-          {index < parts.length - 1 ? " \u00b7 " : ""}
-        </span>
+        <Fragment key={part}>
+          <span className="whitespace-nowrap">
+            {part}
+            {index < parts.length - 1 ? " \u00b7" : ""}
+          </span>{" "}
+        </Fragment>
       ))}
     </>
   );

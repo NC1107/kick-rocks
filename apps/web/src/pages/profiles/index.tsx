@@ -1,5 +1,5 @@
 import { API_ROUTES, type ProfileSummary } from "@kickrocks/shared";
-import { MailCheck, MailPlus, Star, Trash2 } from "lucide-react";
+import { Mail, MailPlus, Star, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { errorMessage, useApiMutation, useApiQuery, useCurrentProfile } from "../../api/index.js";
 import {
@@ -46,17 +46,33 @@ function ProfileRow({
         }
         trailing={
           <>
-            {current ? <Tag>Current</Tag> : null}
+            {current ? <Tag className="max-sm:hidden">Current</Tag> : null}
             <span className="w-14 shrink-0 text-right font-mono text-caption tabular-nums text-ink-3 max-sm:hidden">
               <RelativeTime iso={profile.updatedAt} />
             </span>
-            <IconAction
-              variant="ghost"
-              icon={profile.mailboxConnected ? MailCheck : MailPlus}
-              label={profile.mailboxConnected ? "Mailbox connected" : "Connect mailbox"}
-              to={{ kind: "mailbox", profileId: profile.id, address: profile.primaryEmail ?? "" }}
-            />
-            {current ? null : (
+            <span className="relative inline-flex shrink-0">
+              <IconAction
+                variant="ghost"
+                icon={profile.mailboxConnected ? Mail : MailPlus}
+                label={profile.mailboxConnected ? "Mailbox connected" : "Connect mailbox"}
+                to={{ kind: "mailbox", profileId: profile.id, address: profile.primaryEmail ?? "" }}
+              />
+              {profile.mailboxConnected ? (
+                <span
+                  aria-hidden="true"
+                  className="pointer-events-none absolute top-1.5 right-1.5 size-1.5 rounded-full bg-positive"
+                />
+              ) : null}
+            </span>
+            {current ? (
+              <span
+                role="img"
+                aria-label="Current profile"
+                className="inline-flex size-(--kr-control-h) shrink-0 items-center justify-center text-accent-text"
+              >
+                <Star aria-hidden="true" className="size-4 fill-current" />
+              </span>
+            ) : (
               <IconAction
                 variant="ghost"
                 icon={Star}

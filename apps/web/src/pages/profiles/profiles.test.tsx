@@ -22,6 +22,19 @@ describe("the profiles list", () => {
     );
   });
 
+  it("keeps each action in the same place on every row", async () => {
+    renderPage(<ProfilesPage />);
+    await screen.findByRole("listitem", { name: /Jordan Example/ });
+    const actionNames = screen.getAllByRole("listitem").map(
+      (row) =>
+        within(row)
+          .queryAllByRole("link", { name: /mailbox/i })
+          .concat(within(row).queryAllByRole("img", { name: "Current profile" }))
+          .concat(within(row).queryAllByRole("button", { name: /Make current|Delete/ })).length,
+    );
+    expect(new Set(actionNames).size).toBe(1);
+  });
+
   it("marks the current profile and switches to another", async () => {
     const { user } = renderPage(<ProfilesPage />);
     const jordan = await screen.findByRole("listitem", { name: /Jordan Example/ });

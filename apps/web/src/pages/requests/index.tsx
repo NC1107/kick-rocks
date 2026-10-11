@@ -1,4 +1,4 @@
-import { API_ROUTES, RequestStatus } from "@kickrocks/shared";
+import { API_ROUTES, isActiveStatus, RequestStatus } from "@kickrocks/shared";
 import { skipToken } from "@tanstack/react-query";
 import { ChevronDown, Search, UserRound } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
@@ -212,11 +212,12 @@ function Requests({ profileId }: { profileId: string }) {
             <Menu
               heading="Whose requests"
               items={scopeItems}
+              className="min-w-0 max-sm:flex-1"
               trigger={(props) => (
                 <Button
                   {...props}
                   aria-label={`Profile: ${allProfiles ? "All profiles" : (scopeName ?? "")}`}
-                  className="min-w-0 max-w-32 shrink sm:max-w-44"
+                  className="min-w-0 max-w-full shrink max-sm:w-full max-sm:justify-start sm:max-w-44"
                 >
                   <UserRound aria-hidden="true" className="shrink-0" />
                   <span className="truncate">{allProfiles ? "All profiles" : scopeName}</span>
@@ -225,7 +226,11 @@ function Requests({ profileId }: { profileId: string }) {
               )}
             />
           ) : null}
-          <Field label="Search" hideLabel className="min-w-0 flex-1 sm:w-70 sm:flex-initial">
+          <Field
+            label="Search"
+            hideLabel
+            className="min-w-0 flex-1 max-sm:order-last max-sm:basis-full sm:w-70 sm:flex-initial"
+          >
             <Input
               type="search"
               value={search}
@@ -310,7 +315,7 @@ function Requests({ profileId }: { profileId: string }) {
                     </TableCell>
                     <TableCell className="max-sm:pr-4">
                       <StatusMark status={item.status} />
-                      {item.dueAt ? (
+                      {item.dueAt && isActiveStatus(item.status) ? (
                         <span className="block font-mono text-caption text-ink-3 sm:hidden">
                           due <RelativeTime iso={item.dueAt} />
                         </span>

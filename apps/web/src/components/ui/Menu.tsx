@@ -110,11 +110,15 @@ export function Menu({
       return;
     }
     place();
+    // The page moving under an open menu would leave it hanging off a trigger that has gone.
+    const onScroll = (event: Event) => {
+      if (!panelRef.current?.contains(event.target as Node)) setOpen(false);
+    };
     window.addEventListener("resize", place);
-    window.addEventListener("scroll", place, true);
+    window.addEventListener("scroll", onScroll, true);
     return () => {
       window.removeEventListener("resize", place);
-      window.removeEventListener("scroll", place, true);
+      window.removeEventListener("scroll", onScroll, true);
     };
   }, [open, place]);
 
