@@ -1,15 +1,13 @@
 import { API_ROUTES, needsRecord, type TargetFacets } from "@kickrocks/shared";
-import { skipToken } from "@tanstack/react-query";
 import { Search } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router";
 import { useCurrentProfile } from "../../api/current-profile.js";
-import { errorMessage, useApiMutation, useApiQuery } from "../../api/index.js";
+import { errorMessage, useApiQuery } from "../../api/index.js";
 import {
   activeFilterTags,
   Button,
   Callout,
-  ConfirmDialog,
   DataList,
   EmptyState,
   Field,
@@ -33,7 +31,6 @@ import {
   TARGET_CATEGORY_LABELS,
   TARGET_KIND_LABELS,
 } from "../../lib/labels.js";
-import { describeScanStart } from "../../lib/scan-start.js";
 import { useWide } from "../../lib/use-wide.js";
 import { AutomationLegend, HealthMark } from "./Automation.js";
 import { Difficulty } from "./Difficulty.js";
@@ -46,8 +43,10 @@ import {
   toFilter,
   toQuery,
 } from "./filters.js";
+import { ScanDialog } from "./listings/scanning.js";
 import { Priority } from "./Priority.js";
 import { RequirementBadges } from "./RequirementBadges.js";
+import { TargetsTabs } from "./TargetsTabs.js";
 import { useMatchingTargets } from "./use-matching-targets.js";
 
 function facetOptions(
@@ -231,26 +230,6 @@ export function Component() {
   const matching = useMatchingTargets(filter, allMatching);
   const scannable = matching.data?.filter((item) => needsRecord(item) && !item.retired).length;
 
-  const dashboard = useApiQuery(
-    API_ROUTES.dashboardGet,
-    profile ? { params: { id: profile.id } } : skipToken,
-  );
-  const scan = useApiMutation(API_ROUTES.scansStart, {
-    invalidates: [API_ROUTES.scansList, API_ROUTES.reviewQueue, API_ROUTES.dashboardGet],
-    onSuccess: (result) => {
-      setConfirmingScan(false);
-      clearSelection();
-      const summary = describeScanStart(result.items, profile?.id ?? "", dashboard.data?.scanning);
-      toast.toast({
-        intent: summary.intent,
-        title: summary.title,
-        description: summary.description,
-        action: summary.action,
-      });
-    },
-    onError: () => setConfirmingScan(false),
-  });
-
   const campaignLink = allMatching
     ? `/campaigns/new?filter=${encodeURIComponent(filterKey)}`
     : `/campaigns/new?targets=${[...selected].map(encodeURIComponent).join(",")}`;
@@ -293,10 +272,7 @@ export function Component() {
             <Button
               size="sm"
               disabled={!profile || !scannable}
-              onClick={() => {
-                scan.reset();
-                setConfirmingScan(true);
-              }}
+              onClick={() => setConfirmingScan(true)}
             >
               Scan these
             </Button>
@@ -319,6 +295,8 @@ export function Component() {
           </LinkButton>
         }
       />
+
+      <TargetsTabs />
 
       <search aria-label="Filter targets">
         <TableToolbar>
@@ -343,12 +321,6 @@ export function Component() {
       <FilterTags tags={activeFilterTags(groups)} emptyFocusRef={filtersButton} />
 
       {wide ? selectionBar : null}
-      {scan.isError ? (
-        <Callout intent="danger" title="Could not scan these targets" className="mb-2.5">
-          {errorMessage(scan.error)}
-        </Callout>
-      ) : null}
-
       {list.isError ? (
         <Callout
           intent="danger"
@@ -474,15 +446,18 @@ export function Component() {
         </>
       )}
 
-      <ConfirmDialog
-        open={confirmingScan}
-        onClose={() => setConfirmingScan(false)}
-        title={`Scan the ${pluralize(scannable ?? 0, "people-search site")} among these ${formatCount(total)}?`}
-        description="Kick Rocks searches the people-search sites among them for this person, one after another. Nothing is removed until you confirm a record."
-        confirmLabel="Start scans"
-        loading={scan.isPending}
-        onConfirm={() => profile && scan.mutate({ params: { id: profile.id }, body: { filter } })}
-      />
+      {profile ? (
+        <ScanDialog
+          open={confirmingScan}
+          onClose={() => setConfirmingScan(false)}
+          profileId={profile.id}
+          selection={{ filter }}
+          title={`Scan the ${pluralize(scannable ?? 0, "people-search site")} among these ${formatCount(total)}?`}
+          description="Kick Rocks searches the people-search sites among them for this person, one after another. Nothing is removed until you confirm a record."
+          siteCount={scannable}
+          onStarted={clearSelection}
+        />
+      ) : null}
     </>
   );
 }

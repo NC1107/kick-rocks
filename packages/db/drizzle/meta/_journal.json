@@ -113,6 +113,13 @@
       "when": 1791728700915,
       "tag": "0015_claimer_inventory",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "6",
+      "when": 1791733389115,
+      "tag": "0016_scan_preferences",
+      "breakpoints": true
     }
   ]
 }

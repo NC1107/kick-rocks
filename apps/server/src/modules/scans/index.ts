@@ -9,13 +9,17 @@ import {
 import { count, desc, eq, inArray, sql } from "drizzle-orm";
 import { notFound } from "../../core/errors.js";
 import { registerRoute } from "../../core/http.js";
+import { buildListingDetail, buildListings, summarizeListings } from "../../core/listings.js";
 import type { ModulePlugin } from "../../core/module.js";
+import { identityVariantsFor } from "../../core/past-addresses.js";
 import { requireProfile } from "../../core/require-profile.js";
 import {
   describeMissingScanFields,
   missingScanFields,
   scanHold,
 } from "../../core/scan-readiness.js";
+import { scanDropReason, siteChoiceDetail } from "../../core/scan-skips.js";
+import { scanToday } from "../../core/scan-today.js";
 import { selectByFilter } from "../../core/target-selection.js";
 import { isPeopleSearchTarget } from "../../core/targets.js";
 import type { AppServices } from "../../services.js";
@@ -58,6 +62,8 @@ function startScans(
   profileId: string,
   selection: Parameters<typeof targetsToScan>[1],
 ) {
+  const named = "targetIds" in selection;
+  const today = scanToday(services);
   return targetsToScan(services, selection).map((row): TargetOutcome => {
     if (row.retired) {
       return skipped(row, "unsupported_channel", `${row.name} is no longer in the dataset.`);
@@ -77,8 +83,19 @@ function startScans(
         `Add ${describeMissingScanFields(missing)} to this profile to scan ${row.name}.`,
       );
     }
+    const dropped = scanDropReason(services.scanPreferences.blocks(profileId, row.id), named);
+    if (dropped) return skipped(row, dropped, siteChoiceDetail(dropped, row.name));
     const result = services.dispatch.enqueueScan(profileId, row.id);
-    if (!result.created) {
+    const includePast =
+      selection.addresses === "all" ||
+      (selection.addresses === undefined &&
+        services.scanPreferences.get(profileId, row.id).includePastAddresses);
+    const variantsStarted = includePast
+      ? identityVariantsFor(services, profileId, today).filter(
+          (variant) => services.dispatch.enqueueScan(profileId, row.id, variant).created,
+        ).length
+      : 0;
+    if (!result.created && variantsStarted === 0) {
       return skipped(row, "scan_in_progress", null, result.scanId);
     }
     return {
@@ -93,10 +110,42 @@ function startScans(
   });
 }
 
+function requireListing(services: AppServices, profileId: string, targetId: string) {
+  const detail = buildListingDetail(services, profileId, targetId);
+  if (!detail) throw notFound(`Target ${targetId} not found`, "target_not_found");
+  return detail;
+}
+
 export const scansModule: ModulePlugin = (app, services) => {
   registerRoute(app, API_ROUTES.scansStart, ({ params, body }) => {
     requireProfile(services.db, params.id);
     return { items: startScans(services, params.id, body) };
+  });
+
+  registerRoute(app, API_ROUTES.listingsList, ({ params, query }) => {
+    requireProfile(services.db, params.id);
+    const sites = buildListings(services, params.id);
+    const wanted = query.status ? new Set(query.status) : null;
+    const kept = wanted ? sites.filter((site) => wanted.has(site.status)) : sites;
+    return {
+      ...summarizeListings(sites, services.clock.now()),
+      items: kept.slice((query.page - 1) * query.pageSize, query.page * query.pageSize),
+      total: kept.length,
+      page: query.page,
+      pageSize: query.pageSize,
+    };
+  });
+
+  registerRoute(app, API_ROUTES.listingsGet, ({ params }) => {
+    requireProfile(services.db, params.id);
+    return requireListing(services, params.id, params.targetId);
+  });
+
+  registerRoute(app, API_ROUTES.listingsPreference, ({ params, body }) => {
+    requireProfile(services.db, params.id);
+    requireListing(services, params.id, params.targetId);
+    services.scanPreferences.set(params.id, params.targetId, body);
+    return requireListing(services, params.id, params.targetId);
   });
 
   registerRoute(app, API_ROUTES.scansList, ({ params, query }) => {

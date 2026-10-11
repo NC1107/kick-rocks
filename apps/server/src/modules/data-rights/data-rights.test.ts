@@ -187,6 +187,28 @@ const rowsFor = (profileId: string) => {
 };
 
 describe("export", () => {
+  it("includes the choices made about scanning each site", async () => {
+    const seeded = seedFullProfile();
+    ctx.services.scanPreferences.set(seeded.profile.id, seeded.target.id, {
+      mode: "paused",
+      pausedUntil: "2026-12-01",
+      rescanDays: 90,
+    });
+    const result = await ctx.call(API_ROUTES.profilesExport, {
+      params: { id: seeded.profile.id },
+    });
+    if (!result.ok) throw new Error(`export answered ${result.status}`);
+    expect(result.body.scanPreferences).toEqual([
+      expect.objectContaining({
+        targetId: seeded.target.id,
+        mode: "paused",
+        pausedUntil: "2026-12-01",
+        rescanDays: 90,
+        includePastAddresses: false,
+      }),
+    ]);
+  });
+
   it("returns the profile, its requests with timelines, message metadata, scans, and matches", async () => {
     const seeded = seedFullProfile();
     const result = await ctx.call(API_ROUTES.profilesExport, {

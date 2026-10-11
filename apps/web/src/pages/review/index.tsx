@@ -1,11 +1,12 @@
 import { API_ROUTES, type ReviewQueue } from "@kickrocks/shared";
 import { useCallback, useEffect, useMemo, useRef } from "react";
-import { useSearchParams } from "react-router";
+import { Navigate, useSearchParams } from "react-router";
 import { errorMessage, useAgents, useApiQuery } from "../../api/index.js";
 import { RequireProfile } from "../../components/layout/RequireProfile.js";
 import {
   Button,
   Callout,
+  LinkButton,
   PageBack,
   PageHeader,
   Skeleton,
@@ -22,12 +23,12 @@ import {
 } from "../mailbox/check-for-replies.js";
 import { CleanupPreview } from "../mailbox/intake-review.js";
 import { BlockedTaskDetail } from "./BlockedTaskDetail.js";
+import { DetailFrame } from "./DetailFrame.js";
 import { shortcutAllowed } from "./keys.js";
 import { MailDetail } from "./MailDetail.js";
 import { MatchDetail } from "./MatchDetail.js";
-import { buildEntries, pickEntry, type QueueEntry, SCANS_KEY } from "./model.js";
+import { buildEntries, pickEntry, type QueueEntry } from "./model.js";
 import { QueueList } from "./QueueList.js";
-import { ScansPanel } from "./ScansPanel.js";
 import { VerificationDetail } from "./VerificationDetail.js";
 
 const DETAIL_ID = "review-detail";
@@ -67,6 +68,11 @@ function Review({ profileId, mailboxConnected }: { profileId: string; mailboxCon
   const check = useReplyCheck(profileId);
   const queue = useApiQuery(API_ROUTES.reviewQueue, { query: { profileId } });
   const drilled = params.has("item");
+
+  // The run log moved to the listing of each site, so the old address leads there.
+  if (params.get("item") === "scans" || (!drilled && params.get("tab") === "scans")) {
+    return <Navigate to={paths.listings()} replace />;
+  }
 
   return (
     <>
@@ -158,12 +164,12 @@ function Queue({ queue, profileId }: { queue: ReviewQueue; profileId: string }) 
   const pane = useRef<HTMLDivElement>(null);
   const wide = useWide();
 
-  const wantsScans = itemParam === SCANS_KEY || (itemParam === null && tabParam === "scans");
-  const selected = wantsScans
-    ? null
-    : pickEntry(entries, { item: itemParam, tab: tabParam, lastIndex: lastIndex.current });
-  const showScans = selected === null;
-  const selectedKey = showScans ? SCANS_KEY : selected.key;
+  const selected = pickEntry(entries, {
+    item: itemParam,
+    tab: tabParam,
+    lastIndex: lastIndex.current,
+  });
+  const selectedKey = selected?.key ?? null;
 
   useEffect(() => {
     if (selected) lastIndex.current = entries.indexOf(selected);
@@ -172,7 +178,12 @@ function Queue({ queue, profileId }: { queue: ReviewQueue; profileId: string }) 
   // After a decision removes the open item, the URL names the item that took its place.
   useEffect(() => {
     if (itemParam !== null && itemParam !== selectedKey) {
-      setParams(new URLSearchParams({ item: selectedKey }), { replace: true });
+      setParams(
+        selectedKey === null ? new URLSearchParams() : new URLSearchParams({ item: selectedKey }),
+        {
+          replace: true,
+        },
+      );
     }
   }, [itemParam, selectedKey, setParams]);
 
@@ -180,8 +191,9 @@ function Queue({ queue, profileId }: { queue: ReviewQueue; profileId: string }) 
     setParams(new URLSearchParams({ item: key }), { replace });
 
   const move = (step: 1 | -1) => {
-    const keys = [...entries.map((entry) => entry.key), SCANS_KEY];
-    const next = keys[Math.min(Math.max(keys.indexOf(selectedKey) + step, 0), keys.length - 1)];
+    const keys = entries.map((entry) => entry.key);
+    const next =
+      keys[Math.min(Math.max(keys.indexOf(selectedKey ?? "") + step, 0), keys.length - 1)];
     if (!next || next === selectedKey) return;
     select(next, { replace: true });
     if (!pane.current?.contains(document.activeElement)) focusEntry(next);
@@ -201,6 +213,7 @@ function Queue({ queue, profileId }: { queue: ReviewQueue; profileId: string }) 
   });
 
   useEffect(() => {
+    if (selectedKey === null) return;
     document.querySelector(`[data-entry="${selectedKey}"]`)?.scrollIntoView?.({ block: "nearest" });
   }, [selectedKey]);
 
@@ -219,14 +232,13 @@ function Queue({ queue, profileId }: { queue: ReviewQueue; profileId: string }) 
     const active = document.activeElement;
     if (active && active !== document.body) return;
     // Below the split layout the list is hidden while an item is open, so the pane takes focus.
-    if (listShownRef.current) focusEntry(selectedRef.current);
+    if (listShownRef.current && selectedRef.current !== null) focusEntry(selectedRef.current);
     else pane.current?.focus();
   }, []);
 
   useEffect(() => {
     const removed =
-      previousKey.current !== SCANS_KEY &&
-      !entries.some((entry) => entry.key === previousKey.current);
+      previousKey.current !== null && !entries.some((entry) => entry.key === previousKey.current);
     previousKey.current = selectedKey;
     if (removed) owedFocus.current = true;
     settleFocus();
@@ -248,7 +260,7 @@ function Queue({ queue, profileId }: { queue: ReviewQueue; profileId: string }) 
     wasDrilled.current = drilled;
     if (wide) return;
     if (drilled) pane.current?.focus();
-    else focusEntry(selectedRef.current);
+    else if (selectedRef.current !== null) focusEntry(selectedRef.current);
   }, [drilled, wide]);
 
   return (
@@ -278,7 +290,12 @@ function Queue({ queue, profileId }: { queue: ReviewQueue; profileId: string }) 
         {selected ? (
           <Detail entry={selected} entries={entries} profileId={profileId} />
         ) : (
-          <ScansPanel profileId={profileId} />
+          <DetailFrame
+            label="Nothing selected"
+            title="Nothing needs you"
+            meta="New records, blocked tasks and mail show up here."
+            footer={<LinkButton to={paths.listings()}>Where you're listed</LinkButton>}
+          />
         )}
       </div>
     </div>

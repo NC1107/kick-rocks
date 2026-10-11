@@ -92,8 +92,9 @@ beforeEach(async () => {
   await resetFixture();
 });
 afterEach(async () => {
-  worker?.kill("SIGKILL");
+  killWorkerAndItsChrome(worker);
   worker = null;
+  model?.closeAllConnections();
   model?.close();
   model = null;
   await ctx?.app.close().catch(() => undefined);
@@ -102,6 +103,19 @@ afterEach(async () => {
   await new Promise((done) => setTimeout(done, 1_000));
   rmSync(profileDir, { recursive: true, force: true });
 });
+
+/**
+ * The worker leads its own process group so that a Chrome it leaves behind, which holds the
+ * worker's output pipes open, dies with it instead of outliving the test.
+ */
+function killWorkerAndItsChrome(child: ChildProcess | null): void {
+  if (child?.pid === undefined) return;
+  try {
+    process.kill(-child.pid, "SIGKILL");
+  } catch {
+    child.kill("SIGKILL");
+  }
+}
 
 async function startWorker(): Promise<{ taskId: string; child: ChildProcess }> {
   ctx = await createTestContext();
@@ -147,6 +161,7 @@ async function startWorker(): Promise<{ taskId: string; child: ChildProcess }> {
       LOG_LEVEL: "error",
     },
     stdio: ["ignore", "inherit", "inherit"],
+    detached: true,
   });
   worker = child;
   return { taskId: task.id, child };
@@ -163,10 +178,23 @@ async function untilHeld(taskId: string): Promise<void> {
   );
 }
 
+/** A worker that ignores its signal fails here with its name, instead of using up the whole test timeout. */
+const EXIT_MS = 60_000;
+
 function exited(child: ChildProcess): Promise<void> {
-  return new Promise((done) => {
-    if (child.exitCode !== null || child.signalCode !== null) done();
-    else child.once("exit", () => done());
+  return new Promise((done, fail) => {
+    if (child.exitCode !== null || child.signalCode !== null) {
+      done();
+      return;
+    }
+    const timer = setTimeout(
+      () => fail(new Error(`the worker process did not exit within ${EXIT_MS} ms`)),
+      EXIT_MS,
+    );
+    child.once("exit", () => {
+      clearTimeout(timer);
+      done();
+    });
   });
 }
 

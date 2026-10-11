@@ -7,11 +7,26 @@ import type { Duplex } from "node:stream";
 import { fileURLToPath } from "node:url";
 
 /**
- * The global setup lets the operating system pick the fixture site's port and publishes it here before any test
- * file loads, so no test depends on a port being free. It is 0 only in the setup process, which never reads it.
+ * Test files run side by side, one per worker slot, and the fixture site keeps one record of what
+ * was submitted, so each slot gets a site of its own. The global setup lets the operating system
+ * pick every port and publishes them here before any test file loads, so no test depends on a port
+ * being free. The port is 0 only in the setup process, which never reads it.
  */
-export const FIXTURE_PORT_ENV = "KICKROCKS_FIXTURE_PORT";
-export const FIXTURE_PORT = Number(process.env[FIXTURE_PORT_ENV] ?? 0);
+export const FIXTURE_SLOTS = 3;
+export const FIXTURE_PORTS_ENV = "KICKROCKS_FIXTURE_PORTS";
+
+function portOfThisSlot(): number {
+  const ports = process.env[FIXTURE_PORTS_ENV];
+  if (ports === undefined) return 0;
+  const slot = Number(process.env.VITEST_POOL_ID ?? 1);
+  const port = Number(ports.split(",")[slot - 1]);
+  if (!Number.isInteger(port) || port <= 0) {
+    throw new Error(`worker ${slot} has no fixture site, only ${FIXTURE_SLOTS} are started`);
+  }
+  return port;
+}
+
+export const FIXTURE_PORT = portOfThisSlot();
 
 export interface FixtureOrigins {
   origin: string;
@@ -412,7 +427,12 @@ export function startFixtureServer(): Promise<{
     return send(response, 404, "<!doctype html><title>Not found</title><h1>Not found</h1>");
   });
 
+  // Node stops tracking a socket once it upgrades, so closeAllConnections() leaves it open and
+  // server.close() would wait on a half-open websocket for ever.
+  const upgraded = new Set<Duplex>();
   server.on("upgrade", (request: IncomingMessage, socket: Duplex) => {
+    upgraded.add(socket);
+    socket.once("close", () => upgraded.delete(socket));
     const key = request.headers["sec-websocket-key"];
     state.wsUpgrades.push(request.url ?? "");
     if (typeof key !== "string") {
@@ -442,6 +462,7 @@ export function startFixtureServer(): Promise<{
         close: () =>
           new Promise<void>((done) => {
             server.closeAllConnections();
+            for (const socket of upgraded) socket.destroy();
             server.close(() => done());
           }),
       });

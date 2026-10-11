@@ -2,6 +2,7 @@ import {
   type Identity,
   IdentityInput,
   type IdentityKind,
+  normalizeAddress,
   type PersonName,
   validateIdentities,
 } from "@kickrocks/shared";
@@ -197,13 +198,13 @@ function toInput(draft: IdentityDraft): unknown {
       const unit = optional(draft.unit);
       return {
         kind: "address",
-        value: {
+        value: normalizeAddress({
           street: draft.street.trim(),
           ...(unit ? { unit } : {}),
           city: draft.city.trim(),
           state: draft.state,
           zip: draft.zip.trim(),
-        },
+        }),
         ...lifetime,
       };
     }
@@ -362,4 +363,92 @@ export function localToday(now: Date = new Date()): string {
   const month = String(now.getMonth() + 1).padStart(2, "0");
   const day = String(now.getDate()).padStart(2, "0");
   return `${now.getFullYear()}-${month}-${day}`;
+}
+
+/** Tidies the street and unit of one address draft, the way the server will when it saves. */
+export function tidyAddressDraft(draft: IdentityDraft): IdentityDraft {
+  if (draft.kind !== "address") return draft;
+  const { street, unit } = normalizeAddress({
+    street: draft.street.trim(),
+    ...(draft.unit.trim() ? { unit: draft.unit.trim() } : {}),
+  });
+  return { ...draft, street, unit: unit ?? "" };
+}
+
+export function isPastAddress(draft: IdentityDraft, today: string): boolean {
+  return draft.validTo !== "" && draft.validTo < today;
+}
+
+function isCurrentAddress(draft: IdentityDraft, today: string): boolean {
+  return !isPastAddress(draft, today) && (draft.validFrom === "" || draft.validFrom <= today);
+}
+
+/** The address scans and requests use today, resolved the same way the server does. */
+export function scanAddressKey(drafts: readonly IdentityDraft[], today: string): string | null {
+  const valid = drafts.filter((draft) => draft.kind === "address" && isValidOn(draft, today));
+  return (valid.find((draft) => draft.isPrimary) ?? valid[0])?.key ?? null;
+}
+
+function isValidOn(draft: IdentityDraft, date: string): boolean {
+  if (draft.validFrom && draft.validFrom > date) return false;
+  if (draft.validTo && draft.validTo < date) return false;
+  return true;
+}
+
+/** An address marked for scans that its own move-out date rules out. */
+export function unusableScanAddress(
+  drafts: readonly IdentityDraft[],
+  today: string,
+): IdentityDraft | null {
+  return (
+    drafts.find(
+      (draft) => draft.kind === "address" && draft.isPrimary && isPastAddress(draft, today),
+    ) ?? null
+  );
+}
+
+/** Another address with no move-out date, which a new current address may have replaced. */
+export function openEndedAddresses(
+  drafts: readonly IdentityDraft[],
+  exceptKey: string,
+  today: string,
+): IdentityDraft[] {
+  return drafts.filter(
+    (draft) =>
+      draft.kind === "address" &&
+      draft.key !== exceptKey &&
+      draft.validTo === "" &&
+      isCurrentAddress(draft, today),
+  );
+}
+
+/** The day before a date, as YYYY-MM-DD. */
+export function dayBefore(date: string): string {
+  const day = new Date(`${date}T00:00:00Z`);
+  day.setUTCDate(day.getUTCDate() - 1);
+  return day.toISOString().slice(0, 10);
+}
+
+/** Records that the person moved out of one address and, if that leaves one current, uses the new one. */
+export function recordMoveOut(
+  drafts: readonly IdentityDraft[],
+  oldKey: string,
+  movedOut: string,
+  newKey: string,
+): IdentityDraft[] {
+  const next = updateDraft(drafts, oldKey, { validTo: movedOut });
+  const currentNow = next.filter((draft) => draft.kind === "address" && draft.validTo === "");
+  return currentNow.length === 1 && currentNow[0]?.key === newKey
+    ? makePrimary(next, newKey)
+    : next;
+}
+
+/** Only the errors that belong to one row, with the row index stripped from the keys. */
+export function rowErrors(errors: DraftErrors, index: number): Record<string, string> {
+  const prefix = `${index}.`;
+  return Object.fromEntries(
+    Object.entries(errors.fields)
+      .filter(([key]) => key.startsWith(prefix))
+      .map(([key, message]) => [key.slice(prefix.length), message]),
+  );
 }

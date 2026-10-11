@@ -1,5 +1,6 @@
 import { type KickRocksDb, recipes, targets } from "@kickrocks/db";
 import {
+  type Identity,
   type ProfileField,
   Recipe,
   resolveProfileFields,
@@ -45,12 +46,13 @@ export function missingScanFields(
   { db, clock }: { db: KickRocksDb; clock: Clock },
   profileId: string,
   targetId: string,
+  identities: readonly Identity[] = loadIdentities(db, profileId),
 ): ProfileField[] {
   const usable = usableScanRecipe(db, targetId);
   const wanted = usable
     ? Recipe.parse(usable.definition).fields.filter((field) => !NOT_FROM_IDENTITIES.includes(field))
     : AGENT_SCAN_FIELDS;
-  const resolved = resolveProfileFields(loadIdentities(db, profileId), wanted, {
+  const resolved = resolveProfileFields(identities, wanted, {
     asOf: clock.now().toISOString().slice(0, 10),
     nameId: null,
     addressId: null,
@@ -78,7 +80,10 @@ function usableScanRecipe(db: KickRocksDb, targetId: string) {
 /** How a scan of one site would be worked, when the profile has what it needs. */
 type ScanRoute = "recipe" | "recipe_review" | "agent";
 
-function scanRoute(services: Pick<AppServices, "db" | "settings">, targetId: string): ScanRoute {
+export function scanRoute(
+  services: Pick<AppServices, "db" | "settings">,
+  targetId: string,
+): ScanRoute {
   if (usableScanRecipe(services.db, targetId)) return "recipe";
   const waitsForReview = services.db
     .select({ status: recipes.status })
@@ -93,7 +98,7 @@ function scanRoute(services: Pick<AppServices, "db" | "settings">, targetId: str
 
 /** How many people-search sites a profile can be scanned on right now, and what holds back the rest. */
 export function profileScanReadiness(
-  services: Pick<AppServices, "db" | "clock" | "settings">,
+  services: Pick<AppServices, "db" | "clock" | "settings" | "scanPreferences">,
   profileId: string,
 ): ScanReadiness {
   const sites = services.db
@@ -101,7 +106,8 @@ export function profileScanReadiness(
     .from(targets)
     .where(eq(targets.retired, false))
     .all()
-    .filter(isPeopleSearchTarget);
+    .filter(isPeopleSearchTarget)
+    .filter((site) => services.scanPreferences.blocks(profileId, site.id) !== "site_skipped");
   const missing = new Set<ProfileField>();
   const counts = { ready: 0, noRecipe: 0, recipeNeedsReview: 0, needsDetails: 0 };
   for (const site of sites) {
