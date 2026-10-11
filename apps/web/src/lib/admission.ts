@@ -17,7 +17,7 @@ export const IGNORE_RULE_REASON: Record<IgnoreRule, string> = {
   bulk_no_privacy: "Bulk mail that says nothing about privacy",
   company_not_privacy: "Company mail that is not about privacy",
   finished_request: "From a target whose request is finished",
-  not_named: "Names no target with an open request",
+  not_named: "Names no open request",
   stranger_bulk: "Bulk mail from a sender you have no request with",
   bounce_not_ours: "A delivery failure for mail Kick Rocks did not send",
   no_wording_found: "No privacy wording found in it",

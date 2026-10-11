@@ -1182,22 +1182,22 @@ const brokerAccountMail: Category = {
   },
 };
 
+const OUTSOURCED_DESKS = ["datasafe-support.net", "privacyops.example", "optout-desk.example"];
+
+/** A privacy desk run by a vendor writes from its own domain, so only its signature names the broker. */
 const aliasMail: Category = {
   name: "alias_mail",
   devOnly: true,
-  count: 10,
+  count: 5,
   make(rng, index) {
     const request = requestFor(index, ["spokeo", "whitepages", "beenverified", "radaris"]);
-    const outsourced = pick(rng, [
-      "datasafe-support.net",
-      "privacyops.example",
-      "optout-desk.example",
-    ]);
+    const target = targetOf(request.targetId);
+    const desk = pick(rng, OUTSOURCED_DESKS);
     const draft = base(
       rng,
-      { name: "Privacy Operations", address: `team@${outsourced}` },
+      { name: "Privacy Operations", address: `team@${desk}` },
       pick(rng, ["Your privacy request", "Request update", "Regarding your request"]),
-      `Hello,\n\nYour privacy request has been completed and your information has been removed. No further action is needed.\n\nPrivacy Operations`,
+      `Hello,\n\nYour privacy request has been completed and your information has been removed. No further action is needed.\n\nPrivacy Operations\n${target.name} Privacy Team`,
     );
     draft.category = "alias_mail";
     draft.outcome = "review";
@@ -1205,6 +1205,25 @@ const aliasMail: Category = {
     draft.classification = "completed";
     draft.to = MAILBOX_ALIAS;
     draft.date = new Date(Math.max(draft.date.getTime(), Date.parse(request.sentAt) + 3600_000));
+    return draft;
+  },
+};
+
+/** The same wording from a desk that names no target is tied to no request, so it is left out. */
+const aliasUnnamed: Category = {
+  name: "alias_unnamed",
+  devOnly: true,
+  count: 5,
+  make(rng) {
+    const desk = pick(rng, OUTSOURCED_DESKS);
+    const draft = base(
+      rng,
+      { name: "Privacy Operations", address: `team@${desk}` },
+      pick(rng, ["Your privacy request", "Request update", "Regarding your request"]),
+      "Hello,\n\nYour privacy request has been completed and your information has been removed. No further action is needed.\n\nPrivacy Operations",
+    );
+    draft.category = "alias_unnamed";
+    draft.to = MAILBOX_ALIAS;
     return draft;
   },
 };
@@ -1281,6 +1300,7 @@ const CATEGORIES: readonly Category[] = [
   aliasMail,
   aliasMarketing,
   bounceHeadersOnly,
+  aliasUnnamed,
 ];
 
 /** The categories kept out of the frozen held-out set. */

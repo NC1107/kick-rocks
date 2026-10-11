@@ -1,29 +1,35 @@
-Return-Path: <bounce-89505@gardening-club.example>
-Received: from mail.gardening-club.example (mail.gardening-club.example [203.0.113.32]) by mx.example.com with ESMTPS id 59c1836d02 for <jordan@example.com>; Thu, 01 Oct 2026 22:05:00 +0000
-From: Gardening Club <news@gardening-club.example>
+DKIM-Signature: v=1; a=ed25519-sha256; c=relaxed/relaxed;
+ d=morning-brief.example; h=Content-Type: MIME-Version: List-Unsubscribe:
+ List-Id: Message-ID: Date: Subject: To: From; q=dns/txt; s=kr;
+ t=1790885040; bh=ziUiC94t+lyQ7oNeOiX3dyFPx2ZGyUX5tBS+TdPSRSM=;
+ b=FkxuxH4BF4saDbb4eh7R0f1mfS4/U01k0x9k9o3y2LeFz559SPhNStlE3BsVLHQ/yGtTMJm3i
+ gz9s1Z7FgGUDA==
+Return-Path: <bounce-15041@morning-brief.example>
+Received: from mail.morning-brief.example (mail.morning-brief.example [203.0.113.31]) by mx.example.com with ESMTPS id d8417c26cc for <jordan@example.com>; Thu, 01 Oct 2026 20:04:00 +0000
+From: Morning Brief <daily@morning-brief.example>
 To: jordan@example.com
-Subject: Plant now for spring blooms
-Date: Thu, 01 Oct 2026 22:05:00 +0000
-Message-ID: <7ebf3d64ed6632740e311a38@gardening-club.example>
-List-Id: <news.gardening-club.example>
-List-Unsubscribe: <https://gardening-club.example/unsubscribe?e=d814a3c7dab9>
+Subject: Markets open mixed
+Date: Thu, 01 Oct 2026 20:04:00 +0000
+Message-ID: <bae913d5ceab25b4b3d25ea4@morning-brief.example>
+List-Id: <daily.morning-brief.example>
+List-Unsubscribe: <https://morning-brief.example/unsubscribe?e=3898dc0ea571>
 Precedence: list
 MIME-Version: 1.0
-Content-Type: multipart/alternative; boundary="----=_Part_403ee1b28097"
+Content-Type: multipart/alternative; boundary="----=_Part_7a9dbe464999"
 
-------=_Part_403ee1b28097
+------=_Part_7a9dbe464999
 Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
 
-Plant now for spring blooms
+Markets open mixed
 
 This week we look at what changed, what did not, and what to read next.
-Read online: https://gardening-club.example/p/e626b8
+Read online: https://morning-brief.example/p/4bf036
 
-You are subscribed as jordan@example.com. Unsubscribe: https://gardening-club.example/unsubscribe
-------=_Part_403ee1b28097
+You are subscribed as jordan@example.com. Unsubscribe: https://morning-brief.example/unsubscribe
+------=_Part_7a9dbe464999
 Content-Type: text/html; charset=utf-8
 Content-Transfer-Encoding: 7bit
 
-<html><body style="font-family:Arial,sans-serif"><h1>Plant now for spring blooms</h1><p>This week we look at what changed.</p></body></html>
-------=_Part_403ee1b28097--
+<html><body style="font-family:Arial,sans-serif"><h1>Markets open mixed</h1><p>This week we look at what changed.</p></body></html>
+------=_Part_7a9dbe464999--
