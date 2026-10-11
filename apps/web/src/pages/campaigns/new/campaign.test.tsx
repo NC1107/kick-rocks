@@ -34,13 +34,18 @@ describe("the campaign builder", () => {
     ).toBeDisabled();
   });
 
-  it("shows the readout with zeros before anything is chosen", async () => {
+  it("shows no rows of zeros before a group is chosen", async () => {
     open();
     const preview = await screen.findByRole("region", { name: "Preview" });
-    const counts = within(preview).getByRole("region", { name: "Counts by channel" });
-    for (const label of ["email", "web form", "agent or you", "scan first", "skipped"]) {
-      expect(within(counts).getByText(label).nextElementSibling).toHaveTextContent("0");
-    }
+    expect(within(preview).queryByRole("region", { name: "Counts by channel" })).toBeNull();
+    expect(within(preview).queryByText("agent or you")).toBeNull();
+  });
+
+  it("links the profile in the header and goes back to Targets when it came from there", async () => {
+    open("/campaigns/new?targets=audiencegrid");
+    const profile = await screen.findByRole("link", { name: "Jordan Example" });
+    expect(profile).toHaveAttribute("href", expect.stringMatching(/^\/profiles\/prf_/));
+    expect(screen.getByRole("link", { name: /Targets/ })).toHaveAttribute("href", "/targets");
   });
 
   it("counts a preset by channel and previews the email before anything is sent", async () => {

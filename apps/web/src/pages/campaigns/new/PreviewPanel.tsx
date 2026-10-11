@@ -1,6 +1,6 @@
 import type { CampaignPreview, RenderedEmail } from "@kickrocks/shared";
 import { ChevronDown } from "lucide-react";
-import { RowGroup, Section, Skeleton } from "../../../components/ui/index.js";
+import { EntityLink, RowGroup, Section, Skeleton } from "../../../components/ui/index.js";
 import { cn } from "../../../lib/cn.js";
 import { formatCount, pluralize } from "../../../lib/format.js";
 import { SKIP_REASON_LABELS } from "../../../lib/labels.js";
@@ -23,8 +23,8 @@ const READOUT_ORDER: readonly (keyof ChannelCounts)[] = [
 ];
 
 /**
- * What a campaign would do, counted by the way each target is reached. It is on screen from the
- * start with zeros, so the person always sees where the numbers will appear.
+ * What a campaign would do, counted by the way each target is reached. Nothing shows until a group
+ * is picked, since five rows of zeros say nothing and push the choices down on a phone.
  */
 export function ChannelReadout({
   counts,
@@ -33,6 +33,7 @@ export function ChannelReadout({
   counts: ChannelCounts | null;
   loading?: boolean;
 }) {
+  if (counts === null && !loading) return null;
   return (
     <section aria-label="Counts by channel" aria-busy={loading || undefined}>
       <RowGroup>
@@ -82,7 +83,11 @@ export function FirstTargets({ targets }: { targets: readonly FirstTarget[] }) {
             key={target.id}
             className="flex min-h-9 items-center justify-between gap-3 px-3.5 text-ui text-ink"
           >
-            <span className="truncate">{target.name}</span>
+            <EntityLink
+              to={{ kind: "target", id: target.id, name: target.name }}
+              variant="quiet"
+              className="min-w-0 truncate text-ink"
+            />
             <span className="shrink-0 font-mono text-meta text-ink-3">
               {CHANNEL_LABELS[target.channel]}
             </span>
@@ -122,7 +127,11 @@ export function SkippedList({ items }: { items: CampaignPreview["items"] }) {
             <ul className="m-0 list-none px-3.5 pb-2">
               {group.items.map((item) => (
                 <li key={item.targetId} className="py-1 text-ui">
-                  <span className="text-ink">{item.targetName}</span>
+                  <EntityLink
+                    to={{ kind: "target", id: item.targetId, name: item.targetName }}
+                    variant="quiet"
+                    className="text-ink"
+                  />
                   {item.detail ? (
                     <span className="block text-meta text-ink-3">{item.detail}</span>
                   ) : null}
@@ -144,7 +153,11 @@ export function AdvisoryList({ items }: { items: CampaignPreview["items"] }) {
       <RowGroup>
         {flagged.map((item) => (
           <div key={item.targetId} className="px-3.5 py-2 text-ui">
-            <span className="text-ink">{item.targetName}</span>
+            <EntityLink
+              to={{ kind: "target", id: item.targetId, name: item.targetName }}
+              variant="quiet"
+              className="text-ink"
+            />
             <span className="block text-meta text-attention-text">{item.detail}</span>
           </div>
         ))}
@@ -156,14 +169,19 @@ export function AdvisoryList({ items }: { items: CampaignPreview["items"] }) {
 export function EmailPreview({
   email,
   fromAddress,
+  targetId,
   targetName,
   toAddress,
 }: {
   email: RenderedEmail;
   fromAddress: string | null;
+  targetId?: string | null;
   targetName: string | null;
   toAddress: string | null;
 }) {
+  const name = targetName ? (
+    <EntityLink to={{ kind: "target", id: targetId ?? "", name: targetName }} variant="quiet" />
+  ) : null;
   return (
     <Section label="Email preview">
       <div className="rounded-md border border-line bg-surface">
@@ -176,7 +194,13 @@ export function EmailPreview({
             <>
               <dt className="text-ink-3">To</dt>
               <dd className="m-0 min-w-0 break-words font-mono text-ink">
-                {toAddress ? `${targetName} (${toAddress})` : targetName}
+                {toAddress ? (
+                  <>
+                    {name} ({toAddress})
+                  </>
+                ) : (
+                  name
+                )}
               </dd>
             </>
           ) : null}
