@@ -1,4 +1,4 @@
-import type { WaitingTask } from "@kickrocks/shared";
+import type { AgentsResponse, WaitingTask } from "@kickrocks/shared";
 import type { ReactNode } from "react";
 import { HoldReason } from "../../components/holds/HoldReason.js";
 import {
@@ -14,6 +14,8 @@ import { cn } from "../../lib/cn.js";
 import { describeFailure } from "../../lib/failures.js";
 import { BLOCKED_REASON_LABELS, PROFILE_FIELD_LABELS } from "../../lib/labels.js";
 import type { StatusShape } from "../../lib/status.js";
+import { useNow } from "../../lib/use-now.js";
+import { assignmentLine } from "../assign/model.js";
 import { ageLabel, KIND_LABELS, type QueueEntry, type ReviewKind, SCANS_KEY } from "./model.js";
 
 interface RowView {
@@ -32,6 +34,7 @@ function requestOf(id: string | null, reference: string | null): RowView["reques
 /** Waiting on the person is a triangle, a failure a square, and waiting on an agent a ring. */
 const KIND_SHAPE: Record<ReviewKind, StatusShape> = {
   blocked: "triangle",
+  yours: "triangle",
   matches: "triangle",
   verifications: "triangle",
   mail: "triangle",
@@ -39,7 +42,7 @@ const KIND_SHAPE: Record<ReviewKind, StatusShape> = {
   agents: "ring",
 };
 
-function describe(entry: QueueEntry): RowView {
+function describe(entry: QueueEntry, agents: AgentsResponse | undefined, now: number): RowView {
   const shape = KIND_SHAPE[entry.kind];
   switch (entry.kind) {
     case "blocked": {
@@ -60,7 +63,17 @@ function describe(entry: QueueEntry): RowView {
       const { task, requestReference } = entry.item;
       return {
         title: task.targetName ?? "Unknown target",
-        reason: "Waiting for an agent",
+        reason: assignmentLine(task.assignment, agents, now),
+        at: task.updatedAt,
+        shape,
+        request: requestOf(task.requestId, requestReference),
+      };
+    }
+    case "yours": {
+      const { task, requestReference } = entry.item;
+      return {
+        title: task.targetName ?? "Unknown target",
+        reason: "No agent will take it",
         at: task.updatedAt,
         shape,
         request: requestOf(task.requestId, requestReference),
@@ -120,12 +133,15 @@ function Entry({
   entry,
   selected,
   onSelect,
+  agents,
 }: {
   entry: QueueEntry;
   selected: boolean;
   onSelect: (key: string) => void;
+  agents: AgentsResponse | undefined;
 }) {
-  const view = describe(entry);
+  const now = useNow();
+  const view = describe(entry, agents, now);
   const { request } = view;
   return (
     <div data-entry={entry.key} className="relative">
@@ -209,6 +225,8 @@ export interface QueueListProps {
   waitingTotal: number;
   selectedKey: string | null;
   onSelect: (key: string) => void;
+  /** Who is connected, to say whether the agent a task is assigned to is online. */
+  agents?: AgentsResponse | undefined;
 }
 
 /**
@@ -221,6 +239,7 @@ export function QueueList({
   waitingTotal,
   selectedKey,
   onSelect,
+  agents,
 }: QueueListProps) {
   const sections: ReactNode[] = KIND_ORDER.flatMap((kind) => {
     const own = entries.filter((entry) => entry.kind === kind);
@@ -234,6 +253,7 @@ export function QueueList({
               entry={entry}
               selected={entry.key === selectedKey}
               onSelect={onSelect}
+              agents={agents}
             />
           ))}
         </RowGroup>

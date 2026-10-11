@@ -3,6 +3,7 @@ import type {
   ClaimerKind,
   FailureKind,
   RequestActor,
+  TaskAssignment,
   TaskKind,
   TaskPayloadMap,
   TaskResultMap,
@@ -44,6 +45,8 @@ interface TaskBase {
   claimerKind: ClaimerKind | null;
   /** What the attempts cost, summed. */
   usage: TaskUsage | null;
+  /** Who a queued agent task is meant for; null for any agent. */
+  assignment: TaskAssignment | null;
   createdAt: string;
   updatedAt: string;
 }

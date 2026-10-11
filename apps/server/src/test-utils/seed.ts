@@ -1,6 +1,7 @@
 import {
   type CampaignRow,
   campaigns,
+  claimers,
   identities,
   type MailboxRow,
   type MatchRow,
@@ -24,12 +25,14 @@ import {
   type BlockedReason,
   type Broker,
   type Candidate,
+  type ClaimerKind,
   type Company,
   type FailureKind,
   type Identity,
   type IdentityInput,
   type MatchDecision,
   type MatchFields,
+  type ModelIdentity,
   type ProfileField,
   parseTaskPayload,
   type RecipeHealth,
@@ -42,6 +45,7 @@ import {
   type RequestRight,
   type RequestStatus,
   type StateCode,
+  type TaskAssignment,
   type TaskKind,
   type TaskPayloadMap,
   type TaskStatus,
@@ -399,6 +403,9 @@ interface SeedTaskInput<K extends TaskKind = TaskKind> {
   failureKind?: FailureKind | null;
   /** For `done`. */
   result?: unknown;
+  /** Who a queued agent task is meant for. */
+  assignment?: TaskAssignment | null;
+  claimerKind?: ClaimerKind | null;
 }
 
 /**
@@ -436,6 +443,8 @@ export function seedTask<K extends TaskKind>({ services }: Seeder, input: SeedTa
       dedupeKey: input.dedupeKey ?? null,
       lastError: input.lastError ?? null,
       failureKind: input.failureKind ?? null,
+      assignment: input.assignment ?? null,
+      claimerKind: input.claimerKind ?? null,
       createdAt: now,
       updatedAt: now,
     })
@@ -457,6 +466,39 @@ export function seedTask<K extends TaskKind>({ services }: Seeder, input: SeedTa
       .run();
   }
   return services.taskQueue.getOrThrow(row.id);
+}
+
+interface SeedClaimerInput {
+  kind: "builtin" | "model" | "mcp";
+  workerId: string;
+  /** How long before the fake clock's now it last called in. Defaults to just now. */
+  agoMs?: number;
+  busy?: boolean;
+  currentTaskId?: string | null;
+  model?: ModelIdentity | null;
+}
+
+/** A worker or MCP client the server has heard from, last seen `agoMs` before the fake clock's now. */
+export function seedClaimer({ services }: Seeder, input: SeedClaimerInput): void {
+  const seen = new Date(services.clock.now().getTime() - (input.agoMs ?? 0)).toISOString();
+  services.db
+    .insert(claimers)
+    .values({
+      kind: input.kind,
+      workerId: input.workerId,
+      model: input.model ?? null,
+      version: null,
+      busy: input.busy ?? false,
+      currentTaskId: input.currentTaskId ?? null,
+      resultPending: false,
+      firstSeenAt: seen,
+      lastSeenAt: seen,
+    })
+    .onConflictDoUpdate({
+      target: [claimers.kind, claimers.workerId],
+      set: { lastSeenAt: seen, busy: input.busy ?? false, model: input.model ?? null },
+    })
+    .run();
 }
 
 /**

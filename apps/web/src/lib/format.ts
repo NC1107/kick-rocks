@@ -26,6 +26,11 @@ export function formatDateTime(iso: string, { locale }: FormatOptions = {}): str
   );
 }
 
+/** "3:40 PM": the time of day alone, for a moment that is today or soon. */
+export function formatTime(iso: string, { locale }: FormatOptions = {}): string {
+  return new Intl.DateTimeFormat(locale, { timeStyle: "short" }).format(new Date(iso));
+}
+
 /** "3 hours ago" or "in 2 days"; anything under a minute reads as "just now". */
 export function formatRelative(
   iso: string,

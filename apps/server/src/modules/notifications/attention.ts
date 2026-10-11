@@ -26,7 +26,7 @@ export const WORKER_HEARTBEAT_GRACE_MS = 60 * 60 * 1000;
 /** When any worker last checked in, or null when none ever has. */
 export function workerLastSeen(services: AppServices): Date | null {
   const seen = (["builtin", "model"] as const).flatMap((claimer) => {
-    const at = services.settings.get(`worker.status.${claimer}`)?.lastSeenAt;
+    const at = services.claimers.latestWorker(claimer)?.lastSeenAt;
     return at ? [Date.parse(at)] : [];
   });
   return seen.length > 0 ? new Date(Math.max(...seen)) : null;
@@ -50,7 +50,10 @@ export function workerWentQuiet(services: AppServices): Date | null {
 function workerOfflineWithWorkWaiting(services: AppServices): boolean {
   const { config, taskQueue, clock } = services;
   if (config.workerToken === null) return false;
-  if (taskQueue.list({ status: "queued", kinds: BROWSER_TASK_KINDS }).length === 0) return false;
+  const waiting = taskQueue
+    .list({ status: "queued", kinds: BROWSER_TASK_KINDS })
+    .filter((task) => task.assignment?.to.kind !== "person");
+  if (waiting.length === 0) return false;
   const newest = workerLastSeen(services)?.getTime() ?? Number.NEGATIVE_INFINITY;
   return clock.now().getTime() - newest > WORKER_SILENT_MS;
 }
@@ -99,6 +102,11 @@ export function collectAttention(services: AppServices): AttentionItem[] {
     .where(and(eq(recipes.health, "broken"), eq(recipes.status, "active")))
     .all()) {
     items.push({ category: "recipe", key: `recipe:${row.id}`, path: "/settings/recipes" });
+  }
+  for (const task of taskQueue.list({ status: "queued", kinds: ["agent"] })) {
+    if (task.assignment?.to.kind === "person" && task.assignment.by === "fallback") {
+      items.push({ category: "agent_unavailable", key: `assignment:${task.id}`, path: "/review" });
+    }
   }
   if (workerOfflineWithWorkWaiting(services)) {
     items.push({ category: "worker", key: WORKER_OFFLINE_KEY, path: "/settings/agents" });

@@ -96,6 +96,18 @@ The new task says which human check stopped the earlier run.
 `workerId` names you in the lease, so use the same one for every call about a task.
 Only a task you claimed through mcp can be completed, blocked, failed, or released through mcp.
 
+### Tasks assigned to you
+
+A person can assign a waiting agent task to one agent worker or one MCP client from its request page.
+The assignment names the `workerId` you send, so give each client a stable id of its own.
+Clients that share one id are treated as one.
+A claim without `taskId` takes the task assigned to your `workerId` first, then the unassigned ones, and never a task assigned to someone else or kept by the person.
+A claim with a `taskId` that is assigned to someone else fails with `task_assigned`, and one the person kept fails with `assigned_to_person`.
+`list_tasks` shows each task's `assignment`.
+Assigning chooses who gets the task, not who may have it: anyone holding the token can claim under any `workerId`.
+It does not change the gate, so an assigned model that is not cleared still has every send held, and a site your client cannot take is still left to a worker.
+If the agent a task was assigned to is not seen for 30 minutes, the task goes to any agent or back to the person, as they chose.
+
 ## What a task looks like
 
 A claim returns a task like this.

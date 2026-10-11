@@ -5,11 +5,13 @@ import {
   DAY,
   HOUR,
   MINUTE,
+  seedClaimer,
   seedMailbox,
   seedMessage,
   seedProfile,
   seedRequest,
   seedTarget,
+  seedTask,
   type TestContext,
 } from "../../test-utils/index.js";
 import {
@@ -335,12 +337,10 @@ describe("sendDigestIfDue", () => {
 
 describe("the browser worker in the digest", () => {
   const seen = (iso: string) =>
-    ctx.services.settings.set("worker.status.builtin", {
+    seedClaimer(ctx, {
+      kind: "builtin",
       workerId: "w1",
-      version: "test",
-      lastSeenAt: iso,
-      busy: false,
-      currentTaskId: null,
+      agoMs: ctx.clock.now().getTime() - Date.parse(iso),
     });
 
   it("reports a worker that has gone quiet even when nothing else changed", () => {
@@ -360,5 +360,55 @@ describe("the browser worker in the digest", () => {
     expect(buildDigest(ctx.services, profile, ...window)).toBeNull();
     seen(new Date(ctx.clock.now().getTime() - MINUTE).toISOString());
     expect(buildDigest(ctx.services, profile, ...window)).toBeNull();
+  });
+});
+
+describe("agent tasks in the digest", () => {
+  it("splits what waits for an agent by who it is assigned to, and lists what the person kept", () => {
+    const target = seedTarget(ctx);
+    const base = {
+      kind: "agent" as const,
+      payload: {
+        purpose: "scan" as const,
+        profileId,
+        targetId: target.id,
+        requestId: null,
+        recordUrl: null,
+        variant: null,
+        rights: [],
+        reason: "no_recipe" as const,
+        previousError: null,
+        blockedReason: null,
+      },
+      profileId,
+      targetId: target.id,
+    };
+    const at = ctx.clock.now().toISOString();
+    seedTask(ctx, base);
+    seedTask(ctx, {
+      ...base,
+      assignment: {
+        to: { kind: "model", workerId: "nick-pc-agent" },
+        at,
+        by: "user",
+        fallback: "any",
+      },
+    });
+    seedTask(ctx, {
+      ...base,
+      assignment: { to: { kind: "person" }, at, by: "user", fallback: "any" },
+    });
+
+    const digest = buildDigest(
+      ctx.services,
+      { id: profileId, displayName: "Jordan Example" },
+      new Date(ctx.clock.now().getTime() - DAY),
+      ctx.clock.now(),
+    );
+
+    expect(digest?.text).toContain(
+      "Tasks waiting for an agent: 2 (1 assigned to nick-pc-agent, 1 for any agent)",
+    );
+    expect(digest?.text).toContain("Agent tasks you took for yourself: 1");
   });
 });

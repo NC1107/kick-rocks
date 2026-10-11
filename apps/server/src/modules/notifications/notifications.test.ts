@@ -61,7 +61,15 @@ describe("GET /notifications", () => {
     expect(result.ok && result.body).toMatchObject({
       ntfy: null,
       telegram: null,
-      categories: ["blocked_task", "verification", "match", "mailbox", "recipe", "worker"],
+      categories: [
+        "blocked_task",
+        "verification",
+        "match",
+        "mailbox",
+        "recipe",
+        "worker",
+        "agent_unavailable",
+      ],
       maxPerHour: 6,
       digest: { frequency: "off", hourUtc: 8, weekday: 1 },
       appUrl: "http://kickrocks.test",

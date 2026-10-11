@@ -5,6 +5,7 @@ import {
   createTestContext,
   makeBroker,
   makeCompany,
+  seedClaimer,
   type TestContext,
 } from "../../test-utils/index.js";
 
@@ -98,18 +99,18 @@ describe("GET /settings", () => {
   it("passes each kind of worker's last report through, apart", async () => {
     const status = (workerId: string) => ({
       workerId,
-      version: "0.1.0",
+      version: null,
       lastSeenAt: ctx.clock.now().toISOString(),
-      busy: true,
-      currentTaskId: "task-1",
+      busy: false,
+      currentTaskId: null,
     });
-    ctx.services.settings.set("worker.status.builtin", status("recipes"));
+    seedClaimer(ctx, { kind: "builtin", workerId: "recipes" });
     let result = await ctx.call(API_ROUTES.settingsGet);
     expect(result.ok && result.body.worker).toMatchObject({
       builtin: status("recipes"),
       model: null,
     });
-    ctx.services.settings.set("worker.status.model", status("model"));
+    seedClaimer(ctx, { kind: "model", workerId: "model" });
     result = await ctx.call(API_ROUTES.settingsGet);
     expect(result.ok && result.body.worker).toMatchObject({
       builtin: status("recipes"),

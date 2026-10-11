@@ -51,6 +51,12 @@ const LIVE_HOLD_INSTRUCTIONS =
 const AGENT_INSTRUCTIONS =
   "No agent has taken this yet, and the recipe worker will not run it. Connect an agent in Settings, or open the page and finish the job yourself, then mark it done.";
 
+const assignedInstructions = (workerId: string) =>
+  `This task is waiting for ${workerId}. Change who takes it, or open the page and finish the job yourself, then mark it done.`;
+
+const YOURS_INSTRUCTIONS =
+  "You took this one, so no agent will. Open the page and finish the job yourself, then mark it done, or hand it back to an agent.";
+
 const FAILED_INSTRUCTIONS =
   "This task failed and nothing will try it again by itself. Retry it, open the page and finish the job yourself, or dismiss it.";
 
@@ -73,7 +79,11 @@ function toItem(services: AppServices, task: Task, summary: TaskSummary): Blocke
           ? FAILED_SCAN_INSTRUCTIONS
           : FAILED_INSTRUCTIONS
         : task.status === "queued"
-          ? AGENT_INSTRUCTIONS
+          ? task.assignment?.to.kind === "person"
+            ? YOURS_INSTRUCTIONS
+            : task.assignment
+              ? assignedInstructions(task.assignment.to.workerId)
+              : AGENT_INSTRUCTIONS
           : task.status === "leased"
             ? LIVE_HOLD_INSTRUCTIONS
             : MANUAL_INSTRUCTIONS[task.blockedReason ?? "unknown"],

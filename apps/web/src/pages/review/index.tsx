@@ -1,7 +1,7 @@
 import { API_ROUTES, type ReviewQueue } from "@kickrocks/shared";
 import { useCallback, useEffect, useMemo, useRef, useSyncExternalStore } from "react";
 import { useSearchParams } from "react-router";
-import { errorMessage, useApiQuery } from "../../api/index.js";
+import { errorMessage, useAgents, useApiQuery } from "../../api/index.js";
 import { RequireProfile } from "../../components/layout/RequireProfile.js";
 import {
   Button,
@@ -127,11 +127,12 @@ function Detail({
   switch (entry.kind) {
     case "blocked":
     case "agents":
+    case "yours":
       return (
         <BlockedTaskDetail
           key={entry.key}
           item={entry.item}
-          variant={entry.kind === "agents" ? "agent" : "blocked"}
+          variant={entry.kind === "agents" ? "agent" : entry.kind === "yours" ? "yours" : "blocked"}
           profileId={profileId}
         />
       );
@@ -164,6 +165,7 @@ function Detail({
 function Queue({ queue, profileId }: { queue: ReviewQueue; profileId: string }) {
   const [params, setParams] = useSearchParams();
   const entries = useMemo(() => buildEntries(queue), [queue]);
+  const agents = useAgents({ enabled: queue.agentTasks.length > 0 });
   const itemParam = params.get("item");
   const tabParam = params.get("tab");
   const lastIndex = useRef(0);
@@ -272,6 +274,7 @@ function Queue({ queue, profileId }: { queue: ReviewQueue; profileId: string }) 
           waitingTotal={queue.waitingTotal}
           selectedKey={wide || drilled ? selectedKey : null}
           onSelect={(key) => select(key, { replace: wide })}
+          agents={agents.data}
         />
       </div>
       <div

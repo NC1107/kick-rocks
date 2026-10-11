@@ -312,6 +312,35 @@ export type ClaimedTask = z.infer<typeof ClaimedTask>;
 export const ClaimerKind = z.enum(["builtin", "mcp", "model"]);
 export type ClaimerKind = z.infer<typeof ClaimerKind>;
 
+/** The kinds of agent a task can be handed to: a model-backed worker, or an MCP client. */
+export const AssigneeKind = z.enum(["model", "mcp"]);
+export type AssigneeKind = z.infer<typeof AssigneeKind>;
+
+export const AgentAssignee = z.object({ kind: AssigneeKind, workerId: z.string().min(1).max(100) });
+export type AgentAssignee = z.infer<typeof AgentAssignee>;
+
+export const TaskAssignee = z.union([z.object({ kind: z.literal("person") }), AgentAssignee]);
+export type TaskAssignee = z.infer<typeof TaskAssignee>;
+
+/** What happens when the agent a task was assigned to is not seen for {@link ASSIGNMENT_GRACE_MS}. */
+export const AssignmentFallback = z.enum(["any", "person"]);
+export type AssignmentFallback = z.infer<typeof AssignmentFallback>;
+
+/**
+ * Who a queued agent task is meant for. It decides who gets the task, not who may have it: anyone
+ * holding the worker or MCP token can claim under any worker id. A task with none goes to
+ * whichever agent claims first.
+ */
+export const TaskAssignment = z.object({
+  to: TaskAssignee,
+  at: z.iso.datetime(),
+  by: z.enum(["user", "fallback"]),
+  fallback: AssignmentFallback,
+  /** Set when a fallback took the task back from an agent that went quiet. */
+  lapsedFrom: AgentAssignee.optional(),
+});
+export type TaskAssignment = z.infer<typeof TaskAssignment>;
+
 /** What a run cost, reported by whoever did it, so success and cost can be measured per worker type. */
 export const TaskUsage = z.object({
   inputTokens: z.number().int().nonnegative().optional(),
@@ -347,6 +376,8 @@ export const TaskSummary = z.object({
   claimerKind: ClaimerKind.nullable(),
   /** Summed over every attempt. */
   usage: TaskUsage.nullable(),
+  /** Who an agent task is meant for; null for any agent. Holds no personal data. */
+  assignment: TaskAssignment.nullable(),
   createdAt: z.iso.datetime(),
   updatedAt: z.iso.datetime(),
 });

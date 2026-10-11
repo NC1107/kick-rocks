@@ -79,6 +79,10 @@ export function McpCard({ mcp }: { mcp: SettingsView["mcp"] }) {
         <GroupNote>
           An MCP client is not held by the safety gate, so it can send a form without asking you.
         </GroupNote>
+        <GroupNote>
+          Give each client its own worker id, such as desk-client, so a task can be assigned to it.
+          Clients that share one id are treated as one.
+        </GroupNote>
         {token ? (
           <Callout intent="success" title="Copy this token now" className="mt-3">
             <p>It is shown once and cannot be looked up later.</p>

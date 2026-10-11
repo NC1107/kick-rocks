@@ -85,6 +85,13 @@
       "when": 1791531404830,
       "tag": "0011_mail_intake",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "6",
+      "when": 1791703112260,
+      "tag": "0012_task_assignment",
+      "breakpoints": true
     }
   ]
 }

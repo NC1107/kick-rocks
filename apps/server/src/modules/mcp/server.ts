@@ -109,6 +109,8 @@ export function createMcpServer(services: AppServices, version: string): McpServ
         outputSchema: tool.output,
       },
       (async (input: unknown): Promise<CallToolResult> => {
+        const caller = (input as { workerId?: unknown } | undefined)?.workerId;
+        if (typeof caller === "string") services.claimers.sawMcp(caller);
         try {
           const output = tool.output.parse(handler(input)) as Record<string, unknown>;
           return {

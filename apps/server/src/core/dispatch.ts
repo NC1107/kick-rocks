@@ -79,9 +79,14 @@ export interface Dispatch {
   /**
    * Takes a blocked scan, form, or agent task away from the built-in worker and gives it to an
    * agent, which a person asks for from the review page and an MCP client asks for by claiming a
-   * blocked task. The new task says which human check stopped the earlier run.
+   * blocked task. The new task says which human check stopped the earlier run, and keeps the
+   * assignment of the task it replaces unless `carryAssignment` is false.
    */
-  handToAgent(taskId: string, actor: RequestActor): EnqueueResult;
+  handToAgent(
+    taskId: string,
+    actor: RequestActor,
+    options?: { carryAssignment?: boolean },
+  ): EnqueueResult;
   /** A confirmation link a browser has to open, deduplicated per request and link. */
   enqueueConfirm(requestId: string, url: string): EnqueueResult;
   /** A canary health check for a recipe, one at a time. */
@@ -212,6 +217,7 @@ export function createDispatch({
     task: Task<"scan" | "form" | "agent">,
     why: FallbackReason,
     actor: RequestActor,
+    carryAssignment = true,
   ): EnqueueResult {
     const { dedupeKey, profileId } = task;
     if (dedupeKey === null || profileId === null) {
@@ -272,6 +278,9 @@ export function createDispatch({
                 payload: { ...task.payload, ...reasons },
                 ...common,
               });
+      if (result.created && carryAssignment && task.assignment !== null) {
+        taskQueue.assign(result.task.id, { ...task.assignment, at: nowIso(clock) });
+      }
       if (result.created && task.kind !== "form") {
         tx.update(scans).set({ taskId: result.task.id }).where(eq(scans.taskId, task.id)).run();
       }
@@ -470,7 +479,7 @@ export function createDispatch({
       return toAgent(task, why, "system");
     },
 
-    handToAgent(taskId, actor) {
+    handToAgent(taskId, actor, { carryAssignment = true } = {}) {
       return db.transaction(() => {
         const task = taskQueue.getOrThrow(taskId);
         if (task.status !== "blocked") {
@@ -493,6 +502,7 @@ export function createDispatch({
             blockedReason: task.blockedReason,
           },
           actor,
+          carryAssignment,
         );
       });
     },

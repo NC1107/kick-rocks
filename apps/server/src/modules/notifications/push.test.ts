@@ -6,6 +6,7 @@ import {
   createTestContext,
   HOUR,
   MINUTE,
+  seedClaimer,
   seedMailbox,
   seedMatch,
   seedProfile,
@@ -125,13 +126,7 @@ describe("what triggers a push", () => {
   });
 
   it("announces browser work that waits while no worker has reported for minutes", async () => {
-    ctx.services.settings.set("worker.status.builtin", {
-      workerId: "w1",
-      version: null,
-      lastSeenAt: new Date(ctx.services.clock.now().getTime() - 10 * MINUTE).toISOString(),
-      busy: false,
-      currentTaskId: null,
-    });
+    seedClaimer(ctx, { kind: "builtin", workerId: "w1", agoMs: 10 * MINUTE });
     seedTask(ctx, {
       kind: "scan",
       payload: { profileId, targetId, recipeId: null, variant: null },
@@ -145,13 +140,7 @@ describe("what triggers a push", () => {
   });
 
   it("announces a worker that has been silent for a day even when no browser work waits", async () => {
-    ctx.services.settings.set("worker.status.builtin", {
-      workerId: "w1",
-      version: null,
-      lastSeenAt: new Date(ctx.services.clock.now().getTime() - 25 * HOUR).toISOString(),
-      busy: false,
-      currentTaskId: null,
-    });
+    seedClaimer(ctx, { kind: "builtin", workerId: "w1", agoMs: 25 * HOUR });
     await pushNewAttention(ctx.services);
     expect(bodies()[0]).toBe(
       "The worker has not reported for over a day. Open http://kickrocks.test/settings/agents",
@@ -159,24 +148,12 @@ describe("what triggers a push", () => {
   });
 
   it("stays quiet about an idle worker that was seen within the day", async () => {
-    ctx.services.settings.set("worker.status.builtin", {
-      workerId: "w1",
-      version: null,
-      lastSeenAt: new Date(ctx.services.clock.now().getTime() - 3 * HOUR).toISOString(),
-      busy: false,
-      currentTaskId: null,
-    });
+    seedClaimer(ctx, { kind: "builtin", workerId: "w1", agoMs: 3 * HOUR });
     expect(await pushNewAttention(ctx.services)).toBe("idle");
   });
 
   it("stays quiet about the worker when it reported lately or nothing waits", async () => {
-    ctx.services.settings.set("worker.status.builtin", {
-      workerId: "w1",
-      version: null,
-      lastSeenAt: ctx.services.clock.now().toISOString(),
-      busy: false,
-      currentTaskId: null,
-    });
+    seedClaimer(ctx, { kind: "builtin", workerId: "w1" });
     seedTask(ctx, {
       kind: "scan",
       payload: { profileId, targetId, recipeId: null, variant: null },

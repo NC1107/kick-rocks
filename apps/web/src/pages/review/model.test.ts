@@ -1,4 +1,4 @@
-import type { ReviewQueue } from "@kickrocks/shared";
+import type { BlockedTaskItem, ReviewQueue, TaskAssignment } from "@kickrocks/shared";
 import { describe, expect, it } from "vitest";
 import {
   ageLabel,
@@ -128,5 +128,40 @@ describe("how long an item has waited", () => {
     expect(ageLabel("2026-10-07T11:55:00Z", now)).toBe("5m");
     expect(ageLabel("2026-10-07T09:00:00Z", now)).toBe("3h");
     expect(ageLabel("2026-10-04T12:00:00Z", now)).toBe("3d");
+  });
+});
+
+describe("tasks assigned to the person", () => {
+  const item = (id: string, to?: TaskAssignment["to"]): BlockedTaskItem =>
+    ({
+      task: {
+        id,
+        assignment: to ? { to, at: "2026-10-11T00:00:00.000Z", by: "user", fallback: "any" } : null,
+      },
+    }) as unknown as BlockedTaskItem;
+  const queue: ReviewQueue = {
+    ...empty,
+    agentTasks: [
+      item("open"),
+      item("mine", { kind: "person" }),
+      item("pinned", { kind: "model", workerId: "nick-pc-agent" }),
+    ],
+  };
+
+  it("moves them out of Waiting for an agent into Yours to do, after Blocked", () => {
+    const entries = buildEntries({ ...queue, blockedTasks: [item("held")] });
+    expect(entries.map((entry) => [entry.kind, entry.key])).toEqual([
+      ["blocked", "blocked:held"],
+      ["yours", "yours:mine"],
+      ["agents", "agent:open"],
+      ["agents", "agent:pinned"],
+    ]);
+  });
+
+  it("counts them in their own tab and keeps the agent tab to what an agent may take", () => {
+    expect(tabCounts(queue)).toMatchObject({ yours: 1, agents: 2 });
+    expect(firstBusyTab({ ...empty, agentTasks: [item("mine", { kind: "person" })] })).toBe(
+      "yours",
+    );
   });
 });

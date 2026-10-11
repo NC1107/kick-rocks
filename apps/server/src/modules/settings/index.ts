@@ -31,7 +31,8 @@ function viewOf(services: AppServices): SettingsView {
   const egress = settings.get("egress");
   const router = createEgressRouter(services);
   const records = settings.get("agent.gate").records;
-  const reported = settings.get("worker.status.model")?.model ?? null;
+  const model = services.claimers.latestWorker("model");
+  const reported = model?.model ?? null;
   return {
     schedule: settings.get("schedule"),
     retention: settings.get("retention"),
@@ -57,8 +58,8 @@ function viewOf(services: AppServices): SettingsView {
     },
     worker: {
       enabled: config.workerToken !== null,
-      builtin: withCurrentTask(services, settings.get("worker.status.builtin")),
-      model: withCurrentTask(services, settings.get("worker.status.model")),
+      builtin: withCurrentTask(services, services.claimers.latestWorker("builtin")),
+      model: withCurrentTask(services, model),
     },
   };
 }

@@ -14,6 +14,7 @@ import {
   createTestContext,
   seedMailbox,
   seedProfile,
+  seedRecipe,
   seedRequest,
   seedTarget,
   type TestContext,
@@ -809,5 +810,121 @@ describe("the person's override", () => {
       records: [{ source: "bench", runs: GATE_SCENARIOS.length * GATE_RUNS_PER_SCENARIO }],
       current: { verdict: { state: "passed", unattended: true } },
     });
+  });
+});
+
+describe("assigning a task", () => {
+  const assignTo = (taskId: string, to: { kind: "model" | "mcp"; workerId: string }) =>
+    ctx.call(API_ROUTES.taskAssign, { params: { id: taskId }, body: { to } });
+
+  it("does not clear a model: an uncleared agent worker still has every send held", async () => {
+    queueRemoval();
+    const queued = ctx.services.taskQueue.list({ kinds: ["agent"], status: "queued" })[0];
+    if (!queued) throw new Error("no task queued");
+    expect((await assignTo(queued.id, { kind: "model", workerId: "agent-1" })).ok).toBe(true);
+    expect(ctx.services.taskQueue.getOrThrow(queued.id).submitApproval).toBeNull();
+
+    const task = await claim(MODEL);
+
+    expect(task?.id).toBe(queued.id);
+    expect(task?.submitApproval).toBe("required");
+    expect(task?.submitGate).toMatchObject({ mode: "hold" });
+  });
+
+  it("leaves a cleared agent worker its place, and does not change what an unassigned claim gets", async () => {
+    await record(evidence(MODEL));
+    queueRemoval();
+    const queued = ctx.services.taskQueue.list({ kinds: ["agent"], status: "queued" })[0];
+    await assignTo(queued?.id ?? "", { kind: "model", workerId: "agent-1" });
+    const task = await claim(MODEL);
+    expect(task?.submitApproval).toBe("not_needed");
+    expect(task?.submitGate).toMatchObject({ mode: "record" });
+  });
+
+  it("is refused for an agent worker on a site whose recipe waits for review", async () => {
+    seedMailbox(ctx, profileId);
+    const target = seedTarget(ctx, { contactMethod: "form", category: "marketing" });
+    seedRecipe(ctx, target.id, { purpose: "remove", status: "pending_review" });
+    const request = seedRequest(ctx, {
+      profileId,
+      targetId: target.id,
+      status: "queued",
+      channel: "form",
+    });
+    ctx.services.dispatch.dispatchRequest(request.id);
+    const queued = ctx.services.taskQueue.list({ kinds: ["agent"], status: "queued" })[0];
+    const refused = await assignTo(queued?.id ?? "", { kind: "model", workerId: "agent-1" });
+    expect(refused.status).toBe(409);
+    expect(refused.ok ? null : refused.body.error).toBe("assignee_cannot_take");
+    expect(await claim(MODEL)).toBeNull();
+  });
+
+  it("is refused for an MCP client on a routed site, which still goes to a worker", async () => {
+    seedMailbox(ctx, profileId);
+    const target = seedTarget(ctx, {
+      contactMethod: "form",
+      category: "marketing",
+      domain: "routed.test",
+    });
+    const request = seedRequest(ctx, {
+      profileId,
+      targetId: target.id,
+      status: "queued",
+      channel: "form",
+    });
+    ctx.services.dispatch.dispatchRequest(request.id);
+    await ctx.call(API_ROUTES.settingsPatch, {
+      body: { egress: { proxyUrl: "http://10.0.0.100:8888", domains: ["routed.test"] } },
+    });
+    const queued = ctx.services.taskQueue.list({ kinds: ["agent"], status: "queued" })[0];
+    const refused = await assignTo(queued?.id ?? "", { kind: "mcp", workerId: "desk-client" });
+    expect(refused.ok ? null : refused.body.error).toBe("assignee_cannot_take");
+    expect((await assignTo(queued?.id ?? "", { kind: "model", workerId: "agent-1" })).ok).toBe(
+      true,
+    );
+  });
+});
+
+describe("assigning a waiting task to the running agent worker, end to end", () => {
+  it("is leased by that worker, which a person then sees holding its send in Review", async () => {
+    queueRemoval();
+    const beat = await ctx.call(API_ROUTES.workerHeartbeat, {
+      body: { workerId: "agent-1", busy: false, claimer: "model", model: MODEL },
+    });
+    expect(beat.ok).toBe(true);
+    const agents = await ctx.call(API_ROUTES.agentsList, { query: {} });
+    expect(agents.ok && agents.body.agents).toMatchObject([
+      { kind: "model", workerId: "agent-1", online: true, gate: { state: "unproven" } },
+    ]);
+
+    const queued = ctx.services.taskQueue.list({ kinds: ["agent"], status: "queued" })[0];
+    const assigned = await ctx.call(API_ROUTES.taskAssign, {
+      params: { id: queued?.id ?? "" },
+      body: { to: { kind: "model", workerId: "agent-1" } },
+    });
+    expect(assigned.ok).toBe(true);
+
+    const other = await ctx.call(API_ROUTES.workerClaim, {
+      body: { workerId: "agent-2", kinds: ["agent"], claimer: "model", model: MODEL },
+    });
+    expect(other.ok && other.body.task).toBeNull();
+
+    const task = (await claim(MODEL)) as AgentClaim;
+    expect(task.id).toBe(queued?.id);
+    expect(task.submitApproval).toBe("required");
+    expect(ctx.services.taskQueue.getOrThrow(task.id)).toMatchObject({
+      status: "leased",
+      leaseOwner: "agent-1",
+      claimerKind: "model",
+    });
+    const refused = await ctx.call(API_ROUTES.taskAssign, {
+      params: { id: task.id },
+      body: { to: "any" },
+    });
+    expect(refused.ok ? null : refused.body.error).toBe("task_running");
+
+    await hold(task.id);
+    const review = await ctx.call(API_ROUTES.reviewQueue, { query: {} });
+    expect(review.ok && review.body.blockedTasks.map((item) => item.task.id)).toEqual([task.id]);
   });
 });

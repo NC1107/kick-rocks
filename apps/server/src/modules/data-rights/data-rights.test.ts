@@ -2,6 +2,7 @@ import { existsSync, readdirSync, writeFileSync } from "node:fs";
 import { basename, dirname, join } from "node:path";
 import {
   campaigns,
+  claimers,
   identities,
   mailboxes,
   matches,
@@ -35,6 +36,7 @@ import {
   DAY,
   jordanIdentities,
   seedCampaign,
+  seedClaimer,
   seedMailbox,
   seedMatch,
   seedMessage,
@@ -651,15 +653,7 @@ describe("reset instance", () => {
         },
       ],
     });
-    for (const key of ["worker.status.builtin", "worker.status.model"] as const) {
-      store.set(key, {
-        workerId: "w",
-        version: null,
-        lastSeenAt: ctx.clock.now().toISOString(),
-        busy: false,
-        currentTaskId: null,
-      });
-    }
+    seedClaimer(ctx, { kind: "model", workerId: "w" });
     const before = Object.fromEntries(SettingKey.options.map((key) => [key, store.get(key)]));
 
     await ctx.call(API_ROUTES.settingsReset, { body: confirmed });
@@ -672,6 +666,7 @@ describe("reset instance", () => {
       expect(store.get(key), key).toEqual(SETTING_SCHEMAS[key].parse(undefined));
       expect(store.get(key), key).not.toEqual(before[key]);
     }
+    expect(db.select().from(claimers).all()).toEqual([]);
     expect(
       db
         .select()

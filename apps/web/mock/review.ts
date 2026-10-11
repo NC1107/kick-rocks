@@ -21,6 +21,7 @@ import {
   type VerificationItem,
   type WaitingTask,
 } from "@kickrocks/shared";
+import { assignmentFor } from "./agents.js";
 import { conflict, defineMockDomain, handle, invalid, notFound } from "./core.js";
 import { fakeScreenshotPng } from "./png.js";
 import { addEvent, buildRequest, makeTask } from "./requests.js";
@@ -53,6 +54,12 @@ const LIVE_HOLD_INSTRUCTIONS =
 
 const AGENT_INSTRUCTIONS =
   "No agent has taken this yet, and the recipe worker will not run it. Connect an agent in Settings, or open the page and finish the job yourself, then mark it done.";
+
+const assignedInstructions = (workerId: string) =>
+  `This task is waiting for ${workerId}. Change who takes it, or open the page and finish the job yourself, then mark it done.`;
+
+const YOURS_INSTRUCTIONS =
+  "You took this one, so no agent will. Open the page and finish the job yourself, then mark it done, or hand it back to an agent.";
 
 const FAILED_INSTRUCTIONS =
   "This task failed and nothing will try it again by itself. Retry it, or finish the job by hand and mark it done.";
@@ -183,6 +190,7 @@ export function createScan(
       fields.taskStatus === "queued" || fields.taskStatus === "leased" ? null : "home-worker",
     claimerKind: fields.taskStatus === "queued" ? null : ("builtin" as const),
     usage: null,
+    assignment: null,
     createdAt: store.ago(fields.startedAgo),
     updatedAt: store.ago({ hours: 0, minutes: 5 }),
   } satisfies TaskSummary;
@@ -246,7 +254,11 @@ export function buildMockQueue(store: MockStore, profileId: string | undefined):
         (task.status === "failed"
           ? FAILED_INSTRUCTIONS
           : task.status === "queued"
-            ? AGENT_INSTRUCTIONS
+            ? task.assignment?.to.kind === "person"
+              ? YOURS_INSTRUCTIONS
+              : task.assignment
+                ? assignedInstructions(task.assignment.to.workerId)
+                : AGENT_INSTRUCTIONS
             : task.status === "leased"
               ? LIVE_HOLD_INSTRUCTIONS
               : MANUAL_INSTRUCTIONS.unknown),
@@ -665,7 +677,7 @@ export default defineMockDomain({
         return { task };
       }),
 
-      handle(API_ROUTES.taskHandOff, ({ params }) => {
+      handle(API_ROUTES.taskHandOff, ({ params, body }) => {
         const task = taskOf(params.id);
         if (task.status !== "blocked")
           throw conflict("Only a blocked task can be handed to an agent.");
@@ -687,6 +699,8 @@ export default defineMockDomain({
           },
           { minutes: 0 },
         );
+        handed.assignment =
+          body.to === undefined ? task.assignment : assignmentFor(store, body.to, body.fallback);
         if (request)
           addEvent(store, request, "task_enqueued", "system", handed.updatedAt, ref(handed));
         const scan = store.scans.find((candidate) => candidate.taskId === task.id);
