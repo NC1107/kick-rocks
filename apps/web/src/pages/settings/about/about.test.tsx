@@ -8,9 +8,10 @@ import { Component as AboutPage } from "./index.js";
 describe("the about page", () => {
   it("shows the version, the list sizes, and the license of the code", async () => {
     renderPage(<AboutPage />, { withProfile: false });
-    expect(await screen.findByText("0.1.0-mock")).toBeInTheDocument();
+    expect(await screen.findByText("v0.1.0-mock")).toBeInTheDocument();
     expect(screen.getByText(/29 brokers, built/)).toBeInTheDocument();
-    expect(screen.getByText("32 companies")).toBeInTheDocument();
+    expect(screen.getByText("Built")).toBeInTheDocument();
+    expect(screen.getByText("Backup")).toBeInTheDocument();
     const license = screen.getByRole("link", { name: /PolyForm Noncommercial 1\.0\.0/ });
     expect(license).toHaveAttribute(
       "href",
@@ -21,7 +22,7 @@ describe("the about page", () => {
 
   it("holds the instance fact rows themselves while the details load, so their height comes from one place", () => {
     renderPage(<AboutPage />, { withProfile: false });
-    for (const label of ["Version", "Broker list", "Company list", "Profiles"]) {
+    for (const label of ["Version", "Built", "Broker list", "Backup"]) {
       expect(screen.getByText(label).parentElement).toHaveClass("min-h-row");
     }
   });
@@ -133,7 +134,7 @@ describe("the about page", () => {
       renderPage(<AboutPage />, { mock, withProfile: false });
       expect(await screen.findByText(text)).toBeInTheDocument();
       expect(screen.getByText("This instance is not working properly")).toBeInTheDocument();
-      expect(screen.getByText("0.1.0-mock")).toBeInTheDocument();
+      expect(screen.getByText("v0.1.0-mock")).toBeInTheDocument();
       expect(screen.queryByText("Could not load this instance's details")).not.toBeInTheDocument();
     },
   );
@@ -160,7 +161,7 @@ describe("the about page", () => {
 
   it("shows no warning when the instance is well", async () => {
     renderPage(<AboutPage />, { withProfile: false });
-    await screen.findByText("0.1.0-mock");
+    await screen.findByText("v0.1.0-mock");
     expect(screen.queryByText("This instance is not working properly")).not.toBeInTheDocument();
   });
 
@@ -181,7 +182,7 @@ describe("the about page", () => {
     const { user } = renderPage(<AboutPage />, { mock, withProfile: false });
     expect(await screen.findByText("Could not load the data sources")).toBeInTheDocument();
     expect(screen.getByText("That request was blocked.")).toBeInTheDocument();
-    expect(await screen.findByText("0.1.0-mock")).toBeInTheDocument();
+    expect(await screen.findByText("v0.1.0-mock")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Attribution" })).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Try again" }));
   });
@@ -195,7 +196,7 @@ describe("the about page", () => {
     });
     renderPage(<AboutPage />, { mock, withProfile: false });
     expect(await screen.findByText("Could not load this instance's details")).toBeInTheDocument();
-    expect(screen.getByText("0.1.0-mock")).toBeInTheDocument();
-    expect(screen.queryByText("Company list")).toBeNull();
+    expect(screen.getByText("v0.1.0-mock")).toBeInTheDocument();
+    expect(screen.queryByText("Broker list")).toBeNull();
   });
 });

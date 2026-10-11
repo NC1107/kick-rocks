@@ -1,8 +1,12 @@
 import { API_ROUTES, type ProfileSummary } from "@kickrocks/shared";
 import { Mail, MailPlus, Star, Trash2 } from "lucide-react";
 import { useState } from "react";
-import { Link } from "react-router";
-import { errorMessage, useApiMutation, useApiQuery, useCurrentProfile } from "../../../api/index.js";
+import {
+  errorMessage,
+  useApiMutation,
+  useApiQuery,
+  useCurrentProfile,
+} from "../../../api/index.js";
 import {
   Button,
   Callout,

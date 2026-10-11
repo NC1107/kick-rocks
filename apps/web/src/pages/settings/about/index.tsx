@@ -5,6 +5,7 @@ import {
   type InstanceHealth,
 } from "@kickrocks/shared";
 import { errorMessage, useApiQuery, useInstanceHealth } from "../../../api/index.js";
+import { versionLabel } from "../../../components/layout/shell-status.js";
 import {
   Button,
   Callout,
@@ -15,7 +16,6 @@ import {
   Skeleton,
   Tag,
 } from "../../../components/ui/index.js";
-import { versionLabel } from "../../../components/layout/shell-status.js";
 import {
   formatCount,
   formatDate,
@@ -40,7 +40,8 @@ export function Component() {
       <div className={`${SETTINGS_WIDTH} flex flex-col gap-4`}>
         <InstanceSection />
         <SourcesSection />
-        <LicensesSection />
+        <LimitsSection />
+        <AttributionSection />
         <LinksSection />
       </div>
     </>
@@ -52,7 +53,7 @@ function InstanceSection() {
   const status = useApiQuery(API_ROUTES.status);
 
   return (
-    <Section label="Version">
+    <Section label="Kick Rocks">
       {health.isPending || status.isPending ? (
         <RowGroup aria-busy="true">
           {["Version", "Built", "Broker list", "Backup"].map((label) => (
@@ -60,6 +61,7 @@ function InstanceSection() {
               <Skeleton className="h-3.5 w-1/2" />
             </FactRow>
           ))}
+          <LicenseRow />
         </RowGroup>
       ) : (
         <>
@@ -111,6 +113,7 @@ function InstanceSection() {
                 </FactRow>
               </>
             ) : null}
+            <LicenseRow />
           </RowGroup>
         </>
       )}
@@ -130,6 +133,17 @@ function LinksSection() {
         </FactRow>
       </RowGroup>
     </Section>
+  );
+}
+
+function LicenseRow() {
+  return (
+    <FactRow label="License" mono={false}>
+      <ExternalLinkText href={POLYFORM_URL}>PolyForm Noncommercial 1.0.0</ExternalLinkText>
+      <span className="block text-ink-3">
+        Free to use and change for yourself, not to sell. Copyright NC1107.
+      </span>
+    </FactRow>
   );
 }
 
@@ -239,30 +253,53 @@ function SourceRow({ source }: { source: DataSourceInfo }) {
   );
 }
 
-function LicensesSection() {
+function LimitsSection() {
   return (
-    <Section label="Licenses">
+    <Section label="Limits">
       <div className="flex max-w-prose flex-col gap-3 text-body text-ink">
         <p>
-          Kick Rocks is under{" "}
-          <ExternalLinkText href={POLYFORM_URL}>PolyForm Noncommercial 1.0.0</ExternalLinkText>.
-          Free to use and change for yourself, not to sell. Copyright NC1107.
+          This is not legal advice. A privacy law may not apply to a given business, and a request
+          does not guarantee that anything gets deleted.
         </p>
+        <p>
+          A broker can add you back after it removes you, or get your details again from somewhere
+          else. That is why the rescans exist.
+        </p>
+        <p>
+          A request to a broker that never had you can create a new link between your name and your
+          email on its side.
+        </p>
+        <p>
+          Many states have no privacy law, so there the email rests on the company's own privacy
+          policy, and a broker may not have one.
+        </p>
+      </div>
+    </Section>
+  );
+}
+
+function AttributionSection() {
+  return (
+    <Section label="Attribution">
+      <div className="flex max-w-prose flex-col gap-3 text-body text-ink">
         <p>
           The broker list includes entries from the{" "}
           <ExternalLinkText href={BADBOOL_URL}>Big Ass Data Broker Opt-Out List</ExternalLinkText>{" "}
-          by Yael Grauer, under{" "}
-          <ExternalLinkText href={CC_BY_NC_SA_URL}>CC BY-NC-SA 4.0</ExternalLinkText>, converted to
-          Kick Rocks's format with added fields. The resulting list is shared under the same
-          license, separately from the application code.
+          by Yael Grauer, under the Creative Commons Attribution-NonCommercial-ShareAlike 4.0
+          license (<ExternalLinkText href={CC_BY_NC_SA_URL}>CC BY-NC-SA 4.0</ExternalLinkText>).
+        </p>
+        <p>
+          Kick Rocks converted those entries into its own format and added fields to them. The
+          resulting broker list is shared under the same license, separately from the application
+          code.
         </p>
         <p>
           It also includes entries from the{" "}
           <ExternalLinkText href={ERASER_URL}>Eraser</ExternalLinkText> broker list, under the MIT
-          license. The license text stays with the copy of that list in the repository.
+          license. The MIT license text stays with the copy of that list in the repository.
         </p>
         <p className="text-ink-2">
-          This is not legal advice, and a request does not guarantee that anything gets deleted.
+          Contacts in the company list were checked against each company's own privacy page.
         </p>
       </div>
     </Section>

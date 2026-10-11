@@ -15,10 +15,12 @@ export function SettingsHeader({
   section,
   description,
   actions,
+  hideDescriptionOnPhone,
 }: {
   section: (typeof TABS)[number]["label"];
   description: string;
   actions?: ReactNode;
+  hideDescriptionOnPhone?: boolean;
 }) {
   return (
     <>
@@ -27,6 +29,7 @@ export function SettingsHeader({
         documentTitle={`${section} - Settings`}
         description={description}
         actions={actions}
+        {...(hideDescriptionOnPhone ? { hideDescriptionOnPhone } : {})}
       />
       <div className="mb-5">
         <LinkTabs items={TABS} label="Settings sections" />

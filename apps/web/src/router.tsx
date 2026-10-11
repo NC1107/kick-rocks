@@ -15,7 +15,7 @@ import { ToastProvider } from "./components/ui/index.js";
  *   /profiles/:id -> pages/profiles/detail      /profiles/:id/mailbox -> pages/mailbox
  */
 
-const appRoutes: RouteObject[] = [
+export const appRoutes: RouteObject[] = [
   { index: true, lazy: () => import("./pages/dashboard/index.js") },
   { path: "profiles", element: <Navigate to="/settings/profiles" replace /> },
   { path: "profiles/new", lazy: () => import("./pages/profiles/new/index.js") },

@@ -106,10 +106,7 @@ export function Component() {
 
   return (
     <>
-      <PageHeader
-        title="New profile"
-        description="A person and the details targets know them by"
-      />
+      <PageHeader title="New profile" description="A person and the details targets know them by" />
       <UnsavedChangesDialog blocker={unsaved.blocker} />
       <form ref={form} onSubmit={submit} noValidate className="flex max-w-3xl flex-col gap-4">
         <Section label="Profile">

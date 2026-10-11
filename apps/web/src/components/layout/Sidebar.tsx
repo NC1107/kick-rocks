@@ -1,10 +1,6 @@
 import { LogOut, X } from "lucide-react";
 import { NavLink } from "react-router";
-import {
-  useCurrentProfile,
-  useLogout,
-  useReviewCount,
-} from "../../api/index.js";
+import { useCurrentProfile, useLogout, useReviewCount } from "../../api/index.js";
 import { cn } from "../../lib/cn.js";
 import { IconButton } from "../ui/index.js";
 import { Logo } from "./Logo.js";
