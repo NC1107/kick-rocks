@@ -229,9 +229,8 @@ describe("the profile page", () => {
     await user.click(screen.getByRole("button", { name: "Save identities" }));
     await screen.findByText("Identities updated.");
     const put = seen.find((request) => request.method === "PUT");
-    const sent = (put?.json as { identities: { kind: string; value: object }[] }).identities.find(
-      (identity) => identity.kind === "address",
-    );
+    const body = put?.json as { identities: { kind: string; value: object }[] };
+    const sent = body.identities.find((identity) => identity.kind === "address");
     expect(sent?.value).toMatchObject({ street: "500 Real Road", unit: "Apt 12" });
     const stored = mock.store.profiles.find((p) => p.id === profile.id);
     expect(JSON.stringify(stored?.identities)).not.toContain("Apt 12 Apt 12");

@@ -10,7 +10,6 @@ import {
   Input,
   RowGroup,
   Section,
-  Select,
   Tag,
 } from "../../components/ui/index.js";
 import { IDENTITY_KIND_LABELS } from "../../lib/labels.js";

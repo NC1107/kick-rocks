@@ -35,7 +35,7 @@ const TRAILING_UNIT = new RegExp(
   String.raw`(?:\s*,\s*|\s+)(?:${UNIT_DESIGNATOR})([A-Za-z0-9][A-Za-z0-9-]*)\s*$`,
   "i",
 );
-const LEADING_DESIGNATOR = new RegExp(String.raw`^(?:${UNIT_DESIGNATOR})`, "i");
+const LEADING_DESIGNATOR = new RegExp(`^(?:${UNIT_DESIGNATOR})`, "i");
 
 function unitCore(unit: string): string {
   return unit.trim().replace(LEADING_DESIGNATOR, "").trim().toLowerCase();
