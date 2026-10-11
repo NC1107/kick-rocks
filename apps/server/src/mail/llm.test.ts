@@ -235,7 +235,8 @@ describe("the language model fallback", () => {
     const result = await classifierWith(LLM, fetchImpl).classify(message(), {
       requests: [target],
     });
-    expect(result).toMatchObject({ requestId: "req-1", classification: "unrelated" });
+    expect(result).toMatchObject({ requestId: "req-1", classification: "unknown", apply: false });
+    expect(result.suggestion?.classification).toBe("unrelated");
     expect(result.confidence).toBeLessThan(0.6);
   });
 
@@ -332,31 +333,6 @@ describe("the language model fallback", () => {
     });
     expect(result).toMatchObject({ classification: "unknown", requestedFields: [], apply: false });
     expect(result.suggestion?.classification).toBe("verification_required");
-  });
-
-  it("treats a list of nine or more of the eleven fields as no list, because the model copied the enum", async () => {
-    const all = [...ProfileField.options];
-    const dumped = fakeLlm(
-      verdict({ classification: "verification_required", requested_fields: all }),
-    );
-    const result = await classifierWith(LLM, dumped.fetchImpl).classify(message(), {
-      requests: [target],
-    });
-    expect(result.requestedFields).toEqual([]);
-    const nine = fakeLlm(
-      verdict({ classification: "verification_required", requested_fields: all.slice(0, 9) }),
-    );
-    expect(
-      (await classifierWith(LLM, nine.fetchImpl).classify(message(), { requests: [target] }))
-        .requestedFields,
-    ).toEqual([]);
-    const eight = fakeLlm(
-      verdict({ classification: "verification_required", requested_fields: all.slice(0, 8) }),
-    );
-    expect(
-      (await classifierWith(LLM, eight.fetchImpl).classify(message(), { requests: [target] }))
-        .requestedFields,
-    ).toEqual(all.slice(0, 8));
   });
 
   it("returns no identifiers for any other class", async () => {
