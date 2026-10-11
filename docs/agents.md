@@ -33,7 +33,7 @@ The agent does the browsing itself, so it needs three more things.
 
 ## Connect a client
 
-1. Open Settings, then Agents, and turn on "Allow agents to connect" under Agent access.
+1. Open Settings, then Agents, open "Set up" on the Agent access row, and turn on "Allow agents to connect".
 2. Create a token.
    It is shown once and only its hash is stored, so copy it now.
    Creating a new token replaces the old one, and every client using the old token stops working.
@@ -425,7 +425,9 @@ What the gate does not hold, so you know what you are trusting:
 The browser settings are the same as the built-in worker's: `KICKROCKS_WORKER_HEADLESS`, `KICKROCKS_WORKER_PACE`, `KICKROCKS_CHROME_EXECUTABLE`, and the rest of `apps/worker/README.md`, apart from the proxy, which the agent worker does not read.
 In the compose service only `KICKROCKS_WORKER_PACE` can be changed from `.env`.
 The image fixes the others: it runs a headed chrome on Xvfb with the sandbox off, because docker's default seccomp profile blocks chrome's sandbox.
-Inside a container, `localhost` is the container, so ollama on the host is `host.docker.internal`, which the compose file maps for you.
+Inside a container, `localhost` is the container, so ollama on the host is `host.docker.internal`, which the compose file maps for both the server and the agent worker.
+On Linux that name points at the docker bridge, and ollama's default of listening on `127.0.0.1` refuses it.
+Set `OLLAMA_HOST=0.0.0.0:11434` for the ollama service (or bind it to the bridge address) so a container can reach it.
 
 ### What the model can do
 
@@ -589,6 +591,16 @@ A connected mcp client is not held back by either rule, because you connected it
 
 Settings shows a row for the recipe worker and one for the agent worker.
 Each has its own state, so an agent worker that is down is never hidden by a recipe worker that is up.
+
+### What the agent worker tells the server about its machine
+
+With each heartbeat the agent worker reports its host name, platform, CPU cores and memory, the GPUs `nvidia-smi` or `rocm-smi` lists, and, when its provider is ollama, which models its Ollama has installed and loaded.
+That is what lets Settings, then Agents, recommend a model.
+The worker never sends keys, and the Ollama address it reports has any credentials removed.
+It also lets the server offer the model chosen on that screen, and the worker takes it only between tasks, only for the ollama provider, and only if the model is installed.
+The address, the provider and the keys always stay the worker's own.
+The server probes the address saved for the reply model, an Ollama address the worker reports on your network, and, only while no reply model is set, four usual local addresses.
+It scans nothing else.
 
 ### Browser data of deleted profiles
 

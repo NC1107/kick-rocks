@@ -16,6 +16,8 @@ x-fixture-hosts: &fixture-hosts
   - fixture-agent.test
   - fixture-link.test
   - fixture-linkjs.test
+  # A name that only resolves on a LAN, which is the only kind the setup screen probes.
+  - fixture-ollama.lan
 
 services:
   greenmail:
@@ -92,6 +94,32 @@ services:
       KICKROCKS_WORKER_ALLOW_HTTP: "true"
     networks:
       - stack
+
+  # The agent worker the setup screen's journey starts on demand (--profile agent). It runs against
+  # the fixture's stand-in Ollama, so it reports a real heartbeat without a model behind it. It is not
+  # part of the default stack, because a worker that claims agent tasks would take the other journeys'.
+  agent-worker:
+    build:
+      context: .
+      dockerfile: apps/agent-worker/Dockerfile
+    image: kickrocks/agent-worker:dev
+    depends_on:
+      server:
+        condition: service_healthy
+    shm_size: 1gb
+    environment:
+      KICKROCKS_SERVER_URL: http://server:8420
+      KICKROCKS_WORKER_TOKEN: ${KICKROCKS_WORKER_TOKEN:-e2e-worker-token-0123456789abcdef}
+      KICKROCKS_WORKER_ID: e2e-agent-worker
+      KICKROCKS_WORKER_POLL_MS: "500"
+      KICKROCKS_WORKER_ALLOW_HTTP: "true"
+      KICKROCKS_AGENT_PROVIDER: ollama
+      KICKROCKS_AGENT_MODEL: qwen3:8b
+      KICKROCKS_AGENT_BASE_URL: http://fixture-ollama.lan:8530
+    networks:
+      - stack
+    profiles:
+      - agent
 
   edge:
     image: node:22-bookworm-slim

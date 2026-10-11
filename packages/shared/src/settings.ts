@@ -17,6 +17,13 @@ import {
 import { EgressPatch, EgressSettings, ScanningPatch, ScanningSettings } from "./scanning.js";
 import { TaskSummary } from "./tasks.js";
 import { WebUrl } from "./url.js";
+import {
+  AgentModelChoice,
+  AgentModelState,
+  WORKER_ACCEPTS,
+  WorkerHost,
+  WorkerOllama,
+} from "./worker-inventory.js";
 
 const pollMinutes = z.number().int().min(1).max(1440);
 const rescanDays = z.number().int().min(1).max(365);
@@ -101,8 +108,23 @@ export const WorkerStatus = z.object({
   resultPending: z.boolean().optional(),
   /** The model a model-backed worker drives, as it last said. */
   model: ModelIdentity.nullable().optional(),
+  host: WorkerHost.nullable().optional(),
+  ollama: WorkerOllama.nullable().optional(),
+  /** What the worker said it can take from the server. */
+  accepts: z.array(z.enum(WORKER_ACCEPTS)).optional(),
+  /** What became of the last model choice the server offered. */
+  agentModelState: AgentModelState.nullable().optional(),
 });
 export type WorkerStatus = z.infer<typeof WorkerStatus>;
+
+const gpuMemoryGb = z.number().min(1).max(1024);
+
+/** The person's answer to how much memory the GPU running each Ollama has, asked once. */
+export const GpuMemoryAnswers = z.object({
+  worker: gpuMemoryGb.nullable().default(null),
+  server: gpuMemoryGb.nullable().default(null),
+});
+export type GpuMemoryAnswers = z.infer<typeof GpuMemoryAnswers>;
 
 /** Every key in the settings table with the schema of its value. */
 export const SETTING_SCHEMAS = {
@@ -126,6 +148,12 @@ export const SETTING_SCHEMAS = {
    * next run. 0 defers every send, for a person who approves in batches.
    */
   "agent.approvalHoldMinutes": z.number().int().min(0).max(120).default(10),
+  /**
+   * The model the agent worker should drive, chosen on the server. Null keeps the worker's own
+   * environment setting, which is also where it starts.
+   */
+  "agent.model": AgentModelChoice.nullable().default(null),
+  "agent.gpuMemoryGb": GpuMemoryAnswers.default(GpuMemoryAnswers.parse({})),
   notifications: NotificationSettings.default(NotificationSettings.parse({})),
   "notifications.state": NotificationState.default(NotificationState.parse({})),
 } as const;
@@ -155,6 +183,9 @@ export const SettingsView = z.object({
     /** Lets the agent worker take a site whose bundled recipe has not been approved yet. */
     takeUnreviewed: z.boolean(),
     approvalHoldMinutes: z.number().int().min(0).max(120),
+    /** Null means the agent worker uses its own environment setting. */
+    model: AgentModelChoice.nullable(),
+    gpuMemoryGb: GpuMemoryAnswers,
     gate: z.object({
       records: z.array(GateRecord),
       /** The model the agent worker last said it drives, and whether it may send forms unattended. */
@@ -193,6 +224,14 @@ export const SettingsPatch = z.object({
     .object({
       takeUnreviewed: z.boolean().optional(),
       approvalHoldMinutes: z.number().int().min(0).max(120).optional(),
+      /** Null goes back to the worker's own setting. A model the worker has not listed is refused. */
+      model: AgentModelChoice.nullable().optional(),
+      gpuMemoryGb: z
+        .object({
+          worker: gpuMemoryGb.nullable().optional(),
+          server: gpuMemoryGb.nullable().optional(),
+        })
+        .optional(),
       /** Allows a model to send forms unattended without a benchmark pass, or takes the allowance back. */
       gateOverride: z
         .object({

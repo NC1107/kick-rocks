@@ -61,6 +61,8 @@ interface WorkerApiClientOptions {
   claimer?: WorkerClaimer;
   /** For a worker that drives a model: which one, asked again whenever the worker speaks. */
   model?: () => Promise<ModelIdentity>;
+  /** For a worker that reports more than its model, such as its machine: added to every heartbeat. */
+  inventory?: () => Promise<Partial<WorkerHeartbeatBody>>;
   /** Replaced in tests. */
   fetch?: typeof fetch;
 }
@@ -81,6 +83,7 @@ export class WorkerApiClient {
         workerId: this.options.workerId,
         ...this.claimer(),
         ...(await this.model()),
+        ...(await this.options.inventory?.()),
         ...status,
       },
     });

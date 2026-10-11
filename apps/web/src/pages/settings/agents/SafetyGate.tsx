@@ -1,7 +1,8 @@
 import {
-  type AgentPreset,
+  type AgentSetupView,
   API_ROUTES,
   type GateRecord,
+  type GateVerdict,
   gateCommand,
   type SettingsView,
 } from "@kickrocks/shared";
@@ -23,14 +24,14 @@ import {
 } from "../../../components/ui/index.js";
 import { GATE_LIMITS } from "../../review/sends-model.js";
 import { BodyRow, FactRow, FieldRow, GroupNote, Value } from "../rows.js";
-import { describeModel, GATE_SENTENCES, GATE_WORDS, holdChoicesFor, presetGate } from "./gate.js";
+import { describeModel, GATE_SENTENCES, GATE_WORDS, holdChoicesFor } from "./gate.js";
 
 type GateView = SettingsView["agent"]["gate"];
 
 function useOverride() {
   const toast = useToast();
   return useApiMutation(API_ROUTES.settingsPatch, {
-    invalidates: [API_ROUTES.settingsGet],
+    invalidates: [API_ROUTES.settingsGet, API_ROUTES.settingsAgentSetup],
     onSuccess: (_view, { body }) =>
       toast.success(
         body.agent?.gateOverride?.enabled
@@ -49,20 +50,32 @@ function GateMark({ cleared, word }: { cleared: boolean; word: string }) {
   );
 }
 
-function ModelGate({ agent, gate }: { agent: AgentPreset; gate: GateView }) {
+interface GateModel {
+  name: string;
+  thinking: "default" | "off";
+}
+
+function ModelGate({
+  agent,
+  verdict,
+  gate,
+}: {
+  agent: GateModel;
+  verdict: GateVerdict;
+  gate: GateView;
+}) {
   const override = useOverride();
   const [confirming, setConfirming] = useState(false);
-  const verdict = presetGate(agent, gate);
   const allowed = verdict.state === "override";
   const body = (enabled: boolean) => ({
-    agent: { gateOverride: { provider: "ollama" as const, name: agent.model, enabled } },
+    agent: { gateOverride: { provider: "ollama" as const, name: agent.name, enabled } },
   });
 
   return (
     <>
       <RowGroup>
         <Row
-          title={<span className="font-mono">{agent.model}</span>}
+          title={<span className="font-mono">{agent.name}</span>}
           trailing={
             <GateMark cleared={verdict.state === "passed"} word={GATE_WORDS[verdict.state]} />
           }
@@ -93,7 +106,7 @@ function ModelGate({ agent, gate }: { agent: AgentPreset; gate: GateView }) {
       <ConfirmDialog
         open={confirming}
         onClose={() => setConfirming(false)}
-        title={`Let ${agent.model} send forms alone?`}
+        title={`Let ${agent.name} send forms alone?`}
         description="Nothing has shown this model is safe here. In the benchmark, models that did not pass sent a second request to a site that said the person was already removed, or tried to type a detail the task does not have."
         confirmLabel="Allow it"
         destructive
@@ -224,30 +237,67 @@ function HoldTime({ minutes }: { minutes: number }) {
   );
 }
 
+/** Where every model installed on the agent's Ollama stands, off the build it really is. */
+function InstalledModels({ installed }: { installed: AgentSetupView["installedGate"] }) {
+  return (
+    <Section label="Installed models" count={installed.length} as="h3">
+      <RowGroup>
+        {installed.length === 0 ? (
+          <BodyRow className="text-meta text-ink-2">No models are installed.</BodyRow>
+        ) : (
+          installed.map((entry) => (
+            <Row
+              key={entry.name}
+              title={<span className="font-mono">{entry.name}</span>}
+              trailing={
+                <GateMark
+                  cleared={entry.verdict.state === "passed"}
+                  word={GATE_WORDS[entry.verdict.state]}
+                />
+              }
+            />
+          ))
+        )}
+      </RowGroup>
+    </Section>
+  );
+}
+
 export function SafetyGate({
   agent,
+  verdict,
+  installed,
   gate,
   holdMinutes,
   serverUrl,
 }: {
-  agent: AgentPreset;
+  /** The model the gate is shown for: the one recommended, or the one chosen by hand. */
+  agent: GateModel | null;
+  verdict: GateVerdict;
+  /** Null when nothing was probed, so a list of installed models would claim there are none. */
+  installed: AgentSetupView["installedGate"] | null;
   gate: GateView;
   holdMinutes: number;
   serverUrl: string;
 }) {
   return (
-    <>
-      <Section label="Safety gate" as="h3">
-        <ModelGate agent={agent} gate={gate} />
-      </Section>
+    <div id="safety-gate" className="flex scroll-mt-4 flex-col gap-4">
+      {installed ? <InstalledModels installed={installed} /> : null}
+      {agent ? (
+        <Section label="Safety gate" as="h3">
+          <ModelGate agent={agent} verdict={verdict} gate={gate} />
+        </Section>
+      ) : null}
       <HoldTime minutes={holdMinutes} />
-      <Section label="Run the gate" as="h3">
-        <CodeBlock title="bash" code={gateCommand(agent, serverUrl)} />
-        <GroupNote>
-          Put the worker token in place of the placeholder, and run it from a checkout.
-        </GroupNote>
-      </Section>
+      {agent ? (
+        <Section label="Run the gate" as="h3">
+          <CodeBlock title="bash" code={gateCommand(agent, serverUrl)} />
+          <GroupNote>
+            Put the worker token in place of the placeholder, and run it from a checkout.
+          </GroupNote>
+        </Section>
+      ) : null}
       {gate.records.length > 0 ? <Records records={gate.records} /> : null}
-    </>
+    </div>
   );
 }

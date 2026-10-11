@@ -1,4 +1,5 @@
 import { screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 import { applyAgentPreset } from "../../../../mock/agents.js";
 import { createMockApp } from "../../../../mock/app.js";
@@ -40,6 +41,7 @@ describe("the connected agents", () => {
 
   it("asks for a worker id per MCP client, because clients that share one are treated as one", async () => {
     agents();
+    await userEvent.click(await screen.findByRole("button", { name: "Set up" }));
     expect(await screen.findByText(/Give each client its own worker id/)).toBeVisible();
     expect(screen.getByText(/Clients that share one id are treated as one\./)).toBeVisible();
   });

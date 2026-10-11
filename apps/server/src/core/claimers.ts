@@ -3,6 +3,7 @@ import {
   AGENT_LISTED_MS,
   CLAIMER_TOUCH_MS,
   type ModelIdentity,
+  type WorkerInventory,
   type WorkerStatus,
 } from "@kickrocks/shared";
 import { and, desc, eq, gte, lt } from "drizzle-orm";
@@ -19,6 +20,7 @@ export interface WorkerBeat {
   currentTaskId: string | null;
   resultPending: boolean;
   model: ModelIdentity | null;
+  inventory: WorkerInventory | null;
 }
 
 /**
@@ -54,6 +56,7 @@ export function createClaimers(db: KickRocksDb, clock: Clock): Claimers {
         target: [claimers.kind, claimers.workerId],
         set: {
           model: row.model,
+          inventory: row.inventory,
           version: row.version,
           busy: row.busy,
           currentTaskId: row.currentTaskId,
@@ -70,6 +73,7 @@ export function createClaimers(db: KickRocksDb, clock: Clock): Claimers {
         kind: beat.kind,
         workerId: beat.workerId,
         model: beat.model,
+        inventory: beat.inventory,
         version: beat.version,
         busy: beat.busy,
         currentTaskId: beat.currentTaskId,
@@ -92,6 +96,7 @@ export function createClaimers(db: KickRocksDb, clock: Clock): Claimers {
         kind: "mcp",
         workerId,
         model: null,
+        inventory: null,
         version: null,
         busy: false,
         currentTaskId: null,
@@ -123,6 +128,7 @@ export function createClaimers(db: KickRocksDb, clock: Clock): Claimers {
         currentTaskId: row.currentTaskId,
         ...(row.resultPending ? { resultPending: true } : {}),
         ...(row.model ? { model: row.model } : {}),
+        ...row.inventory,
       };
     },
 

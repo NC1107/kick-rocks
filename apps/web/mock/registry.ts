@@ -1,4 +1,5 @@
 import about from "./about.js";
+import agentSetup from "./agent-setup.js";
 import agents from "./agents.js";
 import auth from "./auth.js";
 import campaigns from "./campaigns.js";
@@ -27,5 +28,6 @@ export const MOCK_DOMAINS: readonly MockDomain[] = [
   campaigns,
   dashboard,
   settings,
+  agentSetup,
   about,
 ];

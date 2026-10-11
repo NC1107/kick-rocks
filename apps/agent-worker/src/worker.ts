@@ -1,4 +1,10 @@
 import { HUMAN_PACE, INSTANT_PACE, type Pace } from "@kickrocks/recipes";
+import {
+  type AgentModelChoice,
+  type AgentModelState,
+  WORKER_ACCEPTS,
+  type WorkerHost,
+} from "@kickrocks/shared";
 import { WorkerApiClient } from "@kickrocks/worker/dist/api-client.js";
 import {
   type BrowserLauncher,
@@ -8,9 +14,12 @@ import {
 import { describeError, type Logger } from "@kickrocks/worker/dist/logger.js";
 import type { Page } from "playwright";
 import { runAgentTask } from "./agent.js";
-import type { AgentWorkerConfig } from "./config.js";
+import { decideAgentModel, sameModelSettings } from "./agent-model.js";
+import type { AgentWorkerConfig, ProviderConfig } from "./config.js";
+import { collectHost } from "./host.js";
 import { type AgentExecutor, type LoopContext, runLoop } from "./loop.js";
 import { modelIdentitySource } from "./model-identity.js";
+import { createOllamaSnapshot, inventoryOf } from "./ollama-snapshot.js";
 import type { SendsApi } from "./outbound/held.js";
 import type { ModelProvider } from "./provider.js";
 import { createProvider } from "./providers/index.js";
@@ -27,6 +36,8 @@ interface AgentWorkerOptions {
   launcher?: BrowserLauncher;
   provider?: ModelProvider;
   fetch?: typeof fetch;
+  /** Replaced in tests, which have no business running nvidia-smi. */
+  probeHost?: () => Promise<WorkerHost>;
   timing?: LoopContext["timing"];
   challengeGraceMs?: number;
   /** Shortens how long a send waits for a person. Only a test that has nobody to answer wants it. */
@@ -48,15 +59,66 @@ function sendsFor(api: WorkerApiClient, taskId: string, attempt: number): SendsA
 /** Builds the agent worker from its config and runs it until the signal aborts, then closes the browser. */
 export async function runAgentWorker(options: AgentWorkerOptions): Promise<void> {
   const { config, signal, logger } = options;
+  const snapshots =
+    config.provider.kind === "ollama"
+      ? createOllamaSnapshot({
+          baseUrl: config.provider.baseUrl,
+          apiKey: config.provider.apiKey,
+          ...(options.fetch ? { fetch: options.fetch } : {}),
+        })
+      : null;
+  // The machine does not change while the worker runs, so it is read once and the GPU tools run once.
+  const host = (options.probeHost ?? collectHost)().catch((error: unknown) => {
+    logger.warn("could not read the machine", { error: describeError(error) });
+    return undefined;
+  });
+  let current: ProviderConfig = config.provider;
+  let identity = modelIdentitySource(current, snapshots);
+  let agentModelState: AgentModelState | undefined;
+
   const api = new WorkerApiClient({
     serverUrl: config.serverUrl,
     token: config.token,
     workerId: config.workerId,
     claimer: "model",
-    model: modelIdentitySource(config.provider, options.fetch ? { fetch: options.fetch } : {}),
+    model: () => identity(),
+    inventory: async () => {
+      const machine = await host;
+      const ollama = snapshots ? inventoryOf(await snapshots.get()) : null;
+      return {
+        ...(machine ? { host: machine } : {}),
+        ...(ollama ? { ollama } : {}),
+        accepts: [...WORKER_ACCEPTS],
+      };
+    },
     ...(options.fetch ? { fetch: options.fetch } : {}),
   });
-  const provider = options.provider ?? createProvider(config.provider);
+  let provider = options.provider ?? createProvider(current);
+
+  const takeAgentModel = async (choice: AgentModelChoice | null): Promise<boolean> => {
+    if (choice === null && sameModelSettings(config.provider, current)) return false;
+    const previous = agentModelState;
+    const isCurrent =
+      choice !== null &&
+      choice.name === current.model &&
+      choice.thinking === current.thinking &&
+      choice.numCtx === current.numCtx;
+    if (choice !== null && !isCurrent) snapshots?.invalidate();
+    const decision = decideAgentModel(
+      config.provider,
+      choice,
+      snapshots ? await snapshots.get() : null,
+    );
+    agentModelState = decision.state;
+    const { next } = decision;
+    if (next === null || sameModelSettings(next, current)) return agentModelState !== previous;
+    logger.info("switching the agent model", { from: current.model, to: next.model });
+    current = next;
+    identity = modelIdentitySource(current, snapshots);
+    // A stand-in provider given by a test has no model to switch.
+    provider = options.provider ?? createProvider(current);
+    return true;
+  };
   const browsers = createProfileBrowsers(
     {
       profileDir: config.chromeProfileDir,
@@ -156,6 +218,8 @@ export async function runAgentWorker(options: AgentWorkerOptions): Promise<void>
       version: `agent-${readAgentWorkerVersion()}`,
       forceStop: closeGatesThenBrowsers,
       keepProfiles: (profileIds) => browsers.keepOnly(profileIds),
+      takeAgentModel,
+      agentModelState: () => agentModelState,
       ...(options.timing ? { timing: options.timing } : {}),
     });
   } finally {

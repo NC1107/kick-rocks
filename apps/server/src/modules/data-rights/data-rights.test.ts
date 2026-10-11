@@ -643,6 +643,8 @@ describe("reset instance", () => {
     });
     store.set("agent.takeUnreviewed", true);
     store.set("agent.approvalHoldMinutes", 3);
+    store.set("agent.model", { name: "gpt-oss:20b", thinking: "default", numCtx: 16_384 });
+    store.set("agent.gpuMemoryGb", { worker: 16, server: null });
     store.set("agent.gate", {
       records: [
         {

@@ -141,9 +141,32 @@ function confirmToken(token) {
   return true;
 }
 
+// A stand-in for an Ollama on a 16 GB desktop, answering only what the setup screen asks for.
+const OLLAMA_MODELS = [
+  ["gpt-oss:20b", "e2edigest-gpt-oss", 13_000_000_000, "20.9B", "MXFP4"],
+  ["qwen3:14b", "e2edigest-qwen3-14b", 9_300_000_000, "14.8B", "Q4_K_M"],
+  ["qwen3:8b", "e2edigest-qwen3-8b", 5_200_000_000, "8.2B", "Q4_K_M"],
+].map(([name, digest, size, parameter_size, quantization_level]) => ({
+  name,
+  digest,
+  size,
+  details: { parameter_size, quantization_level },
+}));
+
+function fakeOllama(path, response) {
+  if (path === "/api/version") return json(response, 200, { version: "0.12.3" });
+  if (path === "/api/tags") return json(response, 200, { models: OLLAMA_MODELS });
+  if (path === "/api/ps") return json(response, 200, { models: [] });
+  return json(response, 404, {});
+}
+
 const server = createServer(async (request, response) => {
   const url = new URL(request.url ?? "/", "http://fixture.local");
   const path = url.pathname.replace(/\/+$/, "") || "/";
+
+  if ((request.headers.host ?? "").startsWith("fixture-ollama.lan")) {
+    return fakeOllama(path, response);
+  }
 
   if (path === "/__admin/state") return json(response, 200, state);
   if (path === "/__admin/reset" && request.method === "POST") {

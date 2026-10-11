@@ -25,7 +25,10 @@ Every other agent model sent a new opt-out request to a site that said the perso
 Until a model passes, Kick Rocks does not let it send a form alone.
 The agent worker fills the form, stops before the button that sends it, and parks the task in Review with a screenshot.
 You approve the submit there, or finish the task yourself.
-Settings, then Agents, has these presets for your card, with the gate for each model and the settings to copy.
+Settings, then Agents, looks for Ollama and the agent worker, reads the memory of the card where it can, and recommends one setup from the models you have installed.
+It applies the choice for you when the agent worker can take it, and otherwise gives the settings to copy.
+The numbers it recommends from are the ones in this page.
+Nothing reports the total memory of the GPU Ollama runs on, so when the agent worker cannot see the card it asks you once.
 
 Reply classification is reasonable to run unattended with any reply model in the table.
 The server only asks the model when its own rules are unsure, and it caps how far it trusts the answer, by the sender and by whether a link is really there.
@@ -219,7 +222,7 @@ Kick Rocks enforces that in the agent worker and in the server, and the Settings
 
 You run the benchmark yourself, from a checkout, because it needs chrome, the model, and the fixture pages.
 `--record` sends what it measured to the server at KICKROCKS_SERVER_URL, which decides whether it is enough.
-Set it to the address this install is served at, which Settings, then Agents, fills in for you, because the default only fits a server on the same machine.
+Set it to the address this install is served at, which the gate command under Advanced in Settings, then Agents, fills in for you, because the default only fits a server on the same machine.
 
 ```sh
 export PATH="$HOME/.local/bin:$PATH"

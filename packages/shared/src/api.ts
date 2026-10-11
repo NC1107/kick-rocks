@@ -1,5 +1,11 @@
 import { z } from "zod";
 import {
+  AgentSetupProbeBody,
+  AgentSetupQuery,
+  AgentSetupView,
+  ProbeResult,
+} from "./agent-setup.js";
+import {
   AgentsQuery,
   AgentsResponse,
   AssignBody,
@@ -1060,6 +1066,25 @@ export const API_ROUTES = {
     module: "settings",
     auth: "session",
     response: z.object({ sources: z.array(DataSourceInfo) }),
+  }),
+
+  /** What the screen for agent models detects, and the one setup it recommends from that. */
+  settingsAgentSetup: defineRoute({
+    method: "GET",
+    path: "/settings/agent-setup",
+    module: "settings",
+    auth: "session",
+    query: AgentSetupQuery,
+    response: AgentSetupView,
+  }),
+  /** Asks the server to look for Ollama at one address the person typed. */
+  settingsAgentSetupProbe: defineRoute({
+    method: "POST",
+    path: "/settings/agent-setup/probe",
+    module: "settings",
+    auth: "session",
+    body: AgentSetupProbeBody,
+    response: ProbeResult,
   }),
 
   settingsSites: defineRoute({
