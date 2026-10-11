@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Forms - Fixture Broker</title></head>
+<body>
+<main>
+<h1>Two forms</h1>
+<form method="post" action="/checked">
+  <label for="nick">Nickname</label>
+  <input id="nick" name="nick" required>
+  <label for="age">Age</label>
+  <input id="age" name="age" type="number" min="18" value="12">
+  <fieldset>
+    <legend>Kind</legend>
+    <label><input type="radio" name="kind" value="a" required> Personal</label>
+    <label><input type="radio" name="kind" value="b"> Business</label>
+  </fieldset>
+  <label for="c1">Extra 1</label><input id="c1" name="c1" required>
+  <label for="c2">Extra 2</label><input id="c2" name="c2" required>
+  <label for="c3">Extra 3</label><input id="c3" name="c3" required>
+  <input type="submit" value="Send checked form">
+</form>
+<form method="post" action="/unchecked" novalidate>
+  <label for="other">Other</label>
+  <input id="other" name="other" required>
+  <button type="submit">Send unchecked form</button>
+</form>
+<form method="post" action="/skipped">
+  <label for="skip">Skip</label>
+  <input id="skip" name="skip" required>
+  <button type="submit" formnovalidate>Send skipping the check</button>
+</form>
+<form method="post" action="/typed">
+  <label for="typed">Typed</label>
+  <input id="typed" name="typed" required>
+  <button type="button">Plain button</button>
+</form>
+</main>
+</body>
+</html>

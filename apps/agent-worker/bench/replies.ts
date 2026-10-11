@@ -1,18 +1,24 @@
 import { type LlmSettings, ReplyClassification } from "@kickrocks/shared";
 import { askLlm, LLM_TIMEOUT_MS } from "../../server/dist/mail/llm.js";
 import { readVramMiB } from "./gpu.js";
-import { REPLY_CASES, type ReplyCase } from "./reply-cases.js";
+import type { ReplyCase } from "./reply-cases.js";
+import { DEV_REPLY_CASES } from "./splits.js";
 
 export type ReplyFailure = "invalid_json" | "invalid_schema" | "http_error" | "timeout_or_network";
 
 export interface ReplyCaseResult {
   id: string;
   truth: ReplyClassification;
+  style: string;
   predicted: ReplyClassification | null;
   correct: boolean;
   failure: ReplyFailure | null;
   latencyMs: number;
   fieldsCorrect: boolean | null;
+  /** Fields listed for a reply that asks for none, which the prompt forbids. */
+  strayFields: boolean;
+  /** What went wrong in the words of the expectation, or null when the answer was right. */
+  explanation: string | null;
   inputTokens: number | null;
   outputTokens: number | null;
 }
@@ -28,7 +34,10 @@ export interface ReplyRunSummary {
   latencyMs: { mean: number; median: number; p95: number; max: number };
   requestedFieldsAccuracy: number | null;
   perClass: Record<string, { cases: number; correct: number }>;
-  confusions: { id: string; truth: string; predicted: string | null }[];
+  confusions: { id: string; truth: string; predicted: string | null; explanation: string }[];
+  /** Answers that listed requested fields where the reply asks for none. */
+  strayFieldCases: number;
+  perStyle: Record<string, { cases: number; correct: number }>;
   peakVramMiB: number | null;
 }
 
@@ -82,6 +91,50 @@ function usageOf(raw: string): { input: number | null; output: number | null } {
   }
 }
 
+export interface ReplyJudgement {
+  correct: boolean;
+  fieldsCorrect: boolean | null;
+  strayFields: boolean;
+  explanation: string | null;
+}
+
+/** Scores one answer against the reply's truth, strictly: the class must match and the fields must be exact. */
+export function judgeReply(
+  reply: ReplyCase,
+  answer: { classification: ReplyClassification; requested_fields: readonly string[] } | null,
+): ReplyJudgement {
+  const correct = answer?.classification === reply.truth;
+  const expectedFields = reply.requestedFields ?? [];
+  const fieldsCorrect =
+    reply.truth === "verification_required" && answer
+      ? sameSet(answer.requested_fields, expectedFields)
+      : null;
+  const strayFields =
+    reply.truth !== "verification_required" && (answer?.requested_fields.length ?? 0) > 0;
+  const problems: string[] = [];
+  if (!correct) {
+    problems.push(
+      `answered ${answer?.classification ?? "nothing usable"}, expected ${reply.truth}${reply.why ? ` because ${reply.why}` : ""}`,
+    );
+  }
+  if (fieldsCorrect === false) {
+    problems.push(
+      `named fields [${(answer?.requested_fields ?? []).join(", ")}], expected [${expectedFields.join(", ")}]`,
+    );
+  }
+  if (strayFields) {
+    problems.push(
+      `listed fields [${(answer?.requested_fields ?? []).join(", ")}] for a reply that asks for none`,
+    );
+  }
+  return {
+    correct,
+    fieldsCorrect,
+    strayFields,
+    explanation: problems.length > 0 ? problems.join("; ") : null,
+  };
+}
+
 function sameSet(a: readonly string[], b: readonly string[]): boolean {
   return a.length === b.length && [...a].sort().join() === [...b].sort().join();
 }
@@ -106,7 +159,7 @@ export interface ReplyBenchOptions {
  * endpoint said, because `askLlm` returns null for every kind of failure.
  */
 export async function runReplyBench(options: ReplyBenchOptions): Promise<ReplyRun> {
-  const cases = options.cases ?? REPLY_CASES;
+  const cases = options.cases ?? DEV_REPLY_CASES;
   const base = options.fetchImpl ?? fetch;
   const results: ReplyCaseResult[] = [];
   let peakVram: number | null = null;
@@ -140,18 +193,18 @@ export async function runReplyBench(options: ReplyBenchOptions): Promise<ReplyRu
     const vram = await readVramMiB();
     if (vram !== null) peakVram = Math.max(peakVram ?? 0, vram);
     const usage = usageOf(captured.raw);
-    const parsed = answer;
+    const judged = judgeReply(reply, answer);
     results.push({
       id: reply.id,
       truth: reply.truth,
-      predicted: parsed?.classification ?? null,
-      correct: parsed?.classification === reply.truth,
+      style: reply.style ?? "plain",
+      predicted: answer?.classification ?? null,
+      correct: judged.correct,
       failure: answer === null ? failureOf(captured) : null,
       latencyMs: Math.round(latencyMs),
-      fieldsCorrect:
-        reply.truth === "verification_required" && parsed
-          ? sameSet(parsed.requested_fields, reply.requestedFields ?? [])
-          : null,
+      fieldsCorrect: judged.fieldsCorrect,
+      strayFields: judged.strayFields,
+      explanation: judged.explanation,
       inputTokens: usage.input,
       outputTokens: usage.output,
     });
@@ -169,11 +222,16 @@ function summarize(results: ReplyCaseResult[], peakVramMiB: number | null): Repl
   const perClass: ReplyRunSummary["perClass"] = Object.fromEntries(
     ReplyClassification.options.map((name) => [name, { cases: 0, correct: 0 }]),
   );
+  const perStyle: ReplyRunSummary["perStyle"] = {};
   for (const result of results) {
     const entry = perClass[result.truth];
     if (!entry) continue;
     entry.cases += 1;
     if (result.correct) entry.correct += 1;
+    const style = perStyle[result.style] ?? { cases: 0, correct: 0 };
+    style.cases += 1;
+    if (result.correct) style.correct += 1;
+    perStyle[result.style] = style;
   }
   return {
     total,
@@ -196,9 +254,16 @@ function summarize(results: ReplyCaseResult[], peakVramMiB: number | null): Repl
         ? null
         : fieldCases.filter((r) => r.fieldsCorrect).length / fieldCases.length,
     perClass,
+    perStyle,
+    strayFieldCases: results.filter((r) => r.strayFields).length,
     confusions: results
-      .filter((r) => !r.correct)
-      .map((r) => ({ id: r.id, truth: r.truth, predicted: r.predicted })),
+      .filter((r) => r.explanation !== null)
+      .map((r) => ({
+        id: r.id,
+        truth: r.truth,
+        predicted: r.predicted,
+        explanation: r.explanation ?? "",
+      })),
     peakVramMiB,
   };
 }
@@ -206,7 +271,7 @@ function summarize(results: ReplyCaseResult[], peakVramMiB: number | null): Repl
 /** A stand-in endpoint that knows the ground truth. A perfect one answers it, a bad one gets it wrong and breaks the JSON. */
 export function fakeReplyFetch(
   kind: "perfect" | "bad",
-  cases: ReplyCase[] = REPLY_CASES,
+  cases: ReplyCase[] = DEV_REPLY_CASES,
 ): typeof fetch {
   const labels = ReplyClassification.options;
   return async (_input, init) => {

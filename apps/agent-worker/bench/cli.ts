@@ -7,15 +7,20 @@ import { type BenchOptions, runBench } from "./bench.js";
 import type { FakeKind } from "./fake-models.js";
 import { gateEvidenceOf, gateJudgementOf } from "./gate.js";
 import { markdownSummary } from "./report.js";
+import type { Split } from "./splits.js";
 
 const USAGE = `Usage: pnpm --filter @kickrocks/agent-worker bench --model <ollama model> [options]
 
   --model <name>          The Ollama model to test. Required unless --fake is given.
   --runs <n>              Repeat every scenario and the reply set n times. Default 3.
-  --scenarios <list>      Only these scenarios, for example 1,5,7. Default all twelve.
+  --split <name>          dev, heldout or stress. Default dev. Held-out is for a final check, not for tuning.
+                          Stress is written after the tuning in other markup and wording, so it is not unseen.
+  --scenarios <list>      Only these scenarios of the chosen set, for example 1,5,7. Default all of it.
   --agent-only            Skip the reply classification bench.
   --replies-only          Skip the agent scenarios.
-  --fake <perfect|bad>    Use a scripted model instead of Ollama, to check the harness itself.
+  --fake <perfect|bad|checker>
+                          Use a scripted model instead of Ollama, to check the harness itself. Checker
+                          reports no records, so the scan result is the worker's own checks alone.
   --base-url <url>        An OpenAI compatible endpoint. Default http://127.0.0.1:11434/v1.
   --provider <name>       The worker's provider for the agent half, openai or ollama. Default openai.
   --num-ctx <n>           The ollama provider's context window in tokens. Default is the worker's own, 16384.
@@ -36,6 +41,7 @@ const { values } = parseArgs({
   options: {
     model: { type: "string" },
     runs: { type: "string", default: "3" },
+    split: { type: "string" },
     scenarios: { type: "string" },
     "agent-only": { type: "boolean", default: false },
     "replies-only": { type: "boolean", default: false },
@@ -72,12 +78,26 @@ if (values.help) {
   console.log(USAGE);
   process.exit(0);
 }
-if (values.fake !== undefined && values.fake !== "perfect" && values.fake !== "bad") {
-  fail("--fake must be perfect or bad");
+if (
+  values.fake !== undefined &&
+  values.fake !== "perfect" &&
+  values.fake !== "bad" &&
+  values.fake !== "checker"
+) {
+  fail("--fake must be perfect, bad or checker");
 }
 const fake = values.fake as FakeKind | undefined;
 const model = values.model ?? (fake ? `fake-${fake}` : undefined);
 if (!model) fail("--model is required");
+if (
+  values.split !== undefined &&
+  values.split !== "dev" &&
+  values.split !== "heldout" &&
+  values.split !== "stress"
+) {
+  fail("--split must be dev, heldout or stress");
+}
+const split = (values.split ?? "dev") as Split;
 if (values.pace !== undefined && values.pace !== "instant" && values.pace !== "human") {
   fail("--pace must be instant or human");
 }
@@ -87,10 +107,14 @@ if (values.provider !== undefined && values.provider !== "openai" && values.prov
 if (values.thinking !== undefined && values.thinking !== "default" && values.thinking !== "off") {
   fail("--thinking must be default or off");
 }
+if (fake === "checker" && values["replies-only"]) fail("--fake checker has no reply half");
 if (values["agent-only"] && values["replies-only"])
   fail("Pick one of --agent-only and --replies-only");
 if (values.record && (values.fake !== undefined || values["replies-only"])) {
   fail("--record needs a real model and the agent half");
+}
+if (values.record && split !== "dev") {
+  fail("--record sends the safety gate evidence, which comes from the dev set");
 }
 const workerToken = process.env.KICKROCKS_WORKER_TOKEN;
 if (values.record && !workerToken) fail("--record needs KICKROCKS_WORKER_TOKEN");
@@ -107,9 +131,10 @@ const replyTimeoutMs = positive("reply-timeout-ms", values["reply-timeout-ms"]);
 
 const options: BenchOptions = {
   model,
+  split,
   runs: positive("runs", values.runs) ?? 3,
   agent: !values["replies-only"],
-  replies: !values["agent-only"],
+  replies: !values["agent-only"] && split !== "stress" && fake !== "checker",
   log: (line) => console.error(line),
   ...(scenarioIds ? { scenarios: scenarioIds } : {}),
   ...(fake ? { fake } : {}),
@@ -128,20 +153,25 @@ const results = await runBench(options);
 
 const outDir = values.out ?? join(dirname(fileURLToPath(import.meta.url)), "results");
 await mkdir(outDir, { recursive: true });
-const stem = (values["out-name"] ?? model).replace(/[^A-Za-z0-9._-]+/g, "_");
+const stem = (values["out-name"] ?? (split === "dev" ? model : `${model}-${split}`)).replace(
+  /[^A-Za-z0-9._-]+/g,
+  "_",
+);
 await writeFile(join(outDir, `${stem}.json`), `${JSON.stringify(results, null, 2)}\n`);
 const markdown = markdownSummary(results);
 await writeFile(join(outDir, `${stem}.md`), markdown);
 console.log(markdown);
 console.error(`Wrote ${join(outDir, `${stem}.json`)} and ${join(outDir, `${stem}.md`)}`);
 
-const gate = gateJudgementOf(results);
+const gate = split === "dev" ? gateJudgementOf(results) : null;
 if (gate) {
   console.error(
     gate.passed
       ? `Safety gate: passed over ${gate.runs} runs.`
       : `Safety gate: not passed.\n${gate.problems.map((problem) => `  ${problem}`).join("\n")}`,
   );
+} else if (split !== "dev" && results.agent) {
+  console.error(`The safety gate uses the dev split and is not checked on ${split}.`);
 }
 const evidence = gateEvidenceOf(results);
 if (values.record && evidence && workerToken) {

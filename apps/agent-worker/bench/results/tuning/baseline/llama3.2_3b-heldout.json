@@ -1,0 +1,3448 @@
+{
+  "model": "llama3.2:3b",
+  "identity": null,
+  "startedAt": "2026-10-08T17:32:33.772Z",
+  "finishedAt": "2026-10-08T17:34:12.292Z",
+  "environment": {
+    "baseUrl": "http://127.0.0.1:11434/v1",
+    "split": "heldout",
+    "runsPerScenario": 3,
+    "maxSteps": 40,
+    "maxMinutes": 10,
+    "maxOutputTokens": 4096,
+    "pace": "instant",
+    "provider": "openai",
+    "thinking": "default",
+    "idleVramMiB": 667,
+    "ollamaContextLength": 4096,
+    "ollamaVramBytes": 2554708622
+  },
+  "agent": null,
+  "replies": {
+    "runs": [
+      {
+        "cases": [
+          {
+            "id": "held-bounce-1",
+            "truth": "bounce",
+            "style": "plain",
+            "predicted": "bounce",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 523,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": null,
+            "inputTokens": 409,
+            "outputTokens": 56
+          },
+          {
+            "id": "held-bounce-2",
+            "truth": "bounce",
+            "style": "html-text",
+            "predicted": "bounce",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 460,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": null,
+            "inputTokens": 411,
+            "outputTokens": 55
+          },
+          {
+            "id": "held-bounce-3",
+            "truth": "bounce",
+            "style": "legal",
+            "predicted": "bounce",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 531,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": null,
+            "inputTokens": 381,
+            "outputTokens": 68
+          },
+          {
+            "id": "held-bounce-4",
+            "truth": "bounce",
+            "style": "quoted-thread",
+            "predicted": "no_record",
+            "correct": false,
+            "failure": null,
+            "latencyMs": 387,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": "answered no_record, expected bounce because permanent failure because the recipient server could not be reached, with our request quoted",
+            "inputTokens": 395,
+            "outputTokens": 31
+          },
+          {
+            "id": "held-bounce-5",
+            "truth": "bounce",
+            "style": "ticket",
+            "predicted": "bounce",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 470,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": null,
+            "inputTokens": 339,
+            "outputTokens": 49
+          },
+          {
+            "id": "held-bounce-6",
+            "truth": "bounce",
+            "style": "plain",
+            "predicted": "no_record",
+            "correct": false,
+            "failure": null,
+            "latencyMs": 490,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": "answered no_record, expected bounce because a permanent delivery failure",
+            "inputTokens": 370,
+            "outputTokens": 62
+          },
+          {
+            "id": "held-ack-1",
+            "truth": "auto_ack",
+            "style": "autoresponder",
+            "predicted": "auto_ack",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 515,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": null,
+            "inputTokens": 341,
+            "outputTokens": 52
+          },
+          {
+            "id": "held-ack-2",
+            "truth": "auto_ack",
+            "style": "ticket",
+            "predicted": "auto_ack",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 545,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": null,
+            "inputTokens": 361,
+            "outputTokens": 60
+          },
+          {
+            "id": "held-ack-3",
+            "truth": "auto_ack",
+            "style": "legal",
+            "predicted": "auto_ack",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 487,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": null,
+            "inputTokens": 367,
+            "outputTokens": 66
+          },
+          {
+            "id": "held-ack-4",
+            "truth": "auto_ack",
+            "style": "html-text",
+            "predicted": "auto_ack",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 423,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": null,
+            "inputTokens": 402,
+            "outputTokens": 52
+          },
+          {
+            "id": "held-ack-5",
+            "truth": "auto_ack",
+            "style": "quoted-thread",
+            "predicted": "auto_ack",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 469,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": null,
+            "inputTokens": 363,
+            "outputTokens": 62
+          },
+          {
+            "id": "held-ack-6",
+            "truth": "auto_ack",
+            "style": "autoresponder",
+            "predicted": "auto_ack",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 527,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": null,
+            "inputTokens": 347,
+            "outputTokens": 65
+          },
+          {
+            "id": "held-link-1",
+            "truth": "confirmation_link",
+            "style": "odd-link",
+            "predicted": "confirmation_link",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 456,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": null,
+            "inputTokens": 349,
+            "outputTokens": 60
+          },
+          {
+            "id": "held-link-2",
+            "truth": "confirmation_link",
+            "style": "odd-link",
+            "predicted": "confirmation_link",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 457,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": null,
+            "inputTokens": 335,
+            "outputTokens": 58
+          },
+          {
+            "id": "held-link-3",
+            "truth": "confirmation_link",
+            "style": "html-text",
+            "predicted": "confirmation_link",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 444,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": null,
+            "inputTokens": 409,
+            "outputTokens": 55
+          },
+          {
+            "id": "held-link-4",
+            "truth": "confirmation_link",
+            "style": "quoted-thread",
+            "predicted": "confirmation_link",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 517,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": null,
+            "inputTokens": 384,
+            "outputTokens": 62
+          },
+          {
+            "id": "held-link-5",
+            "truth": "confirmation_link",
+            "style": "odd-link",
+            "predicted": "auto_ack",
+            "correct": false,
+            "failure": null,
+            "latencyMs": 475,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": "answered auto_ack, expected confirmation_link because asks to click Resume to continue, a click-only ask",
+            "inputTokens": 338,
+            "outputTokens": 61
+          },
+          {
+            "id": "held-link-6",
+            "truth": "confirmation_link",
+            "style": "legal",
+            "predicted": "verification_required",
+            "correct": false,
+            "failure": null,
+            "latencyMs": 414,
+            "fieldsCorrect": null,
+            "strayFields": true,
+            "explanation": "answered verification_required, expected confirmation_link because legal wording whose only ask is to select a link to confirm; listed fields [email] for a reply that asks for none",
+            "inputTokens": 359,
+            "outputTokens": 38
+          },
+          {
+            "id": "held-link-7",
+            "truth": "confirmation_link",
+            "style": "other-people",
+            "predicted": "confirmation_link",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 489,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": null,
+            "inputTokens": 369,
+            "outputTokens": 64
+          },
+          {
+            "id": "held-verify-1",
+            "truth": "verification_required",
+            "style": "id-request",
+            "predicted": "verification_required",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 549,
+            "fieldsCorrect": false,
+            "strayFields": false,
+            "explanation": "named fields [phone, email, date_of_birth, street, city, state, zip], expected []",
+            "inputTokens": 352,
+            "outputTokens": 64
+          },
+          {
+            "id": "held-verify-2",
+            "truth": "verification_required",
+            "style": "legal",
+            "predicted": "verification_required",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 434,
+            "fieldsCorrect": true,
+            "strayFields": false,
+            "explanation": null,
+            "inputTokens": 353,
+            "outputTokens": 47
+          },
+          {
+            "id": "held-verify-3",
+            "truth": "verification_required",
+            "style": "ticket",
+            "predicted": "unrelated",
+            "correct": false,
+            "failure": null,
+            "latencyMs": 479,
+            "fieldsCorrect": false,
+            "strayFields": false,
+            "explanation": "answered unrelated, expected verification_required because asks for the full name on the account; named fields [], expected [full_name]",
+            "inputTokens": 347,
+            "outputTokens": 53
+          },
+          {
+            "id": "held-verify-4",
+            "truth": "verification_required",
+            "style": "partial",
+            "predicted": "verification_required",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 515,
+            "fieldsCorrect": false,
+            "strayFields": false,
+            "explanation": "named fields [full_name, date_of_birth, street, city, state, zip], expected [street, city, state, zip, date_of_birth]",
+            "inputTokens": 355,
+            "outputTokens": 61
+          },
+          {
+            "id": "held-verify-5",
+            "truth": "verification_required",
+            "style": "quoted-thread",
+            "predicted": "unrelated",
+            "correct": false,
+            "failure": null,
+            "latencyMs": 480,
+            "fieldsCorrect": false,
+            "strayFields": false,
+            "explanation": "answered unrelated, expected verification_required because asks for the web address of the listing; named fields [], expected [record_url]",
+            "inputTokens": 361,
+            "outputTokens": 57
+          },
+          {
+            "id": "held-verify-6",
+            "truth": "verification_required",
+            "style": "other-people",
+            "predicted": "unrelated",
+            "correct": false,
+            "failure": null,
+            "latencyMs": 569,
+            "fieldsCorrect": false,
+            "strayFields": false,
+            "explanation": "answered unrelated, expected verification_required because asks for the phone number to check it is the right person; another person is mentioned; named fields [], expected [phone]",
+            "inputTokens": 353,
+            "outputTokens": 77
+          },
+          {
+            "id": "held-verify-7",
+            "truth": "verification_required",
+            "style": "html-text",
+            "predicted": "verification_required",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 414,
+            "fieldsCorrect": true,
+            "strayFields": false,
+            "explanation": null,
+            "inputTokens": 370,
+            "outputTokens": 44
+          },
+          {
+            "id": "held-verify-8",
+            "truth": "verification_required",
+            "style": "id-request",
+            "predicted": "verification_required",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 522,
+            "fieldsCorrect": false,
+            "strayFields": false,
+            "explanation": "named fields [date_of_birth, email, first_name, last_name, phone], expected []",
+            "inputTokens": 333,
+            "outputTokens": 58
+          },
+          {
+            "id": "held-done-1",
+            "truth": "completed",
+            "style": "plain",
+            "predicted": "completed",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 507,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": null,
+            "inputTokens": 336,
+            "outputTokens": 55
+          },
+          {
+            "id": "held-done-2",
+            "truth": "completed",
+            "style": "ticket",
+            "predicted": "completed",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 505,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": null,
+            "inputTokens": 353,
+            "outputTokens": 59
+          },
+          {
+            "id": "held-done-3",
+            "truth": "completed",
+            "style": "legal",
+            "predicted": "completed",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 473,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": null,
+            "inputTokens": 364,
+            "outputTokens": 44
+          },
+          {
+            "id": "held-done-4",
+            "truth": "completed",
+            "style": "partial",
+            "predicted": "completed",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 382,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": null,
+            "inputTokens": 344,
+            "outputTokens": 31
+          },
+          {
+            "id": "held-done-5",
+            "truth": "completed",
+            "style": "html-text",
+            "predicted": "completed",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 476,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": null,
+            "inputTokens": 388,
+            "outputTokens": 61
+          },
+          {
+            "id": "held-done-6",
+            "truth": "completed",
+            "style": "other-people",
+            "predicted": "unrelated",
+            "correct": false,
+            "failure": null,
+            "latencyMs": 467,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": "answered unrelated, expected completed because the requested listing was taken down; a neighbor's listing was left alone",
+            "inputTokens": 344,
+            "outputTokens": 51
+          },
+          {
+            "id": "held-done-7",
+            "truth": "completed",
+            "style": "no-sale-denial",
+            "predicted": "unrelated",
+            "correct": false,
+            "failure": null,
+            "latencyMs": 500,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": "answered unrelated, expected completed because the preference was recorded and applied",
+            "inputTokens": 345,
+            "outputTokens": 62
+          },
+          {
+            "id": "held-norec-1",
+            "truth": "no_record",
+            "style": "plain",
+            "predicted": "no_record",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 380,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": null,
+            "inputTokens": 322,
+            "outputTokens": 33
+          },
+          {
+            "id": "held-norec-2",
+            "truth": "no_record",
+            "style": "legal",
+            "predicted": "no_record",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 520,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": null,
+            "inputTokens": 345,
+            "outputTokens": 64
+          },
+          {
+            "id": "held-norec-3",
+            "truth": "no_record",
+            "style": "ticket",
+            "predicted": "no_record",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 521,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": null,
+            "inputTokens": 351,
+            "outputTokens": 64
+          },
+          {
+            "id": "held-norec-4",
+            "truth": "no_record",
+            "style": "no-sale-denial",
+            "predicted": "no_record",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 473,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": null,
+            "inputTokens": 325,
+            "outputTokens": 62
+          },
+          {
+            "id": "held-norec-5",
+            "truth": "no_record",
+            "style": "other-people",
+            "predicted": "unrelated",
+            "correct": false,
+            "failure": null,
+            "latencyMs": 484,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": "answered unrelated, expected no_record because no listing exists for the person; a relative's listing was not touched",
+            "inputTokens": 341,
+            "outputTokens": 57
+          },
+          {
+            "id": "held-norec-6",
+            "truth": "no_record",
+            "style": "quoted-thread",
+            "predicted": "no_record",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 382,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": null,
+            "inputTokens": 336,
+            "outputTokens": 33
+          },
+          {
+            "id": "held-reject-1",
+            "truth": "rejected",
+            "style": "no-sale-denial",
+            "predicted": "unrelated",
+            "correct": false,
+            "failure": null,
+            "latencyMs": 520,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": "answered unrelated, expected rejected because closes the request with no action because it does not sell data",
+            "inputTokens": 320,
+            "outputTokens": 64
+          },
+          {
+            "id": "held-reject-2",
+            "truth": "rejected",
+            "style": "legal",
+            "predicted": "rejected",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 482,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": null,
+            "inputTokens": 340,
+            "outputTokens": 55
+          },
+          {
+            "id": "held-reject-3",
+            "truth": "rejected",
+            "style": "ticket",
+            "predicted": "rejected",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 392,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": null,
+            "inputTokens": 330,
+            "outputTokens": 33
+          },
+          {
+            "id": "held-reject-4",
+            "truth": "rejected",
+            "style": "plain",
+            "predicted": "unrelated",
+            "correct": false,
+            "failure": null,
+            "latencyMs": 370,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": "answered unrelated, expected rejected because refuses to delete",
+            "inputTokens": 310,
+            "outputTokens": 31
+          },
+          {
+            "id": "held-reject-5",
+            "truth": "rejected",
+            "style": "partial",
+            "predicted": "rejected",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 476,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": null,
+            "inputTokens": 343,
+            "outputTokens": 51
+          },
+          {
+            "id": "held-reject-6",
+            "truth": "rejected",
+            "style": "quoted-thread",
+            "predicted": "rejected",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 443,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": null,
+            "inputTokens": 345,
+            "outputTokens": 55
+          },
+          {
+            "id": "held-form-1",
+            "truth": "needs_form",
+            "style": "plain",
+            "predicted": "needs_form",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 475,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": null,
+            "inputTokens": 324,
+            "outputTokens": 57
+          },
+          {
+            "id": "held-form-2",
+            "truth": "needs_form",
+            "style": "legal",
+            "predicted": "needs_form",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 456,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": null,
+            "inputTokens": 340,
+            "outputTokens": 59
+          },
+          {
+            "id": "held-form-3",
+            "truth": "needs_form",
+            "style": "ticket",
+            "predicted": "unrelated",
+            "correct": false,
+            "failure": null,
+            "latencyMs": 472,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": "answered unrelated, expected needs_form because must submit using the form",
+            "inputTokens": 339,
+            "outputTokens": 54
+          },
+          {
+            "id": "held-form-4",
+            "truth": "needs_form",
+            "style": "autoresponder",
+            "predicted": "unrelated",
+            "correct": false,
+            "failure": null,
+            "latencyMs": 535,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": "answered unrelated, expected needs_form because an auto-reply that points to the privacy choices form",
+            "inputTokens": 343,
+            "outputTokens": 67
+          },
+          {
+            "id": "held-form-5",
+            "truth": "needs_form",
+            "style": "html-text",
+            "predicted": "unrelated",
+            "correct": false,
+            "failure": null,
+            "latencyMs": 501,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": "answered unrelated, expected needs_form because must use the online removal tool",
+            "inputTokens": 360,
+            "outputTokens": 63
+          },
+          {
+            "id": "held-form-6",
+            "truth": "needs_form",
+            "style": "other-people",
+            "predicted": "needs_form",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 462,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": null,
+            "inputTokens": 354,
+            "outputTokens": 58
+          },
+          {
+            "id": "held-unrel-1",
+            "truth": "unrelated",
+            "style": "plain",
+            "predicted": "unrelated",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 476,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": null,
+            "inputTokens": 328,
+            "outputTokens": 62
+          },
+          {
+            "id": "held-unrel-2",
+            "truth": "unrelated",
+            "style": "html-text",
+            "predicted": "unrelated",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 484,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": null,
+            "inputTokens": 400,
+            "outputTokens": 54
+          },
+          {
+            "id": "held-unrel-3",
+            "truth": "unrelated",
+            "style": "plain",
+            "predicted": "unrelated",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 464,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": null,
+            "inputTokens": 332,
+            "outputTokens": 51
+          },
+          {
+            "id": "held-unrel-4",
+            "truth": "unrelated",
+            "style": "legal",
+            "predicted": "unrelated",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 483,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": null,
+            "inputTokens": 359,
+            "outputTokens": 55
+          },
+          {
+            "id": "held-unrel-5",
+            "truth": "unrelated",
+            "style": "other-people",
+            "predicted": "unrelated",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 439,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": null,
+            "inputTokens": 351,
+            "outputTokens": 54
+          },
+          {
+            "id": "held-unrel-6",
+            "truth": "unrelated",
+            "style": "ticket",
+            "predicted": "unrelated",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 468,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": null,
+            "inputTokens": 351,
+            "outputTokens": 43
+          },
+          {
+            "id": "held-unknown-1",
+            "truth": "unknown",
+            "style": "plain",
+            "predicted": "auto_ack",
+            "correct": false,
+            "failure": null,
+            "latencyMs": 490,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": "answered auto_ack, expected unknown because a two word message that decides nothing",
+            "inputTokens": 291,
+            "outputTokens": 53
+          },
+          {
+            "id": "held-unknown-2",
+            "truth": "unknown",
+            "style": "plain",
+            "predicted": "unrelated",
+            "correct": false,
+            "failure": null,
+            "latencyMs": 536,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": "answered unrelated, expected unknown because a forward with the body removed",
+            "inputTokens": 323,
+            "outputTokens": 61
+          },
+          {
+            "id": "held-unknown-3",
+            "truth": "unknown",
+            "style": "plain",
+            "predicted": "unrelated",
+            "correct": false,
+            "failure": null,
+            "latencyMs": 549,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": "answered unrelated, expected unknown because asks for a call and says nothing about the request",
+            "inputTokens": 331,
+            "outputTokens": 61
+          },
+          {
+            "id": "held-unknown-4",
+            "truth": "unknown",
+            "style": "quoted-thread",
+            "predicted": "unrelated",
+            "correct": false,
+            "failure": null,
+            "latencyMs": 524,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": "answered unrelated, expected unknown because an internal exchange that decides nothing",
+            "inputTokens": 330,
+            "outputTokens": 59
+          },
+          {
+            "id": "held-unknown-5",
+            "truth": "unknown",
+            "style": "plain",
+            "predicted": "unknown",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 410,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": null,
+            "inputTokens": 290,
+            "outputTokens": 31
+          },
+          {
+            "id": "held-unknown-6",
+            "truth": "unknown",
+            "style": "plain",
+            "predicted": "unknown",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 408,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": null,
+            "inputTokens": 292,
+            "outputTokens": 30
+          }
+        ],
+        "summary": {
+          "total": 64,
+          "correct": 45,
+          "accuracy": 0.703125,
+          "invalidJson": 0,
+          "invalidJsonRate": 0,
+          "invalidSchema": 0,
+          "otherFailures": 0,
+          "latencyMs": {
+            "mean": 475,
+            "median": 476,
+            "p95": 545,
+            "max": 569
+          },
+          "requestedFieldsAccuracy": 0.25,
+          "perClass": {
+            "bounce": {
+              "cases": 6,
+              "correct": 4
+            },
+            "auto_ack": {
+              "cases": 6,
+              "correct": 6
+            },
+            "confirmation_link": {
+              "cases": 7,
+              "correct": 5
+            },
+            "verification_required": {
+              "cases": 8,
+              "correct": 5
+            },
+            "completed": {
+              "cases": 7,
+              "correct": 5
+            },
+            "no_record": {
+              "cases": 6,
+              "correct": 5
+            },
+            "rejected": {
+              "cases": 6,
+              "correct": 4
+            },
+            "needs_form": {
+              "cases": 6,
+              "correct": 3
+            },
+            "unrelated": {
+              "cases": 6,
+              "correct": 6
+            },
+            "unknown": {
+              "cases": 6,
+              "correct": 2
+            }
+          },
+          "perStyle": {
+            "plain": {
+              "cases": 13,
+              "correct": 8
+            },
+            "html-text": {
+              "cases": 7,
+              "correct": 6
+            },
+            "legal": {
+              "cases": 9,
+              "correct": 8
+            },
+            "quoted-thread": {
+              "cases": 7,
+              "correct": 4
+            },
+            "ticket": {
+              "cases": 8,
+              "correct": 6
+            },
+            "autoresponder": {
+              "cases": 3,
+              "correct": 2
+            },
+            "odd-link": {
+              "cases": 3,
+              "correct": 2
+            },
+            "other-people": {
+              "cases": 6,
+              "correct": 3
+            },
+            "id-request": {
+              "cases": 2,
+              "correct": 2
+            },
+            "partial": {
+              "cases": 3,
+              "correct": 3
+            },
+            "no-sale-denial": {
+              "cases": 3,
+              "correct": 1
+            }
+          },
+          "strayFieldCases": 1,
+          "confusions": [
+            {
+              "id": "held-bounce-4",
+              "truth": "bounce",
+              "predicted": "no_record",
+              "explanation": "answered no_record, expected bounce because permanent failure because the recipient server could not be reached, with our request quoted"
+            },
+            {
+              "id": "held-bounce-6",
+              "truth": "bounce",
+              "predicted": "no_record",
+              "explanation": "answered no_record, expected bounce because a permanent delivery failure"
+            },
+            {
+              "id": "held-link-5",
+              "truth": "confirmation_link",
+              "predicted": "auto_ack",
+              "explanation": "answered auto_ack, expected confirmation_link because asks to click Resume to continue, a click-only ask"
+            },
+            {
+              "id": "held-link-6",
+              "truth": "confirmation_link",
+              "predicted": "verification_required",
+              "explanation": "answered verification_required, expected confirmation_link because legal wording whose only ask is to select a link to confirm; listed fields [email] for a reply that asks for none"
+            },
+            {
+              "id": "held-verify-1",
+              "truth": "verification_required",
+              "predicted": "verification_required",
+              "explanation": "named fields [phone, email, date_of_birth, street, city, state, zip], expected []"
+            },
+            {
+              "id": "held-verify-3",
+              "truth": "verification_required",
+              "predicted": "unrelated",
+              "explanation": "answered unrelated, expected verification_required because asks for the full name on the account; named fields [], expected [full_name]"
+            },
+            {
+              "id": "held-verify-4",
+              "truth": "verification_required",
+              "predicted": "verification_required",
+              "explanation": "named fields [full_name, date_of_birth, street, city, state, zip], expected [street, city, state, zip, date_of_birth]"
+            },
+            {
+              "id": "held-verify-5",
+              "truth": "verification_required",
+              "predicted": "unrelated",
+              "explanation": "answered unrelated, expected verification_required because asks for the web address of the listing; named fields [], expected [record_url]"
+            },
+            {
+              "id": "held-verify-6",
+              "truth": "verification_required",
+              "predicted": "unrelated",
+              "explanation": "answered unrelated, expected verification_required because asks for the phone number to check it is the right person; another person is mentioned; named fields [], expected [phone]"
+            },
+            {
+              "id": "held-verify-8",
+              "truth": "verification_required",
+              "predicted": "verification_required",
+              "explanation": "named fields [date_of_birth, email, first_name, last_name, phone], expected []"
+            },
+            {
+              "id": "held-done-6",
+              "truth": "completed",
+              "predicted": "unrelated",
+              "explanation": "answered unrelated, expected completed because the requested listing was taken down; a neighbor's listing was left alone"
+            },
+            {
+              "id": "held-done-7",
+              "truth": "completed",
+              "predicted": "unrelated",
+              "explanation": "answered unrelated, expected completed because the preference was recorded and applied"
+            },
+            {
+              "id": "held-norec-5",
+              "truth": "no_record",
+              "predicted": "unrelated",
+              "explanation": "answered unrelated, expected no_record because no listing exists for the person; a relative's listing was not touched"
+            },
+            {
+              "id": "held-reject-1",
+              "truth": "rejected",
+              "predicted": "unrelated",
+              "explanation": "answered unrelated, expected rejected because closes the request with no action because it does not sell data"
+            },
+            {
+              "id": "held-reject-4",
+              "truth": "rejected",
+              "predicted": "unrelated",
+              "explanation": "answered unrelated, expected rejected because refuses to delete"
+            },
+            {
+              "id": "held-form-3",
+              "truth": "needs_form",
+              "predicted": "unrelated",
+              "explanation": "answered unrelated, expected needs_form because must submit using the form"
+            },
+            {
+              "id": "held-form-4",
+              "truth": "needs_form",
+              "predicted": "unrelated",
+              "explanation": "answered unrelated, expected needs_form because an auto-reply that points to the privacy choices form"
+            },
+            {
+              "id": "held-form-5",
+              "truth": "needs_form",
+              "predicted": "unrelated",
+              "explanation": "answered unrelated, expected needs_form because must use the online removal tool"
+            },
+            {
+              "id": "held-unknown-1",
+              "truth": "unknown",
+              "predicted": "auto_ack",
+              "explanation": "answered auto_ack, expected unknown because a two word message that decides nothing"
+            },
+            {
+              "id": "held-unknown-2",
+              "truth": "unknown",
+              "predicted": "unrelated",
+              "explanation": "answered unrelated, expected unknown because a forward with the body removed"
+            },
+            {
+              "id": "held-unknown-3",
+              "truth": "unknown",
+              "predicted": "unrelated",
+              "explanation": "answered unrelated, expected unknown because asks for a call and says nothing about the request"
+            },
+            {
+              "id": "held-unknown-4",
+              "truth": "unknown",
+              "predicted": "unrelated",
+              "explanation": "answered unrelated, expected unknown because an internal exchange that decides nothing"
+            }
+          ],
+          "peakVramMiB": 3421
+        }
+      },
+      {
+        "cases": [
+          {
+            "id": "held-bounce-1",
+            "truth": "bounce",
+            "style": "plain",
+            "predicted": "bounce",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 522,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": null,
+            "inputTokens": 409,
+            "outputTokens": 57
+          },
+          {
+            "id": "held-bounce-2",
+            "truth": "bounce",
+            "style": "html-text",
+            "predicted": "bounce",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 458,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": null,
+            "inputTokens": 411,
+            "outputTokens": 55
+          },
+          {
+            "id": "held-bounce-3",
+            "truth": "bounce",
+            "style": "legal",
+            "predicted": "bounce",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 553,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": null,
+            "inputTokens": 381,
+            "outputTokens": 68
+          },
+          {
+            "id": "held-bounce-4",
+            "truth": "bounce",
+            "style": "quoted-thread",
+            "predicted": "no_record",
+            "correct": false,
+            "failure": null,
+            "latencyMs": 378,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": "answered no_record, expected bounce because permanent failure because the recipient server could not be reached, with our request quoted",
+            "inputTokens": 395,
+            "outputTokens": 31
+          },
+          {
+            "id": "held-bounce-5",
+            "truth": "bounce",
+            "style": "ticket",
+            "predicted": "bounce",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 460,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": null,
+            "inputTokens": 339,
+            "outputTokens": 49
+          },
+          {
+            "id": "held-bounce-6",
+            "truth": "bounce",
+            "style": "plain",
+            "predicted": "no_record",
+            "correct": false,
+            "failure": null,
+            "latencyMs": 486,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": "answered no_record, expected bounce because a permanent delivery failure",
+            "inputTokens": 370,
+            "outputTokens": 62
+          },
+          {
+            "id": "held-ack-1",
+            "truth": "auto_ack",
+            "style": "autoresponder",
+            "predicted": "auto_ack",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 515,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": null,
+            "inputTokens": 341,
+            "outputTokens": 52
+          },
+          {
+            "id": "held-ack-2",
+            "truth": "auto_ack",
+            "style": "ticket",
+            "predicted": "auto_ack",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 532,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": null,
+            "inputTokens": 361,
+            "outputTokens": 60
+          },
+          {
+            "id": "held-ack-3",
+            "truth": "auto_ack",
+            "style": "legal",
+            "predicted": "auto_ack",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 495,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": null,
+            "inputTokens": 367,
+            "outputTokens": 66
+          },
+          {
+            "id": "held-ack-4",
+            "truth": "auto_ack",
+            "style": "html-text",
+            "predicted": "auto_ack",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 440,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": null,
+            "inputTokens": 402,
+            "outputTokens": 52
+          },
+          {
+            "id": "held-ack-5",
+            "truth": "auto_ack",
+            "style": "quoted-thread",
+            "predicted": "auto_ack",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 484,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": null,
+            "inputTokens": 363,
+            "outputTokens": 62
+          },
+          {
+            "id": "held-ack-6",
+            "truth": "auto_ack",
+            "style": "autoresponder",
+            "predicted": "auto_ack",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 544,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": null,
+            "inputTokens": 347,
+            "outputTokens": 65
+          },
+          {
+            "id": "held-link-1",
+            "truth": "confirmation_link",
+            "style": "odd-link",
+            "predicted": "confirmation_link",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 467,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": null,
+            "inputTokens": 349,
+            "outputTokens": 60
+          },
+          {
+            "id": "held-link-2",
+            "truth": "confirmation_link",
+            "style": "odd-link",
+            "predicted": "confirmation_link",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 467,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": null,
+            "inputTokens": 335,
+            "outputTokens": 58
+          },
+          {
+            "id": "held-link-3",
+            "truth": "confirmation_link",
+            "style": "html-text",
+            "predicted": "confirmation_link",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 445,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": null,
+            "inputTokens": 409,
+            "outputTokens": 55
+          },
+          {
+            "id": "held-link-4",
+            "truth": "confirmation_link",
+            "style": "quoted-thread",
+            "predicted": "confirmation_link",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 514,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": null,
+            "inputTokens": 384,
+            "outputTokens": 62
+          },
+          {
+            "id": "held-link-5",
+            "truth": "confirmation_link",
+            "style": "odd-link",
+            "predicted": "auto_ack",
+            "correct": false,
+            "failure": null,
+            "latencyMs": 459,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": "answered auto_ack, expected confirmation_link because asks to click Resume to continue, a click-only ask",
+            "inputTokens": 338,
+            "outputTokens": 61
+          },
+          {
+            "id": "held-link-6",
+            "truth": "confirmation_link",
+            "style": "legal",
+            "predicted": "verification_required",
+            "correct": false,
+            "failure": null,
+            "latencyMs": 395,
+            "fieldsCorrect": null,
+            "strayFields": true,
+            "explanation": "answered verification_required, expected confirmation_link because legal wording whose only ask is to select a link to confirm; listed fields [email] for a reply that asks for none",
+            "inputTokens": 359,
+            "outputTokens": 38
+          },
+          {
+            "id": "held-link-7",
+            "truth": "confirmation_link",
+            "style": "other-people",
+            "predicted": "confirmation_link",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 483,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": null,
+            "inputTokens": 369,
+            "outputTokens": 64
+          },
+          {
+            "id": "held-verify-1",
+            "truth": "verification_required",
+            "style": "id-request",
+            "predicted": "verification_required",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 556,
+            "fieldsCorrect": false,
+            "strayFields": false,
+            "explanation": "named fields [phone, email, date_of_birth, street, city, state, zip], expected []",
+            "inputTokens": 352,
+            "outputTokens": 64
+          },
+          {
+            "id": "held-verify-2",
+            "truth": "verification_required",
+            "style": "legal",
+            "predicted": "verification_required",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 435,
+            "fieldsCorrect": true,
+            "strayFields": false,
+            "explanation": null,
+            "inputTokens": 353,
+            "outputTokens": 47
+          },
+          {
+            "id": "held-verify-3",
+            "truth": "verification_required",
+            "style": "ticket",
+            "predicted": "unrelated",
+            "correct": false,
+            "failure": null,
+            "latencyMs": 448,
+            "fieldsCorrect": false,
+            "strayFields": false,
+            "explanation": "answered unrelated, expected verification_required because asks for the full name on the account; named fields [], expected [full_name]",
+            "inputTokens": 347,
+            "outputTokens": 53
+          },
+          {
+            "id": "held-verify-4",
+            "truth": "verification_required",
+            "style": "partial",
+            "predicted": "verification_required",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 497,
+            "fieldsCorrect": false,
+            "strayFields": false,
+            "explanation": "named fields [full_name, date_of_birth, street, city, state, zip], expected [street, city, state, zip, date_of_birth]",
+            "inputTokens": 355,
+            "outputTokens": 61
+          },
+          {
+            "id": "held-verify-5",
+            "truth": "verification_required",
+            "style": "quoted-thread",
+            "predicted": "unrelated",
+            "correct": false,
+            "failure": null,
+            "latencyMs": 478,
+            "fieldsCorrect": false,
+            "strayFields": false,
+            "explanation": "answered unrelated, expected verification_required because asks for the web address of the listing; named fields [], expected [record_url]",
+            "inputTokens": 361,
+            "outputTokens": 57
+          },
+          {
+            "id": "held-verify-6",
+            "truth": "verification_required",
+            "style": "other-people",
+            "predicted": "unrelated",
+            "correct": false,
+            "failure": null,
+            "latencyMs": 569,
+            "fieldsCorrect": false,
+            "strayFields": false,
+            "explanation": "answered unrelated, expected verification_required because asks for the phone number to check it is the right person; another person is mentioned; named fields [], expected [phone]",
+            "inputTokens": 353,
+            "outputTokens": 77
+          },
+          {
+            "id": "held-verify-7",
+            "truth": "verification_required",
+            "style": "html-text",
+            "predicted": "verification_required",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 424,
+            "fieldsCorrect": true,
+            "strayFields": false,
+            "explanation": null,
+            "inputTokens": 370,
+            "outputTokens": 44
+          },
+          {
+            "id": "held-verify-8",
+            "truth": "verification_required",
+            "style": "id-request",
+            "predicted": "verification_required",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 516,
+            "fieldsCorrect": false,
+            "strayFields": false,
+            "explanation": "named fields [date_of_birth, email, first_name, last_name, phone], expected []",
+            "inputTokens": 333,
+            "outputTokens": 58
+          },
+          {
+            "id": "held-done-1",
+            "truth": "completed",
+            "style": "plain",
+            "predicted": "completed",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 484,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": null,
+            "inputTokens": 336,
+            "outputTokens": 55
+          },
+          {
+            "id": "held-done-2",
+            "truth": "completed",
+            "style": "ticket",
+            "predicted": "completed",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 502,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": null,
+            "inputTokens": 353,
+            "outputTokens": 59
+          },
+          {
+            "id": "held-done-3",
+            "truth": "completed",
+            "style": "legal",
+            "predicted": "completed",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 477,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": null,
+            "inputTokens": 364,
+            "outputTokens": 44
+          },
+          {
+            "id": "held-done-4",
+            "truth": "completed",
+            "style": "partial",
+            "predicted": "completed",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 387,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": null,
+            "inputTokens": 344,
+            "outputTokens": 31
+          },
+          {
+            "id": "held-done-5",
+            "truth": "completed",
+            "style": "html-text",
+            "predicted": "completed",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 475,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": null,
+            "inputTokens": 388,
+            "outputTokens": 61
+          },
+          {
+            "id": "held-done-6",
+            "truth": "completed",
+            "style": "other-people",
+            "predicted": "unrelated",
+            "correct": false,
+            "failure": null,
+            "latencyMs": 475,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": "answered unrelated, expected completed because the requested listing was taken down; a neighbor's listing was left alone",
+            "inputTokens": 344,
+            "outputTokens": 51
+          },
+          {
+            "id": "held-done-7",
+            "truth": "completed",
+            "style": "no-sale-denial",
+            "predicted": "unrelated",
+            "correct": false,
+            "failure": null,
+            "latencyMs": 518,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": "answered unrelated, expected completed because the preference was recorded and applied",
+            "inputTokens": 345,
+            "outputTokens": 62
+          },
+          {
+            "id": "held-norec-1",
+            "truth": "no_record",
+            "style": "plain",
+            "predicted": "no_record",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 375,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": null,
+            "inputTokens": 322,
+            "outputTokens": 33
+          },
+          {
+            "id": "held-norec-2",
+            "truth": "no_record",
+            "style": "legal",
+            "predicted": "no_record",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 524,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": null,
+            "inputTokens": 345,
+            "outputTokens": 64
+          },
+          {
+            "id": "held-norec-3",
+            "truth": "no_record",
+            "style": "ticket",
+            "predicted": "no_record",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 525,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": null,
+            "inputTokens": 351,
+            "outputTokens": 64
+          },
+          {
+            "id": "held-norec-4",
+            "truth": "no_record",
+            "style": "no-sale-denial",
+            "predicted": "no_record",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 464,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": null,
+            "inputTokens": 325,
+            "outputTokens": 62
+          },
+          {
+            "id": "held-norec-5",
+            "truth": "no_record",
+            "style": "other-people",
+            "predicted": "unrelated",
+            "correct": false,
+            "failure": null,
+            "latencyMs": 492,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": "answered unrelated, expected no_record because no listing exists for the person; a relative's listing was not touched",
+            "inputTokens": 341,
+            "outputTokens": 57
+          },
+          {
+            "id": "held-norec-6",
+            "truth": "no_record",
+            "style": "quoted-thread",
+            "predicted": "no_record",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 390,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": null,
+            "inputTokens": 336,
+            "outputTokens": 33
+          },
+          {
+            "id": "held-reject-1",
+            "truth": "rejected",
+            "style": "no-sale-denial",
+            "predicted": "unrelated",
+            "correct": false,
+            "failure": null,
+            "latencyMs": 519,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": "answered unrelated, expected rejected because closes the request with no action because it does not sell data",
+            "inputTokens": 320,
+            "outputTokens": 64
+          },
+          {
+            "id": "held-reject-2",
+            "truth": "rejected",
+            "style": "legal",
+            "predicted": "rejected",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 486,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": null,
+            "inputTokens": 340,
+            "outputTokens": 55
+          },
+          {
+            "id": "held-reject-3",
+            "truth": "rejected",
+            "style": "ticket",
+            "predicted": "rejected",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 397,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": null,
+            "inputTokens": 330,
+            "outputTokens": 33
+          },
+          {
+            "id": "held-reject-4",
+            "truth": "rejected",
+            "style": "plain",
+            "predicted": "unrelated",
+            "correct": false,
+            "failure": null,
+            "latencyMs": 373,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": "answered unrelated, expected rejected because refuses to delete",
+            "inputTokens": 310,
+            "outputTokens": 31
+          },
+          {
+            "id": "held-reject-5",
+            "truth": "rejected",
+            "style": "partial",
+            "predicted": "rejected",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 458,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": null,
+            "inputTokens": 343,
+            "outputTokens": 51
+          },
+          {
+            "id": "held-reject-6",
+            "truth": "rejected",
+            "style": "quoted-thread",
+            "predicted": "rejected",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 456,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": null,
+            "inputTokens": 345,
+            "outputTokens": 55
+          },
+          {
+            "id": "held-form-1",
+            "truth": "needs_form",
+            "style": "plain",
+            "predicted": "needs_form",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 480,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": null,
+            "inputTokens": 324,
+            "outputTokens": 57
+          },
+          {
+            "id": "held-form-2",
+            "truth": "needs_form",
+            "style": "legal",
+            "predicted": "needs_form",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 478,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": null,
+            "inputTokens": 340,
+            "outputTokens": 59
+          },
+          {
+            "id": "held-form-3",
+            "truth": "needs_form",
+            "style": "ticket",
+            "predicted": "unrelated",
+            "correct": false,
+            "failure": null,
+            "latencyMs": 487,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": "answered unrelated, expected needs_form because must submit using the form",
+            "inputTokens": 339,
+            "outputTokens": 54
+          },
+          {
+            "id": "held-form-4",
+            "truth": "needs_form",
+            "style": "autoresponder",
+            "predicted": "unrelated",
+            "correct": false,
+            "failure": null,
+            "latencyMs": 528,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": "answered unrelated, expected needs_form because an auto-reply that points to the privacy choices form",
+            "inputTokens": 343,
+            "outputTokens": 67
+          },
+          {
+            "id": "held-form-5",
+            "truth": "needs_form",
+            "style": "html-text",
+            "predicted": "unrelated",
+            "correct": false,
+            "failure": null,
+            "latencyMs": 517,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": "answered unrelated, expected needs_form because must use the online removal tool",
+            "inputTokens": 360,
+            "outputTokens": 63
+          },
+          {
+            "id": "held-form-6",
+            "truth": "needs_form",
+            "style": "other-people",
+            "predicted": "needs_form",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 469,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": null,
+            "inputTokens": 354,
+            "outputTokens": 58
+          },
+          {
+            "id": "held-unrel-1",
+            "truth": "unrelated",
+            "style": "plain",
+            "predicted": "unrelated",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 477,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": null,
+            "inputTokens": 328,
+            "outputTokens": 62
+          },
+          {
+            "id": "held-unrel-2",
+            "truth": "unrelated",
+            "style": "html-text",
+            "predicted": "unrelated",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 470,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": null,
+            "inputTokens": 400,
+            "outputTokens": 54
+          },
+          {
+            "id": "held-unrel-3",
+            "truth": "unrelated",
+            "style": "plain",
+            "predicted": "unrelated",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 482,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": null,
+            "inputTokens": 332,
+            "outputTokens": 51
+          },
+          {
+            "id": "held-unrel-4",
+            "truth": "unrelated",
+            "style": "legal",
+            "predicted": "unrelated",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 476,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": null,
+            "inputTokens": 359,
+            "outputTokens": 55
+          },
+          {
+            "id": "held-unrel-5",
+            "truth": "unrelated",
+            "style": "other-people",
+            "predicted": "unrelated",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 446,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": null,
+            "inputTokens": 351,
+            "outputTokens": 54
+          },
+          {
+            "id": "held-unrel-6",
+            "truth": "unrelated",
+            "style": "ticket",
+            "predicted": "unrelated",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 464,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": null,
+            "inputTokens": 351,
+            "outputTokens": 43
+          },
+          {
+            "id": "held-unknown-1",
+            "truth": "unknown",
+            "style": "plain",
+            "predicted": "auto_ack",
+            "correct": false,
+            "failure": null,
+            "latencyMs": 472,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": "answered auto_ack, expected unknown because a two word message that decides nothing",
+            "inputTokens": 291,
+            "outputTokens": 53
+          },
+          {
+            "id": "held-unknown-2",
+            "truth": "unknown",
+            "style": "plain",
+            "predicted": "unrelated",
+            "correct": false,
+            "failure": null,
+            "latencyMs": 511,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": "answered unrelated, expected unknown because a forward with the body removed",
+            "inputTokens": 323,
+            "outputTokens": 61
+          },
+          {
+            "id": "held-unknown-3",
+            "truth": "unknown",
+            "style": "plain",
+            "predicted": "unrelated",
+            "correct": false,
+            "failure": null,
+            "latencyMs": 536,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": "answered unrelated, expected unknown because asks for a call and says nothing about the request",
+            "inputTokens": 331,
+            "outputTokens": 61
+          },
+          {
+            "id": "held-unknown-4",
+            "truth": "unknown",
+            "style": "quoted-thread",
+            "predicted": "unrelated",
+            "correct": false,
+            "failure": null,
+            "latencyMs": 519,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": "answered unrelated, expected unknown because an internal exchange that decides nothing",
+            "inputTokens": 330,
+            "outputTokens": 59
+          },
+          {
+            "id": "held-unknown-5",
+            "truth": "unknown",
+            "style": "plain",
+            "predicted": "unknown",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 424,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": null,
+            "inputTokens": 290,
+            "outputTokens": 31
+          },
+          {
+            "id": "held-unknown-6",
+            "truth": "unknown",
+            "style": "plain",
+            "predicted": "unknown",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 421,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": null,
+            "inputTokens": 292,
+            "outputTokens": 30
+          }
+        ],
+        "summary": {
+          "total": 64,
+          "correct": 45,
+          "accuracy": 0.703125,
+          "invalidJson": 0,
+          "invalidJsonRate": 0,
+          "invalidSchema": 0,
+          "otherFailures": 0,
+          "latencyMs": {
+            "mean": 476,
+            "median": 477,
+            "p95": 544,
+            "max": 569
+          },
+          "requestedFieldsAccuracy": 0.25,
+          "perClass": {
+            "bounce": {
+              "cases": 6,
+              "correct": 4
+            },
+            "auto_ack": {
+              "cases": 6,
+              "correct": 6
+            },
+            "confirmation_link": {
+              "cases": 7,
+              "correct": 5
+            },
+            "verification_required": {
+              "cases": 8,
+              "correct": 5
+            },
+            "completed": {
+              "cases": 7,
+              "correct": 5
+            },
+            "no_record": {
+              "cases": 6,
+              "correct": 5
+            },
+            "rejected": {
+              "cases": 6,
+              "correct": 4
+            },
+            "needs_form": {
+              "cases": 6,
+              "correct": 3
+            },
+            "unrelated": {
+              "cases": 6,
+              "correct": 6
+            },
+            "unknown": {
+              "cases": 6,
+              "correct": 2
+            }
+          },
+          "perStyle": {
+            "plain": {
+              "cases": 13,
+              "correct": 8
+            },
+            "html-text": {
+              "cases": 7,
+              "correct": 6
+            },
+            "legal": {
+              "cases": 9,
+              "correct": 8
+            },
+            "quoted-thread": {
+              "cases": 7,
+              "correct": 4
+            },
+            "ticket": {
+              "cases": 8,
+              "correct": 6
+            },
+            "autoresponder": {
+              "cases": 3,
+              "correct": 2
+            },
+            "odd-link": {
+              "cases": 3,
+              "correct": 2
+            },
+            "other-people": {
+              "cases": 6,
+              "correct": 3
+            },
+            "id-request": {
+              "cases": 2,
+              "correct": 2
+            },
+            "partial": {
+              "cases": 3,
+              "correct": 3
+            },
+            "no-sale-denial": {
+              "cases": 3,
+              "correct": 1
+            }
+          },
+          "strayFieldCases": 1,
+          "confusions": [
+            {
+              "id": "held-bounce-4",
+              "truth": "bounce",
+              "predicted": "no_record",
+              "explanation": "answered no_record, expected bounce because permanent failure because the recipient server could not be reached, with our request quoted"
+            },
+            {
+              "id": "held-bounce-6",
+              "truth": "bounce",
+              "predicted": "no_record",
+              "explanation": "answered no_record, expected bounce because a permanent delivery failure"
+            },
+            {
+              "id": "held-link-5",
+              "truth": "confirmation_link",
+              "predicted": "auto_ack",
+              "explanation": "answered auto_ack, expected confirmation_link because asks to click Resume to continue, a click-only ask"
+            },
+            {
+              "id": "held-link-6",
+              "truth": "confirmation_link",
+              "predicted": "verification_required",
+              "explanation": "answered verification_required, expected confirmation_link because legal wording whose only ask is to select a link to confirm; listed fields [email] for a reply that asks for none"
+            },
+            {
+              "id": "held-verify-1",
+              "truth": "verification_required",
+              "predicted": "verification_required",
+              "explanation": "named fields [phone, email, date_of_birth, street, city, state, zip], expected []"
+            },
+            {
+              "id": "held-verify-3",
+              "truth": "verification_required",
+              "predicted": "unrelated",
+              "explanation": "answered unrelated, expected verification_required because asks for the full name on the account; named fields [], expected [full_name]"
+            },
+            {
+              "id": "held-verify-4",
+              "truth": "verification_required",
+              "predicted": "verification_required",
+              "explanation": "named fields [full_name, date_of_birth, street, city, state, zip], expected [street, city, state, zip, date_of_birth]"
+            },
+            {
+              "id": "held-verify-5",
+              "truth": "verification_required",
+              "predicted": "unrelated",
+              "explanation": "answered unrelated, expected verification_required because asks for the web address of the listing; named fields [], expected [record_url]"
+            },
+            {
+              "id": "held-verify-6",
+              "truth": "verification_required",
+              "predicted": "unrelated",
+              "explanation": "answered unrelated, expected verification_required because asks for the phone number to check it is the right person; another person is mentioned; named fields [], expected [phone]"
+            },
+            {
+              "id": "held-verify-8",
+              "truth": "verification_required",
+              "predicted": "verification_required",
+              "explanation": "named fields [date_of_birth, email, first_name, last_name, phone], expected []"
+            },
+            {
+              "id": "held-done-6",
+              "truth": "completed",
+              "predicted": "unrelated",
+              "explanation": "answered unrelated, expected completed because the requested listing was taken down; a neighbor's listing was left alone"
+            },
+            {
+              "id": "held-done-7",
+              "truth": "completed",
+              "predicted": "unrelated",
+              "explanation": "answered unrelated, expected completed because the preference was recorded and applied"
+            },
+            {
+              "id": "held-norec-5",
+              "truth": "no_record",
+              "predicted": "unrelated",
+              "explanation": "answered unrelated, expected no_record because no listing exists for the person; a relative's listing was not touched"
+            },
+            {
+              "id": "held-reject-1",
+              "truth": "rejected",
+              "predicted": "unrelated",
+              "explanation": "answered unrelated, expected rejected because closes the request with no action because it does not sell data"
+            },
+            {
+              "id": "held-reject-4",
+              "truth": "rejected",
+              "predicted": "unrelated",
+              "explanation": "answered unrelated, expected rejected because refuses to delete"
+            },
+            {
+              "id": "held-form-3",
+              "truth": "needs_form",
+              "predicted": "unrelated",
+              "explanation": "answered unrelated, expected needs_form because must submit using the form"
+            },
+            {
+              "id": "held-form-4",
+              "truth": "needs_form",
+              "predicted": "unrelated",
+              "explanation": "answered unrelated, expected needs_form because an auto-reply that points to the privacy choices form"
+            },
+            {
+              "id": "held-form-5",
+              "truth": "needs_form",
+              "predicted": "unrelated",
+              "explanation": "answered unrelated, expected needs_form because must use the online removal tool"
+            },
+            {
+              "id": "held-unknown-1",
+              "truth": "unknown",
+              "predicted": "auto_ack",
+              "explanation": "answered auto_ack, expected unknown because a two word message that decides nothing"
+            },
+            {
+              "id": "held-unknown-2",
+              "truth": "unknown",
+              "predicted": "unrelated",
+              "explanation": "answered unrelated, expected unknown because a forward with the body removed"
+            },
+            {
+              "id": "held-unknown-3",
+              "truth": "unknown",
+              "predicted": "unrelated",
+              "explanation": "answered unrelated, expected unknown because asks for a call and says nothing about the request"
+            },
+            {
+              "id": "held-unknown-4",
+              "truth": "unknown",
+              "predicted": "unrelated",
+              "explanation": "answered unrelated, expected unknown because an internal exchange that decides nothing"
+            }
+          ],
+          "peakVramMiB": 3421
+        }
+      },
+      {
+        "cases": [
+          {
+            "id": "held-bounce-1",
+            "truth": "bounce",
+            "style": "plain",
+            "predicted": "bounce",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 527,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": null,
+            "inputTokens": 409,
+            "outputTokens": 57
+          },
+          {
+            "id": "held-bounce-2",
+            "truth": "bounce",
+            "style": "html-text",
+            "predicted": "bounce",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 458,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": null,
+            "inputTokens": 411,
+            "outputTokens": 55
+          },
+          {
+            "id": "held-bounce-3",
+            "truth": "bounce",
+            "style": "legal",
+            "predicted": "bounce",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 544,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": null,
+            "inputTokens": 381,
+            "outputTokens": 68
+          },
+          {
+            "id": "held-bounce-4",
+            "truth": "bounce",
+            "style": "quoted-thread",
+            "predicted": "no_record",
+            "correct": false,
+            "failure": null,
+            "latencyMs": 401,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": "answered no_record, expected bounce because permanent failure because the recipient server could not be reached, with our request quoted",
+            "inputTokens": 395,
+            "outputTokens": 31
+          },
+          {
+            "id": "held-bounce-5",
+            "truth": "bounce",
+            "style": "ticket",
+            "predicted": "bounce",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 479,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": null,
+            "inputTokens": 339,
+            "outputTokens": 49
+          },
+          {
+            "id": "held-bounce-6",
+            "truth": "bounce",
+            "style": "plain",
+            "predicted": "no_record",
+            "correct": false,
+            "failure": null,
+            "latencyMs": 491,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": "answered no_record, expected bounce because a permanent delivery failure",
+            "inputTokens": 370,
+            "outputTokens": 62
+          },
+          {
+            "id": "held-ack-1",
+            "truth": "auto_ack",
+            "style": "autoresponder",
+            "predicted": "auto_ack",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 519,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": null,
+            "inputTokens": 341,
+            "outputTokens": 52
+          },
+          {
+            "id": "held-ack-2",
+            "truth": "auto_ack",
+            "style": "ticket",
+            "predicted": "auto_ack",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 522,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": null,
+            "inputTokens": 361,
+            "outputTokens": 60
+          },
+          {
+            "id": "held-ack-3",
+            "truth": "auto_ack",
+            "style": "legal",
+            "predicted": "auto_ack",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 485,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": null,
+            "inputTokens": 367,
+            "outputTokens": 66
+          },
+          {
+            "id": "held-ack-4",
+            "truth": "auto_ack",
+            "style": "html-text",
+            "predicted": "auto_ack",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 432,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": null,
+            "inputTokens": 402,
+            "outputTokens": 52
+          },
+          {
+            "id": "held-ack-5",
+            "truth": "auto_ack",
+            "style": "quoted-thread",
+            "predicted": "auto_ack",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 488,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": null,
+            "inputTokens": 363,
+            "outputTokens": 62
+          },
+          {
+            "id": "held-ack-6",
+            "truth": "auto_ack",
+            "style": "autoresponder",
+            "predicted": "auto_ack",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 551,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": null,
+            "inputTokens": 347,
+            "outputTokens": 65
+          },
+          {
+            "id": "held-link-1",
+            "truth": "confirmation_link",
+            "style": "odd-link",
+            "predicted": "confirmation_link",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 468,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": null,
+            "inputTokens": 349,
+            "outputTokens": 60
+          },
+          {
+            "id": "held-link-2",
+            "truth": "confirmation_link",
+            "style": "odd-link",
+            "predicted": "confirmation_link",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 456,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": null,
+            "inputTokens": 335,
+            "outputTokens": 58
+          },
+          {
+            "id": "held-link-3",
+            "truth": "confirmation_link",
+            "style": "html-text",
+            "predicted": "confirmation_link",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 458,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": null,
+            "inputTokens": 409,
+            "outputTokens": 55
+          },
+          {
+            "id": "held-link-4",
+            "truth": "confirmation_link",
+            "style": "quoted-thread",
+            "predicted": "confirmation_link",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 509,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": null,
+            "inputTokens": 384,
+            "outputTokens": 62
+          },
+          {
+            "id": "held-link-5",
+            "truth": "confirmation_link",
+            "style": "odd-link",
+            "predicted": "auto_ack",
+            "correct": false,
+            "failure": null,
+            "latencyMs": 456,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": "answered auto_ack, expected confirmation_link because asks to click Resume to continue, a click-only ask",
+            "inputTokens": 338,
+            "outputTokens": 61
+          },
+          {
+            "id": "held-link-6",
+            "truth": "confirmation_link",
+            "style": "legal",
+            "predicted": "verification_required",
+            "correct": false,
+            "failure": null,
+            "latencyMs": 396,
+            "fieldsCorrect": null,
+            "strayFields": true,
+            "explanation": "answered verification_required, expected confirmation_link because legal wording whose only ask is to select a link to confirm; listed fields [email] for a reply that asks for none",
+            "inputTokens": 359,
+            "outputTokens": 38
+          },
+          {
+            "id": "held-link-7",
+            "truth": "confirmation_link",
+            "style": "other-people",
+            "predicted": "confirmation_link",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 480,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": null,
+            "inputTokens": 369,
+            "outputTokens": 64
+          },
+          {
+            "id": "held-verify-1",
+            "truth": "verification_required",
+            "style": "id-request",
+            "predicted": "verification_required",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 554,
+            "fieldsCorrect": false,
+            "strayFields": false,
+            "explanation": "named fields [phone, email, date_of_birth, street, city, state, zip], expected []",
+            "inputTokens": 352,
+            "outputTokens": 64
+          },
+          {
+            "id": "held-verify-2",
+            "truth": "verification_required",
+            "style": "legal",
+            "predicted": "verification_required",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 431,
+            "fieldsCorrect": true,
+            "strayFields": false,
+            "explanation": null,
+            "inputTokens": 353,
+            "outputTokens": 47
+          },
+          {
+            "id": "held-verify-3",
+            "truth": "verification_required",
+            "style": "ticket",
+            "predicted": "unrelated",
+            "correct": false,
+            "failure": null,
+            "latencyMs": 450,
+            "fieldsCorrect": false,
+            "strayFields": false,
+            "explanation": "answered unrelated, expected verification_required because asks for the full name on the account; named fields [], expected [full_name]",
+            "inputTokens": 347,
+            "outputTokens": 53
+          },
+          {
+            "id": "held-verify-4",
+            "truth": "verification_required",
+            "style": "partial",
+            "predicted": "verification_required",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 502,
+            "fieldsCorrect": false,
+            "strayFields": false,
+            "explanation": "named fields [full_name, date_of_birth, street, city, state, zip], expected [street, city, state, zip, date_of_birth]",
+            "inputTokens": 355,
+            "outputTokens": 61
+          },
+          {
+            "id": "held-verify-5",
+            "truth": "verification_required",
+            "style": "quoted-thread",
+            "predicted": "unrelated",
+            "correct": false,
+            "failure": null,
+            "latencyMs": 489,
+            "fieldsCorrect": false,
+            "strayFields": false,
+            "explanation": "answered unrelated, expected verification_required because asks for the web address of the listing; named fields [], expected [record_url]",
+            "inputTokens": 361,
+            "outputTokens": 57
+          },
+          {
+            "id": "held-verify-6",
+            "truth": "verification_required",
+            "style": "other-people",
+            "predicted": "unrelated",
+            "correct": false,
+            "failure": null,
+            "latencyMs": 556,
+            "fieldsCorrect": false,
+            "strayFields": false,
+            "explanation": "answered unrelated, expected verification_required because asks for the phone number to check it is the right person; another person is mentioned; named fields [], expected [phone]",
+            "inputTokens": 353,
+            "outputTokens": 77
+          },
+          {
+            "id": "held-verify-7",
+            "truth": "verification_required",
+            "style": "html-text",
+            "predicted": "verification_required",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 427,
+            "fieldsCorrect": true,
+            "strayFields": false,
+            "explanation": null,
+            "inputTokens": 370,
+            "outputTokens": 44
+          },
+          {
+            "id": "held-verify-8",
+            "truth": "verification_required",
+            "style": "id-request",
+            "predicted": "verification_required",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 543,
+            "fieldsCorrect": false,
+            "strayFields": false,
+            "explanation": "named fields [date_of_birth, email, first_name, last_name, phone], expected []",
+            "inputTokens": 333,
+            "outputTokens": 58
+          },
+          {
+            "id": "held-done-1",
+            "truth": "completed",
+            "style": "plain",
+            "predicted": "completed",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 490,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": null,
+            "inputTokens": 336,
+            "outputTokens": 55
+          },
+          {
+            "id": "held-done-2",
+            "truth": "completed",
+            "style": "ticket",
+            "predicted": "completed",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 517,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": null,
+            "inputTokens": 353,
+            "outputTokens": 59
+          },
+          {
+            "id": "held-done-3",
+            "truth": "completed",
+            "style": "legal",
+            "predicted": "completed",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 483,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": null,
+            "inputTokens": 364,
+            "outputTokens": 44
+          },
+          {
+            "id": "held-done-4",
+            "truth": "completed",
+            "style": "partial",
+            "predicted": "completed",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 393,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": null,
+            "inputTokens": 344,
+            "outputTokens": 31
+          },
+          {
+            "id": "held-done-5",
+            "truth": "completed",
+            "style": "html-text",
+            "predicted": "completed",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 499,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": null,
+            "inputTokens": 388,
+            "outputTokens": 61
+          },
+          {
+            "id": "held-done-6",
+            "truth": "completed",
+            "style": "other-people",
+            "predicted": "unrelated",
+            "correct": false,
+            "failure": null,
+            "latencyMs": 502,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": "answered unrelated, expected completed because the requested listing was taken down; a neighbor's listing was left alone",
+            "inputTokens": 344,
+            "outputTokens": 51
+          },
+          {
+            "id": "held-done-7",
+            "truth": "completed",
+            "style": "no-sale-denial",
+            "predicted": "unrelated",
+            "correct": false,
+            "failure": null,
+            "latencyMs": 514,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": "answered unrelated, expected completed because the preference was recorded and applied",
+            "inputTokens": 345,
+            "outputTokens": 62
+          },
+          {
+            "id": "held-norec-1",
+            "truth": "no_record",
+            "style": "plain",
+            "predicted": "no_record",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 381,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": null,
+            "inputTokens": 322,
+            "outputTokens": 33
+          },
+          {
+            "id": "held-norec-2",
+            "truth": "no_record",
+            "style": "legal",
+            "predicted": "no_record",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 537,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": null,
+            "inputTokens": 345,
+            "outputTokens": 64
+          },
+          {
+            "id": "held-norec-3",
+            "truth": "no_record",
+            "style": "ticket",
+            "predicted": "no_record",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 536,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": null,
+            "inputTokens": 351,
+            "outputTokens": 64
+          },
+          {
+            "id": "held-norec-4",
+            "truth": "no_record",
+            "style": "no-sale-denial",
+            "predicted": "no_record",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 467,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": null,
+            "inputTokens": 325,
+            "outputTokens": 62
+          },
+          {
+            "id": "held-norec-5",
+            "truth": "no_record",
+            "style": "other-people",
+            "predicted": "unrelated",
+            "correct": false,
+            "failure": null,
+            "latencyMs": 497,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": "answered unrelated, expected no_record because no listing exists for the person; a relative's listing was not touched",
+            "inputTokens": 341,
+            "outputTokens": 57
+          },
+          {
+            "id": "held-norec-6",
+            "truth": "no_record",
+            "style": "quoted-thread",
+            "predicted": "no_record",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 374,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": null,
+            "inputTokens": 336,
+            "outputTokens": 33
+          },
+          {
+            "id": "held-reject-1",
+            "truth": "rejected",
+            "style": "no-sale-denial",
+            "predicted": "unrelated",
+            "correct": false,
+            "failure": null,
+            "latencyMs": 523,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": "answered unrelated, expected rejected because closes the request with no action because it does not sell data",
+            "inputTokens": 320,
+            "outputTokens": 64
+          },
+          {
+            "id": "held-reject-2",
+            "truth": "rejected",
+            "style": "legal",
+            "predicted": "rejected",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 487,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": null,
+            "inputTokens": 340,
+            "outputTokens": 55
+          },
+          {
+            "id": "held-reject-3",
+            "truth": "rejected",
+            "style": "ticket",
+            "predicted": "rejected",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 410,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": null,
+            "inputTokens": 330,
+            "outputTokens": 33
+          },
+          {
+            "id": "held-reject-4",
+            "truth": "rejected",
+            "style": "plain",
+            "predicted": "unrelated",
+            "correct": false,
+            "failure": null,
+            "latencyMs": 380,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": "answered unrelated, expected rejected because refuses to delete",
+            "inputTokens": 310,
+            "outputTokens": 31
+          },
+          {
+            "id": "held-reject-5",
+            "truth": "rejected",
+            "style": "partial",
+            "predicted": "rejected",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 461,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": null,
+            "inputTokens": 343,
+            "outputTokens": 51
+          },
+          {
+            "id": "held-reject-6",
+            "truth": "rejected",
+            "style": "quoted-thread",
+            "predicted": "rejected",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 436,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": null,
+            "inputTokens": 345,
+            "outputTokens": 55
+          },
+          {
+            "id": "held-form-1",
+            "truth": "needs_form",
+            "style": "plain",
+            "predicted": "needs_form",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 476,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": null,
+            "inputTokens": 324,
+            "outputTokens": 57
+          },
+          {
+            "id": "held-form-2",
+            "truth": "needs_form",
+            "style": "legal",
+            "predicted": "needs_form",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 473,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": null,
+            "inputTokens": 340,
+            "outputTokens": 59
+          },
+          {
+            "id": "held-form-3",
+            "truth": "needs_form",
+            "style": "ticket",
+            "predicted": "unrelated",
+            "correct": false,
+            "failure": null,
+            "latencyMs": 479,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": "answered unrelated, expected needs_form because must submit using the form",
+            "inputTokens": 339,
+            "outputTokens": 54
+          },
+          {
+            "id": "held-form-4",
+            "truth": "needs_form",
+            "style": "autoresponder",
+            "predicted": "unrelated",
+            "correct": false,
+            "failure": null,
+            "latencyMs": 537,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": "answered unrelated, expected needs_form because an auto-reply that points to the privacy choices form",
+            "inputTokens": 343,
+            "outputTokens": 67
+          },
+          {
+            "id": "held-form-5",
+            "truth": "needs_form",
+            "style": "html-text",
+            "predicted": "unrelated",
+            "correct": false,
+            "failure": null,
+            "latencyMs": 515,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": "answered unrelated, expected needs_form because must use the online removal tool",
+            "inputTokens": 360,
+            "outputTokens": 63
+          },
+          {
+            "id": "held-form-6",
+            "truth": "needs_form",
+            "style": "other-people",
+            "predicted": "needs_form",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 475,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": null,
+            "inputTokens": 354,
+            "outputTokens": 58
+          },
+          {
+            "id": "held-unrel-1",
+            "truth": "unrelated",
+            "style": "plain",
+            "predicted": "unrelated",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 465,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": null,
+            "inputTokens": 328,
+            "outputTokens": 62
+          },
+          {
+            "id": "held-unrel-2",
+            "truth": "unrelated",
+            "style": "html-text",
+            "predicted": "unrelated",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 470,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": null,
+            "inputTokens": 400,
+            "outputTokens": 54
+          },
+          {
+            "id": "held-unrel-3",
+            "truth": "unrelated",
+            "style": "plain",
+            "predicted": "unrelated",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 467,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": null,
+            "inputTokens": 332,
+            "outputTokens": 51
+          },
+          {
+            "id": "held-unrel-4",
+            "truth": "unrelated",
+            "style": "legal",
+            "predicted": "unrelated",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 475,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": null,
+            "inputTokens": 359,
+            "outputTokens": 55
+          },
+          {
+            "id": "held-unrel-5",
+            "truth": "unrelated",
+            "style": "other-people",
+            "predicted": "unrelated",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 441,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": null,
+            "inputTokens": 351,
+            "outputTokens": 54
+          },
+          {
+            "id": "held-unrel-6",
+            "truth": "unrelated",
+            "style": "ticket",
+            "predicted": "unrelated",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 471,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": null,
+            "inputTokens": 351,
+            "outputTokens": 43
+          },
+          {
+            "id": "held-unknown-1",
+            "truth": "unknown",
+            "style": "plain",
+            "predicted": "auto_ack",
+            "correct": false,
+            "failure": null,
+            "latencyMs": 484,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": "answered auto_ack, expected unknown because a two word message that decides nothing",
+            "inputTokens": 291,
+            "outputTokens": 53
+          },
+          {
+            "id": "held-unknown-2",
+            "truth": "unknown",
+            "style": "plain",
+            "predicted": "unrelated",
+            "correct": false,
+            "failure": null,
+            "latencyMs": 516,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": "answered unrelated, expected unknown because a forward with the body removed",
+            "inputTokens": 323,
+            "outputTokens": 61
+          },
+          {
+            "id": "held-unknown-3",
+            "truth": "unknown",
+            "style": "plain",
+            "predicted": "unrelated",
+            "correct": false,
+            "failure": null,
+            "latencyMs": 529,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": "answered unrelated, expected unknown because asks for a call and says nothing about the request",
+            "inputTokens": 331,
+            "outputTokens": 61
+          },
+          {
+            "id": "held-unknown-4",
+            "truth": "unknown",
+            "style": "quoted-thread",
+            "predicted": "unrelated",
+            "correct": false,
+            "failure": null,
+            "latencyMs": 506,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": "answered unrelated, expected unknown because an internal exchange that decides nothing",
+            "inputTokens": 330,
+            "outputTokens": 59
+          },
+          {
+            "id": "held-unknown-5",
+            "truth": "unknown",
+            "style": "plain",
+            "predicted": "unknown",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 408,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": null,
+            "inputTokens": 290,
+            "outputTokens": 31
+          },
+          {
+            "id": "held-unknown-6",
+            "truth": "unknown",
+            "style": "plain",
+            "predicted": "unknown",
+            "correct": true,
+            "failure": null,
+            "latencyMs": 401,
+            "fieldsCorrect": null,
+            "strayFields": false,
+            "explanation": null,
+            "inputTokens": 292,
+            "outputTokens": 30
+          }
+        ],
+        "summary": {
+          "total": 64,
+          "correct": 45,
+          "accuracy": 0.703125,
+          "invalidJson": 0,
+          "invalidJsonRate": 0,
+          "invalidSchema": 0,
+          "otherFailures": 0,
+          "latencyMs": {
+            "mean": 477,
+            "median": 479,
+            "p95": 544,
+            "max": 556
+          },
+          "requestedFieldsAccuracy": 0.25,
+          "perClass": {
+            "bounce": {
+              "cases": 6,
+              "correct": 4
+            },
+            "auto_ack": {
+              "cases": 6,
+              "correct": 6
+            },
+            "confirmation_link": {
+              "cases": 7,
+              "correct": 5
+            },
+            "verification_required": {
+              "cases": 8,
+              "correct": 5
+            },
+            "completed": {
+              "cases": 7,
+              "correct": 5
+            },
+            "no_record": {
+              "cases": 6,
+              "correct": 5
+            },
+            "rejected": {
+              "cases": 6,
+              "correct": 4
+            },
+            "needs_form": {
+              "cases": 6,
+              "correct": 3
+            },
+            "unrelated": {
+              "cases": 6,
+              "correct": 6
+            },
+            "unknown": {
+              "cases": 6,
+              "correct": 2
+            }
+          },
+          "perStyle": {
+            "plain": {
+              "cases": 13,
+              "correct": 8
+            },
+            "html-text": {
+              "cases": 7,
+              "correct": 6
+            },
+            "legal": {
+              "cases": 9,
+              "correct": 8
+            },
+            "quoted-thread": {
+              "cases": 7,
+              "correct": 4
+            },
+            "ticket": {
+              "cases": 8,
+              "correct": 6
+            },
+            "autoresponder": {
+              "cases": 3,
+              "correct": 2
+            },
+            "odd-link": {
+              "cases": 3,
+              "correct": 2
+            },
+            "other-people": {
+              "cases": 6,
+              "correct": 3
+            },
+            "id-request": {
+              "cases": 2,
+              "correct": 2
+            },
+            "partial": {
+              "cases": 3,
+              "correct": 3
+            },
+            "no-sale-denial": {
+              "cases": 3,
+              "correct": 1
+            }
+          },
+          "strayFieldCases": 1,
+          "confusions": [
+            {
+              "id": "held-bounce-4",
+              "truth": "bounce",
+              "predicted": "no_record",
+              "explanation": "answered no_record, expected bounce because permanent failure because the recipient server could not be reached, with our request quoted"
+            },
+            {
+              "id": "held-bounce-6",
+              "truth": "bounce",
+              "predicted": "no_record",
+              "explanation": "answered no_record, expected bounce because a permanent delivery failure"
+            },
+            {
+              "id": "held-link-5",
+              "truth": "confirmation_link",
+              "predicted": "auto_ack",
+              "explanation": "answered auto_ack, expected confirmation_link because asks to click Resume to continue, a click-only ask"
+            },
+            {
+              "id": "held-link-6",
+              "truth": "confirmation_link",
+              "predicted": "verification_required",
+              "explanation": "answered verification_required, expected confirmation_link because legal wording whose only ask is to select a link to confirm; listed fields [email] for a reply that asks for none"
+            },
+            {
+              "id": "held-verify-1",
+              "truth": "verification_required",
+              "predicted": "verification_required",
+              "explanation": "named fields [phone, email, date_of_birth, street, city, state, zip], expected []"
+            },
+            {
+              "id": "held-verify-3",
+              "truth": "verification_required",
+              "predicted": "unrelated",
+              "explanation": "answered unrelated, expected verification_required because asks for the full name on the account; named fields [], expected [full_name]"
+            },
+            {
+              "id": "held-verify-4",
+              "truth": "verification_required",
+              "predicted": "verification_required",
+              "explanation": "named fields [full_name, date_of_birth, street, city, state, zip], expected [street, city, state, zip, date_of_birth]"
+            },
+            {
+              "id": "held-verify-5",
+              "truth": "verification_required",
+              "predicted": "unrelated",
+              "explanation": "answered unrelated, expected verification_required because asks for the web address of the listing; named fields [], expected [record_url]"
+            },
+            {
+              "id": "held-verify-6",
+              "truth": "verification_required",
+              "predicted": "unrelated",
+              "explanation": "answered unrelated, expected verification_required because asks for the phone number to check it is the right person; another person is mentioned; named fields [], expected [phone]"
+            },
+            {
+              "id": "held-verify-8",
+              "truth": "verification_required",
+              "predicted": "verification_required",
+              "explanation": "named fields [date_of_birth, email, first_name, last_name, phone], expected []"
+            },
+            {
+              "id": "held-done-6",
+              "truth": "completed",
+              "predicted": "unrelated",
+              "explanation": "answered unrelated, expected completed because the requested listing was taken down; a neighbor's listing was left alone"
+            },
+            {
+              "id": "held-done-7",
+              "truth": "completed",
+              "predicted": "unrelated",
+              "explanation": "answered unrelated, expected completed because the preference was recorded and applied"
+            },
+            {
+              "id": "held-norec-5",
+              "truth": "no_record",
+              "predicted": "unrelated",
+              "explanation": "answered unrelated, expected no_record because no listing exists for the person; a relative's listing was not touched"
+            },
+            {
+              "id": "held-reject-1",
+              "truth": "rejected",
+              "predicted": "unrelated",
+              "explanation": "answered unrelated, expected rejected because closes the request with no action because it does not sell data"
+            },
+            {
+              "id": "held-reject-4",
+              "truth": "rejected",
+              "predicted": "unrelated",
+              "explanation": "answered unrelated, expected rejected because refuses to delete"
+            },
+            {
+              "id": "held-form-3",
+              "truth": "needs_form",
+              "predicted": "unrelated",
+              "explanation": "answered unrelated, expected needs_form because must submit using the form"
+            },
+            {
+              "id": "held-form-4",
+              "truth": "needs_form",
+              "predicted": "unrelated",
+              "explanation": "answered unrelated, expected needs_form because an auto-reply that points to the privacy choices form"
+            },
+            {
+              "id": "held-form-5",
+              "truth": "needs_form",
+              "predicted": "unrelated",
+              "explanation": "answered unrelated, expected needs_form because must use the online removal tool"
+            },
+            {
+              "id": "held-unknown-1",
+              "truth": "unknown",
+              "predicted": "auto_ack",
+              "explanation": "answered auto_ack, expected unknown because a two word message that decides nothing"
+            },
+            {
+              "id": "held-unknown-2",
+              "truth": "unknown",
+              "predicted": "unrelated",
+              "explanation": "answered unrelated, expected unknown because a forward with the body removed"
+            },
+            {
+              "id": "held-unknown-3",
+              "truth": "unknown",
+              "predicted": "unrelated",
+              "explanation": "answered unrelated, expected unknown because asks for a call and says nothing about the request"
+            },
+            {
+              "id": "held-unknown-4",
+              "truth": "unknown",
+              "predicted": "unrelated",
+              "explanation": "answered unrelated, expected unknown because an internal exchange that decides nothing"
+            }
+          ],
+          "peakVramMiB": 3421
+        }
+      }
+    ],
+    "accuracy": 0.703125,
+    "invalidJsonRate": 0,
+    "meanLatencyMs": 476
+  }
+}

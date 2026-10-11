@@ -72,6 +72,11 @@ export class ProviderError extends Error {
     readonly status?: number,
     /** The conversation itself is too long for the model, which no retry of it can fix. */
     readonly contextTooLong = false,
+    /**
+     * Ollama answers 500 when the text a model wrote as a tool call cannot be read. That is the
+     * model's own bad call, not an outage, and at temperature 0 sending the same request repeats it.
+     */
+    readonly malformedToolCall = false,
   ) {
     super(message);
   }
@@ -87,6 +92,8 @@ export interface HttpOptions {
 
 const DEFAULT_REQUEST_TIMEOUT_MS = 180_000;
 const DEFAULT_RETRIES = 2;
+
+const MALFORMED_TOOL_CALL = /error parsing tool call/i;
 
 const CONTEXT_TOO_LONG =
   /context_length_exceeded|context[ _]length|context too long|context window|prompt is too long|too many tokens|maximum context|reduce the length/i;
@@ -162,6 +169,7 @@ export async function postJson(
         classify(response.status, text),
         response.status,
         isContextTooLong(response.status, text),
+        MALFORMED_TOOL_CALL.test(text),
       );
       wait = retryAfterMs(response) ?? pause;
     } catch (error) {
@@ -174,7 +182,9 @@ export async function postJson(
               "unavailable",
             );
     }
-    if (failure.kind !== "unavailable" || attempt >= retries) throw failure;
+    if (failure.malformedToolCall || failure.kind !== "unavailable" || attempt >= retries) {
+      throw failure;
+    }
     await sleep(wait, signal);
     if (signal.aborted) throw failure;
     pause *= 2;

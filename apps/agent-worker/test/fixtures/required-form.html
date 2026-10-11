@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Request - Fixture Broker</title></head>
+<body>
+<main>
+<h1>Make a request</h1>
+<form method="post" action="/required">
+  <label for="kind">Request type</label>
+  <select id="kind" name="kind" required>
+    <option value="">Choose one</option>
+    <option>Access my data</option>
+    <option>Delete my data</option>
+    <option>Opt out of sale</option>
+    <option>Correct my data</option>
+    <option>Something else</option>
+  </select>
+  <label><input type="checkbox" name="confirm" required> I confirm this request is mine</label>
+  <label for="dob">Date of birth</label><input id="dob" name="dob" required>
+  <label for="d2">Detail 2</label><input id="d2" name="d2" required>
+  <label for="d3">Detail 3</label><input id="d3" name="d3" required>
+  <label for="d4">Detail 4</label><input id="d4" name="d4" required>
+  <label for="d5">Detail 5</label><input id="d5" name="d5" required>
+  <label for="note">Note</label><input id="note" name="note">
+  <button type="submit">Send request</button>
+</form>
+<p><a href="/privacy">Privacy policy</a></p>
+</main>
+</body>
+</html>

@@ -33,7 +33,8 @@ A wrong label can still move a request to the wrong status, so the accuracy belo
 
 ## How the benchmark ran
 
-- Each model ran the 12 agent scenarios 3 times and the 40-reply classification set 3 times, one model at a time, with the previous one stopped first.
+- Each model ran the 12 agent scenarios 3 times, one model at a time, with the previous one stopped first.
+  The agent tables below come from that run, and the reply table comes from a later run described under "What to expect from reply classification".
 - The agent half used the `ollama` provider with a 16384 token context, the same defaults the agent worker uses.
   The largest prompt any model sent was 12,488 tokens (qwen3.6:35b-a3b), and the others stayed under 8,200, so 16k is enough and ollama's default of 4096 is not.
 - The qwen3 models ran the agent half with thinking off (`KICKROCKS_AGENT_THINKING=off`), and their thinking-on agent runs on the current worker were not measured.
@@ -99,13 +100,35 @@ Some failures are wrong reports rather than unsafe actions, and they matter for 
 - qwen3:8b blocked the long noisy page in every run, saying it had no opt-out form.
 - qwen3:8b did stop in every run of scenario 6, but it called the phone check "unknown" instead of phone verification, which is why it scores 0 there.
 
+The scenario 3 column and the bullets below it describe the worker as it was in that run, before it compared records with the person itself.
+They are kept because the other columns come from the same run.
+See "People-search scans" below for the current worker.
+
 What every model still fails:
 
 - The custom-dropdown webform in scenario 2.
   Most runs used all 40 steps, and gpt-oss:20b sometimes blocked it saying fields were missing that the task did give.
-- The people search in scenario 3.
+- The people search in scenario 3, in that run.
   The task asks for every record consistent with the city and birth year it gives, and no model returned that set.
   qwen3:14b and qwen3:8b returned one wrong record every time, gpt-oss:20b blocked twice and returned one wrong record once, and qwen3.6:35b-a3b ran out of steps.
+
+### People-search scans
+
+The agent worker now compares each record with the person itself, as [agents.md](agents.md) describes, and the model decides only the records it leaves undecided.
+Two measurements show how much of a scan result belongs to the worker.
+Both come from `--fake checker`, a scripted model that reports no records, so they are the worker's checks alone and say nothing about any real model.
+
+| Set | Scans | Right with no model behind them | Files |
+|---|---|---|---|
+| Dev | 13 | 39 of 39 runs | `bench/results/tuning/round-4/checker-dev.*` |
+| Held-out | 15 | 45 of 45 runs | `bench/results/tuning/round-4/checker-heldout.*` |
+| Stress | 7 | 18 of 21 runs | `bench/results/tuning/round-4/checker-stress.*` |
+
+- The dev and held-out scans are built from one page builder, so a pass there shows that the worker reads that builder's markup and wording.
+- The stress set uses a second builder with other markup, such as boxes instead of articles, places written `Austin TX`, ages written `(36)`, last initials, relatives with their own cities, and a sidebar of other people.
+  It was written after the worker was tuned, so it is not an unseen set.
+  The three runs it misses are one scenario with a single result on the results page, which the worker leaves for the model to open.
+- No local model has been rerun on the scans with the current worker, so the scan columns above are not a measure of it.
 
 Per model:
 
@@ -124,22 +147,28 @@ Per model:
 
 ## What to expect from reply classification
 
-| Model | Accuracy | No usable answer | Requested fields exact | "unknown" when it should be | Median time |
-|---|---|---|---|---|---|
-| qwen3:8b | 97.5% | 0 of 120 | 15 of 15 | 6 of 9 | 2.7 s |
-| qwen3:14b | 95.8% | 2 of 120 | 14 of 15 | 6 of 9 | 3.9 s |
-| mistral-small3.2 | 95.0% | 0 of 120 | 12 of 15 | 3 of 9 | 1.4 s |
-| gpt-oss:20b | 94.2% | 0 of 120 | 12 of 15 | 3 of 9 | 1.1 s |
-| llama3.2:3b | 85.0% | 0 of 120 | 9 of 15 | 3 of 9 | 0.3 s |
-| granite4.1:8b | 85.0% | 0 of 120 | 12 of 15 | 0 of 9 | 0.5 s |
-| qwen3.6:35b-a3b | not measured | 120 of 120 | - | - | - |
+The figures are from the held-out set of 64 replies, run 3 times for each model on the current classifier prompt.
+The held-out replies were not used to tune the prompt.
+The result files are in `apps/agent-worker/bench/results/tuning/round-4`, named `<model>-heldout`, with the dev set beside them as `<model>-dev`.
 
-- Requested fields is whether the model named exactly the details a verification reply asks for, over 5 verification replies in each of 3 runs.
-- Every model sometimes gives a confident label to a reply that should be "unknown", most often calling an ambiguous one an automatic acknowledgement.
-- qwen3.6:35b-a3b's reply requests all failed with an http error, so its accuracy is not known.
-  It is not a wrong answer, it is no answer.
-- mistral-small3.2 did not fit on the 16 GB card, and how much memory it needs on a bigger one was not measured, so it is only worth it with room to spare.
-- The qwen3 models think through the reply endpoint, which is why they take a few seconds, and only 2 of their 240 answers came back unusable within the 1500 token cap.
+| Model | Accuracy | No usable answer | Requested fields exact | "unknown" kept as unknown | Unknown called unrelated | Median time |
+|---|---|---|---|---|---|---|
+| qwen3:14b | 98.4% | 0 of 192 | 87.5% | 18 of 18 | 0 | 4.3 s |
+| gpt-oss:20b | 98.4% | 0 of 192 | 87.5% | 15 of 18 | 3 | 1.4 s |
+| qwen3:8b | 94.8% | 3 of 192 | 100% | 15 of 18 | 3 | 2.7 s |
+| llama3.2:3b | 73.4% | 0 of 192 | 75.0% | 12 of 18 | 0 | 0.3 s |
+
+- Requested fields is whether the model named exactly the details a verification reply asks for.
+- A reply called unrelated is not shown for review, and one called unknown is.
+  The prompt therefore tells the model to choose unknown when it cannot tell, and a reply on one of our requests that the model calls unrelated is held below the review threshold.
+  Before that change, the same held-out set had 6 unknown replies called unrelated by gpt-oss:20b and 9 by qwen3:8b.
+- llama3.2:3b lost accuracy with that change, from 79.7% to 73.4% on the held-out set, because it now answers unknown for replies it used to label.
+  Its replies wrongly called unrelated or an automatic acknowledgement fell from 9 to 3 of 192, so its mistakes now mostly reach a person.
+- The dev set gives 97.9% for gpt-oss:20b, 100% for qwen3:14b, 99.0% for qwen3:8b and 79.2% for llama3.2:3b.
+  The dev prompt examples are not copied from the dev replies.
+- mistral-small3.2, granite4.1:8b and qwen3.6:35b-a3b were measured on an earlier classifier and a set of 40 replies, so they are not in this table.
+  mistral-small3.2 did not fit on the 16 GB card, and qwen3.6:35b-a3b's reply requests all failed with an http error.
+- The qwen3 models think through the reply endpoint, which is why they take a few seconds.
 - granite4.1:3b and qwen3:4b also fit a 6 GB card, but they were only run on the earlier classifier, so llama3.2:3b is the 6 GB model measured on the current one.
 
 The reply model is set in Settings under Language model, pointed at ollama's `/v1` endpoint.
@@ -156,7 +185,7 @@ How long a reload or a swap between two models takes was not measured.
 | Site that may already have an earlier request | yes, scenario 10 is part of the gate | only gpt-oss:20b | yes |
 | Removal from a search that may find nobody | check the outcome afterwards | yes | yes |
 | Webforms with custom dropdowns, multi-page flows | no | no | yes |
-| People-search scans that must pick the right record | no | no | yes |
+| People-search scans | not measured with the current worker, but a scan sends nothing and a person confirms each candidate | yes | yes |
 | Captcha, phone verification, ID upload, payment, an account | never | never | you |
 
 - A first visit to a site is worth watching whatever the model, and "Let the agent worker take unreviewed targets" under Workers in Settings should stay off until a model passes the gate.

@@ -8,7 +8,8 @@ import { ollamaStatus } from "./ollama.js";
 import { fakeReplyFetch, type ReplyRun, runReplyBench } from "./replies.js";
 import { type BenchResults, summarizeReplies, summarizeScenarios, totalsOf } from "./report.js";
 import { type RunRecord, runScenarioOnce } from "./run-scenario.js";
-import { SCENARIOS, type Scenario } from "./scenarios.js";
+import type { Scenario } from "./scenarios.js";
+import { replyCasesFor, type Split, scenariosFor } from "./splits.js";
 
 export interface BenchOptions {
   model: string;
@@ -17,6 +18,8 @@ export interface BenchOptions {
   provider?: "openai" | "ollama";
   numCtx?: number;
   thinking?: "default" | "off";
+  /** Which set to run. Tuning uses dev, and held-out is for a check that tuning did not see. */
+  split?: Split;
   runs: number;
   scenarios?: number[];
   fake?: FakeKind;
@@ -91,13 +94,17 @@ export async function runBench(options: BenchOptions): Promise<BenchResults> {
   });
   const startedAt = new Date().toISOString();
   const idleVramMiB = await readVramMiB();
+  const split = options.split ?? "dev";
+  const inSplit = scenariosFor(split);
   const scenarios: Scenario[] = options.scenarios
     ? options.scenarios.map((id) => {
-        const found = SCENARIOS.find((s) => s.id === id);
-        if (!found) throw new Error(`There is no scenario ${id}`);
+        const found = inSplit.find((s) => s.id === id);
+        if (!found) throw new Error(`There is no scenario ${id} in the ${split} set`);
         return found;
       })
-    : SCENARIOS;
+    : options.fake === "checker"
+      ? inSplit.filter((s) => s.purpose === "scan")
+      : inSplit;
   const pace = options.pace ?? "instant";
 
   if (!options.fake) await warmUp(baseUrl, options, log);
@@ -132,7 +139,10 @@ export async function runBench(options: BenchOptions): Promise<BenchResults> {
     for (let run = 1; run <= options.runs; run++) {
       const reply = await runReplyBench({
         settings: { baseUrl, model: options.model, apiKey: null },
-        ...(options.fake ? { fetchImpl: fakeReplyFetch(options.fake) } : {}),
+        cases: replyCasesFor(split),
+        ...(options.fake === "perfect" || options.fake === "bad"
+          ? { fetchImpl: fakeReplyFetch(options.fake, replyCasesFor(split)) }
+          : {}),
         ...(options.replyTimeoutMs ? { timeoutMs: options.replyTimeoutMs } : {}),
       });
       replyRuns.push(reply);
@@ -160,6 +170,7 @@ export async function runBench(options: BenchOptions): Promise<BenchResults> {
     finishedAt: new Date().toISOString(),
     environment: {
       baseUrl,
+      split,
       runsPerScenario: options.runs,
       maxSteps: config.limits.maxSteps,
       maxMinutes: Math.round(config.limits.maxMs / 600) / 100,

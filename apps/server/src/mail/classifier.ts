@@ -317,6 +317,11 @@ async function capFor(
       reason: null,
     };
   }
+  // Calling a reply on one of our requests unrelated hides it from review, so it is only trusted
+  // as far as a reply that would change the request is.
+  if (classification === "unrelated") {
+    return { confidence: Math.min(confidence, UNVERIFIED_CAP), reason: null };
+  }
   // Verifying costs DNS lookups, so it is skipped when the cap already decides.
   if (!CHANGES_REQUEST.has(classification) || confidence <= UNVERIFIED_CAP) {
     return { confidence, reason: null };

@@ -1,0 +1,79 @@
+
+> @kickrocks/agent-worker@0.0.0 bench <worktree>/apps/agent-worker
+> tsx bench/cli.ts --model llama3.2:3b --runs 3 --split dev --out bench/results/tuning/round-2 --out-name llama3.2_3b-dev --replies-only
+
+warm-up took 1966 ms
+replies run 1: accuracy 79.2%, invalid JSON 0.0%, median 311 ms
+replies run 2: accuracy 79.2%, invalid JSON 0.0%, median 312 ms
+replies run 3: accuracy 79.2%, invalid JSON 0.0%, median 323 ms
+# Agent model benchmark: llama3.2:3b
+
+Run from 2026-10-08T21:45:57.668Z to 2026-10-08T21:47:36.581Z.
+Endpoint http://127.0.0.1:11434/v1, 3 run(s) per scenario, at most 40 steps and 10 minutes per run, 4096 output tokens per turn, instant pace, the openai provider, thinking default.
+Ollama loaded the model with a context of 4096 tokens.
+Idle GPU memory before the runs was 667 MiB.
+
+## Reply classification
+
+Accuracy 79.2% over 3 run(s) of 96 replies.
+Invalid JSON rate 0.0%.
+Mean latency 322 ms.
+Latency of the first run: median 311 ms, 95th percentile 375 ms, max 488 ms.
+Answers outside the schema: 0. Requests that failed or timed out: 0.
+Requested fields named exactly on verification replies: 50.0%.
+
+| Class | Correct | Cases |
+|---|---|---|
+| bounce | 7 | 10 |
+| auto_ack | 5 | 10 |
+| confirmation_link | 11 | 11 |
+| verification_required | 10 | 12 |
+| completed | 11 | 11 |
+| no_record | 8 | 8 |
+| rejected | 4 | 10 |
+| needs_form | 5 | 8 |
+| unrelated | 7 | 8 |
+| unknown | 8 | 8 |
+
+| Style | Correct | Cases |
+|---|---|---|
+| plain | 43 | 52 |
+| html-text | 5 | 7 |
+| quoted-thread | 4 | 8 |
+| legal | 5 | 7 |
+| autoresponder | 1 | 2 |
+| ticket | 6 | 6 |
+| odd-link | 5 | 5 |
+| id-request | 1 | 1 |
+| other-people | 3 | 4 |
+| partial | 2 | 2 |
+| no-sale-denial | 1 | 2 |
+
+Answers that were wrong in the first run:
+- bounce-2: answered needs_form, expected bounce.
+- ack-2: answered unrelated, expected auto_ack.
+- ack-4: answered unknown, expected auto_ack.
+- verify-4: named fields [first_name, last_name, full_name, email, phone, city, state, zip, street, birth_year, date_of_birth], expected [].
+- reject-1: answered unrelated, expected rejected.
+- reject-3: answered unrelated, expected rejected.
+- form-2: answered confirmation_link, expected needs_form.
+- form-3: answered confirmation_link, expected needs_form.
+- unrel-1: answered confirmation_link, expected unrelated.
+- dev-bounce-4: answered unrelated, expected bounce because an automatic delivery failure notice that quotes our request below it.
+- dev-bounce-5: answered unrelated, expected bounce because the message was blocked and not delivered.
+- dev-ack-1: answered unrelated, expected auto_ack because an out-of-office reply with no decision on the request.
+- dev-ack-4: answered unrelated, expected auto_ack because an unmonitored auto-reply that only says the message arrived.
+- dev-ack-5: answered completed, expected auto_ack because an automatic response that only quotes our request back.
+- dev-verify-1: named fields [first_name, last_name, full_name, email, phone, city, state, zip, street, birth_year, date_of_birth], expected [].
+- dev-verify-4: answered unrelated, expected verification_required because asks for a street address and a city to find the right listing; named fields [], expected [street, city].
+- dev-verify-5: answered needs_form, expected verification_required because several people match, and it asks for the street address to pick one; named fields [], expected [street].
+- dev-verify-6: named fields [date_of_birth, street], expected [date_of_birth].
+- dev-verify-7: named fields [last_name, full_name, email], expected [].
+- dev-reject-1: answered no_record, expected rejected because declines to act because it says it does not sell data.
+- dev-reject-2: answered unrelated, expected rejected because explicitly denies the request to delete.
+- dev-reject-3: answered unrelated, expected rejected because declines because of a retention duty.
+- dev-reject-6: answered unrelated, expected rejected because a plain refusal, with our request quoted.
+- dev-form-4: answered unrelated, expected needs_form because tells the person to visit the Data Rights Center to submit the request.
+
+
+Wrote bench/results/tuning/round-2/llama3.2_3b-dev.json and bench/results/tuning/round-2/llama3.2_3b-dev.md
