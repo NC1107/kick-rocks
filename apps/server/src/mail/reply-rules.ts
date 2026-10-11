@@ -118,6 +118,9 @@ const RULES: Rule[] = [
         String.raw`\bto (?:submit|make|file|exercise|start|initiate)\b${NO_STOP}{0,60}\b(?:requests?|rights)\b${NO_STOP}{0,100}\b(?:${NAMED_CHANNEL})`,
         String.raw`\b(?:please|kindly)\b${NO_STOP}{0,40}\b(?:use|submit|complete|visit|go to|fill|file|make|send|access|call|log ?in|open|create|raise)\b${NO_STOP}{0,60}\b(?:${NAMED_CHANNEL})`,
         String.raw`\be-?mail(?:ed)? requests\b${NO_STOP}{0,30}\b(?:not|cannot|can't)\b${NO_STOP}{0,30}\b(?:accepted|processed|honou?red|handled)\b`,
+        String.raw`\b(?:can|may|will) only (?:act on|accept|process|honou?r) (?:[\w-]+ ){0,3}requests?(?: made| submitted)? (?:through|via|using)\b${NO_STOP}{0,30}\b(?:${REQUIRED_CHANNEL})`,
+        String.raw`\baccept\b${NO_STOP}{0,60}\brequests? (?:through|via)\b${NO_STOP}{0,40}\b(?:${REQUIRED_CHANNEL})${NO_STOP}{0,30}\bonly\b`,
+        String.raw`\be-?mail is not a (?:valid|accepted) way to (?:make|submit)\b`,
       ].join("|"),
       "i",
     ),
@@ -203,6 +206,10 @@ interface RuleInput {
   body: string;
 }
 
+function redirectsElsewhere(text: string): boolean {
+  return RULES.some((rule) => rule.classification === "needs_form" && firstMatch(rule, text));
+}
+
 /** Every signal the wording and headers give, strongest first. Bounces and out-of-office replies end the search. */
 export function matchSignals({ message, body }: RuleInput): Signal[] {
   const subject = message.subject;
@@ -240,9 +247,12 @@ export function matchSignals({ message, body }: RuleInput): Signal[] {
       },
     ];
   }
+  // A company's canned auto-reply is often the redirect itself, so an out-of-office notice only
+  // ends the search when nothing in it sends the request somewhere else.
   if (
-    OUT_OF_OFFICE.test(subject) ||
-    (message.autoSubmitted && OUT_OF_OFFICE.test(body.slice(0, 600)))
+    (OUT_OF_OFFICE.test(subject) ||
+      (message.autoSubmitted && OUT_OF_OFFICE.test(body.slice(0, 600)))) &&
+    !redirectsElsewhere(text)
   ) {
     return [
       {

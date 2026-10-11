@@ -1,0 +1,78 @@
+name: reply-model
+
+# Trains the reply model on a CPU runner from the pinned recipe and publishes it as a release asset.
+# Run it by hand. Afterwards put the version, url, tarSha256, dataSha256 and threshold it prints
+# into apps/server/reply-model/release.json, commit the golden.json it attaches next to it, and the
+# image build and the parity check will use that exact file.
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Model version, such as v2. The release is named reply-model-<version>."
+        required: true
+
+permissions:
+  contents: write
+  id-token: write
+  attestations: write
+
+jobs:
+  train:
+    runs-on: ubuntu-latest
+    # The recipe is 5 folds and a final model for 6 epochs: expect 1.5 to 2.5 hours on this runner.
+    timeout-minutes: 360
+    env:
+      VERSION: ${{ inputs.version }}
+      TOKENIZERS_PARALLELISM: "false"
+      ORT_DISABLE_TELEMETRY: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: apps/server/reply-model/requirements.lock
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/huggingface
+          key: huggingface-modernbert-base-${{ hashFiles('apps/server/reply-model/recipe.json') }}
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm data:build
+      - name: Install the pinned Python packages
+        run: pnpm --filter @kickrocks/server reply-model:env
+      - name: Train, export and check the release
+        run: pnpm --filter @kickrocks/server reply-model:build --version "$VERSION"
+      - name: Show what to pin
+        working-directory: apps/server/reply-model/dist
+        run: |
+          {
+            echo "### reply-model-$VERSION"
+            echo
+            echo '```json'
+            jq '{version: .version, threshold: .threshold, dataSha256: .training.dataSha256, metrics: .metrics}' manifest.json
+            echo '```'
+            echo
+            echo "tarSha256: \`$(cut -d' ' -f1 "reply-model-$VERSION.tar.sha256")\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Check the archive through the server's runtime before publishing it
+        run: |
+          mkdir -p "$RUNNER_TEMP/unpacked"
+          tar -xf "apps/server/reply-model/dist/reply-model-$VERSION.tar" -C "$RUNNER_TEMP/unpacked"
+          pnpm --filter @kickrocks/server reply-model:verify --dir "$RUNNER_TEMP/unpacked" --golden reply-model/dist/golden.json
+      - uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: apps/server/reply-model/dist/reply-model-${{ inputs.version }}.tar
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "reply-model-$VERSION" \
+            "apps/server/reply-model/dist/reply-model-$VERSION.tar" \
+            "apps/server/reply-model/dist/golden.json" \
+            "apps/server/reply-model/dist/dev-oof.json" \
+            --title "Reply model $VERSION" \
+            --notes "Built by the reply-model workflow from commit $GITHUB_SHA. The server image pins this archive by its sha256, which is in apps/server/reply-model/release.json."

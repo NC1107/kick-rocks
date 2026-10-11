@@ -1148,13 +1148,73 @@ describe("a reply that sends the request somewhere else", () => {
       "a request to open a ticket",
       "Thanks for contacting Acme privacy. Please open a ticket in our help center to continue.",
     ],
+    [
+      "a restriction to the online request form",
+      "Thank you for contacting Acme.\n\nTo protect your privacy, we can only act on requests made through our online request form (https://acme.test/privacy-form) or by phone at 888-555-0177.",
+    ],
+    [
+      "an acceptance through the web form only",
+      "Hello and thank you for contacting us.\n\nWe accept opt-out and deletion requests through our web form only (https://acme.test/start) or through our toll free number.",
+    ],
+    [
+      "a note that email is not a valid way to make a request",
+      "Thanks for writing. Email is not a valid way to submit a request, so please follow the steps on our site.",
+    ],
   ];
+
+  it("is needs_form when an automatic reply carries the redirect", async () => {
+    const result = await classify(
+      "Thank you for contacting us. Requests must be submitted through our web form at https://acme.test/privacy-requests.",
+      { subject: "Auto-reply: Opt-out request KR-7K3M9Q", autoSubmitted: true },
+    );
+    expect(result.classification).toBe("needs_form");
+  });
+
+  it("is still an acknowledgement when an automatic reply only says the person is away", async () => {
+    const result = await classify("I am out of the office until Monday.", {
+      subject: "Automatic reply: Opt-out request KR-7K3M9Q",
+      autoSubmitted: true,
+    });
+    expect(result.classification).toBe("auto_ack");
+  });
 
   it.each(redirects)("is needs_form for %s, not an acknowledgement", async (_name, text) => {
     const result = await classify(text);
     expect(result.classification).toBe("needs_form");
     expect(result.confidence).toBeGreaterThanOrEqual(0.6);
     expect(result.requestId).toBe("req-1");
+  });
+
+  const notRedirects: Array<[string, string]> = [
+    [
+      "email named as the only channel, with the request received",
+      "We accept privacy requests via email only, and we have received yours.",
+    ],
+    [
+      "a limit to the account holder",
+      "We can only process requests made by the account holder. Please reply from the email address on your account.",
+    ],
+    [
+      "a limit to the consumer or an agent",
+      "We will only act on requests submitted by the consumer or an authorized agent.",
+    ],
+    [
+      "a limit to verified residents",
+      "We can only honor requests made by verified residents of California.",
+    ],
+  ];
+
+  it.each(notRedirects)("is not needs_form for %s", async (_name, text) => {
+    const result = await classify(text);
+    expect(result.classification).not.toBe("needs_form");
+  });
+
+  it("keeps an out-of-office reply an acknowledgement when it says email is the channel", async () => {
+    const result = await classify(
+      "We accept deletion requests via email only, so your message is in the queue.",
+      { subject: "Auto-reply: Out of office", autoSubmitted: true },
+    );
+    expect(result.classification).toBe("auto_ack");
   });
 
   it("returns the form link from the reply and leaves the policy link out", async () => {

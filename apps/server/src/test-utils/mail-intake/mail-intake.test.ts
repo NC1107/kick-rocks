@@ -141,6 +141,14 @@ describe("the intake harness", () => {
       rationale: "ignores everything",
       links: [],
       requestedFields: [],
+      source: "rules",
+      apply: true,
+      suggestion: null,
+      prediction: {
+        rules: { label: "unrelated", confidence: 0.9 },
+        model: null,
+        inputSha256: null,
+      },
     };
     const blind: ReplyClassifier = { classify: async () => nothing };
     const report = await runIntake("dev", { classifier: () => blind });

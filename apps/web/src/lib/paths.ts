@@ -24,6 +24,7 @@ export const SETTINGS_SECTIONS = [
   "scan-pace",
   "sites",
   "worker",
+  "reply-model",
   "language-model",
   "mail-intake",
   "jurisdictions",

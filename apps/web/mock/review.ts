@@ -68,7 +68,13 @@ const FAILED_INSTRUCTIONS =
 const FAILED_WINDOW_DAYS = 30;
 
 function toSummary(message: ReviewMessage): MessageSummary {
-  const { requestReference: _reference, targetName: _name, targetId: _target, ...rest } = message;
+  const {
+    requestReference: _reference,
+    targetName: _name,
+    targetId: _target,
+    suggestion: _suggestion,
+    ...rest
+  } = message;
   return rest;
 }
 
@@ -541,6 +547,7 @@ export default defineMockDomain({
         admittedBy: "target_sender",
         requestReference: null,
         targetName: null,
+        suggestion: null,
         targetId: null,
       },
       {
@@ -561,7 +568,65 @@ export default defineMockDomain({
           store.requests.find((request) => request.targetId === "cardinal-insights")?.reference ??
           null,
         targetName: targetNames.get("cardinal-insights") ?? null,
+        suggestion: {
+          classification: "confirmation_link",
+          confidence: 0.87,
+          source: "model",
+          spotCheck: false,
+        },
         targetId: targetNames.has("cardinal-insights") ? "cardinal-insights" : null,
+      },
+      {
+        requestId:
+          store.requests.find((request) => request.targetId === "truesegment")?.id ??
+          store.requests[0]?.id ??
+          null,
+        fromAddress: "privacy@truesegment.example",
+        subject: "Re: Opt-out request",
+        classification: "unknown",
+        confidence: 0.2,
+        rationale: "A reply with no wording the rules know.",
+        links: [],
+        requestedFields: [],
+        snippet:
+          "We looked and there is nothing on file under the name and address you gave, so there is nothing to remove.",
+        reviewed: false,
+        admittedBy: "reference",
+        requestReference:
+          store.requests.find((request) => request.targetId === "truesegment")?.reference ??
+          store.requests[0]?.reference ??
+          null,
+        targetName: targetNames.get("truesegment") ?? store.requests[0]?.target.name ?? null,
+        suggestion: {
+          classification: "no_record",
+          confidence: 0.93,
+          source: "model",
+          spotCheck: false,
+        },
+        targetId: targetNames.has("truesegment") ? "truesegment" : null,
+      },
+      {
+        requestId: null,
+        fromAddress: "help@northpoint.example",
+        subject: "Ticket 20931 received",
+        classification: "unknown",
+        confidence: 0.2,
+        rationale: "Mail that does not belong to any request.",
+        links: [],
+        requestedFields: [],
+        snippet:
+          "Your message has been logged and a specialist will reply within two business days.",
+        reviewed: false,
+        admittedBy: "target_sender",
+        requestReference: null,
+        targetName: null,
+        suggestion: {
+          classification: "auto_ack",
+          confidence: 0.98,
+          source: "model",
+          spotCheck: true,
+        },
+        targetId: null,
       },
     ];
     const mailboxId = jordan.mailbox?.id ?? "mbx_none";

@@ -22,6 +22,7 @@ export * from "./outcomes.js";
 export * from "./outgoing.js";
 export * from "./profiles.js";
 export * from "./recipe.js";
+export * from "./reply-model.js";
 export * from "./requests.js";
 export * from "./review.js";
 export * from "./scanning.js";

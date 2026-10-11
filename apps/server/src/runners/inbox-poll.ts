@@ -57,12 +57,7 @@ import type { AppServices } from "../services.js";
 import { connectionOf, describeError } from "./connection.js";
 import { listCleanupCandidates } from "./intake-cleanup.js";
 import { notePassedOver, recordPassedOver, shadowActive } from "./intake-shadow.js";
-import {
-  applyReply,
-  awaitingConfirmationOf,
-  CONFIDENCE_THRESHOLD,
-  followConfirmationLinks,
-} from "./reply.js";
+import { applyReply, awaitingConfirmationOf, followConfirmationLinks } from "./reply.js";
 
 const INBOX_WORKER_ID = "server:inbox-poll";
 const LEASE_MS = 10 * 60 * 1000;
@@ -726,7 +721,7 @@ export class InboxRunner {
       ? (context.find((candidate) => candidate.id === classified.requestId) ?? null)
       : null;
     const requestRecord = request ? this.services.requests.get(request.id) : null;
-    const confident = classified.confidence >= CONFIDENCE_THRESHOLD;
+    const confident = classified.apply;
     const link =
       requestRecord && confident && classified.classification === "confirmation_link"
         ? await followConfirmationLinks(this.services, requestRecord, classified.links)
@@ -774,6 +769,7 @@ export class InboxRunner {
         requestedFields: fields,
         reviewed,
       });
+      this.services.replyPredictions.record(id, classified);
       return { kind: reviewed ? "stored" : "needs_review", requestId: requestRecord?.id ?? null };
     });
   }
@@ -836,6 +832,10 @@ export class InboxRunner {
         rationale: `Classification failed: ${describeError(error)}`,
         links: [],
         requestedFields: [],
+        source: "rules",
+        apply: false,
+        suggestion: null,
+        prediction: { rules: { label: "unknown", confidence: 0 }, model: null, inputSha256: null },
       };
     }
   }

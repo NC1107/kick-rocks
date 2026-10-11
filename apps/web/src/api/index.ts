@@ -1,6 +1,7 @@
 export { AGENTS_POLL_MS, useAgents } from "./agents.js";
 export {
   callRoute,
+  routeUrl,
   screenshotUrl,
   sendScreenshotUrl,
 } from "./client.js";

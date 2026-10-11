@@ -72,6 +72,8 @@ describe("SETTING_SCHEMAS", () => {
         "agent.approvalHoldMinutes",
         "notifications",
         "notifications.state",
+        "replyModel",
+        "replyModel.state",
       ].sort(),
     );
   });

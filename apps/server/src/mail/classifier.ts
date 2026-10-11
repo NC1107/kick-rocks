@@ -7,24 +7,29 @@ import {
   parseOutgoingMessageId,
   parseReferences,
   type ReplyClassification,
+  type ReplyModelSettings,
+  type ReplyModelState,
+  type ReplySuggestion,
   withoutSharedHosts,
 } from "@kickrocks/shared";
 import type { SettingsStore } from "../core/settings.js";
 import { FORM_LINK_HINT } from "./form-link.js";
 import { askLlm, type LlmFetch } from "./llm.js";
+import { inputOf, inputSha256 } from "./reply-model/input.js";
+import type { ModelAnswer, ModelResult, ReplyModelHost } from "./reply-model/types.js";
 import { CLASS_PRIORITY, matchSignals, requestedFieldsIn, type Signal } from "./reply-rules.js";
 import { extractLinks, type MailLink, stripQuoted } from "./reply-text.js";
 import { type SenderTrust, senderTrust } from "./sender-auth.js";
+import { modelThreshold, RULES_THRESHOLD } from "./thresholds.js";
 import type {
   ClassificationResult,
   ClassifierRequest,
   ClassifyContext,
   InboxMessage,
   ReplyClassifier,
+  ReplyPrediction,
 } from "./types.js";
 
-/** Below this the message goes to the language model when one is configured, and to a person when not. */
-const CONFIDENCE_THRESHOLD = 0.6;
 /** What a reply can reach when nothing ties it to a request, so it always waits for a person. */
 const UNMATCHED_CAP = 0.55;
 /**
@@ -370,7 +375,14 @@ interface ReplyClassifierDeps {
   settings: Pick<SettingsStore, "get">;
   fetch?: LlmFetch;
   llmTimeoutMs?: number;
+  /** The local reply model. Without one the classifier works as the rules and the language model alone. */
+  model?: ReplyModelHost;
+  /** Tells which answers to hold back as spot checks. Replaced in tests. */
+  random?: () => number;
+  log?: (reason: string) => void;
 }
+
+type RulesResult = Omit<ClassificationResult, "source" | "apply" | "suggestion" | "prediction">;
 
 function configuredLlm(settings: Pick<SettingsStore, "get">): LlmSettings | null {
   try {
@@ -380,7 +392,61 @@ function configuredLlm(settings: Pick<SettingsStore, "get">): LlmSettings | null
   }
 }
 
+const DEFAULT_MODEL_SETTINGS: ReplyModelSettings = { spotCheckPercent: 10, threshold: null };
+
+function replyModelSettings(settings: Pick<SettingsStore, "get">): ReplyModelSettings {
+  try {
+    return settings.get("replyModel") ?? DEFAULT_MODEL_SETTINGS;
+  } catch {
+    return DEFAULT_MODEL_SETTINGS;
+  }
+}
+
+function replyModelPaused(settings: Pick<SettingsStore, "get">): boolean {
+  try {
+    const state: ReplyModelState | null = settings.get("replyModel.state");
+    return state?.pausedAt != null;
+  } catch {
+    return false;
+  }
+}
+
+function percent(value: number): string {
+  return `${Math.round(value * 100)}%`;
+}
+
+function describeLabel(label: ReplyClassification): string {
+  return label.replaceAll("_", " ");
+}
+
+/** What the rules, the model and the language model each contributed, for the record behind a result. */
+function predictionOf(
+  rules: RulesResult,
+  model: ModelAnswer | null,
+  sha: string | null,
+): ReplyPrediction {
+  return {
+    rules: { label: rules.classification, confidence: rules.confidence },
+    model: model
+      ? {
+          version: model.version,
+          label: model.label,
+          confidence: model.confidence,
+          probabilities: model.probabilities,
+        }
+      : null,
+    inputSha256: sha,
+  };
+}
+
 export function createReplyClassifier(deps: ReplyClassifierDeps): ReplyClassifier {
+  const random = deps.random ?? Math.random;
+  const loggedReasons = new Set<string>();
+  const logOnce = (reason: string) => {
+    if (loggedReasons.has(reason)) return;
+    loggedReasons.add(reason);
+    deps.log?.(reason);
+  };
   return {
     async classify(message: InboxMessage, context: ClassifyContext): Promise<ClassificationResult> {
       const body = stripQuoted(message.text).slice(0, MAX_BODY_CHARS);
@@ -446,7 +512,7 @@ export function createReplyClassifier(deps: ReplyClassifierDeps): ReplyClassifie
       // An acknowledgement footer must not hide a message that asks for something or decides something.
       const changing = signals.find(
         (signal) =>
-          CHANGES_REQUEST.has(signal.classification) && signal.confidence >= CONFIDENCE_THRESHOLD,
+          CHANGES_REQUEST.has(signal.classification) && signal.confidence >= RULES_THRESHOLD,
       );
       const top = signals[0]?.classification === "auto_ack" && changing ? changing : signals[0];
 
@@ -455,13 +521,13 @@ export function createReplyClassifier(deps: ReplyClassifierDeps): ReplyClassifie
         classification === "confirmation_link" &&
         match?.request.awaitingConfirmation === null;
 
-      let result: ClassificationResult;
+      let result: RulesResult;
       if (top) {
         const rival = signals.some(
           (signal) =>
             signal.classification !== top.classification &&
             (signal.classification !== "auto_ack" || top !== signals[0]) &&
-            signal.confidence >= CONFIDENCE_THRESHOLD,
+            signal.confidence >= RULES_THRESHOLD,
         );
         const ranked = rival ? Math.max(0.3, top.confidence - AMBIGUITY_PENALTY) : top.confidence;
         // A confirmation that matched a waiting form keeps the contract's floor even with a rival signal.
@@ -508,34 +574,104 @@ export function createReplyClassifier(deps: ReplyClassifierDeps): ReplyClassifie
         };
       }
 
-      // Mail that matches no request is capped below the threshold and waits for a person either
-      // way, so sending it out would only leak unrelated mail to the model.
-      if (result.confidence >= CONFIDENCE_THRESHOLD || result.requestId === null) return result;
-      return refineWithLlm(
+      const rules: RulesResult = result;
+      const settled = (extra: Partial<ClassificationResult> = {}): ClassificationResult => ({
+        ...rules,
+        source: "rules",
+        apply: false,
+        suggestion: null,
+        prediction: predictionOf(rules, null, null),
+        ...extra,
+      });
+
+      if (rules.confidence >= RULES_THRESHOLD) return settled({ apply: true });
+
+      const input = inputOf(message);
+      const sha = inputSha256(input);
+      const modelRun = deps.model
+        ? await deps.model.predict(input).catch(
+            (error): ModelResult => ({
+              ok: false,
+              reason: `The reply model failed: ${error instanceof Error ? error.message : String(error)}`,
+            }),
+          )
+        : null;
+      if (modelRun && !modelRun.ok) logOnce(modelRun.reason);
+
+      if (modelRun?.ok) {
+        const answer = modelRun.answer;
+        // The model may name a confirmation, but it cannot supply the link: with none on the
+        // request's own site the claim has nothing to act on.
+        const unsupported = answer.label === "confirmation_link" && links.length === 0;
+        const label: ReplyClassification = unsupported ? "unknown" : answer.label;
+        const capped = await capFor(label, via, answer.confidence, trust, ownSiteTrust);
+        const confidence = unboundConfirmation(label)
+          ? Math.min(capped.confidence, UNMATCHED_CAP)
+          : capped.confidence;
+        const settings = replyModelSettings(deps.settings);
+        const threshold = modelThreshold(answer.manifestThreshold, settings.threshold);
+        const prediction = predictionOf(rules, answer, sha);
+        const guess = (spotCheck: boolean): ReplySuggestion | null =>
+          unsupported
+            ? null
+            : {
+                classification: label,
+                confidence: round(answer.confidence),
+                source: "model",
+                spotCheck,
+              };
+
+        // The trust cap holds an unsigned request-changing reading for a person; a model answer
+        // that disagrees with it must not quietly overrule that.
+        const overrulesRules =
+          CHANGES_REQUEST.has(rules.classification) && rules.classification !== label;
+
+        if (requestId === null || unsupported || overrulesRules || confidence < threshold) {
+          return settled({ source: "model", suggestion: guess(false), prediction });
+        }
+        // While the server has stopped applying model answers, every answer that would have been
+        // applied is a spot check, which is how it learns whether the model has recovered.
+        const heldBack =
+          replyModelPaused(deps.settings) || random() * 100 < settings.spotCheckPercent;
+        if (heldBack) {
+          return settled({ source: "model", suggestion: guess(true), prediction });
+        }
+        return {
+          requestId,
+          correlation: via,
+          classification: label,
+          confidence: round(confidence),
+          rationale: `Reply model: ${describeLabel(label)} at ${percent(answer.confidence)}; ${describeCorrelation(via)}${capped.reason ? `; ${capped.reason}` : ""}`,
+          links: label === "needs_form" ? formLinks : links,
+          requestedFields: label === "verification_required" ? requestedFieldsIn(body) : [],
+          source: "model",
+          apply: true,
+          suggestion: null,
+          prediction,
+        };
+      }
+
+      // Mail that matches no request waits for a person either way, so sending it out would only
+      // leak unrelated mail to the language model.
+      if (requestId === null) return settled({ prediction: predictionOf(rules, null, sha) });
+      return suggestWithLlm(
         deps,
         message,
         body,
-        result,
-        via,
-        { links, formLinks },
-        trust,
-        ownSiteTrust,
-        unboundConfirmation,
+        settled({ prediction: predictionOf(rules, null, sha) }),
+        links,
       );
     },
   };
 }
 
-async function refineWithLlm(
+/** The language model only suggests: no threshold was ever measured at which its answers are precise enough to apply. */
+async function suggestWithLlm(
   deps: ReplyClassifierDeps,
   message: InboxMessage,
   body: string,
   current: ClassificationResult,
-  via: Correlation | null,
-  found: { links: string[]; formLinks: string[] },
-  trust: () => Promise<SenderTrust>,
-  ownSiteTrust: () => Promise<SenderTrust>,
-  unboundConfirmation: (classification: ReplyClassification) => boolean,
+  links: string[],
 ): Promise<ClassificationResult> {
   const llm = configuredLlm(deps.settings);
   if (!llm) return current;
@@ -550,30 +686,17 @@ async function refineWithLlm(
     deps.llmTimeoutMs,
   );
   if (!answer) return current;
-
-  // The model may name a confirmation, but it cannot supply the link: only links on the request's
-  // own sites were ever collected, so with none the claim has nothing to act on.
-  const unsupported = answer.classification === "confirmation_link" && found.links.length === 0;
-  const classification: ReplyClassification = unsupported ? "unknown" : answer.classification;
-  const capped = await capFor(
-    classification,
-    via,
-    unsupported ? 0.3 : Math.min(answer.confidence, 0.9),
-    trust,
-    ownSiteTrust,
-  );
-  const confidence = round(
-    unboundConfirmation(classification)
-      ? Math.min(capped.confidence, UNMATCHED_CAP)
-      : capped.confidence,
-  );
-  if (confidence <= current.confidence) return current;
+  const unsupported = answer.classification === "confirmation_link" && links.length === 0;
+  if (unsupported || answer.classification === "unknown") return current;
   return {
     ...current,
-    classification,
-    confidence,
-    links: classification === "needs_form" ? found.formLinks : found.links,
-    rationale: `Model: ${answer.rationale || "no reason given"}${capped.reason ? `; ${capped.reason}` : ""}`,
-    requestedFields: classification === "verification_required" ? answer.requested_fields : [],
+    source: "llm",
+    rationale: `Model: ${answer.rationale || "no reason given"}`,
+    suggestion: {
+      classification: answer.classification,
+      confidence: round(Math.min(answer.confidence, 0.9)),
+      source: "llm",
+      spotCheck: false,
+    },
   };
 }
