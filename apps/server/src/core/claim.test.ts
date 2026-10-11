@@ -1319,3 +1319,88 @@ describe("which sites a model worker may take on its own", () => {
     expect(claimAs("model")?.target.id).toBe(target.id);
   });
 });
+
+describe("claiming a task by id that was assigned", () => {
+  const agentTask = (
+    assignTo: { kind: "person" } | { kind: "model" | "mcp"; workerId: string },
+  ) => {
+    const target = seedTarget(ctx, { category: "people-search" });
+    const task = ctx.services.taskQueue.enqueue({
+      kind: "agent",
+      payload: {
+        purpose: "scan",
+        profileId,
+        targetId: target.id,
+        requestId: null,
+        recordUrl: null,
+        variant: null,
+        rights: [],
+        reason: "no_recipe",
+        previousError: null,
+        blockedReason: null,
+      },
+      profileId,
+      targetId: target.id,
+      dedupeKey: `scan:${profileId}:${target.id}`,
+    }).task;
+    ctx.services.taskQueue.assign(task.id, {
+      to: assignTo,
+      at: ctx.clock.now().toISOString(),
+      by: "user",
+      fallback: "any",
+    });
+    return task;
+  };
+
+  const byId = (taskId: string, workerId: string, claimerKind: "mcp" | "model" = "mcp") =>
+    claim(["agent"], { taskId, workerId, claimerKind });
+
+  it("refuses another client with task_assigned and names who has it", () => {
+    const task = agentTask({ kind: "mcp", workerId: "desk-client" });
+    expect(() => byId(task.id, "someone-else")).toThrow(
+      expect.objectContaining({
+        code: "task_assigned",
+        message: "Assigned to desk-client. The person can reassign it on the request page.",
+      }),
+    );
+    expect(ctx.services.taskQueue.getOrThrow(task.id).status).toBe("queued");
+  });
+
+  it("refuses a client of the other kind that borrows the assignee's worker id", () => {
+    const task = agentTask({ kind: "mcp", workerId: "shared-id" });
+    expect(() => byId(task.id, "shared-id", "model")).toThrow(
+      expect.objectContaining({ code: "task_assigned" }),
+    );
+  });
+
+  it("refuses everyone with assigned_to_person when the person kept the task", () => {
+    const task = agentTask({ kind: "person" });
+    expect(() => byId(task.id, "desk-client")).toThrow(
+      expect.objectContaining({ code: "assigned_to_person" }),
+    );
+  });
+
+  it("refuses another client for a blocked task, which keeps its assignment", () => {
+    const task = agentTask({ kind: "mcp", workerId: "desk-client" });
+    byId(task.id, "desk-client");
+    ctx.services.taskQueue.block(task.id, {
+      workerId: "desk-client",
+      reason: "captcha",
+      detail: "reCAPTCHA",
+      actor: "worker",
+    });
+    expect(ctx.services.taskQueue.getOrThrow(task.id).status).toBe("blocked");
+    expect(() => byId(task.id, "someone-else")).toThrow(
+      expect.objectContaining({
+        code: "task_assigned",
+        message: "Assigned to desk-client. The person can hand it to another agent from Review.",
+      }),
+    );
+    expect(ctx.services.taskQueue.getOrThrow(task.id).status).toBe("blocked");
+  });
+
+  it("lets the assignee take it", () => {
+    const task = agentTask({ kind: "mcp", workerId: "desk-client" });
+    expect(byId(task.id, "desk-client")?.id).toBe(task.id);
+  });
+});

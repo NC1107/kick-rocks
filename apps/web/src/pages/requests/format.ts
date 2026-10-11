@@ -6,16 +6,21 @@ export const RIGHT_TOKENS: Record<RequestRight, string> = {
   delete: "delete",
 };
 
+/** "09:02": the time of day on the 24-hour clock the request page keeps everywhere. */
+export function clockTime(iso: string): string {
+  return new Intl.DateTimeFormat(undefined, {
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).format(new Date(iso));
+}
+
 /** "09:02" for today and "Oct 6" for an earlier day, the labels in a timeline's time gutter. */
 export function gutterTime(iso: string, now = Date.now()): string {
   const at = new Date(iso);
   const today = new Date(now);
   if (at.toDateString() === today.toDateString()) {
-    return new Intl.DateTimeFormat(undefined, {
-      hour: "2-digit",
-      minute: "2-digit",
-      hourCycle: "h23",
-    }).format(at);
+    return clockTime(iso);
   }
   const sameYear = at.getFullYear() === today.getFullYear();
   return new Intl.DateTimeFormat(undefined, {

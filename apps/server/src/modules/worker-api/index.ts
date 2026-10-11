@@ -16,14 +16,14 @@ export const workerApiModule: ModulePlugin = (app, services) => {
 
   registerRoute(app, API_ROUTES.workerHeartbeat, ({ body }) => {
     const now = nowIso(services.clock);
-    services.settings.set(`worker.status.${body.claimer}`, {
+    services.claimers.beat({
+      kind: body.claimer,
       workerId: body.workerId,
       version: body.version ?? null,
-      lastSeenAt: now,
       busy: body.busy,
       currentTaskId: body.currentTaskId ?? null,
-      ...(body.resultPending ? { resultPending: true } : {}),
-      ...(body.model ? { model: body.model } : {}),
+      resultPending: body.resultPending ?? false,
+      model: body.model ?? null,
     });
     const profileIds = services.db
       .select({ id: profiles.id })

@@ -16,6 +16,7 @@ import {
   MatchDecision,
   type MatchFields,
   MessageAdmission,
+  type ModelIdentity,
   type ProfileField,
   PushbackKind,
   type Recipe,
@@ -40,6 +41,7 @@ import {
   TargetKind,
   type TargetOutcome,
   TargetPriority,
+  type TaskAssignment,
   TaskKind,
   TaskStatus,
   type TaskUsage,
@@ -50,6 +52,7 @@ import {
   blob,
   index,
   integer,
+  primaryKey,
   real,
   sqliteTable,
   text,
@@ -460,6 +463,8 @@ export const tasks = sqliteTable(
     claimerKind: text("claimer_kind", { enum: values(ClaimerKind.options) }),
     /** What the attempts cost, summed. */
     usage: text("usage", { mode: "json" }).$type<TaskUsage>(),
+    /** Who an agent task is meant for. Null means any agent, and the claim query reads it in SQL. */
+    assignment: text("assignment", { mode: "json" }).$type<TaskAssignment>(),
     createdAt: timestamp("created_at").notNull(),
     updatedAt: timestamp("updated_at").notNull(),
   },
@@ -526,6 +531,36 @@ export const taskSends = sqliteTable(
     createdAt: timestamp("created_at").notNull(),
   },
   (t) => [index("task_sends_task_idx").on(t.taskId, t.attempt, t.seq)],
+);
+
+/**
+ * Every worker and MCP client the server has heard from, one row per kind and worker id, so two
+ * agent workers no longer overwrite each other's status. The built-in worker and model workers
+ * report by heartbeat; an MCP client is seen only when it calls a tool.
+ */
+export const claimers = sqliteTable(
+  "claimers",
+  {
+    kind: text("kind", { enum: ["builtin", "model", "mcp"] }).notNull(),
+    workerId: text("worker_id").notNull(),
+    model: text("model", { mode: "json" }).$type<ModelIdentity>(),
+    version: text("version"),
+    busy: integer("busy", { mode: "boolean" }).notNull().default(false),
+    currentTaskId: text("current_task_id"),
+    /** The worker holds a finished run that the server has not taken yet. */
+    resultPending: integer("result_pending", { mode: "boolean" }).notNull().default(false),
+    firstSeenAt: timestamp("first_seen_at").notNull(),
+    lastSeenAt: timestamp("last_seen_at").notNull(),
+    /**
+     * When an MCP client last asked for agent work with claim_task. Any other call proves it is
+     * there but not that it would take a task, so a task assigned to it lapses from this time.
+     */
+    lastClaimAt: timestamp("last_claim_at"),
+  },
+  (t) => [
+    primaryKey({ columns: [t.kind, t.workerId] }),
+    index("claimers_seen_idx").on(t.lastSeenAt),
+  ],
 );
 
 export const scans = sqliteTable(
@@ -653,6 +688,7 @@ export const settings = sqliteTable("settings", {
   updatedAt: timestamp("updated_at").notNull(),
 });
 
+export type ClaimerRow = typeof claimers.$inferSelect;
 export type ProfileRow = typeof profiles.$inferSelect;
 export type IdentityRow = typeof identities.$inferSelect;
 export type MailboxRow = typeof mailboxes.$inferSelect;

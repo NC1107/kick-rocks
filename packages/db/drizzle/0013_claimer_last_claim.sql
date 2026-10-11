@@ -1,0 +1,1 @@
+ALTER TABLE `claimers` ADD `last_claim_at` text;

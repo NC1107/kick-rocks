@@ -475,6 +475,7 @@ describe("TaskSummary", () => {
       finishedBy: "home-worker",
       claimerKind: "builtin",
       usage: { durationMs: 1200 },
+      assignment: null,
       createdAt: "2026-10-07T00:00:00.000Z",
       updatedAt: "2026-10-07T00:00:00.000Z",
     };

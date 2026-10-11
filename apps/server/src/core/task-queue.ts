@@ -12,6 +12,7 @@ import {
   type RequestActor,
   resultSchemaFor,
   SCREENSHOT_MIME_TYPES,
+  type TaskAssignment,
   type TaskKind,
   type TaskPayloadMap,
   type TaskStatus,
@@ -245,6 +246,13 @@ export interface TaskQueue {
    * was not about the task itself, such as a mailbox whose login has since been fixed.
    */
   requeueFailed(id: string, actor?: RequestActor): Task;
+  /**
+   * Names who a queued agent task is meant for, or with null lets any agent take it. Never touches
+   * the gate: who the task is for does not change what the claimer is allowed to send.
+   */
+  assign(id: string, assignment: TaskAssignment | null): Task;
+  /** Makes a queued task due now by clearing the wait a retry set. Politeness and the lapsed-holder grace are not its to lift. */
+  clearBackoff(id: string): Task;
   /** Records whether the outgoing gate holds this task's sends for a person. */
   setSubmitApproval(id: string, state: Task["submitApproval"]): void;
   /** A person did the work by hand: closes a blocked task as done. */
@@ -304,6 +312,7 @@ function toTask(row: TaskRow): Task {
     finishedBy: row.finishedBy,
     claimerKind: row.claimerKind,
     usage: row.usage,
+    assignment: row.assignment,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   } as Task;
@@ -334,6 +343,14 @@ function invalidResult(kind: TaskKind, error: z.ZodError): AppError {
       path: issue.path.filter((p): p is string | number => typeof p !== "symbol"),
       message: issue.message,
     })),
+  );
+}
+
+/** Whether a task's assignment names this claimer. */
+function assignedTo(kind: ClaimerKind, workerId: string) {
+  return and(
+    sql`json_extract(${tasks.assignment}, '$.to.kind') = ${kind}`,
+    sql`json_extract(${tasks.assignment}, '$.to.workerId') = ${workerId}`,
   );
 }
 
@@ -656,6 +673,11 @@ export function createTaskQueue({
                 eq(tasks.status, "queued"),
                 inArray(tasks.kind, [...kinds]),
                 or(isNull(tasks.runAfter), lte(tasks.runAfter, now)),
+                // Inside the query, so tasks held for someone else never crowd the candidate window
+                // and politeness never writes a wait onto them.
+                claimerKind
+                  ? or(isNull(tasks.assignment), assignedTo(claimerKind, workerId))
+                  : isNull(tasks.assignment),
                 taskId ? eq(tasks.id, taskId) : undefined,
                 excludeTaskIds && excludeTaskIds.length > 0
                   ? notInArray(tasks.id, [...excludeTaskIds])
@@ -666,7 +688,14 @@ export function createTaskQueue({
                   : undefined,
               ),
             )
-            .orderBy(desc(tasks.priority), asc(tasks.createdAt), asc(sql`rowid`))
+            .orderBy(
+              ...(claimerKind
+                ? [desc(sql`CASE WHEN ${assignedTo(claimerKind, workerId)} THEN 1 ELSE 0 END`)]
+                : []),
+              desc(tasks.priority),
+              asc(tasks.createdAt),
+              asc(sql`rowid`),
+            )
             .limit(MAX_GATED_CANDIDATES)
             .all();
           for (const candidate of candidates) {
@@ -942,6 +971,45 @@ export function createTaskQueue({
         .run().changes;
     },
 
+    assign(id, assignment) {
+      const now = nowIso(clock);
+      return db.transaction((tx) => {
+        const row = loadRow(tx, id);
+        if (row.kind !== "agent") {
+          throw conflict("not_assignable", `A ${row.kind} task cannot be assigned to an agent`);
+        }
+        if (row.status !== "queued") {
+          throw conflict("invalid_task_state", `Task ${id} is ${row.status}, not queued`);
+        }
+        return toTask(
+          tx
+            .update(tasks)
+            .set({ assignment, updatedAt: now })
+            .where(eq(tasks.id, id))
+            .returning()
+            .get(),
+        );
+      });
+    },
+
+    clearBackoff(id) {
+      const now = nowIso(clock);
+      return db.transaction((tx) => {
+        const row = loadRow(tx, id);
+        if (row.status !== "queued") {
+          throw conflict("invalid_task_state", `Task ${id} is ${row.status}, not queued`);
+        }
+        return toTask(
+          tx
+            .update(tasks)
+            .set({ runAfter: null, updatedAt: now })
+            .where(eq(tasks.id, id))
+            .returning()
+            .get(),
+        );
+      });
+    },
+
     setSubmitApproval(id, state) {
       db.update(tasks).set({ submitApproval: state }).where(eq(tasks.id, id)).run();
     },
@@ -1177,6 +1245,7 @@ export function createTaskQueue({
         finishedBy: task.finishedBy,
         claimerKind: task.claimerKind,
         usage: task.usage,
+        assignment: task.assignment,
         createdAt: task.createdAt,
         updatedAt: task.updatedAt,
       }));

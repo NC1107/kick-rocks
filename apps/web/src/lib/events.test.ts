@@ -34,6 +34,7 @@ const PAYLOADS: Record<RequestEventType, unknown> = {
   task_cancelled: { taskId: "t1", kind: "form" },
   task_resumed: { taskId: "t1", kind: "form" },
   task_retrying: { taskId: "t1", kind: "email_send", error: "timeout", attempt: 2 },
+  task_assigned: { taskId: "t1", to: { kind: "mcp", workerId: "desk-client" }, by: "user" },
   user_action: { action: "mark_confirmed", note: null },
   relisted: { recordUrl: "https://broker.test/p/1", previousStatus: "confirmed" },
   note: { text: "Called, they said it is done." },
@@ -203,5 +204,45 @@ describe("describeEvent", () => {
 
   it("shows a note as the person wrote it", () => {
     expect(describeEvent(event("note"))).toBe("Called, they said it is done.");
+  });
+});
+
+describe("describeEvent for an assignment", () => {
+  it("says when an agent could no longer take the task, not that it went quiet", () => {
+    const lapsedFrom = { kind: "model", workerId: "nick-pc-agent" };
+    expect(
+      describeEvent(
+        event("task_assigned", {
+          taskId: "t1",
+          to: "any",
+          by: "fallback",
+          lapsedFrom,
+          why: "refused",
+        }),
+      ),
+    ).toBe("nick-pc-agent can no longer take it, so any agent may take the task.");
+  });
+
+  it("says who a task went to and why it came back", () => {
+    expect(describeEvent(event("task_assigned"))).toBe("You assigned the task to desk-client.");
+    expect(
+      describeEvent(event("task_assigned", { taskId: "t1", to: { kind: "person" }, by: "user" })),
+    ).toBe("You took the task for yourself.");
+    const lapsedFrom = { kind: "model", workerId: "nick-pc-agent" };
+    expect(
+      describeEvent(
+        event("task_assigned", {
+          taskId: "t1",
+          to: { kind: "person" },
+          by: "fallback",
+          lapsedFrom,
+        }),
+      ),
+    ).toBe("nick-pc-agent was not seen for 30 minutes, so the task came back to you.");
+    expect(
+      describeEvent(
+        event("task_assigned", { taskId: "t1", to: "any", by: "fallback", lapsedFrom }),
+      ),
+    ).toBe("nick-pc-agent was not seen for 30 minutes, so any agent may take the task.");
   });
 });

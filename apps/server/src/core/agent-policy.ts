@@ -4,6 +4,7 @@ import {
   type GateVerdict,
   gateVerdict,
   type ModelIdentity,
+  type RecipePurpose,
   type RecipeStatus,
   type SubmitApproval,
   type SubmitGate,
@@ -23,7 +24,10 @@ type PolicyServices = Pick<AppServices, "db" | "settings" | "taskQueue">;
  */
 type ModelStance = "allowed" | "unreviewed" | "rejected";
 
-export function modelStance({ db }: Pick<PolicyServices, "db">, task: Task<"agent">): ModelStance {
+export function modelStance(
+  { db }: Pick<PolicyServices, "db">,
+  task: { targetId: string | null; payload: { purpose: RecipePurpose } },
+): ModelStance {
   if (task.targetId === null) return "allowed";
   const statuses = new Set<RecipeStatus>(
     db

@@ -1,4 +1,4 @@
-import { RequestStatus, reviewAttention } from "@kickrocks/shared";
+import { agentAssignment, RequestStatus, reviewAttention } from "@kickrocks/shared";
 import { describe, expect, it } from "vitest";
 import { app, call, freshMockAppEachTest, jordan } from "./test-helpers.js";
 
@@ -77,7 +77,7 @@ describe("dashboard handlers", () => {
     const id = jordan().id;
     const { attention } = await dashboardOf(id);
     const queue = (await call({ path: `/review?profileId=${id}` })).json;
-    expect(attention).toEqual(reviewAttention(queue));
+    expect(attention).toEqual({ ...reviewAttention(queue), ...agentAssignment(queue) });
   });
 
   it("answers 404 for a profile that does not exist", async () => {

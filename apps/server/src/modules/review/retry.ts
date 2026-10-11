@@ -1,4 +1,5 @@
 import { isActiveStatus } from "@kickrocks/shared";
+import { nowIso } from "../../core/clock.js";
 import { conflict } from "../../core/errors.js";
 import type { EnqueueResult } from "../../core/task-queue.js";
 import type { Task } from "../../core/task-types.js";
@@ -21,6 +22,12 @@ export function retryFailedTask(services: AppServices, taskId: string): Task | n
     }
     const queued = enqueueAgain(services, task);
     if (queued === null) return null;
+    if (queued.created && task.assignment !== null && queued.task.kind === "agent") {
+      services.taskQueue.assign(queued.task.id, {
+        ...task.assignment,
+        at: nowIso(services.clock),
+      });
+    }
 
     if (task.requestId !== null) {
       services.requests.update(task.requestId, { lastError: null });

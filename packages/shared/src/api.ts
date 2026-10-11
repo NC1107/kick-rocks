@@ -1,4 +1,11 @@
 import { z } from "zod";
+import {
+  AgentsQuery,
+  AgentsResponse,
+  AssignBody,
+  HandOffBody,
+  RunNowResponse,
+} from "./assignment.js";
 import { AuthState, ChangePasswordBody, LoginBody, Ok, SetupBody } from "./auth.js";
 import { CampaignBody, CampaignCreated, CampaignPreview } from "./campaigns.js";
 import { Dashboard } from "./dashboard.js";
@@ -183,6 +190,7 @@ export type ApiModule =
   | "dashboard"
   | "scans"
   | "review"
+  | "agents"
   | "worker-api"
   | "recipes"
   | "core";
@@ -865,6 +873,7 @@ export const API_ROUTES = {
     module: "review",
     auth: "session",
     params: IdParam,
+    body: HandOffBody.default({}),
     response: z.object({ task: TaskSummary }),
   }),
   /** Dispatches the request of a task that failed for good again, which the queue never does itself. */
@@ -875,6 +884,34 @@ export const API_ROUTES = {
     auth: "session",
     params: IdParam,
     response: z.object({ task: TaskSummary.nullable() }),
+  }),
+  /** The agent workers and MCP clients a queued agent task can be given to, with who would refuse it. */
+  agentsList: defineRoute({
+    method: "GET",
+    path: "/agents",
+    module: "agents",
+    auth: "session",
+    query: AgentsQuery,
+    response: AgentsResponse,
+  }),
+  /** Names who a queued agent task is meant for. Which agent may send alone is decided when it claims. */
+  taskAssign: defineRoute({
+    method: "POST",
+    path: "/tasks/:id/assign",
+    module: "agents",
+    auth: "session",
+    params: IdParam,
+    body: AssignBody,
+    response: z.object({ task: TaskSummary }),
+  }),
+  /** Clears a retry wait on an assigned queued agent task so an online agent worker takes it now. */
+  taskRunNow: defineRoute({
+    method: "POST",
+    path: "/tasks/:id/run-now",
+    module: "agents",
+    auth: "session",
+    params: IdParam,
+    response: RunNowResponse,
   }),
   taskScreenshot: defineRoute({
     method: "GET",

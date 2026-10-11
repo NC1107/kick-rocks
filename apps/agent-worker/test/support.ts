@@ -146,6 +146,7 @@ export function summary(id: string): TaskSummary {
     finishedBy: "test-agent",
     claimerKind: "model",
     usage: null,
+    assignment: null,
     attempts: 1,
     maxAttempts: 3,
     lastError: null,

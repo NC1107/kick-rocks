@@ -1,5 +1,5 @@
 import { requestEvents } from "@kickrocks/db";
-import { API_ROUTES, RequestStatus, reviewAttention } from "@kickrocks/shared";
+import { API_ROUTES, agentAssignment, RequestStatus, reviewAttention } from "@kickrocks/shared";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
@@ -65,6 +65,9 @@ describe("GET /profiles/:id/dashboard", () => {
         needsVerification: 0,
         failedTasks: 0,
         agentTasks: 0,
+        yourAgentTasks: 0,
+        assignedAgentTasks: 0,
+        agentAssignees: [],
       },
       sending: null,
       mailbox: null,
@@ -134,7 +137,10 @@ describe("GET /profiles/:id/dashboard", () => {
     if (!queue.ok) throw new Error("queue failed");
 
     expect(attention.agentTasks).toBe(1);
-    expect(attention).toEqual(reviewAttention(queue.body));
+    expect(attention).toEqual({
+      ...reviewAttention(queue.body),
+      ...agentAssignment(queue.body),
+    });
   });
 
   it("counts what waits for the person, for this profile only", async () => {
@@ -183,6 +189,9 @@ describe("GET /profiles/:id/dashboard", () => {
       needsVerification: 0,
       failedTasks: 0,
       agentTasks: 0,
+      yourAgentTasks: 0,
+      assignedAgentTasks: 0,
+      agentAssignees: [],
     });
   });
 

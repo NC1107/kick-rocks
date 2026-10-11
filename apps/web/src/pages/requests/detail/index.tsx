@@ -40,6 +40,7 @@ import {
   Section,
   Skeleton,
   StatusMark,
+  Tag,
   TaskStatusMark,
   useToast,
 } from "../../../components/ui/index.js";
@@ -53,6 +54,8 @@ import {
 } from "../../../lib/labels.js";
 import { paths, taskPath } from "../../../lib/paths.js";
 import { REQUEST_STATUS_META } from "../../../lib/status.js";
+import { AgentPanel } from "../../assign/AgentPanel.js";
+import { assigneeTag } from "../../assign/model.js";
 import {
   CheckForRepliesAction,
   ReplyCheckResult,
@@ -135,6 +138,7 @@ function Loading() {
 function TaskRow({ task, requestId }: { task: TaskSummary; requestId: string }) {
   // A task that only belongs to this request has nowhere else to open, so it is not a link.
   const here = taskPath(task) === paths.request(requestId);
+  const assignee = assigneeTag(task);
   return (
     <EntityRow
       to={{ kind: "task", task: here ? { ...task, requestId: null } : task }}
@@ -148,7 +152,12 @@ function TaskRow({ task, requestId }: { task: TaskSummary; requestId: string }) 
             : ""}
         </>
       }
-      trailing={<TaskStatusMark status={task.status} />}
+      trailing={
+        <>
+          {assignee ? <Tag>{assignee}</Tag> : null}
+          <TaskStatusMark status={task.status} />
+        </>
+      }
     />
   );
 }
@@ -284,8 +293,8 @@ function Detail({ request }: { request: RequestDetail }) {
   const latestReply = request.messages.at(-1);
   const showLatest = latestReply !== undefined && latestReply.classification !== "completed";
   const earlierReplies = showLatest ? request.messages.slice(0, -1) : request.messages;
-  const waitingAgent = request.tasks.find(
-    (task) => task.kind === "agent" && task.status === "queued",
+  const agentTask = request.tasks.find(
+    (task) => task.kind === "agent" && (task.status === "queued" || task.status === "leased"),
   );
   const blocked = request.tasks.find((task) => task.status === "blocked");
   const menuItems: MenuItem[] = CONFIRMED_ACTIONS.filter(can).map((action, index) => ({
@@ -409,24 +418,13 @@ function Detail({ request }: { request: RequestDetail }) {
             Nothing goes out until you choose which details to share.
           </Callout>
         ) : null}
-        {waitingAgent ? (
-          <Callout
-            intent="warning"
-            title="Waiting for an agent"
-            action={
-              <span className="flex flex-wrap items-center gap-3">
-                {target.optOutUrl ? (
-                  <ExternalLinkText href={target.optOutUrl}>Open the opt-out page</ExternalLinkText>
-                ) : null}
-                <LinkButton size="sm" to={paths.review(`agent:${waitingAgent.id}`)}>
-                  Do it myself
-                </LinkButton>
-              </span>
-            }
-          >
-            There are no saved steps for this target, so an agent you connect in Settings takes the
-            form. Open the page and finish it yourself, then mark the task done in Review.
-          </Callout>
+        {agentTask ? (
+          <AgentPanel
+            task={agentTask}
+            pageUrl={target.optOutUrl}
+            events={request.events}
+            layout="callout"
+          />
         ) : null}
         {blocked ? (
           <Callout

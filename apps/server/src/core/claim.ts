@@ -634,26 +634,33 @@ function throwIfWaitingForSite(services: ClaimServices, taskId: string): void {
  * An MCP client drives a browser of its own, which cannot be made to take the proxy the person set
  * for a site, so a routed site is left for a worker that applies the route.
  */
-function tasksRoutedAwayFromMcp(
-  services: ClaimServices,
+export function tasksRoutedAwayFromMcp(
+  services: Pick<ClaimServices, "db" | "settings" | "targets" | "taskQueue" | "politeness">,
   kinds: readonly BrowserTaskKind[],
 ): string[] {
   if (services.settings.get("egress").proxyUrl === null) return [];
-  const router = createEgressRouter(services);
-  const routed = new Map<string, boolean>();
-  const isRouted = (targetId: string): boolean => {
-    let known = routed.get(targetId);
-    if (known === undefined) {
-      const target = services.targets.summary(targetId);
-      known = proxyForTarget(services, target, router) !== null;
-      routed.set(targetId, known);
-    }
-    return known;
-  };
+  const routed = routedTargets(services);
   return services.taskQueue
     .list({ kinds: [...kinds], status: "queued" })
-    .filter((task) => task.targetId !== null && isRouted(task.targetId))
+    .filter((task) => task.targetId !== null && routed(task.targetId))
     .map((task) => task.id);
+}
+
+/** Whether visits to a target go through the proxy the person set, memoised for one pass. */
+export function routedTargets(
+  services: Pick<ClaimServices, "db" | "settings" | "targets" | "politeness">,
+): (targetId: string) => boolean {
+  if (services.settings.get("egress").proxyUrl === null) return () => false;
+  const router = createEgressRouter(services);
+  const known = new Map<string, boolean>();
+  return (targetId) => {
+    let routed = known.get(targetId);
+    if (routed === undefined) {
+      routed = proxyForTarget(services, services.targets.summary(targetId), router) !== null;
+      known.set(targetId, routed);
+    }
+    return routed;
+  };
 }
 
 /**
@@ -666,6 +673,28 @@ function queuedAgentSendIds(services: ClaimServices): string[] {
     .list({ kinds: ["agent"], status: "queued" })
     .filter(sendsToBroker)
     .map((task) => task.id);
+}
+
+/**
+ * Claiming a task by id must not take it from the agent, or the person, it was assigned to. A
+ * blocked task keeps its assignment, so the hand-off that claiming it starts is refused too.
+ */
+function refuseIfAssignedElsewhere(task: Task, workerId: string, claimerKind: ClaimerKind): void {
+  const { assignment } = task;
+  if (assignment === null) return;
+  if (assignment.to.kind === "person") {
+    throw conflict(
+      "assigned_to_person",
+      "The person is doing this task themselves. They can hand it back to an agent on the request page.",
+    );
+  }
+  if (assignment.to.kind !== claimerKind || assignment.to.workerId !== workerId) {
+    const where =
+      task.status === "blocked"
+        ? "can hand it to another agent from Review"
+        : "can reassign it on the request page";
+    throw conflict("task_assigned", `Assigned to ${assignment.to.workerId}. The person ${where}.`);
+  }
 }
 
 export function claimTask(
@@ -684,6 +713,9 @@ export function claimTask(
           "Sending is held after a restore, because the restored data may not know what the earlier instance already sent.",
         );
       }
+      if (current.status === "queued" || current.status === "blocked") {
+        refuseIfAssignedElsewhere(current, workerId, claimerKind);
+      }
       if (
         claimerKind === "mcp" &&
         tasksRoutedAwayFromMcp(services, BROWSER_TASK_KINDS).includes(taskId)
@@ -695,7 +727,7 @@ export function claimTask(
       }
       const claimId =
         current.status === "blocked"
-          ? services.dispatch.handToAgent(taskId, "agent").task.id
+          ? services.dispatch.handToAgent(taskId, "agent", { carryAssignment: false }).task.id
           : taskId;
       return services.taskQueue.claim({
         workerId,

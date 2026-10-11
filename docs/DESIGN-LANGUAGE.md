@@ -201,7 +201,7 @@ It is rationed, never used in a gradient, never tints surfaces, and stays this d
 - List rows: 44px, title (target or sender) in 14/500, one line of reason in 13px `ink-3`, mono age on the right, status shape on the left.
 - Detail pane: the facts as a compact definition list, the message body in 15px reading text with a 2px left rule for quoted mail, and the decision controls in a footer bar pinned to the bottom of the pane.
 - Keyboard: `j` and `k` move, `Enter` opens, `1` to `4` pick a classification, shown as mono keycaps in the footer.
-- One filled primary per item; the alternative ("Send nothing and cancel") is a secondary button; the disabled primary is `--kr-active` fill with `ink-3` text, not a washed accent.
+- One filled primary per item; the alternative ("Send nothing and cancel") is a secondary button; the disabled primary is `--kr-disabled` fill with a `line-popover` edge and `ink-3` text, not a washed accent.
 - Phone: the list is the page and an item drills down to the detail with back.
 - After a decision the next item is selected automatically, with a toast only for confirmation ("Sent date of birth to ClearCheck").
 
@@ -246,7 +246,7 @@ It is rationed, never used in a gradient, never tints surfaces, and stays this d
 - Secondary: transparent, 1px `line-strong` edge, `ink` text.
 - Ghost: `ink-2` text, hover fill only.
 - Danger: outlined in `danger` with `danger-text`, never filled; the confirm dialog's final button may fill.
-- Disabled: `--kr-active` fill, `ink-3` text, no opacity trick.
+- Disabled: `--kr-disabled` fill (lighter than `--kr-active` in dark), a `line-popover` edge, `ink-3` text, no opacity trick.
 - Press: 100ms, `scale(0.98)`.
 - Icons inside buttons only when the icon disambiguates (external link, copy); "New campaign" and "New profile" are words.
 

@@ -1,5 +1,6 @@
 import type { IncomingMessage } from "node:http";
 import type { Plugin, ViteDevServer } from "vite";
+import type { AgentPreset } from "./agents.js";
 import type { MockApp, MockRequest } from "./app.js";
 import type { MockAuthMode, MockHealthState } from "./store.js";
 
@@ -49,7 +50,8 @@ async function readBody(request: IncomingMessage): Promise<string | undefined> {
  *
  * POST /__mock/reset puts the fixtures back. GET /__mock/auth?mode=login|setup|authed jumps the
  * session to a state, for testing the auth gate. GET /__mock/health?state=ok|scheduler|sending|database|disk
- * makes the health check report that problem.
+ * makes the health check report that problem. GET /__mock/agents?preset=none|one|several sets
+ * which agent workers and MCP clients have connected, and queues agent tasks on two requests.
  */
 export function kickRocksMock(options: KickRocksMockOptions = {}): Plugin {
   const settings = readOptions(options);
@@ -103,6 +105,17 @@ export function kickRocksMock(options: KickRocksMockOptions = {}): Plugin {
                 return;
               }
               app.store.health = state;
+            } else if (path.pathname === "/__mock/agents") {
+              const agentsModule = (await server.ssrLoadModule(
+                "/mock/agents.ts",
+              )) as typeof import("./agents.js");
+              const preset = path.searchParams.get("preset") as AgentPreset | null;
+              if (!preset || !agentsModule.AGENT_PRESETS.includes(preset)) {
+                response.statusCode = 400;
+                response.end(`preset must be ${agentsModule.AGENT_PRESETS.join(", ")}`);
+                return;
+              }
+              agentsModule.applyAgentPreset(app.store, preset);
             } else {
               response.statusCode = 404;
               response.end("unknown mock control");

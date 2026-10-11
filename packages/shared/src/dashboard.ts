@@ -37,6 +37,11 @@ export const Dashboard = z.object({
     failedTasks: Count,
     /** Agent tasks no MCP client has claimed yet, listed under "Waiting for an agent". */
     agentTasks: Count,
+    /** Agent tasks the person took for themselves. No agent will claim these. */
+    yourAgentTasks: Count,
+    /** Of `agentTasks`, how many are assigned to a named agent, and which agents. */
+    assignedAgentTasks: Count,
+    agentAssignees: z.array(z.string()),
   }),
   /** Mail sent in the last 24 hours against the mailbox cap; null without a mailbox. */
   sending: z

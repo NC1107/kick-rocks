@@ -1,4 +1,10 @@
-import type { Dashboard, DashboardEvent, RequestStatus, ScanHoldReason } from "@kickrocks/shared";
+import {
+  type Dashboard,
+  type DashboardEvent,
+  describeAgentTasks,
+  type RequestStatus,
+  type ScanHoldReason,
+} from "@kickrocks/shared";
 import { Link } from "react-router";
 import { HoldReason } from "../../components/holds/HoldReason.js";
 import {
@@ -144,6 +150,8 @@ interface AttentionItem {
   detail: string;
   /** Failures take the danger color; everything else that waits on the person takes attention. */
   failed?: true;
+  /** The detail answers who has the work, so a phone shows it where other details are dropped. */
+  showDetailOnPhone?: boolean;
 }
 
 export function attentionItems(attention: Dashboard["attention"]): AttentionItem[] {
@@ -178,9 +186,18 @@ export function attentionItems(attention: Dashboard["attention"]): AttentionItem
       title:
         attention.agentTasks === 1 ? "Task waiting for an agent" : "Tasks waiting for an agent",
       detail:
-        attention.agentTasks === 1
-          ? "Connect an agent, or finish it by hand."
-          : "Connect an agent, or finish them by hand.",
+        attention.assignedAgentTasks > 0
+          ? describeAgentTasks(attention)
+          : attention.agentTasks === 1
+            ? "Connect an agent, or finish it by hand."
+            : "Connect an agent, or finish them by hand.",
+      showDetailOnPhone: attention.assignedAgentTasks > 0,
+    },
+    {
+      count: attention.yourAgentTasks,
+      tab: "yours",
+      title: "Yours to do",
+      detail: "You took these. No agent will.",
     },
     {
       count: attention.failedTasks,
@@ -209,7 +226,11 @@ export function AttentionSection({ attention }: { attention: Dashboard["attentio
               key={item.title}
               to={paths.reviewTab(item.tab)}
               title={item.title}
-              description={<span className="max-sm:hidden">{item.detail}</span>}
+              description={
+                <span className={item.showDetailOnPhone ? undefined : "max-sm:hidden"}>
+                  {item.detail}
+                </span>
+              }
               trailing={
                 <Count
                   value={item.count}

@@ -103,7 +103,7 @@ describe("heartbeat", () => {
       serverTime: ctx.clock.now().toISOString(),
       profileIds: [profileId],
     });
-    expect(ctx.services.settings.get("worker.status.builtin")).toEqual({
+    expect(ctx.services.claimers.latestWorker("builtin")).toEqual({
       workerId: "worker-1",
       version: "0.3.0",
       lastSeenAt: ctx.clock.now().toISOString(),
@@ -116,7 +116,7 @@ describe("heartbeat", () => {
     await ctx.call(API_ROUTES.workerHeartbeat, { body: { workerId: "a", busy: true } });
     ctx.clock.advance(30_000);
     await ctx.call(API_ROUTES.workerHeartbeat, { body: { workerId: "b", busy: false } });
-    expect(ctx.services.settings.get("worker.status.builtin")).toMatchObject({
+    expect(ctx.services.claimers.latestWorker("builtin")).toMatchObject({
       workerId: "b",
       version: null,
       busy: false,
@@ -133,17 +133,33 @@ describe("heartbeat", () => {
     await ctx.call(API_ROUTES.workerHeartbeat, {
       body: { workerId: "model", busy: true, currentTaskId: "t9", claimer: "model" },
     });
-    expect(ctx.services.settings.get("worker.status.builtin")).toMatchObject({
+    expect(ctx.services.claimers.latestWorker("builtin")).toMatchObject({
       workerId: "recipes",
       busy: false,
       lastSeenAt: new Date(ctx.clock.now().getTime() - 120_000).toISOString(),
     });
-    expect(ctx.services.settings.get("worker.status.model")).toMatchObject({
+    expect(ctx.services.claimers.latestWorker("model")).toMatchObject({
       workerId: "model",
       busy: true,
       currentTaskId: "t9",
       lastSeenAt: ctx.clock.now().toISOString(),
     });
+  });
+
+  it("keeps a second agent worker apart from the first, so neither overwrites the other", async () => {
+    await ctx.call(API_ROUTES.workerHeartbeat, {
+      body: { workerId: "pc-agent", busy: true, claimer: "model" },
+    });
+    ctx.clock.advance(30_000);
+    await ctx.call(API_ROUTES.workerHeartbeat, {
+      body: { workerId: "laptop-agent", busy: false, claimer: "model" },
+    });
+    const listed = ctx.services.claimers.listAgents();
+    expect(listed.map((row) => [row.workerId, row.busy])).toEqual([
+      ["laptop-agent", false],
+      ["pc-agent", true],
+    ]);
+    expect(ctx.services.claimers.latestWorker("model")?.workerId).toBe("laptop-agent");
   });
 
   it("lists the profiles that still exist, so a worker can forget the others", async () => {

@@ -4,7 +4,7 @@ import { EmailKind, MessageSummary, Reference, ReplyClassification } from "./mai
 import { BlockedReason, FailureKind, type FormOutcome } from "./outcomes.js";
 import { RequestRight } from "./rights.js";
 import { TargetSummary } from "./targets.js";
-import { TaskKind, TaskSummary } from "./tasks.js";
+import { AgentAssignee, TaskAssignee, TaskKind, TaskSummary } from "./tasks.js";
 import { WebUrl } from "./url.js";
 
 export const RequestStatus = z.enum([
@@ -70,6 +70,7 @@ export const RequestEventType = z.enum([
   "task_cancelled",
   "task_resumed",
   "task_retrying",
+  "task_assigned",
   "user_action",
   "relisted",
   "note",
@@ -369,6 +370,15 @@ export const REQUEST_EVENT_PAYLOADS = {
   task_cancelled: z.object(TaskRef),
   task_resumed: z.object(TaskRef),
   task_retrying: z.object({ ...TaskRef, error: z.string(), attempt: z.number().int().min(1) }),
+  task_assigned: z.object({
+    taskId: z.string(),
+    /** "any" is a task that lost its assignee and went back to whichever agent claims first. */
+    to: z.union([TaskAssignee, z.literal("any")]),
+    by: z.enum(["user", "fallback"]),
+    lapsedFrom: AgentAssignee.optional(),
+    /** Why a fallback moved the task: the agent went quiet, or the server would no longer give it the task. */
+    why: z.enum(["quiet", "refused"]).optional(),
+  }),
   user_action: z.object({ action: UserAction, note: z.string().nullable() }),
   relisted: z.object({ recordUrl: WebUrl.nullable(), previousStatus: RequestStatus }),
   note: z.object({ text: z.string() }),
@@ -430,6 +440,7 @@ export function requestEventSchema<E extends z.ZodRawShape>(extra: E) {
     eventOf("task_cancelled", P.task_cancelled),
     eventOf("task_resumed", P.task_resumed),
     eventOf("task_retrying", P.task_retrying),
+    eventOf("task_assigned", P.task_assigned),
     eventOf("user_action", P.user_action),
     eventOf("relisted", P.relisted),
     eventOf("note", P.note),

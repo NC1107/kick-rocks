@@ -1,6 +1,7 @@
 import { messages } from "@kickrocks/db";
 import { API_ROUTES, type TaskSummary } from "@kickrocks/shared";
 import { eq } from "drizzle-orm";
+import { assignTask } from "../../core/assignment.js";
 import { placeholderValues } from "../../core/claim.js";
 import { notFound } from "../../core/errors.js";
 import { registerRoute } from "../../core/http.js";
@@ -64,8 +65,14 @@ export const reviewModule: ModulePlugin = (app, services) => {
     ),
   }));
 
-  registerRoute(app, API_ROUTES.taskHandOff, ({ params }) => ({
-    task: summary(services.dispatch.handToAgent(params.id, "user").task),
+  registerRoute(app, API_ROUTES.taskHandOff, ({ params, body }) => ({
+    task: summary(
+      services.db.transaction(() => {
+        const { id } = services.dispatch.handToAgent(params.id, "user").task;
+        if (body.to === undefined) return services.taskQueue.getOrThrow(id);
+        return assignTask(services, id, body.to, body.fallback);
+      }),
+    ),
   }));
 
   registerRoute(app, API_ROUTES.taskRetry, ({ params }) => {

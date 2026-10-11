@@ -1,6 +1,7 @@
 import { screen, waitFor, within } from "@testing-library/react";
 import type { UserEvent } from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { applyAgentPreset } from "../../../mock/agents.js";
 import { createMockApp, type MockApp } from "../../../mock/app.js";
 import { makeTask } from "../../../mock/requests.js";
 import { renderPage } from "../../test/render.js";
@@ -401,13 +402,13 @@ describe("the review queue", () => {
     );
     await user.click(task.getByRole("button", { name: "Hand to an agent" }));
     const dialog = within(await screen.findByRole("dialog"));
-    expect(dialog.getByText(/AI assistant you connected/)).toBeVisible();
+    expect(dialog.getByText(/The agent receives your name and email address/)).toBeVisible();
     expect(
       mock.store.tasks.some(
         (candidate) => candidate.kind === "agent" && candidate.status === "queued",
       ),
     ).toBe(false);
-    await user.click(dialog.getByRole("button", { name: "Hand to an agent" }));
+    await user.click(dialog.getByRole("button", { name: "Hand over" }));
     await waitFor(() =>
       expect(
         mock.store.tasks.some(
@@ -647,7 +648,7 @@ describe("the review queue", () => {
     const { user } = open("agents", mock);
     const task = await card(/AudienceGrid, Agent/);
     expect(task.getByText(/No agent has taken this yet/)).toBeVisible();
-    await user.click(task.getByRole("button", { name: "I did it myself" }));
+    await user.click(task.getByRole("button", { name: "Mark done" }));
     const dialog = within(await screen.findByRole("dialog"));
     await user.click(dialog.getByRole("button", { name: "Mark done" }));
     await waitFor(() =>
@@ -699,5 +700,126 @@ describe("the review queue", () => {
     open(undefined, failing(/\/api\/review/));
     expect(await screen.findByText("Could not load the review queue")).toBeVisible();
     expect(screen.getByRole("button", { name: "Try again" })).toBeVisible();
+  });
+});
+
+describe("tasks waiting for an agent, by who they are for", () => {
+  /** Two queued agent tasks: one assigned to an agent worker, one kept for the person. */
+  function assignedTasks() {
+    const mock = failing(/never/);
+    applyAgentPreset(mock.store, "several");
+    const [pinned, mine] = mock.store.tasks.filter(
+      (task) => task.kind === "agent" && task.status === "queued",
+    );
+    if (!(pinned && mine)) throw new Error("fixture");
+    const at = mock.store.clock.now().toISOString();
+    pinned.assignment = {
+      to: { kind: "model", workerId: "nick-pc-agent" },
+      at,
+      by: "user",
+      fallback: "any",
+    };
+    mine.assignment = { to: { kind: "person" }, at, by: "user", fallback: "any" };
+    return { mock, pinned, mine };
+  }
+
+  it("says who each waiting task is assigned to in its row", async () => {
+    const { mock } = assignedTasks();
+    open("agents", mock);
+    const list = within(await screen.findByRole("navigation", { name: "Review queue" }));
+    expect(await list.findByText("Assigned to nick-pc-agent")).toBeVisible();
+  });
+
+  it("lists a task the person kept under Yours to do, with Mark done and a way back to an agent", async () => {
+    const { mock, mine } = assignedTasks();
+    const { user } = open("yours", mock);
+    const list = within(await screen.findByRole("navigation", { name: "Review queue" }));
+    expect(await list.findByText(/Yours to do/)).toBeVisible();
+    const pane = await card(new RegExp(`${mine.targetName}, Agent`));
+    expect(await pane.findByText("You're doing this one")).toBeVisible();
+    expect(pane.getByRole("button", { name: "Hand back to an agent" })).toBeVisible();
+    await user.click(pane.getByRole("button", { name: "Hand back to an agent" }));
+    const dialog = within(await screen.findByRole("dialog"));
+    await user.click(await dialog.findByRole("radio", { name: /Any agent/ }));
+    await user.click(dialog.getByRole("button", { name: "Assign" }));
+    await waitFor(() => expect(mine.assignment).toBeNull());
+  });
+
+  it("keeps the same task selected when the person keeps it, which moves it to Yours to do", async () => {
+    const mock = failing(/never/);
+    const profileId = mock.store.profiles[0]?.id ?? "";
+    const queue = (targetId: string, targetName: string, minutes: number) =>
+      makeTask(
+        mock.store,
+        { kind: "agent", status: "queued", profileId, targetId, targetName, requestId: null },
+        { minutes },
+      );
+    queue("audiencegrid", "AudienceGrid", 30);
+    const chosen = queue("stayfield", "Stayfield", 5);
+    const { user } = renderPage(<ReviewPage />, {
+      path: "/review",
+      route: `/review?item=${encodeURIComponent(`agent:${chosen.id}`)}`,
+      mock,
+    });
+    const pane = await card(/Stayfield, Agent/);
+    await user.click(await pane.findByRole("button", { name: "Keep it for me" }));
+    expect(await screen.findByText("You're doing this one")).toBeVisible();
+    expect(await card(/Stayfield, Agent/)).toBeTruthy();
+    expect(screen.queryByRole("region", { name: /AudienceGrid, Agent/ })).not.toBeInTheDocument();
+  });
+
+  it("follows a link saved before the task changed hands", async () => {
+    const mock = failing(/never/);
+    const profileId = mock.store.profiles[0]?.id ?? "";
+    const task = makeTask(
+      mock.store,
+      {
+        kind: "agent",
+        status: "queued",
+        profileId,
+        targetId: "stayfield",
+        targetName: "Stayfield",
+        requestId: null,
+      },
+      { minutes: 5 },
+    );
+    task.assignment = {
+      to: { kind: "person" },
+      at: mock.store.clock.now().toISOString(),
+      by: "user",
+      fallback: "any",
+    };
+    renderPage(<ReviewPage />, {
+      path: "/review",
+      route: `/review?item=${encodeURIComponent(`agent:${task.id}`)}`,
+      mock,
+    });
+    expect(await card(/Stayfield, Agent/)).toBeTruthy();
+    expect(await screen.findByText("You're doing this one")).toBeVisible();
+  });
+
+  it("offers the same picker when handing a blocked task to an agent", async () => {
+    const mock = failing(/never/);
+    applyAgentPreset(mock.store, "one");
+    mock.store.settings.mcp = { ...mock.store.settings.mcp, enabled: true };
+    const { user } = open("blocked", mock);
+    const task = await openItem(user, /ClearCheck\s*ID upload/, /ClearCheck, Submit form/);
+    await waitFor(() =>
+      expect(task.getByRole("button", { name: "Hand to an agent" })).toBeEnabled(),
+    );
+    await user.click(task.getByRole("button", { name: "Hand to an agent" }));
+    const dialog = within(await screen.findByRole("dialog"));
+    await user.click(await dialog.findByRole("radio", { name: /nick-pc-agent/ }));
+    await user.click(dialog.getByRole("button", { name: "Hand over" }));
+    await waitFor(() =>
+      expect(
+        mock.store.tasks.find(
+          (candidate) =>
+            candidate.kind === "agent" &&
+            candidate.targetId === "clearcheck" &&
+            candidate.status === "queued",
+        )?.assignment?.to,
+      ).toEqual({ kind: "model", workerId: "nick-pc-agent" }),
+    );
   });
 });

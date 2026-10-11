@@ -174,6 +174,9 @@ export function presetFor(gpuGb: number): ModelPreset {
   return fits[fits.length - 1] ?? (MODEL_PRESETS[0] as ModelPreset);
 }
 
+/** The id the compose file gives the agent worker, so a task assigned to it survives a rebuild. */
+export const AGENT_WORKER_ID = "agent-worker";
+
 /** The agent worker's settings for a preset, as the lines to put in `.env`. */
 export function agentEnvLines(agent: AgentPreset): string[] {
   return [
@@ -182,6 +185,7 @@ export function agentEnvLines(agent: AgentPreset): string[] {
     `KICKROCKS_AGENT_MODEL=${agent.model}`,
     `KICKROCKS_AGENT_BASE_URL=${OLLAMA_NATIVE_FROM_DOCKER}`,
     `KICKROCKS_AGENT_NUM_CTX=${BENCH_NUM_CTX}`,
+    `KICKROCKS_AGENT_WORKER_ID=${AGENT_WORKER_ID}`,
     ...(agent.thinking === "off" ? ["KICKROCKS_AGENT_THINKING=off"] : []),
   ];
 }
