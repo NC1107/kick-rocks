@@ -45,7 +45,8 @@ function refOf(key: string): { kind: "task" | "match" | "details"; id: string } 
 
 interface Pending {
   timer: ReturnType<typeof setTimeout>;
-  send: () => void;
+  /** `keepalive` is set when the page is going away, so the request outlives it. */
+  send: (keepalive: boolean) => void;
 }
 
 function End({ done, snoozed, review }: { done: number; snoozed: number; review: ReviewQueue }) {
@@ -169,7 +170,7 @@ export function Focus({
   const keys = useMemo(() => items.map((item) => item.key), [items]);
   const selectedKey = pickKey(keys, itemParam, lastIndex.current);
   const selected: NeedsYouItem | undefined = items.find((item) => item.key === selectedKey);
-  const progress = progressOf(done, items.length);
+  const progress = progressOf(done, items.length, Math.max(0, keys.indexOf(selectedKey ?? "")));
 
   useEffect(() => {
     if (selectedKey !== null) lastIndex.current = Math.max(0, keys.indexOf(selectedKey));
@@ -242,12 +243,12 @@ export function Focus({
       return next;
     });
   }, []);
-  const settle = useCallback((key: string) => {
+  const settle = useCallback((key: string, keepalive = false) => {
     const entry = pending.current.get(key);
     if (!entry) return;
     clearTimeout(entry.timer);
     pending.current.delete(key);
-    entry.send();
+    entry.send(keepalive);
   }, []);
   const decideRecord = useCallback(
     (item: NeedsYouItem, decision: "mine" | "not_mine", rights: readonly RequestRight[]) => {
@@ -259,9 +260,9 @@ export function Focus({
       setPromptKey(null);
       pending.current.set(key, {
         timer: setTimeout(() => settle(key), UNDO_MS),
-        send: () =>
+        send: (keepalive) =>
           decide.mutate(
-            { params: { id }, body: { decision, rights: [...rights] } },
+            { params: { id }, body: { decision, rights: [...rights] }, keepalive },
             { onSettled: () => release(key) },
           ),
       });
@@ -285,15 +286,21 @@ export function Focus({
   );
 
   // Leaving the page sends what is still waiting, since "mine" cannot be taken back on the server.
+  // A phone only reports a hidden tab, and may stop it before the timer fires, so that sends too.
   const settleAll = useRef(() => {});
   settleAll.current = () => {
-    for (const key of [...pending.current.keys()]) settle(key);
+    for (const key of [...pending.current.keys()]) settle(key, true);
   };
   useEffect(() => {
     const run = () => settleAll.current();
+    const onHide = () => {
+      if (document.visibilityState === "hidden") run();
+    };
     window.addEventListener("pagehide", run);
+    document.addEventListener("visibilitychange", onHide);
     return () => {
       window.removeEventListener("pagehide", run);
+      document.removeEventListener("visibilitychange", onHide);
       run();
     };
   }, []);
@@ -395,9 +402,16 @@ export function Focus({
         onPick={pickSnooze}
         now={() => new Date()}
       />
-      <Dialog open={listOpen} onClose={() => setListOpen(false)} title={WORDS.upNext} size="sm">
+      <Dialog
+        open={listOpen}
+        onClose={() => setListOpen(false)}
+        title={WORDS.upNext}
+        size="sm"
+        sheet
+      >
         {listOpen ? (
           <UpNext
+            heading={false}
             items={items}
             currentKey={selectedKey}
             snoozed={queue.snoozed}

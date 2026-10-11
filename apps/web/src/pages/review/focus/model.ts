@@ -20,10 +20,13 @@ export function openedRecently(item: Pick<NeedsYouItem, "openedAt">, now: number
   return age >= 0 && age < OPENED_FRESH_MS;
 }
 
-/** The progress of a sitting: how many were dealt with, how many are left, and where this one is. */
-export function progressOf(done: number, remaining: number) {
+/**
+ * The progress of a sitting: how many were dealt with, how many are left, and where the open one
+ * stands, which moves as the person browses the items still waiting.
+ */
+export function progressOf(done: number, remaining: number, index = 0) {
   const total = done + remaining;
-  return { done, total, position: Math.min(done + 1, Math.max(total, 1)) };
+  return { done, total, position: Math.min(done + index + 1, Math.max(total, 1)) };
 }
 
 /** "~15 sec" or "~2 min", short enough for the end of a header line. */

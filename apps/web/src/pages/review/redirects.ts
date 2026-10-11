@@ -1,5 +1,5 @@
 import type { NeedsYouQueue, ReviewQueue } from "@kickrocks/shared";
-import { paths, type ReviewSection } from "../../lib/paths.js";
+import { paths, type ReviewItemKey, type ReviewSection } from "../../lib/paths.js";
 
 /** Where the old `?tab=` values lead now. The groups that became the focused queue lead to it. */
 const TAB_DESTINATIONS: Record<string, string> = {
@@ -58,7 +58,9 @@ export function legacyDestination(
       }
       return paths.review();
     }
-    return null;
+    // A current key that still carries the old tab drops the tab.
+    const current = ["task", "match", "details"].includes(prefix);
+    return tab !== null && current ? paths.reviewItem(item as ReviewItemKey) : null;
   }
   if (tab !== null) return TAB_DESTINATIONS[tab] ?? paths.review();
   return null;

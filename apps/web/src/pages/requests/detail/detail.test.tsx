@@ -500,8 +500,8 @@ describe("the agent callout", () => {
 
   it("says nothing has connected, and offers only Assign and Keep it for me", async () => {
     waiting("none");
-    expect(await screen.findByText(/No agent has connected yet\./)).toBeVisible();
-    expect(screen.getByRole("link", { name: "Settings, Agents" })).toHaveAttribute(
+    expect(await screen.findByText(/No agent yet\./)).toBeVisible();
+    expect(screen.getByRole("link", { name: "Settings" })).toHaveAttribute(
       "href",
       "/settings/agents",
     );

@@ -331,7 +331,7 @@ function ListPage({
       <div className="flex flex-col gap-3">
         {mailboxConnected ? <CheckForRepliesButton check={check} /> : null}
         <ReplyCheckResult check={check} />
-        <CleanupPreview profileId={profileId} rows={3} />
+        <CleanupPreview profileId={profileId} compact />
       </div>
     ) : undefined;
 

@@ -97,23 +97,20 @@ function statusChanges(
   return [...byRequest.values()].filter((change) => change.from !== change.to);
 }
 
+/** The same rows as the dashboard: what to do now, then the places beside the queue that hold something. */
 function attentionLines(services: AppServices, profileId: string): string[] {
   const queue = buildReviewQueue(services, profileId);
   const a = reviewAttention(queue);
   const agentSplit = describeAgentTasks({ agentTasks: a.agentTasks, ...agentAssignment(queue) });
-  const lines: [number, string, string?][] = [
-    [a.blockedTasks, "Blocked tasks to finish by hand"],
-    [a.needsVerification, "Requests waiting for you to approve identifiers"],
-    [a.pendingMatches, "Listings waiting for your decision"],
-    [a.failedTasks, "Failed tasks"],
-    [a.agentTasks, "Tasks waiting for an agent", agentSplit],
-    [a.yourAgentTasks, "Agent tasks you took for yourself"],
-    [a.unreviewedMessages, "Replies to review"],
+  const rows: [number, string, string?][] = [
+    [a.unreviewedMessages, "Mail to sort"],
+    [a.failedTasks, "Problems"],
+    [a.agentTasks, "Waiting on agents", agentSplit],
   ];
   const { counts } = buildNeedsYouQueue(services, createMarks(services), profileId);
   return [
     ...(counts.active > 0 ? [`To do now: ${counts.active} (about ${counts.minutes} min)`] : []),
-    ...lines
+    ...rows
       .filter(([count]) => count > 0)
       .map(([count, text, detail]) => `${text}: ${count}${detail ? ` (${detail})` : ""}`),
     ...workerLines(services),

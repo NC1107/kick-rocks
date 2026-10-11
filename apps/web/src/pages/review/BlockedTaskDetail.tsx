@@ -156,7 +156,7 @@ export function BlockedTaskDetail({
             <TaskStatusMark status={task.status} />
           </div>
         ) : (
-          <AgentPanel task={task} pageUrl={item.url} layout="section" />
+          <AgentPanel task={task} layout="section" />
         )}
 
         {failure ? <p className="break-words text-body text-ink">{failure.detail}</p> : null}

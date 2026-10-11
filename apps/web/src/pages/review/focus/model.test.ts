@@ -85,6 +85,11 @@ describe("progress", () => {
     expect(progressOf(2, 6)).toEqual({ done: 2, total: 8, position: 3 });
   });
 
+  it("follows the item being looked at", () => {
+    expect(progressOf(2, 6, 1)).toEqual({ done: 2, total: 8, position: 4 });
+    expect(progressOf(2, 6, 5).position).toBe(8);
+  });
+
   it("never reads past the end, and grows when items arrive", () => {
     expect(progressOf(3, 0)).toEqual({ done: 3, total: 3, position: 3 });
     expect(progressOf(3, 5).total).toBe(8);

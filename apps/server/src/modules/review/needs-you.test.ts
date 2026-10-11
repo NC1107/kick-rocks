@@ -389,6 +389,57 @@ describe("opened", () => {
   });
 });
 
+describe("a mark older than the item", () => {
+  const opened = (id: string) =>
+    ctx.call(API_ROUTES.needsYouOpened, { params: { kind: "task", id } });
+  const notYet = (id: string) =>
+    ctx.call(API_ROUTES.needsYouNotYet, { params: { kind: "task", id }, body: {} });
+
+  function blockAgain(taskId: string) {
+    ctx.clock.advance(HOUR / 2);
+    ctx.services.db
+      .update(tasks)
+      .set({
+        status: "blocked",
+        blockedReason: "login_required",
+        updatedAt: ctx.services.clock.now().toISOString(),
+      })
+      .where(eq(tasks.id, taskId))
+      .run();
+  }
+
+  it("does not bring its snooze back when the person opens the page", async () => {
+    const task = blocked("captcha");
+    await ctx.call(API_ROUTES.needsYouSnooze, {
+      params: { kind: "task", id: task.id },
+      body: { until: new Date(ctx.services.clock.now().getTime() + 2 * HOUR).toISOString() },
+    });
+    blockAgain(task.id);
+    expect(await keys()).toEqual([`task:${task.id}`]);
+
+    ctx.clock.advance(1000);
+    expect((await opened(task.id)).ok).toBe(true);
+
+    const queue = await get(profileId);
+    expect(queue.items.map((item) => item.key)).toEqual([`task:${task.id}`]);
+    expect(queue.snoozed).toEqual([]);
+  });
+
+  it("starts the try count over", async () => {
+    const task = blocked("captcha");
+    for (let i = 0; i < 3; i++) {
+      ctx.clock.advance(1000);
+      await notYet(task.id);
+    }
+    blockAgain(task.id);
+    expect((await get(profileId)).items[0]?.tries).toBe(0);
+
+    ctx.clock.advance(1000);
+    await notYet(task.id);
+    expect((await get(profileId)).items[0]?.tries).toBe(1);
+  });
+});
+
 describe("marks", () => {
   it("leave with the task, the match or the profile they are about", async () => {
     const task = blocked("captcha");

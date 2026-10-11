@@ -281,11 +281,14 @@ export function MailDetail({ message, profileId }: { message: ReviewMessage; pro
           </p>
         ) : null}
 
-        {message.rationale ? <p className="text-ui text-ink-2">{message.rationale}</p> : null}
-
-        {message.admittedBy ? (
+        {message.admittedBy || message.rationale ? (
           <p className="text-ui text-ink-2">
-            Why it is here: {ADMISSION_REASON[message.admittedBy]}.
+            {[
+              message.admittedBy ? `${ADMISSION_REASON[message.admittedBy]}.` : null,
+              message.rationale,
+            ]
+              .filter(Boolean)
+              .join(" ")}
           </p>
         ) : null}
 

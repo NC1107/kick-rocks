@@ -133,7 +133,6 @@ export const WORDS = {
   nothing: "Nothing needs you.",
   tried: (count: number) => `Tried ${count}×`,
   stuck: "Stuck? Hand to an agent",
-  agentOff: "Agent access is off",
   openRecord: "Open record",
   pickWhat: "Pick what to send",
   skipTitle: "Skip this target?",

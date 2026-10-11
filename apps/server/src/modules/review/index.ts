@@ -17,7 +17,7 @@ import { approveSubmit } from "./approve.js";
 import { classifyByHand, decideMatch } from "./decisions.js";
 import { toMessageDetail } from "./mappers.js";
 import { createMarks, requestIdOf, subjectOf } from "./marks.js";
-import { buildNeedsYouQueue } from "./needs-you.js";
+import { buildNeedsYouQueue, needsYouCandidates } from "./needs-you.js";
 import { buildReviewQueue } from "./queue.js";
 import { retryFailedTask } from "./retry.js";
 
@@ -39,14 +39,12 @@ export const reviewModule: ModulePlugin = (app, services) => {
   /** The item a mark is about, which must still be waiting on the person, snoozed or not. */
   function waitingItem(ref: NeedsYouRef, id: string) {
     const subject = subjectOf(services, ref, id);
-    const queue = buildNeedsYouQueue(services, marks, subject.profileId);
     const key = needsYouKey(ref, id);
-    const item = queue.items.find((candidate) => candidate.key === key);
-    const snoozed = queue.snoozed.some((candidate) => candidate.key === key);
-    if (!item && !snoozed) {
-      throw conflict("already_resolved", "That item no longer needs you");
-    }
-    return { subject, item };
+    const candidate = needsYouCandidates(services, subject.profileId).find(
+      (entry) => entry.key === key,
+    );
+    if (!candidate) throw conflict("already_resolved", "That item no longer needs you");
+    return { subject, kind: candidate.kind, since: candidate.since };
   }
 
   registerRoute(app, API_ROUTES.needsYouSnooze, ({ params, body }) => {
@@ -56,23 +54,25 @@ export const reviewModule: ModulePlugin = (app, services) => {
     if (until > now + NEEDS_YOU_MAX_SNOOZE_DAYS * DAY_MS) {
       throw invalidRequest(`Snooze for at most ${NEEDS_YOU_MAX_SNOOZE_DAYS} days`);
     }
-    const { subject, item } = waitingItem(params.kind, params.id);
-    if (item?.kind === "hold") {
+    const { subject, kind, since } = waitingItem(params.kind, params.id);
+    if (kind === "hold") {
       throw conflict("not_snoozable", "A held request runs out by itself, so it cannot wait");
     }
-    return marks.snooze(subject, new Date(until).toISOString());
+    return marks.snooze(subject, since, new Date(until).toISOString());
   });
 
-  registerRoute(app, API_ROUTES.needsYouUnsnooze, ({ params }) =>
-    marks.unsnooze(waitingItem(params.kind, params.id).subject),
-  );
+  registerRoute(app, API_ROUTES.needsYouUnsnooze, ({ params }) => {
+    const { subject, since } = waitingItem(params.kind, params.id);
+    return marks.unsnooze(subject, since);
+  });
 
-  registerRoute(app, API_ROUTES.needsYouOpened, ({ params }) =>
-    marks.opened(waitingItem(params.kind, params.id).subject),
-  );
+  registerRoute(app, API_ROUTES.needsYouOpened, ({ params }) => {
+    const { subject, since } = waitingItem(params.kind, params.id);
+    return marks.opened(subject, since);
+  });
 
   registerRoute(app, API_ROUTES.needsYouNotYet, ({ params, body }) => {
-    const { subject } = waitingItem(params.kind, params.id);
+    const { subject, since } = waitingItem(params.kind, params.id);
     return services.db.transaction(() => {
       const requestId = requestIdOf(services, subject);
       if (requestId) {
@@ -82,7 +82,7 @@ export const reviewModule: ModulePlugin = (app, services) => {
           payload: { action: "not_yet", note: body.note ?? null },
         });
       }
-      return marks.notYet(subject);
+      return marks.notYet(subject, since);
     });
   });
 

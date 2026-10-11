@@ -1,4 +1,5 @@
 import type { Dashboard, DashboardEvent, RequestStatus, ScanHoldReason } from "@kickrocks/shared";
+import { ChevronRight } from "lucide-react";
 import { Link } from "react-router";
 import { HoldReason } from "../../components/holds/HoldReason.js";
 import {
@@ -207,12 +208,14 @@ export function AttentionSection({ attention }: { attention: Dashboard["attentio
             to={row.to}
             title={row.title}
             trailing={
-              <Count
-                value={row.count}
-                tone={row.failed ? "danger" : "attention"}
-                label={row.title.toLowerCase()}
-                className="text-ui font-medium"
-              />
+              <>
+                <Count
+                  value={row.count}
+                  tone={row.failed ? "danger" : "attention"}
+                  className="text-ui font-medium"
+                />
+                <ChevronRight aria-hidden="true" className="size-4 text-ink-3" />
+              </>
             }
           />
         ))}

@@ -36,7 +36,7 @@ export function Chips({
 }) {
   const { values } = useProfileValues(profileId, fields);
   const [shown, setShown] = useState<ReadonlySet<ProfileField>>(new Set());
-  const [copied, setCopied] = useState<ProfileField | null>(null);
+  const [copied, setCopied] = useState<{ field: ProfileField; ok: boolean } | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   useEffect(() => () => clearTimeout(timer.current), []);
 
@@ -47,9 +47,9 @@ export function Chips({
   if (rows.length === 0 && !extra) return null;
 
   const tap = async (field: ProfileField, value: string) => {
-    await copyText(value);
+    const ok = await copyText(value);
     setShown((current) => new Set(current).add(field));
-    setCopied(field);
+    setCopied({ field, ok });
     clearTimeout(timer.current);
     timer.current = setTimeout(() => setCopied(null), COPIED_MS);
   };
@@ -65,8 +65,12 @@ export function Chips({
             className={CHIP}
           >
             <span className="shrink-0 text-ink-3">{CHIP_LABELS[field]}</span>
-            {copied === field ? (
-              <span className="font-medium text-positive-text">Copied</span>
+            {copied?.field === field ? (
+              copied.ok ? (
+                <span className="font-medium text-positive-text">Copied</span>
+              ) : (
+                <span className="font-medium text-attention-text">Copy failed</span>
+              )
             ) : (
               <span
                 className={cn(

@@ -93,6 +93,9 @@ describe("the dashboard", () => {
       "href",
       "/review/problems",
     );
+    expect(within(needs).getByRole("link", { name: /Mail to sort/ }).textContent).not.toMatch(
+      /sort.*sort/i,
+    );
   });
 
   it("says nothing is waiting when nothing is", async () => {

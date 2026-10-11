@@ -118,11 +118,14 @@ export function ActionBar({
   second,
   error,
   hints = true,
+  enter = true,
 }: {
   primary: ActionSpec;
   second?: ActionSpec | null | undefined;
   error?: string | undefined;
   hints?: boolean;
+  /** Whether Enter on the page presses the primary button. Off where it sends personal data. */
+  enter?: boolean;
 }) {
   return (
     <div className="flex flex-col gap-2">
@@ -130,7 +133,7 @@ export function ActionBar({
       <div className="flex flex-wrap items-center gap-2 max-sm:[&>button]:flex-1">
         <Button
           variant="primary"
-          data-primary
+          data-primary={enter ? "" : undefined}
           onClick={primary.onClick}
           loading={primary.loading ?? false}
           disabled={primary.disabled ?? false}
@@ -153,7 +156,7 @@ export function ActionBar({
         ) : null}
         {hints ? (
           <span className="ml-auto hidden items-center gap-1 text-caption text-ink-3 lg:inline-flex pointer-coarse:hidden">
-            <Kbd>Enter</Kbd>
+            {enter ? <Kbd>Enter</Kbd> : null}
             <Kbd>j</Kbd>
             <Kbd>k</Kbd>
             <Kbd>z</Kbd>

@@ -138,9 +138,10 @@ describe("the primary action of each kind", () => {
     openItem(key(mock), mock);
     const card = within(await screen.findByRole("article"));
     const primary = await card.findByRole("button", { name: label });
-    expect(primary).toHaveAttribute("data-primary");
+    const takesEnter = label !== "Approve" && label !== "Send";
+    expect(primary.hasAttribute("data-primary")).toBe(takesEnter);
     expect(card.getAllByRole("button").filter((b) => b.hasAttribute("data-primary"))).toHaveLength(
-      1,
+      takesEnter ? 1 : 0,
     );
   });
 
@@ -157,14 +158,16 @@ describe("the primary action of each kind", () => {
 describe("where you are in the queue", () => {
   it("shows done plus one of everything, and grows as items are dealt with", async () => {
     const mock = createMockApp();
-    const total = buildMockNeedsYou(mock.store, mock.store.profiles[0]?.id).items.length;
+    const { items } = buildMockNeedsYou(mock.store, mock.store.profiles[0]?.id);
+    const total = items.length;
+    const place = items.findIndex((item) => item.key === taskKey(mock, "captcha")) + 1;
     const { user } = openItem(taskKey(mock, "captcha"), mock);
     const card = within(await cardOf("FindRecord"));
-    expect(card.getByText(`1 of ${total}`)).toBeVisible();
+    expect(card.getByText(`${place} of ${total}`)).toBeVisible();
     await user.click(card.getByRole("button", { name: "Already done" }));
     await user.click(await card.findByRole("button", { name: "Yes" }));
     await waitFor(() => expect(screen.queryByRole("article", { name: "FindRecord" })).toBeNull());
-    expect(await screen.findByText(`2 of ${total}`)).toBeVisible();
+    expect(await screen.findByText(`${place + 1} of ${total}`)).toBeVisible();
   });
 
   it("moves with j and k, and the next and previous buttons", async () => {
@@ -208,6 +211,25 @@ describe("where you are in the queue", () => {
     );
   });
 
+  it("does not approve or send on Enter, where the page would send personal data blind", async () => {
+    const mock = createMockApp();
+    const sent = recording(mock);
+    const { user } = openItem(taskKey(mock, "approval_needed"), mock);
+    await cardOf("Quillnote");
+    await user.keyboard("{Enter}");
+    expect(sent).toEqual([]);
+  });
+
+  it("follows the open item in the count as the person browses", async () => {
+    const mock = createMockApp();
+    const { user } = openItem(null, mock);
+    await screen.findByRole("article");
+    const count = () => screen.getByText(/^\d+ of \d+$/).textContent;
+    const first = count();
+    await user.keyboard("j");
+    await waitFor(() => expect(count()).not.toBe(first));
+  });
+
   it("shows the list as a sheet on a phone", async () => {
     setWide(false);
     const mock = createMockApp();
@@ -222,6 +244,19 @@ describe("where you are in the queue", () => {
 });
 
 describe("details to type in", () => {
+  it("says so when the copy failed, and keeps the value in view to copy by hand", async () => {
+    vi.mocked(copyText).mockResolvedValueOnce(false);
+    const mock = createMockApp();
+    const { user } = openItem(taskKey(mock, "captcha"), mock);
+    const card = within(await cardOf("FindRecord"));
+    const chip = await card.findByRole("button", { name: "Copy email" });
+    await user.click(chip);
+    expect(chip).toHaveTextContent("Copy failed");
+    await waitFor(() => expect(chip).toHaveTextContent("jordan@example.com"), {
+      timeout: 3_000,
+    });
+  });
+
   it("hides each value until it is tapped, then copies it and shows it", async () => {
     const mock = createMockApp();
     const { user } = openItem(taskKey(mock, "captcha"), mock);
@@ -375,6 +410,23 @@ describe("did it work", () => {
     openItem(`task:${task.id}`, mock);
     const card = within(await cardOf("FindRecord"));
     expect(await card.findByRole("button", { name: "Stuck? Hand to an agent" })).toBeVisible();
+  });
+
+  it("does not offer a hand-off on a form that may be sent, where it would lead nowhere", async () => {
+    const mock = createMockApp();
+    mock.store.settings.mcp = { ...mock.store.settings.mcp, enabled: true };
+    const task = blockedTask(mock, "unapproved_submit");
+    mock.store.needsYouMarks.set(`task:${task.id}`, {
+      updatedAt: new Date().toISOString(),
+      snoozedUntil: null,
+      openedAt: null,
+      tries: 2,
+      lastTriedAt: new Date().toISOString(),
+    });
+    openItem(`task:${task.id}`, mock);
+    const card = within(await cardOf("Harbor Consumer Data"));
+    expect(await card.findByText("Tried 2×")).toBeVisible();
+    expect(card.queryByRole("button", { name: "Stuck? Hand to an agent" })).toBeNull();
   });
 
   it("goes to the next item on Skip without telling the server anything", async () => {
@@ -579,6 +631,25 @@ describe("a record", () => {
     await waitFor(() => expect(pending(mock, "tx-88120")?.decision).toBe("mine"));
   });
 
+  it("sends with keepalive when the page is hidden or closed, so the request outlives it", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const mock = createMockApp();
+    const keepalive: boolean[] = [];
+    const { user } = openItem(recordKey(mock, "tx-88120"), mock);
+    const card = within(await cardOf("Jordan Example"));
+    const realFetch = globalThis.fetch;
+    vi.stubGlobal("fetch", (input: RequestInfo | URL, init?: RequestInit) => {
+      if (String(input).includes("/decision")) keepalive.push(init?.keepalive === true);
+      return realFetch(input, init);
+    });
+    await user.click(card.getByRole("button", { name: "This is me" }));
+    await screen.findAllByText("Removal queued");
+    setVisibility("hidden");
+    await waitFor(() => expect(pending(mock, "tx-88120")?.decision).toBe("mine"));
+    expect(keepalive).toEqual([true]);
+    setVisibility("visible");
+  });
+
   it("asks for an opt-out alone from the menu", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     const mock = createMockApp();
@@ -767,11 +838,10 @@ describe("a run that stopped before sending", () => {
     expect(await screen.findByText("Approved · runs again soon")).toBeVisible();
   });
 
-  it("keeps the held requests behind a disclosure, with the step that went out before", async () => {
+  it("shows the held requests open, with the step that went out before", async () => {
     const mock = createMockApp();
     const { user } = openItem(taskKey(mock, "approval_needed"), mock);
     const card = within(await cardOf("Quillnote"));
-    await user.click(await card.findByRole("button", { name: /^Review \d+ requests?$/ }));
     expect(
       await card.findByText(
         /Step 1 already went out once\. Approving sends it again, then step 2\./,
@@ -785,7 +855,6 @@ describe("a run that stopped before sending", () => {
     const mock = createMockApp();
     const { user } = openItem(taskKey(mock, "approval_needed"), mock);
     const card = within(await cardOf("Quillnote"));
-    await user.click(await card.findByRole("button", { name: /^Review \d+ requests?$/ }));
     await user.click(await card.findByRole("checkbox", { name: /Leave this one out/ }));
     await user.click(card.getByRole("button", { name: "Approve" }));
     await waitFor(() => {
@@ -823,9 +892,8 @@ describe("a run that stopped before sending", () => {
     const card = within(await cardOf("Harbor Consumer Data"));
     expect(card.getByText("Check sent")).toBeVisible();
     await user.click(await card.findByRole("button", { name: "What was sent" }));
-    expect(
-      await card.findByText("1 request carrying your details left the browser."),
-    ).toBeVisible();
+    expect(card.queryByText(/left the browser/)).toBeNull();
+    expect((await card.findAllByRole("listitem")).length).toBeGreaterThan(0);
     await user.click(card.getByRole("button", { name: "Already done" }));
     expect(await card.findByText("Did it go through?")).toBeVisible();
   });
@@ -868,15 +936,13 @@ describe("the menu", () => {
     );
   });
 
-  it("explains that agent access is off, and where to turn it on", async () => {
+  it("shows one row when agent access is off, which leads to where to turn it on", async () => {
     const mock = createMockApp();
     const { user } = openItem(taskKey(mock, "id_upload"), mock);
     await cardOf("ClearCheck");
     await user.click(screen.getByRole("button", { name: "More" }));
-    const item = await screen.findByRole("menuitem", { name: /Hand to an agent/ });
-    expect(item).toBeDisabled();
-    expect(item).toHaveTextContent("Agent access is off");
-    expect(screen.getByRole("menuitem", { name: "Agent settings" })).toBeVisible();
+    expect(await screen.findByRole("menuitem", { name: "Turn on agents" })).toBeVisible();
+    expect(screen.queryByRole("menuitem", { name: /Hand to an agent/ })).toBeNull();
   });
 
   it("hands a task to an agent after a confirmation that says what an agent is", async () => {

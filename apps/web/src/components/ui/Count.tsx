@@ -14,8 +14,8 @@ const TONE: Record<CountTone, string> = {
 export interface CountProps {
   value: number;
   tone?: CountTone;
-  /** What is counted, for screen readers: "requests". Read after the number. */
-  label: string;
+  /** What is counted, for screen readers: "requests". Read after the number. Leave it out when the text beside the number already says it. */
+  label?: string;
   className?: string;
 }
 
@@ -24,7 +24,7 @@ export function Count({ value, tone = "plain", label, className }: CountProps) {
   return (
     <span className={cn("font-mono tabular-nums", TONE[tone], className)}>
       {value}
-      <span className="sr-only"> {label}</span>
+      {label ? <span className="sr-only"> {label}</span> : null}
     </span>
   );
 }

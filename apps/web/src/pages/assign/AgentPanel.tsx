@@ -73,7 +73,7 @@ export function AgentPanel({ task, pageUrl, events = [], layout }: AgentPanelPro
 
   const lapsed = lapsedText(events, task.id);
   const settingsLink = state.nobodyConnected ? (
-    <TextLink to={AGENT_SETTINGS_PATH}>Settings, Agents</TextLink>
+    <TextLink to={AGENT_SETTINGS_PATH}>Settings</TextLink>
   ) : null;
 
   const actions = (
@@ -173,7 +173,7 @@ function PanelActions({
   running: boolean;
 }) {
   const page: ReactNode = pageUrl ? (
-    <ExternalLinkText href={pageUrl}>Open the opt-out page</ExternalLinkText>
+    <ExternalLinkText href={pageUrl}>Open the page</ExternalLinkText>
   ) : null;
   const runNowButton = state.runNow ? (
     <Button size="sm" onClick={onRunNow} loading={running}>

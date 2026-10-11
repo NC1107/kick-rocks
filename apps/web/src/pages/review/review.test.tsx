@@ -74,15 +74,14 @@ describe("the review pages", () => {
   it("says why a message is in the queue", async () => {
     open("/review/mail");
     const message = await card("Your recent message");
-    expect(
-      await message.findByText(
-        "Why it is here: It is from a company or broker you have a request with.",
-      ),
-    ).toBeVisible();
+    expect(await message.findByText(/^From a company you asked\./)).toBeVisible();
   });
 
   it("shows the saved mail it would remove, and removes it only when the person confirms", async () => {
     const { user } = open("/review/mail");
+    expect(await screen.findByText("12 saved emails to remove")).toBeVisible();
+    expect(screen.queryByTestId("cleanup-preview")).toBeNull();
+    await user.click(screen.getByRole("button", { name: "Review" }));
     const preview = within(await screen.findByTestId("cleanup-preview"));
     expect(screen.getByRole("heading", { name: /Saved mail to remove · 12/ })).toBeVisible();
     expect(preview.getByText("Your order has shipped")).toBeVisible();
@@ -344,9 +343,9 @@ describe("the tabs under the Review title", () => {
 describe("the mail page", () => {
   it("keeps the saved-mail preview and the check for replies in the list, not above it", async () => {
     open("/review/mail");
-    const preview = await screen.findByTestId("cleanup-preview");
+    const banner = await screen.findByText("12 saved emails to remove");
     const list = screen.getByRole("navigation", { name: "Review list" });
-    expect(list).toContainElement(preview);
+    expect(list).toContainElement(banner);
     expect(within(list).getByRole("button", { name: "Check for replies" })).toBeVisible();
   });
 
@@ -384,6 +383,11 @@ describe("addresses saved before Review was split", () => {
   ])("sends ?tab=%s to %s, replacing the old address", async (tab, destination) => {
     openAt(`/review?tab=${tab}`);
     await waitFor(() => expect(where()).toMatch(new RegExp(`^${destination}(\\?item=.*)?$`)));
+  });
+
+  it("drops the old tab from an address that already names a current item", async () => {
+    openAt(`/review?tab=matches&item=${encodeURIComponent("match:abc")}`);
+    await waitFor(() => expect(where()).toBe(`/review?item=${encodeURIComponent("match:abc")}`));
   });
 
   it("sends a blocked task of the focused queue to its task key", async () => {

@@ -184,7 +184,7 @@ describe("the callout for a task", () => {
   it("says no agent has connected, and points to settings", () => {
     const state = calloutState(task(), response(), NOW);
     expect(state.nobodyConnected).toBe(true);
-    expect(state.lines[0]).toMatch(/^No agent has connected yet\./);
+    expect(state.lines[0]).toMatch(/^No agent yet\./);
   });
 
   it("names an assignee that is online and idle", () => {

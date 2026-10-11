@@ -18,8 +18,7 @@ export const GRACE_MINUTES = ASSIGNMENT_GRACE_MS / 60_000;
 /** Where the person turns on an agent worker or an MCP client. */
 export const AGENT_SETTINGS_PATH = "/settings/agents";
 
-export const NO_AGENTS_TEXT =
-  "No agent has connected yet. An agent worker or an MCP client can take sites with no saved steps.";
+export const NO_AGENTS_TEXT = "No agent yet.";
 
 export const HELD_SENDS_LINE = "Every request it sends waits for your approval in Review.";
 export const MCP_SENDS_LINE = "Drives its own browser. Kick Rocks cannot hold what it sends.";

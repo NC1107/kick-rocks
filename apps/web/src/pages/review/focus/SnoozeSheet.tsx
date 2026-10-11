@@ -18,7 +18,7 @@ export function SnoozeSheet({
 }) {
   const presets = open ? snoozePresets(now()) : [];
   return (
-    <Dialog open={open} onClose={onClose} title={WORDS.snoozeTitle} size="sm">
+    <Dialog open={open} onClose={onClose} title={WORDS.snoozeTitle} size="sm" sheet>
       <ul className="m-0 flex list-none flex-col gap-1.5 p-0">
         {presets.map((preset) => (
           <li key={preset.id}>

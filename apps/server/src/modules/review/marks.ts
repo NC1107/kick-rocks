@@ -79,13 +79,23 @@ export function createMarks(services: AppServices) {
     return db.select().from(needsYouMarks).where(eq(SUBJECT_COLUMN[ref], id)).get();
   }
 
+  /**
+   * A mark older than the item is about something that no longer holds, so it starts over instead
+   * of letting an old snooze or try count come back to life when the person acts again.
+   */
   function change(
     subject: Subject,
+    since: string,
     next: (current: NeedsYouMarkRow | undefined) => Partial<NeedsYouMarkRow>,
   ): NeedsYouMark {
     const now = nowIso(clock);
     const current = find(subject.ref, subject.id);
-    const fields = { ...next(current), updatedAt: now };
+    const stale = current !== undefined && current.updatedAt < since;
+    const fields = {
+      ...(stale ? { snoozedUntil: null, openedAt: null, tries: 0, lastTriedAt: null } : {}),
+      ...next(stale ? undefined : current),
+      updatedAt: now,
+    };
     if (current) {
       db.update(needsYouMarks).set(fields).where(eq(needsYouMarks.id, current.id)).run();
     } else {
@@ -114,14 +124,17 @@ export function createMarks(services: AppServices) {
       return new Map(rows.map((row) => [markKey(row), row]));
     },
 
-    snooze: (subject: Subject, until: string) => change(subject, () => ({ snoozedUntil: until })),
+    snooze: (subject: Subject, since: string, until: string) =>
+      change(subject, since, () => ({ snoozedUntil: until })),
 
-    unsnooze: (subject: Subject) => change(subject, () => ({ snoozedUntil: null })),
+    unsnooze: (subject: Subject, since: string) =>
+      change(subject, since, () => ({ snoozedUntil: null })),
 
-    opened: (subject: Subject) => change(subject, () => ({ openedAt: nowIso(clock) })),
+    opened: (subject: Subject, since: string) =>
+      change(subject, since, () => ({ openedAt: nowIso(clock) })),
 
-    notYet: (subject: Subject) =>
-      change(subject, (current) => ({
+    notYet: (subject: Subject, since: string) =>
+      change(subject, since, (current) => ({
         tries: (current?.tries ?? 0) + 1,
         lastTriedAt: nowIso(clock),
         openedAt: null,

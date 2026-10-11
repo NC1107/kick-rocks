@@ -35,19 +35,15 @@ function taskCandidate(services: AppServices, item: BlockedTaskItem): NeedsYouCa
   return candidateOfTask(item, live ? liveHoldWindow(services, item.task.id) : null);
 }
 
-/**
- * Everything that waits on the person and nobody else, in the order to do it. Mail, failures and
- * tasks waiting for an agent have their own pages and are left out.
- */
-export function buildNeedsYouQueue(
+/** Everything that waits on the person and nobody else, before any mark is applied. */
+export function needsYouCandidates(
   services: AppServices,
-  marks: Marks,
   profileId: string | undefined,
-): NeedsYouQueue {
+): NeedsYouCandidate[] {
   const takenByYou = services.taskQueue
     .list({ status: "queued", kinds: ["agent"], profileId })
     .filter((task) => task.assignment?.to.kind === "person");
-  const candidates: NeedsYouCandidate[] = [
+  return [
     ...items(services, [
       ...heldLive(services, profileId),
       ...services.taskQueue.list({ status: "blocked", profileId }),
@@ -66,5 +62,20 @@ export function buildNeedsYouQueue(
     }),
     ...verifications(services, profileId).map(candidateOfVerification),
   ];
-  return assembleNeedsYou(candidates, marks.forProfile(profileId), services.clock.now());
+}
+
+/**
+ * Everything that waits on the person and nobody else, in the order to do it. Mail, failures and
+ * tasks waiting for an agent have their own pages and are left out.
+ */
+export function buildNeedsYouQueue(
+  services: AppServices,
+  marks: Marks,
+  profileId: string | undefined,
+): NeedsYouQueue {
+  return assembleNeedsYou(
+    needsYouCandidates(services, profileId),
+    marks.forProfile(profileId),
+    services.clock.now(),
+  );
 }

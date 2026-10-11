@@ -6,7 +6,7 @@ import {
   type SendRow,
 } from "@kickrocks/shared";
 import { ExternalLink } from "lucide-react";
-import { useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { errorMessage, useApiMutation, useApiQuery } from "../../../api/index.js";
 import {
   ConfirmDialog,
@@ -27,8 +27,8 @@ import { destinationOf, fieldRows, isHeld, liveHolds, nextRunHolds } from "../se
 import { ActionBar, CardFrame, Steps, Thumbnail } from "./Card.js";
 import { Chips, useProfileValues } from "./Chips.js";
 import { useFocus } from "./context.js";
-import { CHIP_LABELS, KIND_COPY, sendDetails, WORDS } from "./copy.js";
-import { useCardMenu } from "./menu.js";
+import { CHIP_LABELS, KIND_COPY, OTHER_OUTCOMES, sendDetails, WORDS } from "./copy.js";
+import { stuckAllowed, useCardMenu } from "./menu.js";
 import { clip, clockLeft, itemTitle, maskValue } from "./model.js";
 import { ReturnPrompt } from "./ReturnPrompt.js";
 
@@ -51,11 +51,13 @@ function useTaskFlow(item: NeedsYouItem) {
   const focus = useFocus();
   const toast = useToast();
   const task = taskOf(item);
+  const outcome = useRef<FormOutcome>("submitted");
   const markDone = useApiMutation(API_ROUTES.taskMarkDone, {
     invalidates: REVIEW_INVALIDATES,
     onSuccess: () => {
       focus.resolved();
-      toast.success(`Done · ${itemTitle(item)}`);
+      const chosen = OTHER_OUTCOMES.find((other) => other.outcome === outcome.current);
+      toast.success(`${chosen?.label ?? "Done"} · ${itemTitle(item)}`);
     },
   });
   const notYet = useApiMutation(API_ROUTES.needsYouNotYet, { invalidates: REVIEW_INVALIDATES });
@@ -64,15 +66,15 @@ function useTaskFlow(item: NeedsYouItem) {
     task,
     busy: markDone.isPending || notYet.isPending,
     error: error ? errorMessage(error) : undefined,
-    done: (outcome: FormOutcome = "submitted") =>
+    done: (chosen: FormOutcome = "submitted") => {
+      outcome.current = chosen;
       markDone.mutate({
         params: { id: task.id },
-        body: canReportOutcome(task) ? { result: { outcome } } : {},
-      }),
-    notYet: () => {
-      focus.next();
-      notYet.mutate({ params: { kind: "task", id: task.id }, body: {} });
+        body: canReportOutcome(task) ? { result: { outcome: chosen } } : {},
+      });
     },
+    notYet: () =>
+      notYet.mutate({ params: { kind: "task", id: task.id }, body: {} }, { onSuccess: focus.next }),
     pending: markDone.isPending,
   };
 }
@@ -177,7 +179,7 @@ function TaskCard({ item, check }: TaskCardProps) {
       {check ? <ReplyCheckResult check={check} /> : null}
       {flow.task.hasScreenshot ? <Thumbnail taskId={flow.task.id} /> : null}
       {item.kind === "check_sent" ? <SentDisclosure item={item} /> : null}
-      <Stuck show={item.tries >= 2 && focus.agentAccess === "on"} onClick={menu.openHandOff} />
+      <Stuck show={stuckAllowed(item, focus.agentAccess)} onClick={menu.openHandOff} />
     </CardFrame>
   );
 }
@@ -190,7 +192,7 @@ function SentDisclosure({ item }: { item: NeedsYouItem }) {
   if (!log.data || log.data.sends.length === 0) return null;
   return (
     <Disclosure title="What was sent" open={open} onOpenChange={setOpen}>
-      <SentLog log={log.data} target={item.target ?? undefined} />
+      <SentLog log={log.data} bare />
     </Disclosure>
   );
 }
@@ -231,6 +233,8 @@ function HoldCard({ item }: { item: NeedsYouItem }) {
     id: "finish",
     label: "Finish by hand",
     onSelect: async () => {
+      // Opened first, inside the click, because a popup blocker only allows it there.
+      if (item.url) window.open(item.url, "_blank", "noopener,noreferrer");
       for (const row of live) {
         await decide.mutateAsync({
           params: { id: task.id, sendId: row.id },
@@ -239,7 +243,6 @@ function HoldCard({ item }: { item: NeedsYouItem }) {
       }
       focus.resolved();
       toast.success("Held back");
-      if (item.url) window.open(item.url, "_blank", "noopener,noreferrer");
     },
   } satisfies MenuItem;
   const menu = useCardMenu(item, { extra: [finishByHand] });
@@ -256,6 +259,7 @@ function HoldCard({ item }: { item: NeedsYouItem }) {
       tagText={left ? `${KIND_COPY.hold.tag} · ${left}` : undefined}
       bar={
         <ActionBar
+          enter={false}
           primary={{
             label: KIND_COPY.hold.primary,
             onClick: () => current && answer(current, "send"),
@@ -327,7 +331,8 @@ function ApproveCard({ item }: { item: NeedsYouItem }) {
   const { task } = flow;
   const log = useApiQuery(API_ROUTES.taskSends, { params: { id: task.id } });
   const [declined, setDeclined] = useState<string[]>([]);
-  const [open, setOpen] = useState(false);
+  // Open from the start, so approving is never done without seeing what goes out.
+  const [open, setOpen] = useState(true);
   const held = log.data ? nextRunHolds(log.data).length : 0;
   const options = { invalidates: REVIEW_INVALIDATES };
   const approve = useApiMutation(API_ROUTES.taskApproveSubmit, {
@@ -348,20 +353,20 @@ function ApproveCard({ item }: { item: NeedsYouItem }) {
   const copy = KIND_COPY.approve;
   const error = [approve, resume].find((mutation) => mutation.isError)?.error;
   const settled = log.data !== undefined;
-  const primary =
-    held > 0 || !settled
-      ? {
-          label: copy.primary,
-          onClick: () =>
-            approve.mutate({ params: { id: task.id }, body: { declineSendIds: declined } }),
-          loading: approve.isPending,
-          disabled: !settled,
-        }
-      : {
-          label: "Run again",
-          onClick: () => resume.mutate({ params: { id: task.id } }),
-          loading: resume.isPending,
-        };
+  const approving = held > 0 || !settled;
+  const primary = approving
+    ? {
+        label: copy.primary,
+        onClick: () =>
+          approve.mutate({ params: { id: task.id }, body: { declineSendIds: declined } }),
+        loading: approve.isPending,
+        disabled: !settled,
+      }
+    : {
+        label: "Run again",
+        onClick: () => resume.mutate({ params: { id: task.id } }),
+        loading: resume.isPending,
+      };
 
   return (
     <CardFrame
@@ -373,6 +378,7 @@ function ApproveCard({ item }: { item: NeedsYouItem }) {
           <PromptBar item={item} flow={flow} />
         ) : (
           <ActionBar
+            enter={!approving}
             primary={primary}
             second={
               item.url ? { label: copy.second ?? "", onClick: () => focus.openPage(item) } : null
@@ -465,7 +471,7 @@ function RecordCard({ item }: { item: NeedsYouItem }) {
             target="_blank"
             rel="noopener noreferrer"
             aria-label={WORDS.openRecord}
-            className="inline-flex size-(--kr-control-h) shrink-0 items-center justify-center rounded-sm text-ink-3 hover:bg-hover hover:text-ink-2"
+            className="-my-2 inline-flex size-(--kr-control-h) shrink-0 items-center justify-center rounded-sm text-ink-3 hover:bg-hover hover:text-ink-2"
           >
             <ExternalLink aria-hidden="true" className="size-4" />
           </a>
@@ -483,6 +489,34 @@ function RecordCard({ item }: { item: NeedsYouItem }) {
   );
 }
 
+/** What they wrote, cut to two lines, with "More" only when there is more to see. */
+function Quote({ text }: { text: string }) {
+  const [open, setOpen] = useState(false);
+  const [clamped, setClamped] = useState(false);
+  const line = useRef<HTMLSpanElement>(null);
+  useLayoutEffect(() => {
+    const node = line.current;
+    if (node && !open) setClamped(node.scrollHeight > node.clientHeight);
+  }, [open]);
+  return (
+    <blockquote className="m-0 border-l-2 border-line-strong pl-3 text-body text-ink">
+      <span ref={line} className={cn("block", !open && "line-clamp-2")}>
+        {text}
+      </span>
+      {clamped || open ? (
+        <button
+          type="button"
+          aria-expanded={open}
+          onClick={() => setOpen(!open)}
+          className="mt-0.5 block rounded-xs text-meta text-accent-text underline decoration-accent-text/40 underline-offset-2"
+        >
+          {open ? "Less" : "More"}
+        </button>
+      ) : null}
+    </blockquote>
+  );
+}
+
 /** A target asked for more details. Nothing goes out until the person ticks what to share. */
 function DetailsCard({ item }: { item: NeedsYouItem }) {
   const focus = useFocus();
@@ -491,7 +525,6 @@ function DetailsCard({ item }: { item: NeedsYouItem }) {
   const { request, message, requestedFields } = item.source.verification;
   const { values } = useProfileValues(request.profileId, requestedFields);
   const [ticked, setTicked] = useState<ReadonlySet<ProfileField>>(new Set());
-  const [quoteOpen, setQuoteOpen] = useState(false);
   const [declining, setDeclining] = useState(false);
   const menu = useCardMenu(item);
   const fields = requestedFields.filter(
@@ -561,19 +594,7 @@ function DetailsCard({ item }: { item: NeedsYouItem }) {
         />
       }
     >
-      {message.snippet ? (
-        <blockquote className="m-0 border-l-2 border-line-strong pl-3 text-body text-ink">
-          <span className={cn(!quoteOpen && "line-clamp-2")}>{message.snippet}</span>
-          <button
-            type="button"
-            aria-expanded={quoteOpen}
-            onClick={() => setQuoteOpen(!quoteOpen)}
-            className="mt-0.5 block rounded-xs text-meta text-accent-text underline decoration-accent-text/40 underline-offset-2"
-          >
-            {quoteOpen ? "Less" : "More"}
-          </button>
-        </blockquote>
-      ) : null}
+      {message.snippet ? <Quote key={message.id} text={message.snippet} /> : null}
       <section aria-label="They want" className="flex flex-col gap-2">
         <h3 className="text-eyebrow font-semibold text-ink-3">They want</h3>
         {requestedFields.length === 0 ? (

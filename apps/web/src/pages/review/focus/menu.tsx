@@ -8,7 +8,6 @@ import { useWide } from "../../../lib/use-wide.js";
 import { AssignDialog } from "../../assign/AssignDialog.js";
 import { canHandOff, REVIEW_INVALIDATES } from "../model.js";
 import { useFocus } from "./context.js";
-import { WORDS } from "./copy.js";
 import { itemTitle } from "./model.js";
 
 /** Whether an agent may take this item over: a stopped run or a task the person took. */
@@ -72,7 +71,6 @@ export function useCardMenu(
 
   const requestId =
     task?.requestId ?? ("verification" in item.source ? item.source.verification.request.id : null);
-  const accessKnown = focus.agentAccess !== "unknown";
 
   const items: MenuItem[] = [
     ...extra,
@@ -81,22 +79,18 @@ export function useCardMenu(
       : [{ id: "snooze", label: "Snooze", onSelect: focus.openSnooze }]),
     ...(mode
       ? [
-          {
-            id: "hand-off",
-            label: "Hand to an agent",
-            ...(focus.agentAccess === "off" ? { description: WORDS.agentOff } : {}),
-            disabled: focus.agentAccess !== "on",
-            onSelect: () => setHanding(true),
-          },
-          ...(accessKnown && focus.agentAccess === "off"
-            ? [
-                {
-                  id: "agent-settings",
-                  label: "Agent settings",
-                  onSelect: () => navigate(paths.settings("agents")),
-                },
-              ]
-            : []),
+          focus.agentAccess === "off"
+            ? {
+                id: "agent-settings",
+                label: "Turn on agents",
+                onSelect: () => navigate(paths.settings("agents")),
+              }
+            : {
+                id: "hand-off",
+                label: "Hand to an agent",
+                disabled: focus.agentAccess !== "on",
+                onSelect: () => setHanding(true),
+              },
         ]
       : []),
     ...(task
