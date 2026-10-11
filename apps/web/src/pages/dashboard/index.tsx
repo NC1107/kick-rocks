@@ -9,8 +9,9 @@ import {
   PageHeader,
   Skeleton,
 } from "../../components/ui/index.js";
+import { paths } from "../../lib/paths.js";
 import {
-  CheckForRepliesButton,
+  CheckForRepliesAction,
   checkFailedOnMailbox,
   ReplyCheckResult,
   useReplyCheck,
@@ -20,6 +21,7 @@ import {
   AttentionSection,
   MailboxNotices,
   RequestsSection,
+  ScansSection,
   SendingSection,
 } from "./sections.js";
 
@@ -53,10 +55,11 @@ function DashboardView({
   const header = (
     <PageHeader
       title="Dashboard"
-      description="Where requests stand"
       actions={
         <>
-          {mailboxConnected && !fresh ? <CheckForRepliesButton check={check} /> : null}
+          {mailboxConnected && !fresh ? (
+            <CheckForRepliesAction check={check} labelFrom="sm" />
+          ) : null}
           {fresh ? null : (
             <LinkButton to="/campaigns/new" variant="primary">
               New campaign
@@ -137,7 +140,7 @@ function DashboardBody({
           actions={
             <>
               {dashboard.mailbox ? null : (
-                <LinkButton to={`/profiles/${profileId}/mailbox`} variant="primary">
+                <LinkButton to={paths.mailbox(profileId)} variant="primary">
                   Connect a mailbox
                 </LinkButton>
               )}
@@ -150,6 +153,7 @@ function DashboardBody({
       ) : (
         <>
           <AttentionSection attention={dashboard.attention} />
+          <ScansSection scans={dashboard.scans} profileId={profileId} />
           <RequestsSection dashboard={dashboard} />
           <SendingSection dashboard={dashboard} />
           <ActivitySection events={dashboard.recentEvents} />

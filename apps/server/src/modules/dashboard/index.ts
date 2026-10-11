@@ -1,16 +1,19 @@
-import { mailboxes, profiles, requestEvents, requests, targets } from "@kickrocks/db";
+import { mailboxes, profiles, requestEvents, requests, scans, targets, tasks } from "@kickrocks/db";
 import {
   API_ROUTES,
   type Dashboard,
   DashboardEvent,
   RequestStatus,
   reviewAttention,
+  type ScanHoldGroup,
+  type ScanHoldReason,
   tellEvents,
 } from "@kickrocks/shared";
-import { count, eq, inArray, sql } from "drizzle-orm";
+import { and, count, eq, inArray, sql } from "drizzle-orm";
 import { notFound } from "../../core/errors.js";
 import { registerRoute } from "../../core/http.js";
 import type { ModulePlugin } from "../../core/module.js";
+import { scanHold } from "../../core/scan-readiness.js";
 import { withTrustedConfirmationSenders } from "../../core/targets.js";
 import type { AppServices } from "../../services.js";
 import { mailboxProblem } from "../mailbox/service.js";
@@ -19,6 +22,41 @@ import { buildReviewQueue } from "../review/queue.js";
 // One newest told event per request, with the count of told events, so a noisy request cannot push
 // the others out and the count agrees with the request's own timeline.
 const RECENT_REQUESTS = 20;
+
+/** The profile's queued scans, and what holds each back, so "nothing is happening" has a reason. */
+function summarizeScans(services: AppServices, profileId: string): Dashboard["scans"] {
+  const queued = services.db
+    .select({
+      profileId: scans.profileId,
+      targetId: scans.targetId,
+      targetName: targets.name,
+      taskId: scans.taskId,
+      taskStatus: tasks.status,
+    })
+    .from(scans)
+    .innerJoin(targets, eq(scans.targetId, targets.id))
+    .innerJoin(tasks, eq(scans.taskId, tasks.id))
+    .where(and(eq(scans.profileId, profileId), eq(tasks.status, "queued")))
+    .all();
+  const byReason: Partial<Record<ScanHoldReason, ScanHoldGroup>> = {};
+  let held = 0;
+  for (const scan of queued) {
+    const hold = scanHold(services, scan);
+    if (!hold) continue;
+    held += 1;
+    const group = byReason[hold.reason];
+    const until =
+      hold.until !== undefined && (group?.until === undefined || hold.until < group.until)
+        ? hold.until
+        : group?.until;
+    byReason[hold.reason] = {
+      count: (group?.count ?? 0) + 1,
+      ...(until !== undefined ? { until } : {}),
+      ...(hold.serverClock ? { serverClock: true } : {}),
+    };
+  }
+  return { queued: queued.length, held, byReason };
+}
 
 function buildDashboard(services: AppServices, profileId: string): Dashboard {
   const { db, mailQuota } = services;
@@ -106,7 +144,11 @@ function buildDashboard(services: AppServices, profileId: string): Dashboard {
     const row = rowById.get(latest.id);
     if (!row) return [];
     const { target, ...event } = row;
-    return [DashboardEvent.parse(withTrustedConfirmationSenders({ ...event, eventCount }, target))];
+    return [
+      DashboardEvent.parse(
+        withTrustedConfirmationSenders({ ...event, targetId: target.id, eventCount }, target),
+      ),
+    ];
   });
 
   return {
@@ -128,6 +170,7 @@ function buildDashboard(services: AppServices, profileId: string): Dashboard {
           lastError: mailboxProblem(mailbox),
         }
       : null,
+    scans: summarizeScans(services, profileId),
     recentEvents,
   };
 }

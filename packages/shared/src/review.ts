@@ -19,6 +19,7 @@ export type BlockedTaskItem = z.infer<typeof BlockedTaskItem>;
 export const ReviewMessage = MessageSummary.extend({
   requestReference: Reference.nullable(),
   targetName: z.string().nullable(),
+  targetId: z.string().nullable(),
 });
 export type ReviewMessage = z.infer<typeof ReviewMessage>;
 

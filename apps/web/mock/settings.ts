@@ -13,6 +13,7 @@ import {
   type SettingsView,
   type SiteStatus,
   type TargetDetail,
+  type WorkerStatus,
   withOverride,
 } from "@kickrocks/shared";
 import { conflict, defineMockDomain, handle, notFound } from "./core.js";
@@ -300,6 +301,15 @@ function settingsView(store: MockStore): SettingsView {
     worker && now - Date.parse(worker.lastSeenAt) < KEEP_ALIVE_MS
       ? { ...worker, lastSeenAt: new Date(now - 30_000).toISOString() }
       : worker;
+  const withTask = (status: WorkerStatus | null): WorkerStatus | null => {
+    const task = store.tasks.find((candidate) => candidate.id === status?.currentTaskId);
+    if (!(status && task)) return status;
+    const { id, kind, status: taskStatus, requestId, targetId, targetName } = task;
+    return {
+      ...status,
+      currentTask: { id, kind, status: taskStatus, requestId, targetId, targetName },
+    };
+  };
   const { worker, agent } = store.settings;
   const reported = worker.model?.model ?? null;
   return {
@@ -313,7 +323,11 @@ function settingsView(store: MockStore): SettingsView {
           : null,
       },
     },
-    worker: { ...worker, builtin: checkIn(worker.builtin), model: checkIn(worker.model) },
+    worker: {
+      ...worker,
+      builtin: withTask(checkIn(worker.builtin)),
+      model: withTask(checkIn(worker.model)),
+    },
   };
 }
 
@@ -438,6 +452,14 @@ export default defineMockDomain({
 
       handle(API_ROUTES.settingsSites, () => ({
         items: store.sites,
+        targets: Object.fromEntries(
+          [...store.sites.map((site) => site.domain), ...store.settings.egress.domains].flatMap(
+            (domain) => {
+              const target = store.targets.find((candidate) => candidate.domain === domain);
+              return target ? [[domain, target.id]] : [];
+            },
+          ),
+        ),
         visitsLastHour: store.sites.reduce((sum, site) => sum + Math.min(site.visitsToday, 2), 0),
         hourlyCap: store.settings.scanning.hourlyCapTotal,
       })),

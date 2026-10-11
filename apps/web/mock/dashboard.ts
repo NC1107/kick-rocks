@@ -4,13 +4,33 @@ import {
   type DashboardEvent,
   RequestStatus,
   reviewAttention,
+  type ScanHold,
+  type ScanHoldGroup,
+  type ScanHoldReason,
   tellEvents,
 } from "@kickrocks/shared";
 
 import { defineMockDomain, handle, notFound } from "./core.js";
-import { buildMockQueue } from "./review.js";
+import { buildMockQueue, scanHoldOf } from "./review.js";
 
 const DAY = 86_400_000;
+
+function summarizeHeld(holds: readonly ScanHold[]): Partial<Record<ScanHoldReason, ScanHoldGroup>> {
+  const byReason: Partial<Record<ScanHoldReason, ScanHoldGroup>> = {};
+  for (const hold of holds) {
+    const group = byReason[hold.reason];
+    const until =
+      hold.until !== undefined && (group?.until === undefined || hold.until < group.until)
+        ? hold.until
+        : group?.until;
+    byReason[hold.reason] = {
+      count: (group?.count ?? 0) + 1,
+      ...(until !== undefined ? { until } : {}),
+      ...(hold.serverClock ? { serverClock: true } : {}),
+    };
+  }
+  return byReason;
+}
 
 export default defineMockDomain({
   name: "dashboard",
@@ -48,6 +68,7 @@ export default defineMockDomain({
                   eventCount: told.length,
                   requestReference: request.reference,
                   targetName: request.target.name,
+                  targetId: request.targetId,
                 },
               ]
             : [];
@@ -74,6 +95,13 @@ export default defineMockDomain({
               lastError: profile.mailbox.lastError,
             }
           : null,
+        scans: (() => {
+          const queued = store.scans.filter(
+            (scan) => scan.profileId === profile.id && scan.taskStatus === "queued",
+          );
+          const holds = queued.flatMap((scan) => scanHoldOf(store, scan) ?? []);
+          return { queued: queued.length, held: holds.length, byReason: summarizeHeld(holds) };
+        })(),
         recentEvents,
       };
     }),

@@ -202,6 +202,13 @@ export const SitesStatus = z.object({
 });
 export type SitesStatus = z.infer<typeof SitesStatus>;
 
+/** What the settings page reads: the sites' state, and which target page each domain it names leads to. */
+export const SitesView = SitesStatus.extend({
+  /** A live target counted under each domain the page mentions, so a domain can link to its page. */
+  targets: z.record(z.string(), z.string()),
+});
+export type SitesView = z.infer<typeof SitesView>;
+
 /** The route a target's detail page asks for. Null when nothing has visited the site yet. */
 export const TargetSite = z.object({ site: SiteStatus.nullable() });
 export type TargetSite = z.infer<typeof TargetSite>;

@@ -67,7 +67,7 @@ export function renderPage(ui: ReactElement, options: RenderPageOptions = {}): R
   );
   const result = render(
     <QueryClientProvider client={queryClient}>
-      <ToastProvider>
+      <ToastProvider navigate={(to) => void router.navigate(to)}>
         <RouterProvider router={router} />
       </ToastProvider>
     </QueryClientProvider>,

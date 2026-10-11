@@ -1,9 +1,12 @@
 import { API_ROUTES, type SettingsView, type WorkerStatus } from "@kickrocks/shared";
 import type { ReactNode } from "react";
 import { errorMessage, useApiMutation } from "../../api/index.js";
+import { describeHeldScans } from "../../components/holds/hold-text.js";
+import { useScanHolds } from "../../components/holds/use-scan-holds.js";
 import {
   Callout,
   Checkbox,
+  EntityLink,
   InlineError,
   RelativeTime,
   Row,
@@ -12,6 +15,7 @@ import {
   StatusShapeGlyph,
   useToast,
 } from "../../components/ui/index.js";
+import { TASK_KIND_LABELS } from "../../lib/labels.js";
 import type { StatusShape } from "../../lib/status.js";
 import { type WorkerState, workerState } from "./model.js";
 import { BodyRow, Value } from "./rows.js";
@@ -81,15 +85,42 @@ function UnreviewedSites({ agent }: { agent: SettingsView["agent"] }) {
   );
 }
 
+/** What the worker is up to: the task it is on, or why it is idle when work is queued. */
+function Doing({ status, held }: { status: WorkerStatus; held: string | null }) {
+  if (status.resultPending) return "Sending a result the server has not taken";
+  const { currentTask } = status;
+  if (status.busy) {
+    return currentTask ? (
+      <>
+        Working on{" "}
+        <EntityLink
+          to={{
+            kind: "task",
+            task: currentTask,
+            label: `${TASK_KIND_LABELS[currentTask.kind].toLowerCase()}${currentTask.targetName ? ` for ${currentTask.targetName}` : ""}`,
+          }}
+          variant="quiet"
+          className="font-sans underline"
+        />
+      </>
+    ) : (
+      "Working on a task"
+    );
+  }
+  return held ? `Idle: ${held}` : "Waiting for work";
+}
+
 function WorkerRow({
   kind,
   status,
   now,
+  held,
   children,
 }: {
   kind: WorkerKind;
   status: WorkerStatus | null;
   now: number;
+  held: string | null;
   children?: ReactNode;
 }) {
   const state = workerState(status?.lastSeenAt ?? null, now);
@@ -114,7 +145,15 @@ function WorkerRow({
                 <Row title="Model" trailing={<Value>{status.model.name}</Value>} />
               ) : null}
               {state === "online" ? (
-                <Row title="Doing" trailing={<Value>{doing(status)}</Value>} />
+                <Row
+                  title="Doing"
+                  trailingBelowOnPhone
+                  trailing={
+                    <Value>
+                      <Doing status={status} held={held} />
+                    </Value>
+                  }
+                />
               ) : null}
             </>
           ) : null}
@@ -130,11 +169,15 @@ export function WorkerCard({
   worker,
   agent,
   now,
+  quietEndHour,
 }: {
+  quietEndHour: number;
   worker: SettingsView["worker"];
   agent: SettingsView["agent"];
   now: number;
 }) {
+  const scans = useScanHolds();
+  const held = scans ? describeHeldScans(scans, quietEndHour) : null;
   if (!worker.enabled) {
     return (
       <Section label="Workers">
@@ -148,15 +191,10 @@ export function WorkerCard({
   return (
     <div className="flex flex-col gap-4">
       {KINDS.map((kind) => (
-        <WorkerRow key={kind.key} kind={kind} status={worker[kind.key]} now={now}>
+        <WorkerRow key={kind.key} kind={kind} status={worker[kind.key]} now={now} held={held}>
           {kind.key === "model" ? <UnreviewedSites agent={agent} /> : null}
         </WorkerRow>
       ))}
     </div>
   );
-}
-
-function doing(status: WorkerStatus): string {
-  if (status.resultPending) return "Sending a result the server has not taken";
-  return status.busy ? "Working on a task" : "Waiting for work";
 }

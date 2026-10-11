@@ -9,7 +9,7 @@ import {
   useApiMutation,
   useApiQuery,
 } from "../../api/index.js";
-import { Button, Callout, LinkButton } from "../../components/ui/index.js";
+import { Button, Callout, IconAction, LinkButton } from "../../components/ui/index.js";
 import { cn } from "../../lib/cn.js";
 
 export const POLL_FOLLOW_MS = 1_000;
@@ -167,6 +167,30 @@ export function CheckForRepliesButton({
       {checking ? null : <MailCheck aria-hidden="true" />}
       Check for replies
     </Button>
+  );
+}
+
+/**
+ * The check as an icon, with the word beside it from `labelFrom` up. It counts down in a corner
+ * while the server asks for a pause, so a disabled button always says why and for how long.
+ */
+export function CheckForRepliesAction({
+  check,
+  labelFrom,
+}: {
+  check: ReplyCheck;
+  labelFrom?: "sm" | "md" | "lg";
+}) {
+  return (
+    <IconAction
+      label="Check for replies"
+      icon={MailCheck}
+      loading={check.phase.kind === "checking"}
+      disabled={check.waitSeconds > 0}
+      badge={check.waitSeconds > 0 ? `${check.waitSeconds}s` : undefined}
+      labelFrom={labelFrom}
+      onClick={check.start}
+    />
   );
 }
 

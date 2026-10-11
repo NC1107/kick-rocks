@@ -1,5 +1,7 @@
 import { z } from "zod";
 import { FilterSelection, TargetOutcome } from "./campaigns.js";
+import { ProfileField } from "./identities.js";
+import { WaitReason } from "./scanning.js";
 import { MAX_SELECTED_TARGETS } from "./targets.js";
 import { Candidate, TaskStatus } from "./tasks.js";
 import { WebUrl } from "./url.js";
@@ -26,6 +28,34 @@ export const Match = z.object({
 });
 export type Match = z.infer<typeof Match>;
 
+/** Why a scan that has not started is still queued: the site is being given time, or nothing can run it yet. */
+export const ScanHoldReason = z.union([
+  WaitReason,
+  z.enum([
+    "missing_fields",
+    "no_recipe",
+    "recipe_unapproved",
+    "recipe_unverified",
+    "agent_required",
+  ]),
+]);
+export type ScanHoldReason = z.infer<typeof ScanHoldReason>;
+
+export const ScanHold = z.object({
+  reason: ScanHoldReason,
+  /** When the hold ends by itself. Left out when it needs a person or an agent. */
+  until: z.iso.datetime().optional(),
+  /** A sentence for a person, such as what the profile is missing. */
+  detail: z.string().optional(),
+  /** The profile details a scan of the site needs and the profile lacks. */
+  fields: z.array(ProfileField).optional(),
+  /** The site being given time, for the reasons that are about one site. */
+  domain: z.string().optional(),
+  /** Set when quiet hours are read on the server's own clock because no time zone is chosen. */
+  serverClock: z.boolean().optional(),
+});
+export type ScanHold = z.infer<typeof ScanHold>;
+
 export const ScanSummary = z.object({
   id: z.string(),
   profileId: z.string(),
@@ -42,6 +72,8 @@ export const ScanSummary = z.object({
     not_mine: z.number().int().nonnegative(),
   }),
   error: z.string().nullable(),
+  /** Set while the scan is queued and something holds it back. */
+  hold: ScanHold.nullable(),
 });
 export type ScanSummary = z.infer<typeof ScanSummary>;
 

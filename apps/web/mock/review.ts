@@ -3,13 +3,17 @@ import {
   type BlockedReason,
   type BlockedTaskItem,
   canTransition,
+  clockIn,
   FORM_OUTCOMES,
   isActiveStatus,
+  isQuietHour,
   type Match,
   type MessageSummary,
   manualResultSchemaFor,
+  nextHourIn,
   type ReviewMessage,
   type ReviewQueue,
+  type ScanHold,
   type ScanSummary,
   type TargetOutcome,
   type TaskSummary,
@@ -56,7 +60,7 @@ const FAILED_INSTRUCTIONS =
 const FAILED_WINDOW_DAYS = 30;
 
 function toSummary(message: ReviewMessage): MessageSummary {
-  const { requestReference: _reference, targetName: _name, ...rest } = message;
+  const { requestReference: _reference, targetName: _name, targetId: _target, ...rest } = message;
   return rest;
 }
 
@@ -70,6 +74,39 @@ function recountScan(store: MockStore, scanId: string): void {
     not_mine: own.filter((match) => match.decision === "not_mine").length,
   };
   scan.candidateCount = own.length;
+}
+
+/**
+ * Why a queued scan is not moving, from the same facts the server weighs: a site being left alone,
+ * quiet hours on a clock nobody set, or a profile too thin to search with.
+ */
+export function scanHoldOf(store: MockStore, scan: ScanSummary): ScanHold | null {
+  if (scan.taskStatus !== "queued") return null;
+  const target = store.targets.find((candidate) => candidate.id === scan.targetId);
+  const site = store.sites.find((candidate) => candidate.domain === target?.domain);
+  if (site?.coolingDownUntil) {
+    return {
+      reason: site.breaker === "open" ? "site_breaker" : "site_cooldown",
+      domain: site.domain,
+      until: site.coolingDownUntil,
+    };
+  }
+  const { timeZone, quietStartHour, quietEndHour } = store.settings.scanning;
+  const now = store.clock.now();
+  if (isQuietHour(clockIn(now, timeZone).hour, quietStartHour, quietEndHour)) {
+    return {
+      reason: "quiet_hours",
+      ...(target ? { domain: target.domain } : {}),
+      until: nextHourIn(now, quietEndHour, timeZone).toISOString(),
+      ...(timeZone === null
+        ? {
+            serverClock: true,
+            detail: "Quiet hours are read on the server clock because no time zone is set.",
+          }
+        : {}),
+    };
+  }
+  return null;
 }
 
 export function createScan(
@@ -121,6 +158,7 @@ export function createScan(
     candidateCount: 0,
     matchCounts: { pending: 0, mine: 0, not_mine: 0 },
     error: fields.error ?? null,
+    hold: null,
   };
   store.scans.push(scan);
   return scan;
@@ -449,6 +487,7 @@ export default defineMockDomain({
         reviewed: false,
         requestReference: null,
         targetName: null,
+        targetId: null,
       },
       {
         requestId:
@@ -467,16 +506,22 @@ export default defineMockDomain({
           store.requests.find((request) => request.targetId === "cardinal-insights")?.reference ??
           null,
         targetName: targetNames.get("cardinal-insights") ?? null,
+        targetId: targetNames.has("cardinal-insights") ? "cardinal-insights" : null,
       },
     ];
     const mailboxId = jordan.mailbox?.id ?? "mbx_none";
     unclassified.forEach((message, index) => {
-      store.messages.push({
-        ...message,
-        id: store.nextId("msg"),
-        mailboxId,
-        receivedAt: store.ago({ hours: 5 + index * 9 }),
-      });
+      const id = store.nextId("msg");
+      const receivedAt = store.ago({ hours: 5 + index * 9 });
+      store.messages.push({ ...message, id, mailboxId, receivedAt });
+      const request = store.requests.find((candidate) => candidate.id === message.requestId);
+      if (request) {
+        addEvent(store, request, "reply_received", "system", receivedAt, {
+          messageId: id,
+          from: message.fromAddress,
+          subject: message.subject,
+        });
+      }
     });
   },
 
@@ -690,6 +735,7 @@ export default defineMockDomain({
           message.requestId = request.id;
           message.requestReference = request.reference;
           message.targetName = request.target.name;
+          message.targetId = request.targetId;
         }
         return toSummary(message);
       }),
@@ -747,7 +793,10 @@ export default defineMockDomain({
           .sort((a, b) => b.startedAt.localeCompare(a.startedAt));
         const start = (query.page - 1) * query.pageSize;
         return {
-          items: rows.slice(start, start + query.pageSize),
+          items: rows.slice(start, start + query.pageSize).map((scan) => ({
+            ...scan,
+            hold: scanHoldOf(store, scan),
+          })),
           total: rows.length,
           page: query.page,
           pageSize: query.pageSize,

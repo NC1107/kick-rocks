@@ -121,12 +121,13 @@ export function NtfyCard({ ntfy }: { ntfy: NotificationsView["ntfy"] }) {
               ) : null}
               {test.button}
               <Button
+                aria-label="Save ntfy"
                 type="submit"
                 variant="primary"
                 loading={save.isPending && !removing}
                 disabled={!dirty}
               >
-                Save ntfy
+                Save
               </Button>
             </GroupFooter>
           </RowGroup>

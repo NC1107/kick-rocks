@@ -1,6 +1,7 @@
 import { API_ROUTES, type ScanSummary } from "@kickrocks/shared";
 import { useState } from "react";
 import { errorMessage, useApiMutation, useApiQuery } from "../../api/index.js";
+import { HoldReason } from "../../components/holds/HoldReason.js";
 import {
   Button,
   Callout,
@@ -20,6 +21,8 @@ import {
 } from "../../components/ui/index.js";
 import { describeFailure } from "../../lib/failures.js";
 import { pluralize } from "../../lib/format.js";
+import { paths } from "../../lib/paths.js";
+import { describeScanStart } from "../../lib/scan-start.js";
 import { DetailFrame } from "./DetailFrame.js";
 import { REVIEW_INVALIDATES } from "./model.js";
 
@@ -42,7 +45,9 @@ const errorText = (scan: ScanSummary): string | null =>
   scan.error === null ? null : describeFailure({ lastError: scan.error, failureKind: null }).detail;
 
 function matchSummary(scan: ScanSummary): string {
-  if (scan.finishedAt === null && scan.taskStatus !== "failed") return "Waiting for results";
+  if (scan.finishedAt === null && scan.taskStatus !== "failed") {
+    return "Waiting for results";
+  }
   if (scan.candidateCount === 0) return "No records found";
   const { pending, mine, not_mine } = scan.matchCounts;
   const parts = [
@@ -51,6 +56,15 @@ function matchSummary(scan: ScanSummary): string {
     not_mine > 0 ? `${not_mine} not you` : null,
   ].filter(Boolean);
   return `${pluralize(scan.candidateCount, "record")}${parts.length ? `: ${parts.join(", ")}` : ""}`;
+}
+
+/** What a scan came to, or for a queued one why it has not started. */
+function ScanResult({ scan, profileId }: { scan: ScanSummary; profileId: string }) {
+  const failure = errorText(scan);
+  if (failure) return <span className="text-danger-text">{failure}</span>;
+  if (scan.hold)
+    return <HoldReason hold={scan.hold} profileId={profileId} targetId={scan.targetId} />;
+  return <>{matchSummary(scan)}</>;
 }
 
 export function ScansPanel({ profileId }: { profileId: string }) {
@@ -65,13 +79,8 @@ export function ScansPanel({ profileId }: { profileId: string }) {
     invalidates: [...REVIEW_INVALIDATES],
     onSuccess: (result) => {
       setConfirming(false);
-      const started = result.items.filter((item) => item.outcome === "scan_started").length;
-      const skipped = result.items.length - started;
-      toast.success(
-        started === 0
-          ? "No new scans to start"
-          : `Started ${pluralize(started, "scan")}${skipped > 0 ? `, ${skipped} already running` : ""}`,
-      );
+      const summary = describeScanStart(result.items, profileId);
+      toast.success(summary.title, summary.description, { action: summary.action });
     },
     onError: () => setConfirming(false),
   });
@@ -85,7 +94,7 @@ export function ScansPanel({ profileId }: { profileId: string }) {
         error={start.isError ? errorMessage(start.error) : undefined}
         footer={
           <Button variant="primary" onClick={() => setConfirming(true)}>
-            Scan people-search sites
+            Scan all
           </Button>
         }
       >
@@ -121,6 +130,7 @@ export function ScansPanel({ profileId }: { profileId: string }) {
                     <TableCell wrap className="w-full min-w-0 py-1">
                       <TableIdentity
                         title={scan.targetName}
+                        to={paths.target(scan.targetId)}
                         meta={
                           <>
                             Started <RelativeTime iso={scan.startedAt} />
@@ -128,18 +138,16 @@ export function ScansPanel({ profileId }: { profileId: string }) {
                         }
                       />
                       <span className="block pb-1 text-meta text-ink-3 md:hidden">
-                        {errorText(scan) ?? matchSummary(scan)}
+                        <ScanResult scan={scan} profileId={profileId} />
                       </span>
                     </TableCell>
                     <TableCell className="align-top md:align-middle">
                       {scan.taskStatus ? <TaskStatusMark status={scan.taskStatus} /> : null}
                     </TableCell>
                     <TableCell wrap className="hidden min-w-56 text-meta md:table-cell">
-                      {scan.error ? (
-                        <span className="text-danger-text">{errorText(scan)}</span>
-                      ) : (
-                        <span className="text-ink-2">{matchSummary(scan)}</span>
-                      )}
+                      <span className="text-ink-2">
+                        <ScanResult scan={scan} profileId={profileId} />
+                      </span>
                     </TableCell>
                   </TableRow>
                 ))

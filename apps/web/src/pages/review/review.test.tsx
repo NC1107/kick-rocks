@@ -62,13 +62,13 @@ describe("the review queue on a phone", () => {
     const { user } = open();
     const list = within(await screen.findByRole("navigation", { name: "Review queue" }));
     expect(list.getAllByRole("button").some((row) => row.hasAttribute("aria-current"))).toBe(false);
-    await user.click(list.getByRole("button", { name: /ClearCheck\s*The removal/ }));
+    await user.click(list.getByRole("button", { name: /ClearCheck\s*ID upload/ }));
     expect(await card(/ClearCheck, Submit form/)).toBeTruthy();
-    expect(list.getByRole("button", { name: /ClearCheck\s*The removal/ })).toHaveAttribute(
+    expect(list.getByRole("button", { name: /ClearCheck\s*ID upload/ })).toHaveAttribute(
       "aria-current",
       "true",
     );
-    await user.click(screen.getByRole("button", { name: "Review" }));
+    await user.click(screen.getByRole("link", { name: "Review" }));
     expect(list.getAllByRole("button").some((row) => row.hasAttribute("aria-current"))).toBe(false);
   });
 });
@@ -120,7 +120,7 @@ describe("the review queue", () => {
     const { user } = open();
     await card(/FindRecord, Submit form/);
     const list = within(screen.getByRole("navigation", { name: "Review queue" }));
-    await user.click(list.getByRole("button", { name: /ClearCheck\s*The removal/ }));
+    await user.click(list.getByRole("button", { name: /ClearCheck\s*ID upload/ }));
     expect(await card(/ClearCheck, Submit form/)).toBeTruthy();
     expect(
       screen.queryByRole("region", { name: /FindRecord, Submit form/ }),
@@ -142,7 +142,7 @@ describe("the review queue", () => {
     const { user } = open();
     await card(/FindRecord, Submit form/);
     const list = within(screen.getByRole("navigation", { name: "Review queue" }));
-    list.getByRole("button", { name: /ClearCheck\s*The removal/ }).focus();
+    list.getByRole("button", { name: /ClearCheck\s*ID upload/ }).focus();
     await user.keyboard("j");
     await user.keyboard("{ArrowDown}");
     const current = list.getAllByRole("button").filter((row) => row.getAttribute("aria-current"));
@@ -210,7 +210,7 @@ describe("the review queue", () => {
 
   it("lets the person approve the submit a model stopped before, and nothing else", async () => {
     const { user, mock } = open("blocked");
-    const task = await openItem(user, /Quillnote\s*qwen3/, /Quillnote,/);
+    const task = await openItem(user, /Quillnote\s*Needs approval/, /Quillnote,/);
     expect(task.getByText("Needs approval")).toBeVisible();
     expect(task.getByRole("img", { name: /where the task stopped/ })).toBeVisible();
     expect(task.queryByRole("button", { name: "Resume" })).not.toBeInTheDocument();
@@ -232,7 +232,7 @@ describe("the review queue", () => {
     const { user } = open("blocked");
     const task = await openItem(
       user,
-      /Harbor Consumer Data\s*The agent worker/,
+      /Harbor Consumer Data\s*Sent without approval/,
       /Harbor Consumer Data,/,
     );
     expect(task.getByText("Sent without approval")).toBeVisible();
@@ -251,7 +251,7 @@ describe("the review queue", () => {
     const { user } = open("blocked");
     const task = await openItem(
       user,
-      /Harbor Consumer Data\s*The agent worker/,
+      /Harbor Consumer Data\s*Sent without approval/,
       /Harbor Consumer Data,/,
     );
     expect(
@@ -329,7 +329,7 @@ describe("the review queue", () => {
   describe("a run that stopped at the second step of a form", () => {
     const openStopped = async () => {
       const opened = open("blocked");
-      const task = await openItem(opened.user, /Quillnote\s*qwen3/, /Quillnote,/);
+      const task = await openItem(opened.user, /Quillnote\s*Needs approval/, /Quillnote,/);
       return { ...opened, task };
     };
 
@@ -368,7 +368,7 @@ describe("the review queue", () => {
     );
     if (task) mock.store.sends.delete(task.id);
     const { user } = open("blocked", mock);
-    const pane = await openItem(user, /Quillnote\s*qwen3/, /Quillnote,/);
+    const pane = await openItem(user, /Quillnote\s*Needs approval/, /Quillnote,/);
     expect(
       pane.queryByRole("button", { name: "Approve for the next run" }),
     ).not.toBeInTheDocument();
@@ -378,7 +378,11 @@ describe("the review queue", () => {
 
   it("resumes a task", async () => {
     const { user, mock } = open("blocked");
-    const task = await openItem(user, /HomeRecords\s*The site/, /HomeRecords, Submit form/);
+    const task = await openItem(
+      user,
+      /HomeRecords\s*Phone verification/,
+      /HomeRecords, Submit form/,
+    );
     await user.click(task.getByRole("button", { name: "Resume" }));
     await waitFor(() =>
       expect(
@@ -391,7 +395,7 @@ describe("the review queue", () => {
     const mock = failing(/never/);
     mock.store.settings.mcp = { ...mock.store.settings.mcp, enabled: true };
     const { user } = open("blocked", mock);
-    const task = await openItem(user, /ClearCheck\s*The removal/, /ClearCheck, Submit form/);
+    const task = await openItem(user, /ClearCheck\s*ID upload/, /ClearCheck, Submit form/);
     await waitFor(() =>
       expect(task.getByRole("button", { name: "Hand to an agent" })).toBeEnabled(),
     );
@@ -415,14 +419,14 @@ describe("the review queue", () => {
 
   it("will not hand a task to an agent while agent access is off", async () => {
     const { user } = open("blocked");
-    const task = await openItem(user, /ClearCheck\s*The removal/, /ClearCheck, Submit form/);
+    const task = await openItem(user, /ClearCheck\s*ID upload/, /ClearCheck, Submit form/);
     expect(await task.findByText(/Agent access is off/)).toBeVisible();
     expect(task.getByRole("button", { name: "Hand to an agent" })).toBeDisabled();
   });
 
   it("cancels a task only after a confirmation", async () => {
     const { user, mock } = open("blocked");
-    const task = await openItem(user, /ClearCheck\s*The removal/, /ClearCheck, Submit form/);
+    const task = await openItem(user, /ClearCheck\s*ID upload/, /ClearCheck, Submit form/);
     await user.click(task.getByRole("button", { name: "Cancel task" }));
     const dialog = await screen.findByRole("dialog");
     await user.click(within(dialog).getByRole("button", { name: "Keep it" }));
@@ -480,7 +484,7 @@ describe("the review queue", () => {
   it("sends nothing to a broker until a detail is ticked and the values are confirmed", async () => {
     const { user, mock } = open("verifications");
     const item = await card(/ClearCheck asked for more details/);
-    const send = item.getByRole("button", { name: "Send selected details" });
+    const send = item.getByRole("button", { name: "Send" });
     expect(send).toBeDisabled();
     const box = await item.findByRole("checkbox", { name: /^Date of birth/ });
     expect(box).not.toBeChecked();
@@ -521,7 +525,7 @@ describe("the review queue", () => {
   it("lets a person send nothing and cancel the request", async () => {
     const { user, mock } = open("verifications");
     const item = await card(/ClearCheck asked for more details/);
-    await user.click(item.getByRole("button", { name: "Send nothing and cancel" }));
+    await user.click(item.getByRole("button", { name: "Cancel request" }));
     const dialog = within(await screen.findByRole("dialog"));
     await user.click(dialog.getByRole("button", { name: "Cancel request" }));
     await waitFor(() =>
@@ -646,7 +650,7 @@ describe("the review queue", () => {
     const { user, mock } = open("scans");
     expect(await screen.findByRole("region", { name: "Scans" })).toBeVisible();
     const before = mock.store.scans.length;
-    await user.click(screen.getByRole("button", { name: "Scan people-search sites" }));
+    await user.click(screen.getByRole("button", { name: "Scan all" }));
     expect(mock.store.scans.length).toBe(before);
     await user.click(await screen.findByRole("button", { name: "Start scans" }));
     await waitFor(() => expect(mock.store.scans.length).toBeGreaterThan(before));

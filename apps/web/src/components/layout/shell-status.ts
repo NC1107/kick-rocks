@@ -5,6 +5,7 @@ import {
   type SiteStatus,
 } from "@kickrocks/shared";
 import { pluralize } from "../../lib/format.js";
+import { paths } from "../../lib/paths.js";
 import type { Family } from "../../lib/tone.js";
 import { workerState } from "../../pages/settings/model.js";
 
@@ -15,38 +16,54 @@ export interface StatusChip {
   label: string;
   /** The part set in mono: a count or a time. */
   value?: string;
+  /** The page that explains the chip and changes what it shows. */
+  to: string;
 }
 
 const SEVERITY: Record<Family, number> = { positive: 0, neutral: 1, attention: 2, danger: 3 };
 const NEAR_LIMIT = 0.8;
 
-export function workerChip(worker: SettingsView["worker"], now: number): StatusChip {
+export function workerChip(
+  worker: SettingsView["worker"],
+  now: number,
+  scans?: Pick<Dashboard["scans"], "held"> | null,
+): StatusChip {
+  const to = paths.settings("worker");
   const states = [worker.builtin, worker.model].map((status) =>
     workerState(status?.lastSeenAt ?? null, now),
   );
   if (!worker.enabled || states.every((state) => state === "never")) {
-    return { id: "worker", tone: "neutral", label: "No worker" };
+    return { id: "worker", tone: "neutral", label: "No worker", to };
   }
-  if (states.includes("online")) return { id: "worker", tone: "positive", label: "Worker online" };
-  return { id: "worker", tone: "attention", label: "Worker offline" };
+  if (states.includes("online")) {
+    // An online worker with work it may not start is not "fine": the person should see why nothing moves.
+    return scans && scans.held > 0
+      ? { id: "worker", tone: "attention", label: "Worker idle", value: `${scans.held} held`, to }
+      : { id: "worker", tone: "positive", label: "Worker online", to };
+  }
+  return { id: "worker", tone: "attention", label: "Worker offline", to };
 }
 
 export function inboxChip(
   mailbox: Dashboard["mailbox"],
   formatAgo: (iso: string) => string,
+  profileId: string,
 ): StatusChip {
-  if (!mailbox) return { id: "inbox", tone: "neutral", label: "No mailbox" };
-  if (mailbox.lastError) return { id: "inbox", tone: "attention", label: "Inbox unreachable" };
-  if (!mailbox.lastPolledAt) return { id: "inbox", tone: "neutral", label: "Inbox not checked" };
+  const to = paths.mailbox(profileId);
+  if (!mailbox) return { id: "inbox", tone: "neutral", label: "No mailbox", to };
+  if (mailbox.lastError) return { id: "inbox", tone: "attention", label: "Inbox unreachable", to };
+  if (!mailbox.lastPolledAt)
+    return { id: "inbox", tone: "neutral", label: "Inbox not checked", to };
   return {
     id: "inbox",
     tone: "positive",
     label: "Inbox",
     value: formatAgo(mailbox.lastPolledAt),
+    to,
   };
 }
 
-export function sendsChip(sending: Dashboard["sending"]): StatusChip | null {
+export function sendsChip(sending: Dashboard["sending"], profileId: string): StatusChip | null {
   if (!sending) return null;
   const used = sending.cap > 0 ? sending.sent / sending.cap : 1;
   return {
@@ -54,6 +71,7 @@ export function sendsChip(sending: Dashboard["sending"]): StatusChip | null {
     tone: used >= NEAR_LIMIT ? "attention" : "neutral",
     label: "Sent",
     value: `${sending.sent} of ${sending.cap} today`,
+    to: paths.mailbox(profileId),
   };
 }
 
@@ -68,6 +86,7 @@ export function sitesChip(
     tone: "attention",
     label: "Cooling down",
     value: pluralize(cooling, "site"),
+    to: paths.settings("sites"),
   };
 }
 

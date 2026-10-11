@@ -6,6 +6,7 @@ import {
   Button,
   Callout,
   ConfirmDialog,
+  EntityLink,
   ExternalLinkText,
   Field,
   Kbd,
@@ -87,12 +88,25 @@ export function MailDetail({ message, profileId }: { message: ReviewMessage; pro
       : skipToken,
   );
 
+  const chosen = requests.data?.items.find((request) => request.id === requestId);
+
   const classify = useApiMutation(API_ROUTES.messageClassify, {
     invalidates: REVIEW_INVALIDATES,
     onSuccess: (_result, variables) => {
       setConfirming(false);
+      const settled = variables.body.requestId ?? message.requestId;
       toast.success(
         `Classified as ${CLASSIFICATION_LABELS[variables.body.classification].toLowerCase()}`,
+        undefined,
+        settled
+          ? {
+              action: {
+                kind: "request",
+                id: settled,
+                reference: message.requestReference ?? chosen?.reference ?? null,
+              },
+            }
+          : {},
       );
     },
     onError: () => setConfirming(false),
@@ -161,9 +175,19 @@ export function MailDetail({ message, profileId }: { message: ReviewMessage; pro
                   label="Which request is it about"
                   optional
                   help={
-                    requests.isError
-                      ? "The request list did not load. You can still classify it."
-                      : undefined
+                    requests.isError ? (
+                      "The request list did not load. You can still classify it."
+                    ) : chosen ? (
+                      <>
+                        <EntityLink
+                          to={{ kind: "request", id: chosen.id, reference: chosen.reference }}
+                        />{" "}
+                        for{" "}
+                        <EntityLink
+                          to={{ kind: "target", id: chosen.target.id, name: chosen.target.name }}
+                        />
+                      </>
+                    ) : undefined
                   }
                 >
                   <Select
@@ -213,8 +237,18 @@ export function MailDetail({ message, profileId }: { message: ReviewMessage; pro
       >
         {message.requestReference ? (
           <p className="text-ui text-ink-2">
-            Matched to request <span className="font-mono">{message.requestReference}</span>
-            {message.targetName ? ` for ${message.targetName}` : ""}
+            Matched to request{" "}
+            <EntityLink
+              to={{ kind: "request", id: message.requestId, reference: message.requestReference }}
+            />
+            {message.targetName ? (
+              <>
+                {" for "}
+                <EntityLink
+                  to={{ kind: "target", id: message.targetId, name: message.targetName }}
+                />
+              </>
+            ) : null}
           </p>
         ) : null}
 

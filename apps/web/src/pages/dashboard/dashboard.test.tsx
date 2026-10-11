@@ -68,7 +68,8 @@ describe("the dashboard", () => {
     ) as HTMLElement;
     const links = within(needs).getAllByRole("link");
     expect(links.length).toBeGreaterThanOrEqual(3);
-    for (const link of links) expect(link).toHaveAttribute("href", "/review");
+    for (const link of links)
+      expect(link).toHaveAttribute("href", expect.stringMatching(/^\/review\?tab=/));
     expect(within(needs).getByText(/Blocked tasks?/)).toBeInTheDocument();
   });
 
@@ -118,10 +119,9 @@ describe("the dashboard", () => {
     const items = within(activity).getAllByRole("listitem");
     expect(items.length).toBeGreaterThan(3);
     const first = items[0] as HTMLElement;
-    expect(within(first).getByRole("link")).toHaveAttribute(
-      "href",
-      expect.stringMatching(/^\/requests\/req_/),
-    );
+    const [broker, request] = within(first).getAllByRole("link");
+    expect(broker).toHaveAttribute("href", expect.stringMatching(/^\/targets\//));
+    expect(request).toHaveAttribute("href", expect.stringMatching(/^\/requests\/req_/));
     expect(first).toHaveTextContent(/KR-[0-9A-Z]{6}/);
     expect(first.textContent).not.toMatch(/\bundefined\b|\[object/);
   });

@@ -38,7 +38,7 @@ import {
   VerificationReplyBody,
 } from "./requests.js";
 import { MatchDecisionBody, MessageClassificationBody, ReviewQueue } from "./review.js";
-import { SitesStatus, TargetSite } from "./scanning.js";
+import { SitesView, TargetSite } from "./scanning.js";
 import { Match, ScanStartBody, ScanStartResult, ScanSummary } from "./scans.js";
 import {
   ApproveSendsBody,
@@ -866,7 +866,7 @@ export const API_ROUTES = {
     path: "/settings/sites",
     module: "settings",
     auth: "session",
-    response: SitesStatus,
+    response: SitesView,
   }),
 
   workerHeartbeat: defineRoute({

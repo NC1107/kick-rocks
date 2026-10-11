@@ -118,6 +118,7 @@ export function DigestCard({
           </FieldRow>
           <GroupFooter>
             <Button
+              aria-label="Send one now"
               loading={sendNow.isPending}
               disabled={!mailboxReady || dirty}
               onClick={() => {
@@ -125,10 +126,16 @@ export function DigestCard({
                 sendNow.mutate();
               }}
             >
-              Send one now
+              Send now
             </Button>
-            <Button type="submit" variant="primary" loading={save.isPending} disabled={!dirty}>
-              Save digest
+            <Button
+              aria-label="Save digest"
+              type="submit"
+              variant="primary"
+              loading={save.isPending}
+              disabled={!dirty}
+            >
+              Save
             </Button>
           </GroupFooter>
         </RowGroup>

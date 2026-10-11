@@ -22,7 +22,7 @@ function SessionWatcher() {
 export function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <ToastProvider>
+      <ToastProvider navigate={(to) => void router.navigate(to)}>
         <SessionWatcher />
         <RouterProvider router={router} />
       </ToastProvider>
