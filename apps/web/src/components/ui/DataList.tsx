@@ -35,7 +35,7 @@ export interface DataListIdentity {
   /** The mono line under the name: a domain or a reference. */
   meta?: ReactNode;
   /** Makes the name a link that opens the whole row. */
-  to?: string | EntityRef;
+  to?: EntityRef;
   badge?: ReactNode;
 }
 
@@ -64,7 +64,7 @@ export interface DataListProps<T> {
   identity: (item: T) => DataListIdentity;
   /** The columns after the name. A phone shows `tags` in their place. */
   columns: readonly DataListColumn<T>[];
-  /** What a phone shows under the name: a few mono tags or marks, never more than a line or two. */
+  /** What a phone shows under the name: a few tags or marks, never more than a line or two. Wrap data such as a date or a version in `font-mono`; marks and prose keep the sans face. */
   tags?: (item: T) => ReactNode;
   /** Heading for the name column. */
   identityHeader: ReactNode;
@@ -275,7 +275,7 @@ export function DataList<T>({
                         <span className="truncate font-mono text-caption text-ink-3">{meta}</span>
                       ) : null}
                       {extras ? (
-                        <span className="flex flex-wrap items-center gap-x-2.5 gap-y-1 font-mono text-caption text-ink-2">
+                        <span className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-caption text-ink-2">
                           {extras}
                         </span>
                       ) : null}

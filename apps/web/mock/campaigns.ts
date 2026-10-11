@@ -46,6 +46,9 @@ function targetsFor(store: MockStore, selection: CampaignSelection): TargetDetai
   }
 }
 
+/** The server's calendar days for 15 business days, the CCPA deadline for a request that only opts out. */
+const OPT_OUT_ONLY_DAYS = 21;
+
 /** Channels a person has to use by post, fax, phone, or card, which Kick Rocks does not drive. */
 const MANUAL_ONLY: readonly Requirement[] = ["postal_mail", "fax", "phone_call", "paid"];
 
@@ -191,8 +194,10 @@ export default defineMockDomain({
             ? {
                 kind: "statute",
                 name: "California Consumer Privacy Act",
-                citation: "Cal. Civ. Code 1798.105",
-                responseDays: 45,
+                citation: "Cal. Civ. Code 1798.100 et seq.",
+                responseDays: body.rights.every((right) => right === "opt_out")
+                  ? OPT_OUT_ONLY_DAYS
+                  : 45,
               }
             : null,
           sampleEmail: firstTarget

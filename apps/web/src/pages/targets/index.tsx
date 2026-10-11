@@ -383,7 +383,7 @@ export function Component() {
             identity={(item) => ({
               title: item.name,
               meta: item.domain,
-              to: `/targets/${encodeURIComponent(item.id)}`,
+              to: { kind: "target", id: item.id, name: item.name },
               ...(item.retired ? { badge: <Tag>Retired</Tag> } : {}),
             })}
             tags={(item) => (

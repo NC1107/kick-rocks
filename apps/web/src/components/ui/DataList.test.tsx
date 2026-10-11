@@ -45,7 +45,10 @@ function Harness({
               items={ROWS}
               getKey={(row) => row.id}
               identityHeader="Name"
-              identity={(row) => ({ title: row.name, to: `/things/${row.id}` })}
+              identity={(row) => ({
+                title: row.name,
+                to: { kind: "target", id: row.id, name: row.name },
+              })}
               columns={[{ id: "id", header: "Id", cell: (row) => row.id }]}
               tags={(row) => <span>{row.id}</span>}
               count="2 things"
@@ -83,7 +86,7 @@ function Harness({
             />
           }
         />
-        <Route path="/things/:id" element={<p>Opened a thing</p>} />
+        <Route path="/targets/:id" element={<p>Opened a thing</p>} />
       </Routes>
     </MemoryRouter>
   );

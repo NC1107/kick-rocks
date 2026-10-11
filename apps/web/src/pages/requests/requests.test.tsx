@@ -1,7 +1,8 @@
 import { screen, waitFor, within } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import { createMockApp, type MockApp } from "../../../mock/app.js";
 import { renderPage } from "../../test/render.js";
+import { stubPhone } from "../../test/screen.js";
 import { hasRequestFilters, readRequestFilters, toRequestQuery } from "./filters.js";
 import { Component as RequestsPage } from "./index.js";
 
@@ -39,13 +40,17 @@ describe("the requests page", () => {
     expect(first.getAllByText(/Email|Web form/).length).toBeGreaterThan(0);
   });
 
+  it("leaves the less important columns to wide screens so the table never scrolls sideways", async () => {
+    open("/requests?profileId=all");
+    await rows();
+    for (const name of ["Profile", "Channel", "Sent"]) {
+      expect(screen.getByRole("columnheader", { name })).toHaveClass("hidden", "xl:table-cell");
+    }
+    expect(screen.getByRole("columnheader", { name: "Due" })).not.toHaveClass("hidden");
+  });
+
   it("shows a due date under the status only for a request still waiting", async () => {
-    vi.stubGlobal("matchMedia", (query: string) => ({
-      matches: false,
-      media: query,
-      addEventListener: () => {},
-      removeEventListener: () => {},
-    }));
+    stubPhone();
     open();
     const region = await screen.findByRole("list", { name: "Requests" });
     await waitFor(() => expect(within(region).queryByText("Loading")).not.toBeInTheDocument());
@@ -55,7 +60,6 @@ describe("the requests page", () => {
     for (const row of finished) expect(row.textContent).not.toMatch(/due /);
     const waiting = list.filter((row) => within(row).queryByText("Awaiting reply"));
     expect(waiting.some((row) => /due /.test(row.textContent ?? ""))).toBe(true);
-    vi.unstubAllGlobals();
   });
 
   it("prints what each request asked for as mono tokens, and a dash for a missing date", async () => {

@@ -122,6 +122,7 @@ export function ScansPanel({ profileId }: { profileId: string }) {
         ) : (
           <DataList
             label="Recent scans"
+            layout="rows"
             items={items}
             getKey={(scan) => scan.id}
             identityHeader="Site"
@@ -151,7 +152,7 @@ export function ScansPanel({ profileId }: { profileId: string }) {
                 id: "result",
                 header: "Result",
                 wrap: true,
-                className: "min-w-56 text-meta",
+                className: "text-meta",
                 cell: (scan) => (
                   <span className="text-ink-2">
                     <ScanResult scan={scan} profileId={profileId} />

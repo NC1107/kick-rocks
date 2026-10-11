@@ -522,7 +522,7 @@ function Detail({ request }: { request: RequestDetail }) {
                 value: (
                   <span className="inline-flex items-center gap-1.5">
                     <ChannelGlyph aria-hidden="true" className="size-4 text-ink-2" />
-                    <span className="sr-only">{CHANNEL_LABELS[request.channel]}</span>
+                    <span>{CHANNEL_LABELS[request.channel]}</span>
                   </span>
                 ),
               },

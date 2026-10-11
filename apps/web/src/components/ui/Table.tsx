@@ -12,10 +12,8 @@ import {
   useRef,
   useState,
 } from "react";
-import { Link } from "react-router";
 import { cn } from "../../lib/cn.js";
-import { type EntityRef, resolveEntity } from "./EntityLink.js";
-import { type FromState, useCurrentPage } from "./PageBack.js";
+import { EntityLink, type EntityRef } from "./EntityLink.js";
 import { Skeleton } from "./Skeleton.js";
 
 export interface TableProps extends ComponentProps<"table"> {
@@ -239,25 +237,14 @@ export function RowLink({
   className,
   children,
 }: {
-  to: string | EntityRef;
+  to: EntityRef;
   className?: string;
   children: ReactNode;
 }) {
-  const from = useCurrentPage();
-  const href = typeof to === "string" ? to : resolveEntity(to, undefined).href;
-  if (!href) return <span className={className}>{children}</span>;
-  const state: FromState = { from };
   return (
-    <Link
-      to={href}
-      state={state}
-      className={cn(
-        "rounded-xs after:absolute after:inset-0 hover:underline focus-visible:underline",
-        className,
-      )}
-    >
+    <EntityLink to={to} variant="row" {...(className ? { className } : {})}>
       {children}
-    </Link>
+    </EntityLink>
   );
 }
 
@@ -272,7 +259,7 @@ export function TableIdentity({
   title: ReactNode;
   meta?: ReactNode;
   /** Makes the name a link. It stays ink and is underlined only on hover or focus. */
-  to?: string | EntityRef;
+  to?: EntityRef;
   /** A tag after the name, such as Retired. */
   badge?: ReactNode;
   className?: string;

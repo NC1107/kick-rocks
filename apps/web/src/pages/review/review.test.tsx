@@ -675,6 +675,13 @@ describe("the review queue", () => {
     await waitFor(() => expect(mock.store.scans.length).toBeGreaterThan(before));
   });
 
+  it("lists scans as rows because the pane beside the queue is narrow", async () => {
+    open("scans");
+    const list = await screen.findByRole("list", { name: "Recent scans" });
+    expect(within(list).getAllByRole("listitem").length).toBeGreaterThan(0);
+    expect(screen.queryByRole("table", { name: "Recent scans" })).not.toBeInTheDocument();
+  });
+
   it("says so in one line when nothing is waiting, and shows the scans", async () => {
     const mock = failing(/never/);
     mock.store.tasks = [];

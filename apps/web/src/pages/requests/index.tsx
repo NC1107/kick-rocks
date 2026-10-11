@@ -286,10 +286,12 @@ function Requests({ profileId }: { profileId: string }) {
           tags={(item) => (
             <>
               <StatusMark status={item.status} />
-              <span>{item.rights.map((right) => RIGHT_TOKENS[right]).join(" · ")}</span>
+              <span className="font-mono">
+                {item.rights.map((right) => RIGHT_TOKENS[right]).join(" · ")}
+              </span>
               <span>{CHANNEL_LABELS[item.channel]}</span>
               {item.dueAt && isActiveStatus(item.status) ? (
-                <span>
+                <span className="font-mono">
                   due <RelativeTime iso={item.dueAt} />
                 </span>
               ) : null}
@@ -302,6 +304,7 @@ function Requests({ profileId }: { profileId: string }) {
                   {
                     id: "profile",
                     header: "Profile",
+                    className: "hidden xl:table-cell",
                     cell: (item: (typeof items)[number]) => (
                       <span className="text-ink-2">
                         <EntityLink
@@ -331,9 +334,16 @@ function Requests({ profileId }: { profileId: string }) {
             {
               id: "channel",
               header: "Channel",
+              className: "hidden xl:table-cell",
               cell: (item) => <span className="text-ink-2">{CHANNEL_LABELS[item.channel]}</span>,
             },
-            { id: "sent", header: "Sent", kind: "date", cell: (item) => timeOrDash(item.sentAt) },
+            {
+              id: "sent",
+              header: "Sent",
+              kind: "date",
+              className: "hidden xl:table-cell",
+              cell: (item) => timeOrDash(item.sentAt),
+            },
             { id: "due", header: "Due", kind: "date", cell: (item) => timeOrDash(item.dueAt) },
           ]}
           loading={list.isPending}

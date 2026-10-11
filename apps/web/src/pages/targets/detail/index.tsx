@@ -2,6 +2,7 @@ import {
   API_ROUTES,
   DATA_SOURCE_DETAILS,
   type DataSource,
+  isActiveStatus,
   type Requirement,
   type TargetDetail,
 } from "@kickrocks/shared";
@@ -142,7 +143,7 @@ function ContactValue({ method }: { method: TargetDetail["contactMethod"] }) {
           className="size-4 text-ink-2"
         />
       ))}
-      <span className="sr-only">{CONTACT_METHOD_LABELS[method]}</span>
+      <span>{CONTACT_METHOD_LABELS[method]}</span>
     </span>
   );
 }
@@ -189,6 +190,36 @@ function TargetRequests({ target }: { target: TargetDetail }) {
   );
 }
 
+/** The request that already covers this target for the profile, which makes asking again pointless. */
+function useStandingRequest(targetId: string) {
+  const { profile } = useCurrentProfile();
+  const list = useApiQuery(
+    API_ROUTES.requestsList,
+    profile
+      ? { params: { id: profile.id }, query: { targetId, page: 1, pageSize: 20 } }
+      : skipToken,
+  );
+  return list.data?.items.find(
+    (item) => isActiveStatus(item.status) || item.status === "confirmed",
+  );
+}
+
+function RemoveAction({ target }: { target: TargetDetail }) {
+  const standing = useStandingRequest(target.id);
+  if (standing) {
+    return (
+      <LinkButton to={paths.request(standing.id)}>
+        {standing.status === "confirmed" ? "Already removed" : "Removal in progress"}
+      </LinkButton>
+    );
+  }
+  return (
+    <LinkButton to={paths.targetRemove(target.id)} variant="primary">
+      Remove my data
+    </LinkButton>
+  );
+}
+
 function TargetView({ target }: { target: TargetDetail }) {
   const unsupported = target.contactMethod === "unknown";
   const asked = useApiQuery(API_ROUTES.requestsListAll, {
@@ -210,11 +241,7 @@ function TargetView({ target }: { target: TargetDetail }) {
                 to={paths.requests({ targetId: target.id })}
               />
             ) : null}
-            {target.retired ? null : (
-              <LinkButton to={`/targets/${encodeURIComponent(target.id)}/remove`} variant="primary">
-                Remove my data
-              </LinkButton>
-            )}
+            {target.retired ? null : <RemoveAction target={target} />}
           </>
         }
       />
@@ -396,7 +423,7 @@ function TargetView({ target }: { target: TargetDetail }) {
               identity={(recipe) => ({ title: recipe.purpose === "scan" ? "Scan" : "Removal" })}
               tags={(recipe) => (
                 <>
-                  <span>v{recipe.version}</span>
+                  <span className="font-mono">v{recipe.version}</span>
                   <span>{RECIPE_STATUS_LABELS[recipe.status]}</span>
                   <HealthMark health={recipe.health} />
                 </>

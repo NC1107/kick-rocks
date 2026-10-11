@@ -1,7 +1,8 @@
 import { screen, within } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import { createMockApp, type MockApp } from "../../../../mock/app.js";
 import { renderPage } from "../../../test/render.js";
+import { stubPhone } from "../../../test/screen.js";
 import { Component as TargetDetailPage } from "./index.js";
 
 /** Routes matching `pattern` answer 403, a client error, so the query client does not retry and wait. */
@@ -40,6 +41,18 @@ describe("the target page", () => {
       "href",
       "/requests?targetId=findrecord",
     );
+  });
+
+  it("points to the request instead of offering to ask again", async () => {
+    open("audiencegrid");
+    const link = await screen.findByRole("link", { name: "Already removed" });
+    expect(link).toHaveAttribute("href", expect.stringMatching(/^\/requests\/req_/));
+    expect(screen.queryByRole("link", { name: /Remove my data/ })).not.toBeInTheDocument();
+  });
+
+  it("says a removal is in progress while the request is still open", async () => {
+    open("openroster");
+    expect(await screen.findByRole("link", { name: "Removal in progress" })).toBeVisible();
   });
 
   it("lists this target's requests as rows that open the request", async () => {
@@ -100,12 +113,7 @@ describe("the target page", () => {
   });
 
   it("stacks the recipes on a phone, with the version and health as tags", async () => {
-    vi.stubGlobal("matchMedia", (query: string) => ({
-      matches: false,
-      media: query,
-      addEventListener: () => {},
-      removeEventListener: () => {},
-    }));
+    stubPhone();
     open("findrecord");
     await screen.findByRole("heading", { name: "Automation" });
     const list = screen.getByRole("list", { name: "Recipes for this target" });
@@ -113,7 +121,6 @@ describe("the target page", () => {
     expect(
       screen.queryByRole("table", { name: "Recipes for this target" }),
     ).not.toBeInTheDocument();
-    vi.unstubAllGlobals();
   });
 
   it("tags what needs the person and leaves the rest as plain tags", async () => {

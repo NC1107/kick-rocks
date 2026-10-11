@@ -8,7 +8,7 @@ import {
 } from "@kickrocks/shared";
 import { skipToken } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router";
+import { useNavigate, useParams } from "react-router";
 import { errorMessage, useApiMutation, useApiQuery } from "../../../api/index.js";
 import { useBreadcrumbTail } from "../../../components/layout/breadcrumb-context.js";
 import { RequireProfile } from "../../../components/layout/RequireProfile.js";
@@ -18,6 +18,7 @@ import {
   Checkbox,
   ConfirmDialog,
   EmptyState,
+  EntityLink,
   LinkButton,
   PageHeader,
   RowGroup,
@@ -27,6 +28,7 @@ import {
 } from "../../../components/ui/index.js";
 import { pluralize } from "../../../lib/format.js";
 import { RIGHT_LABELS, SKIP_REASON_LABELS } from "../../../lib/labels.js";
+import { paths } from "../../../lib/paths.js";
 import { EmailPreview } from "../../campaigns/new/PreviewPanel.js";
 import { RIGHT_HELP, RIGHT_ORDER } from "../../campaigns/rights.js";
 
@@ -132,7 +134,7 @@ function Remove({ target, profile }: { target: TargetDetail; profile: ProfileSum
       <PageHeader
         title={`Remove my data from ${target.name}`}
         description={`Asking for ${profile.displayName}`}
-        back={{ to: `/targets/${encodeURIComponent(target.id)}`, label: target.name }}
+        back={{ to: paths.target(target.id), label: target.name }}
       />
 
       <div className="flex max-w-180 flex-col gap-4 pb-5">
@@ -141,12 +143,11 @@ function Remove({ target, profile }: { target: TargetDetail; profile: ProfileSum
             intent="warning"
             title="No mailbox connected"
             action={
-              <Link
-                to={`/profiles/${encodeURIComponent(profile.id)}/mailbox`}
-                className="text-accent-text underline underline-offset-2"
+              <EntityLink
+                to={{ kind: "mailbox", profileId: profile.id, address: profile.primaryEmail ?? "" }}
               >
                 Connect a mailbox
-              </Link>
+              </EntityLink>
             }
           >
             The email is skipped until this profile has a mailbox to send from.

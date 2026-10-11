@@ -62,6 +62,7 @@ export const paths = {
   profile: (id: string) => `/profiles/${part(id)}`,
   mailbox: (profileId: string) => `/profiles/${part(profileId)}/mailbox`,
   target: (id: string) => `/targets/${part(id)}`,
+  targetRemove: (id: string) => `/targets/${part(id)}/remove`,
   request: (id: string) => `/requests/${part(id)}`,
   requests: (filters: RequestsFilters = {}) => {
     const query = new URLSearchParams();
