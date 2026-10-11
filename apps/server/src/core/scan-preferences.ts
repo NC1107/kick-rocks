@@ -1,6 +1,7 @@
 import { type KickRocksDb, scanPreferences, scans, tasks } from "@kickrocks/db";
 import {
   DEFAULT_SCAN_PREFERENCE,
+  preferenceBlocks,
   type ScanPreference,
   type ScanPreferenceBody,
   type SkipReason,
@@ -22,19 +23,10 @@ export interface ScanPreferences {
    * Why an automatic or bulk scan leaves this pair alone, or null when it may go. A pause that
    * has reached its date no longer counts.
    */
-  blocks(profileId: string, targetId: string): Extract<SkipReason, "site_paused" | "site_skipped"> | null;
-}
-
-/** Whether a stored preference stops scanning on a day, given as YYYY-MM-DD. */
-export function preferenceBlocks(
-  preference: ScanPreference,
-  today: string,
-): "site_paused" | "site_skipped" | null {
-  if (preference.mode === "skipped") return "site_skipped";
-  if (preference.mode === "paused") {
-    return preference.pausedUntil === null || today < preference.pausedUntil ? "site_paused" : null;
-  }
-  return null;
+  blocks(
+    profileId: string,
+    targetId: string,
+  ): Extract<SkipReason, "site_paused" | "site_skipped"> | null;
 }
 
 function toPreference(row: typeof scanPreferences.$inferSelect): ScanPreference {

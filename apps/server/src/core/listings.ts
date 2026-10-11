@@ -1,5 +1,6 @@
 import { matches, type ScanRow, scans, targets, tasks } from "@kickrocks/db";
 import {
+  deriveListingStatus,
   isActiveStatus,
   type ListingCounts,
   type ListingDetail,
@@ -9,6 +10,7 @@ import {
   ListingStatus,
   type ListingsSummary,
   needsRecord,
+  preferenceBlocks,
   type RequestRecord,
   type ScanPreference,
 } from "@kickrocks/shared";
@@ -16,57 +18,17 @@ import { desc, eq } from "drizzle-orm";
 import { toMatch } from "../modules/review/mappers.js";
 import { nextRescanAt } from "../scheduler/rescans.js";
 import type { AppServices } from "../services.js";
-import { isTerminalCancellation } from "./listing-scans.js";
-import { preferenceBlocks } from "./scan-preferences.js";
-import { describeMissingScanFields, missingScanFields, scanHold, scanRoute } from "./scan-readiness.js";
+import {
+  describeMissingScanFields,
+  missingScanFields,
+  scanHold,
+  scanRoute,
+} from "./scan-readiness.js";
 import { isPeopleSearchTarget } from "./targets.js";
 
 type Row = ScanRow & { taskStatus: string | null };
 
 const HISTORY_LIMIT = 10;
-
-const isSettledRemoval = (request: RequestRecord) =>
-  request.status === "confirmed" || request.status === "no_record";
-
-/**
- * Where one site stands, from what is already stored. A choice the person made comes first, then
- * what needs their answer, then work in flight, then what the removals say, and last what the
- * newest finished scan found.
- */
-export function deriveStatus(input: {
-  preference: ScanPreference;
-  today: string;
-  scans: readonly Row[];
-  records: readonly ListingRecord[];
-  relisted: boolean;
-}): ListingStatus {
-  const { preference, today, records } = input;
-  if (preference.mode === "skipped") return "skipped";
-  if (records.some((record) => record.decision === "pending")) return "to_confirm";
-  if (preferenceBlocks(preference, today) === "site_paused") return "paused";
-
-  const latest = input.scans[0];
-  if (latest && (latest.taskStatus === "queued" || latest.taskStatus === "blocked")) {
-    return "waiting";
-  }
-  if (latest && latest.taskStatus === "leased") return "scanning";
-
-  const mine = records.filter((record) => record.decision === "mine");
-  if (mine.length > 0) {
-    const requests = mine.flatMap((record) => (record.request ? [record.request] : []));
-    const allSettled =
-      requests.length > 0 &&
-      requests.every((request) => request.status === "confirmed" || request.status === "no_record");
-    if (allSettled) return "removed";
-    return input.relisted ? "relisted" : "yours";
-  }
-
-  const finished = input.scans.find((scan) => scan.finishedAt !== null && !isTerminalCancellation(scan));
-  if (!finished) return "not_scanned";
-  if (finished.error !== null) return "failed";
-  if (records.length > 0) return "not_you";
-  return finished.noResultsShown ? "not_found" : "unclear";
-}
 
 function toListingScan(services: AppServices, scan: Row, targetName: string): ListingScan {
   return {
@@ -107,7 +69,11 @@ function gather(services: AppServices, profileId: string): Gathered {
     scansByTarget.set(scan.targetId, list);
   }
   const matchesByTarget = new Map<string, (typeof matches.$inferSelect)[]>();
-  for (const row of services.db.select().from(matches).where(eq(matches.profileId, profileId)).all()) {
+  for (const row of services.db
+    .select()
+    .from(matches)
+    .where(eq(matches.profileId, profileId))
+    .all()) {
     const list = matchesByTarget.get(row.targetId) ?? [];
     list.push(row);
     matchesByTarget.set(row.targetId, list);
@@ -159,10 +125,15 @@ function buildSite(
   );
   const stillActive = mineRequests.some((request) => request && isActiveStatus(request.status));
 
-  const status = deriveStatus({
+  const status = deriveListingStatus({
     preference,
     today,
-    scans: scanRows,
+    scans: scanRows.map((scan) => ({
+      taskStatus: scan.taskStatus,
+      finishedAt: scan.finishedAt,
+      error: scan.error,
+      noResultsShown: scan.noResultsShown === true,
+    })),
     records,
     relisted: relisted && stillActive,
   });
@@ -180,9 +151,10 @@ function buildSite(
         })();
 
   const newest = scanRows[0];
-  const lastStarted = scanRows.find((scan) => !isTerminalCancellation(scan))?.startedAt;
+  const lastStarted = scanRows.find((scan) => scan.taskStatus !== "cancelled")?.startedAt;
   const blocked = preferenceBlocks(preference, today);
-  const rescanDays = preference.rescanDays ?? services.settings.get("schedule").peopleSearchRescanDays;
+  const rescanDays =
+    preference.rescanDays ?? services.settings.get("schedule").peopleSearchRescanDays;
   const next =
     lastStarted && blocked === null
       ? nextRescanAt(
@@ -216,7 +188,8 @@ function listedTargets(services: AppServices, scannedIds: ReadonlySet<string>) {
     .from(targets)
     .all()
     .filter(
-      (row) => (!row.retired && isPeopleSearchTarget(row)) || (scannedIds.has(row.id) && needsRecord(row)),
+      (row) =>
+        (!row.retired && isPeopleSearchTarget(row)) || (scannedIds.has(row.id) && needsRecord(row)),
     )
     .sort((a, b) => a.name.localeCompare(b.name));
 }
@@ -239,7 +212,9 @@ export function buildListings(services: AppServices, profileId: string): Listing
 }
 
 export function summarizeListings(sites: readonly ListingSite[]): ListingsSummary {
-  const counts = Object.fromEntries(ListingStatus.options.map((status) => [status, 0])) as ListingCounts;
+  const counts = Object.fromEntries(
+    ListingStatus.options.map((status) => [status, 0]),
+  ) as ListingCounts;
   let lastScanAt: string | null = null;
   let nextAt: string | null = null;
   for (const site of sites) {

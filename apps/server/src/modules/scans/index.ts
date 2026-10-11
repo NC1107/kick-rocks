@@ -9,15 +9,15 @@ import {
 import { count, desc, eq, inArray, sql } from "drizzle-orm";
 import { notFound } from "../../core/errors.js";
 import { registerRoute } from "../../core/http.js";
-import type { ModulePlugin } from "../../core/module.js";
 import { buildListingDetail, buildListings, summarizeListings } from "../../core/listings.js";
+import type { ModulePlugin } from "../../core/module.js";
+import { identityVariantsFor } from "../../core/past-addresses.js";
 import { requireProfile } from "../../core/require-profile.js";
 import {
   describeMissingScanFields,
   missingScanFields,
   scanHold,
 } from "../../core/scan-readiness.js";
-import { identityVariantsFor } from "../../core/past-addresses.js";
 import { scanDropReason, siteChoiceDetail } from "../../core/scan-skips.js";
 import { selectByFilter } from "../../core/target-selection.js";
 import { isPeopleSearchTarget } from "../../core/targets.js";

@@ -18,6 +18,13 @@ import { Dashboard } from "./dashboard.js";
 import { ProfileExport, ResetBody } from "./data-rights.js";
 import { Jurisdiction } from "./legal.js";
 import {
+  ListingDetail,
+  ListingParams,
+  ListingsQuery,
+  ListingsResponse,
+  ScanPreferenceBody,
+} from "./listings.js";
+import {
   FindMissingReplyBody,
   FindMissingReplyResult,
   IntakeCleanup,
@@ -62,13 +69,6 @@ import {
 } from "./requests.js";
 import { MatchDecisionBody, MessageClassificationBody, ReviewQueue } from "./review.js";
 import { SitesView, TargetSite } from "./scanning.js";
-import {
-  ListingDetail,
-  ListingParams,
-  ListingsQuery,
-  ListingsResponse,
-  ScanPreferenceBody,
-} from "./listings.js";
 import { Match, ScanStartBody, ScanStartResult, ScanSummary } from "./scans.js";
 import {
   ApproveSendsBody,

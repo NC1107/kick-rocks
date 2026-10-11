@@ -13,7 +13,8 @@ export function identityVariantsFor(
 ): ScanVariant[] {
   return loadIdentities(db, profileId)
     .filter(
-      (identity) => identity.kind === "address" && identity.validTo !== null && identity.validTo < today,
+      (identity) =>
+        identity.kind === "address" && identity.validTo !== null && identity.validTo < today,
     )
     .map((identity) => ({ nameId: null, addressId: identity.id }));
 }

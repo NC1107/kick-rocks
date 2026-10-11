@@ -177,3 +177,67 @@ export const ListingDetail = ListingSite.extend({
 export type ListingDetail = z.infer<typeof ListingDetail>;
 
 export const ListingParams = z.object({ id: z.string().min(1), targetId: z.string().min(1) });
+
+/** Why scanning leaves a site alone on a day (YYYY-MM-DD), or null when it may go ahead. */
+export function preferenceBlocks(
+  preference: ScanPreference,
+  today: string,
+): "site_paused" | "site_skipped" | null {
+  if (preference.mode === "skipped") return "site_skipped";
+  if (preference.mode === "paused") {
+    return preference.pausedUntil === null || today < preference.pausedUntil ? "site_paused" : null;
+  }
+  return null;
+}
+
+/** What a scan row says about a site, newest scan first. */
+export interface ListingScanFacts {
+  taskStatus: string | null;
+  finishedAt: string | null;
+  error: string | null;
+  noResultsShown: boolean;
+}
+
+/**
+ * Where one site stands, from what is already stored. A choice the person made comes first, then
+ * what needs their answer, then work in flight, then what the removals say, and last what the
+ * newest finished scan found. A scan withdrawn by a pause or skip never searched, so it says
+ * nothing about whether the person is listed.
+ */
+export function deriveListingStatus(input: {
+  preference: ScanPreference;
+  today: string;
+  scans: readonly ListingScanFacts[];
+  records: readonly Pick<ListingRecord, "decision" | "request">[];
+  /** A removal that finished was followed by the record appearing again, and one is open again. */
+  relisted: boolean;
+}): ListingStatus {
+  const { preference, today, records } = input;
+  if (preference.mode === "skipped") return "skipped";
+  if (records.some((record) => record.decision === "pending")) return "to_confirm";
+  if (preferenceBlocks(preference, today) === "site_paused") return "paused";
+
+  const latest = input.scans[0];
+  if (latest && (latest.taskStatus === "queued" || latest.taskStatus === "blocked")) {
+    return "waiting";
+  }
+  if (latest && latest.taskStatus === "leased") return "scanning";
+
+  const mine = records.filter((record) => record.decision === "mine");
+  if (mine.length > 0) {
+    const requests = mine.flatMap((record) => (record.request ? [record.request] : []));
+    const allSettled =
+      requests.length > 0 &&
+      requests.every((request) => request.status === "confirmed" || request.status === "no_record");
+    if (allSettled) return "removed";
+    return input.relisted ? "relisted" : "yours";
+  }
+
+  const finished = input.scans.find(
+    (scan) => scan.finishedAt !== null && scan.taskStatus !== "cancelled",
+  );
+  if (!finished) return "not_scanned";
+  if (finished.error !== null) return "failed";
+  if (records.length > 0) return "not_you";
+  return finished.noResultsShown ? "not_found" : "unclear";
+}

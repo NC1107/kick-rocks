@@ -2,10 +2,10 @@ import {
   type KickRocksDb,
   mailboxes,
   matches,
-  scanPreferences,
   messages,
   profiles,
   requests,
+  scanPreferences,
   scans,
   targets,
 } from "@kickrocks/db";

@@ -1,10 +1,9 @@
 import { createHash } from "node:crypto";
 import { scans } from "@kickrocks/db";
-import { needsRecord, type ScanVariant } from "@kickrocks/shared";
+import { needsRecord, preferenceBlocks, type ScanVariant } from "@kickrocks/shared";
 import { max } from "drizzle-orm";
 import { AppError } from "../core/errors.js";
 import { identityVariantsFor } from "../core/past-addresses.js";
-import { preferenceBlocks } from "../core/scan-preferences.js";
 import type { AppServices } from "../services.js";
 
 const DAY_MS = 24 * 60 * 60 * 1000;

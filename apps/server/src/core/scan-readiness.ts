@@ -78,7 +78,10 @@ function usableScanRecipe(db: KickRocksDb, targetId: string) {
 /** How a scan of one site would be worked, when the profile has what it needs. */
 type ScanRoute = "recipe" | "recipe_review" | "agent";
 
-export function scanRoute(services: Pick<AppServices, "db" | "settings">, targetId: string): ScanRoute {
+export function scanRoute(
+  services: Pick<AppServices, "db" | "settings">,
+  targetId: string,
+): ScanRoute {
   if (usableScanRecipe(services.db, targetId)) return "recipe";
   const waitsForReview = services.db
     .select({ status: recipes.status })

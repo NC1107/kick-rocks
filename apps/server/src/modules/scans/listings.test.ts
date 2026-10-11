@@ -60,9 +60,9 @@ describe("scanning without a campaign", () => {
     expect(await statusOf(target.id)).toBe("waiting");
     const row = (await list()).items.find((item) => item.targetId === target.id);
     expect(row?.latestScan?.taskStatus).toBe("queued");
-    expect(ctx.services.taskQueue.list({ profileId }).every((task) => task.requestId === null)).toBe(
-      true,
-    );
+    expect(
+      ctx.services.taskQueue.list({ profileId }).every((task) => task.requestId === null),
+    ).toBe(true);
   });
 
   it("opens the removal for a record from the finding itself", async () => {
@@ -71,7 +71,9 @@ describe("scanning without a campaign", () => {
       profileId,
       targetId: target.id,
       finishedAt: now(),
-      candidates: [{ recordUrl: `https://${target.domain}/p/1`, name: "Jordan Example", locations: [] }],
+      candidates: [
+        { recordUrl: `https://${target.domain}/p/1`, name: "Jordan Example", locations: [] },
+      ],
     });
     const match = seedMatch(ctx, {
       scanId: scan.id,
@@ -96,7 +98,13 @@ describe("the status of a site", () => {
   it("is not_found when the site showed no results, and unclear when it showed nothing at all", async () => {
     const clean = site();
     const blank = site();
-    seedScan(ctx, { profileId, targetId: clean.id, finishedAt: now(), candidates: [], noResultsShown: true });
+    seedScan(ctx, {
+      profileId,
+      targetId: clean.id,
+      finishedAt: now(),
+      candidates: [],
+      noResultsShown: true,
+    });
     seedScan(ctx, { profileId, targetId: blank.id, finishedAt: now(), candidates: [] });
     expect(await statusOf(clean.id)).toBe("not_found");
     expect(await statusOf(blank.id)).toBe("unclear");
@@ -116,13 +124,23 @@ describe("the status of a site", () => {
 
   it("is failed when the latest scan ended in an error", async () => {
     const target = site();
-    seedScan(ctx, { profileId, targetId: target.id, finishedAt: now(), error: "The page timed out" });
+    seedScan(ctx, {
+      profileId,
+      targetId: target.id,
+      finishedAt: now(),
+      error: "The page timed out",
+    });
     expect(await statusOf(target.id)).toBe("failed");
   });
 
   it("follows the removal: yours while it is open, removed once it is confirmed", async () => {
     const target = site();
-    const scan = seedScan(ctx, { profileId, targetId: target.id, finishedAt: now(), candidates: [] });
+    const scan = seedScan(ctx, {
+      profileId,
+      targetId: target.id,
+      finishedAt: now(),
+      candidates: [],
+    });
     const request = seedRequest(ctx, {
       profileId,
       targetId: target.id,
@@ -156,7 +174,13 @@ describe("the status of a site", () => {
   it("filters by status and counts every status regardless of the filter", async () => {
     const a = site();
     const b = site();
-    seedScan(ctx, { profileId, targetId: a.id, finishedAt: now(), candidates: [], noResultsShown: true });
+    seedScan(ctx, {
+      profileId,
+      targetId: a.id,
+      finishedAt: now(),
+      candidates: [],
+      noResultsShown: true,
+    });
     const result = await list({ status: "not_found" });
     expect(result.items.map((item) => item.targetId)).toEqual([a.id]);
     expect(result.counts.not_found).toBe(1);
@@ -348,7 +372,9 @@ describe("past addresses", () => {
     const again = await run("all");
     expect(again.ok && again.body.items[0]?.outcome).toBe("scan_started");
     expect(ctx.services.taskQueue.list({ profileId: owner.id })).toHaveLength(2);
-    expect(ctx.services.db.select().from(scans).where(eq(scans.profileId, owner.id)).all()).toHaveLength(2);
+    expect(
+      ctx.services.db.select().from(scans).where(eq(scans.profileId, owner.id)).all(),
+    ).toHaveLength(2);
   });
 
   it("includes them for a site that is set to, unless the request says current", async () => {
