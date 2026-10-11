@@ -616,7 +616,12 @@ export function createReplyClassifier(deps: ReplyClassifierDeps): ReplyClassifie
                 spotCheck,
               };
 
-        if (requestId === null || unsupported || confidence < threshold) {
+        // The trust cap holds an unsigned request-changing reading for a person; a model answer
+        // that disagrees with it must not quietly overrule that.
+        const overrulesRules =
+          CHANGES_REQUEST.has(rules.classification) && rules.classification !== label;
+
+        if (requestId === null || unsupported || overrulesRules || confidence < threshold) {
           return settled({ source: "model", suggestion: guess(false), prediction });
         }
         // While the server has stopped applying model answers, every answer that would have been

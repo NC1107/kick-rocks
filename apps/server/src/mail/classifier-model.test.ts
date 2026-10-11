@@ -181,6 +181,20 @@ describe("the reply model after the rules", () => {
     expect(result.suggestion).toMatchObject({ classification: "completed", confidence: 0.99 });
   });
 
+  it("does not let a model downgrade overrule an unsigned redirect the rules held", async () => {
+    const panera = [
+      "Thank you for contacting us.",
+      "",
+      "Requests must be submitted by completing our web form<https://www.acme.test/privacy-requests> or calling 1-888-555-0142.",
+    ].join("\n");
+    const result = await classify(
+      { model: host(answer("auto_ack", 0.99)) },
+      message({ text: panera, verifyDkim: noDkim }),
+    );
+    expect(result).toMatchObject({ classification: "needs_form", apply: false, source: "model" });
+    expect(result.suggestion).toMatchObject({ classification: "auto_ack", confidence: 0.99 });
+  });
+
   it("only suggests for mail that matches no request", async () => {
     const result = await classify(
       { model: host(answer("completed", 0.99)) },
