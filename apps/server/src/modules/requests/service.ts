@@ -36,7 +36,8 @@ const ACTION_OUTCOMES = {
 } as const satisfies Partial<Record<RequestAction, RequestStatus>>;
 
 interface RequestsApi {
-  list(profileId: string, query: RequestsQuery): Paged<RequestListItem>;
+  /** One profile's requests, or every profile's when `profileId` is null. */
+  list(profileId: string | null, query: RequestsQuery): Paged<RequestListItem>;
   detail(id: string): RequestDetail;
   act(id: string, action: RequestAction): RequestDetail;
   replyToVerification(id: string, body: VerificationReplyBody): RequestDetail;
@@ -148,17 +149,20 @@ export function createRequestsApi(services: AppServices): RequestsApi {
 
   return {
     list(profileId, query) {
-      const profileExists = db
-        .select({ id: profiles.id })
-        .from(profiles)
-        .where(eq(profiles.id, profileId))
-        .get();
-      if (!profileExists) throw notFound(`Profile ${profileId} not found`, "profile_not_found");
-
-      const conditions: SQL[] = [eq(requestsTable.profileId, profileId)];
+      const conditions: SQL[] = [];
+      if (profileId !== null) {
+        const profileExists = db
+          .select({ id: profiles.id })
+          .from(profiles)
+          .where(eq(profiles.id, profileId))
+          .get();
+        if (!profileExists) throw notFound(`Profile ${profileId} not found`, "profile_not_found");
+        conditions.push(eq(requestsTable.profileId, profileId));
+      }
       if (query.status?.length) conditions.push(inArray(requestsTable.status, query.status));
       if (query.channel) conditions.push(eq(requestsTable.channel, query.channel));
       if (query.targetId) conditions.push(eq(requestsTable.targetId, query.targetId));
+      if (query.campaignId) conditions.push(eq(requestsTable.campaignId, query.campaignId));
       if (query.q) {
         const pattern = likePattern(query.q);
         conditions.push(

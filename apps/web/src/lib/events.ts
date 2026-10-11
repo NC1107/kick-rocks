@@ -40,6 +40,8 @@ const ACTION_PHRASES: Record<UserAction, string> = {
   retry_task: "retry the failed task",
 };
 
+const plural = (count: number, one: string, many = `${one}s`) =>
+  `${count} ${count === 1 ? one : many}`;
 const status = (value: keyof typeof REQUEST_STATUS_META) => REQUEST_STATUS_META[value].label;
 const lower = (text: string) => text.toLowerCase();
 const task = (kind: keyof typeof TASK_KIND_LABELS) =>
@@ -81,6 +83,14 @@ export function describeEvent(event: RequestEvent): string {
       return `Sending failed: ${plainError(event.payload.error)}.${event.payload.willRetry ? " It will try again." : ""}`;
     case "reply_received":
       return `Reply received from ${event.payload.from}.`;
+    case "mailbox_checked": {
+      const { newMessages, matched } = event.payload;
+      if (newMessages === 0) return "Checked the mailbox: nothing new.";
+      if (matched === 0) {
+        return `Checked the mailbox: ${plural(newMessages, "new message")}, none for a request.`;
+      }
+      return `Checked the mailbox: ${plural(matched, "new reply", "new replies")}.`;
+    }
     case "classified": {
       const { classification, confidence } = event.payload;
       return `Classified the reply as ${lower(CLASSIFICATION_LABELS[classification])}, ${Math.round(confidence * 100)} percent sure.`;

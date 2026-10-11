@@ -70,7 +70,7 @@ function useCountdown(until: number | null, clear: () => void): number {
  * Asks the server to read a profile's mailbox now and follows that one check until it ends. A tap
  * while a check runs joins it on the server, so the page never queues a second one.
  */
-export function useReplyCheck(profileId: string): ReplyCheck {
+export function useReplyCheck(profileId: string, requestId?: string): ReplyCheck {
   const queryClient = useQueryClient();
   const [taskId, setTaskId] = useState<string | null>(null);
   const [startFailure, setStartFailure] = useState<string | null>(null);
@@ -140,7 +140,11 @@ export function useReplyCheck(profileId: string): ReplyCheck {
     profileId,
     phase,
     waitSeconds,
-    start: () => begin.mutate({ params: { id: profileId } }),
+    start: () =>
+      begin.mutate({
+        params: { id: profileId },
+        body: requestId ? { requestId } : undefined,
+      }),
   };
 }
 

@@ -78,6 +78,46 @@ const stored = () =>
 const requestOf = (id: string) => ctx.services.requests.getOrThrow(id);
 const eventTypes = (id: string) => ctx.services.requests.events(id).map((event) => event.type);
 
+describe("a check started from a request page", () => {
+  async function pollFrom(requestId: string) {
+    const queued = ctx.services.dispatch.enqueueInboxPoll(mailboxId, requestId);
+    await runners.inbox.runDue();
+    return ctx.services.taskQueue.getOrThrow(queued.task.id);
+  }
+
+  it("leaves a line on that request even when nothing came", async () => {
+    const { request } = await sentRequest();
+    await pollFrom(request.id);
+    const checked = ctx.services.requests
+      .events(request.id)
+      .filter((event) => event.type === "mailbox_checked");
+    expect(checked).toHaveLength(1);
+    expect(checked[0]).toMatchObject({ payload: { newMessages: 0, matched: 0 }, actor: "system" });
+  });
+
+  it("counts what it found, and records on the page's request only", async () => {
+    const first = await sentRequest();
+    const second = await sentRequest({ name: "Second Broker" });
+    answer("Update", second.request.id, "auto_ack");
+    deliver("Update");
+
+    await pollFrom(first.request.id);
+
+    expect(eventTypes(first.request.id)).toContain("mailbox_checked");
+    expect(
+      ctx.services.requests.events(first.request.id).find((e) => e.type === "mailbox_checked"),
+    ).toMatchObject({ payload: { newMessages: 1, matched: 1 } });
+    expect(eventTypes(second.request.id)).not.toContain("mailbox_checked");
+    expect(eventTypes(second.request.id)).toContain("reply_received");
+  });
+
+  it("writes nothing on a request when the check is not from its page", async () => {
+    const { request } = await sentRequest();
+    await poll();
+    expect(eventTypes(request.id)).not.toContain("mailbox_checked");
+  });
+});
+
 describe("storing and applying replies", () => {
   it("confirms a request when the broker says it is done", async () => {
     const { request } = await sentRequest();

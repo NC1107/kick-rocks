@@ -166,6 +166,7 @@ export const REQUEST_EVENT_LABELS: Record<RequestEventType, string> = {
   sent: "Sent",
   send_failed: "Send failed",
   reply_received: "Reply received",
+  mailbox_checked: "Mailbox checked",
   classified: "Reply classified",
   link_followed: "Confirmation link followed",
   status_changed: "Status changed",

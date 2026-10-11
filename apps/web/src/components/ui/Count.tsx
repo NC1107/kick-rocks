@@ -56,8 +56,7 @@ export function CountLink({
   const text = <span className="text-ink-2">{label}</span>;
   const content = (
     <>
-      {order === "label-first" ? text : number}{" "}
-      {order === "label-first" ? number : text}
+      {order === "label-first" ? text : number} {order === "label-first" ? number : text}
     </>
   );
   const classes = cn(

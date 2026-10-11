@@ -7,6 +7,7 @@ import {
   jordanIdentities,
   MINUTE,
   SECOND,
+  seedCampaign,
   seedIdentities,
   seedMailbox,
   seedMessage,
@@ -83,6 +84,21 @@ describe("GET /profiles/:id/requests", () => {
     expect((await listed(other.id)).total).toBe(1);
   });
 
+  it("filters by the campaign that created the requests", async () => {
+    const { profile } = setup();
+    const campaign = seedCampaign(ctx, profile.id);
+    const inCampaign = seedRequest(ctx, {
+      profileId: profile.id,
+      targetId: "broker",
+      campaignId: campaign.id,
+    });
+    seedRequest(ctx, { profileId: profile.id, targetId: "broker" });
+
+    const body = await listed(profile.id, { campaignId: campaign.id });
+
+    expect(body.items.map((item) => item.id)).toEqual([inCampaign.id]);
+  });
+
   it("filters by one or several statuses, channel, and target", async () => {
     const { profile } = setup();
     seedTarget(ctx, { id: "other" });
@@ -153,6 +169,32 @@ describe("GET /profiles/:id/requests", () => {
       status: 404,
       body: { error: "profile_not_found" },
     });
+  });
+});
+
+describe("GET /requests", () => {
+  it("lists every profile's requests together, and narrows them by the same filters", async () => {
+    const { profile } = setup();
+    const other = seedProfile(ctx, { displayName: "Sam Example" });
+    const mine = seedRequest(ctx, { profileId: profile.id, targetId: "broker" });
+    const theirs = seedRequest(ctx, {
+      profileId: other.id,
+      targetId: "broker",
+      status: "awaiting_reply",
+    });
+
+    const all = await ctx.call(API_ROUTES.requestsListAll, { query: {} });
+    if (!all.ok) throw new Error("the list should load");
+    expect(all.body.items.map((item) => item.id).sort()).toEqual([mine.id, theirs.id].sort());
+    expect(all.body.items.map((item) => item.profileId).sort()).toEqual(
+      [profile.id, other.id].sort(),
+    );
+
+    const waiting = await ctx.call(API_ROUTES.requestsListAll, {
+      query: { status: ["awaiting_reply"] },
+    });
+    if (!waiting.ok) throw new Error("the list should load");
+    expect(waiting.body.items.map((item) => item.id)).toEqual([theirs.id]);
   });
 });
 

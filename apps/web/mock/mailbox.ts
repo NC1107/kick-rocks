@@ -6,6 +6,7 @@ import {
   type ProviderPreset,
 } from "@kickrocks/shared";
 import { defineMockDomain, handle, MockHttpError, notFound } from "./core.js";
+import { addEvent } from "./requests.js";
 import type { MockStore } from "./store.js";
 
 const SUPPORTED = { supported: true, unsupportedReason: null } as const;
@@ -173,6 +174,58 @@ interface MockPoll {
   startedAt: number;
   createdAt: string;
   reply: boolean;
+  /** The request page that started the check, which records on its timeline what was found. */
+  requestId: string | null;
+  /** Set once a finished check has stored what it found, so reading it again adds nothing. */
+  applied: boolean;
+}
+
+/** Stores what a finished check found, the way the server's inbox runner does, once. */
+function applyFinishedPoll(store: MockStore, poll: MockPoll, matchedRequestId: string | null) {
+  if (poll.applied) return;
+  poll.applied = true;
+  const at = new Date(poll.startedAt + MOCK_POLL_RUNS_MS).toISOString();
+  const matched = store.requests.find((request) => request.id === matchedRequestId);
+  if (matched) {
+    const message = {
+      id: store.nextId("msg"),
+      mailboxId: matched.mailboxId ?? "mbx_none",
+      requestId: matched.id,
+      fromAddress: `privacy@${matched.target.domain}`,
+      subject: `Re: Opt-out request ${matched.reference}`,
+      receivedAt: at,
+      classification: "auto_ack" as const,
+      confidence: 0.94,
+      rationale: "Matched the reference in the subject.",
+      links: [],
+      requestedFields: [],
+      snippet: "We received your request and will respond within 45 days.",
+      reviewed: true,
+      requestReference: matched.reference,
+      targetName: matched.target.name,
+    };
+    store.messages.push(message);
+    addEvent(store, matched, "reply_received", "system", at, {
+      messageId: message.id,
+      from: message.fromAddress,
+      subject: message.subject,
+    });
+    addEvent(store, matched, "classified", "system", at, {
+      messageId: message.id,
+      classification: "auto_ack",
+      confidence: 0.94,
+      correlation: "reference",
+    });
+    matched.updatedAt = at;
+  }
+  const origin = store.requests.find((request) => request.id === poll.requestId);
+  if (origin) {
+    addEvent(store, origin, "mailbox_checked", "system", at, {
+      newMessages: matched ? 1 : 0,
+      matched: matched ? 1 : 0,
+    });
+    origin.updatedAt = at;
+  }
 }
 
 function pollIsFinished(store: MockStore, poll: MockPoll): boolean {
@@ -192,12 +245,13 @@ function describePoll(store: MockStore, poll: MockPoll): MailboxPoll {
     profile.mailbox.lastPolledAt = updatedAt;
     profile.mailbox.lastError = broken ? error : null;
   }
-  const waiting = store.requests.find(
-    (request) =>
-      request.profileId === profile.id &&
-      (request.status === "awaiting_reply" || request.status === "sent"),
-  );
-  const matched = poll.reply && waiting ? [waiting.id] : [];
+  const isWaiting = (request: MockStore["requests"][number]) =>
+    request.profileId === profile.id &&
+    (request.status === "awaiting_reply" || request.status === "sent");
+  const asked = store.requests.find((request) => request.id === poll.requestId);
+  const waiting = asked && isWaiting(asked) ? asked : store.requests.find(isWaiting);
+  const matched = poll.reply && waiting && !broken ? [waiting.id] : [];
+  if (finished && !broken) applyFinishedPoll(store, poll, matched[0] ?? null);
   return {
     task: {
       id: poll.id,
@@ -346,7 +400,7 @@ export default defineMockDomain({
         return { ok: true as const };
       }),
 
-      handle(API_ROUTES.mailboxPoll, ({ params }) => {
+      handle(API_ROUTES.mailboxPoll, ({ params, body }) => {
         const profile = profileOf(store, params.id);
         const mailbox = profile.mailbox;
         if (!mailbox) throw new MockHttpError(409, "conflict", "Connect a mailbox first.");
@@ -374,6 +428,8 @@ export default defineMockDomain({
           startedAt: now,
           createdAt: store.clock.now().toISOString(),
           reply: polls.size % 2 === 0,
+          requestId: body?.requestId ?? null,
+          applied: false,
         };
         polls.set(poll.id, poll);
         return describePoll(store, poll);
