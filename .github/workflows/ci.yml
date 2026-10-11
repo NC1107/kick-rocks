@@ -5,6 +5,10 @@ on:
     branches: [main]
   pull_request:
 
+# The ONNX runtime ships usage telemetry on Linux, and no job here may send it.
+env:
+  ORT_DISABLE_TELEMETRY: "1"
+
 jobs:
   check:
     runs-on: ubuntu-latest
@@ -60,12 +64,85 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: docker compose --profile worker --profile agent build
+      - name: Build every image without the reply model
+        run: docker compose --profile worker --profile agent build
+      - name: Build the server image with the reply model bundled
+        # A real release when one is pinned, else a stand-in archive on this machine, so the
+        # download, the digest check, the copy and the pruning of other platforms are exercised
+        # either way.
+        run: |
+          pin=apps/server/reply-model/release.json
+          url="$(jq -r .url "$pin")"
+          sha="$(jq -r .tarSha256 "$pin")"
+          if [ -z "$url" ] || [ -z "$sha" ]; then
+            mkdir -p "$RUNNER_TEMP/stub/files" "$RUNNER_TEMP/stub/serve"
+            echo '{}' > "$RUNNER_TEMP/stub/files/manifest.json"
+            tar -cf "$RUNNER_TEMP/stub/serve/reply-model.tar" -C "$RUNNER_TEMP/stub/files" manifest.json
+            sha="$(sha256sum "$RUNNER_TEMP/stub/serve/reply-model.tar" | cut -d' ' -f1)"
+            (cd "$RUNNER_TEMP/stub/serve" && python3 -m http.server 8123 --bind 127.0.0.1 &)
+            sleep 2
+            url="http://127.0.0.1:8123/reply-model.tar"
+          fi
+          docker build --network=host \
+            --build-arg REPLY_MODEL=bundled \
+            --build-arg "REPLY_MODEL_URL=$url" \
+            --build-arg "REPLY_MODEL_SHA256=$sha" \
+            -t kickrocks-server:bundled .
+          docker run --rm --entrypoint sh kickrocks-server:bundled -c 'test -f /app/reply-model/manifest.json && ls /app/server/node_modules/.pnpm | grep -c onnxruntime-node'
+
+  # The model is a release asset pinned by digest. This checks that the dev replies are still the
+  # ones it was trained on, and that the pinned file answers the golden texts the same way through
+  # the server's own runtime.
+  reply-model:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm data:build
+      - name: The dev replies match the pinned model's training data
+        run: |
+          if [ -n "$(jq -r .dataSha256 apps/server/reply-model/release.json)" ]; then
+            pnpm --filter @kickrocks/server reply-model:check-data
+          else
+            echo "No release is pinned yet."
+          fi
+      - name: Restore the pinned release
+        id: pin
+        run: |
+          echo "url=$(jq -r .url apps/server/reply-model/release.json)" >> "$GITHUB_OUTPUT"
+          echo "sha=$(jq -r .tarSha256 apps/server/reply-model/release.json)" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache@v4
+        if: steps.pin.outputs.url != ''
+        id: asset
+        with:
+          path: ${{ runner.temp }}/reply-model.tar
+          key: reply-model-${{ steps.pin.outputs.sha }}
+      - name: Fetch the pinned release
+        if: steps.pin.outputs.url != '' && steps.asset.outputs.cache-hit != 'true'
+        run: curl -fsSL "${{ steps.pin.outputs.url }}" -o "$RUNNER_TEMP/reply-model.tar"
+      - name: Check the digest and unpack
+        if: steps.pin.outputs.url != ''
+        run: |
+          echo "${{ steps.pin.outputs.sha }}  $RUNNER_TEMP/reply-model.tar" | sha256sum -c -
+          mkdir -p "$RUNNER_TEMP/reply-model" && tar -xf "$RUNNER_TEMP/reply-model.tar" -C "$RUNNER_TEMP/reply-model"
+      - name: Answer the golden texts through the server's runtime
+        if: steps.pin.outputs.url != ''
+        run: pnpm --filter @kickrocks/server reply-model:verify --dir "$RUNNER_TEMP/reply-model"
+      - name: Run the bench candidate that uses the server's runtime
+        if: steps.pin.outputs.url != ''
+        run: |
+          curl -fsSL "$(echo "${{ steps.pin.outputs.url }}" | sed 's#/[^/]*$#/dev-oof.json#')" -o "$RUNNER_TEMP/reply-model/dev-oof.json"
+          REPLY_MODEL_RELEASE_DIR="$RUNNER_TEMP/reply-model" pnpm --filter @kickrocks/server bench:replies --candidates rules,c-encoder-node --out "$RUNNER_TEMP/bench"
 
   # Production pulls these tags and Watchtower redeploys on a new :latest, so only a push to main
   # that passed every check above publishes. The sha tag is the rollback handle.
   publish:
-    needs: [check, images]
+    needs: [check, images, reply-model]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     permissions:
@@ -83,17 +160,45 @@ jobs:
             dockerfile: apps/worker/Dockerfile
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      # The build context has no .git, so the image learns its commit here. Without these build
+      # arguments the server fell back to package.json and every published image read 0.0.0.
+      - name: Read the commit stamp
+        id: stamp
+        run: |
+          echo "version=$(git rev-parse --short=7 HEAD)" >> "$GITHUB_OUTPUT"
+          echo "date=$(git log -1 --format=%cI)" >> "$GITHUB_OUTPUT"
       - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
+      - name: Read the pinned reply model
+        id: model
+        run: |
+          pin=apps/server/reply-model/release.json
+          url="$(jq -r .url "$pin")"
+          sha="$(jq -r .tarSha256 "$pin")"
+          if [ -n "$url" ] && [ -n "$sha" ]; then
+            {
+              echo "args<<EOF"
+              echo "REPLY_MODEL=bundled"
+              echo "REPLY_MODEL_URL=$url"
+              echo "REPLY_MODEL_SHA256=$sha"
+              echo "EOF"
+            } >> "$GITHUB_OUTPUT"
+          else
+            echo "args=REPLY_MODEL=none" >> "$GITHUB_OUTPUT"
+          fi
       - uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
         with:
           context: .
           file: ${{ matrix.dockerfile }}
           push: true
+          build-args: |
+            KICKROCKS_VERSION=${{ steps.stamp.outputs.version }}
+            KICKROCKS_COMMIT_DATE=${{ steps.stamp.outputs.date }}
+            ${{ steps.model.outputs.args }}
           labels: |
             org.opencontainers.image.revision=${{ github.sha }}
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}

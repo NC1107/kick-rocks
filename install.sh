@@ -635,6 +635,22 @@ if [ -z "${KICKROCKS_VERSION:-}" ]; then
   KICKROCKS_VERSION="$(git describe --tags --always --dirty 2>/dev/null || true)"
   export KICKROCKS_VERSION
 fi
+if [ -z "${KICKROCKS_COMMIT_DATE:-}" ]; then
+  KICKROCKS_COMMIT_DATE="$(git log -1 --format=%cI 2>/dev/null || true)"
+  export KICKROCKS_COMMIT_DATE
+fi
+
+# The reply model is a release asset pinned in the repo. The image bundles it once a release is
+# pinned there, unless REPLY_MODEL=none says to leave it out.
+pin="apps/server/reply-model/release.json"
+if [ -z "${REPLY_MODEL:-}" ] && [ -f "$pin" ]; then
+  REPLY_MODEL_URL="$(sed -n 's/.*"url": *"\([^"]*\)".*/\1/p' "$pin")"
+  REPLY_MODEL_SHA256="$(sed -n 's/.*"tarSha256": *"\([^"]*\)".*/\1/p' "$pin")"
+  if [ -n "$REPLY_MODEL_URL" ] && [ -n "$REPLY_MODEL_SHA256" ]; then
+    REPLY_MODEL=bundled
+    export REPLY_MODEL REPLY_MODEL_URL REPLY_MODEL_SHA256
+  fi
+fi
 
 docker compose up -d --build --wait --wait-timeout 180 || {
   echo >&2

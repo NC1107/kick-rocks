@@ -20,6 +20,7 @@ import { createLogger, type Logger } from "./core/logger.js";
 import { createMailHolds, type MailHolds } from "./core/mail-holds.js";
 import { createMailQuota, type MailQuota } from "./core/mail-quota.js";
 import { createRecipeHealth, type RecipeHealthService } from "./core/recipe-health.js";
+import { createReplyPredictions, type ReplyPredictions } from "./core/reply-predictions.js";
 import { createRequestFlow, type Requests } from "./core/request-flow.js";
 import { createRequestsService } from "./core/requests.js";
 import { createRestoreGate, type RestoreGate } from "./core/restore-gate.js";
@@ -36,6 +37,8 @@ import { createTaskQueue, type TaskQueue } from "./core/task-queue.js";
 import { createTaskSends, type TaskSends } from "./core/task-sends.js";
 import { registerHandlers } from "./handlers/index.js";
 import { createMailServices } from "./mail/index.js";
+import { createReplyModelHost } from "./mail/reply-model/host.js";
+import type { ReplyModelHost } from "./mail/reply-model/types.js";
 import type { MailServices } from "./mail/types.js";
 import {
   createPasswordHasher,
@@ -90,6 +93,10 @@ export interface AppServices {
   startup: Startup;
   secrets: Secrets;
   mail: MailServices;
+  /** The reply model, which runs in a child process of its own. */
+  replyModel: ReplyModelHost;
+  /** What the machine made of each message, and how a person's answer compares. */
+  replyPredictions: ReplyPredictions;
   legal: LegalApi;
   auth: AuthService;
   passwords: PasswordHasher;
@@ -106,6 +113,7 @@ export interface ServiceOverrides {
   random?: () => number;
   logger?: Logger;
   mail?: MailServices;
+  replyModel?: ReplyModelHost;
   legal?: LegalApi;
   auth?: AuthService;
   notificationChannels?: NotificationChannels;
@@ -186,6 +194,12 @@ export function createServices(
   };
   registerTaskAudit(taskHandlers, requests);
 
+  const replyModel =
+    overrides.replyModel ??
+    createReplyModelHost({
+      dir: config.replyModelDir,
+      log: (reason, fields) => logger.warn({ reason, ...fields }, "reply model unavailable"),
+    });
   const restoreGate = createRestoreGate({ dataDir: config.dataDir, clock, logger });
   const services: AppServices = {
     config,
@@ -211,7 +225,9 @@ export function createServices(
     diskReserve: createDiskReserve(config.dataDir, logger),
     startup: createStartup(),
     secrets,
-    mail: overrides.mail ?? createMailServices(config, settings),
+    mail: overrides.mail ?? createMailServices(config, settings, { model: replyModel }),
+    replyModel,
+    replyPredictions: createReplyPredictions({ db, clock, settings, logger }),
     legal,
     passwords: createPasswordHasher(overrides.passwordCost),
     auth: overrides.auth ?? createAuthService({ config, db, clock, logger, settings, secrets }),

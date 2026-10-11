@@ -595,13 +595,13 @@ describe("the screens a person sees, with a review queue that has things in it",
       ...["blocked", "matches", "verifications", "mail", "failed", "scans"].map(
         (tab) => `/review?tab=${tab}`,
       ),
-      "/profiles",
+      "/settings/profiles",
       `/profiles/${world.profileId}`,
       `/profiles/${world.profileId}/mailbox`,
       "/campaigns/new",
       "/settings",
       "/settings/agents",
-      "/about",
+      "/settings/about",
       "/no-such-page",
     ];
     const browser = await launchBrowser();

@@ -24,7 +24,9 @@
     "loop:layout-a11y": "node scripts/loops/layout-a11y/run.mjs",
     "loop:mail-intake": "pnpm --filter @kickrocks/server loop:mail-intake",
     "loop:mail-failures": "node scripts/loops/mail-failures/run.mjs",
-    "e2e": "pnpm --filter @kickrocks/e2e e2e"
+    "e2e": "pnpm --filter @kickrocks/e2e e2e",
+    "bench:replies": "pnpm --filter @kickrocks/server bench:replies",
+    "bench:replies:python": "pnpm --filter @kickrocks/server bench:replies:python"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.3.0",

@@ -366,6 +366,8 @@ export const API_ROUTES = {
         generatedAt: z.string().optional(),
       }),
       targets: z.object({ brokers: Count, companies: Count }),
+      /** When the commit this image was built from was made, or null for an unstamped build. */
+      committedAt: z.string().nullable(),
       health: InstanceHealth,
     }),
   }),
@@ -993,6 +995,14 @@ export const API_ROUTES = {
     auth: "session",
     body: SettingsPatch,
     response: SettingsView,
+  }),
+  /** Every reply a person labelled, as JSON lines, for training a later model. */
+  replyModelLabels: defineRoute({
+    method: "GET",
+    path: "/reply-model/labels",
+    module: "settings",
+    auth: "session",
+    binary: ["application/x-ndjson"],
   }),
   settingsReset: defineRoute({
     method: "POST",

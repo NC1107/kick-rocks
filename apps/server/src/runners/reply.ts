@@ -19,9 +19,6 @@ import { formLinkAmong } from "../mail/form-link.js";
 import type { AppServices } from "../services.js";
 import { describeError } from "./connection.js";
 
-/** Below this the classifier is guessing, and a person should look before anything moves. */
-export const CONFIDENCE_THRESHOLD = 0.6;
-
 const MAX_LINKS_TRIED = 3;
 
 /** The answers that ask for a move of the request, as opposed to those that only record. */

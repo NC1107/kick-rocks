@@ -54,6 +54,8 @@ describe("createServices with no overrides", () => {
           "politeness",
           "probeFetch",
           "recipeHealth",
+          "replyModel",
+          "replyPredictions",
           "requests",
           "restoreGate",
           "sentJournal",

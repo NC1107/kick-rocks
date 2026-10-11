@@ -92,6 +92,7 @@ const PLANNED = [
   "GET /messages/:id",
   "POST /messages/:id/classification",
   "GET /recipes",
+  "GET /reply-model/labels",
   "POST /recipes/:id/approve",
   "POST /recipes/:id/reject",
   "GET /settings",
@@ -386,6 +387,7 @@ describe("the health and status routes", () => {
     expect(API_ROUTES.status.auth).toBe("session");
     expect(Object.keys(API_ROUTES.status.response.shape).sort()).toEqual([
       "brokers",
+      "committedAt",
       "health",
       "profiles",
       "targets",

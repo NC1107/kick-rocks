@@ -28,7 +28,7 @@ const WIDTHS = [390, 768, 1024, 1280];
 const THEMES = ["light", "dark"];
 const AUTHED_ROUTES = [
   "/",
-  "/profiles",
+  "/settings/profiles",
   "/profiles/new",
   "/profiles/prf_0001",
   "/profiles/prf_0001/mailbox",
@@ -44,7 +44,7 @@ const AUTHED_ROUTES = [
   "/settings/recipes",
   "/settings/agents",
   "/settings/notifications",
-  "/about",
+  "/settings/about",
   "/nope-404",
 ];
 const PUBLIC_ROUTES = [
@@ -254,13 +254,13 @@ async function measureLayoutShift(browser, base) {
   const failing = new Map();
   const routes = [
     "/",
-    "/profiles",
+    "/settings/profiles",
     "/targets",
     "/requests",
     "/requests/req_0017",
     "/review",
     "/settings",
-    "/about",
+    "/settings/about",
   ];
   for (const width of [390, 768, 1280]) {
     for (const route of routes) {

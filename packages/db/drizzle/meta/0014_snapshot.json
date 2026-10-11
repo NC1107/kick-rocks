@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "e4cffc51-8259-4cc7-ba7e-db5bca37bbe9",
+  "id": "e603e4eb-28f6-46e2-9ad8-dd64374e1c5a",
   "prevId": "9804bb44-8f6b-4ee7-b161-30dad675938f",
   "tables": {
     "campaigns": {
@@ -92,13 +92,6 @@
         },
         "model": {
           "name": "model",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "inventory": {
-          "name": "inventory",
           "type": "text",
           "primaryKey": false,
           "notNull": false,
@@ -1351,6 +1344,137 @@
           "tableFrom": "recipes",
           "tableTo": "targets",
           "columnsFrom": ["target_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "reply_predictions": {
+      "name": "reply_predictions",
+      "columns": {
+        "message_id": {
+          "name": "message_id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "source": {
+          "name": "source",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "model_version": {
+          "name": "model_version",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "model_label": {
+          "name": "model_label",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "model_confidence": {
+          "name": "model_confidence",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "probabilities": {
+          "name": "probabilities",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "rules_label": {
+          "name": "rules_label",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "rules_confidence": {
+          "name": "rules_confidence",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "input_sha256": {
+          "name": "input_sha256",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "auto_applied": {
+          "name": "auto_applied",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "spot_check": {
+          "name": "spot_check",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "person_label": {
+          "name": "person_label",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "accepted_suggestion": {
+          "name": "accepted_suggestion",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "decided_at": {
+          "name": "decided_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "reply_predictions_spot_idx": {
+          "name": "reply_predictions_spot_idx",
+          "columns": ["spot_check", "decided_at"],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "reply_predictions_message_id_messages_id_fk": {
+          "name": "reply_predictions_message_id_messages_id_fk",
+          "tableFrom": "reply_predictions",
+          "tableTo": "messages",
+          "columnsFrom": ["message_id"],
           "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"

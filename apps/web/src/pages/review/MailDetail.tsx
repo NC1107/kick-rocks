@@ -52,6 +52,30 @@ export const QUICK_PICKS: readonly ReplyClassification[] = [
   "unrelated",
 ];
 
+/**
+ * What the select starts on. A spot check is left unanswered because it measures the model, and a
+ * suggestion that says nothing is not worth starting on.
+ */
+export function preselectOf(suggestion: ReviewMessage["suggestion"]): ReplyClassification | "" {
+  if (!suggestion || suggestion.spotCheck || suggestion.classification === "unknown") return "";
+  return suggestion.classification;
+}
+
+const SUGGESTERS = {
+  rules: "the rules",
+  model: "the reply model",
+  llm: "the language model",
+} as const;
+
+/** The line above the select that says where the starting choice came from. */
+export function suggestionLine(suggestion: ReviewMessage["suggestion"]): string | null {
+  if (preselectOf(suggestion) === "" || !suggestion) return null;
+  const by = `Suggested by ${SUGGESTERS[suggestion.source]}`;
+  return suggestion.source === "rules"
+    ? by
+    : `${by}, ${Math.round(suggestion.confidence * 100)}% sure`;
+}
+
 /** The whole message, read in place. The snippet stands in until it arrives. */
 function MailText({ message }: { message: ReviewMessage }) {
   const full = useApiQuery(API_ROUTES.messageGet, { params: { id: message.id } });
@@ -78,7 +102,10 @@ function MailText({ message }: { message: ReviewMessage }) {
 export function MailDetail({ message, profileId }: { message: ReviewMessage; profileId: string }) {
   const toast = useToast();
   const [confirming, setConfirming] = useState(false);
-  const [classification, setClassification] = useState<ReplyClassification | "">("");
+  const [classification, setClassification] = useState<ReplyClassification | "">(() =>
+    preselectOf(message.suggestion),
+  );
+  const suggested = suggestionLine(message.suggestion);
   const [requestId, setRequestId] = useState("");
 
   const needsRequest = message.requestId === null;
@@ -154,6 +181,7 @@ export function MailDetail({ message, profileId }: { message: ReviewMessage; pro
               else submit();
             }}
           >
+            {suggested ? <p className="m-0 text-meta text-ink-2">{suggested}</p> : null}
             <div className="grid gap-3 sm:grid-cols-2">
               <Field
                 label="What is this message"

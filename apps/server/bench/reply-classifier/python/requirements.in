@@ -1,0 +1,7 @@
+torch
+transformers
+accelerate
+numpy
+sentencepiece
+tiktoken
+protobuf

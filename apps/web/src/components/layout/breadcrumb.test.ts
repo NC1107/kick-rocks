@@ -42,6 +42,21 @@ describe("breadcrumbTrail", () => {
     ]);
   });
 
+  it("nests Profiles and About under Settings", () => {
+    expect(breadcrumbTrail("/settings/profiles")).toEqual([
+      { label: "Settings", to: "/settings" },
+      { label: "Profiles" },
+    ]);
+    expect(breadcrumbTrail("/settings/about")).toEqual([
+      { label: "Settings", to: "/settings" },
+      { label: "About" },
+    ]);
+    expect(breadcrumbTrail("/profiles/new")).toEqual([
+      { label: "Profiles", to: "/settings/profiles" },
+      { label: "New" },
+    ]);
+  });
+
   it("falls back to Not found for an unknown path", () => {
     expect(breadcrumbTrail("/nope")).toEqual([{ label: "Not found" }]);
   });

@@ -1,8 +1,10 @@
 import {
   type ComponentProps,
+  type CSSProperties,
   createContext,
   type KeyboardEvent,
   type ReactNode,
+  type RefObject,
   useCallback,
   useContext,
   useEffect,
@@ -11,7 +13,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { NavLink } from "react-router";
+import { NavLink, useLocation } from "react-router";
 import { cn } from "../../lib/cn.js";
 
 interface TabsContextValue {
@@ -52,12 +54,9 @@ export function Tabs({ value, defaultValue, onValueChange, children, className }
   );
 }
 
-/**
- * Left and right arrows move between tabs and select as they go, Home and End jump to the ends.
- * Only the selected tab is in the Tab order, so one Tab press passes the whole list.
- */
-export function TabList({ className, style, onScroll, ...rest }: ComponentProps<"div">) {
-  const ref = useRef<HTMLDivElement>(null);
+/** Tracks which edges of a horizontally scrolling strip have more content, and fades those edges. */
+function useEdgeFade() {
+  const ref = useRef<HTMLElement>(null);
   const [hidden, setHidden] = useState({ start: false, end: false });
 
   const measure = useCallback(() => {
@@ -78,6 +77,17 @@ export function TabList({ className, style, onScroll, ...rest }: ComponentProps<
 
   // A fade at an edge says there are more tabs past it, which a clipped label alone does not.
   const fade = `linear-gradient(to right, ${hidden.start ? "transparent, black 1.5rem" : "black, black"}, ${hidden.end ? "black calc(100% - 1.5rem), transparent" : "black, black"})`;
+  const style: CSSProperties | undefined =
+    hidden.start || hidden.end ? { maskImage: fade, WebkitMaskImage: fade } : undefined;
+  return { ref, measure, style };
+}
+
+/**
+ * Left and right arrows move between tabs and select as they go, Home and End jump to the ends.
+ * Only the selected tab is in the Tab order, so one Tab press passes the whole list.
+ */
+export function TabList({ className, style, onScroll, ...rest }: ComponentProps<"div">) {
+  const { ref, measure, style: fadeStyle } = useEdgeFade();
 
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     const tabs = Array.from(
@@ -104,16 +114,14 @@ export function TabList({ className, style, onScroll, ...rest }: ComponentProps<
 
   return (
     <div
-      ref={ref}
+      ref={ref as RefObject<HTMLDivElement>}
       role="tablist"
       onKeyDown={onKeyDown}
       onScroll={(event) => {
         measure();
         onScroll?.(event);
       }}
-      style={
-        hidden.start || hidden.end ? { maskImage: fade, WebkitMaskImage: fade, ...style } : style
-      }
+      style={fadeStyle ? { ...fadeStyle, ...style } : style}
       className={cn(STRIP_CLASS, className)}
       {...rest}
     />
@@ -203,8 +211,31 @@ export interface LinkTab {
  * tablist, so each tab is bookmarkable and the back button works.
  */
 export function LinkTabs({ items, label }: { items: readonly LinkTab[]; label: string }) {
+  const { ref, measure, style } = useEdgeFade();
+  const { pathname } = useLocation();
+
+  // The strip scrolls on a phone, so the tab for the current route is brought into view on arrival
+  // and on every route change, not left off screen.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: the path is the trigger, not an input
+  useEffect(() => {
+    const strip = ref.current;
+    const active = strip?.querySelector<HTMLElement>('[aria-current="page"]');
+    if (!strip || !active) return;
+    strip.scrollLeft = Math.max(
+      0,
+      active.offsetLeft - (strip.clientWidth - active.offsetWidth) / 2,
+    );
+    measure();
+  }, [pathname, ref, measure]);
+
   return (
-    <nav aria-label={label} className={STRIP_CLASS}>
+    <nav
+      ref={ref as RefObject<HTMLElement>}
+      aria-label={label}
+      onScroll={measure}
+      style={style}
+      className={STRIP_CLASS}
+    >
       {items.map((item) => (
         <NavLink
           key={item.to}
