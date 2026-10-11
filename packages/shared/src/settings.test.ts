@@ -74,6 +74,8 @@ describe("SETTING_SCHEMAS", () => {
         "worker.status.model",
         "notifications",
         "notifications.state",
+        "replyModel",
+        "replyModel.state",
       ].sort(),
     );
   });
