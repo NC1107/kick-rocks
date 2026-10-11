@@ -1,0 +1,44 @@
+DKIM-Signature: v=1; a=ed25519-sha256; c=relaxed/relaxed;
+ d=spokeo-support.com; h=Content-Transfer-Encoding: Content-Type:
+ MIME-Version: References: In-Reply-To: Reply-To: Message-ID: Date:
+ Subject: To: From; q=dns/txt; s=kr; t=1790519820;
+ bh=ej84mjtrZOg/oNv0Y3IRI99XzMw3MTgW9ZUB31R7vGM=;
+ b=FgTbbaRvPMQy5P5jRrL+wTTyKPXCpd8T8cUyQonzNn3dLMws2Kla93DBW3lLV/i9K5Lk2mDyz
+ fisfjfG2C13BQ==
+Return-Path: <bounce-34938@spokeo-support.com>
+Received: from mail.spokeo-support.com (mail.spokeo-support.com [203.0.113.28]) by mx.example.com with ESMTPS id 0ec5770b9c for <jordan@example.com>; Sun, 27 Sep 2026 14:37:00 +0000
+From: Spokeo Privacy Operations <privacy@spokeo-support.com>
+To: jordan@example.com
+Subject: Re: Opt-out request KR-7K3M9Q
+Date: Sun, 27 Sep 2026 14:37:00 +0000
+Message-ID: <b9e808f5e6e43064c8ea5ecf@spokeo-support.com>
+Reply-To: privacy@spokeo-support.com
+In-Reply-To: <kr.440c0efc-6245-48af-8c53-c4864f28f92f.0@example.com>
+References: <kr.440c0efc-6245-48af-8c53-c4864f28f92f.0@example.com>
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+Hello,
+
+Before we can act, please confirm your identity by sending a copy of your government-issued photo ID.
+
+Please include:
+- Full name
+- Date of birth
+- Current street address
+
+Sincerely,
+Data Subject Requests, Spokeo
+
+On Tue, 22 Sep 2026 at 09:10 Jordan Example <jordan@example.com> wrote:
+> Subject: Opt-out request KR-7K3M9Q
+>
+> To the privacy team at Spokeo,
+>
+> I am asking you to remove my listing and stop selling my information.
+> Name: Jordan Example
+> Email: jordan@example.com
+> Please confirm once this is done.
+>
+> Reference: KR-7K3M9Q

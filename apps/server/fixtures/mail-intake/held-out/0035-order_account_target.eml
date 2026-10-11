@@ -1,0 +1,22 @@
+DKIM-Signature: v=1; a=ed25519-sha256; c=relaxed/relaxed; d=amazon.com;
+ h=Content-Transfer-Encoding: Content-Type: MIME-Version: Message-ID: Date:
+ Subject: To: From; q=dns/txt; s=kr; t=1790613360;
+ bh=ZOxEnlfcF2A0gN9jRTO4EBrioDwrin1ykMtkTVySm9g=;
+ b=LyVLVYGFSq0uHNsqW6Ux41vQkxnA81zuXphyn27b03ggFejAr2KTH2ZtN3zyQj7WpKJKpWZkn
+ /yskIs5eZiiBg==
+Return-Path: <010063c8def0657f205ab6f7-c9ce4d6d@bounces.amazon.com>
+Received: from mail.amazon.com (mail.amazon.com [203.0.113.20]) by mx.example.com with ESMTPS id 8f0b392fa7 for <jordan@example.com>; Mon, 28 Sep 2026 16:36:00 +0000
+From: Amazon <shipment-tracking@amazon.com>
+To: jordan@example.com
+Subject: Delivered: Your package with running socks
+Date: Mon, 28 Sep 2026 16:36:00 +0000
+Message-ID: <1c9060c7283b3c00e9b296d6@amazon.com>
+X-Mailer: Transactional Mailer
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+Your request to return running socks has been received. Print the label below and drop it off at any carrier location.
+
+Order #833-1531166-2537446
+https://amazon.com/returns/833-1531166-2537446

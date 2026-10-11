@@ -1,0 +1,24 @@
+DKIM-Signature: v=1; a=ed25519-sha256; c=relaxed/relaxed; d=amazon.com;
+ h=Content-Transfer-Encoding: Content-Type: MIME-Version: Message-ID: Date:
+ Subject: To: From; q=dns/txt; s=kr; t=1791226320;
+ bh=lG3Hl501MeGDkq2yN5Nq4cE0rLaAULnHKAwMWAcsCeM=;
+ b=UligWhWP/UhQR3uq3dhBu1yPEkL50KvDTMF7ALy2C0JGATQIPbO4KW815ZLF0iCzyfpZGoB//
+ q+Xk++1umGJDg==
+Return-Path: <0100128d0f2c3bb012ea98b1-42d5b879@bounces.amazon.com>
+Received: from mail.amazon.com (mail.amazon.com [203.0.113.20]) by mx.example.com with ESMTPS id 8f0b392fa7 for <jordan@example.com>; Mon, 05 Oct 2026 18:52:00 +0000
+From: Amazon <auto-confirm@amazon.com>
+To: jordan@example.com
+Subject: Your Amazon.com order of USB-C charging cable has shipped
+Date: Mon, 05 Oct 2026 18:52:00 +0000
+Message-ID: <0cef0f70eabfc8fb874e8d2b@amazon.com>
+Auto-Submitted: auto-generated
+X-Mailer: Transactional Mailer
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+Hello,
+
+Your refund of USD 85.28 for USB-C charging cable has been processed. It may take 3-5 business days to appear on your statement.
+
+Order #073-6145111-6447598

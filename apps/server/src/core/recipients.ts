@@ -1,5 +1,5 @@
 import { type KickRocksDb, outgoingMail } from "@kickrocks/db";
-import { and, asc, eq, isNotNull } from "drizzle-orm";
+import { and, asc, eq, inArray, isNotNull } from "drizzle-orm";
 
 /**
  * The address a request was first mailed at. A follow-up and a verification reply go back to it,
@@ -16,4 +16,23 @@ export function firstRecipient(db: KickRocksDb, requestId: string): string | nul
       .orderBy(asc(outgoingMail.sentAt), asc(outgoingMail.id))
       .get()?.recipient ?? null
   );
+}
+
+/** `firstRecipient` for many requests in one query. Requests with no recorded address are absent. */
+export function firstRecipients(
+  db: KickRocksDb,
+  requestIds: readonly string[],
+): Map<string, string> {
+  const first = new Map<string, string>();
+  if (requestIds.length === 0) return first;
+  const rows = db
+    .select({ requestId: outgoingMail.requestId, recipient: outgoingMail.recipient })
+    .from(outgoingMail)
+    .where(and(inArray(outgoingMail.requestId, [...requestIds]), isNotNull(outgoingMail.recipient)))
+    .orderBy(asc(outgoingMail.sentAt), asc(outgoingMail.id))
+    .all();
+  for (const { requestId, recipient } of rows) {
+    if (recipient !== null && !first.has(requestId)) first.set(requestId, recipient);
+  }
+  return first;
 }

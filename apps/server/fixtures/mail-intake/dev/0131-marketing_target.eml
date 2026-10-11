@@ -1,0 +1,36 @@
+DKIM-Signature: v=1; a=ed25519-sha256; c=relaxed/relaxed; d=amazon.com;
+ h=Content-Type: MIME-Version: List-Unsubscribe: Reply-To: Message-ID:
+ Date: Subject: To: From; q=dns/txt; s=kr; t=1790935920;
+ bh=9ReifslRqFHB2afd75v3LT/8DVfGHYwgzaFVr+1f99I=;
+ b=fM565iUWArJlAqfjaPB7puKzKqeuWlOtbrlE2v7EGo4UOnNoYCwqcYuPRFbGUXAbAW7vdcf6C
+ nHMIExtzm6jBA==
+Return-Path: <bounce-613150@bounce.amazon.com>
+Received: from mail.amazon.com (mail.amazon.com [203.0.113.20]) by mx.example.com with ESMTPS id 8f0b392fa7 for <jordan@example.com>; Fri, 02 Oct 2026 10:12:00 +0000
+From: Amazon <prime@amazon.com>
+To: jordan@example.com
+Subject: Add Kindle Unlimited to your account for $0.99
+Date: Fri, 02 Oct 2026 10:12:00 +0000
+Message-ID: <a260c4986c5c294359b6ba25@amazon.com>
+Reply-To: no-reply@amazon.com
+List-Unsubscribe: <https://amazon.com/unsubscribe?u=35ed6c2fb03b4838>, <mailto:unsubscribe-35ed6c2f@amazon.com>
+List-Unsubscribe-Post: List-Unsubscribe=One-Click
+Precedence: bulk
+X-Mailer: Braze
+MIME-Version: 1.0
+Content-Type: multipart/alternative; boundary="----=_Part_9484a7b65097"
+
+------=_Part_9484a7b65097
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+Add Kindle Unlimited to your account for $0.99
+
+Shop now: https://amazon.com/offers?ref=8d29ba29
+
+You are receiving this email because you have an account with Amazon. To stop receiving these emails, unsubscribe: https://amazon.com/unsubscribe
+------=_Part_9484a7b65097
+Content-Type: text/html; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+<html><body style="font-family:Arial,sans-serif"><h2>Add Kindle Unlimited to your account for $0.99</h2><p><a href="https://amazon.com/offers?ref=8d29ba29">Shop now</a></p><p style="font-size:11px">You are receiving this email because you have an account with Amazon. To stop receiving these emails, unsubscribe: https://amazon.com/unsubscribe</p></body></html>
+------=_Part_9484a7b65097--

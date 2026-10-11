@@ -1,7 +1,7 @@
 import { API_ROUTES } from "@kickrocks/shared";
 import { skipToken } from "@tanstack/react-query";
+import { Link } from "react-router";
 import { useApiQuery, useCurrentProfile } from "../../api/index.js";
-import { cn } from "../../lib/cn.js";
 import { shortRelative } from "../../lib/format.js";
 import { TONE_SHAPE } from "../../lib/status.js";
 import { useNow } from "../../lib/use-now.js";
@@ -30,11 +30,11 @@ export function useShellStatus(): StatusChip[] {
   const now = useNow();
   const cooling = sites.data ? sitesChip(sites.data.items) : null;
   const chips: StatusChip[] = [];
-  if (settings.data) chips.push(workerChip(settings.data.worker, now));
-  if (dashboard.data) {
-    chips.push(inboxChip(dashboard.data.mailbox, (iso) => shortRelative(iso, now)));
+  if (settings.data) chips.push(workerChip(settings.data.worker, now, dashboard.data?.scans));
+  if (dashboard.data && profile) {
+    chips.push(inboxChip(dashboard.data.mailbox, (iso) => shortRelative(iso, now), profile.id));
     // The header holds three chips; a site being left alone is news, today's send count is not.
-    const sends = cooling ? null : sendsChip(dashboard.data.sending);
+    const sends = cooling ? null : sendsChip(dashboard.data.sending, profile.id);
     if (sends) chips.push(sends);
   }
   if (cooling) chips.push(cooling);
@@ -57,16 +57,15 @@ export function StatusChips({ chips }: { chips: readonly StatusChip[] }) {
   return (
     <ul aria-label="System status" className="m-0 flex list-none items-center gap-2 p-0">
       {chips.map((chip) => (
-        <li
-          key={chip.id}
-          className={cn(
-            "inline-flex h-6 items-center gap-1.5 whitespace-nowrap rounded-full border border-line px-2.5 text-caption text-ink-2",
-            chip.id === urgentId ? undefined : "max-lg:hidden",
-          )}
-        >
-          <StatusShapeGlyph shape={TONE_SHAPE[chip.tone]} className="size-2" />
-          <span>{chip.label}</span>
-          {chip.value ? <span className="font-mono text-ink">{chip.value}</span> : null}
+        <li key={chip.id} className={chip.id === urgentId ? undefined : "max-lg:hidden"}>
+          <Link
+            to={chip.to}
+            className="inline-flex h-6 items-center gap-1.5 whitespace-nowrap rounded-full border border-line px-2.5 text-caption text-ink-2 transition-colors duration-100 hover:bg-hover hover:text-ink"
+          >
+            <StatusShapeGlyph shape={TONE_SHAPE[chip.tone]} className="size-2" />
+            <span>{chip.label}</span>
+            {chip.value ? <span className="font-mono text-ink">{chip.value}</span> : null}
+          </Link>
         </li>
       ))}
     </ul>
@@ -79,13 +78,13 @@ export function UrgentStatusMark({ chips }: { chips: readonly StatusChip[] }) {
   if (!chip) return null;
   return (
     <Tooltip content={chipText(chip)} hintOnTap>
-      <button
-        type="button"
+      <Link
+        to={chip.to}
         aria-label={chipText(chip)}
         className="flex size-11 items-center justify-center rounded-xs"
       >
         <StatusShapeGlyph shape={TONE_SHAPE[chip.tone]} className="size-2.5" />
-      </button>
+      </Link>
     </Tooltip>
   );
 }

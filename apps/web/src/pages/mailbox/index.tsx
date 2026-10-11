@@ -14,6 +14,7 @@ import {
   Callout,
   ConfirmDialog,
   EmptyState,
+  EntityLink,
   LinkButton,
   PageHeader,
   Section,
@@ -23,7 +24,7 @@ import {
 } from "../../components/ui/index.js";
 import { cn } from "../../lib/cn.js";
 import {
-  CheckForRepliesButton,
+  CheckForRepliesAction,
   checkFailedOnMailbox,
   ReplyCheckResult,
   useReplyCheck,
@@ -41,6 +42,7 @@ import {
   validateConnection,
   validateSettings,
 } from "./connection.js";
+import { IntakeSection } from "./intake-section.js";
 import { MailboxFacts, SendPauseAlert, useProviderLabel } from "./mailbox-card.js";
 import { AccountStep, ProviderStep, SettingsStep, TestStep } from "./steps.js";
 
@@ -52,8 +54,6 @@ export function Component() {
   const profile = useApiQuery(API_ROUTES.profilesGet, { params: { id } });
   const providers = useApiQuery(API_ROUTES.mailProviders, { staleTime: 5 * 60_000 });
   useBreadcrumbTail(profile.data?.displayName);
-
-  const back = { to: "/profiles", label: "Profiles" };
 
   if (profile.isPending || providers.isPending) {
     return (
@@ -72,7 +72,7 @@ export function Component() {
     const missing = failure instanceof ApiRequestError && failure.status === 404;
     return (
       <>
-        <PageHeader title="Mailbox" back={back} />
+        <PageHeader title="Mailbox" />
         {missing ? (
           <EmptyState
             title="That profile does not exist"
@@ -125,9 +125,15 @@ function MailboxPage({
       <PageHeader
         title={mailbox && !editing ? "Mailbox" : mailbox ? "Edit mailbox" : "Connect a mailbox"}
         description={
-          mailbox && !editing ? `Requests for ${profile.displayName} go out from here` : undefined
+          mailbox && !editing ? (
+            <>
+              Requests for{" "}
+              <EntityLink to={{ kind: "profile", id: profile.id, name: profile.displayName }} /> go
+              out from here
+            </>
+          ) : undefined
         }
-        back={{ to: `/profiles/${profile.id}`, label: profile.displayName }}
+        hideDescriptionOnPhone
       />
       <div className="max-w-3xl">
         {showWizard ? (
@@ -151,6 +157,7 @@ function ConnectedMailbox({ profile, onEdit }: { profile: ProfileDetail; onEdit:
   const [disconnecting, setDisconnecting] = useState(false);
   const mailbox = profile.mailbox;
   const label = useProviderLabel(mailbox?.provider);
+  const providers = useApiQuery(API_ROUTES.mailProviders, { staleTime: 5 * 60_000 });
 
   const check = useReplyCheck(profile.id);
   const disconnect = useApiMutation(API_ROUTES.mailboxDelete, {
@@ -169,15 +176,12 @@ function ConnectedMailbox({ profile, onEdit }: { profile: ProfileDetail; onEdit:
     <>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
         <div className="min-w-0">
-          <h2 className="break-all font-mono text-heading font-medium text-ink">
-            {mailbox.address}
-          </h2>
+          <h2 className="break-all font-mono text-ui font-medium text-ink">{mailbox.address}</h2>
           <span className="mt-0.5 inline-flex items-center gap-2 text-meta text-ink-2">
             <StatusShapeGlyph shape={failed ? "triangle" : "disc"} />
             {failed ? "Last check failed" : "Connected"}
           </span>
         </div>
-        <CheckForRepliesButton check={check} />
       </div>
       {mailbox.lastError && !checkFailedOnMailbox(check) ? (
         <Callout intent="warning" title="The last check failed" className="mb-3">
@@ -186,7 +190,12 @@ function ConnectedMailbox({ profile, onEdit }: { profile: ProfileDetail; onEdit:
       ) : null}
       <SendPauseAlert mailbox={mailbox} />
       <ReplyCheckResult check={check} onMailboxPage className="mb-3" />
-      <MailboxFacts mailbox={mailbox} providerLabel={label} hideAddress />
+      <MailboxFacts
+        mailbox={mailbox}
+        providerLabel={label}
+        hideAddress
+        checkAction={<CheckForRepliesAction check={check} variant="ghost" labelFrom="sm" />}
+      />
       <div className="mt-4 flex flex-wrap items-center justify-end gap-2">
         <Button variant="danger" onClick={() => setDisconnecting(true)}>
           Disconnect
@@ -195,6 +204,11 @@ function ConnectedMailbox({ profile, onEdit }: { profile: ProfileDetail; onEdit:
           Edit connection
         </Button>
       </div>
+      <IntakeSection
+        profileId={profile.id}
+        mailbox={mailbox}
+        provider={providers.data?.providers.find((candidate) => candidate.id === mailbox.provider)}
+      />
       <ConfirmDialog
         open={disconnecting}
         onClose={() => {

@@ -59,6 +59,32 @@ const statusesOf = (id: string) =>
     .filter((event) => event.type === "status_changed")
     .map((event) => (event.type === "status_changed" ? event.payload.to : null));
 
+describe("the reply address", () => {
+  it("is set as Reply-To only once the mailbox proved it receives it, and From stays the mailbox", async () => {
+    ctx.services.db
+      .update(mailboxes)
+      .set({ replyAlias: "jordan+kickrocks@example.com", replyAliasVerifiedAt: null })
+      .where(eq(mailboxes.id, mailboxId))
+      .run();
+    openRequest();
+    await runners.email.runDue();
+    expect(ctx.mail.sent[0]?.mail.replyTo).toBeUndefined();
+
+    ctx.services.db
+      .update(mailboxes)
+      .set({ replyAliasVerifiedAt: ctx.clock.now().toISOString() })
+      .where(eq(mailboxes.id, mailboxId))
+      .run();
+    openRequest();
+    ctx.clock.advance(HOUR);
+    await runners.email.runDue();
+    expect(ctx.mail.sent.at(-1)?.mail).toMatchObject({
+      replyTo: "jordan+kickrocks@example.com",
+      from: { address: "jordan@example.com" },
+    });
+  });
+});
+
 describe("sending a first request", () => {
   it("sends the composed mail, records it, and moves the request to awaiting_reply", async () => {
     const { target, request } = openRequest();

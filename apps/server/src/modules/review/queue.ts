@@ -189,7 +189,12 @@ function verifications(services: AppServices, profileId: string | undefined): Ve
 
 function unreviewedMessages(services: AppServices, profileId: string | undefined): ReviewMessage[] {
   const rows = services.db
-    .select({ message: messages, reference: requests.reference, targetName: targets.name })
+    .select({
+      message: messages,
+      reference: requests.reference,
+      targetName: targets.name,
+      targetId: targets.id,
+    })
     .from(messages)
     .innerJoin(mailboxes, eq(messages.mailboxId, mailboxes.id))
     .leftJoin(requests, eq(messages.requestId, requests.id))
@@ -200,10 +205,11 @@ function unreviewedMessages(services: AppServices, profileId: string | undefined
     .orderBy(desc(messages.receivedAt), desc(sql`${messages}.rowid`))
     .limit(MESSAGE_LIMIT)
     .all();
-  return rows.map(({ message, reference, targetName }) => ({
+  return rows.map(({ message, reference, targetName, targetId }) => ({
     ...toMessageSummary(message),
     requestReference: reference,
     targetName,
+    targetId,
   }));
 }
 

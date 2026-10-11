@@ -1,25 +1,32 @@
 import type { WaitingTask } from "@kickrocks/shared";
 import type { ReactNode } from "react";
+import { HoldReason } from "../../components/holds/HoldReason.js";
 import {
   EmptyState,
+  EntityLink,
   Kbd,
-  RelativeTime,
   Row,
   RowGroup,
   Section,
   StatusShapeGlyph,
 } from "../../components/ui/index.js";
+import { cn } from "../../lib/cn.js";
 import { describeFailure } from "../../lib/failures.js";
 import { BLOCKED_REASON_LABELS, PROFILE_FIELD_LABELS } from "../../lib/labels.js";
 import type { StatusShape } from "../../lib/status.js";
 import { ageLabel, KIND_LABELS, type QueueEntry, type ReviewKind, SCANS_KEY } from "./model.js";
-import { WaitReasonText } from "./WaitReasonText.js";
 
 interface RowView {
   title: ReactNode;
   reason: string;
   at: string | null;
   shape: StatusShape;
+  /** The request the item belongs to, which the row links to beside its select button. */
+  request?: { id: string; reference: string } | undefined;
+}
+
+function requestOf(id: string | null, reference: string | null): RowView["request"] {
+  return id && reference ? { id, reference } : undefined;
 }
 
 /** Waiting on the person is a triangle, a failure a square, and waiting on an agent a ring. */
@@ -36,36 +43,37 @@ function describe(entry: QueueEntry): RowView {
   const shape = KIND_SHAPE[entry.kind];
   switch (entry.kind) {
     case "blocked": {
-      const { task } = entry.item;
+      const { task, requestReference } = entry.item;
       return {
         title: task.targetName ?? "Unknown target",
-        reason:
-          task.blockedDetail ??
-          (task.blockedReason
-            ? BLOCKED_REASON_LABELS[task.blockedReason]
-            : task.status === "leased"
-              ? "Waiting for you"
-              : "Needs you"),
+        reason: task.blockedReason
+          ? BLOCKED_REASON_LABELS[task.blockedReason]
+          : task.status === "leased"
+            ? "Waiting for you"
+            : "Needs you",
         at: task.updatedAt,
         shape,
+        request: requestOf(task.requestId, requestReference),
       };
     }
     case "agents": {
-      const { task } = entry.item;
+      const { task, requestReference } = entry.item;
       return {
         title: task.targetName ?? "Unknown target",
         reason: "Waiting for an agent",
         at: task.updatedAt,
         shape,
+        request: requestOf(task.requestId, requestReference),
       };
     }
     case "failed": {
-      const { task } = entry.item;
+      const { task, requestReference } = entry.item;
       return {
         title: task.targetName ?? "Unknown target",
         reason: describeFailure(task).label,
         at: task.updatedAt,
         shape,
+        request: requestOf(task.requestId, requestReference),
       };
     }
     case "matches":
@@ -84,6 +92,7 @@ function describe(entry: QueueEntry): RowView {
         reason: asked ? `Asked for ${asked}` : "Asked for more details",
         at: entry.item.message.receivedAt,
         shape,
+        request: requestOf(entry.item.request.id, entry.item.request.reference),
       };
     }
     case "mail":
@@ -94,6 +103,7 @@ function describe(entry: QueueEntry): RowView {
         reason: entry.message.subject,
         at: entry.message.receivedAt,
         shape,
+        request: requestOf(entry.message.requestId, entry.message.requestReference),
       };
   }
 }
@@ -116,8 +126,9 @@ function Entry({
   onSelect: (key: string) => void;
 }) {
   const view = describe(entry);
+  const { request } = view;
   return (
-    <div data-entry={entry.key}>
+    <div data-entry={entry.key} className="relative">
       <Row
         selected={selected}
         onClick={() => onSelect(entry.key)}
@@ -125,10 +136,25 @@ function Entry({
         leading={<StatusShapeGlyph shape={view.shape} />}
         title={view.title}
         description={view.reason}
-        wrapDescription
-        trailing={view.at ? <Age iso={view.at} /> : null}
-        className="py-1.5"
+        trailing={!request && view.at ? <Age iso={view.at} /> : null}
+        className={cn("py-1.5", request && "pr-20")}
       />
+      {request ? (
+        <>
+          {view.at ? (
+            <span className="pointer-events-none absolute top-1.5 right-3.5">
+              <Age iso={view.at} />
+            </span>
+          ) : null}
+          <EntityLink
+            to={{ kind: "request", id: request.id, reference: request.reference }}
+            variant="quiet"
+            className="absolute right-0 bottom-0 inline-flex min-h-8 items-end px-3.5 pb-1 font-mono text-caption pointer-coarse:min-h-11"
+          >
+            {request.reference}
+          </EntityLink>
+        </>
+      ) : null}
     </div>
   );
 }
@@ -149,16 +175,23 @@ function WaitingGroup({ waiting, total }: { waiting: readonly WaitingTask[]; tot
           <Row
             key={item.taskId}
             leading={<StatusShapeGlyph shape="ring" />}
-            title={item.targetName ?? "Unknown target"}
-            description={
-              <WaitReasonText reason={item.waiting.reason} domain={item.waiting.domain} />
+            title={
+              item.targetId ? (
+                <EntityLink
+                  to={{
+                    kind: "target",
+                    id: item.targetId,
+                    name: item.targetName ?? "Unknown target",
+                  }}
+                  variant="quiet"
+                  className="text-ink"
+                />
+              ) : (
+                (item.targetName ?? "Unknown target")
+              )
             }
+            description={<HoldReason hold={item.waiting} glyph={false} showSite={false} compact />}
             wrapDescription
-            trailing={
-              <span className="font-mono text-caption text-ink-3 tabular-nums">
-                <RelativeTime iso={item.waiting.until} />
-              </span>
-            }
             className="py-1.5"
           />
         ))}

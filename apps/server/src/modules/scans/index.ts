@@ -11,7 +11,11 @@ import { notFound } from "../../core/errors.js";
 import { registerRoute } from "../../core/http.js";
 import type { ModulePlugin } from "../../core/module.js";
 import { requireProfile } from "../../core/require-profile.js";
-import { describeMissingScanFields, missingScanFields } from "../../core/scan-readiness.js";
+import {
+  describeMissingScanFields,
+  missingScanFields,
+  scanHold,
+} from "../../core/scan-readiness.js";
 import { selectByFilter } from "../../core/target-selection.js";
 import { isPeopleSearchTarget } from "../../core/targets.js";
 import type { AppServices } from "../../services.js";
@@ -147,6 +151,13 @@ export const scansModule: ModulePlugin = (app, services) => {
         candidateCount: scan.candidates?.length ?? 0,
         matchCounts: counts.get(scan.id) ?? { pending: 0, mine: 0, not_mine: 0 },
         error: scan.error,
+        hold: scanHold(services, {
+          profileId: scan.profileId,
+          targetId: scan.targetId,
+          targetName,
+          taskId: scan.taskId,
+          taskStatus,
+        }),
       })),
       total,
       page: query.page,

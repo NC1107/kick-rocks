@@ -1,39 +1,35 @@
-import { API_ROUTES, RequestStatus } from "@kickrocks/shared";
+import { API_ROUTES, isActiveStatus, RequestStatus } from "@kickrocks/shared";
 import { skipToken } from "@tanstack/react-query";
-import { Search } from "lucide-react";
+import { ChevronDown, Search, UserRound } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router";
-import { errorMessage, useApiQuery } from "../../api/index.js";
+import { errorMessage, useApiQuery, useCurrentProfile } from "../../api/index.js";
 import { RequireProfile } from "../../components/layout/RequireProfile.js";
 import {
   activeFilterTags,
   Button,
   Callout,
+  DataList,
   EmptyState,
+  EntityLink,
   Field,
   type FilterGroup,
   Filters,
   FilterTags,
   Input,
   LinkButton,
+  Menu,
+  type MenuItem,
   PageHeader,
-  Pagination,
   RelativeTime,
   StatusMark,
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeaderCell,
-  TableIdentity,
-  TableRow,
-  TableSkeletonRows,
   TableToolbar,
 } from "../../components/ui/index.js";
 import { pluralize } from "../../lib/format.js";
 import { CHANNEL_LABELS } from "../../lib/labels.js";
 import { REQUEST_STATUS_META } from "../../lib/status.js";
 import {
+  ALL_PROFILES,
   hasRequestFilters,
   REQUESTS_PAGE_SIZE,
   readRequestFilters,
@@ -54,18 +50,32 @@ function Requests({ profileId }: { profileId: string }) {
   const filters = readRequestFilters(params);
   const [search, setSearch] = useState(filters.q);
 
-  const list = useApiQuery(API_ROUTES.requestsList, {
-    params: { id: profileId },
+  const { profiles } = useCurrentProfile();
+  const allProfiles = filters.profileId === ALL_PROFILES;
+  const scopeId = allProfiles ? null : filters.profileId || profileId;
+  const scopeName = profiles.find((candidate) => candidate.id === scopeId)?.displayName;
+  const names = new Map(profiles.map((candidate) => [candidate.id, candidate.displayName]));
+
+  const listed = {
     query: toRequestQuery(filters),
     keepPrevious: true,
     refetchInterval: listRefreshInterval,
-  });
+  } as const;
+  const one = useApiQuery(
+    API_ROUTES.requestsList,
+    scopeId ? { params: { id: scopeId }, ...listed } : skipToken,
+  );
+  const everyone = useApiQuery(API_ROUTES.requestsListAll, allProfiles ? listed : skipToken);
+  const list = allProfiles ? everyone : one;
   const target = useApiQuery(
     API_ROUTES.targetsGet,
     filters.targetId ? { params: { id: filters.targetId } } : skipToken,
   );
 
-  const setFilter = (key: "q" | "status" | "channel" | "targetId", value: string) =>
+  const setFilter = (
+    key: "q" | "status" | "channel" | "targetId" | "campaignId" | "profileId",
+    value: string,
+  ) =>
     setParams(
       (current) => {
         const next = new URLSearchParams(current);
@@ -94,7 +104,7 @@ function Requests({ profileId }: { profileId: string }) {
     setParams(
       (current) => {
         const next = new URLSearchParams(current);
-        for (const key of ["status", "channel", "targetId", "page"]) next.delete(key);
+        for (const key of ["status", "channel", "targetId", "campaignId", "page"]) next.delete(key);
         return next;
       },
       { replace: true },
@@ -124,8 +134,32 @@ function Requests({ profileId }: { profileId: string }) {
       onChange: (value) => setFilter("channel", value),
     },
   ];
+  const scopeItems: MenuItem[] = [
+    ...profiles.map((candidate) => ({
+      id: candidate.id,
+      label: candidate.displayName,
+      selected: !allProfiles && candidate.id === scopeId,
+      onSelect: () => setFilter("profileId", candidate.id === profileId ? "" : candidate.id),
+    })),
+    {
+      id: ALL_PROFILES,
+      label: "All profiles",
+      selected: allProfiles,
+      separatorBefore: true,
+      onSelect: () => setFilter("profileId", ALL_PROFILES),
+    },
+  ];
   const tags = [
     ...activeFilterTags(groups),
+    ...(filters.campaignId
+      ? [
+          {
+            id: "campaignId",
+            label: "From one campaign",
+            onRemove: () => setFilter("campaignId", ""),
+          },
+        ]
+      : []),
     ...(filters.targetId
       ? [
           {
@@ -147,6 +181,7 @@ function Requests({ profileId }: { profileId: string }) {
   }, [search]);
 
   const items = list.data?.items ?? [];
+  const extraFilters = (filters.targetId ? 1 : 0) + (filters.campaignId ? 1 : 0);
   const filtered = hasRequestFilters(filters);
   const resultCount = list.data ? pluralize(list.data.total, "request") : undefined;
 
@@ -155,6 +190,7 @@ function Requests({ profileId }: { profileId: string }) {
       <PageHeader
         title="Requests"
         description="Every request, and where it stands"
+        hideDescriptionOnPhone
         actions={
           <LinkButton to="/campaigns/new" variant="primary">
             New campaign
@@ -162,9 +198,31 @@ function Requests({ profileId }: { profileId: string }) {
         }
       />
 
-      <TableToolbar count={resultCount}>
+      <TableToolbar>
         <search aria-label="Filter requests" className="contents">
-          <Field label="Search" hideLabel className="min-w-0 flex-1 sm:w-70 sm:flex-initial">
+          {profiles.length > 1 ? (
+            <Menu
+              heading="Whose requests"
+              items={scopeItems}
+              className="min-w-0 max-sm:flex-1"
+              trigger={(props) => (
+                <Button
+                  {...props}
+                  aria-label={`Profile: ${allProfiles ? "All profiles" : (scopeName ?? "")}`}
+                  className="min-w-0 max-w-full shrink max-sm:w-full max-sm:justify-start sm:max-w-44"
+                >
+                  <UserRound aria-hidden="true" className="shrink-0" />
+                  <span className="truncate">{allProfiles ? "All profiles" : scopeName}</span>
+                  <ChevronDown aria-hidden="true" className="shrink-0 text-ink-3" />
+                </Button>
+              )}
+            />
+          ) : null}
+          <Field
+            label="Search"
+            hideLabel
+            className="min-w-0 flex-1 max-sm:order-last max-sm:basis-full sm:w-70 sm:flex-initial"
+          >
             <Input
               type="search"
               value={search}
@@ -179,7 +237,7 @@ function Requests({ profileId }: { profileId: string }) {
             onClear={clearMenuFilters}
             resultCount={resultCount}
             triggerRef={filtersButton}
-            extraActive={filters.targetId ? 1 : 0}
+            extraActive={extraFilters}
           />
         </search>
       </TableToolbar>
@@ -210,64 +268,110 @@ function Requests({ profileId }: { profileId: string }) {
           />
         )
       ) : (
-        <>
-          <Table label="Requests" aria-busy={list.isPlaceholderData || undefined}>
-            <TableHead>
-              <tr>
-                <TableHeaderCell>Target</TableHeaderCell>
-                <TableHeaderCell>Status</TableHeaderCell>
-                <TableHeaderCell>Asked</TableHeaderCell>
-                <TableHeaderCell>Channel</TableHeaderCell>
-                <TableHeaderCell align="right">Sent</TableHeaderCell>
-                <TableHeaderCell align="right">Due</TableHeaderCell>
-              </tr>
-            </TableHead>
-            <TableBody>
-              {list.isPending ? (
-                <TableSkeletonRows columns={6} rows={8} />
-              ) : (
-                items.map((item) => (
-                  <TableRow key={item.id}>
-                    <TableCell className="h-auto max-w-72 min-w-52">
-                      <TableIdentity
-                        title={item.target.name}
-                        to={`/requests/${encodeURIComponent(item.id)}`}
-                        meta={item.reference}
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <StatusMark status={item.status} />
-                    </TableCell>
-                    <TableCell mono className="text-ink-2">
-                      {item.rights.map((right) => RIGHT_TOKENS[right]).join(" \u00b7 ")}
-                    </TableCell>
-                    <TableCell className="text-ink-2">{CHANNEL_LABELS[item.channel]}</TableCell>
-                    <TimeCell iso={item.sentAt} />
-                    <TimeCell iso={item.dueAt} />
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-          {list.data ? (
-            <Pagination
-              page={list.data.page}
-              pageSize={REQUESTS_PAGE_SIZE}
-              total={list.data.total}
-              onPageChange={setPage}
-              noun="requests"
-            />
-          ) : null}
-        </>
+        <DataList
+          label="Requests"
+          items={items}
+          getKey={(item) => item.id}
+          identityHeader="Target"
+          identity={(item) => ({
+            title: item.target.name,
+            meta: item.reference,
+            to: {
+              kind: "request",
+              id: item.id,
+              reference: item.reference,
+              targetName: item.target.name,
+            },
+          })}
+          tags={(item) => (
+            <>
+              <StatusMark status={item.status} />
+              <span className="font-mono">
+                {item.rights.map((right) => RIGHT_TOKENS[right]).join(" · ")}
+              </span>
+              <span>{CHANNEL_LABELS[item.channel]}</span>
+              {item.dueAt && isActiveStatus(item.status) ? (
+                <span className="font-mono">
+                  due <RelativeTime iso={item.dueAt} />
+                </span>
+              ) : null}
+            </>
+          )}
+          columns={[
+            { id: "status", header: "Status", cell: (item) => <StatusMark status={item.status} /> },
+            ...(allProfiles
+              ? [
+                  {
+                    id: "profile",
+                    header: "Profile",
+                    className: "hidden xl:table-cell",
+                    cell: (item: (typeof items)[number]) => (
+                      <span className="text-ink-2">
+                        <EntityLink
+                          variant="quiet"
+                          className="relative z-10"
+                          to={{
+                            kind: "profile",
+                            id: item.profileId,
+                            name: names.get(item.profileId) ?? "Profile",
+                          }}
+                        />
+                      </span>
+                    ),
+                  },
+                ]
+              : []),
+            {
+              id: "asked",
+              header: "Asked",
+              mono: true,
+              cell: (item) => (
+                <span className="text-ink-2">
+                  {item.rights.map((right) => RIGHT_TOKENS[right]).join(" · ")}
+                </span>
+              ),
+            },
+            {
+              id: "channel",
+              header: "Channel",
+              className: "hidden xl:table-cell",
+              cell: (item) => <span className="text-ink-2">{CHANNEL_LABELS[item.channel]}</span>,
+            },
+            {
+              id: "sent",
+              header: "Sent",
+              kind: "date",
+              className: "hidden xl:table-cell",
+              cell: (item) => timeOrDash(item.sentAt),
+            },
+            { id: "due", header: "Due", kind: "date", cell: (item) => timeOrDash(item.dueAt) },
+          ]}
+          loading={list.isPending}
+          busy={list.isPlaceholderData}
+          count={resultCount}
+          pager={
+            list.data
+              ? {
+                  page: list.data.page,
+                  pageSize: REQUESTS_PAGE_SIZE,
+                  total: list.data.total,
+                  onPageChange: setPage,
+                  noun: "requests",
+                }
+              : undefined
+          }
+        />
       )}
     </>
   );
 }
 
-function TimeCell({ iso }: { iso: string | null }) {
-  return (
-    <TableCell mono align="right" className="text-ink-2">
-      {iso ? <RelativeTime iso={iso} /> : <span className="text-ink-3">-</span>}
-    </TableCell>
+function timeOrDash(iso: string | null) {
+  return iso ? (
+    <span className="text-ink-2">
+      <RelativeTime iso={iso} />
+    </span>
+  ) : (
+    <span className="text-ink-3">-</span>
   );
 }

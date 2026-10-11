@@ -1,14 +1,15 @@
 import { API_ROUTES, type Mailbox, type ProfileSummary } from "@kickrocks/shared";
+import type { ReactNode } from "react";
 import { useApiQuery } from "../../api/index.js";
 import {
   Callout,
   EmptyState,
+  FactList,
   LinkButton,
   RelativeTime,
-  RowGroup,
   Section,
 } from "../../components/ui/index.js";
-import { FactRow } from "../settings/rows.js";
+import { paths } from "../../lib/paths.js";
 
 /** Why requests are waiting, shown while the server holds sending back after a mail server failure. */
 export function SendPauseAlert({ mailbox }: { mailbox: Mailbox }) {
@@ -27,26 +28,42 @@ export function MailboxFacts({
   mailbox,
   providerLabel,
   hideAddress = false,
+  checkAction,
 }: {
   mailbox: Mailbox;
   providerLabel: string;
   /** Leave the address out when a heading above already names it. */
   hideAddress?: boolean;
+  /** The check-for-replies control, which sits beside the time it last ran. */
+  checkAction?: ReactNode;
 }) {
   return (
-    <RowGroup>
-      {hideAddress ? null : <FactRow label="Address">{mailbox.address}</FactRow>}
-      <FactRow label="Provider" mono={false}>
-        {providerLabel}
-      </FactRow>
-      <FactRow label="Sending server">{`${mailbox.smtpHost}:${mailbox.smtpPort}`}</FactRow>
-      <FactRow label="Receiving server">{`${mailbox.imapHost}:${mailbox.imapPort}`}</FactRow>
-      <FactRow label="Reply folder">{mailbox.replyFolder}</FactRow>
-      <FactRow label="Daily limit">{`${mailbox.dailyCap} requests a day`}</FactRow>
-      <FactRow label="Last checked" mono={Boolean(mailbox.lastPolledAt)}>
-        {mailbox.lastPolledAt ? <RelativeTime iso={mailbox.lastPolledAt} /> : "Not checked yet"}
-      </FactRow>
-    </RowGroup>
+    <FactList
+      dense
+      items={[
+        ...(hideAddress ? [] : [{ term: "Address", mono: true, value: mailbox.address }]),
+        { term: "Provider", value: providerLabel },
+        { term: "Sending", mono: true, value: `${mailbox.smtpHost}:${mailbox.smtpPort}` },
+        { term: "Receiving", mono: true, value: `${mailbox.imapHost}:${mailbox.imapPort}` },
+        { term: "Reply folder", mono: true, value: mailbox.replyFolder },
+        { term: "Daily limit", mono: true, value: `${mailbox.dailyCap}/day` },
+        {
+          term: "Last checked",
+          value: (
+            <span className="inline-flex flex-wrap items-center gap-x-2">
+              <span className={mailbox.lastPolledAt ? "font-mono text-meta" : undefined}>
+                {mailbox.lastPolledAt ? (
+                  <RelativeTime iso={mailbox.lastPolledAt} />
+                ) : (
+                  "Not checked yet"
+                )}
+              </span>
+              {checkAction}
+            </span>
+          ),
+        },
+      ]}
+    />
   );
 }
 
@@ -64,7 +81,7 @@ export function MailboxCard({
 }) {
   const label = useProviderLabel(profile.mailbox?.provider);
   const { mailbox } = profile;
-  const manage = `/profiles/${profile.id}/mailbox`;
+  const manage = paths.mailbox(profile.id);
 
   if (!mailbox) {
     return (

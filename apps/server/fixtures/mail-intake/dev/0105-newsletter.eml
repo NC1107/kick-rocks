@@ -1,0 +1,29 @@
+Return-Path: <bounce-38334@gardening-club.example>
+Received: from mail.gardening-club.example (mail.gardening-club.example [203.0.113.32]) by mx.example.com with ESMTPS id 59c1836d02 for <jordan@example.com>; Thu, 01 Oct 2026 11:20:00 +0000
+From: Gardening Club <news@gardening-club.example>
+To: jordan@example.com
+Subject: October garden checklist
+Date: Thu, 01 Oct 2026 11:20:00 +0000
+Message-ID: <1923f7a286e5be3920b6a1a4@gardening-club.example>
+List-Id: <news.gardening-club.example>
+List-Unsubscribe: <https://gardening-club.example/unsubscribe?e=92af23733e15>
+Precedence: list
+MIME-Version: 1.0
+Content-Type: multipart/alternative; boundary="----=_Part_403ee1b28097"
+
+------=_Part_403ee1b28097
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+October garden checklist
+
+This week we look at what changed, what did not, and what to read next.
+Read online: https://gardening-club.example/p/3ae1c1
+
+You are subscribed as jordan@example.com. Unsubscribe: https://gardening-club.example/unsubscribe
+------=_Part_403ee1b28097
+Content-Type: text/html; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+<html><body style="font-family:Arial,sans-serif"><h1>October garden checklist</h1><p>This week we look at what changed.</p></body></html>
+------=_Part_403ee1b28097--

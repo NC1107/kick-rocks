@@ -9,6 +9,7 @@ import {
 import { DataSourceId } from "./broker.js";
 import { NotificationSettings, NotificationState } from "./notifications.js";
 import { EgressPatch, EgressSettings, ScanningPatch, ScanningSettings } from "./scanning.js";
+import { TaskSummary } from "./tasks.js";
 import { WebUrl } from "./url.js";
 
 const pollMinutes = z.number().int().min(1).max(1440);
@@ -71,12 +72,25 @@ export const LlmSettingsView = z.object({
 });
 export type LlmSettingsView = z.infer<typeof LlmSettingsView>;
 
+/** The task a worker is on, as much as a page needs to name it and open it. */
+export const WorkerTask = TaskSummary.pick({
+  id: true,
+  kind: true,
+  status: true,
+  requestId: true,
+  targetId: true,
+  targetName: true,
+});
+export type WorkerTask = z.infer<typeof WorkerTask>;
+
 export const WorkerStatus = z.object({
   workerId: z.string(),
   version: z.string().nullable(),
   lastSeenAt: z.iso.datetime(),
   busy: z.boolean(),
   currentTaskId: z.string().nullable(),
+  /** Filled in when the settings page is read, from `currentTaskId`. */
+  currentTask: WorkerTask.nullable().optional(),
   /** The worker holds a finished run that the server has not taken yet. */
   resultPending: z.boolean().optional(),
   /** The model a model-backed worker drives, as it last said. */

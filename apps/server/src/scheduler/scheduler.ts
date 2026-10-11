@@ -4,6 +4,7 @@ import { applyRetention } from "../modules/data-rights/index.js";
 import { WORKER_HEARTBEAT_GRACE_MS, workerQuietForMs } from "../modules/notifications/attention.js";
 import { runNotifications } from "../modules/notifications/index.js";
 import { type Runners, runnersOf } from "../runners/index.js";
+import { purgeExpiredIntake } from "../runners/intake-cleanup.js";
 import type { AppServices } from "../services.js";
 import { enqueueDueCanaries } from "./canaries.js";
 import { createHeartbeat, HEARTBEAT_EVERY_MS, type Heartbeat } from "./heartbeat.js";
@@ -115,6 +116,7 @@ export function createScheduler(
       await job("rescans", () => enqueueDueRescans(services));
       await job("scan-reuse", () => reuseRecentScans(services));
       await job("site-visits", () => services.politeness.prune());
+      await job("intake-purge", () => purgeExpiredIntake(services));
       await job("canaries", () => enqueueDueCanaries(services));
     }
     if (due("retention", retentionMs)) {

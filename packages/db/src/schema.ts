@@ -11,9 +11,11 @@ import {
   FailureKind,
   type Identity,
   IdentityKind,
+  IgnoreRule,
   LIVE_TASK_STATUSES,
   MatchDecision,
   type MatchFields,
+  MessageAdmission,
   type ProfileField,
   PushbackKind,
   type Recipe,
@@ -113,9 +115,49 @@ export const mailboxes = sqliteTable(
     lastError: text("last_error"),
     /** Kept apart from the poll error so a send that works cannot hide a poll that fails, or the reverse. */
     lastSendError: text("last_send_error"),
+    /** Whether mail from a company the person has a request with is taken in only when it is about privacy. */
+    companyMail: text("company_mail", { enum: ["privacy_only", "all"] })
+      .notNull()
+      .default("privacy_only"),
+    /** The plus address replies may be sent to, once the person opted in. */
+    replyAlias: text("reply_alias"),
+    /** Set only after a test mail sent to the alias was found in this mailbox. */
+    replyAliasVerifiedAt: timestamp("reply_alias_verified_at"),
+    lastPollScanned: integer("last_poll_scanned").notNull().default(0),
+    lastPollKept: integer("last_poll_kept").notNull().default(0),
+    /**
+     * `pending` until the first poll after the intake gate has listed the stored mail it would not
+     * have taken in, `review` while that list waits for the person, `done` once they decided.
+     */
+    intakeCleanup: text("intake_cleanup", { enum: ["pending", "review", "done"] })
+      .notNull()
+      .default("done"),
+    intakeCleanupRemoved: integer("intake_cleanup_removed"),
+    intakeCleanupAt: timestamp("intake_cleanup_at"),
+    /** The end of the week in which mail the gate passed over is listed. Null for a mailbox made after the upgrade. */
+    intakeShadowUntil: timestamp("intake_shadow_until"),
+    intakeShadowDismissedAt: timestamp("intake_shadow_dismissed_at"),
     createdAt: timestamp("created_at").notNull(),
   },
   (t) => [uniqueIndex("mailboxes_profile_idx").on(t.profileId)],
+);
+
+/** Senders the person asked Kick Rocks to always take in, for one target. */
+export const intakeSenders = sqliteTable(
+  "intake_senders",
+  {
+    id: id(),
+    mailboxId: text("mailbox_id")
+      .notNull()
+      .references(() => mailboxes.id, { onDelete: "cascade" }),
+    targetId: text("target_id")
+      .notNull()
+      .references(() => targets.id),
+    kind: text("kind", { enum: ["domain", "address"] }).notNull(),
+    value: text("value").notNull(),
+    createdAt: timestamp("created_at").notNull(),
+  },
+  (t) => [uniqueIndex("intake_senders_value_idx").on(t.mailboxId, t.value)],
 );
 
 export const targets = sqliteTable(
@@ -302,6 +344,10 @@ export const messages = sqliteTable(
     text: text("text"),
     /** A person looked at it, or it needed no look. Unreviewed low-confidence mail fills the review queue. */
     reviewed: integer("reviewed", { mode: "boolean" }).notNull().default(false),
+    /** Why the intake gate took the message in. Null for mail stored before the gate existed. */
+    admittedBy: text("admitted_by", { enum: values(MessageAdmission.options) }),
+    /** Listed for the person to confirm removal of, which is the only way the cleanup removes it. */
+    cleanupCandidate: integer("cleanup_candidate", { mode: "boolean" }).notNull().default(false),
     createdAt: timestamp("created_at").notNull(),
   },
   (t) => [
@@ -309,6 +355,57 @@ export const messages = sqliteTable(
     index("messages_request_idx").on(t.requestId),
     index("messages_review_idx").on(t.reviewed, t.classification),
   ],
+);
+
+/**
+ * Mail the person confirmed for removal, kept for a while so it can be taken back. It holds
+ * everything the message did, so restoring it puts back the same message.
+ */
+export const ignoredMessages = sqliteTable(
+  "ignored_messages",
+  {
+    id: id(),
+    mailboxId: text("mailbox_id")
+      .notNull()
+      .references(() => mailboxes.id, { onDelete: "cascade" }),
+    imapUid: integer("imap_uid").notNull(),
+    uidValidity: integer("uid_validity").notNull(),
+    messageIdHeader: text("message_id_header"),
+    inReplyTo: text("in_reply_to"),
+    fromAddress: text("from_address").notNull(),
+    subject: text("subject").notNull(),
+    receivedAt: timestamp("received_at").notNull(),
+    classification: text("classification", { enum: values(ReplyClassification.options) }).notNull(),
+    confidence: real("confidence").notNull(),
+    rationale: text("rationale"),
+    links: text("links", { mode: "json" }).$type<string[]>().notNull(),
+    snippet: text("snippet"),
+    text: text("text"),
+    ignoredAt: timestamp("ignored_at").notNull(),
+  },
+  (t) => [index("ignored_messages_mailbox_idx").on(t.mailboxId, t.ignoredAt)],
+);
+
+/**
+ * Mail the gate passed over that the rules before it would have kept, listed for a week after the
+ * upgrade. Only who, what and when are kept: the message itself stays in the person's mailbox.
+ */
+export const intakeShadow = sqliteTable(
+  "intake_shadow",
+  {
+    id: id(),
+    mailboxId: text("mailbox_id")
+      .notNull()
+      .references(() => mailboxes.id, { onDelete: "cascade" }),
+    imapUid: integer("imap_uid").notNull(),
+    uidValidity: integer("uid_validity").notNull(),
+    fromAddress: text("from_address").notNull(),
+    subject: text("subject").notNull(),
+    receivedAt: timestamp("received_at").notNull(),
+    rule: text("rule", { enum: values(IgnoreRule.options) }).notNull(),
+    createdAt: timestamp("created_at").notNull(),
+  },
+  (t) => [uniqueIndex("intake_shadow_uid_idx").on(t.mailboxId, t.uidValidity, t.imapUid)],
 );
 
 export const tasks = sqliteTable(

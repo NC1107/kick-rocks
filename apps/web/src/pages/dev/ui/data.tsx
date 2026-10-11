@@ -233,7 +233,7 @@ function LiveTable() {
                 <TableCell>
                   <TableIdentity
                     title={request.target.name}
-                    to={`/requests/${request.id}`}
+                    to={{ kind: "request", id: request.id, reference: request.reference }}
                     meta={request.reference}
                   />
                 </TableCell>

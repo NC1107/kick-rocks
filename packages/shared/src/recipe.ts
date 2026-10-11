@@ -342,6 +342,12 @@ export const Recipe = z
     purpose: RecipePurpose,
     entryUrl: WebUrl,
     fields: z.array(ProfileField),
+    /**
+     * Whether the form may be filled in with the mailbox's reply alias instead of its address.
+     * Only for a form that does not use the email to identify the person, as a search by email
+     * or a company account would; it is never assumed.
+     */
+    acceptsAlias: z.boolean().default(false),
     steps: z.array(RecipeStep).min(1).max(100),
     canary: z
       .object({

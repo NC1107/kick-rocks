@@ -12,6 +12,7 @@ import {
   type CampaignPreset,
   type CampaignSelection,
   isActiveStatus,
+  type LegalBasis,
   type RequestChannel,
   type RequestRight,
   type SkipReason,
@@ -34,6 +35,7 @@ export type Plan =
       target: TargetRow;
       channel: RequestChannel;
       legalBasis: string;
+      basis: LegalBasis;
       rights: RequestRight[];
       /** Worth knowing before it goes out, such as a platform that would delete more than this request can. */
       advisory: string | null;
@@ -298,6 +300,7 @@ export function createCampaignPlanner({
         target: row,
         channel,
         legalBasis: basis.id,
+        basis,
         rights,
         advisory,
       };

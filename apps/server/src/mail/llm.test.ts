@@ -9,6 +9,10 @@ const LLM = { baseUrl: "http://localhost:11434/v1/", model: "local-model", apiKe
 
 const target: ClassifierRequest = {
   id: "req-1",
+  open: true,
+  targetKind: "broker",
+  contactAddress: null,
+  sentAt: null,
   reference: "KR-7K3M9Q",
   outgoingMessageId: outgoingMessageId("req-1", "example.com"),
   status: "awaiting_reply",
@@ -38,6 +42,7 @@ function message(overrides: Partial<InboxMessage> = {}): InboxMessage {
     html: null,
     isBounce: false,
     autoSubmitted: false,
+    originalMessageIds: [],
     headers: {},
     verifyDkim: noDkim,
     ...overrides,

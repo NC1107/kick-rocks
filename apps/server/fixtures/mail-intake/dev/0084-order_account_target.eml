@@ -1,0 +1,23 @@
+DKIM-Signature: v=1; a=ed25519-sha256; c=relaxed/relaxed; d=amazon.com;
+ h=Content-Transfer-Encoding: Content-Type: MIME-Version: Message-ID: Date:
+ Subject: To: From; q=dns/txt; s=kr; t=1790749560;
+ bh=4GwpwfJzjH5hvMLP0hXk6gdBvQlnlH3buNy/aU0NvbU=;
+ b=4Y7vgZirb6NN12xrXBKkyxMLbj+MNYF7kJC6517VWnY1meKuMQdUKe1bcQWoU8j6PH4sWpnkj
+ cxPeqYUHFtWCw==
+Return-Path: <01008b851b7c8c0431d4c00d-fbf7a72a@bounces.amazon.com>
+Received: from mail.amazon.com (mail.amazon.com [203.0.113.20]) by mx.example.com with ESMTPS id 8f0b392fa7 for <jordan@example.com>; Wed, 30 Sep 2026 06:26:00 +0000
+From: Amazon <account-update@amazon.com>
+To: jordan@example.com
+Subject: Your Subscribe & Save delivery is scheduled
+Date: Wed, 30 Sep 2026 06:26:00 +0000
+Message-ID: <76488d4a08d954aa62938132@amazon.com>
+X-Mailer: Transactional Mailer
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+Hi,
+
+Please confirm your new email address by clicking the link: https://amazon.com/account/confirm-email?token=a98e473c22c5085029cc
+
+If you did not make this change, contact support.

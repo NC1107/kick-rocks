@@ -7,6 +7,7 @@ import {
   type DescriptionItem,
   DescriptionList,
   Dialog,
+  EntityLink,
   ExternalLinkText,
   InlineError,
   MonoEmails,
@@ -67,7 +68,8 @@ export function MatchDetail({ match }: { match: Match }) {
         title={fields.name}
         meta={
           <>
-            Found on {match.targetName}
+            Found on{" "}
+            <EntityLink to={{ kind: "target", id: match.targetId, name: match.targetName }} />
             {fields.age !== undefined ? `, age ${fields.age}` : ""}
           </>
         }

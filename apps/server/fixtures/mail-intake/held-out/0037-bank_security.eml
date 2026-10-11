@@ -1,0 +1,22 @@
+DKIM-Signature: v=1; a=ed25519-sha256; c=relaxed/relaxed; d=chase.com;
+ h=Content-Transfer-Encoding: Content-Type: MIME-Version: Message-ID: Date:
+ Subject: To: From; q=dns/txt; s=kr; t=1790617500;
+ bh=bjcBFVsZwC7rCo9Vqa69cSeJrMNXARSSkfOp7kiYVSY=;
+ b=e3GVZRm0Pmo9jNxjw2a5enS8cHTTrtlX0PuthgLjvDMf59VThX8cxzaMQ1fCPPIO8PwiEa84Z
+ vQJFKGHvUKXBA==
+Return-Path: <no.reply.alerts@chase.com>
+Received: from mail.chase.com (mail.chase.com [203.0.113.19]) by mx.example.com with ESMTPS id ff42dd9fc3 for <jordan@example.com>; Mon, 28 Sep 2026 17:45:00 +0000
+From: Chase <no.reply.alerts@chase.com>
+To: jordan@example.com
+Subject: Your statement is ready
+Date: Mon, 28 Sep 2026 17:45:00 +0000
+Message-ID: <e21411fbc60f3381c63ed5e1@chase.com>
+Auto-Submitted: auto-generated
+X-Priority: 1
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+A purchase of USD 322.52 was attempted. Please confirm whether this was you, and we will remove the hold.
+
+https://chase.com/alerts/a5a6fe1c5a2809a6d7beaa1f

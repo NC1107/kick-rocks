@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { errorMessage, useApiMutation } from "../../api/index.js";
 import { Button, Callout, Input, RowGroup, Section, useToast } from "../../components/ui/index.js";
 import { checkSchedule, draftOf, SCHEDULE_FIELDS, type ScheduleDraft } from "./model.js";
-import { FieldRow, GroupFooter } from "./rows.js";
+import { FieldRow, GroupFooter, ResetAction } from "./rows.js";
 
 export function ScheduleCard({ schedule }: { schedule: ScheduleSettings }) {
   const toast = useToast();
@@ -62,17 +62,21 @@ export function ScheduleCard({ schedule }: { schedule: ScheduleSettings }) {
             </FieldRow>
           ))}
           <GroupFooter>
-            <Button
+            <ResetAction
               disabled={!dirty || save.isPending}
               onClick={() => {
                 setDraft(draftOf(schedule));
                 setSubmitted(false);
               }}
+            />
+            <Button
+              aria-label="Save schedule"
+              type="submit"
+              variant="primary"
+              loading={save.isPending}
+              disabled={!dirty}
             >
-              Reset
-            </Button>
-            <Button type="submit" variant="primary" loading={save.isPending} disabled={!dirty}>
-              Save schedule
+              Save
             </Button>
           </GroupFooter>
         </RowGroup>

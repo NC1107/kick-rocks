@@ -1,10 +1,11 @@
 import { type IdentityKind, US_STATES } from "@kickrocks/shared";
-import { Trash2 } from "lucide-react";
+import { Plus, Trash2 } from "lucide-react";
 import type { ReactNode } from "react";
 import {
   Button,
   Callout,
   Field,
+  IconAction,
   IconButton,
   Input,
   RowGroup,
@@ -125,13 +126,14 @@ export function IdentitiesEditor({
             as="h3"
             actions={
               canAdd ? (
-                <Button
+                <IconAction
+                  icon={Plus}
                   size="sm"
-                  disabled={disabled}
+                  labelFrom="sm"
+                  label={section.addLabel}
+                  disabled={disabled === true}
                   onClick={() => onChange(addDraft(drafts, section.kind))}
-                >
-                  {section.addLabel}
-                </Button>
+                />
               ) : null
             }
           >

@@ -1,0 +1,36 @@
+DKIM-Signature: v=1; a=ed25519-sha256; c=relaxed/relaxed; d=linkedin.com;
+ h=Content-Type: MIME-Version: List-Unsubscribe: Reply-To: Message-ID:
+ Date: Subject: To: From; q=dns/txt; s=kr; t=1790833680;
+ bh=1hIYWK5j3CRUEFX40LX9zH0g6M7KOwmIrdRRqLnaFNg=;
+ b=ovUNJbmBoWRz3UvEZ53l6hOmjWiXHQ8Bo0dodLcXcu1fkQP84nfgCW7yJMEiBDW0rfc/lIOID
+ 5KZvkjpvXSmDQ==
+Return-Path: <bounce-001960@bounce.linkedin.com>
+Received: from mail.linkedin.com (mail.linkedin.com [203.0.113.22]) by mx.example.com with ESMTPS id 1c80d904fc for <jordan@example.com>; Thu, 01 Oct 2026 05:48:00 +0000
+From: LinkedIn <jobs-listings@linkedin.com>
+To: jordan@example.com
+Subject: Jordan, you appeared in 12 searches
+Date: Thu, 01 Oct 2026 05:48:00 +0000
+Message-ID: <67952e1d60d5530605db9772@linkedin.com>
+Reply-To: no-reply@linkedin.com
+List-Unsubscribe: <https://linkedin.com/unsubscribe?u=d4bb96818dd7397e>, <mailto:unsubscribe-d4bb9681@linkedin.com>
+List-Unsubscribe-Post: List-Unsubscribe=One-Click
+Precedence: bulk
+X-Mailer: Salesforce Marketing Cloud
+MIME-Version: 1.0
+Content-Type: multipart/alternative; boundary="----=_Part_9580d1958715"
+
+------=_Part_9580d1958715
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+Jordan, you appeared in 12 searches
+
+Shop now: https://linkedin.com/offers?ref=274e5587
+
+You are receiving this email because you have an account with LinkedIn. To stop receiving these emails, unsubscribe: https://linkedin.com/unsubscribe
+------=_Part_9580d1958715
+Content-Type: text/html; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+<html><body style="font-family:Arial,sans-serif"><h2>Jordan, you appeared in 12 searches</h2><p><a href="https://linkedin.com/offers?ref=274e5587">Shop now</a></p><p style="font-size:11px">You are receiving this email because you have an account with LinkedIn. To stop receiving these emails, unsubscribe: https://linkedin.com/unsubscribe</p></body></html>
+------=_Part_9580d1958715--

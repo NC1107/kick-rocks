@@ -1,0 +1,35 @@
+DKIM-Signature: v=1; a=ed25519-sha256; c=relaxed/relaxed;
+ d=privacy-digest.example; h=Content-Type: MIME-Version: List-Unsubscribe:
+ List-Id: Message-ID: Date: Subject: To: From; q=dns/txt; s=kr;
+ t=1790794200; bh=6CfgivQroDvKohotwmCLAEpdUGHlT6k7J8wWextVlDc=;
+ b=fkJt7kxA4iZtczUIus2opmLvC9f6+9TP33qDahFVjXoTb6UQlbDgq3dNtOQC1M4kYZKqiLWAR
+ kPdQcJSYH79BQ==
+Return-Path: <bounce-58377@privacy-digest.example>
+Received: from mail.privacy-digest.example (mail.privacy-digest.example [203.0.113.32]) by mx.example.com with ESMTPS id 59c1836d02 for <jordan@example.com>; Wed, 30 Sep 2026 18:50:00 +0000
+From: Privacy Digest <editor@privacy-digest.example>
+To: jordan@example.com
+Subject: Opt-out rights by state
+Date: Wed, 30 Sep 2026 18:50:00 +0000
+Message-ID: <d504ae3f468367a1ca12f05b@privacy-digest.example>
+List-Id: <editor.privacy-digest.example>
+List-Unsubscribe: <https://privacy-digest.example/unsubscribe?e=776c0ffc4cca>
+Precedence: list
+MIME-Version: 1.0
+Content-Type: multipart/alternative; boundary="----=_Part_403ee1b28097"
+
+------=_Part_403ee1b28097
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+Opt-out rights by state
+
+This week we look at what changed, what did not, and what to read next.
+Read online: https://privacy-digest.example/p/27b338
+
+You are subscribed as jordan@example.com. Unsubscribe: https://privacy-digest.example/unsubscribe
+------=_Part_403ee1b28097
+Content-Type: text/html; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+<html><body style="font-family:Arial,sans-serif"><h1>Opt-out rights by state</h1><p>This week we look at what changed.</p></body></html>
+------=_Part_403ee1b28097--

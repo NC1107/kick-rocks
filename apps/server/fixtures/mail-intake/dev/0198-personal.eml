@@ -1,0 +1,20 @@
+DKIM-Signature: v=1; a=ed25519-sha256; c=relaxed/relaxed; d=gmail.com;
+ h=Content-Transfer-Encoding: Content-Type: MIME-Version: Message-ID: Date:
+ Subject: To: From; q=dns/txt; s=kr; t=1791222600;
+ bh=5c61oeNgPTCta93ImZ7Oik+qGoGm0xpSm0xwoEDVh5E=;
+ b=SvzoolIRZ1U3bFDJXps5QL1EiSul6PH9pykDxbDfE2Pg8KZ9BSDaRCgLUGNW8G6iCrKRxmb/F
+ zb/fuz/NvhuDg==
+Return-Path: <sam.rivera82@gmail.com>
+Received: from mail.gmail.com (mail.gmail.com [203.0.113.19]) by mx.example.com with ESMTPS id ff42dd9fc3 for <jordan@example.com>; Mon, 05 Oct 2026 17:50:00 +0000
+From: Sam Rivera <sam.rivera82@gmail.com>
+To: jordan@example.com
+Subject: Did you ever hear back about that privacy thing?
+Date: Mon, 05 Oct 2026 17:50:00 +0000
+Message-ID: <42e00d0b83095e17482dafd6@gmail.com>
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+Quick question: did you manage to get the removal request thing sorted? I saw an article about people search sites and thought of you.
+
+Sam

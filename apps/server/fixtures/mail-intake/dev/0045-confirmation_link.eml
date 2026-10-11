@@ -1,0 +1,30 @@
+Return-Path: <bounce-8670@intelius.com>
+Received: from mail.intelius.com (mail.intelius.com [203.0.113.22]) by mx.example.com with ESMTPS id 1c80d904fc for <jordan@example.com>; Mon, 28 Sep 2026 06:08:00 +0000
+From: Intelius <privacy@intelius.com>
+To: jordan@example.com
+Subject: Action required: confirm removal
+Date: Mon, 28 Sep 2026 06:08:00 +0000
+Message-ID: <41bfbb6524bb9f97b1d978ca@intelius.com>
+Auto-Submitted: auto-generated
+MIME-Version: 1.0
+Content-Type: multipart/alternative; boundary="----=_Part_9580d1958715"
+
+------=_Part_9580d1958715
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+Hello,
+
+We received a request to remove your information from Intelius. To complete your removal, please confirm your email address by clicking the link below.
+
+https://intelius.com/optout/confirm?token=80b8c6218792f2555da75defa27f
+
+If you did not make this request, ignore this message.
+
+Intelius Privacy Team
+------=_Part_9580d1958715
+Content-Type: text/html; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+<html><body style="font-family:Arial,sans-serif"><p>To complete your removal, please confirm your email address.</p><p><a href="https://intelius.com/optout/confirm?token=80b8c6218792f2555da75defa27f">Confirm my request</a></p></body></html>
+------=_Part_9580d1958715--

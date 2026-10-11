@@ -2,6 +2,7 @@ import { screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { createMockApp, type MockApp } from "../../../../mock/app.js";
 import { renderPage } from "../../../test/render.js";
+import { stubPhone } from "../../../test/screen.js";
 import { Component as TargetDetailPage } from "./index.js";
 
 /** Routes matching `pattern` answer 403, a client error, so the query client does not retry and wait. */
@@ -32,13 +33,47 @@ describe("the target page", () => {
     expect(await screen.findByRole("heading", { name: "FindRecord", level: 1 })).toBeVisible();
     expect(screen.getByText(/first scans for your record/)).toBeVisible();
     expect(screen.getByText(/A CAPTCHA stands in the way/)).toBeVisible();
-    expect(screen.getByRole("link", { name: /Ask to remove my data/ })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: /Remove my data/ })).toHaveAttribute(
       "href",
-      "/campaigns/new?targets=findrecord",
+      "/targets/findrecord/remove",
     );
-    expect(screen.getByRole("link", { name: "View requests" })).toHaveAttribute(
+    expect(await screen.findByRole("link", { name: /^Requests \d+$/ })).toHaveAttribute(
       "href",
       "/requests?targetId=findrecord",
+    );
+  });
+
+  it("points to the request instead of offering to ask again", async () => {
+    open("audiencegrid");
+    const link = await screen.findByRole("link", { name: "Already removed" });
+    expect(link).toHaveAttribute("href", expect.stringMatching(/^\/requests\/req_/));
+    expect(screen.queryByRole("link", { name: /Remove my data/ })).not.toBeInTheDocument();
+  });
+
+  it("says a removal is in progress while the request is still open", async () => {
+    open("openroster");
+    expect(await screen.findByRole("link", { name: "Removal in progress" })).toBeVisible();
+  });
+
+  it("lists this target's requests as rows that open the request", async () => {
+    open("audiencegrid");
+    const heading = await screen.findByRole("heading", { name: /^Requests · \d/ });
+    const rows = within(heading.closest("section") as HTMLElement).getAllByRole("link");
+    expect(rows.length).toBeGreaterThan(0);
+    expect(rows[0]).toHaveAttribute("href", expect.stringMatching(/^\/requests\/req_/));
+  });
+
+  it("copies the privacy email and shows it in mono", async () => {
+    open("audiencegrid");
+    expect(await screen.findByRole("button", { name: "Copy privacy email" })).toBeVisible();
+    expect(screen.getByText("privacy@audiencegrid.example")).toHaveClass("font-mono");
+  });
+
+  it("sends the person to the recipes in Settings from a target that has them", async () => {
+    open("findrecord");
+    expect(await screen.findByRole("link", { name: "Recipes in Settings" })).toHaveAttribute(
+      "href",
+      "/settings/recipes",
     );
   });
 
@@ -77,13 +112,15 @@ describe("the target page", () => {
     expect(screen.getByText("CC BY-NC-SA 4.0")).toBeVisible();
   });
 
-  it("drops the version and source columns on a phone, so the health column fits", async () => {
+  it("stacks the recipes on a phone, with the version and health as tags", async () => {
+    stubPhone();
     open("findrecord");
     await screen.findByRole("heading", { name: "Automation" });
-    for (const name of ["Version", "Source"]) {
-      expect(screen.getByRole("columnheader", { name })).toHaveClass("hidden", "sm:table-cell");
-    }
-    expect(screen.getByRole("columnheader", { name: "Health" })).not.toHaveClass("hidden");
+    const list = screen.getByRole("list", { name: "Recipes for this target" });
+    expect(within(list).getAllByRole("listitem").length).toBeGreaterThan(0);
+    expect(
+      screen.queryByRole("table", { name: "Recipes for this target" }),
+    ).not.toBeInTheDocument();
   });
 
   it("tags what needs the person and leaves the rest as plain tags", async () => {

@@ -23,6 +23,22 @@ export const ReplyClassification = z.enum([
 ]);
 export type ReplyClassification = z.infer<typeof ReplyClassification>;
 
+/** Why the intake gate took a message in. Mail stored before the gate existed has none. */
+export const MessageAdmission = z.enum([
+  "thread",
+  "reference",
+  "alias",
+  "bounce",
+  "awaiting_confirmation",
+  "target_sender",
+  "named_target",
+  "person",
+]);
+export type MessageAdmission = z.infer<typeof MessageAdmission>;
+
+export const CompanyMail = z.enum(["privacy_only", "all"]);
+export type CompanyMail = z.infer<typeof CompanyMail>;
+
 // Crockford base32 leaves out I, L, O, and U so a reference survives being read aloud or retyped.
 const CROCKFORD = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
 const REFERENCE_LENGTH = 6;
@@ -110,6 +126,8 @@ export const ProviderPreset = z.object({
   supported: z.boolean(),
   /** Why a provider cannot be used, shown in place of the connection form. */
   unsupportedReason: z.string().nullable(),
+  /** Whether `name+tag@domain` reaches the same mailbox, so a reply address can be told apart. */
+  plusAddressing: z.boolean(),
 });
 export type ProviderPreset = z.infer<typeof ProviderPreset>;
 
@@ -173,9 +191,140 @@ export const Mailbox = z.object({
   lastError: z.string().nullable(),
   /** While set and in the future, sending is paused because the mail server could not be used. */
   sendPausedUntil: z.iso.datetime().nullable(),
+  /** Which mail from a company the person has a request with is taken in. */
+  companyMail: CompanyMail,
+  replyAlias: z.string().nullable(),
+  /** True once a test mail sent to the alias reached this mailbox. */
+  replyAliasVerified: z.boolean(),
+  /** What the last check looked at and kept, as counts only. */
+  lastPollScanned: z.number().int().nonnegative(),
+  lastPollKept: z.number().int().nonnegative(),
   createdAt: z.iso.datetime(),
 });
 export type Mailbox = z.infer<typeof Mailbox>;
+
+/** Why the intake gate passed over a message. */
+export const IgnoreRule = z.enum([
+  "bulk_no_privacy",
+  "company_not_privacy",
+  "finished_request",
+  "not_named",
+  "stranger_bulk",
+  "bounce_not_ours",
+  "no_wording_found",
+]);
+export type IgnoreRule = z.infer<typeof IgnoreRule>;
+
+/** How long a message the person confirmed for removal can still be taken back. */
+export const IGNORED_KEEP_DAYS = 30;
+/** How long after the upgrade the report of passed-over mail is shown. */
+export const SHADOW_DAYS = 7;
+
+/** A stored message as a person recognises it: who sent it, what it said, when. */
+export const MailLine = z.object({
+  id: z.string(),
+  fromAddress: z.string(),
+  subject: z.string(),
+  receivedAt: z.iso.datetime().nullable(),
+});
+export type MailLine = z.infer<typeof MailLine>;
+
+/**
+ * The one-time removal of mail stored before the intake gate. It waits for the person: nothing is
+ * removed until they confirm, and `items` is exactly what a confirmation would remove right now.
+ */
+export const IntakeCleanup = z.object({
+  state: z.enum(["pending", "review", "done"]),
+  items: z.array(MailLine),
+  /** How many were removed by the confirmation; null until then. */
+  removed: z.number().int().nonnegative().nullable(),
+});
+export type IntakeCleanup = z.infer<typeof IntakeCleanup>;
+
+export const IgnoredMessage = MailLine.extend({
+  /** The day after which Kick Rocks deletes its copy for good. */
+  keptUntil: z.iso.datetime(),
+});
+export type IgnoredMessage = z.infer<typeof IgnoredMessage>;
+
+export const IntakeIgnored = z.object({ items: z.array(IgnoredMessage) });
+export type IntakeIgnored = z.infer<typeof IntakeIgnored>;
+
+export const ShadowLine = MailLine.extend({ rule: IgnoreRule });
+export type ShadowLine = z.infer<typeof ShadowLine>;
+
+/** Mail the new rules passed over that the old rules, which kept everything, would have taken in. */
+export const IntakeShadow = z.object({
+  /** False once the week is over or the person dismissed the report. */
+  active: z.boolean(),
+  until: z.iso.datetime().nullable(),
+  items: z.array(ShadowLine),
+});
+export type IntakeShadow = z.infer<typeof IntakeShadow>;
+
+export const IntakeSettingsBody = z.object({ companyMail: CompanyMail });
+export type IntakeSettingsBody = z.infer<typeof IntakeSettingsBody>;
+
+/** A sender the person asked Kick Rocks to always take in for one target. */
+export const IntakeSender = z.object({
+  id: z.string(),
+  targetId: z.string(),
+  targetName: z.string(),
+  kind: z.enum(["domain", "address"]),
+  value: z.string(),
+});
+export type IntakeSender = z.infer<typeof IntakeSender>;
+
+export const IntakeSenderBody = z.object({
+  targetId: z.string().min(1),
+  /** A domain such as `reports.example.org`, or an address; it is told apart by the `@`. */
+  value: z.string().trim().min(3).max(254),
+});
+export type IntakeSenderBody = z.infer<typeof IntakeSenderBody>;
+
+/** The result of sending a test mail to the reply address and looking for it in the mailbox. */
+export const ReplyAliasResult = z.object({
+  mailbox: Mailbox,
+  verified: z.boolean(),
+  /** Why the test failed, in words for the person; null when it passed. */
+  problem: z.string().nullable(),
+});
+export type ReplyAliasResult = z.infer<typeof ReplyAliasResult>;
+
+export const FindMissingReplyBody = z.object({
+  /** A sender address or domain, or one of our `KR-` references. */
+  query: z.string().trim().min(2).max(254),
+  from: z.iso.date(),
+  to: z.iso.date(),
+});
+export type FindMissingReplyBody = z.infer<typeof FindMissingReplyBody>;
+
+/** One message a one-off search found, with what the intake rules would have done with it. */
+export const FoundMessage = z.object({
+  uid: z.number().int(),
+  uidValidity: z.number().int(),
+  fromAddress: z.string(),
+  subject: z.string(),
+  receivedAt: z.iso.datetime().nullable(),
+  /** Whether Kick Rocks already holds the message. */
+  stored: z.boolean(),
+  /** The rule that would take it in, or null when the rules would leave it in the mailbox. */
+  admittedBy: MessageAdmission.nullable(),
+});
+export type FoundMessage = z.infer<typeof FoundMessage>;
+
+export const FindMissingReplyResult = z.object({
+  messages: z.array(FoundMessage),
+  /** False when the server could not search, so nothing could be listed. */
+  searched: z.boolean(),
+});
+export type FindMissingReplyResult = z.infer<typeof FindMissingReplyResult>;
+
+export const TakeInBody = z.object({
+  uid: z.number().int(),
+  uidValidity: z.number().int(),
+});
+export type TakeInBody = z.infer<typeof TakeInBody>;
 
 export const MailboxTestResult = z.object({
   smtp: z.object({ ok: z.boolean(), error: z.string().nullable() }),
@@ -203,6 +352,8 @@ export const MessageSummary = z.object({
   requestedFields: z.array(ProfileField),
   snippet: z.string().nullable(),
   reviewed: z.boolean(),
+  /** Why the message was taken in; null for mail stored before the intake gate existed. */
+  admittedBy: MessageAdmission.nullable(),
 });
 export type MessageSummary = z.infer<typeof MessageSummary>;
 

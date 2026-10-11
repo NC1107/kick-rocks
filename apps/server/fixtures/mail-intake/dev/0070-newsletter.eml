@@ -1,0 +1,35 @@
+DKIM-Signature: v=1; a=ed25519-sha256; c=relaxed/relaxed; d=substack.com;
+ h=Content-Type: MIME-Version: List-Unsubscribe: List-Id: Message-ID: Date:
+ Subject: To: From; q=dns/txt; s=kr; t=1790681460;
+ bh=KmoW7J9iwvpfNvKZRAWwVpzVp8eWvvfGh8Iz1D05sx4=;
+ b=oy2lEZhESKdneWG2HR5NIrpnxKVJsFzt3YS+6GbweDALRjpezNZRkPyBbmmY2gedrFNMiEYoQ
+ r7HkV71rfQtDw==
+Return-Path: <bounce-38725@substack.com>
+Received: from mail.substack.com (mail.substack.com [203.0.113.22]) by mx.example.com with ESMTPS id 1c80d904fc for <jordan@example.com>; Tue, 29 Sep 2026 11:31:00 +0000
+From: The Weekly Ledger <ledger@substack.com>
+To: jordan@example.com
+Subject: Reader mailbag
+Date: Tue, 29 Sep 2026 11:31:00 +0000
+Message-ID: <ce34f94047f440976f62b45a@substack.com>
+List-Id: <ledger.substack.com>
+List-Unsubscribe: <https://substack.com/unsubscribe?e=7b409cb0827b>
+Precedence: list
+MIME-Version: 1.0
+Content-Type: multipart/alternative; boundary="----=_Part_9580d1958715"
+
+------=_Part_9580d1958715
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+Reader mailbag
+
+This week we look at what changed, what did not, and what to read next.
+Read online: https://substack.com/p/e709a2
+
+You are subscribed as jordan@example.com. Unsubscribe: https://substack.com/unsubscribe
+------=_Part_9580d1958715
+Content-Type: text/html; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+<html><body style="font-family:Arial,sans-serif"><h1>Reader mailbag</h1><p>This week we look at what changed.</p></body></html>
+------=_Part_9580d1958715--

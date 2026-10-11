@@ -1,27 +1,23 @@
 import { API_ROUTES, type ScanSummary } from "@kickrocks/shared";
 import { useState } from "react";
 import { errorMessage, useApiMutation, useApiQuery } from "../../api/index.js";
+import { HoldReason } from "../../components/holds/HoldReason.js";
 import {
   Button,
   Callout,
+  DataList,
   Dialog,
   EmptyState,
   RelativeTime,
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeaderCell,
-  TableIdentity,
-  TableRow,
-  TableSkeletonRows,
   TaskStatusMark,
   useToast,
 } from "../../components/ui/index.js";
 import { describeFailure } from "../../lib/failures.js";
 import { pluralize } from "../../lib/format.js";
+import { describeScanStart } from "../../lib/scan-start.js";
 import { DetailFrame } from "./DetailFrame.js";
 import { REVIEW_INVALIDATES } from "./model.js";
+import { ScanNotice } from "./ScanNotice.js";
 
 /** A failed scan stops mattering once a later scan of the same site worked. */
 function withoutSupersededFailures(scans: readonly ScanSummary[]): ScanSummary[] {
@@ -42,7 +38,9 @@ const errorText = (scan: ScanSummary): string | null =>
   scan.error === null ? null : describeFailure({ lastError: scan.error, failureKind: null }).detail;
 
 function matchSummary(scan: ScanSummary): string {
-  if (scan.finishedAt === null && scan.taskStatus !== "failed") return "Waiting for results";
+  if (scan.finishedAt === null && scan.taskStatus !== "failed") {
+    return "Waiting for results";
+  }
   if (scan.candidateCount === 0) return "No records found";
   const { pending, mine, not_mine } = scan.matchCounts;
   const parts = [
@@ -53,25 +51,35 @@ function matchSummary(scan: ScanSummary): string {
   return `${pluralize(scan.candidateCount, "record")}${parts.length ? `: ${parts.join(", ")}` : ""}`;
 }
 
+/** What a scan came to, or for a queued one why it has not started. */
+function ScanResult({ scan, profileId }: { scan: ScanSummary; profileId: string }) {
+  const failure = errorText(scan);
+  if (failure) return <span className="text-danger-text">{failure}</span>;
+  if (scan.hold)
+    return <HoldReason hold={scan.hold} profileId={profileId} glyph={false} showSite={false} />;
+  return <>{matchSummary(scan)}</>;
+}
+
 export function ScansPanel({ profileId }: { profileId: string }) {
   const toast = useToast();
   const scans = useApiQuery(API_ROUTES.scansList, {
     params: { id: profileId },
     query: { pageSize: 50 },
   });
+  const dashboard = useApiQuery(API_ROUTES.dashboardGet, { params: { id: profileId } });
   const [confirming, setConfirming] = useState(false);
   const items = withoutSupersededFailures(scans.data?.items ?? []);
   const start = useApiMutation(API_ROUTES.scansStart, {
     invalidates: [...REVIEW_INVALIDATES],
     onSuccess: (result) => {
       setConfirming(false);
-      const started = result.items.filter((item) => item.outcome === "scan_started").length;
-      const skipped = result.items.length - started;
-      toast.success(
-        started === 0
-          ? "No new scans to start"
-          : `Started ${pluralize(started, "scan")}${skipped > 0 ? `, ${skipped} already running` : ""}`,
-      );
+      const summary = describeScanStart(result.items, profileId, dashboard.data?.scanning);
+      toast.toast({
+        intent: summary.intent,
+        title: summary.title,
+        description: summary.description,
+        action: summary.action,
+      });
     },
     onError: () => setConfirming(false),
   });
@@ -85,10 +93,18 @@ export function ScansPanel({ profileId }: { profileId: string }) {
         error={start.isError ? errorMessage(start.error) : undefined}
         footer={
           <Button variant="primary" onClick={() => setConfirming(true)}>
-            Scan people-search sites
+            Scan all
           </Button>
         }
       >
+        {dashboard.data ? (
+          <ScanNotice
+            scanning={dashboard.data.scanning}
+            profileId={profileId}
+            queuedHeld={dashboard.data.scans.held}
+            className="mb-4"
+          />
+        ) : null}
         {scans.isError ? (
           <Callout
             intent="danger"
@@ -104,48 +120,49 @@ export function ScansPanel({ profileId }: { profileId: string }) {
         ) : scans.data && items.length === 0 ? (
           <EmptyState title="No scans yet." />
         ) : (
-          <Table label="Scans table">
-            <TableHead>
-              <tr>
-                <TableHeaderCell>Site</TableHeaderCell>
-                <TableHeaderCell>Status</TableHeaderCell>
-                <TableHeaderCell className="hidden md:table-cell">Result</TableHeaderCell>
-              </tr>
-            </TableHead>
-            <TableBody>
-              {scans.isPending ? (
-                <TableSkeletonRows columns={3} rows={4} />
-              ) : (
-                items.map((scan) => (
-                  <TableRow key={scan.id}>
-                    <TableCell wrap className="w-full min-w-0 py-1">
-                      <TableIdentity
-                        title={scan.targetName}
-                        meta={
-                          <>
-                            Started <RelativeTime iso={scan.startedAt} />
-                          </>
-                        }
-                      />
-                      <span className="block pb-1 text-meta text-ink-3 md:hidden">
-                        {errorText(scan) ?? matchSummary(scan)}
-                      </span>
-                    </TableCell>
-                    <TableCell className="align-top md:align-middle">
-                      {scan.taskStatus ? <TaskStatusMark status={scan.taskStatus} /> : null}
-                    </TableCell>
-                    <TableCell wrap className="hidden min-w-56 text-meta md:table-cell">
-                      {scan.error ? (
-                        <span className="text-danger-text">{errorText(scan)}</span>
-                      ) : (
-                        <span className="text-ink-2">{matchSummary(scan)}</span>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
+          <DataList
+            label="Recent scans"
+            layout="rows"
+            items={items}
+            getKey={(scan) => scan.id}
+            identityHeader="Site"
+            identity={(scan) => ({
+              title: scan.targetName,
+              to: { kind: "target", id: scan.targetId, name: scan.targetName },
+              meta: (
+                <>
+                  Started <RelativeTime iso={scan.startedAt} />
+                </>
+              ),
+            })}
+            tags={(scan) => (
+              <>
+                {scan.taskStatus ? <TaskStatusMark status={scan.taskStatus} /> : null}
+                <ScanResult scan={scan} profileId={profileId} />
+              </>
+            )}
+            columns={[
+              {
+                id: "status",
+                header: "Status",
+                cell: (scan) =>
+                  scan.taskStatus ? <TaskStatusMark status={scan.taskStatus} /> : null,
+              },
+              {
+                id: "result",
+                header: "Result",
+                wrap: true,
+                className: "text-meta",
+                cell: (scan) => (
+                  <span className="text-ink-2">
+                    <ScanResult scan={scan} profileId={profileId} />
+                  </span>
+                ),
+              },
+            ]}
+            loading={scans.isPending}
+            count={pluralize(items.length, "scan")}
+          />
         )}
       </DetailFrame>
 

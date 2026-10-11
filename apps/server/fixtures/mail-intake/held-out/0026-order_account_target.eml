@@ -1,0 +1,26 @@
+DKIM-Signature: v=1; a=ed25519-sha256; c=relaxed/relaxed; d=amazon.com;
+ h=Content-Transfer-Encoding: Content-Type: MIME-Version: Message-ID: Date:
+ Subject: To: From; q=dns/txt; s=kr; t=1790567100;
+ bh=c9Nr1sTC0+mWcebBVaHAKX8+PlnuSrRUqVlJrBoTAD4=;
+ b=DO7SfbSnHyFIOqWaM9w5LcQBPYkIaa2TxHcthVEx19Av9M8cbMV/O7GNiQNCGjBRjNGwlKGe2
+ ptGVNx/lqOkBw==
+Return-Path: <01001d65f0e4c3ea7a1edae6-8f4ef4ea@bounces.amazon.com>
+Received: from mail.amazon.com (mail.amazon.com [203.0.113.20]) by mx.example.com with ESMTPS id 8f0b392fa7 for <jordan@example.com>; Mon, 28 Sep 2026 03:45:00 +0000
+From: Amazon <order-update@amazon.com>
+To: jordan@example.com
+Subject: Delivered: Your package with phone stand
+Date: Mon, 28 Sep 2026 03:45:00 +0000
+Message-ID: <fbd86fc6658fccc5b71648af@amazon.com>
+X-Mailer: Transactional Mailer
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+Hi Jordan,
+
+Your package has been delivered. If you have not received it, please contact customer service.
+
+Order #293-4738717-7781045
+phone stand
+
+Thank you for shopping with us.

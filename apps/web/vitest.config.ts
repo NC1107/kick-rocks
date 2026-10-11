@@ -30,6 +30,8 @@ export default defineConfig({
           environment: "jsdom",
           include: ["src/**/*.test.tsx", "mock/**/*.test.tsx"],
           setupFiles: ["./src/test/setup.ts"],
+          // A test that stubs a global, such as the phone screen, must not leak it into the next one when an assertion fails.
+          unstubGlobals: true,
           // The form tests type a character at a time through jsdom, which on a shared CI runner
           // takes longer than the 5 second default and then leaks half-typed input into the next test.
           testTimeout: 30_000,

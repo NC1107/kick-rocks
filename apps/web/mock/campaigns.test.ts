@@ -36,6 +36,23 @@ describe("campaign handlers", () => {
     expect(again.json.counts.request_created).toBe(0);
   });
 
+  it("gives the basis the days and citation the server gives for the rights asked", async () => {
+    const basis = async (rights: string[]) =>
+      (
+        await call({
+          method: "POST",
+          path: `/profiles/${jordan().id}/campaigns/preview`,
+          body: { selection: { preset: "email_brokers" }, rights },
+        })
+      ).json.basis;
+
+    expect(await basis(["opt_out"])).toMatchObject({
+      citation: "Cal. Civ. Code 1798.100 et seq.",
+      responseDays: 21,
+    });
+    expect(await basis(["opt_out", "delete"])).toMatchObject({ responseDays: 45 });
+  });
+
   it("states only the chosen rights in the preview basis sentence", async () => {
     const preview = async (rights: string[]) =>
       (

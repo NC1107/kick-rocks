@@ -10,7 +10,7 @@ import {
 import { skipToken } from "@tanstack/react-query";
 import { ChevronDown } from "lucide-react";
 import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
-import { Link, useNavigate, useSearchParams } from "react-router";
+import { useNavigate, useSearchParams } from "react-router";
 import { errorMessage, useApiMutation, useApiQuery } from "../../../api/index.js";
 import { RequireProfile } from "../../../components/layout/RequireProfile.js";
 import {
@@ -18,6 +18,7 @@ import {
   Callout,
   Checkbox,
   ConfirmDialog,
+  EntityLink,
   PageHeader,
   RadioGroup,
   type RadioOption,
@@ -45,6 +46,7 @@ import {
   parseTargetIds,
   waitingForPerson,
 } from "../channels.js";
+import { RIGHT_HELP, RIGHT_ORDER, RIGHT_TOKENS } from "../rights.js";
 import {
   AdvisoryList,
   CHANNEL_LABELS,
@@ -84,18 +86,6 @@ const PRESET_OPTIONS: readonly RadioOption<CampaignPreset>[] = [
     description: "Every target.",
   },
 ];
-
-const RIGHT_HELP: Record<RequestRight, string> = {
-  opt_out: "Stop selling or sharing my data.",
-  delete: "Erase what they hold. Companies may close accounts.",
-};
-
-const RIGHT_TOKENS: Record<RequestRight, string> = {
-  opt_out: "opt-out",
-  delete: "delete",
-};
-
-const RIGHT_ORDER: readonly RequestRight[] = ["opt_out", "delete"];
 
 type Choice =
   | { kind: "preset"; preset: CampaignPreset }
@@ -145,6 +135,7 @@ function Builder({ profile }: { profile: ProfileSummary }) {
   const pickerSummary = useRef<HTMLElement>(null);
 
   const filter = useMemo(() => parseFilterParam(params.get("filter")), [params]);
+  const fromTargets = params.has("targets") || params.has("filter");
   const choice: Choice = filter
     ? { kind: "filter", filter }
     : targetIds.length > 0
@@ -313,8 +304,13 @@ function Builder({ profile }: { profile: ProfileSummary }) {
     <>
       <PageHeader
         title="New campaign"
-        description={`Asking for ${profile.displayName}`}
-        back={{ to: "/requests", label: "Requests" }}
+        description={
+          <>
+            Asking for{" "}
+            <EntityLink to={{ kind: "profile", id: profile.id, name: profile.displayName }} />
+          </>
+        }
+        back={fromTargets ? { to: "/targets", label: "Targets" } : "auto"}
       />
 
       {noMailbox ? (
@@ -323,12 +319,9 @@ function Builder({ profile }: { profile: ProfileSummary }) {
           title="No mailbox connected"
           className="mb-4"
           action={
-            <Link
-              to={`/profiles/${encodeURIComponent(profile.id)}/mailbox`}
-              className="text-accent-text underline underline-offset-2"
-            >
+            <EntityLink to={{ kind: "mailbox", profileId: profile.id, address: "" }}>
               Connect a mailbox
-            </Link>
+            </EntityLink>
           }
         >
           Email requests are skipped until this profile has a mailbox to send from.
@@ -476,6 +469,7 @@ function Builder({ profile }: { profile: ProfileSummary }) {
                 <EmailPreview
                   email={result.sampleEmail}
                   fromAddress={profile.primaryEmail}
+                  targetId={firstRequest?.targetId ?? null}
                   targetName={firstRequest?.targetName ?? null}
                   toAddress={recipient.data?.privacyEmail ?? null}
                 />

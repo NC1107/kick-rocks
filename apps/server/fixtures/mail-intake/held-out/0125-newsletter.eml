@@ -1,0 +1,35 @@
+DKIM-Signature: v=1; a=ed25519-sha256; c=relaxed/relaxed;
+ d=morning-brief.example; h=Content-Type: MIME-Version: List-Unsubscribe:
+ List-Id: Message-ID: Date: Subject: To: From; q=dns/txt; s=kr;
+ t=1791355080; bh=c82kQqOn0yPF6u35SgrEU7SPuT3OQCMf8ZOz6tEgt/Y=;
+ b=tsJgj4j2I2OdvhYLwKKCDStKX1JhM45TVXHi3xNseeRrw33RgolnqClLVZJaHL5RuA22wVpD8
+ NW+HV/rxLaAAw==
+Return-Path: <bounce-28453@morning-brief.example>
+Received: from mail.morning-brief.example (mail.morning-brief.example [203.0.113.31]) by mx.example.com with ESMTPS id d8417c26cc for <jordan@example.com>; Wed, 07 Oct 2026 06:38:00 +0000
+From: Morning Brief <daily@morning-brief.example>
+To: jordan@example.com
+Subject: Your Thursday briefing
+Date: Wed, 07 Oct 2026 06:38:00 +0000
+Message-ID: <f8d6ff25f62ff26255e8cf28@morning-brief.example>
+List-Id: <daily.morning-brief.example>
+List-Unsubscribe: <https://morning-brief.example/unsubscribe?e=070e84cd01a4>
+Precedence: list
+MIME-Version: 1.0
+Content-Type: multipart/alternative; boundary="----=_Part_7a9dbe464999"
+
+------=_Part_7a9dbe464999
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+Your Thursday briefing
+
+This week we look at what changed, what did not, and what to read next.
+Read online: https://morning-brief.example/p/ade0fa
+
+You are subscribed as jordan@example.com. Unsubscribe: https://morning-brief.example/unsubscribe
+------=_Part_7a9dbe464999
+Content-Type: text/html; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+<html><body style="font-family:Arial,sans-serif"><h1>Your Thursday briefing</h1><p>This week we look at what changed.</p></body></html>
+------=_Part_7a9dbe464999--

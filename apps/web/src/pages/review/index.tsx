@@ -1,17 +1,26 @@
 import { API_ROUTES, type ReviewQueue } from "@kickrocks/shared";
-import { ChevronLeft } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { useSearchParams } from "react-router";
 import { errorMessage, useApiQuery } from "../../api/index.js";
 import { RequireProfile } from "../../components/layout/RequireProfile.js";
-import { Button, Callout, PageHeader, Skeleton, SkeletonText } from "../../components/ui/index.js";
+import {
+  Button,
+  Callout,
+  PageBack,
+  PageHeader,
+  Skeleton,
+  SkeletonText,
+} from "../../components/ui/index.js";
 import { cn } from "../../lib/cn.js";
 import { describeFailure } from "../../lib/failures.js";
+import { paths } from "../../lib/paths.js";
+import { useWide } from "../../lib/use-wide.js";
 import {
-  CheckForRepliesButton,
+  CheckForRepliesAction,
   ReplyCheckResult,
   useReplyCheck,
 } from "../mailbox/check-for-replies.js";
+import { CleanupPreview } from "../mailbox/intake-review.js";
 import { BlockedTaskDetail } from "./BlockedTaskDetail.js";
 import { shortcutAllowed } from "./keys.js";
 import { MailDetail } from "./MailDetail.js";
@@ -22,21 +31,6 @@ import { ScansPanel } from "./ScansPanel.js";
 import { VerificationDetail } from "./VerificationDetail.js";
 
 const DETAIL_ID = "review-detail";
-const WIDE = "(min-width: 1024px)";
-
-/** Whether the list and the item sit side by side, which is also when one is always selected. */
-function useWide(): boolean {
-  return useSyncExternalStore(
-    (notify) => {
-      const query = window.matchMedia(WIDE);
-      query.addEventListener("change", notify);
-      return () => query.removeEventListener("change", notify);
-    },
-    () => window.matchMedia(WIDE).matches,
-    () => true,
-  );
-}
-
 /** Selection and focus travel together, so Enter or Space acts on the row that looks selected. */
 function focusEntry(key: string) {
   document.querySelector<HTMLElement>(`[data-entry="${key}"] > :is(a, button)`)?.focus();
@@ -79,10 +73,12 @@ function Review({ profileId, mailboxConnected }: { profileId: string; mailboxCon
       <div className={cn(drilled && "max-lg:hidden")}>
         <PageHeader
           title="Review"
-          description="Everything waiting on you"
-          actions={mailboxConnected ? <CheckForRepliesButton check={check} /> : undefined}
+          actions={
+            mailboxConnected ? <CheckForRepliesAction check={check} labelFrom="sm" /> : undefined
+          }
         />
         <ReplyCheckResult check={check} className="mb-5" />
+        <CleanupPreview profileId={profileId} rows={3} className="mb-4" />
       </div>
       {queue.isPending ? (
         <Loading />
@@ -273,15 +269,8 @@ function Queue({ queue, profileId }: { queue: ReviewQueue; profileId: string }) 
           !drilled && "max-lg:hidden",
         )}
       >
-        <div className="border-b border-line px-2 py-1.5 lg:hidden">
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={() => setParams(new URLSearchParams(), { replace: true })}
-          >
-            <ChevronLeft aria-hidden="true" strokeWidth={1.5} />
-            Review
-          </Button>
+        <div className="border-b border-line px-3 pt-3 pb-2 lg:hidden">
+          <PageBack fallback={{ to: paths.review(), label: "Review" }} />
         </div>
         {selected ? (
           <Detail entry={selected} entries={entries} profileId={profileId} />

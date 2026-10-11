@@ -75,7 +75,16 @@ export const EmailSendPayload = z
     message: "A verification reply names the approved fields, and no other email does",
     path: ["fields"],
   });
-export const InboxPollPayload = z.object({ mailboxId: id });
+export const InboxPollPayload = z.object({
+  mailboxId: id,
+  /**
+   * Looks again at mail that arrived shortly before a request began to expect it, which a cursor
+   * that had already passed it would otherwise never show. Limited to the senders of one target.
+   */
+  rescan: z.object({ since: z.iso.datetime(), targetId: id }).optional(),
+  /** The request page that asked for this check, which records on its timeline what it found. */
+  requestId: id.optional(),
+});
 
 /**
  * A scan can search under a past name or address, since listings are keyed by old names and
@@ -352,6 +361,8 @@ export const MailboxPollOutcome = z.discriminatedUnion("state", [
     state: z.literal("done"),
     /** Messages read for the first time. */
     newMessages: z.number().int().nonnegative(),
+    /** New messages the check judged, including those it did not keep. Zero means the folder had nothing new. */
+    scanned: z.number().int().nonnegative(),
     /** New messages that belong to a request. */
     matched: z.number().int().nonnegative(),
     needsReview: z.number().int().nonnegative(),
@@ -360,6 +371,10 @@ export const MailboxPollOutcome = z.discriminatedUnion("state", [
   z.object({ state: z.literal("failed"), error: z.string() }),
 ]);
 export type MailboxPollOutcome = z.infer<typeof MailboxPollOutcome>;
+
+/** What a check says about where it was started, so only that request's timeline records it. */
+export const MailboxPollBody = z.object({ requestId: z.string().min(1).optional() });
+export type MailboxPollBody = z.infer<typeof MailboxPollBody>;
 
 /** A check on a mailbox: the task that does it, and how it ended once it has. */
 export const MailboxPoll = z.object({

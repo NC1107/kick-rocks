@@ -15,6 +15,10 @@ const classifier = createReplyClassifier({
 
 const outstanding: ClassifierRequest = {
   id: "req-1",
+  open: true,
+  targetKind: "broker",
+  contactAddress: null,
+  sentAt: null,
   reference: "KR-7K3M9Q",
   outgoingMessageId: OUR_ID,
   status: "awaiting_reply",
@@ -239,8 +243,24 @@ describe("a confirmation link", () => {
   ].join("\r\n");
   const unreferenced = () => unsigned(CONFIRM);
 
-  it("is followed when the broker signed it, even though nothing quotes the request", async () => {
+  it("is not followed on a sender match alone when the request is not waiting for one", async () => {
     const result = await classifyRaw(await signed(unreferenced()));
+    expect(result).toMatchObject({ requestId: "req-1", classification: "confirmation_link" });
+    expect(result.confidence).toBeLessThan(0.6);
+  });
+
+  it("is followed when the broker signed it for a request that is waiting, though nothing quotes the request", async () => {
+    const waiting: ClassifierRequest = {
+      ...outstanding,
+      awaitingConfirmation: {
+        fromDomains: [],
+        linkTextPattern: null,
+        since: "2026-10-01T10:00:00.000Z",
+      },
+    };
+    const result = await classifier.classify(await receive(await signed(unreferenced())), {
+      requests: [waiting],
+    });
     expect(result).toMatchObject({
       requestId: "req-1",
       classification: "confirmation_link",

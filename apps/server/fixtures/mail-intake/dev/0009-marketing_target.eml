@@ -1,0 +1,36 @@
+DKIM-Signature: v=1; a=ed25519-sha256; c=relaxed/relaxed; d=amazon.com;
+ h=Content-Type: MIME-Version: List-Unsubscribe: Reply-To: Message-ID:
+ Date: Subject: To: From; q=dns/txt; s=kr; t=1790425500;
+ bh=SvBO0/QnsG+nR493q3El44TYH7y8hqQ4L165QoEb+y8=;
+ b=uVXzsN30viouZfqSsOmzBe3yLG19xmMB9lzPMzewFbdEWR8K2wemPg0nN/UtOPZbVYqVZn6bE
+ JtsPevtUjuQDA==
+Return-Path: <bounce-816699@bounce.amazon.com>
+Received: from mail.amazon.com (mail.amazon.com [203.0.113.20]) by mx.example.com with ESMTPS id 8f0b392fa7 for <jordan@example.com>; Sat, 26 Sep 2026 12:25:00 +0000
+From: Amazon <store-offers@amazon.com>
+To: jordan@example.com
+Subject: Jordan, new arrivals in Home & Kitchen
+Date: Sat, 26 Sep 2026 12:25:00 +0000
+Message-ID: <1d20ecf960c70d30ae7ac1f2@amazon.com>
+Reply-To: no-reply@amazon.com
+List-Unsubscribe: <https://amazon.com/unsubscribe?u=b2cf6091804202df>, <mailto:unsubscribe-b2cf6091@amazon.com>
+List-Unsubscribe-Post: List-Unsubscribe=One-Click
+Precedence: bulk
+X-Mailer: Braze
+MIME-Version: 1.0
+Content-Type: multipart/alternative; boundary="----=_Part_9484a7b65097"
+
+------=_Part_9484a7b65097
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+Jordan, new arrivals in Home & Kitchen
+
+Shop now: https://amazon.com/offers?ref=028ecc02
+
+You are receiving this email because you have an account with Amazon. To stop receiving these emails, unsubscribe: https://amazon.com/unsubscribe
+------=_Part_9484a7b65097
+Content-Type: text/html; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+<html><body style="font-family:Arial,sans-serif"><h2>Jordan, new arrivals in Home & Kitchen</h2><p><a href="https://amazon.com/offers?ref=028ecc02">Shop now</a></p><p style="font-size:11px">You are receiving this email because you have an account with Amazon. To stop receiving these emails, unsubscribe: https://amazon.com/unsubscribe</p></body></html>
+------=_Part_9484a7b65097--

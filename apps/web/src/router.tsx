@@ -1,8 +1,9 @@
-import { createBrowserRouter, type RouteObject } from "react-router";
+import { createBrowserRouter, Outlet, type RouteObject } from "react-router";
 import { AppLayout } from "./components/layout/AppLayout.js";
 import { AuthGate, LoadingScreen, PublicGate } from "./components/layout/AuthGate.js";
 import { PublicLayout } from "./components/layout/PublicLayout.js";
 import { RouteError } from "./components/layout/RouteError.js";
+import { ToastProvider } from "./components/ui/index.js";
 
 /*
  * Every route here loads a page module from src/pages/<area>/..., which exports a component named
@@ -22,6 +23,7 @@ const appRoutes: RouteObject[] = [
   { path: "profiles/:id/mailbox", lazy: () => import("./pages/mailbox/index.js") },
   { path: "targets", lazy: () => import("./pages/targets/index.js") },
   { path: "targets/:id", lazy: () => import("./pages/targets/detail/index.js") },
+  { path: "targets/:id/remove", lazy: () => import("./pages/targets/remove/index.js") },
   { path: "campaigns/new", lazy: () => import("./pages/campaigns/new/index.js") },
   { path: "requests", lazy: () => import("./pages/requests/index.js") },
   { path: "requests/:id", lazy: () => import("./pages/requests/detail/index.js") },
@@ -41,8 +43,18 @@ const appRoutes: RouteObject[] = [
   { path: "*", lazy: () => import("./pages/not-found/index.js") },
 ];
 
+/** Inside the router, so a toast can link to the page it is about. */
+function ToastRoot() {
+  return (
+    <ToastProvider>
+      <Outlet />
+    </ToastProvider>
+  );
+}
+
 const routes: RouteObject[] = [
   {
+    element: <ToastRoot />,
     errorElement: <RouteError />,
     hydrateFallbackElement: <LoadingScreen />,
     children: [

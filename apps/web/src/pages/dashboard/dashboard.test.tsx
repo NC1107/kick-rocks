@@ -1,6 +1,7 @@
 import { screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { createMockApp } from "../../../mock/app.js";
+import { createScan } from "../../../mock/review.js";
 import { renderPage } from "../../test/render.js";
 import { instrument } from "../profiles/test-support.js";
 import { Component as DashboardPage } from "./index.js";
@@ -68,7 +69,8 @@ describe("the dashboard", () => {
     ) as HTMLElement;
     const links = within(needs).getAllByRole("link");
     expect(links.length).toBeGreaterThanOrEqual(3);
-    for (const link of links) expect(link).toHaveAttribute("href", "/review");
+    for (const link of links)
+      expect(link).toHaveAttribute("href", expect.stringMatching(/^\/review\?tab=/));
     expect(within(needs).getByText(/Blocked tasks?/)).toBeInTheDocument();
   });
 
@@ -118,10 +120,9 @@ describe("the dashboard", () => {
     const items = within(activity).getAllByRole("listitem");
     expect(items.length).toBeGreaterThan(3);
     const first = items[0] as HTMLElement;
-    expect(within(first).getByRole("link")).toHaveAttribute(
-      "href",
-      expect.stringMatching(/^\/requests\/req_/),
-    );
+    const [broker, request] = within(first).getAllByRole("link");
+    expect(broker).toHaveAttribute("href", expect.stringMatching(/^\/targets\//));
+    expect(request).toHaveAttribute("href", expect.stringMatching(/^\/requests\/req_/));
     expect(first).toHaveTextContent(/KR-[0-9A-Z]{6}/);
     expect(first.textContent).not.toMatch(/\bundefined\b|\[object/);
   });
@@ -157,6 +158,48 @@ describe("the dashboard", () => {
       "/campaigns/new",
     );
     expect(screen.queryByText("No mailbox connected")).toBeNull();
+  });
+
+  it("says why scans cannot start, on the page of a person with no requests yet", async () => {
+    const mock = createMockApp();
+    const newcomer = mock.store.profiles[2];
+    if (!newcomer) throw new Error("fixture");
+    newcomer.identities = newcomer.identities.filter((identity) => identity.kind !== "address");
+    localStorage.setItem("kickrocks.profileId", newcomer.id);
+    renderPage(<DashboardPage />, { mock });
+    expect(await screen.findByText("No requests yet.")).toBeInTheDocument();
+    expect(screen.getByText(/sites can't be scanned yet/)).toBeVisible();
+    expect(screen.getByText(/Add a current address with city and state/)).toBeVisible();
+    expect(screen.getByRole("link", { name: "Edit profile" })).toHaveAttribute(
+      "href",
+      `/profiles/${newcomer.id}`,
+    );
+  });
+
+  it("shows held scans and what needs the person above the empty state", async () => {
+    const mock = createMockApp();
+    mock.store.requests = [];
+    const jordan = mock.store.profiles[0];
+    const target = mock.store.targets.find((candidate) => candidate.needsRecord);
+    if (!(jordan && target)) throw new Error("fixture");
+    mock.store.scans = [];
+    const hour = mock.store.clock.now().getUTCHours();
+    mock.store.settings.scanning = {
+      ...mock.store.settings.scanning,
+      timeZone: "UTC",
+      quietStartHour: hour,
+      quietEndHour: (hour + 1) % 24,
+    };
+    createScan(mock.store, jordan.id, target.id, {
+      taskStatus: "queued",
+      finished: false,
+      startedAgo: { minutes: 5 },
+    });
+    renderPage(<DashboardPage />, { mock });
+    const held = await screen.findByRole("heading", { name: /^Scans held/ });
+    const empty = screen.getByText("No requests yet.");
+    expect(held.compareDocumentPosition(empty) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.queryByText(/1 scan held/)).toBeNull();
   });
 
   it("makes starting a campaign the main action once a mailbox is connected", async () => {

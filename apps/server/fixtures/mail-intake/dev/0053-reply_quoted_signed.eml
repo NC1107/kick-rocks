@@ -1,0 +1,37 @@
+DKIM-Signature: v=1; a=ed25519-sha256; c=relaxed/relaxed; d=amazon.com;
+ h=Content-Transfer-Encoding: Content-Type: MIME-Version: References:
+ In-Reply-To: Message-ID: Date: Subject: To: From; q=dns/txt; s=kr;
+ t=1790615220; bh=/wbYV9X7DjIfGCLVevsutNu+XBZTlcpTj001YkY3Y7M=;
+ b=6er74g72mZrgwTR5U163FEUt42yFpLun8QCf1cTA4iy1uh9kYBpWeFjb0khk/LhoGstqDo8sM
+ 8jDVd64wgq6Aw==
+Return-Path: <bounce-88489@amazon.com>
+Received: from mail.amazon.com (mail.amazon.com [203.0.113.20]) by mx.example.com with ESMTPS id 8f0b392fa7 for <jordan@example.com>; Mon, 28 Sep 2026 17:07:00 +0000
+From: Amazon Privacy <privacyteam@amazon.com>
+To: jordan@example.com
+Subject: Re: Data deletion request KR-4H7TQ2
+Date: Mon, 28 Sep 2026 17:07:00 +0000
+Message-ID: <1102af6cabf64482bc427ab9@amazon.com>
+In-Reply-To: <kr.9d1ff446-92b0-44a8-8da8-ab9e4b94978b.0@example.com>
+References: <kr.9d1ff446-92b0-44a8-8da8-ab9e4b94978b.0@example.com>
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+Dear Jordan Example,
+
+Your request has been denied: the information you asked about comes from public records that are exempt from deletion.
+
+Regards,
+Amazon Privacy Team
+
+On Mon, 21 Sep 2026 at 14:05 Jordan Example <jordan@example.com> wrote:
+> Subject: Data deletion request KR-4H7TQ2
+>
+> To the privacy team at Amazon,
+>
+> I am asking you to delete my personal data.
+> Name: Jordan Example
+> Email: jordan@example.com
+> Please confirm once this is done.
+>
+> Reference: KR-4H7TQ2

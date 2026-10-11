@@ -1,8 +1,18 @@
-import { type KickRocksDb, recipes } from "@kickrocks/db";
-import { type ProfileField, Recipe, resolveProfileFields } from "@kickrocks/shared";
+import { type KickRocksDb, recipes, targets } from "@kickrocks/db";
+import {
+  type ProfileField,
+  Recipe,
+  resolveProfileFields,
+  type ScanHold,
+  type ScanReadiness,
+} from "@kickrocks/shared";
 import { and, desc, eq } from "drizzle-orm";
+import type { AppServices } from "../services.js";
+import { modelStance } from "./agent-policy.js";
 import type { Clock } from "./clock.js";
 import { loadIdentities } from "./identities.js";
+import { isPeopleSearchTarget } from "./targets.js";
+import type { Task } from "./task-types.js";
 
 /** What an agent needs to search a people-search site when no recipe will run the scan. */
 const AGENT_SCAN_FIELDS: readonly ProfileField[] = ["full_name", "state"];
@@ -36,6 +46,20 @@ export function missingScanFields(
   profileId: string,
   targetId: string,
 ): ProfileField[] {
+  const usable = usableScanRecipe(db, targetId);
+  const wanted = usable
+    ? Recipe.parse(usable.definition).fields.filter((field) => !NOT_FROM_IDENTITIES.includes(field))
+    : AGENT_SCAN_FIELDS;
+  const resolved = resolveProfileFields(loadIdentities(db, profileId), wanted, {
+    asOf: clock.now().toISOString().slice(0, 10),
+    nameId: null,
+    addressId: null,
+  });
+  return wanted.filter((field) => resolved[field] === undefined);
+}
+
+/** The newest approved scan recipe that is not known to be broken, which is what the built-in worker would run. */
+function usableScanRecipe(db: KickRocksDb, targetId: string) {
   const rows = db
     .select({ definition: recipes.definition, health: recipes.health })
     .from(recipes)
@@ -48,16 +72,54 @@ export function missingScanFields(
     )
     .orderBy(desc(recipes.version))
     .all();
-  const usable = rows.find((row) => row.health !== "broken");
-  const wanted = usable
-    ? Recipe.parse(usable.definition).fields.filter((field) => !NOT_FROM_IDENTITIES.includes(field))
-    : AGENT_SCAN_FIELDS;
-  const resolved = resolveProfileFields(loadIdentities(db, profileId), wanted, {
-    asOf: clock.now().toISOString().slice(0, 10),
-    nameId: null,
-    addressId: null,
-  });
-  return wanted.filter((field) => resolved[field] === undefined);
+  return rows.find((row) => row.health !== "broken");
+}
+
+/** How a scan of one site would be worked, when the profile has what it needs. */
+type ScanRoute = "recipe" | "recipe_review" | "agent";
+
+function scanRoute(services: Pick<AppServices, "db" | "settings">, targetId: string): ScanRoute {
+  if (usableScanRecipe(services.db, targetId)) return "recipe";
+  const waitsForReview = services.db
+    .select({ status: recipes.status })
+    .from(recipes)
+    .where(and(eq(recipes.targetId, targetId), eq(recipes.purpose, "scan")))
+    .all()
+    .some((row) => row.status === "pending_review");
+  return waitsForReview && !services.settings.get("agent.takeUnreviewed")
+    ? "recipe_review"
+    : "agent";
+}
+
+/** How many people-search sites a profile can be scanned on right now, and what holds back the rest. */
+export function profileScanReadiness(
+  services: Pick<AppServices, "db" | "clock" | "settings">,
+  profileId: string,
+): ScanReadiness {
+  const sites = services.db
+    .select({ id: targets.id, kind: targets.kind, category: targets.category })
+    .from(targets)
+    .where(eq(targets.retired, false))
+    .all()
+    .filter(isPeopleSearchTarget);
+  const missing = new Set<ProfileField>();
+  const counts = { ready: 0, noRecipe: 0, recipeNeedsReview: 0, needsDetails: 0 };
+  for (const site of sites) {
+    const lacking = missingScanFields(services, profileId, site.id);
+    if (lacking.length > 0) {
+      counts.needsDetails += 1;
+      for (const field of lacking) missing.add(field);
+      continue;
+    }
+    const route = scanRoute(services, site.id);
+    if (route === "recipe") counts.ready += 1;
+    else if (route === "recipe_review") counts.recipeNeedsReview += 1;
+    else counts.noRecipe += 1;
+  }
+  return {
+    ...counts,
+    missing: missing.size > 0 ? describeMissingScanFields([...missing]) : null,
+  };
 }
 
 /** The sentence that says what to add to the profile, in the profile's terms rather than field names. */
@@ -74,4 +136,79 @@ export function describeMissingScanFields(missing: readonly ProfileField[]): str
       .map((field) => `a ${FIELD_WORDS[field] ?? field}`),
   ];
   return parts.join(" and ");
+}
+
+type HoldServices = Pick<AppServices, "db" | "clock" | "taskQueue" | "settings">;
+
+/** Why a queued scan that needs an agent is not being worked, from what the site's recipes say. */
+function agentHold(services: HoldServices, task: Task<"agent">, siteName: string): ScanHold {
+  const stance = modelStance(services, task);
+  if (stance === "unreviewed" && !services.settings.get("agent.takeUnreviewed")) {
+    return {
+      reason: "recipe_unapproved",
+      detail: `The recipe for ${siteName} is waiting for your review, so the agent worker leaves it alone.`,
+    };
+  }
+  if (stance === "rejected") {
+    return {
+      reason: "recipe_unapproved",
+      detail: `You rejected the recipe for ${siteName}, so it waits for a connected agent.`,
+    };
+  }
+  if (task.payload.reason === "no_recipe") {
+    return {
+      reason: "no_recipe",
+      detail: `${siteName} has no scripted search, so a connected agent has to run this scan.`,
+    };
+  }
+  return {
+    reason: "agent_required",
+    detail: `The scripted search for ${siteName} stopped working, so a connected agent has to run this scan.`,
+  };
+}
+
+/**
+ * What keeps a queued scan from starting, or null when nothing does. The profile lacking details
+ * comes first because no worker can get past it, then a scan only an agent can run, then the
+ * politeness gate the built-in worker answers to.
+ */
+export function scanHold(
+  services: HoldServices,
+  scan: {
+    profileId: string;
+    targetId: string;
+    targetName: string;
+    taskId: string | null;
+    taskStatus: string | null;
+  },
+): ScanHold | null {
+  if (scan.taskId === null || scan.taskStatus !== "queued") return null;
+  const task = services.taskQueue.get(scan.taskId);
+  if (!task) return null;
+
+  const missing = missingScanFields(services, scan.profileId, scan.targetId);
+  if (missing.length > 0) {
+    return {
+      reason: "missing_fields",
+      fields: missing,
+      detail: `Add ${describeMissingScanFields(missing)} to this profile.`,
+    };
+  }
+  if (task.kind === "agent") return agentHold(services, task as Task<"agent">, scan.targetName);
+
+  const waiting = services.taskQueue.waitingFor(task);
+  if (!waiting) return null;
+  const serverClock =
+    waiting.reason === "quiet_hours" && services.settings.get("scanning").timeZone === null;
+  return {
+    reason: waiting.reason,
+    until: waiting.until,
+    domain: waiting.domain,
+    ...(serverClock
+      ? {
+          serverClock,
+          detail: "Quiet hours are read on the server clock because no time zone is set.",
+        }
+      : {}),
+  };
 }

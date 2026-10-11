@@ -1,5 +1,6 @@
+import { RotateCcw } from "lucide-react";
 import type { ReactNode } from "react";
-import { Field, type FieldProps } from "../../components/ui/index.js";
+import { EntityLink, Field, type FieldProps, IconAction } from "../../components/ui/index.js";
 import { cn } from "../../lib/cn.js";
 
 /** The width settings pages hold to. The empty space on its right is accepted. */
@@ -11,6 +12,29 @@ export function FieldRow(props: Omit<FieldProps, "layout">) {
     <div className="px-3.5 py-2.5">
       <Field layout="row" {...props} />
     </div>
+  );
+}
+
+/** A site's domain in mono, leading to its target page when the domain belongs to one. */
+export function DomainLink({
+  domain,
+  targets,
+}: {
+  domain: string;
+  targets: Readonly<Record<string, string>> | undefined;
+}) {
+  const id = targets?.[domain];
+  return id ? (
+    <EntityLink to={{ kind: "target", id, name: domain }} variant="quiet" className="font-mono" />
+  ) : (
+    <span className="font-mono">{domain}</span>
+  );
+}
+
+/** Puts the form back to what is saved. An icon, because the footer shares its row with Save. */
+export function ResetAction({ onClick, disabled }: { onClick: () => void; disabled: boolean }) {
+  return (
+    <IconAction label="Reset to saved" icon={RotateCcw} onClick={onClick} disabled={disabled} />
   );
 }
 

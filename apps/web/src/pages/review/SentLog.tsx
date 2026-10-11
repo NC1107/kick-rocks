@@ -1,6 +1,6 @@
 import type { SendLog } from "@kickrocks/shared";
 import { useState } from "react";
-import { Button, Row, RowGroup, Section, Tag } from "../../components/ui/index.js";
+import { Button, EntityLink, Row, RowGroup, Section, Tag } from "../../components/ui/index.js";
 import { logLine, summarize } from "./sends-model.js";
 
 const SHOWN = 30;
@@ -9,7 +9,14 @@ const SHOWN = 30;
  * What the browser sent during an agent run, from the server's own record and not from the
  * worker's account: lookups, requests released with the answer they got, refusals, and notes.
  */
-export function SentLog({ log }: { log: SendLog }) {
+export function SentLog({
+  log,
+  target,
+}: {
+  log: SendLog;
+  /** The site the run was on, so its name leads to the site's page. */
+  target?: { id: string | null; name: string } | undefined;
+}) {
   const [all, setAll] = useState(false);
   if (log.sends.length === 0) return null;
   const summary = summarize(log);
@@ -28,6 +35,11 @@ export function SentLog({ log }: { log: SendLog }) {
               : `No contact details left the browser; ${summary.lookups} ${summary.lookups === 1 ? "search" : "searches"} with your name or place did.`
             : `${summary.released} ${summary.released === 1 ? "request" : "requests"} carrying your details left the browser.`}
       </p>
+      {target ? (
+        <p className="mb-2 text-meta text-ink-3">
+          The run on <EntityLink to={{ kind: "target", id: target.id, name: target.name }} />.
+        </p>
+      ) : null}
       <RowGroup>
         {shown.map((row) => {
           const line = logLine(row, log.values);

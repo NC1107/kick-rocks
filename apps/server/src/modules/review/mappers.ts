@@ -17,6 +17,7 @@ export function toMessageSummary(row: MessageRow): MessageSummary {
     requestedFields: row.requestedFields,
     snippet: row.snippet,
     reviewed: row.reviewed,
+    admittedBy: row.admittedBy,
   };
 }
 

@@ -1,0 +1,23 @@
+DKIM-Signature: v=1; a=ed25519-sha256; c=relaxed/relaxed;
+ d=beenverified.com; h=Content-Transfer-Encoding: Content-Type:
+ MIME-Version: Message-ID: Date: Subject: To: From; q=dns/txt; s=kr;
+ t=1790683620; bh=WJjnk68F5XrmCu2vAU19/aLUA/Hjf9jv6JC+2uvkSGE=;
+ b=swEhqcG5KtWWCPEdrsrRM81UMXXShKoWt4DCZDj6NLOn+AtnyiMbPhSUSXqrYjQPZcEeyvDjT
+ L6bS2TvHiENCw==
+Return-Path: <bounce-24794@beenverified.com>
+Received: from mail.beenverified.com (mail.beenverified.com [203.0.113.26]) by mx.example.com with ESMTPS id f4801b00e3 for <jordan@example.com>; Tue, 29 Sep 2026 12:07:00 +0000
+From: BeenVerified Privacy <dsar@beenverified.com>
+To: jordan@example.com
+Subject: Re: Opt-out request KR-5P1CJ4
+Date: Tue, 29 Sep 2026 12:07:00 +0000
+Message-ID: <371a49405834ec47d9884869@beenverified.com>
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+Hello,
+
+We need additional information to process your request. Please reply with the phone number and zip code associated with the listing.
+
+Regards,
+BeenVerified Privacy Team

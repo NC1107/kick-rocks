@@ -20,11 +20,18 @@ let mailboxId: string;
 let runners: Runners;
 
 const MAILBOX_ADDRESS = "jordan@example.com";
+/** Mail to the verified alias is always let in, so the tests below can look at what a poll does after the gate. */
+const ALIAS = "jordan+kickrocks@example.com";
 
 beforeEach(async () => {
   ctx = await createTestContext();
   profileId = seedProfile(ctx).id;
   mailboxId = seedMailbox(ctx, profileId, { address: MAILBOX_ADDRESS }).id;
+  ctx.services.db
+    .update(mailboxes)
+    .set({ replyAlias: ALIAS, replyAliasVerifiedAt: ctx.clock.now().toISOString() })
+    .where(eq(mailboxes.id, mailboxId))
+    .run();
   runners = createRunners(ctx.services, { random: () => 0 });
 });
 
@@ -65,7 +72,7 @@ function answer(
 }
 
 const deliver = (subject: string, extra: Partial<InboxMessage> = {}) =>
-  ctx.mail.mailbox(MAILBOX_ADDRESS).deliver({ subject, ...extra });
+  ctx.mail.mailbox(MAILBOX_ADDRESS).deliver({ subject, to: [ALIAS], ...extra });
 
 async function poll() {
   const queued = ctx.services.dispatch.enqueueInboxPoll(mailboxId);
@@ -77,6 +84,48 @@ const stored = () =>
   ctx.services.db.select().from(messages).where(eq(messages.mailboxId, mailboxId)).all();
 const requestOf = (id: string) => ctx.services.requests.getOrThrow(id);
 const eventTypes = (id: string) => ctx.services.requests.events(id).map((event) => event.type);
+
+describe("a check started from a request page", () => {
+  async function pollFrom(requestId: string) {
+    const queued = ctx.services.dispatch.enqueueInboxPoll(mailboxId, { requestId });
+    await runners.inbox.runDue();
+    return ctx.services.taskQueue.getOrThrow(queued.task.id);
+  }
+
+  it("leaves a line on that request even when nothing came", async () => {
+    const { request } = await sentRequest();
+    await pollFrom(request.id);
+    const checked = ctx.services.requests
+      .events(request.id)
+      .filter((event) => event.type === "mailbox_checked");
+    expect(checked).toHaveLength(1);
+    expect(checked[0]).toMatchObject({ payload: { newMessages: 0, matched: 0 }, actor: "system" });
+  });
+
+  it("counts what it found, and records on the page's request only", async () => {
+    const first = await sentRequest();
+    const second = await sentRequest({ name: "Second Broker" });
+    // Each first send queues a look-back poll of its own, which must not be the one to find the mail.
+    await runners.inbox.runDue();
+    answer("Update", second.request.id, "auto_ack");
+    deliver("Update");
+
+    await pollFrom(first.request.id);
+
+    expect(eventTypes(first.request.id)).toContain("mailbox_checked");
+    expect(
+      ctx.services.requests.events(first.request.id).find((e) => e.type === "mailbox_checked"),
+    ).toMatchObject({ payload: { newMessages: 1, matched: 1 } });
+    expect(eventTypes(second.request.id)).not.toContain("mailbox_checked");
+    expect(eventTypes(second.request.id)).toContain("reply_received");
+  });
+
+  it("writes nothing on a request when the check is not from its page", async () => {
+    const { request } = await sentRequest();
+    await poll();
+    expect(eventTypes(request.id)).not.toContain("mailbox_checked");
+  });
+});
 
 describe("storing and applying replies", () => {
   it("confirms a request when the broker says it is done", async () => {
@@ -105,6 +154,8 @@ describe("storing and applying replies", () => {
 
   it("counts the messages that belong to a request, and names the request once", async () => {
     const { request } = await sentRequest();
+    // The send queued a look at this sender's recent mail, which would otherwise read the messages first.
+    await runners.inbox.runDue();
     answer("Update one", request.id, "auto_ack");
     answer("Update two", request.id, "auto_ack");
     answer("Newsletter", null, "unrelated");
@@ -591,7 +642,10 @@ describe("switching channel", () => {
   it("sends a bounced request through the broker's form", async () => {
     const { request } = await sentRequest({ contactMethod: "both" });
     answer("Undeliverable", request.id, "bounce");
-    deliver("Undeliverable", { isBounce: true });
+    deliver("Undeliverable", {
+      isBounce: true,
+      originalMessageIds: [request.outgoingMessageId as string],
+    });
 
     await poll();
 
@@ -797,18 +851,18 @@ describe("what a poll reads", () => {
   });
 
   it("drains a backlog over several pages in one poll", async () => {
-    for (let index = 0; index < 120; index += 1) deliver(`Message ${index}`);
+    for (let index = 0; index < 1200; index += 1) deliver(`Message ${index}`);
     const task = await poll();
-    expect(stored()).toHaveLength(120);
-    expect(task.result).toMatchObject({ fetched: 120, stored: 120, pages: 3 });
+    expect(stored()).toHaveLength(1200);
+    expect(task.result).toMatchObject({ scanned: 1200, kept: 1200, stored: 1200, pages: 3 });
   });
 
   it("queues another poll when a backlog is too long for one", async () => {
-    for (let index = 0; index < 520; index += 1) deliver(`Message ${index}`);
+    for (let index = 0; index < 5200; index += 1) deliver(`Message ${index}`);
     await poll();
     const polls = ctx.services.taskQueue.list({ kinds: ["inbox_poll"] }).reverse();
-    expect(polls.map((task) => task.result)).toMatchObject([{ fetched: 500 }, { fetched: 20 }]);
-    expect(stored()).toHaveLength(520);
+    expect(polls.map((task) => task.result)).toMatchObject([{ scanned: 5000 }, { scanned: 200 }]);
+    expect(stored()).toHaveLength(5200);
   });
 
   it("stamps the poll time and clears an earlier error", async () => {
@@ -839,7 +893,7 @@ describe("what a poll reads", () => {
     const inbox = ctx.mail.services.inbox;
     ctx.mail.services.inbox = () => ({
       listFolders: async () => [],
-      fetchSince: async () => {
+      withFolder: async () => {
         throw new Error("IMAP login failed");
       },
     });
@@ -878,8 +932,10 @@ describe("what a poll reads", () => {
       .set({ replyFolder: "Replies" })
       .where(eq(mailboxes.id, mailboxId))
       .run();
-    ctx.mail.mailbox(MAILBOX_ADDRESS).deliver({ subject: "In inbox" });
-    ctx.mail.mailbox(MAILBOX_ADDRESS).deliver({ subject: "In replies", folder: "Replies" });
+    ctx.mail.mailbox(MAILBOX_ADDRESS).deliver({ subject: "In inbox", to: [ALIAS] });
+    ctx.mail
+      .mailbox(MAILBOX_ADDRESS)
+      .deliver({ subject: "In replies", folder: "Replies", to: [ALIAS] });
     await poll();
     expect(stored().map((message) => message.subject)).toEqual(["In replies"]);
   });

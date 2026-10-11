@@ -50,6 +50,11 @@ export function toMailbox(row: MailboxRow, sendPausedUntil: Date | null): Mailbo
     lastPolledAt: row.lastPolledAt,
     lastError: mailboxProblem(row),
     sendPausedUntil: sendPausedUntil?.toISOString() ?? null,
+    companyMail: row.companyMail,
+    replyAlias: row.replyAlias,
+    replyAliasVerified: row.replyAlias !== null && row.replyAliasVerifiedAt !== null,
+    lastPollScanned: row.lastPollScanned,
+    lastPollKept: row.lastPollKept,
     createdAt: row.createdAt,
   };
 }
@@ -211,6 +216,10 @@ export function saveMailbox(
       // A mailbox that failed its last check and is saved again gets the next check at once, not
       // after the gap that follows a failed one.
       ...(keepCursor && !existing.lastError ? {} : { lastPolledAt: null }),
+      // A reply address belongs to one mailbox address, so a new address needs a new proof.
+      ...(existing.address === body.address
+        ? {}
+        : { replyAlias: null, replyAliasVerifiedAt: null }),
       // A fixed setting is a chance to try again, so an old failure is not shown against new settings.
       lastError: null,
       lastSendError: null,

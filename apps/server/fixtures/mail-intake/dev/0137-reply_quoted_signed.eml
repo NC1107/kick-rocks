@@ -1,0 +1,43 @@
+DKIM-Signature: v=1; a=ed25519-sha256; c=relaxed/relaxed; d=radaris.com;
+ h=Content-Transfer-Encoding: Content-Type: MIME-Version: References:
+ In-Reply-To: Reply-To: Message-ID: Date: Subject: To: From; q=dns/txt;
+ s=kr; t=1790948280; bh=yUjePxue87C4GhYDfVCvdoPOGsL9sPvzUnfNXYd2RrY=;
+ b=tQjD3X8JBofrqUH4tCb59sTMZxba8+CK4c6Qy2nAhCmv2lmoNqX9paMG07kDWv6VkVmZrLoCk
+ nWM26G+HLfgCQ==
+Return-Path: <bounce-36045@radaris.com>
+Received: from mail.radaris.com (mail.radaris.com [203.0.113.21]) by mx.example.com with ESMTPS id bd1cd572f5 for <jordan@example.com>; Fri, 02 Oct 2026 13:38:00 +0000
+From: Radaris Privacy <support@radaris.com>
+To: jordan@example.com
+Subject: Re: Opt-out request KR-8N6BF3
+Date: Fri, 02 Oct 2026 13:38:00 +0000
+Message-ID: <a3e762075d646d254e3da447@radaris.com>
+Reply-To: privacy@radaris.com
+In-Reply-To: <kr.012dbe4c-7555-4a77-8221-adf648311fb1.0@example.com>
+References: <kr.012dbe4c-7555-4a77-8221-adf648311fb1.0@example.com>
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+Hello Jordan,
+
+Before we can act, please confirm your identity by sending a copy of your government-issued photo ID.
+
+Please include:
+- Full name
+- Date of birth
+- Current street address
+
+Thank you,
+Customer Care, Radaris
+
+On Wed, 23 Sep 2026 at 08:30 Jordan Example <jordan@example.com> wrote:
+> Subject: Opt-out request KR-8N6BF3
+>
+> To the privacy team at Radaris,
+>
+> I am asking you to remove my listing and stop selling my information.
+> Name: Jordan Example
+> Email: jordan@example.com
+> Please confirm once this is done.
+>
+> Reference: KR-8N6BF3

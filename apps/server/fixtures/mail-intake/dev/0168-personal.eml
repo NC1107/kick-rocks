@@ -1,0 +1,15 @@
+Return-Path: <dana.okafor@acme-corp.example>
+Received: from mail.acme-corp.example (mail.acme-corp.example [203.0.113.27]) by mx.example.com with ESMTPS id d21ca7869c for <jordan@example.com>; Sun, 04 Oct 2026 06:39:00 +0000
+From: Dana (work) <dana.okafor@acme-corp.example>
+To: jordan@example.com
+Subject: Happy birthday!
+Date: Sun, 04 Oct 2026 06:39:00 +0000
+Message-ID: <cda79515e48797811fcf6ae6@acme-corp.example>
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+Hey, are you free Saturday evening? We were thinking of trying the new place on Main.
+
+Let me know,
+Dana

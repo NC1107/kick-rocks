@@ -87,7 +87,7 @@ describe("the targets page", () => {
 
   it("filters by type from the facets and starts from the address bar", async () => {
     renderPage(<TargetsPage />, { path: "/targets", route: "/targets?kind=company" });
-    await waitFor(() => expect(screen.getByText(/1-32 of 32/)).toBeVisible());
+    await waitFor(() => expect(screen.getAllByText("32 targets").length).toBeGreaterThan(0));
     expect(screen.getByRole("list", { name: "Active filters" })).toHaveTextContent("Type: Company");
     expect(screen.getByRole("button", { name: "Filters, 1 active" })).toBeVisible();
   });
@@ -100,7 +100,7 @@ describe("the targets page", () => {
     for (const name of ["Type", "Category", "Contact", "Needs", "Priority"])
       expect(screen.getByLabelText(name)).toBeVisible();
     await user.selectOptions(screen.getByLabelText("Type"), "company");
-    await waitFor(() => expect(screen.getByText(/1-32 of 32/)).toBeVisible());
+    await waitFor(() => expect(screen.getAllByText("32 targets").length).toBeGreaterThan(0));
     expect(screen.getByRole("button", { name: "Filters, 1 active" })).toBeVisible();
   });
 
@@ -200,7 +200,7 @@ describe("the targets page", () => {
     await user.click(screen.getByRole("button", { name: "Select all 61 matching" }));
     await user.click(screen.getByRole("button", { name: "Filters" }));
     await user.selectOptions(screen.getByLabelText("Type"), "company");
-    await waitFor(() => expect(screen.getByText(/1-32 of 32/)).toBeVisible());
+    await waitFor(() => expect(screen.getAllByText("32 targets").length).toBeGreaterThan(0));
     expect(screen.queryByText(/matching selected/)).not.toBeInTheDocument();
   });
 
@@ -282,7 +282,7 @@ describe("the targets page", () => {
       path: "/targets",
       route: "/targets?kind=company",
     });
-    await waitFor(() => expect(screen.getByText(/1-32 of 32/)).toBeVisible());
+    await waitFor(() => expect(screen.getAllByText("32 targets").length).toBeGreaterThan(0));
     await user.click(screen.getByRole("button", { name: "Remove Type: Company" }));
     await waitFor(() => expect(screen.getByText(/1-50 of 61/)).toBeVisible());
     expect(screen.getByRole("button", { name: "Filters" })).toBeVisible();

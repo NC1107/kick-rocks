@@ -1,0 +1,20 @@
+DKIM-Signature: v=1; a=ed25519-sha256; c=relaxed/relaxed; d=chase.com;
+ h=Content-Transfer-Encoding: Content-Type: MIME-Version: Message-ID: Date:
+ Subject: To: From; q=dns/txt; s=kr; t=1790724240;
+ bh=Fnml+2soq2AdqaDkMSdc1DNEviRGACnlyB1aCk2x4Tg=;
+ b=CCryB+fCS5Elq6Sab7Mz0t7lCSOb5SH523LnsDSzNE6HN5RKqnV3I2LCwHOMorsKN/dGWXKgX
+ LIuhAhcZtdcCg==
+Return-Path: <no.reply.alerts@chase.com>
+Received: from mail.chase.com (mail.chase.com [203.0.113.19]) by mx.example.com with ESMTPS id ff42dd9fc3 for <jordan@example.com>; Tue, 29 Sep 2026 23:24:00 +0000
+From: Chase <no.reply.alerts@chase.com>
+To: jordan@example.com
+Subject: Your statement is ready
+Date: Tue, 29 Sep 2026 23:24:00 +0000
+Message-ID: <dc1bea06c3b8da6036f58980@chase.com>
+Auto-Submitted: auto-generated
+X-Priority: 1
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+Your statement is ready. Sign in to view your balance and recent transactions. Your request to update alerts has been processed.

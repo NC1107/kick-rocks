@@ -1,0 +1,30 @@
+Return-Path: <bounce-0657@spokeo.com>
+Received: from mail.spokeo.com (mail.spokeo.com [203.0.113.20]) by mx.example.com with ESMTPS id 8f0b392fa7 for <jordan@example.com>; Sat, 26 Sep 2026 09:20:00 +0000
+From: Spokeo <no-reply@spokeo.com>
+To: jordan@example.com
+Subject: Confirm your opt-out request KR-7K3M9Q
+Date: Sat, 26 Sep 2026 09:20:00 +0000
+Message-ID: <73830d499d4190c08406a6d5@spokeo.com>
+Auto-Submitted: auto-generated
+MIME-Version: 1.0
+Content-Type: multipart/alternative; boundary="----=_Part_9484a7b65097"
+
+------=_Part_9484a7b65097
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+Hello,
+
+We received a request to remove your information from Spokeo. To complete your removal, please confirm your email address by clicking the link below.
+
+https://spokeo.com/optout/confirm?token=6d79191a179fe535915f0d2be3d1
+
+If you did not make this request, ignore this message.
+
+Spokeo Privacy Team
+------=_Part_9484a7b65097
+Content-Type: text/html; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+<html><body style="font-family:Arial,sans-serif"><p>To complete your removal, please confirm your email address.</p><p><a href="https://spokeo.com/optout/confirm?token=6d79191a179fe535915f0d2be3d1">Confirm my request</a></p></body></html>
+------=_Part_9484a7b65097--

@@ -2,30 +2,34 @@ import {
   API_ROUTES,
   DATA_SOURCE_DETAILS,
   type DataSource,
+  isActiveStatus,
   type Requirement,
+  type TargetDetail,
 } from "@kickrocks/shared";
 import { skipToken } from "@tanstack/react-query";
+import { Globe, Mail } from "lucide-react";
 import { useParams } from "react-router";
-import { errorMessage, useApiQuery } from "../../../api/index.js";
+import { errorMessage, useApiQuery, useCurrentProfile } from "../../../api/index.js";
 import { useBreadcrumbTail } from "../../../components/layout/breadcrumb-context.js";
 import {
+  BreakableAddress,
   Button,
   Callout,
-  DescriptionList,
+  CopyButton,
+  CountLink,
+  DataList,
   EmptyState,
+  EntityRow,
   ExternalLinkText,
+  FactList,
   LinkButton,
   PageHeader,
   RowGroup,
   Section,
   SkeletonText,
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeaderCell,
-  TableRow,
+  StatusMark,
   Tag,
+  TextLink,
 } from "../../../components/ui/index.js";
 import { formatDate } from "../../../lib/format.js";
 import {
@@ -38,6 +42,8 @@ import {
   TARGET_CATEGORY_LABELS,
   TARGET_KIND_LABELS,
 } from "../../../lib/labels.js";
+import { paths } from "../../../lib/paths.js";
+import { RIGHT_TOKENS } from "../../requests/format.js";
 import { HealthMark } from "../Automation.js";
 import { Priority } from "../Priority.js";
 import { HUMAN_STEPS } from "../RequirementBadges.js";
@@ -74,7 +80,7 @@ function Loading() {
   return (
     <div aria-busy="true">
       <span className="sr-only">Loading target</span>
-      <PageHeader title="Target" back={{ to: "/targets", label: "Targets" }} />
+      <PageHeader title="Target" />
       <div className="max-w-180 rounded-md border border-line bg-surface p-3.5">
         <SkeletonText lines={5} />
       </div>
@@ -99,7 +105,7 @@ export function Component() {
       />
     ) : (
       <>
-        <PageHeader title="Target" back={{ to: "/targets", label: "Targets" }} />
+        <PageHeader title="Target" />
         <Callout
           intent="danger"
           title="Could not load this target"
@@ -115,28 +121,127 @@ export function Component() {
     );
   }
 
-  const target = query.data;
+  return <TargetView target={query.data} />;
+}
+
+const CONTACT_ICONS: Record<TargetDetail["contactMethod"], readonly (typeof Mail)[]> = {
+  email: [Mail],
+  form: [Globe],
+  both: [Mail, Globe],
+  unknown: [],
+};
+
+function ContactValue({ method }: { method: TargetDetail["contactMethod"] }) {
+  const glyphs = CONTACT_ICONS[method];
+  if (glyphs.length === 0) return <Missing />;
+  return (
+    <span className="inline-flex items-center gap-1.5">
+      {glyphs.map((Glyph) => (
+        <Glyph
+          key={Glyph.displayName ?? Glyph.name}
+          aria-hidden="true"
+          className="size-4 text-ink-2"
+        />
+      ))}
+      <span>{CONTACT_METHOD_LABELS[method]}</span>
+    </span>
+  );
+}
+
+/** The most requests the page lists before sending the person to the full list. */
+const REQUESTS_SHOWN = 5;
+
+function TargetRequests({ target }: { target: TargetDetail }) {
+  const { profiles } = useCurrentProfile();
+  const names = new Map(profiles.map((profile) => [profile.id, profile.displayName]));
+  const list = useApiQuery(API_ROUTES.requestsListAll, {
+    query: { targetId: target.id, page: 1, pageSize: REQUESTS_SHOWN },
+  });
+  const items = list.data?.items ?? [];
+  if (list.isPending || items.length === 0) return null;
+  return (
+    <Section label="Requests" count={list.data?.total ?? items.length}>
+      <RowGroup>
+        {items.map((item) => (
+          <EntityRow
+            key={item.id}
+            to={{
+              kind: "request",
+              id: item.id,
+              reference: item.reference,
+              targetName: target.name,
+            }}
+            title={<span className="font-mono text-meta">{item.reference}</span>}
+            meta={`${names.get(item.profileId) ?? "Profile"}, ${item.rights
+              .map((right) => RIGHT_TOKENS[right])
+              .join(" \u00b7 ")}`}
+            trailing={<StatusMark status={item.status} />}
+          />
+        ))}
+      </RowGroup>
+      {(list.data?.total ?? 0) > items.length ? (
+        <p className="mt-2 text-meta">
+          <TextLink to={paths.requests({ targetId: target.id })}>
+            See all {list.data?.total}
+          </TextLink>
+        </p>
+      ) : null}
+    </Section>
+  );
+}
+
+/** The request that already covers this target for the profile, which makes asking again pointless. */
+function useStandingRequest(targetId: string) {
+  const { profile } = useCurrentProfile();
+  const list = useApiQuery(
+    API_ROUTES.requestsList,
+    profile
+      ? { params: { id: profile.id }, query: { targetId, page: 1, pageSize: 20 } }
+      : skipToken,
+  );
+  return list.data?.items.find(
+    (item) => isActiveStatus(item.status) || item.status === "confirmed",
+  );
+}
+
+function RemoveAction({ target }: { target: TargetDetail }) {
+  const standing = useStandingRequest(target.id);
+  if (standing) {
+    return (
+      <LinkButton to={paths.request(standing.id)}>
+        {standing.status === "confirmed" ? "Already removed" : "Removal in progress"}
+      </LinkButton>
+    );
+  }
+  return (
+    <LinkButton to={paths.targetRemove(target.id)} variant="primary">
+      Remove my data
+    </LinkButton>
+  );
+}
+
+function TargetView({ target }: { target: TargetDetail }) {
   const unsupported = target.contactMethod === "unknown";
+  const asked = useApiQuery(API_ROUTES.requestsListAll, {
+    query: { targetId: target.id, page: 1, pageSize: 1 },
+  });
 
   return (
     <>
       <PageHeader
         title={target.name}
         description={`${TARGET_KIND_LABELS[target.kind]}, ${TARGET_CATEGORY_LABELS[target.category].toLowerCase()}`}
-        back={{ to: "/targets", label: "Targets" }}
+        hideDescriptionOnPhone
         actions={
           <>
-            <LinkButton to={`/requests?targetId=${encodeURIComponent(target.id)}`}>
-              View requests
-            </LinkButton>
-            {target.retired ? null : (
-              <LinkButton
-                to={`/campaigns/new?targets=${encodeURIComponent(target.id)}`}
-                variant="primary"
-              >
-                Ask to remove my data
-              </LinkButton>
-            )}
+            {asked.data ? (
+              <CountLink
+                value={asked.data.total}
+                label="Requests"
+                to={paths.requests({ targetId: target.id })}
+              />
+            ) : null}
+            {target.retired ? null : <RemoveAction target={target} />}
           </>
         }
       />
@@ -153,85 +258,95 @@ export function Component() {
           </Callout>
         ) : null}
 
+        <TargetRequests target={target} />
+
         <Section label="Details">
-          <div className="rounded-md border border-line bg-surface px-3.5 py-3">
-            <DescriptionList
-              items={[
-                {
-                  term: "Priority",
-                  description: <Priority priority={target.priority} />,
-                },
-                { term: "Contact", description: CONTACT_METHOD_LABELS[target.contactMethod] },
-                {
-                  term: "Website",
-                  description: target.website ? (
-                    <ExternalLinkText href={target.website} className={MONO}>
-                      {target.domain}
-                    </ExternalLinkText>
-                  ) : (
-                    <span className={MONO}>{target.domain}</span>
-                  ),
-                },
-                {
-                  term: "Privacy email",
-                  description: target.privacyEmail ? (
-                    <span className={`${MONO} break-all`}>{target.privacyEmail}</span>
-                  ) : (
-                    <Missing />
-                  ),
-                },
-                {
-                  term: "Opt-out page",
-                  description: target.optOutUrl ? (
-                    <ExternalLinkText href={target.optOutUrl} className={`${MONO} break-all`}>
-                      {target.optOutUrl}
-                    </ExternalLinkText>
-                  ) : (
-                    <Missing />
-                  ),
-                },
-                {
-                  term: "Privacy rights page",
-                  description: target.privacyRightsUrl ? (
-                    <ExternalLinkText
-                      href={target.privacyRightsUrl}
-                      className={`${MONO} break-all`}
-                    >
-                      {target.privacyRightsUrl}
-                    </ExternalLinkText>
-                  ) : (
-                    <Missing />
-                  ),
-                },
-                ...(target.needsRecord
-                  ? [
-                      {
-                        term: "Find your record",
-                        description: target.searchUrl ? (
-                          <ExternalLinkText href={target.searchUrl} className={`${MONO} break-all`}>
-                            {target.searchUrl}
-                          </ExternalLinkText>
-                        ) : (
-                          <Missing />
-                        ),
-                      },
-                    ]
-                  : []),
-                {
-                  term: "Region",
-                  description: <span className={MONO}>{target.region.toUpperCase()}</span>,
-                },
-                {
-                  term: "Contacts checked",
-                  description: target.verifiedAt ? (
-                    <span className={MONO}>{formatDate(target.verifiedAt)}</span>
-                  ) : (
-                    <span className="text-ink-3">Not checked yet</span>
-                  ),
-                },
-              ]}
-            />
-          </div>
+          <FactList
+            dense
+            items={[
+              { term: "Priority", value: <Priority priority={target.priority} /> },
+              {
+                term: "Contact",
+                hint: CONTACT_METHOD_LABELS[target.contactMethod],
+                value: <ContactValue method={target.contactMethod} />,
+              },
+              {
+                term: "Website",
+                value: target.website ? (
+                  <ExternalLinkText href={target.website} className={MONO}>
+                    {target.domain}
+                  </ExternalLinkText>
+                ) : (
+                  <span className={MONO}>{target.domain}</span>
+                ),
+              },
+              {
+                term: "Privacy email",
+                value: target.privacyEmail ? (
+                  <span className="inline-flex max-w-full items-start gap-x-1">
+                    <span className={`${MONO} min-w-0`}>
+                      <BreakableAddress text={target.privacyEmail} />
+                    </span>
+                    <span className="-my-1 shrink-0">
+                      <CopyButton iconOnly value={target.privacyEmail} label="Copy privacy email" />
+                    </span>
+                  </span>
+                ) : (
+                  <Missing />
+                ),
+              },
+              {
+                term: "Opt-out page",
+                value: target.optOutUrl ? (
+                  <ExternalLinkText href={target.optOutUrl} className={`${MONO} break-all`}>
+                    {target.optOutUrl}
+                  </ExternalLinkText>
+                ) : (
+                  <Missing />
+                ),
+              },
+              {
+                term: "Rights page",
+                value: target.privacyRightsUrl ? (
+                  <ExternalLinkText href={target.privacyRightsUrl} className={`${MONO} break-all`}>
+                    {target.privacyRightsUrl}
+                  </ExternalLinkText>
+                ) : (
+                  <Missing />
+                ),
+              },
+              ...(target.needsRecord
+                ? [
+                    {
+                      term: "Find your record",
+                      value: target.searchUrl ? (
+                        <ExternalLinkText href={target.searchUrl} className={`${MONO} break-all`}>
+                          {target.searchUrl}
+                        </ExternalLinkText>
+                      ) : (
+                        <Missing />
+                      ),
+                    },
+                  ]
+                : []),
+              {
+                term: "Region",
+                value: (
+                  <>
+                    <span className={MONO}>{target.region.toUpperCase()}</span>
+                    {target.verifiedAt ? (
+                      <>
+                        , contacts checked{" "}
+                        <span className={MONO}>{formatDate(target.verifiedAt)}</span>
+                      </>
+                    ) : (
+                      ", contacts not checked yet"
+                    )}
+                  </>
+                ),
+              },
+            ]}
+          />
         </Section>
 
         <Section label="Difficulty">
@@ -284,43 +399,61 @@ export function Component() {
 
         {target.kind === "broker" ? <SiteVisits targetId={target.id} /> : null}
 
-        <Section label="Automation">
+        <Section
+          label="Automation"
+          actions={
+            target.recipes.length > 0 ? (
+              <TextLink to={paths.settings("recipes")} className="text-meta">
+                Recipes in Settings
+              </TextLink>
+            ) : null
+          }
+        >
           {target.recipes.length === 0 ? (
             <EmptyState
               title="No saved steps for this target."
               description="Requests go by email where possible. Form tasks wait for an agent or for you in Review."
             />
           ) : (
-            <Table label="Recipes for this target">
-              <TableHead>
-                <tr>
-                  <TableHeaderCell>Purpose</TableHeaderCell>
-                  <TableHeaderCell className="hidden sm:table-cell">Version</TableHeaderCell>
-                  <TableHeaderCell className="hidden sm:table-cell">Source</TableHeaderCell>
-                  <TableHeaderCell>Status</TableHeaderCell>
-                  <TableHeaderCell>Health</TableHeaderCell>
-                </tr>
-              </TableHead>
-              <TableBody>
-                {target.recipes.map((recipe) => (
-                  <TableRow key={recipe.id}>
-                    <TableCell>{recipe.purpose === "scan" ? "Scan" : "Removal"}</TableCell>
-                    <TableCell mono className="hidden sm:table-cell">
-                      v{recipe.version}
-                    </TableCell>
-                    <TableCell className="hidden capitalize text-ink-2 sm:table-cell">
-                      {recipe.source}
-                    </TableCell>
-                    <TableCell className="text-ink-2">
-                      {RECIPE_STATUS_LABELS[recipe.status]}
-                    </TableCell>
-                    <TableCell>
-                      <HealthMark health={recipe.health} />
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+            <DataList
+              label="Recipes for this target"
+              items={target.recipes}
+              getKey={(recipe) => recipe.id}
+              identityHeader="Purpose"
+              identity={(recipe) => ({ title: recipe.purpose === "scan" ? "Scan" : "Removal" })}
+              tags={(recipe) => (
+                <>
+                  <span className="font-mono">v{recipe.version}</span>
+                  <span>{RECIPE_STATUS_LABELS[recipe.status]}</span>
+                  <HealthMark health={recipe.health} />
+                </>
+              )}
+              columns={[
+                {
+                  id: "version",
+                  header: "Version",
+                  mono: true,
+                  cell: (recipe) => <>v{recipe.version}</>,
+                },
+                {
+                  id: "source",
+                  header: "Source",
+                  cell: (recipe) => <span className="capitalize text-ink-2">{recipe.source}</span>,
+                },
+                {
+                  id: "status",
+                  header: "Status",
+                  cell: (recipe) => (
+                    <span className="text-ink-2">{RECIPE_STATUS_LABELS[recipe.status]}</span>
+                  ),
+                },
+                {
+                  id: "health",
+                  header: "Health",
+                  cell: (recipe) => <HealthMark health={recipe.health} />,
+                },
+              ]}
+            />
           )}
         </Section>
 

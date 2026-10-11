@@ -1,0 +1,22 @@
+DKIM-Signature: v=1; a=ed25519-sha256; c=relaxed/relaxed; d=gmail.com;
+ h=Content-Transfer-Encoding: Content-Type: MIME-Version: References:
+ In-Reply-To: Message-ID: Date: Subject: To: From; q=dns/txt; s=kr;
+ t=1790847720; bh=J9Y9zxmoHIW4Bzms58IalzeLVcb+zIUhYEBpybvbTUY=;
+ b=rBBIhPeNsHTlb0lE3UkagQk4Df7FRtd4XQoCFri/VG+JjX0W1Ae6CyZNNXqFeI1gDV/hCHMDB
+ qaY6WMuqtwyBg==
+Return-Path: <sam.rivera82@gmail.com>
+Received: from mail.gmail.com (mail.gmail.com [203.0.113.19]) by mx.example.com with ESMTPS id ff42dd9fc3 for <jordan@example.com>; Thu, 01 Oct 2026 09:42:00 +0000
+From: Sam Rivera <sam.rivera82@gmail.com>
+To: jordan@example.com
+Subject: Re: remove me from the group chat lol
+Date: Thu, 01 Oct 2026 09:42:00 +0000
+Message-ID: <9d2ceee097232be2489df009@gmail.com>
+In-Reply-To: <28042541527b189df178@mail.example.com>
+References: <28042541527b189df178@mail.example.com>
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+Happy birthday! Dinner is on me this weekend. Pick a place and send it over.
+
+Sam

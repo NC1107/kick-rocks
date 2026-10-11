@@ -1,0 +1,25 @@
+DKIM-Signature: v=1; a=ed25519-sha256; c=relaxed/relaxed;
+ d=beenverified.com; h=Content-Transfer-Encoding: Content-Type:
+ MIME-Version: Reply-To: Message-ID: Date: Subject: To: From; q=dns/txt;
+ s=kr; t=1790487060; bh=s2HzLe72xGEnsgYW+huE3j2WvW3xKJNfAbRFKHQLuuU=;
+ b=ekjamR5gpqRa3fQIcXxKXK5zdilOWv4a9fuB3fJJWBN2PtCtj2kgOqcx4QAmi1CTDrTQOdiog
+ PBXEf8r6O/8Ag==
+Return-Path: <bounce-04280@beenverified.com>
+Received: from mail.beenverified.com (mail.beenverified.com [203.0.113.26]) by mx.example.com with ESMTPS id f4801b00e3 for <jordan@example.com>; Sun, 27 Sep 2026 05:31:00 +0000
+From: BeenVerified Privacy <privacy@beenverified.com>
+To: jordan@example.com
+Subject: Regarding your message
+Date: Sun, 27 Sep 2026 05:31:00 +0000
+Message-ID: <9e18db828e8f50fe7c13647a@beenverified.com>
+Reply-To: privacy@beenverified.com
+Auto-Submitted: auto-replied
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+Hi Jordan,
+
+We have received your message about your data and will review it shortly.
+
+Sincerely,
+Data Subject Requests, BeenVerified

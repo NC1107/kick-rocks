@@ -24,6 +24,34 @@ describe("shell status chips", () => {
     expect(chip).toMatchObject({ tone: "positive", label: "Worker online" });
   });
 
+  it("turns an online worker to attention while queued scans wait on something the person can fix", () => {
+    const chip = workerChip(
+      { enabled: true, builtin: status("2026-10-07T11:59:00Z"), model: null },
+      NOW,
+      { byReason: { no_recipe: { count: 3 }, quiet_hours: { count: 2 } } },
+    );
+    expect(chip).toMatchObject({ tone: "attention", label: "Worker idle", value: "3 held" });
+  });
+
+  it("leaves an online worker alone while scans only wait out pacing", () => {
+    const chip = workerChip(
+      { enabled: true, builtin: status("2026-10-07T11:59:00Z"), model: null },
+      NOW,
+      { byReason: { site_cooldown: { count: 2 }, site_breaker: { count: 1 } } },
+    );
+    expect(chip).toMatchObject({ tone: "positive", label: "Worker online" });
+  });
+
+  it("links each chip to the page that explains it", () => {
+    const worker = workerChip({ enabled: false, builtin: null, model: null }, NOW);
+    expect(worker.to).toBe("/settings#worker");
+    const inbox = inboxChip(null, () => "", "prf_1");
+    expect(inbox.to).toBe("/profiles/prf_1/mailbox");
+    expect(sitesChip([{ coolingDownUntil: "2026-10-07T17:00:00Z", breaker: "closed" }])?.to).toBe(
+      "/settings#sites",
+    );
+  });
+
   it("flags a worker that went quiet as attention", () => {
     const chip = workerChip(
       { enabled: true, builtin: status("2026-10-07T11:00:00Z"), model: null },
@@ -40,20 +68,26 @@ describe("shell status chips", () => {
     const chip = inboxChip(
       { address: "a@example.com", lastPolledAt: "2026-10-07T11:59:00Z", lastError: "refused" },
       () => "1m ago",
+      "prf_1",
     );
     expect(chip).toMatchObject({ tone: "attention", label: "Inbox unreachable" });
   });
 
   it("turns the sends chip to attention at 80 percent of the cap", () => {
-    expect(sendsChip({ sent: 119, cap: 150, remaining: 31 })?.tone).toBe("neutral");
-    expect(sendsChip({ sent: 120, cap: 150, remaining: 30 })?.tone).toBe("attention");
-    expect(sendsChip(null)).toBeNull();
+    expect(sendsChip({ sent: 119, cap: 150, remaining: 31 }, "prf_1")?.tone).toBe("neutral");
+    expect(sendsChip({ sent: 120, cap: 150, remaining: 30 }, "prf_1")?.tone).toBe("attention");
+    expect(sendsChip(null, "prf_1")).toBeNull();
   });
 
   it("picks a chip for the phone bar only when something needs a look", () => {
-    const fine = [{ id: "worker", tone: "positive", label: "Worker online" }] as const;
+    const fine = [
+      { id: "worker", tone: "positive", label: "Worker online", to: "/settings#worker" },
+    ] as const;
     expect(mostUrgent(fine)).toBeUndefined();
-    const trouble = [...fine, { id: "inbox", tone: "danger", label: "Inbox unreachable" }] as const;
+    const trouble = [
+      ...fine,
+      { id: "inbox", tone: "danger", label: "Inbox unreachable", to: "/x" },
+    ] as const;
     expect(mostUrgent(trouble)?.id).toBe("inbox");
   });
 
@@ -67,14 +101,21 @@ describe("shell status chips", () => {
       tone: "attention",
       label: "Cooling down",
       value: "1 site",
+      to: "/settings#sites",
     });
     expect(sitesChip([cooling, paused])?.value).toBe("2 sites");
   });
 
   it("lets a cooling site feed the phone bar mark", () => {
     const chips = [
-      { id: "worker", tone: "positive", label: "Worker online" } as const,
-      { id: "sites", tone: "attention", label: "Cooling down", value: "1 site" } as const,
+      { id: "worker", tone: "positive", label: "Worker online", to: "/settings#worker" } as const,
+      {
+        id: "sites",
+        tone: "attention",
+        label: "Cooling down",
+        value: "1 site",
+        to: "/settings#sites",
+      } as const,
     ];
     expect(mostUrgent(chips)?.id).toBe("sites");
   });

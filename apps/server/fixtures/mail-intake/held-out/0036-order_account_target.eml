@@ -1,0 +1,24 @@
+DKIM-Signature: v=1; a=ed25519-sha256; c=relaxed/relaxed; d=netflix.com;
+ h=Content-Transfer-Encoding: Content-Type: MIME-Version: Message-ID: Date:
+ Subject: To: From; q=dns/txt; s=kr; t=1790613600;
+ bh=Q2gBd3KsI59xJrlLCC3sFNUdRHfqfj6Ob+NF73SKDmQ=;
+ b=5nDNS3kDLxruBsK5j9kn4D96X6jI+UZQO34gKGu9QAVmKc4k6MT+OYU9pn4Npl1+rEms/1dvO
+ ca0a9kmJguZDw==
+Return-Path: <0100683cf1fefc61ea4573d7-ff791c92@bounces.netflix.com>
+Received: from mail.account.netflix.com (mail.account.netflix.com [203.0.113.29]) by mx.example.com with ESMTPS id 0e7c3490cb for <jordan@example.com>; Mon, 28 Sep 2026 16:40:00 +0000
+From: Netflix <info@account.netflix.com>
+To: jordan@example.com
+Subject: Your Netflix payment was declined
+Date: Mon, 28 Sep 2026 16:40:00 +0000
+Message-ID: <b346eaf09da6d5c3b736869f@account.netflix.com>
+Auto-Submitted: auto-generated
+X-Mailer: Transactional Mailer
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+Hi,
+
+Please confirm your new email address by clicking the link: https://netflix.com/account/confirm-email?token=16e88935b99e365008f6
+
+If you did not make this change, contact support.
