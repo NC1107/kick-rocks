@@ -465,7 +465,7 @@ const JORDAN_REQUESTS: Seed[] = [
   {
     // An automatic reply that says the request must go through a web form or by phone. Nothing
     // reads it as such, so the request looks like any other that is waiting.
-    target: "rye-street-bakery-cafe",
+    target: "maplewood-cinemas",
     status: "awaiting_reply",
     daysAgo: 6,
     rights: DELETE,

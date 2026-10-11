@@ -64,8 +64,10 @@ export function EntityRow({
         type="button"
         onClick={onSelect}
         aria-current={selected ? "true" : undefined}
+        data-selected={selected ? "true" : undefined}
         className={cn(
           ROW_CLASS,
+          "marked",
           "focus-visible:-outline-offset-2",
           selected ? "bg-accent-soft" : "hover:bg-hover",
           className,
@@ -75,5 +77,17 @@ export function EntityRow({
       </button>
     );
   }
-  return <div className={cn(ROW_CLASS, interactive && "hover:bg-hover", className)}>{body}</div>;
+  return (
+    <div
+      data-selected={selected ? "true" : undefined}
+      className={cn(
+        ROW_CLASS,
+        "marked",
+        selected ? "bg-accent-soft" : interactive && "hover:bg-hover",
+        className,
+      )}
+    >
+      {body}
+    </div>
+  );
 }

@@ -11,7 +11,10 @@ describe("the profiles list", () => {
     const jordan = await screen.findByRole("listitem", { name: /Jordan Example/ });
     expect(within(jordan).getByText("CA")).toBeInTheDocument();
     expect(within(jordan).getByText("jordan@example.com")).toBeInTheDocument();
-    expect(within(jordan).getByText("Mailbox connected")).toBeInTheDocument();
+    expect(within(jordan).getByRole("link", { name: "Mailbox connected" })).toHaveAttribute(
+      "href",
+      expect.stringMatching(/\/profiles\/prf_\d+\/mailbox$/),
+    );
     const riley = screen.getByRole("listitem", { name: /Riley Sample/ });
     expect(within(riley).getByRole("link", { name: "Connect mailbox" })).toHaveAttribute(
       "href",

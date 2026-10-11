@@ -196,8 +196,8 @@ describe("the request page", () => {
   });
 
   it("shows the legal basis as its short code", async () => {
-    open(byTarget("rye-street-bakery-cafe"));
-    await screen.findByRole("heading", { name: "Rye Street Bakery Cafe", level: 1 });
+    open(byTarget("maplewood-cinemas"));
+    await screen.findByRole("heading", { name: "Maplewood Cinemas", level: 1 });
     expect(screen.getByText("MODPA")).toBeVisible();
   });
 
@@ -411,7 +411,7 @@ describe("correcting a reply", () => {
   });
 
   it("puts the misread receipt next to the actions, with the web form first in the menu", async () => {
-    const { user } = open(byTarget("rye-street-bakery-cafe"));
+    const { user } = open(byTarget("maplewood-cinemas"));
     await screen.findByRole("heading", { name: /^Latest reply/ });
     expect(screen.queryByText(/wants its web form/)).toBeNull();
     await user.click(
@@ -423,7 +423,7 @@ describe("correcting a reply", () => {
   });
 
   it("applies the web form answer and then says the target wants its form", async () => {
-    const { user, mock } = open(byTarget("rye-street-bakery-cafe"));
+    const { user, mock } = open(byTarget("maplewood-cinemas"));
     await screen.findByRole("heading", { name: /^Latest reply/ });
     await user.click(
       screen.getAllByRole("button", { name: /Change what this reply is/ })[0] as HTMLElement,
@@ -432,7 +432,7 @@ describe("correcting a reply", () => {
     await waitFor(() =>
       expect(
         mock.store.messages.find((message) =>
-          message.fromAddress.endsWith("ryestreetbakerycafe.example"),
+          message.fromAddress.endsWith("maplewoodcinemas.example"),
         )?.classification,
       ).toBe("needs_form"),
     );
@@ -440,7 +440,7 @@ describe("correcting a reply", () => {
   });
 
   it("asks before marking a reply as a final answer", async () => {
-    const { user, mock } = open(byTarget("rye-street-bakery-cafe"));
+    const { user, mock } = open(byTarget("maplewood-cinemas"));
     await screen.findByRole("heading", { name: /^Latest reply/ });
     await user.click(
       screen.getAllByRole("button", { name: /Change what this reply is/ })[0] as HTMLElement,
@@ -448,7 +448,7 @@ describe("correcting a reply", () => {
     await user.click(await screen.findByRole("menuitem", { name: /Completed/ }));
     const dialog = await screen.findByRole("dialog");
     const cafe = (message: { fromAddress: string }) =>
-      message.fromAddress.endsWith("ryestreetbakerycafe.example");
+      message.fromAddress.endsWith("maplewoodcinemas.example");
     expect(mock.store.messages.find(cafe)?.classification).toBe("auto_ack");
     await user.click(within(dialog).getByRole("button", { name: "Classify" }));
     await waitFor(() => expect(mock.store.messages.find(cafe)?.classification).toBe("completed"));

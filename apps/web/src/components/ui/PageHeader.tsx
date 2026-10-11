@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { cn } from "../../lib/cn.js";
 import { usePageTitle } from "../../lib/use-page-title.js";
 import { type BackTarget, PageBack } from "./PageBack.js";
 
@@ -8,6 +9,8 @@ export interface PageHeaderProps {
   documentTitle?: string;
   /** Eight words or fewer, or leave it out. */
   description?: ReactNode;
+  /** For a line that only describes the page, which a phone has no room for. */
+  hideDescriptionOnPhone?: boolean;
   /** Buttons that act on the whole page. The main one goes last. */
   actions?: ReactNode;
   /**
@@ -22,6 +25,7 @@ export function PageHeader({
   title,
   documentTitle,
   description,
+  hideDescriptionOnPhone = false,
   actions,
   back = "auto",
 }: PageHeaderProps) {
@@ -34,7 +38,16 @@ export function PageHeader({
           <h1 className="text-title font-semibold tracking-[-0.01em] text-ink max-sm:text-[1.25rem]/[1.5rem]">
             {title}
           </h1>
-          {description ? <p className="min-w-0 text-meta text-ink-3">{description}</p> : null}
+          {description ? (
+            <p
+              className={cn(
+                "min-w-0 text-meta text-ink-3",
+                hideDescriptionOnPhone && "max-sm:hidden",
+              )}
+            >
+              {description}
+            </p>
+          ) : null}
         </div>
         {actions ? (
           <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div>

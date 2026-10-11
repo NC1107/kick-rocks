@@ -261,7 +261,6 @@ interface CompanySeed {
 
 const COMPANIES: CompanySeed[] = [
   { name: "Alder & Finch", category: "retail", contact: "both" },
-  { name: "Rye Street Bakery Cafe", category: "retail", contact: "email" },
   { name: "Corner Basket Market", category: "retail", contact: "email" },
   { name: "Hearth and Hammer", category: "retail", contact: "form" },
   { name: "Greenhouse Outfitters", category: "retail", contact: "email" },
