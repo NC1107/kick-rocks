@@ -110,6 +110,23 @@ describe("the flat queue", () => {
     expect(pick(null, null)).toBe("blocked:t1");
   });
 
+  it("keeps a task selected when it moves between sections", () => {
+    const task = (id: string) => ({ task: { id, assignment: null } }) as unknown as BlockedTaskItem;
+    const queue: ReviewQueue = {
+      ...empty,
+      agentTasks: [
+        { task: { id: "a", assignment: { to: { kind: "person" } } } } as unknown as BlockedTaskItem,
+        task("b"),
+      ],
+    };
+    const moved = buildEntries(queue);
+    const pick = (item: string) => pickEntry(moved, { item, tab: null, lastIndex: 1 })?.key;
+    expect(pick("agent:a")).toBe("yours:a");
+    expect(pick("yours:b")).toBe("agent:b");
+    expect(pick("agent:gone")).toBe("agent:b");
+    expect(pick("match:a")).toBe("agent:b");
+  });
+
   it("moves to the item now at the old position when the named one is gone", () => {
     expect(pickEntry(entries, { item: "blocked:gone", tab: null, lastIndex: 2 })?.key).toBe(
       "match:m1",

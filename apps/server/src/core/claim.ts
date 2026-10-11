@@ -691,10 +691,11 @@ function refuseIfAssignedElsewhere(task: Task, workerId: string, claimerKind: Cl
     );
   }
   if (assignment.to.kind !== claimerKind || assignment.to.workerId !== workerId) {
-    throw conflict(
-      "task_assigned",
-      `Assigned to ${assignment.to.workerId}. The person can reassign it on the request page.`,
-    );
+    const where =
+      task.status === "blocked"
+        ? "can hand it to another agent from Review"
+        : "can reassign it on the request page";
+    throw conflict("task_assigned", `Assigned to ${assignment.to.workerId}. The person ${where}.`);
   }
 }
 

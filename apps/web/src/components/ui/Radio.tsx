@@ -11,6 +11,8 @@ export interface RadioOption<V extends string> {
   /** Shown under the description at full strength even when the option is disabled, to say why. */
   note?: ReactNode;
   disabled?: boolean;
+  /** Where a dialog puts focus when it opens, so a keyboard starts at the choice, not past it. */
+  autoFocus?: boolean;
 }
 
 export interface RadioGroupProps<V extends string> {
@@ -89,6 +91,7 @@ export function RadioGroup<V extends string>({
                 value={option.value}
                 checked={value === option.value}
                 disabled={option.disabled}
+                data-autofocus={option.autoFocus ? "" : undefined}
                 onChange={() => onValueChange(option.value)}
                 className={cn(
                   BOX_CLASS,

@@ -219,17 +219,33 @@ export function buildEntries(queue: ReviewQueue): QueueEntry[] {
   ];
 }
 
+const TASK_KEY = /^(?:blocked|yours|agent):(.+)$/;
+
+/**
+ * The task a key names, whichever section holds it. Handing a task to oneself or back to an agent
+ * moves it between sections, and the person is still looking at that task.
+ */
+function sameTaskEntry(entries: readonly QueueEntry[], key: string): QueueEntry | undefined {
+  const taskId = TASK_KEY.exec(key)?.[1];
+  if (!taskId) return undefined;
+  return entries.find(
+    (entry) =>
+      (entry.kind === "blocked" || entry.kind === "yours" || entry.kind === "agents") &&
+      entry.item.task.id === taskId,
+  );
+}
+
 /**
  * The entry the address points at: a named item, else the first of a named group, else the first
- * of all. When the named item is gone, the one that now sits at its old position, so deciding an
- * item moves on to the next.
+ * of all. A task that changed section stays selected. When the named item is gone, the one that
+ * now sits at its old position, so deciding an item moves on to the next.
  */
 export function pickEntry(
   entries: readonly QueueEntry[],
   { item, tab, lastIndex }: { item: string | null; tab: string | null; lastIndex: number },
 ): QueueEntry | null {
   if (item) {
-    const named = entries.find((entry) => entry.key === item);
+    const named = entries.find((entry) => entry.key === item) ?? sameTaskEntry(entries, item);
     if (named) return named;
   } else if (tab) {
     const first = entries.find((entry) => entry.kind === tab);

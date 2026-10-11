@@ -13,7 +13,7 @@ import {
 } from "@kickrocks/shared";
 import { conflict, defineMockDomain, handle, MockHttpError, notFound } from "./core.js";
 import { addEvent, makeTask } from "./requests.js";
-import type { MockStore } from "./store.js";
+import type { MockStore, StoredRequest } from "./store.js";
 
 /** A worker or MCP client that has called in, as the mock remembers it. */
 export interface MockAgent {
@@ -110,11 +110,26 @@ function ensureDemoTasks(store: MockStore): void {
       },
       { minutes: 25 },
     );
-    addEvent(store, request, "task_enqueued", "system", task.updatedAt, {
+    if (request.channel !== "form") switchToForm(store, request, task.createdAt);
+    addEvent(store, request, "task_enqueued", "system", task.createdAt, {
       taskId: task.id,
       kind: "agent",
     });
   }
+}
+
+/** An agent drives a website, so the demo request goes by the form, not by a mail that failed. */
+function switchToForm(store: MockStore, request: StoredRequest, at: string): void {
+  addEvent(store, request, "channel_switched", "user", at, {
+    from: request.channel,
+    to: "form",
+    reason: "user",
+  });
+  request.events = request.events.filter((event) => event.type !== "send_failed");
+  request.channel = "form";
+  request.mailboxId = null;
+  request.outgoingMessageId = null;
+  request.lastError = null;
 }
 
 /** Sets who has connected and makes sure a task waits for an agent. */

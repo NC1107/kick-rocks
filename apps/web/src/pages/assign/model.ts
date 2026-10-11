@@ -82,10 +82,19 @@ export function seenText(row: AgentRow, now: number): string {
   return row.online ? "Online" : `Seen ${elapsedText(row.lastSeenAt, now)} ago`;
 }
 
+/** An MCP client holds a task only while it keeps asking for work, so when it last did is what counts. */
+function askedText(row: AgentRow, now: number): string {
+  return row.lastClaimAt
+    ? `Last asked for work ${elapsedText(row.lastClaimAt, now)} ago`
+    : "Has not asked for work yet";
+}
+
 /** What is worth saying about an agent's presence beyond the presence mark beside it. */
 export function presenceLine(row: AgentRow, now: number): string | null {
   const busy = row.busy ? `Busy with ${row.currentTargetName ?? "a task"}` : null;
-  if (row.kind === "mcp") return [seenText(row, now), busy].filter(Boolean).join(". ");
+  if (row.kind === "mcp") {
+    return [seenText(row, now), askedText(row, now), busy].filter(Boolean).join(". ");
+  }
   if (!row.online) return seenText(row, now);
   return busy;
 }
@@ -115,10 +124,23 @@ export function fallbackWords(assignment: TaskAssignment): string {
 }
 
 /** The sentence the dialog shows under the fallback choice. */
-export function fallbackSentence(workerId: string, fallback: TaskAssignment["fallback"]): string {
-  return `If ${workerId} is not seen for ${GRACE_MINUTES} minutes, ${
-    fallback === "person" ? "it comes back to you" : "any agent may take it"
-  }.`;
+export function fallbackSentence(
+  workerId: string,
+  fallback: TaskAssignment["fallback"],
+  kind: "model" | "mcp" = "model",
+): string {
+  const quiet =
+    kind === "mcp"
+      ? `does not ask for work (claim_task) for ${GRACE_MINUTES} minutes`
+      : `is not seen for ${GRACE_MINUTES} minutes`;
+  return `If ${workerId} ${quiet}, ${fallback === "person" ? "it comes back to you" : "any agent may take it"}.`;
+}
+
+/** The label of the fallback choice, which names what counts as the assignee going quiet. */
+export function fallbackLabel(kind: "model" | "mcp"): string {
+  return kind === "mcp"
+    ? `If it does not ask for work for ${GRACE_MINUTES} minutes`
+    : `If it is offline for ${GRACE_MINUTES} minutes`;
 }
 
 /** Who a task is meant for, in a line for a list row. */

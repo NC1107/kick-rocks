@@ -259,7 +259,7 @@ export function BlockedTaskDetail({
     ) : variant === "agent" || variant === "yours" ? (
       <>
         <Button variant="primary" onClick={() => setDoneOpen(true)} disabled={busy}>
-          {variant === "yours" ? "Mark done" : "I did it myself"}
+          Mark done
         </Button>
         <Button variant="ghost" onClick={() => setCancelOpen(true)} disabled={busy}>
           Cancel task
@@ -348,12 +348,6 @@ export function BlockedTaskDetail({
           ) : (
             <p className="text-body text-ink">{steps.join(" ")}</p>
           )}
-          {variant === "agent" && task.assignment === null ? (
-            <p className="mt-2 text-meta text-ink-3">
-              An agent is an AI assistant you connect over MCP in{" "}
-              <TextLink to={paths.settings("agents")}>Settings</TextLink>.
-            </p>
-          ) : null}
           {item.url || failure?.needsProfile ? (
             <p className="mt-2.5 flex flex-wrap gap-x-4 gap-y-1 text-ui">
               {item.url ? (

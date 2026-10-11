@@ -1381,7 +1381,10 @@ describe("claiming a task by id that was assigned", () => {
     });
     expect(ctx.services.taskQueue.getOrThrow(task.id).status).toBe("blocked");
     expect(() => byId(task.id, "someone-else")).toThrow(
-      expect.objectContaining({ code: "task_assigned" }),
+      expect.objectContaining({
+        code: "task_assigned",
+        message: "Assigned to desk-client. The person can hand it to another agent from Review.",
+      }),
     );
     expect(ctx.services.taskQueue.getOrThrow(task.id).status).toBe("blocked");
   });

@@ -328,6 +328,22 @@ describe("attention detail wording", () => {
     expect(screen.getByText("1 assigned to nick-pc-agent, 1 for any agent")).toBeInTheDocument();
   });
 
+  it("keeps who has the task visible at phone width, where other details are hidden", () => {
+    renderPage(
+      <AttentionSection
+        attention={{
+          ...none,
+          agentTasks: 1,
+          assignedAgentTasks: 1,
+          agentAssignees: ["nick-pc-agent"],
+          failedTasks: 1,
+        }}
+      />,
+    );
+    expect(screen.getByText("1 assigned to nick-pc-agent")).not.toHaveClass("max-sm:hidden");
+    expect(screen.getByText("Retry it, or finish it by hand.")).toHaveClass("max-sm:hidden");
+  });
+
   it("counts the tasks the person took for themselves in a tile of their own", () => {
     renderPage(<AttentionSection attention={{ ...none, yourAgentTasks: 2 }} />);
     expect(screen.getByText("Yours to do")).toBeInTheDocument();

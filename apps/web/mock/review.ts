@@ -53,7 +53,7 @@ const LIVE_HOLD_INSTRUCTIONS =
   "The run is waiting for you. Look at what the page is about to send, then send it, hold it back, or finish by hand.";
 
 const AGENT_INSTRUCTIONS =
-  "No agent has taken this yet, and the recipe worker will not run it. Connect an agent in Settings, or open the page and finish the job yourself, then mark it done.";
+  "No agent has taken this yet, and the recipe worker will not run it. Open the page and finish the job yourself, then mark it done, or wait for an agent to take it.";
 
 const assignedInstructions = (workerId: string) =>
   `This task is waiting for ${workerId}. Change who takes it, or open the page and finish the job yourself, then mark it done.`;

@@ -104,9 +104,17 @@ export function AgentPanel({ task, pageUrl, events = [], layout }: AgentPanelPro
         <p className="text-ink-3">Wait for the run to end, or stop it in Review.</p>
       ) : null}
       {state.mcpHint ? (
-        <p className="mt-1 flex flex-wrap items-center gap-2">
-          <code className="font-mono text-caption text-ink-2">{`claim_task with taskId "${task.id}"`}</code>
-          <CopyButton value={`claim_task with taskId "${task.id}"`} label="Copy" />
+        <p className="mt-1 flex items-center gap-1">
+          <code
+            title={`claim_task with taskId "${task.id}"`}
+            className="min-w-0 truncate font-mono text-caption text-ink-2"
+          >{`claim_task with taskId "${task.id}"`}</code>
+          <CopyButton
+            iconOnly
+            value={`claim_task with taskId "${task.id}"`}
+            label="Copy"
+            className="shrink-0"
+          />
         </p>
       ) : null}
       {lapsed ? <p>{lapsed}</p> : null}
@@ -218,7 +226,7 @@ function PanelActions({
           </Button>
           {runNowButton}
           <Button size="sm" onClick={onKeep} loading={keeping}>
-            Do it myself
+            Keep it for me
           </Button>
         </span>
       );

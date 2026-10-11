@@ -7,7 +7,7 @@ import {
   type TaskSummary,
 } from "@kickrocks/shared";
 import { Bot, Plug, User } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { errorMessage, useAgents, useApiMutation } from "../../api/index.js";
 import {
   Button,
@@ -26,6 +26,7 @@ import {
   agentChoice,
   type Choice,
   choiceOf,
+  fallbackLabel,
   fallbackSentence,
   modelLine,
   NO_AGENTS_TEXT,
@@ -98,6 +99,7 @@ export function AssignDialog({ open, onClose, task, mode }: AssignDialogProps) {
   const mutation = mode === "handoff" ? handOff : assign;
 
   const workerId = workerIdOf(choice);
+  const kindOf = choice.startsWith("mcp:") ? "mcp" : "model";
   const body = { to: targetOf(choice), ...(workerId ? { fallback } : {}) };
   const submit = () => {
     if (mode === "handoff") handOff.mutate({ params: { id: task.id }, body });
@@ -144,11 +146,8 @@ export function AssignDialog({ open, onClose, task, mode }: AssignDialogProps) {
           choice={choice}
           onChoice={setChoice}
         />
-        {workerId ? (
-          <Field
-            label="If it is offline for 30 minutes"
-            help={fallbackSentence(workerId, fallback)}
-          >
+        {workerId && agents.data ? (
+          <Field label={fallbackLabel(kindOf)} help={fallbackSentence(workerId, fallback, kindOf)}>
             <Select
               value={fallback}
               onChange={(event) => setFallback(event.target.value as AssignmentFallback)}
@@ -185,10 +184,11 @@ const REFUSAL_LINKS: Record<AssigneeRefusal["code"], string> = {
   routed: "Open the proxy setting",
 };
 
-function agentOption(row: AgentRow, now: number): RadioOption<Choice> {
+function agentOption(row: AgentRow, now: number, choice: Choice): RadioOption<Choice> {
   const refusal = row.refusal;
   return {
     value: agentChoice(row),
+    autoFocus: agentChoice(row) === choice,
     label: row.workerId,
     disabled: refusal !== null,
     meta: presenceWord(row),
@@ -224,7 +224,21 @@ function Picker({
   onChoice: (choice: Choice) => void;
 }) {
   const now = Date.now();
+  const list = useRef<HTMLDivElement>(null);
   const rows = agents?.agents ?? [];
+
+  // The dialog places focus when it opens, before the agents arrive. Once they do, the choice is
+  // where focus belongs, unless the person has already moved it somewhere deliberately.
+  useEffect(() => {
+    if (loading) return;
+    const dialog = list.current?.closest("dialog");
+    const active = document.activeElement;
+    const untouched =
+      !dialog?.contains(active) ||
+      active === dialog ||
+      active?.getAttribute("aria-label") === "Close";
+    if (untouched) list.current?.querySelector<HTMLElement>("[data-autofocus]")?.focus();
+  }, [loading]);
   const models = rows.filter((row) => row.kind === "model");
   const clients = rows.filter((row) => row.kind === "mcp");
   const groupValue = (group: readonly AgentRow[]): Choice | null =>
@@ -240,7 +254,7 @@ function Picker({
           <Skeleton className="h-12 w-full" />
         </div>
       ) : (
-        <div className="flex flex-col gap-3">
+        <div ref={list} className="flex flex-col gap-3">
           <RadioGroup<Choice>
             name="assign-to"
             legend="Open to"
@@ -252,6 +266,7 @@ function Picker({
               {
                 value: "any",
                 label: "Any agent",
+                autoFocus: choice === "any",
                 description: "The first agent that asks takes it.",
                 meta: <Bot className="size-4" aria-hidden="true" />,
               },
@@ -264,7 +279,7 @@ function Picker({
               rows
               value={groupValue(models)}
               onValueChange={onChoice}
-              options={models.map((row) => agentOption(row, now))}
+              options={models.map((row) => agentOption(row, now, choice))}
             />
           ) : null}
           {clients.length > 0 ? (
@@ -274,7 +289,7 @@ function Picker({
               rows
               value={groupValue(clients)}
               onValueChange={onChoice}
-              options={clients.map((row) => agentOption(row, now))}
+              options={clients.map((row) => agentOption(row, now, choice))}
             />
           ) : null}
           <RadioGroup<Choice>
@@ -288,6 +303,7 @@ function Picker({
               {
                 value: "person",
                 label: "I'll do it myself",
+                autoFocus: choice === "person",
                 description: "No agent will take it. You finish it and mark it done.",
                 meta: <User className="size-4" aria-hidden="true" />,
               },

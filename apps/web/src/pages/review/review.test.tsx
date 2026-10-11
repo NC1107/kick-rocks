@@ -648,7 +648,7 @@ describe("the review queue", () => {
     const { user } = open("agents", mock);
     const task = await card(/AudienceGrid, Agent/);
     expect(task.getByText(/No agent has taken this yet/)).toBeVisible();
-    await user.click(task.getByRole("button", { name: "I did it myself" }));
+    await user.click(task.getByRole("button", { name: "Mark done" }));
     const dialog = within(await screen.findByRole("dialog"));
     await user.click(dialog.getByRole("button", { name: "Mark done" }));
     await waitFor(() =>
@@ -743,6 +743,59 @@ describe("tasks waiting for an agent, by who they are for", () => {
     await user.click(await dialog.findByRole("radio", { name: /Any agent/ }));
     await user.click(dialog.getByRole("button", { name: "Assign" }));
     await waitFor(() => expect(mine.assignment).toBeNull());
+  });
+
+  it("keeps the same task selected when the person keeps it, which moves it to Yours to do", async () => {
+    const mock = failing(/never/);
+    const profileId = mock.store.profiles[0]?.id ?? "";
+    const queue = (targetId: string, targetName: string, minutes: number) =>
+      makeTask(
+        mock.store,
+        { kind: "agent", status: "queued", profileId, targetId, targetName, requestId: null },
+        { minutes },
+      );
+    queue("audiencegrid", "AudienceGrid", 30);
+    const chosen = queue("stayfield", "Stayfield", 5);
+    const { user } = renderPage(<ReviewPage />, {
+      path: "/review",
+      route: `/review?item=${encodeURIComponent(`agent:${chosen.id}`)}`,
+      mock,
+    });
+    const pane = await card(/Stayfield, Agent/);
+    await user.click(await pane.findByRole("button", { name: "Keep it for me" }));
+    expect(await screen.findByText("You're doing this one")).toBeVisible();
+    expect(await card(/Stayfield, Agent/)).toBeTruthy();
+    expect(screen.queryByRole("region", { name: /AudienceGrid, Agent/ })).not.toBeInTheDocument();
+  });
+
+  it("follows a link saved before the task changed hands", async () => {
+    const mock = failing(/never/);
+    const profileId = mock.store.profiles[0]?.id ?? "";
+    const task = makeTask(
+      mock.store,
+      {
+        kind: "agent",
+        status: "queued",
+        profileId,
+        targetId: "stayfield",
+        targetName: "Stayfield",
+        requestId: null,
+      },
+      { minutes: 5 },
+    );
+    task.assignment = {
+      to: { kind: "person" },
+      at: mock.store.clock.now().toISOString(),
+      by: "user",
+      fallback: "any",
+    };
+    renderPage(<ReviewPage />, {
+      path: "/review",
+      route: `/review?item=${encodeURIComponent(`agent:${task.id}`)}`,
+      mock,
+    });
+    expect(await card(/Stayfield, Agent/)).toBeTruthy();
+    expect(await screen.findByText("You're doing this one")).toBeVisible();
   });
 
   it("offers the same picker when handing a blocked task to an agent", async () => {

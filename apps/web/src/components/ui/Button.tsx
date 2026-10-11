@@ -9,7 +9,7 @@ export type ButtonSize = "sm" | "md" | "lg";
 // A disabled button is a flat neutral slab, not a faded copy of its variant, so a washed-out
 // accent never reads as an available action.
 const DISABLED =
-  "[&:is(:disabled,[aria-disabled=true]):not([aria-busy=true])]:cursor-not-allowed [&:is(:disabled,[aria-disabled=true]):not([aria-busy=true])]:border-transparent [&:is(:disabled,[aria-disabled=true]):not([aria-busy=true])]:bg-active [&:is(:disabled,[aria-disabled=true]):not([aria-busy=true])]:text-ink-3 aria-busy:cursor-progress";
+  "[&:is(:disabled,[aria-disabled=true]):not([aria-busy=true])]:cursor-not-allowed [&:is(:disabled,[aria-disabled=true]):not([aria-busy=true])]:border-line-popover [&:is(:disabled,[aria-disabled=true]):not([aria-busy=true])]:bg-disabled [&:is(:disabled,[aria-disabled=true]):not([aria-busy=true])]:text-ink-3 aria-busy:cursor-progress";
 
 const BASE = `inline-flex shrink-0 select-none items-center justify-center gap-2 whitespace-nowrap rounded-sm border font-medium transition-[background-color,color,scale] duration-100 ease-out enabled:active:scale-[0.98] [&_svg]:size-4 ${DISABLED}`;
 

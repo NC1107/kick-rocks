@@ -13,6 +13,7 @@ import {
   calloutState,
   choiceOf,
   elapsedText,
+  fallbackLabel,
   fallbackSentence,
   lapsedText,
   presenceLine,
@@ -109,6 +110,11 @@ describe("the picker's choices", () => {
     expect(fallbackSentence("nick-pc-agent", "person")).toBe(
       "If nick-pc-agent is not seen for 30 minutes, it comes back to you.",
     );
+    expect(fallbackSentence("desk-client", "any", "mcp")).toBe(
+      "If desk-client does not ask for work (claim_task) for 30 minutes, any agent may take it.",
+    );
+    expect(fallbackLabel("mcp")).toBe("If it does not ask for work for 30 minutes");
+    expect(fallbackLabel("model")).toBe("If it is offline for 30 minutes");
   });
 });
 
@@ -131,9 +137,15 @@ describe("what an agent will do about sending", () => {
     expect(presenceLine(agent({ online: false, lastSeenAt: minutesAgo(12) }), NOW)).toBe(
       "Seen 12 minutes ago",
     );
-    expect(presenceLine(agent({ kind: "mcp", lastSeenAt: minutesAgo(4) }), NOW)).toBe(
-      "Last call 4 minutes ago",
-    );
+    expect(
+      presenceLine(
+        agent({ kind: "mcp", lastSeenAt: minutesAgo(4), lastClaimAt: minutesAgo(25) }),
+        NOW,
+      ),
+    ).toBe("Last call 4 minutes ago. Last asked for work 25 minutes ago");
+    expect(
+      presenceLine(agent({ kind: "mcp", lastSeenAt: minutesAgo(4), lastClaimAt: null }), NOW),
+    ).toBe("Last call 4 minutes ago. Has not asked for work yet");
   });
 
   it("counts elapsed time in the unit a person would say", () => {

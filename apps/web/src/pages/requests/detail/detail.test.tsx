@@ -489,16 +489,16 @@ describe("the agent callout", () => {
     return { ...view, mock, task };
   }
 
-  it("offers Assign, Run now, and Do it myself while any agent may take the task", async () => {
+  it("offers Assign, Run now, and Keep it for me while any agent may take the task", async () => {
     waiting("one");
     expect(await screen.findByText("Waiting for an agent")).toBeVisible();
     expect(await screen.findByText("Any connected agent may take it. 1 online.")).toBeVisible();
     expect(screen.getByRole("button", { name: "Assign" })).toBeVisible();
     expect(screen.getByRole("button", { name: "Run now" })).toBeVisible();
-    expect(screen.getByRole("button", { name: "Do it myself" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "Keep it for me" })).toBeVisible();
   });
 
-  it("says nothing has connected, and offers only Assign and Do it myself", async () => {
+  it("says nothing has connected, and offers only Assign and Keep it for me", async () => {
     waiting("none");
     expect(await screen.findByText(/No agent has connected yet\./)).toBeVisible();
     expect(screen.getByRole("link", { name: "Settings, Agents" })).toHaveAttribute(
@@ -535,6 +535,22 @@ describe("the agent callout", () => {
     expect(screen.getByRole("button", { name: "Change" })).toBeVisible();
   });
 
+  it("starts keyboard focus on the chosen agent, not on the fallback below the list", async () => {
+    const { user, mock, task } = waiting("several");
+    const stored = mock.store.tasks.find((candidate) => candidate.id === task.id);
+    if (!stored) throw new Error("fixture");
+    stored.assignment = {
+      to: { kind: "model", workerId: "nick-pc-agent" },
+      at: mock.store.clock.now().toISOString(),
+      by: "user",
+      fallback: "any",
+    };
+    await user.click(await screen.findByRole("button", { name: "Change" }));
+    const dialog = within(await screen.findByRole("dialog"));
+    const radio = await dialog.findByRole("radio", { name: /nick-pc-agent/ });
+    await waitFor(() => expect(radio).toHaveFocus());
+  });
+
   it("disables an agent the server would refuse, with the reason and where to change it", async () => {
     const { user, mock } = waiting("several");
     const target = mock.store.targets.find((candidate) => candidate.id === "stayfield-hotels");
@@ -558,7 +574,7 @@ describe("the agent callout", () => {
 
   it("keeps the task for the person, who can then finish it or hand it back", async () => {
     const { user, mock, task } = waiting("one");
-    await user.click(await screen.findByRole("button", { name: "Do it myself" }));
+    await user.click(await screen.findByRole("button", { name: "Keep it for me" }));
     expect(await screen.findByText("You're doing this one")).toBeVisible();
     expect(screen.getByText("No agent will take it.")).toBeVisible();
     expect(mock.store.tasks.find((candidate) => candidate.id === task.id)?.assignment?.to).toEqual({
