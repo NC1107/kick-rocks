@@ -608,6 +608,18 @@ describe("broker replies", () => {
     const detail = await api.call(API_ROUTES.messageGet, { params: { id: message.id } });
     expect(detail.text).toContain("sprockets");
 
+    await asPerson(VIEWPORTS[0], "light", async (page) => {
+      await page.goto(
+        `${STACK.serverUrl}/review/mail?item=${encodeURIComponent(`mail:${message.id}`)}`,
+        { waitUntil: "networkidle" },
+      );
+      const footer = page.getByRole("button", { name: "Classify" });
+      await footer.waitFor();
+      const box = await footer.boundingBox();
+      expect((box?.y ?? 0) + (box?.height ?? 0)).toBeLessThanOrEqual(900);
+      await shot(page, "mail-desktop-light");
+    });
+
     await api.call(API_ROUTES.messageClassify, {
       params: { id: message.id },
       body: { classification: "completed" },
@@ -725,23 +737,6 @@ describe("the Needs you queue, one card at a time", () => {
         });
       }
     }
-  });
-
-  it("keeps the footer of the mail page on screen at 1280 by 900", async () => {
-    const queue = await api.call(API_ROUTES.reviewQueue, { query: { profileId: world.profileId } });
-    const message = queue.messages[0];
-    if (!message) throw new Error("no unsorted mail to open");
-    await asPerson(VIEWPORTS[0], "light", async (page) => {
-      await page.goto(
-        `${STACK.serverUrl}/review/mail?item=${encodeURIComponent(`mail:${message.id}`)}`,
-        { waitUntil: "networkidle" },
-      );
-      const footer = page.getByRole("button", { name: "Classify" });
-      await footer.waitFor();
-      const box = await footer.boundingBox();
-      expect((box?.y ?? 0) + (box?.height ?? 0)).toBeLessThanOrEqual(900);
-      await shot(page, "mail-desktop-light");
-    });
   });
 });
 
@@ -1186,6 +1181,7 @@ describe("the whole run", () => {
       yourAgentTasks: 0,
       assignedAgentTasks: 0,
       agentAssignees: [],
+      needsYou: { active: 0, snoozed: 0, quick: 0, few: 0, longer: 0, minutes: 0 },
     });
     expect(dashboard.recentEvents.length).toBeGreaterThan(5);
     expect((await api.call(API_ROUTES.reviewQueue)).blockedTasks).toEqual([]);
