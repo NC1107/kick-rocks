@@ -14,6 +14,7 @@ import {
   type ReviewMessage,
   type ReviewQueue,
   type ScanHold,
+  type ScanReadiness,
   type ScanSummary,
   type TargetOutcome,
   type TaskSummary,
@@ -117,6 +118,36 @@ export function quietNow(store: MockStore): { until: string; zoneUnset: boolean 
     until: nextHourIn(now, quietEndHour, timeZone).toISOString(),
     zoneUnset: timeZone === null,
   };
+}
+
+/** Mirrors the server: what a profile can be scanned on now, from its address and each site's recipes. */
+export function scanReadiness(store: MockStore, profileId: string): ScanReadiness {
+  const profile = store.profiles.find((candidate) => candidate.id === profileId);
+  const hasPlace = profile?.identities.some(
+    (identity) => identity.kind === "address" && Boolean(identity.value.city),
+  );
+  const sites = store.targets.filter((target) => target.needsRecord && !target.retired);
+  if (!hasPlace) {
+    return {
+      ready: 0,
+      noRecipe: 0,
+      recipeNeedsReview: 0,
+      needsDetails: sites.length,
+      missing: "a current address with city and state",
+    };
+  }
+  const counts = { ready: 0, noRecipe: 0, recipeNeedsReview: 0, needsDetails: 0 };
+  for (const site of sites) {
+    const scanRecipes = site.recipes.filter((recipe) => recipe.purpose === "scan");
+    const usable = scanRecipes.some(
+      (recipe) => recipe.status === "active" && recipe.health !== "broken",
+    );
+    if (usable) counts.ready += 1;
+    else if (scanRecipes.some((recipe) => recipe.status === "pending_review")) {
+      counts.recipeNeedsReview += 1;
+    } else counts.noRecipe += 1;
+  }
+  return { ...counts, missing: null };
 }
 
 export function createScan(
@@ -763,7 +794,19 @@ export default defineMockDomain({
               : body.targetIds
                   .map((id) => store.targets.find((target) => target.id === id))
                   .filter((target) => target !== undefined);
+        const readiness = scanReadiness(store, profile.id);
         const items: TargetOutcome[] = targets.map((target) => {
+          if (readiness.needsDetails > 0) {
+            return {
+              targetId: target.id,
+              targetName: target.name,
+              outcome: "skipped",
+              requestId: null,
+              scanId: null,
+              reason: "missing_profile_details",
+              detail: `Add ${readiness.missing} to this profile to scan ${target.name}.`,
+            };
+          }
           const running = store.scans.some(
             (scan) =>
               scan.profileId === profile.id &&
