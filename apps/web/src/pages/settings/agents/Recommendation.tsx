@@ -5,7 +5,7 @@ import {
   OLLAMA_NATIVE_FROM_DOCKER,
   type SettingsView,
 } from "@kickrocks/shared";
-import { Bot, ChevronRight, Mail } from "lucide-react";
+import { Bot, ChevronRight, Cpu, Mail } from "lucide-react";
 import { useState } from "react";
 import { errorMessage, useApiMutation } from "../../../api/index.js";
 import {
@@ -24,6 +24,7 @@ import {
 } from "../../../components/ui/index.js";
 import { BodyRow, GroupFooter, GroupNote } from "../rows.js";
 import {
+  type ApplyPlan,
   addressOf,
   applyBody,
   contextWords,
@@ -48,6 +49,19 @@ function useSettingsPatch(onSuccess?: () => void) {
     ...(onSuccess ? { onSuccess } : {}),
   });
 }
+
+const COPY_NOTES: Record<ApplyPlan["copyReason"], (workerOllama?: string) => string> = {
+  no_worker: () =>
+    "No agent worker has reported yet. Put these lines in its .env when you start one.",
+  cannot_take_model: () =>
+    "This agent worker cannot take a model from here, so put these lines in its .env and restart it.",
+  ollama_not_reachable: (address) =>
+    `${
+      address
+        ? `The agent worker cannot reach its Ollama at ${addressOf(address)}`
+        : "The agent worker has not reported its Ollama yet"
+    }, so this pick comes from the server's Ollama and may not be installed there. Put these lines in its .env once it can.`,
+};
 
 function PullRow({ pull, hasModel }: { pull: string; hasModel: boolean }) {
   return (
@@ -173,17 +187,73 @@ export function RecommendationCard({
         </GroupFooter>
       </RowGroup>
       {copyMode ? (
-        <GroupNote>
-          {worker
-            ? "This agent worker cannot take a model from here, so put these lines in its .env and restart it."
-            : "No agent worker has reported yet. Put these lines in its .env when you start one."}
-        </GroupNote>
+        <GroupNote>{COPY_NOTES[plan.copyReason](worker?.ollama?.baseUrl)}</GroupNote>
       ) : workerLags(view, settings) ? (
         <GroupNote>
           The agent worker switches the next time it checks in, within half a minute.
         </GroupNote>
       ) : null}
     </Section>
+  );
+}
+
+/** The answer the person gave to the GPU question, kept where it can be read and changed. */
+export function GpuAnswer({ view }: { view: AgentSetupView }) {
+  const toast = useToast();
+  const [changing, setChanging] = useState(false);
+  const { agent, reply } = view.gpu;
+  const agentAsked = agent.source === "asked";
+  const replyAsked = reply.source === "asked";
+  const save = useSettingsPatch(() => {
+    toast.success("Saved");
+    setChanging(false);
+  });
+  if (!(agentAsked || replyAsked)) return null;
+  const answered = agentAsked ? agent.gib : reply.gib;
+  const choose = (value: number) =>
+    save.mutate({
+      body: {
+        agent: {
+          gpuMemoryGb: {
+            ...(agentAsked ? { worker: value } : {}),
+            ...(replyAsked ? { server: value } : {}),
+          },
+        },
+      },
+    });
+  return (
+    <RowGroup>
+      <Row
+        icon={Cpu}
+        title="GPU memory"
+        description={`${answered ?? "?"} GB, from your answer`}
+        trailing={
+          <Button
+            size="sm"
+            variant="secondary"
+            aria-expanded={changing}
+            onClick={() => setChanging(!changing)}
+          >
+            {changing ? "Cancel" : "Change"}
+          </Button>
+        }
+      />
+      {changing ? (
+        <BodyRow className="flex flex-col gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <Segmented
+              legend="GPU memory in GB"
+              options={CARD_SIZES}
+              value={CARD_SIZES.find((size) => size.value === answered)?.value ?? null}
+              disabled={save.isPending}
+              onValueChange={choose}
+            />
+            <span className="font-mono text-meta text-ink-3">GB</span>
+          </div>
+          {save.isError ? <InlineError>{errorMessage(save.error)}</InlineError> : null}
+        </BodyRow>
+      ) : null}
+    </RowGroup>
   );
 }
 

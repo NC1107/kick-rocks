@@ -274,14 +274,15 @@ export function SafetyGate({
   /** The model the gate is shown for: the one recommended, or the one chosen by hand. */
   agent: GateModel | null;
   verdict: GateVerdict;
-  installed: AgentSetupView["installedGate"];
+  /** Null when nothing was probed, so a list of installed models would claim there are none. */
+  installed: AgentSetupView["installedGate"] | null;
   gate: GateView;
   holdMinutes: number;
   serverUrl: string;
 }) {
   return (
     <div id="safety-gate" className="flex scroll-mt-4 flex-col gap-4">
-      <InstalledModels installed={installed} />
+      {installed ? <InstalledModels installed={installed} /> : null}
       {agent ? (
         <Section label="Safety gate" as="h3">
           <ModelGate agent={agent} verdict={verdict} gate={gate} />

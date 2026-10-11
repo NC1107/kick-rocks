@@ -146,7 +146,7 @@ describe("when the size of the card is not known", () => {
 describe("a hosted provider", () => {
   it("gets no agent recommendation, but replies are still recommended", () => {
     const result = recommendSetup(
-      inputs({ hostedProvider: { provider: "anthropic", model: "claude-sonnet-4-6" } }),
+      inputs({ hostedProvider: { provider: "openai", model: "gpt-5-mini" } }),
     );
     expect(result.agent).toBeNull();
     expect(result.reasons.agent).toBeNull();
@@ -165,6 +165,11 @@ describe("the reply model", () => {
       name: "qwen3:8b",
       sameCopy: false,
     });
+  });
+
+  it("does not share a copy the reply Ollama does not have installed", () => {
+    const result = onCard(16, { sameOllama: true, replyInstalled: ["qwen3:8b"] });
+    expect(result.reply).toMatchObject({ name: "qwen3:8b", sameCopy: false });
   });
 
   it("does not share a copy that is not accurate enough", () => {
@@ -241,10 +246,22 @@ describe("whether two addresses reach one Ollama", () => {
   });
 
   it("calls the same address the same, and an identical library probably the same", () => {
-    expect(compareOllamas(at("http://desktop:11434"), at("http://desktop:11434/"))).toBe("yes");
-    expect(compareOllamas(at("http://desktop:11434"), at("http://10.0.0.5:11434"))).toBe(
+    expect(compareOllamas(at("http://10.0.0.5:11434"), at("http://10.0.0.5:11434/"))).toBe("yes");
+    expect(compareOllamas(at("http://desktop.lan:11434"), at("http://10.0.0.5:11434"))).toBe(
       "probably",
     );
+  });
+
+  it.each([
+    "http://host.docker.internal:11434",
+    "http://localhost:11434",
+    "http://127.0.0.1:11434",
+    "http://172.17.0.1:11434",
+    "http://ollama:11434",
+  ])("does not take %s on two machines for one server", (address) => {
+    const server = at(address, "0.12.0", [{ name: "qwen3:8b", digest: "sha256:aaa" }]);
+    const worker = at(address, "0.12.0", [{ name: "gpt-oss:20b", digest: "sha256:bbb" }]);
+    expect(compareOllamas(worker, server)).toBe("no");
   });
 
   it("calls a different version or a different digest a different server", () => {

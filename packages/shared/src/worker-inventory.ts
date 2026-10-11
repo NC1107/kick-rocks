@@ -3,6 +3,12 @@ import { z } from "zod";
 /** The most models one inventory lists, so a heartbeat cannot grow without bound. */
 export const MAX_INVENTORY_MODELS = 200;
 
+/** The most cards one host lists, so a machine with more cannot sink the heartbeat that carries them. */
+export const MAX_HOST_GPUS = 16;
+
+/** The longest Ollama address an inventory or a probe carries. */
+export const MAX_OLLAMA_URL_LENGTH = 500;
+
 export const GpuProbe = z.enum(["ok", "no_tool", "failed"]);
 export type GpuProbe = z.infer<typeof GpuProbe>;
 
@@ -21,7 +27,7 @@ export const WorkerHost = z.object({
   cpuCores: z.number().int().nonnegative(),
   memoryBytes: z.number().int().nonnegative(),
   /** An empty list means the probe ran and found no card; null means it did not run. */
-  gpus: z.array(WorkerGpu).max(16).nullable(),
+  gpus: z.array(WorkerGpu).max(MAX_HOST_GPUS).nullable(),
   gpuProbe: GpuProbe,
 });
 export type WorkerHost = z.infer<typeof WorkerHost>;
@@ -49,7 +55,7 @@ export type OllamaError = z.infer<typeof OllamaError>;
 /** What the agent worker's own Ollama reported. */
 export const WorkerOllama = z.object({
   /** Without credentials. */
-  baseUrl: z.string().max(500),
+  baseUrl: z.string().max(MAX_OLLAMA_URL_LENGTH),
   /** Whether Ollama runs on the worker's own machine, which decides if the worker's GPU is Ollama's. */
   colocated: z.boolean(),
   reachable: z.boolean(),

@@ -330,6 +330,45 @@ describe("whether the server and the worker reach one Ollama", () => {
   });
 });
 
+describe("two machines that both say host.docker.internal", () => {
+  const dockerHost = (owned: string) => ({
+    ollama: {
+      ...workerBeat().ollama,
+      baseUrl: `http://${owned}:11434`,
+      colocated: true,
+    } as never,
+  });
+
+  it("does not take the same name for the same server", async () => {
+    const { ctx } = await start({
+      "host.docker.internal:11434": { version: "0.12.0", models: [QWEN] },
+    });
+    ctx.services.settings.set("llm", {
+      baseUrl: "http://host.docker.internal:11434/v1",
+      model: "qwen3:8b",
+      apiKey: null,
+    });
+    await beat(dockerHost("host.docker.internal"));
+    const view = await setup();
+    expect(view.sameOllama).toBe("no");
+    expect(view.gpu.reply.gib).toBeNull();
+    expect(view.recommendation.reply?.sameCopy).not.toBe(true);
+  });
+
+  it("still calls one LAN address the same server", async () => {
+    const { ctx } = await start({
+      "192.168.1.20:11434": { version: "0.12.0", models: [QWEN] },
+    });
+    ctx.services.settings.set("llm", {
+      baseUrl: "http://192.168.1.20:11434/v1",
+      model: "x",
+      apiKey: null,
+    });
+    await beat(dockerHost("192.168.1.20"));
+    expect((await setup()).sameOllama).toBe("yes");
+  });
+});
+
 describe("the gate state of each installed model", () => {
   it("compares the real digest, so a pass for another build is out of date", async () => {
     await start({});
@@ -428,5 +467,42 @@ describe("the memory of the card", () => {
     expect(asked.gpu.agent).toMatchObject({ gib: 12, source: "asked" });
     expect(asked.recommendation.agent).toBeNull();
     expect(asked.recommendation.pull).toBe("ollama pull qwen3:14b");
+  });
+});
+
+describe("hosted endpoints and repeated addresses", () => {
+  it("does not probe a saved hosted endpoint, so its key never leaves on page load", async () => {
+    const { ctx, fake } = await start({});
+    ctx.services.settings.set("llm", {
+      baseUrl: "https://api.openai.com/v1",
+      model: "gpt-4o",
+      apiKey: "secret-key",
+    });
+    await setup();
+    expect(fake.calls).toEqual([]);
+  });
+
+  it("keeps the key when the person types the saved address again", async () => {
+    const { ctx, fake } = await start({ "ollama.example.lan:11434": { models: [QWEN] } });
+    ctx.services.settings.set("llm", {
+      baseUrl: "http://ollama.example.lan:11434/v1",
+      model: "qwen3:8b",
+      apiKey: "secret-key",
+    });
+    const view = await setup({ ask: "http://ollama.example.lan:11434" });
+    expect(view.components.server.endpoints).toHaveLength(1);
+    expect(view.components.server.endpoints[0]?.source).toBe("saved");
+    expect(fake.calls.every((call) => call.authorization === "Bearer secret-key")).toBe(true);
+  });
+
+  it("skips a saved address too long to report instead of failing the route", async () => {
+    const { ctx } = await start({});
+    ctx.services.settings.set("llm", {
+      baseUrl: `http://desktop:11434/${"a".repeat(600)}/v1`,
+      model: "x",
+      apiKey: null,
+    });
+    const view = await setup();
+    expect(view.components.server.endpoints).toEqual([]);
   });
 });

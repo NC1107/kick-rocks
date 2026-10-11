@@ -1,6 +1,6 @@
 import { execFile } from "node:child_process";
 import { arch, cpus, hostname, platform, totalmem } from "node:os";
-import type { WorkerGpu, WorkerHost } from "@kickrocks/shared";
+import { MAX_HOST_GPUS, type WorkerGpu, type WorkerHost } from "@kickrocks/shared";
 
 const PROBE_TIMEOUT_MS = 5000;
 const MAX_OUTPUT_BYTES = 1_000_000;
@@ -76,6 +76,11 @@ async function attempt(
   }
 }
 
+/** Keeps the cards the heartbeat can carry, and the largest are the ones a recommendation needs. */
+function largestFirst(gpus: WorkerGpu[]): WorkerGpu[] {
+  return [...gpus].sort((a, b) => b.memoryBytes - a.memoryBytes).slice(0, MAX_HOST_GPUS);
+}
+
 /** The cards the machine shows, or why it could not tell. `null` cards mean the probe did not run to the end. */
 export async function probeGpus(
   exec: Exec = runProgram,
@@ -86,14 +91,14 @@ export async function probeGpus(
     ["--query-gpu=name,memory.total", "--format=csv,noheader,nounits"],
     parseNvidiaSmi,
   );
-  if (nvidia.kind === "ok") return { gpus: nvidia.gpus, gpuProbe: "ok" };
+  if (nvidia.kind === "ok") return { gpus: largestFirst(nvidia.gpus), gpuProbe: "ok" };
   const rocm = await attempt(
     exec,
     "rocm-smi",
     ["--showproductname", "--showmeminfo", "vram", "--json"],
     parseRocmSmi,
   );
-  if (rocm.kind === "ok") return { gpus: rocm.gpus, gpuProbe: "ok" };
+  if (rocm.kind === "ok") return { gpus: largestFirst(rocm.gpus), gpuProbe: "ok" };
   const missing = nvidia.kind === "missing" && rocm.kind === "missing";
   return { gpus: null, gpuProbe: missing ? "no_tool" : "failed" };
 }

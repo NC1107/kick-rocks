@@ -19,7 +19,7 @@ import type { AgentWorkerConfig, ProviderConfig } from "./config.js";
 import { collectHost } from "./host.js";
 import { type AgentExecutor, type LoopContext, runLoop } from "./loop.js";
 import { modelIdentitySource } from "./model-identity.js";
-import { createOllamaSnapshot } from "./ollama-snapshot.js";
+import { createOllamaSnapshot, inventoryOf } from "./ollama-snapshot.js";
 import type { SendsApi } from "./outbound/held.js";
 import type { ModelProvider } from "./provider.js";
 import { createProvider } from "./providers/index.js";
@@ -84,9 +84,10 @@ export async function runAgentWorker(options: AgentWorkerOptions): Promise<void>
     model: () => identity(),
     inventory: async () => {
       const machine = await host;
+      const ollama = snapshots ? inventoryOf(await snapshots.get()) : null;
       return {
         ...(machine ? { host: machine } : {}),
-        ...(snapshots ? { ollama: await snapshots.get() } : {}),
+        ...(ollama ? { ollama } : {}),
         accepts: [...WORKER_ACCEPTS],
       };
     },

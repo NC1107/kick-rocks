@@ -15,6 +15,7 @@ import type { GpuMemoryAnswers, WorkerStatus } from "./settings.js";
 import { WebUrl } from "./url.js";
 import {
   canonicalModelName,
+  MAX_OLLAMA_URL_LENGTH,
   OllamaLoaded,
   OllamaModel,
   WorkerHost,
@@ -44,7 +45,7 @@ export type ProbeError = z.infer<typeof ProbeError>;
 /** What the server found at one address, with only parsed fields and never a raw body. */
 export const ProbeResult = z.object({
   /** Without credentials and without `/v1`. */
-  baseUrl: z.string().max(500),
+  baseUrl: z.string().max(MAX_OLLAMA_URL_LENGTH),
   source: ProbeSource,
   reachable: z.boolean(),
   error: ProbeError.nullable(),
@@ -56,11 +57,11 @@ export type ProbeResult = z.infer<typeof ProbeResult>;
 
 export const AgentSetupQuery = z.object({
   /** An address the person typed, probed first and listed with the others. */
-  ask: WebUrl.optional(),
+  ask: WebUrl.max(MAX_OLLAMA_URL_LENGTH).optional(),
 });
 export type AgentSetupQuery = z.infer<typeof AgentSetupQuery>;
 
-export const AgentSetupProbeBody = z.object({ baseUrl: WebUrl });
+export const AgentSetupProbeBody = z.object({ baseUrl: WebUrl.max(MAX_OLLAMA_URL_LENGTH) });
 export type AgentSetupProbeBody = z.infer<typeof AgentSetupProbeBody>;
 
 export const SameOllama = z.enum(["yes", "probably", "no", "unknown"]);
@@ -126,8 +127,20 @@ function hostAndPort(baseUrl: string): string | null {
 }
 
 /**
+ * Whether an address means the same machine from every container. Loopback, Docker host names,
+ * the default bridge gateway and single-label service names point at a different machine
+ * depending on who asks.
+ */
+function namesOneMachine(address: string): boolean {
+  const host = hostOf(address);
+  if (host === null) return false;
+  if (isLoopback(host) || DOCKER_HOST_NAMES.has(host) || host === "172.17.0.1") return false;
+  return host.includes(".") || host.includes(":");
+}
+
+/**
  * Whether two addresses reach one Ollama. Nothing reports an identity, so the same address is the
- * only sure answer, and matching versions with matching (name, digest) pairs is a good guess.
+ * only sure answer when it names one machine, and matching versions with matching (name, digest) pairs is a good guess.
  * An empty library matches too many servers to say anything.
  */
 export function compareOllamas(
@@ -136,7 +149,9 @@ export function compareOllamas(
 ): SameOllama {
   if (a === null || b === null) return "unknown";
   const addressA = hostAndPort(a.baseUrl);
-  if (addressA !== null && addressA === hostAndPort(b.baseUrl)) return "yes";
+  if (addressA !== null && addressA === hostAndPort(b.baseUrl) && namesOneMachine(a.baseUrl)) {
+    return "yes";
+  }
   if (a.models.length === 0 || b.models.length === 0) return "unknown";
   if (a.version !== b.version) return "no";
   const key = (model: { name: string; digest: string }) =>
@@ -348,6 +363,16 @@ function addressKey(address: string): string {
   }
 }
 
+/**
+ * A saved endpoint on a public host is a hosted provider, which has no Ollama to find and should
+ * not get a probe, or its key, every time the page opens.
+ */
+function savedBaseUrlCouldBeOllama(address: string | null): boolean {
+  const host = address ? hostOf(address) : null;
+  if (host === null) return false;
+  return isLoopback(host) || DOCKER_HOST_NAMES.has(host) || isLanHost(host);
+}
+
 export interface SetupCandidate {
   baseUrl: string;
   source: ProbeSource;
@@ -364,14 +389,16 @@ export function agentSetupCandidates(input: {
   workerBaseUrl: string | null;
 }): SetupCandidate[] {
   const found: SetupCandidate[] = [];
+  const savedKey = input.savedBaseUrl ? normalizeOllamaUrl(input.savedBaseUrl) : null;
   const add = (address: string | null, source: ProbeSource) => {
     const baseUrl = address ? normalizeOllamaUrl(address) : null;
-    if (baseUrl === null) return;
+    if (baseUrl === null || baseUrl.length > MAX_OLLAMA_URL_LENGTH) return;
     if (found.some((candidate) => addressKey(candidate.baseUrl) === addressKey(baseUrl))) return;
-    found.push({ baseUrl, source });
+    // Typing the saved address again must not cost it the key it needs.
+    found.push({ baseUrl, source: baseUrl === savedKey ? "saved" : source });
   };
   add(input.ask, "asked");
-  add(input.savedBaseUrl, "saved");
+  if (savedBaseUrlCouldBeOllama(input.savedBaseUrl)) add(input.savedBaseUrl, "saved");
   const workerHost = input.workerBaseUrl ? hostOf(input.workerBaseUrl) : null;
   if (input.workerBaseUrl && workerHost && isLanHost(workerHost))
     add(input.workerBaseUrl, "worker");

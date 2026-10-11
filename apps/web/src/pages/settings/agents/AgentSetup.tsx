@@ -6,7 +6,7 @@ import { readStorage, STORAGE_KEYS, writeStorage } from "../../../lib/storage.js
 import { BodyRow } from "../rows.js";
 import { Advanced } from "./Advanced.js";
 import { Detection } from "./Detection.js";
-import { AddressQuestion, GpuQuestion, RecommendationCard } from "./Recommendation.js";
+import { AddressQuestion, GpuAnswer, GpuQuestion, RecommendationCard } from "./Recommendation.js";
 
 export function SetupSkeleton() {
   return (
@@ -41,6 +41,18 @@ function storedOpen(): boolean {
   return readStorage(STORAGE_KEYS.agentsAdvancedOpen) === "1";
 }
 
+/** Whether Advanced is open, remembered across visits. */
+export function useAdvancedOpen(): [boolean, (open: boolean) => void] {
+  const [open, setOpen] = useState(storedOpen);
+  return [
+    open,
+    (next) => {
+      setOpen(next);
+      writeStorage(STORAGE_KEYS.agentsAdvancedOpen, next ? "1" : "0");
+    },
+  ];
+}
+
 /**
  * The page's main part: what was found, the one setup recommended from it, the few things that
  * could not be found out and are asked once, and everything else behind Advanced.
@@ -58,14 +70,10 @@ export function AgentSetup({
   onRecheck: () => void;
   rechecking: boolean;
 }) {
-  const [advancedOpen, setAdvancedOpen] = useState(storedOpen);
+  const [advancedOpen, changeAdvanced] = useAdvancedOpen();
   const { recommendation, missing } = view;
   const hosted = (view.components.worker?.status.model?.provider ?? "ollama") !== "ollama";
 
-  const changeAdvanced = (open: boolean) => {
-    setAdvancedOpen(open);
-    writeStorage(STORAGE_KEYS.agentsAdvancedOpen, open ? "1" : "0");
-  };
   const openGate = () => {
     changeAdvanced(true);
     requestAnimationFrame(() =>
@@ -89,6 +97,7 @@ export function AgentSetup({
         <RecommendationCard view={view} settings={settings} onOpenGate={openGate} />
       ) : null}
       {missing.includes("gpuMemory") && !hosted ? <GpuQuestion view={view} /> : null}
+      {hosted ? null : <GpuAnswer view={view} />}
       {missing.includes("ollama") ? (
         <AddressQuestion onFound={onFound} tried={view.components.server.endpoints} />
       ) : null}

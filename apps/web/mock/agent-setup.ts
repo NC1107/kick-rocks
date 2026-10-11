@@ -183,8 +183,8 @@ export function applyAgentSetup(store: MockStore, name: AgentSetupName): void {
   settings.llm = { baseUrl: "http://desktop:11434/v1", model: "qwen3:8b", apiKeySet: false };
 
   const hosted: ModelIdentity = {
-    provider: "anthropic",
-    name: "claude-sonnet-4-6",
+    provider: "openai",
+    name: "gpt-5-mini",
     version: null,
     thinking: "default",
     numCtx: null,

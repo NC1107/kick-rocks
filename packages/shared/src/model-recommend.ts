@@ -317,6 +317,7 @@ export function recommendSetup(inputs: RecommendInputs): Recommendation {
   const sharedCopy =
     agentModel !== null &&
     inputs.sameOllama &&
+    replyPool?.has(agentModel.name) === true &&
     agentModel.reply !== null &&
     agentModel.reply.accuracyPct >= SHARED_REPLY_MIN_ACCURACY_PCT &&
     fitOf(agentModel.memoryGiB, replyGpu) === "fits";

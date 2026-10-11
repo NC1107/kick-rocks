@@ -2,6 +2,7 @@ import {
   type AgentModelChoice,
   type AgentSetupView,
   type GateState,
+  gibFromBytes,
   normalizeOllamaUrl,
   type ProbeError,
   type SettingsPatch,
@@ -17,6 +18,11 @@ export function addressOf(baseUrl: string): string {
   } catch {
     return baseUrl;
   }
+}
+
+/** A card's memory the way the recommendation says it: the marketed size, not the raw byte count. */
+export function cardGigabytes(bytes: number): string {
+  return `${Math.round(gibFromBytes(bytes))} GB`;
 }
 
 export function gigabytes(bytes: number): string {
@@ -42,7 +48,7 @@ export function workerGpuWords(worker: WorkerPart): string {
   if (gpus && gpus.length > 0) {
     const first = gpus[0];
     return first
-      ? `${first.name.replace(/^NVIDIA GeForce /, "")} ${gigabytes(first.memoryBytes)}`
+      ? `${first.name.replace(/^NVIDIA GeForce /, "")} ${cardGigabytes(first.memoryBytes)}`
       : "";
   }
   if (!worker.host) return "machine not reported";
@@ -73,6 +79,8 @@ export interface ApplyPlan {
   agentApplied: boolean;
   /** Whether the agent worker can be given the model from here, or the person has to copy settings. */
   agentFromHere: boolean;
+  /** Why the settings have to be copied, which the note under the card says. */
+  copyReason: "no_worker" | "cannot_take_model" | "ollama_not_reachable";
   /** An agent model exists to recommend, whichever way it gets to the worker. */
   hasAgent: boolean;
   hasReply: boolean;
@@ -105,6 +113,11 @@ export function planApply(view: AgentSetupView, settings: SettingsView): ApplyPl
 
   const agentFromHere =
     agent !== null && worker?.acceptsAgentModel === true && worker.ollama?.reachable === true;
+  const copyReason: ApplyPlan["copyReason"] = !worker
+    ? "no_worker"
+    : worker.acceptsAgentModel
+      ? "ollama_not_reachable"
+      : "cannot_take_model";
   const choice: AgentModelChoice | null = agent
     ? { name: agent.name, thinking: agent.thinking, numCtx: agent.numCtx }
     : null;
@@ -124,6 +137,7 @@ export function planApply(view: AgentSetupView, settings: SettingsView): ApplyPl
     replyApplied,
     agentApplied,
     agentFromHere,
+    copyReason,
     hasAgent: agent !== null,
     hasReply,
     allApplied: replyDone && agentDone && (hasReply || agentFromHere),

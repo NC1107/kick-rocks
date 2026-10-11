@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { createOllamaSnapshot } from "./ollama-snapshot.js";
+import { createOllamaSnapshot, inventoryOf } from "./ollama-snapshot.js";
 
 type Handler = (path: string) => Response | Promise<Response>;
 
@@ -136,5 +136,20 @@ describe("the worker's Ollama snapshot", () => {
     clock = 60_000;
     await snapshot.get();
     expect(calls).toHaveLength(9);
+  });
+});
+
+describe("which readings the heartbeat can carry", () => {
+  it("drops one whose address is longer than the schema allows", async () => {
+    const short = createOllamaSnapshot({
+      baseUrl: "http://ollama.test:11434",
+      fetch: fakeFetch(healthy).impl,
+    });
+    expect(inventoryOf(await short.get())).not.toBeNull();
+    const long = createOllamaSnapshot({
+      baseUrl: `http://ollama.test:11434/${"a".repeat(600)}`,
+      fetch: fakeFetch(healthy).impl,
+    });
+    expect(inventoryOf(await long.get())).toBeNull();
   });
 });

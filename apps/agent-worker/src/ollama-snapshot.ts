@@ -1,4 +1,5 @@
 import {
+  MAX_OLLAMA_URL_LENGTH,
   type OllamaError,
   parseOllamaPs,
   parseOllamaTags,
@@ -50,6 +51,14 @@ async function lookup(
       error: name === "TimeoutError" || name === "AbortError" ? "timeout" : "unreachable",
     };
   }
+}
+
+/**
+ * The reading as the heartbeat may carry it, or null when its address is longer than the schema
+ * allows. A refused inventory would reject the whole heartbeat, which is the liveness signal.
+ */
+export function inventoryOf(reading: WorkerOllama): WorkerOllama | null {
+  return reading.baseUrl.length <= MAX_OLLAMA_URL_LENGTH ? reading : null;
 }
 
 export interface OllamaSnapshotSource {

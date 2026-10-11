@@ -20,7 +20,7 @@ describe("the mock setups", () => {
     applyAgentSetup(app.store, "small6");
     const view = await setup();
     expect(view.components.worker.host.gpuProbe).toBe("no_tool");
-    expect(view.sameOllama).toBe("yes");
+    expect(view.sameOllama).toBe("probably");
     expect(view.missing).toEqual(["gpuMemory"]);
     expect(view.gpu.agent.atLeastGib).toBeCloseTo(3.8, 1);
   });

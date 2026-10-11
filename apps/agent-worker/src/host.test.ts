@@ -53,6 +53,15 @@ describe("reading the GPUs from rocm-smi", () => {
 });
 
 describe("probing for GPUs", () => {
+  it("keeps the 16 largest cards, so the heartbeat is never refused for too many", async () => {
+    const rows = Array.from({ length: 20 }, (_, index) => `GPU ${index}, ${1000 + index}`).join(
+      "\n",
+    );
+    const result = await probeGpus(programs({ "nvidia-smi": rows }));
+    expect(result.gpus).toHaveLength(16);
+    expect(result.gpus?.[0]?.name).toBe("GPU 19");
+  });
+
   it("reports ok with the cards when nvidia-smi answers", async () => {
     const result = await probeGpus(programs({ "nvidia-smi": "RTX 5080, 16303\n" }));
     expect(result.gpuProbe).toBe("ok");

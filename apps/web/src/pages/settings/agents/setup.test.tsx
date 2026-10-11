@@ -62,7 +62,7 @@ describe("a 16 GB desktop with gpt-oss:20b installed and cleared", () => {
   it("detects the pieces and recommends one setup", async () => {
     agents();
     await ready();
-    expect(await screen.findByText(/nick-desktop-agent, seen .*RTX 5080 15\.9 GB/)).toBeVisible();
+    expect(await screen.findByText(/nick-desktop-agent, seen .*RTX 5080 16 GB/)).toBeVisible();
     expect(
       screen.getByText(/desktop:11434, v0\.12\.3, 7 models, gpt-oss:20b loaded, 12\.7 GB on GPU/),
     ).toBeVisible();
@@ -186,6 +186,79 @@ describe("a small card", () => {
   });
 });
 
+describe("an answered GPU question", () => {
+  it("shows the answer and lets the person change it", async () => {
+    const { user, mock } = agents("small6", ({ store }) => {
+      store.settings.agent.gpuMemoryGb = { worker: 6, server: 6 };
+    });
+    await ready();
+    expect(await screen.findByText("6 GB, from your answer")).toBeVisible();
+    expect(screen.queryByRole("radio", { name: "8" })).toBeNull();
+
+    await user.click(screen.getByRole("button", { name: "Change" }));
+    await user.click(screen.getByRole("radio", { name: "8" }));
+    await waitFor(() =>
+      expect(mock.store.settings.agent.gpuMemoryGb).toEqual({ worker: 8, server: 8 }),
+    );
+    expect(await screen.findByText("8 GB, from your answer")).toBeVisible();
+  });
+
+  it("is not shown when the GPU was read from the machine", async () => {
+    agents("gpu16");
+    await ready();
+    expect(screen.queryByText(/from your answer/)).toBeNull();
+  });
+});
+
+describe("when the agent worker cannot reach its own Ollama", () => {
+  it("says so instead of saying it cannot take a model", async () => {
+    agents("gpu16", ({ store }) => {
+      const worker = store.settings.worker.model;
+      if (worker?.ollama) {
+        worker.ollama = { ...worker.ollama, reachable: false, error: "unreachable", models: [] };
+      }
+    });
+    await ready();
+    expect(await screen.findByText(/cannot reach its Ollama at/)).toBeVisible();
+    expect(screen.queryByText(/cannot take a model from here/)).toBeNull();
+  });
+});
+
+describe("when the setup check fails or is slow", () => {
+  const SETUP_PATH = "/api/settings/agent-setup";
+
+  function withSetup(answer: () => Promise<Response | never>) {
+    return (mock: Mock) => {
+      const handle = mock.handle.bind(mock);
+      mock.handle = async (request) =>
+        request.url.startsWith(SETUP_PATH) ? ((await answer()) as never) : handle(request);
+    };
+  }
+  const failing = async () => ({
+    status: 500,
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ error: { code: "internal", message: "The check failed." } }),
+  });
+
+  it("keeps the MCP row and the safety gate reachable after an error", async () => {
+    const { user } = agents("gpu16", withSetup(failing as never));
+    expect(await screen.findByText("Could not check the setup")).toBeVisible();
+    expect(screen.getByRole("heading", { name: "Agent access" })).toBeVisible();
+    await user.click(advanced());
+    expect(await screen.findByRole("heading", { name: "When a send is held" })).toBeVisible();
+  });
+
+  it("shows the MCP row while detection is still running", async () => {
+    agents(
+      "gpu16",
+      withSetup(() => new Promise(() => undefined)),
+    );
+    expect(await screen.findByRole("heading", { name: "Agent access" })).toBeVisible();
+    expect(screen.getByText(SKELETON)).toBeInTheDocument();
+    expect(advanced()).toBeVisible();
+  });
+});
+
 describe("when nothing is installed that fits", () => {
   it("gives the pull line to copy, and leaves Apply disabled", async () => {
     const { user } = agents("gpu16", ({ store }) => {
@@ -279,7 +352,7 @@ describe("an agent worker that uses a hosted model", () => {
     await ready();
     expect(
       (await recommended()).getByText(
-        "The agent worker uses anthropic, claude-sonnet-4-6; no local recommendation",
+        "The agent worker uses openai, gpt-5-mini; no local recommendation",
       ),
     ).toBeVisible();
     expect(screen.queryByText(/^Agent: /)).toBeNull();

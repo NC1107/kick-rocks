@@ -328,6 +328,44 @@ function DetectionDetails({
   );
 }
 
+/**
+ * The safety gate alone, for while detection is still running or has failed. The gate reads what
+ * the server saved and needs no probing, so it stays reachable.
+ */
+export function AdvancedGate({
+  settings,
+  open,
+  onOpenChange,
+}: {
+  settings: SettingsView;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const saved = settings.agent.model;
+  const { current } = settings.agent.gate;
+  const verdict: GateVerdict =
+    saved && current?.model.name === saved.name
+      ? current.verdict
+      : { state: "unproven", unattended: false, record: null };
+  return (
+    <Disclosure
+      title="Advanced"
+      description="The safety gate"
+      open={open}
+      onOpenChange={onOpenChange}
+    >
+      <SafetyGate
+        agent={saved ? { name: saved.name, thinking: saved.thinking } : null}
+        verdict={verdict}
+        installed={null}
+        gate={settings.agent.gate}
+        holdMinutes={settings.agent.approvalHoldMinutes}
+        serverUrl={settings.mcp.url.replace(/\/mcp$/, "")}
+      />
+    </Disclosure>
+  );
+}
+
 /** Everything the setup section decides for the person, open to read and change by hand. */
 export function Advanced({
   view,
