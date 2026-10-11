@@ -111,6 +111,8 @@ export const Broker = z.object({
   replyDomains: ReplyDomains.optional(),
   /** Curated: the operator this site shares a network with; see {@link OwnerGroup}. */
   ownerGroup: OwnerGroup.optional(),
+  /** Curated: other names the broker writes under, such as the legal entity behind it. */
+  aliases: z.array(z.string().min(1).max(80)).min(1).optional(),
   regulatedBy: z.array(RegulatoryRegime),
   collectsMinors: z.boolean().nullable(),
   collectsGeolocation: z.boolean().nullable(),

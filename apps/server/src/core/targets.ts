@@ -118,6 +118,13 @@ export function replyDomainsOfRow(row: TargetRow): string[] {
   return replyDomainsOf({ ...row, replyDomains: listed });
 }
 
+/** The other names a stored target writes under: its operator and any curated alias. */
+export function brandsOfRow(row: TargetRow): string[] {
+  const owner = "ownerGroup" in row.data ? row.data.ownerGroup : undefined;
+  const aliases = "aliases" in row.data ? row.data.aliases : undefined;
+  return [...(owner ? [owner] : []), ...(aliases ?? [])];
+}
+
 /** Only the sister domains the dataset curates for a stored target, without its own contact hosts. */
 export function curatedReplyDomainsOfRow(row: TargetRow): string[] {
   const listed = "replyDomains" in row.data ? row.data.replyDomains : undefined;

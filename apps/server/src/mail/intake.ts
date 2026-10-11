@@ -4,11 +4,20 @@ import {
   type MessageAdmission,
   parseOutgoingMessageId,
   parseReferences,
-  withoutSharedHosts,
 } from "@kickrocks/shared";
 import { matchAwaitingConfirmation, onDomain, senderDomainsOf } from "./classifier.js";
 import { looksLikeDeliveryReport } from "./parse.js";
 import { extractLinks, stripQuoted } from "./reply-text.js";
+import {
+  addressIsTarget,
+  domainsOf,
+  mentionsIn,
+  mentionsTarget,
+  namesOf,
+  namesRequest,
+  preparedNaming,
+  searchable,
+} from "./target-names.js";
 import type { ClassifierRequest, InboxMessage, MessageHeaders } from "./types.js";
 
 /** A sender the person asked to always take in for one target. */
@@ -55,6 +64,8 @@ export type BodyReason =
   | "delivery_report"
   | "awaiting"
   | "alias_bulk"
+  /** Sent to the reply address, but nothing in the headers names a request it could be about. */
+  | "alias_unnamed"
   | "bulk_target"
   | "company"
   /** Nothing in the headers decides; only a body that names a request makes it matter. */
@@ -81,6 +92,7 @@ const IGNORE = { verdict: "ignore" } as const;
 const ignoredBy = (rule: IgnoreRule): BodyVerdict => ({ verdict: "ignore", rule });
 
 const BODY_CHARS_READ = 3_000;
+const NAMING_CHARS_READ = 50_000;
 const BOUNCE_WINDOW_MS = 14 * 24 * 60 * 60 * 1000;
 const MARKETING_LABELS = new Set([
   "e",
@@ -94,7 +106,6 @@ const MARKETING_LABELS = new Set([
   "promo",
   "offers",
 ]);
-const TICKET_DESK_SUFFIXES = ["zendesk.com", "freshdesk.com", "helpscout.net", "zohodesk.com"];
 const PRIVACY_MAILBOX =
   /^(privacy|dsar|dpo|optout|opt-out|gdpr|ccpa|dataprotection)$|^privacy[-_.]/i;
 
@@ -146,26 +157,10 @@ function isBulk(h: MessageHeaders, ctx: IntakeContext): boolean {
 const host = (h: MessageHeaders) => (h.from.address.split("@").pop() ?? "").toLowerCase();
 
 function marketingSubdomainOf(sender: string, request: ClassifierRequest): boolean {
-  const own = targetDomains(request);
-  return own.some(
+  return domainsOf(request).some(
     (domain) =>
       sender.endsWith(`.${domain}`) &&
       MARKETING_LABELS.has(sender.slice(0, -domain.length - 1).split(".")[0] ?? ""),
-  );
-}
-
-function targetDomains(request: ClassifierRequest): string[] {
-  return withoutSharedHosts([
-    request.targetDomain,
-    ...request.curatedReplyDomains,
-    ...request.replyDomains,
-  ]).map((domain) => domain.toLowerCase());
-}
-
-function ticketDeskOf(sender: string, request: ClassifierRequest): boolean {
-  return TICKET_DESK_SUFFIXES.some(
-    (suffix) =>
-      sender.endsWith(`.${suffix}`) && sender.split(".")[0] === request.targetId.toLowerCase(),
   );
 }
 
@@ -181,11 +176,15 @@ const personSenderOf = (h: MessageHeaders, ctx: IntakeContext) =>
   personSendersFor(h, ctx).length > 0;
 
 function isTargetSender(h: MessageHeaders, request: ClassifierRequest): boolean {
-  const sender = host(h);
+  return addressIsTarget(h.from.address, request);
+}
+
+/** Whether the headers alone show that a message is from, or about, a request's target. */
+function namedByHeaders(h: MessageHeaders, request: ClassifierRequest): boolean {
   return (
-    targetDomains(request).some((domain) => onDomain(sender, domain)) ||
-    request.replyAddresses.includes(h.from.address.toLowerCase()) ||
-    ticketDeskOf(sender, request)
+    isTargetSender(h, request) ||
+    mentionsTarget(request, h.subject) ||
+    mentionsTarget(request, h.from.name ?? "")
   );
 }
 
@@ -246,6 +245,10 @@ export function triageHeaders(
 
   const bulk = isBulk(h, ctx);
   if (ctx.verifiedAlias && h.recipients.includes(ctx.verifiedAlias)) {
+    // The address was given to the targets, but anyone who learns it can write to it.
+    if (!skip.has("alias_unnamed") && !ctx.open.some((request) => namedByHeaders(h, request))) {
+      return needsBody("alias_unnamed");
+    }
     return bulk ? needsBody("alias_bulk") : admit("alias");
   }
 
@@ -266,17 +269,20 @@ function readableText(message: InboxMessage): string {
   return `${message.subject}\n${stripQuoted(message.text).slice(0, BODY_CHARS_READ)}`;
 }
 
-function escapeRegex(text: string): string {
-  return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+/** What the sender wrote, whole, since a company often names itself only in its signature. */
+function namingOf(message: InboxMessage): Parameters<typeof namesRequest>[1] {
+  return {
+    subject: message.subject,
+    fromName: message.from.name,
+    fromAddress: message.from.address,
+    body: stripQuoted(message.text).slice(0, NAMING_CHARS_READ),
+  };
 }
 
-function namesOpenTarget(text: string, ctx: IntakeContext): boolean {
-  const lower = text.toLowerCase();
-  return ctx.open.some(
-    (request) =>
-      new RegExp(`\\b${escapeRegex(request.targetName)}\\b`, "i").test(text) ||
-      lower.includes(request.targetDomain.toLowerCase()),
-  );
+function namesOpenRequest(message: InboxMessage, ctx: IntakeContext): boolean {
+  const naming = namingOf(message);
+  const prepared = preparedNaming(naming);
+  return ctx.open.some((request) => namesRequest(request, naming, prepared));
 }
 
 function reportsOurMail(message: InboxMessage, ctx: IntakeContext): boolean {
@@ -339,6 +345,10 @@ export function triageBody(message: InboxMessage, ctx: IntakeContext): BodyVerdi
         skip.add("awaiting");
         continue;
       }
+      case "alias_unnamed":
+        if (!namesOpenRequest(message, ctx)) return ignoredBy(unmatchedRule("not_named", h, ctx));
+        skip.add("alias_unnamed");
+        continue;
       case "alias_bulk":
         return REQUEST_PHRASE.test(text) ? admit("alias") : ignoredBy("bulk_no_privacy");
       case "bulk_target":
@@ -348,7 +358,7 @@ export function triageBody(message: InboxMessage, ctx: IntakeContext): BodyVerdi
       case "company":
         return PRIVACY_TOPIC.test(text) ? admit("target_sender") : ignoredBy("company_not_privacy");
       case "unknown":
-        return namesOpenTarget(text, ctx) && PRIVACY_TOPIC.test(text)
+        return namesOpenRequest(message, ctx) && PRIVACY_TOPIC.test(text)
           ? admit("named_target")
           : ignoredBy(unmatchedRule("not_named", h, ctx));
       case "bulk_other":
@@ -380,6 +390,7 @@ export function unreadRule(h: MessageHeaders, reason: BodyReason, ctx: IntakeCon
     case "bulk_other":
       return unmatchedRule("stranger_bulk", h, ctx);
     case "unknown":
+    case "alias_unnamed":
       return unmatchedRule("not_named", h, ctx);
     default:
       return unmatchedRule("no_wording_found", h, ctx);
@@ -397,7 +408,16 @@ export function couldBeAReply(
   ctx: IntakeContext,
 ): boolean {
   const text = message ? readableText(message) : h.subject;
-  return isFromAnyTarget(h, ctx) || namesAnyTarget(text, ctx) || PRIVACY_TOPIC.test(text);
+  return (
+    isFromAnyTarget(h, ctx) ||
+    namesAnyTarget(text, ctx) ||
+    PRIVACY_TOPIC.test(text) ||
+    sentToAlias(h, ctx)
+  );
+}
+
+function sentToAlias(h: MessageHeaders, ctx: IntakeContext): boolean {
+  return ctx.verifiedAlias !== null && h.recipients.includes(ctx.verifiedAlias);
 }
 
 /**
@@ -456,6 +476,12 @@ export function bodySearchTerms(ctx: IntakeContext): string[] {
   const terms = new Set<string>(referenceTerms(ctx));
   for (const request of ctx.open) {
     terms.add(request.targetName);
+    terms.add(request.targetName.replaceAll("&", "and"));
+    terms.add(request.targetName.replace(/['’ʼ`´]/g, ""));
+    for (const name of namesOf(request)) {
+      terms.add(name);
+      terms.add(name.replaceAll(" ", ""));
+    }
     terms.add(request.targetDomain.toLowerCase());
   }
   return [...terms].filter((term) => term.trim() !== "");
@@ -518,8 +544,10 @@ export function readPlanFor(
             scope: "privacy",
             terms: [...referenceTerms(ctx), ...PRIVACY_TERMS],
           };
+    case "alias_unnamed":
+      return { read: "if_found", scope: "named", terms: bodySearchTerms(ctx) };
     case "unknown":
-      return namesOpenTarget(h.subject, ctx)
+      return ctx.open.some((request) => namedByHeaders(h, request))
         ? { read: "now" }
         : { read: "if_found", scope: "named", terms: bodySearchTerms(ctx) };
     default:
@@ -562,12 +590,8 @@ export function isFromAnyTarget(h: MessageHeaders, ctx: IntakeContext): boolean 
 
 /** Whether a text names any target the person has a request with, open or finished. */
 export function namesAnyTarget(text: string, ctx: IntakeContext): boolean {
-  const lower = text.toLowerCase();
-  return ctx.window.some(
-    (request) =>
-      new RegExp(`\\b${escapeRegex(request.targetName)}\\b`, "i").test(text) ||
-      lower.includes(request.targetDomain.toLowerCase()),
-  );
+  const prepared = searchable(text);
+  return ctx.window.some((request) => mentionsIn(request, prepared));
 }
 
 /** Whether a text holds one of our references or Message-IDs, which bind it to a request. */

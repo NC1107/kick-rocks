@@ -233,7 +233,9 @@ The company list is committed as `companies.json` and is not generated.
 5. Broker ids are permanent.
    `ids.json` maps every domain to its id and is committed, the merge keeps an id pinned whichever source wins, and the build appends the id of any new domain, so commit the file whenever it changes.
 6. `reply-domains.yaml` adds the sister domains a broker's confirmation mail may come from, and the build checks bundled recipes against it.
-7. The output carries `license: CC-BY-NC-SA-4.0` and the BADBOOL attribution, and the build validates it against the shared schema.
+7. `aliases.yaml` adds the other names a broker writes under, each with the source that shows it.
+   The mail intake ties a reply to a request by the target's name, so a broker that answers as its legal entity needs an entry here.
+8. The output carries `license: CC-BY-NC-SA-4.0` and the BADBOOL attribution, and the build validates it against the shared schema.
 
 To update a pinned source, replace the file, update the commit or date and the hash in its `*.source.json`, rebuild, and review the diff.
 To add a state registry, write an importer next to `src/import/ca-registry.ts`, pin its file, and put it after the california registry in `build.ts`.

@@ -1,0 +1,14 @@
+# Other names a broker writes under, curated by hand. A reply that does not carry our reference
+# is tied to a request only when it names the target, and a broker whose legal entity or parent
+# answers under another name would otherwise look like a stranger. Add an entry only where the
+# source shows the broker answering under that name; `source` says where.
+aliases:
+  - broker: truepeoplesearch
+    names: [Free Data Services]
+    source: 'California Privacy Protection Agency data broker registry, 2026 entry "Free Data Services, LLC" for truepeoplesearch.com'
+  - broker: mylife
+    names: [Insightbridge]
+    source: 'California Privacy Protection Agency data broker registry, 2026 entry "Insightbridge LLC" for mylife.com'
+  - broker: advancedbackgroundchecks
+    names: [Mississippi Tornado Alley]
+    source: 'California Privacy Protection Agency data broker registry, 2026 entry "Mississippi Tornado Alley, LLC" for advancedbackgroundchecks.com'

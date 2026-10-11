@@ -243,6 +243,11 @@ export interface ClassifierRequest {
    * only for a message sent from one of these addresses.
    */
   replyAddresses: string[];
+  /**
+   * Other names the target writes under: the operator it belongs to and any curated alias. A
+   * domain here (the owner group) stands for the name on its lead label.
+   */
+  brands?: string[];
   /** The record a form removal is for, which tells apart several requests to one target. */
   recordUrl: string | null;
   /**

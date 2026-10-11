@@ -9,6 +9,7 @@ import {
   BrokerDataset as BrokerDatasetSchema,
 } from "@kickrocks/shared";
 import { z } from "zod";
+import { applyAliases } from "./aliases.js";
 import {
   applyCorrections,
   dropExcluded,
@@ -77,12 +78,15 @@ export function buildDataset(
       `email refusals withhold no address because the lists no longer carry it: ${idle.map((r) => r.domain).join(", ")}`,
     );
   }
-  const brokers = applyOwnerGroups(
-    applyReplyDomains(
-      mergeImported(imported),
-      readFileSync(resolve(dataDir, "reply-domains.yaml"), "utf8"),
+  const brokers = applyAliases(
+    applyOwnerGroups(
+      applyReplyDomains(
+        mergeImported(imported),
+        readFileSync(resolve(dataDir, "reply-domains.yaml"), "utf8"),
+      ),
+      readFileSync(resolve(dataDir, "owner-groups.yaml"), "utf8"),
     ),
-    readFileSync(resolve(dataDir, "owner-groups.yaml"), "utf8"),
+    readFileSync(resolve(dataDir, "aliases.yaml"), "utf8"),
   );
   const unpaired = unpairedRecipeSenders(brokers, readBundledRecipes(bundledRecipesDir));
   if (unpaired.length > 0) throw new Error(unpaired.join("\n"));

@@ -1,16 +1,16 @@
-Return-Path: <account@spokeo.com>
-Received: from mail.spokeo.com (mail.spokeo.com [203.0.113.20]) by mx.example.com with ESMTPS id 8f0b392fa7 for <jordan@example.com>; Mon, 05 Oct 2026 10:38:00 +0000
-From: Spokeo <account@spokeo.com>
+Return-Path: <account@whitepages.com>
+Received: from mail.whitepages.com (mail.whitepages.com [203.0.113.24]) by mx.example.com with ESMTPS id d8a8d7e70b for <jordan@example.com>; Mon, 05 Oct 2026 05:13:00 +0000
+From: Whitepages <account@whitepages.com>
 To: jordan@example.com
-Subject: Your saved searches
-Date: Mon, 05 Oct 2026 10:38:00 +0000
-Message-ID: <dd5377e52b17c19cf754b216@spokeo.com>
+Subject: Welcome back to your account
+Date: Mon, 05 Oct 2026 05:13:00 +0000
+Message-ID: <6b653753d449988f3dc2b3dc@whitepages.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
 
 Hello Jordan,
 
-Something changed on your Spokeo account. If this was you, no action is needed.
+Something changed on your Whitepages account. If this was you, no action is needed.
 
-The Spokeo team
+The Whitepages team
