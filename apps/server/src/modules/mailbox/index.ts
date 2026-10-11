@@ -101,8 +101,8 @@ export const mailboxModule: ModulePlugin = (app, services) => {
     return { ok: true as const };
   });
 
-  registerRoute(app, API_ROUTES.mailboxPoll, ({ params }) =>
-    startManualPoll(services, requireMailbox(services, params.id)),
+  registerRoute(app, API_ROUTES.mailboxPoll, ({ params, body }) =>
+    startManualPoll(services, requireMailbox(services, params.id), body?.requestId),
   );
 
   registerRoute(app, API_ROUTES.mailboxPollGet, ({ params }) =>

@@ -69,6 +69,7 @@ import { DataSourceInfo, SettingsPatch, SettingsView } from "./settings.js";
 import { TargetDetail, TargetFilter, TargetListItem } from "./targets.js";
 import {
   MailboxPoll,
+  MailboxPollBody,
   SCREENSHOT_BODY_LIMIT_BYTES,
   SCREENSHOT_MIME_TYPES,
   TaskMarkDoneBody,
@@ -267,6 +268,7 @@ export const RequestsQuery = PageQuery.extend({
   status: csv(RequestStatus).optional(),
   channel: RequestChannel.optional(),
   targetId: z.string().min(1).optional(),
+  campaignId: z.string().min(1).optional(),
   q: z.string().trim().max(100).optional(),
 });
 export type RequestsQuery = z.infer<typeof RequestsQuery>;
@@ -508,6 +510,7 @@ export const API_ROUTES = {
     module: "mailbox",
     auth: "session",
     params: IdParam,
+    body: MailboxPollBody.optional(),
     response: MailboxPoll,
   }),
   mailboxPollGet: defineRoute({
@@ -717,6 +720,15 @@ export const API_ROUTES = {
     module: "requests",
     auth: "session",
     params: IdParam,
+    query: RequestsQuery,
+    response: pageOf(RequestListItem),
+  }),
+  /** Every profile's requests, for a person who runs more than one. */
+  requestsListAll: defineRoute({
+    method: "GET",
+    path: "/requests",
+    module: "requests",
+    auth: "session",
     query: RequestsQuery,
     response: pageOf(RequestListItem),
   }),

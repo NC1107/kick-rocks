@@ -33,7 +33,7 @@ describe("the requests page", () => {
   it("lists the current profile's requests with status, reference, and channel", async () => {
     open();
     const list = await rows();
-    expect(list.length).toBe(33);
+    expect(list.length).toBe(34);
     const first = within(list[0] as HTMLElement);
     expect(first.getByText(/^KR-/)).toBeVisible();
     expect(first.getAllByText(/Email|Web form/).length).toBeGreaterThan(0);
@@ -54,7 +54,7 @@ describe("the requests page", () => {
   it("counts the requests in the toolbar", async () => {
     open();
     await rows();
-    expect(await screen.findByText("33 requests")).toBeVisible();
+    expect(await screen.findByText("34 requests")).toBeVisible();
   });
 
   it("filters by status from the address bar", async () => {
@@ -131,11 +131,71 @@ describe("the requests page", () => {
   });
 });
 
+describe("the profile scope", () => {
+  it("names the current profile and lists only its requests", async () => {
+    open();
+    await rows();
+    expect(screen.getByRole("button", { name: "Profile: Jordan Example" })).toBeVisible();
+  });
+
+  it("lists every profile's requests, with a Profile column, when asked for all profiles", async () => {
+    const { user, mock } = open();
+    const own = (await rows()).length;
+    await user.click(screen.getByRole("button", { name: "Profile: Jordan Example" }));
+    await user.click(await screen.findByRole("menuitemradio", { name: "All profiles" }));
+    await waitFor(async () => expect((await rows()).length).toBe(mock.store.requests.length));
+    expect(mock.store.requests.length).toBeGreaterThan(own);
+    expect(screen.getByRole("columnheader", { name: "Profile" })).toBeVisible();
+    expect(screen.getAllByRole("link", { name: "Riley Sample" }).length).toBeGreaterThan(0);
+  });
+
+  it("switches to another profile without touching the current one", async () => {
+    const { user, mock } = open();
+    await rows();
+    await user.click(screen.getByRole("button", { name: "Profile: Jordan Example" }));
+    await user.click(await screen.findByRole("menuitemradio", { name: "Riley Sample" }));
+    const riley = mock.store.profiles[1];
+    await waitFor(async () =>
+      expect((await rows()).length).toBe(
+        mock.store.requests.filter((request) => request.profileId === riley?.id).length,
+      ),
+    );
+    expect(screen.getByRole("button", { name: "Profile: Riley Sample" })).toBeVisible();
+  });
+
+  it("opens with all profiles from the address", async () => {
+    const { mock } = open("/requests?profileId=all");
+    await waitFor(async () => expect((await rows()).length).toBe(mock.store.requests.length));
+  });
+});
+
+describe("filtering by campaign", () => {
+  it("lists the requests of one campaign and says so in a removable tag", async () => {
+    const mock = createMockApp();
+    const [first, second] = mock.store.requests;
+    if (!(first && second)) throw new Error("fixture");
+    first.campaignId = "cmp_x";
+    second.campaignId = "cmp_x";
+    first.profileId = second.profileId = mock.store.profiles[0]?.id ?? "";
+    const { user } = open("/requests?campaignId=cmp_x", mock);
+    await waitFor(async () => expect((await rows()).length).toBe(2));
+    await user.click(await screen.findByRole("button", { name: "Remove From one campaign" }));
+    await waitFor(async () => expect((await rows()).length).toBeGreaterThan(2));
+  });
+});
+
 describe("request filters", () => {
   it("ignores a status or channel that is not real", () => {
     const filters = readRequestFilters(new URLSearchParams("status=bogus&channel=fax&page=0"));
     expect(filters).toMatchObject({ status: "", channel: "", page: 1 });
     expect(hasRequestFilters(filters)).toBe(false);
+  });
+
+  it("reads the campaign and the profile scope", () => {
+    const filters = readRequestFilters(new URLSearchParams("campaignId=cmp_1&profileId=all"));
+    expect(filters).toMatchObject({ campaignId: "cmp_1", profileId: "all" });
+    expect(hasRequestFilters(filters)).toBe(true);
+    expect(toRequestQuery(filters)).toMatchObject({ campaignId: "cmp_1" });
   });
 
   it("sends the status as a list, which is how the route reads it", () => {

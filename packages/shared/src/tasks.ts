@@ -82,6 +82,8 @@ export const InboxPollPayload = z.object({
    * that had already passed it would otherwise never show. Limited to the senders of one target.
    */
   rescan: z.object({ since: z.iso.datetime(), targetId: id }).optional(),
+  /** The request page that asked for this check, which records on its timeline what it found. */
+  requestId: id.optional(),
 });
 
 /**
@@ -369,6 +371,10 @@ export const MailboxPollOutcome = z.discriminatedUnion("state", [
   z.object({ state: z.literal("failed"), error: z.string() }),
 ]);
 export type MailboxPollOutcome = z.infer<typeof MailboxPollOutcome>;
+
+/** What a check says about where it was started, so only that request's timeline records it. */
+export const MailboxPollBody = z.object({ requestId: z.string().min(1).optional() });
+export type MailboxPollBody = z.infer<typeof MailboxPollBody>;
 
 /** A check on a mailbox: the task that does it, and how it ended once it has. */
 export const MailboxPoll = z.object({

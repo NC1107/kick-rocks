@@ -9,8 +9,9 @@ import {
   useApiMutation,
   useApiQuery,
 } from "../../api/index.js";
-import { Button, Callout, LinkButton } from "../../components/ui/index.js";
+import { Button, Callout, IconAction, LinkButton } from "../../components/ui/index.js";
 import { cn } from "../../lib/cn.js";
+import { paths } from "../../lib/paths.js";
 
 export const POLL_FOLLOW_MS = 1_000;
 /** A check that has not ended by now is left to finish in the background. */
@@ -70,7 +71,7 @@ function useCountdown(until: number | null, clear: () => void): number {
  * Asks the server to read a profile's mailbox now and follows that one check until it ends. A tap
  * while a check runs joins it on the server, so the page never queues a second one.
  */
-export function useReplyCheck(profileId: string): ReplyCheck {
+export function useReplyCheck(profileId: string, requestId?: string): ReplyCheck {
   const queryClient = useQueryClient();
   const [taskId, setTaskId] = useState<string | null>(null);
   const [startFailure, setStartFailure] = useState<string | null>(null);
@@ -140,7 +141,11 @@ export function useReplyCheck(profileId: string): ReplyCheck {
     profileId,
     phase,
     waitSeconds,
-    start: () => begin.mutate({ params: { id: profileId } }),
+    start: () =>
+      begin.mutate({
+        params: { id: profileId },
+        body: requestId ? { requestId } : undefined,
+      }),
   };
 }
 
@@ -167,6 +172,34 @@ export function CheckForRepliesButton({
       {checking ? null : <MailCheck aria-hidden="true" />}
       Check for replies
     </Button>
+  );
+}
+
+/**
+ * Check for replies as an icon, with the wait as a corner badge and the words from `labelFrom`
+ * up. It is the same check as the button, in the room a phone header has.
+ */
+export function CheckForRepliesAction({
+  check,
+  labelFrom,
+  variant = "secondary",
+}: {
+  check: ReplyCheck;
+  labelFrom?: "sm" | "md" | "lg";
+  variant?: "secondary" | "primary" | "ghost";
+}) {
+  const waiting = check.waitSeconds > 0;
+  return (
+    <IconAction
+      label="Check for replies"
+      icon={MailCheck}
+      variant={variant}
+      loading={check.phase.kind === "checking"}
+      disabled={waiting}
+      badge={waiting ? `${check.waitSeconds}s` : undefined}
+      labelFrom={labelFrom}
+      onClick={check.start}
+    />
   );
 }
 
@@ -208,11 +241,17 @@ export function ReplyCheckResult({
   check,
   here,
   onMailboxPage = false,
+  recordedOnTimeline = false,
   className,
 }: {
   check: ReplyCheck;
   here?: string;
   onMailboxPage?: boolean;
+  /**
+   * Set on a request page, whose timeline already says what the check found, so the notice is
+   * left for the cases the timeline cannot show: mail for another request, or mail to review.
+   */
+  recordedOnTimeline?: boolean;
   className?: string | undefined;
 }) {
   const { phase } = check;
@@ -268,7 +307,7 @@ export function ReplyCheckResult({
         className={className}
         action={
           onMailboxPage ? undefined : (
-            <LinkButton size="sm" to={`/profiles/${check.profileId}/mailbox`}>
+            <LinkButton size="sm" to={paths.mailbox(check.profileId)}>
               Fix the mailbox
             </LinkButton>
           )
@@ -281,7 +320,12 @@ export function ReplyCheckResult({
 
   return (
     <>
-      <FoundNotice outcome={outcome} here={here} className={className} />
+      <FoundNotice
+        outcome={outcome}
+        here={here}
+        recordedOnTimeline={recordedOnTimeline}
+        className={className}
+      />
       {wait}
     </>
   );
@@ -290,26 +334,30 @@ export function ReplyCheckResult({
 function FoundNotice({
   outcome,
   here,
+  recordedOnTimeline,
   className,
 }: {
   outcome: Extract<MailboxPollOutcome, { state: "done" }>;
   here: string | undefined;
+  recordedOnTimeline: boolean;
   className: string | undefined;
 }) {
   const ids = [...new Set(outcome.matchedRequestIds)];
   const others = ids.filter((id) => id !== here);
+  const nothingElsewhere = others.length === 0 && outcome.needsReview === 0;
   const elsewhere = ids.length > 0 && others.length === ids.length ? others : [];
   const only = elsewhere.length === 1 ? (elsewhere[0] ?? null) : null;
   const named = useApiQuery(API_ROUTES.requestsGet, only ? { params: { id: only } } : skipToken);
   const targetName = named.data?.target.name;
+  if (recordedOnTimeline && nothingElsewhere) return null;
 
   const link =
     outcome.matched === 0
       ? null
       : others.length === 1
-        ? { to: `/requests/${others[0]}`, label: "Open the request" }
+        ? { to: paths.request(others[0] ?? ""), label: "Open the request" }
         : others.length > 1
-          ? { to: "/requests", label: "See requests" }
+          ? { to: paths.requests(), label: "See requests" }
           : null;
   const title = titleOf(outcome);
 
@@ -324,7 +372,7 @@ function FoundNotice({
             {link.label}
           </LinkButton>
         ) : outcome.needsReview > 0 ? (
-          <LinkButton size="sm" to="/review">
+          <LinkButton size="sm" to={paths.review()}>
             Open Review
           </LinkButton>
         ) : undefined

@@ -1,13 +1,14 @@
 import { API_ROUTES, type ProfileSummary } from "@kickrocks/shared";
-import { Trash2 } from "lucide-react";
+import { MailCheck, MailPlus, Star, Trash2 } from "lucide-react";
 import { useState } from "react";
-import { Link } from "react-router";
 import { errorMessage, useApiMutation, useApiQuery, useCurrentProfile } from "../../api/index.js";
 import {
   Button,
   Callout,
   ConfirmDialog,
   EmptyState,
+  EntityRow,
+  IconAction,
   IconButton,
   LinkButton,
   PageHeader,
@@ -15,14 +16,9 @@ import {
   RowGroup,
   Section,
   Skeleton,
-  StatusShapeGlyph,
   Tag,
-  Tooltip,
   useToast,
 } from "../../components/ui/index.js";
-
-const ROW =
-  "marked group relative flex min-h-row flex-wrap items-center gap-x-4 gap-y-1 px-3.5 py-2 transition-colors duration-100 hover:bg-hover data-[selected=true]:bg-accent-soft";
 
 function ProfileRow({
   profile,
@@ -36,61 +32,44 @@ function ProfileRow({
   onDelete: () => void;
 }) {
   return (
-    <li
-      aria-label={profile.displayName}
-      data-selected={current ? "true" : undefined}
-      className={ROW}
-    >
-      <div className="flex min-w-0 flex-1 basis-56 flex-col">
-        <span className="flex min-w-0 items-center gap-2">
-          <Link
-            to={`/profiles/${profile.id}`}
-            className="min-w-0 break-words rounded-xs text-ui font-medium text-ink after:absolute after:inset-0 after:content-['']"
-          >
-            {profile.displayName}
-          </Link>
-          {current ? <Tag>Current</Tag> : null}
-        </span>
-        <span className="flex min-w-0 items-center gap-1.5 font-mono text-caption text-ink-3">
-          <span>{profile.state}</span>
-          <span aria-hidden="true">·</span>
-          {profile.primaryEmail ? (
-            <Tooltip content={profile.primaryEmail} className="min-w-0">
-              <span className="min-w-0 truncate">{profile.primaryEmail}</span>
-            </Tooltip>
-          ) : (
-            <span>no email</span>
-          )}
-        </span>
-      </div>
-      <div className="relative flex items-center text-meta">
-        {profile.mailboxConnected ? (
-          <span className="inline-flex items-center gap-2 text-ink-2">
-            <StatusShapeGlyph shape="disc" />
-            Mailbox connected
+    <li aria-label={profile.displayName} className="relative">
+      <EntityRow
+        to={{ kind: "profile", id: profile.id, name: profile.displayName }}
+        title={profile.displayName}
+        selected={current}
+        meta={
+          <span className="inline-flex min-w-0 max-w-full gap-1.5 font-mono text-caption">
+            <span>{profile.state}</span>
+            <span aria-hidden="true">{"\u00b7"}</span>
+            <span className="truncate">{profile.primaryEmail ?? "no email"}</span>
           </span>
-        ) : (
-          <Link
-            to={`/profiles/${profile.id}/mailbox`}
-            className="rounded-xs text-accent-text underline underline-offset-2 max-sm:flex max-sm:min-h-11 max-sm:items-center pointer-coarse:flex pointer-coarse:min-h-11 pointer-coarse:items-center"
-          >
-            Connect mailbox
-          </Link>
-        )}
-      </div>
-      <span className="w-20 shrink-0 text-right font-mono text-caption tabular-nums text-ink-3 max-sm:hidden">
-        <RelativeTime iso={profile.updatedAt} />
-      </span>
-      <div className="relative flex items-center justify-end gap-1 opacity-0 transition-opacity duration-100 group-focus-within:opacity-100 group-hover:opacity-100 pointer-coarse:opacity-100 max-sm:opacity-100 sm:w-36">
-        {current ? null : (
-          <Button size="sm" variant="ghost" onClick={onMakeCurrent}>
-            Make current
-          </Button>
-        )}
-        <IconButton label={`Delete ${profile.displayName}`} size="sm" onClick={onDelete}>
-          <Trash2 />
-        </IconButton>
-      </div>
+        }
+        trailing={
+          <>
+            {current ? <Tag>Current</Tag> : null}
+            <span className="w-14 shrink-0 text-right font-mono text-caption tabular-nums text-ink-3 max-sm:hidden">
+              <RelativeTime iso={profile.updatedAt} />
+            </span>
+            <IconAction
+              variant="ghost"
+              icon={profile.mailboxConnected ? MailCheck : MailPlus}
+              label={profile.mailboxConnected ? "Mailbox connected" : "Connect mailbox"}
+              to={{ kind: "mailbox", profileId: profile.id, address: profile.primaryEmail ?? "" }}
+            />
+            {current ? null : (
+              <IconAction
+                variant="ghost"
+                icon={Star}
+                label="Make current"
+                onClick={onMakeCurrent}
+              />
+            )}
+            <IconButton label={`Delete ${profile.displayName}`} onClick={onDelete}>
+              <Trash2 />
+            </IconButton>
+          </>
+        }
+      />
     </li>
   );
 }
@@ -121,6 +100,7 @@ export function Component() {
       <PageHeader
         title="Profiles"
         description="Who requests are sent for"
+        hideDescriptionOnPhone
         actions={query.data && profiles.length === 0 ? undefined : newProfile}
       />
       {query.error ? (

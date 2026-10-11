@@ -10,6 +10,7 @@ import {
   describeIntegration,
   seedMailbox,
   seedProfile,
+  seedTarget,
   type TestContext,
 } from "../../test-utils/index.js";
 
@@ -439,6 +440,54 @@ describe("POST /profiles/:id/mailbox/poll", () => {
     expect(ctx.services.taskQueue.get(first.body.task.id)?.payload).toEqual({
       mailboxId: mailbox.id,
     });
+  });
+
+  it("remembers the request page that started the check", async () => {
+    const profile = seedProfile(ctx);
+    seedMailbox(ctx, profile.id);
+    const target = seedTarget(ctx);
+    const { request } = ctx.services.requests.open({
+      profileId: profile.id,
+      targetId: target.id,
+      rights: ["opt_out"],
+      channel: "email",
+      actor: "user",
+    });
+    const started = await ctx.call(API_ROUTES.mailboxPoll, {
+      params: { id: profile.id },
+      body: { requestId: request.id },
+    });
+    if (!started.ok) throw new Error("the poll should start");
+    expect(ctx.services.taskQueue.get(started.body.task.id)?.payload).toMatchObject({
+      requestId: request.id,
+    });
+  });
+
+  it("refuses a request that belongs to another profile or does not exist", async () => {
+    const profile = seedProfile(ctx);
+    seedMailbox(ctx, profile.id);
+    const other = seedProfile(ctx, { displayName: "Casey Example" });
+    seedMailbox(ctx, other.id, { address: "casey@example.org" });
+    const target = seedTarget(ctx);
+    const { request } = ctx.services.requests.open({
+      profileId: other.id,
+      targetId: target.id,
+      rights: ["opt_out"],
+      channel: "email",
+      actor: "user",
+    });
+    expect(
+      await ctx.call(API_ROUTES.mailboxPoll, {
+        params: { id: profile.id },
+        body: { requestId: request.id },
+      }),
+    ).toMatchObject({ ok: false, status: 400 });
+    expect(
+      await ctx.call(API_ROUTES.mailboxPoll, {
+        params: { id: profile.id },
+        body: { requestId: "req_nope" },
+      }),
+    ).toMatchObject({ ok: false, status: 404, body: { error: "request_not_found" } });
   });
 
   it("has no outcome while the check waits", async () => {

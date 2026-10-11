@@ -59,6 +59,10 @@ interface NewRequest {
   blocked?: { reason: BlockedReason; detail: string; screenshot?: boolean };
   /** A form request whose task ran out of attempts, so the timeline carries one error. */
   failed?: { error: string };
+  /** The id of the legal basis, when it is not the one the profile's state implies. */
+  legalBasis?: string;
+  /** A reply that is recorded without moving the request, such as an automatic acknowledgement. */
+  noteReply?: { classification: ReplyClassification; text: string; confidence?: number };
 }
 
 const MS_DAY = 86_400_000;
@@ -139,7 +143,7 @@ export function buildRequest(store: MockStore, input: NewRequest): StoredRequest
     campaignId: input.campaignId ?? null,
     mailboxId: input.channel === "email" ? (profile.mailbox?.id ?? null) : null,
     rights: input.rights,
-    legalBasis: profile.state === "CA" ? "ca-ccpa" : "policy",
+    legalBasis: input.legalBasis ?? (profile.state === "CA" ? "ca-ccpa" : "policy"),
     channel: input.channel,
     status: input.status,
     reference,
@@ -309,6 +313,38 @@ export function buildRequest(store: MockStore, input: NewRequest): StoredRequest
       from: "awaiting_reply",
       to: input.status,
     });
+  } else if (input.noteReply) {
+    const { classification, text, confidence = 0.91 } = input.noteReply;
+    const receivedAt = shift(sendAt, 1);
+    const message: ReviewMessage = {
+      id: store.nextId("msg"),
+      mailboxId: request.mailboxId ?? profile.mailbox?.id ?? "mbx_none",
+      requestId: id,
+      fromAddress: `privacy@${target.domain}`,
+      subject: `Re: Opt-out request ${reference}`,
+      receivedAt,
+      classification,
+      confidence,
+      rationale: "Matched the reference in the subject.",
+      links: [],
+      requestedFields: [],
+      snippet: text,
+      reviewed: true,
+      requestReference: reference,
+      targetName: target.name,
+    };
+    store.messages.push(message);
+    addEvent(store, request, "reply_received", "system", receivedAt, {
+      messageId: message.id,
+      from: message.fromAddress,
+      subject: message.subject,
+    });
+    addEvent(store, request, "classified", "system", shift(receivedAt, 0, 0.01), {
+      messageId: message.id,
+      classification,
+      confidence,
+      correlation: "reference",
+    });
   } else if (input.status === "no_response" || input.status === "follow_up_due") {
     addEvent(store, request, "status_changed", "system", shift(sendAt, 45), {
       from: "awaiting_reply",
@@ -386,6 +422,8 @@ interface Seed {
   blocked?: NewRequest["blocked"];
   failed?: NewRequest["failed"];
   lastError?: string;
+  legalBasis?: string;
+  noteReply?: NewRequest["noteReply"];
 }
 
 const BOTH: RequestRight[] = ["opt_out", "delete"];
@@ -423,6 +461,19 @@ const JORDAN_REQUESTS: Seed[] = [
       reason: "captcha",
       detail: "A reCAPTCHA appeared before the removal form could be submitted.",
       screenshot: true,
+    },
+  },
+  {
+    // An automatic reply that says the request must go through a web form or by phone. Nothing
+    // reads it as such, so the request looks like any other that is waiting.
+    target: "maplewood-cinemas",
+    status: "awaiting_reply",
+    daysAgo: 6,
+    rights: DELETE,
+    legalBasis: "md-modpa",
+    noteReply: {
+      classification: "auto_ack",
+      text: "Thanks for contacting us. We cannot take privacy requests by email. Please submit your request through our web form or call 1-800-555-0142.",
     },
   },
   { target: "tidewater-card-services", status: "draft", daysAgo: 1, rights: BOTH },
@@ -499,6 +550,8 @@ function seedRequests(store: MockStore, profileIndex: number, seeds: Seed[]): vo
       ...(seed.blocked ? { blocked: seed.blocked } : {}),
       ...(seed.failed ? { failed: seed.failed } : {}),
       ...(seed.lastError ? { lastError: seed.lastError } : {}),
+      ...(seed.legalBasis ? { legalBasis: seed.legalBasis } : {}),
+      ...(seed.noteReply ? { noteReply: seed.noteReply } : {}),
     });
   }
 }
@@ -548,6 +601,16 @@ function detailOf(store: MockStore, request: StoredRequest): RequestDetail {
   };
 }
 
+function pageOfRequests(rows: readonly StoredRequest[], query: { page: number; pageSize: number }) {
+  const start = (query.page - 1) * query.pageSize;
+  return {
+    items: rows.slice(start, start + query.pageSize).map(({ events: _events, ...item }) => item),
+    total: rows.length,
+    page: query.page,
+    pageSize: query.pageSize,
+  };
+}
+
 const ACTION_TARGET = {
   cancel: "cancelled",
   resend: "queued",
@@ -573,21 +636,30 @@ export default defineMockDomain({
         .filter((request) => (query.status ? query.status.includes(request.status) : true))
         .filter((request) => (query.channel ? request.channel === query.channel : true))
         .filter((request) => (query.targetId ? request.targetId === query.targetId : true))
+        .filter((request) => (query.campaignId ? request.campaignId === query.campaignId : true))
         .filter((request) =>
           needle
             ? `${request.target.name} ${request.reference}`.toLowerCase().includes(needle)
             : true,
         )
         .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
-      const start = (query.page - 1) * query.pageSize;
-      return {
-        items: rows
-          .slice(start, start + query.pageSize)
-          .map(({ events: _events, ...item }) => item),
-        total: rows.length,
-        page: query.page,
-        pageSize: query.pageSize,
-      };
+      return pageOfRequests(rows, query);
+    }),
+
+    handle(API_ROUTES.requestsListAll, ({ query }) => {
+      const needle = query.q?.toLowerCase();
+      const rows = store.requests
+        .filter((request) => (query.status ? query.status.includes(request.status) : true))
+        .filter((request) => (query.channel ? request.channel === query.channel : true))
+        .filter((request) => (query.targetId ? request.targetId === query.targetId : true))
+        .filter((request) => (query.campaignId ? request.campaignId === query.campaignId : true))
+        .filter((request) =>
+          needle
+            ? `${request.target.name} ${request.reference}`.toLowerCase().includes(needle)
+            : true,
+        )
+        .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+      return pageOfRequests(rows, query);
     }),
 
     handle(API_ROUTES.requestsGet, ({ params }) => {

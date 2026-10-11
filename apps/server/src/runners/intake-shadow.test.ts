@@ -192,8 +192,10 @@ describe("the report of mail the new rules passed over", () => {
 
     await poll();
     ctx.services.dispatch.enqueueInboxPoll(mailboxId, {
-      since: new Date(ctx.clock.now().getTime() - DAY).toISOString(),
-      targetId: spokeo.targetId,
+      rescan: {
+        since: new Date(ctx.clock.now().getTime() - DAY).toISOString(),
+        targetId: spokeo.targetId,
+      },
     });
     await runners.inbox.runDue();
 

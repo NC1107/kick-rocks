@@ -1,13 +1,21 @@
 import { API_ROUTES, type ProfileDetail, type StateCode } from "@kickrocks/shared";
 import { type FormEvent, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router";
-import { ApiRequestError, errorMessage, useApiMutation, useApiQuery } from "../../../api/index.js";
+import {
+  ApiRequestError,
+  errorMessage,
+  useApiMutation,
+  useApiQuery,
+  useCurrentProfile,
+} from "../../../api/index.js";
 import { useBreadcrumbTail } from "../../../components/layout/breadcrumb-context.js";
 import {
   Button,
   Callout,
   ConfirmDialog,
+  CountLink,
   EmptyState,
+  EntityLink,
   LinkButton,
   PageHeader,
   RowGroup,
@@ -16,6 +24,7 @@ import {
   useToast,
 } from "../../../components/ui/index.js";
 import { formatDate, formatRelative } from "../../../lib/format.js";
+import { paths } from "../../../lib/paths.js";
 import { MailboxCard } from "../../mailbox/mailbox-card.js";
 import { ActionRow, GroupFooter, GroupNote } from "../../settings/rows.js";
 import { type DetailsErrors, DetailsFields, validateDetails } from "../details-fields.js";
@@ -48,7 +57,7 @@ export function Component() {
     if (query.error instanceof ApiRequestError && query.error.status === 404) {
       return (
         <>
-          <PageHeader title="Profile" back={{ to: "/profiles", label: "Profiles" }} />
+          <PageHeader title="Profile" />
           <EmptyState
             title="That profile does not exist"
             description="It may have been deleted."
@@ -63,7 +72,7 @@ export function Component() {
     }
     return (
       <>
-        <PageHeader title="Profile" back={{ to: "/profiles", label: "Profiles" }} />
+        <PageHeader title="Profile" />
         <Callout
           intent="danger"
           title="Could not load this profile"
@@ -104,6 +113,16 @@ function ProfileEditor({ profile }: { profile: ProfileDetail }) {
   const markDirty = (part: "details" | "identities") => (dirty: boolean) =>
     setDirtyParts((current) => (current[part] === dirty ? current : { ...current, [part]: dirty }));
 
+  const { profile: current } = useCurrentProfile();
+  const requests = useApiQuery(API_ROUTES.requestsList, {
+    params: { id: profile.id },
+    query: { page: 1, pageSize: 1 },
+  });
+  const scans = useApiQuery(API_ROUTES.scansList, {
+    params: { id: profile.id },
+    query: { page: 1, pageSize: 1 },
+  });
+
   const remove = useApiMutation(API_ROUTES.profilesDelete, {
     invalidates: [API_ROUTES.profilesList],
     onSuccess: () => {
@@ -117,8 +136,43 @@ function ProfileEditor({ profile }: { profile: ProfileDetail }) {
     <>
       <PageHeader
         title={profile.displayName}
-        description={`Added ${formatDate(profile.createdAt)}, changed ${formatRelative(profile.updatedAt)}`}
-        back={{ to: "/profiles", label: "Profiles" }}
+        description={
+          <span className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5">
+            {profile.mailbox ? (
+              <EntityLink
+                to={{
+                  kind: "mailbox",
+                  profileId: profile.id,
+                  address: profile.mailbox.address,
+                }}
+              />
+            ) : (
+              <EntityLink
+                to={{ kind: "mailbox", profileId: profile.id, address: "" }}
+                variant="quiet"
+              >
+                No mailbox yet
+              </EntityLink>
+            )}
+            <span className="max-sm:hidden">
+              Added {formatDate(profile.createdAt)}, changed {formatRelative(profile.updatedAt)}
+            </span>
+          </span>
+        }
+        actions={
+          <>
+            {requests.data ? (
+              <CountLink
+                value={requests.data.total}
+                label="Requests"
+                to={paths.requests({ profileId: profile.id })}
+              />
+            ) : null}
+            {scans.data && current?.id === profile.id ? (
+              <CountLink value={scans.data.total} label="Scans" to={paths.review("scans")} />
+            ) : null}
+          </>
+        }
       />
       <div className="flex max-w-3xl flex-col gap-4">
         <DetailsCard profile={profile} onDirtyChange={markDirty("details")} />
@@ -213,16 +267,23 @@ function DetailsCard({
           <GroupFooter>
             <Button
               variant="ghost"
+              aria-label="Discard changes"
               disabled={!dirty || update.isPending}
               onClick={() => {
                 setValue(saved);
                 setErrors({});
               }}
             >
-              Discard changes
+              Discard
             </Button>
-            <Button type="submit" variant="primary" disabled={!dirty} loading={update.isPending}>
-              Save profile
+            <Button
+              type="submit"
+              variant="primary"
+              aria-label="Save profile"
+              disabled={!dirty}
+              loading={update.isPending}
+            >
+              Save
             </Button>
           </GroupFooter>
         </RowGroup>
@@ -296,6 +357,7 @@ function IdentitiesCard({
         <div className="mt-4 flex flex-wrap items-center justify-end gap-2">
           <Button
             variant="ghost"
+            aria-label="Discard changes"
             disabled={!dirty || replace.isPending}
             onClick={() => {
               setDrafts(baseline);
@@ -303,10 +365,16 @@ function IdentitiesCard({
               replace.reset();
             }}
           >
-            Discard changes
+            Discard
           </Button>
-          <Button type="submit" variant="primary" disabled={!dirty} loading={replace.isPending}>
-            Save identities
+          <Button
+            type="submit"
+            variant="primary"
+            aria-label="Save identities"
+            disabled={!dirty}
+            loading={replace.isPending}
+          >
+            Save
           </Button>
         </div>
       </Section>

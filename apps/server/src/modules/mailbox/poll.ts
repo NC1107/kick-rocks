@@ -1,11 +1,13 @@
 import type { MailboxRow } from "@kickrocks/db";
+import { requests } from "@kickrocks/db";
 import type { MailboxPoll, MailboxPollOutcome, TaskSummary } from "@kickrocks/shared";
-import { AppError, notFound } from "../../core/errors.js";
+import { eq } from "drizzle-orm";
+import { AppError, invalidRequest, notFound } from "../../core/errors.js";
 import type { Task } from "../../core/task-types.js";
 import type { AppServices } from "../../services.js";
 
 type PollTask = Task<"inbox_poll">;
-type PollServices = Pick<AppServices, "clock" | "dispatch" | "taskQueue">;
+type PollServices = Pick<AppServices, "clock" | "db" | "dispatch" | "taskQueue">;
 
 /** A mail provider throttles clients that ask too often, so a person's taps are spaced this far apart. */
 export const MANUAL_POLL_GAP_MS = 30_000;
@@ -47,6 +49,19 @@ export function describePoll(services: PollServices, task: PollTask): MailboxPol
   return { task: summary, outcome: outcomeOf(task) };
 }
 
+/** A check can only be recorded on a request of the profile whose mailbox it reads. */
+function requireRequestOf(services: PollServices, mailbox: MailboxRow, requestId: string): void {
+  const request = services.db
+    .select({ profileId: requests.profileId })
+    .from(requests)
+    .where(eq(requests.id, requestId))
+    .get();
+  if (!request) throw notFound(`Request ${requestId} not found`, "request_not_found");
+  if (request.profileId !== mailbox.profileId) {
+    throw invalidRequest("That request belongs to another profile");
+  }
+}
+
 function secondsText(seconds: number): string {
   return seconds === 1 ? "1 second" : `${seconds} seconds`;
 }
@@ -54,8 +69,15 @@ function secondsText(seconds: number): string {
 /**
  * Starts a check the person asked for. A check already waiting or running is returned as it is, so
  * repeated taps share it; otherwise the mailbox must not have been read in the last half minute.
+ * `requestId` is the request page the tap came from. A check that joins one already running keeps
+ * the page that started it.
  */
-export function startManualPoll(services: PollServices, mailbox: MailboxRow): MailboxPoll {
+export function startManualPoll(
+  services: PollServices,
+  mailbox: MailboxRow,
+  requestId?: string,
+): MailboxPoll {
+  if (requestId) requireRequestOf(services, mailbox, requestId);
   const running = services.taskQueue
     .list({ kinds: ["inbox_poll"], profileId: mailbox.profileId, status: LIVE_POLL_STATUSES })
     .find(isPollOf(mailbox.id));
@@ -76,7 +98,7 @@ export function startManualPoll(services: PollServices, mailbox: MailboxRow): Ma
       );
     }
   }
-  const { task } = services.dispatch.enqueueInboxPoll(mailbox.id);
+  const { task } = services.dispatch.enqueueInboxPoll(mailbox.id, requestId ? { requestId } : undefined);
   if (!isPollOf(mailbox.id)(task))
     throw new AppError(500, "internal_error", "The poll was not queued");
   return describePoll(services, task);

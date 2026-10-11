@@ -222,8 +222,25 @@ export class InboxRunner {
       actor: "system",
       result: { ...totals },
     });
+    this.recordCheck(task, totals);
     // A long backlog is read over several polls so no single one holds the lease for long.
     if (more) this.services.dispatch.enqueueInboxPoll(mailbox.id);
+  }
+
+  /** A check started from a request page leaves a line on that request, even when it found nothing. */
+  private recordCheck(task: PollTask, totals: PollTotals): void {
+    const { requestId } = task.payload;
+    if (!requestId) return;
+    try {
+      this.services.requests.addEvent(requestId, {
+        type: "mailbox_checked",
+        payload: { newMessages: totals.stored, matched: totals.matched },
+        actor: "system",
+      });
+    } catch (error) {
+      // The request may have been erased while the check ran; the check itself still counts.
+      this.services.logger.warn({ requestId, err: describeError(error) }, "check not recorded");
+    }
   }
 
   /** Reads pages until the folder is drained or the page budget is spent. Returns whether more waits. */

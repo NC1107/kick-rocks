@@ -334,7 +334,7 @@ describe("a connected mailbox", () => {
     expect(screen.getByText("smtp.fastmail.com:465")).toBeInTheDocument();
     expect(screen.getByText("imap.fastmail.com:993")).toBeInTheDocument();
     expect(screen.getByText("Kick Rocks")).toBeInTheDocument();
-    expect(screen.getByText("150 requests a day")).toBeInTheDocument();
+    expect(screen.getByText("150/day")).toBeInTheDocument();
     expect(screen.queryByText(/password/i)).toBeNull();
   });
 

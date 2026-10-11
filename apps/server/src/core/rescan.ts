@@ -16,8 +16,7 @@ export function requestRescan(
 ): void {
   try {
     services.dispatch.enqueueInboxPoll(mailboxId, {
-      since: new Date(at.getTime() - RESCAN_LEAD_MS).toISOString(),
-      targetId,
+      rescan: { since: new Date(at.getTime() - RESCAN_LEAD_MS).toISOString(), targetId },
     });
   } catch (error) {
     services.logger.warn({ mailboxId, targetId, err: String(error) }, "could not queue a rescan");

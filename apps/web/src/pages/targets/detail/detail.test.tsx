@@ -32,13 +32,35 @@ describe("the target page", () => {
     expect(await screen.findByRole("heading", { name: "FindRecord", level: 1 })).toBeVisible();
     expect(screen.getByText(/first scans for your record/)).toBeVisible();
     expect(screen.getByText(/A CAPTCHA stands in the way/)).toBeVisible();
-    expect(screen.getByRole("link", { name: /Ask to remove my data/ })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "Request removal" })).toHaveAttribute(
       "href",
       "/campaigns/new?targets=findrecord",
     );
-    expect(screen.getByRole("link", { name: "View requests" })).toHaveAttribute(
+    expect(await screen.findByRole("link", { name: /^Requests \d+$/ })).toHaveAttribute(
       "href",
       "/requests?targetId=findrecord",
+    );
+  });
+
+  it("lists this target's requests as rows that open the request", async () => {
+    open("audiencegrid");
+    const heading = await screen.findByRole("heading", { name: /^Requests · \d/ });
+    const rows = within(heading.closest("section") as HTMLElement).getAllByRole("link");
+    expect(rows.length).toBeGreaterThan(0);
+    expect(rows[0]).toHaveAttribute("href", expect.stringMatching(/^\/requests\/req_/));
+  });
+
+  it("copies the privacy email and shows it in mono", async () => {
+    open("audiencegrid");
+    expect(await screen.findByRole("button", { name: "Copy privacy email" })).toBeVisible();
+    expect(screen.getByText("privacy@audiencegrid.example")).toHaveClass("font-mono");
+  });
+
+  it("sends the person to the recipes in Settings from a target that has them", async () => {
+    open("findrecord");
+    expect(await screen.findByRole("link", { name: "Recipes in Settings" })).toHaveAttribute(
+      "href",
+      "/settings/recipes",
     );
   });
 

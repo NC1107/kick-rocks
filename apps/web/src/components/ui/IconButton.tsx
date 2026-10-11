@@ -4,10 +4,12 @@ import type { ButtonSize } from "./Button.js";
 import { Spinner } from "./Spinner.js";
 import { Tooltip } from "./Tooltip.js";
 
+export type IconButtonVariant = "ghost" | "secondary" | "primary";
+
 export interface IconButtonProps extends Omit<ComponentProps<"button">, "aria-label"> {
   /** Names the button for screen readers and shows as its tooltip. An icon alone says nothing. */
   label: string;
-  variant?: "ghost" | "secondary";
+  variant?: IconButtonVariant;
   size?: ButtonSize;
   loading?: boolean;
 }
@@ -15,13 +17,23 @@ export interface IconButtonProps extends Omit<ComponentProps<"button">, "aria-la
 const VARIANTS = {
   ghost: "text-ink-3 hover:bg-hover hover:text-ink-2",
   secondary: "border border-line-strong text-ink-2 hover:bg-hover hover:text-ink",
-} as const;
+  primary: "bg-accent-fill text-accent-on hover:bg-accent-fill-hover",
+} as const satisfies Record<IconButtonVariant, string>;
 
 const SIZES: Record<ButtonSize, string> = {
   sm: "size-(--kr-control-sm)",
   md: "size-(--kr-control-h)",
   lg: "size-(--kr-control-lg)",
 };
+
+/** The look of an icon button, so a link that stands for an action matches the buttons beside it. */
+export function iconButtonClass(variant: IconButtonVariant, size: ButtonSize): string {
+  return cn(
+    "inline-flex shrink-0 items-center justify-center rounded-sm transition-[background-color,color,scale] duration-100 ease-out enabled:active:scale-[0.98] disabled:cursor-not-allowed disabled:bg-active disabled:text-ink-3 disabled:hover:bg-active [&_svg]:size-4",
+    VARIANTS[variant],
+    SIZES[size],
+  );
+}
 
 export function IconButton({
   label,
@@ -41,12 +53,7 @@ export function IconButton({
         aria-label={label}
         disabled={disabled || loading}
         aria-busy={loading || undefined}
-        className={cn(
-          "inline-flex shrink-0 items-center justify-center rounded-sm transition-[background-color,color,scale] duration-100 ease-out enabled:active:scale-[0.98] disabled:cursor-not-allowed disabled:bg-active disabled:text-ink-3 disabled:hover:bg-active [&_svg]:size-4",
-          VARIANTS[variant],
-          SIZES[size],
-          className,
-        )}
+        className={cn(iconButtonClass(variant, size), className)}
         {...rest}
       >
         {loading ? <Spinner size="sm" label="" /> : children}

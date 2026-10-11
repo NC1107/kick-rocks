@@ -342,6 +342,7 @@ describe("request events", () => {
       },
       send_failed: { error: "535 bad credentials", willRetry: false },
       reply_received: { messageId: "m2", from: "privacy@broker.test", subject: "Re: KR-ABC234" },
+      mailbox_checked: { newMessages: 1, matched: 0 },
       classified: {
         messageId: "m2",
         classification: "completed",

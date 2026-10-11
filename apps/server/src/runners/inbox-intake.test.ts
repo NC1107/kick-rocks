@@ -73,7 +73,7 @@ async function sentRequest(
 }
 
 async function poll(rescan?: { since: string; targetId: string }) {
-  const queued = ctx.services.dispatch.enqueueInboxPoll(mailboxId, rescan);
+  const queued = ctx.services.dispatch.enqueueInboxPoll(mailboxId, rescan ? { rescan } : undefined);
   await runners.inbox.runDue();
   return ctx.services.taskQueue.getOrThrow(queued.task.id);
 }
