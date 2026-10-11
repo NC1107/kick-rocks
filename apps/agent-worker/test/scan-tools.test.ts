@@ -676,6 +676,7 @@ describeBrowser("the records a report names", () => {
     expect(toolbox.candidateFor(`${ORIGIN}/people/r1`)).toEqual({
       recordUrl: `${ORIGIN}/people/r1`,
       name: "Jordan A Example",
+      birthYear: 1990,
       locations: ["Austin, TX"],
       relatives: ["Dana Example", "Pat Example"],
       phones: [],

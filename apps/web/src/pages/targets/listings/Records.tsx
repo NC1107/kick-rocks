@@ -6,7 +6,10 @@ import {
   InlineError,
   StatusMark,
 } from "../../../components/ui/index.js";
+import { MatchFit } from "../../review/MatchFit.js";
 import { useMatchDecision } from "../../review/match-decision.js";
+import { splitByBand } from "../../review/model.js";
+import { UnlikelyGroup } from "../../review/UnlikelyGroup.js";
 
 function placesOf(record: ListingRecord): string {
   return record.fields.locations?.join("; ") ?? "";
@@ -17,18 +20,17 @@ function RecordItem({ record }: { record: ListingRecord }) {
   const decision = useMatchDecision(record);
   const { fields } = record;
   const places = placesOf(record);
+  const ageText =
+    fields.age ?? (fields.ageRange ? `${fields.ageRange.low}-${fields.ageRange.high}` : "");
   return (
     <li className="flex flex-col gap-2 px-3.5 py-3">
       <div className="min-w-0">
         <p className="text-ui font-medium text-ink">
           {fields.name}
-          {fields.age === undefined ? (
-            ""
-          ) : (
-            <span className="font-normal text-ink-2">, {fields.age}</span>
-          )}
+          {ageText ? <span className="font-normal text-ink-2">, {ageText}</span> : null}
         </p>
         {places ? <p className="text-meta text-ink-2">{places}</p> : null}
+        {record.assessment ? <MatchFit assessment={record.assessment} className="my-1" /> : null}
         <p className="relative min-w-0 truncate text-caption">
           <ExternalLinkText href={record.recordUrl} className="font-mono">
             {record.recordUrl.replace(/^https?:\/\/(www\.)?/, "")}
@@ -77,14 +79,7 @@ function RecordItem({ record }: { record: ListingRecord }) {
   );
 }
 
-/** The records of one site, the ones that need an answer first. */
-export function RecordList({
-  records,
-  label,
-}: {
-  records: readonly ListingRecord[];
-  label: string;
-}) {
+function Records({ records, label }: { records: readonly ListingRecord[]; label: string }) {
   if (records.length === 0) return null;
   return (
     <ul
@@ -95,5 +90,27 @@ export function RecordList({
         <RecordItem key={record.id} record={record} />
       ))}
     </ul>
+  );
+}
+
+/** The records of one site: likely ones first, and the unlikely ones folded away. */
+export function RecordList({
+  records,
+  label,
+}: {
+  records: readonly ListingRecord[];
+  label: string;
+}) {
+  const { shown, unlikely } = splitByBand(records);
+  return (
+    <div className="flex min-w-0 flex-col gap-2">
+      <Records records={shown} label={label} />
+      <UnlikelyGroup matches={unlikely}>
+        <Records
+          records={unlikely}
+          label={`Unlikely records on ${label.replace(/^Records on /, "")}`}
+        />
+      </UnlikelyGroup>
+    </div>
   );
 }

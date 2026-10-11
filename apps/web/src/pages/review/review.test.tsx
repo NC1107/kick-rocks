@@ -33,10 +33,17 @@ const open = (tab?: string, mock = failing(/never/)) => ({
 
 const card = async (name: RegExp | string) => within(await screen.findByRole("region", { name }));
 
+/** A row the list may fold away, as it does for records that look unlikely to be the person. */
+const findRow = async (user: UserEvent, list: ReturnType<typeof within>, row: RegExp) => {
+  const folded = await list.findByRole("button", { name: /^\d+ unlikely$/ });
+  if (!list.queryByRole("button", { name: row })) await user.click(folded);
+  return list.findByRole("button", { name: row });
+};
+
 /** Opens an item by its row in the list, the way a person does, then returns its pane. */
 const openItem = async (user: UserEvent, row: RegExp, pane: RegExp | string) => {
   const list = within(await screen.findByRole("navigation", { name: "Review queue" }));
-  await user.click(await list.findByRole("button", { name: row }));
+  await user.click(await findRow(user, list, row));
   return card(pane);
 };
 
@@ -86,9 +93,8 @@ describe("the review queue on a phone after a decision", () => {
         mock.store.matches.find((candidate) => candidate.recordUrl.endsWith("tx-88120"))?.decision,
       ).toBe("not_mine"),
     );
-    const pane = await screen.findByRole("region", { name: /on (NameLookup|Cityfile Directory)/ });
     await waitFor(() => expect(document.getElementById("review-detail")).toHaveFocus());
-    expect(pane).toBeVisible();
+    expect(document.getElementById("review-detail")).toBeVisible();
   });
 });
 
@@ -150,7 +156,9 @@ describe("the review queue", () => {
     const current = list.getAllByRole("button").filter((row) => row.getAttribute("aria-current"));
     expect(current).toHaveLength(1);
     expect(current[0]).toHaveFocus();
-    const stops = list.getAllByRole("button").filter((row) => row.tabIndex === 0);
+    const stops = list
+      .getAllByRole("button")
+      .filter((row) => row.closest("[data-entry]") && row.tabIndex === 0);
     expect(stops).toEqual(current);
   });
 
@@ -465,7 +473,7 @@ describe("the review queue", () => {
   it("shows the band and the reasons on the row and in the open record", async () => {
     const { user } = open("matches");
     const list = within(await screen.findByRole("navigation", { name: "Review queue" }));
-    const row = await list.findByRole("button", { name: /^Jordan Example\s*Found/ });
+    const row = await findRow(user, list, /^Jordan Example\s*Found/);
     expect(row).toHaveTextContent("Unlikely");
     expect(row).toHaveTextContent("Age 62, you are 36");
     expect(
@@ -894,5 +902,27 @@ describe("tasks waiting for an agent, by who they are for", () => {
         )?.assignment?.to,
       ).toEqual({ kind: "model", workerId: "nick-pc-agent" }),
     );
+  });
+});
+
+describe("records that look unlikely", () => {
+  it("folds them under a count and marks them all Not me after a confirm", async () => {
+    const { user, mock } = open("matches");
+    const list = within(await screen.findByRole("navigation", { name: "Review queue" }));
+    expect(list.queryByRole("button", { name: /^Jordan Example\s*Found/ })).toBeNull();
+    await user.click(
+      await list.findByRole("button", { name: "Mark 1 unlikely record as not you" }),
+    );
+    await user.click(
+      within(await screen.findByRole("dialog")).getByRole("button", { name: "Not me" }),
+    );
+    await waitFor(() =>
+      expect(
+        mock.store.matches.find((candidate) => candidate.recordUrl.endsWith("tx-88120"))?.decision,
+      ).toBe("not_mine"),
+    );
+    expect(
+      mock.store.matches.find((candidate) => candidate.recordUrl.endsWith("ca-71306"))?.decision,
+    ).toBe("pending");
   });
 });

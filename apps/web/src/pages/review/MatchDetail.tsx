@@ -8,8 +8,8 @@ import {
   MonoEmails,
 } from "../../components/ui/index.js";
 import { DetailFrame } from "./DetailFrame.js";
-import { useMatchDecision } from "./match-decision.js";
 import { MatchFit } from "./MatchFit.js";
+import { useMatchDecision } from "./match-decision.js";
 
 function facts(fields: Match["fields"], recordUrl: string): DescriptionItem[] {
   const list = (term: string, values: readonly string[] | undefined, separator = ", ") =>

@@ -5,6 +5,7 @@ import {
   type ReasonWeight,
 } from "@kickrocks/shared";
 import { Tag } from "../../components/ui/index.js";
+import { cn } from "../../lib/cn.js";
 import type { Tone } from "../../lib/tone.js";
 
 export const BAND_LABELS: Record<MatchBand, string> = {
@@ -19,7 +20,7 @@ const BAND_TONES: Record<MatchBand, Tone> = {
   unlikely: "danger",
 };
 
-const WEIGHT_TONES: Record<ReasonWeight, Tone> = {
+export const WEIGHT_TONES: Record<ReasonWeight, Tone> = {
   strong: "positive",
   weak: "neutral",
   neutral: "neutral",
@@ -32,9 +33,15 @@ export function BandTag({ band }: { band: MatchBand }) {
 }
 
 /** The band, then one chip per reason, toned by how much it counts for or against. */
-export function MatchFit({ assessment }: { assessment: MatchAssessment }) {
+export function MatchFit({
+  assessment,
+  className,
+}: {
+  assessment: MatchAssessment;
+  className?: string;
+}) {
   return (
-    <div className="flex flex-wrap items-center gap-1.5">
+    <div className={cn("flex flex-wrap items-center gap-1.5", className)}>
       <BandTag band={assessment.band} />
       {assessment.reasons.map((reason) => (
         <Tag key={describeReason(reason)} tone={WEIGHT_TONES[reason.weight]} wrap>

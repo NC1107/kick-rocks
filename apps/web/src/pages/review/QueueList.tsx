@@ -1,6 +1,6 @@
 import {
   type AgentsResponse,
-  describeReasons,
+  describeReason,
   type MatchBand,
   type WaitingTask,
 } from "@kickrocks/shared";
@@ -15,6 +15,7 @@ import {
   RowGroup,
   Section,
   StatusShapeGlyph,
+  Tag,
 } from "../../components/ui/index.js";
 import { cn } from "../../lib/cn.js";
 import { describeFailure } from "../../lib/failures.js";
@@ -23,12 +24,15 @@ import { paths } from "../../lib/paths.js";
 import type { StatusShape } from "../../lib/status.js";
 import { useNow } from "../../lib/use-now.js";
 import { assignmentLine } from "../assign/model.js";
-import { BandTag } from "./MatchFit.js";
+import { BandTag, WEIGHT_TONES } from "./MatchFit.js";
 import { ageLabel, KIND_LABELS, type QueueEntry, type ReviewKind } from "./model.js";
+import { UnlikelyGroup } from "./UnlikelyGroup.js";
 
 interface RowView {
   title: ReactNode;
-  reason: string;
+  reason: ReactNode;
+  /** Chips under the line need room, so the description wraps instead of truncating. */
+  wrap?: boolean;
   band?: MatchBand | undefined;
   at: string | null;
   shape: StatusShape;
@@ -101,10 +105,17 @@ function describe(entry: QueueEntry, agents: AgentsResponse | undefined, now: nu
     case "matches":
       return {
         title: entry.match.fields.name,
-        reason: [
-          `Found on ${entry.match.targetName}`,
-          ...describeReasons(entry.match.assessment?.reasons ?? []),
-        ].join(" · "),
+        reason: (
+          <span className="flex flex-wrap items-center gap-1">
+            <span>Found on {entry.match.targetName}</span>
+            {entry.match.assessment?.reasons.map((reason) => (
+              <Tag key={describeReason(reason)} tone={WEIGHT_TONES[reason.weight]} wrap>
+                {describeReason(reason)}
+              </Tag>
+            ))}
+          </span>
+        ),
+        wrap: true,
         band: entry.match.assessment?.band,
         at: null,
         shape,
@@ -165,6 +176,7 @@ function Entry({
         leading={<StatusShapeGlyph shape={view.shape} />}
         title={view.title}
         description={view.reason}
+        wrapDescription={view.wrap === true}
         trailing={
           view.band ? (
             <BandTag band={view.band} />
@@ -193,6 +205,9 @@ function Entry({
     </div>
   );
 }
+
+const isUnlikely = (entry: QueueEntry) =>
+  entry.kind === "matches" && entry.match.assessment?.band === "unlikely";
 
 const KIND_ORDER = Object.keys(KIND_LABELS) as ReviewKind[];
 
@@ -263,19 +278,32 @@ export function QueueList({
   const sections: ReactNode[] = KIND_ORDER.flatMap((kind) => {
     const own = entries.filter((entry) => entry.kind === kind);
     if (own.length === 0) return [];
+    const unlikely = own.filter(isUnlikely);
+    const shown = own.filter((entry) => !isUnlikely(entry));
+    const rows = (list: readonly QueueEntry[]) => (
+      <RowGroup>
+        {list.map((entry) => (
+          <Entry
+            key={entry.key}
+            entry={entry}
+            selected={entry.key === selectedKey}
+            onSelect={onSelect}
+            agents={agents}
+          />
+        ))}
+      </RowGroup>
+    );
     return [
       <Section key={kind} label={KIND_LABELS[kind]} count={own.length}>
-        <RowGroup>
-          {own.map((entry) => (
-            <Entry
-              key={entry.key}
-              entry={entry}
-              selected={entry.key === selectedKey}
-              onSelect={onSelect}
-              agents={agents}
-            />
-          ))}
-        </RowGroup>
+        <div className="flex min-w-0 flex-col gap-2">
+          {shown.length > 0 ? rows(shown) : null}
+          <UnlikelyGroup
+            matches={unlikely.flatMap((entry) => (entry.kind === "matches" ? [entry.match] : []))}
+            forceOpen={unlikely.some((entry) => entry.key === selectedKey)}
+          >
+            {rows(unlikely)}
+          </UnlikelyGroup>
+        </div>
       </Section>,
     ];
   });

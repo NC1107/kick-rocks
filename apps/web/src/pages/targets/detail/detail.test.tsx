@@ -200,9 +200,9 @@ describe("your listing on a target page", () => {
       "section",
     ) as HTMLElement;
     const listing = within(section);
-    expect(await listing.findByText("2 records to confirm")).toBeVisible();
+    expect(await listing.findByText("3 records to confirm")).toBeVisible();
     expect(listing.getAllByRole("button", { name: "This is me" })).toHaveLength(2);
-    expect(screen.getByRole("link", { name: "Confirm 2 records" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "Confirm 3 records" })).toHaveAttribute(
       "href",
       "/targets/namelookup#your-listing",
     );

@@ -3,6 +3,8 @@ import {
   type BlockedTaskItem,
   type FormOutcome,
   type Match,
+  type MatchAssessment,
+  type MatchBand,
   type ReviewMessage,
   type ReviewQueue,
   type TaskSummary,
@@ -162,6 +164,29 @@ export function sortFailures(items: readonly BlockedTaskItem[]): BlockedTaskItem
     .flatMap(([, grouped]) => grouped);
 }
 
+const BAND_RANK: Record<MatchBand | "none", number> = { likely: 0, maybe: 1, none: 2, unlikely: 3 };
+
+const rankOf = (item: { assessment: MatchAssessment | null }) =>
+  BAND_RANK[item.assessment?.band ?? "none"];
+
+/** Likely first, a record nobody has scored yet after the scored ones, unlikely last. */
+export function sortByBand<T extends { assessment: MatchAssessment | null }>(
+  items: readonly T[],
+): T[] {
+  return items.toSorted((a, b) => rankOf(a) - rankOf(b));
+}
+
+/** The records worth reading, in order, and the ones the score says are not the person. */
+export function splitByBand<T extends { assessment: MatchAssessment | null }>(
+  items: readonly T[],
+): { shown: T[]; unlikely: T[] } {
+  const sorted = sortByBand(items);
+  return {
+    shown: sorted.filter((item) => item.assessment?.band !== "unlikely"),
+    unlikely: sorted.filter((item) => item.assessment?.band === "unlikely"),
+  };
+}
+
 /** Every waiting item as one flat list, grouped by kind in the order of KIND_LABELS. */
 export function buildEntries(queue: ReviewQueue): QueueEntry[] {
   return [
@@ -179,7 +204,7 @@ export function buildEntries(queue: ReviewQueue): QueueEntry[] {
         item,
       }),
     ),
-    ...queue.matches.map(
+    ...sortByBand(queue.matches).map(
       (match): QueueEntry => ({
         kind: "matches",
         key: `match:${match.id}`,

@@ -10,6 +10,7 @@ import {
   parseTab,
   pickEntry,
   sentWithoutApproval,
+  splitByBand,
   tabCounts,
 } from "./model.js";
 
@@ -180,5 +181,23 @@ describe("tasks assigned to the person", () => {
     expect(firstBusyTab({ ...empty, agentTasks: [item("mine", { kind: "person" })] })).toBe(
       "yours",
     );
+  });
+});
+
+describe("splitByBand", () => {
+  const at = (band: "likely" | "maybe" | "unlikely" | null, id: string) => ({
+    id,
+    assessment: band ? { band, score: 0, reasons: [] } : null,
+  });
+
+  it("puts likely first, then maybe, then unscored, and folds unlikely away", () => {
+    const { shown, unlikely } = splitByBand([
+      at("unlikely", "a"),
+      at(null, "b"),
+      at("maybe", "c"),
+      at("likely", "d"),
+    ]);
+    expect(shown.map((item) => item.id)).toEqual(["d", "c", "b"]);
+    expect(unlikely.map((item) => item.id)).toEqual(["a"]);
   });
 });

@@ -37,7 +37,7 @@ describe("where you're listed", () => {
     expect(rows.map((row) => within(row).getAllByRole("cell")[0]?.textContent)).toEqual(
       expect.arrayContaining([expect.stringContaining("NameLookup")]),
     );
-    expect(table.getAllByText("2 records to confirm").length).toBe(1);
+    expect(table.getAllByText("3 records to confirm").length).toBe(1);
     for (const heading of ["Site", "Status", "Records", "Last scan", "Next scan"]) {
       expect(table.getByRole("columnheader", { name: heading })).toBeVisible();
     }
@@ -74,7 +74,7 @@ describe("where you're listed", () => {
     const campaigns = mock.store.requests.filter((request) => request.campaignId).length;
     const before = mock.store.requests.length;
 
-    await user.click(await screen.findByRole("button", { name: "Review 2" }));
+    await user.click(await screen.findByRole("button", { name: "Review 3" }));
     const dialog = await screen.findByRole("dialog", { name: "NameLookup" });
     const records = within(dialog).getByRole("list", { name: "Records on NameLookup" });
     expect(within(records).getAllByRole("listitem")).toHaveLength(2);
@@ -97,7 +97,7 @@ describe("where you're listed", () => {
     const notMine = () =>
       mock.store.matches.filter((match) => match.decision === "not_mine").length;
     const before = notMine();
-    await user.click(await screen.findByRole("button", { name: "Review 2" }));
+    await user.click(await screen.findByRole("button", { name: "Review 3" }));
     const dialog = await screen.findByRole("dialog", { name: "NameLookup" });
     await user.click(within(dialog).getAllByRole("button", { name: "Not me" })[0] as HTMLElement);
     await waitFor(() => expect(notMine()).toBe(before + 1));
@@ -112,7 +112,7 @@ describe("where you're listed on a phone", () => {
     expect(screen.queryByRole("region", { name: "Sites" })).not.toBeInTheDocument();
     const nameLookup = within(list)
       .getAllByRole("listitem")
-      .find((item) => within(item).queryByText("2 records to confirm"));
+      .find((item) => within(item).queryByText("3 records to confirm"));
     if (!nameLookup) throw new Error("NameLookup is not listed");
     const row = within(nameLookup);
     expect(row.getByRole("list", { name: "Records on NameLookup" })).toBeVisible();
