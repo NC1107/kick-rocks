@@ -234,6 +234,7 @@ function seedMatch(
     targetName: scan.targetName,
     recordUrl,
     fields,
+    assessment: null,
     decision,
     decidedAt: decision === "pending" ? null : store.ago({ hours: 2 }),
     requestId: null,

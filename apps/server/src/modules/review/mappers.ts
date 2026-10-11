@@ -34,6 +34,7 @@ export function toMatch(row: MatchRow, targetName: string): Match {
     targetName,
     recordUrl: row.recordUrl,
     fields: row.fields,
+    assessment: row.assessment,
     decision: row.decision,
     decidedAt: row.decidedAt,
     requestId: row.requestId,

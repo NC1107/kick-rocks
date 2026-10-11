@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { FilterSelection, TargetOutcome } from "./campaigns.js";
 import { ProfileField } from "./identities.js";
+import { MatchAssessment } from "./match-score.js";
 import { WaitReason } from "./scanning.js";
 import { MAX_SELECTED_TARGETS } from "./targets.js";
 import { Candidate, TaskStatus } from "./tasks.js";
@@ -21,6 +22,8 @@ export const Match = z.object({
   targetName: z.string(),
   recordUrl: WebUrl,
   fields: MatchFields,
+  /** How well the record fits the profile. Advice only: the person decides. Null on matches made before scoring. */
+  assessment: MatchAssessment.nullable(),
   decision: MatchDecision,
   decidedAt: z.iso.datetime().nullable(),
   /** The removal request a "mine" decision created. */

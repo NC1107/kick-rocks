@@ -5,10 +5,12 @@ import {
   isOnDomain,
   normalizeRecordUrl,
   type RequestRecord,
+  scoreCandidate,
 } from "@kickrocks/shared";
 import { and, eq } from "drizzle-orm";
 import { AppError } from "../core/errors.js";
 import { newId } from "../core/ids.js";
+import { scoreProfileOf } from "../core/match-assessment.js";
 import type { Task } from "../core/task-types.js";
 import type { AppServices } from "../services.js";
 import { handToAgentAfterRecipeFailure, recordRecipeRun } from "./recipe-runs.js";
@@ -96,6 +98,8 @@ function recordMatches(
   const seen = new Set<string>();
   const now = services.clock.now().toISOString();
   const domain = services.targets.getOrThrow(scan.targetId).domain;
+  const today = now.slice(0, 10);
+  const profile = scoreProfileOf(tx, scan.profileId, today);
 
   for (const candidate of candidates) {
     const key = normalizeRecordUrl(candidate.recordUrl);
@@ -126,6 +130,7 @@ function recordMatches(
         targetId: scan.targetId,
         recordUrl,
         fields,
+        assessment: scoreCandidate(fields, profile, today),
         decision: requestId ? "mine" : "pending",
         decidedAt: requestId ? now : null,
         requestId,

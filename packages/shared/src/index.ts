@@ -16,6 +16,7 @@ export * from "./identities.js";
 export * from "./legal.js";
 export * from "./mail.js";
 export * from "./mail-hosts.js";
+export * from "./match-score.js";
 export * from "./mcp.js";
 export * from "./model-recommend.js";
 export * from "./notifications.js";
