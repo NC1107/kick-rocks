@@ -16,6 +16,7 @@ import {
 import { cn } from "../../lib/cn.js";
 import { describeEvent } from "../../lib/events.js";
 import { formatCount } from "../../lib/format.js";
+import { paths } from "../../lib/paths.js";
 import { EventRow } from "../requests/EventRow.js";
 import { eventShape } from "../requests/event-shape.js";
 
@@ -349,7 +350,7 @@ export function ActivitySection({ events }: { events: readonly DashboardEvent[] 
               </p>
               <p className="flex flex-wrap items-center gap-x-3 text-meta text-ink-3">
                 <Link
-                  to={`/requests/${event.requestId}`}
+                  to={paths.request(event.requestId)}
                   className="min-w-0 break-words rounded-xs text-ink-2 hover:text-accent-text hover:underline max-sm:after:absolute max-sm:after:inset-0 max-sm:after:content-[''] pointer-coarse:after:absolute pointer-coarse:after:inset-0 pointer-coarse:after:content-['']"
                 >
                   {event.targetName}

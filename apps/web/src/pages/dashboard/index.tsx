@@ -15,6 +15,7 @@ import {
   ReplyCheckResult,
   useReplyCheck,
 } from "../mailbox/check-for-replies.js";
+import { ScanNotice } from "../review/ScanNotice.js";
 import {
   ActivitySection,
   AttentionSection,
@@ -120,6 +121,7 @@ function DashboardBody({
   const fresh = dashboard.total === 0;
   return (
     <div className="flex flex-col gap-5">
+      <ScanNotice scanning={dashboard.scanning} profileId={profileId} />
       <MailboxNotices
         dashboard={dashboard}
         profileId={profileId}

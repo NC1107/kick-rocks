@@ -68,6 +68,7 @@ describe("GET /profiles/:id/dashboard", () => {
       },
       sending: null,
       mailbox: null,
+      scanning: { ready: 0, needsAgent: 0, needsDetails: 0, missing: null, quiet: null },
       recentEvents: [],
     });
   });

@@ -18,15 +18,20 @@ import {
   type VerificationReplyBody,
 } from "@kickrocks/shared";
 import { and, asc, desc, eq, inArray, type SQL, sql } from "drizzle-orm";
+import { CLASSIFIED_BY_HAND } from "../../core/classified-by-hand.js";
 import { nowIso } from "../../core/clock.js";
 import { conflict, invalidRequest, notFound } from "../../core/errors.js";
 import { loadIdentities } from "../../core/identities.js";
 import { likePattern } from "../../core/like.js";
 import { curatedReplyDomainsOfRow, withTrustedConfirmationSenders } from "../../core/targets.js";
 import { formLinkAmong } from "../../mail/form-link.js";
-import { phoneNumberIn } from "../../mail/reply-text.js";
+import { matchSignals } from "../../mail/reply-rules.js";
+import { phoneNumberIn, stripQuoted } from "../../mail/reply-text.js";
 import { CONFIDENCE_THRESHOLD } from "../../runners/reply.js";
 import type { AppServices } from "../../services.js";
+
+/** Classifications that mean no decision and no redirect, so a redirect hidden in one is a misfiling. */
+const MISFILED_AS: ReadonlySet<string> = new Set(["auto_ack", "unknown", "unrelated"]);
 
 const ACTION_OUTCOMES = {
   cancel: "cancelled",
@@ -46,6 +51,38 @@ export function createRequestsApi(services: AppServices): RequestsApi {
   const { db, requests, targets: targetsService, taskQueue, dispatch } = services;
 
   /**
+   * A reply filed as an acknowledgement before the rules learned to spot a redirect to a form still
+   * reads as one. Reading its stored text again with today's rules lets the person confirm it in
+   * one tap, instead of having to find out that it was misfiled.
+   */
+  function readAsFormRequest(rows: readonly (typeof messages.$inferSelect)[]): FormRequest | null {
+    const latest = rows.at(-1);
+    if (!latest?.text || latest.rationale === CLASSIFIED_BY_HAND) return null;
+    if (!MISFILED_AS.has(latest.classification)) return null;
+    const signals = matchSignals({
+      message: {
+        uid: 0,
+        messageId: latest.messageIdHeader,
+        inReplyTo: latest.inReplyTo,
+        references: [],
+        from: { name: null, address: latest.fromAddress },
+        to: [],
+        subject: latest.subject,
+        date: null,
+        text: latest.text,
+        html: null,
+        isBounce: false,
+        autoSubmitted: false,
+        headers: {},
+        verifyDkim: async () => [],
+      },
+      body: stripQuoted(latest.text),
+    });
+    if (!signals.some((signal) => signal.classification === "needs_form")) return null;
+    return { messageId: latest.id, state: "unconfirmed", url: null, fromReply: false, phone: null };
+  }
+
+  /**
    * What the latest reply that asked for the web form came to, while the request is still open.
    * The link and phone number are only offered once the reply was applied or a person confirmed it,
    * because an unsigned reply can name anything.
@@ -57,7 +94,7 @@ export function createRequestsApi(services: AppServices): RequestsApi {
   ): FormRequest | null {
     if (!isActiveStatus(record.status)) return null;
     const asked = rows.filter((row) => row.classification === "needs_form").at(-1);
-    if (!asked) return null;
+    if (!asked) return readAsFormRequest(rows);
     const optOutUrl = target?.optOutUrl ?? null;
     if (asked.confidence < CONFIDENCE_THRESHOLD) {
       return {

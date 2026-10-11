@@ -60,6 +60,7 @@ export default defineMockDomain({
         total: requests.length,
         counts,
         attention: reviewAttention(buildMockQueue(store, profile.id)),
+        scanning: { ready: 8, needsAgent: 2, needsDetails: 0, missing: null, quiet: null },
         sending: profile.mailbox
           ? {
               sent,

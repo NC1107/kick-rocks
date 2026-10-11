@@ -141,10 +141,10 @@ describe("the request page", () => {
     expect(screen.getByText("A task is waiting for you")).toBeVisible();
   });
 
-  it("names the overflow menu when no primary action stands beside it", async () => {
+  it("opens the overflow menu from an icon", async () => {
     const { user } = open(byTarget("clearcheck"));
     const trigger = await screen.findByRole("button", { name: "More actions" });
-    expect(trigger).toHaveTextContent("More actions");
+    expect(trigger).not.toHaveTextContent("More actions");
     await user.click(trigger);
     expect(await screen.findByRole("menuitem", { name: "Cancel request" })).toBeVisible();
   });
@@ -199,7 +199,7 @@ describe("the request page", () => {
     it("asks the person to confirm an unsure reply instead of claiming the form route", async () => {
       const { message } = askedForForm({ confidence: 0.4 });
       expect(await screen.findByText(/may want its web form/)).toBeVisible();
-      expect(screen.getByText(/waiting for you to confirm/)).toBeVisible();
+      expect(screen.getByText(/Confirm and the request moves/)).toBeVisible();
       expect(screen.queryByRole("link", { name: /privacy-requests/ })).not.toBeInTheDocument();
       expect(message.classification).toBe("needs_form");
     });

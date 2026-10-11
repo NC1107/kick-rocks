@@ -57,9 +57,18 @@ export const mailboxModule: ModulePlugin = (app, services) => {
     return { ok: true as const };
   });
 
-  registerRoute(app, API_ROUTES.mailboxPoll, ({ params }) =>
-    startManualPoll(services, requireMailbox(services, params.id)),
-  );
+  registerRoute(app, API_ROUTES.mailboxPoll, ({ params, query }) => {
+    const poll = startManualPoll(services, requireMailbox(services, params.id));
+    const request = query.requestId ? services.requests.get(query.requestId) : null;
+    if (request && request.profileId === params.id) {
+      services.requests.addEvent(request.id, {
+        type: "user_action",
+        actor: "user",
+        payload: { action: "check_replies", note: null },
+      });
+    }
+    return poll;
+  });
 
   registerRoute(app, API_ROUTES.mailboxPollGet, ({ params }) =>
     findPoll(services, requireMailbox(services, params.id), params.taskId),

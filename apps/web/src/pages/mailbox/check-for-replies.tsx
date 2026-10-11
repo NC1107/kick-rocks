@@ -9,7 +9,7 @@ import {
   useApiMutation,
   useApiQuery,
 } from "../../api/index.js";
-import { Button, Callout, LinkButton } from "../../components/ui/index.js";
+import { Button, Callout, IconButton, LinkButton } from "../../components/ui/index.js";
 import { cn } from "../../lib/cn.js";
 
 export const POLL_FOLLOW_MS = 1_000;
@@ -70,7 +70,7 @@ function useCountdown(until: number | null, clear: () => void): number {
  * Asks the server to read a profile's mailbox now and follows that one check until it ends. A tap
  * while a check runs joins it on the server, so the page never queues a second one.
  */
-export function useReplyCheck(profileId: string): ReplyCheck {
+export function useReplyCheck(profileId: string, requestId?: string): ReplyCheck {
   const queryClient = useQueryClient();
   const [taskId, setTaskId] = useState<string | null>(null);
   const [startFailure, setStartFailure] = useState<string | null>(null);
@@ -88,6 +88,8 @@ export function useReplyCheck(profileId: string): ReplyCheck {
       setWaitUntil(null);
       setSlow(false);
       setTaskId(poll.task.id);
+      // The tap is already on the request's timeline, so it shows without waiting for the check to end.
+      void queryClient.invalidateQueries({ queryKey: routeKeyPrefix(API_ROUTES.requestsGet) });
     },
     onError: (error) => {
       if (error.status === 429) {
@@ -140,7 +142,8 @@ export function useReplyCheck(profileId: string): ReplyCheck {
     profileId,
     phase,
     waitSeconds,
-    start: () => begin.mutate({ params: { id: profileId } }),
+    start: () =>
+      begin.mutate({ params: { id: profileId }, ...(requestId ? { query: { requestId } } : {}) }),
   };
 }
 
@@ -149,24 +152,40 @@ export function checkFailedOnMailbox({ phase }: ReplyCheck): boolean {
   return phase.kind === "finished" && phase.outcome.state === "failed";
 }
 
+/** An icon in page headers, where a labelled button is too big; `labelled` is for the mailbox page, whose job it is. */
 export function CheckForRepliesButton({
   check,
   variant = "secondary",
+  labelled = false,
 }: {
   check: ReplyCheck;
   variant?: "secondary" | "primary";
+  labelled?: boolean;
 }) {
   const checking = check.phase.kind === "checking";
+  if (labelled) {
+    return (
+      <Button
+        variant={variant}
+        loading={checking}
+        disabled={check.waitSeconds > 0}
+        onClick={check.start}
+      >
+        {checking ? null : <MailCheck aria-hidden="true" />}
+        Check for replies
+      </Button>
+    );
+  }
   return (
-    <Button
-      variant={variant}
+    <IconButton
+      label="Check for replies"
+      variant="secondary"
       loading={checking}
       disabled={check.waitSeconds > 0}
       onClick={check.start}
     >
-      {checking ? null : <MailCheck aria-hidden="true" />}
-      Check for replies
-    </Button>
+      <MailCheck aria-hidden="true" />
+    </IconButton>
   );
 }
 

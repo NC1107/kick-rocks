@@ -1,4 +1,5 @@
 import { API_ROUTES, type MessageSummary, type ReplyClassification } from "@kickrocks/shared";
+import { Pencil } from "lucide-react";
 import { useState } from "react";
 import { errorMessage, useApiMutation } from "../../../api/index.js";
 import {
@@ -48,7 +49,8 @@ export function ReplyCorrection({ message }: { message: MessageSummary }) {
 
   if (!open) {
     return (
-      <Button size="sm" variant="secondary" onClick={() => setOpen(true)}>
+      <Button size="sm" variant="ghost" onClick={() => setOpen(true)}>
+        <Pencil aria-hidden="true" />
         Correct this
       </Button>
     );

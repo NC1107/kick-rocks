@@ -121,6 +121,7 @@ export function createScan(
     candidateCount: 0,
     matchCounts: { pending: 0, mine: 0, not_mine: 0 },
     error: fields.error ?? null,
+    waiting: null,
   };
   store.scans.push(scan);
   return scan;

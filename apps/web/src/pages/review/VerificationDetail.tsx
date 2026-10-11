@@ -12,6 +12,7 @@ import {
   Checkbox,
   ConfirmDialog,
   RelativeTime,
+  RequestLink,
   RowGroup,
   Section,
   TextLink,
@@ -91,9 +92,9 @@ export function VerificationDetail({ item }: { item: VerificationItem }) {
         meta={
           <>
             Request{" "}
-            <TextLink to={`/requests/${encodeURIComponent(request.id)}`} className="font-mono">
+            <RequestLink id={request.id} className="font-mono">
               {request.reference}
-            </TextLink>
+            </RequestLink>
             , they replied <RelativeTime iso={message.receivedAt} />
           </>
         }

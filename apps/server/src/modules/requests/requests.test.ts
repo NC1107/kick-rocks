@@ -2,6 +2,7 @@ import { messages, requests as requestsTable, targets, tasks } from "@kickrocks/
 import { API_ROUTES, availableActions, RequestAction, RequestStatus } from "@kickrocks/shared";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { CLASSIFIED_BY_HAND } from "../../core/classified-by-hand.js";
 import {
   createTestContext,
   jordanIdentities,
@@ -332,8 +333,16 @@ describe("GET /requests/:id", () => {
     });
 
     it("is absent when the reply was corrected to something else", async () => {
-      const request = asked({ classification: "auto_ack" }, { switched: null });
+      const request = asked(
+        { classification: "auto_ack", rationale: CLASSIFIED_BY_HAND },
+        { switched: null },
+      );
       expect((await detailOf(request.id)).formRequest).toBeNull();
+    });
+
+    it("offers to confirm a reply filed as an acknowledgement before the rules caught the redirect", async () => {
+      const request = asked({ classification: "auto_ack", rationale: null }, { channel: "email" });
+      expect((await detailOf(request.id)).formRequest).toMatchObject({ state: "unconfirmed" });
     });
   });
 

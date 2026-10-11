@@ -4,6 +4,7 @@ import {
   needsRecord,
   type ScanStartBody,
   type ScanSummary,
+  type ScanWait,
   type TargetOutcome,
 } from "@kickrocks/shared";
 import { count, desc, eq, inArray, sql } from "drizzle-orm";
@@ -11,7 +12,11 @@ import { notFound } from "../../core/errors.js";
 import { registerRoute } from "../../core/http.js";
 import type { ModulePlugin } from "../../core/module.js";
 import { requireProfile } from "../../core/require-profile.js";
-import { describeMissingScanFields, missingScanFields } from "../../core/scan-readiness.js";
+import {
+  describeMissingScanFields,
+  missingScanFields,
+  scanNeedsAgent,
+} from "../../core/scan-readiness.js";
 import { selectByFilter } from "../../core/target-selection.js";
 import { isPeopleSearchTarget } from "../../core/targets.js";
 import type { AppServices } from "../../services.js";
@@ -49,6 +54,20 @@ function targetsToScan(services: AppServices, selection: ScanStartBody) {
   return ids.map((id) => byId.get(id) as (typeof rows)[number]);
 }
 
+/** Why a queued scan has not started: it needs an agent, or its site is being given time. */
+function scanWait(
+  services: AppServices,
+  taskId: string | null,
+  status: string | null,
+  kind: string | null,
+): ScanWait | null {
+  if (taskId === null || status !== "queued") return null;
+  if (kind === "agent") return { reason: "agent", until: null };
+  const task = services.taskQueue.get(taskId);
+  const waiting = task ? services.taskQueue.waitingFor(task) : null;
+  return waiting ? { reason: waiting.reason, until: waiting.until } : null;
+}
+
 function startScans(
   services: AppServices,
   profileId: string,
@@ -84,7 +103,9 @@ function startScans(
       requestId: null,
       scanId: result.scanId,
       reason: null,
-      detail: null,
+      detail: scanNeedsAgent(services.db, row.id)
+        ? `${row.name} has no scripted search, so a connected agent has to run this scan.`
+        : null,
     };
   });
 }
@@ -104,6 +125,7 @@ export const scansModule: ModulePlugin = (app, services) => {
         scan: scans,
         targetName: targets.name,
         taskStatus: tasks.status,
+        taskKind: tasks.kind,
       })
       .from(scans)
       .innerJoin(targets, eq(scans.targetId, targets.id))
@@ -135,7 +157,7 @@ export const scansModule: ModulePlugin = (app, services) => {
     }
 
     return {
-      items: rows.map(({ scan, targetName, taskStatus }) => ({
+      items: rows.map(({ scan, targetName, taskStatus, taskKind }) => ({
         id: scan.id,
         profileId: scan.profileId,
         targetId: scan.targetId,
@@ -147,6 +169,7 @@ export const scansModule: ModulePlugin = (app, services) => {
         candidateCount: scan.candidates?.length ?? 0,
         matchCounts: counts.get(scan.id) ?? { pending: 0, mine: 0, not_mine: 0 },
         error: scan.error,
+        waiting: scanWait(services, scan.taskId, taskStatus, taskKind),
       })),
       total,
       page: query.page,

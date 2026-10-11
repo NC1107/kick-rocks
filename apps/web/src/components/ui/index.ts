@@ -27,6 +27,13 @@ export {
   type DialogProps,
 } from "./Dialog.js";
 export { EmptyState, type EmptyStateProps } from "./EmptyState.js";
+export {
+  MailboxLink,
+  ProfileLink,
+  RequestLink,
+  TargetLink,
+  TaskLink,
+} from "./EntityLink.js";
 export { Field, type FieldProps, useFieldControl } from "./Field.js";
 export {
   type ActiveTag,

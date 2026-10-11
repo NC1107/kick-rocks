@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { Reference } from "./mail.js";
 import { RequestStatus, requestEventSchema } from "./requests.js";
+import { ScanReadiness } from "./scans.js";
 
 export const DashboardEvent = requestEventSchema({
   requestReference: Reference,
@@ -42,6 +43,10 @@ export const Dashboard = z.object({
       lastError: z.string().nullable(),
     })
     .nullable(),
+  /** What stops scans from running: missing profile details, sites that need an agent, quiet hours. */
+  scanning: ScanReadiness.extend({
+    quiet: z.object({ until: z.iso.datetime(), zoneUnset: z.boolean() }).nullable(),
+  }),
   recentEvents: z.array(DashboardEvent),
 });
 export type Dashboard = z.infer<typeof Dashboard>;

@@ -11,7 +11,9 @@ import {
   Field,
   Hatch,
   InlineError,
+  ProfileLink,
   RelativeTime,
+  RequestLink,
   Row,
   RowGroup,
   Section,
@@ -203,9 +205,9 @@ export function BlockedTaskDetail({
         <>
           {" for request "}
           {task.requestId ? (
-            <TextLink to={`/requests/${encodeURIComponent(task.requestId)}`} className="font-mono">
+            <RequestLink id={task.requestId} className="font-mono">
               {item.requestReference}
-            </TextLink>
+            </RequestLink>
           ) : (
             <span className="font-mono">{item.requestReference}</span>
           )}
@@ -382,9 +384,7 @@ export function BlockedTaskDetail({
                 </ExternalLinkText>
               ) : null}
               {failure?.needsProfile ? (
-                <TextLink to={`/profiles/${encodeURIComponent(profileId)}`}>
-                  Open the profile to add it
-                </TextLink>
+                <ProfileLink id={profileId}>Open the profile to add it</ProfileLink>
               ) : null}
             </p>
           ) : null}

@@ -17,6 +17,7 @@ import {
 } from "../../../components/ui/index.js";
 import { formatDate, formatRelative } from "../../../lib/format.js";
 import { MailboxCard } from "../../mailbox/mailbox-card.js";
+import { ScanNotice } from "../../review/ScanNotice.js";
 import { ActionRow, GroupFooter, GroupNote } from "../../settings/rows.js";
 import { type DetailsErrors, DetailsFields, validateDetails } from "../details-fields.js";
 import { IdentitiesEditor } from "../identities-editor.js";
@@ -35,7 +36,11 @@ import {
 import { UnsavedChangesDialog, useUnsavedWarning } from "../use-unsaved-warning.js";
 import { DataCard } from "./DataCard.js";
 
-const SAVED_ROUTES = [API_ROUTES.profilesList, API_ROUTES.profilesGet] as const;
+const SAVED_ROUTES = [
+  API_ROUTES.profilesList,
+  API_ROUTES.profilesGet,
+  API_ROUTES.dashboardGet,
+] as const;
 
 export function Component() {
   const { id = "" } = useParams();
@@ -104,6 +109,8 @@ function ProfileEditor({ profile }: { profile: ProfileDetail }) {
   const markDirty = (part: "details" | "identities") => (dirty: boolean) =>
     setDirtyParts((current) => (current[part] === dirty ? current : { ...current, [part]: dirty }));
 
+  const dashboard = useApiQuery(API_ROUTES.dashboardGet, { params: { id: profile.id } });
+
   const remove = useApiMutation(API_ROUTES.profilesDelete, {
     invalidates: [API_ROUTES.profilesList],
     onSuccess: () => {
@@ -121,6 +128,9 @@ function ProfileEditor({ profile }: { profile: ProfileDetail }) {
         back={{ to: "/profiles", label: "Profiles" }}
       />
       <div className="flex max-w-3xl flex-col gap-4">
+        {dashboard.data ? (
+          <ScanNotice scanning={dashboard.data.scanning} profileId={profile.id} />
+        ) : null}
         <DetailsCard profile={profile} onDirtyChange={markDirty("details")} />
         <IdentitiesCard profile={profile} onDirtyChange={markDirty("identities")} />
         <MailboxCard profile={profile} />

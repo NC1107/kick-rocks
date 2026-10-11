@@ -10,6 +10,8 @@ import {
   describeIntegration,
   seedMailbox,
   seedProfile,
+  seedRequest,
+  seedTarget,
   type TestContext,
 } from "../../test-utils/index.js";
 
@@ -439,6 +441,23 @@ describe("POST /profiles/:id/mailbox/poll", () => {
     expect(ctx.services.taskQueue.get(first.body.task.id)?.payload).toEqual({
       mailboxId: mailbox.id,
     });
+  });
+
+  it("puts the tap on the timeline of the request it was made from", async () => {
+    const profile = seedProfile(ctx);
+    seedMailbox(ctx, profile.id);
+    const target = seedTarget(ctx);
+    const request = seedRequest(ctx, { profileId: profile.id, targetId: target.id });
+    await ctx.call(API_ROUTES.mailboxPoll, {
+      params: { id: profile.id },
+      query: { requestId: request.id },
+    });
+    expect(ctx.services.requests.events(request.id)).toContainEqual(
+      expect.objectContaining({
+        type: "user_action",
+        payload: expect.objectContaining({ action: "check_replies" }),
+      }),
+    );
   });
 
   it("has no outcome while the check waits", async () => {

@@ -10,6 +10,7 @@ import {
   ExternalLinkText,
   InlineError,
   MonoEmails,
+  TargetLink,
   useToast,
 } from "../../components/ui/index.js";
 import { RIGHT_LABELS } from "../../lib/labels.js";
@@ -67,7 +68,7 @@ export function MatchDetail({ match }: { match: Match }) {
         title={fields.name}
         meta={
           <>
-            Found on {match.targetName}
+            Found on <TargetLink id={match.targetId}>{match.targetName}</TargetLink>
             {fields.age !== undefined ? `, age ${fields.age}` : ""}
           </>
         }

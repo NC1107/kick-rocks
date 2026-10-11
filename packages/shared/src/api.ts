@@ -262,6 +262,8 @@ export const RequestsQuery = PageQuery.extend({
 export type RequestsQuery = z.infer<typeof RequestsQuery>;
 
 export const ScansQuery = PageQuery;
+/** The request whose page asked for a mailbox check, so its timeline can say the check happened. */
+export const MailboxPollQuery = z.object({ requestId: z.string().min(1).optional() });
 export const ReviewQuery = z.object({ profileId: z.string().min(1).optional() });
 export const RecipesQuery = z.object({
   status: RecipeStatus.optional(),
@@ -498,6 +500,7 @@ export const API_ROUTES = {
     module: "mailbox",
     auth: "session",
     params: IdParam,
+    query: MailboxPollQuery,
     response: MailboxPoll,
   }),
   mailboxPollGet: defineRoute({

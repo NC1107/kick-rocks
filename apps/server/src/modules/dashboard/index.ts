@@ -11,6 +11,7 @@ import { count, eq, inArray, sql } from "drizzle-orm";
 import { notFound } from "../../core/errors.js";
 import { registerRoute } from "../../core/http.js";
 import type { ModulePlugin } from "../../core/module.js";
+import { profileScanReadiness } from "../../core/scan-readiness.js";
 import { withTrustedConfirmationSenders } from "../../core/targets.js";
 import type { AppServices } from "../../services.js";
 import { mailboxProblem } from "../mailbox/service.js";
@@ -128,6 +129,10 @@ function buildDashboard(services: AppServices, profileId: string): Dashboard {
           lastError: mailboxProblem(mailbox),
         }
       : null,
+    scanning: {
+      ...profileScanReadiness(services, profileId),
+      quiet: services.politeness.quietNow(),
+    },
     recentEvents,
   };
 }

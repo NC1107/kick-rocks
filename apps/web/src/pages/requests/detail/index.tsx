@@ -9,9 +9,9 @@ import {
   tellEvents,
 } from "@kickrocks/shared";
 import { skipToken } from "@tanstack/react-query";
-import { MoreHorizontal } from "lucide-react";
+import { MoreHorizontal, RotateCw } from "lucide-react";
 import { type ReactNode, useState } from "react";
-import { Link, useParams } from "react-router";
+import { useParams } from "react-router";
 import {
   errorMessage,
   useApiMutation,
@@ -37,6 +37,8 @@ import {
   Skeleton,
   StatusMark,
   Tag,
+  TargetLink,
+  TaskLink,
   TaskStatusMark,
   useToast,
 } from "../../../components/ui/index.js";
@@ -65,7 +67,7 @@ const FORM_REQUEST_LEAD: Record<FormRequest["state"], string> = {
   on_form_route:
     "Their reply says this request has to be made another way, so it is on the form route instead of email.",
   unconfirmed:
-    "Their reply may say this request has to be made another way. It is waiting for you to confirm what it says before anything changes.",
+    "Their reply may say to use a web form or phone. Confirm and the request moves to the form route.",
   no_form_channel:
     "Their reply says this request has to be made another way, and there is no web form we can reach for them. You have to make it yourself.",
 };
@@ -161,7 +163,9 @@ function TaskRow({ task }: { task: TaskSummary }) {
   return (
     <div className="flex min-h-row flex-wrap items-center justify-between gap-x-4 gap-y-1.5 px-3.5 py-2">
       <div className="min-w-0">
-        <p className="text-ui font-medium text-ink">{TASK_KIND_LABELS[task.kind]}</p>
+        <p className="text-ui font-medium text-ink">
+          <TaskLink task={task}>{TASK_KIND_LABELS[task.kind]}</TaskLink>
+        </p>
         <p className="text-meta text-ink-3">
           Updated <RelativeTime iso={task.updatedAt} />
           {task.attempts > 1 ? `, attempt ${task.attempts} of ${task.maxAttempts}` : ""}
@@ -241,7 +245,7 @@ function Detail({ request }: { request: RequestDetail }) {
     onError: () => setConfirming(null),
   });
 
-  const check = useReplyCheck(request.profileId);
+  const check = useReplyCheck(request.profileId, request.id);
   const { profiles } = useCurrentProfile();
   const canCheck = profiles.find((profile) => profile.id === request.profileId)?.mailboxConnected;
 
@@ -258,6 +262,16 @@ function Detail({ request }: { request: RequestDetail }) {
       toast.success("Task queued to retry");
     },
     onError: (error) => setRetryError(errorMessage(error)),
+  });
+
+  const switchToForm = useApiMutation(API_ROUTES.messageClassify, {
+    invalidates: [
+      API_ROUTES.requestsGet,
+      API_ROUTES.requestsList,
+      API_ROUTES.dashboardGet,
+      API_ROUTES.reviewQueue,
+    ],
+    onSuccess: () => toast.success("Moved to the web form"),
   });
 
   const run = (action: RequestAction) =>
@@ -303,22 +317,16 @@ function Detail({ request }: { request: RequestDetail }) {
               <Menu
                 align="end"
                 items={menuItems}
-                trigger={(props) =>
-                  can("resend") ? (
-                    <IconButton label="More actions" variant="secondary" {...props}>
-                      <MoreHorizontal />
-                    </IconButton>
-                  ) : (
-                    <Button variant="secondary" {...props}>
-                      <MoreHorizontal aria-hidden="true" />
-                      More actions
-                    </Button>
-                  )
-                }
+                trigger={(props) => (
+                  <IconButton label="More actions" variant="secondary" {...props}>
+                    <MoreHorizontal />
+                  </IconButton>
+                )}
               />
             ) : null}
             {can("resend") ? (
               <Button variant="primary" onClick={() => setConfirming("resend")}>
+                <RotateCw aria-hidden="true" />
                 {REQUEST_ACTION_LABELS.resend}
               </Button>
             ) : null}
@@ -346,6 +354,23 @@ function Detail({ request }: { request: RequestDetail }) {
           <Callout
             intent="warning"
             title={formRequestTitle(request.formRequest.state, target.name)}
+            action={
+              request.formRequest.state === "unconfirmed" ? (
+                <Button
+                  size="sm"
+                  loading={switchToForm.isPending}
+                  onClick={() =>
+                    request.formRequest &&
+                    switchToForm.mutate({
+                      params: { id: request.formRequest.messageId },
+                      body: { classification: "needs_form" },
+                    })
+                  }
+                >
+                  Yes, use the form
+                </Button>
+              ) : undefined
+            }
           >
             <p>
               {FORM_REQUEST_LEAD[request.formRequest.state]}
@@ -411,19 +436,39 @@ function Detail({ request }: { request: RequestDetail }) {
           </Callout>
         ) : null}
 
+        {request.messages.length > 0 ? (
+          <Section label="Replies" count={request.messages.length}>
+            <RowGroup>
+              {request.messages.map((message) => (
+                <div key={message.id} className="px-3.5 py-3">
+                  <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+                    <p className="min-w-0 break-words text-ui font-medium text-ink">
+                      {message.subject}
+                    </p>
+                    <Tag>{CLASSIFICATION_LABELS[message.classification]}</Tag>
+                  </div>
+                  <p className="break-words font-mono text-caption text-ink-3">
+                    {message.fromAddress},{" "}
+                    <time dateTime={message.receivedAt}>{formatDateTime(message.receivedAt)}</time>
+                  </p>
+                  <div className="mt-2">
+                    <MessageBody messageId={message.id} snippet={message.snippet} />
+                  </div>
+                  <div className="mt-2">
+                    <ReplyCorrection message={message} />
+                  </div>
+                </div>
+              ))}
+            </RowGroup>
+          </Section>
+        ) : null}
+
         <Section label="Summary">
           <Facts
             items={[
               {
                 term: "Target",
-                value: (
-                  <Link
-                    to={`/targets/${encodeURIComponent(target.id)}`}
-                    className="rounded-xs text-accent-text underline decoration-accent-text/40 underline-offset-2 hover:decoration-accent-text"
-                  >
-                    {target.name}
-                  </Link>
-                ),
+                value: <TargetLink id={target.id}>{target.name}</TargetLink>,
               },
               { term: "Channel", value: CHANNEL_LABELS[request.channel] },
               {
@@ -487,35 +532,6 @@ function Detail({ request }: { request: RequestDetail }) {
             retrying={retry.isPending}
             retryError={retryError}
           />
-        </Section>
-
-        <Section label="Replies" count={request.messages.length}>
-          {request.messages.length === 0 ? (
-            <p className="py-1 text-ui text-ink-2">No replies yet.</p>
-          ) : (
-            <RowGroup>
-              {request.messages.map((message) => (
-                <div key={message.id} className="px-3.5 py-3">
-                  <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
-                    <p className="min-w-0 break-words text-ui font-medium text-ink">
-                      {message.subject}
-                    </p>
-                    <Tag>{CLASSIFICATION_LABELS[message.classification]}</Tag>
-                  </div>
-                  <p className="break-words font-mono text-caption text-ink-3">
-                    {message.fromAddress},{" "}
-                    <time dateTime={message.receivedAt}>{formatDateTime(message.receivedAt)}</time>
-                  </p>
-                  <div className="mt-2">
-                    <MessageBody messageId={message.id} snippet={message.snippet} />
-                  </div>
-                  <div className="mt-2">
-                    <ReplyCorrection message={message} />
-                  </div>
-                </div>
-              ))}
-            </RowGroup>
-          )}
         </Section>
 
         <Section label="Tasks" count={request.tasks.length}>

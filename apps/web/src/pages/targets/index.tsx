@@ -40,6 +40,7 @@ import {
   TARGET_CATEGORY_LABELS,
   TARGET_KIND_LABELS,
 } from "../../lib/labels.js";
+import { describeScanStart } from "../../lib/scan-start.js";
 import { AutomationLegend, HealthMark } from "./Automation.js";
 import { Difficulty } from "./Difficulty.js";
 import {
@@ -242,10 +243,9 @@ export function Component() {
     onSuccess: (result) => {
       setConfirmingScan(false);
       clearSelection();
-      const started = result.items.filter((item) => item.outcome === "scan_started").length;
-      toast.success(
-        started === 0 ? "No new scans to start" : `Started ${pluralize(started, "scan")}`,
-      );
+      const { started, text } = describeScanStart(result.items);
+      if (started === 0) toast.info(text);
+      else toast.success(text);
     },
     onError: () => setConfirmingScan(false),
   });

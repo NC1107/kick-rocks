@@ -38,6 +38,7 @@ const ACTION_PHRASES: Record<UserAction, string> = {
   mark_no_record: "mark it as having no record",
   verification_reply: "approve sending the details the target asked for",
   retry_task: "retry the failed task",
+  check_replies: "check the mailbox for replies",
 };
 
 const status = (value: keyof typeof REQUEST_STATUS_META) => REQUEST_STATUS_META[value].label;

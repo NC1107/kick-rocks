@@ -177,7 +177,7 @@ function ConnectedMailbox({ profile, onEdit }: { profile: ProfileDetail; onEdit:
             {failed ? "Last check failed" : "Connected"}
           </span>
         </div>
-        <CheckForRepliesButton check={check} />
+        <CheckForRepliesButton check={check} labelled />
       </div>
       {mailbox.lastError && !checkFailedOnMailbox(check) ? (
         <Callout intent="warning" title="The last check failed" className="mb-3">
