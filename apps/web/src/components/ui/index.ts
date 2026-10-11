@@ -82,6 +82,7 @@ export { SiteMark } from "./SiteMark.js";
 export { Skeleton, SkeletonText } from "./Skeleton.js";
 export { Spinner, type SpinnerProps } from "./Spinner.js";
 export {
+  MetaMark,
   StatusMark,
   type StatusMarkProps,
   StatusShapeGlyph,

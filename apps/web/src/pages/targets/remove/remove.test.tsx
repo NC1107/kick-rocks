@@ -1,4 +1,5 @@
 import { screen, waitFor, within } from "@testing-library/react";
+import { Route, Routes } from "react-router";
 import { describe, expect, it } from "vitest";
 import { renderPage } from "../../../test/render.js";
 import { Component as RemovePage } from "./index.js";
@@ -52,21 +53,16 @@ describe("the remove-my-data screen for one target", () => {
     expect(screen.getByText("Choose at least one.")).toBeVisible();
   });
 
-  it("says a people-search target is scanned first and starts a scan", async () => {
-    const { user, mock } = open("namelookup");
-    expect(await screen.findByText("Scanned first")).toBeVisible();
+  it("sends a people-search target to its own page, where the record is found first", async () => {
+    renderPage(
+      <Routes>
+        <Route path="/targets/:id/remove" element={<RemovePage />} />
+        <Route path="/targets/:id" element={<p>The target page</p>} />
+      </Routes>,
+      { route: "/targets/namelookup/remove" },
+    );
+    expect(await screen.findByText("The target page")).toBeVisible();
     expect(screen.queryByText("Subject")).not.toBeInTheDocument();
-    const start = await screen.findByRole("button", { name: "Start scan" });
-    expect(screen.queryByRole("button", { name: "Send request" })).not.toBeInTheDocument();
-    await waitFor(() => expect(start).toBeEnabled());
-    const before = mock.store.requests.length;
-    await user.click(start);
-    const dialog = await screen.findByRole("dialog");
-    expect(within(dialog).getByText(/Nothing is sent yet/)).toBeVisible();
-    expect(within(dialog).queryByText(/email goes out/)).not.toBeInTheDocument();
-    await user.click(within(dialog).getByRole("button", { name: "Start scan" }));
-    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
-    expect(mock.store.requests.length).toBe(before);
   });
 
   it("words the confirmation around the form for a form target", async () => {

@@ -1,8 +1,9 @@
-import { screen, within } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { createMockApp, type MockApp } from "../../../../mock/app.js";
 import { renderPage } from "../../../test/render.js";
 import { stubPhone } from "../../../test/screen.js";
+import { instrument } from "../../profiles/test-support.js";
 import { Component as TargetDetailPage } from "./index.js";
 
 /** Routes matching `pattern` answer 403, a client error, so the query client does not retry and wait. */
@@ -33,10 +34,7 @@ describe("the target page", () => {
     expect(await screen.findByRole("heading", { name: "FindRecord", level: 1 })).toBeVisible();
     expect(screen.getByText(/first scans for your record/)).toBeVisible();
     expect(screen.getByText(/A CAPTCHA stands in the way/)).toBeVisible();
-    expect(screen.getByRole("link", { name: /Remove my data/ })).toHaveAttribute(
-      "href",
-      "/targets/findrecord/remove",
-    );
+    expect(await screen.findByRole("link", { name: "Removal in progress" })).toBeVisible();
     expect(await screen.findByRole("link", { name: /^Requests \d+$/ })).toHaveAttribute(
       "href",
       "/requests?targetId=findrecord",
@@ -189,5 +187,98 @@ describe("the visit history on a target page", () => {
   it("says nothing has visited a site that was never visited", async () => {
     open("cityfile-directory");
     expect(await screen.findByText(/Nothing has visited this site yet/)).toBeVisible();
+  });
+});
+
+describe("your listing on a target page", () => {
+  const preferenceOf = (mock: MockApp, targetId: string) =>
+    mock.store.scanPreferences.get(`${mock.store.profiles[0]?.id}:${targetId}`);
+
+  it("shows the records a scan found and asks to confirm them from the header", async () => {
+    open("namelookup");
+    const section = (await screen.findByRole("heading", { name: "Your listing" })).closest(
+      "section",
+    ) as HTMLElement;
+    const listing = within(section);
+    expect(await listing.findByText("2 records to confirm")).toBeVisible();
+    expect(listing.getAllByRole("button", { name: "This is me" })).toHaveLength(2);
+    expect(screen.getByRole("link", { name: "Confirm 2 records" })).toHaveAttribute(
+      "href",
+      "/targets/namelookup#your-listing",
+    );
+  });
+
+  it("finds the record of a site that was never scanned, with no campaign", async () => {
+    const { user, mock } = open("backgroundbay");
+    const seen = instrument(mock);
+    await user.click(await screen.findByRole("button", { name: "Find my record" }));
+    await waitFor(() =>
+      expect(mock.store.scans.some((scan) => scan.targetId === "backgroundbay")).toBe(true),
+    );
+    expect(seen.some((request) => request.url.includes("/campaigns"))).toBe(false);
+    const post = seen.find(
+      (request) => request.method === "POST" && request.url.endsWith("/scans"),
+    );
+    expect(post?.json).toEqual({ targetIds: ["backgroundbay"] });
+  });
+
+  it("says a removed site is removed and does not offer another removal", async () => {
+    open("peopletrace");
+    expect(await screen.findByText(/Removed, confirmed/)).toBeVisible();
+    expect(screen.getByRole("link", { name: "Already removed" })).toBeVisible();
+  });
+
+  it("changes how often a site is rescanned, and can stop automatic rescans", async () => {
+    const { user, mock } = open("namelookup");
+    const select = await screen.findByRole("combobox", { name: /Automatic rescans/ });
+    expect(select).toHaveValue("global");
+    await user.selectOptions(select, "90");
+    await waitFor(() => expect(preferenceOf(mock, "namelookup")?.rescanDays).toBe(90));
+    await user.selectOptions(select, "manual");
+    await waitFor(() => expect(preferenceOf(mock, "namelookup")?.autoRescan).toBe(false));
+    await user.selectOptions(select, "global");
+    await waitFor(() =>
+      expect(preferenceOf(mock, "namelookup")).toMatchObject({
+        autoRescan: true,
+        rescanDays: null,
+      }),
+    );
+  });
+
+  it("pauses a site until a date and resumes it", async () => {
+    const { user, mock } = open("namelookup");
+    await user.click(await screen.findByRole("button", { name: "Pause" }));
+    await waitFor(() => expect(preferenceOf(mock, "namelookup")?.mode).toBe("paused"));
+    await user.click(await screen.findByRole("button", { name: "Resume" }));
+    await waitFor(() => expect(preferenceOf(mock, "namelookup")?.mode).toBe("auto"));
+  });
+
+  it("skips a site and offers to unskip it and scan", async () => {
+    const { user, mock } = open("namelookup");
+    await user.click(await screen.findByRole("button", { name: "Skip" }));
+    await waitFor(() => expect(preferenceOf(mock, "namelookup")?.mode).toBe("skipped"));
+    expect(
+      (await screen.findAllByRole("button", { name: "Unskip and scan" })).length,
+    ).toBeGreaterThan(0);
+  });
+
+  it("includes past addresses in this site's scans when asked", async () => {
+    const { user, mock } = open("namelookup");
+    await user.click(await screen.findByRole("checkbox", { name: /Include past addresses/ }));
+    await waitFor(() => expect(preferenceOf(mock, "namelookup")?.includePastAddresses).toBe(true));
+  });
+
+  it("keeps the scan history behind a disclosure", async () => {
+    const { user } = open("namelookup");
+    const toggle = await screen.findByRole("button", { name: /Scan history/ });
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    await user.click(toggle);
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+  });
+
+  it("leaves a company without the listing section", async () => {
+    open("audiencegrid");
+    await screen.findByRole("heading", { name: "AudienceGrid", level: 1 });
+    expect(screen.queryByRole("heading", { name: "Your listing" })).not.toBeInTheDocument();
   });
 });

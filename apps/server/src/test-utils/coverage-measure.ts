@@ -171,6 +171,7 @@ function openPlannerWorld(): PlannerWorld {
     legal: services.legal,
     targets: services.targets,
     taskQueue: services.taskQueue,
+    scanPreferences: services.scanPreferences,
     needsRecord: services.dispatch.needsRecord,
   });
   return {

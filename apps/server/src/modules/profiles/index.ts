@@ -2,6 +2,7 @@ import {
   API_ROUTES,
   type ApiIssue,
   type IdentityInput,
+  normalizeIdentityInput,
   validateIdentities,
 } from "@kickrocks/shared";
 import type { Clock } from "../../core/clock.js";
@@ -44,8 +45,9 @@ export const profilesModule: ModulePlugin = (app, services) => {
   registerRoute(app, API_ROUTES.profilesList, () => ({ profiles: store.list() }));
 
   registerRoute(app, API_ROUTES.profilesCreate, ({ body }) => {
-    requireValid(body.identities, clock);
-    return store.create(body);
+    const identities = body.identities.map(normalizeIdentityInput);
+    requireValid(identities, clock);
+    return store.create({ ...body, identities });
   });
 
   registerRoute(app, API_ROUTES.profilesGet, ({ params }) => store.get(params.id));
@@ -55,8 +57,9 @@ export const profilesModule: ModulePlugin = (app, services) => {
   );
 
   registerRoute(app, API_ROUTES.profilesReplaceIdentities, ({ params, body }) => {
-    requireValid(body.identities, clock);
-    return store.replaceIdentities(params.id, body.identities);
+    const identities = body.identities.map(normalizeIdentityInput);
+    requireValid(identities, clock);
+    return store.replaceIdentities(params.id, identities);
   });
 
   registerRoute(app, API_ROUTES.profilesDelete, ({ params }) => {

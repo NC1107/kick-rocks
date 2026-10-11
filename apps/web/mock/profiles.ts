@@ -2,6 +2,7 @@ import {
   API_ROUTES,
   type Identity,
   type IdentityInput,
+  normalizeIdentityInput,
   PROFILE_EXPORT_FORMAT,
   PROFILE_EXPORT_VERSION,
   type ProfileDetail,
@@ -145,8 +146,9 @@ export default defineMockDomain({
     handle(API_ROUTES.profilesGet, ({ params }) => find(store, params.id)),
 
     handle(API_ROUTES.profilesCreate, ({ body }) => {
-      checkIdentities(store, body.identities);
-      const identities = withIds(store, body.identities);
+      const cleaned = body.identities.map(normalizeIdentityInput);
+      checkIdentities(store, cleaned);
+      const identities = withIds(store, cleaned);
       const profile: ProfileDetail = {
         id: store.nextId("prf"),
         displayName: body.displayName,
@@ -172,8 +174,9 @@ export default defineMockDomain({
 
     handle(API_ROUTES.profilesReplaceIdentities, ({ params, body }) => {
       const profile = find(store, params.id);
-      checkIdentities(store, body.identities);
-      profile.identities = withIds(store, body.identities);
+      const cleaned = body.identities.map(normalizeIdentityInput);
+      checkIdentities(store, cleaned);
+      profile.identities = withIds(store, cleaned);
       profile.primaryEmail = primaryEmail(profile.identities);
       profile.updatedAt = store.clock.now().toISOString();
       return profile;
@@ -255,6 +258,13 @@ export default defineMockDomain({
         matches: store.matches
           .filter((match) => match.profileId === profile.id)
           .map(({ profileId: _profileId, targetName: _targetName, ...match }) => match),
+        scanPreferences: [...store.scanPreferences]
+          .filter(([key]) => key.startsWith(`${profile.id}:`))
+          .map(([key, preference]) => ({
+            ...preference,
+            targetId: key.slice(profile.id.length + 1),
+            updatedAt: store.clock.now().toISOString(),
+          })),
       };
     }),
 

@@ -242,6 +242,16 @@ export function clockIn(
   return { hour: part("hour"), minute: part("minute"), second: part("second") };
 }
 
+/** The calendar date (YYYY-MM-DD) in a zone, or in the process's own zone when none is named. */
+export function dateIn(date: Date, timeZone: string | null): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    ...(timeZone ? { timeZone } : {}),
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(date);
+}
+
 /** The next moment the clock in a zone reads the given whole hour. */
 export function nextHourIn(date: Date, hour: number, timeZone: string | null): Date {
   const clock = clockIn(date, timeZone);

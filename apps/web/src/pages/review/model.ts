@@ -67,6 +67,8 @@ export const REVIEW_INVALIDATES = [
   API_ROUTES.requestsGet,
   API_ROUTES.dashboardGet,
   API_ROUTES.scansList,
+  API_ROUTES.listingsList,
+  API_ROUTES.listingsGet,
   API_ROUTES.agentsList,
 ] as const;
 
@@ -141,8 +143,6 @@ export const KIND_LABELS: Record<ReviewKind, string> = {
   failed: "Failed",
   agents: "Waiting for an agent",
 };
-
-export const SCANS_KEY = "scans";
 
 export type QueueEntry =
   | { kind: "blocked" | "failed" | "agents" | "yours"; key: string; item: BlockedTaskItem }
