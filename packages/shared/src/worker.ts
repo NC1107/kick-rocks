@@ -11,6 +11,13 @@ import {
   TaskSummary,
   TaskUsage,
 } from "./tasks.js";
+import {
+  AgentModelChoice,
+  AgentModelState,
+  WORKER_ACCEPTS,
+  WorkerHost,
+  WorkerOllama,
+} from "./worker-inventory.js";
 
 /**
  * What the built-in worker claims when it does not say. It runs recipes, so it takes the kinds a
@@ -54,6 +61,14 @@ export const WorkerHeartbeatBody = z.object({
   claimer: WorkerClaimer.default("builtin"),
   /** The model a model-backed worker drives, so the server can show it and decide what it may do alone. */
   model: ModelIdentity.optional(),
+  /** The machine the worker runs on. Older workers leave it out. */
+  host: WorkerHost.optional(),
+  /** The worker's own Ollama, when its provider is ollama. */
+  ollama: WorkerOllama.optional(),
+  /** What the worker can take from the server, so the server never offers a choice it would ignore. */
+  accepts: z.array(z.enum(WORKER_ACCEPTS)).max(8).optional(),
+  /** What happened to the last model choice the server offered. */
+  agentModelState: AgentModelState.optional(),
 });
 export type WorkerHeartbeatBody = z.infer<typeof WorkerHeartbeatBody>;
 
@@ -67,6 +82,8 @@ export const WorkerHeartbeatResponse = z.object({
    * says nothing about profiles, and a worker must then delete nothing.
    */
   profileIds: z.array(z.string()).optional(),
+  /** The model the person chose for the agent worker, or null to keep the worker's own setting. */
+  agentModel: AgentModelChoice.nullable().optional(),
 });
 export type WorkerHeartbeatResponse = z.infer<typeof WorkerHeartbeatResponse>;
 

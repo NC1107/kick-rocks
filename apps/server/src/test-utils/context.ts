@@ -54,7 +54,7 @@ interface TestContextOptions {
   /** Datasets for the startup sync. Empty by default so tests start with no targets. */
   targetSources?: TargetSources;
   /** Replacements for services the test needs to point at a local stand-in, such as ntfy. */
-  overrides?: Pick<ServiceOverrides, "notificationChannels" | "random">;
+  overrides?: Pick<ServiceOverrides, "notificationChannels" | "probeFetch" | "random">;
   /**
    * `default` keeps the real politeness settings (spacing, caps, backoff). Any other value, and
    * the default of this option, removes the spacing and caps so a test can claim tasks freely.

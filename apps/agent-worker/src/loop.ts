@@ -1,5 +1,5 @@
 import { sleepFor } from "@kickrocks/recipes";
-import type { ClaimedTask } from "@kickrocks/shared";
+import type { AgentModelChoice, AgentModelState, ClaimedTask } from "@kickrocks/shared";
 import { AGENT_DEFAULT_KINDS } from "@kickrocks/shared";
 import {
   ServerUnreachableError,
@@ -52,6 +52,13 @@ export interface LoopContext {
   forceStop?: () => Promise<void>;
   /** Told, between tasks, which profiles the server still has, so the browser data of others can go. */
   keepProfiles?: (profileIds: string[]) => Promise<void>;
+  /**
+   * Offered the model the person chose on the server, only while the worker holds no task, so a
+   * task always runs on the model it was claimed with. Resolves true when it changed anything.
+   */
+  takeAgentModel?: (choice: AgentModelChoice | null) => Promise<boolean>;
+  /** What became of the last choice offered, which rides along on the next heartbeat. */
+  agentModelState?: () => AgentModelState | undefined;
   timing?: Partial<LoopTiming>;
 }
 
@@ -162,20 +169,43 @@ class Loop {
     taskId: string | null,
     force = false,
     resultPending = false,
+    offerModel = true,
   ): Promise<void> {
     const at = Date.now();
     if (!force && at - this.lastBeat < this.timing.idleHeartbeatMs) return;
     this.lastBeat = at;
     try {
+      const state = this.ctx.agentModelState?.();
       const answer = await this.ctx.api.heartbeat({
         busy,
         currentTaskId: taskId,
         ...(resultPending ? { resultPending } : {}),
         ...(this.ctx.version ? { version: this.ctx.version } : {}),
+        ...(state ? { agentModelState: state } : {}),
       });
       if (!busy && answer.profileIds) await this.forgetOtherProfiles(answer.profileIds);
+      if (
+        !busy &&
+        offerModel &&
+        answer.agentModel !== undefined &&
+        (await this.takeAgentModel(answer.agentModel))
+      ) {
+        // Tell the server at once, so the screen does not show the old model for another half minute.
+        await this.beat(false, null, true, false, false);
+      }
     } catch (error) {
       this.ctx.logger.warn("worker heartbeat failed", { error: describeError(error) });
+    }
+  }
+
+  private async takeAgentModel(choice: AgentModelChoice | null): Promise<boolean> {
+    try {
+      return (await this.ctx.takeAgentModel?.(choice)) ?? false;
+    } catch (error) {
+      this.ctx.logger.warn("could not take the chosen agent model", {
+        error: describeError(error),
+      });
+      return false;
     }
   }
 

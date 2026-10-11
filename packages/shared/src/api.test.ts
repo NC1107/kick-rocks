@@ -98,6 +98,8 @@ const PLANNED = [
   "GET /settings/jurisdictions",
   "GET /settings/data-sources",
   "GET /settings/sites",
+  "GET /settings/agent-setup",
+  "POST /settings/agent-setup/probe",
   "GET /notifications",
   "PATCH /notifications",
   "POST /notifications/test",

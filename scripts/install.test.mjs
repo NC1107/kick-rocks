@@ -28,6 +28,11 @@ describe("docker-compose.yml", () => {
     assert.match(server, /stop_grace_period: 30s/);
   });
 
+  it("lets the server reach an Ollama on the host by the name the reply model setting uses", () => {
+    const server = compose.slice(compose.indexOf("\n  server:"), compose.indexOf("\n  worker:"));
+    assert.match(server, /extra_hosts:\s*\n\s*- "host\.docker\.internal:host-gateway"/);
+  });
+
   it("passes the mail test settings to the server", () => {
     assert.match(compose, /KICKROCKS_PLAINTEXT_MAIL_HOSTS: \$\{KICKROCKS_PLAINTEXT_MAIL_HOSTS:-\}/);
     assert.match(compose, /KICKROCKS_SEND_GAP_MS: \$\{KICKROCKS_SEND_GAP_MS:-\}/);

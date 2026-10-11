@@ -24,13 +24,22 @@ export const workerApiModule: ModulePlugin = (app, services) => {
       currentTaskId: body.currentTaskId ?? null,
       ...(body.resultPending ? { resultPending: true } : {}),
       ...(body.model ? { model: body.model } : {}),
+      ...(body.host ? { host: body.host } : {}),
+      ...(body.ollama ? { ollama: body.ollama } : {}),
+      ...(body.accepts ? { accepts: body.accepts } : {}),
+      ...(body.agentModelState ? { agentModelState: body.agentModelState } : {}),
     });
     const profileIds = services.db
       .select({ id: profiles.id })
       .from(profiles)
       .all()
       .map((row) => row.id);
-    return { ok: true as const, serverTime: now, profileIds };
+    return {
+      ok: true as const,
+      serverTime: now,
+      profileIds,
+      agentModel: services.settings.get("agent.model"),
+    };
   });
 
   registerRoute(app, API_ROUTES.workerClaim, ({ body }) => ({

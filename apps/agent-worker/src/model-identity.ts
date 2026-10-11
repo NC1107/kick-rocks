@@ -1,67 +1,50 @@
-import type { ModelIdentity } from "@kickrocks/shared";
+import { canonicalModelName, type ModelIdentity, type WorkerOllama } from "@kickrocks/shared";
 import type { ProviderConfig } from "./config.js";
-
-/** A model server on the same machine answers at once, so a short wait is enough. */
-const LOOKUP_TIMEOUT_MS = 3000;
-/** Long enough that a claim loop does not ask every few seconds, short enough that a pull is noticed. */
-const CACHE_MS = 30_000;
-
-/** Ollama lists a model pulled without a tag as `name:latest`, so both spellings name the same one. */
-function canonical(name: string): string {
-  return name.endsWith(":latest") ? name.slice(0, -":latest".length) : name;
-}
+import { createOllamaSnapshot, type OllamaSnapshotSource } from "./ollama-snapshot.js";
 
 /** The digest ollama reports for the tag, which changes when a newer build is pulled under it. */
-export async function ollamaDigest(
-  baseUrl: string,
-  model: string,
-  fetchImpl: typeof fetch = fetch,
-): Promise<string | null> {
-  try {
-    const response = await fetchImpl(`${baseUrl.replace(/\/v1\/?$/, "")}/api/tags`, {
-      signal: AbortSignal.timeout(LOOKUP_TIMEOUT_MS),
-    });
-    if (!response.ok) return null;
-    const body = (await response.json()) as { models?: { name?: string; digest?: string }[] };
-    const wanted = canonical(model);
-    const found = body.models?.find((entry) => entry.name && canonical(entry.name) === wanted);
-    return found?.digest ? found.digest : null;
-  } catch {
-    return null;
-  }
+export function digestOf(snapshot: WorkerOllama | null, model: string): string | null {
+  const wanted = canonicalModelName(model);
+  const found = snapshot?.models.find((entry) => canonicalModelName(entry.name) === wanted);
+  return found?.digest ? found.digest : null;
 }
 
 /**
  * Who this worker drives. Only ollama says which build a tag is, so the other providers have no
  * version, and a pass for them cannot go stale by itself.
  */
-export async function describeModel(
-  provider: ProviderConfig,
-  fetchImpl: typeof fetch = fetch,
-): Promise<ModelIdentity> {
+export function identityOf(provider: ProviderConfig, snapshot: WorkerOllama | null): ModelIdentity {
   return {
     provider: provider.kind,
     name: provider.model,
-    version:
-      provider.kind === "ollama"
-        ? await ollamaDigest(provider.baseUrl, provider.model, fetchImpl)
-        : null,
+    version: provider.kind === "ollama" ? digestOf(snapshot, provider.model) : null,
     thinking: provider.thinking,
     numCtx: provider.kind === "ollama" ? provider.numCtx : null,
   };
 }
 
-/** The identity, looked up again once its cache runs out, so a model pulled while the worker runs is noticed. */
+/** For a caller that has no worker around it, such as the benchmark: one look, no cache. */
+export async function describeModel(
+  provider: ProviderConfig,
+  fetchImpl: typeof fetch = fetch,
+): Promise<ModelIdentity> {
+  if (provider.kind !== "ollama") return identityOf(provider, null);
+  const snapshots = createOllamaSnapshot({
+    baseUrl: provider.baseUrl,
+    apiKey: provider.apiKey,
+    fetch: fetchImpl,
+  });
+  return identityOf(provider, await snapshots.get());
+}
+
+/**
+ * The identity, read from the shared Ollama snapshot each time it is asked for, so a model pulled
+ * while the worker runs is noticed once the snapshot's cache runs out.
+ */
 export function modelIdentitySource(
   provider: ProviderConfig,
-  options: { fetch?: typeof fetch; now?: () => number } = {},
+  snapshots: OllamaSnapshotSource | null,
 ): () => Promise<ModelIdentity> {
-  const now = options.now ?? Date.now;
-  let cached: { at: number; identity: ModelIdentity } | null = null;
-  return async () => {
-    if (cached && now() - cached.at < CACHE_MS) return cached.identity;
-    const identity = await describeModel(provider, options.fetch);
-    cached = { at: now(), identity };
-    return identity;
-  };
+  return async () =>
+    identityOf(provider, provider.kind === "ollama" && snapshots ? await snapshots.get() : null);
 }

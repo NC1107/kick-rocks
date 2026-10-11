@@ -1,4 +1,5 @@
 import { screen, waitFor, within } from "@testing-library/react";
+import type { UserEvent } from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 import { createMockApp, type MockApp } from "../../../mock/app.js";
 import { renderPage } from "../../test/render.js";
@@ -398,9 +399,14 @@ describe("general settings", () => {
   });
 });
 
+/** Agent access is one collapsed row, so a test of the token or the toggle opens it first. */
+const openAccess = async (user: UserEvent) =>
+  user.click(await screen.findByRole("button", { name: "Set up" }));
+
 describe("agent settings", () => {
   it("shows the client config with a placeholder until a token exists", async () => {
-    agents();
+    const { user } = agents();
+    await openAccess(user);
     expect(await screen.findByText(/"mcpServers"/)).toBeVisible();
     expect(screen.getByText(/<your-token>/, { selector: "code" })).toBeVisible();
     expect(screen.getByText("Not created")).toBeVisible();
@@ -408,6 +414,7 @@ describe("agent settings", () => {
 
   it("shows a new token once and puts it in the config", async () => {
     const { user, mock } = agents();
+    await openAccess(user);
     await user.click(await screen.findByRole("button", { name: "Create a token" }));
     expect(await screen.findByText("Copy this token now")).toBeVisible();
     const token = mock.store.mcpToken ?? "";
@@ -421,6 +428,7 @@ describe("agent settings", () => {
     const mock = createMockApp();
     mock.store.settings.mcp = { ...mock.store.settings.mcp, tokenSet: true };
     const { user } = agents(mock);
+    await openAccess(user);
     await user.click(await screen.findByRole("button", { name: "Create a new token" }));
     const dialog = await screen.findByRole("dialog");
     expect(within(dialog).getByText(/stops working at once/)).toBeVisible();
@@ -430,6 +438,7 @@ describe("agent settings", () => {
 
   it("turns agent access on", async () => {
     const { user, mock } = agents();
+    await openAccess(user);
     await user.click(await screen.findByRole("checkbox", { name: /Allow agents to connect/ }));
     await waitFor(() => expect(mock.store.settings.mcp.enabled).toBe(true));
   });

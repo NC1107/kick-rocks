@@ -41,7 +41,7 @@ export function McpCard({ mcp }: { mcp: SettingsView["mcp"] }) {
 
   return (
     <>
-      <Section label="Agent access">
+      <Section label="MCP connection">
         <RowGroup>
           <BodyRow className="flex flex-col gap-2">
             <Checkbox

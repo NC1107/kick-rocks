@@ -102,6 +102,7 @@ describe("heartbeat", () => {
       ok: true,
       serverTime: ctx.clock.now().toISOString(),
       profileIds: [profileId],
+      agentModel: null,
     });
     expect(ctx.services.settings.get("worker.status.builtin")).toEqual({
       workerId: "worker-1",
@@ -110,6 +111,78 @@ describe("heartbeat", () => {
       busy: true,
       currentTaskId: "t1",
     });
+  });
+
+  it("stores the machine, the worker's Ollama and what it accepts", async () => {
+    const host = {
+      hostname: "nick-desktop",
+      platform: "linux",
+      arch: "x64",
+      cpuCores: 16,
+      memoryBytes: 64 * 1024 ** 3,
+      gpus: [{ vendor: "nvidia" as const, name: "RTX 5080", memoryBytes: 16_303 * 1024 * 1024 }],
+      gpuProbe: "ok" as const,
+    };
+    const ollama = {
+      baseUrl: "http://localhost:11434",
+      colocated: true,
+      reachable: true,
+      error: null,
+      version: "0.12.0",
+      models: [
+        {
+          name: "gpt-oss:20b",
+          digest: "abc",
+          sizeBytes: 13_000_000_000,
+          parameterSize: "20.9B",
+          quantization: "MXFP4",
+        },
+      ],
+      loaded: [],
+      checkedAt: ctx.clock.now().toISOString(),
+    };
+    const result = await ctx.call(API_ROUTES.workerHeartbeat, {
+      body: {
+        workerId: "agent",
+        claimer: "model",
+        busy: false,
+        host,
+        ollama,
+        accepts: ["agentModel"],
+        agentModelState: "applied",
+      },
+    });
+    expect(result.ok).toBe(true);
+    expect(ctx.services.settings.get("worker.status.model")).toMatchObject({
+      host,
+      ollama,
+      accepts: ["agentModel"],
+      agentModelState: "applied",
+    });
+  });
+
+  it("still accepts a heartbeat from a worker that reports none of that", async () => {
+    const result = await ctx.call(API_ROUTES.workerHeartbeat, {
+      body: { workerId: "old-agent", claimer: "model", busy: false },
+    });
+    expect(result.ok).toBe(true);
+    const stored = ctx.services.settings.get("worker.status.model");
+    expect(stored?.host).toBeUndefined();
+    expect(stored?.accepts).toBeUndefined();
+  });
+
+  it("hands back the model the person chose for the agent worker", async () => {
+    const choice = { name: "gpt-oss:20b", thinking: "default" as const, numCtx: 16_384 };
+    ctx.services.settings.set("agent.model", choice);
+    const result = await ctx.call(API_ROUTES.workerHeartbeat, {
+      body: { workerId: "agent", claimer: "model", busy: false },
+    });
+    expect(result.ok && result.body.agentModel).toEqual(choice);
+    ctx.services.settings.reset("agent.model");
+    const cleared = await ctx.call(API_ROUTES.workerHeartbeat, {
+      body: { workerId: "agent", claimer: "model", busy: false },
+    });
+    expect(cleared.ok && cleared.body.agentModel).toBeNull();
   });
 
   it("keeps the latest heartbeat and fills in what the worker left out", async () => {

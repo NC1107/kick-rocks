@@ -50,6 +50,91 @@ describe("the agent worker's reach", () => {
   });
 });
 
+describe("the agent worker's model", () => {
+  const choice = { name: "gpt-oss:20b", thinking: "default" as const, numCtx: 16_384 };
+
+  async function workerListing(names: string[]) {
+    await ctx.call(API_ROUTES.workerHeartbeat, {
+      body: {
+        workerId: "agent",
+        claimer: "model",
+        busy: false,
+        ollama: {
+          baseUrl: "http://localhost:11434",
+          colocated: true,
+          reachable: true,
+          error: null,
+          version: "0.12.0",
+          models: names.map((name) => ({
+            name,
+            digest: `digest-${name}`,
+            sizeBytes: 1,
+            parameterSize: null,
+            quantization: null,
+          })),
+          loaded: [],
+          checkedAt: ctx.clock.now().toISOString(),
+        },
+        accepts: ["agentModel"],
+      },
+    });
+  }
+
+  it("starts with the worker's own setting", async () => {
+    const view = await ctx.call(API_ROUTES.settingsGet);
+    expect(view.ok && view.body.agent.model).toBeNull();
+    expect(view.ok && view.body.agent.gpuMemoryGb).toEqual({ worker: null, server: null });
+  });
+
+  it("saves a model the worker lists, and a null puts the worker's own setting back", async () => {
+    await workerListing(["gpt-oss:20b"]);
+    const saved = await patch({ agent: { model: choice } });
+    expect(saved.ok && saved.body.agent.model).toEqual(choice);
+    expect(ctx.services.settings.get("agent.model")).toEqual(choice);
+
+    const cleared = await patch({ agent: { model: null } });
+    expect(cleared.ok && cleared.body.agent.model).toBeNull();
+  });
+
+  it("refuses a model the newest inventory does not list, with a 409", async () => {
+    await workerListing(["qwen3:8b"]);
+    const refused = await patch({ agent: { model: choice } });
+    expect(refused.status).toBe(409);
+    expect(ctx.services.settings.get("agent.model")).toBeNull();
+    const nothing = await ctx.call(API_ROUTES.settingsPatch, {
+      body: { agent: { model: { ...choice, name: "never-listed" } } },
+    });
+    expect(nothing.status).toBe(409);
+  });
+
+  it("refuses a context outside what a model can take", async () => {
+    await workerListing(["gpt-oss:20b"]);
+    expect((await patch({ agent: { model: { ...choice, numCtx: 1024 } } })).status).toBe(400);
+    expect((await patch({ agent: { model: { ...choice, numCtx: 200_000 } } })).status).toBe(400);
+    expect((await patch({ agent: { model: { ...choice, numCtx: 131_072 } } })).status).toBe(200);
+    expect((await patch({ agent: { model: { ...choice, numCtx: 2048 } } })).status).toBe(200);
+  });
+
+  it("saves the model together with the reply model in one patch", async () => {
+    await workerListing(["gpt-oss:20b"]);
+    const saved = await patch({
+      llm: { baseUrl: "http://desktop:11434/v1", model: "gpt-oss:20b" },
+      agent: { model: choice },
+    });
+    expect(saved.ok && saved.body.llm?.model).toBe("gpt-oss:20b");
+    expect(saved.ok && saved.body.agent.model).toEqual(choice);
+  });
+
+  it("saves the answer about GPU memory for each side apart", async () => {
+    await patch({ agent: { gpuMemoryGb: { worker: 16 } } });
+    const both = await patch({ agent: { gpuMemoryGb: { server: 8 } } });
+    expect(both.ok && both.body.agent.gpuMemoryGb).toEqual({ worker: 16, server: 8 });
+    const cleared = await patch({ agent: { gpuMemoryGb: { worker: null } } });
+    expect(cleared.ok && cleared.body.agent.gpuMemoryGb).toEqual({ worker: null, server: 8 });
+    expect((await patch({ agent: { gpuMemoryGb: { worker: 0 } } })).status).toBe(400);
+  });
+});
+
 describe("access", () => {
   it("turns away an anonymous caller from every route", async () => {
     ctx.auth.deny();
@@ -57,6 +142,8 @@ describe("access", () => {
       API_ROUTES.settingsGet,
       API_ROUTES.settingsPatch,
       API_ROUTES.settingsMcpToken,
+      API_ROUTES.settingsAgentSetup,
+      API_ROUTES.settingsAgentSetupProbe,
       API_ROUTES.settingsJurisdictions,
       API_ROUTES.settingsDataSources,
     ]) {

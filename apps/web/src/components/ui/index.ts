@@ -34,6 +34,7 @@ export {
   Dialog,
   type DialogProps,
 } from "./Dialog.js";
+export { Disclosure, type DisclosureProps } from "./Disclosure.js";
 export { EmptyState, type EmptyStateProps } from "./EmptyState.js";
 export {
   EntityLink,
@@ -74,6 +75,7 @@ export { PageHeader, type PageHeaderProps } from "./PageHeader.js";
 export { Pagination, type PaginationProps } from "./Pagination.js";
 export { RadioGroup, type RadioGroupProps, type RadioOption } from "./Radio.js";
 export { RelativeTime } from "./RelativeTime.js";
+export { Segmented, type SegmentedOption, type SegmentedProps } from "./Segmented.js";
 export { Select } from "./Select.js";
 export { SelectBox } from "./SelectBox.js";
 export { SiteMark } from "./SiteMark.js";

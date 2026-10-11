@@ -1,10 +1,12 @@
 import { targets } from "@kickrocks/db";
 import {
   API_ROUTES,
+  canonicalModelName,
   DATA_SOURCE_DETAILS,
   DataSourceId,
   type DataSourceInfo,
   EgressSettings,
+  GpuMemoryAnswers,
   gateVerdict,
   RetentionSettings,
   ScanningSettings,
@@ -17,13 +19,15 @@ import {
 import { eq, sql } from "drizzle-orm";
 import { nowIso } from "../../core/clock.js";
 import { createEgressRouter } from "../../core/egress.js";
-import { invalidRequest } from "../../core/errors.js";
+import { conflict, invalidRequest } from "../../core/errors.js";
 import { registerRoute } from "../../core/http.js";
 import type { ModulePlugin } from "../../core/module.js";
 import { definedOnly } from "../../core/objects.js";
 import { ownerKeyOfRow } from "../../core/site-politeness.js";
 import type { AppServices } from "../../services.js";
 import { applyRetention } from "../data-rights/index.js";
+import { buildAgentSetup } from "./agent-setup.js";
+import { probeOllama } from "./ollama-probe.js";
 
 function viewOf(services: AppServices): SettingsView {
   const { settings, config } = services;
@@ -50,6 +54,8 @@ function viewOf(services: AppServices): SettingsView {
     agent: {
       takeUnreviewed: settings.get("agent.takeUnreviewed"),
       approvalHoldMinutes: settings.get("agent.approvalHoldMinutes"),
+      model: settings.get("agent.model"),
+      gpuMemoryGb: settings.get("agent.gpuMemoryGb"),
       gate: {
         records,
         current: reported ? { model: reported, verdict: gateVerdict(records, reported) } : null,
@@ -169,6 +175,28 @@ function applyPatch({ settings, clock }: AppServices, patch: SettingsPatch): voi
   if (patch.agent?.approvalHoldMinutes !== undefined) {
     settings.set("agent.approvalHoldMinutes", patch.agent.approvalHoldMinutes);
   }
+  if (patch.agent?.model === null) {
+    settings.reset("agent.model");
+  } else if (patch.agent?.model) {
+    const wanted = canonicalModelName(patch.agent.model.name);
+    const listed = settings.get("worker.status.model")?.ollama?.models ?? [];
+    if (!listed.some((model) => canonicalModelName(model.name) === wanted)) {
+      throw conflict(
+        "model_not_installed",
+        `The agent worker's Ollama does not list ${patch.agent.model.name}`,
+      );
+    }
+    settings.set("agent.model", patch.agent.model);
+  }
+  if (patch.agent?.gpuMemoryGb) {
+    settings.set(
+      "agent.gpuMemoryGb",
+      GpuMemoryAnswers.parse({
+        ...settings.get("agent.gpuMemoryGb"),
+        ...definedOnly(patch.agent.gpuMemoryGb),
+      }),
+    );
+  }
   if (patch.agent?.gateOverride) {
     const { provider, name, enabled } = patch.agent.gateOverride;
     settings.set("agent.gate", {
@@ -204,6 +232,14 @@ export const settingsModule: ModulePlugin = (app, services) => {
     if (body.retention) applyRetention(services);
     return viewOf(services);
   });
+
+  registerRoute(app, API_ROUTES.settingsAgentSetup, ({ query }) =>
+    buildAgentSetup(services, query.ask ?? null),
+  );
+
+  registerRoute(app, API_ROUTES.settingsAgentSetupProbe, ({ body }) =>
+    probeOllama(services.probeFetch, { baseUrl: body.baseUrl, source: "asked" }),
+  );
 
   registerRoute(app, API_ROUTES.settingsSites, () => {
     const status = services.politeness.status();
