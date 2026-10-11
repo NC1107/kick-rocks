@@ -52,6 +52,7 @@ import { sql } from "drizzle-orm";
 import {
   type AnySQLiteColumn,
   blob,
+  check,
   index,
   integer,
   primaryKey,
@@ -727,6 +728,41 @@ export const settings = sqliteTable("settings", {
   updatedAt: timestamp("updated_at").notNull(),
 });
 
+/**
+ * What the person did with an item in the "Needs you" queue: snoozed it, opened its page, or said
+ * "Not yet". It spans three source tables, so each has its own foreign key and exactly one is set.
+ * The keys cascade, so a mark leaves with the task, match, request or profile it was about.
+ */
+export const needsYouMarks = sqliteTable(
+  "needs_you_marks",
+  {
+    id: id(),
+    profileId: text("profile_id")
+      .notNull()
+      .references(() => profiles.id, { onDelete: "cascade" }),
+    taskId: text("task_id").references(() => tasks.id, { onDelete: "cascade" }),
+    matchId: text("match_id").references(() => matches.id, { onDelete: "cascade" }),
+    /** For a broker's request for more details, which is an item of its request. */
+    requestId: text("request_id").references(() => requests.id, { onDelete: "cascade" }),
+    snoozedUntil: timestamp("snoozed_until"),
+    openedAt: timestamp("opened_at"),
+    tries: integer("tries").notNull().default(0),
+    lastTriedAt: timestamp("last_tried_at"),
+    createdAt: timestamp("created_at").notNull(),
+    updatedAt: timestamp("updated_at").notNull(),
+  },
+  (t) => [
+    uniqueIndex("needs_you_marks_task_idx").on(t.taskId),
+    uniqueIndex("needs_you_marks_match_idx").on(t.matchId),
+    uniqueIndex("needs_you_marks_request_idx").on(t.requestId),
+    index("needs_you_marks_profile_idx").on(t.profileId),
+    check(
+      "needs_you_marks_one_subject",
+      sql`(${t.taskId} is not null) + (${t.matchId} is not null) + (${t.requestId} is not null) = 1`,
+    ),
+  ],
+);
+
 export type ClaimerRow = typeof claimers.$inferSelect;
 export type ProfileRow = typeof profiles.$inferSelect;
 export type IdentityRow = typeof identities.$inferSelect;
@@ -746,5 +782,6 @@ export type ScanRow = typeof scans.$inferSelect;
 export type SiteVisitRow = typeof siteVisits.$inferSelect;
 export type SiteStateRow = typeof siteState.$inferSelect;
 export type MatchRow = typeof matches.$inferSelect;
+export type NeedsYouMarkRow = typeof needsYouMarks.$inferSelect;
 export type SessionRow = typeof sessions.$inferSelect;
 export type SettingRow = typeof settings.$inferSelect;

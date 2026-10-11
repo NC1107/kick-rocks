@@ -38,6 +38,13 @@ import {
   TakeInBody,
 } from "./mail.js";
 import {
+  NeedsYouMark,
+  NeedsYouNotYetBody,
+  NeedsYouParams,
+  NeedsYouQueue,
+  NeedsYouSnoozeBody,
+} from "./needs-you.js";
+import {
   DigestSendResult,
   NotificationsPatch,
   NotificationsView,
@@ -812,6 +819,50 @@ export const API_ROUTES = {
     auth: "session",
     query: ReviewQuery,
     response: ReviewQueue,
+  }),
+  /** What waits on the person and only the person, in the order to do it, with how long each takes. */
+  needsYouGet: defineRoute({
+    method: "GET",
+    path: "/needs-you",
+    module: "review",
+    auth: "session",
+    query: ReviewQuery,
+    response: NeedsYouQueue,
+  }),
+  needsYouSnooze: defineRoute({
+    method: "POST",
+    path: "/needs-you/:kind/:id/snooze",
+    module: "review",
+    auth: "session",
+    params: NeedsYouParams,
+    body: NeedsYouSnoozeBody,
+    response: NeedsYouMark,
+  }),
+  needsYouUnsnooze: defineRoute({
+    method: "DELETE",
+    path: "/needs-you/:kind/:id/snooze",
+    module: "review",
+    auth: "session",
+    params: NeedsYouParams,
+    response: NeedsYouMark,
+  }),
+  /** Notes that the person opened the item's page, so the question "did it work" survives a reload. */
+  needsYouOpened: defineRoute({
+    method: "POST",
+    path: "/needs-you/:kind/:id/opened",
+    module: "review",
+    auth: "session",
+    params: NeedsYouParams,
+    response: NeedsYouMark,
+  }),
+  needsYouNotYet: defineRoute({
+    method: "POST",
+    path: "/needs-you/:kind/:id/not-yet",
+    module: "review",
+    auth: "session",
+    params: NeedsYouParams,
+    body: NeedsYouNotYetBody.default({}),
+    response: NeedsYouMark,
   }),
   taskResume: defineRoute({
     method: "POST",

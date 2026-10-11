@@ -20,6 +20,8 @@ import { newId } from "../../core/ids.js";
 import { connectionOf, describeError } from "../../runners/connection.js";
 import { isMailboxProblem } from "../../runners/email-send.js";
 import type { AppServices } from "../../services.js";
+import { createMarks } from "../review/marks.js";
+import { buildNeedsYouQueue } from "../review/needs-you.js";
 import { buildReviewQueue } from "../review/queue.js";
 import { workerWentQuiet } from "./attention.js";
 import { readState, updateState } from "./state.js";
@@ -108,7 +110,9 @@ function attentionLines(services: AppServices, profileId: string): string[] {
     [a.yourAgentTasks, "Agent tasks you took for yourself"],
     [a.unreviewedMessages, "Replies to review"],
   ];
+  const { counts } = buildNeedsYouQueue(services, createMarks(services), profileId);
   return [
+    ...(counts.active > 0 ? [`To do now: ${counts.active} (about ${counts.minutes} min)`] : []),
     ...lines
       .filter(([count]) => count > 0)
       .map(([count, text, detail]) => `${text}: ${count}${detail ? ` (${detail})` : ""}`),

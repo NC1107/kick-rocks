@@ -168,7 +168,7 @@ describe("GET /review", () => {
       expect(blockedTasks[0]).toMatchObject({
         requestReference: request.reference,
         url: "https://records.test/optout/step2",
-        manualInstructions: expect.stringContaining("solve the CAPTCHA"),
+        manualInstructions: expect.stringContaining("Solve the CAPTCHA"),
         task: {
           id: task.id,
           status: "blocked",
@@ -181,13 +181,13 @@ describe("GET /review", () => {
     });
 
     it.each<[BlockedReason, string]>([
-      ["captcha", "solve the CAPTCHA"],
-      ["phone_verification", "texts a code"],
-      ["id_upload", "never uploads ID"],
-      ["email_verification", "Check your inbox"],
-      ["login_required", "sign in first"],
-      ["bot_detection", "blocked the automated browser"],
-      ["unknown", "finish the removal by hand"],
+      ["captcha", "Solve the CAPTCHA"],
+      ["phone_verification", "phone check"],
+      ["id_upload", "never uploads it"],
+      ["email_verification", "Follow the link"],
+      ["login_required", "Sign in on the page"],
+      ["bot_detection", "your own browser"],
+      ["unknown", "Finish the removal by hand"],
     ])("explains a %s block", async (blockedReason, words) => {
       seedTask(ctx, {
         kind: "scan",
