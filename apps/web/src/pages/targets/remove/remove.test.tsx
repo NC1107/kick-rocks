@@ -34,11 +34,6 @@ describe("the remove-my-data screen for one target", () => {
     expect(screen.queryByText("Subject")).not.toBeInTheDocument();
   });
 
-  it("warns that a target asks for ID", async () => {
-    open("creditlens-data");
-    expect(await screen.findByText("Asks for ID")).toBeVisible();
-  });
-
   it("sends one request after a confirmation", async () => {
     const { user, mock } = open("creditlens-data");
     const before = mock.store.requests.length;
@@ -55,5 +50,40 @@ describe("the remove-my-data screen for one target", () => {
     await user.click(await screen.findByRole("checkbox", { name: /Opt out of sale/ }));
     expect(screen.getByRole("button", { name: "Send request" })).toBeDisabled();
     expect(screen.getByText("Choose at least one.")).toBeVisible();
+  });
+
+  it("says a people-search target is scanned first and starts a scan", async () => {
+    const { user, mock } = open("namelookup");
+    expect(await screen.findByText("Scanned first")).toBeVisible();
+    expect(screen.queryByText("Subject")).not.toBeInTheDocument();
+    const start = await screen.findByRole("button", { name: "Start scan" });
+    expect(screen.queryByRole("button", { name: "Send request" })).not.toBeInTheDocument();
+    await waitFor(() => expect(start).toBeEnabled());
+    const before = mock.store.requests.length;
+    await user.click(start);
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByText(/Nothing is sent yet/)).toBeVisible();
+    expect(within(dialog).queryByText(/email goes out/)).not.toBeInTheDocument();
+    await user.click(within(dialog).getByRole("button", { name: "Start scan" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    expect(mock.store.requests.length).toBe(before);
+  });
+
+  it("words the confirmation around the form for a form target", async () => {
+    const { user } = open("adsignal");
+    const create = await screen.findByRole("button", { name: "Create request" });
+    await waitFor(() => expect(create).toBeEnabled());
+    await user.click(create);
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByText(/form task/)).toBeVisible();
+    expect(within(dialog).queryByText(/email goes out/)).not.toBeInTheDocument();
+  });
+
+  it("asks for ID only when deletion is chosen", async () => {
+    const { user } = open("creditlens-data");
+    await screen.findByRole("heading", { name: /Remove my data from/ });
+    expect(screen.queryByText("Asks for ID")).not.toBeInTheDocument();
+    await user.click(screen.getByRole("checkbox", { name: /Delete my data/ }));
+    expect(await screen.findByText("Asks for ID")).toBeVisible();
   });
 });

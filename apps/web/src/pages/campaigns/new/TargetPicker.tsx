@@ -69,6 +69,7 @@ export function TargetPicker({
       ) : (
         <DataList
           label="Pick targets"
+          layout="rows"
           headless
           items={items}
           getKey={(item) => item.id}

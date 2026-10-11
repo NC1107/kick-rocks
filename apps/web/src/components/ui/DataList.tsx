@@ -77,6 +77,11 @@ export interface DataListProps<T> {
   pager?: PaginationProps | undefined;
   /** Keeps the column headings for assistive technology only, for a short picker that needs no header. */
   headless?: boolean;
+  /**
+   * `auto` follows the screen. A list that always sits in a narrow column, such as a picker beside
+   * other content, sets `rows` because the screen being wide says nothing about its own width.
+   */
+  layout?: "auto" | "rows";
   className?: string;
 }
 
@@ -99,15 +104,40 @@ export function DataList<T>({
   count,
   pager,
   headless,
+  layout = "auto",
   className,
 }: DataListProps<T>) {
-  const wide = useWide();
+  const screenWide = useWide();
+  const wide = layout === "auto" && screenWide;
   const selected = (item: T) => isSelected?.(item) ?? selection?.isChecked(item) ?? false;
   const disabled = (item: T) => selection?.isDisabled?.(item) ?? false;
 
   return (
     <div className={className}>
-      {count ? (
+      {!wide && selection?.all ? (
+        <div className="mb-1 flex items-center">
+          <SelectBox
+            id={`${selection.idPrefix}-all`}
+            label={selection.all.label}
+            checked={selection.all.checked}
+            indeterminate={selection.all.indeterminate}
+            disabled={selection.all.disabled}
+            onChange={selection.all.onChange}
+            className="-ml-1"
+          />
+          <label
+            htmlFor={`${selection.idPrefix}-all`}
+            className="flex min-h-11 cursor-pointer items-center text-meta text-ink-2"
+          >
+            Select all
+          </label>
+          {count ? (
+            <span className="ml-auto font-mono text-eyebrow uppercase text-ink-3 tabular-nums">
+              {count}
+            </span>
+          ) : null}
+        </div>
+      ) : count ? (
         <p className="mb-1.5 font-mono text-eyebrow uppercase text-ink-3 tabular-nums">{count}</p>
       ) : null}
       {wide ? (

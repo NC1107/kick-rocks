@@ -24,7 +24,7 @@ const args = process.argv.slice(2);
 const flag = (name) => args.includes(`--${name}`);
 const option = (name) => args.find((a) => a.startsWith(`--${name}=`))?.split("=")[1];
 
-const WIDTHS = [390, 768, 1280];
+const WIDTHS = [390, 768, 1024, 1280];
 const THEMES = ["light", "dark"];
 const AUTHED_ROUTES = [
   "/",
@@ -205,7 +205,7 @@ async function measureSweep(browser, base, axeSource, shotsDir) {
     for (const text of inspected.ellipsised) note("ellipsis", `${route} ${text}`, where);
     for (const text of inspected.small) note("tap", text, `${route}@${where}`);
     if (shotsDir) {
-      const name = `${route === "/" ? "home" : route.slice(1).replace(/\//g, "_")}-${theme}-${width}.png`;
+      const name = `${route === "/" ? "home" : route.slice(1).replace(/[^\w-]+/g, "_")}-${theme}-${width}.png`;
       await page.screenshot({ path: join(shotsDir, name), fullPage: true });
     }
     await context.close();

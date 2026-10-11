@@ -56,3 +56,17 @@ test("text hidden at one width by a responsive utility is not an overflow", asyn
   );
   assert.deepEqual(overflow, []);
 });
+
+test("a table frame that scrolls sideways is reported", async () => {
+  const { overflow } = await inspect(
+    `<section style="overflow-x:auto;width:200px"><table style="width:400px"><tr><td>wide</td></tr></table></section>`,
+  );
+  assert.equal(overflow.length, 1);
+});
+
+test("a table that fits its frame is not reported", async () => {
+  const { overflow } = await inspect(
+    `<section style="overflow-x:auto;width:300px"><table style="width:200px"><tr><td>fits</td></tr></table></section>`,
+  );
+  assert.deepEqual(overflow, []);
+});

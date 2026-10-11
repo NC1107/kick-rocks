@@ -84,6 +84,10 @@ function Remove({ target, profile }: { target: TargetDetail; profile: ProfileSum
     runPreview({ params: { id: profile.id }, body: JSON.parse(bodyKey) as CampaignBody });
   }, [bodyKey, profile.id]);
 
+  const outcome = preview.data?.items[0];
+  const scanFirst = outcome?.outcome === "scan_started";
+  const formTask = !scanFirst && target.contactMethod === "form";
+
   const create = useApiMutation(API_ROUTES.campaignsCreate, {
     invalidates: [
       API_ROUTES.requestsList,
@@ -94,13 +98,15 @@ function Remove({ target, profile }: { target: TargetDetail; profile: ProfileSum
     onSuccess: (result) => {
       setConfirming(false);
       const scan = result.counts.scan_started > 0;
-      toast.success(scan ? "Scan started" : "Request queued to send");
-      navigate(scan ? "/review" : "/requests");
+      toast.success(
+        scan ? "Scan started" : formTask ? "Form task added" : "Request queued to send",
+      );
+      // Replaced, so back from the result returns to the target and not to a form that has already gone.
+      navigate(scan ? "/review" : "/requests", { replace: true });
     },
     onError: () => setConfirming(false),
   });
 
-  const outcome = preview.data?.items[0];
   const skipped = outcome?.outcome === "skipped" ? outcome : null;
   const email = preview.data?.sampleEmail ?? null;
   const basis = preview.data?.basis ?? null;
@@ -112,7 +118,9 @@ function Remove({ target, profile }: { target: TargetDetail; profile: ProfileSum
       recipe.purpose === "remove" && recipe.status === "active" && recipe.health !== "broken",
   );
   const agentSeen = settings.data ? settings.data.worker.model !== null : true;
-  const needsId = target.requirements.includes("id_upload");
+  const needsId = target.requirements.includes("id_upload") && rights.includes("delete");
+
+  const sendLabel = scanFirst ? "Start scan" : formTask ? "Create request" : "Send request";
 
   const toggleRight = (right: RequestRight, on: boolean) =>
     setRights((current) =>
@@ -142,6 +150,12 @@ function Remove({ target, profile }: { target: TargetDetail; profile: ProfileSum
             }
           >
             The email is skipped until this profile has a mailbox to send from.
+          </Callout>
+        ) : null}
+        {scanFirst ? (
+          <Callout intent="info" title="Scanned first">
+            Kick Rocks searches {target.name} for {profile.displayName} first. You confirm the
+            record in Review, then the request goes.
           </Callout>
         ) : null}
         {formOnly ? (
@@ -223,16 +237,28 @@ function Remove({ target, profile }: { target: TargetDetail; profile: ProfileSum
           ) : null}
         </p>
         <Button variant="primary" disabled={!canSend} onClick={() => setConfirming(true)}>
-          Send request
+          {sendLabel}
         </Button>
       </div>
 
       <ConfirmDialog
         open={confirming}
         onClose={() => setConfirming(false)}
-        title={`Send to ${target.name}?`}
-        description="The email goes out within your daily limit. You can stop it until it has gone."
-        confirmLabel="Send request"
+        title={
+          scanFirst
+            ? `Scan ${target.name}?`
+            : formTask
+              ? `Ask ${target.name} through its form?`
+              : `Send to ${target.name}?`
+        }
+        description={
+          scanFirst
+            ? "Nothing is sent yet. You confirm the record it finds in Review, then the request goes."
+            : formTask
+              ? "This adds a form task to Review. Nothing is emailed, and you can stop it before it is filled in."
+              : "The email goes out within your daily limit. You can stop it until it has gone."
+        }
+        confirmLabel={sendLabel}
         loading={create.isPending}
         onConfirm={() => body && create.mutate({ params: { id: profile.id }, body })}
       />

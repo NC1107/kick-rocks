@@ -391,7 +391,7 @@ export function Component() {
               {
                 id: "category",
                 header: "Category",
-                className: "hidden xl:table-cell",
+                className: "hidden 2xl:table-cell",
                 cell: (item) => (
                   <span className="text-ink-2">{TARGET_CATEGORY_LABELS[item.category]}</span>
                 ),
@@ -416,16 +416,19 @@ export function Component() {
               {
                 id: "needs",
                 header: "Needs",
+                className: "hidden 2xl:table-cell",
                 cell: (item) => <RequirementBadges requirements={item.requirements} max={2} />,
               },
               {
                 id: "scan",
                 header: "Scan",
+                className: "hidden xl:table-cell",
                 cell: (item) => <HealthMark health={item.automation.scan} />,
               },
               {
                 id: "removal",
                 header: "Removal",
+                className: "hidden xl:table-cell",
                 cell: (item) => <HealthMark health={item.automation.remove} />,
               },
             ]}

@@ -455,6 +455,10 @@
   padding-inline: var(--kr-gutter);
 }
 
+@utility -mx-gutter {
+  margin-inline: calc(var(--kr-gutter) * -1);
+}
+
 @utility h-control {
   height: var(--kr-control-h);
 }

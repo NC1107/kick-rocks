@@ -24,7 +24,15 @@ function stubScreen(wide: boolean) {
   }));
 }
 
-function Harness({ pager }: { pager?: { total: number } }) {
+function Harness({
+  pager,
+  layout,
+  withAll,
+}: {
+  pager?: { total: number };
+  layout?: "auto" | "rows";
+  withAll?: boolean;
+}) {
   const [picked, setPicked] = useState<readonly string[]>([]);
   return (
     <MemoryRouter initialEntries={["/"]}>
@@ -41,6 +49,7 @@ function Harness({ pager }: { pager?: { total: number } }) {
               columns={[{ id: "id", header: "Id", cell: (row) => row.id }]}
               tags={(row) => <span>{row.id}</span>}
               count="2 things"
+              {...(layout ? { layout } : {})}
               selection={{
                 idPrefix: "pick",
                 isChecked: (row) => picked.includes(row.id),
@@ -49,6 +58,17 @@ function Harness({ pager }: { pager?: { total: number } }) {
                     on ? [...current, row.id] : current.filter((id) => id !== row.id),
                   ),
                 label: (row) => `Select ${row.name}`,
+                ...(withAll
+                  ? {
+                      all: {
+                        label: "Select all things",
+                        checked: picked.length === ROWS.length,
+                        indeterminate: picked.length > 0 && picked.length < ROWS.length,
+                        disabled: false,
+                        onChange: (on: boolean) => setPicked(on ? ROWS.map((row) => row.id) : []),
+                      },
+                    }
+                  : {}),
               }}
               {...(pager
                 ? {
@@ -126,5 +146,24 @@ describe("the shared list", () => {
     stubScreen(true);
     render(<Harness pager={{ total: 120 }} />);
     expect(screen.getByText(/1-50 of 120/)).toBeVisible();
+  });
+
+  it("offers select all above a phone list and toggles every row", async () => {
+    stubScreen(false);
+    const user = userEvent.setup();
+    render(<Harness withAll />);
+    const all = screen.getByRole("checkbox", { name: "Select all things" });
+    await user.click(all);
+    expect(screen.getByRole("checkbox", { name: "Select Alpha" })).toBeChecked();
+    expect(screen.getByRole("checkbox", { name: "Select Bravo" })).toBeChecked();
+    await user.click(screen.getByText("Select all"));
+    expect(screen.getByRole("checkbox", { name: "Select Alpha" })).not.toBeChecked();
+  });
+
+  it("stays stacked rows in a narrow column even on a wide screen", () => {
+    stubScreen(true);
+    render(<Harness layout="rows" />);
+    expect(screen.queryByRole("table")).not.toBeInTheDocument();
+    expect(screen.getByRole("list", { name: "Things" })).toBeVisible();
   });
 });
