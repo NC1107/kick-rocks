@@ -1,3 +1,4 @@
+import { MODEL_APPLY_FLOOR } from "@kickrocks/shared";
 import {
   accuracy,
   applyThreshold,
@@ -37,6 +38,11 @@ export interface SplitEvaluation {
   rulesShare: number;
   /** The gate that keeps 95 percent precision, chosen on this split's own confidences. */
   ownGate: Gate | null;
+  /**
+   * Only the replies the model answered, at the confidence the server applies model answers at.
+   * The other gates mix in rules answers, which the server applies at a lower confidence.
+   */
+  modelGate: Gate | null;
   latency: LatencySummary;
 }
 
@@ -78,9 +84,19 @@ function perSource(
   return result;
 }
 
+function modelGateOf(
+  items: readonly Item[],
+  outcomes: readonly Outcome[],
+  threshold: number,
+): Gate | null {
+  const rows = scoredOf(items, outcomes).filter((_, index) => outcomes[index]?.via === "model");
+  return rows.length === 0 ? null : applyThreshold(rows, threshold);
+}
+
 export function evaluateSplit(
   items: readonly Item[],
   outcomes: readonly Outcome[],
+  modelThreshold: number = MODEL_APPLY_FLOOR,
 ): SplitEvaluation {
   const rows = scoredOf(items, outcomes);
   const stats = perClass(rows);
@@ -98,6 +114,7 @@ export function evaluateSplit(
         : outcomes.filter((outcome) => outcome.via === "rules").length / outcomes.length,
     perSource: perSource(items, rows),
     ownGate: thresholdForPrecision(rows),
+    modelGate: modelGateOf(items, outcomes, modelThreshold),
     latency: latencyOf(outcomes),
   };
 }

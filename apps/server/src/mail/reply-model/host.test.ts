@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, utimesSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -80,6 +80,13 @@ function host(options: Partial<Parameters<typeof createReplyModelHost>[0]> = {})
     loadTimeoutMs: 5000,
     ...options,
   });
+}
+
+/** Same size as the manifest lists, with a newer modification time, as a fresh copy of the file would have. */
+function replaceFile(name: string) {
+  writeFileSync(join(dir, name), "y");
+  const later = new Date(Date.now() + 60_000);
+  utimesSync(join(dir, name), later, later);
 }
 
 const input = (body: string) => ({ subject: "Re: request", body });
@@ -199,10 +206,25 @@ describe("answering", () => {
     const result = await subject.predict(input("ok"));
     expect(result).toMatchObject({
       ok: false,
-      reason: expect.stringMatching(/Not enough free memory.*512 MiB free/),
+      reason: "Not enough free memory for the reply model",
     });
     expect(() => readFileSync(join(dir, "starts.log"))).toThrow();
-    expect(subject.status().state).toBe("loaded");
+    expect(subject.status()).toMatchObject({
+      state: "loaded",
+      reason: "Not enough free memory for the reply model",
+    });
+  });
+
+  it("stops naming the skip once a reply gets its answer", async () => {
+    install();
+    let free = 512 * 1024 ** 2;
+    const subject = host({ availableMemory: () => free });
+    await subject.predict(input("a"));
+    expect(subject.status().reason).not.toBeNull();
+    free = 8 * 1024 ** 3;
+    await subject.predict(input("b"));
+    expect(subject.status().reason).toBeNull();
+    await subject.close();
   });
 
   it("exits after it has been idle, and starts again on the next reply", async () => {
@@ -230,13 +252,64 @@ describe("answering", () => {
     await subject.close();
   });
 
-  it("reports each reason once", async () => {
+  it("reports each reason once, even when the figures in it change", async () => {
     install();
-    const reasons: string[] = [];
-    const subject = host({ availableMemory: () => 0, log: (reason) => reasons.push(reason) });
+    const reasons: Array<[string, Record<string, number> | undefined]> = [];
+    let free = 100 * 1024 ** 2;
+    const subject = host({
+      availableMemory: () => (free += 1024 ** 2),
+      log: (reason, fields) => reasons.push([reason, fields]),
+    });
     await subject.predict(input("a"));
     await subject.predict(input("b"));
     expect(reasons).toHaveLength(1);
+    expect(reasons[0]?.[1]).toMatchObject({ freeMiB: 101 });
+  });
+
+  it("does not start a child again for files that already failed to load", async () => {
+    install();
+    writeFileSync(join(dir, "FAIL_LOAD"), "");
+    const subject = host();
+    await subject.predict(input("a"));
+    const again = await subject.predict(input("b"));
+    expect(again).toMatchObject({ ok: false, reason: expect.stringMatching(/digest/) });
+    expect(starts()).toHaveLength(1);
+    await subject.close();
+  });
+
+  it("tries again once the model files are replaced", async () => {
+    install();
+    writeFileSync(join(dir, "FAIL_LOAD"), "");
+    const subject = host();
+    await subject.predict(input("a"));
+    rmSync(join(dir, "FAIL_LOAD"));
+    replaceFile("model.onnx");
+    const result = await subject.predict(input("b"));
+    expect(result).toMatchObject({ ok: true });
+    expect(subject.status().state).toBe("loaded");
+    expect(starts()).toHaveLength(2);
+    await subject.close();
+  });
+
+  it("checks the files' digests in the first child only", async () => {
+    install();
+    const subject = host({ idleMs: 100 });
+    await subject.predict(input("a"));
+    await new Promise((resolve) => setTimeout(resolve, 400));
+    await subject.predict(input("b"));
+    expect(readFileSync(join(dir, "verified.log"), "utf8").trim().split("\n")).toEqual([
+      "false",
+      "true",
+    ]);
+    replaceFile("tokenizer.json");
+    await new Promise((resolve) => setTimeout(resolve, 400));
+    await subject.predict(input("c"));
+    expect(readFileSync(join(dir, "verified.log"), "utf8").trim().split("\n")).toEqual([
+      "false",
+      "true",
+      "false",
+    ]);
+    await subject.close();
   });
 });
 

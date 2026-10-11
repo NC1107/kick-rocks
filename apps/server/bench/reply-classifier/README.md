@@ -136,10 +136,9 @@ The dev rows use their own threshold, so they are optimistic.
 
 ## Run through the server's runtime
 
-`results/2026-10-11T08-51-35-029Z.md` runs the rules and `c-encoder-node` on the corpus as it stands after the merge with main: 355 dev and 201 held-out replies.
-The model is release v1, trained by `reply-model:build` on CPU, and every answer goes through the server's own host and child process.
+`c-encoder-node` runs the rules and then the released model through the server's own host and child process.
+It reads the release from `apps/server/reply-model/dist`, or from `REPLY_MODEL_RELEASE_DIR`.
+The report gives the accuracy of the model's answers alone at the confidence the server applies them at, next to the gates that mix in rules answers.
 
-- Held-out accuracy: rules 46.8%, rules then the encoder 86.1%.
-- At the 0.904 gate chosen on dev, 83 held-out replies answer at 95.2% and 118 fall below it.
-- The build's own PyTorch check agrees with the ONNX file on 556 texts to within 2.2e-6 with no changed answer, and the golden check through the host agrees to 7e-6.
-- The encoder call takes 36 ms at p95 with 4 threads.
+No result for it is committed yet.
+A model trained on a developer machine is not the model that ships, so record the run once from the release the `reply-model` workflow publishes, and pin that release in `apps/server/reply-model/release.json` at the same time.

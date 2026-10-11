@@ -27,6 +27,14 @@ describe("the reply model card", () => {
   it("says what state the model is in", () => {
     expect(stateText(view().status)).toBe("Loaded, version v1");
     expect(
+      stateText({
+        state: "loaded",
+        reason: "Not enough free memory",
+        version: "v1",
+        threshold: 0.9,
+      }),
+    ).toBe("Loaded, version v1. Skipped the last reply: Not enough free memory");
+    expect(
       stateText({ state: "not_installed", reason: null, version: null, threshold: null }),
     ).toBe("Not installed");
     expect(

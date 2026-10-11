@@ -16,7 +16,9 @@ async function load(message: Extract<ToWorker, { type: "load" }>): Promise<void>
   const started = performance.now();
   try {
     const { loadModel } = await import("./runtime.js");
-    model = await loadModel(message.dir, message.manifest, message.threads);
+    model = await loadModel(message.dir, message.manifest, message.threads, {
+      verified: message.verified,
+    });
     send({ type: "ready", loadMs: performance.now() - started, rssBytes: model.rssBytes() });
   } catch (error) {
     send({ type: "failed", message: error instanceof Error ? error.message : String(error) });

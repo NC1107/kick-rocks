@@ -6,7 +6,8 @@ const percent = (value: number) => `${Math.round(value * 100)}%`;
 export function stateText(status: ReplyModelView["status"]): string {
   if (status.state === "not_installed") return "Not installed";
   if (status.state === "failed") return `Failed: ${status.reason ?? "unknown reason"}`;
-  return status.version ? `Loaded, version ${status.version}` : "Loaded";
+  const loaded = status.version ? `Loaded, version ${status.version}` : "Loaded";
+  return status.reason ? `${loaded}. Skipped the last reply: ${status.reason}` : loaded;
 }
 
 export function thresholdText(view: ReplyModelView): string {

@@ -91,9 +91,15 @@ export function createReplyPredictions({ db, clock, settings, logger }: Deps): R
     const interval = spots.length > 0 ? wilsonInterval(agreed, spots.length) : null;
     const bands = BAND_EDGES.slice(0, -1).map((from, index) => {
       const to = BAND_EDGES[index + 1] as number;
+      // Only answers a person was asked about count. A correction of an applied answer exists only
+      // when it was wrong, and the language model's confidence is not the reply model's.
       const inBand = decided.filter(
         (row) =>
-          row.modelConfidence !== null && row.modelConfidence >= from && row.modelConfidence < to,
+          row.source === "model" &&
+          !row.autoApplied &&
+          row.modelConfidence !== null &&
+          row.modelConfidence >= from &&
+          row.modelConfidence < to,
       );
       return {
         from,
@@ -133,6 +139,10 @@ export function createReplyPredictions({ db, clock, settings, logger }: Deps): R
   return {
     record(messageId, classified) {
       const { prediction, suggestion } = classified;
+      // A model answer the classifier threw out leaves no guess behind, or Review would rebuild
+      // the suggestion the classifier had decided against.
+      const standsBehindGuess =
+        classified.source !== "rules" && (classified.apply || suggestion !== null);
       const guess =
         classified.source === "llm" && suggestion
           ? { label: suggestion.classification, confidence: suggestion.confidence }
@@ -144,8 +154,8 @@ export function createReplyPredictions({ db, clock, settings, logger }: Deps): R
           messageId,
           source: classified.source,
           modelVersion: prediction.model?.version ?? null,
-          modelLabel: classified.source === "rules" ? null : (guess?.label ?? null),
-          modelConfidence: classified.source === "rules" ? null : (guess?.confidence ?? null),
+          modelLabel: standsBehindGuess ? (guess?.label ?? null) : null,
+          modelConfidence: standsBehindGuess ? (guess?.confidence ?? null) : null,
           probabilities: prediction.model?.probabilities ?? null,
           rulesLabel: prediction.rules.label,
           rulesConfidence: prediction.rules.confidence,

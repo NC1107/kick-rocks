@@ -44,7 +44,7 @@ export type ReplyModelState = z.infer<typeof ReplyModelState>;
 
 export const ReplyModelStatus = z.object({
   state: z.enum(["loaded", "not_installed", "failed"]),
-  /** Why it is not usable, for "failed". */
+  /** Why it is not usable, for "failed", or why the last reply went without it, for "loaded". */
   reason: z.string().nullable(),
   version: z.string().nullable(),
   /** The release's own threshold, before the person's setting and the floor are applied. */

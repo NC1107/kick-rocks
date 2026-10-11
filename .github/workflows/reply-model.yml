@@ -24,6 +24,7 @@ jobs:
     env:
       VERSION: ${{ inputs.version }}
       TOKENIZERS_PARALLELISM: "false"
+      ORT_DISABLE_TELEMETRY: "1"
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4

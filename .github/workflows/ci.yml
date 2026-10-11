@@ -5,6 +5,10 @@ on:
     branches: [main]
   pull_request:
 
+# The ONNX runtime ships usage telemetry on Linux, and no job here may send it.
+env:
+  ORT_DISABLE_TELEMETRY: "1"
+
 jobs:
   check:
     runs-on: ubuntu-latest

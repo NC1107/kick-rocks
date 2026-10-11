@@ -2,7 +2,14 @@ import type { ReplyModelManifest } from "./manifest.js";
 
 /** What the server sends to the child that holds the model. */
 export type ToWorker =
-  | { type: "load"; dir: string; threads: number; manifest: ReplyModelManifest }
+  | {
+      type: "load";
+      dir: string;
+      threads: number;
+      manifest: ReplyModelManifest;
+      /** An earlier child already checked these exact files against their digests. */
+      verified: boolean;
+    }
   | { type: "predict"; id: number; text: string };
 
 /** What the child answers. Probabilities follow the manifest's label order. */

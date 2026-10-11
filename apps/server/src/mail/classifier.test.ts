@@ -1185,6 +1185,38 @@ describe("a reply that sends the request somewhere else", () => {
     expect(result.requestId).toBe("req-1");
   });
 
+  const notRedirects: Array<[string, string]> = [
+    [
+      "email named as the only channel, with the request received",
+      "We accept privacy requests via email only, and we have received yours.",
+    ],
+    [
+      "a limit to the account holder",
+      "We can only process requests made by the account holder. Please reply from the email address on your account.",
+    ],
+    [
+      "a limit to the consumer or an agent",
+      "We will only act on requests submitted by the consumer or an authorized agent.",
+    ],
+    [
+      "a limit to verified residents",
+      "We can only honor requests made by verified residents of California.",
+    ],
+  ];
+
+  it.each(notRedirects)("is not needs_form for %s", async (_name, text) => {
+    const result = await classify(text);
+    expect(result.classification).not.toBe("needs_form");
+  });
+
+  it("keeps an out-of-office reply an acknowledgement when it says email is the channel", async () => {
+    const result = await classify(
+      "We accept deletion requests via email only, so your message is in the queue.",
+      { subject: "Auto-reply: Out of office", autoSubmitted: true },
+    );
+    expect(result.classification).toBe("auto_ack");
+  });
+
   it("returns the form link from the reply and leaves the policy link out", async () => {
     const result = await classify(PANERA);
     expect(result.links).toEqual(["https://www.acme.test/privacy-requests"]);

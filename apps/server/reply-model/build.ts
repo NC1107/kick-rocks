@@ -44,7 +44,8 @@ function python(args: string[]): Promise<void> {
   return new Promise((resolveRun, reject) => {
     const child = spawn(interpreter, [join(REPLY_MODEL_DIR, "model.py"), ...args], {
       stdio: ["ignore", "inherit", "inherit"],
-      env: { ...process.env, TOKENIZERS_PARALLELISM: "false" },
+      // The ONNX runtime ships usage telemetry on Linux, and nothing here may leave the machine.
+      env: { ...process.env, TOKENIZERS_PARALLELISM: "false", ORT_DISABLE_TELEMETRY: "1" },
     });
     child.on("close", (code) =>
       code === 0 ? resolveRun() : reject(new Error(`model.py ${args[0]} exited with code ${code}`)),

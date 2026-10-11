@@ -40,6 +40,8 @@ That is why a release is pinned by digest and not by being rebuilt.
 
 Create the Python environment once.
 It lives in `.venv` next to this file and is not committed.
+The lock installs the CPU build of PyTorch, which is what a release is made with.
+To train faster on a local GPU for the bench, install a CUDA build of torch over it by hand.
 
 ```
 pnpm --filter @kickrocks/server reply-model:env
@@ -64,6 +66,7 @@ The build does these steps in order:
 The `reply-model` workflow does the same on a CPU runner, attaches build provenance, and publishes the archive.
 Expect 1.5 to 2.5 hours there.
 Afterwards copy the version, url, `tarSha256`, `dataSha256` and threshold it prints into `release.json`, and commit the `golden.json` it attaches.
+Until the first workflow release, `release.json` has empty digests and no `golden.json` is committed, so nothing pins a model that was built on a developer machine.
 
 ## Checking a release
 

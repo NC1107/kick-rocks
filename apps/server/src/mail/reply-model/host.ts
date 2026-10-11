@@ -1,10 +1,11 @@
 import { type ChildProcess, fork } from "node:child_process";
-import { existsSync } from "node:fs";
+import { existsSync, statSync } from "node:fs";
 import { availableParallelism } from "node:os";
+import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { ReplyClassification, ReplyModelStatus } from "@kickrocks/shared";
 import { encoderText, type ModelInput } from "./input.js";
-import { type ReplyModelManifest, readManifest } from "./manifest.js";
+import { MODEL_FILES, type ReplyModelManifest, readManifest } from "./manifest.js";
 import { availableMemory, MODEL_MEMORY_BYTES } from "./memory.js";
 import type { FromWorker, ToWorker } from "./protocol.js";
 import type { ModelResult, ReplyModelHost } from "./types.js";
@@ -13,12 +14,14 @@ const REQUEST_TIMEOUT_MS = 10_000;
 /** A cold disk can take seconds to give up 571 MB, and the files are hashed first. */
 const LOAD_TIMEOUT_MS = 90_000;
 const IDLE_MS = 3 * 60 * 1000;
+const LOW_MEMORY = "Not enough free memory for the reply model";
 const MAX_THREADS = 4;
 
 export interface ReplyModelHostOptions {
   /** The folder holding the manifest and the model files. Null means no model is installed. */
   dir: string | null;
-  log?: (message: string) => void;
+  /** The reason is the same every time it happens; changing figures go in `fields`. */
+  log?: (reason: string, fields?: Record<string, number>) => void;
   idleMs?: number;
   requestTimeoutMs?: number;
   loadTimeoutMs?: number;
@@ -45,6 +48,22 @@ function mebibytes(bytes: number): number {
 }
 
 /**
+ * Identifies the installed files by what the manifest says and what is on disk, so a verdict about
+ * them holds until one of them is replaced. Null when a file cannot be read, which never matches.
+ */
+function fingerprint(dir: string, manifest: ReplyModelManifest): string | null {
+  try {
+    const stats = MODEL_FILES.map((file) => {
+      const { size, mtimeMs } = statSync(join(dir, file));
+      return `${file}:${size}:${mtimeMs}`;
+    });
+    return `${JSON.stringify(manifest)}|${stats.join("|")}`;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Runs the reply model in a child process, started on the first reply that needs it and stopped
  * after it has been idle for a while. It answers one reply at a time. A crash, a timeout or too
  * little free memory costs only that reply its model answer.
@@ -60,14 +79,18 @@ export function createReplyModelHost(options: ReplyModelHostOptions): ReplyModel
 
   let child: ChildProcess | null = null;
   let idleTimer: NodeJS.Timeout | null = null;
-  let loadFailure: string | null = null;
+  let loadFailure: { reason: string; files: string | null } | null = null;
+  /** The files a child has already checked against their digests, so later children skip the hashing. */
+  let verifiedFiles: string | null = null;
+  let lastSkip: string | null = null;
+  let skipFields: Record<string, number> | undefined;
   let nextId = 1;
   let queue: Promise<unknown> = Promise.resolve();
 
-  const logOnce = (reason: string) => {
+  const logOnce = (reason: string, fields?: Record<string, number>) => {
     if (logged.has(reason)) return;
     logged.add(reason);
-    options.log?.(reason);
+    options.log?.(reason, fields);
   };
 
   function stopChild(): void {
@@ -122,11 +145,10 @@ export function createReplyModelHost(options: ReplyModelHostOptions): ReplyModel
     if (child && child.exitCode === null && child.connected) return { ok: true, child };
     const free = freeMemory();
     if (free < minFree) {
-      return {
-        ok: false,
-        reason: `Not enough free memory for the reply model (${mebibytes(free)} MiB free, ${mebibytes(minFree)} MiB needed)`,
-      };
+      skipFields = { freeMiB: mebibytes(free), neededMiB: mebibytes(minFree) };
+      return { ok: false, reason: LOW_MEMORY };
     }
+    const files = fingerprint(dir, manifest);
     const script = workerScript(options.workerPath);
     const running = fork(script.path, [], {
       execArgv: script.execArgv,
@@ -149,7 +171,13 @@ export function createReplyModelHost(options: ReplyModelHostOptions): ReplyModel
       loadTimeoutMs,
       "loading",
     );
-    running.send({ type: "load", dir, threads, manifest } satisfies ToWorker);
+    running.send({
+      type: "load",
+      dir,
+      threads,
+      manifest,
+      verified: files !== null && files === verifiedFiles,
+    } satisfies ToWorker);
     const loaded = await loading;
     if (!loaded.ok) {
       stopChild();
@@ -157,11 +185,12 @@ export function createReplyModelHost(options: ReplyModelHostOptions): ReplyModel
     }
     if (loaded.value.failed !== null) {
       // The files are wrong or the runtime refuses them, which a retry will not change.
-      loadFailure = loaded.value.failed;
+      loadFailure = { reason: loaded.value.failed, files };
       stopChild();
       return { ok: false, reason: loaded.value.failed };
     }
     loadFailure = null;
+    verifiedFiles = files;
     return { ok: true, child: running };
   }
 
@@ -170,6 +199,13 @@ export function createReplyModelHost(options: ReplyModelHostOptions): ReplyModel
     const read = readManifest(options.dir);
     if (!read.ok) return { ok: false, reason: read.reason };
     const manifest = read.manifest;
+    if (
+      loadFailure &&
+      loadFailure.files !== null &&
+      loadFailure.files === fingerprint(options.dir, manifest)
+    ) {
+      return { ok: false, reason: loadFailure.reason };
+    }
 
     const started = await start(options.dir, manifest);
     if (!started.ok) return started;
@@ -207,7 +243,9 @@ export function createReplyModelHost(options: ReplyModelHostOptions): ReplyModel
           }),
         )
         .then((result) => {
-          if (!result.ok) logOnce(result.reason);
+          lastSkip = result.ok ? null : result.reason;
+          if (!result.ok) logOnce(result.reason, skipFields);
+          skipFields = undefined;
           return result;
         });
     },
@@ -224,17 +262,17 @@ export function createReplyModelHost(options: ReplyModelHostOptions): ReplyModel
           threshold: null,
         };
       }
-      if (loadFailure) {
+      if (loadFailure && loadFailure.files === fingerprint(options.dir, read.manifest)) {
         return {
           state: "failed",
-          reason: loadFailure,
+          reason: loadFailure.reason,
           version: read.manifest.version,
           threshold: null,
         };
       }
       return {
         state: "loaded",
-        reason: null,
+        reason: lastSkip,
         version: read.manifest.version,
         threshold: read.manifest.threshold,
       };

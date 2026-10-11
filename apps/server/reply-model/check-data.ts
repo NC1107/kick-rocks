@@ -12,9 +12,10 @@ export const Release = z.object({
   version: z.string(),
   /** Where the release archive is published. Empty until the first release exists. */
   url: z.string(),
+  /** Empty, like `dataSha256`, and null for `threshold`, until a release is published and pinned. */
   tarSha256: z.string(),
   dataSha256: z.string(),
-  threshold: z.number(),
+  threshold: z.number().nullable(),
 });
 export type Release = z.infer<typeof Release>;
 
@@ -24,6 +25,10 @@ export function readRelease(): Release {
 
 async function main(): Promise<void> {
   const release = readRelease();
+  if (release.dataSha256 === "") {
+    console.log("No release is pinned yet.");
+    return;
+  }
   const current = dataSha256(await rowsOf("dev"));
   if (current !== release.dataSha256) {
     console.error(

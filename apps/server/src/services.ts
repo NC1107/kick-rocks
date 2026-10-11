@@ -192,7 +192,7 @@ export function createServices(
     overrides.replyModel ??
     createReplyModelHost({
       dir: config.replyModelDir,
-      log: (reason) => logger.warn({ reason }, "reply model unavailable"),
+      log: (reason, fields) => logger.warn({ reason, ...fields }, "reply model unavailable"),
     });
   const restoreGate = createRestoreGate({ dataDir: config.dataDir, clock, logger });
   const services: AppServices = {

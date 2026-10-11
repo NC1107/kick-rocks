@@ -11,6 +11,7 @@ process.on("message", (message) => {
     dir = message.dir;
     labels = message.manifest.labels.length;
     appendFileSync(join(dir, "starts.log"), `${process.pid}\n`);
+    appendFileSync(join(dir, "verified.log"), `${message.verified}\n`);
     appendFileSync(join(dir, "env.log"), `${process.env.ORT_DISABLE_TELEMETRY}\n`);
     if (existsSync(join(dir, "FAIL_LOAD"))) {
       process.send({

@@ -33,8 +33,9 @@ export async function loadModel(
   dir: string,
   manifest: ReplyModelManifest,
   threads: number,
+  { verified = false }: { verified?: boolean } = {},
 ): Promise<LoadedModel> {
-  const bad = await verifyFiles(dir, manifest);
+  const bad = verified ? null : await verifyFiles(dir, manifest);
   if (bad) throw new Error(bad);
   const tokenizer = new Tokenizer(
     JSON.parse(readFileSync(join(dir, "tokenizer.json"), "utf8")),

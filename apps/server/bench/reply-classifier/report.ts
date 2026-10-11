@@ -32,6 +32,11 @@ function gateLine(gate: Gate | null, total: number): string {
   return `Threshold ${gate.threshold.toFixed(3)}: ${pct(gate.accuracy)} accuracy on the ${gate.accepted} replies at or above it, ${gate.below} of ${total} below it.`;
 }
 
+function modelGateLine(gate: Gate | null): string {
+  if (!gate) return "The model answered no replies.";
+  return `${pct(gate.accuracy)} accuracy on the ${gate.accepted} replies it answered at ${gate.threshold.toFixed(3)} or more, ${gate.below} of its answers below that.`;
+}
+
 function classTable(split: SplitEvaluation): string[] {
   const rows = split.perClass
     .filter((entry) => entry.support > 0 || entry.predicted > 0)
@@ -77,6 +82,7 @@ function candidateSection(result: CandidateResult): string[] {
       `Latency of the model call alone: p50 ${ms(held.latency.modelP50Ms)}, p95 ${ms(held.latency.modelP95Ms)}.`,
       `Gate chosen on dev, applied here: ${gateLine(held.devGate, held.count)}`,
       `Gate chosen on held-out itself, which is optimistic: ${gateLine(held.ownGate, held.count)}`,
+      `Model answers alone, at the confidence the server applies them at: ${modelGateLine(held.modelGate)}`,
       "",
       ...classTable(held),
       "",
@@ -99,6 +105,7 @@ function candidateSection(result: CandidateResult): string[] {
       "",
       `${dev.count} replies. Accuracy ${pct(dev.accuracy)}, macro F1 ${pct(dev.macroF1)}, expected calibration error ${fixed(dev.ece)}.`,
       `Gate: ${gateLine(dev.ownGate, dev.count)}`,
+      `Model answers alone, at the confidence the server applies them at: ${modelGateLine(dev.modelGate)}`,
       "",
     );
   }

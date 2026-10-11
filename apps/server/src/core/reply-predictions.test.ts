@@ -227,6 +227,32 @@ describe("spot checks", () => {
     expect(bands.find((band) => band.from === 0.5)).toMatchObject({ answers: 1, accepted: 1 });
     expect(bands.find((band) => band.from === 0.96)).toMatchObject({ answers: 1, accepted: 0 });
   });
+
+  it("leave corrections of applied answers and the language model out of the bands", async () => {
+    const applied = message();
+    ctx.services.replyPredictions.record(
+      applied.id,
+      result({ ...modelAnswer("completed", 0.97), suggestion: null, apply: true }),
+    );
+    await decide(applied.id, "rejected");
+    const llm = message();
+    ctx.services.replyPredictions.record(
+      llm.id,
+      result({
+        ...modelAnswer("completed", 0.97),
+        source: "llm",
+        suggestion: {
+          classification: "completed",
+          confidence: 0.97,
+          source: "llm",
+          spotCheck: false,
+        },
+      }),
+    );
+    await decide(llm.id, "rejected");
+    const bands = ctx.services.replyPredictions.check().bands;
+    expect(bands.every((band) => band.answers === 0)).toBe(true);
+  });
 });
 
 describe("what Review starts from", () => {
@@ -266,6 +292,16 @@ describe("what Review starts from", () => {
       classification: "rejected",
       source: "rules",
     });
+  });
+
+  it("is nothing when the classifier threw out a confirmation_link with no link behind it", async () => {
+    const sent = message();
+    ctx.services.replyPredictions.record(
+      sent.id,
+      result({ ...modelAnswer("confirmation_link", 0.95), suggestion: null }),
+    );
+    expect(row(sent.id)).toMatchObject({ modelLabel: null, modelConfidence: null });
+    expect((await queue())[0]?.suggestion).toBeNull();
   });
 
   it("is nothing when the rules said unknown", async () => {
