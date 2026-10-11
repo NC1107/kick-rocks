@@ -134,7 +134,7 @@ export function AddressSection({
               return (
                 <div key={draft.key} className="flex items-center gap-3 px-3.5 py-3">
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-ui text-ink">{streetLine(draft)}</p>
+                    <p className="break-words text-ui text-ink">{streetLine(draft)}</p>
                     <p className="truncate text-meta text-ink-2">{placeLine(draft)}</p>
                     <p className="mt-0.5 font-mono text-caption text-ink-3">{periodLine(draft)}</p>
                   </div>

@@ -49,7 +49,7 @@ function Chips({
   return (
     <fieldset className="m-0 min-w-0 border-0 p-0">
       <legend className="sr-only">Show</legend>
-      <div className="-mx-gutter flex gap-2 overflow-x-auto px-gutter pb-1 sm:mx-0 sm:flex-wrap sm:px-0">
+      <div className="flex gap-2 overflow-x-auto pb-1 sm:flex-wrap">
         {LISTING_CHIPS.map((chip) => {
           const count = chipCount(counts, chip.statuses);
           const selected = chip.id === value;
