@@ -19,6 +19,8 @@ export interface SmtpSocketFake {
   behave(behavior: SmtpBehavior): void;
   /** Message-ID headers of mail the server kept, including mail whose acknowledgement it then withheld. */
   readonly received: string[];
+  /** Settles once the server holds at least this many messages, so a test waits on the mail instead of a timer. */
+  messages(count: number): Promise<void>;
   /** How many connections were opened, to show that a held mailbox is not dialed again. */
   connections(): number;
   close(): Promise<void>;
@@ -31,6 +33,7 @@ export async function startSmtpSocketFake(
   let behavior = initial;
   let opened = 0;
   const received: string[] = [];
+  const waiters: Array<{ count: number; resolve: () => void }> = [];
   const sockets = new Set<net.Socket>();
 
   const server = net.createServer((socket) => {
@@ -68,7 +71,10 @@ export async function startSmtpSocketFake(
           data += buffer.slice(0, end);
           buffer = buffer.slice(end + 5);
           const id = /^message-id:\s*(.*)$/im.exec(data)?.[1]?.trim();
-          if (id) received.push(id);
+          if (id) {
+            received.push(id);
+            for (const waiter of waiters) if (received.length >= waiter.count) waiter.resolve();
+          }
           data = null;
           if (mode === "drop_after_data") {
             socket.destroy();
@@ -126,6 +132,10 @@ export async function startSmtpSocketFake(
       behavior = next;
     },
     received,
+    messages: (count) =>
+      received.length >= count
+        ? Promise.resolve()
+        : new Promise<void>((resolve) => waiters.push({ count, resolve })),
     connections: () => opened,
     close: () =>
       new Promise<void>((resolve) => {
