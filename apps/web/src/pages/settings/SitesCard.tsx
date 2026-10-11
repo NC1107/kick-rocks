@@ -10,7 +10,7 @@ import {
 } from "../../components/ui/index.js";
 import { pluralize } from "../../lib/format.js";
 import { describeCooldown } from "../../lib/sites.js";
-import { BodyRow, GroupNote, Value } from "./rows.js";
+import { BodyRow, DomainLink, GroupNote, Value } from "./rows.js";
 
 const POLL_MS = 30_000;
 
@@ -37,7 +37,7 @@ export function SitesCard() {
           cooling.map((site) => (
             <Row
               key={site.domain}
-              title={<span className="font-mono">{site.domain}</span>}
+              title={<DomainLink domain={site.domain} targets={sites.data.targets} />}
               description={describeCooldown(site)}
               trailingBelowOnPhone
               trailing={

@@ -1,6 +1,6 @@
 import { API_ROUTES, type SettingsView } from "@kickrocks/shared";
 import { useEffect, useState } from "react";
-import { errorMessage, useApiMutation } from "../../api/index.js";
+import { errorMessage, useApiMutation, useApiQuery } from "../../api/index.js";
 import {
   Button,
   Callout,
@@ -10,7 +10,7 @@ import {
   Textarea,
   useToast,
 } from "../../components/ui/index.js";
-import { FieldRow, GroupFooter, GroupNote } from "./rows.js";
+import { DomainLink, FieldRow, GroupFooter, GroupNote, ResetAction } from "./rows.js";
 import {
   checkEgress,
   checkScanning,
@@ -39,6 +39,7 @@ export function ScanPaceCard({
   coverage: SettingsView["egressCoverage"];
 }) {
   const toast = useToast();
+  const sites = useApiQuery(API_ROUTES.settingsSites);
   const [pace, setPace] = useState(() => scanningDraftOf(scanning));
   const [route, setRoute] = useState(() => egressDraftOf(egress));
   const [submitted, setSubmitted] = useState(false);
@@ -169,16 +170,14 @@ export function ScanPaceCard({
             />
           </FieldRow>
           <GroupFooter>
-            <Button
+            <ResetAction
               disabled={!dirty || save.isPending}
               onClick={() => {
                 setPace(scanningDraftOf(scanning));
                 setRoute(egressDraftOf(egress));
                 setSubmitted(false);
               }}
-            >
-              Reset
-            </Button>
+            />
             <Button type="submit" variant="primary" loading={save.isPending} disabled={!canSave}>
               Save
             </Button>
@@ -192,7 +191,14 @@ export function ScanPaceCard({
         ) : null}
         {sisterNotes.map((note) => (
           <GroupNote key={note.domain}>
-            {note.domain} also covers {note.sisters.join(", ")}.
+            <DomainLink domain={note.domain} targets={sites.data?.targets} /> also covers{" "}
+            {note.sisters.map((sister, index) => (
+              <span key={sister}>
+                {index > 0 ? ", " : null}
+                <DomainLink domain={sister} targets={sites.data?.targets} />
+              </span>
+            ))}
+            .
           </GroupNote>
         ))}
         {route.proxyUrl.trim() !== "" ? (

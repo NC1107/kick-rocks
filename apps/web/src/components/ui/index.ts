@@ -32,6 +32,7 @@ export {
   EntityLink,
   type EntityLinkProps,
   type EntityRef,
+  entityPath,
   resolveEntity,
 } from "./EntityLink.js";
 export { EntityRow, type EntityRowProps } from "./EntityRow.js";

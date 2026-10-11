@@ -7,12 +7,17 @@ import { type FromState, useCurrentPage } from "./PageBack.js";
 import { TextLink } from "./TextLink.js";
 
 export type EntityRef =
-  | { kind: "request"; id: string; reference?: string | undefined; targetName?: string | undefined }
-  | { kind: "target"; id: string; name: string }
-  | { kind: "profile"; id: string; name: string }
-  | { kind: "mailbox"; profileId: string; address: string }
+  | {
+      kind: "request";
+      id: string | null;
+      reference?: string | null | undefined;
+      targetName?: string | null | undefined;
+    }
+  | { kind: "target"; id: string | null; name: string }
+  | { kind: "profile"; id: string | null; name: string }
+  | { kind: "mailbox"; profileId: string | null; address: string }
   | { kind: "task"; task: TaskRef; label?: string | undefined }
-  | { kind: "campaign"; id: string; label?: string | undefined }
+  | { kind: "campaign"; id: string | null; label?: string | undefined }
   | { kind: "review"; key: ReviewKey; label: string };
 
 export interface EntityLinkProps {
@@ -31,6 +36,11 @@ interface Resolved {
   text: string;
   /** References and addresses are data, so they are set in mono. */
   mono: boolean;
+}
+
+/** Where a reference leads, or null when it has no page of its own. */
+export function entityPath(ref: EntityRef): string | null {
+  return resolveEntity(ref, undefined).href;
 }
 
 /** Where a reference leads, and what it says by default. A missing id leads nowhere. */

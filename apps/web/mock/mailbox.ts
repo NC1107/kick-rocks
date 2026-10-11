@@ -219,8 +219,10 @@ function applyFinishedPoll(store: MockStore, poll: MockPoll, matchedRequestId: s
       requestedFields: [],
       snippet: "We received your request and will respond within 45 days.",
       reviewed: true,
+      admittedBy: "reference" as const,
       requestReference: matched.reference,
       targetName: matched.target.name,
+      targetId: matched.target.id,
     };
     store.messages.push(message);
     addEvent(store, matched, "reply_received", "system", at, {
@@ -779,6 +781,6 @@ function takenIn(store: MockStore, mailboxId: string, line: MailLine): MessageSu
     reviewed: false,
     admittedBy: "person",
   };
-  store.messages.push({ ...message, requestReference: null, targetName: null });
+  store.messages.push({ ...message, requestReference: null, targetName: null, targetId: null });
   return message;
 }

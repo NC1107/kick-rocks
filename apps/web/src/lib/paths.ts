@@ -17,20 +17,26 @@ export interface RequestsFilters {
   campaignId?: string | undefined;
 }
 
-/** Settings pages of their own, and the anchored sections on the main settings page. */
-export type SettingsSection =
-  | "recipes"
-  | "agents"
-  | "notifications"
-  | "schedule"
-  | "pace"
-  | "model"
-  | "retention"
-  | "sites"
-  | "jurisdictions"
-  | "password";
+/** The anchored sections on the main settings page. */
+export const SETTINGS_SECTIONS = [
+  "schedule",
+  "site-checks",
+  "scan-pace",
+  "sites",
+  "worker",
+  "language-model",
+  "mail-intake",
+  "jurisdictions",
+  "retention",
+  "password",
+  "reset",
+] as const;
+export type SettingsSection = (typeof SETTINGS_SECTIONS)[number];
 
-const SETTINGS_PAGES: ReadonlySet<SettingsSection> = new Set([
+/** Settings pages of their own. */
+export type SettingsPage = "recipes" | "agents" | "notifications";
+
+const SETTINGS_PAGES: ReadonlySet<SettingsPage | SettingsSection> = new Set([
   "recipes",
   "agents",
   "notifications",
@@ -67,9 +73,10 @@ export const paths = {
     return text ? `/requests?${text}` : "/requests";
   },
   review: (key?: ReviewKey) => (key ? `/review?item=${part(key)}` : "/review"),
+  reviewTab: (tab: string) => `/review?tab=${part(tab)}`,
   /** There is no page for a campaign, so it is the list of its requests. */
   campaign: (id: string) => paths.requests({ campaignId: id }),
-  settings: (section?: SettingsSection) => {
+  settings: (section?: SettingsSection | SettingsPage) => {
     if (!section) return "/settings";
     return SETTINGS_PAGES.has(section) ? `/settings/${section}` : `/settings#${section}`;
   },

@@ -184,7 +184,7 @@ describe("general settings", () => {
     await user.clear(poll);
     await user.type(poll, "99");
     const schedule = poll.closest("form") as HTMLFormElement;
-    await user.click(within(schedule).getByRole("button", { name: "Reset" }));
+    await user.click(within(schedule).getByRole("button", { name: "Reset to saved" }));
     expect(poll).toHaveValue(15);
   });
 
@@ -305,7 +305,7 @@ describe("general settings", () => {
     const screenshots = await field("Keep screenshots for");
     await user.selectOptions(screenshots, "7");
     const form = screenshots.closest("form") as HTMLFormElement;
-    await user.click(within(form).getByRole("button", { name: "Reset" }));
+    await user.click(within(form).getByRole("button", { name: "Reset to saved" }));
     expect(screenshots).toHaveValue("30");
   });
 

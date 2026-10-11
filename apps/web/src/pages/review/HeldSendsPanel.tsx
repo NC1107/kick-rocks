@@ -8,6 +8,7 @@ import {
   Callout,
   Checkbox,
   Dialog,
+  EntityLink,
   InlineError,
   RowGroup,
   Section,
@@ -199,6 +200,8 @@ export interface HeldSendsPanelProps {
   onDeclinedChange: (ids: string[]) => void;
   /** Called after the person held back the live requests to finish the form by hand. */
   onFinishByHand: () => void;
+  /** The site the run is on, so its name leads to the site's page. */
+  target?: { id: string | null; name: string } | undefined;
 }
 
 /**
@@ -211,6 +214,7 @@ export function HeldSendsPanel({
   declined,
   onDeclinedChange,
   onFinishByHand,
+  target,
 }: HeldSendsPanelProps) {
   const now = useSecondTick(log.sends.some((row) => row.status === "pending_live"));
   const live = liveHolds(log, now);
@@ -248,7 +252,13 @@ export function HeldSendsPanel({
       {live.length > 0 ? (
         <Section label="Waiting for you" count={live.length} as="h3">
           <p className="mb-2 text-meta text-ink-2">
-            The run is paused until you decide. Nothing leaves the browser before then.
+            The run{" "}
+            {target ? (
+              <>
+                on <EntityLink to={{ kind: "target", id: target.id, name: target.name }} />{" "}
+              </>
+            ) : null}
+            is paused until you decide. Nothing leaves the browser before then.
           </p>
           <ul className="m-0 flex list-none flex-col gap-3 p-0">
             {live.filter(isHeld).map((row) => {

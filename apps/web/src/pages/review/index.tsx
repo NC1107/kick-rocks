@@ -1,14 +1,21 @@
 import { API_ROUTES, type ReviewQueue } from "@kickrocks/shared";
-import { ChevronLeft } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useSyncExternalStore } from "react";
 import { useSearchParams } from "react-router";
 import { errorMessage, useApiQuery } from "../../api/index.js";
 import { RequireProfile } from "../../components/layout/RequireProfile.js";
-import { Button, Callout, PageHeader, Skeleton, SkeletonText } from "../../components/ui/index.js";
+import {
+  Button,
+  Callout,
+  PageBack,
+  PageHeader,
+  Skeleton,
+  SkeletonText,
+} from "../../components/ui/index.js";
 import { cn } from "../../lib/cn.js";
 import { describeFailure } from "../../lib/failures.js";
+import { paths } from "../../lib/paths.js";
 import {
-  CheckForRepliesButton,
+  CheckForRepliesAction,
   ReplyCheckResult,
   useReplyCheck,
 } from "../mailbox/check-for-replies.js";
@@ -80,8 +87,9 @@ function Review({ profileId, mailboxConnected }: { profileId: string; mailboxCon
       <div className={cn(drilled && "max-lg:hidden")}>
         <PageHeader
           title="Review"
-          description="Everything waiting on you"
-          actions={mailboxConnected ? <CheckForRepliesButton check={check} /> : undefined}
+          actions={
+            mailboxConnected ? <CheckForRepliesAction check={check} labelFrom="sm" /> : undefined
+          }
         />
         <ReplyCheckResult check={check} className="mb-5" />
         <CleanupPreview profileId={profileId} rows={3} className="mb-4" />
@@ -275,15 +283,8 @@ function Queue({ queue, profileId }: { queue: ReviewQueue; profileId: string }) 
           !drilled && "max-lg:hidden",
         )}
       >
-        <div className="border-b border-line px-2 py-1.5 lg:hidden">
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={() => setParams(new URLSearchParams(), { replace: true })}
-          >
-            <ChevronLeft aria-hidden="true" strokeWidth={1.5} />
-            Review
-          </Button>
+        <div className="border-b border-line px-3 pt-3 pb-2 lg:hidden">
+          <PageBack fallback={{ to: paths.review(), label: "Review" }} />
         </div>
         {selected ? (
           <Detail entry={selected} entries={entries} profileId={profileId} />
