@@ -106,11 +106,7 @@ export function Component() {
 
   return (
     <>
-      <PageHeader
-        title="New profile"
-        description="A person and the details targets know them by"
-        back={{ to: "/profiles", label: "Profiles" }}
-      />
+      <PageHeader title="New profile" description="A person and the details targets know them by" />
       <UnsavedChangesDialog blocker={unsaved.blocker} />
       <form ref={form} onSubmit={submit} noValidate className="flex max-w-3xl flex-col gap-4">
         <Section label="Profile">
@@ -142,7 +138,7 @@ export function Component() {
           </Callout>
         ) : null}
         <div className="flex flex-wrap items-center justify-end gap-2">
-          <LinkButton to="/profiles" variant="ghost">
+          <LinkButton to="/settings/profiles" variant="ghost">
             Cancel
           </LinkButton>
           <Button type="submit" variant="primary" loading={create.isPending}>

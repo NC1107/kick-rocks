@@ -50,7 +50,7 @@ export function ProfileSwitcher({
       label: "Manage profiles",
       icon: <Users aria-hidden="true" />,
       separatorBefore: profiles.length > 0,
-      onSelect: () => navigate("/profiles"),
+      onSelect: () => navigate("/settings/profiles"),
     },
     {
       id: "new",

@@ -1,17 +1,11 @@
 import { LogOut, X } from "lucide-react";
 import { NavLink } from "react-router";
-import {
-  useCurrentProfile,
-  useInstanceHealth,
-  useLogout,
-  useReviewCount,
-} from "../../api/index.js";
+import { useCurrentProfile, useLogout, useReviewCount } from "../../api/index.js";
 import { cn } from "../../lib/cn.js";
 import { IconButton } from "../ui/index.js";
 import { Logo } from "./Logo.js";
-import { ABOUT_ITEM, NAV_GROUPS, type NavItem } from "./nav.js";
+import { NAV_ITEMS, type NavItem } from "./nav.js";
 import { ProfileSwitcher } from "./ProfileSwitcher.js";
-import { versionLabel } from "./shell-status.js";
 import { ThemeToggle } from "./ThemeToggle.js";
 
 function ReviewCount({ count }: { count: number | null }) {
@@ -33,12 +27,10 @@ function NavRow({
   item,
   reviewCount,
   onNavigate,
-  trailing,
 }: {
   item: NavItem;
   reviewCount: number | null;
   onNavigate: (() => void) | undefined;
-  trailing?: string | undefined;
 }) {
   const Icon = item.icon;
   return (
@@ -65,14 +57,6 @@ function NavRow({
           />
           {item.label}
           {item.badge === "review" ? <ReviewCount count={reviewCount} /> : null}
-          {trailing ? (
-            <span
-              title={trailing}
-              className="ml-auto min-w-0 truncate whitespace-nowrap font-mono text-caption font-normal text-ink-3"
-            >
-              {trailing}
-            </span>
-          ) : null}
         </>
       )}
     </NavLink>
@@ -91,7 +75,6 @@ export function SidebarContent({
   const { profile } = useCurrentProfile();
   const reviewCount = useReviewCount(profile?.id ?? null);
   const logout = useLogout();
-  const health = useInstanceHealth();
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -107,29 +90,15 @@ export function SidebarContent({
       <div className="flex min-h-0 flex-1 flex-col gap-3 px-2.5 pt-3 pb-2.5">
         <ProfileSwitcher onSwitch={onNavigate} />
         <nav aria-label="Main" className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto">
-          {NAV_GROUPS.map((group, index) => (
-            <ul
-              key={group.map((item) => item.to).join()}
-              className={cn(
-                "m-0 flex list-none flex-col gap-0.5 p-0",
-                index > 0 && "border-t border-line pt-3",
-              )}
-            >
-              {group.map((item) => (
-                <li key={item.to}>
-                  <NavRow item={item} reviewCount={reviewCount} onNavigate={onNavigate} />
-                </li>
-              ))}
-            </ul>
-          ))}
+          <ul className="m-0 flex list-none flex-col gap-0.5 p-0">
+            {NAV_ITEMS.map((item) => (
+              <li key={item.to}>
+                <NavRow item={item} reviewCount={reviewCount} onNavigate={onNavigate} />
+              </li>
+            ))}
+          </ul>
         </nav>
         <div className="flex flex-col gap-2.5 border-t border-line pt-2.5">
-          <NavRow
-            item={ABOUT_ITEM}
-            reviewCount={null}
-            onNavigate={onNavigate}
-            trailing={health.data ? versionLabel(health.data.version) : undefined}
-          />
           <div className="flex items-center justify-between">
             <ThemeToggle />
             <IconButton label="Sign out" onClick={() => logout.mutate()} loading={logout.isPending}>
