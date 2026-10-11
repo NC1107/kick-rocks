@@ -1,8 +1,9 @@
-import { createBrowserRouter, type RouteObject } from "react-router";
+import { createBrowserRouter, Outlet, type RouteObject } from "react-router";
 import { AppLayout } from "./components/layout/AppLayout.js";
 import { AuthGate, LoadingScreen, PublicGate } from "./components/layout/AuthGate.js";
 import { PublicLayout } from "./components/layout/PublicLayout.js";
 import { RouteError } from "./components/layout/RouteError.js";
+import { ToastProvider } from "./components/ui/index.js";
 
 /*
  * Every route here loads a page module from src/pages/<area>/..., which exports a component named
@@ -41,8 +42,18 @@ const appRoutes: RouteObject[] = [
   { path: "*", lazy: () => import("./pages/not-found/index.js") },
 ];
 
+/** Inside the router, so a toast can link to the page it is about. */
+function ToastRoot() {
+  return (
+    <ToastProvider>
+      <Outlet />
+    </ToastProvider>
+  );
+}
+
 const routes: RouteObject[] = [
   {
+    element: <ToastRoot />,
     errorElement: <RouteError />,
     hydrateFallbackElement: <LoadingScreen />,
     children: [

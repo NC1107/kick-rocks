@@ -1,6 +1,7 @@
 import { PageHeader } from "../../../components/ui/index.js";
 import { Controls } from "./controls.js";
 import { DataDisplay } from "./data.js";
+import { Entities } from "./entities.js";
 import { Feedback } from "./feedback.js";
 import { Navigation } from "./navigation.js";
 import { Tokens } from "./tokens.js";
@@ -16,6 +17,7 @@ export function Component() {
       <Tokens />
       <Controls />
       <DataDisplay />
+      <Entities />
       <Feedback />
       <Navigation />
     </>
