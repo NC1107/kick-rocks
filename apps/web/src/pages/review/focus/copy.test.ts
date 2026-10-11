@@ -2,6 +2,7 @@ import { NeedsYouKind } from "@kickrocks/shared";
 import { describe, expect, it } from "vitest";
 import { CHIP_LABELS, KIND_COPY, OTHER_OUTCOMES, sendDetails, WORDS } from "./copy.js";
 
+const EM_DASH = String.fromCharCode(0x2014);
 const words = (text: string) => text.trim().split(/\s+/).length;
 const sentences = (text: string) => text.split(/[.!?]+\s*/).filter(Boolean).length;
 
@@ -58,6 +59,6 @@ describe("the words on a Needs you card", () => {
   });
 
   it("never uses an em dash", () => {
-    for (const text of everything) expect(text).not.toContain("—");
+    for (const text of everything) expect(text).not.toContain(EM_DASH);
   });
 });
