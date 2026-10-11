@@ -260,16 +260,32 @@ describe("R5: the reply alias", () => {
   const ctx = context([request(), AMAZON], { verifiedAlias: "jordan+kickrocks@example.com" });
 
   it.each<[string, MessageHeaders, HeaderVerdict]>([
-    ["to the alias", headers({ recipients: ["jordan+kickrocks@example.com"] }), admitted("alias")],
+    [
+      "to the alias",
+      headers({ recipients: ["jordan+kickrocks@example.com"], subject: "Your Spokeo request" }),
+      admitted("alias"),
+    ],
     [
       "in Delivered-To or Cc",
-      headers({ recipients: ["jordan@example.com", "jordan+kickrocks@example.com"] }),
+      headers({
+        recipients: ["jordan@example.com", "jordan+kickrocks@example.com"],
+        subject: "Your Spokeo request",
+      }),
       admitted("alias"),
     ],
     [
       "to the alias but bulk",
-      headers({ recipients: ["jordan+kickrocks@example.com"], extra: BULK }),
+      headers({
+        recipients: ["jordan+kickrocks@example.com"],
+        subject: "Your Spokeo request",
+        extra: BULK,
+      }),
       needs("alias_bulk"),
+    ],
+    [
+      "to the alias, naming no request in the headers",
+      headers({ recipients: ["jordan+kickrocks@example.com"] }),
+      needs("alias_unnamed"),
     ],
     ["to the plain address", headers(), needs("unknown")],
   ])("%s", (_name, h, expected) => {
@@ -280,6 +296,7 @@ describe("R5: the reply alias", () => {
     const message = full({
       recipients: undefined,
       to: ["jordan+kickrocks@example.com"],
+      subject: "Spokeo weekly",
       headers: BULK,
       text: "Big sale on shoes",
     } as Partial<InboxMessage>);
@@ -289,6 +306,7 @@ describe("R5: the reply alias", () => {
   it("admits alias mail that is bulk but is about an opt-out request", () => {
     const message = full({
       to: ["jordan+kickrocks@example.com"],
+      subject: "Spokeo weekly",
       headers: BULK,
       text: "Your opt-out request has been processed.",
     });
@@ -621,5 +639,144 @@ describe("why a message was passed over, and whether it could have been a reply"
     expect(
       couldBeAReply(headers(), full({ text: "Weekly digest of cat pictures" }), context()),
     ).toBe(false);
+  });
+});
+
+describe("the name gate", () => {
+  const alias = "jordan+kickrocks@example.com";
+  const gated = context([request(), AMAZON], { verifiedAlias: alias });
+  const INTELIUS = request({
+    id: "req-intelius",
+    reference: "KR-3T9ZH7",
+    outgoingMessageId: outgoingMessageId("req-intelius", "example.com"),
+    targetId: "intelius",
+    targetName: "Intelius",
+    targetDomain: "intelius.com",
+    replyDomains: ["intelius.com"],
+    curatedReplyDomains: ["peopleconnect.us"],
+    brands: ["peopleconnect.us"],
+  });
+  const vendor = { from: { name: "Privacy Operations", address: "team@privacyops.example" } };
+  const done = "Your privacy request has been completed and your information has been removed.";
+
+  it("keeps a reply that names the company only in its signature", () => {
+    const message = full({ ...vendor, to: [alias], text: `${done}\n\n--\nSpokeo Privacy Team` });
+    expect(triageBody(message, gated)).toEqual({ verdict: "admit", by: "alias" });
+  });
+
+  it("keeps a reply from a parent brand, as PeopleConnect writes for Intelius", () => {
+    const message = full({ ...vendor, to: [alias], text: `${done}\n\nPeopleConnect Privacy` });
+    const ctx = context([INTELIUS], { verifiedAlias: alias });
+    expect(triageBody(message, ctx)).toEqual({ verdict: "admit", by: "alias" });
+  });
+
+  it("keeps a reply that names a curated alias of the target", () => {
+    const truepeoplesearch = request({
+      targetId: "truepeoplesearch",
+      targetName: "TruePeopleSearch.com",
+      targetDomain: "truepeoplesearch.com",
+      replyDomains: ["truepeoplesearch.com"],
+      brands: ["Free Data Services"],
+    });
+    const message = full({ ...vendor, to: [alias], text: `${done}\n\nFree Data Services, LLC` });
+    expect(triageBody(message, context([truepeoplesearch], { verifiedAlias: alias }))).toEqual({
+      verdict: "admit",
+      by: "alias",
+    });
+  });
+
+  it("keeps a reply whose sender name, not its text, names the company", () => {
+    const h = headers({
+      recipients: [alias],
+      from: { name: "Spokeo Privacy", address: "team@privacyops.example" },
+    });
+    expect(verdictOf(h, gated)).toEqual(admitted("alias"));
+  });
+
+  it("does not take in a newsletter from the target's domain that names no request", () => {
+    const newsletter = full({
+      from: { name: "Spokeo", address: "news@mail.spokeo.com" },
+      to: [alias],
+      headers: BULK,
+      text: "Ten places to find old friends this summer.",
+    });
+    expect(triageBody(newsletter, gated)).toEqual({ verdict: "ignore", rule: "bulk_no_privacy" });
+  });
+
+  it("does not take in mail to the alias that names no target, and says why", () => {
+    const message = full({ ...vendor, to: [alias], text: done });
+    expect(triageBody(message, gated)).toEqual({ verdict: "ignore", rule: "not_named" });
+  });
+
+  it("does not take in an unrelated mail that names no target", () => {
+    const message = full({ text: "Lunch on friday? I know a place near the station." });
+    expect(triageBody(message, gated)).toEqual({ verdict: "ignore", rule: "not_named" });
+  });
+
+  it("does not let a closed request tie mail that merely names it", () => {
+    const finished = context([request({ open: false })], { verifiedAlias: alias });
+    const message = full({ ...vendor, to: [alias], text: `${done}\n\nSpokeo Privacy Team` });
+    expect(triageBody(message, finished)).toEqual({ verdict: "ignore", rule: "not_named" });
+  });
+
+  it("reads alias mail that names nothing in its headers only if a search finds a name in it", () => {
+    const h = headers({ recipients: [alias], ...vendor });
+    expect(readPlanFor(h, needs("alias_unnamed") as never, gated)).toEqual({
+      read: "if_found",
+      scope: "named",
+      terms: bodySearchTerms(gated),
+    });
+  });
+
+  it("always counts alias mail as one a person may want to take in", () => {
+    expect(couldBeAReply(headers({ recipients: [alias] }), null, gated)).toBe(true);
+    expect(unreadRule(headers({ recipients: [alias] }), "alias_unnamed", gated)).toBe("not_named");
+  });
+
+  it("keeps a reply signed with a name that has an apostrophe or an ampersand", () => {
+    const macys = request({
+      id: "req-macys",
+      targetKind: "company",
+      targetId: "macys",
+      targetName: "Macy's",
+      targetDomain: "macys.com",
+      replyDomains: ["macys.com"],
+    });
+    const nobles = request({
+      id: "req-bn",
+      targetKind: "company",
+      targetId: "bn",
+      targetName: "Barnes & Noble",
+      targetDomain: "barnesandnoble.com",
+      replyDomains: ["barnesandnoble.com"],
+    });
+    const ctx = context([macys, nobles], { verifiedAlias: alias });
+    for (const signature of ["Macy's Privacy", "Macy\u2019s Privacy", "Barnes and Noble Privacy"]) {
+      const message = full({ ...vendor, to: [alias], text: `${done}\n\n${signature}` });
+      expect(triageBody(message, ctx)).toEqual({ verdict: "admit", by: "alias" });
+    }
+  });
+
+  it("does not take in unrelated mail that holds an everyday word of a target's domain", () => {
+    const here = request({
+      id: "req-here",
+      targetKind: "company",
+      targetId: "here",
+      targetName: "HERE North America LLC",
+      targetDomain: "here.com",
+      replyDomains: ["here.com"],
+    });
+    const ctx = context([here], { verifiedAlias: alias });
+    const message = full({
+      ...vendor,
+      to: [alias],
+      text: "Click here to review your account.",
+    });
+    expect(triageBody(message, ctx)).toEqual({ verdict: "ignore", rule: "not_named" });
+  });
+
+  it("does not count a name inside a longer word", () => {
+    const message = full({ ...vendor, to: [alias], text: `${done}\n\nSpokeoish Privacy Team` });
+    expect(triageBody(message, gated)).toEqual({ verdict: "ignore", rule: "not_named" });
   });
 });

@@ -474,6 +474,9 @@ describe("what Kick Rocks takes in", () => {
     ).toBeInTheDocument();
     expect(screen.getByText(/Replies to the mail Kick Rocks sent/)).toBeInTheDocument();
     expect(
+      screen.getByText(/does not name the request it would change is kept for you to review/),
+    ).toBeInTheDocument();
+    expect(
       screen.getByText(/Everything else stays in your mailbox and is not saved\./),
     ).toBeVisible();
     expect(
@@ -538,7 +541,7 @@ describe("what Kick Rocks takes in", () => {
     expect(report.getByText("From a target whose request is finished")).toBeVisible();
     expect(report.getByText("Bulk mail that says nothing about privacy")).toBeVisible();
     expect(report.getByText("Company mail that is not about privacy")).toBeVisible();
-    expect(report.getByText("Names no target with an open request")).toBeVisible();
+    expect(report.getByText("Names no open request")).toBeVisible();
     expect(report.getByText(/Kick Rocks notes only the sender, subject and date/)).toBeVisible();
 
     await user.click(

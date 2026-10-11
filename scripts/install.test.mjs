@@ -338,7 +338,10 @@ describe("install.sh backup and restore", () => {
 
     it("refuses the wrong passphrase, and an encrypted archive given none", () => {
       const target = join(dir, "sealed2.bin");
-      install(["--backup", target, "--passphrase-file", passphrase], { env: { FAKE_TAR: "ok" } });
+      const made = install(["--backup", target, "--passphrase-file", passphrase], {
+        env: { FAKE_TAR: "ok" },
+      });
+      assert.equal(made.status, 0, made.stderr);
       const mistaken = install(["--restore", target, "--passphrase-file", wrong], {
         input: "restore\n",
       });

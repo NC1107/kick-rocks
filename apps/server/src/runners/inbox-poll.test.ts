@@ -20,7 +20,7 @@ let mailboxId: string;
 let runners: Runners;
 
 const MAILBOX_ADDRESS = "jordan@example.com";
-/** Mail to the verified alias is always let in, so the tests below can look at what a poll does after the gate. */
+/** Mail to the verified alias is let in when it names a target, so the tests below can look at what a poll does after the gate. */
 const ALIAS = "jordan+kickrocks@example.com";
 
 beforeEach(async () => {
@@ -71,8 +71,21 @@ function answer(
   });
 }
 
-const deliver = (subject: string, extra: Partial<InboxMessage> = {}) =>
-  ctx.mail.mailbox(MAILBOX_ADDRESS).deliver({ subject, to: [ALIAS], ...extra });
+/** Unless a test says otherwise, a delivered message is sent under the name of every target. */
+const deliver = (subject: string, extra: Partial<InboxMessage> & { folder?: string } = {}) => {
+  const names = ctx.services.db
+    .select({ name: targets.name })
+    .from(targets)
+    .all()
+    .map((target) => target.name)
+    .join(" / ");
+  return ctx.mail.mailbox(MAILBOX_ADDRESS).deliver({
+    subject,
+    to: [ALIAS],
+    from: { name: names || null, address: "privacy@broker.test" },
+    ...extra,
+  });
+};
 
 async function poll() {
   const queued = ctx.services.dispatch.enqueueInboxPoll(mailboxId);
@@ -268,7 +281,7 @@ describe("storing and applying replies", () => {
     deliver("All done");
     await poll();
     answer("Please verify", request.id, "verification_required", { requestedFields: ["street"] });
-    deliver("Please verify");
+    deliver("Please verify", { inReplyTo: request.outgoingMessageId });
 
     await poll();
 
@@ -299,7 +312,7 @@ describe("storing and applying replies", () => {
     const { request } = await sentRequest();
     ctx.services.requests.transition(request.id, "cancelled", { actor: "user" });
     answer("All done", request.id, "completed");
-    deliver("All done");
+    deliver("All done", { inReplyTo: request.outgoingMessageId });
     await poll();
     expect(requestOf(request.id).status).toBe("cancelled");
     expect(stored()[0]).toMatchObject({ requestId: request.id, classification: "completed" });
@@ -327,6 +340,7 @@ describe("storing and applying replies", () => {
   });
 
   it("holds mail it cannot match to a request unless it is plainly noise", async () => {
+    await sentRequest();
     answer("Order shipped", null, "unrelated");
     answer("Your request was processed", null, "completed");
     deliver("Order shipped");
@@ -346,6 +360,7 @@ describe("storing and applying replies", () => {
   });
 
   it("keeps mail when the classifier fails", async () => {
+    await sentRequest();
     ctx.mail.classifier.program(() => {
       throw new Error("model offline");
     });
@@ -444,7 +459,7 @@ describe("confirmation links", () => {
           ? null
           : { ok: false, status: 403, reason: "off the allow list" },
       );
-      deliver("Confirm", { from: { name: null, address: `no-reply@${stored}` } });
+      deliver("Confirm", { from: { name: target.name, address: `no-reply@${stored}` } });
 
       await poll();
 
@@ -742,6 +757,7 @@ describe("switching channel", () => {
 
 describe("what a poll reads", () => {
   it("does not store a message twice", async () => {
+    await sentRequest();
     deliver("One");
     await poll();
     await poll();
@@ -750,6 +766,7 @@ describe("what a poll reads", () => {
   });
 
   it("keeps a cursor so the next poll asks only for new mail", async () => {
+    await sentRequest();
     deliver("One");
     deliver("Two");
     await poll();
@@ -765,6 +782,7 @@ describe("what a poll reads", () => {
   });
 
   it("reads again from the start when the server renumbers the folder", async () => {
+    await sentRequest();
     deliver("One");
     await poll();
     ctx.mail.mailbox(MAILBOX_ADDRESS).resetUidValidity();
@@ -831,6 +849,7 @@ describe("what a poll reads", () => {
   });
 
   it("reads only today's mail when nothing is waiting", async () => {
+    await sentRequest();
     ctx.mail.mailbox(MAILBOX_ADDRESS).deliver({
       subject: "Last week",
       date: new Date(ctx.clock.now().getTime() - 7 * DAY),
@@ -851,13 +870,19 @@ describe("what a poll reads", () => {
   });
 
   it("drains a backlog over several pages in one poll", async () => {
+    await sentRequest();
     for (let index = 0; index < 1200; index += 1) deliver(`Message ${index}`);
-    const task = await poll();
+    await poll();
     expect(stored()).toHaveLength(1200);
-    expect(task.result).toMatchObject({ scanned: 1200, kept: 1200, stored: 1200, pages: 3 });
+    expect(
+      ctx.services.taskQueue.list({ kinds: ["inbox_poll"] }).map((task) => task.result),
+    ).toContainEqual(
+      expect.objectContaining({ scanned: 1200, kept: 1200, stored: 1200, pages: 3 }),
+    );
   });
 
   it("queues another poll when a backlog is too long for one", async () => {
+    await sentRequest();
     for (let index = 0; index < 5200; index += 1) deliver(`Message ${index}`);
     await poll();
     const polls = ctx.services.taskQueue.list({ kinds: ["inbox_poll"] }).reverse();
@@ -920,6 +945,7 @@ describe("what a poll reads", () => {
   });
 
   it("cuts a long message and a long subject down", async () => {
+    await sentRequest();
     deliver("S".repeat(900), { text: "x".repeat(30_000) });
     await poll();
     expect(stored()[0]?.text).toHaveLength(20_000);
@@ -932,10 +958,9 @@ describe("what a poll reads", () => {
       .set({ replyFolder: "Replies" })
       .where(eq(mailboxes.id, mailboxId))
       .run();
-    ctx.mail.mailbox(MAILBOX_ADDRESS).deliver({ subject: "In inbox", to: [ALIAS] });
-    ctx.mail
-      .mailbox(MAILBOX_ADDRESS)
-      .deliver({ subject: "In replies", folder: "Replies", to: [ALIAS] });
+    await sentRequest();
+    deliver("In inbox");
+    deliver("In replies", { folder: "Replies" });
     await poll();
     expect(stored().map((message) => message.subject)).toEqual(["In replies"]);
   });
@@ -955,6 +980,7 @@ describe("what a poll reads", () => {
   });
 
   it("does not run on requests of another profile's mailbox", async () => {
+    await sentRequest();
     const other = seedProfile(ctx, { displayName: "Casey Example" });
     seedMailbox(ctx, other.id, { address: "casey@example.org" });
     const target = seedTarget(ctx);

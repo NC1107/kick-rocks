@@ -31,9 +31,10 @@ const RULES = [
   "The confirmation email a form you submitted is waiting for.",
   "Mail from brokers you have an open request with, except newsletters and ads that say nothing about privacy.",
   "Mail from companies you have an open request with. Only mail about privacy, unless you choose otherwise below.",
-  "Mail from anyone that names one of those targets and talks about your data.",
-  "Mail sent to your reply address, once you turn it on, except newsletters and ads.",
+  "Mail from anyone that names one of those targets, a brand it goes by or its parent company, and talks about your data.",
+  "Mail sent to your reply address, once you turn it on, when it names one of those targets. Newsletters and ads are left out.",
   "Mail from senders you add below.",
+  "Mail that does not reply to ours and does not name the request it would change is kept for you to review, never applied on its own.",
 ] as const;
 
 const COMPANY_MAIL_OPTIONS = [

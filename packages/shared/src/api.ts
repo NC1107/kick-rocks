@@ -18,6 +18,13 @@ import { Dashboard } from "./dashboard.js";
 import { ProfileExport, ResetBody } from "./data-rights.js";
 import { Jurisdiction } from "./legal.js";
 import {
+  ListingDetail,
+  ListingParams,
+  ListingsQuery,
+  ListingsResponse,
+  ScanPreferenceBody,
+} from "./listings.js";
+import {
   FindMissingReplyBody,
   FindMissingReplyResult,
   IntakeCleanup,
@@ -803,6 +810,33 @@ export const API_ROUTES = {
     params: IdParam,
     query: ScansQuery,
     response: pageOf(ScanSummary),
+  }),
+
+  listingsList: defineRoute({
+    method: "GET",
+    path: "/profiles/:id/listings",
+    module: "scans",
+    auth: "session",
+    params: IdParam,
+    query: ListingsQuery,
+    response: ListingsResponse,
+  }),
+  listingsGet: defineRoute({
+    method: "GET",
+    path: "/profiles/:id/listings/:targetId",
+    module: "scans",
+    auth: "session",
+    params: ListingParams,
+    response: ListingDetail,
+  }),
+  listingsPreference: defineRoute({
+    method: "PUT",
+    path: "/profiles/:id/listings/:targetId/preference",
+    module: "scans",
+    auth: "session",
+    params: ListingParams,
+    body: ScanPreferenceBody,
+    response: ListingDetail,
   }),
 
   reviewQueue: defineRoute({

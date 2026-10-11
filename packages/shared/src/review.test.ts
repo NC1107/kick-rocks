@@ -57,6 +57,8 @@ describe("campaign outcomes", () => {
       "unsupported_channel",
       "missing_profile_details",
       "covered_by_platform",
+      "site_paused",
+      "site_skipped",
     ]);
     const outcome = {
       targetId: "t",

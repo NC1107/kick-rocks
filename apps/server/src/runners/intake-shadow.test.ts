@@ -276,3 +276,50 @@ describe("the report of mail the new rules passed over", () => {
     expect(lines()).toEqual([]);
   });
 });
+
+describe("mail to the reply address that names no open request", () => {
+  const ALIAS = "jordan+kickrocks@example.com";
+  const done = "Your privacy request has been completed and your information has been removed.";
+
+  beforeEach(() => {
+    ctx.services.db
+      .update(mailboxes)
+      .set({ replyAlias: ALIAS, replyAliasVerifiedAt: ctx.clock.now().toISOString() })
+      .where(eq(mailboxes.id, mailboxId))
+      .run();
+  });
+
+  it("is not taken in, and is listed so the person can take it in", async () => {
+    await sentRequest(SPOKEO);
+    openShadowWindow();
+    deliver({
+      subject: "Your privacy request",
+      to: [ALIAS],
+      from: from("team@privacyops.example"),
+      text: done,
+    });
+
+    await poll();
+
+    expect(stored()).toEqual([]);
+    expect(lines().map(({ subject, rule }) => ({ subject, rule }))).toEqual([
+      { subject: "Your privacy request", rule: "not_named" },
+    ]);
+  });
+
+  it("is taken in when its signature names the company", async () => {
+    await sentRequest(SPOKEO);
+    openShadowWindow();
+    deliver({
+      subject: "Your privacy request",
+      to: [ALIAS],
+      from: from("team@privacyops.example"),
+      text: `${done}\n\nSpokeo Privacy Team`,
+    });
+
+    await poll();
+
+    expect(stored()).toHaveLength(1);
+    expect(lines()).toEqual([]);
+  });
+});

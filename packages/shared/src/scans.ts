@@ -1,8 +1,8 @@
 import { z } from "zod";
-import { FilterSelection, TargetOutcome } from "./campaigns.js";
+import { TargetOutcome } from "./campaigns.js";
 import { ProfileField } from "./identities.js";
 import { WaitReason } from "./scanning.js";
-import { MAX_SELECTED_TARGETS } from "./targets.js";
+import { MAX_SELECTED_TARGETS, TargetFilter } from "./targets.js";
 import { Candidate, TaskStatus } from "./tasks.js";
 import { WebUrl } from "./url.js";
 
@@ -86,10 +86,19 @@ export const ScanSummary = z.object({
 });
 export type ScanSummary = z.infer<typeof ScanSummary>;
 
+/** "all" also searches under each past address, one separate visit per address. */
+export const ScanAddresses = z.enum(["current", "all"]);
+export type ScanAddresses = z.infer<typeof ScanAddresses>;
+
 export const ScanStartBody = z.union([
-  z.object({ targetIds: z.array(z.string().min(1)).min(1).max(MAX_SELECTED_TARGETS) }).strict(),
-  z.object({ preset: z.literal("people_search") }).strict(),
-  FilterSelection,
+  z
+    .object({
+      targetIds: z.array(z.string().min(1)).min(1).max(MAX_SELECTED_TARGETS),
+      addresses: ScanAddresses.optional(),
+    })
+    .strict(),
+  z.object({ preset: z.literal("people_search"), addresses: ScanAddresses.optional() }).strict(),
+  z.object({ filter: TargetFilter.strict(), addresses: ScanAddresses.optional() }).strict(),
 ]);
 export type ScanStartBody = z.infer<typeof ScanStartBody>;
 

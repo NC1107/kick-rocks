@@ -1,4 +1,5 @@
 import type { AgentsResponse, WaitingTask } from "@kickrocks/shared";
+import { ScanSearch } from "lucide-react";
 import type { ReactNode } from "react";
 import { HoldReason } from "../../components/holds/HoldReason.js";
 import {
@@ -13,10 +14,11 @@ import {
 import { cn } from "../../lib/cn.js";
 import { describeFailure } from "../../lib/failures.js";
 import { BLOCKED_REASON_LABELS, PROFILE_FIELD_LABELS } from "../../lib/labels.js";
+import { paths } from "../../lib/paths.js";
 import type { StatusShape } from "../../lib/status.js";
 import { useNow } from "../../lib/use-now.js";
 import { assignmentLine } from "../assign/model.js";
-import { ageLabel, KIND_LABELS, type QueueEntry, type ReviewKind, SCANS_KEY } from "./model.js";
+import { ageLabel, KIND_LABELS, type QueueEntry, type ReviewKind } from "./model.js";
 
 interface RowView {
   title: ReactNode;
@@ -267,15 +269,12 @@ export function QueueList({
       <WaitingGroup waiting={waiting} total={waitingTotal} />
       <Section label="Scans">
         <RowGroup>
-          <div data-entry={SCANS_KEY}>
-            <Row
-              selected={selectedKey === SCANS_KEY}
-              onClick={() => onSelect(SCANS_KEY)}
-              tabIndex={selectedKey === SCANS_KEY ? 0 : -1}
-              title="People-search scans"
-              description="Start one, or see recent runs"
-            />
-          </div>
+          <Row
+            to={paths.listings()}
+            icon={ScanSearch}
+            title="Where you're listed"
+            description="Scan a site, or see what it found"
+          />
         </RowGroup>
       </Section>
       <p className="mt-1 hidden items-center gap-1.5 text-caption text-ink-3 lg:flex">

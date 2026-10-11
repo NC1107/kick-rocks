@@ -58,6 +58,7 @@ describe("createServices with no overrides", () => {
           "replyPredictions",
           "requests",
           "restoreGate",
+          "scanPreferences",
           "sentJournal",
           "secrets",
           "settings",
