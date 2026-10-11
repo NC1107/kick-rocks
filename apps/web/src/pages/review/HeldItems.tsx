@@ -1,25 +1,12 @@
 import type { OutgoingRequest, SendLog, SendRow } from "@kickrocks/shared";
-import { API_ROUTES } from "@kickrocks/shared";
 import { Info } from "lucide-react";
 import { useEffect, useState } from "react";
-import { errorMessage, sendScreenshotUrl, useApiMutation } from "../../api/index.js";
-import {
-  Button,
-  Callout,
-  Checkbox,
-  Dialog,
-  EntityLink,
-  InlineError,
-  RowGroup,
-  Section,
-  Tag,
-} from "../../components/ui/index.js";
+import { sendScreenshotUrl } from "../../api/index.js";
+import { Checkbox, Dialog, RowGroup, Tag } from "../../components/ui/index.js";
 import { cn } from "../../lib/cn.js";
-import { REVIEW_INVALIDATES } from "./model.js";
 import {
   type Badge,
   carriedSteps,
-  countdown,
   destinationOf,
   fieldRows,
   frameLabel,
@@ -27,7 +14,6 @@ import {
   heldStatusText,
   isHeld,
   kindLabel,
-  liveHolds,
   nextRunHolds,
   unreadableNote,
 } from "./sends-model.js";
@@ -208,51 +194,50 @@ export function NextRunList({
   const carried = later.some((row) => row.status === "awaiting_next_run") ? carriedSteps(log) : [];
   const values = log.values;
   return (
-        <ul className="m-0 mt-3 flex list-none flex-col gap-3 p-0">
-          {carried.filter(isHeld).map((row, index) => (
-            <HeldItem
-              key={row.id}
-              taskId={taskId}
-              row={row}
-              values={values}
-              heading={`Step ${index + 1} already went out once. Approving sends it again, then step ${index + 2}.`}
-            />
-          ))}
-          {later.filter(isHeld).map((row, index) => {
-            const left = declined.includes(row.id);
-            const step = carried.length + index + 1;
-            return (
-              <HeldItem
-                key={row.id}
-                taskId={taskId}
-                row={row}
-                values={values}
-                heading={
-                  row.resend
-                    ? `Step ${step} already went out once. Approving sends it again, then the next step.`
-                    : carried.length > 0
-                      ? `Step ${step}. ${heldStatusText(row.status)}.`
-                      : `${heldStatusText(row.status)}.`
+    <ul className="m-0 mt-3 flex list-none flex-col gap-3 p-0">
+      {carried.filter(isHeld).map((row, index) => (
+        <HeldItem
+          key={row.id}
+          taskId={taskId}
+          row={row}
+          values={values}
+          heading={`Step ${index + 1} already went out once. Approving sends it again, then step ${index + 2}.`}
+        />
+      ))}
+      {later.filter(isHeld).map((row, index) => {
+        const left = declined.includes(row.id);
+        const step = carried.length + index + 1;
+        return (
+          <HeldItem
+            key={row.id}
+            taskId={taskId}
+            row={row}
+            values={values}
+            heading={
+              row.resend
+                ? `Step ${step} already went out once. Approving sends it again, then the next step.`
+                : carried.length > 0
+                  ? `Step ${step}. ${heldStatusText(row.status)}.`
+                  : `${heldStatusText(row.status)}.`
+            }
+          >
+            {row.status === "awaiting_next_run" ? (
+              <Checkbox
+                label="Leave this one out"
+                description="A later run refuses it without holding it."
+                checked={left}
+                onChange={(event) =>
+                  onDeclinedChange(
+                    event.target.checked
+                      ? [...declined, row.id]
+                      : declined.filter((id) => id !== row.id),
+                  )
                 }
-              >
-                {row.status === "awaiting_next_run" ? (
-                  <Checkbox
-                    label="Leave this one out"
-                    description="A later run refuses it without holding it."
-                    checked={left}
-                    onChange={(event) =>
-                      onDeclinedChange(
-                        event.target.checked
-                          ? [...declined, row.id]
-                          : declined.filter((id) => id !== row.id),
-                      )
-                    }
-                  />
-                ) : null}
-              </HeldItem>
-            );
-          })}
-        </ul>
+              />
+            ) : null}
+          </HeldItem>
+        );
+      })}
+    </ul>
   );
 }
-

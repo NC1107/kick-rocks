@@ -63,4 +63,3 @@ export function useLogout() {
   const endSession = useEndSession();
   return useApiMutation(API_ROUTES.authLogout, { onSuccess: () => endSession() });
 }
-

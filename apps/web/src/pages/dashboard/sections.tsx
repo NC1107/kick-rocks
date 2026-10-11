@@ -1,9 +1,4 @@
-import {
-  type Dashboard,
-  type DashboardEvent,
-  type RequestStatus,
-  type ScanHoldReason,
-} from "@kickrocks/shared";
+import type { Dashboard, DashboardEvent, RequestStatus, ScanHoldReason } from "@kickrocks/shared";
 import { Link } from "react-router";
 import { HoldReason } from "../../components/holds/HoldReason.js";
 import {

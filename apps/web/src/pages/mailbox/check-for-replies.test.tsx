@@ -178,8 +178,8 @@ describe("checking for replies elsewhere", () => {
     );
   }, 10_000);
 
-  it("is on Review", async () => {
-    renderPage(<ReviewPage />);
+  it("is on the Mail page of Review", async () => {
+    renderPage(<ReviewPage />, { path: "/review/*", route: "/review/mail" });
     expect(await screen.findByRole("button", CHECK)).toBeVisible();
   });
 });

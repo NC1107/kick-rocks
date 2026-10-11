@@ -1,5 +1,6 @@
 import {
   type Match,
+  type NeedsYouMarkState,
   type NotificationSettings,
   type ProfileDetail,
   type RecipeRecord,
@@ -95,6 +96,8 @@ export interface MockStore {
   messages: ReviewMessage[];
   tasks: TaskSummary[];
   blockedInfo: Map<string, BlockedTaskInfo>;
+  /** What the person did with each Needs you item, by its key. */
+  needsYouMarks: Map<string, NeedsYouMarkState>;
   /** The agent workers and MCP clients that have called in, for the assign picker. */
   agents: MockAgent[];
   /** What each agent task's browser sent, by task id. */
@@ -159,6 +162,7 @@ export function createStore(authMode: MockAuthMode = "authed"): MockStore {
     messages: [],
     tasks: [],
     blockedInfo: new Map(),
+    needsYouMarks: new Map(),
     agents: [],
     sends: new Map(),
     matches: [],

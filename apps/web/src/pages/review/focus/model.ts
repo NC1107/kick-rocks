@@ -85,7 +85,7 @@ export function snoozePresets(now: Date): SnoozePreset[] {
   const tomorrow = new Date(now);
   tomorrow.setDate(tomorrow.getDate() + 1);
   const monday = new Date(now);
-  monday.setDate(monday.getDate() + (((8 - monday.getDay()) % 7) || 7));
+  monday.setDate(monday.getDate() + ((8 - monday.getDay()) % 7 || 7));
   const tonight = atHour(now, 18);
   return [
     { id: "hour" as const, label: "1 hour", until: new Date(now.getTime() + 60 * 60 * 1000) },

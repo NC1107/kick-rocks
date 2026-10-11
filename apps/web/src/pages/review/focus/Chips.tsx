@@ -1,8 +1,8 @@
 import { API_ROUTES, type ProfileField, resolveProfileFields } from "@kickrocks/shared";
 import { useEffect, useRef, useState } from "react";
 import { useApiQuery } from "../../../api/index.js";
-import { cn } from "../../../lib/cn.js";
 import { copyText } from "../../../lib/clipboard.js";
+import { cn } from "../../../lib/cn.js";
 import { CHIP_LABELS } from "./copy.js";
 import { COPIED_MS, maskValue } from "./model.js";
 
@@ -69,7 +69,10 @@ export function Chips({
               <span className="font-medium text-positive-text">Copied</span>
             ) : (
               <span
-                className={cn("min-w-0 truncate font-mono text-ink", shown.has(field) && "break-all")}
+                className={cn(
+                  "min-w-0 truncate font-mono text-ink",
+                  shown.has(field) && "break-all",
+                )}
               >
                 {shown.has(field) ? value : maskValue(field, value)}
               </span>

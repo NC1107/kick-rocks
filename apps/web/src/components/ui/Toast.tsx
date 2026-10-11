@@ -17,7 +17,10 @@ import { IconButton } from "./IconButton.js";
 export type ToastIntent = "info" | "success";
 
 /** Where a toast leads (the thing it names, or a page with its own words), or what it undoes. */
-export type ToastAction = EntityRef | { to: string; label: string } | { label: string; onClick: () => void };
+export type ToastAction =
+  | EntityRef
+  | { to: string; label: string }
+  | { label: string; onClick: () => void };
 
 export interface ToastOptions {
   intent?: ToastIntent;

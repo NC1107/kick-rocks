@@ -19,10 +19,11 @@ import {
 import { cn } from "../../../lib/cn.js";
 import { PROFILE_FIELD_LABELS } from "../../../lib/labels.js";
 import { paths } from "../../../lib/paths.js";
+import { ReplyCheckResult, useReplyCheck } from "../../mailbox/check-for-replies.js";
 import { HeldItem, Limits, NextRunList, useSecondTick } from "../HeldItems.js";
 import { canReportOutcome, REVIEW_INVALIDATES } from "../model.js";
+import { SentLog } from "../SentLog.js";
 import { destinationOf, fieldRows, isHeld, liveHolds, nextRunHolds } from "../sends-model.js";
-import { ReplyCheckResult, useReplyCheck } from "../../mailbox/check-for-replies.js";
 import { ActionBar, CardFrame, Steps, Thumbnail } from "./Card.js";
 import { Chips, useProfileValues } from "./Chips.js";
 import { useFocus } from "./context.js";
@@ -175,8 +176,22 @@ function TaskCard({ item, check }: TaskCardProps) {
       />
       {check ? <ReplyCheckResult check={check} /> : null}
       {flow.task.hasScreenshot ? <Thumbnail taskId={flow.task.id} /> : null}
+      {item.kind === "check_sent" ? <SentDisclosure item={item} /> : null}
       <Stuck show={item.tries >= 2 && focus.agentAccess === "on"} onClick={menu.openHandOff} />
     </CardFrame>
+  );
+}
+
+/** What left the browser, for the one question where it decides the answer: did the form go out? */
+function SentDisclosure({ item }: { item: NeedsYouItem }) {
+  const task = taskOf(item);
+  const log = useApiQuery(API_ROUTES.taskSends, { params: { id: task.id } });
+  const [open, setOpen] = useState(false);
+  if (!log.data || log.data.sends.length === 0) return null;
+  return (
+    <Disclosure title="What was sent" open={open} onOpenChange={setOpen}>
+      <SentLog log={log.data} target={item.target ?? undefined} />
+    </Disclosure>
   );
 }
 
@@ -283,7 +298,7 @@ function HoldCard({ item }: { item: NeedsYouItem }) {
                 // The same name can repeat in one request.
                 // biome-ignore lint/suspicious/noArrayIndexKey: rows are never reordered
                 key={`${row.name}-${index}`}
-                className="inline-flex min-h-control max-w-full items-center gap-1.5 rounded-sm border border-line px-2.5 font-mono text-meta"
+                className="inline-flex max-w-full items-center gap-1.5 rounded-sm border border-line px-2 py-0.5 font-mono text-meta"
               >
                 <span className="text-ink-3">{row.name}</span>
                 <span className="min-w-0 truncate text-ink">{clip(row.value || "(empty)")}</span>
@@ -360,9 +375,7 @@ function ApproveCard({ item }: { item: NeedsYouItem }) {
           <ActionBar
             primary={primary}
             second={
-              item.url
-                ? { label: copy.second ?? "", onClick: () => focus.openPage(item) }
-                : null
+              item.url ? { label: copy.second ?? "", onClick: () => focus.openPage(item) } : null
             }
             error={error ? errorMessage(error) : flow.error}
           />
@@ -376,6 +389,7 @@ function ApproveCard({ item }: { item: NeedsYouItem }) {
           open={open}
           onOpenChange={setOpen}
         >
+          <p className="m-0 text-meta text-ink-3">Each one sends once, next run.</p>
           <NextRunList
             taskId={task.id}
             log={log.data}

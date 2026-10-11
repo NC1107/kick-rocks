@@ -3,8 +3,8 @@ import { type ReactNode, useState } from "react";
 import { useNavigate } from "react-router";
 import { useApiMutation } from "../../../api/index.js";
 import { ConfirmDialog, type MenuItem, useToast } from "../../../components/ui/index.js";
-import { useWide } from "../../../lib/use-wide.js";
 import { paths } from "../../../lib/paths.js";
+import { useWide } from "../../../lib/use-wide.js";
 import { AssignDialog } from "../../assign/AssignDialog.js";
 import { canHandOff, REVIEW_INVALIDATES } from "../model.js";
 import { useFocus } from "./context.js";
@@ -70,7 +70,8 @@ export function useCardMenu(
     onError: () => setCancelling(false),
   });
 
-  const requestId = task?.requestId ?? ("verification" in item.source ? item.source.verification.request.id : null);
+  const requestId =
+    task?.requestId ?? ("verification" in item.source ? item.source.verification.request.id : null);
   const accessKnown = focus.agentAccess !== "unknown";
 
   const items: MenuItem[] = [
@@ -109,7 +110,13 @@ export function useCardMenu(
         ]
       : []),
     ...(requestId
-      ? [{ id: "request", label: "Open request", onSelect: () => navigate(paths.request(requestId)) }]
+      ? [
+          {
+            id: "request",
+            label: "Open request",
+            onSelect: () => navigate(paths.request(requestId)),
+          },
+        ]
       : []),
     ...(wide ? [] : [{ id: "list", label: "Show list", onSelect: focus.openList }]),
   ];

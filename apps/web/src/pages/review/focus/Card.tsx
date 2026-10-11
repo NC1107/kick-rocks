@@ -12,12 +12,13 @@ import {
   Kbd,
   Menu,
   type MenuItem,
+  Meter,
   Tag,
 } from "../../../components/ui/index.js";
 import { cn } from "../../../lib/cn.js";
 import { ageLabel } from "../model.js";
-import { KIND_COPY, WORDS } from "./copy.js";
 import { useFocus } from "./context.js";
+import { KIND_COPY, WORDS } from "./copy.js";
 import { effortLabel, itemTitle } from "./model.js";
 
 /** A step the person takes, numbered in mono. Five words at most, and three steps at most. */
@@ -27,9 +28,11 @@ export function Steps({ steps }: { steps: readonly string[] }) {
     <ol className="m-0 flex list-none flex-col gap-1 p-0">
       {steps.map((step, index) => (
         <li key={step} className="flex items-baseline gap-2.5 text-body text-ink">
-          <span className="w-4 shrink-0 font-mono text-meta text-ink-3 tabular-nums">
-            {index + 1}
-          </span>
+          {steps.length > 1 ? (
+            <span className="w-4 shrink-0 font-mono text-meta text-ink-3 tabular-nums">
+              {index + 1}
+            </span>
+          ) : null}
           {step}
         </li>
       ))}
@@ -69,7 +72,6 @@ export function Thumbnail({ taskId }: { taskId: string }) {
 
 function TopBar({ menu }: { menu: readonly MenuItem[] }) {
   const { progress, canMove, next, previous } = useFocus();
-  const ratio = progress.total > 0 ? progress.done / progress.total : 0;
   return (
     <div className="flex items-center gap-2 border-b border-line px-3 py-1.5">
       <IconButton label="Previous" onClick={previous} disabled={!canMove}>
@@ -81,19 +83,14 @@ function TopBar({ menu }: { menu: readonly MenuItem[] }) {
       <span className="font-mono text-meta text-ink-2 tabular-nums">
         {progress.position} of {progress.total}
       </span>
-      <div
-        role="meter"
-        aria-label="Done this sitting"
-        aria-valuemin={0}
-        aria-valuemax={progress.total}
-        aria-valuenow={progress.done}
-        className="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-active"
-      >
-        <div
-          className="h-full rounded-full bg-accent-fill transition-[width] duration-120 ease-linear"
-          style={{ width: `${ratio * 100}%` }}
-        />
-      </div>
+      <Meter
+        label="Done this sitting"
+        value={progress.done}
+        max={Math.max(progress.total, 1)}
+        ticks={[]}
+        warnAt={2}
+        className="min-w-0 flex-1"
+      />
       <Menu
         align="end"
         items={menu}
@@ -194,10 +191,10 @@ export function CardFrame({ item, menu, tagText, children, bar, dialogs }: CardF
       className="flex min-w-0 max-w-[40rem] flex-col rounded-md border border-line bg-surface"
     >
       <TopBar menu={menu} />
-      <div className="flex flex-col gap-3.5 px-4 pt-4 pb-4 max-sm:pb-32">
+      <div className="flex flex-col gap-3.5 px-4 py-4">
         <header className="flex flex-col gap-1.5">
           <div className="flex items-start justify-between gap-3">
-            <h2 className="min-w-0 break-words text-heading font-semibold text-ink">
+            <h2 className="min-w-0 break-words text-heading font-semibold text-ink [&_a]:text-ink [&_a:hover]:text-accent-text">
               {item.target && item.kind !== "record" ? (
                 <EntityLink
                   to={{ kind: "target", id: item.target.id, name: item.target.name }}
@@ -209,7 +206,11 @@ export function CardFrame({ item, menu, tagText, children, bar, dialogs }: CardF
             </h2>
             <p className="m-0 flex shrink-0 items-baseline gap-2 font-mono text-meta text-ink-3 tabular-nums">
               <span>{effortLabel(item.effort.minutes)}</span>
-              <span aria-label="Waiting for">{ageLabel(item.since)}</span>
+              <span aria-hidden="true">·</span>
+              <span>
+                <span className="sr-only">Waiting </span>
+                {ageLabel(item.since)}
+              </span>
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">

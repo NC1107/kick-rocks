@@ -206,7 +206,7 @@ describe("the request page", () => {
     open(byTarget("clearcheck"));
     await screen.findByRole("heading", { name: /^Tasks/ });
     const link = await screen.findByRole("link", { name: "Submit form" });
-    expect(link).toHaveAttribute("href", expect.stringMatching(/^\/review\?item=blocked%3Atsk_/));
+    expect(link).toHaveAttribute("href", expect.stringMatching(/^\/review\?item=task%3Atsk_/));
   });
 
   describe("when a reply asked for the web form", () => {

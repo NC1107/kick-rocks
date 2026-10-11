@@ -9,9 +9,6 @@ import {
 import { describeFailure, type FailureGroup } from "../../lib/failures.js";
 import type { ReviewSection } from "../../lib/paths.js";
 
-/** The pages of Review beside the focused Needs you queue. */
-export const REVIEW_SECTIONS = ["mail", "agents", "problems", "scans"] as const;
-
 /** Queued agent tasks the person took for themselves, which no agent will claim. */
 export const isYours = (item: BlockedTaskItem): boolean =>
   item.task.assignment?.to.kind === "person";
@@ -41,27 +38,6 @@ export function canHandOff(task: Pick<TaskSummary, "kind">): boolean {
   return task.kind === "scan" || task.kind === "form" || task.kind === "agent";
 }
 
-/** A model stopped before sending a form because it has not passed the safety gate here. */
-export function awaitsSubmitApproval(
-  task: Pick<TaskSummary, "kind" | "status" | "blockedReason">,
-): boolean {
-  return (
-    task.kind === "agent" && task.status === "blocked" && task.blockedReason === "approval_needed"
-  );
-}
-
-/**
- * A model reported a sent form that no one approved. The form may be out, so the person checks the
- * site, and running the task again could send it twice.
- */
-export function sentWithoutApproval(
-  task: Pick<TaskSummary, "kind" | "status" | "blockedReason">,
-): boolean {
-  return (
-    task.kind === "agent" && task.status === "blocked" && task.blockedReason === "unapproved_submit"
-  );
-}
-
 /** A person can report how a removal ended only for tasks that belong to a request. */
 export function canReportOutcome(task: Pick<TaskSummary, "kind" | "requestId">): boolean {
   return (task.kind === "form" || task.kind === "agent") && task.requestId !== null;
@@ -81,19 +57,6 @@ export const OUTCOME_CHOICES: readonly { value: FormOutcome; label: string; hint
     hint: "This closes the request.",
   },
 ];
-
-/**
- * Breaks instructions into steps: one per line when the text has lines, otherwise one per
- * sentence, with any "1." numbering removed so the list supplies its own.
- */
-export function instructionSteps(text: string): string[] {
-  const lines = text
-    .split(/\r?\n/)
-    .map((line) => line.replace(/^\s*(?:\d+[.)]|[-*])\s+/, "").trim())
-    .filter(Boolean);
-  const steps = lines.length > 1 ? lines : (lines[0] ?? "").split(/(?<=[.!?])\s+/);
-  return steps.map((step) => step.trim()).filter(Boolean);
-}
 
 /** What the list pages group their rows by. */
 export type ReviewKind = "mail" | "failed" | "agents";

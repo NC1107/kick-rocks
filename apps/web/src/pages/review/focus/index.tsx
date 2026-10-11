@@ -19,20 +19,19 @@ import {
   useToast,
 } from "../../../components/ui/index.js";
 import { paths } from "../../../lib/paths.js";
-import { cn } from "../../../lib/cn.js";
 import { shortcutAllowed } from "../keys.js";
 import { REVIEW_INVALIDATES } from "../model.js";
-import { KindCard } from "./kinds.js";
-import { FocusState, type FocusContext } from "./context.js";
+import { type FocusContext, FocusState } from "./context.js";
 import { KIND_COPY, WORDS } from "./copy.js";
+import { KindCard } from "./kinds.js";
 import {
   neighbour,
   openedRecently,
   pickKey,
   progressOf,
   RETURN_AFTER_MS,
-  snoozedLine,
   type SnoozePreset,
+  snoozedLine,
   UNDO_MS,
 } from "./model.js";
 import { SnoozeSheet } from "./SnoozeSheet.js";
@@ -49,15 +48,7 @@ interface Pending {
   send: () => void;
 }
 
-function End({
-  done,
-  snoozed,
-  review,
-}: {
-  done: number;
-  snoozed: number;
-  review: ReviewQueue;
-}) {
+function End({ done, snoozed, review }: { done: number; snoozed: number; review: ReviewQueue }) {
   const [, setParams] = useSearchParams();
   const links = [
     { label: "Mail", count: review.messages.length, to: paths.reviewSection("mail") },
@@ -95,7 +86,9 @@ function End({
 
 function SnoozedList({ queue }: { queue: NeedsYouQueue }) {
   const [, setParams] = useSearchParams();
-  const bringBack = useApiMutation(API_ROUTES.needsYouUnsnooze, { invalidates: REVIEW_INVALIDATES });
+  const bringBack = useApiMutation(API_ROUTES.needsYouUnsnooze, {
+    invalidates: REVIEW_INVALIDATES,
+  });
   return (
     <div className="flex max-w-[40rem] flex-col gap-3 rounded-md border border-line bg-surface px-4 py-4">
       <Section label="Snoozed" count={queue.snoozed.length}>
@@ -169,7 +162,10 @@ export function Focus({
   const pending = useRef(new Map<string, Pending>());
   const lastIndex = useRef(0);
 
-  const items = useMemo(() => queue.items.filter((item) => !held.has(item.key)), [queue.items, held]);
+  const items = useMemo(
+    () => queue.items.filter((item) => !held.has(item.key)),
+    [queue.items, held],
+  );
   const keys = useMemo(() => items.map((item) => item.key), [items]);
   const selectedKey = pickKey(keys, itemParam, lastIndex.current);
   const selected: NeedsYouItem | undefined = items.find((item) => item.key === selectedKey);
@@ -246,16 +242,13 @@ export function Focus({
       return next;
     });
   }, []);
-  const settle = useCallback(
-    (key: string) => {
-      const entry = pending.current.get(key);
-      if (!entry) return;
-      clearTimeout(entry.timer);
-      pending.current.delete(key);
-      entry.send();
-    },
-    [],
-  );
+  const settle = useCallback((key: string) => {
+    const entry = pending.current.get(key);
+    if (!entry) return;
+    clearTimeout(entry.timer);
+    pending.current.delete(key);
+    entry.send();
+  }, []);
   const decideRecord = useCallback(
     (item: NeedsYouItem, decision: "mine" | "not_mine", rights: readonly RequestRight[]) => {
       if (!("match" in item.source)) return;
@@ -283,11 +276,12 @@ export function Focus({
             pending.current.delete(key);
             setDone((count) => Math.max(0, count - 1));
             release(key);
+            select(key);
           },
         },
       });
     },
-    [decide, release, settle, toast],
+    [decide, release, select, settle, toast],
   );
 
   // Leaving the page sends what is still waiting, since "mine" cannot be taken back on the server.
@@ -319,9 +313,14 @@ export function Focus({
       { onSuccess: () => toast.success(snoozedLine(preset.until, new Date())) },
     );
   };
-  const bringBack = useApiMutation(API_ROUTES.needsYouUnsnooze, { invalidates: REVIEW_INVALIDATES });
+  const bringBack = useApiMutation(API_ROUTES.needsYouUnsnooze, {
+    invalidates: REVIEW_INVALIDATES,
+  });
 
-  const next = useCallback(() => select(neighbour(keys, selectedKey, 1)), [keys, select, selectedKey]);
+  const next = useCallback(
+    () => select(neighbour(keys, selectedKey, 1)),
+    [keys, select, selectedKey],
+  );
   const previous = useCallback(
     () => select(neighbour(keys, selectedKey, -1)),
     [keys, select, selectedKey],
@@ -367,27 +366,29 @@ export function Focus({
 
   return (
     <FocusState value={context}>
-      {failure ? (
-        <Callout intent="danger" title="Could not save that" className="mb-4 max-w-[40rem]">
-          {failure}
-        </Callout>
-      ) : null}
-      {selected ? (
-        <div className={cn("grid gap-5 lg:grid-cols-[minmax(0,40rem)_17.5rem]")}>
-          <KindCard item={selected} />
-          <div className="hidden lg:block">
-            <UpNext
-              items={items}
-              currentKey={selectedKey}
-              snoozed={queue.snoozed}
-              onSelect={select}
-              onBringBack={(key) => bringBack.mutate({ params: refOf(key) })}
-            />
+      <div className="max-sm:pb-28">
+        {failure ? (
+          <Callout intent="danger" title="Could not save that" className="mb-4 max-w-[40rem]">
+            {failure}
+          </Callout>
+        ) : null}
+        {selected ? (
+          <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,40rem)_17.5rem]">
+            <KindCard item={selected} />
+            <div className="hidden lg:block">
+              <UpNext
+                items={items}
+                currentKey={selectedKey}
+                snoozed={queue.snoozed}
+                onSelect={select}
+                onBringBack={(key) => bringBack.mutate({ params: refOf(key) })}
+              />
+            </div>
           </div>
-        </div>
-      ) : (
-        <End done={done} snoozed={queue.snoozed.length} review={review} />
-      )}
+        ) : (
+          <End done={done} snoozed={queue.snoozed.length} review={review} />
+        )}
+      </div>
       <SnoozeSheet
         open={snoozing}
         onClose={() => setSnoozing(false)}
@@ -411,4 +412,3 @@ export function Focus({
     </FocusState>
   );
 }
-

@@ -162,7 +162,8 @@ export function describeEvent(event: RequestEvent): string {
     }
     case "user_action": {
       const { action, note } = event.payload;
-      if (action === "not_yet") return `You tried, not done yet.${note ? ` You noted: ${note}` : ""}`;
+      if (action === "not_yet")
+        return `You tried, not done yet.${note ? ` You noted: ${note}` : ""}`;
       return `You chose to ${ACTION_PHRASES[action]}.${note ? ` You noted: ${note}` : ""}`;
     }
     case "relisted":

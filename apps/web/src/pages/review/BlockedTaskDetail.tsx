@@ -12,6 +12,7 @@ import {
   Section,
   TaskStatusMark,
   TextLink,
+  useToast,
 } from "../../components/ui/index.js";
 import { describeFailure } from "../../lib/failures.js";
 import { TASK_KIND_LABELS } from "../../lib/labels.js";
@@ -23,7 +24,6 @@ import { Chips } from "./focus/Chips.js";
 import { MarkDoneDialog } from "./MarkDoneDialog.js";
 import { canReportOutcome, REVIEW_INVALIDATES } from "./model.js";
 import { SentLog } from "./SentLog.js";
-import { useToast } from "../../components/ui/index.js";
 
 function Screenshot({ taskId }: { taskId: string }) {
   const [failed, setFailed] = useState(false);
@@ -182,7 +182,12 @@ export function BlockedTaskDetail({
           </Section>
         ) : null}
 
-        {log ? <SentLog log={log} target={task.targetName ? { id: task.targetId, name: task.targetName } : undefined} /> : null}
+        {log ? (
+          <SentLog
+            log={log}
+            target={task.targetName ? { id: task.targetId, name: task.targetName } : undefined}
+          />
+        ) : null}
 
         {variant === "failed" && siblings.length > 1 ? (
           <FailedGroupActions items={siblings} label={failure?.label ?? ""} />

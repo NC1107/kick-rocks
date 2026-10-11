@@ -26,13 +26,7 @@ import { BlockedTaskDetail } from "./BlockedTaskDetail.js";
 import { Focus } from "./focus/index.js";
 import { shortcutAllowed } from "./keys.js";
 import { MailDetail } from "./MailDetail.js";
-import {
-  buildEntries,
-  pickEntry,
-  type QueueEntry,
-  SECTION_KINDS,
-  sectionCounts,
-} from "./model.js";
+import { buildEntries, pickEntry, type QueueEntry, SECTION_KINDS, sectionCounts } from "./model.js";
 import { QueueList } from "./QueueList.js";
 import { legacyDestination } from "./redirects.js";
 import { ScansPanel } from "./ScansPanel.js";
@@ -59,10 +53,7 @@ type Page = "needs-you" | ReviewSection;
 
 function pageOf(pathname: string): Page {
   const section = pathname.replace(/\/+$/, "").split("/")[2];
-  return section === "mail" ||
-    section === "agents" ||
-    section === "problems" ||
-    section === "scans"
+  return section === "mail" || section === "agents" || section === "problems" || section === "scans"
     ? section
     : "needs-you";
 }
@@ -99,7 +90,12 @@ function Review({ profileId, mailboxConnected }: { profileId: string; mailboxCon
 
   const counts = review.data ? sectionCounts(review.data) : null;
   const tabs = [
-    { to: paths.review(), label: "Needs you", end: true, count: some(needsYou.data?.counts.active) },
+    {
+      to: paths.review(),
+      label: "Needs you",
+      end: true,
+      count: some(needsYou.data?.counts.active),
+    },
     { to: paths.reviewSection("mail"), label: "Mail", count: some(counts?.mail) },
     { to: paths.reviewSection("agents"), label: "Agents", count: some(counts?.agents) },
     { to: paths.reviewSection("problems"), label: "Problems", count: some(counts?.problems) },
@@ -116,7 +112,9 @@ function Review({ profileId, mailboxConnected }: { profileId: string; mailboxCon
 
   return (
     <>
-      <PageHeader title="Review" back={{ to: "/", label: "Dashboard" }} />
+      <div className="[&>header]:mb-1">
+        <PageHeader title="Review" />
+      </div>
       <div className="mb-5">
         <LinkTabs label="Review pages" items={tabs} />
       </div>
@@ -175,7 +173,14 @@ function Detail({
 }) {
   switch (entry.kind) {
     case "agents":
-      return <BlockedTaskDetail key={entry.key} item={entry.item} variant="agent" profileId={profileId} />;
+      return (
+        <BlockedTaskDetail
+          key={entry.key}
+          item={entry.item}
+          variant="agent"
+          profileId={profileId}
+        />
+      );
     case "failed": {
       const { group } = describeFailure(entry.item.task);
       const siblings = entries.flatMap((other) =>
@@ -248,7 +253,8 @@ function ListPage({
 
   const move = (step: 1 | -1) => {
     const keys = entries.map((entry) => entry.key);
-    const next = keys[Math.min(Math.max(keys.indexOf(selectedKey ?? "") + step, 0), keys.length - 1)];
+    const next =
+      keys[Math.min(Math.max(keys.indexOf(selectedKey ?? "") + step, 0), keys.length - 1)];
     if (!next || next === selectedKey) return;
     select(next, { replace: true });
     if (!pane.current?.contains(document.activeElement)) focusEntry(next);
@@ -269,7 +275,9 @@ function ListPage({
 
   useEffect(() => {
     if (selectedKey) {
-      document.querySelector(`[data-entry="${selectedKey}"]`)?.scrollIntoView?.({ block: "nearest" });
+      document
+        .querySelector(`[data-entry="${selectedKey}"]`)
+        ?.scrollIntoView?.({ block: "nearest" });
     }
   }, [selectedKey]);
 

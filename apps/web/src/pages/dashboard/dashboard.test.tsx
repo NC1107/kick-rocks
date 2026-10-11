@@ -1,15 +1,16 @@
 import { screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { createMockApp } from "../../../mock/app.js";
-import { createScan } from "../../../mock/review.js";
+import { buildMockNeedsYou, createScan } from "../../../mock/review.js";
 import { renderPage } from "../../test/render.js";
 import { instrument } from "../profiles/test-support.js";
 import { Component as DashboardPage } from "./index.js";
 import {
   AttentionSection,
-  attentionItems,
+  attentionRows,
   groupActivity,
   groupTotal,
+  hasAttention,
   STATUS_GROUPS,
 } from "./sections.js";
 
@@ -62,16 +63,36 @@ describe("the dashboard", () => {
     expect(confirmed).toHaveAttribute("href", "/requests?status=confirmed");
   });
 
-  it("lists what needs the person, each linking to the review queue", async () => {
+  it("starts the Needs you queue with the count and the minutes it takes", async () => {
+    const { mock } = renderPage(<DashboardPage />);
+    const needs = (await screen.findByRole("heading", { name: /^Needs you/ })).closest(
+      "section",
+    ) as HTMLElement;
+    const queue = buildMockNeedsYou(mock.store, mock.store.profiles[0]?.id).counts;
+    expect(
+      within(needs).getByText(`${queue.active} to do · about ${queue.minutes} min`),
+    ).toBeVisible();
+    expect(within(needs).getByRole("link", { name: "Start" })).toHaveAttribute("href", "/review");
+    expect(
+      within(needs).getByText(
+        `${queue.quick} quick · ${queue.few} few min · ${queue.longer} longer`,
+      ),
+    ).toBeVisible();
+  });
+
+  it("links mail, problems and waiting agents to their own pages, and only when they hold something", async () => {
     renderPage(<DashboardPage />);
     const needs = (await screen.findByRole("heading", { name: /^Needs you/ })).closest(
       "section",
     ) as HTMLElement;
-    const links = within(needs).getAllByRole("link");
-    expect(links.length).toBeGreaterThanOrEqual(3);
-    for (const link of links)
-      expect(link).toHaveAttribute("href", expect.stringMatching(/^\/review\?tab=/));
-    expect(within(needs).getByText(/Blocked tasks?/)).toBeInTheDocument();
+    expect(within(needs).getByRole("link", { name: /Mail to sort/ })).toHaveAttribute(
+      "href",
+      "/review/mail",
+    );
+    expect(within(needs).getByRole("link", { name: /Problems/ })).toHaveAttribute(
+      "href",
+      "/review/problems",
+    );
   });
 
   it("says nothing is waiting when nothing is", async () => {
@@ -241,6 +262,19 @@ describe("the dashboard", () => {
   });
 });
 
+const none = {
+  blockedTasks: 0,
+  pendingMatches: 0,
+  unreviewedMessages: 0,
+  needsVerification: 0,
+  failedTasks: 0,
+  agentTasks: 0,
+  yourAgentTasks: 0,
+  assignedAgentTasks: 0,
+  agentAssignees: [] as string[],
+  needsYou: { active: 0, snoozed: 0, minutes: 0, quick: 0, few: 0, longer: 0 },
+};
+
 describe("dashboard helpers", () => {
   it("covers every request status in exactly one group", () => {
     const all = STATUS_GROUPS.flatMap((group) => group.statuses);
@@ -252,102 +286,55 @@ describe("dashboard helpers", () => {
     expect(groupTotal({ queued: 2, sent: 3 }, ["queued", "sent", "draft"])).toBe(5);
   });
 
-  it("drops attention items that are zero and uses the singular for one", () => {
-    const items = attentionItems({
-      blockedTasks: 1,
-      pendingMatches: 0,
-      unreviewedMessages: 2,
-      needsVerification: 0,
-      failedTasks: 0,
-      agentTasks: 0,
-      yourAgentTasks: 0,
-      assignedAgentTasks: 0,
-      agentAssignees: [],
-    });
-    expect(items.map((item) => item.title)).toEqual(["Blocked task", "Replies to sort"]);
+  it("lists the places beside the queue only when they hold something", () => {
+    const rows = attentionRows({ ...none, unreviewedMessages: 2, agentTasks: 0, failedTasks: 1 });
+    expect(rows.map((row) => [row.title, row.count, row.to])).toEqual([
+      ["Mail to sort", 2, "/review/mail"],
+      ["Problems", 1, "/review/problems"],
+    ]);
+    expect(attentionRows(none)).toEqual([]);
   });
 
-  it("lists tasks waiting for an agent", () => {
-    const items = attentionItems({
-      blockedTasks: 0,
-      pendingMatches: 0,
-      unreviewedMessages: 0,
-      needsVerification: 0,
-      failedTasks: 0,
-      agentTasks: 3,
-      yourAgentTasks: 0,
-      assignedAgentTasks: 0,
-      agentAssignees: [],
-    });
-    expect(items.map((item) => [item.count, item.title])).toEqual([
-      [3, "Tasks waiting for an agent"],
-    ]);
+  it("says whether the card has anything to say", () => {
+    expect(hasAttention(none)).toBe(false);
+    expect(hasAttention({ ...none, needsYou: { ...none.needsYou, snoozed: 1 } })).toBe(true);
+    expect(hasAttention({ ...none, agentTasks: 1 })).toBe(true);
   });
 });
 
-describe("attention detail wording", () => {
-  const none = {
-    blockedTasks: 0,
-    pendingMatches: 0,
-    unreviewedMessages: 0,
-    needsVerification: 0,
-    failedTasks: 0,
-    agentTasks: 0,
-    yourAgentTasks: 0,
-    assignedAgentTasks: 0,
-    agentAssignees: [] as string[],
-  };
-
-  it("speaks of one failed task as it", () => {
-    renderPage(<AttentionSection attention={{ ...none, failedTasks: 1 }} />);
-    expect(screen.getByText("Failed task")).toBeInTheDocument();
-    expect(screen.getByText("Retry it, or finish it by hand.")).toBeInTheDocument();
-  });
-
-  it("speaks of several failed tasks as them", () => {
+describe("the Needs you card", () => {
+  it("says nothing needs you, and still links what waits elsewhere", () => {
     renderPage(<AttentionSection attention={{ ...none, failedTasks: 2 }} />);
-    expect(screen.getByText("Retry them, or finish them by hand.")).toBeInTheDocument();
+    expect(screen.getByText("Nothing needs you.")).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Start" })).toBeNull();
+    expect(screen.getByRole("link", { name: /Problems/ })).toHaveAttribute(
+      "href",
+      "/review/problems",
+    );
   });
 
-  it("speaks of one task waiting for an agent as it", () => {
-    renderPage(<AttentionSection attention={{ ...none, agentTasks: 1 }} />);
-    expect(screen.getByText("Connect an agent, or finish it by hand.")).toBeInTheDocument();
-  });
-
-  it("splits tasks waiting for an agent by who they are assigned to", () => {
+  it("says how long the queue takes, and where the snoozed ones are", () => {
     renderPage(
       <AttentionSection
         attention={{
           ...none,
           agentTasks: 2,
-          assignedAgentTasks: 1,
-          agentAssignees: ["nick-pc-agent"],
+          needsYou: { active: 8, snoozed: 2, minutes: 21, quick: 3, few: 4, longer: 1 },
         }}
       />,
     );
-    expect(screen.getByText("1 assigned to nick-pc-agent, 1 for any agent")).toBeInTheDocument();
-  });
-
-  it("keeps who has the task visible at phone width, where other details are hidden", () => {
-    renderPage(
-      <AttentionSection
-        attention={{
-          ...none,
-          agentTasks: 1,
-          assignedAgentTasks: 1,
-          agentAssignees: ["nick-pc-agent"],
-          failedTasks: 1,
-        }}
-      />,
+    expect(screen.getByText("8 to do · about 21 min")).toBeInTheDocument();
+    expect(screen.getByText("3 quick · 4 few min · 1 longer")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Start" })).toHaveAttribute("href", "/review");
+    expect(screen.getByRole("link", { name: "2 snoozed" })).toHaveAttribute(
+      "href",
+      "/review?show=snoozed",
     );
-    expect(screen.getByText("1 assigned to nick-pc-agent")).not.toHaveClass("max-sm:hidden");
-    expect(screen.getByText("Retry it, or finish it by hand.")).toHaveClass("max-sm:hidden");
-  });
-
-  it("counts the tasks the person took for themselves in a tile of their own", () => {
-    renderPage(<AttentionSection attention={{ ...none, yourAgentTasks: 2 }} />);
-    expect(screen.getByText("Yours to do")).toBeInTheDocument();
-    expect(screen.getByText("You took these. No agent will.")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Waiting on agents/ })).toHaveAttribute(
+      "href",
+      "/review/agents",
+    );
+    expect(screen.queryByRole("link", { name: /Mail to sort/ })).toBeNull();
   });
 });
 
