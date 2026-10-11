@@ -1,0 +1,7 @@
+# The build is CPU only and the lock must not pull the CUDA stack, so torch comes from PyTorch's CPU index.
+# Compile with: uv pip compile requirements.in --generate-hashes --python-version 3.12 --python-platform x86_64-manylinux_2_28 --emit-index-url --index-url https://download.pytorch.org/whl/cpu --extra-index-url https://pypi.org/simple --index-strategy unsafe-best-match --no-header -o requirements.lock
+torch==2.14.1+cpu
+transformers
+numpy
+onnx
+onnxruntime

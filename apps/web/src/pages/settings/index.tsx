@@ -15,6 +15,7 @@ import { JurisdictionsCard } from "./JurisdictionsCard.js";
 import { LlmCard } from "./LlmCard.js";
 import { MailIntakeCard } from "./MailIntakeCard.js";
 import { PasswordCard } from "./PasswordCard.js";
+import { ReplyModelCard } from "./ReplyModelCard.js";
 import { ResetCard } from "./ResetCard.js";
 import { RetentionCard } from "./RetentionCard.js";
 import { BodyRow, SETTINGS_WIDTH } from "./rows.js";
@@ -34,6 +35,7 @@ export const SECTION_NAMES: Record<SettingsSection, string> = {
   sites: "Sites",
   worker: "Workers",
   "mail-intake": "Mail intake",
+  "reply-model": "Reply model",
   "language-model": "Language model",
   jurisdictions: "Laws",
   retention: "Retention",
@@ -162,6 +164,9 @@ export function Component() {
             </Anchor>
             <Anchor id="mail-intake">
               <MailIntakeCard />
+            </Anchor>
+            <Anchor id="reply-model">
+              <ReplyModelCard model={settings.data.replyModel} />
             </Anchor>
             <Anchor id="language-model">
               <LlmCard llm={settings.data.llm} />

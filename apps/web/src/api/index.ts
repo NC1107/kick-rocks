@@ -1,5 +1,6 @@
 export {
   callRoute,
+  routeUrl,
   screenshotUrl,
   sendScreenshotUrl,
 } from "./client.js";

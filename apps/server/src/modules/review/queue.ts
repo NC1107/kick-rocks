@@ -1,4 +1,12 @@
-import { mailboxes, matches, messages, requests, targets, tasks } from "@kickrocks/db";
+import {
+  mailboxes,
+  matches,
+  messages,
+  replyPredictions,
+  requests,
+  targets,
+  tasks,
+} from "@kickrocks/db";
 import {
   type BlockedReason,
   type BlockedTaskItem,
@@ -13,6 +21,7 @@ import {
   WebUrl,
 } from "@kickrocks/shared";
 import { and, desc, eq, gte, inArray, sql } from "drizzle-orm";
+import { suggestionOf } from "../../core/reply-predictions.js";
 import type { Task } from "../../core/task-types.js";
 import type { AppServices } from "../../services.js";
 import { toMatch, toMessageSummary } from "./mappers.js";
@@ -193,23 +202,26 @@ function unreviewedMessages(services: AppServices, profileId: string | undefined
       message: messages,
       reference: requests.reference,
       targetName: targets.name,
+      prediction: replyPredictions,
       targetId: targets.id,
     })
     .from(messages)
     .innerJoin(mailboxes, eq(messages.mailboxId, mailboxes.id))
     .leftJoin(requests, eq(messages.requestId, requests.id))
     .leftJoin(targets, eq(requests.targetId, targets.id))
+    .leftJoin(replyPredictions, eq(replyPredictions.messageId, messages.id))
     .where(
       and(eq(messages.reviewed, false), profileId ? eq(mailboxes.profileId, profileId) : undefined),
     )
     .orderBy(desc(messages.receivedAt), desc(sql`${messages}.rowid`))
     .limit(MESSAGE_LIMIT)
     .all();
-  return rows.map(({ message, reference, targetName, targetId }) => ({
+  return rows.map(({ message, reference, targetName, targetId, prediction }) => ({
     ...toMessageSummary(message),
     requestReference: reference,
     targetName,
     targetId,
+    suggestion: suggestionOf(prediction),
   }));
 }
 

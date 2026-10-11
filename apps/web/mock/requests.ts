@@ -296,6 +296,7 @@ export function buildRequest(store: MockStore, input: NewRequest): StoredRequest
       admittedBy: "reference",
       requestReference: reference,
       targetName: target.name,
+      suggestion: null,
       targetId: target.id,
     };
     store.messages.push(message);
@@ -335,6 +336,7 @@ export function buildRequest(store: MockStore, input: NewRequest): StoredRequest
       requestReference: reference,
       targetName: target.name,
       targetId: target.id,
+      suggestion: null,
     };
     store.messages.push(message);
     addEvent(store, request, "reply_received", "system", receivedAt, {
@@ -611,8 +613,13 @@ function detailOf(store: MockStore, request: StoredRequest): RequestDetail {
   const messages: MessageSummary[] = store.messages
     .filter((message) => message.requestId === request.id)
     .map(
-      ({ requestReference: _reference, targetName: _name, targetId: _target, ...message }) =>
-        message,
+      ({
+        requestReference: _reference,
+        targetName: _name,
+        targetId: _target,
+        suggestion: _suggestion,
+        ...message
+      }) => message,
     );
   const tasks = store.tasks.filter((task) => task.requestId === request.id);
   return {

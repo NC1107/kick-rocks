@@ -223,6 +223,7 @@ function applyFinishedPoll(store: MockStore, poll: MockPoll, matchedRequestId: s
       requestReference: matched.reference,
       targetName: matched.target.name,
       targetId: matched.target.id,
+      suggestion: null,
     };
     store.messages.push(message);
     addEvent(store, matched, "reply_received", "system", at, {
@@ -781,6 +782,12 @@ function takenIn(store: MockStore, mailboxId: string, line: MailLine): MessageSu
     reviewed: false,
     admittedBy: "person",
   };
-  store.messages.push({ ...message, requestReference: null, targetName: null, targetId: null });
+  store.messages.push({
+    ...message,
+    requestReference: null,
+    targetName: null,
+    targetId: null,
+    suggestion: null,
+  });
   return message;
 }

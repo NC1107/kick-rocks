@@ -129,7 +129,8 @@ export function LlmCard({ llm }: { llm: LlmSettingsView | null }) {
             </GroupFooter>
           </RowGroup>
           <GroupNote>
-            Classifies replies the rules cannot place. Any OpenAI-compatible endpoint works. The
+            Used only when the reply model is not available. Its answers are suggestions: they show
+            in Review and are never applied by themselves. Any OpenAI-compatible endpoint works. The
             subject and the first part of the reply text are sent to this address, and a reply can
             quote your name or ask for details like your address, so a model on your own machine is
             the safer pick.
@@ -146,7 +147,7 @@ export function LlmCard({ llm }: { llm: LlmSettingsView | null }) {
         open={removing}
         onClose={() => setRemoving(false)}
         title="Remove the language model?"
-        description="Replies the rules cannot place will wait in Review instead."
+        description="Replies the rules and the reply model cannot place will wait in Review without a suggestion."
         confirmLabel="Remove"
         destructive
         loading={save.isPending}

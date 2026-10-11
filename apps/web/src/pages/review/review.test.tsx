@@ -96,7 +96,7 @@ describe("the review queue", () => {
     expect(await screen.findByRole("heading", { name: "Blocked · 6" })).toBeVisible();
     expect(screen.getByRole("heading", { name: "Records · 3" })).toBeVisible();
     expect(screen.getByRole("heading", { name: "Details asked · 2" })).toBeVisible();
-    expect(screen.getByRole("heading", { name: "Unsorted mail · 2" })).toBeVisible();
+    expect(screen.getByRole("heading", { name: "Unsorted mail · 4" })).toBeVisible();
     expect(screen.getByRole("heading", { name: "Failed · 1" })).toBeVisible();
     const list = within(screen.getByRole("navigation", { name: "Review queue" }));
     expect(list.getByRole("button", { name: /FindRecord/ })).toHaveAttribute(
@@ -627,6 +627,67 @@ describe("the review queue", () => {
         name: "Unknown",
       }),
     ).not.toBeInTheDocument();
+  });
+
+  describe("a suggestion on unclassified mail", () => {
+    it("starts the select on the reply model's guess and says where it came from", async () => {
+      const { user, mock } = open("mail");
+      const message = await openItem(
+        user,
+        /please confirm/,
+        "Re: Opt-out request - please confirm",
+      );
+      expect(message.getByText("Suggested by the reply model, 87% sure")).toBeVisible();
+      expect(message.getByLabelText("What is this message")).toHaveValue("confirmation_link");
+      expect(message.getByRole("button", { name: "Classify" })).toBeEnabled();
+      await user.click(message.getByRole("button", { name: "Classify" }));
+      await waitFor(() =>
+        expect(
+          mock.store.messages.find(
+            (candidate) => candidate.subject === "Re: Opt-out request - please confirm",
+          )?.classification,
+        ).toBe("confirmation_link"),
+      );
+    });
+
+    it("lets a quick pick override it", async () => {
+      const { user } = open("mail");
+      const message = await openItem(
+        user,
+        /please confirm/,
+        "Re: Opt-out request - please confirm",
+      );
+      await user.click(message.getByRole("button", { name: /Automatic reply/ }));
+      expect(message.getByLabelText("What is this message")).toHaveValue("auto_ack");
+    });
+
+    it("asks before applying a guess that settles the request", async () => {
+      const { user, mock } = open("mail");
+      const message = await openItem(user, /Re: Opt-out request(?! -)/, "Re: Opt-out request");
+      expect(message.getByLabelText("What is this message")).toHaveValue("no_record");
+      await user.click(message.getByRole("button", { name: "Classify" }));
+      const dialog = within(await screen.findByRole("dialog"));
+      expect(dialog.getByText(/Mark this message as/)).toBeVisible();
+      expect(
+        mock.store.messages.find((candidate) => candidate.subject === "Re: Opt-out request")
+          ?.reviewed,
+      ).toBe(false);
+    });
+
+    it("leaves a spot check unanswered, so the guess cannot sway the answer", async () => {
+      const { user } = open("mail");
+      const message = await openItem(user, /Ticket 20931/, "Ticket 20931 received");
+      expect(message.getByLabelText("What is this message")).toHaveValue("");
+      expect(message.queryByText(/Suggested by/)).not.toBeInTheDocument();
+      expect(message.getByRole("button", { name: "Classify" })).toBeDisabled();
+    });
+
+    it("shows Choose one when nothing was guessed", async () => {
+      open("mail");
+      const message = await card("Your recent message");
+      expect(message.getByLabelText("What is this message")).toHaveValue("");
+      expect(message.queryByText(/Suggested by/)).not.toBeInTheDocument();
+    });
   });
 
   it("lists a task nobody has taken and lets a person finish it themselves", async () => {

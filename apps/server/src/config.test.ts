@@ -13,6 +13,7 @@ describe("loadConfig", () => {
       workerToken: null,
       extraTargetsPath: null,
       extraRecipesDir: null,
+      replyModelDir: null,
       schedulerEnabled: true,
       sendGapMs: { min: 20_000, max: 60_000 },
       mail: { plaintextHosts: [] },

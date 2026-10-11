@@ -27,7 +27,7 @@ import { curatedReplyDomainsOfRow, withTrustedConfirmationSenders } from "../../
 import { formLinkAmong } from "../../mail/form-link.js";
 import { matchSignals } from "../../mail/reply-rules.js";
 import { phoneNumberIn, stripQuoted } from "../../mail/reply-text.js";
-import { CONFIDENCE_THRESHOLD } from "../../runners/reply.js";
+import { RULES_THRESHOLD } from "../../mail/thresholds.js";
 import type { AppServices } from "../../services.js";
 
 /** Classifications that mean no decision and no redirect, so a redirect hidden in one is a misfiling. */
@@ -102,7 +102,7 @@ export function createRequestsApi(services: AppServices): RequestsApi {
     const asked = rows.filter((row) => row.classification === "needs_form").at(-1);
     if (!asked) return readAsFormRequest(rows);
     const optOutUrl = target?.optOutUrl ?? null;
-    if (asked.confidence < CONFIDENCE_THRESHOLD) {
+    if (asked.confidence < RULES_THRESHOLD) {
       return {
         messageId: asked.id,
         state: "unconfirmed",

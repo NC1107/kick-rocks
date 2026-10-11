@@ -636,6 +636,18 @@ if [ -z "${KICKROCKS_VERSION:-}" ]; then
   export KICKROCKS_VERSION
 fi
 
+# The reply model is a release asset pinned in the repo. The image bundles it once a release is
+# pinned there, unless REPLY_MODEL=none says to leave it out.
+pin="apps/server/reply-model/release.json"
+if [ -z "${REPLY_MODEL:-}" ] && [ -f "$pin" ]; then
+  REPLY_MODEL_URL="$(sed -n 's/.*"url": *"\([^"]*\)".*/\1/p' "$pin")"
+  REPLY_MODEL_SHA256="$(sed -n 's/.*"tarSha256": *"\([^"]*\)".*/\1/p' "$pin")"
+  if [ -n "$REPLY_MODEL_URL" ] && [ -n "$REPLY_MODEL_SHA256" ]; then
+    REPLY_MODEL=bundled
+    export REPLY_MODEL REPLY_MODEL_URL REPLY_MODEL_SHA256
+  fi
+fi
+
 docker compose up -d --build --wait --wait-timeout 180 || {
   echo >&2
   echo "Kick Rocks did not become ready. See why with: docker compose logs server" >&2

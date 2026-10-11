@@ -24,6 +24,7 @@ import {
   RecipeSource,
   RecipeStatus,
   ReplyClassification,
+  ReplySource,
   RequestActor,
   RequestChannel,
   type RequestEventPayloads,
@@ -408,6 +409,41 @@ export const intakeShadow = sqliteTable(
   (t) => [uniqueIndex("intake_shadow_uid_idx").on(t.mailboxId, t.uidValidity, t.imapUid)],
 );
 
+/**
+ * What the machine made of a message, kept apart from `messages` because a person's answer
+ * overwrites the classification there. It holds no mail text: a check rebuilds the model's input
+ * from the stored message and skips a row whose digest no longer matches. It never leaves the
+ * instance except in the backup of the database it lives in.
+ */
+export const replyPredictions = sqliteTable(
+  "reply_predictions",
+  {
+    messageId: text("message_id")
+      .primaryKey()
+      .references(() => messages.id, { onDelete: "cascade" }),
+    /** The stage that answered, or whose guess is in `model_label`. */
+    source: text("source", { enum: values(ReplySource.options) }).notNull(),
+    modelVersion: text("model_version"),
+    /** The guess of the reply model or the language model, whichever `source` names. */
+    modelLabel: text("model_label", { enum: values(ReplyClassification.options) }),
+    modelConfidence: real("model_confidence"),
+    probabilities: text("probabilities", { mode: "json" }).$type<Record<string, number>>(),
+    rulesLabel: text("rules_label", { enum: values(ReplyClassification.options) }).notNull(),
+    rulesConfidence: real("rules_confidence").notNull(),
+    inputSha256: text("input_sha256"),
+    /** The answer was acted on without a person. */
+    autoApplied: integer("auto_applied", { mode: "boolean" }).notNull(),
+    /** A model answer above the threshold held back for a person, to measure its precision. */
+    spotCheck: integer("spot_check", { mode: "boolean" }).notNull(),
+    personLabel: text("person_label", { enum: values(ReplyClassification.options) }),
+    /** Whether the person's answer matched the machine's. Null until a person answers. */
+    acceptedSuggestion: integer("accepted_suggestion", { mode: "boolean" }),
+    decidedAt: timestamp("decided_at"),
+    createdAt: timestamp("created_at").notNull(),
+  },
+  (t) => [index("reply_predictions_spot_idx").on(t.spotCheck, t.decidedAt)],
+);
+
 export const tasks = sqliteTable(
   "tasks",
   {
@@ -663,6 +699,7 @@ export type RequestRow = typeof requests.$inferSelect;
 export type RequestEventRow = typeof requestEvents.$inferSelect;
 export type OutgoingMailRow = typeof outgoingMail.$inferSelect;
 export type MessageRow = typeof messages.$inferSelect;
+export type ReplyPredictionRow = typeof replyPredictions.$inferSelect;
 export type TaskRow = typeof tasks.$inferSelect;
 export type TaskSendRow = typeof taskSends.$inferSelect;
 export type TaskArtifactRow = typeof taskArtifacts.$inferSelect;
