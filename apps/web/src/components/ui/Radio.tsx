@@ -8,7 +8,11 @@ export interface RadioOption<V extends string> {
   description?: ReactNode;
   /** A mono value at the trailing edge in the "rows" variant, such as a count. */
   meta?: ReactNode;
+  /** Shown under the description at full strength even when the option is disabled, to say why. */
+  note?: ReactNode;
   disabled?: boolean;
+  /** Where a dialog puts focus when it opens, so a keyboard starts at the choice, not past it. */
+  autoFocus?: boolean;
 }
 
 export interface RadioGroupProps<V extends string> {
@@ -70,7 +74,7 @@ export function RadioGroup<V extends string>({
             key={option.value}
             data-selected={rows && value === option.value ? "true" : undefined}
             className={cn(
-              "flex cursor-pointer items-start gap-2.5 has-disabled:cursor-not-allowed has-disabled:opacity-60",
+              "flex cursor-pointer items-start gap-2.5 has-disabled:cursor-not-allowed",
               rows &&
                 cn(
                   "marked min-h-row items-center px-3.5 py-2 transition-colors duration-100",
@@ -78,13 +82,16 @@ export function RadioGroup<V extends string>({
                 ),
             )}
           >
-            <span className="relative mt-px inline-flex shrink-0">
+            <span
+              className={cn("relative mt-px inline-flex shrink-0", option.disabled && "opacity-60")}
+            >
               <input
                 type="radio"
                 name={groupName}
                 value={option.value}
                 checked={value === option.value}
                 disabled={option.disabled}
+                data-autofocus={option.autoFocus ? "" : undefined}
                 onChange={() => onValueChange(option.value)}
                 className={cn(
                   BOX_CLASS,
@@ -97,13 +104,23 @@ export function RadioGroup<V extends string>({
               />
             </span>
             <span className="flex min-w-0 flex-1 flex-col">
-              <span className="text-ui text-ink">{option.label}</span>
+              <span className={cn("text-ui text-ink", option.disabled && "opacity-60")}>
+                {option.label}
+              </span>
               {option.description ? (
-                <span className="text-meta text-ink-3">{option.description}</span>
+                <span className={cn("text-meta text-ink-3", option.disabled && "opacity-60")}>
+                  {option.description}
+                </span>
               ) : null}
+              {option.note ? <span className="text-meta text-ink-2">{option.note}</span> : null}
             </span>
             {option.meta ? (
-              <span className="max-w-[45%] shrink-0 text-right font-mono text-meta text-ink-3 tabular-nums">
+              <span
+                className={cn(
+                  "max-w-[45%] shrink-0 text-right font-mono text-meta text-ink-3 tabular-nums",
+                  option.disabled && "opacity-60",
+                )}
+              >
                 {option.meta}
               </span>
             ) : null}

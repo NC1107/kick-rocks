@@ -5,7 +5,7 @@ const part = encodeURIComponent;
 /** The kinds of thing Review can open on its own, as the `item` it is told to select. */
 export type ReviewKey =
   | "scans"
-  | `${"blocked" | "failed" | "agent"}:${string}`
+  | `${"blocked" | "failed" | "agent" | "yours"}:${string}`
   | `match:${string}`
   | `details:${string}`
   | `mail:${string}`;
@@ -43,7 +43,8 @@ const SETTINGS_PAGES: ReadonlySet<SettingsPage | SettingsSection> = new Set([
   "notifications",
 ]);
 
-export type TaskRef = Pick<TaskSummary, "id" | "kind" | "status" | "requestId">;
+export type TaskRef = Pick<TaskSummary, "id" | "kind" | "status" | "requestId"> &
+  Partial<Pick<TaskSummary, "assignment">>;
 
 /**
  * Where a task can be looked at. A task that stopped or failed has a place in Review; any other
@@ -53,7 +54,8 @@ export function taskPath(task: TaskRef): string | null {
   if (task.status === "blocked") return `/review?item=${part(`blocked:${task.id}`)}`;
   if (task.status === "failed") return `/review?item=${part(`failed:${task.id}`)}`;
   if (task.status === "queued" && task.kind === "agent") {
-    return `/review?item=${part(`agent:${task.id}`)}`;
+    const mine = task.assignment?.to.kind === "person";
+    return `/review?item=${part(`${mine ? "yours" : "agent"}:${task.id}`)}`;
   }
   return task.requestId ? `/requests/${part(task.requestId)}` : null;
 }

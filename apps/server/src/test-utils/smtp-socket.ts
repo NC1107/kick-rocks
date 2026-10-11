@@ -53,9 +53,10 @@ export async function startSmtpSocketFake(
       for (;;) {
         if (data !== null) {
           if (mode === "drop_mid_body") {
-            // Reading stops so the sender's buffers fill and the connection dies with the body unfinished.
-            socket.pause();
-            setTimeout(() => socket.destroy(), 100);
+            // The first body bytes prove the sender is mid-body, and a body larger than one chunk
+            // cannot have been fully written yet, so no timer is needed to catch it there.
+            if (buffer.length === 0) return;
+            socket.destroy();
             return;
           }
           const end = buffer.indexOf("\r\n.\r\n");

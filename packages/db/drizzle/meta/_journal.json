@@ -89,8 +89,22 @@
     {
       "idx": 12,
       "version": "6",
-      "when": 1791705827575,
-      "tag": "0012_reply_predictions",
+      "when": 1791703112260,
+      "tag": "0012_task_assignment",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "6",
+      "when": 1791704635797,
+      "tag": "0013_claimer_last_claim",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "6",
+      "when": 1791723609335,
+      "tag": "0014_reply_predictions",
       "breakpoints": true
     }
   ]

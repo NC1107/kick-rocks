@@ -10,6 +10,7 @@ import * as legalExports from "@kickrocks/legal";
 import type { BrokerDataset, CompanyDataset } from "@kickrocks/shared";
 import type { Config } from "./config.js";
 import type { AuthService } from "./core/auth.js";
+import { type Claimers, createClaimers } from "./core/claimers.js";
 import { type Clock, systemClock } from "./core/clock.js";
 import { type Composer, createComposer } from "./core/composer.js";
 import { createDiskReserve, type DiskReserve } from "./core/disk-reserve.js";
@@ -62,6 +63,8 @@ export interface AppServices {
   logger: Logger;
   settings: SettingsStore;
   taskQueue: TaskQueue;
+  /** The workers and MCP clients that have called in, one row each. */
+  claimers: Claimers;
   /** What an agent run's browser sent, and the approvals of what it held. */
   taskSends: TaskSends;
   /** Which browser tasks may start now, shared by the queue, the status routes, and the scheduler. */
@@ -202,6 +205,7 @@ export function createServices(
     logger,
     settings,
     taskQueue,
+    claimers: createClaimers(db, clock),
     taskSends: createTaskSends({ db, clock }),
     politeness,
     taskHandlers,

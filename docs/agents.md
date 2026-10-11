@@ -96,6 +96,21 @@ The new task says which human check stopped the earlier run.
 `workerId` names you in the lease, so use the same one for every call about a task.
 Only a task you claimed through mcp can be completed, blocked, failed, or released through mcp.
 
+### Tasks assigned to you
+
+A person can assign a waiting agent task to one agent worker or one MCP client from its request page.
+The assignment names the `workerId` you send, so give each client a stable id of its own.
+Clients that share one id are treated as one.
+A claim without `taskId` takes the task assigned to your `workerId` first, then the unassigned ones, and never a task assigned to someone else or kept by the person.
+A claim with a `taskId` that is assigned to someone else fails with `task_assigned`, and one the person kept fails with `assigned_to_person`.
+This holds for a blocked task too, which keeps its assignment while it waits for Review.
+A task assigned to an MCP client goes back to the fallback the person chose when the client has not called `claim_task` for agent tasks (without a `taskId`) for 30 minutes.
+Other calls, such as `heartbeat_task`, show the client is there but not that it would take the task.
+`list_tasks` shows each task's `assignment`.
+Assigning chooses who gets the task, not who may have it: anyone holding the token can claim under any `workerId`.
+It does not change the gate, so an assigned model that is not cleared still has every send held, and a site your client cannot take is still left to a worker.
+If the agent a task was assigned to is not seen for 30 minutes, the task goes to any agent or back to the person, as they chose.
+
 ## What a task looks like
 
 A claim returns a task like this.
@@ -399,7 +414,7 @@ What the gate does not hold, so you know what you are trusting:
 | `KICKROCKS_AGENT_API_KEY` | A key for the endpoint. ollama needs none. For `anthropic` it falls back to `ANTHROPIC_API_KEY`. |
 | `KICKROCKS_AGENT_NUM_CTX` | The `ollama` provider's context window in tokens. Default 16384, minimum 2048. |
 | `KICKROCKS_AGENT_THINKING` | `default` leaves a thinking model as it is. `off` asks it not to think, so its output cap goes to the answer: `ollama` sends `think: false`, and `openai` sends `reasoning_effort: none`, which ollama's endpoint takes and a hosted api may refuse. A model that cannot turn thinking off, such as gpt-oss, ignores it. |
-| `KICKROCKS_AGENT_WORKER_ID` | Names this worker to the server. Defaults to the host name plus `-agent`. Compose passes it to the worker as `KICKROCKS_WORKER_ID`. |
+| `KICKROCKS_AGENT_WORKER_ID` | Names this worker to the server, and tasks a person assigns to it follow that name, so give each worker a stable id. Compose defaults it to `agent-worker`; outside Docker it defaults to the host name plus `-agent`. A container's host name changes with every recreate, so do not rely on that default there. Compose passes it to the worker as `KICKROCKS_WORKER_ID`. |
 | `KICKROCKS_AGENT_MAX_STEPS` | Tool calls one task may use. Default 40. |
 | `KICKROCKS_AGENT_MAX_MINUTES` | Wall time one task may use. Default 10. |
 | `KICKROCKS_AGENT_MAX_TOTAL_TOKENS` | Optional token budget for one task. |

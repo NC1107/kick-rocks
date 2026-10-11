@@ -209,6 +209,8 @@
   --kr-surface: light-dark(#ffffff, #1c1c1e);
   --kr-hover: light-dark(#f0f2f4, #232326);
   --kr-active: light-dark(#e6e9ed, #27272a);
+  /* Lighter than active in dark, so a disabled button still reads as a button on a popover */
+  --kr-disabled: light-dark(#e6e9ed, #34343b);
   /* Inset in dark, so a field reads as a hole in the surface rather than a raised plate */
   --kr-field: light-dark(#ffffff, #0f0f10);
   --kr-popover: light-dark(#ffffff, #2b2b31);
@@ -413,6 +415,7 @@
   --color-surface: var(--kr-surface);
   --color-hover: var(--kr-hover);
   --color-active: var(--kr-active);
+  --color-disabled: var(--kr-disabled);
   --color-field: var(--kr-field);
   --color-popover: var(--kr-popover);
   --color-popover-hover: var(--kr-popover-hover);

@@ -1,5 +1,6 @@
 export * from "./agent-models.js";
 export * from "./api.js";
+export * from "./assignment.js";
 export * from "./auth.js";
 export * from "./broker.js";
 export * from "./campaigns.js";

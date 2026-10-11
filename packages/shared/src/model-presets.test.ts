@@ -43,6 +43,7 @@ describe("the model presets", () => {
         "KICKROCKS_AGENT_PROVIDER=ollama",
         "KICKROCKS_AGENT_MODEL=gpt-oss:20b",
         "KICKROCKS_AGENT_NUM_CTX=16384",
+        "KICKROCKS_AGENT_WORKER_ID=agent-worker",
       ]),
     );
   });

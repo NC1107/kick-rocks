@@ -1,6 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import type { ModulePlugin } from "../core/module.js";
 import type { AppServices } from "../services.js";
+import { agentsModule } from "./agents/index.js";
 import { authModule } from "./auth/index.js";
 import { campaignsModule } from "./campaigns/index.js";
 import { dashboardModule } from "./dashboard/index.js";
@@ -36,6 +37,7 @@ export const MODULES: readonly ModuleRegistration[] = [
   { name: "dashboard", plugin: dashboardModule, prefix: "/api" },
   { name: "scans", plugin: scansModule, prefix: "/api" },
   { name: "review", plugin: reviewModule, prefix: "/api" },
+  { name: "agents", plugin: agentsModule, prefix: "/api" },
   { name: "worker-api", plugin: workerApiModule, prefix: "/api" },
   { name: "recipes", plugin: recipesModule, prefix: "/api" },
   { name: "mcp", plugin: mcpModule, prefix: "/mcp" },

@@ -180,6 +180,7 @@ export const REQUEST_EVENT_LABELS: Record<RequestEventType, string> = {
   task_cancelled: "Task cancelled",
   task_resumed: "Task resumed",
   task_retrying: "Task retrying",
+  task_assigned: "Task assigned",
   user_action: "Action by you",
   relisted: "Record relisted",
   note: "Note",

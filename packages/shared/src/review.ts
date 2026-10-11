@@ -75,14 +75,24 @@ export function reviewAttention(
     "blockedTasks" | "matches" | "verifications" | "failedTasks" | "agentTasks" | "messages"
   >,
 ) {
+  const forAgents = queue.agentTasks.filter((item) => item.task.assignment?.to.kind !== "person");
   return {
     blockedTasks: queue.blockedTasks.length,
     pendingMatches: queue.matches.filter((match) => match.decision === "pending").length,
     needsVerification: queue.verifications.length,
     failedTasks: queue.failedTasks.length,
-    agentTasks: queue.agentTasks.length,
+    agentTasks: forAgents.length,
+    yourAgentTasks: queue.agentTasks.length - forAgents.length,
     unreviewedMessages: queue.messages.length,
   };
+}
+
+/** Which agents the tasks waiting for an agent are assigned to, for the dashboard tile and the digest. */
+export function agentAssignment(queue: Pick<ReviewQueue, "agentTasks">) {
+  const assignees = queue.agentTasks.flatMap(({ task }) =>
+    task.assignment && task.assignment.to.kind !== "person" ? [task.assignment.to.workerId] : [],
+  );
+  return { assignedAgentTasks: assignees.length, agentAssignees: [...new Set(assignees)].sort() };
 }
 
 export const MatchDecisionBody = z.object({

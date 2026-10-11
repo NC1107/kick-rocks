@@ -259,14 +259,8 @@ async function workerOffline(world) {
   const api = world.instance.api;
   await api.call(API_ROUTES.workerHeartbeat, { body: { workerId: "loop-worker", busy: false } });
   await startCampaign(world.instance, world.profileId, ["fx-captcha"]);
-  const [row] = await sqlRows(
-    world,
-    "select value from settings where key = 'worker.status.builtin'",
-  );
-  const status = JSON.parse(row.value);
-  status.lastSeenAt = isoAgo(DAY);
-  await sqlRows(world, "update settings set value = ? where key = 'worker.status.builtin'", [
-    JSON.stringify(status),
+  await sqlRows(world, "update claimers set last_seen_at = ? where kind = 'builtin'", [
+    isoAgo(DAY),
   ]);
   const peak = await duringFault(world);
   const tasks = await taskRows(world);

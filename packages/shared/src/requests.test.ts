@@ -365,6 +365,11 @@ describe("request events", () => {
       task_cancelled: { taskId: "t1", kind: "form" },
       task_resumed: { taskId: "t1", kind: "form" },
       task_retrying: { taskId: "t1", kind: "email_send", error: "timeout", attempt: 2 },
+      task_assigned: {
+        taskId: "t1",
+        to: { kind: "model", workerId: "nick-pc-agent" },
+        by: "user",
+      },
       user_action: { action: "mark_confirmed", note: null },
       relisted: { recordUrl: "https://broker.test/p/1", previousStatus: "confirmed" },
       note: { text: "Called, they said it is done." },

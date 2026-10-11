@@ -173,6 +173,7 @@ handle(API_ROUTES.targetsGet, ({ params }) => {
 - State lives in memory. Saving any file under `mock/` reloads the mock and re-seeds it on the next request.
 - `POST /__mock/reset` puts the fixtures back, and `GET /__mock/auth?mode=login|setup|authed` jumps the session to a state to test the auth gate.
 - `GET /__mock/health?state=ok|scheduler|sending|database|disk` makes the health check answer 503 for that problem, to check the degraded About page and sidebar.
+- `GET /__mock/agents?preset=none|one|several` sets which agent workers and MCP clients have connected, and queues an agent task on two requests, to check the assign picker and the agent callout with zero, one, or several agents.
 - `KICKROCKS_MOCK_LATENCY` sets the delay in milliseconds, 150 by default, and `KICKROCKS_MOCK_AUTH` sets where the mock starts.
 - Fixtures use fictional brokers on `.example` domains and fake people on `example.com`. A test fails on anything else, and on an em dash.
 - The worker API is not mocked, because the web app never calls it.

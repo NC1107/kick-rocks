@@ -295,6 +295,7 @@ function describePoll(store: MockStore, poll: MockPoll): MailboxPoll {
       finishedBy: null,
       claimerKind: null,
       usage: null,
+      assignment: null,
       createdAt: poll.createdAt,
       updatedAt,
     },

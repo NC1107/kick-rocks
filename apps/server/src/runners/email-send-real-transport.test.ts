@@ -159,15 +159,16 @@ describe("the email runner against the real transport", () => {
   it("mails again, and does not count it as sent, a message that dropped partway through its body", async () => {
     smtp.behave("drop_mid_body");
     const request = openRequest();
-    // A body this long cannot be buffered whole, so the connection dies while it is still being read.
+    // A body this long cannot be written in one chunk, so the connection dies while it is still being sent.
+    // Only the first attempt carries it: the retry has to finish within the ordinary socket timeout.
+    let oversized = true;
+    const ordinary = ctx.mail.services.transport;
     ctx.mail.services.transport = (connection) => {
-      const real = createMailTransport(connection, {
-        timeouts: { connectionMs: 300, socketMs: 2_000 },
-      });
+      const real = ordinary(connection);
       return {
         verify: () => real.verify(),
         send: (mail, hooks) =>
-          real.send({ ...mail, text: "Remove me.\n".repeat(1_000_000) }, hooks),
+          real.send(oversized ? { ...mail, text: "Remove me.\n".repeat(1_000_000) } : mail, hooks),
       };
     };
 
@@ -180,6 +181,7 @@ describe("the email runner against the real transport", () => {
     );
     expect(ctx.services.mailQuota.sentLastDay(mailboxId)).toBe(0);
 
+    oversized = false;
     smtp.behave("accept");
     for (let pass = 0; pass < 4 && smtp.received.length === 0; pass += 1) {
       ctx.clock.advance(HOUR);

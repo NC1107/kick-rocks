@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { shortRelative } from "../../lib/format.js";
-import { gutterTime } from "./format.js";
+import { clockTime, gutterTime } from "./format.js";
 
 const NOW = Date.parse("2026-10-07T12:00:00Z");
 const MINUTE = 60_000;
@@ -37,5 +37,13 @@ describe("gutterTime", () => {
 
   it("adds the year for an earlier year", () => {
     expect(gutterTime("2025-03-02T12:00:00Z", NOW)).toMatch(/2025/);
+  });
+});
+
+describe("clockTime", () => {
+  it("keeps the 24-hour clock the timeline uses, even in the afternoon", () => {
+    const afternoon = new Date(NOW);
+    afternoon.setHours(16, 5, 0, 0);
+    expect(clockTime(afternoon.toISOString())).toBe("16:05");
   });
 });

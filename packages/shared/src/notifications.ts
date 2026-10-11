@@ -9,6 +9,7 @@ export const NotificationCategory = z.enum([
   "mailbox",
   "recipe",
   "worker",
+  "agent_unavailable",
 ]);
 export type NotificationCategory = z.infer<typeof NotificationCategory>;
 
@@ -19,6 +20,7 @@ export const NOTIFICATION_CATEGORY_LABELS: Record<NotificationCategory, string> 
   mailbox: "Your mailbox fails",
   recipe: "A recipe breaks",
   worker: "The worker is offline while work waits",
+  agent_unavailable: "An agent you picked is offline and a task comes back to you",
 };
 
 const ntfyTopic = z

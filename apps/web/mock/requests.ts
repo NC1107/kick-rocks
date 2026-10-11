@@ -408,6 +408,7 @@ export function makeTask(
     finishedBy: fields.status === "done" || fields.status === "blocked" ? "home-worker" : null,
     claimerKind: fields.status === "queued" ? null : "builtin",
     usage: null,
+    assignment: null,
     createdAt: store.ago({ ...updatedAgo, hours: (updatedAgo.hours ?? 0) + 1 }),
     updatedAt: store.ago(updatedAgo),
     ...fields,
@@ -482,7 +483,7 @@ const JORDAN_REQUESTS: Seed[] = [
     },
   },
   { target: "tidewater-card-services", status: "draft", daysAgo: 1, rights: BOTH },
-  { target: "stayfield-hotels", status: "queued", daysAgo: 0, rights: OPT_OUT },
+  { target: "stayfield-hotels", status: "queued", daysAgo: 0, channel: "form", rights: OPT_OUT },
   {
     target: "pixelforge",
     status: "queued",

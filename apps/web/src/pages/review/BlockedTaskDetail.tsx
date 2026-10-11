@@ -1,4 +1,4 @@
-import type { BlockedTaskItem, FormOutcome, ProfileField } from "@kickrocks/shared";
+import type { BlockedTaskItem, ProfileField } from "@kickrocks/shared";
 import { API_ROUTES, resolveProfileFields } from "@kickrocks/shared";
 import { useState } from "react";
 import { errorMessage, screenshotUrl, useApiMutation, useApiQuery } from "../../api/index.js";
@@ -6,35 +6,32 @@ import {
   Button,
   ConfirmDialog,
   CopyButton,
-  Dialog,
   EntityLink,
   ExternalLinkText,
-  Field,
   Hatch,
-  InlineError,
   RelativeTime,
   Row,
   RowGroup,
   Section,
-  Select,
   Tag,
   TaskStatusMark,
-  Textarea,
   TextLink,
   useToast,
 } from "../../components/ui/index.js";
 import { describeFailure } from "../../lib/failures.js";
 import { BLOCKED_REASON_LABELS, PROFILE_FIELD_LABELS, TASK_KIND_LABELS } from "../../lib/labels.js";
 import { paths } from "../../lib/paths.js";
+import { AgentPanel } from "../assign/AgentPanel.js";
+import { AssignDialog } from "../assign/AssignDialog.js";
 import { DetailFrame } from "./DetailFrame.js";
 import { FailedGroupActions } from "./FailedGroupActions.js";
 import { HeldSendsPanel } from "./HeldSendsPanel.js";
+import { MarkDoneDialog } from "./MarkDoneDialog.js";
 import {
   awaitsSubmitApproval,
   canHandOff,
   canReportOutcome,
   instructionSteps,
-  OUTCOME_CHOICES,
   REVIEW_INVALIDATES,
   sentWithoutApproval,
 } from "./model.js";
@@ -106,7 +103,7 @@ export function BlockedTaskDetail({
   siblings = [],
 }: {
   item: BlockedTaskItem;
-  variant: "blocked" | "failed" | "agent";
+  variant: "blocked" | "failed" | "agent" | "yours";
   profileId: string;
   /** Failed tasks that failed the same way, this one included, for retrying or dismissing together. */
   siblings?: readonly BlockedTaskItem[];
@@ -119,8 +116,6 @@ export function BlockedTaskDetail({
   const [doneOpen, setDoneOpen] = useState(false);
   const [cancelOpen, setCancelOpen] = useState(false);
   const [handOffOpen, setHandOffOpen] = useState(false);
-  const [outcome, setOutcome] = useState<FormOutcome>("submitted");
-  const [note, setNote] = useState("");
   /** The requests the person leaves out when they approve what the last run held. */
   const [declined, setDeclined] = useState<string[]>([]);
   const logs = useApiQuery(API_ROUTES.taskSends, {
@@ -138,17 +133,6 @@ export function BlockedTaskDetail({
   const resume = useApiMutation(API_ROUTES.taskResume, {
     ...options,
     onSuccess: () => toast.success("Task resumed"),
-  });
-  const handOff = useApiMutation(API_ROUTES.taskHandOff, {
-    ...options,
-    onSuccess: () => {
-      setHandOffOpen(false);
-      toast.success(
-        "Handed to an agent",
-        "It waits under Waiting for an agent until one takes it.",
-      );
-    },
-    onError: () => setHandOffOpen(false),
   });
   const approve = useApiMutation(API_ROUTES.taskApproveSubmit, {
     ...options,
@@ -170,28 +154,11 @@ export function BlockedTaskDetail({
     },
     onError: () => setCancelOpen(false),
   });
-  const markDone = useApiMutation(API_ROUTES.taskMarkDone, {
-    ...options,
-    onSuccess: () => {
-      setDoneOpen(false);
-      toast.success("Marked done");
-    },
-  });
-
-  const reportsOutcome = canReportOutcome(task);
   const steps = instructionSteps(item.manualInstructions);
   const needsApproval = awaitsSubmitApproval(task);
   const mayBeSent = sentWithoutApproval(task);
-  const busy =
-    approve.isPending ||
-    resume.isPending ||
-    handOff.isPending ||
-    retry.isPending ||
-    cancel.isPending ||
-    markDone.isPending;
-  const footerError = [approve, resume, handOff, retry, cancel].find(
-    (mutation) => mutation.isError,
-  )?.error;
+  const busy = approve.isPending || resume.isPending || retry.isPending || cancel.isPending;
+  const footerError = [approve, resume, retry, cancel].find((mutation) => mutation.isError)?.error;
   const target = task.targetName ? { id: task.targetId, name: task.targetName } : undefined;
   const failure = variant === "failed" ? describeFailure(task) : null;
   const detail = failure ? failure.detail : (task.blockedDetail ?? null);
@@ -273,8 +240,7 @@ export function BlockedTaskDetail({
         </Button>
         {canHandOff(task) ? (
           <Button
-            loading={handOff.isPending}
-            disabled={(busy && !handOff.isPending) || agentAccessOff || agentAccessUnknown}
+            disabled={busy || agentAccessOff || agentAccessUnknown}
             onClick={() => setHandOffOpen(true)}
           >
             Hand to an agent
@@ -290,10 +256,10 @@ export function BlockedTaskDetail({
           </span>
         ) : null}
       </>
-    ) : variant === "agent" ? (
+    ) : variant === "agent" || variant === "yours" ? (
       <>
         <Button variant="primary" onClick={() => setDoneOpen(true)} disabled={busy}>
-          I did it myself
+          Mark done
         </Button>
         <Button variant="ghost" onClick={() => setCancelOpen(true)} disabled={busy}>
           Cancel task
@@ -345,6 +311,10 @@ export function BlockedTaskDetail({
           </div>
         ) : null}
 
+        {variant === "agent" || variant === "yours" ? (
+          <AgentPanel task={task} pageUrl={item.url} layout="section" />
+        ) : null}
+
         {detail ? <p className="break-words text-body text-ink">{detail}</p> : null}
 
         {task.hasScreenshot && !holdingNow ? <Screenshot taskId={task.id} /> : null}
@@ -378,12 +348,6 @@ export function BlockedTaskDetail({
           ) : (
             <p className="text-body text-ink">{steps.join(" ")}</p>
           )}
-          {variant === "agent" ? (
-            <p className="mt-2 text-meta text-ink-3">
-              An agent is an AI assistant you connect over MCP in{" "}
-              <TextLink to={paths.settings("agents")}>Settings</TextLink>.
-            </p>
-          ) : null}
           {item.url || failure?.needsProfile ? (
             <p className="mt-2.5 flex flex-wrap gap-x-4 gap-y-1 text-ui">
               {item.url ? (
@@ -409,88 +373,23 @@ export function BlockedTaskDetail({
         ) : null}
       </DetailFrame>
 
-      <ConfirmDialog
+      <AssignDialog
         open={handOffOpen}
         onClose={() => setHandOffOpen(false)}
-        title="Hand this task to an agent?"
-        description="An agent is an AI assistant you connected to Kick Rocks over MCP. The task leaves your hands and waits until a connected agent takes it. The agent then receives your name and email address, and what the page asks for from this profile, to fill in the form for you."
-        confirmLabel="Hand to an agent"
-        loading={handOff.isPending}
-        onConfirm={() => handOff.mutate({ params: { id: task.id } })}
-      >
-        <p className="text-ui text-ink-2">
-          Nothing happens until one is connected.{" "}
-          <TextLink to={paths.settings("agents")}>Connect one in Settings</TextLink>.
-        </p>
-      </ConfirmDialog>
+        task={task}
+        mode="handoff"
+      />
 
-      <Dialog
+      <MarkDoneDialog
         open={doneOpen}
-        onClose={() => {
-          setDoneOpen(false);
-          markDone.reset();
-        }}
-        title={variant === "agent" ? "Finish this task yourself" : "Mark this task done"}
-        description="Say how it ended, so the request moves to the right state."
-        dismissible={!markDone.isPending}
-        footer={
-          <>
-            <Button
-              onClick={() => {
-                setDoneOpen(false);
-                markDone.reset();
-              }}
-              disabled={markDone.isPending}
-            >
-              Cancel
-            </Button>
-            <Button
-              variant="primary"
-              loading={markDone.isPending}
-              onClick={() =>
-                markDone.mutate({
-                  params: { id: task.id },
-                  body: {
-                    ...(reportsOutcome ? { result: { outcome } } : {}),
-                    ...(note.trim() ? { note: note.trim() } : {}),
-                  },
-                })
-              }
-            >
-              Mark done
-            </Button>
-          </>
+        onClose={() => setDoneOpen(false)}
+        task={task}
+        title={
+          variant === "agent" || variant === "yours"
+            ? "Finish this task yourself"
+            : "Mark this task done"
         }
-      >
-        <div className="flex flex-col gap-4">
-          {reportsOutcome ? (
-            <Field
-              label="How did it end"
-              help={OUTCOME_CHOICES.find((choice) => choice.value === outcome)?.hint}
-            >
-              <Select
-                value={outcome}
-                onChange={(event) => setOutcome(event.target.value as FormOutcome)}
-              >
-                {OUTCOME_CHOICES.map((choice) => (
-                  <option key={choice.value} value={choice.value}>
-                    {choice.label}
-                  </option>
-                ))}
-              </Select>
-            </Field>
-          ) : null}
-          <Field label="Note" optional help="Shown on the request timeline.">
-            <Textarea
-              value={note}
-              onChange={(event) => setNote(event.target.value)}
-              maxLength={2000}
-              rows={3}
-            />
-          </Field>
-          {markDone.isError ? <InlineError>{errorMessage(markDone.error)}</InlineError> : null}
-        </div>
-      </Dialog>
+      />
 
       <ConfirmDialog
         open={cancelOpen}

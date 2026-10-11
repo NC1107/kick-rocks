@@ -811,3 +811,65 @@ describe("propose_recipe", () => {
     expect(error.code).toBe("too_many_proposals");
   });
 });
+
+describe("who the server has heard from", () => {
+  it("notes an MCP client by the worker id it gives, once for a burst of calls", async () => {
+    const client = await connect();
+    await call(client, "claim_task", { workerId: "desk-client" });
+    await call(client, "claim_task", { workerId: "desk-client" });
+    await call(client, "claim_task", { workerId: "other-client" });
+    const rows = ctx.services.claimers.listAgents().filter((row) => row.kind === "mcp");
+    expect(rows.map((row) => row.workerId).sort()).toEqual(["desk-client", "other-client"]);
+  });
+
+  it("counts only a claim for agent tasks as the client being available to take one", async () => {
+    const client = await connect();
+    await callError(client, "claim_task", { workerId: "desk-client", taskId: "missing" });
+    await call(client, "claim_task", { workerId: "desk-client", kinds: ["scan"] });
+    expect(ctx.services.claimers.lastSeenAt("mcp", "desk-client")).not.toBeNull();
+    expect(ctx.services.claimers.lastAvailableAt("mcp", "desk-client")).toBeNull();
+    await call(client, "claim_task", { workerId: "desk-client" });
+    expect(ctx.services.claimers.lastAvailableAt("mcp", "desk-client")).toBe(
+      ctx.clock.now().toISOString(),
+    );
+  });
+
+  it("shows list_tasks who a task is assigned to", async () => {
+    const { profile, target } = agentScanTask();
+    const task = ctx.services.taskQueue.list({ kinds: ["agent"], status: "queued" })[0];
+    ctx.services.taskQueue.assign(task?.id ?? "", {
+      to: { kind: "mcp", workerId: "desk-client" },
+      at: ctx.clock.now().toISOString(),
+      by: "user",
+      fallback: "any",
+    });
+    const { tasks } = await call<{ tasks: { assignment: { to: unknown } | null }[] }>(
+      await connect(),
+      "list_tasks",
+      {},
+    );
+    expect(tasks[0]?.assignment?.to).toEqual({ kind: "mcp", workerId: "desk-client" });
+    expect(profile.id).toBeTruthy();
+    expect(target.id).toBeTruthy();
+  });
+
+  it("leaves a task assigned to another client for claim_task by id to refuse", async () => {
+    agentScanTask();
+    const task = ctx.services.taskQueue.list({ kinds: ["agent"], status: "queued" })[0];
+    ctx.services.taskQueue.assign(task?.id ?? "", {
+      to: { kind: "mcp", workerId: "desk-client" },
+      at: ctx.clock.now().toISOString(),
+      by: "user",
+      fallback: "any",
+    });
+    const client = await connect();
+    expect(await call(client, "claim_task", { workerId: "other" })).toEqual({ task: null });
+    expect(
+      (await callError(client, "claim_task", { workerId: "other", taskId: task?.id })).code,
+    ).toBe("task_assigned");
+    const mine = await call<{ task: { id: string } }>(client, "claim_task", {
+      workerId: "desk-client",
+    });
+    expect(mine.task.id).toBe(task?.id);
+  });
+});

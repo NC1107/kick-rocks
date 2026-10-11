@@ -142,6 +142,7 @@ export function summary(id: string): TaskSummary {
     finishedBy: "test-worker",
     claimerKind: "builtin",
     usage: null,
+    assignment: null,
     attempts: 1,
     maxAttempts: 3,
     lastError: null,

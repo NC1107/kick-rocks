@@ -73,6 +73,7 @@ const summary: TaskSummary = {
   finishedBy: "worker-1",
   claimerKind: "builtin",
   usage: null,
+  assignment: null,
   attempts: 1,
   maxAttempts: 3,
   lastError: null,

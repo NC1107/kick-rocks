@@ -126,8 +126,6 @@ export const SETTING_SCHEMAS = {
    * next run. 0 defers every send, for a person who approves in batches.
    */
   "agent.approvalHoldMinutes": z.number().int().min(0).max(120).default(10),
-  "worker.status.builtin": WorkerStatus.nullable().default(null),
-  "worker.status.model": WorkerStatus.nullable().default(null),
   notifications: NotificationSettings.default(NotificationSettings.parse({})),
   "notifications.state": NotificationState.default(NotificationState.parse({})),
 } as const;

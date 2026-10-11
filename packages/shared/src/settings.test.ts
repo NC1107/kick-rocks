@@ -70,8 +70,6 @@ describe("SETTING_SCHEMAS", () => {
         "agent.takeUnreviewed",
         "agent.gate",
         "agent.approvalHoldMinutes",
-        "worker.status.builtin",
-        "worker.status.model",
         "notifications",
         "notifications.state",
         "replyModel",

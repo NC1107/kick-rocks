@@ -2,12 +2,14 @@ import { mailboxes, requests, targets } from "@kickrocks/db";
 import type { Broker } from "@kickrocks/shared";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { collectAttention } from "../modules/notifications/attention.js";
 import { createRunners, runnersOf } from "../runners/index.js";
 import {
   createTestContext,
   DAY,
   HOUR,
   MINUTE,
+  seedClaimer,
   seedMailbox,
   seedProfile,
   seedRecipe,
@@ -669,13 +671,7 @@ describe("the dead-man's-switch heartbeat", () => {
   });
 
   const workerSeen = (agoMs: number) =>
-    ctx.services.settings.set("worker.status.builtin", {
-      workerId: "w1",
-      version: null,
-      lastSeenAt: new Date(ctx.clock.now().getTime() - agoMs).toISOString(),
-      busy: false,
-      currentTaskId: null,
-    });
+    seedClaimer(ctx, { kind: "builtin", workerId: "w1", agoMs });
 
   it("stops pinging once a worker that has run before has been silent for over an hour", async () => {
     const pings: number[] = [];
@@ -700,5 +696,141 @@ describe("the dead-man's-switch heartbeat", () => {
     await beating.tick();
     expect(pings).toHaveLength(1);
     await beating.stop();
+  });
+});
+
+describe("an assignment that goes quiet", () => {
+  const request = () => {
+    const target = seedTarget(ctx, { category: "people-search" });
+    return seedRequest(ctx, { profileId, targetId: target.id, status: "queued", channel: "form" });
+  };
+
+  function assigned(fallback: "any" | "person", requestId: string | null = null) {
+    const target = seedTarget(ctx, { category: "people-search" });
+    const task = seedTask(ctx, {
+      kind: "agent",
+      payload: {
+        purpose: "scan",
+        profileId,
+        targetId: target.id,
+        requestId: null,
+        recordUrl: null,
+        variant: null,
+        rights: [],
+        reason: "no_recipe",
+        previousError: null,
+        blockedReason: null,
+      },
+      profileId,
+      targetId: target.id,
+      requestId,
+      assignment: {
+        to: { kind: "model", workerId: "nick-pc-agent" },
+        at: ctx.clock.now().toISOString(),
+        by: "user",
+        fallback,
+      },
+    });
+    return task;
+  }
+
+  const live = (id: string) => ctx.services.taskQueue.getOrThrow(id);
+
+  it("goes back to any agent 30 minutes after it was assigned to one never seen", async () => {
+    const task = assigned("any");
+    ctx.clock.advance(30 * MINUTE - 1);
+    await scheduler.tick();
+    expect(live(task.id).assignment?.to).toEqual({ kind: "model", workerId: "nick-pc-agent" });
+    ctx.clock.advance(1);
+    await scheduler.tick();
+    expect(live(task.id).assignment).toBeNull();
+  });
+
+  it("counts the 30 minutes from the later of the pick and the last time the agent was seen", async () => {
+    const task = assigned("any");
+    ctx.clock.advance(20 * MINUTE);
+    seedClaimer(ctx, { kind: "model", workerId: "nick-pc-agent" });
+    ctx.clock.advance(29 * MINUTE);
+    await scheduler.tick();
+    expect(live(task.id).assignment).not.toBeNull();
+    ctx.clock.advance(MINUTE);
+    await scheduler.tick();
+    expect(live(task.id).assignment).toBeNull();
+  });
+
+  it("comes back to the person when they chose that, and says so on the timeline and in attention", async () => {
+    const open = request();
+    const task = assigned("person", open.id);
+    ctx.clock.advance(30 * MINUTE);
+    await scheduler.tick();
+
+    expect(live(task.id).assignment).toMatchObject({
+      to: { kind: "person" },
+      by: "fallback",
+      lapsedFrom: { kind: "model", workerId: "nick-pc-agent" },
+    });
+    const event = ctx.services.requests.events(open.id).find((e) => e.type === "task_assigned");
+    expect(event?.payload).toMatchObject({
+      taskId: task.id,
+      to: { kind: "person" },
+      by: "fallback",
+      lapsedFrom: { kind: "model", workerId: "nick-pc-agent" },
+    });
+    expect(collectAttention(ctx.services)).toContainEqual({
+      category: "agent_unavailable",
+      key: `assignment:${task.id}`,
+      path: "/review",
+    });
+  });
+
+  it("records the lapse of a task given back to any agent, and leaves a claimed one alone", async () => {
+    const open = request();
+    const lapsing = assigned("any", open.id);
+    const claimed = assigned("any");
+    ctx.services.taskQueue.claim({
+      workerId: "nick-pc-agent",
+      kinds: ["agent"],
+      leaseMs: 5 * 60 * MINUTE,
+      claimerKind: "model",
+      taskId: claimed.id,
+    });
+    ctx.clock.advance(31 * MINUTE);
+    await scheduler.tick();
+    expect(live(lapsing.id).assignment).toBeNull();
+    expect(live(claimed.id).assignment).not.toBeNull();
+    const event = ctx.services.requests.events(open.id).find((e) => e.type === "task_assigned");
+    expect(event?.payload).toMatchObject({
+      to: "any",
+      by: "fallback",
+      lapsedFrom: { kind: "model", workerId: "nick-pc-agent" },
+    });
+  });
+
+  it("takes a task back at once when a setting now keeps its assignee from taking it", async () => {
+    const open = request();
+    const task = assigned("person", open.id);
+    const target = ctx.services.targets.get(task.targetId ?? "");
+    seedRecipe(ctx, target?.id ?? "", { purpose: "scan", status: "pending_review" });
+    seedClaimer(ctx, { kind: "model", workerId: "nick-pc-agent" });
+
+    await scheduler.tick();
+
+    expect(live(task.id).assignment).toMatchObject({ to: { kind: "person" }, by: "fallback" });
+    const event = ctx.services.requests.events(open.id).find((e) => e.type === "task_assigned");
+    expect(event?.payload).toMatchObject({
+      why: "refused",
+      lapsedFrom: { workerId: "nick-pc-agent" },
+    });
+  });
+
+  it("does not raise an attention item for a task the person chose to keep", async () => {
+    const task = assigned("any");
+    ctx.services.taskQueue.assign(task.id, {
+      to: { kind: "person" },
+      at: ctx.clock.now().toISOString(),
+      by: "user",
+      fallback: "any",
+    });
+    expect(collectAttention(ctx.services)).toEqual([]);
   });
 });
