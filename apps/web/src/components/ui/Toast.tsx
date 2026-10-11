@@ -16,8 +16,8 @@ import { IconButton } from "./IconButton.js";
 /** A toast confirms or notes something. Failures and warnings stay on the thing that has them. */
 export type ToastIntent = "info" | "success";
 
-/** Where a toast leads: the thing it names, or a page with its own words. */
-export type ToastAction = EntityRef | { to: string; label: string };
+/** Where a toast leads (the thing it names, or a page with its own words), or what it undoes. */
+export type ToastAction = EntityRef | { to: string; label: string } | { label: string; onClick: () => void };
 
 export interface ToastOptions {
   intent?: ToastIntent;
@@ -145,7 +145,9 @@ function ToastCard({ item, onDismiss }: { item: ToastItem; onDismiss: (id: numbe
           <p className="mt-0.5 text-meta text-ink-2 max-sm:hidden">{item.description}</p>
         ) : null}
       </div>
-      {item.action ? <ToastActionLink action={item.action} /> : null}
+      {item.action ? (
+        <ToastActionLink action={item.action} onDone={() => onDismiss(item.id)} />
+      ) : null}
       <IconButton label="Dismiss" size="sm" onClick={() => onDismiss(item.id)}>
         <X />
       </IconButton>
@@ -153,9 +155,23 @@ function ToastCard({ item, onDismiss }: { item: ToastItem; onDismiss: (id: numbe
   );
 }
 
-function ToastActionLink({ action }: { action: ToastAction }) {
+function ToastActionLink({ action, onDone }: { action: ToastAction; onDone: () => void }) {
   const className =
     "flex h-(--kr-control-sm) max-w-32 shrink-0 items-center truncate text-meta whitespace-nowrap";
+  if ("onClick" in action) {
+    return (
+      <button
+        type="button"
+        onClick={() => {
+          action.onClick();
+          onDone();
+        }}
+        className={`${className} rounded-xs text-accent-text underline decoration-accent-text/40 underline-offset-2 focus-visible:-outline-offset-2`}
+      >
+        {action.label}
+      </button>
+    );
+  }
   return "kind" in action ? (
     <EntityLink to={action} className={className} />
   ) : (

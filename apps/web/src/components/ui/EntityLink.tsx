@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { Link } from "react-router";
 import { cn } from "../../lib/cn.js";
 import { TASK_KIND_LABELS } from "../../lib/labels.js";
-import { paths, type ReviewKey, type TaskRef, taskPath } from "../../lib/paths.js";
+import { paths, type ReviewItemKey, type TaskRef, taskPath } from "../../lib/paths.js";
 import { type FromState, useCurrentPage } from "./PageBack.js";
 import { TextLink } from "./TextLink.js";
 
@@ -18,7 +18,7 @@ export type EntityRef =
   | { kind: "mailbox"; profileId: string | null; address: string }
   | { kind: "task"; task: TaskRef; label?: string | undefined }
   | { kind: "campaign"; id: string | null; label?: string | undefined }
-  | { kind: "review"; key: ReviewKey; label: string };
+  | { kind: "review"; key: ReviewItemKey; label: string };
 
 export interface EntityLinkProps {
   to: EntityRef;
@@ -85,7 +85,7 @@ export function resolveEntity(ref: EntityRef, show: EntityLinkProps["show"]): Re
         mono: false,
       };
     case "review":
-      return { href: paths.review(ref.key), text: ref.label, mono: false };
+      return { href: paths.reviewItem(ref.key), text: ref.label, mono: false };
   }
 }
 

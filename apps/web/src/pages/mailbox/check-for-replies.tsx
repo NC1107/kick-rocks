@@ -372,8 +372,8 @@ function FoundNotice({
             {link.label}
           </LinkButton>
         ) : outcome.needsReview > 0 ? (
-          <LinkButton size="sm" to={paths.review()}>
-            Open Review
+          <LinkButton size="sm" to={paths.reviewSection("mail")}>
+            Open mail
           </LinkButton>
         ) : undefined
       }

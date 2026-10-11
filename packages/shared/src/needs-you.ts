@@ -213,3 +213,110 @@ export function needsYouCounts(
     longer: inBand("longer"),
   };
 }
+
+/** An item before the person's marks are applied: everything the sources know about it. */
+export type NeedsYouCandidate = Omit<
+  NeedsYouItem,
+  "order" | "tries" | "lastTriedAt" | "openedAt"
+> & {
+  title: string;
+};
+
+/** What the person has done with an item, as stored. */
+export interface NeedsYouMarkState {
+  updatedAt: string;
+  snoozedUntil: string | null;
+  openedAt: string | null;
+  tries: number;
+  lastTriedAt: string | null;
+}
+
+export function candidateOfTask(
+  item: BlockedTaskItem,
+  hold: { expiresAt: string | null; since: string | null } | null,
+): NeedsYouCandidate | null {
+  const { task } = item;
+  const kind = kindOfTask(task);
+  if (kind === null) return null;
+  const since =
+    hold?.since ??
+    (task.status === "queued" ? (task.assignment?.at ?? task.updatedAt) : task.updatedAt);
+  return {
+    key: needsYouKey("task", task.id),
+    kind,
+    effort: NEEDS_YOU_EFFORT[kind],
+    since,
+    expiresAt: hold?.expiresAt ?? null,
+    target: task.targetId && task.targetName ? { id: task.targetId, name: task.targetName } : null,
+    requestReference: item.requestReference,
+    url: item.url,
+    chips: [...NEEDS_YOU_CHIPS[kind]],
+    source: { task: item },
+    title: task.targetName ?? "Task",
+  };
+}
+
+export function candidateOfMatch(match: Match, since: string): NeedsYouCandidate {
+  return {
+    key: needsYouKey("match", match.id),
+    kind: "record",
+    effort: NEEDS_YOU_EFFORT.record,
+    since,
+    expiresAt: null,
+    target: { id: match.targetId, name: match.targetName },
+    requestReference: null,
+    url: null,
+    chips: [],
+    source: { match },
+    title: match.fields.name,
+  };
+}
+
+export function candidateOfVerification(item: VerificationItem): NeedsYouCandidate {
+  return {
+    key: needsYouKey("details", item.request.id),
+    kind: "details",
+    effort: NEEDS_YOU_EFFORT.details,
+    since: item.message.receivedAt,
+    expiresAt: null,
+    target: { id: item.request.target.id, name: item.request.target.name },
+    requestReference: item.request.reference,
+    url: null,
+    chips: [...item.requestedFields],
+    source: { verification: item },
+    title: item.request.target.name,
+  };
+}
+
+/**
+ * Applies the person's marks to the candidates and puts what is left in order. A mark written
+ * before the item last changed is about something that no longer holds, such as a task that was
+ * resumed and blocked again, so it counts for nothing. A live hold cannot be snoozed.
+ */
+export function assembleNeedsYou(
+  candidates: readonly NeedsYouCandidate[],
+  marks: ReadonlyMap<string, NeedsYouMarkState>,
+  now: Date,
+): NeedsYouQueue {
+  const active: NeedsYouItem[] = [];
+  const snoozed: NeedsYouSnoozed[] = [];
+  for (const { title, ...candidate } of candidates) {
+    const stored = marks.get(candidate.key);
+    const current = stored && stored.updatedAt >= candidate.since ? stored : undefined;
+    const until = current?.snoozedUntil ?? null;
+    if (candidate.kind !== "hold" && until !== null && new Date(until) > now) {
+      snoozed.push({ key: candidate.key, kind: candidate.kind, title, until });
+      continue;
+    }
+    active.push({
+      ...candidate,
+      order: 0,
+      tries: current?.tries ?? 0,
+      lastTriedAt: current?.lastTriedAt ?? null,
+      openedAt: current?.openedAt ?? null,
+    });
+  }
+  const items = orderNeedsYou(active, now);
+  snoozed.sort((a, b) => a.until.localeCompare(b.until) || a.key.localeCompare(b.key));
+  return { items, snoozed, counts: needsYouCounts(items, snoozed.length) };
+}

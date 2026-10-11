@@ -410,7 +410,7 @@ function Detail({ request }: { request: RequestDetail }) {
             intent="warning"
             title="The target asked for more details"
             action={
-              <LinkButton size="sm" to={paths.review(`details:${request.id}`)}>
+              <LinkButton size="sm" to={paths.reviewItem(`details:${request.id}`)}>
                 Review what to send
               </LinkButton>
             }
@@ -431,7 +431,7 @@ function Detail({ request }: { request: RequestDetail }) {
             intent="warning"
             title="A task is waiting for you"
             action={
-              <LinkButton size="sm" to={paths.review(`blocked:${blocked.id}`)}>
+              <LinkButton size="sm" to={paths.reviewItem(`task:${blocked.id}`)}>
                 Open in Review
               </LinkButton>
             }

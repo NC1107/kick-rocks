@@ -175,7 +175,7 @@ function ProfileEditor({ profile }: { profile: ProfileDetail }) {
               />
             ) : null}
             {scans.data && current?.id === profile.id ? (
-              <CountLink value={scans.data.total} label="Scans" to={paths.review("scans")} />
+              <CountLink value={scans.data.total} label="Scans" to={paths.reviewSection("scans")} />
             ) : null}
           </>
         }

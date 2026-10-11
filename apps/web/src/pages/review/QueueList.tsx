@@ -12,11 +12,10 @@ import {
 } from "../../components/ui/index.js";
 import { cn } from "../../lib/cn.js";
 import { describeFailure } from "../../lib/failures.js";
-import { BLOCKED_REASON_LABELS, PROFILE_FIELD_LABELS } from "../../lib/labels.js";
 import type { StatusShape } from "../../lib/status.js";
 import { useNow } from "../../lib/use-now.js";
 import { assignmentLine } from "../assign/model.js";
-import { ageLabel, KIND_LABELS, type QueueEntry, type ReviewKind, SCANS_KEY } from "./model.js";
+import { ageLabel, KIND_LABELS, type QueueEntry, type ReviewKind } from "./model.js";
 
 interface RowView {
   title: ReactNode;
@@ -33,10 +32,6 @@ function requestOf(id: string | null, reference: string | null): RowView["reques
 
 /** Waiting on the person is a triangle, a failure a square, and waiting on an agent a ring. */
 const KIND_SHAPE: Record<ReviewKind, StatusShape> = {
-  blocked: "triangle",
-  yours: "triangle",
-  matches: "triangle",
-  verifications: "triangle",
   mail: "triangle",
   failed: "square",
   agents: "ring",
@@ -45,35 +40,11 @@ const KIND_SHAPE: Record<ReviewKind, StatusShape> = {
 function describe(entry: QueueEntry, agents: AgentsResponse | undefined, now: number): RowView {
   const shape = KIND_SHAPE[entry.kind];
   switch (entry.kind) {
-    case "blocked": {
-      const { task, requestReference } = entry.item;
-      return {
-        title: task.targetName ?? "Unknown target",
-        reason: task.blockedReason
-          ? BLOCKED_REASON_LABELS[task.blockedReason]
-          : task.status === "leased"
-            ? "Waiting for you"
-            : "Needs you",
-        at: task.updatedAt,
-        shape,
-        request: requestOf(task.requestId, requestReference),
-      };
-    }
     case "agents": {
       const { task, requestReference } = entry.item;
       return {
         title: task.targetName ?? "Unknown target",
         reason: assignmentLine(task.assignment, agents, now),
-        at: task.updatedAt,
-        shape,
-        request: requestOf(task.requestId, requestReference),
-      };
-    }
-    case "yours": {
-      const { task, requestReference } = entry.item;
-      return {
-        title: task.targetName ?? "Unknown target",
-        reason: "No agent will take it",
         at: task.updatedAt,
         shape,
         request: requestOf(task.requestId, requestReference),
@@ -87,25 +58,6 @@ function describe(entry: QueueEntry, agents: AgentsResponse | undefined, now: nu
         at: task.updatedAt,
         shape,
         request: requestOf(task.requestId, requestReference),
-      };
-    }
-    case "matches":
-      return {
-        title: entry.match.fields.name,
-        reason: `Found on ${entry.match.targetName}`,
-        at: null,
-        shape,
-      };
-    case "verifications": {
-      const asked = entry.item.requestedFields
-        .map((field) => PROFILE_FIELD_LABELS[field].toLowerCase())
-        .join(", ");
-      return {
-        title: entry.item.request.target.name,
-        reason: asked ? `Asked for ${asked}` : "Asked for more details",
-        at: entry.item.message.receivedAt,
-        shape,
-        request: requestOf(entry.item.request.id, entry.item.request.reference),
       };
     }
     case "mail":
@@ -175,8 +127,6 @@ function Entry({
   );
 }
 
-const KIND_ORDER = Object.keys(KIND_LABELS) as ReviewKind[];
-
 /**
  * Queued tasks that are held back to keep a site from being flagged. Nothing here needs the
  * person, so the rows are plain and the group sits below everything that does.
@@ -221,27 +171,36 @@ function WaitingGroup({ waiting, total }: { waiting: readonly WaitingTask[]; tot
 
 export interface QueueListProps {
   entries: readonly QueueEntry[];
-  waiting: readonly WaitingTask[];
-  waitingTotal: number;
+  /** The kinds of row this page lists, in the order their groups appear. */
+  kinds: readonly ReviewKind[];
+  /** What the page says when it has no rows. */
+  empty: string;
+  waiting?: readonly WaitingTask[];
+  waitingTotal?: number;
   selectedKey: string | null;
   onSelect: (key: string) => void;
   /** Who is connected, to say whether the agent a task is assigned to is online. */
   agents?: AgentsResponse | undefined;
+  /** Above the rows, such as the check for new mail. */
+  header?: ReactNode;
 }
 
 /**
- * Everything waiting on the person, grouped under a mono label per kind with its count, then the
- * tasks held back for a site, plus the scans entry at the bottom. The list is the whole queue, so nothing hides behind a tab.
+ * The rows of one Review page, grouped under a mono label per kind with its count, then the tasks
+ * held back for a site where that page has them.
  */
 export function QueueList({
   entries,
-  waiting,
-  waitingTotal,
+  kinds,
+  empty,
+  waiting = [],
+  waitingTotal = 0,
   selectedKey,
   onSelect,
   agents,
+  header,
 }: QueueListProps) {
-  const sections: ReactNode[] = KIND_ORDER.flatMap((kind) => {
+  const sections: ReactNode[] = kinds.flatMap((kind) => {
     const own = entries.filter((entry) => entry.kind === kind);
     if (own.length === 0) return [];
     return [
@@ -262,22 +221,10 @@ export function QueueList({
   });
 
   return (
-    <nav aria-label="Review queue" className="flex min-w-0 flex-col gap-3">
-      {entries.length === 0 ? <EmptyState title="Nothing needs you." /> : sections}
+    <nav aria-label="Review list" className="flex min-w-0 flex-col gap-3">
+      {header}
+      {sections.length === 0 ? <EmptyState title={empty} /> : sections}
       <WaitingGroup waiting={waiting} total={waitingTotal} />
-      <Section label="Scans">
-        <RowGroup>
-          <div data-entry={SCANS_KEY}>
-            <Row
-              selected={selectedKey === SCANS_KEY}
-              onClick={() => onSelect(SCANS_KEY)}
-              tabIndex={selectedKey === SCANS_KEY ? 0 : -1}
-              title="People-search scans"
-              description="Start one, or see recent runs"
-            />
-          </div>
-        </RowGroup>
-      </Section>
       <p className="mt-1 hidden items-center gap-1.5 text-caption text-ink-3 lg:flex">
         <Kbd>j</Kbd>
         <Kbd>k</Kbd>

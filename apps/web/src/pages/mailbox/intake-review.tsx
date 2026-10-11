@@ -60,8 +60,7 @@ export function CleanupPreview({
       <RowGroup data-testid="cleanup-preview">
         <BodyRow>
           <p className="text-meta text-ink-2">
-            Kick Rocks saved these before it started choosing what to keep. None is tied to a
-            request. Nothing is removed until you confirm. The mail stays in your mailbox.
+            Saved before sorting started. Nothing is removed until you confirm.
           </p>
         </BodyRow>
         {shown.map((line) => (

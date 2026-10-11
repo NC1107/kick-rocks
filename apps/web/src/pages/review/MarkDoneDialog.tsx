@@ -46,7 +46,6 @@ export function MarkDoneDialog({
       open={open}
       onClose={close}
       title={title}
-      description="Say how it ended, so the request moves to the right state."
       dismissible={!markDone.isPending}
       footer={
         <>

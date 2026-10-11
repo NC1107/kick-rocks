@@ -20,7 +20,7 @@ import { ScanNotice } from "../review/ScanNotice.js";
 import {
   ActivitySection,
   AttentionSection,
-  attentionItems,
+  hasAttention,
   MailboxNotices,
   RequestsSection,
   ScansSection,
@@ -138,7 +138,7 @@ function DashboardBody({
       />
       {fresh ? (
         <>
-          {attentionItems(dashboard.attention).length > 0 ? (
+          {hasAttention(dashboard.attention) ? (
             <AttentionSection attention={dashboard.attention} />
           ) : null}
           <ScansSection scans={dashboard.scans} profileId={profileId} />

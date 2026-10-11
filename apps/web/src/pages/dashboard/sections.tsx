@@ -1,7 +1,6 @@
 import {
   type Dashboard,
   type DashboardEvent,
-  describeAgentTasks,
   type RequestStatus,
   type ScanHoldReason,
 } from "@kickrocks/shared";
@@ -142,107 +141,92 @@ export function RequestsSection({ dashboard }: { dashboard: Dashboard }) {
   );
 }
 
-interface AttentionItem {
+interface AttentionRow {
   count: number;
-  /** The Review group that holds these, so the row opens the list they are in. */
-  tab: string;
   title: string;
-  detail: string;
+  to: string;
   /** Failures take the danger color; everything else that waits on the person takes attention. */
   failed?: true;
-  /** The detail answers who has the work, so a phone shows it where other details are dropped. */
-  showDetailOnPhone?: boolean;
 }
 
-export function attentionItems(attention: Dashboard["attention"]): AttentionItem[] {
+/** The places beside the Needs you queue that hold something, shown only when they do. */
+export function attentionRows(attention: Dashboard["attention"]): AttentionRow[] {
   return [
     {
-      count: attention.blockedTasks,
-      tab: "blocked",
-      title: attention.blockedTasks === 1 ? "Blocked task" : "Blocked tasks",
-      detail: "A target needs you to finish a step.",
-    },
-    {
-      count: attention.pendingMatches,
-      tab: "matches",
-      title: attention.pendingMatches === 1 ? "Record to confirm" : "Records to confirm",
-      detail: "Say whether a record the scan found is you.",
-    },
-    {
-      count: attention.needsVerification,
-      tab: "verifications",
-      title: "Targets asking for details",
-      detail: "Approve what to send in reply.",
-    },
-    {
       count: attention.unreviewedMessages,
-      tab: "mail",
-      title: attention.unreviewedMessages === 1 ? "Reply to sort" : "Replies to sort",
-      detail: "Mail that could not be classified.",
-    },
-    {
-      count: attention.agentTasks,
-      tab: "agents",
-      title:
-        attention.agentTasks === 1 ? "Task waiting for an agent" : "Tasks waiting for an agent",
-      detail:
-        attention.assignedAgentTasks > 0
-          ? describeAgentTasks(attention)
-          : attention.agentTasks === 1
-            ? "Connect an agent, or finish it by hand."
-            : "Connect an agent, or finish them by hand.",
-      showDetailOnPhone: attention.assignedAgentTasks > 0,
-    },
-    {
-      count: attention.yourAgentTasks,
-      tab: "yours",
-      title: "Yours to do",
-      detail: "You took these. No agent will.",
+      title: "Mail to sort",
+      to: paths.reviewSection("mail"),
     },
     {
       count: attention.failedTasks,
-      tab: "failed",
-      title: attention.failedTasks === 1 ? "Failed task" : "Failed tasks",
-      detail:
-        attention.failedTasks === 1
-          ? "Retry it, or finish it by hand."
-          : "Retry them, or finish them by hand.",
+      title: "Problems",
+      to: paths.reviewSection("problems"),
       failed: true as const,
     },
-  ].filter((item) => item.count > 0);
+    {
+      count: attention.agentTasks,
+      title: "Waiting on agents",
+      to: paths.reviewSection("agents"),
+    },
+  ].filter((row) => row.count > 0);
+}
+
+/** Whether anything on the dashboard's Needs you card has something to say. */
+export function hasAttention(attention: Dashboard["attention"]): boolean {
+  const { needsYou } = attention;
+  return needsYou.active > 0 || needsYou.snoozed > 0 || attentionRows(attention).length > 0;
+}
+
+function breakdown({ quick, few, longer }: Dashboard["attention"]["needsYou"]): string {
+  return [
+    quick > 0 ? `${quick} quick` : null,
+    few > 0 ? `${few} few min` : null,
+    longer > 0 ? `${longer} longer` : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
 }
 
 export function AttentionSection({ attention }: { attention: Dashboard["attention"] }) {
-  const items = attentionItems(attention);
-  const total = items.reduce((sum, item) => sum + item.count, 0);
+  const { needsYou } = attention;
+  const rows = attentionRows(attention);
   return (
-    <Section label="Needs you" count={formatCount(total)}>
-      {items.length === 0 ? (
-        <EmptyState title="Nothing needs you." className="py-1" />
-      ) : (
-        <RowGroup>
-          {items.map((item) => (
-            <Row
-              key={item.title}
-              to={paths.reviewTab(item.tab)}
-              title={item.title}
-              description={
-                <span className={item.showDetailOnPhone ? undefined : "max-sm:hidden"}>
-                  {item.detail}
-                </span>
-              }
-              trailing={
-                <Count
-                  value={item.count}
-                  tone={item.failed ? "danger" : "attention"}
-                  label={item.title.toLowerCase()}
-                  className="text-ui font-medium"
-                />
-              }
-            />
-          ))}
-        </RowGroup>
-      )}
+    <Section label="Needs you" count={formatCount(needsYou.active)}>
+      <RowGroup>
+        {needsYou.active === 0 ? (
+          <Row title="Nothing needs you." />
+        ) : (
+          <Row
+            title={`${needsYou.active} to do · about ${needsYou.minutes} min`}
+            description={<span className="font-mono">{breakdown(needsYou)}</span>}
+            trailing={
+              <LinkButton to={paths.review()} variant="primary" size="sm">
+                Start
+              </LinkButton>
+            }
+          />
+        )}
+        {rows.map((row) => (
+          <Row
+            key={row.title}
+            to={row.to}
+            title={row.title}
+            trailing={
+              <Count
+                value={row.count}
+                tone={row.failed ? "danger" : "attention"}
+                label={row.title.toLowerCase()}
+                className="text-ui font-medium"
+              />
+            }
+          />
+        ))}
+      </RowGroup>
+      {needsYou.snoozed > 0 ? (
+        <p className="mt-2 text-meta">
+          <TextLink to={paths.reviewSnoozed()}>{needsYou.snoozed} snoozed</TextLink>
+        </p>
+      ) : null}
     </Section>
   );
 }
@@ -265,7 +249,7 @@ export function ScansSection({
       count={formatCount(scans.held)}
       actions={
         <TextLink
-          to={paths.review("scans")}
+          to={paths.reviewSection("scans")}
           className="max-sm:inline-flex max-sm:min-h-11 max-sm:items-center pointer-coarse:inline-flex pointer-coarse:min-h-11 pointer-coarse:items-center"
         >
           All scans
