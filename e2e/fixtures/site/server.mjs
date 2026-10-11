@@ -164,7 +164,7 @@ const server = createServer(async (request, response) => {
   const url = new URL(request.url ?? "/", "http://fixture.local");
   const path = url.pathname.replace(/\/+$/, "") || "/";
 
-  if ((request.headers.host ?? "").startsWith("fixture-ollama.test")) {
+  if ((request.headers.host ?? "").startsWith("fixture-ollama.lan")) {
     return fakeOllama(path, response);
   }
 

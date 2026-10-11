@@ -425,7 +425,9 @@ What the gate does not hold, so you know what you are trusting:
 The browser settings are the same as the built-in worker's: `KICKROCKS_WORKER_HEADLESS`, `KICKROCKS_WORKER_PACE`, `KICKROCKS_CHROME_EXECUTABLE`, and the rest of `apps/worker/README.md`, apart from the proxy, which the agent worker does not read.
 In the compose service only `KICKROCKS_WORKER_PACE` can be changed from `.env`.
 The image fixes the others: it runs a headed chrome on Xvfb with the sandbox off, because docker's default seccomp profile blocks chrome's sandbox.
-Inside a container, `localhost` is the container, so ollama on the host is `host.docker.internal`, which the compose file maps for you.
+Inside a container, `localhost` is the container, so ollama on the host is `host.docker.internal`, which the compose file maps for both the server and the agent worker.
+On Linux that name points at the docker bridge, and ollama's default of listening on `127.0.0.1` refuses it.
+Set `OLLAMA_HOST=0.0.0.0:11434` for the ollama service (or bind it to the bridge address) so a container can reach it.
 
 ### What the model can do
 

@@ -77,6 +77,11 @@ try {
   writeDkimKeys();
   // A previous run that was killed leaves a stack with old state behind.
   docker(["down", "--volumes", "--remove-orphans"], { stdio: "ignore" });
+  // The agent worker is started by the one journey that wants it, so only its image is built here.
+  if (process.env.KICKROCKS_E2E_NO_BUILD !== "1") {
+    const built = docker(["--profile", "agent", "build", "agent-worker"]);
+    if (built.status !== 0) throw new Error("building the agent worker image failed");
+  }
   const up = docker([
     "up",
     "-d",

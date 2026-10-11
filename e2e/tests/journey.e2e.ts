@@ -2,7 +2,7 @@ import { mkdirSync, readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { API_ROUTES, type RequestListItem } from "@kickrocks/shared";
-import { describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { Api } from "../src/api.js";
 import {
   inspectScreens,
@@ -12,7 +12,7 @@ import {
   statusPillOffsets,
   VIEWPORTS,
 } from "../src/browser.js";
-import { inServerContainer } from "../src/docker.js";
+import { inServerContainer, startAgentWorker, stopAgentWorker } from "../src/docker.js";
 import { fixtureState, resetFixture, solveFixtureCaptcha } from "../src/fixture-site.js";
 import { bounceMessage, bounceSender, deliver, readInbox, type SeenMail } from "../src/mail.js";
 import { callTool, connectMcp } from "../src/mcp.js";
@@ -652,164 +652,6 @@ describe("the screens a person sees, with a review queue that has things in it",
   });
 });
 
-describe("the agent setup screen", () => {
-  const OLLAMA = "http://fixture-ollama.test:8530";
-  const SHOTS =
-    process.env.KICKROCKS_E2E_SHOTS ??
-    resolve(dirname(fileURLToPath(import.meta.url)), "..", ".shots");
-  const library = [
-    ["gpt-oss:20b", "e2edigest-gpt-oss", 13_000_000_000, "20.9B", "MXFP4"],
-    ["qwen3:14b", "e2edigest-qwen3-14b", 9_300_000_000, "14.8B", "Q4_K_M"],
-    ["qwen3:8b", "e2edigest-qwen3-8b", 5_200_000_000, "8.2B", "Q4_K_M"],
-  ] as const;
-
-  /** What an agent worker on a 16 GB desktop reports, which is all the stack has of one. */
-  const workerBeat = (name: string, digest: string) => ({
-    workerId: "e2e-agent-worker",
-    claimer: "model" as const,
-    busy: false,
-    model: {
-      provider: "ollama" as const,
-      name,
-      version: digest,
-      thinking: "default" as const,
-      numCtx: 16_384,
-    },
-    host: {
-      hostname: "e2e-desktop",
-      platform: "linux",
-      arch: "x64",
-      cpuCores: 16,
-      memoryBytes: 64 * 1024 ** 3,
-      gpus: [
-        {
-          vendor: "nvidia" as const,
-          name: "NVIDIA GeForce RTX 5080",
-          memoryBytes: 16_303 * 1024 ** 2,
-        },
-      ],
-      gpuProbe: "ok" as const,
-    },
-    ollama: {
-      baseUrl: OLLAMA,
-      colocated: true,
-      reachable: true,
-      error: null,
-      version: "0.12.3",
-      models: library.map(([model, modelDigest, sizeBytes, parameterSize, quantization]) => ({
-        name: model,
-        digest: modelDigest,
-        sizeBytes,
-        parameterSize,
-        quantization,
-      })),
-      loaded: [],
-      checkedAt: new Date().toISOString(),
-    },
-    accepts: ["agentModel" as const],
-  });
-
-  it("finds the fake Ollama and the worker, and recommends the best model that fits", async () => {
-    await api.call(API_ROUTES.workerHeartbeat, {
-      body: workerBeat("qwen3:8b", "e2edigest-qwen3-8b"),
-    });
-    await api.call(API_ROUTES.settingsPatch, {
-      body: { llm: { baseUrl: `${OLLAMA}/v1`, model: "qwen3:8b" } },
-    });
-
-    const view = await api.call(API_ROUTES.settingsAgentSetup);
-    expect(view.components.server.endpoints[0]).toMatchObject({
-      baseUrl: OLLAMA,
-      reachable: true,
-      version: "0.12.3",
-    });
-    expect(view.sameOllama).toBe("yes");
-    expect(view.gpu.agent).toMatchObject({ gib: 15.9, source: "worker_gpu" });
-    expect(view.missing).toEqual([]);
-    expect(view.recommendation.agent).toMatchObject({ name: "gpt-oss:20b", numCtx: 16_384 });
-    expect(view.recommendation.reply).toMatchObject({ name: "gpt-oss:20b", sameCopy: true });
-    expect(view.installedGate.map((entry) => entry.verdict.state)).toEqual([
-      "unproven",
-      "unproven",
-      "unproven",
-    ]);
-  });
-
-  it("applies the recommendation from the page, and the worker is told the model on its next beat", async () => {
-    const browser = await launchBrowser();
-    try {
-      const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
-      await signIn(page, PASSWORD);
-      await page.goto(`${STACK.serverUrl}/settings/agents`);
-      await page.getByText("Agent: gpt-oss:20b, 16k context").waitFor();
-      await page.getByText(/Not cleared yet: each send waits for you in Review/).waitFor();
-      await page.getByRole("button", { name: "Apply" }).click();
-      await page.getByRole("button", { name: "Applied" }).waitFor();
-    } finally {
-      await browser.close();
-    }
-
-    const beat = await api.call(API_ROUTES.workerHeartbeat, {
-      body: workerBeat("qwen3:8b", "e2edigest-qwen3-8b"),
-    });
-    expect(beat.agentModel).toEqual({ name: "gpt-oss:20b", thinking: "default", numCtx: 16_384 });
-    const settings = await api.call(API_ROUTES.settingsGet);
-    expect(settings.llm).toMatchObject({ baseUrl: `${OLLAMA}/v1`, model: "gpt-oss:20b" });
-
-    const switched = await api.call(API_ROUTES.workerHeartbeat, {
-      body: { ...workerBeat("gpt-oss:20b", "e2edigest-gpt-oss"), agentModelState: "applied" },
-    });
-    expect(switched.agentModel?.name).toBe("gpt-oss:20b");
-    const after = await api.call(API_ROUTES.settingsAgentSetup);
-    expect(after.components.worker?.status).toMatchObject({
-      model: { name: "gpt-oss:20b" },
-      agentModelState: "applied",
-    });
-  });
-
-  it("refuses a model the worker's Ollama does not list", async () => {
-    const refused = await api.try(API_ROUTES.settingsPatch, {
-      body: { agent: { model: { name: "not-installed:1b", thinking: "default", numCtx: 16_384 } } },
-    });
-    expect(refused.ok).toBe(false);
-    expect(refused.status).toBe(409);
-  });
-
-  it("fits the window and keeps its text readable in every size and theme", async () => {
-    mkdirSync(SHOTS, { recursive: true });
-    const browser = await launchBrowser();
-    try {
-      for (const viewport of VIEWPORTS) {
-        for (const scheme of SCHEMES) {
-          const context = await browser.newContext({
-            viewport: { width: viewport.width, height: viewport.height },
-            colorScheme: scheme,
-            hasTouch: viewport.name === "phone",
-          });
-          const page = await context.newPage();
-          try {
-            await signIn(page, PASSWORD);
-            await page.goto(`${STACK.serverUrl}/settings/agents`, { waitUntil: "networkidle" });
-            await page.getByText("Agent: gpt-oss:20b, 16k context").waitFor();
-            const overflow = await page.evaluate<number>(
-              "document.documentElement.scrollWidth - window.innerWidth",
-            );
-            expect(overflow, `${viewport.name} ${scheme}`).toBeLessThanOrEqual(0);
-            await page.screenshot({
-              path: resolve(SHOTS, `agents-${viewport.name}-${scheme}.png`),
-              fullPage: true,
-            });
-          } finally {
-            await context.close();
-          }
-        }
-      }
-    } finally {
-      await browser.close();
-    }
-  });
-});
-
 describe("a broker that asks for more", () => {
   it("lists what it asked for, and sends only the fields the person approves", async () => {
     const queue = await api.call(API_ROUTES.reviewQueue, { query: { profileId: world.profileId } });
@@ -1072,6 +914,124 @@ describe("an agent over MCP", () => {
       finishedBy: "e2e-agent",
       usage: { inputTokens: 1200 },
     });
+  });
+});
+
+describe("the agent setup screen", () => {
+  const OLLAMA = "http://fixture-ollama.lan:8530";
+  const WORKER_ID = "e2e-agent-worker";
+  const SHOTS =
+    process.env.KICKROCKS_E2E_SHOTS ??
+    resolve(dirname(fileURLToPath(import.meta.url)), "..", ".shots");
+
+  beforeAll(async () => {
+    await startAgentWorker();
+  }, 150_000);
+
+  afterAll(async () => {
+    await stopAgentWorker();
+  }, 90_000);
+
+  it("finds the fake Ollama and the real agent worker's heartbeat, and asks only for the GPU memory", async () => {
+    await api.call(API_ROUTES.settingsPatch, {
+      body: { llm: { baseUrl: `${OLLAMA}/v1`, model: "qwen3:8b" } },
+    });
+    const view = await eventually(
+      async () => {
+        const read = await api.call(API_ROUTES.settingsAgentSetup);
+        return read.components.worker?.status.workerId === WORKER_ID &&
+          read.components.worker.ollama?.reachable
+          ? read
+          : undefined;
+      },
+      { what: "the agent worker's first heartbeat", timeoutMs: 90_000 },
+    );
+    expect(view.components.server.endpoints[0]).toMatchObject({
+      baseUrl: OLLAMA,
+      reachable: true,
+      version: "0.12.3",
+    });
+    expect(view.components.worker?.host?.gpuProbe).toBe("no_tool");
+    expect(view.sameOllama).toBe("yes");
+    expect(view.missing).toEqual(["gpuMemory"]);
+  });
+
+  it("recommends the best model that fits once asked, and Apply sets the reply model and switches the worker", async () => {
+    const browser = await launchBrowser();
+    try {
+      const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+      await signIn(page, PASSWORD);
+      await page.goto(`${STACK.serverUrl}/settings/agents`);
+      await page.getByRole("radio", { name: "16", exact: true }).check({ force: true });
+      await page.getByText("Agent: gpt-oss:20b, 16k context").waitFor();
+      await page.getByText(/Not cleared yet: each send waits for you in Review/).waitFor();
+      await page.getByRole("button", { name: "Apply" }).click();
+      await page.getByRole("button", { name: "Applied" }).waitFor();
+    } finally {
+      await browser.close();
+    }
+
+    const settings = await api.call(API_ROUTES.settingsGet);
+    expect(settings.llm).toMatchObject({ baseUrl: `${OLLAMA}/v1`, model: "gpt-oss:20b" });
+    expect(settings.agent.model).toEqual({
+      name: "gpt-oss:20b",
+      thinking: "default",
+      numCtx: 16_384,
+    });
+
+    const switched = await eventually(
+      async () => {
+        const read = await api.call(API_ROUTES.settingsAgentSetup);
+        const status = read.components.worker?.status;
+        return status?.model?.name === "gpt-oss:20b" && status.agentModelState === "applied"
+          ? read
+          : undefined;
+      },
+      { what: "the agent worker to take the chosen model on a heartbeat", timeoutMs: 60_000 },
+    );
+    expect(switched.components.worker?.status.workerId).toBe(WORKER_ID);
+  });
+
+  it("refuses a model the worker's Ollama does not list", async () => {
+    const refused = await api.try(API_ROUTES.settingsPatch, {
+      body: { agent: { model: { name: "not-installed:1b", thinking: "default", numCtx: 16_384 } } },
+    });
+    expect(refused.ok).toBe(false);
+    expect(refused.status).toBe(409);
+  });
+
+  it("fits the window and keeps its text readable in every size and theme", async () => {
+    mkdirSync(SHOTS, { recursive: true });
+    const browser = await launchBrowser();
+    try {
+      for (const viewport of VIEWPORTS) {
+        for (const scheme of SCHEMES) {
+          const context = await browser.newContext({
+            viewport: { width: viewport.width, height: viewport.height },
+            colorScheme: scheme,
+            hasTouch: viewport.name === "phone",
+          });
+          const page = await context.newPage();
+          try {
+            await signIn(page, PASSWORD);
+            await page.goto(`${STACK.serverUrl}/settings/agents`, { waitUntil: "networkidle" });
+            await page.getByText("Agent: gpt-oss:20b, 16k context").waitFor();
+            const overflow = await page.evaluate<number>(
+              "document.documentElement.scrollWidth - window.innerWidth",
+            );
+            expect(overflow, `${viewport.name} ${scheme}`).toBeLessThanOrEqual(0);
+            await page.screenshot({
+              path: resolve(SHOTS, `agents-${viewport.name}-${scheme}.png`),
+              fullPage: true,
+            });
+          } finally {
+            await context.close();
+          }
+        }
+      }
+    } finally {
+      await browser.close();
+    }
   });
 });
 
