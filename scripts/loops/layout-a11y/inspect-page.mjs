@@ -61,6 +61,17 @@ export function inspectPage({ minTarget, checkTargets }) {
     ) {
       overflow.push(`${describe(el)} scrolls sideways`);
     }
+    // A tab strip may scroll on a phone, but it must open with the current tab on screen.
+    const current = scrollsSideways
+      ? el.querySelector('[aria-current="page"], [role="tab"][aria-selected="true"]')
+      : null;
+    if (current) {
+      const strip = el.getBoundingClientRect();
+      const tab = current.getBoundingClientRect();
+      if (tab.left < strip.left - 1 || tab.right > strip.right + 1) {
+        overflow.push(`${describe(el)} hides its current tab`);
+      }
+    }
     if (s.webkitLineClamp !== "none" && el.scrollHeight > el.clientHeight + 1) {
       const text = (el.textContent ?? "").trim().replace(/\s+/g, " ");
       if (text.split(" ").length >= 4) ellipsised.push(describe(el));

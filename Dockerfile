@@ -67,9 +67,11 @@ WORKDIR /app
 # First of the app layers, because it is by far the largest and changes only with a new release.
 COPY --from=reply-model /reply-model /app/reply-model
 # After the heavy layers, so a new commit does not invalidate them. The build context has no .git,
-# so install.sh passes the version in.
+# so install.sh and the CI publish job pass the stamp in.
 ARG KICKROCKS_VERSION=
-ENV KICKROCKS_VERSION=$KICKROCKS_VERSION
+ARG KICKROCKS_COMMIT_DATE=
+ENV KICKROCKS_VERSION=$KICKROCKS_VERSION \
+    KICKROCKS_COMMIT_DATE=$KICKROCKS_COMMIT_DATE
 COPY --from=build /out/server /app/server
 COPY --from=build /app/apps/web/dist /app/web
 COPY --from=build /app/packages/brokers/data/generated /app/server/node_modules/@kickrocks/brokers/data/generated

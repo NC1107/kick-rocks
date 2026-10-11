@@ -12,6 +12,7 @@ services:
         REPLY_MODEL: ${REPLY_MODEL:-none}
         REPLY_MODEL_URL: ${REPLY_MODEL_URL:-}
         REPLY_MODEL_SHA256: ${REPLY_MODEL_SHA256:-}
+        KICKROCKS_COMMIT_DATE: ${KICKROCKS_COMMIT_DATE:-}
     restart: unless-stopped
     # Shutdown closes the scheduler and any send in flight, and Docker's default 10 seconds ends it
     # before they finish.

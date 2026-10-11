@@ -385,6 +385,7 @@ describe("the health and status routes", () => {
     expect(API_ROUTES.status.auth).toBe("session");
     expect(Object.keys(API_ROUTES.status.response.shape).sort()).toEqual([
       "brokers",
+      "committedAt",
       "health",
       "profiles",
       "targets",

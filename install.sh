@@ -635,6 +635,10 @@ if [ -z "${KICKROCKS_VERSION:-}" ]; then
   KICKROCKS_VERSION="$(git describe --tags --always --dirty 2>/dev/null || true)"
   export KICKROCKS_VERSION
 fi
+if [ -z "${KICKROCKS_COMMIT_DATE:-}" ]; then
+  KICKROCKS_COMMIT_DATE="$(git log -1 --format=%cI 2>/dev/null || true)"
+  export KICKROCKS_COMMIT_DATE
+fi
 
 # The reply model is a release asset pinned in the repo. The image bundles it once a release is
 # pinned there, unless REPLY_MODEL=none says to leave it out.

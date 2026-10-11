@@ -4,41 +4,45 @@ import {
   type DataSourceInfo,
   type InstanceHealth,
 } from "@kickrocks/shared";
-import { errorMessage, useApiQuery, useInstanceHealth } from "../../api/index.js";
+import { errorMessage, useApiQuery, useInstanceHealth } from "../../../api/index.js";
+import { versionLabel } from "../../../components/layout/shell-status.js";
 import {
   Button,
   Callout,
   ExternalLinkText,
-  PageHeader,
   Row,
   RowGroup,
   Section,
   Skeleton,
   Tag,
-} from "../../components/ui/index.js";
+} from "../../../components/ui/index.js";
 import {
   formatCount,
   formatDate,
   formatDateTime,
   formatRelative,
   pluralize,
-} from "../../lib/format.js";
-import { FactRow, SETTINGS_WIDTH } from "../settings/rows.js";
+} from "../../../lib/format.js";
+import { FactRow, SETTINGS_WIDTH } from "../rows.js";
+import { SettingsHeader } from "../SettingsHeader.js";
 
 const POLYFORM_URL = "https://polyformproject.org/licenses/noncommercial/1.0.0/";
 const CC_BY_NC_SA_URL = "https://creativecommons.org/licenses/by-nc-sa/4.0/";
+const REPO_URL = "https://github.com/NC1107/kick-rocks";
+const ISSUES_URL = `${REPO_URL}/issues`;
 const ERASER_URL = "https://github.com/drumandbytes/eraser";
 const BADBOOL_URL = "https://github.com/yaelwrites/Big-Ass-Data-Broker-Opt-Out-List";
 
 export function Component() {
   return (
     <>
-      <PageHeader title="About" description="Version, data sources, and licenses" />
+      <SettingsHeader section="About" description="Version, data sources, and licenses" />
       <div className={`${SETTINGS_WIDTH} flex flex-col gap-4`}>
         <InstanceSection />
         <SourcesSection />
         <LimitsSection />
         <AttributionSection />
+        <LinksSection />
       </div>
     </>
   );
@@ -52,7 +56,7 @@ function InstanceSection() {
     <Section label="Kick Rocks">
       {health.isPending || status.isPending ? (
         <RowGroup aria-busy="true">
-          {["Version", "Broker list", "Company list", "Profiles"].map((label) => (
+          {["Version", "Commit date", "Broker list", "Backup"].map((label) => (
             <FactRow key={label} label={label}>
               <Skeleton className="h-3.5 w-1/2" />
             </FactRow>
@@ -87,9 +91,14 @@ function InstanceSection() {
             </Callout>
           ) : null}
           <RowGroup>
-            {health.data ? <FactRow label="Version">{health.data.version}</FactRow> : null}
+            {health.data ? (
+              <FactRow label="Version">{versionLabel(health.data.version)}</FactRow>
+            ) : null}
             {status.data ? (
               <>
+                <FactRow label="Commit date">
+                  {status.data.committedAt ? formatDate(status.data.committedAt) : "Not recorded"}
+                </FactRow>
                 <FactRow label="Broker list" mono={status.data.brokers.available}>
                   {status.data.brokers.available
                     ? `${pluralize(status.data.targets.brokers, "broker")}${
@@ -99,10 +108,6 @@ function InstanceSection() {
                       }`
                     : "Not built yet. Run pnpm data:build, then restart the server."}
                 </FactRow>
-                <FactRow label="Company list">
-                  {pluralize(status.data.targets.companies, "company", "companies")}
-                </FactRow>
-                <FactRow label="Profiles">{formatCount(status.data.profiles)}</FactRow>
                 <FactRow label="Backup" mono={false}>
                   <BackupFreshness backup={status.data.health.backup} />
                 </FactRow>
@@ -112,6 +117,21 @@ function InstanceSection() {
           </RowGroup>
         </>
       )}
+    </Section>
+  );
+}
+
+function LinksSection() {
+  return (
+    <Section label="Links">
+      <RowGroup>
+        <FactRow label="Source code" mono={false}>
+          <ExternalLinkText href={REPO_URL}>github.com/NC1107/kick-rocks</ExternalLinkText>
+        </FactRow>
+        <FactRow label="Problems" mono={false}>
+          <ExternalLinkText href={ISSUES_URL}>Report an issue</ExternalLinkText>
+        </FactRow>
+      </RowGroup>
     </Section>
   );
 }
