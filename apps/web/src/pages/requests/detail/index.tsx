@@ -43,7 +43,6 @@ import {
   TaskStatusMark,
   useToast,
 } from "../../../components/ui/index.js";
-import { formatDate } from "../../../lib/format.js";
 import {
   BLOCKED_REASON_LABELS,
   CHANNEL_LABELS,
@@ -59,7 +58,7 @@ import {
   ReplyCheckResult,
   useReplyCheck,
 } from "../../mailbox/check-for-replies.js";
-import { RIGHT_TOKENS } from "../format.js";
+import { gutterTime, RIGHT_TOKENS } from "../format.js";
 import { detailRefreshInterval } from "../polling.js";
 import { ReplyCard } from "./ReplyCard.js";
 import { Timeline } from "./Timeline.js";
@@ -156,18 +155,19 @@ function TaskRow({ task, requestId }: { task: TaskSummary; requestId: string }) 
 
 /** Created, sent, due and follow-ups on one wrapping mono line, since each is a few characters. */
 function Timing({ request }: { request: RequestDetail }) {
+  const day = (iso: string) => gutterTime(iso);
   const parts = [
-    `Created ${formatDate(request.createdAt)}`,
-    request.sentAt ? `Sent ${formatDate(request.sentAt)}` : "Not sent yet",
-    request.dueAt ? `Due ${formatDate(request.dueAt)}` : null,
+    `Created ${day(request.createdAt)}`,
+    request.sentAt ? `Sent ${day(request.sentAt)}` : "Not sent yet",
+    request.dueAt ? `Due ${day(request.dueAt)}` : null,
     request.followUps > 0 ? `Follow-ups ${request.followUps}` : null,
   ].filter((part): part is string => part !== null);
   return (
     <>
       {parts.map((part, index) => (
         <span key={part} className="whitespace-nowrap">
-          {index > 0 ? " \u00b7 " : ""}
           {part}
+          {index < parts.length - 1 ? " \u00b7 " : ""}
         </span>
       ))}
     </>

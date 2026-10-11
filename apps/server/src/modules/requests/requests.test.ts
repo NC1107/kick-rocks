@@ -191,7 +191,7 @@ describe("GET /requests", () => {
     );
 
     const waiting = await ctx.call(API_ROUTES.requestsListAll, {
-      query: { status: ["awaiting_reply"] },
+      query: { status: "awaiting_reply" },
     });
     if (!waiting.ok) throw new Error("the list should load");
     expect(waiting.body.items.map((item) => item.id)).toEqual([theirs.id]);

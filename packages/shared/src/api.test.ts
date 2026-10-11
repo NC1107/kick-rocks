@@ -47,6 +47,7 @@ const PLANNED = [
   "POST /profiles/:id/campaigns/preview",
   "POST /profiles/:id/campaigns",
   "GET /profiles/:id/requests",
+  "GET /requests",
   "GET /requests/:id",
   "POST /requests/:id/actions",
   "POST /requests/:id/verification",

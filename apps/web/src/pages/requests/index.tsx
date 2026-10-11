@@ -216,7 +216,7 @@ function Requests({ profileId }: { profileId: string }) {
                 <Button
                   {...props}
                   aria-label={`Profile: ${allProfiles ? "All profiles" : (scopeName ?? "")}`}
-                  className="min-w-0 max-w-44 shrink"
+                  className="min-w-0 max-w-32 shrink sm:max-w-44"
                 >
                   <UserRound aria-hidden="true" className="shrink-0" />
                   <span className="truncate">{allProfiles ? "All profiles" : scopeName}</span>
@@ -296,7 +296,7 @@ function Requests({ profileId }: { profileId: string }) {
               ) : (
                 items.map((item) => (
                   <TableRow key={item.id}>
-                    <TableCell className="h-auto max-w-72 min-w-52">
+                    <TableCell className="h-auto max-w-72 sm:min-w-52">
                       <TableIdentity
                         title={item.target.name}
                         to={{
