@@ -10,6 +10,8 @@ const SKIPPED_COUNT: Partial<Record<SkipReason, (count: number) => string>> = {
   missing_profile_details: (count) => `${count} need profile details`,
   unsupported_channel: (count) => `${count} cannot be scanned`,
   covered_by_platform: (count) => `${count} covered by a state platform`,
+  site_paused: (count) => `${count} paused`,
+  site_skipped: (count) => `${count} skipped`,
 };
 
 export interface ScanStartSummary {

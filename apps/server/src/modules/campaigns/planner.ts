@@ -23,7 +23,9 @@ import {
 import { and, desc, eq, inArray } from "drizzle-orm";
 import type { Clock } from "../../core/clock.js";
 import { conflict, notFound } from "../../core/errors.js";
+import type { ScanPreferences } from "../../core/scan-preferences.js";
 import { describeMissingScanFields, missingScanFields } from "../../core/scan-readiness.js";
+import { scanDropReason, siteChoiceDetail } from "../../core/scan-skips.js";
 import { selectByFilter } from "../../core/target-selection.js";
 import { isPeopleSearchTarget, type TargetsService } from "../../core/targets.js";
 import type { TaskQueue } from "../../core/task-queue.js";
@@ -72,6 +74,7 @@ interface CampaignPlannerDeps {
   legal: LegalApi;
   targets: TargetsService;
   taskQueue: TaskQueue;
+  scanPreferences: Pick<ScanPreferences, "blocks">;
   needsRecord: (target: { id: string; category: TargetRow["category"] }) => boolean;
 }
 
@@ -88,6 +91,7 @@ export function createCampaignPlanner({
   legal,
   targets: targetsService,
   taskQueue,
+  scanPreferences,
   needsRecord,
 }: CampaignPlannerDeps): CampaignPlanner {
   // A people-search site starts from a scan, not from an email, so it is not an email broker here.
@@ -272,6 +276,11 @@ export function createCampaignPlanner({
       }
 
       if (summary.needsRecord) {
+        const dropped = scanDropReason(
+          scanPreferences.blocks(profileId, row.id),
+          "targetIds" in selection,
+        );
+        if (dropped) return skip(dropped, siteChoiceDetail(dropped, row.name));
         const missing = missingScanFields({ db, clock }, profileId, row.id);
         if (missing.length > 0) {
           return skip(

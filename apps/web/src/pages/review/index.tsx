@@ -29,7 +29,6 @@ import { MailDetail } from "./MailDetail.js";
 import { buildEntries, pickEntry, type QueueEntry, SECTION_KINDS, sectionCounts } from "./model.js";
 import { QueueList } from "./QueueList.js";
 import { legacyDestination } from "./redirects.js";
-import { ScansPanel } from "./ScansPanel.js";
 
 const DETAIL_ID = "review-detail";
 
@@ -53,7 +52,7 @@ type Page = "needs-you" | ReviewSection;
 
 function pageOf(pathname: string): Page {
   const section = pathname.replace(/\/+$/, "").split("/")[2];
-  return section === "mail" || section === "agents" || section === "problems" || section === "scans"
+  return section === "mail" || section === "agents" || section === "problems"
     ? section
     : "needs-you";
 }
@@ -80,6 +79,10 @@ function Review({ profileId, mailboxConnected }: { profileId: string; mailboxCon
     refetchInterval: 30_000,
   });
 
+  if (pathname.replace(/\/+$/, "") === "/review/scans") {
+    return <Navigate to={paths.listings()} replace />;
+  }
+
   const onOldAddress = pathname.replace(/\/+$/, "") === "/review";
   const queues =
     review.data && needsYou.data ? { review: review.data, needsYou: needsYou.data } : undefined;
@@ -99,16 +102,11 @@ function Review({ profileId, mailboxConnected }: { profileId: string; mailboxCon
     { to: paths.reviewSection("mail"), label: "Mail", count: some(counts?.mail) },
     { to: paths.reviewSection("agents"), label: "Agents", count: some(counts?.agents) },
     { to: paths.reviewSection("problems"), label: "Problems", count: some(counts?.problems) },
-    { to: paths.reviewSection("scans"), label: "Scans" },
+    { to: paths.listings(), label: "Scans" },
   ];
 
   const failed = review.isError ? review.error : needsYou.isError ? needsYou.error : null;
-  const loading =
-    page === "needs-you"
-      ? needsYou.isPending || review.isPending
-      : page === "scans"
-        ? false
-        : review.isPending;
+  const loading = page === "needs-you" ? needsYou.isPending || review.isPending : review.isPending;
 
   return (
     <>
@@ -145,10 +143,6 @@ function Review({ profileId, mailboxConnected }: { profileId: string; mailboxCon
           queue={needsYou.data}
           review={review.data}
         />
-      ) : page === "scans" ? (
-        <div className="max-w-3xl overflow-hidden rounded-md border border-line bg-surface">
-          <ScansPanel profileId={profileId} />
-        </div>
       ) : review.data && page !== "needs-you" ? (
         <ListPage
           key={page}
@@ -203,7 +197,7 @@ function Detail({
   }
 }
 
-const EMPTY: Record<Exclude<ReviewSection, "scans">, string> = {
+const EMPTY: Record<ReviewSection, string> = {
   mail: "No unsorted mail.",
   agents: "Nothing is waiting for an agent.",
   problems: "No problems.",
@@ -216,7 +210,7 @@ function ListPage({
   profileId,
   mailboxConnected,
 }: {
-  page: Exclude<ReviewSection, "scans">;
+  page: ReviewSection;
   queue: ReviewQueue;
   profileId: string;
   mailboxConnected: boolean;

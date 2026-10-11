@@ -106,6 +106,11 @@ function Mark({ meta, className }: { meta: StatusMeta; className?: string | unde
   );
 }
 
+/** A mark for a state that is not a request's or a task's, described by the caller. */
+export function MetaMark({ meta, className }: { meta: StatusMeta; className?: string }) {
+  return <Mark meta={meta} className={className} />;
+}
+
 export interface StatusMarkProps {
   status: RequestStatus;
   className?: string;

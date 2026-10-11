@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { ListingsSummary } from "./listings.js";
 import { Reference } from "./mail.js";
 import { NeedsYouCounts } from "./needs-you.js";
 import { RequestStatus, requestEventSchema } from "./requests.js";
@@ -71,6 +72,8 @@ export const Dashboard = z.object({
   scanning: ScanReadiness.extend({
     quiet: z.object({ until: z.iso.datetime(), zoneUnset: z.boolean() }).nullable(),
   }),
+  /** Where the profile is listed, by status, and when scans last ran and next will. */
+  listings: ListingsSummary,
   recentEvents: z.array(DashboardEvent),
 });
 export type Dashboard = z.infer<typeof Dashboard>;

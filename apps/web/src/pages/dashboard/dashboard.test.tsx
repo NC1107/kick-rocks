@@ -1,4 +1,4 @@
-import { screen, within } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { createMockApp } from "../../../mock/app.js";
 import { buildMockNeedsYou, createScan } from "../../../mock/review.js";
@@ -13,6 +13,35 @@ import {
   hasAttention,
   STATUS_GROUPS,
 } from "./sections.js";
+
+describe("the dashboard listings card", () => {
+  it("counts where the profile is listed and links each count to its filter", async () => {
+    renderPage(<DashboardPage />);
+    const heading = await screen.findByRole("heading", { name: "Where you're listed" });
+    const card = within(heading.closest("section") as HTMLElement);
+    expect(card.getByRole("link", { name: /Needs you/ })).toHaveAttribute(
+      "href",
+      "/targets/listings?show=needs_you",
+    );
+    expect(card.getByRole("link", { name: /Removed/ })).toHaveTextContent("1");
+    expect(card.getByText(/Last scan/)).toBeVisible();
+    expect(card.getByText(/next rescan/)).toBeVisible();
+  });
+
+  it("starts a scan of every site without a campaign", async () => {
+    const { user, mock } = renderPage(<DashboardPage />);
+    const seen = instrument(mock);
+    await user.click(await screen.findByRole("button", { name: "Scan all sites" }));
+    const dialog = await screen.findByRole("dialog", { name: "Scan every people-search site?" });
+    await user.click(within(dialog).getByRole("button", { name: "Start scans" }));
+    await waitFor(() =>
+      expect(
+        seen.some((request) => request.method === "POST" && request.url.endsWith("/scans")),
+      ).toBe(true),
+    );
+    expect(seen.some((request) => request.url.includes("/campaigns"))).toBe(false);
+  });
+});
 
 describe("the dashboard", () => {
   it("shows a skeleton shaped like the page while it loads", async () => {

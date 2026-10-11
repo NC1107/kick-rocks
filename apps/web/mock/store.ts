@@ -8,6 +8,7 @@ import {
   type RequestListItem,
   type ReviewMessage,
   ScanningSettings,
+  type ScanPreference,
   type ScanSummary,
   type SettingsView,
   type SiteStatus,
@@ -104,6 +105,10 @@ export interface MockStore {
   sends: Map<string, MockSends>;
   matches: Match[];
   scans: ScanSummary[];
+  /** Scans where the site itself showed no results, by scan id. */
+  noResultsScans: Set<string>;
+  /** What the person chose about each site, keyed "<profileId>:<targetId>". */
+  scanPreferences: Map<string, ScanPreference>;
   /** What the politeness gate remembers about each site, keyed by the owner domain. */
   sites: SiteStatus[];
   recipes: RecipeRecord[];
@@ -167,6 +172,8 @@ export function createStore(authMode: MockAuthMode = "authed"): MockStore {
     sends: new Map(),
     matches: [],
     scans: [],
+    noResultsScans: new Set(),
+    scanPreferences: new Map(),
     sites: [],
     recipes: [],
     settings: {

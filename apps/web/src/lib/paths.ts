@@ -6,7 +6,7 @@ const part = encodeURIComponent;
 export type ReviewItemKey = `task:${string}` | `match:${string}` | `details:${string}`;
 
 /** The review pages that list a kind of thing by itself, beside the Needs you queue. */
-export type ReviewSection = "mail" | "agents" | "problems" | "scans";
+export type ReviewSection = "mail" | "agents" | "problems";
 
 /** The item an open row of a review section is named by. */
 export type ReviewSectionKey = `${"mail" | "failed" | "agent"}:${string}`;
@@ -67,6 +67,9 @@ export const paths = {
   profile: (id: string) => `/profiles/${part(id)}`,
   mailbox: (profileId: string) => `/profiles/${part(profileId)}/mailbox`,
   target: (id: string) => `/targets/${part(id)}`,
+  /** The listings view, optionally opened on one of its filters. */
+  listings: (show?: string) =>
+    show ? `/targets/listings?show=${part(show)}` : "/targets/listings",
   targetRemove: (id: string) => `/targets/${part(id)}/remove`,
   request: (id: string) => `/requests/${part(id)}`,
   requests: (filters: RequestsFilters = {}) => {

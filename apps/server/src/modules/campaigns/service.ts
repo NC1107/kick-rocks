@@ -56,6 +56,7 @@ export function createCampaignService(services: AppServices): CampaignService {
     legal: services.legal,
     targets: services.targets,
     taskQueue: services.taskQueue,
+    scanPreferences: services.scanPreferences,
     needsRecord: dispatch.needsRecord,
   });
 

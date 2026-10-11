@@ -41,6 +41,7 @@ export type TargetOutcomeKind = z.infer<typeof TargetOutcomeKind>;
  * - `already_confirmed`: it confirmed a removal, and nothing is re-sent unless a re-scan finds the person again.
  * - `unsupported_channel`: it only takes postal mail, fax, a phone call, or payment.
  * - `missing_profile_details`: a scan needs a name or address detail the profile does not have yet.
+ * - `site_paused` and `site_skipped`: the person paused or dropped the site for this profile.
  * - `covered_by_platform`: a state platform such as California's DROP already handles this registered broker.
  */
 export const SkipReason = z.enum([
@@ -52,6 +53,8 @@ export const SkipReason = z.enum([
   "unsupported_channel",
   "missing_profile_details",
   "covered_by_platform",
+  "site_paused",
+  "site_skipped",
 ]);
 export type SkipReason = z.infer<typeof SkipReason>;
 

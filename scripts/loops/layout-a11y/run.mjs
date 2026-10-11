@@ -34,6 +34,7 @@ const AUTHED_ROUTES = [
   "/profiles/prf_0001/mailbox",
   "/profiles/prf_0002/mailbox",
   "/targets",
+  "/targets/listings",
   "/targets/clearcheck",
   "/targets/harbor-consumer-data",
   "/campaigns/new",

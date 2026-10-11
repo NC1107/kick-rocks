@@ -316,8 +316,10 @@ interface SeedScanInput {
   targetId: string;
   taskId?: string | null;
   candidates?: Candidate[] | null;
+  startedAt?: string;
   finishedAt?: string | null;
   error?: string | null;
+  noResultsShown?: boolean;
 }
 
 /** A scan row. Defaults to one that is still running. */
@@ -329,10 +331,11 @@ export function seedScan({ services }: Seeder, input: SeedScanInput): ScanRow {
       profileId: input.profileId,
       targetId: input.targetId,
       taskId: input.taskId ?? null,
-      startedAt: nowIso(services.clock),
+      startedAt: input.startedAt ?? nowIso(services.clock),
       finishedAt: input.finishedAt ?? null,
       candidates: input.candidates ?? null,
       error: input.error ?? null,
+      noResultsShown: input.noResultsShown ?? null,
     })
     .returning()
     .get();

@@ -9,6 +9,7 @@ import {
   outgoingMail,
   profiles,
   requests,
+  scanPreferences,
   scans,
   taskArtifacts,
   tasks,
@@ -114,6 +115,7 @@ function removeProfileRows(tx: Tx, taskQueue: TaskQueue, profileId: string): voi
     .from(mailboxes)
     .where(eq(mailboxes.profileId, profileId));
 
+  tx.delete(scanPreferences).where(eq(scanPreferences.profileId, profileId)).run();
   tx.delete(matches).where(eq(matches.profileId, profileId)).run();
   tx.delete(scans).where(eq(scans.profileId, profileId)).run();
   tx.delete(messages)
@@ -157,6 +159,7 @@ export function eraseInstance({ db, taskQueue, settings }: EraseDeps): void {
       removeProfileRows(tx, taskQueue, id);
     }
     // Rows no profile owns should not exist, but a reset is the one place that must not trust that.
+    tx.delete(scanPreferences).run();
     tx.delete(matches).run();
     tx.delete(scans).run();
     tx.delete(messages).run();

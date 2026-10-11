@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "4318742b-58eb-4263-ba8c-f493c4d0239e",
+  "id": "439dc53e-ceeb-4413-9024-fa2b11e658b4",
   "prevId": "884efee6-7934-4b3d-a875-164fe9d72372",
   "tables": {
     "campaigns": {
@@ -1109,157 +1109,6 @@
       "uniqueConstraints": {},
       "checkConstraints": {}
     },
-    "needs_you_marks": {
-      "name": "needs_you_marks",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "profile_id": {
-          "name": "profile_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "task_id": {
-          "name": "task_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "match_id": {
-          "name": "match_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "request_id": {
-          "name": "request_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "snoozed_until": {
-          "name": "snoozed_until",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "opened_at": {
-          "name": "opened_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "tries": {
-          "name": "tries",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": 0
-        },
-        "last_tried_at": {
-          "name": "last_tried_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        }
-      },
-      "indexes": {
-        "needs_you_marks_task_idx": {
-          "name": "needs_you_marks_task_idx",
-          "columns": ["task_id"],
-          "isUnique": true
-        },
-        "needs_you_marks_match_idx": {
-          "name": "needs_you_marks_match_idx",
-          "columns": ["match_id"],
-          "isUnique": true
-        },
-        "needs_you_marks_request_idx": {
-          "name": "needs_you_marks_request_idx",
-          "columns": ["request_id"],
-          "isUnique": true
-        },
-        "needs_you_marks_profile_idx": {
-          "name": "needs_you_marks_profile_idx",
-          "columns": ["profile_id"],
-          "isUnique": false
-        }
-      },
-      "foreignKeys": {
-        "needs_you_marks_profile_id_profiles_id_fk": {
-          "name": "needs_you_marks_profile_id_profiles_id_fk",
-          "tableFrom": "needs_you_marks",
-          "tableTo": "profiles",
-          "columnsFrom": ["profile_id"],
-          "columnsTo": ["id"],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "needs_you_marks_task_id_tasks_id_fk": {
-          "name": "needs_you_marks_task_id_tasks_id_fk",
-          "tableFrom": "needs_you_marks",
-          "tableTo": "tasks",
-          "columnsFrom": ["task_id"],
-          "columnsTo": ["id"],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "needs_you_marks_match_id_matches_id_fk": {
-          "name": "needs_you_marks_match_id_matches_id_fk",
-          "tableFrom": "needs_you_marks",
-          "tableTo": "matches",
-          "columnsFrom": ["match_id"],
-          "columnsTo": ["id"],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "needs_you_marks_request_id_requests_id_fk": {
-          "name": "needs_you_marks_request_id_requests_id_fk",
-          "tableFrom": "needs_you_marks",
-          "tableTo": "requests",
-          "columnsFrom": ["request_id"],
-          "columnsTo": ["id"],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "checkConstraints": {
-        "needs_you_marks_one_subject": {
-          "name": "needs_you_marks_one_subject",
-          "value": "(\"needs_you_marks\".\"task_id\" is not null) + (\"needs_you_marks\".\"match_id\" is not null) + (\"needs_you_marks\".\"request_id\" is not null) = 1"
-        }
-      }
-    },
     "outgoing_mail": {
       "name": "outgoing_mail",
       "columns": {
@@ -1919,6 +1768,99 @@
       "uniqueConstraints": {},
       "checkConstraints": {}
     },
+    "scan_preferences": {
+      "name": "scan_preferences",
+      "columns": {
+        "profile_id": {
+          "name": "profile_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "target_id": {
+          "name": "target_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "mode": {
+          "name": "mode",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'auto'"
+        },
+        "paused_until": {
+          "name": "paused_until",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "rescan_days": {
+          "name": "rescan_days",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "auto_rescan": {
+          "name": "auto_rescan",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": true
+        },
+        "include_past_addresses": {
+          "name": "include_past_addresses",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": false
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "scan_preferences_profile_id_profiles_id_fk": {
+          "name": "scan_preferences_profile_id_profiles_id_fk",
+          "tableFrom": "scan_preferences",
+          "tableTo": "profiles",
+          "columnsFrom": ["profile_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "scan_preferences_target_id_targets_id_fk": {
+          "name": "scan_preferences_target_id_targets_id_fk",
+          "tableFrom": "scan_preferences",
+          "tableTo": "targets",
+          "columnsFrom": ["target_id"],
+          "columnsTo": ["id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "scan_preferences_profile_id_target_id_pk": {
+          "columns": ["profile_id", "target_id"],
+          "name": "scan_preferences_profile_id_target_id_pk"
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
     "scans": {
       "name": "scans",
       "columns": {
@@ -2014,6 +1956,11 @@
         "scans_search_key_idx": {
           "name": "scans_search_key_idx",
           "columns": ["search_key"],
+          "isUnique": false
+        },
+        "scans_profile_target_started_idx": {
+          "name": "scans_profile_target_started_idx",
+          "columns": ["profile_id", "target_id", "started_at"],
           "isUnique": false
         }
       },

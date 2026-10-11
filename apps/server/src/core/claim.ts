@@ -6,6 +6,7 @@ import {
   ClaimedTask,
   type ClaimerKind,
   formatFullName,
+  formatStreetLine,
   type Identity,
   isActiveStatus,
   isOnDomain,
@@ -324,7 +325,7 @@ function identityValues(identities: readonly Identity[]): string[] {
         const { street, unit, city, state, zip } = identity.value;
         add(state);
         add(street);
-        add([street, unit].filter(Boolean).join(" "));
+        add(formatStreetLine({ street, unit }));
         add(city);
         add(zip);
         add(zip.slice(0, 5));

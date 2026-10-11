@@ -9,7 +9,12 @@ import {
 import { skipToken } from "@tanstack/react-query";
 import { Globe, Mail } from "lucide-react";
 import { useParams } from "react-router";
-import { errorMessage, useApiQuery, useCurrentProfile } from "../../../api/index.js";
+import {
+  errorMessage,
+  useApiMutation,
+  useApiQuery,
+  useCurrentProfile,
+} from "../../../api/index.js";
 import { useBreadcrumbTail } from "../../../components/layout/breadcrumb-context.js";
 import {
   BreakableAddress,
@@ -30,8 +35,9 @@ import {
   StatusMark,
   Tag,
   TextLink,
+  useToast,
 } from "../../../components/ui/index.js";
-import { formatDate } from "../../../lib/format.js";
+import { formatDate, pluralize } from "../../../lib/format.js";
 import {
   CONTACT_METHOD_LABELS,
   DIFFICULTY_LABELS,
@@ -42,12 +48,16 @@ import {
   TARGET_CATEGORY_LABELS,
   TARGET_KIND_LABELS,
 } from "../../../lib/labels.js";
+import { pendingRecords } from "../../../lib/listings.js";
 import { paths } from "../../../lib/paths.js";
+import { describeScanStart } from "../../../lib/scan-start.js";
 import { RIGHT_TOKENS } from "../../requests/format.js";
 import { HealthMark } from "../Automation.js";
+import { LISTING_INVALIDATES } from "../listings/scanning.js";
 import { Priority } from "../Priority.js";
 import { HUMAN_STEPS } from "../RequirementBadges.js";
 import { SiteVisits } from "./SiteVisits.js";
+import { YourListing } from "./YourListing.js";
 
 const REQUIREMENT_HELP: Record<Requirement, string> = {
   email_confirmation: "It sends a confirmation email, and the link in it has to be followed.",
@@ -204,8 +214,67 @@ function useStandingRequest(targetId: string) {
   );
 }
 
+/**
+ * What the header offers for a site that removes one record at a time. The first step is finding
+ * the record, which is a scan and not a request, so the button follows where the scan stands.
+ */
+function PeopleSearchAction({ target }: { target: TargetDetail }) {
+  const { profile } = useCurrentProfile();
+  const toast = useToast();
+  const standing = useStandingRequest(target.id);
+  const listing = useApiQuery(
+    API_ROUTES.listingsGet,
+    profile ? { params: { id: profile.id, targetId: target.id } } : skipToken,
+  );
+  const find = useApiMutation(API_ROUTES.scansStart, {
+    invalidates: [...LISTING_INVALIDATES],
+    onSuccess: (result) => {
+      const summary = describeScanStart(result.items, profile?.id ?? "");
+      toast.toast({
+        intent: summary.intent,
+        title: summary.title,
+        description: summary.description,
+      });
+    },
+  });
+  const waiting = listing.data ? pendingRecords(listing.data).length : 0;
+
+  if (waiting > 0) {
+    return (
+      <LinkButton to={`${paths.target(target.id)}#your-listing`} variant="primary">
+        Confirm {pluralize(waiting, "record")}
+      </LinkButton>
+    );
+  }
+  if (standing) return <StandingLink standing={standing} />;
+  if (!profile || listing.data?.status === "skipped") return null;
+  const scanned = listing.data?.latestScan !== null && listing.data?.latestScan !== undefined;
+  return (
+    <Button
+      variant="primary"
+      loading={find.isPending}
+      onClick={() => find.mutate({ params: { id: profile.id }, body: { targetIds: [target.id] } })}
+    >
+      {scanned ? "Scan again" : "Find my record"}
+    </Button>
+  );
+}
+
+function StandingLink({
+  standing,
+}: {
+  standing: NonNullable<ReturnType<typeof useStandingRequest>>;
+}) {
+  return (
+    <LinkButton to={paths.request(standing.id)}>
+      {standing.status === "confirmed" ? "Already removed" : "Removal in progress"}
+    </LinkButton>
+  );
+}
+
 function RemoveAction({ target }: { target: TargetDetail }) {
   const standing = useStandingRequest(target.id);
+  if (target.needsRecord) return <PeopleSearchAction target={target} />;
   if (standing) {
     return (
       <LinkButton to={paths.request(standing.id)}>
@@ -257,6 +326,8 @@ function TargetView({ target }: { target: TargetDetail }) {
             A campaign skips this target until the dataset has an email address or a form for it.
           </Callout>
         ) : null}
+
+        {target.needsRecord && !target.retired ? <YourListing targetId={target.id} /> : null}
 
         <TargetRequests target={target} />
 

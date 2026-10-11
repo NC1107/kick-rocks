@@ -10,7 +10,7 @@ const TAB_DESTINATIONS: Record<string, string> = {
   mail: paths.reviewSection("mail"),
   failed: paths.reviewSection("problems"),
   agents: paths.reviewSection("agents"),
-  scans: paths.reviewSection("scans"),
+  scans: paths.listings(),
 };
 
 const OLD_TASK_KEY = /^(blocked|yours|agent):(.+)$/;
@@ -38,7 +38,7 @@ export function legacyDestination(
   const tab = params.get("tab");
   const item = params.get("item");
 
-  if (item === "scans") return paths.reviewSection("scans");
+  if (item === "scans") return paths.listings();
   if (item !== null) {
     const prefix = item.split(":", 1)[0] ?? "";
     const id = item.slice(prefix.length + 1);

@@ -22,6 +22,7 @@ export const appRoutes: RouteObject[] = [
   { path: "profiles/:id", lazy: () => import("./pages/profiles/detail/index.js") },
   { path: "profiles/:id/mailbox", lazy: () => import("./pages/mailbox/index.js") },
   { path: "targets", lazy: () => import("./pages/targets/index.js") },
+  { path: "targets/listings", lazy: () => import("./pages/targets/listings/index.js") },
   { path: "targets/:id", lazy: () => import("./pages/targets/detail/index.js") },
   { path: "targets/:id/remove", lazy: () => import("./pages/targets/remove/index.js") },
   { path: "campaigns/new", lazy: () => import("./pages/campaigns/new/index.js") },

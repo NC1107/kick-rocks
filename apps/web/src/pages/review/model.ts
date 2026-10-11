@@ -14,7 +14,7 @@ export const isYours = (item: BlockedTaskItem): boolean =>
   item.task.assignment?.to.kind === "person";
 
 /** How many items each Review page lists, for the number beside its tab. */
-export function sectionCounts(queue: ReviewQueue): Record<Exclude<ReviewSection, "scans">, number> {
+export function sectionCounts(queue: ReviewQueue): Record<ReviewSection, number> {
   return {
     mail: queue.messages.length,
     agents: queue.agentTasks.filter((item) => !isYours(item)).length,
@@ -69,7 +69,7 @@ export const KIND_LABELS: Record<ReviewKind, string> = {
 };
 
 /** Which kinds of row each list page holds. */
-export const SECTION_KINDS: Record<Exclude<ReviewSection, "scans">, readonly ReviewKind[]> = {
+export const SECTION_KINDS: Record<ReviewSection, readonly ReviewKind[]> = {
   mail: ["mail"],
   agents: ["agents"],
   problems: ["failed"],

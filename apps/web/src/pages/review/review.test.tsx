@@ -1,6 +1,6 @@
 import { screen, waitFor, within } from "@testing-library/react";
 import type { UserEvent } from "@testing-library/user-event";
-import { useLocation } from "react-router";
+import { Route, Routes, useLocation } from "react-router";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { applyAgentPreset } from "../../../mock/agents.js";
 import { createMockApp, type MockApp } from "../../../mock/app.js";
@@ -244,21 +244,15 @@ describe("the review pages", () => {
     await waitFor(() => expect(mock.store.tasks.length).toBe(before + 1));
   });
 
-  it("starts a scan of the people-search sites and lists recent scans", async () => {
-    const { user, mock } = open("/review/scans");
-    expect(await screen.findByRole("region", { name: "Scans" })).toBeVisible();
-    const before = mock.store.scans.length;
-    await user.click(screen.getByRole("button", { name: "Scan all" }));
-    expect(mock.store.scans.length).toBe(before);
-    await user.click(await screen.findByRole("button", { name: "Start scans" }));
-    await waitFor(() => expect(mock.store.scans.length).toBeGreaterThan(before));
-  });
-
-  it("lists scans as rows because the pane beside the queue is narrow", async () => {
-    open("/review/scans");
-    const list = await screen.findByRole("list", { name: "Recent scans" });
-    expect(within(list).getAllByRole("listitem").length).toBeGreaterThan(0);
-    expect(screen.queryByRole("table", { name: "Recent scans" })).not.toBeInTheDocument();
+  it("sends the old scans address to where you're listed", async () => {
+    renderPage(
+      <Routes>
+        <Route path="/review" element={<ReviewPage />} />
+        <Route path="/targets/listings" element={<p>Listings page</p>} />
+      </Routes>,
+      { route: "/review?item=scans" },
+    );
+    expect(await screen.findByText("Listings page")).toBeVisible();
   });
 
   it("says when the queue cannot load", async () => {
