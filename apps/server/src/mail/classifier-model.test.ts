@@ -1,6 +1,7 @@
 import { outgoingMessageId, ReplyClassification } from "@kickrocks/shared";
 import { describe, expect, it } from "vitest";
 import { noDkim, signedAs } from "../test-utils/dkim.js";
+import { withProvenRules } from "../test-utils/proven-rules.js";
 import { createReplyClassifier } from "./classifier.js";
 import type { ModelResult, ReplyModelHost } from "./reply-model/types.js";
 import type { ClassifierRequest, InboxMessage } from "./types.js";
@@ -102,6 +103,8 @@ const classify = (setup: Setup, mail: InboxMessage = message()) =>
   classifierWith(setup).classify(mail, { requests: [request] });
 
 describe("the reply model after the rules", () => {
+  withProvenRules("has-been-done");
+
   it("is not asked when the rules are sure", async () => {
     const model = host(answer("rejected", 0.99));
     const result = await classify({ model }, message({ text: "Your data has been deleted." }));
@@ -314,6 +317,7 @@ describe("when the reply model cannot answer", () => {
 });
 
 describe("mail that neither answers ours nor names the request", () => {
+  withProvenRules("has-been-done");
   const DONE = "Your data has been deleted.";
   const fromVendor = (text: string, overrides: Partial<InboxMessage> = {}) =>
     message({

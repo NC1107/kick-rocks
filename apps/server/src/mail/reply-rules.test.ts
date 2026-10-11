@@ -7,6 +7,7 @@ import {
   requestedFieldsIn,
   type Signal,
   STRUCTURAL_READINGS,
+  WAITING_READINGS,
 } from "./reply-rules.js";
 
 function signalsFor(text: string, subject = ""): Signal[] {
@@ -43,16 +44,14 @@ describe("shapes of real replies the rules once misread", () => {
 
     it("reads a thank-you before a finished removal as the removal", () => {
       expect(
-        topOf(
-          "Thank you for your request. Acme has processed and completed the removal of your data.",
-        ),
+        topOf("Thanks for writing in. Acme has fulfilled your removal request."),
       ).toMatchObject({ classification: "completed", rule: "provider-did-it" });
     });
 
     it("does not take the start of an email address for the word email", () => {
       expect(
         rulesFor(
-          "We received your email address with a request to exercise your rights. Confirm it with the link below within 3 days.",
+          "We received your email address along with a request about your rights. Confirm it using the link below within 3 days.",
         ),
       ).not.toContain("acknowledged");
     });
@@ -72,7 +71,7 @@ describe("shapes of real replies the rules once misread", () => {
   describe("a request to do it yourself or elsewhere", () => {
     it("reads signing in and deleting it yourself as a redirect, ahead of the refusal beside it", () => {
       const reply =
-        "Hello. We are unable to delete accounts for users, so you will need to sign in to your account and delete it yourself from the settings page.";
+        "Hello. We cannot remove accounts on a user's behalf, so you will need to sign in to your account and delete it yourself from the settings page.";
       expect(signalsFor(reply).map((signal) => signal.classification)).toEqual(
         expect.arrayContaining(["needs_form", "rejected"]),
       );
@@ -82,7 +81,7 @@ describe("shapes of real replies the rules once misread", () => {
     it("reads a plain statement that the account can be deactivated as a redirect", () => {
       expect(
         topOf(
-          "Thanks for your question. You can deactivate your account at any time from its settings. Search engines may keep copies.",
+          "Thanks for your question. You can deactivate your account from the settings page whenever you wish. Search engines may keep copies.",
         ),
       ).toMatchObject({ classification: "needs_form" });
     });
@@ -90,7 +89,7 @@ describe("shapes of real replies the rules once misread", () => {
     it("reads app instructions as a redirect even when the law is declined", () => {
       expect(
         topOf(
-          "We are a small company and are not covered under that law. You can send your deletion request following the instructions for your device: open Settings and tap Delete.",
+          "We are a small company and are not covered under that law. Go ahead following the instructions on your device: open Settings and tap Delete.",
         ),
       ).toMatchObject({ classification: "needs_form" });
     });
@@ -98,7 +97,7 @@ describe("shapes of real replies the rules once misread", () => {
     it("reads a refusal that names a new form as the only way as a redirect", () => {
       expect(
         topOf(
-          "Your subscription is still active, so we were unable to fulfill your deletion request. Once it is cancelled you should submit a new data request form.",
+          "Your subscription is still active, so the deletion cannot go ahead yet. Once it is cancelled you should submit a new data request form.",
         ),
       ).toMatchObject({ classification: "needs_form" });
     });
@@ -113,7 +112,7 @@ describe("shapes of real replies the rules once misread", () => {
     it("does not read a portal named for somebody else as a redirect for this person", () => {
       expect(
         rulesFor(
-          "If the consumer cannot or does not wish to use our Portal, they may reply with the identifiers instead.",
+          "Should the individual be unwilling to open our Portal, a reply carrying the identifiers will do.",
         ),
       ).not.toContain("use-online-form");
     });
@@ -121,7 +120,7 @@ describe("shapes of real replies the rules once misread", () => {
     it("does not read a mailbox to send something to as a request for the field", () => {
       expect(
         rulesFor(
-          "Please send the work email address you want removed to privacy@broker.test, where our team handles these directly.",
+          "Please mail the work address you want removed to privacy@broker.test, where our team handles these directly.",
         ),
       ).not.toContain("more-information");
     });
@@ -145,7 +144,7 @@ describe("shapes of real replies the rules once misread", () => {
     it("does not read a click-to-confirm sentence as a request for ID", () => {
       expect(
         rulesFor(
-          "By clicking the link below you confirm the verification of your identity and we will start work.",
+          "Clicking this button counts as your confirmation that you are who you say, and then we begin.",
         ),
       ).not.toContain("identity-document");
     });
@@ -153,7 +152,7 @@ describe("shapes of real replies the rules once misread", () => {
     it("does not read a list of what is not collected as a request for ID", () => {
       expect(
         rulesFor(
-          "We do not collect or hold your name, email, phone number, address, or any government-issued ID number.",
+          "We neither collect nor keep your name, email, phone number, address, or any government-issued ID number.",
         ),
       ).not.toContain("identity-document");
     });
@@ -182,7 +181,7 @@ describe("shapes of real replies the rules once misread", () => {
       const reply = [
         "Thanks for getting in touch. We cannot fully delete accounts, but we can block yours.",
         "",
-        "If you want that, please let us know and provide us with the following information:",
+        "If you want that, please send the following details:",
         "",
         "Name used at signup",
         "Date of birth",
@@ -195,7 +194,7 @@ describe("shapes of real replies the rules once misread", () => {
 
     it("reads a request for the listing's link as a request for information, ahead of the missing record", () => {
       const reply =
-        "We're unable to locate your name on our site. Could you please provide a direct link (URL) to the page that shows your details? Otherwise we will close your request.";
+        "We could not locate your name on our site. Please provide the direct link (URL) to the page that shows your details, or the ticket closes.";
       expect(topOf(reply)).toMatchObject({ classification: "verification_required" });
       expect(requestedFieldsIn(reply)).toContain("record_url");
     });
@@ -209,7 +208,7 @@ describe("shapes of real replies the rules once misread", () => {
     it("reads a demand for identifiers as a request, ahead of the conditional refusal after it", () => {
       expect(
         topOf(
-          "We only handle device advertising identifiers. To fulfil your request you must submit the advertising identifiers of your devices. Without them we will not be able to process your request.",
+          "We only handle device advertising identifiers. To act on this you must submit the advertising identifiers of your devices. Lacking those, nothing can proceed.",
         ),
       ).toMatchObject({ classification: "verification_required" });
     });
@@ -217,7 +216,7 @@ describe("shapes of real replies the rules once misread", () => {
     it("does not read an invitation to send more later as a request", () => {
       expect(
         rulesFor(
-          "We found nothing. You may submit a new request with any new or additional information at any time.",
+          "We found nothing. A fresh request is welcome whenever you have extra identifiers to share.",
         ),
       ).not.toContain("more-information");
     });
@@ -227,7 +226,7 @@ describe("shapes of real replies the rules once misread", () => {
     it("reads a model-output search that found nothing as a refusal, not a missing record", () => {
       expect(
         topOf(
-          "We reviewed your submission and were unable to identify any examples of your information in an answer from one of our assistants. We cannot take further action on your request.",
+          "Our team looked at your submission and could not identify your details in a response our assistants generated. Our team cannot take any additional action here.",
         ),
       ).toMatchObject({ classification: "rejected" });
     });
@@ -235,7 +234,7 @@ describe("shapes of real replies the rules once misread", () => {
     it("reads the same refusal with a screenshot request as a refusal", () => {
       expect(
         topOf(
-          "We are unable to identify any examples of your information in an answer from our assistant. Please attach a screenshot of one if you have it.",
+          "We could not identify any of your details in a response from our assistant. Please attach a screenshot of one if you have it.",
         ),
       ).not.toMatchObject({ classification: "no_record" });
     });
@@ -243,7 +242,7 @@ describe("shapes of real replies the rules once misread", () => {
     it("reads a processor's answer about another user's data as a refusal", () => {
       expect(
         topOf(
-          "Thanks for reaching out. We cannot delete data stored in another user's workspace. We act as the processor there, and the workspace owner is the controller, so please contact them.",
+          "Thanks for reaching out. We cannot delete data stored in another user's workspace. We act as the processor there, and the owner of that workspace decides what happens to it, so please contact them.",
         ),
       ).toMatchObject({ classification: "rejected" });
     });
@@ -280,7 +279,7 @@ describe("shapes of real replies the rules once misread", () => {
 
     it("does not read a finished review as a finished request", () => {
       expect(
-        topOf("We have completed our review and were unable to locate any information about you."),
+        topOf("We have completed the review of your file but could not find any data on you."),
       ).toMatchObject({ classification: "no_record" });
     });
   });
@@ -289,7 +288,7 @@ describe("shapes of real replies the rules once misread", () => {
     it("reads a company that processed the request and listed the person as done", () => {
       expect(
         signalsFor(
-          "We received your request and processed the request. We added your details to our suppression list.",
+          "Your note arrived and the matter was handled. Your details were added to our suppression list.",
         ).map((signal) => signal.classification),
       ).toContain("completed");
     });
@@ -297,20 +296,137 @@ describe("shapes of real replies the rules once misread", () => {
     it("reads a company that complied with the opt-out as done", () => {
       expect(
         topOf(
-          "Thank you for submitting your request. Per your note, Acme has complied with your opt-out request.",
+          "Thank you for submitting your request. Per your note, Acme has complied with the opt-out you asked for.",
         ),
       ).toMatchObject({ classification: "completed" });
     });
   });
 });
 
-describe("which readings are applied without a person", () => {
-  it("applies only the three wording rules measured before they were touched", () => {
-    expect([...PROVEN_RULES].sort()).toEqual([
+describe("a refusal or a redirect that borrows the wording of a finished request", () => {
+  it("does not read a request that was processed and denied as done", () => {
+    const reply =
+      "Your request has been processed and denied because you are not a Texas resident.";
+    expect(rulesFor(reply)).toContain("declined");
+    expect(rulesFor(reply)).not.toContain("has-been-done");
+    expect(topOf(reply)).toMatchObject({ classification: "rejected" });
+  });
+
+  it("reads a residency refusal that names any state as a refusal", () => {
+    expect(topOf("We cannot help here, as you are not an Ohio resident.")).toMatchObject({
+      classification: "rejected",
+    });
+  });
+
+  it("does not read a request that was merely handled as done", () => {
+    expect(rulesFor("The case has been processed by our team.")).not.toContain("has-been-done");
+  });
+
+  it("holds a honored request that cannot find a second detail back from completed", () => {
+    const reply =
+      "Your request has been honored for the email address provided. We could not find the phone number.";
+    expect(signalsFor(reply).map((signal) => signal.classification)).toEqual(
+      expect.arrayContaining(["completed", "no_record"]),
+    );
+  });
+});
+
+describe("a reply that keeps email as the channel or asks for authorization", () => {
+  it("does not read a sender-address requirement as a move to a form", () => {
+    expect(
+      rulesFor(
+        "Your request must be sent from the email address on your account. Details are at https://acme.test/help.",
+      ),
+    ).not.toContain("email-not-accepted");
+  });
+
+  it("does not read a request that must come by email as a move to a form", () => {
+    const reply =
+      "Requests must be submitted by the consumer themselves via email at help@acme.test.";
+    expect(rulesFor(reply)).not.toContain("email-not-accepted");
+    expect(rulesFor(reply)).not.toContain("must-use-other-channel");
+  });
+
+  it("does not read a link that explains an authorization as the channel", () => {
+    expect(
+      rulesFor(
+        "Requests submitted on behalf of another person must include a signed authorization, as explained at https://acme.test/privacy",
+      ),
+    ).not.toContain("must-use-other-channel");
+  });
+
+  it("still reads a request that must go through a named form as a redirect", () => {
+    expect(rulesFor("Requests must be submitted through our online form.")).toContain(
       "email-not-accepted",
+    );
+    expect(rulesFor("All requests must be made at https://acme.test/optout")).toContain(
+      "email-not-accepted",
+    );
+    expect(
+      rulesFor("Requests can only be submitted via our privacy portal at https://acme.test"),
+    ).toContain("email-not-accepted");
+  });
+});
+
+describe("a condition that is only a reference", () => {
+  it("still reads a finished removal after a ticket number introduced by in case", () => {
+    expect(rulesFor("Regarding your request in case 12345, your data has been deleted.")).toContain(
       "has-been-done",
-      "must-use-other-channel",
-    ]);
+    );
+  });
+
+  it("still voids a finished removal that sits under a real condition", () => {
+    expect(rulesFor("In case you ask, your data has been deleted.")).not.toContain("has-been-done");
+  });
+});
+
+describe("automatic replies", () => {
+  const auto = (overrides: Partial<Parameters<typeof matchSignals>[0]["message"]>) =>
+    matchSignals({
+      message: {
+        subject: "Automatic reply: your request",
+        from: { name: null, address: "privacy@broker.test" },
+        isBounce: false,
+        autoSubmitted: false,
+        headers: {},
+        ...overrides,
+      },
+      body: "I am out of the office until Monday.",
+    });
+
+  it("reads a machine-sent out-of-office notice as a header reading", () => {
+    expect(auto({ autoSubmitted: true })[0]).toMatchObject({
+      classification: "auto_ack",
+      rule: "automatic-reply",
+    });
+  });
+
+  it("leaves an out-of-office subject with no machine header to a person", () => {
+    expect(auto({})[0]).toMatchObject({ classification: "auto_ack", rule: null });
+  });
+
+  it("reads a delay notice inside a delivery report as a header reading", () => {
+    const delayed = {
+      subject: "Delivery Status Notification (Delay)",
+      isBounce: true,
+    };
+    const result = matchSignals({
+      message: {
+        ...delayed,
+        from: { name: null, address: "mailer-daemon@broker.test" },
+        autoSubmitted: false,
+        headers: {},
+      },
+      body: "Delivery is delayed; we will keep trying.",
+    });
+    expect(result[0]).toMatchObject({ classification: "auto_ack", rule: "automatic-reply" });
+  });
+});
+
+describe("which readings are applied without a person", () => {
+  it("applies no wording rule until fresh mail has measured it", () => {
+    expect([...PROVEN_RULES]).toEqual([]);
+    for (const rule of RULES) expect(appliesWithoutPerson(rule.id)).toBe(false);
   });
 
   it("names every wording rule once, and every proven one exists", () => {
@@ -319,11 +435,17 @@ describe("which readings are applied without a person", () => {
     for (const id of PROVEN_RULES) expect(ids).toContain(id);
   });
 
-  it("applies the structural readings and nothing that has no source", () => {
-    expect([...STRUCTURAL_READINGS].sort()).toEqual(["confirmation-link", "delivery-report"]);
+  it("applies the header readings and nothing that has no source", () => {
+    expect([...STRUCTURAL_READINGS].sort()).toEqual(["automatic-reply", "delivery-report"]);
     expect(appliesWithoutPerson("delivery-report")).toBe(true);
-    expect(appliesWithoutPerson("confirmation-link")).toBe(true);
+    expect(appliesWithoutPerson("automatic-reply")).toBe(true);
     expect(appliesWithoutPerson("acknowledged")).toBe(false);
     expect(appliesWithoutPerson(null)).toBe(false);
+  });
+
+  it("applies a confirmation link only for a request that is waiting for it", () => {
+    expect([...WAITING_READINGS]).toEqual(["confirmation-link"]);
+    expect(appliesWithoutPerson("confirmation-link")).toBe(false);
+    expect(appliesWithoutPerson("confirmation-link", { waiting: true })).toBe(true);
   });
 });

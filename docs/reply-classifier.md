@@ -24,26 +24,32 @@ The synthetic numbers did not transfer.
   It applied 14 replies and got 11 wrong, and its "thank you for" part was right on 1 of 24.
   An applied acknowledgement is filed as noise, so those mistakes were also hidden from the person.
 - No rule had enough applications to prove 95% precision.
-  Only three rules were right every time they decided: the one for email not being accepted (4 of 4), the one for requests that must go through another channel (5 of 5), and the one for "has been removed" wording (5 of 5).
-  Together that is 14 of 14, with a 95% lower bound of 78.5%.
-  Alone, their lower bounds are 51%, 57% and 57%.
+  Only three rules were right every time they decided: the one for email not being accepted (4 of 4), the one for requests that must go through another channel (4 of 4), and the one for "has been removed" wording (4 of 4), counting the replies that name the request's company.
+  Together that is 12 of 12, with a 95% lower bound of about 76%.
+  Alone, their lower bounds are about 51%, 57% and 57%.
 
 So the server now follows these rules.
 
 - A rule's answer is applied without a person only when the rule is in `PROVEN_RULES` in `apps/server/src/mail/reply-rules.ts`.
-  The list holds the three rules above, and each was measured on the real replies before it was touched.
-  Its wording has not changed since.
-- Every other rule answer is a suggestion.
+  The list is empty.
+  Three rules were right every time they decided on the real replies, but on 4 of 4 each, which gives 95% lower bounds of 51% to 57%, and 12 of 12 pooled is about 76%.
+  All 12 came from one source folder, and several alternatives inside those rules never fired on real mail.
+  That is not support for a 95% claim, so every wording rule suggests until fresh inbox mail gives about 60 correct decisions per rule.
+- Every wording rule answer is therefore a suggestion.
   The reply goes to Review with the rules' label preselected, and nothing moves the request.
 - Every model answer, from the encoder or the language model, is a suggestion too.
   No threshold was ever measured to give a model the precision that moving a request needs.
-  The model thresholds, spot checks and pause setting no longer decide anything, because no model answer is applied.
+  The settings card shows "Suggestions only", and the model threshold, spot check and pause settings are gone because nothing is applied.
 - The rules also hold their own answer for Review when two different decisions fire in one reply.
 - The name gate and the trust caps are unchanged.
   A reading that moves a request still needs a signature that vouches for it.
-- The structural readings, a delivery status report and a confirmation link on the request's own site, still apply behind those trust caps.
-  The real replies carry no headers and no links, so they could not measure either, and the structure of the mail is what they read.
-  They are listed in `STRUCTURAL_READINGS` so the exception is explicit.
+- Two readings come from message headers and still apply behind those trust caps: a delivery status report, and an automatic reply that a mail server marked as machine-sent (an out-of-office notice with `Auto-Submitted`, or a delay notice inside a delivery report).
+  They are listed in `STRUCTURAL_READINGS`.
+  An out-of-office subject without a machine header, and a delay notice recognized only by its subject, are wording and go to Review.
+- A confirmation link is applied only for a request that is waiting for one, which the form flow sets when it submits a form that promised a confirmation email.
+  Its wording was never measured on real mail, because the real replies carry no links.
+  For any other request the same reading is a suggestion.
+  It is listed in `WAITING_READINGS`.
 - The reply encoder stays off by default.
   The release pin in `apps/server/reply-model/release.json` is empty, so the image does not bundle a model, and a model that is installed only suggests.
 
@@ -55,22 +61,28 @@ The rest of the rules were rewritten against the misreads in the real set.
 - Conditions are read across a sentence, so "if you submit a copy of your ID" and "if you do not fall into these cases, your request is complete" no longer count.
 - A request or a route outranks a missing or refused record that comes with it.
   A finished request outranks a missing one.
-- New wording is read for doing it yourself in your account, for a company that processed or complied with the request, for being unable to delete, to take action, or to act as a processor, and for a company that generally holds no personal data.
+- A request that was "processed" is no longer read as done, because it means handled and not succeeded: "processed and denied" is a refusal, and the refusal wording now covers any state in "not a ... resident".
+That cost one completed reply on the real set (17 to 16 of 28 right as the top label).
+A redirect that ends at a bare preposition, keeps email as the channel, or points at a link that only explains an authorization is no longer read as a redirect.
+The condition check also ignores "in case" followed by a ticket or case number.
+The "has been removed" rule read only the clause for a negation before; it now uses the full sentence check like the other rules, so its wording handling changed after it was measured.
+New wording is read for doing it yourself in your account, for a company that processed or complied with the request, for being unable to delete, to take action, or to act as a processor, and for a company that generally holds no personal data.
 
-Those rewritten rules reach 56 right out of 56 suggestions on the same replies.
-That is fitted to the replies, so it does not count as proof.
+Those rewritten rules were 56 right out of 56 suggestions on the same replies before the last round of fixes.
+That is fitted to the replies, so it does not count as proof, and it has not been re-counted since.
 They stay suggestions until fresh mail measures them.
 
 | Real replies, rules alone | Applied | Applied wrong | Review |
 |---|---|---|---|
 | Before | 77 | 25 | 84 |
-| After | 12 | 0 | 149 |
+| After | 0 | 0 | 161 |
 
-The 149 in Review start with a label for 56 of them, and all 56 labels match the human label on this set.
-The intake loop (`pnpm loop:mail-intake`, dev corpus) stores 134 messages about a request, and Review shows 73 of them before and 114 after.
-So 61 were handled without a person before, and 20 are now.
+With no rule on the proven list the rules apply 0 of the 161 real replies, so all 161 go to Review.
+The intake loop (`pnpm loop:mail-intake`, dev corpus) stores 134 messages about a request, and Review shows 73 of them before and 112 after.
+So 61 were handled without a person before, and 22 are now.
 The loop still shows no false positives, false negatives, stored ignored mail or misrouted mail.
-It counts 40 correct readings that now wait in Review, and 0 that waited for no reason.
+It counts 38 correct readings that now wait in Review, and 0 that waited for no reason.
+The test pins that count at 38, so a change that sends more correctly read mail to Review has to change the test on purpose.
 
 Growing the set from the product's own inbox, where headers and signatures are real, is how a rule gets onto the list.
 A rule should show at least 95% precision on fresh mail, with about 60 correct applications in a row for a 95% lower bound, before it joins `PROVEN_RULES`.

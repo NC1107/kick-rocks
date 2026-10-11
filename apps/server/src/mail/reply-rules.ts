@@ -9,9 +9,11 @@ export interface Signal {
   rule: ReadingId | null;
 }
 
-/** Readings that come from the structure of a message, not from what it says. */
-export type StructuralId = "delivery-report" | "confirmation-link";
-export type ReadingId = RuleId | StructuralId;
+/** Readings that come from the headers of a message, not from what it says. */
+export type StructuralId = "delivery-report" | "automatic-reply";
+/** A reading that moves a request only when that request is waiting for it. */
+export type WaitingId = "confirmation-link";
+export type ReadingId = RuleId | StructuralId | WaitingId;
 
 export type RuleId =
   | "identity-document"
@@ -53,7 +55,7 @@ const NEGATION =
 const ASKING_NEGATION =
   /\b(not|never|no|unable|cannot|can't|couldn't|won't|unless|if|whether)\b|n't\b/i;
 /** A condition anywhere earlier in the sentence, even past a comma: "If you do not X, then Y". */
-const CONDITION = /\b(if|unless|whether|in the event|in case)\b/i;
+const CONDITION = /\b(if|unless|whether|in the event|in case(?! (?:no\.? ?|number |#)?\d))\b/i;
 
 /** The words of the clause before a match, which is where a negation or a condition would sit. */
 function sentenceBefore(text: string, index: number): string {
@@ -124,6 +126,12 @@ const REQUIRED_CHANNEL = [
   String.raw`\(?\d{3}\)?[ .-]\d{3}[ .-]\d{4}`,
 ].join("|");
 const NO_STOP = `[^.!?]`;
+/**
+ * Like NO_STOP, but it cannot run through a verb that attaches something to a request or points at
+ * an explanation, so "must include a signed form, as explained at https://..." does not read as a
+ * place to send the request.
+ */
+const NOT_A_DESCRIPTION = String.raw`(?:(?!\b(?:includes?|including|accompan\w+|contains?|attach\w*|explain\w*|described?|detail\w*|outlined?|provide[sd]?)\b)[^.!?])`;
 
 /** Words that ask the reader to hand something over, which is what separates a request for it from a description of it. */
 const ASK_LEAD = `(?:please|kindly|must|(?:you|we|i)(?: will| would| may| must| should)? (?:need|require)s?(?: to)?|(?:is|are) required to|required to|requires?|submit|provide|send|upload|attach|supply|include|enclose|reply (?:to this e-?mail )?with)`;
@@ -191,8 +199,13 @@ export const RULES: Rule[] = [
     confidence: 0.9,
     label: "points to a web form",
     negation: "ignore",
-    pattern:
-      /\b(do not|don't|cannot|can't|unable to|no longer|only)\b.{0,30}\b(accept|process|handle|honou?r|take|receive)\b.{0,30}\b(request|requests)?.{0,20}\b(by|via|through|over|using)\b.{0,10}\be-?mail\b|\brequests?\b.{0,40}\b(must|can only|should) be (submitted|made|sent|filed)\b.{0,30}\b(via|through|at|using|on)\b/i,
+    pattern: new RegExp(
+      [
+        String.raw`\b(?:do not|don't|cannot|can't|unable to|no longer|only)\b.{0,30}\b(?:accept|process|handle|honou?r|take|receive)\b.{0,30}\b(?:requests?)?.{0,20}\b(?:by|via|through|over|using)\b.{0,10}\be-?mail\b`,
+        String.raw`\brequests?\b${NO_STOP}{0,40}\b(?:must|can only|should) be (?:submitted|made|sent|filed)\b${NO_STOP}{0,30}\b(?:via|through|at|using|on) (?:(?:our|the|an?|this|its) )?(?:${REQUIRED_CHANNEL})`,
+      ].join("|"),
+      "i",
+    ),
   },
   {
     id: "use-online-form",
@@ -211,7 +224,7 @@ export const RULES: Rule[] = [
     negation: "ignore",
     pattern: new RegExp(
       [
-        String.raw`\brequests?\b${NO_STOP}{0,60}\b(?:must|should|can only|may only|need to|have to|are required to|only)\b${NO_STOP}{0,60}\b(?:submitted|made|sent|filed|received|accepted|processed|through|via|by|at|using|on)\b${NO_STOP}{0,80}\b(?:${REQUIRED_CHANNEL})`,
+        String.raw`\brequests?\b${NO_STOP}{0,60}\b(?:must|should|can only|may only|need to|have to|are required to|only)\b${NOT_A_DESCRIPTION}{0,60}\b(?:submitted|made|sent|filed|received|accepted|processed|through|via|by|at|using|on)\b${NO_STOP}{0,80}\b(?:${REQUIRED_CHANNEL})`,
         String.raw`\b(?:must|should|need to|have to|are required to|can only|may only|only)\b${NO_STOP}{0,40}\b(?:submit|make|send|file|lodge|exercise)\b${NO_STOP}{0,40}\b(?:requests?|submissions?)\b${NO_STOP}{0,80}\b(?:${REQUIRED_CHANNEL})`,
         String.raw`\bto (?:submit|make|file|exercise|start|initiate)\b${NO_STOP}{0,60}\b(?:requests?|rights)\b${NO_STOP}{0,100}\b(?:${NAMED_CHANNEL})`,
         String.raw`\b(?:please|kindly)\b${NO_STOP}{0,40}\b(?:use|submit|complete|visit|go to|fill|file|make|send|access|call|log ?in|open|create|raise)\b${NO_STOP}{0,60}\b(?:${NAMED_CHANNEL})`,
@@ -248,7 +261,7 @@ export const RULES: Rule[] = [
     negation: "ignore",
     pattern: new RegExp(
       [
-        String.raw`\b(?:could not|couldn't|can not|cannot|unable to|did not|didn't|do not|don't|were not able to|was not able to)\b.{0,20}\b(?:find|locate|identify|match)\b(?![^.]{0,80}\bin an? (?:response|output|answer)\b).{0,60}\b(?:record|records|information|data|account|profile|listing|you|your)\b`,
+        String.raw`\b(?:could not|couldn't|can not|cannot|unable to|did not|didn't|do not|don't|were not able to|was not able to)\b.{0,20}\b(?:find|locate|identify|match)\b(?![^.]{0,80}\bin an? (?:response|output|answer)\b).{0,60}\b(?:record|records|information|data|account|profile|listing|you|your|phone number|e-?mail(?: address)?|number)\b`,
         String.raw`\bno (?:matching |such |personal )?(?:record|records|data|information|account|profile|listing|match|matches|results?)\b.{0,30}\b(?:found|on file|exist|associated|located|matching)\b`,
         String.raw`\bwe (?:do not|don't) (?:have|hold|maintain|collect|keep|store|sell) any (?:personal )?(?:information|data|records?)\b`,
         String.raw`\b(?:do not|don't|does not|doesn't) (?:generally |currently )?(?:have|hold|maintain|keep|store) (?:any )?personal (?:information|data|records?)\b`,
@@ -266,8 +279,8 @@ export const RULES: Rule[] = [
       [
         String.raw`\b(?:unable|not able|cannot|can't|will not|won't|are not required|do not have to)\b.{0,20}\b(?:process|honou?r|fulfil+|comply|complete|grant|accept)\b.{0,40}\b(?:your |this )?(?:request|opt[- ]?out|deletion)\b`,
         String.raw`\bwe (?:have )?(?:denied|declined|rejected)\b`,
-        String.raw`\brequest (?:is |has been |was )?(?:denied|declined|rejected)\b`,
-        String.raw`\b(?:not|no longer) (?:a )?(?:resident|eligible|subject to)\b`,
+        String.raw`\brequest (?:is |has been |was )?(?:processed and )?(?:denied|declined|rejected)\b`,
+        String.raw`\b(?:not|no longer) (?:an? )?(?:[a-z]+ ){0,2}(?:resident|eligible|subject to)\b`,
         String.raw`\bexempt from\b`,
         String.raw`\b(?:unable|not able|cannot|can't|will not|won't)\b.{0,10}\b(?:delete|remove|erase)\b`,
         String.raw`\b(?:cannot|can't|unable to|not able to) take (?:any )?(?:further |additional )?action\b`,
@@ -283,7 +296,7 @@ export const RULES: Rule[] = [
     confidence: 0.9,
     label: "says the request is done",
     pattern:
-      /\b(has|have) been (successfully |fully |permanently )?(removed|deleted|erased|suppressed|opted[- ]out|unsubscribed|processed|completed|fulfil+ed|honou?red)\b/i,
+      /\b(has|have) been (successfully |fully |permanently )?(removed|deleted|erased|suppressed|opted[- ]out|unsubscribed|completed|fulfil+ed|honou?red)\b/i,
   },
   {
     id: "we-have-done",
@@ -291,7 +304,7 @@ export const RULES: Rule[] = [
     confidence: 0.8,
     label: "says the request is done",
     pattern:
-      /\bwe (have|ve|'ve) (now )?(successfully |fully |permanently )?(removed|deleted|erased|suppressed|opted|unsubscribed|processed|completed|honou?red|fulfil+ed)\b(?!\s+(?:our|the|a|an)\s+(?:review|search|investigation|assessment))|\byou (have been|are now|will no longer be)\b.{0,20}\b(removed|opted[- ]out|unsubscribed|deleted)\b|\byour (request|opt[- ]?out|deletion request|data|information|record)s? (is|are|has been|have been) (now )?(complete|completed|fulfil+ed|processed|deleted|removed)\b/i,
+      /\bwe (have|ve|'ve) (now )?(successfully |fully |permanently )?(removed|deleted|erased|suppressed|opted|unsubscribed|processed|completed|honou?red|fulfil+ed)\b(?!\s+(?:our|the|a|an)\s+(?:review|search|investigation|assessment))|\byou (have been|are now|will no longer be)\b.{0,20}\b(removed|opted[- ]out|unsubscribed|deleted)\b|\byour (request|opt[- ]?out|deletion request|data|information|record)s? (is|are|has been|have been) (now )?(complete|completed|fulfil+ed|deleted|removed)\b/i,
   },
   {
     id: "provider-did-it",
@@ -319,30 +332,38 @@ export const RULES: Rule[] = [
 ];
 
 /**
- * The wording rules whose answer is applied without a person. A rule is here only when it was
- * right on every one of the real labeled replies it decided, measured before it was touched, and
- * its wording has not changed since. A rule written or reworked against those replies cannot be
- * proven on them, so it stays a suggestion until fresh mail measures it.
- * The counts behind each are in docs/reply-classifier.md.
+ * The wording rules whose answer is applied without a person. A rule joins only after fresh mail
+ * from the product's own inbox shows at least 95% precision with real support: about 60 correct
+ * decisions in a row put the 95% Wilson lower bound at 95%. No rule has that yet. The best
+ * three were right on 4, 4 and 4 of the real labeled replies, which bounds each at about 51% to
+ * 57%, and parts of them never fired on real mail, so every wording rule only suggests.
+ * The counts are in docs/reply-classifier.md.
  */
-export const PROVEN_RULES: ReadonlySet<RuleId> = new Set<RuleId>([
-  "email-not-accepted",
-  "must-use-other-channel",
-  "has-been-done",
-]);
+export const PROVEN_RULES: ReadonlySet<RuleId> = new Set<RuleId>([]);
 
 /**
- * Readings from the structure of a message rather than its words. The real replies carry no
- * headers or links, so they could not measure these; they keep applying behind the sender trust
- * checks, which a delivery report or a link on the request's own site must still pass.
+ * Readings from the headers of a message rather than its words. The real replies carry no
+ * headers, so they could not measure these; they apply behind the sender trust checks, which a
+ * delivery report must still pass.
  */
 export const STRUCTURAL_READINGS: ReadonlySet<StructuralId> = new Set<StructuralId>([
   "delivery-report",
-  "confirmation-link",
+  "automatic-reply",
 ]);
 
-export function appliesWithoutPerson(reading: ReadingId | null): boolean {
+/**
+ * Readings that apply only for a request that is waiting for them. A confirmation link is
+ * followed because a form the system submitted is waiting for exactly that mail. Its wording was
+ * never measured, so with no waiting form it only suggests.
+ */
+export const WAITING_READINGS: ReadonlySet<WaitingId> = new Set<WaitingId>(["confirmation-link"]);
+
+export function appliesWithoutPerson(
+  reading: ReadingId | null,
+  { waiting = false }: { waiting?: boolean } = {},
+): boolean {
   if (reading === null) return false;
+  if (WAITING_READINGS.has(reading as WaitingId)) return waiting;
   return PROVEN_RULES.has(reading as RuleId) || STRUCTURAL_READINGS.has(reading as StructuralId);
 }
 
@@ -431,7 +452,7 @@ export function matchSignals({ message, body }: RuleInput): Signal[] {
         classification: "auto_ack",
         confidence: 0.75,
         rationale: "A delivery delay notice, not a failure",
-        rule: null,
+        rule: message.isBounce ? "automatic-reply" : null,
       },
     ];
   }
@@ -472,7 +493,8 @@ export function matchSignals({ message, body }: RuleInput): Signal[] {
         classification: "auto_ack",
         confidence: 0.9,
         rationale: "An out-of-office or automatic reply",
-        rule: null,
+        // The subject alone is wording; only the machine-sent header makes it a structural reading.
+        rule: message.autoSubmitted ? "automatic-reply" : null,
       },
     ];
   }

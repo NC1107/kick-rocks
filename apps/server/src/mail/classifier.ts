@@ -516,7 +516,9 @@ export function createReplyClassifier(deps: ReplyClassifierDeps): ReplyClassifie
       let provenAlone = false;
       if (top) {
         provenAlone =
-          appliesWithoutPerson(top.rule) &&
+          appliesWithoutPerson(top.rule, {
+            waiting: match?.request.awaitingConfirmation != null,
+          }) &&
           !signals.some(
             (signal) =>
               signal.classification !== top.classification &&

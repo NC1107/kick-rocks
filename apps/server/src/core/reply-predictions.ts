@@ -1,22 +1,15 @@
 import type { KickRocksDb } from "@kickrocks/db";
 import { messages, replyPredictions } from "@kickrocks/db";
-import {
-  PRECISION_TARGET,
-  type ReplyClassification,
-  type ReplyModelCheck,
-  type ReplyModelStatus,
-  type ReplyModelView,
-  type ReplySuggestion,
-  SPOT_CHECKS_NEEDED,
-  wilsonInterval,
+import type {
+  ReplyClassification,
+  ReplyModelStatus,
+  ReplyModelView,
+  ReplySuggestion,
 } from "@kickrocks/shared";
 import { and, eq, isNotNull } from "drizzle-orm";
 import { encoderText, inputOf, inputSha256 } from "../mail/reply-model/input.js";
-import { modelThreshold } from "../mail/thresholds.js";
 import type { ClassificationResult } from "../mail/types.js";
 import { type Clock, nowIso } from "./clock.js";
-import type { Logger } from "./logger.js";
-import type { SettingsStore } from "./settings.js";
 
 /** Confidence bands the check reports acceptance in, from a coin flip up to the applied range. */
 const BAND_EDGES = [0, 0.5, 0.7, 0.9, 0.96, 1.0001] as const;
@@ -24,8 +17,6 @@ const BAND_EDGES = [0, 0.5, 0.7, 0.9, 0.96, 1.0001] as const;
 interface Deps {
   db: KickRocksDb;
   clock: Clock;
-  settings: SettingsStore;
-  logger: Logger;
 }
 
 export interface ReplyPredictions {
@@ -33,10 +24,7 @@ export interface ReplyPredictions {
   record(messageId: string, classified: ClassificationResult): void;
   /** Notes what a person decided and whether it matched the machine. Messages from before the table are left alone. */
   decide(messageId: string, personLabel: ReplyClassification): void;
-  check(): ReplyModelCheck;
   view(status: ReplyModelStatus): ReplyModelView;
-  /** Lets model answers be applied again, counting spot checks from now. */
-  resume(): void;
   /** Every reply a person labelled whose text still matches what the model read, as JSON lines. */
   exportLabels(): string;
 }
@@ -72,24 +60,14 @@ function machineLabel(row: Row): ReplyClassification | null {
   return row.rulesLabel === "unknown" && !row.autoApplied ? null : row.rulesLabel;
 }
 
-export function createReplyPredictions({ db, clock, settings, logger }: Deps): ReplyPredictions {
-  function stateFloor(): string | null {
-    return settings.get("replyModel.state").countedFrom;
-  }
-
-  function check(): ReplyModelCheck {
-    const floor = stateFloor();
+export function createReplyPredictions({ db, clock }: Deps): ReplyPredictions {
+  function bands(): ReplyModelView["bands"] {
     const decided = db
       .select()
       .from(replyPredictions)
       .where(isNotNull(replyPredictions.decidedAt))
       .all();
-    const spots = decided.filter(
-      (row) => row.spotCheck && (floor === null || (row.decidedAt ?? "") >= floor),
-    );
-    const agreed = spots.filter((row) => row.acceptedSuggestion === true).length;
-    const interval = spots.length > 0 ? wilsonInterval(agreed, spots.length) : null;
-    const bands = BAND_EDGES.slice(0, -1).map((from, index) => {
+    return BAND_EDGES.slice(0, -1).map((from, index) => {
       const to = BAND_EDGES[index + 1] as number;
       // Only answers a person was asked about count. A correction of an applied answer exists only
       // when it was wrong, and the language model's confidence is not the reply model's.
@@ -108,32 +86,6 @@ export function createReplyPredictions({ db, clock, settings, logger }: Deps): R
         accepted: inBand.filter((row) => row.acceptedSuggestion === true).length,
       };
     });
-    return {
-      spotChecks: spots.length,
-      agreed,
-      precision: spots.length > 0 ? agreed / spots.length : null,
-      low: interval?.low ?? null,
-      high: interval?.high ?? null,
-      needed: SPOT_CHECKS_NEEDED,
-      bands,
-    };
-  }
-
-  /** Stops applying model answers when the spot checks rule out the precision they were chosen for. */
-  function judge(): void {
-    const state = settings.get("replyModel.state");
-    if (state.pausedAt) return;
-    const found = check();
-    if (
-      found.spotChecks < SPOT_CHECKS_NEEDED ||
-      found.high === null ||
-      found.high >= PRECISION_TARGET
-    ) {
-      return;
-    }
-    const reason = `Spot checks agreed with the reply model ${found.agreed} times out of ${found.spotChecks}, so its precision is probably below ${Math.round(PRECISION_TARGET * 100)}%`;
-    settings.set("replyModel.state", { ...state, pausedAt: nowIso(clock), reason });
-    logger.warn({ agreed: found.agreed, spotChecks: found.spotChecks }, "reply model paused");
   }
 
   return {
@@ -186,34 +138,10 @@ export function createReplyPredictions({ db, clock, settings, logger }: Deps): R
         })
         .where(eq(replyPredictions.messageId, messageId))
         .run();
-      judge();
     },
-
-    check,
 
     view(status) {
-      const config = settings.get("replyModel");
-      const state = settings.get("replyModel.state");
-      return {
-        status,
-        threshold:
-          status.state === "loaded" && status.threshold !== null
-            ? modelThreshold(status.threshold, config.threshold)
-            : null,
-        thresholdOverride: config.threshold,
-        spotCheckPercent: config.spotCheckPercent,
-        paused:
-          state.pausedAt && state.reason ? { at: state.pausedAt, reason: state.reason } : null,
-        check: check(),
-      };
-    },
-
-    resume() {
-      settings.set("replyModel.state", {
-        pausedAt: null,
-        reason: null,
-        countedFrom: nowIso(clock),
-      });
+      return { status, bands: bands() };
     },
 
     exportLabels() {

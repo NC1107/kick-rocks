@@ -1,4 +1,3 @@
-import { MODEL_APPLY_FLOOR } from "@kickrocks/shared";
 import {
   accuracy,
   applyThreshold,
@@ -15,6 +14,9 @@ import {
   thresholdForPrecision,
 } from "./metrics.js";
 import type { Item, Outcome } from "./types.js";
+
+/** The confidence the bench reports a model gate at. The product applies no model answer. */
+const MODEL_REPORT_FLOOR = 0.9;
 
 export interface LatencySummary {
   p50Ms: number | null;
@@ -96,7 +98,7 @@ function modelGateOf(
 export function evaluateSplit(
   items: readonly Item[],
   outcomes: readonly Outcome[],
-  modelThreshold: number = MODEL_APPLY_FLOOR,
+  modelThreshold: number = MODEL_REPORT_FLOOR,
 ): SplitEvaluation {
   const rows = scoredOf(items, outcomes);
   const stats = perClass(rows);

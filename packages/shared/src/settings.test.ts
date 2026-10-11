@@ -74,8 +74,6 @@ describe("SETTING_SCHEMAS", () => {
         "agent.gpuMemoryGb",
         "notifications",
         "notifications.state",
-        "replyModel",
-        "replyModel.state",
       ].sort(),
     );
   });

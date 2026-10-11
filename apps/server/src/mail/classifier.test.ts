@@ -14,6 +14,7 @@ import {
 } from "../core/targets.js";
 import { makeCompany } from "../test-utils/builders.js";
 import { noDkim, signedAs } from "../test-utils/dkim.js";
+import { withProvenRules } from "../test-utils/proven-rules.js";
 import { createReplyClassifier } from "./classifier.js";
 import type { ClassifierRequest, InboxMessage } from "./types.js";
 
@@ -303,7 +304,7 @@ describe("classes", () => {
     ],
     [
       "completed",
-      "We have removed your information from our database. No further action is needed.",
+      "We have removed the details we held on you from our systems. Nothing more is needed.",
     ],
     ["completed", "You have been successfully opted out of the sale of your data."],
     ["no_record", "We could not find any record matching the information you provided."],
@@ -1416,6 +1417,52 @@ describe("mail that shares a sender with a request but is not about it", () => {
 });
 
 describe("what the rules apply and what they only suggest", () => {
+  it("only suggests a clear wording reading while no rule is on the proven list", async () => {
+    const result = await classify("Your personal information has been deleted from our systems.");
+    expect(result).toMatchObject({
+      classification: "completed",
+      apply: false,
+      suggestion: { classification: "completed", source: "rules" },
+    });
+  });
+
+  it("suggests a confirmation link for a request that is not waiting for one", async () => {
+    const result = await classify("", {
+      subject: "Confirm your request",
+      html: '<p>Click the link below to confirm your opt-out.</p><a href="https://acme.test/confirm?id=9">Confirm</a>',
+    });
+    expect(result).toMatchObject({
+      requestId: "req-1",
+      classification: "confirmation_link",
+      apply: false,
+      suggestion: { classification: "confirmation_link", source: "rules" },
+    });
+  });
+
+  it("applies a confirmation link for a request that is waiting for one", async () => {
+    const result = await classify(
+      "",
+      {
+        subject: "Confirm your request",
+        html: '<p>Click the link below to confirm your opt-out.</p><a href="https://acme.test/confirm?id=9">Confirm</a>',
+      },
+      [
+        request({
+          awaitingConfirmation: {
+            fromDomains: [],
+            linkTextPattern: null,
+            since: "2026-10-01T10:00:00.000Z",
+          },
+        }),
+      ],
+    );
+    expect(result).toMatchObject({ classification: "confirmation_link", apply: true });
+  });
+});
+
+describe("what a proven rule applies", () => {
+  withProvenRules("has-been-done");
+
   it("applies a reading from a rule on the proven list", async () => {
     const result = await classify("Your personal information has been deleted from our systems.");
     expect(result).toMatchObject({ classification: "completed", apply: true, suggestion: null });

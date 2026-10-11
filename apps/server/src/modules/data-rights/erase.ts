@@ -32,8 +32,6 @@ type Tx = Parameters<Parameters<KickRocksDb["transaction"]>[0]>[0];
 const SETTINGS_TO_FORGET: readonly SettingKey[] = [
   "schedule",
   "llm",
-  "replyModel",
-  "replyModel.state",
   "retention",
   "scanning",
   "egress",

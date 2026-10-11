@@ -2,6 +2,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { withProvenRules } from "../../src/test-utils/proven-rules.js";
 import { addressOf, loadRealReplies, sourceUrls } from "./real-corpus.js";
 import { summarize } from "./real-report.js";
 import { classifyReplies } from "./real-run.js";
@@ -58,13 +59,24 @@ describe("the real reply corpus", () => {
     expect(addressOf(null)).toBeNull();
   });
 
-  it("applies a reply that names the company and holds it when the request is for another", async () => {
+  it("applies nothing while no rule is proven", async () => {
     const replies = loadRealReplies(corpus()).slice(0, 1);
     const named = await classifyReplies(replies, "named", {});
-    const unnamed = await classifyReplies(replies, "unnamed", {});
-    expect(named[0]?.apply).toBe(true);
-    expect(unnamed[0]?.apply).toBe(false);
-    expect(unnamed[0]?.label).toBe(named[0]?.label);
+    expect(named[0]?.apply).toBe(false);
+    expect(named[0]?.label).toBe("completed");
+  });
+
+  describe("with a proven rule", () => {
+    withProvenRules("has-been-done");
+
+    it("applies a reply that names the company and holds it when the request is for another", async () => {
+      const replies = loadRealReplies(corpus()).slice(0, 1);
+      const named = await classifyReplies(replies, "named", {});
+      const unnamed = await classifyReplies(replies, "unnamed", {});
+      expect(named[0]?.apply).toBe(true);
+      expect(unnamed[0]?.apply).toBe(false);
+      expect(unnamed[0]?.label).toBe(named[0]?.label);
+    });
   });
 
   it("counts what is applied and how much of it is wrong", () => {

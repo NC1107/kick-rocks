@@ -1,4 +1,4 @@
-import type { ReplyModelCheck, ReplyModelView } from "@kickrocks/shared";
+import type { ReplyModelView } from "@kickrocks/shared";
 
 const percent = (value: number) => `${Math.round(value * 100)}%`;
 
@@ -10,22 +10,7 @@ export function stateText(status: ReplyModelView["status"]): string {
   return status.reason ? `${loaded}. Skipped the last reply: ${status.reason}` : loaded;
 }
 
-export function thresholdText(view: ReplyModelView): string {
-  if (view.paused) return "Paused";
-  if (view.threshold === null) return "Not applying";
-  return `${(view.threshold * 100).toFixed(1)}% or more`;
-}
-
-/** What the spot checks say so far, with the interval that tells how far to trust it. */
-export function precisionText(check: ReplyModelCheck): string {
-  if (check.spotChecks === 0) return "None answered yet";
-  const counts = `${check.agreed} of ${check.spotChecks}`;
-  if (check.spotChecks < check.needed) return `${counts}, ${check.needed} needed to judge`;
-  if (check.precision === null || check.low === null || check.high === null) return counts;
-  return `${counts} (${percent(check.precision)}), likely ${percent(check.low)} to ${percent(check.high)}`;
-}
-
-export function bandText(band: ReplyModelCheck["bands"][number]): {
+export function bandText(band: ReplyModelView["bands"][number]): {
   range: string;
   agreed: string;
 } {

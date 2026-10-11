@@ -227,7 +227,7 @@ export function createServices(
     secrets,
     mail: overrides.mail ?? createMailServices(config, settings, { model: replyModel }),
     replyModel,
-    replyPredictions: createReplyPredictions({ db, clock, settings, logger }),
+    replyPredictions: createReplyPredictions({ db, clock }),
     legal,
     passwords: createPasswordHasher(overrides.passwordCost),
     auth: overrides.auth ?? createAuthService({ config, db, clock, logger, settings, secrets }),
