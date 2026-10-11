@@ -12,6 +12,7 @@ import { describeFailure, type FailureGroup } from "../../lib/failures.js";
 
 export const REVIEW_TABS = [
   "blocked",
+  "yours",
   "matches",
   "verifications",
   "mail",
@@ -28,6 +29,7 @@ export function parseTab(value: string | null): ReviewTab | null {
 /** Tabs that hold something for the person, in the order they are worth looking at. */
 const WORTH_OPENING: readonly Exclude<ReviewTab, "scans">[] = [
   "blocked",
+  "yours",
   "matches",
   "verifications",
   "mail",
@@ -35,14 +37,20 @@ const WORTH_OPENING: readonly Exclude<ReviewTab, "scans">[] = [
   "agents",
 ];
 
+/** Queued agent tasks the person took for themselves, which no agent will claim. */
+export const isYours = (item: BlockedTaskItem): boolean =>
+  item.task.assignment?.to.kind === "person";
+
 export function tabCounts(queue: ReviewQueue): Record<Exclude<ReviewTab, "scans">, number> {
+  const yours = queue.agentTasks.filter(isYours).length;
   return {
     blocked: queue.blockedTasks.length,
+    yours,
     matches: queue.matches.length,
     verifications: queue.verifications.length,
     mail: queue.messages.length,
     failed: queue.failedTasks.length,
-    agents: queue.agentTasks.length,
+    agents: queue.agentTasks.length - yours,
   };
 }
 
@@ -59,6 +67,7 @@ export const REVIEW_INVALIDATES = [
   API_ROUTES.requestsGet,
   API_ROUTES.dashboardGet,
   API_ROUTES.scansList,
+  API_ROUTES.agentsList,
 ] as const;
 
 /** Task kinds an agent can take over, which is every kind that drives a website. */
@@ -125,6 +134,7 @@ export type ReviewKind = Exclude<ReviewTab, "scans">;
 /** Section labels in the list, in the order the sections appear. */
 export const KIND_LABELS: Record<ReviewKind, string> = {
   blocked: "Blocked",
+  yours: "Yours to do",
   matches: "Records",
   verifications: "Details asked",
   mail: "Unsorted mail",
@@ -135,7 +145,7 @@ export const KIND_LABELS: Record<ReviewKind, string> = {
 export const SCANS_KEY = "scans";
 
 export type QueueEntry =
-  | { kind: "blocked" | "failed" | "agents"; key: string; item: BlockedTaskItem }
+  | { kind: "blocked" | "failed" | "agents" | "yours"; key: string; item: BlockedTaskItem }
   | { kind: "matches"; key: string; match: Match }
   | { kind: "verifications"; key: string; item: VerificationItem }
   | { kind: "mail"; key: string; message: ReviewMessage };
@@ -159,6 +169,13 @@ export function buildEntries(queue: ReviewQueue): QueueEntry[] {
       (item): QueueEntry => ({
         kind: "blocked",
         key: `blocked:${item.task.id}`,
+        item,
+      }),
+    ),
+    ...queue.agentTasks.filter(isYours).map(
+      (item): QueueEntry => ({
+        kind: "yours",
+        key: `yours:${item.task.id}`,
         item,
       }),
     ),
@@ -190,13 +207,15 @@ export function buildEntries(queue: ReviewQueue): QueueEntry[] {
         item,
       }),
     ),
-    ...queue.agentTasks.map(
-      (item): QueueEntry => ({
-        kind: "agents",
-        key: `agent:${item.task.id}`,
-        item,
-      }),
-    ),
+    ...queue.agentTasks
+      .filter((item) => !isYours(item))
+      .map(
+        (item): QueueEntry => ({
+          kind: "agents",
+          key: `agent:${item.task.id}`,
+          item,
+        }),
+      ),
   ];
 }
 

@@ -1,3 +1,4 @@
+import { lapseAssignments } from "../core/assignment.js";
 import { removeStaleMigrationCopies } from "../core/migration-copies.js";
 import { reuseRecentScans } from "../core/scan-reuse.js";
 import { applyRetention } from "../modules/data-rights/index.js";
@@ -110,6 +111,7 @@ export function createScheduler(
   /** Everything that touches only the database and local files, so no network host can stall it. */
   const maintenance = lane(async () => {
     await job("reap-leases", () => services.taskQueue.reapExpiredLeases());
+    await job("lapse-assignments", () => lapseAssignments(services));
     if (due("housekeeping", housekeepingMs)) {
       await job("inbox-polls", () => enqueueDueInboxPolls(services));
       await job("overdue-requests", () => advanceOverdueRequests(services));
@@ -117,6 +119,7 @@ export function createScheduler(
       await job("scan-reuse", () => reuseRecentScans(services));
       await job("site-visits", () => services.politeness.prune());
       await job("intake-purge", () => purgeExpiredIntake(services));
+      await job("claimers", () => services.claimers.prune());
       await job("canaries", () => enqueueDueCanaries(services));
     }
     if (due("retention", retentionMs)) {

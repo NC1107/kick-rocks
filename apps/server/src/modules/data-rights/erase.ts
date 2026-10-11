@@ -1,5 +1,6 @@
 import {
   campaigns,
+  claimers,
   identities,
   type KickRocksDb,
   mailboxes,
@@ -42,8 +43,6 @@ const SETTINGS_TO_FORGET: readonly SettingKey[] = [
   "agent.takeUnreviewed",
   "agent.gate",
   "agent.approvalHoldMinutes",
-  "worker.status.builtin",
-  "worker.status.model",
 ];
 
 /** Tasks that carry no personal data and belong to the recipes, so a reset leaves them alone. */
@@ -161,6 +160,7 @@ export function eraseInstance({ db, taskQueue, settings }: EraseDeps): void {
     tx.delete(requests).run();
     tx.delete(campaigns).run();
     tx.delete(mailboxes).run();
+    tx.delete(claimers).run();
     for (const key of SETTINGS_TO_FORGET) settings.reset(key);
   });
   compactDatabase(db);

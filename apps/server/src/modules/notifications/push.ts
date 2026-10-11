@@ -20,6 +20,8 @@ const PHRASES: Record<NotificationCategory, (count: number) => string> = {
   mailbox: (n) => (n === 1 ? "1 mailbox error" : `${n} mailbox errors`),
   recipe: (n) => (n === 1 ? "1 recipe is broken" : `${n} recipes are broken`),
   worker: () => "The worker is offline and browser work is waiting",
+  agent_unavailable: (n) =>
+    n === 1 ? "1 task came back to you from an offline agent" : `${n} tasks came back to you`,
 };
 
 const WORKER_ABSENT_PHRASE = "The worker has not reported for over a day";
@@ -31,6 +33,7 @@ const ORDER: readonly NotificationCategory[] = [
   "mailbox",
   "recipe",
   "worker",
+  "agent_unavailable",
 ];
 
 function hasChannel(settings: NotificationSettings): boolean {

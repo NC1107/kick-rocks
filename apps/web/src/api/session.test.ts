@@ -12,7 +12,7 @@ describe("reviewCount", () => {
       matches: [{ decision: "pending" }, { decision: "mine" }, { decision: "pending" }],
       verifications: [{}],
       failedTasks: [{}, {}, {}],
-      agentTasks: [{}, {}],
+      agentTasks: [{ task: { assignment: null } }, { task: { assignment: null } }],
       messages: [{}],
     } as unknown as ReviewQueue;
     expect(reviewCount(queue)).toBe(2 + 2 + 1 + 3 + 2 + 1);

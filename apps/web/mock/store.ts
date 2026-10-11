@@ -13,6 +13,7 @@ import {
   type TargetDetail,
   type TaskSummary,
 } from "@kickrocks/shared";
+import type { MockAgent } from "./agents.js";
 import type { MockSends } from "./sends.js";
 
 /** A request as stored: the list row plus its timeline. The detail view adds messages and tasks. */
@@ -38,7 +39,15 @@ export function freshMockNotifications(): MockNotifications {
     settings: {
       ntfy: null,
       telegram: null,
-      categories: ["blocked_task", "verification", "match", "mailbox", "recipe", "worker"],
+      categories: [
+        "blocked_task",
+        "verification",
+        "match",
+        "mailbox",
+        "recipe",
+        "worker",
+        "agent_unavailable",
+      ],
       maxPerHour: 6,
       digest: { frequency: "off", hourUtc: 8, weekday: 1 },
     },
@@ -85,6 +94,8 @@ export interface MockStore {
   messages: ReviewMessage[];
   tasks: TaskSummary[];
   blockedInfo: Map<string, BlockedTaskInfo>;
+  /** The agent workers and MCP clients that have called in, for the assign picker. */
+  agents: MockAgent[];
   /** What each agent task's browser sent, by task id. */
   sends: Map<string, MockSends>;
   matches: Match[];
@@ -145,6 +156,7 @@ export function createStore(authMode: MockAuthMode = "authed"): MockStore {
     messages: [],
     tasks: [],
     blockedInfo: new Map(),
+    agents: [],
     sends: new Map(),
     matches: [],
     scans: [],

@@ -7,6 +7,7 @@ import {
   type SchedulePatch,
   type ScheduleSettings,
   WebUrl,
+  WORKER_ONLINE_MS,
 } from "@kickrocks/shared";
 
 interface ScheduleField {
@@ -95,8 +96,6 @@ export function checkLlm(draft: LlmDraft): Partial<Record<keyof LlmDraft, string
   if (draft.model.trim() === "") errors.model = "Enter the model name.";
   return errors;
 }
-
-const WORKER_ONLINE_MS = 2 * 60_000;
 
 export type WorkerState = "online" | "offline" | "never";
 

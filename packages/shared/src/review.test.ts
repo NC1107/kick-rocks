@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { SkipReason, TargetOutcome } from "./campaigns.js";
-import { MatchDecisionBody, ReviewQueue, reviewAttention } from "./review.js";
+import { agentAssignment, MatchDecisionBody, ReviewQueue, reviewAttention } from "./review.js";
 
 describe("MatchDecisionBody", () => {
   it("asks for both rights unless the person chose", () => {
@@ -79,7 +79,11 @@ describe("reviewAttention", () => {
       matches: [{ decision: "pending" }, { decision: "mine" }],
       verifications: [{}, {}],
       failedTasks: [],
-      agentTasks: [{}, {}, {}],
+      agentTasks: [
+        { task: { assignment: null } },
+        { task: { assignment: { to: { kind: "model", workerId: "a" } } } },
+        { task: { assignment: { to: { kind: "person" } } } },
+      ],
       messages: [{}],
     } as unknown as ReviewQueue;
     expect(reviewAttention(queue)).toEqual({
@@ -87,8 +91,10 @@ describe("reviewAttention", () => {
       pendingMatches: 1,
       needsVerification: 2,
       failedTasks: 0,
-      agentTasks: 3,
+      agentTasks: 2,
+      yourAgentTasks: 1,
       unreviewedMessages: 1,
     });
+    expect(agentAssignment(queue)).toEqual({ assignedAgentTasks: 1, agentAssignees: ["a"] });
   });
 });

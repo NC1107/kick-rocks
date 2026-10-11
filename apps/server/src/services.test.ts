@@ -36,6 +36,7 @@ describe("createServices with no overrides", () => {
       expect(Object.keys(services).sort()).toEqual(
         [
           "auth",
+          "claimers",
           "clock",
           "composer",
           "config",

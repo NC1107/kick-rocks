@@ -85,6 +85,20 @@
       "when": 1791531404830,
       "tag": "0011_mail_intake",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "6",
+      "when": 1791703112260,
+      "tag": "0012_task_assignment",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "6",
+      "when": 1791704635797,
+      "tag": "0013_claimer_last_claim",
+      "breakpoints": true
     }
   ]
 }

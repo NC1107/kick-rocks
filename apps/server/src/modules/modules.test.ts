@@ -18,6 +18,7 @@ describe("modules", () => {
   it("registers every module the ownership map names", () => {
     expect(MODULES.map((m) => m.name).sort()).toEqual(
       [
+        "agents",
         "auth",
         "campaigns",
         "dashboard",

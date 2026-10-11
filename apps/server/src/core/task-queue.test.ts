@@ -1,4 +1,4 @@
-import { LEASE_MS } from "@kickrocks/shared";
+import { LEASE_MS, type TaskAssignee } from "@kickrocks/shared";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { DAY, MINUTE, SECOND } from "../test-utils/clock.js";
 import {
@@ -6,9 +6,11 @@ import {
   seedProfile,
   seedRequest,
   seedTarget,
+  seedTask,
   type TestContext,
 } from "../test-utils/index.js";
 import type { AppError } from "./errors.js";
+import { MAX_GATED_CANDIDATES } from "./site-politeness.js";
 import {
   DEFAULT_LAPSED_HOLDER_GRACE_MS,
   DEFAULT_MAX_ATTEMPTS,
@@ -1564,5 +1566,130 @@ describe("a removal that may have been submitted", () => {
     expect(queue.claim({ workerId: "worker-2", kinds: ["agent"], leaseMs: MINUTE })).toMatchObject({
       id: task.id,
     });
+  });
+});
+
+describe("assignment", () => {
+  const agentPayload = (profileId: string, targetId: string) => ({
+    purpose: "remove" as const,
+    profileId,
+    targetId,
+    requestId: null,
+    recordUrl: null,
+    variant: null,
+    rights: [],
+    reason: "no_recipe" as const,
+    previousError: null,
+    blockedReason: null,
+  });
+
+  function agentTask(to: TaskAssignee | null, extra: { priority?: number } = {}) {
+    const profileId = seedProfile(ctx).id;
+    const targetId = seedTarget(ctx).id;
+    return seedTask(ctx, {
+      kind: "agent",
+      payload: agentPayload(profileId, targetId),
+      profileId,
+      targetId,
+      ...extra,
+      assignment: to
+        ? { to, at: ctx.clock.now().toISOString(), by: "user", fallback: "any" }
+        : null,
+    });
+  }
+
+  const model = (workerId: string) => ({ kind: "model" as const, workerId });
+  const claimAs = (kind: "model" | "mcp", workerId: string) =>
+    queue.claim({ workerId, kinds: ["agent"], leaseMs: 5 * MINUTE, claimerKind: kind });
+
+  it("leaves a task assigned to someone else alone", () => {
+    const task = agentTask(model("nick-pc-agent"));
+    expect(claimAs("model", "other-agent")).toBeNull();
+    expect(claimAs("mcp", "nick-pc-agent")).toBeNull();
+    expect(claimAs("model", "nick-pc-agent")?.id).toBe(task.id);
+  });
+
+  it("does not let tasks held for someone else crowd the candidate window", () => {
+    for (let held = 0; held < MAX_GATED_CANDIDATES + 5; held++) {
+      agentTask(model("nick-pc-agent"), { priority: 90 });
+    }
+    const open = agentTask(null, { priority: 10 });
+    expect(claimAs("mcp", "desk-client")?.id).toBe(open.id);
+  });
+
+  it("gives a claimer its own assigned task before older and more urgent ones", () => {
+    const earlier = agentTask(null, { priority: 90 });
+    const mine = agentTask(model("nick-pc-agent"), { priority: 10 });
+    expect(claimAs("model", "nick-pc-agent")?.id).toBe(mine.id);
+    expect(claimAs("model", "nick-pc-agent")?.id).toBe(earlier.id);
+    expect(queue.getOrThrow(mine.id).priority).toBe(10);
+  });
+
+  it("never gives a task assigned to the person to anyone", () => {
+    agentTask({ kind: "person" });
+    expect(claimAs("model", "nick-pc-agent")).toBeNull();
+    expect(claimAs("mcp", "desk-client")).toBeNull();
+    expect(queue.claim({ ...worker, kinds: ["agent"] })).toBeNull();
+  });
+
+  it("keeps an unassigned task open to every claimer", () => {
+    const task = agentTask(null);
+    expect(claimAs("mcp", "desk-client")?.id).toBe(task.id);
+  });
+
+  it("does not hand a server-internal claim a task meant for an agent", () => {
+    agentTask(model("nick-pc-agent"));
+    expect(queue.claim({ ...worker, kinds: ["agent"] })).toBeNull();
+  });
+
+  it("keeps the assignment when a lease runs out or a retryable failure requeues the task", () => {
+    const task = agentTask(model("nick-pc-agent"));
+    claimAs("model", "nick-pc-agent");
+    queue.fail(task.id, {
+      workerId: "nick-pc-agent",
+      error: "network",
+      retryable: true,
+      kind: "network",
+      actor: "worker",
+    });
+    expect(queue.getOrThrow(task.id)).toMatchObject({
+      status: "queued",
+      assignment: { to: model("nick-pc-agent") },
+    });
+    ctx.clock.advance(DAY);
+    claimAs("model", "nick-pc-agent");
+    ctx.clock.advance(DAY);
+    queue.reapExpiredLeases();
+    expect(queue.getOrThrow(task.id).assignment?.to).toEqual(model("nick-pc-agent"));
+  });
+
+  it("assigns only a queued agent task", () => {
+    const task = agentTask(null);
+    const assignment = {
+      to: model("nick-pc-agent"),
+      at: ctx.clock.now().toISOString(),
+      by: "user" as const,
+      fallback: "any" as const,
+    };
+    expect(queue.assign(task.id, assignment).assignment).toEqual(assignment);
+    expect(queue.assign(task.id, null).assignment).toBeNull();
+    const email = queue.enqueue({ kind: "email_send", payload: emailPayload() }).task;
+    expect(codeOf(() => queue.assign(email.id, assignment))).toBe("not_assignable");
+    claimAs("model", "nick-pc-agent");
+    expect(codeOf(() => queue.assign(task.id, assignment))).toBe("invalid_task_state");
+  });
+
+  it("clears a retry wait and nothing else", () => {
+    const task = agentTask(null);
+    claimAs("model", "w");
+    queue.fail(task.id, {
+      workerId: "w",
+      error: "x",
+      retryable: true,
+      kind: "network",
+      actor: "worker",
+    });
+    expect(queue.getOrThrow(task.id).runAfter).not.toBeNull();
+    expect(queue.clearBackoff(task.id).runAfter).toBeNull();
   });
 });

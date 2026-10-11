@@ -1,4 +1,10 @@
-import type { Dashboard, DashboardEvent, RequestStatus, ScanHoldReason } from "@kickrocks/shared";
+import {
+  type Dashboard,
+  type DashboardEvent,
+  describeAgentTasks,
+  type RequestStatus,
+  type ScanHoldReason,
+} from "@kickrocks/shared";
 import { Link } from "react-router";
 import { HoldReason } from "../../components/holds/HoldReason.js";
 import {
@@ -178,9 +184,17 @@ export function attentionItems(attention: Dashboard["attention"]): AttentionItem
       title:
         attention.agentTasks === 1 ? "Task waiting for an agent" : "Tasks waiting for an agent",
       detail:
-        attention.agentTasks === 1
-          ? "Connect an agent, or finish it by hand."
-          : "Connect an agent, or finish them by hand.",
+        attention.assignedAgentTasks > 0
+          ? describeAgentTasks(attention)
+          : attention.agentTasks === 1
+            ? "Connect an agent, or finish it by hand."
+            : "Connect an agent, or finish them by hand.",
+    },
+    {
+      count: attention.yourAgentTasks,
+      tab: "yours",
+      title: "Yours to do",
+      detail: "You took these. No agent will.",
     },
     {
       count: attention.failedTasks,

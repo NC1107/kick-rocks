@@ -1,5 +1,6 @@
 import {
   API_ROUTES,
+  agentAssignment,
   type Dashboard,
   type DashboardEvent,
   RequestStatus,
@@ -76,11 +77,12 @@ export default defineMockDomain({
         .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
         .slice(0, 20);
 
+      const queue = buildMockQueue(store, profile.id);
       return {
         profileId: profile.id,
         total: requests.length,
         counts,
-        attention: reviewAttention(buildMockQueue(store, profile.id)),
+        attention: { ...reviewAttention(queue), ...agentAssignment(queue) },
         sending: profile.mailbox
           ? {
               sent,

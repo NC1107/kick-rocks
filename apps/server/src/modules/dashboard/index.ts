@@ -1,6 +1,7 @@
 import { mailboxes, profiles, requestEvents, requests, scans, targets, tasks } from "@kickrocks/db";
 import {
   API_ROUTES,
+  agentAssignment,
   type Dashboard,
   DashboardEvent,
   RequestStatus,
@@ -155,7 +156,7 @@ function buildDashboard(services: AppServices, profileId: string): Dashboard {
     profileId,
     total,
     counts,
-    attention: reviewAttention(queue),
+    attention: { ...reviewAttention(queue), ...agentAssignment(queue) },
     sending: mailbox
       ? {
           sent: mailQuota.sentLastDay(mailbox.id),

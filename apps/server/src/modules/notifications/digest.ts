@@ -7,8 +7,10 @@ import {
   targets,
 } from "@kickrocks/db";
 import {
+  agentAssignment,
   type DigestSendResult,
   type DigestSettings,
+  describeAgentTasks,
   outgoingMessageId,
   type RequestStatus,
   reviewAttention,
@@ -96,16 +98,20 @@ function statusChanges(
 function attentionLines(services: AppServices, profileId: string): string[] {
   const queue = buildReviewQueue(services, profileId);
   const a = reviewAttention(queue);
-  const lines: [number, string][] = [
+  const agentSplit = describeAgentTasks({ agentTasks: a.agentTasks, ...agentAssignment(queue) });
+  const lines: [number, string, string?][] = [
     [a.blockedTasks, "Blocked tasks to finish by hand"],
     [a.needsVerification, "Requests waiting for you to approve identifiers"],
     [a.pendingMatches, "Listings waiting for your decision"],
     [a.failedTasks, "Failed tasks"],
-    [a.agentTasks, "Tasks waiting for an agent"],
+    [a.agentTasks, "Tasks waiting for an agent", agentSplit],
+    [a.yourAgentTasks, "Agent tasks you took for yourself"],
     [a.unreviewedMessages, "Replies to review"],
   ];
   return [
-    ...lines.filter(([count]) => count > 0).map(([count, text]) => `${text}: ${count}`),
+    ...lines
+      .filter(([count]) => count > 0)
+      .map(([count, text, detail]) => `${text}: ${count}${detail ? ` (${detail})` : ""}`),
     ...workerLines(services),
   ];
 }

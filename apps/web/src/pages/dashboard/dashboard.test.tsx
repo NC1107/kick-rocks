@@ -260,6 +260,9 @@ describe("dashboard helpers", () => {
       needsVerification: 0,
       failedTasks: 0,
       agentTasks: 0,
+      yourAgentTasks: 0,
+      assignedAgentTasks: 0,
+      agentAssignees: [],
     });
     expect(items.map((item) => item.title)).toEqual(["Blocked task", "Replies to sort"]);
   });
@@ -272,6 +275,9 @@ describe("dashboard helpers", () => {
       needsVerification: 0,
       failedTasks: 0,
       agentTasks: 3,
+      yourAgentTasks: 0,
+      assignedAgentTasks: 0,
+      agentAssignees: [],
     });
     expect(items.map((item) => [item.count, item.title])).toEqual([
       [3, "Tasks waiting for an agent"],
@@ -287,6 +293,9 @@ describe("attention detail wording", () => {
     needsVerification: 0,
     failedTasks: 0,
     agentTasks: 0,
+    yourAgentTasks: 0,
+    assignedAgentTasks: 0,
+    agentAssignees: [] as string[],
   };
 
   it("speaks of one failed task as it", () => {
@@ -303,6 +312,26 @@ describe("attention detail wording", () => {
   it("speaks of one task waiting for an agent as it", () => {
     renderPage(<AttentionSection attention={{ ...none, agentTasks: 1 }} />);
     expect(screen.getByText("Connect an agent, or finish it by hand.")).toBeInTheDocument();
+  });
+
+  it("splits tasks waiting for an agent by who they are assigned to", () => {
+    renderPage(
+      <AttentionSection
+        attention={{
+          ...none,
+          agentTasks: 2,
+          assignedAgentTasks: 1,
+          agentAssignees: ["nick-pc-agent"],
+        }}
+      />,
+    );
+    expect(screen.getByText("1 assigned to nick-pc-agent, 1 for any agent")).toBeInTheDocument();
+  });
+
+  it("counts the tasks the person took for themselves in a tile of their own", () => {
+    renderPage(<AttentionSection attention={{ ...none, yourAgentTasks: 2 }} />);
+    expect(screen.getByText("Yours to do")).toBeInTheDocument();
+    expect(screen.getByText("You took these. No agent will.")).toBeInTheDocument();
   });
 });
 

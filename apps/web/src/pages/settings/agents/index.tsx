@@ -3,6 +3,7 @@ import { errorMessage, useApiQuery } from "../../../api/index.js";
 import { Button, Callout, RowGroup, Section, SkeletonText } from "../../../components/ui/index.js";
 import { BodyRow, SETTINGS_WIDTH } from "../rows.js";
 import { SettingsHeader } from "../SettingsHeader.js";
+import { ConnectedAgents } from "./ConnectedAgents.js";
 import { McpCard } from "./McpCard.js";
 import { ModelPresets } from "./ModelPresets.js";
 import { ProposedRecipes } from "./ProposedRecipes.js";
@@ -37,6 +38,7 @@ export function Component() {
           </Callout>
         ) : (
           <>
+            <ConnectedAgents />
             <ModelPresets settings={settings.data} />
             <McpCard mcp={settings.data.mcp} />
           </>

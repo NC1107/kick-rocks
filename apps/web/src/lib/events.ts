@@ -1,4 +1,9 @@
-import type { RequestEvent, RequestRight, UserAction } from "@kickrocks/shared";
+import {
+  ASSIGNMENT_GRACE_MS,
+  type RequestEvent,
+  type RequestRight,
+  type UserAction,
+} from "@kickrocks/shared";
 import { plainError } from "./failures.js";
 import {
   BLOCKED_REASON_LABELS,
@@ -138,6 +143,22 @@ export function describeEvent(event: RequestEvent): string {
       return `The ${task(event.payload.kind)} task was resumed.`;
     case "task_retrying":
       return `The ${task(event.payload.kind)} task failed and will try again (attempt ${event.payload.attempt}).`;
+    case "task_assigned": {
+      const { to, by, lapsedFrom, why } = event.payload;
+      if (by === "fallback" && lapsedFrom) {
+        const lapsed =
+          why === "refused"
+            ? `${lapsedFrom.workerId} can no longer take it`
+            : `${lapsedFrom.workerId} was not seen for ${ASSIGNMENT_GRACE_MS / 60_000} minutes`;
+        return to === "any"
+          ? `${lapsed}, so any agent may take the task.`
+          : `${lapsed}, so the task came back to you.`;
+      }
+      if (to === "any") return "The task is open to any agent.";
+      return to.kind === "person"
+        ? "You took the task for yourself."
+        : `You assigned the task to ${to.workerId}.`;
+    }
     case "user_action": {
       const { action, note } = event.payload;
       return `You chose to ${ACTION_PHRASES[action]}.${note ? ` You noted: ${note}` : ""}`;
