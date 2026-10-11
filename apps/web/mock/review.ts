@@ -5,9 +5,11 @@ import {
   canTransition,
   clockIn,
   FORM_OUTCOMES,
+  type Identity,
   isActiveStatus,
   isQuietHour,
   type Match,
+  type MatchAssessment,
   type MessageSummary,
   manualResultSchemaFor,
   nextHourIn,
@@ -17,6 +19,8 @@ import {
   type ScanHold,
   type ScanReadiness,
   type ScanSummary,
+  type ScoreProfile,
+  scoreCandidate,
   type TargetOutcome,
   type TaskSummary,
   type VerificationItem,
@@ -220,6 +224,34 @@ export function createScan(
   return scan;
 }
 
+/** What the server would store for a record, scored against the mock profile it was found for. */
+function assessmentFor(
+  store: MockStore,
+  profileId: string,
+  fields: Match["fields"],
+): MatchAssessment | null {
+  const profile = store.profiles.find((candidate) => candidate.id === profileId);
+  if (!profile) return null;
+  const today = store.clock.now().toISOString().slice(0, 10);
+  const ofKind = <K extends Identity["kind"]>(kind: K) =>
+    profile.identities.filter(
+      (identity): identity is Extract<Identity, { kind: K }> => identity.kind === kind,
+    );
+  const known: ScoreProfile = {
+    names: [...ofKind("name"), ...ofKind("alias")].map((name) => name.value),
+    birth: ofKind("dob")[0]?.value.date ?? null,
+    addresses: ofKind("address").map((address) => ({
+      city: address.value.city,
+      state: address.value.state,
+      current: address.validTo === null || address.validTo >= today,
+    })),
+    states: [profile.state],
+    phones: ofKind("phone").map((phone) => phone.value.number),
+    emails: ofKind("email").map((email) => email.value.address),
+  };
+  return scoreCandidate(fields, known, today);
+}
+
 export function seedMockMatch(
   store: MockStore,
   scan: ScanSummary,
@@ -236,6 +268,7 @@ export function seedMockMatch(
     targetName: scan.targetName,
     recordUrl,
     fields,
+    assessment: assessmentFor(store, scan.profileId, fields),
     decision,
     decidedAt: decision === "pending" ? null : store.ago({ hours: 2 }),
     requestId,
@@ -493,6 +526,11 @@ export default defineMockDomain({
         locations: ["Exampleburg, TX"],
         relatives: ["Pat Example"],
       });
+      seedMockMatch(store, lookup, "https://www.namelookup.example/p/jordan-example-ca-71306", {
+        name: "Jordie Example",
+        ageRange: { low: 30, high: 39 },
+        locations: ["Testville, CA"],
+      });
       seedMockMatch(
         store,
         lookup,
@@ -516,6 +554,26 @@ export default defineMockDomain({
           age: 35,
           locations: ["Sampleton, CA"],
           phones: ["(555) 555-0123"],
+        },
+      );
+    }
+
+    const riley = store.profiles.find((profile) => profile.displayName === "Riley Sample");
+    const rileyScan = riley
+      ? createScan(store, riley.id, "cityfile-directory", {
+          finished: true,
+          startedAgo: { hours: 20 },
+        })
+      : null;
+    if (rileyScan) {
+      seedMockMatch(
+        store,
+        rileyScan,
+        "https://www.cityfiledirectory.example/people/riley-sample/4417",
+        {
+          name: "Riley Sample",
+          age: 47,
+          locations: ["Examplebury, NY"],
         },
       );
     }

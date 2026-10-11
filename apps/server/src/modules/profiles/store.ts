@@ -20,6 +20,7 @@ import { notFound } from "../../core/errors.js";
 import { loadIdentities } from "../../core/identities.js";
 import { newId } from "../../core/ids.js";
 import type { MailHolds } from "../../core/mail-holds.js";
+import { rescorePendingMatches } from "../../core/match-assessment.js";
 import { toMailbox } from "../mailbox/service.js";
 
 interface ProfileStore {
@@ -189,6 +190,7 @@ export function createProfileStore(deps: {
           })
           .where(eq(profiles.id, id))
           .run();
+        rescorePendingMatches(db, id);
       });
       return detail(requireRow(id));
     },
@@ -198,6 +200,7 @@ export function createProfileStore(deps: {
         requireRow(id);
         writeIdentities(id, inputs);
         touch(id);
+        rescorePendingMatches(db, id);
       });
       return detail(requireRow(id));
     },

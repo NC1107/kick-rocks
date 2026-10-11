@@ -16,6 +16,15 @@ describe("the details of a candidate", () => {
     });
   });
 
+  it("keeps an age range or a decade as a range and reads a stated birth year", () => {
+    const read = (text: string) =>
+      detailsOf({ heading: "Jordan Example", linkText: "", text: `Jordan Example\n${text}` });
+    expect(read("Ages 42-47")).toMatchObject({ ageRange: { low: 42, high: 47 } });
+    expect(read("Ages 42-47").age).toBeUndefined();
+    expect(read("In their 40s")).toMatchObject({ ageRange: { low: 40, high: 49 } });
+    expect(read("Age 36, born 1990")).toMatchObject({ age: 36, birthYear: 1990 });
+  });
+
   it("never counts a place on a relatives line as the person's, and ignores a relative's age", () => {
     const details = detailsOf({
       heading: "Jordan Example",

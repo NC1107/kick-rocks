@@ -13,6 +13,7 @@ import {
   IdentityKind,
   IgnoreRule,
   LIVE_TASK_STATUSES,
+  type MatchAssessment,
   MatchDecision,
   type MatchFields,
   MessageAdmission,
@@ -697,6 +698,7 @@ export const matches = sqliteTable(
       .references(() => targets.id),
     recordUrl: text("record_url").notNull(),
     fields: text("fields", { mode: "json" }).$type<MatchFields>().notNull(),
+    assessment: text("assessment", { mode: "json" }).$type<MatchAssessment>(),
     decision: text("decision", { enum: values(MatchDecision.options) })
       .notNull()
       .default("pending"),

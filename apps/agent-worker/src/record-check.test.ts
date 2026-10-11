@@ -115,13 +115,16 @@ describe("birth year and age", () => {
     expect(check("Jordan Example", "Born 1985")).toContain("birth year: differs");
   });
 
-  it("fits an age of the current year minus the birth year, or one less, and leaves a near miss unclear", () => {
+  it("fits an age of the current year minus the birth year, or one less, and leaves up to five years off unclear", () => {
     expect(check("Jordan Example", "Age 36")).toContain("age: fits");
     expect(check("Jordan Example", "Age 35")).toContain("age: fits");
     expect(check("Jordan Example", "Age 33")).toContain("age: not clear");
     expect(check("Jordan Example", "Age 38")).toContain("age: not clear");
-    expect(check("Jordan Example", "Age 32")).toContain("age: does not fit");
-    expect(check("Jordan Example", "Age 39")).toContain("age: does not fit");
+    expect(check("Jordan Example", "Age 32")).toContain("age: not clear");
+    expect(check("Jordan Example", "Age 30")).toContain("age: not clear");
+    expect(check("Jordan Example", "Age 41")).toContain("age: not clear");
+    expect(check("Jordan Example", "Age 29")).toContain("age: does not fit");
+    expect(check("Jordan Example", "Age 42")).toContain("age: does not fit");
     expect(check("Jordan Example", "61 years old")).toContain("age: does not fit");
   });
 
@@ -380,13 +383,16 @@ describe("an age the page words in another way", () => {
   const onPage = (heading: string, text: string, fields = ingrid) =>
     judgeRecord({ heading, text }, fields, YEAR, true);
 
-  it("reads a decade band as a span, so the 40s fit a 1984 birth year and the 60s and 30s do not", () => {
+  it("reads a decade band as a span, so the 40s fit a 1984 birth year, the 30s are undecided, and the 60s and 20s do not", () => {
     expect(onPage("Ingrid Halvorsen", "In their 40s\nLocated in Tampa, FL").decision).toBe("fits");
     expect(onPage("Ingrid Halvorsen", "In their 60s\nLocated in Tampa, FL").decision).toBe(
       "contradicts",
     );
-    expect(onPage("Ingrid Halvorsen", "In their 30s\nLocated in Tampa, FL").decision).toBe(
+    expect(onPage("Ingrid Halvorsen", "In their 20s\nLocated in Tampa, FL").decision).toBe(
       "contradicts",
+    );
+    expect(onPage("Ingrid Halvorsen", "In their 30s\nLocated in Tampa, FL").decision).toBe(
+      "undecided",
     );
     expect(
       describeRecordCheck({ heading: "", text: "Ingrid Halvorsen, 40s" }, ingrid, YEAR, false),

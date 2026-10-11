@@ -1,4 +1,9 @@
-import type { AgentsResponse, WaitingTask } from "@kickrocks/shared";
+import {
+  type AgentsResponse,
+  describeReasons,
+  type MatchBand,
+  type WaitingTask,
+} from "@kickrocks/shared";
 import { ScanSearch } from "lucide-react";
 import type { ReactNode } from "react";
 import { HoldReason } from "../../components/holds/HoldReason.js";
@@ -18,11 +23,13 @@ import { paths } from "../../lib/paths.js";
 import type { StatusShape } from "../../lib/status.js";
 import { useNow } from "../../lib/use-now.js";
 import { assignmentLine } from "../assign/model.js";
+import { BandTag } from "./MatchFit.js";
 import { ageLabel, KIND_LABELS, type QueueEntry, type ReviewKind } from "./model.js";
 
 interface RowView {
   title: ReactNode;
   reason: string;
+  band?: MatchBand | undefined;
   at: string | null;
   shape: StatusShape;
   /** The request the item belongs to, which the row links to beside its select button. */
@@ -94,7 +101,11 @@ function describe(entry: QueueEntry, agents: AgentsResponse | undefined, now: nu
     case "matches":
       return {
         title: entry.match.fields.name,
-        reason: `Found on ${entry.match.targetName}`,
+        reason: [
+          `Found on ${entry.match.targetName}`,
+          ...describeReasons(entry.match.assessment?.reasons ?? []),
+        ].join(" · "),
+        band: entry.match.assessment?.band,
         at: null,
         shape,
       };
@@ -154,7 +165,13 @@ function Entry({
         leading={<StatusShapeGlyph shape={view.shape} />}
         title={view.title}
         description={view.reason}
-        trailing={!request && view.at ? <Age iso={view.at} /> : null}
+        trailing={
+          view.band ? (
+            <BandTag band={view.band} />
+          ) : !request && view.at ? (
+            <Age iso={view.at} />
+          ) : null
+        }
         className={cn("py-1.5", request && "pr-20")}
       />
       {request ? (

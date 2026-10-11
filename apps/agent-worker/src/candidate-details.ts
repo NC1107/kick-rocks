@@ -1,4 +1,10 @@
-import { US_STATES } from "@kickrocks/shared";
+import {
+  type AgeSpan,
+  ageFieldsOf,
+  agesInText,
+  parseBirthYear,
+  US_STATES,
+} from "@kickrocks/shared";
 import { CITY_PATTERN } from "./place-pattern.js";
 import { looksLikeName, splitRecordLines } from "./record-check.js";
 
@@ -12,6 +18,8 @@ export interface RecordReading {
 export interface CandidateDetails {
   name: string;
   age?: number;
+  ageRange?: AgeSpan;
+  birthYear?: number;
   locations: string[];
   relatives: string[];
   phones: string[];
@@ -19,7 +27,6 @@ export interface CandidateDetails {
 }
 
 const STATE_CODES = new Set<string>(US_STATES.map((state) => state.code));
-const AGE = /\bage[d]?\s*:?\s*(\d{1,3})\b/i;
 const PLACE = new RegExp(
   `(?<![\\p{L}\\p{N}])(${CITY_PATTERN}),\\s*([A-Z]{2})(?![\\p{L}\\p{N}])`,
   "gu",
@@ -82,13 +89,14 @@ export function detailsOf(
 ): CandidateDetails {
   const { own, relatives } = splitRecordLines(reading.text);
   const ownText = own.join("\n");
-  const age = Number(AGE.exec(ownText)?.[1]);
+  const birthYear = parseBirthYear(ownText);
   const places = Array.from(ownText.matchAll(PLACE))
     .filter((place) => STATE_CODES.has(place[2] as string))
     .map((place) => `${place[1]}, ${place[2]}`);
   return {
     name: nameOf(reading, own),
-    ...(age > 0 && age < 130 ? { age } : {}),
+    ...ageFieldsOf(agesInText(ownText)[0] ?? null),
+    ...(birthYear === null ? {} : { birthYear }),
     locations: unique(places),
     relatives: unique(relatives.flatMap(namesIn)),
     phones: unique(ownText.match(PHONE)?.map((phone) => phone.trim()) ?? []),

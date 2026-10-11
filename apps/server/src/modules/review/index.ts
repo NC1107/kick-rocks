@@ -5,6 +5,7 @@ import { assignTask } from "../../core/assignment.js";
 import { placeholderValues } from "../../core/claim.js";
 import { notFound } from "../../core/errors.js";
 import { registerRoute } from "../../core/http.js";
+import { scoreUnscoredMatches } from "../../core/match-assessment.js";
 import type { ModulePlugin } from "../../core/module.js";
 import type { Task } from "../../core/task-types.js";
 import { approveSubmit } from "./approve.js";
@@ -16,6 +17,8 @@ import { retryFailedTask } from "./retry.js";
 export const reviewModule: ModulePlugin = (app, services) => {
   const summary = (task: Task): TaskSummary =>
     services.taskQueue.summarize([task])[0] as TaskSummary;
+
+  services.startup.onReady("match assessments", () => scoreUnscoredMatches(services.db));
 
   registerRoute(app, API_ROUTES.reviewQueue, ({ query }) =>
     buildReviewQueue(services, query.profileId),

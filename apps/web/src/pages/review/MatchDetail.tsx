@@ -9,6 +9,7 @@ import {
 } from "../../components/ui/index.js";
 import { DetailFrame } from "./DetailFrame.js";
 import { useMatchDecision } from "./match-decision.js";
+import { MatchFit } from "./MatchFit.js";
 
 function facts(fields: Match["fields"], recordUrl: string): DescriptionItem[] {
   const list = (term: string, values: readonly string[] | undefined, separator = ", ") =>
@@ -31,6 +32,11 @@ function facts(fields: Match["fields"], recordUrl: string): DescriptionItem[] {
   ];
 }
 
+function ageNote(fields: Match["fields"]): string {
+  if (fields.age !== undefined) return `, age ${fields.age}`;
+  return fields.ageRange ? `, age ${fields.ageRange.low}-${fields.ageRange.high}` : "";
+}
+
 export function MatchDetail({ match }: { match: Match }) {
   const decision = useMatchDecision(match);
   const { fields } = match;
@@ -44,7 +50,7 @@ export function MatchDetail({ match }: { match: Match }) {
           <>
             Found on{" "}
             <EntityLink to={{ kind: "target", id: match.targetId, name: match.targetName }} />
-            {fields.age !== undefined ? `, age ${fields.age}` : ""}
+            {ageNote(fields)}
           </>
         }
         error={decision.error}
@@ -63,6 +69,7 @@ export function MatchDetail({ match }: { match: Match }) {
           </>
         }
       >
+        {match.assessment ? <MatchFit assessment={match.assessment} /> : null}
         <DescriptionList items={facts(fields, match.recordUrl)} />
       </DetailFrame>
       {decision.dialog}

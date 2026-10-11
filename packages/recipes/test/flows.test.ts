@@ -339,6 +339,25 @@ describeBrowser("a scan", () => {
     expect(server.hits).toContain("GET /ps/search?first=Jordan&last=Example");
   });
 
+  it("keeps an age range, a decade and a stated birth year as the card gave them", async () => {
+    const outcome = await run(scan("/ps/ages"));
+    expect(outcome).toMatchObject({
+      status: "completed",
+      result: {
+        candidates: [
+          { name: "Jordan Example", ageRange: { low: 42, high: 47 } },
+          { name: "Jordan Example", ageRange: { low: 40, high: 49 } },
+          { name: "Jordan Example", age: 45, birthYear: 1980 },
+        ],
+      },
+    });
+    if (outcome.status !== "completed") return;
+    const [range, decade] = (outcome.result as { candidates: Record<string, unknown>[] })
+      .candidates;
+    expect(range).not.toHaveProperty("age");
+    expect(decade).not.toHaveProperty("age");
+  });
+
   it("reports no candidates when the page has no results", async () => {
     const outcome = await run(scan("/ps/empty"));
     expect(outcome).toEqual({ status: "completed", result: { candidates: [] } });
