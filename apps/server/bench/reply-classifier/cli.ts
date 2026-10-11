@@ -11,6 +11,7 @@ import { duplicatesAcross, loadItems } from "./corpus.js";
 import { devGateOf, evaluateHeldout, evaluateSplit } from "./evaluate.js";
 import { describeHardware } from "./hardware.js";
 import { runRulesOnly } from "./pipeline.js";
+import { runRealCorpus } from "./real-cli.js";
 import { type CandidateResult, type RunReport, renderReport } from "./report.js";
 import { type Candidate, type Item, Skip, type Source } from "./types.js";
 
@@ -26,6 +27,10 @@ const USAGE = `pnpm bench:replies [options]
                      finished result, never for tuning, so "dev" leaves it unread.
   --model name       Ollama model for candidates a and b. Default: granite4.1:8b.
   --no-reasoning     Ask candidate a to skip reasoning (reasoning_effort none). Candidate b always does.
+  --corpus dir       Score real labeled replies (labels.json and the reply files) instead of the synthetic data.
+                     --approaches rules,encoder,llm,llm-tuned (default: all that apply), --models a,b for the
+                     llm approaches, --release-dir dir for encoder, --tuned-ref ref for llm-tuned
+                     (default kr3/agent-tuning), --thinking-off.
   --out dir          Where to write the JSON and Markdown report. Default: bench/reply-classifier/results.
   --help
 `;
@@ -95,12 +100,32 @@ async function main(): Promise<void> {
       model: { type: "string" },
       "no-reasoning": { type: "boolean", default: false },
       out: { type: "string", default: RESULTS_DIR },
+      corpus: { type: "string" },
+      approaches: { type: "string", default: "rules,encoder,llm,llm-tuned" },
+      models: { type: "string", default: "" },
+      "release-dir": { type: "string" },
+      "tuned-ref": { type: "string", default: "kr3/agent-tuning" },
+      "thinking-off": { type: "boolean", default: false },
       help: { type: "boolean", default: false },
     },
     allowPositionals: true,
   });
   if (values.help) {
     console.log(USAGE);
+    return;
+  }
+  if (values.corpus) {
+    const markdown = await runRealCorpus({
+      corpus: values.corpus,
+      approaches: values.approaches?.split(",") ?? [],
+      models: values.models ? values.models.split(",") : [],
+      releaseDir: values["release-dir"] ?? process.env.REPLY_MODEL_RELEASE_DIR ?? null,
+      tunedRef: values["tuned-ref"] as string,
+      thinkingOff: values["thinking-off"] ?? false,
+      out: values.out as string,
+      log,
+    });
+    console.log(markdown);
     return;
   }
   const sources = (values.sources?.split(",") ?? ["tuning", "intake"]) as Source[];
