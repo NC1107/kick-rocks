@@ -44,7 +44,7 @@ jobs:
       - name: Install the pinned Python packages
         run: pnpm --filter @kickrocks/server reply-model:env
       - name: Train, export and check the release
-        run: pnpm --filter @kickrocks/server reply-model:build -- --version "$VERSION"
+        run: pnpm --filter @kickrocks/server reply-model:build --version "$VERSION"
       - name: Show what to pin
         working-directory: apps/server/reply-model/dist
         run: |
@@ -61,7 +61,7 @@ jobs:
         run: |
           mkdir -p "$RUNNER_TEMP/unpacked"
           tar -xf "apps/server/reply-model/dist/reply-model-$VERSION.tar" -C "$RUNNER_TEMP/unpacked"
-          pnpm --filter @kickrocks/server reply-model:verify -- --dir "$RUNNER_TEMP/unpacked" --golden reply-model/dist/golden.json
+          pnpm --filter @kickrocks/server reply-model:verify --dir "$RUNNER_TEMP/unpacked" --golden reply-model/dist/golden.json
       - uses: actions/attest-build-provenance@v2
         with:
           subject-path: apps/server/reply-model/dist/reply-model-${{ inputs.version }}.tar

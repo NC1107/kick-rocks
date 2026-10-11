@@ -61,7 +61,8 @@ ENV NODE_ENV=production \
     KICKROCKS_HOST=0.0.0.0 \
     KICKROCKS_PORT=8420 \
     KICKROCKS_WEB_DIST=/app/web \
-    KICKROCKS_REPLY_MODEL_DIR=/app/reply-model
+    KICKROCKS_REPLY_MODEL_DIR=/app/reply-model \
+    ORT_DISABLE_TELEMETRY=1
 WORKDIR /app
 # First of the app layers, because it is by far the largest and changes only with a new release.
 COPY --from=reply-model /reply-model /app/reply-model

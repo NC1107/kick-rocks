@@ -128,12 +128,12 @@ jobs:
           mkdir -p "$RUNNER_TEMP/reply-model" && tar -xf "$RUNNER_TEMP/reply-model.tar" -C "$RUNNER_TEMP/reply-model"
       - name: Answer the golden texts through the server's runtime
         if: steps.pin.outputs.url != ''
-        run: pnpm --filter @kickrocks/server reply-model:verify -- --dir "$RUNNER_TEMP/reply-model"
+        run: pnpm --filter @kickrocks/server reply-model:verify --dir "$RUNNER_TEMP/reply-model"
       - name: Run the bench candidate that uses the server's runtime
         if: steps.pin.outputs.url != ''
         run: |
           curl -fsSL "$(echo "${{ steps.pin.outputs.url }}" | sed 's#/[^/]*$#/dev-oof.json#')" -o "$RUNNER_TEMP/reply-model/dev-oof.json"
-          REPLY_MODEL_RELEASE_DIR="$RUNNER_TEMP/reply-model" pnpm --filter @kickrocks/server bench:replies -- --candidates rules,c-encoder-node --out "$RUNNER_TEMP/bench"
+          REPLY_MODEL_RELEASE_DIR="$RUNNER_TEMP/reply-model" pnpm --filter @kickrocks/server bench:replies --candidates rules,c-encoder-node --out "$RUNNER_TEMP/bench"
 
   # Production pulls these tags and Watchtower redeploys on a new :latest, so only a push to main
   # that passed every check above publishes. The sha tag is the rollback handle.

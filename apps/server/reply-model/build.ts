@@ -2,7 +2,7 @@
  * Builds a reply model release: trains on the dev replies, picks the threshold from out-of-fold
  * answers, exports to ONNX, reads held-out once, and writes the manifest and the archive.
  *
- *   pnpm --filter @kickrocks/server reply-model:build -- --version v1
+ *   pnpm --filter @kickrocks/server reply-model:build --version v1
  */
 import { spawn } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";

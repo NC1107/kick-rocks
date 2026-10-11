@@ -185,6 +185,14 @@ describe("answering", () => {
     await subject.close();
   });
 
+  it("starts the child with the runtime's usage telemetry switched off", async () => {
+    install();
+    const subject = host();
+    await subject.predict(input("ok"));
+    expect(readFileSync(join(dir, "env.log"), "utf8").trim()).toBe("1");
+    await subject.close();
+  });
+
   it("does not start with too little free memory", async () => {
     install();
     const subject = host({ availableMemory: () => 512 * 1024 ** 2 });

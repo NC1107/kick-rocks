@@ -130,6 +130,8 @@ export function createReplyModelHost(options: ReplyModelHostOptions): ReplyModel
     const script = workerScript(options.workerPath);
     const running = fork(script.path, [], {
       execArgv: script.execArgv,
+      // The runtime ships Microsoft's usage telemetry on Linux, and nothing here may leave the machine.
+      env: { ...process.env, ORT_DISABLE_TELEMETRY: "1" },
       stdio: ["ignore", "inherit", "inherit", "ipc"],
     });
     child = running;

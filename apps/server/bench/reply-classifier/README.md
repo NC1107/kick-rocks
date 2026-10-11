@@ -7,7 +7,7 @@ All data is synthetic, on reserved or invented domains.
 
 - `data/tuning/` holds the labeled replies written for tuning the agent worker, copied from `kr3/agent-tuning`.
   Its dev and held-out sets stay as that branch split them.
-- `apps/server/fixtures/mail-intake/` is the mixed-inbox corpus, copied from `loop/mail-intake` at df13aa6.
+- `apps/server/fixtures/mail-intake/` is the mixed-inbox corpus the intake harness uses.
   Mail with no classification in its labels counts as `unrelated`.
 - `data/live-shape.ts` adds replies in the shape of one seen live: a privacy mailbox that opens with "Thank you for contacting us" and then says requests must go through a web form or by phone.
   They must be `needs_form`.
@@ -133,3 +133,13 @@ The dev rows use their own threshold, so they are optimistic.
 | b-label-scoring (granite4.1:3b) | dev | 65.7% | 73.1% | 0.219 | 3.3% (11/332), 100.0% acc | 75 ms / 79 ms | RTX 5080 | 82.4% | 80.8% | 79.2% | 94.7% | 30.3% |
 | b-label-scoring (granite4.1:3b) | held-out | 65.6% | 69.9% | 0.213 | 4.5% (10/224), 100.0% acc | 74 ms / 80 ms | RTX 5080 | 80.0% | 94.1% | 87.5% | 92.6% | 33.7% |
 
+
+## Run through the server's runtime
+
+`results/2026-10-11T08-51-35-029Z.md` runs the rules and `c-encoder-node` on the corpus as it stands after the merge with main: 355 dev and 201 held-out replies.
+The model is release v1, trained by `reply-model:build` on CPU, and every answer goes through the server's own host and child process.
+
+- Held-out accuracy: rules 46.8%, rules then the encoder 86.1%.
+- At the 0.904 gate chosen on dev, 83 held-out replies answer at 95.2% and 118 fall below it.
+- The build's own PyTorch check agrees with the ONNX file on 556 texts to within 2.2e-6 with no changed answer, and the golden check through the host agrees to 7e-6.
+- The encoder call takes 36 ms at p95 with 4 threads.

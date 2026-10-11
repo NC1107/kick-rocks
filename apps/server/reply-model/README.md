@@ -43,7 +43,7 @@ It lives in `.venv` next to this file and is not committed.
 
 ```
 pnpm --filter @kickrocks/server reply-model:env
-pnpm --filter @kickrocks/server reply-model:build -- --version v2
+pnpm --filter @kickrocks/server reply-model:build --version v2
 ```
 
 The build does these steps in order:
@@ -68,7 +68,7 @@ Afterwards copy the version, url, `tarSha256`, `dataSha256` and threshold it pri
 ## Checking a release
 
 ```
-pnpm --filter @kickrocks/server reply-model:verify -- --dir <folder with manifest.json>
+pnpm --filter @kickrocks/server reply-model:verify --dir <folder with manifest.json>
 pnpm --filter @kickrocks/server reply-model:check-data
 ```
 

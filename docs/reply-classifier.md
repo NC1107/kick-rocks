@@ -149,11 +149,26 @@ Jev would be worth reconsidering only if all of these hold:
   All of it is synthetic, and some classes are small on held-out (10 `needs_form`, 9 `rejected`, 17 `confirmation_link`).
 - The production checks the bench skips: routing a reply to its request, sender trust caps, and the link check on `confirmation_link` for candidates b, c and d.
 - Accuracy by confidence for the reply-only part, since the reports only split accuracy by source.
-- The encoder inside the server.
-  The bench runs it from Python with PyTorch, so a Node runtime for it, its memory use and its cold start were not measured.
 - Encoder latency on a smaller CPU, such as a NAS or a mini PC.
 - How much the encoder's results vary between training runs, since every run reused one cached model.
 - Training the encoder on more data, or on dev and held-out together.
   Doing that would leave no held-out set, so a new one would be needed first.
 - The model judging replies the rules already decided, and any mix of the encoder and an LLM.
 - Idle-GPU latency for qwen3:8b and gpt-oss:20b, and larger models such as qwen3:14b, which were not run on this bench.
+
+## How it ships
+
+The server runs the encoder as an ONNX model in fp32 through `onnxruntime-node`, in a child process that starts on the first reply that needs it and exits after three minutes idle.
+Int8 was measured and changed 4 to 6% of the answers, so it would need its own threshold from its own out-of-fold answers before it could ship.
+The recipe, the pinned inputs and the release steps are in `apps/server/reply-model/README.md`.
+
+Measured through the server's host on a Ryzen 9 9950X3D with 4 threads:
+
+- The child holds about 780 MiB after loading, with the runtime's prepacking off.
+- The first answer takes about 1 second including the load, and later answers about 20 ms.
+- The PyTorch and ONNX answers agree to within 2.2e-6 on 556 texts with no answer changed.
+
+The runtime carries Microsoft's usage telemetry on Linux, so the child is started with `ORT_DISABLE_TELEMETRY=1` and the image sets it too.
+
+The model answers are applied at the larger of 0.90, the threshold in the release's manifest, and the person's own setting.
+The language model's answers are never applied.

@@ -2,7 +2,7 @@
  * Runs a release through the server's own runtime and compares it with the golden fixture:
  * the same answer and every probability within the fixture's tolerance.
  *
- *   pnpm --filter @kickrocks/server reply-model:verify -- --dir <folder with manifest.json>
+ *   pnpm --filter @kickrocks/server reply-model:verify --dir <folder with manifest.json>
  */
 import { readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
