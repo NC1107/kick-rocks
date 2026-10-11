@@ -7,9 +7,11 @@ import { useSitePreference } from "./scanning.js";
 
 const PAUSE_DAYS = 30;
 
-/** The day a pause of a set length ends, as YYYY-MM-DD. */
+/** The day a pause of a set length ends on the person's own calendar, as YYYY-MM-DD. */
 export function pauseEnd(days: number = PAUSE_DAYS): string {
-  return new Date(Date.now() + days * 86_400_000).toISOString().slice(0, 10);
+  const end = new Date(Date.now() + days * 86_400_000);
+  const pad = (value: number) => String(value).padStart(2, "0");
+  return `${end.getFullYear()}-${pad(end.getMonth() + 1)}-${pad(end.getDate())}`;
 }
 
 /** What can be done to one site from its row: scan it now, pause it, skip it, or change its cadence. */

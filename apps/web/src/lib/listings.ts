@@ -1,4 +1,4 @@
-import type { ListingSite, ListingStatus } from "@kickrocks/shared";
+import { LISTING_GROUPS, type ListingSite, type ListingStatus } from "@kickrocks/shared";
 import type { StatusMeta } from "./status.js";
 
 /**
@@ -29,6 +29,18 @@ export const LISTING_STATUS_META: Record<ListingStatus, StatusMeta> = {
     family: "needs",
     shape: "triangle",
     description: "The scan found records that may be you.",
+  },
+  needs_check: {
+    label: "Needs a check",
+    family: "needs",
+    shape: "triangle",
+    description: "A scan stopped for something only you can do.",
+  },
+  removal_stalled: {
+    label: "Removal stalled",
+    family: "needs",
+    shape: "triangle",
+    description: "A removal was refused, bounced, got no reply or was cancelled.",
   },
   yours: {
     label: "Being removed",
@@ -100,7 +112,7 @@ export const LISTING_CHIPS: readonly {
   label: string;
   statuses: readonly ListingStatus[];
 }[] = [
-  { id: "needs_you", label: "Needs you", statuses: ["to_confirm", "failed"] },
+  { id: "needs_you", label: "Needs you", statuses: LISTING_GROUPS.needs_you },
   { id: "yours", label: "Yours", statuses: ["yours", "relisted"] },
   { id: "removed", label: "Removed", statuses: ["removed"] },
   { id: "not_found", label: "Not found", statuses: ["not_found", "not_you", "unclear"] },

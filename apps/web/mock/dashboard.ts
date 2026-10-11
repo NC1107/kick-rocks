@@ -109,7 +109,7 @@ export default defineMockDomain({
           ...scanReadiness(store, profile.id),
           quiet: quietNow(store),
         },
-        listings: summarizeMockListings(buildMockListings(store, profile.id)),
+        listings: summarizeMockListings(buildMockListings(store, profile.id), store.clock.now()),
         recentEvents,
       };
     }),

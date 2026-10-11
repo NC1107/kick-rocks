@@ -8,6 +8,8 @@ import {
 } from "@kickrocks/shared";
 import { and, eq, inArray } from "drizzle-orm";
 import { type Clock, nowIso } from "./clock.js";
+import { scanToday } from "./scan-today.js";
+import type { SettingsStore } from "./settings.js";
 import type { TaskQueue } from "./task-queue.js";
 
 export const CANCELLED_BY_PAUSE = "Cancelled because you paused this site";
@@ -39,13 +41,21 @@ function toPreference(row: typeof scanPreferences.$inferSelect): ScanPreference 
   };
 }
 
+/** A change to another setting of a paused site must not turn its dated pause into an open one. */
+function pausedUntilFor(current: ScanPreference, body: ScanPreferenceBody): string | null {
+  if (body.mode !== "paused") return null;
+  if (body.pausedUntil !== undefined) return body.pausedUntil;
+  return current.mode === "paused" ? current.pausedUntil : null;
+}
+
 export function createScanPreferences(deps: {
   db: KickRocksDb;
   clock: Clock;
   taskQueue: Pick<TaskQueue, "cancel">;
+  settings: Pick<SettingsStore, "get">;
 }): ScanPreferences {
-  const { db, clock, taskQueue } = deps;
-  const today = () => clock.now().toISOString().slice(0, 10);
+  const { db, clock, taskQueue, settings } = deps;
+  const today = () => scanToday({ clock, settings });
 
   const get = (profileId: string, targetId: string): ScanPreference => {
     const row = db
@@ -56,7 +66,7 @@ export function createScanPreferences(deps: {
     return row ? toPreference(row) : DEFAULT_SCAN_PREFERENCE;
   };
 
-  /** A scan that is running finishes; one still waiting for its turn is withdrawn. */
+  /** A scan that is running finishes; one still waiting for its turn, or stopped on a check, is withdrawn. */
   const cancelWaitingScans = (profileId: string, targetId: string, reason: string): void => {
     const waiting = db
       .select({ scanId: scans.id, taskId: tasks.id })
@@ -66,7 +76,7 @@ export function createScanPreferences(deps: {
         and(
           eq(scans.profileId, profileId),
           eq(scans.targetId, targetId),
-          inArray(tasks.status, ["queued"]),
+          inArray(tasks.status, ["queued", "blocked"]),
         ),
       )
       .all();
@@ -97,7 +107,7 @@ export function createScanPreferences(deps: {
       const current = get(profileId, targetId);
       const next: ScanPreference = {
         mode: body.mode,
-        pausedUntil: body.mode === "paused" ? (body.pausedUntil ?? null) : null,
+        pausedUntil: pausedUntilFor(current, body),
         rescanDays: body.rescanDays === undefined ? current.rescanDays : body.rescanDays,
         autoRescan: body.autoRescan ?? current.autoRescan,
         includePastAddresses: body.includePastAddresses ?? current.includePastAddresses,
@@ -110,6 +120,7 @@ export function createScanPreferences(deps: {
             set: { ...next, updatedAt: nowIso(clock) },
           })
           .run();
+        if (next.mode === current.mode) return;
         if (next.mode === "paused") cancelWaitingScans(profileId, targetId, CANCELLED_BY_PAUSE);
         if (next.mode === "skipped") cancelWaitingScans(profileId, targetId, CANCELLED_BY_SKIP);
       });

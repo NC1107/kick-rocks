@@ -1,9 +1,10 @@
 import { createHash } from "node:crypto";
-import { scans } from "@kickrocks/db";
+import { scans, tasks } from "@kickrocks/db";
 import { needsRecord, preferenceBlocks, type ScanVariant } from "@kickrocks/shared";
-import { max } from "drizzle-orm";
+import { eq, isNull, max, ne, or } from "drizzle-orm";
 import { AppError } from "../core/errors.js";
 import { identityVariantsFor } from "../core/past-addresses.js";
+import { scanToday } from "../core/scan-today.js";
 import type { AppServices } from "../services.js";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -35,7 +36,8 @@ export function nextRescanAt(
 
 /**
  * Scans again every people-search target a profile has been scanned on, once its own slot in the
- * last quarter of its window has come since its last scan. The window is the person's choice for
+ * last quarter of its window has come since its last scan. A scan withdrawn before it ran never
+ * searched, so it does not start the window. The window is the person's choice for
  * that site, else `peopleSearchRescanDays`. A paused or skipped site is left alone, and a pause
  * that has reached its date lets the site back in. A listing that came back is found by the scan,
  * and the scan handler decides what a record that was removed before now means.
@@ -43,7 +45,7 @@ export function nextRescanAt(
 export function enqueueDueRescans(services: AppServices): number {
   const { peopleSearchRescanDays } = services.settings.get("schedule");
   const now = services.clock.now().getTime();
-  const today = services.clock.now().toISOString().slice(0, 10);
+  const today = scanToday(services);
   const last = services.db
     .select({
       profileId: scans.profileId,
@@ -51,6 +53,8 @@ export function enqueueDueRescans(services: AppServices): number {
       startedAt: max(scans.startedAt),
     })
     .from(scans)
+    .leftJoin(tasks, eq(scans.taskId, tasks.id))
+    .where(or(isNull(tasks.status), ne(tasks.status, "cancelled")))
     .groupBy(scans.profileId, scans.targetId)
     .all();
 

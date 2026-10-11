@@ -213,7 +213,7 @@ export function createServices(
     taskQueue,
     claimers: createClaimers(db, clock),
     taskSends: createTaskSends({ db, clock }),
-    scanPreferences: createScanPreferences({ db, clock, taskQueue }),
+    scanPreferences: createScanPreferences({ db, clock, taskQueue, settings }),
     politeness,
     taskHandlers,
     requests,

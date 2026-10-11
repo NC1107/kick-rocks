@@ -18,7 +18,7 @@ describe("the dashboard listings card", () => {
     renderPage(<DashboardPage />);
     const heading = await screen.findByRole("heading", { name: "Where you're listed" });
     const card = within(heading.closest("section") as HTMLElement);
-    expect(card.getByRole("link", { name: /To confirm/ })).toHaveAttribute(
+    expect(card.getByRole("link", { name: /Needs you/ })).toHaveAttribute(
       "href",
       "/targets/listings?show=needs_you",
     );

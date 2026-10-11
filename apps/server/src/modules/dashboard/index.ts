@@ -177,7 +177,7 @@ function buildDashboard(services: AppServices, profileId: string): Dashboard {
       ...profileScanReadiness(services, profileId),
       quiet: services.politeness.quietNow(),
     },
-    listings: summarizeListings(buildListings(services, profileId)),
+    listings: summarizeListings(buildListings(services, profileId), services.clock.now()),
     recentEvents,
   };
 }

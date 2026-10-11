@@ -29,7 +29,7 @@ function RecordItem({ record }: { record: ListingRecord }) {
           )}
         </p>
         {places ? <p className="text-meta text-ink-2">{places}</p> : null}
-        <p className="min-w-0 truncate text-caption">
+        <p className="relative min-w-0 truncate text-caption">
           <ExternalLinkText href={record.recordUrl} className="font-mono">
             {record.recordUrl.replace(/^https?:\/\/(www\.)?/, "")}
           </ExternalLinkText>

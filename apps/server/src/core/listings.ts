@@ -1,6 +1,8 @@
 import { matches, type ScanRow, scans, targets, tasks } from "@kickrocks/db";
 import {
+  DEFAULT_SCAN_PREFERENCE,
   deriveListingStatus,
+  type Identity,
   isActiveStatus,
   type ListingCounts,
   type ListingDetail,
@@ -14,28 +16,33 @@ import {
   type RequestRecord,
   type ScanPreference,
 } from "@kickrocks/shared";
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq, getTableColumns, sql } from "drizzle-orm";
 import { toMatch } from "../modules/review/mappers.js";
 import { nextRescanAt } from "../scheduler/rescans.js";
 import type { AppServices } from "../services.js";
+import { loadIdentities } from "./identities.js";
 import {
   describeMissingScanFields,
   missingScanFields,
   scanHold,
   scanRoute,
 } from "./scan-readiness.js";
+import { scanToday } from "./scan-today.js";
 import { isPeopleSearchTarget } from "./targets.js";
 
-type Row = ScanRow & { taskStatus: string | null };
+type Row = Omit<ScanRow, "candidates"> & { candidateCount: number; taskStatus: string | null };
 
 const HISTORY_LIMIT = 10;
+
+/** Enough runs per site to find its newest finished scan and its history, however much it has run. */
+const RECENT_SCANS_PER_SITE = 50;
 
 function toListingScan(services: AppServices, scan: Row, targetName: string): ListingScan {
   return {
     id: scan.id,
     startedAt: scan.startedAt,
     finishedAt: scan.finishedAt,
-    candidateCount: scan.candidates?.length ?? 0,
+    candidateCount: scan.candidateCount,
     noResultsShown: scan.noResultsShown === true,
     error: scan.error,
     taskStatus: scan.taskStatus as ListingScan["taskStatus"],
@@ -50,35 +57,58 @@ function toListingScan(services: AppServices, scan: Row, targetName: string): Li
 }
 
 interface Gathered {
+  identities: Identity[];
   scansByTarget: Map<string, Row[]>;
   matchesByTarget: Map<string, (typeof matches.$inferSelect)[]>;
 }
 
-function gather(services: AppServices, profileId: string): Gathered {
+const { candidates: _candidates, ...SCAN_COLUMNS } = getTableColumns(scans);
+
+function gather(services: AppServices, profileId: string, targetId?: string): Gathered {
+  const ofSite = targetId === undefined ? [] : [eq(scans.targetId, targetId)];
   const scanRows = services.db
-    .select({ scan: scans, taskStatus: tasks.status })
+    .select({
+      ...SCAN_COLUMNS,
+      candidateCount: sql<number>`coalesce(json_array_length(${scans.candidates}), 0)`,
+      taskStatus: tasks.status,
+    })
     .from(scans)
     .leftJoin(tasks, eq(scans.taskId, tasks.id))
-    .where(eq(scans.profileId, profileId))
+    .where(
+      and(
+        eq(scans.profileId, profileId),
+        ...ofSite,
+        sql`(select count(*) from scans as newer where newer.profile_id = ${scans.profileId} and newer.target_id = ${scans.targetId} and newer.started_at > ${scans.startedAt}) < ${RECENT_SCANS_PER_SITE}`,
+      ),
+    )
     .orderBy(desc(scans.startedAt))
     .all();
   const scansByTarget = new Map<string, Row[]>();
-  for (const { scan, taskStatus } of scanRows) {
+  for (const scan of scanRows) {
     const list = scansByTarget.get(scan.targetId) ?? [];
-    list.push({ ...scan, taskStatus });
+    list.push(scan);
     scansByTarget.set(scan.targetId, list);
   }
   const matchesByTarget = new Map<string, (typeof matches.$inferSelect)[]>();
   for (const row of services.db
     .select()
     .from(matches)
-    .where(eq(matches.profileId, profileId))
+    .where(
+      and(
+        eq(matches.profileId, profileId),
+        ...(targetId === undefined ? [] : [eq(matches.targetId, targetId)]),
+      ),
+    )
     .all()) {
     const list = matchesByTarget.get(row.targetId) ?? [];
     list.push(row);
     matchesByTarget.set(row.targetId, list);
   }
-  return { scansByTarget, matchesByTarget };
+  return {
+    identities: loadIdentities(services.db, profileId),
+    scansByTarget,
+    matchesByTarget,
+  };
 }
 
 const DECISION_ORDER = { pending: 0, mine: 1, not_mine: 2 } as const;
@@ -143,7 +173,7 @@ function buildSite(
     relisted: relisted && stillActive,
   });
 
-  const missing = missingScanFields(services, profileId, target.id);
+  const missing = missingScanFields(services, profileId, target.id, gathered.identities);
   const readiness: ListingSite["readiness"] =
     missing.length > 0
       ? { state: "needs_details", missing: describeMissingScanFields(missing) }
@@ -161,7 +191,7 @@ function buildSite(
   const rescanDays =
     preference.rescanDays ?? services.settings.get("schedule").peopleSearchRescanDays;
   const next =
-    lastStarted && blocked === null && preference.autoRescan
+    lastStarted && blocked === null && preference.autoRescan && readiness.state !== "needs_details"
       ? nextRescanAt(
           profileId,
           services.politeness.domainOf(target.id) ?? target.id,
@@ -202,7 +232,7 @@ function listedTargets(services: AppServices, scannedIds: ReadonlySet<string>) {
 export function buildListings(services: AppServices, profileId: string): ListingSite[] {
   const gathered = gather(services, profileId);
   const preferences = services.scanPreferences.forProfile(profileId);
-  const today = services.clock.now().toISOString().slice(0, 10);
+  const today = scanToday(services);
   return listedTargets(services, new Set(gathered.scansByTarget.keys())).map(
     (target) =>
       buildSite(
@@ -210,13 +240,14 @@ export function buildListings(services: AppServices, profileId: string): Listing
         profileId,
         target,
         gathered,
-        preferences.get(target.id) ?? services.scanPreferences.get(profileId, target.id),
+        preferences.get(target.id) ?? DEFAULT_SCAN_PREFERENCE,
         today,
       ).site,
   );
 }
 
-export function summarizeListings(sites: readonly ListingSite[]): ListingsSummary {
+/** `nextRescanAt` is the soonest rescan still ahead; one already due is the scheduler's to run. */
+export function summarizeListings(sites: readonly ListingSite[], now: Date): ListingsSummary {
   const counts = Object.fromEntries(
     ListingStatus.options.map((status) => [status, 0]),
   ) as ListingCounts;
@@ -226,7 +257,8 @@ export function summarizeListings(sites: readonly ListingSite[]): ListingsSummar
     counts[site.status] = (counts[site.status] ?? 0) + 1;
     const started = site.latestScan?.startedAt;
     if (started && (lastScanAt === null || started > lastScanAt)) lastScanAt = started;
-    if (site.nextRescanAt && (nextAt === null || site.nextRescanAt < nextAt)) {
+    const upcoming = site.nextRescanAt !== null && Date.parse(site.nextRescanAt) > now.getTime();
+    if (site.nextRescanAt && upcoming && (nextAt === null || site.nextRescanAt < nextAt)) {
       nextAt = site.nextRescanAt;
     }
   }
@@ -240,14 +272,14 @@ export function buildListingDetail(
 ): ListingDetail | null {
   const target = services.db.select().from(targets).where(eq(targets.id, targetId)).get();
   if (!target) return null;
-  const gathered = gather(services, profileId);
+  const gathered = gather(services, profileId, targetId);
   const { site, scans: scanRows } = buildSite(
     services,
     profileId,
     target,
     gathered,
     services.scanPreferences.get(profileId, targetId),
-    services.clock.now().toISOString().slice(0, 10),
+    scanToday(services),
   );
   return {
     ...site,

@@ -51,6 +51,8 @@ interface ScanDialogProps {
   description: DialogProps["description"];
   /** Sites in the scan, to say how many visits it makes. */
   siteCount?: number | undefined;
+  /** The site's own "include past addresses" choice, which a single-site scan follows. */
+  sitePreference?: boolean | undefined;
   confirmLabel?: string;
   onStarted?: () => void;
 }
@@ -67,12 +69,14 @@ export function ScanDialog({
   title,
   description,
   siteCount,
+  sitePreference,
   confirmLabel = "Start scans",
   onStarted,
 }: ScanDialogProps) {
   const toast = useToast();
   const past = usePastAddressCount(profileId);
-  const [includePast, setIncludePast] = useState(false);
+  const [chosen, setChosen] = useState<boolean | null>(null);
+  const includePast = chosen ?? sitePreference ?? false;
   const dashboard = useApiQuery(API_ROUTES.dashboardGet, { params: { id: profileId } });
 
   const start = useApiMutation(API_ROUTES.scansStart, {
@@ -115,7 +119,11 @@ export function ScanDialog({
             onClick={() =>
               start.mutate({
                 params: { id: profileId },
-                body: { ...selection, addresses: includePast ? "all" : "current" } as ScanStartBody,
+                // Leaving addresses out lets each site's own setting decide.
+                body: {
+                  ...selection,
+                  ...(chosen === null ? {} : { addresses: chosen ? "all" : "current" }),
+                } as ScanStartBody,
               })
             }
           >
@@ -130,7 +138,7 @@ export function ScanDialog({
             label="Include past addresses"
             description={`${past === 1 ? "1 past address" : `${past} past addresses`}, each a separate search.`}
             checked={includePast}
-            onChange={(event) => setIncludePast(event.target.checked)}
+            onChange={(event) => setChosen(event.target.checked)}
           />
         ) : null}
         <p className="text-meta text-ink-2">{cost}</p>

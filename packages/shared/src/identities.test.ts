@@ -411,6 +411,24 @@ describe("an address whose unit was typed into the street as well", () => {
     });
   });
 
+  it.each([
+    "1 Unit Rd",
+    "100 Floor St",
+    "12 Suite Ave",
+    "42 Rm Lane",
+    "County Road No 5",
+    "Route #9",
+  ])("does not read the end of the street name %s as a unit", (street) => {
+    expect(splitTrailingUnit(street)).toEqual({ street, unit: null });
+    expect(normalizeAddress({ ...base, street })).toEqual({ ...base, street });
+  });
+
+  it("still reads a letter or a number after a unit word as a unit", () => {
+    expect(splitTrailingUnit("20 Elm St Unit A")).toEqual({ street: "20 Elm St", unit: "Unit A" });
+    expect(splitTrailingUnit("20 Elm St Apt 5B")).toEqual({ street: "20 Elm St", unit: "Apt 5B" });
+    expect(splitTrailingUnit("20 Elm St #7")).toEqual({ street: "20 Elm St", unit: "#7" });
+  });
+
   it("keeps a different unit in the street apart from the one in Unit", () => {
     expect(normalizeAddress({ ...base, street: "1 A St Apt 3", unit: "Apt 4" }).street).toBe(
       "1 A St Apt 3",

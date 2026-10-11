@@ -1,5 +1,6 @@
 import { type KickRocksDb, recipes, targets } from "@kickrocks/db";
 import {
+  type Identity,
   type ProfileField,
   Recipe,
   resolveProfileFields,
@@ -45,12 +46,13 @@ export function missingScanFields(
   { db, clock }: { db: KickRocksDb; clock: Clock },
   profileId: string,
   targetId: string,
+  identities: readonly Identity[] = loadIdentities(db, profileId),
 ): ProfileField[] {
   const usable = usableScanRecipe(db, targetId);
   const wanted = usable
     ? Recipe.parse(usable.definition).fields.filter((field) => !NOT_FROM_IDENTITIES.includes(field))
     : AGENT_SCAN_FIELDS;
-  const resolved = resolveProfileFields(loadIdentities(db, profileId), wanted, {
+  const resolved = resolveProfileFields(identities, wanted, {
     asOf: clock.now().toISOString().slice(0, 10),
     nameId: null,
     addressId: null,

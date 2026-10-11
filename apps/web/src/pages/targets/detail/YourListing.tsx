@@ -207,12 +207,18 @@ function Controls({ listing, profileId }: { listing: ListingDetail; profileId: s
             description={
               past === 0
                 ? "This profile has no past addresses."
-                : `Each of the ${past} past ${past === 1 ? "address" : "addresses"} is a separate search.`
+                : past === 1
+                  ? "Your past address is a separate search."
+                  : `Each of the ${past} past addresses is a separate search.`
             }
             checked={listing.preference.includePastAddresses}
             disabled={preference.pending || past === 0}
             onChange={(event) =>
-              preference.set({ mode, includePastAddresses: event.target.checked })
+              preference.set({
+                mode,
+                ...(mode === "paused" ? { pausedUntil: listing.preference.pausedUntil } : {}),
+                includePastAddresses: event.target.checked,
+              })
             }
           />
         </BodyRow>
@@ -232,6 +238,7 @@ function Controls({ listing, profileId }: { listing: ListingDetail; profileId: s
           title={`Scan ${listing.targetName}?`}
           description="Kick Rocks searches this site for this person. Nothing is removed until you confirm a record."
           siteCount={1}
+          sitePreference={listing.preference.includePastAddresses}
         />
       ) : null}
     </>

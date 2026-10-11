@@ -19,6 +19,7 @@ import {
   scanHold,
 } from "../../core/scan-readiness.js";
 import { scanDropReason, siteChoiceDetail } from "../../core/scan-skips.js";
+import { scanToday } from "../../core/scan-today.js";
 import { selectByFilter } from "../../core/target-selection.js";
 import { isPeopleSearchTarget } from "../../core/targets.js";
 import type { AppServices } from "../../services.js";
@@ -62,7 +63,7 @@ function startScans(
   selection: Parameters<typeof targetsToScan>[1],
 ) {
   const named = "targetIds" in selection;
-  const today = services.clock.now().toISOString().slice(0, 10);
+  const today = scanToday(services);
   return targetsToScan(services, selection).map((row): TargetOutcome => {
     if (row.retired) {
       return skipped(row, "unsupported_channel", `${row.name} is no longer in the dataset.`);
@@ -127,7 +128,7 @@ export const scansModule: ModulePlugin = (app, services) => {
     const wanted = query.status ? new Set(query.status) : null;
     const kept = wanted ? sites.filter((site) => wanted.has(site.status)) : sites;
     return {
-      ...summarizeListings(sites),
+      ...summarizeListings(sites, services.clock.now()),
       items: kept.slice((query.page - 1) * query.pageSize, query.page * query.pageSize),
       total: kept.length,
       page: query.page,

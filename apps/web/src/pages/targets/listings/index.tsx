@@ -169,7 +169,12 @@ function SiteTable({
           id: "next",
           header: "Next scan",
           kind: "date",
-          cell: (site) => (site.nextRescanAt ? formatShortDate(site.nextRescanAt) : "None"),
+          cell: (site) =>
+            site.nextRescanAt
+              ? Date.parse(site.nextRescanAt) > Date.now()
+                ? formatShortDate(site.nextRescanAt)
+                : "Due"
+              : "None",
         },
         {
           id: "actions",
@@ -199,6 +204,7 @@ function Listings({ profileId }: { profileId: string }) {
     title: string;
     description: string;
     targetIds: string[] | null;
+    includePastAddresses?: boolean;
   } | null>(null);
   const [reviewing, setReviewing] = useState<string | null>(null);
   const [skippedOpen, setSkippedOpen] = useState(false);
@@ -234,6 +240,7 @@ function Listings({ profileId }: { profileId: string }) {
       description:
         "Kick Rocks searches this site for this person. Nothing is removed until you confirm a record.",
       targetIds: [site.targetId],
+      includePastAddresses: site.preference.includePastAddresses,
     });
 
   const wide = (list: readonly ListingSite[]) => (
@@ -352,6 +359,7 @@ function Listings({ profileId }: { profileId: string }) {
           title={scanning.title}
           description={scanning.description}
           siteCount={scanning.targetIds?.length}
+          sitePreference={scanning.includePastAddresses}
         />
       ) : null}
 

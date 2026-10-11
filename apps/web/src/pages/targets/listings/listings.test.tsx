@@ -18,8 +18,8 @@ const chip = (name: RegExp) => screen.findByRole("button", { name });
 describe("where you're listed", () => {
   it("opens on what needs you, with a count on every filter", async () => {
     open();
-    expect(await chip(/^Needs you\s*3$/)).toHaveAttribute("aria-pressed", "true");
-    expect(screen.getByRole("button", { name: /^Yours\s*2$/ })).toHaveAttribute(
+    expect(await chip(/^Needs you\s*4$/)).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: /^Yours\s*1$/ })).toHaveAttribute(
       "aria-pressed",
       "false",
     );
@@ -46,7 +46,13 @@ describe("where you're listed", () => {
   it("states where each site stands in plain words", async () => {
     open("/targets/listings?show=yours");
     expect(await screen.findByText("Listed again, removal reopened")).toBeVisible();
-    expect(screen.getByText("No reply to the removal")).toBeVisible();
+    expect(screen.queryByText("No reply to the removal")).not.toBeInTheDocument();
+  });
+
+  it("puts a removal that ended without the record going under Needs you", async () => {
+    open("/targets/listings?show=needs_you");
+    expect(await screen.findByText("No reply to the removal")).toBeVisible();
+    expect(screen.getAllByText("Removal stalled").length).toBeGreaterThan(0);
   });
 
   it("shows removed, not found and paused sites under their own filters", async () => {
@@ -153,6 +159,41 @@ describe("scanning without a campaign", () => {
       (scan) => scan.targetId === "verifyfirst" && scan.taskStatus === "queued",
     );
     expect(paused).toHaveLength(0);
+  });
+
+  it("follows a site's own choice about past addresses and leaves the choice to it", async () => {
+    stubPhone();
+    const mock = createMockApp();
+    const profileId = mock.store.profiles[0]?.id;
+    mock.store.scanPreferences.set(`${profileId}:findrecord`, {
+      mode: "auto",
+      pausedUntil: null,
+      rescanDays: null,
+      autoRescan: true,
+      includePastAddresses: true,
+    });
+    const { user } = open("/targets/listings?show=waiting", mock);
+    const seen = instrument(mock);
+    const list = await screen.findByRole("list", { name: "Sites" });
+    const row = within(list)
+      .getAllByRole("listitem")
+      .find((item) => within(item).queryByText("FindRecord"));
+    if (!row) throw new Error("FindRecord is not waiting");
+    await user.click(within(row).getByRole("button", { name: "More for FindRecord" }));
+    await user.click(await screen.findByRole("menuitem", { name: "Scan now" }));
+    const dialog = await screen.findByRole("dialog", { name: "Scan FindRecord?" });
+    expect(within(dialog).getByRole("checkbox", { name: /Include past addresses/ })).toBeChecked();
+    expect(within(dialog).getByText(/Searches the site 2 times/)).toBeVisible();
+    await user.click(within(dialog).getByRole("button", { name: "Start scans" }));
+    await waitFor(() =>
+      expect(
+        seen.some((request) => request.method === "POST" && request.url.endsWith("/scans")),
+      ).toBe(true),
+    );
+    const post = seen.find(
+      (request) => request.method === "POST" && request.url.endsWith("/scans"),
+    );
+    expect(post?.json).toEqual({ targetIds: ["findrecord"] });
   });
 
   it("starts the first scan from an empty page", async () => {

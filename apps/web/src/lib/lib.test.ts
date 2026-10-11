@@ -1,7 +1,7 @@
 import { RequestStatus, TaskStatus } from "@kickrocks/shared";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import themeInit from "../../public/theme-init.js?raw";
-import { formatRelative, pluralize } from "./format.js";
+import { formatRelative, formatShortDate, pluralize } from "./format.js";
 import * as labels from "./labels.js";
 import { describeCooldown } from "./sites.js";
 import { REQUEST_STATUS_META, TASK_STATUS_META } from "./status.js";
@@ -86,6 +86,16 @@ describe("format", () => {
     expect(formatRelative("2026-10-07T09:00:00Z", { now, locale: "en-US" })).toBe("3 hours ago");
     expect(formatRelative("2026-10-09T12:00:00Z", { now, locale: "en-US" })).toBe("in 2 days");
     expect(formatRelative("2026-08-01T12:00:00Z", { now, locale: "en-US" })).toBe("2 months ago");
+  });
+
+  describe("in a timezone west of UTC", () => {
+    afterEach(() => vi.unstubAllEnvs());
+
+    it("keeps a date with no time on the day it names", () => {
+      vi.stubEnv("TZ", "America/Los_Angeles");
+      expect(formatShortDate("2026-11-10T03:00:00.000Z", { locale: "en-US" })).toBe("Nov 9");
+      expect(formatShortDate("2026-11-10", { locale: "en-US" })).toBe("Nov 10");
+    });
   });
 
   it("pluralizes", () => {

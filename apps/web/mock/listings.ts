@@ -161,7 +161,7 @@ export function buildMockListings(store: MockStore, profileId: string): ListingS
     });
 }
 
-export function summarizeMockListings(sites: readonly ListingSite[]): ListingsSummary {
+export function summarizeMockListings(sites: readonly ListingSite[], now: Date): ListingsSummary {
   const counts = Object.fromEntries(
     ListingStatus.options.map((status) => [status, 0]),
   ) as ListingsSummary["counts"];
@@ -171,7 +171,12 @@ export function summarizeMockListings(sites: readonly ListingSite[]): ListingsSu
     counts[site.status] += 1;
     const started = site.latestScan?.startedAt;
     if (started && (lastScanAt === null || started > lastScanAt)) lastScanAt = started;
-    if (site.nextRescanAt && (nextRescanAt === null || site.nextRescanAt < nextRescanAt)) {
+    const upcoming = site.nextRescanAt !== null && Date.parse(site.nextRescanAt) > now.getTime();
+    if (
+      site.nextRescanAt &&
+      upcoming &&
+      (nextRescanAt === null || site.nextRescanAt < nextRescanAt)
+    ) {
       nextRescanAt = site.nextRescanAt;
     }
   }
@@ -200,7 +205,7 @@ function detailOf(store: MockStore, profileId: string, targetId: string): Listin
 function cancelWaiting(store: MockStore, profileId: string, targetId: string, reason: string) {
   for (const scan of store.scans) {
     if (scan.profileId !== profileId || scan.targetId !== targetId) continue;
-    if (scan.taskStatus !== "queued") continue;
+    if (scan.taskStatus !== "queued" && scan.taskStatus !== "blocked") continue;
     scan.taskStatus = "cancelled";
     scan.finishedAt = store.clock.now().toISOString();
     scan.error = reason;
@@ -323,7 +328,7 @@ export default defineMockDomain({
       const wanted = query.status ? new Set(query.status) : null;
       const kept = wanted ? sites.filter((site) => wanted.has(site.status)) : sites;
       return {
-        ...summarizeMockListings(sites),
+        ...summarizeMockListings(sites, store.clock.now()),
         items: kept.slice((query.page - 1) * query.pageSize, query.page * query.pageSize),
         total: kept.length,
         page: query.page,
@@ -338,12 +343,20 @@ export default defineMockDomain({
       detailOf(store, params.id, params.targetId);
       const next: ScanPreference = {
         mode: body.mode,
-        pausedUntil: body.mode === "paused" ? (body.pausedUntil ?? null) : null,
+        pausedUntil:
+          body.mode !== "paused"
+            ? null
+            : body.pausedUntil !== undefined
+              ? body.pausedUntil
+              : current.mode === "paused"
+                ? current.pausedUntil
+                : null,
         rescanDays: body.rescanDays === undefined ? current.rescanDays : body.rescanDays,
         autoRescan: body.autoRescan ?? current.autoRescan,
         includePastAddresses: body.includePastAddresses ?? current.includePastAddresses,
       };
       store.scanPreferences.set(keyOf(params.id, params.targetId), next);
+      if (next.mode === current.mode) return detailOf(store, params.id, params.targetId);
       if (next.mode === "paused") {
         cancelWaiting(store, params.id, params.targetId, "Cancelled because you paused this site");
       }

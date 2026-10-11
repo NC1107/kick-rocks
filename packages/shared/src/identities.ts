@@ -30,7 +30,7 @@ export const AddressValue = z.object({
 });
 export type AddressValue = z.infer<typeof AddressValue>;
 
-const UNIT_DESIGNATOR = String.raw`(?:apartment|apt|unit|suite|ste|room|rm|floor|fl|no|number)\b\.?\s*#?\s*|#\s*`;
+const UNIT_DESIGNATOR = String.raw`(?:apartment|apt|unit|suite|ste|room|rm|floor|fl)\b\.?\s*#?\s*|#\s*`;
 const TRAILING_UNIT = new RegExp(
   String.raw`(?:\s*,\s*|\s+)(?:${UNIT_DESIGNATOR})([A-Za-z0-9][A-Za-z0-9-]*)\s*$`,
   "i",
@@ -41,16 +41,25 @@ function unitCore(unit: string): string {
   return unit.trim().replace(LEADING_DESIGNATOR, "").trim().toLowerCase();
 }
 
+/** "12", "5B" and "A" name a unit; "Rd" after "Unit" is the rest of a street name. */
+const looksLikeUnitName = (name: string) => /\d/.test(name) || /^[A-Za-z]$/.test(name);
+
+/** A street that kept no number and only one word ("Route" from "Route #9") was not split from a unit. */
+const keepsAStreet = (street: string) => /\d/.test(street) || /\s/.test(street);
+
 /**
  * Splits a trailing apartment designator off a street line. Only an explicit designator ("Apt 12",
- * "#12") counts, so "Highway 12" keeps its number.
+ * "#12") counts, so "Highway 12" keeps its number and "1 Unit Rd" stays a street.
  */
 export function splitTrailingUnit(street: string): { street: string; unit: string | null } {
   const trimmed = street.trim();
   const match = TRAILING_UNIT.exec(trimmed);
-  if (!match || match.index === 0) return { street: trimmed, unit: null };
+  const kept = match ? trimmed.slice(0, match.index).trim() : trimmed;
+  if (!match || match.index === 0 || !looksLikeUnitName(match[1] ?? "") || !keepsAStreet(kept)) {
+    return { street: trimmed, unit: null };
+  }
   return {
-    street: trimmed.slice(0, match.index).trim(),
+    street: kept,
     unit: trimmed
       .slice(match.index)
       .replace(/^\s*,\s*/, "")

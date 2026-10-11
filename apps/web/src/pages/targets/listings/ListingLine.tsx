@@ -1,4 +1,4 @@
-import type { ListingSite, RequestStatus } from "@kickrocks/shared";
+import { type ListingSite, type RequestStatus, STALLED_REMOVALS } from "@kickrocks/shared";
 import type { ReactNode } from "react";
 import { HoldReason } from "../../../components/holds/HoldReason.js";
 import { MetaMark, RelativeTime, TextLink } from "../../../components/ui/index.js";
@@ -18,10 +18,20 @@ const REMOVAL_WORDS: Partial<Record<RequestStatus, string>> = {
   needs_verification: "The site wants something from you",
   rejected: "Removal refused",
   bounced: "Removal bounced",
+  cancelled: "Removal cancelled",
 };
 
+const SETTLED_REMOVALS: ReadonlySet<RequestStatus> = new Set(["confirmed", "no_record"]);
+
+/** The removal the sentence is about: one that stalled first, then one still under way. */
 function removalWords(site: ListingSite): string {
-  const request = site.records.find((record) => record.decision === "mine")?.request;
+  const requests = site.records.flatMap((record) =>
+    record.decision === "mine" && record.request ? [record.request] : [],
+  );
+  const request =
+    requests.find((candidate) => STALLED_REMOVALS.has(candidate.status)) ??
+    requests.find((candidate) => !SETTLED_REMOVALS.has(candidate.status)) ??
+    requests[0];
   if (!request) return "Removal started";
   return (
     REMOVAL_WORDS[request.status] ??
@@ -59,7 +69,14 @@ function sentence(site: ListingSite, profileId: string): ReactNode {
     case "to_confirm":
       return `${pluralize(pendingRecords(site).length, "record")} to confirm`;
     case "yours":
+    case "removal_stalled":
       return removalWords(site);
+    case "needs_check":
+      return (
+        <>
+          Stopped on a check, <TextLink to={paths.review()}>open Review</TextLink>
+        </>
+      );
     case "relisted":
       return "Listed again, removal reopened";
     case "removed":
@@ -89,13 +106,7 @@ function sentence(site: ListingSite, profileId: string): ReactNode {
           />
         );
       }
-      return scan?.taskStatus === "blocked" ? (
-        <>
-          Waiting on a check in <TextLink to={paths.review()}>Review</TextLink>
-        </>
-      ) : (
-        "Queued"
-      );
+      return "Queued";
     case "paused":
       return site.preference.pausedUntil
         ? `Paused until ${formatShortDate(site.preference.pausedUntil)}`
@@ -117,13 +128,18 @@ export function ListingLine({ site, profileId }: { site: ListingSite; profileId:
   );
 }
 
+/** "Next Nov 3", or "rescan due" once that day has come and the scheduler has not run it yet. */
+export function nextRescanWords(nextRescanAt: string, now = Date.now()): string {
+  return Date.parse(nextRescanAt) > now ? `next ${formatShortDate(nextRescanAt)}` : "rescan due";
+}
+
 /** "Scanned 2d ago, next Nov 3", or nothing when the site has never been scanned. */
 export function ScanTimes({ site }: { site: ListingSite }) {
   if (!site.latestScan) return null;
   return (
     <span className="font-mono text-caption text-ink-3">
       Scanned <RelativeTime iso={site.latestScan.startedAt} />
-      {site.nextRescanAt ? `, next ${formatShortDate(site.nextRescanAt)}` : ""}
+      {site.nextRescanAt ? `, ${nextRescanWords(site.nextRescanAt)}` : ""}
     </span>
   );
 }

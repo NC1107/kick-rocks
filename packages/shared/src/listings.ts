@@ -13,8 +13,10 @@ export const ListingStatus = z.enum([
   "waiting",
   "scanning",
   "to_confirm",
+  "needs_check",
   "yours",
   "removed",
+  "removal_stalled",
   "relisted",
   "not_you",
   "not_found",
@@ -39,7 +41,7 @@ export const ListingGroup = z.enum([
 export type ListingGroup = z.infer<typeof ListingGroup>;
 
 export const LISTING_GROUPS: Record<ListingGroup, readonly ListingStatus[]> = {
-  needs_you: ["to_confirm", "failed"],
+  needs_you: ["to_confirm", "needs_check", "removal_stalled", "failed"],
   yours: ["yours", "relisted"],
   removed: ["removed"],
   not_found: ["not_found", "not_you", "unclear"],
@@ -196,6 +198,14 @@ export function preferenceBlocks(
   return null;
 }
 
+/** Removals that ended without the record going, so the person has to decide what happens next. */
+export const STALLED_REMOVALS: ReadonlySet<RequestStatus> = new Set([
+  "rejected",
+  "bounced",
+  "no_response",
+  "cancelled",
+]);
+
 /** What a scan row says about a site, newest scan first. */
 export interface ListingScanFacts {
   taskStatus: string | null;
@@ -227,17 +237,17 @@ export function deriveListingStatus(input: {
   const mine = records.filter((record) => record.decision === "mine");
   if (mine.length > 0) {
     const requests = mine.flatMap((record) => (record.request ? [record.request] : []));
+    if (input.relisted) return "relisted";
+    if (requests.some((request) => STALLED_REMOVALS.has(request.status))) return "removal_stalled";
     const allSettled =
       requests.length > 0 &&
       requests.every((request) => request.status === "confirmed" || request.status === "no_record");
-    if (allSettled) return "removed";
-    return input.relisted ? "relisted" : "yours";
+    return allSettled ? "removed" : "yours";
   }
 
   const latest = input.scans[0];
-  if (latest && (latest.taskStatus === "queued" || latest.taskStatus === "blocked")) {
-    return "waiting";
-  }
+  if (latest?.taskStatus === "blocked") return "needs_check";
+  if (latest?.taskStatus === "queued") return "waiting";
   if (latest && latest.taskStatus === "leased") return "scanning";
 
   const finished = input.scans.find(

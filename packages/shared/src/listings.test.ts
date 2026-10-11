@@ -69,12 +69,12 @@ describe("deriveListingStatus", () => {
     expect(status({ preference: paused, scans: [clean] })).toBe("paused");
   });
 
-  it("reads a queued or blocked scan as waiting and a leased one as scanning", () => {
+  it("reads a queued scan as waiting, a blocked one as needing a check, and a leased one as scanning", () => {
     expect(status({ scans: [{ ...clean, taskStatus: "queued", finishedAt: null }] })).toBe(
       "waiting",
     );
     expect(status({ scans: [{ ...clean, taskStatus: "blocked", finishedAt: null }] })).toBe(
-      "waiting",
+      "needs_check",
     );
     expect(status({ scans: [{ ...clean, taskStatus: "leased", finishedAt: null }] })).toBe(
       "scanning",
@@ -105,6 +105,21 @@ describe("deriveListingStatus", () => {
     ).toBe("yours");
   });
 
+  it("sends a removal that ended badly to the person, and keeps one under way as yours", () => {
+    for (const ended of ["rejected", "bounced", "no_response", "cancelled"]) {
+      expect(status({ scans: [clean], records: [record("mine", ended)] })).toBe("removal_stalled");
+    }
+    expect(
+      status({
+        scans: [clean],
+        records: [record("mine", "awaiting_reply"), record("mine", "rejected")],
+      }),
+    ).toBe("removal_stalled");
+    for (const active of ["queued", "sent", "awaiting_reply", "follow_up_due"]) {
+      expect(status({ scans: [clean], records: [record("mine", active)] })).toBe("yours");
+    }
+  });
+
   it("tells not you, not found, unclear and failed apart", () => {
     expect(status({ scans: [clean], records: [record("not_mine")] })).toBe("not_you");
     expect(status({ scans: [clean] })).toBe("not_found");
@@ -124,5 +139,7 @@ describe("the filter groups", () => {
     const placed = Object.values(LISTING_GROUPS).flat();
     expect([...placed].sort()).toEqual([...ListingStatus.options].sort());
     expect(listingGroupOf("relisted")).toBe("yours");
+    expect(listingGroupOf("removal_stalled")).toBe("needs_you");
+    expect(listingGroupOf("needs_check")).toBe("needs_you");
   });
 });

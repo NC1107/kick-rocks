@@ -1,5 +1,10 @@
-import { requests, scans } from "@kickrocks/db";
-import { API_ROUTES, type ListingStatus, type RouteBodyInput } from "@kickrocks/shared";
+import { requests, scans, tasks } from "@kickrocks/db";
+import {
+  API_ROUTES,
+  type ListingStatus,
+  type RouteBodyInput,
+  ScanningSettings,
+} from "@kickrocks/shared";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { enqueueDueRescans } from "../../scheduler/rescans.js";
@@ -397,5 +402,116 @@ describe("past addresses", () => {
       body: { targetIds: [target.id] },
     });
     expect(ctx.services.taskQueue.list({ profileId: owner.id })).toHaveLength(2);
+  });
+});
+
+describe("removals that ended badly and scans that need a check", () => {
+  it.each(["rejected", "bounced", "no_response", "cancelled"] as const)(
+    "sends a %s removal back to the person",
+    async (status) => {
+      const target = site();
+      const scan = seedScan(ctx, {
+        profileId,
+        targetId: target.id,
+        finishedAt: now(),
+        candidates: [],
+      });
+      const request = seedRequest(ctx, { profileId, targetId: target.id, channel: "form", status });
+      seedMatch(ctx, {
+        scanId: scan.id,
+        profileId,
+        targetId: target.id,
+        decision: "mine",
+        requestId: request.id,
+      });
+      expect(await statusOf(target.id)).toBe("removal_stalled");
+    },
+  );
+
+  it("asks for the person when a scan is blocked, and withdraws it when the site is paused", async () => {
+    const target = site();
+    seedRecipe(ctx, target.id, { purpose: "scan" });
+    await start({ targetIds: [target.id] });
+    const row = ctx.services.db.select().from(scans).where(eq(scans.targetId, target.id)).get();
+    ctx.services.db
+      .update(tasks)
+      .set({ status: "blocked" })
+      .where(eq(tasks.id, row?.taskId ?? ""))
+      .run();
+    expect(await statusOf(target.id)).toBe("needs_check");
+
+    await prefer(target.id, { mode: "skipped" });
+    const task = ctx.services.db
+      .select()
+      .from(tasks)
+      .where(eq(tasks.id, row?.taskId ?? ""))
+      .get();
+    expect(task?.status).toBe("cancelled");
+  });
+});
+
+describe("changing one setting of a paused site", () => {
+  it("keeps the date it is paused until", async () => {
+    const target = site();
+    await prefer(target.id, { mode: "paused", pausedUntil: "2026-12-01" });
+    const changed = await prefer(target.id, { mode: "paused", includePastAddresses: true });
+    expect(changed.ok && changed.body.preference).toMatchObject({
+      mode: "paused",
+      pausedUntil: "2026-12-01",
+      includePastAddresses: true,
+    });
+  });
+
+  it("does not withdraw a scan asked for since the pause", async () => {
+    const target = site();
+    seedRecipe(ctx, target.id, { purpose: "scan" });
+    await prefer(target.id, { mode: "paused", pausedUntil: "2026-12-01" });
+    await start({ targetIds: [target.id] });
+    await prefer(target.id, { mode: "paused", includePastAddresses: true });
+    expect(ctx.services.taskQueue.list({ profileId, status: ["queued"] })).toHaveLength(1);
+  });
+
+  it("ends the pause on the date in the scanning time zone", async () => {
+    ctx.services.settings.set(
+      "scanning",
+      ScanningSettings.parse({ timeZone: "America/Los_Angeles" }),
+    );
+    const target = site();
+    await prefer(target.id, { mode: "paused", pausedUntil: "2026-10-08" });
+    ctx.clock.advance(15 * 60 * 60 * 1000);
+    expect(ctx.clock.now().toISOString().slice(0, 10)).toBe("2026-10-08");
+    expect(await statusOf(target.id)).toBe("paused");
+    ctx.clock.advance(6 * 60 * 60 * 1000);
+    expect(await statusOf(target.id)).toBe("not_scanned");
+  });
+});
+
+describe("when the next rescan is", () => {
+  it("counts from the newest scan that ran, the same for the list and the scheduler", async () => {
+    const target = site();
+    seedRecipe(ctx, target.id, { purpose: "scan" });
+    seedScan(ctx, { profileId, targetId: target.id, finishedAt: now(), candidates: [] });
+    ctx.clock.advance(70 * DAY);
+    await start({ targetIds: [target.id] });
+    await prefer(target.id, { mode: "paused" });
+    await prefer(target.id, { mode: "auto" });
+
+    const row = (await list()).items.find((item) => item.targetId === target.id);
+    expect(Date.parse(row?.nextRescanAt ?? "")).toBeLessThan(ctx.clock.now().getTime());
+    expect(enqueueDueRescans(ctx.services)).toBe(1);
+  });
+
+  it("leaves a rescan that is already due out of the next one", async () => {
+    const overdue = site();
+    seedRecipe(ctx, overdue.id, { purpose: "scan" });
+    seedScan(ctx, { profileId, targetId: overdue.id, finishedAt: now(), candidates: [] });
+    ctx.clock.advance(70 * DAY);
+    const upcoming = site();
+    seedRecipe(ctx, upcoming.id, { purpose: "scan" });
+    seedScan(ctx, { profileId, targetId: upcoming.id, finishedAt: now(), candidates: [] });
+
+    const summary = await list();
+    const next = summary.items.find((item) => item.targetId === upcoming.id)?.nextRescanAt;
+    expect(summary.nextRescanAt).toBe(next);
   });
 });

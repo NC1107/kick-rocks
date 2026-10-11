@@ -2,6 +2,7 @@ import {
   type Dashboard,
   type DashboardEvent,
   describeAgentTasks,
+  LISTING_GROUPS,
   type ListingStatus,
   type RequestStatus,
   type ScanHoldReason,
@@ -260,7 +261,12 @@ const LISTING_TILES: readonly {
   statuses: readonly ListingStatus[];
   tone: "plain" | "attention";
 }[] = [
-  { chip: "needs_you", label: "To confirm", statuses: ["to_confirm"], tone: "attention" },
+  {
+    chip: "needs_you",
+    label: "Needs you",
+    statuses: LISTING_GROUPS.needs_you,
+    tone: "attention",
+  },
   { chip: "yours", label: "Being removed", statuses: ["yours", "relisted"], tone: "plain" },
   { chip: "removed", label: "Removed", statuses: ["removed"], tone: "plain" },
   {

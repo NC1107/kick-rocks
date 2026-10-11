@@ -71,9 +71,19 @@ export function shortRelative(iso: string, now = Date.now()): string {
   return wrap(`${Math.round(days / 365)}y`);
 }
 
-/** "Nov 3": a day without its year, for a date near enough to need none. */
+const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/;
+
+/**
+ * "Nov 3": a day without its year, for a date near enough to need none. A date with no time is a
+ * calendar day, read as UTC midnight by Date, so it is written in UTC to stay on the same day west
+ * of Greenwich.
+ */
 export function formatShortDate(iso: string, { locale }: FormatOptions = {}): string {
-  return new Intl.DateTimeFormat(locale, { month: "short", day: "numeric" }).format(new Date(iso));
+  return new Intl.DateTimeFormat(locale, {
+    month: "short",
+    day: "numeric",
+    ...(DATE_ONLY.test(iso) ? { timeZone: "UTC" } : {}),
+  }).format(new Date(iso));
 }
 
 export function formatCount(value: number, { locale }: FormatOptions = {}): string {
