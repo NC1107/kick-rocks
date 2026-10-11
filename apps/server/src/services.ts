@@ -25,6 +25,7 @@ import { createRequestFlow, type Requests } from "./core/request-flow.js";
 import { createRequestsService } from "./core/requests.js";
 import { createRestoreGate, type RestoreGate } from "./core/restore-gate.js";
 import { settleBrowserWorkAfterRestore } from "./core/restore-settle.js";
+import { createScanPreferences, type ScanPreferences } from "./core/scan-preferences.js";
 import { createSecrets, type Secrets } from "./core/secrets.js";
 import { createSentJournal, type SentJournal } from "./core/sent-journal.js";
 import { createSettingsStore, type SettingsStore } from "./core/settings.js";
@@ -67,6 +68,8 @@ export interface AppServices {
   claimers: Claimers;
   /** What an agent run's browser sent, and the approvals of what it held. */
   taskSends: TaskSends;
+  /** What the person chose about scanning each site for each profile. */
+  scanPreferences: ScanPreferences;
   /** Which browser tasks may start now, shared by the queue, the status routes, and the scheduler. */
   politeness: SitePoliteness;
   taskHandlers: TaskHandlers;
@@ -210,6 +213,7 @@ export function createServices(
     taskQueue,
     claimers: createClaimers(db, clock),
     taskSends: createTaskSends({ db, clock }),
+    scanPreferences: createScanPreferences({ db, clock, taskQueue }),
     politeness,
     taskHandlers,
     requests,

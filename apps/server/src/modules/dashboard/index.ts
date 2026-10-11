@@ -14,6 +14,7 @@ import { and, count, eq, inArray, sql } from "drizzle-orm";
 import { notFound } from "../../core/errors.js";
 import { registerRoute } from "../../core/http.js";
 import type { ModulePlugin } from "../../core/module.js";
+import { buildListings, summarizeListings } from "../../core/listings.js";
 import { profileScanReadiness, scanHold } from "../../core/scan-readiness.js";
 import { withTrustedConfirmationSenders } from "../../core/targets.js";
 import type { AppServices } from "../../services.js";
@@ -176,6 +177,7 @@ function buildDashboard(services: AppServices, profileId: string): Dashboard {
       ...profileScanReadiness(services, profileId),
       quiet: services.politeness.quietNow(),
     },
+    listings: summarizeListings(buildListings(services, profileId)),
     recentEvents,
   };
 }

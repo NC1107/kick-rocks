@@ -1,5 +1,11 @@
 import { requestEvents } from "@kickrocks/db";
-import { API_ROUTES, agentAssignment, RequestStatus, reviewAttention } from "@kickrocks/shared";
+import {
+  API_ROUTES,
+  agentAssignment,
+  ListingStatus,
+  RequestStatus,
+  reviewAttention,
+} from "@kickrocks/shared";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
@@ -79,6 +85,11 @@ describe("GET /profiles/:id/dashboard", () => {
         needsDetails: 0,
         missing: null,
         quiet: null,
+      },
+      listings: {
+        counts: Object.fromEntries(ListingStatus.options.map((status) => [status, 0])),
+        lastScanAt: null,
+        nextRescanAt: null,
       },
       recentEvents: [],
     });

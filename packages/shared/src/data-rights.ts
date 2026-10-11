@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { StateCode } from "./geography.js";
 import { Identity, ProfileField } from "./identities.js";
+import { ScanPreference } from "./listings.js";
 import { ReplyClassification } from "./mail.js";
 import { RequestChannel, RequestEvent, RequestRight, RequestStatus } from "./requests.js";
 import { MatchDecision, MatchFields } from "./scans.js";
@@ -71,6 +72,11 @@ const ExportedScan = z.object({
   candidates: z.array(Candidate).nullable(),
 });
 
+const ExportedScanPreference = ScanPreference.extend({
+  targetId: z.string(),
+  updatedAt: iso,
+});
+
 const ExportedMatch = z.object({
   id: z.string(),
   scanId: z.string(),
@@ -100,6 +106,7 @@ export const ProfileExport = z.object({
   messages: z.array(ExportedMessage),
   scans: z.array(ExportedScan),
   matches: z.array(ExportedMatch),
+  scanPreferences: z.array(ExportedScanPreference).default([]),
 });
 export type ProfileExport = z.infer<typeof ProfileExport>;
 

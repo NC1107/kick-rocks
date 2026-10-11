@@ -62,6 +62,13 @@ import {
 } from "./requests.js";
 import { MatchDecisionBody, MessageClassificationBody, ReviewQueue } from "./review.js";
 import { SitesView, TargetSite } from "./scanning.js";
+import {
+  ListingDetail,
+  ListingParams,
+  ListingsQuery,
+  ListingsResponse,
+  ScanPreferenceBody,
+} from "./listings.js";
 import { Match, ScanStartBody, ScanStartResult, ScanSummary } from "./scans.js";
 import {
   ApproveSendsBody,
@@ -803,6 +810,33 @@ export const API_ROUTES = {
     params: IdParam,
     query: ScansQuery,
     response: pageOf(ScanSummary),
+  }),
+
+  listingsList: defineRoute({
+    method: "GET",
+    path: "/profiles/:id/listings",
+    module: "scans",
+    auth: "session",
+    params: IdParam,
+    query: ListingsQuery,
+    response: ListingsResponse,
+  }),
+  listingsGet: defineRoute({
+    method: "GET",
+    path: "/profiles/:id/listings/:targetId",
+    module: "scans",
+    auth: "session",
+    params: ListingParams,
+    response: ListingDetail,
+  }),
+  listingsPreference: defineRoute({
+    method: "PUT",
+    path: "/profiles/:id/listings/:targetId/preference",
+    module: "scans",
+    auth: "session",
+    params: ListingParams,
+    body: ScanPreferenceBody,
+    response: ListingDetail,
   }),
 
   reviewQueue: defineRoute({

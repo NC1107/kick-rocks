@@ -2,6 +2,7 @@ import {
   type KickRocksDb,
   mailboxes,
   matches,
+  scanPreferences,
   messages,
   profiles,
   requests,
@@ -68,6 +69,13 @@ export function exportProfile(
     .from(matches)
     .where(eq(matches.profileId, profileId))
     .orderBy(asc(sql`rowid`))
+    .all();
+
+  const preferenceRows = db
+    .select()
+    .from(scanPreferences)
+    .where(eq(scanPreferences.profileId, profileId))
+    .orderBy(asc(scanPreferences.targetId))
     .all();
 
   const result: ProfileExport = {
@@ -144,6 +152,14 @@ export function exportProfile(
       decision: row.decision,
       decidedAt: row.decidedAt,
       requestId: row.requestId,
+    })),
+    scanPreferences: preferenceRows.map((row) => ({
+      targetId: row.targetId,
+      mode: row.mode,
+      pausedUntil: row.pausedUntil,
+      rescanDays: row.rescanDays,
+      includePastAddresses: row.includePastAddresses,
+      updatedAt: row.updatedAt,
     })),
   };
   return result;

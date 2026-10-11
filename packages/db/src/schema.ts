@@ -32,6 +32,7 @@ import {
   RequestEventType,
   type RequestRight,
   RequestStatus,
+  ScanMode,
   type Requirement,
   SendKind,
   type SendRequest,
@@ -634,6 +635,7 @@ export const scans = sqliteTable(
     index("scans_profile_idx").on(t.profileId),
     index("scans_task_idx").on(t.taskId),
     index("scans_search_key_idx").on(t.searchKey),
+    index("scans_profile_target_started_idx").on(t.profileId, t.targetId, t.startedAt),
   ],
 );
 
@@ -708,6 +710,34 @@ export const matches = sqliteTable(
   ],
 );
 
+/**
+ * What a person chose about scanning one site for one profile. A row exists only once something
+ * was chosen; a pair with no row is on automatic, the global schedule, current address only.
+ */
+export const scanPreferences = sqliteTable(
+  "scan_preferences",
+  {
+    profileId: text("profile_id")
+      .notNull()
+      .references(() => profiles.id, { onDelete: "cascade" }),
+    targetId: text("target_id")
+      .notNull()
+      .references(() => targets.id),
+    mode: text("mode", { enum: values(ScanMode.options) })
+      .notNull()
+      .default("auto"),
+    /** A pause ends on this date; null while paused means until the person resumes. */
+    pausedUntil: text("paused_until"),
+    /** Days between automatic rescans of this site; null follows the global setting. */
+    rescanDays: integer("rescan_days"),
+    includePastAddresses: integer("include_past_addresses", { mode: "boolean" })
+      .notNull()
+      .default(false),
+    updatedAt: timestamp("updated_at").notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.profileId, t.targetId] })],
+);
+
 export const sessions = sqliteTable(
   "sessions",
   {
@@ -746,5 +776,6 @@ export type ScanRow = typeof scans.$inferSelect;
 export type SiteVisitRow = typeof siteVisits.$inferSelect;
 export type SiteStateRow = typeof siteState.$inferSelect;
 export type MatchRow = typeof matches.$inferSelect;
+export type ScanPreferenceRow = typeof scanPreferences.$inferSelect;
 export type SessionRow = typeof sessions.$inferSelect;
 export type SettingRow = typeof settings.$inferSelect;
