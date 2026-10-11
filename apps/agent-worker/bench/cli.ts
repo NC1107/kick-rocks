@@ -13,7 +13,7 @@ const USAGE = `Usage: pnpm --filter @kickrocks/agent-worker bench --model <ollam
 
   --model <name>          The Ollama model to test. Required unless --fake is given.
   --runs <n>              Repeat every scenario and the reply set n times. Default 3.
-  --split <name>          dev, heldout or stress. Default dev. Held-out is for a final check, not for tuning.
+  --split <name>          dev, heldout, stress or independent. Default dev. Held-out is for a final check, not for tuning.
                           Stress is written after the tuning in other markup and wording, so it is not unseen.
   --scenarios <list>      Only these scenarios of the chosen set, for example 1,5,7. Default all of it.
   --agent-only            Skip the reply classification bench.
@@ -93,9 +93,10 @@ if (
   values.split !== undefined &&
   values.split !== "dev" &&
   values.split !== "heldout" &&
-  values.split !== "stress"
+  values.split !== "stress" &&
+  values.split !== "independent"
 ) {
-  fail("--split must be dev, heldout or stress");
+  fail("--split must be dev, heldout, stress or independent");
 }
 const split = (values.split ?? "dev") as Split;
 if (values.pace !== undefined && values.pace !== "instant" && values.pace !== "human") {
@@ -134,7 +135,8 @@ const options: BenchOptions = {
   split,
   runs: positive("runs", values.runs) ?? 3,
   agent: !values["replies-only"],
-  replies: !values["agent-only"] && split !== "stress" && fake !== "checker",
+  replies:
+    !values["agent-only"] && split !== "stress" && split !== "independent" && fake !== "checker",
   log: (line) => console.error(line),
   ...(scenarioIds ? { scenarios: scenarioIds } : {}),
   ...(fake ? { fake } : {}),

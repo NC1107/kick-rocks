@@ -20,7 +20,7 @@ A `:` or `/` in the model name becomes `_` in the file name.
 |---|---|
 | `--model <name>` | The Ollama model. Required unless `--fake` is given. |
 | `--runs <n>` | Repeats every scenario and the reply set. Default 3. |
-| `--split dev`, `--split heldout`, `--split stress` | Which set to run. Default dev. See "Dev and held-out sets" and "The stress set". `--record` needs the dev set. |
+| `--split dev`, `--split heldout`, `--split stress`, `--split independent` | Which set to run. Default dev. See "Dev and held-out sets", "The stress set" and "The independent set". `--record` needs the dev set. |
 | `--scenarios 1,5,7` | Only these agent scenarios of the chosen set. |
 | `--agent-only`, `--replies-only` | Run one half. |
 | `--fake perfect`, `--fake bad`, `--fake checker` | Use a scripted model, to check the harness itself. Checker reports no records, so a scan result is the worker's own comparison with no model behind it. |
@@ -125,6 +125,34 @@ It says how far those reach on markup and wording the dev and held-out sets do n
 Run it to see how much of a scan result belongs to the worker and how much to the model.
 The checker alone gets every dev and held-out scan and stress scans 201 to 205 and 207 right, and not 206, where a lone result on the results page is left for the model to open.
 `harness.test.ts` keeps that result.
+
+## The independent set
+
+`--split independent` runs scans 301 to 312.
+It has no replies.
+It lives in `bench/independent/` and was written without sight of the worker's record checks, `scan-kit.ts`, `dev-scans.ts` or the held-out files.
+It uses none of their builders: each scenario writes its own markup in the way a different people-search site would, so a pass says the checks generalize to layouts nobody tuned for.
+All people are invented, and the sites are local fixtures like the others.
+
+| # | Layout | What it tests |
+|---|---|---|
+| 301 | Results table, `Age 41`, `Lives in Austin TX` | Name, age and place read from table cells. Austin MN and a wrong age are rejected. |
+| 302 | Definition lists, name in a link and no heading, `47 years old`, `Denver, Colorado` | A spelled-out state, a middle initial, Denver in another state and a one-letter surname change. |
+| 303 | Cards with an age and a ZIP and no city | The profile page must be opened to learn the city. |
+| 304 | `In their 40s` and no exact age | A decade rules a record out but cannot confirm an age. |
+| 305 | Past addresses lists, a former city searched | A past address counts, a relative's address does not. |
+| 306 | Relatives sections that repeat the city | A relative's city is not the person's, and a relative's own card is another person. |
+| 307 | Name-only results, `People also viewed` sidebar full of the same city | Sidebar entries on a record page do not make that record fit. |
+| 308 | A name and a state only, a summary table on the report page | Every detail sits on the page the run has to open. |
+| 309 | Three pages, numbered links and Next | Matches on the first and last page. |
+| 310 | A button that shows four more people in place | Matches behind the button. |
+| 311 | No records, similar names and a state list | The right result is an empty list. |
+| 312 | Results grouped under city headings | The right name and city with a contradicting age, 58 and 24 against a 1985 birth year. |
+
+Each scenario labels every record as fitting or not, with the reason, in `bench/independent/*.ts`.
+`--fake perfect` gets 301 to 303, 306, 309 to 312 right.
+It does not get 304 and 305, where the worker's own comparison adds records the labels rule out, and 307 and 308, where the worker never opens the record pages that decide.
+`harness.test.ts` lists those four as known disagreements, so a fix to the worker takes a scenario off the list.
 
 ## What a run records
 

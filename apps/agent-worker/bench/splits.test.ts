@@ -10,6 +10,8 @@ import {
   DEV_SCENARIOS,
   HELDOUT_REPLY_CASES,
   HELDOUT_SCENARIOS,
+  INDEPENDENT_SCENARIOS,
+  STRESS_SCENARIOS,
 } from "./splits.js";
 
 const share = (part: number, whole: number) => part / whole;
@@ -154,5 +156,31 @@ describe("the held-out directory", () => {
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
+  });
+});
+
+describe("the independent set", () => {
+  it("holds twelve scans with their own ids and slugs, and labels every record", () => {
+    expect(INDEPENDENT_SCENARIOS.map((s) => s.id)).toEqual([
+      301, 302, 303, 304, 305, 306, 307, 308, 309, 310, 311, 312,
+    ]);
+    const others = [...ALL_SCENARIOS, ...STRESS_SCENARIOS];
+    for (const scenario of INDEPENDENT_SCENARIOS) {
+      expect(others.some((o) => o.id === scenario.id || o.slug === scenario.slug)).toBe(false);
+      expect(scenario.purpose).toBe("scan");
+      if (scenario.expected.kind !== "scan") throw new Error("not a scan");
+      const { recordPaths, contradicting, why } = scenario.expected;
+      expect(Object.keys(why ?? {}).sort(), scenario.slug).toEqual(
+        [...recordPaths, ...contradicting].sort(),
+      );
+    }
+  });
+
+  it("has one scenario with nothing to report and several with a person who fits", () => {
+    const fitting = INDEPENDENT_SCENARIOS.map((s) =>
+      s.expected.kind === "scan" ? s.expected.recordPaths.length : -1,
+    );
+    expect(fitting.filter((n) => n === 0)).toHaveLength(1);
+    expect(fitting.filter((n) => n > 0).length).toBeGreaterThanOrEqual(10);
   });
 });
