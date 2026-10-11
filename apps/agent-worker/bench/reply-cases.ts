@@ -1,17 +1,58 @@
 import type { ProfileField, ReplyClassification } from "@kickrocks/shared";
 
+/** How a sender writes, which the dev and held-out sets are balanced on next to the class. */
+export const REPLY_STYLES = [
+  "plain",
+  "autoresponder",
+  "ticket",
+  "legal",
+  "id-request",
+  "partial",
+  "no-sale-denial",
+  "odd-link",
+  "quoted-thread",
+  "html-text",
+  "other-people",
+] as const;
+export type ReplyStyle = (typeof REPLY_STYLES)[number];
+
 export interface ReplyCase {
   id: string;
   truth: ReplyClassification;
   /** For verification_required, the profile fields the sender asks for. */
   requestedFields?: ProfileField[];
+  /** How the sender writes. Absent on the first forty, which are plain. */
+  style?: ReplyStyle;
+  /** Why the class is the right one, in words a failure can repeat. Absent on the first forty. */
+  why?: string;
   subject: string;
   body: string;
 }
 
-const REF = "KR-7QX4M2";
+export const REF = "KR-7QX4M2";
 
-/** Forty replies a person might get to an opt-out email. Every name and domain is a reserved example one. */
+/** Builds a case whose style and reason are recorded, so a wrong answer can be explained. */
+export function reply(
+  id: string,
+  truth: ReplyClassification,
+  style: ReplyStyle,
+  subject: string,
+  body: string,
+  why: string,
+  requestedFields?: ProfileField[],
+): ReplyCase {
+  return {
+    id,
+    truth,
+    style,
+    why,
+    ...(requestedFields ? { requestedFields } : {}),
+    subject,
+    body: body.replace(/^\n/, "").replace(/\n+$/, ""),
+  };
+}
+
+/** The first forty replies a person might get to an opt-out email. Every name and domain is a reserved example one. */
 export const REPLY_CASES: ReplyCase[] = [
   // bounce
   {

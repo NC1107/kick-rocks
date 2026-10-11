@@ -1,0 +1,49 @@
+# Agent model benchmark: qwen3:8b
+
+Run from 2026-10-09T07:54:08.919Z to 2026-10-09T08:03:44.343Z.
+Endpoint http://127.0.0.1:11434/v1, 3 run(s) per scenario, at most 40 steps and 10 minutes per run, 4096 output tokens per turn, instant pace, the openai provider, thinking default.
+Ollama loaded the model with a context of 4096 tokens.
+Idle GPU memory before the runs was 679 MiB.
+
+## Reply classification
+
+Accuracy 94.8% over 3 run(s) of 64 replies.
+Invalid JSON rate 1.6%.
+Mean latency 2971 ms.
+Latency of the first run: median 2742 ms, 95th percentile 4674 ms, max 10278 ms.
+Answers outside the schema: 0. Requests that failed or timed out: 0.
+Requested fields named exactly on verification replies: 100.0%.
+
+| Class | Correct | Cases |
+|---|---|---|
+| bounce | 6 | 6 |
+| auto_ack | 4 | 6 |
+| confirmation_link | 7 | 7 |
+| verification_required | 7 | 8 |
+| completed | 7 | 7 |
+| no_record | 6 | 6 |
+| rejected | 6 | 6 |
+| needs_form | 6 | 6 |
+| unrelated | 6 | 6 |
+| unknown | 5 | 6 |
+
+| Style | Correct | Cases |
+|---|---|---|
+| plain | 12 | 13 |
+| html-text | 6 | 7 |
+| legal | 9 | 9 |
+| quoted-thread | 6 | 7 |
+| ticket | 8 | 8 |
+| autoresponder | 2 | 3 |
+| odd-link | 3 | 3 |
+| other-people | 6 | 6 |
+| id-request | 2 | 2 |
+| partial | 3 | 3 |
+| no-sale-denial | 3 | 3 |
+
+Answers that were wrong in the first run:
+- held-ack-1: answered unrelated, expected auto_ack because an out-of-office reply with no decision.
+- held-ack-4: answered unknown, expected auto_ack because an automated note that the message arrived.
+- held-verify-5: answered nothing usable, expected verification_required because asks for the web address of the listing.
+- held-unknown-3: answered unrelated, expected unknown because asks for a call and says nothing about the request.
+

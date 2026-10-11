@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Request - Fixture Broker</title></head>
+<body>
+<main>
+<h1>Make a request</h1>
+<div id="picked"></div>
+<span id="state-label">State</span>
+<button type="button" id="state-button" role="combobox" aria-labelledby="state-label" aria-controls="state-list" aria-expanded="false">Select a state</button>
+<div role="listbox" id="state-list" hidden>
+  <div role="option" tabindex="-1">Alabama</div>
+  <div role="option" tabindex="-1">Ohio</div>
+  <div role="option" tabindex="-1">Texas</div>
+</div>
+<span id="kind-label">Kind of request</span>
+<button type="button" id="kind-button" aria-haspopup="listbox" aria-expanded="false" aria-labelledby="kind-label">Choose</button>
+<div role="listbox" id="kind-list" hidden>
+  <div role="option" tabindex="-1">Delete</div>
+  <div role="option" tabindex="-1">Opt out</div>
+</div>
+<button type="button">Search</button>
+</main>
+<script>
+  const lists = { "state-button": "state-list", "kind-button": "kind-list" };
+  for (const [button, list] of Object.entries(lists)) {
+    document.getElementById(button).addEventListener("click", () => {
+      const target = document.getElementById(list);
+      target.hidden = !target.hidden;
+      document.getElementById(button).setAttribute("aria-expanded", String(!target.hidden));
+    });
+    document.getElementById(list).addEventListener("click", (event) => {
+      const option = event.target.closest("[role=option]");
+      if (!option) return;
+      document.getElementById(button).textContent = option.textContent;
+      document.getElementById("picked").textContent += `${option.textContent};`;
+      document.getElementById(list).hidden = true;
+      document.getElementById(button).setAttribute("aria-expanded", "false");
+    });
+  }
+</script>
+</body>
+</html>

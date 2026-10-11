@@ -676,7 +676,7 @@ describe("agent tasks", () => {
   it("states the task, the rules, and the exact result shape for a scan", () => {
     const text = agentClaim("scan")?.instructions ?? "";
     expect(text).toContain("Example Broker");
-    expect(text).toContain("Do not submit any opt-out");
+    expect(text).not.toContain("opt-out or removal form");
     expect(text).toContain("block_task");
     expect(text).toContain("CAPTCHA");
     expect(text).toContain("complete_task");
@@ -694,12 +694,22 @@ describe("agent tasks", () => {
     expect(text).toContain("Never submit a form more than once");
   });
 
-  it("tells a removal to look up an existing request first and stop at already_removed", () => {
+  it("puts the status lookup in the removal goal and defines every outcome", () => {
     const text = agentClaim("remove")?.instructions ?? "";
-    expect(text).toContain("look up or check the status of an existing request");
-    expect(text).toContain("before you start a new one");
-    expect(text).toContain("outcome already_removed");
-    expect(agentClaim("scan")?.instructions).not.toContain("existing request");
+    const goal = text.split("\n")[0] ?? "";
+    expect(goal).toContain("look up the status of an earlier request");
+    expect(goal).toContain("send nothing and finish with already_removed");
+    expect(text).toContain("not_found: the site's own search finds no listing of the person");
+    expect(text).toContain("already_removed: the site says an earlier request already removed");
+    expect(text).toContain("leave out unless the page names the sender");
+    expect(agentClaim("scan")?.instructions).not.toContain("earlier request");
+  });
+
+  it("asks a scan for every listing of the person, never only the first", () => {
+    const text = agentClaim("scan")?.instructions ?? "";
+    expect(text).toContain("Find every listing of this person on");
+    expect(text).not.toContain("own listing");
+    expect(text).toContain("never only the first");
   });
 
   it("asks a scan for the records consistent with every identifier, not every possible match", () => {

@@ -432,7 +432,8 @@ Set `OLLAMA_HOST=0.0.0.0:11434` for the ollama service (or bind it to the bridge
 ### What the model can do
 
 The model never gets a general browser tool.
-It gets eight, and each one is checked in code before it touches the page.
+It gets eight, and a scan gets a ninth, `check_record`.
+Each one is checked in code before it touches the page.
 
 | Tool | What it does |
 |---|---|
@@ -444,6 +445,7 @@ It gets eight, and each one is checked in code before it touches the page.
 | `check` | Ticks or unticks a checkbox or radio button. |
 | `wait` | Waits up to ten seconds and reads the page. |
 | `report` | Finishes with `complete`, `blocked`, `failed`, or `release`. |
+| `check_record` | Scan only. Compares a record, or every undecided record of a results page, with the person and answers per identifier whether it matches, differs or is not shown, never with a value. |
 
 The model gets the task's `instructions` as its system prompt, with a short preface that maps `complete_task`, `block_task`, `fail_task`, and `release_task` onto `report`.
 
@@ -498,12 +500,52 @@ The worker does not rely on the model to follow them.
   In the path and query of an address the code is masked in any case, because a slug such as `austin-tx` or a query such as `?state=tx` writes it in lower case.
   A state list therefore shows the person's own state as `{{state}}`, which the model can pick without knowing which state it is.
   Other values of one or two characters are not masked.
-- For a scan, the model reports each candidate with the masked text and link it read.
-  The program matches each link to one the page really showed and fills the real values back into the text before the server stores it, and it rejects an address that no page showed.
+- A scan reports records, and the program decides which of them fit.
+  After each read of a results page with two or more records, the answer ends with a block that says, per record, `fits`, `contradicts` with the identifiers that clash, or `not decided`, followed by a `So far` line and what to do next.
+  The comparison covers the name and its aliases, the place (current or past), the birth year and the age, and only for the identifiers the person's profile holds.
+  A record contradicts only on positive evidence of a different value: another name, a different state or another city in the person's state, another birth year, or an age that does not fit.
+  A card that shows less, such as a state without a city, a last initial or a cut-off name, is `not decided` and not a contradiction.
+  A place is read in the ways sites write it: `City, ST`, `City ST`, `City ST 12345`, `City, State`, and a City and a State under their own labels in a table.
+  An age is read as a number, a range (`Age 42-47`, `Ages 40 to 44`), a decade (`In their 40s`) or a number after the name (`Dana Smith, 31`).
+  A single age one or two years outside the ages the birth year gives is neither a fit nor a contradiction, because a page goes stale.
+  When the program has the birth year and the page shows something that looks like an age or a year that it cannot read, the record is `not decided` and not `fits`.
+  The block never prints a value of the person.
+- `check_record` gives the same comparison on request.
+  Without a ref on a results page, the program opens each record that is `not decided`, reads its own page, judges it, comes back, and answers with one line per record.
+  On a record page it judges that page.
+  A results page that lists a single record is not a record page, so the answer says to open that record first.
+- A record page is read without the site's header, navigation, footer and sidebars.
+  The lines under a label of relatives or of other people ("People also viewed", "Similar people") belong to those people, not to the record, for as long as they read as entries of a list.
+  On a record page the program calls a record `fits` when the name matches, at least one place, birth year or age that was compared matches too, and the page shows no age it could not read, and leaves it `not decided` otherwise.
+  A card is a record when it has a heading, when its link text or its text names the person, when its link reads as a name, or when its address has the shape of other record links on the page, so a site that words every link "Open full report" is still read.
+  The model decides what the program leaves `not decided`.
+- The candidate the server stores is built by the program from the text the site showed.
+  It holds the name, the age, the places, and the relatives, phones and emails on the record's own lines.
+  An address on the target's own domain is dropped, and so is anything in a relatives list or a sidebar.
+  A candidate the model wrote is kept as it is, with the person's values filled back in, and the program rejects an address that no page showed.
   The task's instructions and the first message are masked the same way, so the model reads `{{record_url}}` where the server wrote the record address.
   `navigate` accepts `{{record_url}}` and a masked link from a snapshot, and opens the real address after checking it against the allowed domains.
   The mcp claim keeps the real record address in the instructions, because an mcp client has no masking step and must be able to open the page.
   The system prompt lists field names, and a value in the page, in a link, or in a field the program typed is replaced by `{{field_name}}` before the model reads it.
+- A scan report is held against what the program found.
+  Before it answers, the program opens the records it could not decide and the records the report includes that only their card contradicts, at most 12 at a time and a few seconds apart at the human pace.
+  The first report is questioned once: a record that fits and is missing, one that contradicts and is in, and one it could not decide are named.
+  After that, a record that fits is added to the report.
+  A record that contradicts is questioned and never removed, because the program's reading of a page is wrong often enough that a silent removal would hide a real record from the person.
+  The model's report stands for every record the program did not mark as fitting, and the person confirms each candidate.
+  The program tells the model to finish only when it has seen a results page and has decided every record it saw.
+- A scan sends nothing and stays on the search, results and record pages.
+  A click or a choice that would submit a form is refused with "A scan never sends a request to the site", whatever the button or the address says.
+  Only a form that is read with GET, and a form on a page at the path of a start URL that posts back to that same path, may be submitted.
+  A link or an address to an opt-out, removal or privacy request page is refused, except the pages the task started on.
+- After a `type`, `select` or `check` in a form, the answer ends with a line that lists the required controls of that form that are still empty, with the options of an open dropdown, or says that every required control is filled.
+  It tells the model what is left, so it does not repeat a step that already worked.
+- A tool call the provider could not read is not run.
+  The model is told once to put only the JSON arguments in the call, and three such turns in a row fail the task.
+  A call the model wrote as text is used when the text holds exactly one JSON object that names an offered tool, or a bare `report` or `url`, and is otherwise left for the nudge to call a tool.
+- A `blocked` report with the reason `unknown` that rests on a misreading is sent back once.
+  The misreadings are a claim that a value is missing when the task holds it, a choice that is not about the person (such as which service or which kind of request), and a page text taken for an instruction (a system message, "ignore previous instructions").
+  A second block goes through, and the submit gate holds either way.
 - A visible captcha or a whole-page bot check ends the run at once.
   The task is blocked with the reason, the page address, and a screenshot, and the model is not asked again.
   A bot check page that clears by itself gets a few seconds first.

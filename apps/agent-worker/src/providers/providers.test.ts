@@ -638,3 +638,58 @@ describe("how failures are classified and retried", () => {
     expect(calls).toHaveLength(1);
   });
 });
+
+describe("a tool call the endpoint could not read", () => {
+  const raw =
+    "error parsing tool call: raw='I will click the button {\"ref\": \"e3\"}', err=invalid character 'I' looking for beginning of value";
+
+  it("is the model's own bad call, so Ollama's native API is asked once and the error says so", async () => {
+    const { fetch, calls } = fakeFetch([{ status: 500, body: { error: raw } }]);
+    const provider = createOllamaProvider({
+      baseUrl: "http://h",
+      model: "gpt-oss:20b",
+      apiKey: null,
+      numCtx: 16384,
+      thinking: "default",
+      fetch,
+      sleep: async () => undefined,
+    });
+    const error = await provider.complete(request()).catch((caught: unknown) => caught);
+    expect(error).toBeInstanceOf(ProviderError);
+    expect(error).toMatchObject({ malformedToolCall: true, status: 500 });
+    expect(calls).toHaveLength(1);
+  });
+
+  it("is the same through the OpenAI-compatible endpoint, whatever the case of the words", async () => {
+    const { fetch, calls } = fakeFetch([
+      { status: 500, body: { error: { message: raw.replace("error", "Error") } } },
+    ]);
+    const provider = createOpenAiProvider({
+      baseUrl: "http://h/v1",
+      model: "gpt-oss:20b",
+      apiKey: null,
+      fetch,
+      sleep: async () => undefined,
+    });
+    await expect(provider.complete(request())).rejects.toMatchObject({ malformedToolCall: true });
+    expect(calls).toHaveLength(1);
+  });
+
+  it("does not mark an ordinary outage, which is still tried again", async () => {
+    const { fetch, calls } = fakeFetch([{ status: 500, body: "down" }]);
+    const provider = createOllamaProvider({
+      baseUrl: "http://h",
+      model: "m",
+      apiKey: null,
+      numCtx: 4096,
+      thinking: "default",
+      fetch,
+      sleep: async () => undefined,
+    });
+    await expect(provider.complete(request())).rejects.toMatchObject({
+      kind: "unavailable",
+      malformedToolCall: false,
+    });
+    expect(calls).toHaveLength(3);
+  });
+});

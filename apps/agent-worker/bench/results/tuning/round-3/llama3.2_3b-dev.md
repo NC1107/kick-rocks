@@ -1,0 +1,62 @@
+# Agent model benchmark: llama3.2:3b
+
+Run from 2026-10-09T01:08:05.132Z to 2026-10-09T01:09:41.795Z.
+Endpoint http://127.0.0.1:11434/v1, 3 run(s) per scenario, at most 40 steps and 10 minutes per run, 4096 output tokens per turn, instant pace, the openai provider, thinking default.
+Ollama loaded the model with a context of 4096 tokens.
+Idle GPU memory before the runs was 943 MiB.
+
+## Reply classification
+
+Accuracy 84.4% over 3 run(s) of 96 replies.
+Invalid JSON rate 0.0%.
+Mean latency 315 ms.
+Latency of the first run: median 309 ms, 95th percentile 381 ms, max 514 ms.
+Answers outside the schema: 0. Requests that failed or timed out: 0.
+Requested fields named exactly on verification replies: 58.3%.
+
+| Class | Correct | Cases |
+|---|---|---|
+| bounce | 8 | 10 |
+| auto_ack | 8 | 10 |
+| confirmation_link | 10 | 11 |
+| verification_required | 9 | 12 |
+| completed | 11 | 11 |
+| no_record | 8 | 8 |
+| rejected | 7 | 10 |
+| needs_form | 8 | 8 |
+| unrelated | 4 | 8 |
+| unknown | 8 | 8 |
+
+| Style | Correct | Cases |
+|---|---|---|
+| plain | 47 | 52 |
+| html-text | 6 | 7 |
+| quoted-thread | 4 | 8 |
+| legal | 6 | 7 |
+| autoresponder | 2 | 2 |
+| ticket | 6 | 6 |
+| odd-link | 4 | 5 |
+| id-request | 1 | 1 |
+| other-people | 2 | 4 |
+| partial | 2 | 2 |
+| no-sale-denial | 1 | 2 |
+
+Answers that were wrong in the first run:
+- ack-4: answered unknown, expected auto_ack.
+- verify-2: answered needs_form, expected verification_required; named fields [], expected [phone].
+- reject-3: answered unrelated, expected rejected.
+- unrel-1: answered confirmation_link, expected unrelated.
+- dev-bounce-4: answered unrelated, expected bounce because an automatic delivery failure notice that quotes our request below it.
+- dev-bounce-5: answered unknown, expected bounce because the message was blocked and not delivered.
+- dev-ack-5: answered completed, expected auto_ack because an automatic response that only quotes our request back.
+- dev-link-1: answered unrelated, expected confirmation_link because the only ask is to tap a link to finalize the request.
+- dev-verify-4: answered unrelated, expected verification_required because asks for a street address and a city to find the right listing; named fields [], expected [street, city].
+- dev-verify-5: answered needs_form, expected verification_required because several people match, and it asks for the street address to pick one; named fields [], expected [street].
+- dev-verify-6: named fields [date_of_birth, street], expected [date_of_birth].
+- dev-verify-7: named fields [last_name, full_name, email], expected [].
+- dev-reject-1: answered no_record, expected rejected because declines to act because it says it does not sell data.
+- dev-reject-6: answered unrelated, expected rejected because a plain refusal, with our request quoted.
+- dev-unrel-2: answered auto_ack, expected unrelated because an order shipment notice.
+- dev-unrel-4: answered needs_form, expected unrelated because social network notifications about people, not a privacy request.
+- dev-unrel-5: answered unknown, expected unrelated because a document share invitation that mentions another person.
+

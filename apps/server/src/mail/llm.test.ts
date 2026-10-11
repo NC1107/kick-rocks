@@ -1,4 +1,4 @@
-import { outgoingMessageId } from "@kickrocks/shared";
+import { outgoingMessageId, ProfileField } from "@kickrocks/shared";
 import { describe, expect, it } from "vitest";
 import { noDkim, signedAs } from "../test-utils/dkim.js";
 import { createReplyClassifier } from "./classifier.js";
@@ -190,6 +190,98 @@ describe("the language model fallback", () => {
     );
     expect(result).toMatchObject({ classification: "unknown", apply: false });
     expect(result.suggestion).toMatchObject({ classification: "needs_form", source: "llm" });
+  });
+
+  it("bounds requested_fields by the number of profile fields and names them in the prompt", async () => {
+    expect(LLM_RESPONSE_SCHEMA.schema.properties.requested_fields.maxItems).toBe(
+      ProfileField.options.length,
+    );
+    const { calls, fetchImpl } = fakeLlm(verdict());
+    await classifierWith(LLM, fetchImpl).classify(message(), { requests: [target] });
+    const messages = (calls[0] as Call).body.messages as Array<{ role: string; content: string }>;
+    const prompt = messages[0]?.content ?? "";
+    for (const field of ProfileField.options) expect(prompt).toContain(field);
+    expect(prompt).toContain(
+      "a utility bill, a Social Security number or an account number is not one of these names",
+    );
+    expect(prompt).toContain(
+      'Example: "please reply with your street address" gives ["street"]; "send a copy of your driver\'s license" gives [].',
+    );
+    expect(prompt).not.toContain("The profile fields are:");
+  });
+
+  it("asks for the rationale before the class, in the schema and in the prompt", async () => {
+    expect(LLM_RESPONSE_SCHEMA.schema.required[0]).toBe("rationale");
+    expect(Object.keys(LLM_RESPONSE_SCHEMA.schema.properties)[0]).toBe("rationale");
+    const { calls, fetchImpl } = fakeLlm(verdict());
+    await classifierWith(LLM, fetchImpl).classify(message(), { requests: [target] });
+    const messages = (calls[0] as Call).body.messages as Array<{ role: string; content: string }>;
+    expect(messages[0]?.content).toContain(
+      "Write the rationale first: what the sender says they did or asks for, in one sentence. Then choose the class.",
+    );
+  });
+
+  it("separates the confusable classes with a rule and an example each", async () => {
+    const { calls, fetchImpl } = fakeLlm(verdict());
+    await classifierWith(LLM, fetchImpl).classify(message(), { requests: [target] });
+    const messages = (calls[0] as Call).body.messages as Array<{ role: string; content: string }>;
+    const prompt = messages[0]?.content ?? "";
+    expect(prompt).toContain('"Case 12345 opened, status New" is auto_ack');
+    expect(prompt).not.toContain("is never unrelated");
+  });
+
+  it("keeps an unrelated answer on a reply to one of our requests below the review threshold", async () => {
+    const { fetchImpl } = fakeLlm(verdict({ classification: "unrelated", confidence: 0.95 }));
+    const result = await classifierWith(LLM, fetchImpl).classify(message(), {
+      requests: [target],
+    });
+    expect(result).toMatchObject({ requestId: "req-1", classification: "unknown", apply: false });
+    expect(result.suggestion?.classification).toBe("unrelated");
+    expect(result.confidence).toBeLessThan(0.6);
+  });
+
+  it("keeps an unrelated answer on mail that matches no request as confident as the model said", async () => {
+    const { fetchImpl } = fakeLlm(verdict({ classification: "unrelated", confidence: 0.95 }));
+    const result = await classifierWith(LLM, fetchImpl).classify(
+      message({ inReplyTo: null, from: { name: null, address: "news@shop.test" } }),
+      { requests: [target] },
+    );
+    expect(result).toMatchObject({ requestId: null, classification: "unrelated" });
+    expect(result.confidence).toBeGreaterThanOrEqual(0.6);
+  });
+
+  it("makes unknown the fallback and unrelated limited to other business, without text from the dev reply sets", async () => {
+    const { calls, fetchImpl } = fakeLlm(verdict());
+    await classifierWith(LLM, fetchImpl).classify(message(), { requests: [target] });
+    const messages = (calls[0] as Call).body.messages as Array<{ role: string; content: string }>;
+    const prompt = messages[0]?.content ?? "";
+    expect(prompt).toContain(
+      "When you cannot tell what the mail is about, or no class fits, choose unknown.",
+    );
+    expect(prompt).not.toContain("Choose it only when no class above fits");
+    expect(prompt).toContain("A short or empty reply to our request is unknown, not unrelated");
+    expect(prompt.indexOf("- unknown:")).toBeLessThan(prompt.indexOf("- unrelated:"));
+    for (const devText of ["I am out of the office until Monday", '"Thanks."', '"FYI"']) {
+      expect(prompt).not.toContain(devText);
+    }
+  });
+
+  it("gives each class that small models miss a generic example, and keeps a form link apart from a confirmation link", async () => {
+    const { calls, fetchImpl } = fakeLlm(verdict());
+    await classifierWith(LLM, fetchImpl).classify(message(), { requests: [target] });
+    const messages = (calls[0] as Call).body.messages as Array<{ role: string; content: string }>;
+    const prompt = messages[0]?.content ?? "";
+    expect(prompt).toContain('"Delivery has failed to these recipients" or "Undeliverable: ..."');
+    expect(prompt).toContain(
+      "\"I'm away from my desk until the 14th and will reply when I'm back\"",
+    );
+    expect(prompt).toContain('"This inbox is unattended; we received your message"');
+    expect(prompt).toContain('"We are unable to act on your request because ..."');
+    expect(prompt).toContain('"Please submit your request through our online privacy form at ..."');
+    expect(prompt).toContain("only a link that confirms the request we already sent");
+    expect(prompt).toContain(
+      "A link to a form or portal where the request must be made is needs_form, not confirmation_link",
+    );
   });
 
   it("sends no authorization header when the endpoint needs no key", async () => {

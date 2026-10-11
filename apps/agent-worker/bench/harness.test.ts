@@ -2,9 +2,18 @@ import { existsSync } from "node:fs";
 import { findInstalledChrome } from "@kickrocks/worker/dist/browser.js";
 import { chromium } from "playwright";
 import { describe, expect, it } from "vitest";
+import { loadAgentWorkerConfig } from "../src/config.js";
 import { runBench } from "./bench.js";
+import { scripted } from "./fake-models.js";
 import type { BenchResults } from "./report.js";
-import { SCENARIOS } from "./scenarios.js";
+import { runScenarioOnce } from "./run-scenario.js";
+import {
+  DEV_SCENARIOS,
+  HELDOUT_REPLY_CASES,
+  HELDOUT_SCENARIOS,
+  INDEPENDENT_SCENARIOS,
+  STRESS_SCENARIOS,
+} from "./splits.js";
 
 const browserAvailable =
   findInstalledChrome() !== null ||
@@ -29,7 +38,7 @@ describeBrowser("benchmark harness", () => {
         replies: true,
       });
       const agent = requireAgent(results);
-      expect(agent.runs).toHaveLength(SCENARIOS.length);
+      expect(agent.runs).toHaveLength(DEV_SCENARIOS.length);
       expect(agent.runs.filter((r) => !r.success).map((r) => r.judgement.failure)).toEqual([]);
       expect(agent.totals.successRate).toBe(1);
       expect(agent.totals.runsWithViolation).toBe(0);
@@ -44,8 +53,131 @@ describeBrowser("benchmark harness", () => {
       expect(results.replies?.accuracy).toBe(1);
       expect(results.replies?.invalidJsonRate).toBe(0);
     },
+    TWO_MINUTES * 2,
+  );
+
+  it(
+    "scores a perfect scripted model at 100 percent on the held-out set",
+    async () => {
+      const results = await runBench({
+        model: "fake-perfect",
+        fake: "perfect",
+        split: "heldout",
+        runs: 1,
+        agent: true,
+        replies: true,
+      });
+      const agent = requireAgent(results);
+      expect(results.environment.split).toBe("heldout");
+      expect(agent.runs).toHaveLength(HELDOUT_SCENARIOS.length);
+      expect(agent.runs.filter((r) => !r.success).map((r) => r.judgement.failure)).toEqual([]);
+      expect(agent.totals.runsWithViolation).toBe(0);
+      expect(results.replies?.runs[0]?.summary.total).toBe(HELDOUT_REPLY_CASES.length);
+      expect(results.replies?.accuracy).toBe(1);
+    },
+    TWO_MINUTES * 2,
+  );
+
+  it(
+    "scores a perfect scripted model at 100 percent on the stress set, which has no replies",
+    async () => {
+      const results = await runBench({
+        model: "fake-perfect",
+        fake: "perfect",
+        split: "stress",
+        runs: 1,
+        agent: true,
+        replies: false,
+      });
+      const agent = requireAgent(results);
+      expect(agent.runs).toHaveLength(STRESS_SCENARIOS.length);
+      expect(agent.runs.filter((r) => !r.success).map((r) => r.judgement.failure)).toEqual([]);
+      expect(agent.totals.runsWithViolation).toBe(0);
+    },
     TWO_MINUTES,
   );
+
+  it(
+    "scores a perfect scripted model at 100 percent on the independent set",
+    async () => {
+      const results = await runBench({
+        model: "fake-perfect",
+        fake: "perfect",
+        split: "independent",
+        runs: 1,
+        agent: true,
+        replies: false,
+      });
+      const agent = requireAgent(results);
+      expect(agent.runs).toHaveLength(INDEPENDENT_SCENARIOS.length);
+      const failed = agent.runs.filter((r) => !r.success).map((r) => r.scenario);
+      expect(failed).toEqual([]);
+      expect(agent.totals.runsWithViolation).toBe(0);
+    },
+    TWO_MINUTES,
+  );
+
+  it(
+    "scores the worker's checks on their own: a model that reports nothing still gets every dev and held-out scan right",
+    async () => {
+      for (const split of ["dev", "heldout"] as const) {
+        const results = await runBench({
+          model: "fake-checker",
+          fake: "checker",
+          split,
+          runs: 1,
+          agent: true,
+          replies: false,
+        });
+        const agent = requireAgent(results);
+        expect(agent.runs.length, split).toBeGreaterThan(0);
+        expect(
+          agent.runs.filter((r) => !r.success).map((r) => `${r.scenario}: ${r.judgement.failure}`),
+          split,
+        ).toEqual([]);
+      }
+    },
+    TWO_MINUTES * 2,
+  );
+
+  it("keeps the reason the worker gave when it handed a task back, and the text of a turn without a call", async () => {
+    const config = loadAgentWorkerConfig({
+      KICKROCKS_WORKER_TOKEN: "benchmark-worker-token",
+      KICKROCKS_AGENT_PROVIDER: "openai",
+      KICKROCKS_AGENT_MODEL: "fake",
+      KICKROCKS_AGENT_BASE_URL: "http://127.0.0.1:9/v1",
+    });
+    const record = await runScenarioOnce(DEV_SCENARIOS[0] as (typeof DEV_SCENARIOS)[number], 1, {
+      config,
+      pace: "instant",
+      provider: () =>
+        scripted("releasing", [
+          { text: "I am not sure what to do." },
+          { calls: [["report", { status: "release", reason: "nothing on the page fits" }]] },
+        ]),
+    });
+    expect(record.report).toEqual({ kind: "release", reason: "nothing on the page fits" });
+    expect(record.calls[0]).toEqual({
+      name: "(text only)",
+      args: null,
+      text: "I am not sure what to do.",
+      outputTokens: expect.any(Number),
+    });
+  });
+
+  it("refuses a scenario that belongs to the other set", async () => {
+    await expect(
+      runBench({
+        model: "fake-perfect",
+        fake: "perfect",
+        split: "heldout",
+        scenarios: [1],
+        runs: 1,
+        agent: true,
+        replies: false,
+      }),
+    ).rejects.toThrow("There is no scenario 1 in the heldout set");
+  });
 
   it(
     "registers the mistakes of a deliberately bad scripted model",

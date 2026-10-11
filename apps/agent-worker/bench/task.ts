@@ -61,7 +61,7 @@ export function taskFor(scenario: Scenario, origin: string): AgentTask {
       targetId: target.id,
       requestId: scenario.purpose === "remove" ? "bench-request" : null,
       recordUrl,
-      variant: null,
+      variant: scenario.variant ? { nameId: "bench-variant", addressId: null } : null,
       rights: scenario.rights,
       reason: "no_recipe" as const,
       previousError: null,

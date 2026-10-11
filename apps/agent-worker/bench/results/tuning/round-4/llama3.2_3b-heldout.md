@@ -1,0 +1,63 @@
+# Agent model benchmark: llama3.2:3b
+
+Run from 2026-10-09T08:17:30.719Z to 2026-10-09T08:18:36.380Z.
+Endpoint http://127.0.0.1:11434/v1, 3 run(s) per scenario, at most 40 steps and 10 minutes per run, 4096 output tokens per turn, instant pace, the openai provider, thinking default.
+Ollama loaded the model with a context of 4096 tokens.
+Idle GPU memory before the runs was 679 MiB.
+
+## Reply classification
+
+Accuracy 73.4% over 3 run(s) of 64 replies.
+Invalid JSON rate 0.0%.
+Mean latency 318 ms.
+Latency of the first run: median 308 ms, 95th percentile 356 ms, max 481 ms.
+Answers outside the schema: 0. Requests that failed or timed out: 0.
+Requested fields named exactly on verification replies: 75.0%.
+
+| Class | Correct | Cases |
+|---|---|---|
+| bounce | 4 | 6 |
+| auto_ack | 3 | 6 |
+| confirmation_link | 6 | 7 |
+| verification_required | 7 | 8 |
+| completed | 6 | 7 |
+| no_record | 6 | 6 |
+| rejected | 4 | 6 |
+| needs_form | 6 | 6 |
+| unrelated | 1 | 6 |
+| unknown | 4 | 6 |
+
+| Style | Correct | Cases |
+|---|---|---|
+| plain | 7 | 13 |
+| html-text | 6 | 7 |
+| legal | 6 | 9 |
+| quoted-thread | 5 | 7 |
+| ticket | 7 | 8 |
+| autoresponder | 2 | 3 |
+| odd-link | 3 | 3 |
+| other-people | 4 | 6 |
+| id-request | 2 | 2 |
+| partial | 3 | 3 |
+| no-sale-denial | 2 | 3 |
+
+Answers that were wrong in the first run:
+- held-bounce-4: answered no_record, expected bounce because permanent failure because the recipient server could not be reached, with our request quoted.
+- held-bounce-6: answered unknown, expected bounce because a permanent delivery failure.
+- held-ack-1: answered unknown, expected auto_ack because an out-of-office reply with no decision.
+- held-ack-3: answered unknown, expected auto_ack because an acknowledgement that explicitly accepts and refuses nothing.
+- held-ack-4: answered unknown, expected auto_ack because an automated note that the message arrived.
+- held-link-6: answered verification_required, expected confirmation_link because legal wording whose only ask is to select a link to confirm.
+- held-verify-4: named fields [street, date_of_birth], expected [street, city, state, zip, date_of_birth].
+- held-verify-5: answered needs_form, expected verification_required because asks for the web address of the listing; named fields [], expected [record_url].
+- held-done-6: answered no_record, expected completed because the requested listing was taken down; a neighbor's listing was left alone.
+- held-reject-1: answered completed, expected rejected because closes the request with no action because it does not sell data.
+- held-reject-4: answered unknown, expected rejected because refuses to delete.
+- held-unrel-1: answered needs_form, expected unrelated because a bank statement notice.
+- held-unrel-3: answered unknown, expected unrelated because an appointment reminder.
+- held-unrel-4: answered needs_form, expected unrelated because a notice of a terms change, not a reply to a request.
+- held-unrel-5: answered needs_form, expected unrelated because a network invitation from another person.
+- held-unrel-6: answered auto_ack, expected unrelated because an account security notice, not about a privacy request.
+- held-unknown-1: answered auto_ack, expected unknown because a two word message that decides nothing.
+- held-unknown-5: answered completed, expected unknown because a one word answer that does not say what it refers to.
+

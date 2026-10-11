@@ -170,6 +170,19 @@ const PAGES: Record<string, string> = {
   "/gate-spec-prefetch": "gate-spec-prefetch.html",
   "/gate-spec-prerender": "gate-spec-prerender.html",
   "/gate-spec-document": "gate-spec-document.html",
+  "/scan-cards": "scan-cards.html",
+  "/scan-single": "scan-single.html",
+  "/scan-pages": "scan-pages.html",
+  "/scan-pages-2": "scan-pages-2.html",
+  "/scan-more": "scan-more.html",
+  "/scan-plain": "scan-plain.html",
+  "/scan-report": "scan-report.html",
+  "/scan-empty-pager": "scan-empty-pager.html",
+  "/scan-post-search": "scan-post-search.html",
+  "/dropdowns": "dropdowns.html",
+  "/comboboxes": "comboboxes.html",
+  "/validation": "validation.html",
+  "/required-form": "required-form.html",
 };
 
 /** Scripts the gate pages load, served with a script type. */
@@ -388,6 +401,11 @@ export function startFixtureServer(): Promise<{
         page("echo.html", { GREETING: name === null ? "" : `Hello, ${escapeHtml(name)}.` }),
       );
     }
+    if (path === "/people/r3" || path === "/people/p4" || path === "/people/jordan-exemplar") {
+      return send(response, 200, page("record-other.html"));
+    }
+    if (path === "/people/r2") return send(response, 200, page("record-r2.html"));
+    if (path === "/people/r4") return send(response, 200, page("record-r4.html"));
     if (path.startsWith("/people/")) return send(response, 200, page("record.html"));
     const file = PAGES[path];
     if (file) return send(response, 200, page(file));
