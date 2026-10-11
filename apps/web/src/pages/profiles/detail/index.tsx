@@ -23,6 +23,7 @@ import {
   Skeleton,
   useToast,
 } from "../../../components/ui/index.js";
+import { cn } from "../../../lib/cn.js";
 import { formatDate, formatRelative } from "../../../lib/format.js";
 import { paths } from "../../../lib/paths.js";
 import { MailboxCard } from "../../mailbox/mailbox-card.js";
@@ -367,7 +368,16 @@ function IdentitiesCard({
             {explained ? "Fix the marked fields and try again." : errorMessage(failure)}
           </Callout>
         ) : null}
-        <div className="mt-4 flex flex-wrap items-center justify-end gap-2">
+        <div
+          className={cn(
+            "mt-4 flex flex-wrap items-center justify-end gap-2",
+            dirty &&
+              "max-sm:sticky max-sm:bottom-0 max-sm:z-10 max-sm:-mx-gutter max-sm:border-t max-sm:border-line max-sm:bg-surface max-sm:px-gutter max-sm:py-2.5",
+          )}
+        >
+          {dirty ? (
+            <span className="mr-auto text-ui text-ink sm:hidden">Unsaved changes</span>
+          ) : null}
           <Button
             variant="ghost"
             aria-label="Discard changes"

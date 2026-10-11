@@ -163,16 +163,152 @@ describe("the profile page", () => {
     expect(screen.getByLabelText("Date of birth", { selector: "input" })).toHaveValue("1990-04-12");
   });
 
-  it("keeps the date range of each address", async () => {
+  it("shows each saved address as a folded summary with its dates and what it is used for", async () => {
     open();
-    await screen.findByRole("group", { name: "Address 1" });
+    expect(await screen.findByText("100 Example Street, Apt 4")).toBeInTheDocument();
+    expect(screen.getByText("Sampleton, CA 90000")).toBeInTheDocument();
+    expect(screen.getByText("Since Mar 2022")).toBeInTheDocument();
+    expect(screen.getByText("Jun 2017 - Feb 2022")).toBeInTheDocument();
+    expect(screen.getByText("Used for scans")).toBeInTheDocument();
+    expect(screen.getByText("Past")).toBeInTheDocument();
+    expect(screen.queryByRole("group", { name: "Address 1" })).toBeNull();
+    expect(
+      screen.getByText(/Scans and requests use 100 Example Street, Sampleton\./),
+    ).toBeVisible();
+  });
+
+  it("opens an address to edit and folds it again with Done", async () => {
+    const { user } = open();
+    await user.click(await screen.findByRole("button", { name: "Edit address 1" }));
     const current = screen.getByRole("group", { name: "Address 1" });
     expect(within(current).getByLabelText(/Lived here from/)).toHaveValue("2022-03-01");
     expect(within(current).getByLabelText(/Until/)).toHaveValue("");
+    expect(within(current).getByLabelText("Street")).toHaveValue("100 Example Street");
+    expect(within(current).getByLabelText(/Apt, suite, unit/)).toHaveValue("Apt 4");
+    await user.click(within(current).getByRole("button", { name: "Done" }));
+    expect(screen.queryByRole("group", { name: "Address 1" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Save identities" })).toBeDisabled();
+  });
+
+  it("keeps a past address's range and state when it is opened", async () => {
+    const { user } = open();
+    await user.click(await screen.findByRole("button", { name: "Edit address 2" }));
     const past = screen.getByRole("group", { name: "Address 2" });
     expect(within(past).getByLabelText(/Lived here from/)).toHaveValue("2017-06-01");
     expect(within(past).getByLabelText(/Until/)).toHaveValue("2022-02-28");
     expect(within(past).getByLabelText("State")).toHaveValue("CA");
+    expect(within(past).queryByRole("button", { name: "Use for scans and requests" })).toBeNull();
+  });
+
+  it("keeps a row open when Done finds a problem in it", async () => {
+    const { user } = open();
+    await user.click(await screen.findByRole("button", { name: "Edit address 1" }));
+    const row = screen.getByRole("group", { name: "Address 1" });
+    await user.clear(within(row).getByLabelText("City"));
+    await user.click(within(row).getByRole("button", { name: "Done" }));
+    expect(await within(row).findByText("Required")).toBeInTheDocument();
+    expect(screen.getByRole("group", { name: "Address 1" })).toBeInTheDocument();
+  });
+
+  it("writes a unit typed into the street once, in its own field", async () => {
+    const { user, mock, profile } = open();
+    const seen = instrument(mock);
+    await user.click(await screen.findByRole("button", { name: "Edit address 1" }));
+    const row = screen.getByRole("group", { name: "Address 1" });
+    const street = within(row).getByLabelText("Street");
+    await user.clear(street);
+    await user.type(street, "500 Real Road Apt 12");
+    const unit = within(row).getByLabelText(/Apt, suite, unit/);
+    await user.clear(unit);
+    await user.type(unit, "Apt 12");
+    await user.tab();
+    expect(street).toHaveValue("500 Real Road");
+    await user.click(within(row).getByRole("button", { name: "Done" }));
+    expect(screen.getByText("500 Real Road, Apt 12")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Save identities" }));
+    await screen.findByText("Identities updated.");
+    const put = seen.find((request) => request.method === "PUT");
+    const sent = (put?.json as { identities: { kind: string; value: object }[] }).identities.find(
+      (identity) => identity.kind === "address",
+    );
+    expect(sent?.value).toMatchObject({ street: "500 Real Road", unit: "Apt 12" });
+    const stored = mock.store.profiles.find((p) => p.id === profile.id);
+    expect(JSON.stringify(stored?.identities)).not.toContain("Apt 12 Apt 12");
+  });
+
+  it("moves a unit typed only into the street over to the unit field", async () => {
+    const { user } = open(createMockApp(), 1);
+    await user.click(await screen.findByRole("button", { name: "Edit address 1" }));
+    const row = screen.getByRole("group", { name: "Address 1" });
+    const street = within(row).getByLabelText("Street");
+    await user.clear(street);
+    await user.type(street, "7 Sample Avenue #9");
+    await user.tab();
+    expect(street).toHaveValue("7 Sample Avenue");
+    expect(within(row).getByLabelText(/Apt, suite, unit/)).toHaveValue("#9");
+  });
+
+  it("gives each address field autofill hints that keep the unit on its own line", async () => {
+    const { user } = open();
+    await user.click(await screen.findByRole("button", { name: "Edit address 1" }));
+    const row = screen.getByRole("group", { name: "Address 1" });
+    expect(within(row).getByLabelText("Street")).toHaveAttribute(
+      "autocomplete",
+      "section-address-1 address-line1",
+    );
+    expect(within(row).getByLabelText(/Apt, suite, unit/)).toHaveAttribute(
+      "autocomplete",
+      "section-address-1 address-line2",
+    );
+    expect(within(row).getByLabelText("ZIP")).toHaveAttribute("inputmode", "numeric");
+    expect(within(row).getByText("Just the street and number")).toBeInTheDocument();
+  });
+
+  it("adds another address with the cursor in Street and asks about moving out of the old one", async () => {
+    const { user, mock } = open();
+    await screen.findByText("100 Example Street, Apt 4");
+    await user.click(screen.getByRole("button", { name: "Add another address" }));
+    const added = screen.getByRole("group", { name: "Address 3" });
+    expect(within(added).getByLabelText("Street")).toHaveFocus();
+    expect(within(added).getByLabelText("I live here now")).toBeChecked();
+    expect(within(added).getByText(/Did you move out of 100 Example Street\?/)).toBeInTheDocument();
+
+    await user.type(within(added).getByLabelText("Street"), "5 Example Road");
+    await user.type(within(added).getByLabelText("City"), "Newtown");
+    await user.selectOptions(within(added).getByLabelText("State"), "OR");
+    await user.type(within(added).getByLabelText("ZIP"), "97000");
+    await user.type(within(added).getByLabelText(/Lived here from/), "2026-09-01");
+    expect(within(added).getByLabelText("Moved out on")).toHaveValue("2026-08-31");
+    await user.click(within(added).getByRole("button", { name: "Yes, I moved out" }));
+    await user.click(within(added).getByRole("button", { name: "Done" }));
+
+    expect(screen.getByText("5 Example Road")).toBeInTheDocument();
+    expect(screen.getAllByText("Used for scans")).toHaveLength(1);
+    expect(screen.getByText(/Scans and requests use 5 Example Road, Newtown\./)).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "Save identities" }));
+    await screen.findByText("Identities updated.");
+    const stored = mock.store.profiles[0]?.identities.filter((i) => i.kind === "address");
+    expect(stored?.find((a) => a.value.street === "100 Example Street")?.validTo).toBe(
+      "2026-08-31",
+    );
+    expect(stored?.find((a) => a.value.street === "5 Example Road")?.isPrimary).toBe(true);
+  });
+
+  it("offers a first address without the word another", async () => {
+    open(createMockApp(), 2);
+    expect(await screen.findByRole("button", { name: "Add address" })).toBeInTheDocument();
+  });
+
+  it("warns when the address marked for scans has already been moved out of", async () => {
+    const { user } = open();
+    await user.click(await screen.findByRole("button", { name: "Edit address 1" }));
+    const row = screen.getByRole("group", { name: "Address 1" });
+    await user.type(within(row).getByLabelText(/Until/), "2024-01-01");
+    await user.click(within(row).getByRole("button", { name: "Done" }));
+    expect(await screen.findByText("Marked for scans, but you moved out")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Fix" }));
+    expect(screen.getByRole("group", { name: "Address 1" })).toBeInTheDocument();
   });
 
   it("only offers one date of birth", async () => {
@@ -213,6 +349,7 @@ describe("the profile page", () => {
     await user.type(within(alias).getByLabelText("First name"), "J");
     await user.type(within(alias).getByLabelText("Last name"), "Example");
 
+    await user.click(screen.getByRole("button", { name: "Edit address 2" }));
     await user.click(screen.getByRole("button", { name: "Remove address 2" }));
     await user.click(screen.getByRole("button", { name: "Save identities" }));
 
@@ -254,8 +391,8 @@ describe("the profile page", () => {
 
   it("marks a half-typed address and an end date before the start", async () => {
     const { user } = open();
-    await screen.findByRole("group", { name: "Address 1" });
-    await user.click(screen.getByRole("button", { name: "Add address" }));
+    await screen.findByText("100 Example Street, Apt 4");
+    await user.click(screen.getByRole("button", { name: "Add another address" }));
     const added = screen.getByRole("group", { name: "Address 3" });
     await user.type(within(added).getByLabelText("Street"), "5 Example Road");
     await user.type(within(added).getByLabelText(/Lived here from/), "2020-05-01");

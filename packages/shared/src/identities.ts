@@ -30,6 +30,71 @@ export const AddressValue = z.object({
 });
 export type AddressValue = z.infer<typeof AddressValue>;
 
+const UNIT_DESIGNATOR = String.raw`(?:apartment|apt|unit|suite|ste|room|rm|floor|fl|no|number)\b\.?\s*#?\s*|#\s*`;
+const TRAILING_UNIT = new RegExp(
+  String.raw`(?:\s*,\s*|\s+)(?:${UNIT_DESIGNATOR})([A-Za-z0-9][A-Za-z0-9-]*)\s*$`,
+  "i",
+);
+const LEADING_DESIGNATOR = new RegExp(String.raw`^(?:${UNIT_DESIGNATOR})`, "i");
+
+function unitCore(unit: string): string {
+  return unit.trim().replace(LEADING_DESIGNATOR, "").trim().toLowerCase();
+}
+
+/**
+ * Splits a trailing apartment designator off a street line. Only an explicit designator ("Apt 12",
+ * "#12") counts, so "Highway 12" keeps its number.
+ */
+export function splitTrailingUnit(street: string): { street: string; unit: string | null } {
+  const trimmed = street.trim();
+  const match = TRAILING_UNIT.exec(trimmed);
+  if (!match || match.index === 0) return { street: trimmed, unit: null };
+  return {
+    street: trimmed.slice(0, match.index).trim(),
+    unit: trimmed
+      .slice(match.index)
+      .replace(/^\s*,\s*/, "")
+      .trim(),
+  };
+}
+
+/** Removes the unit from the end of a street line when it was typed there as well as in Unit. */
+export function stripUnitFromStreet(street: string, unit: string | undefined | null): string {
+  const trimmed = street.trim();
+  if (!unit || unit.trim() === "") return trimmed;
+  const split = splitTrailingUnit(trimmed);
+  if (split.unit !== null && unitCore(split.unit) === unitCore(unit)) return split.street;
+  return trimmed;
+}
+
+/**
+ * Keeps the street and the unit apart: a unit typed into the street moves to the unit field, and a
+ * unit repeated in both is kept once.
+ */
+export function normalizeAddress<T extends { street: string; unit?: string | undefined }>(
+  address: T,
+): T {
+  const unit = address.unit?.trim() ? address.unit.trim() : undefined;
+  if (unit) return { ...address, street: stripUnitFromStreet(address.street, unit), unit };
+  const split = splitTrailingUnit(address.street);
+  const { unit: _drop, ...rest } = address;
+  return split.unit
+    ? ({ ...rest, street: split.street, unit: split.unit } as T)
+    : ({ ...rest, street: address.street.trim() } as T);
+}
+
+/** Cleans the parts of an identity input that people routinely type into the wrong field. */
+export function normalizeIdentityInput<T extends IdentityInput>(input: T): T {
+  return input.kind === "address" ? { ...input, value: normalizeAddress(input.value) } : input;
+}
+
+/** The single street line sent to sites and letters, with the unit written once. */
+export function formatStreetLine(address: { street: string; unit?: string | undefined }): string {
+  return [stripUnitFromStreet(address.street, address.unit), address.unit?.trim()]
+    .filter(Boolean)
+    .join(" ");
+}
+
 export const DobValue = z.object({ date: z.iso.date() });
 export type DobValue = z.infer<typeof DobValue>;
 
@@ -227,7 +292,7 @@ export function resolveProfileFields(
     city: address?.city,
     state: address?.state,
     zip: address?.zip,
-    street: address ? [address.street, address.unit].filter(Boolean).join(" ") : undefined,
+    street: address ? formatStreetLine(address) : undefined,
     birth_year: dob?.date.slice(0, 4),
     date_of_birth: dob?.date,
     record_url: context.recordUrl ?? undefined,

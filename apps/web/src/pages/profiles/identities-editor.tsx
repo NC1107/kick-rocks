@@ -1,4 +1,4 @@
-import { type IdentityKind, US_STATES } from "@kickrocks/shared";
+import type { IdentityKind } from "@kickrocks/shared";
 import { Plus, Trash2 } from "lucide-react";
 import type { ReactNode } from "react";
 import {
@@ -15,6 +15,7 @@ import {
 } from "../../components/ui/index.js";
 import { IDENTITY_KIND_LABELS } from "../../lib/labels.js";
 import { GroupNote } from "../settings/rows.js";
+import { AddressSection } from "./address-section.js";
 import {
   addDraft,
   type DraftErrors,
@@ -63,7 +64,6 @@ const SECTIONS: readonly SectionSpec[] = [
   {
     kind: "address",
     title: "Addresses",
-    note: "Dates tell Kick Rocks which address to use and which to search under.",
     addLabel: "Add address",
   },
   {
@@ -113,6 +113,18 @@ export function IdentitiesEditor({
         </Callout>
       ) : null}
       {SECTIONS.map((section) => {
+        if (section.kind === "address") {
+          return (
+            <AddressSection
+              key="address"
+              drafts={drafts}
+              onChange={onChange}
+              errors={errors}
+              disabled={disabled}
+              today={today}
+            />
+          );
+        }
         const rows = drafts
           .map((draft, index) => ({ draft, index }))
           .filter(({ draft }) => draft.kind === section.kind);
@@ -271,52 +283,7 @@ function RowFields({ draft, index, errors, disabled, today, onChange }: RowField
         </Field>
       );
     case "address":
-      return (
-        <div className="grid gap-3 lg:grid-cols-6">
-          {text("Street", "street", "value.street", { className: "lg:col-span-4" })}
-          {text("Unit", "unit", "value.unit", { optional: true, className: "lg:col-span-2" })}
-          {text("City", "city", "value.city", { className: "lg:col-span-3" })}
-          <Field label="State" error={error("value.state")} className="lg:col-span-2">
-            <Select
-              value={draft.state}
-              disabled={disabled}
-              onChange={(event) => onChange({ state: event.target.value })}
-            >
-              <option value="">Choose</option>
-              {US_STATES.map((state) => (
-                <option key={state.code} value={state.code}>
-                  {state.name}
-                </option>
-              ))}
-            </Select>
-          </Field>
-          {text("ZIP", "zip", "value.zip", { className: "lg:col-span-1" })}
-          <Field label="Lived here from" optional className="lg:col-span-3">
-            <Input
-              type="date"
-              max={today}
-              value={draft.validFrom}
-              disabled={disabled}
-              onChange={(event) => onChange({ validFrom: event.target.value })}
-            />
-          </Field>
-          <Field
-            label="Until"
-            optional
-            error={error("validTo")}
-            help="Leave empty for a current address."
-            className="lg:col-span-3"
-          >
-            <Input
-              type="date"
-              value={draft.validTo}
-              min={draft.validFrom || undefined}
-              disabled={disabled}
-              onChange={(event) => onChange({ validTo: event.target.value })}
-            />
-          </Field>
-        </div>
-      );
+      return null;
     case "dob":
       return (
         <div className="max-w-60">

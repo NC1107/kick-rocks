@@ -437,6 +437,26 @@ describe("replace identities", () => {
     expect(name).toMatchObject({ id: nameId, validFrom: "2010-01-01" });
   });
 
+  it("stores a unit typed into the street once, in its own field", async () => {
+    const profile = seedProfile(ctx);
+    const next = jordanIdentities().map((identity) =>
+      identity.kind === "address"
+        ? {
+            ...identity,
+            value: { ...identity.value, street: "500 Real Road Apt 12", unit: "Apt 12" },
+          }
+        : identity,
+    );
+    const result = await ctx.call(API_ROUTES.profilesReplaceIdentities, {
+      params: { id: profile.id },
+      body: { identities: next },
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const address = result.body.identities.find((identity) => identity.kind === "address");
+    expect(address?.value).toMatchObject({ street: "500 Real Road", unit: "Apt 12" });
+  });
+
   it("matches two identical-valued facts one to one", async () => {
     const profile = seedProfile(ctx);
     const twoNames: IdentityInput[] = [

@@ -2,10 +2,13 @@ import { describe, expect, it } from "vitest";
 import {
   currentIdentity,
   formatFullName,
+  formatStreetLine,
   type Identity,
   IdentityInput,
   IdentityInputList,
+  normalizeAddress,
   resolveProfileFields,
+  splitTrailingUnit,
   validateIdentities,
 } from "./identities.js";
 
@@ -350,6 +353,67 @@ describe("formatFullName", () => {
     expect(formatFullName({ first: "Jordan", last: "Example" })).toBe("Jordan Example");
     expect(formatFullName({ first: "Jordan", middle: "Q", last: "Example" })).toBe(
       "Jordan Q Example",
+    );
+  });
+});
+
+describe("an address whose unit was typed into the street as well", () => {
+  const base = { city: "Sampleton", state: "CA", zip: "90000" } as const;
+
+  it("is written once in the street line sent to sites and letters", () => {
+    expect(formatStreetLine({ street: "500 Real Road Apt 12", unit: "Apt 12" })).toBe(
+      "500 Real Road Apt 12",
+    );
+    const doubled = identity({
+      kind: "address",
+      value: { ...base, street: "500 Real Road Apt 12", unit: "Apt 12" },
+    });
+    expect(resolveProfileFields([doubled], ["street"], { asOf: "2026-01-01" })).toEqual({
+      street: "500 Real Road Apt 12",
+    });
+  });
+
+  it("still joins a street and a unit that are separate", () => {
+    expect(formatStreetLine({ street: "100 Example Street", unit: "Apt 4" })).toBe(
+      "100 Example Street Apt 4",
+    );
+    expect(formatStreetLine({ street: "100 Example Street" })).toBe("100 Example Street");
+  });
+
+  it("matches the unit ignoring case and the designator word", () => {
+    expect(
+      normalizeAddress({ ...base, street: "500 Real Road #12", unit: "apt 12" }),
+    ).toMatchObject({
+      street: "500 Real Road",
+      unit: "apt 12",
+    });
+    expect(normalizeAddress({ ...base, street: "9 Oak Ln, Suite 3B", unit: "3b" }).street).toBe(
+      "9 Oak Ln",
+    );
+  });
+
+  it("moves a unit typed into the street when the unit field is empty", () => {
+    expect(normalizeAddress({ ...base, street: "500 Real Road Apt 12" })).toEqual({
+      ...base,
+      street: "500 Real Road",
+      unit: "Apt 12",
+    });
+    expect(splitTrailingUnit("77 Pine Ave, #4")).toEqual({ street: "77 Pine Ave", unit: "#4" });
+  });
+
+  it("leaves a street alone when its trailing number is part of the name", () => {
+    expect(normalizeAddress({ ...base, street: "12 Highway 12", unit: "12" }).street).toBe(
+      "12 Highway 12",
+    );
+    expect(normalizeAddress({ ...base, street: "Highway 12" })).toEqual({
+      ...base,
+      street: "Highway 12",
+    });
+  });
+
+  it("keeps a different unit in the street apart from the one in Unit", () => {
+    expect(normalizeAddress({ ...base, street: "1 A St Apt 3", unit: "Apt 4" }).street).toBe(
+      "1 A St Apt 3",
     );
   });
 });
