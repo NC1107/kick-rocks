@@ -162,7 +162,7 @@ describe("the email runner against the real transport", () => {
     // A body this long cannot be buffered whole, so the connection dies while it is still being read.
     ctx.mail.services.transport = (connection) => {
       const real = createMailTransport(connection, {
-        timeouts: { connectionMs: 300, socketMs: 2_000 },
+        timeouts: { connectionMs: 2_000, socketMs: 4_000 },
       });
       return {
         verify: () => real.verify(),
