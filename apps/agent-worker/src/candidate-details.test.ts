@@ -106,3 +106,14 @@ describe("the details of a candidate", () => {
     expect(details.emails).toEqual(["jordan@mail.test"]);
   });
 });
+
+describe("a place written with a particle", () => {
+  it("keeps Coeur d'Alene and Lake of the Woods whole", () => {
+    const details = detailsOf({
+      heading: "Cormac Teague",
+      linkText: "",
+      text: "Cormac Teague\nBoise, ID\nPast: Coeur d'Alene, ID\nPast: Lake of the Woods, MN",
+    });
+    expect(details.locations).toEqual(["Boise, ID", "Coeur d'Alene, ID", "Lake of the Woods, MN"]);
+  });
+});

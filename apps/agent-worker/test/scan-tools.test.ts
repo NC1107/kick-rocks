@@ -36,7 +36,11 @@ beforeEach(async () => {
   await resetFixture();
 });
 
-async function open(path: string, purpose: "scan" | "remove" = "scan"): Promise<void> {
+async function open(
+  path: string,
+  purpose: "scan" | "remove" = "scan",
+  startUrls?: readonly string[],
+): Promise<void> {
   page = await context.newPage();
   toolbox = new Toolbox({
     page,
@@ -47,6 +51,7 @@ async function open(path: string, purpose: "scan" | "remove" = "scan"): Promise<
     mask: createMask(PERSON),
     signal: new AbortController().signal,
     challengeGraceMs: 100,
+    ...(startUrls === undefined ? {} : { startUrls }),
   });
   await toolbox.install();
   await toolbox.execute("navigate", { url: `${ORIGIN}${path}` });
@@ -204,6 +209,29 @@ describeBrowser("a scan never sends a request", () => {
     const link = await toolbox.execute("click", { ref: await linkRef("/people/r1") });
     expect(link.kind === "result" && link.isError).toBe(false);
     expect(page.url()).toContain("/people/r1");
+  });
+
+  it("refuses a neutral Save button that posts to a neutral path, since only words used to be checked", async () => {
+    await open("/scan-cards");
+    const outcome = await toolbox.execute("click", { ref: await refOf("Save this search") });
+    expect(textOf(outcome)).toContain("A scan never sends a request");
+    expect((await fixtureState()).submissions).toEqual([]);
+  });
+
+  it("lets the search form of a start page post to itself, and refuses any other post from that page", async () => {
+    await open("/scan-post-search", "scan", [`${ORIGIN}/scan-post-search`]);
+    const other = await toolbox.execute("click", { ref: await refOf("Continue", "button") });
+    expect(textOf(other)).toContain("A scan never sends a request");
+    expect((await fixtureState()).submissions).toEqual([]);
+    const search = await toolbox.execute("click", { ref: await refOf("Find", "button") });
+    expect(search.kind === "result" && search.isError).toBe(false);
+    expect((await fixtureState()).submissions).toHaveLength(1);
+  });
+
+  it("refuses a post from a page that is not a start page", async () => {
+    await open("/scan-post-search", "scan", [`${ORIGIN}/search`]);
+    const search = await toolbox.execute("click", { ref: await refOf("Find", "button") });
+    expect(textOf(search)).toContain("A scan never sends a request");
   });
 
   it("leaves a removal free to send its form", async () => {
@@ -468,6 +496,48 @@ describeBrowser("check_record on a results page", () => {
     );
     expect(answer.split("\n")[0]).toBe(`record: ${ORIGIN}/people/r1`);
     expect(answer).toContain("fits: include it in your report");
+  });
+});
+
+describeBrowser("results pages whose cards have no heading and no name in the link", () => {
+  it("lists a card whose link says the person's name and a long phrase", async () => {
+    await open("/scan-plain");
+    const answer = textOf(await toolbox.execute("check_record", {}));
+    expect(answer).toMatch(/\/people\/r1: fits$/m);
+    expect(answer).toMatch(/\/people\/r2: contradicts/m);
+    expect(answer).not.toContain("This page lists one record");
+    expect(toolbox.scanVerdictsAgainst([]).missing).toEqual([`${ORIGIN}/people/r1`]);
+  });
+
+  it("lists cards that all say Open full report, by the shape of their addresses", async () => {
+    await open("/scan-report");
+    const answer = textOf(await toolbox.execute("check_record", {}));
+    expect(answer).toContain(`${ORIGIN}/people/r1`);
+    expect(answer).toContain(`${ORIGIN}/people/r2`);
+    expect(toolbox.resolveRecords([`${ORIGIN}/scan-report`]).addresses).toEqual([]);
+  });
+});
+
+describeBrowser("a results page the worker cannot read as cards", () => {
+  it("is never saved as a record, and never tells the model to finish with an empty report", async () => {
+    await open("/scan-empty-pager");
+    const answer = textOf(await toolbox.execute("check_record", {}));
+    expect(answer).not.toContain("Nothing is left to decide");
+    expect(toolbox.scanFinishLine()).toBeNull();
+    const found = toolbox.resolveRecords([`${ORIGIN}/scan-empty-pager`]);
+    expect(found.addresses).toEqual([]);
+    expect(toolbox.scanVerdictsAgainst([]).missing).toEqual([]);
+  });
+
+  it("offers no finish line before any results page was seen", async () => {
+    await open("/privacy");
+    expect(toolbox.scanFinishLine()).toBeNull();
+  });
+
+  it("offers the finish line once a results page was read and every record on it is decided", async () => {
+    await open("/scan-cards");
+    await toolbox.execute("check_record", {});
+    expect(toolbox.scanFinishLine()).toContain("Nothing is left to decide");
   });
 });
 

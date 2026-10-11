@@ -434,10 +434,7 @@
             "name": "report",
             "args": {
               "status": "complete",
-              "records": [
-                "http://127.0.0.1:38201/rec/q1",
-                "http://127.0.0.1:38201/rec/q4"
-              ]
+              "records": ["http://127.0.0.1:38201/rec/q1", "http://127.0.0.1:38201/rec/q4"]
             }
           }
         ],
@@ -611,10 +608,7 @@
             "name": "report",
             "args": {
               "status": "complete",
-              "records": [
-                "http://127.0.0.1:37509/p/w-aa1",
-                "http://127.0.0.1:37509/p/w-bb2"
-              ]
+              "records": ["http://127.0.0.1:37509/p/w-aa1", "http://127.0.0.1:37509/p/w-bb2"]
             }
           }
         ],
@@ -805,17 +799,13 @@
                   "recordUrl": "http://127.0.0.1:43169/profile/o-1a",
                   "name": "Desmond Ojala",
                   "age": 36,
-                  "locations": [
-                    "Columbus, OH"
-                  ]
+                  "locations": ["Columbus, OH"]
                 },
                 {
                   "recordUrl": "http://127.0.0.1:43169/profile/o-3c",
                   "name": "Desmond Ojala",
                   "age": 35,
-                  "locations": [
-                    "Columbus, OH"
-                  ]
+                  "locations": ["Columbus, OH"]
                 }
               ]
             }
@@ -978,30 +968,22 @@
                 {
                   "recordUrl": "http://127.0.0.1:38959/person/h-1",
                   "name": "Ingrid Halvorsen",
-                  "locations": [
-                    "Tampa, FL"
-                  ]
+                  "locations": ["Tampa, FL"]
                 },
                 {
                   "recordUrl": "http://127.0.0.1:38959/person/h-2",
                   "name": "Ingrid Halvorsen",
-                  "locations": [
-                    "Tampa, FL"
-                  ]
+                  "locations": ["Tampa, FL"]
                 },
                 {
                   "recordUrl": "http://127.0.0.1:38959/person/h-3",
                   "name": "Ingrid Halvorsen",
-                  "locations": [
-                    "Tampa, FL"
-                  ]
+                  "locations": ["Tampa, FL"]
                 },
                 {
                   "recordUrl": "http://127.0.0.1:38959/person/h-5",
                   "name": "Ingrid Halvorsen",
-                  "locations": [
-                    "Tampa, FL"
-                  ]
+                  "locations": ["Tampa, FL"]
                 }
               ]
             }
@@ -1163,27 +1145,17 @@
                 {
                   "recordUrl": "http://127.0.0.1:38569/who/t1",
                   "name": "Cormac Teague",
-                  "locations": [
-                    "Boise, ID",
-                    "Spokane, WA",
-                    "Alene, ID"
-                  ]
+                  "locations": ["Boise, ID", "Spokane, WA", "Alene, ID"]
                 },
                 {
                   "recordUrl": "http://127.0.0.1:38569/who/t2",
                   "name": "Cormac Teague",
-                  "locations": [
-                    "Spokane, WA",
-                    "Yakima, WA"
-                  ]
+                  "locations": ["Spokane, WA", "Yakima, WA"]
                 },
                 {
                   "recordUrl": "http://127.0.0.1:38569/who/t5",
                   "name": "Cormac Teague",
-                  "locations": [
-                    "Portland, OR",
-                    "Spokane, WA"
-                  ]
+                  "locations": ["Portland, OR", "Spokane, WA"]
                 }
               ]
             }
@@ -1322,9 +1294,7 @@
             "name": "report",
             "args": {
               "status": "complete",
-              "records": [
-                "http://127.0.0.1:40773/f/f1"
-              ]
+              "records": ["http://127.0.0.1:40773/f/f1"]
             }
           }
         ],
@@ -1338,10 +1308,7 @@
                   "recordUrl": "http://127.0.0.1:40773/f/f1",
                   "name": "Lucinda Farraday",
                   "locations": [],
-                  "relatives": [
-                    "Hollis Farraday",
-                    "Wren Farraday"
-                  ]
+                  "relatives": ["Hollis Farraday", "Wren Farraday"]
                 }
               ]
             }
@@ -1821,10 +1788,7 @@
             "name": "report",
             "args": {
               "status": "complete",
-              "records": [
-                "http://127.0.0.1:37873/person/pa1",
-                "http://127.0.0.1:37873/person/pc1"
-              ]
+              "records": ["http://127.0.0.1:37873/person/pa1", "http://127.0.0.1:37873/person/pc1"]
             }
           }
         ],
@@ -1837,16 +1801,12 @@
                 {
                   "recordUrl": "http://127.0.0.1:37873/person/pa1",
                   "name": "Odette Prewitt",
-                  "locations": [
-                    "Madison, WI"
-                  ]
+                  "locations": ["Madison, WI"]
                 },
                 {
                   "recordUrl": "http://127.0.0.1:37873/person/pc1",
                   "name": "Odette Prewitt",
-                  "locations": [
-                    "Madison, WI"
-                  ]
+                  "locations": ["Madison, WI"]
                 }
               ]
             }
@@ -2048,25 +2008,19 @@
                   "recordUrl": "http://127.0.0.1:46433/u/r1",
                   "name": "Rhys Lindqvist",
                   "age": 57,
-                  "locations": [
-                    "Albany, NY"
-                  ]
+                  "locations": ["Albany, NY"]
                 },
                 {
                   "recordUrl": "http://127.0.0.1:46433/u/r5",
                   "name": "Rhys Lindqvist",
                   "age": 56,
-                  "locations": [
-                    "Albany, NY"
-                  ]
+                  "locations": ["Albany, NY"]
                 },
                 {
                   "recordUrl": "http://127.0.0.1:46433/u/r7",
                   "name": "Rhys Lindqvist",
                   "age": 57,
-                  "locations": [
-                    "Albany, NY"
-                  ]
+                  "locations": ["Albany, NY"]
                 }
               ]
             }
@@ -2356,9 +2310,7 @@
             "name": "report",
             "args": {
               "status": "complete",
-              "records": [
-                "http://127.0.0.1:36331/b/c1"
-              ]
+              "records": ["http://127.0.0.1:36331/b/c1"]
             }
           }
         ],
@@ -2372,9 +2324,7 @@
                   "recordUrl": "http://127.0.0.1:36331/b/c1",
                   "name": "Beatrix Lowell",
                   "age": 41,
-                  "locations": [
-                    "Charlotte, NC"
-                  ]
+                  "locations": ["Charlotte, NC"]
                 }
               ]
             }
@@ -2511,10 +2461,7 @@
           {
             "name": "report",
             "args": {
-              "records": [
-                "http://127.0.0.1:37153/rec/q1",
-                "http://127.0.0.1:37153/rec/q4"
-              ],
+              "records": ["http://127.0.0.1:37153/rec/q1", "http://127.0.0.1:37153/rec/q4"],
               "status": "complete"
             }
           }
@@ -2689,10 +2636,7 @@
             "name": "report",
             "args": {
               "status": "complete",
-              "records": [
-                "http://127.0.0.1:33795/p/w-aa1",
-                "http://127.0.0.1:33795/p/w-bb2"
-              ]
+              "records": ["http://127.0.0.1:33795/p/w-aa1", "http://127.0.0.1:33795/p/w-bb2"]
             }
           }
         ],
@@ -2883,17 +2827,13 @@
                   "recordUrl": "http://127.0.0.1:36649/profile/o-1a",
                   "name": "Desmond Ojala",
                   "age": 36,
-                  "locations": [
-                    "Columbus, OH"
-                  ]
+                  "locations": ["Columbus, OH"]
                 },
                 {
                   "recordUrl": "http://127.0.0.1:36649/profile/o-3c",
                   "name": "Desmond Ojala",
                   "age": 35,
-                  "locations": [
-                    "Columbus, OH"
-                  ]
+                  "locations": ["Columbus, OH"]
                 }
               ]
             }
@@ -3056,30 +2996,22 @@
                 {
                   "recordUrl": "http://127.0.0.1:34493/person/h-1",
                   "name": "Ingrid Halvorsen",
-                  "locations": [
-                    "Tampa, FL"
-                  ]
+                  "locations": ["Tampa, FL"]
                 },
                 {
                   "recordUrl": "http://127.0.0.1:34493/person/h-2",
                   "name": "Ingrid Halvorsen",
-                  "locations": [
-                    "Tampa, FL"
-                  ]
+                  "locations": ["Tampa, FL"]
                 },
                 {
                   "recordUrl": "http://127.0.0.1:34493/person/h-3",
                   "name": "Ingrid Halvorsen",
-                  "locations": [
-                    "Tampa, FL"
-                  ]
+                  "locations": ["Tampa, FL"]
                 },
                 {
                   "recordUrl": "http://127.0.0.1:34493/person/h-5",
                   "name": "Ingrid Halvorsen",
-                  "locations": [
-                    "Tampa, FL"
-                  ]
+                  "locations": ["Tampa, FL"]
                 }
               ]
             }
@@ -3241,27 +3173,17 @@
                 {
                   "recordUrl": "http://127.0.0.1:41699/who/t1",
                   "name": "Cormac Teague",
-                  "locations": [
-                    "Boise, ID",
-                    "Spokane, WA",
-                    "Alene, ID"
-                  ]
+                  "locations": ["Boise, ID", "Spokane, WA", "Alene, ID"]
                 },
                 {
                   "recordUrl": "http://127.0.0.1:41699/who/t2",
                   "name": "Cormac Teague",
-                  "locations": [
-                    "Spokane, WA",
-                    "Yakima, WA"
-                  ]
+                  "locations": ["Spokane, WA", "Yakima, WA"]
                 },
                 {
                   "recordUrl": "http://127.0.0.1:41699/who/t5",
                   "name": "Cormac Teague",
-                  "locations": [
-                    "Portland, OR",
-                    "Spokane, WA"
-                  ]
+                  "locations": ["Portland, OR", "Spokane, WA"]
                 }
               ]
             }
@@ -3400,9 +3322,7 @@
             "name": "report",
             "args": {
               "status": "complete",
-              "records": [
-                "http://127.0.0.1:39175/f/f1"
-              ]
+              "records": ["http://127.0.0.1:39175/f/f1"]
             }
           }
         ],
@@ -3416,10 +3336,7 @@
                   "recordUrl": "http://127.0.0.1:39175/f/f1",
                   "name": "Lucinda Farraday",
                   "locations": [],
-                  "relatives": [
-                    "Hollis Farraday",
-                    "Wren Farraday"
-                  ]
+                  "relatives": ["Hollis Farraday", "Wren Farraday"]
                 }
               ]
             }
@@ -3916,10 +3833,7 @@
             "name": "report",
             "args": {
               "status": "complete",
-              "records": [
-                "http://127.0.0.1:35491/person/pa1",
-                "http://127.0.0.1:35491/person/pc1"
-              ]
+              "records": ["http://127.0.0.1:35491/person/pa1", "http://127.0.0.1:35491/person/pc1"]
             }
           }
         ],
@@ -3932,16 +3846,12 @@
                 {
                   "recordUrl": "http://127.0.0.1:35491/person/pa1",
                   "name": "Odette Prewitt",
-                  "locations": [
-                    "Madison, WI"
-                  ]
+                  "locations": ["Madison, WI"]
                 },
                 {
                   "recordUrl": "http://127.0.0.1:35491/person/pc1",
                   "name": "Odette Prewitt",
-                  "locations": [
-                    "Madison, WI"
-                  ]
+                  "locations": ["Madison, WI"]
                 }
               ]
             }
@@ -4143,25 +4053,19 @@
                   "recordUrl": "http://127.0.0.1:38245/u/r1",
                   "name": "Rhys Lindqvist",
                   "age": 57,
-                  "locations": [
-                    "Albany, NY"
-                  ]
+                  "locations": ["Albany, NY"]
                 },
                 {
                   "recordUrl": "http://127.0.0.1:38245/u/r5",
                   "name": "Rhys Lindqvist",
                   "age": 56,
-                  "locations": [
-                    "Albany, NY"
-                  ]
+                  "locations": ["Albany, NY"]
                 },
                 {
                   "recordUrl": "http://127.0.0.1:38245/u/r7",
                   "name": "Rhys Lindqvist",
                   "age": 57,
-                  "locations": [
-                    "Albany, NY"
-                  ]
+                  "locations": ["Albany, NY"]
                 }
               ]
             }
@@ -4451,9 +4355,7 @@
             "name": "report",
             "args": {
               "status": "complete",
-              "records": [
-                "http://127.0.0.1:39815/b/c1"
-              ]
+              "records": ["http://127.0.0.1:39815/b/c1"]
             }
           }
         ],
@@ -4467,9 +4369,7 @@
                   "recordUrl": "http://127.0.0.1:39815/b/c1",
                   "name": "Beatrix Lowell",
                   "age": 41,
-                  "locations": [
-                    "Charlotte, NC"
-                  ]
+                  "locations": ["Charlotte, NC"]
                 }
               ]
             }
@@ -4606,10 +4506,7 @@
           {
             "name": "report",
             "args": {
-              "records": [
-                "http://127.0.0.1:41533/rec/q1",
-                "http://127.0.0.1:41533/rec/q4"
-              ],
+              "records": ["http://127.0.0.1:41533/rec/q1", "http://127.0.0.1:41533/rec/q4"],
               "status": "complete"
             }
           }
@@ -4775,10 +4672,7 @@
             "name": "report",
             "args": {
               "status": "complete",
-              "records": [
-                "http://127.0.0.1:43673/p/w-aa1",
-                "http://127.0.0.1:43673/p/w-bb2"
-              ]
+              "records": ["http://127.0.0.1:43673/p/w-aa1", "http://127.0.0.1:43673/p/w-bb2"]
             }
           }
         ],
@@ -4960,17 +4854,13 @@
                   "recordUrl": "http://127.0.0.1:37119/profile/o-1a",
                   "name": "Desmond Ojala",
                   "age": 36,
-                  "locations": [
-                    "Columbus, OH"
-                  ]
+                  "locations": ["Columbus, OH"]
                 },
                 {
                   "recordUrl": "http://127.0.0.1:37119/profile/o-3c",
                   "name": "Desmond Ojala",
                   "age": 35,
-                  "locations": [
-                    "Columbus, OH"
-                  ]
+                  "locations": ["Columbus, OH"]
                 }
               ]
             }
@@ -5133,30 +5023,22 @@
                 {
                   "recordUrl": "http://127.0.0.1:46769/person/h-1",
                   "name": "Ingrid Halvorsen",
-                  "locations": [
-                    "Tampa, FL"
-                  ]
+                  "locations": ["Tampa, FL"]
                 },
                 {
                   "recordUrl": "http://127.0.0.1:46769/person/h-2",
                   "name": "Ingrid Halvorsen",
-                  "locations": [
-                    "Tampa, FL"
-                  ]
+                  "locations": ["Tampa, FL"]
                 },
                 {
                   "recordUrl": "http://127.0.0.1:46769/person/h-3",
                   "name": "Ingrid Halvorsen",
-                  "locations": [
-                    "Tampa, FL"
-                  ]
+                  "locations": ["Tampa, FL"]
                 },
                 {
                   "recordUrl": "http://127.0.0.1:46769/person/h-5",
                   "name": "Ingrid Halvorsen",
-                  "locations": [
-                    "Tampa, FL"
-                  ]
+                  "locations": ["Tampa, FL"]
                 }
               ]
             }
@@ -5318,27 +5200,17 @@
                 {
                   "recordUrl": "http://127.0.0.1:40989/who/t1",
                   "name": "Cormac Teague",
-                  "locations": [
-                    "Boise, ID",
-                    "Spokane, WA",
-                    "Alene, ID"
-                  ]
+                  "locations": ["Boise, ID", "Spokane, WA", "Alene, ID"]
                 },
                 {
                   "recordUrl": "http://127.0.0.1:40989/who/t2",
                   "name": "Cormac Teague",
-                  "locations": [
-                    "Spokane, WA",
-                    "Yakima, WA"
-                  ]
+                  "locations": ["Spokane, WA", "Yakima, WA"]
                 },
                 {
                   "recordUrl": "http://127.0.0.1:40989/who/t5",
                   "name": "Cormac Teague",
-                  "locations": [
-                    "Portland, OR",
-                    "Spokane, WA"
-                  ]
+                  "locations": ["Portland, OR", "Spokane, WA"]
                 }
               ]
             }
@@ -5477,9 +5349,7 @@
             "name": "report",
             "args": {
               "status": "complete",
-              "records": [
-                "http://127.0.0.1:41365/f/f1"
-              ]
+              "records": ["http://127.0.0.1:41365/f/f1"]
             }
           }
         ],
@@ -5493,10 +5363,7 @@
                   "recordUrl": "http://127.0.0.1:41365/f/f1",
                   "name": "Lucinda Farraday",
                   "locations": [],
-                  "relatives": [
-                    "Hollis Farraday",
-                    "Wren Farraday"
-                  ]
+                  "relatives": ["Hollis Farraday", "Wren Farraday"]
                 }
               ]
             }
@@ -5976,10 +5843,7 @@
             "name": "report",
             "args": {
               "status": "complete",
-              "records": [
-                "http://127.0.0.1:40997/person/pa1",
-                "http://127.0.0.1:40997/person/pc1"
-              ]
+              "records": ["http://127.0.0.1:40997/person/pa1", "http://127.0.0.1:40997/person/pc1"]
             }
           }
         ],
@@ -5992,16 +5856,12 @@
                 {
                   "recordUrl": "http://127.0.0.1:40997/person/pa1",
                   "name": "Odette Prewitt",
-                  "locations": [
-                    "Madison, WI"
-                  ]
+                  "locations": ["Madison, WI"]
                 },
                 {
                   "recordUrl": "http://127.0.0.1:40997/person/pc1",
                   "name": "Odette Prewitt",
-                  "locations": [
-                    "Madison, WI"
-                  ]
+                  "locations": ["Madison, WI"]
                 }
               ]
             }
@@ -6203,25 +6063,19 @@
                   "recordUrl": "http://127.0.0.1:44387/u/r1",
                   "name": "Rhys Lindqvist",
                   "age": 57,
-                  "locations": [
-                    "Albany, NY"
-                  ]
+                  "locations": ["Albany, NY"]
                 },
                 {
                   "recordUrl": "http://127.0.0.1:44387/u/r5",
                   "name": "Rhys Lindqvist",
                   "age": 56,
-                  "locations": [
-                    "Albany, NY"
-                  ]
+                  "locations": ["Albany, NY"]
                 },
                 {
                   "recordUrl": "http://127.0.0.1:44387/u/r7",
                   "name": "Rhys Lindqvist",
                   "age": 57,
-                  "locations": [
-                    "Albany, NY"
-                  ]
+                  "locations": ["Albany, NY"]
                 }
               ]
             }
@@ -6511,9 +6365,7 @@
             "name": "report",
             "args": {
               "status": "complete",
-              "records": [
-                "http://127.0.0.1:36609/b/c1"
-              ]
+              "records": ["http://127.0.0.1:36609/b/c1"]
             }
           }
         ],
@@ -6527,9 +6379,7 @@
                   "recordUrl": "http://127.0.0.1:36609/b/c1",
                   "name": "Beatrix Lowell",
                   "age": 41,
-                  "locations": [
-                    "Charlotte, NC"
-                  ]
+                  "locations": ["Charlotte, NC"]
                 }
               ]
             }

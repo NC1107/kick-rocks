@@ -1,4 +1,5 @@
 import { US_STATES } from "@kickrocks/shared";
+import { CITY_PATTERN } from "./place-pattern.js";
 import { looksLikeName, splitRecordLines } from "./record-check.js";
 
 /** What the worker read of one record: the heading and link text it was named by, and the page or card text. */
@@ -19,8 +20,10 @@ export interface CandidateDetails {
 
 const STATE_CODES = new Set<string>(US_STATES.map((state) => state.code));
 const AGE = /\bage[d]?\s*:?\s*(\d{1,3})\b/i;
-const PLACE =
-  /(?<![\p{L}\p{N}])(\p{Lu}[\p{L}.'-]*(?:[ ]\p{Lu}[\p{L}.'-]*){0,2}),\s*([A-Z]{2})(?![\p{L}\p{N}])/gu;
+const PLACE = new RegExp(
+  `(?<![\\p{L}\\p{N}])(${CITY_PATTERN}),\\s*([A-Z]{2})(?![\\p{L}\\p{N}])`,
+  "gu",
+);
 const PHONE = /(?<![\d])(?:\+?1[\s.-]?)?(?:\(\d{3}\)|\d{3})[\s.-]?\d{3}[\s.-]?\d{4}(?![\d])/g;
 const EMAIL = /[\w.+-]+@[\w-]+(?:\.[\w-]+)+/g;
 

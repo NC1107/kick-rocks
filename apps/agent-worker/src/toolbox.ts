@@ -221,12 +221,15 @@ const SEND_DETAILS = `(el) => {
   const submits = tag === "input" || tag === "button" ? type !== "button" && type !== "reset" : false;
   const form = el.form || el.closest("form");
   const words = tag === "input" ? el.value : el.textContent;
+  const raw = el.getAttribute("formaction") || (form ? (form.getAttribute("action") || "") : "");
+  const resolve = (value) => { try { return new URL(value, document.baseURI).href; } catch (e) { return value; } };
   return {
     button,
     submits: submits && Boolean(form),
     label: clean(el.getAttribute("aria-label") || words || el.getAttribute("title") || ""),
-    action: form ? (form.getAttribute("action") || "") : "",
-    method: form ? (form.getAttribute("method") || "get").toLowerCase() : "",
+    action: raw,
+    target: resolve(raw),
+    method: (el.getAttribute("formmethod") || (form ? form.getAttribute("method") : "") || "get").toLowerCase(),
   };
 }`;
 
@@ -553,6 +556,10 @@ export class Toolbox {
     return Array.from(addresses, (address) => ({ address, shown: this.options.mask(address) }));
   }
 
+  private isResultsPage(address: string): boolean {
+    return this.resultsAddresses.has(address) || this.resultsPages.has(pathOf(address));
+  }
+
   private isKnownRecord(address: string): boolean {
     return this.cards.has(address) || this.verdicts.has(address) || this.recordPages.has(address);
   }
@@ -567,6 +574,7 @@ export class Toolbox {
     unknown: string[];
     ambiguous: string[];
     unread: string[];
+    resultsPages: string[];
   } {
     const known = this.knownRecords();
     const found = {
@@ -574,11 +582,14 @@ export class Toolbox {
       unknown: [] as string[],
       ambiguous: [] as string[],
       unread: [] as string[],
+      resultsPages: [] as string[],
     };
     for (const entry of entries) {
       const resolved = resolveRecordEntry(entry, known, this.refAddresses);
       if ("problem" in resolved) {
         found[resolved.problem].push(entry);
+      } else if (this.isResultsPage(resolved.address)) {
+        found.resultsPages.push(entry);
       } else if (!this.cards.has(resolved.address) && !this.recordPages.has(resolved.address)) {
         found.unread.push(entry);
       } else if (!found.addresses.includes(resolved.address)) {
@@ -620,9 +631,19 @@ export class Toolbox {
    * ready to copy, so a model that has the answer does not have to build it.
    */
   scanFinishLine(): string | null {
-    if (this.options.purpose !== "scan" || this.verdicts.size === 0) return null;
-    if (this.pendingRecords().length > 0 || this.unopenedPages().length > 0) return null;
-    return this.finishLine();
+    if (this.options.purpose !== "scan") return null;
+    return this.isSettled() ? this.finishLine() : null;
+  }
+
+  /**
+   * Whether the worker has decided everything there is to decide. A scan that has seen no results
+   * page has decided nothing, and a record whose own page did not settle it is the model's to
+   * decide, so neither is a reason to tell the model to finish with an empty report.
+   */
+  private isSettled(): boolean {
+    if (this.resultsPages.size === 0 || this.verdicts.size === 0) return false;
+    if (this.unopenedPages().length > 0) return false;
+    return !Array.from(this.verdicts.values()).some((verdict) => verdict.decision === "undecided");
   }
 
   private finishLine(): string {
@@ -1143,7 +1164,9 @@ export class Toolbox {
   private async recordCardsOfPage(): Promise<CardText[]> {
     try {
       const found = await this.options.page.evaluate<CardText[]>(READ_RECORD_CARDS);
-      return recordCards(found).filter((card) => refuseNavigation(card.href, this.policy) === null);
+      return recordCards(found, this.options.fields).filter(
+        (card) => refuseNavigation(card.href, this.policy) === null,
+      );
     } catch {
       return [];
     }
@@ -1261,8 +1284,20 @@ export class Toolbox {
         "Records marked not decided: call check_record without a ref on the results page.",
       );
     }
-    if (waiting.length === 0 && this.pendingRecords().length === 0) lines.push(this.finishLine());
+    const mine = this.recordsLeftForTheModel();
+    if (mine.length > 0) {
+      lines.push(
+        `Records whose own page did not settle them, for you to decide from what you saw: ${list(mine)}.`,
+      );
+    }
+    if (this.isSettled()) lines.push(this.finishLine());
     return lines;
+  }
+
+  private recordsLeftForTheModel(): string[] {
+    return Array.from(this.verdicts)
+      .filter(([, verdict]) => verdict.decision === "undecided" && verdict.fromRecordPage)
+      .map(([address]) => address);
   }
 
   /** Pagination controls of the latest results page that lead to results not yet opened. */
@@ -1635,8 +1670,10 @@ export class Toolbox {
   }
 
   /**
-   * A scan has nothing to send, so a button that asks for a removal, or one that would post a form
-   * which does, is refused whatever the page says about it. A search form is not one of them.
+   * A scan has nothing to send and has no outbound gate, so what it may submit is limited by what
+   * the form is and not by what it says. A form read with GET sends nothing the site could act on,
+   * and the search form of the page a scan started from may post. Any other submit is refused,
+   * whatever its words or its address, since a removal form can use a neutral label and path.
    */
   private async sendsInAScan(locator: Locator): Promise<boolean> {
     if (this.options.purpose !== "scan") return false;
@@ -1647,13 +1684,36 @@ export class Toolbox {
           submits: boolean;
           label: string;
           action: string;
+          target: string;
           method: string;
         }
       >(SEND_DETAILS),
     );
     if (!send.button) return false;
     if (REMOVAL_WORDS.test(send.label)) return true;
-    return send.submits && send.method === "post" && REMOVAL_WORDS.test(send.action);
+    if (!send.submits || send.method !== "post") return false;
+    return REMOVAL_WORDS.test(send.action) || !this.postsToSearchPage(send.target);
+  }
+
+  /**
+   * Whether a form posts back to the path of a start URL, from a page at that path: the search
+   * form, whose results are the same path again. A form that posts anywhere else is not a search.
+   */
+  private postsToSearchPage(target: string): boolean {
+    const pathnameOf = (address: string) => {
+      try {
+        return new URL(address).pathname;
+      } catch {
+        return null;
+      }
+    };
+    const here = pathnameOf(this.options.page.url());
+    const posted = pathnameOf(target);
+    return (
+      here !== null &&
+      here === posted &&
+      (this.options.startUrls ?? []).some((start) => pathnameOf(start) === here)
+    );
   }
 
   /**
@@ -1697,6 +1757,10 @@ export class Toolbox {
     );
   }
 
+  private hasPager(): boolean {
+    return paginationOf(this.controlsOfPage).length > 0;
+  }
+
   private alreadyDecided(address: string): ToolOutcome {
     const verdict = this.verdicts.get(address);
     const said =
@@ -1730,8 +1794,8 @@ export class Toolbox {
     const address = withoutFragment(record.href);
     this.rememberAddresses([record.href]);
     // A page with one link to a card may be a search with a single result, which is no record.
-    const canBeRecord = cardsOnPage === 0 || this.isKnownRecord(address);
-    if (canBeRecord && !this.resultsAddresses.has(address) && namesSomebody(record, fields)) {
+    const canBeRecord = this.isKnownRecord(address) || (cardsOnPage === 0 && !this.hasPager());
+    if (canBeRecord && !this.isResultsPage(address) && namesSomebody(record, fields)) {
       this.noteVerdict(address, judged.decision, true, judged.clashes);
       this.opened.add(address);
       this.recordPages.set(address, record);
@@ -2085,6 +2149,7 @@ export class Toolbox {
     const match = this.matchOption(options, keys);
     if (!match) return failure(this.noOption(ref, options, field, wanted, asked));
     const choice = this.options.page.locator(`[data-kr-option="${options.indexOf(match)}"]`);
+    if (await this.sendsInAScan(choice)) return failure(READ_ONLY_REFUSAL);
     const invented = this.refuseInventedChoice(ref, await this.choiceDetails(choice));
     if (invented !== null) return invented;
     const stopped = await this.beforeAct(true);

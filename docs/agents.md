@@ -488,7 +488,10 @@ The worker does not rely on the model to follow them.
   The comparison covers the name and its aliases, the place (current or past), the birth year and the age, and only for the identifiers the person's profile holds.
   A record contradicts only on positive evidence of a different value: another name, a different state or another city in the person's state, another birth year, or an age that does not fit.
   A card that shows less, such as a state without a city, a last initial or a cut-off name, is `not decided` and not a contradiction.
-  A place is read in the ways sites write it: `City, ST`, `City ST`, `City ST 12345` and `City, State`.
+  A place is read in the ways sites write it: `City, ST`, `City ST`, `City ST 12345`, `City, State`, and a City and a State under their own labels in a table.
+  An age is read as a number, a range (`Age 42-47`, `Ages 40 to 44`), a decade (`In their 40s`) or a number after the name (`Dana Smith, 31`).
+  A single age one or two years outside the ages the birth year gives is neither a fit nor a contradiction, because a page goes stale.
+  When the program has the birth year and the page shows something that looks like an age or a year that it cannot read, the record is `not decided` and not `fits`.
   The block never prints a value of the person.
 - `check_record` gives the same comparison on request.
   Without a ref on a results page, the program opens each record that is `not decided`, reads its own page, judges it, comes back, and answers with one line per record.
@@ -496,7 +499,8 @@ The worker does not rely on the model to follow them.
   A results page that lists a single record is not a record page, so the answer says to open that record first.
 - A record page is read without the site's header, navigation, footer and sidebars.
   The lines under a label of relatives or of other people ("People also viewed", "Similar people") belong to those people, not to the record, for as long as they read as entries of a list.
-  On a record page the program calls a record `fits` when the name matches and at least one place, birth year or age that was compared matches too, and leaves it `not decided` otherwise.
+  On a record page the program calls a record `fits` when the name matches, at least one place, birth year or age that was compared matches too, and the page shows no age it could not read, and leaves it `not decided` otherwise.
+  A card is a record when it has a heading, when its link text or its text names the person, when its link reads as a name, or when its address has the shape of other record links on the page, so a site that words every link "Open full report" is still read.
   The model decides what the program leaves `not decided`.
 - The candidate the server stores is built by the program from the text the site showed.
   It holds the name, the age, the places, and the relatives, phones and emails on the record's own lines.
@@ -509,11 +513,13 @@ The worker does not rely on the model to follow them.
 - A scan report is held against what the program found.
   Before it answers, the program opens the records it could not decide and the records the report includes that only their card contradicts, at most 12 at a time and a few seconds apart at the human pace.
   The first report is questioned once: a record that fits and is missing, one that contradicts and is in, and one it could not decide are named.
-  After that, a record that fits is added and a record whose own page contradicts the person is left out, whatever the model reported.
-  A card alone never removes a record from a report.
-  The model's choice stands only for the records the program could not decide.
+  After that, a record that fits is added to the report.
+  A record that contradicts is questioned and never removed, because the program's reading of a page is wrong often enough that a silent removal would hide a real record from the person.
+  The model's report stands for every record the program did not mark as fitting, and the person confirms each candidate.
+  The program tells the model to finish only when it has seen a results page and has decided every record it saw.
 - A scan sends nothing and stays on the search, results and record pages.
-  A click or a key press that would send a form is refused with "A scan never sends a request to the site".
+  A click or a choice that would submit a form is refused with "A scan never sends a request to the site", whatever the button or the address says.
+  Only a form that is read with GET, and a form on a page at the path of a start URL that posts back to that same path, may be submitted.
   A link or an address to an opt-out, removal or privacy request page is refused, except the pages the task started on.
 - After a `type`, `select` or `check` in a form, the answer ends with a line that lists the required controls of that form that are still empty, with the options of an open dropdown, or says that every required control is filled.
   It tells the model what is left, so it does not repeat a step that already worked.

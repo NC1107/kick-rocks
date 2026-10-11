@@ -1,4 +1,6 @@
 import { type ProfileFields, US_STATES } from "@kickrocks/shared";
+import { readsAsPagination } from "./pagination.js";
+import { CITY_PATTERN } from "./place-pattern.js";
 
 /**
  * What a result card or a record page says, as the page's own text. The words are compared here
@@ -14,7 +16,7 @@ type Verdict = {
   name: "matches" | "matches as an alias" | "differs" | "not shown" | null;
   place: "found" | "absent" | "not shown" | null;
   birthYear: "matches" | "differs" | "not shown" | null;
-  age: "fits" | "does not fit" | "not shown" | null;
+  age: "fits" | "does not fit" | "not shown" | "unclear" | null;
 };
 
 const SUFFIXES = new Set(["jr", "sr", "ii", "iii", "iv"]);
@@ -53,6 +55,15 @@ function personName(fields: ProfileFields): { first: string; last: string } | nu
 type NameMatch = "full" | "partial" | "none";
 
 /**
+ * A hyphenated name is compared part by part: a page that adds a married surname has shown the
+ * person, and a page that shows only one part of a hyphenated name has only shortened it.
+ */
+function namePartIs(word: string, target: string): 0 | 1 | 2 {
+  if (word === target || word.split("-").includes(target)) return 2;
+  return target.split("-").includes(word) ? 1 : 0;
+}
+
+/**
  * The first and last name in order or as "Last, First", with up to two middle names or initials
  * between. A first initial or a last name cut short to an initial or a prefix is only a partial
  * match, since a site that shortens names has not shown a different person.
@@ -60,8 +71,9 @@ type NameMatch = "full" | "partial" | "none";
 function nameMatch(unit: string, name: { first: string; last: string }): NameMatch {
   const words = nameTokens(unit);
   const firstIs = (word: string) =>
-    word === name.first ? 2 : word.length === 1 && name.first.startsWith(word) ? 1 : 0;
-  const lastIs = (word: string) => (word === name.last ? 2 : name.last.startsWith(word) ? 1 : 0);
+    namePartIs(word, name.first) || (word.length === 1 && name.first.startsWith(word) ? 1 : 0);
+  const lastIs = (word: string) =>
+    namePartIs(word, name.last) || (name.last.startsWith(word) ? 1 : 0);
   let best = 0;
   words.forEach((word, i) => {
     for (const later of words.slice(i + 1, i + 4)) {
@@ -218,7 +230,7 @@ function stateAnywhere(text: string, value: string): boolean {
 
 /** Codes whose capitals are also a credential or a word, so a bare one counts as a place only with a zip code. */
 const AMBIGUOUS_CODES = new Set(["MD", "PA", "DO", "ID", "DC", "OR", "IN", "ME", "OK", "HI", "AL"]);
-const CITY = "(\\p{Lu}[\\p{L}.'-]*(?: \\p{Lu}[\\p{L}.'-]*){0,2})";
+const CITY = `(${CITY_PATTERN})`;
 const WITH_COMMA = new RegExp(`${WORD_BEFORE}${CITY},[ ]*([A-Z]{2})${WORD_AFTER}`, "gu");
 const STATE_NAME_ALTERNATIVES = [...US_STATES]
   .sort((a, b) => b.name.length - a.name.length)
@@ -278,6 +290,31 @@ function placesShown(lines: readonly string[]): ShownPlace[] {
   return shown;
 }
 
+const LABEL_THEN_VALUE = (label: string) =>
+  new RegExp(`^(?:current\\s+)?${label}\\s*:?\\s*(.*)$`, "iu");
+const CITY_LABEL = LABEL_THEN_VALUE("(?:city|town)");
+const STATE_LABEL = LABEL_THEN_VALUE("state");
+const CITY_VALUE = new RegExp(`^${CITY_PATTERN}$`, "u");
+
+/** What a label holds: the rest of its line, or the line after it when a table put the cell on its own. */
+function valueUnder(lines: readonly string[], label: RegExp): string | null {
+  for (const [i, line] of lines.entries()) {
+    const match = label.exec(line.trim());
+    if (match === null) continue;
+    const value = (match[1] ?? "").trim() || (lines[i + 1] ?? "").trim();
+    if (value !== "") return value;
+  }
+  return null;
+}
+
+/** A city and a state given under their own labels, as a table does, written as one place. */
+function labeledPlace(lines: readonly string[]): string | null {
+  const city = valueUnder(lines, CITY_LABEL);
+  const state = valueUnder(lines, STATE_LABEL);
+  if (city === null || state === null) return null;
+  return CITY_VALUE.test(city) && isStateWord(state) ? `${city}, ${state}` : null;
+}
+
 /**
  * A place is absent only when the text shows a different one: another state, or another city in
  * the person's state. A text that shows only the person's state, or none, has not ruled the person out.
@@ -310,8 +347,62 @@ function placeVerdict(main: string, fields: ProfileFields): Verdict["place"] {
 
 const BORN =
   /\b(?:born|b\.|birth year|dob|date of birth)\W{0,3}(?:in\s+)?(?:[A-Za-z]+\.?\s+)?(?:\d{1,2}[/-])?(?:\d{1,2},?\s+)?((?:19|20)\d{2})\b/i;
-const AGE =
-  /\bage[d]?\s*:?\s*(\d{1,3})\b|\b(\d{1,3})\s*(?:years?\s*old|yrs?\b)|\((\d{2,3})\)(?!\s*\d{3}[\s.-]\d{4})/i;
+const AGE_WORD = /\bag(?:e|es|ed)\s*:?\s*(\d{1,3})(?:\s*(?:-|\u2013|\u2014|to)\s*(\d{1,3}))?\b/gi;
+const AGE_YEARS = /\b(\d{1,3})\s*(?:years?\s*old|yrs?\b|y\/?o\b)/gi;
+const AGE_PARENS = /\((\d{2,3})\)(?!\s*\d{3}[\s.-]\d{4})/g;
+const AGE_DECADE = /\b([1-9])0['\u2019]?s\b/gi;
+const AGE_AFTER_NAME = /^\p{Lu}[\p{L}.'-]*(?:\s+\p{Lu}[\p{L}.'-]*){0,4},\s*(\d{2,3})\s*$/gmu;
+/** A page that says in words that it has no age has not hidden one from the parser. */
+const AGE_ABSENT =
+  /\bag(?:e|es|ed)\s*:?\s*(?:is\s+)?(?:not\s+(?:listed|shown|available|provided|known)|unknown|n\/a|withheld|unavailable|hidden)\b/gi;
+/** Something that looks like an age or a birth year and that no pattern above could read. */
+const AGE_LIKE = /\bag(?:e|es|ed)\b|\by\/?o\b|\byears?\s*old\b|\b(?:19\d{2}|200\d)\b/i;
+
+interface AgeSpan {
+  low: number;
+  high: number;
+}
+
+/** Every age the text states, as a span: "46", "42-47", "Ages 40 to 44" and "In their 40s" are all spans. */
+function agesShown(text: string): AgeSpan[] {
+  const spans: AgeSpan[] = [];
+  const add = (low: number, high: number) => {
+    if (low <= high && high <= 120) spans.push({ low, high });
+  };
+  for (const match of text.matchAll(AGE_WORD)) {
+    const low = Number(match[1]);
+    add(low, match[2] === undefined ? low : Number(match[2]));
+  }
+  for (const pattern of [AGE_YEARS, AGE_PARENS, AGE_AFTER_NAME]) {
+    for (const match of text.matchAll(pattern)) add(Number(match[1]), Number(match[1]));
+  }
+  for (const match of text.matchAll(AGE_DECADE)) {
+    const low = Number(match[1]) * 10;
+    add(low, low + 9);
+  }
+  return spans;
+}
+
+/**
+ * A page goes stale by a year or two, so a single age just outside the ages the birth year gives
+ * is not held to contradict the person. It is left unclear for the model, and it does not fit.
+ */
+const STALE_AGE_YEARS = 2;
+
+function ageVerdict(text: string, age: number, birthYearShown: boolean): Verdict["age"] {
+  const shown = agesShown(text);
+  if (shown.length === 0)
+    return !birthYearShown && AGE_LIKE.test(text.replace(AGE_ABSENT, " "))
+      ? "unclear"
+      : "not shown";
+  const fitsSpan = (span: AgeSpan) => span.low <= age && span.high >= age - 1;
+  if (shown.some(fitsSpan)) return "fits";
+  const nearlyFits = (span: AgeSpan) =>
+    span.low === span.high &&
+    span.low >= age - 1 - STALE_AGE_YEARS &&
+    span.low <= age + STALE_AGE_YEARS;
+  return shown.some(nearlyFits) ? "unclear" : "does not fit";
+}
 
 function birthYearOf(fields: ProfileFields): number | null {
   const year = /^(\d{4})/.exec((fields.birth_year ?? fields.date_of_birth ?? "").trim())?.[1];
@@ -327,7 +418,13 @@ export function compareRecord(
   const mainText = main.join("\n");
   const name = personName(fields);
   const heading = record.heading.trim();
-  const displayed = looksLikeName(heading)
+  // A heading such as "Background Report" reads as a name, and the page's own lines then say whom it is about.
+  const headingIsName =
+    looksLikeName(heading) &&
+    (name === null ||
+      nameMatch(heading, name) !== "none" ||
+      !main.some((unit) => nameIn(unit, name)));
+  const displayed = headingIsName
     ? heading
     : heading === "" && main[0] !== undefined && looksLikeName(main[0])
       ? main[0]
@@ -344,17 +441,15 @@ export function compareRecord(
       verdict.name = displayed !== null && !shortened ? "differs" : "not shown";
     }
   }
-  verdict.place = placeVerdict(mainText, fields);
+  const labeled = labeledPlace(main);
+  verdict.place = placeVerdict(labeled === null ? mainText : `${mainText}\n${labeled}`, fields);
 
   const born = birthYearOf(fields);
   if (born !== null) {
     const shown = BORN.exec(mainText)?.[1];
     verdict.birthYear =
       shown === undefined ? "not shown" : Number(shown) === born ? "matches" : "differs";
-    const ageMatch = AGE.exec(mainText);
-    const age = Number(ageMatch?.[1] ?? ageMatch?.[2] ?? ageMatch?.[3]);
-    if (ageMatch === null) verdict.age = "not shown";
-    else verdict.age = age === year - born || age === year - born - 1 ? "fits" : "does not fit";
+    verdict.age = ageVerdict(mainText, year - born, shown !== undefined);
   }
 
   const lines: string[] = [];
@@ -365,7 +460,7 @@ export function compareRecord(
     );
   }
   if (verdict.birthYear) lines.push(`birth year: ${verdict.birthYear}`);
-  if (verdict.age) lines.push(`age: ${verdict.age}`);
+  if (verdict.age) lines.push(`age: ${verdict.age === "unclear" ? "not clear" : verdict.age}`);
 
   const contradicts =
     verdict.name === "differs" ||
@@ -411,7 +506,10 @@ export function judgeRecord(
   const compared = verdict.place !== null || verdict.birthYear !== null;
   const confirmed =
     verdict.place === "found" || verdict.birthYear === "matches" || verdict.age === "fits";
-  const fits = decision === "fits" || (onRecordPage && nameFits && (confirmed || !compared));
+  // An age the page shows in a form the parser cannot read is not an absent age, so the model decides.
+  const readable = verdict.age !== "unclear";
+  const fits =
+    decision === "fits" || (onRecordPage && readable && nameFits && (confirmed || !compared));
   return { lines, decision: fits ? "fits" : "undecided", clashes };
 }
 
@@ -453,14 +551,69 @@ export interface CardText extends RecordText {
   linkText: string;
 }
 
+/** Link words that offer a page and name nobody, however they are capitalised. */
+const GENERIC_LINK =
+  /^(?:view|open|see|show|read|get|full|more|search|next|previous|back|click|details?|report|profile)\b/i;
+
+/** The path shape a site gives its records: a section and an id, which a second record shares. */
+function kindOfAddress(href: string): { origin: string; count: number; first: string } | null {
+  try {
+    const url = new URL(href);
+    const segments = url.pathname.split("/").filter(Boolean);
+    return { origin: url.origin, count: segments.length, first: segments[0] ?? "" };
+  } catch {
+    return null;
+  }
+}
+
+/** A link text that is no record's: nothing, a pager control, or only a place. */
+function isNoRecordLink(text: string): boolean {
+  const link = text.trim();
+  return link === "" || readsAsPagination(link) || isPlaceLine(link);
+}
+
+function pathOfAddress(href: string): string {
+  try {
+    return new URL(href).pathname;
+  } catch {
+    return href;
+  }
+}
+
 /**
- * The cards of a results page that are records: those with a heading or a link that reads as a
- * name, once for each address, since a card often links its record twice.
+ * The cards of a results page that are records, once for each address, since a card often links
+ * its record twice. A card is a record when it has a heading, when its link text or its text names
+ * the person, when its link reads as a name, or when its address has the shape of other record
+ * links on the page. A site that words every link "Open full report" is told apart by the last.
  */
-export function recordCards(found: readonly CardText[]): CardText[] {
+export function recordCards(
+  found: readonly CardText[],
+  fields: ProfileFields | null = null,
+): CardText[] {
+  const name = fields === null ? null : personName(fields);
+  const kinds = found.map((card) => ({ card, kind: kindOfAddress(card.href) }));
+  const sharesKind = (card: CardText, kind: ReturnType<typeof kindOfAddress>) =>
+    kind !== null &&
+    !isNoRecordLink(card.linkText) &&
+    kind.count >= 2 &&
+    kinds.some(
+      (other) =>
+        other.card !== card &&
+        other.kind !== null &&
+        other.kind.origin === kind.origin &&
+        other.kind.count === kind.count &&
+        other.kind.first === kind.first &&
+        pathOfAddress(other.card.href) !== pathOfAddress(card.href),
+    );
   const byAddress = new Map<string, CardText>();
-  for (const card of found) {
-    if (card.heading.trim() === "" && !looksLikeName(card.linkText)) continue;
+  for (const { card, kind } of kinds) {
+    const link = card.linkText.trim();
+    const namesPerson =
+      name !== null && (nameMatch(link, name) !== "none" || nameMatch(card.text, name) !== "none");
+    const readsAsName = looksLikeName(link) && !GENERIC_LINK.test(link);
+    if (card.heading.trim() === "" && !namesPerson && !readsAsName && !sharesKind(card, kind)) {
+      continue;
+    }
     const address = card.href.split("#")[0] ?? card.href;
     const kept = byAddress.get(address);
     if (kept === undefined || (kept.heading.trim() === "" && card.heading.trim() !== "")) {

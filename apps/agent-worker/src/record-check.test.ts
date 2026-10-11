@@ -115,11 +115,13 @@ describe("birth year and age", () => {
     expect(check("Jordan Example", "Born 1985")).toContain("birth year: differs");
   });
 
-  it("fits an age of the current year minus the birth year, or one less", () => {
+  it("fits an age of the current year minus the birth year, or one less, and leaves a near miss unclear", () => {
     expect(check("Jordan Example", "Age 36")).toContain("age: fits");
     expect(check("Jordan Example", "Age 35")).toContain("age: fits");
-    expect(check("Jordan Example", "Age 34")).toContain("age: does not fit");
-    expect(check("Jordan Example", "Age 37")).toContain("age: does not fit");
+    expect(check("Jordan Example", "Age 33")).toContain("age: not clear");
+    expect(check("Jordan Example", "Age 38")).toContain("age: not clear");
+    expect(check("Jordan Example", "Age 32")).toContain("age: does not fit");
+    expect(check("Jordan Example", "Age 39")).toContain("age: does not fit");
     expect(check("Jordan Example", "61 years old")).toContain("age: does not fit");
   });
 
@@ -364,5 +366,217 @@ describe("recordCards", () => {
       card({ ref: "e3", href: "https://a.test/p/2", heading: "Sam Smith" }),
     ]);
     expect(kept.map((c) => c.ref)).toEqual(["e2", "e3"]);
+  });
+});
+
+describe("an age the page words in another way", () => {
+  const ingrid: ProfileFields = {
+    first_name: "Ingrid",
+    last_name: "Halvorsen",
+    city: "Tampa",
+    state: "FL",
+    birth_year: "1984",
+  };
+  const onPage = (heading: string, text: string, fields = ingrid) =>
+    judgeRecord({ heading, text }, fields, YEAR, true);
+
+  it("reads a decade band as a span, so the 40s fit a 1984 birth year and the 60s and 30s do not", () => {
+    expect(onPage("Ingrid Halvorsen", "In their 40s\nLocated in Tampa, FL").decision).toBe("fits");
+    expect(onPage("Ingrid Halvorsen", "In their 60s\nLocated in Tampa, FL").decision).toBe(
+      "contradicts",
+    );
+    expect(onPage("Ingrid Halvorsen", "In their 30s\nLocated in Tampa, FL").decision).toBe(
+      "contradicts",
+    );
+    expect(
+      describeRecordCheck({ heading: "", text: "Ingrid Halvorsen, 40s" }, ingrid, YEAR, false),
+    ).toContain("age: fits");
+  });
+
+  it("reads a range, with a dash or a word, as a span", () => {
+    for (const shown of ["Age 40-44", "Ages 40 to 44", "Age 42-47"]) {
+      expect(onPage("Ingrid Halvorsen", `${shown}\nTampa, FL`).decision, shown).toBe("fits");
+    }
+    expect(onPage("Ingrid Halvorsen", "Ages 60 to 64\nTampa, FL").decision).toBe("contradicts");
+  });
+
+  it("reads an age that follows the name after a comma and an age after a colon", () => {
+    expect(onPage("", "Ingrid Halvorsen, 31\nTampa, FL").decision).toBe("contradicts");
+    expect(onPage("", "Ingrid Halvorsen, 42\nTampa, FL").decision).toBe("fits");
+    expect(onPage("Ingrid Halvorsen", "Ages: 42\nTampa, FL").decision).toBe("fits");
+  });
+
+  it("does not call an age one or two years stale a contradiction, and does not call it a fit", () => {
+    const dana: ProfileFields = {
+      ...PERSON,
+      first_name: "Dana",
+      last_name: "Whitfield",
+      birth_year: "1980",
+    };
+    expect(onPage("Dana Whitfield", "Age 44\nAustin, TX", dana).decision).toBe("undecided");
+    expect(onPage("Dana Whitfield", "Age 42-47\nAustin, TX", dana).decision).toBe("fits");
+  });
+
+  it("leaves a record page undecided when it shows an age the checks cannot read", () => {
+    const unread = onPage("Ingrid Halvorsen", "Age: forty-two\nLocated in Tampa, FL");
+    expect(unread.decision).toBe("undecided");
+    expect(unread.lines).toContain("age: not clear");
+    expect(onPage("Ingrid Halvorsen", "Located in Tampa, FL").decision).toBe("fits");
+    expect(onPage("Ingrid Halvorsen", "Age not listed\nLocated in Tampa, FL").decision).toBe(
+      "fits",
+    );
+  });
+});
+
+describe("a name the page words in another way", () => {
+  const dana: ProfileFields = {
+    first_name: "Dana",
+    last_name: "Whitfield",
+    city: "Austin",
+    state: "TX",
+    birth_year: "1980",
+  };
+  const onPage = (heading: string, text: string) =>
+    judgeRecord({ heading, text }, dana, YEAR, true);
+
+  it("does not take a page title such as Background Report for the displayed name", () => {
+    for (const heading of ["Background Report", "Public Record"]) {
+      const judged = onPage(heading, "Dana Whitfield, Age 46\nAustin, TX");
+      expect(judged.decision, heading).toBe("fits");
+      expect(judged.clashes, heading).toEqual([]);
+    }
+  });
+
+  it("still finds a different person in a heading when the page never names this one", () => {
+    expect(onPage("Mary Smith", "Mary Smith, Age 46\nAustin, TX").decision).toBe("contradicts");
+  });
+
+  it("compares a hyphenated surname part by part", () => {
+    expect(onPage("Dana Whitfield-Jones", "Age 46\nAustin, TX").decision).toBe("fits");
+    expect(
+      judgeRecord(
+        { heading: "Dana Whitfield", text: "Age 46\nAustin, TX" },
+        { ...dana, last_name: "Whitfield-Jones" },
+        YEAR,
+        true,
+      ).clashes,
+    ).toEqual([]);
+    expect(onPage("Dana Smith-Jones", "Age 46\nAustin, TX").decision).toBe("contradicts");
+  });
+});
+
+describe("a city written with a particle", () => {
+  const person = (city: string, state: string): ProfileFields => ({
+    first_name: "Jordan",
+    last_name: "Example",
+    city,
+    state,
+  });
+
+  it("finds Coeur d'Alene and Lake of the Woods", () => {
+    expect(check("Jordan Example", "Coeur d'Alene, ID", person("Coeur d'Alene", "ID"))).toContain(
+      "place: found",
+    );
+    expect(
+      check("Jordan Example", "Lake of the Woods, MN", person("Lake of the Woods", "MN")),
+    ).toContain("place: found");
+    expect(check("Jordan Example", "Coeur d'Alene, ID", person("Boise", "ID"))).toContain(
+      "place: absent",
+    );
+  });
+});
+
+describe("recordCards on a layout without a heading", () => {
+  const card = (over: Partial<CardText>): CardText => ({
+    ref: "e1",
+    href: "https://a.test/rec/b1",
+    heading: "",
+    text: "",
+    linkText: "",
+    ...over,
+  });
+  const anselm: ProfileFields = {
+    first_name: "Anselm",
+    last_name: "Bright",
+    city: "Boise",
+    state: "ID",
+    birth_year: "1981",
+  };
+
+  it("keeps a card whose link text names the person, though it is longer than a name", () => {
+    const kept = recordCards(
+      [
+        card({
+          ref: "e1",
+          href: "https://a.test/rec/b1",
+          linkText: "Anselm Bright - see public record",
+        }),
+        card({
+          ref: "e2",
+          href: "https://a.test/rec/b2",
+          linkText: "Anselm Bright - see public record",
+        }),
+        card({ ref: "e3", href: "https://a.test/about", linkText: "About this site" }),
+      ],
+      anselm,
+    );
+    expect(kept.map((c) => c.ref)).toEqual(["e1", "e2"]);
+  });
+
+  it("keeps cards that all say Open full report when their addresses share one shape", () => {
+    const kept = recordCards(
+      [
+        card({
+          ref: "e1",
+          href: "https://a.test/report/m1",
+          linkText: "Open full report",
+          text: "Yusuf Marchetti Arizona Open full report",
+        }),
+        card({ ref: "e2", href: "https://a.test/report/m2", linkText: "Open full report" }),
+        card({ ref: "e3", href: "https://a.test/contact", linkText: "Contact us" }),
+      ],
+      anselm,
+    );
+    expect(kept.map((c) => c.ref)).toEqual(["e1", "e2"]);
+  });
+
+  it("does not take a generic link such as View Full Report for a record on its own", () => {
+    const kept = recordCards(
+      [card({ ref: "e1", href: "https://a.test/x", linkText: "View Full Report" })],
+      anselm,
+    );
+    expect(kept).toEqual([]);
+  });
+
+  it("does not take pager links of one shape for records", () => {
+    const kept = recordCards(
+      [
+        card({ ref: "e1", href: "https://a.test/results/2", linkText: "2" }),
+        card({ ref: "e2", href: "https://a.test/results/3", linkText: "Next page" }),
+      ],
+      anselm,
+    );
+    expect(kept).toEqual([]);
+  });
+});
+
+describe("a place given under City and State labels", () => {
+  const yusuf: ProfileFields = {
+    first_name: "Yusuf",
+    last_name: "Marchetti",
+    city: "Phoenix",
+    state: "AZ",
+    birth_year: "1976",
+  };
+  const report = (city: string, age: number) => ({
+    heading: "Report summary",
+    text: `Name\tYusuf Marchetti\nAge\t${age}\nCity\t${city}\nState\tArizona`,
+  });
+
+  it("finds the person's city in a table and tells another city in the state apart", () => {
+    expect(judgeRecord(report("Phoenix", 50), yusuf, YEAR, true).decision).toBe("fits");
+    const other = judgeRecord(report("Tucson", 50), yusuf, YEAR, true);
+    expect(other.decision).toBe("contradicts");
+    expect(other.clashes).toEqual(["place differs"]);
   });
 });

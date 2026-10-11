@@ -128,7 +128,23 @@ Both come from `--fake checker`, a scripted model that reports no records, so th
 - The stress set uses a second builder with other markup, such as boxes instead of articles, places written `Austin TX`, ages written `(36)`, last initials, relatives with their own cities, and a sidebar of other people.
   It was written after the worker was tuned, so it is not an unseen set.
   The three runs it misses are one scenario with a single result on the results page, which the worker leaves for the model to open.
-- No local model has been rerun on the scans with the current worker, so the scan columns above are not a measure of it.
+
+Two local models were then run on the scans with the current worker, three runs for each scenario, with the ollama provider and thinking off.
+
+| Model | Independent set (12 scans) | Held-out set (15 scans) | Files |
+|---|---|---|---|
+| gpt-oss:20b | 32 of 36 runs (88.9%) | 43 of 45 runs (95.6%) | `bench/results/tuning/round-5/gpt-oss_20b-*` |
+| qwen3:14b | 35 of 36 runs (97.2%) | 44 of 45 runs (97.8%) | `bench/results/tuning/round-5/qwen3_14b-think-off-*` |
+
+- The held-out scans come from the same page builder as the dev scans, so a high held-out figure shows that the worker reads that builder's markup and wording, and says little about other sites.
+- The independent scans were written without sight of the worker's checks, with other markup and wording, so they are the figure to read.
+  Before the fixes below, the same set gave 23 of 36 runs for gpt-oss:20b and 24 of 36 for qwen3:14b (`bench/results/tuning/independent/`).
+  Every one of those misses was the worker's own verdict and not the model's: ages written as a band (`In their 40s`), an age after the name (`Cormac Teague, 31`), cards whose link text is a phrase or `Open full report` and so were not read as records, and a results page saved as a record, which then told the model to finish with an empty report.
+- The worker now reads bands, ranges and an age after the name, keeps a card whose link or text names the person, and leaves a record `not decided` when a page shows an age it cannot read.
+  The set was seen once the misses were known, so a fresh independent set is needed before these figures are trusted as unseen.
+- A record the worker marks as contradicting is questioned once and is no longer removed from a report.
+  The remaining independent misses are the model keeping such a record (a surname that differs by one letter in scenario 302 for gpt-oss:20b) or running out of steps on the numbered result pages (309), and the person sees each candidate before anything is sent.
+- The same fixes were checked with `--fake perfect` on the independent set (12 of 12) and with `--fake checker` on the dev and held-out sets, where the worker's checks alone are right on every scan.
 
 Per model:
 
@@ -185,7 +201,7 @@ How long a reload or a swap between two models takes was not measured.
 | Site that may already have an earlier request | yes, scenario 10 is part of the gate | only gpt-oss:20b | yes |
 | Removal from a search that may find nobody | check the outcome afterwards | yes | yes |
 | Webforms with custom dropdowns, multi-page flows | no | no | yes |
-| People-search scans | not measured with the current worker, but a scan sends nothing and a person confirms each candidate | yes | yes |
+| People-search scans | independent set 88.9% (gpt-oss:20b) and 97.2% (qwen3:14b), held-out 95.6% and 97.8%; a scan sends nothing and a person confirms each candidate | yes | yes |
 | Captcha, phone verification, ID upload, payment, an account | never | never | you |
 
 - A first visit to a site is worth watching whatever the model, and "Let the agent worker take unreviewed targets" under Workers in Settings should stay off until a model passes the gate.

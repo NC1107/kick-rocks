@@ -383,7 +383,7 @@ class AgentRun {
           this.messages.push({
             role: "user",
             text: empty
-              ? (this.toolbox.scanFinishLine() ?? EMPTY_TURN_NUDGE)
+              ? this.mask(this.toolbox.scanFinishLine() ?? EMPTY_TURN_NUDGE)
               : "Use one of the tools. When you are done, call report.",
           });
           continue;
@@ -726,6 +726,9 @@ class AgentRun {
       found.ambiguous.length > 0
         ? `these fit more than one record: ${found.ambiguous.join(", ")}`
         : null,
+      found.resultsPages.length > 0
+        ? `these are results pages and not records: ${found.resultsPages.join(", ")}`
+        : null,
       found.unread.length > 0
         ? `nothing was read of these records yet, so call check_record on the results page first: ${found.unread.join(", ")}`
         : null,
@@ -789,8 +792,10 @@ class AgentRun {
    * The report is held against what the worker found of each record. Records it could not decide
    * are opened first. The first report is questioned: a record that fits and is missing, one that
    * contradicts and is in, one it could not read. After that the worker's decided verdicts apply
-   * to whatever the model reports: records marked fits are added and records marked contradicts
-   * are removed, and the model's choice stands only for the records the worker could not decide.
+   * to whatever the model reports only by adding: a record marked fits is added. A record the worker
+   * marked contradicts is questioned once and never removed, since its regex-driven verdict is
+   * wrong often enough that dropping a real record of the person silently costs more than showing
+   * one the person then declines.
    */
   private async reviewScan(
     reported: readonly string[],
@@ -801,10 +806,7 @@ class AgentRun {
     const { missing, contradicting, unopened } = this.toolbox.scanVerdictsAgainst(reported);
     const question = this.questionScanReport({ missing, contradicting, unopened });
     if (question !== null) return { error: question };
-    const addresses = [
-      ...reported.filter((address) => !contradicting.includes(address)),
-      ...missing.filter((address) => !reported.includes(address)),
-    ];
+    const addresses = [...reported, ...missing.filter((address) => !reported.includes(address))];
     const candidates: ScanResult["candidates"] = [];
     for (const address of addresses) {
       const modelMade = given.find((candidate) => candidate.recordUrl === address);
@@ -852,7 +854,7 @@ class AgentRun {
     if (clauses.length === 0) return null;
     this.scanCheckSpent = true;
     return this.mask(
-      `Before you finish: ${clauses.join("; ")}. Report again. The worker's verdicts apply to the next report: a record it marked fits is added and one it marked contradicts is left out. Your choice stands only for records it could not decide.`,
+      `Before you finish: ${clauses.join("; ")}. Report again. The worker adds a record it marked fits to the next report. Your choice stands for every other record, including those it marked contradicts, so look at those again and keep the ones that are the person.`,
     );
   }
 }

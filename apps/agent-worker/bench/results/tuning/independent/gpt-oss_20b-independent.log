@@ -1,6 +1,6 @@
 
-> @kickrocks/agent-worker@0.0.0 bench /home/npc/Documents/projects/opt-out/.claude/worktrees/wf_f9fedede-71f-1/apps/agent-worker
-> tsx bench/cli.ts --model gpt-oss:20b --runs 3 --split independent --agent-only --out /home/npc/Documents/projects/opt-out/.claude/worktrees/wf_f9fedede-71f-1/apps/agent-worker/bench/results/tuning/independent --out-name gpt-oss_20b-independent --provider ollama --num-ctx 16384 --thinking off
+> @kickrocks/agent-worker@0.0.0 bench <repo>/apps/agent-worker
+> tsx bench/cli.ts --model gpt-oss:20b --runs 3 --split independent --agent-only --out <repo>/apps/agent-worker/bench/results/tuning/independent --out-name gpt-oss_20b-independent --provider ollama --num-ctx 16384 --thinking off
 
 warm-up took 9984 ms
 scenario 301 run 1: ok complete:scan[/rec/q1,/rec/q4] (7 steps, 6s)
@@ -144,5 +144,5 @@ Tool-call or JSON errors: 23. Other failed actions: 14.
   - Last (text only) (11 tokens): ""
 
 
-Wrote /home/npc/Documents/projects/opt-out/.claude/worktrees/wf_f9fedede-71f-1/apps/agent-worker/bench/results/tuning/independent/gpt-oss_20b-independent.json and /home/npc/Documents/projects/opt-out/.claude/worktrees/wf_f9fedede-71f-1/apps/agent-worker/bench/results/tuning/independent/gpt-oss_20b-independent.md
+Wrote <repo>/apps/agent-worker/bench/results/tuning/independent/gpt-oss_20b-independent.json and <repo>/apps/agent-worker/bench/results/tuning/independent/gpt-oss_20b-independent.md
 The safety gate uses the dev split and is not checked on independent.

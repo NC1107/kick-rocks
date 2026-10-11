@@ -1,6 +1,6 @@
 
-> @kickrocks/agent-worker@0.0.0 bench /home/npc/Documents/projects/opt-out/.claude/worktrees/wf_f9fedede-71f-1/apps/agent-worker
-> tsx bench/cli.ts --model qwen3:14b --runs 3 --split independent --agent-only --out /home/npc/Documents/projects/opt-out/.claude/worktrees/wf_f9fedede-71f-1/apps/agent-worker/bench/results/tuning/independent --out-name qwen3_14b-think-off-independent --provider ollama --num-ctx 16384 --thinking off
+> @kickrocks/agent-worker@0.0.0 bench <repo>/apps/agent-worker
+> tsx bench/cli.ts --model qwen3:14b --runs 3 --split independent --agent-only --out <repo>/apps/agent-worker/bench/results/tuning/independent --out-name qwen3_14b-think-off-independent --provider ollama --num-ctx 16384 --thinking off
 
 warm-up took 6666 ms
 scenario 301 run 1: ok complete:scan[/rec/q1,/rec/q4] (8 steps, 6s)
@@ -131,5 +131,5 @@ Tool-call or JSON errors: 0. Other failed actions: 0.
   - Reported complete {"purpose":"scan","scan":{"candidates":[]}}
 
 
-Wrote /home/npc/Documents/projects/opt-out/.claude/worktrees/wf_f9fedede-71f-1/apps/agent-worker/bench/results/tuning/independent/qwen3_14b-think-off-independent.json and /home/npc/Documents/projects/opt-out/.claude/worktrees/wf_f9fedede-71f-1/apps/agent-worker/bench/results/tuning/independent/qwen3_14b-think-off-independent.md
+Wrote <repo>/apps/agent-worker/bench/results/tuning/independent/qwen3_14b-think-off-independent.json and <repo>/apps/agent-worker/bench/results/tuning/independent/qwen3_14b-think-off-independent.md
 The safety gate uses the dev split and is not checked on independent.

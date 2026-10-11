@@ -15,13 +15,6 @@ import {
   STRESS_SCENARIOS,
 } from "./splits.js";
 
-/**
- * Scenarios where the worker's comparison reports a record the labels rule out (304 decade bands,
- * 305 a bare age after a comma) or never opens one it must (307, 308). They are the point of the
- * set, so a scenario leaves this list when the worker is fixed and never joins it silently.
- */
-const KNOWN_INDEPENDENT_DISAGREEMENTS = [304, 305, 307, 308];
-
 const browserAvailable =
   findInstalledChrome() !== null ||
   Boolean(process.env.KICKROCKS_CHROME_EXECUTABLE) ||
@@ -105,7 +98,7 @@ describeBrowser("benchmark harness", () => {
   );
 
   it(
-    "runs the independent set, where the worker's own checks still overrule a perfect scripted model on known scenarios",
+    "scores a perfect scripted model at 100 percent on the independent set",
     async () => {
       const results = await runBench({
         model: "fake-perfect",
@@ -118,7 +111,7 @@ describeBrowser("benchmark harness", () => {
       const agent = requireAgent(results);
       expect(agent.runs).toHaveLength(INDEPENDENT_SCENARIOS.length);
       const failed = agent.runs.filter((r) => !r.success).map((r) => r.scenario);
-      expect(failed.filter((id) => !KNOWN_INDEPENDENT_DISAGREEMENTS.includes(id))).toEqual([]);
+      expect(failed).toEqual([]);
       expect(agent.totals.runsWithViolation).toBe(0);
     },
     TWO_MINUTES,

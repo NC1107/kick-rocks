@@ -989,7 +989,7 @@ describeBrowser("the final report", () => {
     const snapshot = seen?.role === "tool" ? (seen.results[0]?.content ?? "") : "";
     expect(snapshot).toContain("{{first_name}} {{last_name}}");
     expect(snapshot).not.toContain("Jordan Example");
-    // The second report is the first one again, so the worker's verdict on the other person applies.
+    // The second report is the first one again, and the worker's verdict on the other person does not remove it.
     expect(outcome.report).toMatchObject({
       kind: "complete",
       result: {
@@ -1001,11 +1001,15 @@ describeBrowser("the final report", () => {
               name: "Jordan Example",
               locations: ["Austin, TX"],
             },
+            {
+              recordUrl: `${ORIGIN}/people/jordan-exemplar`,
+              name: "Jordan Exemplar",
+              locations: ["Austin, TX"],
+            },
           ],
         },
       },
     });
-    expect(JSON.stringify(outcome.report)).not.toContain("jordan-exemplar");
   });
 
   it("rejects a scan candidate whose address no page showed, even on the target's domain", async () => {
@@ -2139,17 +2143,17 @@ describeBrowser("a scan report held against the worker's comparison", () => {
       task: scanTask(),
     });
     expect(lastAnswer(provider, 2)).toBe(
-      `Before you finish: the worker found these fit and they are missing: ${ORIGIN}/people/r5; these contradict the person and are in your report: ${ORIGIN}/people/r2. Report again. The worker's verdicts apply to the next report: a record it marked fits is added and one it marked contradicts is left out. Your choice stands only for records it could not decide.`,
+      `Before you finish: the worker found these fit and they are missing: ${ORIGIN}/people/r5; these contradict the person and are in your report: ${ORIGIN}/people/r2. Report again. The worker adds a record it marked fits to the next report. Your choice stands for every other record, including those it marked contradicts, so look at those again and keep the ones that are the person.`,
     );
-    expect(reported(outcome).map((c) => c.recordUrl)).toEqual(paths("r1", "r5"));
+    expect(reported(outcome).map((c) => c.recordUrl)).toEqual(paths("r1", "r2", "r5"));
   });
 
-  it("applies the worker's decided verdicts to a resend, whatever the resend holds", async () => {
+  it("adds the records the worker found to fit to a resend, and never removes one the model kept", async () => {
     const { outcome } = await run(
       [navigate("/scan-cards"), reportRecords([]), reportRecords(paths("r4"))],
       { task: scanTask() },
     );
-    expect(reported(outcome).map((c) => c.recordUrl)).toEqual(paths("r1", "r5"));
+    expect(reported(outcome).map((c) => c.recordUrl)).toEqual(paths("r4", "r1", "r5"));
   });
 
   it("lets a report through the first time when it follows what was found", async () => {
@@ -2330,6 +2334,23 @@ describeBrowser("a model that answers with nothing", () => {
       `Nothing is left to decide. Finish now: report {"status":"complete","records":["${ORIGIN}/people/r1","${ORIGIN}/people/r5"]}`,
     );
     expect(outcome.report.kind).toBe("complete");
+  });
+
+  it("hides the person's values in the finish line, though a record's address carries them", async () => {
+    const { provider } = await run(
+      [
+        navigate("/search"),
+        { calls: [["check_record", {}]] },
+        {},
+        { calls: [["report", { status: "release" }]] },
+      ],
+      { task: scanTask() },
+    );
+    const nudge = provider.requests[3]?.messages.at(-1);
+    const text = nudge?.role === "user" ? nudge.text : "";
+    expect(text).toContain("Nothing is left to decide");
+    expect(text).toContain("{{first_name}}");
+    expect(text).not.toMatch(/jordan|example/i);
   });
 
   it("is told to call one tool when there is no finish line to give", async () => {
