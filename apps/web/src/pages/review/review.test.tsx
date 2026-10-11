@@ -244,16 +244,19 @@ describe("the review pages", () => {
     await waitFor(() => expect(mock.store.tasks.length).toBe(before + 1));
   });
 
-  it("sends the old scans address to where you're listed", async () => {
-    renderPage(
-      <Routes>
-        <Route path="/review" element={<ReviewPage />} />
-        <Route path="/targets/listings" element={<p>Listings page</p>} />
-      </Routes>,
-      { route: "/review?item=scans" },
-    );
-    expect(await screen.findByText("Listings page")).toBeVisible();
-  });
+  it.each(["/review?item=scans", "/review?tab=scans", "/review/scans"])(
+    "sends the old scans address %s to where you're listed",
+    async (route) => {
+      renderPage(
+        <Routes>
+          <Route path="/review/*" element={<ReviewPage />} />
+          <Route path="/targets/listings" element={<p>Listings page</p>} />
+        </Routes>,
+        { route },
+      );
+      expect(await screen.findByText("Listings page")).toBeVisible();
+    },
+  );
 
   it("says when the queue cannot load", async () => {
     open(undefined, failing(/\/api\/review/));
@@ -323,7 +326,7 @@ describe("the tabs under the Review title", () => {
       "href",
       "/review/problems",
     );
-    expect(tabs.getByRole("link", { name: "Scans" })).toHaveAttribute("href", "/review/scans");
+    expect(tabs.getByRole("link", { name: "Scans" })).toHaveAttribute("href", "/targets/listings");
   });
 
   it("marks the page that is open", async () => {
@@ -373,7 +376,6 @@ describe("addresses saved before Review was split", () => {
     ["mail", "/review/mail"],
     ["failed", "/review/problems"],
     ["agents", "/review/agents"],
-    ["scans", "/review/scans"],
   ])("sends ?tab=%s to %s, replacing the old address", async (tab, destination) => {
     openAt(`/review?tab=${tab}`);
     await waitFor(() => expect(where()).toMatch(new RegExp(`^${destination}(\\?item=.*)?$`)));
@@ -449,7 +451,6 @@ describe("addresses saved before Review was split", () => {
   it.each([
     ["failed:tsk_1", "/review/problems?item=failed%3Atsk_1"],
     ["mail:msg_1", "/review/mail?item=mail%3Amsg_1"],
-    ["scans", "/review/scans"],
   ])("sends ?item=%s to %s", async (item, destination) => {
     openAt(`/review?item=${encodeURIComponent(item)}`);
     await waitFor(() => expect(where()).toBe(destination));
