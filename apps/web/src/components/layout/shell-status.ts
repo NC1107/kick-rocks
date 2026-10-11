@@ -8,6 +8,7 @@ import { pluralize } from "../../lib/format.js";
 import { paths } from "../../lib/paths.js";
 import type { Family } from "../../lib/tone.js";
 import { workerState } from "../../pages/settings/model.js";
+import { fixableHeldScans } from "../holds/hold-text.js";
 
 export interface StatusChip {
   id: "worker" | "inbox" | "sends" | "sites";
@@ -26,7 +27,7 @@ const NEAR_LIMIT = 0.8;
 export function workerChip(
   worker: SettingsView["worker"],
   now: number,
-  scans?: Pick<Dashboard["scans"], "held"> | null,
+  scans?: Pick<Dashboard["scans"], "byReason"> | null,
 ): StatusChip {
   const to = paths.settings("worker");
   const states = [worker.builtin, worker.model].map((status) =>
@@ -36,9 +37,10 @@ export function workerChip(
     return { id: "worker", tone: "neutral", label: "No worker", to };
   }
   if (states.includes("online")) {
-    // An online worker with work it may not start is not "fine": the person should see why nothing moves.
-    return scans && scans.held > 0
-      ? { id: "worker", tone: "attention", label: "Worker idle", value: `${scans.held} held`, to }
+    // Pacing holds clear by themselves, so only work that waits on the person turns the chip.
+    const fixable = scans ? fixableHeldScans(scans) : 0;
+    return fixable > 0
+      ? { id: "worker", tone: "attention", label: "Worker idle", value: `${fixable} held`, to }
       : { id: "worker", tone: "positive", label: "Worker online", to };
   }
   return { id: "worker", tone: "attention", label: "Worker offline", to };

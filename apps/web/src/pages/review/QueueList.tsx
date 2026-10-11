@@ -5,7 +5,6 @@ import {
   EmptyState,
   EntityLink,
   Kbd,
-  RelativeTime,
   Row,
   RowGroup,
   Section,
@@ -176,14 +175,23 @@ function WaitingGroup({ waiting, total }: { waiting: readonly WaitingTask[]; tot
           <Row
             key={item.taskId}
             leading={<StatusShapeGlyph shape="ring" />}
-            title={item.targetName ?? "Unknown target"}
-            description={<HoldReason hold={item.waiting} targetId={item.targetId} compact />}
-            wrapDescription
-            trailing={
-              <span className="font-mono text-caption text-ink-3 tabular-nums">
-                <RelativeTime iso={item.waiting.until} />
-              </span>
+            title={
+              item.targetId ? (
+                <EntityLink
+                  to={{
+                    kind: "target",
+                    id: item.targetId,
+                    name: item.targetName ?? "Unknown target",
+                  }}
+                  variant="quiet"
+                  className="text-ink"
+                />
+              ) : (
+                (item.targetName ?? "Unknown target")
+              )
             }
+            description={<HoldReason hold={item.waiting} glyph={false} showSite={false} compact />}
+            wrapDescription
             className="py-1.5"
           />
         ))}

@@ -98,7 +98,10 @@ export function startManualPoll(
       );
     }
   }
-  const { task } = services.dispatch.enqueueInboxPoll(mailbox.id, requestId ? { requestId } : undefined);
+  const { task } = services.dispatch.enqueueInboxPoll(
+    mailbox.id,
+    requestId ? { requestId } : undefined,
+  );
   if (!isPollOf(mailbox.id)(task))
     throw new AppError(500, "internal_error", "The poll was not queued");
   return describePoll(services, task);

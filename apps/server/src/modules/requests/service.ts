@@ -79,7 +79,13 @@ export function createRequestsApi(services: AppServices): RequestsApi {
         }).some((signal) => signal.classification === "needs_form"),
       );
     if (!misfiled) return null;
-    return { messageId: misfiled.id, state: "unconfirmed", url: null, fromReply: false, phone: null };
+    return {
+      messageId: misfiled.id,
+      state: "unconfirmed",
+      url: null,
+      fromReply: false,
+      phone: null,
+    };
   }
 
   /**

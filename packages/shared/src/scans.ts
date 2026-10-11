@@ -31,13 +31,7 @@ export type Match = z.infer<typeof Match>;
 /** Why a scan that has not started is still queued: the site is being given time, or nothing can run it yet. */
 export const ScanHoldReason = z.union([
   WaitReason,
-  z.enum([
-    "missing_fields",
-    "no_recipe",
-    "recipe_unapproved",
-    "recipe_unverified",
-    "agent_required",
-  ]),
+  z.enum(["missing_fields", "no_recipe", "recipe_unapproved", "agent_required"]),
 ]);
 export type ScanHoldReason = z.infer<typeof ScanHoldReason>;
 

@@ -19,6 +19,15 @@ function waitLength(iso: string, now = Date.now()): string {
   return `${Math.round(left / DAY)}d`;
 }
 
+/** When a hold lifts, as the viewer's own clock reads it: a time today, else the date. */
+function untilText(iso: string, now = Date.now()): string {
+  const at = new Date(iso);
+  if (at.getTime() - now < DAY) {
+    return at.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+  }
+  return at.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+
 /** The hour quiet hours end, read in the same zone the server reads them in. */
 function useQuietEnd(): string | null {
   const settings = useApiQuery(API_ROUTES.settingsGet);
@@ -55,15 +64,18 @@ function QuietHours({ hold, compact }: { hold: ScanHold; compact: boolean }) {
 interface Subject {
   profileId: string | undefined;
   targetId: string | undefined;
+  /** False where the row already names the site, so its domain is not said again. */
+  showSite: boolean;
 }
 
-function say(hold: ScanHold, compact: boolean, { profileId, targetId }: Subject): Say {
-  const domain = hold.domain ? <span className="font-mono">{hold.domain}</span> : "the site";
+function say(hold: ScanHold, compact: boolean, { profileId, targetId, showSite }: Subject): Say {
+  const named = showSite && hold.domain;
+  const domain = named ? <span className="font-mono">{hold.domain}</span> : "the site";
   const sites = hold.domain ? null : "Sites";
   const site =
-    hold.domain && targetId ? (
+    named && targetId ? (
       <EntityLink
-        to={{ kind: "target", id: targetId, name: hold.domain }}
+        to={{ kind: "target", id: targetId, name: named }}
         variant="quiet"
         className="relative font-mono underline"
       >
@@ -72,7 +84,8 @@ function say(hold: ScanHold, compact: boolean, { profileId, targetId }: Subject)
     ) : (
       domain
     );
-  const after = hold.until ? <>, {waitLength(hold.until)}</> : null;
+  const subject = named ? site : (sites ?? "The site");
+  const after = hold.until ? <> until {untilText(hold.until)}</> : null;
   switch (hold.reason) {
     case "quiet_hours":
       return {
@@ -80,27 +93,27 @@ function say(hold: ScanHold, compact: boolean, { profileId, targetId }: Subject)
         text: <QuietHours hold={hold} compact={compact} />,
         link: hold.serverClock
           ? { to: paths.settings("scan-pace"), label: "Set time zone" }
-          : { to: paths.settings("scan-pace"), label: "Quiet hours" },
+          : { to: paths.settings("scan-pace"), label: "Set quiet hours" },
       };
     case "site_cooldown":
       return {
         shape: "ring",
         text: (
           <>
-            {sites ?? site} cooling down{after}
+            {subject} cooling down{after}
           </>
         ),
-        link: { to: paths.settings("sites"), label: "Sites" },
+        link: { to: paths.settings("sites"), label: "Site settings" },
       };
     case "site_breaker":
       return {
         shape: "ring",
         text: (
           <>
-            {sites ?? site} paused after pushback{after}
+            {subject} paused after pushback{after}
           </>
         ),
-        link: { to: paths.settings("sites"), label: "Sites" },
+        link: { to: paths.settings("sites"), label: "Site settings" },
       };
     case "site_busy":
       return { shape: "ring", text: <>Another task is on {site}</> };
@@ -110,19 +123,19 @@ function say(hold: ScanHold, compact: boolean, { profileId, targetId }: Subject)
       return {
         shape: "ring",
         text: <>{site} has had its visits for today</>,
-        link: { to: paths.settings("scan-pace"), label: "Pace" },
+        link: { to: paths.settings("scan-pace"), label: "Pace settings" },
       };
     case "hourly_cap":
       return {
         shape: "ring",
         text: "Hourly limit reached",
-        link: { to: paths.settings("scan-pace"), label: "Pace" },
+        link: { to: paths.settings("scan-pace"), label: "Pace settings" },
       };
     case "daily_cap":
       return {
         shape: "ring",
         text: "Daily limit reached",
-        link: { to: paths.settings("scan-pace"), label: "Pace" },
+        link: { to: paths.settings("scan-pace"), label: "Pace settings" },
       };
     case "missing_fields":
       return {
@@ -136,25 +149,19 @@ function say(hold: ScanHold, compact: boolean, { profileId, targetId }: Subject)
       return {
         shape: "ring",
         text: "Waiting for an agent, no scripted search",
-        link: { to: paths.settings("agents"), label: "Agents" },
+        link: { to: paths.settings("agents"), label: "Connect an agent" },
       };
     case "agent_required":
       return {
         shape: "ring",
         text: "Waiting for an agent",
-        link: { to: paths.settings("agents"), label: "Agents" },
+        link: { to: paths.settings("agents"), label: "Connect an agent" },
       };
     case "recipe_unapproved":
       return {
         shape: "triangle",
         text: "Recipe waits for your review",
-        link: { to: paths.settings("recipes"), label: "Recipes" },
-      };
-    case "recipe_unverified":
-      return {
-        shape: "ring",
-        text: "Recipe not verified yet",
-        link: { to: paths.settings("recipes"), label: "Recipes" },
+        link: { to: paths.settings("recipes"), label: "Review recipes" },
       };
   }
 }
@@ -172,26 +179,34 @@ function lead(hold: ScanHold): string {
 export function HoldReason({
   hold,
   compact = false,
+  glyph = true,
+  showSite = true,
   profileId,
   targetId,
 }: {
   hold: ScanHold | TaskWaiting;
   compact?: boolean;
+  /** False where the row already carries a status mark, so the row has one. */
+  glyph?: boolean;
+  /** False where the row already names the site. */
+  showSite?: boolean;
   /** The profile a missing detail would be added to. */
   profileId?: string | undefined;
   /** The site the hold is about, so its domain leads to the site's page. */
   targetId?: string | null | undefined;
 }) {
-  const view = say(hold, compact, { profileId, targetId: targetId ?? undefined });
+  const view = say(hold, compact, { profileId, targetId: targetId ?? undefined, showSite });
   return (
     <span className="inline-flex min-w-0 items-baseline gap-1.5 text-meta text-ink-2">
-      <StatusShapeGlyph shape={view.shape} className="translate-y-px" />
+      {glyph ? <StatusShapeGlyph shape={view.shape} className="translate-y-px" /> : null}
       <span className="min-w-0">
         {compact ? null : <span className="text-ink-3">{lead(hold)}: </span>}
         {view.text}
         {view.link ? (
           <>
-            {" "}
+            <span aria-hidden="true" className="px-1.5 text-ink-3">
+              {"·"}
+            </span>
             <TextLink to={view.link.to} className="relative whitespace-nowrap">
               {view.link.label}
             </TextLink>

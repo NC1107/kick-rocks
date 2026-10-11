@@ -27,9 +27,25 @@ function phrase(reason: ScanHoldReason, group: ScanHoldGroup, quietEndHour: numb
     case "no_recipe":
     case "agent_required":
     case "recipe_unapproved":
-    case "recipe_unverified":
       return "waiting for an agent";
   }
+}
+
+/** Holds a person can clear, as opposed to pacing the worker clears by itself. */
+const FIXABLE: ReadonlySet<ScanHoldReason> = new Set([
+  "missing_fields",
+  "no_recipe",
+  "agent_required",
+  "recipe_unapproved",
+]);
+
+/** How many queued scans wait on something the person can fix, which is the only hold worth an alert. */
+export function fixableHeldScans(scans: Pick<Dashboard["scans"], "byReason">): number {
+  return Object.entries(scans.byReason).reduce(
+    (sum, [reason, group]) =>
+      FIXABLE.has(reason as ScanHoldReason) ? sum + (group?.count ?? 0) : sum,
+    0,
+  );
 }
 
 /**

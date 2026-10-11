@@ -16,9 +16,11 @@ import {
   ReplyCheckResult,
   useReplyCheck,
 } from "../mailbox/check-for-replies.js";
+import { ScanNotice } from "../review/ScanNotice.js";
 import {
   ActivitySection,
   AttentionSection,
+  attentionItems,
   MailboxNotices,
   RequestsSection,
   ScansSection,
@@ -123,6 +125,11 @@ function DashboardBody({
   const fresh = dashboard.total === 0;
   return (
     <div className="flex flex-col gap-5">
+      <ScanNotice
+        scanning={dashboard.scanning}
+        profileId={profileId}
+        queuedHeld={dashboard.scans.held}
+      />
       <MailboxNotices
         dashboard={dashboard}
         profileId={profileId}
@@ -130,26 +137,35 @@ function DashboardBody({
         checkReportsError={checkReportsError}
       />
       {fresh ? (
-        <EmptyState
-          title="No requests yet."
-          description={
-            dashboard.mailbox
-              ? "Start a campaign to send opt-out and deletion requests."
-              : "Connect a mailbox, then start a campaign."
-          }
-          actions={
-            <>
-              {dashboard.mailbox ? null : (
-                <LinkButton to={paths.mailbox(profileId)} variant="primary">
-                  Connect a mailbox
+        <>
+          {attentionItems(dashboard.attention).length > 0 ? (
+            <AttentionSection attention={dashboard.attention} />
+          ) : null}
+          <ScansSection scans={dashboard.scans} profileId={profileId} />
+          <EmptyState
+            title="No requests yet."
+            description={
+              dashboard.mailbox
+                ? "Start a campaign to send opt-out and deletion requests."
+                : "Connect a mailbox, then start a campaign."
+            }
+            actions={
+              <>
+                {dashboard.mailbox ? null : (
+                  <LinkButton to={paths.mailbox(profileId)} variant="primary">
+                    Connect a mailbox
+                  </LinkButton>
+                )}
+                <LinkButton
+                  to="/campaigns/new"
+                  variant={dashboard.mailbox ? "primary" : "secondary"}
+                >
+                  Start a campaign
                 </LinkButton>
-              )}
-              <LinkButton to="/campaigns/new" variant={dashboard.mailbox ? "primary" : "secondary"}>
-                Start a campaign
-              </LinkButton>
-            </>
-          }
-        />
+              </>
+            }
+          />
+        </>
       ) : (
         <>
           <AttentionSection attention={dashboard.attention} />

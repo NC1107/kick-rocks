@@ -245,9 +245,26 @@ describe("the request page", () => {
     it("asks the person to confirm an unsure reply instead of claiming the form route", async () => {
       const { message } = askedForForm({ confidence: 0.4 });
       expect(await screen.findByText(/may want its web form/)).toBeVisible();
-      expect(screen.getByText(/waiting for you to confirm/)).toBeVisible();
+      expect(screen.getByText(/Confirm and the request moves to the form route/)).toBeVisible();
       expect(screen.queryByRole("link", { name: /privacy-requests/ })).not.toBeInTheDocument();
       expect(message.classification).toBe("needs_form");
+    });
+
+    it("offers a one-tap confirm above the latest reply for an acknowledgement that sends them to a form", async () => {
+      const { user, message } = askedForForm({
+        classification: "auto_ack",
+        confidence: 0.9,
+        rationale: null,
+        snippet:
+          "Thanks for contacting us. We cannot take privacy requests by email. Please use our web form.",
+      });
+      const callout = await screen.findByText(/may want its web form/);
+      const latest = screen.getByText("Latest reply");
+      expect(
+        callout.compareDocumentPosition(latest) & Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy();
+      await user.click(screen.getByRole("button", { name: "Yes, use the form" }));
+      await waitFor(() => expect(message.classification).toBe("needs_form"));
     });
 
     it("says there is no form to reach, and shows no confirmation link, after a hand correction", async () => {

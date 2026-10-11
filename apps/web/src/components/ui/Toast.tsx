@@ -140,7 +140,7 @@ function ToastCard({ item, onDismiss }: { item: ToastItem; onDismiss: (id: numbe
         <Icon aria-hidden="true" className="size-4 text-tone-dot" />
       </span>
       <div className="min-w-0 flex-1 pt-[calc((var(--kr-control-sm)-1.25rem)/2)] pb-1.5">
-        <p className="text-ui font-medium text-ink max-sm:truncate">{item.title}</p>
+        <p className="text-ui font-medium text-ink max-sm:line-clamp-3">{item.title}</p>
         {item.description ? (
           <p className="mt-0.5 text-meta text-ink-2 max-sm:hidden">{item.description}</p>
         ) : null}

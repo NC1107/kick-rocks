@@ -104,5 +104,11 @@ export {
 export { Tag, type TagProps } from "./Tag.js";
 export { Textarea } from "./Textarea.js";
 export { ExternalLinkText, TextLink } from "./TextLink.js";
-export { type ToastAction, type ToastOptions, ToastProvider, useToast } from "./Toast.js";
+export {
+  type ToastAction,
+  type ToastIntent,
+  type ToastOptions,
+  ToastProvider,
+  useToast,
+} from "./Toast.js";
 export { announceOverlayOpen, Tooltip, type TooltipProps } from "./Tooltip.js";

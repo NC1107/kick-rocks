@@ -25,6 +25,7 @@ import { paths } from "../../lib/paths.js";
 import { describeScanStart } from "../../lib/scan-start.js";
 import { DetailFrame } from "./DetailFrame.js";
 import { REVIEW_INVALIDATES } from "./model.js";
+import { ScanNotice } from "./ScanNotice.js";
 
 /** A failed scan stops mattering once a later scan of the same site worked. */
 function withoutSupersededFailures(scans: readonly ScanSummary[]): ScanSummary[] {
@@ -63,7 +64,7 @@ function ScanResult({ scan, profileId }: { scan: ScanSummary; profileId: string 
   const failure = errorText(scan);
   if (failure) return <span className="text-danger-text">{failure}</span>;
   if (scan.hold)
-    return <HoldReason hold={scan.hold} profileId={profileId} targetId={scan.targetId} />;
+    return <HoldReason hold={scan.hold} profileId={profileId} glyph={false} showSite={false} />;
   return <>{matchSummary(scan)}</>;
 }
 
@@ -73,14 +74,20 @@ export function ScansPanel({ profileId }: { profileId: string }) {
     params: { id: profileId },
     query: { pageSize: 50 },
   });
+  const dashboard = useApiQuery(API_ROUTES.dashboardGet, { params: { id: profileId } });
   const [confirming, setConfirming] = useState(false);
   const items = withoutSupersededFailures(scans.data?.items ?? []);
   const start = useApiMutation(API_ROUTES.scansStart, {
     invalidates: [...REVIEW_INVALIDATES],
     onSuccess: (result) => {
       setConfirming(false);
-      const summary = describeScanStart(result.items, profileId);
-      toast.success(summary.title, summary.description, { action: summary.action });
+      const summary = describeScanStart(result.items, profileId, dashboard.data?.scanning);
+      toast.toast({
+        intent: summary.intent,
+        title: summary.title,
+        description: summary.description,
+        action: summary.action,
+      });
     },
     onError: () => setConfirming(false),
   });
@@ -98,6 +105,14 @@ export function ScansPanel({ profileId }: { profileId: string }) {
           </Button>
         }
       >
+        {dashboard.data ? (
+          <ScanNotice
+            scanning={dashboard.data.scanning}
+            profileId={profileId}
+            queuedHeld={dashboard.data.scans.held}
+            className="mb-4"
+          />
+        ) : null}
         {scans.isError ? (
           <Callout
             intent="danger"

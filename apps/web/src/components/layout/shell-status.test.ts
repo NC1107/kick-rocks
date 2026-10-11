@@ -24,13 +24,22 @@ describe("shell status chips", () => {
     expect(chip).toMatchObject({ tone: "positive", label: "Worker online" });
   });
 
-  it("turns an online worker to attention while queued scans are held", () => {
+  it("turns an online worker to attention while queued scans wait on something the person can fix", () => {
     const chip = workerChip(
       { enabled: true, builtin: status("2026-10-07T11:59:00Z"), model: null },
       NOW,
-      { held: 3 },
+      { byReason: { no_recipe: { count: 3 }, quiet_hours: { count: 2 } } },
     );
     expect(chip).toMatchObject({ tone: "attention", label: "Worker idle", value: "3 held" });
+  });
+
+  it("leaves an online worker alone while scans only wait out pacing", () => {
+    const chip = workerChip(
+      { enabled: true, builtin: status("2026-10-07T11:59:00Z"), model: null },
+      NOW,
+      { byReason: { site_cooldown: { count: 2 }, site_breaker: { count: 1 } } },
+    );
+    expect(chip).toMatchObject({ tone: "positive", label: "Worker online" });
   });
 
   it("links each chip to the page that explains it", () => {

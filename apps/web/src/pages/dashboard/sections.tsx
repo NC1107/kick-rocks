@@ -17,7 +17,7 @@ import {
   TextLink,
 } from "../../components/ui/index.js";
 import { describeEvent } from "../../lib/events.js";
-import { formatCount, pluralize } from "../../lib/format.js";
+import { formatCount } from "../../lib/format.js";
 import { paths } from "../../lib/paths.js";
 import { EventRow } from "../requests/EventRow.js";
 import { eventShape } from "../requests/event-shape.js";
@@ -255,8 +255,7 @@ export function ScansSection({
         {groups.map(({ reason, group }) => (
           <Row
             key={reason}
-            title={`${pluralize(group.count, "scan")} held`}
-            description={
+            title={
               <HoldReason
                 hold={{
                   reason,
@@ -267,14 +266,16 @@ export function ScansSection({
                 compact
               />
             }
-            wrapDescription
+            wrapTitle
             trailing={
-              <Count
-                value={group.count}
-                tone="attention"
-                label={group.count === 1 ? "scan" : "scans"}
-                className="text-ui font-medium"
-              />
+              group.count > 1 ? (
+                <Count
+                  value={group.count}
+                  tone="attention"
+                  label={group.count === 1 ? "scan" : "scans"}
+                  className="text-ui font-medium"
+                />
+              ) : undefined
             }
           />
         ))}

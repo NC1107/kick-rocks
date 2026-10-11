@@ -1,4 +1,5 @@
 import { API_ROUTES, needsRecord, type TargetFacets } from "@kickrocks/shared";
+import { skipToken } from "@tanstack/react-query";
 import { Search } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router";
@@ -40,6 +41,7 @@ import {
   TARGET_CATEGORY_LABELS,
   TARGET_KIND_LABELS,
 } from "../../lib/labels.js";
+import { describeScanStart } from "../../lib/scan-start.js";
 import { AutomationLegend, HealthMark } from "./Automation.js";
 import { Difficulty } from "./Difficulty.js";
 import {
@@ -237,15 +239,22 @@ export function Component() {
   const matching = useMatchingTargets(filter, allMatching);
   const scannable = matching.data?.filter((item) => needsRecord(item) && !item.retired).length;
 
+  const dashboard = useApiQuery(
+    API_ROUTES.dashboardGet,
+    profile ? { params: { id: profile.id } } : skipToken,
+  );
   const scan = useApiMutation(API_ROUTES.scansStart, {
     invalidates: [API_ROUTES.scansList, API_ROUTES.reviewQueue, API_ROUTES.dashboardGet],
     onSuccess: (result) => {
       setConfirmingScan(false);
       clearSelection();
-      const started = result.items.filter((item) => item.outcome === "scan_started").length;
-      toast.success(
-        started === 0 ? "No new scans to start" : `Started ${pluralize(started, "scan")}`,
-      );
+      const summary = describeScanStart(result.items, profile?.id ?? "", dashboard.data?.scanning);
+      toast.toast({
+        intent: summary.intent,
+        title: summary.title,
+        description: summary.description,
+        action: summary.action,
+      });
     },
     onError: () => setConfirmingScan(false),
   });

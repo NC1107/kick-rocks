@@ -1,4 +1,4 @@
-import type { TargetOutcome } from "@kickrocks/shared";
+import type { Dashboard, TargetOutcome } from "@kickrocks/shared";
 import { screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { paths, taskPath } from "../../lib/paths.js";
@@ -44,6 +44,23 @@ describe("HoldReason", () => {
     );
   });
 
+  it("gives a hold one time and a link named for what it opens", () => {
+    renderPage(
+      <HoldReason
+        hold={{
+          reason: "site_cooldown",
+          until: new Date(Date.now() + 5 * 3_600_000).toISOString(),
+        }}
+      />,
+    );
+    expect(screen.getByText(/Sites cooling down until/)).toBeVisible();
+    expect(screen.getByRole("link", { name: "Site settings" })).toHaveAttribute(
+      "href",
+      "/settings#sites",
+    );
+    expect(screen.queryByText(/\b5h\b/)).toBeNull();
+  });
+
   it("links a cooling site to its target", () => {
     renderPage(
       <HoldReason
@@ -59,7 +76,7 @@ describe("HoldReason", () => {
       "href",
       "/targets/tgt_a",
     );
-    expect(screen.getByText(/cooling down, 5h/)).toBeVisible();
+    expect(screen.getByText(/cooling down until/)).toBeVisible();
   });
 });
 
@@ -91,6 +108,65 @@ describe("describeScanStart", () => {
     expect(summary.title).toBe("Started 1 scan");
     expect(summary.description).toBe("Held back: 1 already running, 2 need profile details.");
     expect(summary.action).toEqual({ to: "/profiles/prf_1", label: "Add details" });
+  });
+});
+
+describe("describeScanStart with what the profile can be scanned on", () => {
+  const scanning = (overrides: Partial<Dashboard["scanning"]>): Dashboard["scanning"] => ({
+    ready: 0,
+    noRecipe: 0,
+    recipeNeedsReview: 0,
+    needsDetails: 0,
+    missing: null,
+    quiet: null,
+    ...overrides,
+  });
+  const queued = (count: number) =>
+    Array.from({ length: count }, () => outcome({ outcome: "scan_started" }));
+
+  it("says nothing can run, and why, instead of announcing a start", () => {
+    const summary = describeScanStart(
+      queued(59),
+      "prf_1",
+      scanning({
+        ready: 9,
+        noRecipe: 50,
+        quiet: { until: "2026-10-08T07:00:00.000Z", zoneUnset: false },
+      }),
+    );
+    expect(summary.intent).toBe("info");
+    expect(summary.title).toBe(
+      "Queued 59, none can run now: 50 need an agent, 9 wait for quiet hours",
+    );
+  });
+
+  it("names a recipe that waits for review apart from a missing one", () => {
+    const summary = describeScanStart(
+      queued(5),
+      "prf_1",
+      scanning({ noRecipe: 3, recipeNeedsReview: 2 }),
+    );
+    expect(summary.title).toBe(
+      "Queued 5, none can run now: 3 need an agent, 2 wait for a recipe review",
+    );
+  });
+
+  it("still reports a plain start while some scans can run", () => {
+    const summary = describeScanStart(queued(4), "prf_1", scanning({ ready: 2, noRecipe: 2 }));
+    expect(summary).toMatchObject({ intent: "success", title: "Started 4 scans" });
+  });
+
+  it("puts what to add in the title when no scan could start", () => {
+    const summary = describeScanStart(
+      [outcome({ reason: "missing_profile_details" })],
+      "prf_1",
+      scanning({ needsDetails: 59, missing: "a current address with city" }),
+    );
+    expect(summary).toMatchObject({
+      intent: "info",
+      title: "No scans started. Add a current address with city",
+      action: { to: "/profiles/prf_1", label: "Add details" },
+    });
   });
 });
 

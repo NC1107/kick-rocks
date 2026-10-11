@@ -36,15 +36,14 @@ describe("the waiting group in the queue list", () => {
     expect(screen.queryByRole("heading", { name: /Waiting/ })).toBeNull();
   });
 
-  it("lists one row per target with its reason and a short time, under a counted label", () => {
+  it("lists one row per target with its reason and one time, under a counted label", () => {
     list([item(1), item(2, { waiting: { ...item(2).waiting, reason: "site_daily_cap" } })]);
     const heading = screen.getByRole("heading", { name: "Waiting · 2" });
     const rows = within(heading.closest("section") as HTMLElement);
-    expect(rows.getByText("Broker 1")).toBeVisible();
     expect(rows.getByText(/cooling down/)).toBeVisible();
     expect(rows.getByText(/has had its visits for today/)).toBeVisible();
-    expect(rows.getAllByText("in 5h")).toHaveLength(2);
-    expect(rows.getByRole("link", { name: "broker1.example" })).toHaveAttribute(
+    expect(rows.queryByText("in 5h")).toBeNull();
+    expect(rows.getByRole("link", { name: "Broker 1" })).toHaveAttribute(
       "href",
       "/targets/target_1",
     );
