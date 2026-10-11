@@ -2056,7 +2056,7 @@ export class Toolbox {
     }
     if (await this.sendsInAScan(target.locator)) return failure(READ_ONLY_REFUSAL);
     if (target.info.expanded !== "true") {
-      const opening = await this.beforeAct(false);
+      const opening = await this.beforeAct(true);
       if (opening !== null) return opening;
       await this.markActed(target.locator);
       await target.locator.click({
@@ -2087,7 +2087,7 @@ export class Toolbox {
     const choice = this.options.page.locator(`[data-kr-option="${options.indexOf(match)}"]`);
     const invented = this.refuseInventedChoice(ref, await this.choiceDetails(choice));
     if (invented !== null) return invented;
-    const stopped = await this.beforeAct(false);
+    const stopped = await this.beforeAct(true);
     if (stopped !== null) return stopped;
     await this.markActed(choice);
     await choice.click({
