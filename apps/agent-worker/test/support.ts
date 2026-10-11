@@ -48,6 +48,8 @@ export async function launchTestBrowser(): Promise<Browser> {
   turnOffPreloading(profileDir);
   const context = await chromium.launchPersistentContext(profileDir, {
     headless: true,
+    // Several Chromes start at once on a busy machine, and the default 30 s then fails a whole file.
+    timeout: 90_000,
     ...NO_SIGNAL_HANDLERS,
     args: [`--host-resolver-rules=MAP other.test 127.0.0.1`, ...chromeArgs({ noSandbox: false })],
     ...(executablePath ? { executablePath } : {}),
@@ -156,12 +158,16 @@ export function summary(id: string): TaskSummary {
   };
 }
 
+/** The fixture answers at once, so a reply that takes this long is a stuck server, not a slow one. */
+const FIXTURE_REPLY_MS = 15_000;
+
 export async function fixtureState(): Promise<FixtureState> {
-  return (await (await fetch(`${ORIGIN}/__state`)).json()) as FixtureState;
+  const reply = await fetch(`${ORIGIN}/__state`, { signal: AbortSignal.timeout(FIXTURE_REPLY_MS) });
+  return (await reply.json()) as FixtureState;
 }
 
 export async function resetFixture(): Promise<void> {
-  await fetch(`${ORIGIN}/__reset`);
+  await fetch(`${ORIGIN}/__reset`, { signal: AbortSignal.timeout(FIXTURE_REPLY_MS) });
 }
 
 export type CallSpec = [name: string, args?: unknown];

@@ -4,7 +4,7 @@ import {
   type SmtpSocketFake,
   startSmtpSocketFake,
 } from "../test-utils/index.js";
-import { createMailTransport, MailSendError } from "./transport.js";
+import { createMailTransport, MailSendError, type MailTransportOptions } from "./transport.js";
 import type { MailConnection, OutgoingMail } from "./types.js";
 
 let smtp: SmtpSocketFake;
@@ -38,11 +38,19 @@ const mail: OutgoingMail = {
   messageId: "<kr.r1.0@example.com>",
 };
 
+/**
+ * Only the two cases that wait for a silent server need short timeouts. Every other case keeps the
+ * ordinary ones, because a short timeout firing early on a loaded machine would replace the failure
+ * under test.
+ */
+const SILENCE_OPTIONS: Partial<Record<SmtpBehavior, MailTransportOptions>> = {
+  silent: { timeouts: { connectionMs: 300, socketMs: 2_000 } },
+  stall_after_data: { timeouts: { connectionMs: 15_000, socketMs: 2_000 } },
+};
+
 async function sendFailure(behavior: SmtpBehavior): Promise<MailSendError> {
   smtp.behave(behavior);
-  const transport = createMailTransport(connection(), {
-    timeouts: { connectionMs: 300, socketMs: 2_000 },
-  });
+  const transport = createMailTransport(connection(), SILENCE_OPTIONS[behavior]);
   const error = await transport.send(mail).catch((caught: unknown) => caught);
   expect(error).toBeInstanceOf(MailSendError);
   return error as MailSendError;
@@ -95,9 +103,7 @@ describe("the real SMTP transport against a socket server", () => {
 
   it("tells a drop in the middle of the body from a drop after all of it", async () => {
     const bigMail = { ...mail, text: "Please remove me.\n".repeat(1_000_000) };
-    const transport = createMailTransport(connection(), {
-      timeouts: { connectionMs: 30_000, socketMs: 30_000 },
-    });
+    const transport = createMailTransport(connection());
 
     smtp.behave("drop_mid_body");
     const midBody: string[] = [];

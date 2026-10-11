@@ -35,8 +35,7 @@ beforeEach(async () => {
     smtpPort: smtp.port,
     smtpSecure: false,
   }).id;
-  ctx.mail.services.transport = (connection) =>
-    createMailTransport(connection, { timeouts: { connectionMs: 300, socketMs: 2_000 } });
+  ctx.mail.services.transport = (connection) => createMailTransport(connection);
   runners = createRunners(ctx.services, { random: () => 0 });
 });
 
@@ -44,6 +43,12 @@ afterEach(async () => {
   await smtp.close().catch(() => undefined);
   await ctx.close();
 });
+
+/** Only a silent server needs a short timeout: a short one firing early on a loaded machine would replace the failure under test. */
+const useShortConnectionTimeout = () => {
+  ctx.mail.services.transport = (connection) =>
+    createMailTransport(connection, { timeouts: { connectionMs: 300, socketMs: 2_000 } });
+};
 
 const saveMailbox = () =>
   ctx.call(API_ROUTES.mailboxSave, {
@@ -84,6 +89,7 @@ describe("the email runner against the real transport", () => {
     "holds the mailbox on %s without spending an attempt, and says why",
     async (behavior) => {
       smtp.behave(behavior);
+      if (behavior === "silent") useShortConnectionTimeout();
       const requests = [openRequest(), openRequest(), openRequest()];
 
       await runners.email.runDue();
@@ -297,16 +303,16 @@ describe("the email runner against the real transport", () => {
         housekeepingMs: 0,
         retentionMs: 0,
       });
-      const sentBefore = smtp.received.length;
-      void scheduler.tick();
-      if (taskFor(request.id)?.status !== "failed") {
-        await vi
-          .waitFor(() => expect(smtp.received.length).toBeGreaterThan(sentBefore), {
-            timeout: 500,
-          })
-          .catch(() => undefined);
+      if (round === 0) {
+        // The server stalls this send for good, so the pass can only be cut off, as a restart does,
+        // once the server holds the whole body.
+        void scheduler.tick();
+        await smtp.messages(1);
+        await scheduler.stop({ graceMs: 0 });
+      } else {
+        await scheduler.tick();
+        await scheduler.stop();
       }
-      await scheduler.stop({ graceMs: 50 });
       ctx.clock.advance(HOUR);
     }
 

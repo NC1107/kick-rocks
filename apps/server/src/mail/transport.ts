@@ -126,7 +126,7 @@ function failureOf(error: unknown): MailSendFailure {
 }
 
 /** Hosts that may be reached without TLS besides this machine. */
-interface MailTransportOptions {
+export interface MailTransportOptions {
   plaintextHosts?: readonly string[];
   /** Shortened by tests that wait for a server that never answers. */
   timeouts?: { connectionMs: number; socketMs: number };
