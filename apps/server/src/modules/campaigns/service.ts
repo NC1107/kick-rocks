@@ -94,6 +94,20 @@ export function createCampaignService(services: AppServices): CampaignService {
     ).email;
   }
 
+  function sampleBasis(plan: CampaignPlan) {
+    const first = plan.plans.find(
+      (item): item is Extract<Plan, { kind: "request" }> => item.kind === "request",
+    );
+    if (!first) return null;
+    const { kind, statute, responseDays } = first.basis;
+    return {
+      kind,
+      name: statute?.name ?? null,
+      citation: statute?.citation ?? null,
+      responseDays,
+    };
+  }
+
   return {
     preview(profileId, body) {
       const plan = planner.plan(profileId, body.selection, body.rights);
@@ -101,6 +115,7 @@ export function createCampaignService(services: AppServices): CampaignService {
       return {
         items,
         counts: countOutcomes(items),
+        basis: sampleBasis(plan),
         sampleEmail: sampleEmail(plan),
       };
     },

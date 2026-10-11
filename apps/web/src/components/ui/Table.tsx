@@ -234,7 +234,7 @@ export function TableRowActions({ className, ...rest }: ComponentProps<"div">) {
 }
 
 /** The name in a row, as a link whose box stretches over the row and remembers the page it was on. */
-function RowLink({
+export function RowLink({
   to,
   className,
   children,

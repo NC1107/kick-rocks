@@ -2,22 +2,10 @@ import { API_ROUTES } from "@kickrocks/shared";
 import { Search } from "lucide-react";
 import { useEffect, useState } from "react";
 import { errorMessage, useApiQuery } from "../../../api/index.js";
-import {
-  Button,
-  Callout,
-  Field,
-  Input,
-  Pagination,
-  Table,
-  TableBody,
-  TableCell,
-  TableIdentity,
-  TableRow,
-  TableSkeletonRows,
-  Tag,
-} from "../../../components/ui/index.js";
+import { Button, Callout, DataList, Field, Input, Tag } from "../../../components/ui/index.js";
+import { pluralize } from "../../../lib/format.js";
+import { DIFFICULTY_LABELS } from "../../../lib/labels.js";
 import { Difficulty } from "../../targets/Difficulty.js";
-import { SelectCell } from "../../targets/SelectCell.js";
 
 const PICKER_PAGE_SIZE = 8;
 const SEARCH_DELAY_MS = 250;
@@ -79,46 +67,48 @@ export function TargetPicker({
       ) : list.data && items.length === 0 ? (
         <p className="px-1 text-ui text-ink-2">No targets match that search.</p>
       ) : (
-        <div>
-          <Table label="Pick targets" aria-busy={list.isPlaceholderData || undefined}>
-            <TableBody>
-              {list.isPending ? (
-                <TableSkeletonRows columns={3} rows={4} />
-              ) : (
-                items.map((item) => (
-                  <TableRow key={item.id} selected={selectedIds.includes(item.id)}>
-                    <SelectCell
-                      id={`pick-${item.id}`}
-                      label={`Pick ${item.name}`}
-                      checked={selectedIds.includes(item.id)}
-                      disabled={item.retired}
-                      onChange={(on) => onToggle(item.id, on)}
-                    />
-                    <TableCell className="min-w-0">
-                      <TableIdentity
-                        title={item.name}
-                        meta={item.domain}
-                        {...(item.retired ? { badge: <Tag>Retired</Tag> } : {})}
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Difficulty difficulty={item.difficulty} />
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-          {list.data ? (
-            <Pagination
-              page={list.data.page}
-              pageSize={PICKER_PAGE_SIZE}
-              total={list.data.total}
-              onPageChange={setPage}
-              noun="targets"
-            />
-          ) : null}
-        </div>
+        <DataList
+          label="Pick targets"
+          layout="rows"
+          headless
+          items={items}
+          getKey={(item) => item.id}
+          identityHeader="Target"
+          identity={(item) => ({
+            title: item.name,
+            meta: item.domain,
+            ...(item.retired ? { badge: <Tag>Retired</Tag> } : {}),
+          })}
+          tags={(item) => <Tag>{DIFFICULTY_LABELS[item.difficulty].toLowerCase()}</Tag>}
+          columns={[
+            {
+              id: "difficulty",
+              header: "Difficulty",
+              cell: (item) => <Difficulty difficulty={item.difficulty} />,
+            },
+          ]}
+          selection={{
+            idPrefix: "pick",
+            isChecked: (item) => selectedIds.includes(item.id),
+            isDisabled: (item) => item.retired,
+            onToggle: (item, on) => onToggle(item.id, on),
+            label: (item) => `Pick ${item.name}`,
+          }}
+          loading={list.isPending}
+          busy={list.isPlaceholderData}
+          count={list.data ? pluralize(list.data.total, "target") : undefined}
+          pager={
+            list.data
+              ? {
+                  page: list.data.page,
+                  pageSize: PICKER_PAGE_SIZE,
+                  total: list.data.total,
+                  onPageChange: setPage,
+                  noun: "targets",
+                }
+              : undefined
+          }
+        />
       )}
     </div>
   );

@@ -1,5 +1,5 @@
 import { screen, within } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { createMockApp, type MockApp } from "../../../../mock/app.js";
 import { renderPage } from "../../../test/render.js";
 import { Component as TargetDetailPage } from "./index.js";
@@ -32,9 +32,9 @@ describe("the target page", () => {
     expect(await screen.findByRole("heading", { name: "FindRecord", level: 1 })).toBeVisible();
     expect(screen.getByText(/first scans for your record/)).toBeVisible();
     expect(screen.getByText(/A CAPTCHA stands in the way/)).toBeVisible();
-    expect(screen.getByRole("link", { name: "Request removal" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: /Remove my data/ })).toHaveAttribute(
       "href",
-      "/campaigns/new?targets=findrecord",
+      "/targets/findrecord/remove",
     );
     expect(await screen.findByRole("link", { name: /^Requests \d+$/ })).toHaveAttribute(
       "href",
@@ -99,13 +99,21 @@ describe("the target page", () => {
     expect(screen.getByText("CC BY-NC-SA 4.0")).toBeVisible();
   });
 
-  it("drops the version and source columns on a phone, so the health column fits", async () => {
+  it("stacks the recipes on a phone, with the version and health as tags", async () => {
+    vi.stubGlobal("matchMedia", (query: string) => ({
+      matches: false,
+      media: query,
+      addEventListener: () => {},
+      removeEventListener: () => {},
+    }));
     open("findrecord");
     await screen.findByRole("heading", { name: "Automation" });
-    for (const name of ["Version", "Source"]) {
-      expect(screen.getByRole("columnheader", { name })).toHaveClass("hidden", "sm:table-cell");
-    }
-    expect(screen.getByRole("columnheader", { name: "Health" })).not.toHaveClass("hidden");
+    const list = screen.getByRole("list", { name: "Recipes for this target" });
+    expect(within(list).getAllByRole("listitem").length).toBeGreaterThan(0);
+    expect(
+      screen.queryByRole("table", { name: "Recipes for this target" }),
+    ).not.toBeInTheDocument();
+    vi.unstubAllGlobals();
   });
 
   it("tags what needs the person and leaves the rest as plain tags", async () => {

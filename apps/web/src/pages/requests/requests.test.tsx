@@ -1,5 +1,5 @@
 import { screen, waitFor, within } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { createMockApp, type MockApp } from "../../../mock/app.js";
 import { renderPage } from "../../test/render.js";
 import { hasRequestFilters, readRequestFilters, toRequestQuery } from "./filters.js";
@@ -40,13 +40,22 @@ describe("the requests page", () => {
   });
 
   it("shows a due date under the status only for a request still waiting", async () => {
+    vi.stubGlobal("matchMedia", (query: string) => ({
+      matches: false,
+      media: query,
+      addEventListener: () => {},
+      removeEventListener: () => {},
+    }));
     open();
-    const list = await rows();
+    const region = await screen.findByRole("list", { name: "Requests" });
+    await waitFor(() => expect(within(region).queryByText("Loading")).not.toBeInTheDocument());
+    const list = within(region).getAllByRole("listitem");
     const finished = list.filter((row) => within(row).queryByText("Confirmed"));
     expect(finished.length).toBeGreaterThan(0);
     for (const row of finished) expect(row.textContent).not.toMatch(/due /);
     const waiting = list.filter((row) => within(row).queryByText("Awaiting reply"));
     expect(waiting.some((row) => /due /.test(row.textContent ?? ""))).toBe(true);
+    vi.unstubAllGlobals();
   });
 
   it("prints what each request asked for as mono tokens, and a dash for a missing date", async () => {

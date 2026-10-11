@@ -11,7 +11,10 @@ export interface PaginationProps {
   noun?: string;
 }
 
-/** Previous and next with a range summary. Pass the page, pageSize, and total from a list response. */
+/**
+ * Previous and next with a range summary, shown only when there is more than one page. A list
+ * that fits on one page carries its count in its label instead.
+ */
 export function Pagination({
   page,
   pageSize,
@@ -19,8 +22,8 @@ export function Pagination({
   onPageChange,
   noun = "results",
 }: PaginationProps) {
-  if (total === 0) return null;
-  const pages = Math.max(1, Math.ceil(total / pageSize));
+  const pages = Math.ceil(total / pageSize);
+  if (pages <= 1) return null;
   const from = (page - 1) * pageSize + 1;
   const to = Math.min(total, page * pageSize);
   return (

@@ -187,6 +187,14 @@ export default defineMockDomain({
         return {
           items,
           counts: countOutcomes(items),
+          basis: items.some((item) => item.outcome === "request_created")
+            ? {
+                kind: "statute",
+                name: "California Consumer Privacy Act",
+                citation: "Cal. Civ. Code 1798.105",
+                responseDays: 45,
+              }
+            : null,
           sampleEmail: firstTarget
             ? sampleEmail(
                 store,

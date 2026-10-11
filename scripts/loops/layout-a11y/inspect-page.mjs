@@ -52,6 +52,15 @@ export function inspectPage({ minTarget, checkTargets }) {
         overflow.push(describe(el));
       }
     }
+    // A table frame that scrolls sideways hides columns from a mouse user, who has no gesture for it.
+    const scrollsSideways = s.overflowX === "auto" || s.overflowX === "scroll";
+    if (
+      scrollsSideways &&
+      el.scrollWidth > el.clientWidth + 1 &&
+      el.querySelector(":scope > table")
+    ) {
+      overflow.push(`${describe(el)} scrolls sideways`);
+    }
     if (s.webkitLineClamp !== "none" && el.scrollHeight > el.clientHeight + 1) {
       const text = (el.textContent ?? "").trim().replace(/\s+/g, " ");
       if (text.split(" ").length >= 4) ellipsised.push(describe(el));

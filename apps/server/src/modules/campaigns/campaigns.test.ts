@@ -116,6 +116,16 @@ describe("preview", () => {
     expect(sent.text).toContain(FAKE_STATUTE.id);
   });
 
+  it("names the legal basis of the first request, even when it goes by web form", async () => {
+    const { profile } = setup("CA");
+    seedTarget(ctx, { id: "form-only", contactMethod: "form", privacyEmail: null });
+
+    const { basis, sampleEmail } = await previewOk(profile.id, body(["form-only"]));
+    expect(sampleEmail).toBeNull();
+    expect(basis).toMatchObject({ kind: "statute", name: FAKE_STATUTE.name });
+    expect(basis?.responseDays).toBeGreaterThan(0);
+  });
+
   it("takes the sample from the first email request and leaves it out when none would go", async () => {
     const { profile } = setup();
     seedTarget(ctx, { id: "form-only", contactMethod: "form", privacyEmail: null });
@@ -137,6 +147,7 @@ describe("preview", () => {
     expect(result).toEqual({
       items: [],
       counts: { request_created: 0, scan_started: 0, skipped: 0 },
+      basis: null,
       sampleEmail: null,
     });
   });

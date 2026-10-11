@@ -84,9 +84,21 @@ export function countOutcomes(items: readonly Pick<TargetOutcome, "outcome">[]):
   return counts;
 }
 
+/** What entitles the first request in a preview to an answer, in the words a person can check. */
+export const PreviewBasis = z.object({
+  kind: z.enum(["statute", "policy"]),
+  /** The law's name, or null when the request rests on the business's own privacy policy. */
+  name: z.string().nullable(),
+  citation: z.string().nullable(),
+  responseDays: z.number().int().positive(),
+});
+export type PreviewBasis = z.infer<typeof PreviewBasis>;
+
 export const CampaignPreview = z.object({
   items: z.array(TargetOutcome),
   counts: OutcomeCounts,
+  /** The legal basis of the first request that would go out, or null when none would. */
+  basis: PreviewBasis.nullable(),
   /** The first email that would go out, so the person can read it before sending. */
   sampleEmail: RenderedEmail.nullable(),
 });

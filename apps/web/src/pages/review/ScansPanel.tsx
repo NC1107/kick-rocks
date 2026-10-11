@@ -5,23 +5,15 @@ import { HoldReason } from "../../components/holds/HoldReason.js";
 import {
   Button,
   Callout,
+  DataList,
   Dialog,
   EmptyState,
   RelativeTime,
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeaderCell,
-  TableIdentity,
-  TableRow,
-  TableSkeletonRows,
   TaskStatusMark,
   useToast,
 } from "../../components/ui/index.js";
 import { describeFailure } from "../../lib/failures.js";
 import { pluralize } from "../../lib/format.js";
-import { paths } from "../../lib/paths.js";
 import { describeScanStart } from "../../lib/scan-start.js";
 import { DetailFrame } from "./DetailFrame.js";
 import { REVIEW_INVALIDATES } from "./model.js";
@@ -128,47 +120,48 @@ export function ScansPanel({ profileId }: { profileId: string }) {
         ) : scans.data && items.length === 0 ? (
           <EmptyState title="No scans yet." />
         ) : (
-          <Table label="Scans table">
-            <TableHead>
-              <tr>
-                <TableHeaderCell>Site</TableHeaderCell>
-                <TableHeaderCell>Status</TableHeaderCell>
-                <TableHeaderCell className="hidden md:table-cell">Result</TableHeaderCell>
-              </tr>
-            </TableHead>
-            <TableBody>
-              {scans.isPending ? (
-                <TableSkeletonRows columns={3} rows={4} />
-              ) : (
-                items.map((scan) => (
-                  <TableRow key={scan.id}>
-                    <TableCell wrap className="w-full min-w-0 py-1">
-                      <TableIdentity
-                        title={scan.targetName}
-                        to={paths.target(scan.targetId)}
-                        meta={
-                          <>
-                            Started <RelativeTime iso={scan.startedAt} />
-                          </>
-                        }
-                      />
-                      <span className="block pb-1 text-meta text-ink-3 md:hidden">
-                        <ScanResult scan={scan} profileId={profileId} />
-                      </span>
-                    </TableCell>
-                    <TableCell className="align-top md:align-middle">
-                      {scan.taskStatus ? <TaskStatusMark status={scan.taskStatus} /> : null}
-                    </TableCell>
-                    <TableCell wrap className="hidden min-w-56 text-meta md:table-cell">
-                      <span className="text-ink-2">
-                        <ScanResult scan={scan} profileId={profileId} />
-                      </span>
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
+          <DataList
+            label="Recent scans"
+            items={items}
+            getKey={(scan) => scan.id}
+            identityHeader="Site"
+            identity={(scan) => ({
+              title: scan.targetName,
+              to: { kind: "target", id: scan.targetId, name: scan.targetName },
+              meta: (
+                <>
+                  Started <RelativeTime iso={scan.startedAt} />
+                </>
+              ),
+            })}
+            tags={(scan) => (
+              <>
+                {scan.taskStatus ? <TaskStatusMark status={scan.taskStatus} /> : null}
+                <ScanResult scan={scan} profileId={profileId} />
+              </>
+            )}
+            columns={[
+              {
+                id: "status",
+                header: "Status",
+                cell: (scan) =>
+                  scan.taskStatus ? <TaskStatusMark status={scan.taskStatus} /> : null,
+              },
+              {
+                id: "result",
+                header: "Result",
+                wrap: true,
+                className: "min-w-56 text-meta",
+                cell: (scan) => (
+                  <span className="text-ink-2">
+                    <ScanResult scan={scan} profileId={profileId} />
+                  </span>
+                ),
+              },
+            ]}
+            loading={scans.isPending}
+            count={pluralize(items.length, "scan")}
+          />
         )}
       </DetailFrame>
 

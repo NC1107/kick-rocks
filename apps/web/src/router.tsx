@@ -23,6 +23,7 @@ const appRoutes: RouteObject[] = [
   { path: "profiles/:id/mailbox", lazy: () => import("./pages/mailbox/index.js") },
   { path: "targets", lazy: () => import("./pages/targets/index.js") },
   { path: "targets/:id", lazy: () => import("./pages/targets/detail/index.js") },
+  { path: "targets/:id/remove", lazy: () => import("./pages/targets/remove/index.js") },
   { path: "campaigns/new", lazy: () => import("./pages/campaigns/new/index.js") },
   { path: "requests", lazy: () => import("./pages/requests/index.js") },
   { path: "requests/:id", lazy: () => import("./pages/requests/detail/index.js") },
