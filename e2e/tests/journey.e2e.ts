@@ -581,6 +581,10 @@ describe("broker replies", () => {
   });
 
   it("switches to the broker's form after a bounce, and the worker submits it", async () => {
+    await eventually(async () => (await requestFor("fx-bounce")).channel === "form", {
+      what: "fx-bounce to switch to its form",
+      timeoutMs: 90_000,
+    });
     const request = await waitForStatus("fx-bounce", ["awaiting_reply"], 90_000);
     expect(request.channel).toBe("form");
     expect(await eventTypes(request)).toEqual(
@@ -593,6 +597,10 @@ describe("broker replies", () => {
   });
 
   it("switches to the form a broker points to, and the worker submits it", async () => {
+    await eventually(async () => (await requestFor("fx-needsform")).channel === "form", {
+      what: "fx-needsform to switch to its form",
+      timeoutMs: 90_000,
+    });
     const request = await waitForStatus("fx-needsform", ["awaiting_reply"], 90_000);
     expect(request.channel).toBe("form");
     const submission = (await fixtureState()).submissions.find((entry) =>
