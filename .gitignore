@@ -29,3 +29,7 @@ apps/server/reply-model/.cache/
 apps/server/reply-model/work/
 apps/server/reply-model/dist/
 apps/server/reply-model/__pycache__/
+
+# Local scratch data, never committed
+.local/
+
