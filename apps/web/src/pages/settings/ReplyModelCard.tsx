@@ -111,8 +111,9 @@ export function ReplyModelCard({ model }: { model: ReplyModelView }) {
           </GroupFooter>
         </RowGroup>
         <GroupNote>
-          A small model that runs on this machine reads the replies the rules cannot place. It acts
-          on its own only when it is very sure. Nothing it reads is sent anywhere.
+          A small model that runs on this machine reads the replies the rules cannot place. Its
+          answer is only a suggestion that Review starts from, and it never acts on its own. Nothing
+          it reads is sent anywhere.
         </GroupNote>
         {save.isError ? (
           <Callout intent="danger" title="Could not save the reply model" className="mt-3">

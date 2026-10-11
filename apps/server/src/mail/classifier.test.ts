@@ -1345,7 +1345,7 @@ describe("what an acknowledgement can and cannot outrank", () => {
       "We need additional information. Please provide your date of birth.",
     );
     const mixed = await classify(
-      "We need additional information. Please provide your date of birth. Thank you for contacting us.",
+      "We need additional information. Please provide your date of birth. We have received your request.",
     );
     expect(mixed.classification).toBe("verification_required");
     expect(mixed.confidence).toBeLessThan(clean.confidence);
@@ -1412,5 +1412,64 @@ describe("mail that shares a sender with a request but is not about it", () => {
       request({ open: false, status: "confirmed" }),
     ]);
     expect(result).toMatchObject({ requestId: "req-1", correlation: "message_id" });
+  });
+});
+
+describe("what the rules apply and what they only suggest", () => {
+  it("applies a reading from a rule on the proven list", async () => {
+    const result = await classify("Your personal information has been deleted from our systems.");
+    expect(result).toMatchObject({ classification: "completed", apply: true, suggestion: null });
+  });
+
+  it("only suggests a reading from a rule that is not on the proven list", async () => {
+    const result = await classify(
+      "We could not find any record matching the information you gave.",
+    );
+    expect(result).toMatchObject({
+      classification: "no_record",
+      apply: false,
+      source: "rules",
+      suggestion: { classification: "no_record", source: "rules", spotCheck: false },
+    });
+    expect(result.confidence).toBeGreaterThanOrEqual(0.6);
+  });
+
+  it("never applies an acknowledgement, which would file the reply as noise", async () => {
+    const result = await classify("We have received your request and will be in touch.");
+    expect(result).toMatchObject({
+      classification: "auto_ack",
+      apply: false,
+      suggestion: { classification: "auto_ack", source: "rules" },
+    });
+  });
+
+  it("holds a proven reading for a person when the reply also decides something else", async () => {
+    const result = await classify(
+      "Your information has been deleted. We could not find any record for the other address you gave.",
+    );
+    expect(result.apply).toBe(false);
+    expect(result.suggestion).toMatchObject({ source: "rules" });
+  });
+
+  it("holds a proven reading from a sender the broker's signature does not vouch for", async () => {
+    const result = await classify("Your personal information has been deleted from our systems.", {
+      verifyDkim: noDkim,
+    });
+    expect(result).toMatchObject({ classification: "completed", apply: false, confidence: 0.55 });
+  });
+
+  it("applies a delivery report, which comes from the structure of the mail", async () => {
+    const result = await classify(
+      `Delivery to privacy@acme.test failed.\nOriginal-Message-ID: ${outgoingMessageId("req-1", "example.com", 1)}`,
+      {
+        inReplyTo: null,
+        isBounce: true,
+        from: { name: null, address: "mailer-daemon@acme.test" },
+        verifyDkim: signedAs("acme.test", {
+          references: [outgoingMessageId("req-1", "example.com", 1)],
+        }),
+      },
+    );
+    expect(result).toMatchObject({ classification: "bounce", apply: true });
   });
 });

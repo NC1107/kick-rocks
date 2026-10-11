@@ -177,9 +177,10 @@ describe("the intake harness", () => {
     });
   }, 120_000);
 
-  it("files a correct reply to a request that is already over as handled", async () => {
+  it("files a correct reply to a request that is already over as handled unless only a suggestion read it", async () => {
     const report = await ranDev();
     expect(report.extra.needlessReview).toBe(0);
+    expect(report.extra.heldForPerson).toBeGreaterThan(0);
   }, 120_000);
 
   it("downloads almost none of the mail it ends up ignoring when the server can search", async () => {

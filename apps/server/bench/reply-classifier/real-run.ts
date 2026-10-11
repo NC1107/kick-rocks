@@ -2,7 +2,7 @@ import { execFileSync } from "node:child_process";
 import { outgoingMessageId, ProfileField, type ReplyClassification } from "@kickrocks/shared";
 import { createReplyClassifier } from "../../src/mail/classifier.js";
 import { LLM_TIMEOUT_MS } from "../../src/mail/llm.js";
-import type { ReplyModelHost } from "../../src/mail/reply-model/host.js";
+import type { ReplyModelHost } from "../../src/mail/reply-model/types.js";
 import type {
   ClassificationResult,
   ClassifierRequest,
@@ -155,8 +155,6 @@ export async function classifyReplies(
     },
     ...(llm ? { fetch: llmFetch(llm), llmTimeoutMs: LLM_TIMEOUT_MS } : {}),
     ...(approach.model ? { model: approach.model } : {}),
-    // Never a spot check, so what would be applied is what is counted as applied.
-    random: () => 1,
   });
   const outcomes: RealOutcome[] = [];
   for (const [index, reply] of replies.entries()) {
