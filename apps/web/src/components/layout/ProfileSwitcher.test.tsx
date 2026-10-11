@@ -1,9 +1,26 @@
 import { screen } from "@testing-library/react";
+import { useLocation } from "react-router";
 import { describe, expect, it, vi } from "vitest";
 import { renderPage } from "../../test/render.js";
 import { ProfileSwitcher } from "./ProfileSwitcher.js";
 
+function Where() {
+  return <p data-testid="where">{useLocation().pathname}</p>;
+}
+
 describe("the profile switcher", () => {
+  it("opens the profiles section of Settings from Manage profiles", async () => {
+    const { user } = renderPage(
+      <>
+        <ProfileSwitcher />
+        <Where />
+      </>,
+    );
+    await user.click(await screen.findByRole("button", { name: /Switch profile/ }));
+    await user.click(await screen.findByRole("menuitem", { name: "Manage profiles" }));
+    expect(screen.getByTestId("where")).toHaveTextContent("/settings/profiles");
+  });
+
   it("tells its container when another profile is picked, so a drawer can close", async () => {
     const onSwitch = vi.fn();
     const { user } = renderPage(<ProfileSwitcher onSwitch={onSwitch} />);

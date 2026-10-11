@@ -6,10 +6,14 @@ export interface Crumb {
   mono?: boolean;
 }
 
+const PROFILES_LIST = "/settings/profiles";
+
 const SETTINGS_PAGES: Record<string, string> = {
   recipes: "Recipes",
   agents: "Agents",
   notifications: "Notifications",
+  profiles: "Profiles",
+  about: "About",
 };
 
 /**
@@ -26,8 +30,6 @@ export function breadcrumbTrail(pathname: string, tail?: Crumb): Crumb[] {
       return [{ label: "Dashboard" }];
     case "review":
       return [{ label: "Review" }];
-    case "about":
-      return [{ label: "About" }];
     case "dev":
       return [{ label: "Component gallery" }];
     case "requests":
@@ -50,18 +52,18 @@ export function breadcrumbTrail(pathname: string, tail?: Crumb): Crumb[] {
     case "campaigns":
       return [{ label: "Requests", to: "/requests" }, { label: "New campaign" }];
     case "profiles":
-      if (!second) return [{ label: "Profiles" }];
-      if (second === "new") return [{ label: "Profiles", to: "/profiles" }, { label: "New" }];
+      if (!second) return [{ label: "Settings", to: "/settings" }, { label: "Profiles" }];
+      if (second === "new") return [{ label: "Profiles", to: PROFILES_LIST }, { label: "New" }];
       if (third === "mailbox") {
         return [
-          { label: "Profiles", to: "/profiles" },
+          { label: "Profiles", to: PROFILES_LIST },
           tail
             ? { ...tail, to: `/profiles/${second}` }
             : { label: "Profile", to: `/profiles/${second}` },
           { label: "Mailbox" },
         ];
       }
-      return [{ label: "Profiles", to: "/profiles" }, leaf("Profile")];
+      return [{ label: "Profiles", to: PROFILES_LIST }, leaf("Profile")];
     case "settings": {
       const page = second ? SETTINGS_PAGES[second] : undefined;
       return page

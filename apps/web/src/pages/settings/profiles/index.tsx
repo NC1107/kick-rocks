@@ -1,7 +1,12 @@
 import { API_ROUTES, type ProfileSummary } from "@kickrocks/shared";
 import { Mail, MailPlus, Star, Trash2 } from "lucide-react";
 import { useState } from "react";
-import { errorMessage, useApiMutation, useApiQuery, useCurrentProfile } from "../../api/index.js";
+import {
+  errorMessage,
+  useApiMutation,
+  useApiQuery,
+  useCurrentProfile,
+} from "../../../api/index.js";
 import {
   Button,
   Callout,
@@ -11,14 +16,15 @@ import {
   IconAction,
   IconButton,
   LinkButton,
-  PageHeader,
   RelativeTime,
   RowGroup,
   Section,
   Skeleton,
   Tag,
   useToast,
-} from "../../components/ui/index.js";
+} from "../../../components/ui/index.js";
+import { SETTINGS_WIDTH } from "../rows.js";
+import { SettingsHeader } from "../SettingsHeader.js";
 
 function ProfileRow({
   profile,
@@ -113,56 +119,58 @@ export function Component() {
 
   return (
     <>
-      <PageHeader
-        title="Profiles"
+      <SettingsHeader
+        section="Profiles"
         description="Who requests are sent for"
         hideDescriptionOnPhone
         actions={query.data && profiles.length === 0 ? undefined : newProfile}
       />
-      {query.error ? (
-        <Callout
-          intent="danger"
-          title="Could not load profiles"
-          action={
-            <Button size="sm" onClick={() => query.refetch()}>
-              Try again
-            </Button>
-          }
-        >
-          {errorMessage(query.error)}
-        </Callout>
-      ) : query.data && profiles.length === 0 ? (
-        <EmptyState
-          title="No profiles yet"
-          description="A profile holds one person's name, email, and address, and the mailbox requests go out from."
-          actions={newProfile}
-        />
-      ) : (
-        <Section label="Profiles" {...(query.data ? { count: profiles.length } : {})}>
-          {query.isPending ? (
-            <RowGroup aria-busy="true">
-              <span className="sr-only">Loading</span>
-              {[0, 1, 2].map((key) => (
-                <div key={key} className="flex min-h-row items-center px-3.5 py-2">
-                  <Skeleton className="h-4 w-48" />
-                </div>
-              ))}
-            </RowGroup>
-          ) : (
-            <RowGroup role="list" aria-label="Profiles" className="list-none">
-              {profiles.map((profile) => (
-                <ProfileRow
-                  key={profile.id}
-                  profile={profile}
-                  current={profile.id === current?.id}
-                  onMakeCurrent={() => setProfileId(profile.id)}
-                  onDelete={() => setPending(profile)}
-                />
-              ))}
-            </RowGroup>
-          )}
-        </Section>
-      )}
+      <div className={SETTINGS_WIDTH}>
+        {query.error ? (
+          <Callout
+            intent="danger"
+            title="Could not load profiles"
+            action={
+              <Button size="sm" onClick={() => query.refetch()}>
+                Try again
+              </Button>
+            }
+          >
+            {errorMessage(query.error)}
+          </Callout>
+        ) : query.data && profiles.length === 0 ? (
+          <EmptyState
+            title="No profiles yet"
+            description="A profile holds one person's name, email, and address, and the mailbox requests go out from."
+            actions={newProfile}
+          />
+        ) : (
+          <Section label="Profiles" {...(query.data ? { count: profiles.length } : {})}>
+            {query.isPending ? (
+              <RowGroup aria-busy="true">
+                <span className="sr-only">Loading</span>
+                {[0, 1, 2].map((key) => (
+                  <div key={key} className="flex min-h-row items-center px-3.5 py-2">
+                    <Skeleton className="h-4 w-48" />
+                  </div>
+                ))}
+              </RowGroup>
+            ) : (
+              <RowGroup role="list" aria-label="Profiles" className="list-none">
+                {profiles.map((profile) => (
+                  <ProfileRow
+                    key={profile.id}
+                    profile={profile}
+                    current={profile.id === current?.id}
+                    onMakeCurrent={() => setProfileId(profile.id)}
+                    onDelete={() => setPending(profile)}
+                  />
+                ))}
+              </RowGroup>
+            )}
+          </Section>
+        )}
+      </div>
       <ConfirmDialog
         open={pending !== null}
         onClose={() => {

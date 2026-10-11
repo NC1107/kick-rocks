@@ -1,12 +1,10 @@
 import {
   ClipboardCheck,
   Crosshair,
-  Info,
   LayoutDashboard,
   type LucideIcon,
   Send,
   Settings,
-  Users,
 } from "lucide-react";
 
 export interface NavItem {
@@ -19,19 +17,11 @@ export interface NavItem {
   badge?: "review";
 }
 
-/** Review sits second because it is where the person acts; setup lives apart from daily work. */
-export const NAV_GROUPS: readonly (readonly NavItem[])[] = [
-  [
-    { to: "/", label: "Dashboard", icon: LayoutDashboard, end: true },
-    { to: "/review", label: "Review", icon: ClipboardCheck, badge: "review" },
-    { to: "/requests", label: "Requests", icon: Send },
-    { to: "/targets", label: "Targets", icon: Crosshair },
-  ],
-  [
-    { to: "/profiles", label: "Profiles", icon: Users },
-    { to: "/settings", label: "Settings", icon: Settings },
-  ],
+/** Review sits second because it is where the person acts; Settings holds everything set up once. */
+export const NAV_ITEMS: readonly NavItem[] = [
+  { to: "/", label: "Dashboard", icon: LayoutDashboard, end: true },
+  { to: "/review", label: "Review", icon: ClipboardCheck, badge: "review" },
+  { to: "/requests", label: "Requests", icon: Send },
+  { to: "/targets", label: "Targets", icon: Crosshair },
+  { to: "/settings", label: "Settings", icon: Settings },
 ];
-
-/** Pinned to the bottom of the rail with the version. */
-export const ABOUT_ITEM: NavItem = { to: "/about", label: "About", icon: Info };

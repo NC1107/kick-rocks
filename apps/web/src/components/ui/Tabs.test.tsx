@@ -1,7 +1,8 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { MemoryRouter } from "react-router";
 import { describe, expect, it } from "vitest";
-import { Tab, TabList, TabPanel, Tabs } from "./Tabs.js";
+import { LinkTabs, Tab, TabList, TabPanel, Tabs } from "./Tabs.js";
 
 function setup() {
   render(
@@ -71,6 +72,35 @@ describe("Tabs", () => {
       expect(scrolled).toEqual(["Four"]);
     } finally {
       Element.prototype.scrollIntoView = original;
+    }
+  });
+});
+
+describe("LinkTabs", () => {
+  it("scrolls the strip so the current route's tab is on screen", () => {
+    const offsets = new Map<string, number>([["About", 600]]);
+    const offsetLeft = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "offsetLeft");
+    Object.defineProperty(HTMLElement.prototype, "offsetLeft", {
+      configurable: true,
+      get(this: HTMLElement) {
+        return offsets.get(this.textContent ?? "") ?? 0;
+      },
+    });
+    try {
+      render(
+        <MemoryRouter initialEntries={["/about"]}>
+          <LinkTabs
+            label="Sections"
+            items={[
+              { to: "/", label: "General", end: true },
+              { to: "/about", label: "About" },
+            ]}
+          />
+        </MemoryRouter>,
+      );
+      expect(screen.getByRole("navigation", { name: "Sections" }).scrollLeft).toBe(600);
+    } finally {
+      if (offsetLeft) Object.defineProperty(HTMLElement.prototype, "offsetLeft", offsetLeft);
     }
   });
 });

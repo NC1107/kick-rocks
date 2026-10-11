@@ -67,7 +67,7 @@ export function Component() {
             title="That profile does not exist"
             description="It may have been deleted."
             actions={
-              <LinkButton to="/profiles" variant="primary">
+              <LinkButton to="/settings/profiles" variant="primary">
                 Back to profiles
               </LinkButton>
             }
@@ -134,7 +134,7 @@ function ProfileEditor({ profile }: { profile: ProfileDetail }) {
     onSuccess: () => {
       unsaved.allowLeaving();
       toast.success("Deleted", `${profile.displayName} and its requests were removed.`);
-      navigate("/profiles");
+      navigate("/settings/profiles");
     },
   });
 
