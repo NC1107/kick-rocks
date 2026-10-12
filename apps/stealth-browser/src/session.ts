@@ -91,7 +91,9 @@ export class StealthSession {
 
   async select(ref: string, value: string): Promise<string> {
     const page = await this.getPage();
-    await page.locator(`[data-kr-ref="${ref}"]`).selectOption(value, { timeout: ACTION_TIMEOUT_MS });
+    await page
+      .locator(`[data-kr-ref="${ref}"]`)
+      .selectOption(value, { timeout: ACTION_TIMEOUT_MS });
     return this.readSnapshot(page, 1);
   }
 

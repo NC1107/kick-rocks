@@ -1,6 +1,6 @@
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { chromium, type BrowserContext, type Page } from "playwright";
+import { type BrowserContext, chromium, type Page } from "playwright";
 import type { StealthBrowserConfig } from "./config.js";
 
 function findChrome(): string | null {

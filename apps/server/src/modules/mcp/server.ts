@@ -110,9 +110,13 @@ async function browserCall(
       signal: AbortSignal.timeout(45_000),
     });
   } catch (err) {
-    return failure({ code: "browser_unavailable", message: `Stealth browser unreachable: ${String(err)}` });
+    return failure({
+      code: "browser_unavailable",
+      message: `Stealth browser unreachable: ${String(err)}`,
+    });
   }
-  if (res.status === 401) return failure({ code: "browser_auth", message: "Stealth browser auth failed" });
+  if (res.status === 401)
+    return failure({ code: "browser_auth", message: "Stealth browser auth failed" });
   const json = (await res.json()) as Record<string, unknown>;
   if (!res.ok || json["ok"] !== true) {
     return failure({ code: "browser_error", message: String(json["error"] ?? "browser error") });
@@ -122,10 +126,7 @@ async function browserCall(
 }
 
 /** Captures a screenshot as base64. */
-async function browserScreenshot(
-  browserUrl: string,
-  token: string,
-): Promise<CallToolResult> {
+async function browserScreenshot(browserUrl: string, token: string): Promise<CallToolResult> {
   let res: Response;
   try {
     res = await fetch(`${browserUrl}/screenshot`, {
@@ -135,7 +136,8 @@ async function browserScreenshot(
   } catch (err) {
     return failure({ code: "browser_unavailable", message: String(err) });
   }
-  if (!res.ok) return failure({ code: "browser_error", message: `screenshot failed: HTTP ${res.status}` });
+  if (!res.ok)
+    return failure({ code: "browser_error", message: `screenshot failed: HTTP ${res.status}` });
   const buf = await res.arrayBuffer();
   const data = Buffer.from(buf).toString("base64");
   return { content: [{ type: "image", data, mimeType: "image/png" }] };
@@ -202,8 +204,11 @@ export function createMcpServer(services: AppServices, version: string): McpServ
     server.registerTool(
       "browser_navigate",
       {
-        description: "Open a URL in the stealth browser. Returns the page as an accessibility tree.",
-        inputSchema: z.object({ url: z.string().min(1).max(2000).describe("Full https URL to open.") }),
+        description:
+          "Open a URL in the stealth browser. Returns the page as an accessibility tree.",
+        inputSchema: z.object({
+          url: z.string().min(1).max(2000).describe("Full https URL to open."),
+        }),
       },
       async ({ url }: { url: string }) => browserCall(burl, tok, "/navigate", { url }),
     );
@@ -211,8 +216,11 @@ export function createMcpServer(services: AppServices, version: string): McpServ
     server.registerTool(
       "browser_snapshot",
       {
-        description: "Read the current page's accessibility tree. Pass part for a long page's next section.",
-        inputSchema: z.object({ part: z.number().int().min(1).default(1).describe("Part number (default 1).") }),
+        description:
+          "Read the current page's accessibility tree. Pass part for a long page's next section.",
+        inputSchema: z.object({
+          part: z.number().int().min(1).default(1).describe("Part number (default 1)."),
+        }),
       },
       async ({ part }: { part: number }) =>
         browserCall(burl, tok, part > 1 ? `/snapshot?part=${part}` : "/snapshot"),
@@ -222,7 +230,12 @@ export function createMcpServer(services: AppServices, version: string): McpServ
       "browser_click",
       {
         description: "Click an element by its ref from the latest snapshot.",
-        inputSchema: z.object({ ref: z.string().regex(/^e\d{1,5}$/).describe("Ref from the last snapshot, e.g. e12.") }),
+        inputSchema: z.object({
+          ref: z
+            .string()
+            .regex(/^e\d{1,5}$/)
+            .describe("Ref from the last snapshot, e.g. e12."),
+        }),
       },
       async ({ ref }: { ref: string }) => browserCall(burl, tok, "/click", { ref }),
     );
@@ -232,11 +245,15 @@ export function createMcpServer(services: AppServices, version: string): McpServ
       {
         description: "Type text into an input field by its ref from the latest snapshot.",
         inputSchema: z.object({
-          ref: z.string().regex(/^e\d{1,5}$/).describe("Ref from the last snapshot."),
+          ref: z
+            .string()
+            .regex(/^e\d{1,5}$/)
+            .describe("Ref from the last snapshot."),
           text: z.string().max(10_000).describe("Text to type."),
         }),
       },
-      async ({ ref, text }: { ref: string; text: string }) => browserCall(burl, tok, "/fill", { ref, text }),
+      async ({ ref, text }: { ref: string; text: string }) =>
+        browserCall(burl, tok, "/fill", { ref, text }),
     );
 
     server.registerTool(
@@ -244,11 +261,15 @@ export function createMcpServer(services: AppServices, version: string): McpServ
       {
         description: "Choose a dropdown option by its visible label.",
         inputSchema: z.object({
-          ref: z.string().regex(/^e\d{1,5}$/).describe("Ref of the select element."),
+          ref: z
+            .string()
+            .regex(/^e\d{1,5}$/)
+            .describe("Ref of the select element."),
           value: z.string().max(500).describe("Option label to select."),
         }),
       },
-      async ({ ref, value }: { ref: string; value: string }) => browserCall(burl, tok, "/select", { ref, value }),
+      async ({ ref, value }: { ref: string; value: string }) =>
+        browserCall(burl, tok, "/select", { ref, value }),
     );
 
     server.registerTool(
