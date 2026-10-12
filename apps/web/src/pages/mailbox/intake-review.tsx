@@ -118,7 +118,7 @@ export function CleanupPreview({
       <div className="flex items-center justify-between gap-3 rounded-md border border-line bg-surface py-1.5 pr-2 pl-3.5">
         <p className="m-0 min-w-0 text-ui text-ink">{pluralize(count, "saved email")} to remove</p>
         <Button size="sm" onClick={() => setReviewing(true)}>
-          Check
+          Choose
         </Button>
       </div>
       <Dialog

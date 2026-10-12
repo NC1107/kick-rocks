@@ -43,7 +43,14 @@ export type Plan =
       advisory: string | null;
     }
   | { kind: "scan"; target: TargetRow }
-  | { kind: "skip"; target: TargetRow; reason: SkipReason; detail: string };
+  | {
+      kind: "skip";
+      target: TargetRow;
+      reason: SkipReason;
+      detail: string;
+      /** The request that made this a skip, for a page to link to. */
+      requestId?: string;
+    };
 
 export interface CampaignPlan {
   profile: { id: string; state: StateCode };
@@ -193,15 +200,25 @@ export function createCampaignPlanner({
           ? selectByFilter(targetsService, selection.filter)
           : explicitTargets(selection.targetIds);
 
-    const history = new Map<string, { active: boolean; confirmed: boolean }>();
+    const history = new Map<
+      string,
+      { active: boolean; activeId: string | null; confirmed: boolean }
+    >();
     if (rows.length > 0) {
       for (const request of db
-        .select({ targetId: requests.targetId, status: requests.status })
+        .select({ id: requests.id, targetId: requests.targetId, status: requests.status })
         .from(requests)
         .where(eq(requests.profileId, profileId))
         .all()) {
-        const entry = history.get(request.targetId) ?? { active: false, confirmed: false };
-        entry.active ||= isActiveStatus(request.status);
+        const entry = history.get(request.targetId) ?? {
+          active: false,
+          activeId: null,
+          confirmed: false,
+        };
+        if (isActiveStatus(request.status)) {
+          entry.active = true;
+          entry.activeId ??= request.id;
+        }
         entry.confirmed ||= request.status === "confirmed";
         history.set(request.targetId, entry);
       }
@@ -221,15 +238,20 @@ export function createCampaignPlanner({
       targetsService.toSummaries(rows).map((summary) => [summary.id, summary] as const),
     );
     const plans = rows.map((row): Plan => {
-      const skip = (reason: SkipReason, detail: string): Plan => ({
+      const skip = (reason: SkipReason, detail: string, requestId?: string | null): Plan => ({
         kind: "skip",
         target: row,
         reason,
         detail,
+        ...(requestId ? { requestId } : {}),
       });
       const past = history.get(row.id);
       if (past?.active) {
-        return skip("already_active", `A request to ${row.name} is already in progress.`);
+        return skip(
+          "already_active",
+          `A request to ${row.name} is already in progress.`,
+          past.activeId,
+        );
       }
       if (past?.confirmed) {
         return skip(

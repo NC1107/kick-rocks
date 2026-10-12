@@ -81,7 +81,7 @@ describe("the review pages", () => {
     const { user } = open("/review/mail");
     expect(await screen.findByText("12 saved emails to remove")).toBeVisible();
     expect(screen.queryByTestId("cleanup-preview")).toBeNull();
-    await user.click(screen.getByRole("button", { name: "Check" }));
+    await user.click(screen.getByRole("button", { name: "Choose" }));
     const preview = within(await screen.findByTestId("cleanup-preview"));
     expect(screen.getByRole("heading", { name: /Saved mail to remove · 12/ })).toBeVisible();
     expect(preview.getByText("Your order has shipped")).toBeVisible();

@@ -101,7 +101,11 @@ export function RecipeCard({
               <span className="font-mono tabular-nums">
                 {pluralize(definition.steps.length, "step")}
               </span>
-              {recipe.notes ? <span className="text-ink-3">· notes</span> : null}
+              {recipe.notes ? (
+                <span className="text-ink-3">
+                  · {copy.showChecked ? "what was checked" : "notes"}
+                </span>
+              ) : null}
             </span>
             <ChevronDown
               aria-hidden="true"

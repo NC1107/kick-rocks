@@ -1,6 +1,6 @@
 import type { AgentsResponse, WaitingTask } from "@kickrocks/shared";
 import type { ReactNode } from "react";
-import { HoldReason } from "../../components/holds/HoldReason.js";
+import { HoldReason, holdLinkLabel } from "../../components/holds/HoldReason.js";
 import {
   EmptyState,
   EntityLink,
@@ -52,9 +52,11 @@ function describe(entry: QueueEntry, agents: AgentsResponse | undefined, now: nu
     }
     case "failed": {
       const { task, requestReference } = entry.item;
+      const failure = describeFailure(task);
       return {
         title: task.targetName ?? "Unknown target",
-        reason: describeFailure(task).label,
+        // The generic label for a site problem says nothing the badge does not; the worker's own words name what failed.
+        reason: failure.group === "site" && task.lastError ? failure.detail : failure.label,
         at: task.updatedAt,
         shape,
         request: requestOf(task.requestId, requestReference),
@@ -134,33 +136,47 @@ function Entry({
 function WaitingGroup({ waiting, total }: { waiting: readonly WaitingTask[]; total: number }) {
   if (total === 0) return null;
   const hidden = total - waiting.length;
+  const linked = new Set<string>();
   return (
     <Section label="Waiting" count={total}>
       <RowGroup>
-        {waiting.map((item) => (
-          <Row
-            key={item.taskId}
-            leading={<StatusShapeGlyph shape="ring" />}
-            title={
-              item.targetId ? (
-                <EntityLink
-                  to={{
-                    kind: "target",
-                    id: item.targetId,
-                    name: item.targetName ?? "Unknown target",
-                  }}
-                  variant="quiet"
-                  className="text-ink"
+        {waiting.map((item) => {
+          const link = holdLinkLabel(item.waiting);
+          const hideLink = link !== undefined && linked.has(link);
+          if (link) linked.add(link);
+          return (
+            <Row
+              key={item.taskId}
+              leading={<StatusShapeGlyph shape="ring" />}
+              title={
+                item.targetId ? (
+                  <EntityLink
+                    to={{
+                      kind: "target",
+                      id: item.targetId,
+                      name: item.targetName ?? "Unknown target",
+                    }}
+                    variant="quiet"
+                    className="text-ink"
+                  />
+                ) : (
+                  (item.targetName ?? "Unknown target")
+                )
+              }
+              description={
+                <HoldReason
+                  hold={item.waiting}
+                  glyph={false}
+                  showSite={false}
+                  compact
+                  hideLink={hideLink}
                 />
-              ) : (
-                (item.targetName ?? "Unknown target")
-              )
-            }
-            description={<HoldReason hold={item.waiting} glyph={false} showSite={false} compact />}
-            wrapDescription
-            className="py-1.5"
-          />
-        ))}
+              }
+              wrapDescription
+              className="py-1.5"
+            />
+          );
+        })}
         {hidden > 0 ? (
           <p className="px-3.5 py-2 font-mono text-caption text-ink-3">+{hidden} more</p>
         ) : null}
@@ -223,7 +239,7 @@ export function QueueList({
   return (
     <nav aria-label="Review list" className="flex min-w-0 flex-col gap-3">
       {header}
-      {sections.length === 0 ? <EmptyState title={empty} /> : sections}
+      {sections.length === 0 ? waitingTotal === 0 ? <EmptyState title={empty} /> : null : sections}
       <WaitingGroup waiting={waiting} total={waitingTotal} />
       <p className="mt-1 hidden items-center gap-1.5 text-caption text-ink-3 lg:flex">
         <Kbd>j</Kbd>

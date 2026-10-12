@@ -68,9 +68,7 @@ export function Component() {
             />
           ) : (
             <>
-              <GroupNote className="mt-0 mb-3 max-w-prose">
-                Untested on live sites; none run on your details until approved.
-              </GroupNote>
+              <GroupNote className="mt-0 mb-3 max-w-prose">Untested on live sites.</GroupNote>
               <div className="flex flex-col gap-3">
                 {pending.data.recipes.map((recipe) => (
                   <RecipeCard key={recipe.id} recipe={recipe} copy={COPY} />

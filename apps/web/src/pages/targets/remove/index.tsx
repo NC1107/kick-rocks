@@ -24,6 +24,7 @@ import {
   RowGroup,
   Section,
   Skeleton,
+  TextLink,
   useToast,
 } from "../../../components/ui/index.js";
 import { pluralize } from "../../../lib/format.js";
@@ -173,6 +174,12 @@ function Remove({ target, profile }: { target: TargetDetail; profile: ProfileSum
           <Callout intent="danger" title="Nothing would go out">
             {skipped.reason ? SKIP_REASON_LABELS[skipped.reason] : "Skipped"}
             {skipped.detail ? `. ${skipped.detail}` : ""}
+            {skipped.reason === "already_active" && skipped.requestId ? (
+              <>
+                {" "}
+                <TextLink to={paths.request(skipped.requestId)}>Open the request</TextLink>
+              </>
+            ) : null}
           </Callout>
         ) : null}
 

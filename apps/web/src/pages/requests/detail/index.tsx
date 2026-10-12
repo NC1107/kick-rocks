@@ -88,6 +88,13 @@ const ACTION_DONE: Record<RequestAction, string> = {
   mark_no_record: "Marked as no record",
 };
 
+/** A request that never went out is sent, not sent again. */
+function actionLabel(action: RequestAction, request: RequestDetail): string {
+  return action === "resend" && request.sentAt === null && request.channel === "email"
+    ? "Send now"
+    : REQUEST_ACTION_LABELS[action];
+}
+
 /** Says which email goes to which address, since a resend cannot be taken back once it is sent. */
 function resendWarning(request: RequestDetail, address: string | null): string {
   if (request.channel === "form") {
@@ -96,7 +103,7 @@ function resendWarning(request: RequestDetail, address: string | null): string {
   const to = address ? ` to ${address}` : "";
   return resendEmailKind(request.status) === "follow_up" && request.sentAt !== null
     ? `Sends a follow-up email${to}; it cannot be recalled.`
-    : `Resends the request email${to}; it cannot be recalled.`;
+    : `${request.sentAt === null ? "Sends" : "Resends"} the request email${to}; it cannot be recalled.`;
 }
 
 const ACTION_WARNING: Partial<Record<RequestAction, string>> = {
@@ -343,7 +350,7 @@ function Detail({ request }: { request: RequestDetail }) {
             ) : null}
             {can("resend") ? (
               <Button variant="primary" onClick={() => setConfirming("resend")}>
-                {REQUEST_ACTION_LABELS.resend}
+                {actionLabel("resend", request)}
               </Button>
             ) : null}
           </>
@@ -429,7 +436,7 @@ function Detail({ request }: { request: RequestDetail }) {
         {blocked ? (
           <Callout
             intent="warning"
-            title="A task is waiting for you"
+            title="Waiting for you"
             action={
               <LinkButton size="sm" to={paths.reviewItem(`task:${blocked.id}`)}>
                 Open in Review
@@ -437,7 +444,7 @@ function Detail({ request }: { request: RequestDetail }) {
             }
           >
             {blocked.blockedReason
-              ? `It stopped for you: ${BLOCKED_REASON_LABELS[blocked.blockedReason]}.`
+              ? `${BLOCKED_REASON_LABELS[blocked.blockedReason]}.`
               : "It stopped and needs a person."}
           </Callout>
         ) : null}
@@ -600,7 +607,7 @@ function Detail({ request }: { request: RequestDetail }) {
       <ConfirmDialog
         open={confirming !== null}
         onClose={() => setConfirming(null)}
-        title={confirming ? `${REQUEST_ACTION_LABELS[confirming]}?` : ""}
+        title={confirming ? `${actionLabel(confirming, request)}?` : ""}
         description={
           confirming === "resend"
             ? resendWarning(request, targetDetail.data?.privacyEmail ?? null)
@@ -608,7 +615,7 @@ function Detail({ request }: { request: RequestDetail }) {
               ? ACTION_WARNING[confirming]
               : undefined
         }
-        confirmLabel={confirming ? REQUEST_ACTION_LABELS[confirming] : "Confirm"}
+        confirmLabel={confirming ? actionLabel(confirming, request) : "Confirm"}
         cancelLabel={confirming === "cancel" ? "Keep request" : "Cancel"}
         destructive={confirming === "cancel"}
         loading={act.isPending}

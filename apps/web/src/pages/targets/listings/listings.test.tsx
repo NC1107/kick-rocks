@@ -136,7 +136,7 @@ describe("scanning without a campaign", () => {
     const dialog = await screen.findByRole("dialog", { name: "Scan every people-search site?" });
     expect(within(dialog).getByText(/Searches each site once/)).toBeVisible();
     await user.click(within(dialog).getByRole("checkbox", { name: /Include past addresses/ }));
-    expect(within(dialog).getByText(/Searches each site 2 times, spaced out/)).toBeVisible();
+    expect(within(dialog).getByText(/Searches each site 2 times, slowly/)).toBeVisible();
     await user.click(within(dialog).getByRole("button", { name: "Start scans" }));
 
     await waitFor(() => expect(mock.store.scans.length).toBeGreaterThan(before));

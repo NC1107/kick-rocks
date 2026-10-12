@@ -89,15 +89,17 @@ export function GroupNote({
   children,
   className,
   detail,
+  detailLabel,
 }: {
   children: ReactNode;
   className?: string;
   detail?: string;
+  detailLabel?: string;
 }) {
   return (
     <p className={cn("mt-1.5 text-caption text-ink-3", className)}>
       {children}
-      {detail ? <InfoTip text={detail} /> : null}
+      {detail ? <InfoTip text={detail} {...(detailLabel ? { label: detailLabel } : {})} /> : null}
     </p>
   );
 }

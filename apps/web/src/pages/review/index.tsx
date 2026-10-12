@@ -199,7 +199,7 @@ function Detail({
 
 const EMPTY: Record<ReviewSection, string> = {
   mail: "No unsorted mail.",
-  agents: "Nothing is waiting for an agent.",
+  agents: "No agent tasks.",
   problems: "No problems.",
 };
 

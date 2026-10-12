@@ -208,15 +208,14 @@ describe("general settings", () => {
 
   it("says the reply text goes to the language model address, and recommends a local one", async () => {
     general();
-    expect(await screen.findByText(/prefer a local model/)).toBeVisible();
+    expect(await screen.findByText(/reply text goes to this URL/)).toBeVisible();
     expect(
-      screen.getByRole("button", {
-        name: /reply subject and start are sent to this address/,
-      }),
+      screen.getByRole("button", { name: "More about the language model" }),
     ).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: /used only without the reply model/ }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "More about the language model" })).toHaveAttribute(
+      "aria-description",
+      expect.stringMatching(/Prefer a local model/),
+    );
   });
 
   it("rejects a language model address that is not a web address", async () => {

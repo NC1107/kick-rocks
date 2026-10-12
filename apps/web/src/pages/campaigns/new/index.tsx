@@ -63,7 +63,7 @@ const PRESET_OPTIONS: readonly RadioOption<CampaignPreset>[] = [
   {
     value: "easy",
     label: "Easy ones",
-    description: "Sent by email, nothing from you",
+    description: "Fully automatic; no steps for you.",
   },
   {
     value: "email_brokers",
@@ -78,7 +78,7 @@ const PRESET_OPTIONS: readonly RadioOption<CampaignPreset>[] = [
   {
     value: "people_search",
     label: "People-search sites",
-    description: "Scanned first; you confirm",
+    description: "Scanned first; you confirm.",
   },
   {
     value: "everything",
@@ -129,7 +129,7 @@ function Builder({ profile }: { profile: ProfileSummary }) {
 
   const targetIds = useMemo(() => parseTargetIds(params.get("targets")), [params]);
   const [preset, setPreset] = useState<CampaignPreset | null>(null);
-  const [rights, setRights] = useState<readonly RequestRight[]>(["opt_out"]);
+  const [chosenRights, setRights] = useState<readonly RequestRight[]>(["opt_out"]);
   const [confirming, setConfirming] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(() => targetIds.length > 0);
   const pickerSummary = useRef<HTMLElement>(null);
@@ -143,6 +143,9 @@ function Builder({ profile }: { profile: ProfileSummary }) {
       : preset
         ? { kind: "preset", preset }
         : null;
+  // A group or filter only opts out of sale; deleting needs named targets.
+  const deleteBlocked = choice?.kind === "preset" || choice?.kind === "filter";
+  const rights = deleteBlocked ? chosenRights.filter((right) => right !== "delete") : chosenRights;
   const allTargets = useAllTargets();
   const facets = useApiQuery(API_ROUTES.targetsFacets, { staleTime: 60_000 });
   const settings = useApiQuery(API_ROUTES.settingsGet);
@@ -409,7 +412,12 @@ function Builder({ profile }: { profile: ProfileSummary }) {
                   <Checkbox
                     key={right}
                     label={RIGHT_LABELS[right]}
-                    description={RIGHT_HELP[right]}
+                    description={
+                      right === "delete" && deleteBlocked
+                        ? "Pick targets to delete."
+                        : RIGHT_HELP[right]
+                    }
+                    disabled={right === "delete" && deleteBlocked}
                     checked={rights.includes(right)}
                     onChange={(event) => toggleRight(right, event.target.checked)}
                     className="items-center px-3.5 py-2 transition-colors duration-100 hover:bg-hover"
@@ -417,11 +425,6 @@ function Builder({ profile }: { profile: ProfileSummary }) {
                 ))}
               </RowGroup>
             </fieldset>
-            {choice?.kind !== "targets" ? (
-              <p className="mt-2 text-meta text-ink-3">
-                Groups only opt out of sale; pick targets to delete.
-              </p>
-            ) : null}
             {rights.length === 0 ? (
               <p role="alert" className="mt-2 text-caption text-danger-text">
                 Choose at least one.

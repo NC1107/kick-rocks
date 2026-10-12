@@ -106,7 +106,8 @@ describe("the campaign builder", () => {
     await user.click(await screen.findByRole("radio", { name: /Everyday companies/ }));
     expect(screen.getByRole("checkbox", { name: /Opt out of sale/ })).toBeChecked();
     expect(screen.getByRole("checkbox", { name: /Delete my data/ })).not.toBeChecked();
-    expect(screen.getByText(/may close accounts/)).toBeVisible();
+    expect(screen.getByRole("checkbox", { name: /Delete my data/ })).toBeDisabled();
+    expect(screen.getByText(/Pick targets to delete/)).toBeVisible();
   });
 
   it("shows the address the first email goes to", async () => {
@@ -224,9 +225,9 @@ describe("the campaign builder", () => {
   });
 
   it("says a filter campaign only asks companies to stop selling", async () => {
-    const { user } = open(`/campaigns/new?filter=${encodeURIComponent('{"kind":"company"}')}`);
-    await user.click(await screen.findByRole("checkbox", { name: /Delete my data/ }));
-    expect(screen.getByText(/Groups only opt out of sale/)).toBeVisible();
+    open(`/campaigns/new?filter=${encodeURIComponent('{"kind":"company"}')}`);
+    expect(await screen.findByRole("checkbox", { name: /Delete my data/ })).toBeDisabled();
+    expect(screen.getByText(/Pick targets to delete/)).toBeVisible();
     const preview = await screen.findByRole("region", { name: "Preview" });
     expect(await within(preview).findByText("Email preview")).toBeVisible();
     expect(within(preview).queryByText(/delete the personal information/)).not.toBeInTheDocument();

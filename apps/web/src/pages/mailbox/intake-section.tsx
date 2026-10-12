@@ -13,7 +13,7 @@ import {
   Button,
   Callout,
   Checkbox,
-  InfoTip,
+  Disclosure,
   Input,
   RadioGroup,
   RowGroup,
@@ -31,9 +31,9 @@ const RULES = [
   "Bounce messages for mail Kick Rocks sent.",
   "The confirmation email a form you submitted is waiting for.",
   "Mail from brokers with an open request, minus newsletters and ads.",
-  "Company mail, privacy only by default.",
-  "Mail from anyone naming a target you have a request with.",
-  "Mail to your reply address that names one of those targets.",
+  "Mail from companies with an open request, if about privacy (change below).",
+  "Mail from anyone that names a target with an open request and is about your data.",
+  "Mail to your reply address (once on) naming such a target.",
   "Mail from senders you add below.",
   "Mail matching no request is kept for review, never applied.",
 ] as const;
@@ -61,6 +61,7 @@ interface IntakeSectionProps {
 /** What Kick Rocks takes in from the mailbox, with the controls that change it. */
 export function IntakeSection({ profileId, mailbox, provider }: IntakeSectionProps) {
   const { hash } = useLocation();
+  const [rulesOpen, setRulesOpen] = useState(false);
   const shadowActive =
     useApiQuery(API_ROUTES.intakeShadow, { params: { id: profileId } }).data?.active ?? false;
   // The link from the notice and from Settings names this section, but the page renders after the jump.
@@ -72,16 +73,10 @@ export function IntakeSection({ profileId, mailbox, provider }: IntakeSectionPro
       <Section label="Mail intake">
         <RowGroup>
           <BodyRow>
-            <ul className="m-0 flex list-disc flex-col gap-1 pl-5 text-meta text-ink-2">
-              {RULES.map((rule) => (
-                <li key={rule}>{rule}</li>
-              ))}
-            </ul>
-            <p className="mt-3 text-meta font-medium text-ink">
-              Everything else stays in your mailbox and is not saved.
-              {shadowActive ? (
-                <InfoTip text="In the first week, passed-over mail that could be a reply is listed below." />
-              ) : null}
+            <p className="text-meta font-medium text-ink">
+              {shadowActive
+                ? "Only request mail is saved; possible replies are listed for a week."
+                : "Only request mail is saved; the rest stays in your mailbox."}
             </p>
           </BodyRow>
           {mailbox.lastPolledAt ? (
@@ -93,6 +88,18 @@ export function IntakeSection({ profileId, mailbox, provider }: IntakeSectionPro
             </BodyRow>
           ) : null}
         </RowGroup>
+        <Disclosure
+          title="What counts"
+          open={rulesOpen}
+          onOpenChange={setRulesOpen}
+          className="mt-2"
+        >
+          <ul className="m-0 flex list-disc flex-col gap-1 pl-5 text-meta text-ink-2">
+            {RULES.map((rule) => (
+              <li key={rule}>{rule}</li>
+            ))}
+          </ul>
+        </Disclosure>
       </Section>
       <CleanupPreview profileId={profileId} />
       <ShadowReport profileId={profileId} />

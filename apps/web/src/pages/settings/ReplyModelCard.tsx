@@ -48,7 +48,10 @@ export function ReplyModelCard({ model }: { model: ReplyModelView }) {
           </a>
         </ActionRow>
       </RowGroup>
-      <GroupNote detail="A small model on this machine reads the replies the rules cannot place. Nothing it reads is sent anywhere.">
+      <GroupNote
+        detailLabel="What a reply type is"
+        detail="Reply types are labels such as confirmed, rejected or needs ID, given to replies the rules cannot place."
+      >
         Local model suggests a reply type; never acts, never sends data.
       </GroupNote>
     </Section>

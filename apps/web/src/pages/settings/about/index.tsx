@@ -179,8 +179,8 @@ export function problemsOf({ scheduler, database, disk }: InstanceHealth): strin
 
 export function backupSummary({ lastVerifiedAt, stale }: InstanceHealth["backup"]): string {
   if (!lastVerifiedAt) return "No verified backup yet. Run ./install.sh --backup.";
-  const when = `Last verified backup ${formatRelative(lastVerifiedAt)}.`;
-  return stale ? `${when} That is too old: run ./install.sh --backup again.` : when;
+  const when = `Verified ${formatRelative(lastVerifiedAt)}`;
+  return stale ? `${when}. Too old: run ./install.sh --backup again.` : when;
 }
 
 function BackupFreshness({ backup }: { backup: InstanceHealth["backup"] }) {
@@ -265,7 +265,7 @@ function LimitsSection() {
       <ul className="flex max-w-prose list-none flex-col gap-2 text-body text-ink">
         <li>Not legal advice; laws may not apply and deletion is not guaranteed.</li>
         <li>Brokers can add you back, which is why rescans exist.</li>
-        <li>Contacting a broker without your data can link your name and email.</li>
+        <li>Contacting a broker that lacks your record shares your name and email.</li>
         <li>Without a state law, a company's own privacy policy applies, if any.</li>
       </ul>
     </Section>
@@ -283,7 +283,7 @@ function AttributionSection() {
           By Yael Grauer, under{" "}
           <ExternalLinkText href={CC_BY_NC_SA_URL}>CC BY-NC-SA 4.0</ExternalLinkText>
         </li>
-        <li>Converted and extended; CC BY-NC-SA applies, apart from the app code.</li>
+        <li>Converted and extended list; CC BY-NC-SA covers it, not the app code.</li>
         <li>
           <ExternalLinkText href={ERASER_URL}>Eraser</ExternalLinkText>, MIT license, text in the
           repository.

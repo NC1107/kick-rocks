@@ -22,7 +22,7 @@ describe("the setup page", () => {
     expect(screen.queryByText(/protects everything/)).not.toBeInTheDocument();
     expect(screen.getByText(/This password signs you in/)).toBeVisible();
     expect(
-      screen.getByText(/Back up the whole kickrocks-data volume; its key decrypts your data/),
+      screen.getByText(/It holds the encryption key; lose it and your data is gone/),
     ).toBeVisible();
   });
 

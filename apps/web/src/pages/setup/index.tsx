@@ -68,10 +68,13 @@ export function Component() {
             onChange={(event) => setConfirm(event.target.value)}
           />
         </Field>
-        <Callout intent="info" title="Back up the data volume">
+        <Callout intent="info" title="Back up kickrocks-data">
           <p>
-            Back up the whole kickrocks-data volume; its key decrypts your data.
-            <InfoTip text="A key next to the database encrypts your data, not this password. Without the key the data cannot be opened. Commands: Backups and restore in docs/self-hosting.md." />
+            It holds the encryption key; lose it and your data is gone.
+            <InfoTip
+              label="More about backups"
+              text="The password is not the key; a stored key encrypts your data. Commands: Backups and restore in docs/self-hosting.md."
+            />
           </p>
         </Callout>
         {failure && !fieldIssue ? <Callout intent="danger">{errorMessage(failure)}</Callout> : null}

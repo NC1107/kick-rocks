@@ -85,6 +85,8 @@ function say(hold: ScanHold, compact: boolean, { profileId, targetId, showSite }
       domain
     );
   const subject = named ? site : (sites ?? "The site");
+  // Without a verb "The site cooling down" reads as a fragment, so a row that does not name the site starts with the verb.
+  const bare = !named && sites === null;
   const after = hold.until ? <> until {untilText(hold.until)}</> : null;
   switch (hold.reason) {
     case "quiet_hours":
@@ -100,7 +102,8 @@ function say(hold: ScanHold, compact: boolean, { profileId, targetId, showSite }
         shape: "ring",
         text: (
           <>
-            {subject} cooling down{after}
+            {bare ? "Cooling down" : <>{subject} cooling down</>}
+            {after}
           </>
         ),
         link: { to: paths.settings("sites"), label: "Site settings" },
@@ -110,7 +113,8 @@ function say(hold: ScanHold, compact: boolean, { profileId, targetId, showSite }
         shape: "ring",
         text: (
           <>
-            {subject} paused after pushback{after}
+            {bare ? "Paused after pushback" : <>{subject} paused after pushback</>}
+            {after}
           </>
         ),
         link: { to: paths.settings("sites"), label: "Site settings" },

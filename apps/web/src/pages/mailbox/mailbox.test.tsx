@@ -477,11 +477,13 @@ describe("what Kick Rocks takes in", () => {
       screen.getByText(/Mail matching no request is kept for review, never applied/),
     ).toBeInTheDocument();
     expect(
-      screen.getByText(/Everything else stays in your mailbox and is not saved\./),
+      screen.getByText(/Only request mail is saved; the rest stays in your mailbox\./),
     ).toBeVisible();
-    expect(
-      await screen.findByRole("button", { name: /in the first week, passed-over mail/i }),
-    ).toBeVisible();
+    expect(await screen.findByText(/possible replies are listed for a week/)).toBeVisible();
+    expect(screen.getByRole("button", { name: "What counts" })).toHaveAttribute(
+      "aria-expanded",
+      "false",
+    );
     expect(screen.getByTestId("last-check")).toHaveTextContent(
       "Last check looked at 143 new messages and kept 4.",
     );
@@ -558,12 +560,10 @@ describe("what Kick Rocks takes in", () => {
     await user.click(report.getByRole("button", { name: "Dismiss report" }));
     await waitFor(() => expect(screen.queryByTestId("shadow-report")).toBeNull());
     await waitFor(() =>
-      expect(
-        screen.queryByRole("button", { name: /in the first week, passed-over mail/i }),
-      ).toBeNull(),
+      expect(screen.queryByText(/possible replies are listed for a week/)).toBeNull(),
     );
     expect(
-      screen.getByText(/Everything else stays in your mailbox and is not saved\./),
+      screen.getByText(/Only request mail is saved; the rest stays in your mailbox\./),
     ).toBeVisible();
   });
 

@@ -202,7 +202,6 @@ function Listings({ profileId }: { profileId: string }) {
   const setChip = (id: ChipId) => setParams({ show: id }, { replace: true });
   const [scanning, setScanning] = useState<{
     title: string;
-    description: string;
     targetIds: string[] | null;
     includePastAddresses?: boolean;
   } | null>(null);
@@ -230,13 +229,11 @@ function Listings({ profileId }: { profileId: string }) {
   const scanAll = () =>
     setScanning({
       title: "Scan every people-search site?",
-      description: "Searches active sites; nothing is removed until you confirm.",
       targetIds: null,
     });
   const scanOne = (site: ListingSite) =>
     setScanning({
       title: `Scan ${site.targetName}?`,
-      description: "Searches this site; nothing is removed until you confirm.",
       targetIds: [site.targetId],
       includePastAddresses: site.preference.includePastAddresses,
     });
@@ -355,7 +352,6 @@ function Listings({ profileId }: { profileId: string }) {
               : { preset: "people_search" as const }
           }
           title={scanning.title}
-          description={scanning.description}
           siteCount={scanning.targetIds?.length}
           sitePreference={scanning.includePastAddresses}
         />

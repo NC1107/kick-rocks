@@ -185,7 +185,7 @@ export function ScanPaceCard({
         </RowGroup>
         {scanning.timeZone === null ? (
           <GroupNote>
-            Quiet hours use the server clock until you save{" "}
+            Quiet hours use the server clock; Save applies{" "}
             <span className="font-mono">{pace.timeZone.trim() || "your browser's time zone"}</span>.
           </GroupNote>
         ) : null}

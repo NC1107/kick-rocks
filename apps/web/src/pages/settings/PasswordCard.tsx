@@ -79,8 +79,11 @@ export function PasswordCard() {
             </Button>
           </GroupFooter>
         </RowGroup>
-        <GroupNote detail="The password does not encrypt your data; a stored key does. Without the key the data cannot be opened. Commands: Backups and restore in docs/self-hosting.md.">
-          Back up the whole kickrocks-data volume; its key decrypts your data.
+        <GroupNote
+          detailLabel="More about backups"
+          detail="The password is not the key; a stored key encrypts your data. Commands: Backups and restore in docs/self-hosting.md."
+        >
+          kickrocks-data holds the encryption key; lose it and your data is gone.
         </GroupNote>
         {change.isError && Object.keys(serverErrors).length === 0 ? (
           <Callout intent="danger" title="Could not change the password" className="mt-3">

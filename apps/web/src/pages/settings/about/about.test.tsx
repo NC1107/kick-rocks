@@ -77,7 +77,7 @@ describe("the about page", () => {
       "https://creativecommons.org/licenses/by-nc-sa/4.0/",
     );
     expect(card).toHaveTextContent(/onverted and extended/);
-    expect(card).toHaveTextContent(/apart from the app code/);
+    expect(card).toHaveTextContent(/not the app code/);
   });
 
   it("names the Eraser list and its MIT license in the attribution", async () => {
@@ -101,7 +101,7 @@ describe("the about page", () => {
     expect(limits).toHaveTextContent(/laws may not apply/);
     expect(limits).toHaveTextContent(/deletion is not guaranteed/);
     expect(limits).toHaveTextContent(/add you back/);
-    expect(limits).toHaveTextContent(/link your name and email/);
+    expect(limits).toHaveTextContent(/shares your name and email/);
     expect(limits).toHaveTextContent(/own privacy policy/);
   });
 
@@ -142,7 +142,7 @@ describe("the about page", () => {
   it("shows how fresh the last verified backup is, and says so when there is none", async () => {
     const mock = createMockApp();
     const { unmount } = renderPage(<AboutPage />, { mock, withProfile: false });
-    expect(await screen.findByText(/Last verified backup 5 hours ago/)).toBeInTheDocument();
+    expect(await screen.findByText(/Verified 5 hours ago/)).toBeInTheDocument();
     unmount();
     const bare = createMockApp();
     const handle = bare.handle.bind(bare);

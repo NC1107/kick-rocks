@@ -48,7 +48,6 @@ interface ScanDialogProps {
   profileId: string;
   selection: Selection;
   title: DialogProps["title"];
-  description: DialogProps["description"];
   /** Sites in the scan, to say how many visits it makes. */
   siteCount?: number | undefined;
   /** The site's own "include past addresses" choice, which a single-site scan follows. */
@@ -67,7 +66,6 @@ export function ScanDialog({
   profileId,
   selection,
   title,
-  description,
   siteCount,
   sitePreference,
   confirmLabel = "Start scans",
@@ -98,15 +96,15 @@ export function ScanDialog({
   const per = siteCount === 1 ? "the site" : "each site";
   const cost =
     visits === 1
-      ? `Searches ${per} once, spaced out by the site limits.`
-      : `Searches ${per} ${visits} times, spaced out by the site limits.`;
+      ? `Searches ${per} once, slowly; nothing is removed before you confirm.`
+      : `Searches ${per} ${visits} times, slowly; nothing is removed before you confirm.`;
 
   return (
     <Dialog
       open={open}
       onClose={onClose}
       title={title}
-      description={description}
+      description={cost}
       dismissible={!start.isPending}
       footer={
         <>
@@ -141,7 +139,6 @@ export function ScanDialog({
             onChange={(event) => setChosen(event.target.checked)}
           />
         ) : null}
-        <p className="text-meta text-ink-2">{cost}</p>
         {start.isError ? (
           <p role="alert" className="text-caption text-danger-text">
             {errorMessage(start.error)}

@@ -455,10 +455,13 @@ describe("create", () => {
     seedTarget(ctx, { id: "one" });
     seedTarget(ctx, { id: "people", category: "people-search", contactMethod: "form" });
 
-    await createOk(profile.id, body(["one", "people"]));
+    const first = await createOk(profile.id, body(["one", "people"]));
     const again = await createOk(profile.id, body(["one", "people"]));
 
     expect(reasonOf(again.items, "one")).toBe("already_active");
+    expect(again.items.find((item) => item.targetId === "one")?.requestId).toBe(
+      first.items.find((item) => item.targetId === "one")?.requestId,
+    );
     expect(reasonOf(again.items, "people")).toBe("scan_in_progress");
     expect(again.counts).toEqual({ request_created: 0, scan_started: 0, skipped: 2 });
     expect(ctx.services.db.select().from(requestsTable).all()).toHaveLength(1);

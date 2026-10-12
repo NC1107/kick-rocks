@@ -236,7 +236,6 @@ function Controls({ listing, profileId }: { listing: ListingDetail; profileId: s
           profileId={profileId}
           selection={{ targetIds: [listing.targetId] }}
           title={`Scan ${listing.targetName}?`}
-          description="Searches this site; nothing is removed until you confirm."
           siteCount={1}
           sitePreference={listing.preference.includePastAddresses}
         />

@@ -140,7 +140,7 @@ describe("the request page", () => {
       "href",
       expect.stringMatching(/^\/review\?item=details%3Areq_\d+$/),
     );
-    expect(screen.getByText("A task is waiting for you")).toBeVisible();
+    expect(screen.getByText("Waiting for you")).toBeVisible();
   });
 
   it("keeps the overflow menu an icon even when no primary action stands beside it", async () => {

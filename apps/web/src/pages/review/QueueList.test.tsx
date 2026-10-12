@@ -42,7 +42,7 @@ describe("the waiting group in the queue list", () => {
     list([item(1), item(2, { waiting: { ...item(2).waiting, reason: "site_daily_cap" } })]);
     const heading = screen.getByRole("heading", { name: "Waiting · 2" });
     const rows = within(heading.closest("section") as HTMLElement);
-    expect(rows.getByText(/cooling down/)).toBeVisible();
+    expect(rows.getByText(/Cooling down/)).toBeVisible();
     expect(rows.getByText(/has had its visits for today/)).toBeVisible();
     expect(rows.queryByText("in 5h")).toBeNull();
     expect(rows.getByRole("link", { name: "Broker 1" })).toHaveAttribute(

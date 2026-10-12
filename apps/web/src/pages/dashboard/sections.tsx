@@ -335,7 +335,6 @@ export function ListingsSection({
           profileId={profileId}
           selection={{ preset: "people_search" }}
           title="Scan every people-search site?"
-          description="Searches active sites; nothing is removed until you confirm."
         />
       ) : null}
     </Section>

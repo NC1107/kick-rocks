@@ -453,7 +453,6 @@ export function Component() {
           profileId={profile.id}
           selection={{ filter }}
           title={`Scan the ${pluralize(scannable ?? 0, "people-search site")} among these ${formatCount(total)}?`}
-          description="Searches these sites for you; nothing is removed until you confirm."
           siteCount={scannable}
           onStarted={clearSelection}
         />

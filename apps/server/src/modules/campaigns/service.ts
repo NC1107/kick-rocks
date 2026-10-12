@@ -28,7 +28,7 @@ const skipped = (plan: Skip): TargetOutcome => ({
   targetId: plan.target.id,
   targetName: plan.target.name,
   outcome: "skipped",
-  requestId: null,
+  requestId: plan.requestId ?? null,
   scanId: null,
   reason: plan.reason,
   detail: plan.detail,

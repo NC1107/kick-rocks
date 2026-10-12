@@ -180,10 +180,11 @@ export function Component() {
         title="Delete profile?"
         description={
           <>
-            <span data-user-content="" className="text-ink">
+            Deletes{" "}
+            <span data-user-content="" className="font-medium text-ink">
               {pending?.displayName}
-            </span>{" "}
-            loses its identities, mailbox, requests and replies for good.
+            </span>
+            {"'s identities, mailbox connection, requests and replies for good."}
           </>
         }
         confirmLabel="Delete profile"
