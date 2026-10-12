@@ -5,7 +5,7 @@ import { expect, it } from "vitest";
 import { KEY_RECORD, signed, unsigned } from "../test-utils/dkim.js";
 import { scanFolder } from "../test-utils/inbox.js";
 import { defineInboxContract } from "../test-utils/inbox-contract.js";
-import { describeIntegration } from "../test-utils/index.js";
+import { describeIntegration, provisionGreenmailAccount } from "../test-utils/index.js";
 import { createDkimVerifier } from "./dkim.js";
 import { createInboxSource } from "./inbox.js";
 import { createMailTransport, InvalidOutgoingMailError, MailSendError } from "./transport.js";
@@ -87,6 +87,17 @@ describeIntegration("greenmail", "mail over a real SMTP and IMAP server", () => 
     expect(broken.ok).toBe(false);
     expect(broken.error).toMatch(/refused the connection/);
     expect(broken.error).not.toContain(connection.password);
+  });
+
+  it("answers several logins at once for an account that was signed in to first", async () => {
+    const connection = freshMailbox();
+    await provisionGreenmailAccount(connection);
+
+    const results = await Promise.all(
+      Array.from({ length: 8 }, () => createMailTransport(connection).verify()),
+    );
+
+    expect(results.map((result) => result.error)).toEqual(Array(8).fill(null));
   });
 
   it("sends plain text with our Message-ID, subject, and reply headers, and the inbox reads it back", async () => {
