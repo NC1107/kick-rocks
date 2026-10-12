@@ -294,7 +294,7 @@ export function createMcpServer(services: AppServices, version: string): McpServ
       "browser_solve_challenge",
       {
         description:
-          "Attempt to solve an embedded Cloudflare Turnstile or similar challenge widget on the current page. Call this when a snapshot reports a challenge widget, or when a form submission is rejected by Cloudflare. Returns JSON with ok:true (solved), ok:'pending' (clicked but token not yet confirmed — try submitting anyway), or ok:false (no widget found).",
+          "Attempt to solve an embedded Cloudflare Turnstile or similar challenge widget on the current page. Call this when a snapshot reports a challenge widget, or when a form submission is rejected by Cloudflare. Returns JSON with ok:true (solved), ok:'pending' (clicked but token not yet confirmed - try submitting anyway), or ok:false (no widget found).",
         inputSchema: z.object({}),
       },
       async () => browserCall(burl, tok, "/solve_challenge", {}),
