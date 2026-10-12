@@ -64,6 +64,7 @@ export {
   type IconButtonVariant,
   iconButtonClass,
 } from "./IconButton.js";
+export { InfoTip } from "./InfoTip.js";
 export { InlineError } from "./InlineError.js";
 export { Input, type InputProps } from "./Input.js";
 export { Kbd } from "./Kbd.js";

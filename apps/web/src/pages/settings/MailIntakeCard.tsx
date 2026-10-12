@@ -17,7 +17,7 @@ export function MailIntakeCard() {
       <Section label="Mail">
         <RowGroup>
           <ActionRow
-            title="What is taken in"
+            title="Mail intake"
             description={
               profile.mailboxConnected
                 ? "Which mail is kept, the reply address, and a missed-reply search."

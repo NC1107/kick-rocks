@@ -184,7 +184,10 @@ export function ScanPaceCard({
           </GroupFooter>
         </RowGroup>
         {scanning.timeZone === null ? (
-          <GroupNote>Quiet hours follow the server clock until saved.</GroupNote>
+          <GroupNote>
+            Quiet hours use the server clock until you save{" "}
+            <span className="font-mono">{pace.timeZone.trim() || "your browser's time zone"}</span>.
+          </GroupNote>
         ) : null}
         {sisterNotes.map((note) => (
           <GroupNote key={note.domain}>

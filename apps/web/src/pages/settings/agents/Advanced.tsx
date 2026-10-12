@@ -393,7 +393,7 @@ export function Advanced({
   return (
     <Disclosure
       title="Advanced"
-      description="Choose by hand, what was measured, the safety gate, how it was detected"
+      description="Manual pick and diagnostics"
       open={open}
       onOpenChange={onOpenChange}
     >

@@ -37,7 +37,7 @@ export function ReplyModelCard({ model }: { model: ReplyModelView }) {
         ) : null}
         <ActionRow
           title="Labelled replies"
-          description="Download classified replies with model guesses; nothing leaves unless you do."
+          description="Download classified replies with model guesses; nothing leaves this server otherwise."
         >
           <a
             href={routeUrl(API_ROUTES.replyModelLabels)}
@@ -48,11 +48,9 @@ export function ReplyModelCard({ model }: { model: ReplyModelView }) {
           </a>
         </ActionRow>
       </RowGroup>
-      <GroupNote>A local model reads replies the rules cannot place.</GroupNote>
-      <GroupNote className="mt-0.5">
-        Its answer is a suggestion for Review, never acted on.
+      <GroupNote detail="A small model on this machine reads the replies the rules cannot place. Nothing it reads is sent anywhere.">
+        Local model suggests a reply type; never acts, never sends data.
       </GroupNote>
-      <GroupNote className="mt-0.5">Nothing it reads is sent anywhere.</GroupNote>
     </Section>
   );
 }

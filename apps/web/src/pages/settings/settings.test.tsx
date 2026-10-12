@@ -50,7 +50,7 @@ describe("the way to mail intake", () => {
     general(mock);
     const link = await screen.findByRole("link", { name: "Open" });
     expect(link).toHaveAttribute("href", `/profiles/${mock.store.profiles[0]?.id}/mailbox#intake`);
-    expect(screen.getByText("What is taken in")).toBeInTheDocument();
+    expect(screen.getAllByText("Mail intake").length).toBeGreaterThan(0);
   });
 
   it("shows the saved mail it would remove, and the ignored list once the person confirmed", async () => {
@@ -208,9 +208,15 @@ describe("general settings", () => {
 
   it("says the reply text goes to the language model address, and recommends a local one", async () => {
     general();
-    expect(await screen.findByText(/used only without the reply model/)).toBeVisible();
-    expect(screen.getByText(/reply subject and start are sent to this address/)).toBeVisible();
-    expect(screen.getByText(/Prefer a local model/)).toBeVisible();
+    expect(await screen.findByText(/prefer a local model/)).toBeVisible();
+    expect(
+      screen.getByRole("button", {
+        name: /reply subject and start are sent to this address/,
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /used only without the reply model/ }),
+    ).toBeInTheDocument();
   });
 
   it("rejects a language model address that is not a web address", async () => {

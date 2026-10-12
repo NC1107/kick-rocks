@@ -166,6 +166,14 @@ function say(hold: ScanHold, compact: boolean, { profileId, targetId, showSite }
   }
 }
 
+/** The label of the link a hold carries, so a list can show a shared link once. */
+export function holdLinkLabel(
+  hold: ScanHold | TaskWaiting,
+  profileId?: string,
+): string | undefined {
+  return say(hold, true, { profileId, targetId: undefined, showSite: false }).link?.label;
+}
+
 function lead(hold: ScanHold): string {
   return hold.reason === "missing_fields" || hold.reason === "recipe_unapproved"
     ? "Skipped"
@@ -183,6 +191,7 @@ export function HoldReason({
   showSite = true,
   profileId,
   targetId,
+  hideLink = false,
 }: {
   hold: ScanHold | TaskWaiting;
   compact?: boolean;
@@ -194,6 +203,8 @@ export function HoldReason({
   profileId?: string | undefined;
   /** The site the hold is about, so its domain leads to the site's page. */
   targetId?: string | null | undefined;
+  /** True for the second row of a list whose link a row above already offers. */
+  hideLink?: boolean;
 }) {
   const view = say(hold, compact, { profileId, targetId: targetId ?? undefined, showSite });
   return (
@@ -202,7 +213,7 @@ export function HoldReason({
       <span className="min-w-0">
         {compact ? null : <span className="text-ink-3">{lead(hold)}: </span>}
         {view.text}
-        {view.link ? (
+        {view.link && !hideLink ? (
           <>
             <span aria-hidden="true" className="px-1.5 text-ink-3">
               {"·"}

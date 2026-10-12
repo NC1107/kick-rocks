@@ -17,7 +17,7 @@ export interface EmptyStateProps {
  */
 export function EmptyState({ title, description, actions, className }: EmptyStateProps) {
   return (
-    <div className={cn("py-3", className)}>
+    <div data-copy-pair className={cn("py-3", className)}>
       <p className="text-ui text-ink-2">{title}</p>
       {description ? (
         <p className="mt-0.5 max-w-prose text-meta text-ink-3">{description}</p>

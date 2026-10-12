@@ -347,7 +347,7 @@ export function AddressQuestion({
           </InlineError>
         ) : null}
         {probe.isError ? <InlineError>{errorMessage(probe.error)}</InlineError> : null}
-        <p className="font-mono text-meta text-ink-3">
+        <p data-user-content className="font-mono text-meta text-ink-3">
           Tried {tried.map((endpoint) => addressOf(endpoint.baseUrl)).join(", ") || "nothing yet"}
         </p>
         <p className="text-meta text-ink-3">

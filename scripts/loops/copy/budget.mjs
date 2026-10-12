@@ -41,6 +41,9 @@ export function assessScreen(raw) {
       );
     })
     .map((block) => `help ${wordsOf(block)}w/${sentencesOf(block)}s: ${block}`);
+  const stackedHelp = (raw.stacks ?? [])
+    .filter((texts) => texts.reduce((n, text) => n + sentencesOf(text), 0) > HELP_SENTENCES_MAX)
+    .map((texts) => `stacked help ${texts.length} blocks: ${texts.join(" | ")}`);
   const repeatedPhrases = repeats(
     raw.repeatable.phrases.filter((p) => wordsOf(p) >= PHRASE_MIN_WORDS).map(normal),
   );
@@ -48,6 +51,7 @@ export function assessScreen(raw) {
   const violations = [
     ...longTitles,
     ...longHelp,
+    ...stackedHelp,
     ...repeatedPhrases.flatMap(({ text, times }) =>
       Array(times - 1).fill(`phrase x${times}: ${text}`),
     ),
@@ -62,7 +66,7 @@ export function assessScreen(raw) {
     excessWords,
     counts: {
       longTitles: longTitles.length,
-      longHelp: longHelp.length,
+      longHelp: longHelp.length + stackedHelp.length,
       repeatedPhrases: repeatedPhrases.reduce((n, r) => n + r.times - 1, 0),
       repeatedActions: repeatedActions.reduce((n, r) => n + r.times - 1, 0),
     },

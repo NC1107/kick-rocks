@@ -77,7 +77,7 @@ describe("the about page", () => {
       "https://creativecommons.org/licenses/by-nc-sa/4.0/",
     );
     expect(card).toHaveTextContent(/converted and extended/);
-    expect(card).toHaveTextContent(/same license/);
+    expect(card).toHaveTextContent(/apart from the app code/);
   });
 
   it("names the Eraser list and its MIT license in the attribution", async () => {
@@ -97,9 +97,9 @@ describe("the about page", () => {
     const limits = (await screen.findByRole("heading", { name: "Limits" })).closest(
       "section",
     ) as HTMLElement;
-    expect(limits).toHaveTextContent(/not legal advice/);
-    expect(limits).toHaveTextContent(/may not apply to a given business/);
-    expect(limits).toHaveTextContent(/does not guarantee/);
+    expect(limits).toHaveTextContent(/Not legal advice/);
+    expect(limits).toHaveTextContent(/laws may not apply/);
+    expect(limits).toHaveTextContent(/deletion is not guaranteed/);
     expect(limits).toHaveTextContent(/add you back/);
     expect(limits).toHaveTextContent(/link your name and email/);
     expect(limits).toHaveTextContent(/own privacy policy/);

@@ -11,6 +11,7 @@ export function collectScreen(scope = {}) {
   const USER_CONTENT = "pre, code, blockquote, [data-user-content]";
   const NOT_HELP =
     "button, a, label, summary, th, option, kbd, [role=heading], h1, h2, h3, h4, h5, h6, [role=tab], [role=button], select, input, textarea";
+  const MIN_STACKED_WORDS = 5;
   const FORM_CONTROL = new Set(["SELECT", "INPUT", "TEXTAREA", "BUTTON"]);
   const clean = (text) => text.replace(/\s+/g, " ").trim();
   const words = (text) => clean(text).split(" ").filter(Boolean).length;
@@ -74,6 +75,21 @@ export function collectScreen(scope = {}) {
   }
 
   const inRow = (element) => element.closest(ROW) !== null;
+  // Help split into sibling paragraphs is still several sentences on the screen, so the budget
+  // reads each run of them as one block. Titles in callouts and empty states are not paragraphs.
+  const stacks = new Map();
+  blockEls.forEach((element, index) => {
+    const parent = element.parentElement;
+    if (
+      !parent ||
+      parent.closest("[data-copy-pair]") ||
+      element.tagName !== "P" ||
+      inRow(element) ||
+      words(blocks[index]) < MIN_STACKED_WORDS
+    )
+      return;
+    stacks.set(parent, [...(stacks.get(parent) ?? []), blocks[index]]);
+  });
   const phrases = [
     ...headings.filter((_, i) => !inRow(headingEls[i]) && !headingEls[i].closest(CRUMBS)),
     ...blocks.filter((_, i) => !inRow(blockEls[i]) && !blockEls[i].closest(CRUMBS)),
@@ -90,6 +106,7 @@ export function collectScreen(scope = {}) {
     fullWords: inPage,
     headings,
     blocks,
+    stacks: [...stacks.values()].filter((texts) => texts.length > 1),
     repeatable: { phrases, actions },
     dialogOpen: dialog !== null,
   };

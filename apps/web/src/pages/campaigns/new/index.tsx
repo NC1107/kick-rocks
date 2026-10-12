@@ -63,7 +63,7 @@ const PRESET_OPTIONS: readonly RadioOption<CampaignPreset>[] = [
   {
     value: "easy",
     label: "Easy ones",
-    description: "Email requests Kick Rocks sends on its own. Nothing asked of you.",
+    description: "Sent by email, nothing from you",
   },
   {
     value: "email_brokers",
@@ -78,7 +78,7 @@ const PRESET_OPTIONS: readonly RadioOption<CampaignPreset>[] = [
   {
     value: "people_search",
     label: "People-search sites",
-    description: "Scanned first. You confirm each record.",
+    description: "Scanned first; you confirm",
   },
   {
     value: "everything",
@@ -419,7 +419,7 @@ function Builder({ profile }: { profile: ProfileSummary }) {
             </fieldset>
             {choice?.kind !== "targets" ? (
               <p className="mt-2 text-meta text-ink-3">
-                Group and filter campaigns only opt out of sale; delete needs targets.
+                Groups only opt out of sale; pick targets to delete.
               </p>
             ) : null}
             {rights.length === 0 ? (
@@ -496,7 +496,7 @@ function Builder({ profile }: { profile: ProfileSummary }) {
               {body === null
                 ? choice
                   ? "Choose at least one right to see a preview."
-                  : "Pick a group and at least one right to see a preview."
+                  : "Pick a group and a right to preview."
                 : "Nothing to send yet."}
             </span>
           )}

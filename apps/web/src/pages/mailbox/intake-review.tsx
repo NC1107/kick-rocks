@@ -118,7 +118,7 @@ export function CleanupPreview({
       <div className="flex items-center justify-between gap-3 rounded-md border border-line bg-surface py-1.5 pr-2 pl-3.5">
         <p className="m-0 min-w-0 text-ui text-ink">{pluralize(count, "saved email")} to remove</p>
         <Button size="sm" onClick={() => setReviewing(true)}>
-          Open
+          Check
         </Button>
       </div>
       <Dialog
@@ -217,7 +217,7 @@ export function ShadowReport({ profileId, className }: { profileId: string; clas
       <RowGroup data-testid="shadow-report">
         <BodyRow>
           <p className="text-meta text-ink-2">
-            {`Passed-over possible replies until ${formatDate(report.until ?? "")}; only sender, subject, date noted.`}
+            {`Until ${formatDate(report.until ?? "")}, skipped possible replies show sender, subject, date only.`}
           </p>
         </BodyRow>
         {report.items.length === 0 ? (

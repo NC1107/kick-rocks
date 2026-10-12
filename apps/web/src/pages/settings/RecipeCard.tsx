@@ -67,8 +67,11 @@ export function RecipeCard({
 
   return (
     <>
-      <RowGroup role="region" aria-label={`${recipe.targetName} ${purpose} recipe`} data-row>
-        <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-1 px-3.5 py-2.5">
+      <RowGroup role="region" aria-label={`${recipe.targetName} ${purpose} recipe`}>
+        <div
+          data-row
+          className="flex flex-wrap items-start justify-between gap-x-4 gap-y-1 px-3.5 py-2.5"
+        >
           <div className="min-w-0">
             <h3 className="break-words text-ui font-medium text-ink [&_a]:text-ink [&_a:hover]:text-accent-text">
               <EntityLink
@@ -87,15 +90,18 @@ export function RecipeCard({
         </div>
 
         {copy.showChecked ? (
-          <p className="px-3.5 py-2.5 text-meta font-medium text-ink">
+          <p data-row className="px-3.5 py-2.5 text-meta font-medium text-ink">
             {LIVE_STATUS_TEXT[definition.liveStatus]}
           </p>
         ) : null}
 
         <details className="group">
           <summary className="flex min-h-row cursor-pointer list-none items-center justify-between px-3.5 py-1.5 text-ui text-ink transition-colors duration-100 hover:bg-hover [&::-webkit-details-marker]:hidden">
-            <span className="font-mono text-meta tabular-nums">
-              {pluralize(definition.steps.length, "step")}
+            <span className="flex items-baseline gap-1.5 text-meta">
+              <span className="font-mono tabular-nums">
+                {pluralize(definition.steps.length, "step")}
+              </span>
+              {recipe.notes ? <span className="text-ink-3">· notes</span> : null}
             </span>
             <ChevronDown
               aria-hidden="true"
@@ -121,7 +127,7 @@ export function RecipeCard({
           </ol>
         </details>
 
-        <GroupFooter>
+        <GroupFooter row>
           {approve.isError || reject.isError ? (
             <InlineError className="mr-auto">
               {errorMessage(approve.isError ? approve.error : reject.error)}

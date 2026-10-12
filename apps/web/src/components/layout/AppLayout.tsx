@@ -2,6 +2,7 @@ import { Menu } from "lucide-react";
 import { Fragment, useEffect, useState } from "react";
 import { Link, Outlet, useLocation } from "react-router";
 import { CurrentProfileProvider } from "../../api/index.js";
+import { cn } from "../../lib/cn.js";
 import { IconButton, Tag } from "../ui/index.js";
 import { breadcrumbTrail } from "./breadcrumb.js";
 import { BreadcrumbTailProvider, useBreadcrumbTailValue } from "./breadcrumb-context.js";
@@ -65,6 +66,22 @@ function HeaderBar() {
   );
 }
 
+// Only the sub-pages whose in-page heading names the whole area ("Settings", "Review") need the
+// bar to say which tab is open; elsewhere the heading already names the page.
+const TITLED_AREAS: ReadonlySet<string> = new Set(["settings", "review"]);
+
+function PhoneTitle() {
+  const { pathname } = useLocation();
+  const [area, second] = pathname.split("/").filter(Boolean);
+  const crumb = breadcrumbTrail(pathname, useBreadcrumbTailValue()).at(-1);
+  if (!(area && second && TITLED_AREAS.has(area) && crumb)) return null;
+  return (
+    <p className={cn("min-w-0 truncate text-ui font-medium text-ink", crumb.mono && "font-mono")}>
+      {crumb.label}
+    </p>
+  );
+}
+
 function PhoneBar({ onOpenMenu }: { onOpenMenu: () => void }) {
   const chips = useShellStatus();
   return (
@@ -73,6 +90,7 @@ function PhoneBar({ onOpenMenu }: { onOpenMenu: () => void }) {
         <Menu />
       </IconButton>
       <LogoMark />
+      <PhoneTitle />
       <div className="ml-auto flex shrink-0 items-center gap-2">
         {IS_MOCK ? <Tag>Mock</Tag> : null}
         <UrgentStatusMark chips={chips} />

@@ -26,9 +26,7 @@ const open = (route = "/campaigns/new", mock?: MockApp) =>
 describe("the campaign builder", () => {
   it("asks for nothing until a group is chosen", async () => {
     open();
-    expect(
-      await screen.findByText("Pick a group and at least one right to see a preview."),
-    ).toBeVisible();
+    expect(await screen.findByText("Pick a group and a right to preview.")).toBeVisible();
     expect(
       within(screen.getByTestId("send-bar")).getByRole("button", { name: "Send requests" }),
     ).toBeDisabled();
@@ -108,7 +106,7 @@ describe("the campaign builder", () => {
     await user.click(await screen.findByRole("radio", { name: /Everyday companies/ }));
     expect(screen.getByRole("checkbox", { name: /Opt out of sale/ })).toBeChecked();
     expect(screen.getByRole("checkbox", { name: /Delete my data/ })).not.toBeChecked();
-    expect(screen.getByText(/Companies may close accounts/)).toBeVisible();
+    expect(screen.getByText(/may close accounts/)).toBeVisible();
   });
 
   it("shows the address the first email goes to", async () => {
@@ -228,7 +226,7 @@ describe("the campaign builder", () => {
   it("says a filter campaign only asks companies to stop selling", async () => {
     const { user } = open(`/campaigns/new?filter=${encodeURIComponent('{"kind":"company"}')}`);
     await user.click(await screen.findByRole("checkbox", { name: /Delete my data/ }));
-    expect(screen.getByText(/Group and filter campaigns only opt out of sale/)).toBeVisible();
+    expect(screen.getByText(/Groups only opt out of sale/)).toBeVisible();
     const preview = await screen.findByRole("region", { name: "Preview" });
     expect(await within(preview).findByText("Email preview")).toBeVisible();
     expect(within(preview).queryByText(/delete the personal information/)).not.toBeInTheDocument();

@@ -1,6 +1,12 @@
 import { RotateCcw } from "lucide-react";
 import type { ReactNode } from "react";
-import { EntityLink, Field, type FieldProps, IconAction } from "../../components/ui/index.js";
+import {
+  EntityLink,
+  Field,
+  type FieldProps,
+  IconAction,
+  InfoTip,
+} from "../../components/ui/index.js";
 import { cn } from "../../lib/cn.js";
 
 /** The width settings pages hold to. The empty space on its right is accepted. */
@@ -56,17 +62,44 @@ export function BodyRow({
 }
 
 /** The last row of a group: the buttons that save or undo the rows above it. */
-export function GroupFooter({ children, className }: { children: ReactNode; className?: string }) {
+export function GroupFooter({
+  children,
+  className,
+  row,
+}: {
+  children: ReactNode;
+  className?: string;
+  row?: boolean;
+}) {
   return (
-    <div className={cn("flex flex-wrap items-center justify-end gap-2 px-3.5 py-2.5", className)}>
+    <div
+      className={cn("flex flex-wrap items-center justify-end gap-2 px-3.5 py-2.5", className)}
+      {...(row ? { "data-row": true } : {})}
+    >
       {children}
     </div>
   );
 }
 
-/** One quiet line under a group, for what the rows alone do not say. */
-export function GroupNote({ children, className }: { children: ReactNode; className?: string }) {
-  return <p className={cn("mt-1.5 text-caption text-ink-3", className)}>{children}</p>;
+/**
+ * One quiet line under a group, for what the rows alone do not say. The rest of the explanation
+ * goes in `detail`, behind an info mark, so the line stays one sentence on screen.
+ */
+export function GroupNote({
+  children,
+  className,
+  detail,
+}: {
+  children: ReactNode;
+  className?: string;
+  detail?: string;
+}) {
+  return (
+    <p className={cn("mt-1.5 text-caption text-ink-3", className)}>
+      {children}
+      {detail ? <InfoTip text={detail} /> : null}
+    </p>
+  );
 }
 
 /** A mono value at the trailing edge of a display row. */

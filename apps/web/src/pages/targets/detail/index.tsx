@@ -422,12 +422,12 @@ function TargetView({ target }: { target: TargetDetail }) {
 
         <Section label="Difficulty">
           <RowGroup>
-            <p className="px-3.5 py-2.5 text-ui text-ink">
-              <span className="font-medium">{DIFFICULTY_LABELS[target.difficulty]}</span>{" "}
+            <p className="flex flex-wrap items-center gap-x-2 gap-y-1 px-3.5 py-2.5 text-ui text-ink">
+              <Tag>{DIFFICULTY_LABELS[target.difficulty]}</Tag>
               <span className="text-ink-2">{DIFFICULTY_MEANINGS[target.difficulty]}</span>
             </p>
             {target.difficultyReasons.map((reason) => (
-              <p key={reason} className="px-3.5 py-2.5 text-meta text-ink-2">
+              <p key={reason} data-row className="px-3.5 py-2.5 text-meta text-ink-2">
                 {DIFFICULTY_REASON_LABELS[reason]}
               </p>
             ))}
@@ -445,6 +445,7 @@ function TargetView({ target }: { target: TargetDetail }) {
               {target.requirements.map((requirement) => (
                 <div
                   key={requirement}
+                  data-row
                   className="flex flex-col items-start gap-1 px-3.5 py-2.5 sm:col-span-2 sm:grid sm:grid-cols-subgrid sm:items-baseline sm:gap-x-3"
                 >
                   <Tag tone={HUMAN_STEPS.has(requirement) ? "attention" : "neutral"}>
@@ -458,7 +459,7 @@ function TargetView({ target }: { target: TargetDetail }) {
             </RowGroup>
           )}
           {target.notes ? (
-            <div className="mt-3 flex flex-col gap-1.5 text-meta text-ink-2">
+            <div data-user-content className="mt-3 flex flex-col gap-1.5 text-meta text-ink-2">
               {target.notes.split(" | ").map((part) => (
                 <p key={part} className="break-words">
                   {part}

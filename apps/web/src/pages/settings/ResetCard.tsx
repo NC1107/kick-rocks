@@ -49,10 +49,7 @@ export function ResetCard() {
   return (
     <Section label="Danger zone">
       <RowGroup>
-        <ActionRow
-          title="Delete all data"
-          description="Removes everything but your password and targets; cannot be undone."
-        >
+        <ActionRow title="Delete all data" description="Permanent; you confirm first.">
           <Button variant="danger" onClick={() => setOpen(true)}>
             Delete all data
           </Button>
@@ -64,7 +61,7 @@ export function ResetCard() {
         dismissible={!reset.isPending}
         size="sm"
         title="Delete all data?"
-        description="Removes all profiles and settings; sent requests cannot be recalled."
+        description="Deletes all profiles, settings and tokens for good; sent requests stay sent."
         footer={
           <>
             <Button variant="secondary" onClick={close} disabled={reset.isPending}>

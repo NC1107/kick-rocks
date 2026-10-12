@@ -468,11 +468,7 @@ function Detail({ request }: { request: RequestDetail }) {
             items={[
               {
                 term: "Target",
-                value: (
-                  <EntityLink to={{ kind: "target", id: target.id, name: target.name }}>
-                    Open page
-                  </EntityLink>
-                ),
+                value: <EntityLink to={{ kind: "target", id: target.id, name: target.name }} />,
               },
               ...(owner
                 ? [

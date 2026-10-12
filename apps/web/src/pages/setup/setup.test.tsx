@@ -21,7 +21,9 @@ describe("the setup page", () => {
     open();
     expect(screen.queryByText(/protects everything/)).not.toBeInTheDocument();
     expect(screen.getByText(/This password signs you in/)).toBeVisible();
-    expect(screen.getByText(/Back up the whole kickrocks-data volume, key included/)).toBeVisible();
+    expect(
+      screen.getByText(/Back up the whole kickrocks-data volume; its key decrypts your data/),
+    ).toBeVisible();
   });
 
   it("rejects a short password and says how long it must be", async () => {

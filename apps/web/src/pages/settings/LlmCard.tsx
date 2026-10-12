@@ -128,15 +128,8 @@ export function LlmCard({ llm }: { llm: LlmSettingsView | null }) {
               </Button>
             </GroupFooter>
           </RowGroup>
-          <GroupNote>Any OpenAI-compatible endpoint, used only without the reply model.</GroupNote>
-          <GroupNote className="mt-0.5">
-            Answers are suggestions, never applied by themselves.
-          </GroupNote>
-          <GroupNote className="mt-0.5">
-            The reply subject and start are sent to this address.
-          </GroupNote>
-          <GroupNote className="mt-0.5">
-            Prefer a local model: replies can quote your details.
+          <GroupNote detail="Any OpenAI-compatible endpoint, used only without the reply model. Answers are suggestions, never applied by themselves. The reply subject and start are sent to this address.">
+            Fallback for replies; prefer a local model, it sees reply text.
           </GroupNote>
           {save.isError && Object.keys(serverErrors).length === 0 ? (
             <Callout intent="danger" title="Could not save the language model" className="mt-3">

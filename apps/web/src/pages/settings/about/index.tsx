@@ -140,7 +140,9 @@ function LicenseRow() {
   return (
     <FactRow label="License" mono={false}>
       <ExternalLinkText href={POLYFORM_URL}>PolyForm Noncommercial 1.0.0</ExternalLinkText>
-      <span className="block text-ink-3">Free for personal use; copyright NC1107.</span>
+      <span className="block text-ink-3">
+        Noncommercial use and changes allowed; copyright NC1107.
+      </span>
     </FactRow>
   );
 }
@@ -261,11 +263,9 @@ function LimitsSection() {
   return (
     <Section label="Limits">
       <div className="flex max-w-prose flex-col gap-2 text-body text-ink">
-        <p>This is not legal advice.</p>
-        <p>A privacy law may not apply to a given business.</p>
-        <p>A request does not guarantee that anything gets deleted.</p>
+        <p>Not legal advice; laws may not apply and deletion is not guaranteed.</p>
         <p>A broker can add you back, which is why rescans exist.</p>
-        <p>Writing to a broker without you can link your name and email.</p>
+        <p>Writing to a broker that never had you can link your name and email.</p>
         <p>Without a state law, a company's own privacy policy applies, if any.</p>
       </div>
     </Section>
@@ -283,11 +283,11 @@ function AttributionSection() {
           By Yael Grauer, under{" "}
           <ExternalLinkText href={CC_BY_NC_SA_URL}>CC BY-NC-SA 4.0</ExternalLinkText>
         </p>
-        <p>Entries converted and extended; the list shares that same license.</p>
+        <p>Entries converted and extended; this list keeps CC BY-NC-SA, apart from the app code.</p>
         <p>
           <ExternalLinkText href={ERASER_URL}>Eraser</ExternalLinkText>, under the MIT license.
         </p>
-        <p>Its license text stays in the repository.</p>
+        <p>Eraser's MIT license text stays in the repository.</p>
         <p className="text-ink-2">Contacts were checked against each company's privacy page.</p>
       </div>
     </Section>

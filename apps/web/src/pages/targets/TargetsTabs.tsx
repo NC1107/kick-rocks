@@ -2,7 +2,7 @@ import { LinkTabs } from "../../components/ui/index.js";
 
 const TABS = [
   { to: "/targets", label: "All targets", end: true },
-  { to: "/targets/listings", label: "Listings" },
+  { to: "/targets/listings", label: "Where you're listed" },
 ] as const;
 
 /** The two ways into the same sites: every target, and what is known about the person on each. */

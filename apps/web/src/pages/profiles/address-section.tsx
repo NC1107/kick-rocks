@@ -192,13 +192,10 @@ export function AddressSection({
           {streetLine(unusable)} has a move-out date in the past, so scans will not use it.
         </Callout>
       ) : null}
-      <GroupNote>
+      <GroupNote detail="Past addresses are searched only when a scan includes them.">
         {scanDraft
           ? `Scans and requests use ${[scanDraft.street.trim(), scanDraft.city.trim()].filter(Boolean).join(", ")}`
           : "Scans and requests need a current address"}
-      </GroupNote>
-      <GroupNote className="mt-0.5">
-        Past addresses are searched only when a scan includes them.
       </GroupNote>
       {listingsLink ? (
         <p className="mt-1 text-caption">

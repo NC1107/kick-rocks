@@ -1,7 +1,7 @@
 import { MIN_PASSWORD_LENGTH, Password } from "@kickrocks/shared";
 import { type FormEvent, useEffect, useRef, useState } from "react";
 import { ApiRequestError, errorMessage, useSetup } from "../../api/index.js";
-import { Button, Callout, Card, Field, Input } from "../../components/ui/index.js";
+import { Button, Callout, Card, Field, InfoTip, Input } from "../../components/ui/index.js";
 import { usePageTitle } from "../../lib/use-page-title.js";
 import { PasswordInput } from "../login/password-input.js";
 
@@ -69,10 +69,10 @@ export function Component() {
           />
         </Field>
         <Callout intent="info" title="Back up the data volume">
-          <p>A key next to the database encrypts your data, not this password.</p>
-          <p>Back up the whole kickrocks-data volume, key included.</p>
-          <p>Without the key the data cannot be opened.</p>
-          <p>Commands: Backups and restore, docs/self-hosting.md.</p>
+          <p>
+            Back up the whole kickrocks-data volume; its key decrypts your data.
+            <InfoTip text="A key next to the database encrypts your data, not this password. Without the key the data cannot be opened. Commands: Backups and restore in docs/self-hosting.md." />
+          </p>
         </Callout>
         {failure && !fieldIssue ? <Callout intent="danger">{errorMessage(failure)}</Callout> : null}
         <Button type="submit" variant="primary" loading={setup.isPending} className="w-full">

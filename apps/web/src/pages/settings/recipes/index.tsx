@@ -69,7 +69,7 @@ export function Component() {
           ) : (
             <>
               <GroupNote className="mt-0 mb-3 max-w-prose">
-                None run on your details until you approve them.
+                Untested on live sites; none run on your details until approved.
               </GroupNote>
               <div className="flex flex-col gap-3">
                 {pending.data.recipes.map((recipe) => (

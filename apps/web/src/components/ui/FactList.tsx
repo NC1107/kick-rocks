@@ -68,6 +68,7 @@ export function FactList({
         return (
           <div
             key={item.term}
+            data-row
             className={cn(
               "grid items-baseline gap-x-4",
               LAYOUTS[layout],

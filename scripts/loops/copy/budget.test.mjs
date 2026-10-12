@@ -56,3 +56,15 @@ test("words over 120 count a tenth each toward the score", () => {
   assert.equal(heavy.excessWords, 50);
   assert.equal(scoreOf([heavy, assessScreen(screen({ headings: ["a b c d e"] }))]), 6);
 });
+
+test("sibling help blocks count together so splitting a note does not hide its sentences", () => {
+  const split = assessScreen(
+    screen({
+      blocks: ["Back up the whole data volume.", "Without the key nothing opens."],
+      stacks: [["Back up the whole data volume.", "Without the key nothing opens."]],
+    }),
+  );
+  assert.equal(split.counts.longHelp, 1);
+  const single = assessScreen(screen({ blocks: ["Back up the whole data volume."], stacks: [] }));
+  assert.equal(single.counts.longHelp, 0);
+});

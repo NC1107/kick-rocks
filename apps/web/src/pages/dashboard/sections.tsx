@@ -9,7 +9,7 @@ import {
 import { ChevronRight, ScanSearch } from "lucide-react";
 import { useState } from "react";
 import { Link } from "react-router";
-import { HoldReason } from "../../components/holds/HoldReason.js";
+import { HoldReason, holdLinkLabel } from "../../components/holds/HoldReason.js";
 import {
   Button,
   Callout,
@@ -354,6 +354,7 @@ export function ScansSection({
     group ? [{ reason: reason as ScanHoldReason, group }] : [],
   );
   if (scans.held === 0) return null;
+  const linked = new Set<string>();
   return (
     <Section
       label="Scans held"
@@ -368,33 +369,33 @@ export function ScansSection({
       }
     >
       <RowGroup>
-        {groups.map(({ reason, group }) => (
-          <Row
-            key={reason}
-            title={
-              <HoldReason
-                hold={{
-                  reason,
-                  ...(group.until ? { until: group.until } : {}),
-                  ...(group.serverClock ? { serverClock: true } : {}),
-                }}
-                profileId={profileId}
-                compact
-              />
-            }
-            wrapTitle
-            trailing={
-              group.count > 1 ? (
-                <Count
-                  value={group.count}
-                  tone="attention"
-                  label={group.count === 1 ? "scan" : "scans"}
-                  className="text-ui font-medium"
-                />
-              ) : undefined
-            }
-          />
-        ))}
+        {groups.map(({ reason, group }) => {
+          const hold = {
+            reason,
+            ...(group.until ? { until: group.until } : {}),
+            ...(group.serverClock ? { serverClock: true } : {}),
+          };
+          const link = holdLinkLabel(hold, profileId);
+          const hideLink = link !== undefined && linked.has(link);
+          if (link) linked.add(link);
+          return (
+            <Row
+              key={reason}
+              title={<HoldReason hold={hold} profileId={profileId} compact hideLink={hideLink} />}
+              wrapTitle
+              trailing={
+                group.count > 1 ? (
+                  <Count
+                    value={group.count}
+                    tone="attention"
+                    label={group.count === 1 ? "scan" : "scans"}
+                    className="text-ui font-medium"
+                  />
+                ) : undefined
+              }
+            />
+          );
+        })}
       </RowGroup>
     </Section>
   );

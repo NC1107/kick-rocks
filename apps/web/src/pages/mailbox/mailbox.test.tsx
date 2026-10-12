@@ -470,7 +470,7 @@ describe("what Kick Rocks takes in", () => {
   it("lists the rules, says what happens to everything else, and reports the last check", async () => {
     open("jordan");
     expect(
-      await screen.findByRole("heading", { name: "What is taken in", level: 2 }),
+      await screen.findByRole("heading", { name: "Mail intake", level: 2 }),
     ).toBeInTheDocument();
     expect(screen.getByText(/Replies to the mail Kick Rocks sent/)).toBeInTheDocument();
     expect(
@@ -479,7 +479,9 @@ describe("what Kick Rocks takes in", () => {
     expect(
       screen.getByText(/Everything else stays in your mailbox and is not saved\./),
     ).toBeVisible();
-    expect(await screen.findByText(/First week: passed-over mail/)).toBeVisible();
+    expect(
+      await screen.findByRole("button", { name: /in the first week, passed-over mail/i }),
+    ).toBeVisible();
     expect(screen.getByTestId("last-check")).toHaveTextContent(
       "Last check looked at 143 new messages and kept 4.",
     );
@@ -540,7 +542,7 @@ describe("what Kick Rocks takes in", () => {
     expect(report.getByText("Bulk mail that says nothing about privacy")).toBeVisible();
     expect(report.getByText("Company mail that is not about privacy")).toBeVisible();
     expect(report.getByText("Names no open request")).toBeVisible();
-    expect(report.getByText(/only sender, subject, date noted/)).toBeVisible();
+    expect(report.getByText(/sender, subject, date only/)).toBeVisible();
 
     await user.click(
       report.getByRole("button", { name: "Take in Your privacy request: next steps" }),
@@ -555,7 +557,11 @@ describe("what Kick Rocks takes in", () => {
     const report = within(await screen.findByTestId("shadow-report"));
     await user.click(report.getByRole("button", { name: "Dismiss report" }));
     await waitFor(() => expect(screen.queryByTestId("shadow-report")).toBeNull());
-    await waitFor(() => expect(screen.queryByText(/First week: passed-over mail/)).toBeNull());
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("button", { name: /in the first week, passed-over mail/i }),
+      ).toBeNull(),
+    );
     expect(
       screen.getByText(/Everything else stays in your mailbox and is not saved\./),
     ).toBeVisible();

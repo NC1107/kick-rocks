@@ -13,6 +13,7 @@ import {
   Button,
   Callout,
   Checkbox,
+  InfoTip,
   Input,
   RadioGroup,
   RowGroup,
@@ -30,8 +31,8 @@ const RULES = [
   "Bounce messages for mail Kick Rocks sent.",
   "The confirmation email a form you submitted is waiting for.",
   "Mail from brokers with an open request, minus newsletters and ads.",
-  "Mail from companies with an open request, if about privacy.",
-  "Mail about your data that names one of those targets.",
+  "Company mail, privacy only by default.",
+  "Mail from anyone naming a target you have a request with.",
   "Mail to your reply address that names one of those targets.",
   "Mail from senders you add below.",
   "Mail matching no request is kept for review, never applied.",
@@ -68,7 +69,7 @@ export function IntakeSection({ profileId, mailbox, provider }: IntakeSectionPro
   }, [hash]);
   return (
     <div id="intake" className="mt-8 scroll-mt-4 flex flex-col gap-6">
-      <Section label="What is taken in">
+      <Section label="Mail intake">
         <RowGroup>
           <BodyRow>
             <ul className="m-0 flex list-disc flex-col gap-1 pl-5 text-meta text-ink-2">
@@ -78,12 +79,10 @@ export function IntakeSection({ profileId, mailbox, provider }: IntakeSectionPro
             </ul>
             <p className="mt-3 text-meta font-medium text-ink">
               Everything else stays in your mailbox and is not saved.
+              {shadowActive ? (
+                <InfoTip text="In the first week, passed-over mail that could be a reply is listed below." />
+              ) : null}
             </p>
-            {shadowActive ? (
-              <p className="mt-1 text-meta text-ink-2">
-                First week: passed-over mail that could be a reply is listed below.
-              </p>
-            ) : null}
           </BodyRow>
           {mailbox.lastPolledAt ? (
             <BodyRow>
@@ -292,7 +291,7 @@ function AlwaysTakeIn({ profileId }: { profileId: string }) {
           </Button>
         </BodyRow>
       </RowGroup>
-      <GroupNote>Skips newsletters and ads; never trusts its links or sender.</GroupNote>
+      <GroupNote>Newsletters and ads skipped; links and senders are not trusted.</GroupNote>
       {add.error ? (
         <Callout intent="danger" className="mt-2">
           {errorMessage(add.error)}
