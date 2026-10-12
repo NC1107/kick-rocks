@@ -28,8 +28,8 @@ function prepareProfile(profileDir: string): void {
   } catch {
     // first run or unreadable - start fresh
   }
-  const net = prefs["net"];
-  prefs["net"] = {
+  const net = prefs.net;
+  prefs.net = {
     ...(net !== null && typeof net === "object" && !Array.isArray(net) ? net : {}),
     network_prediction_options: 2,
   };

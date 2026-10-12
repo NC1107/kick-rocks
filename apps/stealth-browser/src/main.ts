@@ -20,7 +20,7 @@ function tokenOk(header: string | undefined): boolean {
 
 app.addHook("onRequest", async (request, reply) => {
   if (request.url === "/health") return;
-  if (!tokenOk(request.headers["authorization"])) {
+  if (!tokenOk(request.headers.authorization)) {
     await reply.status(401).send({ error: "unauthorized" });
   }
 });
@@ -96,6 +96,14 @@ app.post("/reset", async (_request, reply) => {
   try {
     await session.reset();
     return { ok: true };
+  } catch (err) {
+    return reply.status(500).send({ error: String(err) });
+  }
+});
+
+app.post("/solve_challenge", async (_request, reply) => {
+  try {
+    return { ok: true, text: await session.solveTurnstile() };
   } catch (err) {
     return reply.status(500).send({ error: String(err) });
   }

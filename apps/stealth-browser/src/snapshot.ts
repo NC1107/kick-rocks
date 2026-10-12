@@ -327,8 +327,18 @@ function line(item: SnapshotItem, mask: (text: string) => string): string {
       return `heading(${item.level}) ${quote(mask(item.text))}`;
     case "text":
       return `text ${quote(mask(item.text))}`;
-    case "frame":
+    case "frame": {
+      const CHALLENGE_HINTS: Record<string, string> = {
+        "challenges.cloudflare.com": "Cloudflare Turnstile",
+        "assets.hcaptcha.com": "hCaptcha",
+        "newassets.hcaptcha.com": "hCaptcha",
+      };
+      const challenge = CHALLENGE_HINTS[item.host];
+      if (challenge) {
+        return `[${challenge} challenge widget from ${item.host}] call browser_solve_challenge before submitting the form`;
+      }
       return `embedded frame from ${item.host} (its content cannot be read or used)`;
+    }
     case "overlay":
       return `A full-page overlay, such as a cookie banner or a notice, covers the page and ${item.hidden} control${item.hidden === 1 ? "" : "s"} behind it cannot be used. Dismiss it first with one of its own buttons listed below, then call snapshot.`;
     case "control": {

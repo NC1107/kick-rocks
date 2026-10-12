@@ -118,10 +118,10 @@ async function browserCall(
   if (res.status === 401)
     return failure({ code: "browser_auth", message: "Stealth browser auth failed" });
   const json = (await res.json()) as Record<string, unknown>;
-  if (!res.ok || json["ok"] !== true) {
-    return failure({ code: "browser_error", message: String(json["error"] ?? "browser error") });
+  if (!res.ok || json.ok !== true) {
+    return failure({ code: "browser_error", message: String(json.error ?? "browser error") });
   }
-  const text = typeof json["text"] === "string" ? json["text"] : JSON.stringify(json);
+  const text = typeof json.text === "string" ? json.text : JSON.stringify(json);
   return { content: [{ type: "text", text }] };
 }
 
@@ -288,6 +288,16 @@ export function createMcpServer(services: AppServices, version: string): McpServ
         inputSchema: z.object({}),
       },
       async () => browserCall(burl, tok, "/reset", {}),
+    );
+
+    server.registerTool(
+      "browser_solve_challenge",
+      {
+        description:
+          "Attempt to solve an embedded Cloudflare Turnstile or similar challenge widget on the current page. Call this when a snapshot reports a challenge widget, or when a form submission is rejected by Cloudflare. Returns JSON with ok:true (solved), ok:'pending' (clicked but token not yet confirmed — try submitting anyway), or ok:false (no widget found).",
+        inputSchema: z.object({}),
+      },
+      async () => browserCall(burl, tok, "/solve_challenge", {}),
     );
   }
 

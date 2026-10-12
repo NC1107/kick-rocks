@@ -54,6 +54,21 @@ export class StealthSession {
   }
 
   private async readSnapshot(page: Page, part: number): Promise<string> {
+    // If the page has a CF Turnstile container but its iframe hasn't loaded yet, wait for it
+    // so the snapshot can report the challenge widget (and the agent knows to solve it).
+    try {
+      const hasTurnstileContainer = (await page.evaluate(
+        "Boolean(document.querySelector('.cf-turnstile, [data-cf-turnstile]'))",
+      )) as boolean;
+      if (hasTurnstileContainer) {
+        await page
+          .waitForSelector("iframe[src*='challenges.cloudflare.com']", { timeout: 5_000 })
+          .catch(() => {});
+      }
+    } catch {
+      // best-effort; never block a snapshot on this check
+    }
+
     let raw: RawSnapshot;
     try {
       raw = await page.evaluate<RawSnapshot>(READ_SNAPSHOT);
@@ -100,6 +115,67 @@ export class StealthSession {
   async screenshot(): Promise<Buffer> {
     const page = await this.getPage();
     return page.screenshot({ type: "png" });
+  }
+
+  /**
+   * Attempts to solve an embedded Cloudflare Turnstile widget on the current page by clicking the
+   * checkbox inside the Turnstile iframe and waiting for the cf-turnstile-response token to appear.
+   * Returns a JSON string describing the outcome so the agent can decide whether to proceed.
+   */
+  async solveTurnstile(): Promise<string> {
+    const page = await this.getPage();
+    const CF_URL = /challenges\.cloudflare\.com/;
+
+    // Wait up to 8 s for the iframe to be present if not yet loaded.
+    let frame = page.frames().find((f) => CF_URL.test(f.url()));
+    if (!frame) {
+      try {
+        await page.waitForSelector("iframe[src*='challenges.cloudflare.com']", { timeout: 8_000 });
+        frame = page.frames().find((f) => CF_URL.test(f.url()));
+      } catch {
+        return JSON.stringify({
+          ok: false,
+          reason: "no_turnstile",
+          message: "No Cloudflare Turnstile iframe found on this page.",
+        });
+      }
+    }
+    if (!frame) {
+      return JSON.stringify({
+        ok: false,
+        reason: "no_turnstile",
+        message: "Turnstile iframe in DOM but not yet navigated.",
+      });
+    }
+
+    // Let the iframe finish loading before interacting.
+    await frame.waitForLoadState("load", { timeout: 5_000 }).catch(() => {});
+
+    // Click the Turnstile checkbox (visible for managed/interactive challenges).
+    // For fully invisible challenges this may fail, but the background signal still runs.
+    try {
+      await frame.locator("input[type='checkbox']").click({ timeout: 5_000 });
+    } catch {
+      // No visible checkbox - the challenge may be invisible and auto-passing.
+    }
+
+    // Wait for the parent page to receive the cf-turnstile-response token (up to 15 s).
+    try {
+      await page.waitForFunction(
+        "() => { const el = document.querySelector(\"[name='cf-turnstile-response']\"); return el !== null && el.value.length > 0; }",
+        { timeout: 15_000 },
+      );
+      return JSON.stringify({
+        ok: true,
+        message: "Turnstile solved - token generated, form is ready to submit.",
+      });
+    } catch {
+      return JSON.stringify({
+        ok: "pending",
+        message:
+          "Turnstile clicked but token not yet generated. A visual CAPTCHA may need manual solving, or the challenge may auto-pass on form submit. Try submitting anyway.",
+      });
+    }
   }
 
   async reset(): Promise<void> {
