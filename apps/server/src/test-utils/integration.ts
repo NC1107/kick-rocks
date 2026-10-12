@@ -1,4 +1,6 @@
 import { describe, it } from "vitest";
+import { createMailTransport } from "../mail/transport.js";
+import type { MailConnection } from "../mail/types.js";
 
 /** What an integration test needs from outside the process. */
 type IntegrationNeed = "greenmail";
@@ -60,3 +62,13 @@ const vitestRunner: SuiteRunner = {
   skip: (name, suite) => describe.skip(name, suite),
   it: (name, test) => it(name, test),
 };
+
+/**
+ * GreenMail creates an account on its first login, and two first logins for one address at the same
+ * time (SMTP and IMAP together) make one of them fail with "mailbox already exists". A real server
+ * has the account already, so a test that logs in over both at once signs in once first.
+ */
+export async function provisionGreenmailAccount(connection: MailConnection): Promise<void> {
+  const { ok, error } = await createMailTransport(connection).verify();
+  if (!ok) throw new Error(`GreenMail would not create ${connection.address}: ${error}`);
+}

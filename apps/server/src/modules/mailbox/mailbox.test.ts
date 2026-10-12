@@ -1,3 +1,4 @@
+import { randomBytes } from "node:crypto";
 import { mailboxes } from "@kickrocks/db";
 import { API_ROUTES, type MailboxInput } from "@kickrocks/shared";
 import { eq } from "drizzle-orm";
@@ -8,6 +9,7 @@ import { createRunners } from "../../runners/index.js";
 import {
   createTestContext,
   describeIntegration,
+  provisionGreenmailAccount,
   seedMailbox,
   seedProfile,
   seedRequest,
@@ -701,7 +703,8 @@ describeIntegration("greenmail", "the mailbox routes against a real mail server"
   it("tests a connection, saves it, and lists folders with the stored password", async () => {
     real();
     const profile = seedProfile(ctx);
-    const address = `jordan-${Date.now()}@example.com`;
+    const address = `jordan-${randomBytes(5).toString("hex")}@example.com`;
+    await provisionGreenmailAccount({ ...body(address), password: "app-password" });
 
     const tested = await ctx.call(API_ROUTES.mailboxTest, {
       params: { id: profile.id },
