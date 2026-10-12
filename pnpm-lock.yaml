@@ -140,6 +140,25 @@ importers:
         specifier: ^5.0.3
         version: 5.0.3(@opentelemetry/api@1.9.1)(@types/node@22.20.5)(jsdom@30.1.2)(vite@8.3.3(@types/node@22.20.5)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))
 
+  apps/stealth-browser:
+    dependencies:
+      fastify:
+        specifier: ^5.12.5
+        version: 5.12.5
+      playwright:
+        specifier: npm:rebrowser-playwright@1.52.0
+        version: rebrowser-playwright@1.52.0
+      zod:
+        specifier: ^4.6.5
+        version: 4.6.5
+    devDependencies:
+      '@types/node':
+        specifier: ^22.19.0
+        version: 22.20.5
+      typescript:
+        specifier: ^5.9.0
+        version: 5.9.3
+
   apps/web:
     dependencies:
       '@kickrocks/shared':
@@ -2106,6 +2125,11 @@ packages:
     resolution: {integrity: sha512-Rx/WycZ60HOaqLKAi6cHRKKI7zxWbJ31MhntmtwMoaTeF7XFH9hhBp8vITaMidfljRQ6eYWCKkaTK+ykVJHP2A==}
     engines: {node: '>= 0.8'}
 
+  fsevents@2.3.2:
+    resolution: {integrity: sha512-xiqMQR4xAeHTuB9uWm+fFRcIOgKBMiOBP+eXiyT7jsgVCq1bkVygt00oASowB7EdtpOHaaPgKt812P9ab+DDKA==}
+    engines: {node: ^8.16.0 || ^10.6.0 || >=11.0.0}
+    os: [darwin]
+
   fsevents@2.3.3:
     resolution: {integrity: sha512-5xoDfX+fL7faATnagmWPpbFtwh/R77WmMMqqHGS65C3vvB0YHrgF+B1YmZ3441tMj5n63k0212XNoJwzlhffQw==}
     engines: {node: ^8.16.0 || ^10.6.0 || >=11.0.0}
@@ -2788,6 +2812,16 @@ packages:
 
   real-require@1.0.0:
     resolution: {integrity: sha512-P4nbQYQfePJxRSmY+v/KINxVucm4NF3p3s7pJveMTtom52FR4YGltUQLB8idDXwDDWW+eYrWDFbuzUnjoWHF7g==}
+
+  rebrowser-playwright-core@1.52.0:
+    resolution: {integrity: sha512-gjrvLNh0RX6B/tg6pWaPNGf+9+z1Jl2EyAh5MXD5xMa2lputGRZ9V2MJ/uofcC5Np3vSOJ3SdVSRqwteC0FjfQ==}
+    engines: {node: '>=18'}
+    hasBin: true
+
+  rebrowser-playwright@1.52.0:
+    resolution: {integrity: sha512-UjpqfwmF9+XtOuCCxGQ2ZlLeuSaSv//4Z6ZQgYPsJovz3d7nWodCd2hSRQigAswAUnsPmVwnQUpSn+TLKaKV+A==}
+    engines: {node: '>=18'}
+    hasBin: true
 
   redent@3.0.0:
     resolution: {integrity: sha512-6tDA8g98We0zd0GvVeMT9arEOnTw9qM03L9cJXaCjrip1OO764RDBLBfrB4cwzNGDj5OA5ioymC9GkizgWJDUg==}
@@ -4688,6 +4722,9 @@ snapshots:
 
   fresh@2.0.0: {}
 
+  fsevents@2.3.2:
+    optional: true
+
   fsevents@2.3.3:
     optional: true
 
@@ -5362,6 +5399,14 @@ snapshots:
   real-require@0.2.0: {}
 
   real-require@1.0.0: {}
+
+  rebrowser-playwright-core@1.52.0: {}
+
+  rebrowser-playwright@1.52.0:
+    dependencies:
+      playwright-core: rebrowser-playwright-core@1.52.0
+    optionalDependencies:
+      fsevents: 2.3.2
 
   redent@3.0.0:
     dependencies:

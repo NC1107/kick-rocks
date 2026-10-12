@@ -42,6 +42,7 @@ services:
       # For testing against a local mail server. A real provider must keep TLS and the default pacing.
       KICKROCKS_PLAINTEXT_MAIL_HOSTS: ${KICKROCKS_PLAINTEXT_MAIL_HOSTS:-}
       KICKROCKS_SEND_GAP_MS: ${KICKROCKS_SEND_GAP_MS:-}
+      KICKROCKS_STEALTH_BROWSER_URL: ${KICKROCKS_STEALTH_BROWSER_URL:-}
     # The workers wait for this, so they do not log failed heartbeats while the server starts.
     # The request goes to loopback inside the container, which the host check always accepts.
     healthcheck:
@@ -142,7 +143,36 @@ services:
     profiles:
       - agent
 
+  # A headless stealth browser that MCP agents can drive via the server's browser_* tools.
+  # It uses real Chrome behind Xvfb with --disable-blink-features=AutomationControlled so
+  # Cloudflare Turnstile and similar WAFs see a normal residential browser, not an automation tool.
+  # Starts only with the agent profile; the server exposes its tools when KICKROCKS_STEALTH_BROWSER_URL is set.
+  stealth-browser:
+    build:
+      context: .
+      dockerfile: apps/stealth-browser/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      server:
+        condition: service_healthy
+    environment:
+      KICKROCKS_WORKER_TOKEN: ${KICKROCKS_WORKER_TOKEN:-}
+      TZ: ${TZ:-}
+      KICKROCKS_CHROME_PROFILE: /profile
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    volumes:
+      - kickrocks-stealth-browser-chrome:/profile
+    shm_size: 1gb
+    stop_grace_period: 15s
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    profiles:
+      - agent
+
 volumes:
   kickrocks-data:
   kickrocks-chrome:
   kickrocks-agent-chrome:
+  kickrocks-stealth-browser-chrome:

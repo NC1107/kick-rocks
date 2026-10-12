@@ -29,6 +29,7 @@ const Env = z.object({
     .string()
     .regex(/^\d+(-\d+)?$/, 'KICKROCKS_SEND_GAP_MS must be "<ms>" or "<min>-<max>"')
     .optional(),
+  KICKROCKS_STEALTH_BROWSER_URL: WebUrl.optional(),
   LOG_LEVEL: z.enum(["trace", "debug", "info", "warn", "error", "fatal", "silent"]).default("info"),
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
 });
@@ -93,6 +94,8 @@ export interface Config {
      */
     allowedPrivateHosts: string[];
   };
+  /** URL of the stealth-browser HTTP service; null when not configured. */
+  stealthBrowserUrl: string | null;
   logLevel: z.infer<typeof Env>["LOG_LEVEL"];
   env: z.infer<typeof Env>["NODE_ENV"];
 }
@@ -171,6 +174,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
         parsed.NODE_ENV === "production" ? null : pathOrNull(parsed.KICKROCKS_DKIM_TEST_KEYS),
     },
     linkFollower: { allowedPrivateHosts: hostList(parsed.KICKROCKS_ALLOW_PRIVATE_LINK_HOSTS) },
+    stealthBrowserUrl: parsed.KICKROCKS_STEALTH_BROWSER_URL?.replace(/\/+$/, "") ?? null,
     logLevel: parsed.LOG_LEVEL,
     env: parsed.NODE_ENV,
   };

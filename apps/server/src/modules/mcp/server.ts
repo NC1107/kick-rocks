@@ -8,7 +8,7 @@ import {
 } from "@kickrocks/shared";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
-import type { z } from "zod";
+import { z } from "zod";
 import { AppError } from "../../core/errors.js";
 import { targetDetail } from "../../core/target-detail.js";
 import type { AppServices } from "../../services.js";
@@ -89,6 +89,58 @@ function asksForAgentWork(tool: McpToolName, input: unknown): boolean {
   return taskId === undefined && (kinds?.includes("agent") ?? false);
 }
 
+/** Calls the stealth-browser service and returns plain text or a tool error. */
+async function browserCall(
+  browserUrl: string,
+  token: string,
+  path: string,
+  body?: Record<string, unknown>,
+): Promise<CallToolResult> {
+  const method = body !== undefined ? "POST" : "GET";
+  const url = `${browserUrl}${path}`;
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      method,
+      headers: {
+        authorization: `Bearer ${token}`,
+        ...(body !== undefined ? { "content-type": "application/json" } : {}),
+      },
+      ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
+      signal: AbortSignal.timeout(45_000),
+    });
+  } catch (err) {
+    return failure({ code: "browser_unavailable", message: `Stealth browser unreachable: ${String(err)}` });
+  }
+  if (res.status === 401) return failure({ code: "browser_auth", message: "Stealth browser auth failed" });
+  const json = (await res.json()) as Record<string, unknown>;
+  if (!res.ok || json["ok"] !== true) {
+    return failure({ code: "browser_error", message: String(json["error"] ?? "browser error") });
+  }
+  const text = typeof json["text"] === "string" ? json["text"] : JSON.stringify(json);
+  return { content: [{ type: "text", text }] };
+}
+
+/** Captures a screenshot as base64. */
+async function browserScreenshot(
+  browserUrl: string,
+  token: string,
+): Promise<CallToolResult> {
+  let res: Response;
+  try {
+    res = await fetch(`${browserUrl}/screenshot`, {
+      headers: { authorization: `Bearer ${token}` },
+      signal: AbortSignal.timeout(15_000),
+    });
+  } catch (err) {
+    return failure({ code: "browser_unavailable", message: String(err) });
+  }
+  if (!res.ok) return failure({ code: "browser_error", message: `screenshot failed: HTTP ${res.status}` });
+  const buf = await res.arrayBuffer();
+  const data = Buffer.from(buf).toString("base64");
+  return { content: [{ type: "image", data, mimeType: "image/png" }] };
+}
+
 /**
  * Builds an MCP server for one request. Every tool takes and returns the shared schemas, so what
  * an agent sees is the same contract the worker API keeps. A problem the agent can act on, such
@@ -140,5 +192,83 @@ export function createMcpServer(services: AppServices, version: string): McpServ
       }) as never,
     );
   }
+
+  const browserUrl = services.config.stealthBrowserUrl;
+  const workerToken = services.config.workerToken;
+  if (browserUrl !== null && workerToken !== null) {
+    const burl = browserUrl;
+    const tok = workerToken;
+
+    server.registerTool(
+      "browser_navigate",
+      {
+        description: "Open a URL in the stealth browser. Returns the page as an accessibility tree.",
+        inputSchema: z.object({ url: z.string().min(1).max(2000).describe("Full https URL to open.") }),
+      },
+      async ({ url }: { url: string }) => browserCall(burl, tok, "/navigate", { url }),
+    );
+
+    server.registerTool(
+      "browser_snapshot",
+      {
+        description: "Read the current page's accessibility tree. Pass part for a long page's next section.",
+        inputSchema: z.object({ part: z.number().int().min(1).default(1).describe("Part number (default 1).") }),
+      },
+      async ({ part }: { part: number }) =>
+        browserCall(burl, tok, part > 1 ? `/snapshot?part=${part}` : "/snapshot"),
+    );
+
+    server.registerTool(
+      "browser_click",
+      {
+        description: "Click an element by its ref from the latest snapshot.",
+        inputSchema: z.object({ ref: z.string().regex(/^e\d{1,5}$/).describe("Ref from the last snapshot, e.g. e12.") }),
+      },
+      async ({ ref }: { ref: string }) => browserCall(burl, tok, "/click", { ref }),
+    );
+
+    server.registerTool(
+      "browser_fill",
+      {
+        description: "Type text into an input field by its ref from the latest snapshot.",
+        inputSchema: z.object({
+          ref: z.string().regex(/^e\d{1,5}$/).describe("Ref from the last snapshot."),
+          text: z.string().max(10_000).describe("Text to type."),
+        }),
+      },
+      async ({ ref, text }: { ref: string; text: string }) => browserCall(burl, tok, "/fill", { ref, text }),
+    );
+
+    server.registerTool(
+      "browser_select",
+      {
+        description: "Choose a dropdown option by its visible label.",
+        inputSchema: z.object({
+          ref: z.string().regex(/^e\d{1,5}$/).describe("Ref of the select element."),
+          value: z.string().max(500).describe("Option label to select."),
+        }),
+      },
+      async ({ ref, value }: { ref: string; value: string }) => browserCall(burl, tok, "/select", { ref, value }),
+    );
+
+    server.registerTool(
+      "browser_screenshot",
+      {
+        description: "Capture a screenshot of the current page as a PNG.",
+        inputSchema: z.object({}),
+      },
+      async () => browserScreenshot(burl, tok),
+    );
+
+    server.registerTool(
+      "browser_reset",
+      {
+        description: "Close the current browser tab and open a fresh one.",
+        inputSchema: z.object({}),
+      },
+      async () => browserCall(burl, tok, "/reset", {}),
+    );
+  }
+
   return server;
 }
