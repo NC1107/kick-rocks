@@ -925,4 +925,15 @@ describe("records that look unlikely", () => {
       mock.store.matches.find((candidate) => candidate.recordUrl.endsWith("ca-71306"))?.decision,
     ).toBe("pending");
   });
+
+  it("lets the toggle close the group while one of its records is selected", async () => {
+    const { user } = open("matches");
+    const list = within(await screen.findByRole("navigation", { name: "Review queue" }));
+    const toggle = await list.findByRole("button", { name: /^\d+ unlikely$/ });
+    await user.click(toggle);
+    await user.click(await list.findByRole("button", { name: /^Jordan Example\s*Found/ }));
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+    await user.click(toggle);
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+  });
 });

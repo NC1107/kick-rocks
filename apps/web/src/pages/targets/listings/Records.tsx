@@ -8,7 +8,7 @@ import {
 } from "../../../components/ui/index.js";
 import { MatchFit } from "../../review/MatchFit.js";
 import { useMatchDecision } from "../../review/match-decision.js";
-import { splitByBand } from "../../review/model.js";
+import { sortByBand, splitByBand } from "../../review/model.js";
 import { UnlikelyGroup } from "../../review/UnlikelyGroup.js";
 
 function placesOf(record: ListingRecord): string {
@@ -30,7 +30,9 @@ function RecordItem({ record }: { record: ListingRecord }) {
           {ageText ? <span className="font-normal text-ink-2">, {ageText}</span> : null}
         </p>
         {places ? <p className="text-meta text-ink-2">{places}</p> : null}
-        {record.assessment ? <MatchFit assessment={record.assessment} className="my-1" /> : null}
+        {record.decision === "pending" && record.assessment ? (
+          <MatchFit assessment={record.assessment} className="my-1" />
+        ) : null}
         <p className="relative min-w-0 truncate text-caption">
           <ExternalLinkText href={record.recordUrl} className="font-mono">
             {record.recordUrl.replace(/^https?:\/\/(www\.)?/, "")}
@@ -93,7 +95,10 @@ function Records({ records, label }: { records: readonly ListingRecord[]; label:
   );
 }
 
-/** The records of one site: likely ones first, and the unlikely ones folded away. */
+/**
+ * The records of one site. Those waiting for an answer come first, likely ones before the rest and
+ * the unlikely ones folded away; answered records follow and never feed the bulk action.
+ */
 export function RecordList({
   records,
   label,
@@ -101,7 +106,10 @@ export function RecordList({
   records: readonly ListingRecord[];
   label: string;
 }) {
-  const { shown, unlikely } = splitByBand(records);
+  const { shown, unlikely } = splitByBand(
+    records.filter((record) => record.decision === "pending"),
+  );
+  const answered = records.filter((record) => record.decision !== "pending");
   return (
     <div className="flex min-w-0 flex-col gap-2">
       <Records records={shown} label={label} />
@@ -111,6 +119,10 @@ export function RecordList({
           label={`Unlikely records on ${label.replace(/^Records on /, "")}`}
         />
       </UnlikelyGroup>
+      <Records
+        records={sortByBand(answered)}
+        label={`Answered records on ${label.replace(/^Records on /, "")}`}
+      />
     </div>
   );
 }

@@ -106,13 +106,15 @@ function describe(entry: QueueEntry, agents: AgentsResponse | undefined, now: nu
       return {
         title: entry.match.fields.name,
         reason: (
-          <span className="flex flex-wrap items-center gap-1">
+          <span className="flex flex-col gap-1">
             <span>Found on {entry.match.targetName}</span>
-            {entry.match.assessment?.reasons.map((reason) => (
-              <Tag key={describeReason(reason)} tone={WEIGHT_TONES[reason.weight]} wrap>
-                {describeReason(reason)}
-              </Tag>
-            ))}
+            <span className="flex flex-wrap items-center gap-1">
+              {entry.match.assessment?.reasons.map((reason) => (
+                <Tag key={describeReason(reason)} tone={WEIGHT_TONES[reason.weight]} wrap>
+                  {describeReason(reason)}
+                </Tag>
+              ))}
+            </span>
           </span>
         ),
         wrap: true,

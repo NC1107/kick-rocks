@@ -37,7 +37,7 @@ function useMarkAllNotMine(matches: readonly Match[]) {
 
 /**
  * The records the score says are not the person, behind one toggle. A score never decides, so the
- * single action here still asks first. The group opens by itself when something inside is selected.
+ * single action here still asks first. The group opens once when something inside gets selected, and the toggle still closes it.
  */
 export function UnlikelyGroup(props: UnlikelyGroupProps) {
   return props.matches.length === 0 ? null : <Group {...props} />;
@@ -53,14 +53,19 @@ function Group({ matches, forceOpen = false, children }: UnlikelyGroupProps) {
   const [toggled, setToggled] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const all = useMarkAllNotMine(matches);
-  const open = toggled || forceOpen;
+  const [seenForceOpen, setSeenForceOpen] = useState(false);
+  if (forceOpen !== seenForceOpen) {
+    setSeenForceOpen(forceOpen);
+    if (forceOpen) setToggled(true);
+  }
+  const open = toggled;
   const close = () => {
     setConfirming(false);
     all.clearError();
   };
   return (
     <div className="flex min-w-0 flex-col gap-2">
-      <div className="flex min-h-row items-center gap-2 pr-2 pl-3.5">
+      <div className="flex min-h-row items-center gap-2 pr-3.5 pl-3.5">
         <button
           type="button"
           aria-expanded={open}
