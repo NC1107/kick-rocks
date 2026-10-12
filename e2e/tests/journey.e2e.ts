@@ -1,7 +1,7 @@
 import { mkdirSync, readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { API_ROUTES, type RequestListItem } from "@kickrocks/shared";
+import { API_ROUTES, type ReplyClassification, type RequestListItem } from "@kickrocks/shared";
 import type { Page } from "playwright";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { Api } from "../src/api.js";
@@ -71,6 +71,32 @@ async function replyFrom(targetId: string, text: string): Promise<void> {
     subject: `Re: ${original.subject}`,
     text,
     inReplyTo: original.messageId ?? undefined,
+  });
+}
+
+/**
+ * What a person does with a reply the rules only suggest a reading for: wait for it in Review
+ * with the expected reading preselected, then confirm that reading.
+ */
+async function acceptSuggestion(
+  targetId: string,
+  classification: ReplyClassification,
+  timeoutMs = 60_000,
+): Promise<void> {
+  const message = await eventually(
+    async () => {
+      const queue = await api.call(API_ROUTES.reviewQueue, {
+        query: { profileId: world.profileId },
+      });
+      return queue.messages.find(
+        (item) => item.targetId === targetId && item.suggestion?.classification === classification,
+      );
+    },
+    { what: `${targetId} to wait in Review as ${classification}`, timeoutMs },
+  );
+  await api.call(API_ROUTES.messageClassify, {
+    params: { id: message.id },
+    body: { classification },
   });
 }
 
@@ -551,6 +577,14 @@ describe("broker replies", () => {
 
     await pollNow();
 
+    await acceptSuggestion("fx-complete", "completed");
+    await acceptSuggestion("fx-norecord", "no_record");
+    await acceptSuggestion("fx-reject", "rejected");
+    await acceptSuggestion("fx-verify", "verification_required");
+    await acceptSuggestion("fx-link", "confirmation_link");
+    await acceptSuggestion("fx-linkjs", "confirmation_link");
+    await acceptSuggestion("fx-needsform", "needs_form");
+    await acceptSuggestion("fx-ack", "auto_ack");
     await waitForStatus("fx-complete", ["confirmed"]);
     await waitForStatus("fx-norecord", ["no_record"]);
     await waitForStatus("fx-reject", ["rejected"]);
@@ -787,6 +821,7 @@ describe("a broker that asks for more", () => {
       "Thank you. Your request has been completed and your data has been deleted.",
     );
     await pollNow();
+    await acceptSuggestion("fx-verify", "completed");
     await waitForStatus("fx-verify", ["confirmed"]);
   });
 });
@@ -1165,7 +1200,8 @@ describe("the agent setup screen", () => {
 describe("the whole run", () => {
   it("picks up a reply by itself on the schedule, with nobody pressing check now", async () => {
     await replyFrom("fx-company", "Your request has been completed. We have deleted your data.");
-    await waitForStatus("fx-company", ["confirmed"], 170_000);
+    await acceptSuggestion("fx-company", "completed", 170_000);
+    await waitForStatus("fx-company", ["confirmed"]);
   }, 200_000);
 
   it("ends with every request settled or waiting on a broker, and nothing stuck", async () => {

@@ -165,70 +165,22 @@ describe("recording what the machine said", () => {
   });
 });
 
-describe("spot checks", () => {
-  async function spot(label: ReplyClassification, person: ReplyClassification) {
-    const sent = message();
-    ctx.services.replyPredictions.record(sent.id, result(modelAnswer(label, 0.99, true)));
-    await decide(sent.id, person);
-  }
+describe("agreement with the model", () => {
+  const bandsNow = () => ctx.services.replyPredictions.view(ctx.services.replyModel.status()).bands;
 
-  it("give a precision with its interval", async () => {
-    for (let i = 0; i < 9; i += 1) await spot("completed", "completed");
-    await spot("completed", "rejected");
-    const check = ctx.services.replyPredictions.check();
-    expect(check).toMatchObject({ spotChecks: 10, agreed: 9, precision: 0.9, needed: 20 });
-    expect(check.low).toBeGreaterThan(0.5);
-    expect(check.high).toBeLessThan(1);
-  });
-
-  it("leave applying alone below twenty, whatever they say", async () => {
-    for (let i = 0; i < 10; i += 1) await spot("completed", "rejected");
-    expect(ctx.services.settings.get("replyModel.state").pausedAt).toBeNull();
-  });
-
-  it("stop model answers from being applied once twenty rule out 95%", async () => {
-    for (let i = 0; i < 17; i += 1) await spot("completed", "completed");
-    for (let i = 0; i < 3; i += 1) await spot("completed", "rejected");
-    const state = ctx.services.settings.get("replyModel.state");
-    expect(state.pausedAt).not.toBeNull();
-    expect(state.reason).toMatch(/17 times out of 20/);
-    const view = ctx.services.replyPredictions.view(ctx.services.replyModel.status());
-    expect(view.paused?.reason).toBe(state.reason);
-  });
-
-  it("keep applying when twenty spot checks all agree", async () => {
-    for (let i = 0; i < 20; i += 1) await spot("completed", "completed");
-    expect(ctx.services.settings.get("replyModel.state").pausedAt).toBeNull();
-    expect(ctx.services.replyPredictions.check().low).toBeGreaterThan(0.8);
-  });
-
-  it("start counting again from the moment a person resumes", async () => {
-    for (let i = 0; i < 20; i += 1) await spot("completed", "rejected");
-    expect(ctx.services.settings.get("replyModel.state").pausedAt).not.toBeNull();
-    ctx.clock.advance(1000);
-    await ctx.call(API_ROUTES.settingsPatch, { body: { replyModel: { resume: true } } });
-    expect(ctx.services.settings.get("replyModel.state").pausedAt).toBeNull();
-    expect(ctx.services.replyPredictions.check().spotChecks).toBe(0);
-  });
-
-  it("never lower the threshold by themselves", async () => {
-    for (let i = 0; i < 20; i += 1) await spot("completed", "rejected");
-    expect(ctx.services.settings.get("replyModel").threshold).toBeNull();
-  });
-
-  it("report agreement by the confidence of the answer", async () => {
+  it("reports agreement by the confidence of the answer", async () => {
     const low = message();
     ctx.services.replyPredictions.record(low.id, result(modelAnswer("no_record", 0.6)));
     await decide(low.id, "no_record");
     const high = message();
-    ctx.services.replyPredictions.record(high.id, result(modelAnswer("no_record", 0.99, true)));
+    ctx.services.replyPredictions.record(high.id, result(modelAnswer("no_record", 0.99)));
     await decide(high.id, "completed");
-    const bands = ctx.services.replyPredictions.check().bands;
+    const bands = bandsNow();
     expect(bands.find((band) => band.from === 0.5)).toMatchObject({ answers: 1, accepted: 1 });
     expect(bands.find((band) => band.from === 0.96)).toMatchObject({ answers: 1, accepted: 0 });
   });
 
-  it("leave corrections of applied answers and the language model out of the bands", async () => {
+  it("leaves corrections of applied answers and the language model out of the bands", async () => {
     const applied = message();
     ctx.services.replyPredictions.record(
       applied.id,
@@ -250,7 +202,7 @@ describe("spot checks", () => {
       }),
     );
     await decide(llm.id, "rejected");
-    const bands = ctx.services.replyPredictions.check().bands;
+    const bands = bandsNow();
     expect(bands.every((band) => band.answers === 0)).toBe(true);
   });
 });
@@ -390,36 +342,12 @@ describe("the export of labelled replies", () => {
 });
 
 describe("the settings", () => {
-  it("shows the reply model's state and defaults", async () => {
+  it("shows the reply model's state and no knobs", async () => {
     const response = await ctx.call(API_ROUTES.settingsGet);
     if (!response.ok) throw new Error("settings did not load");
-    const view = response.body.replyModel;
-    expect(view).toMatchObject({
+    expect(response.body.replyModel).toMatchObject({
       status: { state: "not_installed", reason: null, version: null },
-      threshold: null,
-      thresholdOverride: null,
-      spotCheckPercent: 10,
-      paused: null,
     });
-  });
-
-  it("saves the spot check share and a raised threshold, and refuses one under the floor", async () => {
-    const saved = await ctx.call(API_ROUTES.settingsPatch, {
-      body: { replyModel: { spotCheckPercent: 0, threshold: 0.98 } },
-    });
-    expect(saved.ok && saved.body.replyModel).toMatchObject({
-      spotCheckPercent: 0,
-      thresholdOverride: 0.98,
-    });
-    const refused = await ctx.call(API_ROUTES.settingsPatch, {
-      body: { replyModel: { threshold: 0.8 } },
-    });
-    expect(refused.ok).toBe(false);
-  });
-
-  it("clears the raised threshold", async () => {
-    await ctx.call(API_ROUTES.settingsPatch, { body: { replyModel: { threshold: 0.98 } } });
-    await ctx.call(API_ROUTES.settingsPatch, { body: { replyModel: { threshold: null } } });
-    expect(ctx.services.settings.get("replyModel").threshold).toBeNull();
+    expect(Object.keys(response.body.replyModel).sort()).toEqual(["bands", "status"]);
   });
 });

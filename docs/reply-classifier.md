@@ -5,13 +5,98 @@ Every number comes from the bench in `apps/server/bench/reply-classifier`, and t
 The bench has 332 dev replies and 224 held-out replies, all synthetic.
 The machine was a Ryzen 9 9950X3D with 30 GiB RAM and an RTX 5080 with 16 GiB.
 
-## The short answer
+## What real replies changed
 
-- Keep the rules first, with their current 0.6 threshold for their own answers.
+Everything below this section was measured on synthetic replies.
+Real replies were then scored with `pnpm bench:replies --corpus <dir>`, on 161 labeled replies from public sources.
+95 of them come from one requester's log, and many are excerpts, so the set is small and uneven.
+Some labels are debatable, so the counts below show direction more than exact rates.
+
+The synthetic numbers did not transfer.
+
+- The rules applied 77 of the 161 replies without a person, and 25 of those were wrong.
+  That is 67.5% precision, with a 95% lower bound of 56.5%.
+  The other 84 went to Review.
+- The encoder (the published reply-model-v1 release, applied at the 0.9 floor) applied 97 and got 32 wrong.
+  Its 20 extra applications over the rules were 13 right and 7 wrong.
+  Its 95.7% on synthetic held-out did not hold on real mail.
+- The acknowledgement rule was the worst.
+  It applied 14 replies and got 11 wrong, and its "thank you for" part was right on 1 of 24.
+  An applied acknowledgement is filed as noise, so those mistakes were also hidden from the person.
+- No rule had enough applications to prove 95% precision.
+  Only three rules were right every time they decided: the one for email not being accepted (4 of 4), the one for requests that must go through another channel (4 of 4), and the one for "has been removed" wording (4 of 4), counting the replies that name the request's company.
+  Together that is 12 of 12, with a 95% lower bound of about 76%.
+  Alone, their lower bounds are about 51%, 57% and 57%.
+
+So the server now follows these rules.
+
+- A rule's answer is applied without a person only when the rule is in `PROVEN_RULES` in `apps/server/src/mail/reply-rules.ts`.
+  The list is empty.
+  Three rules were right every time they decided on the real replies, but on 4 of 4 each, which gives 95% lower bounds of 51% to 57%, and 12 of 12 pooled is about 76%.
+  All 12 came from one source folder, and several alternatives inside those rules never fired on real mail.
+  That is not support for a 95% claim, so every wording rule suggests until fresh inbox mail gives about 60 correct decisions per rule.
+- Every wording rule answer is therefore a suggestion.
+  The reply goes to Review with the rules' label preselected, and nothing moves the request.
+- Every model answer, from the encoder or the language model, is a suggestion too.
+  No threshold was ever measured to give a model the precision that moving a request needs.
+  The settings card shows "Suggestions only", and the model threshold, spot check and pause settings are gone because nothing is applied.
+- The rules also hold their own answer for Review when two different decisions fire in one reply.
+- The name gate and the trust caps are unchanged.
+  A reading that moves a request still needs a signature that vouches for it.
+- Two readings come from message headers and still apply behind those trust caps: a delivery status report, and an automatic reply that a mail server marked as machine-sent (an out-of-office notice with `Auto-Submitted`, or a delay notice inside a delivery report).
+  They are listed in `STRUCTURAL_READINGS`.
+  An out-of-office subject without a machine header, and a delay notice recognized only by its subject, are wording and go to Review.
+- A confirmation link is applied only for a request that is waiting for one, which the form flow sets when it submits a form that promised a confirmation email.
+  Its wording was never measured on real mail, because the real replies carry no links.
+  For any other request the same reading is a suggestion.
+  It is listed in `WAITING_READINGS`.
+- The reply encoder stays off by default.
+  The release pin in `apps/server/reply-model/release.json` is empty, so the image does not bundle a model, and a model that is installed only suggests.
+
+The rest of the rules were rewritten against the misreads in the real set.
+
+- The acknowledgement rule no longer reads "thank you for", "within N days" or the start of "email address".
+- The identity rule asks for a document or for the person to verify their identity, with a negation check.
+  It no longer reads a description of a portal or of other people.
+- Conditions are read across a sentence, so "if you submit a copy of your ID" and "if you do not fall into these cases, your request is complete" no longer count.
+- A request or a route outranks a missing or refused record that comes with it.
+  A finished request outranks a missing one.
+- A request that was "processed" is no longer read as done, because it means handled and not succeeded: "processed and denied" is a refusal, and the refusal wording now covers any state in "not a ... resident".
+That cost one completed reply on the real set (17 to 16 of 28 right as the top label).
+A redirect that ends at a bare preposition, keeps email as the channel, or points at a link that only explains an authorization is no longer read as a redirect.
+The condition check also ignores "in case" followed by a ticket or case number.
+The "has been removed" rule read only the clause for a negation before; it now uses the full sentence check like the other rules, so its wording handling changed after it was measured.
+New wording is read for doing it yourself in your account, for a company that processed or complied with the request, for being unable to delete, to take action, or to act as a processor, and for a company that generally holds no personal data.
+
+Those rewritten rules were 56 right out of 56 suggestions on the same replies before the last round of fixes.
+That is fitted to the replies, so it does not count as proof, and it has not been re-counted since.
+They stay suggestions until fresh mail measures them.
+
+| Real replies, rules alone | Applied | Applied wrong | Review |
+|---|---|---|---|
+| Before | 77 | 25 | 84 |
+| After | 0 | 0 | 161 |
+
+With no rule on the proven list the rules apply 0 of the 161 real replies, so all 161 go to Review.
+The intake loop (`pnpm loop:mail-intake`, dev corpus) stores 134 messages about a request, and Review shows 73 of them before and 112 after.
+So 61 were handled without a person before, and 22 are now.
+The loop still shows no false positives, false negatives, stored ignored mail or misrouted mail.
+It counts 38 correct readings that now wait in Review, and 0 that waited for no reason.
+The test pins that count at 38, so a change that sends more correctly read mail to Review has to change the test on purpose.
+
+Growing the set from the product's own inbox, where headers and signatures are real, is how a rule gets onto the list.
+A rule should show at least 95% precision on fresh mail, with about 60 correct applications in a row for a 95% lower bound, before it joins `PROVEN_RULES`.
+
+## The short answer (synthetic bench)
+
+This is what the synthetic bench said.
+The real replies above overrule the parts about applying answers.
+
+- Keep the rules first.
 - Fix the rules for the "Thank you for contacting us" reply that says to use a web form or phone, because no model ever sees it.
 - For the replies the rules leave under 0.6, use the fine-tuned ModernBERT-base encoder (candidate c).
-- Apply an encoder answer on its own only at confidence 0.96 or above, the threshold chosen on dev.
-- Send every encoder answer below 0.96 to Review, with the encoder's label shown as a suggestion.
+- Send every encoder answer to Review, with the encoder's label shown as a suggestion.
+  The synthetic bench chose 0.96 as the confidence to apply one on its own, and real mail did not support it.
 - Run the encoder on the CPU by default, with or without a GPU.
 - Do not use a local LLM for replies once the encoder is in place.
 - Do not wire in Jev or another hosted provider now.
@@ -19,7 +104,7 @@ The machine was a Ryzen 9 9950X3D with 30 GiB RAM and an RTX 5080 with 16 GiB.
 
 | Setup | Pipeline | Auto-apply | Review |
 |---|---|---|---|
-| No GPU | rules, then encoder on CPU | rules at 0.6 or above, encoder at 0.96 or above | everything else |
+| No GPU | rules, then encoder on CPU | proven rules only | everything else |
 | GPU | the same, on CPU or GPU | the same | the same |
 | Hosted provider | not recommended | n/a | n/a |
 
@@ -44,7 +129,8 @@ The granite4.1:8b runs were also slowed by another bench on the GPU, at a 9.9 s 
 
 ## Why the threshold is 0.96 and not 0.6
 
-Today the server applies any answer at 0.6 or above, and caps an LLM answer at 0.9.
+This section is the reasoning on the synthetic bench, and the server no longer applies model answers at all.
+Before real replies, the server applied any answer at 0.6 or above, and caps an LLM answer at 0.9.
 The bench shows no LLM answer can be trusted at 95% precision at any confidence, so the 0.6 threshold on model answers applies labels with no measured precision.
 The encoder's 0.96 is the only threshold here with evidence behind it.
 
@@ -170,5 +256,6 @@ Measured through the server's host on a Ryzen 9 9950X3D with 4 threads:
 
 The runtime carries Microsoft's usage telemetry on Linux, so the child is started with `ORT_DISABLE_TELEMETRY=1` and the image sets it too.
 
-The model answers are applied at the larger of 0.90, the threshold in the release's manifest, and the person's own setting.
-The language model's answers are never applied.
+Model answers, from the encoder or the language model, are never applied.
+They reach Review as a suggestion with the label preselected.
+The earlier rule, applying at the larger of 0.90, the manifest's threshold and the person's setting, was dropped after real replies.

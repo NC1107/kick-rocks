@@ -7,9 +7,6 @@ import {
   parseOutgoingMessageId,
   parseReferences,
   type ReplyClassification,
-  type ReplyModelSettings,
-  type ReplyModelState,
-  type ReplySuggestion,
   withoutSharedHosts,
 } from "@kickrocks/shared";
 import type { SettingsStore } from "../core/settings.js";
@@ -17,11 +14,17 @@ import { FORM_LINK_HINT } from "./form-link.js";
 import { askLlm, type LlmFetch } from "./llm.js";
 import { inputOf, inputSha256 } from "./reply-model/input.js";
 import type { ModelAnswer, ModelResult, ReplyModelHost } from "./reply-model/types.js";
-import { CLASS_PRIORITY, matchSignals, requestedFieldsIn, type Signal } from "./reply-rules.js";
+import {
+  appliesWithoutPerson,
+  matchSignals,
+  requestedFieldsIn,
+  type Signal,
+  sortSignals,
+} from "./reply-rules.js";
 import { extractLinks, type MailLink, stripQuoted } from "./reply-text.js";
 import { type SenderTrust, senderTrust } from "./sender-auth.js";
 import { namesRequest } from "./target-names.js";
-import { modelThreshold, RULES_THRESHOLD } from "./thresholds.js";
+import { RULES_THRESHOLD } from "./thresholds.js";
 import type {
   ClassificationResult,
   ClassifierRequest,
@@ -222,6 +225,7 @@ function confirmationSignal(
     classification: "confirmation_link",
     confidence: strong ? 0.9 : 0.8,
     rationale: "The message asks for a confirmation and carries a link on the request's own site",
+    rule: "confirmation-link",
   };
 }
 
@@ -383,8 +387,6 @@ interface ReplyClassifierDeps {
   llmTimeoutMs?: number;
   /** The local reply model. Without one the classifier works as the rules and the language model alone. */
   model?: ReplyModelHost;
-  /** Tells which answers to hold back as spot checks. Replaced in tests. */
-  random?: () => number;
   log?: (reason: string) => void;
 }
 
@@ -396,33 +398,6 @@ function configuredLlm(settings: Pick<SettingsStore, "get">): LlmSettings | null
   } catch {
     return null;
   }
-}
-
-const DEFAULT_MODEL_SETTINGS: ReplyModelSettings = { spotCheckPercent: 10, threshold: null };
-
-function replyModelSettings(settings: Pick<SettingsStore, "get">): ReplyModelSettings {
-  try {
-    return settings.get("replyModel") ?? DEFAULT_MODEL_SETTINGS;
-  } catch {
-    return DEFAULT_MODEL_SETTINGS;
-  }
-}
-
-function replyModelPaused(settings: Pick<SettingsStore, "get">): boolean {
-  try {
-    const state: ReplyModelState | null = settings.get("replyModel.state");
-    return state?.pausedAt != null;
-  } catch {
-    return false;
-  }
-}
-
-function percent(value: number): string {
-  return `${Math.round(value * 100)}%`;
-}
-
-function describeLabel(label: ReplyClassification): string {
-  return label.replaceAll("_", " ");
 }
 
 /** What the rules, the model and the language model each contributed, for the record behind a result. */
@@ -446,7 +421,6 @@ function predictionOf(
 }
 
 export function createReplyClassifier(deps: ReplyClassifierDeps): ReplyClassifier {
-  const random = deps.random ?? Math.random;
   const loggedReasons = new Set<string>();
   const logOnce = (reason: string) => {
     if (loggedReasons.has(reason)) return;
@@ -523,11 +497,7 @@ export function createReplyClassifier(deps: ReplyClassifierDeps): ReplyClassifie
       const formLinks = match ? formLinksOf(allLinks, match.request) : [];
       const requestId = match?.request.id ?? null;
 
-      signals.sort(
-        (a, b) =>
-          b.confidence - a.confidence ||
-          CLASS_PRIORITY.indexOf(a.classification) - CLASS_PRIORITY.indexOf(b.classification),
-      );
+      sortSignals(signals);
       // An acknowledgement footer must not hide a message that asks for something or decides something.
       const changing = signals.find(
         (signal) =>
@@ -541,7 +511,20 @@ export function createReplyClassifier(deps: ReplyClassifierDeps): ReplyClassifie
         match?.request.awaitingConfirmation === null;
 
       let result: RulesResult;
+      // Whether the reading may move the request without a person. Only a rule on the proven list
+      // does, and only when no other decision is in the reply; everything else starts Review.
+      let provenAlone = false;
       if (top) {
+        provenAlone =
+          appliesWithoutPerson(top.rule, {
+            waiting: match?.request.awaitingConfirmation != null,
+          }) &&
+          !signals.some(
+            (signal) =>
+              signal.classification !== top.classification &&
+              CHANGES_REQUEST.has(signal.classification) &&
+              signal.confidence >= RULES_THRESHOLD,
+          );
         const rival = signals.some(
           (signal) =>
             signal.classification !== top.classification &&
@@ -583,6 +566,7 @@ export function createReplyClassifier(deps: ReplyClassifierDeps): ReplyClassifie
           requestedFields: [],
         };
       } else {
+        provenAlone = true;
         result = {
           requestId: null,
           correlation: null,
@@ -604,7 +588,17 @@ export function createReplyClassifier(deps: ReplyClassifierDeps): ReplyClassifie
         ...extra,
       });
 
-      if (rules.confidence >= RULES_THRESHOLD && !unnamed) return settled({ apply: true });
+      if (rules.confidence >= RULES_THRESHOLD && !unnamed) {
+        if (provenAlone) return settled({ apply: true });
+        return settled({
+          suggestion: {
+            classification: rules.classification,
+            confidence: rules.confidence,
+            source: "rules",
+            spotCheck: false,
+          },
+        });
+      }
 
       const input = inputOf(message);
       const sha = inputSha256(input);
@@ -618,63 +612,25 @@ export function createReplyClassifier(deps: ReplyClassifierDeps): ReplyClassifie
         : null;
       if (modelRun && !modelRun.ok) logOnce(modelRun.reason);
 
+      // A model answer is never applied: no threshold on it was ever measured to reach the
+      // precision that moving a request needs, so it only gives Review a label to start from.
       if (modelRun?.ok) {
         const answer = modelRun.answer;
         // The model may name a confirmation, but it cannot supply the link: with none on the
         // request's own site the claim has nothing to act on.
         const unsupported = answer.label === "confirmation_link" && links.length === 0;
-        const label: ReplyClassification = unsupported ? "unknown" : answer.label;
-        const capped = await capFor(label, via, answer.confidence, trust, ownSiteTrust);
-        const confidence = unboundConfirmation(label)
-          ? Math.min(capped.confidence, UNMATCHED_CAP)
-          : capped.confidence;
-        const settings = replyModelSettings(deps.settings);
-        const threshold = modelThreshold(answer.manifestThreshold, settings.threshold);
-        const prediction = predictionOf(rules, answer, sha);
-        const guess = (spotCheck: boolean): ReplySuggestion | null =>
-          unsupported
+        return settled({
+          source: "model",
+          suggestion: unsupported
             ? null
             : {
-                classification: label,
+                classification: answer.label,
                 confidence: round(answer.confidence),
                 source: "model",
-                spotCheck,
-              };
-
-        // The trust cap holds an unsigned request-changing reading for a person; a model answer
-        // that disagrees with it must not quietly overrule that.
-        const overrulesRules =
-          CHANGES_REQUEST.has(rules.classification) && rules.classification !== label;
-
-        if (
-          requestId === null ||
-          unnamed ||
-          unsupported ||
-          overrulesRules ||
-          confidence < threshold
-        ) {
-          return settled({ source: "model", suggestion: guess(false), prediction });
-        }
-        // While the server has stopped applying model answers, every answer that would have been
-        // applied is a spot check, which is how it learns whether the model has recovered.
-        const heldBack =
-          replyModelPaused(deps.settings) || random() * 100 < settings.spotCheckPercent;
-        if (heldBack) {
-          return settled({ source: "model", suggestion: guess(true), prediction });
-        }
-        return {
-          requestId,
-          correlation: via,
-          classification: label,
-          confidence: round(confidence),
-          rationale: `Reply model: ${describeLabel(label)} at ${percent(answer.confidence)}; ${describeCorrelation(via)}${capped.reason ? `; ${capped.reason}` : ""}`,
-          links: label === "needs_form" ? formLinks : links,
-          requestedFields: label === "verification_required" ? requestedFieldsIn(body) : [],
-          source: "model",
-          apply: true,
-          suggestion: null,
-          prediction,
-        };
+                spotCheck: false,
+              },
+          prediction: predictionOf(rules, answer, sha),
+        });
       }
 
       // Mail that matches no request waits for a person either way, so sending it out would only

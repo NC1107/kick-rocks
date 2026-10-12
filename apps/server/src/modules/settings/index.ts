@@ -8,7 +8,6 @@ import {
   EgressSettings,
   GpuMemoryAnswers,
   gateVerdict,
-  ReplyModelSettings,
   RetentionSettings,
   ScanningSettings,
   ScheduleSettings,
@@ -125,10 +124,7 @@ function sameOrigin(a: string, b: string): boolean {
   }
 }
 
-function applyPatch(
-  { settings, clock, claimers, replyPredictions }: AppServices,
-  patch: SettingsPatch,
-): void {
+function applyPatch({ settings, clock, claimers }: AppServices, patch: SettingsPatch): void {
   if (patch.schedule) {
     settings.set(
       "schedule",
@@ -172,17 +168,6 @@ function applyPatch(
     // An omitted key keeps the stored one, so editing the model does not mean typing the key again.
     const kept = apiKey === undefined ? (stored?.apiKey ?? null) : apiKey;
     settings.set("llm", { baseUrl, model, apiKey: kept });
-  }
-  if (patch.replyModel) {
-    const { spotCheckPercent, threshold, resume } = patch.replyModel;
-    settings.set(
-      "replyModel",
-      ReplyModelSettings.parse({
-        ...settings.get("replyModel"),
-        ...definedOnly({ spotCheckPercent, threshold }),
-      }),
-    );
-    if (resume) replyPredictions.resume();
   }
   if (patch.mcp) settings.set("mcp.enabled", patch.mcp.enabled);
   if (patch.siteChecks) settings.set("siteChecks.enabled", patch.siteChecks.enabled);
