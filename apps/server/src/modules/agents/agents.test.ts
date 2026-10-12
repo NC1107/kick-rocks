@@ -357,6 +357,7 @@ describe("POST /tasks/:id/hand-off", () => {
     const blocked = seedTask(ctx, {
       kind: "agent",
       status: "blocked",
+      blockedReason: "login_required",
       dedupeKey: "agent:blocked-one",
       payload: agentPayload(target.id),
       profileId,
@@ -377,6 +378,7 @@ describe("POST /tasks/:id/hand-off", () => {
     const second = seedTask(ctx, {
       kind: "agent",
       status: "blocked",
+      blockedReason: "login_required",
       dedupeKey: "agent:blocked-two",
       payload: agentPayload(target.id),
       profileId,

@@ -629,7 +629,7 @@ describe("task actions", () => {
       ctx.services.taskQueue.claim({ workerId: "w", kinds: ["scan"], leaseMs: 60_000 });
       ctx.services.taskQueue.block(task.id, {
         workerId: "w",
-        reason: "bot_detection",
+        reason: "login_required",
         actor: "worker",
       });
 
@@ -640,10 +640,27 @@ describe("task actions", () => {
       const agent = ctx.services.taskQueue.getOrThrow(result.ok ? result.body.task.id : "");
       expect(agent.kind === "agent" && agent.payload).toMatchObject({
         reason: "blocked",
-        blockedReason: "bot_detection",
+        blockedReason: "login_required",
       });
       const scans = await ctx.call(API_ROUTES.scansList, { params: { id: profileId } });
       expect(scans.ok && scans.body.items[0]).toMatchObject({ id: scanId, taskId: agent.id });
+    });
+
+    it("refuses a task blocked by a bot check, which an agent cannot pass", async () => {
+      seedRecipe(ctx, targetId, { purpose: "scan" });
+      const { task } = ctx.services.dispatch.enqueueScan(profileId, targetId);
+      ctx.services.taskQueue.claim({ workerId: "w", kinds: ["scan"], leaseMs: 60_000 });
+      ctx.services.taskQueue.block(task.id, {
+        workerId: "w",
+        reason: "bot_detection",
+        actor: "worker",
+      });
+      expect(await call(API_ROUTES.taskHandOff, task.id)).toMatchObject({
+        ok: false,
+        status: 409,
+        body: { error: "person_only_block" },
+      });
+      expect(ctx.services.taskQueue.getOrThrow(task.id).status).toBe("blocked");
     });
 
     it("refuses a task that is not blocked", async () => {

@@ -966,7 +966,7 @@ describe("claiming a task by id", () => {
         });
         ctx.services.taskQueue.block(task.id, {
           workerId: "worker-1",
-          reason: "captcha",
+          reason: "unknown",
           actor: "agent",
         });
         return claimed?.id ?? task.id;
@@ -1188,7 +1188,7 @@ describe("what a removal agent is told about the rights requested", () => {
     const { task } = company(["delete"]);
     ctx.services.taskQueue.block(task.id, {
       workerId: "worker-1",
-      reason: "captcha",
+      reason: "unknown",
       actor: "worker",
     });
     const again = ctx.services.dispatch.handToAgent(task.id, "user");

@@ -8,6 +8,7 @@ import type {
 import { describe, expect, it } from "vitest";
 import {
   agentChoice,
+  assignBodyOf,
   assigneeTag,
   assignmentLine,
   calloutState,
@@ -15,6 +16,7 @@ import {
   elapsedText,
   fallbackLabel,
   fallbackSentence,
+  handOffPlan,
   lapsedText,
   presenceLine,
   presenceWord,
@@ -380,5 +382,39 @@ describe("why Run now was refused", () => {
     expect(
       runNowRefusal({ code: "no_agent_online", message: "No agent worker is online to take it." }),
     ).toBe("No agent worker is online to take it.");
+  });
+});
+
+describe("handOffPlan", () => {
+  it("waits for the agents to load", () => {
+    expect(handOffPlan(undefined)).toBe("loading");
+  });
+
+  it("sends the person to set one up when no agent is connected", () => {
+    expect(handOffPlan(response())).toBe("setup");
+    expect(handOffPlan(response(agent({ online: false })))).toBe("setup");
+  });
+
+  it("ignores an agent the server would refuse", () => {
+    const refusal = { code: "routed", message: "No.", settingsPath: "/settings" } as const;
+    expect(handOffPlan(response(agent({ refusal })))).toBe("setup");
+  });
+
+  it("hands over at once with one agent and asks with several", () => {
+    expect(handOffPlan(response(agent(), agent({ workerId: "old", online: false })))).toBe("one");
+    expect(handOffPlan(response(agent(), agent({ workerId: "laptop-agent" })))).toBe("pick");
+  });
+});
+
+describe("assignBodyOf", () => {
+  it("puts a task back as it was", () => {
+    expect(assignBodyOf(null)).toEqual({ to: "any" });
+    expect(assignBodyOf(assignment({ kind: "person" }))).toEqual({ to: "person" });
+    expect(
+      assignBodyOf(assignment({ kind: "mcp", workerId: "cursor" }, { fallback: "person" })),
+    ).toEqual({
+      to: { kind: "mcp", workerId: "cursor" },
+      fallback: "person",
+    });
   });
 });

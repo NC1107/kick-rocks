@@ -396,20 +396,43 @@ describe("did it work", () => {
     expect(card.queryByText("Stuck? Hand to an agent")).toBeNull();
   });
 
-  it("offers to hand it to an agent after two tries, when an agent may take it", async () => {
-    const mock = createMockApp();
-    mock.store.settings.mcp = { ...mock.store.settings.mcp, enabled: true };
-    const task = blockedTask(mock, "captcha");
+  function tried(mock: MockApp, task: TaskSummary, tries: number) {
     mock.store.needsYouMarks.set(`task:${task.id}`, {
       updatedAt: new Date().toISOString(),
       snoozedUntil: null,
       openedAt: null,
-      tries: 2,
+      tries,
       lastTriedAt: new Date().toISOString(),
     });
-    openItem(`task:${task.id}`, mock);
-    const card = within(await cardOf("FindRecord"));
+  }
+
+  it("offers to hand it to an agent after two tries, once, when an agent is connected", async () => {
+    const mock = createMockApp();
+    applyAgentPreset(mock.store, "one");
+    const task = blockedTask(mock, "login_required");
+    tried(mock, task, 2);
+    const { user } = openItem(`task:${task.id}`, mock);
+    const card = within(await cardOf("Lumen Data Partners"));
     expect(await card.findByRole("button", { name: "Stuck? Hand to an agent" })).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "More" }));
+    expect(await screen.findByRole("menuitem", { name: "Snooze" })).toBeVisible();
+    expect(screen.queryByRole("menuitem", { name: /Hand to an agent/ })).toBeNull();
+  });
+
+  it("never offers a hand-off for a bot check, a CAPTCHA, a phone code or an ID upload", async () => {
+    for (const reason of ["bot_detection", "captcha", "phone_verification", "id_upload"]) {
+      const mock = createMockApp();
+      applyAgentPreset(mock.store, "several");
+      const task = blockedTask(mock, reason);
+      tried(mock, task, 3);
+      const { user, unmount } = openItem(`task:${task.id}`, mock);
+      await cardOf(task.targetName ?? "");
+      await user.click(screen.getByRole("button", { name: "More" }));
+      await screen.findByRole("menuitem", { name: "Snooze" });
+      expect(screen.queryByRole("menuitem", { name: /agent/i })).toBeNull();
+      expect(screen.queryByRole("button", { name: /Hand to an agent/ })).toBeNull();
+      unmount();
+    }
   });
 
   it("does not offer a hand-off on a form that may be sent, where it would lead nowhere", async () => {
@@ -936,28 +959,53 @@ describe("the menu", () => {
     );
   });
 
-  it("shows one row when agent access is off, which leads to where to turn it on", async () => {
+  it("shows one row that leads to setting up an agent when none is connected", async () => {
     const mock = createMockApp();
-    const { user } = openItem(taskKey(mock, "id_upload"), mock);
-    await cardOf("ClearCheck");
+    const { user } = openItem(taskKey(mock, "login_required"), mock);
+    await cardOf("Lumen Data Partners");
     await user.click(screen.getByRole("button", { name: "More" }));
-    expect(await screen.findByRole("menuitem", { name: "Turn on agents" })).toBeVisible();
+    expect(await screen.findByRole("menuitem", { name: "Set up an agent" })).toBeVisible();
     expect(screen.queryByRole("menuitem", { name: /Hand to an agent/ })).toBeNull();
   });
 
-  it("hands a task to an agent after a confirmation that says what an agent is", async () => {
+  it("hands a task to the only agent in one tap, with an undo that keeps it for the person", async () => {
     const mock = createMockApp();
     applyAgentPreset(mock.store, "one");
-    mock.store.settings.mcp = { ...mock.store.settings.mcp, enabled: true };
-    const { user } = openItem(taskKey(mock, "id_upload"), mock);
-    await cardOf("ClearCheck");
+    const { user } = openItem(taskKey(mock, "login_required"), mock);
+    await cardOf("Lumen Data Partners");
+    await user.click(screen.getByRole("button", { name: "More" }));
+    await waitFor(() =>
+      expect(screen.getByRole("menuitem", { name: /Hand to an agent/ })).toBeEnabled(),
+    );
+    await user.click(screen.getByRole("menuitem", { name: /Hand to an agent/ }));
+    const handed = () =>
+      mock.store.tasks.find(
+        (candidate) =>
+          candidate.kind === "agent" &&
+          candidate.targetId === "lumen-data-partners" &&
+          candidate.status === "queued",
+      );
+    await waitFor(() => expect(handed()).toBeDefined());
+    expect(screen.queryByRole("dialog")).toBeNull();
+    await user.click(await screen.findByRole("button", { name: "Undo" }));
+    await waitFor(() => expect(handed()?.assignment?.to).toEqual({ kind: "person" }));
+  });
+
+  it("lets the person pick among several agents, and never offers doing it themselves", async () => {
+    const mock = createMockApp();
+    applyAgentPreset(mock.store, "several");
+    const { user } = openItem(taskKey(mock, "login_required"), mock);
+    await cardOf("Lumen Data Partners");
     await user.click(screen.getByRole("button", { name: "More" }));
     await waitFor(() =>
       expect(screen.getByRole("menuitem", { name: /Hand to an agent/ })).toBeEnabled(),
     );
     await user.click(screen.getByRole("menuitem", { name: /Hand to an agent/ }));
     const dialog = within(await screen.findByRole("dialog"));
-    expect(dialog.getByText(/The agent receives your name and email address/)).toBeVisible();
+    expect(
+      dialog.getByText("The agent gets your name, email and what the page asks for."),
+    ).toBeVisible();
+    expect(dialog.queryByRole("radio", { name: /myself/ })).toBeNull();
     await user.click(await dialog.findByRole("radio", { name: /nick-pc-agent/ }));
     await user.click(dialog.getByRole("button", { name: "Hand over" }));
     await waitFor(() =>
@@ -965,7 +1013,7 @@ describe("the menu", () => {
         mock.store.tasks.find(
           (candidate) =>
             candidate.kind === "agent" &&
-            candidate.targetId === "clearcheck" &&
+            candidate.targetId === "lumen-data-partners" &&
             candidate.status === "queued",
         )?.assignment?.to,
       ).toEqual({ kind: "model", workerId: "nick-pc-agent" }),
@@ -980,10 +1028,9 @@ describe("the menu", () => {
     expect(await screen.findByRole("menuitem", { name: "Open request" })).toBeVisible();
   });
 
-  it("hands a task the person took back to an agent", async () => {
+  it("hands a task the person took back to the only agent in one tap", async () => {
     const mock = createMockApp();
     applyAgentPreset(mock.store, "one");
-    mock.store.settings.mcp = { ...mock.store.settings.mcp, enabled: true };
     const mine = mock.store.tasks.find(
       (task) => task.status === "queued" && task.assignment?.to.kind === "person",
     );
@@ -995,9 +1042,6 @@ describe("the menu", () => {
       expect(screen.getByRole("menuitem", { name: /Hand to an agent/ })).toBeEnabled(),
     );
     await user.click(screen.getByRole("menuitem", { name: /Hand to an agent/ }));
-    const dialog = within(await screen.findByRole("dialog"));
-    await user.click(await dialog.findByRole("radio", { name: /Any agent/ }));
-    await user.click(dialog.getByRole("button", { name: "Assign" }));
     await waitFor(() => expect(mine.assignment).toBeNull());
   });
 });

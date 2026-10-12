@@ -11,6 +11,7 @@ import {
   FORM_OUTCOMES,
   type Identity,
   isActiveStatus,
+  isPersonOnlyBlock,
   isQuietHour,
   type Match,
   type MatchAssessment,
@@ -985,6 +986,11 @@ export default defineMockDomain({
           throw conflict("Only a blocked task can be handed to an agent.");
         if (task.kind !== "scan" && task.kind !== "form" && task.kind !== "agent") {
           throw conflict("An agent cannot take that kind of task.");
+        }
+        if (isPersonOnlyBlock(task.blockedReason)) {
+          throw conflict(
+            "An agent cannot get past this block. Open the page and finish it yourself.",
+          );
         }
         touch(task, "cancelled");
         const request = requestOf(task);

@@ -1,21 +1,26 @@
-import { API_ROUTES, type NeedsYouItem } from "@kickrocks/shared";
+import { API_ROUTES, isPersonOnlyBlock, type NeedsYouItem } from "@kickrocks/shared";
 import { type ReactNode, useState } from "react";
 import { useNavigate } from "react-router";
 import { useApiMutation } from "../../../api/index.js";
 import { ConfirmDialog, type MenuItem, useToast } from "../../../components/ui/index.js";
 import { paths } from "../../../lib/paths.js";
 import { useWide } from "../../../lib/use-wide.js";
-import { AssignDialog } from "../../assign/AssignDialog.js";
+import { useHandOver } from "../../assign/useHandOver.js";
 import { canHandOff, REVIEW_INVALIDATES } from "../model.js";
 import { useFocus } from "./context.js";
 import { itemTitle } from "./model.js";
 
-/** Whether an agent may take this item over: a stopped run or a task the person took. */
+/**
+ * Whether an agent may take this item over: a stopped run or a task the person took. A block an
+ * agent cannot pass either, such as a bot check, is the person's alone.
+ */
 export function handOffMode(item: NeedsYouItem): "handoff" | "assign" | null {
   if (!("task" in item.source)) return null;
   const { task } = item.source.task;
   if (task.status === "queued" && task.assignment?.to.kind === "person") return "assign";
-  if (task.status !== "blocked" || !canHandOff(task)) return null;
+  if (task.status !== "blocked" || !canHandOff(task) || isPersonOnlyBlock(task.blockedReason)) {
+    return null;
+  }
   return item.kind === "approve" || item.kind === "check_sent" ? null : "handoff";
 }
 
@@ -41,6 +46,17 @@ interface MenuOptions {
   extra?: readonly MenuItem[];
   /** Other words for the cancel question, for a kind that cancels as its second action. */
   cancelCopy?: CancelCopy;
+  /** The card shows its own hand-over line when stuck, so the menu does not repeat it. */
+  stuckLine?: boolean;
+}
+
+export interface CardMenu {
+  menu: MenuItem[];
+  dialogs: ReactNode;
+  /** The card should show its hand-over line: tried twice, and an agent could take over. */
+  stuck: boolean;
+  handOver: () => void;
+  openCancel: () => void;
 }
 
 /**
@@ -49,16 +65,18 @@ interface MenuOptions {
  */
 export function useCardMenu(
   item: NeedsYouItem,
-  { extra = [], cancelCopy = CANCEL_COPY }: MenuOptions = {},
-): { menu: MenuItem[]; dialogs: ReactNode; openHandOff: () => void; openCancel: () => void } {
+  { extra = [], cancelCopy = CANCEL_COPY, stuckLine = false }: MenuOptions = {},
+): CardMenu {
   const focus = useFocus();
   const toast = useToast();
   const navigate = useNavigate();
   const wide = useWide();
   const [cancelling, setCancelling] = useState(false);
-  const [handing, setHanding] = useState(false);
   const task = "task" in item.source ? item.source.task.task : null;
   const mode = handOffMode(item);
+  const handOver = useHandOver(task, mode);
+  const stuck =
+    stuckLine && item.tries >= 2 && (handOver.plan === "one" || handOver.plan === "pick");
   const cancel = useApiMutation(API_ROUTES.taskCancel, {
     invalidates: REVIEW_INVALIDATES,
     onSuccess: () => {
@@ -77,19 +95,19 @@ export function useCardMenu(
     ...(item.kind === "hold"
       ? []
       : [{ id: "snooze", label: "Snooze", onSelect: focus.openSnooze }]),
-    ...(mode
+    ...(mode && !stuck
       ? [
-          focus.agentAccess === "off"
+          handOver.plan === "setup"
             ? {
                 id: "agent-settings",
-                label: "Turn on agents",
+                label: "Set up an agent",
                 onSelect: () => navigate(paths.settings("agents")),
               }
             : {
                 id: "hand-off",
                 label: "Hand to an agent",
-                disabled: focus.agentAccess !== "on",
-                onSelect: () => setHanding(true),
+                disabled: handOver.plan === "loading" || handOver.pending,
+                onSelect: handOver.go,
               },
         ]
       : []),
@@ -117,9 +135,7 @@ export function useCardMenu(
 
   const dialogs = (
     <>
-      {task && mode ? (
-        <AssignDialog open={handing} onClose={() => setHanding(false)} task={task} mode={mode} />
-      ) : null}
+      {handOver.dialog}
       {task ? (
         <ConfirmDialog
           open={cancelling}
@@ -139,12 +155,8 @@ export function useCardMenu(
   return {
     menu: items,
     dialogs,
-    openHandOff: () => setHanding(true),
+    stuck,
+    handOver: handOver.go,
     openCancel: () => setCancelling(true),
   };
-}
-
-/** The "Stuck? Hand to an agent" line a card shows after two tries, when an agent may take over. */
-export function stuckAllowed(item: NeedsYouItem, agentAccess: "on" | "off" | "unknown"): boolean {
-  return item.tries >= 2 && agentAccess === "on" && handOffMode(item) !== null;
 }

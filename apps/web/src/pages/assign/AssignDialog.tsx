@@ -1,14 +1,13 @@
-import {
-  type AgentRow,
-  type AgentsResponse,
-  API_ROUTES,
-  type AssigneeRefusal,
-  type AssignmentFallback,
-  type TaskSummary,
+import type {
+  AgentRow,
+  AgentsResponse,
+  AssigneeRefusal,
+  AssignmentFallback,
+  TaskAssignment,
 } from "@kickrocks/shared";
-import { Bot, Plug, User } from "lucide-react";
+import { Bot, Plug } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { errorMessage, useAgents, useApiMutation } from "../../api/index.js";
+import { errorMessage, useAgents } from "../../api/index.js";
 import {
   Button,
   Dialog,
@@ -19,7 +18,6 @@ import {
   Select,
   Skeleton,
   TextLink,
-  useToast,
 } from "../../components/ui/index.js";
 import {
   AGENT_SETTINGS_PATH,
@@ -36,100 +34,68 @@ import {
   targetOf,
   workerIdOf,
 } from "./model.js";
-
-const REFRESHED = [
-  API_ROUTES.requestsGet,
-  API_ROUTES.requestsList,
-  API_ROUTES.dashboardGet,
-  API_ROUTES.reviewQueue,
-  API_ROUTES.agentsList,
-] as const;
+import {
+  type HandOverMode,
+  type HandOverTask,
+  useHandOverMutation,
+} from "./useHandOverMutation.js";
 
 export interface AssignDialogProps {
   open: boolean;
   onClose: () => void;
-  task: Pick<TaskSummary, "id" | "assignment" | "targetName">;
-  /** "assign" changes who a queued task is for; "handoff" gives a blocked task to an agent. */
-  mode: "assign" | "handoff";
+  task: HandOverTask;
+  mode: HandOverMode;
+}
+
+/** The agent a task is assigned to, or Any agent: doing it yourself is never a row here. */
+function agentOnly(assignment: TaskAssignment | null): Choice {
+  const choice = choiceOf(assignment);
+  return choice === "person" ? "any" : choice;
 }
 
 /**
- * Picks who a task goes to: any agent, one agent worker, one MCP client, or the person. A row the
- * server would refuse is shown disabled with the reason and the setting that changes it.
+ * Picks which agent takes a task: any agent, one agent worker, or one MCP client. Doing it
+ * yourself is the task's own action elsewhere, never a row here. A row the server would refuse is
+ * shown disabled with the reason and the setting that changes it.
  */
 export function AssignDialog({ open, onClose, task, mode }: AssignDialogProps) {
-  const toast = useToast();
   const agents = useAgents({ taskId: task.id, enabled: open });
-  const [choice, setChoice] = useState<Choice>(choiceOf(task.assignment));
+  const [choice, setChoice] = useState<Choice>(agentOnly(task.assignment));
   const [fallback, setFallback] = useState<AssignmentFallback>(task.assignment?.fallback ?? "any");
+  const { send, pending, error } = useHandOverMutation(mode, task);
 
-  // Each opening starts from what the task has now, not from what an earlier visit left half done.
+  // Reset while closed, so an opening starts from what the task has now and focus lands on it.
   useEffect(() => {
-    if (!open) return;
-    setChoice(choiceOf(task.assignment));
+    if (open) return;
+    setChoice(agentOnly(task.assignment));
     setFallback(task.assignment?.fallback ?? "any");
   }, [open, task.assignment]);
 
-  const done = (title: string) => {
-    toast.success(title);
-    onClose();
-  };
-  const assign = useApiMutation(API_ROUTES.taskAssign, {
-    invalidates: REFRESHED,
-    onSuccess: () =>
-      done(
-        choice === "any"
-          ? "Open to any agent"
-          : choice === "person"
-            ? "Kept for you"
-            : `Assigned to ${workerIdOf(choice)}`,
-      ),
-  });
-  const handOff = useApiMutation(API_ROUTES.taskHandOff, {
-    invalidates: REFRESHED,
-    onSuccess: () =>
-      done(
-        choice === "person"
-          ? "Kept for you"
-          : choice === "any"
-            ? "Handed to an agent"
-            : `Handed to ${workerIdOf(choice)}`,
-      ),
-  });
-  const mutation = mode === "handoff" ? handOff : assign;
-
   const workerId = workerIdOf(choice);
   const kindOf = choice.startsWith("mcp:") ? "mcp" : "model";
-  const body = { to: targetOf(choice), ...(workerId ? { fallback } : {}) };
-  const submit = () => {
-    if (mode === "handoff") handOff.mutate({ params: { id: task.id }, body });
-    else assign.mutate({ params: { id: task.id }, body });
-  };
+  const submit = () => send({ to: targetOf(choice), ...(workerId ? { fallback } : {}) }, onClose);
   const unchanged =
     mode === "assign" &&
+    task.assignment !== null &&
     choice === choiceOf(task.assignment) &&
-    fallback === (task.assignment?.fallback ?? "any");
+    fallback === task.assignment.fallback;
 
   return (
     <Dialog
       open={open}
       onClose={onClose}
       size="md"
-      dismissible={!mutation.isPending}
-      title={mode === "handoff" ? "Hand this task to an agent" : "Who takes this task"}
-      description={
-        mode === "handoff"
-          ? "The agent receives your name and email address, and what the page asks for from this profile, to fill in the form for you."
-          : "This chooses who gets the task first. It is not a lock."
-      }
+      dismissible={!pending}
+      title={mode === "handoff" ? "Hand to an agent" : "Choose an agent"}
+      description="The agent gets your name, email and what the page asks for."
       footer={
         <>
-          <Button onClick={onClose} disabled={mutation.isPending}>
+          <Button onClick={onClose} disabled={pending}>
             Cancel
           </Button>
           <Button
             variant="primary"
-            loading={mutation.isPending}
+            loading={pending}
             disabled={agents.isPending || unchanged}
             onClick={submit}
           >
@@ -157,7 +123,7 @@ export function AssignDialog({ open, onClose, task, mode }: AssignDialogProps) {
             </Select>
           </Field>
         ) : null}
-        {mutation.isError ? <InlineError>{errorMessage(mutation.error)}</InlineError> : null}
+        {error ? <InlineError>{errorMessage(error)}</InlineError> : null}
       </div>
     </Dialog>
   );
@@ -243,7 +209,7 @@ function Picker({
   const clients = rows.filter((row) => row.kind === "mcp");
   const groupValue = (group: readonly AgentRow[]): Choice | null =>
     group.some((row) => agentChoice(row) === choice) ? choice : null;
-  const inGroup = (list: Choice[]): Choice | null => (list.includes(choice) ? choice : null);
+  const anyChosen: Choice | null = choice === "any" ? choice : null;
 
   return (
     <>
@@ -260,7 +226,7 @@ function Picker({
             legend="Open to"
             hideLegend
             rows
-            value={inGroup(["any"])}
+            value={anyChosen}
             onValueChange={onChoice}
             options={[
               {
@@ -292,23 +258,6 @@ function Picker({
               options={clients.map((row) => agentOption(row, now, choice))}
             />
           ) : null}
-          <RadioGroup<Choice>
-            name="assign-to"
-            legend="Yourself"
-            hideLegend
-            rows
-            value={inGroup(["person"])}
-            onValueChange={onChoice}
-            options={[
-              {
-                value: "person",
-                label: "I'll do it myself",
-                autoFocus: choice === "person",
-                description: "No agent will take it. You finish it and mark it done.",
-                meta: <User className="size-4" aria-hidden="true" />,
-              },
-            ]}
-          />
           {rows.length === 0 && agents ? (
             <p className="flex items-start gap-2 text-meta text-ink-2">
               <Plug aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-ink-3" />

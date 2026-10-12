@@ -2,7 +2,8 @@
 
 Kick Rocks keeps one queue of browser work.
 The built-in worker takes the tasks that a recipe can run.
-Everything else waits for an agent: a site with no recipe, a recipe that broke, or a task a person parked at a captcha and handed over.
+Everything else waits for an agent: a site with no recipe, a recipe that broke, or a task a person parked at a sign-in and handed over.
+A CAPTCHA, a bot check, a phone code or an ID upload stays with the person, and the server refuses to hand those over.
 An agent reaches that queue through an mcp server at `/mcp`.
 Any mcp client can do the work, and so can the agent worker, which drives a model of your choice.
 

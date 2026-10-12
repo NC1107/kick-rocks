@@ -7,7 +7,7 @@ import {
   needsYouCounts,
   orderNeedsYou,
 } from "./needs-you.js";
-import { BlockedReason } from "./outcomes.js";
+import { BlockedReason, isPersonOnlyBlock } from "./outcomes.js";
 
 const NOW = new Date("2026-10-10T12:00:00.000Z");
 
@@ -171,5 +171,13 @@ describe("needsYouCounts", () => {
       few: 0,
       longer: 0,
     });
+  });
+});
+
+describe("isPersonOnlyBlock", () => {
+  it("names the blocks an agent cannot pass and no others", () => {
+    const refused = BlockedReason.options.filter((reason) => isPersonOnlyBlock(reason));
+    expect(refused).toEqual(["captcha", "phone_verification", "id_upload", "bot_detection"]);
+    expect(isPersonOnlyBlock(null)).toBe(false);
   });
 });

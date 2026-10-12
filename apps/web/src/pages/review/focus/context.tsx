@@ -5,8 +5,6 @@ import { createContext, useContext } from "react";
 export interface FocusContext {
   profileId: string;
   mailboxConnected: boolean;
-  /** Whether a task may be handed to an agent: unknown until settings load. */
-  agentAccess: "on" | "off" | "unknown";
   progress: { done: number; total: number; position: number };
   /** More than one item is waiting, so previous and next mean something. */
   canMove: boolean;

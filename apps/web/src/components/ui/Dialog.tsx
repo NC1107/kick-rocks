@@ -49,9 +49,9 @@ export function Dialog({
     if (open && !dialog.open) {
       dialog.showModal();
       announceOverlayOpen();
-      const first = dialog.querySelector<HTMLElement>(
-        "[data-autofocus], input:not([type=hidden]), select, textarea",
-      );
+      const first =
+        dialog.querySelector<HTMLElement>("[data-autofocus]") ??
+        dialog.querySelector<HTMLElement>("input:not([type=hidden]), select, textarea");
       first?.focus();
     }
     if (!open && dialog.open) dialog.close();

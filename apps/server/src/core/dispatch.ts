@@ -5,6 +5,7 @@ import {
   type AgentReason,
   type BlockedReason,
   type EmailKind,
+  isPersonOnlyBlock,
   type ProfileField,
   type RecipePurpose,
   type RequestActor,
@@ -487,6 +488,12 @@ export function createDispatch({
         }
         if (task.kind !== "scan" && task.kind !== "form" && task.kind !== "agent") {
           throw conflict("not_handoffable", `A ${task.kind} task cannot be handed to an agent`);
+        }
+        if (actor === "user" && isPersonOnlyBlock(task.blockedReason)) {
+          throw conflict(
+            "person_only_block",
+            `Task ${taskId} is blocked by ${task.blockedReason}, which an agent cannot get past. Open the page and finish it yourself.`,
+          );
         }
         if (task.mayHaveSubmitted && actor !== "user") {
           throw conflict(

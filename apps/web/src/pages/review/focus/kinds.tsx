@@ -29,7 +29,7 @@ import { ActionBar, CardFrame, Steps, Thumbnail } from "./Card.js";
 import { Chips, useProfileValues } from "./Chips.js";
 import { useFocus } from "./context.js";
 import { CHIP_LABELS, KIND_COPY, OTHER_OUTCOMES, sendDetails, WORDS } from "./copy.js";
-import { stuckAllowed, useCardMenu } from "./menu.js";
+import { useCardMenu } from "./menu.js";
 import { clip, clockLeft, itemTitle, maskValue } from "./model.js";
 import { ReturnPrompt } from "./ReturnPrompt.js";
 
@@ -122,6 +122,7 @@ function TaskCard({ item, check }: TaskCardProps) {
   const flow = useTaskFlow(item);
   const cancelsOnSecond = item.kind === "id";
   const menu = useCardMenu(item, {
+    stuckLine: true,
     ...(cancelsOnSecond
       ? {
           cancelCopy: {
@@ -180,7 +181,7 @@ function TaskCard({ item, check }: TaskCardProps) {
       {check ? <ReplyCheckResult check={check} /> : null}
       {flow.task.hasScreenshot ? <Thumbnail taskId={flow.task.id} /> : null}
       {item.kind === "check_sent" ? <SentDisclosure item={item} /> : null}
-      <Stuck show={stuckAllowed(item, focus.agentAccess)} onClick={menu.openHandOff} />
+      <Stuck show={menu.stuck} onClick={menu.handOver} />
     </CardFrame>
   );
 }

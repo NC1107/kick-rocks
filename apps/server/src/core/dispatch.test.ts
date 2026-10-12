@@ -663,8 +663,8 @@ describe("handToAgent", () => {
     ctx.services.taskQueue.claim({ workerId: "w", kinds: ["scan"], leaseMs: 60_000 });
     ctx.services.taskQueue.block(scan.task.id, {
       workerId: "w",
-      reason: "captcha",
-      detail: "reCAPTCHA on the search",
+      reason: "login_required",
+      detail: "Sign in to search",
       actor: "worker",
     });
     return { target, scan };
@@ -681,8 +681,8 @@ describe("handToAgent", () => {
       payload: {
         purpose: "scan",
         reason: "blocked",
-        blockedReason: "captcha",
-        previousError: "reCAPTCHA on the search",
+        blockedReason: "login_required",
+        previousError: "Sign in to search",
       },
     });
     const row = ctx.services.db
@@ -727,12 +727,26 @@ describe("handToAgent", () => {
     ctx.services.taskQueue.claim({ workerId: "w", kinds: ["agent"], leaseMs: 60_000 });
     ctx.services.taskQueue.block(scan.task.id, {
       workerId: "w",
-      reason: "bot_detection",
+      reason: "unknown",
       actor: "agent",
     });
     const { task } = dispatch().handToAgent(scan.task.id, "user");
-    expect(task.payload).toMatchObject({ reason: "blocked", blockedReason: "bot_detection" });
+    expect(task.payload).toMatchObject({ reason: "blocked", blockedReason: "unknown" });
   });
+
+  it.each(["captcha", "bot_detection", "phone_verification", "id_upload"] as const)(
+    "refuses a person's hand-off of a task blocked by %s, and leaves it blocked",
+    (reason) => {
+      const target = seedTarget(ctx);
+      const scan = dispatch().enqueueScan(profileId, target.id);
+      ctx.services.taskQueue.claim({ workerId: "w", kinds: ["agent"], leaseMs: 60_000 });
+      ctx.services.taskQueue.block(scan.task.id, { workerId: "w", reason, actor: "agent" });
+      expect(() => dispatch().handToAgent(scan.task.id, "user")).toThrow(
+        expect.objectContaining({ code: "person_only_block" }),
+      );
+      expect(ctx.services.taskQueue.getOrThrow(scan.task.id).status).toBe("blocked");
+    },
+  );
 
   it("refuses a task that is not blocked and a kind an agent cannot do", () => {
     const target = seedTarget(ctx);

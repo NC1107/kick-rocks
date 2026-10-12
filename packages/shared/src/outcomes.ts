@@ -14,6 +14,18 @@ export const BlockedReason = z.enum([
 ]);
 export type BlockedReason = z.infer<typeof BlockedReason>;
 
+const PERSON_ONLY_BLOCKS: ReadonlySet<BlockedReason> = new Set([
+  "captcha",
+  "bot_detection",
+  "phone_verification",
+  "id_upload",
+]);
+
+/** A block an agent cannot get past either, so handing the task over would only block it again. */
+export function isPersonOnlyBlock(reason: BlockedReason | null): boolean {
+  return reason !== null && PERSON_ONLY_BLOCKS.has(reason);
+}
+
 /**
  * How a removal form ended. A recipe can end a run with one of these without any step failing,
  * and a worker, an agent, or a person reports the same four.

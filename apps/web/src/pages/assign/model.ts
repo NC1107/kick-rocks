@@ -1,6 +1,7 @@
 import {
   type AgentRow,
   type AgentsResponse,
+  API_ROUTES,
   ASSIGNMENT_GRACE_MS,
   type AssignBody,
   fallbackAt,
@@ -18,6 +19,16 @@ export const GRACE_MINUTES = ASSIGNMENT_GRACE_MS / 60_000;
 /** Where the person turns on an agent worker or an MCP client. */
 export const AGENT_SETTINGS_PATH = "/settings/agents";
 
+/** Routes whose answers change when a task changes hands. */
+export const HAND_OVER_REFRESHES = [
+  API_ROUTES.requestsGet,
+  API_ROUTES.requestsList,
+  API_ROUTES.dashboardGet,
+  API_ROUTES.reviewQueue,
+  API_ROUTES.needsYouGet,
+  API_ROUTES.agentsList,
+] as const;
+
 export const NO_AGENTS_TEXT = "No agent yet.";
 
 export const HELD_SENDS_LINE = "Every request it sends waits for your approval in Review.";
@@ -34,6 +45,27 @@ export function choiceOf(assignment: TaskAssignment | null): Choice {
 
 export function agentChoice(agent: Pick<AgentRow, "kind" | "workerId">): Choice {
   return `${agent.kind}:${agent.workerId}`;
+}
+
+/** What a hand-off button does, given the agents that are connected and could take the task. */
+export type HandOffPlan = "loading" | "setup" | "one" | "pick";
+
+/**
+ * No agent seen recently means nothing can take the task, so the person is sent to set one up.
+ * With one agent there is nothing to choose, and with more the person picks.
+ */
+export function handOffPlan(agents: AgentsResponse | undefined): HandOffPlan {
+  if (!agents) return "loading";
+  const eligible = agents.agents.filter((row) => row.online && row.refusal === null);
+  if (eligible.length === 0) return "setup";
+  return eligible.length === 1 ? "one" : "pick";
+}
+
+/** The assignment that puts a task back as it was, for the Undo of a hand-over. */
+export function assignBodyOf(assignment: TaskAssignment | null): AssignBody {
+  if (assignment === null) return { to: "any" };
+  if (assignment.to.kind === "person") return { to: "person" };
+  return { to: assignment.to, fallback: assignment.fallback };
 }
 
 /** What the assign route takes for a choice. */

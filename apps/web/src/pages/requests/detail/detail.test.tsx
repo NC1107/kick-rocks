@@ -489,28 +489,30 @@ describe("the agent callout", () => {
     return { ...view, mock, task };
   }
 
-  it("offers Assign, Run now, and Keep it for me while any agent may take the task", async () => {
+  it("offers Run now and Keep it for me, and nothing to choose, with one agent", async () => {
     waiting("one");
     expect(await screen.findByText("Waiting for an agent")).toBeVisible();
     expect(await screen.findByText("Any connected agent may take it. 1 online.")).toBeVisible();
-    expect(screen.getByRole("button", { name: "Assign" })).toBeVisible();
     expect(screen.getByRole("button", { name: "Run now" })).toBeVisible();
     expect(screen.getByRole("button", { name: "Keep it for me" })).toBeVisible();
+    expect(screen.queryByRole("button", { name: "Choose an agent" })).not.toBeInTheDocument();
   });
 
-  it("says nothing has connected, and offers only Assign and Keep it for me", async () => {
+  it("offers one link to set up an agent, and no hand-off, when none has connected", async () => {
     waiting("none");
     expect(await screen.findByText(/No agent yet\./)).toBeVisible();
-    expect(screen.getByRole("link", { name: "Settings" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "Set up an agent" })).toHaveAttribute(
       "href",
       "/settings/agents",
     );
+    expect(screen.getAllByRole("link", { name: /Set up/ })).toHaveLength(1);
+    expect(screen.queryByRole("button", { name: "Choose an agent" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Run now" })).not.toBeInTheDocument();
   });
 
   it("assigns the task to an agent worker, with the gate wording on its row", async () => {
     const { user, mock, task } = waiting("several");
-    await user.click(await screen.findByRole("button", { name: "Assign" }));
+    await user.click(await screen.findByRole("button", { name: "Choose an agent" }));
     const dialog = within(await screen.findByRole("dialog"));
     expect(await dialog.findByText("Agent workers")).toBeVisible();
     expect(
@@ -552,13 +554,21 @@ describe("the agent callout", () => {
   });
 
   it("disables an agent the server would refuse, with the reason and where to change it", async () => {
-    const { user, mock } = waiting("several");
+    const { user, mock, task } = waiting("several");
+    const stored = mock.store.tasks.find((candidate) => candidate.id === task.id);
+    if (!stored) throw new Error("fixture");
+    stored.assignment = {
+      to: { kind: "model", workerId: "nick-pc-agent" },
+      at: mock.store.clock.now().toISOString(),
+      by: "user",
+      fallback: "any",
+    };
     const target = mock.store.targets.find((candidate) => candidate.id === "stayfield-hotels");
     mock.store.settings.egress = {
       proxyUrl: "http://10.0.0.100:8888",
       domains: [target?.domain ?? ""],
     };
-    await user.click(await screen.findByRole("button", { name: "Assign" }));
+    await user.click(await screen.findByRole("button", { name: "Change" }));
     const dialog = within(await screen.findByRole("dialog"));
     const radio = await dialog.findByRole("radio", { name: /desk-client/ });
     expect(radio).toBeDisabled();
@@ -581,6 +591,7 @@ describe("the agent callout", () => {
       kind: "person",
     });
     expect(screen.getByRole("button", { name: "Hand back to an agent" })).toBeVisible();
+    expect(screen.queryByRole("button", { name: "Keep it for me" })).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Mark done" }));
     const dialog = within(await screen.findByRole("dialog"));
     await user.click(dialog.getByRole("button", { name: "Mark done" }));
@@ -589,9 +600,33 @@ describe("the agent callout", () => {
     );
   });
 
+  it("hands a task back to the only agent in one tap, with an undo", async () => {
+    const { user, mock, task } = waiting("one");
+    const stored = mock.store.tasks.find((candidate) => candidate.id === task.id);
+    if (!stored) throw new Error("fixture");
+    await user.click(await screen.findByRole("button", { name: "Keep it for me" }));
+    await user.click(await screen.findByRole("button", { name: "Hand back to an agent" }));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    await waitFor(() => expect(stored.assignment).toBeNull());
+    await user.click(await screen.findByRole("button", { name: "Undo" }));
+    await waitFor(() => expect(stored.assignment?.to).toEqual({ kind: "person" }));
+  });
+
+  it("never lists the person as a choice when handing back among several agents", async () => {
+    const { user } = waiting("several");
+    await user.click(await screen.findByRole("button", { name: "Keep it for me" }));
+    await user.click(await screen.findByRole("button", { name: "Hand back to an agent" }));
+    const dialog = within(await screen.findByRole("dialog"));
+    expect(await dialog.findByRole("radio", { name: /Any agent/ })).toBeChecked();
+    expect(dialog.queryByRole("radio", { name: /myself/ })).not.toBeInTheDocument();
+    expect(
+      dialog.getByText("The agent gets your name, email and what the page asks for."),
+    ).toBeVisible();
+  });
+
   it("says an MCP client cannot be woken, and shows the line to ask it with", async () => {
     const { user, task } = waiting("several");
-    await user.click(await screen.findByRole("button", { name: "Assign" }));
+    await user.click(await screen.findByRole("button", { name: "Choose an agent" }));
     const dialog = within(await screen.findByRole("dialog"));
     await user.click(await dialog.findByRole("radio", { name: /desk-client/ }));
     await user.click(dialog.getByRole("button", { name: "Assign" }));

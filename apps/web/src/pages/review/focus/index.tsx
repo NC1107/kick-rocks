@@ -7,7 +7,7 @@ import {
 } from "@kickrocks/shared";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router";
-import { errorMessage, useApiMutation, useApiQuery } from "../../../api/index.js";
+import { errorMessage, useApiMutation } from "../../../api/index.js";
 import {
   Button,
   Callout,
@@ -151,8 +151,6 @@ export function Focus({
   const [params, setParams] = useSearchParams();
   const itemParam = params.get("item");
   const showSnoozed = params.get("show") === "snoozed";
-  const settings = useApiQuery(API_ROUTES.settingsGet);
-  const agentAccess = settings.data ? (settings.data.mcp.enabled ? "on" : "off") : "unknown";
 
   const [done, setDone] = useState(0);
   const [promptKey, setPromptKey] = useState<string | null>(null);
@@ -336,7 +334,6 @@ export function Focus({
   const context: FocusContext = {
     profileId,
     mailboxConnected,
-    agentAccess,
     progress,
     canMove: keys.length > 1,
     promptKey,

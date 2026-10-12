@@ -16,7 +16,6 @@ import {
 import { useNow } from "../../lib/use-now.js";
 import { MarkDoneDialog } from "../review/MarkDoneDialog.js";
 import { liveHolds } from "../review/sends-model.js";
-import { AssignDialog } from "./AssignDialog.js";
 import {
   AGENT_SETTINGS_PATH,
   type CalloutState,
@@ -24,6 +23,7 @@ import {
   lapsedText,
   runNowRefusal,
 } from "./model.js";
+import { type HandOver, useHandOver } from "./useHandOver.js";
 
 const REFRESHED = [
   API_ROUTES.requestsGet,
@@ -51,7 +51,7 @@ export function AgentPanel({ task, pageUrl, events = [], layout }: AgentPanelPro
   const agents = useAgents({});
   const restore = useApiQuery(API_ROUTES.restoreState, { refetchInterval: 15_000 });
   const state = calloutState(task, agents.data, now, restore.data?.holding ?? false);
-  const [picking, setPicking] = useState(false);
+  const handOver = useHandOver(task, "assign");
   const [finishing, setFinishing] = useState(false);
 
   const holds = useApiQuery(API_ROUTES.taskSends, {
@@ -72,15 +72,11 @@ export function AgentPanel({ task, pageUrl, events = [], layout }: AgentPanelPro
   const runNowError = runNow.isError ? runNowRefusal(runNow.error) : null;
 
   const lapsed = lapsedText(events, task.id);
-  const settingsLink = state.nobodyConnected ? (
-    <TextLink to={AGENT_SETTINGS_PATH}>Settings</TextLink>
-  ) : null;
-
   const actions = (
     <PanelActions
       state={state}
       pageUrl={pageUrl}
-      onPick={() => setPicking(true)}
+      handOver={handOver}
       onFinish={layout === "callout" ? () => setFinishing(true) : null}
       onKeep={() => keep.mutate({ params: { id: task.id }, body: { to: "person" } })}
       onRunNow={() => runNow.mutate({ params: { id: task.id } })}
@@ -93,7 +89,6 @@ export function AgentPanel({ task, pageUrl, events = [], layout }: AgentPanelPro
       {state.lines.map((line) => (
         <p key={line}>{line}</p>
       ))}
-      {settingsLink ? <p>Set one up in {settingsLink}.</p> : null}
       {state.kind === "working" && heldNow ? (
         <p className="text-attention-text">
           A request is waiting for your approval.{" "}
@@ -142,7 +137,7 @@ export function AgentPanel({ task, pageUrl, events = [], layout }: AgentPanelPro
           </div>
         </Section>
       )}
-      <AssignDialog open={picking} onClose={() => setPicking(false)} task={task} mode="assign" />
+      {handOver.dialog}
       <MarkDoneDialog
         open={finishing}
         onClose={() => setFinishing(false)}
@@ -156,7 +151,7 @@ export function AgentPanel({ task, pageUrl, events = [], layout }: AgentPanelPro
 function PanelActions({
   state,
   pageUrl,
-  onPick,
+  handOver,
   onFinish,
   onKeep,
   onRunNow,
@@ -165,7 +160,7 @@ function PanelActions({
 }: {
   state: CalloutState;
   pageUrl: string | null | undefined;
-  onPick: () => void;
+  handOver: HandOver;
   onFinish: (() => void) | null;
   onKeep: () => void;
   onRunNow: () => void;
@@ -182,6 +177,17 @@ function PanelActions({
     </Button>
   ) : null;
 
+  const setup = (
+    <TextLink to={AGENT_SETTINGS_PATH} className="text-meta">
+      Set up an agent
+    </TextLink>
+  );
+  const keepButton = (
+    <Button size="sm" onClick={onKeep} loading={keeping}>
+      Keep it for me
+    </Button>
+  );
+
   switch (state.kind) {
     case "yours":
       return (
@@ -192,10 +198,19 @@ function PanelActions({
               Mark done
             </Button>
           ) : null}
-          <Button size="sm" onClick={onPick}>
-            <Plug aria-hidden="true" />
-            Hand back to an agent
-          </Button>
+          {handOver.plan === "setup" ? (
+            setup
+          ) : (
+            <Button
+              size="sm"
+              onClick={handOver.go}
+              loading={handOver.pending}
+              disabled={handOver.plan === "loading"}
+            >
+              <Plug aria-hidden="true" />
+              Hand back to an agent
+            </Button>
+          )}
         </span>
       );
     case "working":
@@ -212,22 +227,24 @@ function PanelActions({
         <span className="flex flex-wrap items-center gap-3">
           {page}
           {runNowButton}
-          <Button size="sm" onClick={onPick}>
+          <Button size="sm" onClick={handOver.choose}>
             Change
           </Button>
+          {keepButton}
         </span>
       );
     case "any":
       return (
         <span className="flex flex-wrap items-center gap-3">
           {page}
-          <Button size="sm" variant="primary" onClick={onPick}>
-            Assign
-          </Button>
+          {handOver.plan === "pick" ? (
+            <Button size="sm" variant="primary" onClick={handOver.choose}>
+              Choose an agent
+            </Button>
+          ) : null}
+          {handOver.plan === "setup" ? setup : null}
           {runNowButton}
-          <Button size="sm" onClick={onKeep} loading={keeping}>
-            Keep it for me
-          </Button>
+          {keepButton}
         </span>
       );
   }
