@@ -106,12 +106,7 @@ function PageShot({ taskId, sendId }: { taskId: string; sendId: string }) {
         />
         <span className="sr-only">Enlarge the screenshot</span>
       </button>
-      <Dialog
-        open={open}
-        onClose={() => setOpen(false)}
-        title="The page when it was held"
-        size="lg"
-      >
+      <Dialog open={open} onClose={() => setOpen(false)} title="Page when held" size="lg">
         <div className="max-h-[70vh] overflow-auto rounded-sm border border-line bg-canvas">
           <img
             src={url}
@@ -149,9 +144,10 @@ export function HeldItem({ taskId, row, values, heading, children }: ItemProps) 
         </span>
         {destination.offSite ? <Tag tone="attention">not this site</Tag> : null}
       </div>
-      <p className="text-meta text-ink-3">
-        From {frameLabel(request)}. {heading}
-      </p>
+      <div className="flex flex-col gap-0.5 text-meta text-ink-3">
+        <p>From {frameLabel(request)}</p>
+        {heading ? <p>{heading}</p> : null}
+      </div>
       <Fields request={request} values={values} />
       {row.hasScreenshot ? <PageShot taskId={taskId} sendId={row.id} /> : null}
       {children}
@@ -201,7 +197,7 @@ export function NextRunList({
           taskId={taskId}
           row={row}
           values={values}
-          heading={`Step ${index + 1} already went out once. Approving sends it again, then step ${index + 2}.`}
+          heading={`Step ${index + 1} already sent; approving sends it again, then step ${index + 2}.`}
         />
       ))}
       {later.filter(isHeld).map((row, index) => {
@@ -215,9 +211,9 @@ export function NextRunList({
             values={values}
             heading={
               row.resend
-                ? `Step ${step} already went out once. Approving sends it again, then the next step.`
+                ? `Step ${step} already sent; approving sends it again, then the next step.`
                 : carried.length > 0
-                  ? `Step ${step}. ${heldStatusText(row.status)}.`
+                  ? `Step ${step}: ${heldStatusText(row.status)}.`
                   : `${heldStatusText(row.status)}.`
             }
           >

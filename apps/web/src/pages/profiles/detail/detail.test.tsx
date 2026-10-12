@@ -172,9 +172,7 @@ describe("the profile page", () => {
     expect(screen.getByText("Used for scans")).toBeInTheDocument();
     expect(screen.getByText("Past")).toBeInTheDocument();
     expect(screen.queryByRole("group", { name: "Address 1" })).toBeNull();
-    expect(
-      screen.getByText(/Scans and requests use 100 Example Street, Sampleton\./),
-    ).toBeVisible();
+    expect(screen.getByText(/Scans and requests use 100 Example Street, Sampleton/)).toBeVisible();
   });
 
   it("opens an address to edit and folds it again with Done", async () => {
@@ -284,7 +282,7 @@ describe("the profile page", () => {
 
     expect(screen.getByText("5 Example Road")).toBeInTheDocument();
     expect(screen.getAllByText("Used for scans")).toHaveLength(1);
-    expect(screen.getByText(/Scans and requests use 5 Example Road, Newtown\./)).toBeVisible();
+    expect(screen.getByText(/Scans and requests use 5 Example Road, Newtown/)).toBeVisible();
     await user.click(screen.getByRole("button", { name: "Save identities" }));
     await screen.findByText("Identities updated.");
     const stored = mock.store.profiles[0]?.identities.filter((i) => i.kind === "address");
@@ -325,8 +323,7 @@ describe("the profile page", () => {
     );
     await user.type(first, "x");
     expect(save).toBeEnabled();
-    const [, discard] = screen.getAllByRole("button", { name: "Discard changes" });
-    await user.click(discard as HTMLElement);
+    await user.click(screen.getByRole("button", { name: "Discard identity changes" }));
     expect(first).toHaveValue("Jordan");
     expect(save).toBeDisabled();
   });

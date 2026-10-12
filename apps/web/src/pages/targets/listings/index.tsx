@@ -230,15 +230,13 @@ function Listings({ profileId }: { profileId: string }) {
   const scanAll = () =>
     setScanning({
       title: "Scan every people-search site?",
-      description:
-        "Kick Rocks opens each site in the worker's browser, one after another, and searches for this person. Nothing is removed until you confirm a record. Paused and skipped sites are left out.",
+      description: "Searches active sites; nothing is removed until you confirm.",
       targetIds: null,
     });
   const scanOne = (site: ListingSite) =>
     setScanning({
       title: `Scan ${site.targetName}?`,
-      description:
-        "Kick Rocks searches this site for this person. Nothing is removed until you confirm a record.",
+      description: "Searches this site; nothing is removed until you confirm.",
       targetIds: [site.targetId],
       includePastAddresses: site.preference.includePastAddresses,
     });
@@ -292,7 +290,7 @@ function Listings({ profileId }: { profileId: string }) {
         ) : neverScanned ? (
           <EmptyState
             title="Nothing scanned yet."
-            description="Search the people-search sites to see where your records are. You choose which to remove."
+            description="Scan the people-search sites to see where you are listed."
             actions={
               <Button variant="primary" onClick={scanAll}>
                 Start your first scan

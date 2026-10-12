@@ -167,7 +167,9 @@ export function ReplyCard({ message, defaultExpanded = false }: ReplyCardProps) 
         {expanded ? (
           <FullText messageId={message.id} />
         ) : message.snippet ? (
-          <p className="line-clamp-2 break-words text-ui text-ink">{message.snippet}</p>
+          <p data-user-content className="line-clamp-2 break-words text-ui text-ink">
+            {message.snippet}
+          </p>
         ) : null}
       </div>
       {classify.isError ? (

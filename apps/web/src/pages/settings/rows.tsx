@@ -39,8 +39,20 @@ export function ResetAction({ onClick, disabled }: { onClick: () => void; disabl
 }
 
 /** A row that holds something other than a labelled control, such as a checkbox or a note. */
-export function BodyRow({ className, children }: { className?: string; children: ReactNode }) {
-  return <div className={cn("px-3.5 py-2.5", className)}>{children}</div>;
+export function BodyRow({
+  className,
+  children,
+  row,
+}: {
+  className?: string;
+  children: ReactNode;
+  row?: boolean;
+}) {
+  return (
+    <div className={cn("px-3.5 py-2.5", className)} {...(row ? { "data-row": true } : {})}>
+      {children}
+    </div>
+  );
 }
 
 /** The last row of a group: the buttons that save or undo the rows above it. */

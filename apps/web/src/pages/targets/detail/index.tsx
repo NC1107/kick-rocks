@@ -62,12 +62,12 @@ import { YourListing } from "./YourListing.js";
 const REQUIREMENT_HELP: Record<Requirement, string> = {
   email_confirmation: "It sends a confirmation email, and the link in it has to be followed.",
   phone_call: "Removal needs a phone call that only you can make.",
-  id_upload: "It asks for a photo of ID. Nothing uploads ID for you.",
+  id_upload: "It asks for an ID photo, which only you can upload.",
   captcha: "A CAPTCHA stands in the way. The task waits in Review for you to solve it.",
   account: "You have to create an account before it lets you remove a record.",
   paid: "It charges for removal. Nothing pays on your behalf.",
-  record_url: "It removes one record at a time, so it first scans for your record.",
-  postal_mail: "It accepts requests by post. Nothing sends mail for you.",
+  record_url: "It removes one record at a time, after scanning for yours.",
+  postal_mail: "Post only; nothing sends mail for you.",
   fax: "It accepts requests by fax. Nothing sends faxes for you.",
   device_id:
     "It matches only a mobile advertising ID, so a request with your name and address is never matched.",
@@ -423,7 +423,7 @@ function TargetView({ target }: { target: TargetDetail }) {
         <Section label="Difficulty">
           <RowGroup>
             <p className="px-3.5 py-2.5 text-ui text-ink">
-              <span className="font-medium">{DIFFICULTY_LABELS[target.difficulty]}.</span>{" "}
+              <span className="font-medium">{DIFFICULTY_LABELS[target.difficulty]}</span>{" "}
               <span className="text-ink-2">{DIFFICULTY_MEANINGS[target.difficulty]}</span>
             </p>
             {target.difficultyReasons.map((reason) => (
@@ -483,7 +483,7 @@ function TargetView({ target }: { target: TargetDetail }) {
           {target.recipes.length === 0 ? (
             <EmptyState
               title="No saved steps for this target."
-              description="Requests go by email where possible. Form tasks wait for an agent or for you in Review."
+              description="Form tasks wait in Review for an agent or you."
             />
           ) : (
             <DataList

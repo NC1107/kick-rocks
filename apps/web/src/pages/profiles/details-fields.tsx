@@ -58,7 +58,7 @@ export function DetailsFields({
       <FieldRow
         label="State of residence"
         error={errors.state}
-        help="Required. Decides which state privacy law the requests cite."
+        help="Required; sets the privacy law requests cite."
       >
         <Select
           aria-required="true"

@@ -24,7 +24,7 @@ export function DataCard({ profile }: { profile: ProfileDetail }) {
       <RowGroup>
         <ActionRow
           title="Export profile data"
-          description="One JSON file: identities, requests, scans, and matches. No mailbox password or reply text."
+          description="Identities, requests, scans, matches; no mailbox password or reply text."
         >
           <Button onClick={() => exportFile.mutate()} loading={exportFile.isPending}>
             Export profile data

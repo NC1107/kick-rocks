@@ -57,8 +57,7 @@ export function Component() {
             ) : null}
             {settings.data.ntfy === null && settings.data.telegram === null ? (
               <Callout intent="info" title="No push channel yet">
-                Add ntfy or Telegram below to get a push when a task is blocked, a record needs your
-                decision, or something breaks.
+                Add ntfy or Telegram below for pushes on blocks, decisions, failures.
               </Callout>
             ) : settings.data.status.lastSentAt ? (
               <p className="text-meta text-ink-3">

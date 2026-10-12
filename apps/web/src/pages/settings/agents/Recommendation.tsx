@@ -347,10 +347,12 @@ export function AddressQuestion({
           </InlineError>
         ) : null}
         {probe.isError ? <InlineError>{errorMessage(probe.error)}</InlineError> : null}
+        <p className="font-mono text-meta text-ink-3">
+          Tried {tried.map((endpoint) => addressOf(endpoint.baseUrl)).join(", ") || "nothing yet"}
+        </p>
         <p className="text-meta text-ink-3">
-          Tried {tried.map((endpoint) => addressOf(endpoint.baseUrl)).join(", ") || "nothing yet"}.
-          Not running Ollama yet? The{" "}
-          <ExternalLinkText href={GUIDE_URL}>agents guide</ExternalLinkText> has the steps.
+          Ollama steps are in the <ExternalLinkText href={GUIDE_URL}>agents guide</ExternalLinkText>
+          .
         </p>
       </BodyRow>
     </RowGroup>

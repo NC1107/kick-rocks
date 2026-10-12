@@ -28,8 +28,8 @@ export interface RecipeCardCopy {
 
 const LIVE_STATUS_TEXT: Record<Recipe["liveStatus"], string> = {
   verified: "Checked through to the site accepting the request.",
-  unverified: "The form was read but no real request was ever sent through it.",
-  blocked_by_bot_protection: "Bot protection hid the site, so the steps could not be checked.",
+  unverified: "Form read, but no real request sent.",
+  blocked_by_bot_protection: "Bot protection hid the site; steps unchecked.",
 };
 
 export function RecipeCard({
@@ -67,7 +67,7 @@ export function RecipeCard({
 
   return (
     <>
-      <RowGroup role="region" aria-label={`${recipe.targetName} ${purpose} recipe`}>
+      <RowGroup role="region" aria-label={`${recipe.targetName} ${purpose} recipe`} data-row>
         <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-1 px-3.5 py-2.5">
           <div className="min-w-0">
             <h3 className="break-words text-ui font-medium text-ink [&_a]:text-ink [&_a:hover]:text-accent-text">
@@ -86,20 +86,10 @@ export function RecipeCard({
           </span>
         </div>
 
-        {copy.showChecked || recipe.notes ? (
-          <div className="flex flex-col gap-2 px-3.5 py-2.5 text-meta">
-            {copy.showChecked ? (
-              <p className="font-medium text-ink">{LIVE_STATUS_TEXT[definition.liveStatus]}</p>
-            ) : null}
-            {recipe.notes ? (
-              <div>
-                {copy.notesHeading ? (
-                  <h4 className="text-eyebrow text-ink-3">{copy.notesHeading}</h4>
-                ) : null}
-                <p className="mt-1 break-words text-ink-2">{recipe.notes}</p>
-              </div>
-            ) : null}
-          </div>
+        {copy.showChecked ? (
+          <p className="px-3.5 py-2.5 text-meta font-medium text-ink">
+            {LIVE_STATUS_TEXT[definition.liveStatus]}
+          </p>
         ) : null}
 
         <details className="group">
@@ -113,6 +103,14 @@ export function RecipeCard({
               className="size-4 text-ink-3 transition-transform duration-100 group-open:rotate-180"
             />
           </summary>
+          {recipe.notes ? (
+            <div className="border-t border-line bg-canvas px-3.5 py-2 text-meta">
+              {copy.notesHeading ? (
+                <h4 className="text-eyebrow text-ink-3">{copy.notesHeading}</h4>
+              ) : null}
+              <p className="mt-1 break-words text-ink-2">{recipe.notes}</p>
+            </div>
+          ) : null}
           <ol className="m-0 list-decimal border-t border-line bg-canvas py-2 pr-3.5 pl-9 text-meta text-ink-2">
             {definition.steps.map((step, index) => (
               // biome-ignore lint/suspicious/noArrayIndexKey: steps have no id, and their order is their identity

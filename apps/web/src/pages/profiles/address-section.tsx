@@ -194,8 +194,10 @@ export function AddressSection({
       ) : null}
       <GroupNote>
         {scanDraft
-          ? `Scans and requests use ${[scanDraft.street.trim(), scanDraft.city.trim()].filter(Boolean).join(", ")}. `
-          : "Scans and requests need a current address. "}
+          ? `Scans and requests use ${[scanDraft.street.trim(), scanDraft.city.trim()].filter(Boolean).join(", ")}`
+          : "Scans and requests need a current address"}
+      </GroupNote>
+      <GroupNote className="mt-0.5">
         Past addresses are searched only when a scan includes them.
       </GroupNote>
       {listingsLink ? (

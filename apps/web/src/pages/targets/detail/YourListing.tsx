@@ -102,7 +102,7 @@ function Controls({ listing, profileId }: { listing: ListingDetail; profileId: s
       <RowGroup>
         <ActionRow
           title={mode === "skipped" ? "Unskip and scan" : scanned ? "Rescan" : "Scan now"}
-          description="Searches this site for you. It waits its turn if the site was visited recently."
+          description="Searches this site for you, waiting its turn after a recent visit."
         >
           <Button
             variant="primary"
@@ -236,7 +236,7 @@ function Controls({ listing, profileId }: { listing: ListingDetail; profileId: s
           profileId={profileId}
           selection={{ targetIds: [listing.targetId] }}
           title={`Scan ${listing.targetName}?`}
-          description="Kick Rocks searches this site for this person. Nothing is removed until you confirm a record."
+          description="Searches this site; nothing is removed until you confirm."
           siteCount={1}
           sitePreference={listing.preference.includePastAddresses}
         />

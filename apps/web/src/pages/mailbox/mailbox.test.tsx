@@ -58,7 +58,7 @@ describe("connecting a mailbox", () => {
     expect(screen.queryByRole("radio", { name: /Outlook/ })).toBeNull();
     const unsupported = screen.getByRole("region", { name: "Not supported yet" });
     expect(within(unsupported).getByText("Outlook.com")).toBeInTheDocument();
-    expect(within(unsupported).getByText(/only through OAuth/)).toBeInTheDocument();
+    expect(within(unsupported).getByText(/need OAuth sign-in/)).toBeInTheDocument();
   });
 
   it("will not continue until a provider is chosen", async () => {
@@ -73,7 +73,7 @@ describe("connecting a mailbox", () => {
     expect(link).toHaveAttribute("href", "https://myaccount.google.com/apppasswords");
     expect(link).toHaveAttribute("target", "_blank");
     expect(link).toHaveAttribute("rel", expect.stringContaining("noopener"));
-    expect(screen.getByText(/two-step verification/)).toBeInTheDocument();
+    expect(screen.getByText(/2-Step Verification/)).toBeInTheDocument();
   });
 
   it("has no app password link for Proton Mail Bridge and says to use the bridge password", async () => {
@@ -470,18 +470,16 @@ describe("what Kick Rocks takes in", () => {
   it("lists the rules, says what happens to everything else, and reports the last check", async () => {
     open("jordan");
     expect(
-      await screen.findByRole("heading", { name: "What Kick Rocks takes in", level: 2 }),
+      await screen.findByRole("heading", { name: "What is taken in", level: 2 }),
     ).toBeInTheDocument();
     expect(screen.getByText(/Replies to the mail Kick Rocks sent/)).toBeInTheDocument();
     expect(
-      screen.getByText(/does not name the request it would change is kept for you to review/),
+      screen.getByText(/Mail matching no request is kept for review, never applied/),
     ).toBeInTheDocument();
     expect(
       screen.getByText(/Everything else stays in your mailbox and is not saved\./),
     ).toBeVisible();
-    expect(
-      await screen.findByText(/the first week, when the sender, subject and date/),
-    ).toBeVisible();
+    expect(await screen.findByText(/First week: passed-over mail/)).toBeVisible();
     expect(screen.getByTestId("last-check")).toHaveTextContent(
       "Last check looked at 143 new messages and kept 4.",
     );
@@ -493,7 +491,7 @@ describe("what Kick Rocks takes in", () => {
     expect(screen.getByRole("heading", { name: /Saved mail to remove · 12/ })).toBeVisible();
     expect(preview.getByText("Your order has shipped")).toBeVisible();
     expect(preview.getByText("orders@shop-example.test", { exact: false })).toBeVisible();
-    expect(preview.getByText(/Nothing is removed until you confirm/)).toBeVisible();
+    expect(preview.getByText(/removed only on confirm/)).toBeVisible();
     expect(preview.getAllByText(/example\.test/).length).toBeGreaterThan(0);
     expect(screen.getByRole("heading", { name: /Ignored · 0/ })).toBeVisible();
     expect(screen.getByText("Nothing ignored.")).toBeVisible();
@@ -542,7 +540,7 @@ describe("what Kick Rocks takes in", () => {
     expect(report.getByText("Bulk mail that says nothing about privacy")).toBeVisible();
     expect(report.getByText("Company mail that is not about privacy")).toBeVisible();
     expect(report.getByText("Names no open request")).toBeVisible();
-    expect(report.getByText(/Kick Rocks notes only the sender, subject and date/)).toBeVisible();
+    expect(report.getByText(/only sender, subject, date noted/)).toBeVisible();
 
     await user.click(
       report.getByRole("button", { name: "Take in Your privacy request: next steps" }),
@@ -557,9 +555,7 @@ describe("what Kick Rocks takes in", () => {
     const report = within(await screen.findByTestId("shadow-report"));
     await user.click(report.getByRole("button", { name: "Dismiss report" }));
     await waitFor(() => expect(screen.queryByTestId("shadow-report")).toBeNull());
-    await waitFor(() =>
-      expect(screen.queryByText(/the first week, when the sender, subject and date/)).toBeNull(),
-    );
+    await waitFor(() => expect(screen.queryByText(/First week: passed-over mail/)).toBeNull());
     expect(
       screen.getByText(/Everything else stays in your mailbox and is not saved\./),
     ).toBeVisible();

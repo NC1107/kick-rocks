@@ -69,10 +69,10 @@ export function Component() {
           />
         </Field>
         <Callout intent="info" title="Back up the data volume">
-          Your data is encrypted with a key that is stored next to the database, not with this
-          password. Under Docker both live in the kickrocks-data volume, so back up that volume as a
-          whole, key included. Without the key the data cannot be opened. The section "Backups and
-          restore" in docs/self-hosting.md has the commands.
+          <p>A key next to the database encrypts your data, not this password.</p>
+          <p>Back up the whole kickrocks-data volume, key included.</p>
+          <p>Without the key the data cannot be opened.</p>
+          <p>Commands: Backups and restore, docs/self-hosting.md.</p>
         </Callout>
         {failure && !fieldIssue ? <Callout intent="danger">{errorMessage(failure)}</Callout> : null}
         <Button type="submit" variant="primary" loading={setup.isPending} className="w-full">

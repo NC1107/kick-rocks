@@ -127,8 +127,8 @@ function Remove({ target, profile }: { target: TargetDetail; profile: ProfileSum
   return (
     <>
       <PageHeader
-        title={`Remove my data from ${target.name}`}
-        description={`Asking for ${profile.displayName}`}
+        title="Remove my data"
+        description={`From ${target.name}, for ${profile.displayName}`}
         back={{ to: paths.target(target.id), label: target.name }}
       />
 

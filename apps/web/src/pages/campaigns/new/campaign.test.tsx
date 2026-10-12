@@ -228,9 +228,7 @@ describe("the campaign builder", () => {
   it("says a filter campaign only asks companies to stop selling", async () => {
     const { user } = open(`/campaigns/new?filter=${encodeURIComponent('{"kind":"company"}')}`);
     await user.click(await screen.findByRole("checkbox", { name: /Delete my data/ }));
-    expect(
-      screen.getByText(/Group and filter campaigns only ask companies to stop selling/),
-    ).toBeVisible();
+    expect(screen.getByText(/Group and filter campaigns only opt out of sale/)).toBeVisible();
     const preview = await screen.findByRole("region", { name: "Preview" });
     expect(await within(preview).findByText("Email preview")).toBeVisible();
     expect(within(preview).queryByText(/delete the personal information/)).not.toBeInTheDocument();

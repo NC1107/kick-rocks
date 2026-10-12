@@ -167,6 +167,7 @@ export function Row({
     </>
   );
   const state = {
+    "data-row": "true",
     "data-selected": selected ? "true" : undefined,
     "aria-current": selected ? ("true" as const) : undefined,
   };

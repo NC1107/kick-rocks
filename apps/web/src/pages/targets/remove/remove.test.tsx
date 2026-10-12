@@ -10,9 +10,7 @@ const open = (id: string) =>
 describe("the remove-my-data screen for one target", () => {
   it("shows the rights, the email, the legal basis and a Send button, with no campaign groups", async () => {
     open("creditlens-data");
-    expect(
-      await screen.findByRole("heading", { name: "Remove my data from CreditLens Data", level: 1 }),
-    ).toBeVisible();
+    expect(await screen.findByRole("heading", { name: "Remove my data", level: 1 })).toBeVisible();
     expect(screen.getByRole("checkbox", { name: /Opt out of sale/ })).toBeChecked();
     expect(screen.getByRole("checkbox", { name: /Delete my data/ })).not.toBeChecked();
     expect(await screen.findByText("Subject")).toBeVisible();
@@ -77,7 +75,7 @@ describe("the remove-my-data screen for one target", () => {
 
   it("asks for ID only when deletion is chosen", async () => {
     const { user } = open("creditlens-data");
-    await screen.findByRole("heading", { name: /Remove my data from/ });
+    await screen.findByRole("heading", { name: /Remove my data/ });
     expect(screen.queryByText("Asks for ID")).not.toBeInTheDocument();
     await user.click(screen.getByRole("checkbox", { name: /Delete my data/ }));
     expect(await screen.findByText("Asks for ID")).toBeVisible();

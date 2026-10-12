@@ -18,8 +18,7 @@ const COPY: RecipeCardCopy = {
       Bundled {purpose} steps, version {recipe.version}
     </>
   ),
-  rejectDescription:
-    "These steps will not run. Kick Rocks asks again only when a newer version of the recipe ships.",
+  rejectDescription: "Rejected steps do not run; asked again only for a newer version.",
   notesHeading: "What was and was not checked",
   showChecked: true,
 };
@@ -70,8 +69,7 @@ export function Component() {
           ) : (
             <>
               <GroupNote className="mt-0 mb-3 max-w-prose">
-                The author did not see these through to a real request on the live site. They do not
-                run on your details until you approve them.
+                None run on your details until you approve them.
               </GroupNote>
               <div className="flex flex-col gap-3">
                 {pending.data.recipes.map((recipe) => (
@@ -89,7 +87,7 @@ export function Component() {
             className="mt-6"
           >
             <GroupNote className="mt-0 mb-3">
-              They stay rejected until a newer version ships. You can still approve one.
+              Rejected until a newer version ships; you can still approve.
             </GroupNote>
             <div className="flex flex-col gap-3">
               {rejected.data.recipes.map((recipe) => (

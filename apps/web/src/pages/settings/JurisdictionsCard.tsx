@@ -110,7 +110,7 @@ export function JurisdictionsCard() {
             </details>
           ))}
           <BodyRow className="text-meta text-ink-3">
-            {`${pluralize(withoutLaws, "state")} ${withoutLaws === 1 ? "has" : "have"} no law on file. Requests there cite the company's own privacy policy.`}
+            {`${pluralize(withoutLaws, "state")} ${withoutLaws === 1 ? "has" : "have"} no law on file; requests cite company policy.`}
           </BodyRow>
         </RowGroup>
       )}

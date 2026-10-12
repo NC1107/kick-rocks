@@ -66,7 +66,7 @@ export function ConnectedAgents() {
         {rows.length === 0 ? (
           <BodyRow>
             <p className="text-meta text-ink-2">
-              {NO_AGENTS_TEXT} Set up an agent worker or an MCP client below.
+              {NO_AGENTS_TEXT.replace(/\.$/, "")}; set one up below.
             </p>
           </BodyRow>
         ) : (
@@ -81,9 +81,7 @@ export function ConnectedAgents() {
           ))
         )}
       </RowGroup>
-      <GroupNote>
-        Agents seen in the last 7 days. A task can be assigned to any of them from its request.
-      </GroupNote>
+      <GroupNote>Seen in the last 7 days; assign tasks from a request.</GroupNote>
     </Section>
   );
 }

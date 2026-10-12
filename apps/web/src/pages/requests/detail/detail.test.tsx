@@ -190,7 +190,7 @@ describe("the request page", () => {
       "href",
       expect.stringMatching(/^\/profiles\/prf_.*\/mailbox$/),
     );
-    expect(screen.getByRole("link", { name: "Cardinal Insights" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "Open page" })).toHaveAttribute(
       "href",
       "/targets/cardinal-insights",
     );

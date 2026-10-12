@@ -197,7 +197,7 @@ function ProfileEditor({ profile }: { profile: ProfileDetail }) {
           <RowGroup>
             <ActionRow
               title="Delete this profile"
-              description="Removes its identities, mailbox, requests, and replies. Requests already sent cannot be recalled."
+              description="Removes its data; requests already sent cannot be recalled."
             >
               <Button variant="danger" onClick={() => setConfirmingDelete(true)}>
                 Delete profile
@@ -281,7 +281,7 @@ function DetailsCard({
           <GroupFooter>
             <Button
               variant="ghost"
-              aria-label="Discard changes"
+              aria-label="Discard profile changes"
               disabled={!dirty || update.isPending}
               onClick={() => {
                 setValue(saved);
@@ -353,9 +353,7 @@ function IdentitiesCard({
   return (
     <form onSubmit={save} noValidate>
       <Section label="Identities" as="h2">
-        <GroupNote className="mt-0 mb-2">
-          Everything a target might have on file. Each request sends only what that target needs.
-        </GroupNote>
+        <GroupNote className="mt-0 mb-2">Each request sends only what its target needs.</GroupNote>
         <IdentitiesEditor
           drafts={drafts}
           onChange={setDrafts}
@@ -381,7 +379,7 @@ function IdentitiesCard({
           ) : null}
           <Button
             variant="ghost"
-            aria-label="Discard changes"
+            aria-label="Discard identity changes"
             disabled={!dirty || replace.isPending}
             onClick={() => {
               setDrafts(baseline);

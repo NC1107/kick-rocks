@@ -41,7 +41,9 @@ export function MessageBody({ messageId, snippet }: { messageId: string; snippet
           <FullText messageId={messageId} />
         </div>
       ) : snippet ? (
-        <p className="break-words text-ui text-ink">{snippet}</p>
+        <p data-user-content className="break-words text-ui text-ink">
+          {snippet}
+        </p>
       ) : null}
       {toggle}
     </div>

@@ -60,9 +60,14 @@ export function describeHeldScans(
     group ? [{ reason: reason as ScanHoldReason, group }] : [],
   );
   if (groups.length === 0) return null;
-  const parts = groups.map(
-    ({ reason, group }, index) =>
-      `${index === 0 && groups.length === 1 ? pluralize(group.count, "scan") : group.count} ${phrase(reason, group, quietEndHour)}`,
+  const merged = new Map<string, number>();
+  for (const { reason, group } of groups) {
+    const words = phrase(reason, group, quietEndHour);
+    merged.set(words, (merged.get(words) ?? 0) + group.count);
+  }
+  const parts = [...merged].map(
+    ([words, count], index) =>
+      `${index === 0 && merged.size === 1 ? pluralize(count, "scan") : count} ${words}`,
   );
   return parts.join(", ");
 }

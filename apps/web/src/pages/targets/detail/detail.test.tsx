@@ -32,7 +32,7 @@ describe("the target page", () => {
   it("explains what a people-search target asks of a person", async () => {
     open("findrecord");
     expect(await screen.findByRole("heading", { name: "FindRecord", level: 1 })).toBeVisible();
-    expect(screen.getByText(/first scans for your record/)).toBeVisible();
+    expect(screen.getByText(/after scanning for yours/)).toBeVisible();
     expect(screen.getByText(/A CAPTCHA stands in the way/)).toBeVisible();
     expect(await screen.findByRole("link", { name: "Removal in progress" })).toBeVisible();
     expect(await screen.findByRole("link", { name: /^Requests \d+$/ })).toHaveAttribute(
@@ -79,7 +79,7 @@ describe("the target page", () => {
     open("findrecord");
     const section = (await screen.findByRole("heading", { name: "Difficulty" })).closest("section");
     const difficulty = within(section as HTMLElement);
-    expect(difficulty.getByText("Hard.")).toBeVisible();
+    expect(difficulty.getByText("Hard")).toBeVisible();
     expect(
       difficulty.getByText("Your listing has to be found before it can be removed."),
     ).toBeVisible();
@@ -93,7 +93,7 @@ describe("the target page", () => {
     open("audiencegrid");
     const section = (await screen.findByRole("heading", { name: "Difficulty" })).closest("section");
     const difficulty = within(section as HTMLElement);
-    expect(difficulty.getByText("Easy.")).toBeVisible();
+    expect(difficulty.getByText("Easy")).toBeVisible();
     expect(
       difficulty.getByText("It takes requests at its own privacy email address."),
     ).toBeVisible();

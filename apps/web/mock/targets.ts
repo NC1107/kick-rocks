@@ -120,7 +120,7 @@ const BROKERS: BrokerSeed[] = [
     contact: "form",
     priority: "crucial",
     requirements: ["record_url", "id_upload"],
-    notes: "Lists records by city, so a person with several addresses can match more than once.",
+    notes: "Lists records by city; several addresses can match twice.",
   },
   {
     name: "VerifyFirst",

@@ -17,11 +17,11 @@ export function MailIntakeCard() {
       <Section label="Mail">
         <RowGroup>
           <ActionRow
-            title="What Kick Rocks takes in"
+            title="What is taken in"
             description={
               profile.mailboxConnected
-                ? "Which mail from your inbox Kick Rocks keeps, the reply address, and a way to find a reply it missed."
-                : "Connect a mailbox first. Kick Rocks then keeps the mail that is about your requests."
+                ? "Which mail is kept, the reply address, and a missed-reply search."
+                : "Connect a mailbox to keep mail about your requests."
             }
           >
             <LinkButton to={profile.mailboxConnected ? `${mailbox}#intake` : mailbox}>

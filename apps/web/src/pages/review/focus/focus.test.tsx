@@ -866,9 +866,7 @@ describe("a run that stopped before sending", () => {
     const { user } = openItem(taskKey(mock, "approval_needed"), mock);
     const card = within(await cardOf("Quillnote"));
     expect(
-      await card.findByText(
-        /Step 1 already went out once\. Approving sends it again, then step 2\./,
-      ),
+      await card.findByText(/Step 1 already sent; approving sends it again, then step 2\./),
     ).toBeVisible();
     await user.click(card.getByText("What the gate cannot see"));
     expect(card.getByText(/Sites that need a live connection\./)).toBeVisible();

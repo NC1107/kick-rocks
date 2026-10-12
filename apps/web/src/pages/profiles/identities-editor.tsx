@@ -51,7 +51,7 @@ const SECTIONS: readonly SectionSpec[] = [
   {
     kind: "email",
     title: "Email addresses",
-    note: "Add every address you have used. Targets often know an old one.",
+    note: "Add past addresses too; targets may know an old one.",
     addLabel: "Add email",
   },
   {

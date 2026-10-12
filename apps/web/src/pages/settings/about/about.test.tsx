@@ -17,7 +17,7 @@ describe("the about page", () => {
       "href",
       "https://polyformproject.org/licenses/noncommercial/1.0.0/",
     );
-    expect(screen.getByText(/Copyright NC1107/)).toBeInTheDocument();
+    expect(screen.getByText(/copyright NC1107/)).toBeInTheDocument();
   });
 
   it("holds the instance fact rows themselves while the details load, so their height comes from one place", () => {
@@ -50,7 +50,7 @@ describe("the about page", () => {
     expect(badbool).toBeDefined();
     expect(within(badbool as HTMLElement).getByText("CC BY-NC-SA 4.0")).toBeInTheDocument();
     expect(within(badbool as HTMLElement).getByText(/By Yael Grauer/)).toBeInTheDocument();
-    expect(within(badbool as HTMLElement).getByText(/Used by \d+ entries/)).toBeInTheDocument();
+    expect(within(badbool as HTMLElement).getByText(/used by \d+ entries/)).toBeInTheDocument();
 
     const eraser = rows.find((row) => within(row).queryByText("Eraser broker list"));
     expect(within(eraser as HTMLElement).getByText("MIT")).toBeInTheDocument();
@@ -76,7 +76,7 @@ describe("the about page", () => {
       "href",
       "https://creativecommons.org/licenses/by-nc-sa/4.0/",
     );
-    expect(card).toHaveTextContent(/converted those entries/);
+    expect(card).toHaveTextContent(/converted and extended/);
     expect(card).toHaveTextContent(/same license/);
   });
 
@@ -101,7 +101,7 @@ describe("the about page", () => {
     expect(limits).toHaveTextContent(/may not apply to a given business/);
     expect(limits).toHaveTextContent(/does not guarantee/);
     expect(limits).toHaveTextContent(/add you back/);
-    expect(limits).toHaveTextContent(/new link between your name and your email/);
+    expect(limits).toHaveTextContent(/link your name and email/);
     expect(limits).toHaveTextContent(/own privacy policy/);
   });
 

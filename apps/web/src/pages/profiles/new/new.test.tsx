@@ -24,7 +24,7 @@ describe("the new profile page", () => {
   it("says the state is required", () => {
     renderPage(<NewProfilePage />);
     expect(screen.getByLabelText("State of residence")).toHaveAttribute("aria-required", "true");
-    expect(screen.getByText(/^Required\. Decides which state privacy law/)).toBeVisible();
+    expect(screen.getByText(/^Required; sets the privacy law/)).toBeVisible();
   });
 
   it("marks every missing field and sends nothing", async () => {

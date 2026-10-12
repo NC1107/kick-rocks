@@ -53,8 +53,8 @@ const KINDS: WorkerKind[] = [
   {
     key: "model",
     title: "Agent worker",
-    never: "Not checked in yet. Targets without a recipe wait in Review.",
-    offline: "Silent for a while. Targets without a recipe wait until it is back.",
+    never: "Not checked in; recipe-less targets wait in Review.",
+    offline: "Silent for a while; recipe-less targets wait.",
   },
 ];
 

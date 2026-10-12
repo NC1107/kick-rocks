@@ -122,7 +122,7 @@ export function Component() {
         </Section>
         <Section label="Identities" as="h2">
           <GroupNote className="mt-0 mb-2">
-            Everything a target might have on file. Each request sends only what that target needs.
+            Each request sends only what its target needs.
           </GroupNote>
           <IdentitiesEditor
             drafts={drafts}

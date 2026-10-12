@@ -16,8 +16,8 @@ import {
 import { REQUEST_STATUS_META } from "./status.js";
 
 const RIGHT_PHRASES: Record<RequestRight, string> = {
-  opt_out: "opt out of the sale of your data",
-  delete: "delete your data",
+  opt_out: "opt out of sale",
+  delete: "delete data",
 };
 
 const QUEUED_REASONS = {
@@ -62,7 +62,7 @@ export function describeEvent(event: RequestEvent): string {
   switch (event.type) {
     case "created": {
       const { channel, rights } = event.payload;
-      return `Created a request by ${lower(CHANNEL_LABELS[channel])} to ${rights.map((right) => RIGHT_PHRASES[right]).join(" and ")}.`;
+      return `Request created by ${lower(CHANNEL_LABELS[channel])}: ${rights.map((right) => RIGHT_PHRASES[right]).join(" and ")}.`;
     }
     case "queued":
       return QUEUED_REASONS[event.payload.reason];
@@ -86,7 +86,7 @@ export function describeEvent(event: RequestEvent): string {
         : `${sent}.`;
     }
     case "send_failed":
-      return `Sending failed: ${plainError(event.payload.error)}.${event.payload.willRetry ? " It will try again." : ""}`;
+      return `Sending failed: ${plainError(event.payload.error)}${event.payload.willRetry ? ", will retry" : ""}.`;
     case "reply_received":
       return `Reply received from ${event.payload.from}.`;
     case "mailbox_checked": {

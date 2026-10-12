@@ -64,11 +64,11 @@ export function CleanupPreview({
       <RowGroup data-testid="cleanup-preview">
         <BodyRow>
           <p className="text-meta text-ink-2">
-            Saved before sorting started. Nothing is removed until you confirm.
+            Saved before sorting began; removed only on confirm.
           </p>
         </BodyRow>
         {shown.map((line) => (
-          <BodyRow key={line.id}>
+          <BodyRow key={line.id} row>
             <MailLineText line={line} />
           </BodyRow>
         ))}
@@ -118,7 +118,7 @@ export function CleanupPreview({
       <div className="flex items-center justify-between gap-3 rounded-md border border-line bg-surface py-1.5 pr-2 pl-3.5">
         <p className="m-0 min-w-0 text-ui text-ink">{pluralize(count, "saved email")} to remove</p>
         <Button size="sm" onClick={() => setReviewing(true)}>
-          Review
+          Open
         </Button>
       </div>
       <Dialog
@@ -217,7 +217,7 @@ export function ShadowReport({ profileId, className }: { profileId: string; clas
       <RowGroup data-testid="shadow-report">
         <BodyRow>
           <p className="text-meta text-ink-2">
-            {`The old rules kept every message. This lists mail the new rules passed over that could be a reply, until ${formatDate(report.until ?? "")}. Kick Rocks notes only the sender, subject and date.`}
+            {`Passed-over possible replies until ${formatDate(report.until ?? "")}; only sender, subject, date noted.`}
           </p>
         </BodyRow>
         {report.items.length === 0 ? (
@@ -228,6 +228,7 @@ export function ShadowReport({ profileId, className }: { profileId: string; clas
         {report.items.map((line) => (
           <BodyRow
             key={line.id}
+            row
             className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2"
           >
             <MailLineText line={line} extra={IGNORE_RULE_REASON[line.rule]} />

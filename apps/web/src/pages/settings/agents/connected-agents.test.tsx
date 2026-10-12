@@ -19,7 +19,7 @@ const section = async () =>
 describe("the connected agents", () => {
   it("says nothing has connected yet", async () => {
     agents();
-    expect(await (await section()).findByText(/No agent yet\./)).toBeVisible();
+    expect(await (await section()).findByText(/No agent yet/)).toBeVisible();
   });
 
   it("lists each agent worker and MCP client with how it stands and what it does about sending", async () => {

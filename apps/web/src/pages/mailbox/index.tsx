@@ -216,7 +216,7 @@ function ConnectedMailbox({ profile, onEdit }: { profile: ProfileDetail; onEdit:
           disconnect.reset();
         }}
         title="Disconnect this mailbox?"
-        description="Requests that are queued will wait until a mailbox is connected again. Mail already sent stays in your account."
+        description="Queued requests wait for a mailbox; sent mail stays in your account."
         confirmLabel="Disconnect"
         destructive
         loading={disconnect.isPending}

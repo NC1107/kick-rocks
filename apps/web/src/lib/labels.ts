@@ -88,9 +88,9 @@ export const DIFFICULTY_LABELS: Record<Difficulty, string> = {
 };
 
 export const DIFFICULTY_MEANINGS: Record<Difficulty, string> = {
-  easy: "Kick Rocks can send this on its own, by email.",
-  medium: "Kick Rocks can do this with a recipe it already trusts.",
-  hard: "A person or an agent has to do part of this.",
+  easy: "Kick Rocks can send this by email on its own.",
+  medium: "Kick Rocks can use a recipe it already trusts.",
+  hard: "A person or agent must do part of this.",
 };
 
 export const DIFFICULTY_REASON_LABELS: Record<DifficultyReason, string> = {
@@ -108,7 +108,7 @@ export const DIFFICULTY_REASON_LABELS: Record<DifficultyReason, string> = {
   needs_fax: "It only accepts requests by fax.",
   needs_device_id:
     "It matches only a mobile advertising ID, which no name or address request can use.",
-  no_recipe: "No approved recipe fills in its form, so an agent or you have to.",
+  no_recipe: "No approved recipe fills its form; an agent or you must.",
   recipe_broken: "Its approved recipe is failing against the live site.",
   email_shared:
     "Its only address is on a shared mail host such as gmail.com, which proves nothing about who replies.",

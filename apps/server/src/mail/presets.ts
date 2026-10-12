@@ -17,8 +17,7 @@ export const PROVIDER_PRESETS: readonly ProviderPreset[] = [
     imapHost: "imap.gmail.com",
     imapPort: 993,
     appPasswordUrl: "https://myaccount.google.com/apppasswords",
-    notes:
-      "Turn on 2-Step Verification, then create an app password. Gmail allows about 500 messages a day. IMAP is always on.",
+    notes: "Turn on 2-Step Verification, then create an app password.",
     defaultDailyCap: 100,
     plusAddressing: true,
     ...SUPPORTED,
@@ -32,8 +31,7 @@ export const PROVIDER_PRESETS: readonly ProviderPreset[] = [
     imapHost: "imap.gmail.com",
     imapPort: 993,
     appPasswordUrl: "https://myaccount.google.com/apppasswords",
-    notes:
-      "Your administrator must allow app passwords and IMAP for your account. Workspace allows about 2,000 messages a day.",
+    notes: "Your administrator must allow app passwords and IMAP.",
     defaultDailyCap: 150,
     plusAddressing: true,
     ...SUPPORTED,
@@ -47,8 +45,7 @@ export const PROVIDER_PRESETS: readonly ProviderPreset[] = [
     imapHost: "imap.fastmail.com",
     imapPort: 993,
     appPasswordUrl: "https://app.fastmail.com/settings/security/devicekeys/new",
-    notes:
-      "Create an app password with access to mail (IMAP, POP, and SMTP). Basic plans cannot use IMAP or SMTP.",
+    notes: "Create an app password with IMAP and SMTP access.",
     defaultDailyCap: 150,
     plusAddressing: true,
     ...SUPPORTED,
@@ -62,8 +59,7 @@ export const PROVIDER_PRESETS: readonly ProviderPreset[] = [
     imapHost: "imap.mail.me.com",
     imapPort: 993,
     appPasswordUrl: "https://account.apple.com/account/manage",
-    notes:
-      "Create an app-specific password under Sign-In and Security. Use your full iCloud address as the username.",
+    notes: "Use an app-specific password and your full iCloud address.",
     defaultDailyCap: 100,
     plusAddressing: true,
     ...SUPPORTED,
@@ -77,7 +73,7 @@ export const PROVIDER_PRESETS: readonly ProviderPreset[] = [
     imapHost: "imap.mail.yahoo.com",
     imapPort: 993,
     appPasswordUrl: "https://login.yahoo.com/account/security/app-passwords",
-    notes: "Generate an app password for a custom app. Yahoo does not publish its sending limit.",
+    notes: "Generate an app password for a custom app.",
     defaultDailyCap: 80,
     plusAddressing: false,
     ...SUPPORTED,
@@ -91,8 +87,7 @@ export const PROVIDER_PRESETS: readonly ProviderPreset[] = [
     imapHost: "127.0.0.1",
     imapPort: 1143,
     appPasswordUrl: null,
-    notes:
-      "Bridge must be running and reachable from this server. Use the username and password Bridge shows, not your Proton login. Bridge uses a self-signed certificate, which is accepted only for a local address. Bridge needs a paid Proton plan.",
+    notes: "Run Bridge on a reachable machine; use the bridge password.",
     defaultDailyCap: 100,
     plusAddressing: true,
     ...SUPPORTED,
@@ -106,8 +101,7 @@ export const PROVIDER_PRESETS: readonly ProviderPreset[] = [
     imapHost: "imap.mailbox.org",
     imapPort: 993,
     appPasswordUrl: "https://login.mailbox.org/",
-    notes:
-      "Sign in, open All settings, then Security, then Email app-passwords, and create one. A new account cannot send to outside addresses until its first payment arrives.",
+    notes: "Turn on two-factor sign-in, then create an app password.",
     defaultDailyCap: 100,
     plusAddressing: false,
     ...SUPPORTED,
@@ -121,8 +115,7 @@ export const PROVIDER_PRESETS: readonly ProviderPreset[] = [
     imapHost: "imap.zoho.com",
     imapPort: 993,
     appPasswordUrl: "https://accounts.zoho.com/home#security/app_password",
-    notes:
-      "Enable IMAP access in Zoho Mail settings and create an application-specific password. Paid organization accounts on your own domain use imappro.zoho.com and smtppro.zoho.com, and accounts in other regions use their own hosts, such as smtp.zoho.eu, so pick Other provider for those.",
+    notes: "Enable IMAP and an app password; other regions pick Other provider.",
     defaultDailyCap: 100,
     plusAddressing: false,
     ...SUPPORTED,
@@ -136,8 +129,7 @@ export const PROVIDER_PRESETS: readonly ProviderPreset[] = [
     imapHost: "",
     imapPort: 993,
     appPasswordUrl: null,
-    notes:
-      "Enter your provider's SMTP and IMAP hosts, which its help pages list. SMTP port 465 uses TLS from the start and port 587 upgrades with STARTTLS. IMAP port 993 uses TLS from the start.",
+    notes: "Enter your provider's SMTP and IMAP hosts from its help pages.",
     defaultDailyCap: 50,
     plusAddressing: false,
     ...SUPPORTED,
@@ -155,8 +147,7 @@ export const PROVIDER_PRESETS: readonly ProviderPreset[] = [
     defaultDailyCap: 50,
     plusAddressing: true,
     supported: false,
-    unsupportedReason:
-      "Outlook.com, Hotmail, and Live accept IMAP and SMTP sign-in only through OAuth, which is not supported yet. Use another mailbox for now.",
+    unsupportedReason: "Outlook, Hotmail and Live need OAuth sign-in, which is not supported yet.",
   },
 ];
 

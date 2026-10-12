@@ -128,12 +128,15 @@ export function LlmCard({ llm }: { llm: LlmSettingsView | null }) {
               </Button>
             </GroupFooter>
           </RowGroup>
-          <GroupNote>
-            Used only when the reply model is not available. Its answers are suggestions: they show
-            in Review and are never applied by themselves. Any OpenAI-compatible endpoint works. The
-            subject and the first part of the reply text are sent to this address, and a reply can
-            quote your name or ask for details like your address, so a model on your own machine is
-            the safer pick.
+          <GroupNote>Any OpenAI-compatible endpoint, used only without the reply model.</GroupNote>
+          <GroupNote className="mt-0.5">
+            Answers are suggestions, never applied by themselves.
+          </GroupNote>
+          <GroupNote className="mt-0.5">
+            The reply subject and start are sent to this address.
+          </GroupNote>
+          <GroupNote className="mt-0.5">
+            Prefer a local model: replies can quote your details.
           </GroupNote>
           {save.isError && Object.keys(serverErrors).length === 0 ? (
             <Callout intent="danger" title="Could not save the language model" className="mt-3">

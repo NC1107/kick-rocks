@@ -419,8 +419,7 @@ function Builder({ profile }: { profile: ProfileSummary }) {
             </fieldset>
             {choice?.kind !== "targets" ? (
               <p className="mt-2 text-meta text-ink-3">
-                Group and filter campaigns only ask companies to stop selling. To ask for deletion,
-                pick targets.
+                Group and filter campaigns only opt out of sale; delete needs targets.
               </p>
             ) : null}
             {rights.length === 0 ? (

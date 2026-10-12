@@ -49,13 +49,13 @@ describe("notification settings page", () => {
     expect(await screen.findByText("A token is saved. Leave this blank to keep it.")).toBeVisible();
     expect(screen.getByLabelText(/Access token/)).toHaveValue("");
 
-    await user.click(screen.getAllByRole("button", { name: "Send test" })[0] as HTMLElement);
+    await user.click(screen.getByRole("button", { name: "Send test to ntfy" }));
     expect((await screen.findAllByText("Test sent to ntfy")).length).toBeGreaterThan(0);
   });
 
   it("only enables the test for what is saved", async () => {
     const { user } = page();
-    const [ntfyTest] = await screen.findAllByRole("button", { name: "Send test" });
+    const ntfyTest = await screen.findByRole("button", { name: "Send test to ntfy" });
     expect(ntfyTest).toBeDisabled();
     await user.type(await field("Topic"), "kr_alerts");
     expect(ntfyTest).toBeDisabled();
@@ -64,7 +64,7 @@ describe("notification settings page", () => {
   it("shows why a test failed, without a token", async () => {
     const { user } = page();
     await saveNtfy(user, "refused");
-    await user.click(screen.getAllByRole("button", { name: "Send test" })[0] as HTMLElement);
+    await user.click(screen.getByRole("button", { name: "Send test to ntfy" }));
     expect(await screen.findByText("ntfy did not take the test")).toBeVisible();
     expect(screen.getByText("ntfy answered 403: forbidden")).toBeVisible();
   });
@@ -111,7 +111,7 @@ describe("notification settings page", () => {
     await user.clear(limit);
     await user.type(limit, "99");
     const card = screen
-      .getByRole("heading", { name: "What to tell you about" })
+      .getByRole("heading", { name: "Notify me about" })
       .closest("section") as HTMLElement;
     await user.click(within(card).getByRole("button", { name: "Save" }));
     expect(await screen.findByText("Enter 1 to 60.")).toBeVisible();

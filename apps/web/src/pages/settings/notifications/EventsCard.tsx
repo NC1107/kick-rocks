@@ -69,7 +69,7 @@ export function EventsCard({
         });
       }}
     >
-      <Section label="What to tell you about">
+      <Section label="Notify me about">
         <RowGroup>
           <fieldset className="m-0 min-w-0 divide-y divide-line border-0 p-0">
             <legend className="sr-only">Send a notification when</legend>
@@ -112,9 +112,7 @@ export function EventsCard({
             </Button>
           </GroupFooter>
         </RowGroup>
-        <GroupNote>
-          A push gives a count and a link here. It never names a target or a person.
-        </GroupNote>
+        <GroupNote>Pushes carry a count and link, never a target or person.</GroupNote>
         {save.isError ? (
           <Callout intent="danger" title="Could not save" className="mt-3">
             {errorMessage(save.error)}

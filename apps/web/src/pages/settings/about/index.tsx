@@ -36,7 +36,7 @@ const BADBOOL_URL = "https://github.com/yaelwrites/Big-Ass-Data-Broker-Opt-Out-L
 export function Component() {
   return (
     <>
-      <SettingsHeader section="About" description="Version, data sources, and licenses" />
+      <SettingsHeader section="About" description="Version, sources, licenses" />
       <div className={`${SETTINGS_WIDTH} flex flex-col gap-4`}>
         <InstanceSection />
         <SourcesSection />
@@ -140,9 +140,7 @@ function LicenseRow() {
   return (
     <FactRow label="License" mono={false}>
       <ExternalLinkText href={POLYFORM_URL}>PolyForm Noncommercial 1.0.0</ExternalLinkText>
-      <span className="block text-ink-3">
-        Free to use and change for yourself, not to sell. Copyright NC1107.
-      </span>
+      <span className="block text-ink-3">Free for personal use; copyright NC1107.</span>
     </FactRow>
   );
 }
@@ -238,15 +236,21 @@ function SourcesSection() {
   );
 }
 
+function sourceNote(source: DataSourceInfo): string {
+  const use =
+    source.targetCount === 0
+      ? "no entries use it"
+      : `used by ${pluralize(source.targetCount, "entry", "entries")}`;
+  return source.attribution
+    ? `By ${source.attribution}, ${use}`
+    : `${use.charAt(0).toUpperCase()}${use.slice(1)}`;
+}
+
 function SourceRow({ source }: { source: DataSourceInfo }) {
   return (
     <Row
       title={<ExternalLinkText href={source.url}>{source.name}</ExternalLinkText>}
-      description={`${source.attribution ? `By ${source.attribution}. ` : ""}${
-        source.targetCount === 0
-          ? "No entries use it right now."
-          : `Used by ${pluralize(source.targetCount, "entry", "entries")}.`
-      }`}
+      description={sourceNote(source)}
       trailing={<Tag>{source.license}</Tag>}
       trailingBelowOnPhone
     />
@@ -256,23 +260,13 @@ function SourceRow({ source }: { source: DataSourceInfo }) {
 function LimitsSection() {
   return (
     <Section label="Limits">
-      <div className="flex max-w-prose flex-col gap-3 text-body text-ink">
-        <p>
-          This is not legal advice. A privacy law may not apply to a given business, and a request
-          does not guarantee that anything gets deleted.
-        </p>
-        <p>
-          A broker can add you back after it removes you, or get your details again from somewhere
-          else. That is why the rescans exist.
-        </p>
-        <p>
-          A request to a broker that never had you can create a new link between your name and your
-          email on its side.
-        </p>
-        <p>
-          Many states have no privacy law, so there the email rests on the company's own privacy
-          policy, and a broker may not have one.
-        </p>
+      <div className="flex max-w-prose flex-col gap-2 text-body text-ink">
+        <p>This is not legal advice.</p>
+        <p>A privacy law may not apply to a given business.</p>
+        <p>A request does not guarantee that anything gets deleted.</p>
+        <p>A broker can add you back, which is why rescans exist.</p>
+        <p>Writing to a broker without you can link your name and email.</p>
+        <p>Without a state law, a company's own privacy policy applies, if any.</p>
       </div>
     </Section>
   );
@@ -281,26 +275,20 @@ function LimitsSection() {
 function AttributionSection() {
   return (
     <Section label="Attribution">
-      <div className="flex max-w-prose flex-col gap-3 text-body text-ink">
+      <div className="flex max-w-prose flex-col gap-2 text-body text-ink">
         <p>
-          The broker list includes entries from the{" "}
-          <ExternalLinkText href={BADBOOL_URL}>Big Ass Data Broker Opt-Out List</ExternalLinkText>{" "}
-          by Yael Grauer, under the Creative Commons Attribution-NonCommercial-ShareAlike 4.0
-          license (<ExternalLinkText href={CC_BY_NC_SA_URL}>CC BY-NC-SA 4.0</ExternalLinkText>).
+          <ExternalLinkText href={BADBOOL_URL}>Big Ass Data Broker Opt-Out List</ExternalLinkText>
         </p>
         <p>
-          Kick Rocks converted those entries into its own format and added fields to them. The
-          resulting broker list is shared under the same license, separately from the application
-          code.
+          By Yael Grauer, under{" "}
+          <ExternalLinkText href={CC_BY_NC_SA_URL}>CC BY-NC-SA 4.0</ExternalLinkText>
         </p>
+        <p>Entries converted and extended; the list shares that same license.</p>
         <p>
-          It also includes entries from the{" "}
-          <ExternalLinkText href={ERASER_URL}>Eraser</ExternalLinkText> broker list, under the MIT
-          license. The MIT license text stays with the copy of that list in the repository.
+          <ExternalLinkText href={ERASER_URL}>Eraser</ExternalLinkText>, under the MIT license.
         </p>
-        <p className="text-ink-2">
-          Contacts in the company list were checked against each company's own privacy page.
-        </p>
+        <p>Its license text stays in the repository.</p>
+        <p className="text-ink-2">Contacts were checked against each company's privacy page.</p>
       </div>
     </Section>
   );

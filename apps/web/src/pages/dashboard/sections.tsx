@@ -335,7 +335,7 @@ export function ListingsSection({
           profileId={profileId}
           selection={{ preset: "people_search" }}
           title="Scan every people-search site?"
-          description="Kick Rocks opens each site in the worker's browser, one after another, and searches for this person. Nothing is removed until you confirm a record. Paused and skipped sites are left out."
+          description="Searches active sites; nothing is removed until you confirm."
         />
       ) : null}
     </Section>

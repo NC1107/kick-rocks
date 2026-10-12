@@ -26,10 +26,7 @@ export function SiteChecksCard({ siteChecks }: { siteChecks: SettingsView["siteC
           />
         </BodyRow>
       </RowGroup>
-      <GroupNote>
-        It runs from your home connection, never searches or uses your details, and never submits a
-        removal.
-      </GroupNote>
+      <GroupNote>Runs from your home connection; never uses your details or submits.</GroupNote>
       {toggle.isError ? (
         <Callout intent="danger" title="Could not change site checks" className="mt-3">
           {errorMessage(toggle.error)}

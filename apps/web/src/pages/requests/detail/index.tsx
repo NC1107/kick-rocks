@@ -91,19 +91,19 @@ const ACTION_DONE: Record<RequestAction, string> = {
 /** Says which email goes to which address, since a resend cannot be taken back once it is sent. */
 function resendWarning(request: RequestDetail, address: string | null): string {
   if (request.channel === "form") {
-    return "Kick Rocks fills in the target's web form again.";
+    return "Fills in the target's web form again.";
   }
   const to = address ? ` to ${address}` : "";
   return resendEmailKind(request.status) === "follow_up" && request.sentAt !== null
-    ? `A follow-up email goes${to} from your mailbox. It cannot be recalled.`
-    : `The original request email goes${to} again from your mailbox. It cannot be recalled.`;
+    ? `Sends a follow-up email${to}; it cannot be recalled.`
+    : `Resends the request email${to}; it cannot be recalled.`;
 }
 
 const ACTION_WARNING: Partial<Record<RequestAction, string>> = {
-  cancel: "Work on this request stops. Nothing already sent is recalled.",
-  mark_confirmed: "Use this when the target confirmed by some other route. It closes the request.",
-  mark_rejected: "This records that the target refused the request.",
-  mark_no_record: "This closes the request, because the target holds nothing about you.",
+  cancel: "Work stops; anything already sent is not recalled.",
+  mark_confirmed: "Closes the request; use it when the target confirmed elsewhere.",
+  mark_rejected: "Records that the target refused.",
+  mark_no_record: "Closes the request; the target holds nothing about you.",
 };
 
 const CONFIRMED_ACTIONS: readonly RequestAction[] = [
@@ -468,7 +468,11 @@ function Detail({ request }: { request: RequestDetail }) {
             items={[
               {
                 term: "Target",
-                value: <EntityLink to={{ kind: "target", id: target.id, name: target.name }} />,
+                value: (
+                  <EntityLink to={{ kind: "target", id: target.id, name: target.name }}>
+                    Open page
+                  </EntityLink>
+                ),
               },
               ...(owner
                 ? [

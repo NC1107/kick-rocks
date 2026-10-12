@@ -25,6 +25,7 @@ export function useChannelTest(channel: NotificationChannel, disabled: boolean) 
   return {
     button: (
       <Button
+        aria-label={`Send test to ${NAMES[channel]}`}
         loading={test.isPending}
         disabled={disabled}
         onClick={() => {

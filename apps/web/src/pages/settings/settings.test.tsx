@@ -50,7 +50,7 @@ describe("the way to mail intake", () => {
     general(mock);
     const link = await screen.findByRole("link", { name: "Open" });
     expect(link).toHaveAttribute("href", `/profiles/${mock.store.profiles[0]?.id}/mailbox#intake`);
-    expect(screen.getByText("What Kick Rocks takes in")).toBeInTheDocument();
+    expect(screen.getByText("What is taken in")).toBeInTheDocument();
   });
 
   it("shows the saved mail it would remove, and the ignored list once the person confirmed", async () => {
@@ -122,7 +122,7 @@ describe("general settings", () => {
     const { user, mock } = general();
     const box = await field(/Check recipe pages on the real broker sites/);
     expect(box).not.toBeChecked();
-    expect(screen.getByText(/never submits a removal/)).toBeInTheDocument();
+    expect(screen.getByText(/never uses your details or submits/)).toBeInTheDocument();
     await user.click(box);
     await waitFor(() => expect(mock.store.settings.siteChecks.enabled).toBe(true));
     expect((await screen.findAllByText("Site checks turned on")).length).toBeGreaterThan(0);
@@ -148,7 +148,7 @@ describe("general settings", () => {
     const heading = await screen.findByRole("heading", { name: "Sites cooling down" });
     const region = within(heading.closest("section") as HTMLElement);
     expect(await region.findByText("Paused after 3 bot checks in a row.")).toBeVisible();
-    expect(region.getByText(/Paused after repeated CAPTCHAs\. Next visit/)).toBeVisible();
+    expect(region.getByText(/Paused after repeated CAPTCHAs; next visit/)).toBeVisible();
     expect(region.getByText("Left alone after a rate limit.")).toBeVisible();
     expect(region.getByText("Paused")).toBeVisible();
     expect(region.getByText("Trying one visit")).toBeVisible();
@@ -208,11 +208,9 @@ describe("general settings", () => {
 
   it("says the reply text goes to the language model address, and recommends a local one", async () => {
     general();
-    const note = await screen.findByText(/Used only when the reply model is not available/);
-    expect(note).toHaveTextContent(
-      /subject and the first part of the reply text are sent to this address/,
-    );
-    expect(note).toHaveTextContent(/on your own machine/);
+    expect(await screen.findByText(/used only without the reply model/)).toBeVisible();
+    expect(screen.getByText(/reply subject and start are sent to this address/)).toBeVisible();
+    expect(screen.getByText(/Prefer a local model/)).toBeVisible();
   });
 
   it("rejects a language model address that is not a web address", async () => {
@@ -500,13 +498,11 @@ describe("bundled recipes to check", () => {
     const cardinal = await screen.findByRole("region", {
       name: /Cardinal Insights removal recipe/,
     });
-    expect(
-      within(cardinal).getByText("The form was read but no real request was ever sent through it."),
-    ).toBeVisible();
-    expect(within(cardinal).getByText("What was and was not checked")).toBeVisible();
+    expect(within(cardinal).getByText("Form read, but no real request sent.")).toBeVisible();
+    expect(within(cardinal).getByText("What was and was not checked")).toBeInTheDocument();
     expect(
       within(cardinal).getByText(/Submission and the page after it were not exercised/),
-    ).toBeVisible();
+    ).toBeInTheDocument();
     const blocked = screen.getByRole("region", { name: /Brightlist scan recipe/ });
     expect(within(blocked).getByText(/Bot protection hid the site/)).toBeVisible();
   });

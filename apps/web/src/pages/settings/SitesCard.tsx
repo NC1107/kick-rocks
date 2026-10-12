@@ -57,10 +57,7 @@ export function SitesCard() {
           ))
         )}
       </RowGroup>
-      <GroupNote>
-        When a site answers with a rate limit, a bot check, or a CAPTCHA, Kick Rocks leaves it alone
-        for longer each time and tries a single careful visit before it resumes.
-      </GroupNote>
+      <GroupNote>Pushback from a site means longer pauses, then one careful visit.</GroupNote>
     </Section>
   );
 }

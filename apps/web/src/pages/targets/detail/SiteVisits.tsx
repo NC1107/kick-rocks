@@ -23,9 +23,7 @@ export function SiteVisits({ targetId }: { targetId: string }) {
       ) : query.isError ? (
         <p className="text-ui text-ink-2">Could not load the visit history just now.</p>
       ) : site === null ? (
-        <p className="text-ui text-ink-2">
-          Nothing has visited this site yet, so there is no history to show.
-        </p>
+        <p className="text-ui text-ink-2">Nothing has visited this site yet.</p>
       ) : (
         <div className="rounded-md border border-line bg-surface px-3.5 py-3">
           <DescriptionList

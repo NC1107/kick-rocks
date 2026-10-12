@@ -29,12 +29,12 @@ const RULES = [
   "Mail that names the reference of one of your requests.",
   "Bounce messages for mail Kick Rocks sent.",
   "The confirmation email a form you submitted is waiting for.",
-  "Mail from brokers you have an open request with, except newsletters and ads that say nothing about privacy.",
-  "Mail from companies you have an open request with. Only mail about privacy, unless you choose otherwise below.",
-  "Mail from anyone that names one of those targets, a brand it goes by or its parent company, and talks about your data.",
-  "Mail sent to your reply address, once you turn it on, when it names one of those targets. Newsletters and ads are left out.",
+  "Mail from brokers with an open request, minus newsletters and ads.",
+  "Mail from companies with an open request, if about privacy.",
+  "Mail about your data that names one of those targets.",
+  "Mail to your reply address that names one of those targets.",
   "Mail from senders you add below.",
-  "Mail that does not reply to ours and does not name the request it would change is kept for you to review, never applied on its own.",
+  "Mail matching no request is kept for review, never applied.",
 ] as const;
 
 const COMPANY_MAIL_OPTIONS = [
@@ -68,7 +68,7 @@ export function IntakeSection({ profileId, mailbox, provider }: IntakeSectionPro
   }, [hash]);
   return (
     <div id="intake" className="mt-8 scroll-mt-4 flex flex-col gap-6">
-      <Section label="What Kick Rocks takes in">
+      <Section label="What is taken in">
         <RowGroup>
           <BodyRow>
             <ul className="m-0 flex list-disc flex-col gap-1 pl-5 text-meta text-ink-2">
@@ -78,10 +78,12 @@ export function IntakeSection({ profileId, mailbox, provider }: IntakeSectionPro
             </ul>
             <p className="mt-3 text-meta font-medium text-ink">
               Everything else stays in your mailbox and is not saved.
-              {shadowActive
-                ? " The exception is the first week, when the sender, subject and date of passed-over mail that could be a reply are listed below."
-                : ""}
             </p>
+            {shadowActive ? (
+              <p className="mt-1 text-meta text-ink-2">
+                First week: passed-over mail that could be a reply is listed below.
+              </p>
+            ) : null}
           </BodyRow>
           {mailbox.lastPolledAt ? (
             <BodyRow>
@@ -107,9 +109,9 @@ export function IntakeSection({ profileId, mailbox, provider }: IntakeSectionPro
 function CompanyMailSetting({ profileId, mailbox }: { profileId: string; mailbox: Mailbox }) {
   const save = useApiMutation(API_ROUTES.mailboxIntake, { invalidates: [API_ROUTES.profilesGet] });
   return (
-    <Section label="Mail from companies you have requests with" as="h3">
+    <Section label="Company mail" as="h3">
       <RadioGroup
-        legend="Mail from companies you have requests with"
+        legend="Company mail"
         hideLegend
         rows
         value={mailbox.companyMail}
@@ -118,10 +120,7 @@ function CompanyMailSetting({ profileId, mailbox }: { profileId: string; mailbox
         }
         options={COMPANY_MAIL_OPTIONS.map((option) => ({ ...option }))}
       />
-      <GroupNote>
-        Companies also send order and account mail, which is why they get this choice. Newsletters
-        and ads that say nothing about privacy are never taken in.
-      </GroupNote>
+      <GroupNote>Newsletters and ads are never taken in.</GroupNote>
       {save.error ? (
         <Callout intent="danger" className="mt-2">
           {errorMessage(save.error)}
@@ -233,7 +232,7 @@ function AlwaysTakeIn({ profileId }: { profileId: string }) {
   const chosen = targetId || targets[0]?.id || "";
 
   return (
-    <Section label="Senders to always take in" as="h3">
+    <Section label="Always take in" as="h3">
       <RowGroup>
         {(senders.data?.senders ?? []).map((sender: IntakeSender) => (
           <BodyRow key={sender.id} className="flex flex-wrap items-center justify-between gap-2">
@@ -293,10 +292,7 @@ function AlwaysTakeIn({ profileId }: { profileId: string }) {
           </Button>
         </BodyRow>
       </RowGroup>
-      <GroupNote>
-        Mail from these senders is taken in, except newsletters and ads that say nothing about
-        privacy. It never makes a link in the mail trusted, and it never vouches for who sent it.
-      </GroupNote>
+      <GroupNote>Skips newsletters and ads; never trusts its links or sender.</GroupNote>
       {add.error ? (
         <Callout intent="danger" className="mt-2">
           {errorMessage(add.error)}
@@ -342,9 +338,7 @@ function FindMissingReply({ profileId }: { profileId: string }) {
           </Button>
         </BodyRow>
       </RowGroup>
-      <GroupNote>
-        This searches your mailbox live. Nothing it finds is saved unless you take a message in.
-      </GroupNote>
+      <GroupNote>Searches live; nothing is saved unless you take a message in.</GroupNote>
       {find.error ? (
         <Callout intent="danger" className="mt-2">
           {errorMessage(find.error)}

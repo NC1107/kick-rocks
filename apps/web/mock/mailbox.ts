@@ -30,8 +30,7 @@ const PROVIDERS: ProviderPreset[] = [
     imapHost: "imap.gmail.com",
     imapPort: 993,
     appPasswordUrl: "https://myaccount.google.com/apppasswords",
-    notes:
-      "Needs two-step verification on, then an app password. Gmail allows about 500 messages a day.",
+    notes: "Turn on 2-Step Verification, then create an app password.",
     defaultDailyCap: 100,
     plusAddressing: true,
     ...SUPPORTED,
@@ -45,7 +44,7 @@ const PROVIDERS: ProviderPreset[] = [
     imapHost: "imap.gmail.com",
     imapPort: 993,
     appPasswordUrl: "https://myaccount.google.com/apppasswords",
-    notes: "Your administrator must allow app passwords for your account.",
+    notes: "Your administrator must allow app passwords and IMAP.",
     defaultDailyCap: 100,
     plusAddressing: true,
     ...SUPPORTED,
@@ -59,7 +58,7 @@ const PROVIDERS: ProviderPreset[] = [
     imapHost: "imap.fastmail.com",
     imapPort: 993,
     appPasswordUrl: "https://app.fastmail.com/settings/security/devicekeys",
-    notes: "Create an app password with mail access for IMAP and SMTP.",
+    notes: "Create an app password with IMAP and SMTP access.",
     defaultDailyCap: 150,
     plusAddressing: true,
     ...SUPPORTED,
@@ -73,7 +72,7 @@ const PROVIDERS: ProviderPreset[] = [
     imapHost: "imap.mail.me.com",
     imapPort: 993,
     appPasswordUrl: "https://account.apple.com/account/manage",
-    notes: "Use an app-specific password. Your iCloud address is the username.",
+    notes: "Use an app-specific password and your full iCloud address.",
     defaultDailyCap: 100,
     plusAddressing: true,
     ...SUPPORTED,
@@ -101,8 +100,7 @@ const PROVIDERS: ProviderPreset[] = [
     imapHost: "127.0.0.1",
     imapPort: 1143,
     appPasswordUrl: null,
-    notes:
-      "Bridge must be running on the same machine. Use the bridge password it shows, not your Proton password.",
+    notes: "Run Bridge on a reachable machine; use the bridge password.",
     defaultDailyCap: 100,
     plusAddressing: true,
     ...SUPPORTED,
@@ -116,8 +114,7 @@ const PROVIDERS: ProviderPreset[] = [
     imapHost: "imap.mailbox.org",
     imapPort: 993,
     appPasswordUrl: "https://login.mailbox.org/",
-    notes:
-      "Turn on two-factor sign-in, then create an app password with access to mail in your account settings.",
+    notes: "Turn on two-factor sign-in, then create an app password.",
     defaultDailyCap: 100,
     plusAddressing: false,
     ...SUPPORTED,
@@ -131,8 +128,7 @@ const PROVIDERS: ProviderPreset[] = [
     imapHost: "imap.zoho.com",
     imapPort: 993,
     appPasswordUrl: "https://accounts.zoho.com/home#security/app_password",
-    notes:
-      "Enable IMAP access in the mail settings first. Accounts outside the US use a regional host such as zoho.eu.",
+    notes: "Enable IMAP and an app password; other regions pick Other provider.",
     defaultDailyCap: 50,
     plusAddressing: false,
     ...SUPPORTED,
@@ -146,8 +142,7 @@ const PROVIDERS: ProviderPreset[] = [
     imapHost: "",
     imapPort: 993,
     appPasswordUrl: null,
-    notes:
-      "Enter your provider's SMTP and IMAP hosts. Most providers publish them in their help pages.",
+    notes: "Enter your provider's SMTP and IMAP hosts from its help pages.",
     defaultDailyCap: 50,
     plusAddressing: false,
     ...SUPPORTED,
@@ -165,8 +160,7 @@ const PROVIDERS: ProviderPreset[] = [
     defaultDailyCap: 50,
     plusAddressing: true,
     supported: false,
-    unsupportedReason:
-      "Outlook.com, Hotmail, and Live accept IMAP and SMTP sign-in only through OAuth, which is not supported yet. Use another mailbox for now.",
+    unsupportedReason: "Outlook, Hotmail and Live need OAuth sign-in, which is not supported yet.",
   },
 ];
 
