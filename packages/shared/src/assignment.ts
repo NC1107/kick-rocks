@@ -27,7 +27,7 @@ export const CLAIMER_TOUCH_MS = 30_000;
 
 /** Why the server will not give a task to one agent, with the page that changes it. */
 export const AssigneeRefusal = z.object({
-  code: z.enum(["unreviewed", "rejected", "routed"]),
+  code: z.enum(["unreviewed", "rejected", "routed", "mcp_off"]),
   message: z.string(),
   settingsPath: z.string(),
 });

@@ -2,7 +2,12 @@ import { API_ROUTES, isPersonOnlyBlock, type NeedsYouItem } from "@kickrocks/sha
 import { type ReactNode, useState } from "react";
 import { useNavigate } from "react-router";
 import { useApiMutation } from "../../../api/index.js";
-import { ConfirmDialog, type MenuItem, useToast } from "../../../components/ui/index.js";
+import {
+  ConfirmDialog,
+  InlineError,
+  type MenuItem,
+  useToast,
+} from "../../../components/ui/index.js";
 import { paths } from "../../../lib/paths.js";
 import { useWide } from "../../../lib/use-wide.js";
 import { useHandOver } from "../../assign/useHandOver.js";
@@ -56,6 +61,8 @@ export interface CardMenu {
   /** The card should show its hand-over line: tried twice, and an agent could take over. */
   stuck: boolean;
   handOver: () => void;
+  /** Why a one-tap hand-over failed, to show inside the card. */
+  notice: ReactNode;
   openCancel: () => void;
 }
 
@@ -157,6 +164,7 @@ export function useCardMenu(
     dialogs,
     stuck,
     handOver: handOver.go,
+    notice: handOver.error ? <InlineError>{handOver.error}</InlineError> : null,
     openCancel: () => setCancelling(true),
   };
 }

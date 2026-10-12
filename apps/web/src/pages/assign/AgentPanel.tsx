@@ -115,6 +115,7 @@ export function AgentPanel({ task, pageUrl, events = [], layout }: AgentPanelPro
       {lapsed ? <p>{lapsed}</p> : null}
       {runNowError ? <InlineError>{runNowError}</InlineError> : null}
       {keep.isError ? <InlineError>{errorMessage(keep.error)}</InlineError> : null}
+      {handOver.error ? <InlineError>{handOver.error}</InlineError> : null}
     </div>
   );
 

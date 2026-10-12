@@ -987,8 +987,49 @@ describe("the menu", () => {
       );
     await waitFor(() => expect(handed()).toBeDefined());
     expect(screen.queryByRole("dialog")).toBeNull();
-    await user.click(await screen.findByRole("button", { name: "Undo" }));
+    await user.click(await screen.findByRole("button", { name: "Keep for me" }));
     await waitFor(() => expect(handed()?.assignment?.to).toEqual({ kind: "person" }));
+    expect(await screen.findByText("Kept for you")).toBeVisible();
+  });
+
+  it("says why when the server refuses a one-tap hand-off, on the card", async () => {
+    const mock = createMockApp();
+    applyAgentPreset(mock.store, "one");
+    refuse(mock, /\/hand-off$/, 409, "task_changed", "Someone else already took this task.");
+    const { user } = openItem(taskKey(mock, "login_required"), mock);
+    await cardOf("Lumen Data Partners");
+    await user.click(screen.getByRole("button", { name: "More" }));
+    await waitFor(() =>
+      expect(screen.getByRole("menuitem", { name: /Hand to an agent/ })).toBeEnabled(),
+    );
+    await user.click(screen.getByRole("menuitem", { name: /Hand to an agent/ }));
+    expect(await screen.findByText("Someone else already took this task.")).toBeVisible();
+  });
+
+  it("confirms a kept task after the card is gone, and says when the agent already has it", async () => {
+    const mock = createMockApp();
+    applyAgentPreset(mock.store, "one");
+    const refusal = refuse(
+      mock,
+      /\/assign$/,
+      409,
+      "task_running",
+      "An agent is working on this task.",
+    );
+    refusal.armed = false;
+    const { user } = openItem(taskKey(mock, "login_required"), mock);
+    await cardOf("Lumen Data Partners");
+    await user.click(screen.getByRole("button", { name: "More" }));
+    await waitFor(() =>
+      expect(screen.getByRole("menuitem", { name: /Hand to an agent/ })).toBeEnabled(),
+    );
+    await user.click(screen.getByRole("menuitem", { name: /Hand to an agent/ }));
+    const keep = await screen.findByRole("button", { name: "Keep for me" });
+    expect(screen.queryByRole("article", { name: "Lumen Data Partners" })).toBeNull();
+    refusal.armed = true;
+    await user.click(keep);
+    expect(await screen.findByText("Already started")).toBeVisible();
+    expect(screen.getByText("Find it in Review, Agents.")).toBeVisible();
   });
 
   it("lets the person pick among several agents, and never offers doing it themselves", async () => {
@@ -1045,6 +1086,21 @@ describe("the menu", () => {
     await waitFor(() => expect(mine.assignment).toBeNull());
   });
 });
+
+/** Makes the routes matching `pattern` answer an error while `armed` stays true. */
+function refuse(mock: MockApp, pattern: RegExp, status: number, error: string, message: string) {
+  const state = { armed: true };
+  const handle = mock.handle.bind(mock);
+  mock.handle = async (request) =>
+    state.armed && request.method === "POST" && pattern.test(request.url)
+      ? {
+          status,
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ error, message }),
+        }
+      : handle(request);
+  return state;
+}
 
 describe("the end of the queue", () => {
   function emptied(mock: MockApp) {

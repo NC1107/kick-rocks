@@ -137,6 +137,47 @@ describe("GET /agents", () => {
 });
 
 describe("POST /tasks/:id/assign", () => {
+  it("refuses an MCP client while MCP access is off, in the list and on assign", async () => {
+    const task = agentTask(seedTarget(ctx).id);
+    seedClaimer(ctx, { kind: "mcp", workerId: "desk-client" });
+    ctx.services.settings.set("mcp.enabled", false);
+
+    const listed = await agents(task.id);
+    if (!listed.ok) throw new Error("agents failed");
+    expect(listed.body.agents[0]?.refusal).toMatchObject({
+      code: "mcp_off",
+      settingsPath: "/settings/agents",
+    });
+    const refused = await assign(task.id, {
+      body: { to: { kind: "mcp", workerId: "desk-client" } },
+    });
+    expect(refused.status).toBe(409);
+    expect(refused.ok ? null : refused.body.error).toBe("assignee_cannot_take");
+  });
+
+  it("will not give a task kept for the person to an agent when a bot check stopped it", async () => {
+    const target = seedTarget(ctx);
+    const task = seedTask(ctx, {
+      kind: "agent",
+      dedupeKey: `agent:${target.id}:kept`,
+      payload: {
+        ...agentPayload(target.id, "remove"),
+        reason: "blocked",
+        blockedReason: "captcha",
+      },
+      profileId,
+      targetId: target.id,
+    });
+    await assign(task.id, { body: { to: "person" } });
+
+    for (const to of ["any", { kind: "model", workerId: "nick-pc-agent" }] as const) {
+      const refused = await assign(task.id, { body: { to } });
+      expect(refused.status).toBe(409);
+      expect(refused.ok ? null : refused.body.error).toBe("person_only_block");
+    }
+    expect(ctx.services.taskQueue.getOrThrow(task.id).assignment?.to).toEqual({ kind: "person" });
+  });
+
   it("names an agent, writes it on the timeline, and leaves the gate alone", async () => {
     const target = seedTarget(ctx);
     const request = seedRequest(ctx, { profileId, targetId: target.id });

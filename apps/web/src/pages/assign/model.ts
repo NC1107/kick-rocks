@@ -56,7 +56,9 @@ export type HandOffPlan = "loading" | "setup" | "one" | "pick";
  */
 export function handOffPlan(agents: AgentsResponse | undefined): HandOffPlan {
   if (!agents) return "loading";
-  const eligible = agents.agents.filter((row) => row.online && row.refusal === null);
+  const eligible = agents.agents.filter(
+    (row) => row.online && row.refusal === null && (row.kind !== "mcp" || agents.mcpEnabled),
+  );
   if (eligible.length === 0) return "setup";
   return eligible.length === 1 ? "one" : "pick";
 }

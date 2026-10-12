@@ -178,13 +178,15 @@ export interface CardFrameProps {
   bar: ReactNode;
   /** Dialogs the card opens, kept outside the card's layout. */
   dialogs?: ReactNode;
+  /** A line under the content, for a failure of something the menu did. */
+  notice?: ReactNode;
 }
 
 /**
  * The same card for every kind: where you are in the queue, what it is about, what to do, and the
  * one button that does it. Only the middle changes from kind to kind.
  */
-export function CardFrame({ item, menu, tagText, children, bar, dialogs }: CardFrameProps) {
+export function CardFrame({ item, menu, tagText, children, bar, dialogs, notice }: CardFrameProps) {
   const copy = KIND_COPY[item.kind];
   const title = itemTitle(item);
   return (
@@ -222,6 +224,7 @@ export function CardFrame({ item, menu, tagText, children, bar, dialogs }: CardF
           </div>
         </header>
         {children}
+        {notice}
       </div>
       <div
         className={cn(

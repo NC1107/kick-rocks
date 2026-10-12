@@ -4,6 +4,7 @@ import {
   type AssignmentFallback,
   type AssignTarget,
   fallbackAt,
+  isPersonOnlyBlock,
   type RecipePurpose,
   type TaskAssignee,
   type TaskAssignment,
@@ -27,6 +28,13 @@ export function assigneeRefusal(
   kind: AgentAssignee["kind"],
 ): AssigneeRefusal | null {
   if (kind === "mcp") {
+    if (!services.settings.get("mcp.enabled")) {
+      return {
+        code: "mcp_off",
+        message: "MCP access is off, so no MCP client can take it.",
+        settingsPath: "/settings/agents",
+      };
+    }
     if (task.targetId === null || !routedTargets(services)(task.targetId)) return null;
     return {
       code: "routed",
@@ -135,6 +143,13 @@ export function assignTask(
       throw conflict(
         "invalid_task_state",
         "This task is blocked. Hand it to an agent from Review instead.",
+      );
+    }
+    const keptForPerson = task.assignment?.to.kind === "person";
+    if (target !== "person" && keptForPerson && isPersonOnlyBlock(task.payload.blockedReason)) {
+      throw conflict(
+        "person_only_block",
+        `Task ${taskId} is blocked by ${task.payload.blockedReason}, which an agent cannot get past. Open the page and finish it yourself.`,
       );
     }
     const assignment = assignmentFor(services, target, fallback);

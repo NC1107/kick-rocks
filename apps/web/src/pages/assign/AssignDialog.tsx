@@ -148,6 +148,7 @@ const REFUSAL_LINKS: Record<AssigneeRefusal["code"], string> = {
   unreviewed: "Review the setting",
   rejected: "Open recipes",
   routed: "Open the proxy setting",
+  mcp_off: "Turn on MCP",
 };
 
 function agentOption(row: AgentRow, now: number, choice: Choice): RadioOption<Choice> {

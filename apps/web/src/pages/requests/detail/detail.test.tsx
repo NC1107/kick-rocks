@@ -608,8 +608,24 @@ describe("the agent callout", () => {
     await user.click(await screen.findByRole("button", { name: "Hand back to an agent" }));
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     await waitFor(() => expect(stored.assignment).toBeNull());
-    await user.click(await screen.findByRole("button", { name: "Undo" }));
+    await user.click(await screen.findByRole("button", { name: "Keep for me" }));
     await waitFor(() => expect(stored.assignment?.to).toEqual({ kind: "person" }));
+  });
+
+  it("says why when the server refuses a hand-back, next to the button", async () => {
+    const { user, mock } = waiting("one");
+    await user.click(await screen.findByRole("button", { name: "Keep it for me" }));
+    const handle = mock.handle.bind(mock);
+    mock.handle = async (request) =>
+      request.method === "POST" && /\/assign$/.test(request.url)
+        ? {
+            status: 409,
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ error: "task_changed", message: "An agent already has it." }),
+          }
+        : handle(request);
+    await user.click(await screen.findByRole("button", { name: "Hand back to an agent" }));
+    expect(await screen.findByText("An agent already has it.")).toBeVisible();
   });
 
   it("never lists the person as a choice when handing back among several agents", async () => {

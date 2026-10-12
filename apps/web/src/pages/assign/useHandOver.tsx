@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { useState } from "react";
-import { useAgents } from "../../api/index.js";
+import { errorMessage, useAgents } from "../../api/index.js";
 import { AssignDialog } from "./AssignDialog.js";
 import { type HandOffPlan, handOffPlan } from "./model.js";
 import {
@@ -16,6 +16,8 @@ export interface HandOver {
   /** Opens the dialog whatever the plan, for a task that already has an agent. */
   choose: () => void;
   pending: boolean;
+  /** Why the last one-tap hand-over failed, for the caller to show where the control is. */
+  error: string | null;
   dialog: ReactNode;
 }
 
@@ -30,11 +32,12 @@ export function useHandOver(task: HandOverTask | null, mode: HandOverMode | null
   const agents = useAgents({ taskId: task?.id, enabled: applies });
   const plan = handOffPlan(agents.data);
   const [picking, setPicking] = useState(false);
-  const { send, pending } = useHandOverMutation(mode ?? "handoff", task ?? NO_TASK);
+  const { send, pending, error } = useHandOverMutation(mode ?? "handoff", task ?? NO_TASK);
 
   return {
     plan,
     pending,
+    error: error ? errorMessage(error) : null,
     go: () => (plan === "one" ? send({ to: "any" }) : setPicking(true)),
     choose: () => setPicking(true),
     dialog: applies ? (

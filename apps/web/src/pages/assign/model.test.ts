@@ -400,6 +400,12 @@ describe("handOffPlan", () => {
     expect(handOffPlan(response(agent({ refusal })))).toBe("setup");
   });
 
+  it("ignores an MCP client while MCP access is off", () => {
+    const client = agent({ kind: "mcp", gate: null, model: null });
+    expect(handOffPlan({ ...response(client), mcpEnabled: false })).toBe("setup");
+    expect(handOffPlan(response(client))).toBe("one");
+  });
+
   it("hands over at once with one agent and asks with several", () => {
     expect(handOffPlan(response(agent(), agent({ workerId: "old", online: false })))).toBe("one");
     expect(handOffPlan(response(agent(), agent({ workerId: "laptop-agent" })))).toBe("pick");

@@ -163,6 +163,7 @@ function TaskCard({ item, check }: TaskCardProps) {
       item={item}
       menu={menu.menu}
       dialogs={menu.dialogs}
+      notice={menu.notice}
       bar={
         prompting ? (
           <PromptBar item={item} flow={flow} />
@@ -258,6 +259,7 @@ function HoldCard({ item }: { item: NeedsYouItem }) {
       item={item}
       menu={menu.menu}
       dialogs={menu.dialogs}
+      notice={menu.notice}
       tagText={left ? `${KIND_COPY.hold.tag} · ${left}` : undefined}
       bar={
         <ActionBar
@@ -375,6 +377,7 @@ function ApproveCard({ item }: { item: NeedsYouItem }) {
       item={item}
       menu={menu.menu}
       dialogs={menu.dialogs}
+      notice={menu.notice}
       bar={
         focus.promptKey === item.key ? (
           <PromptBar item={item} flow={flow} />
@@ -452,6 +455,7 @@ function RecordCard({ item }: { item: NeedsYouItem }) {
       item={item}
       menu={menu.menu}
       dialogs={menu.dialogs}
+      notice={menu.notice}
       bar={
         <ActionBar
           primary={{
@@ -565,6 +569,7 @@ function DetailsCard({ item }: { item: NeedsYouItem }) {
     <CardFrame
       item={item}
       menu={menu.menu}
+      notice={menu.notice}
       dialogs={
         <>
           {menu.dialogs}

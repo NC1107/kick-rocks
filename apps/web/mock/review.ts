@@ -292,7 +292,13 @@ export function buildMockQueue(store: MockStore, profileId: string | undefined):
     return {
       task,
       requestReference: request?.reference ?? null,
-      url: info?.url ?? task.blockedUrl ?? request?.recordUrl ?? target?.optOutUrl ?? null,
+      url:
+        info?.url ??
+        task.blockedUrl ??
+        request?.recordUrl ??
+        target?.optOutUrl ??
+        target?.searchUrl ??
+        null,
       manualInstructions:
         info?.manualInstructions ??
         (task.status === "failed"

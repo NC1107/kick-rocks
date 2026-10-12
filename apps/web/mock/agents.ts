@@ -135,6 +135,7 @@ function switchToForm(store: MockStore, request: StoredRequest, at: string): voi
 /** Sets who has connected and makes sure a task waits for an agent. */
 export function applyAgentPreset(store: MockStore, preset: AgentPreset): void {
   store.agents = presetAgents(preset);
+  if (store.agents.some((agent) => agent.kind === "mcp")) store.settings.mcp.enabled = true;
   ensureDemoTasks(store);
 }
 
@@ -169,6 +170,13 @@ function refusalFor(
   if (task.status !== "queued" && task.status !== "blocked") return null;
   const target = store.targets.find((candidate) => candidate.id === task.targetId);
   if (kind === "mcp") {
+    if (!store.settings.mcp.enabled) {
+      return {
+        code: "mcp_off",
+        message: "MCP access is off, so no MCP client can take it.",
+        settingsPath: "/settings/agents",
+      };
+    }
     const { proxyUrl, domains } = store.settings.egress;
     if (proxyUrl && target && domains.includes(target.domain)) {
       return {
