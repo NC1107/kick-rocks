@@ -262,12 +262,12 @@ function SourceRow({ source }: { source: DataSourceInfo }) {
 function LimitsSection() {
   return (
     <Section label="Limits">
-      <div className="flex max-w-prose flex-col gap-2 text-body text-ink">
-        <p>Not legal advice; laws may not apply and deletion is not guaranteed.</p>
-        <p>A broker can add you back, which is why rescans exist.</p>
-        <p>Writing to a broker that never had you can link your name and email.</p>
-        <p>Without a state law, a company's own privacy policy applies, if any.</p>
-      </div>
+      <ul className="flex max-w-prose list-none flex-col gap-2 text-body text-ink">
+        <li>Not legal advice; laws may not apply and deletion is not guaranteed.</li>
+        <li>Brokers can add you back, which is why rescans exist.</li>
+        <li>Contacting a broker without your data can link your name and email.</li>
+        <li>Without a state law, a company's own privacy policy applies, if any.</li>
+      </ul>
     </Section>
   );
 }
@@ -275,21 +275,21 @@ function LimitsSection() {
 function AttributionSection() {
   return (
     <Section label="Attribution">
-      <div className="flex max-w-prose flex-col gap-2 text-body text-ink">
-        <p>
+      <ul className="flex max-w-prose list-none flex-col gap-2 text-body text-ink">
+        <li>
           <ExternalLinkText href={BADBOOL_URL}>Big Ass Data Broker Opt-Out List</ExternalLinkText>
-        </p>
-        <p>
+        </li>
+        <li>
           By Yael Grauer, under{" "}
           <ExternalLinkText href={CC_BY_NC_SA_URL}>CC BY-NC-SA 4.0</ExternalLinkText>
-        </p>
-        <p>Entries converted and extended; this list keeps CC BY-NC-SA, apart from the app code.</p>
-        <p>
-          <ExternalLinkText href={ERASER_URL}>Eraser</ExternalLinkText>, under the MIT license.
-        </p>
-        <p>Eraser's MIT license text stays in the repository.</p>
-        <p className="text-ink-2">Contacts were checked against each company's privacy page.</p>
-      </div>
+        </li>
+        <li>Converted and extended; CC BY-NC-SA applies, apart from the app code.</li>
+        <li>
+          <ExternalLinkText href={ERASER_URL}>Eraser</ExternalLinkText>, MIT license, text in the
+          repository.
+        </li>
+        <li className="text-ink-2">Contacts were checked against each company's privacy page.</li>
+      </ul>
     </Section>
   );
 }

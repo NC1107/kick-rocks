@@ -177,8 +177,15 @@ export function Component() {
           setPending(null);
           remove.reset();
         }}
-        title={`Delete ${pending?.displayName ?? "this profile"}?`}
-        description="Deletes its identities, mailbox, requests and replies for good."
+        title="Delete profile?"
+        description={
+          <>
+            <span data-user-content="" className="text-ink">
+              {pending?.displayName}
+            </span>{" "}
+            loses its identities, mailbox, requests and replies for good.
+          </>
+        }
         confirmLabel="Delete profile"
         destructive
         loading={remove.isPending}

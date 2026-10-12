@@ -76,7 +76,7 @@ describe("the about page", () => {
       "href",
       "https://creativecommons.org/licenses/by-nc-sa/4.0/",
     );
-    expect(card).toHaveTextContent(/converted and extended/);
+    expect(card).toHaveTextContent(/onverted and extended/);
     expect(card).toHaveTextContent(/apart from the app code/);
   });
 

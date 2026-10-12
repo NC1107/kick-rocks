@@ -66,7 +66,7 @@ describe("the profiles list", () => {
     const row = await screen.findByRole("listitem", { name: /Riley Sample/ });
     await user.click(within(row).getByRole("button", { name: "Delete Riley Sample" }));
 
-    const dialog = await screen.findByRole("dialog", { name: "Delete Riley Sample?" });
+    const dialog = await screen.findByRole("dialog", { name: "Delete profile?" });
     expect(mock.store.profiles).toHaveLength(3);
     await user.click(within(dialog).getByRole("button", { name: "Delete profile" }));
 
@@ -81,7 +81,7 @@ describe("the profiles list", () => {
     const { user, mock } = renderPage(<ProfilesPage />);
     const row = await screen.findByRole("listitem", { name: /Riley Sample/ });
     await user.click(within(row).getByRole("button", { name: "Delete Riley Sample" }));
-    const dialog = await screen.findByRole("dialog", { name: "Delete Riley Sample?" });
+    const dialog = await screen.findByRole("dialog", { name: "Delete profile?" });
     await user.click(within(dialog).getByRole("button", { name: "Cancel" }));
     expect(mock.store.profiles).toHaveLength(3);
     expect(screen.getByRole("listitem", { name: /Riley Sample/ })).toBeInTheDocument();
