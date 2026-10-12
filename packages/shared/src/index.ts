@@ -20,6 +20,7 @@ export * from "./mail-hosts.js";
 export * from "./match-score.js";
 export * from "./mcp.js";
 export * from "./model-recommend.js";
+export * from "./needs-you.js";
 export * from "./notifications.js";
 export * from "./outcomes.js";
 export * from "./outgoing.js";

@@ -36,7 +36,7 @@ A page lives where its URL says, inside its area:
 | `/campaigns/new` | `src/pages/campaigns/new/index.tsx` |
 | `/requests` | `src/pages/requests/index.tsx` |
 | `/requests/:id` | `src/pages/requests/detail/index.tsx` |
-| `/review` | `src/pages/review/index.tsx` |
+| `/review`, `/review/mail`, `/review/agents`, `/review/problems`, `/review/scans` | `src/pages/review/index.tsx` |
 | `/settings` | `src/pages/settings/index.tsx` |
 | `/settings/recipes` | `src/pages/settings/recipes/index.tsx` |
 | `/settings/agents` | `src/pages/settings/agents/index.tsx` |
@@ -154,7 +154,7 @@ It also behaves like the real server where a UI can notice: 401 when signed out,
 | `mock/targets.ts` | `/targets*` |
 | `mock/campaigns.ts` | `/profiles/:id/campaigns*` |
 | `mock/requests.ts` | `/profiles/:id/requests`, `/requests/*` |
-| `mock/review.ts` | `/review`, `/tasks/*`, `/matches/*`, `/messages/*`, `/profiles/:id/scans` |
+| `mock/review.ts` | `/review`, `/needs-you*`, `/tasks/*`, `/matches/*`, `/messages/*`, `/profiles/:id/scans` |
 | `mock/settings.ts` | `/settings*` except data sources, `/recipes*` |
 | `mock/notifications.ts` | `/notifications*`, mounted through the settings domain |
 

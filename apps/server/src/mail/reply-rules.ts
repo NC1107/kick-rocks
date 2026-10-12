@@ -5,20 +5,57 @@ export interface Signal {
   classification: ReplyClassification;
   confidence: number;
   rationale: string;
+  /** What gave the reading, or null when it came from a guess about the sender rather than from the message. */
+  rule: ReadingId | null;
 }
 
+/** Readings that come from the headers of a message, not from what it says. */
+export type StructuralId = "delivery-report" | "automatic-reply";
+/** A reading that moves a request only when that request is waiting for it. */
+export type WaitingId = "confirmation-link";
+export type ReadingId = RuleId | StructuralId | WaitingId;
+
+export type RuleId =
+  | "identity-document"
+  | "identity-unverified"
+  | "more-information"
+  | "email-not-accepted"
+  | "use-online-form"
+  | "must-use-other-channel"
+  | "do-it-yourself"
+  | "no-record"
+  | "declined"
+  | "has-been-done"
+  | "we-have-done"
+  | "provider-did-it"
+  | "acknowledged";
+
+/**
+ * How a rule treats a negation or a condition before its match:
+ * - `full`: any negation or condition in the clause, or "if" in the sentence, voids the match.
+ * - `asking`: for rules that read a request, so "will" and "when" do not void "we will need a copy".
+ * - `conditional`: only "if", "unless" or "whether" in the sentence voids it, for wording that is
+ *   itself often written next to a refusal ("we cannot do it, so use the form").
+ * - `ignore`: the rule describes something that has not happened yet, or its own wording is a negation.
+ */
+type NegationMode = "full" | "asking" | "conditional" | "ignore";
+
 interface Rule {
+  id: RuleId;
   classification: ReplyClassification;
   confidence: number;
   label: string;
   pattern: RegExp;
-  /** The rule describes a state that has not happened yet or is conditional, so a negation does not apply. */
-  ignoreNegation?: boolean;
+  negation?: NegationMode;
 }
 
 /** Words that, just before a phrase in the same sentence, turn "has been removed" into "has not". */
 const NEGATION =
   /\b(not|never|no|unable|cannot|can't|couldn't|won't|unless|until|once|if|when|before|after|until|whether|will)\b|n't\b/i;
+const ASKING_NEGATION =
+  /\b(not|never|no|unable|cannot|can't|couldn't|won't|unless|if|whether)\b|n't\b/i;
+/** A condition anywhere earlier in the sentence, even past a comma: "If you do not X, then Y". */
+const CONDITION = /\b(if|unless|whether|in the event|in case(?! (?:no\.? ?|number |#)?\d))\b/i;
 
 /** The words of the clause before a match, which is where a negation or a condition would sit. */
 function sentenceBefore(text: string, index: number): string {
@@ -28,10 +65,27 @@ function sentenceBefore(text: string, index: number): string {
   return last ? head.slice(last.index + last[0].length) : head;
 }
 
-function firstMatch(rule: Rule, text: string): RegExpExecArray | null {
+/** Everything from the start of the sentence up to a match. */
+function sentenceHead(text: string, index: number): string {
+  const head = text.slice(Math.max(0, index - 200), index);
+  const boundaries = [...head.matchAll(/[.!?\n]/g)];
+  const last = boundaries[boundaries.length - 1];
+  return last ? head.slice(last.index + 1) : head;
+}
+
+function voided(rule: Rule, text: string, index: number): boolean {
+  const mode = rule.negation ?? "full";
+  if (mode === "ignore") return false;
+  if (mode !== "asking" && CONDITION.test(sentenceHead(text, index))) return true;
+  if (mode === "conditional") return false;
+  const clause = sentenceBefore(text, index);
+  return (mode === "asking" ? ASKING_NEGATION : NEGATION).test(clause);
+}
+
+export function firstMatch(rule: Rule, text: string): RegExpExecArray | null {
   const pattern = new RegExp(rule.pattern.source, `${rule.pattern.flags.replace("g", "")}g`);
   for (let match = pattern.exec(text); match; match = pattern.exec(text)) {
-    if (rule.ignoreNegation || !NEGATION.test(sentenceBefore(text, match.index))) return match;
+    if (!voided(rule, text, match.index)) return match;
     if (match[0] === "") pattern.lastIndex += 1;
   }
   return null;
@@ -72,48 +126,105 @@ const REQUIRED_CHANNEL = [
   String.raw`\(?\d{3}\)?[ .-]\d{3}[ .-]\d{4}`,
 ].join("|");
 const NO_STOP = `[^.!?]`;
+/**
+ * Like NO_STOP, but it cannot run through a verb that attaches something to a request or points at
+ * an explanation, so "must include a signed form, as explained at https://..." does not read as a
+ * place to send the request.
+ */
+const NOT_A_DESCRIPTION = String.raw`(?:(?!\b(?:includes?|including|accompan\w+|contains?|attach\w*|explain\w*|described?|detail\w*|outlined?|provide[sd]?)\b)[^.!?])`;
 
-const RULES: Rule[] = [
+/** Words that ask the reader to hand something over, which is what separates a request for it from a description of it. */
+const ASK_LEAD = `(?:please|kindly|must|(?:you|we|i)(?: will| would| may| must| should)? (?:need|require)s?(?: to)?|(?:is|are) required to|required to|requires?|submit|provide|send|upload|attach|supply|include|enclose|reply (?:to this e-?mail )?with)`;
+
+const IDENTITY_DOCUMENT = [
+  `proof of (?:your )?(?:identity|residen[ct]e)`,
+  `(?:copy|photo(?:copy)?|scan|picture|image) of (?:your |a )?(?:valid |current |government[- ]issued )*(?:photo )?(?:id|identification|passport|driver'?s licen[sc]e)`,
+  `photo id`,
+  `government[- ]issued (?:photo )?(?:id|identification)`,
+  `driver'?s licen[sc]e`,
+  `(?:valid|current) (?:photo )?(?:id|identification)`,
+].join("|");
+
+const MORE_INFORMATION_FIELDS = String.raw`full name|date of birth|dob|address|phone number|zip|birth ?date|city(?![-\w.])|(?:direct |full )?(?:link|url)\b[^.\n]{0,40}\b(?:page|profile|listing|record)`;
+
+/**
+ * The wording rules, in no particular order. A rule's answer is applied without a person only when
+ * its id is in PROVEN_RULES; every other answer is a suggestion that Review starts from.
+ */
+export const RULES: Rule[] = [
   {
+    id: "identity-document",
     classification: "verification_required",
     confidence: 0.9,
-    label: "asks to verify identity",
-    ignoreNegation: true,
-    pattern:
-      /\b(verify|confirm|prove|validate)\b.{0,30}\b(your )?identity\b|\bproof of (your )?(identity|residen[ct]e)\b|\bidentity verification\b|\b(government|state)[- ]issued\b|\bdriver'?s licen[sc]e\b|\bcopy of (your )?(id|identification|passport)\b|\bphoto id\b/i,
+    label: "asks for proof of identity",
+    negation: "asking",
+    pattern: new RegExp(
+      [
+        String.raw`\b${ASK_LEAD}\b[^.!?\n]{0,60}?\b(?:${IDENTITY_DOCUMENT})\b`,
+        String.raw`\b${ASK_LEAD}\b[^.!?\n]{0,30}?\b(?:verify|confirm|validate|prove)\b[^.!?\n]{0,15}\byour identity\b`,
+      ].join("|"),
+      "i",
+    ),
   },
   {
+    id: "identity-unverified",
+    classification: "verification_required",
+    confidence: 0.85,
+    label: "says the identity could not be verified",
+    negation: "ignore",
+    pattern:
+      /\b(?:could not|couldn't|unable to|cannot|can't|were not able to|was not able to) (?:verify|confirm|validate) your identity\b/i,
+  },
+  {
+    id: "more-information",
     classification: "verification_required",
     confidence: 0.8,
     label: "asks for more information",
-    ignoreNegation: true,
-    pattern:
-      /\b(need|require|requires|requiring|request|requesting)\b.{0,40}\b(additional|more|further|following)\b.{0,30}\b(information|details|identifiers)\b|\bplease (provide|send|supply|reply with)\b.{0,80}\b(full name|date of birth|dob|address|phone number|zip|birth ?date|city)\b|\bplease confirm\b.{0,40}\b(full name|date of birth|dob|phone number|birth ?date|street address|home address|mailing address)\b|\bto (locate|find|verify|process) (your|the) (record|request|information).{0,80}\b(please|we need|provide)\b/i,
+    negation: "asking",
+    pattern: new RegExp(
+      [
+        String.raw`\b(?:need|require|requires|requiring|requesting|(?:we|i) request)\b.{0,40}\b(?:additional|more|further|following)\b.{0,30}\b(?:information|details|identifiers)\b`,
+        String.raw`\bplease (?:provide|send|supply|reply with)\b(?!.{0,80}\bto\s+\S*@).{0,80}\b(?:${MORE_INFORMATION_FIELDS})\b`,
+        String.raw`\bplease confirm\b.{0,40}\b(?:full name|date of birth|dob|phone number|birth ?date|street address|home address|mailing address)\b`,
+        String.raw`\bto (?:locate|find|verify|process) (?:your|the) (?:record|request|information).{0,80}\b(?:please|we need|provide)\b`,
+        String.raw`\b(?:please|kindly)\b[^.!?]{0,40}\b(?:provide|send|supply|reply with|let us know)\b[^.!?]{0,40}\b(?:following|below) (?:information|details)\b`,
+        String.raw`\byou (?:must|need to|have to) (?:submit|provide|send)\b[^.!?]{0,60}\b(?:identifiers?|documents?|information|details)\b`,
+      ].join("|"),
+      "i",
+    ),
   },
   {
+    id: "email-not-accepted",
     classification: "needs_form",
     confidence: 0.9,
     label: "points to a web form",
-    ignoreNegation: true,
-    pattern:
-      /\b(do not|don't|cannot|can't|unable to|no longer|only)\b.{0,30}\b(accept|process|handle|honou?r|take|receive)\b.{0,30}\b(request|requests)?.{0,20}\b(by|via|through|over|using)\b.{0,10}\be-?mail\b|\brequests?\b.{0,40}\b(must|can only|should) be (submitted|made|sent|filed)\b.{0,30}\b(via|through|at|using|on)\b/i,
+    negation: "ignore",
+    pattern: new RegExp(
+      [
+        String.raw`\b(?:do not|don't|cannot|can't|unable to|no longer|only)\b.{0,30}\b(?:accept|process|handle|honou?r|take|receive)\b.{0,30}\b(?:requests?)?.{0,20}\b(?:by|via|through|over|using)\b.{0,10}\be-?mail\b`,
+        String.raw`\brequests?\b${NO_STOP}{0,40}\b(?:must|can only|should) be (?:submitted|made|sent|filed)\b${NO_STOP}{0,30}\b(?:via|through|at|using|on) (?:(?:our|the|an?|this|its) )?(?:${REQUIRED_CHANNEL})`,
+      ].join("|"),
+      "i",
+    ),
   },
   {
+    id: "use-online-form",
     classification: "needs_form",
     confidence: 0.85,
     label: "asks to use an online form",
-    ignoreNegation: true,
+    negation: "full",
     pattern:
       /\bplease\b.{0,30}\b(use|submit|complete|visit|go to|fill out|fill in)\b.{0,30}\b(our|the|this)\b.{0,25}\b(?:(?:online |web |privacy |opt[- ]?out |request )*(?:form|portal|webform)|(?:request |opt[- ]?out )(?:page|center|centre))\b|\b(use|submit|complete|fill out) (our|the) (online |web )?(opt[- ]?out |privacy (request )?)?(form|portal)\b/i,
   },
   {
+    id: "must-use-other-channel",
     classification: "needs_form",
     confidence: 0.9,
     label: "says requests must be made another way",
-    ignoreNegation: true,
+    negation: "ignore",
     pattern: new RegExp(
       [
-        String.raw`\brequests?\b${NO_STOP}{0,60}\b(?:must|should|can only|may only|need to|have to|are required to|only)\b${NO_STOP}{0,60}\b(?:submitted|made|sent|filed|received|accepted|processed|through|via|by|at|using|on)\b${NO_STOP}{0,80}\b(?:${REQUIRED_CHANNEL})`,
+        String.raw`\brequests?\b${NO_STOP}{0,60}\b(?:must|should|can only|may only|need to|have to|are required to|only)\b${NOT_A_DESCRIPTION}{0,60}\b(?:submitted|made|sent|filed|received|accepted|processed|through|via|by|at|using|on)\b${NO_STOP}{0,80}\b(?:${REQUIRED_CHANNEL})`,
         String.raw`\b(?:must|should|need to|have to|are required to|can only|may only|only)\b${NO_STOP}{0,40}\b(?:submit|make|send|file|lodge|exercise)\b${NO_STOP}{0,40}\b(?:requests?|submissions?)\b${NO_STOP}{0,80}\b(?:${REQUIRED_CHANNEL})`,
         String.raw`\bto (?:submit|make|file|exercise|start|initiate)\b${NO_STOP}{0,60}\b(?:requests?|rights)\b${NO_STOP}{0,100}\b(?:${NAMED_CHANNEL})`,
         String.raw`\b(?:please|kindly)\b${NO_STOP}{0,40}\b(?:use|submit|complete|visit|go to|fill|file|make|send|access|call|log ?in|open|create|raise)\b${NO_STOP}{0,60}\b(?:${NAMED_CHANNEL})`,
@@ -126,44 +237,135 @@ const RULES: Rule[] = [
     ),
   },
   {
+    id: "do-it-yourself",
+    classification: "needs_form",
+    confidence: 0.85,
+    label: "sends the person to do it themselves",
+    negation: "conditional",
+    pattern: new RegExp(
+      [
+        String.raw`\b(?:log ?in|sign in)\b${NO_STOP}{0,50}\b(?:delete|deactivate|remove|close)\b${NO_STOP}{0,30}\b(?:yourself|your (?:own )?account)\b`,
+        String.raw`\b(?:delete|deactivate|remove|close) (?:it|your account|your data) yourself\b`,
+        String.raw`\byou can (?:deactivate|delete|close|remove) your (?:account|profile)\b`,
+        String.raw`\bfollowing the instructions (?:for|in|on) (?:your|the|our)\b`,
+        String.raw`\b(?:you (?:should|must|need to|can|may|will need to)|please) (?:submit|file|complete|fill out) (?:an?|the) (?:new )?(?:[\w-]+ ){0,4}(?:form|webform)\b`,
+      ].join("|"),
+      "i",
+    ),
+  },
+  {
+    id: "no-record",
     classification: "no_record",
     confidence: 0.9,
     label: "says no record was found",
-    ignoreNegation: true,
-    pattern:
-      /\b(could not|couldn't|can not|cannot|unable to|did not|didn't|do not|don't|were not able to|was not able to)\b.{0,20}\b(find|locate|identify|match)\b.{0,60}\b(record|records|information|data|account|profile|listing|you|your)\b|\bno (matching |such |personal )?(record|records|data|information|account|profile|listing|match|matches|results?)\b.{0,30}\b(found|on file|exist|associated|located|matching)\b|\bwe (do not|don't) (have|hold|maintain|collect|keep|store|sell) any (personal )?(information|data|records?)\b/i,
+    negation: "ignore",
+    pattern: new RegExp(
+      [
+        String.raw`\b(?:could not|couldn't|can not|cannot|unable to|did not|didn't|do not|don't|were not able to|was not able to)\b.{0,20}\b(?:find|locate|identify|match)\b(?![^.]{0,80}\bin an? (?:response|output|answer)\b).{0,60}\b(?:record|records|information|data|account|profile|listing|you|your|phone number|e-?mail(?: address)?|number)\b`,
+        String.raw`\bno (?:matching |such |personal )?(?:record|records|data|information|account|profile|listing|match|matches|results?)\b.{0,30}\b(?:found|on file|exist|associated|located|matching)\b`,
+        String.raw`\bwe (?:do not|don't) (?:have|hold|maintain|collect|keep|store|sell) any (?:personal )?(?:information|data|records?)\b`,
+        String.raw`\b(?:do not|don't|does not|doesn't) (?:generally |currently )?(?:have|hold|maintain|keep|store) (?:any )?personal (?:information|data|records?)\b`,
+      ].join("|"),
+      "i",
+    ),
   },
   {
+    id: "declined",
     classification: "rejected",
     confidence: 0.85,
     label: "declines the request",
-    ignoreNegation: true,
-    pattern:
-      /\b(unable|not able|cannot|can't|will not|won't|are not required|do not have to)\b.{0,20}\b(process|honou?r|fulfil+|comply|complete|grant|accept)\b.{0,40}\b(your |this )?(request|opt[- ]?out|deletion)\b|\bwe (have )?(denied|declined|rejected)\b|\brequest (is |has been |was )?(denied|declined|rejected)\b|\b(not|no longer) (a )?(resident|eligible|subject to)\b|\bexempt from\b/i,
+    negation: "ignore",
+    pattern: new RegExp(
+      [
+        String.raw`\b(?:unable|not able|cannot|can't|will not|won't|are not required|do not have to)\b.{0,20}\b(?:process|honou?r|fulfil+|comply|complete|grant|accept)\b.{0,40}\b(?:your |this )?(?:request|opt[- ]?out|deletion)\b`,
+        String.raw`\bwe (?:have )?(?:denied|declined|rejected)\b`,
+        String.raw`\brequest (?:is |has been |was )?(?:processed and )?(?:denied|declined|rejected)\b`,
+        String.raw`\b(?:not|no longer) (?:an? )?(?:[a-z]+ ){0,2}(?:resident|eligible|subject to)\b`,
+        String.raw`\bexempt from\b`,
+        String.raw`\b(?:unable|not able|cannot|can't|will not|won't)\b.{0,10}\b(?:delete|remove|erase)\b`,
+        String.raw`\b(?:cannot|can't|unable to|not able to) take (?:any )?(?:further |additional )?action\b`,
+        String.raw`\bnot (?:covered|subject) (?:under|by|to)\b`,
+        String.raw`\bacts? as (?:the |a )?(?:data )?processor\b`,
+      ].join("|"),
+      "i",
+    ),
   },
   {
+    id: "has-been-done",
     classification: "completed",
     confidence: 0.9,
     label: "says the request is done",
     pattern:
-      /\b(has|have) been (successfully |fully |permanently )?(removed|deleted|erased|suppressed|opted[- ]out|unsubscribed|processed|completed|fulfil+ed|honou?red)\b/i,
+      /\b(has|have) been (successfully |fully |permanently )?(removed|deleted|erased|suppressed|opted[- ]out|unsubscribed|completed|fulfil+ed|honou?red)\b/i,
   },
   {
+    id: "we-have-done",
     classification: "completed",
     confidence: 0.8,
     label: "says the request is done",
     pattern:
-      /\bwe (have|ve|'ve) (now )?(successfully |fully |permanently )?(removed|deleted|erased|suppressed|opted|unsubscribed|processed|completed|honou?red|fulfil+ed)\b|\byou (have been|are now|will no longer be)\b.{0,20}\b(removed|opted[- ]out|unsubscribed|deleted)\b|\byour (request|opt[- ]?out|deletion request|data|information|record)s? (is|are|has been|have been) (now )?(complete|completed|fulfil+ed|processed|deleted|removed)\b/i,
+      /\bwe (have|ve|'ve) (now )?(successfully |fully |permanently )?(removed|deleted|erased|suppressed|opted|unsubscribed|processed|completed|honou?red|fulfil+ed)\b(?!\s+(?:our|the|a|an)\s+(?:review|search|investigation|assessment))|\byou (have been|are now|will no longer be)\b.{0,20}\b(removed|opted[- ]out|unsubscribed|deleted)\b|\byour (request|opt[- ]?out|deletion request|data|information|record)s? (is|are|has been|have been) (now )?(complete|completed|fulfil+ed|deleted|removed)\b/i,
   },
   {
+    id: "provider-did-it",
+    classification: "completed",
+    confidence: 0.8,
+    label: "says the company has done it",
+    pattern: new RegExp(
+      [
+        String.raw`\b(?:has|have) (?:now |successfully |fully )*(?:processed|completed|complied|honou?red|fulfil+ed)\b(?!\s+(?:our|the|a|an)\s+(?:review|search|investigation|assessment))[^.!?]{0,60}\b(?:request|opt[- ]?out|removal|deletion|data|information)\b`,
+        String.raw`\bprocessed (?:the|your) request\b`,
+        String.raw`\badded\b[^.!?]{0,80}\bsuppression list\b`,
+      ].join("|"),
+      "i",
+    ),
+  },
+  {
+    id: "acknowledged",
     classification: "auto_ack",
     confidence: 0.85,
     label: "acknowledges receipt",
-    ignoreNegation: true,
+    negation: "ignore",
     pattern:
-      /\b(we|i)( have|'ve|'ve| just)? (received|got) your (request|message|e-?mail|inquiry|enquiry|submission)\b|\bthank you for (contacting|submitting|reaching out|your (request|submission|e-?mail|message|inquiry))\b|\byour (ticket|case) (has been|was) (created|opened|logged)\b|\b(will|shall) (respond|reply|get back|review|be in touch|process)\b|\bwithin \d+ (business |working |calendar )?(days|hours)\b/i,
+      /\b(?:we|i)(?: have|'ve| just)? (?:received|got) your (?:request|message|e-?mail(?! address)|inquiry|enquiry|submission)\b|\byour (?:ticket|case) (?:has been|was) (?:created|opened|logged)\b|\b(?:will|shall) (?:respond|reply|get back|review|be in touch|process)\b/i,
   },
 ];
+
+/**
+ * The wording rules whose answer is applied without a person. A rule joins only after fresh mail
+ * from the product's own inbox shows at least 95% precision with real support: about 60 correct
+ * decisions in a row put the 95% Wilson lower bound at 95%. No rule has that yet. The best
+ * three were right on 4, 4 and 4 of the real labeled replies, which bounds each at about 51% to
+ * 57%, and parts of them never fired on real mail, so every wording rule only suggests.
+ * The counts are in docs/reply-classifier.md.
+ */
+export const PROVEN_RULES: ReadonlySet<RuleId> = new Set<RuleId>([]);
+
+/**
+ * Readings from the headers of a message rather than its words. The real replies carry no
+ * headers, so they could not measure these; they apply behind the sender trust checks, which a
+ * delivery report must still pass.
+ */
+export const STRUCTURAL_READINGS: ReadonlySet<StructuralId> = new Set<StructuralId>([
+  "delivery-report",
+  "automatic-reply",
+]);
+
+/**
+ * Readings that apply only for a request that is waiting for them. A confirmation link is
+ * followed because a form the system submitted is waiting for exactly that mail. Its wording was
+ * never measured, so with no waiting form it only suggests.
+ */
+export const WAITING_READINGS: ReadonlySet<WaitingId> = new Set<WaitingId>(["confirmation-link"]);
+
+export function appliesWithoutPerson(
+  reading: ReadingId | null,
+  { waiting = false }: { waiting?: boolean } = {},
+): boolean {
+  if (reading === null) return false;
+  if (WAITING_READINGS.has(reading as WaitingId)) return waiting;
+  return PROVEN_RULES.has(reading as RuleId) || STRUCTURAL_READINGS.has(reading as StructuralId);
+}
 
 const OUT_OF_OFFICE =
   /\b(out of (the )?office|automatic reply|auto[- ]?reply|autoreply|on (annual )?leave|on vacation|away from (my|the) (desk|office)|i am currently (away|out))\b/i;
@@ -210,6 +412,35 @@ function redirectsElsewhere(text: string): boolean {
   return RULES.some((rule) => rule.classification === "needs_form" && firstMatch(rule, text));
 }
 
+const ASKS: readonly ReplyClassification[] = ["verification_required", "needs_form"];
+const REFUSALS: readonly ReplyClassification[] = ["no_record", "rejected"];
+
+function byStrength(a: Signal, b: Signal): number {
+  return (
+    b.confidence - a.confidence ||
+    CLASS_PRIORITY.indexOf(a.classification) - CLASS_PRIORITY.indexOf(b.classification)
+  );
+}
+
+/**
+ * Strongest first, except that a request or a route outranks a missing or refused record that
+ * comes with it ("we found nothing, send the link"), and a finished request outranks a missing
+ * one ("deleted for the email, nothing for the phone"). The statement of an outcome is often the
+ * reason for the ask, so the ask is what the person has to act on.
+ */
+export function sortSignals(signals: Signal[]): Signal[] {
+  signals.sort(byStrength);
+  const lift = (classes: readonly ReplyClassification[]) => {
+    const index = signals.findIndex((signal) => classes.includes(signal.classification));
+    if (index > 0) signals.unshift(...signals.splice(index, 1));
+  };
+  const refused = (signal: Signal | undefined) =>
+    signal !== undefined && REFUSALS.includes(signal.classification);
+  if (refused(signals[0])) lift(ASKS);
+  if (refused(signals[0])) lift(["completed"]);
+  return signals;
+}
+
 /** Every signal the wording and headers give, strongest first. Bounces and out-of-office replies end the search. */
 export function matchSignals({ message, body }: RuleInput): Signal[] {
   const subject = message.subject;
@@ -221,6 +452,7 @@ export function matchSignals({ message, body }: RuleInput): Signal[] {
         classification: "auto_ack",
         confidence: 0.75,
         rationale: "A delivery delay notice, not a failure",
+        rule: message.isBounce ? "automatic-reply" : null,
       },
     ];
   }
@@ -230,6 +462,7 @@ export function matchSignals({ message, body }: RuleInput): Signal[] {
         classification: "bounce",
         confidence: 0.97,
         rationale: "A delivery status report from a mail server",
+        rule: "delivery-report",
       },
     ];
   }
@@ -244,6 +477,7 @@ export function matchSignals({ message, body }: RuleInput): Signal[] {
         classification: "bounce",
         confidence: 0.9,
         rationale: "A mail server reported that delivery failed",
+        rule: "delivery-report",
       },
     ];
   }
@@ -259,6 +493,8 @@ export function matchSignals({ message, body }: RuleInput): Signal[] {
         classification: "auto_ack",
         confidence: 0.9,
         rationale: "An out-of-office or automatic reply",
+        // The subject alone is wording; only the machine-sent header makes it a structural reading.
+        rule: message.autoSubmitted ? "automatic-reply" : null,
       },
     ];
   }
@@ -270,6 +506,7 @@ export function matchSignals({ message, body }: RuleInput): Signal[] {
         classification: rule.classification,
         confidence: rule.confidence,
         rationale: `The reply ${rule.label}`,
+        rule: rule.id,
       });
     }
   }
@@ -291,14 +528,11 @@ export function matchSignals({ message, body }: RuleInput): Signal[] {
       classification: "auto_ack",
       confidence: 0.7,
       rationale: "Sent automatically, with no sign of a decision",
+      rule: null,
     });
   }
 
-  return signals.sort(
-    (a, b) =>
-      b.confidence - a.confidence ||
-      CLASS_PRIORITY.indexOf(a.classification) - CLASS_PRIORITY.indexOf(b.classification),
-  );
+  return sortSignals(signals);
 }
 
 interface FieldRule {
@@ -319,7 +553,7 @@ const FIELD_RULES: FieldRule[] = [
       /\b(your|registered|associated|primary|current|account|alternate) e-?mail( address(es)?)?\b|\be-?mail address(es)? (you|used|associated|on file)\b/i,
   },
   { field: "phone", pattern: /\b(phone|telephone|mobile|cell)( number)?\b/i },
-  { field: "city", pattern: /\b(city|town)\b/i },
+  { field: "city", pattern: /\b(city|town)\b(?![-.]\w)/i },
   {
     field: "state",
     pattern:

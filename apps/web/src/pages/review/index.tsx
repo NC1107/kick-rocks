@@ -1,12 +1,12 @@
 import { API_ROUTES, type ReviewQueue } from "@kickrocks/shared";
 import { useCallback, useEffect, useMemo, useRef } from "react";
-import { Navigate, useSearchParams } from "react-router";
+import { Navigate, useLocation, useSearchParams } from "react-router";
 import { errorMessage, useAgents, useApiQuery } from "../../api/index.js";
 import { RequireProfile } from "../../components/layout/RequireProfile.js";
 import {
   Button,
   Callout,
-  LinkButton,
+  LinkTabs,
   PageBack,
   PageHeader,
   Skeleton,
@@ -14,24 +14,24 @@ import {
 } from "../../components/ui/index.js";
 import { cn } from "../../lib/cn.js";
 import { describeFailure } from "../../lib/failures.js";
-import { paths } from "../../lib/paths.js";
+import { paths, type ReviewSection } from "../../lib/paths.js";
 import { useWide } from "../../lib/use-wide.js";
 import {
-  CheckForRepliesAction,
+  CheckForRepliesButton,
   ReplyCheckResult,
   useReplyCheck,
 } from "../mailbox/check-for-replies.js";
 import { CleanupPreview } from "../mailbox/intake-review.js";
 import { BlockedTaskDetail } from "./BlockedTaskDetail.js";
-import { DetailFrame } from "./DetailFrame.js";
+import { Focus } from "./focus/index.js";
 import { shortcutAllowed } from "./keys.js";
 import { MailDetail } from "./MailDetail.js";
-import { MatchDetail } from "./MatchDetail.js";
-import { buildEntries, pickEntry, type QueueEntry } from "./model.js";
+import { buildEntries, pickEntry, type QueueEntry, SECTION_KINDS, sectionCounts } from "./model.js";
 import { QueueList } from "./QueueList.js";
-import { VerificationDetail } from "./VerificationDetail.js";
+import { legacyDestination } from "./redirects.js";
 
 const DETAIL_ID = "review-detail";
+
 /** Selection and focus travel together, so Enter or Space acts on the row that looks selected. */
 function focusEntry(key: string) {
   document.querySelector<HTMLElement>(`[data-entry="${key}"] > :is(a, button)`)?.focus();
@@ -45,64 +45,113 @@ export function Component() {
   );
 }
 
+/** A tab shows a count only when there is something to count. */
+const some = (count: number | undefined): number | undefined => (count ? count : undefined);
+
+type Page = "needs-you" | ReviewSection;
+
+function pageOf(pathname: string): Page {
+  const section = pathname.replace(/\/+$/, "").split("/")[2];
+  return section === "mail" || section === "agents" || section === "problems"
+    ? section
+    : "needs-you";
+}
+
 function Loading() {
   return (
-    <div aria-busy="true" className="grid grid-cols-1 gap-5 lg:grid-cols-[22.5rem_minmax(0,1fr)]">
+    <div aria-busy="true" className="flex max-w-[40rem] flex-col gap-3">
       <span className="sr-only">Loading the review queue</span>
-      <div className="flex flex-col gap-2">
-        <Skeleton className="h-4 w-24" />
-        <Skeleton className="h-13 w-full" />
-        <Skeleton className="h-13 w-full" />
-        <Skeleton className="h-13 w-full" />
-      </div>
-      <div className="hidden rounded-md border border-line bg-surface p-5 lg:block">
+      <Skeleton className="h-10 w-full" />
+      <div className="rounded-md border border-line bg-surface p-5">
         <Skeleton className="mb-3 h-6 w-56" />
-        <SkeletonText lines={5} />
+        <SkeletonText lines={3} />
       </div>
     </div>
   );
 }
 
 function Review({ profileId, mailboxConnected }: { profileId: string; mailboxConnected: boolean }) {
-  const [params] = useSearchParams();
-  const check = useReplyCheck(profileId);
-  const queue = useApiQuery(API_ROUTES.reviewQueue, { query: { profileId } });
-  const drilled = params.has("item");
+  const { pathname, search } = useLocation();
+  const page = pageOf(pathname);
+  const review = useApiQuery(API_ROUTES.reviewQueue, { query: { profileId } });
+  const needsYou = useApiQuery(API_ROUTES.needsYouGet, {
+    query: { profileId },
+    refetchInterval: 30_000,
+  });
 
-  // The run log moved to the listing of each site, so the old address leads there.
-  if (params.get("item") === "scans" || (!drilled && params.get("tab") === "scans")) {
+  if (pathname.replace(/\/+$/, "") === "/review/scans") {
     return <Navigate to={paths.listings()} replace />;
   }
 
+  const onOldAddress = pathname.replace(/\/+$/, "") === "/review";
+  const queues =
+    review.data && needsYou.data ? { review: review.data, needsYou: needsYou.data } : undefined;
+  const moved = onOldAddress ? legacyDestination(search, queues) : null;
+  if (typeof moved === "string" && moved !== "wait") {
+    return <Navigate to={moved} replace />;
+  }
+
+  const counts = review.data ? sectionCounts(review.data) : null;
+  const tabs = [
+    {
+      to: paths.review(),
+      label: "Needs you",
+      end: true,
+      count: some(needsYou.data?.counts.active),
+    },
+    { to: paths.reviewSection("mail"), label: "Mail", count: some(counts?.mail) },
+    { to: paths.reviewSection("agents"), label: "Agents", count: some(counts?.agents) },
+    { to: paths.reviewSection("problems"), label: "Problems", count: some(counts?.problems) },
+    { to: paths.listings(), label: "Scans" },
+  ];
+
+  const failed = review.isError ? review.error : needsYou.isError ? needsYou.error : null;
+  const loading = page === "needs-you" ? needsYou.isPending || review.isPending : review.isPending;
+
   return (
     <>
-      <div className={cn(drilled && "max-lg:hidden")}>
-        <PageHeader
-          title="Review"
-          actions={
-            mailboxConnected ? <CheckForRepliesAction check={check} labelFrom="sm" /> : undefined
-          }
-        />
-        <ReplyCheckResult check={check} className="mb-5" />
-        <CleanupPreview profileId={profileId} rows={3} className="mb-4" />
+      <div className="[&>header]:mb-1">
+        <PageHeader title="Review" />
       </div>
-      {queue.isPending ? (
-        <Loading />
-      ) : queue.isError ? (
+      <div className="mb-5">
+        <LinkTabs label="Review pages" items={tabs} />
+      </div>
+      {failed ? (
         <Callout
           intent="danger"
           title="Could not load the review queue"
           action={
-            <Button size="sm" onClick={() => queue.refetch()}>
+            <Button
+              size="sm"
+              onClick={() => {
+                review.refetch();
+                needsYou.refetch();
+              }}
+            >
               Try again
             </Button>
           }
         >
-          {errorMessage(queue.error)}
+          {errorMessage(failed)}
         </Callout>
-      ) : (
-        <Queue queue={queue.data} profileId={profileId} />
-      )}
+      ) : loading || moved === "wait" ? (
+        <Loading />
+      ) : page === "needs-you" && needsYou.data && review.data ? (
+        <Focus
+          profileId={profileId}
+          mailboxConnected={mailboxConnected}
+          queue={needsYou.data}
+          review={review.data}
+        />
+      ) : review.data && page !== "needs-you" ? (
+        <ListPage
+          key={page}
+          page={page}
+          queue={review.data}
+          profileId={profileId}
+          mailboxConnected={mailboxConnected}
+        />
+      ) : null}
     </>
   );
 }
@@ -117,14 +166,12 @@ function Detail({
   profileId: string;
 }) {
   switch (entry.kind) {
-    case "blocked":
     case "agents":
-    case "yours":
       return (
         <BlockedTaskDetail
           key={entry.key}
           item={entry.item}
-          variant={entry.kind === "agents" ? "agent" : entry.kind === "yours" ? "yours" : "blocked"}
+          variant="agent"
           profileId={profileId}
         />
       );
@@ -145,30 +192,41 @@ function Detail({
         />
       );
     }
-    case "matches":
-      return <MatchDetail key={entry.key} match={entry.match} />;
-    case "verifications":
-      return <VerificationDetail key={entry.key} item={entry.item} />;
     case "mail":
       return <MailDetail key={entry.key} message={entry.message} profileId={profileId} />;
   }
 }
 
-function Queue({ queue, profileId }: { queue: ReviewQueue; profileId: string }) {
+const EMPTY: Record<ReviewSection, string> = {
+  mail: "No unsorted mail.",
+  agents: "Nothing is waiting for an agent.",
+  problems: "No problems.",
+};
+
+/** Mail, Agents and Problems: a list on the left and the open row on the right. */
+function ListPage({
+  page,
+  queue,
+  profileId,
+  mailboxConnected,
+}: {
+  page: ReviewSection;
+  queue: ReviewQueue;
+  profileId: string;
+  mailboxConnected: boolean;
+}) {
   const [params, setParams] = useSearchParams();
-  const entries = useMemo(() => buildEntries(queue), [queue]);
-  const agents = useAgents({ enabled: queue.agentTasks.length > 0 });
+  const check = useReplyCheck(profileId);
+  const all = useMemo(() => buildEntries(queue), [queue]);
+  const kinds = SECTION_KINDS[page];
+  const entries = useMemo(() => all.filter((entry) => kinds.includes(entry.kind)), [all, kinds]);
+  const agents = useAgents({ enabled: page === "agents" && entries.length > 0 });
   const itemParam = params.get("item");
-  const tabParam = params.get("tab");
   const lastIndex = useRef(0);
   const pane = useRef<HTMLDivElement>(null);
   const wide = useWide();
 
-  const selected = pickEntry(entries, {
-    item: itemParam,
-    tab: tabParam,
-    lastIndex: lastIndex.current,
-  });
+  const selected = pickEntry(entries, { item: itemParam, lastIndex: lastIndex.current });
   const selectedKey = selected?.key ?? null;
 
   useEffect(() => {
@@ -178,12 +236,9 @@ function Queue({ queue, profileId }: { queue: ReviewQueue; profileId: string }) 
   // After a decision removes the open item, the URL names the item that took its place.
   useEffect(() => {
     if (itemParam !== null && itemParam !== selectedKey) {
-      setParams(
-        selectedKey === null ? new URLSearchParams() : new URLSearchParams({ item: selectedKey }),
-        {
-          replace: true,
-        },
-      );
+      setParams(selectedKey ? new URLSearchParams({ item: selectedKey }) : new URLSearchParams(), {
+        replace: true,
+      });
     }
   }, [itemParam, selectedKey, setParams]);
 
@@ -213,18 +268,22 @@ function Queue({ queue, profileId }: { queue: ReviewQueue; profileId: string }) 
   });
 
   useEffect(() => {
-    if (selectedKey === null) return;
-    document.querySelector(`[data-entry="${selectedKey}"]`)?.scrollIntoView?.({ block: "nearest" });
+    if (selectedKey) {
+      document
+        .querySelector(`[data-entry="${selectedKey}"]`)
+        ?.scrollIntoView?.({ block: "nearest" });
+    }
   }, [selectedKey]);
 
-  // Deciding an item removes the control that had focus, and the queue advances behind it. The new
+  // Deciding an item removes the control that had focus, and the list advances behind it. The new
   // row takes focus, once any confirm dialog has closed, so a keyboard user carries on from there.
   const owedFocus = useRef(false);
   const selectedRef = useRef(selectedKey);
   selectedRef.current = selectedKey;
   const previousKey = useRef(selectedKey);
+  const drilled = itemParam !== null;
   const listShownRef = useRef(true);
-  listShownRef.current = wide || itemParam === null;
+  listShownRef.current = wide || !drilled;
 
   const settleFocus = useCallback(() => {
     if (!owedFocus.current || document.querySelector("dialog[open]")) return;
@@ -232,7 +291,7 @@ function Queue({ queue, profileId }: { queue: ReviewQueue; profileId: string }) 
     const active = document.activeElement;
     if (active && active !== document.body) return;
     // Below the split layout the list is hidden while an item is open, so the pane takes focus.
-    if (listShownRef.current && selectedRef.current !== null) focusEntry(selectedRef.current);
+    if (listShownRef.current && selectedRef.current) focusEntry(selectedRef.current);
     else pane.current?.focus();
   }, []);
 
@@ -250,8 +309,6 @@ function Queue({ queue, profileId }: { queue: ReviewQueue; profileId: string }) 
     return () => document.removeEventListener("close", onClose, true);
   }, [settleFocus]);
 
-  const drilled = itemParam !== null;
-
   // Below the split layout, opening or closing an item swaps which half is on screen. The half
   // that was focused is now hidden, so focus follows the swap instead of falling to the body.
   const wasDrilled = useRef(drilled);
@@ -260,19 +317,32 @@ function Queue({ queue, profileId }: { queue: ReviewQueue; profileId: string }) 
     wasDrilled.current = drilled;
     if (wide) return;
     if (drilled) pane.current?.focus();
-    else if (selectedRef.current !== null) focusEntry(selectedRef.current);
+    else if (selectedRef.current) focusEntry(selectedRef.current);
   }, [drilled, wide]);
 
+  const mailHeader =
+    page === "mail" ? (
+      <div className="flex flex-col gap-3">
+        {mailboxConnected ? <CheckForRepliesButton check={check} /> : null}
+        <ReplyCheckResult check={check} />
+        <CleanupPreview profileId={profileId} compact />
+      </div>
+    ) : undefined;
+
   return (
-    <div className="grid grid-cols-1 gap-5 lg:h-[calc(100dvh-9.5rem)] lg:min-h-[30rem] lg:grid-cols-[22.5rem_minmax(0,1fr)]">
+    <div className="grid grid-cols-1 gap-5 lg:h-[calc(100dvh-14rem)] lg:min-h-[30rem] lg:grid-cols-[22.5rem_minmax(0,1fr)]">
       <div className={cn("min-h-0 lg:overflow-y-auto lg:pr-1 lg:pb-2", drilled && "max-lg:hidden")}>
         <QueueList
           entries={entries}
-          waiting={queue.waitingTasks}
-          waitingTotal={queue.waitingTotal}
+          kinds={kinds}
+          empty={EMPTY[page]}
+          {...(page === "agents"
+            ? { waiting: queue.waitingTasks, waitingTotal: queue.waitingTotal }
+            : {})}
           selectedKey={wide || drilled ? selectedKey : null}
           onSelect={(key) => select(key, { replace: wide })}
           agents={agents.data}
+          header={mailHeader}
         />
       </div>
       <div
@@ -282,21 +352,13 @@ function Queue({ queue, profileId }: { queue: ReviewQueue; profileId: string }) 
         className={cn(
           "flex min-h-0 min-w-0 flex-col rounded-md border border-line bg-surface outline-none lg:overflow-hidden",
           !drilled && "max-lg:hidden",
+          !selected && "max-lg:hidden lg:hidden",
         )}
       >
         <div className="border-b border-line px-3 pt-3 pb-2 lg:hidden">
-          <PageBack fallback={{ to: paths.review(), label: "Review" }} />
+          <PageBack fallback={{ to: paths.reviewSection(page), label: "Review" }} />
         </div>
-        {selected ? (
-          <Detail entry={selected} entries={entries} profileId={profileId} />
-        ) : (
-          <DetailFrame
-            label="Nothing selected"
-            title="Nothing needs you"
-            meta="New records, blocked tasks and mail show up here."
-            footer={<LinkButton to={paths.listings()}>Where you're listed</LinkButton>}
-          />
-        )}
+        {selected ? <Detail entry={selected} entries={entries} profileId={profileId} /> : null}
       </div>
     </div>
   );

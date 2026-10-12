@@ -2,6 +2,8 @@ import { mailboxes, matches, recipes, requests } from "@kickrocks/db";
 import { BROWSER_TASK_KINDS, type NotificationCategory } from "@kickrocks/shared";
 import { and, eq, isNotNull, or } from "drizzle-orm";
 import type { AppServices } from "../../services.js";
+import { createMarks } from "../review/marks.js";
+import { buildNeedsYouQueue } from "../review/needs-you.js";
 
 export const WORKER_OFFLINE_KEY = "worker:offline";
 export const WORKER_ABSENT_KEY = "worker:absent";
@@ -67,8 +69,15 @@ function workerOfflineWithWorkWaiting(services: AppServices): boolean {
 export function collectAttention(services: AppServices): AttentionItem[] {
   const { db, taskQueue } = services;
   const items: AttentionItem[] = [];
+  // A snoozed item stays quiet until it comes back, the same as in the queue.
+  const snoozed = new Set(
+    buildNeedsYouQueue(services, createMarks(services), undefined).snoozed.map(
+      (entry) => entry.key,
+    ),
+  );
 
   for (const task of taskQueue.list({ status: "blocked" })) {
+    if (snoozed.has(`task:${task.id}`)) continue;
     items.push({ category: "blocked_task", key: `task:${task.id}`, path: "/review" });
   }
   for (const row of db
@@ -76,6 +85,7 @@ export function collectAttention(services: AppServices): AttentionItem[] {
     .from(requests)
     .where(eq(requests.status, "needs_verification"))
     .all()) {
+    if (snoozed.has(`details:${row.id}`)) continue;
     items.push({ category: "verification", key: `verification:${row.id}`, path: "/review" });
   }
   for (const row of db
@@ -83,6 +93,7 @@ export function collectAttention(services: AppServices): AttentionItem[] {
     .from(matches)
     .where(eq(matches.decision, "pending"))
     .all()) {
+    if (snoozed.has(`match:${row.id}`)) continue;
     items.push({ category: "match", key: `match:${row.id}`, path: "/review" });
   }
   for (const row of db
@@ -104,7 +115,11 @@ export function collectAttention(services: AppServices): AttentionItem[] {
     items.push({ category: "recipe", key: `recipe:${row.id}`, path: "/settings/recipes" });
   }
   for (const task of taskQueue.list({ status: "queued", kinds: ["agent"] })) {
-    if (task.assignment?.to.kind === "person" && task.assignment.by === "fallback") {
+    if (
+      task.assignment?.to.kind === "person" &&
+      task.assignment.by === "fallback" &&
+      !snoozed.has(`task:${task.id}`)
+    ) {
       items.push({ category: "agent_unavailable", key: `assignment:${task.id}`, path: "/review" });
     }
   }

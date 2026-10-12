@@ -1,6 +1,7 @@
 import { outgoingMessageId, ReplyClassification } from "@kickrocks/shared";
 import { describe, expect, it } from "vitest";
 import { noDkim, signedAs } from "../test-utils/dkim.js";
+import { withProvenRules } from "../test-utils/proven-rules.js";
 import { createReplyClassifier } from "./classifier.js";
 import type { ModelResult, ReplyModelHost } from "./reply-model/types.js";
 import type { ClassifierRequest, InboxMessage } from "./types.js";
@@ -83,33 +84,17 @@ function host(result: ModelResult | (() => ModelResult | Promise<ModelResult>)) 
 
 interface Setup {
   model?: ReplyModelHost | undefined;
-  override?: number | null;
-  spotCheckPercent?: number;
-  paused?: boolean;
   llm?: { baseUrl: string; model: string; apiKey: null } | null;
   fetch?: typeof fetch;
-  random?: () => number;
   log?: (reason: string) => void;
 }
 
 function classifierWith(setup: Setup) {
-  const values: Record<string, unknown> = {
-    replyModel: {
-      spotCheckPercent: setup.spotCheckPercent ?? 0,
-      threshold: setup.override ?? null,
-    },
-    "replyModel.state": {
-      pausedAt: setup.paused ? "2026-10-01T00:00:00.000Z" : null,
-      reason: null,
-      countedFrom: null,
-    },
-    llm: setup.llm ?? null,
-  };
+  const values: Record<string, unknown> = { llm: setup.llm ?? null };
   return createReplyClassifier({
     settings: { get: ((key: string) => values[key]) as never },
     ...(setup.model ? { model: setup.model } : {}),
     ...(setup.fetch ? { fetch: setup.fetch } : {}),
-    ...(setup.random ? { random: setup.random } : {}),
     ...(setup.log ? { log: setup.log } : {}),
   });
 }
@@ -118,6 +103,8 @@ const classify = (setup: Setup, mail: InboxMessage = message()) =>
   classifierWith(setup).classify(mail, { requests: [request] });
 
 describe("the reply model after the rules", () => {
+  withProvenRules("has-been-done");
+
   it("is not asked when the rules are sure", async () => {
     const model = host(answer("rejected", 0.99));
     const result = await classify({ model }, message({ text: "Your data has been deleted." }));
@@ -126,50 +113,52 @@ describe("the reply model after the rules", () => {
     expect(result.prediction.model).toBeNull();
   });
 
-  it("applies a model answer at or above its threshold", async () => {
-    const result = await classify({ model: host(answer("no_record", 0.97)) });
+  it("is not asked when the rules are sure of a reading that only suggests", async () => {
+    const model = host(answer("rejected", 0.99));
+    const result = await classify(
+      { model },
+      message({ text: "We were unable to locate any record of you." }),
+    );
+    expect(model.calls).toHaveLength(0);
     expect(result).toMatchObject({
-      requestId: "req-1",
       classification: "no_record",
-      confidence: 0.97,
-      source: "model",
-      apply: true,
-      suggestion: null,
+      source: "rules",
+      apply: false,
+      suggestion: { classification: "no_record", source: "rules", spotCheck: false },
     });
-    expect(result.prediction).toMatchObject({
-      rules: { label: "unknown", confidence: 0.2 },
-      model: { version: "v1", label: "no_record", confidence: 0.97 },
-    });
-    expect(result.prediction.inputSha256).toMatch(/^[0-9a-f]{64}$/);
   });
 
-  it("only suggests an answer below the threshold, and leaves the rules' answer in place", async () => {
-    const result = await classify({ model: host(answer("no_record", 0.9)) });
+  it("never applies a model answer, however sure it is, and hands it to Review as a suggestion", async () => {
+    const result = await classify({ model: host(answer("no_record", 0.99)) });
     expect(result).toMatchObject({
+      requestId: "req-1",
       classification: "unknown",
       confidence: 0.2,
       source: "model",
       apply: false,
       suggestion: {
         classification: "no_record",
-        confidence: 0.9,
+        confidence: 0.99,
         source: "model",
         spotCheck: false,
       },
     });
+    expect(result.prediction).toMatchObject({
+      rules: { label: "unknown", confidence: 0.2 },
+      model: { version: "v1", label: "no_record", confidence: 0.99 },
+    });
+    expect(result.prediction.inputSha256).toMatch(/^[0-9a-f]{64}$/);
   });
 
-  it("never applies below 0.90 even when the manifest names a lower threshold", async () => {
-    const low = host(answer("no_record", 0.85, 0.5));
-    expect((await classify({ model: low })).apply).toBe(false);
-    const enough = host(answer("no_record", 0.92, 0.5));
-    expect((await classify({ model: enough })).apply).toBe(true);
-  });
-
-  it("lets the setting raise the threshold above the manifest's", async () => {
-    const model = host(answer("no_record", 0.97));
-    expect((await classify({ model, override: 0.99 })).apply).toBe(false);
-    expect((await classify({ model, override: 0.97 })).apply).toBe(true);
+  it("suggests the same way at a lower confidence", async () => {
+    const result = await classify({ model: host(answer("no_record", 0.9)) });
+    expect(result).toMatchObject({
+      classification: "unknown",
+      confidence: 0.2,
+      source: "model",
+      apply: false,
+      suggestion: { classification: "no_record", confidence: 0.9, source: "model" },
+    });
   });
 
   it("holds an answer to the sender trust cap", async () => {
@@ -217,73 +206,36 @@ describe("the reply model after the rules", () => {
     expect(result.prediction.model?.label).toBe("confirmation_link");
   });
 
-  it("keeps the links for a confirmation link on the request's site", async () => {
+  it("suggests a confirmation link on the request's site without applying it", async () => {
     const result = await classify(
       { model: host(answer("confirmation_link", 0.99)) },
       message({ text: "Please follow https://acme.test/x/abc123 to proceed." }),
     );
     expect(result).toMatchObject({
-      classification: "confirmation_link",
-      apply: true,
-      links: ["https://acme.test/x/abc123"],
+      apply: false,
+      source: "model",
+      suggestion: { classification: "confirmation_link", source: "model" },
     });
   });
 
-  it("keeps the form links for needs_form and the fields for verification_required", async () => {
+  it("suggests needs_form and verification_required without applying either", async () => {
     const form = await classify(
       { model: host(answer("needs_form", 0.99)) },
       message({ text: "Hmm. Our form is at https://acme.test/privacy-form if you want it." }),
     );
-    expect(form).toMatchObject({ classification: "needs_form", apply: true });
-    expect(form.links).toEqual(["https://acme.test/privacy-form"]);
+    expect(form).toMatchObject({
+      apply: false,
+      suggestion: { classification: "needs_form", source: "model" },
+    });
 
     const verify = await classify(
       { model: host(answer("verification_required", 0.99)) },
       message({ text: "Hmm. Reply with your zip and your phone number." }),
     );
-    expect(verify).toMatchObject({ classification: "verification_required", apply: true });
-    expect(verify.requestedFields).toEqual(["phone", "zip"]);
-  });
-});
-
-describe("spot checks", () => {
-  it("hold back a sampled share of answers that would have been applied", async () => {
-    const model = host(answer("no_record", 0.99));
-    const held = await classify({ model, spotCheckPercent: 10, random: () => 0.05 });
-    expect(held).toMatchObject({
-      classification: "unknown",
+    expect(verify).toMatchObject({
       apply: false,
-      suggestion: { classification: "no_record", spotCheck: true },
+      suggestion: { classification: "verification_required", source: "model" },
     });
-    const applied = await classify({ model, spotCheckPercent: 10, random: () => 0.5 });
-    expect(applied.apply).toBe(true);
-  });
-
-  it("are switched off at 0 percent", async () => {
-    const result = await classify({
-      model: host(answer("no_record", 0.99)),
-      spotCheckPercent: 0,
-      random: () => 0,
-    });
-    expect(result.apply).toBe(true);
-  });
-
-  it("make every answer a spot check while applying is paused", async () => {
-    const result = await classify({
-      model: host(answer("no_record", 0.99)),
-      paused: true,
-      random: () => 0.99,
-    });
-    expect(result).toMatchObject({ apply: false, suggestion: { spotCheck: true } });
-  });
-
-  it("do not hold back an answer that was never applicable", async () => {
-    const result = await classify({
-      model: host(answer("no_record", 0.9)),
-      spotCheckPercent: 100,
-      random: () => 0,
-    });
-    expect(result.suggestion?.spotCheck).toBe(false);
   });
 });
 
@@ -365,7 +317,8 @@ describe("when the reply model cannot answer", () => {
 });
 
 describe("mail that neither answers ours nor names the request", () => {
-  const ACK = "Your ticket has been created.";
+  withProvenRules("has-been-done");
+  const DONE = "Your data has been deleted.";
   const fromVendor = (text: string, overrides: Partial<InboxMessage> = {}) =>
     message({
       from: { name: "Support Desk", address: "desk@vendor.test" },
@@ -377,45 +330,48 @@ describe("mail that neither answers ours nor names the request", () => {
   const asked = (setup: Setup, mail: InboxMessage) =>
     classifierWith(setup).classify(mail, { requests: [request], senderTargetIds: ["acme"] });
 
-  it("is never applied on the model's word, however sure it is", async () => {
-    const result = await asked({ model: host(answer("auto_ack", 0.999)) }, fromVendor(VAGUE));
-    expect(result).toMatchObject({
-      requestId: "req-1",
-      apply: false,
-      source: "model",
-      suggestion: { classification: "auto_ack", source: "model" },
-    });
-  });
-
-  it("is applied on the model's word once it names the target", async () => {
+  it("is never applied on the model's word, even once it names the target", async () => {
     const named = fromVendor(`${VAGUE}\n\nAcme Data Privacy Team`);
-    const result = await asked({ model: host(answer("auto_ack", 0.999)) }, named);
-    expect(result).toMatchObject({ requestId: "req-1", apply: true, source: "model" });
+    for (const mail of [fromVendor(VAGUE), named]) {
+      const result = await asked({ model: host(answer("auto_ack", 0.999)) }, mail);
+      expect(result).toMatchObject({
+        requestId: "req-1",
+        apply: false,
+        source: "model",
+        suggestion: { classification: "auto_ack", source: "model" },
+      });
+    }
   });
 
   it("is never applied on the rules' word", async () => {
-    const result = await asked({}, fromVendor(ACK));
+    const result = await asked({}, fromVendor(DONE));
     expect(result).toMatchObject({
       requestId: "req-1",
-      classification: "auto_ack",
+      classification: "completed",
       apply: false,
       confidence: 0.55,
     });
     expect(result.rationale).toContain("does not name this request");
   });
 
-  it("is applied on the rules' word once the sender name is the target's", async () => {
-    const named = fromVendor(ACK, { from: { name: "Acme Data", address: "desk@vendor.test" } });
-    expect(await asked({}, named)).toMatchObject({ classification: "auto_ack", apply: true });
+  it("is not applied from a sender the target does not sign for, even once the name is the target's", async () => {
+    const named = fromVendor(DONE, { from: { name: "Acme Data", address: "desk@vendor.test" } });
+    expect(await asked({}, named)).toMatchObject({ classification: "completed", apply: false });
   });
 
-  it("is applied when it is threaded to our message, whoever sent it", async () => {
-    const threaded = fromVendor(ACK, { inReplyTo: request.outgoingMessageId });
-    expect(await asked({}, threaded)).toMatchObject({ classification: "auto_ack", apply: true });
+  it("is applied when it is threaded to our message and signed by the target", async () => {
+    const threaded = fromVendor(DONE, {
+      inReplyTo: request.outgoingMessageId,
+      verifyDkim: signedAs("acme.test", { inReplyTo: [request.outgoingMessageId ?? ""] }),
+    });
+    expect(await asked({}, threaded)).toMatchObject({ classification: "completed", apply: true });
   });
 
-  it("is applied when it comes from the target's own domain", async () => {
-    const own = fromVendor(ACK, { from: { name: null, address: "desk@acme.test" } });
-    expect(await asked({}, own)).toMatchObject({ classification: "auto_ack", apply: true });
+  it("is applied when it comes from the target's own domain and the signature covers the reference", async () => {
+    const own = fromVendor(`${DONE} Reference ${request.reference}.`, {
+      from: { name: null, address: "desk@acme.test" },
+      verifyDkim: signedAs("acme.test"),
+    });
+    expect(await asked({}, own)).toMatchObject({ classification: "completed", apply: true });
   });
 });

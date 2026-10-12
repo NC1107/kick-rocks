@@ -77,7 +77,12 @@ describe("dashboard handlers", () => {
     const id = jordan().id;
     const { attention } = await dashboardOf(id);
     const queue = (await call({ path: `/review?profileId=${id}` })).json;
-    expect(attention).toEqual({ ...reviewAttention(queue), ...agentAssignment(queue) });
+    const needsYou = (await call({ path: `/needs-you?profileId=${id}` })).json;
+    expect(attention).toEqual({
+      ...reviewAttention(queue),
+      ...agentAssignment(queue),
+      needsYou: needsYou.counts,
+    });
   });
 
   it("answers 404 for a profile that does not exist", async () => {

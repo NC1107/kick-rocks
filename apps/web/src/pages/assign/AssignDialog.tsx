@@ -314,7 +314,7 @@ function Picker({
               <Plug aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-ink-3" />
               <span>
                 {NO_AGENTS_TEXT} Set one up in{" "}
-                <TextLink to={AGENT_SETTINGS_PATH}>Settings, Agents</TextLink>.
+                <TextLink to={AGENT_SETTINGS_PATH}>Settings</TextLink>.
                 {agents.mcpEnabled ? "" : " MCP access is off."}
               </span>
             </p>

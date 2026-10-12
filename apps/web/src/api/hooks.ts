@@ -1,4 +1,4 @@
-import type { RouteDef, RouteResponse } from "@kickrocks/shared";
+import { API_ROUTES, type RouteDef, type RouteResponse } from "@kickrocks/shared";
 import {
   keepPreviousData,
   type QueryClient,
@@ -26,13 +26,25 @@ export function routeKey(
   return [...routeKeyPrefix(route), args?.params ?? null, args?.query ?? null];
 }
 
+/**
+ * Answers that change whenever another one does. The Needs you queue and the Review badge are
+ * built from the same things as the review lists, so a page that refreshes one need not know.
+ */
+const COUPLED: ReadonlyMap<string, Pick<RouteDef, "method" | "path">> = new Map([
+  [`GET ${API_ROUTES.reviewQueue.path}`, API_ROUTES.needsYouGet],
+]);
+
 /** Marks every cached answer for these routes stale, so mounted pages refetch them. */
 function invalidateRoutes(
   client: QueryClient,
   ...routes: readonly Pick<RouteDef, "method" | "path">[]
 ): Promise<unknown> {
+  const wanted = routes.flatMap((route) => {
+    const coupled = COUPLED.get(`${route.method} ${route.path}`);
+    return coupled ? [route, coupled] : [route];
+  });
   return Promise.all(
-    routes.map((route) => client.invalidateQueries({ queryKey: routeKeyPrefix(route) })),
+    wanted.map((route) => client.invalidateQueries({ queryKey: routeKeyPrefix(route) })),
   );
 }
 

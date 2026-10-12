@@ -1,10 +1,4 @@
-import {
-  type AgentsResponse,
-  describeReason,
-  type MatchBand,
-  type WaitingTask,
-} from "@kickrocks/shared";
-import { ScanSearch } from "lucide-react";
+import type { AgentsResponse, WaitingTask } from "@kickrocks/shared";
 import type { ReactNode } from "react";
 import { HoldReason } from "../../components/holds/HoldReason.js";
 import {
@@ -15,25 +9,17 @@ import {
   RowGroup,
   Section,
   StatusShapeGlyph,
-  Tag,
 } from "../../components/ui/index.js";
 import { cn } from "../../lib/cn.js";
 import { describeFailure } from "../../lib/failures.js";
-import { BLOCKED_REASON_LABELS, PROFILE_FIELD_LABELS } from "../../lib/labels.js";
-import { paths } from "../../lib/paths.js";
 import type { StatusShape } from "../../lib/status.js";
 import { useNow } from "../../lib/use-now.js";
 import { assignmentLine } from "../assign/model.js";
-import { BandTag, WEIGHT_TONES } from "./MatchFit.js";
 import { ageLabel, KIND_LABELS, type QueueEntry, type ReviewKind } from "./model.js";
-import { UnlikelyGroup } from "./UnlikelyGroup.js";
 
 interface RowView {
   title: ReactNode;
-  reason: ReactNode;
-  /** Chips under the line need room, so the description wraps instead of truncating. */
-  wrap?: boolean;
-  band?: MatchBand | undefined;
+  reason: string;
   at: string | null;
   shape: StatusShape;
   /** The request the item belongs to, which the row links to beside its select button. */
@@ -46,10 +32,6 @@ function requestOf(id: string | null, reference: string | null): RowView["reques
 
 /** Waiting on the person is a triangle, a failure a square, and waiting on an agent a ring. */
 const KIND_SHAPE: Record<ReviewKind, StatusShape> = {
-  blocked: "triangle",
-  yours: "triangle",
-  matches: "triangle",
-  verifications: "triangle",
   mail: "triangle",
   failed: "square",
   agents: "ring",
@@ -58,35 +40,11 @@ const KIND_SHAPE: Record<ReviewKind, StatusShape> = {
 function describe(entry: QueueEntry, agents: AgentsResponse | undefined, now: number): RowView {
   const shape = KIND_SHAPE[entry.kind];
   switch (entry.kind) {
-    case "blocked": {
-      const { task, requestReference } = entry.item;
-      return {
-        title: task.targetName ?? "Unknown target",
-        reason: task.blockedReason
-          ? BLOCKED_REASON_LABELS[task.blockedReason]
-          : task.status === "leased"
-            ? "Waiting for you"
-            : "Needs you",
-        at: task.updatedAt,
-        shape,
-        request: requestOf(task.requestId, requestReference),
-      };
-    }
     case "agents": {
       const { task, requestReference } = entry.item;
       return {
         title: task.targetName ?? "Unknown target",
         reason: assignmentLine(task.assignment, agents, now),
-        at: task.updatedAt,
-        shape,
-        request: requestOf(task.requestId, requestReference),
-      };
-    }
-    case "yours": {
-      const { task, requestReference } = entry.item;
-      return {
-        title: task.targetName ?? "Unknown target",
-        reason: "No agent will take it",
         at: task.updatedAt,
         shape,
         request: requestOf(task.requestId, requestReference),
@@ -100,38 +58,6 @@ function describe(entry: QueueEntry, agents: AgentsResponse | undefined, now: nu
         at: task.updatedAt,
         shape,
         request: requestOf(task.requestId, requestReference),
-      };
-    }
-    case "matches":
-      return {
-        title: entry.match.fields.name,
-        reason: (
-          <span className="flex flex-col gap-1">
-            <span>Found on {entry.match.targetName}</span>
-            <span className="flex flex-wrap items-center gap-1">
-              {entry.match.assessment?.reasons.map((reason) => (
-                <Tag key={describeReason(reason)} tone={WEIGHT_TONES[reason.weight]} wrap>
-                  {describeReason(reason)}
-                </Tag>
-              ))}
-            </span>
-          </span>
-        ),
-        wrap: true,
-        band: entry.match.assessment?.band,
-        at: null,
-        shape,
-      };
-    case "verifications": {
-      const asked = entry.item.requestedFields
-        .map((field) => PROFILE_FIELD_LABELS[field].toLowerCase())
-        .join(", ");
-      return {
-        title: entry.item.request.target.name,
-        reason: asked ? `Asked for ${asked}` : "Asked for more details",
-        at: entry.item.message.receivedAt,
-        shape,
-        request: requestOf(entry.item.request.id, entry.item.request.reference),
       };
     }
     case "mail":
@@ -178,14 +104,7 @@ function Entry({
         leading={<StatusShapeGlyph shape={view.shape} />}
         title={view.title}
         description={view.reason}
-        wrapDescription={view.wrap === true}
-        trailing={
-          view.band ? (
-            <BandTag band={view.band} />
-          ) : !request && view.at ? (
-            <Age iso={view.at} />
-          ) : null
-        }
+        trailing={!request && view.at ? <Age iso={view.at} /> : null}
         className={cn("py-1.5", request && "pr-20")}
       />
       {request ? (
@@ -207,11 +126,6 @@ function Entry({
     </div>
   );
 }
-
-const isUnlikely = (entry: QueueEntry) =>
-  entry.kind === "matches" && entry.match.assessment?.band === "unlikely";
-
-const KIND_ORDER = Object.keys(KIND_LABELS) as ReviewKind[];
 
 /**
  * Queued tasks that are held back to keep a site from being flagged. Nothing here needs the
@@ -257,73 +171,60 @@ function WaitingGroup({ waiting, total }: { waiting: readonly WaitingTask[]; tot
 
 export interface QueueListProps {
   entries: readonly QueueEntry[];
-  waiting: readonly WaitingTask[];
-  waitingTotal: number;
+  /** The kinds of row this page lists, in the order their groups appear. */
+  kinds: readonly ReviewKind[];
+  /** What the page says when it has no rows. */
+  empty: string;
+  waiting?: readonly WaitingTask[];
+  waitingTotal?: number;
   selectedKey: string | null;
   onSelect: (key: string) => void;
   /** Who is connected, to say whether the agent a task is assigned to is online. */
   agents?: AgentsResponse | undefined;
+  /** Above the rows, such as the check for new mail. */
+  header?: ReactNode;
 }
 
 /**
- * Everything waiting on the person, grouped under a mono label per kind with its count, then the
- * tasks held back for a site, plus the scans entry at the bottom. The list is the whole queue, so nothing hides behind a tab.
+ * The rows of one Review page, grouped under a mono label per kind with its count, then the tasks
+ * held back for a site where that page has them.
  */
 export function QueueList({
   entries,
-  waiting,
-  waitingTotal,
+  kinds,
+  empty,
+  waiting = [],
+  waitingTotal = 0,
   selectedKey,
   onSelect,
   agents,
+  header,
 }: QueueListProps) {
-  const sections: ReactNode[] = KIND_ORDER.flatMap((kind) => {
+  const sections: ReactNode[] = kinds.flatMap((kind) => {
     const own = entries.filter((entry) => entry.kind === kind);
     if (own.length === 0) return [];
-    const unlikely = own.filter(isUnlikely);
-    const shown = own.filter((entry) => !isUnlikely(entry));
-    const rows = (list: readonly QueueEntry[]) => (
-      <RowGroup>
-        {list.map((entry) => (
-          <Entry
-            key={entry.key}
-            entry={entry}
-            selected={entry.key === selectedKey}
-            onSelect={onSelect}
-            agents={agents}
-          />
-        ))}
-      </RowGroup>
-    );
     return [
       <Section key={kind} label={KIND_LABELS[kind]} count={own.length}>
-        <div className="flex min-w-0 flex-col gap-2">
-          {shown.length > 0 ? rows(shown) : null}
-          <UnlikelyGroup
-            matches={unlikely.flatMap((entry) => (entry.kind === "matches" ? [entry.match] : []))}
-            forceOpen={unlikely.some((entry) => entry.key === selectedKey)}
-          >
-            {rows(unlikely)}
-          </UnlikelyGroup>
-        </div>
+        <RowGroup>
+          {own.map((entry) => (
+            <Entry
+              key={entry.key}
+              entry={entry}
+              selected={entry.key === selectedKey}
+              onSelect={onSelect}
+              agents={agents}
+            />
+          ))}
+        </RowGroup>
       </Section>,
     ];
   });
 
   return (
-    <nav aria-label="Review queue" className="flex min-w-0 flex-col gap-3">
-      {entries.length === 0 ? <EmptyState title="Nothing needs you." /> : sections}
+    <nav aria-label="Review list" className="flex min-w-0 flex-col gap-3">
+      {header}
+      {sections.length === 0 ? <EmptyState title={empty} /> : sections}
       <WaitingGroup waiting={waiting} total={waitingTotal} />
-      <Section label="Scans">
-        <RowGroup>
-          <Row
-            to={paths.listings()}
-            icon={ScanSearch}
-            title="Where you're listed"
-            description="Scan a site, or see what it found"
-          />
-        </RowGroup>
-      </Section>
       <p className="mt-1 hidden items-center gap-1.5 text-caption text-ink-3 lg:flex">
         <Kbd>j</Kbd>
         <Kbd>k</Kbd>

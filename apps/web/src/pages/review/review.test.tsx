@@ -1,6 +1,6 @@
 import { screen, waitFor, within } from "@testing-library/react";
 import type { UserEvent } from "@testing-library/user-event";
-import { Route, Routes } from "react-router";
+import { Route, Routes, useLocation } from "react-router";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { applyAgentPreset } from "../../../mock/agents.js";
 import { createMockApp, type MockApp } from "../../../mock/app.js";
@@ -23,27 +23,16 @@ function failing(pattern: RegExp): MockApp {
   return mock;
 }
 
-const open = (tab?: string, mock = failing(/never/)) => ({
-  ...renderPage(<ReviewPage />, {
-    path: "/review",
-    route: tab ? `/review?tab=${tab}` : "/review",
-    mock,
-  }),
+const open = (route = "/review", mock = failing(/never/)) => ({
+  ...renderPage(<ReviewPage />, { path: "/review/*", route, mock }),
 });
 
 const card = async (name: RegExp | string) => within(await screen.findByRole("region", { name }));
 
-/** A row the list may fold away, as it does for records that look unlikely to be the person. */
-const findRow = async (user: UserEvent, list: ReturnType<typeof within>, row: RegExp) => {
-  const folded = await list.findByRole("button", { name: /^\d+ unlikely$/ });
-  if (!list.queryByRole("button", { name: row })) await user.click(folded);
-  return list.findByRole("button", { name: row });
-};
-
 /** Opens an item by its row in the list, the way a person does, then returns its pane. */
 const openItem = async (user: UserEvent, row: RegExp, pane: RegExp | string) => {
-  const list = within(await screen.findByRole("navigation", { name: "Review queue" }));
-  await user.click(await findRow(user, list, row));
+  const list = within(await screen.findByRole("navigation", { name: "Review list" }));
+  await user.click(await list.findByRole("button", { name: row }));
   return card(pane);
 };
 
@@ -65,504 +54,9 @@ afterEach(() => {
   window.matchMedia = realMatchMedia;
 });
 
-describe("the review queue on a phone", () => {
-  it("shows the list first and drills into an item, with a way back", async () => {
-    setWide(false);
-    const { user } = open();
-    const list = within(await screen.findByRole("navigation", { name: "Review queue" }));
-    expect(list.getAllByRole("button").some((row) => row.hasAttribute("aria-current"))).toBe(false);
-    await user.click(list.getByRole("button", { name: /ClearCheck\s*ID upload/ }));
-    expect(await card(/ClearCheck, Submit form/)).toBeTruthy();
-    expect(list.getByRole("button", { name: /ClearCheck\s*ID upload/ })).toHaveAttribute(
-      "aria-current",
-      "true",
-    );
-    await user.click(screen.getByRole("link", { name: "Review" }));
-    expect(list.getAllByRole("button").some((row) => row.hasAttribute("aria-current"))).toBe(false);
-  });
-});
-
-describe("the review queue on a phone after a decision", () => {
-  it("moves focus to the open item and names it in the address", async () => {
-    setWide(false);
-    const { user, mock } = open("matches");
-    const match = await openItem(user, /^Jordan Example\s*Found/, /Jordan Example on NameLookup/);
-    await user.click(match.getByRole("button", { name: "Not me" }));
-    await waitFor(() =>
-      expect(
-        mock.store.matches.find((candidate) => candidate.recordUrl.endsWith("tx-88120"))?.decision,
-      ).toBe("not_mine"),
-    );
-    await waitFor(() => expect(document.getElementById("review-detail")).toHaveFocus());
-    expect(document.getElementById("review-detail")).toBeVisible();
-  });
-});
-
-describe("the review queue", () => {
-  it("lists everything waiting under a labelled group and opens the first item", async () => {
-    open();
-    expect(await screen.findByRole("heading", { name: "Blocked · 6" })).toBeVisible();
-    expect(screen.getByRole("heading", { name: "Records · 4" })).toBeVisible();
-    expect(screen.getByRole("heading", { name: "Details asked · 2" })).toBeVisible();
-    expect(screen.getByRole("heading", { name: "Unsorted mail · 4" })).toBeVisible();
-    expect(screen.getByRole("heading", { name: "Failed · 1" })).toBeVisible();
-    const list = within(screen.getByRole("navigation", { name: "Review queue" }));
-    expect(list.getByRole("button", { name: /FindRecord/ })).toHaveAttribute(
-      "aria-current",
-      "true",
-    );
-    expect(await card(/FindRecord, Submit form/)).toBeTruthy();
-  });
-
-  it("opens the group a link names", async () => {
-    open("mail");
-    expect(await card("Your recent message")).toBeTruthy();
-    const list = within(screen.getByRole("navigation", { name: "Review queue" }));
-    expect(list.getByRole("button", { name: /Your recent message/ })).toHaveAttribute(
-      "aria-current",
-      "true",
-    );
-  });
-
-  it("opens an item from the list when it is clicked", async () => {
-    const { user } = open();
-    await card(/FindRecord, Submit form/);
-    const list = within(screen.getByRole("navigation", { name: "Review queue" }));
-    await user.click(list.getByRole("button", { name: /ClearCheck\s*ID upload/ }));
-    expect(await card(/ClearCheck, Submit form/)).toBeTruthy();
-    expect(
-      screen.queryByRole("region", { name: /FindRecord, Submit form/ }),
-    ).not.toBeInTheDocument();
-  });
-
-  it("moves through the queue with j and k", async () => {
-    const { user } = open();
-    await card(/FindRecord, Submit form/);
-    await user.keyboard("j");
-    expect(await card(/ClearCheck, Submit form/)).toBeTruthy();
-    await user.keyboard("k");
-    expect(await card(/FindRecord, Submit form/)).toBeTruthy();
-    await user.keyboard("k");
-    expect(await card(/FindRecord, Submit form/)).toBeTruthy();
-  });
-
-  it("keeps focus and selection on the same row as j and the arrows move", async () => {
-    const { user } = open();
-    await card(/FindRecord, Submit form/);
-    const list = within(screen.getByRole("navigation", { name: "Review queue" }));
-    list.getByRole("button", { name: /ClearCheck\s*ID upload/ }).focus();
-    await user.keyboard("j");
-    await user.keyboard("{ArrowDown}");
-    const current = list.getAllByRole("button").filter((row) => row.getAttribute("aria-current"));
-    expect(current).toHaveLength(1);
-    expect(current[0]).toHaveFocus();
-    const stops = list
-      .getAllByRole("button")
-      .filter((row) => row.closest("[data-entry]") && row.tabIndex === 0);
-    expect(stops).toEqual(current);
-  });
-
-  it("selects the next item once the open one is dealt with", async () => {
-    const { user } = open("blocked");
-    const task = await card(/FindRecord, Submit form/);
-    await user.click(task.getByRole("button", { name: "Resume" }));
-    expect(await card(/ClearCheck, Submit form/)).toBeTruthy();
-    expect(
-      screen.queryByRole("region", { name: /FindRecord, Submit form/ }),
-    ).not.toBeInTheDocument();
-  });
-
-  it("shows a blocked task with its screenshot, reason, and numbered steps", async () => {
-    open("blocked");
-    const task = await card(/FindRecord, Submit form/);
-    expect(task.getByText("CAPTCHA")).toBeVisible();
-    expect(task.getByAltText("The page where the task stopped")).toHaveAttribute(
-      "src",
-      expect.stringMatching(/\/api\/tasks\/tsk_\d+\/screenshot$/),
-    );
-    expect(task.getByAltText("The page where the task stopped").closest("a")).toHaveClass(
-      "aspect-4/3",
-    );
-    const steps = task.getAllByRole("listitem");
-    expect(steps.length).toBeGreaterThanOrEqual(2);
-    expect(task.getByRole("link", { name: /Open the page/ })).toHaveAttribute("target", "_blank");
-  });
-
-  it("finishes a blocked task by hand and moves its request along", async () => {
-    const { user, mock } = open("blocked");
-    const task = await card(/FindRecord, Submit form/);
-    await user.click(task.getByRole("button", { name: "Mark done" }));
-    const dialog = await screen.findByRole("dialog");
-    await user.selectOptions(within(dialog).getByLabelText("How did it end"), "not_found");
-    await user.type(within(dialog).getByLabelText(/Note/), "Checked by hand");
-    await user.click(within(dialog).getByRole("button", { name: "Mark done" }));
-    await waitFor(() =>
-      expect(mock.store.requests.find((request) => request.targetId === "findrecord")?.status).toBe(
-        "no_record",
-      ),
-    );
-    await waitFor(() =>
-      expect(
-        screen.queryByRole("region", { name: /FindRecord, Submit form/ }),
-      ).not.toBeInTheDocument(),
-    );
-  });
-
-  it("hands focus to the next row once a decision removes the one it was on", async () => {
-    const { user } = open("blocked");
-    const task = await card(/FindRecord, Submit form/);
-    await user.click(task.getByRole("button", { name: "Mark done" }));
-    const dialog = await screen.findByRole("dialog");
-    await user.click(within(dialog).getByRole("button", { name: "Mark done" }));
-    const list = within(screen.getByRole("navigation", { name: "Review queue" }));
-    await waitFor(() => expect(list.getByRole("button", { current: true })).toHaveFocus());
-  });
-
-  it("lets the person approve the submit a model stopped before, and nothing else", async () => {
-    const { user, mock } = open("blocked");
-    const task = await openItem(user, /Quillnote\s*Needs approval/, /Quillnote,/);
-    expect(task.getByText("Needs approval")).toBeVisible();
-    expect(task.getByRole("img", { name: /where the task stopped/ })).toBeVisible();
-    expect(task.queryByRole("button", { name: "Resume" })).not.toBeInTheDocument();
-    expect(task.queryByRole("button", { name: "Hand to an agent" })).not.toBeInTheDocument();
-    expect(task.queryByText("Details to type in")).not.toBeInTheDocument();
-
-    await user.click(await task.findByRole("button", { name: "Approve for the next run" }));
-
-    await waitFor(() =>
-      expect(
-        mock.store.tasks.find(
-          (candidate) => candidate.kind === "agent" && candidate.targetId === "quillnote",
-        )?.status,
-      ).toBe("queued"),
-    );
-  });
-
-  it("offers only Mark done and Cancel for a form that went out without an approval", async () => {
-    const { user } = open("blocked");
-    const task = await openItem(
-      user,
-      /Harbor Consumer Data\s*Sent without approval/,
-      /Harbor Consumer Data,/,
-    );
-    expect(task.getByText("Sent without approval")).toBeVisible();
-    expect(task.getByRole("button", { name: "Mark done" })).toBeVisible();
-    expect(task.getByRole("button", { name: "Cancel task" })).toBeVisible();
-    expect(task.queryByRole("button", { name: "Resume" })).not.toBeInTheDocument();
-    expect(task.queryByRole("button", { name: "Hand to an agent" })).not.toBeInTheDocument();
-    expect(
-      task.queryByRole("button", { name: "Approve for the next run" }),
-    ).not.toBeInTheDocument();
-    expect(task.queryByText("Details to type in")).not.toBeInTheDocument();
-    expect(task.getAllByText(/may already have been submitted/)).toHaveLength(1);
-  });
-
-  it("lists, for a run that released a request nobody approved, what left the browser", async () => {
-    const { user } = open("blocked");
-    const task = await openItem(
-      user,
-      /Harbor Consumer Data\s*Sent without approval/,
-      /Harbor Consumer Data,/,
-    );
-    expect(
-      await task.findByText("1 request carrying your details left the browser."),
-    ).toBeVisible();
-    expect(task.getByText("Looked something up")).toBeVisible();
-    expect(
-      task.getByText(/POST harbor.*\/remove, with email address, first name, answered 200/i),
-    ).toBeVisible();
-  });
-
-  describe("a run that is waiting for the person", () => {
-    const openWaiting = async () => {
-      const opened = open("blocked");
-      const task = await openItem(
-        opened.user,
-        /Cardinal Insights\s*Waiting for you/,
-        /Cardinal Insights,/,
-      );
-      return { ...opened, task };
-    };
-
-    it("is listed first and shows the request with the person's own values", async () => {
-      const { task } = await openWaiting();
-      expect(await task.findByRole("heading", { name: "Waiting for you · 1" })).toBeVisible();
-      expect(task.getByText("Background request")).toBeVisible();
-      expect(task.getByText("jordan.example@example.com")).toBeVisible();
-      expect(task.getByText("your email address")).toBeVisible();
-      expect(task.getByText("set by the site, may change next run")).toBeVisible();
-      expect(task.getByRole("button", { name: "Send" })).toBeEnabled();
-      expect(task.getByRole("button", { name: "Don't send" })).toBeEnabled();
-      expect(task.getByRole("button", { name: "Finish by hand" })).toBeEnabled();
-      expect(task.queryByRole("button", { name: "Resume" })).not.toBeInTheDocument();
-    });
-
-    it("counts down what is left of the hold", async () => {
-      const { task } = await openWaiting();
-      expect(await task.findByText(/^[89]:\d\d$/)).toBeVisible();
-    });
-
-    it("sends the request when the person says send, and records it as sent", async () => {
-      const { user, mock, task } = await openWaiting();
-      await user.click(await task.findByRole("button", { name: "Send" }));
-      await waitFor(() => {
-        const rows = [...mock.store.sends.values()].flatMap((sends) => sends.rows);
-        expect(rows.filter((row) => row.kind === "held" && row.status === "sent")).toHaveLength(2);
-        expect(rows.some((row) => row.kind === "released" && row.responseStatus === 200)).toBe(
-          true,
-        );
-      });
-    });
-
-    it("holds the request back when the person says don't send", async () => {
-      const { user, mock, task } = await openWaiting();
-      await user.click(await task.findByRole("button", { name: "Don't send" }));
-      await waitFor(() => {
-        const rows = [...mock.store.sends.values()].flatMap((sends) => sends.rows);
-        expect(rows.some((row) => row.status === "declined")).toBe(true);
-      });
-    });
-
-    it("says so when the hold ran out before the person decided", async () => {
-      const { user, mock, task } = await openWaiting();
-      for (const sends of mock.store.sends.values()) {
-        for (const row of sends.rows) {
-          if (row.status === "pending_live")
-            row.expiresAt = new Date(Date.now() - 1000).toISOString();
-        }
-      }
-      await user.click(await task.findByRole("button", { name: "Send" }));
-      expect(await task.findByText(/no longer waiting/)).toBeVisible();
-    });
-  });
-
-  describe("a run that stopped at the second step of a form", () => {
-    const openStopped = async () => {
-      const opened = open("blocked");
-      const task = await openItem(opened.user, /Quillnote\s*Needs approval/, /Quillnote,/);
-      return { ...opened, task };
-    };
-
-    it("says step one will go out again before step two", async () => {
-      const { task } = await openStopped();
-      expect(
-        await task.findByText(
-          /Step 1 already went out once\. Approving sends it again, then step 2\./,
-        ),
-      ).toBeVisible();
-      expect(task.getByText(/Step 2\. Held for the next run\./)).toBeVisible();
-    });
-
-    it("lets the person leave a request out of the approval", async () => {
-      const { user, mock, task } = await openStopped();
-      await user.click(await task.findByRole("checkbox", { name: /Leave this one out/ }));
-      await user.click(task.getByRole("button", { name: "Approve for the next run" }));
-      await waitFor(() => {
-        const rows = [...mock.store.sends.values()].flatMap((sends) => sends.rows);
-        expect(rows.some((row) => row.status === "declined")).toBe(true);
-      });
-    });
-
-    it("lists what the gate cannot see", async () => {
-      const { user, task } = await openStopped();
-      await user.click(await task.findByText("What the gate cannot see"));
-      expect(task.getByText(/Sites that need a live connection\./)).toBeVisible();
-      expect(task.getByText(/Bot sensors\./)).toBeVisible();
-    });
-  });
-
-  it("offers to run again and wait for the person when an old stop has no held request", async () => {
-    const mock = failing(/never/);
-    const task = mock.store.tasks.find(
-      (candidate) => candidate.kind === "agent" && candidate.targetId === "quillnote",
-    );
-    if (task) mock.store.sends.delete(task.id);
-    const { user } = open("blocked", mock);
-    const pane = await openItem(user, /Quillnote\s*Needs approval/, /Quillnote,/);
-    expect(
-      pane.queryByRole("button", { name: "Approve for the next run" }),
-    ).not.toBeInTheDocument();
-    await user.click(await pane.findByRole("button", { name: "Run again and wait for me" }));
-    await waitFor(() => expect(task?.status).toBe("queued"));
-  });
-
-  it("resumes a task", async () => {
-    const { user, mock } = open("blocked");
-    const task = await openItem(
-      user,
-      /HomeRecords\s*Phone verification/,
-      /HomeRecords, Submit form/,
-    );
-    await user.click(task.getByRole("button", { name: "Resume" }));
-    await waitFor(() =>
-      expect(
-        mock.store.tasks.find((candidate) => candidate.targetId === "homerecords")?.status,
-      ).toBe("queued"),
-    );
-  });
-
-  it("hands a task to an agent only after a confirmation that says what an agent is", async () => {
-    const mock = failing(/never/);
-    mock.store.settings.mcp = { ...mock.store.settings.mcp, enabled: true };
-    const { user } = open("blocked", mock);
-    const task = await openItem(user, /ClearCheck\s*ID upload/, /ClearCheck, Submit form/);
-    await waitFor(() =>
-      expect(task.getByRole("button", { name: "Hand to an agent" })).toBeEnabled(),
-    );
-    await user.click(task.getByRole("button", { name: "Hand to an agent" }));
-    const dialog = within(await screen.findByRole("dialog"));
-    expect(dialog.getByText(/The agent receives your name and email address/)).toBeVisible();
-    expect(
-      mock.store.tasks.some(
-        (candidate) => candidate.kind === "agent" && candidate.status === "queued",
-      ),
-    ).toBe(false);
-    await user.click(dialog.getByRole("button", { name: "Hand over" }));
-    await waitFor(() =>
-      expect(
-        mock.store.tasks.some(
-          (candidate) => candidate.kind === "agent" && candidate.targetId === "clearcheck",
-        ),
-      ).toBe(true),
-    );
-  });
-
-  it("will not hand a task to an agent while agent access is off", async () => {
-    const { user } = open("blocked");
-    const task = await openItem(user, /ClearCheck\s*ID upload/, /ClearCheck, Submit form/);
-    expect(await task.findByText(/Agent access is off/)).toBeVisible();
-    expect(task.getByRole("button", { name: "Hand to an agent" })).toBeDisabled();
-  });
-
-  it("cancels a task only after a confirmation", async () => {
-    const { user, mock } = open("blocked");
-    const task = await openItem(user, /ClearCheck\s*ID upload/, /ClearCheck, Submit form/);
-    await user.click(task.getByRole("button", { name: "Cancel task" }));
-    const dialog = await screen.findByRole("dialog");
-    await user.click(within(dialog).getByRole("button", { name: "Keep it" }));
-    expect(mock.store.tasks.find((candidate) => candidate.targetId === "clearcheck")?.status).toBe(
-      "blocked",
-    );
-    await user.click(task.getByRole("button", { name: "Cancel task" }));
-    await user.click(
-      within(await screen.findByRole("dialog")).getByRole("button", { name: "Cancel task" }),
-    );
-    await waitFor(() =>
-      expect(
-        mock.store.tasks.find((candidate) => candidate.targetId === "clearcheck")?.status,
-      ).toBe("cancelled"),
-    );
-  });
-
-  it("tells a person to confirm a record is theirs before anything is removed", async () => {
-    const { user, mock } = open("matches");
-    const match = await openItem(user, /^Jordan Example\s*Found/, /Jordan Example on NameLookup/);
-    expect(match.getByText(/age 62/)).toBeVisible();
-    await user.click(match.getByRole("button", { name: "This is me" }));
-    const dialog = await screen.findByRole("dialog");
-    await user.click(within(dialog).getByRole("checkbox", { name: "Delete my data" }));
-    await user.click(within(dialog).getByRole("button", { name: "Remove this record" }));
-    await waitFor(() => {
-      const request = mock.store.requests.find((candidate) =>
-        candidate.recordUrl?.endsWith("jordan-example-tx-88120"),
-      );
-      expect(request?.rights).toEqual(["opt_out"]);
-    });
-  });
-
-  it("shows the band and the reasons on the row and in the open record", async () => {
-    const { user } = open("matches");
-    const list = within(await screen.findByRole("navigation", { name: "Review queue" }));
-    const row = await findRow(user, list, /^Jordan Example\s*Found/);
-    expect(row).toHaveTextContent("Unlikely");
-    expect(row).toHaveTextContent("Age 62, you are 36");
-    expect(
-      await list.findByRole("button", { name: /^Jordan Q Example\s*Found.*Phone matches/ }),
-    ).toHaveTextContent("Likely");
-
-    await user.click(row);
-    const pane = within(await screen.findByRole("region", { name: /Jordan Example on/ }));
-    expect(pane.getByText("Unlikely")).toBeVisible();
-    expect(pane.getByText("Age 62, you are 36")).toBeVisible();
-  });
-
-  it("marks a record as not the person", async () => {
-    const { user, mock } = open("matches");
-    const match = await openItem(user, /^Jordan Example\s*Found/, /Jordan Example on NameLookup/);
-    await user.click(match.getByRole("button", { name: "Not me" }));
-    await waitFor(() =>
-      expect(
-        mock.store.matches.find((candidate) => candidate.recordUrl.endsWith("tx-88120"))?.decision,
-      ).toBe("not_mine"),
-    );
-  });
-
-  it("puts a failed decision on the footer that failed, not in a toast", async () => {
-    const { user } = open("matches", failing(/\/api\/matches\/.*\/decision/));
-    const match = await openItem(user, /^Jordan Example\s*Found/, /Jordan Example on NameLookup/);
-    await user.click(match.getByRole("button", { name: "Not me" }));
-    expect(await match.findByRole("alert")).toHaveTextContent("Blocked for the test.");
-    expect(
-      within(screen.getByRole("region", { name: "Notifications" })).queryByText(/did not work/),
-    ).toBeNull();
-  });
-
-  it("sends nothing to a broker until a detail is ticked and the values are confirmed", async () => {
-    const { user, mock } = open("verifications");
-    const item = await card(/ClearCheck asked for more details/);
-    const send = item.getByRole("button", { name: "Send" });
-    expect(send).toBeDisabled();
-    const box = await item.findByRole("checkbox", { name: /^Date of birth/ });
-    expect(box).not.toBeChecked();
-    expect(item.getByText("1990-04-12")).toBeVisible();
-    await user.click(box);
-    expect(send).toBeEnabled();
-    await user.click(send);
-    const dialog = within(await screen.findByRole("dialog"));
-    expect(dialog.getByText("1990-04-12")).toBeVisible();
-    expect(mock.store.requests.find((request) => request.targetId === "clearcheck")?.status).toBe(
-      "needs_verification",
-    );
-    await user.click(dialog.getByRole("button", { name: "Send details" }));
-    await waitFor(() =>
-      expect(mock.store.requests.find((request) => request.targetId === "clearcheck")?.status).toBe(
-        "queued",
-      ),
-    );
-  });
-
-  it("says that anything beyond the profile details is up to the person", async () => {
-    open("verifications");
-    const item = await card(/ClearCheck asked for more details/);
-    expect(item.getByText(/you can reply to them yourself or leave it out/)).toBeVisible();
-  });
-
-  it("does not offer a detail the profile lacks and points to the profile", async () => {
-    const mock = failing(/never/);
-    for (const profile of mock.store.profiles) {
-      profile.identities = profile.identities.filter((identity) => identity.kind !== "dob");
-    }
-    open("verifications", mock);
-    const item = await card(/ClearCheck asked for more details/);
-    expect(await item.findByRole("link", { name: /Add a date of birth to send it/ })).toBeVisible();
-    expect(item.queryByRole("checkbox", { name: /^Date of birth/ })).not.toBeInTheDocument();
-  });
-
-  it("lets a person send nothing and cancel the request", async () => {
-    const { user, mock } = open("verifications");
-    const item = await card(/ClearCheck asked for more details/);
-    await user.click(item.getByRole("button", { name: "Cancel request" }));
-    const dialog = within(await screen.findByRole("dialog"));
-    await user.click(dialog.getByRole("button", { name: "Cancel request" }));
-    await waitFor(() =>
-      expect(mock.store.requests.find((request) => request.targetId === "clearcheck")?.status).toBe(
-        "cancelled",
-      ),
-    );
-  });
-
+describe("the review pages", () => {
   it("classifies unclassified mail after showing the whole message", async () => {
-    const { user, mock } = open("mail");
+    const { user, mock } = open("/review/mail");
     const message = await card("Your recent message");
     expect(await message.findByText(/This is the whole message/)).toBeVisible();
     const classify = message.getByRole("button", { name: "Classify" });
@@ -578,17 +72,16 @@ describe("the review queue", () => {
   });
 
   it("says why a message is in the queue", async () => {
-    open("mail");
+    open("/review/mail");
     const message = await card("Your recent message");
-    expect(
-      await message.findByText(
-        "Why it is here: It is from a company or broker you have a request with.",
-      ),
-    ).toBeVisible();
+    expect(await message.findByText(/^From a company you asked\./)).toBeVisible();
   });
 
   it("shows the saved mail it would remove, and removes it only when the person confirms", async () => {
-    const { user } = open("mail");
+    const { user } = open("/review/mail");
+    expect(await screen.findByText("12 saved emails to remove")).toBeVisible();
+    expect(screen.queryByTestId("cleanup-preview")).toBeNull();
+    await user.click(screen.getByRole("button", { name: "Review" }));
     const preview = within(await screen.findByTestId("cleanup-preview"));
     expect(screen.getByRole("heading", { name: /Saved mail to remove · 12/ })).toBeVisible();
     expect(preview.getByText("Your order has shipped")).toBeVisible();
@@ -597,7 +90,7 @@ describe("the review queue", () => {
   });
 
   it("lets a person attach unmatched mail to a request", async () => {
-    const { user, mock } = open("mail");
+    const { user, mock } = open("/review/mail");
     const message = await card("Your recent message");
     await waitFor(() => expect(message.getByLabelText(/Which request is it about/)).toBeEnabled());
     const request = mock.store.requests[0];
@@ -623,7 +116,7 @@ describe("the review queue", () => {
   });
 
   it("picks a classification with the number keys and the keycap buttons", async () => {
-    const { user } = open("mail");
+    const { user } = open("/review/mail");
     const message = await card("Your recent message");
     const select = message.getByLabelText("What is this message");
     await user.keyboard("2");
@@ -637,7 +130,7 @@ describe("the review queue", () => {
   });
 
   it("ignores shortcut keys while a field has focus", async () => {
-    const { user } = open("mail");
+    const { user } = open("/review/mail");
     const message = await card("Your recent message");
     const select = message.getByLabelText("What is this message");
     await user.click(select);
@@ -646,7 +139,7 @@ describe("the review queue", () => {
   });
 
   it("does not offer Unknown as an answer for unclassified mail", async () => {
-    open("mail");
+    open("/review/mail");
     const message = await card("Your recent message");
     expect(
       within(message.getByLabelText("What is this message")).queryByRole("option", {
@@ -657,7 +150,7 @@ describe("the review queue", () => {
 
   describe("a suggestion on unclassified mail", () => {
     it("starts the select on the reply model's guess and says where it came from", async () => {
-      const { user, mock } = open("mail");
+      const { user, mock } = open("/review/mail");
       const message = await openItem(
         user,
         /please confirm/,
@@ -677,7 +170,7 @@ describe("the review queue", () => {
     });
 
     it("lets a quick pick override it", async () => {
-      const { user } = open("mail");
+      const { user } = open("/review/mail");
       const message = await openItem(
         user,
         /please confirm/,
@@ -688,7 +181,7 @@ describe("the review queue", () => {
     });
 
     it("asks before applying a guess that settles the request", async () => {
-      const { user, mock } = open("mail");
+      const { user, mock } = open("/review/mail");
       const message = await openItem(user, /Re: Opt-out request(?! -)/, "Re: Opt-out request");
       expect(message.getByLabelText("What is this message")).toHaveValue("no_record");
       await user.click(message.getByRole("button", { name: "Classify" }));
@@ -701,7 +194,7 @@ describe("the review queue", () => {
     });
 
     it("leaves a spot check unanswered, so the guess cannot sway the answer", async () => {
-      const { user } = open("mail");
+      const { user } = open("/review/mail");
       const message = await openItem(user, /Ticket 20931/, "Ticket 20931 received");
       expect(message.getByLabelText("What is this message")).toHaveValue("");
       expect(message.queryByText(/Suggested by/)).not.toBeInTheDocument();
@@ -709,7 +202,7 @@ describe("the review queue", () => {
     });
 
     it("shows Choose one when nothing was guessed", async () => {
-      open("mail");
+      open("/review/mail");
       const message = await card("Your recent message");
       expect(message.getByLabelText("What is this message")).toHaveValue("");
       expect(message.queryByText(/Suggested by/)).not.toBeInTheDocument();
@@ -731,9 +224,8 @@ describe("the review queue", () => {
       },
       { minutes: 5 },
     );
-    const { user } = open("agents", mock);
+    const { user } = open("/review/agents", mock);
     const task = await card(/AudienceGrid, Agent/);
-    expect(task.getByText(/No agent has taken this yet/)).toBeVisible();
     await user.click(task.getByRole("button", { name: "Mark done" }));
     const dialog = within(await screen.findByRole("dialog"));
     await user.click(dialog.getByRole("button", { name: "Mark done" }));
@@ -743,7 +235,7 @@ describe("the review queue", () => {
   });
 
   it("offers a retry for a task that failed for good", async () => {
-    const { user, mock } = open("failed");
+    const { user, mock } = open("/review/problems");
     const task = await card(/KinSearch, Scan for records/);
     expect(task.getByText("Failed")).toBeVisible();
     expect(task.queryByText("The site had a problem")).toBeNull();
@@ -752,30 +244,19 @@ describe("the review queue", () => {
     await waitFor(() => expect(mock.store.tasks.length).toBe(before + 1));
   });
 
-  it("sends the old scans address to where you're listed", async () => {
-    renderPage(
-      <Routes>
-        <Route path="/review" element={<ReviewPage />} />
-        <Route path="/targets/listings" element={<p>Listings page</p>} />
-      </Routes>,
-      { route: "/review?item=scans" },
-    );
-    expect(await screen.findByText("Listings page")).toBeVisible();
-  });
-
-  it("says so in one line when nothing is waiting, and links to where you're listed", async () => {
-    const mock = failing(/never/);
-    mock.store.tasks = [];
-    mock.store.matches = [];
-    mock.store.messages = [];
-    mock.store.requests = mock.store.requests.filter(
-      (request) => request.status !== "needs_verification",
-    );
-    open(undefined, mock);
-    expect((await screen.findAllByText("Nothing needs you.")).length).toBeGreaterThan(0);
-    const links = await screen.findAllByRole("link", { name: /Where you're listed/ });
-    expect(links[0]).toHaveAttribute("href", "/targets/listings");
-  });
+  it.each(["/review?item=scans", "/review?tab=scans", "/review/scans"])(
+    "sends the old scans address %s to where you're listed",
+    async (route) => {
+      renderPage(
+        <Routes>
+          <Route path="/review/*" element={<ReviewPage />} />
+          <Route path="/targets/listings" element={<p>Listings page</p>} />
+        </Routes>,
+        { route },
+      );
+      expect(await screen.findByText("Listings page")).toBeVisible();
+    },
+  );
 
   it("says when the queue cannot load", async () => {
     open(undefined, failing(/\/api\/review/));
@@ -806,134 +287,178 @@ describe("tasks waiting for an agent, by who they are for", () => {
 
   it("says who each waiting task is assigned to in its row", async () => {
     const { mock } = assignedTasks();
-    open("agents", mock);
-    const list = within(await screen.findByRole("navigation", { name: "Review queue" }));
+    open("/review/agents", mock);
+    const list = within(await screen.findByRole("navigation", { name: "Review list" }));
     expect(await list.findByText("Assigned to nick-pc-agent")).toBeVisible();
   });
+});
 
-  it("lists a task the person kept under Yours to do, with Mark done and a way back to an agent", async () => {
-    const { mock, mine } = assignedTasks();
-    const { user } = open("yours", mock);
-    const list = within(await screen.findByRole("navigation", { name: "Review queue" }));
-    expect(await list.findByText(/Yours to do/)).toBeVisible();
-    const pane = await card(new RegExp(`${mine.targetName}, Agent`));
-    expect(await pane.findByText("You're doing this one")).toBeVisible();
-    expect(pane.getByRole("button", { name: "Hand back to an agent" })).toBeVisible();
-    await user.click(pane.getByRole("button", { name: "Hand back to an agent" }));
-    const dialog = within(await screen.findByRole("dialog"));
-    await user.click(await dialog.findByRole("radio", { name: /Any agent/ }));
-    await user.click(dialog.getByRole("button", { name: "Assign" }));
-    await waitFor(() => expect(mine.assignment).toBeNull());
+/** Shows where the router is, so a test can say an old address was replaced by the new one. */
+function Where() {
+  const { pathname, search } = useLocation();
+  return <output data-testid="where">{`${pathname}${search}`}</output>;
+}
+
+function openAt(route: string, mock = failing(/never/)) {
+  return renderPage(
+    <>
+      <Where />
+      <ReviewPage />
+    </>,
+    { path: "/review/*", route, mock },
+  );
+}
+
+const where = () => screen.getByTestId("where").textContent;
+
+describe("the tabs under the Review title", () => {
+  it("names each page and counts what is waiting there", async () => {
+    open();
+    const tabs = within(await screen.findByRole("navigation", { name: "Review pages" }));
+    await waitFor(() => expect(tabs.getByRole("link", { name: /^Mail\s*4$/ })).toBeVisible());
+    expect(tabs.getByRole("link", { name: /^Needs you\s*\d+$/ })).toHaveAttribute(
+      "href",
+      "/review",
+    );
+    expect(tabs.getByRole("link", { name: /^Mail/ })).toHaveAttribute("href", "/review/mail");
+    expect(tabs.getByRole("link", { name: /^Agents/ })).toHaveAttribute("href", "/review/agents");
+    expect(tabs.getByRole("link", { name: /^Problems\s*1$/ })).toHaveAttribute(
+      "href",
+      "/review/problems",
+    );
+    expect(tabs.getByRole("link", { name: "Scans" })).toHaveAttribute("href", "/targets/listings");
   });
 
-  it("keeps the same task selected when the person keeps it, which moves it to Yours to do", async () => {
-    const mock = failing(/never/);
-    const profileId = mock.store.profiles[0]?.id ?? "";
-    const queue = (targetId: string, targetName: string, minutes: number) =>
-      makeTask(
-        mock.store,
-        { kind: "agent", status: "queued", profileId, targetId, targetName, requestId: null },
-        { minutes },
-      );
-    queue("audiencegrid", "AudienceGrid", 30);
-    const chosen = queue("stayfield", "Stayfield", 5);
-    const { user } = renderPage(<ReviewPage />, {
-      path: "/review",
-      route: `/review?item=${encodeURIComponent(`agent:${chosen.id}`)}`,
-      mock,
-    });
-    const pane = await card(/Stayfield, Agent/);
-    await user.click(await pane.findByRole("button", { name: "Keep it for me" }));
-    expect(await screen.findByText("You're doing this one")).toBeVisible();
-    expect(await card(/Stayfield, Agent/)).toBeTruthy();
-    expect(screen.queryByRole("region", { name: /AudienceGrid, Agent/ })).not.toBeInTheDocument();
+  it("marks the page that is open", async () => {
+    open("/review/mail");
+    const tabs = within(await screen.findByRole("navigation", { name: "Review pages" }));
+    expect(tabs.getByRole("link", { name: /^Mail/ })).toHaveAttribute("aria-current", "page");
+    expect(tabs.getByRole("link", { name: /^Needs you/ })).not.toHaveAttribute("aria-current");
+  });
+});
+
+describe("the mail page", () => {
+  it("keeps the saved-mail preview and the check for replies in the list, not above it", async () => {
+    open("/review/mail");
+    const banner = await screen.findByText("12 saved emails to remove");
+    const list = screen.getByRole("navigation", { name: "Review list" });
+    expect(list).toContainElement(banner);
+    expect(within(list).getByRole("button", { name: "Check for replies" })).toBeVisible();
   });
 
-  it("follows a link saved before the task changed hands", async () => {
+  it("does not show the preview on the pages that are not mail", async () => {
+    open("/review/problems");
+    await screen.findByRole("navigation", { name: "Review list" });
+    expect(screen.queryByTestId("cleanup-preview")).toBeNull();
+  });
+});
+
+describe("a list page on a phone", () => {
+  it("shows the list first and drills into a row, with a way back", async () => {
+    setWide(false);
+    const { user } = open("/review/problems");
+    const list = within(await screen.findByRole("navigation", { name: "Review list" }));
+    expect(list.getAllByRole("button").some((row) => row.hasAttribute("aria-current"))).toBe(false);
+    await user.click(list.getByRole("button", { name: /KinSearch/ }));
+    expect(await card(/KinSearch, Scan for records/)).toBeTruthy();
+    const pane = within(document.getElementById("review-detail") as HTMLElement);
+    await user.click(pane.getByRole("link", { name: "Review" }));
+    expect(list.getAllByRole("button").some((row) => row.hasAttribute("aria-current"))).toBe(false);
+  });
+});
+
+describe("addresses saved before Review was split", () => {
+  it.each([
+    ["blocked", "/review"],
+    ["yours", "/review"],
+    ["matches", "/review"],
+    ["verifications", "/review"],
+    ["mail", "/review/mail"],
+    ["failed", "/review/problems"],
+    ["agents", "/review/agents"],
+  ])("sends ?tab=%s to %s, replacing the old address", async (tab, destination) => {
+    openAt(`/review?tab=${tab}`);
+    await waitFor(() => expect(where()).toMatch(new RegExp(`^${destination}(\\?item=.*)?$`)));
+  });
+
+  it("drops the old tab from an address that already names a current item", async () => {
+    openAt(`/review?tab=matches&item=${encodeURIComponent("match:abc")}`);
+    await waitFor(() => expect(where()).toBe(`/review?item=${encodeURIComponent("match:abc")}`));
+  });
+
+  it("sends a blocked task of the focused queue to its task key", async () => {
     const mock = failing(/never/);
-    const profileId = mock.store.profiles[0]?.id ?? "";
+    const blocked = mock.store.tasks.find((task) => task.status === "blocked");
+    if (!blocked) throw new Error("fixture");
+    openAt(`/review?item=${encodeURIComponent(`blocked:${blocked.id}`)}`, mock);
+    await waitFor(() =>
+      expect(where()).toBe(`/review?item=${encodeURIComponent(`task:${blocked.id}`)}`),
+    );
+    expect(await screen.findByRole("article")).toBeVisible();
+  });
+
+  function queued(mock: MockApp, mine: boolean) {
     const task = makeTask(
       mock.store,
       {
         kind: "agent",
         status: "queued",
-        profileId,
+        profileId: mock.store.profiles[0]?.id ?? "",
         targetId: "stayfield",
         targetName: "Stayfield",
         requestId: null,
       },
       { minutes: 5 },
     );
-    task.assignment = {
-      to: { kind: "person" },
-      at: mock.store.clock.now().toISOString(),
-      by: "user",
-      fallback: "any",
-    };
-    renderPage(<ReviewPage />, {
-      path: "/review",
-      route: `/review?item=${encodeURIComponent(`agent:${task.id}`)}`,
-      mock,
-    });
-    expect(await card(/Stayfield, Agent/)).toBeTruthy();
-    expect(await screen.findByText("You're doing this one")).toBeVisible();
-  });
+    if (mine) {
+      task.assignment = {
+        to: { kind: "person" },
+        at: mock.store.clock.now().toISOString(),
+        by: "user",
+        fallback: "any",
+      };
+    }
+    return task;
+  }
 
-  it("offers the same picker when handing a blocked task to an agent", async () => {
+  it("sends a task the person took to its task key", async () => {
     const mock = failing(/never/);
-    applyAgentPreset(mock.store, "one");
-    mock.store.settings.mcp = { ...mock.store.settings.mcp, enabled: true };
-    const { user } = open("blocked", mock);
-    const task = await openItem(user, /ClearCheck\s*ID upload/, /ClearCheck, Submit form/);
+    const mine = queued(mock, true);
+    openAt(`/review?item=${encodeURIComponent(`yours:${mine.id}`)}`, mock);
     await waitFor(() =>
-      expect(task.getByRole("button", { name: "Hand to an agent" })).toBeEnabled(),
-    );
-    await user.click(task.getByRole("button", { name: "Hand to an agent" }));
-    const dialog = within(await screen.findByRole("dialog"));
-    await user.click(await dialog.findByRole("radio", { name: /nick-pc-agent/ }));
-    await user.click(dialog.getByRole("button", { name: "Hand over" }));
-    await waitFor(() =>
-      expect(
-        mock.store.tasks.find(
-          (candidate) =>
-            candidate.kind === "agent" &&
-            candidate.targetId === "clearcheck" &&
-            candidate.status === "queued",
-        )?.assignment?.to,
-      ).toEqual({ kind: "model", workerId: "nick-pc-agent" }),
+      expect(where()).toBe(`/review?item=${encodeURIComponent(`task:${mine.id}`)}`),
     );
   });
-});
 
-describe("records that look unlikely", () => {
-  it("folds them under a count and marks them all Not me after a confirm", async () => {
-    const { user, mock } = open("matches");
-    const list = within(await screen.findByRole("navigation", { name: "Review queue" }));
-    expect(list.queryByRole("button", { name: /^Jordan Example\s*Found/ })).toBeNull();
-    await user.click(
-      await list.findByRole("button", { name: "Mark 1 unlikely record as not you" }),
-    );
-    await user.click(
-      within(await screen.findByRole("dialog")).getByRole("button", { name: "Not me" }),
-    );
+  it("sends a task waiting for an agent to Agents", async () => {
+    const mock = failing(/never/);
+    const waiting = queued(mock, false);
+    openAt(`/review?item=${encodeURIComponent(`agent:${waiting.id}`)}`, mock);
     await waitFor(() =>
-      expect(
-        mock.store.matches.find((candidate) => candidate.recordUrl.endsWith("tx-88120"))?.decision,
-      ).toBe("not_mine"),
+      expect(where()).toBe(`/review/agents?item=${encodeURIComponent(`agent:${waiting.id}`)}`),
     );
-    expect(
-      mock.store.matches.find((candidate) => candidate.recordUrl.endsWith("ca-71306"))?.decision,
-    ).toBe("pending");
   });
 
-  it("lets the toggle close the group while one of its records is selected", async () => {
-    const { user } = open("matches");
-    const list = within(await screen.findByRole("navigation", { name: "Review queue" }));
-    const toggle = await list.findByRole("button", { name: /^\d+ unlikely$/ });
-    await user.click(toggle);
-    await user.click(await list.findByRole("button", { name: /^Jordan Example\s*Found/ }));
-    expect(toggle).toHaveAttribute("aria-expanded", "true");
-    await user.click(toggle);
-    expect(toggle).toHaveAttribute("aria-expanded", "false");
+  it("follows a link saved before the task changed hands", async () => {
+    const mock = failing(/never/);
+    const task = queued(mock, true);
+    openAt(`/review?item=${encodeURIComponent(`agent:${task.id}`)}`, mock);
+    await waitFor(() =>
+      expect(where()).toBe(`/review?item=${encodeURIComponent(`task:${task.id}`)}`),
+    );
+  });
+
+  it.each([
+    ["failed:tsk_1", "/review/problems?item=failed%3Atsk_1"],
+    ["mail:msg_1", "/review/mail?item=mail%3Amsg_1"],
+  ])("sends ?item=%s to %s", async (item, destination) => {
+    openAt(`/review?item=${encodeURIComponent(item)}`);
+    await waitFor(() => expect(where()).toBe(destination));
+  });
+
+  it("leaves a current address alone", async () => {
+    openAt("/review?item=match%3Amtc_0001");
+    await screen.findByRole("article");
+    expect(where()).toBe("/review?item=match%3Amtc_0001");
   });
 });

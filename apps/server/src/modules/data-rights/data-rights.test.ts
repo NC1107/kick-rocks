@@ -644,12 +644,6 @@ describe("reset instance", () => {
     store.set("mcp.tokenHash", "token-hash");
     store.set("llm", { baseUrl: "http://localhost:11434/v1", model: "m", apiKey: "k" });
     store.set("schedule", { ...store.get("schedule"), pollMinutes: 5 });
-    store.set("replyModel", { spotCheckPercent: 25, threshold: 0.98 });
-    store.set("replyModel.state", {
-      pausedAt: "2026-01-01T00:00:00.000Z",
-      reason: "Spot checks disagreed",
-      countedFrom: null,
-    });
     store.set("retention", { messageDays: 10, screenshotDays: 5 });
     store.set("scanning", { ...store.get("scanning"), dailyCapPerSite: 9 });
     store.set("egress", { proxyUrl: "http://proxy.example.test:8888", domains: [] });

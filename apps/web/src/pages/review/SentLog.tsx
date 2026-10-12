@@ -12,10 +12,13 @@ const SHOWN = 30;
 export function SentLog({
   log,
   target,
+  bare = false,
 }: {
   log: SendLog;
   /** The site the run was on, so its name leads to the site's page. */
   target?: { id: string | null; name: string } | undefined;
+  /** Just the rows, for a place that already says what they are. */
+  bare?: boolean;
 }) {
   const [all, setAll] = useState(false);
   if (log.sends.length === 0) return null;
@@ -24,18 +27,20 @@ export function SentLog({
   const newest = [...rows].reverse();
   const shown = all ? newest : newest.slice(0, SHOWN);
 
-  return (
-    <Section label="What left the browser" count={rows.length} as="h3">
-      <p className="mb-2 text-body text-ink">
-        {summary.unguarded
-          ? "The page used a channel the gate cannot read, so a form may have gone out through it."
-          : summary.nothingLeft
-            ? summary.lookups === 0
-              ? "No contact details left the browser."
-              : `No contact details left the browser; ${summary.lookups} ${summary.lookups === 1 ? "search" : "searches"} with your name or place did.`
-            : `${summary.released} ${summary.released === 1 ? "request" : "requests"} carrying your details left the browser.`}
-      </p>
-      {target ? (
+  const body = (
+    <>
+      {bare && !summary.unguarded ? null : (
+        <p className="mb-2 text-body text-ink">
+          {summary.unguarded
+            ? "The page used a channel the gate cannot read, so a form may have gone out through it."
+            : summary.nothingLeft
+              ? summary.lookups === 0
+                ? "No contact details left the browser."
+                : `No contact details left the browser; ${summary.lookups} ${summary.lookups === 1 ? "search" : "searches"} with your name or place did.`
+              : `${summary.released} ${summary.released === 1 ? "request" : "requests"} carrying your details left the browser.`}
+        </p>
+      )}
+      {target && !bare ? (
         <p className="mb-2 text-meta text-ink-3">
           The run on <EntityLink to={{ kind: "target", id: target.id, name: target.name }} />.
         </p>
@@ -58,6 +63,12 @@ export function SentLog({
           Show all {newest.length}
         </Button>
       ) : null}
+    </>
+  );
+  if (bare) return body;
+  return (
+    <Section label="What left the browser" count={rows.length} as="h3">
+      {body}
     </Section>
   );
 }

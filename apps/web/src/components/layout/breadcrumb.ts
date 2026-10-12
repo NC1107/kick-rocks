@@ -16,6 +16,13 @@ const SETTINGS_PAGES: Record<string, string> = {
   about: "About",
 };
 
+const REVIEW_PAGES: Record<string, string> = {
+  mail: "Mail",
+  agents: "Agents",
+  problems: "Problems",
+  scans: "Scans",
+};
+
 /**
  * Where the current path sits in the app, as a trail. A detail page's own name is not known from
  * the path, so `tail` replaces its generic noun once the page has loaded it.
@@ -28,8 +35,10 @@ export function breadcrumbTrail(pathname: string, tail?: Crumb): Crumb[] {
   switch (area) {
     case undefined:
       return [{ label: "Dashboard" }];
-    case "review":
-      return [{ label: "Review" }];
+    case "review": {
+      const page = second ? REVIEW_PAGES[second] : undefined;
+      return page ? [{ label: "Review", to: "/review" }, { label: page }] : [{ label: "Review" }];
+    }
     case "dev":
       return [{ label: "Component gallery" }];
     case "requests":

@@ -33,7 +33,11 @@ type BodyArg<R extends RouteDef> = R extends { readonly body: object }
 /** What a call takes, derived from the route: path params and body are required when the route has them. */
 export type RouteArgs<R extends RouteDef> = ParamsArg<R> &
   QueryArgs<R> &
-  BodyArg<R> & { signal?: AbortSignal | undefined };
+  BodyArg<R> & {
+    signal?: AbortSignal | undefined;
+    /** Lets the request finish after the page is gone, for what must not be lost on leaving. */
+    keepalive?: boolean | undefined;
+  };
 
 /** A tuple that makes the args argument optional when no key in it is required. */
 export type ArgsTuple<R extends RouteDef> =
@@ -117,7 +121,11 @@ export async function callRoute<R extends RouteDef>(
   route: R,
   ...[args]: ArgsTuple<R>
 ): Promise<RouteResponse<R>> {
-  const { body, signal } = (args ?? {}) as { body?: unknown; signal?: AbortSignal };
+  const { body, signal, keepalive } = (args ?? {}) as {
+    body?: unknown;
+    signal?: AbortSignal;
+    keepalive?: boolean;
+  };
   const headers: Record<string, string> = { accept: "application/json" };
   if (requiresCsrfHeader(route)) headers[CSRF_HEADER] = CSRF_HEADER_VALUE;
   if (body !== undefined) headers["content-type"] = "application/json";
@@ -130,6 +138,7 @@ export async function callRoute<R extends RouteDef>(
       body: body === undefined ? null : JSON.stringify(body),
       credentials: "same-origin",
       signal: signal ?? null,
+      ...(keepalive ? { keepalive: true } : {}),
     });
   } catch (error) {
     if (error instanceof DOMException && error.name === "AbortError") throw error;

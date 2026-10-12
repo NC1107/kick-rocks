@@ -206,7 +206,7 @@ describe("the request page", () => {
     open(byTarget("clearcheck"));
     await screen.findByRole("heading", { name: /^Tasks/ });
     const link = await screen.findByRole("link", { name: "Submit form" });
-    expect(link).toHaveAttribute("href", expect.stringMatching(/^\/review\?item=blocked%3Atsk_/));
+    expect(link).toHaveAttribute("href", expect.stringMatching(/^\/review\?item=task%3Atsk_/));
   });
 
   describe("when a reply asked for the web form", () => {
@@ -500,8 +500,8 @@ describe("the agent callout", () => {
 
   it("says nothing has connected, and offers only Assign and Keep it for me", async () => {
     waiting("none");
-    expect(await screen.findByText(/No agent has connected yet\./)).toBeVisible();
-    expect(screen.getByRole("link", { name: "Settings, Agents" })).toHaveAttribute(
+    expect(await screen.findByText(/No agent yet\./)).toBeVisible();
+    expect(screen.getByRole("link", { name: "Settings" })).toHaveAttribute(
       "href",
       "/settings/agents",
     );

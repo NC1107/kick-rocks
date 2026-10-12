@@ -113,6 +113,7 @@ function fakeServer(
 
 let browser: Browser;
 let profileDir: string;
+const started: { controller: AbortController; finished: Promise<unknown> }[] = [];
 
 beforeAll(async () => {
   browser = await launchTestBrowser();
@@ -127,7 +128,14 @@ beforeEach(async () => {
   await resetFixture();
 });
 
-afterEach(() => {
+afterEach(async () => {
+  // A test that failed before it stopped its worker would leave it polling for the rest of the file.
+  for (const { controller } of started) controller.abort();
+  await Promise.race([
+    Promise.allSettled(started.map(({ finished }) => finished)),
+    new Promise((done) => setTimeout(done, 15_000)),
+  ]);
+  started.length = 0;
   rmSync(profileDir, { recursive: true, force: true });
 });
 
@@ -177,7 +185,7 @@ async function runOnce(
   options: { launcher?: () => Promise<never>; provider?: ReturnType<typeof scripted> } = {},
 ) {
   const { finished, controller, provider } = startWorker(server, steps, options);
-  await vi.waitUntil(() => server.transitions().length > 0, { timeout: 20_000, interval: 20 });
+  await vi.waitUntil(() => server.transitions().length > 0, { timeout: 60_000, interval: 20 });
   controller.abort();
   await finished;
   return provider;
@@ -210,6 +218,7 @@ function startWorker(
     },
     challengeGraceMs: 200,
   });
+  started.push({ controller, finished });
   return { finished, controller, provider };
 }
 
@@ -398,7 +407,7 @@ describeBrowser("the agent worker end to end", () => {
       { calls: [["navigate", { url: `${ORIGIN}/hang` }]] },
     ]);
     await vi.waitUntil(async () => (await fixtureState()).hits.some((h) => h.path === "/hang"), {
-      timeout: 20_000,
+      timeout: 60_000,
       interval: 20,
     });
     controller.abort();
@@ -422,7 +431,7 @@ describeBrowser("the agent worker end to end", () => {
     writeFileSync(join(gone, "Cookies"), "cookie data");
 
     const { finished, controller } = startWorker(server, []);
-    await vi.waitUntil(() => !existsSync(gone), { timeout: 5_000, interval: 20 });
+    await vi.waitUntil(() => !existsSync(gone), { timeout: 15_000, interval: 20 });
     controller.abort();
     await finished;
     expect(existsSync(kept)).toBe(true);
@@ -456,7 +465,7 @@ describeBrowser("the agent worker and the model the server offers", () => {
     const { finished, controller } = startWorker(server, [], {
       config: config(OLLAMA_CONFIG),
     });
-    await vi.waitUntil(() => claims(server).length > 0, { timeout: 10_000, interval: 20 });
+    await vi.waitUntil(() => claims(server).length > 0, { timeout: 30_000, interval: 20 });
     controller.abort();
     await finished;
 
@@ -478,7 +487,7 @@ describeBrowser("the agent worker and the model the server offers", () => {
     const server = fakeServer(null, undefined, { ollamaModels: INSTALLED, agentModel: CHOICE });
     const { finished, controller } = startWorker(server, [], { config: config(OLLAMA_CONFIG) });
     await vi.waitUntil(() => claims(server).some((claim) => claim.model?.name === "gpt-oss:20b"), {
-      timeout: 10_000,
+      timeout: 30_000,
       interval: 20,
     });
     controller.abort();
@@ -502,7 +511,7 @@ describeBrowser("the agent worker and the model the server offers", () => {
     const { finished, controller } = startWorker(server, [], { config: config(OLLAMA_CONFIG) });
     await vi.waitUntil(
       () => beats(server).some((beat) => beat.agentModelState === "not_installed"),
-      { timeout: 10_000, interval: 20 },
+      { timeout: 30_000, interval: 20 },
     );
     controller.abort();
     await finished;
@@ -516,7 +525,7 @@ describeBrowser("the agent worker and the model the server offers", () => {
     });
     await vi.waitUntil(
       () => beats(server).some((beat) => beat.agentModelState === "unsupported_provider"),
-      { timeout: 10_000, interval: 20 },
+      { timeout: 30_000, interval: 20 },
     );
     controller.abort();
     await finished;

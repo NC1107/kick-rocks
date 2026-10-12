@@ -74,6 +74,7 @@ describe("GET /profiles/:id/dashboard", () => {
         yourAgentTasks: 0,
         assignedAgentTasks: 0,
         agentAssignees: [],
+        needsYou: { active: 0, snoozed: 0, minutes: 0, quick: 0, few: 0, longer: 0 },
       },
       sending: null,
       mailbox: null,
@@ -147,10 +148,14 @@ describe("GET /profiles/:id/dashboard", () => {
     const queue = await ctx.call(API_ROUTES.reviewQueue, { query: { profileId: profile.id } });
     if (!queue.ok) throw new Error("queue failed");
 
+    const needsYou = await ctx.call(API_ROUTES.needsYouGet, { query: { profileId: profile.id } });
+    if (!needsYou.ok) throw new Error("needs-you failed");
+
     expect(attention.agentTasks).toBe(1);
     expect(attention).toEqual({
       ...reviewAttention(queue.body),
       ...agentAssignment(queue.body),
+      needsYou: needsYou.body.counts,
     });
   });
 
@@ -203,6 +208,7 @@ describe("GET /profiles/:id/dashboard", () => {
       yourAgentTasks: 0,
       assignedAgentTasks: 0,
       agentAssignees: [],
+      needsYou: { active: 3, snoozed: 0, minutes: 5, quick: 1, few: 2, longer: 0 },
     });
   });
 

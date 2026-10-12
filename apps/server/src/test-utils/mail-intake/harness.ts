@@ -1,9 +1,10 @@
-import { type MessageRow, mailboxes, messages, requests } from "@kickrocks/db";
+import { type MessageRow, mailboxes, messages, replyPredictions, requests } from "@kickrocks/db";
 import type { ReplyClassification } from "@kickrocks/shared";
 import { eq } from "drizzle-orm";
 import { createReplyClassifier } from "../../mail/classifier.js";
 import { createDkimVerifier } from "../../mail/dkim.js";
 import { parseInboxMessage } from "../../mail/parse.js";
+import { RULES_THRESHOLD } from "../../mail/thresholds.js";
 import type { InboxMessage, ReplyClassifier } from "../../mail/types.js";
 import { createRunners } from "../../runners/index.js";
 import { createTestContext, type TestContext } from "../context.js";
@@ -56,6 +57,11 @@ export interface IntakeReport {
     shownInReview: number;
     /** Request mail that waited in Review although it could have been applied or recorded without a person. */
     needlessReview: number;
+    /**
+     * Request mail the rules read correctly that waits in Review all the same: its rule is not on
+     * the proven list, or an earlier reply that is only a suggestion left the request open.
+     */
+    heldForPerson: number;
     /** Messages the classifier sent to the language model. */
     modelCalls: number;
     /** Bodies downloaded for messages that ended up ignored. Near zero when the server can search. */
@@ -290,11 +296,19 @@ function report(
     .where(eq(messages.mailboxId, mailboxId))
     .all();
   const byMessageId = new Map(rows.map((row) => [row.messageIdHeader, row]));
+  const predictions = new Map(
+    ctx.services.db
+      .select()
+      .from(replyPredictions)
+      .all()
+      .map((row) => [row.messageId, row]),
+  );
 
   const metrics: Metrics = { falsePositives: 0, falseNegatives: 0, storedIgnored: 0, misrouted: 0 };
   const perCategory = new Map<string, CategoryReport>();
   const failures: Failure[] = [];
   let needlessReview = 0;
+  let heldForPerson = 0;
   let downloadedIgnored = 0;
   const verdicts: Record<string, string> = {};
   const fetched = new Set(fetchedUids);
@@ -318,7 +332,17 @@ function report(
     const verdict = judge(label, row, requestIds);
     verdicts[label.file] = row ? describeRow(row) : "ignored";
     if (!row && fetched.has(index + 1)) downloadedIgnored += 1;
-    if (verdict.needlessReview) needlessReview += 1;
+    if (verdict.needlessReview && row) {
+      const prediction = predictions.get(row.id);
+      const held =
+        prediction !== undefined &&
+        prediction.rulesLabel === label.classification &&
+        prediction.rulesConfidence >= RULES_THRESHOLD;
+      if (held) heldForPerson += 1;
+      else {
+        needlessReview += 1;
+      }
+    }
     for (const { problem, detail } of verdict.problems) {
       metrics[problem] += 1;
       category[problem] += 1;
@@ -336,6 +360,7 @@ function report(
       stored: rows.length,
       shownInReview: rows.filter((row) => !row.reviewed).length,
       needlessReview,
+      heldForPerson,
       modelCalls: modelCalls(),
       downloadedIgnored,
       verdicts,

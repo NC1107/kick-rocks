@@ -2,13 +2,14 @@ import type { RequestStatus, TaskSummary } from "@kickrocks/shared";
 
 const part = encodeURIComponent;
 
-/** The kinds of thing Review can open on its own, as the `item` it is told to select. */
-export type ReviewKey =
-  | "scans"
-  | `${"blocked" | "failed" | "agent" | "yours"}:${string}`
-  | `match:${string}`
-  | `details:${string}`
-  | `mail:${string}`;
+/** What the focused Needs you queue can open, as the `item` it is told to select. */
+export type ReviewItemKey = `task:${string}` | `match:${string}` | `details:${string}`;
+
+/** The review pages that list a kind of thing by itself, beside the Needs you queue. */
+export type ReviewSection = "mail" | "agents" | "problems";
+
+/** The item an open row of a review section is named by. */
+export type ReviewSectionKey = `${"mail" | "failed" | "agent"}:${string}`;
 
 export interface RequestsFilters {
   status?: RequestStatus | undefined;
@@ -51,11 +52,12 @@ export type TaskRef = Pick<TaskSummary, "id" | "kind" | "status" | "requestId"> 
  * task is part of its request, so it opens there. Null for a task that is neither.
  */
 export function taskPath(task: TaskRef): string | null {
-  if (task.status === "blocked") return `/review?item=${part(`blocked:${task.id}`)}`;
-  if (task.status === "failed") return `/review?item=${part(`failed:${task.id}`)}`;
+  if (task.status === "blocked") return paths.reviewItem(`task:${task.id}`);
+  if (task.status === "failed") return paths.reviewSection("problems", `failed:${task.id}`);
   if (task.status === "queued" && task.kind === "agent") {
-    const mine = task.assignment?.to.kind === "person";
-    return `/review?item=${part(`${mine ? "yours" : "agent"}:${task.id}`)}`;
+    return task.assignment?.to.kind === "person"
+      ? paths.reviewItem(`task:${task.id}`)
+      : paths.reviewSection("agents", `agent:${task.id}`);
   }
   return task.requestId ? `/requests/${part(task.requestId)}` : null;
 }
@@ -79,8 +81,11 @@ export const paths = {
     const text = query.toString();
     return text ? `/requests?${text}` : "/requests";
   },
-  review: (key?: ReviewKey) => (key ? `/review?item=${part(key)}` : "/review"),
-  reviewTab: (tab: string) => `/review?tab=${part(tab)}`,
+  review: () => "/review",
+  reviewSnoozed: () => "/review?show=snoozed",
+  reviewItem: (key: ReviewItemKey) => `/review?item=${part(key)}`,
+  reviewSection: (section: ReviewSection, key?: ReviewSectionKey) =>
+    key ? `/review/${section}?item=${part(key)}` : `/review/${section}`,
   /** There is no page for a campaign, so it is the list of its requests. */
   campaign: (id: string) => paths.requests({ campaignId: id }),
   settings: (section?: SettingsSection | SettingsPage) => {

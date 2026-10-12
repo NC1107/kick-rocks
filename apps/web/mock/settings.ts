@@ -513,19 +513,6 @@ export default defineMockDomain({
                   : (current.llm?.apiKeySet ?? false),
           };
         }
-        if (body.replyModel) {
-          const { spotCheckPercent, threshold, resume } = body.replyModel;
-          const model = current.replyModel;
-          if (spotCheckPercent !== undefined) model.spotCheckPercent = spotCheckPercent;
-          if (threshold !== undefined) {
-            model.thresholdOverride = threshold;
-            model.threshold =
-              model.status.threshold === null
-                ? null
-                : Math.max(model.status.threshold, threshold ?? 0);
-          }
-          if (resume) model.paused = null;
-        }
         if (body.mcp) current.mcp = { ...current.mcp, enabled: body.mcp.enabled };
         if (body.siteChecks) current.siteChecks = { enabled: body.siteChecks.enabled };
         if (body.agent?.takeUnreviewed !== undefined) {

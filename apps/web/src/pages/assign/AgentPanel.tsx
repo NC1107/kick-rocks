@@ -73,7 +73,7 @@ export function AgentPanel({ task, pageUrl, events = [], layout }: AgentPanelPro
 
   const lapsed = lapsedText(events, task.id);
   const settingsLink = state.nobodyConnected ? (
-    <TextLink to={AGENT_SETTINGS_PATH}>Settings, Agents</TextLink>
+    <TextLink to={AGENT_SETTINGS_PATH}>Settings</TextLink>
   ) : null;
 
   const actions = (
@@ -97,7 +97,7 @@ export function AgentPanel({ task, pageUrl, events = [], layout }: AgentPanelPro
       {state.kind === "working" && heldNow ? (
         <p className="text-attention-text">
           A request is waiting for your approval.{" "}
-          <EntityLink to={{ kind: "review", key: `blocked:${task.id}`, label: "Open in Review" }} />
+          <EntityLink to={{ kind: "review", key: `task:${task.id}`, label: "Open in Review" }} />
         </p>
       ) : null}
       {state.kind === "working" ? (
@@ -173,7 +173,7 @@ function PanelActions({
   running: boolean;
 }) {
   const page: ReactNode = pageUrl ? (
-    <ExternalLinkText href={pageUrl}>Open the opt-out page</ExternalLinkText>
+    <ExternalLinkText href={pageUrl}>Open the page</ExternalLinkText>
   ) : null;
   const runNowButton = state.runNow ? (
     <Button size="sm" onClick={onRunNow} loading={running}>

@@ -1,5 +1,6 @@
 import {
   type Match,
+  type NeedsYouMarkState,
   type NotificationSettings,
   type ProfileDetail,
   type RecipeRecord,
@@ -96,6 +97,8 @@ export interface MockStore {
   messages: ReviewMessage[];
   tasks: TaskSummary[];
   blockedInfo: Map<string, BlockedTaskInfo>;
+  /** What the person did with each Needs you item, by its key. */
+  needsYouMarks: Map<string, NeedsYouMarkState>;
   /** The agent workers and MCP clients that have called in, for the assign picker. */
   agents: MockAgent[];
   /** What each agent task's browser sent, by task id. */
@@ -164,6 +167,7 @@ export function createStore(authMode: MockAuthMode = "authed"): MockStore {
     messages: [],
     tasks: [],
     blockedInfo: new Map(),
+    needsYouMarks: new Map(),
     agents: [],
     sends: new Map(),
     matches: [],
@@ -183,25 +187,13 @@ export function createStore(authMode: MockAuthMode = "authed"): MockStore {
       llm: null,
       replyModel: {
         status: { state: "loaded", reason: null, version: "v1", threshold: 0.961 },
-        threshold: 0.961,
-        thresholdOverride: null,
-        spotCheckPercent: 10,
-        paused: null,
-        check: {
-          spotChecks: 14,
-          agreed: 13,
-          precision: 13 / 14,
-          low: 0.69,
-          high: 0.99,
-          needed: 20,
-          bands: [
-            { from: 0, to: 0.5, answers: 3, accepted: 1 },
-            { from: 0.5, to: 0.7, answers: 6, accepted: 4 },
-            { from: 0.7, to: 0.9, answers: 9, accepted: 7 },
-            { from: 0.9, to: 0.96, answers: 5, accepted: 5 },
-            { from: 0.96, to: 1, answers: 22, accepted: 21 },
-          ],
-        },
+        bands: [
+          { from: 0, to: 0.5, answers: 3, accepted: 1 },
+          { from: 0.5, to: 0.7, answers: 6, accepted: 4 },
+          { from: 0.7, to: 0.9, answers: 9, accepted: 7 },
+          { from: 0.9, to: 0.96, answers: 5, accepted: 5 },
+          { from: 0.96, to: 1, answers: 22, accepted: 21 },
+        ],
       },
       retention: { messageDays: null, screenshotDays: 30 },
       scanning: ScanningSettings.parse({}),

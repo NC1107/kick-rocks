@@ -142,3 +142,18 @@ The report gives the accuracy of the model's answers alone at the confidence the
 
 No result for it is committed yet.
 A model trained on a developer machine is not the model that ships, so record the run once from the release the `reply-model` workflow publishes, and pin that release in `apps/server/reply-model/release.json` at the same time.
+
+## Real replies
+
+`--corpus dir` scores real, labeled replies instead of the synthetic data.
+The folder holds `labels.json` and the reply files it names (`.local/real-replies` is such a folder and stays out of git).
+Ambiguous entries are left out.
+Each reply is run through the shipped classifier as the answer to one open request, in two scenarios.
+In the first the request is for the named company and the reply comes from that company's domain with no thread headers.
+In the second the request is for a different company, so the name gate holds the reply.
+Approaches are chosen with `--approaches rules,encoder,llm,llm-tuned`.
+`encoder` needs `--release-dir` (an extracted reply model release), `llm` and `llm-tuned` run once for each of `--models a,b` on Ollama, and `--thinking-off` asks for no reasoning.
+`llm-tuned` swaps the system prompt of the branch named by `--tuned-ref` (default `kr3/agent-tuning`) into each request.
+The report counts what the server would apply without a person, how many of those disagree with the label, and how many go to Review.
+For the language model that is the rules alone, because its answers only ever suggest.
+Replies are never committed, only `results/real-replies-sources.txt` with their source URLs.

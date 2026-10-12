@@ -148,7 +148,7 @@ A person can also cancel a request that is not finished, and a late reply is sti
 
 REST under `/api` for the web UI, JSON in and out, cookie session after password login.
 The routes, with their request and response schemas, are defined in `packages/shared/src/api.ts`, which is the source of truth.
-They cover profiles and their mailbox, the targets list (`/targets`, brokers and companies together, with filters), campaigns, requests (`/requests/:id`), matches, the review queue (`/review`), and settings.
+They cover profiles and their mailbox, the targets list (`/targets`, brokers and companies together, with filters), campaigns, requests (`/requests/:id`), matches, the review queue (`/review`, with Mail, Agents, Problems and Scans on their own pages), and settings.
 
 MCP server at `/mcp`.
 The tools are `list_tasks`, `claim_task`, `heartbeat_task`, `complete_task`, `block_task`, `fail_task`, `release_task`, `get_target`, `get_recipe`, and `propose_recipe`.

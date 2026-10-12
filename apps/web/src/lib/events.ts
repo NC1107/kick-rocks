@@ -43,6 +43,7 @@ const ACTION_PHRASES: Record<UserAction, string> = {
   mark_no_record: "mark it as having no record",
   verification_reply: "approve sending the details the target asked for",
   retry_task: "retry the failed task",
+  not_yet: "try it by hand",
 };
 
 const plural = (count: number, one: string, many = `${one}s`) =>
@@ -161,6 +162,8 @@ export function describeEvent(event: RequestEvent): string {
     }
     case "user_action": {
       const { action, note } = event.payload;
+      if (action === "not_yet")
+        return `You tried, not done yet.${note ? ` You noted: ${note}` : ""}`;
       return `You chose to ${ACTION_PHRASES[action]}.${note ? ` You noted: ${note}` : ""}`;
     }
     case "relisted":

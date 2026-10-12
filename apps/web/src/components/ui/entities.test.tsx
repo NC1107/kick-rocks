@@ -33,17 +33,35 @@ describe("paths", () => {
     );
     expect(paths.requests()).toBe("/requests");
     expect(paths.campaign("cmp_1")).toBe("/requests?campaignId=cmp_1");
-    expect(paths.review("blocked:tsk_1")).toBe("/review?item=blocked%3Atsk_1");
+    expect(paths.review()).toBe("/review");
+    expect(paths.reviewItem("task:tsk_1")).toBe("/review?item=task%3Atsk_1");
+    expect(paths.reviewSection("mail")).toBe("/review/mail");
+    expect(paths.reviewSection("problems", "failed:tsk_1")).toBe(
+      "/review/problems?item=failed%3Atsk_1",
+    );
     expect(paths.settings("recipes")).toBe("/settings/recipes");
     expect(paths.settings("schedule")).toBe("/settings#schedule");
   });
 
   it("opens a task in the Review item that matches it, else in its request", () => {
-    expect(taskPath({ ...TASK, status: "blocked" })).toBe("/review?item=blocked%3Atsk_9");
-    expect(taskPath({ ...TASK, status: "failed" })).toBe("/review?item=failed%3Atsk_9");
+    expect(taskPath({ ...TASK, status: "blocked" })).toBe("/review?item=task%3Atsk_9");
+    expect(taskPath({ ...TASK, status: "failed" })).toBe("/review/problems?item=failed%3Atsk_9");
     expect(taskPath({ ...TASK, kind: "agent", status: "queued" })).toBe(
-      "/review?item=agent%3Atsk_9",
+      "/review/agents?item=agent%3Atsk_9",
     );
+    expect(
+      taskPath({
+        ...TASK,
+        kind: "agent",
+        status: "queued",
+        assignment: {
+          to: { kind: "person" },
+          at: "2026-10-01T00:00:00.000Z",
+          by: "user",
+          fallback: "any",
+        },
+      }),
+    ).toBe("/review?item=task%3Atsk_9");
     expect(taskPath({ ...TASK, status: "done" })).toBe("/requests/req_1");
     expect(taskPath({ ...TASK, status: "done", requestId: null })).toBeNull();
     expect(paths.task({ ...TASK, status: "done", requestId: null })).toBe("/review");
@@ -104,7 +122,7 @@ describe("EntityLink", () => {
     expect(screen.getByRole("link", { name: "a@b.example" })).toHaveClass("font-mono");
     expect(screen.getByRole("link", { name: "Send email" })).toHaveAttribute(
       "href",
-      "/review?item=blocked%3Atsk_9",
+      "/review?item=task%3Atsk_9",
     );
   });
 });

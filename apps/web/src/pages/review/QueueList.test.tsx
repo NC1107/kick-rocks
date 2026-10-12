@@ -22,6 +22,8 @@ const list = (waiting: WaitingTask[], waitingTotal = waiting.length) =>
     <MemoryRouter>
       <QueueList
         entries={[]}
+        kinds={["agents"]}
+        empty="Nothing is waiting for an agent."
         waiting={waiting}
         waitingTotal={waitingTotal}
         selectedKey={null}
@@ -57,18 +59,17 @@ describe("the waiting group in the queue list", () => {
   });
 });
 
-describe("the reason on a queue entry", () => {
+describe("a row in the list", () => {
   const entry = {
-    key: "blocked:tsk_1",
-    kind: "blocked",
+    key: "failed:tsk_1",
+    kind: "failed",
     item: {
       task: {
         id: "tsk_1",
         targetName: "Broker",
         requestId: "req_1",
-        blockedReason: "id_upload",
-        blockedDetail:
-          "The removal form asks for a photo of a government ID before it will continue",
+        lastError: "The search page did not load",
+        failureKind: "site",
       },
       requestReference: "KR-ABC123",
     },
@@ -79,24 +80,33 @@ describe("the reason on a queue entry", () => {
       <MemoryRouter>
         <QueueList
           entries={[entry]}
-          waiting={[]}
-          waitingTotal={0}
+          kinds={["failed"]}
+          empty="No problems."
           selectedKey={null}
           onSelect={() => {}}
         />
       </MemoryRouter>,
     );
 
-  it("keeps a blocked reason to its short label and leaves the full text to the detail", () => {
-    renderEntry();
-    expect(screen.getByText("ID upload")).toBeVisible();
-    expect(screen.queryByText(/photo of a government ID/)).toBeNull();
-  });
-
   it("links the request beside the select button, never inside it", () => {
     renderEntry();
     const link = screen.getByRole("link", { name: "KR-ABC123" });
     expect(link).toHaveAttribute("href", "/requests/req_1");
     expect(link.closest("button")).toBeNull();
+  });
+
+  it("says so when the page has no rows", () => {
+    render(
+      <MemoryRouter>
+        <QueueList
+          entries={[]}
+          kinds={["mail"]}
+          empty="No unsorted mail."
+          selectedKey={null}
+          onSelect={() => {}}
+        />
+      </MemoryRouter>,
+    );
+    expect(screen.getByText("No unsorted mail.")).toBeVisible();
   });
 });

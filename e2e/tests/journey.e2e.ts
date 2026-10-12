@@ -1,7 +1,8 @@
 import { mkdirSync, readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { API_ROUTES, type RequestListItem } from "@kickrocks/shared";
+import { API_ROUTES, type ReplyClassification, type RequestListItem } from "@kickrocks/shared";
+import type { Page } from "playwright";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { Api } from "../src/api.js";
 import {
@@ -73,6 +74,32 @@ async function replyFrom(targetId: string, text: string): Promise<void> {
   });
 }
 
+/**
+ * What a person does with a reply the rules only suggest a reading for: wait for it in Review
+ * with the expected reading preselected, then confirm that reading.
+ */
+async function acceptSuggestion(
+  targetId: string,
+  classification: ReplyClassification,
+  timeoutMs = 60_000,
+): Promise<void> {
+  const message = await eventually(
+    async () => {
+      const queue = await api.call(API_ROUTES.reviewQueue, {
+        query: { profileId: world.profileId },
+      });
+      return queue.messages.find(
+        (item) => item.targetId === targetId && item.suggestion?.classification === classification,
+      );
+    },
+    { what: `${targetId} to wait in Review as ${classification}`, timeoutMs },
+  );
+  await api.call(API_ROUTES.messageClassify, {
+    params: { id: message.id },
+    body: { classification },
+  });
+}
+
 const eventTypes = async (request: RequestListItem): Promise<string[]> =>
   (await api.call(API_ROUTES.requestsGet, { params: { id: request.id } })).events.map(
     (event) => event.type,
@@ -91,6 +118,40 @@ const EMAIL_FIXTURES = [
   "fx-needsform",
   "fx-unrelated",
 ];
+
+const SHOTS =
+  process.env.KICKROCKS_E2E_SHOTS ??
+  resolve(dirname(fileURLToPath(import.meta.url)), "..", ".shots");
+
+/** Runs `steps` in a signed-in page of the given size and theme, with touch on a phone. */
+async function asPerson(
+  viewport: (typeof VIEWPORTS)[number],
+  scheme: (typeof SCHEMES)[number],
+  steps: (page: Page) => Promise<void>,
+): Promise<void> {
+  const browser = await launchBrowser();
+  try {
+    const context = await browser.newContext({
+      viewport: { width: viewport.width, height: viewport.height },
+      colorScheme: scheme,
+      hasTouch: viewport.name === "phone",
+    });
+    const page = await context.newPage();
+    await signIn(page, PASSWORD);
+    await steps(page);
+    await context.close();
+  } finally {
+    await browser.close();
+  }
+}
+
+const needsYouItems = async () =>
+  (await api.call(API_ROUTES.needsYouGet, { query: { profileId: world.profileId } })).items;
+
+async function shot(page: Page, name: string): Promise<void> {
+  mkdirSync(SHOTS, { recursive: true });
+  await page.screenshot({ path: resolve(SHOTS, `${name}.png`) });
+}
 
 describe("the stack", () => {
   it("serves the web app and the API from one origin with the security headers", async () => {
@@ -516,6 +577,14 @@ describe("broker replies", () => {
 
     await pollNow();
 
+    await acceptSuggestion("fx-complete", "completed");
+    await acceptSuggestion("fx-norecord", "no_record");
+    await acceptSuggestion("fx-reject", "rejected");
+    await acceptSuggestion("fx-verify", "verification_required");
+    await acceptSuggestion("fx-link", "confirmation_link");
+    await acceptSuggestion("fx-linkjs", "confirmation_link");
+    await acceptSuggestion("fx-needsform", "needs_form");
+    await acceptSuggestion("fx-ack", "auto_ack");
     await waitForStatus("fx-complete", ["confirmed"]);
     await waitForStatus("fx-norecord", ["no_record"]);
     await waitForStatus("fx-reject", ["rejected"]);
@@ -546,6 +615,10 @@ describe("broker replies", () => {
   });
 
   it("switches to the broker's form after a bounce, and the worker submits it", async () => {
+    await eventually(async () => (await requestFor("fx-bounce")).channel === "form", {
+      what: "fx-bounce to switch to its form",
+      timeoutMs: 90_000,
+    });
     const request = await waitForStatus("fx-bounce", ["awaiting_reply"], 90_000);
     expect(request.channel).toBe("form");
     expect(await eventTypes(request)).toEqual(
@@ -558,6 +631,10 @@ describe("broker replies", () => {
   });
 
   it("switches to the form a broker points to, and the worker submits it", async () => {
+    await eventually(async () => (await requestFor("fx-needsform")).channel === "form", {
+      what: "fx-needsform to switch to its form",
+      timeoutMs: 90_000,
+    });
     const request = await waitForStatus("fx-needsform", ["awaiting_reply"], 90_000);
     expect(request.channel).toBe("form");
     const submission = (await fixtureState()).submissions.find((entry) =>
@@ -572,6 +649,18 @@ describe("broker replies", () => {
     if (!message) throw new Error("the newsletter is not in the review queue");
     const detail = await api.call(API_ROUTES.messageGet, { params: { id: message.id } });
     expect(detail.text).toContain("sprockets");
+
+    await asPerson(VIEWPORTS[0], "light", async (page) => {
+      await page.goto(
+        `${STACK.serverUrl}/review/mail?item=${encodeURIComponent(`mail:${message.id}`)}`,
+        { waitUntil: "networkidle" },
+      );
+      const footer = page.getByRole("button", { name: "Classify" });
+      await footer.waitFor();
+      const box = await footer.boundingBox();
+      expect((box?.y ?? 0) + (box?.height ?? 0)).toBeLessThanOrEqual(900);
+      await shot(page, "mail-desktop-light");
+    });
 
     await api.call(API_ROUTES.messageClassify, {
       params: { id: message.id },
@@ -592,9 +681,11 @@ describe("the screens a person sees, with a review queue that has things in it",
       "/targets/fx-people",
       "/requests",
       `/requests/${request}`,
-      ...["blocked", "matches", "verifications", "mail", "failed", "scans"].map(
-        (tab) => `/review?tab=${tab}`,
-      ),
+      "/review",
+      "/review/mail",
+      "/review/agents",
+      "/review/problems",
+      "/review/scans",
       "/settings/profiles",
       `/profiles/${world.profileId}`,
       `/profiles/${world.profileId}/mailbox`,
@@ -621,16 +712,14 @@ describe("the screens a person sees, with a review queue that has things in it",
     }
   });
 
-  it("counts everything waiting on a person in the Review badge, and lines the status pills up", async () => {
-    const queue = await api.call(API_ROUTES.reviewQueue, { query: { profileId: world.profileId } });
-    const waiting =
-      queue.blockedTasks.length +
-      queue.matches.filter((match) => match.decision === "pending").length +
-      queue.verifications.length +
-      queue.failedTasks.length +
-      queue.agentTasks.length +
-      queue.messages.length;
+  it("counts what needs the person in the Review badge and on Start, and lines the status pills up", async () => {
+    const { counts } = await api.call(API_ROUTES.needsYouGet, {
+      query: { profileId: world.profileId },
+    });
+    const waiting = counts.active;
     expect(waiting).toBeGreaterThan(0);
+    const dashboard = await api.call(API_ROUTES.dashboardGet, { params: { id: world.profileId } });
+    expect(dashboard.attention.needsYou).toEqual(counts);
 
     const browser = await launchBrowser();
     try {
@@ -652,6 +741,47 @@ describe("the screens a person sees, with a review queue that has things in it",
   });
 });
 
+describe("the Needs you queue, one card at a time", () => {
+  it("shows every card in each size and theme, with its action where a thumb or a keyboard finds it", async () => {
+    const items = await needsYouItems();
+    expect(items.length).toBeGreaterThan(0);
+    for (const viewport of VIEWPORTS) {
+      for (const scheme of SCHEMES) {
+        await asPerson(viewport, scheme, async (page) => {
+          const phone = viewport.name === "phone";
+          for (const item of items) {
+            await page.goto(`${STACK.serverUrl}/review?item=${encodeURIComponent(item.key)}`, {
+              waitUntil: "networkidle",
+            });
+            const card = page.getByRole("article");
+            await card.waitFor();
+            const overflow = await page.evaluate<number>(
+              "document.documentElement.scrollWidth - window.innerWidth",
+            );
+            expect(overflow, `${item.kind} ${viewport.name} ${scheme}`).toBeLessThanOrEqual(0);
+
+            const primary = page.locator("[data-primary]");
+            const box = await primary.boundingBox();
+            expect(box, `${item.kind} has a primary button`).not.toBeNull();
+            // The action is on screen without scrolling, which is what keeps a decision one tap away.
+            expect((box?.y ?? 0) + (box?.height ?? 0)).toBeLessThanOrEqual(viewport.height);
+            if (phone) {
+              expect((box?.y ?? 0) + (box?.height ?? 0)).toBeGreaterThan(viewport.height - 120);
+              expect(box?.width).toBeGreaterThan(100);
+            } else {
+              await page.getByRole("navigation", { name: "Up next" }).waitFor();
+              await expect(
+                page.locator("kbd", { hasText: "Enter" }).first().isVisible(),
+              ).resolves.toBe(true);
+            }
+            await shot(page, `needs-you-${item.kind}-${viewport.name}-${scheme}`);
+          }
+        });
+      }
+    }
+  });
+});
+
 describe("a broker that asks for more", () => {
   it("lists what it asked for, and sends only the fields the person approves", async () => {
     const queue = await api.call(API_ROUTES.reviewQueue, { query: { profileId: world.profileId } });
@@ -659,9 +789,22 @@ describe("a broker that asks for more", () => {
     if (!item) throw new Error("fx-verify is not waiting for verification");
     expect(item.requestedFields).toEqual(expect.arrayContaining(["date_of_birth", "zip"]));
 
-    await api.call(API_ROUTES.requestsVerification, {
-      params: { id: item.request.id },
-      body: { messageId: item.message.id, fields: ["zip"] },
+    await asPerson(VIEWPORTS[1], "dark", async (page) => {
+      await page.goto(
+        `${STACK.serverUrl}/review?item=${encodeURIComponent(`details:${item.request.id}`)}`,
+        { waitUntil: "networkidle" },
+      );
+      const card = page.getByRole("article");
+      await expect(
+        card.getByRole("button", { name: "Pick what to send" }).isDisabled(),
+      ).resolves.toBe(true);
+      await card.getByRole("button", { name: /^ZIP/ }).tap();
+      await shot(page, "details-phone-dark");
+      await page.getByRole("button", { name: "Send 1 detail" }).tap();
+      await page
+        .getByRole("article")
+        .waitFor({ state: "detached" })
+        .catch(() => undefined);
     });
     await waitForStatus("fx-verify", ["awaiting_reply"]);
 
@@ -678,6 +821,7 @@ describe("a broker that asks for more", () => {
       "Thank you. Your request has been completed and your data has been deleted.",
     );
     await pollNow();
+    await acceptSuggestion("fx-verify", "completed");
     await waitForStatus("fx-verify", ["confirmed"]);
   });
 });
@@ -690,15 +834,25 @@ describe("a match on the people-search site", () => {
     const other = matches.find((match) => match.recordUrl.endsWith("portland"));
     if (!mine || !other) throw new Error("the scan did not find both records");
 
-    await api.call(API_ROUTES.matchDecide, {
-      params: { id: other.id },
-      body: { decision: "not_mine", rights: ["opt_out"] },
+    await asPerson(VIEWPORTS[0], "light", async (page) => {
+      await page.goto(`${STACK.serverUrl}/review?item=${encodeURIComponent(`match:${other.id}`)}`, {
+        waitUntil: "networkidle",
+      });
+      await page.getByRole("button", { name: "Not me" }).click();
+      await page
+        .getByRole("navigation", { name: "Up next" })
+        .getByRole("button", { name: /Jordan Example/ })
+        .first()
+        .click();
+      await shot(page, "record-desktop-light");
+      await page.getByRole("button", { name: "This is me" }).click();
+      // The decision waits five seconds so it can be taken back, and goes out on its own after.
+      await page.waitForTimeout(6_000);
     });
-    const decided = await api.call(API_ROUTES.matchDecide, {
-      params: { id: mine.id },
-      body: { decision: "mine", rights: ["opt_out", "delete"] },
-    });
-    expect(decided.requestId).toBeTruthy();
+    const decided = (
+      await api.call(API_ROUTES.reviewQueue, { query: { profileId: world.profileId } })
+    ).matches.find((match) => match.id === mine.id);
+    expect(decided).toBeUndefined();
 
     const request = await waitForStatus("fx-people", ["awaiting_reply"], 90_000);
     expect(request.recordUrl).toBe(mine.recordUrl);
@@ -795,6 +949,18 @@ describe("a CAPTCHA a person has to pass", () => {
     const queue = await api.call(API_ROUTES.reviewQueue, { query: { profileId: world.profileId } });
     const blocked = queue.blockedTasks.find((item) => item.task.targetId === "fx-captcha");
     if (!blocked) throw new Error("the CAPTCHA task is not blocked");
+
+    await asPerson(VIEWPORTS[1], "light", async (page) => {
+      await page.goto(
+        `${STACK.serverUrl}/review?item=${encodeURIComponent(`task:${blocked.task.id}`)}`,
+        { waitUntil: "networkidle" },
+      );
+      const card = page.getByRole("article");
+      await expect(card.getByText("CAPTCHA", { exact: true }).isVisible()).resolves.toBe(true);
+      const email = card.getByRole("button", { name: "Copy email" });
+      await expect(email.innerText()).resolves.not.toContain(MAILBOX_ADDRESS);
+      await shot(page, "captcha-phone-light");
+    });
 
     await solveFixtureCaptcha();
     await api.call(API_ROUTES.taskResume, { params: { id: blocked.task.id } });
@@ -920,10 +1086,6 @@ describe("an agent over MCP", () => {
 describe("the agent setup screen", () => {
   const OLLAMA = "http://fixture-ollama.lan:8530";
   const WORKER_ID = "e2e-agent-worker";
-  const SHOTS =
-    process.env.KICKROCKS_E2E_SHOTS ??
-    resolve(dirname(fileURLToPath(import.meta.url)), "..", ".shots");
-
   beforeAll(async () => {
     await startAgentWorker();
   }, 150_000);
@@ -1038,7 +1200,8 @@ describe("the agent setup screen", () => {
 describe("the whole run", () => {
   it("picks up a reply by itself on the schedule, with nobody pressing check now", async () => {
     await replyFrom("fx-company", "Your request has been completed. We have deleted your data.");
-    await waitForStatus("fx-company", ["confirmed"], 170_000);
+    await acceptSuggestion("fx-company", "completed", 170_000);
+    await waitForStatus("fx-company", ["confirmed"]);
   }, 200_000);
 
   it("ends with every request settled or waiting on a broker, and nothing stuck", async () => {
@@ -1062,6 +1225,7 @@ describe("the whole run", () => {
       yourAgentTasks: 0,
       assignedAgentTasks: 0,
       agentAssignees: [],
+      needsYou: { active: 0, snoozed: 0, quick: 0, few: 0, longer: 0, minutes: 0 },
     });
     expect(dashboard.recentEvents.length).toBeGreaterThan(5);
     expect((await api.call(API_ROUTES.reviewQueue)).blockedTasks).toEqual([]);
