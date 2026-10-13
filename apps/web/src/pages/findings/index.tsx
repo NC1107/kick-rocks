@@ -9,6 +9,7 @@ import {
   EmptyState,
   PageHeader,
   RelativeTime,
+  Section,
   Skeleton,
   Tab,
   TabList,
@@ -89,12 +90,9 @@ function Findings({ profileId }: { profileId: string }) {
       <div className="flex flex-col gap-4">
         {records.length > 0 ? <FindingList records={records} /> : null}
         {stuck.length > 0 ? (
-          <SiteRows
-            sites={stuck}
-            profileId={profileId}
-            label="Sites that need you"
-            onScan={scanOne}
-          />
+          <Section label="Stuck" count={String(stuck.length)}>
+            <SiteRows sites={stuck} profileId={profileId} label="Stuck sites" onScan={scanOne} />
+          </Section>
         ) : null}
       </div>
     );

@@ -49,24 +49,23 @@ const abnormal = (chip: StatusChip) => chip.tone === "attention" || chip.tone ==
  * the lg breakpoint the header has room for one item, so only the most urgent stays.
  */
 export function StatusChips({ chips }: { chips: readonly StatusChip[] }) {
-  if (chips.length === 0) return null;
-  const urgentId = (mostUrgent(chips) ?? chips[0])?.id;
+  const news = chips.filter(abnormal);
+  if (news.length === 0) return null;
+  const urgentId = (mostUrgent(news) ?? news[0])?.id;
   return (
     <ul
       aria-label="System status"
-      className="m-0 flex list-none items-center gap-3 p-0 font-mono text-caption text-ink-3 lg:[&>li+li]:before:mr-3 lg:[&>li+li]:before:content-['·']"
+      className="m-0 flex list-none items-center gap-3 p-0 font-mono text-caption text-ink-2 lg:[&>li+li]:before:mr-3 lg:[&>li+li]:before:content-['·']"
     >
-      {chips.map((chip) => (
+      {news.map((chip) => (
         <li key={chip.id} className={chip.id === urgentId ? undefined : "max-lg:hidden"}>
           <Link
             to={chip.to}
-            className={`inline-flex h-6 items-center gap-1.5 whitespace-nowrap rounded-xs transition-colors duration-100 hover:text-ink ${abnormal(chip) ? "text-ink-2" : ""}`}
+            className="inline-flex h-6 items-center gap-1.5 whitespace-nowrap rounded-xs transition-colors duration-100 hover:text-ink"
           >
-            {abnormal(chip) ? (
-              <StatusShapeGlyph shape={TONE_SHAPE[chip.tone]} className="size-2" />
-            ) : null}
+            <StatusShapeGlyph shape={TONE_SHAPE[chip.tone]} className="size-2" />
             <span>{chip.label.toLowerCase()}</span>
-            {chip.value ? <span className="text-ink-2">{chip.value}</span> : null}
+            {chip.value ? <span>{chip.value}</span> : null}
           </Link>
         </li>
       ))}

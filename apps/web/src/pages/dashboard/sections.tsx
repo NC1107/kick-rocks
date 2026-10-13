@@ -215,12 +215,8 @@ export function NeedsYouSection({ attention }: { attention: Dashboard["attention
     <Section label="Needs you" count={formatCount(total)}>
       <RowGroup>
         <Row
+          to={paths.review()}
           title={`${pluralize(total, "thing")} to do · about ${attention.needsYou.minutes} min`}
-          trailing={
-            <LinkButton to={paths.review()} size="sm">
-              Start
-            </LinkButton>
-          }
         />
       </RowGroup>
     </Section>
@@ -232,6 +228,18 @@ function groupLink(dashboard: Dashboard, statuses: readonly RequestStatus[]): st
   const present = statuses.filter((status) => (dashboard.counts[status] ?? 0) > 0);
   const only = present.length === 1 ? present[0] : undefined;
   return paths.requests(only ? { status: only } : {});
+}
+
+/** "1 checked gone · 11 said removed": what a later scan proved, against what the sites only claimed. */
+function doneWords(dashboard: Dashboard): ReactNode {
+  const settled = (dashboard.counts.confirmed ?? 0) + (dashboard.counts.no_record ?? 0);
+  if (settled === 0) return undefined;
+  const claimed = Math.max(0, settled - dashboard.verifiedGone);
+  return (
+    <span className="font-mono tabular-nums">
+      {`${dashboard.verifiedGone} checked gone · ${claimed} said removed`}
+    </span>
+  );
 }
 
 export function RemovalsSection({ dashboard }: { dashboard: Dashboard }) {
@@ -259,6 +267,7 @@ export function RemovalsSection({ dashboard }: { dashboard: Dashboard }) {
               <span aria-hidden="true" className={cn("size-2 shrink-0 rounded-full", group.fill)} />
             }
             title={group.title}
+            description={group.id === "resolved" ? doneWords(dashboard) : undefined}
             trailing={
               <Count value={groupTotal(dashboard.counts, group.statuses)} className="text-ui" />
             }

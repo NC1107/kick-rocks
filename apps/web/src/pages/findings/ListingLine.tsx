@@ -156,13 +156,16 @@ export function nextRescanWords(nextRescanAt: string, now = Date.now()): string 
   return Date.parse(nextRescanAt) > now ? `next ${formatShortDate(nextRescanAt)}` : "rescan due";
 }
 
-/** "Scanned 2d ago, next Nov 3", or nothing when the site has never been scanned. */
-export function ScanTimes({ site }: { site: ListingSite }) {
+/**
+ * "Scanned 2d ago, next Nov 3", or nothing when the site has never been scanned. A stuck removal
+ * hides the rescan words, since "rescan due" beside "no reply" read as two problems.
+ */
+export function ScanTimes({ site, hideDue = false }: { site: ListingSite; hideDue?: boolean }) {
   if (!site.latestScan) return null;
   return (
     <span className="font-mono text-caption text-ink-3">
       Scanned <RelativeTime iso={site.latestScan.startedAt} />
-      {site.nextRescanAt ? `, ${nextRescanWords(site.nextRescanAt)}` : ""}
+      {site.nextRescanAt && !hideDue ? `, ${nextRescanWords(site.nextRescanAt)}` : ""}
     </span>
   );
 }

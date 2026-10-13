@@ -138,7 +138,7 @@ export function recordSummary(record: ListingRecord): string {
   const { fields } = record;
   const age =
     fields.age ?? (fields.ageRange ? `${fields.ageRange.low}-${fields.ageRange.high}` : null);
-  return [fields.name, age, fields.locations?.[0]].filter(Boolean).join(" · ");
+  return [fields.name, age, fields.locations?.[0]].filter(Boolean).join(", ");
 }
 
 export function recordHost(record: ListingRecord): string {

@@ -53,6 +53,7 @@ export default defineMockDomain({
         RequestStatus.options.map((status) => [status, 0]),
       ) as Dashboard["counts"];
       for (const request of requests) counts[request.status] += 1;
+      const verifiedGone = requests.filter((request) => request.verifiedGoneAt).length;
 
       const since = store.clock.now().getTime() - DAY;
       const sent = profile.mailbox
@@ -89,6 +90,7 @@ export default defineMockDomain({
         profileId: profile.id,
         total: requests.length,
         counts,
+        verifiedGone,
         attention: {
           ...reviewAttention(queue),
           ...agentAssignment(queue),

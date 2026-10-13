@@ -106,7 +106,11 @@ describe("Home needs you", () => {
     expect(
       within(section).getByText(`${total} things to do · about ${queue.minutes} min`),
     ).toBeVisible();
-    expect(within(section).getByRole("link", { name: "Start" })).toHaveAttribute("href", "/review");
+    expect(within(section).getByRole("link", { name: /things to do/ })).toHaveAttribute(
+      "href",
+      "/review",
+    );
+    expect(within(section).queryByRole("link", { name: "Start" })).toBeNull();
     expect(screen.queryByText(/Mail to sort|Problems/)).toBeNull();
   });
 
@@ -124,10 +128,9 @@ describe("Home needs you", () => {
     await waitFor(() => expect(inbox).toHaveTextContent(`${total} items waiting`));
   });
 
-  it("keeps Review findings the only filled button, with Start outlined", async () => {
+  it("keeps Review findings the only filled button", async () => {
     renderPage(<HomePage />);
-    const start = await screen.findByRole("link", { name: "Start" });
-    expect(start.className).not.toContain("bg-accent-fill");
+    await screen.findByRole("link", { name: /things to do/ });
     const filled = [...document.querySelectorAll("a, button")].filter((element) =>
       element.className.toString().includes("bg-accent-fill"),
     );

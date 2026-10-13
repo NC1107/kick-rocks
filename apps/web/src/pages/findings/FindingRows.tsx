@@ -44,17 +44,21 @@ function PickBox({
   );
 }
 
-/** Wraps only between the pieces, so "name, age, city" never splits across two lines. */
+/**
+ * Wraps only between the pieces, so "name, age, city" never splits across two lines. A phone
+ * shows just the verdict word and keeps the matched fields in the title, so a row stays short.
+ */
 function FitLine({ record }: { record: ListingRecord }) {
+  const parts = fitParts(record.assessment);
   return (
-    <>
-      {fitParts(record.assessment).map((part, index) => (
-        <span key={part}>
+    <span title={parts.join(" · ")}>
+      {parts.map((part, index) => (
+        <span key={part} className={index > 0 ? "max-sm:hidden" : undefined}>
           {index > 0 ? " · " : ""}
           <span className="whitespace-nowrap">{part}</span>
         </span>
       ))}
-    </>
+    </span>
   );
 }
 
@@ -72,7 +76,7 @@ function FindingRow({
     <li
       data-selected={selected ? "true" : undefined}
       className={cn(
-        "marked grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-1 px-3.5 py-1 transition-colors duration-100",
+        "marked grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-2 px-3.5 py-1 transition-colors duration-100",
         selected ? "bg-accent-soft" : "hover:bg-hover",
       )}
     >
@@ -83,14 +87,19 @@ function FindingRow({
       />
       <div className="min-w-0 py-1">
         <p className="flex min-w-0 flex-wrap items-baseline gap-x-2 text-ui">
-          <span className="font-semibold text-ink">{record.targetName}</span>
-          <span className="min-w-0 break-words font-mono text-meta text-ink-2">
-            {recordSummary(record)}
-          </span>
+          <a
+            href={record.recordUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="font-semibold text-ink hover:underline"
+          >
+            {record.targetName}
+          </a>
+          <span className="min-w-0 text-ui text-ink-2">{recordSummary(record)}</span>
         </p>
         <p className="min-w-0 font-mono text-meta text-ink-3">
           <FitLine record={record} />
-          <span className="block max-w-full truncate sm:ml-2 sm:inline">
+          <span className="ml-2 max-sm:hidden">
             <ExternalLinkText href={record.recordUrl}>{recordHost(record)}</ExternalLinkText>
           </span>
         </p>
@@ -98,7 +107,7 @@ function FindingRow({
       <Button
         variant="ghost"
         size="sm"
-        className="text-ink-3 focus-visible:text-ink max-sm:h-11"
+        className="text-ink-3 focus-visible:text-ink max-sm:h-11 max-sm:border max-sm:border-line-strong max-sm:px-3 max-sm:text-ink-2"
         loading={decision.decidingNotMine}
         disabled={decision.deciding}
         onClick={decision.notMine}
@@ -198,7 +207,6 @@ export function FindingList({ records }: { records: readonly ListingRecord[] }) 
   const selected = new Set([...picked].filter((id) => live.has(id)));
   const shownIds = shown.map((record) => record.id);
   const allShown = shownIds.length > 0 && shownIds.every((id) => selected.has(id));
-  const siteCount = new Set(records.map((record) => record.targetId)).size;
   const shownSiteCount = new Set(shown.map((record) => record.targetId)).size;
 
   const toggle = (id: string, on: boolean) =>
@@ -222,7 +230,7 @@ export function FindingList({ records }: { records: readonly ListingRecord[] }) 
             name="Select all"
           />
           <span className="-ml-3.5 mr-auto text-eyebrow font-semibold! text-ink-3">
-            {pluralize(records.length, "record")} on {pluralize(siteCount, "site")}
+            {pluralize(shown.length, "record")} {"·"} {pluralize(shownSiteCount, "site")}
           </span>
           <div className="flex items-center gap-2">
             {selected.size > 0 ? (

@@ -63,6 +63,7 @@ describe("GET /profiles/:id/dashboard", () => {
     expect(result).toEqual({
       profileId: profile.id,
       total: 0,
+      verifiedGone: 0,
       counts: Object.fromEntries(RequestStatus.options.map((status) => [status, 0])),
       attention: {
         blockedTasks: 0,

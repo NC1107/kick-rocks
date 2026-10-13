@@ -1,5 +1,7 @@
 import type { ListingSite } from "@kickrocks/shared";
+import type { ReactNode } from "react";
 import { Link } from "react-router";
+import { Button, TextLink } from "../../components/ui/index.js";
 import { paths } from "../../lib/paths.js";
 import { ListingLine, ScanTimes } from "./ListingLine.js";
 import { SiteMenu } from "./SiteMenu.js";
@@ -8,6 +10,22 @@ import { SiteMenu } from "./SiteMenu.js";
 function destination(site: ListingSite): string {
   const request = site.records.find((record) => record.request)?.request;
   return request ? paths.request(request.id) : paths.target(site.targetId);
+}
+
+/** A stuck site gets the one thing that unsticks it in place of the menu. */
+function stuckAction(site: ListingSite, onScan: (site: ListingSite) => void): ReactNode {
+  if (site.status === "removal_stalled") {
+    const request = site.records.find((record) => record.request)?.request;
+    return request ? <TextLink to={paths.request(request.id)}>Send a follow-up</TextLink> : null;
+  }
+  if (site.status === "failed") {
+    return (
+      <Button variant="ghost" size="sm" onClick={() => onScan(site)}>
+        Scan again
+      </Button>
+    );
+  }
+  return null;
 }
 
 /** One row per site. A stretched link makes the whole row open its request or site without nesting links. */
@@ -45,11 +63,13 @@ export function SiteRows({
             </span>
             <ListingLine site={site} profileId={profileId} verified />
             <span className="sm:text-right">
-              <ScanTimes site={site} />
+              <ScanTimes site={site} hideDue={site.status === "removal_stalled"} />
             </span>
           </div>
-          <div className="relative">
-            <SiteMenu site={site} profileId={profileId} onScan={() => onScan(site)} />
+          <div className="relative pr-2">
+            {stuckAction(site, onScan) ?? (
+              <SiteMenu site={site} profileId={profileId} onScan={() => onScan(site)} />
+            )}
           </div>
         </li>
       ))}

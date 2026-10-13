@@ -30,6 +30,8 @@ export const Dashboard = z.object({
   total: Count,
   /** Requests per status. Every status is present, with 0 when there are none. */
   counts: z.record(RequestStatus, Count),
+  /** Of the settled requests, how many a later scan found gone, so "done" can say what it proved. */
+  verifiedGone: Count,
   attention: z.object({
     blockedTasks: Count,
     pendingMatches: Count,

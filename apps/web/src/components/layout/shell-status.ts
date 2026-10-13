@@ -4,7 +4,7 @@ import {
   type SettingsView,
   type SiteStatus,
 } from "@kickrocks/shared";
-import { pluralize } from "../../lib/format.js";
+import { formatTime, pluralize } from "../../lib/format.js";
 import { paths } from "../../lib/paths.js";
 import type { Family } from "../../lib/tone.js";
 import { workerState } from "../../pages/settings/model.js";
@@ -81,13 +81,18 @@ export function sendsChip(sending: Dashboard["sending"], profileId: string): Sta
 export function sitesChip(
   sites: readonly Pick<SiteStatus, "coolingDownUntil" | "breaker">[],
 ): StatusChip | null {
-  const cooling = sites.filter(isCoolingDown).length;
-  if (cooling === 0) return null;
+  const cooling = sites.filter(isCoolingDown);
+  if (cooling.length === 0) return null;
+  const ends = cooling
+    .map((site) => site.coolingDownUntil)
+    .filter((iso): iso is string => typeof iso === "string")
+    .sort();
+  const until = ends[0] ? ` · until ${formatTime(ends[0])}` : "";
   return {
     id: "sites",
     tone: "attention",
     label: "Cooling down",
-    value: pluralize(cooling, "site"),
+    value: `${pluralize(cooling.length, "site")}${until}`,
     to: paths.settings("sites"),
   };
 }

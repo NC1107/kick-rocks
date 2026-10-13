@@ -84,6 +84,13 @@ function buildDashboard(services: AppServices, profileId: string): Dashboard {
     counts[row.status] = row.n;
   }
   const total = Object.values(counts).reduce((sum, n) => sum + n, 0);
+  const verifiedGone =
+    db
+      .select({ n: sql<number>`count(distinct ${requestEvents.requestId})` })
+      .from(requestEvents)
+      .innerJoin(requests, eq(requests.id, requestEvents.requestId))
+      .where(and(eq(requests.profileId, profileId), eq(requestEvents.type, "verified_gone")))
+      .get()?.n ?? 0;
 
   const mailbox =
     db.select().from(mailboxes).where(eq(mailboxes.profileId, profileId)).get() ?? null;
@@ -159,6 +166,7 @@ function buildDashboard(services: AppServices, profileId: string): Dashboard {
     profileId,
     total,
     counts,
+    verifiedGone,
     attention: {
       ...reviewAttention(queue),
       ...agentAssignment(queue),

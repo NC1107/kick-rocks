@@ -1,5 +1,6 @@
 import type { SettingsView } from "@kickrocks/shared";
 import { describe, expect, it } from "vitest";
+import { formatTime } from "../../lib/format.js";
 import {
   inboxChip,
   mostUrgent,
@@ -100,10 +101,10 @@ describe("shell status chips", () => {
       id: "sites",
       tone: "attention",
       label: "Cooling down",
-      value: "1 site",
+      value: `1 site \u00b7 until ${formatTime("2026-10-07T17:00:00Z")}`,
       to: "/settings/advanced#sites",
     });
-    expect(sitesChip([cooling, paused])?.value).toBe("2 sites");
+    expect(sitesChip([cooling, paused])?.value).toMatch(/^2 sites \u00b7 until /);
   });
 
   it("lets a cooling site feed the phone bar mark", () => {
