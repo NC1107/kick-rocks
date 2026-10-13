@@ -331,6 +331,17 @@ describe("details to type in", () => {
 });
 
 describe("letting an agent try a check", () => {
+  it("keeps an agent away from a form that may already have gone out", async () => {
+    const mock = createMockApp();
+    const task = blockedTask(mock, "captcha");
+    task.kind = "agent";
+    task.mayHaveSubmitted = true;
+    openItem(`task:${task.id}`, mock);
+    const card = within(await screen.findByRole("article"));
+    expect(await card.findByText(/may already have gone out/)).toBeVisible();
+    expect(card.queryByRole("button", { name: "Let an agent try" })).toBeNull();
+  });
+
   it.each(["captcha", "bot_detection"])("resumes an agent task blocked by %s", async (reason) => {
     const mock = createMockApp();
     const task = blockedTask(mock, reason);

@@ -78,6 +78,7 @@ function task(overrides: Partial<TaskSummary> = {}): TaskSummary {
     blockedReason: null,
     blockedDetail: null,
     blockedUrl: null,
+    mayHaveSubmitted: false,
     attempts: 0,
     maxAttempts: 3,
     lastError: null,

@@ -1236,6 +1236,7 @@ export function createTaskQueue({
         blockedReason: task.blockedReason,
         blockedDetail: task.blockedDetail,
         blockedUrl: task.blockedUrl,
+        mayHaveSubmitted: task.mayHaveSubmitted,
         attempts: task.attempts,
         maxAttempts: task.maxAttempts,
         lastError: task.lastError,

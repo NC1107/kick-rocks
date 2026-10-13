@@ -101,10 +101,12 @@ export function settleSubmitGate(
   const named = claimerKind === "model" ? model : undefined;
   if (modelGate(services, named).unattended || services.settings.get("agent.autopilot")) {
     const settled = clear("not_needed");
+    // A request the person refused on an earlier run stays refused, however free the model is.
+    const { declined } = taskSends.gateFor(task.id);
     taskSends.startRun(task.id, task.attempts);
     return {
       ...settled,
-      gate: { mode: "record", holdMs: 0, approved: [], declined: [] },
+      gate: { mode: "record", holdMs: 0, approved: [], declined },
     };
   }
   taskQueue.setSubmitApproval(task.id, "required");

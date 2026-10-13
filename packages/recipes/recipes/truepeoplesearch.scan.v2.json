@@ -1,0 +1,78 @@
+{
+  "id": "truepeoplesearch.scan.v2",
+  "brokerId": "truepeoplesearch",
+  "version": 2,
+  "purpose": "scan",
+  "entryUrl": "https://www.truepeoplesearch.com/",
+  "fields": ["full_name", "city", "state"],
+  "steps": [
+    {
+      "kind": "goto",
+      "url": "https://www.truepeoplesearch.com/results?name={{full_name|urlencode}}&citystatezip={{city|urlencode}}%2C%20{{state}}"
+    },
+    {
+      "kind": "captcha_checkpoint"
+    },
+    {
+      "kind": "wait_for",
+      "target": {
+        "css": ".card-summary"
+      },
+      "optional": true
+    },
+    {
+      "kind": "extract_candidates",
+      "item": {
+        "css": ".card-summary"
+      },
+      "fields": {
+        "recordUrl": {
+          "css": "a.detail-link",
+          "attr": "href"
+        },
+        "name": {
+          "css": ".content-header"
+        },
+        "age": {
+          "css": ".content-header + div > span:nth-of-type(2)"
+        },
+        "locations": {
+          "css": ".content-header ~ div span.link-to-full-result, .content-header + div > span:nth-of-type(4)",
+          "all": true
+        },
+        "relatives": {
+          "css": "div.card-block > div:last-of-type span.link-to-full-result",
+          "all": true
+        }
+      }
+    }
+  ],
+  "canary": {
+    "url": "https://www.truepeoplesearch.com/",
+    "selectors": [
+      {
+        "css": ".card-summary"
+      },
+      {
+        "css": ".card-summary a.detail-link"
+      },
+      {
+        "css": ".card-summary .content-header"
+      }
+    ],
+    "steps": [
+      {
+        "kind": "goto",
+        "url": "https://www.truepeoplesearch.com/results?name=John%20Smith&citystatezip=Los%20Angeles%2C%20CA"
+      },
+      {
+        "kind": "wait_for",
+        "target": {
+          "css": ".card-summary"
+        }
+      }
+    ]
+  },
+  "notes": "v2 adds all locations (current + past cities) and truncated relatives from the search card. Phones and email addresses are only on the detail page (/find/person/<id>) which requires a runner enhancement to visit each candidate URL. Selectors for locations and relatives NEED LIVE VERIFICATION - CSS class names are guesses based on common TruePeopleSearch card structure. v1 notes: Headless Chrome and the /removal page both answered with a Cloudflare challenge, so run this headed. Verified live 2026-10-07 in headed Chrome from a residential connection.",
+  "liveStatus": "unverified"
+}

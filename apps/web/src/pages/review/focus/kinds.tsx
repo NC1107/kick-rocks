@@ -135,7 +135,8 @@ function useAgentRetry(item: NeedsYouItem) {
   });
   const mutation = task.kind === "agent" ? resume : handOff;
   return {
-    available: task.status === "blocked" && canHandOff(task),
+    // A form that may have gone out already must not be filled in again by anyone but the person.
+    available: task.status === "blocked" && canHandOff(task) && !task.mayHaveSubmitted,
     pending: mutation.isPending,
     error: mutation.isError ? errorMessage(mutation.error) : undefined,
     go: () =>
@@ -220,6 +221,9 @@ function TaskCard({ item, check }: TaskCardProps) {
     >
       <Steps steps={steps} />
       {copy.hint ? <p className="m-0 text-meta text-ink-3">{copy.hint}</p> : null}
+      {flow.task.mayHaveSubmitted ? (
+        <p className="m-0 text-ui text-attention-text">{WORDS.sentAlready}</p>
+      ) : null}
       <Chips
         profileId={focus.profileId}
         fields={item.chips}

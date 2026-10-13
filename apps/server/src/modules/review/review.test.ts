@@ -567,6 +567,31 @@ describe("task actions", () => {
       ).toMatchObject({ actor: "system" });
     });
 
+    it("refuses a task whose form may already have gone out", async () => {
+      const request = formRequest();
+      const task = seedTask(ctx, {
+        kind: "form",
+        payload: formPayload(request.id),
+        status: "blocked",
+        profileId,
+        targetId,
+        requestId: request.id,
+        blockedReason: "captcha",
+        mayHaveSubmitted: true,
+      });
+      expect(await call(API_ROUTES.taskResume, task.id)).toMatchObject({
+        ok: false,
+        status: 409,
+        body: { error: "may_have_submitted" },
+      });
+      expect(await call(API_ROUTES.taskHandOff, task.id)).toMatchObject({
+        ok: false,
+        status: 409,
+        body: { error: "may_have_submitted" },
+      });
+      expect(ctx.services.taskQueue.getOrThrow(task.id).status).toBe("blocked");
+    });
+
     it("refuses a task that is not blocked", async () => {
       const task = seedTask(ctx, {
         kind: "canary",

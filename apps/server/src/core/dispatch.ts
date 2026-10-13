@@ -495,10 +495,10 @@ export function createDispatch({
             `Task ${taskId} is blocked by ${task.blockedReason}, which an agent cannot get past. Open the page and finish it yourself.`,
           );
         }
-        if (task.mayHaveSubmitted && actor !== "user") {
+        if (task.mayHaveSubmitted) {
           throw conflict(
-            "held_for_person",
-            `Task ${taskId} may already have submitted its form, so only a person can release it`,
+            actor === "user" ? "may_have_submitted" : "held_for_person",
+            `Task ${taskId} may already have submitted its form, so an agent must not run it again. Check the site, then mark the task done or cancel it.`,
           );
         }
         return toAgent(

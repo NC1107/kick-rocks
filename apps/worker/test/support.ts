@@ -137,6 +137,7 @@ export function summary(id: string): TaskSummary {
     blockedReason: null,
     blockedDetail: null,
     blockedUrl: null,
+    mayHaveSubmitted: false,
     failureKind: null,
     failureStep: null,
     finishedBy: "test-worker",

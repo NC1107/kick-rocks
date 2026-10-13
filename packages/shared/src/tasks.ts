@@ -368,6 +368,8 @@ export const TaskSummary = z.object({
   blockedDetail: z.string().nullable(),
   /** The page where the worker got stuck, when it said. */
   blockedUrl: WebUrl.nullable(),
+  /** A run let a form go before it stopped, so running it again could send the form twice. */
+  mayHaveSubmitted: z.boolean(),
   attempts: z.number().int().nonnegative(),
   maxAttempts: z.number().int().positive(),
   lastError: z.string().nullable(),

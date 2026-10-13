@@ -139,6 +139,7 @@ export const WORDS = {
   stuck: "Stuck? Hand to an agent",
   alreadyDone: "Already done",
   agentRetried: "An agent will try again",
+  sentAlready: "The form may already have gone out. Check the site before sending it again.",
   openRecord: "Open record",
   pickWhat: "Pick what to send",
   skipTitle: "Skip this target?",
