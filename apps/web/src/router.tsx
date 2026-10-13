@@ -37,7 +37,8 @@ export const appRoutes: RouteObject[] = [
   { path: "review/*", lazy: () => import("./pages/review/index.js") },
   { path: "settings", lazy: () => import("./pages/settings/index.js") },
   { path: "settings/recipes", lazy: () => import("./pages/settings/recipes/index.js") },
-  { path: "settings/agents", lazy: () => import("./pages/settings/agents/index.js") },
+  { path: "settings/advanced", lazy: () => import("./pages/settings/advanced/index.js") },
+  { path: "settings/agents", element: <Navigate to="/settings#helpers" replace /> },
   {
     path: "settings/notifications",
     lazy: () => import("./pages/settings/notifications/index.js"),

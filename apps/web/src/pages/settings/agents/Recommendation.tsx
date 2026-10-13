@@ -11,10 +11,8 @@ import { errorMessage, useApiMutation } from "../../../api/index.js";
 import {
   Button,
   CopyButton,
-  ExternalLinkText,
   Icon,
   InlineError,
-  Input,
   Row,
   RowGroup,
   Section,
@@ -29,12 +27,10 @@ import {
   applyBody,
   contextWords,
   GATE_LINES,
-  PROBE_ERROR_WORDS,
   planApply,
   workerLags,
 } from "./setup-model.js";
 
-const GUIDE_URL = "https://github.com/NC1107/kick-rocks/blob/main/docs/agents.md";
 const CARD_SIZES = [
   { value: 6, label: "6" },
   { value: 8, label: "8" },
@@ -295,65 +291,6 @@ export function GpuQuestion({ view }: { view: AgentSetupView }) {
           <span className="font-mono text-meta text-ink-3">GB</span>
         </div>
         {save.isError ? <InlineError>{errorMessage(save.error)}</InlineError> : null}
-      </BodyRow>
-    </RowGroup>
-  );
-}
-
-/** Shown when no Ollama answered anywhere, so the person can point the server at one. */
-export function AddressQuestion({
-  onFound,
-  tried,
-}: {
-  onFound: (baseUrl: string) => void;
-  tried: AgentSetupView["components"]["server"]["endpoints"];
-}) {
-  const [address, setAddress] = useState("");
-  const probe = useApiMutation(API_ROUTES.settingsAgentSetupProbe, {
-    onSuccess: (result) => {
-      if (result.reachable) onFound(result.baseUrl);
-    },
-  });
-  const failed = probe.data && !probe.data.reachable ? probe.data : null;
-  return (
-    <RowGroup>
-      <BodyRow className="flex flex-col gap-2">
-        <label htmlFor="ollama-address" className="text-ui font-medium text-ink">
-          Ollama address
-        </label>
-        <form
-          className="flex flex-wrap items-center gap-2"
-          onSubmit={(event) => {
-            event.preventDefault();
-            if (address.trim()) probe.mutate({ body: { baseUrl: address.trim() } });
-          }}
-        >
-          <Input
-            id="ollama-address"
-            mono
-            className="min-w-0 flex-1 basis-64"
-            placeholder="http://desktop:11434"
-            value={address}
-            onChange={(event) => setAddress(event.target.value)}
-          />
-          <Button type="submit" variant="secondary" loading={probe.isPending}>
-            Check
-          </Button>
-        </form>
-        {failed ? (
-          <InlineError>
-            {addressOf(failed.baseUrl)}:{" "}
-            {failed.error ? PROBE_ERROR_WORDS[failed.error] : "nothing answered"}
-          </InlineError>
-        ) : null}
-        {probe.isError ? <InlineError>{errorMessage(probe.error)}</InlineError> : null}
-        <p data-user-content className="font-mono text-meta text-ink-3">
-          Tried {tried.map((endpoint) => addressOf(endpoint.baseUrl)).join(", ") || "nothing yet"}
-        </p>
-        <p className="text-meta text-ink-3">
-          Ollama steps are in the <ExternalLinkText href={GUIDE_URL}>agents guide</ExternalLinkText>
-          .
-        </p>
       </BodyRow>
     </RowGroup>
   );

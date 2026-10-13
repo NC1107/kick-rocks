@@ -9,6 +9,7 @@ export interface Crumb {
 const PROFILES_LIST = "/settings/profiles";
 
 const SETTINGS_PAGES: Record<string, string> = {
+  advanced: "Advanced",
   recipes: "Recipes",
   agents: "Agents",
   notifications: "Notifications",

@@ -3,10 +3,7 @@ import { LinkButton, RowGroup, Section } from "../../components/ui/index.js";
 import { CleanupPreview, IgnoredMail } from "../mailbox/intake-review.js";
 import { ActionRow } from "./rows.js";
 
-/**
- * Mail intake lives with the mailbox, because each profile has its own. This row is the way to it
- * from the settings page, where a person looks first.
- */
+/** Each profile has its own mailbox, so this row is the way to it from the settings page. */
 export function MailIntakeCard() {
   const { profile } = useCurrentProfile();
   if (!profile) return null;
@@ -14,14 +11,14 @@ export function MailIntakeCard() {
 
   return (
     <>
-      <Section label="Mail">
+      <Section label="Mailbox">
         <RowGroup>
           <ActionRow
-            title="Mail intake"
+            title="Mailbox"
             description={
               profile.mailboxConnected
-                ? "Which mail is kept, the reply address, and a missed-reply search."
-                : "Connect a mailbox to keep mail about your requests."
+                ? "Which mail is kept, and the reply address"
+                : "Not connected"
             }
           >
             <LinkButton to={profile.mailboxConnected ? `${mailbox}#intake` : mailbox}>

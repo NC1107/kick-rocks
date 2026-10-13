@@ -18,7 +18,7 @@ export interface RequestsFilters {
   campaignId?: string | undefined;
 }
 
-/** The anchored sections on the main settings page. */
+/** The anchored sections of the Setup and Advanced settings pages. */
 export const SETTINGS_SECTIONS = [
   "schedule",
   "site-checks",
@@ -34,6 +34,18 @@ export const SETTINGS_SECTIONS = [
   "reset",
 ] as const;
 export type SettingsSection = (typeof SETTINGS_SECTIONS)[number];
+
+/** The sections that live on the Advanced page; the rest are on Setup. */
+const ADVANCED_SECTIONS: ReadonlySet<SettingsSection> = new Set([
+  "schedule",
+  "site-checks",
+  "scan-pace",
+  "sites",
+  "reply-model",
+  "language-model",
+  "retention",
+  "reset",
+]);
 
 /** Settings pages of their own. */
 export type SettingsPage = "recipes" | "agents" | "notifications";
@@ -91,7 +103,11 @@ export const paths = {
   campaign: (id: string) => paths.requests({ campaignId: id }),
   settings: (section?: SettingsSection | SettingsPage) => {
     if (!section) return "/settings";
-    return SETTINGS_PAGES.has(section) ? `/settings/${section}` : `/settings#${section}`;
+    if (SETTINGS_PAGES.has(section)) return `/settings/${section}`;
+    if (section === "worker") return "/settings#helpers";
+    return ADVANCED_SECTIONS.has(section as SettingsSection)
+      ? `/settings/advanced#${section}`
+      : `/settings#${section}`;
   },
   /** The matching Review item, or else the request the task belongs to. */
   task: (task: TaskRef) => taskPath(task) ?? paths.review(),

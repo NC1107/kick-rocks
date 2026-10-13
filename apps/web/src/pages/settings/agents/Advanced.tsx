@@ -350,8 +350,8 @@ export function AdvancedGate({
       : { state: "unproven", unattended: false, record: null };
   return (
     <Disclosure
-      title="Advanced"
-      description="The safety gate"
+      title="Agent tuning"
+      description="Safety gate"
       open={open}
       onOpenChange={onOpenChange}
     >
@@ -392,8 +392,8 @@ export function Advanced({
   };
   return (
     <Disclosure
-      title="Advanced"
-      description="Manual pick and diagnostics"
+      title="Agent tuning"
+      description="Manual pick, safety gate"
       open={open}
       onOpenChange={onOpenChange}
     >

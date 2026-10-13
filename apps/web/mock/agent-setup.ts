@@ -59,6 +59,10 @@ export const AGENT_SETUPS = [
   "gpu16-uncleared",
   "gpu16-old-worker",
   "gpu16-hosted",
+  /** Nothing set up: no browser worker, no agent worker, no Ollama, agent access off. */
+  "empty",
+  /** Every helper running and reachable, with agent access on. */
+  "ready",
 ] as const;
 export type AgentSetupName = (typeof AGENT_SETUPS)[number];
 
@@ -132,11 +136,30 @@ function ollamaOf(
 }
 
 /**
- * Sets the mock to one of a few realistic installs, for the walk through the Agents screen and
+ * Sets the mock to one of a few realistic installs, for the walk through the Helpers section and
  * for tests: no Ollama at all, a small card, and a 16 GB desktop with the benchmark's best model.
+ * `empty` and `ready` also set the browser worker and agent access, for the two ends of Helpers.
  */
-export function applyAgentSetup(store: MockStore, name: AgentSetupName): void {
+export function applyAgentSetup(store: MockStore, setup: AgentSetupName): void {
   const { settings } = store;
+  const name = setup === "empty" ? "none" : setup === "ready" ? "gpu16" : setup;
+  if (setup === "empty" || setup === "ready") {
+    const ready = setup === "ready";
+    settings.worker = {
+      enabled: true,
+      model: null,
+      builtin: ready
+        ? {
+            workerId: "worker-home",
+            version: "0.1.0",
+            lastSeenAt: store.ago({ minutes: 0 }),
+            busy: false,
+            currentTaskId: null,
+          }
+        : null,
+    };
+    settings.mcp = { ...settings.mcp, enabled: ready, tokenSet: ready };
+  }
   store.agentNetwork = {};
   settings.agent = { ...settings.agent, model: null, gpuMemoryGb: { worker: null, server: null } };
   settings.llm = null;

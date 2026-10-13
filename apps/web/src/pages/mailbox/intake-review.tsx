@@ -63,9 +63,7 @@ export function CleanupPreview({
     <>
       <RowGroup data-testid="cleanup-preview">
         <BodyRow>
-          <p className="text-meta text-ink-2">
-            Saved before sorting began; removed only on confirm.
-          </p>
+          <p className="text-meta text-ink-2">Old mail. Deleted on confirm.</p>
         </BodyRow>
         {shown.map((line) => (
           <BodyRow key={line.id} row>
