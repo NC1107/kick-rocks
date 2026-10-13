@@ -39,9 +39,10 @@ import {
   RowGroup,
   Section,
   Skeleton,
-  StatusMark,
+  StatusShapeGlyph,
   Tag,
   TaskStatusMark,
+  Tooltip,
   useToast,
 } from "../../../components/ui/index.js";
 import {
@@ -62,7 +63,10 @@ import {
   useReplyCheck,
 } from "../../mailbox/check-for-replies.js";
 import { gutterTime, RIGHT_TOKENS } from "../format.js";
+import { familyShape } from "../grouping.js";
+import { statusPhrase } from "../phrase.js";
 import { detailRefreshInterval } from "../polling.js";
+import { PHRASE_TONE } from "../RequestRow.js";
 import { ReplyCard } from "./ReplyCard.js";
 import { Timeline } from "./Timeline.js";
 
@@ -318,6 +322,7 @@ function Detail({ request }: { request: RequestDetail }) {
     .find((candidate) => candidate.id === request.legalBasis);
   const basisName =
     request.legalBasis === "policy" ? "Their own privacy policy" : (statute?.name ?? null);
+  const phrase = statusPhrase(request);
   const ChannelGlyph = request.channel === "email" ? Mail : Globe;
   const channelHint =
     request.channel === "email" ? "Sent as an email" : "Submitted through their web form";
@@ -329,11 +334,19 @@ function Detail({ request }: { request: RequestDetail }) {
         documentTitle={`${target.name}, ${REQUEST_STATUS_META[request.status].label}`}
         description={
           <span className="flex flex-wrap items-center gap-x-4 gap-y-1">
-            <StatusMark status={request.status} />
+            <span className="inline-flex items-center gap-2 text-meta">
+              <StatusShapeGlyph shape={familyShape(phrase.family)} />
+              <Tooltip content={REQUEST_STATUS_META[request.status].description}>
+                <span className={PHRASE_TONE[phrase.family]}>{phrase.text}</span>
+              </Tooltip>
+            </span>
             <span className="inline-flex items-center gap-1 font-mono text-meta">
               {request.reference}
               <CopyButton iconOnly value={request.reference} label="Copy reference" />
             </span>
+            <Tooltip content={basisName ?? "Legal basis"}>
+              <span className="font-mono text-meta">{legalBasisCode(request.legalBasis)}</span>
+            </Tooltip>
           </span>
         }
         actions={
@@ -551,17 +564,6 @@ function Detail({ request }: { request: RequestDetail }) {
                   </>
                 ),
               },
-              {
-                term: "Legal basis",
-                mono: true,
-                ...(basisName ? { hint: basisName } : {}),
-                value: (
-                  <>
-                    {legalBasisCode(request.legalBasis)}
-                    {basisName ? <span className="sr-only">, {basisName}</span> : null}
-                  </>
-                ),
-              },
               { term: "Timing", mono: true, value: <Timing request={request} /> },
               ...(request.recordUrl
                 ? [
@@ -591,17 +593,15 @@ function Detail({ request }: { request: RequestDetail }) {
           />
         </Section>
 
-        <Section label="Tasks" count={request.tasks.length}>
-          {request.tasks.length === 0 ? (
-            <p className="py-1 text-ui text-ink-2">No tasks for this request yet.</p>
-          ) : (
+        {request.tasks.length > 0 ? (
+          <Section label="Tasks" count={request.tasks.length}>
             <RowGroup>
               {request.tasks.map((task) => (
                 <TaskRow key={task.id} task={task} requestId={request.id} />
               ))}
             </RowGroup>
-          )}
-        </Section>
+          </Section>
+        ) : null}
       </div>
 
       <ConfirmDialog

@@ -9,16 +9,14 @@ import {
   Hatch,
   IconButton,
   InlineError,
-  Kbd,
   Menu,
   type MenuItem,
   Meter,
-  Tag,
 } from "../../../components/ui/index.js";
 import { cn } from "../../../lib/cn.js";
 import { ageLabel } from "../model.js";
 import { useFocus } from "./context.js";
-import { KIND_COPY, WORDS } from "./copy.js";
+import { WORDS } from "./copy.js";
 import { effortLabel, itemTitle } from "./model.js";
 
 /** A step the person takes, numbered in mono. Five words at most, and three steps at most. */
@@ -110,6 +108,8 @@ export interface ActionSpec {
   loading?: boolean;
   disabled?: boolean;
   title?: string;
+  /** How the quieter button looks; a choice with a deadline reads better outlined than ghost. */
+  variant?: "ghost" | "secondary";
 }
 
 /** One filled button and at most one quiet one. On a phone the bar sticks to the bottom edge. */
@@ -117,13 +117,11 @@ export function ActionBar({
   primary,
   second,
   error,
-  hints = true,
   enter = true,
 }: {
   primary: ActionSpec;
   second?: ActionSpec | null | undefined;
   error?: string | undefined;
-  hints?: boolean;
   /** Whether Enter on the page presses the primary button. Off where it sends personal data. */
   enter?: boolean;
 }) {
@@ -144,7 +142,7 @@ export function ActionBar({
         </Button>
         {second ? (
           <Button
-            variant="ghost"
+            variant={second.variant ?? "ghost"}
             onClick={second.onClick}
             loading={second.loading ?? false}
             disabled={second.disabled ?? false}
@@ -154,14 +152,6 @@ export function ActionBar({
             {second.label}
           </Button>
         ) : null}
-        {hints ? (
-          <span className="ml-auto hidden items-center gap-1 text-caption text-ink-3 lg:inline-flex pointer-coarse:hidden">
-            {enter ? <Kbd>Enter</Kbd> : null}
-            <Kbd>j</Kbd>
-            <Kbd>k</Kbd>
-            <Kbd>z</Kbd>
-          </span>
-        ) : null}
       </div>
     </div>
   );
@@ -170,8 +160,8 @@ export function ActionBar({
 export interface CardFrameProps {
   item: NeedsYouItem;
   menu: readonly MenuItem[];
-  /** The tag text when it is more than the kind's own, such as a countdown. */
-  tagText?: string | undefined;
+  /** The one sentence that says what happens and what the person decides. */
+  headline: string;
   /** What the card says, between its header and its actions. */
   children?: ReactNode;
   /** The action bar, or the return prompt in its place. */
@@ -186,8 +176,15 @@ export interface CardFrameProps {
  * The same card for every kind: where you are in the queue, what it is about, what to do, and the
  * one button that does it. Only the middle changes from kind to kind.
  */
-export function CardFrame({ item, menu, tagText, children, bar, dialogs, notice }: CardFrameProps) {
-  const copy = KIND_COPY[item.kind];
+export function CardFrame({
+  item,
+  menu,
+  headline,
+  children,
+  bar,
+  dialogs,
+  notice,
+}: CardFrameProps) {
   const title = itemTitle(item);
   return (
     <article
@@ -199,7 +196,7 @@ export function CardFrame({ item, menu, tagText, children, bar, dialogs, notice 
       <div className="flex flex-col gap-3.5 px-4 py-4">
         <header className="flex flex-col gap-1.5">
           <div className="flex items-start justify-between gap-3">
-            <h2 className="min-w-0 break-words text-heading font-semibold text-ink [&_a]:text-ink [&_a:hover]:text-accent-text">
+            <p className="m-0 min-w-0 break-words text-ui font-medium text-ink-2 [&_a]:text-ink-2 [&_a:hover]:text-accent-text">
               {item.target && item.kind !== "record" ? (
                 <EntityLink
                   to={{ kind: "target", id: item.target.id, name: item.target.name }}
@@ -208,7 +205,7 @@ export function CardFrame({ item, menu, tagText, children, bar, dialogs, notice 
               ) : (
                 title
               )}
-            </h2>
+            </p>
             <p className="m-0 flex shrink-0 items-baseline gap-2 font-mono text-meta text-ink-3 tabular-nums">
               <span>{effortLabel(item.effort.minutes)}</span>
               <span aria-hidden="true">·</span>
@@ -216,12 +213,15 @@ export function CardFrame({ item, menu, tagText, children, bar, dialogs, notice 
                 <span className="sr-only">Waiting </span>
                 {ageLabel(item.since)}
               </span>
+              {item.tries > 0 ? (
+                <>
+                  <span aria-hidden="true">·</span>
+                  <span>{WORDS.tried(item.tries)}</span>
+                </>
+              ) : null}
             </p>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <Tag tone="attention">{tagText ?? copy.tag}</Tag>
-            {item.tries > 0 ? <Tag>{WORDS.tried(item.tries)}</Tag> : null}
-          </div>
+          <h2 className="m-0 break-words text-heading font-semibold text-ink">{headline}</h2>
         </header>
         {children}
         {notice}

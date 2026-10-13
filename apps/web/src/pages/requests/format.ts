@@ -1,8 +1,8 @@
 import type { RequestRight } from "@kickrocks/shared";
 
-/** What a request asked for, as the mono tokens the ledger prints. */
+/** What a request asked for, in the plain words the list and the summary print in mono. */
 export const RIGHT_TOKENS: Record<RequestRight, string> = {
-  opt_out: "opt-out",
+  opt_out: "stop selling",
   delete: "delete",
 };
 

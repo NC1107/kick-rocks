@@ -129,6 +129,9 @@ export function Timeline({
                   {event.actor === "user" && !sentence.startsWith("You") ? (
                     <span className="ml-2 text-caption text-ink-3">you</span>
                   ) : null}
+                  {event.actor === "agent" ? (
+                    <span className="ml-2 text-caption text-ink-3">agent</span>
+                  ) : null}
                 </p>
                 {event.id === retry?.eventId ? (
                   <Button size="sm" loading={retrying} onClick={() => onRetry(retry.taskId)}>

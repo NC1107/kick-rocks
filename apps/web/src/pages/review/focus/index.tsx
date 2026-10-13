@@ -12,9 +12,9 @@ import {
   Button,
   Callout,
   Dialog,
+  Kbd,
   RelativeTime,
   Section,
-  Tag,
   TextLink,
   useToast,
 } from "../../../components/ui/index.js";
@@ -104,7 +104,7 @@ function SnoozedList({ queue }: { queue: NeedsYouQueue }) {
                   <span className="flex min-w-0 flex-col">
                     <span className="truncate text-ui text-ink">{entry.title}</span>
                     <span className="flex items-center gap-2 text-meta text-ink-3">
-                      <Tag>{KIND_COPY[entry.kind].tag}</Tag>
+                      <span>{KIND_COPY[entry.kind].tag}</span>
                       <RelativeTime iso={entry.until} />
                     </span>
                   </span>
@@ -389,9 +389,17 @@ export function Focus({
               />
             </div>
           </div>
-        ) : (
-          <End done={done} snoozed={queue.snoozed.length} review={review} />
-        )}
+        ) : null}
+        {selected ? (
+          <p className="mt-4 hidden items-center gap-1.5 text-caption text-ink-3 lg:flex pointer-coarse:hidden">
+            <Kbd>j</Kbd>
+            <Kbd>k</Kbd>
+            move
+            <Kbd>z</Kbd>
+            snooze
+          </p>
+        ) : null}
+        {selected ? null : <End done={done} snoozed={queue.snoozed.length} review={review} />}
       </div>
       <SnoozeSheet
         open={snoozing}
