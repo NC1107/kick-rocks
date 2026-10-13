@@ -74,7 +74,14 @@ function toItem(services: AppServices, task: Task, summary: TaskSummary): Blocke
   return {
     task: summary,
     requestReference: request?.reference ?? null,
-    url: firstWebUrl([task.blockedUrl, request?.recordUrl, target?.optOutUrl, target?.searchUrl]),
+    url: firstWebUrl([
+      task.blockedUrl,
+      request?.recordUrl,
+      target?.optOutUrl,
+      target?.searchUrl,
+      target?.website,
+      target ? `https://${target.domain}` : null,
+    ]),
     manualInstructions:
       task.status === "failed"
         ? task.kind === "scan" || (task.kind === "agent" && task.payload.purpose === "scan")

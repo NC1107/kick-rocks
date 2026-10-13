@@ -154,7 +154,7 @@ export function createMcpServer(services: AppServices, version: string): McpServ
     { name: "kick-rocks", version },
     {
       instructions:
-        "Kick Rocks tasks for an agent. Claim a task, follow its instructions, and report with complete_task, block_task, or fail_task. Never solve a CAPTCHA, never submit a form for a record the task does not name, and never send personal data anywhere but the page the task points at.",
+        "Kick Rocks tasks for an agent. Claim a task, follow its instructions, and report with complete_task, block_task, or fail_task. Never solve an image or puzzle CAPTCHA (a Cloudflare Turnstile checkbox may be passed with browser_solve_challenge), never submit a form for a record the task does not name, and never send personal data anywhere but the page the task points at.",
     },
   );
   const handlers = toolHandlers(services);

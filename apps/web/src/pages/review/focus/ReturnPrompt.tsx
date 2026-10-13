@@ -13,6 +13,8 @@ export interface ReturnPromptProps {
   onYes: () => void;
   onNotYet: () => void;
   onSkip: () => void;
+  /** Reopens the page without leaving the question. */
+  onOpenAgain?: (() => void) | undefined;
   onOutcome: (outcome: FormOutcome) => void;
 }
 
@@ -25,6 +27,7 @@ export function ReturnPrompt({
   onYes,
   onNotYet,
   onSkip,
+  onOpenAgain,
   onOutcome,
 }: ReturnPromptProps) {
   useEffect(() => {
@@ -58,6 +61,16 @@ export function ReturnPrompt({
           <Kbd>s</Kbd>
         </span>
       </div>
+      {onOpenAgain ? (
+        <button
+          type="button"
+          disabled={busy}
+          onClick={onOpenAgain}
+          className="inline-flex min-h-8 items-center self-start rounded-xs text-ui text-accent-text underline decoration-accent-text/40 underline-offset-2 disabled:text-ink-3 pointer-coarse:min-h-11"
+        >
+          Open again
+        </button>
+      ) : null}
       {withOutcomes ? (
         <p className="m-0 flex flex-wrap items-center gap-x-1 text-meta text-ink-3">
           Other:
