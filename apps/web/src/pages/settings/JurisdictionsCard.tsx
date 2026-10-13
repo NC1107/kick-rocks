@@ -78,6 +78,11 @@ export function JurisdictionsCard() {
             onChange={(event) => setPicked(event.target.value)}
             className="w-44"
           >
+            {profile && !withLaws.some((jurisdiction) => jurisdiction.state === profile.state) ? (
+              <option value={profile.state}>
+                {STATE_NAMES.get(profile.state) ?? profile.state} (no law)
+              </option>
+            ) : null}
             {withLaws.map((jurisdiction) => (
               <option key={jurisdiction.state} value={jurisdiction.state}>
                 {STATE_NAMES.get(jurisdiction.state) ?? jurisdiction.state}
