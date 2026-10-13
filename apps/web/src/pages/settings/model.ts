@@ -33,14 +33,14 @@ export const SCHEDULE_FIELDS: readonly ScheduleField[] = [
   },
   {
     key: "peopleSearchRescanDays",
-    label: "Rescan people-search sites every",
+    label: "Rescan every",
     unit: "d",
     min: 1,
     max: 365,
   },
   {
     key: "brokerRescanDays",
-    label: "Resend unconfirmed requests every",
+    label: "Resend every",
     unit: "d",
     min: 1,
     max: 365,
@@ -54,6 +54,7 @@ export function draftOf(schedule: ScheduleSettings): ScheduleDraft {
     pollMinutes: String(schedule.pollMinutes),
     peopleSearchRescanDays: String(schedule.peopleSearchRescanDays),
     brokerRescanDays: String(schedule.brokerRescanDays),
+    removalVerifyDays: String(schedule.removalVerifyDays),
     noResponseDays: String(schedule.noResponseDays),
     maxFollowUps: String(schedule.maxFollowUps),
   };

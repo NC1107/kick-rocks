@@ -31,13 +31,13 @@ export interface StatusMeta {
  */
 export const REQUEST_STATUS_META: Record<RequestStatus, StatusMeta> = {
   draft: {
-    label: "Draft",
+    label: "Not sent yet",
     family: "progress",
     shape: "dashed-ring",
     description: "Created but not queued yet.",
   },
   queued: {
-    label: "Queued",
+    label: "Scheduled",
     family: "progress",
     shape: "ring",
     description: "Waiting its turn to be sent.",
@@ -49,49 +49,49 @@ export const REQUEST_STATUS_META: Record<RequestStatus, StatusMeta> = {
     description: "Delivered to the company.",
   },
   awaiting_reply: {
-    label: "Awaiting reply",
+    label: "Waiting on them",
     family: "progress",
     shape: "ring-dot",
     description: "Sent, and the company has until the due date to answer.",
   },
   confirmed: {
-    label: "Confirmed",
+    label: "They confirmed",
     family: "resolved",
     shape: "disc",
     description: "The company confirmed it honored the request.",
   },
   no_record: {
-    label: "No record",
+    label: "No record of you",
     family: "resolved",
     shape: "disc",
     description: "The company says it holds no data about you.",
   },
   needs_verification: {
-    label: "Needs verification",
+    label: "Prove it's you",
     family: "needs",
     shape: "triangle",
     description: "The company asked for something before it will act.",
   },
   follow_up_due: {
-    label: "Follow-up due",
+    label: "Time to nudge",
     family: "needs",
     shape: "triangle",
     description: "No answer in time. A follow-up is ready to send.",
   },
   no_response: {
-    label: "No response",
+    label: "No answer",
     family: "needs",
     shape: "triangle",
     description: "The deadline passed without an answer.",
   },
   bounced: {
-    label: "Bounced",
+    label: "Email didn't arrive",
     family: "failed",
     shape: "square",
     description: "The email could not be delivered.",
   },
   rejected: {
-    label: "Rejected",
+    label: "They said no",
     family: "failed",
     shape: "square",
     description: "The company refused the request.",

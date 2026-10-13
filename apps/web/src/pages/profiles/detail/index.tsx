@@ -99,7 +99,7 @@ export function Component() {
 
 function DetailSkeleton() {
   return (
-    <div aria-busy="true" className="flex max-w-3xl flex-col gap-4">
+    <div aria-busy="true" className="flex flex-col gap-4">
       <div>
         <Skeleton className="mb-2 h-4 w-20" />
         <Skeleton className="h-7 w-64" />
@@ -181,7 +181,7 @@ function ProfileEditor({ profile }: { profile: ProfileDetail }) {
           </>
         }
       />
-      <div className="flex max-w-3xl flex-col gap-4">
+      <div className="flex flex-col gap-4">
         {dashboard.data ? (
           <ScanNotice
             scanning={dashboard.data.scanning}

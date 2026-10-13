@@ -1,5 +1,6 @@
 import type { SettingsView } from "@kickrocks/shared";
 import { describe, expect, it } from "vitest";
+import { formatTime } from "../../lib/format.js";
 import {
   inboxChip,
   mostUrgent,
@@ -44,11 +45,11 @@ describe("shell status chips", () => {
 
   it("links each chip to the page that explains it", () => {
     const worker = workerChip({ enabled: false, builtin: null, model: null }, NOW);
-    expect(worker.to).toBe("/settings#worker");
+    expect(worker.to).toBe("/settings#helpers");
     const inbox = inboxChip(null, () => "", "prf_1");
     expect(inbox.to).toBe("/profiles/prf_1/mailbox");
     expect(sitesChip([{ coolingDownUntil: "2026-10-07T17:00:00Z", breaker: "closed" }])?.to).toBe(
-      "/settings#sites",
+      "/settings/advanced#sites",
     );
   });
 
@@ -81,7 +82,7 @@ describe("shell status chips", () => {
 
   it("picks a chip for the phone bar only when something needs a look", () => {
     const fine = [
-      { id: "worker", tone: "positive", label: "Worker online", to: "/settings#worker" },
+      { id: "worker", tone: "positive", label: "Worker online", to: "/settings#helpers" },
     ] as const;
     expect(mostUrgent(fine)).toBeUndefined();
     const trouble = [
@@ -100,21 +101,21 @@ describe("shell status chips", () => {
       id: "sites",
       tone: "attention",
       label: "Cooling down",
-      value: "1 site",
-      to: "/settings#sites",
+      value: `1 site \u00b7 until ${formatTime("2026-10-07T17:00:00Z")}`,
+      to: "/settings/advanced#sites",
     });
-    expect(sitesChip([cooling, paused])?.value).toBe("2 sites");
+    expect(sitesChip([cooling, paused])?.value).toMatch(/^2 sites \u00b7 until /);
   });
 
   it("lets a cooling site feed the phone bar mark", () => {
     const chips = [
-      { id: "worker", tone: "positive", label: "Worker online", to: "/settings#worker" } as const,
+      { id: "worker", tone: "positive", label: "Worker online", to: "/settings#helpers" } as const,
       {
         id: "sites",
         tone: "attention",
         label: "Cooling down",
         value: "1 site",
-        to: "/settings#sites",
+        to: "/settings/advanced#sites",
       } as const,
     ];
     expect(mostUrgent(chips)?.id).toBe("sites");

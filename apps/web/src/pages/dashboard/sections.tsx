@@ -1,45 +1,26 @@
-import {
-  type Dashboard,
-  type DashboardEvent,
-  LISTING_GROUPS,
-  type ListingStatus,
-  type RequestStatus,
-  type ScanHoldReason,
-} from "@kickrocks/shared";
-import { ChevronRight, ScanSearch } from "lucide-react";
-import { useState } from "react";
+import { type Dashboard, listingRollup, type RequestStatus } from "@kickrocks/shared";
+import { ChevronRight } from "lucide-react";
+import type { ReactNode } from "react";
 import { Link } from "react-router";
-import { HoldReason, holdLinkLabel } from "../../components/holds/HoldReason.js";
+import { needsYouTotal } from "../../api/index.js";
 import {
   Button,
-  Callout,
   Count,
-  EmptyState,
-  EntityLink,
   LinkButton,
-  Meter,
-  MonoEmails,
   RelativeTime,
   Row,
   RowGroup,
   Section,
-  StatusMark,
-  TextLink,
 } from "../../components/ui/index.js";
 import { cn } from "../../lib/cn.js";
-import { describeEvent } from "../../lib/events.js";
 import { formatCount, formatShortDate } from "../../lib/format.js";
-import { chipCount } from "../../lib/listings.js";
 import { paths } from "../../lib/paths.js";
-import { EventRow } from "../requests/EventRow.js";
-import { eventShape } from "../requests/event-shape.js";
-import { ScanDialog } from "../targets/listings/scanning.js";
 
-/** The three questions a person has about their requests, each answered by some statuses. */
+/** The three questions a person has about their removals, each answered by some request statuses. */
 export const STATUS_GROUPS: readonly {
   id: string;
   title: string;
-  /** The segment color in the stacked bar: ink, positive, or attention, never the accent. */
+  /** The dot color: ink, positive, or attention, never the accent. */
   fill: string;
   statuses: readonly RequestStatus[];
 }[] = [
@@ -51,7 +32,7 @@ export const STATUS_GROUPS: readonly {
   },
   {
     id: "resolved",
-    title: "Resolved",
+    title: "Done",
     fill: "bg-positive",
     statuses: ["confirmed", "no_record", "cancelled"],
   },
@@ -70,329 +51,90 @@ export function groupTotal(
   return statuses.reduce((sum, status) => sum + (counts[status] ?? 0), 0);
 }
 
-function StackedBar({ dashboard }: { dashboard: Dashboard }) {
-  const totals = STATUS_GROUPS.map((group) => ({
-    group,
-    count: groupTotal(dashboard.counts, group.statuses),
-  }));
-  const description = totals
-    .map(({ group, count }) => `${formatCount(count)} ${group.title.toLowerCase()}`)
-    .join(", ");
-  return (
-    <div
-      role="img"
-      aria-label={description}
-      className="flex h-1.5 gap-px overflow-hidden rounded-full bg-active"
-    >
-      {totals
-        .filter(({ count }) => count > 0)
-        .map(({ group, count }) => (
-          <span key={group.id} className={group.fill} style={{ flexGrow: count, flexBasis: 0 }} />
-        ))}
-    </div>
-  );
-}
-
-export function RequestsSection({ dashboard }: { dashboard: Dashboard }) {
-  return (
-    <Section
-      label="Requests"
-      count={formatCount(dashboard.total)}
-      actions={
-        <TextLink
-          to={paths.requests()}
-          className="max-sm:inline-flex max-sm:min-h-11 max-sm:items-center pointer-coarse:inline-flex pointer-coarse:min-h-11 pointer-coarse:items-center"
-        >
-          All requests
-        </TextLink>
-      }
-    >
-      <StackedBar dashboard={dashboard} />
-      <div className="mt-4 grid gap-x-8 gap-y-5 sm:grid-cols-3">
-        {STATUS_GROUPS.map((group) => {
-          const present = group.statuses.filter((status) => (dashboard.counts[status] ?? 0) > 0);
-          return (
-            <section key={group.id} aria-labelledby={`group-${group.id}`} className="min-w-0">
-              <div className="flex items-baseline justify-between gap-3">
-                <h3 id={`group-${group.id}`} className="text-eyebrow text-ink-3">
-                  {group.title}
-                </h3>
-                <p className="m-0 font-mono text-numeral text-ink tabular-nums">
-                  {formatCount(groupTotal(dashboard.counts, group.statuses))}
-                </p>
-              </div>
-              <ul className="m-0 mt-2 list-none divide-y divide-line border-t border-line p-0">
-                {present.map((status) => (
-                  <li key={status}>
-                    <Link
-                      to={paths.requests({ status })}
-                      className="-mx-2 flex h-8 items-center justify-between gap-3 rounded-sm px-2 transition-colors duration-100 hover:bg-hover max-sm:h-auto max-sm:min-h-11 pointer-coarse:h-auto pointer-coarse:min-h-11"
-                    >
-                      <StatusMark status={status} />
-                      <span className="font-mono text-meta text-ink-2 tabular-nums">
-                        {formatCount(dashboard.counts[status] ?? 0)}
-                      </span>
-                    </Link>
-                  </li>
-                ))}
-                {present.length === 0 ? (
-                  <li className="flex h-8 items-center text-ink-3 max-sm:min-h-11 pointer-coarse:min-h-11">
-                    -
-                  </li>
-                ) : null}
-              </ul>
-            </section>
-          );
-        })}
-      </div>
-    </Section>
-  );
-}
-
-interface AttentionRow {
-  count: number;
+export interface ChecklistStep {
+  id: "password" | "profile" | "mailbox" | "scan";
   title: string;
-  to: string;
-  /** Failures take the danger color; everything else that waits on the person takes attention. */
-  failed?: true;
+  sentence: string;
+  done: boolean;
+  to?: string;
 }
-
-/** The places beside the Needs you queue that hold something, shown only when they do. */
-export function attentionRows(attention: Dashboard["attention"]): AttentionRow[] {
-  return [
-    {
-      count: attention.unreviewedMessages,
-      title: "Mail to sort",
-      to: paths.reviewSection("mail"),
-    },
-    {
-      count: attention.failedTasks,
-      title: "Problems",
-      to: paths.reviewSection("problems"),
-      failed: true as const,
-    },
-    {
-      count: attention.agentTasks,
-      title: "Waiting on agents",
-      to: paths.reviewSection("agents"),
-    },
-  ].filter((row) => row.count > 0);
-}
-
-/** Whether anything on the dashboard's Needs you card has something to say. */
-export function hasAttention(attention: Dashboard["attention"]): boolean {
-  const { needsYou } = attention;
-  return needsYou.active > 0 || needsYou.snoozed > 0 || attentionRows(attention).length > 0;
-}
-
-function breakdown({ quick, few, longer }: Dashboard["attention"]["needsYou"]): string {
-  return [
-    quick > 0 ? `${quick} quick` : null,
-    few > 0 ? `${few} few min` : null,
-    longer > 0 ? `${longer} longer` : null,
-  ]
-    .filter(Boolean)
-    .join(" · ");
-}
-
-export function AttentionSection({ attention }: { attention: Dashboard["attention"] }) {
-  const { needsYou } = attention;
-  const rows = attentionRows(attention);
-  return (
-    <Section label="Needs you" count={formatCount(needsYou.active)}>
-      <RowGroup>
-        {needsYou.active === 0 ? (
-          <Row title="Nothing needs you." />
-        ) : (
-          <Row
-            title={`${needsYou.active} to do · about ${needsYou.minutes} min`}
-            description={<span className="font-mono">{breakdown(needsYou)}</span>}
-            trailing={
-              <LinkButton to={paths.review()} variant="primary" size="sm">
-                Start
-              </LinkButton>
-            }
-          />
-        )}
-        {rows.map((row) => (
-          <Row
-            key={row.title}
-            to={row.to}
-            title={row.title}
-            trailing={
-              <>
-                <Count
-                  value={row.count}
-                  tone={row.failed ? "danger" : "attention"}
-                  className="text-ui font-medium"
-                />
-                <ChevronRight aria-hidden="true" className="size-4 text-ink-3" />
-              </>
-            }
-          />
-        ))}
-      </RowGroup>
-      {needsYou.snoozed > 0 ? (
-        <p className="mt-2 text-meta">
-          <TextLink to={paths.reviewSnoozed()}>{needsYou.snoozed} snoozed</TextLink>
-        </p>
-      ) : null}
-    </Section>
-  );
-}
-
-const LISTING_TILES: readonly {
-  chip: string;
-  label: string;
-  statuses: readonly ListingStatus[];
-  tone: "plain" | "attention";
-}[] = [
-  {
-    chip: "needs_you",
-    label: "Needs you",
-    statuses: LISTING_GROUPS.needs_you,
-    tone: "attention",
-  },
-  { chip: "yours", label: "Being removed", statuses: ["yours", "relisted"], tone: "plain" },
-  { chip: "removed", label: "Removed", statuses: ["removed"], tone: "plain" },
-  {
-    chip: "not_found",
-    label: "Not found",
-    statuses: ["not_found", "not_you", "unclear"],
-    tone: "plain",
-  },
-  { chip: "waiting", label: "Waiting", statuses: ["waiting", "scanning"], tone: "plain" },
-  { chip: "not_scanned", label: "Not scanned yet", statuses: ["not_scanned"], tone: "plain" },
-];
 
 /**
- * Where the person is listed, at a glance, and the one button that starts a scan of every site. A
- * scan needs no campaign, so this is the way in on a phone, where the header holds only the main
- * action.
+ * Setup is derived from data the app already has. The password and the profile are done by the time
+ * this page renders, since the session and the profile gate stand in front of it.
  */
-export function ListingsSection({
-  listings,
-  profileId,
-}: {
-  listings: Dashboard["listings"];
-  profileId: string;
-}) {
-  const [scanning, setScanning] = useState(false);
-  return (
-    <Section
-      label="Where you're listed"
-      actions={
-        <TextLink
-          to={paths.listings()}
-          className="max-sm:inline-flex max-sm:min-h-11 max-sm:items-center pointer-coarse:inline-flex pointer-coarse:min-h-11 pointer-coarse:items-center"
-        >
-          All sites
-        </TextLink>
-      }
-    >
-      <div className="grid grid-cols-3 gap-px overflow-hidden rounded-md border border-line bg-line">
-        {LISTING_TILES.map((tile) => {
-          const value = chipCount(listings.counts, tile.statuses);
-          return (
-            <Link
-              key={tile.chip}
-              to={paths.listings(tile.chip)}
-              className="marked flex min-h-16 flex-col justify-between gap-1 bg-surface px-3 py-2 transition-colors duration-100 hover:bg-hover focus-visible:-outline-offset-2"
-            >
-              <span className="text-eyebrow text-ink-3">{tile.label}</span>
-              <span
-                className={cn(
-                  "font-mono text-numeral tabular-nums",
-                  value > 0 && tile.tone === "attention" ? "text-attention-text" : "text-ink",
-                )}
-              >
-                {formatCount(value)}
-              </span>
-            </Link>
-          );
-        })}
-      </div>
-      <div className="mt-2.5 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-        <p className="min-w-0 font-mono text-caption text-ink-3">
-          {listings.lastScanAt ? (
-            <>
-              Last scan <RelativeTime iso={listings.lastScanAt} />
-            </>
-          ) : (
-            "Never scanned"
-          )}
-          {listings.nextRescanAt ? `, next rescan ${formatShortDate(listings.nextRescanAt)}` : ""}
-        </p>
-        <Button onClick={() => setScanning(true)}>
-          <ScanSearch aria-hidden="true" />
-          Scan all sites
-        </Button>
-      </div>
-      {scanning ? (
-        <ScanDialog
-          open
-          onClose={() => setScanning(false)}
-          profileId={profileId}
-          selection={{ preset: "people_search" }}
-          title="Scan every people-search site?"
-        />
-      ) : null}
-    </Section>
+export function checklistSteps(dashboard: Dashboard, profileId: string): ChecklistStep[] {
+  return [
+    {
+      id: "password",
+      title: "Password",
+      sentence: "Protects this instance.",
+      done: true,
+    },
+    {
+      id: "profile",
+      title: "Your profile",
+      sentence: "Who to look for and remove.",
+      done: true,
+      to: "/profiles/new",
+    },
+    {
+      id: "mailbox",
+      title: "Mailbox",
+      sentence: "Needed to email removals. Scans work without it.",
+      done: dashboard.mailbox !== null,
+      to: paths.mailbox(profileId),
+    },
+    {
+      id: "scan",
+      title: "First scan",
+      sentence: "Find out where you're listed.",
+      done: dashboard.listings.lastScanAt !== null,
+    },
+  ];
+}
+
+const CHEVRON = <ChevronRight aria-hidden="true" className="size-4 text-ink-3" />;
+
+function StepMark({ done }: { done: boolean }) {
+  return done ? (
+    <span aria-hidden="true" className="size-2.5 shrink-0 rounded-full bg-positive" />
+  ) : (
+    <span
+      aria-hidden="true"
+      className="size-2.5 shrink-0 rounded-full border-[1.5px] border-ink-3"
+    />
   );
 }
 
-/** Queued scans that something is holding back, with the reason, so a quiet worker is explained. */
-export function ScansSection({
-  scans,
-  profileId,
+export function SetupChecklist({
+  steps,
+  onScan,
 }: {
-  scans: Dashboard["scans"];
-  profileId: string;
+  steps: readonly ChecklistStep[];
+  onScan: () => void;
 }) {
-  const groups = Object.entries(scans.byReason).flatMap(([reason, group]) =>
-    group ? [{ reason: reason as ScanHoldReason, group }] : [],
-  );
-  if (scans.held === 0) return null;
-  const linked = new Set<string>();
+  const done = steps.filter((step) => step.done).length;
+  if (done === steps.length) return null;
   return (
-    <Section
-      label="Scans held"
-      count={formatCount(scans.held)}
-      actions={
-        <TextLink
-          to={paths.listings()}
-          className="max-sm:inline-flex max-sm:min-h-11 max-sm:items-center pointer-coarse:inline-flex pointer-coarse:min-h-11 pointer-coarse:items-center"
-        >
-          All scans
-        </TextLink>
-      }
-    >
+    <Section label="Get set up" count={`${done} of ${steps.length}`}>
       <RowGroup>
-        {groups.map(({ reason, group }) => {
-          const hold = {
-            reason,
-            ...(group.until ? { until: group.until } : {}),
-            ...(group.serverClock ? { serverClock: true } : {}),
+        {steps.map((step) => {
+          const base = {
+            leading: <StepMark done={step.done} />,
+            title: (
+              <span className={cn(step.done && "text-ink-2")}>
+                {step.title}
+                <span className="sr-only">{step.done ? " (done)" : " (to do)"}</span>
+              </span>
+            ),
+            description: step.sentence,
           };
-          const link = holdLinkLabel(hold, profileId);
-          const hideLink = link !== undefined && linked.has(link);
-          if (link) linked.add(link);
-          return (
-            <Row
-              key={reason}
-              title={<HoldReason hold={hold} profileId={profileId} compact hideLink={hideLink} />}
-              wrapTitle
-              trailing={
-                group.count > 1 ? (
-                  <Count
-                    value={group.count}
-                    tone="attention"
-                    label={group.count === 1 ? "scan" : "scans"}
-                    className="text-ui font-medium"
-                  />
-                ) : undefined
-              }
-            />
+          if (step.done) return <Row key={step.id} {...base} />;
+          return step.to ? (
+            <Row key={step.id} {...base} to={step.to} trailing={CHEVRON} />
+          ) : (
+            <Row key={step.id} {...base} onClick={onScan} trailing={CHEVRON} />
           );
         })}
       </RowGroup>
@@ -400,167 +142,140 @@ export function ScansSection({
   );
 }
 
-export function SendingSection({ dashboard }: { dashboard: Dashboard }) {
-  const { sending, mailbox } = dashboard;
-  if (!(sending && mailbox)) return null;
-  const full = sending.remaining === 0;
-  return (
-    <Section label="Sent in 24 hours">
-      <div className="max-w-xl">
-        <Meter
-          label="Daily sending limit used"
-          value={sending.sent}
-          max={sending.cap}
-          readout={`${formatCount(sending.sent)} of ${formatCount(sending.cap)}`}
-        />
-        <p className="mt-2 flex flex-wrap gap-x-5 gap-y-0.5 text-meta text-ink-3">
-          <span className="font-mono tabular-nums">{formatCount(sending.remaining)} left</span>
-          <EntityLink
-            to={{ kind: "mailbox", profileId: dashboard.profileId, address: mailbox.address }}
-            variant="quiet"
-            className="break-all"
-          />
-          <span>
-            {mailbox.lastPolledAt ? (
-              <>
-                Inbox checked <RelativeTime iso={mailbox.lastPolledAt} />
-              </>
-            ) : (
-              "Inbox not checked yet"
-            )}
-          </span>
-        </p>
-        {full ? (
-          <p className="mt-2 text-meta text-attention-text">
-            At the limit. Requests wait until earlier ones are a day old.
-          </p>
-        ) : null}
-      </div>
-    </Section>
-  );
-}
-
-export function MailboxNotices({
-  dashboard,
-  profileId,
-  showMissing,
-  checkReportsError = false,
+export function Hero({
+  listings,
+  onScan,
 }: {
-  dashboard: Dashboard;
-  profileId: string;
-  showMissing: boolean;
-  /** The result of a check run on this page already shows the mailbox error, so it is not shown twice. */
-  checkReportsError?: boolean;
+  listings: Dashboard["listings"];
+  onScan: () => void;
 }) {
-  const manage = paths.mailbox(profileId);
-  if (!dashboard.mailbox) {
-    if (!showMissing) return null;
-    return (
-      <Callout
-        intent="warning"
-        title="No mailbox connected"
-        action={
-          <LinkButton to={manage} size="sm">
-            Connect a mailbox
-          </LinkButton>
-        }
-      >
-        Requests wait in the queue until one is connected.
-      </Callout>
+  const totals = listingRollup(listings.counts);
+  const scanned = listings.lastScanAt !== null;
+
+  let title: ReactNode;
+  if (totals.listed > 0) {
+    title = (
+      <>
+        Listed on <span className="font-mono tabular-nums">{totals.listed}</span>{" "}
+        {totals.listed === 1 ? "site" : "sites"}
+      </>
+    );
+  } else {
+    title = scanned ? "Not listed anywhere we checked" : "Not scanned yet";
+  }
+
+  let action: ReactNode = null;
+  if (totals.listed > 0) {
+    action = (
+      <LinkButton to="/findings" variant="primary" size="sm">
+        Review findings
+      </LinkButton>
+    );
+  } else if (scanned) {
+    action = (
+      <Button variant="primary" size="sm" onClick={onScan}>
+        Scan again
+      </Button>
     );
   }
-  if (!dashboard.mailbox.lastError || checkReportsError) return null;
+
   return (
-    <Callout
-      intent="danger"
-      title="The mailbox is not working"
-      action={
-        <LinkButton to={manage} size="sm">
-          Check mailbox
-        </LinkButton>
-      }
-    >
-      {dashboard.mailbox.lastError}
-    </Callout>
+    <Section label="Where you're listed">
+      <RowGroup>
+        <Row
+          title={title}
+          description={
+            totals.listed > 0 ? (
+              <span className="font-mono tabular-nums">
+                {`${totals.toConfirm} to confirm \u00b7 ${totals.inProgress} in progress \u00b7 ${totals.gone} gone`}
+              </span>
+            ) : undefined
+          }
+          trailing={action}
+          trailingBelowOnPhone
+        />
+      </RowGroup>
+      <p className="mt-2 font-mono text-caption text-ink-3">
+        {listings.lastScanAt ? (
+          <>
+            Last scan <RelativeTime iso={listings.lastScanAt} />
+          </>
+        ) : (
+          "Never scanned"
+        )}
+        {listings.nextRescanAt ? ` \u00b7 next ${formatShortDate(listings.nextRescanAt)}` : ""}
+      </p>
+    </Section>
   );
 }
 
-const ACTIVITY_REQUEST_LIMIT = 6;
-
-type ActivityGroup = {
-  /** The newest event of the request, which is the one described. */
-  latest: DashboardEvent;
-  count: number;
-};
-
-/** One entry per request over the whole list, so a busy request cannot repeat or hide the others. */
-export function groupActivity(
-  events: readonly DashboardEvent[],
-  limit = ACTIVITY_REQUEST_LIMIT,
-): ActivityGroup[] {
-  const byRequest = new Map<string, ActivityGroup>();
-  for (const event of events) {
-    const group = byRequest.get(event.requestId);
-    if (!group) {
-      byRequest.set(event.requestId, { latest: event, count: event.eventCount ?? 1 });
-      continue;
-    }
-    if (event.eventCount === undefined) group.count += 1;
-    if (Date.parse(event.createdAt) > Date.parse(group.latest.createdAt)) {
-      group.latest = event;
-      if (event.eventCount !== undefined) group.count = event.eventCount;
-    }
-  }
-  return [...byRequest.values()]
-    .sort((a, b) => Date.parse(b.latest.createdAt) - Date.parse(a.latest.createdAt))
-    .slice(0, limit);
+export function NeedsYouSection({ attention }: { attention: Dashboard["attention"] }) {
+  const total = needsYouTotal(attention);
+  if (total === 0) return <p className="mt-2.5 text-ui text-ink-3">Nothing needs you</p>;
+  return (
+    <Section label="Needs you" count={formatCount(total)}>
+      <RowGroup>
+        <Row
+          to={paths.review()}
+          title={`${total} to do · about ${attention.needsYou.minutes} min`}
+          trailing={<ChevronRight aria-hidden="true" className="size-4 text-ink-3" />}
+        />
+      </RowGroup>
+    </Section>
+  );
 }
 
-export function ActivitySection({ events }: { events: readonly DashboardEvent[] }) {
-  const groups = groupActivity(events);
+/** A group opens its own status filter when one status holds all of it; the list filters by one status at a time. */
+function groupLink(dashboard: Dashboard, statuses: readonly RequestStatus[]): string {
+  const present = statuses.filter((status) => (dashboard.counts[status] ?? 0) > 0);
+  const only = present.length === 1 ? present[0] : undefined;
+  return paths.requests(only ? { status: only } : {});
+}
+
+/** "1 checked gone · 11 said removed": what a later scan proved, against what the sites only claimed. */
+function doneWords(dashboard: Dashboard): ReactNode {
+  const settled = (dashboard.counts.confirmed ?? 0) + (dashboard.counts.no_record ?? 0);
+  const cancelled = dashboard.counts.cancelled ?? 0;
+  if (settled + cancelled === 0) return undefined;
+  const claimed = Math.max(0, settled - dashboard.verifiedGone);
+  const parts = [`${dashboard.verifiedGone} checked gone`, `${claimed} said removed`];
+  if (cancelled > 0) parts.push(`${cancelled} cancelled`);
+  return <span className="font-mono tabular-nums">{parts.join(" · ")}</span>;
+}
+
+export function RemovalsSection({ dashboard }: { dashboard: Dashboard }) {
+  if (dashboard.total === 0) {
+    return <p className="mt-2.5 text-ui text-ink-3">No removals yet</p>;
+  }
   return (
-    <Section label="Recent activity">
-      {groups.length === 0 ? (
-        <EmptyState title="Nothing has happened yet." className="py-1" />
-      ) : (
-        <ol className="m-0 list-none p-0">
-          {groups.map(({ latest: event, count }) => (
-            <EventRow
-              key={event.id}
-              className="relative"
-              shape={eventShape(event)}
-              time={<RelativeTime iso={event.createdAt} />}
-            >
-              <p className="text-ui text-ink">
-                <MonoEmails text={describeEvent(event)} />
-              </p>
-              <p className="flex flex-wrap items-center gap-x-3 text-meta text-ink-3">
-                <EntityLink
-                  to={{ kind: "target", id: event.targetId, name: event.targetName }}
-                  variant="quiet"
-                  className="relative min-w-0 break-words"
-                />
-                <EntityLink
-                  to={{
-                    kind: "request",
-                    id: event.requestId,
-                    reference: event.requestReference,
-                  }}
-                  variant="row"
-                />
-                {count > 1 ? (
-                  <span className="inline-flex items-baseline gap-1">
-                    <Count value={count} label="events" />
-                    <span aria-hidden="true" className="text-caption">
-                      events
-                    </span>
-                  </span>
-                ) : null}
-              </p>
-            </EventRow>
-          ))}
-        </ol>
-      )}
-    </Section>
+    <section className="min-w-0">
+      <div className="mt-2.5 mb-1.5 flex min-h-5 items-center">
+        <h2 className="text-eyebrow font-semibold! text-ink-3">
+          <Link
+            to={paths.requests()}
+            className="rounded-xs hover:text-ink-2 focus-visible:-outline-offset-2"
+          >
+            {`Removals · ${formatCount(dashboard.total)}`}
+          </Link>
+        </h2>
+      </div>
+      <RowGroup>
+        {STATUS_GROUPS.map((group) => (
+          <Row
+            key={group.id}
+            to={groupLink(dashboard, group.statuses)}
+            leading={
+              <span aria-hidden="true" className={cn("size-2 shrink-0 rounded-full", group.fill)} />
+            }
+            title={group.title}
+            description={group.id === "resolved" ? doneWords(dashboard) : undefined}
+            wrapDescription
+            trailing={
+              <Count value={groupTotal(dashboard.counts, group.statuses)} className="text-ui" />
+            }
+          />
+        ))}
+      </RowGroup>
+    </section>
   );
 }

@@ -3,6 +3,7 @@ import {
   assembleNeedsYou,
   type BlockedReason,
   type BlockedTaskItem,
+  type BulkMatchDecisionResult,
   candidateOfMatch,
   candidateOfTask,
   candidateOfVerification,
@@ -15,6 +16,7 @@ import {
   isQuietHour,
   type Match,
   type MatchAssessment,
+  type MatchDecisionBody,
   type MessageSummary,
   manualResultSchemaFor,
   NEEDS_YOU_MAX_SNOOZE_DAYS,
@@ -38,7 +40,7 @@ import {
   type WaitingTask,
 } from "@kickrocks/shared";
 import { assignmentFor } from "./agents.js";
-import { conflict, defineMockDomain, handle, invalid, notFound } from "./core.js";
+import { conflict, defineMockDomain, handle, invalid, MockHttpError, notFound } from "./core.js";
 import { fakeScreenshotPng } from "./png.js";
 import { addEvent, buildRequest, makeTask } from "./requests.js";
 import { approveHeld, liveHold, sendRoutes, twoStepLapse, unapprovedRelease } from "./sends.js";
@@ -262,6 +264,7 @@ export function seedMockMatch(
   fields: Match["fields"],
   decision: Match["decision"] = "pending",
   requestId: string | null = null,
+  verifiedGoneAt: string | null = null,
 ): void {
   store.matches.push({
     id: store.nextId("mtc"),
@@ -275,6 +278,7 @@ export function seedMockMatch(
     decision,
     decidedAt: decision === "pending" ? null : store.ago({ hours: 2 }),
     requestId,
+    verifiedGoneAt,
   });
   recountScan(store, scan.id);
 }
@@ -872,6 +876,29 @@ export default defineMockDomain({
       }
     };
 
+    const decideMock = (id: string, body: MatchDecisionBody): Match => {
+      const match = store.matches.find((candidate) => candidate.id === id);
+      if (!match) throw notFound("That match");
+      if (match.decision !== "pending") throw conflict("That match was already decided.");
+      match.decision = body.decision;
+      match.decidedAt = store.clock.now().toISOString();
+      settle(`match:${match.id}`);
+      if (body.decision === "mine") {
+        const request = buildRequest(store, {
+          profileId: match.profileId,
+          targetId: match.targetId,
+          channel: "form",
+          rights: body.rights,
+          status: "queued",
+          createdDaysAgo: 0,
+          recordUrl: match.recordUrl,
+        });
+        match.requestId = request.id;
+      }
+      recountScan(store, match.scanId);
+      return match;
+    };
+
     return [
       ...sendRoutes(store),
       handle(API_ROUTES.reviewQueue, ({ query }) => buildMockQueue(store, query.profileId)),
@@ -1061,28 +1088,18 @@ export default defineMockDomain({
         return { binary: fakeScreenshotPng(), contentType: "image/png" };
       }),
 
-      handle(API_ROUTES.matchDecide, ({ params, body }) => {
-        const match = store.matches.find((candidate) => candidate.id === params.id);
-        if (!match) throw notFound("That match");
-        if (match.decision !== "pending") throw conflict("That match was already decided.");
-        match.decision = body.decision;
-        match.decidedAt = store.clock.now().toISOString();
-        settle(`match:${match.id}`);
-        if (body.decision === "mine") {
-          const request = buildRequest(store, {
-            profileId: match.profileId,
-            targetId: match.targetId,
-            channel: "form",
-            rights: body.rights,
-            status: "queued",
-            createdDaysAgo: 0,
-            recordUrl: match.recordUrl,
-          });
-          match.requestId = request.id;
-        }
-        recountScan(store, match.scanId);
-        return match;
-      }),
+      handle(API_ROUTES.matchDecide, ({ params, body }) => decideMock(params.id, body)),
+
+      handle(API_ROUTES.matchDecideMany, ({ body }) => ({
+        results: body.decisions.map(({ matchId, ...decision }): BulkMatchDecisionResult => {
+          try {
+            return { ok: true, matchId, match: decideMock(matchId, decision) };
+          } catch (failure) {
+            if (!(failure instanceof MockHttpError)) throw failure;
+            return { ok: false, matchId, error: { code: failure.code, message: failure.message } };
+          }
+        }),
+      })),
 
       handle(API_ROUTES.messageGet, ({ params }) => {
         const message = store.messages.find((candidate) => candidate.id === params.id);

@@ -1,4 +1,4 @@
-import { API_ROUTES, isActiveStatus, RequestStatus } from "@kickrocks/shared";
+import { API_ROUTES, RequestStatus } from "@kickrocks/shared";
 import { skipToken } from "@tanstack/react-query";
 import { ChevronDown, Search, UserRound } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
@@ -9,9 +9,7 @@ import {
   activeFilterTags,
   Button,
   Callout,
-  DataList,
   EmptyState,
-  EntityLink,
   Field,
   type FilterGroup,
   Filters,
@@ -21,13 +19,17 @@ import {
   Menu,
   type MenuItem,
   PageHeader,
-  RelativeTime,
-  StatusMark,
+  Pagination,
+  RowGroup,
+  Section,
+  Segmented,
+  Skeleton,
   TableToolbar,
 } from "../../components/ui/index.js";
 import { pluralize } from "../../lib/format.js";
 import { CHANNEL_LABELS } from "../../lib/labels.js";
 import { REQUEST_STATUS_META } from "../../lib/status.js";
+import { groupByBatch } from "./batches.js";
 import {
   ALL_PROFILES,
   hasRequestFilters,
@@ -35,10 +37,12 @@ import {
   readRequestFilters,
   toRequestQuery,
 } from "./filters.js";
-import { RIGHT_TOKENS } from "./format.js";
 import { listRefreshInterval } from "./polling.js";
+import { RequestRow } from "./RequestRow.js";
+import { groupRequests, sectionCount } from "./sections.js";
 
 const SEARCH_DELAY_MS = 250;
+const SKELETON_ROWS = ["a", "b", "c", "d", "e", "f"];
 
 export function Component() {
   return <RequireProfile>{(profile) => <Requests profileId={profile.id} />}</RequireProfile>;
@@ -67,6 +71,11 @@ function Requests({ profileId }: { profileId: string }) {
   );
   const everyone = useApiQuery(API_ROUTES.requestsListAll, allProfiles ? listed : skipToken);
   const list = allProfiles ? everyone : one;
+  const byBatch = !allProfiles && params.get("group") === "batch";
+  const batches = useApiQuery(
+    API_ROUTES.campaignsList,
+    byBatch && scopeId ? { params: { id: scopeId } } : skipToken,
+  );
   const target = useApiQuery(
     API_ROUTES.targetsGet,
     filters.targetId ? { params: { id: filters.targetId } } : skipToken,
@@ -82,6 +91,17 @@ function Requests({ profileId }: { profileId: string }) {
         if (value) next.set(key, value);
         else next.delete(key);
         next.delete("page");
+        return next;
+      },
+      { replace: true },
+    );
+
+  const setGroup = (value: "status" | "batch") =>
+    setParams(
+      (current) => {
+        const next = new URLSearchParams(current);
+        if (value === "batch") next.set("group", "batch");
+        else next.delete("group");
         return next;
       },
       { replace: true },
@@ -164,7 +184,7 @@ function Requests({ profileId }: { profileId: string }) {
       ? [
           {
             id: "targetId",
-            label: `Target: ${target.data?.name ?? filters.targetId}`,
+            label: `Site: ${target.data?.name ?? filters.targetId}`,
             onRemove: () => setFilter("targetId", ""),
           },
         ]
@@ -183,22 +203,29 @@ function Requests({ profileId }: { profileId: string }) {
   const items = list.data?.items ?? [];
   const extraFilters = (filters.targetId ? 1 : 0) + (filters.campaignId ? 1 : 0);
   const filtered = hasRequestFilters(filters);
-  const resultCount = list.data ? pluralize(list.data.total, "request") : undefined;
+  const resultCount = list.data ? pluralize(list.data.total, "removal") : undefined;
+  const sections =
+    byBatch && batches.data
+      ? groupByBatch(items, batches.data.campaigns).map((section) => ({
+          ...section,
+          verifiedGone: 0,
+        }))
+      : groupRequests(items).map((section) => ({ ...section, summary: "" }));
 
   return (
     <>
       <PageHeader
-        title="Requests"
+        title="Removals"
         description="Every request, and where it stands"
         hideDescriptionOnPhone
         actions={
           <LinkButton to="/campaigns/new" variant="primary">
-            New campaign
+            Send requests
           </LinkButton>
         }
       />
 
-      <TableToolbar>
+      <TableToolbar count={resultCount}>
         <search aria-label="Filter requests" className="contents">
           {profiles.length > 1 ? (
             <Menu
@@ -227,7 +254,7 @@ function Requests({ profileId }: { profileId: string }) {
               type="search"
               value={search}
               onChange={(event) => setSearch(event.target.value)}
-              placeholder="Search target or reference"
+              placeholder="Search sites"
               maxLength={100}
               leading={<Search aria-hidden="true" />}
             />
@@ -240,6 +267,17 @@ function Requests({ profileId }: { profileId: string }) {
             extraActive={extraFilters}
           />
         </search>
+        {allProfiles ? null : (
+          <Segmented
+            legend="Group by"
+            value={byBatch ? "batch" : "status"}
+            onValueChange={setGroup}
+            options={[
+              { value: "status", label: "By status" },
+              { value: "batch", label: "By batch" },
+            ]}
+          />
+        )}
       </TableToolbar>
       <FilterTags tags={tags} emptyFocusRef={filtersButton} />
 
@@ -264,114 +302,61 @@ function Requests({ profileId }: { profileId: string }) {
         ) : (
           <EmptyState
             title="No requests yet."
-            actions={<LinkButton to="/campaigns/new">Start a campaign</LinkButton>}
+            actions={<LinkButton to="/campaigns/new">Send requests</LinkButton>}
           />
         )
       ) : (
-        <DataList
-          label="Requests"
-          items={items}
-          getKey={(item) => item.id}
-          identityHeader="Target"
-          identity={(item) => ({
-            title: item.target.name,
-            meta: item.reference,
-            to: {
-              kind: "request",
-              id: item.id,
-              reference: item.reference,
-              targetName: item.target.name,
-            },
-          })}
-          tags={(item) => (
-            <>
-              <StatusMark status={item.status} />
-              <span className="font-mono">
-                {item.rights.map((right) => RIGHT_TOKENS[right]).join(" · ")}
-              </span>
-              <span>{CHANNEL_LABELS[item.channel]}</span>
-              {item.dueAt && isActiveStatus(item.status) ? (
-                <span className="font-mono">
-                  due <RelativeTime iso={item.dueAt} />
-                </span>
-              ) : null}
-            </>
+        <div aria-busy={list.isPlaceholderData || undefined} className="flex flex-col gap-3">
+          {list.isPending || (byBatch && batches.isPending) ? (
+            <RowGroup aria-label="Loading requests">
+              {SKELETON_ROWS.map((id) => (
+                <div key={id} className="flex min-h-11 flex-col justify-center gap-1.5 px-3.5 py-2">
+                  <Skeleton className="h-3.5 w-40" />
+                  <Skeleton className="h-3 w-24" />
+                </div>
+              ))}
+            </RowGroup>
+          ) : (
+            sections.map((section) => (
+              <Section
+                key={section.id}
+                label={section.label}
+                count={sectionCount(section.items.length, section.verifiedGone)}
+                {...(section.summary
+                  ? {
+                      actions: (
+                        <span className="font-mono text-caption text-ink-3 tabular-nums">
+                          {section.summary}
+                        </span>
+                      ),
+                    }
+                  : {})}
+              >
+                <RowGroup role="list" aria-label={section.label}>
+                  {section.items.map((item) => (
+                    <RequestRow
+                      key={item.id}
+                      item={item}
+                      {...(allProfiles
+                        ? { profileName: names.get(item.profileId) ?? "Profile" }
+                        : {})}
+                    />
+                  ))}
+                </RowGroup>
+              </Section>
+            ))
           )}
-          columns={[
-            { id: "status", header: "Status", cell: (item) => <StatusMark status={item.status} /> },
-            ...(allProfiles
-              ? [
-                  {
-                    id: "profile",
-                    header: "Profile",
-                    className: "hidden xl:table-cell",
-                    cell: (item: (typeof items)[number]) => (
-                      <span className="text-ink-2">
-                        <EntityLink
-                          variant="quiet"
-                          className="relative z-10"
-                          to={{
-                            kind: "profile",
-                            id: item.profileId,
-                            name: names.get(item.profileId) ?? "Profile",
-                          }}
-                        />
-                      </span>
-                    ),
-                  },
-                ]
-              : []),
-            {
-              id: "asked",
-              header: "Asked",
-              mono: true,
-              cell: (item) => (
-                <span className="text-ink-2">
-                  {item.rights.map((right) => RIGHT_TOKENS[right]).join(" · ")}
-                </span>
-              ),
-            },
-            {
-              id: "channel",
-              header: "Channel",
-              className: "hidden xl:table-cell",
-              cell: (item) => <span className="text-ink-2">{CHANNEL_LABELS[item.channel]}</span>,
-            },
-            {
-              id: "sent",
-              header: "Sent",
-              kind: "date",
-              className: "hidden xl:table-cell",
-              cell: (item) => timeOrDash(item.sentAt),
-            },
-            { id: "due", header: "Due", kind: "date", cell: (item) => timeOrDash(item.dueAt) },
-          ]}
-          loading={list.isPending}
-          busy={list.isPlaceholderData}
-          count={resultCount}
-          pager={
-            list.data
-              ? {
-                  page: list.data.page,
-                  pageSize: REQUESTS_PAGE_SIZE,
-                  total: list.data.total,
-                  onPageChange: setPage,
-                  noun: "requests",
-                }
-              : undefined
-          }
-        />
+          {list.data ? (
+            <Pagination
+              page={list.data.page}
+              pageSize={REQUESTS_PAGE_SIZE}
+              total={list.data.total}
+              onPageChange={setPage}
+              noun="removals"
+            />
+          ) : null}
+        </div>
       )}
     </>
-  );
-}
-
-function timeOrDash(iso: string | null) {
-  return iso ? (
-    <span className="text-ink-2">
-      <RelativeTime iso={iso} />
-    </span>
-  ) : (
-    <span className="text-ink-3">-</span>
   );
 }

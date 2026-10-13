@@ -40,7 +40,7 @@ describe("paths", () => {
       "/review/problems?item=failed%3Atsk_1",
     );
     expect(paths.settings("recipes")).toBe("/settings/recipes");
-    expect(paths.settings("schedule")).toBe("/settings#schedule");
+    expect(paths.settings("schedule")).toBe("/settings/advanced#schedule");
   });
 
   it("opens a task in the Review item that matches it, else in its request", () => {
@@ -99,7 +99,7 @@ describe("EntityLink", () => {
     expect(link).toHaveClass("font-mono");
     await user.click(link);
     expect(screen.getByTestId("where")).toHaveTextContent("/requests/req_1");
-    expect(screen.getByRole("link", { name: /Target/ })).toHaveAttribute("href", "/targets/t1");
+    expect(screen.getByRole("link", { name: /Site/ })).toHaveAttribute("href", "/targets/t1");
   });
 
   it("falls back to plain text when the id is missing", () => {
@@ -267,7 +267,7 @@ describe("PageBack", () => {
         <PageBack />
       </MemoryRouter>,
     );
-    expect(screen.getByRole("link", { name: /Requests/ })).toHaveAttribute("href", "/requests");
+    expect(screen.getByRole("link", { name: /Removals/ })).toHaveAttribute("href", "/requests");
   });
 
   it("renders nothing on a page with no parent", () => {

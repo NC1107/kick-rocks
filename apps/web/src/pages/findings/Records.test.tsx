@@ -1,7 +1,7 @@
 import type { ListingRecord, MatchBand } from "@kickrocks/shared";
 import { screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import { renderPage } from "../../../test/render.js";
+import { renderPage } from "../../test/render.js";
 import { RecordList } from "./Records.js";
 
 function record(
@@ -21,6 +21,7 @@ function record(
     decision,
     decidedAt: null,
     requestId: null,
+    verifiedGoneAt: null,
     request: null,
   };
 }
@@ -37,7 +38,7 @@ describe("RecordList", () => {
       record("Decided Not", "unlikely", "not_mine"),
       record("Waiting Unlikely", "unlikely"),
     ]);
-    expect(screen.getByRole("button", { name: "1 unlikely" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "1 weak match" })).toBeVisible();
     expect(screen.getByRole("button", { name: "Mark 1 unlikely record as not you" })).toBeVisible();
   });
 

@@ -21,7 +21,6 @@ import {
   Select,
 } from "../../components/ui/index.js";
 import { ADMISSION_REASON } from "../../lib/admission.js";
-import { pluralize } from "../../lib/format.js";
 import { BodyRow, FieldRow, GroupNote } from "../settings/rows.js";
 import { CleanupPreview, IgnoredMail, ShadowReport } from "./intake-review.js";
 
@@ -62,8 +61,6 @@ interface IntakeSectionProps {
 export function IntakeSection({ profileId, mailbox, provider }: IntakeSectionProps) {
   const { hash } = useLocation();
   const [rulesOpen, setRulesOpen] = useState(false);
-  const shadowActive =
-    useApiQuery(API_ROUTES.intakeShadow, { params: { id: profileId } }).data?.active ?? false;
   // The link from the notice and from Settings names this section, but the page renders after the jump.
   useEffect(() => {
     if (hash === "#intake") document.getElementById("intake")?.scrollIntoView?.({ block: "start" });
@@ -73,20 +70,16 @@ export function IntakeSection({ profileId, mailbox, provider }: IntakeSectionPro
       <Section label="Mail intake">
         <RowGroup>
           <BodyRow>
-            <p className="text-meta font-medium text-ink">
-              {shadowActive
-                ? "Only request mail is saved; possible replies are listed for a week."
-                : "Only request mail is saved; the rest stays in your mailbox."}
+            <p className="text-meta font-medium text-ink" data-testid="last-check">
+              Request mail only
+              {mailbox.lastPolledAt ? (
+                <span className="font-mono font-normal tabular-nums text-ink-2">
+                  {" · "}
+                  {mailbox.lastPollKept} of {mailbox.lastPollScanned} kept
+                </span>
+              ) : null}
             </p>
           </BodyRow>
-          {mailbox.lastPolledAt ? (
-            <BodyRow>
-              <p className="text-meta text-ink-2" data-testid="last-check">
-                Last check looked at {pluralize(mailbox.lastPollScanned, "new message")} and kept{" "}
-                {mailbox.lastPollKept}.
-              </p>
-            </BodyRow>
-          ) : null}
         </RowGroup>
         <Disclosure
           title="What counts"

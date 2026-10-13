@@ -8,9 +8,8 @@ import {
   SiteMark,
   SkeletonText,
 } from "../../components/ui/index.js";
-import { pluralize } from "../../lib/format.js";
 import { describeCooldown } from "../../lib/sites.js";
-import { BodyRow, DomainLink, GroupNote, Value } from "./rows.js";
+import { BodyRow, DomainLink, Value } from "./rows.js";
 
 const POLL_MS = 30_000;
 
@@ -30,8 +29,11 @@ export function SitesCard() {
           <BodyRow className="text-ui text-ink-2">Could not load the sites just now.</BodyRow>
         ) : cooling.length === 0 ? (
           <BodyRow className="text-ui text-ink-2">
-            No site is cooling down. {pluralize(sites.data.visitsLastHour, "visit")} in the last
-            hour, out of {sites.data.hourlyCap} allowed.
+            None cooling down ·{" "}
+            <span className="font-mono tabular-nums">
+              {sites.data.visitsLastHour} of {sites.data.hourlyCap}
+            </span>{" "}
+            visits this hour
           </BodyRow>
         ) : (
           cooling.map((site) => (
@@ -57,7 +59,6 @@ export function SitesCard() {
           ))
         )}
       </RowGroup>
-      <GroupNote>Pushback from a site means longer pauses, then one careful visit.</GroupNote>
     </Section>
   );
 }

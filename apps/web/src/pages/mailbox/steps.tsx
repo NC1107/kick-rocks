@@ -404,11 +404,7 @@ export function SettingsStep({
             </Button>
           </BodyRow>
         ) : null}
-        <FieldRow
-          label="Daily limit"
-          error={errors.dailyCap}
-          help={`Suggested for ${preset.label}: ${preset.defaultDailyCap}`}
-        >
+        <FieldRow label="Daily limit" error={errors.dailyCap}>
           <Input
             mono
             type="number"
@@ -416,7 +412,6 @@ export function SettingsStep({
             min={1}
             max={MAX_DAILY_CAP}
             step={1}
-            unit="/day"
             value={form.dailyCap}
             onChange={(event) => onChange({ ...form, dailyCap: event.target.value })}
           />

@@ -42,12 +42,12 @@ export function TargetPicker({
 
   return (
     <div className="flex flex-col gap-2.5">
-      <Field label="Search targets" hideLabel>
+      <Field label="Search sites" hideLabel>
         <Input
           type="search"
           value={search}
           onChange={(event) => setSearch(event.target.value)}
-          placeholder="Search targets"
+          placeholder="Search sites"
           maxLength={100}
           leading={<Search aria-hidden="true" />}
         />
@@ -55,7 +55,7 @@ export function TargetPicker({
       {list.isError ? (
         <Callout
           intent="danger"
-          title="Could not load targets"
+          title="Could not load sites"
           action={
             <Button size="sm" onClick={() => list.refetch()}>
               Try again
@@ -65,15 +65,15 @@ export function TargetPicker({
           {errorMessage(list.error)}
         </Callout>
       ) : list.data && items.length === 0 ? (
-        <p className="px-1 text-ui text-ink-2">No targets match that search.</p>
+        <p className="px-1 text-ui text-ink-2">No sites match that search.</p>
       ) : (
         <DataList
-          label="Pick targets"
+          label="Pick sites"
           layout="rows"
           headless
           items={items}
           getKey={(item) => item.id}
-          identityHeader="Target"
+          identityHeader="Site"
           identity={(item) => ({
             title: item.name,
             meta: item.domain,
@@ -96,7 +96,7 @@ export function TargetPicker({
           }}
           loading={list.isPending}
           busy={list.isPlaceholderData}
-          count={list.data ? pluralize(list.data.total, "target") : undefined}
+          count={list.data ? pluralize(list.data.total, "site") : undefined}
           pager={
             list.data
               ? {

@@ -10,7 +10,7 @@ import {
 import { cn } from "../../lib/cn.js";
 
 /** The width settings pages hold to. The empty space on its right is accepted. */
-export const SETTINGS_WIDTH = "max-w-[45rem]";
+export const SETTINGS_WIDTH = "";
 
 /** One form control as a row of a RowGroup: the label on the left and the control on the right. */
 export function FieldRow(props: Omit<FieldProps, "layout">) {

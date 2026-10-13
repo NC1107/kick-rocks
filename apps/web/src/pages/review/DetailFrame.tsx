@@ -7,6 +7,8 @@ export interface DetailFrameProps {
   title: ReactNode;
   /** One line under the title: where it came from and how old it is. */
   meta?: ReactNode;
+  /** The one sentence that says what the item is and what the person decides. */
+  headline?: string;
   children?: ReactNode;
   /** The decision controls. They stay at the bottom edge while the body scrolls. */
   footer?: ReactNode;
@@ -19,7 +21,15 @@ export interface DetailFrameProps {
  * wide screen the body scrolls inside the pane and the footer never moves; on a phone the page
  * scrolls and the footer sticks to the bottom of the screen.
  */
-export function DetailFrame({ label, title, meta, children, footer, error }: DetailFrameProps) {
+export function DetailFrame({
+  label,
+  title,
+  meta,
+  headline,
+  children,
+  footer,
+  error,
+}: DetailFrameProps) {
   return (
     <section aria-label={label} className="flex min-h-0 min-w-0 flex-1 flex-col">
       <div className="min-h-0 flex-1 px-4 py-4 sm:px-5 lg:overflow-y-auto">
@@ -27,6 +37,7 @@ export function DetailFrame({ label, title, meta, children, footer, error }: Det
           {title}
         </h2>
         {meta ? <p className="mt-0.5 break-words text-meta text-ink-3">{meta}</p> : null}
+        {headline ? <p className="mt-3 mb-0 text-body text-ink">{headline}</p> : null}
         {children ? <div className="mt-4 flex flex-col gap-4">{children}</div> : null}
       </div>
       {footer ? (

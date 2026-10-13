@@ -1,6 +1,7 @@
 import { API_ROUTES, type ProfileSummary } from "@kickrocks/shared";
-import { Mail, MailPlus, Star, Trash2 } from "lucide-react";
+import { MoreHorizontal } from "lucide-react";
 import { useState } from "react";
+import { useNavigate } from "react-router";
 import {
   errorMessage,
   useApiMutation,
@@ -13,16 +14,17 @@ import {
   ConfirmDialog,
   EmptyState,
   EntityRow,
-  IconAction,
   IconButton,
   LinkButton,
+  Menu,
+  type MenuItem,
   RelativeTime,
   RowGroup,
   Section,
   Skeleton,
-  Tag,
   useToast,
 } from "../../../components/ui/index.js";
+import { paths } from "../../../lib/paths.js";
 import { SETTINGS_WIDTH } from "../rows.js";
 import { SettingsHeader } from "../SettingsHeader.js";
 
@@ -37,12 +39,34 @@ function ProfileRow({
   onMakeCurrent: () => void;
   onDelete: () => void;
 }) {
+  const navigate = useNavigate();
+  const actions: MenuItem[] = [
+    {
+      id: "mailbox",
+      label: profile.mailboxConnected ? "Open mailbox" : "Connect mailbox",
+      onSelect: () => navigate(paths.mailbox(profile.id)),
+    },
+    ...(current ? [] : [{ id: "current", label: "Make current", onSelect: onMakeCurrent }]),
+    {
+      id: "delete",
+      label: "Delete",
+      destructive: true,
+      separatorBefore: true,
+      onSelect: onDelete,
+    },
+  ];
   return (
     <li aria-label={profile.displayName} className="relative">
       <EntityRow
         to={{ kind: "profile", id: profile.id, name: profile.displayName }}
-        title={profile.displayName}
-        selected={current}
+        title={
+          <>
+            {profile.displayName}
+            {current ? (
+              <span className="ml-2 font-mono text-caption font-normal text-ink-3">current</span>
+            ) : null}
+          </>
+        }
         meta={
           <span className="inline-flex min-w-0 max-w-full gap-1.5 font-mono text-caption">
             <span>{profile.state}</span>
@@ -52,43 +76,18 @@ function ProfileRow({
         }
         trailing={
           <>
-            {current ? <Tag className="max-sm:hidden">Current</Tag> : null}
             <span className="w-14 shrink-0 text-right font-mono text-caption tabular-nums text-ink-3 max-sm:hidden">
               <RelativeTime iso={profile.updatedAt} />
             </span>
-            <span className="relative inline-flex shrink-0">
-              <IconAction
-                variant="ghost"
-                icon={profile.mailboxConnected ? Mail : MailPlus}
-                label={profile.mailboxConnected ? "Mailbox connected" : "Connect mailbox"}
-                to={{ kind: "mailbox", profileId: profile.id, address: profile.primaryEmail ?? "" }}
-              />
-              {profile.mailboxConnected ? (
-                <span
-                  aria-hidden="true"
-                  className="pointer-events-none absolute top-1.5 right-1.5 size-1.5 rounded-full bg-positive"
-                />
-              ) : null}
-            </span>
-            {current ? (
-              <span
-                role="img"
-                aria-label="Current profile"
-                className="inline-flex size-(--kr-control-h) shrink-0 items-center justify-center text-accent-text"
-              >
-                <Star aria-hidden="true" className="size-4 fill-current" />
-              </span>
-            ) : (
-              <IconAction
-                variant="ghost"
-                icon={Star}
-                label="Make current"
-                onClick={onMakeCurrent}
-              />
-            )}
-            <IconButton label={`Delete ${profile.displayName}`} onClick={onDelete}>
-              <Trash2 />
-            </IconButton>
+            <Menu
+              align="end"
+              items={actions}
+              trigger={(props) => (
+                <IconButton label="More" {...props}>
+                  <MoreHorizontal />
+                </IconButton>
+              )}
+            />
           </>
         }
       />
@@ -141,7 +140,7 @@ export function Component() {
         ) : query.data && profiles.length === 0 ? (
           <EmptyState
             title="No profiles yet"
-            description="A profile holds one person's name, email, and address, and the mailbox requests go out from."
+            description="A profile is one person's details and mailbox."
             actions={newProfile}
           />
         ) : (

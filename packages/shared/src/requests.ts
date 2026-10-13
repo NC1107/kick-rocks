@@ -73,6 +73,7 @@ export const RequestEventType = z.enum([
   "task_assigned",
   "user_action",
   "relisted",
+  "verified_gone",
   "note",
 ]);
 export type RequestEventType = z.infer<typeof RequestEventType>;
@@ -386,6 +387,7 @@ export const REQUEST_EVENT_PAYLOADS = {
   }),
   user_action: z.object({ action: UserAction, note: z.string().nullable() }),
   relisted: z.object({ recordUrl: WebUrl.nullable(), previousStatus: RequestStatus }),
+  verified_gone: z.object({ recordUrl: WebUrl.nullable(), scanId: z.string() }),
   note: z.object({ text: z.string() }),
 } as const satisfies Record<RequestEventType, z.ZodType>;
 
@@ -448,6 +450,7 @@ export function requestEventSchema<E extends z.ZodRawShape>(extra: E) {
     eventOf("task_assigned", P.task_assigned),
     eventOf("user_action", P.user_action),
     eventOf("relisted", P.relisted),
+    eventOf("verified_gone", P.verified_gone),
     eventOf("note", P.note),
   ]);
 }
@@ -455,7 +458,13 @@ export function requestEventSchema<E extends z.ZodRawShape>(extra: E) {
 export const RequestEvent = requestEventSchema({});
 export type RequestEvent = z.infer<typeof RequestEvent>;
 
-export const RequestListItem = RequestRecord.extend({ target: TargetSummary });
+export const RequestWithTarget = RequestRecord.extend({ target: TargetSummary });
+export type RequestWithTarget = z.infer<typeof RequestWithTarget>;
+
+export const RequestListItem = RequestWithTarget.extend({
+  /** When a later scan confirmed the record gone, or null while the company's word is all there is. */
+  verifiedGoneAt: z.iso.datetime().nullable(),
+});
 export type RequestListItem = z.infer<typeof RequestListItem>;
 
 /** What a target's reply said about making the request another way, for the person to act on. */

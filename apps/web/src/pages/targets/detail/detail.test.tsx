@@ -102,7 +102,7 @@ describe("the target page", () => {
   it("shows each recipe with its health, and the sources with their licenses", async () => {
     open("findrecord");
     await screen.findByRole("heading", { name: "Automation" });
-    const recipes = screen.getByRole("region", { name: "Recipes for this target" });
+    const recipes = screen.getByRole("region", { name: "Recipes for this site" });
     const [scan, removal] = within(recipes).getAllByRole("row").slice(1);
     expect(scan).toHaveTextContent("Healthy");
     expect(removal).toHaveTextContent("Broken");
@@ -114,11 +114,9 @@ describe("the target page", () => {
     stubPhone();
     open("findrecord");
     await screen.findByRole("heading", { name: "Automation" });
-    const list = screen.getByRole("list", { name: "Recipes for this target" });
+    const list = screen.getByRole("list", { name: "Recipes for this site" });
     expect(within(list).getAllByRole("listitem").length).toBeGreaterThan(0);
-    expect(
-      screen.queryByRole("table", { name: "Recipes for this target" }),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByRole("table", { name: "Recipes for this site" })).not.toBeInTheDocument();
   });
 
   it("tags what needs the person and leaves the rest as plain tags", async () => {
@@ -157,13 +155,13 @@ describe("the target page", () => {
 
   it("offers a way back when the target does not exist", async () => {
     open("not-a-target");
-    expect(await screen.findByText("Target not found.")).toBeVisible();
+    expect(await screen.findByText("Site not found.")).toBeVisible();
     expect(screen.getByRole("link", { name: "Back to targets" })).toBeVisible();
   });
 
   it("offers another try when the server will not answer", async () => {
     open("findrecord", failing(/\/api\/targets\/findrecord/));
-    expect(await screen.findByText("Could not load this target")).toBeVisible();
+    expect(await screen.findByText("Could not load this site")).toBeVisible();
     expect(screen.getByRole("button", { name: "Try again" })).toBeVisible();
   });
 });

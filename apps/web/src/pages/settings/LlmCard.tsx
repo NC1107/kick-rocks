@@ -132,7 +132,7 @@ export function LlmCard({ llm }: { llm: LlmSettingsView | null }) {
             detailLabel="More about the language model"
             detail="Any OpenAI-compatible endpoint; answers are suggestions only. Prefer a local model."
           >
-            Used if reply model is off; reply text goes to this URL.
+            Reply text goes to this URL
           </GroupNote>
           {save.isError && Object.keys(serverErrors).length === 0 ? (
             <Callout intent="danger" title="Could not save the language model" className="mt-3">

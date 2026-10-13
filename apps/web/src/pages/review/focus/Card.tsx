@@ -1,5 +1,5 @@
 import type { NeedsYouItem } from "@kickrocks/shared";
-import { ChevronLeft, ChevronRight, MoreHorizontal } from "lucide-react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { type ReactNode, useState } from "react";
 import { screenshotUrl } from "../../../api/index.js";
 import {
@@ -9,16 +9,13 @@ import {
   Hatch,
   IconButton,
   InlineError,
-  Kbd,
   Menu,
   type MenuItem,
   Meter,
-  Tag,
 } from "../../../components/ui/index.js";
 import { cn } from "../../../lib/cn.js";
-import { ageLabel } from "../model.js";
 import { useFocus } from "./context.js";
-import { KIND_COPY, WORDS } from "./copy.js";
+import { WORDS } from "./copy.js";
 import { effortLabel, itemTitle } from "./model.js";
 
 /** A step the person takes, numbered in mono. Five words at most, and three steps at most. */
@@ -73,11 +70,11 @@ export function Thumbnail({ taskId }: { taskId: string }) {
 function TopBar({ menu }: { menu: readonly MenuItem[] }) {
   const { progress, canMove, next, previous } = useFocus();
   return (
-    <div className="flex items-center gap-2 border-b border-line px-3 py-1.5">
-      <IconButton label="Previous" onClick={previous} disabled={!canMove}>
+    <div className="flex items-center gap-1 border-b border-line pr-0 pb-0.5">
+      <IconButton label="Previous" onClick={previous} disabled={!canMove} className="size-11">
         <ChevronLeft />
       </IconButton>
-      <IconButton label="Next" onClick={next} disabled={!canMove}>
+      <IconButton label="Next" onClick={next} disabled={!canMove} className="size-11">
         <ChevronRight />
       </IconButton>
       <span className="font-mono text-meta text-ink-2 tabular-nums">
@@ -95,9 +92,9 @@ function TopBar({ menu }: { menu: readonly MenuItem[] }) {
         align="end"
         items={menu}
         trigger={(props) => (
-          <IconButton label="More" {...props}>
-            <MoreHorizontal />
-          </IconButton>
+          <Button variant="ghost" className="min-h-11" {...props}>
+            More
+          </Button>
         )}
       />
     </div>
@@ -110,6 +107,8 @@ export interface ActionSpec {
   loading?: boolean;
   disabled?: boolean;
   title?: string;
+  /** How the quieter button looks; a choice with a deadline reads better outlined than ghost. */
+  variant?: "ghost" | "secondary";
 }
 
 /** One filled button and at most one quiet one. On a phone the bar sticks to the bottom edge. */
@@ -117,13 +116,11 @@ export function ActionBar({
   primary,
   second,
   error,
-  hints = true,
   enter = true,
 }: {
   primary: ActionSpec;
   second?: ActionSpec | null | undefined;
   error?: string | undefined;
-  hints?: boolean;
   /** Whether Enter on the page presses the primary button. Off where it sends personal data. */
   enter?: boolean;
 }) {
@@ -144,7 +141,7 @@ export function ActionBar({
         </Button>
         {second ? (
           <Button
-            variant="ghost"
+            variant={second.variant ?? "ghost"}
             onClick={second.onClick}
             loading={second.loading ?? false}
             disabled={second.disabled ?? false}
@@ -154,14 +151,6 @@ export function ActionBar({
             {second.label}
           </Button>
         ) : null}
-        {hints ? (
-          <span className="ml-auto hidden items-center gap-1 text-caption text-ink-3 lg:inline-flex pointer-coarse:hidden">
-            {enter ? <Kbd>Enter</Kbd> : null}
-            <Kbd>j</Kbd>
-            <Kbd>k</Kbd>
-            <Kbd>z</Kbd>
-          </span>
-        ) : null}
       </div>
     </div>
   );
@@ -170,8 +159,8 @@ export function ActionBar({
 export interface CardFrameProps {
   item: NeedsYouItem;
   menu: readonly MenuItem[];
-  /** The tag text when it is more than the kind's own, such as a countdown. */
-  tagText?: string | undefined;
+  /** The one sentence that says what happens and what the person decides. */
+  headline: string;
   /** What the card says, between its header and its actions. */
   children?: ReactNode;
   /** The action bar, or the return prompt in its place. */
@@ -186,20 +175,28 @@ export interface CardFrameProps {
  * The same card for every kind: where you are in the queue, what it is about, what to do, and the
  * one button that does it. Only the middle changes from kind to kind.
  */
-export function CardFrame({ item, menu, tagText, children, bar, dialogs, notice }: CardFrameProps) {
-  const copy = KIND_COPY[item.kind];
+export function CardFrame({
+  item,
+  menu,
+  headline,
+  children,
+  bar,
+  dialogs,
+  notice,
+}: CardFrameProps) {
   const title = itemTitle(item);
+  const { upNext } = useFocus();
   return (
     <article
       aria-label={title}
       data-kind={item.kind}
-      className="flex min-w-0 max-w-[40rem] flex-col rounded-md border border-line bg-surface"
+      className="flex min-w-0 max-w-[40rem] flex-col"
     >
       <TopBar menu={menu} />
-      <div className="flex flex-col gap-3.5 px-4 py-4">
+      <div className="flex flex-col gap-3.5 py-4">
         <header className="flex flex-col gap-1.5">
           <div className="flex items-start justify-between gap-3">
-            <h2 className="min-w-0 break-words text-heading font-semibold text-ink [&_a]:text-ink [&_a:hover]:text-accent-text">
+            <p className="m-0 min-w-0 break-words text-ui font-medium text-ink-2 [&_a]:text-ink-2 [&_a:hover]:text-accent-text">
               {item.target && item.kind !== "record" ? (
                 <EntityLink
                   to={{ kind: "target", id: item.target.id, name: item.target.name }}
@@ -208,32 +205,30 @@ export function CardFrame({ item, menu, tagText, children, bar, dialogs, notice 
               ) : (
                 title
               )}
-            </h2>
+            </p>
             <p className="m-0 flex shrink-0 items-baseline gap-2 font-mono text-meta text-ink-3 tabular-nums">
               <span>{effortLabel(item.effort.minutes)}</span>
-              <span aria-hidden="true">·</span>
-              <span>
-                <span className="sr-only">Waiting </span>
-                {ageLabel(item.since)}
-              </span>
+              {item.tries > 0 ? (
+                <>
+                  <span aria-hidden="true">·</span>
+                  <span>{WORDS.tried(item.tries)}</span>
+                </>
+              ) : null}
             </p>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <Tag tone="attention">{tagText ?? copy.tag}</Tag>
-            {item.tries > 0 ? <Tag>{WORDS.tried(item.tries)}</Tag> : null}
-          </div>
+          <h2 className="m-0 break-words text-heading font-semibold text-ink">{headline}</h2>
         </header>
         {children}
         {notice}
       </div>
       <div
-        className={cn(
-          "sticky bottom-0 z-10 rounded-b-md border-t border-line bg-canvas px-4 py-3",
-          "max-sm:fixed max-sm:inset-x-0 max-sm:bottom-0 max-sm:rounded-none max-sm:pb-[max(0.75rem,env(safe-area-inset-bottom))]",
-        )}
+        className={cn("border-t border-line py-3", "lg:sticky lg:bottom-0 lg:z-10 lg:bg-canvas")}
       >
         {bar}
       </div>
+      {upNext ? (
+        <p className="m-0 truncate font-mono text-caption text-ink-3 lg:hidden">Next: {upNext}</p>
+      ) : null}
       {dialogs}
     </article>
   );

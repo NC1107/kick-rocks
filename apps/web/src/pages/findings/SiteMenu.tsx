@@ -1,8 +1,8 @@
 import type { ListingSite } from "@kickrocks/shared";
 import { Ellipsis } from "lucide-react";
 import { useNavigate } from "react-router";
-import { IconButton, Menu, type MenuItem } from "../../../components/ui/index.js";
-import { paths } from "../../../lib/paths.js";
+import { IconButton, Menu, type MenuItem } from "../../components/ui/index.js";
+import { paths } from "../../lib/paths.js";
 import { useSitePreference } from "./scanning.js";
 
 const PAUSE_DAYS = 30;

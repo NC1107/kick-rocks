@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
-import { scans, tasks } from "@kickrocks/db";
+import { matches, requests, scans, tasks } from "@kickrocks/db";
 import { needsRecord, preferenceBlocks, type ScanVariant } from "@kickrocks/shared";
-import { eq, isNull, max, ne, or } from "drizzle-orm";
+import { and, eq, gt, inArray, isNull, max, ne, or } from "drizzle-orm";
 import { AppError } from "../core/errors.js";
 import { identityVariantsFor } from "../core/past-addresses.js";
 import { scanToday } from "../core/scan-today.js";
@@ -86,6 +86,68 @@ export function enqueueDueRescans(services: AppServices): number {
           "skipped a re-scan",
         );
       }
+    }
+  }
+  return queued;
+}
+
+/**
+ * Scans a site again once a removal on it has been settled for `removalVerifyDays`, so the site's
+ * word that a record is gone can be checked against the site itself. The scan is queued when it
+ * falls due and not earlier, because a scan waiting in the queue could be finished from an older
+ * result inside the reuse window, which says nothing about whether the record went. A settled
+ * removal that already has a scan started after it is left to that scan, so each is queued once.
+ */
+export function enqueueVerificationScans(services: AppServices): number {
+  const { removalVerifyDays } = services.settings.get("schedule");
+  const now = services.clock.now().getTime();
+  const today = scanToday(services);
+  const settled = services.db
+    .selectDistinct({
+      profileId: matches.profileId,
+      targetId: matches.targetId,
+      settledAt: requests.updatedAt,
+    })
+    .from(matches)
+    .innerJoin(requests, eq(matches.requestId, requests.id))
+    .where(
+      and(
+        eq(matches.decision, "mine"),
+        isNull(matches.verifiedGoneAt),
+        inArray(requests.status, ["confirmed", "no_record"]),
+      ),
+    )
+    .all();
+
+  let queued = 0;
+  for (const removal of settled) {
+    if (Date.parse(removal.settledAt) + removalVerifyDays * DAY_MS > now) continue;
+    const preference = services.scanPreferences.get(removal.profileId, removal.targetId);
+    if (preferenceBlocks(preference, today) || !preference.autoRescan) continue;
+    const target = services.targets.get(removal.targetId);
+    if (!target || target.retired || !needsRecord(target)) continue;
+    const later = services.db
+      .select({ id: scans.id })
+      .from(scans)
+      .leftJoin(tasks, eq(scans.taskId, tasks.id))
+      .where(
+        and(
+          eq(scans.profileId, removal.profileId),
+          eq(scans.targetId, removal.targetId),
+          gt(scans.startedAt, removal.settledAt),
+          or(isNull(tasks.status), ne(tasks.status, "cancelled")),
+        ),
+      )
+      .get();
+    if (later) continue;
+    try {
+      if (services.dispatch.enqueueScan(removal.profileId, removal.targetId).created) queued += 1;
+    } catch (error) {
+      if (!(error instanceof AppError)) throw error;
+      services.logger.info(
+        { profileId: removal.profileId, targetId: removal.targetId, code: error.code },
+        "skipped a verification scan",
+      );
     }
   }
   return queued;

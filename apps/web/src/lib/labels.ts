@@ -183,6 +183,7 @@ export const REQUEST_EVENT_LABELS: Record<RequestEventType, string> = {
   task_assigned: "Task assigned",
   user_action: "Action by you",
   relisted: "Record relisted",
+  verified_gone: "Record gone",
   note: "Note",
 };
 

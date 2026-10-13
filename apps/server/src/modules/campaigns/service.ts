@@ -1,13 +1,15 @@
-import { campaigns } from "@kickrocks/db";
+import { campaigns, requests as requestsTable } from "@kickrocks/db";
 import {
   type CampaignBody,
   type CampaignCreated,
   type CampaignPreview,
+  type CampaignSummary,
   countOutcomes,
   type Reference,
+  type RequestStatus,
   type TargetOutcome,
 } from "@kickrocks/shared";
-import { eq } from "drizzle-orm";
+import { desc, eq, sql } from "drizzle-orm";
 import { nowIso } from "../../core/clock.js";
 import { AppError } from "../../core/errors.js";
 import { newId } from "../../core/ids.js";
@@ -18,6 +20,8 @@ import { type CampaignPlan, createCampaignPlanner, type Plan } from "./planner.j
 const PREVIEW_REFERENCE: Reference = "KR-XXXXXX";
 
 interface CampaignService {
+  /** The profile's batches, newest first, each with where its requests stand. */
+  list(profileId: string): CampaignSummary[];
   preview(profileId: string, body: CampaignBody): CampaignPreview;
   create(profileId: string, body: CampaignBody): CampaignCreated;
 }
@@ -110,6 +114,41 @@ export function createCampaignService(services: AppServices): CampaignService {
   }
 
   return {
+    list(profileId) {
+      const batches = db
+        .select()
+        .from(campaigns)
+        .where(eq(campaigns.profileId, profileId))
+        .orderBy(desc(campaigns.createdAt), desc(campaigns.id))
+        .all();
+      const tallies = db
+        .select({
+          campaignId: requestsTable.campaignId,
+          status: requestsTable.status,
+          count: sql<number>`count(*)`,
+        })
+        .from(requestsTable)
+        .where(eq(requestsTable.profileId, profileId))
+        .groupBy(requestsTable.campaignId, requestsTable.status)
+        .all();
+      return batches.map((batch) => {
+        const counts: CampaignSummary["counts"] = {};
+        let requestCount = 0;
+        for (const tally of tallies) {
+          if (tally.campaignId !== batch.id) continue;
+          counts[tally.status as RequestStatus] = tally.count;
+          requestCount += tally.count;
+        }
+        return {
+          id: batch.id,
+          createdAt: batch.createdAt,
+          rights: batch.rights,
+          requestCount,
+          counts,
+        };
+      });
+    },
+
     preview(profileId, body) {
       const plan = planner.plan(profileId, body.selection, body.rights);
       const items = plan.plans.map(outcomeOf);

@@ -95,14 +95,15 @@ function Review({ profileId, mailboxConnected }: { profileId: string; mailboxCon
   const tabs = [
     {
       to: paths.review(),
-      label: "Needs you",
+      label: "To do",
       end: true,
       count: some(needsYou.data?.counts.active),
     },
     { to: paths.reviewSection("mail"), label: "Mail", count: some(counts?.mail) },
-    { to: paths.reviewSection("agents"), label: "Agents", count: some(counts?.agents) },
     { to: paths.reviewSection("problems"), label: "Problems", count: some(counts?.problems) },
-    { to: paths.listings(), label: "Scans" },
+    ...(counts?.agents || page === "agents"
+      ? [{ to: paths.reviewSection("agents"), label: "Other", count: some(counts?.agents) }]
+      : []),
   ];
 
   const failed = review.isError ? review.error : needsYou.isError ? needsYou.error : null;
@@ -111,10 +112,10 @@ function Review({ profileId, mailboxConnected }: { profileId: string; mailboxCon
   return (
     <>
       <div className="[&>header]:mb-1">
-        <PageHeader title="Review" />
+        <PageHeader title="Inbox" />
       </div>
       <div className="mb-5">
-        <LinkTabs label="Review pages" items={tabs} />
+        <LinkTabs label="Inbox pages" items={tabs} />
       </div>
       {failed ? (
         <Callout
@@ -356,7 +357,7 @@ function ListPage({
         )}
       >
         <div className="border-b border-line px-3 pt-3 pb-2 lg:hidden">
-          <PageBack fallback={{ to: paths.reviewSection(page), label: "Review" }} />
+          <PageBack fallback={{ to: paths.reviewSection(page), label: "Inbox" }} />
         </div>
         {selected ? <Detail entry={selected} entries={entries} profileId={profileId} /> : null}
       </div>

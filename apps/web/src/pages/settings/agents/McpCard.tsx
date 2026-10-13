@@ -46,7 +46,7 @@ export function McpCard({ mcp }: { mcp: SettingsView["mcp"] }) {
           <BodyRow className="flex flex-col gap-2">
             <Checkbox
               label="Allow agents to connect"
-              description="When off, the MCP address refuses every client."
+              description="Off refuses every client"
               checked={mcp.enabled}
               disabled={toggle.isPending}
               onChange={(event) =>
@@ -76,13 +76,8 @@ export function McpCard({ mcp }: { mcp: SettingsView["mcp"] }) {
             </Button>
           </GroupFooter>
         </RowGroup>
-        <GroupNote>
-          An MCP client is not held by the safety gate, so it can send a form without asking you.
-        </GroupNote>
-        <GroupNote>
-          Give each client its own worker id, such as desk-client, so a task can be assigned to it.
-          Clients that share one id are treated as one.
-        </GroupNote>
+        <GroupNote>MCP clients can send forms without asking you.</GroupNote>
+        <GroupNote>Give each client its own worker id, such as desk-client.</GroupNote>
         {token ? (
           <Callout intent="success" title="Copy this token now" className="mt-3">
             <p>It is shown once and cannot be looked up later.</p>
@@ -96,10 +91,9 @@ export function McpCard({ mcp }: { mcp: SettingsView["mcp"] }) {
 
       <Section label="Client configuration">
         <p className="mb-2 text-meta text-ink-3">
-          Paste this into any MCP client that connects over HTTP.
           {token
-            ? " It already holds the token you just created."
-            : ` Replace ${MCP_TOKEN_PLACEHOLDER} with a token from above.`}
+            ? "Holds the token you just created."
+            : `Replace ${MCP_TOKEN_PLACEHOLDER} with a token.`}
         </p>
         <CodeBlock title="mcp.json" code={mcpClientConfig(mcp.url, token)} />
       </Section>

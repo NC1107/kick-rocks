@@ -32,6 +32,7 @@ import {
   TARGET_KIND_LABELS,
 } from "../../lib/labels.js";
 import { useWide } from "../../lib/use-wide.js";
+import { ScanDialog } from "../findings/scanning.js";
 import { AutomationLegend, HealthMark } from "./Automation.js";
 import { Difficulty } from "./Difficulty.js";
 import {
@@ -43,10 +44,8 @@ import {
   toFilter,
   toQuery,
 } from "./filters.js";
-import { ScanDialog } from "./listings/scanning.js";
 import { Priority } from "./Priority.js";
 import { RequirementBadges } from "./RequirementBadges.js";
-import { TargetsTabs } from "./TargetsTabs.js";
 import { useMatchingTargets } from "./use-matching-targets.js";
 
 function facetOptions(
@@ -191,7 +190,7 @@ export function Component() {
     if (allMatching) {
       setMatchingKey(null);
       const remaining = selectable.length - (on ? 0 : 1);
-      toast.info(`Selection narrowed to the ${pluralize(remaining, "target")} on this page`);
+      toast.info(`Selection narrowed to the ${pluralize(remaining, "site")} on this page`);
     }
     setSelected((current) => {
       const next = new Set(allMatching ? selectable.map((item) => item.id) : current);
@@ -234,7 +233,7 @@ export function Component() {
     ? `/campaigns/new?filter=${encodeURIComponent(filterKey)}`
     : `/campaigns/new?targets=${[...selected].map(encodeURIComponent).join(",")}`;
   const filtered = hasFilters(filters);
-  const resultCount = list.data ? pluralize(list.data.total, "target") : undefined;
+  const resultCount = list.data ? pluralize(list.data.total, "site") : undefined;
 
   const selectionBar =
     allMatching || selected.size > 0 ? (
@@ -287,25 +286,23 @@ export function Component() {
   return (
     <>
       <PageHeader
-        title="Targets"
-        description="Brokers and companies you can ask"
+        title="Sites"
+        description="Who you can ask"
         actions={
           <LinkButton to="/campaigns/new" variant="primary">
-            New campaign
+            Send requests
           </LinkButton>
         }
       />
 
-      <TargetsTabs />
-
-      <search aria-label="Filter targets">
+      <search aria-label="Filter sites">
         <TableToolbar>
           <Field label="Search" hideLabel className="min-w-0 flex-1 sm:w-70 sm:flex-initial">
             <Input
               type="search"
               value={search}
               onChange={(event) => setSearch(event.target.value)}
-              placeholder="Search targets"
+              placeholder="Search sites"
               maxLength={100}
               leading={<Search aria-hidden="true" />}
             />
@@ -324,7 +321,7 @@ export function Component() {
       {list.isError ? (
         <Callout
           intent="danger"
-          title="Could not load targets"
+          title="Could not load sites"
           action={
             <Button size="sm" onClick={() => list.refetch()}>
               Try again
@@ -335,7 +332,7 @@ export function Component() {
         </Callout>
       ) : list.data && items.length === 0 ? (
         <EmptyState
-          title={filtered ? "No targets match these filters." : "No targets yet."}
+          title={filtered ? "No sites match these filters." : "No sites yet."}
           {...(filtered
             ? {}
             : {
@@ -348,10 +345,10 @@ export function Component() {
         <>
           {wide ? <AutomationLegend /> : null}
           <DataList
-            label="Targets"
+            label="Sites"
             items={items}
             getKey={(item) => item.id}
-            identityHeader="Target"
+            identityHeader="Site"
             identity={(item) => ({
               title: item.name,
               meta: item.domain,
@@ -404,7 +401,11 @@ export function Component() {
                 id: "scan",
                 header: "Scan",
                 className: "hidden xl:table-cell",
-                cell: (item) => <HealthMark health={item.automation.scan} />,
+                cell: (item) =>
+                  item.automation.scan === "unknown" &&
+                  item.automation.remove === "unknown" ? null : (
+                    <HealthMark health={item.automation.scan} />
+                  ),
               },
               {
                 id: "removal",
@@ -420,7 +421,7 @@ export function Component() {
               onToggle: (item, on) => toggle(item.id, on),
               label: (item) => `Select ${item.name}`,
               all: {
-                label: "Select all targets on this page",
+                label: "Select all sites on this page",
                 checked: allSelected,
                 indeterminate: someSelected && !allSelected,
                 disabled: selectable.length === 0,
@@ -437,7 +438,7 @@ export function Component() {
                     pageSize: TARGETS_PAGE_SIZE,
                     total: list.data.total,
                     onPageChange: setPage,
-                    noun: "targets",
+                    noun: "sites",
                   }
                 : undefined
             }

@@ -15,7 +15,7 @@ import { scoreUnscoredMatches } from "../../core/match-assessment.js";
 import type { ModulePlugin } from "../../core/module.js";
 import type { Task } from "../../core/task-types.js";
 import { approveSubmit } from "./approve.js";
-import { classifyByHand, decideMatch } from "./decisions.js";
+import { classifyByHand, decideMatch, decideMatches } from "./decisions.js";
 import { toMessageDetail } from "./mappers.js";
 import { createMarks, requestIdOf, subjectOf } from "./marks.js";
 import { buildNeedsYouQueue, needsYouCandidates } from "./needs-you.js";
@@ -167,6 +167,12 @@ export const reviewModule: ModulePlugin = (app, services) => {
     const match = decideMatch(services, params.id, body);
     marks.clearOpened("match", params.id);
     return match;
+  });
+
+  registerRoute(app, API_ROUTES.matchDecideMany, ({ body }) => {
+    const results = decideMatches(services, body);
+    for (const result of results) if (result.ok) marks.clearOpened("match", result.matchId);
+    return { results };
   });
 
   registerRoute(app, API_ROUTES.messageGet, ({ params }) => {

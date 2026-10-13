@@ -311,29 +311,49 @@ function openAt(route: string, mock = failing(/never/)) {
 
 const where = () => screen.getByTestId("where").textContent;
 
-describe("the tabs under the Review title", () => {
+describe("the tabs under the Inbox title", () => {
   it("names each page and counts what is waiting there", async () => {
     open();
-    const tabs = within(await screen.findByRole("navigation", { name: "Review pages" }));
+    const tabs = within(await screen.findByRole("navigation", { name: "Inbox pages" }));
     await waitFor(() => expect(tabs.getByRole("link", { name: /^Mail\s*4$/ })).toBeVisible());
-    expect(tabs.getByRole("link", { name: /^Needs you\s*\d+$/ })).toHaveAttribute(
-      "href",
-      "/review",
-    );
+    expect(tabs.getByRole("link", { name: /^To do\s*\d+$/ })).toHaveAttribute("href", "/review");
+    expect(tabs.queryByRole("link", { name: /Needs you/ })).toBeNull();
     expect(tabs.getByRole("link", { name: /^Mail/ })).toHaveAttribute("href", "/review/mail");
-    expect(tabs.getByRole("link", { name: /^Agents/ })).toHaveAttribute("href", "/review/agents");
     expect(tabs.getByRole("link", { name: /^Problems\s*1$/ })).toHaveAttribute(
       "href",
       "/review/problems",
     );
-    expect(tabs.getByRole("link", { name: "Scans" })).toHaveAttribute("href", "/targets/listings");
+    expect(tabs.queryByRole("link", { name: /Agents|Scans|Other/ })).toBeNull();
+    expect(screen.getByRole("heading", { name: "Inbox", level: 1 })).toBeVisible();
+  });
+
+  it("adds an Other tab with its count once an agent task is waiting", async () => {
+    const mock = failing(/never/);
+    makeTask(
+      mock.store,
+      {
+        kind: "agent",
+        status: "queued",
+        profileId: mock.store.profiles[0]?.id ?? "",
+        targetId: "audiencegrid",
+        targetName: "AudienceGrid",
+        requestId: null,
+      },
+      { minutes: 5 },
+    );
+    open("/review", mock);
+    const tabs = within(await screen.findByRole("navigation", { name: "Inbox pages" }));
+    expect(await tabs.findByRole("link", { name: /^Other\s*1$/ })).toHaveAttribute(
+      "href",
+      "/review/agents",
+    );
   });
 
   it("marks the page that is open", async () => {
     open("/review/mail");
-    const tabs = within(await screen.findByRole("navigation", { name: "Review pages" }));
+    const tabs = within(await screen.findByRole("navigation", { name: "Inbox pages" }));
     expect(tabs.getByRole("link", { name: /^Mail/ })).toHaveAttribute("aria-current", "page");
-    expect(tabs.getByRole("link", { name: /^Needs you/ })).not.toHaveAttribute("aria-current");
+    expect(tabs.getByRole("link", { name: /^To do/ })).not.toHaveAttribute("aria-current");
   });
 });
 
@@ -362,7 +382,7 @@ describe("a list page on a phone", () => {
     await user.click(list.getByRole("button", { name: /KinSearch/ }));
     expect(await card(/KinSearch, Scan for records/)).toBeTruthy();
     const pane = within(document.getElementById("review-detail") as HTMLElement);
-    await user.click(pane.getByRole("link", { name: "Review" }));
+    await user.click(pane.getByRole("link", { name: "Inbox" }));
     expect(list.getAllByRole("button").some((row) => row.hasAttribute("aria-current"))).toBe(false);
   });
 });

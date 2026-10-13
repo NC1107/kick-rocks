@@ -76,7 +76,7 @@ function Group({ matches, forceOpen = false, children }: UnlikelyGroupProps) {
             icon={ChevronRight}
             className={cn("transition-transform duration-100", open && "rotate-90")}
           />
-          {matches.length} unlikely
+          {pluralize(matches.length, "weak match", "weak matches")}
         </button>
         <Button
           size="sm"

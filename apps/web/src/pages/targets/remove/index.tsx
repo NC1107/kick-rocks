@@ -42,7 +42,7 @@ export function Component() {
   if (target.isError) {
     return (
       <EmptyState
-        title="Target not found."
+        title="Site not found."
         description={errorMessage(target.error)}
         actions={<LinkButton to="/targets">Back to targets</LinkButton>}
       />

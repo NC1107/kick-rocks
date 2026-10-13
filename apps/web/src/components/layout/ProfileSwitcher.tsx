@@ -74,6 +74,7 @@ export function ProfileSwitcher({
         <button
           type="button"
           {...triggerProps}
+          {...(profile?.primaryEmail ? { title: profile.primaryEmail } : {})}
           className="flex h-10 w-full items-center gap-2.5 rounded-sm border border-line bg-surface px-2 text-left transition-colors duration-100 hover:bg-hover max-sm:h-12 pointer-coarse:h-12"
         >
           <span

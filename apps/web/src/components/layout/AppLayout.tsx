@@ -3,7 +3,7 @@ import { Fragment, useEffect, useState } from "react";
 import { Link, Outlet, useLocation } from "react-router";
 import { CurrentProfileProvider } from "../../api/index.js";
 import { cn } from "../../lib/cn.js";
-import { IconButton, Tag } from "../ui/index.js";
+import { IconButton } from "../ui/index.js";
 import { breadcrumbTrail } from "./breadcrumb.js";
 import { BreadcrumbTailProvider, useBreadcrumbTailValue } from "./breadcrumb-context.js";
 import { Drawer } from "./Drawer.js";
@@ -14,6 +14,10 @@ import { StatusChips, UrgentStatusMark, useShellStatus } from "./ShellStatus.js"
 import { SidebarContent } from "./Sidebar.js";
 
 const IS_MOCK = import.meta.env.MODE === "mock";
+
+function MockWord() {
+  return IS_MOCK ? <span className="font-mono text-caption text-ink-3">mock</span> : null;
+}
 
 function Breadcrumb() {
   const { pathname } = useLocation();
@@ -60,7 +64,7 @@ function HeaderBar() {
       <Breadcrumb />
       <div className="flex shrink-0 items-center gap-3">
         <StatusChips chips={chips} />
-        {IS_MOCK ? <Tag>Mock</Tag> : null}
+        <MockWord />
       </div>
     </header>
   );
@@ -92,7 +96,7 @@ function PhoneBar({ onOpenMenu }: { onOpenMenu: () => void }) {
       <LogoMark />
       <PhoneTitle />
       <div className="ml-auto flex shrink-0 items-center gap-2">
-        {IS_MOCK ? <Tag>Mock</Tag> : null}
+        <MockWord />
         <UrgentStatusMark chips={chips} />
       </div>
     </header>
@@ -131,8 +135,10 @@ export function AppLayout() {
           <HeaderBar />
           <PhoneBar onOpenMenu={() => setDrawerOpen(true)} />
           <main id="main" className="min-w-0 px-gutter py-5">
-            <RestoreBanner />
-            <Outlet />
+            <div className="min-w-0 max-w-5xl">
+              <RestoreBanner />
+              <Outlet />
+            </div>
           </main>
         </div>
 

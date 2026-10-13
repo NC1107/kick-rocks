@@ -28,7 +28,7 @@ describe("HoldReason", () => {
     expect(await screen.findByText(/server clock, no time zone set/)).toBeVisible();
     expect(screen.getByRole("link", { name: "Set time zone" })).toHaveAttribute(
       "href",
-      "/settings#scan-pace",
+      "/settings/advanced#scan-pace",
     );
   });
 
@@ -56,7 +56,7 @@ describe("HoldReason", () => {
     expect(screen.getByText(/Sites cooling down until/)).toBeVisible();
     expect(screen.getByRole("link", { name: "Site settings" })).toHaveAttribute(
       "href",
-      "/settings#sites",
+      "/settings/advanced#sites",
     );
     expect(screen.queryByText(/\b5h\b/)).toBeNull();
   });
@@ -175,7 +175,7 @@ describe("paths", () => {
     expect(paths.requests({ status: "sent", targetId: "a b" })).toBe(
       "/requests?status=sent&targetId=a+b",
     );
-    expect(paths.settings("sites")).toBe("/settings#sites");
+    expect(paths.settings("sites")).toBe("/settings/advanced#sites");
     expect(paths.settings("agents")).toBe("/settings/agents");
   });
 

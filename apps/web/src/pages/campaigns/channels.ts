@@ -134,3 +134,33 @@ export function parseFilterParam(value: string | null): TargetFilter | null {
 export function waitingForPerson(counts: ChannelCounts, agentSeen: boolean): number {
   return agentSeen ? 0 : counts.manual;
 }
+
+const READY_NOUNS: Record<Exclude<keyof ChannelCounts, "skipped">, readonly [string, string]> = {
+  email: ["email", "emails"],
+  form: ["web form", "web forms"],
+  manual: ["form for you or an agent", "forms for you or an agent"],
+  scan: ["scan first", "scans first"],
+};
+
+/**
+ * "7 emails ready \u00b7 23 skipped (already done)": the footer of the preview, in the words for the
+ * channels in the mix. The reason is named only when every skipped site is one already in hand.
+ */
+export function readySummary(counts: ChannelCounts, items: CampaignPreview["items"]): string {
+  const ready = (Object.keys(READY_NOUNS) as (keyof typeof READY_NOUNS)[])
+    .filter((channel) => counts[channel] > 0)
+    .map((channel) => {
+      const [one, many] = READY_NOUNS[channel];
+      return `${counts[channel]} ${counts[channel] === 1 ? one : many}`;
+    });
+  // Skipped splits into what is already in hand and the rest, so the numbers match the preview's.
+  const { handled } = countNovelty(items);
+  const rest = Math.max(0, counts.skipped - handled);
+  return [
+    ready.length > 0 ? `${ready.join(", ")} ready` : null,
+    handled > 0 ? `${handled} already handled` : null,
+    rest > 0 ? `${rest} skipped` : null,
+  ]
+    .filter((part): part is string => part !== null)
+    .join(" \u00b7 ");
+}

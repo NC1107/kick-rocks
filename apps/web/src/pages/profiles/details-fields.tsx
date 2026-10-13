@@ -55,11 +55,7 @@ export function DetailsFields({
           onChange={(event) => onChange({ ...value, displayName: event.target.value })}
         />
       </FieldRow>
-      <FieldRow
-        label="State of residence"
-        error={errors.state}
-        help="Required; picks which privacy law to cite."
-      >
+      <FieldRow label="State of residence" error={errors.state} help="Sets the privacy law.">
         <Select
           aria-required="true"
           value={value.state}

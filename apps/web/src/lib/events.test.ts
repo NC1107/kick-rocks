@@ -37,6 +37,7 @@ const PAYLOADS: Record<RequestEventType, unknown> = {
   task_assigned: { taskId: "t1", to: { kind: "mcp", workerId: "desk-client" }, by: "user" },
   user_action: { action: "mark_confirmed", note: null },
   relisted: { recordUrl: "https://broker.test/p/1", previousStatus: "confirmed" },
+  verified_gone: { recordUrl: "https://broker.test/p/1", scanId: "s1" },
   note: { text: "Called, they said it is done." },
 };
 
@@ -63,7 +64,7 @@ describe("describeEvent", () => {
 
   it("says what changed, in the words the status pills use", () => {
     expect(describeEvent(event("status_changed"))).toBe(
-      "Status changed from Awaiting reply to Confirmed.",
+      "Status changed from Waiting on them to They confirmed.",
     );
   });
 
@@ -163,6 +164,22 @@ describe("describeEvent", () => {
     ).toBe("The submit form task finished. You noted: Did it by hand");
   });
 
+  it("says a send that will be retried without the technical cause", () => {
+    expect(
+      describeEvent(
+        event("send_failed", { error: "Could not connect to the mail server", willRetry: true }),
+      ),
+    ).toBe("Couldn't send yet, trying again");
+  });
+
+  it("says what a request was created to do and how, without a reference or a period", () => {
+    expect(
+      describeEvent(
+        event("created", { channel: "email", rights: ["opt_out"], reference: "KR-ABC234" }),
+      ),
+    ).toBe("Created - stop selling, by email");
+  });
+
   it("shows field names as words and leaves out a failure label that says nothing", () => {
     expect(
       describeEvent(
@@ -172,7 +189,7 @@ describe("describeEvent", () => {
         }),
       ),
     ).toBe(
-      "Sending failed: A verification reply cannot answer for fields with no value: date of birth.",
+      "Send failed - A verification reply cannot answer for fields with no value: date of birth",
     );
     expect(
       describeEvent(

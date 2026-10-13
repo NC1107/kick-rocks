@@ -372,6 +372,7 @@ describe("request events", () => {
       },
       user_action: { action: "mark_confirmed", note: null },
       relisted: { recordUrl: "https://broker.test/p/1", previousStatus: "confirmed" },
+      verified_gone: { recordUrl: "https://broker.test/p/1", scanId: "s1" },
       note: { text: "Called, they said it is done." },
     };
     expect(Object.keys(examples).sort()).toEqual([...RequestEventType.options].sort());

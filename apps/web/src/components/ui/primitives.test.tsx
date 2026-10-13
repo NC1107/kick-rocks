@@ -25,7 +25,7 @@ import {
 describe("StatusMark", () => {
   it("draws a shape and prints the word", () => {
     const { container } = render(<StatusMark status="needs_verification" />);
-    expect(screen.getByText("Needs verification")).toBeVisible();
+    expect(screen.getByText("Prove it's you")).toBeVisible();
     expect(container.querySelector("svg path")).not.toBeNull();
   });
 

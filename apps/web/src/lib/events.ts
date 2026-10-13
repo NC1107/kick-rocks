@@ -5,6 +5,7 @@ import {
   type UserAction,
 } from "@kickrocks/shared";
 import { plainError } from "./failures.js";
+import { formatShortDate } from "./format.js";
 import {
   BLOCKED_REASON_LABELS,
   CHANNEL_LABELS,
@@ -16,8 +17,8 @@ import {
 import { REQUEST_STATUS_META } from "./status.js";
 
 const RIGHT_PHRASES: Record<RequestRight, string> = {
-  opt_out: "opt out of sale",
-  delete: "delete data",
+  opt_out: "stop selling",
+  delete: "delete",
 };
 
 const QUEUED_REASONS = {
@@ -46,6 +47,14 @@ const ACTION_PHRASES: Record<UserAction, string> = {
   not_yet: "try it by hand",
 };
 
+const MAIL_SERVER_UNREACHABLE =
+  /could not connect|connection (?:refused|timed out|reset)|ECONN|ETIMEDOUT|ENOTFOUND/i;
+
+/** A person needs the cause, not the server's wording, when the cause is that it could not be reached. */
+function sendFailureCause(error: string): string {
+  return MAIL_SERVER_UNREACHABLE.test(error) ? "mail server unreachable" : plainError(error);
+}
+
 const plural = (count: number, one: string, many = `${one}s`) =>
   `${count} ${count === 1 ? one : many}`;
 const status = (value: keyof typeof REQUEST_STATUS_META) => REQUEST_STATUS_META[value].label;
@@ -62,7 +71,7 @@ export function describeEvent(event: RequestEvent): string {
   switch (event.type) {
     case "created": {
       const { channel, rights } = event.payload;
-      return `Request created by ${lower(CHANNEL_LABELS[channel])}: ${rights.map((right) => RIGHT_PHRASES[right]).join(" and ")}.`;
+      return `Created - ${rights.map((right) => RIGHT_PHRASES[right]).join(" and ")}, by ${lower(CHANNEL_LABELS[channel])}`;
     }
     case "queued":
       return QUEUED_REASONS[event.payload.reason];
@@ -86,7 +95,9 @@ export function describeEvent(event: RequestEvent): string {
         : `${sent}.`;
     }
     case "send_failed":
-      return `Sending failed: ${plainError(event.payload.error)}${event.payload.willRetry ? ", will retry" : ""}.`;
+      return event.payload.willRetry
+        ? "Couldn't send yet, trying again"
+        : `Send failed - ${sendFailureCause(event.payload.error)}`;
     case "reply_received":
       return `Reply received from ${event.payload.from}.`;
     case "mailbox_checked": {
@@ -168,6 +179,8 @@ export function describeEvent(event: RequestEvent): string {
     }
     case "relisted":
       return `The record showed up again after the request was ${status(event.payload.previousStatus).toLowerCase()}.`;
+    case "verified_gone":
+      return `Checked ${formatShortDate(event.createdAt)} - no longer listed`;
     case "note":
       return event.payload.text;
   }

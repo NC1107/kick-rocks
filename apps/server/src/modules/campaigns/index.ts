@@ -6,6 +6,9 @@ import { createCampaignService } from "./service.js";
 export const campaignsModule: ModulePlugin = (app, services) => {
   const campaigns = createCampaignService(services);
 
+  registerRoute(app, API_ROUTES.campaignsList, ({ params }) => ({
+    campaigns: campaigns.list(params.id),
+  }));
   registerRoute(app, API_ROUTES.campaignsPreview, ({ params, body }) =>
     campaigns.preview(params.id, body),
   );

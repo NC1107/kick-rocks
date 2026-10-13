@@ -5,7 +5,7 @@ import { useApiQuery, useCurrentProfile } from "../../api/index.js";
 import { shortRelative } from "../../lib/format.js";
 import { TONE_SHAPE } from "../../lib/status.js";
 import { useNow } from "../../lib/use-now.js";
-import { StatusShapeGlyph, Tooltip } from "../ui/index.js";
+import { StatusShapeGlyph } from "../ui/index.js";
 import {
   inboxChip,
   mostUrgent,
@@ -41,30 +41,31 @@ export function useShellStatus(): StatusChip[] {
   return chips;
 }
 
-function chipText(chip: StatusChip): string {
-  return chip.value ? `${chip.label} ${chip.value}` : chip.label;
-}
+const abnormal = (chip: StatusChip) => chip.tone === "attention" || chip.tone === "danger";
 
 /**
- * Each chip leads with the shape of its family, not a bare dot, so a worker that is online and a
- * send that failed differ without color. That is also why there is no halo: a halo on a triangle
- * or a square would blur the very edge that tells them apart. Below the lg breakpoint the header
- * has room for one chip, so only the most urgent stays.
+ * One quiet mono line, not a row of pills: a state that is fine is just words, and only a state
+ * that needs a look carries its family's shape, so the line stays silent until it has news. Below
+ * the lg breakpoint the header has room for one item, so only the most urgent stays.
  */
 export function StatusChips({ chips }: { chips: readonly StatusChip[] }) {
-  if (chips.length === 0) return null;
-  const urgentId = (mostUrgent(chips) ?? chips[0])?.id;
+  const news = chips.filter(abnormal);
+  if (news.length === 0) return null;
+  const urgentId = (mostUrgent(news) ?? news[0])?.id;
   return (
-    <ul aria-label="System status" className="m-0 flex list-none items-center gap-2 p-0">
-      {chips.map((chip) => (
+    <ul
+      aria-label="System status"
+      className="m-0 flex list-none items-center gap-3 p-0 font-mono text-caption text-ink-2 lg:[&>li+li]:before:mr-3 lg:[&>li+li]:before:content-['·']"
+    >
+      {news.map((chip) => (
         <li key={chip.id} className={chip.id === urgentId ? undefined : "max-lg:hidden"}>
           <Link
             to={chip.to}
-            className="inline-flex h-6 items-center gap-1.5 whitespace-nowrap rounded-full border border-line px-2.5 text-caption text-ink-2 transition-colors duration-100 hover:bg-hover hover:text-ink"
+            className="inline-flex h-6 items-center gap-1.5 whitespace-nowrap rounded-xs transition-colors duration-100 hover:text-ink"
           >
             <StatusShapeGlyph shape={TONE_SHAPE[chip.tone]} className="size-2" />
-            <span>{chip.label}</span>
-            {chip.value ? <span className="font-mono text-ink">{chip.value}</span> : null}
+            <span>{chip.label.toLowerCase()}</span>
+            {chip.value ? <span>{chip.value}</span> : null}
           </Link>
         </li>
       ))}
@@ -72,19 +73,19 @@ export function StatusChips({ chips }: { chips: readonly StatusChip[] }) {
   );
 }
 
-/** The one mark the phone top bar has room for: whichever state most needs a look. */
+/** The one item the phone top bar has room for, in the same mono words as the desktop line: whichever state most needs a look. */
 export function UrgentStatusMark({ chips }: { chips: readonly StatusChip[] }) {
   const chip = mostUrgent(chips);
   if (!chip) return null;
   return (
-    <Tooltip content={chipText(chip)} hintOnTap>
-      <Link
-        to={chip.to}
-        aria-label={chipText(chip)}
-        className="flex size-11 items-center justify-center rounded-xs"
-      >
-        <StatusShapeGlyph shape={TONE_SHAPE[chip.tone]} className="size-2.5" />
-      </Link>
-    </Tooltip>
+    <Link
+      to={chip.to}
+      className="inline-flex h-11 items-center gap-1.5 whitespace-nowrap rounded-xs px-1 font-mono text-caption text-ink-2"
+    >
+      <StatusShapeGlyph shape={TONE_SHAPE[chip.tone]} className="size-2.5" />
+      <span>{chip.label.toLowerCase()}</span>
+      {/* The phone bar fits the count but not the "until" clause, which the page it opens repeats. */}
+      {chip.value ? <span>{chip.value.split(" · ")[0]}</span> : null}
+    </Link>
   );
 }

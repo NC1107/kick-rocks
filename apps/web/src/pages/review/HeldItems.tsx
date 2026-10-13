@@ -85,7 +85,7 @@ function Fields({
   );
 }
 
-function PageShot({ taskId, sendId }: { taskId: string; sendId: string }) {
+export function PageShot({ taskId, sendId }: { taskId: string; sendId: string }) {
   const [open, setOpen] = useState(false);
   const [failed, setFailed] = useState(false);
   if (failed) return null;

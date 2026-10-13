@@ -4,14 +4,22 @@ import { describe, expect, it } from "vitest";
 import { appRoutes } from "./router.js";
 
 function Where() {
-  return <p>{useLocation().pathname}</p>;
+  const { pathname, search } = useLocation();
+  return <p>{`${pathname}${search}`}</p>;
 }
 
 function visit(path: string) {
   const redirects = appRoutes.filter((route) => route.element);
-  const router = createMemoryRouter([...redirects, { path: "/settings/*", element: <Where /> }], {
-    initialEntries: [path],
-  });
+  const router = createMemoryRouter(
+    [
+      ...redirects,
+      { path: "/settings/*", element: <Where /> },
+      { path: "/findings", element: <Where /> },
+    ],
+    {
+      initialEntries: [path],
+    },
+  );
   render(<RouterProvider router={router} />);
 }
 
@@ -20,6 +28,16 @@ describe("the old Profiles and About URLs", () => {
     ["/profiles", "/settings/profiles"],
     ["/about", "/settings/about"],
   ])("send %s to %s", (from, to) => {
+    visit(from);
+    expect(screen.getByText(to)).toBeInTheDocument();
+  });
+});
+
+describe("the old listings address", () => {
+  it.each([
+    ["/targets/listings", "/findings"],
+    ["/targets/listings?show=needs_you", "/findings?show=needs_you"],
+  ])("sends %s to %s", (from, to) => {
     visit(from);
     expect(screen.getByText(to)).toBeInTheDocument();
   });

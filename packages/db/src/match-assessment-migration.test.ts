@@ -37,9 +37,9 @@ function migrationsBefore(tag: string): string {
   return folder;
 }
 
-describe("0017_match_assessment", () => {
-  it("upgrades a database at the 0016 schema and leaves its matches unscored", () => {
-    migrate(drizzle(sqlite), { migrationsFolder: migrationsBefore("0017_match_assessment") });
+describe("0018_match_assessment", () => {
+  it("upgrades a database at the 0017 schema and leaves its matches unscored", () => {
+    migrate(drizzle(sqlite), { migrationsFolder: migrationsBefore("0018_match_assessment") });
     const columns = () =>
       (sqlite.prepare("PRAGMA table_info(matches)").all() as Array<{ name: string }>).map(
         (column) => column.name,

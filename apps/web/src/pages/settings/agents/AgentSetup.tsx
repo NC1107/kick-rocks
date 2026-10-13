@@ -5,12 +5,11 @@ import { Button, Callout, RowGroup, Section, SkeletonText } from "../../../compo
 import { readStorage, STORAGE_KEYS, writeStorage } from "../../../lib/storage.js";
 import { BodyRow } from "../rows.js";
 import { Advanced } from "./Advanced.js";
-import { Detection } from "./Detection.js";
-import { AddressQuestion, GpuAnswer, GpuQuestion, RecommendationCard } from "./Recommendation.js";
+import { GpuAnswer, GpuQuestion, RecommendationCard } from "./Recommendation.js";
 
 export function SetupSkeleton() {
   return (
-    <Section label="Setup">
+    <Section label="Agent models">
       <RowGroup aria-busy="true">
         <BodyRow>
           <span className="sr-only">Looking for Ollama and the agent worker</span>
@@ -54,19 +53,17 @@ export function useAdvancedOpen(): [boolean, (open: boolean) => void] {
 }
 
 /**
- * The page's main part: what was found, the one setup recommended from it, the few things that
- * could not be found out and are asked once, and everything else behind Advanced.
+ * The setup recommended from what the helpers found, the few things that could not be found out
+ * and are asked once, and everything else behind the agent tuning disclosure.
  */
 export function AgentSetup({
   view,
   settings,
-  onFound,
   onRecheck,
   rechecking,
 }: {
   view: AgentSetupView;
   settings: SettingsView;
-  onFound: (baseUrl: string) => void;
   onRecheck: () => void;
   rechecking: boolean;
 }) {
@@ -90,17 +87,11 @@ export function AgentSetup({
 
   return (
     <>
-      <Section label="Setup">
-        <Detection view={view} />
-      </Section>
       {hasCard ? (
         <RecommendationCard view={view} settings={settings} onOpenGate={openGate} />
       ) : null}
       {missing.includes("gpuMemory") && !hosted ? <GpuQuestion view={view} /> : null}
       {hosted ? null : <GpuAnswer view={view} />}
-      {missing.includes("ollama") ? (
-        <AddressQuestion onFound={onFound} tried={view.components.server.endpoints} />
-      ) : null}
       <Advanced
         view={view}
         settings={settings}

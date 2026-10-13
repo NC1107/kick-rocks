@@ -28,6 +28,8 @@ export const Match = z.object({
   decidedAt: z.iso.datetime().nullable(),
   /** The removal request a "mine" decision created. */
   requestId: z.string().nullable(),
+  /** When a later scan of the site no longer listed this record after its removal was settled. */
+  verifiedGoneAt: z.iso.datetime().nullable(),
 });
 export type Match = z.infer<typeof Match>;
 

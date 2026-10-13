@@ -51,9 +51,9 @@ import {
 import { pendingRecords } from "../../../lib/listings.js";
 import { paths } from "../../../lib/paths.js";
 import { describeScanStart } from "../../../lib/scan-start.js";
+import { LISTING_INVALIDATES } from "../../findings/scanning.js";
 import { RIGHT_TOKENS } from "../../requests/format.js";
 import { HealthMark } from "../Automation.js";
-import { LISTING_INVALIDATES } from "../listings/scanning.js";
 import { Priority } from "../Priority.js";
 import { HUMAN_STEPS } from "../RequirementBadges.js";
 import { SiteVisits } from "./SiteVisits.js";
@@ -89,8 +89,8 @@ const MONO = "font-mono text-meta";
 function Loading() {
   return (
     <div aria-busy="true">
-      <span className="sr-only">Loading target</span>
-      <PageHeader title="Target" />
+      <span className="sr-only">Loading site</span>
+      <PageHeader title="Site" />
       <div className="max-w-180 rounded-md border border-line bg-surface p-3.5">
         <SkeletonText lines={5} />
       </div>
@@ -109,16 +109,16 @@ export function Component() {
     const missing = query.error.status === 404;
     return missing ? (
       <EmptyState
-        title="Target not found."
+        title="Site not found."
         description="It may have been removed from the dataset."
         actions={<LinkButton to="/targets">Back to targets</LinkButton>}
       />
     ) : (
       <>
-        <PageHeader title="Target" />
+        <PageHeader title="Site" />
         <Callout
           intent="danger"
-          title="Could not load this target"
+          title="Could not load this site"
           action={
             <Button size="sm" onClick={() => query.refetch()}>
               Try again
@@ -323,7 +323,7 @@ function TargetView({ target }: { target: TargetDetail }) {
         ) : null}
         {unsupported && !target.retired ? (
           <Callout intent="info" title="No way to contact them on file">
-            A campaign skips this target until the dataset has an email address or a form for it.
+            A campaign skips this site until the dataset has an email address or a form for it.
           </Callout>
         ) : null}
 
@@ -488,7 +488,7 @@ function TargetView({ target }: { target: TargetDetail }) {
             />
           ) : (
             <DataList
-              label="Recipes for this target"
+              label="Recipes for this site"
               items={target.recipes}
               getKey={(recipe) => recipe.id}
               identityHeader="Purpose"

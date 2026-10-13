@@ -5,11 +5,11 @@ import {
   ExternalLinkText,
   InlineError,
   StatusMark,
-} from "../../../components/ui/index.js";
-import { MatchFit } from "../../review/MatchFit.js";
-import { useMatchDecision } from "../../review/match-decision.js";
-import { sortByBand, splitByBand } from "../../review/model.js";
-import { UnlikelyGroup } from "../../review/UnlikelyGroup.js";
+} from "../../components/ui/index.js";
+import { MatchFit } from "../review/MatchFit.js";
+import { useMatchDecision } from "../review/match-decision.js";
+import { sortByBand, splitByBand } from "../review/model.js";
+import { UnlikelyGroup } from "../review/UnlikelyGroup.js";
 
 function placesOf(record: ListingRecord): string {
   return record.fields.locations?.join("; ") ?? "";

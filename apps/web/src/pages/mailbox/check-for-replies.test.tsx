@@ -3,7 +3,6 @@ import { describe, expect, it } from "vitest";
 import { createMockApp, type MockApp } from "../../../mock/app.js";
 import { renderPage } from "../../test/render.js";
 import { skewClock } from "../../test/skew-clock.js";
-import { Component as DashboardPage } from "../dashboard/index.js";
 import { Component as RequestDetailPage } from "../requests/detail/index.js";
 import { Component as ReviewPage } from "../review/index.js";
 
@@ -102,27 +101,6 @@ describe("checking for replies on the request page", () => {
     );
   }, 10_000);
 
-  it("shows a failed mailbox once on the dashboard, not as the result and as the standing notice", async () => {
-    const mock = createMockApp();
-    const advance = skewClock(mock);
-    const { jordan } = waitingRequest(mock);
-    if (jordan.mailbox) {
-      jordan.mailbox.replyFolder = "Broken";
-      jordan.mailbox.lastError = "IMAP login failed. Check the app password.";
-    }
-    const { user } = renderPage(<DashboardPage />, { mock });
-    expect(await screen.findByText("The mailbox is not working")).toBeVisible();
-
-    await user.click(await screen.findByRole("button", CHECK));
-    advance(3_000);
-
-    expect(
-      await screen.findByText("Could not check the mailbox", {}, { timeout: 4000 }),
-    ).toBeVisible();
-    expect(screen.queryByText("The mailbox is not working")).toBeNull();
-    expect(screen.getAllByText(/IMAP login failed/)).toHaveLength(1);
-  }, 10_000);
-
   it("names the request a reply belongs to when it is not the one on the page", async () => {
     const mock = createMockApp();
     const advance = skewClock(mock);
@@ -162,11 +140,11 @@ describe("checking for replies on the request page", () => {
 });
 
 describe("checking for replies elsewhere", () => {
-  it("is on the dashboard, and links to a request the reply belongs to", async () => {
+  it("is on the Mail page of Review, and links to a request the reply belongs to", async () => {
     const mock = createMockApp();
     const advance = skewClock(mock);
     const { request } = waitingRequest(mock);
-    const { user } = renderPage(<DashboardPage />, { mock });
+    const { user } = renderPage(<ReviewPage />, { mock, path: "/review/*", route: "/review/mail" });
 
     await user.click(await screen.findByRole("button", CHECK));
     advance(3_000);
