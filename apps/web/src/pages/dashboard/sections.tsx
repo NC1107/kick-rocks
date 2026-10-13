@@ -2,8 +2,6 @@ import { type Dashboard, LISTING_GROUPS, type RequestStatus } from "@kickrocks/s
 import { ChevronRight } from "lucide-react";
 import type { ReactNode } from "react";
 import { Link } from "react-router";
-import { useShellStatus } from "../../components/layout/ShellStatus.js";
-import type { StatusChip } from "../../components/layout/shell-status.js";
 import {
   Button,
   Count,
@@ -12,7 +10,6 @@ import {
   Row,
   RowGroup,
   Section,
-  TextLink,
 } from "../../components/ui/index.js";
 import { cn } from "../../lib/cn.js";
 import { formatCount, formatShortDate, pluralize } from "../../lib/format.js";
@@ -317,39 +314,5 @@ export function RemovalsSection({ dashboard }: { dashboard: Dashboard }) {
         ))}
       </RowGroup>
     </section>
-  );
-}
-
-function chipText(chip: StatusChip): string {
-  if (chip.id === "worker" && chip.tone === "positive") return "worker ok";
-  const text = chip.value ? `${chip.label} ${chip.value}` : chip.label;
-  return text.toLowerCase();
-}
-
-function SystemPart({ chip }: { chip: StatusChip }) {
-  if (chip.id === "sites") {
-    return (
-      <>
-        {chip.value?.toLowerCase()} <TextLink to={chip.to}>cooling down</TextLink>
-      </>
-    );
-  }
-  const needsLook = chip.tone === "attention" || chip.tone === "danger";
-  return needsLook ? <TextLink to={chip.to}>{chipText(chip)}</TextLink> : chipText(chip);
-}
-
-/** The one place system state lives on Home, so nothing else on the page has to carry a status. */
-export function SystemLine() {
-  const chips = useShellStatus().filter((chip) => chip.id !== "sends");
-  if (chips.length === 0) return null;
-  return (
-    <p className="mt-2 font-mono text-caption text-ink-3">
-      {chips.map((chip, index) => (
-        <span key={chip.id}>
-          {index > 0 ? " · " : null}
-          <SystemPart chip={chip} />
-        </span>
-      ))}
-    </p>
   );
 }

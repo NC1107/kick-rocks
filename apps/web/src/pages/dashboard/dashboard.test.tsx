@@ -175,15 +175,6 @@ describe("Home setup checklist", () => {
   });
 });
 
-describe("Home system line", () => {
-  it("puts worker, inbox and cooling sites on one line", async () => {
-    renderPage(<HomePage />);
-    const line = (await screen.findByText(/^worker ok/)).closest("p");
-    expect(line).toHaveTextContent(/inbox .* ago/);
-    expect(screen.queryByText("Worker online")).toBeNull();
-  });
-});
-
 describe("Home states", () => {
   it("shows a skeleton while it loads", async () => {
     renderPage(<HomePage />, { mockOptions: { latencyMs: 60 } });

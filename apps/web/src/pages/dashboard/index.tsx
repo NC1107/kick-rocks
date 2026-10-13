@@ -3,15 +3,14 @@ import { useState } from "react";
 import { errorMessage, useApiQuery } from "../../api/index.js";
 import { RequireProfile } from "../../components/layout/RequireProfile.js";
 import { Button, Callout, PageHeader, Skeleton } from "../../components/ui/index.js";
-import { ScanNotice } from "../review/ScanNotice.js";
 import { ScanDialog } from "../findings/scanning.js";
+import { ScanNotice } from "../review/ScanNotice.js";
 import {
   checklistSteps,
   Hero,
   NeedsYouSection,
   RemovalsSection,
   SetupChecklist,
-  SystemLine,
 } from "./sections.js";
 
 const REFRESH_MS = 30_000;
@@ -99,7 +98,6 @@ function HomeBody({
       <Hero listings={dashboard.listings} onScan={onScan} />
       <NeedsYouSection attention={dashboard.attention} />
       <RemovalsSection dashboard={dashboard} />
-      <SystemLine />
     </div>
   );
 }

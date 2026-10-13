@@ -45,26 +45,32 @@ function chipText(chip: StatusChip): string {
   return chip.value ? `${chip.label} ${chip.value}` : chip.label;
 }
 
+const abnormal = (chip: StatusChip) => chip.tone === "attention" || chip.tone === "danger";
+
 /**
- * Each chip leads with the shape of its family, not a bare dot, so a worker that is online and a
- * send that failed differ without color. That is also why there is no halo: a halo on a triangle
- * or a square would blur the very edge that tells them apart. Below the lg breakpoint the header
- * has room for one chip, so only the most urgent stays.
+ * One quiet mono line, not a row of pills: a state that is fine is just words, and only a state
+ * that needs a look carries its family's shape, so the line stays silent until it has news. Below
+ * the lg breakpoint the header has room for one item, so only the most urgent stays.
  */
 export function StatusChips({ chips }: { chips: readonly StatusChip[] }) {
   if (chips.length === 0) return null;
   const urgentId = (mostUrgent(chips) ?? chips[0])?.id;
   return (
-    <ul aria-label="System status" className="m-0 flex list-none items-center gap-2 p-0">
+    <ul
+      aria-label="System status"
+      className="m-0 flex list-none items-center gap-3 p-0 font-mono text-caption text-ink-3 lg:[&>li+li]:before:mr-3 lg:[&>li+li]:before:content-['·']"
+    >
       {chips.map((chip) => (
         <li key={chip.id} className={chip.id === urgentId ? undefined : "max-lg:hidden"}>
           <Link
             to={chip.to}
-            className="inline-flex h-6 items-center gap-1.5 whitespace-nowrap rounded-full border border-line px-2.5 text-caption text-ink-2 transition-colors duration-100 hover:bg-hover hover:text-ink"
+            className={`inline-flex h-6 items-center gap-1.5 whitespace-nowrap rounded-xs transition-colors duration-100 hover:text-ink ${abnormal(chip) ? "text-ink-2" : ""}`}
           >
-            <StatusShapeGlyph shape={TONE_SHAPE[chip.tone]} className="size-2" />
-            <span>{chip.label}</span>
-            {chip.value ? <span className="font-mono text-ink">{chip.value}</span> : null}
+            {abnormal(chip) ? (
+              <StatusShapeGlyph shape={TONE_SHAPE[chip.tone]} className="size-2" />
+            ) : null}
+            <span>{chip.label.toLowerCase()}</span>
+            {chip.value ? <span className="text-ink-2">{chip.value}</span> : null}
           </Link>
         </li>
       ))}
