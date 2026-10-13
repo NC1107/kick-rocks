@@ -166,6 +166,16 @@ describe("the campaign builder", () => {
     expect(within(counts).queryByText("agent or you")).toBeNull();
   });
 
+  it("lets the person say not to be checked with, and keeps it", async () => {
+    const mock = createMockApp();
+    const { user } = open(undefined, mock);
+    const check = await screen.findByRole("radio", { name: /^Check with me/ });
+    await waitFor(() => expect(check).toBeChecked());
+    await user.click(screen.getByRole("radio", { name: /^Just do it/ }));
+    await waitFor(() => expect(mock.store.settings.agent.autopilot).toBe(true));
+    await waitFor(() => expect(screen.getByRole("radio", { name: /^Just do it/ })).toBeChecked());
+  });
+
   it("picks single targets right on the page, with search", async () => {
     const { user } = open();
     await user.click(await screen.findByText("Search and pick sites"));
@@ -281,7 +291,8 @@ describe("the campaign builder", () => {
     expect(await screen.findByText("1 site selected")).toBeVisible();
     await user.click(screen.getByRole("button", { name: "Clear sites" }));
     expect(screen.queryByText("1 site selected")).not.toBeInTheDocument();
-    for (const radio of screen.getAllByRole("radio")) expect(radio).not.toBeChecked();
+    const groups = screen.getByRole("group", { name: "Group of sites" });
+    for (const radio of within(groups).getAllByRole("radio")) expect(radio).not.toBeChecked();
     expect(screen.getByText("Search and pick sites").closest("summary")).toHaveFocus();
     expect(screen.getByRole("button", { name: "Nothing to send" })).toBeDisabled();
   });

@@ -522,6 +522,9 @@ export default defineMockDomain({
         if (body.agent?.approvalHoldMinutes !== undefined) {
           current.agent = { ...current.agent, approvalHoldMinutes: body.agent.approvalHoldMinutes };
         }
+        if (body.agent?.autopilot !== undefined) {
+          current.agent = { ...current.agent, autopilot: body.agent.autopilot };
+        }
         if (body.agent?.model === null) {
           current.agent = { ...current.agent, model: null };
         } else if (body.agent?.model) {
@@ -590,6 +593,7 @@ export default defineMockDomain({
           agent: {
             takeUnreviewed: false,
             approvalHoldMinutes: 10,
+            autopilot: false,
             model: null,
             gpuMemoryGb: { worker: null, server: null },
             gate: { records: [], current: null },

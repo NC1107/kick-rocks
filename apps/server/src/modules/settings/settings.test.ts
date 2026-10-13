@@ -1,11 +1,16 @@
-import { settings, targets } from "@kickrocks/db";
+import { matches, settings, targets } from "@kickrocks/db";
 import { API_ROUTES, DataSourceId } from "@kickrocks/shared";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { rescorePendingMatches } from "../../core/match-assessment.js";
 import {
   createTestContext,
   makeBroker,
   makeCompany,
   seedClaimer,
+  seedMatch,
+  seedProfile,
+  seedScan,
+  seedTarget,
   type TestContext,
 } from "../../test-utils/index.js";
 
@@ -42,6 +47,39 @@ describe("the agent worker's reach", () => {
 
     const off = await patch({ agent: { takeUnreviewed: false } });
     expect(off.ok && off.body.agent.takeUnreviewed).toBe(false);
+  });
+
+  it("treats the likely records already waiting as the person's when autopilot is turned on", async () => {
+    const profile = seedProfile(ctx);
+    const target = seedTarget(ctx, {
+      category: "people-search",
+      contactMethod: "form",
+      domain: "records.test",
+      requirements: ["record_url"],
+    });
+    const scan = seedScan(ctx, { profileId: profile.id, targetId: target.id });
+    const age = ctx.clock.now().getUTCFullYear() - 1990;
+    const likely = seedMatch(ctx, {
+      scanId: scan.id,
+      profileId: profile.id,
+      targetId: target.id,
+      fields: { name: "Jordan Example", locations: ["Austin, TX"], age },
+    });
+    const unlikely = seedMatch(ctx, {
+      scanId: scan.id,
+      profileId: profile.id,
+      targetId: target.id,
+      fields: { name: "Jordan Example", locations: ["Austin, TX"], age: 95 },
+    });
+    rescorePendingMatches(ctx.services.db, profile.id);
+
+    const on = await patch({ agent: { autopilot: true } });
+    expect(on.ok && on.body.agent.autopilot).toBe(true);
+
+    const rows = ctx.services.db.select().from(matches).all();
+    expect(rows.find((row) => row.id === likely.id)).toMatchObject({ decision: "mine" });
+    expect(rows.find((row) => row.id === likely.id)?.requestId).not.toBeNull();
+    expect(rows.find((row) => row.id === unlikely.id)).toMatchObject({ decision: "pending" });
   });
 
   it("rejects a value that is not a boolean, and leaves other settings alone when it changes", async () => {

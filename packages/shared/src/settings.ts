@@ -145,6 +145,12 @@ export const SETTING_SCHEMAS = {
    */
   "agent.approvalHoldMinutes": z.number().int().min(0).max(120).default(10),
   /**
+   * The person asked not to be checked with: the agent worker sends alone whatever the gate says,
+   * and a record a scan scores as likely theirs is treated as theirs. Checks only they can pass,
+   * such as a CAPTCHA or an ID demand, still come to them.
+   */
+  "agent.autopilot": z.boolean().default(false),
+  /**
    * The model the agent worker should drive, chosen on the server. Null keeps the worker's own
    * environment setting, which is also where it starts.
    */
@@ -179,6 +185,8 @@ export const SettingsView = z.object({
     /** Lets the agent worker take a site whose bundled recipe has not been approved yet. */
     takeUnreviewed: z.boolean(),
     approvalHoldMinutes: z.number().int().min(0).max(120),
+    /** Sends and likely matches go ahead without the person's OK. */
+    autopilot: z.boolean(),
     /** Null means the agent worker uses its own environment setting. */
     model: AgentModelChoice.nullable(),
     gpuMemoryGb: GpuMemoryAnswers,
@@ -219,6 +227,7 @@ export const SettingsPatch = z.object({
     .object({
       takeUnreviewed: z.boolean().optional(),
       approvalHoldMinutes: z.number().int().min(0).max(120).optional(),
+      autopilot: z.boolean().optional(),
       /** Null goes back to the worker's own setting. A model the worker has not listed is refused. */
       model: AgentModelChoice.nullable().optional(),
       gpuMemoryGb: z

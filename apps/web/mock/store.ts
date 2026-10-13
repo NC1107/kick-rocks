@@ -206,6 +206,7 @@ export function createStore(authMode: MockAuthMode = "authed"): MockStore {
       agent: {
         takeUnreviewed: false,
         approvalHoldMinutes: 10,
+        autopilot: false,
         model: null,
         gpuMemoryGb: { worker: null, server: null },
         gate: { records: [], current: null },

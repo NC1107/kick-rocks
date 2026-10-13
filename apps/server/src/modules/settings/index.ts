@@ -26,6 +26,7 @@ import { definedOnly } from "../../core/objects.js";
 import { ownerKeyOfRow } from "../../core/site-politeness.js";
 import type { AppServices } from "../../services.js";
 import { applyRetention } from "../data-rights/index.js";
+import { acceptLikelyMatches } from "../review/decisions.js";
 import { buildAgentSetup } from "./agent-setup.js";
 import { probeOllama } from "./ollama-probe.js";
 
@@ -56,6 +57,7 @@ function viewOf(services: AppServices): SettingsView {
     agent: {
       takeUnreviewed: settings.get("agent.takeUnreviewed"),
       approvalHoldMinutes: settings.get("agent.approvalHoldMinutes"),
+      autopilot: settings.get("agent.autopilot"),
       model: settings.get("agent.model"),
       gpuMemoryGb: settings.get("agent.gpuMemoryGb"),
       gate: {
@@ -124,7 +126,8 @@ function sameOrigin(a: string, b: string): boolean {
   }
 }
 
-function applyPatch({ settings, clock, claimers }: AppServices, patch: SettingsPatch): void {
+function applyPatch(services: AppServices, patch: SettingsPatch): void {
+  const { settings, clock, claimers } = services;
   if (patch.schedule) {
     settings.set(
       "schedule",
@@ -176,6 +179,11 @@ function applyPatch({ settings, clock, claimers }: AppServices, patch: SettingsP
   }
   if (patch.agent?.approvalHoldMinutes !== undefined) {
     settings.set("agent.approvalHoldMinutes", patch.agent.approvalHoldMinutes);
+  }
+  if (patch.agent?.autopilot !== undefined) {
+    settings.set("agent.autopilot", patch.agent.autopilot);
+    // The records already waiting were scored before the person stopped wanting to be asked.
+    if (patch.agent.autopilot) acceptLikelyMatches(services);
   }
   if (patch.agent?.model === null) {
     settings.reset("agent.model");

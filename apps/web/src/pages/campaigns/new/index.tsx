@@ -36,6 +36,7 @@ import {
   TARGET_CATEGORY_LABELS,
   TARGET_KIND_LABELS,
 } from "../../../lib/labels.js";
+import { AskMe } from "../../settings/agents/AskMe.js";
 import {
   channelOf,
   countByChannel,
@@ -420,6 +421,8 @@ function Builder({ profile }: { profile: ProfileSummary }) {
               </p>
             ) : null}
           </Section>
+
+          <AskMe />
         </div>
 
         <section aria-label="Preview" className="flex min-w-0 flex-col gap-4">
