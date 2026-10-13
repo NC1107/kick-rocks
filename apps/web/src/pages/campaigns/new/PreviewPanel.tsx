@@ -1,7 +1,6 @@
 import type { CampaignPreview, RenderedEmail } from "@kickrocks/shared";
 import { ChevronDown } from "lucide-react";
 import { EntityLink, RowGroup, Section, Skeleton } from "../../../components/ui/index.js";
-import { cn } from "../../../lib/cn.js";
 import { formatCount, pluralize } from "../../../lib/format.js";
 import { SKIP_REASON_LABELS } from "../../../lib/labels.js";
 import { advisories, type ChannelCounts, groupSkipped } from "../channels.js";
@@ -22,9 +21,11 @@ const READOUT_ORDER: readonly (keyof ChannelCounts)[] = [
   "skipped",
 ];
 
+const LOADING_ROWS: readonly (keyof ChannelCounts)[] = ["email", "form", "skipped"];
+
 /**
- * What a campaign would do, counted by the way each target is reached. Nothing shows until a group
- * is picked, since five rows of zeros say nothing and push the choices down on a phone.
+ * What a campaign would do, counted by the way each site is reached. Nothing shows until a group
+ * is picked, and a way that reaches no site gets no row, since rows of zeros say nothing.
  */
 export function ChannelReadout({
   counts,
@@ -34,10 +35,14 @@ export function ChannelReadout({
   loading?: boolean;
 }) {
   if (counts === null && !loading) return null;
+  const channels = loading
+    ? LOADING_ROWS
+    : READOUT_ORDER.filter((channel) => (counts?.[channel] ?? 0) > 0);
+  if (channels.length === 0) return null;
   return (
     <section aria-label="Counts by channel" aria-busy={loading || undefined}>
       <RowGroup>
-        {READOUT_ORDER.map((channel) => {
+        {channels.map((channel) => {
           const value = counts?.[channel] ?? 0;
           return (
             <div
@@ -51,9 +56,7 @@ export function ChannelReadout({
                   <Skeleton className="h-3.5 w-8" />
                 </>
               ) : (
-                <span className={cn("tabular-nums", value === 0 ? "text-ink-3" : "text-ink")}>
-                  {formatCount(value)}
-                </span>
+                <span className="tabular-nums text-ink">{formatCount(value)}</span>
               )}
             </div>
           );
@@ -71,12 +74,12 @@ export interface FirstTarget {
 
 const FIRST_TARGETS = 6;
 
-/** The first targets a campaign would reach, so the counts above have names behind them. */
+/** The first sites a campaign would reach, so the counts above have names behind them. */
 export function FirstTargets({ targets }: { targets: readonly FirstTarget[] }) {
   if (targets.length === 0) return null;
   const hidden = targets.length - FIRST_TARGETS;
   return (
-    <Section label="First targets" count={targets.length}>
+    <Section label="First sites" count={targets.length}>
       <RowGroup>
         {targets.slice(0, FIRST_TARGETS).map((target) => (
           <div
@@ -108,7 +111,7 @@ export function SkippedList({ items }: { items: CampaignPreview["items"] }) {
   if (groups.length === 0) return null;
   return (
     <Section
-      label="Skipped targets"
+      label="Skipped sites"
       count={items.filter((item) => item.outcome === "skipped").length}
     >
       <RowGroup>

@@ -6,7 +6,7 @@ export const RIGHT_HELP: Record<RequestRight, string> = {
 };
 
 export const RIGHT_TOKENS: Record<RequestRight, string> = {
-  opt_out: "opt-out",
+  opt_out: "stop selling",
   delete: "delete",
 };
 

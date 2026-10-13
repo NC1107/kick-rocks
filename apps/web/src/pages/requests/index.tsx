@@ -206,7 +206,10 @@ function Requests({ profileId }: { profileId: string }) {
   const resultCount = list.data ? pluralize(list.data.total, "removal") : undefined;
   const sections =
     byBatch && batches.data
-      ? groupByBatch(items, batches.data.campaigns)
+      ? groupByBatch(items, batches.data.campaigns).map((section) => ({
+          ...section,
+          verifiedGone: 0,
+        }))
       : groupRequests(items).map((section) => ({ ...section, summary: "" }));
 
   return (
@@ -318,11 +321,7 @@ function Requests({ profileId }: { profileId: string }) {
               <Section
                 key={section.id}
                 label={section.label}
-                count={
-                  "verifiedGone" in section
-                    ? sectionCount(section.items.length, section.verifiedGone)
-                    : section.items.length
-                }
+                count={sectionCount(section.items.length, section.verifiedGone)}
                 {...(section.summary
                   ? {
                       actions: (

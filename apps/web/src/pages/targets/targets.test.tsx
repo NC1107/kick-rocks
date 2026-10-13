@@ -22,7 +22,7 @@ function failing(pattern: RegExp): MockApp {
 }
 
 async function rows() {
-  const table = await screen.findByRole("region", { name: "Targets" });
+  const table = await screen.findByRole("region", { name: "Sites" });
   await waitFor(() => expect(within(table).queryByText("Loading")).not.toBeInTheDocument());
   return within(table).getAllByRole("row").slice(1);
 }
@@ -53,7 +53,7 @@ describe("the targets page", () => {
     expect(within(list[0] as HTMLElement).getByRole("link", { name: "ClearCheck" })).toBeVisible();
     expect(within(list[0] as HTMLElement).getByText("ID upload")).toBeVisible();
     expect(screen.getByText(/1-50 of 61/)).toBeVisible();
-    expect(screen.getByText("61 targets")).toBeVisible();
+    expect(screen.getByText("61 sites")).toBeVisible();
   });
 
   it("tags only the requirements that need the person", async () => {
@@ -94,7 +94,7 @@ describe("the targets page", () => {
   it("narrows the list as a person searches", async () => {
     const { user } = renderPage(<TargetsPage />, { path: "/targets", route: "/targets" });
     await rows();
-    const table = screen.getByRole("region", { name: "Targets" });
+    const table = screen.getByRole("region", { name: "Sites" });
     // One paste is one change, so the work does not grow with the CPU a typed character costs on a
     // loaded runner; the debounce still starts only after the last change.
     await user.click(screen.getByRole("searchbox", { name: "Search" }));
@@ -105,7 +105,7 @@ describe("the targets page", () => {
 
   it("filters by type from the facets and starts from the address bar", async () => {
     renderPage(<TargetsPage />, { path: "/targets", route: "/targets?kind=company" });
-    await waitFor(() => expect(screen.getAllByText("32 targets").length).toBeGreaterThan(0));
+    await waitFor(() => expect(screen.getAllByText("32 sites").length).toBeGreaterThan(0));
     expect(screen.getByRole("list", { name: "Active filters" })).toHaveTextContent("Type: Company");
     expect(screen.getByRole("button", { name: "Filters, 1 active" })).toBeVisible();
   });
@@ -118,7 +118,7 @@ describe("the targets page", () => {
     for (const name of ["Type", "Category", "Contact", "Needs", "Priority"])
       expect(screen.getByLabelText(name)).toBeVisible();
     await user.selectOptions(screen.getByLabelText("Type"), "company");
-    await waitFor(() => expect(screen.getAllByText("32 targets").length).toBeGreaterThan(0));
+    await waitFor(() => expect(screen.getAllByText("32 sites").length).toBeGreaterThan(0));
     expect(screen.getByRole("button", { name: "Filters, 1 active" })).toBeVisible();
   });
 
@@ -163,7 +163,7 @@ describe("the targets page", () => {
     expect(
       screen.queryByRole("button", { name: /Select all .* matching/ }),
     ).not.toBeInTheDocument();
-    await user.click(screen.getByRole("checkbox", { name: "Select all targets on this page" }));
+    await user.click(screen.getByRole("checkbox", { name: "Select all sites on this page" }));
     expect(screen.getByRole("status")).toHaveTextContent("50 selected");
     await user.click(screen.getByRole("button", { name: "Select all 61 matching" }));
     expect(screen.getByRole("status")).toHaveTextContent("All 61 matching selected");
@@ -175,14 +175,14 @@ describe("the targets page", () => {
   it("narrows to the current page, and says so, when one row is unticked after select all", async () => {
     const { user } = renderPage(<TargetsPage />, { path: "/targets", route: "/targets" });
     const list = await rows();
-    await user.click(screen.getByRole("checkbox", { name: "Select all targets on this page" }));
+    await user.click(screen.getByRole("checkbox", { name: "Select all sites on this page" }));
     await user.click(screen.getByRole("button", { name: "Select all 61 matching" }));
     await user.click(within(list[0] as HTMLElement).getByRole("checkbox"));
     expect(screen.getByRole("status")).toHaveTextContent("49 selected");
     // The live region repeats a toast's text for screen readers, so the visible card is found by its region.
     const notifications = screen.getByRole("region", { name: "Notifications" });
     expect(
-      await within(notifications).findByText("Selection narrowed to the 49 targets on this page"),
+      await within(notifications).findByText("Selection narrowed to the 49 sites on this page"),
     ).toBeVisible();
   });
 
@@ -202,7 +202,7 @@ describe("the targets page", () => {
       mock,
     });
     await rows();
-    await user.click(screen.getByRole("checkbox", { name: "Select all targets on this page" }));
+    await user.click(screen.getByRole("checkbox", { name: "Select all sites on this page" }));
     await user.click(screen.getByRole("button", { name: "Select all 52 matching" }));
     const link = screen.getByRole("link", { name: "Ask these to remove my data" });
     expect(link).toHaveAttribute(
@@ -214,18 +214,18 @@ describe("the targets page", () => {
   it("drops the all-matching selection when the filter changes", async () => {
     const { user } = renderPage(<TargetsPage />, { path: "/targets", route: "/targets" });
     await rows();
-    await user.click(screen.getByRole("checkbox", { name: "Select all targets on this page" }));
+    await user.click(screen.getByRole("checkbox", { name: "Select all sites on this page" }));
     await user.click(screen.getByRole("button", { name: "Select all 61 matching" }));
     await user.click(screen.getByRole("button", { name: "Filters" }));
     await user.selectOptions(screen.getByLabelText("Type"), "company");
-    await waitFor(() => expect(screen.getAllByText("32 targets").length).toBeGreaterThan(0));
+    await waitFor(() => expect(screen.getAllByText("32 sites").length).toBeGreaterThan(0));
     expect(screen.queryByText(/matching selected/)).not.toBeInTheDocument();
   });
 
   it("scans every matching target by filter after a confirmation", async () => {
     const { user, mock } = renderPage(<TargetsPage />, { path: "/targets", route: "/targets" });
     await rows();
-    await user.click(screen.getByRole("checkbox", { name: "Select all targets on this page" }));
+    await user.click(screen.getByRole("checkbox", { name: "Select all sites on this page" }));
     await user.click(screen.getByRole("button", { name: "Select all 61 matching" }));
     const before = mock.store.scans.length;
     await user.click(screen.getByRole("button", { name: "Scan these" }));
@@ -255,7 +255,7 @@ describe("the targets page", () => {
       mock,
     });
     await rows();
-    await user.click(screen.getByRole("checkbox", { name: "Select all targets on this page" }));
+    await user.click(screen.getByRole("checkbox", { name: "Select all sites on this page" }));
     await user.click(screen.getByRole("button", { name: "Select all 52 matching" }));
     expect(screen.getByRole("button", { name: "Scan these" })).toBeDisabled();
   });
@@ -275,7 +275,7 @@ describe("the targets page", () => {
         : handle(request);
     const { user } = renderPage(<TargetsPage />, { path: "/targets", route: "/targets", mock });
     await rows();
-    await user.click(screen.getByRole("checkbox", { name: "Select all targets on this page" }));
+    await user.click(screen.getByRole("checkbox", { name: "Select all sites on this page" }));
     await user.click(screen.getByRole("button", { name: "Select all 61 matching" }));
     await user.click(screen.getByRole("button", { name: "Scan these" }));
     const dialog = await screen.findByRole("dialog");
@@ -300,7 +300,7 @@ describe("the targets page", () => {
       path: "/targets",
       route: "/targets?kind=company",
     });
-    await waitFor(() => expect(screen.getAllByText("32 targets").length).toBeGreaterThan(0));
+    await waitFor(() => expect(screen.getAllByText("32 sites").length).toBeGreaterThan(0));
     await user.click(screen.getByRole("button", { name: "Remove Type: Company" }));
     await waitFor(() => expect(screen.getByText(/1-50 of 61/)).toBeVisible());
     expect(screen.getByRole("button", { name: "Filters" })).toBeVisible();
@@ -311,7 +311,7 @@ describe("the targets page", () => {
       path: "/targets",
       route: "/targets?q=nothing-called-this",
     });
-    expect(await screen.findByText("No targets match these filters.")).toBeVisible();
+    expect(await screen.findByText("No sites match these filters.")).toBeVisible();
     await user.click(screen.getByRole("button", { name: "Clear filters" }));
     expect((await rows()).length).toBeGreaterThan(1);
   });
@@ -332,7 +332,7 @@ describe("the targets page", () => {
       route: "/targets",
       mock: failing(/\/api\/targets\?/),
     });
-    expect(await screen.findByRole("alert")).toHaveTextContent("Could not load targets");
+    expect(await screen.findByRole("alert")).toHaveTextContent("Could not load sites");
     expect(screen.getByRole("button", { name: "Try again" })).toBeVisible();
   });
 });

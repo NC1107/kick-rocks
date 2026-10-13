@@ -46,6 +46,7 @@ import {
   Tooltip,
   useToast,
 } from "../../../components/ui/index.js";
+import { formatShortDate } from "../../../lib/format.js";
 import {
   BLOCKED_REASON_LABELS,
   CHANNEL_LABELS,
@@ -53,7 +54,6 @@ import {
   REQUEST_ACTION_LABELS,
   TASK_KIND_LABELS,
 } from "../../../lib/labels.js";
-import { formatShortDate } from "../../../lib/format.js";
 import { paths, taskPath } from "../../../lib/paths.js";
 import { REQUEST_STATUS_META } from "../../../lib/status.js";
 import { AgentPanel } from "../../assign/AgentPanel.js";
