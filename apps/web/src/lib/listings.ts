@@ -48,11 +48,17 @@ export const LISTING_STATUS_META: Record<ListingStatus, StatusMeta> = {
     shape: "ring-dot",
     description: "You confirmed a record and its removal is under way.",
   },
+  claimed_removed: {
+    label: "Said removed",
+    family: "progress",
+    shape: "ring-dot",
+    description: "The site says your record is gone. A later scan will check.",
+  },
   removed: {
     label: "Removed",
     family: "resolved",
     shape: "disc",
-    description: "The site confirmed your record is gone.",
+    description: "A later scan no longer found your record.",
   },
   relisted: {
     label: "Listed again",

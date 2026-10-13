@@ -15,6 +15,7 @@ export const ListingStatus = z.enum([
   "to_confirm",
   "needs_check",
   "yours",
+  "claimed_removed",
   "removed",
   "removal_stalled",
   "relisted",
@@ -43,7 +44,7 @@ export type ListingGroup = z.infer<typeof ListingGroup>;
 export const LISTING_GROUPS: Record<ListingGroup, readonly ListingStatus[]> = {
   needs_you: ["to_confirm", "needs_check", "removal_stalled", "failed"],
   yours: ["yours", "relisted"],
-  removed: ["removed"],
+  removed: ["claimed_removed", "removed"],
   not_found: ["not_found", "not_you", "unclear"],
   waiting: ["waiting", "scanning"],
   not_scanned: ["not_scanned"],
@@ -225,7 +226,7 @@ export function deriveListingStatus(input: {
   preference: ScanPreference;
   today: string;
   scans: readonly ListingScanFacts[];
-  records: readonly Pick<ListingRecord, "decision" | "request">[];
+  records: readonly Pick<ListingRecord, "decision" | "request" | "verifiedGoneAt">[];
   /** A removal that finished was followed by the record appearing again, and one is open again. */
   relisted: boolean;
 }): ListingStatus {
@@ -242,7 +243,9 @@ export function deriveListingStatus(input: {
     const allSettled =
       requests.length > 0 &&
       requests.every((request) => request.status === "confirmed" || request.status === "no_record");
-    return allSettled ? "removed" : "yours";
+    if (!allSettled) return "yours";
+    // A settled removal is only the broker's word until a later scan no longer finds the record.
+    return mine.every((record) => record.verifiedGoneAt !== null) ? "removed" : "claimed_removed";
   }
 
   const latest = input.scans[0];

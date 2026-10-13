@@ -21,6 +21,7 @@ function record(
     decision,
     decidedAt: null,
     requestId: null,
+    verifiedGoneAt: null,
     request: null,
   };
 }

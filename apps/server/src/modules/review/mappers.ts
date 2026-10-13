@@ -38,5 +38,6 @@ export function toMatch(row: MatchRow, targetName: string): Match {
     decision: row.decision,
     decidedAt: row.decidedAt,
     requestId: row.requestId,
+    verifiedGoneAt: row.verifiedGoneAt,
   };
 }

@@ -29,6 +29,8 @@ export const ScheduleSettings = z.object({
   pollMinutes: pollMinutes.default(15),
   peopleSearchRescanDays: rescanDays.default(60),
   brokerRescanDays: rescanDays.default(90),
+  /** Days after a people-search removal is settled before the site is scanned to check the record is gone. */
+  removalVerifyDays: rescanDays.default(14),
   /** Days to wait for any reply before a request counts as unanswered. */
   noResponseDays: rescanDays.default(45),
   maxFollowUps: maxFollowUps.default(2),
@@ -40,6 +42,7 @@ export const SchedulePatch = z.object({
   pollMinutes: pollMinutes.optional(),
   peopleSearchRescanDays: rescanDays.optional(),
   brokerRescanDays: rescanDays.optional(),
+  removalVerifyDays: rescanDays.optional(),
   noResponseDays: rescanDays.optional(),
   maxFollowUps: maxFollowUps.optional(),
 });

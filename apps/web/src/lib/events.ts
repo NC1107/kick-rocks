@@ -168,6 +168,8 @@ export function describeEvent(event: RequestEvent): string {
     }
     case "relisted":
       return `The record showed up again after the request was ${status(event.payload.previousStatus).toLowerCase()}.`;
+    case "verified_gone":
+      return "A later scan no longer found the record.";
     case "note":
       return event.payload.text;
   }

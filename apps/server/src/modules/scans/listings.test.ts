@@ -1,4 +1,4 @@
-import { requests, scans, tasks } from "@kickrocks/db";
+import { matches, requests, scans, tasks } from "@kickrocks/db";
 import {
   API_ROUTES,
   type ListingStatus,
@@ -138,7 +138,7 @@ describe("the status of a site", () => {
     expect(await statusOf(target.id)).toBe("failed");
   });
 
-  it("follows the removal: yours while it is open, removed once it is confirmed", async () => {
+  it("follows the removal: yours while it is open, said removed once it is confirmed, removed once a scan no longer finds it", async () => {
     const target = site();
     const scan = seedScan(ctx, {
       profileId,
@@ -152,7 +152,7 @@ describe("the status of a site", () => {
       channel: "form",
       status: "awaiting_reply",
     });
-    seedMatch(ctx, {
+    const match = seedMatch(ctx, {
       scanId: scan.id,
       profileId,
       targetId: target.id,
@@ -172,6 +172,13 @@ describe("the status of a site", () => {
       .update(requests)
       .set({ status: "confirmed" })
       .where(eq(requests.id, request.id))
+      .run();
+    expect(await statusOf(target.id)).toBe("claimed_removed");
+
+    ctx.services.db
+      .update(matches)
+      .set({ verifiedGoneAt: now() })
+      .where(eq(matches.id, match.id))
       .run();
     expect(await statusOf(target.id)).toBe("removed");
   });

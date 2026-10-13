@@ -7,7 +7,7 @@ import {
   type RequestRecord,
   scoreCandidate,
 } from "@kickrocks/shared";
-import { and, eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import { AppError } from "../core/errors.js";
 import { newId } from "../core/ids.js";
 import { scoreProfileOf } from "../core/match-assessment.js";
@@ -116,6 +116,11 @@ function recordMatches(
     seen.add(key);
 
     const earlier = history.filter((match) => normalizeRecordUrl(match.recordUrl) === key);
+    // A record that is listed again was not gone, whatever the last scan said.
+    for (const match of earlier) {
+      if (match.verifiedGoneAt === null) continue;
+      tx.update(matches).set({ verifiedGoneAt: null }).where(eq(matches.id, match.id)).run();
+    }
     const verdict = judge(services, earlier);
     if (verdict.kind === "skip") continue;
 
@@ -140,6 +145,47 @@ function recordMatches(
 }
 
 /**
+ * Settled removals whose record this scan no longer lists are verified gone. Only a scan that
+ * searched the person's own details counts, and only one that listed results or whose site said
+ * nothing matched: an empty list the site never confirmed may be a block that looked like a
+ * clean page.
+ */
+function verifyAbsences(
+  services: AppServices,
+  tx: DbHandle,
+  scan: ScanRow,
+  candidates: readonly Candidate[],
+  noResultsShown: boolean,
+): void {
+  if (candidates.length === 0 && !noResultsShown) return;
+  const listed = new Set(candidates.map((candidate) => normalizeRecordUrl(candidate.recordUrl)));
+  const now = services.clock.now().toISOString();
+  const earlier = tx
+    .select()
+    .from(matches)
+    .where(
+      and(
+        eq(matches.profileId, scan.profileId),
+        eq(matches.targetId, scan.targetId),
+        eq(matches.decision, "mine"),
+        isNull(matches.verifiedGoneAt),
+      ),
+    )
+    .all();
+  for (const match of earlier) {
+    if (match.requestId === null || listed.has(normalizeRecordUrl(match.recordUrl))) continue;
+    const request = services.requests.get(match.requestId);
+    if (!request || !isSettledRemoval(request)) continue;
+    tx.update(matches).set({ verifiedGoneAt: now }).where(eq(matches.id, match.id)).run();
+    services.requests.addEvent(request.id, {
+      type: "verified_gone",
+      actor: "system",
+      payload: { recordUrl: match.recordUrl, scanId: scan.id },
+    });
+  }
+}
+
+/**
  * A scan that ended in failure is not final while its task can still report: a holder whose lease
  * ran out on the last attempt may yet deliver the real result, which beats the expiry failure.
  */
@@ -150,7 +196,8 @@ function finishScan(
   tx: DbHandle,
   taskId: string,
   candidates: readonly Candidate[],
-  noResultsShown = false,
+  noResultsShown: boolean,
+  searchedUnderVariant: boolean,
 ): void {
   const scan = scanOf(tx, taskId);
   if (!scan || (scan.finishedAt !== null && !endedInFailure(scan))) return;
@@ -164,6 +211,7 @@ function finishScan(
     .where(eq(scans.id, scan.id))
     .run();
   recordMatches(services, tx, scan, candidates);
+  if (!searchedUnderVariant) verifyAbsences(services, tx, scan, candidates, noResultsShown);
 }
 
 /** Puts a scan that was marked failed back to running, for the agent that takes the work over. */
@@ -197,13 +245,21 @@ export function registerScanHandlers(services: AppServices): void {
       task.id,
       task.result?.candidates ?? [],
       task.result?.noResultsShown === true,
+      task.payload.variant !== null,
     );
   });
 
   taskHandlers.on("agent", "completed", ({ task }, tx) => {
     if (task.payload.purpose !== "scan") return;
     const scan = task.result?.purpose === "scan" ? task.result.scan : null;
-    finishScan(services, tx, task.id, scan?.candidates ?? [], scan?.noResultsShown === true);
+    finishScan(
+      services,
+      tx,
+      task.id,
+      scan?.candidates ?? [],
+      scan?.noResultsShown === true,
+      task.payload.variant !== null,
+    );
   });
 
   taskHandlers.on("scan", "failed", ({ task }, tx) => {

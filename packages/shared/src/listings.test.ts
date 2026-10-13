@@ -13,8 +13,15 @@ const TODAY = "2026-10-11";
 const finished = { taskStatus: "done", finishedAt: "2026-10-01T00:00:00.000Z", error: null };
 const clean = { ...finished, noResultsShown: true };
 
-const record = (decision: "pending" | "mine" | "not_mine", status?: string) => ({
+const GONE = "2026-10-20T00:00:00.000Z";
+
+const record = (
+  decision: "pending" | "mine" | "not_mine",
+  status?: string,
+  verifiedGoneAt: string | null = null,
+) => ({
   decision,
+  verifiedGoneAt,
   request: status
     ? {
         id: "r",
@@ -83,7 +90,7 @@ describe("deriveListingStatus", () => {
 
   it("keeps a removal visible while a routine rescan waits", () => {
     const queued = { ...clean, taskStatus: "queued", finishedAt: null };
-    expect(status({ scans: [queued, clean], records: [record("mine", "confirmed")] })).toBe(
+    expect(status({ scans: [queued, clean], records: [record("mine", "confirmed", GONE)] })).toBe(
       "removed",
     );
     expect(status({ scans: [queued, clean], records: [record("mine", "awaiting_reply")] })).toBe(
@@ -91,8 +98,38 @@ describe("deriveListingStatus", () => {
     );
   });
 
+  it("says a settled removal was claimed until a later scan no longer finds the record", () => {
+    expect(status({ scans: [clean], records: [record("mine", "confirmed")] })).toBe(
+      "claimed_removed",
+    );
+    expect(status({ scans: [clean], records: [record("mine", "no_record")] })).toBe(
+      "claimed_removed",
+    );
+    expect(status({ scans: [clean], records: [record("mine", "confirmed", GONE)] })).toBe(
+      "removed",
+    );
+    expect(
+      status({
+        scans: [clean],
+        records: [record("mine", "confirmed", GONE), record("mine", "confirmed")],
+      }),
+    ).toBe("claimed_removed");
+  });
+
+  it("is relisted, not removed, when a verified record came back", () => {
+    expect(
+      status({
+        scans: [clean],
+        records: [record("mine", "confirmed", GONE), record("mine", "queued")],
+        relisted: true,
+      }),
+    ).toBe("relisted");
+  });
+
   it("is removed only when every removal is closed, and relisted when one came back", () => {
-    expect(status({ scans: [clean], records: [record("mine", "no_record")] })).toBe("removed");
+    expect(status({ scans: [clean], records: [record("mine", "no_record", GONE)] })).toBe(
+      "removed",
+    );
     expect(
       status({
         scans: [clean],

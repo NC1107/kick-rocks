@@ -1,4 +1,4 @@
-import { mailboxes, requests, targets } from "@kickrocks/db";
+import { mailboxes, matches, requests, scans, targets } from "@kickrocks/db";
 import type { Broker } from "@kickrocks/shared";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -11,6 +11,7 @@ import {
   MINUTE,
   seedClaimer,
   seedMailbox,
+  seedMatch,
   seedProfile,
   seedRecipe,
   seedRequest,
@@ -420,6 +421,78 @@ describe("re-scans", () => {
   it("only re-scans targets that list people", async () => {
     scannedTarget({ category: "marketing" });
     ctx.clock.advance(61 * DAY);
+    await scheduler.tick();
+    expect(liveScans()).toHaveLength(0);
+  });
+});
+
+describe("verification scans", () => {
+  const liveScans = () =>
+    ctx.services.taskQueue
+      .list({ status: "queued" })
+      .filter((task) => task.kind === "scan" || task.kind === "agent");
+
+  function settledRemoval(status: "confirmed" | "no_record" = "confirmed") {
+    const target = seedTarget(ctx, { category: "people-search" });
+    const scan = seedScan(ctx, {
+      profileId,
+      targetId: target.id,
+      finishedAt: ctx.clock.now().toISOString(),
+    });
+    const request = seedRequest(ctx, { profileId, targetId: target.id, channel: "form", status });
+    seedMatch(ctx, {
+      scanId: scan.id,
+      profileId,
+      targetId: target.id,
+      decision: "mine",
+      requestId: request.id,
+    });
+    return target;
+  }
+
+  it("scans the site once the removal has been settled for the verification period, and not before", async () => {
+    const target = settledRemoval();
+    ctx.clock.advance(13 * DAY);
+    await scheduler.tick();
+    expect(liveScans()).toHaveLength(0);
+
+    ctx.clock.advance(DAY);
+    await scheduler.tick();
+    expect(liveScans()).toHaveLength(1);
+    expect(liveScans()[0]).toMatchObject({ targetId: target.id, profileId });
+  });
+
+  it("uses the verification period from the settings", async () => {
+    setSchedule({ removalVerifyDays: 3 });
+    settledRemoval("no_record");
+    ctx.clock.advance(3 * DAY);
+    await scheduler.tick();
+    expect(liveScans()).toHaveLength(1);
+  });
+
+  it("queues one verification scan for a removal, even over many passes", async () => {
+    settledRemoval();
+    ctx.clock.advance(14 * DAY);
+    await scheduler.tick();
+    ctx.clock.advance(HOUR);
+    await scheduler.tick();
+    await scheduler.tick();
+    expect(ctx.services.db.select().from(scans).all()).toHaveLength(2);
+    expect(liveScans()).toHaveLength(1);
+  });
+
+  it("does not scan for a removal a scan has already verified", async () => {
+    settledRemoval();
+    ctx.services.db.update(matches).set({ verifiedGoneAt: ctx.clock.now().toISOString() }).run();
+    ctx.clock.advance(20 * DAY);
+    await scheduler.tick();
+    expect(liveScans()).toHaveLength(0);
+  });
+
+  it("leaves a skipped site alone", async () => {
+    const target = settledRemoval();
+    ctx.services.scanPreferences.set(profileId, target.id, { mode: "skipped" });
+    ctx.clock.advance(20 * DAY);
     await scheduler.tick();
     expect(liveScans()).toHaveLength(0);
   });
