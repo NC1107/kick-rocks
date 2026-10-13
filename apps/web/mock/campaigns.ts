@@ -1,13 +1,13 @@
 import {
   API_ROUTES,
   type CampaignPreview,
-  type CampaignSummary,
   type CampaignSelection,
+  type CampaignSummary,
   countOutcomes,
   isActiveStatus,
   type RenderedEmail,
-  type RequestStatus,
   type RequestRight,
+  type RequestStatus,
   type Requirement,
   type SkipReason,
   type TargetDetail,
@@ -192,7 +192,8 @@ export default defineMockDomain({
             counts: {},
           };
           batch.requestCount += 1;
-          batch.createdAt = request.createdAt < batch.createdAt ? request.createdAt : batch.createdAt;
+          batch.createdAt =
+            request.createdAt < batch.createdAt ? request.createdAt : batch.createdAt;
           const status: RequestStatus = request.status;
           batch.counts[status] = (batch.counts[status] ?? 0) + 1;
           batches.set(request.campaignId, batch);

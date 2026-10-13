@@ -43,7 +43,6 @@ describe("the campaign builder", () => {
 
   it("words the groups as one short line each, with no sentence under them", async () => {
     open();
-    const radios = await screen.findAllByRole("radio");
     await waitFor(() =>
       expect(screen.getByRole("radio", { name: /^Everything \(\d+\)/ })).toBeVisible(),
     );
@@ -67,9 +66,7 @@ describe("the campaign builder", () => {
 
   it("counts a preset by channel and previews the email before anything is sent", async () => {
     const { user } = open();
-    await user.click(
-      await screen.findByRole("radio", { name: /Sites that answer by email/ }),
-    );
+    await user.click(await screen.findByRole("radio", { name: /Sites that answer by email/ }));
     const preview = await screen.findByRole("region", { name: "Preview" });
     const counts = within(preview).getByRole("region", { name: "Counts by channel" });
     await waitFor(() =>
@@ -84,9 +81,7 @@ describe("the campaign builder", () => {
 
   it("labels the confirm dialog rows in plain words", async () => {
     const { user } = open();
-    await user.click(
-      await screen.findByRole("radio", { name: /Sites that answer by email/ }),
-    );
+    await user.click(await screen.findByRole("radio", { name: /Sites that answer by email/ }));
     const send = within(screen.getByTestId("send-bar")).getByRole("button", {
       name: "Send requests",
     });
@@ -131,9 +126,7 @@ describe("the campaign builder", () => {
 
   it("shows the address the first email goes to", async () => {
     const { user } = open();
-    await user.click(
-      await screen.findByRole("radio", { name: /Sites that answer by email/ }),
-    );
+    await user.click(await screen.findByRole("radio", { name: /Sites that answer by email/ }));
     const preview = await screen.findByRole("region", { name: "Preview" });
     expect(await within(preview).findByText(/\(privacy@[^)]+\)/)).toBeVisible();
   });

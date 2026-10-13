@@ -151,7 +151,7 @@ describe("the primary action of each kind", () => {
     const card = within(await cardOf("FindRecord"));
     expect(
       card.getByRole("heading", {
-        name: "FindRecord wants a CAPTCHA solved before the removal can be sent.",
+        name: "FindRecord needs a CAPTCHA solved before it can send.",
       }),
     ).toBeVisible();
     expect(card.getByText("Open the page", { selector: "li" })).toBeVisible();
@@ -201,6 +201,44 @@ describe("where you are in the queue", () => {
     const next = within(screen.getByRole("navigation", { name: "Up next" }));
     expect(next.getAllByRole("button").length).toBeGreaterThan(5);
     expect(next.getAllByRole("button")[0]).toHaveAttribute("aria-current", "true");
+  });
+
+  it("names what each up-next item needs in a few words, with no tag words", async () => {
+    const mock = createMockApp();
+    openItem(null, mock);
+    await screen.findByRole("article");
+    const next = within(screen.getByRole("navigation", { name: "Up next" }));
+    const text = next
+      .getAllByRole("button")
+      .map((button) => button.textContent ?? "")
+      .join("\n");
+    expect(text).toMatch(/Stop or send/);
+    expect(text).toMatch(/Solve CAPTCHA/);
+    expect(text).not.toMatch(/Needs OK|Bot check|Phone code|Waiting/);
+    const list = next.getAllByRole("button")[0]?.parentElement;
+    expect(list).not.toHaveClass("rounded-md");
+    expect(list).not.toHaveClass("bg-surface");
+  });
+
+  it("shows only how long it takes in the header, and makes the controls 44px", async () => {
+    const mock = createMockApp();
+    openItem(taskKey(mock, "captcha"), mock);
+    const card = within(await cardOf("FindRecord"));
+    const header = card.getByRole("heading", { level: 2 }).previousElementSibling as HTMLElement;
+    expect(header).toHaveTextContent(/~\d+ (sec|min)/);
+    expect(header).not.toHaveTextContent(/\d+(m|h|d) ago|·/);
+    expect(card.getByRole("button", { name: "Previous" })).toHaveClass("size-11");
+    expect(card.getByRole("button", { name: "Next" })).toHaveClass("size-11");
+    expect(card.getByRole("button", { name: "More" })).toHaveTextContent("More");
+  });
+
+  it("keeps the action bar in the card's flow on a phone, not fixed to the screen", async () => {
+    const mock = createMockApp();
+    openItem(taskKey(mock, "captcha"), mock);
+    const card = await cardOf("FindRecord");
+    const bar = within(card).getByRole("button", { name: "Open and solve" }).closest("div.sticky");
+    expect(bar).not.toBeNull();
+    expect(bar?.className).not.toMatch(/fixed/);
   });
 
   it("presses the primary button on Enter", async () => {
@@ -789,7 +827,7 @@ describe("a request held for the person", () => {
     const card = within(await cardOf("Cardinal Insights"));
     expect(
       await card.findByRole("heading", {
-        name: /^Sending a removal request to Cardinal Insights in (9|10) min unless you stop it\.$/,
+        name: /^Sends to Cardinal Insights in (9|10) min unless you stop it\.$/,
       }),
     ).toBeVisible();
     expect(card.queryByText(/^POST cardinal\.example/)).not.toBeVisible();
@@ -920,9 +958,7 @@ describe("a run that stopped before sending", () => {
     const mock = createMockApp();
     const { user } = openItem(taskKey(mock, "unapproved_submit"), mock);
     const card = within(await cardOf("Harbor Consumer Data"));
-    expect(
-      card.getByRole("heading", { name: /^Did the removal form on .* go through\?/ }),
-    ).toBeVisible();
+    expect(card.getByRole("heading", { name: /^Did the form on .* go through\?/ })).toBeVisible();
     await user.click(await card.findByRole("button", { name: "What was sent" }));
     expect(card.queryByText(/left the browser/)).toBeNull();
     expect((await card.findAllByRole("listitem")).length).toBeGreaterThan(0);

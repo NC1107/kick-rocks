@@ -29,7 +29,9 @@ export const nextStep = (status: RequestStatus): string | null => NEXT_STEPS[sta
 
 function verifiedGoneAt(source: PhraseSource): string | null {
   if (source.verifiedGoneAt) return source.verifiedGoneAt;
-  const [latest] = newestFirst(source.events?.filter((event) => event.type === "verified_gone") ?? []);
+  const [latest] = newestFirst(
+    source.events?.filter((event) => event.type === "verified_gone") ?? [],
+  );
   return latest?.createdAt ?? null;
 }
 

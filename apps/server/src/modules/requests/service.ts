@@ -183,7 +183,9 @@ export function createRequestsApi(services: AppServices): RequestsApi {
         at: sql<string>`max(${requestEvents.createdAt})`,
       })
       .from(requestEvents)
-      .where(and(inArray(requestEvents.requestId, [...ids]), eq(requestEvents.type, "verified_gone")))
+      .where(
+        and(inArray(requestEvents.requestId, [...ids]), eq(requestEvents.type, "verified_gone")),
+      )
       .groupBy(requestEvents.requestId)
       .all();
     return new Map(rows.map((row) => [row.requestId, row.at]));

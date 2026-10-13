@@ -70,7 +70,9 @@ describe("the request page", () => {
       route: `/requests/${request.id}`,
       mock,
     });
-    expect(await screen.findByText("Asked them to stop selling and delete your data")).toBeVisible();
+    expect(
+      await screen.findByText("Asked them to stop selling and delete your data"),
+    ).toBeVisible();
   });
 
   it("orders events with the newest first", () => {
@@ -676,11 +678,14 @@ describe("the request page header and summary", () => {
       route: `/requests/${request.id}`,
       mock,
     });
-    const header = (await screen.findByRole("heading", { name: "AudienceGrid", level: 1 }))
-      .closest("header") as HTMLElement;
+    const header = (await screen.findByRole("heading", { name: "AudienceGrid", level: 1 })).closest(
+      "header",
+    ) as HTMLElement;
     expect(header).not.toHaveTextContent(request.reference);
     expect(header).not.toHaveTextContent("CCPA");
-    const summary = screen.getByRole("heading", { name: "Summary" }).closest("section") as HTMLElement;
+    const summary = screen
+      .getByRole("heading", { name: "Summary" })
+      .closest("section") as HTMLElement;
     expect(within(summary).getByText(request.reference)).toBeVisible();
     expect(within(summary).getByText("CCPA")).toBeVisible();
   });
@@ -697,8 +702,9 @@ describe("the request page header and summary", () => {
       mock,
     });
     const day = formatShortDate(request.verifiedGoneAt);
-    const header = (await screen.findByRole("heading", { name: request.target.name, level: 1 }))
-      .closest("header") as HTMLElement;
+    const header = (
+      await screen.findByRole("heading", { name: request.target.name, level: 1 })
+    ).closest("header") as HTMLElement;
     expect(header).toHaveTextContent(`Gone \u00b7 checked ${day}`);
     expect(await screen.findByText(`Checked ${day} - no longer listed`)).toBeVisible();
   });

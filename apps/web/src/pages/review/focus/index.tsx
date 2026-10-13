@@ -370,7 +370,7 @@ export function Focus({
 
   return (
     <FocusState value={context}>
-      <div className="max-sm:pb-28">
+      <div>
         {failure ? (
           <Callout intent="danger" title="Could not save that" className="mb-4 max-w-[40rem]">
             {failure}

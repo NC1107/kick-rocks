@@ -94,7 +94,8 @@ describe("the requests page", () => {
   it("says what to do next on a request that waits on the person, and nowhere else", async () => {
     open();
     const list = await rows();
-    const steps = /Send a follow-up|Check the address|Open and answer them|Read their reply|Send a nudge/;
+    const steps =
+      /Send a follow-up|Check the address|Open and answer them|Read their reply|Send a nudge/;
     const withStep = list.filter((row) => steps.test(row.textContent ?? ""));
     expect(withStep.length).toBeGreaterThan(0);
     for (const row of list.filter((row) => within(row).queryByText("Waiting on them"))) {
@@ -113,9 +114,9 @@ describe("the requests page", () => {
     open("/requests", mock);
     const list = await rows();
     const day = formatShortDate(verified.verifiedGoneAt);
-    expect(list.filter((row) => row.textContent?.includes(`Gone \u00b7 checked ${day}`))).toHaveLength(
-      1,
-    );
+    expect(
+      list.filter((row) => row.textContent?.includes(`Gone \u00b7 checked ${day}`)),
+    ).toHaveLength(1);
     expect(list.some((row) => within(row).queryByText("They said removed"))).toBe(true);
   });
 
@@ -265,7 +266,9 @@ describe("grouping by batch", () => {
   it("opens by batch from the address and offers no batches across every profile", async () => {
     const first = open("/requests?group=batch");
     expect(await screen.findByRole("radio", { name: "By batch" })).toBeChecked();
-    expect((await screen.findAllByRole("heading", { name: /sites? \u00b7 \d+$/i })).length).toBeGreaterThan(0);
+    expect(
+      (await screen.findAllByRole("heading", { name: /sites? \u00b7 \d+$/i })).length,
+    ).toBeGreaterThan(0);
     first.unmount();
     open("/requests?group=batch&profileId=all");
     await screen.findByLabelText("Filter requests");

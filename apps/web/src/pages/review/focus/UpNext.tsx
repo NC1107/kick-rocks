@@ -1,13 +1,14 @@
 import type { NeedsYouItem, NeedsYouQueue } from "@kickrocks/shared";
 import { useState } from "react";
-import { Button, Row, RowGroup, Section } from "../../../components/ui/index.js";
-import { KIND_COPY, WORDS } from "./copy.js";
+import { Button, Row, Section } from "../../../components/ui/index.js";
+import { shortLabel } from "../headline.js";
+import { WORDS } from "./copy.js";
 import { effortShort, itemTitle } from "./model.js";
 
-/** The kind of item, and for a listing whose title is a person, the name that goes with the site. */
+/** What to do, and for a listing whose title is a site, the name on the listing. */
 function describe(item: NeedsYouItem): string {
-  const tag = KIND_COPY[item.kind].tag;
-  return "match" in item.source ? `${tag} · ${item.source.match.fields.name}` : tag;
+  const label = shortLabel(item);
+  return "match" in item.source ? `${label} \u00b7 ${item.source.match.fields.name}` : label;
 }
 
 /** What comes after the open item: a short title and how long each takes, with snoozed items folded away. */
@@ -29,7 +30,7 @@ export function UpNext({
 }) {
   const [showSnoozed, setShowSnoozed] = useState(false);
   const list = (
-    <RowGroup>
+    <div className="divide-y divide-line border-t border-line">
       {items.map((item) => (
         <Row
           key={item.key}
@@ -45,7 +46,7 @@ export function UpNext({
           className="py-1.5"
         />
       ))}
-    </RowGroup>
+    </div>
   );
   return (
     <nav aria-label={WORDS.upNext} className="flex min-w-0 flex-col gap-2">

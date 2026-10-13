@@ -69,9 +69,9 @@ describe("claimed and verified removals", () => {
   it("says when a later scan checked it, from the timeline or from the list's date", () => {
     const expected = `Gone \u00b7 checked ${formatShortDate(verifiedGone.createdAt)}`;
     expect(statusPhrase(request("confirmed", verifiedGone)).text).toBe(expected);
-    expect(
-      statusPhrase({ status: "confirmed", verifiedGoneAt: verifiedGone.createdAt }).text,
-    ).toBe(expected);
+    expect(statusPhrase({ status: "confirmed", verifiedGoneAt: verifiedGone.createdAt }).text).toBe(
+      expected,
+    );
   });
 
   it("leaves other statuses alone", () => {

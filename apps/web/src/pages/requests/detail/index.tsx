@@ -62,10 +62,10 @@ import {
   useReplyCheck,
 } from "../../mailbox/check-for-replies.js";
 import { askedSentence, gutterTime } from "../format.js";
-import { familyShape } from "../shape.js";
 import { statusPhrase } from "../phrase.js";
 import { detailRefreshInterval } from "../polling.js";
 import { PHRASE_TONE } from "../RequestRow.js";
+import { familyShape } from "../shape.js";
 import { ReplyCard } from "./ReplyCard.js";
 import { Timeline } from "./Timeline.js";
 

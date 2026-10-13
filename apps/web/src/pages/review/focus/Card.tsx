@@ -1,5 +1,5 @@
 import type { NeedsYouItem } from "@kickrocks/shared";
-import { ChevronLeft, ChevronRight, MoreHorizontal } from "lucide-react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { type ReactNode, useState } from "react";
 import { screenshotUrl } from "../../../api/index.js";
 import {
@@ -14,7 +14,6 @@ import {
   Meter,
 } from "../../../components/ui/index.js";
 import { cn } from "../../../lib/cn.js";
-import { ageLabel } from "../model.js";
 import { useFocus } from "./context.js";
 import { WORDS } from "./copy.js";
 import { effortLabel, itemTitle } from "./model.js";
@@ -71,11 +70,11 @@ export function Thumbnail({ taskId }: { taskId: string }) {
 function TopBar({ menu }: { menu: readonly MenuItem[] }) {
   const { progress, canMove, next, previous } = useFocus();
   return (
-    <div className="flex items-center gap-2 border-b border-line px-3 py-1.5">
-      <IconButton label="Previous" onClick={previous} disabled={!canMove}>
+    <div className="flex items-center gap-1 border-b border-line px-2 py-0.5">
+      <IconButton label="Previous" onClick={previous} disabled={!canMove} className="size-11">
         <ChevronLeft />
       </IconButton>
-      <IconButton label="Next" onClick={next} disabled={!canMove}>
+      <IconButton label="Next" onClick={next} disabled={!canMove} className="size-11">
         <ChevronRight />
       </IconButton>
       <span className="font-mono text-meta text-ink-2 tabular-nums">
@@ -93,9 +92,9 @@ function TopBar({ menu }: { menu: readonly MenuItem[] }) {
         align="end"
         items={menu}
         trigger={(props) => (
-          <IconButton label="More" {...props}>
-            <MoreHorizontal />
-          </IconButton>
+          <Button variant="ghost" className="min-h-11" {...props}>
+            More
+          </Button>
         )}
       />
     </div>
@@ -208,11 +207,6 @@ export function CardFrame({
             </p>
             <p className="m-0 flex shrink-0 items-baseline gap-2 font-mono text-meta text-ink-3 tabular-nums">
               <span>{effortLabel(item.effort.minutes)}</span>
-              <span aria-hidden="true">·</span>
-              <span>
-                <span className="sr-only">Waiting </span>
-                {ageLabel(item.since)}
-              </span>
               {item.tries > 0 ? (
                 <>
                   <span aria-hidden="true">·</span>
@@ -229,7 +223,7 @@ export function CardFrame({
       <div
         className={cn(
           "sticky bottom-0 z-10 rounded-b-md border-t border-line bg-canvas px-4 py-3",
-          "max-sm:fixed max-sm:inset-x-0 max-sm:bottom-0 max-sm:rounded-none max-sm:pb-[max(0.75rem,env(safe-area-inset-bottom))]",
+          "max-sm:pb-[max(0.75rem,env(safe-area-inset-bottom))]",
         )}
       >
         {bar}
