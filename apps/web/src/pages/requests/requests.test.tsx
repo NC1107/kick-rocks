@@ -103,7 +103,7 @@ describe("the requests page", () => {
     }
     const noAnswer = list.find((row) => within(row).queryByText("No answer"));
     expect(noAnswer).toHaveTextContent("Send a follow-up");
-    const bounced = list.find((row) => within(row).queryByText("Email bounced"));
+    const bounced = list.find((row) => within(row).queryByText("Email didn't arrive"));
     expect(bounced).toHaveTextContent("Check the address");
   });
 

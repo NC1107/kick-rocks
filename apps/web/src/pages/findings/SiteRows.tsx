@@ -66,7 +66,7 @@ export function SiteRows({
               <ScanTimes site={site} hideDue={site.status === "removal_stalled"} />
             </span>
           </div>
-          <div className="relative pr-2">
+          <div className="relative ml-3 pr-2">
             {stuckAction(site, onScan) ?? (
               <SiteMenu site={site} profileId={profileId} onScan={() => onScan(site)} />
             )}

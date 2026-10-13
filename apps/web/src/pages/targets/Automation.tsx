@@ -51,7 +51,7 @@ const LEGEND: readonly { term: string; meaning: string }[] = [
 /** Explains the Scan and Removal columns, which show only from the large breakpoint up. */
 export function AutomationLegend() {
   return (
-    <details className="mb-2.5 hidden rounded-md border border-line px-3.5 py-2 text-meta text-ink-2 xl:block">
+    <details className="mb-2.5 hidden text-meta text-ink-2 xl:block">
       <summary className="cursor-pointer rounded-xs text-ui font-medium text-ink">Legend</summary>
       <dl className="mt-3 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5">
         {LEGEND.map((entry) => (

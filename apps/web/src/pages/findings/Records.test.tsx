@@ -38,7 +38,7 @@ describe("RecordList", () => {
       record("Decided Not", "unlikely", "not_mine"),
       record("Waiting Unlikely", "unlikely"),
     ]);
-    expect(screen.getByRole("button", { name: "1 unlikely" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "1 weak match" })).toBeVisible();
     expect(screen.getByRole("button", { name: "Mark 1 unlikely record as not you" })).toBeVisible();
   });
 

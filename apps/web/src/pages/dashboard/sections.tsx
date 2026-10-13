@@ -13,7 +13,7 @@ import {
   Section,
 } from "../../components/ui/index.js";
 import { cn } from "../../lib/cn.js";
-import { formatCount, formatShortDate, pluralize } from "../../lib/format.js";
+import { formatCount, formatShortDate } from "../../lib/format.js";
 import { paths } from "../../lib/paths.js";
 
 /** The three questions a person has about their removals, each answered by some request statuses. */
@@ -192,6 +192,7 @@ export function Hero({
             ) : undefined
           }
           trailing={action}
+          trailingBelowOnPhone
         />
       </RowGroup>
       <p className="mt-2 font-mono text-caption text-ink-3">
@@ -216,7 +217,8 @@ export function NeedsYouSection({ attention }: { attention: Dashboard["attention
       <RowGroup>
         <Row
           to={paths.review()}
-          title={`${pluralize(total, "thing")} to do · about ${attention.needsYou.minutes} min`}
+          title={`${total} to do · about ${attention.needsYou.minutes} min`}
+          trailing={<ChevronRight aria-hidden="true" className="size-4 text-ink-3" />}
         />
       </RowGroup>
     </Section>
@@ -233,13 +235,12 @@ function groupLink(dashboard: Dashboard, statuses: readonly RequestStatus[]): st
 /** "1 checked gone · 11 said removed": what a later scan proved, against what the sites only claimed. */
 function doneWords(dashboard: Dashboard): ReactNode {
   const settled = (dashboard.counts.confirmed ?? 0) + (dashboard.counts.no_record ?? 0);
-  if (settled === 0) return undefined;
+  const cancelled = dashboard.counts.cancelled ?? 0;
+  if (settled + cancelled === 0) return undefined;
   const claimed = Math.max(0, settled - dashboard.verifiedGone);
-  return (
-    <span className="font-mono tabular-nums">
-      {`${dashboard.verifiedGone} checked gone · ${claimed} said removed`}
-    </span>
-  );
+  const parts = [`${dashboard.verifiedGone} checked gone`, `${claimed} said removed`];
+  if (cancelled > 0) parts.push(`${cancelled} cancelled`);
+  return <span className="font-mono tabular-nums">{parts.join(" · ")}</span>;
 }
 
 export function RemovalsSection({ dashboard }: { dashboard: Dashboard }) {

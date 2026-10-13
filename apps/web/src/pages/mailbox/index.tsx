@@ -63,7 +63,7 @@ export function Component() {
 
   if (profile.isPending || providers.isPending) {
     return (
-      <div aria-busy="true" className="flex max-w-3xl flex-col gap-4">
+      <div aria-busy="true" className="flex flex-col gap-4">
         <div>
           <Skeleton className="mb-2 h-4 w-20" />
           <Skeleton className="h-7 w-56" />
@@ -131,7 +131,7 @@ function MailboxPage({
       <PageHeader
         title={mailbox && !editing ? "Mailbox" : mailbox ? "Edit mailbox" : "Connect a mailbox"}
       />
-      <div className="max-w-3xl">
+      <div>
         {showWizard ? (
           <Wizard
             profile={profile}

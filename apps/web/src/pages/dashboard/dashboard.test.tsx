@@ -103,10 +103,8 @@ describe("Home needs you", () => {
     } as never);
     expect(total).toBeGreaterThan(queue.active);
     expect(heading).toHaveTextContent(`Needs you · ${total}`);
-    expect(
-      within(section).getByText(`${total} things to do · about ${queue.minutes} min`),
-    ).toBeVisible();
-    expect(within(section).getByRole("link", { name: /things to do/ })).toHaveAttribute(
+    expect(within(section).getByText(`${total} to do · about ${queue.minutes} min`)).toBeVisible();
+    expect(within(section).getByRole("link", { name: /to do · about/ })).toHaveAttribute(
       "href",
       "/review",
     );
@@ -130,7 +128,7 @@ describe("Home needs you", () => {
 
   it("keeps Review findings the only filled button", async () => {
     renderPage(<HomePage />);
-    await screen.findByRole("link", { name: /things to do/ });
+    await screen.findByRole("link", { name: /to do · about/ });
     const filled = [...document.querySelectorAll("a, button")].filter((element) =>
       element.className.toString().includes("bg-accent-fill"),
     );

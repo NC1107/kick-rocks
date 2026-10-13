@@ -13,7 +13,7 @@ export const FINDING_TABS = [
   { id: "in_progress", label: "In progress" },
   { id: "gone", label: "Gone" },
   { id: "not_listed", label: "Not listed" },
-  { id: "not_scanned", label: "Not scanned" },
+  { id: "not_scanned", label: "Not checked" },
 ] as const;
 
 export type FindingTab = (typeof FINDING_TABS)[number]["id"];

@@ -85,7 +85,7 @@ export const REQUEST_STATUS_META: Record<RequestStatus, StatusMeta> = {
     description: "The deadline passed without an answer.",
   },
   bounced: {
-    label: "Email bounced",
+    label: "Email didn't arrive",
     family: "failed",
     shape: "square",
     description: "The email could not be delivered.",

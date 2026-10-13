@@ -27,7 +27,7 @@ describe("findings", () => {
       /^In progress\s*2$/,
       /^Gone\s*1$/,
       /^Not listed\s*2$/,
-      /^Not scanned\s*\d+$/,
+      /^Not checked\s*\d+$/,
     ]) {
       expect(screen.getByRole("tab", { name })).toBeVisible();
     }
@@ -148,8 +148,8 @@ describe("findings", () => {
 
   it("puts a removal that ended without the record going under Needs you", async () => {
     open("/findings?show=needs_you");
-    expect(await screen.findByText("No reply to the removal")).toBeVisible();
-    expect(screen.getAllByText("Removal stuck").length).toBeGreaterThan(0);
+    expect(await screen.findByText("No reply")).toBeVisible();
+    expect(screen.getAllByText("Stuck").length).toBeGreaterThan(0);
   });
 
   it("states where a removal in progress stands, one row per site that opens the request", async () => {
@@ -175,7 +175,7 @@ describe("findings", () => {
     const { user } = open();
     await user.click(await tab(/^Not listed/));
     expect(await screen.findByText("Nothing found is you")).toBeVisible();
-    await user.click(screen.getByRole("tab", { name: /^Not scanned/ }));
+    await user.click(screen.getByRole("tab", { name: /^Not checked/ }));
     expect(await screen.findByText(/Paused until/)).toBeVisible();
     expect(screen.getAllByText("Skipped").length).toBeGreaterThan(0);
   });
@@ -191,8 +191,8 @@ describe("findings on a phone", () => {
       "max-sm:flex-wrap",
     );
 
-    await user.click(screen.getByRole("tab", { name: /^Not scanned/ }));
-    const list = await screen.findByRole("list", { name: "Not scanned" });
+    await user.click(screen.getByRole("tab", { name: /^Not checked/ }));
+    const list = await screen.findByRole("list", { name: "Not checked" });
     await user.click(within(list).getByRole("button", { name: "More for FindRecord" }));
     const menu = await screen.findByRole("menu");
     for (const name of ["Scan now", "Pause for 30 days", "Skip this site", "Rescan every..."]) {
@@ -248,7 +248,7 @@ describe("scanning without a campaign", () => {
     });
     const { user } = open("/findings?show=not_scanned", mock);
     const seen = instrument(mock);
-    const list = await screen.findByRole("list", { name: "Not scanned" });
+    const list = await screen.findByRole("list", { name: "Not checked" });
     const row = within(list)
       .getAllByRole("listitem")
       .find((item) => within(item).queryByText("FindRecord"));
@@ -287,7 +287,7 @@ describe("controls for one site", () => {
   it("pauses a site from its row and moves it under paused", async () => {
     stubPhone();
     const { user, mock } = open("/findings?show=not_scanned");
-    const list = await screen.findByRole("list", { name: "Not scanned" });
+    const list = await screen.findByRole("list", { name: "Not checked" });
     const row = within(list)
       .getAllByRole("listitem")
       .find((item) => within(item).queryByText("FindRecord"));

@@ -14,7 +14,7 @@ const REMOVAL_WORDS: Partial<Record<RequestStatus, string>> = {
   sent: "Removal sent, awaiting reply",
   awaiting_reply: "Removal sent, awaiting reply",
   follow_up_due: "No reply yet, follow-up due",
-  no_response: "No reply to the removal",
+  no_response: "No reply",
   needs_verification: "The site wants something from you",
   rejected: "Removal refused",
   bounced: "Removal bounced",

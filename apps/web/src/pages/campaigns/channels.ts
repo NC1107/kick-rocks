@@ -153,12 +153,14 @@ export function readySummary(counts: ChannelCounts, items: CampaignPreview["item
       const [one, many] = READY_NOUNS[channel];
       return `${counts[channel]} ${counts[channel] === 1 ? one : many}`;
     });
+  // Skipped splits into what is already in hand and the rest, so the numbers match the preview's.
   const { handled } = countNovelty(items);
-  const skipped =
-    counts.skipped > 0
-      ? `${counts.skipped} skipped${handled === counts.skipped ? " (already done)" : ""}`
-      : null;
-  return [ready.length > 0 ? `${ready.join(", ")} ready` : null, skipped]
+  const rest = Math.max(0, counts.skipped - handled);
+  return [
+    ready.length > 0 ? `${ready.join(", ")} ready` : null,
+    handled > 0 ? `${handled} already handled` : null,
+    rest > 0 ? `${rest} skipped` : null,
+  ]
     .filter((part): part is string => part !== null)
     .join(" \u00b7 ");
 }

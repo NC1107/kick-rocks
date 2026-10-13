@@ -107,7 +107,7 @@ export function Component() {
     <>
       <PageHeader title="New profile" description="Who to look for" />
       <UnsavedChangesDialog blocker={unsaved.blocker} />
-      <form ref={form} onSubmit={submit} noValidate className="flex max-w-3xl flex-col gap-4">
+      <form ref={form} onSubmit={submit} noValidate className="flex flex-col gap-4">
         <Section label="Profile">
           <RowGroup>
             <DetailsFields

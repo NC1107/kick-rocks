@@ -193,7 +193,7 @@ describe("readySummary", () => {
   it("names the channels in the mix and says the skipped sites are already done", () => {
     const counts = { email: 7, form: 0, manual: 0, scan: 0, skipped: 2 };
     expect(readySummary(counts, skippedItems("already_active", "already_confirmed"))).toBe(
-      "7 emails ready · 2 skipped (already done)",
+      "7 emails ready · 2 already handled",
     );
   });
 
@@ -205,7 +205,7 @@ describe("readySummary", () => {
   it("does not call a skip already done when some have another reason", () => {
     const counts = { email: 3, form: 0, manual: 0, scan: 0, skipped: 2 };
     expect(readySummary(counts, skippedItems("already_active", "no_mailbox"))).toBe(
-      "3 emails ready · 2 skipped",
+      "3 emails ready · 1 already handled · 1 skipped",
     );
   });
 });

@@ -7,7 +7,7 @@ import type { StatusMeta } from "./status.js";
  */
 export const LISTING_STATUS_META: Record<ListingStatus, StatusMeta> = {
   not_scanned: {
-    label: "Not scanned",
+    label: "Not checked yet",
     family: "closed",
     shape: "dashed-ring",
     description: "This site has not been searched for you yet.",
@@ -37,7 +37,7 @@ export const LISTING_STATUS_META: Record<ListingStatus, StatusMeta> = {
     description: "A scan stopped for something only you can do.",
   },
   removal_stalled: {
-    label: "Removal stuck",
+    label: "Stuck",
     family: "needs",
     shape: "triangle",
     description: "A removal was refused, bounced, got no reply or was cancelled.",
@@ -123,7 +123,7 @@ export const LISTING_CHIPS: readonly {
   { id: "removed", label: "Removed", statuses: ["removed"] },
   { id: "not_found", label: "Not listed", statuses: ["not_found", "not_you", "unclear"] },
   { id: "waiting", label: "Scanning", statuses: ["waiting", "scanning"] },
-  { id: "not_scanned", label: "Not scanned", statuses: ["not_scanned"] },
+  { id: "not_scanned", label: "Not checked yet", statuses: ["not_scanned"] },
   { id: "paused", label: "Paused or skipped", statuses: ["paused", "skipped"] },
 ];
 

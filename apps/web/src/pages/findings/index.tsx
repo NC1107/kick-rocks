@@ -90,7 +90,7 @@ function Findings({ profileId }: { profileId: string }) {
       <div className="flex flex-col gap-4">
         {records.length > 0 ? <FindingList records={records} /> : null}
         {stuck.length > 0 ? (
-          <Section label="Stuck" count={String(stuck.length)}>
+          <Section label="Stuck" count={pluralize(stuck.length, "site")}>
             <SiteRows sites={stuck} profileId={profileId} label="Stuck sites" onScan={scanOne} />
           </Section>
         ) : null}
