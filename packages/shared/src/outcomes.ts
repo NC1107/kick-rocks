@@ -14,14 +14,13 @@ export const BlockedReason = z.enum([
 ]);
 export type BlockedReason = z.infer<typeof BlockedReason>;
 
-const PERSON_ONLY_BLOCKS: ReadonlySet<BlockedReason> = new Set([
-  "captcha",
-  "bot_detection",
-  "phone_verification",
-  "id_upload",
-]);
+const PERSON_ONLY_BLOCKS: ReadonlySet<BlockedReason> = new Set(["phone_verification", "id_upload"]);
 
-/** A block an agent cannot get past either, so handing the task over would only block it again. */
+/**
+ * A block an agent cannot get past either, so handing the task over would only block it again.
+ * An agent may pass a Cloudflare Turnstile with `browser_solve_challenge`, so a CAPTCHA or bot
+ * check is worth a try, but a phone or ID demand is not.
+ */
 export function isPersonOnlyBlock(reason: BlockedReason | null): boolean {
   return reason !== null && PERSON_ONLY_BLOCKS.has(reason);
 }

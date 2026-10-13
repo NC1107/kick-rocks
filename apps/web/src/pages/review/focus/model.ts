@@ -1,7 +1,5 @@
 import type { NeedsYouItem, ProfileField } from "@kickrocks/shared";
 
-/** How long away the tab must have been before coming back asks whether the page worked. */
-export const RETURN_AFTER_MS = 5_000;
 /** An "Open the page" older than this no longer asks, since the person has surely moved on. */
 export const OPENED_FRESH_MS = 2 * 60 * 60 * 1000;
 export const UNDO_MS = 5_000;

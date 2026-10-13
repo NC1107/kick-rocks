@@ -155,7 +155,7 @@ describe("POST /tasks/:id/assign", () => {
     expect(refused.ok ? null : refused.body.error).toBe("assignee_cannot_take");
   });
 
-  it("will not give a task kept for the person to an agent when a bot check stopped it", async () => {
+  it("will not give a task kept for the person to an agent when a phone code stopped it", async () => {
     const target = seedTarget(ctx);
     const task = seedTask(ctx, {
       kind: "agent",
@@ -163,7 +163,7 @@ describe("POST /tasks/:id/assign", () => {
       payload: {
         ...agentPayload(target.id, "remove"),
         reason: "blocked",
-        blockedReason: "captcha",
+        blockedReason: "phone_verification",
       },
       profileId,
       targetId: target.id,

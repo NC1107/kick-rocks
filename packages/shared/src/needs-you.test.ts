@@ -177,7 +177,7 @@ describe("needsYouCounts", () => {
 describe("isPersonOnlyBlock", () => {
   it("names the blocks an agent cannot pass and no others", () => {
     const refused = BlockedReason.options.filter((reason) => isPersonOnlyBlock(reason));
-    expect(refused).toEqual(["captcha", "phone_verification", "id_upload", "bot_detection"]);
+    expect(refused).toEqual(["phone_verification", "id_upload"]);
     expect(isPersonOnlyBlock(null)).toBe(false);
   });
 });
