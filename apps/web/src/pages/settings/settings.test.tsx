@@ -544,7 +544,9 @@ describe("bundled recipes to check", () => {
 
   it("lists shipped recipes that were not seen through, with what was and was not checked", async () => {
     advanced();
-    expect(await screen.findByRole("heading", { name: /^Recipes waiting for approval/ })).toBeVisible();
+    expect(
+      await screen.findByRole("heading", { name: /^Recipes waiting for approval/ }),
+    ).toBeVisible();
     const cardinal = await screen.findByRole("region", {
       name: /Cardinal Insights removal recipe/,
     });
