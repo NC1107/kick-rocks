@@ -269,6 +269,7 @@ export function RemovalsSection({ dashboard }: { dashboard: Dashboard }) {
             }
             title={group.title}
             description={group.id === "resolved" ? doneWords(dashboard) : undefined}
+            wrapDescription
             trailing={
               <Count value={groupTotal(dashboard.counts, group.statuses)} className="text-ui" />
             }
