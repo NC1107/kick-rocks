@@ -1,4 +1,4 @@
-import { API_ROUTES, isActiveStatus, RequestStatus } from "@kickrocks/shared";
+import { API_ROUTES, RequestStatus } from "@kickrocks/shared";
 import { skipToken } from "@tanstack/react-query";
 import { ChevronDown, Search, UserRound } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
@@ -9,9 +9,7 @@ import {
   activeFilterTags,
   Button,
   Callout,
-  DataList,
   EmptyState,
-  EntityLink,
   Field,
   type FilterGroup,
   Filters,
@@ -21,8 +19,10 @@ import {
   Menu,
   type MenuItem,
   PageHeader,
-  RelativeTime,
-  StatusMark,
+  Pagination,
+  RowGroup,
+  Section,
+  Skeleton,
   TableToolbar,
 } from "../../components/ui/index.js";
 import { pluralize } from "../../lib/format.js";
@@ -35,10 +35,12 @@ import {
   readRequestFilters,
   toRequestQuery,
 } from "./filters.js";
-import { RIGHT_TOKENS } from "./format.js";
+import { groupRequests } from "./grouping.js";
 import { listRefreshInterval } from "./polling.js";
+import { RequestRow } from "./RequestRow.js";
 
 const SEARCH_DELAY_MS = 250;
+const SKELETON_ROWS = ["a", "b", "c", "d", "e", "f"];
 
 export function Component() {
   return <RequireProfile>{(profile) => <Requests profileId={profile.id} />}</RequireProfile>;
@@ -188,7 +190,7 @@ function Requests({ profileId }: { profileId: string }) {
   return (
     <>
       <PageHeader
-        title="Requests"
+        title="Removals"
         description="Every request, and where it stands"
         hideDescriptionOnPhone
         actions={
@@ -198,7 +200,7 @@ function Requests({ profileId }: { profileId: string }) {
         }
       />
 
-      <TableToolbar>
+      <TableToolbar count={resultCount}>
         <search aria-label="Filter requests" className="contents">
           {profiles.length > 1 ? (
             <Menu
@@ -268,110 +270,44 @@ function Requests({ profileId }: { profileId: string }) {
           />
         )
       ) : (
-        <DataList
-          label="Requests"
-          items={items}
-          getKey={(item) => item.id}
-          identityHeader="Target"
-          identity={(item) => ({
-            title: item.target.name,
-            meta: item.reference,
-            to: {
-              kind: "request",
-              id: item.id,
-              reference: item.reference,
-              targetName: item.target.name,
-            },
-          })}
-          tags={(item) => (
-            <>
-              <StatusMark status={item.status} />
-              <span className="font-mono">
-                {item.rights.map((right) => RIGHT_TOKENS[right]).join(" · ")}
-              </span>
-              <span>{CHANNEL_LABELS[item.channel]}</span>
-              {item.dueAt && isActiveStatus(item.status) ? (
-                <span className="font-mono">
-                  due <RelativeTime iso={item.dueAt} />
-                </span>
-              ) : null}
-            </>
+        <div aria-busy={list.isPlaceholderData || undefined} className="flex flex-col gap-3">
+          {list.isPending ? (
+            <RowGroup aria-label="Loading requests">
+              {SKELETON_ROWS.map((id) => (
+                <div key={id} className="flex min-h-11 flex-col justify-center gap-1.5 px-3.5 py-2">
+                  <Skeleton className="h-3.5 w-40" />
+                  <Skeleton className="h-3 w-24" />
+                </div>
+              ))}
+            </RowGroup>
+          ) : (
+            groupRequests(items).map((section) => (
+              <Section key={section.id} label={section.label} count={section.items.length}>
+                <RowGroup role="list" aria-label={section.label}>
+                  {section.items.map((item) => (
+                    <RequestRow
+                      key={item.id}
+                      item={item}
+                      {...(allProfiles
+                        ? { profileName: names.get(item.profileId) ?? "Profile" }
+                        : {})}
+                    />
+                  ))}
+                </RowGroup>
+              </Section>
+            ))
           )}
-          columns={[
-            { id: "status", header: "Status", cell: (item) => <StatusMark status={item.status} /> },
-            ...(allProfiles
-              ? [
-                  {
-                    id: "profile",
-                    header: "Profile",
-                    className: "hidden xl:table-cell",
-                    cell: (item: (typeof items)[number]) => (
-                      <span className="text-ink-2">
-                        <EntityLink
-                          variant="quiet"
-                          className="relative z-10"
-                          to={{
-                            kind: "profile",
-                            id: item.profileId,
-                            name: names.get(item.profileId) ?? "Profile",
-                          }}
-                        />
-                      </span>
-                    ),
-                  },
-                ]
-              : []),
-            {
-              id: "asked",
-              header: "Asked",
-              mono: true,
-              cell: (item) => (
-                <span className="text-ink-2">
-                  {item.rights.map((right) => RIGHT_TOKENS[right]).join(" · ")}
-                </span>
-              ),
-            },
-            {
-              id: "channel",
-              header: "Channel",
-              className: "hidden xl:table-cell",
-              cell: (item) => <span className="text-ink-2">{CHANNEL_LABELS[item.channel]}</span>,
-            },
-            {
-              id: "sent",
-              header: "Sent",
-              kind: "date",
-              className: "hidden xl:table-cell",
-              cell: (item) => timeOrDash(item.sentAt),
-            },
-            { id: "due", header: "Due", kind: "date", cell: (item) => timeOrDash(item.dueAt) },
-          ]}
-          loading={list.isPending}
-          busy={list.isPlaceholderData}
-          count={resultCount}
-          pager={
-            list.data
-              ? {
-                  page: list.data.page,
-                  pageSize: REQUESTS_PAGE_SIZE,
-                  total: list.data.total,
-                  onPageChange: setPage,
-                  noun: "requests",
-                }
-              : undefined
-          }
-        />
+          {list.data ? (
+            <Pagination
+              page={list.data.page}
+              pageSize={REQUESTS_PAGE_SIZE}
+              total={list.data.total}
+              onPageChange={setPage}
+              noun="requests"
+            />
+          ) : null}
+        </div>
       )}
     </>
-  );
-}
-
-function timeOrDash(iso: string | null) {
-  return iso ? (
-    <span className="text-ink-2">
-      <RelativeTime iso={iso} />
-    </span>
-  ) : (
-    <span className="text-ink-3">-</span>
   );
 }

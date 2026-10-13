@@ -114,7 +114,7 @@ function leaveAndReturn(awayMs = 6_000) {
 
 describe("the primary action of each kind", () => {
   it.each([
-    ["a CAPTCHA", (mock: MockApp) => taskKey(mock, "captcha"), "Open the page"],
+    ["a CAPTCHA", (mock: MockApp) => taskKey(mock, "captcha"), "Open and solve"],
     ["a phone code", (mock: MockApp) => taskKey(mock, "phone_verification"), "Open the page"],
     ["an ID upload", (mock: MockApp) => taskKey(mock, "id_upload"), "Open the page"],
     ["an email link", (mock: MockApp) => taskKey(mock, "email_verification"), "Done"],
@@ -126,7 +126,7 @@ describe("the primary action of each kind", () => {
       "Open the page",
     ],
     ["an approval", (mock: MockApp) => taskKey(mock, "approval_needed"), "Approve"],
-    ["a held request", (mock: MockApp) => `task:${holdTask(mock).id}`, "Send"],
+    ["a held request", (mock: MockApp) => `task:${holdTask(mock).id}`, "Send now"],
     ["a record", (mock: MockApp) => recordKey(mock, "tx-88120"), "This is me"],
     [
       "a request for details",
@@ -138,18 +138,22 @@ describe("the primary action of each kind", () => {
     openItem(key(mock), mock);
     const card = within(await screen.findByRole("article"));
     const primary = await card.findByRole("button", { name: label });
-    const takesEnter = label !== "Approve" && label !== "Send";
+    const takesEnter = label !== "Approve" && label !== "Send now";
     expect(primary.hasAttribute("data-primary")).toBe(takesEnter);
     expect(card.getAllByRole("button").filter((b) => b.hasAttribute("data-primary"))).toHaveLength(
       takesEnter ? 1 : 0,
     );
   });
 
-  it("names what the task is for in one tag", async () => {
+  it("says in one sentence what the task is for, with no tag", async () => {
     const mock = createMockApp();
     openItem(taskKey(mock, "captcha"), mock);
     const card = within(await cardOf("FindRecord"));
-    expect(card.getByText("CAPTCHA")).toBeVisible();
+    expect(
+      card.getByRole("heading", {
+        name: "FindRecord wants a CAPTCHA solved before the removal can be sent.",
+      }),
+    ).toBeVisible();
     expect(card.getByText("Open the page", { selector: "li" })).toBeVisible();
     expect(card.getByText("Solve the CAPTCHA")).toBeVisible();
   });
@@ -299,7 +303,7 @@ describe("did it work", () => {
     const task = blockedTask(mock, "captcha");
     const { user } = openItem(`task:${task.id}`, mock);
     const card = within(await cardOf("FindRecord"));
-    await user.click(card.getByRole("button", { name: "Open the page" }));
+    await user.click(card.getByRole("button", { name: "Open and solve" }));
     expect(opened).toHaveBeenCalledWith(
       "https://www.findrecord.example/p/jordan-q-example-9027",
       "_blank",
@@ -313,14 +317,14 @@ describe("did it work", () => {
     leaveAndReturn();
 
     expect(await screen.findByText("Did it work?")).toBeVisible();
-    expect(screen.queryByRole("button", { name: "Open the page" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Open and solve" })).toBeNull();
   });
 
   it("does not ask after only a moment away", async () => {
     const mock = createMockApp();
     const { user } = openItem(taskKey(mock, "captcha"), mock);
     const card = within(await cardOf("FindRecord"));
-    await user.click(card.getByRole("button", { name: "Open the page" }));
+    await user.click(card.getByRole("button", { name: "Open and solve" }));
     leaveAndReturn(1_000);
     expect(screen.queryByText("Did it work?")).toBeNull();
   });
@@ -330,7 +334,7 @@ describe("did it work", () => {
     const task = blockedTask(mock, "captcha");
     const { user } = openItem(`task:${task.id}`, mock);
     const card = within(await cardOf("FindRecord"));
-    await user.click(card.getByRole("button", { name: "Open the page" }));
+    await user.click(card.getByRole("button", { name: "Open and solve" }));
     leaveAndReturn();
     await user.click(await screen.findByRole("button", { name: "Yes" }));
     await waitFor(() =>
@@ -779,32 +783,37 @@ describe("a request for details", () => {
 });
 
 describe("a request held for the person", () => {
-  it("shows where it is going and a few of its fields, with the rest behind a disclosure", async () => {
+  it("says in plain words what will be sent and when, with the technical fields under Details", async () => {
     const mock = createMockApp();
-    openItem(`task:${holdTask(mock).id}`, mock);
+    const { user } = openItem(`task:${holdTask(mock).id}`, mock);
     const card = within(await cardOf("Cardinal Insights"));
+    expect(
+      await card.findByRole("heading", {
+        name: /^Sending a removal request to Cardinal Insights in (9|10) min unless you stop it\.$/,
+      }),
+    ).toBeVisible();
+    expect(card.queryByText(/^POST cardinal\.example/)).not.toBeVisible();
+    await user.click(card.getByText("Details"));
     expect((await card.findAllByText(/^POST cardinal\.example/))[0]).toBeVisible();
-    expect(card.getByText(/^Waiting · [89]:\d\d$/)).toBeVisible();
-    expect(card.getByText("About to send.")).toBeVisible();
-    expect(card.getByRole("button", { name: /Show all fields/ })).toBeVisible();
+    expect(card.getByText("Task")).toBeVisible();
   });
 
   it("sends the request when the person says send", async () => {
     const mock = createMockApp();
     const { user } = openItem(`task:${holdTask(mock).id}`, mock);
     const card = within(await cardOf("Cardinal Insights"));
-    await user.click(await card.findByRole("button", { name: "Send" }));
+    await user.click(await card.findByRole("button", { name: "Send now" }));
     await waitFor(() => {
       const rows = [...mock.store.sends.values()].flatMap((sends) => sends.rows);
       expect(rows.some((row) => row.kind === "released" && row.responseStatus === 200)).toBe(true);
     });
   });
 
-  it("holds it back on Don't send", async () => {
+  it("holds it back on Stop", async () => {
     const mock = createMockApp();
     const { user } = openItem(`task:${holdTask(mock).id}`, mock);
     const card = within(await cardOf("Cardinal Insights"));
-    await user.click(await card.findByRole("button", { name: "Don't send" }));
+    await user.click(await card.findByRole("button", { name: "Stop" }));
     await waitFor(() => {
       const rows = [...mock.store.sends.values()].flatMap((sends) => sends.rows);
       expect(rows.some((row) => row.status === "declined")).toBe(true);
@@ -833,7 +842,7 @@ describe("a request held for the person", () => {
     const mock = createMockApp();
     const { user } = openItem(`task:${holdTask(mock).id}`, mock);
     const card = within(await cardOf("Cardinal Insights"));
-    const send = await card.findByRole("button", { name: "Send" });
+    const send = await card.findByRole("button", { name: "Send now" });
     for (const sends of mock.store.sends.values()) {
       for (const row of sends.rows) {
         if (row.status === "pending_live")
@@ -911,7 +920,9 @@ describe("a run that stopped before sending", () => {
     const mock = createMockApp();
     const { user } = openItem(taskKey(mock, "unapproved_submit"), mock);
     const card = within(await cardOf("Harbor Consumer Data"));
-    expect(card.getByText("Check sent")).toBeVisible();
+    expect(
+      card.getByRole("heading", { name: /^Did the removal form on .* go through\?/ }),
+    ).toBeVisible();
     await user.click(await card.findByRole("button", { name: "What was sent" }));
     expect(card.queryByText(/left the browser/)).toBeNull();
     expect((await card.findAllByRole("listitem")).length).toBeGreaterThan(0);

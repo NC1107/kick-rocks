@@ -21,57 +21,73 @@ function failing(pattern: RegExp): MockApp {
   return mock;
 }
 
+const SECTION_NAMES = ["Needs you", "In progress", "Done"];
+
 async function rows() {
-  const region = await screen.findByRole("region", { name: "Requests" });
-  await waitFor(() => expect(within(region).queryByText("Loading")).not.toBeInTheDocument());
-  return within(region).getAllByRole("row").slice(1);
+  await screen.findByLabelText("Filter requests");
+  await waitFor(() => expect(screen.queryByLabelText("Loading requests")).not.toBeInTheDocument());
+  return SECTION_NAMES.flatMap((name) => {
+    const list = screen.queryByRole("list", { name });
+    return list ? within(list).getAllByRole("listitem") : [];
+  });
 }
 
 const open = (route = "/requests", mock?: MockApp) =>
   renderPage(<RequestsPage />, { path: "/requests", route, ...(mock ? { mock } : {}) });
 
 describe("the requests page", () => {
-  it("lists the current profile's requests with status, reference, and channel", async () => {
+  it("lists the current profile's requests with a plain status and the channel", async () => {
     open();
     const list = await rows();
     expect(list.length).toBe(36);
     const first = within(list[0] as HTMLElement);
-    expect(first.getByText(/^KR-/)).toBeVisible();
-    expect(first.getAllByText(/Email|Web form/).length).toBeGreaterThan(0);
+    expect(first.getByRole("link")).toBeVisible();
+    expect(first.getByText(/email|web form/)).toBeVisible();
   });
 
-  it("leaves the less important columns to wide screens so the table never scrolls sideways", async () => {
-    open("/requests?profileId=all");
+  it("keeps the reference code off the list rows", async () => {
+    open();
+    const list = await rows();
+    expect(list.map((row) => row.textContent).join("\n")).not.toMatch(/KR-[A-Z0-9]{6}/);
+  });
+
+  it("groups the requests under three labelled sections that add up", async () => {
+    open();
     await rows();
-    for (const name of ["Profile", "Channel", "Sent"]) {
-      expect(screen.getByRole("columnheader", { name })).toHaveClass("hidden", "xl:table-cell");
+    const counts = SECTION_NAMES.map((name) => {
+      const heading = screen.getByRole("heading", { name: new RegExp(`^${name} · \\d+$`) });
+      return Number(heading.textContent?.split("·")[1]);
+    });
+    expect(counts.reduce((sum, count) => sum + count, 0)).toBe(36);
+    for (const name of SECTION_NAMES) {
+      const list = screen.getByRole("list", { name });
+      expect(within(list).getAllByRole("listitem").length).toBeGreaterThan(0);
     }
-    expect(screen.getByRole("columnheader", { name: "Due" })).not.toHaveClass("hidden");
   });
 
-  it("shows a due date under the status only for a request still waiting", async () => {
+  it("shows a due date with the actual day only for a request still waiting", async () => {
     stubPhone();
     open();
-    const region = await screen.findByRole("list", { name: "Requests" });
-    await waitFor(() => expect(within(region).queryByText("Loading")).not.toBeInTheDocument());
-    const list = within(region).getAllByRole("listitem");
+    const list = await rows();
     const finished = list.filter((row) => within(row).queryByText("Confirmed"));
     expect(finished.length).toBeGreaterThan(0);
     for (const row of finished) expect(row.textContent).not.toMatch(/due /);
     const waiting = list.filter((row) => within(row).queryByText("Awaiting reply"));
-    expect(waiting.some((row) => /due /.test(row.textContent ?? ""))).toBe(true);
+    expect(waiting.some((row) => /due [A-Z][a-z]{2} \d{1,2}/.test(row.textContent ?? ""))).toBe(
+      true,
+    );
   });
 
-  it("prints what each request asked for as mono tokens, and a dash for a missing date", async () => {
+  it("says what each request asked for in plain words, and nothing for a missing date", async () => {
     open();
     const list = await rows();
     const text = list.map((row) => row.textContent ?? "").join("\n");
-    expect(text).toMatch(/opt-out/);
+    expect(text).toMatch(/stop selling/);
     expect(text).toMatch(/delete/);
-    expect(text).not.toContain("None");
+    expect(text).not.toMatch(/opt-out|None/);
     const drafts = list.filter((row) => within(row).queryByText("Draft"));
     expect(drafts.length).toBeGreaterThan(0);
-    for (const row of drafts) expect(within(row).getAllByText("-")).toHaveLength(2);
+    for (const row of drafts) expect(row.textContent).not.toMatch(/due |sent /);
   });
 
   it("counts the requests in the toolbar", async () => {
@@ -161,15 +177,14 @@ describe("the profile scope", () => {
     expect(screen.getByRole("button", { name: "Profile: Jordan Example" })).toBeVisible();
   });
 
-  it("lists every profile's requests, with a Profile column, when asked for all profiles", async () => {
+  it("lists every profile's requests, with the owner named, when asked for all profiles", async () => {
     const { user, mock } = open();
     const own = (await rows()).length;
     await user.click(screen.getByRole("button", { name: "Profile: Jordan Example" }));
     await user.click(await screen.findByRole("menuitemradio", { name: "All profiles" }));
     await waitFor(async () => expect((await rows()).length).toBe(mock.store.requests.length));
     expect(mock.store.requests.length).toBeGreaterThan(own);
-    expect(screen.getByRole("columnheader", { name: "Profile" })).toBeVisible();
-    expect(screen.getAllByRole("link", { name: "Riley Sample" }).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Riley Sample/).length).toBeGreaterThan(0);
   });
 
   it("switches to another profile without touching the current one", async () => {

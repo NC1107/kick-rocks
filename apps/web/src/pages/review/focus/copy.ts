@@ -19,14 +19,14 @@ const ASK = "Did it work?";
 export const KIND_COPY: Record<NeedsYouKind, KindCopy> = {
   hold: {
     tag: "Waiting",
-    steps: ["About to send."],
-    primary: "Send",
-    second: "Don't send",
+    steps: [],
+    primary: "Send now",
+    second: "Stop",
     question: ASK,
   },
   approve: {
     tag: "Needs OK",
-    steps: ["Paused before sending."],
+    steps: [],
     primary: "Approve",
     second: "Do it myself",
     question: ASK,
@@ -41,7 +41,7 @@ export const KIND_COPY: Record<NeedsYouKind, KindCopy> = {
   captcha: {
     tag: "CAPTCHA",
     steps: ["Open the page", "Solve the CAPTCHA", "Submit the form"],
-    primary: "Open the page",
+    primary: "Open and solve",
     second: "Already done",
     question: ASK,
   },

@@ -19,6 +19,7 @@ import { ADMISSION_REASON } from "../../lib/admission.js";
 import { formatDateTime } from "../../lib/format.js";
 import { CLASSIFICATION_LABELS } from "../../lib/labels.js";
 import { DetailFrame } from "./DetailFrame.js";
+import { headlineFor } from "./headline.js";
 import { shortcutAllowed } from "./keys.js";
 import { REVIEW_INVALIDATES } from "./model.js";
 
@@ -165,6 +166,7 @@ export function MailDetail({ message, profileId }: { message: ReviewMessage; pro
       <DetailFrame
         label={message.subject}
         title={message.subject}
+        headline={headlineFor({ kind: "mail", key: message.id, message })}
         meta={
           <>
             From <span className="font-mono">{message.fromAddress}</span>,{" "}

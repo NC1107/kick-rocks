@@ -20,7 +20,9 @@ import { cn } from "../../../lib/cn.js";
 import { PROFILE_FIELD_LABELS } from "../../../lib/labels.js";
 import { paths } from "../../../lib/paths.js";
 import { ReplyCheckResult, useReplyCheck } from "../../mailbox/check-for-replies.js";
-import { HeldItem, Limits, NextRunList, useSecondTick } from "../HeldItems.js";
+import { type DetailRow, Details } from "../Details.js";
+import { Limits, NextRunList, PageShot, useSecondTick } from "../HeldItems.js";
+import { headlineFor } from "../headline.js";
 import { MatchFit } from "../MatchFit.js";
 import { canReportOutcome, REVIEW_INVALIDATES } from "../model.js";
 import { SentLog } from "../SentLog.js";
@@ -30,7 +32,7 @@ import { Chips, useProfileValues } from "./Chips.js";
 import { useFocus } from "./context.js";
 import { CHIP_LABELS, KIND_COPY, OTHER_OUTCOMES, sendDetails, WORDS } from "./copy.js";
 import { useCardMenu } from "./menu.js";
-import { clip, clockLeft, itemTitle, maskValue } from "./model.js";
+import { itemTitle, maskValue } from "./model.js";
 import { ReturnPrompt } from "./ReturnPrompt.js";
 
 const hostOf = (url: string | null): string | undefined => {
@@ -161,6 +163,7 @@ function TaskCard({ item, check }: TaskCardProps) {
   return (
     <CardFrame
       item={item}
+      headline={headlineFor(item)}
       menu={menu.menu}
       dialogs={menu.dialogs}
       notice={menu.notice}
@@ -216,7 +219,6 @@ function HoldCard({ item }: { item: NeedsYouItem }) {
     refetchInterval: 2_000,
   });
   const now = useSecondTick(true);
-  const [open, setOpen] = useState(false);
   const live = log.data ? liveHolds(log.data, now).filter(isHeld) : [];
   const current = live[0];
   const decide = useApiMutation(API_ROUTES.taskSendDecide, {
@@ -251,8 +253,22 @@ function HoldCard({ item }: { item: NeedsYouItem }) {
   const menu = useCardMenu(item, { extra: [finishByHand] });
   const request = current?.request;
   const destination = request ? destinationOf(request) : null;
-  const fields = request && log.data ? fieldRows(request, log.data.values).slice(0, 3) : [];
-  const left = clockLeft(current?.expiresAt ?? null, now);
+  const details: DetailRow[] = [
+    ...(request && destination
+      ? [
+          {
+            label: "Sends to",
+            value: `${request.method} ${destination.text}`,
+            attention: destination.offSite,
+          },
+        ]
+      : []),
+    ...(request && log.data
+      ? fieldRows(request, log.data.values).map((row) => ({ label: row.name, value: row.value }))
+      : []),
+    ...(item.requestReference ? [{ label: "Request", value: item.requestReference }] : []),
+    { label: "Task", value: task.id },
+  ];
 
   return (
     <CardFrame
@@ -260,7 +276,7 @@ function HoldCard({ item }: { item: NeedsYouItem }) {
       menu={menu.menu}
       dialogs={menu.dialogs}
       notice={menu.notice}
-      tagText={left ? `${KIND_COPY.hold.tag} · ${left}` : undefined}
+      headline={headlineFor(item, now)}
       bar={
         <ActionBar
           enter={false}
@@ -272,6 +288,7 @@ function HoldCard({ item }: { item: NeedsYouItem }) {
           }}
           second={{
             label: KIND_COPY.hold.second ?? "",
+            variant: "secondary",
             onClick: () => current && answer(current, "dont_send"),
             loading: decide.isPending && decide.variables?.body.decision === "dont_send",
             disabled: !current || decide.isPending,
@@ -286,43 +303,16 @@ function HoldCard({ item }: { item: NeedsYouItem }) {
         />
       }
     >
-      <Steps steps={current || log.isPending ? KIND_COPY.hold.steps : ["It ran out."]} />
       {live.length > 1 ? (
         <p className="m-0 font-mono text-meta text-ink-3">1 of {live.length} requests</p>
       ) : null}
-      {request && destination ? (
-        <>
-          <p
-            className={cn(
-              "m-0 break-all font-mono text-ui",
-              destination.offSite ? "text-attention-text" : "text-ink",
-            )}
-          >
-            {request.method} {destination.text}
-          </p>
-          <ul className="m-0 flex list-none flex-wrap gap-2 p-0">
-            {fields.map((row, index) => (
-              <li
-                // The same name can repeat in one request.
-                // biome-ignore lint/suspicious/noArrayIndexKey: rows are never reordered
-                key={`${row.name}-${index}`}
-                className="inline-flex max-w-full items-center gap-1.5 rounded-sm border border-line px-2 py-0.5 font-mono text-meta"
-              >
-                <span className="text-ink-3">{row.name}</span>
-                <span className="min-w-0 truncate text-ink">{clip(row.value || "(empty)")}</span>
-              </li>
-            ))}
-          </ul>
-          {current && log.data ? (
-            <Disclosure title="Show all fields" open={open} onOpenChange={setOpen}>
-              <ul className="m-0 list-none p-0">
-                <HeldItem taskId={task.id} row={current} values={log.data.values} />
-              </ul>
-              <Limits />
-            </Disclosure>
-          ) : null}
-        </>
+      {destination?.offSite ? (
+        <p className="m-0 text-ui text-attention-text">This goes to a different site.</p>
       ) : null}
+      <Details rows={details}>
+        {current?.hasScreenshot ? <PageShot taskId={task.id} sendId={current.id} /> : null}
+        <Limits />
+      </Details>
     </CardFrame>
   );
 }
@@ -375,6 +365,7 @@ function ApproveCard({ item }: { item: NeedsYouItem }) {
   return (
     <CardFrame
       item={item}
+      headline={headlineFor(item)}
       menu={menu.menu}
       dialogs={menu.dialogs}
       notice={menu.notice}
@@ -453,6 +444,7 @@ function RecordCard({ item }: { item: NeedsYouItem }) {
   return (
     <CardFrame
       item={item}
+      headline={headlineFor(item)}
       menu={menu.menu}
       dialogs={menu.dialogs}
       notice={menu.notice}
@@ -568,6 +560,7 @@ function DetailsCard({ item }: { item: NeedsYouItem }) {
   return (
     <CardFrame
       item={item}
+      headline={headlineFor(item)}
       menu={menu.menu}
       notice={menu.notice}
       dialogs={

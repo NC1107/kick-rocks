@@ -21,6 +21,7 @@ import { AgentPanel } from "../assign/AgentPanel.js";
 import { DetailFrame } from "./DetailFrame.js";
 import { FailedGroupActions } from "./FailedGroupActions.js";
 import { Chips } from "./focus/Chips.js";
+import { headlineFor } from "./headline.js";
 import { MarkDoneDialog } from "./MarkDoneDialog.js";
 import { canReportOutcome, REVIEW_INVALIDATES } from "./model.js";
 import { SentLog } from "./SentLog.js";
@@ -148,6 +149,11 @@ export function BlockedTaskDetail({
           )
         }
         meta={meta}
+        headline={headlineFor({
+          kind: variant === "agent" ? "agents" : "failed",
+          key: task.id,
+          item,
+        })}
         footer={footer}
         error={footerError ? errorMessage(footerError) : undefined}
       >

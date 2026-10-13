@@ -376,7 +376,10 @@ describe("a failed request", () => {
     const { mock } = open(byTarget("pixelforge"));
     const error = mock.store.requests.find((r) => r.targetId === "pixelforge")?.lastError ?? "";
     expect(error).not.toBe("");
-    expect(await screen.findAllByText(new RegExp(error))).toHaveLength(1);
+    expect(
+      await screen.findAllByText(/Send failed - mail server unreachable, retrying/),
+    ).toHaveLength(1);
+    expect(screen.queryByText(new RegExp(error))).not.toBeInTheDocument();
   });
 });
 

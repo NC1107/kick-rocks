@@ -164,6 +164,22 @@ describe("describeEvent", () => {
     ).toBe("The submit form task finished. You noted: Did it by hand");
   });
 
+  it("says a mail server that could not be reached in plain words, and that a retry is coming", () => {
+    expect(
+      describeEvent(
+        event("send_failed", { error: "Could not connect to the mail server", willRetry: true }),
+      ),
+    ).toBe("Send failed - mail server unreachable, retrying");
+  });
+
+  it("says what a request was created to do and how, without a reference or a period", () => {
+    expect(
+      describeEvent(
+        event("created", { channel: "email", rights: ["opt_out"], reference: "KR-ABC234" }),
+      ),
+    ).toBe("Created - stop selling, by email");
+  });
+
   it("shows field names as words and leaves out a failure label that says nothing", () => {
     expect(
       describeEvent(
@@ -173,7 +189,7 @@ describe("describeEvent", () => {
         }),
       ),
     ).toBe(
-      "Sending failed: A verification reply cannot answer for fields with no value: date of birth.",
+      "Send failed - A verification reply cannot answer for fields with no value: date of birth",
     );
     expect(
       describeEvent(
