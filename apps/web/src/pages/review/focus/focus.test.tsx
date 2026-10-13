@@ -232,13 +232,18 @@ describe("where you are in the queue", () => {
     expect(card.getByRole("button", { name: "More" })).toHaveTextContent("More");
   });
 
-  it("keeps the action bar in the card's flow on a phone, not fixed to the screen", async () => {
+  it("keeps the action bar in the card's flow on a phone, with the next item as a line under it", async () => {
     const mock = createMockApp();
     openItem(taskKey(mock, "captcha"), mock);
     const card = await cardOf("FindRecord");
-    const bar = within(card).getByRole("button", { name: "Open and solve" }).closest("div.sticky");
-    expect(bar).not.toBeNull();
-    expect(bar?.className).not.toMatch(/fixed/);
+    const bar = within(card)
+      .getByRole("button", { name: "Open and solve" })
+      .closest("div.border-t") as HTMLElement;
+    expect(bar.className).not.toMatch(/fixed/);
+    expect(bar.className).not.toMatch(/(^|\s)sticky/);
+    const line = within(card).getByText(/^Next: .+ · .+/);
+    expect(line.className).toMatch(/font-mono/);
+    expect(line.previousElementSibling).toBe(bar);
   });
 
   it("presses the primary button on Enter", async () => {

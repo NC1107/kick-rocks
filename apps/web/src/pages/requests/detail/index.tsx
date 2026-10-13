@@ -9,7 +9,7 @@ import {
   tellEvents,
 } from "@kickrocks/shared";
 import { skipToken } from "@tanstack/react-query";
-import { Globe, Mail, MoreHorizontal } from "lucide-react";
+import { MoreHorizontal } from "lucide-react";
 import { Fragment, useState } from "react";
 import { useParams } from "react-router";
 import {
@@ -24,6 +24,7 @@ import {
   Callout,
   ConfirmDialog,
   CopyButton,
+  Disclosure,
   EmptyState,
   EntityLink,
   EntityRow,
@@ -52,6 +53,7 @@ import {
   REQUEST_ACTION_LABELS,
   TASK_KIND_LABELS,
 } from "../../../lib/labels.js";
+import { formatShortDate } from "../../../lib/format.js";
 import { paths, taskPath } from "../../../lib/paths.js";
 import { REQUEST_STATUS_META } from "../../../lib/status.js";
 import { AgentPanel } from "../../assign/AgentPanel.js";
@@ -101,7 +103,7 @@ function actionLabel(action: RequestAction, request: RequestDetail): string {
 /** Says which email goes to which address, since a resend cannot be taken back once it is sent. */
 function resendWarning(request: RequestDetail, address: string | null): string {
   if (request.channel === "form") {
-    return "Fills in the target's web form again.";
+    return "Fills in the site's web form again.";
   }
   const to = address ? ` to ${address}` : "";
   return resendEmailKind(request.status) === "follow_up" && request.sentAt !== null
@@ -111,9 +113,9 @@ function resendWarning(request: RequestDetail, address: string | null): string {
 
 const ACTION_WARNING: Partial<Record<RequestAction, string>> = {
   cancel: "Work stops; anything already sent is not recalled.",
-  mark_confirmed: "Closes the request; use it when the target confirmed elsewhere.",
-  mark_rejected: "Records that the target refused.",
-  mark_no_record: "Closes the request; the target holds nothing about you.",
+  mark_confirmed: "Closes the request; use it when the site confirmed elsewhere.",
+  mark_rejected: "Records that the site refused.",
+  mark_no_record: "Closes the request; the site holds nothing about you.",
 };
 
 const CONFIRMED_ACTIONS: readonly RequestAction[] = [
@@ -123,12 +125,18 @@ const CONFIRMED_ACTIONS: readonly RequestAction[] = [
   "cancel",
 ];
 
+/** "Asked them to stop selling your data · by email · Oct 6": the whole request in one plain line. */
+function askedLine(request: RequestDetail): string {
+  const how = request.channel === "email" ? "by email" : "by web form";
+  return [askedSentence(request.rights), how, formatShortDate(request.createdAt)].join(" \u00b7 ");
+}
+
 function Loading() {
   return (
     <div aria-busy="true">
       <span className="sr-only">Loading request</span>
       <PageHeader title="Request" />
-      <div className="flex max-w-3xl flex-col gap-5">
+      <div className="flex flex-col gap-5">
         <Section label="Summary">
           <RowGroup>
             {Array.from({ length: 6 }, (_, row) => (
@@ -244,6 +252,7 @@ export function Component() {
 function Detail({ request }: { request: RequestDetail }) {
   const toast = useToast();
   const [confirming, setConfirming] = useState<RequestAction | null>(null);
+  const [detailsOpen, setDetailsOpen] = useState(false);
 
   const act = useApiMutation(API_ROUTES.requestsAct, {
     invalidates: [
@@ -322,7 +331,6 @@ function Detail({ request }: { request: RequestDetail }) {
   const basisName =
     request.legalBasis === "policy" ? "Their own privacy policy" : (statute?.name ?? null);
   const phrase = statusPhrase(request);
-  const ChannelGlyph = request.channel === "email" ? Mail : Globe;
   const channelHint =
     request.channel === "email" ? "Sent as an email" : "Submitted through their web form";
 
@@ -360,7 +368,8 @@ function Detail({ request }: { request: RequestDetail }) {
         }
       />
 
-      <div className="flex max-w-3xl flex-col gap-5">
+      <div className="flex flex-col gap-5">
+        <p className="text-ui text-ink-2">{askedLine(request)}</p>
         <ReplyCheckResult check={check} here={request.id} recordedOnTimeline />
         {act.isError ? <InlineError>{errorMessage(act.error)}</InlineError> : null}
         {request.formRequest ? (
@@ -418,7 +427,7 @@ function Detail({ request }: { request: RequestDetail }) {
         {request.status === "needs_verification" ? (
           <Callout
             intent="warning"
-            title="The target asked for more details"
+            title="The site asked for more details"
             action={
               <LinkButton size="sm" to={paths.reviewItem(`details:${request.id}`)}>
                 Review what to send
@@ -472,18 +481,20 @@ function Detail({ request }: { request: RequestDetail }) {
           </Section>
         )}
 
-        <Section label="Summary">
+        <Disclosure title="Details" open={detailsOpen} onOpenChange={setDetailsOpen}>
           <FactList
             dense
             items={[
               {
-                term: "Target",
+                term: "Site",
+                mono: true,
                 value: <EntityLink to={{ kind: "target", id: target.id, name: target.name }} />,
               },
               ...(owner
                 ? [
                     {
                       term: "For",
+                      mono: true,
                       value: (
                         <EntityLink
                           to={{ kind: "profile", id: owner.id, name: owner.displayName }}
@@ -496,6 +507,7 @@ function Detail({ request }: { request: RequestDetail }) {
                 ? [
                     {
                       term: "From",
+                      mono: true,
                       value: (
                         <EntityLink
                           to={{
@@ -512,6 +524,7 @@ function Detail({ request }: { request: RequestDetail }) {
                 ? [
                     {
                       term: "Campaign",
+                      mono: true,
                       value: (
                         <EntityLink
                           to={{
@@ -526,15 +539,10 @@ function Detail({ request }: { request: RequestDetail }) {
                 : []),
               {
                 term: "Channel",
+                mono: true,
                 hint: channelHint,
-                value: (
-                  <span className="inline-flex items-center gap-1.5">
-                    <ChannelGlyph aria-hidden="true" className="size-4 text-ink-2" />
-                    <span>{CHANNEL_LABELS[request.channel]}</span>
-                  </span>
-                ),
+                value: CHANNEL_LABELS[request.channel],
               },
-              { term: "Request", value: askedSentence(request.rights) },
               {
                 term: "Reference",
                 mono: true,
@@ -554,6 +562,7 @@ function Detail({ request }: { request: RequestDetail }) {
                   </Tooltip>
                 ),
               },
+              { term: "Site id", mono: true, value: target.id },
               { term: "Timing", mono: true, value: <Timing request={request} /> },
               ...(request.recordUrl
                 ? [
@@ -567,9 +576,12 @@ function Detail({ request }: { request: RequestDetail }) {
                     },
                   ]
                 : []),
+              ...(request.lastError && !request.events.some((event) => event.type === "task_failed")
+                ? [{ term: "Last error", mono: true, value: request.lastError }]
+                : []),
             ]}
           />
-        </Section>
+        </Disclosure>
 
         <Section label="Timeline" count={tellEvents(request.events).length}>
           <Timeline

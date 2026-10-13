@@ -164,12 +164,12 @@ describe("describeEvent", () => {
     ).toBe("The submit form task finished. You noted: Did it by hand");
   });
 
-  it("says a mail server that could not be reached in plain words, and that a retry is coming", () => {
+  it("says a send that will be retried without the technical cause", () => {
     expect(
       describeEvent(
         event("send_failed", { error: "Could not connect to the mail server", willRetry: true }),
       ),
-    ).toBe("Send failed - mail server unreachable, retrying");
+    ).toBe("Couldn't send yet, trying again");
   });
 
   it("says what a request was created to do and how, without a reference or a period", () => {

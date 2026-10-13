@@ -70,7 +70,7 @@ export function Thumbnail({ taskId }: { taskId: string }) {
 function TopBar({ menu }: { menu: readonly MenuItem[] }) {
   const { progress, canMove, next, previous } = useFocus();
   return (
-    <div className="flex items-center gap-1 border-b border-line px-2 py-0.5">
+    <div className="flex items-center gap-1 border-b border-line pr-0 pb-0.5">
       <IconButton label="Previous" onClick={previous} disabled={!canMove} className="size-11">
         <ChevronLeft />
       </IconButton>
@@ -185,14 +185,15 @@ export function CardFrame({
   notice,
 }: CardFrameProps) {
   const title = itemTitle(item);
+  const { upNext } = useFocus();
   return (
     <article
       aria-label={title}
       data-kind={item.kind}
-      className="flex min-w-0 max-w-[40rem] flex-col rounded-md border border-line bg-surface"
+      className="flex min-w-0 max-w-[40rem] flex-col"
     >
       <TopBar menu={menu} />
-      <div className="flex flex-col gap-3.5 px-4 py-4">
+      <div className="flex flex-col gap-3.5 py-4">
         <header className="flex flex-col gap-1.5">
           <div className="flex items-start justify-between gap-3">
             <p className="m-0 min-w-0 break-words text-ui font-medium text-ink-2 [&_a]:text-ink-2 [&_a:hover]:text-accent-text">
@@ -221,13 +222,13 @@ export function CardFrame({
         {notice}
       </div>
       <div
-        className={cn(
-          "sticky bottom-0 z-10 rounded-b-md border-t border-line bg-canvas px-4 py-3",
-          "max-sm:pb-[max(0.75rem,env(safe-area-inset-bottom))]",
-        )}
+        className={cn("border-t border-line py-3", "lg:sticky lg:bottom-0 lg:z-10 lg:bg-canvas")}
       >
         {bar}
       </div>
+      {upNext ? (
+        <p className="m-0 truncate font-mono text-caption text-ink-3 lg:hidden">Next: {upNext}</p>
+      ) : null}
       {dialogs}
     </article>
   );

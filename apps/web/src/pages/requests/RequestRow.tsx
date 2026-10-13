@@ -1,8 +1,9 @@
 import { isActiveStatus, type RequestListItem } from "@kickrocks/shared";
-import { EntityLink, StatusShapeGlyph, Tooltip } from "../../components/ui/index.js";
+import { EntityLink, StatusShapeGlyph, TextLink, Tooltip } from "../../components/ui/index.js";
 import { cn } from "../../lib/cn.js";
 import { formatShortDate } from "../../lib/format.js";
 import { CHANNEL_LABELS } from "../../lib/labels.js";
+import { paths } from "../../lib/paths.js";
 import { REQUEST_STATUS_META, type StatusFamily } from "../../lib/status.js";
 import { nextStep, statusPhrase } from "./phrase.js";
 import { listShape } from "./shape.js";
@@ -35,7 +36,7 @@ export function RequestRow({ item, profileName }: { item: RequestListItem; profi
   const step = nextStep(item.status);
   return (
     <li className="relative flex min-h-11 items-center gap-3 px-3.5 py-2 hover:bg-hover active:bg-hover">
-      <StatusShapeGlyph shape={listShape(item.status)} />
+      <StatusShapeGlyph shape={listShape(item.status)} className="size-3" />
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
         <div className="grid min-w-0 grid-cols-1 gap-x-4 sm:grid-cols-[minmax(0,16rem)_minmax(0,11rem)_minmax(0,1fr)] sm:items-center">
           <EntityLink
@@ -61,7 +62,14 @@ export function RequestRow({ item, profileName }: { item: RequestListItem; profi
             </span>
           </div>
         </div>
-        {step ? <span className="text-meta text-ink-2">{step}</span> : null}
+        {step ? (
+          <TextLink
+            to={paths.request(item.id)}
+            className="relative w-fit max-w-full truncate text-meta"
+          >
+            {step}
+          </TextLink>
+        ) : null}
       </div>
     </li>
   );

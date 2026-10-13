@@ -95,7 +95,7 @@ function Review({ profileId, mailboxConnected }: { profileId: string; mailboxCon
   const tabs = [
     {
       to: paths.review(),
-      label: "Needs you",
+      label: "To do",
       end: true,
       count: some(needsYou.data?.counts.active),
     },

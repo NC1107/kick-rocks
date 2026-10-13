@@ -39,7 +39,7 @@ import {
 } from "./filters.js";
 import { listRefreshInterval } from "./polling.js";
 import { RequestRow } from "./RequestRow.js";
-import { groupRequests } from "./sections.js";
+import { groupRequests, sectionCount } from "./sections.js";
 
 const SEARCH_DELAY_MS = 250;
 const SKELETON_ROWS = ["a", "b", "c", "d", "e", "f"];
@@ -184,7 +184,7 @@ function Requests({ profileId }: { profileId: string }) {
       ? [
           {
             id: "targetId",
-            label: `Target: ${target.data?.name ?? filters.targetId}`,
+            label: `Site: ${target.data?.name ?? filters.targetId}`,
             onRemove: () => setFilter("targetId", ""),
           },
         ]
@@ -203,7 +203,7 @@ function Requests({ profileId }: { profileId: string }) {
   const items = list.data?.items ?? [];
   const extraFilters = (filters.targetId ? 1 : 0) + (filters.campaignId ? 1 : 0);
   const filtered = hasRequestFilters(filters);
-  const resultCount = list.data ? pluralize(list.data.total, "request") : undefined;
+  const resultCount = list.data ? pluralize(list.data.total, "removal") : undefined;
   const sections =
     byBatch && batches.data
       ? groupByBatch(items, batches.data.campaigns)
@@ -251,7 +251,7 @@ function Requests({ profileId }: { profileId: string }) {
               type="search"
               value={search}
               onChange={(event) => setSearch(event.target.value)}
-              placeholder="Search target or reference"
+              placeholder="Search sites"
               maxLength={100}
               leading={<Search aria-hidden="true" />}
             />
@@ -318,7 +318,11 @@ function Requests({ profileId }: { profileId: string }) {
               <Section
                 key={section.id}
                 label={section.label}
-                count={section.items.length}
+                count={
+                  "verifiedGone" in section
+                    ? sectionCount(section.items.length, section.verifiedGone)
+                    : section.items.length
+                }
                 {...(section.summary
                   ? {
                       actions: (
@@ -349,7 +353,7 @@ function Requests({ profileId }: { profileId: string }) {
               pageSize={REQUESTS_PAGE_SIZE}
               total={list.data.total}
               onPageChange={setPage}
-              noun="requests"
+              noun="removals"
             />
           ) : null}
         </div>

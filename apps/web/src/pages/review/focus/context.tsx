@@ -6,6 +6,8 @@ export interface FocusContext {
   profileId: string;
   mailboxConnected: boolean;
   progress: { done: number; total: number; position: number };
+  /** "HomeRecords · Pick details": the item after this one, for the phone, which has no Up next column. */
+  upNext: string | null;
   /** More than one item is waiting, so previous and next mean something. */
   canMove: boolean;
   /** The item whose return prompt is showing. */
