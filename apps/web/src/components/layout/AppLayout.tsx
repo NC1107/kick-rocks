@@ -23,7 +23,7 @@ function Breadcrumb() {
   const { pathname } = useLocation();
   const trail = breadcrumbTrail(pathname, useBreadcrumbTailValue());
   // A single crumb would only repeat the page title below it.
-  if (trail.length < 2) return null;
+  if (trail.length < 2) return <span aria-hidden="true" className="min-w-0" />;
   return (
     <nav aria-label="Breadcrumb" className="min-w-0 overflow-hidden">
       <ol className="m-0 flex min-w-0 list-none items-center gap-1.5 overflow-hidden whitespace-nowrap p-0 text-meta">
