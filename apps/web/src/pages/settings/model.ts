@@ -33,14 +33,14 @@ export const SCHEDULE_FIELDS: readonly ScheduleField[] = [
   },
   {
     key: "peopleSearchRescanDays",
-    label: "Rescan people-search sites every",
+    label: "Rescan every",
     unit: "d",
     min: 1,
     max: 365,
   },
   {
     key: "brokerRescanDays",
-    label: "Resend unconfirmed requests every",
+    label: "Resend every",
     unit: "d",
     min: 1,
     max: 365,

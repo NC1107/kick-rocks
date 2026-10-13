@@ -82,7 +82,7 @@ It is rationed, never used in a gradient, never tints surfaces, and stays this d
 | `--kr-accent-soft` | `#ECECFC` | accent text on it at 5.7:1 |
 | `--kr-focus` | `#4648D4` | |
 | `--kr-positive` / `-text` | `#16A34A` / `#146C37` | text 6.5:1 on white and at least 5.3:1 on every layer |
-| `--kr-attention` / `-text` | `#D97706` / `#9A4A08` | text 6.3:1 on white and at least 5.1:1 on every layer |
+| `--kr-attention` / `-text` | `#C76A04` (light) / `#9A4A08` | glyph 3.38:1 on the light rail; text 6.3:1 on white and at least 5.1:1 on every layer |
 | `--kr-danger` / `-text` | `#DC2626` / `#B91C1C` | text 6.5:1 |
 | `--kr-scrim` | `rgba(15,17,19,0.45)` | |
 
@@ -204,7 +204,7 @@ It is rationed, never used in a gradient, never tints surfaces, and stays this d
 - The saved-mail preview and Check for replies sit in the Mail list column, so the pane height never depends on them and the decision footer stays on screen.
 - Detail pane: the facts as a compact definition list, the message body in 15px reading text with a 2px left rule for quoted mail, and the decision controls in a footer bar pinned to the bottom of the pane.
 - Keyboard: `j` and `k` move, `Enter` opens, `1` to `4` pick a classification, shown as mono keycaps in the footer.
-- One filled primary per item, and the disabled primary is `--kr-disabled` fill with a `line-popover` edge and `ink-3` text, not a washed accent.
+- One filled primary per item, and a disabled button is an outline: transparent fill, dashed `line-strong` edge, `ink-3` text, never a dim filled slab.
 - Phone: the list is the page and a row drills down to the detail with back.
 
 **Needs you card**.
@@ -266,7 +266,7 @@ It is rationed, never used in a gradient, never tints surfaces, and stays this d
 - Secondary: transparent, 1px `line-strong` edge, `ink` text.
 - Ghost: `ink-2` text, hover fill only.
 - Danger: outlined in `danger` with `danger-text`, never filled; the confirm dialog's final button may fill.
-- Disabled: `--kr-disabled` fill (lighter than `--kr-active` in dark), a `line-popover` edge, `ink-3` text, no opacity trick.
+- Disabled: transparent fill, dashed `line-strong` edge (3.28:1 or better), `ink-3` text (5.6:1 or better on canvas and surface), no opacity trick.
 - Press: 100ms, `scale(0.98)`.
 - Icons inside buttons only when the icon disambiguates (external link, copy); "New campaign" and "New profile" are words.
 

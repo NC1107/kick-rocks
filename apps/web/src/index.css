@@ -240,7 +240,8 @@
   /* State families: a shape fill, and a text color that passes AA on the surface */
   --kr-positive: light-dark(#16a34a, #22c55e);
   --kr-positive-text: light-dark(#146c37, #4ade80);
-  --kr-attention: light-dark(#d97706, #f59e0b);
+  /* Light attention glyph: #c76a04 is 3.38:1 on the rail and 3.41:1 on hover (the old #d97706 was 2.81:1 on the rail, under the 3:1 a glyph needs). */
+  --kr-attention: light-dark(#c76a04, #f59e0b);
   --kr-attention-text: light-dark(#9a4a08, #fbbf24);
   --kr-danger: light-dark(#dc2626, #ef4444);
   --kr-danger-text: light-dark(#b91c1c, #fa8080);
@@ -311,6 +312,15 @@
   :root {
     --kr-gutter: 1rem;
     --kr-bar-h: 3.25rem;
+    /*
+     * Mono caps and meta lines were 11px and 12px on a phone held at arm's length, which readers
+     * with reduced vision could not parse. One step up each (12 and 13px) keeps the hierarchy and
+     * leaves the desktop scale alone; line heights grow by the same 2px so rows do not collide.
+     */
+    --text-label: 0.75rem;
+    --text-label--line-height: 1rem;
+    --text-caption: 0.8125rem;
+    --text-caption--line-height: 1.125rem;
   }
 }
 

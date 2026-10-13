@@ -81,7 +81,7 @@ describe("the setup page", () => {
     const heading = await screen.findByRole("heading", { name: "Helpers" });
     const anchor = heading.closest("#helpers");
     expect(anchor).not.toBeNull();
-    expect(anchor).toContainElement(await screen.findByText("Browser worker"));
+    expect(anchor).toContainElement(await screen.findByText("Browser"));
   });
 
   it("has no subtitle that lists the sections", async () => {
@@ -167,9 +167,8 @@ describe("general settings", () => {
 
   it("keeps site checks off until they are turned on, and says what they do", async () => {
     const { user, mock } = advanced();
-    const box = await field(/Check recipes on live sites/);
+    const box = await field(/Check sites weekly/);
     expect(box).not.toBeChecked();
-    expect(screen.getByText("Weekly, read-only")).toBeInTheDocument();
     await user.click(box);
     await waitFor(() => expect(mock.store.settings.siteChecks.enabled).toBe(true));
     expect((await screen.findAllByText("Site checks turned on")).length).toBeGreaterThan(0);
@@ -183,11 +182,10 @@ describe("general settings", () => {
     expect(await screen.findByText(/does not make sites trust you more/)).toBeVisible();
   });
 
-  it("keeps the site checks description to one short line", async () => {
+  it("leaves the site checks with a label and no description", async () => {
     advanced();
-    await field(/Check recipes on live sites/);
-    const description = screen.getByText("Weekly, read-only");
-    expect((description.textContent ?? "").trim().split(/\s+/).length).toBeLessThanOrEqual(12);
+    await field(/Check sites weekly/);
+    expect(screen.queryByText("Weekly, read-only")).toBeNull();
   });
 
   it("describes each site being left alone in whole sentences, with its state as a word", async () => {

@@ -68,14 +68,14 @@ export function Component() {
             onChange={(event) => setConfirm(event.target.value)}
           />
         </Field>
-        <Callout intent="info" title="Back up kickrocks-data">
-          <p>Holds your encryption key. Back it up.</p>
-        </Callout>
         {failure && !fieldIssue ? <Callout intent="danger">{errorMessage(failure)}</Callout> : null}
         <Button type="submit" variant="primary" loading={setup.isPending} className="w-full">
           Set password
         </Button>
       </form>
+      <p className="mt-3 text-caption text-ink-3">
+        Back up <span className="font-mono">kickrocks-data</span>. It holds your encryption key.
+      </p>
     </Card>
   );
 }

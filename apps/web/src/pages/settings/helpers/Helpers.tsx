@@ -6,6 +6,7 @@ import {
   Callout,
   Dialog,
   ExternalLinkText,
+  Field,
   InfoTip,
   InlineError,
   Input,
@@ -69,7 +70,7 @@ function AccessHelper({ mcp }: { mcp: SettingsView["mcp"] }) {
   return (
     <>
       <HelperRow
-        name="Agent access (MCP)"
+        name="Agent access"
         reading={accessReading(mcp)}
         action={
           <Button variant="secondary" onClick={() => setOpen(true)}>
@@ -114,6 +115,17 @@ function ModelHelper({
     },
   });
   const shown = probe.data ? probedReading(probe.data) : reading;
+  const helpLine = (
+    <>
+      {use}
+      {shown.state === "ok" ? null : (
+        <>
+          {" · "}
+          <ExternalLinkText href={AGENT_GUIDE_URL}>Guide</ExternalLinkText>
+        </>
+      )}
+    </>
+  );
 
   const check = () => {
     const typed = address.trim();
@@ -136,34 +148,26 @@ function ModelHelper({
           <InfoTip text={tried} label={`Addresses tried for ${name.toLowerCase()}`} />
         ) : null
       }
-      action={
-        <Button type="submit" variant="secondary" loading={probe.isPending || rechecking}>
-          Check
-        </Button>
-      }
       below={
-        <div className="flex flex-col gap-1">
-          <Input
-            mono
-            aria-label={`${name} address`}
-            autoComplete="off"
-            spellCheck={false}
-            placeholder={placeholder}
-            value={address}
-            onChange={(event) => {
-              setAddress(event.target.value);
-              probe.reset();
-            }}
-          />
-          <p className="text-caption text-ink-3">
-            {use}
-            {shown.state === "ok" ? null : (
-              <>
-                {" · "}
-                <ExternalLinkText href={AGENT_GUIDE_URL}>Guide</ExternalLinkText>
-              </>
-            )}
-          </p>
+        <div className="flex flex-col gap-1.5">
+          <Field label={`${name} address`} help={helpLine} className="gap-1">
+            <div className="flex items-center gap-2">
+              <Input
+                mono
+                autoComplete="off"
+                spellCheck={false}
+                placeholder={placeholder}
+                value={address}
+                onChange={(event) => {
+                  setAddress(event.target.value);
+                  probe.reset();
+                }}
+              />
+              <Button type="submit" variant="secondary" loading={probe.isPending || rechecking}>
+                Check
+              </Button>
+            </div>
+          </Field>
           {probe.isError ? <InlineError>{errorMessage(probe.error)}</InlineError> : null}
         </div>
       }
@@ -229,14 +233,14 @@ export function Helpers() {
       <Section label="Helpers">
         <RowGroup>
           <WorkerHelper
-            name="Browser worker"
+            name="Browser"
             command={WORKER_COMMANDS.browser}
             reading={workerReading(worker.enabled, worker.builtin, now)}
             open={open.browser}
             onOpenChange={toggle("browser")}
           />
           <WorkerHelper
-            name="Agent worker"
+            name="Agent"
             command={WORKER_COMMANDS.agent}
             reading={workerReading(worker.enabled, worker.model, now)}
             open={open.agent}
@@ -245,7 +249,7 @@ export function Helpers() {
           <AccessHelper mcp={mcp} />
           <ModelHelper
             name="Reply model"
-            use="Used for reply suggestions"
+            use="Optional. Without it replies are sorted by rules."
             reading={replyReading(view)}
             placeholder={replyAddress ?? "http://desktop:11434"}
             tried={triedAddresses(view)}

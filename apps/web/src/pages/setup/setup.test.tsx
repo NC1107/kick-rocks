@@ -21,7 +21,7 @@ describe("the setup page", () => {
     open();
     expect(screen.queryByText(/protects everything/)).not.toBeInTheDocument();
     expect(screen.getByText(/This password signs you in/)).toBeVisible();
-    expect(screen.getByText("Holds your encryption key. Back it up.")).toBeVisible();
+    expect(screen.getByText(/It holds your encryption key\./)).toBeVisible();
   });
 
   it("rejects a short password and says how long it must be", async () => {

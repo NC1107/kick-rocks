@@ -54,7 +54,7 @@ export function probedReading(probe: ProbeResult | undefined): HelperReading {
     return {
       state: "missing",
       word: "Not found",
-      detail: probe ? `${addressOf(probe.baseUrl)} ${why}` : "not found",
+      detail: probe ? `${addressOf(probe.baseUrl)} ${why}` : "",
     };
   }
   return {
@@ -71,7 +71,7 @@ export function replyReading(view: AgentSetupView | undefined): HelperReading {
   const answered = endpoints.find((endpoint) => endpoint.reachable);
   if (answered) return probedReading(answered);
   const only = endpoints.length === 1 ? endpoints[0] : undefined;
-  return only ? probedReading(only) : { state: "missing", word: "Not found", detail: "not found" };
+  return only ? probedReading(only) : { state: "missing", word: "Not found", detail: "" };
 }
 
 /** The Ollama the agent worker reports for itself. */
