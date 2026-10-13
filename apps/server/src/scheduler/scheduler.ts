@@ -11,7 +11,7 @@ import { enqueueDueCanaries } from "./canaries.js";
 import { createHeartbeat, HEARTBEAT_EVERY_MS, type Heartbeat } from "./heartbeat.js";
 import { advanceOverdueRequests } from "./overdue.js";
 import { enqueueDueInboxPolls } from "./polls.js";
-import { enqueueDueRescans } from "./rescans.js";
+import { enqueueDueRescans, enqueueVerificationScans } from "./rescans.js";
 
 interface SchedulerOptions {
   runners?: Runners;
@@ -116,6 +116,7 @@ export function createScheduler(
       await job("inbox-polls", () => enqueueDueInboxPolls(services));
       await job("overdue-requests", () => advanceOverdueRequests(services));
       await job("rescans", () => enqueueDueRescans(services));
+      await job("verification-scans", () => enqueueVerificationScans(services));
       await job("scan-reuse", () => reuseRecentScans(services));
       await job("site-visits", () => services.politeness.prune());
       await job("intake-purge", () => purgeExpiredIntake(services));

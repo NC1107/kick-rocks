@@ -54,6 +54,7 @@ export function draftOf(schedule: ScheduleSettings): ScheduleDraft {
     pollMinutes: String(schedule.pollMinutes),
     peopleSearchRescanDays: String(schedule.peopleSearchRescanDays),
     brokerRescanDays: String(schedule.brokerRescanDays),
+    removalVerifyDays: String(schedule.removalVerifyDays),
     noResponseDays: String(schedule.noResponseDays),
     maxFollowUps: String(schedule.maxFollowUps),
   };

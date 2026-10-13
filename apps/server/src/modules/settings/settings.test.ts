@@ -23,6 +23,7 @@ const DEFAULT_SCHEDULE = {
   pollMinutes: 15,
   peopleSearchRescanDays: 60,
   brokerRescanDays: 90,
+  removalVerifyDays: 14,
   noResponseDays: 45,
   maxFollowUps: 2,
 };

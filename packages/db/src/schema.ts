@@ -705,6 +705,8 @@ export const matches = sqliteTable(
       .default("pending"),
     decidedAt: timestamp("decided_at"),
     requestId: text("request_id").references(() => requests.id, { onDelete: "set null" }),
+    /** When a later scan of the site found this settled record gone. Only a scan that listed results counts. */
+    verifiedGoneAt: timestamp("verified_gone_at"),
   },
   (t) => [
     index("matches_scan_idx").on(t.scanId),

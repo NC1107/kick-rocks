@@ -37,6 +37,7 @@ const PAYLOADS: Record<RequestEventType, unknown> = {
   task_assigned: { taskId: "t1", to: { kind: "mcp", workerId: "desk-client" }, by: "user" },
   user_action: { action: "mark_confirmed", note: null },
   relisted: { recordUrl: "https://broker.test/p/1", previousStatus: "confirmed" },
+  verified_gone: { recordUrl: "https://broker.test/p/1", scanId: "s1" },
   note: { text: "Called, they said it is done." },
 };
 

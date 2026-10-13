@@ -44,13 +44,14 @@ const candidate = (path: string, overrides: Partial<Candidate> = {}): Candidate 
 const queue = () => ctx.services.taskQueue;
 
 /** Enqueues a scan and has a worker finish it with these candidates. */
-function scanWith(candidates: Candidate[]) {
+function scanWith(candidates: Candidate[], noResultsShown?: boolean) {
   const { task, scanId } = ctx.services.dispatch.enqueueScan(profileId, targetId);
   const claimed = queue().claim({ workerId: "w", kinds: [task.kind], leaseMs: 60_000 });
+  const scan = { candidates, ...(noResultsShown === undefined ? {} : { noResultsShown }) };
   queue().complete(claimed?.id ?? "", {
     workerId: "w",
     actor: claimed?.kind === "agent" ? "agent" : "worker",
-    result: claimed?.kind === "agent" ? { purpose: "scan", scan: { candidates } } : { candidates },
+    result: claimed?.kind === "agent" ? { purpose: "scan", scan } : scan,
   });
   return { taskId: task.id, scanId: scanId ?? "" };
 }
@@ -287,6 +288,101 @@ describe("scan results", () => {
         .where(eq(recipes.id, recipe?.id ?? ""))
         .get(),
     ).toMatchObject({ failureCount: 0, health: "healthy" });
+  });
+});
+
+describe("verifying that a settled removal is gone", () => {
+  beforeEach(() => {
+    seedRecipe(ctx, targetId, { purpose: "scan" });
+  });
+
+  function settledRemoval(status: "confirmed" | "no_record" | "awaiting_reply" = "confirmed") {
+    const earlier = seedScan(ctx, { profileId, targetId });
+    const request = seedRequest(ctx, {
+      profileId,
+      targetId,
+      channel: "form",
+      status,
+      recordUrl: "https://records.test/p/1",
+    });
+    const match = seedMatch(ctx, {
+      scanId: earlier.id,
+      profileId,
+      targetId,
+      recordUrl: "https://records.test/p/1",
+      decision: "mine",
+      requestId: request.id,
+    });
+    return { request, match };
+  }
+
+  const verifiedAt = (id: string) =>
+    ctx.services.db.select().from(matches).where(eq(matches.id, id)).get()?.verifiedGoneAt;
+  const goneEvents = (id: string) =>
+    ctx.services.requests.events(id).filter((event) => event.type === "verified_gone");
+
+  it("marks the match and logs the event when a scan lists other records but not this one", () => {
+    const { request, match } = settledRemoval();
+    const { scanId } = scanWith([candidate("2")]);
+
+    expect(verifiedAt(match.id)).toBe(ctx.clock.now().toISOString());
+    expect(goneEvents(request.id)).toMatchObject([
+      {
+        actor: "system",
+        payload: { recordUrl: "https://records.test/p/1", scanId },
+      },
+    ]);
+  });
+
+  it("verifies a no_record answer the same way", () => {
+    const { match } = settledRemoval("no_record");
+    scanWith([candidate("2")]);
+    expect(verifiedAt(match.id)).not.toBeNull();
+  });
+
+  it("counts an empty list as absence only when the site showed that nothing matched", () => {
+    const { match } = settledRemoval();
+    scanWith([]);
+    expect(verifiedAt(match.id)).toBeNull();
+    scanWith([], false);
+    expect(verifiedAt(match.id)).toBeNull();
+    scanWith([], true);
+    expect(verifiedAt(match.id)).not.toBeNull();
+  });
+
+  it("does not verify a record the scan still lists", () => {
+    const { request, match } = settledRemoval();
+    scanWith([{ ...candidate("1"), recordUrl: "https://www.records.test/p/1/" }]);
+    expect(verifiedAt(match.id)).toBeNull();
+    expect(goneEvents(request.id)).toHaveLength(0);
+  });
+
+  it("clears the verification when the record is listed again", () => {
+    const { match } = settledRemoval();
+    scanWith([candidate("2")]);
+    expect(verifiedAt(match.id)).not.toBeNull();
+    scanWith([candidate("1")]);
+    expect(verifiedAt(match.id)).toBeNull();
+  });
+
+  it("leaves a removal that is not settled alone", () => {
+    const { request, match } = settledRemoval("awaiting_reply");
+    scanWith([candidate("2")]);
+    expect(verifiedAt(match.id)).toBeNull();
+    expect(goneEvents(request.id)).toHaveLength(0);
+  });
+
+  it("does not count a scan that failed", () => {
+    const { match } = settledRemoval();
+    const { task } = ctx.services.dispatch.enqueueScan(profileId, targetId);
+    queue().claim({ workerId: "w", kinds: [task.kind], leaseMs: 60_000 });
+    queue().fail(task.id, {
+      workerId: "w",
+      error: "blocked",
+      retryable: false,
+      actor: "worker",
+    });
+    expect(verifiedAt(match.id)).toBeNull();
   });
 });
 

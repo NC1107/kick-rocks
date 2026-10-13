@@ -262,6 +262,7 @@ export function seedMockMatch(
   fields: Match["fields"],
   decision: Match["decision"] = "pending",
   requestId: string | null = null,
+  verifiedGoneAt: string | null = null,
 ): void {
   store.matches.push({
     id: store.nextId("mtc"),
@@ -275,6 +276,7 @@ export function seedMockMatch(
     decision,
     decidedAt: decision === "pending" ? null : store.ago({ hours: 2 }),
     requestId,
+    verifiedGoneAt,
   });
   recountScan(store, scan.id);
 }

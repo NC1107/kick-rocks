@@ -1,0 +1,1 @@
+ALTER TABLE `matches` ADD `verified_gone_at` text;

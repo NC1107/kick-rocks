@@ -236,6 +236,7 @@ export default defineMockDomain({
         { name: "Jordan Q Example", age: 35, locations: ["Sampleton, CA"] },
         "mine",
         traceRequest.id,
+        store.ago({ days: 10 }),
       );
     }
 
