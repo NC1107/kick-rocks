@@ -102,6 +102,12 @@ describe("color tokens", () => {
     }
   });
 
+  it.each(SCHEMES)("keeps the attention glyph at 3:1 on the layers it sits on (%s)", (scheme) => {
+    for (const layer of ["rail", "canvas", "surface", "hover"]) {
+      expect(ratio(base, scheme, "attention", layer), layer).toBeGreaterThanOrEqual(3);
+    }
+  });
+
   it.each(SCHEMES)("gives controls and the focus ring a 3:1 edge (%s)", (scheme) => {
     expect(ratio(base, scheme, "line-strong", "surface")).toBeGreaterThanOrEqual(3);
     expect(ratio(base, scheme, "focus", "surface")).toBeGreaterThanOrEqual(3);

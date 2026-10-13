@@ -6,10 +6,11 @@ import { Spinner } from "./Spinner.js";
 export type ButtonVariant = "primary" | "secondary" | "ghost" | "danger" | "danger-solid";
 export type ButtonSize = "sm" | "md" | "lg";
 
-// A disabled button is a flat neutral slab, not a faded copy of its variant, so a washed-out
-// accent never reads as an available action.
-const DISABLED =
-  "[&:is(:disabled,[aria-disabled=true]):not([aria-busy=true])]:cursor-not-allowed [&:is(:disabled,[aria-disabled=true]):not([aria-busy=true])]:border-line-popover [&:is(:disabled,[aria-disabled=true]):not([aria-busy=true])]:bg-disabled [&:is(:disabled,[aria-disabled=true]):not([aria-busy=true])]:text-ink-3 aria-busy:cursor-progress";
+// A disabled button is an outline with ink-3 text and a dashed edge, never a filled slab, so a
+// disabled primary cannot read as a dim button. ink-3 is 5.6:1 or better on canvas and surface in both
+// themes (the old dim fill gave 4.33:1 in dark); the dashed line-strong edge is 3.28:1 or better.
+const DISABLED_WHEN = "[&:is(:disabled,[aria-disabled=true]):not([aria-busy=true])]";
+const DISABLED = `${DISABLED_WHEN}:cursor-not-allowed ${DISABLED_WHEN}:border-dashed ${DISABLED_WHEN}:border-line-strong ${DISABLED_WHEN}:bg-transparent ${DISABLED_WHEN}:text-ink-3 aria-busy:cursor-progress`;
 
 const BASE = `inline-flex shrink-0 select-none items-center justify-center gap-2 whitespace-nowrap rounded-sm border font-medium transition-[background-color,color,scale] duration-100 ease-out enabled:active:scale-[0.98] [&_svg]:size-4 ${DISABLED}`;
 

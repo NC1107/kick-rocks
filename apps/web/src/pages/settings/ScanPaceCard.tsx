@@ -83,7 +83,7 @@ export function ScanPaceCard({
         });
       }}
     >
-      <Section label="Pace and route">
+      <Section label="Pacing">
         <RowGroup>
           {SCANNING_FIELDS.flatMap((field) => [
             <FieldRow

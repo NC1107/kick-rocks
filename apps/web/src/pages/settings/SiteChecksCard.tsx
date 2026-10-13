@@ -16,8 +16,7 @@ export function SiteChecksCard({ siteChecks }: { siteChecks: SettingsView["siteC
       <RowGroup>
         <BodyRow>
           <Checkbox
-            label="Check recipes on live sites"
-            description="Weekly, read-only"
+            label="Check sites weekly"
             checked={siteChecks.enabled}
             disabled={toggle.isPending}
             onChange={(event) =>

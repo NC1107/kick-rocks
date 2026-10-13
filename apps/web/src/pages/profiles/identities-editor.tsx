@@ -136,20 +136,24 @@ export function IdentitiesEditor({
                     <legend className="sr-only">
                       {IDENTITY_KIND_LABELS[draft.kind]} {position + 1}
                     </legend>
-                    <div className="min-w-0 flex-1">
-                      <RowFields
-                        draft={draft}
-                        index={index}
-                        errors={errors}
-                        disabled={disabled}
-                        today={today}
-                        onChange={(change) => onChange(updateDraft(drafts, draft.key, change))}
-                      />
-                    </div>
-                    <div className="flex shrink-0 items-center justify-end gap-1 lg:mt-[1.375rem] lg:h-control lg:w-44">
+                    <div className="flex min-w-0 flex-1 flex-col gap-1 lg:flex-row lg:items-start lg:gap-3">
+                      <div className="min-w-0 flex-1">
+                        <RowFields
+                          draft={draft}
+                          index={index}
+                          errors={errors}
+                          disabled={disabled}
+                          today={today}
+                          onChange={(change) => onChange(updateDraft(drafts, draft.key, change))}
+                        />
+                      </div>
                       {hasPrimary(draft.kind) && draft.isPrimary ? (
-                        <span className="font-mono text-caption text-ink-3">primary</span>
+                        <span className="font-mono text-caption text-ink-3 lg:mt-[1.375rem] lg:flex lg:h-control lg:items-center">
+                          primary
+                        </span>
                       ) : null}
+                    </div>
+                    <div className="flex shrink-0 items-center justify-end gap-1 lg:mt-[1.375rem] lg:h-control lg:w-36">
                       <div className="flex items-center gap-1 opacity-0 transition-opacity duration-100 group-focus-within:opacity-100 group-hover:opacity-100 pointer-coarse:opacity-100 max-lg:opacity-100">
                         {hasPrimary(draft.kind) && !draft.isPrimary ? (
                           <Button

@@ -25,13 +25,13 @@ const helper = async (name: string) => within(await screen.findByRole("group", {
 describe("the helpers with nothing set up", () => {
   it("shows each helper with its state word and one action", async () => {
     setup("empty");
-    const browser = await helper("Browser worker");
+    const browser = await helper("Browser");
     expect(browser.getByText("Not found")).toBeVisible();
     expect(browser.getByRole("button", { name: "Show command" })).toBeVisible();
-    const agent = await helper("Agent worker");
+    const agent = await helper("Agent");
     expect(agent.getByText("Not found")).toBeVisible();
     expect(agent.getByRole("button", { name: "Show command" })).toBeVisible();
-    const access = await helper("Agent access (MCP)");
+    const access = await helper("Agent access");
     expect(access.getByText("Off")).toBeVisible();
     expect(access.getByRole("button", { name: "Set up" })).toBeVisible();
     const reply = await helper("Reply model");
@@ -73,16 +73,16 @@ describe("the helpers with nothing set up", () => {
 describe("the helpers when everything is running", () => {
   it("reads ok on every row", async () => {
     setup("ready");
-    expect(await (await helper("Browser worker")).findByText("Online")).toBeVisible();
-    expect((await helper("Agent worker")).getByText("Online")).toBeVisible();
-    expect((await helper("Agent access (MCP)")).getByText("On")).toBeVisible();
+    expect(await (await helper("Browser")).findByText("Online")).toBeVisible();
+    expect((await helper("Agent")).getByText("Online")).toBeVisible();
+    expect((await helper("Agent access")).getByText("On")).toBeVisible();
     expect(await (await helper("Reply model")).findByText("Found")).toBeVisible();
     expect(await (await helper("Agent model")).findByText("Found")).toBeVisible();
   });
 
   it("offers no command for a worker that is already online", async () => {
     setup("ready");
-    const browser = await helper("Browser worker");
+    const browser = await helper("Browser");
     await browser.findByText("Online");
     expect(browser.queryByRole("button", { name: "Show command" })).toBeNull();
   });
@@ -99,21 +99,21 @@ describe("the helpers when everything is running", () => {
       const builtin = mock.store.settings.worker.builtin;
       if (builtin) mock.store.settings.worker.builtin = { ...builtin, lastSeenAt: old };
     });
-    expect(await (await helper("Browser worker")).findByText("Offline")).toBeVisible();
+    expect(await (await helper("Browser")).findByText("Offline")).toBeVisible();
   });
 
   it("says the workers are off when the server has none enabled", async () => {
     setup("empty", (mock) => {
       mock.store.settings.worker = { enabled: false, builtin: null, model: null };
     });
-    expect((await helper("Browser worker")).getByText("Off")).toBeVisible();
+    expect((await helper("Browser")).getByText("Off")).toBeVisible();
   });
 });
 
 describe("the start command", () => {
   it("shows the command with a copy button, and flips to ok once the worker calls in", async () => {
     const { user, mock } = setup("empty");
-    const browser = await helper("Browser worker");
+    const browser = await helper("Browser");
     await user.click(browser.getByRole("button", { name: "Show command" }));
     expect(browser.getByText("docker compose --profile worker up -d worker")).toBeVisible();
     expect(browser.getByText("waiting for heartbeat...")).toBeVisible();
@@ -134,7 +134,7 @@ describe("the start command", () => {
 
   it("gives the agent worker its own command", async () => {
     const { user } = setup("empty");
-    const agent = await helper("Agent worker");
+    const agent = await helper("Agent");
     await user.click(agent.getByRole("button", { name: "Show command" }));
     expect(agent.getByText("docker compose --profile agent up -d agent-worker")).toBeVisible();
   });
@@ -157,7 +157,9 @@ describe("the model rows", () => {
 
   it("says which helper uses each address", async () => {
     setup("ready");
-    expect((await helper("Reply model")).getByText("Used for reply suggestions")).toBeVisible();
+    expect(
+      (await helper("Reply model")).getByText("Optional. Without it replies are sorted by rules."),
+    ).toBeVisible();
     expect((await helper("Agent model")).getByText("Used by the agent worker")).toBeVisible();
   });
 });
@@ -165,7 +167,7 @@ describe("the model rows", () => {
 describe("agent access", () => {
   it("opens the token dialog from the Set up action", async () => {
     const { user } = setup("empty");
-    await user.click((await helper("Agent access (MCP)")).getByRole("button", { name: "Set up" }));
+    await user.click((await helper("Agent access")).getByRole("button", { name: "Set up" }));
     const dialog = await screen.findByRole("dialog");
     expect(within(dialog).getByRole("button", { name: "Create a token" })).toBeVisible();
   });
@@ -195,7 +197,7 @@ describe("the split between Setup and Advanced", () => {
     const advancedNames = [
       "Schedule",
       "Site checks",
-      "Pace and route",
+      "Pacing",
       "Sites cooling down",
       "Retention",
       "Recipes to check",

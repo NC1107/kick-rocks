@@ -498,16 +498,16 @@ describe("what Kick Rocks takes in", () => {
       "aria-expanded",
       "false",
     );
-    expect(screen.getByTestId("last-check")).toHaveTextContent("143 checked · 4 kept");
+    expect(screen.getByTestId("last-check")).toHaveTextContent("Request mail only · 4 of 143 kept");
   });
 
   it("lists the saved mail it would remove and removes nothing until the person confirms", async () => {
     const { user } = open("jordan");
     const preview = within(await screen.findByTestId("cleanup-preview"));
-    expect(screen.getByRole("heading", { name: /Old mail Kick Rocks saved · 12/ })).toBeVisible();
+    expect(screen.getByRole("heading", { name: /Saved mail · 12/ })).toBeVisible();
     expect(preview.getByText("Your order has shipped")).toBeVisible();
     expect(preview.getByText("orders@shop-example.test", { exact: false })).toBeVisible();
-    expect(preview.getByText("Deleted when you confirm.")).toBeVisible();
+    expect(preview.getByText("Deleted on confirm.")).toBeVisible();
     expect(preview.getAllByText(/example\.test/).length).toBeGreaterThan(0);
     expect(screen.getByRole("heading", { name: /Ignored · 0/ })).toBeVisible();
     expect(screen.getByText("Nothing ignored.")).toBeVisible();

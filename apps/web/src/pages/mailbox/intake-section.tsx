@@ -70,17 +70,16 @@ export function IntakeSection({ profileId, mailbox, provider }: IntakeSectionPro
       <Section label="Mail intake">
         <RowGroup>
           <BodyRow>
-            <p className="text-meta font-medium text-ink">Request mail only</p>
-          </BodyRow>
-          {mailbox.lastPolledAt ? (
-            <BodyRow>
-              <p className="text-meta text-ink-2" data-testid="last-check">
-                <span className="font-mono tabular-nums">
-                  {mailbox.lastPollScanned} checked · {mailbox.lastPollKept} kept
+            <p className="text-meta font-medium text-ink" data-testid="last-check">
+              Request mail only
+              {mailbox.lastPolledAt ? (
+                <span className="font-mono font-normal tabular-nums text-ink-2">
+                  {" · "}
+                  {mailbox.lastPollKept} of {mailbox.lastPollScanned} kept
                 </span>
-              </p>
-            </BodyRow>
-          ) : null}
+              ) : null}
+            </p>
+          </BodyRow>
         </RowGroup>
         <Disclosure
           title="What counts"
