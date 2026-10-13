@@ -21,7 +21,6 @@ import {
   Select,
 } from "../../components/ui/index.js";
 import { ADMISSION_REASON } from "../../lib/admission.js";
-import { pluralize } from "../../lib/format.js";
 import { BodyRow, FieldRow, GroupNote } from "../settings/rows.js";
 import { CleanupPreview, IgnoredMail, ShadowReport } from "./intake-review.js";
 
@@ -74,16 +73,15 @@ export function IntakeSection({ profileId, mailbox, provider }: IntakeSectionPro
         <RowGroup>
           <BodyRow>
             <p className="text-meta font-medium text-ink">
-              {shadowActive
-                ? "Only request mail is saved; possible replies are listed for a week."
-                : "Only request mail is saved; the rest stays in your mailbox."}
+              {shadowActive ? "Saves request mail only" : "Saves request mail only"}
             </p>
           </BodyRow>
           {mailbox.lastPolledAt ? (
             <BodyRow>
               <p className="text-meta text-ink-2" data-testid="last-check">
-                Last check looked at {pluralize(mailbox.lastPollScanned, "new message")} and kept{" "}
-                {mailbox.lastPollKept}.
+                <span className="font-mono tabular-nums">
+                  {mailbox.lastPollScanned} checked · {mailbox.lastPollKept} kept
+                </span>
               </p>
             </BodyRow>
           ) : null}

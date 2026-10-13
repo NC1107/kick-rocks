@@ -2,13 +2,15 @@ import type { ReactNode } from "react";
 import { LinkTabs, PageHeader } from "../../components/ui/index.js";
 
 const TABS = [
-  { to: "/settings", label: "General", end: true },
+  { to: "/settings", label: "Setup", end: true },
+  { to: "/settings/advanced", label: "Advanced" },
   { to: "/settings/profiles", label: "Profiles" },
-  { to: "/settings/recipes", label: "Recipes" },
-  { to: "/settings/agents", label: "Agents" },
   { to: "/settings/notifications", label: "Notifications" },
+  { to: "/targets", label: "Sites" },
   { to: "/settings/about", label: "About" },
 ] as const;
+
+type TabLabel = (typeof TABS)[number]["label"];
 
 /** The heading and section tabs every settings page shares, so they read as one place. */
 export function SettingsHeader({
@@ -17,7 +19,7 @@ export function SettingsHeader({
   actions,
   hideDescriptionOnPhone,
 }: {
-  section: (typeof TABS)[number]["label"];
+  section: Exclude<TabLabel, "Sites">;
   description: string;
   actions?: ReactNode;
   hideDescriptionOnPhone?: boolean;

@@ -40,7 +40,7 @@ describe("paths", () => {
       "/review/problems?item=failed%3Atsk_1",
     );
     expect(paths.settings("recipes")).toBe("/settings/recipes");
-    expect(paths.settings("schedule")).toBe("/settings#schedule");
+    expect(paths.settings("schedule")).toBe("/settings/advanced#schedule");
   });
 
   it("opens a task in the Review item that matches it, else in its request", () => {

@@ -53,8 +53,8 @@ async function readBody(request: IncomingMessage): Promise<string | undefined> {
  * session to a state, for testing the auth gate. GET /__mock/health?state=ok|scheduler|sending|database|disk
  * makes the health check report that problem. GET /__mock/agents?preset=none|one|several sets
  * which agent workers and MCP clients have connected, and queues agent tasks on two requests.
- * ?setup=none|small6|gpu16|gpu16-uncleared|gpu16-old-worker|gpu16-hosted sets what Settings, Agents
- * detects. Either or both may be given.
+ * ?setup=empty|ready|none|small6|gpu16|gpu16-uncleared|gpu16-old-worker|gpu16-hosted sets what Settings
+ * Helpers detects: empty is nothing set up, ready is every helper running. Either or both may be given.
  */
 export function kickRocksMock(options: KickRocksMockOptions = {}): Plugin {
   const settings = readOptions(options);

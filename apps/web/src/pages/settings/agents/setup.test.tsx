@@ -6,7 +6,7 @@ import { createMockApp } from "../../../../mock/app.js";
 import { copyText } from "../../../lib/clipboard.js";
 import { STORAGE_KEYS } from "../../../lib/storage.js";
 import { renderPage } from "../../../test/render.js";
-import { Component as AgentsPage } from "./index.js";
+import { AgentTuning } from "../advanced/AgentTuning.js";
 
 vi.mock("../../../lib/clipboard.js", () => ({ copyText: vi.fn(async () => true) }));
 
@@ -22,11 +22,7 @@ function agents(setup: AgentSetupName = "gpu16", tweak: (mock: Mock) => void = (
   const mock = createMockApp();
   applyAgentSetup(mock.store, setup);
   tweak(mock);
-  const page = renderPage(<AgentsPage />, {
-    path: "/settings/agents",
-    route: "/settings/agents",
-    mock,
-  });
+  const page = renderPage(<AgentTuning />, { path: "/settings", route: "/settings", mock });
   return { ...page, mock };
 }
 
@@ -34,7 +30,7 @@ const SKELETON = "Looking for Ollama and the agent worker";
 const ready = () =>
   waitFor(() => {
     expect(screen.queryByText(SKELETON)).toBeNull();
-    expect(screen.getByRole("heading", { name: "Setup" })).toBeVisible();
+    expect(screen.getByRole("button", { name: /^Agent tuning/ })).toBeVisible();
   });
 const recommended = async () =>
   within(
@@ -42,7 +38,7 @@ const recommended = async () =>
       "section",
     ) as HTMLElement,
   );
-const advanced = () => screen.getByRole("button", { name: /^Advanced/ });
+const advanced = () => screen.getByRole("button", { name: /^Agent tuning/ });
 
 function primaryButtons(): HTMLElement[] {
   return screen
@@ -59,13 +55,9 @@ describe("while the setup is being checked", () => {
 });
 
 describe("a 16 GB desktop with gpt-oss:20b installed and cleared", () => {
-  it("detects the pieces and recommends one setup", async () => {
+  it("recommends one setup", async () => {
     agents();
     await ready();
-    expect(await screen.findByText(/nick-desktop-agent, seen .*RTX 5080 16 GB/)).toBeVisible();
-    expect(
-      screen.getByText(/desktop:11434, v0\.12\.3, 7 models, gpt-oss:20b loaded, 12\.7 GB on GPU/),
-    ).toBeVisible();
 
     const card = await recommended();
     expect(card.getByText("Agent: gpt-oss:20b, 16k context")).toBeVisible();
@@ -78,14 +70,6 @@ describe("a 16 GB desktop with gpt-oss:20b installed and cleared", () => {
     expect(
       card.getByText(/Cleared here, so the agent worker may send forms on its own/),
     ).toBeVisible();
-  });
-
-  it("says the server and the worker probably reach one Ollama when their libraries match", async () => {
-    agents();
-    await ready();
-    expect(await screen.findByText(/Probably the same server for both/)).toBeVisible();
-    expect(screen.getByText("Ollama for replies and the agent")).toBeVisible();
-    expect(screen.queryByText("Ollama for the agent (from the worker)")).toBeNull();
   });
 
   it("has exactly one primary action on the page", async () => {
@@ -157,9 +141,8 @@ describe("a small card", () => {
   it("asks once how much memory the GPU has, and saves the answer on the server", async () => {
     const { user, mock } = agents("small6");
     await ready();
-    expect(await screen.findByText(/GPU not visible to the worker/)).toBeVisible();
     expect(
-      screen.getByText("Could not tell how much memory the GPU running Ollama has"),
+      await screen.findByText("Could not tell how much memory the GPU running Ollama has"),
     ).toBeVisible();
 
     await user.click(screen.getByRole("radio", { name: "6" }));
@@ -180,7 +163,7 @@ describe("a small card", () => {
     const mock = createMockApp();
     applyAgentSetup(mock.store, "small6");
     mock.store.settings.agent.gpuMemoryGb = { worker: 6, server: 6 };
-    renderPage(<AgentsPage />, { path: "/settings/agents", route: "/settings/agents", mock });
+    renderPage(<AgentTuning />, { path: "/settings", route: "/settings", mock });
     await (await recommended()).findByText("Replies: llama3.2:3b");
     expect(screen.queryByRole("radio", { name: "6" })).toBeNull();
   });
@@ -240,22 +223,20 @@ describe("when the setup check fails or is slow", () => {
     body: JSON.stringify({ error: { code: "internal", message: "The check failed." } }),
   });
 
-  it("keeps the MCP row and the safety gate reachable after an error", async () => {
+  it("keeps the safety gate reachable after an error", async () => {
     const { user } = agents("gpu16", withSetup(failing as never));
     expect(await screen.findByText("Could not check the setup")).toBeVisible();
-    expect(screen.getByRole("heading", { name: "Agent access" })).toBeVisible();
     await user.click(advanced());
     expect(await screen.findByRole("heading", { name: "When a send is held" })).toBeVisible();
   });
 
-  it("shows the MCP row while detection is still running", async () => {
+  it("keeps the safety gate reachable while detection is still running", async () => {
     agents(
       "gpu16",
       withSetup(() => new Promise(() => undefined)),
     );
-    expect(await screen.findByRole("heading", { name: "Agent access" })).toBeVisible();
-    expect(screen.getByText(SKELETON)).toBeInTheDocument();
-    expect(advanced()).toBeVisible();
+    expect(await screen.findByText(SKELETON)).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: /^Agent tuning/ })).toBeVisible();
   });
 });
 
@@ -273,47 +254,6 @@ describe("when nothing is installed that fits", () => {
     expect(screen.getByRole("button", { name: "Apply" })).toBeDisabled();
     await user.click(screen.getByRole("button", { name: "Copy pull command" }));
     expect(copyText).toHaveBeenCalledWith("ollama pull gpt-oss:20b");
-  });
-});
-
-describe("when no Ollama is found", () => {
-  it("says so, and takes an address to check", async () => {
-    const { user } = agents("none", ({ store }) => {
-      store.agentNetwork["10.0.0.9:11434"] = {
-        version: "0.12.3",
-        models: [
-          {
-            name: "qwen3:8b",
-            digest: "cc13a2d5b8f2",
-            sizeBytes: 5_200_000_000,
-            parameterSize: "8.2B",
-            quantization: "Q4_K_M",
-          },
-        ],
-        loaded: [],
-      };
-    });
-    await ready();
-    expect(await screen.findByText("Not found at the usual addresses")).toBeVisible();
-    expect(screen.getByText("No agent worker has reported")).toBeVisible();
-    expect(screen.getByRole("link", { name: /agents guide/ })).toHaveAttribute(
-      "href",
-      expect.stringContaining("docs/agents.md"),
-    );
-
-    await user.type(screen.getByLabelText("Ollama address"), "http://10.0.0.8:11434");
-    await user.click(screen.getByRole("button", { name: "Check" }));
-    expect(await screen.findByText("10.0.0.8:11434: nothing answered")).toBeVisible();
-
-    await user.clear(screen.getByLabelText("Ollama address"));
-    await user.type(screen.getByLabelText("Ollama address"), "http://10.0.0.9:11434");
-    await user.click(screen.getByRole("button", { name: "Check" }));
-    expect(await screen.findByText(/10\.0\.0\.9:11434, v0\.12\.3, 1 model/)).toBeVisible();
-    expect(
-      await screen.findByText("Could not tell how much memory the GPU running Ollama has"),
-    ).toBeVisible();
-    await user.click(screen.getByRole("radio", { name: "8" }));
-    expect(await (await recommended()).findByText("Replies: qwen3:8b")).toBeVisible();
   });
 });
 
@@ -484,26 +424,5 @@ describe("the advanced part", () => {
     }
     expect(details.getAllByText("nothing answered")).toHaveLength(4);
     await user.click(details.getByRole("button", { name: "Recheck" }));
-  });
-});
-
-describe("agent access", () => {
-  it("is one collapsed row until the person sets it up", async () => {
-    const { user } = agents();
-    await ready();
-    const section = within(
-      screen.getByRole("heading", { name: "Agent access" }).closest("section") as HTMLElement,
-    );
-    expect(section.getByText("Off")).toBeVisible();
-    expect(screen.queryByRole("checkbox", { name: /Allow agents to connect/ })).toBeNull();
-    await user.click(section.getByRole("button", { name: "Set up" }));
-    expect(await screen.findByRole("checkbox", { name: /Allow agents to connect/ })).toBeVisible();
-  });
-
-  it("says when it is on and a token is set", async () => {
-    const mock = createMockApp();
-    mock.store.settings.mcp = { ...mock.store.settings.mcp, enabled: true, tokenSet: true };
-    renderPage(<AgentsPage />, { path: "/settings/agents", route: "/settings/agents", mock });
-    expect(await screen.findByText("On, token set")).toBeVisible();
   });
 });

@@ -141,7 +141,7 @@ export function Component() {
         ) : query.data && profiles.length === 0 ? (
           <EmptyState
             title="No profiles yet"
-            description="A profile holds one person's name, email, and address, and the mailbox requests go out from."
+            description="A profile is one person's details and mailbox."
             actions={newProfile}
           />
         ) : (

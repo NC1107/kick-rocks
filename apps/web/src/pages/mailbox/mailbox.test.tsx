@@ -476,17 +476,12 @@ describe("what Kick Rocks takes in", () => {
     expect(
       screen.getByText(/Mail matching no request is kept for review, never applied/),
     ).toBeInTheDocument();
-    expect(
-      screen.getByText(/Only request mail is saved; the rest stays in your mailbox\./),
-    ).toBeVisible();
-    expect(await screen.findByText(/possible replies are listed for a week/)).toBeVisible();
+    expect(screen.getByText("Saves request mail only")).toBeVisible();
     expect(screen.getByRole("button", { name: "What counts" })).toHaveAttribute(
       "aria-expanded",
       "false",
     );
-    expect(screen.getByTestId("last-check")).toHaveTextContent(
-      "Last check looked at 143 new messages and kept 4.",
-    );
+    expect(screen.getByTestId("last-check")).toHaveTextContent("143 checked · 4 kept");
   });
 
   it("lists the saved mail it would remove and removes nothing until the person confirms", async () => {
@@ -495,7 +490,7 @@ describe("what Kick Rocks takes in", () => {
     expect(screen.getByRole("heading", { name: /Saved mail to remove · 12/ })).toBeVisible();
     expect(preview.getByText("Your order has shipped")).toBeVisible();
     expect(preview.getByText("orders@shop-example.test", { exact: false })).toBeVisible();
-    expect(preview.getByText(/removed only on confirm/)).toBeVisible();
+    expect(preview.getByText("Old mail. Deleted on confirm.")).toBeVisible();
     expect(preview.getAllByText(/example\.test/).length).toBeGreaterThan(0);
     expect(screen.getByRole("heading", { name: /Ignored · 0/ })).toBeVisible();
     expect(screen.getByText("Nothing ignored.")).toBeVisible();
@@ -559,12 +554,7 @@ describe("what Kick Rocks takes in", () => {
     const report = within(await screen.findByTestId("shadow-report"));
     await user.click(report.getByRole("button", { name: "Dismiss report" }));
     await waitFor(() => expect(screen.queryByTestId("shadow-report")).toBeNull());
-    await waitFor(() =>
-      expect(screen.queryByText(/possible replies are listed for a week/)).toBeNull(),
-    );
-    expect(
-      screen.getByText(/Only request mail is saved; the rest stays in your mailbox\./),
-    ).toBeVisible();
+    expect(screen.getByText("Saves request mail only")).toBeVisible();
   });
 
   it("switches company mail between privacy-only and everything but ads", async () => {

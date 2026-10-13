@@ -8,17 +8,14 @@ export function ReplyModelCard({ model }: { model: ReplyModelView }) {
   const used = model.bands.filter((band) => band.answers > 0);
 
   return (
-    <Section label="Reply model">
+    <Section label="Reply classifier">
       <RowGroup>
         <FactRow label="State" mono={false}>
           {stateText(model.status)}
         </FactRow>
-        <FactRow label="Use" mono={false}>
-          Suggestions only
-        </FactRow>
         {used.length > 0 ? (
           <BodyRow>
-            <p className="mb-1 text-meta text-ink-3">Your answers, by how sure the model was</p>
+            <p className="mb-1 text-meta text-ink-3">Your answers by confidence</p>
             <ul className="m-0 flex list-none flex-col gap-0.5 p-0">
               {used.map((band) => {
                 const text = bandText(band);
@@ -35,10 +32,7 @@ export function ReplyModelCard({ model }: { model: ReplyModelView }) {
             </ul>
           </BodyRow>
         ) : null}
-        <ActionRow
-          title="Labelled replies"
-          description="Download classified replies with model guesses; nothing leaves this server otherwise."
-        >
+        <ActionRow title="Labelled replies" description="Replies with the model's guesses">
           <a
             href={routeUrl(API_ROUTES.replyModelLabels)}
             download
@@ -52,7 +46,7 @@ export function ReplyModelCard({ model }: { model: ReplyModelView }) {
         detailLabel="What a reply type is"
         detail="Reply types are labels such as confirmed, rejected or needs ID, given to replies the rules cannot place."
       >
-        Local model suggests a reply type; never acts, never sends data.
+        Suggestions only
       </GroupNote>
     </Section>
   );

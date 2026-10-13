@@ -81,7 +81,7 @@ export function RetentionCard({ retention }: { retention: RetentionSettings }) {
             </Button>
           </GroupFooter>
         </RowGroup>
-        <GroupNote>A shorter window deletes older data when you save.</GroupNote>
+        <GroupNote>Shorter windows delete older data on save</GroupNote>
         {save.isError ? (
           <Callout intent="danger" title="Could not save retention" className="mt-3">
             {errorMessage(save.error)}

@@ -139,7 +139,7 @@ export function DigestCard({
             </Button>
           </GroupFooter>
         </RowGroup>
-        <GroupNote>Mailed from your own mailbox to itself; no other service.</GroupNote>
+        <GroupNote>Sent from your own mailbox</GroupNote>
         {status.digestLastSentAt ? (
           <GroupNote>
             Last digest covered up to <RelativeTime iso={status.digestLastSentAt} />.
