@@ -90,6 +90,13 @@ export const reviewModule: ModulePlugin = (app, services) => {
   });
 
   registerRoute(app, API_ROUTES.taskResume, ({ params }) => {
+    // Approving held sends resumes through its own route; a plain resume would fill the form in again.
+    if (services.taskQueue.getOrThrow(params.id).mayHaveSubmitted) {
+      throw conflict(
+        "may_have_submitted",
+        "The form may already have gone out, so running it again could send it twice. Check the site, then mark the task done or cancel it.",
+      );
+    }
     const task = summary(services.taskQueue.resume(params.id, "user"));
     marks.clearOpened("task", params.id);
     return { task };

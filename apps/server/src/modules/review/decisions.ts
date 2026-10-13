@@ -8,6 +8,7 @@ import {
   type MessageClassificationBody,
   type MessageSummary,
   normalizeRecordUrl,
+  RECORD_RIGHTS,
 } from "@kickrocks/shared";
 import { and, eq } from "drizzle-orm";
 import { CLASSIFIED_BY_HAND } from "../../core/classified-by-hand.js";
@@ -91,6 +92,31 @@ export function decideMatch(
       .get();
     return toMatch(decided, targetName);
   });
+}
+
+/**
+ * Treats every waiting record that scores as likely the person's as theirs, which is what turning
+ * autopilot on means for the records found before it was. One that cannot be decided is left
+ * waiting rather than stopping the rest.
+ */
+export function acceptLikelyMatches(services: AppServices): number {
+  const waiting = services.db
+    .select({ id: matches.id, assessment: matches.assessment })
+    .from(matches)
+    .where(eq(matches.decision, "pending"))
+    .all()
+    .filter((row) => row.assessment?.band === "likely");
+  let accepted = 0;
+  for (const { id } of waiting) {
+    try {
+      decideMatch(services, id, { decision: "mine", rights: [...RECORD_RIGHTS] });
+      accepted += 1;
+    } catch (failure) {
+      if (!(failure instanceof AppError)) throw failure;
+      services.logger.info({ matchId: id, code: failure.code }, "left a likely record waiting");
+    }
+  }
+  return accepted;
 }
 
 /**

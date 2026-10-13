@@ -44,6 +44,7 @@ const SETTINGS_TO_FORGET: readonly SettingKey[] = [
   "agent.takeUnreviewed",
   "agent.gate",
   "agent.approvalHoldMinutes",
+  "agent.autopilot",
   "agent.model",
   "agent.gpuMemoryGb",
 ];

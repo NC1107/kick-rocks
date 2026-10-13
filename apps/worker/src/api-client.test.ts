@@ -68,6 +68,7 @@ const summary: TaskSummary = {
   blockedReason: null,
   blockedDetail: null,
   blockedUrl: null,
+  mayHaveSubmitted: false,
   failureKind: null,
   failureStep: null,
   finishedBy: "worker-1",

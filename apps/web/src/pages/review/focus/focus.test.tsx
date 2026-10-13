@@ -102,16 +102,6 @@ function setVisibility(state: "hidden" | "visible") {
   });
 }
 
-/** The person goes to the other tab for a while, and comes back. */
-function leaveAndReturn(awayMs = 6_000) {
-  const real = Date.now();
-  let offset = 0;
-  vi.spyOn(Date, "now").mockImplementation(() => real + offset);
-  setVisibility("hidden");
-  offset += awayMs;
-  setVisibility("visible");
-}
-
 describe("the primary action of each kind", () => {
   it.each([
     ["a CAPTCHA", (mock: MockApp) => taskKey(mock, "captcha"), "Open and solve"],
@@ -340,8 +330,62 @@ describe("details to type in", () => {
   });
 });
 
+describe("letting an agent try a check", () => {
+  it("keeps an agent away from a form that may already have gone out", async () => {
+    const mock = createMockApp();
+    const task = blockedTask(mock, "captcha");
+    task.kind = "agent";
+    task.mayHaveSubmitted = true;
+    openItem(`task:${task.id}`, mock);
+    const card = within(await screen.findByRole("article"));
+    expect(await card.findByText(/may already have gone out/)).toBeVisible();
+    expect(card.queryByRole("button", { name: "Let an agent try" })).toBeNull();
+  });
+
+  it.each(["captcha", "bot_detection"])("resumes an agent task blocked by %s", async (reason) => {
+    const mock = createMockApp();
+    const task = blockedTask(mock, reason);
+    task.kind = "agent";
+    const { user } = openItem(`task:${task.id}`, mock);
+    const card = within(await screen.findByRole("article"));
+    expect(card.getByText("Agents pass some checks, not all.")).toBeVisible();
+    await user.click(card.getByRole("button", { name: "Let an agent try" }));
+    await waitFor(() =>
+      expect(mock.store.tasks.find((t) => t.id === task.id)?.status).toBe("queued"),
+    );
+    expect((await screen.findAllByText("An agent will try again")).length).toBeGreaterThan(0);
+  });
+
+  it("hands a form task blocked by a CAPTCHA to an agent", async () => {
+    const mock = createMockApp();
+    const task = blockedTask(mock, "captcha");
+    task.kind = "form";
+    const { user } = openItem(`task:${task.id}`, mock);
+    const card = within(await cardOf("FindRecord"));
+    await user.click(card.getByRole("button", { name: "Let an agent try" }));
+    await waitFor(() =>
+      expect(mock.store.tasks.find((t) => t.id === task.id)?.status).toBe("cancelled"),
+    );
+    expect(
+      mock.store.tasks.some(
+        (t) => t.kind === "agent" && t.status === "queued" && t.requestId === task.requestId,
+      ),
+    ).toBe(true);
+  });
+
+  it("keeps Already done as a link that leads to the question", async () => {
+    const mock = createMockApp();
+    const task = blockedTask(mock, "captcha");
+    task.kind = "agent";
+    const { user } = openItem(`task:${task.id}`, mock);
+    const card = within(await cardOf("FindRecord"));
+    await user.click(card.getByRole("button", { name: "Already done" }));
+    expect(await screen.findByText("Did it work?")).toBeVisible();
+  });
+});
+
 describe("did it work", () => {
-  it("opens the page, tells the server, and asks when the person comes back", async () => {
+  it("opens the page, tells the server, and asks at once", async () => {
     const mock = createMockApp();
     const task = blockedTask(mock, "captcha");
     const { user } = openItem(`task:${task.id}`, mock);
@@ -355,21 +399,18 @@ describe("did it work", () => {
     await waitFor(() =>
       expect(mock.store.needsYouMarks.get(`task:${task.id}`)?.openedAt).toBeTruthy(),
     );
-    expect(screen.queryByText("Did it work?")).toBeNull();
-
-    leaveAndReturn();
-
     expect(await screen.findByText("Did it work?")).toBeVisible();
     expect(screen.queryByRole("button", { name: "Open and solve" })).toBeNull();
   });
 
-  it("does not ask after only a moment away", async () => {
+  it("opens the page again from the question without leaving it", async () => {
     const mock = createMockApp();
     const { user } = openItem(taskKey(mock, "captcha"), mock);
     const card = within(await cardOf("FindRecord"));
     await user.click(card.getByRole("button", { name: "Open and solve" }));
-    leaveAndReturn(1_000);
-    expect(screen.queryByText("Did it work?")).toBeNull();
+    await user.click(await screen.findByRole("button", { name: "Open again" }));
+    expect(opened).toHaveBeenCalledTimes(2);
+    expect(screen.getByText("Did it work?")).toBeVisible();
   });
 
   it("marks the task done as submitted on Yes, says so, and moves to the next item", async () => {
@@ -378,7 +419,6 @@ describe("did it work", () => {
     const { user } = openItem(`task:${task.id}`, mock);
     const card = within(await cardOf("FindRecord"));
     await user.click(card.getByRole("button", { name: "Open and solve" }));
-    leaveAndReturn();
     await user.click(await screen.findByRole("button", { name: "Yes" }));
     await waitFor(() =>
       expect(mock.store.tasks.find((t) => t.id === task.id)?.status).toBe("done"),
@@ -466,8 +506,8 @@ describe("did it work", () => {
     expect(screen.queryByRole("menuitem", { name: /Hand to an agent/ })).toBeNull();
   });
 
-  it("never offers a hand-off for a bot check, a CAPTCHA, a phone code or an ID upload", async () => {
-    for (const reason of ["bot_detection", "captcha", "phone_verification", "id_upload"]) {
+  it("never offers a hand-off for a phone code or an ID upload", async () => {
+    for (const reason of ["phone_verification", "id_upload"]) {
       const mock = createMockApp();
       applyAgentPreset(mock.store, "several");
       const task = blockedTask(mock, reason);
@@ -955,7 +995,6 @@ describe("a run that stopped before sending", () => {
     const card = within(await cardOf("Quillnote"));
     await user.click(await card.findByRole("button", { name: "Do it myself" }));
     expect(opened).toHaveBeenCalled();
-    leaveAndReturn();
     expect(await screen.findByText("Did it work?")).toBeVisible();
   });
 

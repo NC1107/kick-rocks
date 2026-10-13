@@ -399,6 +399,8 @@ interface SeedTaskInput<K extends TaskKind = TaskKind> {
   blockedReason?: BlockedReason;
   blockedDetail?: string | null;
   blockedUrl?: string | null;
+  /** The run let a form go before it stopped. */
+  mayHaveSubmitted?: boolean;
   /** Attach a screenshot, as a worker does when it blocks. */
   screenshot?: boolean | { mime: "image/png" | "image/jpeg"; data: Buffer };
   /** For `failed`. */
@@ -434,6 +436,7 @@ export function seedTask<K extends TaskKind>({ services }: Seeder, input: SeedTa
       blockedReason: status === "blocked" ? (input.blockedReason ?? "captcha") : null,
       blockedDetail: status === "blocked" ? (input.blockedDetail ?? null) : null,
       blockedUrl: status === "blocked" ? (input.blockedUrl ?? null) : null,
+      mayHaveSubmitted: input.mayHaveSubmitted ?? false,
       leaseOwner: status === "leased" ? (input.leaseOwner ?? "seed-worker") : null,
       leaseExpiresAt:
         status === "leased"

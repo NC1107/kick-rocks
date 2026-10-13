@@ -77,6 +77,9 @@ const FAILED_INSTRUCTIONS =
 /** The days a failed task stays in the review queue. */
 const FAILED_WINDOW_DAYS = 30;
 
+const MAY_HAVE_SUBMITTED =
+  "The form may already have gone out, so running it again could send it twice. Check the site, then mark the task done or cancel it.";
+
 function toSummary(message: ReviewMessage): MessageSummary {
   const {
     requestReference: _reference,
@@ -202,6 +205,7 @@ export function createScan(
     failureKind: fields.taskStatus === "failed" ? ("site" as const) : null,
     failureStep: null,
     hasScreenshot: false,
+    mayHaveSubmitted: false,
     finishedBy:
       fields.taskStatus === "queued" || fields.taskStatus === "leased" ? null : "home-worker",
     claimerKind: fields.taskStatus === "queued" ? null : ("builtin" as const),
@@ -477,6 +481,7 @@ export default defineMockDomain({
             "qwen3:14b has not passed the safety gate on this install, so a person approves each send, and nobody decided in time. 1 request was cancelled and left for you to approve.",
           blockedUrl: quillnote.optOutUrl,
           hasScreenshot: true,
+          mayHaveSubmitted: false,
         },
         { minutes: 40 },
       );
@@ -943,6 +948,7 @@ export default defineMockDomain({
       handle(API_ROUTES.taskResume, ({ params }) => {
         const task = taskOf(params.id);
         if (task.status !== "blocked") throw conflict("Only a blocked task can be resumed.");
+        if (task.mayHaveSubmitted) throw conflict(MAY_HAVE_SUBMITTED);
         touch(task, "queued");
         const request = requestOf(task);
         if (request) addEvent(store, request, "task_resumed", "user", task.updatedAt, ref(task));
@@ -1025,6 +1031,7 @@ export default defineMockDomain({
             "An agent cannot get past this block. Open the page and finish it yourself.",
           );
         }
+        if (task.mayHaveSubmitted) throw conflict(MAY_HAVE_SUBMITTED);
         touch(task, "cancelled");
         const request = requestOf(task);
         if (request) addEvent(store, request, "task_cancelled", "user", task.updatedAt, ref(task));

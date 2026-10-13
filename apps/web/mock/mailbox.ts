@@ -288,6 +288,7 @@ function describePoll(store: MockStore, poll: MockPoll): MailboxPoll {
       failureKind: status === "failed" ? "network" : null,
       failureStep: null,
       hasScreenshot: false,
+      mayHaveSubmitted: false,
       finishedBy: null,
       claimerKind: null,
       usage: null,

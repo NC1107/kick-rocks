@@ -36,6 +36,7 @@ import {
   TARGET_CATEGORY_LABELS,
   TARGET_KIND_LABELS,
 } from "../../../lib/labels.js";
+import { AskMe } from "../../settings/agents/AskMe.js";
 import {
   channelOf,
   countByChannel,
@@ -221,6 +222,17 @@ function Builder({ profile }: { profile: ProfileSummary }) {
       { replace: true },
     );
 
+  const useFilter = (next: TargetFilter) =>
+    setParams(
+      (current) => {
+        const updated = new URLSearchParams(current);
+        updated.delete("targets");
+        updated.set("filter", JSON.stringify(next));
+        return updated;
+      },
+      { replace: true },
+    );
+
   const chooseGroup = (next: CampaignPreset) => {
     setTargetIds([]);
     setPreset(next);
@@ -358,7 +370,11 @@ function Builder({ profile }: { profile: ProfileSummary }) {
                   />
                 </summary>
                 <div className="border-t border-line p-3">
-                  <TargetPicker selectedIds={targetIds} onToggle={toggleTarget} />
+                  <TargetPicker
+                    selectedIds={targetIds}
+                    onToggle={toggleTarget}
+                    onUseFilter={useFilter}
+                  />
                 </div>
               </details>
               {targetIds.length > 0 ? (
@@ -405,6 +421,8 @@ function Builder({ profile }: { profile: ProfileSummary }) {
               </p>
             ) : null}
           </Section>
+
+          <AskMe />
         </div>
 
         <section aria-label="Preview" className="flex min-w-0 flex-col gap-4">

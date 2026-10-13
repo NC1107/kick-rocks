@@ -15,6 +15,8 @@ export interface KindCopy {
 }
 
 const ASK = "Did it work?";
+/** An agent can pass a Turnstile but not every check, so the card says it may fail. */
+const AGENT_HINT = "Agents pass some checks, not all.";
 
 export const KIND_COPY: Record<NeedsYouKind, KindCopy> = {
   hold: {
@@ -41,8 +43,9 @@ export const KIND_COPY: Record<NeedsYouKind, KindCopy> = {
   captcha: {
     tag: "CAPTCHA",
     steps: ["Open the page", "Solve the CAPTCHA", "Submit the form"],
+    hint: AGENT_HINT,
     primary: "Open and solve",
-    second: "Already done",
+    second: "Let an agent try",
     question: ASK,
   },
   phone_code: {
@@ -77,8 +80,9 @@ export const KIND_COPY: Record<NeedsYouKind, KindCopy> = {
   bot: {
     tag: "Bot check",
     steps: ["Open in your browser", "Finish the form"],
+    hint: AGENT_HINT,
     primary: "Open the page",
-    second: "Already done",
+    second: "Let an agent try",
     question: ASK,
   },
   by_hand: {
@@ -133,6 +137,9 @@ export const WORDS = {
   nothing: "Nothing needs you.",
   tried: (count: number) => `Tried ${count}×`,
   stuck: "Stuck? Hand to an agent",
+  alreadyDone: "Already done",
+  agentRetried: "An agent will try again",
+  sentAlready: "The form may already have gone out. Check the site before sending it again.",
   openRecord: "Open record",
   pickWhat: "Pick what to send",
   skipTitle: "Skip this target?",

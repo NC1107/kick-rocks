@@ -71,6 +71,7 @@ describe("SETTING_SCHEMAS", () => {
         "agent.takeUnreviewed",
         "agent.gate",
         "agent.approvalHoldMinutes",
+        "agent.autopilot",
         "agent.model",
         "agent.gpuMemoryGb",
         "notifications",

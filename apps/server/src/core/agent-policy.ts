@@ -77,7 +77,8 @@ interface SettledGate {
 /**
  * What a claim may do about sending a removal, and the state to keep on the task. A scan sends
  * nothing. A model that is not cleared has every send held for a person, with whatever the person
- * approved for this run. A cleared model sends alone, and each send is logged first. An MCP client
+ * approved for this run. A cleared model sends alone, and each send is logged first, as does any
+ * model once the person has asked not to be checked with. An MCP client
  * drives a browser of its own, which this gate cannot see, so it is held to nothing and anything
  * a person approved for a model run lapses with the hand-off.
  */
@@ -98,12 +99,14 @@ export function settleSubmitGate(
   // A claim that does not say it drives a model is unproven whatever model it names, since the
   // worker API cannot tell which model is really behind it.
   const named = claimerKind === "model" ? model : undefined;
-  if (modelGate(services, named).unattended) {
+  if (modelGate(services, named).unattended || services.settings.get("agent.autopilot")) {
     const settled = clear("not_needed");
+    // A request the person refused on an earlier run stays refused, however free the model is.
+    const { declined } = taskSends.gateFor(task.id);
     taskSends.startRun(task.id, task.attempts);
     return {
       ...settled,
-      gate: { mode: "record", holdMs: 0, approved: [], declined: [] },
+      gate: { mode: "record", holdMs: 0, approved: [], declined },
     };
   }
   taskQueue.setSubmitApproval(task.id, "required");

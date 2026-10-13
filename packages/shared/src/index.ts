@@ -29,6 +29,7 @@ export * from "./recipe.js";
 export * from "./reply-model.js";
 export * from "./requests.js";
 export * from "./review.js";
+export * from "./rights.js";
 export * from "./scanning.js";
 export * from "./scans.js";
 export * from "./sends.js";

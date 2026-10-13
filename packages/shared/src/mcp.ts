@@ -78,7 +78,7 @@ export const MCP_TOOLS = {
   },
   block_task: {
     description:
-      "Park a task for a human when you hit a CAPTCHA, phone or ID demand, login wall, or bot check. Never try to get past one. If the page answered 429, 403 or 503 or showed a challenge, also pass site.pushback { kind, status, retryAfterSeconds } so the site is left alone.",
+      "Park a task for a human when you hit a CAPTCHA, phone or ID demand, login wall, or bot check. Never try to get past one, except a Cloudflare Turnstile checkbox, which browser_solve_challenge may pass. Always pass url, the page you stopped on, so the person has something to open. If the page answered 429, 403 or 503 or showed a challenge, also pass site.pushback { kind, status, retryAfterSeconds } so the site is left alone.",
     input: TaskBlockReport.extend({ workerId: WorkerName, taskId: TaskId }),
     output: TaskTransitionResponse,
   },

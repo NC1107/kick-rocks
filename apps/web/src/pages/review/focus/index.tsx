@@ -29,7 +29,6 @@ import {
   openedRecently,
   pickKey,
   progressOf,
-  RETURN_AFTER_MS,
   type SnoozePreset,
   snoozedLine,
   UNDO_MS,
@@ -197,33 +196,10 @@ export function Focus({
     if (openedRecently(selected, Date.now())) setPromptKey(selected.key);
   }, [selected]);
 
-  // Coming back to the tab after a while away asks whether the page the person opened worked.
-  const openedKey = useRef<string | null>(null);
-  const hiddenAt = useRef<number | null>(null);
-  const selectedRef = useRef(selectedKey);
-  selectedRef.current = selectedKey;
-  useEffect(() => {
-    const onChange = () => {
-      if (document.visibilityState === "hidden") {
-        hiddenAt.current = Date.now();
-        return;
-      }
-      const away = hiddenAt.current === null ? 0 : Date.now() - hiddenAt.current;
-      hiddenAt.current = null;
-      const key = openedKey.current;
-      if (key !== null && away >= RETURN_AFTER_MS && selectedRef.current === key) {
-        openedKey.current = null;
-        setPromptKey(key);
-      }
-    };
-    document.addEventListener("visibilitychange", onChange);
-    return () => document.removeEventListener("visibilitychange", onChange);
-  }, []);
-
   const opened = useApiMutation(API_ROUTES.needsYouOpened);
   const openPage = useCallback(
     (item: NeedsYouItem) => {
-      openedKey.current = item.key;
+      setPromptKey(item.key);
       opened.mutate({ params: refOf(item.key) });
       if (item.url) window.open(item.url, "_blank", "noopener,noreferrer");
     },

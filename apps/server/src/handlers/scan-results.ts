@@ -4,7 +4,9 @@ import {
   isActiveStatus,
   isOnDomain,
   normalizeRecordUrl,
+  RECORD_RIGHTS,
   type RequestRecord,
+  type RequestRight,
   scoreCandidate,
 } from "@kickrocks/shared";
 import { and, eq, isNull } from "drizzle-orm";
@@ -50,9 +52,35 @@ function judge(services: AppServices, earlier: readonly MatchRow[]): Verdict {
 }
 
 /**
+ * Opens a removal for a record without asking. If the request cannot be opened (the target left
+ * the dataset, the mailbox is gone) the person is asked instead.
+ */
+function openUnasked(
+  services: AppServices,
+  scan: ScanRow,
+  candidate: Candidate,
+  rights: readonly RequestRight[],
+  why: string,
+): string | null {
+  try {
+    return services.requests.open({
+      profileId: scan.profileId,
+      targetId: scan.targetId,
+      rights: [...rights],
+      channel: "form",
+      recordUrl: candidate.recordUrl,
+      actor: "system",
+    }).request.id;
+  } catch (error) {
+    if (!(error instanceof AppError)) throw error;
+    services.logger.info({ scanId: scan.id, code: error.code }, why);
+    return null;
+  }
+}
+
+/**
  * Opens the removal again for a record the person already confirmed is theirs. They said so once,
- * so asking again would make every relisting a chore; if the request cannot be opened (the target
- * left the dataset, the mailbox is gone) the person is asked instead.
+ * so asking again would make every relisting a chore.
  */
 function reopen(
   services: AppServices,
@@ -65,23 +93,13 @@ function reopen(
     actor: "system",
     payload: { recordUrl: candidate.recordUrl, previousStatus: previous.status },
   });
-  try {
-    return services.requests.open({
-      profileId: scan.profileId,
-      targetId: scan.targetId,
-      rights: previous.rights,
-      channel: "form",
-      recordUrl: candidate.recordUrl,
-      actor: "system",
-    }).request.id;
-  } catch (error) {
-    if (!(error instanceof AppError)) throw error;
-    services.logger.info(
-      { scanId: scan.id, code: error.code },
-      "could not reopen a removal for a relisted record",
-    );
-    return null;
-  }
+  return openUnasked(
+    services,
+    scan,
+    candidate,
+    previous.rights,
+    "could not reopen a removal for a relisted record",
+  );
 }
 
 function recordMatches(
@@ -100,6 +118,7 @@ function recordMatches(
   const domain = services.targets.getOrThrow(scan.targetId).domain;
   const today = now.slice(0, 10);
   const profile = scoreProfileOf(tx, scan.profileId, today);
+  const autopilot = services.settings.get("agent.autopilot");
 
   for (const candidate of candidates) {
     const key = normalizeRecordUrl(candidate.recordUrl);
@@ -125,8 +144,21 @@ function recordMatches(
     if (verdict.kind === "skip") continue;
 
     const { recordUrl, ...fields } = candidate;
+    const assessment = scoreCandidate(fields, profile, today);
+    // With autopilot on, a record that scores as likely theirs is theirs: the person asked not to
+    // be asked. The score never decides on its own otherwise.
     const requestId =
-      verdict.kind === "relisted" ? reopen(services, scan, candidate, verdict.previous) : null;
+      verdict.kind === "relisted"
+        ? reopen(services, scan, candidate, verdict.previous)
+        : autopilot && assessment.band === "likely"
+          ? openUnasked(
+              services,
+              scan,
+              candidate,
+              RECORD_RIGHTS,
+              "could not open a removal for a likely record on autopilot",
+            )
+          : null;
     tx.insert(matches)
       .values({
         id: newId(),
@@ -135,7 +167,7 @@ function recordMatches(
         targetId: scan.targetId,
         recordUrl,
         fields,
-        assessment: scoreCandidate(fields, profile, today),
+        assessment,
         decision: requestId ? "mine" : "pending",
         decidedAt: requestId ? now : null,
         requestId,

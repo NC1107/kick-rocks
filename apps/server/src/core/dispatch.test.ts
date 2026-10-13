@@ -734,7 +734,7 @@ describe("handToAgent", () => {
     expect(task.payload).toMatchObject({ reason: "blocked", blockedReason: "unknown" });
   });
 
-  it.each(["captcha", "bot_detection", "phone_verification", "id_upload"] as const)(
+  it.each(["phone_verification", "id_upload"] as const)(
     "refuses a person's hand-off of a task blocked by %s, and leaves it blocked",
     (reason) => {
       const target = seedTarget(ctx);

@@ -24,6 +24,7 @@ import {
 } from "../../../components/ui/index.js";
 import { GATE_LIMITS } from "../../review/sends-model.js";
 import { BodyRow, FactRow, FieldRow, GroupNote, Value } from "../rows.js";
+import { AskMe } from "./AskMe.js";
 import { describeModel, GATE_SENTENCES, GATE_WORDS, holdChoicesFor } from "./gate.js";
 
 type GateView = SettingsView["agent"]["gate"];
@@ -282,6 +283,7 @@ export function SafetyGate({
 }) {
   return (
     <div id="safety-gate" className="flex scroll-mt-4 flex-col gap-4">
+      <AskMe as="h3" />
       {installed ? <InstalledModels installed={installed} /> : null}
       {agent ? (
         <Section label="Safety gate" as="h3">

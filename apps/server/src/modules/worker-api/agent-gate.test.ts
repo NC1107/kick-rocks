@@ -189,6 +189,14 @@ describe("a model nobody has cleared", () => {
     expect((await claim(undefined))?.submitApproval).toBe("required");
   });
 
+  it("sends alone once the person has asked not to be checked with", async () => {
+    await ctx.call(API_ROUTES.settingsPatch, { body: { agent: { autopilot: true } } });
+    queueRemoval();
+    const task = await claim(MODEL);
+    expect(task?.submitApproval).toBe("not_needed");
+    expect(task?.submitGate).toMatchObject({ mode: "record", holdMs: 0 });
+  });
+
   it("is never gated on a scan, which sends nothing", async () => {
     const target = seedTarget(ctx, { category: "people-search" });
     ctx.services.taskQueue.enqueue({

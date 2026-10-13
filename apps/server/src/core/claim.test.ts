@@ -987,14 +987,17 @@ describe("claiming a task by id", () => {
         expect(task.blockedDetail).toBe("The form may already have been submitted.");
       });
 
-      it("is handed over by nobody but the person", () => {
+      it("is handed over by nobody, since a second run could send the form twice", () => {
         const id = heldRemoval();
         for (const actor of ["agent", "worker", "system"] as const) {
           expect(() => ctx.services.dispatch.handToAgent(id, actor)).toThrow(
             expect.objectContaining({ code: "held_for_person" }),
           );
         }
-        expect(ctx.services.dispatch.handToAgent(id, "user").task.kind).toBe("agent");
+        expect(() => ctx.services.dispatch.handToAgent(id, "user")).toThrow(
+          expect.objectContaining({ code: "may_have_submitted" }),
+        );
+        expect(ctx.services.taskQueue.getOrThrow(id).status).toBe("blocked");
       });
     });
 

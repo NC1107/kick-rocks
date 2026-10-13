@@ -19,12 +19,13 @@ import {
 import { cn } from "../../../lib/cn.js";
 import { PROFILE_FIELD_LABELS } from "../../../lib/labels.js";
 import { paths } from "../../../lib/paths.js";
+import { HAND_OVER_REFRESHES } from "../../assign/model.js";
 import { ReplyCheckResult, useReplyCheck } from "../../mailbox/check-for-replies.js";
 import { type DetailRow, Details } from "../Details.js";
 import { Limits, NextRunList, PageShot, useSecondTick } from "../HeldItems.js";
 import { headlineFor } from "../headline.js";
 import { MatchFit } from "../MatchFit.js";
-import { canReportOutcome, REVIEW_INVALIDATES } from "../model.js";
+import { canHandOff, canReportOutcome, REVIEW_INVALIDATES } from "../model.js";
 import { SentLog } from "../SentLog.js";
 import { destinationOf, fieldRows, isHeld, liveHolds, nextRunHolds } from "../sends-model.js";
 import { ActionBar, CardFrame, Steps, Thumbnail } from "./Card.js";
@@ -93,22 +94,56 @@ function PromptBar({ item, flow }: { item: NeedsYouItem; flow: ReturnType<typeof
       onYes={() => flow.done("submitted")}
       onNotYet={flow.notYet}
       onSkip={focus.skip}
+      onOpenAgain={item.url ? () => focus.openPage(item) : undefined}
       onOutcome={flow.done}
     />
   );
 }
 
-function Stuck({ show, onClick }: { show: boolean; onClick: () => void }) {
-  if (!show) return null;
+function QuietLink({ label, onClick }: { label: string; onClick: () => void }) {
   return (
     <button
       type="button"
       onClick={onClick}
       className="self-start rounded-xs text-ui text-accent-text underline decoration-accent-text/40 underline-offset-2"
     >
-      {WORDS.stuck}
+      {label}
     </button>
   );
+}
+
+function Stuck({ show, onClick }: { show: boolean; onClick: () => void }) {
+  return show ? <QuietLink label={WORDS.stuck} onClick={onClick} /> : null;
+}
+
+/** Puts a blocked task back in an agent's queue, for a check an agent may pass. */
+function useAgentRetry(item: NeedsYouItem) {
+  const focus = useFocus();
+  const toast = useToast();
+  const task = taskOf(item);
+  const onSuccess = () => {
+    focus.resolved();
+    toast.success(WORDS.agentRetried);
+  };
+  const resume = useApiMutation(API_ROUTES.taskResume, {
+    invalidates: REVIEW_INVALIDATES,
+    onSuccess,
+  });
+  const handOff = useApiMutation(API_ROUTES.taskHandOff, {
+    invalidates: HAND_OVER_REFRESHES,
+    onSuccess,
+  });
+  const mutation = task.kind === "agent" ? resume : handOff;
+  return {
+    // A form that may have gone out already must not be filled in again by anyone but the person.
+    available: task.status === "blocked" && canHandOff(task) && !task.mayHaveSubmitted,
+    pending: mutation.isPending,
+    error: mutation.isError ? errorMessage(mutation.error) : undefined,
+    go: () =>
+      task.kind === "agent"
+        ? resume.mutate({ params: { id: task.id } })
+        : handOff.mutate({ params: { id: task.id }, body: {} }),
+  };
 }
 
 interface TaskCardProps {
@@ -122,9 +157,10 @@ function TaskCard({ item, check }: TaskCardProps) {
   const focus = useFocus();
   const copy = KIND_COPY[item.kind];
   const flow = useTaskFlow(item);
+  const retry = useAgentRetry(item);
   const cancelsOnSecond = item.kind === "id";
   const menu = useCardMenu(item, {
-    stuckLine: true,
+    stuckLine: item.kind !== "captcha" && item.kind !== "bot",
     ...(cancelsOnSecond
       ? {
           cancelCopy: {
@@ -139,6 +175,9 @@ function TaskCard({ item, check }: TaskCardProps) {
   });
   const prompting = focus.promptKey === item.key;
   const emailLink = item.kind === "email_link";
+  const ownsAgentTry = item.kind === "captcha" || item.kind === "bot";
+  const agentMayPass = ownsAgentTry && retry.available;
+  const steps = item.url ? copy.steps : copy.steps.filter((step) => !step.startsWith("Open"));
 
   const primary = emailLink
     ? { label: copy.primary, onClick: () => flow.done("submitted"), loading: flow.pending }
@@ -154,11 +193,16 @@ function TaskCard({ item, check }: TaskCardProps) {
           disabled: check.waitSeconds > 0,
         }
       : null
-    : !item.url
-      ? null
-      : cancelsOnSecond
-        ? { label: copy.second ?? "", onClick: menu.openCancel }
-        : { label: copy.second ?? "", onClick: () => focus.setPrompt(item.key) };
+    : agentMayPass
+      ? { label: copy.second ?? "", onClick: retry.go, loading: retry.pending }
+      : !item.url
+        ? null
+        : cancelsOnSecond
+          ? { label: copy.second ?? "", onClick: menu.openCancel }
+          : {
+              label: ownsAgentTry ? WORDS.alreadyDone : (copy.second ?? ""),
+              onClick: () => focus.setPrompt(item.key),
+            };
 
   return (
     <CardFrame
@@ -171,12 +215,15 @@ function TaskCard({ item, check }: TaskCardProps) {
         prompting ? (
           <PromptBar item={item} flow={flow} />
         ) : (
-          <ActionBar primary={primary} second={second} error={flow.error} />
+          <ActionBar primary={primary} second={second} error={flow.error ?? retry.error} />
         )
       }
     >
-      <Steps steps={copy.steps} />
+      <Steps steps={steps} />
       {copy.hint ? <p className="m-0 text-meta text-ink-3">{copy.hint}</p> : null}
+      {flow.task.mayHaveSubmitted ? (
+        <p className="m-0 text-ui text-attention-text">{WORDS.sentAlready}</p>
+      ) : null}
       <Chips
         profileId={focus.profileId}
         fields={item.chips}
@@ -185,6 +232,9 @@ function TaskCard({ item, check }: TaskCardProps) {
       {check ? <ReplyCheckResult check={check} /> : null}
       {flow.task.hasScreenshot ? <Thumbnail taskId={flow.task.id} /> : null}
       {item.kind === "check_sent" ? <SentDisclosure item={item} /> : null}
+      {agentMayPass && item.url ? (
+        <QuietLink label={WORDS.alreadyDone} onClick={() => focus.setPrompt(item.key)} />
+      ) : null}
       <Stuck show={menu.stuck} onClick={menu.handOver} />
     </CardFrame>
   );

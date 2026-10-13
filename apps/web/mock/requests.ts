@@ -224,6 +224,7 @@ export function buildRequest(store: MockStore, input: NewRequest): StoredRequest
               blockedReason: input.blocked.reason,
               blockedDetail: input.blocked.detail,
               hasScreenshot: input.blocked.screenshot ?? false,
+              mayHaveSubmitted: false,
             }
           : {}),
         ...(input.failed
@@ -395,6 +396,7 @@ export function makeTask(
         | "blockedReason"
         | "blockedDetail"
         | "blockedUrl"
+        | "mayHaveSubmitted"
         | "hasScreenshot"
         | "lastError"
         | "attempts"
@@ -410,6 +412,7 @@ export function makeTask(
     blockedReason: null,
     blockedDetail: null,
     blockedUrl: null,
+    mayHaveSubmitted: false,
     attempts: 1,
     maxAttempts: 3,
     lastError: null,

@@ -90,6 +90,23 @@ describe("scan results", () => {
     expect(rows[0]?.fields).not.toHaveProperty("recordUrl");
   });
 
+  it("opens the removal itself for a likely record when autopilot is on", () => {
+    ctx.services.settings.set("agent.autopilot", true);
+    const age = ctx.clock.now().getUTCFullYear() - 1990;
+    scanWith([candidate("1", { age: age - 1 }), candidate("2", { age: age + 20 })]);
+
+    const rows = allMatches();
+    const likely = rows.find((match) => match.recordUrl.endsWith("/1"));
+    const unlikely = rows.find((match) => match.recordUrl.endsWith("/2"));
+    expect(likely).toMatchObject({ decision: "mine", decidedAt: ctx.clock.now().toISOString() });
+    expect(likely?.requestId).not.toBeNull();
+    expect(ctx.services.requests.get(likely?.requestId ?? "")).toMatchObject({
+      recordUrl: "https://records.test/p/1",
+      rights: ["opt_out", "delete"],
+    });
+    expect(unlikely).toMatchObject({ decision: "pending", requestId: null });
+  });
+
   it("drops a candidate whose record is on another site", () => {
     scanWith([
       candidate("1"),

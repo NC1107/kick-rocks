@@ -233,6 +233,49 @@ describe("GET /review", () => {
       );
     });
 
+    it("falls back to the target's website, then its domain, so a task card always has a page", async () => {
+      const blockedAt = (id: string) =>
+        seedTask(ctx, {
+          kind: "agent",
+          payload: {
+            purpose: "remove",
+            profileId,
+            targetId: id,
+            requestId: null,
+            recordUrl: null,
+            variant: null,
+            rights: [],
+            reason: "no_recipe",
+            previousError: null,
+            blockedReason: null,
+          },
+          status: "blocked",
+          profileId,
+          targetId: id,
+          blockedReason: "captcha",
+        });
+      const emailTarget = seedTarget(ctx, {
+        domain: "email-only.test",
+        contactMethod: "email",
+        optOutUrl: null,
+        searchUrl: null,
+        website: "https://www.email-only.test/privacy",
+      });
+      const domainOnly = seedTarget(ctx, {
+        domain: "domain-only.test",
+        contactMethod: "email",
+        optOutUrl: null,
+        searchUrl: null,
+        website: null,
+      });
+      blockedAt(emailTarget.id);
+      blockedAt(domainOnly.id);
+      expect((await queue()).blockedTasks.map((item) => item.url).sort()).toEqual([
+        "https://domain-only.test",
+        "https://www.email-only.test/privacy",
+      ]);
+    });
+
     it("lists only the profile asked for", async () => {
       const other = seedProfile(ctx, { displayName: "Casey Example" });
       seedTask(ctx, {
@@ -524,6 +567,31 @@ describe("task actions", () => {
       ).toMatchObject({ actor: "system" });
     });
 
+    it("refuses a task whose form may already have gone out", async () => {
+      const request = formRequest();
+      const task = seedTask(ctx, {
+        kind: "form",
+        payload: formPayload(request.id),
+        status: "blocked",
+        profileId,
+        targetId,
+        requestId: request.id,
+        blockedReason: "captcha",
+        mayHaveSubmitted: true,
+      });
+      expect(await call(API_ROUTES.taskResume, task.id)).toMatchObject({
+        ok: false,
+        status: 409,
+        body: { error: "may_have_submitted" },
+      });
+      expect(await call(API_ROUTES.taskHandOff, task.id)).toMatchObject({
+        ok: false,
+        status: 409,
+        body: { error: "may_have_submitted" },
+      });
+      expect(ctx.services.taskQueue.getOrThrow(task.id).status).toBe("blocked");
+    });
+
     it("refuses a task that is not blocked", async () => {
       const task = seedTask(ctx, {
         kind: "canary",
@@ -646,13 +714,13 @@ describe("task actions", () => {
       expect(scans.ok && scans.body.items[0]).toMatchObject({ id: scanId, taskId: agent.id });
     });
 
-    it("refuses a task blocked by a bot check, which an agent cannot pass", async () => {
+    it("refuses a task blocked by an ID demand, which an agent cannot pass", async () => {
       seedRecipe(ctx, targetId, { purpose: "scan" });
       const { task } = ctx.services.dispatch.enqueueScan(profileId, targetId);
       ctx.services.taskQueue.claim({ workerId: "w", kinds: ["scan"], leaseMs: 60_000 });
       ctx.services.taskQueue.block(task.id, {
         workerId: "w",
-        reason: "bot_detection",
+        reason: "id_upload",
         actor: "worker",
       });
       expect(await call(API_ROUTES.taskHandOff, task.id)).toMatchObject({

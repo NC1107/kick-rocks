@@ -252,13 +252,13 @@ export function DataList<T>({
                         checked={selected(item)}
                         disabled={disabled(item)}
                         onChange={(on) => selection.onToggle(item, on)}
-                        className="self-start"
+                        className="self-start pl-2"
                       />
                     ) : null}
                     <div
                       className={cn(
                         "relative flex min-w-0 flex-1 flex-col gap-1 py-2.5 pr-4",
-                        selection ? "pl-1" : "pl-4",
+                        selection ? "pl-2" : "pl-4",
                       )}
                     >
                       <span className="flex min-w-0 items-center gap-2 text-ui font-medium text-ink">
