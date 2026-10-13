@@ -23,7 +23,7 @@ export function RequirementBadges({
   max?: number;
 }) {
   const needed = requirements.filter((requirement) => HUMAN_STEPS.has(requirement));
-  if (needed.length === 0) return <span className="text-ink-3">-</span>;
+  if (needed.length === 0) return null;
   const shown = max === undefined ? needed : needed.slice(0, max);
   const hidden = needed.length - shown.length;
   return (

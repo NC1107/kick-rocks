@@ -63,7 +63,7 @@ export function CleanupPreview({
     <>
       <RowGroup data-testid="cleanup-preview">
         <BodyRow>
-          <p className="text-meta text-ink-2">Old mail. Deleted on confirm.</p>
+          <p className="text-meta text-ink-2">Deleted when you confirm.</p>
         </BodyRow>
         {shown.map((line) => (
           <BodyRow key={line.id} row>
@@ -106,7 +106,11 @@ export function CleanupPreview({
 
   if (!compact) {
     return (
-      <Section label="Saved mail to remove" count={count} {...(className ? { className } : {})}>
+      <Section
+        label="Old mail Kick Rocks saved"
+        count={count}
+        {...(className ? { className } : {})}
+      >
         {list}
       </Section>
     );

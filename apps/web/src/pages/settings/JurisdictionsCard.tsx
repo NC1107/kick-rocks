@@ -57,7 +57,6 @@ export function JurisdictionsCard() {
   const withLaws = (query.data?.jurisdictions ?? []).filter(
     (jurisdiction) => jurisdiction.statutes.length > 0,
   );
-  const withoutLaws = US_STATES.length - withLaws.length;
 
   return (
     <Section label="Privacy laws" {...(query.data ? { count: `${withLaws.length} states` } : {})}>
@@ -84,13 +83,6 @@ export function JurisdictionsCard() {
         <EmptyState title="No state laws are loaded." />
       ) : (
         <RowGroup>
-          <div
-            aria-hidden="true"
-            className="flex h-8 items-center justify-between bg-canvas px-3.5 text-eyebrow text-ink-3"
-          >
-            <span>State</span>
-            <span>Laws</span>
-          </div>
           {withLaws.map((jurisdiction) => (
             <details key={jurisdiction.state} className="group">
               <summary className="flex min-h-row cursor-pointer list-none items-center justify-between gap-3 px-3.5 py-1.5 text-ui text-ink transition-colors duration-100 hover:bg-hover [&::-webkit-details-marker]:hidden">
@@ -109,9 +101,6 @@ export function JurisdictionsCard() {
               <Statutes jurisdiction={jurisdiction} />
             </details>
           ))}
-          <BodyRow className="text-meta text-ink-3">
-            {`${pluralize(withoutLaws, "state")} ${withoutLaws === 1 ? "has" : "have"} no law on file; requests cite company policy.`}
-          </BodyRow>
         </RowGroup>
       )}
     </Section>

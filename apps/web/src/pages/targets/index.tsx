@@ -286,8 +286,8 @@ export function Component() {
   return (
     <>
       <PageHeader
-        title="Targets"
-        description="Brokers and companies you can ask"
+        title="Sites"
+        description="Who you can ask"
         actions={
           <LinkButton to="/campaigns/new" variant="primary">
             New campaign
@@ -401,7 +401,11 @@ export function Component() {
                 id: "scan",
                 header: "Scan",
                 className: "hidden xl:table-cell",
-                cell: (item) => <HealthMark health={item.automation.scan} />,
+                cell: (item) =>
+                  item.automation.scan === "unknown" &&
+                  item.automation.remove === "unknown" ? null : (
+                    <HealthMark health={item.automation.scan} />
+                  ),
               },
               {
                 id: "removal",

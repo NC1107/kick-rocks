@@ -1,5 +1,5 @@
 import { US_STATES } from "@kickrocks/shared";
-import { Pencil, Plus, Trash2 } from "lucide-react";
+import { Pencil, Trash2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import {
   Button,
@@ -16,6 +16,7 @@ import {
 } from "../../components/ui/index.js";
 import { paths } from "../../lib/paths.js";
 import { GroupNote } from "../settings/rows.js";
+import { AddLink } from "./add-link.js";
 import {
   addDraft,
   type DraftErrors,
@@ -174,10 +175,12 @@ export function AddressSection({
       ) : (
         <p className="text-meta text-ink-3">None added.</p>
       )}
-      <Button className="mt-2 w-full" disabled={disabled} onClick={add}>
-        <Plus aria-hidden="true" />
-        {addressDrafts.length === 0 ? "Add address" : "Add another address"}
-      </Button>
+      <AddLink
+        noun="address"
+        first={addressDrafts.length === 0}
+        disabled={disabled}
+        onClick={add}
+      />
       {unusable ? (
         <Callout
           intent="warning"

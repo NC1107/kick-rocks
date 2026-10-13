@@ -15,16 +15,16 @@ describe("the new profile page", () => {
   it("starts with one blank primary name and one blank primary email", () => {
     renderPage(<NewProfilePage />);
     const name = screen.getByRole("group", { name: "Name 1" });
-    expect(within(name).getByText("Primary")).toBeInTheDocument();
+    expect(within(name).getByText("primary")).toBeInTheDocument();
     const email = screen.getByRole("group", { name: "Email 1" });
-    expect(within(email).getByText("Primary")).toBeInTheDocument();
+    expect(within(email).getByText("primary")).toBeInTheDocument();
     expect(screen.getAllByText("None added.")).toHaveLength(4);
   });
 
   it("says the state is required", () => {
     renderPage(<NewProfilePage />);
     expect(screen.getByLabelText("State of residence")).toHaveAttribute("aria-required", "true");
-    expect(screen.getByText(/^Required; picks which privacy law/)).toBeVisible();
+    expect(screen.getByText("Sets which privacy law applies.")).toBeVisible();
   });
 
   it("marks every missing field and sends nothing", async () => {
@@ -64,7 +64,7 @@ describe("the new profile page", () => {
     await fillMinimum(user);
     await user.clear(screen.getByLabelText("Email address"));
     await user.type(screen.getByLabelText("Email address"), "not-an-email");
-    await user.click(screen.getByRole("button", { name: "Add phone" }));
+    await user.click(screen.getByRole("button", { name: "Add phone number" }));
     await user.type(screen.getByLabelText("Phone number"), "12345");
     await user.click(screen.getByRole("button", { name: "Add address" }));
     await user.type(screen.getByLabelText("ZIP"), "12");
@@ -79,7 +79,7 @@ describe("the new profile page", () => {
     const { user, mock } = renderPage(<NewProfilePage />);
     const seen = instrument(mock);
     await fillMinimum(user);
-    await user.click(screen.getByRole("button", { name: "Add phone" }));
+    await user.click(screen.getByRole("button", { name: "Add phone number" }));
     await user.type(screen.getByLabelText("Phone number"), "(555) 555-0199");
     await user.click(screen.getByRole("button", { name: "Create profile" }));
 

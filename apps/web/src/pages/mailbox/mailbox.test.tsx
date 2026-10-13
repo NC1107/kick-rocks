@@ -329,13 +329,29 @@ describe("a connected mailbox", () => {
   it("shows the saved connection without the password", async () => {
     open("jordan");
     expect(await screen.findByRole("heading", { name: "Mailbox", level: 1 })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "jordan@example.com" })).toBeInTheDocument();
-    expect(screen.getByText("Fastmail")).toBeInTheDocument();
-    expect(screen.getByText("smtp.fastmail.com:465")).toBeInTheDocument();
-    expect(screen.getByText("imap.fastmail.com:993")).toBeInTheDocument();
-    expect(screen.getByText("Kick Rocks")).toBeInTheDocument();
-    expect(screen.getByText("150/day")).toBeInTheDocument();
     expect(screen.queryByText(/password/i)).toBeNull();
+  });
+
+  it("leads with one state row: connected, where requests go out from, and the last check", async () => {
+    open("jordan");
+    const state = await screen.findByText(/requests go out from/);
+    expect(state.closest("[data-row]")).toHaveTextContent(
+      /^Connected · requests go out from jordan@example\.com · replies checked .+ ago/,
+    );
+    expect(screen.queryByRole("button", { name: "Disconnect" })).toBeNull();
+  });
+
+  it("keeps the hosts, folder, and limit in closed technical details", async () => {
+    const { user } = open("jordan");
+    const toggle = await screen.findByRole("button", { name: /Technical details/ });
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    expect(screen.getByText("smtp.fastmail.com:465")).not.toBeVisible();
+    await user.click(toggle);
+    expect(screen.getByText("Fastmail")).toBeVisible();
+    expect(screen.getByText("smtp.fastmail.com:465")).toBeVisible();
+    expect(screen.getByText("imap.fastmail.com:993")).toBeVisible();
+    expect(screen.getByText("Kick Rocks")).toBeVisible();
+    expect(screen.getByText("150/day")).toBeVisible();
   });
 
   it("warns when the last check failed", async () => {
@@ -361,7 +377,7 @@ describe("a connected mailbox", () => {
     const mailbox = mock.store.profiles[0]?.mailbox;
     if (mailbox) mailbox.sendPausedUntil = new Date(Date.now() - 60_000).toISOString();
     open("jordan", mock);
-    await screen.findByRole("heading", { name: "jordan@example.com" });
+    await screen.findByText(/requests go out from/);
     expect(screen.queryByText("Sending is paused")).toBeNull();
   });
 
@@ -398,7 +414,8 @@ describe("a connected mailbox", () => {
 
   it("disconnects after a confirmation", async () => {
     const { user, mock } = open("jordan");
-    await user.click(await screen.findByRole("button", { name: "Disconnect" }));
+    await user.click(await screen.findByRole("button", { name: /Technical details/ }));
+    await user.click(screen.getByRole("button", { name: "Disconnect" }));
     const dialog = await screen.findByRole("dialog", { name: "Disconnect this mailbox?" });
     expect(mock.store.profiles[0]?.mailbox).not.toBeNull();
     await user.click(within(dialog).getByRole("button", { name: "Disconnect" }));
@@ -476,7 +493,7 @@ describe("what Kick Rocks takes in", () => {
     expect(
       screen.getByText(/Mail matching no request is kept for review, never applied/),
     ).toBeInTheDocument();
-    expect(screen.getByText("Saves request mail only")).toBeVisible();
+    expect(screen.getByText("Request mail only")).toBeVisible();
     expect(screen.getByRole("button", { name: "What counts" })).toHaveAttribute(
       "aria-expanded",
       "false",
@@ -487,10 +504,10 @@ describe("what Kick Rocks takes in", () => {
   it("lists the saved mail it would remove and removes nothing until the person confirms", async () => {
     const { user } = open("jordan");
     const preview = within(await screen.findByTestId("cleanup-preview"));
-    expect(screen.getByRole("heading", { name: /Saved mail to remove · 12/ })).toBeVisible();
+    expect(screen.getByRole("heading", { name: /Old mail Kick Rocks saved · 12/ })).toBeVisible();
     expect(preview.getByText("Your order has shipped")).toBeVisible();
     expect(preview.getByText("orders@shop-example.test", { exact: false })).toBeVisible();
-    expect(preview.getByText("Old mail. Deleted on confirm.")).toBeVisible();
+    expect(preview.getByText("Deleted when you confirm.")).toBeVisible();
     expect(preview.getAllByText(/example\.test/).length).toBeGreaterThan(0);
     expect(screen.getByRole("heading", { name: /Ignored · 0/ })).toBeVisible();
     expect(screen.getByText("Nothing ignored.")).toBeVisible();
@@ -554,7 +571,7 @@ describe("what Kick Rocks takes in", () => {
     const report = within(await screen.findByTestId("shadow-report"));
     await user.click(report.getByRole("button", { name: "Dismiss report" }));
     await waitFor(() => expect(screen.queryByTestId("shadow-report")).toBeNull());
-    expect(screen.getByText("Saves request mail only")).toBeVisible();
+    expect(screen.getByText("Request mail only")).toBeVisible();
   });
 
   it("switches company mail between privacy-only and everything but ads", async () => {

@@ -1,8 +1,9 @@
 import { API_ROUTES, type Mailbox, type ProfileSummary } from "@kickrocks/shared";
-import type { ReactNode } from "react";
+import { type ReactNode, useState } from "react";
 import { useApiQuery } from "../../api/index.js";
 import {
   Callout,
+  Disclosure,
   EmptyState,
   FactList,
   LinkButton,
@@ -20,6 +21,39 @@ export function SendPauseAlert({ mailbox }: { mailbox: Mailbox }) {
       <RelativeTime iso={mailbox.sendPausedUntil} />. Saving the connection or testing it
       successfully starts sending again at once.
     </Callout>
+  );
+}
+
+/**
+ * Where the mailbox stands, state first: "Connected · requests go out from you@example.com ·
+ * replies checked 7m ago". `lead` words the middle part for the page it sits on.
+ */
+export function MailboxStateLine({
+  mailbox,
+  lead,
+  checked,
+}: {
+  mailbox: Mailbox;
+  /** The words before the address, or none to show the bare address. */
+  lead?: string;
+  /** The words before the time of the last check. */
+  checked: string;
+}) {
+  return (
+    <span>
+      {mailbox.lastError ? "Last check failed" : "Connected"}
+      {" · "}
+      {lead ? `${lead} ` : null}
+      <span className="font-mono">{mailbox.address}</span>
+      {" · "}
+      {mailbox.lastPolledAt ? (
+        <>
+          {checked} <RelativeTime iso={mailbox.lastPolledAt} />
+        </>
+      ) : (
+        "not checked yet"
+      )}
+    </span>
   );
 }
 
@@ -64,6 +98,35 @@ export function MailboxFacts({
         },
       ]}
     />
+  );
+}
+
+/** The connection's hosts, folder and limit, kept out of sight until someone goes looking for them. */
+export function TechnicalDetails({
+  mailbox,
+  providerLabel,
+  children,
+}: {
+  mailbox: Mailbox;
+  providerLabel: string;
+  /** Rows after the facts, such as the way to disconnect. */
+  children?: ReactNode;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <Disclosure title="Technical details" open={open} onOpenChange={setOpen} className="mt-4">
+      <FactList
+        dense
+        items={[
+          { term: "Provider", value: providerLabel },
+          { term: "Sending", mono: true, value: `${mailbox.smtpHost}:${mailbox.smtpPort}` },
+          { term: "Receiving", mono: true, value: `${mailbox.imapHost}:${mailbox.imapPort}` },
+          { term: "Reply folder", mono: true, value: mailbox.replyFolder },
+          { term: "Daily limit", mono: true, value: `${mailbox.dailyCap}/day` },
+        ]}
+      />
+      {children}
+    </Disclosure>
   );
 }
 

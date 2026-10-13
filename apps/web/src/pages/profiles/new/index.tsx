@@ -16,7 +16,6 @@ import {
   Section,
   useToast,
 } from "../../../components/ui/index.js";
-import { GroupNote } from "../../settings/rows.js";
 import { type DetailsErrors, DetailsFields, validateDetails } from "../details-fields.js";
 import { IdentitiesEditor } from "../identities-editor.js";
 import {
@@ -121,9 +120,6 @@ export function Component() {
           </RowGroup>
         </Section>
         <Section label="Identities" as="h2">
-          <GroupNote className="mt-0 mb-2">
-            Each request sends only what its target needs.
-          </GroupNote>
           <IdentitiesEditor
             drafts={drafts}
             onChange={setDrafts}

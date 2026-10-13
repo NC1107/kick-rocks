@@ -1,19 +1,10 @@
 import type { IdentityKind } from "@kickrocks/shared";
-import { Plus, Trash2 } from "lucide-react";
+import { Trash2 } from "lucide-react";
 import type { ReactNode } from "react";
-import {
-  Button,
-  Callout,
-  Field,
-  IconAction,
-  IconButton,
-  Input,
-  RowGroup,
-  Section,
-  Tag,
-} from "../../components/ui/index.js";
+import { Button, Callout, Field, IconButton, Input, Section } from "../../components/ui/index.js";
 import { IDENTITY_KIND_LABELS } from "../../lib/labels.js";
 import { GroupNote } from "../settings/rows.js";
+import { AddLink } from "./add-link.js";
 import { AddressSection } from "./address-section.js";
 import {
   addDraft,
@@ -32,7 +23,6 @@ interface SectionSpec {
   title: string;
   /** One line under the group, only where the rows do not say it. */
   note?: string;
-  addLabel: string;
   /** The most rows allowed. A person has one birth date. */
   max?: number;
 }
@@ -41,35 +31,29 @@ const SECTIONS: readonly SectionSpec[] = [
   {
     kind: "name",
     title: "Names",
-    addLabel: "Add name",
   },
   {
     kind: "alias",
     title: "Aliases",
-    addLabel: "Add alias",
   },
   {
     kind: "email",
     title: "Email addresses",
-    note: "Add past addresses too; targets may know an old one.",
-    addLabel: "Add email",
+    note: "Include old addresses",
   },
   {
     kind: "phone",
     title: "Phone numbers",
-    note: "Used only when a target or form asks for one.",
-    addLabel: "Add phone",
+    note: "Optional",
   },
   {
     kind: "address",
     title: "Addresses",
-    addLabel: "Add address",
   },
   {
     kind: "dob",
     title: "Date of birth",
     note: "Disclosed only when a target requires it and you approve it.",
-    addLabel: "Add date of birth",
     max: 1,
   },
 ];
@@ -134,24 +118,7 @@ export function IdentitiesEditor({
         const canAdd = section.max === undefined || rows.length < section.max;
         const error = errors.sections[section.kind];
         return (
-          <Section
-            key={section.kind}
-            label={section.title}
-            count={rows.length}
-            as="h3"
-            actions={
-              canAdd ? (
-                <IconAction
-                  icon={Plus}
-                  size="sm"
-                  labelFrom="sm"
-                  label={section.addLabel}
-                  disabled={disabled === true}
-                  onClick={() => onChange(addDraft(drafts, section.kind))}
-                />
-              ) : null
-            }
-          >
+          <Section key={section.kind} label={section.title} count={rows.length} as="h3">
             {error ? (
               <p role="alert" className="mb-1.5 text-caption text-danger-text">
                 {error}
@@ -160,11 +127,11 @@ export function IdentitiesEditor({
             {rows.length === 0 ? (
               <p className="text-meta text-ink-3">None added.</p>
             ) : (
-              <RowGroup>
+              <div className="flex flex-col gap-3">
                 {rows.map(({ draft, index }, position) => (
                   <fieldset
                     key={draft.key}
-                    className="group m-0 flex min-w-0 flex-col gap-3 border-0 px-3.5 py-3 lg:flex-row lg:items-start lg:gap-4"
+                    className="group m-0 flex min-w-0 flex-col gap-3 border-0 p-0 lg:flex-row lg:items-start lg:gap-4"
                   >
                     <legend className="sr-only">
                       {IDENTITY_KIND_LABELS[draft.kind]} {position + 1}
@@ -180,7 +147,9 @@ export function IdentitiesEditor({
                       />
                     </div>
                     <div className="flex shrink-0 items-center justify-end gap-1 lg:mt-[1.375rem] lg:h-control lg:w-44">
-                      {hasPrimary(draft.kind) && draft.isPrimary ? <Tag>Primary</Tag> : null}
+                      {hasPrimary(draft.kind) && draft.isPrimary ? (
+                        <span className="font-mono text-caption text-ink-3">primary</span>
+                      ) : null}
                       <div className="flex items-center gap-1 opacity-0 transition-opacity duration-100 group-focus-within:opacity-100 group-hover:opacity-100 pointer-coarse:opacity-100 max-lg:opacity-100">
                         {hasPrimary(draft.kind) && !draft.isPrimary ? (
                           <Button
@@ -204,8 +173,16 @@ export function IdentitiesEditor({
                     </div>
                   </fieldset>
                 ))}
-              </RowGroup>
+              </div>
             )}
+            {canAdd ? (
+              <AddLink
+                noun={SINGULAR[section.kind]}
+                first={rows.length === 0}
+                disabled={disabled}
+                onClick={() => onChange(addDraft(drafts, section.kind))}
+              />
+            ) : null}
             {section.note ? <GroupNote>{section.note}</GroupNote> : null}
           </Section>
         );

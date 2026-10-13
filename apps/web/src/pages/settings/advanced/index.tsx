@@ -32,7 +32,7 @@ export function Component() {
 
   return (
     <>
-      <SettingsHeader section="Advanced" description="Pacing, retention, recipes, and reset" />
+      <SettingsHeader section="Advanced" />
       <div className={SETTINGS_WIDTH}>
         {settings.isPending ? (
           <div aria-busy="true">

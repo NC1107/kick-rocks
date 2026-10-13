@@ -53,19 +53,93 @@ describe("the way to mail intake", () => {
     expect(screen.getAllByText("Mailbox").length).toBeGreaterThan(0);
   });
 
-  it("shows the saved mail it would remove, and the ignored list once the person confirmed", async () => {
+  it("no longer lists the saved mail it would remove", async () => {
+    setup();
+    await screen.findByRole("link", { name: "Open" });
+    expect(screen.queryByTestId("cleanup-preview")).toBeNull();
+    expect(screen.queryByRole("heading", { name: /Old mail Kick Rocks saved/ })).toBeNull();
+  });
+});
+
+describe("the setup page", () => {
+  it("lists mailbox, profile, laws, helpers, and account in that order", async () => {
+    setup();
+    await screen.findByRole("heading", { name: "Helpers" });
+    await screen.findByRole("heading", { name: /^Privacy laws/ });
+    const labels = screen
+      .getAllByRole("heading", { level: 2 })
+      .map((heading) => heading.textContent ?? "");
+    const order = ["Mailbox", "Profile", "Privacy laws", "Helpers", "Account"].map((name) =>
+      labels.findIndex((text) => text.startsWith(name)),
+    );
+    expect(order.every((index) => index >= 0)).toBe(true);
+    expect(order).toEqual([...order].sort((a, b) => a - b));
+  });
+
+  it("renders the helpers under the id the header chip links to", async () => {
+    setup();
+    const heading = await screen.findByRole("heading", { name: "Helpers" });
+    const anchor = heading.closest("#helpers");
+    expect(anchor).not.toBeNull();
+    expect(anchor).toContainElement(await screen.findByText("Browser worker"));
+  });
+
+  it("has no subtitle that lists the sections", async () => {
+    setup();
+    await screen.findByRole("heading", { name: "Settings", level: 1 });
+    expect(screen.queryByText(/Password, mailbox, laws, and helpers/)).toBeNull();
+  });
+
+  it("leads the mailbox with its state, the address, and the last check", async () => {
+    const mock = createMockApp();
+    setup(mock);
+    const link = await screen.findByRole("link", { name: "Open" });
+    await screen.findByText("jordan@example.com");
+    const row = link.closest("[data-row]") as HTMLElement;
+    expect(row).toHaveTextContent(/^Connected · jordan@example\.com · checked .+ ago/);
+  });
+
+  it("offers Connect when the profile has no mailbox", async () => {
+    const mock = createMockApp();
+    const jordan = mock.store.profiles[0];
+    if (jordan) {
+      jordan.mailbox = null;
+      jordan.mailboxConnected = false;
+    }
+    setup(mock);
+    expect(await screen.findByText("Not connected")).toBeVisible();
+    expect(screen.getByRole("link", { name: "Connect" })).toHaveAttribute(
+      "href",
+      `/profiles/${jordan?.id}/mailbox`,
+    );
+  });
+
+  it("shows the profile as one row that leads to it", async () => {
+    const mock = createMockApp();
+    setup(mock);
+    const link = await screen.findByRole("link", { name: "Jordan Example · California" });
+    expect(link).toHaveAttribute("href", `/profiles/${mock.store.profiles[0]?.id}`);
+  });
+
+  it("offers to create a profile when there is none", async () => {
+    const mock = createMockApp();
+    mock.store.profiles.length = 0;
+    setup(mock);
+    expect(await screen.findByRole("link", { name: "No profile yet · Create" })).toHaveAttribute(
+      "href",
+      "/profiles/new",
+    );
+  });
+
+  it("keeps the password collapsed until the Password row is opened", async () => {
     const { user } = setup();
-    const preview = within(await screen.findByTestId("cleanup-preview"));
-    expect(screen.getByRole("heading", { name: /Saved mail to remove · 12/ })).toBeVisible();
-    expect(preview.getByText("Security alert: new sign-in")).toBeVisible();
-    expect(screen.queryByTestId("ignored-mail")).toBeNull();
-
-    await user.click(preview.getByRole("button", { name: "Confirm removal of 12" }));
-
-    const ignored = within(await screen.findByTestId("ignored-mail"));
-    expect(ignored.getByText("Security alert: new sign-in")).toBeVisible();
-    await user.click(ignored.getByRole("button", { name: "Take in Security alert: new sign-in" }));
-    await waitFor(() => expect(ignored.queryByText("Security alert: new sign-in")).toBeNull());
+    const row = await screen.findByRole("button", { name: /^Password/ });
+    expect(row).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByLabelText("Current password")).toBeNull();
+    await user.click(row);
+    expect(row).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByLabelText("Current password")).toBeVisible();
+    expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
   });
 });
 
@@ -95,7 +169,7 @@ describe("general settings", () => {
     const { user, mock } = advanced();
     const box = await field(/Check recipes on live sites/);
     expect(box).not.toBeChecked();
-    expect(screen.getByText("Read-only, from your IP")).toBeInTheDocument();
+    expect(screen.getByText("Weekly, read-only")).toBeInTheDocument();
     await user.click(box);
     await waitFor(() => expect(mock.store.settings.siteChecks.enabled).toBe(true));
     expect((await screen.findAllByText("Site checks turned on")).length).toBeGreaterThan(0);
@@ -112,7 +186,7 @@ describe("general settings", () => {
   it("keeps the site checks description to one short line", async () => {
     advanced();
     await field(/Check recipes on live sites/);
-    const description = screen.getByText("Weekly check of recipe pages");
+    const description = screen.getByText("Weekly, read-only");
     expect((description.textContent ?? "").trim().split(/\s+/).length).toBeLessThanOrEqual(12);
   });
 
@@ -206,7 +280,7 @@ describe("general settings", () => {
     expect(screen.getByText("2 laws")).toBeVisible();
   });
 
-  it("lists only states that have a law, with one line for the rest", async () => {
+  it("lists only states that have a law", async () => {
     const mock = createMockApp();
     const withoutLaws = { state: "AK" as const, statutes: [] };
     mock.handle = ((handle) => async (request: Parameters<typeof handle>[0]) => {
@@ -222,7 +296,6 @@ describe("general settings", () => {
     await screen.findByText("California");
     expect(screen.queryByText("Alaska")).not.toBeInTheDocument();
     expect(screen.queryByText("0 laws")).not.toBeInTheDocument();
-    expect(screen.getByText(/have no law on file/)).toBeVisible();
   });
 
   it("shows the retention windows and saves only the one that changed", async () => {
@@ -332,9 +405,10 @@ describe("general settings", () => {
     expect(dialog).toHaveAttribute("open");
   });
 
-  it("keeps Change password disabled until all three fields are filled", async () => {
+  it("keeps Save disabled until all three fields are filled", async () => {
     const { user } = setup();
-    const button = await screen.findByRole("button", { name: "Change password" });
+    await user.click(await screen.findByRole("button", { name: /^Password/ }));
+    const button = screen.getByRole("button", { name: "Save" });
     expect(button).toBeDisabled();
     await user.type(await field("Current password"), "kickrocks-mock");
     await user.type(screen.getByLabelText("New password"), "a-long-enough-password");
@@ -345,20 +419,24 @@ describe("general settings", () => {
 
   it("catches a password mismatch before asking the server", async () => {
     const { user } = setup();
+    await user.click(await screen.findByRole("button", { name: /^Password/ }));
     await user.type(await field("Current password"), "kickrocks-mock");
     await user.type(screen.getByLabelText("New password"), "a-long-enough-password");
     await user.type(screen.getByLabelText("Repeat the new password"), "something-different-here");
-    await user.click(screen.getByRole("button", { name: "Change password" }));
+    await user.click(screen.getByRole("button", { name: "Save" }));
     expect(await screen.findByText("The two passwords do not match.")).toBeVisible();
   });
 
   it("changes the password and clears the form", async () => {
     const { user } = setup();
+    await user.click(await screen.findByRole("button", { name: /^Password/ }));
     await user.type(await field("Current password"), "kickrocks-mock");
     await user.type(screen.getByLabelText("New password"), "a-long-enough-password");
     await user.type(screen.getByLabelText("Repeat the new password"), "a-long-enough-password");
-    await user.click(screen.getByRole("button", { name: "Change password" }));
+    await user.click(screen.getByRole("button", { name: "Save" }));
     expect((await screen.findAllByText("Password changed")).length).toBeGreaterThan(0);
+    expect(screen.queryByLabelText("Current password")).toBeNull();
+    await user.click(screen.getByRole("button", { name: /^Password/ }));
     expect(screen.getByLabelText("Current password")).toHaveValue("");
   });
 
