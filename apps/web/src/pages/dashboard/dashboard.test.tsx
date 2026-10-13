@@ -85,7 +85,7 @@ describe("Home hero", () => {
   it("keeps only Scan now in the header", async () => {
     renderPage(<HomePage />);
     await screen.findByRole("heading", { name: "Home" });
-    expect(screen.queryByRole("link", { name: "New campaign" })).toBeNull();
+    expect(screen.queryByRole("link", { name: "Send requests" })).toBeNull();
     expect(screen.queryByRole("button", { name: /Check for replies/ })).toBeNull();
   });
 });

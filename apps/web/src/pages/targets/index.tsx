@@ -290,7 +290,7 @@ export function Component() {
         description="Who you can ask"
         actions={
           <LinkButton to="/campaigns/new" variant="primary">
-            New campaign
+            Send requests
           </LinkButton>
         }
       />
