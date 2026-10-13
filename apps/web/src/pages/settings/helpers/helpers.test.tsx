@@ -191,7 +191,7 @@ describe("the split between Setup and Advanced", () => {
     await screen.findByRole("heading", { name: "Danger zone" });
     const onAdvanced = headings();
 
-    const setupNames = ["Password", "Mailbox", "Privacy laws", "Helpers"];
+    const setupNames = ["Mailbox", "Profile", "Privacy laws", "Helpers", "Account"];
     const advancedNames = [
       "Schedule",
       "Site checks",

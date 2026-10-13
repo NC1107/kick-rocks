@@ -210,7 +210,16 @@ export interface LinkTab {
  * Tabs that are real routes, such as /settings and /settings/agents. They are links, not an ARIA
  * tablist, so each tab is bookmarkable and the back button works.
  */
-export function LinkTabs({ items, label }: { items: readonly LinkTab[]; label: string }) {
+export function LinkTabs({
+  items,
+  label,
+  wrapOnPhone = false,
+}: {
+  items: readonly LinkTab[];
+  label: string;
+  /** Wraps onto a second row on a phone instead of scrolling, so no label is ever clipped. */
+  wrapOnPhone?: boolean;
+}) {
   const { ref, measure, style } = useEdgeFade();
   const { pathname } = useLocation();
 
@@ -234,7 +243,7 @@ export function LinkTabs({ items, label }: { items: readonly LinkTab[]; label: s
       aria-label={label}
       onScroll={measure}
       style={style}
-      className={STRIP_CLASS}
+      className={cn(STRIP_CLASS, wrapOnPhone && "max-sm:flex-wrap max-sm:overflow-visible")}
     >
       {items.map((item) => (
         <NavLink

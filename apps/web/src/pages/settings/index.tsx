@@ -1,8 +1,9 @@
 import type { ReactNode } from "react";
 import { Helpers } from "./helpers/Helpers.js";
 import { JurisdictionsCard } from "./JurisdictionsCard.js";
-import { MailIntakeCard } from "./MailIntakeCard.js";
+import { MailboxRow } from "./MailboxRow.js";
 import { PasswordCard } from "./PasswordCard.js";
+import { ProfileRow } from "./ProfileRow.js";
 import { SETTINGS_WIDTH } from "./rows.js";
 import { SettingsHeader } from "./SettingsHeader.js";
 import { useScrollToHash } from "./use-scroll-to-hash.js";
@@ -22,19 +23,22 @@ export function Component() {
 
   return (
     <>
-      <SettingsHeader section="Setup" description="Password, mailbox, laws, and helpers" />
+      <SettingsHeader section="Setup" />
       <div className={`${SETTINGS_WIDTH} flex flex-col gap-4`}>
-        <Anchor id="password">
-          <PasswordCard />
-        </Anchor>
         <Anchor id="mail-intake">
-          <MailIntakeCard />
+          <MailboxRow />
+        </Anchor>
+        <Anchor id="profile">
+          <ProfileRow />
         </Anchor>
         <Anchor id="jurisdictions">
           <JurisdictionsCard />
         </Anchor>
         <Anchor id="helpers">
           <Helpers />
+        </Anchor>
+        <Anchor id="password">
+          <PasswordCard />
         </Anchor>
       </div>
     </>

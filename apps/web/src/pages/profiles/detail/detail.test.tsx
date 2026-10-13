@@ -146,7 +146,7 @@ describe("the profile page", () => {
     const name = screen.getByRole("group", { name: "Name 1" });
     expect(within(name).getByLabelText("First name")).toHaveValue("Jordan");
     expect(within(name).getByLabelText(/Middle name/)).toHaveValue("Q");
-    expect(within(name).getByText("Primary")).toBeInTheDocument();
+    expect(within(name).getByText("primary")).toBeInTheDocument();
 
     expect(
       within(screen.getByRole("group", { name: "Alias 1" })).getByLabelText("First name"),
@@ -155,7 +155,7 @@ describe("the profile page", () => {
       screen.getByRole("group", { name: "Email 1" }),
       screen.getByRole("group", { name: "Email 2" }),
     ];
-    expect(within(emails[0] as HTMLElement).getByText("Primary")).toBeInTheDocument();
+    expect(within(emails[0] as HTMLElement).getByText("primary")).toBeInTheDocument();
     expect(
       within(emails[1] as HTMLElement).getByRole("button", { name: "Make primary" }),
     ).toBeInTheDocument();
@@ -333,14 +333,14 @@ describe("the profile page", () => {
     const seen = instrument(mock);
     await screen.findByRole("group", { name: "Name 1" });
 
-    await user.click(screen.getByRole("button", { name: "Add email" }));
+    await user.click(screen.getByRole("button", { name: "Add another email" }));
     const third = screen.getByRole("group", { name: "Email 3" });
     await user.type(within(third).getByLabelText("Email address"), "jordan.new@example.net");
     await user.click(within(third).getByRole("button", { name: "Make primary" }));
 
-    await user.click(screen.getByRole("button", { name: "Add alias" }));
+    await user.click(screen.getByRole("button", { name: "Add another alias" }));
     const alias = screen.getByRole("group", { name: "Alias 2" });
-    expect(within(alias).queryByText("Primary")).toBeNull();
+    expect(within(alias).queryByText("primary")).toBeNull();
     expect(within(alias).queryByRole("button", { name: "Make primary" })).toBeNull();
     await user.type(within(alias).getByLabelText("First name"), "J");
     await user.type(within(alias).getByLabelText("Last name"), "Example");
@@ -369,7 +369,7 @@ describe("the profile page", () => {
     await screen.findByRole("group", { name: "Email 1" });
     await user.click(screen.getByRole("button", { name: "Remove email 1" }));
     const remaining = screen.getByRole("group", { name: "Email 1" });
-    expect(within(remaining).getByText("Primary")).toBeInTheDocument();
+    expect(within(remaining).getByText("primary")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Save identities" }));
     await screen.findByText("Identities updated.");
     expect(mock.store.profiles[0]?.primaryEmail).toBe("j.example@example.org");

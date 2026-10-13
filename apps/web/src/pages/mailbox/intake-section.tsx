@@ -61,8 +61,6 @@ interface IntakeSectionProps {
 export function IntakeSection({ profileId, mailbox, provider }: IntakeSectionProps) {
   const { hash } = useLocation();
   const [rulesOpen, setRulesOpen] = useState(false);
-  const shadowActive =
-    useApiQuery(API_ROUTES.intakeShadow, { params: { id: profileId } }).data?.active ?? false;
   // The link from the notice and from Settings names this section, but the page renders after the jump.
   useEffect(() => {
     if (hash === "#intake") document.getElementById("intake")?.scrollIntoView?.({ block: "start" });
@@ -72,9 +70,7 @@ export function IntakeSection({ profileId, mailbox, provider }: IntakeSectionPro
       <Section label="Mail intake">
         <RowGroup>
           <BodyRow>
-            <p className="text-meta font-medium text-ink">
-              {shadowActive ? "Saves request mail only" : "Saves request mail only"}
-            </p>
+            <p className="text-meta font-medium text-ink">Request mail only</p>
           </BodyRow>
           {mailbox.lastPolledAt ? (
             <BodyRow>

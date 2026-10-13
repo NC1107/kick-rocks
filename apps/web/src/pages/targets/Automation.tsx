@@ -11,18 +11,18 @@ const HEALTH_MEANINGS: Record<RecipeHealth | "none", string> = {
   broken: "The recipe's last run or site check failed, so it needs a new version.",
 };
 
-const HEALTH_SHAPE: Record<RecipeHealth, StatusShape> = {
-  unknown: "dashed-ring",
+const HEALTH_SHAPE: Record<Exclude<RecipeHealth, "unknown">, StatusShape> = {
   healthy: "disc",
   broken: "square",
 };
 
-/** The state of one automated step. A target with no saved step for it shows a muted dash. */
+/** The state of one automated step. A step with no recipe shows nothing, and one never run shows muted words. */
 export function HealthMark({ health }: { health: RecipeHealth | null }) {
-  if (health === null) {
+  if (health === null) return null;
+  if (health === "unknown") {
     return (
-      <span className="text-ink-3" title={HEALTH_MEANINGS.none}>
-        -
+      <span className="text-meta text-ink-3" title={HEALTH_MEANINGS.unknown}>
+        not checked
       </span>
     );
   }
@@ -52,9 +52,7 @@ const LEGEND: readonly { term: string; meaning: string }[] = [
 export function AutomationLegend() {
   return (
     <details className="mb-2.5 hidden rounded-md border border-line px-3.5 py-2 text-meta text-ink-2 xl:block">
-      <summary className="cursor-pointer rounded-xs text-ui font-medium text-ink">
-        What do the Scan and Removal marks mean?
-      </summary>
+      <summary className="cursor-pointer rounded-xs text-ui font-medium text-ink">Legend</summary>
       <dl className="mt-3 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5">
         {LEGEND.map((entry) => (
           <div key={entry.term} className="contents">

@@ -20,7 +20,7 @@ export function SettingsHeader({
   hideDescriptionOnPhone,
 }: {
   section: Exclude<TabLabel, "Sites">;
-  description: string;
+  description?: string;
   actions?: ReactNode;
   hideDescriptionOnPhone?: boolean;
 }) {
@@ -29,12 +29,12 @@ export function SettingsHeader({
       <PageHeader
         title="Settings"
         documentTitle={`${section} - Settings`}
-        description={description}
+        {...(description ? { description } : {})}
         actions={actions}
         {...(hideDescriptionOnPhone ? { hideDescriptionOnPhone } : {})}
       />
       <div className="mb-5">
-        <LinkTabs items={TABS} label="Settings sections" />
+        <LinkTabs items={TABS} label="Settings sections" wrapOnPhone />
       </div>
     </>
   );

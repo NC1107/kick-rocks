@@ -28,6 +28,24 @@ async function rows() {
 }
 
 describe("the targets page", () => {
+  it("is titled Sites, with a short subtitle", async () => {
+    renderPage(<TargetsPage />, { path: "/targets", route: "/targets" });
+    expect(await screen.findByRole("heading", { name: "Sites", level: 1 })).toBeVisible();
+    expect(screen.getByText("Who you can ask")).toBeVisible();
+    await waitFor(() => expect(document.title).toBe("Sites - Kick Rocks"));
+  });
+
+  it("leaves a step with no recipe blank and words an unchecked one", async () => {
+    renderPage(<TargetsPage />, { path: "/targets", route: "/targets" });
+    const list = await rows();
+    const cells = list.flatMap((row) => within(row).getAllByRole("cell"));
+    expect(cells.some((cell) => cell.textContent === "-")).toBe(false);
+    for (const row of list) {
+      const text = within(row).queryAllByText("not checked");
+      expect(text.length).toBeLessThanOrEqual(1);
+    }
+  });
+
   it("lists targets with their priority, contact method, and what needs a person", async () => {
     renderPage(<TargetsPage />, { path: "/targets", route: "/targets" });
     const list = await rows();
@@ -67,7 +85,7 @@ describe("the targets page", () => {
   it("explains the Scan and Removal badges", async () => {
     renderPage(<TargetsPage />, { path: "/targets", route: "/targets" });
     await rows();
-    expect(screen.getByText("What do the Scan and Removal marks mean?")).toBeInTheDocument();
+    expect(screen.getByText("Legend")).toBeInTheDocument();
     for (const term of ["Not checked", "Healthy", "Broken", "No recipe"]) {
       expect(screen.getAllByText(term).length).toBeGreaterThan(0);
     }

@@ -6,48 +6,43 @@ import { instrument } from "../../profiles/test-support.js";
 import { Component as ProfilesPage } from "./index.js";
 
 describe("the profiles list", () => {
-  it("lists every profile with its state, email, and mailbox status", async () => {
+  it("lists every profile with its state and email", async () => {
     renderPage(<ProfilesPage />);
     const jordan = await screen.findByRole("listitem", { name: /Jordan Example/ });
     expect(within(jordan).getByText("CA")).toBeInTheDocument();
     expect(within(jordan).getByText("jordan@example.com")).toBeInTheDocument();
-    expect(within(jordan).getByRole("link", { name: "Mailbox connected" })).toHaveAttribute(
-      "href",
-      expect.stringMatching(/\/profiles\/prf_\d+\/mailbox$/),
-    );
-    const riley = screen.getByRole("listitem", { name: /Riley Sample/ });
-    expect(within(riley).getByRole("link", { name: "Connect mailbox" })).toHaveAttribute(
-      "href",
-      expect.stringMatching(/\/profiles\/prf_\d+\/mailbox$/),
-    );
   });
 
-  it("keeps each action in the same place on every row", async () => {
-    renderPage(<ProfilesPage />);
-    await screen.findByRole("listitem", { name: /Jordan Example/ });
-    const actionNames = screen.getAllByRole("listitem").map(
-      (row) =>
-        within(row)
-          .queryAllByRole("link", { name: /mailbox/i })
-          .concat(within(row).queryAllByRole("img", { name: "Current profile" }))
-          .concat(within(row).queryAllByRole("button", { name: /Make current|Delete/ })).length,
-    );
-    expect(new Set(actionNames).size).toBe(1);
-  });
-
-  it("marks the current profile and switches to another", async () => {
+  it("keeps the mailbox, make current, and delete actions in a More menu", async () => {
     const { user } = renderPage(<ProfilesPage />);
     const jordan = await screen.findByRole("listitem", { name: /Jordan Example/ });
-    expect(within(jordan).getByText("Current")).toBeInTheDocument();
     expect(within(jordan).queryByRole("button", { name: "Make current" })).toBeNull();
+    await user.click(within(jordan).getByRole("button", { name: "More" }));
+    expect(await screen.findByRole("menuitem", { name: "Open mailbox" })).toBeVisible();
+    expect(screen.getByRole("menuitem", { name: "Delete" })).toBeVisible();
+    expect(screen.queryByRole("menuitem", { name: "Make current" })).toBeNull();
+    await user.keyboard("{Escape}");
 
     const riley = screen.getByRole("listitem", { name: /Riley Sample/ });
-    await user.click(within(riley).getByRole("button", { name: "Make current" }));
+    await user.click(within(riley).getByRole("button", { name: "More" }));
+    expect(await screen.findByRole("menuitem", { name: "Connect mailbox" })).toBeVisible();
+    expect(screen.getByRole("menuitem", { name: "Make current" })).toBeVisible();
+  });
+
+  it("marks the current profile with one word and switches to another", async () => {
+    const { user } = renderPage(<ProfilesPage />);
+    const jordan = await screen.findByRole("listitem", { name: /Jordan Example/ });
+    expect(within(jordan).getByText("current")).toBeInTheDocument();
+    expect(within(jordan).queryByText("Current")).toBeNull();
+
+    const riley = screen.getByRole("listitem", { name: /Riley Sample/ });
+    await user.click(within(riley).getByRole("button", { name: "More" }));
+    await user.click(await screen.findByRole("menuitem", { name: "Make current" }));
     expect(
-      within(screen.getByRole("listitem", { name: /Riley Sample/ })).getByText("Current"),
+      within(screen.getByRole("listitem", { name: /Riley Sample/ })).getByText("current"),
     ).toBeInTheDocument();
     expect(
-      within(screen.getByRole("listitem", { name: /Jordan Example/ })).queryByText("Current"),
+      within(screen.getByRole("listitem", { name: /Jordan Example/ })).queryByText("current"),
     ).toBeNull();
   });
 
@@ -64,7 +59,8 @@ describe("the profiles list", () => {
   it("asks before deleting, then removes the profile and says so", async () => {
     const { user, mock } = renderPage(<ProfilesPage />);
     const row = await screen.findByRole("listitem", { name: /Riley Sample/ });
-    await user.click(within(row).getByRole("button", { name: "Delete Riley Sample" }));
+    await user.click(within(row).getByRole("button", { name: "More" }));
+    await user.click(await screen.findByRole("menuitem", { name: "Delete" }));
 
     const dialog = await screen.findByRole("dialog", { name: "Delete profile?" });
     expect(mock.store.profiles).toHaveLength(3);
@@ -80,7 +76,8 @@ describe("the profiles list", () => {
   it("keeps the profile when the person cancels", async () => {
     const { user, mock } = renderPage(<ProfilesPage />);
     const row = await screen.findByRole("listitem", { name: /Riley Sample/ });
-    await user.click(within(row).getByRole("button", { name: "Delete Riley Sample" }));
+    await user.click(within(row).getByRole("button", { name: "More" }));
+    await user.click(await screen.findByRole("menuitem", { name: "Delete" }));
     const dialog = await screen.findByRole("dialog", { name: "Delete profile?" });
     await user.click(within(dialog).getByRole("button", { name: "Cancel" }));
     expect(mock.store.profiles).toHaveLength(3);
