@@ -22,6 +22,8 @@ function MockWord() {
 function Breadcrumb() {
   const { pathname } = useLocation();
   const trail = breadcrumbTrail(pathname, useBreadcrumbTailValue());
+  // A single crumb would only repeat the page title below it.
+  if (trail.length < 2) return null;
   return (
     <nav aria-label="Breadcrumb" className="min-w-0 overflow-hidden">
       <ol className="m-0 flex min-w-0 list-none items-center gap-1.5 overflow-hidden whitespace-nowrap p-0 text-meta">
@@ -135,7 +137,7 @@ export function AppLayout() {
           <HeaderBar />
           <PhoneBar onOpenMenu={() => setDrawerOpen(true)} />
           <main id="main" className="min-w-0 px-gutter py-5">
-            <div className="min-w-0 max-w-7xl">
+            <div className="min-w-0">
               <RestoreBanner />
               <Outlet />
             </div>
