@@ -95,7 +95,9 @@ export function describeEvent(event: RequestEvent): string {
         : `${sent}.`;
     }
     case "send_failed":
-      return `Send failed - ${sendFailureCause(event.payload.error)}${event.payload.willRetry ? ", retrying" : ""}`;
+      return event.payload.willRetry
+        ? "Couldn't send yet, trying again"
+        : `Send failed - ${sendFailureCause(event.payload.error)}`;
     case "reply_received":
       return `Reply received from ${event.payload.from}.`;
     case "mailbox_checked": {

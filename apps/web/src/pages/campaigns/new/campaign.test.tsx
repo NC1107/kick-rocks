@@ -57,11 +57,11 @@ describe("the campaign builder", () => {
     expect(screen.queryByText(/Fully automatic|Scanned first/)).not.toBeInTheDocument();
   });
 
-  it("links the profile in the header and goes back to Targets when it came from there", async () => {
+  it("links the profile in the header and goes back to Sites when it came from there", async () => {
     open("/campaigns/new?targets=audiencegrid");
     const profile = await screen.findByRole("link", { name: "Jordan Example" });
     expect(profile).toHaveAttribute("href", expect.stringMatching(/^\/profiles\/prf_/));
-    expect(screen.getByRole("link", { name: /Targets/ })).toHaveAttribute("href", "/targets");
+    expect(screen.getByRole("link", { name: /Sites/ })).toHaveAttribute("href", "/targets");
   });
 
   it("counts a preset by channel and previews the email before anything is sent", async () => {
@@ -72,9 +72,11 @@ describe("the campaign builder", () => {
     await waitFor(() =>
       expect(within(counts).getByText("email").nextElementSibling).not.toHaveTextContent(/^0$/),
     );
-    expect(within(counts).getByText("web form")).toBeVisible();
-    expect(within(counts).getByText("scan first")).toBeVisible();
-    expect(within(counts).getByText("skipped")).toBeVisible();
+    const values = [...counts.querySelectorAll("div > span:last-child")].map(
+      (value) => value.textContent,
+    );
+    expect(values.length).toBeGreaterThan(0);
+    expect(values).not.toContain("0");
     expect(await within(preview).findByText("Email preview")).toBeVisible();
     expect(within(preview).getByText(/Privacy request KR-/)).toBeVisible();
   });
@@ -95,7 +97,7 @@ describe("the campaign builder", () => {
   it("lists why targets were skipped, grouped by reason", async () => {
     const { user } = open();
     await user.click(await screen.findByRole("radio", { name: /Everything/ }));
-    await screen.findByText(/Skipped targets/);
+    await screen.findByText(/Skipped sites/);
     expect(screen.getByText("Already in progress")).toBeVisible();
   });
 
@@ -121,7 +123,7 @@ describe("the campaign builder", () => {
     expect(screen.getByRole("checkbox", { name: /Stop selling my data/ })).toBeChecked();
     expect(screen.getByRole("checkbox", { name: /Delete my data/ })).not.toBeChecked();
     expect(screen.getByRole("checkbox", { name: /Delete my data/ })).toBeDisabled();
-    expect(screen.getByText(/Pick targets to delete/)).toBeVisible();
+    expect(screen.getByText(/Pick sites to delete/)).toBeVisible();
   });
 
   it("shows the address the first email goes to", async () => {
@@ -142,9 +144,9 @@ describe("the campaign builder", () => {
 
   it("starts from the targets chosen on the targets page", async () => {
     open("/campaigns/new?targets=audiencegrid,larkspur-bank");
-    expect(await screen.findByText("2 targets selected")).toBeVisible();
+    expect(await screen.findByText("2 sites selected")).toBeVisible();
     const preview = await screen.findByRole("region", { name: "Preview" });
-    expect(await within(preview).findByText("First targets · 1")).toBeVisible();
+    expect(await within(preview).findByText("First sites · 1")).toBeVisible();
   });
 
   it("offers the easy ones first, with how many there are", async () => {
@@ -161,38 +163,38 @@ describe("the campaign builder", () => {
     await waitFor(() =>
       expect(within(counts).getByText("email").nextElementSibling).not.toHaveTextContent(/^0$/),
     );
-    expect(within(counts).getByText("agent or you").nextElementSibling).toHaveTextContent(/^0$/);
+    expect(within(counts).queryByText("agent or you")).toBeNull();
   });
 
   it("picks single targets right on the page, with search", async () => {
     const { user } = open();
-    await user.click(await screen.findByText("Search and pick targets"));
-    await user.type(await screen.findByRole("searchbox", { name: "Search targets" }), "pawprint");
+    await user.click(await screen.findByText("Search and pick sites"));
+    await user.type(await screen.findByRole("searchbox", { name: "Search sites" }), "pawprint");
     const box = await screen.findByRole("checkbox", { name: "Pick Pawprint Pet Supply" });
     await user.click(box);
-    expect(await screen.findByText("1 target selected")).toBeVisible();
+    expect(await screen.findByText("1 site selected")).toBeVisible();
     expect(screen.getByRole("checkbox", { name: "Pick Pawprint Pet Supply" })).toBeChecked();
     const preview = await screen.findByRole("region", { name: "Preview" });
-    expect(await within(preview).findByText("First targets · 1")).toBeVisible();
+    expect(await within(preview).findByText("First sites · 1")).toBeVisible();
     await user.click(screen.getByRole("checkbox", { name: "Pick Pawprint Pet Supply" }));
-    await waitFor(() => expect(screen.queryByText("1 target selected")).not.toBeInTheDocument());
+    await waitFor(() => expect(screen.queryByText("1 site selected")).not.toBeInTheDocument());
   });
 
   it("replaces the picked targets when a group is chosen", async () => {
     const { user } = open("/campaigns/new?targets=larkspur-bank");
-    expect(await screen.findByText("1 target selected")).toBeVisible();
+    expect(await screen.findByText("1 site selected")).toBeVisible();
     await user.click(screen.getByRole("radio", { name: /Everyday companies/ }));
-    await waitFor(() => expect(screen.queryByText("1 target selected")).not.toBeInTheDocument());
+    await waitFor(() => expect(screen.queryByText("1 site selected")).not.toBeInTheDocument());
     expect(screen.getByRole("radio", { name: /Everyday companies/ })).toBeChecked();
   });
 
   it("starts from a filter handed over by the targets page", async () => {
     const filter = encodeURIComponent('{"difficulty":"easy"}');
     open(`/campaigns/new?filter=${filter}`);
-    expect(await screen.findByText(/\d+ targets match your filters/)).toBeVisible();
+    expect(await screen.findByText(/\d+ sites match your filters/)).toBeVisible();
     expect(screen.getByText("Difficulty: Easy")).toBeVisible();
     const preview = await screen.findByRole("region", { name: "Preview" });
-    expect(await within(preview).findByText(/First targets · \d+/)).toBeVisible();
+    expect(await within(preview).findByText(/First sites · \d+/)).toBeVisible();
   });
 
   it("shows the server's cap message when a filter matches too many targets", async () => {
@@ -233,14 +235,14 @@ describe("the campaign builder", () => {
     };
     const { user } = open("/campaigns/new", mock);
     await user.click(await screen.findByRole("radio", { name: /^Everything/ }));
-    await screen.findByText(/First targets/);
+    await screen.findByText(/First sites/);
     expect(screen.queryByText(/will wait for you/)).not.toBeInTheDocument();
   });
 
   it("says a filter campaign only asks companies to stop selling", async () => {
     open(`/campaigns/new?filter=${encodeURIComponent('{"kind":"company"}')}`);
     expect(await screen.findByRole("checkbox", { name: /Delete my data/ })).toBeDisabled();
-    expect(screen.getByText(/Pick targets to delete/)).toBeVisible();
+    expect(screen.getByText(/Pick sites to delete/)).toBeVisible();
     const preview = await screen.findByRole("region", { name: "Preview" });
     expect(await within(preview).findByText("Email preview")).toBeVisible();
     expect(within(preview).queryByText(/delete the personal information/)).not.toBeInTheDocument();
@@ -249,14 +251,14 @@ describe("the campaign builder", () => {
   it("does not bring a group back after the picked targets are cleared", async () => {
     const { user } = open();
     await user.click(await screen.findByRole("radio", { name: /Easiest first/ }));
-    await user.click(screen.getByText("Search and pick targets"));
-    await user.type(await screen.findByRole("searchbox", { name: "Search targets" }), "pawprint");
+    await user.click(screen.getByText("Search and pick sites"));
+    await user.type(await screen.findByRole("searchbox", { name: "Search sites" }), "pawprint");
     await user.click(await screen.findByRole("checkbox", { name: "Pick Pawprint Pet Supply" }));
-    expect(await screen.findByText("1 target selected")).toBeVisible();
-    await user.click(screen.getByRole("button", { name: "Clear targets" }));
-    expect(screen.queryByText("1 target selected")).not.toBeInTheDocument();
+    expect(await screen.findByText("1 site selected")).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "Clear sites" }));
+    expect(screen.queryByText("1 site selected")).not.toBeInTheDocument();
     for (const radio of screen.getAllByRole("radio")) expect(radio).not.toBeChecked();
-    expect(screen.getByText("Search and pick targets").closest("summary")).toHaveFocus();
+    expect(screen.getByText("Search and pick sites").closest("summary")).toHaveFocus();
     expect(screen.getByRole("button", { name: "Nothing to send" })).toBeDisabled();
   });
 
@@ -271,7 +273,10 @@ describe("the campaign builder", () => {
     const { user } = open();
     await user.click(await screen.findByRole("radio", { name: /Everyday companies/ }));
     const bar = screen.getByTestId("send-bar");
-    await waitFor(() => expect(bar).toHaveTextContent(/\d+ requests? · opt-out/));
+    await waitFor(() =>
+      expect(bar).toHaveTextContent(/\d+ (emails?|web forms?|scans? first)[^·]* ready/),
+    );
+    expect(bar).not.toHaveTextContent(/opt-out/);
   });
 
   it("explains a missing mailbox", async () => {

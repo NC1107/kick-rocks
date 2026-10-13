@@ -1,7 +1,7 @@
 import { RequestStatus } from "@kickrocks/shared";
 import { describe, expect, it } from "vitest";
 import { STATUS_GROUPS } from "../dashboard/sections.js";
-import { groupRequests } from "./sections.js";
+import { groupRequests, sectionCount } from "./sections.js";
 import { familyShape, listShape } from "./shape.js";
 
 const items = (...statuses: RequestStatus[]) =>
@@ -30,6 +30,24 @@ describe("grouping requests the way Home does", () => {
     expect(groupRequests([])).toEqual([]);
     const [group] = groupRequests(items("sent", "queued", "draft"));
     expect(group?.items.map((item) => item.status)).toEqual(["sent", "queued", "draft"]);
+  });
+});
+
+describe("the Done group", () => {
+  it("lists removals a scan verified first and counts them", () => {
+    const rows = [
+      { id: "a", status: "confirmed" as const, verifiedGoneAt: null },
+      { id: "b", status: "no_record" as const, verifiedGoneAt: "2026-10-09T00:00:00.000Z" },
+      { id: "c", status: "confirmed" as const, verifiedGoneAt: null },
+    ];
+    const done = groupRequests(rows).find((group) => group.id === "resolved");
+    expect(done?.items.map((item) => item.id)).toEqual(["b", "a", "c"]);
+    expect(done?.verifiedGone).toBe(1);
+  });
+
+  it("folds the verified count into the section count only when there is one", () => {
+    expect(sectionCount(12, 1)).toBe("12 \u00b7 1 checked gone");
+    expect(sectionCount(12, 0)).toBe(12);
   });
 });
 

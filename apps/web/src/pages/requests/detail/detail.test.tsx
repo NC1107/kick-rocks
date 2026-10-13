@@ -71,7 +71,7 @@ describe("the request page", () => {
       mock,
     });
     expect(
-      await screen.findByText("Asked them to stop selling and delete your data"),
+      await screen.findByText(/^Asked them to stop selling and delete your data \u00b7 by /),
     ).toBeVisible();
   });
 
@@ -138,7 +138,7 @@ describe("the request page", () => {
 
   it("points a request that needs verification at the review queue", async () => {
     open(byTarget("clearcheck"));
-    expect(await screen.findByText("The target asked for more details")).toBeVisible();
+    expect(await screen.findByText("The site asked for more details")).toBeVisible();
     expect(screen.getByRole("link", { name: "Review what to send" })).toHaveAttribute(
       "href",
       expect.stringMatching(/^\/review\?item=details%3Areq_\d+$/),
@@ -173,18 +173,19 @@ describe("the request page", () => {
     expect(screen.queryByRole("heading", { name: /^Latest reply/ })).toBeNull();
   });
 
-  it("puts the replies above the summary", async () => {
+  it("puts the replies above the details", async () => {
     open(byTarget("audiencegrid"));
     const replies = await screen.findByRole("heading", { name: /^Replies/ });
-    const summary = screen.getByRole("heading", { name: "Summary" });
+    const details = screen.getByRole("button", { name: "Details" });
     expect(
-      replies.compareDocumentPosition(summary) & Node.DOCUMENT_POSITION_FOLLOWING,
+      replies.compareDocumentPosition(details) & Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
   });
 
   it("links the request to its profile, its mailbox and its target", async () => {
-    open(byTarget("cardinal-insights"));
+    const { user } = open(byTarget("cardinal-insights"));
     await screen.findByRole("heading", { name: "Cardinal Insights", level: 1 });
+    await user.click(screen.getByRole("button", { name: "Details" }));
     expect(await screen.findByRole("link", { name: "Jordan Example" })).toHaveAttribute(
       "href",
       expect.stringMatching(/^\/profiles\/prf_/),
@@ -200,8 +201,9 @@ describe("the request page", () => {
   });
 
   it("shows the legal basis as its short code", async () => {
-    open(byTarget("maplewood-cinemas"));
+    const { user } = open(byTarget("maplewood-cinemas"));
     await screen.findByRole("heading", { name: "Maplewood Cinemas", level: 1 });
+    await user.click(screen.getByRole("button", { name: "Details" }));
     expect(screen.getByText("MODPA")).toBeVisible();
   });
 
@@ -379,10 +381,9 @@ describe("a failed request", () => {
     const { mock } = open(byTarget("pixelforge"));
     const error = mock.store.requests.find((r) => r.targetId === "pixelforge")?.lastError ?? "";
     expect(error).not.toBe("");
-    expect(
-      await screen.findAllByText(/Send failed - mail server unreachable, retrying/),
-    ).toHaveLength(1);
-    expect(screen.queryByText(new RegExp(error))).not.toBeInTheDocument();
+    expect(await screen.findAllByText("Couldn't send yet, trying again")).toHaveLength(1);
+    expect(screen.getAllByText(new RegExp(error))).toHaveLength(1);
+    expect(screen.queryByRole("button", { name: "Details", expanded: true })).toBeNull();
   });
 });
 
@@ -668,12 +669,12 @@ describe("the agent callout", () => {
 });
 
 describe("the request page header and summary", () => {
-  it("keeps the reference and the law out of the header and in the summary", async () => {
+  it("keeps the reference and the law out of the header and in the closed Details", async () => {
     const mock = failing(/never/);
     const request = mock.store.requests.find((candidate) => candidate.targetId === "audiencegrid");
     if (!request) throw new Error("fixture");
     request.legalBasis = "ca-ccpa";
-    renderPage(<RequestDetailPage />, {
+    const { user } = renderPage(<RequestDetailPage />, {
       path: "/requests/:id",
       route: `/requests/${request.id}`,
       mock,
@@ -683,11 +684,22 @@ describe("the request page header and summary", () => {
     ) as HTMLElement;
     expect(header).not.toHaveTextContent(request.reference);
     expect(header).not.toHaveTextContent("CCPA");
-    const summary = screen
-      .getByRole("heading", { name: "Summary" })
-      .closest("section") as HTMLElement;
-    expect(within(summary).getByText(request.reference)).toBeVisible();
-    expect(within(summary).getByText("CCPA")).toBeVisible();
+    const toggle = screen.getByRole("button", { name: "Details" });
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    await user.click(toggle);
+    const details = toggle.closest("section") as HTMLElement;
+    expect(within(details).getByText(request.reference)).toBeVisible();
+    expect(within(details).getByText("CCPA")).toBeVisible();
+    expect(within(details).getByText("Site id")).toBeVisible();
+    expect(within(details).getByText("Site")).toBeVisible();
+  });
+
+  it("says what was asked in one plain line under the title", async () => {
+    open(byTarget("audiencegrid"));
+    await screen.findByRole("heading", { name: "AudienceGrid", level: 1 });
+    expect(
+      await screen.findByText(/^Asked them to .* your data \u00b7 by (email|web form) \u00b7 /),
+    ).toBeVisible();
   });
 
   it("says when a later scan checked a removal, in the header and on the timeline", async () => {

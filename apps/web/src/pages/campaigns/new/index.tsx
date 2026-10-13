@@ -43,9 +43,10 @@ import {
   outcomeChannel,
   parseFilterParam,
   parseTargetIds,
+  readySummary,
   waitingForPerson,
 } from "../channels.js";
-import { RIGHT_CHOICES, RIGHT_HELP, RIGHT_ORDER, RIGHT_TOKENS } from "../rights.js";
+import { RIGHT_CHOICES, RIGHT_HELP, RIGHT_ORDER } from "../rights.js";
 import {
   AdvisoryList,
   CHANNEL_LABELS,
@@ -83,7 +84,7 @@ function describeFilter(filter: TargetFilter): string {
     filter.priority ? `Priority: ${PRIORITY_LABELS[filter.priority]}` : null,
     filter.difficulty ? `Difficulty: ${DIFFICULTY_LABELS[filter.difficulty]}` : null,
   ].filter(Boolean);
-  return parts.length > 0 ? parts.join(", ") : "Every target";
+  return parts.length > 0 ? parts.join(", ") : "Every site";
 }
 
 function noveltyMeta(items: CampaignPreview["items"]): ReactNode {
@@ -122,7 +123,7 @@ function Builder({ profile }: { profile: ProfileSummary }) {
       : preset
         ? { kind: "preset", preset }
         : null;
-  // A group or filter only opts out of sale; deleting needs named targets.
+  // A group or filter only opts out of sale; deleting needs named sites.
   const deleteBlocked = choice?.kind === "preset" || choice?.kind === "filter";
   const rights = deleteBlocked ? chosenRights.filter((right) => right !== "delete") : chosenRights;
   const allTargets = useAllTargets();
@@ -267,25 +268,13 @@ function Builder({ profile }: { profile: ProfileSummary }) {
         return option.value === preset && result && choice?.kind === "preset"
           ? { ...labelled, meta: noveltyMeta(result.items) }
           : option.value === "easy" && easyCount !== undefined
-            ? { ...labelled, meta: pluralize(easyCount, "target") }
+            ? { ...labelled, meta: pluralize(easyCount, "site") }
             : labelled;
       }),
     [preset, result, choice?.kind, easyCount, allTargets.data],
   );
 
-  const summary = canSend
-    ? [
-        result && result.counts.request_created > 0
-          ? pluralize(result.counts.request_created, "request")
-          : null,
-        result && result.counts.scan_started > 0
-          ? pluralize(result.counts.scan_started, "scan")
-          : null,
-        rights.map((right) => RIGHT_TOKENS[right]).join(", "),
-      ]
-        .filter(Boolean)
-        .join(" · ")
-    : null;
+  const summary = canSend && result && counts ? readySummary(counts, result.items) : null;
 
   return (
     <>
@@ -297,7 +286,7 @@ function Builder({ profile }: { profile: ProfileSummary }) {
             <EntityLink to={{ kind: "profile", id: profile.id, name: profile.displayName }} />
           </>
         }
-        back={fromTargets ? { to: "/targets", label: "Targets" } : "auto"}
+        back={fromTargets ? { to: "/targets", label: "Sites" } : "auto"}
       />
 
       {noMailbox ? (
@@ -315,16 +304,16 @@ function Builder({ profile }: { profile: ProfileSummary }) {
         </Callout>
       ) : null}
 
-      <div className="grid gap-x-8 gap-y-5 pb-5 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
-        <div className="flex max-w-120 flex-col gap-4">
+      <div className="flex max-w-180 flex-col gap-5 pb-5">
+        <div className="flex flex-col gap-4">
           <Section label="Send to">
             {choice?.kind === "filter" ? (
               <RowGroup>
                 <Row
                   title={
                     result
-                      ? `${pluralize(result.items.length, "target")} match your filters`
-                      : "Targets matching your filters"
+                      ? `${pluralize(result.items.length, "site")} match your filters`
+                      : "Sites matching your filters"
                   }
                   description={describeFilter(choice.filter)}
                   trailingBelowOnPhone
@@ -337,7 +326,7 @@ function Builder({ profile }: { profile: ProfileSummary }) {
               </RowGroup>
             ) : (
               <RadioGroup
-                legend="Group of targets"
+                legend="Group of sites"
                 hideLegend
                 rows
                 flat
@@ -350,7 +339,7 @@ function Builder({ profile }: { profile: ProfileSummary }) {
 
           {choice?.kind === "filter" ? null : (
             <Section
-              label="Or pick targets"
+              label="Or pick sites"
               {...(targetIds.length > 0 ? { count: targetIds.length } : {})}
             >
               <details
@@ -362,7 +351,7 @@ function Builder({ profile }: { profile: ProfileSummary }) {
                   ref={pickerSummary}
                   className="flex min-h-9 max-sm:min-h-11 pointer-coarse:min-h-11 cursor-pointer list-none items-center justify-between gap-3 rounded-md px-3.5 text-ui text-ink transition-colors duration-100 hover:bg-hover [&::-webkit-details-marker]:hidden"
                 >
-                  <span>Search and pick targets</span>
+                  <span>Search and pick sites</span>
                   <ChevronDown
                     aria-hidden="true"
                     className="size-4 text-ink-3 transition-transform group-open:rotate-180"
@@ -375,12 +364,12 @@ function Builder({ profile }: { profile: ProfileSummary }) {
               {targetIds.length > 0 ? (
                 <RowGroup className="mt-2.5">
                   <Row
-                    title={`${pluralize(targetIds.length, "target")} selected`}
+                    title={`${pluralize(targetIds.length, "site")} selected`}
                     description={`${selectedNames}${targetIds.length > 4 ? `, and ${targetIds.length - 4} more` : ""}`}
                     trailingBelowOnPhone
                     trailing={
                       <Button size="sm" onClick={clearTargets}>
-                        Clear targets
+                        Clear sites
                       </Button>
                     }
                   />
@@ -392,23 +381,23 @@ function Builder({ profile }: { profile: ProfileSummary }) {
           <Section label="Ask for">
             <fieldset className="m-0 min-w-0 border-0 p-0">
               <legend className="sr-only">What to ask for</legend>
-              <RowGroup>
+              <div className="flex flex-col">
                 {RIGHT_ORDER.map((right) => (
                   <Checkbox
                     key={right}
                     label={RIGHT_CHOICES[right]}
                     description={
                       right === "delete" && deleteBlocked
-                        ? "Pick targets to delete."
+                        ? "Pick sites to delete."
                         : RIGHT_HELP[right]
                     }
                     disabled={right === "delete" && deleteBlocked}
                     checked={rights.includes(right)}
                     onChange={(event) => toggleRight(right, event.target.checked)}
-                    className="items-center px-3.5 py-2 transition-colors duration-100 hover:bg-hover"
+                    className="items-center py-2"
                   />
                 ))}
-              </RowGroup>
+              </div>
             </fieldset>
             {rights.length === 0 ? (
               <p role="alert" className="mt-2 text-caption text-danger-text">
@@ -446,8 +435,8 @@ function Builder({ profile }: { profile: ProfileSummary }) {
               {work === 0 ? (
                 <Callout intent="info" title="Nothing to send">
                   {choice?.kind !== "preset"
-                    ? "Every target you selected is skipped. Read the reasons below or choose a group instead."
-                    : "Every target in this group is skipped. Pick another group or read the reasons below."}
+                    ? "Every site you selected is skipped. Read the reasons below or choose a group instead."
+                    : "Every site in this group is skipped. Pick another group or read the reasons below."}
                 </Callout>
               ) : null}
               <WaitingForPersonNotice count={waiting} />

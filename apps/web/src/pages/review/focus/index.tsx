@@ -35,7 +35,7 @@ import {
   UNDO_MS,
 } from "./model.js";
 import { SnoozeSheet } from "./SnoozeSheet.js";
-import { UpNext } from "./UpNext.js";
+import { UpNext, upNextLine } from "./UpNext.js";
 
 /** `task:abc` is the task `abc`; the address and the routes share the one spelling. */
 function refOf(key: string): { kind: "task" | "match" | "details"; id: string } {
@@ -331,8 +331,13 @@ export function Focus({
     [keys, select, selectedKey],
   );
 
+  const followingKey = neighbour(keys, selectedKey, 1);
+  const following =
+    followingKey === selectedKey ? undefined : items.find((item) => item.key === followingKey);
+
   const context: FocusContext = {
     profileId,
+    upNext: following ? upNextLine(following) : null,
     mailboxConnected,
     progress,
     canMove: keys.length > 1,
@@ -377,7 +382,7 @@ export function Focus({
           </Callout>
         ) : null}
         {selected ? (
-          <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,40rem)_17.5rem]">
+          <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,40rem)_minmax(0,1fr)]">
             <KindCard item={selected} />
             <div className="hidden lg:block">
               <UpNext

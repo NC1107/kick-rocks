@@ -316,10 +316,8 @@ describe("the tabs under the Inbox title", () => {
     open();
     const tabs = within(await screen.findByRole("navigation", { name: "Inbox pages" }));
     await waitFor(() => expect(tabs.getByRole("link", { name: /^Mail\s*4$/ })).toBeVisible());
-    expect(tabs.getByRole("link", { name: /^Needs you\s*\d+$/ })).toHaveAttribute(
-      "href",
-      "/review",
-    );
+    expect(tabs.getByRole("link", { name: /^To do\s*\d+$/ })).toHaveAttribute("href", "/review");
+    expect(tabs.queryByRole("link", { name: /Needs you/ })).toBeNull();
     expect(tabs.getByRole("link", { name: /^Mail/ })).toHaveAttribute("href", "/review/mail");
     expect(tabs.getByRole("link", { name: /^Problems\s*1$/ })).toHaveAttribute(
       "href",
@@ -355,7 +353,7 @@ describe("the tabs under the Inbox title", () => {
     open("/review/mail");
     const tabs = within(await screen.findByRole("navigation", { name: "Inbox pages" }));
     expect(tabs.getByRole("link", { name: /^Mail/ })).toHaveAttribute("aria-current", "page");
-    expect(tabs.getByRole("link", { name: /^Needs you/ })).not.toHaveAttribute("aria-current");
+    expect(tabs.getByRole("link", { name: /^To do/ })).not.toHaveAttribute("aria-current");
   });
 });
 

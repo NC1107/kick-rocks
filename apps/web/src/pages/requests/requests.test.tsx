@@ -42,7 +42,7 @@ describe("the requests page", () => {
     const list = await rows();
     expect(list.length).toBe(36);
     const first = within(list[0] as HTMLElement);
-    expect(first.getByRole("link")).toBeVisible();
+    expect(first.getAllByRole("link")[0]).toBeVisible();
     expect(first.getByText(/email|web form/)).toBeVisible();
   });
 
@@ -56,8 +56,8 @@ describe("the requests page", () => {
     open();
     await rows();
     const counts = SECTION_NAMES.map((name) => {
-      const heading = screen.getByRole("heading", { name: new RegExp(`^${name} · \\d+$`) });
-      return Number(heading.textContent?.split("·")[1]);
+      const heading = screen.getByRole("heading", { name: new RegExp(`^${name} · \\d+`) });
+      return Number.parseInt(heading.textContent?.split("·")[1] ?? "", 10);
     });
     expect(counts.reduce((sum, count) => sum + count, 0)).toBe(36);
     for (const name of SECTION_NAMES) {
@@ -120,10 +120,33 @@ describe("the requests page", () => {
     expect(list.some((row) => within(row).queryByText("They said removed"))).toBe(true);
   });
 
+  it("counts how many Done removals a scan checked gone, and lists them first", async () => {
+    const mock = createMockApp();
+    const verified = mock.store.requests.filter((request) => request.verifiedGoneAt).length;
+    expect(verified).toBeGreaterThan(0);
+    open("/requests", mock);
+    await rows();
+    const heading = screen.getByRole("heading", { name: /^Done \u00b7 \d+ \u00b7 / });
+    expect(heading).toHaveTextContent(new RegExp(`${verified} checked gone$`));
+    const done = within(screen.getByRole("list", { name: /^Done/ })).getAllByRole("listitem");
+    const checked = done.filter((row) => /Gone \u00b7 checked/.test(row.textContent ?? ""));
+    expect(checked).toHaveLength(verified);
+    expect(done.slice(0, verified)).toEqual(checked);
+  });
+
+  it("makes the next step a link to the removal", async () => {
+    open();
+    const list = await rows();
+    const row = list.find((candidate) => within(candidate).queryByText("Send a follow-up"));
+    if (!row) throw new Error("fixture");
+    const step = within(row).getByRole("link", { name: "Send a follow-up" });
+    expect(step).toHaveAttribute("href", within(row).getAllByRole("link")[0]?.getAttribute("href"));
+  });
+
   it("counts the requests in the toolbar", async () => {
     open();
     await rows();
-    expect(await screen.findByText("36 requests")).toBeVisible();
+    expect(await screen.findByText("36 removals")).toBeVisible();
   });
 
   it("filters by status from the address bar", async () => {
@@ -138,7 +161,7 @@ describe("the requests page", () => {
   it("filters to one target and says which", async () => {
     open("/requests?targetId=audiencegrid");
     await waitFor(async () => expect((await rows()).length).toBe(1));
-    expect(await screen.findByText("Target: AudienceGrid")).toBeVisible();
+    expect(await screen.findByText("Site: AudienceGrid")).toBeVisible();
     expect(screen.getByRole("button", { name: "Filters, 1 active" })).toBeVisible();
   });
 
@@ -157,7 +180,7 @@ describe("the requests page", () => {
   it("removes the target filter from its tag", async () => {
     const { user } = open("/requests?targetId=audiencegrid");
     await waitFor(async () => expect((await rows()).length).toBe(1));
-    await user.click(await screen.findByRole("button", { name: "Remove Target: AudienceGrid" }));
+    await user.click(await screen.findByRole("button", { name: "Remove Site: AudienceGrid" }));
     await waitFor(async () => expect((await rows()).length).toBeGreaterThan(1));
   });
 
@@ -172,7 +195,7 @@ describe("the requests page", () => {
   it("links each row to its request", async () => {
     open();
     const list = await rows();
-    const link = within(list[0] as HTMLElement).getByRole("link");
+    const link = within(list[0] as HTMLElement).getAllByRole("link")[0] as HTMLElement;
     expect(link.getAttribute("href")).toMatch(/^\/requests\/req_/);
   });
 

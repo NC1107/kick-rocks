@@ -11,6 +11,14 @@ function describe(item: NeedsYouItem): string {
   return "match" in item.source ? `${label} \u00b7 ${item.source.match.fields.name}` : label;
 }
 
+/** The site a queue item is about, or what it is when it has none. */
+export const upNextTitle = (item: NeedsYouItem): string =>
+  "match" in item.source ? item.source.match.targetName : itemTitle(item);
+
+/** "HomeRecords · Pick details": one mono line for the item that follows the open one. */
+export const upNextLine = (item: NeedsYouItem): string =>
+  `${upNextTitle(item)} \u00b7 ${shortLabel(item)}`;
+
 /** What comes after the open item: a short title and how long each takes, with snoozed items folded away. */
 export function UpNext({
   items,
@@ -36,7 +44,7 @@ export function UpNext({
           key={item.key}
           selected={item.key === currentKey}
           onClick={() => onSelect(item.key)}
-          title={"match" in item.source ? item.source.match.targetName : itemTitle(item)}
+          title={upNextTitle(item)}
           description={describe(item)}
           trailing={
             <span className="font-mono text-caption text-ink-3 tabular-nums">
