@@ -9,12 +9,12 @@ import {
   EmptyState,
   PageHeader,
   RelativeTime,
-  Section,
   Skeleton,
   Tab,
   TabList,
   TabPanel,
   Tabs,
+  TextLink,
 } from "../../components/ui/index.js";
 import { formatShortDate, pluralize } from "../../lib/format.js";
 import { ScanNotice } from "../review/ScanNotice.js";
@@ -37,6 +37,7 @@ export function Component() {
 
 const EMPTY_WORDS: Record<FindingTab, string> = {
   needs_you: "Nothing to confirm.",
+  stuck: "Nothing is stuck.",
   in_progress: "No removals in progress.",
   gone: "Nothing removed yet.",
   not_listed: "No sites cleared yet.",
@@ -85,17 +86,8 @@ function Findings({ profileId }: { profileId: string }) {
       );
     }
     const records = pendingFindings(shown);
-    const stuck = shown.filter((site) => site.status !== "to_confirm");
-    return (
-      <div className="flex flex-col gap-4">
-        {records.length > 0 ? <FindingList records={records} /> : null}
-        {stuck.length > 0 ? (
-          <Section label="Stuck" count={pluralize(stuck.length, "site")}>
-            <SiteRows sites={stuck} profileId={profileId} label="Stuck sites" onScan={scanOne} />
-          </Section>
-        ) : null}
-      </div>
-    );
+    if (records.length === 0) return <EmptyState title={EMPTY_WORDS.needs_you} />;
+    return <FindingList records={records} />;
   }
 
   return (
@@ -142,11 +134,13 @@ function Findings({ profileId }: { profileId: string }) {
               onValueChange={(next) => setParams({ show: next }, { replace: true })}
             >
               <TabList aria-label="Findings" className="max-sm:flex-wrap max-sm:overflow-x-visible">
-                {FINDING_TABS.map((tab) => (
-                  <Tab key={tab.id} value={tab.id} count={summary.counts[tab.id] || undefined}>
-                    {tab.label}
-                  </Tab>
-                ))}
+                {FINDING_TABS.map((tab) =>
+                  tab.id === "stuck" && summary.counts.stuck === 0 ? null : (
+                    <Tab key={tab.id} value={tab.id} count={summary.counts[tab.id] || undefined}>
+                      {tab.label}
+                    </Tab>
+                  ),
+                )}
               </TabList>
               <TabPanel value={active}>{panel(active)}</TabPanel>
             </Tabs>
@@ -161,6 +155,8 @@ function Findings({ profileId }: { profileId: string }) {
                 {listings.data.nextRescanAt
                   ? ` \u00b7 next rescan ${formatShortDate(listings.data.nextRescanAt)}`
                   : ""}
+                {" \u00b7 "}
+                <TextLink to="/targets">All sites</TextLink>
               </p>
             ) : null}
           </>

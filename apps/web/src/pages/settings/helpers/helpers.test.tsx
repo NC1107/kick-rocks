@@ -200,7 +200,7 @@ describe("the split between Setup and Advanced", () => {
       "Pacing",
       "Sites cooling down",
       "Retention",
-      "Recipes to check",
+      "Recipes waiting for approval",
       "Proposed recipes",
       "Agent worker",
       "Reply classifier",
@@ -233,7 +233,6 @@ describe("the split between Setup and Advanced", () => {
   it("links the Sites tab to the broker catalogue", async () => {
     setup("empty");
     await screen.findByRole("heading", { name: "Helpers" });
-    expect(screen.getByRole("link", { name: "Sites" })).toHaveAttribute("href", "/targets");
     expect(screen.getByRole("link", { name: "Setup" })).toHaveAttribute("href", "/settings");
     expect(screen.getByRole("link", { name: "Advanced" })).toHaveAttribute(
       "href",

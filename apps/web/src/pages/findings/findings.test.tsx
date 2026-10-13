@@ -22,8 +22,9 @@ const records = async () =>
 describe("findings", () => {
   it("opens on what needs you, with a count on every group that has something", async () => {
     open();
-    expect(await tab(/^Is this you\?\s*4$/)).toHaveAttribute("aria-selected", "true");
+    expect(await tab(/^Is this you\?\s*3$/)).toHaveAttribute("aria-selected", "true");
     for (const name of [
+      /^Stuck\s*1$/,
       /^In progress\s*2$/,
       /^Gone\s*1$/,
       /^Not listed\s*2$/,
@@ -40,7 +41,12 @@ describe("findings", () => {
     const listed = Number(/Listed on (\d+)/.exec(footer.textContent ?? "")?.[1]);
     const tabCount = (name: RegExp) =>
       Number(/(\d+)$/.exec(screen.getByRole("tab", { name }).textContent ?? "")?.[1]);
-    const counts = [tabCount(/^Is this you/), tabCount(/^In progress/), tabCount(/^Gone/)];
+    const counts = [
+      tabCount(/^Is this you/),
+      tabCount(/^Stuck/),
+      tabCount(/^In progress/),
+      tabCount(/^Gone/),
+    ];
     findings.unmount();
 
     renderPage(<HomePage />, { mock });
@@ -49,7 +55,7 @@ describe("findings", () => {
     ) as HTMLElement;
     expect(hero).toHaveTextContent(`Listed on ${listed} sites`);
     expect(hero).toHaveTextContent(
-      `${counts[0]} to confirm \u00b7 ${counts[1]} in progress \u00b7 ${counts[2]} gone`,
+      `${counts[0]} to confirm \u00b7 ${counts[1]} stuck \u00b7 ${counts[2]} in progress \u00b7 ${counts[3]} gone`,
     );
   });
 
@@ -146,8 +152,8 @@ describe("findings", () => {
     await waitFor(() => expect(notMine()).toBe(before + 1));
   });
 
-  it("puts a removal that ended without the record going under Needs you", async () => {
-    open("/findings?show=needs_you");
+  it("puts a removal that ended without the record going under Stuck", async () => {
+    open("/findings?show=stuck");
     expect(await screen.findByText("No reply")).toBeVisible();
     expect(screen.getAllByText("Stuck").length).toBeGreaterThan(0);
   });

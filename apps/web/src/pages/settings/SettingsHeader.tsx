@@ -6,7 +6,6 @@ const TABS = [
   { to: "/settings/advanced", label: "Advanced" },
   { to: "/settings/profiles", label: "Profiles" },
   { to: "/settings/notifications", label: "Notifications" },
-  { to: "/targets", label: "Sites" },
   { to: "/settings/about", label: "About" },
 ] as const;
 
@@ -19,7 +18,7 @@ export function SettingsHeader({
   actions,
   hideDescriptionOnPhone,
 }: {
-  section: Exclude<TabLabel, "Sites">;
+  section: TabLabel;
   description?: string;
   actions?: ReactNode;
   hideDescriptionOnPhone?: boolean;

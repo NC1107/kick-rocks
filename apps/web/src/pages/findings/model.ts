@@ -10,6 +10,7 @@ import { pendingRecords } from "../../lib/listings.js";
 
 export const FINDING_TABS = [
   { id: "needs_you", label: "Is this you?" },
+  { id: "stuck", label: "Stuck" },
   { id: "in_progress", label: "In progress" },
   { id: "gone", label: "Gone" },
   { id: "not_listed", label: "Not listed" },
@@ -20,9 +21,9 @@ export type FindingTab = (typeof FINDING_TABS)[number]["id"];
 
 const TAB_OF: Record<ListingStatus, FindingTab> = {
   to_confirm: "needs_you",
-  needs_check: "needs_you",
-  removal_stalled: "needs_you",
-  failed: "needs_you",
+  needs_check: "stuck",
+  removal_stalled: "stuck",
+  failed: "stuck",
   yours: "in_progress",
   relisted: "in_progress",
   claimed_removed: "in_progress",
@@ -72,6 +73,7 @@ export function rollup(sites: readonly ListingSite[]): Rollup {
     listed: totals.listed,
     counts: {
       needs_you: totals.toConfirm,
+      stuck: totals.stuck,
       in_progress: totals.inProgress,
       gone: totals.gone,
       not_listed: totals.notListed,
@@ -81,7 +83,9 @@ export function rollup(sites: readonly ListingSite[]): Rollup {
 }
 
 export function firstBusyTab(counts: Record<FindingTab, number>): FindingTab {
-  return counts.needs_you > 0 ? "needs_you" : "in_progress";
+  if (counts.needs_you > 0) return "needs_you";
+  if (counts.stuck > 0) return "stuck";
+  return "in_progress";
 }
 
 /** Every record waiting for an answer, across all sites, with likely ones first. */

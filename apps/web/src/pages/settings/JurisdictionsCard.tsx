@@ -1,6 +1,6 @@
 import { API_ROUTES, type Jurisdiction, US_STATES } from "@kickrocks/shared";
-import { ChevronDown } from "lucide-react";
-import { errorMessage, useApiQuery } from "../../api/index.js";
+import { useState } from "react";
+import { errorMessage, useApiQuery, useCurrentProfile } from "../../api/index.js";
 import {
   Button,
   Callout,
@@ -8,9 +8,10 @@ import {
   ExternalLinkText,
   RowGroup,
   Section,
+  Select,
   SkeletonText,
 } from "../../components/ui/index.js";
-import { formatDate, pluralize } from "../../lib/format.js";
+import { formatDate } from "../../lib/format.js";
 import { RIGHT_LABELS } from "../../lib/labels.js";
 import { BodyRow } from "./rows.js";
 
@@ -18,7 +19,7 @@ const STATE_NAMES = new Map(US_STATES.map((state) => [state.code, state.name]));
 
 function Statutes({ jurisdiction }: { jurisdiction: Jurisdiction }) {
   return (
-    <ul className="m-0 flex list-none flex-col divide-y divide-line border-t border-line bg-canvas p-0">
+    <ul className="m-0 flex list-none flex-col divide-y divide-line bg-canvas p-0">
       {jurisdiction.statutes.map((statute) => (
         <li key={statute.id} className="px-3.5 py-2.5">
           <p className="text-ui font-medium text-ink">{statute.name}</p>
@@ -52,14 +53,40 @@ function Statutes({ jurisdiction }: { jurisdiction: Jurisdiction }) {
   );
 }
 
+/**
+ * The laws for one state at a time, the profile's own by default: a person cares about the law
+ * that applies to them, and the other states stay a pick away rather than a wall of rows.
+ */
 export function JurisdictionsCard() {
   const query = useApiQuery(API_ROUTES.settingsJurisdictions, { staleTime: 5 * 60_000 });
+  const { profile } = useCurrentProfile();
+  const [picked, setPicked] = useState<string | null>(null);
   const withLaws = (query.data?.jurisdictions ?? []).filter(
     (jurisdiction) => jurisdiction.statutes.length > 0,
   );
+  const stateCode = picked ?? profile?.state ?? withLaws[0]?.state ?? null;
+  const chosen = withLaws.find((jurisdiction) => jurisdiction.state === stateCode) ?? null;
 
   return (
-    <Section label="Privacy laws" {...(query.data ? { count: `${withLaws.length} states` } : {})}>
+    <Section
+      label="Privacy laws"
+      actions={
+        withLaws.length > 0 ? (
+          <Select
+            aria-label="State"
+            value={stateCode ?? ""}
+            onChange={(event) => setPicked(event.target.value)}
+            className="w-44"
+          >
+            {withLaws.map((jurisdiction) => (
+              <option key={jurisdiction.state} value={jurisdiction.state}>
+                {STATE_NAMES.get(jurisdiction.state) ?? jurisdiction.state}
+              </option>
+            ))}
+          </Select>
+        ) : undefined
+      }
+    >
       {query.isPending ? (
         <RowGroup>
           <BodyRow>
@@ -81,27 +108,15 @@ export function JurisdictionsCard() {
         </Callout>
       ) : withLaws.length === 0 ? (
         <EmptyState title="No state laws are loaded." />
-      ) : (
+      ) : chosen ? (
         <RowGroup>
-          {withLaws.map((jurisdiction) => (
-            <details key={jurisdiction.state} className="group">
-              <summary className="flex min-h-row cursor-pointer list-none items-center justify-between gap-3 px-3.5 py-1.5 text-ui text-ink transition-colors duration-100 hover:bg-hover [&::-webkit-details-marker]:hidden">
-                <span className="font-medium">
-                  {STATE_NAMES.get(jurisdiction.state) ?? jurisdiction.state}
-                </span>
-                <span className="flex items-center gap-2 font-mono text-meta tabular-nums text-ink-2">
-                  {pluralize(jurisdiction.statutes.length, "law")}
-                  <ChevronDown
-                    aria-hidden="true"
-                    strokeWidth={1.5}
-                    className="size-4 text-ink-3 transition-transform duration-100 group-open:rotate-180"
-                  />
-                </span>
-              </summary>
-              <Statutes jurisdiction={jurisdiction} />
-            </details>
-          ))}
+          <Statutes jurisdiction={chosen} />
         </RowGroup>
+      ) : (
+        <EmptyState
+          title={`${profile ? (STATE_NAMES.get(profile.state) ?? profile.state) : "This state"} has no privacy law on file.`}
+          description="Requests there cite the site's own policy instead."
+        />
       )}
     </Section>
   );

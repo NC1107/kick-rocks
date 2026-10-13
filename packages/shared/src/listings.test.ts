@@ -199,13 +199,14 @@ describe("listingRollup", () => {
         failed: 1,
         waiting: 5,
       }),
-    ).toEqual({ listed: 9, toConfirm: 5, inProgress: 3, gone: 3, notListed: 6 });
+    ).toEqual({ listed: 9, toConfirm: 2, stuck: 3, inProgress: 3, gone: 3, notListed: 6 });
   });
 
   it("is all zeros for no counts", () => {
     expect(listingRollup({})).toEqual({
       listed: 0,
       toConfirm: 0,
+      stuck: 0,
       inProgress: 0,
       gone: 0,
       notListed: 0,

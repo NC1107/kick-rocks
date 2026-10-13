@@ -33,9 +33,8 @@ describe("Home hero", () => {
     expect(hero).toHaveTextContent(
       `Listed on ${totals.listed} ${totals.listed === 1 ? "site" : "sites"}`,
     );
-    expect(hero).toHaveTextContent(
-      `${totals.toConfirm} to confirm · ${totals.inProgress} in progress · ${totals.gone} gone`,
-    );
+    expect(hero).toHaveTextContent(`${totals.toConfirm} to confirm`);
+    expect(hero).toHaveTextContent(`${totals.inProgress} in progress · ${totals.gone} gone`);
     expect(within(hero).getByRole("link", { name: "Review findings" })).toHaveAttribute(
       "href",
       "/findings",

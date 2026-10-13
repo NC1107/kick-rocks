@@ -135,7 +135,7 @@ export function AppLayout() {
           <HeaderBar />
           <PhoneBar onOpenMenu={() => setDrawerOpen(true)} />
           <main id="main" className="min-w-0 px-gutter py-5">
-            <div className="min-w-0 max-w-5xl">
+            <div className="min-w-0 max-w-7xl">
               <RestoreBanner />
               <Outlet />
             </div>

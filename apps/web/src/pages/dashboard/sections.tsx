@@ -188,7 +188,14 @@ export function Hero({
           description={
             totals.listed > 0 ? (
               <span className="font-mono tabular-nums">
-                {`${totals.toConfirm} to confirm \u00b7 ${totals.inProgress} in progress \u00b7 ${totals.gone} gone`}
+                {[
+                  totals.toConfirm > 0 ? `${totals.toConfirm} to confirm` : null,
+                  totals.stuck > 0 ? `${totals.stuck} stuck` : null,
+                  `${totals.inProgress} in progress`,
+                  `${totals.gone} gone`,
+                ]
+                  .filter((part): part is string => part !== null)
+                  .join(" \u00b7 ")}
               </span>
             ) : undefined
           }

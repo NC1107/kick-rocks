@@ -66,6 +66,8 @@ export interface ListingRollup {
   inProgress: number;
   gone: number;
   notListed: number;
+  /** Sites where a scan or removal stopped on something the person must do or retry. */
+  stuck: number;
 }
 
 export function listingRollup(
@@ -82,7 +84,8 @@ export function listingRollup(
       "claimed_removed",
       "removed",
     ]),
-    toConfirm: sum(LISTING_GROUPS.needs_you),
+    toConfirm: sum(["to_confirm"]),
+    stuck: sum(["needs_check", "removal_stalled", "failed"]),
     inProgress: sum(["yours", "relisted", "claimed_removed"]),
     gone: sum(["removed"]),
     notListed: sum(["not_found", "not_you", "unclear"]),

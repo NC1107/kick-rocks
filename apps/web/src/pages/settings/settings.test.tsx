@@ -274,8 +274,9 @@ describe("general settings", () => {
 
   it("lists the privacy laws by state", async () => {
     setup();
-    expect(await screen.findByText("California")).toBeVisible();
-    expect(screen.getByText("2 laws")).toBeVisible();
+    const state = await screen.findByRole("combobox", { name: "State" });
+    expect(state).toHaveValue("CA");
+    expect(screen.getAllByRole("link", { name: /^Read the law/ })).toHaveLength(2);
   });
 
   it("lists only states that have a law", async () => {
@@ -291,8 +292,8 @@ describe("general settings", () => {
       };
     })(mock.handle.bind(mock));
     setup(mock);
-    await screen.findByText("California");
-    expect(screen.queryByText("Alaska")).not.toBeInTheDocument();
+    await screen.findByRole("combobox", { name: "State" });
+    expect(screen.queryByRole("option", { name: "Alaska" })).not.toBeInTheDocument();
     expect(screen.queryByText("0 laws")).not.toBeInTheDocument();
   });
 
@@ -543,7 +544,7 @@ describe("bundled recipes to check", () => {
 
   it("lists shipped recipes that were not seen through, with what was and was not checked", async () => {
     advanced();
-    expect(await screen.findByRole("heading", { name: /^Recipes to check/ })).toBeVisible();
+    expect(await screen.findByRole("heading", { name: /^Recipes waiting for approval/ })).toBeVisible();
     const cardinal = await screen.findByRole("region", {
       name: /Cardinal Insights removal recipe/,
     });
@@ -558,7 +559,7 @@ describe("bundled recipes to check", () => {
 
   it("keeps an agent's proposals out of the bundled list", async () => {
     advanced();
-    const heading = await screen.findByRole("heading", { name: /^Recipes to check/ });
+    const heading = await screen.findByRole("heading", { name: /^Recipes waiting for approval/ });
     const bundledList = within(heading.closest("section") as HTMLElement);
     await bundledList.findByRole("region", { name: /Cardinal Insights removal recipe/ });
     expect(
