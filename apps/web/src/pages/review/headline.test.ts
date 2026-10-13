@@ -142,6 +142,6 @@ describe("headlineFor", () => {
       headlineFor(mail(null)),
       headlineFor(withTask("failed", null)),
     ];
-    for (const sentence of sentences) expect(sentence).not.toMatch(/—|task:|https?:/);
+    for (const sentence of sentences) expect(sentence).not.toMatch(/\u2014|task:|https?:/);
   });
 });

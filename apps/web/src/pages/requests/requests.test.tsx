@@ -69,10 +69,10 @@ describe("the requests page", () => {
     stubPhone();
     open();
     const list = await rows();
-    const finished = list.filter((row) => within(row).queryByText("Confirmed"));
+    const finished = list.filter((row) => within(row).queryByText("They confirmed"));
     expect(finished.length).toBeGreaterThan(0);
     for (const row of finished) expect(row.textContent).not.toMatch(/due /);
-    const waiting = list.filter((row) => within(row).queryByText("Awaiting reply"));
+    const waiting = list.filter((row) => within(row).queryByText("Waiting on them"));
     expect(waiting.some((row) => /due [A-Z][a-z]{2} \d{1,2}/.test(row.textContent ?? ""))).toBe(
       true,
     );
@@ -85,9 +85,9 @@ describe("the requests page", () => {
     expect(text).toMatch(/stop selling/);
     expect(text).toMatch(/delete/);
     expect(text).not.toMatch(/opt-out|None/);
-    const drafts = list.filter((row) => within(row).queryByText("Draft"));
+    const drafts = list.filter((row) => within(row).queryByText("Not sent yet"));
     expect(drafts.length).toBeGreaterThan(0);
-    for (const row of drafts) expect(row.textContent).not.toMatch(/due |sent /);
+    for (const row of drafts) expect(row.textContent).not.toMatch(/· (due|sent) /);
   });
 
   it("counts the requests in the toolbar", async () => {
@@ -100,10 +100,9 @@ describe("the requests page", () => {
     open("/requests?status=needs_verification");
     await waitFor(async () => expect((await rows()).length).toBe(2));
     expect(screen.getByRole("list", { name: "Active filters" })).toHaveTextContent(
-      "Status: Needs verification",
+      "Status: Prove it's you",
     );
-    for (const row of await rows())
-      expect(within(row).getByText("Needs verification")).toBeVisible();
+    for (const row of await rows()) expect(within(row).getByText("Prove it's you")).toBeVisible();
   });
 
   it("filters to one target and says which", async () => {
@@ -120,7 +119,7 @@ describe("the requests page", () => {
     await user.click(screen.getByRole("button", { name: "Filters" }));
     await user.selectOptions(screen.getByLabelText("Status"), "needs_verification");
     await waitFor(async () => expect((await rows()).length).toBe(2));
-    await user.click(screen.getByRole("button", { name: "Remove Status: Needs verification" }));
+    await user.click(screen.getByRole("button", { name: "Remove Status: Prove it's you" }));
     await waitFor(async () => expect((await rows()).length).toBeGreaterThan(2));
     expect(screen.queryByRole("list", { name: "Active filters" })).not.toBeInTheDocument();
   });

@@ -35,10 +35,10 @@ export function breadcrumbTrail(pathname: string, tail?: Crumb): Crumb[] {
 
   switch (area) {
     case undefined:
-      return [{ label: "Dashboard" }];
+      return [{ label: "Home" }];
     case "review": {
       const page = second ? REVIEW_PAGES[second] : undefined;
-      return page ? [{ label: "Review", to: "/review" }, { label: page }] : [{ label: "Review" }];
+      return page ? [{ label: "Inbox", to: "/review" }, { label: page }] : [{ label: "Inbox" }];
     }
     case "findings":
       return [{ label: "Findings" }];
@@ -46,23 +46,21 @@ export function breadcrumbTrail(pathname: string, tail?: Crumb): Crumb[] {
       return [{ label: "Component gallery" }];
     case "requests":
       return second
-        ? [{ label: "Requests", to: "/requests" }, leaf("Request")]
-        : [{ label: "Requests" }];
+        ? [{ label: "Removals", to: "/requests" }, leaf("Request")]
+        : [{ label: "Removals" }];
     case "targets":
       if (second && third === "remove") {
         return [
-          { label: "Targets", to: "/targets" },
+          { label: "Sites", to: "/targets" },
           tail
             ? { ...tail, to: `/targets/${second}` }
-            : { label: "Target", to: `/targets/${second}` },
+            : { label: "Site", to: `/targets/${second}` },
           { label: "Remove my data" },
         ];
       }
-      return second
-        ? [{ label: "Targets", to: "/targets" }, leaf("Target")]
-        : [{ label: "Targets" }];
+      return second ? [{ label: "Sites", to: "/targets" }, leaf("Site")] : [{ label: "Sites" }];
     case "campaigns":
-      return [{ label: "Requests", to: "/requests" }, { label: "New campaign" }];
+      return [{ label: "Removals", to: "/requests" }, { label: "New campaign" }];
     case "profiles":
       if (!second) return [{ label: "Settings", to: "/settings" }, { label: "Profiles" }];
       if (second === "new") return [{ label: "Profiles", to: PROFILES_LIST }, { label: "New" }];

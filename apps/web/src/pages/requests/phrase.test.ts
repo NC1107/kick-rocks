@@ -16,7 +16,7 @@ const sendFailed = (willRetry: boolean, createdAt: string) => ({
 describe("the status phrase on a request", () => {
   it("uses the status label when the timeline has nothing to contradict it", () => {
     expect(statusPhrase(request("awaiting_reply"))).toEqual({
-      text: "Awaiting reply",
+      text: "Waiting on them",
       family: "progress",
     });
   });
@@ -38,12 +38,12 @@ describe("the status phrase on a request", () => {
     };
     expect(
       statusPhrase(request("queued", sendFailed(true, "2026-10-13T10:00:00.000Z"), later)).text,
-    ).toBe("Queued");
+    ).toBe("Scheduled");
   });
 
   it("does not claim a retry when the failure will not be retried", () => {
     expect(
       statusPhrase(request("queued", sendFailed(false, "2026-10-13T10:00:00.000Z"))).text,
-    ).toBe("Queued");
+    ).toBe("Scheduled");
   });
 });

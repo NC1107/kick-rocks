@@ -3,13 +3,13 @@ import { breadcrumbTrail } from "./breadcrumb.js";
 
 describe("breadcrumbTrail", () => {
   it("names a top-level page alone", () => {
-    expect(breadcrumbTrail("/")).toEqual([{ label: "Dashboard" }]);
-    expect(breadcrumbTrail("/review")).toEqual([{ label: "Review" }]);
+    expect(breadcrumbTrail("/")).toEqual([{ label: "Home" }]);
+    expect(breadcrumbTrail("/review")).toEqual([{ label: "Inbox" }]);
   });
 
   it("links the list above a detail page and ends on the page itself", () => {
     expect(breadcrumbTrail("/requests/abc")).toEqual([
-      { label: "Requests", to: "/requests" },
+      { label: "Removals", to: "/requests" },
       { label: "Request" },
     ]);
   });
@@ -29,7 +29,7 @@ describe("breadcrumbTrail", () => {
 
   it("puts the remove screen under its target", () => {
     expect(breadcrumbTrail("/targets/spokeo/remove", { label: "Spokeo" })).toEqual([
-      { label: "Targets", to: "/targets" },
+      { label: "Sites", to: "/targets" },
       { label: "Spokeo", to: "/targets/spokeo" },
       { label: "Remove my data" },
     ]);

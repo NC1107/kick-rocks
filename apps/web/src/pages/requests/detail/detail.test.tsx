@@ -46,7 +46,7 @@ describe("the request page", () => {
     expect(
       await screen.findByRole("heading", { name: "Cardinal Insights", level: 1 }),
     ).toBeVisible();
-    expect(screen.getByText("Awaiting reply")).toBeVisible();
+    expect(screen.getByText("Waiting on them")).toBeVisible();
     expect(screen.getByText("Sent the email.")).toBeVisible();
     expect(screen.queryByText(/by Kick Rocks/)).not.toBeInTheDocument();
   });
@@ -54,7 +54,7 @@ describe("the request page", () => {
   it("puts the broker and the request status in the tab title", async () => {
     open(byTarget("cardinal-insights"));
     await screen.findByRole("heading", { name: "Cardinal Insights", level: 1 });
-    expect(document.title).toBe("Cardinal Insights, Awaiting reply - Kick Rocks");
+    expect(document.title).toBe("Cardinal Insights, Waiting on them - Kick Rocks");
   });
 
   it("joins several rights into one sentence with only the first capitalised", async () => {
@@ -94,7 +94,7 @@ describe("the request page", () => {
   it("offers only the actions the server allows", async () => {
     open(byTarget("audiencegrid"));
     await screen.findByRole("heading", { name: "AudienceGrid", level: 1 });
-    expect(screen.getAllByText("Confirmed").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("They confirmed").length).toBeGreaterThan(0);
     expect(screen.queryByRole("button", { name: "Send again" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "More actions" })).not.toBeInTheDocument();
   });
