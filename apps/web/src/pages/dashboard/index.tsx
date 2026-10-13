@@ -1,75 +1,36 @@
 import { API_ROUTES, type Dashboard } from "@kickrocks/shared";
+import { useState } from "react";
 import { errorMessage, useApiQuery } from "../../api/index.js";
 import { RequireProfile } from "../../components/layout/RequireProfile.js";
-import {
-  Button,
-  Callout,
-  EmptyState,
-  LinkButton,
-  PageHeader,
-  Skeleton,
-} from "../../components/ui/index.js";
-import { paths } from "../../lib/paths.js";
-import {
-  CheckForRepliesAction,
-  checkFailedOnMailbox,
-  ReplyCheckResult,
-  useReplyCheck,
-} from "../mailbox/check-for-replies.js";
+import { Button, Callout, PageHeader, Skeleton } from "../../components/ui/index.js";
 import { ScanNotice } from "../review/ScanNotice.js";
+import { ScanDialog } from "../targets/listings/scanning.js";
 import {
-  ActivitySection,
-  AttentionSection,
-  hasAttention,
-  ListingsSection,
-  MailboxNotices,
-  RequestsSection,
-  ScansSection,
-  SendingSection,
+  checklistSteps,
+  Hero,
+  NeedsYouSection,
+  RemovalsSection,
+  SetupChecklist,
+  SystemLine,
 } from "./sections.js";
 
 const REFRESH_MS = 30_000;
 
 export function Component() {
-  return (
-    <RequireProfile>
-      {(profile) => (
-        <DashboardView profileId={profile.id} mailboxConnected={profile.mailboxConnected} />
-      )}
-    </RequireProfile>
-  );
+  return <RequireProfile>{(profile) => <HomeView profileId={profile.id} />}</RequireProfile>;
 }
 
-function DashboardView({
-  profileId,
-  mailboxConnected,
-}: {
-  profileId: string;
-  mailboxConnected: boolean;
-}) {
-  const check = useReplyCheck(profileId);
+function HomeView({ profileId }: { profileId: string }) {
+  const [scanning, setScanning] = useState(false);
   const query = useApiQuery(API_ROUTES.dashboardGet, {
     params: { id: profileId },
     refetchInterval: REFRESH_MS,
   });
 
-  // A fresh profile's empty state already carries the way forward, so the header adds no second one.
-  const fresh = query.data?.total === 0;
   const header = (
     <PageHeader
-      title="Dashboard"
-      actions={
-        <>
-          {mailboxConnected && !fresh ? (
-            <CheckForRepliesAction check={check} labelFrom="sm" />
-          ) : null}
-          {fresh ? null : (
-            <LinkButton to="/campaigns/new" variant="primary">
-              New campaign
-            </LinkButton>
-          )}
-        </>
-      }
+      title="Home"
+      actions={<Button onClick={() => setScanning(true)}>Scan now</Button>}
     />
   );
 
@@ -77,7 +38,7 @@ function DashboardView({
     return (
       <>
         {header}
-        <DashboardSkeleton />
+        <HomeSkeleton />
       </>
     );
   }
@@ -88,7 +49,7 @@ function DashboardView({
         {header}
         <Callout
           intent="danger"
-          title="Could not load the dashboard"
+          title="Could not load Home"
           action={
             <Button size="sm" onClick={() => query.refetch()}>
               Try again
@@ -104,26 +65,29 @@ function DashboardView({
   return (
     <>
       {header}
-      <ReplyCheckResult check={check} className="mb-5" />
-      <DashboardBody
-        dashboard={query.data}
-        profileId={profileId}
-        checkReportsError={checkFailedOnMailbox(check)}
-      />
+      <HomeBody dashboard={query.data} profileId={profileId} onScan={() => setScanning(true)} />
+      {scanning ? (
+        <ScanDialog
+          open
+          onClose={() => setScanning(false)}
+          profileId={profileId}
+          selection={{ preset: "people_search" }}
+          title="Scan every people-search site?"
+        />
+      ) : null}
     </>
   );
 }
 
-function DashboardBody({
+function HomeBody({
   dashboard,
   profileId,
-  checkReportsError,
+  onScan,
 }: {
   dashboard: Dashboard;
   profileId: string;
-  checkReportsError: boolean;
+  onScan: () => void;
 }) {
-  const fresh = dashboard.total === 0;
   return (
     <div className="flex flex-col gap-5">
       <ScanNotice
@@ -131,53 +95,11 @@ function DashboardBody({
         profileId={profileId}
         queuedHeld={dashboard.scans.held}
       />
-      <MailboxNotices
-        dashboard={dashboard}
-        profileId={profileId}
-        showMissing={!fresh}
-        checkReportsError={checkReportsError}
-      />
-      {fresh ? (
-        <>
-          {hasAttention(dashboard.attention) ? (
-            <AttentionSection attention={dashboard.attention} />
-          ) : null}
-          <ListingsSection listings={dashboard.listings} profileId={profileId} />
-          <ScansSection scans={dashboard.scans} profileId={profileId} />
-          <EmptyState
-            title="No requests yet."
-            description={
-              dashboard.mailbox
-                ? "Start a campaign to send opt-out and deletion requests."
-                : "Connect a mailbox, then start a campaign."
-            }
-            actions={
-              <>
-                {dashboard.mailbox ? null : (
-                  <LinkButton to={paths.mailbox(profileId)} variant="primary">
-                    Connect a mailbox
-                  </LinkButton>
-                )}
-                <LinkButton
-                  to="/campaigns/new"
-                  variant={dashboard.mailbox ? "primary" : "secondary"}
-                >
-                  Start a campaign
-                </LinkButton>
-              </>
-            }
-          />
-        </>
-      ) : (
-        <>
-          <AttentionSection attention={dashboard.attention} />
-          <ListingsSection listings={dashboard.listings} profileId={profileId} />
-          <ScansSection scans={dashboard.scans} profileId={profileId} />
-          <RequestsSection dashboard={dashboard} />
-          <SendingSection dashboard={dashboard} />
-          <ActivitySection events={dashboard.recentEvents} />
-        </>
-      )}
+      <SetupChecklist steps={checklistSteps(dashboard, profileId)} onScan={onScan} />
+      <Hero listings={dashboard.listings} onScan={onScan} />
+      <NeedsYouSection attention={dashboard.attention} />
+      <RemovalsSection dashboard={dashboard} />
+      <SystemLine />
     </div>
   );
 }
@@ -204,39 +126,22 @@ function SkeletonRows({ rows }: { rows: number }) {
   );
 }
 
-const SKELETON_GROUP_ROWS = [3, 4, 3];
-
-function DashboardSkeleton() {
+function HomeSkeleton() {
   return (
     <div aria-busy="true" className="flex flex-col gap-5">
       <span className="sr-only">Loading</span>
       <div>
+        <SkeletonLabel width="w-28" />
+        <SkeletonRows rows={2} />
+      </div>
+      <div>
         <SkeletonLabel width="w-20" />
-        <SkeletonRows rows={4} />
+        <SkeletonRows rows={1} />
       </div>
       <div>
         <SkeletonLabel width="w-24" />
-        <Skeleton className="h-1.5 w-full rounded-full" />
-        <div className="mt-4 grid gap-x-8 gap-y-5 sm:grid-cols-3">
-          {SKELETON_GROUP_ROWS.map((rows, group) => (
-            // biome-ignore lint/suspicious/noArrayIndexKey: placeholder groups have no identity
-            <div key={group}>
-              <div className="flex items-baseline justify-between gap-3">
-                <Skeleton className="h-2.5 w-16" />
-                <Skeleton className="h-4 w-6" />
-              </div>
-              <div className="mt-2 flex flex-col divide-y divide-line border-t border-line">
-                {Array.from({ length: rows }, (_, row) => (
-                  // biome-ignore lint/suspicious/noArrayIndexKey: placeholder rows have no identity
-                  <div key={row} className="flex h-8 items-center justify-between gap-3">
-                    <Skeleton className="h-3 w-24" />
-                    <Skeleton className="h-3 w-4" />
-                  </div>
-                ))}
-              </div>
-            </div>
-          ))}
-        </div>
+        <Skeleton className="mb-2.5 h-1.5 w-full rounded-full" />
+        <SkeletonRows rows={3} />
       </div>
     </div>
   );

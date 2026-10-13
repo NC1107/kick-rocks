@@ -1,37 +1,73 @@
+import { reviewAttention } from "@kickrocks/shared";
 import { screen, waitFor, within } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { createMockApp } from "../../../mock/app.js";
-import { buildMockNeedsYou, createScan } from "../../../mock/review.js";
+import { buildMockListings, summarizeMockListings } from "../../../mock/listings.js";
+import { buildMockNeedsYou, buildMockQueue } from "../../../mock/review.js";
 import { renderPage } from "../../test/render.js";
 import { instrument } from "../profiles/test-support.js";
-import { Component as DashboardPage } from "./index.js";
-import {
-  AttentionSection,
-  attentionRows,
-  groupActivity,
-  groupTotal,
-  hasAttention,
-  STATUS_GROUPS,
-} from "./sections.js";
+import { Component as HomePage } from "./index.js";
+import { groupTotal, Hero, listingTotals, needsYouTotal, STATUS_GROUPS } from "./sections.js";
 
-describe("the dashboard listings card", () => {
-  it("counts where the profile is listed and links each count to its filter", async () => {
-    renderPage(<DashboardPage />);
-    const heading = await screen.findByRole("heading", { name: "Where you're listed" });
-    const card = within(heading.closest("section") as HTMLElement);
-    expect(card.getByRole("link", { name: /Needs you/ })).toHaveAttribute(
-      "href",
-      "/targets/listings?show=needs_you",
+function ownRequests(mock: ReturnType<typeof createMockApp>, index = 0) {
+  const profile = mock.store.profiles[index];
+  return mock.store.requests.filter((request) => request.profileId === profile?.id);
+}
+
+describe("Home hero", () => {
+  it("states how many sites list the person, with one button to review them", async () => {
+    const mock = createMockApp();
+    const jordan = mock.store.profiles[0];
+    if (!jordan) throw new Error("fixture");
+    const totals = listingTotals(
+      summarizeMockListings(buildMockListings(mock.store, jordan.id), mock.store.clock.now())
+        .counts,
     );
-    expect(card.getByRole("link", { name: /Removed/ })).toHaveTextContent("1");
-    expect(card.getByText(/Last scan/)).toBeVisible();
-    expect(card.getByText(/next rescan/)).toBeVisible();
+    expect(totals.listed).toBeGreaterThan(0);
+    renderPage(<HomePage />, { mock });
+    const hero = (await screen.findByRole("heading", { name: "Where you're listed" })).closest(
+      "section",
+    ) as HTMLElement;
+    expect(hero).toHaveTextContent(
+      `Listed on ${totals.listed} ${totals.listed === 1 ? "site" : "sites"}`,
+    );
+    expect(hero).toHaveTextContent(`${totals.needYou} need you`);
+    expect(within(hero).getByRole("link", { name: "Review findings" })).toHaveAttribute(
+      "href",
+      "/findings",
+    );
+    expect(hero).toHaveTextContent(/Last scan .* · next /);
   });
 
-  it("starts a scan of every site without a campaign", async () => {
-    const { user, mock } = renderPage(<DashboardPage />);
+  it("offers another scan when a scan found nothing", async () => {
+    const onScan = vi.fn();
+    const { user } = renderPage(
+      <Hero
+        listings={{ counts: {} as never, lastScanAt: "2026-10-12T10:00:00Z", nextRescanAt: null }}
+        onScan={onScan}
+      />,
+    );
+    expect(screen.getByText("Not listed anywhere we checked")).toBeVisible();
+    expect(screen.queryByRole("link", { name: "Review findings" })).toBeNull();
+    await user.click(screen.getByRole("button", { name: "Scan again" }));
+    expect(onScan).toHaveBeenCalled();
+  });
+
+  it("does not claim a result before the first scan", () => {
+    renderPage(
+      <Hero
+        listings={{ counts: {} as never, lastScanAt: null, nextRescanAt: null }}
+        onScan={vi.fn()}
+      />,
+    );
+    expect(screen.getByText("Not scanned yet")).toBeVisible();
+    expect(screen.queryByRole("button", { name: "Scan again" })).toBeNull();
+  });
+
+  it("starts a scan of every site from the header without a campaign", async () => {
+    const { user, mock } = renderPage(<HomePage />);
     const seen = instrument(mock);
-    await user.click(await screen.findByRole("button", { name: "Scan all sites" }));
+    await user.click(await screen.findByRole("button", { name: "Scan now" }));
     const dialog = await screen.findByRole("dialog", { name: "Scan every people-search site?" });
     await user.click(within(dialog).getByRole("button", { name: "Start scans" }));
     await waitFor(() =>
@@ -41,93 +77,36 @@ describe("the dashboard listings card", () => {
     );
     expect(seen.some((request) => request.url.includes("/campaigns"))).toBe(false);
   });
+
+  it("keeps only Scan now in the header", async () => {
+    renderPage(<HomePage />);
+    await screen.findByRole("heading", { name: "Home" });
+    expect(screen.queryByRole("link", { name: "New campaign" })).toBeNull();
+    expect(screen.queryByRole("button", { name: /Check for replies/ })).toBeNull();
+  });
 });
 
-describe("the dashboard", () => {
-  it("shows a skeleton shaped like the page while it loads", async () => {
-    renderPage(<DashboardPage />, { mockOptions: { latencyMs: 60 } });
-    await screen.findByRole("heading", { name: "Dashboard" });
-    expect(document.querySelector("[aria-busy=true]")).not.toBeNull();
-    expect(await screen.findByRole("heading", { name: /^Requests/ })).toBeInTheDocument();
-    expect(document.querySelector("[aria-busy=true]")).toBeNull();
-  });
-
-  it("totals requests into in progress, resolved, and needs a look", async () => {
-    const { mock } = renderPage(<DashboardPage />);
+describe("Home needs you", () => {
+  it("merges the queue, mail to sort and problems into one count", async () => {
+    const { mock } = renderPage(<HomePage />);
     const jordan = mock.store.profiles[0]?.id;
-    const own = mock.store.requests.filter((request) => request.profileId === jordan);
-
-    const requests = (await screen.findByRole("heading", { name: /^Requests/ })).closest(
-      "section",
-    ) as HTMLElement;
-    for (const group of STATUS_GROUPS) {
-      const section = within(requests).getByRole("region", { name: group.title });
-      const expected = own.filter((request) => group.statuses.includes(request.status)).length;
-      expect(within(section).getByText(String(expected), { selector: "p" })).toBeInTheDocument();
-    }
-  });
-
-  it("draws one stacked bar whose label states each family's count", async () => {
-    const { mock } = renderPage(<DashboardPage />);
-    const jordan = mock.store.profiles[0]?.id;
-    const own = mock.store.requests.filter((request) => request.profileId === jordan);
-    const bar = await screen.findByRole("img", { name: /in progress/ });
-    for (const group of STATUS_GROUPS) {
-      const expected = own.filter((request) => group.statuses.includes(request.status)).length;
-      expect(bar).toHaveAccessibleName(new RegExp(`${expected} ${group.title.toLowerCase()}`));
-    }
-    expect(screen.getAllByRole("img", { name: /in progress/ })).toHaveLength(1);
-  });
-
-  it("puts what needs the person ahead of the request counts", async () => {
-    renderPage(<DashboardPage />);
-    const needs = await screen.findByRole("heading", { name: /^Needs you/ });
-    const requests = await screen.findByRole("heading", { name: /^Requests/ });
-    expect(needs.compareDocumentPosition(requests) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-  });
-
-  it("links each status to the request list filtered by it", async () => {
-    renderPage(<DashboardPage />);
-    const confirmed = await screen.findByRole("link", { name: /^Confirmed/ });
-    expect(confirmed).toHaveAttribute("href", "/requests?status=confirmed");
-  });
-
-  it("starts the Needs you queue with the count and the minutes it takes", async () => {
-    const { mock } = renderPage(<DashboardPage />);
-    const needs = (await screen.findByRole("heading", { name: /^Needs you/ })).closest(
-      "section",
-    ) as HTMLElement;
-    const queue = buildMockNeedsYou(mock.store, mock.store.profiles[0]?.id).counts;
+    const queue = buildMockNeedsYou(mock.store, jordan).counts;
+    const heading = await screen.findByRole("heading", { name: /^Needs you/ });
+    const section = heading.closest("section") as HTMLElement;
+    const total = needsYouTotal({
+      ...reviewAttention(buildMockQueue(mock.store, jordan)),
+      needsYou: queue,
+    } as never);
+    expect(total).toBeGreaterThan(queue.active);
+    expect(heading).toHaveTextContent(`Needs you · ${total}`);
     expect(
-      within(needs).getByText(`${queue.active} to do · about ${queue.minutes} min`),
+      within(section).getByText(`${total} things to do · about ${queue.minutes} min`),
     ).toBeVisible();
-    expect(within(needs).getByRole("link", { name: "Start" })).toHaveAttribute("href", "/review");
-    expect(
-      within(needs).getByText(
-        `${queue.quick} quick · ${queue.few} few min · ${queue.longer} longer`,
-      ),
-    ).toBeVisible();
+    expect(within(section).getByRole("link", { name: "Start" })).toHaveAttribute("href", "/review");
+    expect(screen.queryByText(/Mail to sort|Problems/)).toBeNull();
   });
 
-  it("links mail, problems and waiting agents to their own pages, and only when they hold something", async () => {
-    renderPage(<DashboardPage />);
-    const needs = (await screen.findByRole("heading", { name: /^Needs you/ })).closest(
-      "section",
-    ) as HTMLElement;
-    expect(within(needs).getByRole("link", { name: /Mail to sort/ })).toHaveAttribute(
-      "href",
-      "/review/mail",
-    );
-    expect(within(needs).getByRole("link", { name: /Problems/ })).toHaveAttribute(
-      "href",
-      "/review/problems",
-    );
-    expect(within(needs).getByRole("link", { name: /Mail to sort/ }).textContent).not.toMatch(
-      /sort.*sort/i,
-    );
-  });
-
-  it("says nothing is waiting when nothing is", async () => {
+  it("collapses to one muted line when nothing waits", async () => {
     const mock = createMockApp();
     mock.store.tasks = [];
     mock.store.matches = [];
@@ -135,179 +114,116 @@ describe("the dashboard", () => {
     for (const request of mock.store.requests) {
       if (request.status === "needs_verification") request.status = "awaiting_reply";
     }
-    renderPage(<DashboardPage />, { mock });
-    expect(await screen.findByText("Nothing needs you.")).toBeInTheDocument();
+    renderPage(<HomePage />, { mock });
+    expect(await screen.findByText("Nothing needs you")).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: /^Needs you/ })).toBeNull();
   });
+});
 
-  it("shows the sending meter against the daily limit", async () => {
-    renderPage(<DashboardPage />);
-    const meter = await screen.findByRole("meter", { name: "Daily sending limit used" });
-    expect(meter).toHaveAttribute("aria-valuemax", "150");
-    expect(Number(meter.getAttribute("aria-valuenow"))).toBeGreaterThanOrEqual(0);
-    expect(screen.getByText(/of 150$/)).toBeInTheDocument();
-    expect(screen.getByText(/left$/)).toBeInTheDocument();
-    expect(screen.getByText(/Inbox checked/)).toBeInTheDocument();
-  });
-
-  it("explains when the limit is used up", async () => {
+describe("Home removals", () => {
+  it("shows three rows that total the person's requests, and one bar", async () => {
     const mock = createMockApp();
-    const mailbox = mock.store.profiles[0]?.mailbox;
-    if (mailbox) mailbox.dailyCap = 1;
-    const sentToday = mock.store.requests.filter(
-      (request) =>
-        request.channel === "email" &&
-        request.sentAt &&
-        Date.parse(request.sentAt) > Date.now() - 86_400_000,
-    );
-    expect(sentToday.length).toBeGreaterThan(0);
-    renderPage(<DashboardPage />, { mock });
-    expect(await screen.findByText(/At the limit/)).toBeInTheDocument();
-    expect(screen.getByText("0 left")).toBeInTheDocument();
+    const own = ownRequests(mock);
+    renderPage(<HomePage />, { mock });
+    const heading = await screen.findByRole("heading", { name: /^Removals/ });
+    expect(heading).toHaveTextContent(`Removals · ${own.length}`);
+    expect(within(heading).getByRole("link")).toHaveAttribute("href", "/requests");
+    const section = heading.closest("section") as HTMLElement;
+    for (const group of STATUS_GROUPS) {
+      const expected = own.filter((request) => group.statuses.includes(request.status)).length;
+      const row = within(section).getByRole("link", { name: new RegExp(`^${group.title}`) });
+      expect(row).toHaveTextContent(String(expected));
+      expect(row.getAttribute("href")).toMatch(/^\/requests/);
+    }
+    expect(within(section).getAllByRole("link")).toHaveLength(STATUS_GROUPS.length + 1);
+    expect(screen.getAllByRole("img", { name: /in progress/ })).toHaveLength(1);
   });
 
-  it("describes recent activity in sentences with the broker and reference", async () => {
-    renderPage(<DashboardPage />);
-    const activity = (await screen.findByRole("heading", { name: /^Recent activity/ })).closest(
-      "section",
-    ) as HTMLElement;
-    const items = within(activity).getAllByRole("listitem");
-    expect(items.length).toBeGreaterThan(3);
-    const first = items[0] as HTMLElement;
-    const [broker, request] = within(first).getAllByRole("link");
-    expect(broker).toHaveAttribute("href", expect.stringMatching(/^\/targets\//));
-    expect(request).toHaveAttribute("href", expect.stringMatching(/^\/requests\/req_/));
-    expect(first).toHaveTextContent(/KR-[0-9A-Z]{6}/);
-    expect(first.textContent).not.toMatch(/\bundefined\b|\[object/);
+  it("has no per-status breakdown", async () => {
+    renderPage(<HomePage />);
+    await screen.findByRole("heading", { name: /^Removals/ });
+    expect(screen.queryByRole("link", { name: /^Confirmed/ })).toBeNull();
+    expect(screen.queryByText("Awaiting reply")).toBeNull();
   });
+});
 
-  it("warns when no mailbox is connected, with the way to connect one", async () => {
-    const mock = createMockApp();
-    const riley = mock.store.profiles[1];
-    if (!riley) throw new Error("fixture");
-    localStorage.setItem("kickrocks.profileId", riley.id);
-    renderPage(<DashboardPage />, { mock });
-    const notice = await screen.findByText("No mailbox connected");
-    expect(notice.closest("[role=alert]")).toHaveTextContent(/wait in the queue/);
-    expect(screen.getByRole("link", { name: "Connect a mailbox" })).toHaveAttribute(
-      "href",
-      `/profiles/${riley.id}/mailbox`,
-    );
-    expect(screen.queryByRole("meter")).toBeNull();
-  });
-
-  it("starts a new person at the first step: connect a mailbox", async () => {
+describe("Home setup checklist", () => {
+  it("shows the steps still missing for a person who just made a profile", async () => {
     const mock = createMockApp();
     const newcomer = mock.store.profiles[2];
     if (!newcomer) throw new Error("fixture");
     localStorage.setItem("kickrocks.profileId", newcomer.id);
-    renderPage(<DashboardPage />, { mock });
-    expect(await screen.findByText("No requests yet.")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Connect a mailbox" })).toHaveAttribute(
+    renderPage(<HomePage />, { mock });
+    const heading = await screen.findByRole("heading", { name: /^Get set up/ });
+    expect(heading).toHaveTextContent("Get set up · 2 of 4");
+    const section = heading.closest("section") as HTMLElement;
+    expect(within(section).getByRole("link", { name: /Mailbox/ })).toHaveAttribute(
       "href",
       `/profiles/${newcomer.id}/mailbox`,
     );
-    expect(screen.getByRole("link", { name: "Start a campaign" })).toHaveAttribute(
-      "href",
-      "/campaigns/new",
-    );
-    expect(screen.queryByText("No mailbox connected")).toBeNull();
+    expect(
+      within(section).getByText("Needed to email removals. Scans work without it."),
+    ).toBeVisible();
+    expect(within(section).getByRole("button", { name: /First scan/ })).toBeVisible();
+    expect(within(section).getByText(/Password/)).toHaveTextContent("(done)");
   });
 
-  it("says why scans cannot start, on the page of a person with no requests yet", async () => {
-    const mock = createMockApp();
-    const newcomer = mock.store.profiles[2];
-    if (!newcomer) throw new Error("fixture");
-    newcomer.identities = newcomer.identities.filter((identity) => identity.kind !== "address");
-    localStorage.setItem("kickrocks.profileId", newcomer.id);
-    renderPage(<DashboardPage />, { mock });
-    expect(await screen.findByText("No requests yet.")).toBeInTheDocument();
-    expect(screen.getByText(/sites can't be scanned yet/)).toBeVisible();
-    expect(screen.getByText(/Add a current address with city and state/)).toBeVisible();
-    expect(screen.getByRole("link", { name: "Edit profile" })).toHaveAttribute(
-      "href",
-      `/profiles/${newcomer.id}`,
-    );
+  it("disappears once every step is done", async () => {
+    renderPage(<HomePage />);
+    await screen.findByRole("heading", { name: "Where you're listed" });
+    expect(screen.queryByRole("heading", { name: /^Get set up/ })).toBeNull();
+  });
+});
+
+describe("Home system line", () => {
+  it("puts worker, inbox and cooling sites on one line", async () => {
+    renderPage(<HomePage />);
+    const line = (await screen.findByText(/^worker ok/)).closest("p");
+    expect(line).toHaveTextContent(/inbox .* ago/);
+    expect(screen.queryByText("Worker online")).toBeNull();
+  });
+});
+
+describe("Home states", () => {
+  it("shows a skeleton while it loads", async () => {
+    renderPage(<HomePage />, { mockOptions: { latencyMs: 60 } });
+    await screen.findByRole("heading", { name: "Home" });
+    expect(document.querySelector("[aria-busy=true]")).not.toBeNull();
+    expect(await screen.findByRole("heading", { name: /^Removals/ })).toBeInTheDocument();
+    expect(document.querySelector("[aria-busy=true]")).toBeNull();
   });
 
-  it("shows held scans and what needs the person above the empty state", async () => {
-    const mock = createMockApp();
-    mock.store.requests = [];
-    const jordan = mock.store.profiles[0];
-    const target = mock.store.targets.find((candidate) => candidate.needsRecord);
-    if (!(jordan && target)) throw new Error("fixture");
-    mock.store.scans = [];
-    const hour = mock.store.clock.now().getUTCHours();
-    mock.store.settings.scanning = {
-      ...mock.store.settings.scanning,
-      timeZone: "UTC",
-      quietStartHour: hour,
-      quietEndHour: (hour + 1) % 24,
-    };
-    createScan(mock.store, jordan.id, target.id, {
-      taskStatus: "queued",
-      finished: false,
-      startedAgo: { minutes: 5 },
-    });
-    renderPage(<DashboardPage />, { mock });
-    const held = await screen.findByRole("heading", { name: /^Scans held/ });
-    const empty = screen.getByText("No requests yet.");
-    expect(held.compareDocumentPosition(empty) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(screen.queryByText(/1 scan held/)).toBeNull();
-  });
-
-  it("makes starting a campaign the main action once a mailbox is connected", async () => {
-    const mock = createMockApp();
-    mock.store.requests = [];
-    renderPage(<DashboardPage />, { mock });
-    expect(await screen.findByText("No requests yet.")).toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: "Connect a mailbox" })).toBeNull();
-    expect(screen.getAllByRole("link", { name: /campaign/i }).length).toBeGreaterThan(0);
-  });
-
-  it("shows a mailbox error with the link to fix it", async () => {
-    const mock = createMockApp();
-    const mailbox = mock.store.profiles[0]?.mailbox;
-    if (mailbox) mailbox.lastError = "Login failed: invalid credentials.";
-    renderPage(<DashboardPage />, { mock });
-    const alert = await screen.findByText("The mailbox is not working");
-    expect(alert.closest("[role=alert]")).toHaveTextContent("Login failed: invalid credentials.");
-    expect(screen.getByRole("link", { name: "Check mailbox" })).toBeInTheDocument();
-  });
-
-  it("offers a retry when the dashboard cannot load", async () => {
+  it("offers a retry when it cannot load", async () => {
     const mock = createMockApp();
     instrument(mock, {
       match: "GET /api/profiles/prf_0001/dashboard",
       status: 403,
       body: { error: "forbidden", message: "That request was blocked." },
     });
-    renderPage(<DashboardPage />, { mock });
-    expect(await screen.findByText("Could not load the dashboard")).toBeInTheDocument();
+    renderPage(<HomePage />, { mock });
+    expect(await screen.findByText("Could not load Home")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Try again" })).toBeInTheDocument();
   });
 
   it("asks for a profile when there are none", async () => {
     const mock = createMockApp();
     mock.store.profiles.length = 0;
-    renderPage(<DashboardPage />, { mock });
+    renderPage(<HomePage />, { mock });
     expect(await screen.findByText("Create a profile first")).toBeInTheDocument();
+  });
+
+  it("says why scans cannot start", async () => {
+    const mock = createMockApp();
+    const newcomer = mock.store.profiles[2];
+    if (!newcomer) throw new Error("fixture");
+    newcomer.identities = newcomer.identities.filter((identity) => identity.kind !== "address");
+    localStorage.setItem("kickrocks.profileId", newcomer.id);
+    renderPage(<HomePage />, { mock });
+    expect(await screen.findByText(/sites can't be scanned yet/)).toBeVisible();
   });
 });
 
-const none = {
-  blockedTasks: 0,
-  pendingMatches: 0,
-  unreviewedMessages: 0,
-  needsVerification: 0,
-  failedTasks: 0,
-  agentTasks: 0,
-  yourAgentTasks: 0,
-  assignedAgentTasks: 0,
-  agentAssignees: [] as string[],
-  needsYou: { active: 0, snoozed: 0, minutes: 0, quick: 0, few: 0, longer: 0 },
-};
-
-describe("dashboard helpers", () => {
+describe("helpers", () => {
   it("covers every request status in exactly one group", () => {
     const all = STATUS_GROUPS.flatMap((group) => group.statuses);
     expect(new Set(all).size).toBe(all.length);
@@ -316,110 +232,5 @@ describe("dashboard helpers", () => {
 
   it("adds a group's counts, treating a missing status as zero", () => {
     expect(groupTotal({ queued: 2, sent: 3 }, ["queued", "sent", "draft"])).toBe(5);
-  });
-
-  it("lists the places beside the queue only when they hold something", () => {
-    const rows = attentionRows({ ...none, unreviewedMessages: 2, agentTasks: 0, failedTasks: 1 });
-    expect(rows.map((row) => [row.title, row.count, row.to])).toEqual([
-      ["Mail to sort", 2, "/review/mail"],
-      ["Problems", 1, "/review/problems"],
-    ]);
-    expect(attentionRows(none)).toEqual([]);
-  });
-
-  it("says whether the card has anything to say", () => {
-    expect(hasAttention(none)).toBe(false);
-    expect(hasAttention({ ...none, needsYou: { ...none.needsYou, snoozed: 1 } })).toBe(true);
-    expect(hasAttention({ ...none, agentTasks: 1 })).toBe(true);
-  });
-});
-
-describe("the Needs you card", () => {
-  it("says nothing needs you, and still links what waits elsewhere", () => {
-    renderPage(<AttentionSection attention={{ ...none, failedTasks: 2 }} />);
-    expect(screen.getByText("Nothing needs you.")).toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: "Start" })).toBeNull();
-    expect(screen.getByRole("link", { name: /Problems/ })).toHaveAttribute(
-      "href",
-      "/review/problems",
-    );
-  });
-
-  it("says how long the queue takes, and where the snoozed ones are", () => {
-    renderPage(
-      <AttentionSection
-        attention={{
-          ...none,
-          agentTasks: 2,
-          needsYou: { active: 8, snoozed: 2, minutes: 21, quick: 3, few: 4, longer: 1 },
-        }}
-      />,
-    );
-    expect(screen.getByText("8 to do · about 21 min")).toBeInTheDocument();
-    expect(screen.getByText("3 quick · 4 few min · 1 longer")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Start" })).toHaveAttribute("href", "/review");
-    expect(screen.getByRole("link", { name: "2 snoozed" })).toHaveAttribute(
-      "href",
-      "/review?show=snoozed",
-    );
-    expect(screen.getByRole("link", { name: /Waiting on agents/ })).toHaveAttribute(
-      "href",
-      "/review/agents",
-    );
-    expect(screen.queryByRole("link", { name: /Mail to sort/ })).toBeNull();
-  });
-});
-
-describe("groupActivity", () => {
-  it("takes the count from the server when an event carries one", () => {
-    const groups = groupActivity([
-      { id: "e1", requestId: "r1", createdAt: "2026-10-07T10:00:00Z", eventCount: 300 } as never,
-      { id: "e2", requestId: "r2", createdAt: "2026-10-07T09:00:00Z", eventCount: 2 } as never,
-    ]);
-    expect(groups.map((g) => [g.latest.id, g.count])).toEqual([
-      ["e1", 300],
-      ["e2", 2],
-    ]);
-  });
-
-  const event = (id: string, requestId: string, createdAt: string) =>
-    ({ id, requestId, createdAt }) as never;
-
-  it("folds all events of one request into a count, even when not adjacent", () => {
-    const groups = groupActivity([
-      event("e1", "r1", "2026-10-07T10:00:00Z"),
-      event("e2", "r1", "2026-10-07T09:00:00Z"),
-      event("e3", "r1", "2026-10-07T08:00:00Z"),
-      event("e4", "r2", "2026-10-07T07:00:00Z"),
-      event("e5", "r1", "2026-10-07T06:00:00Z"),
-    ]);
-    expect(groups.map((g) => [g.latest.id, g.count])).toEqual([
-      ["e1", 4],
-      ["e4", 1],
-    ]);
-  });
-
-  it("keeps only the newest few requests", () => {
-    const events = Array.from({ length: 10 }, (_, i) =>
-      event(`e${i}`, `r${i}`, "2026-10-07T10:00:00Z"),
-    );
-    expect(groupActivity(events)).toHaveLength(6);
-    expect(groupActivity(events, 3)).toHaveLength(3);
-  });
-});
-
-describe("recent activity on the page", () => {
-  it("shows a count when a request repeats", async () => {
-    const mock = createMockApp();
-    const base = mock.store.requests[0];
-    if (!base) throw new Error("fixture");
-    renderPage(<DashboardPage />, { mock });
-    const activity = (await screen.findByRole("heading", { name: /^Recent activity/ })).closest(
-      "section",
-    ) as HTMLElement;
-    const requestIds = within(activity)
-      .getAllByRole("link")
-      .map((link) => link.getAttribute("href"));
-    expect(new Set(requestIds).size).toBeGreaterThan(1);
   });
 });
