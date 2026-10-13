@@ -64,7 +64,7 @@ describe("describeEvent", () => {
 
   it("says what changed, in the words the status pills use", () => {
     expect(describeEvent(event("status_changed"))).toBe(
-      "Status changed from Awaiting reply to Confirmed.",
+      "Status changed from Waiting on them to They confirmed.",
     );
   });
 

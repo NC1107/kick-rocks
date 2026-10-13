@@ -13,7 +13,7 @@ export const LISTING_STATUS_META: Record<ListingStatus, StatusMeta> = {
     description: "This site has not been searched for you yet.",
   },
   waiting: {
-    label: "Waiting",
+    label: "Scan scheduled",
     family: "progress",
     shape: "ring",
     description: "A scan is queued and waiting its turn.",
@@ -25,19 +25,19 @@ export const LISTING_STATUS_META: Record<ListingStatus, StatusMeta> = {
     description: "A scan is running now.",
   },
   to_confirm: {
-    label: "To confirm",
+    label: "Is this you?",
     family: "needs",
     shape: "triangle",
     description: "The scan found records that may be you.",
   },
   needs_check: {
-    label: "Needs a check",
+    label: "Needs you",
     family: "needs",
     shape: "triangle",
     description: "A scan stopped for something only you can do.",
   },
   removal_stalled: {
-    label: "Removal stalled",
+    label: "Removal stuck",
     family: "needs",
     shape: "triangle",
     description: "A removal was refused, bounced, got no reply or was cancelled.",
@@ -73,7 +73,7 @@ export const LISTING_STATUS_META: Record<ListingStatus, StatusMeta> = {
     description: "Every record found was marked as not you.",
   },
   not_found: {
-    label: "Not found",
+    label: "Not listed",
     family: "resolved",
     shape: "disc",
     description: "The site showed no records for you.",
@@ -85,7 +85,7 @@ export const LISTING_STATUS_META: Record<ListingStatus, StatusMeta> = {
     description: "The page showed nothing, which can also be a blocked search.",
   },
   failed: {
-    label: "Failed",
+    label: "Scan failed",
     family: "failed",
     shape: "square",
     description: "The last scan could not finish.",
@@ -119,10 +119,10 @@ export const LISTING_CHIPS: readonly {
   statuses: readonly ListingStatus[];
 }[] = [
   { id: "needs_you", label: "Needs you", statuses: LISTING_GROUPS.needs_you },
-  { id: "yours", label: "Yours", statuses: ["yours", "relisted"] },
+  { id: "yours", label: "In progress", statuses: ["yours", "relisted"] },
   { id: "removed", label: "Removed", statuses: ["removed"] },
-  { id: "not_found", label: "Not found", statuses: ["not_found", "not_you", "unclear"] },
-  { id: "waiting", label: "Waiting", statuses: ["waiting", "scanning"] },
+  { id: "not_found", label: "Not listed", statuses: ["not_found", "not_you", "unclear"] },
+  { id: "waiting", label: "Scanning", statuses: ["waiting", "scanning"] },
   { id: "not_scanned", label: "Not scanned", statuses: ["not_scanned"] },
   { id: "paused", label: "Paused or skipped", statuses: ["paused", "skipped"] },
 ];
