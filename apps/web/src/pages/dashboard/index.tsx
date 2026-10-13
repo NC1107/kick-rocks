@@ -89,12 +89,12 @@ function HomeBody({
 }) {
   return (
     <div className="flex flex-col gap-5">
+      <SetupChecklist steps={checklistSteps(dashboard, profileId)} onScan={onScan} />
       <ScanNotice
         scanning={dashboard.scanning}
         profileId={profileId}
         queuedHeld={dashboard.scans.held}
       />
-      <SetupChecklist steps={checklistSteps(dashboard, profileId)} onScan={onScan} />
       <Hero listings={dashboard.listings} onScan={onScan} />
       <NeedsYouSection attention={dashboard.attention} />
       <RemovalsSection dashboard={dashboard} />

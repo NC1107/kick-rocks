@@ -129,6 +129,7 @@ export function SetupChecklist({
               </span>
             ),
             description: step.sentence,
+            wrapDescription: true,
           };
           if (step.done) return <Row key={step.id} {...base} />;
           return step.to ? (
@@ -195,16 +196,12 @@ export function Hero({
           trailingBelowOnPhone
         />
       </RowGroup>
-      <p className="mt-2 font-mono text-caption text-ink-3">
-        {listings.lastScanAt ? (
-          <>
-            Last scan <RelativeTime iso={listings.lastScanAt} />
-          </>
-        ) : (
-          "Never scanned"
-        )}
-        {listings.nextRescanAt ? ` \u00b7 next ${formatShortDate(listings.nextRescanAt)}` : ""}
-      </p>
+      {listings.lastScanAt ? (
+        <p className="mt-2 font-mono text-caption text-ink-3">
+          Last scan <RelativeTime iso={listings.lastScanAt} />
+          {listings.nextRescanAt ? ` \u00b7 next ${formatShortDate(listings.nextRescanAt)}` : ""}
+        </p>
+      ) : null}
     </Section>
   );
 }
