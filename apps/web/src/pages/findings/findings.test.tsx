@@ -110,7 +110,7 @@ describe("findings", () => {
   it("puts a removal that ended without the record going under Needs you", async () => {
     open("/findings?show=needs_you");
     expect(await screen.findByText("No reply to the removal")).toBeVisible();
-    expect(screen.getAllByText("Removal stalled").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Removal stuck").length).toBeGreaterThan(0);
   });
 
   it("states where a removal in progress stands, one row per site that opens the request", async () => {
