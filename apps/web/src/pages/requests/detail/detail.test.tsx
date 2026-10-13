@@ -8,6 +8,7 @@ import {
   BreadcrumbTailProvider,
   useBreadcrumbTailValue,
 } from "../../../components/layout/breadcrumb-context.js";
+import { formatShortDate } from "../../../lib/format.js";
 import { renderPage } from "../../../test/render.js";
 import { Component as RequestDetailPage } from "./index.js";
 import { correctionPicks, mentionsFormOrPhone } from "./ReplyCard.js";
@@ -57,7 +58,7 @@ describe("the request page", () => {
     expect(document.title).toBe("Cardinal Insights, Waiting on them - Kick Rocks");
   });
 
-  it("joins several rights into one sentence with only the first capitalised", async () => {
+  it("says what was asked in one sentence", async () => {
     const mock = failing(/never/);
     const request = mock.store.requests.find(
       (candidate) => candidate.targetId === "cardinal-insights",
@@ -69,7 +70,9 @@ describe("the request page", () => {
       route: `/requests/${request.id}`,
       mock,
     });
-    expect(await screen.findByText("Opt out of sale and delete my data")).toBeVisible();
+    expect(
+      await screen.findByText("Asked them to stop selling and delete your data"),
+    ).toBeVisible();
   });
 
   it("orders events with the newest first", () => {
@@ -94,7 +97,7 @@ describe("the request page", () => {
   it("offers only the actions the server allows", async () => {
     open(byTarget("audiencegrid"));
     await screen.findByRole("heading", { name: "AudienceGrid", level: 1 });
-    expect(screen.getAllByText("They confirmed").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("They said removed").length).toBeGreaterThan(0);
     expect(screen.queryByRole("button", { name: "Send again" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "More actions" })).not.toBeInTheDocument();
   });
@@ -661,5 +664,48 @@ describe("the agent callout", () => {
     expect(await screen.findByText("nick-pc-agent is working on it")).toBeVisible();
     expect(screen.getByRole("button", { name: "Change" })).toBeDisabled();
     expect(screen.getByText("Wait for the run to end, or stop it in Review.")).toBeVisible();
+  });
+});
+
+describe("the request page header and summary", () => {
+  it("keeps the reference and the law out of the header and in the summary", async () => {
+    const mock = failing(/never/);
+    const request = mock.store.requests.find((candidate) => candidate.targetId === "audiencegrid");
+    if (!request) throw new Error("fixture");
+    request.legalBasis = "ca-ccpa";
+    renderPage(<RequestDetailPage />, {
+      path: "/requests/:id",
+      route: `/requests/${request.id}`,
+      mock,
+    });
+    const header = (await screen.findByRole("heading", { name: "AudienceGrid", level: 1 })).closest(
+      "header",
+    ) as HTMLElement;
+    expect(header).not.toHaveTextContent(request.reference);
+    expect(header).not.toHaveTextContent("CCPA");
+    const summary = screen
+      .getByRole("heading", { name: "Summary" })
+      .closest("section") as HTMLElement;
+    expect(within(summary).getByText(request.reference)).toBeVisible();
+    expect(within(summary).getByText("CCPA")).toBeVisible();
+  });
+
+  it("says when a later scan checked a removal, in the header and on the timeline", async () => {
+    const mock = failing(/never/);
+    const request = mock.store.requests.find(
+      (candidate) => candidate.targetId === "lumen-data-partners",
+    );
+    if (!request?.verifiedGoneAt) throw new Error("fixture");
+    renderPage(<RequestDetailPage />, {
+      path: "/requests/:id",
+      route: `/requests/${request.id}`,
+      mock,
+    });
+    const day = formatShortDate(request.verifiedGoneAt);
+    const header = (
+      await screen.findByRole("heading", { name: request.target.name, level: 1 })
+    ).closest("header") as HTMLElement;
+    expect(header).toHaveTextContent(`Gone \u00b7 checked ${day}`);
+    expect(await screen.findByText(`Checked ${day} - no longer listed`)).toBeVisible();
   });
 });

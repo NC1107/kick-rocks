@@ -5,6 +5,7 @@ import {
   type UserAction,
 } from "@kickrocks/shared";
 import { plainError } from "./failures.js";
+import { formatShortDate } from "./format.js";
 import {
   BLOCKED_REASON_LABELS,
   CHANNEL_LABELS,
@@ -177,7 +178,7 @@ export function describeEvent(event: RequestEvent): string {
     case "relisted":
       return `The record showed up again after the request was ${status(event.payload.previousStatus).toLowerCase()}.`;
     case "verified_gone":
-      return "A later scan no longer found the record.";
+      return `Checked ${formatShortDate(event.createdAt)} - no longer listed`;
     case "note":
       return event.payload.text;
   }

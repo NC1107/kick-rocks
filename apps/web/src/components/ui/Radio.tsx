@@ -28,6 +28,8 @@ export interface RadioGroupProps<V extends string> {
   inline?: boolean;
   /** Each option is a full-width selectable row in a bordered group, like a settings list. */
   rows?: boolean;
+  /** With `rows`, drops the bordered box: the rows are divided by hairlines and nothing frames them. */
+  flat?: boolean;
   className?: string;
 }
 
@@ -43,6 +45,7 @@ export function RadioGroup<V extends string>({
   options,
   inline,
   rows,
+  flat,
   className,
 }: RadioGroupProps<V>) {
   const generated = useId();
@@ -65,7 +68,10 @@ export function RadioGroup<V extends string>({
       <div
         className={cn(
           rows
-            ? "divide-y divide-line overflow-hidden rounded-md border border-line bg-surface"
+            ? cn(
+                "divide-y divide-line",
+                !flat && "overflow-hidden rounded-md border border-line bg-surface",
+              )
             : cn("flex gap-x-6 gap-y-2.5", inline ? "flex-wrap" : "flex-col"),
         )}
       >
@@ -77,7 +83,8 @@ export function RadioGroup<V extends string>({
               "flex cursor-pointer items-start gap-2.5 has-disabled:cursor-not-allowed",
               rows &&
                 cn(
-                  "marked min-h-row items-center px-3.5 py-2 transition-colors duration-100",
+                  "marked min-h-row items-center py-2 transition-colors duration-100",
+                  flat ? "-mx-2.5 rounded-sm px-2.5" : "px-3.5",
                   value === option.value ? "bg-accent-soft" : "hover:bg-hover",
                 ),
             )}

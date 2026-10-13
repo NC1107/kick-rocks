@@ -8,13 +8,16 @@ export interface DetailRow {
   attention?: boolean;
 }
 
+/** Fewer rows than this are short enough to show without a tap. */
+const OPEN_BELOW_ROWS = 4;
+
 /**
- * The technical facts behind an item, closed until someone wants them: where a request goes, the
- * fields in it, ids. Plain key and value rows in mono, so the card above stays readable.
+ * The technical facts behind an item: where a request goes, the fields in it, ids. Open when there
+ * are only a few, and closed when there are enough to push the action out of view.
  */
 export function Details({ rows, children }: { rows: readonly DetailRow[]; children?: ReactNode }) {
   return (
-    <details className="group min-w-0">
+    <details open={rows.length > 0 && rows.length < OPEN_BELOW_ROWS} className="group min-w-0">
       <summary className="inline-flex min-h-8 cursor-pointer list-none items-center gap-1.5 rounded-xs text-meta font-medium text-ink-3 marker:hidden hover:text-ink-2 pointer-coarse:min-h-11">
         <span
           aria-hidden="true"

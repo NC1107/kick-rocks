@@ -85,6 +85,33 @@ describe("GET /profiles/:id/requests", () => {
     expect((await listed(other.id)).total).toBe(1);
   });
 
+  it("carries when a re-scan verified the record gone, in the list and the detail", async () => {
+    const { profile } = setup();
+    const verified = seedRequest(ctx, {
+      profileId: profile.id,
+      targetId: "broker",
+      status: "confirmed",
+    });
+    const claimed = seedRequest(ctx, {
+      profileId: profile.id,
+      targetId: "broker",
+      status: "confirmed",
+    });
+    const event = ctx.services.requests.addEvent(verified.id, {
+      type: "verified_gone",
+      actor: "system",
+      payload: { recordUrl: null, scanId: "scan-1" },
+    });
+
+    const body = await listed(profile.id);
+
+    const byId = new Map(body.items.map((item) => [item.id, item.verifiedGoneAt]));
+    expect(byId.get(verified.id)).toBe(event.createdAt);
+    expect(byId.get(claimed.id)).toBeNull();
+    const detail = await get(verified.id);
+    expect(detail.ok && detail.body.verifiedGoneAt).toBe(event.createdAt);
+  });
+
   it("filters by the campaign that created the requests", async () => {
     const { profile } = setup();
     const campaign = seedCampaign(ctx, profile.id);

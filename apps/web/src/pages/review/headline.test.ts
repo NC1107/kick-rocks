@@ -1,6 +1,6 @@
 import { type NeedsYouItem, NeedsYouKind } from "@kickrocks/shared";
 import { describe, expect, it } from "vitest";
-import { headlineFor, timeLeft } from "./headline.js";
+import { headlineFor, shortLabel, timeLeft } from "./headline.js";
 import type { QueueEntry } from "./model.js";
 
 const NOW = Date.parse("2026-10-13T12:00:00.000Z");
@@ -50,7 +50,7 @@ const mail = (requestId: string | null): QueueEntry =>
 describe("headlineFor", () => {
   it("says what a pending send will do and when", () => {
     expect(headlineFor(taskItem("hold", later(7 * 60)), NOW)).toBe(
-      "Sending a removal request to Cardinal Insights in 7 min unless you stop it.",
+      "Sends to Cardinal Insights in 7 min unless you stop it.",
     );
   });
 
@@ -68,35 +68,35 @@ describe("headlineFor", () => {
 
   it("names the target and the decision for every other Needs you kind", () => {
     expect(headlineFor(taskItem("captcha"), NOW)).toBe(
-      "Cardinal Insights wants a CAPTCHA solved before the removal can be sent.",
+      "Cardinal Insights needs a CAPTCHA solved before it can send.",
     );
     expect(headlineFor(taskItem("approve"), NOW)).toBe(
-      "A request to Cardinal Insights paused before sending. Check what goes out, then approve it.",
+      "The request to Cardinal Insights paused. Check what goes out, then approve it.",
     );
     expect(headlineFor(taskItem("check_sent"), NOW)).toBe(
-      "Did the removal form on Cardinal Insights go through? Open the page to check.",
+      "Did the form on Cardinal Insights go through? Open the page to check.",
     );
     expect(headlineFor(taskItem("phone_code"), NOW)).toBe(
-      "Cardinal Insights texted you a code. Enter it on their page to finish the removal.",
+      "Cardinal Insights texted you a code. Enter it on their page.",
     );
     expect(headlineFor(taskItem("id"), NOW)).toBe(
-      "Cardinal Insights asks for a photo ID before it will remove you. Share it only if you want to.",
+      "Cardinal Insights asks for a photo ID. Share it only if you want to.",
     );
     expect(headlineFor(taskItem("email_link"), NOW)).toBe(
-      "Cardinal Insights emailed you a link. Tap it to confirm the removal.",
+      "Cardinal Insights emailed you a link. Tap it to confirm.",
     );
     expect(headlineFor(taskItem("login"), NOW)).toBe(
-      "Cardinal Insights wants you signed in before the removal can be sent.",
+      "Cardinal Insights wants you signed in before it can send.",
     );
     expect(headlineFor(taskItem("bot"), NOW)).toBe(
       "Cardinal Insights blocked our browser. Finish the form in yours.",
     );
     expect(headlineFor(taskItem("by_hand"), NOW)).toBe(
-      "Cardinal Insights can only be removed by hand. Open the page and finish the form.",
+      "Cardinal Insights can only be done by hand. Open the page and finish the form.",
     );
     expect(headlineFor(record, NOW)).toBe("We found a listing on Spokeo. Is it you?");
     expect(headlineFor(details, NOW)).toBe(
-      "Cardinal Insights wants more details before it will act. Pick what to send.",
+      "Cardinal Insights wants more details. Pick what to send.",
     );
   });
 
@@ -143,5 +143,27 @@ describe("headlineFor", () => {
       headlineFor(withTask("failed", null)),
     ];
     for (const sentence of sentences) expect(sentence).not.toMatch(/\u2014|task:|https?:/);
+  });
+});
+
+describe("shortLabel", () => {
+  it("says in a few words what the person will do, for the Up next list", () => {
+    expect(shortLabel(taskItem("hold"))).toBe("Stop or send");
+    expect(shortLabel(details)).toBe("Pick details");
+    expect(shortLabel(taskItem("approve"))).toBe("Approve");
+    expect(shortLabel(taskItem("phone_code"))).toBe("Enter their code");
+    expect(shortLabel(taskItem("captcha"))).toBe("Solve CAPTCHA");
+    expect(shortLabel(taskItem("bot"))).toBe("Finish in browser");
+    expect(shortLabel(record)).toBe("Is this you?");
+    expect(shortLabel(taskItem("email_link"))).toBe("Confirm by email");
+  });
+
+  it("has a short imperative for every kind, never the old tag words", () => {
+    for (const kind of NeedsYouKind.options) {
+      const label = shortLabel({ kind });
+      expect(label, kind).toMatch(/^[A-Z]/);
+      expect(label.split(" ").length, kind).toBeLessThanOrEqual(4);
+      expect(label, kind).not.toMatch(/^(Waiting|Details|Needs OK|Phone code|Bot check|CAPTCHA)$/);
+    }
   });
 });

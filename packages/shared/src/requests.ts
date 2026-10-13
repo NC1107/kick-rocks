@@ -458,7 +458,13 @@ export function requestEventSchema<E extends z.ZodRawShape>(extra: E) {
 export const RequestEvent = requestEventSchema({});
 export type RequestEvent = z.infer<typeof RequestEvent>;
 
-export const RequestListItem = RequestRecord.extend({ target: TargetSummary });
+export const RequestWithTarget = RequestRecord.extend({ target: TargetSummary });
+export type RequestWithTarget = z.infer<typeof RequestWithTarget>;
+
+export const RequestListItem = RequestWithTarget.extend({
+  /** When a later scan confirmed the record gone, or null while the company's word is all there is. */
+  verifiedGoneAt: z.iso.datetime().nullable(),
+});
 export type RequestListItem = z.infer<typeof RequestListItem>;
 
 /** What a target's reply said about making the request another way, for the person to act on. */

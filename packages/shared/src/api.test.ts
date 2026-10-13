@@ -60,6 +60,7 @@ const PLANNED = [
   "GET /targets/facets",
   "GET /targets/:id",
   "GET /targets/:id/site",
+  "GET /profiles/:id/campaigns",
   "POST /profiles/:id/campaigns/preview",
   "POST /profiles/:id/campaigns",
   "GET /profiles/:id/requests",

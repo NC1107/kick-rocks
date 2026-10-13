@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { RenderedEmail } from "./legal.js";
-import { RequestRights } from "./requests.js";
+import { RequestRights, RequestStatus } from "./requests.js";
 import { MAX_SELECTED_TARGETS, TargetFilter } from "./targets.js";
 
 export const CampaignPreset = z.enum([
@@ -113,3 +113,15 @@ export const CampaignCreated = z.object({
   counts: OutcomeCounts,
 });
 export type CampaignCreated = z.infer<typeof CampaignCreated>;
+
+/** One batch of requests the person sent together, with where its requests stand now. */
+export const CampaignSummary = z.object({
+  id: z.string(),
+  createdAt: z.iso.datetime(),
+  rights: RequestRights,
+  /** How many requests the batch opened. */
+  requestCount: z.number().int().nonnegative(),
+  /** The batch's requests per status; a status with none is absent. */
+  counts: z.partialRecord(RequestStatus, z.number().int().positive()),
+});
+export type CampaignSummary = z.infer<typeof CampaignSummary>;

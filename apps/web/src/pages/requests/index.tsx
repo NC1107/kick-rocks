@@ -22,12 +22,14 @@ import {
   Pagination,
   RowGroup,
   Section,
+  Segmented,
   Skeleton,
   TableToolbar,
 } from "../../components/ui/index.js";
 import { pluralize } from "../../lib/format.js";
 import { CHANNEL_LABELS } from "../../lib/labels.js";
 import { REQUEST_STATUS_META } from "../../lib/status.js";
+import { groupByBatch } from "./batches.js";
 import {
   ALL_PROFILES,
   hasRequestFilters,
@@ -35,9 +37,9 @@ import {
   readRequestFilters,
   toRequestQuery,
 } from "./filters.js";
-import { groupRequests } from "./grouping.js";
 import { listRefreshInterval } from "./polling.js";
 import { RequestRow } from "./RequestRow.js";
+import { groupRequests } from "./sections.js";
 
 const SEARCH_DELAY_MS = 250;
 const SKELETON_ROWS = ["a", "b", "c", "d", "e", "f"];
@@ -69,6 +71,11 @@ function Requests({ profileId }: { profileId: string }) {
   );
   const everyone = useApiQuery(API_ROUTES.requestsListAll, allProfiles ? listed : skipToken);
   const list = allProfiles ? everyone : one;
+  const byBatch = !allProfiles && params.get("group") === "batch";
+  const batches = useApiQuery(
+    API_ROUTES.campaignsList,
+    byBatch && scopeId ? { params: { id: scopeId } } : skipToken,
+  );
   const target = useApiQuery(
     API_ROUTES.targetsGet,
     filters.targetId ? { params: { id: filters.targetId } } : skipToken,
@@ -84,6 +91,17 @@ function Requests({ profileId }: { profileId: string }) {
         if (value) next.set(key, value);
         else next.delete(key);
         next.delete("page");
+        return next;
+      },
+      { replace: true },
+    );
+
+  const setGroup = (value: "status" | "batch") =>
+    setParams(
+      (current) => {
+        const next = new URLSearchParams(current);
+        if (value === "batch") next.set("group", "batch");
+        else next.delete("group");
         return next;
       },
       { replace: true },
@@ -186,6 +204,10 @@ function Requests({ profileId }: { profileId: string }) {
   const extraFilters = (filters.targetId ? 1 : 0) + (filters.campaignId ? 1 : 0);
   const filtered = hasRequestFilters(filters);
   const resultCount = list.data ? pluralize(list.data.total, "request") : undefined;
+  const sections =
+    byBatch && batches.data
+      ? groupByBatch(items, batches.data.campaigns)
+      : groupRequests(items).map((section) => ({ ...section, summary: "" }));
 
   return (
     <>
@@ -195,7 +217,7 @@ function Requests({ profileId }: { profileId: string }) {
         hideDescriptionOnPhone
         actions={
           <LinkButton to="/campaigns/new" variant="primary">
-            New campaign
+            Send requests
           </LinkButton>
         }
       />
@@ -242,6 +264,17 @@ function Requests({ profileId }: { profileId: string }) {
             extraActive={extraFilters}
           />
         </search>
+        {allProfiles ? null : (
+          <Segmented
+            legend="Group by"
+            value={byBatch ? "batch" : "status"}
+            onValueChange={setGroup}
+            options={[
+              { value: "status", label: "By status" },
+              { value: "batch", label: "By batch" },
+            ]}
+          />
+        )}
       </TableToolbar>
       <FilterTags tags={tags} emptyFocusRef={filtersButton} />
 
@@ -266,12 +299,12 @@ function Requests({ profileId }: { profileId: string }) {
         ) : (
           <EmptyState
             title="No requests yet."
-            actions={<LinkButton to="/campaigns/new">Start a campaign</LinkButton>}
+            actions={<LinkButton to="/campaigns/new">Send requests</LinkButton>}
           />
         )
       ) : (
         <div aria-busy={list.isPlaceholderData || undefined} className="flex flex-col gap-3">
-          {list.isPending ? (
+          {list.isPending || (byBatch && batches.isPending) ? (
             <RowGroup aria-label="Loading requests">
               {SKELETON_ROWS.map((id) => (
                 <div key={id} className="flex min-h-11 flex-col justify-center gap-1.5 px-3.5 py-2">
@@ -281,8 +314,21 @@ function Requests({ profileId }: { profileId: string }) {
               ))}
             </RowGroup>
           ) : (
-            groupRequests(items).map((section) => (
-              <Section key={section.id} label={section.label} count={section.items.length}>
+            sections.map((section) => (
+              <Section
+                key={section.id}
+                label={section.label}
+                count={section.items.length}
+                {...(section.summary
+                  ? {
+                      actions: (
+                        <span className="font-mono text-caption text-ink-3 tabular-nums">
+                          {section.summary}
+                        </span>
+                      ),
+                    }
+                  : {})}
+              >
                 <RowGroup role="list" aria-label={section.label}>
                   {section.items.map((item) => (
                     <RequestRow
