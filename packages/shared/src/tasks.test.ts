@@ -466,6 +466,7 @@ describe("TaskSummary", () => {
       blockedReason: null,
       blockedDetail: null,
       blockedUrl: null,
+      mayHaveSubmitted: false,
       attempts: 1,
       maxAttempts: 3,
       lastError: "selector missing",
