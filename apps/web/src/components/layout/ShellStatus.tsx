@@ -84,7 +84,8 @@ export function UrgentStatusMark({ chips }: { chips: readonly StatusChip[] }) {
     >
       <StatusShapeGlyph shape={TONE_SHAPE[chip.tone]} className="size-2.5" />
       <span>{chip.label.toLowerCase()}</span>
-      {chip.value ? <span>{chip.value}</span> : null}
+      {/* The phone bar fits the count but not the "until" clause, which the page it opens repeats. */}
+      {chip.value ? <span>{chip.value.split(" · ")[0]}</span> : null}
     </Link>
   );
 }
