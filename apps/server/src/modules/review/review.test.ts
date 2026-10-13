@@ -912,6 +912,60 @@ describe("task actions", () => {
   });
 });
 
+describe("POST /matches/decisions", () => {
+  const decideMany = (decisions: { matchId: string; decision: "mine" | "not_mine" }[]) =>
+    ctx.call(API_ROUTES.matchDecideMany, { body: { decisions } });
+
+  function pendingMatch(recordUrl: string) {
+    const scan = seedScan(ctx, { profileId, targetId });
+    return seedMatch(ctx, { scanId: scan.id, profileId, targetId, recordUrl });
+  }
+
+  it("opens one removal per record answered mine", async () => {
+    const first = pendingMatch("https://records.test/p/10");
+    const second = pendingMatch("https://records.test/p/11");
+
+    const result = await decideMany([
+      { matchId: first.id, decision: "mine" },
+      { matchId: second.id, decision: "mine" },
+    ]);
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.body.results.map((item) => item.ok)).toEqual([true, true]);
+    expect(ctx.services.db.select().from(requests).all()).toHaveLength(2);
+    expect((await queue()).matches).toHaveLength(0);
+  });
+
+  it("keeps the records that were decided when another one fails", async () => {
+    const first = pendingMatch("https://records.test/p/10");
+    const taken = pendingMatch("https://records.test/p/11");
+    await ctx.call(API_ROUTES.matchDecide, {
+      params: { id: taken.id },
+      body: { decision: "mine", rights: ["opt_out", "delete"] },
+    });
+
+    const result = await decideMany([
+      { matchId: first.id, decision: "mine" },
+      { matchId: taken.id, decision: "not_mine" },
+      { matchId: "missing", decision: "not_mine" },
+    ]);
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.body.results).toMatchObject([
+      { ok: true, matchId: first.id, match: { decision: "mine" } },
+      { ok: false, matchId: taken.id, error: { code: "match_already_decided" } },
+      { ok: false, matchId: "missing", error: { code: "match_not_found" } },
+    ]);
+    expect(ctx.services.db.select().from(requests).all()).toHaveLength(2);
+  });
+
+  it("rejects an empty list", async () => {
+    expect(await decideMany([])).toMatchObject({ ok: false, status: 400 });
+  });
+});
+
 describe("POST /matches/:id/decision", () => {
   const decide = (
     id: string,

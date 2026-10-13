@@ -285,6 +285,22 @@ export default defineMockDomain({
       seedMockMatch(store, index, `${first.recordUrl}?r=2`, fields, "mine", second.id);
     }
 
+    // To confirm: a third site with two records, so the findings list spans several sites.
+    const bay = finished("kinsearch", { hours: 18 });
+    if (bay) {
+      seedMockMatch(store, bay, "https://www.kinsearch.example/people/jordan-q-example-ca", {
+        name: "Jordan Q Example",
+        age: 36,
+        locations: ["Sampleton, CA"],
+        phones: ["(555) 555-0123"],
+      });
+      seedMockMatch(store, bay, "https://www.kinsearch.example/people/jordan-example-or", {
+        name: "Jordan Example",
+        age: 41,
+        locations: ["Portland, OR"],
+      });
+    }
+
     // Not you: every candidate was turned down.
     const whereabout = finished("whereabout", { days: 20 });
     if (whereabout) {

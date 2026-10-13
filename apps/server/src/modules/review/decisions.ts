@@ -1,5 +1,7 @@
 import { mailboxes, matches, messages, requests, targets } from "@kickrocks/db";
 import {
+  type BulkMatchDecisionBody,
+  type BulkMatchDecisionResult,
   isActiveStatus,
   type Match,
   type MatchDecisionBody,
@@ -9,7 +11,7 @@ import {
 } from "@kickrocks/shared";
 import { and, eq } from "drizzle-orm";
 import { CLASSIFIED_BY_HAND } from "../../core/classified-by-hand.js";
-import { conflict, notFound } from "../../core/errors.js";
+import { AppError, conflict, notFound } from "../../core/errors.js";
 import { applyReply, followConfirmationLinks } from "../../runners/reply.js";
 import type { AppServices } from "../../services.js";
 import { toMatch, toMessageSummary } from "./mappers.js";
@@ -89,6 +91,26 @@ export function decideMatch(
       .get();
     return toMatch(decided, targetName);
   });
+}
+
+/**
+ * Answers several records in one commit. Each item is its own savepoint inside the batch, so a
+ * record that cannot be decided reports its error and the rest still go through.
+ */
+export function decideMatches(
+  services: AppServices,
+  body: BulkMatchDecisionBody,
+): BulkMatchDecisionResult[] {
+  return services.db.transaction(() =>
+    body.decisions.map(({ matchId, ...decision }): BulkMatchDecisionResult => {
+      try {
+        return { ok: true, matchId, match: decideMatch(services, matchId, decision) };
+      } catch (failure) {
+        if (!(failure instanceof AppError)) throw failure;
+        return { ok: false, matchId, error: { code: failure.code, message: failure.message } };
+      }
+    }),
+  );
 }
 
 /**

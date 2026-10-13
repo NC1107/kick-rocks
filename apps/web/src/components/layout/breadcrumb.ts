@@ -39,6 +39,8 @@ export function breadcrumbTrail(pathname: string, tail?: Crumb): Crumb[] {
       const page = second ? REVIEW_PAGES[second] : undefined;
       return page ? [{ label: "Review", to: "/review" }, { label: page }] : [{ label: "Review" }];
     }
+    case "findings":
+      return [{ label: "Findings" }];
     case "dev":
       return [{ label: "Component gallery" }];
     case "requests":
@@ -46,9 +48,6 @@ export function breadcrumbTrail(pathname: string, tail?: Crumb): Crumb[] {
         ? [{ label: "Requests", to: "/requests" }, leaf("Request")]
         : [{ label: "Requests" }];
     case "targets":
-      if (second === "listings") {
-        return [{ label: "Targets", to: "/targets" }, { label: "Where you're listed" }];
-      }
       if (second && third === "remove") {
         return [
           { label: "Targets", to: "/targets" },

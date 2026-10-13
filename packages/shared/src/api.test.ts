@@ -97,6 +97,7 @@ const PLANNED = [
   "POST /worker/tasks/:id/sends/:sendId/release",
   "POST /worker/tasks/:id/sends/:sendId/result",
   "POST /matches/:id/decision",
+  "POST /matches/decisions",
   "GET /messages/:id",
   "POST /messages/:id/classification",
   "GET /recipes",

@@ -102,6 +102,30 @@ export const MatchDecisionBody = z.object({
 });
 export type MatchDecisionBody = z.infer<typeof MatchDecisionBody>;
 
+export const MAX_BULK_DECISIONS = 200;
+
+export const BulkMatchDecisionBody = z.object({
+  decisions: z
+    .array(MatchDecisionBody.extend({ matchId: z.string().min(1) }))
+    .min(1)
+    .max(MAX_BULK_DECISIONS),
+});
+export type BulkMatchDecisionBody = z.infer<typeof BulkMatchDecisionBody>;
+
+/** One answer per requested decision, in request order. A failed item never undoes the others. */
+export const BulkMatchDecisionResult = z.discriminatedUnion("ok", [
+  z.object({ ok: z.literal(true), matchId: z.string(), match: Match }),
+  z.object({
+    ok: z.literal(false),
+    matchId: z.string(),
+    error: z.object({ code: z.string(), message: z.string() }),
+  }),
+]);
+export type BulkMatchDecisionResult = z.infer<typeof BulkMatchDecisionResult>;
+
+export const BulkMatchDecisionResponse = z.object({ results: z.array(BulkMatchDecisionResult) });
+export type BulkMatchDecisionResponse = z.infer<typeof BulkMatchDecisionResponse>;
+
 export const MessageClassificationBody = z.object({
   classification: ReplyClassification,
   /** Attach the message to a request by hand when automatic correlation failed. */

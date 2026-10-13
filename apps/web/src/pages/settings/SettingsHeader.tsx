@@ -5,6 +5,7 @@ const TABS = [
   { to: "/settings", label: "General", end: true },
   { to: "/settings/profiles", label: "Profiles" },
   { to: "/settings/recipes", label: "Recipes" },
+  { to: "/targets", label: "Sites" },
   { to: "/settings/agents", label: "Agents" },
   { to: "/settings/notifications", label: "Notifications" },
   { to: "/settings/about", label: "About" },

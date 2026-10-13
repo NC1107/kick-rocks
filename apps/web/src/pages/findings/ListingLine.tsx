@@ -1,12 +1,12 @@
 import { type ListingSite, type RequestStatus, STALLED_REMOVALS } from "@kickrocks/shared";
 import type { ReactNode } from "react";
-import { HoldReason } from "../../../components/holds/HoldReason.js";
-import { MetaMark, RelativeTime, TextLink } from "../../../components/ui/index.js";
-import { describeFailure } from "../../../lib/failures.js";
-import { formatShortDate, pluralize } from "../../../lib/format.js";
-import { LISTING_STATUS_META, pendingRecords } from "../../../lib/listings.js";
-import { paths } from "../../../lib/paths.js";
-import { REQUEST_STATUS_META } from "../../../lib/status.js";
+import { HoldReason } from "../../components/holds/HoldReason.js";
+import { MetaMark, RelativeTime, TextLink } from "../../components/ui/index.js";
+import { describeFailure } from "../../lib/failures.js";
+import { formatShortDate, pluralize } from "../../lib/format.js";
+import { LISTING_STATUS_META, pendingRecords } from "../../lib/listings.js";
+import { paths } from "../../lib/paths.js";
+import { REQUEST_STATUS_META } from "../../lib/status.js";
 
 const REMOVAL_WORDS: Partial<Record<RequestStatus, string>> = {
   draft: "Removal queued",

@@ -31,9 +31,9 @@ import { describeEvent } from "../../lib/events.js";
 import { formatCount, formatShortDate } from "../../lib/format.js";
 import { chipCount } from "../../lib/listings.js";
 import { paths } from "../../lib/paths.js";
+import { ScanDialog } from "../findings/scanning.js";
 import { EventRow } from "../requests/EventRow.js";
 import { eventShape } from "../requests/event-shape.js";
-import { ScanDialog } from "../targets/listings/scanning.js";
 
 /** The three questions a person has about their requests, each answered by some statuses. */
 export const STATUS_GROUPS: readonly {
