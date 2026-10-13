@@ -67,7 +67,8 @@ export const paths = {
   profile: (id: string) => `/profiles/${part(id)}`,
   mailbox: (profileId: string) => `/profiles/${part(profileId)}/mailbox`,
   target: (id: string) => `/targets/${part(id)}`,
-  /** The listings view, optionally opened on one of its filters. */
+  findings: (show?: string) => (show ? `/findings?show=${part(show)}` : "/findings"),
+  /** The old listings address, which redirects to the findings page. */
   listings: (show?: string) =>
     show ? `/targets/listings?show=${part(show)}` : "/targets/listings",
   targetRemove: (id: string) => `/targets/${part(id)}/remove`,

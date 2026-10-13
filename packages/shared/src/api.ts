@@ -74,7 +74,13 @@ import {
   RequestStatus,
   VerificationReplyBody,
 } from "./requests.js";
-import { MatchDecisionBody, MessageClassificationBody, ReviewQueue } from "./review.js";
+import {
+  BulkMatchDecisionBody,
+  BulkMatchDecisionResponse,
+  MatchDecisionBody,
+  MessageClassificationBody,
+  ReviewQueue,
+} from "./review.js";
 import { SitesView, TargetSite } from "./scanning.js";
 import { Match, ScanStartBody, ScanStartResult, ScanSummary } from "./scans.js";
 import {
@@ -1022,6 +1028,14 @@ export const API_ROUTES = {
     params: IdParam,
     body: MatchDecisionBody,
     response: Match,
+  }),
+  matchDecideMany: defineRoute({
+    method: "POST",
+    path: "/matches/decisions",
+    module: "review",
+    auth: "session",
+    body: BulkMatchDecisionBody,
+    response: BulkMatchDecisionResponse,
   }),
   messageGet: defineRoute({
     method: "GET",

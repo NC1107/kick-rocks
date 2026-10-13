@@ -4,7 +4,7 @@ import { errorMessage, useApiQuery } from "../../api/index.js";
 import { RequireProfile } from "../../components/layout/RequireProfile.js";
 import { Button, Callout, PageHeader, Skeleton } from "../../components/ui/index.js";
 import { ScanNotice } from "../review/ScanNotice.js";
-import { ScanDialog } from "../targets/listings/scanning.js";
+import { ScanDialog } from "../findings/scanning.js";
 import {
   checklistSteps,
   Hero,

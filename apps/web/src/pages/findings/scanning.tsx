@@ -5,15 +5,9 @@ import {
   type ScanStartBody,
 } from "@kickrocks/shared";
 import { useState } from "react";
-import { errorMessage, useApiMutation, useApiQuery } from "../../../api/index.js";
-import {
-  Button,
-  Checkbox,
-  Dialog,
-  type DialogProps,
-  useToast,
-} from "../../../components/ui/index.js";
-import { describeScanStart } from "../../../lib/scan-start.js";
+import { errorMessage, useApiMutation, useApiQuery } from "../../api/index.js";
+import { Button, Checkbox, Dialog, type DialogProps, useToast } from "../../components/ui/index.js";
+import { describeScanStart } from "../../lib/scan-start.js";
 
 /** The answers a scan or a preference changes, so every view of a site stays in step. */
 export const LISTING_INVALIDATES = [

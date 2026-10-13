@@ -1,11 +1,4 @@
-import {
-  ClipboardCheck,
-  Crosshair,
-  LayoutDashboard,
-  type LucideIcon,
-  Send,
-  Settings,
-} from "lucide-react";
+import { House, Inbox, type LucideIcon, ScanSearch, Send, Settings } from "lucide-react";
 
 export interface NavItem {
   to: string;
@@ -17,11 +10,15 @@ export interface NavItem {
   badge?: "review";
 }
 
-/** Review sits second because it is where the person acts; Settings holds everything set up once. */
+/**
+ * Findings sits second because it answers where the person is exposed; the Inbox is where they
+ * act on mail and stopped tasks, and Settings holds everything set up once, the site catalogue
+ * included.
+ */
 export const NAV_ITEMS: readonly NavItem[] = [
-  { to: "/", label: "Dashboard", icon: LayoutDashboard, end: true },
-  { to: "/review", label: "Review", icon: ClipboardCheck, badge: "review" },
-  { to: "/requests", label: "Requests", icon: Send },
-  { to: "/targets", label: "Targets", icon: Crosshair },
+  { to: "/", label: "Home", icon: House, end: true },
+  { to: "/findings", label: "Findings", icon: ScanSearch },
+  { to: "/requests", label: "Removals", icon: Send },
+  { to: "/review", label: "Inbox", icon: Inbox, badge: "review" },
   { to: "/settings", label: "Settings", icon: Settings },
 ];

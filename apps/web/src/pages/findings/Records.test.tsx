@@ -1,7 +1,7 @@
 import type { ListingRecord, MatchBand } from "@kickrocks/shared";
 import { screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import { renderPage } from "../../../test/render.js";
+import { renderPage } from "../../test/render.js";
 import { RecordList } from "./Records.js";
 
 function record(

@@ -32,6 +32,7 @@ import {
   TARGET_KIND_LABELS,
 } from "../../lib/labels.js";
 import { useWide } from "../../lib/use-wide.js";
+import { ScanDialog } from "../findings/scanning.js";
 import { AutomationLegend, HealthMark } from "./Automation.js";
 import { Difficulty } from "./Difficulty.js";
 import {
@@ -43,10 +44,8 @@ import {
   toFilter,
   toQuery,
 } from "./filters.js";
-import { ScanDialog } from "./listings/scanning.js";
 import { Priority } from "./Priority.js";
 import { RequirementBadges } from "./RequirementBadges.js";
-import { TargetsTabs } from "./TargetsTabs.js";
 import { useMatchingTargets } from "./use-matching-targets.js";
 
 function facetOptions(
@@ -295,8 +294,6 @@ export function Component() {
           </LinkButton>
         }
       />
-
-      <TargetsTabs />
 
       <search aria-label="Filter targets">
         <TableToolbar>
