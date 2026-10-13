@@ -43,7 +43,7 @@ export function SiteRows({
                 {site.domain}
               </span>
             </span>
-            <ListingLine site={site} profileId={profileId} />
+            <ListingLine site={site} profileId={profileId} verified />
             <span className="sm:text-right">
               <ScanTimes site={site} />
             </span>

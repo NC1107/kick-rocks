@@ -1,14 +1,15 @@
-import type {
-  ListingRecord,
-  ListingSite,
-  ListingStatus,
-  MatchAssessment,
-  MatchReason,
+import {
+  type ListingRecord,
+  type ListingSite,
+  type ListingStatus,
+  listingRollup,
+  type MatchAssessment,
+  type MatchReason,
 } from "@kickrocks/shared";
 import { pendingRecords } from "../../lib/listings.js";
 
 export const FINDING_TABS = [
-  { id: "needs_you", label: "Needs you" },
+  { id: "needs_you", label: "Is this you?" },
   { id: "in_progress", label: "In progress" },
   { id: "gone", label: "Gone" },
   { id: "not_listed", label: "Not listed" },
@@ -17,23 +18,27 @@ export const FINDING_TABS = [
 
 export type FindingTab = (typeof FINDING_TABS)[number]["id"];
 
-const TAB_OF: Partial<Record<ListingStatus, FindingTab>> = {
+const TAB_OF: Record<ListingStatus, FindingTab> = {
   to_confirm: "needs_you",
   needs_check: "needs_you",
   removal_stalled: "needs_you",
   failed: "needs_you",
+  yours: "in_progress",
+  relisted: "in_progress",
+  claimed_removed: "in_progress",
   removed: "gone",
   not_found: "not_listed",
   not_you: "not_listed",
   unclear: "not_listed",
   not_scanned: "not_scanned",
+  waiting: "not_scanned",
+  scanning: "not_scanned",
   paused: "not_scanned",
   skipped: "not_scanned",
 };
 
-/** A status this page has no tab for is work under way, so a new status never disappears. */
 export function tabOf(status: ListingStatus): FindingTab {
-  return TAB_OF[status] ?? "in_progress";
+  return TAB_OF[status];
 }
 
 /** Old links used the filter ids of the per-site listing view. */
@@ -53,42 +58,26 @@ export function tabFromParam(value: string | null): FindingTab | null {
   return direct?.id ?? LEGACY_SHOW[value] ?? null;
 }
 
-const FOUND: ReadonlySet<ListingStatus> = new Set([
-  "to_confirm",
-  "removal_stalled",
-  "yours",
-  "relisted",
-  "removed",
-]);
-
 export interface Rollup {
-  found: number;
+  listed: number;
   counts: Record<FindingTab, number>;
 }
 
+/** The tab counts and the headline both come from listingRollup, so Home and this page agree. */
 export function rollup(sites: readonly ListingSite[]): Rollup {
-  const counts: Record<FindingTab, number> = {
-    needs_you: 0,
-    in_progress: 0,
-    gone: 0,
-    not_listed: 0,
-    not_scanned: 0,
+  const byStatus: Partial<Record<ListingStatus, number>> = {};
+  for (const site of sites) byStatus[site.status] = (byStatus[site.status] ?? 0) + 1;
+  const totals = listingRollup(byStatus);
+  return {
+    listed: totals.listed,
+    counts: {
+      needs_you: totals.toConfirm,
+      in_progress: totals.inProgress,
+      gone: totals.gone,
+      not_listed: totals.notListed,
+      not_scanned: sites.filter((site) => tabOf(site.status) === "not_scanned").length,
+    },
   };
-  let found = 0;
-  for (const site of sites) {
-    counts[tabOf(site.status)] += 1;
-    if (FOUND.has(site.status)) found += 1;
-  }
-  return { found, counts };
-}
-
-/** "Found on 7 sites · 4 need you · 1 in progress · 1 gone", leaving out what is zero. */
-export function rollupLine({ found, counts }: Rollup): string {
-  const parts = [`Found on ${found} ${found === 1 ? "site" : "sites"}`];
-  if (counts.needs_you > 0) parts.push(`${counts.needs_you} need you`);
-  if (counts.in_progress > 0) parts.push(`${counts.in_progress} in progress`);
-  if (counts.gone > 0) parts.push(`${counts.gone} gone`);
-  return parts.join(" · ");
 }
 
 export function firstBusyTab(counts: Record<FindingTab, number>): FindingTab {
@@ -132,18 +121,16 @@ function forWords(reason: MatchReason): string | null {
   }
 }
 
-/** One plain line for how well a record fits: "likely - name, phone, city match - age off by 1". */
-export function fitLine(assessment: MatchAssessment | null): string {
-  if (!assessment) return "not scored";
+/** How well a record fits, in pieces that may wrap between them but never inside one: "likely", "name, age, city", "age off by 1". */
+export function fitParts(assessment: MatchAssessment | null): string[] {
+  if (!assessment) return ["not scored"];
   const matching = assessment.reasons.flatMap((reason) => forWords(reason) ?? []);
   const against = assessment.reasons.flatMap((reason) => againstWords(reason) ?? []);
   return [
     assessment.band,
-    matching.length > 0 ? `${matching.join(", ")} match` : null,
+    ...(matching.length > 0 ? [matching.join(", ")] : []),
     ...(against.length > 0 ? [against.join(", ")] : []),
-  ]
-    .filter(Boolean)
-    .join(" - ");
+  ];
 }
 
 /** The record as the site printed it: name, age and the first place, in one line. */

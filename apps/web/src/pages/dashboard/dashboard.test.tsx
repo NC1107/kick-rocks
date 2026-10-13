@@ -1,13 +1,15 @@
-import { reviewAttention } from "@kickrocks/shared";
+import { listingRollup, reviewAttention } from "@kickrocks/shared";
 import { screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { createMockApp } from "../../../mock/app.js";
 import { buildMockListings, summarizeMockListings } from "../../../mock/listings.js";
 import { buildMockNeedsYou, buildMockQueue } from "../../../mock/review.js";
+import { needsYouTotal } from "../../api/index.js";
+import { SidebarContent } from "../../components/layout/Sidebar.js";
 import { renderPage } from "../../test/render.js";
 import { instrument } from "../profiles/test-support.js";
 import { Component as HomePage } from "./index.js";
-import { groupTotal, Hero, listingTotals, needsYouTotal, STATUS_GROUPS } from "./sections.js";
+import { groupTotal, Hero, STATUS_GROUPS } from "./sections.js";
 
 function ownRequests(mock: ReturnType<typeof createMockApp>, index = 0) {
   const profile = mock.store.profiles[index];
@@ -19,7 +21,7 @@ describe("Home hero", () => {
     const mock = createMockApp();
     const jordan = mock.store.profiles[0];
     if (!jordan) throw new Error("fixture");
-    const totals = listingTotals(
+    const totals = listingRollup(
       summarizeMockListings(buildMockListings(mock.store, jordan.id), mock.store.clock.now())
         .counts,
     );
@@ -31,7 +33,9 @@ describe("Home hero", () => {
     expect(hero).toHaveTextContent(
       `Listed on ${totals.listed} ${totals.listed === 1 ? "site" : "sites"}`,
     );
-    expect(hero).toHaveTextContent(`${totals.needYou} need you`);
+    expect(hero).toHaveTextContent(
+      `${totals.toConfirm} to confirm · ${totals.inProgress} in progress · ${totals.gone} gone`,
+    );
     expect(within(hero).getByRole("link", { name: "Review findings" })).toHaveAttribute(
       "href",
       "/findings",
@@ -106,6 +110,31 @@ describe("Home needs you", () => {
     expect(screen.queryByText(/Mail to sort|Problems/)).toBeNull();
   });
 
+  it("shows the same number as the Inbox badge", async () => {
+    renderPage(
+      <>
+        <SidebarContent />
+        <HomePage />
+      </>,
+    );
+    const heading = await screen.findByRole("heading", { name: /^Needs you/ });
+    const total = Number(/(\d+)$/.exec(heading.textContent ?? "")?.[1]);
+    expect(total).toBeGreaterThan(0);
+    const inbox = screen.getByRole("link", { name: /^Inbox/ });
+    await waitFor(() => expect(inbox).toHaveTextContent(`${total} items waiting`));
+  });
+
+  it("keeps Review findings the only filled button, with Start outlined", async () => {
+    renderPage(<HomePage />);
+    const start = await screen.findByRole("link", { name: "Start" });
+    expect(start.className).not.toContain("bg-accent-fill");
+    const filled = [...document.querySelectorAll("a, button")].filter((element) =>
+      element.className.toString().includes("bg-accent-fill"),
+    );
+    expect(filled).toHaveLength(1);
+    expect(filled[0]).toHaveTextContent("Review findings");
+  });
+
   it("collapses to one muted line when nothing waits", async () => {
     const mock = createMockApp();
     mock.store.tasks = [];
@@ -136,7 +165,7 @@ describe("Home removals", () => {
       expect(row.getAttribute("href")).toMatch(/^\/requests/);
     }
     expect(within(section).getAllByRole("link")).toHaveLength(STATUS_GROUPS.length + 1);
-    expect(screen.getAllByRole("img", { name: /in progress/ })).toHaveLength(1);
+    expect(screen.queryByRole("img")).toBeNull();
   });
 
   it("has no per-status breakdown", async () => {

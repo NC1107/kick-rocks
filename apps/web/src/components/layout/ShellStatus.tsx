@@ -5,7 +5,7 @@ import { useApiQuery, useCurrentProfile } from "../../api/index.js";
 import { shortRelative } from "../../lib/format.js";
 import { TONE_SHAPE } from "../../lib/status.js";
 import { useNow } from "../../lib/use-now.js";
-import { StatusShapeGlyph, Tooltip } from "../ui/index.js";
+import { StatusShapeGlyph } from "../ui/index.js";
 import {
   inboxChip,
   mostUrgent,
@@ -41,10 +41,6 @@ export function useShellStatus(): StatusChip[] {
   return chips;
 }
 
-function chipText(chip: StatusChip): string {
-  return chip.value ? `${chip.label} ${chip.value}` : chip.label;
-}
-
 const abnormal = (chip: StatusChip) => chip.tone === "attention" || chip.tone === "danger";
 
 /**
@@ -78,19 +74,18 @@ export function StatusChips({ chips }: { chips: readonly StatusChip[] }) {
   );
 }
 
-/** The one mark the phone top bar has room for: whichever state most needs a look. */
+/** The one item the phone top bar has room for, in the same mono words as the desktop line: whichever state most needs a look. */
 export function UrgentStatusMark({ chips }: { chips: readonly StatusChip[] }) {
   const chip = mostUrgent(chips);
   if (!chip) return null;
   return (
-    <Tooltip content={chipText(chip)} hintOnTap>
-      <Link
-        to={chip.to}
-        aria-label={chipText(chip)}
-        className="flex size-11 items-center justify-center rounded-xs"
-      >
-        <StatusShapeGlyph shape={TONE_SHAPE[chip.tone]} className="size-2.5" />
-      </Link>
-    </Tooltip>
+    <Link
+      to={chip.to}
+      className="inline-flex h-11 items-center gap-1.5 whitespace-nowrap rounded-xs px-1 font-mono text-caption text-ink-2"
+    >
+      <StatusShapeGlyph shape={TONE_SHAPE[chip.tone]} className="size-2.5" />
+      <span>{chip.label.toLowerCase()}</span>
+      {chip.value ? <span>{chip.value}</span> : null}
+    </Link>
   );
 }

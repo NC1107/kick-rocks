@@ -1,5 +1,4 @@
 import { API_ROUTES, type ListingSite } from "@kickrocks/shared";
-import { ScanSearch } from "lucide-react";
 import { useState } from "react";
 import { useSearchParams } from "react-router";
 import { errorMessage, useApiQuery } from "../../api/index.js";
@@ -25,7 +24,6 @@ import {
   firstBusyTab,
   pendingFindings,
   rollup,
-  rollupLine,
   tabFromParam,
   tabOf,
 } from "./model.js";
@@ -37,7 +35,7 @@ export function Component() {
 }
 
 const EMPTY_WORDS: Record<FindingTab, string> = {
-  needs_you: "Nothing needs you.",
+  needs_you: "Nothing to confirm.",
   in_progress: "No removals in progress.",
   gone: "Nothing removed yet.",
   not_listed: "No sites cleared yet.",
@@ -104,20 +102,7 @@ function Findings({ profileId }: { profileId: string }) {
 
   return (
     <>
-      <PageHeader
-        title="Findings"
-        {...(listings.data && !neverScanned
-          ? {
-              description: <span className="font-mono">{rollupLine(summary)}</span>,
-            }
-          : {})}
-        actions={
-          <Button variant="primary" onClick={scanAll}>
-            <ScanSearch aria-hidden="true" />
-            Scan all sites
-          </Button>
-        }
-      />
+      <PageHeader title="Findings" actions={<Button onClick={scanAll}>Scan all sites</Button>} />
 
       <div className="flex flex-col gap-4">
         {dashboard.data ? (
@@ -158,7 +143,7 @@ function Findings({ profileId }: { profileId: string }) {
               value={active}
               onValueChange={(next) => setParams({ show: next }, { replace: true })}
             >
-              <TabList aria-label="Findings">
+              <TabList aria-label="Findings" className="max-sm:flex-wrap max-sm:overflow-x-visible">
                 {FINDING_TABS.map((tab) => (
                   <Tab key={tab.id} value={tab.id} count={summary.counts[tab.id] || undefined}>
                     {tab.label}
@@ -169,14 +154,14 @@ function Findings({ profileId }: { profileId: string }) {
             </Tabs>
             {listings.data ? (
               <p className="font-mono text-caption text-ink-3">
-                {pluralize(sites.length, "site")}
+                Listed on {pluralize(summary.listed, "site")}
                 {listings.data.lastScanAt ? (
                   <>
-                    , last scan <RelativeTime iso={listings.data.lastScanAt} />
+                    {" \u00b7 "}last scan <RelativeTime iso={listings.data.lastScanAt} />
                   </>
                 ) : null}
                 {listings.data.nextRescanAt
-                  ? `, next rescan ${formatShortDate(listings.data.nextRescanAt)}`
+                  ? ` \u00b7 next rescan ${formatShortDate(listings.data.nextRescanAt)}`
                   : ""}
               </p>
             ) : null}

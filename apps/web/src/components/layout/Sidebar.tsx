@@ -1,6 +1,6 @@
 import { LogOut, X } from "lucide-react";
 import { NavLink } from "react-router";
-import { useCurrentProfile, useLogout, useReviewCount } from "../../api/index.js";
+import { useCurrentProfile, useInboxCount, useLogout } from "../../api/index.js";
 import { cn } from "../../lib/cn.js";
 import { IconButton } from "../ui/index.js";
 import { Logo } from "./Logo.js";
@@ -73,7 +73,7 @@ export function SidebarContent({
   onClose?: () => void;
 }) {
   const { profile } = useCurrentProfile();
-  const reviewCount = useReviewCount(profile?.id ?? null);
+  const reviewCount = useInboxCount(profile?.id ?? null);
   const logout = useLogout();
 
   return (

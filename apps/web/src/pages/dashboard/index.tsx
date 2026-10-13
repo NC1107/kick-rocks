@@ -138,7 +138,6 @@ function HomeSkeleton() {
       </div>
       <div>
         <SkeletonLabel width="w-24" />
-        <Skeleton className="mb-2.5 h-1.5 w-full rounded-full" />
         <SkeletonRows rows={3} />
       </div>
     </div>

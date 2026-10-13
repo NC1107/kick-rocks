@@ -57,6 +57,38 @@ export function listingGroupOf(status: ListingStatus): ListingGroup {
   return found ?? "not_scanned";
 }
 
+/** The headline numbers for one profile's sites, from per-status counts so every screen agrees. */
+export interface ListingRollup {
+  /** Sites that hold a record of the person, whatever has happened to it since. */
+  listed: number;
+  /** Sites waiting on the person: a record to confirm, a stuck removal or a stopped scan. */
+  toConfirm: number;
+  inProgress: number;
+  gone: number;
+  notListed: number;
+}
+
+export function listingRollup(
+  counts: Readonly<Partial<Record<ListingStatus, number>>>,
+): ListingRollup {
+  const sum = (statuses: readonly ListingStatus[]) =>
+    statuses.reduce((total, status) => total + (counts[status] ?? 0), 0);
+  return {
+    listed: sum([
+      "to_confirm",
+      "removal_stalled",
+      "yours",
+      "relisted",
+      "claimed_removed",
+      "removed",
+    ]),
+    toConfirm: sum(LISTING_GROUPS.needs_you),
+    inProgress: sum(["yours", "relisted", "claimed_removed"]),
+    gone: sum(["removed"]),
+    notListed: sum(["not_found", "not_you", "unclear"]),
+  };
+}
+
 export const ScanMode = z.enum(["auto", "paused", "skipped"]);
 export type ScanMode = z.infer<typeof ScanMode>;
 

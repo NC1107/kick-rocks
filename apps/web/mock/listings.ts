@@ -240,6 +240,22 @@ export default defineMockDomain({
       );
     }
 
+    // Said removed: the site confirmed the removal, but no later scan has checked it yet.
+    const locata = finished("locata", { days: 21 });
+    const locataRequest = store.requests.find(
+      (request) => request.targetId === "locata" && request.profileId === jordan.id,
+    );
+    if (locata && locataRequest) {
+      seedMockMatch(
+        store,
+        locata,
+        locataRequest.recordUrl ?? "",
+        { name: "Jordan Example", age: 35, locations: ["Sampleton, CA"] },
+        "mine",
+        locataRequest.id,
+      );
+    }
+
     // Yours: a removal that was sent and is waiting on the site.
     const roster = finished("openroster", { days: 52 });
     const rosterRequest = store.requests.find(
