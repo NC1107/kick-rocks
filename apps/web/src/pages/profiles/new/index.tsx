@@ -52,8 +52,8 @@ export function Component() {
       setCreated(true);
       unsaved.allowLeaving();
       setProfileId(profile.id);
-      toast.success("Created", `${profile.displayName} is ready. Connect a mailbox next.`);
-      navigate(`/profiles/${profile.id}/mailbox`);
+      toast.success("Created", `${profile.displayName} is ready.`);
+      navigate("/");
     },
     onError: (error) => {
       setDraftErrors(serverErrors(error.fieldErrors));
@@ -106,7 +106,7 @@ export function Component() {
 
   return (
     <>
-      <PageHeader title="New profile" description="A person and the details targets know them by" />
+      <PageHeader title="New profile" description="Who to look for" />
       <UnsavedChangesDialog blocker={unsaved.blocker} />
       <form ref={form} onSubmit={submit} noValidate className="flex max-w-3xl flex-col gap-4">
         <Section label="Profile">
