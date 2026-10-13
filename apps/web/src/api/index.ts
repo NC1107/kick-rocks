@@ -20,7 +20,7 @@ export {
   useApiQuery,
 } from "./hooks.js";
 export { createQueryClient } from "./query-client.js";
-export { useReviewCount } from "./review.js";
+export { needsYouTotal, useInboxCount } from "./review.js";
 export {
   prefetchAuthState,
   useAuthState,

@@ -1,5 +1,5 @@
 import { API_ROUTES, type ListingRecord } from "@kickrocks/shared";
-import { useState } from "react";
+import { useId, useState } from "react";
 import { errorMessage, useApiMutation } from "../../api/index.js";
 import {
   Button,
@@ -13,10 +13,50 @@ import { pluralize } from "../../lib/format.js";
 import { RightsDialog, useMatchDecision } from "../review/match-decision.js";
 import { REVIEW_INVALIDATES, splitByBand } from "../review/model.js";
 import { UnlikelyGroup } from "../review/UnlikelyGroup.js";
-import { fitLine, recordHost, recordSummary } from "./model.js";
+import { fitParts, recordHost, recordSummary } from "./model.js";
 
-/** A 44px square to tap on a phone around the 18px box. */
-const TAP = "max-sm:-ml-3 max-sm:min-w-11 max-sm:justify-center";
+/** The box stays 18px; the label around it is a 44px square to tap, pulled left so the box keeps the row's indent. */
+function PickBox({
+  checked,
+  indeterminate = false,
+  onChange,
+  name,
+}: {
+  checked: boolean;
+  indeterminate?: boolean;
+  onChange: (on: boolean) => void;
+  name: string;
+}) {
+  const id = useId();
+  return (
+    <label
+      htmlFor={id}
+      className="-ml-3.5 flex size-11 shrink-0 cursor-pointer items-center justify-center"
+    >
+      <Checkbox
+        id={id}
+        checked={checked}
+        indeterminate={indeterminate}
+        onChange={(event) => onChange(event.target.checked)}
+        aria-label={name}
+      />
+    </label>
+  );
+}
+
+/** Wraps only between the pieces, so "name, age, city" never splits across two lines. */
+function FitLine({ record }: { record: ListingRecord }) {
+  return (
+    <>
+      {fitParts(record.assessment).map((part, index) => (
+        <span key={part}>
+          {index > 0 ? " · " : ""}
+          <span className="whitespace-nowrap">{part}</span>
+        </span>
+      ))}
+    </>
+  );
+}
 
 function FindingRow({
   record,
@@ -32,56 +72,42 @@ function FindingRow({
     <li
       data-selected={selected ? "true" : undefined}
       className={cn(
-        "marked grid grid-cols-[auto_minmax(0,1fr)] items-start gap-x-2 gap-y-2 px-3.5 py-2 transition-colors duration-100 sm:grid-cols-[auto_minmax(0,1fr)_auto] sm:items-center sm:gap-x-3 sm:py-1.5",
+        "marked grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-1 px-3.5 py-1 transition-colors duration-100",
         selected ? "bg-accent-soft" : "hover:bg-hover",
       )}
     >
-      <Checkbox
+      <PickBox
         checked={selected}
-        onChange={(event) => onToggle(event.target.checked)}
-        label={
-          <span className="sr-only">{`Select ${record.targetName}, ${record.fields.name}`}</span>
-        }
-        className={TAP}
+        onChange={onToggle}
+        name={`Select ${record.targetName}, ${record.fields.name}`}
       />
-      <div className="min-w-0">
+      <div className="min-w-0 py-1">
         <p className="flex min-w-0 flex-wrap items-baseline gap-x-2 text-ui">
           <span className="font-semibold text-ink">{record.targetName}</span>
           <span className="min-w-0 break-words font-mono text-meta text-ink-2">
             {recordSummary(record)}
           </span>
         </p>
-        <p className="min-w-0 break-words font-mono text-meta text-ink-3 sm:truncate">
-          {fitLine(record.assessment)}
+        <p className="min-w-0 font-mono text-meta text-ink-3">
+          <FitLine record={record} />
           <span className="block max-w-full truncate sm:ml-2 sm:inline">
             <ExternalLinkText href={record.recordUrl}>{recordHost(record)}</ExternalLinkText>
           </span>
         </p>
       </div>
-      <div className="col-span-2 grid grid-cols-2 gap-2 sm:col-span-1 sm:flex">
-        <Button
-          variant="primary"
-          size="sm"
-          className="max-sm:h-12 max-sm:text-ui"
-          onClick={decision.askMine}
-          disabled={decision.deciding}
-        >
-          This is me
-        </Button>
-        <Button
-          size="sm"
-          className="max-sm:h-12 max-sm:text-ui"
-          loading={decision.decidingNotMine}
-          disabled={decision.deciding}
-          onClick={decision.notMine}
-        >
-          Not me
-        </Button>
-      </div>
+      <Button
+        variant="ghost"
+        size="sm"
+        className="text-ink-3 focus-visible:text-ink max-sm:h-11"
+        loading={decision.decidingNotMine}
+        disabled={decision.deciding}
+        onClick={decision.notMine}
+      >
+        Not me
+      </Button>
       {decision.error ? (
         <InlineError className="col-span-full">{decision.error}</InlineError>
       ) : null}
-      {decision.dialog}
     </li>
   );
 }
@@ -155,8 +181,10 @@ function Rows({
 }
 
 /**
- * Every record still waiting for an answer, one row each, across all sites. Rows can be picked
- * and answered together: the rights dialog opens once and applies to everything picked.
+ * Every record still waiting for an answer, one row each, across all sites. The header button
+ * removes the picked rows, or every likely row when none is picked; the rights dialog opens once
+ * and applies to all of them. Unlikely records stay out of the no-selection case so a bulk
+ * removal never asserts a record the score says is probably someone else.
  */
 export function FindingList({ records }: { records: readonly ListingRecord[] }) {
   const { shown, unlikely } = splitByBand(records);
@@ -171,6 +199,7 @@ export function FindingList({ records }: { records: readonly ListingRecord[] }) 
   const shownIds = shown.map((record) => record.id);
   const allShown = shownIds.length > 0 && shownIds.every((id) => selected.has(id));
   const siteCount = new Set(records.map((record) => record.targetId)).size;
+  const shownSiteCount = new Set(shown.map((record) => record.targetId)).size;
 
   const toggle = (id: string, on: boolean) =>
     setPicked((current) => {
@@ -180,22 +209,48 @@ export function FindingList({ records }: { records: readonly ListingRecord[] }) 
       return next;
     });
   const toggleAll = (on: boolean) => setPicked(on ? new Set(shownIds) : new Set());
-  const ids = [...selected];
+  const ids = selected.size > 0 ? [...selected] : shownIds;
 
   return (
     <div className="flex min-w-0 flex-col gap-2">
       <div className="min-w-0 overflow-hidden rounded-md border border-line bg-surface">
-        <div className="flex min-h-9 items-center gap-2 border-b border-line px-3.5 max-sm:min-h-11">
-          <Checkbox
+        <div className="flex min-h-11 flex-wrap items-center gap-x-3 gap-y-1 border-b border-line px-3.5 py-1">
+          <PickBox
             checked={allShown}
             indeterminate={!allShown && selected.size > 0}
-            onChange={(event) => toggleAll(event.target.checked)}
-            label={<span className="sr-only">Select all</span>}
-            className={TAP}
+            onChange={toggleAll}
+            name="Select all"
           />
-          <span className="text-eyebrow font-semibold! text-ink-3">
+          <span className="-ml-3.5 mr-auto text-eyebrow font-semibold! text-ink-3">
             {pluralize(records.length, "record")} on {pluralize(siteCount, "site")}
           </span>
+          <div className="flex items-center gap-2">
+            {selected.size > 0 ? (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-ink-3 hover:text-ink max-sm:h-11"
+                aria-label={`Not me (${selected.size} selected)`}
+                disabled={bulk.pending}
+                onClick={() => void bulk.run(ids, "not_mine", ["opt_out", "delete"])}
+              >
+                Not me
+              </Button>
+            ) : null}
+            {ids.length > 0 ? (
+              <Button
+                variant="primary"
+                size="sm"
+                className="max-sm:h-11"
+                disabled={bulk.pending}
+                onClick={() => setAsking(true)}
+              >
+                {selected.size > 0
+                  ? `Remove ${selected.size} selected`
+                  : `Remove me from ${pluralize(shownSiteCount, "site")}`}
+              </Button>
+            ) : null}
+          </div>
         </div>
         <Rows records={shown} label="Records" selected={selected} onToggle={toggle} />
         <UnlikelyGroup matches={unlikely}>
@@ -205,40 +260,15 @@ export function FindingList({ records }: { records: readonly ListingRecord[] }) 
 
       {bulk.error && !asking ? <InlineError>{bulk.error}</InlineError> : null}
 
-      {selected.size > 0 ? (
-        <div className="sticky bottom-0 z-10 -mx-gutter flex items-center justify-between gap-3 border-t border-line bg-rail px-gutter py-2.5 pb-[max(0.625rem,env(safe-area-inset-bottom))]">
-          <span className="font-mono text-meta tabular-nums text-ink-2 max-sm:hidden">
-            {selected.size} selected
-          </span>
-          <div className="flex gap-2 max-sm:w-full">
-            <Button
-              variant="primary"
-              className="max-sm:h-12 max-sm:flex-1"
-              disabled={bulk.pending}
-              onClick={() => setAsking(true)}
-            >
-              Remove selected ({selected.size})
-            </Button>
-            <Button
-              className="max-sm:h-12 max-sm:flex-1"
-              disabled={bulk.pending}
-              onClick={() => void bulk.run(ids, "not_mine", ["opt_out", "delete"])}
-            >
-              Not me ({selected.size})
-            </Button>
-          </div>
-        </div>
-      ) : null}
-
       <RightsDialog
         open={asking}
         onClose={() => {
           setAsking(false);
           bulk.clearError();
         }}
-        title={`Remove ${pluralize(selected.size, "record")}`}
+        title={`Remove ${pluralize(ids.length, "record")}`}
         description="Asks each site to take its record down. Only confirm records that are yours."
-        confirmLabel={`Remove ${selected.size}`}
+        confirmLabel={`Remove ${ids.length}`}
         pending={bulk.pending}
         error={bulk.error}
         onConfirm={async (rights) => {

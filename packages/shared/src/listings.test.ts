@@ -5,6 +5,7 @@ import {
   LISTING_GROUPS,
   ListingStatus,
   listingGroupOf,
+  listingRollup,
   preferenceBlocks,
   type ScanPreference,
 } from "./listings.js";
@@ -178,5 +179,36 @@ describe("the filter groups", () => {
     expect(listingGroupOf("relisted")).toBe("yours");
     expect(listingGroupOf("removal_stalled")).toBe("needs_you");
     expect(listingGroupOf("needs_check")).toBe("needs_you");
+  });
+});
+
+describe("listingRollup", () => {
+  it("counts sites that hold a record as listed, including said-removed and gone", () => {
+    expect(
+      listingRollup({
+        to_confirm: 2,
+        needs_check: 1,
+        removal_stalled: 1,
+        yours: 1,
+        relisted: 1,
+        claimed_removed: 1,
+        removed: 3,
+        not_found: 4,
+        not_you: 1,
+        unclear: 1,
+        failed: 1,
+        waiting: 5,
+      }),
+    ).toEqual({ listed: 9, toConfirm: 5, inProgress: 3, gone: 3, notListed: 6 });
+  });
+
+  it("is all zeros for no counts", () => {
+    expect(listingRollup({})).toEqual({
+      listed: 0,
+      toConfirm: 0,
+      inProgress: 0,
+      gone: 0,
+      notListed: 0,
+    });
   });
 });

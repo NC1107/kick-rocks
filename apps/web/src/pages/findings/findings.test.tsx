@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { createMockApp, type MockApp } from "../../../mock/app.js";
 import { renderPage } from "../../test/render.js";
 import { stubPhone } from "../../test/screen.js";
+import { Component as HomePage } from "../dashboard/index.js";
 import { instrument } from "../profiles/test-support.js";
 import { Component as FindingsPage } from "./index.js";
 
@@ -21,9 +22,9 @@ const records = async () =>
 describe("findings", () => {
   it("opens on what needs you, with a count on every group that has something", async () => {
     open();
-    expect(await tab(/^Needs you\s*4$/)).toHaveAttribute("aria-selected", "true");
+    expect(await tab(/^Is this you\?\s*4$/)).toHaveAttribute("aria-selected", "true");
     for (const name of [
-      /^In progress\s*3$/,
+      /^In progress\s*2$/,
       /^Gone\s*1$/,
       /^Not listed\s*2$/,
       /^Not scanned\s*\d+$/,
@@ -32,13 +33,30 @@ describe("findings", () => {
     }
   });
 
-  it("rolls the sites up into one line under the title", async () => {
+  it("states the same listed, to confirm, in progress and gone numbers as Home", async () => {
+    const mock = createMockApp();
+    const findings = open("/findings", mock);
+    const footer = await screen.findByText(/^Listed on \d+ sites?/);
+    const listed = Number(/Listed on (\d+)/.exec(footer.textContent ?? "")?.[1]);
+    const tabCount = (name: RegExp) =>
+      Number(/(\d+)$/.exec(screen.getByRole("tab", { name }).textContent ?? "")?.[1]);
+    const counts = [tabCount(/^Is this you/), tabCount(/^In progress/), tabCount(/^Gone/)];
+    findings.unmount();
+
+    renderPage(<HomePage />, { mock });
+    const hero = (await screen.findByRole("heading", { name: "Where you're listed" })).closest(
+      "section",
+    ) as HTMLElement;
+    expect(hero).toHaveTextContent(`Listed on ${listed} sites`);
+    expect(hero).toHaveTextContent(
+      `${counts[0]} to confirm \u00b7 ${counts[1]} in progress \u00b7 ${counts[2]} gone`,
+    );
+  });
+
+  it("has no subtitle under the title", async () => {
     open();
-    expect(
-      await screen.findByText(
-        "Found on 6 sites \u00b7 4 need you \u00b7 3 in progress \u00b7 1 gone",
-      ),
-    ).toBeVisible();
+    await tab(/^Is this you/);
+    expect(screen.queryByText(/need you/)).toBeNull();
   });
 
   it("lists every record flat, one row each, with the fit in plain words", async () => {
@@ -52,23 +70,32 @@ describe("findings", () => {
     );
     expect(sites.size).toBeGreaterThanOrEqual(3);
     const first = within(rows[0] as HTMLElement);
-    expect(first.getByText(/^likely - .*match/)).toBeVisible();
-    expect(first.getByRole("button", { name: "This is me" })).toBeVisible();
+    expect(first.getByText("likely")).toBeVisible();
     expect(first.getByRole("button", { name: "Not me" })).toBeVisible();
+    expect(first.queryByRole("button", { name: "This is me" })).toBeNull();
     expect(screen.queryByRole("button", { name: /^Review \d/ })).not.toBeInTheDocument();
   });
 
-  it("shows no bar until something is picked, then removes everything picked in one call", async () => {
+  it("keeps one primary button in the list header, labelled by what it will do", async () => {
+    const { user } = open();
+    const rows = await records();
+    expect(
+      await screen.findByRole("button", { name: /^Remove me from \d+ sites?$/ }),
+    ).toBeVisible();
+    expect(screen.queryByRole("button", { name: /^Not me \(/ })).toBeNull();
+
+    await user.click(within(rows[0] as HTMLElement).getByRole("checkbox"));
+    expect(await screen.findByRole("button", { name: "Remove 1 selected" })).toBeVisible();
+    expect(screen.queryByRole("button", { name: /^Remove me from/ })).toBeNull();
+    expect(screen.getByRole("button", { name: "Not me (1 selected)" })).toBeVisible();
+  });
+
+  it("removes every waiting record from the header when nothing is picked", async () => {
     const { user, mock } = open();
     const seen = instrument(mock);
     const before = mock.store.requests.length;
     const rows = await records();
-    expect(screen.queryByRole("button", { name: /^Remove selected/ })).not.toBeInTheDocument();
-
-    await user.click(screen.getByRole("checkbox", { name: "Select all" }));
-    const remove = await screen.findByRole("button", { name: `Remove selected (${rows.length})` });
-    expect(screen.getByRole("button", { name: `Not me (${rows.length})` })).toBeVisible();
-    await user.click(remove);
+    await user.click(await screen.findByRole("button", { name: /^Remove me from \d+ sites?$/ }));
 
     const rights = await screen.findByRole("dialog", { name: `Remove ${rows.length} records` });
     expect(within(rights).getByRole("checkbox", { name: /Opt out of sale/ })).toBeChecked();
@@ -92,19 +119,31 @@ describe("findings", () => {
     const before = notMine();
     await user.click(within(rows[0] as HTMLElement).getByRole("checkbox"));
     await user.click(within(rows[1] as HTMLElement).getByRole("checkbox"));
-    await user.click(await screen.findByRole("button", { name: "Not me (2)" }));
+    await user.click(await screen.findByRole("button", { name: "Not me (2 selected)" }));
     await waitFor(() => expect(notMine()).toBe(before + 2));
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
-  it("removes one record from its own row", async () => {
+  it("removes only the picked records", async () => {
     const { user, mock } = open();
     const before = mock.store.requests.length;
     const rows = await records();
-    await user.click(within(rows[0] as HTMLElement).getByRole("button", { name: "This is me" }));
-    const rights = await screen.findByRole("dialog", { name: "Remove this record" });
-    await user.click(within(rights).getByRole("button", { name: "Remove this record" }));
-    await waitFor(() => expect(mock.store.requests.length).toBe(before + 1));
+    await user.click(within(rows[0] as HTMLElement).getByRole("checkbox"));
+    await user.click(within(rows[1] as HTMLElement).getByRole("checkbox"));
+    await user.click(await screen.findByRole("button", { name: "Remove 2 selected" }));
+    const rights = await screen.findByRole("dialog", { name: "Remove 2 records" });
+    await user.click(within(rights).getByRole("button", { name: "Remove 2" }));
+    await waitFor(() => expect(mock.store.requests.length).toBe(before + 2));
+  });
+
+  it("says not me to one record from its own row", async () => {
+    const { user, mock } = open();
+    const notMine = () =>
+      mock.store.matches.filter((match) => match.decision === "not_mine").length;
+    const before = notMine();
+    const rows = await records();
+    await user.click(within(rows[0] as HTMLElement).getByRole("button", { name: "Not me" }));
+    await waitFor(() => expect(notMine()).toBe(before + 1));
   });
 
   it("puts a removal that ended without the record going under Needs you", async () => {
@@ -121,9 +160,14 @@ describe("findings", () => {
     expect(screen.queryByRole("button", { name: /^Review \d/ })).not.toBeInTheDocument();
   });
 
+  it("says a site's word of removal is not yet checked, and that we check again", async () => {
+    open("/findings?show=in_progress");
+    expect(await screen.findByText("They said removed · we check again")).toBeVisible();
+  });
+
   it("understands the filter names of the old listings address", async () => {
     open("/findings?show=removed");
-    expect(await screen.findByText(/Removed, confirmed [A-Z][a-z]{2} \d+/)).toBeVisible();
+    expect(await screen.findByText(/^Checked [A-Z][a-z]{2} \d+ · no longer listed$/)).toBeVisible();
     expect(screen.getByRole("tab", { name: /^Gone/ })).toHaveAttribute("aria-selected", "true");
   });
 
@@ -142,13 +186,13 @@ describe("findings on a phone", () => {
     stubPhone();
     const { user } = open();
     const rows = await records();
-    expect(
-      within(rows[0] as HTMLElement).getByRole("button", { name: "This is me" }),
-    ).toBeVisible();
     expect(within(rows[0] as HTMLElement).getByRole("button", { name: "Not me" })).toBeVisible();
+    expect(screen.getByRole("tablist", { name: "Findings" }).className).toContain(
+      "max-sm:flex-wrap",
+    );
 
-    await user.click(screen.getByRole("tab", { name: /^In progress/ }));
-    const list = await screen.findByRole("list", { name: "In progress" });
+    await user.click(screen.getByRole("tab", { name: /^Not scanned/ }));
+    const list = await screen.findByRole("list", { name: "Not scanned" });
     await user.click(within(list).getByRole("button", { name: "More for FindRecord" }));
     const menu = await screen.findByRole("menu");
     for (const name of ["Scan now", "Pause for 30 days", "Skip this site", "Rescan every..."]) {
@@ -202,9 +246,9 @@ describe("scanning without a campaign", () => {
       autoRescan: true,
       includePastAddresses: true,
     });
-    const { user } = open("/findings?show=in_progress", mock);
+    const { user } = open("/findings?show=not_scanned", mock);
     const seen = instrument(mock);
-    const list = await screen.findByRole("list", { name: "In progress" });
+    const list = await screen.findByRole("list", { name: "Not scanned" });
     const row = within(list)
       .getAllByRole("listitem")
       .find((item) => within(item).queryByText("FindRecord"));
@@ -242,8 +286,8 @@ describe("scanning without a campaign", () => {
 describe("controls for one site", () => {
   it("pauses a site from its row and moves it under paused", async () => {
     stubPhone();
-    const { user, mock } = open("/findings?show=in_progress");
-    const list = await screen.findByRole("list", { name: "In progress" });
+    const { user, mock } = open("/findings?show=not_scanned");
+    const list = await screen.findByRole("list", { name: "Not scanned" });
     const row = within(list)
       .getAllByRole("listitem")
       .find((item) => within(item).queryByText("FindRecord"));
@@ -257,7 +301,7 @@ describe("controls for one site", () => {
         mode: "paused",
       }),
     );
-    await waitFor(() => expect(within(list).queryByText("FindRecord")).not.toBeInTheDocument());
+    await waitFor(() => expect(within(list).getAllByText(/^Paused until/).length).toBe(2));
     const queued = mock.store.scans.filter(
       (scan) => scan.targetId === "findrecord" && scan.taskStatus === "queued",
     );

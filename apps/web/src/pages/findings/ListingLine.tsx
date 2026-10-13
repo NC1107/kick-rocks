@@ -49,6 +49,16 @@ function removedOn(site: ListingSite): string {
   return latest ? `Removed, confirmed ${formatShortDate(latest)}` : "Removed";
 }
 
+function checkedGoneWords(site: ListingSite): string {
+  const checked = site.records
+    .flatMap((record) => (record.verifiedGoneAt ? [record.verifiedGoneAt] : []))
+    .sort()
+    .at(-1);
+  return checked
+    ? `Checked ${formatShortDate(checked)} \u00b7 no longer listed`
+    : "No longer listed";
+}
+
 function notScannedWords(site: ListingSite): string {
   switch (site.readiness.state) {
     case "needs_details":
@@ -63,7 +73,7 @@ function notScannedWords(site: ListingSite): string {
 }
 
 /** One plain sentence for where a site stands, with the reason behind a wait or a failure. */
-function sentence(site: ListingSite, profileId: string): ReactNode {
+function sentence(site: ListingSite, profileId: string, verified: boolean): ReactNode {
   const scan = site.latestScan;
   switch (site.status) {
     case "to_confirm":
@@ -79,8 +89,10 @@ function sentence(site: ListingSite, profileId: string): ReactNode {
       );
     case "relisted":
       return "Listed again, removal reopened";
+    case "claimed_removed":
+      return verified ? "They said removed \u00b7 we check again" : removedOn(site);
     case "removed":
-      return removedOn(site);
+      return verified ? checkedGoneWords(site) : removedOn(site);
     case "not_you":
       return "Nothing found is you";
     case "not_found":
@@ -119,11 +131,22 @@ function sentence(site: ListingSite, profileId: string): ReactNode {
 }
 
 /** The status mark and its sentence, as one line that can wrap. */
-export function ListingLine({ site, profileId }: { site: ListingSite; profileId: string }) {
+export function ListingLine({
+  site,
+  profileId,
+  verified = false,
+}: {
+  site: ListingSite;
+  profileId: string;
+  /** Says when a scan last checked a removal, and that a site's word alone is not yet proof. */
+  verified?: boolean;
+}) {
   return (
     <span className="flex min-w-0 flex-col gap-0.5">
       <MetaMark meta={LISTING_STATUS_META[site.status]} />
-      <span className="min-w-0 break-words text-meta text-ink-2">{sentence(site, profileId)}</span>
+      <span className="min-w-0 break-words text-meta text-ink-2">
+        {sentence(site, profileId, verified)}
+      </span>
     </span>
   );
 }
