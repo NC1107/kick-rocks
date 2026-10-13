@@ -14,6 +14,7 @@ export interface PhraseSource {
   status: RequestStatus;
   events?: RequestDetail["events"];
   verifiedGoneAt?: string | null;
+  retrying?: boolean;
 }
 
 /** What the person does about a request that is waiting on them, one short imperative per status. */
@@ -44,7 +45,10 @@ function verifiedGoneAt(source: PhraseSource): string | null {
 export function statusPhrase(source: PhraseSource): StatusPhrase {
   const meta = REQUEST_STATUS_META[source.status];
   const [latest] = newestFirst(source.events ?? []);
-  if (source.status === "queued" && latest?.type === "send_failed" && latest.payload.willRetry) {
+  const retrying =
+    source.retrying === true ||
+    (latest?.type === "send_failed" && latest.payload.willRetry === true);
+  if (source.status === "queued" && retrying) {
     return { text: "Will retry", family: "needs" };
   }
   if (source.status === "confirmed" || source.status === "no_record") {

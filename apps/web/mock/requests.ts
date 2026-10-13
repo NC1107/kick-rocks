@@ -646,7 +646,8 @@ function formRequestOf(
 }
 
 function detailOf(store: MockStore, request: StoredRequest): RequestDetail {
-  const { events, ...listItem } = request;
+  const { events, ...rest } = request;
+  const listItem = { ...rest, retrying: isRetrying(events) };
   const messages: MessageSummary[] = store.messages
     .filter((message) => message.requestId === request.id)
     .map(
@@ -669,10 +670,20 @@ function detailOf(store: MockStore, request: StoredRequest): RequestDetail {
   };
 }
 
+/** True while the newest event is a failed send that will be tried again. */
+function isRetrying(events: StoredRequest["events"]): boolean {
+  const latest = [...events].sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0];
+  return (
+    latest?.type === "send_failed" && (latest.payload as { willRetry?: boolean }).willRetry === true
+  );
+}
+
 function pageOfRequests(rows: readonly StoredRequest[], query: { page: number; pageSize: number }) {
   const start = (query.page - 1) * query.pageSize;
   return {
-    items: rows.slice(start, start + query.pageSize).map(({ events: _events, ...item }) => item),
+    items: rows
+      .slice(start, start + query.pageSize)
+      .map(({ events, ...item }) => ({ ...item, retrying: isRetrying(events) })),
     total: rows.length,
     page: query.page,
     pageSize: query.pageSize,

@@ -163,6 +163,7 @@ export function createRequestsApi(services: AppServices): RequestsApi {
     return {
       ...record,
       verifiedGoneAt: verifiedGoneAtOf([id]).get(id) ?? null,
+      retrying: retryingOf([id]).has(id),
       formRequest: formRequestOf(record, replies, target),
       target: targetsService.summary(record.targetId),
       events: requests
@@ -189,6 +190,41 @@ export function createRequestsApi(services: AppServices): RequestsApi {
       .groupBy(requestEvents.requestId)
       .all();
     return new Map(rows.map((row) => [row.requestId, row.at]));
+  }
+
+  /** The requests whose newest event is a failed send that will be tried again. */
+  function retryingOf(ids: readonly string[]): Set<string> {
+    if (ids.length === 0) return new Set();
+    const latest = new Map(
+      db
+        .select({
+          requestId: requestEvents.requestId,
+          at: sql<string>`max(${requestEvents.createdAt})`,
+        })
+        .from(requestEvents)
+        .where(inArray(requestEvents.requestId, [...ids]))
+        .groupBy(requestEvents.requestId)
+        .all()
+        .map((row) => [row.requestId, row.at]),
+    );
+    const failed = db
+      .select({
+        requestId: requestEvents.requestId,
+        at: requestEvents.createdAt,
+        payload: requestEvents.payload,
+      })
+      .from(requestEvents)
+      .where(and(inArray(requestEvents.requestId, [...ids]), eq(requestEvents.type, "send_failed")))
+      .all();
+    return new Set(
+      failed
+        .filter(
+          (row) =>
+            row.at === latest.get(row.requestId) &&
+            (row.payload as { willRetry?: boolean } | null)?.willRetry === true,
+        )
+        .map((row) => row.requestId),
+    );
   }
 
   function resend(record: RequestRecord): void {
@@ -257,11 +293,14 @@ export function createRequestsApi(services: AppServices): RequestsApi {
         .offset((query.page - 1) * query.pageSize)
         .all();
       const summaries = targetsService.toSummaries(rows.map(({ target }) => target));
-      const verified = verifiedGoneAtOf(rows.map(({ request }) => request.id));
+      const ids = rows.map(({ request }) => request.id);
+      const verified = verifiedGoneAtOf(ids);
+      const retrying = retryingOf(ids);
       return {
         items: rows.map(({ request }, index) => ({
           ...request,
           verifiedGoneAt: verified.get(request.id) ?? null,
+          retrying: retrying.has(request.id),
           target: summaries[index] as TargetSummary,
         })),
         total,

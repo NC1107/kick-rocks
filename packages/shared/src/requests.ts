@@ -464,6 +464,8 @@ export type RequestWithTarget = z.infer<typeof RequestWithTarget>;
 export const RequestListItem = RequestWithTarget.extend({
   /** When a later scan confirmed the record gone, or null while the company's word is all there is. */
   verifiedGoneAt: z.iso.datetime().nullable(),
+  /** True while the newest event is a failed send that will be tried again, so a list row can say so. */
+  retrying: z.boolean(),
 });
 export type RequestListItem = z.infer<typeof RequestListItem>;
 

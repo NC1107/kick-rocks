@@ -20,7 +20,8 @@ import type { MockAgent } from "./agents.js";
 import type { MockSends } from "./sends.js";
 
 /** A request as stored: the list row plus its timeline. The detail view adds messages and tasks. */
-export type StoredRequest = RequestListItem & { events: RequestEvent[] };
+// `retrying` is derived from the events when a request is served, so it is not stored.
+export type StoredRequest = Omit<RequestListItem, "retrying"> & { events: RequestEvent[] };
 
 /** What a blocked task shows a person beyond the task row itself. */
 export interface BlockedTaskInfo {

@@ -96,3 +96,10 @@ describe("the next step on a request that waits on the person", () => {
     }
   });
 });
+
+describe("a list row's phrase", () => {
+  it("says Will retry from the retrying flag when it carries no events", () => {
+    expect(statusPhrase({ status: "queued", retrying: true }).text).toBe("Will retry");
+    expect(statusPhrase({ status: "queued", retrying: false }).text).toBe("Scheduled");
+  });
+});
