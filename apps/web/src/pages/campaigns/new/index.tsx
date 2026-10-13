@@ -221,6 +221,17 @@ function Builder({ profile }: { profile: ProfileSummary }) {
       { replace: true },
     );
 
+  const useFilter = (next: TargetFilter) =>
+    setParams(
+      (current) => {
+        const updated = new URLSearchParams(current);
+        updated.delete("targets");
+        updated.set("filter", JSON.stringify(next));
+        return updated;
+      },
+      { replace: true },
+    );
+
   const chooseGroup = (next: CampaignPreset) => {
     setTargetIds([]);
     setPreset(next);
@@ -358,7 +369,11 @@ function Builder({ profile }: { profile: ProfileSummary }) {
                   />
                 </summary>
                 <div className="border-t border-line p-3">
-                  <TargetPicker selectedIds={targetIds} onToggle={toggleTarget} />
+                  <TargetPicker
+                    selectedIds={targetIds}
+                    onToggle={toggleTarget}
+                    onUseFilter={useFilter}
+                  />
                 </div>
               </details>
               {targetIds.length > 0 ? (

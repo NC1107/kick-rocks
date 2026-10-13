@@ -180,6 +180,30 @@ describe("the campaign builder", () => {
     await waitFor(() => expect(screen.queryByText("1 site selected")).not.toBeInTheDocument());
   });
 
+  it("narrows the picker by difficulty", async () => {
+    const { user } = open();
+    await user.click(await screen.findByText("Search and pick sites"));
+    const list = await screen.findByRole("list", { name: "Pick sites" });
+    await within(list).findAllByRole("checkbox");
+    const all = screen.getAllByText(/^\d+ sites?$/)[0]?.textContent;
+    await user.click(screen.getByRole("button", { name: /Filters/ }));
+    await user.selectOptions(await screen.findByLabelText("Difficulty"), "easy");
+    expect(await screen.findByText("Difficulty: Easy")).toBeVisible();
+    await waitFor(() => expect(screen.getAllByText(/^\d+ sites?$/)[0]?.textContent).not.toBe(all));
+    const rows = within(screen.getByRole("list", { name: "Pick sites" })).getAllByRole("listitem");
+    for (const row of rows) expect(within(row).queryByText("hard")).toBeNull();
+  });
+
+  it("turns the picker's filter into the campaign's selection", async () => {
+    const { user } = open();
+    await user.click(await screen.findByText("Search and pick sites"));
+    await user.click(await screen.findByRole("button", { name: /Filters/ }));
+    await user.selectOptions(await screen.findByLabelText("Difficulty"), "easy");
+    await user.click(await screen.findByRole("button", { name: /^Use all \d+ sites? matching$/ }));
+    expect(await screen.findByText(/\d+ sites match your filters/)).toBeVisible();
+    expect(screen.getByText("Difficulty: Easy")).toBeVisible();
+  });
+
   it("replaces the picked targets when a group is chosen", async () => {
     const { user } = open("/campaigns/new?targets=larkspur-bank");
     expect(await screen.findByText("1 site selected")).toBeVisible();
