@@ -6,6 +6,11 @@ export const RIGHT_TOKENS: Record<RequestRight, string> = {
   delete: "delete",
 };
 
+const RIGHT_VERBS: Record<RequestRight, string> = {
+  opt_out: "stop selling",
+  delete: "delete",
+};
+
 /** "09:02": the time of day on the 24-hour clock the request page keeps everywhere. */
 export function clockTime(iso: string): string {
   return new Intl.DateTimeFormat(undefined, {
@@ -28,4 +33,12 @@ export function gutterTime(iso: string, now = Date.now()): string {
     day: "numeric",
     ...(sameYear ? {} : { year: "numeric" }),
   }).format(at);
+}
+
+/** "Asked them to stop selling and delete your data": what a request asked for, as a sentence. */
+export function askedSentence(rights: readonly RequestRight[]): string {
+  const asks = rights.map((right) => RIGHT_VERBS[right]);
+  const last = asks.pop();
+  const verbs = asks.length > 0 ? `${asks.join(", ")} and ${last}` : last;
+  return `Asked them to ${verbs} your data`;
 }

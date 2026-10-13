@@ -52,6 +52,8 @@ interface NewRequest {
   /** Days ago the request was created. Everything else on the timeline is placed after it. */
   createdDaysAgo: number;
   campaignId?: string | null;
+  /** A settled request that a later scan found gone, so the timeline ends with the check. */
+  verifiedGone?: boolean;
   followUps?: number;
   recordUrl?: string | null;
   lastError?: string | null;
@@ -155,6 +157,7 @@ export function buildRequest(store: MockStore, input: NewRequest): StoredRequest
     dueAt: sentAt ? addDays(sentAt, 45) : null,
     followUpAt: input.status === "follow_up_due" ? addDays(createdAt, 46) : null,
     awaitingConfirmationSince: null,
+    verifiedGoneAt: null,
     lastError: input.lastError ?? null,
     createdAt,
     updatedAt: createdAt,
@@ -362,6 +365,14 @@ export function buildRequest(store: MockStore, input: NewRequest): StoredRequest
       });
     }
   }
+  if (input.verifiedGone) {
+    const checkedAt = shift(sendAt, 20);
+    addEvent(store, request, "verified_gone", "system", checkedAt, {
+      recordUrl: input.recordUrl ?? null,
+      scanId: store.nextId("scn"),
+    });
+    request.verifiedGoneAt = checkedAt;
+  }
   return finish(store, request);
 }
 
@@ -430,6 +441,7 @@ interface Seed {
   lastError?: string;
   legalBasis?: string;
   noteReply?: NewRequest["noteReply"];
+  verifiedGone?: boolean;
 }
 
 const BOTH: RequestRight[] = ["opt_out", "delete"];
@@ -438,7 +450,13 @@ const DELETE: RequestRight[] = ["delete"];
 
 const JORDAN_REQUESTS: Seed[] = [
   { target: "audiencegrid", status: "confirmed", daysAgo: 62, rights: BOTH },
-  { target: "lumen-data-partners", status: "confirmed", daysAgo: 58, rights: BOTH },
+  {
+    target: "lumen-data-partners",
+    status: "confirmed",
+    daysAgo: 58,
+    rights: BOTH,
+    verifiedGone: true,
+  },
   { target: "alder-finch", status: "confirmed", daysAgo: 40, rights: OPT_OUT },
   { target: "corner-basket-market", status: "confirmed", daysAgo: 38, rights: OPT_OUT },
   { target: "brightlist", status: "confirmed", daysAgo: 33, rights: BOTH },
@@ -539,12 +557,23 @@ const RILEY_REQUESTS: Seed[] = [
   { target: "brightline-mobile", status: "sent", daysAgo: 1, channel: "form", rights: OPT_OUT },
 ];
 
+/** The first profile's older requests went out as two batches, so the list can group by batch. */
+function batchOf(profileIndex: number, daysAgo: number): "first" | "second" | null {
+  if (profileIndex !== 0) return null;
+  if (daysAgo >= 29) return "first";
+  return daysAgo >= 6 ? "second" : null;
+}
+
 function seedRequests(store: MockStore, profileIndex: number, seeds: Seed[]): void {
   const profile = store.profiles[profileIndex];
   if (!profile) return;
+  const campaigns = { first: store.nextId("cmp"), second: store.nextId("cmp") };
   for (const seed of seeds) {
     if (!store.targets.some((target) => target.id === seed.target)) continue;
+    const batch = batchOf(profileIndex, seed.daysAgo);
     buildRequest(store, {
+      campaignId: batch ? campaigns[batch] : null,
+      ...(seed.verifiedGone ? { verifiedGone: true } : {}),
       profileId: profile.id,
       targetId: seed.target,
       channel: seed.channel ?? "email",

@@ -1,10 +1,12 @@
 import {
   API_ROUTES,
   type CampaignPreview,
+  type CampaignSummary,
   type CampaignSelection,
   countOutcomes,
   isActiveStatus,
   type RenderedEmail,
+  type RequestStatus,
   type RequestRight,
   type Requirement,
   type SkipReason,
@@ -177,6 +179,29 @@ export default defineMockDomain({
       return profile;
     };
     return [
+      handle(API_ROUTES.campaignsList, ({ params }) => {
+        const profile = profileOf(params.id);
+        const batches = new Map<string, CampaignSummary>();
+        for (const request of store.requests) {
+          if (request.profileId !== profile.id || !request.campaignId) continue;
+          const batch = batches.get(request.campaignId) ?? {
+            id: request.campaignId,
+            createdAt: request.createdAt,
+            rights: request.rights,
+            requestCount: 0,
+            counts: {},
+          };
+          batch.requestCount += 1;
+          batch.createdAt = request.createdAt < batch.createdAt ? request.createdAt : batch.createdAt;
+          const status: RequestStatus = request.status;
+          batch.counts[status] = (batch.counts[status] ?? 0) + 1;
+          batches.set(request.campaignId, batch);
+        }
+        return {
+          campaigns: [...batches.values()].sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
+        };
+      }),
+
       handle(API_ROUTES.campaignsPreview, ({ params, body }): CampaignPreview => {
         const profile = profileOf(params.id);
         const targets = targetsFor(store, body.selection);

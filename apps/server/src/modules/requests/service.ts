@@ -1,4 +1,10 @@
-import { messages, profiles, requests as requestsTable, targets } from "@kickrocks/db";
+import {
+  messages,
+  profiles,
+  requestEvents,
+  requests as requestsTable,
+  targets,
+} from "@kickrocks/db";
 import {
   availableActions,
   type FormRequest,
@@ -156,6 +162,7 @@ export function createRequestsApi(services: AppServices): RequestsApi {
       .all();
     return {
       ...record,
+      verifiedGoneAt: verifiedGoneAtOf([id]).get(id) ?? null,
       formRequest: formRequestOf(record, replies, target),
       target: targetsService.summary(record.targetId),
       events: requests
@@ -165,6 +172,21 @@ export function createRequestsApi(services: AppServices): RequestsApi {
       tasks: taskQueue.summarize(tasks),
       actions: availableActions(record, { hasLiveTask: taskQueue.hasLiveTask(id) }),
     };
+  }
+
+  /** The newest time a re-scan confirmed each request's record gone, for the requests that have one. */
+  function verifiedGoneAtOf(ids: readonly string[]): Map<string, string> {
+    if (ids.length === 0) return new Map();
+    const rows = db
+      .select({
+        requestId: requestEvents.requestId,
+        at: sql<string>`max(${requestEvents.createdAt})`,
+      })
+      .from(requestEvents)
+      .where(and(inArray(requestEvents.requestId, [...ids]), eq(requestEvents.type, "verified_gone")))
+      .groupBy(requestEvents.requestId)
+      .all();
+    return new Map(rows.map((row) => [row.requestId, row.at]));
   }
 
   function resend(record: RequestRecord): void {
@@ -233,9 +255,11 @@ export function createRequestsApi(services: AppServices): RequestsApi {
         .offset((query.page - 1) * query.pageSize)
         .all();
       const summaries = targetsService.toSummaries(rows.map(({ target }) => target));
+      const verified = verifiedGoneAtOf(rows.map(({ request }) => request.id));
       return {
         items: rows.map(({ request }, index) => ({
           ...request,
+          verifiedGoneAt: verified.get(request.id) ?? null,
           target: summaries[index] as TargetSummary,
         })),
         total,

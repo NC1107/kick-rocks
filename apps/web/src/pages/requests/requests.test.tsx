@@ -1,6 +1,7 @@
 import { screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { createMockApp, type MockApp } from "../../../mock/app.js";
+import { formatShortDate } from "../../lib/format.js";
 import { renderPage } from "../../test/render.js";
 import { stubPhone } from "../../test/screen.js";
 import { hasRequestFilters, readRequestFilters, toRequestQuery } from "./filters.js";
@@ -21,7 +22,7 @@ function failing(pattern: RegExp): MockApp {
   return mock;
 }
 
-const SECTION_NAMES = ["Needs you", "In progress", "Done"];
+const SECTION_NAMES = ["Needs a look", "In progress", "Done"];
 
 async function rows() {
   await screen.findByLabelText("Filter requests");
@@ -69,7 +70,7 @@ describe("the requests page", () => {
     stubPhone();
     open();
     const list = await rows();
-    const finished = list.filter((row) => within(row).queryByText("They confirmed"));
+    const finished = list.filter((row) => within(row).queryByText(/They said removed|Gone/));
     expect(finished.length).toBeGreaterThan(0);
     for (const row of finished) expect(row.textContent).not.toMatch(/due /);
     const waiting = list.filter((row) => within(row).queryByText("Waiting on them"));
@@ -78,16 +79,44 @@ describe("the requests page", () => {
     );
   });
 
-  it("says what each request asked for in plain words, and nothing for a missing date", async () => {
+  it("keeps what was asked off the rows and shows only the channel and the one date that matters", async () => {
     open();
     const list = await rows();
     const text = list.map((row) => row.textContent ?? "").join("\n");
-    expect(text).toMatch(/stop selling/);
-    expect(text).toMatch(/delete/);
-    expect(text).not.toMatch(/opt-out|None/);
+    expect(text).not.toMatch(/stop selling|opt-out|None/);
+    expect(text).toMatch(/email \u00b7 due [A-Z][a-z]{2} \d{1,2}/);
+    expect(text).toMatch(/follow-up due [A-Z][a-z]{2} \d{1,2}/);
     const drafts = list.filter((row) => within(row).queryByText("Not sent yet"));
     expect(drafts.length).toBeGreaterThan(0);
-    for (const row of drafts) expect(row.textContent).not.toMatch(/· (due|sent) /);
+    for (const row of drafts) expect(row.textContent).not.toMatch(/\u00b7 (due|sent) /);
+  });
+
+  it("says what to do next on a request that waits on the person, and nowhere else", async () => {
+    open();
+    const list = await rows();
+    const steps = /Send a follow-up|Check the address|Open and answer them|Read their reply|Send a nudge/;
+    const withStep = list.filter((row) => steps.test(row.textContent ?? ""));
+    expect(withStep.length).toBeGreaterThan(0);
+    for (const row of list.filter((row) => within(row).queryByText("Waiting on them"))) {
+      expect(row.textContent).not.toMatch(steps);
+    }
+    const noAnswer = list.find((row) => within(row).queryByText("No answer"));
+    expect(noAnswer).toHaveTextContent("Send a follow-up");
+    const bounced = list.find((row) => within(row).queryByText("Email bounced"));
+    expect(bounced).toHaveTextContent("Check the address");
+  });
+
+  it("tells a removal a scan verified from one the company only claimed", async () => {
+    const mock = createMockApp();
+    const verified = mock.store.requests.find((request) => request.verifiedGoneAt);
+    if (!verified?.verifiedGoneAt) throw new Error("fixture");
+    open("/requests", mock);
+    const list = await rows();
+    const day = formatShortDate(verified.verifiedGoneAt);
+    expect(list.filter((row) => row.textContent?.includes(`Gone \u00b7 checked ${day}`))).toHaveLength(
+      1,
+    );
+    expect(list.some((row) => within(row).queryByText("They said removed"))).toBe(true);
   });
 
   it("counts the requests in the toolbar", async () => {
@@ -151,7 +180,7 @@ describe("the requests page", () => {
     mock.store.requests.length = 0;
     open("/requests", mock);
     expect(await screen.findByText("No requests yet.")).toBeVisible();
-    expect(screen.getAllByRole("link", { name: /campaign/i }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("link", { name: "Send requests" }).length).toBeGreaterThan(0);
   });
 
   it("shows an empty state with a way out when a filter matches nothing", async () => {
@@ -218,6 +247,29 @@ describe("filtering by campaign", () => {
     await waitFor(async () => expect((await rows()).length).toBe(2));
     await user.click(await screen.findByRole("button", { name: "Remove From one campaign" }));
     await waitFor(async () => expect((await rows()).length).toBeGreaterThan(2));
+  });
+});
+
+describe("grouping by batch", () => {
+  it("groups the rows under one labelled section per batch, with a summary", async () => {
+    const { user } = open();
+    await rows();
+    await user.click(screen.getByRole("radio", { name: "By batch" }));
+    const headings = await screen.findAllByRole("heading", { name: /sites? \u00b7 \d+$/i });
+    expect(headings.length).toBeGreaterThanOrEqual(2);
+    expect(headings[0]).toHaveTextContent(/stop selling|delete/);
+    expect(screen.getAllByText(/\d+ sent/).length).toBeGreaterThan(0);
+    expect(screen.queryByRole("heading", { name: /^Needs a look/ })).not.toBeInTheDocument();
+  });
+
+  it("opens by batch from the address and offers no batches across every profile", async () => {
+    const first = open("/requests?group=batch");
+    expect(await screen.findByRole("radio", { name: "By batch" })).toBeChecked();
+    expect((await screen.findAllByRole("heading", { name: /sites? \u00b7 \d+$/i })).length).toBeGreaterThan(0);
+    first.unmount();
+    open("/requests?group=batch&profileId=all");
+    await screen.findByLabelText("Filter requests");
+    expect(screen.queryByRole("radio", { name: "By batch" })).not.toBeInTheDocument();
   });
 });
 

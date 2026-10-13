@@ -60,7 +60,7 @@ export function breadcrumbTrail(pathname: string, tail?: Crumb): Crumb[] {
       }
       return second ? [{ label: "Sites", to: "/targets" }, leaf("Site")] : [{ label: "Sites" }];
     case "campaigns":
-      return [{ label: "Removals", to: "/requests" }, { label: "New campaign" }];
+      return [{ label: "Removals", to: "/requests" }, { label: "Send requests" }];
     case "profiles":
       if (!second) return [{ label: "Settings", to: "/settings" }, { label: "Profiles" }];
       if (second === "new") return [{ label: "Profiles", to: PROFILES_LIST }, { label: "New" }];

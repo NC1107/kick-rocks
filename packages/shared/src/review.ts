@@ -2,7 +2,7 @@ import { z } from "zod";
 import { ProfileField } from "./identities.js";
 import { MessageSummary, Reference, ReplyClassification } from "./mail.js";
 import { ReplySuggestion } from "./reply-model.js";
-import { RequestListItem, RequestRights } from "./requests.js";
+import { RequestRights, RequestWithTarget } from "./requests.js";
 import { WaitingTask } from "./scanning.js";
 import { Match } from "./scans.js";
 import { TaskSummary } from "./tasks.js";
@@ -28,7 +28,7 @@ export type ReviewMessage = z.infer<typeof ReviewMessage>;
 
 /** A broker asked for more identifiers, and nothing goes out until the person approves some. */
 export const VerificationItem = z.object({
-  request: RequestListItem,
+  request: RequestWithTarget,
   /** The broker's message that asked. */
   message: MessageSummary,
   requestedFields: z.array(ProfileField),

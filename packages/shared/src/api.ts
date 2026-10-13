@@ -13,7 +13,7 @@ import {
   RunNowResponse,
 } from "./assignment.js";
 import { AuthState, ChangePasswordBody, LoginBody, Ok, SetupBody } from "./auth.js";
-import { CampaignBody, CampaignCreated, CampaignPreview } from "./campaigns.js";
+import { CampaignBody, CampaignCreated, CampaignPreview, CampaignSummary } from "./campaigns.js";
 import { Dashboard } from "./dashboard.js";
 import { ProfileExport, ResetBody } from "./data-rights.js";
 import { Jurisdiction } from "./legal.js";
@@ -730,6 +730,14 @@ export const API_ROUTES = {
     response: TargetSite,
   }),
 
+  campaignsList: defineRoute({
+    method: "GET",
+    path: "/profiles/:id/campaigns",
+    module: "campaigns",
+    auth: "session",
+    params: IdParam,
+    response: z.object({ campaigns: z.array(CampaignSummary) }),
+  }),
   campaignsPreview: defineRoute({
     method: "POST",
     path: "/profiles/:id/campaigns/preview",

@@ -33,7 +33,6 @@ import {
   DIFFICULTY_LABELS,
   PRIORITY_LABELS,
   REQUIREMENT_LABELS,
-  RIGHT_LABELS,
   TARGET_CATEGORY_LABELS,
   TARGET_KIND_LABELS,
 } from "../../../lib/labels.js";
@@ -46,7 +45,7 @@ import {
   parseTargetIds,
   waitingForPerson,
 } from "../channels.js";
-import { RIGHT_HELP, RIGHT_ORDER, RIGHT_TOKENS } from "../rights.js";
+import { RIGHT_CHOICES, RIGHT_HELP, RIGHT_ORDER, RIGHT_TOKENS } from "../rights.js";
 import {
   AdvisoryList,
   CHANNEL_LABELS,
@@ -60,31 +59,11 @@ import { TargetPicker } from "./TargetPicker.js";
 import { useAllTargets } from "./use-all-targets.js";
 
 const PRESET_OPTIONS: readonly RadioOption<CampaignPreset>[] = [
-  {
-    value: "easy",
-    label: "Easy ones",
-    description: "Fully automatic; no steps for you.",
-  },
-  {
-    value: "email_brokers",
-    label: "Data brokers with an email address",
-    description: "Brokers that take requests by email.",
-  },
-  {
-    value: "companies",
-    label: "Everyday companies",
-    description: "Retailers, banks, carriers, and similar.",
-  },
-  {
-    value: "people_search",
-    label: "People-search sites",
-    description: "Scanned first; you confirm.",
-  },
-  {
-    value: "everything",
-    label: "Everything",
-    description: "Every target.",
-  },
+  { value: "easy", label: "Easiest first" },
+  { value: "email_brokers", label: "Sites that answer by email" },
+  { value: "companies", label: "Everyday companies" },
+  { value: "people_search", label: "People-search sites" },
+  { value: "everything", label: "Everything" },
 ];
 
 type Choice =
@@ -128,7 +107,7 @@ function Builder({ profile }: { profile: ProfileSummary }) {
   const toast = useToast();
 
   const targetIds = useMemo(() => parseTargetIds(params.get("targets")), [params]);
-  const [preset, setPreset] = useState<CampaignPreset | null>(null);
+  const [preset, setPreset] = useState<CampaignPreset | null>("easy");
   const [chosenRights, setRights] = useState<readonly RequestRight[]>(["opt_out"]);
   const [confirming, setConfirming] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(() => targetIds.length > 0);
@@ -214,6 +193,7 @@ function Builder({ profile }: { profile: ProfileSummary }) {
     return target ? channelOf(target) === "email" : false;
   });
   const canSend = body !== null && work > 0 && !preview.isPending;
+  const previewing = preview.isPending || (body !== null && !result && !preview.isError);
   const noMailbox = !profile.mailboxConnected;
   // Settings still loading counts as an agent seen, so the notice never flashes and goes away.
   const agentSeen = settings.data ? settings.data.worker.model !== null : true;
@@ -279,14 +259,18 @@ function Builder({ profile }: { profile: ProfileSummary }) {
 
   const presetOptions = useMemo(
     () =>
-      PRESET_OPTIONS.map((option) =>
-        option.value === preset && result && choice?.kind === "preset"
-          ? { ...option, meta: noveltyMeta(result.items) }
+      PRESET_OPTIONS.map((option) => {
+        const labelled =
+          option.value === "everything" && allTargets.data
+            ? { ...option, label: `Everything (${formatCount(allTargets.data.length)})` }
+            : option;
+        return option.value === preset && result && choice?.kind === "preset"
+          ? { ...labelled, meta: noveltyMeta(result.items) }
           : option.value === "easy" && easyCount !== undefined
-            ? { ...option, meta: pluralize(easyCount, "target") }
-            : option,
-      ),
-    [preset, result, choice?.kind, easyCount],
+            ? { ...labelled, meta: pluralize(easyCount, "target") }
+            : labelled;
+      }),
+    [preset, result, choice?.kind, easyCount, allTargets.data],
   );
 
   const summary = canSend
@@ -306,7 +290,7 @@ function Builder({ profile }: { profile: ProfileSummary }) {
   return (
     <>
       <PageHeader
-        title="New campaign"
+        title="Send requests"
         description={
           <>
             Asking for{" "}
@@ -333,7 +317,7 @@ function Builder({ profile }: { profile: ProfileSummary }) {
 
       <div className="grid gap-x-8 gap-y-5 pb-5 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
         <div className="flex max-w-120 flex-col gap-4">
-          <Section label="Who">
+          <Section label="Send to">
             {choice?.kind === "filter" ? (
               <RowGroup>
                 <Row
@@ -356,6 +340,7 @@ function Builder({ profile }: { profile: ProfileSummary }) {
                 legend="Group of targets"
                 hideLegend
                 rows
+                flat
                 value={choice?.kind === "targets" ? null : preset}
                 onValueChange={chooseGroup}
                 options={presetOptions}
@@ -411,7 +396,7 @@ function Builder({ profile }: { profile: ProfileSummary }) {
                 {RIGHT_ORDER.map((right) => (
                   <Checkbox
                     key={right}
-                    label={RIGHT_LABELS[right]}
+                    label={RIGHT_CHOICES[right]}
                     description={
                       right === "delete" && deleteBlocked
                         ? "Pick targets to delete."
@@ -494,18 +479,10 @@ function Builder({ profile }: { profile: ProfileSummary }) {
             <span className="text-danger-text">
               Could not send the requests. {errorMessage(create.error)}
             </span>
-          ) : (
-            <span className="text-ink-3">
-              {body === null
-                ? choice
-                  ? "Choose at least one right to see a preview."
-                  : "Pick a group and a right to preview."
-                : "Nothing to send yet."}
-            </span>
-          )}
+          ) : null}
         </p>
         <Button variant="primary" disabled={!canSend} onClick={() => setConfirming(true)}>
-          Send requests
+          {canSend || previewing ? "Send requests" : "Nothing to send"}
         </Button>
       </div>
 
@@ -533,7 +510,7 @@ function Builder({ profile }: { profile: ProfileSummary }) {
             <div className="mt-1 flex justify-between gap-6 border-t border-line pt-2">
               <dt className="text-ink-2">Asking for</dt>
               <dd className="m-0 text-right text-ink">
-                {rights.map((right) => RIGHT_LABELS[right]).join(", ")}
+                {rights.map((right) => RIGHT_CHOICES[right]).join(", ")}
               </dd>
             </div>
           </dl>

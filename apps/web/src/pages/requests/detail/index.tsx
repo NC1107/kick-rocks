@@ -50,7 +50,6 @@ import {
   CHANNEL_LABELS,
   legalBasisCode,
   REQUEST_ACTION_LABELS,
-  RIGHT_LABELS,
   TASK_KIND_LABELS,
 } from "../../../lib/labels.js";
 import { paths, taskPath } from "../../../lib/paths.js";
@@ -62,8 +61,8 @@ import {
   ReplyCheckResult,
   useReplyCheck,
 } from "../../mailbox/check-for-replies.js";
-import { gutterTime, RIGHT_TOKENS } from "../format.js";
-import { familyShape } from "../grouping.js";
+import { askedSentence, gutterTime } from "../format.js";
+import { familyShape } from "../shape.js";
 import { statusPhrase } from "../phrase.js";
 import { detailRefreshInterval } from "../polling.js";
 import { PHRASE_TONE } from "../RequestRow.js";
@@ -333,19 +332,10 @@ function Detail({ request }: { request: RequestDetail }) {
         title={target.name}
         documentTitle={`${target.name}, ${REQUEST_STATUS_META[request.status].label}`}
         description={
-          <span className="flex flex-wrap items-center gap-x-4 gap-y-1">
-            <span className="inline-flex items-center gap-2 text-meta">
-              <StatusShapeGlyph shape={familyShape(phrase.family)} />
-              <Tooltip content={REQUEST_STATUS_META[request.status].description}>
-                <span className={PHRASE_TONE[phrase.family]}>{phrase.text}</span>
-              </Tooltip>
-            </span>
-            <span className="inline-flex items-center gap-1 font-mono text-meta">
-              {request.reference}
-              <CopyButton iconOnly value={request.reference} label="Copy reference" />
-            </span>
-            <Tooltip content={basisName ?? "Legal basis"}>
-              <span className="font-mono text-meta">{legalBasisCode(request.legalBasis)}</span>
+          <span className="inline-flex items-center gap-2 text-meta">
+            <StatusShapeGlyph shape={familyShape(phrase.family)} />
+            <Tooltip content={REQUEST_STATUS_META[request.status].description}>
+              <span className={PHRASE_TONE[phrase.family]}>{phrase.text}</span>
             </Tooltip>
           </span>
         }
@@ -544,24 +534,24 @@ function Detail({ request }: { request: RequestDetail }) {
                   </span>
                 ),
               },
+              { term: "Request", value: askedSentence(request.rights) },
               {
-                term: "Asked for",
+                term: "Reference",
                 mono: true,
                 value: (
-                  <>
-                    <span aria-hidden="true">
-                      {request.rights.map((right) => RIGHT_TOKENS[right]).join(" \u00b7 ")}
-                    </span>
-                    <span className="sr-only">
-                      {request.rights
-                        .map((right, index) =>
-                          index === 0
-                            ? RIGHT_LABELS[right]
-                            : RIGHT_LABELS[right].replace(/^./, (first) => first.toLowerCase()),
-                        )
-                        .join(" and ")}
-                    </span>
-                  </>
+                  <span className="inline-flex items-center gap-1">
+                    {request.reference}
+                    <CopyButton iconOnly value={request.reference} label="Copy reference" />
+                  </span>
+                ),
+              },
+              {
+                term: "Law",
+                mono: true,
+                value: (
+                  <Tooltip content={basisName ?? "Legal basis"}>
+                    <span>{legalBasisCode(request.legalBasis)}</span>
+                  </Tooltip>
                 ),
               },
               { term: "Timing", mono: true, value: <Timing request={request} /> },

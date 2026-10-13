@@ -10,4 +10,10 @@ export const RIGHT_TOKENS: Record<RequestRight, string> = {
   delete: "delete",
 };
 
+/** What the builder calls each right on its checkbox and in the confirm dialog. */
+export const RIGHT_CHOICES: Record<RequestRight, string> = {
+  opt_out: "Stop selling my data",
+  delete: "Delete my data",
+};
+
 export const RIGHT_ORDER: readonly RequestRight[] = ["opt_out", "delete"];

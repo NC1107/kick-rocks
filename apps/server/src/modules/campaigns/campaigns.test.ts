@@ -985,6 +985,48 @@ describe("validation and errors", () => {
   });
 });
 
+describe("listing campaigns", () => {
+  it("lists a profile's batches newest first with their requests counted by status", async () => {
+    const { profile } = setup();
+    const other = seedProfile(ctx, { displayName: "Other Person" });
+    seedTarget(ctx, { id: "a" });
+    seedTarget(ctx, { id: "b" });
+    seedTarget(ctx, { id: "c" });
+    const first = await createOk(profile.id, body(["a"], ["opt_out"]));
+    ctx.clock.advance(60_000);
+    const second = await createOk(profile.id, body(["b", "c"]));
+    const [firstRequest] = ctx.services.db.select().from(requestsTable).all();
+    ctx.services.db
+      .update(requestsTable)
+      .set({ status: "confirmed" })
+      .where(eq(requestsTable.id, firstRequest?.id as string))
+      .run();
+    await createOk(other.id, body(["a"], ["opt_out"]));
+
+    const result = await ctx.call(API_ROUTES.campaignsList, { params: { id: profile.id } });
+
+    if (!result.ok) throw new Error(JSON.stringify(result.body));
+    expect(result.body.campaigns.map((campaign) => campaign.id)).toEqual([
+      second.campaignId,
+      first.campaignId,
+    ]);
+    expect(result.body.campaigns[0]).toMatchObject({ requestCount: 2, rights: [...BOTH] });
+    expect(result.body.campaigns[1]).toMatchObject({
+      requestCount: 1,
+      rights: ["opt_out"],
+      counts: { confirmed: 1 },
+    });
+  });
+
+  it("answers an empty list for a profile that has sent nothing", async () => {
+    const { profile } = setup();
+
+    const result = await ctx.call(API_ROUTES.campaignsList, { params: { id: profile.id } });
+
+    expect(result).toMatchObject({ ok: true, body: { campaigns: [] } });
+  });
+});
+
 describe("a large campaign", () => {
   it("handles a whole dataset in one create", async () => {
     const { profile } = setup();

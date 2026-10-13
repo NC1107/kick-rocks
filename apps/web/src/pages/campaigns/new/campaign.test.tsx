@@ -24,19 +24,38 @@ const open = (route = "/campaigns/new", mock?: MockApp) =>
   renderPage(<NewCampaignPage />, { path: "/campaigns/new", route, ...(mock ? { mock } : {}) });
 
 describe("the campaign builder", () => {
-  it("asks for nothing until a group is chosen", async () => {
+  it("starts with the easiest group and a right chosen, so the preview is never empty", async () => {
     open();
-    expect(await screen.findByText("Pick a group and a right to preview.")).toBeVisible();
-    expect(
-      within(screen.getByTestId("send-bar")).getByRole("button", { name: "Send requests" }),
-    ).toBeDisabled();
+    const radios = await screen.findAllByRole("radio");
+    expect(radios[0]).toHaveAccessibleName(/Easiest first/);
+    expect(radios[0]).toBeChecked();
+    expect(screen.getByRole("heading", { name: "Send requests", level: 1 })).toBeVisible();
+    expect(screen.getByRole("checkbox", { name: /Stop selling my data/ })).toBeChecked();
+    expect(screen.queryByText(/Pick a group and a right/)).not.toBeInTheDocument();
+    const preview = await screen.findByRole("region", { name: "Preview" });
+    expect(await within(preview).findByRole("region", { name: "Counts by channel" })).toBeVisible();
+    await waitFor(() =>
+      expect(
+        within(screen.getByTestId("send-bar")).getByRole("button", { name: "Send requests" }),
+      ).toBeEnabled(),
+    );
   });
 
-  it("shows no rows of zeros before a group is chosen", async () => {
+  it("words the groups as one short line each, with no sentence under them", async () => {
     open();
-    const preview = await screen.findByRole("region", { name: "Preview" });
-    expect(within(preview).queryByRole("region", { name: "Counts by channel" })).toBeNull();
-    expect(within(preview).queryByText("agent or you")).toBeNull();
+    const radios = await screen.findAllByRole("radio");
+    await waitFor(() =>
+      expect(screen.getByRole("radio", { name: /^Everything \(\d+\)/ })).toBeVisible(),
+    );
+    for (const label of [
+      "Easiest first",
+      "Sites that answer by email",
+      "Everyday companies",
+      "People-search sites",
+    ]) {
+      expect(screen.getByRole("radio", { name: new RegExp(`^${label}`) })).toBeVisible();
+    }
+    expect(screen.queryByText(/Fully automatic|Scanned first/)).not.toBeInTheDocument();
   });
 
   it("links the profile in the header and goes back to Targets when it came from there", async () => {
@@ -49,7 +68,7 @@ describe("the campaign builder", () => {
   it("counts a preset by channel and previews the email before anything is sent", async () => {
     const { user } = open();
     await user.click(
-      await screen.findByRole("radio", { name: /Data brokers with an email address/ }),
+      await screen.findByRole("radio", { name: /Sites that answer by email/ }),
     );
     const preview = await screen.findByRole("region", { name: "Preview" });
     const counts = within(preview).getByRole("region", { name: "Counts by channel" });
@@ -66,7 +85,7 @@ describe("the campaign builder", () => {
   it("labels the confirm dialog rows in plain words", async () => {
     const { user } = open();
     await user.click(
-      await screen.findByRole("radio", { name: /Data brokers with an email address/ }),
+      await screen.findByRole("radio", { name: /Sites that answer by email/ }),
     );
     const send = within(screen.getByTestId("send-bar")).getByRole("button", {
       name: "Send requests",
@@ -75,7 +94,7 @@ describe("the campaign builder", () => {
     await user.click(send);
     const dialog = within(await screen.findByRole("dialog"));
     expect(dialog.getByText("Asking for")).toBeVisible();
-    expect(dialog.getByText("Opt out of sale")).toBeVisible();
+    expect(dialog.getByText("Stop selling my data")).toBeVisible();
   });
 
   it("lists why targets were skipped, grouped by reason", async () => {
@@ -104,7 +123,7 @@ describe("the campaign builder", () => {
   it("asks only to opt out until deletion is ticked", async () => {
     const { user } = open();
     await user.click(await screen.findByRole("radio", { name: /Everyday companies/ }));
-    expect(screen.getByRole("checkbox", { name: /Opt out of sale/ })).toBeChecked();
+    expect(screen.getByRole("checkbox", { name: /Stop selling my data/ })).toBeChecked();
     expect(screen.getByRole("checkbox", { name: /Delete my data/ })).not.toBeChecked();
     expect(screen.getByRole("checkbox", { name: /Delete my data/ })).toBeDisabled();
     expect(screen.getByText(/Pick targets to delete/)).toBeVisible();
@@ -113,7 +132,7 @@ describe("the campaign builder", () => {
   it("shows the address the first email goes to", async () => {
     const { user } = open();
     await user.click(
-      await screen.findByRole("radio", { name: /Data brokers with an email address/ }),
+      await screen.findByRole("radio", { name: /Sites that answer by email/ }),
     );
     const preview = await screen.findByRole("region", { name: "Preview" });
     expect(await within(preview).findByText(/\(privacy@[^)]+\)/)).toBeVisible();
@@ -122,10 +141,10 @@ describe("the campaign builder", () => {
   it("will not preview with no right chosen", async () => {
     const { user } = open();
     await user.click(await screen.findByRole("radio", { name: /Everyday companies/ }));
-    await user.click(screen.getByRole("checkbox", { name: /Opt out of sale/ }));
+    await user.click(screen.getByRole("checkbox", { name: /Stop selling my data/ }));
     expect(screen.getByText("Choose at least one.")).toBeVisible();
     expect(screen.queryByText("Email preview")).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Send requests" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Nothing to send" })).toBeDisabled();
   });
 
   it("starts from the targets chosen on the targets page", async () => {
@@ -139,9 +158,10 @@ describe("the campaign builder", () => {
     const { user, mock } = open();
     const easy = mock.store.targets.filter((target) => assessed(target).difficulty === "easy");
     const radios = await screen.findAllByRole("radio");
-    expect(radios[0]).toHaveAccessibleName(/Easy ones/);
+    expect(radios[0]).toHaveAccessibleName(/Easiest first/);
     const row = radios[0]?.closest("label");
-    await waitFor(() => expect(row).toHaveTextContent(`${easy.length} targets`));
+    expect(easy.length).toBeGreaterThan(0);
+    await waitFor(() => expect(row).toHaveTextContent(/\d+ new/));
     await user.click(radios[0] as HTMLElement);
     const preview = await screen.findByRole("region", { name: "Preview" });
     const counts = within(preview).getByRole("region", { name: "Counts by channel" });
@@ -235,7 +255,7 @@ describe("the campaign builder", () => {
 
   it("does not bring a group back after the picked targets are cleared", async () => {
     const { user } = open();
-    await user.click(await screen.findByRole("radio", { name: /Easy ones/ }));
+    await user.click(await screen.findByRole("radio", { name: /Easiest first/ }));
     await user.click(screen.getByText("Search and pick targets"));
     await user.type(await screen.findByRole("searchbox", { name: "Search targets" }), "pawprint");
     await user.click(await screen.findByRole("checkbox", { name: "Pick Pawprint Pet Supply" }));
@@ -244,7 +264,7 @@ describe("the campaign builder", () => {
     expect(screen.queryByText("1 target selected")).not.toBeInTheDocument();
     for (const radio of screen.getAllByRole("radio")) expect(radio).not.toBeChecked();
     expect(screen.getByText("Search and pick targets").closest("summary")).toHaveFocus();
-    expect(screen.getByRole("button", { name: "Send requests" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Nothing to send" })).toBeDisabled();
   });
 
   it("says how many targets in the chosen group are new and how many are already handled", async () => {
