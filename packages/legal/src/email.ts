@@ -122,7 +122,7 @@ function basisLines(
   const { covered, uncovered } = splitRights(statute, rights, targetKind);
   const lines = [
     followUp
-      ? `I made this request under the ${statute.name} (${statute.citation}).`
+      ? `I made this request under the ${statute.name} (${statute.citation}), as far as that law applies to you.`
       : statuteIntro(basis, statute, covered),
   ];
   if (uncovered.length > 0) {

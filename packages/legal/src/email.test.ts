@@ -120,7 +120,7 @@ describe("renderRequestEmail properties", () => {
     for (const [label, input] of allInputs) {
       const { subject, text } = renderRequestEmail(input);
       expect(parseReferences(subject), label).toEqual([REFERENCE]);
-      expect(new Set(parseReferences(text)), label).toEqual(new Set([REFERENCE]));
+      expect(parseReferences(text), label).toEqual([REFERENCE]);
     }
   });
 
