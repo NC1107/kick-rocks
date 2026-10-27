@@ -22,6 +22,7 @@ export type RuleId =
   | "email-not-accepted"
   | "use-online-form"
   | "must-use-other-channel"
+  | "person-only"
   | "do-it-yourself"
   | "no-record"
   | "declined"
@@ -232,6 +233,22 @@ export const RULES: Rule[] = [
         String.raw`\b(?:can|may|will) only (?:act on|accept|process|honou?r) (?:[\w-]+ ){0,3}requests?(?: made| submitted)? (?:through|via|using)\b${NO_STOP}{0,30}\b(?:${REQUIRED_CHANNEL})`,
         String.raw`\baccept\b${NO_STOP}{0,60}\brequests? (?:through|via)\b${NO_STOP}{0,40}\b(?:${REQUIRED_CHANNEL})${NO_STOP}{0,30}\bonly\b`,
         String.raw`\be-?mail is not a (?:valid|accepted) way to (?:make|submit)\b`,
+      ].join("|"),
+      "i",
+    ),
+  },
+  {
+    id: "person-only",
+    classification: "needs_form",
+    confidence: 0.85,
+    label: "says it only takes requests from the person",
+    negation: "ignore",
+    pattern: new RegExp(
+      [
+        String.raw`\b(?:do not|don't|does not|doesn't|cannot|can't|will not|won't|unable to|not able to|no longer|never)\b${NO_STOP}{0,40}\b(?:accept|process|honou?r|act on|handle|take|respond to|fulfil+)\b${NO_STOP}{0,30}\b(?:requests?|submissions?|opt[- ]?outs?|removals?|inquiries)\b${NO_STOP}{0,40}\b(?:third|3rd)[- ]part(?:y|ies)\b`,
+        String.raw`\b(?:(?:third|3rd)[- ]party|requests? (?:from|by|through|via) (?:an?y? |any )?(?:third|3rd)[- ]part(?:y|ies))\b${NO_STOP}{0,30}\b(?:requests?|submissions?|opt[- ]?outs?)?${NO_STOP}{0,30}\b(?:not|cannot|can't|won't|aren't|are not|is not|isn't)\b${NO_STOP}{0,20}\b(?:accepted|processed|honou?red|permitted|allowed|recogni[sz]ed)\b`,
+        String.raw`\b(?:must|can only|may only|needs? to|has to|have to|should|will need to)\b${NO_STOP}{0,30}\b(?:be (?:submitted|made|sent|requested|received)|come|submit|request|make|contact us|reach out)\b${NO_STOP}{0,40}\b(?:directly )?(?:by|from)\b${NO_STOP}{0,10}\bthe (?:individual|person|consumer|data subject|account holder|owner)\b`,
+        String.raw`\bonly (?:accept|process|honou?r|act on|respond to)\b${NO_STOP}{0,40}\brequests?\b${NO_STOP}{0,40}\b(?:directly )?from the (?:individual|person|consumer|data subject|account holder|owner)\b`,
       ].join("|"),
       "i",
     ),
