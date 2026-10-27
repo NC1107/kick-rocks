@@ -78,7 +78,7 @@ describe("the campaign builder", () => {
     expect(values.length).toBeGreaterThan(0);
     expect(values).not.toContain("0");
     expect(await within(preview).findByText("Email preview")).toBeVisible();
-    expect(within(preview).getByText(/Privacy request KR-/)).toBeVisible();
+    expect(within(preview).getByText(/request \(KR-/)).toBeVisible();
   });
 
   it("labels the confirm dialog rows in plain words", async () => {

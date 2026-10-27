@@ -50,20 +50,29 @@ function requestTitle(rights: readonly RequestRight[]): string {
   return rights[0] === "opt_out" ? "Opt-out request" : "Deletion request";
 }
 
+/**
+ * The letter is written as the person, because it is theirs: it goes out from their mailbox under
+ * their name, and a company that hears a service speaking for them can refuse to act at all.
+ * Nothing in it asks the company to format its answer; a reply is matched by thread, by the
+ * reference, or by the company's name.
+ */
+const MYSELF =
+  "This is about my own personal information. I am the person it describes, and I am asking for myself from my own email address.";
+
 function askLines(rights: readonly RequestRight[]): string[] {
   const asks: Record<RequestRight, string> = {
     opt_out: "stop selling or sharing my personal information",
     delete: "delete the personal information you hold about me",
   };
   if (rights.length === 1) {
-    return [`I ask you to ${asks[rights[0] as RequestRight]}.`];
+    return [`Please ${asks[rights[0] as RequestRight]}.`];
   }
-  return ["I ask you to:", ...rights.map((right) => `- ${asks[right]}`)];
+  return [`Please ${rights.map((right) => asks[right]).join(", and ")}.`];
 }
 
 const POLICY_COMMITMENTS = "your own published privacy commitments";
-const CHANNEL_REQUEST =
-  "If your privacy notice requires another way to submit this, tell me which.";
+const FORM_INSTEAD =
+  "If you need me to go through a form instead, send me the link and I'll do it myself.";
 
 function rightPhrase(rights: readonly RequestRight[], statute: Statute): string {
   const deleteWording =
@@ -84,8 +93,7 @@ function isPlatformStatute(statute: Statute): boolean {
 
 function statuteIntro(basis: LegalBasis, statute: Statute, covered: RequestRight[]): string {
   const opening = `I live in ${stateName(basis.state)}.`;
-  const closing =
-    "I ask you to honor this request under that law, to the extent it applies to you.";
+  const closing = "I'm asking you to honor that here, as far as that law applies to you.";
   if (isPlatformStatute(statute)) {
     return `${opening} Under the ${statute.name} (${statute.citation}), a data broker registered with the state must process consumer deletion requests. ${closing}`;
   }
@@ -98,29 +106,30 @@ function basisLines(
   rights: readonly RequestRight[],
   targetKind: "broker" | "company",
   followUp: boolean,
-  channel: boolean,
 ): string[] {
   if (basis.kind === "statute" && basis.statute === null) {
     throw new LegalInputError("A statute basis must carry its statute");
   }
   const statute = basis.statute;
-  const policy = `I ask you to honor it under ${POLICY_COMMITMENTS}. If your privacy policy names a different way to submit it, tell me and I will use it.`;
   if (basis.kind === "policy" || statute === null) {
-    return [followUp ? `I asked you to honor it under ${POLICY_COMMITMENTS}.` : policy];
+    return [
+      followUp
+        ? `I asked you to honor it under ${POLICY_COMMITMENTS}.`
+        : `I'm asking you to honor this under ${POLICY_COMMITMENTS}.`,
+    ];
   }
 
   const { covered, uncovered } = splitRights(statute, rights, targetKind);
   const lines = [
     followUp
-      ? `I made this request under the ${statute.name} (${statute.citation}), to the extent it applies to you.`
+      ? `I made this request under the ${statute.name} (${statute.citation}).`
       : statuteIntro(basis, statute, covered),
   ];
   if (uncovered.length > 0) {
     lines.push(
-      `That law does not cover everything I ask, so for the rest I ask you to honor it under ${POLICY_COMMITMENTS}.`,
+      `That law does not cover everything I'm asking for, so for the rest I'm asking you to honor ${POLICY_COMMITMENTS}.`,
     );
   }
-  if (channel) lines.push(CHANNEL_REQUEST);
   return lines;
 }
 
@@ -128,15 +137,17 @@ function responseLine(basis: LegalBasis, rights: readonly RequestRight[]): strin
   const statute = basis.statute;
   const businessDays = statute ? traitsOf(statute.id).optOutBusinessDays : null;
   if (businessDays !== null && rights.every((right) => right === "opt_out")) {
-    return `Please stop selling and sharing my personal information as soon as feasible, no later than ${businessDays} business days after you receive this email, and confirm in writing.`;
+    return `Please stop selling and sharing my personal information as soon as you can, and no later than ${businessDays} business days after you get this email, then reply to confirm.`;
   }
   const days = basis.kind === "statute" ? basis.responseDays : POLICY_RESPONSE_DAYS;
-  const base = `Please confirm in writing within ${days} days of receiving this email.`;
+  const base = `Please reply to confirm within ${days} days of receiving this email.`;
   if (statute && statute.extensionDays > 0) {
-    return `${base} If you need the extra time the law allows, tell me inside that period and say why.`;
+    return `${base} If you need the extra time the law allows, tell me inside that period and why.`;
   }
   return base;
 }
+
+const HOW_TO_FIND_ME = "Here is how to find me:";
 
 function detailLines(
   identifiers: ProfileFields,
@@ -181,7 +192,7 @@ function verificationLines(
   if (rights.includes("opt_out")) lines.push(optOutAuthLine(basis, rights, targetKind));
   if (rights.includes("delete")) {
     lines.push(
-      "If you need to verify me before deleting, tell me which detail you need and why. I will decide whether to send it.",
+      "If you need to check it's really me before deleting, tell me what you need and why, and I'll decide what to send.",
     );
   }
   return lines;
@@ -196,30 +207,33 @@ function sentOn(originalSentAt: string): string {
 }
 
 function greeting(targetName: string): string {
-  return `Hello ${oneLine(targetName)} privacy team,`;
+  return `Hello ${oneLine(targetName)},`;
 }
 
-function signature(sender: { name: string; address: string }): string[] {
-  return ["Thank you,", oneLine(sender.name), sender.address];
+/** The reference sits under the name, where a quoted reply carries it back without being asked to. */
+function signature(sender: { name: string }, reference: Reference): string[] {
+  return ["Thanks,", oneLine(sender.name), `Reference: ${reference}`];
 }
 
 function initialBody(input: RenderRequestEmailInput, rights: RequestRight[]): string[] {
   return [
     greeting(input.target.name),
     "",
+    MYSELF,
+    "",
     ...askLines(rights),
     "",
-    ...basisLines(input.basis, rights, input.target.kind, false, true),
+    ...basisLines(input.basis, rights, input.target.kind, false),
+    FORM_INSTEAD,
     "",
-    "Details to find my records:",
+    HOW_TO_FIND_ME,
     ...detailLines(input.identifiers, input.sender, new Set()),
     "",
     ...verificationLines(input.basis, rights, input.target.kind),
     "",
     responseLine(input.basis, rights),
-    `Please keep ${input.reference} in the subject of your reply so I can match it.`,
     "",
-    ...signature(input.sender),
+    ...signature(input.sender, input.reference),
   ];
 }
 
@@ -240,19 +254,18 @@ function followUpBody(
   return [
     greeting(input.target.name),
     "",
-    `On ${followUp.sentOn} I sent you a request, reference ${input.reference}. I have not received a response. This is follow-up ${followUp.number}.`,
+    `On ${followUp.sentOn} I sent you a request about my own personal information and I have not heard back. This is follow-up ${followUp.number}.`,
     "",
     ...askLines(rights),
     "",
-    ...basisLines(input.basis, rights, input.target.kind, true, false),
+    ...basisLines(input.basis, rights, input.target.kind, true),
     "",
-    "Details to find my records:",
+    HOW_TO_FIND_ME,
     ...detailLines(input.identifiers, input.sender, new Set()),
     "",
-    "Please confirm in writing what you have done. If you already replied and I missed it, please send it again. If this request must go through a different channel, tell me which.",
-    `Please keep ${input.reference} in the subject of your reply so I can match it.`,
+    "Please reply to say what you have done. If you already replied and I missed it, please send it again. If this has to go through a form instead, send me the link and I'll do it myself.",
     "",
-    ...signature(input.sender),
+    ...signature(input.sender, input.reference),
   ];
 }
 
@@ -270,18 +283,18 @@ function verificationBody(input: RenderRequestEmailInput, rights: RequestRight[]
   return [
     greeting(input.target.name),
     "",
-    `Thank you for your reply about request ${input.reference}. You asked for more information to process it. Here it is:`,
+    "Thanks for your reply about my request. You asked for more information to process it, so here it is:",
     ...detailLines(input.identifiers, input.sender, new Set(requested)),
     "",
-    "Please use these details only to find and process this request, and for no other purpose.",
+    "Please use these details only to find and process my request, and for nothing else.",
     "",
     ...askLines(rights),
     "",
-    ...basisLines(input.basis, rights, input.target.kind, true, false),
+    ...basisLines(input.basis, rights, input.target.kind, true),
     "",
-    `Please confirm in writing when it is done, and keep ${input.reference} in the subject of your reply.`,
+    "Please reply to confirm when it is done.",
     "",
-    ...signature(input.sender),
+    ...signature(input.sender, input.reference),
   ];
 }
 

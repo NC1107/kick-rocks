@@ -145,26 +145,41 @@ function sampleEmail(
   const name = profile?.displayName ?? "Jordan Example";
   const basis =
     profile?.state === "CA"
-      ? `Under the California Consumer Privacy Act, I have ${rights.map((right) => RIGHT_BASIS[right]).join(" and ")}.`
-      : "I am asking you to honor the privacy commitments in your published privacy policy.";
-  const optOutOnly = rights.every((right) => right === "opt_out");
-  const verification = optOutOnly
-    ? "This request does not need identity verification for an opt-out."
-    : "If you need to verify me before deleting, tell me which detail you need and why.";
-  const asks = rights.map((right) => RIGHT_PHRASES[right]).join(" and ");
+      ? `I live in California. Under the California Consumer Privacy Act, I have ${rights.map((right) => RIGHT_BASIS[right]).join(" and ")}. I'm asking you to honor that here, as far as that law applies to you.`
+      : "I'm asking you to honor this under your own published privacy commitments.";
+  const verification = rights.includes("opt_out")
+    ? "Please do not ask for ID, an account, or a fee to stop selling my data."
+    : "If you need to check it's really me before deleting, tell me what you need and why, and I'll decide what to send.";
+  const asks = rights.map((right) => RIGHT_PHRASES[right]).join(", and ");
+  const title =
+    rights.length === 2
+      ? "Opt-out and deletion request"
+      : rights[0] === "opt_out"
+        ? "Opt-out request"
+        : "Deletion request";
   return {
-    subject: `Privacy request KR-7H3K2M for ${target.name}`,
+    subject: `${title} (KR-7H3K2M)`,
     text: [
-      `Hello ${target.name} privacy team,`,
+      `Hello ${target.name},`,
       "",
-      `I am writing to ask you to ${asks}.`,
+      "This is about my own personal information. I am the person it describes, and I am asking for myself from my own email address.",
+      "",
+      `Please ${asks}.`,
       "",
       basis,
+      "If you need me to go through a form instead, send me the link and I'll do it myself.",
       "",
-      `${verification} Please confirm in writing when it is done, and keep the reference KR-7H3K2M in your reply.`,
+      "Here is how to find me:",
+      `Name: ${name}`,
+      `Email: ${profile?.primaryEmail ?? "jordan@example.org"}`,
       "",
-      `${name}`,
-      profile?.primaryEmail ?? "",
+      verification,
+      "",
+      "Please reply to confirm within 45 days of receiving this email.",
+      "",
+      "Thanks,",
+      name,
+      "Reference: KR-7H3K2M",
     ].join("\n"),
   };
 }
