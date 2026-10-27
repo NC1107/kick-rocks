@@ -22,6 +22,7 @@ export type RuleId =
   | "email-not-accepted"
   | "use-online-form"
   | "must-use-other-channel"
+  | "person-only"
   | "do-it-yourself"
   | "no-record"
   | "declined"
@@ -145,6 +146,30 @@ const IDENTITY_DOCUMENT = [
   `(?:valid|current) (?:photo )?(?:id|identification)`,
 ].join("|");
 
+/**
+ * The person a company can insist on hearing from, as opposed to anyone asking for them. An
+ * account holder is not here: a limit to the account is answered from the account's address, not
+ * by asking again somewhere else.
+ */
+const THE_PERSON = `individual|person|consumer|data subject|owner`;
+
+/**
+ * Anyone asking for the person: a third party, an agent or a service, or someone acting on their
+ * behalf. A third party named as an advertiser or vendor is a data recipient, not a requester.
+ */
+const SOMEONE_ELSE = [
+  `(?:third|3rd)[- ]part(?:y|ies)(?! (?:advertisers?|vendors?|partners?|providers?|sites?|websites?|marketers?|data brokers?|companies|recipients?))`,
+  `on (?:your|their|someone(?: else)?'s|another(?: person)?'s|a consumer's|a customer's) behalf`,
+  `on behalf of (?:another|someone|others|other|a (?:third|consumer|customer|user)|individuals|consumers|customers|users|you)`,
+  `(?:agents?|services?|companies|vendors?|representatives?) (?:acting|working|submitting|writing) (?:for|on behalf of)`,
+].join("|");
+
+/**
+ * A company that will hear from an agent with permission is not refusing the messenger, only
+ * asking for the paperwork, so a sentence that names the condition is left to the identity rules.
+ */
+const NOT_AN_AGENT_CONDITION = String.raw`(?![^.!?]*\b(?:authori[sz]ed (?:agents?|representatives?)|written (?:permission|authori[sz]ation|consent)|power of attorney|signed (?:permission|authori[sz]ation))\b)`;
+
 const MORE_INFORMATION_FIELDS = String.raw`full name|date of birth|dob|address|phone number|zip|birth ?date|city(?![-\w.])|(?:direct |full )?(?:link|url)\b[^.\n]{0,40}\b(?:page|profile|listing|record)`;
 
 /**
@@ -233,6 +258,24 @@ export const RULES: Rule[] = [
         String.raw`\baccept\b${NO_STOP}{0,60}\brequests? (?:through|via)\b${NO_STOP}{0,40}\b(?:${REQUIRED_CHANNEL})${NO_STOP}{0,30}\bonly\b`,
         String.raw`\be-?mail is not a (?:valid|accepted) way to (?:make|submit)\b`,
       ].join("|"),
+      "i",
+    ),
+  },
+  {
+    id: "person-only",
+    classification: "needs_form",
+    confidence: 0.85,
+    label: "says it only takes requests from the person",
+    negation: "conditional",
+    pattern: new RegExp(
+      `${NOT_AN_AGENT_CONDITION}(?:${[
+        String.raw`\b(?:do not|don't|does not|doesn't|cannot|can't|will not|won't|unable to|not able to|no longer|never)\b${NO_STOP}{0,40}\b(?:accept|process|honou?r|act on|handle|take|respond to|fulfil+)\b${NO_STOP}{0,30}\b(?:requests?|submissions?|opt[- ]?outs?|removals?|inquiries)\b${NO_STOP}{0,40}\b(?:${SOMEONE_ELSE})\b`,
+        String.raw`\b(?:(?:${SOMEONE_ELSE})\b${NO_STOP}{0,10}\b(?:requests?|submissions?|opt[- ]?outs?)|requests?\b${NO_STOP}{0,20}\b(?:from|by|through|via|made by|submitted by)\b${NO_STOP}{0,10}\b(?:${SOMEONE_ELSE}))\b${NO_STOP}{0,30}\b(?:not|cannot|can't|won't|aren't|are not|is not|isn't)\b${NO_STOP}{0,30}\b(?:accepted|processed|honou?red|permitted|allowed|recogni[sz]ed|accept|process|honou?r)\b`,
+        String.raw`\b(?:must|can only|may only|needs? to|has to|have to|should|will need to)\b${NO_STOP}{0,30}\b(?:be (?:submitted|made|sent|requested|received)|come|submit|request|make|contact us|reach out)\b${NO_STOP}{0,40}\b(?:directly )?(?:by|from)\b${NO_STOP}{0,10}\bthe (?:${THE_PERSON})\b`,
+        String.raw`\b(?:can |may |will )?only (?:accept|process|honou?r|act on|respond to)\b${NO_STOP}{0,40}\brequests?\b${NO_STOP}{0,40}\b(?:directly )?(?:from|by|submitted by|sent by|made by) the (?:${THE_PERSON})\b`,
+        String.raw`\bonly the (?:${THE_PERSON})\b${NO_STOP}{0,20}\b(?:may|can|is able to|should|must)\b${NO_STOP}{0,20}\b(?:submit|make|request|file|ask|contact)\b`,
+        String.raw`\bhave the (?:${THE_PERSON})\b${NO_STOP}{0,30}\b(?:contact|reach out to|email|write to|submit)\b`,
+      ].join("|")})`,
       "i",
     ),
   },

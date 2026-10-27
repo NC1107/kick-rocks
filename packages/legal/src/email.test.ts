@@ -120,7 +120,20 @@ describe("renderRequestEmail properties", () => {
     for (const [label, input] of allInputs) {
       const { subject, text } = renderRequestEmail(input);
       expect(parseReferences(subject), label).toEqual([REFERENCE]);
-      expect(new Set(parseReferences(text)), label).toEqual(new Set([REFERENCE]));
+      expect(parseReferences(text), label).toEqual([REFERENCE]);
+    }
+  });
+
+  it("speaks as the person and never tells the company how to answer", () => {
+    for (const [label, input] of allInputs) {
+      const { text } = renderRequestEmail(input);
+      expect(text, label).not.toMatch(/\bprivacy team\b/i);
+      expect(text, label).not.toMatch(/\bon behalf\b/i);
+      expect(text, label).not.toMatch(/keep .* in the subject/i);
+      expect(text, label).toMatch(
+        /\bI am asking for myself\b|\bmy own personal information\b|\bmy request\b/,
+      );
+      expect(text, label).toMatch(/^Thanks,\n/m);
     }
   });
 
@@ -263,7 +276,7 @@ describe("renderRequestEmail properties", () => {
         input.basis.id === "ca-ccpa" && input.rights.every((right) => right === "opt_out");
       expect(renderRequestEmail(input).text, label).toContain(
         optsOutUnderCcpa
-          ? "no later than 15 business days after you receive this email"
+          ? "no later than 15 business days after you get this email"
           : `within ${input.basis.responseDays} days of receiving this email`,
       );
     }
@@ -338,7 +351,7 @@ describe("renderRequestEmail robustness", () => {
     const text = renderRequestEmail(widened).text;
     expect(text).not.toContain("opt out of the sale of my personal information");
     expect(text).toContain(
-      "for the rest I ask you to honor it under your own published privacy commitments",
+      "for the rest I'm asking you to honor your own published privacy commitments",
     );
   });
 
@@ -364,7 +377,7 @@ describe("renderRequestEmail robustness", () => {
       );
       expect(text, state).not.toContain("have my personal information deleted");
       expect(text, state).toContain(
-        "That law does not cover everything I ask, so for the rest I ask you to honor it under your own published privacy commitments.",
+        "That law does not cover everything I'm asking for, so for the rest I'm asking you to honor your own published privacy commitments.",
       );
     }
   });
@@ -380,7 +393,8 @@ describe("renderRequestEmail robustness", () => {
   });
 
   it("asks a statute-basis recipient to name another channel if its privacy notice requires one", () => {
-    const channel = "If your privacy notice requires another way to submit this, tell me which.";
+    const channel =
+      "If you need me to go through a form instead, send me the link and I'll do it myself.";
     expect(renderRequestEmail(build("OR", "initial", ["opt_out"])).text).toContain(channel);
     expect(renderRequestEmail(build("OR", "follow_up", ["opt_out"])).text).not.toContain(channel);
   });
@@ -408,9 +422,9 @@ describe("renderRequestEmail robustness", () => {
     };
     const { subject, text } = renderRequestEmail(hostile);
     expect(subject).not.toMatch(/[\r\n]/);
-    expect(text).toContain("Hello Acme Bcc: someone@example.org privacy team,");
+    expect(text).toContain("Hello Acme Bcc: someone@example.org,");
     expect(text).toContain("Name: Jordan Bcc: x@example.org");
-    expect(text).toContain("Thank you,\nJordan Example\njordan@example.org");
+    expect(text).toContain("Thanks,\nJordan Example\nReference: KR-7K3M9Q");
   });
 
   it("falls back to the sender's name and address when no identifiers were chosen", () => {

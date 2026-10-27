@@ -66,7 +66,7 @@ describe("campaign handlers", () => {
     const optOut = await preview(["opt_out"]);
     expect(optOut).toContain("the right to opt out of the sale or sharing");
     expect(optOut).not.toContain("delete the personal information you hold about me.");
-    expect(optOut).toContain("does not need identity verification for an opt-out");
+    expect(optOut).toContain("Please do not ask for ID, an account, or a fee");
     const both = await preview(["opt_out", "delete"]);
     expect(both).toContain(
       "the right to ask you to delete the personal information you hold about me",
@@ -76,8 +76,8 @@ describe("campaign handlers", () => {
       "the right to ask you to delete the personal information you hold about me",
     );
     expect(deleteOnly).not.toContain("delete it");
-    expect(deleteOnly).not.toContain("identity verification for an opt-out");
-    expect(deleteOnly).toContain("If you need to verify me before deleting");
+    expect(deleteOnly).not.toContain("do not ask for ID");
+    expect(deleteOnly).toContain("If you need to check it's really me before deleting");
   });
 
   it("selects every easy target with the easy preset and the same ones by filter", async () => {
@@ -124,7 +124,7 @@ describe("campaign handlers", () => {
         (target?.contactMethod === "email" || target?.contactMethod === "both")
       );
     });
-    expect(preview.json.sampleEmail.subject).toContain(emailed.targetName);
+    expect(preview.json.sampleEmail.text).toContain(`Hello ${emailed.targetName},`);
   });
 
   it("starts a scan for a people-search target instead of sending a request", async () => {

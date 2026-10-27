@@ -449,3 +449,43 @@ describe("which readings are applied without a person", () => {
     expect(appliesWithoutPerson("confirmation-link", { waiting: true })).toBe(true);
   });
 });
+
+describe("a company that only takes requests from the person", () => {
+  it("reads a refusal of third-party requests as a redirect to ask again as the person", () => {
+    for (const reply of [
+      "Thanks for reaching out. We do not process opt-out requests submitted by third parties. The individual can remove their listing at https://example.test/opt-out.",
+      "Requests from third parties are not accepted. Please have the person submit the request themselves.",
+      "Third-party removal requests cannot be processed. The record owner may contact us directly.",
+      "Removal requests must be submitted directly by the individual whose information appears on the site.",
+      "We only act on requests that come directly from the consumer.",
+      "We are unable to accept requests made on behalf of another person.",
+      "We do not accept requests from agents or services acting for individuals.",
+      "We do not honor opt-out requests submitted by a company on your behalf.",
+      "Only the data subject may submit a deletion request.",
+      "We can only process requests sent by the person the data relates to.",
+      "Please have the person the record is about contact us directly.",
+      "Third party requests are not something we accept.",
+    ]) {
+      expect(topOf(reply), reply).toMatchObject({
+        classification: "needs_form",
+        rule: "person-only",
+      });
+    }
+  });
+
+  it("does not read a promise about third parties, or a condition for agents, as a refusal", () => {
+    for (const reply of [
+      "We never sell your information to third parties, and we have now removed your record.",
+      "We do not process data on behalf of third parties, so there is nothing for us to delete.",
+      "If you are an authorized agent acting for a consumer, attach the signed permission and we will proceed.",
+      "Third parties are not permitted to view your account details.",
+      "We will not accept removal requests from third parties unless you have given them written permission.",
+      "Your request must be submitted by the consumer or an authorized agent.",
+      "We do not process requests from third-party advertisers; your record is removed.",
+      "We do not share your details with third parties, and we do not take requests by phone.",
+      "We can only process requests made by the account holder. Please reply from the email address on your account.",
+    ]) {
+      expect(rulesFor(reply), reply).not.toContain("person-only");
+    }
+  });
+});
