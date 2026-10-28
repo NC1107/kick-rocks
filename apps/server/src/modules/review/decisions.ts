@@ -148,9 +148,14 @@ export async function classifyByHand(
   services: AppServices,
   messageId: string,
   body: MessageClassificationBody,
+  actor: "user" | "agent" = "user",
 ): Promise<MessageSummary> {
   const row = services.db.select().from(messages).where(eq(messages.id, messageId)).get();
   if (!row) throw notFound(`Message ${messageId} not found`, "message_not_found");
+  // A person may reclassify a reply they got wrong; an agent only sorts what is still unsorted.
+  if (actor === "agent" && row.reviewed) {
+    throw conflict("message_already_classified", "That reply has already been classified");
+  }
   const mailbox = services.db.select().from(mailboxes).where(eq(mailboxes.id, row.mailboxId)).get();
 
   const requestId = body.requestId === undefined ? row.requestId : body.requestId;
@@ -194,7 +199,7 @@ export async function classifyByHand(
         classification: body.classification,
         confidence: 1,
         correlation: "manual",
-        actor: "user",
+        actor,
         link,
         requestedFields: row.requestedFields,
         formLinks: body.classification === "needs_form" ? row.links : [],

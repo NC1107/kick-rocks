@@ -1,6 +1,7 @@
-import { recipes, targets } from "@kickrocks/db";
+import { recipes, requests, targets } from "@kickrocks/db";
 import {
   API_ROUTES,
+  MCP_MAIL_TEXT_LIMIT,
   MCP_TOOL_NAMES,
   MCP_TOOLS,
   SCREENSHOT_BODY_LIMIT_BYTES,
@@ -13,6 +14,8 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { makeRecipe } from "../../test-utils/builders.js";
 import {
   createTestContext,
+  seedMailbox,
+  seedMessage,
   seedProfile,
   seedRecipe,
   seedTarget,
@@ -871,5 +874,72 @@ describe("who the server has heard from", () => {
       workerId: "desk-client",
     });
     expect(mine.task.id).toBe(task?.id);
+  });
+});
+
+describe("the inbox tools", () => {
+  function awaitingReply() {
+    const profile = seedProfile(ctx);
+    const mailbox = seedMailbox(ctx, profile.id);
+    const target = seedTarget(ctx);
+    const { request } = ctx.services.requests.open({
+      profileId: profile.id,
+      targetId: target.id,
+      rights: ["opt_out"],
+      channel: "email",
+      actor: "user",
+    });
+    ctx.services.db
+      .update(requests)
+      .set({ status: "awaiting_reply" })
+      .where(eq(requests.id, request.id))
+      .run();
+    ctx.services.taskQueue.cancelForRequest(request.id);
+    return { mailbox, request };
+  }
+
+  it("lists only unsorted replies, with their text cut to a readable length", async () => {
+    const { mailbox, request } = awaitingReply();
+    const open = seedMessage(ctx, {
+      mailboxId: mailbox.id,
+      requestId: request.id,
+      text: "x".repeat(MCP_MAIL_TEXT_LIMIT + 500),
+    });
+    seedMessage(ctx, { mailboxId: mailbox.id, reviewed: true });
+
+    const { messages } = await call<{ messages: { id: string; text: string }[] }>(
+      await connect(),
+      "list_mail",
+      {},
+    );
+    expect(messages.map((message) => message.id)).toEqual([open.id]);
+    expect(messages[0]?.text).toHaveLength(MCP_MAIL_TEXT_LIMIT);
+  });
+
+  it("classifies a reply as the agent, which moves its request", async () => {
+    const { mailbox, request } = awaitingReply();
+    const message = seedMessage(ctx, { mailboxId: mailbox.id, requestId: request.id });
+
+    const { message: sorted } = await call<{ message: { reviewed: boolean } }>(
+      await connect(),
+      "classify_message",
+      { messageId: message.id, classification: "rejected" },
+    );
+    expect(sorted.reviewed).toBe(true);
+    const events = ctx.services.requests.events(request.id);
+    expect(events.find((event) => event.type === "classified")?.actor).toBe("agent");
+    expect(
+      (await call<{ messages: unknown[] }>(await connect(), "list_mail", {})).messages,
+    ).toEqual([]);
+  });
+
+  it("refuses to reclassify a reply that is already sorted", async () => {
+    const { mailbox } = awaitingReply();
+    const message = seedMessage(ctx, { mailboxId: mailbox.id, reviewed: true });
+    const error = await callError(await connect(), "classify_message", {
+      messageId: message.id,
+      classification: "completed",
+    });
+    expect(error.code).toBe("message_already_classified");
   });
 });
